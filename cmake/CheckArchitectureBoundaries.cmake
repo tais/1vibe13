@@ -10103,17 +10103,16 @@ foreach(weapon_configuration_document IN ITEMS
   endif()
 endforeach()
 
-# Player obstacle traversal now enters the same deterministic value-command
-# boundary from keyboard, mouse, and stance UI paths. Pathfinding, AI movement,
-# and animation internals remain legacy executor mechanics and may still invoke
-# the low-level soldier methods while their distinct intent is modeled.
+# Player, AI, and moving-path obstacle traversal share one deterministic value
+# command. Only the compatibility executor may enter the low-level traversal
+# domain; comments cannot satisfy or bypass these call-site checks.
 set(player_traversal_files
   "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
   "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
   "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
 foreach(player_traversal_file IN LISTS player_traversal_files)
-  file(READ "${player_traversal_file}" contents)
+  read_cxx_executable("${player_traversal_file}" contents)
   string(REGEX MATCH
     "BeginSoldierClimb(UpRoof|DownRoof|Fence|Wall|Window)[ \t\r\n]*\\("
     direct_player_traversal_call "${contents}")
@@ -10121,6 +10120,277 @@ foreach(player_traversal_file IN LISTS player_traversal_files)
     message(FATAL_ERROR
       "Player tactical traversal bypasses SimulationCommand in ${player_traversal_file}")
   endif()
+endforeach()
+
+file(GLOB traversal_command_producer_candidates
+  "${SOURCE_ROOT}/Tactical/*.cpp"
+  "${SOURCE_ROOT}/TacticalAI/*.cpp")
+foreach(traversal_command_producer IN LISTS
+    traversal_command_producer_candidates)
+  if(traversal_command_producer STREQUAL
+      "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" OR
+     traversal_command_producer STREQUAL
+      "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp")
+    continue()
+  endif()
+  read_cxx_executable("${traversal_command_producer}"
+    traversal_command_producer_executable)
+  string(REGEX MATCH
+    "TacticalActorTraversal::[ \t\r\n]*begin(RoofClimb|RoofDescent|FenceJump|WallClimb|WindowJump)[ \t\r\n]*\\("
+    direct_traversal_domain_call
+    "${traversal_command_producer_executable}")
+  if(direct_traversal_domain_call)
+    message(FATAL_ERROR
+      "Tactical traversal bypasses TraverseObstacleCommand in ${traversal_command_producer}")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  traversal_ai_executable)
+string(REGEX MATCHALL
+  "TryDispatchSystemAiTraverseObstacleCommandNow[ \t\r\n]*\\("
+  traversal_ai_gateways "${traversal_ai_executable}")
+list(LENGTH traversal_ai_gateways traversal_ai_gateway_count)
+if(NOT traversal_ai_gateway_count EQUAL 2)
+  message(FATAL_ERROR
+    "AI roof/window traversal must retain exactly two System command gateways")
+endif()
+
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  traversal_path_executable)
+string(REGEX MATCHALL
+  "TryDispatchSystemPathTraverseObstacleCommandNow[ \t\r\n]*\\("
+  traversal_path_gateways "${traversal_path_executable}")
+list(LENGTH traversal_path_gateways traversal_path_gateway_count)
+if(NOT traversal_path_gateway_count EQUAL 1)
+  message(FATAL_ERROR
+    "Fence path completion must retain exactly one System command gateway")
+endif()
+foreach(required_traversal_path_marker IN ITEMS
+    "IsReplaySimulationCommandExecutionActive"
+    "HasPendingReplayPathTraversalCommand")
+  string(FIND "${traversal_path_executable}"
+    "${required_traversal_path_marker}"
+    required_traversal_path_marker_index)
+  if(required_traversal_path_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Fence path replay suppression lost '${required_traversal_path_marker}'")
+  endif()
+endforeach()
+string(FIND "${traversal_path_executable}"
+  "HasPendingReplayPathTraversalCommand"
+  traversal_path_replay_owner_index)
+string(FIND "${traversal_path_executable}"
+  "EnoughPoints( pSoldier, sAPCost, sBPCost, FALSE )"
+  traversal_path_action_point_branch_index)
+if(traversal_path_action_point_branch_index EQUAL -1 OR
+   traversal_path_replay_owner_index GREATER
+     traversal_path_action_point_branch_index)
+  message(FATAL_ERROR
+    "Queued Replay must own the fence path before either action-point branch")
+endif()
+string(FIND "${traversal_ai_executable}"
+  "consumeRoofCompletionReplication"
+  traversal_roof_completion_policy_index)
+if(traversal_roof_completion_policy_index EQUAL -1)
+  message(FATAL_ERROR
+    "Deferred roof completion lost its captured replay replication policy")
+endif()
+
+read_cxx_executable("${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h"
+  traversal_command_value_contents)
+foreach(required_traversal_value IN ITEMS
+    "TacticalTraversalOrigin"
+    "TacticalTraversalContinuation"
+    "expectedGrid"
+    "expectedFinalDestination"
+    "expectedAnimationState"
+    "movementAnimationState"
+    "expectedPathIndex"
+    "expectedPathSize"
+    "expectedPathDirection"
+    "expectedNextPathDirection"
+    "expectedStateFingerprint"
+    "expectedActionPointCost"
+    "expectedBreathPointCost"
+    "ShouldReplicateTraversalContinuation")
+  string(FIND "${traversal_command_value_contents}"
+    "${required_traversal_value}" required_traversal_value_index)
+  if(required_traversal_value_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal command lost '${required_traversal_value}'")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.cpp"
+  traversal_codec_executable)
+foreach(required_traversal_codec IN ITEMS
+    "value.origin"
+    "value.continuation"
+    "value.expectedGrid"
+    "value.expectedPathIndex"
+    "value.expectedNextPathDirection"
+    "value.expectedStateFingerprint"
+    "value.expectedActionPointCost"
+    "value.expectedBreathPointCost")
+  string(FIND "${traversal_codec_executable}"
+    "${required_traversal_codec}" required_traversal_codec_index)
+  if(required_traversal_codec_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal replay codec lost '${required_traversal_codec}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  traversal_executor_executable)
+foreach(required_traversal_executor IN ITEMS
+    "TraversalExpectationMatches"
+    "ExecutePathCompletionTraversal"
+    "HaltGuyFromNewGridNoBecauseOfNoAPs"
+    "HandleNextTile"
+    "settleIntoStationaryStance"
+    "continueAfterStance(2)"
+    "CaptureTraversalStateFingerprint"
+    "setRoofCompletionReplication"
+    "IsReplaySimulationCommandExecutionActive"
+    "HasPendingReplayPathTraversalCommand")
+  string(FIND "${traversal_executor_executable}"
+    "${required_traversal_executor}" required_traversal_executor_index)
+  if(required_traversal_executor_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal executor lost '${required_traversal_executor}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/TacticalAI/Movement.cpp"
+  traversal_halt_executable)
+read_cxx_executable(
+  "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.cpp"
+  traversal_route_execution_executable)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/TeamTurns.cpp"
+  traversal_turn_completion_executable)
+foreach(required_local_replay_marker IN ITEMS
+    "fReplicateStop && is_networked"
+    "replicate && is_networked")
+  if(required_local_replay_marker STREQUAL
+      "fReplicateStop && is_networked")
+    set(local_replay_contents "${traversal_halt_executable}")
+  else()
+    set(local_replay_contents "${traversal_route_execution_executable}")
+  endif()
+  string(FIND "${local_replay_contents}"
+    "${required_local_replay_marker}" local_replay_marker_index)
+  if(local_replay_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal Replay can reflect stop traffic: missing '${required_local_replay_marker}'")
+  endif()
+endforeach()
+foreach(required_replay_interrupt_marker IN ITEMS
+    "fReplicateInterrupt"
+    "replicateInterrupt"
+    "IsReplaySimulationCommandExecutionActive"
+    "EndInterrupt( FALSE, fReplicateInterrupt )")
+  string(FIND "${traversal_turn_completion_executable}"
+    "${required_replay_interrupt_marker}"
+    required_replay_interrupt_marker_index)
+  if(required_replay_interrupt_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal Replay can reflect interrupt traffic: missing '${required_replay_interrupt_marker}'")
+  endif()
+endforeach()
+foreach(required_ai_completion_policy IN ITEMS
+    "EndAIGuysTurn( pSoldier, fReplicateStop )"
+    "EndAIGuysTurn(pSoldier, fReplicateStop)")
+  if(required_ai_completion_policy STREQUAL
+      "EndAIGuysTurn( pSoldier, fReplicateStop )")
+    set(ai_completion_policy_contents "${traversal_ai_executable}")
+  else()
+    set(ai_completion_policy_contents "${traversal_halt_executable}")
+  endif()
+  string(FIND "${ai_completion_policy_contents}"
+    "${required_ai_completion_policy}"
+    required_ai_completion_policy_index)
+  if(required_ai_completion_policy_index EQUAL -1)
+    message(FATAL_ERROR
+      "AI completion lost the captured Replay interrupt policy")
+  endif()
+endforeach()
+
+foreach(traversal_test_manifest IN ITEMS
+    "${SOURCE_ROOT}/tests/CMakeLists.txt"
+    "${SOURCE_ROOT}/.github/workflows/build_unix.yml")
+  file(READ "${traversal_test_manifest}"
+    traversal_test_manifest_contents)
+  string(REGEX REPLACE "#[^\r\n]*" ""
+    traversal_test_manifest_contents
+    "${traversal_test_manifest_contents}")
+  string(FIND "${traversal_test_manifest_contents}"
+    "simulation_command_traversal_model_tests"
+    traversal_test_manifest_index)
+  if(traversal_test_manifest_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal model target is missing from ${traversal_test_manifest}")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/tests/simulation_command_traversal_model_tests.cpp"
+  traversal_model_test_executable)
+foreach(required_traversal_model_marker IN ITEMS
+    "const std::vector<std::uint8_t> expectedWire"
+    "encoded == expectedWire"
+    "SameCommand"
+    "stageRecordedPlaybackBatch"
+    "ShouldReplicateTraversalContinuation"
+    "roofAiMissingState"
+    "roofAiMissingCost"
+    "roofAiAtWrongLevel"
+    "reference.snapshot() == referenceState")
+  string(FIND "${traversal_model_test_executable}"
+    "${required_traversal_model_marker}"
+    required_traversal_model_marker_index)
+  if(required_traversal_model_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal model lost '${required_traversal_model_marker}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  traversal_headless_test_executable)
+foreach(required_traversal_headless_marker IN ITEMS
+    "liveAiTraversalContinuationOwned"
+    "livePathTraversalOrdered"
+    "pendingReplaySuppressesAsyncPathProducer"
+    "pendingReplayOwnsNoActionPointBranch"
+    "retainedWindowRejectedChangedRoute"
+    "staleAiActionPreserved"
+    "retainedTraversalRejectedStaleState"
+    "retainedRoofRejectedChangedPointBudget")
+  string(FIND "${traversal_headless_test_executable}"
+    "${required_traversal_headless_marker}"
+    required_traversal_headless_marker_index)
+  if(required_traversal_headless_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal headless coverage lost '${required_traversal_headless_marker}'")
+  endif()
+endforeach()
+
+foreach(traversal_document IN ITEMS
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${traversal_document}" traversal_document_contents)
+  foreach(traversal_document_marker IN ITEMS
+      "TraverseObstacleCommand"
+      "blocked-tile waiting"
+      "Replay")
+    string(FIND "${traversal_document_contents}"
+      "${traversal_document_marker}" traversal_document_marker_index)
+    if(traversal_document_marker_index EQUAL -1)
+      message(FATAL_ERROR
+        "Traversal command contract lost '${traversal_document_marker}' in ${traversal_document}")
+    endif()
+  endforeach()
 endforeach()
 
 # Mouse-driven door, switch, and openable-structure intent is a public

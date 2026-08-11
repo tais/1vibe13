@@ -14,7 +14,7 @@ extern BOOLEAN gfHiddenTurnbased;
 
 extern BOOLEAN StandardInterruptConditionsMet( TacticalActor * pSoldier, SoldierID ubOpponentID, INT8 bOldOppList);
 extern INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOOLEAN fUseWatchSpots );
-extern void EndAITurn( void );
+extern void EndAITurn( BOOLEAN fReplicateInterrupt = TRUE );
 extern void DisplayHiddenInterrupt( TacticalActor * pSoldier );
 extern BOOLEAN InterruptDuel( TacticalActor * pSoldier, TacticalActor * pOpponent);
 extern void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate );

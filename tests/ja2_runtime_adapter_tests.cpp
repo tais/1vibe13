@@ -2958,6 +2958,11 @@ int main()
 			traversal.soldier == firstIncarnation &&
 			traversal.kind == TacticalTraversalKind::JumpWindow &&
 			traversal.source == SimulationCommandSource::LocalPlayer &&
+			traversal.origin == TacticalTraversalOrigin::PlayerIntent &&
+			traversal.continuation ==
+				TacticalTraversalContinuation::None &&
+			traversal.eventPolicy == TacticalEventPolicy::LocalOnly &&
+			HasNoTacticalTraversalExpectation(traversal) &&
 			activation.soldier == reusedSlot &&
 			activation.object.grid == 4567 &&
 			activation.object.structureId == 0x1234 &&
@@ -3382,18 +3387,44 @@ int main()
 	std::vector<RecordedSimulationCommand> oneTraversal{recorded[11]};
 	std::vector<std::uint8_t> encodedTraversal;
 	std::vector<std::uint8_t> malformedTraversalKind;
+	std::vector<std::uint8_t> malformedTraversalOrigin;
+	std::vector<std::uint8_t> malformedTraversalContinuation;
+	std::vector<std::uint8_t> malformedTraversalEventPolicy;
+	std::vector<std::uint8_t> hiddenPlayerTraversalGrid;
 	const bool encodedTraversalCommand =
 		EncodeSimulationCommandJournal(
 			oneTraversal, 0, encodedTraversal) &&
-		encodedTraversal.size() == 44;
+		encodedTraversal.size() == 79;
 	if (encodedTraversalCommand)
 	{
 		malformedTraversalKind = encodedTraversal;
 		malformedTraversalKind[42] = 0xff;
+		malformedTraversalOrigin = encodedTraversal;
+		malformedTraversalOrigin[44] = 0xff;
+		malformedTraversalContinuation = encodedTraversal;
+		malformedTraversalContinuation[45] = 0xff;
+		malformedTraversalEventPolicy = encodedTraversal;
+		malformedTraversalEventPolicy[46] = 0xff;
+		hiddenPlayerTraversalGrid = encodedTraversal;
+		hiddenPlayerTraversalGrid[47] = 0;
 	}
-	check(encodedTraversalCommand && RejectsJournalWithoutPublishing(
-		malformedTraversalKind, SimulationCommandJournalDecodeResult::Invalid),
-		"traversal decoding rejects unknown kinds transactionally");
+	check(encodedTraversalCommand &&
+		RejectsJournalWithoutPublishing(
+			malformedTraversalKind,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedTraversalOrigin,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedTraversalContinuation,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedTraversalEventPolicy,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			hiddenPlayerTraversalGrid,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"traversal decoding rejects unknown policy and hidden player state transactionally");
 
 	std::vector<RecordedSimulationCommand> oneActivation{recorded[12]};
 	std::vector<RecordedSimulationCommand> oneApproach{recorded[13]};

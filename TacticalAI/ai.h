@@ -164,7 +164,7 @@ enum{
 	ADVANCE_SPOT_ANY_COVER
 };
 
-void ActionDone(TacticalActor *pSoldier);
+void ActionDone(TacticalActor *pSoldier, BOOLEAN fReplicateStop = TRUE);
 INT16 ActionInProgress(TacticalActor *pSoldier);
 
 INT8 CalcMorale(TacticalActor *pSoldier);
@@ -199,7 +199,9 @@ INT8 DecideActionYellow(TacticalActor *pSoldier);
 INT16 DistanceToClosestFriend( TacticalActor * pSoldier );
 
 void EndAIDeadlock(void);
-void EndAIGuysTurn( TacticalActor *pSoldier );
+void EndAIGuysTurn(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateInterrupt = TRUE );
 
 INT8	ExecuteAction(TacticalActor *pSoldier);
 
@@ -251,7 +253,9 @@ SimulationCommandDispatchResult NewDest(
 INT32 NextPatrolPoint(TacticalActor *pSoldier);
 
 INT8 PanicAI(TacticalActor *pSoldier, UINT8 ubCanMove);
-void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier);
+void HaltMoveForSoldierOutOfPoints(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateStop = TRUE);
 
 INT32 RandDestWithinRange(TacticalActor *pSoldier);
 INT16 RandomFriendWithin(TacticalActor *pSoldier);

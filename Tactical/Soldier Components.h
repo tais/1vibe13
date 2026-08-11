@@ -3461,11 +3461,33 @@ struct SoldierQuickItemRuntimeState
 	}
 };
 
+struct SoldierTraversalRuntimeState
+{
+	// Roof completion happens after the command executor scope has ended. Keep
+	// the captured outbound policy with that one pending animation.
+	BOOLEAN replicateRoofCompletion = TRUE;
+
+	void setRoofCompletionReplication(bool replicate) noexcept
+	{
+		replicateRoofCompletion = replicate ? TRUE : FALSE;
+	}
+
+	BOOLEAN consumeRoofCompletionReplication() noexcept
+	{
+		const BOOLEAN replicate = replicateRoofCompletion;
+		replicateRoofCompletion = TRUE;
+		return replicate;
+	}
+
+	void reset() noexcept { replicateRoofCompletion = TRUE; }
+};
+
 struct SoldierRuntimeComponents
 {
 	SoldierPendingActionRuntimeState pendingAction;
 	SoldierCombatFeedbackState combatFeedback;
 	SoldierQuickItemRuntimeState quickItem;
+	SoldierTraversalRuntimeState traversal;
 
 	SoldierRuntimeComponents() = default;
 
@@ -3485,6 +3507,7 @@ struct SoldierRuntimeComponents
 		pendingAction.reset();
 		combatFeedback.reset();
 		quickItem.reset();
+		traversal.reset();
 	}
 };
 

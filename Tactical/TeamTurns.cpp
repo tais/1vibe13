@@ -8,6 +8,7 @@
 #include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorVisibility.h"
 #include "TacticalActorRouteExecution.h"
+#include "Simulation Commands.h"
 	#include "types.h"
 	#include "TacticalActorAiBehavior.h"
 	#include "TacticalActorLongActions.h"
@@ -106,7 +107,9 @@ void RecalculateSoldiersAniSpeed()
 
 extern void DecayPublicOpplist(INT8 bTeam);
 extern void VerifyAndDecayOpplist(TacticalActor *pSoldier);
-void EndInterrupt( BOOLEAN fMarkInterruptOccurred );
+void EndInterrupt(
+	BOOLEAN fMarkInterruptOccurred,
+	BOOLEAN fReplicateInterrupt );
 void DeleteFromIntList( UINT16 ubIndex, BOOLEAN fCommunicate);
 
 #define END_OF_INTERRUPTS 255
@@ -409,7 +412,7 @@ void EndTurn( UINT8 ubNextTeam )
 	}
 }
 
-void EndAITurn( void )
+void EndAITurn( BOOLEAN fReplicateInterrupt )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndAITurn");
 	TacticalActor * pSoldier;
@@ -418,12 +421,13 @@ void EndAITurn( void )
 	EndDeadlockMsg( );
 	if (INTERRUPT_QUEUED)
 	{
-			if(is_networked)
+			if(fReplicateInterrupt && is_networked &&
+				!IsReplaySimulationCommandExecutionActive())
 			{
 				end_interrupt( FALSE );//this tells other client to go on from where he was
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"AI ended interrupt." );
 			}
-		EndInterrupt( FALSE );
+		EndInterrupt( FALSE, fReplicateInterrupt );
 	}
 	else
 	{
@@ -1262,13 +1266,18 @@ void StartInterrupt( void )
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"StartInterrupt done");
 }
 
-void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
+void EndInterrupt(
+	BOOLEAN fMarkInterruptOccurred,
+	BOOLEAN fReplicateInterrupt )
 {
 	SoldierID	ubInterruptedSoldier;
 	TacticalActor *pSoldier;
 	TacticalActor *pTempSoldier;
 	BOOLEAN		fFound;
 	INT16	ubMinAPsToAttack;
+	const bool replicateInterrupt =
+		fReplicateInterrupt != FALSE &&
+		!IsReplaySimulationCommandExecutionActive();
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndInterrupt");
 
@@ -1346,7 +1355,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 			if ( (nbTeam > 0) && (nbTeam < 6) && is_server ) // AI interrupt resume and im server
 			{
-				send_interrupt( npSoldier );
+				if (replicateInterrupt)
+					send_interrupt( npSoldier );
 				StartInterrupt();
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s and AI", TeamNameStrings[npSoldier->roster().team()] );//tried to use pSoldier, but its not available. find another way to get correct team
 
@@ -1354,7 +1364,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			else if ( is_server && GetJa2TacticalCurrentTeam() == 1 )// resume AI interrupted and im server
 			{
 				//hayden
-				send_interrupt( npSoldier );
+				if (replicateInterrupt)
+					send_interrupt( npSoldier );
 
 				if ( nbTeam != 0 )
 					intAI( npSoldier );
@@ -1377,7 +1388,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				//ClearIntList();
 				//hayden//may need more work.
 				StartInterrupt();
-				send_interrupt( npSoldier ); //
+				if (replicateInterrupt)
+					send_interrupt( npSoldier ); //
 			}
 		}
 	}
@@ -1433,7 +1445,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		// frozen forever re-detecting interrupts (the historical "press ALT+E on
 		// the server" hang). Only the holder sends: the interrupted soldier is on
 		// another player's team here.
-		if ( is_networked && is_client && pSoldier->roster().team() != gbPlayerNum )
+		if ( replicateInterrupt && is_networked && is_client &&
+			pSoldier->roster().team() != gbPlayerNum )
 		{
 			end_interrupt( fMarkInterruptOccurred );
 		}

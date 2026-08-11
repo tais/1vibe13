@@ -1,6 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorEvents.h"
 #include "TacticalActorMovementState.h"
+#include "TacticalActorOrientation.h"
 #include "TacticalActorStateFlags.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -371,7 +372,12 @@ INT8 TileIsClear( TacticalActor *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8
 
 
 
-BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo, INT32 sFinalDestTile )//dnl ch53 111009
+BOOLEAN HandleNextTile(
+	TacticalActor *pSoldier,
+	INT8 bDirection,
+	INT32 sGridNo,
+	INT32 sFinalDestTile,
+	BOOLEAN fReplicateStance )//dnl ch53 111009
 {
 	INT8 bBlocked;
 	INT16	bOverTerrainType;
@@ -480,7 +486,11 @@ BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo,
 
 						// Change height to stand
 						pSoldier->animationIntent().continueAfterStance();
-						SendChangeSoldierStanceEvent( pSoldier, ANIM_STAND );
+						if ( fReplicateStance )
+							SendChangeSoldierStanceEvent( pSoldier, ANIM_STAND );
+						else
+							(void)TacticalActorOrientation::changeStance(
+								*pSoldier, ANIM_STAND );
 						break;
 				}
 

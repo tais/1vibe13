@@ -107,6 +107,18 @@ bool IsValidTraversalKind(std::uint8_t value)
 		static_cast<TacticalTraversalKind>(value));
 }
 
+bool IsValidTraversalOrigin(std::uint8_t value)
+{
+	return IsValidTacticalTraversalOrigin(
+		static_cast<TacticalTraversalOrigin>(value));
+}
+
+bool IsValidTraversalContinuation(std::uint8_t value)
+{
+	return IsValidTacticalTraversalContinuation(
+		static_cast<TacticalTraversalContinuation>(value));
+}
+
 bool IsValidWeaponConfigurationCause(std::uint8_t value)
 {
 	return IsValidTacticalWeaponConfigurationCause(
@@ -322,6 +334,22 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(static_cast<std::uint8_t>(value.kind));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.origin));
+			writer.writeU8(static_cast<std::uint8_t>(value.continuation));
+			writer.writeU8(static_cast<std::uint8_t>(value.eventPolicy));
+			writer.writeI32(value.expectedGrid);
+			writer.writeI32(value.expectedFinalDestination);
+			writer.writeI8(value.expectedLevel);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU16(value.movementAnimationState);
+			writer.writeU16(value.expectedPathIndex);
+			writer.writeU16(value.expectedPathSize);
+			writer.writeU8(value.expectedPathDirection);
+			writer.writeU8(value.expectedNextPathDirection);
+			writer.writeU64(value.expectedStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			WriteI16(writer, value.expectedBreathPointCost);
 		}
 		else if constexpr (
 			std::is_same<Command, ActivateWorldObjectCommand>::value)
@@ -791,12 +819,40 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 		{
 			TraverseObstacleCommand value{};
 			std::uint8_t kind = 0;
+			std::uint8_t origin = 0;
+			std::uint8_t continuation = 0;
+			std::uint8_t eventPolicy = 0;
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
 				!value.soldier.valid() ||
 				!reader.readU8(kind) || !IsValidTraversalKind(kind) ||
-				!ReadSource(reader, value.source)) return false;
+				!ReadSource(reader, value.source) ||
+				!reader.readU8(origin) || !IsValidTraversalOrigin(origin) ||
+				!reader.readU8(continuation) ||
+				!IsValidTraversalContinuation(continuation) ||
+				!reader.readU8(eventPolicy) ||
+				!IsValidEventPolicy(eventPolicy) ||
+				!reader.readI32(value.expectedGrid) ||
+				!reader.readI32(value.expectedFinalDestination) ||
+				!reader.readI8(value.expectedLevel) ||
+				!reader.readU8(value.expectedDirection) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU16(value.movementAnimationState) ||
+				!reader.readU16(value.expectedPathIndex) ||
+				!reader.readU16(value.expectedPathSize) ||
+				!reader.readU8(value.expectedPathDirection) ||
+				!reader.readU8(value.expectedNextPathDirection) ||
+				!reader.readU64(value.expectedStateFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadI16(reader, value.expectedBreathPointCost)) return false;
 			value.kind = static_cast<TacticalTraversalKind>(kind);
+			value.origin = static_cast<TacticalTraversalOrigin>(origin);
+			value.continuation =
+				static_cast<TacticalTraversalContinuation>(continuation);
+			value.eventPolicy =
+				static_cast<TacticalEventPolicy>(eventPolicy);
+			if (!IsStructurallyValidSimulationCommand(
+					SimulationCommand{value})) return false;
 			command = value;
 			return true;
 		}

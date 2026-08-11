@@ -865,7 +865,9 @@ void SoldierTriesToContinueAlongPath(TacticalActor *pSoldier)
 	}
 }
 
-void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
+void HaltMoveForSoldierOutOfPoints(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateStop)
 {
 	// If a special move, ignore this!
 	if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) )
@@ -873,7 +875,7 @@ void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
 		return;
 	}
 
-	if (is_networked)
+	if (fReplicateStop && is_networked)
 	{
 		EV_S_STOP_MERC				SStopMerc;
 
@@ -892,7 +894,8 @@ void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
 			send_stop(&SStopMerc);
 	}
 	// record that this merc can no longer animate and why...
-	(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
+	(void)TacticalActorRouteExecution::setOutOfActionPoints(
+		*pSoldier, true, fReplicateStop != FALSE );
 
 	// We'll keep his action intact though...
 	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->identity().id(), pSoldier->actionPoints().current()) );
@@ -904,7 +907,7 @@ void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
 			DebugAI( String("Ending turn for %d because out of APs for movement", pSoldier->identity().id() ) );
 		#endif
 
-		EndAIGuysTurn(pSoldier);
+		EndAIGuysTurn(pSoldier, fReplicateStop);
 	}
 }
 

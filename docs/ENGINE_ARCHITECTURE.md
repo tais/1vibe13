@@ -618,11 +618,43 @@ the engine must not contain SDL types in its public domain model.
   debt because their callers mutate item/animation state inside lower-level
   operations and need separate transactional boundaries; this command slice
   does not claim to own them.
-  Three named command gaps remain, in increasing coupling order: low-level
-  AI/path-completion traversal; automatic and pathfinding door handling; and
-  non-positional dialogue effects. Each remains a local mechanic until its
-  distinct event policy and value result are modeled rather than masquerading
-  as player intent.
+  AI and path-completion obstacle traversal now extend the existing
+  `TraverseObstacleCommand` instead of creating a second traversal intent.
+  The original actor/kind/source wire prefix remains intact. Appended origin,
+  continuation, event policy, issued grid/level/direction/animation, bounded
+  route cursor, issued AP/breath costs, and a deterministic fingerprint of the
+  route plus every actor field that completion can clear distinguish
+  sentinel-only player requests from retained AI actions and fence-path
+  completion. The executor rejects a reused incarnation, changed actor/route,
+  changed point budget, or changed cost result before mutation. A stale
+  traversal never calls broad `ActionDone`: it fails closed and leaves the
+  selected action to the existing AI recovery path rather than risk cancelling
+  a newer same-kind action. An explicit AI action-generation token remains
+  named follow-up debt for indistinguishable, identical-state ABA replacement;
+  `actionInProgress` is deliberately the sole excluded fingerprint field
+  because `ExecuteAction` publishes it after retained ingress returns. It
+  preserves AP/breath validation, blocked-tile handling, route-index advance,
+  pending-action lock, stationary animation, traversal start, and continuation
+  ordering. AI window completion remains after the start attempt; roof actions
+  remain owned until their animation completes. Playback executes the captured
+  command with `Replay` provenance. Both in-executor recursion and a later
+  overhead movement callback detect the queued Replay path command instead of
+  synthesizing a System duplicate. That check precedes both fence AP branches,
+  so live AP divergence cannot halt or replicate before the recorded command
+  validates. Replay applies path stance, no-AP halt, and
+  AI completion locally; deferred roof animation completion consumes the
+  actor-local policy captured when traversal began. None of their stop/stance
+  or AI-interrupt packets reflect outward.
+  The portable reference simulation explicitly discards this
+  structure/animation-specific mechanic. Obstacle discovery, AP cost tables,
+  blocked-tile waiting, and animation completion remain named JA2 executor
+  mechanics inside `TacticalActorTraversal` and the route engine; they are not
+  parallel command producers. No save, map, item, XML, Lua, installed-content,
+  or RakNet packet format changes.
+  Two named command gaps remain, in increasing coupling order: automatic and
+  pathfinding door handling, and non-positional dialogue effects. Each remains
+  a local mechanic until its distinct event policy and value result are modeled
+  rather than masquerading as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded
@@ -2514,15 +2546,19 @@ the engine must not contain SDL types in its public domain model.
   animation-profile data, hit-location flags, cursor behavior, maps, rendering,
   XML, Lua, saves, and network formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
-  and wall-climb initiation. Player intent still enters through the stable
-  `TraverseObstacleCommand`; its executor, tactical AI, and path completion
-  now call the same bounded domain. Six aggregate traversal methods and a
-  duplicate unused wall-descent helper are retired. The boundary validates
-  tactical-world lifetime, actor identity and health, body/animation state,
-  route bounds, directions, levels, destination grids, occupancy, and action
-  points before starting an animation or teleport fallback. Existing maps,
-  structures, animation data, AP settings, XML, Lua, art, sounds, and network
-  command formats are unchanged.
+  and wall-climb initiation. Player, tactical-AI roof/window, and moving-path
+  fence producers now all enter through `TraverseObstacleCommand`; only its
+  compatibility executor calls the bounded domain. Retained AI and path forms
+  carry exact issued actor and route preconditions, while player intent retains
+  its sentinel-only shape. Six aggregate traversal methods and a duplicate
+  unused wall-descent helper are retired. The boundary validates tactical-world
+  lifetime, actor identity and health, body/animation state, route bounds,
+  directions, levels, destination grids, occupancy, and action points before
+  starting an animation or teleport fallback. Structure discovery, cost
+  calculation, blocked-tile waiting, and animation completion deliberately
+  remain executor-side traversal mechanics. Existing maps, structures,
+  animation data, AP settings, XML, Lua, art, sounds, saves, and RakNet packet
+  formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

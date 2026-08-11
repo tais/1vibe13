@@ -502,12 +502,231 @@ constexpr bool IsValidTacticalTraversalKind(
 	return false;
 }
 
+// Traversal has three distinct producers. Player intent is synchronous and
+// carries no mutable compatibility state. AI actions and path completion can
+// be retained behind another authoritative command, so they capture the
+// exact state against which the legacy continuation was selected.
+enum class TacticalTraversalOrigin : std::uint8_t
+{
+	PlayerIntent = 0,
+	AiAction = 1,
+	PathCompletion = 2
+};
+
+constexpr bool IsValidTacticalTraversalOrigin(
+	TacticalTraversalOrigin origin) noexcept
+{
+	switch (origin)
+	{
+		case TacticalTraversalOrigin::PlayerIntent:
+		case TacticalTraversalOrigin::AiAction:
+		case TacticalTraversalOrigin::PathCompletion:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalTraversalContinuation : std::uint8_t
+{
+	None = 0,
+	CompleteAiAction = 1,
+	ContinuePathAfterStance = 2
+};
+
+constexpr bool IsValidTacticalTraversalContinuation(
+	TacticalTraversalContinuation continuation) noexcept
+{
+	switch (continuation)
+	{
+		case TacticalTraversalContinuation::None:
+		case TacticalTraversalContinuation::CompleteAiAction:
+		case TacticalTraversalContinuation::ContinuePathAfterStance:
+			return true;
+	}
+	return false;
+}
+
+inline constexpr std::int8_t TacticalTraversalNoExpectedLevel = -1;
+inline constexpr std::uint8_t TacticalTraversalNoExpectedDirection =
+	TacticalDirectionCount;
+inline constexpr std::uint16_t TacticalTraversalNoExpectedAnimation =
+	std::numeric_limits<std::uint16_t>::max();
+inline constexpr std::uint16_t TacticalTraversalNoExpectedPathValue =
+	std::numeric_limits<std::uint16_t>::max();
+inline constexpr std::uint64_t TacticalTraversalNoExpectedStateFingerprint =
+	std::numeric_limits<std::uint64_t>::max();
+inline constexpr std::int16_t TacticalTraversalNoExpectedPointCost =
+	std::numeric_limits<std::int16_t>::min();
+inline constexpr std::uint16_t TacticalTraversalPathCapacity = 30;
+
 struct TraverseObstacleCommand
 {
 	TacticalEntityId soldier;
 	TacticalTraversalKind kind;
 	SimulationCommandSource source;
+	// Appended fields preserve the original aggregate prefix and make only the
+	// retained System/Replay forms stateful. Sentinel-only player commands keep
+	// their established request semantics.
+	TacticalTraversalOrigin origin =
+		TacticalTraversalOrigin::PlayerIntent;
+	TacticalTraversalContinuation continuation =
+		TacticalTraversalContinuation::None;
+	TacticalEventPolicy eventPolicy = TacticalEventPolicy::LocalOnly;
+	std::int32_t expectedGrid = TacticalNoTargetGrid;
+	std::int32_t expectedFinalDestination = TacticalNoTargetGrid;
+	std::int8_t expectedLevel = TacticalTraversalNoExpectedLevel;
+	std::uint8_t expectedDirection = TacticalTraversalNoExpectedDirection;
+	std::uint16_t expectedAnimationState =
+		TacticalTraversalNoExpectedAnimation;
+	std::uint16_t movementAnimationState =
+		TacticalTraversalNoExpectedAnimation;
+	std::uint16_t expectedPathIndex =
+		TacticalTraversalNoExpectedPathValue;
+	std::uint16_t expectedPathSize =
+		TacticalTraversalNoExpectedPathValue;
+	std::uint8_t expectedPathDirection =
+		TacticalTraversalNoExpectedDirection;
+	std::uint8_t expectedNextPathDirection =
+		TacticalTraversalNoExpectedDirection;
+	std::uint64_t expectedStateFingerprint =
+		TacticalTraversalNoExpectedStateFingerprint;
+	std::int16_t expectedActionPointCost =
+		TacticalTraversalNoExpectedPointCost;
+	std::int16_t expectedBreathPointCost =
+		TacticalTraversalNoExpectedPointCost;
 };
+
+constexpr bool HasNoTacticalTraversalExpectation(
+	const TraverseObstacleCommand& command) noexcept
+{
+	return command.expectedGrid == TacticalNoTargetGrid &&
+		command.expectedFinalDestination == TacticalNoTargetGrid &&
+		command.expectedLevel == TacticalTraversalNoExpectedLevel &&
+		command.expectedDirection == TacticalTraversalNoExpectedDirection &&
+		command.expectedAnimationState ==
+			TacticalTraversalNoExpectedAnimation &&
+		command.movementAnimationState ==
+			TacticalTraversalNoExpectedAnimation &&
+		command.expectedPathIndex == TacticalTraversalNoExpectedPathValue &&
+		command.expectedPathSize == TacticalTraversalNoExpectedPathValue &&
+		command.expectedPathDirection ==
+			TacticalTraversalNoExpectedDirection &&
+		command.expectedNextPathDirection ==
+			TacticalTraversalNoExpectedDirection &&
+		command.expectedStateFingerprint ==
+			TacticalTraversalNoExpectedStateFingerprint &&
+		command.expectedActionPointCost ==
+			TacticalTraversalNoExpectedPointCost &&
+		command.expectedBreathPointCost ==
+			TacticalTraversalNoExpectedPointCost;
+}
+
+constexpr bool IsStructurallyValidTacticalTraversalCommand(
+	const TraverseObstacleCommand& command) noexcept
+{
+	if (!IsValidTacticalTraversalKind(command.kind) ||
+		!IsValidTacticalTraversalOrigin(command.origin) ||
+		!IsValidTacticalTraversalContinuation(command.continuation) ||
+		!IsValidTacticalEventPolicy(command.eventPolicy))
+		return false;
+
+	if (command.origin == TacticalTraversalOrigin::PlayerIntent)
+		return command.continuation ==
+				TacticalTraversalContinuation::None &&
+			command.eventPolicy == TacticalEventPolicy::LocalOnly &&
+			HasNoTacticalTraversalExpectation(command);
+
+	if ((command.source != SimulationCommandSource::System &&
+		 command.source != SimulationCommandSource::Replay) ||
+		command.expectedGrid < 0 ||
+		(command.expectedLevel != 0 && command.expectedLevel != 1) ||
+		!IsValidTacticalDirection(command.expectedDirection) ||
+		command.expectedAnimationState ==
+			TacticalTraversalNoExpectedAnimation)
+		return false;
+
+	if (command.origin == TacticalTraversalOrigin::AiAction)
+	{
+		const bool roofAction =
+			command.kind == TacticalTraversalKind::ClimbUpRoof ||
+			command.kind == TacticalTraversalKind::ClimbDownRoof;
+		const bool windowAction =
+			command.kind == TacticalTraversalKind::JumpWindow;
+		const bool commonAiShape =
+			command.expectedFinalDestination == TacticalNoTargetGrid &&
+			command.movementAnimationState ==
+				TacticalTraversalNoExpectedAnimation &&
+			command.expectedNextPathDirection ==
+				TacticalTraversalNoExpectedDirection;
+		if (!commonAiShape) return false;
+		if (roofAction)
+			return command.eventPolicy == TacticalEventPolicy::Replicated &&
+				(command.kind == TacticalTraversalKind::ClimbUpRoof
+					? command.expectedLevel == 0
+					: command.expectedLevel == 1) &&
+				command.continuation ==
+					TacticalTraversalContinuation::None &&
+				command.expectedPathIndex ==
+					TacticalTraversalNoExpectedPathValue &&
+				command.expectedPathSize ==
+					TacticalTraversalNoExpectedPathValue &&
+				command.expectedPathDirection ==
+					TacticalTraversalNoExpectedDirection &&
+				command.expectedStateFingerprint !=
+					TacticalTraversalNoExpectedStateFingerprint &&
+				command.expectedActionPointCost !=
+					TacticalTraversalNoExpectedPointCost &&
+				command.expectedBreathPointCost == 0;
+		if (!windowAction ||
+			command.eventPolicy != TacticalEventPolicy::Replicated ||
+			command.continuation !=
+				TacticalTraversalContinuation::CompleteAiAction ||
+			command.expectedStateFingerprint ==
+				TacticalTraversalNoExpectedStateFingerprint ||
+			command.expectedActionPointCost !=
+				TacticalTraversalNoExpectedPointCost ||
+			command.expectedBreathPointCost !=
+				TacticalTraversalNoExpectedPointCost ||
+			command.expectedPathSize > TacticalTraversalPathCapacity ||
+			command.expectedPathIndex > command.expectedPathSize)
+			return false;
+		return command.expectedPathIndex < command.expectedPathSize
+			? IsValidTacticalDirection(command.expectedPathDirection)
+			: command.expectedPathDirection ==
+				TacticalTraversalNoExpectedDirection;
+	}
+
+	return command.kind == TacticalTraversalKind::JumpFence &&
+		command.continuation ==
+			TacticalTraversalContinuation::ContinuePathAfterStance &&
+		command.eventPolicy == TacticalEventPolicy::Replicated &&
+		command.expectedFinalDestination >= 0 &&
+		command.movementAnimationState !=
+			TacticalTraversalNoExpectedAnimation &&
+		command.expectedStateFingerprint !=
+			TacticalTraversalNoExpectedStateFingerprint &&
+		command.expectedActionPointCost !=
+			TacticalTraversalNoExpectedPointCost &&
+		command.expectedBreathPointCost !=
+			TacticalTraversalNoExpectedPointCost &&
+		command.expectedPathSize >= 2 &&
+		command.expectedPathSize <= TacticalTraversalPathCapacity &&
+		command.expectedPathIndex < command.expectedPathSize &&
+		command.expectedPathIndex + 1 < command.expectedPathSize &&
+		IsValidTacticalDirection(command.expectedPathDirection) &&
+		IsValidTacticalDirection(command.expectedNextPathDirection);
+}
+
+// Traversal continuation may emit the established stance/stop traffic only
+// for a newly produced System action. Captured replay applies the same local
+// stance, no-AP halt, and AI completion without reflecting traffic outward.
+constexpr bool ShouldReplicateTraversalContinuation(
+	SimulationCommandSource source,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return source == SimulationCommandSource::System &&
+		eventPolicy == TacticalEventPolicy::Replicated;
+}
 
 // A map-local, pointer-free identity for an interactive structure. The grid
 // and structure ID are resolved against the live tactical world only by the
@@ -917,7 +1136,7 @@ inline bool IsStructurallyValidSimulationCommand(
 			if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
-				return IsValidTacticalTraversalKind(value.kind);
+				return IsStructurallyValidTacticalTraversalCommand(value);
 			if constexpr (
 				std::is_same<Command, ActivateWorldObjectCommand>::value ||
 				std::is_same<Command, ApproachWorldObjectCommand>::value)

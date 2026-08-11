@@ -32,6 +32,7 @@
 #include "Items.h"
 #include "Map Information.h"
 #include "Overhead.h"
+#include "PATHAI.H"
 #include "Points.h"
 #include "TacticalActor.h"
 #include "Soldier Functions.h"
@@ -68,6 +69,9 @@ namespace
 		TacticalMinimumScopeMode == USE_ALT_WEAPON_HOLD &&
 			TacticalScopeModeCount == NUM_SCOPE_MODES,
 		"public weapon-configuration scope bound must match JA2");
+	static_assert(
+		TacticalTraversalPathCapacity == MAX_PATH_LIST_SIZE,
+		"public traversal path bound must match JA2 route storage");
 
 	struct SimulationCommandFrameBudget
 	{
@@ -88,6 +92,43 @@ namespace
 		static SimulationCommandExecutionSink* sink = nullptr;
 		return sink;
 	}
+
+	struct SimulationCommandExecutionContext
+	{
+		bool active = false;
+		SimulationCommandSource source = SimulationCommandSource::System;
+	};
+
+	SimulationCommandExecutionContext& CurrentExecutionContext() noexcept
+	{
+		static thread_local SimulationCommandExecutionContext context;
+		return context;
+	}
+
+	class ScopedSimulationCommandExecutionContext
+	{
+	public:
+		explicit ScopedSimulationCommandExecutionContext(
+			SimulationCommandSource source) noexcept
+			: previous_(CurrentExecutionContext())
+		{
+			CurrentExecutionContext() =
+				SimulationCommandExecutionContext{true, source};
+		}
+
+		~ScopedSimulationCommandExecutionContext()
+		{
+			CurrentExecutionContext() = previous_;
+		}
+
+		ScopedSimulationCommandExecutionContext(
+			const ScopedSimulationCommandExecutionContext&) = delete;
+		ScopedSimulationCommandExecutionContext& operator=(
+			const ScopedSimulationCommandExecutionContext&) = delete;
+
+	private:
+		SimulationCommandExecutionContext previous_;
+	};
 
 	bool HasEndTurnExecutionContext() noexcept
 	{
@@ -216,6 +257,15 @@ namespace
 	{
 		SimulationCommandDispatchResult result;
 		result.status = SimulationCommandDispatchStatus::InvalidActor;
+		result.tick =
+			GetGameContext().runtime().simulationTicks().completedTickSequence();
+		return result;
+	}
+
+	SimulationCommandDispatchResult InvalidCommandDomainResult() noexcept
+	{
+		SimulationCommandDispatchResult result;
+		result.status = SimulationCommandDispatchStatus::InvalidDomain;
 		result.tick =
 			GetGameContext().runtime().simulationTicks().completedTickSequence();
 		return result;
@@ -386,6 +436,275 @@ namespace
 			item->ubLevel == soldier.position().level() &&
 			(level == ITEM_IGNORE_Z_LEVEL ||
 				item->bRenderZHeightAboveLevel == level);
+	}
+
+	bool IsSelectedTraversalAiAction(
+		const TacticalActor& soldier,
+		TacticalTraversalKind kind) noexcept
+	{
+		if (kind == TacticalTraversalKind::JumpWindow)
+			return soldier.aiPlanning().action() == AI_ACTION_JUMP_WINDOW;
+		return (kind == TacticalTraversalKind::ClimbUpRoof ||
+			kind == TacticalTraversalKind::ClimbDownRoof) &&
+			soldier.aiPlanning().action() == AI_ACTION_CLIMB_ROOF;
+	}
+
+	template <typename Value>
+	void MixTraversalState(
+		std::uint64_t& fingerprint,
+		Value value) noexcept
+	{
+		using Unsigned = typename std::make_unsigned<Value>::type;
+		std::uint64_t encoded = static_cast<std::uint64_t>(
+			static_cast<Unsigned>(value));
+		for (std::size_t byte = 0; byte < sizeof(Unsigned); ++byte)
+		{
+			fingerprint ^=
+				static_cast<std::uint8_t>(encoded & 0xffu);
+			fingerprint *= 1099511628211ull;
+			encoded >>= 8;
+		}
+	}
+
+	// Retained window completion and fence continuation can clear or rewrite
+	// route, pending-action, animation-intent, schedule, and movement state.
+	// Capture every such scalar plus the complete fixed route so changed
+	// same-kind AI/action state cannot be mistaken for the issued continuation.
+	// An indistinguishable identical-state ABA still needs a future generation
+	// token and therefore remains documented debt.
+	std::uint64_t CaptureTraversalStateFingerprint(
+		const TacticalActor& soldier) noexcept
+	{
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		MixTraversalState(fingerprint, soldier.roster().active());
+		MixTraversalState(fingerprint, soldier.roster().inSector());
+		MixTraversalState(fingerprint, soldier.identity().bodyType());
+		MixTraversalState(fingerprint, soldier.vitals().health());
+		MixTraversalState(fingerprint, soldier.position().gridNo());
+		MixTraversalState(fingerprint, soldier.position().level());
+		MixTraversalState(fingerprint, soldier.position().direction());
+		MixTraversalState(fingerprint, soldier.position().worldXInt());
+		MixTraversalState(fingerprint, soldier.position().worldYInt());
+		MixTraversalState(
+			fingerprint, soldier.animationPlayback().state());
+		MixTraversalState(fingerprint, soldier.aiPlanning().lastAction());
+		MixTraversalState(fingerprint, soldier.aiPlanning().action());
+		MixTraversalState(fingerprint, soldier.aiPlanning().actionData());
+		// ExecuteAction publishes actionInProgress=TRUE only after a retained
+		// producer returns. It is the one expected post-dispatch transition and
+		// therefore cannot participate in this pre-execution fingerprint.
+		MixTraversalState(
+			fingerprint, soldier.pathing().destinationX());
+		MixTraversalState(
+			fingerprint, soldier.pathing().destinationY());
+		MixTraversalState(
+			fingerprint, soldier.pathing().destinationGrid());
+		MixTraversalState(
+			fingerprint, soldier.pathing().finalDestinationGrid());
+		MixTraversalState(fingerprint, soldier.pathing().pathIndex());
+		MixTraversalState(fingerprint, soldier.pathing().pathSize());
+		MixTraversalState(fingerprint, soldier.pathing().stored());
+		for (std::size_t index = 0;
+			index < TacticalTraversalPathCapacity;
+			++index)
+			MixTraversalState(
+				fingerprint, soldier.pathing().path()[index]);
+		MixTraversalState(fingerprint, soldier.movement().delayCounter());
+		MixTraversalState(
+			fingerprint, soldier.movement().delayedCauseGrid());
+		MixTraversalState(fingerprint, soldier.movement().delayedFlags());
+		MixTraversalState(fingerprint, soldier.movement().reverse());
+		MixTraversalState(
+			fingerprint,
+			static_cast<std::uint8_t>(
+				soldier.movement().outOfActionPoints()));
+		MixTraversalState(fingerprint, soldier.movement().reservedGrid());
+		MixTraversalState(
+			fingerprint, soldier.movement().moveSpeedOverride().i);
+		MixTraversalState(
+			fingerprint, soldier.movement().usesMoveSpeedOverride());
+		MixTraversalState(fingerprint, soldier.pendingAction().action());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().animationCount());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().primaryData());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().secondaryData());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().tertiaryData());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().doorHandleCode());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().quaternaryData());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().nextSpecialData());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().interruptionMarker());
+		MixTraversalState(
+			fingerprint, soldier.pendingAction().inventorySlot());
+		MixTraversalState(fingerprint, soldier.actionPoints().current());
+		MixTraversalState(fingerprint, soldier.vitals().breath());
+		MixTraversalState(
+			fingerprint,
+			static_cast<std::uint8_t>(
+				soldier.collapseState().tactical() != FALSE));
+		MixTraversalState(fingerprint, soldier.schedule().doorOpenPhase());
+		MixTraversalState(fingerprint, soldier.schedule().doorGrid());
+		MixTraversalState(
+			fingerprint, soldier.animationIntent().pendingAnimation());
+		MixTraversalState(
+			fingerprint, soldier.animationIntent().secondaryPendingAnimation());
+		MixTraversalState(
+			fingerprint, soldier.animationIntent().pendingDirection());
+		MixTraversalState(
+			fingerprint, soldier.animationIntent().continuationMode());
+		MixTraversalState(
+			fingerprint, soldier.animationActivity().turningFromProneMode());
+		MixTraversalState(
+			fingerprint, soldier.animationActivity().turningToShoot());
+		return fingerprint == TacticalTraversalNoExpectedStateFingerprint
+			? fingerprint - 1
+			: fingerprint;
+	}
+
+	bool TraversalExpectationMatches(
+		TacticalActor& soldier,
+		const TraverseObstacleCommand& command) noexcept
+	{
+		if (command.origin == TacticalTraversalOrigin::PlayerIntent)
+			return true;
+		if (soldier.position().gridNo() != command.expectedGrid ||
+			soldier.position().level() != command.expectedLevel ||
+			soldier.position().direction() != command.expectedDirection ||
+			soldier.animationPlayback().state() !=
+				command.expectedAnimationState)
+			return false;
+		if (command.expectedStateFingerprint !=
+				TacticalTraversalNoExpectedStateFingerprint &&
+			CaptureTraversalStateFingerprint(soldier) !=
+				command.expectedStateFingerprint)
+			return false;
+
+		if (command.origin == TacticalTraversalOrigin::AiAction)
+		{
+			if (!IsSelectedTraversalAiAction(soldier, command.kind))
+				return false;
+			if (command.kind != TacticalTraversalKind::JumpWindow)
+				return GetAPsToClimbRoof(
+					&soldier,
+					command.kind == TacticalTraversalKind::ClimbDownRoof
+						? TRUE
+						: FALSE) == command.expectedActionPointCost &&
+					command.expectedBreathPointCost == 0;
+			if (soldier.pathing().pathIndex() != command.expectedPathIndex ||
+				soldier.pathing().pathSize() != command.expectedPathSize)
+				return false;
+			return command.expectedPathIndex < command.expectedPathSize
+				? soldier.pathing().path()[command.expectedPathIndex] ==
+					command.expectedPathDirection
+				: command.expectedPathDirection ==
+					TacticalTraversalNoExpectedDirection;
+		}
+
+		if (soldier.pathing().finalDestinationGrid() !=
+				command.expectedFinalDestination ||
+			soldier.pathing().pathIndex() != command.expectedPathIndex ||
+			soldier.pathing().pathSize() != command.expectedPathSize ||
+			command.expectedPathIndex + 1 >= command.expectedPathSize ||
+			command.expectedPathSize > MAX_PATH_LIST_SIZE)
+			return false;
+		return soldier.pathing().path()[command.expectedPathIndex] ==
+				command.expectedPathDirection &&
+			soldier.pathing().path()[command.expectedPathIndex + 1] ==
+				command.expectedNextPathDirection;
+	}
+
+	bool BeginTraversal(
+		TacticalActor& soldier,
+		TacticalTraversalKind kind)
+	{
+		switch (kind)
+		{
+			case TacticalTraversalKind::ClimbUpRoof:
+				return TacticalActorTraversal::beginRoofClimb(soldier);
+			case TacticalTraversalKind::ClimbDownRoof:
+				return TacticalActorTraversal::beginRoofDescent(soldier);
+			case TacticalTraversalKind::JumpFence:
+				return TacticalActorTraversal::beginFenceJump(soldier);
+			case TacticalTraversalKind::ClimbWall:
+				return TacticalActorTraversal::beginWallClimb(soldier);
+			case TacticalTraversalKind::JumpWindow:
+				return TacticalActorTraversal::beginWindowJump(soldier);
+		}
+		return false;
+	}
+
+	CommandDisposition ExecutePathCompletionTraversal(
+		TacticalActor& soldier,
+		const TraverseObstacleCommand& command)
+	{
+		const std::int32_t fenceGrid = NewGridNo(
+			soldier.position().gridNo(),
+			DirectionInc(command.expectedPathDirection));
+		if (TileIsOutOfBounds(fenceGrid) ||
+			fenceGrid == soldier.position().gridNo() ||
+			gubWorldMovementCosts[fenceGrid]
+				[command.expectedPathDirection]
+				[soldier.position().level()] != TRAVELCOST_FENCE)
+			return CommandDisposition::Discard;
+
+		const INT16 actionPointCost = ActionPointCost(
+			&soldier,
+			fenceGrid,
+			static_cast<INT8>(command.expectedPathDirection),
+			command.movementAnimationState);
+		const INT16 breathPointCost = TerrainBreathPoints(
+			&soldier,
+			fenceGrid,
+			static_cast<INT8>(command.expectedPathDirection),
+			command.movementAnimationState);
+		if (actionPointCost != command.expectedActionPointCost ||
+			breathPointCost != command.expectedBreathPointCost)
+			return CommandDisposition::Discard;
+		const BOOLEAN replicateContinuation =
+			ShouldReplicateTraversalContinuation(
+				command.source,
+				command.eventPolicy)
+				? TRUE
+				: FALSE;
+		if (!EnoughPoints(
+				&soldier,
+				actionPointCost,
+				breathPointCost,
+				FALSE))
+		{
+			HaltGuyFromNewGridNoBecauseOfNoAPs(
+				&soldier, replicateContinuation);
+			return CommandDisposition::Applied;
+		}
+
+		const std::int32_t beyondFenceGrid = NewGridNo(
+			fenceGrid,
+			DirectionInc(command.expectedNextPathDirection));
+		if (TileIsOutOfBounds(beyondFenceGrid) ||
+			beyondFenceGrid == fenceGrid)
+			return CommandDisposition::Discard;
+
+		if (!HandleNextTile(
+				&soldier,
+				static_cast<INT8>(command.expectedNextPathDirection),
+				beyondFenceGrid,
+				command.expectedFinalDestination,
+				replicateContinuation))
+			return CommandDisposition::Applied;
+
+		++soldier.pathing().pathIndex();
+		soldier.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(
+			soldier);
+		(void)BeginTraversal(soldier, TacticalTraversalKind::JumpFence);
+		soldier.animationIntent().continueAfterStance(2);
+		return CommandDisposition::Applied;
 	}
 
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
@@ -743,29 +1062,45 @@ namespace
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
-				bool started = false;
-				switch (value.kind)
+				if (!TraversalExpectationMatches(*soldier, value))
 				{
-					case TacticalTraversalKind::ClimbUpRoof:
-						started = TacticalActorTraversal::
-							beginRoofClimb(*soldier);
-						break;
-					case TacticalTraversalKind::ClimbDownRoof:
-						started = TacticalActorTraversal::
-							beginRoofDescent(*soldier);
-						break;
-					case TacticalTraversalKind::JumpFence:
-						started = TacticalActorTraversal::
-							beginFenceJump(*soldier);
-						break;
-					case TacticalTraversalKind::ClimbWall:
-						started = TacticalActorTraversal::
-							beginWallClimb(*soldier);
-						break;
-					case TacticalTraversalKind::JumpWindow:
-						started = TacticalActorTraversal::
-							beginWindowJump(*soldier);
-						break;
+					// A changed route/pose may belong to a newer same-kind AI
+					// action. Without an AI action generation token, stale work
+					// must not stop or complete that newer action.
+					return CommandDisposition::Discard;
+				}
+				if (value.origin == TacticalTraversalOrigin::PathCompletion)
+					return ExecutePathCompletionTraversal(*soldier, value);
+
+				const bool started = BeginTraversal(*soldier, value.kind);
+				if (value.origin == TacticalTraversalOrigin::AiAction &&
+					(value.kind == TacticalTraversalKind::ClimbUpRoof ||
+					 value.kind == TacticalTraversalKind::ClimbDownRoof))
+				{
+					const UINT16 roofAnimation =
+						value.kind == TacticalTraversalKind::ClimbUpRoof
+							? CLIMBUPROOF
+							: JUMPDOWNWALL;
+					const bool roofAnimationPending = started &&
+						(soldier->animationPlayback().state() == roofAnimation ||
+						 soldier->animationIntent().pendingAnimation() ==
+							roofAnimation);
+					soldier->runtime().traversal.
+						setRoofCompletionReplication(
+							!roofAnimationPending ||
+							ShouldReplicateTraversalContinuation(
+								value.source, value.eventPolicy));
+				}
+				if (value.continuation ==
+					TacticalTraversalContinuation::CompleteAiAction)
+				{
+					ActionDone(
+						soldier,
+						ShouldReplicateTraversalContinuation(
+							value.source, value.eventPolicy)
+							? TRUE
+							: FALSE);
+					return CommandDisposition::Applied;
 				}
 				return started
 					? CommandDisposition::Applied
@@ -1084,6 +1419,11 @@ namespace
 			std::uint64_t,
 			std::uint64_t) override
 		{
+			const SimulationCommandSource source = std::visit(
+				[](const auto& value) noexcept { return value.source; },
+				command);
+			const ScopedSimulationCommandExecutionContext executionContext{
+				source};
 			const CommandDisposition disposition =
 				ExecuteSimulationCommand(command);
 			SynchronizeExecutedCommandActors(command, disposition);
@@ -1170,6 +1510,29 @@ namespace
 					tick, sequence, observer);
 			});
 	}
+}
+
+bool IsReplaySimulationCommandExecutionActive() noexcept
+{
+	const SimulationCommandExecutionContext& context =
+		CurrentExecutionContext();
+	return context.active &&
+		context.source == SimulationCommandSource::Replay;
+}
+
+bool HasPendingReplayPathTraversalCommand(
+	TacticalEntityId actor) noexcept
+{
+	if (!actor.valid()) return false;
+	return GetGameContext().commands().containsIf(
+		[actor](const ScheduledCommand<SimulationCommand>& entry) noexcept {
+			const TraverseObstacleCommand* traversal =
+				std::get_if<TraverseObstacleCommand>(&entry.command);
+			return traversal && traversal->soldier == actor &&
+				traversal->source == SimulationCommandSource::Replay &&
+				traversal->origin ==
+					TacticalTraversalOrigin::PathCompletion;
+		});
 }
 
 bool BindJa2SimulationCommandExecutor(GameContext& game) noexcept
@@ -1456,9 +1819,41 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			}
 			else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
 			{
-				return IsValidTacticalTraversalKind(value.kind)
-					? SimulationCommandDomainError::None
-					: SimulationCommandDomainError::InvalidTraversalKind;
+				if (!IsValidTacticalTraversalKind(value.kind))
+					return SimulationCommandDomainError::InvalidTraversalKind;
+				if (!IsValidTacticalTraversalOrigin(value.origin))
+					return SimulationCommandDomainError::InvalidTraversalOrigin;
+				if (!IsValidTacticalTraversalContinuation(
+						value.continuation))
+					return SimulationCommandDomainError::
+						InvalidTraversalContinuation;
+				if (!IsValidTacticalEventPolicy(value.eventPolicy))
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				if (!IsStructurallyValidTacticalTraversalCommand(value))
+					return SimulationCommandDomainError::
+						InvalidTraversalPrecondition;
+				if (value.origin == TacticalTraversalOrigin::PlayerIntent)
+					return SimulationCommandDomainError::None;
+				if (value.expectedGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::
+						InvalidTraversalPrecondition;
+				if (value.origin ==
+					TacticalTraversalOrigin::PathCompletion)
+				{
+					if (value.expectedFinalDestination >= WORLD_MAX)
+						return SimulationCommandDomainError::
+							InvalidDestinationGrid;
+					if (value.movementAnimationState >= NUMANIMATIONSTATES)
+						return SimulationCommandDomainError::
+							InvalidMovementMode;
+					if ((gAnimControl[value.movementAnimationState].uiFlags &
+						ANIM_MOVING) == 0)
+						return SimulationCommandDomainError::
+							InvalidMovementMode;
+				}
+				return SimulationCommandDomainError::None;
 			}
 			else if constexpr (
 				std::is_same<Command, ActivateWorldObjectCommand>::value ||
@@ -1981,6 +2376,134 @@ TryDispatchSystemApplyWeaponConfigurationCommand(
 				previousItem, changedItem, inventoryPosition,
 				SimulationCommandSource::System};
 		});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemAiTraverseObstacleCommandNow(
+	TacticalEntityId actorId,
+	TacticalTraversalKind kind) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* liveActor = ResolveLiveCommandActor(actorId);
+	if (!liveActor) return InvalidCommandActorResult();
+	TacticalActor& actor = *liveActor;
+	if (kind != TacticalTraversalKind::ClimbUpRoof &&
+		kind != TacticalTraversalKind::ClimbDownRoof &&
+		kind != TacticalTraversalKind::JumpWindow)
+		return InvalidCommandDomainResult();
+	if (kind == TacticalTraversalKind::JumpWindow &&
+		(actor.pathing().pathSize() > MAX_PATH_LIST_SIZE ||
+		 actor.pathing().pathIndex() > actor.pathing().pathSize()))
+		return InvalidCommandDomainResult();
+
+	TraverseObstacleCommand command{
+		actorId, kind, SimulationCommandSource::System};
+	command.origin = TacticalTraversalOrigin::AiAction;
+	command.continuation = kind == TacticalTraversalKind::JumpWindow
+		? TacticalTraversalContinuation::CompleteAiAction
+		: TacticalTraversalContinuation::None;
+	command.eventPolicy = TacticalEventPolicy::Replicated;
+	command.expectedGrid = actor.position().gridNo();
+	command.expectedLevel = actor.position().level();
+	command.expectedDirection = actor.position().direction();
+	command.expectedAnimationState = actor.animationPlayback().state();
+	command.expectedStateFingerprint =
+		CaptureTraversalStateFingerprint(actor);
+	if (kind == TacticalTraversalKind::JumpWindow)
+	{
+		command.expectedPathIndex = actor.pathing().pathIndex();
+		command.expectedPathSize = actor.pathing().pathSize();
+		if (command.expectedPathIndex < command.expectedPathSize)
+		{
+			const std::uint16_t rawPathDirection =
+				actor.pathing().path()[command.expectedPathIndex];
+			if (rawPathDirection >= TacticalDirectionCount)
+				return InvalidCommandDomainResult();
+			command.expectedPathDirection =
+				static_cast<std::uint8_t>(rawPathDirection);
+		}
+	}
+	else
+	{
+		command.expectedActionPointCost = GetAPsToClimbRoof(
+			&actor,
+			kind == TacticalTraversalKind::ClimbDownRoof
+				? TRUE
+				: FALSE);
+		command.expectedBreathPointCost = 0;
+	}
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemPathTraverseObstacleCommandNow(
+	TacticalEntityId actorId,
+	std::uint16_t movementAnimationState) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* liveActor = ResolveLiveCommandActor(actorId);
+	if (!liveActor) return InvalidCommandActorResult();
+	TacticalActor& actor = *liveActor;
+	if (movementAnimationState >= NUMANIMATIONSTATES ||
+		(gAnimControl[movementAnimationState].uiFlags & ANIM_MOVING) == 0)
+		return InvalidCommandDomainResult();
+	if (actor.pathing().pathSize() > MAX_PATH_LIST_SIZE ||
+		actor.pathing().pathIndex() >= actor.pathing().pathSize() ||
+		actor.pathing().pathIndex() + 1 >= actor.pathing().pathSize())
+		return InvalidCommandDomainResult();
+
+	const std::uint16_t rawPathDirection =
+		actor.pathing().path()[actor.pathing().pathIndex()];
+	const std::uint16_t rawNextPathDirection =
+		actor.pathing().path()[actor.pathing().pathIndex() + 1];
+	if (rawPathDirection >= TacticalDirectionCount ||
+		rawNextPathDirection >= TacticalDirectionCount)
+		return InvalidCommandDomainResult();
+	const std::uint8_t pathDirection =
+		static_cast<std::uint8_t>(rawPathDirection);
+	const std::uint8_t nextPathDirection =
+		static_cast<std::uint8_t>(rawNextPathDirection);
+	const std::int32_t fenceGrid = NewGridNo(
+		actor.position().gridNo(), DirectionInc(pathDirection));
+	if (TileIsOutOfBounds(fenceGrid) ||
+		fenceGrid == actor.position().gridNo() ||
+		!gubWorldMovementCosts)
+		return InvalidCommandDomainResult();
+
+	TraverseObstacleCommand command{
+		actorId,
+		TacticalTraversalKind::JumpFence,
+		SimulationCommandSource::System};
+	command.origin = TacticalTraversalOrigin::PathCompletion;
+	command.continuation =
+		TacticalTraversalContinuation::ContinuePathAfterStance;
+	command.eventPolicy = TacticalEventPolicy::Replicated;
+	command.expectedGrid = actor.position().gridNo();
+	command.expectedFinalDestination =
+		actor.pathing().finalDestinationGrid();
+	command.expectedLevel = actor.position().level();
+	command.expectedDirection = actor.position().direction();
+	command.expectedAnimationState = actor.animationPlayback().state();
+	command.movementAnimationState = movementAnimationState;
+	command.expectedPathIndex = actor.pathing().pathIndex();
+	command.expectedPathSize = actor.pathing().pathSize();
+	command.expectedPathDirection = pathDirection;
+	command.expectedNextPathDirection = nextPathDirection;
+	command.expectedStateFingerprint =
+		CaptureTraversalStateFingerprint(actor);
+	command.expectedActionPointCost = ActionPointCost(
+		&actor,
+		fenceGrid,
+		static_cast<INT8>(pathDirection),
+		movementAnimationState);
+	command.expectedBreathPointCost = TerrainBreathPoints(
+		&actor,
+		fenceGrid,
+		static_cast<INT8>(pathDirection),
+		movementAnimationState);
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
 }
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(

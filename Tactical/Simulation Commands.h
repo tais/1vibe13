@@ -46,6 +46,9 @@ enum class SimulationCommandDomainError
 	InvalidPendingActionPolicy,
 	InvalidDirection,
 	InvalidTraversalKind,
+	InvalidTraversalOrigin,
+	InvalidTraversalContinuation,
+	InvalidTraversalPrecondition,
 	InvalidObjectGrid,
 	InvalidTargetActor,
 	InvalidVehicleSeat,
@@ -172,6 +175,13 @@ SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
 SimulationCommandDispatchResult TryDispatchSystemSimulationCommand(
 	SimulationCommand command) noexcept;
 
+// Path completion can run recursively while another command is being
+// executed. Playback already contains the recorded continuation, so that
+// recursive producer must not synthesize a second System command.
+bool IsReplaySimulationCommandExecutionActive() noexcept;
+bool HasPendingReplayPathTraversalCommand(
+	TacticalEntityId actor) noexcept;
+
 SimulationCommandDispatchResult TryDispatchSystemChangeStanceCommand(
 	TacticalEntityId actor,
 	std::uint8_t stance,
@@ -217,6 +227,16 @@ TryDispatchSystemApplyWeaponConfigurationCommand(
 	std::uint32_t inventoryPosition = TacticalNoInventoryPosition,
 	TacticalEventPolicy eventPolicy =
 		TacticalEventPolicy::LocalOnly) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemAiTraverseObstacleCommandNow(
+	TacticalEntityId actor,
+	TacticalTraversalKind kind) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemPathTraverseObstacleCommandNow(
+	TacticalEntityId actor,
+	std::uint16_t movementAnimationState) noexcept;
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,

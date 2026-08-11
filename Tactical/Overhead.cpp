@@ -33,7 +33,6 @@
 #include "TacticalActorDragging.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorTurncoats.h"
-#include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -1946,9 +1945,11 @@ BOOLEAN ExecuteOverhead( )
     return( TRUE );
 }
 
-static void HaltGuyFromNewGridNoBecauseOfNoAPs( TacticalActor *pSoldier )
+void HaltGuyFromNewGridNoBecauseOfNoAPs(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateStop )
 {
-    HaltMoveForSoldierOutOfPoints( pSoldier );
+    HaltMoveForSoldierOutOfPoints( pSoldier, fReplicateStop );
     pSoldier->animationIntent().clearFacingAnimation();
     pSoldier->pendingAction().clearAction();
     UnMarkMovementReserved( pSoldier );
@@ -1999,7 +2000,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
 {
     INT16                           sAPCost;
     INT16                           sBPCost;
-    INT32                          usNewGridNo, sOverFenceGridNo, sMineGridNo;
+    INT32                          usNewGridNo, sMineGridNo;
 
     if (IsJa2TacticalCombatActive() && fInitialMove )
     {
@@ -2050,6 +2051,17 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
     {
         // We have been told to jump fence....
 
+        // Playback already contains the exact recorded traversal command.
+        // This guard must precede both AP branches: the queued Replay command
+        // owns either the jump or the local no-AP halt and will validate the
+        // captured route before mutating it.
+        if ( IsReplaySimulationCommandExecutionActive() ||
+             HasPendingReplayPathTraversalCommand(
+                 GetJa2TacticalEntityId( *pSoldier ) ) )
+        {
+            return( FALSE );
+        }
+
         // Do we have APs?
         // CHRISL: Added penalty for jumping a fence while wearing a backpack
         // Do we have APs?
@@ -2074,27 +2086,11 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
 
         if ( EnoughPoints( pSoldier, sAPCost, sBPCost, FALSE )  )
         {
-            // ATE: Check for tile being clear....
-            sOverFenceGridNo = NewGridNo( usNewGridNo, DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() + 1 ] ) );
-
-            if ( HandleNextTile( pSoldier, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() + 1 ], sOverFenceGridNo, pSoldier->pathing().finalDestinationGrid() ) )
-            {
-                // We do, adjust path data....
-                pSoldier->pathing().pathIndex()++;
-                // We go two, because we really want to start moving towards the NEXT gridno,
-                // if we have any...
-
-                // LOCK PENDING ACTION COUNTER
-                pSoldier->status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
-
-                (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
-
-                // OK, jump!
-                (void)TacticalActorTraversal::
-                    beginFenceJump(*pSoldier);
-
-                pSoldier->animationIntent().continueAfterStance(2);
-            }
+            const SimulationCommandDispatchResult traversal =
+                TryDispatchSystemPathTraverseObstacleCommandNow(
+                    GetJa2TacticalEntityId( *pSoldier ), usAnimState );
+            if ( !traversal.accepted() )
+                (*pfKeepMoving ) = FALSE;
 
         }
         else
