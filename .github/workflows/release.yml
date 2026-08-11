@@ -142,6 +142,8 @@ jobs:
         shell: bash
         run: |
           set -eux
+          # macOS Bash 3.2 treats an empty array as unset under nounset; the
+          # guarded expansion below emits zero arguments when sccache is absent.
           cache_args=()
           if command -v sccache >/dev/null 2>&1; then
             cache_args+=(
@@ -159,7 +161,7 @@ jobs:
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
             -DBUILD_JA2SERVER=ON \
-            "${cache_args[@]}"
+            ${cache_args[@]+"${cache_args[@]}"}
 
       - name: Build
         shell: bash
