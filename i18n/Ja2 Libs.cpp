@@ -1,4 +1,9 @@
 #include "LibraryDataBase.h"
+
+// This table is retained for the legacy LibraryDataBase ABI only. SLF mounting
+// is owned by bfVFS, and LibraryDataBase.cpp no longer consumes this metadata.
+// Language archives therefore belong to the runtime language/package catalog,
+// not to a preprocessor-shaped legacy enum and array.
 LibraryInitHeader gGameLibaries[ ] = 
 { 
 		//Library Name					Can be	Init at start
@@ -27,34 +32,8 @@ LibraryInitHeader gGameLibaries[ ] =
 	{ "TileSets.slf",					TRUE,	TRUE },
 	{ "LoadScreens.slf",			TRUE,	TRUE },
 	{ "Intro.slf",						TRUE,	TRUE },
-
-#ifdef GERMAN
-	{ "German.slf",						FALSE, TRUE },
-#endif
-
-#ifdef POLISH
-	{ "Polish.slf",						FALSE, TRUE },
-#endif
-
-#ifdef DUTCH
-	{ "Dutch.slf",						FALSE, TRUE },
-#endif
-
-#ifdef ITALIAN
-	{ "Italian.slf",					FALSE, TRUE },
-#endif
-
-#ifdef RUSSIAN
-	{ "Russian.slf",					FALSE, TRUE },
-#endif
-
-#ifdef FRENCH
-	{ "French.slf",						FALSE, TRUE },
-#endif
-
-#ifdef CHINESE
-	{ "Chinese.slf",					FALSE, TRUE },
-#endif
 };
 
-
+static_assert(sizeof(gGameLibaries) / sizeof(gGameLibaries[0]) ==
+	NUMBER_OF_LIBRARIES,
+	"legacy library metadata and IDs must stay aligned");

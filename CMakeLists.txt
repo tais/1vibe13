@@ -331,7 +331,9 @@ foreach(lib IN LISTS Ja2_Libs)
   add_subdirectory(${lib})
 endforeach()
 
-# language library relies on Application _and_ Language preprocessor definition. very bad.
+# Define the language-neutral and legacy variant source partitions. The text
+# catalogs still consume Application and Language definitions; see the staged
+# runtime-i18n architecture for their removal contract.
 add_subdirectory(i18n)
 
 # simple function to validate Languages and Application choices
@@ -346,6 +348,16 @@ ValidateOptions("${ValidApplications}" "Applications" "${Applications}" "Applica
 
 # preprocessor definitions for Debug build, per the legacy MSBuild
 set(debugFlags $<IF:$<CONFIG:Debug>,JA2BETAVERSION;JA2TESTVERSION;DEBUG_ATTACKBUSY,>)
+
+# Archive metadata and runtime graphic selection consume neither Application
+# nor legacy language preprocessor definitions. Compile them once per build
+# configuration and reuse the exact objects in each compatibility i18n archive.
+# The remaining sources still define the legacy global text ABI and therefore
+# stay variant-specific until those globals move behind language packs.
+add_library(ja2_i18n_runtime OBJECT ${i18nCommonSrc})
+target_compile_definitions(ja2_i18n_runtime PRIVATE ${debugFlags})
+set_target_properties(ja2_i18n_runtime PROPERTIES
+  FOLDER "Language-neutral legacy objects")
 
 # SGP, Utils, and Laptop contained 128 translation units whose Release and
 # Debug/ASan objects were proven identical across JA2, UB, Map Editor, and UB
@@ -479,7 +491,9 @@ foreach(app IN LISTS ApplicationTargets)
     # language library for an application, e.g. JA2MAPEDITOR_ENGLISH_i18n
     set(language_library ${exe}_i18n)
     add_library(${language_library} STATIC)
-    target_sources(${language_library} PRIVATE ${i18nSrc})
+    target_sources(${language_library} PRIVATE
+      ${i18nVariantSrc}
+      $<TARGET_OBJECTS:ja2_i18n_runtime>)
     target_compile_definitions(${language_library} PRIVATE ${compilationFlags} ${debugFlags} ${lang})
 
     # JA2's internal static libs have cyclic symbol refs (Tactical <->

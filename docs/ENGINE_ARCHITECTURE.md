@@ -39,6 +39,16 @@ the engine must not contain SDL types in its public domain model.
   changing unrelated save layouts en masse.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
   startup-selected runtime policy.
+- Runtime language identity now has one typed, data-free catalog for all eight
+  supported languages. It owns stable configuration codes, resource prefixes,
+  legacy archive metadata, localization suffixes, and language-specific layout
+  policy; Lua-visible enum values remain unchanged. Language-neutral i18n
+  support objects compile once, while the compatibility archives still own one
+  preprocessor-selected legacy text body. The remaining 485 `Text.h` globals,
+  35 JA25 globals, application-conditioned catalog entries, and the textual
+  `ExportStrings.cpp` inclusion are explicitly staged in
+  [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
+  immutable until that text ABI is behind validated runtime packs.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been
