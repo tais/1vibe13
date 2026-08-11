@@ -1313,9 +1313,17 @@ the engine must not contain SDL types in its public domain model.
   control flow, while one idempotent clear owns all three queues. Standalone
   normal and AddressSanitizer tests pin copy isolation, schemas, ordering,
   boundaries, wrap, capacity, retry, discard, and teardown. Production
-  `Event Pump.cpp` is intentionally not cut over in this foundation slice;
-  network routing, dispatch callbacks, and game behavior remain unchanged. The
-  remaining 11 Utils translation units are deliberately still tracked as
+  `Event Pump.cpp` now binds every legacy value to one exact schema and copies
+  accepted bytes directly into that owned model. Sentinel/exact-end IDs, null
+  payloads, and bounded queue failures return through the existing BOOLEAN
+  API. `S_WINDOWHIT` uses its actual payload size. Dispatch revalidates the
+  schema and uses invocation-local compatibility records; raw containers,
+  manual payload allocation, global decode scratch state, invalidated delayed
+  references, and partial queue cleanup are gone. Headless/ASan integration
+  covers immediate, delayed, demand, discard, WindowHit size, malformed ingress,
+  diagnostics, and all-queue teardown while established gameplay callbacks and
+  optional network routing retain their public boundaries. The remaining 10 Utils
+  translation units are deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

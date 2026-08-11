@@ -346,14 +346,17 @@ Architecture ratchets keep the XMLWriter/VFS transaction, canonical spellings,
 preflight, deliberate no-op omissions, seams, tests, and this audit record in
 place.
 
-## Owned tactical event queue foundation — Event Pump Slice 1
+## Owned tactical event queue and production cutover — Event Pump Slices 1–2
 
 `TacticalEventQueueModel.h` establishes the dependency-free queue and payload
-contract that will replace the three raw `PTR` containers in `Event Pump.cpp`.
-This slice deliberately does not cut the production dispatcher over: network
-routing, gameplay callbacks, and the legacy public functions remain unchanged
-until the adapter can be migrated and regression-tested as one reviewable
-behavioral step.
+contract used by `Event Pump.cpp`. The production adapter now binds every
+dispatchable `eJA2Events` value to one `EventSchema` before routing or copying
+it. Category sentinels, the exact end value, unknown values, null payloads, and
+over-capacity work are rejected. The legacy `PTR` function boundary remains
+source compatible, but no pointer survives the call: accepted bytes enter one
+move-only `OwnedEvent` immediately. Local-and-network and demand events are
+sent to the optional network path only after their local owned enqueue has
+succeeded, avoiding divergent publication after a local allocation failure.
 
 The model gives every dispatchable legacy event an explicit `EventKind` whose
 numeric value matches `eJA2Events`; the legacy category gaps are rejected rather
@@ -361,10 +364,12 @@ than accepted as packets. An `EventSchema` pairs that kind with one exact byte
 size. Typed enqueue helpers require trivially copyable payloads, while the raw
 adapter seam accepts a pointer only long enough to validate the declared size
 and copy it into an `OwnedEvent`. Decoding requires the same kind and size, so a
-packet cannot be decoded through a different declared schema. The production
-adapter in the next slice will be the single binding from each legacy payload
-type to that schema. Owned records are move-only and no queue retains caller
-storage.
+packet cannot be decoded through a different declared schema.
+`SchemaForLegacyEvent` is the single production binding from each legacy
+payload type to that schema. In particular, `S_WINDOWHIT` now copies exactly
+`sizeof(EV_S_WINDOWHIT)`, instead of reading the larger structure-hit size past
+the caller's object. Compile-time value checks keep the legacy enumeration and
+the model vocabulary synchronized.
 
 `EventQueues` applies separate primary, delayed, and demand count capacities,
 plus per-payload and aggregate queued-byte limits. Null data, unknown kinds,
@@ -399,24 +404,36 @@ non-mutating enqueue and promotion failures, retry, discard behavior, and
 repeated complete teardown. It is a standalone C++17 target with no SDL, SGP,
 tactical, network, clock, or application dependency and runs in the Linux
 AddressSanitizer matrix. Architecture ratchets pin its dependency-free surface,
-compatibility predicate, test contract, CI target, and this staged-cutover
-record.
+compatibility predicate, test contract, CI target, and the production adapter.
+
+The production cutover removes the three raw STL containers, every `MemAlloc` /
+`MemFree` payload transfer, the expired-flag cleanup pass, and all global decode
+scratch records. Dispatch first revalidates the owned kind/size pair, then uses
+invocation-local zero-initialized compatibility records for the established
+gameplay callbacks. Queue failures reach the existing BOOLEAN API instead of
+asserting after a failed allocation. `ClearEventQueue` is now one idempotent
+release of primary, delayed, and demand ownership. `EventQueueStatistics`
+exposes bounded counts for integration diagnostics and tests.
+
+Real headless coverage queues and discards the extracted actor adapters,
+executes the obsolete/no-op miss event, promotes a delayed record, retains an
+independent demand-noise record, rejects all three category sentinels plus the
+exact end and null/network inputs, and proves complete shutdown cleanup. The
+WindowHit fixture pins its exact owned byte count and runs under ASan, directly
+covering the former stack over-read.
 
 ## Remaining Utils inventory
 
-The following 11 translation units are compiled and covered by the general
+The following 10 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
-- Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
-  `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
+- Input and runtime control: `Cursors.cpp`, `KeyMap.cpp`, `Timer Control.cpp`,
+  `Utilities.cpp`, and `Win Util.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-Input/runtime control and the offline image tools are the next audit batches.
-The next Event Pump slice adapts the production schemas and dispatcher to the
-owned model, removes the global decode scratch records, and proves network,
-immediate, delayed weapon-hit, demand-noise, discard, and shutdown behavior
-before the raw containers are deleted.
+The remaining runtime-control and offline image-tool files are the next audit
+batches.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

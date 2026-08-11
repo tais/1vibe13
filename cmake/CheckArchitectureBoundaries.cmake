@@ -5862,10 +5862,9 @@ foreach(required_item_xml_writer_headless_fragment IN ITEMS
   endif()
 endforeach()
 
-# Event Pump's replacement queue contract is dependency-free and owns packet
-# bytes before the production dispatcher is migrated. Keep the three queue
-# semantics, strict legacy expiry rule, bounded failure surface, and staged
-# cutover independently executable under ASan.
+# Event Pump's queue contract is dependency-free and owns packet bytes. Keep
+# the three queue semantics, strict legacy expiry rule, bounded failure surface,
+# production schema adapter, and integration cutover executable under ASan.
 file(READ "${SOURCE_ROOT}/Utils/TacticalEventQueueModel.h"
   tactical_event_queue_model_contents)
 foreach(required_tactical_event_queue_model_fragment IN ITEMS
@@ -5942,6 +5941,79 @@ foreach(required_tactical_event_queue_test_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/Utils/Event Pump.cpp"
+  tactical_event_pump_source_contents)
+file(READ "${SOURCE_ROOT}/Utils/Event Pump.h"
+  tactical_event_pump_header_contents)
+foreach(required_tactical_event_pump_source_fragment IN ITEMS
+    "#include \"TacticalEventQueueModel.h\""
+    "constexpr QueueLimits EventQueueLimits"
+    "static_assert(S_WINDOWHIT == static_cast<UINT32>(EventKind::WindowHit))"
+    "EventSchema::For<EV_S_WINDOWHIT>(EventKind::WindowHit)"
+    "pEventData == nullptr"
+    "gEventQueues.enqueuePrimary("
+    "gEventQueues.enqueueDemand("
+    "gEventQueues.drainPrimaryAndExpired("
+    "gEventQueues.drainDemand("
+    "*expected != event.schema()"
+    "event.decode<Payload>("
+    "gEventQueues.clear()"
+    "GetEventQueueStatistics()")
+  string(FIND "${tactical_event_pump_source_contents}"
+    "${required_tactical_event_pump_source_fragment}"
+    required_tactical_event_pump_source_position)
+  if(required_tactical_event_pump_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Owned production Event Pump lost '${required_tactical_event_pump_source_fragment}'")
+  endif()
+endforeach()
+foreach(retired_tactical_event_pump_source_fragment IN ITEMS
+    "struct EVENT"
+    "MemAlloc("
+    "MemFree("
+    "memcpy("
+    "std::queue<"
+    "hEventQueue"
+    "hDelayEventQueue"
+    "hDemandEventQueue"
+    "EVENT_EXPIRED"
+    "SChangeState;"
+    "SWindowHit;"
+    "SNoise;")
+  string(FIND "${tactical_event_pump_source_contents}"
+    "${retired_tactical_event_pump_source_fragment}"
+    retired_tactical_event_pump_source_position)
+  if(NOT retired_tactical_event_pump_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Production Event Pump restored raw/manual/global state '${retired_tactical_event_pump_source_fragment}'")
+  endif()
+endforeach()
+foreach(required_tactical_event_pump_header_fragment IN ITEMS
+    "struct EventQueueStatistics"
+    "UINT32 primary = 0;"
+    "UINT32 delayed = 0;"
+    "UINT32 demand = 0;"
+    "EventQueueStatistics GetEventQueueStatistics();")
+  string(FIND "${tactical_event_pump_header_contents}"
+    "${required_tactical_event_pump_header_fragment}"
+    required_tactical_event_pump_header_position)
+  if(required_tactical_event_pump_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Production Event Pump diagnostics lost '${required_tactical_event_pump_header_fragment}'")
+  endif()
+endforeach()
+foreach(required_tactical_event_pump_headless_fragment IN ITEMS
+    "owned Event Pump binds WindowHit to its exact payload size"
+    "owned Event Pump rejects malformed packets and clears primary delayed and demand queues")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_tactical_event_pump_headless_fragment}"
+    required_tactical_event_pump_headless_position)
+  if(required_tactical_event_pump_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Production Event Pump headless coverage lost '${required_tactical_event_pump_headless_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -5952,7 +6024,7 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Data persistence foundation"
     "Indexed localization XML boundary"
     "Item XML transaction and writer closure"
-    "Owned tactical event queue foundation"
+    "Owned tactical event queue and production cutover"
     "TacticalEventQueueModel.h"
     "now - scheduledAt > delay"
     "tactical_event_queue_model_tests"
@@ -5960,7 +6032,7 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "authored nonzero-class item"
     "invalid UTF-8"
     "Remaining Utils inventory"
-    "following 11 translation units"
+    "following 10 translation units"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
     "same-directory sibling"
@@ -5989,13 +6061,14 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "ItemDataStagingModel"
     "TacticalEventQueueModel"
     "strict unsigned `now - scheduledAt > delay`"
-    "`Event Pump.cpp` is intentionally not cut over"
+    "`Event Pump.cpp` now binds every legacy value"
+    "`S_WINDOWHIT` uses its actual payload size"
     "sparse authored nonzero-class records"
     "invocation-local character buffer"
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"
-    "remaining 11 Utils"
+    "remaining 10 Utils"
     "all four 64-bit masks exact"
     "installed-data"
     "exact representable inverse"
