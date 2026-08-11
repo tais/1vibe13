@@ -716,6 +716,11 @@ UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOL
 							pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 							// Burst size
 							gbCtHBurstCount = GetShotsPerBurst(pInHand);
+							if (gbCtHBurstCount > CTH_BURST_SAMPLE_CAPACITY)
+							{
+								gbCtHBurstCount = static_cast<UINT8>(
+									CTH_BURST_SAMPLE_CAPACITY);
+							}
 							UINT8 i, saveDoBurst;
 							// Save original burst value (should be 1 always, before the burst has been fired, but
 							// this is just a failsafe

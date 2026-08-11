@@ -536,10 +536,10 @@ The audit closed several unchecked fixed-array paths. Negative and exact-end
 mouse levels no longer index the two-level offset table; foreign and exact-end
 cursor/surface IDs are rejected by every animator and mutator. Animated
 surfaces recover from zero or stale frame metadata instead of incrementing or
-narrowing a foreign frame into a valid subimage. The CTH renderer clamps the
-tactical shot count to `gbCtH[10]`, keeps all coordinate arithmetic signed and
-overflow-safe, clips every write to the fixed 64-by-64 mouse surface, and
-treats a missing/invalid lock as a contained failure. The same scoped lock
+narrowing a foreign frame into a valid subimage. The tactical producer and CTH
+renderer clamp the shot count to `gbCtH[10]`, keep all coordinate arithmetic
+signed and overflow-safe, clip every write to the fixed 64-by-64 mouse surface,
+and treat a missing/invalid lock as a contained failure. The same scoped lock
 balances every successful mouse-buffer borrow. Localized location labels are
 now data arguments rather than `printf` format strings, and oversized AP-shade
 requests clamp to the established final red shade.
@@ -553,9 +553,13 @@ dereference. Cursor geometry is staged and published only after every
 composite validates. Surfaces newly acquired by a failed composite load roll
 back in reverse order; successfully committed surfaces remain owned by the
 database cache until `CursorDatabaseClear`. External video objects remain
-explicitly borrowed and are unloaded before their borrowed pointer is removed.
-Database initialization and clearing also reset active geometry and delayed-
-cursor bookkeeping, so a new lifetime cannot inherit stale presentation state.
+explicitly borrowed; replacement rolls back if a companion asset fails, and a
+borrowed pointer is marked unloaded before it is removed without evicting
+regular companion assets. A full database clear drops every borrowed reference
+without attempting to destroy its externally owned object.
+Database replacement first retires the prior cache; initialization and clearing
+also reset active geometry and delayed-cursor bookkeeping, so a new lifetime
+cannot inherit stale presentation state.
 
 This layer contains no SDL or operating-system cursor calls. It consumes the
 legacy video lock/blit interface; `sdl_video.cpp` alone owns the SDL3 window and

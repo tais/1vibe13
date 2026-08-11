@@ -5516,6 +5516,20 @@ foreach(retired_utils_cursor_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/Tactical/UI Cursors.cpp"
+  runtime_tactical_cursor_producer_contents)
+foreach(required_tactical_cursor_producer_fragment IN ITEMS
+    "gbCtHBurstCount > CTH_BURST_SAMPLE_CAPACITY"
+    "CTH_BURST_SAMPLE_CAPACITY);")
+  string(FIND "${runtime_tactical_cursor_producer_contents}"
+    "${required_tactical_cursor_producer_fragment}"
+    required_tactical_cursor_producer_position)
+  if(required_tactical_cursor_producer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical CTH producer lost '${required_tactical_cursor_producer_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/sgp/Cursor Control.cpp"
   runtime_sgp_cursor_gateway_contents)
 foreach(required_sgp_cursor_gateway_fragment IN ITEMS
@@ -5524,10 +5538,12 @@ foreach(required_sgp_cursor_gateway_fragment IN ITEMS
     "class CursorFileLoadTransaction"
     "HasValidCompositeCount"
     "TryGetRegion"
+    "if (gfCursorDatabaseInit) CursorDatabaseClear()"
     "CursorData stagedCursor"
     "guiOldSetCursor = VIDEO_NO_CURSOR"
     "if (!LoadCursorData(uiCursorIndex)) return FALSE"
-    "UnloadCursorData(uiCursorIndex)")
+    "const CursorData cursorSnapshot = cursor"
+    "gpCursorFileDatabase[snapshot.index] = snapshot.value")
   string(FIND "${runtime_sgp_cursor_gateway_contents}"
     "${required_sgp_cursor_gateway_fragment}"
     required_sgp_cursor_gateway_position)
@@ -5583,7 +5599,10 @@ foreach(required_utils_cursor_headless_fragment IN ITEMS
     "cursor gateway rejects negative and exact-end mouse levels without publication"
     "cursor gateways reject exact-end catalogue IDs before array or resource access"
     "cursor loads normalize stale animated frames before 16-bit subimage selection"
-    "missing cursor assets fail without publishing or dereferencing a partial load")
+    "cursor database clear drops borrowed references without destroying them"
+    "borrowed cursor replacement rolls back when a companion asset fails"
+    "missing cursor assets fail without publishing or dereferencing a partial load"
+    "cursor database replacement retires the previous cache lifetime")
   string(FIND "${runtime_utils_ui_headless_contents}"
     "${required_utils_cursor_headless_fragment}"
     required_utils_cursor_headless_position)

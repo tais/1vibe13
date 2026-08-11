@@ -139,7 +139,8 @@ BOOLEAN BltToMouseCursorFromVObject( HVOBJECT hVObject, UINT16 usVideoObjectSubI
 		NULL);
 }
 
-BOOLEAN BltToMouseCursorFromVObjectWithOutline( HVOBJECT hVObject, UINT16 usVideoObjectSubIndex, INT16 usXPos, INT16 usYPos )
+BOOLEAN BltToMouseCursorFromVObjectWithOutline(
+	HVOBJECT hVObject, UINT16 usVideoObjectSubIndex, INT16, INT16 )
 {
 	ETRLEObject region{};
 	if (!TryGetRegion(hVObject, usVideoObjectSubIndex, region)) return FALSE;
@@ -173,6 +174,7 @@ void InitCursorDatabase(
 	std::size_t dataFileCount,
 	std::size_t cursorCount )
 {
+	if (gfCursorDatabaseInit) CursorDatabaseClear();
 	gpCursorFileDatabase = pCursorFileData;
 	gpCursorDatabase = pCursorData;
 	gusNumDataFiles = dataFileCount;
@@ -325,7 +327,7 @@ BOOLEAN LoadCursorData(UINT32 uiCursorIndex)
 	}
 	if ( pCurData->sOffsetX == RIGHT_CURSOR )
 	{
-		pCurData->sOffsetX = pCurData->usWidth;
+		pCurData->sOffsetX = static_cast<INT16>(pCurData->usWidth);
 	}
 	if ( pCurData->sOffsetX == LEFT_CURSOR )
 	{
@@ -338,7 +340,7 @@ BOOLEAN LoadCursorData(UINT32 uiCursorIndex)
 	}
 	if ( pCurData->sOffsetY == BOTTOM_CURSOR )
 	{
-		pCurData->sOffsetY = pCurData->usHeight;
+		pCurData->sOffsetY = static_cast<INT16>(pCurData->usHeight);
 	}
 	if ( pCurData->sOffsetY == TOP_CURSOR )
 	{
@@ -427,17 +429,17 @@ void	CursorDatabaseClear(void)
 
 	for (std::size_t uiIndex = 0; uiIndex < gusNumDataFiles; uiIndex++)
 	{
-		if (gpCursorFileDatabase[uiIndex].fLoaded == TRUE)
+		CursorFileData& file = gpCursorFileDatabase[uiIndex];
+		if (file.fLoaded == TRUE &&
+			(file.ubFlags & USE_EXTERN_VO_CURSOR) == 0)
 		{
-			if ( !( gpCursorFileDatabase[ uiIndex ].ubFlags & USE_EXTERN_VO_CURSOR ) )
-			{
-				DeleteVideoObjectFromIndex( gpCursorFileDatabase[uiIndex].uiIndex);
-				gpCursorFileDatabase[uiIndex].uiIndex = 0;
-				gpCursorFileDatabase[uiIndex].hVObject = nullptr;
-			}
-
-			gpCursorFileDatabase[uiIndex].fLoaded = FALSE;
+			DeleteVideoObjectFromIndex(file.uiIndex);
 		}
+		// Owned handles have just been destroyed; borrowed handles are simply
+		// forgotten. Neither kind may survive a database lifetime boundary.
+		file.uiIndex = 0;
+		file.hVObject = nullptr;
+		file.fLoaded = FALSE;
 	}
 	guiOldSetCursor = VIDEO_NO_CURSOR;
 	guiDelayTimer = 0;
@@ -769,18 +771,37 @@ BOOLEAN SetExternVOData( UINT32 uiCursorIndex, HVOBJECT hVObject, UINT16 usSubIn
 
 	CursorData& cursor = gpCursorDatabase[uiCursorIndex];
 	if (!HasValidCompositeCount(cursor)) return FALSE;
-	bool hasExternalComposite = false;
+	struct ExternalFileSnapshot
+	{
+		UINT32 index = 0;
+		CursorFileData value{};
+	};
+	std::array<ExternalFileSnapshot, MAX_COMPOSITES> fileSnapshots{};
+	std::size_t snapshotCount = 0;
 	for (UINT32 index = 0; index < cursor.usNumComposites; ++index)
 	{
 		const CursorImage& image = cursor.Composites[index];
 		if (!IsCursorFileIndex(image.uiFileIndex)) return FALSE;
-		if (gpCursorFileDatabase[image.uiFileIndex].ubFlags &
-			USE_EXTERN_VO_CURSOR)
-			hasExternalComposite = true;
-	}
-	if (!hasExternalComposite) return FALSE;
+		const CursorFileData& file = gpCursorFileDatabase[image.uiFileIndex];
+		if ((file.ubFlags & USE_EXTERN_VO_CURSOR) == 0) continue;
 
-	UnloadCursorData(uiCursorIndex);
+		bool alreadyTracked = false;
+		for (std::size_t saved = 0; saved < snapshotCount; ++saved)
+		{
+			if (fileSnapshots[saved].index == image.uiFileIndex)
+			{
+				alreadyTracked = true;
+				break;
+			}
+		}
+		if (!alreadyTracked)
+		{
+			fileSnapshots[snapshotCount++] = {image.uiFileIndex, file};
+		}
+	}
+	if (snapshotCount == 0) return FALSE;
+
+	const CursorData cursorSnapshot = cursor;
 	for (UINT32 index = 0; index < cursor.usNumComposites; ++index)
 	{
 		CursorImage& image = cursor.Composites[index];
@@ -792,7 +813,18 @@ BOOLEAN SetExternVOData( UINT32 uiCursorIndex, HVOBJECT hVObject, UINT16 usSubIn
 			image.uiSubIndex = usSubIndex;
 		}
 	}
-	return LoadCursorData(uiCursorIndex);
+	if (LoadCursorData(uiCursorIndex)) return TRUE;
+
+	// Replacing a borrowed video object must be transactional too. A regular
+	// companion surface can still fail to load after the borrowed object has
+	// validated, so restore the previous pointer, load state, and subindices.
+	cursor = cursorSnapshot;
+	while (snapshotCount != 0)
+	{
+		const ExternalFileSnapshot& snapshot = fileSnapshots[--snapshotCount];
+		gpCursorFileDatabase[snapshot.index] = snapshot.value;
+	}
+	return FALSE;
 }
 
 
@@ -804,7 +836,6 @@ void RemoveExternVOData( UINT32 uiCursorIndex )
 	for (UINT32 index = 0; index < cursor.usNumComposites; ++index)
 		if (!IsCursorFileIndex(cursor.Composites[index].uiFileIndex)) return;
 
-	UnloadCursorData(uiCursorIndex);
 	for (UINT32 index = 0; index < cursor.usNumComposites; ++index)
 	{
 		CursorImage& image = cursor.Composites[index];
@@ -812,7 +843,11 @@ void RemoveExternVOData( UINT32 uiCursorIndex )
 
 		if (file.ubFlags & USE_EXTERN_VO_CURSOR)
 		{
-			file.hVObject = NULL;
+			// Borrowed objects are never destroyed here. Mark the cache entry
+			// unavailable before dropping the pointer; regular companion assets
+			// remain owned and reusable by the cursor database.
+			file.fLoaded = FALSE;
+			file.hVObject = nullptr;
 		}
 
 	}
