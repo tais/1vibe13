@@ -520,6 +520,24 @@ int main()
 	check(worldSession.snapshot().turn ==
 			TacticalWorldSession::Snapshot::Turn{false, false, 4, 0},
 		"tactical turn transitions update one runtime-owned value state");
+	worldSession.restoreCreatureQuoteState({true, true, true, 10, 1000});
+	check(!worldSession.creatureTenseQuoteDue(11000) &&
+		worldSession.creatureTenseQuoteDue(11001),
+		"creature quote deadlines preserve the legacy strict boundary");
+	worldSession.resetCreatureEncounterFlags();
+	check(worldSession.snapshot().creatureQuote ==
+			TacticalWorldSession::Snapshot::CreatureQuote{
+				false, false, false, 10, 1000},
+		"new encounters reset quote flags without shifting the existing clock");
+	worldSession.recordCreatureTenseQuoteTime(
+		std::numeric_limits<std::uint32_t>::max() - 5);
+	worldSession.setCreatureTenseQuoteDelay(0);
+	check(worldSession.creatureTenseQuoteDue(3),
+		"creature quote deadlines retain unsigned clock-wrap behavior");
+	worldSession.resetCreatureQuoteState();
+	check(worldSession.snapshot().creatureQuote ==
+			TacticalWorldSession::Snapshot::CreatureQuote{},
+		"tactical-session reset clears creature narrative state atomically");
 	check(&legacyBraceRuntime.tacticalWorldSession() ==
 		&legacyBraceRuntime.tacticalWorldSession(),
 		"EngineRuntime owns one stable tactical world session");

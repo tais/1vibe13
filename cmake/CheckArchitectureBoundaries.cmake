@@ -13092,6 +13092,50 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endif()
 endforeach()
 
+# Creature encounter quote state is another TacticalWorldSession domain. Its
+# five former TacticalStatusType fields must not return as writable mirrors;
+# application code supplies random delays and quote effects through the narrow
+# adapter while persistence retains the established field order.
+set(retired_creature_quote_fields
+  fSaidCreatureFlavourQuote
+  fHaveSeenCreature
+  fSaidCreatureSmellQuote
+  sCreatureTenseQuoteDelay
+  uiCreatureTenseQuoteLastUpdate)
+foreach(source_file IN LISTS world_state_declaration_files)
+  file(READ "${source_file}" contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    creature_quote_executable "${contents}")
+  foreach(retired_field IN LISTS retired_creature_quote_fields)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_field}([^A-Za-z0-9_]|$)"
+      retired_creature_quote_field "${creature_quote_executable}")
+    if(retired_creature_quote_field)
+      message(FATAL_ERROR
+        "Retired creature-quote field '${retired_field}' returned in ${source_file}; use TacticalWorldSession through TacticalWorldAdapter")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(creature_quote_contract IN ITEMS
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|creatureTenseQuoteDue"
+    "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp|ResetJa2TacticalCreatureEncounterFlags"
+    "${SOURCE_ROOT}/Strategic/strategicmap.cpp|SetJa2TacticalCreatureTenseQuoteDelay"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|RecordJa2TacticalCreatureTenseQuoteTime"
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp|RestoreJa2TacticalCreatureQuoteState"
+    "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp|creature quote timing uses the runtime-owned strict deadline")
+  string(REPLACE "|" ";" creature_quote_parts "${creature_quote_contract}")
+  list(GET creature_quote_parts 0 creature_quote_file)
+  list(GET creature_quote_parts 1 creature_quote_fragment)
+  file(READ "${creature_quote_file}" creature_quote_contents)
+  string(FIND "${creature_quote_contents}" "${creature_quote_fragment}"
+    creature_quote_fragment_position)
+  if(creature_quote_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Creature-quote session contract lost '${creature_quote_fragment}' in ${creature_quote_file}")
+  endif()
+endforeach()
+
 # Campaign time identity is owned solely by EngineRuntime's
 # CampaignClockSession. These former writable scalars have been retired; the
 # established game reads value accessors backed by the session instead.

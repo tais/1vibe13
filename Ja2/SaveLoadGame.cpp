@@ -6899,25 +6899,32 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 }
 
 
-// Portable (save-format v2) field list for gTacticalStatus. CHAR16
+// Portable (save-format v2) field list for the tactical-status compatibility
+// section. Runtime-owned turn and creature-quote values retain their exact
+// legacy positions through TacticalStatusPersistenceFields. CHAR16
 // zTopMessageString via wstr; SoldierID fields via their UINT16 .i; the
 // scalar-only TacticalTeamType Team[] stays a byte block (deterministic
 // layout on our targets). Replaces the legacy raw-blob save / ReadFieldByField
 // load pair.
-struct TacticalTurnPersistenceFields
+struct TacticalStatusPersistenceFields
 {
 	UINT32 flags = 0;
 	UINT8 currentTeam = 0;
 	UINT8 pendingCombatActions = 0;
+	BOOLEAN saidCreatureFlavourQuote = FALSE;
+	BOOLEAN hasSeenCreature = FALSE;
+	BOOLEAN saidCreatureSmellQuote = FALSE;
+	UINT16 creatureTenseQuoteDelay = 0;
+	UINT32 creatureTenseQuoteLastUpdate = 0;
 };
 
 template<class Ar> static void XferTacticalStatus(
-	Ar& ar, TacticalStatusType& s, TacticalTurnPersistenceFields& turn )
+	Ar& ar, TacticalStatusType& s, TacticalStatusPersistenceFields& state )
 {
 	int i;
-	ar.u32(turn.flags);
+	ar.u32(state.flags);
 	ar.bytes(&s.Team, sizeof(s.Team));
-	ar.u8 (turn.currentTeam);
+	ar.u8 (state.currentTeam);
 	ar.i32(s.sSlideTarget);
 	ar.i16(s.sSlideReason_UNUSED);
 	ar.u32(s.uiTimeSinceMercAIStart);
@@ -6948,7 +6955,7 @@ template<class Ar> static void XferTacticalStatus(
 	ar.u16(s.ubEnemySightingOnTheirTurnPlayerID.i);
 	ar.boolean(s.fEnemySightingOnTheirTurn);
 	ar.boolean(s.fAutoBandageMode);
-	ar.u8 (turn.pendingCombatActions);
+	ar.u8 (state.pendingCombatActions);
 	ar.i8 (s.bNumEnemiesFoughtInBattleUnused);
 	ar.u16(s.ubEngagedInConvFromActionMercID);
 	ar.u16(s.usTactialTurnLimitCounter);
@@ -6965,8 +6972,8 @@ template<class Ar> static void XferTacticalStatus(
 	for (i = 0; i < NUM_PANIC_TRIGGERS; ++i) ar.i8 (s.bPanicTriggerIsAlarm[i]);
 	for (i = 0; i < NUM_PANIC_TRIGGERS; ++i) ar.u8 (s.ubPanicTolerance[i]);
 	ar.boolean(s.fAtLeastOneGuyOnMultiSelect);
-	ar.boolean(s.fSaidCreatureFlavourQuote);
-	ar.boolean(s.fHaveSeenCreature);
+	ar.boolean(state.saidCreatureFlavourQuote);
+	ar.boolean(state.hasSeenCreature);
 	ar.boolean(s.fKilledEnemyOnAttack);
 	ar.u16(s.ubEnemyKilledOnAttack);
 	ar.i8 (s.bEnemyKilledOnAttackLevel);
@@ -6974,7 +6981,7 @@ template<class Ar> static void XferTacticalStatus(
 	ar.boolean(s.fItemsSeenOnAttack);
 	ar.boolean(s.ubItemsSeenOnAttackSoldier);
 	ar.boolean(s.fBeenInCombatOnce);
-	ar.boolean(s.fSaidCreatureSmellQuote);
+	ar.boolean(state.saidCreatureSmellQuote);
 	ar.u32(s.usItemsSeenOnAttackGridNo);
 	ar.boolean(s.fLockItemLocators);
 	ar.u8 (s.ubLastQuoteSaid);
@@ -7009,8 +7016,8 @@ template<class Ar> static void XferTacticalStatus(
 	ar.boolean(s.fHasEnteredCombatModeSinceEntering);
 	ar.boolean(s.fDontAddNewCrows);
 	ar.u8 (s.ubMorePadding);
-	ar.u16(s.sCreatureTenseQuoteDelay);
-	ar.u32(s.uiCreatureTenseQuoteLastUpdate);
+	ar.u16(state.creatureTenseQuoteDelay);
+	ar.u32(state.creatureTenseQuoteLastUpdate);
 	ar.u16(s.ubLastRequesterSurgeryTargetID.i);
 	ar.u8 (s.ubInterruptPending);
 	ar.boolean(s.ubDisablePlayerInterrupts);
@@ -7025,13 +7032,23 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 
 	//write the gTacticalStatus to the saved game file (portable v2)
 	{
-		TacticalTurnPersistenceFields turn{
+		const TacticalWorldSession::Snapshot::CreatureQuote& creatureQuote =
+			CaptureJa2TacticalCreatureQuote();
+		TacticalStatusPersistenceFields state{
 			CaptureJa2TacticalStatusFlags(),
 			GetJa2TacticalCurrentTeam(),
-			CaptureJa2SerializedPendingCombatActions()};
+			CaptureJa2SerializedPendingCombatActions(),
+			static_cast<BOOLEAN>(
+				creatureQuote.saidFlavourQuote ? TRUE : FALSE),
+			static_cast<BOOLEAN>(
+				creatureQuote.hasSeenCreature ? TRUE : FALSE),
+			static_cast<BOOLEAN>(
+				creatureQuote.saidSmellQuote ? TRUE : FALSE),
+			creatureQuote.tenseDelaySeconds,
+			creatureQuote.lastTenseQuoteMilliseconds};
 		SaveWriter w(hFile);
 		SaveFieldWriter ar(w);
-		XferTacticalStatus(ar, gTacticalStatus, turn);
+		XferTacticalStatus(ar, gTacticalStatus, state);
 		if( !w.good() )
 		{
 			return(FALSE);
@@ -7084,17 +7101,23 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 	INT8 loadedSectorZ = -1;
 
 	//Read the gTacticalStatus from the saved game file (portable v2)
-	TacticalTurnPersistenceFields turn;
+	TacticalStatusPersistenceFields state;
 	{
 		SaveReader r(hFile);
 		SaveFieldReader ar(r);
-		XferTacticalStatus(ar, gTacticalStatus, turn);
+		XferTacticalStatus(ar, gTacticalStatus, state);
 		if( !r.good() ) {
 			return(FALSE);
 		}
 	}
 	RestoreJa2TacticalTurnState(
-		turn.flags, turn.currentTeam, turn.pendingCombatActions);
+		state.flags, state.currentTeam, state.pendingCombatActions);
+	RestoreJa2TacticalCreatureQuoteState({
+		state.saidCreatureFlavourQuote != FALSE,
+		state.hasSeenCreature != FALSE,
+		state.saidCreatureSmellQuote != FALSE,
+		state.creatureTenseQuoteDelay,
+		state.creatureTenseQuoteLastUpdate});
 
 //	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
 //		gTacticalStatus.Team[idx] = savedTeamSettings[idx];

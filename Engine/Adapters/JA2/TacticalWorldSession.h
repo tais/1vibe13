@@ -50,11 +50,37 @@ public:
 			}
 		};
 
+		// Tactical-world-local narrative timing. The application still selects
+		// the quote and supplies randomized delays, while the runtime owns the
+		// state and wrap-safe deadline decision. These values retain their
+		// established save positions through the JA2 persistence adapter.
+		struct CreatureQuote
+		{
+			bool saidFlavourQuote = false;
+			bool hasSeenCreature = false;
+			bool saidSmellQuote = false;
+			std::uint16_t tenseDelaySeconds = 0;
+			std::uint32_t lastTenseQuoteMilliseconds = 0;
+
+			friend bool operator==(
+				const CreatureQuote& lhs,
+				const CreatureQuote& rhs) noexcept
+			{
+				return lhs.saidFlavourQuote == rhs.saidFlavourQuote &&
+					lhs.hasSeenCreature == rhs.hasSeenCreature &&
+					lhs.saidSmellQuote == rhs.saidSmellQuote &&
+					lhs.tenseDelaySeconds == rhs.tenseDelaySeconds &&
+					lhs.lastTenseQuoteMilliseconds ==
+						rhs.lastTenseQuoteMilliseconds;
+			}
+		};
+
 		Sector sector;
 		bool loaded = false;
 		std::uint64_t worldGeneration = 0;
 		std::uint64_t turnSerial = 0;
 		Turn turn;
+		CreatureQuote creatureQuote;
 	};
 
 	const Snapshot& snapshot() const noexcept { return state_; }
@@ -87,6 +113,38 @@ public:
 	void resetCombatActions() noexcept
 	{
 		state_.turn.pendingCombatActions = 0;
+	}
+
+	void resetCreatureQuoteState() noexcept
+	{
+		state_.creatureQuote = Snapshot::CreatureQuote{};
+	}
+	void resetCreatureEncounterFlags() noexcept
+	{
+		state_.creatureQuote.saidFlavourQuote = false;
+		state_.creatureQuote.hasSeenCreature = false;
+		state_.creatureQuote.saidSmellQuote = false;
+	}
+	void setCreatureTenseQuoteDelay(std::uint16_t delaySeconds) noexcept
+	{
+		state_.creatureQuote.tenseDelaySeconds = delaySeconds;
+	}
+	bool creatureTenseQuoteDue(std::uint32_t nowMilliseconds) const noexcept
+	{
+		return nowMilliseconds -
+			state_.creatureQuote.lastTenseQuoteMilliseconds >
+			static_cast<std::uint32_t>(
+				state_.creatureQuote.tenseDelaySeconds) * 1000U;
+	}
+	void recordCreatureTenseQuoteTime(
+		std::uint32_t nowMilliseconds) noexcept
+	{
+		state_.creatureQuote.lastTenseQuoteMilliseconds = nowMilliseconds;
+	}
+	void restoreCreatureQuoteState(
+		Snapshot::CreatureQuote state) noexcept
+	{
+		state_.creatureQuote = state;
 	}
 
 	// Preserve the legacy generation sequence: zero is reserved, and wrapping

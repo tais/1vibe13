@@ -2315,10 +2315,8 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 		}
 
 		// ATE; Reset some flags for creature sayings....
-		gTacticalStatus.fSaidCreatureFlavourQuote = FALSE;
-		gTacticalStatus.fHaveSeenCreature = FALSE;
+		ResetJa2TacticalCreatureEncounterFlags();
 		gTacticalStatus.fBeenInCombatOnce = FALSE;
-		gTacticalStatus.fSaidCreatureSmellQuote = FALSE;
 		ResetMultiSelection( );
 
 		// ATE: Decide if we can have crows here....
@@ -2330,7 +2328,8 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			UpdateJerryMiloInInitialSector( );
 		}
 		// Adjust delay for tense quote
-		gTacticalStatus.sCreatureTenseQuoteDelay = (INT16)(10 + Random( 20 ));
+		SetJa2TacticalCreatureTenseQuoteDelay(
+			static_cast<UINT16>(10 + Random(20)));
 
 		{
 			INT16 sWarpWorldX;

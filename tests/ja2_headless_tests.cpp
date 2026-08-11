@@ -7839,6 +7839,23 @@ int main( int, char** )
 		       ( gTacticalStatus.uiFlags & (TURNBASED | INCOMBAT) ) == 0,
 		       "save/bootstrap restoration publishes tactical battle values into the session" );
 
+		RestoreJa2TacticalCreatureQuoteState(
+			{ true, true, true, 10, 1000 } );
+		CHECK( !IsJa2TacticalCreatureTenseQuoteDue( 11000 ) &&
+		       IsJa2TacticalCreatureTenseQuoteDue( 11001 ),
+		       "creature quote timing uses the runtime-owned strict deadline" );
+		ResetJa2TacticalCreatureEncounterFlags();
+		CHECK( CaptureJa2TacticalCreatureQuote() ==
+		           ( TacticalWorldSession::Snapshot::CreatureQuote{
+		               false, false, false, 10, 1000 } ),
+		       "encounter setup resets quote flags without shifting its clock" );
+		RecordJa2TacticalCreatureTenseQuoteTime( 11001 );
+		SetJa2TacticalCreatureTenseQuoteDelay( 75 );
+		CHECK( CaptureJa2TacticalCreatureQuote() ==
+		           ( TacticalWorldSession::Snapshot::CreatureQuote{
+		               false, false, false, 75, 11001 } ),
+		       "creature quote completion publishes its time and next delay" );
+
 		TacticalWorldSession::Snapshot restoredProjectionState;
 		restoredProjectionState.sector = { 8, 7, 1 };
 		restoredProjectionState.loaded = true;

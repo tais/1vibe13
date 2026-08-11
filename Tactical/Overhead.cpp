@@ -571,6 +571,7 @@ BOOLEAN InitOverhead( )
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
     soldiers.initializeSlots();
     memset( &gTacticalStatus, 0, sizeof( TacticalStatusType ) );
+    ResetJa2TacticalCreatureQuoteState();
     UINT8 maxteams;
     if (!is_networked)
         maxteams = MAXTEAMS_SP;
@@ -10546,9 +10547,11 @@ void HandleCreatureTenseQuote( )
             {
                 uiTime = GetJA2Clock( );
 
-                if ( ( uiTime - gTacticalStatus.uiCreatureTenseQuoteLastUpdate ) > (UINT32)( gTacticalStatus.sCreatureTenseQuoteDelay * 1000 ) )
+                if ( IsJa2TacticalCreatureTenseQuoteDue(
+                        static_cast<UINT32>(uiTime)) )
                 {
-                    gTacticalStatus.uiCreatureTenseQuoteLastUpdate = uiTime;
+                    RecordJa2TacticalCreatureTenseQuoteTime(
+                        static_cast<UINT32>(uiTime));
 
                     // set up soldier ptr as first element in mercptrs list
                     SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
@@ -10577,7 +10580,8 @@ void HandleCreatureTenseQuote( )
                     }
 
                     // Adjust delay....
-                    gTacticalStatus.sCreatureTenseQuoteDelay = (INT16)( 60 + Random( 60 ) );
+                    SetJa2TacticalCreatureTenseQuoteDelay(
+                        static_cast<UINT16>(60 + Random(60)));
 
                 }
             }

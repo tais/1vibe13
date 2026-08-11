@@ -805,7 +805,10 @@ the engine must not contain SDL types in its public domain model.
   and headless tests on the same contract.
 - `TacticalWorldSession` owns loaded sector identity, world generation,
   turn serial, turn-based/combat mode, current team, and the pending
-  asynchronous combat-action count as one runtime value.
+  asynchronous combat-action count as one runtime value. It also owns the
+  creature-encounter quote flags, strict tense-quote deadline, and next delay;
+  JA2 still selects the quote and supplies randomized delays through the
+  adapter, so engine state never samples the application RNG or wall clock.
   World loading, tactical combat transitions, team turns, multiplayer turn
   messages, editor mode, and save restoration pass through the application
   adapter. The duplicate world-loaded and generation scalars have been deleted;
@@ -819,7 +822,11 @@ the engine must not contain SDL types in its public domain model.
   paths, and world teardown begin, complete, or reset work through the
   application adapter. The session rejects overflow and underflow rather than
   wrapping into a false idle state; persistence alone clamps the wider count
-  when more than 255 effects overlap. The sector-heavy
+  when more than 255 effects overlap. Creature timing retains the established
+  unsigned clock-wrap and strict `elapsed > delay` rule. Its five former
+  `gTacticalStatus` fields are gone, while save/load visits the same boolean,
+  16-bit delay, and 32-bit timestamp positions through the session snapshot.
+  The sector-heavy
   compatibility names `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
   are const-reference projections backed only by the application adapter:
   legacy reads retain their allocation-free lvalue path, while the compiler
