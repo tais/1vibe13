@@ -101,6 +101,11 @@ public:
 		return !usesUnfinishedBusinessCatalog();
 	}
 
+	constexpr bool sendsInitialArulcoCongratulations() const noexcept
+	{
+		return !usesUnfinishedBusinessCatalog();
+	}
+
 	constexpr EmailRecord insuranceRecord(InsuranceNotice notice) const noexcept
 	{
 		const Catalog catalog = Catalog::Arulco;

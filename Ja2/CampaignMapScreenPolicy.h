@@ -47,6 +47,27 @@ public:
 		return !usesUnfinishedBusinessMapRules();
 	}
 
+	constexpr bool treatsSanMonaAsUnimportant() const noexcept
+	{
+		return !usesUnfinishedBusinessMapRules();
+	}
+
+	constexpr bool usesUnfinishedBusinessLossDialogue() const noexcept
+	{
+		return usesUnfinishedBusinessMapRules();
+	}
+
+	constexpr bool usesConfigurableMapBorderButtons() const noexcept
+	{
+		return usesUnfinishedBusinessMapRules();
+	}
+
+	constexpr bool shouldDisableAutoResolve(
+		bool autoResolveConfigured) const noexcept
+	{
+		return usesUnfinishedBusinessMapRules() && !autoResolveConfigured;
+	}
+
 	constexpr bool runsUnfinishedBusinessStrategicAi() const noexcept
 	{
 		return usesUnfinishedBusinessMapRules();
@@ -74,5 +95,9 @@ static_assert(CampaignMapScreenPolicy(GameCampaign::Arulco)
 	.hasMeanwhileScenes());
 static_assert(!CampaignMapScreenPolicy(GameCampaign::UnfinishedBusiness)
 	.hasMeanwhileScenes());
+static_assert(CampaignMapScreenPolicy(GameCampaign::Arulco)
+	.treatsSanMonaAsUnimportant());
+static_assert(CampaignMapScreenPolicy(GameCampaign::UnfinishedBusiness)
+	.shouldDisableAutoResolve(false));
 
 #endif

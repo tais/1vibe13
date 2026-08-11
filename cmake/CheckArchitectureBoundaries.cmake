@@ -709,6 +709,7 @@ foreach(required_campaign_door_policy_fragment IN ITEMS
     "usesUnfinishedBusinessTunnelGate"
     "usesOpenDoorCostWhenForcing"
     "shouldAttemptForceDoor"
+    "shouldAttemptDoorMenuAction"
     "shouldOfferFailedUnlockCurse")
   string(FIND "${runtime_campaign_door_policy_contents}"
     "${required_campaign_door_policy_fragment}"
@@ -768,6 +769,8 @@ foreach(required_campaign_door_policy_test_fragment IN ITEMS
     "Arulco has no UB tunnel-gate content"
     "UB forcing retains its open-door AP cost"
     "UB tunnel dialogue alone consumes a force attempt"
+    "Arulco door-menu actions never invoke the UB tunnel gate"
+    "UB tunnel dialogue consumes each intercepted door-menu action"
     "UB offers the curse only after its tunnel quote handles the failure")
   string(FIND "${runtime_campaign_door_policy_test_contents}"
     "${required_campaign_door_policy_test_fragment}"
@@ -790,6 +793,10 @@ foreach(required_campaign_map_screen_policy_fragment IN ITEMS
     "shouldRebuildCustomMapList"
     "shouldPumpJerryMiloQuotes"
     "hasMeanwhileScenes"
+    "treatsSanMonaAsUnimportant"
+    "usesUnfinishedBusinessLossDialogue"
+    "usesConfigurableMapBorderButtons"
+    "shouldDisableAutoResolve"
     "runsUnfinishedBusinessStrategicAi"
     "shouldCheckHelicopterCampaignLoss")
   string(FIND "${runtime_campaign_map_screen_policy_contents}"
@@ -853,6 +860,10 @@ file(READ "${SOURCE_ROOT}/tests/campaign_map_screen_policy_tests.cpp"
 foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
     "only UB enables Jerry Milo map guidance"
     "only Arulco checks for meanwhile scenes on the map screen"
+    "only Arulco suppresses the San Mona town-loss notification"
+    "only UB plays its contested-town loss dialogue"
+    "only UB applies its configurable map-border buttons"
+    "UB disables auto-resolve exactly when configured off"
     "UB rebuilds custom maps exactly when requested"
     "UB pumps Jerry Milo quotes exactly when enabled"
     "UB checks campaign loss exactly after its helicopter crash")
@@ -865,15 +876,200 @@ foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# The tactical door menu, merc dismissal, and adjoining strategic map shell
+# are one behaviorally closed campaign-policy follow-through. The live
+# capability must be evaluated before every UB-only callback or configuration
+# global, and none of these callers may regain executable identity.
+file(READ "${SOURCE_ROOT}/Tactical/Interface.cpp"
+  runtime_campaign_door_menu_contents)
+foreach(required_campaign_door_menu_fragment IN ITEMS
+    "#include \"CampaignDoorPolicy.h\""
+    "CampaignDoorPolicy campaignPolicy("
+    "campaignPolicy.usesUnfinishedBusinessTunnelGate() &&"
+    "campaignPolicy.shouldAttemptDoorMenuAction("
+    "campaignPolicy.usesOpenDoorCostWhenForcing()"
+    "HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel("
+    "GetAPsToOpenDoor("
+    "GetAPsToBombDoor(")
+  string(FIND "${runtime_campaign_door_menu_contents}"
+    "${required_campaign_door_menu_fragment}"
+    required_campaign_door_menu_position)
+  if(required_campaign_door_menu_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime tactical door menu lost '${required_campaign_door_menu_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  runtime_campaign_dismissal_contents)
+foreach(required_campaign_dismissal_fragment IN ITEMS
+    "#include \"Ja25_Tactical.h\""
+    "CampaignMercenaryPolicy campaignPolicy("
+    "campaignPolicy.allowsDismissalFromSector("
+    "campaignPolicy.dismissalRefusalQuote("
+    "IsSoldierQualifiedMerc( pSoldier )"
+    "DismissalRefusalQuote::AnsweringMachine"
+    "QUOTE_REFUSING_ORDER")
+  string(FIND "${runtime_campaign_dismissal_contents}"
+    "${required_campaign_dismissal_fragment}"
+    required_campaign_dismissal_position)
+  if(required_campaign_dismissal_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime merc dismissal lost '${required_campaign_dismissal_fragment}'")
+  endif()
+endforeach()
+foreach(retired_campaign_dismissal_helper IN ITEMS
+    "CanMercBeAllowedToLeaveTeam"
+    "HaveMercSayWhyHeWontLeave")
+  string(FIND "${runtime_campaign_dismissal_contents}"
+    "${retired_campaign_dismissal_helper}"
+    retired_campaign_dismissal_helper_position)
+  if(NOT retired_campaign_dismissal_helper_position EQUAL -1)
+    message(FATAL_ERROR
+      "Merc dismissal regained legacy helper '${retired_campaign_dismissal_helper}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  runtime_campaign_map_shell_interface_contents)
+foreach(required_campaign_map_shell_interface_fragment IN ITEMS
+    "CampaignLaptopCommunicationsPolicy communicationsPolicy("
+    "communicationsPolicy.sendsInitialArulcoCongratulations()"
+    "CampaignMapScreenPolicy campaignPolicy("
+    "campaignPolicy.treatsSanMonaAsUnimportant() &&"
+    "campaignPolicy.usesUnfinishedBusinessLossDialogue()"
+    "HandleDisplayingOfPlayerLostDialogue( )")
+  string(FIND "${runtime_campaign_map_shell_interface_contents}"
+    "${required_campaign_map_shell_interface_fragment}"
+    required_campaign_map_shell_interface_position)
+  if(required_campaign_map_shell_interface_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime map-shell interface lost '${required_campaign_map_shell_interface_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Border.cpp"
+  runtime_campaign_map_shell_border_contents)
+foreach(required_campaign_map_shell_border_fragment IN ITEMS
+    "CampaignMapScreenPolicy campaignPolicy("
+    "campaignPolicy.usesConfigurableMapBorderButtons()"
+    "gGameUBOptions.BorderTown"
+    "gGameUBOptions.BorderMine"
+    "gGameUBOptions.BorderTeams"
+    "gGameUBOptions.BorderMilitia"
+    "gGameUBOptions.BorderAirspace"
+    "gGameUBOptions.BorderItem")
+  string(FIND "${runtime_campaign_map_shell_border_contents}"
+    "${required_campaign_map_shell_border_fragment}"
+    required_campaign_map_shell_border_position)
+  if(required_campaign_map_shell_border_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime map-border integration lost '${required_campaign_map_shell_border_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp"
+  runtime_campaign_prebattle_contents)
+foreach(required_campaign_prebattle_fragment IN ITEMS
+    "CampaignMapScreenPolicy campaignPolicy("
+    "campaignPolicy.usesUnfinishedBusinessMapRules() &&"
+    "campaignPolicy.shouldDisableAutoResolve("
+    "gGameUBOptions.AutoResolve != FALSE")
+  string(FIND "${runtime_campaign_prebattle_contents}"
+    "${required_campaign_prebattle_fragment}"
+    required_campaign_prebattle_position)
+  if(required_campaign_prebattle_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime pre-battle campaign policy lost '${required_campaign_prebattle_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Helicopter.cpp"
+  runtime_campaign_map_helicopter_contents)
+foreach(required_campaign_map_helicopter_fragment IN ITEMS
+    "CampaignMapScreenPolicy campaignPolicy("
+    "campaignPolicy.hasMeanwhileScenes()"
+    "HandleKillChopperMeanwhileScene()")
+  string(FIND "${runtime_campaign_map_helicopter_contents}"
+    "${required_campaign_map_helicopter_fragment}"
+    required_campaign_map_helicopter_position)
+  if(required_campaign_map_helicopter_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime helicopter map policy lost '${required_campaign_map_helicopter_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.h"
+  runtime_campaign_map_header_contents)
+string(FIND "${runtime_campaign_map_header_contents}"
+  "extern void SetUpValidCampaignSectors( void );"
+  runtime_campaign_map_header_declaration_position)
+if(runtime_campaign_map_header_declaration_position EQUAL -1)
+  message(FATAL_ERROR
+    "Campaign-sector setup declaration is no longer available to every host")
+endif()
+
+foreach(runtime_campaign_follow_through_contents IN ITEMS
+    runtime_campaign_door_menu_contents
+    runtime_campaign_dismissal_contents
+    runtime_campaign_map_shell_interface_contents
+    runtime_campaign_map_shell_border_contents
+    runtime_campaign_prebattle_contents
+    runtime_campaign_map_helicopter_contents
+    runtime_campaign_map_header_contents)
+  string(REGEX MATCH
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    retired_campaign_follow_through_guard
+    "${${runtime_campaign_follow_through_contents}}")
+  if(retired_campaign_follow_through_guard)
+    message(FATAL_ERROR
+      "Campaign policy follow-through regained compiled JA2UB identity")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_campaign_follow_through_headless_contents)
+foreach(required_campaign_follow_through_headless_fragment IN ITEMS
+    "#include \"CampaignDoorPolicy.h\""
+    "#include \"CampaignLaptopCommunicationsPolicy.h\""
+    "#include \"CampaignMapScreenPolicy.h\""
+    "#include \"CampaignMercenaryPolicy.h\""
+    "live campaign capabilities drive the tactical and strategic policy follow-throughs")
+  string(FIND "${runtime_campaign_follow_through_headless_contents}"
+    "${required_campaign_follow_through_headless_fragment}"
+    required_campaign_follow_through_headless_position)
+  if(required_campaign_follow_through_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Headless campaign-policy integration lost '${required_campaign_follow_through_headless_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_campaign_follow_through_ci_target IN ITEMS
+    "ja2_headless_tests"
+    "campaign_door_policy_tests"
+    "campaign_map_screen_policy_tests"
+    "campaign_mercenary_policy_tests"
+    "laptop_communications_policy_tests")
+  string(FIND "${runtime_campaign_policy_ci_contents}"
+    "${required_campaign_follow_through_ci_target}"
+    required_campaign_follow_through_ci_position)
+  if(required_campaign_follow_through_ci_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign-policy CI union lost '${required_campaign_follow_through_ci_target}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
   runtime_campaign_status_contents)
 foreach(required_campaign_status_fragment IN ITEMS
-    "108 active conditionals in 41"
+    "90 active conditionals in 34"
     "Laptop content/pages | 10"
-    "Tactical gameplay/content | 44"
-    "Strategic gameplay/content | 36"
+    "Tactical gameplay/content | 39"
+    "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
     "CampaignMapScreenPolicy"
+    "Merc dismissal in `Assignments.cpp`"
+    "four converted map-shell"
     "All nine policies")
   string(FIND "${runtime_campaign_status_contents}"
     "${required_campaign_status_fragment}"
@@ -887,7 +1083,11 @@ file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
   runtime_campaign_architecture_contents)
 foreach(required_campaign_architecture_fragment IN ITEMS
     "Tactical door behavior now selects through the value-only"
-    "The strategic map screen now selects campaign behavior")
+    "The strategic map screen now selects campaign behavior"
+    "All five former guards in `Interface.cpp`"
+    "All four former guards in `Assignments.cpp`"
+    "nine former guards across the"
+    "four shell implementations and map header")
   string(FIND "${runtime_campaign_architecture_contents}"
     "${required_campaign_architecture_fragment}"
     required_campaign_architecture_position)
@@ -1075,7 +1275,9 @@ file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
 foreach(required_mercenary_policy_fragment IN ITEMS
     "class CampaignMercenaryPolicy"
     "primaryProfileDataFile"
-    "shouldSendMedicalDepositEmail")
+    "shouldSendMedicalDepositEmail"
+    "allowsDismissalFromSector"
+    "dismissalRefusalQuote")
   string(FIND "${runtime_campaign_mercenary_policy_contents}"
     "${required_mercenary_policy_fragment}"
     required_mercenary_policy_position)
@@ -1283,7 +1485,11 @@ foreach(required_mercenary_policy_assertion IN ITEMS
     "CampaignProfileCode::Role::Devin"
     "CampaignProfileCode::Role::Robot"
     "CampaignProfileCode::Role::Hamous"
-    "CampaignProfileCode::Role::Slay")
+    "CampaignProfileCode::Role::Slay"
+    "allowsDismissalFromSector(13)"
+    "allowsDismissalFromSector(14)"
+    "DismissalRefusalQuote::AnsweringMachine"
+    "DismissalRefusalQuote::RefusingOrder")
   string(FIND "${runtime_campaign_mercenary_test_contents}"
     "${required_mercenary_policy_assertion}"
     required_mercenary_policy_assertion_position)
@@ -1543,6 +1749,7 @@ foreach(required_laptop_communications_policy_fragment IN ITEMS
     "insuranceRecord"
     "bobbyShipmentRecord"
     "johnKulbaShipmentNoticeAvailable"
+    "sendsInitialArulcoCongratulations"
     "impProfileResultsOffset"
     "isImpProfileResultsMessage")
   string(FIND "${runtime_laptop_communications_policy_contents}"
@@ -3495,6 +3702,7 @@ foreach(required_laptop_communications_assertion IN ITEMS
     "GameCampaign::Arulco"
     "GameCampaign::UnfinishedBusiness"
     "SuspiciousDeathFraud"
+    "the initial Enrico congratulations mail remains Arulco-only"
     "impProfileResultsOffset() == 198"
     "IsValidLaptopIndex(1, 1)"
     "IsValidIntelMapRegion(-1)"

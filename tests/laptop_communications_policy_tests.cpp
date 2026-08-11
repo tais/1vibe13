@@ -92,6 +92,9 @@ int main()
 	Check(arulco.flowerDeliveryMeanwhileAvailable() &&
 		!unfinishedBusiness.flowerDeliveryMeanwhileAvailable(),
 		"flower delivery meanwhile scenes remain Arulco-only");
+	Check(arulco.sendsInitialArulcoCongratulations() &&
+		!unfinishedBusiness.sendsInitialArulcoCongratulations(),
+		"the initial Enrico congratulations mail remains Arulco-only");
 	Check(unfinishedBusiness.deadMercNoticeRecord().offset == 206 &&
 		unfinishedBusiness.aimNoRefundRecord().offset == 217,
 		"UB AIM substitutions retain their Arulco record IDs");

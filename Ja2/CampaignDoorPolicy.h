@@ -37,6 +37,15 @@ public:
 		return !usesUnfinishedBusinessTunnelGate() || !tunnelQuoteHandled;
 	}
 
+	// The tactical door menu uses the same UB tunnel-gate interception as a
+	// direct force attempt. Keeping this named at the menu boundary makes it
+	// explicit that Arulco never calls the UB quote hook.
+	constexpr bool shouldAttemptDoorMenuAction(
+		bool tunnelQuoteHandled) const noexcept
+	{
+		return shouldAttemptForceDoor(tunnelQuoteHandled);
+	}
+
 	// The established UB branch curses only when its tunnel quote handled the
 	// failed unlock. Arulco retains its ordinary random-curse opportunity.
 	constexpr bool shouldOfferFailedUnlockCurse(

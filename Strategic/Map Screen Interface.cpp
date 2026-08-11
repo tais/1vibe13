@@ -1,4 +1,7 @@
 #include "Map Screen Interface.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
+#include "CampaignMapScreenPolicy.h"
+#include "GameContext.h"
 #include "SoldierRepository.h"
 #include "TacticalActorConditionPresentation.h"
 #include "TacticalEntityHost.h"
@@ -6420,12 +6423,16 @@ BOOLEAN HandleTimeCompressWithTeamJackedInAndGearedToGo( void )
 	FadeInGameScreen( );
 
 	SetUpShutDownMapScreenHelpTextScreenMask( );
-#ifdef JA2UB
-//no ja25 UB
-#else
-	// Add e-mail message
-	AddEmail(ENRICO_CONGRATS, ENRICO_CONGRATS_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_GOODLUCK);
-#endif
+	const CampaignLaptopCommunicationsPolicy communicationsPolicy(
+		GetGameContext().capabilities());
+	if ( communicationsPolicy.sendsInitialArulcoCongratulations() )
+	{
+		// Add e-mail message
+		AddEmail(JA2_EMAIL_ENRICO_CONGRATS,
+			JA2_EMAIL_ENRICO_CONGRATS_LENGTH, MAIL_ENRICO,
+			GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT,
+			XML_ENRICO_GOODLUCK);
+	}
 
 	return( TRUE );
 }
@@ -6477,6 +6484,8 @@ void HandleDisplayOfExitToTacticalMessageForFirstEntryToMapScreen( void )
 
 BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, BOOLEAN fContested )
 {
+	const CampaignMapScreenPolicy campaignPolicy(
+		GetGameContext().capabilities());
 	CHAR16 sString[ 128 ], sStringA[ 64 ], sStringB[ 256 ], sStringC[ 64 ];
 	INT32 iValue = 0;
 	INT8 bTownId = 0;
@@ -6532,19 +6541,17 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 
 	if( fContested && bTownId )
 	{
-#ifdef JA2UB
-	// no UB
-#else	
-		if( bTownId == SAN_MONA )
+		if ( campaignPolicy.treatsSanMonaAsUnimportant() &&
+			bTownId == SAN_MONA )
 		{ //San Mona isn't important.
 			return( TRUE );
 		}
-#endif			
 		swprintf( sStringB, pMapErrorString[ 25 ], sString );
 
-#ifdef JA2UB		
-		HandleDisplayingOfPlayerLostDialogue( );
-#endif
+		if ( campaignPolicy.usesUnfinishedBusinessLossDialogue() )
+		{
+			HandleDisplayingOfPlayerLostDialogue( );
+		}
 		// put up the message informing the player of the event
 		DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 		return( TRUE );

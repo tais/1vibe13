@@ -121,6 +121,10 @@
 #include "input.h"
 #include "sdl_input.h"
 #include "english.h"
+#include "CampaignDoorPolicy.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
+#include "CampaignMapScreenPolicy.h"
+#include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
 #include "GameVersion.h"
 #include "gameloop.h"
@@ -5617,6 +5621,28 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		const bool unfinishedBusiness =
+			compiledContext.capabilities().isUnfinishedBusiness();
+		const CampaignDoorPolicy doorPolicy(compiledContext.capabilities());
+		const CampaignMapScreenPolicy mapScreenPolicy(
+			compiledContext.capabilities());
+		const CampaignMercenaryPolicy mercenaryPolicy(
+			compiledContext.capabilities());
+		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
+			compiledContext.capabilities());
+		CHECK( doorPolicy.usesUnfinishedBusinessTunnelGate() ==
+		           unfinishedBusiness &&
+		       doorPolicy.shouldAttemptDoorMenuAction(true) ==
+		           !unfinishedBusiness &&
+		       mapScreenPolicy.usesUnfinishedBusinessMapRules() ==
+		           unfinishedBusiness &&
+		       mapScreenPolicy.treatsSanMonaAsUnimportant() ==
+		           !unfinishedBusiness &&
+		       mercenaryPolicy.allowsDismissalFromSector(14) ==
+		           !unfinishedBusiness &&
+		       communicationsPolicy.sendsInitialArulcoCongratulations() ==
+		           !unfinishedBusiness,
+		       "live campaign capabilities drive the tactical and strategic policy follow-throughs" );
 		Ja2SoldierRepository& soldierRepository = compiledContext.soldiers();
 		soldierRepository.initializeSlots();
 		CHECK( compiledContext.runtime().hasSimulationCommandExecutor() &&

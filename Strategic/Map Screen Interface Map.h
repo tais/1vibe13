@@ -422,9 +422,7 @@ extern UINT32 guiSubLevel1, guiSubLevel2, guiSubLevel3;
 extern INT16 sBaseSectorList[ MAX_TOWNS - 1 ];
 extern POINT pTownPoints[ MAX_TOWNS ];
 
-#ifdef JA2UB
 extern void SetUpValidCampaignSectors( void );
-#endif
 
 void CreateMilitiaGroupBox( );
 void DestroyMilitiaGroupBox( );
