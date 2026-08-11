@@ -268,6 +268,16 @@ target_include_directories(utils_media_lifecycle_model_tests
 add_test(NAME utils_media_lifecycle_model
   COMMAND utils_media_lifecycle_model_tests)
 
+# The tactical Event Pump still exposes raw legacy packets, but its replacement
+# queue semantics are independently testable: exact schemas, owned payloads,
+# FIFO/delayed ordering, bounded failure, and complete teardown.
+add_executable(tactical_event_queue_model_tests
+  tactical_event_queue_model_tests.cpp)
+target_include_directories(tactical_event_queue_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME tactical_event_queue_model
+  COMMAND tactical_event_queue_model_tests)
+
 # Items.xml combines a cleared base item table with persistent auxiliary
 # arrays and optional, field-presence-aware localization overlays. Keep its
 # index, narrowing, inheritance, rollback, and publish rules data-free before

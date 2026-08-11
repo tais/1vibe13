@@ -1,6 +1,6 @@
 # Utils code walkthrough
 
-Status: active architectural refactor, 7 August 2026.
+Status: active architectural refactor, 11 August 2026.
 
 ## Scope and completion criteria
 
@@ -346,6 +346,62 @@ Architecture ratchets keep the XMLWriter/VFS transaction, canonical spellings,
 preflight, deliberate no-op omissions, seams, tests, and this audit record in
 place.
 
+## Owned tactical event queue foundation — Event Pump Slice 1
+
+`TacticalEventQueueModel.h` establishes the dependency-free queue and payload
+contract that will replace the three raw `PTR` containers in `Event Pump.cpp`.
+This slice deliberately does not cut the production dispatcher over: network
+routing, gameplay callbacks, and the legacy public functions remain unchanged
+until the adapter can be migrated and regression-tested as one reviewable
+behavioral step.
+
+The model gives every dispatchable legacy event an explicit `EventKind` whose
+numeric value matches `eJA2Events`; the legacy category gaps are rejected rather
+than accepted as packets. An `EventSchema` pairs that kind with one exact byte
+size. Typed enqueue helpers require trivially copyable payloads, while the raw
+adapter seam accepts a pointer only long enough to validate the declared size
+and copy it into an `OwnedEvent`. Decoding requires the same kind and size, so a
+packet cannot be decoded through a different declared schema. The production
+adapter in the next slice will be the single binding from each legacy payload
+type to that schema. Owned records are move-only and no queue retains caller
+storage.
+
+`EventQueues` applies separate primary, delayed, and demand count capacities,
+plus per-payload and aggregate queued-byte limits. Null data, unknown kinds,
+schema mismatches, full queues, byte exhaustion, sequence exhaustion, and
+allocation/length failures have distinct results and leave existing records,
+byte accounting, and the next successful sequence unchanged. A failed move
+from primary to full delayed storage leaves the primary record available for a
+later retry; already-expired delayed work is still removed so that retry can
+make progress.
+
+Primary and demand records are FIFO. A primary execution drain continues
+through work appended by its handlers, matching the old pump loop; positive
+delays move the same owned record into delayed storage and start their clock at
+that promotion point. Delayed scanning stays in insertion order and preserves
+the old unsigned clock-wrap predicate exactly: an event expires only when
+`now - scheduledAt > delay`, not at equality. Removal first moves the complete
+owned record out of the vector, so erasing and compacting later entries cannot
+invalidate its payload. Demand execution remains a separate FIFO operation.
+Discard mode invokes no handler, drops primary work instead of scheduling it,
+and retires only delayed work that is already expired, reproducing the legacy
+`fExecute == FALSE` behavior. One idempotent `clear()` releases all three
+queues, rather than leaving delayed or demand allocations behind.
+
+An injectable allocation gate exercises those no-publication paths without
+replacing process allocation hooks; real `bad_alloc` and container length
+failures map to the same result.
+
+`tactical_event_queue_model_tests` covers owned-copy isolation and exact-schema
+decode, primary and demand FIFO order, same-cycle append, stable sequences,
+strict delayed boundaries, insertion order, tick wrap, all capacity classes,
+non-mutating enqueue and promotion failures, retry, discard behavior, and
+repeated complete teardown. It is a standalone C++17 target with no SDL, SGP,
+tactical, network, clock, or application dependency and runs in the Linux
+AddressSanitizer matrix. Architecture ratchets pin its dependency-free surface,
+compatibility predicate, test contract, CI target, and this staged-cutover
+record.
+
 ## Remaining Utils inventory
 
 The following 11 translation units are compiled and covered by the general
@@ -358,5 +414,9 @@ bounds, and failure-path audit:
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
 Input/runtime control and the offline image tools are the next audit batches.
+The next Event Pump slice adapts the production schemas and dispatcher to the
+owned model, removes the global decode scratch records, and proves network,
+immediate, delayed weapon-hit, demand-noise, discard, and shutdown behavior
+before the raw containers are deleted.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

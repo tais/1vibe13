@@ -1299,7 +1299,22 @@ the engine must not contain SDL types in its public domain model.
   Real-VFS tests cover canonical preflight, escaping and exact-capacity text,
   locale independence, high indices, corrected mappings, strict round trips,
   stream failure containment, shorter replacement, catalogue rollback, mount
-  casing, exclusive inheritance, and native temporary cleanup. The
+  casing, exclusive inheritance, and native temporary cleanup. The first Event
+  Pump slice now defines `TacticalEventQueueModel` as the dependency-free
+  replacement contract for its raw packet containers. Explicit
+  legacy-compatible `EventKind` values and exact `EventSchema` sizes cross one
+  copying ingress into move-only `OwnedEvent` payloads. Primary and demand
+  queues retain FIFO behavior; delayed records retain insertion order and the
+  strict unsigned `now - scheduledAt > delay` clock-wrap rule. Successful
+  enqueues receive deterministic sequence numbers. Per-queue counts,
+  per-payload bytes, aggregate queued bytes, sequence exhaustion, allocation
+  failure, and retryable primary-to-delayed promotion all have explicit,
+  non-mutating failure results. Execute and discard drains preserve the legacy
+  control flow, while one idempotent clear owns all three queues. Standalone
+  normal and AddressSanitizer tests pin copy isolation, schemas, ordering,
+  boundaries, wrap, capacity, retry, discard, and teardown. Production
+  `Event Pump.cpp` is intentionally not cut over in this foundation slice;
+  network routing, dispatch callbacks, and game behavior remain unchanged. The
   remaining 11 Utils translation units are deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in
