@@ -20,6 +20,156 @@ if(root_build_contents MATCHES "www[.]lua[.]org/ftp")
     "The single-host Lua FTP dependency returned; keep CI on the pinned official mirror")
 endif()
 
+# Runtime language identity is data even while the legacy text definitions are
+# still compatibility archives. Keep the typed catalog and one neutral object
+# partition in place, quarantine language compile guards to the unresolved text
+# owners, and do not let the global ABI grow during migration.
+file(READ "${SOURCE_ROOT}/i18n/include/language.hpp"
+  i18n_language_catalog_contents)
+foreach(required_language_catalog_fragment IN ITEMS
+    "struct LanguageDescriptor"
+    "SupportedLanguages"
+    "FindLanguageByConfigName"
+    "FindLanguageByCode"
+    "legacyArchiveName"
+    "localizationSuffix"
+    "mapMessageRows")
+  string(FIND "${i18n_language_catalog_contents}"
+    "${required_language_catalog_fragment}"
+    required_language_catalog_position)
+  if(required_language_catalog_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime language catalog lost '${required_language_catalog_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/CMakeLists.txt" i18n_build_contents)
+foreach(required_i18n_build_fragment IN ITEMS
+    "set(i18nCommonSrc"
+    "Ja2 Libs.cpp"
+    "Multi Language Graphic Utils.cpp"
+    "set(i18nVariantSrc"
+    "language.cpp"
+    "ExportStrings.cpp")
+  string(FIND "${i18n_build_contents}" "${required_i18n_build_fragment}"
+    required_i18n_build_position)
+  if(required_i18n_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "i18n source partition lost '${required_i18n_build_fragment}'")
+  endif()
+endforeach()
+foreach(required_i18n_root_build_fragment IN ITEMS
+    "add_library(ja2_i18n_runtime OBJECT"
+    "$<TARGET_OBJECTS:ja2_i18n_runtime>")
+  string(FIND "${root_build_contents}" "${required_i18n_root_build_fragment}"
+    required_i18n_root_build_position)
+  if(required_i18n_root_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Language-neutral i18n object reuse lost '${required_i18n_root_build_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/language.cpp" i18n_language_source_contents)
+file(READ "${SOURCE_ROOT}/Utils/LocalizedStrings.h"
+  localized_strings_header_contents)
+file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
+  export_strings_source_contents)
+file(READ "${SOURCE_ROOT}/i18n/Ja2 Libs.cpp" ja2_libs_source_contents)
+file(READ "${SOURCE_ROOT}/i18n/include/Ja2 Libs.h"
+  ja2_libs_header_contents)
+foreach(neutral_i18n_contents IN ITEMS
+    i18n_language_source_contents
+    localized_strings_header_contents
+    ja2_libs_source_contents
+    ja2_libs_header_contents)
+  if("${${neutral_i18n_contents}}" MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*([^A-Za-z0-9_]|^)(ENGLISH|GERMAN|DUTCH|POLISH|RUSSIAN|FRENCH|ITALIAN|CHINESE)([^A-Za-z0-9_]|$)")
+    message(FATAL_ERROR
+      "A language compile guard escaped into neutral i18n source '${neutral_i18n_contents}'")
+  endif()
+endforeach()
+if(localized_strings_header_contents MATCHES
+    "enum[ \t\r\n]+Language|LANGUAGE_COUNT|LangSuffix")
+  message(FATAL_ERROR
+    "LocalizedStrings regained a second, incompatible language identity")
+endif()
+if(NOT export_strings_source_contents MATCHES "i18n::Lang")
+  message(FATAL_ERROR
+    "The legacy string exporter must consume the canonical runtime language identity")
+endif()
+
+file(GLOB i18n_guard_candidate_files
+  "${SOURCE_ROOT}/i18n/*.cpp"
+  "${SOURCE_ROOT}/i18n/*.h"
+  "${SOURCE_ROOT}/i18n/include/*.h"
+  "${SOURCE_ROOT}/i18n/include/*.hpp")
+foreach(i18n_guard_candidate IN LISTS i18n_guard_candidate_files)
+  file(READ "${i18n_guard_candidate}" i18n_guard_candidate_contents)
+  if(NOT i18n_guard_candidate_contents MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*([^A-Za-z0-9_]|^)(ENGLISH|GERMAN|DUTCH|POLISH|RUSSIAN|FRENCH|ITALIAN|CHINESE)([^A-Za-z0-9_]|$)")
+    continue()
+  endif()
+  if(i18n_guard_candidate STREQUAL
+      "${SOURCE_ROOT}/i18n/CompiledLanguage.h" OR
+      i18n_guard_candidate STREQUAL
+      "${SOURCE_ROOT}/i18n/ExportStrings.cpp" OR
+      i18n_guard_candidate MATCHES
+      "/i18n/_(Ja25)?(Chinese|Dutch|English|French|German|Italian|Polish|Russian)Text[.]cpp$")
+    continue()
+  endif()
+  message(FATAL_ERROR
+    "Language compile guard escaped its compatibility owner: ${i18n_guard_candidate}")
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/include/Text.h" legacy_text_header_contents)
+string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
+  legacy_text_declarations "${legacy_text_header_contents}")
+list(LENGTH legacy_text_declarations legacy_text_declaration_count)
+if(legacy_text_declaration_count GREATER 485)
+  message(FATAL_ERROR
+    "The legacy Text.h global ABI grew from 485 to ${legacy_text_declaration_count}; add new text through the runtime catalog")
+endif()
+file(READ "${SOURCE_ROOT}/i18n/include/_Ja25EnglishText.h"
+  legacy_ja25_text_header_contents)
+string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
+  legacy_ja25_text_declarations "${legacy_ja25_text_header_contents}")
+list(LENGTH legacy_ja25_text_declarations legacy_ja25_text_declaration_count)
+if(legacy_ja25_text_declaration_count GREATER 35)
+  message(FATAL_ERROR
+    "The legacy JA25 text global ABI grew from 35 to ${legacy_ja25_text_declaration_count}; add new text through the runtime catalog")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/i18n_language_catalog_tests.cpp"
+  i18n_language_catalog_test_contents)
+foreach(required_i18n_test_fragment IN ITEMS
+    "static_cast<int>(i18n::Lang::zh) == 7"
+    "FindLanguageByConfigName"
+    "FindLanguageByCode"
+    "invalid runtime language is rejected")
+  string(FIND "${i18n_language_catalog_test_contents}"
+    "${required_i18n_test_fragment}" required_i18n_test_position)
+  if(required_i18n_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime language catalog tests lost '${required_i18n_test_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/docs/RUNTIME_I18N_ARCHITECTURE.md"
+  runtime_i18n_architecture_contents)
+foreach(required_runtime_i18n_doc_fragment IN ITEMS
+    "485 process-global text variables"
+    "58 application/configuration preprocessor"
+    "ExportStrings.cpp"
+    "Migration sequence"
+    "Explicit blockers and review gates")
+  string(FIND "${runtime_i18n_architecture_contents}"
+    "${required_runtime_i18n_doc_fragment}"
+    required_runtime_i18n_doc_position)
+  if(required_runtime_i18n_doc_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n architecture record lost '${required_runtime_i18n_doc_fragment}'")
+  endif()
+endforeach()
+
 file(GLOB_RECURSE core_files
   "${SOURCE_ROOT}/Engine/Core/*.h"
   "${SOURCE_ROOT}/Engine/Core/*.hpp"

@@ -7,33 +7,6 @@
 
 namespace Loc
 {
-	enum Language
-	{
-		Chinese,
-		Dutch,
-		English,
-		French,
-		German,
-		Italian,
-		Polish,
-		Russian,
-		Taiwanese,
-		LANGUAGE_COUNT,
-	};
-
-	inline constexpr const wchar_t* LangSuffix[] = {
-		L"_cn",
-		L"_nl",
-		L"_en",
-		L"_fr",
-		L"_de",
-		L"_it",
-		L"_pl",
-		L"_ru",
-		L"_tw",
-	};
-	static_assert(sizeof(LangSuffix) / sizeof(LangSuffix[0]) == LANGUAGE_COUNT);
-
 	enum Topic
 	{
 		AIM_BIOGRAPHY,

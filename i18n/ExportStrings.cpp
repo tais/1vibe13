@@ -9,6 +9,7 @@
 #include "Campaign Types.h"
 #include "finances.h"
 #include "laptop.h"
+#include <language.hpp>
 
 #ifdef ENGLISH
 // _EnglishText.cpp is textually included inside namespace Loc below. Import
@@ -39,7 +40,7 @@ namespace
 
 namespace Loc
 {
-	bool Translate(vfs::String::char_t* str, int len, Language lang);
+	bool Translate(vfs::String::char_t* str, int len, i18n::Lang lang);
 
 	void ExportMercBio();
 	void ExportAIMHistory();
@@ -57,35 +58,27 @@ namespace Loc
 {
 #ifdef CHINESE
 #	include "_ChineseText.cpp"
-	static Loc::Language gs_Lang = Loc::Chinese;
 #endif
 #ifdef DUTCH
 #	include "_DutchText.cpp"
-	static Loc::Language gs_Lang = Loc::Dutch;
 #endif
 #ifdef ENGLISH
 #	include "_EnglishText.cpp"
-	static Loc::Language gs_Lang = Loc::English;
 #endif
 #ifdef FRENCH
 #	include "_FrenchText.cpp"
-	static Loc::Language gs_Lang = Loc::French;
 #endif
 #ifdef GERMAN
 #	include "_GermanText.cpp"
-	static Loc::Language gs_Lang = Loc::German;
 #endif
 #ifdef ITALIAN
 #	include "_ItalianText.cpp"
-	static Loc::Language gs_Lang = Loc::Italian;
 #endif
 #ifdef POLISH
 #	include "_PolishText.cpp"
-	static Loc::Language gs_Lang = Loc::Polish;
 #endif
 #ifdef RUSSIAN
 #	include "_RussianText.cpp"
-	static Loc::Language gs_Lang = Loc::Russian;
 #endif
 }
 
@@ -98,7 +91,7 @@ void ExportSection(vfs::PropertyContainer& props, const vfs::String::char_t* sec
 	for(int i = min; i < max; ++i)
 	{
 		vfs::String str(strings[i]);
-		//Loc::Translate(&str.r_wcs()[0],str.length(), gs_Lang);
+		//Loc::Translate(&str.r_wcs()[0],str.length(), g_lang);
 		if(!str.empty())
 		{
 			props.setStringProperty(section_name, vfs::toString<wchar_t>(i), str);
@@ -524,18 +517,18 @@ namespace Loc
 		}
 		return siChar;
 	}
-	bool Translate(vfs::String::char_t* str, int len, Language lang)
+	bool Translate(vfs::String::char_t* str, int len, i18n::Lang lang)
 	{
-		if(lang == English || lang == German)
+		if(lang == i18n::Lang::en || lang == i18n::Lang::de)
 		{
 			return true;
 		}
-		else if(lang == Russian)
+		else if(lang == i18n::Lang::ru)
 		{
 			for(int i=0; i<len; i++) str[i] = ToRussian(str[i]);
 			return true;
 		}
-		else if(lang == Polish)
+		else if(lang == i18n::Lang::pl)
 		{
 			for(int i=0; i<len; i++) str[i] = ToPolish(str[i]);
 			return true;
@@ -546,7 +539,7 @@ namespace Loc
 
 void Loc::ExportMercBio()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define	SIZE_MERC_BIO_INFO				400	* 2
 	#define SIZE_MERC_ADDITIONAL_INFO		160 * 2
 
@@ -576,7 +569,7 @@ void Loc::ExportMercBio()
 
 void Loc::ExportAIMHistory()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define AIM_HISTORY_LINE_SIZE 400 * 2
 	vfs::String::char_t pHistLine[AIM_HISTORY_LINE_SIZE];
 	vfs::COpenReadFile rfile("BINARYDATA\\AimHist.edt");
@@ -598,7 +591,7 @@ void Loc::ExportAIMHistory()
 	
 void Loc::ExportAIMPolicy()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define AIM_HISTORY_LINE_SIZE 400 * 2
 	vfs::String::char_t pPolLine[AIM_HISTORY_LINE_SIZE];
 	vfs::COpenReadFile rfile("BINARYDATA\\AimPol.edt");
@@ -619,7 +612,7 @@ void Loc::ExportAIMPolicy()
 
 void Loc::ExportAlumniName()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define AIM_ALUMNI_NAME_SIZE 80 * 2
 	vfs::String::char_t pAlumniName[AIM_ALUMNI_NAME_SIZE];
 	vfs::COpenReadFile rfile("BINARYDATA\\AlumName.edt");
@@ -642,7 +635,7 @@ void Loc::ExportAlumniName()
 
 void Loc::ExportDialogues()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define DIALOGUESIZE		480
 	vfs::String::char_t pDiagLine[DIALOGUESIZE];
 
@@ -680,7 +673,7 @@ void Loc::ExportDialogues()
 
 void Loc::ExportNPCDialogues()
 {
-	Loc::Language lang = gs_Lang;
+	const i18n::Lang lang = g_lang;
 	#define DIALOGUESIZE		480
 	#define CIVQUOTESIZE		320
 	vfs::String::char_t pDiagLine[DIALOGUESIZE];

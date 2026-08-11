@@ -1,6 +1,11 @@
-set(i18nSrc
-"${CMAKE_CURRENT_SOURCE_DIR}/language.cpp"
+set(i18nCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Ja2 Libs.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Multi Language Graphic Utils.cpp"
+PARENT_SCOPE
+)
+
+set(i18nVariantSrc
+"${CMAKE_CURRENT_SOURCE_DIR}/language.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/ExportStrings.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_ChineseText.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_DutchText.cpp"
@@ -18,6 +23,5 @@ set(i18nSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/_Ja25RussianText.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_PolishText.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_RussianText.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/Multi Language Graphic Utils.cpp"
 PARENT_SCOPE
 )

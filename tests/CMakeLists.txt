@@ -335,6 +335,14 @@ target_include_directories(utils_image_utility_model_tests
 add_test(NAME utils_image_utility_model
   COMMAND utils_image_utility_model_tests)
 
+# Language identity, resource paths, and layout policy are runtime data even
+# while the legacy global text catalogs remain one-per-archive. Keep the full
+# supported catalog and its persisted identifiers independently executable.
+add_executable(i18n_language_catalog_tests
+  i18n_language_catalog_tests.cpp)
+add_test(NAME i18n_language_catalog
+  COMMAND i18n_language_catalog_tests)
+
 # Items.xml combines a cleared base item table with persistent auxiliary
 # arrays and optional, field-presence-aware localization overlays. Keep its
 # index, narrowing, inheritance, rollback, and publish rules data-free before
