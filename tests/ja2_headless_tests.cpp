@@ -121,6 +121,7 @@
 #include "input.h"
 #include "sdl_input.h"
 #include "english.h"
+#include "CampaignCivilianQuotePolicy.h"
 #include "CampaignDoorPolicy.h"
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignMapScreenPolicy.h"
@@ -5624,6 +5625,8 @@ int main( int, char** )
 		GameContext& compiledContext = GetGameContext();
 		const bool unfinishedBusiness =
 			compiledContext.capabilities().isUnfinishedBusiness();
+		const CampaignCivilianQuotePolicy civilianQuotePolicy(
+			compiledContext.capabilities());
 		const CampaignDoorPolicy doorPolicy(compiledContext.capabilities());
 		const CampaignMapScreenPolicy mapScreenPolicy(
 			compiledContext.capabilities());
@@ -5631,7 +5634,11 @@ int main( int, char** )
 			compiledContext.capabilities());
 		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
 			compiledContext.capabilities());
-		CHECK( doorPolicy.usesUnfinishedBusinessTunnelGate() ==
+		CHECK( civilianQuotePolicy.usesUnfinishedBusinessQuoteCatalogue() ==
+		           unfinishedBusiness &&
+		       civilianQuotePolicy.completesSurrenderOfferAfterQuote() ==
+		           !unfinishedBusiness &&
+		       doorPolicy.usesUnfinishedBusinessTunnelGate() ==
 		           unfinishedBusiness &&
 		       doorPolicy.shouldAttemptDoorMenuAction(true) ==
 		           !unfinishedBusiness &&

@@ -17,8 +17,6 @@
     "Strategic/Town Militia.cpp": 1,
     "Strategic/strategic.cpp": 2,
     "Tactical/Campaign.cpp": 6,
-    "Tactical/Civ Quotes.cpp": 5,
-    "Tactical/Civ Quotes.h": 1,
     "Tactical/DynamicDialogue.cpp": 2,
     "Tactical/Faces.cpp": 4,
     "Tactical/Handle Items.cpp": 3,
@@ -36,5 +34,5 @@
     "TileEngine/Radar Screen.cpp": 1
   },
   "schema": 1,
-  "total": 90
+  "total": 84
 }

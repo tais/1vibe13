@@ -1020,6 +1020,15 @@ the engine must not contain SDL types in its public domain model.
   selected by `CampaignLaptopCommunicationsPolicy`, and the UB-only globals
   remain behind left-hand runtime gates. The nine former guards across the
   four shell implementations and map header are gone.
+- Civilian tactical dialogue now selects through the value-only
+  `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
+  dedicated civilian-group ranges. Arulco retains its surrender completion,
+  enemy-action set, town loyalty, hints, miners, and all-purpose records; UB
+  retains records 40-49, its narrower enemy-action set, and record 255 as its
+  unavailable sentinel. The two legacy new-record markers stay explicitly
+  qualified at 1029 and 1039, and the common arrays merely reserve the larger
+  capacity; quote records, EDT files, and save layouts do not change. All six
+  former `JA2UB` branches across `Civ Quotes.cpp` and `Civ Quotes.h` are gone.
 - Mercenary lifecycle decisions now use the value-only
   `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter
