@@ -2,10 +2,10 @@
 """Validate the legacy compiled-text ABI without building the game.
 
 The eight translation units still publish one process-global ABI selected by
-language, campaign, and build macros.  This tool inventories that ABI from the
-English compatibility sources and checks every supported catalog in all four
-JA2/JA2UB x release/debug quadrants.  It intentionally validates structure,
-not translated wording.
+language. Campaign/build values now enter through a separate explicit policy,
+but this tool continues to prove that publication has identical storage shape
+in all four JA2/JA2UB x release/debug quadrants. It inventories the ABI from
+the English compatibility sources and validates structure, not wording.
 
 Usage:
     python3 tools/check_i18n_text_schema.py
@@ -76,8 +76,11 @@ FALLBACK_POLICY = {
 # This is a ceiling, not a target.  Regeneration may remove grandfathered
 # language/symbol mismatches, but it must not turn a newly introduced mismatch
 # into accepted debt merely because the schema was rewritten alongside it.
-MAX_COMPATIBILITY_DEBT_SYMBOLS = 59
-CATALOG_CONFIGURATION_MACROS = frozenset({"JA2UB", "JA2BETAVERSION"})
+MAX_COMPATIBILITY_DEBT_SYMBOLS = 57
+# Campaign/build choices moved behind CompiledConditionalText.h. A catalog may
+# now condition only its own legacy language body; configuration guards are no
+# longer part of the ABI shape and are rejected here.
+CATALOG_CONFIGURATION_MACROS = frozenset()
 
 DATA_DECLARATION = re.compile(
     r"^[ \t]*extern[ \t]+(?P<const>const[ \t]+)?"
@@ -812,7 +815,7 @@ def validate_compatibility_debt(debt: Mapping) -> list[str]:
                         )
     if debt_symbol_count > MAX_COMPATIBILITY_DEBT_SYMBOLS:
         issues.append(
-            "schema: catalog compatibility debt grew from the 59-symbol ceiling "
+            "schema: catalog compatibility debt grew from the 57-symbol ceiling "
             f"to {debt_symbol_count}"
         )
     return issues

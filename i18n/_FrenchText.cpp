@@ -3,6 +3,7 @@
 
 	#ifdef FRENCH
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2374,13 +2375,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game		// TODO.Translate
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracona",
-	L"traconien(ne)",  // TODO.Translate //A voir fini (to see finished)
-#else
-	L"Arulco",
-	L"arulcain(e)",  // TODO.Translate //A voir fini (to see finished)
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracona"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"arulcain(e)",
+		L"traconien(ne)"),
 };
 
 // the names of the towns in the game
@@ -5025,11 +5027,10 @@ STR16 pFilesTitle[] =
 
 STR16 pFilesSenderList[] =
 {
-#ifdef JA2UB
-L"Rapport Tracona", 		// the recon report sent to the player. Recon is an abbreviation for reconissance
-#else
-L"Rapport Arulco", 		// the recon report sent to the player. Recon is an abbreviation for reconissance
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		FilesSenderReport,
+		L"Rapport Arulco",
+		L"Rapport Tracona"),
 	L"Interception #1", 		// first intercept file .. Intercept is the title of the organization sending the file...similar in function to INTERPOL/CIA/KGB..refer to fist record in files.txt for the translated title
 	L"Interception #2",	   // second intercept file
 	L"Interception #3",			 // third intercept file
@@ -6449,23 +6450,17 @@ STR16			zSaveLoadText[] =
 	L"La version de la sauvegarde est différente de celle du jeu. Désirez-vous continuer?",
 	L"Les fichiers de sauvegarde sont peut-être altérés. Voulez-vous les effacer?",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"La version de la sauvegarde a changé. Désirez-vous continuer ?",
-#else
-	L"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour ?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour ?",
+		L"La version de la sauvegarde a changé. Désirez-vous continuer ?"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"La version de la sauvegarde a changé. Désirez-vous continuer?",
-#else
-	L"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour?",
+		L"La version de la sauvegarde a changé. Désirez-vous continuer?"),
 
 	L"Êtes-vous sûr de vouloir écraser la sauvegarde #%d ?",
 	L"Voulez-vous charger la sauvegarde #%d ?",
@@ -6789,15 +6784,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"CONFIGURATION DU JEU",
-#ifdef JA2UB
-	L"Texte de Manuel aléatoire",
-	L"Non",
-	L"Oui",
-#else
-	L"Style de jeu",
-	L"Réaliste",
-	L"S-F",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Style de jeu",
+		L"Texte de Manuel aléatoire"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"Réaliste",
+		L"Non"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"S-F",
+		L"Oui"),
 	L"Platinum", //Placeholder English
 	L"Armes disponibles",
 	L"Toutes",
@@ -6837,15 +6835,18 @@ STR16	gzGIOScreenText[] =
 	L"Objets lâchés par l'ennemi",
 	L"Non",
 	L"Oui",
-#ifdef JA2UB
-	L"John et Tex",
-	L"Aléatoire",
-	L"Les deux",
-#else
-	L"Nombre de terroristes",
-	L"Aléatoire",
-	L"Tous",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Nombre de terroristes",
+		L"John et Tex"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"Aléatoire",
+		L"Aléatoire"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"Tous",
+		L"Les deux"),
 	L"Cachettes d'armes secrètes",
 	L"Aléatoire",
 	L"Toutes",
@@ -7236,11 +7237,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"Allez sur le site de l'AIM et engagez des mercenaires (*Conseil* allez voir dans le Poste de travail)", // to inform the player to hired some mercs to get things going
-#ifdef JA2UB
-	L"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain.", // to inform the player to hit time compression to get the game underway
-#else
-	L"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain.", // to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain.",
+		L"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain."),
 };
 
 STR16 pAntiHackerString[] = 
@@ -7488,11 +7488,10 @@ STR16 gzLateLocalizedString[] =
 	L"Tous vos mercenaires ont été soignés.",
 
 	//14
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
     L"(toit)",
 
 	L"Santé : %d/%d",

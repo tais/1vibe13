@@ -3,6 +3,7 @@
 
 	#if defined( DUTCH )
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2365,13 +2366,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracona",
-	L"Traconian",
-#else
-	L"Arulco",
-	L"Arulcan",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracona"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Arulcan",
+		L"Traconian"),
 };
 
 // the names of the towns in the game
@@ -5020,11 +5022,10 @@ STR16 pFilesTitle[] =
 
 STR16 pFilesSenderList[] =
 {
-#ifdef JA2UB
-	L"Int. Verslag",		// the recon report sent to the player. Recon is an abbreviation for reconissance
-#else
-	L"Int. Verslag",		// the recon report sent to the player. Recon is an abbreviation for reconissance
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		FilesSenderReport,
+		L"Int. Verslag",
+		L"Int. Verslag"),
 	L"Intercept.#1",		// first intercept file .. Intercept is the title of the organization sending the file...similar in function to INTERPOL/CIA/KGB..refer to fist record in files.txt for the translated title
 	L"Intercept.#2",		// second intercept file
 	L"Intercept.#3",		// third intercept file
@@ -6444,23 +6445,17 @@ STR16			zSaveLoadText[] =
 	L"De spelversie van het bewaarde spel verschilt van de huidige versie. Waarschijnlijk is het veilig om door te gaan. Doorgaan?",
 	L"De bewaarde spelen zijn waarschijnlijk ongeldig. Deze verwijderen?",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Save version has changed. Please report if there any problems. Continue?",
-#else
-	L"Attempting to load an older version save. Automatically update and load the save?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Attempting to load an older version save. Automatically update and load the save?",
+		L"Save version has changed. Please report if there any problems. Continue?"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Save version and game version have changed. Please report if there are any problems. Continue?",
-#else
-	L"Attempting to load an older version save. Automatically update and load the save?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Attempting to load an older version save. Automatically update and load the save?",
+		L"Save version and game version have changed. Please report if there are any problems. Continue?"),
 
 	L"Weet je zeker dat je het spel in slot #%d wil overschrijven?",
 	L"Wil je het spel laden van slot #",
@@ -6785,15 +6780,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"SPEL-INSTELLINGEN",
-#ifdef JA2UB
-	L"Random Manuel texts ",
-	L"Off",
-	L"On",
-#else
-	L"Speelstijl",
-	L"Realistisch",
-	L"SF",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Speelstijl",
+		L"Random Manuel texts "),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"Realistisch",
+		L"Off"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"SF",
+		L"On"),
 	L"Platinum", //Placeholder English
 	L"Wapenopties",
 	L"Extra wapens",
@@ -6833,15 +6831,18 @@ STR16	gzGIOScreenText[] =
 	L"Enemies Drop All Items",
 	L"Off",
 	L"On",
-#ifdef JA2UB
-	L"Tex and John",
-	L"Random",
-	L"All",
-#else
-	L"Number of Terrorists",
-	L"Random",
-	L"All",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Number of Terrorists",
+		L"Tex and John"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"Random",
+		L"Random"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"All",
+		L"All"),
 	L"Secret Weapon Caches",
 	L"Random",
 	L"All",
@@ -7239,11 +7240,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"Ga naar AIM en huur wat huurlingen in ( *Hint* dat kan bij Laptop )",
-#ifdef JA2UB
-	L"Als je klaar bent om naar Tracona te gaan, klik dan op TijdVersneller onder rechts op het scherm.",	// to inform the player to hit time compression to get the game underway
-#else
-	L"Als je klaar bent om naar Arulco te gaan, klik dan op TijdVersneller onder rechts op het scherm.",	// to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"Als je klaar bent om naar Arulco te gaan, klik dan op TijdVersneller onder rechts op het scherm.",
+		L"Als je klaar bent om naar Tracona te gaan, klik dan op TijdVersneller onder rechts op het scherm."),
 };
 
 STR16 pAntiHackerString[] = 
@@ -7491,11 +7491,10 @@ STR16 gzLateLocalizedString[] =
 	L"Al je huurlingen zijn verbonden.",
 
 	//14
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
 	L"(dak)",
 
 	L"Gezondheid: %d/%d",

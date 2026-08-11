@@ -3355,14 +3355,7 @@
         "*"
       ],
       "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [
-        "1:if:JA2UB",
-        "4:else",
-        "7:endif",
-        "45:if:JA2UB",
-        "48:else",
-        "51:endif"
-      ],
+      "conditional_layout": [],
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
@@ -5198,11 +5191,7 @@
         "*"
       ],
       "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [
-        "14:if:JA2UB",
-        "15:else",
-        "16:endif"
-      ],
+      "conditional_layout": [],
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
@@ -7327,11 +7316,7 @@
         "MAX_TOWN_NAME_LENGHT"
       ],
       "mutability": "writable-character-buffer",
-      "conditional_layout": [
-        "0:if:JA2UB",
-        "2:else",
-        "4:endif"
-      ],
+      "conditional_layout": [],
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
@@ -10179,11 +10164,7 @@
         "*"
       ],
       "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [
-        "1:if:JA2UB",
-        "2:else",
-        "3:endif"
-      ],
+      "conditional_layout": [],
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
@@ -19007,14 +18988,7 @@
         "*"
       ],
       "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [
-        "11:if:JA2BETAVERSION",
-        "12:else",
-        "13:endif",
-        "13:if:JA2BETAVERSION",
-        "14:else",
-        "15:endif"
-      ],
+      "conditional_layout": [],
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
@@ -19582,13 +19556,6 @@
               "initializer_entries": 17
             }
           }
-        },
-        "pFilesSenderList": {
-          "conditional_layout": [
-            "0:if:JA2UB",
-            "1:else",
-            "2:endif"
-          ]
         },
         "pPersonnelScreenStrings": {
           "quadrants": {
@@ -20180,13 +20147,6 @@
             }
           }
         },
-        "pFilesSenderList": {
-          "conditional_layout": [
-            "0:if:JA2UB",
-            "1:else",
-            "2:endif"
-          ]
-        },
         "pWebPagesTitles": {
           "quadrants": {
             "ja2-release": {
@@ -20432,14 +20392,6 @@
           ]
         },
         "gzGIOScreenText": {
-          "conditional_layout": [
-            "1:if:JA2UB",
-            "4:else",
-            "7:endif",
-            "46:if:JA2UB",
-            "49:else",
-            "52:endif"
-          ],
           "quadrants": {
             "ja2-release": {
               "effective_dimensions": [

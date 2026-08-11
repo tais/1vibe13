@@ -3,6 +3,7 @@
 
 	#if defined( ENGLISH )
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2366,13 +2367,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracona",
-	L"Traconian",
-#else
-	L"Arulco",
-	L"Arulcan",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracona"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Arulcan",
+		L"Traconian"),
 };
 
 // the names of the towns in the game
@@ -6442,23 +6444,17 @@ STR16			zSaveLoadText[] =
 
 	L"The saved game files may be invalidated. Do you want them all deleted?",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Save version has changed. Please report if there any problems. Continue?",
-#else
-	L"Attempting to load an older version save. Automatically update and load the save?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Attempting to load an older version save. Automatically update and load the save?",
+		L"Save version has changed. Please report if there any problems. Continue?"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Save version and game version have changed. Please report if there are any problems. Continue?",
-#else
-	L"Attempting to load an older version save. Automatically update and load the save?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Attempting to load an older version save. Automatically update and load the save?",
+		L"Save version and game version have changed. Please report if there are any problems. Continue?"),
 
 	L"Are you sure you want to overwrite the saved game in slot #%d?",
 	L"Do you want to load the game from slot #",
@@ -6782,15 +6778,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"INITIAL GAME SETTINGS",
-#ifdef JA2UB
-	L"Random Manuel texts ",
-	L"Off",
-	L"On",
-#else
-	L"Game Style",
-	L"Realistic",
-	L"Sci Fi",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Game Style",
+		L"Random Manuel texts "),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"Realistic",
+		L"Off"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"Sci Fi",
+		L"On"),
 	L"Platinum",
 	L"Available Arsenal", // changed by SANDRO
 	L"Tons of Guns",
@@ -6830,15 +6829,18 @@ STR16	gzGIOScreenText[] =
 	L"Enemies Drop All Items",
 	L"Off",
 	L"On",
-#ifdef JA2UB
-	L"Tex and John",
-	L"Random",
-	L"All",
-#else
-	L"Number of Terrorists",
-	L"Random",
-	L"All",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Number of Terrorists",
+		L"Tex and John"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"Random",
+		L"Random"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"All",
+		L"All"),
 	L"Secret Weapon Caches",
 	L"Random",
 	L"All",
@@ -7228,11 +7230,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"Go to AIM and hire some mercs ( *Hint* it's in the Laptop )", // to inform the player to hired some mercs to get things going
-#ifdef JA2UB
-	L"When you're ready to travel to Tracona, click on the Time Compression button at the bottom right of the screen.", // to inform the player to hit time compression to get the game underway
-#else
-	L"When you're ready to travel to Arulco, click on the Time Compression button at the bottom right of the screen.", // to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"When you're ready to travel to Arulco, click on the Time Compression button at the bottom right of the screen.",
+		L"When you're ready to travel to Tracona, click on the Time Compression button at the bottom right of the screen."),
 };
 
 STR16 pAntiHackerString[] =
@@ -7481,11 +7482,10 @@ STR16 gzLateLocalizedString[] =
 	L"All your mercs are bandaged.",
 
 	//14
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
 
   L"(roof)",
 

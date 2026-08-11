@@ -204,7 +204,7 @@ STR16 Labels[] = {
         }
         diagnostics = "\n".join(SCHEMA.validate_compatibility_debt(debt))
         self.assertIn("unexpected field(s): *", diagnostics)
-        self.assertIn("grew from the 59-symbol ceiling to 60", diagnostics)
+        self.assertIn("grew from the 57-symbol ceiling to 58", diagnostics)
 
     def test_schema_json_rejects_shadowing_duplicate_keys(self):
         with self.assertRaisesRegex(SCHEMA.SchemaError, "duplicate JSON object key"):

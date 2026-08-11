@@ -405,6 +405,40 @@ add_executable(i18n_language_catalog_tests
 add_test(NAME i18n_language_catalog
   COMMAND i18n_language_catalog_tests)
 
+# Campaign and build-conditioned translations are language data selected by an
+# explicit policy. This data-free model pins the key schema and all four policy
+# quadrants without linking a legacy text catalog or game application.
+add_executable(i18n_conditional_text_policy_tests
+  i18n_conditional_text_policy_tests.cpp)
+target_include_directories(i18n_conditional_text_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/i18n/include)
+add_test(NAME i18n_conditional_text_policy
+  COMMAND i18n_conditional_text_policy_tests)
+
+# Compile the narrow legacy publication seam in all four combinations. This
+# also proves that its selected literals still initialize fixed CHAR16 rows.
+function(add_i18n_compiled_conditional_text_test target expect_ub expect_beta)
+  add_executable(${target} i18n_compiled_conditional_text_tests.cpp)
+  target_include_directories(${target} PRIVATE
+    ${CMAKE_SOURCE_DIR}/i18n
+    ${CMAKE_SOURCE_DIR}/i18n/include)
+  target_compile_definitions(${target} PRIVATE
+    I18N_EXPECT_CAMPAIGN_UB=${expect_ub}
+    I18N_EXPECT_BUILD_BETA=${expect_beta}
+    ${ARGN})
+  add_test(NAME ${target} COMMAND ${target})
+endfunction()
+
+add_i18n_compiled_conditional_text_test(
+  i18n_compiled_conditional_text_ja2_release_tests 0 0)
+add_i18n_compiled_conditional_text_test(
+  i18n_compiled_conditional_text_ja2_beta_tests 0 1 JA2BETAVERSION)
+add_i18n_compiled_conditional_text_test(
+  i18n_compiled_conditional_text_ja2ub_release_tests 1 0 JA2UB)
+add_i18n_compiled_conditional_text_test(
+  i18n_compiled_conditional_text_ja2ub_beta_tests
+  1 1 JA2UB JA2BETAVERSION)
+
 # Items.xml combines a cleared base item table with persistent auxiliary
 # arrays and optional, field-presence-aware localization overlays. Keep its
 # index, narrowing, inheritance, rollback, and publish rules data-free before
@@ -641,16 +675,20 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  # Build-free parity gate for all eight compiled-text catalogs.  This remains
-  # mandatory even while the legacy foreign executable matrix is allowed to
-  # fail, and gives developers one named target that does not compile JA2.
+  # Build-free shape and exact conditioned-value gate for all eight compiled
+  # catalogs. This remains mandatory even while the legacy foreign executable
+  # matrix is allowed to fail, and gives developers one named no-build target.
   add_custom_target(i18n_text_schema_check
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py
     COMMAND ${Python3_EXECUTABLE} -m unittest
       tools/test_check_i18n_text_schema.py
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_conditional_text.py
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_conditional_text.py
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Validating all compiled text catalogs against the canonical ABI schema")
+    COMMENT "Validating compiled text ABI shapes and conditioned values")
   add_test(
     NAME i18n_text_schema
     COMMAND ${Python3_EXECUTABLE}
@@ -660,6 +698,16 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} -m unittest
       tools/test_check_i18n_text_schema.py)
   set_tests_properties(i18n_text_schema_tool PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  add_test(
+    NAME i18n_conditional_text_schema
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_conditional_text.py)
+  add_test(
+    NAME i18n_conditional_text_schema_tool
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_conditional_text.py)
+  set_tests_properties(i18n_conditional_text_schema_tool PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   add_test(
     NAME campaign_compile_guards

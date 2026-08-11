@@ -3,6 +3,7 @@
 
 	#if defined( RUSSIAN )
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2366,13 +2367,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Тракону",
-	L"Траконец",
-#else
-	L"Арулько",
-	L"Арулькиец",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Арулько",
+		L"Тракону"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Арулькиец",
+		L"Траконец"),
 };
 
 // the names of the towns in the game
@@ -6438,23 +6440,17 @@ STR16			zSaveLoadText[] =
 
 	L"Возможно, файлы сохранений повреждены. Желаете их удалить?",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Версия сохранений игры была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?",
-#else
-	L"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?",
+		L"Версия сохранений игры была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Версия игры и файлов сохранений была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?",
-#else
-	L"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?",
+		L"Версия игры и файлов сохранений была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?"),
 
 	L"Вы решили записать игру на существующее сохранение #%d?",
 	L"Хотите загрузить игру из сохранения #",
@@ -6778,15 +6774,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"УСТАНОВКИ НАЧАЛА ИГРЫ",
-#ifdef JA2UB
-	L"Случайная история Мануэля",
-	L"да",
-	L"нет",
-#else
-	L"Элементы фантастики",
-	L"нет",
-	L"есть",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Элементы фантастики",
+		L"Случайная история Мануэля"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"нет",
+		L"да"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"есть",
+		L"нет"),
 	L"Платиновая серия",
 	L"Ассортимент оружия в игре",
 	L"всё доступное",
@@ -6826,15 +6825,18 @@ STR16	gzGIOScreenText[] =
 	L"Враг оставляет всё снаряжение",
 	L"нет",
 	L"да",
-#ifdef JA2UB
-	L"Текс и Джон",
-	L"Случайно",
-	L"Оба сразу",
-#else
-	L"Число террористов",
-	L"случайное",
-	L"все сразу",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Число террористов",
+		L"Текс и Джон"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"случайное",
+		L"Случайно"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"все сразу",
+		L"Оба сразу"),
 	L"Спрятанное оружие секторов",	//Secret Weapon Caches
 	L"выборочно",
 	L"всё возможное",
@@ -7224,11 +7226,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"Отправляйтесь в A.I.M. и наймите бойцов (*Подсказка* - это в лэптопе).", // to inform the player to hired some mercs to get things going
-#ifdef JA2UB
-	L"Когда будете готовы отправиться в Тракону, включите сжатие времени в правом нижнем углу экрана.", // to inform the player to hit time compression to get the game underway
-#else
-	L"Когда будете готовы отправиться в Арулько, включите сжатие времени в правом нижнем углу экрана.", // to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"Когда будете готовы отправиться в Арулько, включите сжатие времени в правом нижнем углу экрана.",
+		L"Когда будете готовы отправиться в Тракону, включите сжатие времени в правом нижнем углу экрана."),
 };
 
 STR16 pAntiHackerString[] = 
@@ -7476,11 +7477,10 @@ STR16 gzLateLocalizedString[] =
 	L"Все ваши наёмники перевязаны.",
 
 	//14
-#ifdef JA2UB
-	L"Тракона",
-#else
-	L"Арулько",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Арулько",
+		L"Тракона"),
 
 	L"(на крыше)",
 
