@@ -5319,6 +5319,123 @@ foreach(required_utils_indexed_xml_platform_fragment IN ITEMS
   endif()
 endforeach()
 
+# Legacy compatibility utilities retain only counted, transactional behavior.
+# Text/path decisions stay dependency-free, FileMan handles have one owner, and
+# the uncompiled DirectSound-era Win Util pair must not return as a platform
+# abstraction.
+file(READ "${SOURCE_ROOT}/Utils/LegacyUtilitiesModel.h"
+  runtime_legacy_utilities_model_contents)
+foreach(required_legacy_utilities_model_fragment IN ITEMS
+    "struct WideTextSplit"
+    "SplitWideText("
+    "overflowIndex >= text.size()"
+    "JoinPath("
+    "relative.size() > capacity - 1 - root.size()"
+    "destination = std::move(staged)")
+  string(FIND "${runtime_legacy_utilities_model_contents}"
+    "${required_legacy_utilities_model_fragment}"
+    required_legacy_utilities_model_position)
+  if(required_legacy_utilities_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities model lost '${required_legacy_utilities_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Utilities.h"
+  runtime_legacy_utilities_header_contents)
+foreach(required_legacy_utilities_header_fragment IN ITEMS
+    "std::size_t destinationCapacity"
+    "std::size_t strCapacity"
+    "CHAR8 (&pDestination)[Capacity]"
+    "CHAR16 (&pStr)[FirstCapacity]")
+  string(FIND "${runtime_legacy_utilities_header_contents}"
+    "${required_legacy_utilities_header_fragment}"
+    required_legacy_utilities_header_position)
+  if(required_legacy_utilities_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities counted API lost '${required_legacy_utilities_header_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Utilities.cpp"
+  runtime_legacy_utilities_source_contents)
+foreach(required_legacy_utilities_source_fragment IN ITEMS
+    "#include \"LegacyUtilitiesModel.h\""
+    "UniqueResourceHandle<"
+    "bytesRead != bytes.size()"
+    "std::wmemchr("
+    "LegacyUtilitiesModel::SplitWideText("
+    "LegacyUtilitiesModel::JoinPath("
+    "if (!file) return FALSE")
+  string(FIND "${runtime_legacy_utilities_source_contents}"
+    "${required_legacy_utilities_source_fragment}"
+    required_legacy_utilities_source_position)
+  if(required_legacy_utilities_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities production boundary lost '${required_legacy_utilities_source_fragment}'")
+  endif()
+endforeach()
+foreach(retired_legacy_utilities_fragment IN ITEMS
+    "strcpy("
+    "wcscpy("
+    "sprintf("
+    "#ifdef _WIN32"
+    "IfWinNT("
+    "IfWin95("
+    "HandleLimitedNumExecutions("
+    "HandleJA2CDCheckTwo("
+    "PerformTimeLimitedCheck(")
+  string(FIND "${runtime_legacy_utilities_source_contents}"
+    "${retired_legacy_utilities_fragment}"
+    retired_legacy_utilities_position)
+  if(NOT retired_legacy_utilities_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities restored retired unsafe/dead path '${retired_legacy_utilities_fragment}'")
+  endif()
+endforeach()
+if(EXISTS "${SOURCE_ROOT}/Utils/Win Util.cpp" OR
+   EXISTS "${SOURCE_ROOT}/Utils/Win Util.h")
+  message(FATAL_ERROR
+    "The retired uncompiled DirectSound-era Win Util pair must stay removed")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/utils_legacy_utilities_model_tests.cpp"
+  runtime_legacy_utilities_model_test_contents)
+foreach(required_legacy_utilities_model_test_fragment IN ITEMS
+    "wide text wraps at the last in-range space"
+    "legacy hyphen fallback without underflow"
+    "absent overflow leaves the prior split untouched"
+    "path joins reject overflow transactionally and accept the exact limit")
+  string(FIND "${runtime_legacy_utilities_model_test_contents}"
+    "${required_legacy_utilities_model_test_fragment}"
+    required_legacy_utilities_model_test_position)
+  if(required_legacy_utilities_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities model coverage lost '${required_legacy_utilities_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(legacy_utilities_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${legacy_utilities_test_manifest}}"
+    "utils_legacy_utilities_model_tests"
+    required_legacy_utilities_test_manifest_position)
+  if(required_legacy_utilities_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+foreach(required_legacy_utilities_headless_fragment IN ITEMS
+    "COL palette loading publishes every RGB entry and preserves caller flags"
+    "truncated COL palette input leaves the complete caller palette untouched")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_legacy_utilities_headless_fragment}"
+    required_legacy_utilities_headless_position)
+  if(required_legacy_utilities_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy utilities FileMan coverage lost '${required_legacy_utilities_headless_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_indexed_xml_walkthrough_contents)
 foreach(required_utils_indexed_xml_documentation_fragment IN ITEMS
@@ -6235,11 +6352,13 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "now - scheduledAt > delay"
     "tactical_event_queue_model_tests"
     "Offline image and developer-utility closure"
+    "Legacy compatibility utilities closure"
+    "LegacyUtilitiesModel.h"
     "production reader through"
     "authored nonzero-class item"
     "invalid UTF-8"
     "Remaining Utils inventory"
-    "following 5 translation units"
+    "following 3 translation units"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
     "same-directory sibling"
@@ -6276,7 +6395,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "DataBoundaryModel"
     "encrypted text-record"
     "ImageUtilityModel"
-    "remaining 5 Utils"
+    "LegacyUtilitiesModel"
+    "remaining 3 Utils"
     "all four 64-bit masks exact"
     "installed-data"
     "exact representable inverse"

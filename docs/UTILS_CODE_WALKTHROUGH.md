@@ -451,14 +451,42 @@ file after malformed input. Both run in normal CTest and the Linux
 AddressSanitizer matrix. Architecture ratchets retain the model, production
 adapters, retired destructive sinks, tests, host manifests, and this record.
 
+## Legacy compatibility utilities closure
+
+`Utilities.cpp` now keeps only live cross-platform compatibility behavior.
+`FilenameForBPP` and `WrapString` expose the destination capacities that their
+callers already own; array-reference adapters preserve existing call sites
+without restoring an uncounted pointer API. `LegacyUtilitiesModel.h` stages
+wide-text splitting and media-path composition independently from fonts, VFS,
+or application globals. The no-space wrap fallback no longer decrements before
+the start of the input, exact-capacity paths are distinguished from overflow,
+and every rejected operation leaves its destination unchanged.
+
+COL palette loading owns its file handle, requires the complete eight-byte
+header plus all 256 RGB triples, and publishes RGB values only after that exact
+read succeeds. It deliberately preserves the caller-owned palette flag bytes.
+The legacy media probe now composes each path within `SGPFILENAME_LEN`, rejects
+null and oversized roots, and never closes an invalid handle. The disabled
+retail CD-check entry point remains as a behavior-compatible success boundary;
+the unused Win9x detection, expiring-demo run counter, second CD-check stub,
+commented string-replacement implementation, and size tables are retired.
+
+`Win Util.cpp` and `Win Util.h` were uncompiled, unreferenced DirectSound-era
+code whose only active-looking function was an empty compatibility stub. They
+are removed rather than preserved as a false platform abstraction. The
+dependency-free `utils_legacy_utilities_model_tests` pin split and path
+boundaries. Real FileMan coverage in `ja2_headless_tests` verifies complete COL
+publication, caller flag preservation, truncated-input rollback, and cleanup.
+Architecture ratchets retain the counted APIs, owned file handles, tests,
+documentation, and removal of the dead Win Util pair.
+
 ## Remaining Utils inventory
 
-The following 5 translation units are compiled and covered by the general
+The following 3 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
-- Input and runtime control: `Cursors.cpp`, `KeyMap.cpp`, `Timer Control.cpp`,
-  `Utilities.cpp`, and `Win Util.cpp`.
+- Input and runtime control: `Cursors.cpp`, `KeyMap.cpp`, and `Timer Control.cpp`.
 
 The remaining runtime-control files are the final Utils audit batch.
 Existing file formats, resource paths, localization strings, callbacks, visual

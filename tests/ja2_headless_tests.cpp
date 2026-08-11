@@ -69,6 +69,7 @@
 #include "Quantize Wrap.h"
 #include "STIConvert.h"
 #include "XMLWriter.h"
+#include "Utilities.h"
 #include "Button System.h"
 #include "message.h"
 #include "video.h"
@@ -533,6 +534,62 @@ static bool WriteFileManagerText(
 		size, &bytesWritten)) && bytesWritten == size;
 	FileClose(file);
 	return written;
+}
+
+static void RunLegacyUtilitiesTests(const std::string& fixtureToken)
+{
+	const std::string validPath =
+		"legacy-palette-valid-" + fixtureToken + ".col";
+	const std::string truncatedPath =
+		"legacy-palette-truncated-" + fixtureToken + ".col";
+	constexpr std::size_t HeaderSize = 8;
+	constexpr std::size_t PaletteEntries = 256;
+	constexpr std::size_t Components = 3;
+	std::string fixture(HeaderSize + PaletteEntries * Components, '\0');
+	for (std::size_t index = 0; index < PaletteEntries; ++index)
+	{
+		const std::size_t offset = HeaderSize + index * Components;
+		fixture[offset] = static_cast<char>(index);
+		fixture[offset + 1] = static_cast<char>(255 - index);
+		fixture[offset + 2] = static_cast<char>((index * 3) & 0xff);
+	}
+
+	std::array<SGPPaletteEntry, PaletteEntries> palette{};
+	for (SGPPaletteEntry& entry : palette)
+	{
+		entry.peRed = 0x11;
+		entry.peGreen = 0x22;
+		entry.peBlue = 0x33;
+		entry.peFlags = 0xa5;
+	}
+	const bool validWritten = WriteFileManagerText(validPath, fixture);
+	const bool loaded = validWritten && CreateSGPPaletteFromCOLFile(
+		palette.data(), const_cast<char*>(validPath.c_str()));
+	bool paletteMatches = loaded;
+	for (std::size_t index = 0; index < palette.size(); ++index)
+	{
+		paletteMatches = paletteMatches &&
+			palette[index].peRed == static_cast<UINT8>(index) &&
+			palette[index].peGreen == static_cast<UINT8>(255 - index) &&
+			palette[index].peBlue == static_cast<UINT8>((index * 3) & 0xff) &&
+			palette[index].peFlags == 0xa5;
+	}
+	CHECK(paletteMatches,
+		"COL palette loading publishes every RGB entry and preserves caller flags");
+
+	const std::array<SGPPaletteEntry, PaletteEntries> beforeTruncated = palette;
+	const bool truncatedWritten = WriteFileManagerText(
+		truncatedPath, fixture.substr(0, fixture.size() - 1));
+	const bool truncatedRejected = truncatedWritten &&
+		!CreateSGPPaletteFromCOLFile(
+			palette.data(), const_cast<char*>(truncatedPath.c_str()));
+	const bool unchanged = std::memcmp(
+		palette.data(), beforeTruncated.data(), sizeof(palette)) == 0;
+	CHECK(truncatedRejected && unchanged,
+		"truncated COL palette input leaves the complete caller palette untouched");
+
+	FileDelete(const_cast<char*>(validPath.c_str()));
+	FileDelete(const_cast<char*>(truncatedPath.c_str()));
 }
 
 static void ReportItemXmlTestProgress(
@@ -18605,6 +18662,7 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	RunLegacyUtilitiesTests(vfsPriorityToken);
 	try
 	{
 		RunTransactionalItemXmlTests(vfsPriorityToken);

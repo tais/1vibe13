@@ -1335,7 +1335,13 @@ the engine must not contain SDL types in its public domain model.
   the same atomic VFS replacement boundary;
   malformed input and failed publication cannot delete or truncate the live
   radar image. Focused model and real-adapter tests run in CTest and ASan.
-  The remaining 5 Utils translation units are deliberately still tracked as
+  `Utilities.cpp` now exposes counted filename/wrapping boundaries, stages
+  split/path decisions in `LegacyUtilitiesModel`, owns palette/media-probe
+  files, and publishes a COL palette only after an exact complete read. Dead
+  Win9x/demo/CD branches and the uncompiled DirectSound-era `Win Util` pair are
+  retired. Dependency-free model tests and real-FileMan palette rollback tests
+  pin that compatibility boundary. The remaining 3 Utils translation units
+  are deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
