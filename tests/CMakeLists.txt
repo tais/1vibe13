@@ -622,6 +622,26 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
+  # Build-free parity gate for all eight compiled-text catalogs.  This remains
+  # mandatory even while the legacy foreign executable matrix is allowed to
+  # fail, and gives developers one named target that does not compile JA2.
+  add_custom_target(i18n_text_schema_check
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_text_schema.py
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Validating all compiled text catalogs against the canonical ABI schema")
+  add_test(
+    NAME i18n_text_schema
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py)
+  add_test(
+    NAME i18n_text_schema_tool
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_text_schema.py)
+  set_tests_properties(i18n_text_schema_tool PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   add_test(
     NAME campaign_compile_guards
     COMMAND ${Python3_EXECUTABLE}

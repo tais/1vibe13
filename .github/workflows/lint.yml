@@ -37,6 +37,14 @@ jobs:
         # accessor instead of growing the raw global-indexing tail.
         run: python3 tools/lint_world_tile_access.py
 
+      - name: Validate all compiled-text catalogs
+        # Structural parity is mandatory for all eight languages and all four
+        # JA2/JA2UB x release/debug quadrants.  The legacy executable matrix may
+        # still treat foreign compiles as soft while this build-free gate does not.
+        run: |
+          python3 tools/check_i18n_text_schema.py
+          python3 -m unittest tools/test_check_i18n_text_schema.py
+
       - name: Validate release metadata stamping
         run: |
           python3 tools/stamp_game_version.py \
