@@ -547,6 +547,111 @@ foreach(required_campaign_policy_assertion IN ITEMS
   endif()
 endforeach()
 
+# Door forcing and tunnel feedback are campaign content selected from the live
+# capability set. Both behavior paths must remain compiled in the shared
+# tactical source, and the eight retired JA2UB guards must not return.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignDoorPolicy.h"
+  runtime_campaign_door_policy_contents)
+foreach(required_campaign_door_policy_fragment IN ITEMS
+    "class CampaignDoorPolicy"
+    "usesUnfinishedBusinessTunnelGate"
+    "usesOpenDoorCostWhenForcing"
+    "shouldAttemptForceDoor"
+    "shouldOfferFailedUnlockCurse")
+  string(FIND "${runtime_campaign_door_policy_contents}"
+    "${required_campaign_door_policy_fragment}"
+    required_campaign_door_policy_position)
+  if(required_campaign_door_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign door policy lost '${required_campaign_door_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Handle Doors.cpp"
+  runtime_campaign_door_source_contents)
+foreach(required_campaign_door_source_fragment IN ITEMS
+    "#include \"CampaignDoorPolicy.h\""
+    "CampaignDoorPolicy campaignPolicy("
+    "campaignPolicy.usesOpenDoorCostWhenForcing()"
+    "campaignPolicy.shouldAttemptForceDoor("
+    "campaignPolicy.shouldOfferFailedUnlockCurse("
+    "RecordForcedUnfinishedBusinessTunnelGate( sGridNo )")
+  string(FIND "${runtime_campaign_door_source_contents}"
+    "${required_campaign_door_source_fragment}"
+    required_campaign_door_source_position)
+  if(required_campaign_door_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign door integration lost '${required_campaign_door_source_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_door_source_contents}" "JA2UB"
+  retired_campaign_door_guard_position)
+if(NOT retired_campaign_door_guard_position EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical door behavior regained compiled JA2UB identity")
+endif()
+
+foreach(required_campaign_door_test_manifest_fragment IN ITEMS
+    "campaign_door_policy_tests.cpp"
+    "campaign_door_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_door_test_manifest_fragment}"
+    required_campaign_door_test_manifest_position)
+  if(required_campaign_door_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign door policy lost its data-free test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_door_policy_tests"
+  required_campaign_door_policy_ci_position)
+if(required_campaign_door_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime campaign door policy target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_door_policy_tests.cpp"
+  runtime_campaign_door_policy_test_contents)
+foreach(required_campaign_door_policy_test_fragment IN ITEMS
+    "Arulco has no UB tunnel-gate content"
+    "UB forcing retains its open-door AP cost"
+    "UB tunnel dialogue alone consumes a force attempt"
+    "UB offers the curse only after its tunnel quote handles the failure")
+  string(FIND "${runtime_campaign_door_policy_test_contents}"
+    "${required_campaign_door_policy_test_fragment}"
+    required_campaign_door_policy_test_position)
+  if(required_campaign_door_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign door policy coverage lost '${required_campaign_door_policy_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
+  runtime_campaign_door_status_contents)
+foreach(required_campaign_door_status_fragment IN ITEMS
+    "120 active conditionals in 42"
+    "Laptop content/pages | 10"
+    "Tactical gameplay/content | 44"
+    "CampaignDoorPolicy"
+    "All eight policies")
+  string(FIND "${runtime_campaign_door_status_contents}"
+    "${required_campaign_door_status_fragment}"
+    required_campaign_door_status_position)
+  if(required_campaign_door_status_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign runtime status lost '${required_campaign_door_status_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  runtime_campaign_door_architecture_contents)
+string(FIND "${runtime_campaign_door_architecture_contents}"
+  "Tactical door behavior now selects through the value-only"
+  required_campaign_door_architecture_position)
+if(required_campaign_door_architecture_position EQUAL -1)
+  message(FATAL_ERROR
+    "Engine architecture lost the runtime tactical-door decision record")
+endif()
+
 # Dealer and shopkeeper behavior uses a typed runtime identity because raw
 # save/XML slots 5-18 have different meanings in the two campaign rosters.
 # The persisted 80-slot layout must remain unchanged while both inventories
