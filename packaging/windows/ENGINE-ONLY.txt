@@ -1,0 +1,17 @@
+Jagged Alliance 2 1.13 SDL3 engine package
+===========================================
+
+This installer contains the engine executables only. It does not include the
+copyrighted Jagged Alliance 2 game data.
+
+Install into an existing JA2 1.13 directory that contains Ja2.ini and Data/,
+or copy a legally obtained JA2 1.13 data set into the selected directory after
+installation. The uninstaller removes only the engine files installed by this
+package; it deliberately leaves Data/, configuration, mods, saves, and other
+user files in place. The bundled ja2server configuration is named
+ja2_mp.ini.sample so an existing or customized ja2_mp.ini remains user-owned.
+The package-specific uninstaller does not replace a pre-existing Uninstall.exe.
+
+The installer is currently unsigned. Verify that it came from the official
+GitHub release before running it. See packaging/README.md in the source tree
+for the release-tool pinning and signing policy.
