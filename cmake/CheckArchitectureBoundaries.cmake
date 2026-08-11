@@ -160,13 +160,15 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "482 unique data declarations"
-    "58 application/configuration preprocessor"
+    "retires exactly 58 catalog guard groups"
+    "98 conditioned table entries and 196 exact literal alternatives"
+    "CompiledConditionalText.h"
     "ExportStrings.cpp"
     "Migration sequence"
     "Explicit blockers and review gates"
     "Canonical compiled-text ABI schema"
     "520 unique data symbols"
-    "59 pre-existing foreign-catalog compatibility gaps"
+    "57 pre-existing foreign-catalog compatibility gaps"
     "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_normalized}"
     "${required_runtime_i18n_doc_fragment}"
@@ -183,7 +185,7 @@ foreach(required_runtime_i18n_schema_tool_fragment IN ITEMS
     "LANGUAGES = ("
     "QUADRANTS = ("
     "FALLBACK_POLICY = {"
-    "MAX_COMPATIBILITY_DEBT_SYMBOLS = 59"
+    "MAX_COMPATIBILITY_DEBT_SYMBOLS = 57"
     "implicit_linker_fallback"
     "untracked conditional macro"
     "missing symbol"
@@ -198,6 +200,141 @@ foreach(required_runtime_i18n_schema_tool_fragment IN ITEMS
   if(required_runtime_i18n_schema_tool_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime i18n schema validator lost '${required_runtime_i18n_schema_tool_fragment}'")
+  endif()
+endforeach()
+
+# Language files own translations, not application/build selection. The 58
+# retired catalog guards may not return under a different spelling.
+foreach(runtime_i18n_catalog IN ITEMS
+    _EnglishText.cpp
+    _GermanText.cpp
+    _RussianText.cpp
+    _DutchText.cpp
+    _PolishText.cpp
+    _FrenchText.cpp
+    _ItalianText.cpp
+    _ChineseText.cpp)
+  file(READ "${SOURCE_ROOT}/i18n/${runtime_i18n_catalog}"
+    runtime_i18n_catalog_contents)
+  string(REGEX MATCH
+    "#[ \\t]*(if|ifdef|ifndef|elif)[^\\r\\n]*(JA2UB|JA2BETAVERSION)"
+    runtime_i18n_catalog_configuration_guard
+    "${runtime_i18n_catalog_contents}")
+  if(runtime_i18n_catalog_configuration_guard)
+    message(FATAL_ERROR
+      "${runtime_i18n_catalog} regained compiled campaign/build text selection")
+  endif()
+  string(FIND "${runtime_i18n_catalog_contents}"
+    "#include \"CompiledConditionalText.h\""
+    runtime_i18n_catalog_policy_include)
+  if(runtime_i18n_catalog_policy_include EQUAL -1)
+    message(FATAL_ERROR
+      "${runtime_i18n_catalog} lost the conditional-text publication seam")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/include/ConditionalTextPolicy.h"
+  runtime_i18n_conditional_policy_contents)
+foreach(required_runtime_i18n_conditional_policy_fragment IN ITEMS
+    "enum class CampaignTextVariant"
+    "enum class BuildTextVariant"
+    "ConditionalTextKeys"
+    "SelectCampaignText"
+    "SelectBuildText"
+    "FilesSenderReport")
+  string(FIND "${runtime_i18n_conditional_policy_contents}"
+    "${required_runtime_i18n_conditional_policy_fragment}"
+    required_runtime_i18n_conditional_policy_position)
+  if(required_runtime_i18n_conditional_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Conditional text policy lost '${required_runtime_i18n_conditional_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/CompiledConditionalText.h"
+  runtime_i18n_compiled_conditional_contents)
+foreach(required_runtime_i18n_compiled_conditional_fragment IN ITEMS
+    "I18N_COMPILED_CAMPAIGN_TEXT"
+    "I18N_COMPILED_BUILD_TEXT"
+    "CompiledConditionalTextPolicy"
+    "CampaignTextVariant::ja2ub"
+    "BuildTextVariant::beta")
+  string(FIND "${runtime_i18n_compiled_conditional_contents}"
+    "${required_runtime_i18n_compiled_conditional_fragment}"
+    required_runtime_i18n_compiled_conditional_position)
+  if(required_runtime_i18n_compiled_conditional_position EQUAL -1)
+    message(FATAL_ERROR
+      "Compiled conditional text seam lost '${required_runtime_i18n_compiled_conditional_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
+  runtime_i18n_export_strings_contents)
+string(FIND "${runtime_i18n_export_strings_contents}"
+  "#include \"CompiledConditionalText.h\""
+  runtime_i18n_export_conditional_include)
+if(runtime_i18n_export_conditional_include EQUAL -1)
+  message(FATAL_ERROR
+    "ExportStrings must import conditional policy before catalog textual inclusion")
+endif()
+
+file(READ "${SOURCE_ROOT}/tools/check_i18n_conditional_text.py"
+  runtime_i18n_conditional_tool_contents)
+foreach(required_runtime_i18n_conditional_tool_fragment IN ITEMS
+    "RETIRED_GUARD_COUNT"
+    "CONDITIONED_ENTRY_COUNT"
+    "LITERAL_ALTERNATIVE_COUNT"
+    "LEGACY_INDEX_OVERRIDES"
+    "catalog regained JA2UB/JA2BETAVERSION directives"
+    "conditioned catalog values differ from exact schema"
+    "selector alternative contains an expression")
+  string(FIND "${runtime_i18n_conditional_tool_contents}"
+    "${required_runtime_i18n_conditional_tool_fragment}"
+    required_runtime_i18n_conditional_tool_position)
+  if(required_runtime_i18n_conditional_tool_position EQUAL -1)
+    message(FATAL_ERROR
+      "Conditional text validator lost '${required_runtime_i18n_conditional_tool_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/conditional_text_schema.json"
+  runtime_i18n_conditional_schema_contents)
+foreach(required_runtime_i18n_conditional_schema_fragment IN ITEMS
+    "\"retired_catalog_guard_count\": 58"
+    "\"conditioned_entry_count\": 98"
+    "\"literal_alternative_count\": 196"
+    "\"legacy_index_overrides\""
+    "\"catalog_values\""
+    "\"SaveAndGameVersionChanged\""
+    "\"FilesSenderReport\"")
+  string(FIND "${runtime_i18n_conditional_schema_contents}"
+    "${required_runtime_i18n_conditional_schema_fragment}"
+    required_runtime_i18n_conditional_schema_position)
+  if(required_runtime_i18n_conditional_schema_position EQUAL -1)
+    message(FATAL_ERROR
+      "Conditional text exact-value schema lost '${required_runtime_i18n_conditional_schema_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tools/test_check_i18n_conditional_text.py"
+  runtime_i18n_conditional_test_contents)
+foreach(required_runtime_i18n_conditional_test_fragment IN ITEMS
+    "test_all_58_legacy_guards_have_explicit_groups_and_positions"
+    "test_selector_requires_one_key_and_two_literal_alternatives"
+    "test_initializer_comments_cannot_invent_table_entries"
+    "test_commented_policy_include_does_not_satisfy_catalog_gate"
+    "test_every_catalog_has_only_schema_owned_selectors"
+    "test_all_four_quadrants_choose_the_declared_axis_only"
+    "test_committed_values_resolve_exactly_in_every_catalog_quadrant"
+    "test_exact_value_drift_names_the_language"
+    "test_duplicate_schema_keys_cannot_shadow_values"
+    "test_catalog_configuration_guards_are_detected")
+  string(FIND "${runtime_i18n_conditional_test_contents}"
+    "${required_runtime_i18n_conditional_test_fragment}"
+    required_runtime_i18n_conditional_test_position)
+  if(required_runtime_i18n_conditional_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Conditional text validator tests lost '${required_runtime_i18n_conditional_test_fragment}'")
   endif()
 endforeach()
 
@@ -246,7 +383,9 @@ file(READ "${SOURCE_ROOT}/.github/workflows/lint.yml"
 foreach(required_runtime_i18n_lint_fragment IN ITEMS
     "Validate all compiled-text catalogs"
     "python3 tools/check_i18n_text_schema.py"
-    "python3 -m unittest tools/test_check_i18n_text_schema.py")
+    "python3 -m unittest tools/test_check_i18n_text_schema.py"
+    "python3 tools/check_i18n_conditional_text.py"
+    "python3 -m unittest tools/test_check_i18n_conditional_text.py")
   string(FIND "${runtime_i18n_lint_workflow_contents}"
     "${required_runtime_i18n_lint_fragment}"
     required_runtime_i18n_lint_position)
@@ -261,7 +400,14 @@ file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
 foreach(required_runtime_i18n_test_build_fragment IN ITEMS
     "add_custom_target(i18n_text_schema_check"
     "NAME i18n_text_schema"
-    "NAME i18n_text_schema_tool")
+    "NAME i18n_text_schema_tool"
+    "NAME i18n_conditional_text_schema"
+    "NAME i18n_conditional_text_schema_tool"
+    "i18n_conditional_text_policy_tests"
+    "i18n_compiled_conditional_text_ja2_release_tests"
+    "i18n_compiled_conditional_text_ja2_beta_tests"
+    "i18n_compiled_conditional_text_ja2ub_release_tests"
+    "i18n_compiled_conditional_text_ja2ub_beta_tests")
   string(FIND "${runtime_i18n_test_build_contents}"
     "${required_runtime_i18n_test_build_fragment}"
     required_runtime_i18n_test_build_position)
@@ -271,10 +417,29 @@ foreach(required_runtime_i18n_test_build_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  runtime_i18n_sanitizer_workflow_contents)
+foreach(required_runtime_i18n_sanitizer_target IN ITEMS
+    "i18n_conditional_text_policy_tests"
+    "i18n_compiled_conditional_text_ja2_release_tests"
+    "i18n_compiled_conditional_text_ja2_beta_tests"
+    "i18n_compiled_conditional_text_ja2ub_release_tests"
+    "i18n_compiled_conditional_text_ja2ub_beta_tests")
+  string(REGEX MATCH
+    "cmake --build build --target[^\r\n]*${required_runtime_i18n_sanitizer_target}"
+    required_runtime_i18n_sanitizer_target_match
+    "${runtime_i18n_sanitizer_workflow_contents}")
+  if(NOT required_runtime_i18n_sanitizer_target_match)
+    message(FATAL_ERROR
+      "Runtime i18n sanitizer build lost '${required_runtime_i18n_sanitizer_target}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/TODO" runtime_i18n_todo_contents)
 foreach(required_runtime_i18n_todo_fragment IN ITEMS
-    "mandatory 8-language/4-quadrant Text ABI schema is complete"
-    "next separate campaign- and build-conditioned text")
+    "mandatory 8-language/4-quadrant Text ABI schema"
+    "58-guard campaign/build value separation are complete"
+    "next move the 485 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"
     required_runtime_i18n_todo_position)

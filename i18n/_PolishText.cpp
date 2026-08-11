@@ -4,6 +4,7 @@
 
 	#if defined( POLISH )
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2372,13 +2373,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracony",
-	L"Traconian",
-#else
-	L"Arulco",
-	L"Arulcan",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracony"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Arulcan",
+		L"Traconian"),
 };
 
 // the names of the towns in the game
@@ -6445,23 +6447,17 @@ STR16			zSaveLoadText[] =
 	L"Wersja gry w zapisanym pliku różni się od bieżącej. Prawdopodobnie można bezpiecznie kontynuować. Kontynuować?",
 	L"Zapisane pliki gier mogą być uszkodzone. Czy chcesz je usunąć?",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.	
-#ifdef JA2BETAVERSION
-	L"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?",
-#else
-	L"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?",
+		L"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?",
-#else
-	L"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?",
+		L"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?"),
 
 	L"Czy na pewno chcesz nadpisać grę na pozycji %d?",
 	L"Chcesz odczytać grę z pozycji",
@@ -6786,15 +6782,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"POCZĄTKOWE USTAWIENIA GRY",
-#ifdef JA2UB
-	L"Dialogi Manuela",
-	L"Wył.",
-	L"Wł.",
-#else
-	L"Styl gry",
-	L"Realistyczny",
-	L"S-F",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Styl gry",
+		L"Dialogi Manuela"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"Realistyczny",
+		L"Wył."),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"S-F",
+		L"Wł."),
 	L"Platynowy", //Placeholder English
 	L"Dostępny arsenał",
 	L"Mnóstwo",
@@ -6834,15 +6833,18 @@ STR16	gzGIOScreenText[] =
 	L"Polegli wrogowie pozostawiają cały ekwipunek",
 	L"Wył.",
 	L"Wł.",
-#ifdef JA2UB
-	L"Tex i John",
-	L"Losowo",
-	L"Obaj",
-#else
-	L"Liczba terrorystów",
-	L"Losowo",
-	L"Wszyscy",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Liczba terrorystów",
+		L"Tex i John"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"Losowo",
+		L"Losowo"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"Wszyscy",
+		L"Obaj"),
 	L"Ukryte składowiska broni",
 	L"Losowe",
 	L"Wszystkie",
@@ -7237,11 +7239,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"Zajrzyj do A.I.M. i zatrudnij kilku najemników (*Wskazówka* musisz otworzyć laptopa)", // to inform the player to hired some mercs to get things going
-#ifdef JA2UB
-	L"Jeśli chcesz już udać się do Tracony, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu.", // to inform the player to hit time compression to get the game underway
-#else
-	L"Jeśli chcesz już udać się do Arulco, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu.", // to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"Jeśli chcesz już udać się do Arulco, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu.",
+		L"Jeśli chcesz już udać się do Tracony, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu."),
 };
 
 STR16 pAntiHackerString[] = 
@@ -7489,11 +7490,10 @@ STR16 gzLateLocalizedString[] =
 	L"Wszystkim twoim najemnikom założono opatrunki.",
 
 	//14
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
 
   L"(dach)",
 

@@ -1,4 +1,5 @@
 #include "ExportStrings.h"
+#include "CompiledConditionalText.h"
 #include "LocalizedStrings.h"
 #include "Map Screen Interface.h"
 #include "personnel.h"

@@ -2,4 +2,4 @@
 # priority (LOW,HIGH) and description
 
 LOW readd the C4838 (https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-1-c4838) warning to CMakeLists.txt once they're all fixed in the code
-HIGH continue the staged runtime-i18n migration in docs/RUNTIME_I18N_ARCHITECTURE.md: the mandatory 8-language/4-quadrant Text ABI schema is complete; next separate campaign- and build-conditioned text, then move the 485 base and 35 JA25 definitions behind validated language packs, remove textual ExportStrings inclusion, retire the quarantined ENGLISH/GERMAN/etc definitions, and build i18n once. Language changes remain restart-only; voice and hotloading are separate work.
+HIGH continue the staged runtime-i18n migration in docs/RUNTIME_I18N_ARCHITECTURE.md: the mandatory 8-language/4-quadrant Text ABI schema and the 58-guard campaign/build value separation are complete; next move the 485 base and 35 JA25 definitions behind validated language packs, remove textual ExportStrings inclusion, retire the quarantined ENGLISH/GERMAN/etc definitions, and build i18n once. Language changes remain restart-only; voice and hotloading are separate work.

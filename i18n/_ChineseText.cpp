@@ -3,6 +3,7 @@
 
 	#if defined( CHINESE )
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2366,13 +2367,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracona",
-	L"Traconian",
-#else
-	L"Arulco",
-	L"Arulcan",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracona"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Arulcan",
+		L"Traconian"),
 };
 
 // the names of the towns in the game
@@ -6442,23 +6444,17 @@ STR16			zSaveLoadText[] =
 
 	L"存档可能已经无效。你要删除它们吗？",
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"存档版本已改变。如果出现问题请报告。继续？",
-#else
-	L"试图载入老版本的存档。自动修正并载入存档？",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"试图载入老版本的存档。自动修正并载入存档？",
+		L"存档版本已改变。如果出现问题请报告。继续？"),
 
-	//Translators, the next two strings are for the same thing.  The first one is for beta version releases and the second one
-	//is used for the final version.  Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed.  It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"存档版本和游戏版本已改变。如果出现问题请报告。继续？",
-#else
-	L"试图载入老版本的存档。你要自动更新并载入存档吗？",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"试图载入老版本的存档。你要自动更新并载入存档吗？",
+		L"存档版本和游戏版本已改变。如果出现问题请报告。继续？"),
 
 	L"你确认你要将#%d位置的存档覆盖吗？",
 	L"你要从#号位置载入存档吗？",
@@ -6782,15 +6778,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16	gzGIOScreenText[] =
 {
 	L"游戏初始设置",
-#ifdef JA2UB
-	L"随机 Manuel 文本",//L"Random Manuel texts ",
-	L"关",//L"Off",
-	L"开",//L"On",
-#else
-	L"游戏风格",
-	L"现实",
-	L"科幻",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"游戏风格",
+		L"随机 Manuel 文本"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"现实",
+		L"关"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"科幻",
+		L"开"),
 	L"金版",
 	L"武器数量", // changed by SANDRO
 	L"大量武器",
@@ -6830,15 +6829,18 @@ STR16	gzGIOScreenText[] =
 	L"敌军物品全掉",
 	L"关",
 	L"开",
-#ifdef JA2UB
-	L"Tex 和 John",//L"Tex and John",
-	L"随机",//L"Random",
-	L"全部",//"All",
-#else
-	L"通缉犯出现方式",
-	L"随机",
-	L"全部",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"通缉犯出现方式",
+		L"Tex 和 John"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"随机",
+		L"随机"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"全部",
+		L"全部"),
 	L"敌军秘密基地出现方式",
 	L"随机",
 	L"全部",
@@ -7228,11 +7230,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] =
 {
 	L"去AIM雇几个佣兵( *提示* 在笔记本电脑里)",
-#ifdef JA2UB
-	L"当你准备出发前往Tracona，点击屏幕右下方的时间压缩按钮。",
-#else
-	L"当你准备出发前往Arulco，点击屏幕右下方的时间压缩按钮。",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"当你准备出发前往Arulco，点击屏幕右下方的时间压缩按钮。",
+		L"当你准备出发前往Tracona，点击屏幕右下方的时间压缩按钮。"),
 };
 
 STR16 pAntiHackerString[] =
@@ -7481,11 +7482,10 @@ STR16 gzLateLocalizedString[] =
 	L"全部佣兵已被包扎完毕。",	//"All your mercs are bandaged.",
 
 	//14
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
 
 	L"（屋顶）",
 

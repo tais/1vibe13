@@ -1,0 +1,806 @@
+{
+  "schema_version": 1,
+  "purpose": "exact values behind retired compiled catalog guards",
+  "variant_axes": {
+    "campaign": [
+      "ja2",
+      "ja2ub"
+    ],
+    "build": [
+      "release",
+      "beta"
+    ]
+  },
+  "retired_catalog_guard_count": 58,
+  "conditioned_entry_count": 98,
+  "literal_alternative_count": 196,
+  "legacy_index_overrides": [
+    {
+      "language": "Italian",
+      "key": "TerroristOptionsLabel",
+      "legacy_index": 43
+    },
+    {
+      "language": "Italian",
+      "key": "TerroristOptionsFirstChoice",
+      "legacy_index": 44
+    },
+    {
+      "language": "Italian",
+      "key": "TerroristOptionsSecondChoice",
+      "legacy_index": 45
+    }
+  ],
+  "guard_groups": [
+    {
+      "name": "CountryNames",
+      "axis": "campaign",
+      "legacy_table": "pCountryNames",
+      "keys": [
+        "CountryName",
+        "CountryNoun"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "SaveVersionChanged",
+      "axis": "build",
+      "legacy_table": "zSaveLoadText",
+      "keys": [
+        "SaveVersionChanged"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "SaveAndGameVersionChanged",
+      "axis": "build",
+      "legacy_table": "zSaveLoadText",
+      "keys": [
+        "SaveAndGameVersionChanged"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "GameStyle",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "keys": [
+        "GameStyleLabel",
+        "GameStyleFirstChoice",
+        "GameStyleSecondChoice"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "TerroristOptions",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "keys": [
+        "TerroristOptionsLabel",
+        "TerroristOptionsFirstChoice",
+        "TerroristOptionsSecondChoice"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "MapStartDestinationHelp",
+      "axis": "campaign",
+      "legacy_table": "pMapScreenJustStartedHelpText",
+      "keys": [
+        "MapStartDestinationHelp"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "LateCountryName",
+      "axis": "campaign",
+      "legacy_table": "gzLateLocalizedString",
+      "keys": [
+        "LateCountryName"
+      ],
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "name": "FilesSenderReport",
+      "axis": "campaign",
+      "legacy_table": "pFilesSenderList",
+      "keys": [
+        "FilesSenderReport"
+      ],
+      "languages": [
+        "Dutch",
+        "French"
+      ]
+    }
+  ],
+  "conditioned_keys": [
+    {
+      "key": "CountryName",
+      "axis": "campaign",
+      "legacy_table": "pCountryNames",
+      "legacy_index": 0,
+      "legacy_guard_group": "CountryNames",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "CountryNoun",
+      "axis": "campaign",
+      "legacy_table": "pCountryNames",
+      "legacy_index": 1,
+      "legacy_guard_group": "CountryNames",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "SaveVersionChanged",
+      "axis": "build",
+      "legacy_table": "zSaveLoadText",
+      "legacy_index": 11,
+      "legacy_guard_group": "SaveVersionChanged",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "SaveAndGameVersionChanged",
+      "axis": "build",
+      "legacy_table": "zSaveLoadText",
+      "legacy_index": 12,
+      "legacy_guard_group": "SaveAndGameVersionChanged",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "GameStyleLabel",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 1,
+      "legacy_guard_group": "GameStyle",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "GameStyleFirstChoice",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 2,
+      "legacy_guard_group": "GameStyle",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "GameStyleSecondChoice",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 3,
+      "legacy_guard_group": "GameStyle",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "TerroristOptionsLabel",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 42,
+      "legacy_guard_group": "TerroristOptions",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "TerroristOptionsFirstChoice",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 43,
+      "legacy_guard_group": "TerroristOptions",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "TerroristOptionsSecondChoice",
+      "axis": "campaign",
+      "legacy_table": "gzGIOScreenText",
+      "legacy_index": 44,
+      "legacy_guard_group": "TerroristOptions",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "MapStartDestinationHelp",
+      "axis": "campaign",
+      "legacy_table": "pMapScreenJustStartedHelpText",
+      "legacy_index": 1,
+      "legacy_guard_group": "MapStartDestinationHelp",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "LateCountryName",
+      "axis": "campaign",
+      "legacy_table": "gzLateLocalizedString",
+      "legacy_index": 14,
+      "legacy_guard_group": "LateCountryName",
+      "languages": [
+        "English",
+        "German",
+        "Russian",
+        "Dutch",
+        "Polish",
+        "French",
+        "Italian",
+        "Chinese"
+      ]
+    },
+    {
+      "key": "FilesSenderReport",
+      "axis": "campaign",
+      "legacy_table": "pFilesSenderList",
+      "legacy_index": 0,
+      "legacy_guard_group": "FilesSenderReport",
+      "languages": [
+        "Dutch",
+        "French"
+      ]
+    }
+  ],
+  "catalog_values": {
+    "English": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Realistic\"",
+        "ja2ub": "L\"Off\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Game Style\"",
+        "ja2ub": "L\"Random Manuel texts \""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"Sci Fi\"",
+        "ja2ub": "L\"On\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"When you're ready to travel to Arulco, click on the Time Compression button at the bottom right of the screen.\"",
+        "ja2ub": "L\"When you're ready to travel to Tracona, click on the Time Compression button at the bottom right of the screen.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Attempting to load an older version save. Automatically update and load the save?\"",
+        "beta": "L\"Save version and game version have changed. Please report if there are any problems. Continue?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Attempting to load an older version save. Automatically update and load the save?\"",
+        "beta": "L\"Save version has changed. Please report if there any problems. Continue?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Random\"",
+        "ja2ub": "L\"Random\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Number of Terrorists\"",
+        "ja2ub": "L\"Tex and John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"All\"",
+        "ja2ub": "L\"All\""
+      }
+    },
+    "German": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Realistisch\"",
+        "ja2ub": "L\"Off\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Spielmodus\"",
+        "ja2ub": "L\"Random Manuel texts\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"SciFi\"",
+        "ja2ub": "L\"On\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Sobald Sie für die Reise nach Arulco bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm.\"",
+        "ja2ub": "L\"Sobald Sie für die Reise nach Tracona bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?\"",
+        "beta": "L\"Spielstand und Spieleversion wurden geändert. Bitte melden Sie etwaige Probleme. Weiter?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?\"",
+        "beta": "L\"Gespeicherte Version wurde geändert. Bitte melden Sie etwaige Probleme. Weiter?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Zufällig\"",
+        "ja2ub": "L\"Zufällig\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Anzahl der Terroristen\"",
+        "ja2ub": "L\"Tex and John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"Alle vorhanden\"",
+        "ja2ub": "L\"Alle vorhanden\""
+      }
+    },
+    "Russian": {
+      "CountryName": {
+        "ja2": "L\"Арулько\"",
+        "ja2ub": "L\"Тракону\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Арулькиец\"",
+        "ja2ub": "L\"Траконец\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"нет\"",
+        "ja2ub": "L\"да\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Элементы фантастики\"",
+        "ja2ub": "L\"Случайная история Мануэля\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"есть\"",
+        "ja2ub": "L\"нет\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Арулько\"",
+        "ja2ub": "L\"Тракона\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Когда будете готовы отправиться в Арулько, включите сжатие времени в правом нижнем углу экрана.\"",
+        "ja2ub": "L\"Когда будете готовы отправиться в Тракону, включите сжатие времени в правом нижнем углу экрана.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?\"",
+        "beta": "L\"Версия игры и файлов сохранений была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Попытка загрузить сохранение игры устаревшей версии. Автоматически обновить его и загрузить?\"",
+        "beta": "L\"Версия сохранений игры была изменена. Просим сообщить, если это изменение привело к какой-либо ошибке. Пытаемся загрузить?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"случайное\"",
+        "ja2ub": "L\"Случайно\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Число террористов\"",
+        "ja2ub": "L\"Текс и Джон\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"все сразу\"",
+        "ja2ub": "L\"Оба сразу\""
+      }
+    },
+    "Dutch": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "FilesSenderReport": {
+        "ja2": "L\"Int. Verslag\"",
+        "ja2ub": "L\"Int. Verslag\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Realistisch\"",
+        "ja2ub": "L\"Off\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Speelstijl\"",
+        "ja2ub": "L\"Random Manuel texts \""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"SF\"",
+        "ja2ub": "L\"On\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Als je klaar bent om naar Arulco te gaan, klik dan op TijdVersneller onder rechts op het scherm.\"",
+        "ja2ub": "L\"Als je klaar bent om naar Tracona te gaan, klik dan op TijdVersneller onder rechts op het scherm.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Attempting to load an older version save. Automatically update and load the save?\"",
+        "beta": "L\"Save version and game version have changed. Please report if there are any problems. Continue?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Attempting to load an older version save. Automatically update and load the save?\"",
+        "beta": "L\"Save version has changed. Please report if there any problems. Continue?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Random\"",
+        "ja2ub": "L\"Random\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Number of Terrorists\"",
+        "ja2ub": "L\"Tex and John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"All\"",
+        "ja2ub": "L\"All\""
+      }
+    },
+    "Polish": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracony\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Realistyczny\"",
+        "ja2ub": "L\"Wył.\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Styl gry\"",
+        "ja2ub": "L\"Dialogi Manuela\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"S-F\"",
+        "ja2ub": "L\"Wł.\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Jeśli chcesz już udać się do Arulco, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu.\"",
+        "ja2ub": "L\"Jeśli chcesz już udać się do Tracony, kliknij przycisk kompresji czasu, w prawym dolnym rogu ekranu.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?\"",
+        "beta": "L\"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Próba odczytu starszej wersji zapisu gry. Zaktualizować ten zapis i odczytać grę?\"",
+        "beta": "L\"Nieprawidłowa wersja zapisu gry. W razie problemów prosimy o raport. Kontynuować?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Losowo\"",
+        "ja2ub": "L\"Losowo\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Liczba terrorystów\"",
+        "ja2ub": "L\"Tex i John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"Wszyscy\"",
+        "ja2ub": "L\"Obaj\""
+      }
+    },
+    "French": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"arulcain(e)\"",
+        "ja2ub": "L\"traconien(ne)\""
+      },
+      "FilesSenderReport": {
+        "ja2": "L\"Rapport Arulco\"",
+        "ja2ub": "L\"Rapport Tracona\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Réaliste\"",
+        "ja2ub": "L\"Non\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Style de jeu\"",
+        "ja2ub": "L\"Texte de Manuel aléatoire\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"S-F\"",
+        "ja2ub": "L\"Oui\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain.\"",
+        "ja2ub": "L\"Cliquez sur le bouton de compression du temps pour faire avancer votre escouade sur le terrain.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour?\"",
+        "beta": "L\"La version de la sauvegarde a changé. Désirez-vous continuer?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Tentative de chargement d'une sauvegarde de version précédente. Voulez-vous effectuer une mise à jour ?\"",
+        "beta": "L\"La version de la sauvegarde a changé. Désirez-vous continuer ?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Aléatoire\"",
+        "ja2ub": "L\"Aléatoire\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Nombre de terroristes\"",
+        "ja2ub": "L\"John et Tex\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"Tous\"",
+        "ja2ub": "L\"Les deux\""
+      }
+    },
+    "Italian": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"Realistica\"",
+        "ja2ub": "L\"Off\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"Versione del gioco\"",
+        "ja2ub": "L\"Random Manuel texts\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"Fantascientifica\"",
+        "ja2ub": "L\"On\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"Quando sarete pronti per partire per Arulco, cliccate sul pulsante nella parte in basso a destra dello schermo.\"",
+        "ja2ub": "L\"Quando sarete pronti per partire per Tracona, cliccate sul pulsante nella parte in basso a destra dello schermo.\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"Tentativo di caricare una vecchia versione salvata. Aggiornate e caricate automaticamente quella salvata?\"",
+        "beta": "L\"La versione salvata e la versione della partita sono cambiate. Fateci avere un report, se incontrate problemi. Continuate?\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"Tentativo di caricare una versione salvata più vecchia. Aggiornate e caricate automaticamente quella salvata?\"",
+        "beta": "L\"La versionbe salvata è cambiata. Fateci avere un report, se incontrate problemi. Continuate?\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"Random\"",
+        "ja2ub": "L\"Random\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"Number of Terrorists\"",
+        "ja2ub": "L\"Tex and John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"All\"",
+        "ja2ub": "L\"All\""
+      }
+    },
+    "Chinese": {
+      "CountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "CountryNoun": {
+        "ja2": "L\"Arulcan\"",
+        "ja2ub": "L\"Traconian\""
+      },
+      "GameStyleFirstChoice": {
+        "ja2": "L\"现实\"",
+        "ja2ub": "L\"关\""
+      },
+      "GameStyleLabel": {
+        "ja2": "L\"游戏风格\"",
+        "ja2ub": "L\"随机 Manuel 文本\""
+      },
+      "GameStyleSecondChoice": {
+        "ja2": "L\"科幻\"",
+        "ja2ub": "L\"开\""
+      },
+      "LateCountryName": {
+        "ja2": "L\"Arulco\"",
+        "ja2ub": "L\"Tracona\""
+      },
+      "MapStartDestinationHelp": {
+        "ja2": "L\"当你准备出发前往Arulco，点击屏幕右下方的时间压缩按钮。\"",
+        "ja2ub": "L\"当你准备出发前往Tracona，点击屏幕右下方的时间压缩按钮。\""
+      },
+      "SaveAndGameVersionChanged": {
+        "release": "L\"试图载入老版本的存档。你要自动更新并载入存档吗？\"",
+        "beta": "L\"存档版本和游戏版本已改变。如果出现问题请报告。继续？\""
+      },
+      "SaveVersionChanged": {
+        "release": "L\"试图载入老版本的存档。自动修正并载入存档？\"",
+        "beta": "L\"存档版本已改变。如果出现问题请报告。继续？\""
+      },
+      "TerroristOptionsFirstChoice": {
+        "ja2": "L\"随机\"",
+        "ja2ub": "L\"随机\""
+      },
+      "TerroristOptionsLabel": {
+        "ja2": "L\"通缉犯出现方式\"",
+        "ja2ub": "L\"Tex 和 John\""
+      },
+      "TerroristOptionsSecondChoice": {
+        "ja2": "L\"全部\"",
+        "ja2ub": "L\"全部\""
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@
 
 	#ifdef GERMAN
 		#include "Text.h"
+		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
@@ -2408,13 +2409,14 @@ CHAR16 Message[][STRING_LENGTH] =
 // the country and its noun in the game
 CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT] =
 {
-#ifdef JA2UB
-	L"Tracona",
-	L"Traconian",
-#else
-	L"Arulco",
-	L"Arulcan",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryName,
+		L"Arulco",
+		L"Tracona"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		CountryNoun,
+		L"Arulcan",
+		L"Traconian"),
 };
 
 // the names of the towns in the game
@@ -6315,24 +6317,18 @@ STR16 zSaveLoadText[] =
 	L"Die gespeicherten Spielstände sind evtl. beschädigt. Wollen Sie sie alle löschen?", 
 
 	
-	//Translators, the next two strings are for the same thing. The first one is for beta version releases and the second one
-	//is used for the final version. Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed. It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Gespeicherte Version wurde geändert. Bitte melden Sie etwaige Probleme. Weiter?",
-#else
-	L"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveVersionChanged,
+		L"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?",
+		L"Gespeicherte Version wurde geändert. Bitte melden Sie etwaige Probleme. Weiter?"),
 
 
-	//Translators, the next two strings are for the same thing. The first one is for beta version releases and the second one
-	//is used for the final version. Please don't modify the "#ifdef JA2BETAVERSION" or the "#else" or the "#endif" as they are
-	//used by the compiler and will cause program errors if modified/removed. It's okay to translate the strings though.
-#ifdef JA2BETAVERSION
-	L"Spielstand und Spieleversion wurden geändert. Bitte melden Sie etwaige Probleme. Weiter?",
-#else
-	L"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?",
-#endif
+	// Translators: keep both alternatives translated; release comes first and beta/debug second.
+	I18N_COMPILED_BUILD_TEXT(
+		SaveAndGameVersionChanged,
+		L"Versuche, älteren Spielstand zu laden. Laden und automatisch aktualisieren?",
+		L"Spielstand und Spieleversion wurden geändert. Bitte melden Sie etwaige Probleme. Weiter?"),
 	
 	L"Gespeichertes Spiel in Position #%d wirklich überschreiben?",
 	L"Wollen Sie das Spiel aus Position # speichern?",
@@ -6656,15 +6652,18 @@ STR16	zOptionsScreenHelpText[] =
 STR16 gzGIOScreenText[] =
 {
 	L"GRUNDEINSTELLUNGEN",
-#ifdef JA2UB
-	L"Random Manuel texts",
-	L"Off",
-	L"On",
-#else
-	L"Spielmodus",
-	L"Realistisch",
-	L"SciFi",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleLabel,
+		L"Spielmodus",
+		L"Random Manuel texts"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleFirstChoice,
+		L"Realistisch",
+		L"Off"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		GameStyleSecondChoice,
+		L"SciFi",
+		L"On"),
 	L"Platinum", //Placeholder English
 	L"Waffen",													
 	L"Zus. Waffen",
@@ -6704,15 +6703,18 @@ STR16 gzGIOScreenText[] =
 	L"Tote Gegner lassen alles fallen",
 	L"Aus",
 	L"An",
-#ifdef JA2UB
-	L"Tex and John",
-	L"Zufällig",
-	L"Alle vorhanden",
-#else
-	L"Anzahl der Terroristen",
-	L"Zufällig",
-	L"Alle vorhanden",
-#endif	
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsLabel,
+		L"Anzahl der Terroristen",
+		L"Tex and John"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsFirstChoice,
+		L"Zufällig",
+		L"Zufällig"),
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		TerroristOptionsSecondChoice,
+		L"Alle vorhanden",
+		L"Alle vorhanden"),
 	L"Geheime Waffenlager",
 	L"Zufällig",
 	L"Alle vorhanden",
@@ -7097,11 +7099,10 @@ STR16 pMilitiaButtonsHelpText[] =
 STR16 pMapScreenJustStartedHelpText[] = 
 {
 	L"Zu AIM gehen und Söldner anheuern ( *Tip*: Befindet sich im Laptop )", // to inform the player to hire some mercs to get things going
-#ifdef JA2UB
-	L"Sobald Sie für die Reise nach Tracona bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm.", // to inform the player to hit time compression to get the game underway
-#else
-	L"Sobald Sie für die Reise nach Arulco bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm.", // to inform the player to hit time compression to get the game underway
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		MapStartDestinationHelp,
+		L"Sobald Sie für die Reise nach Arulco bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm.",
+		L"Sobald Sie für die Reise nach Tracona bereit sind, klicken Sie auf den Zeitraffer-Button unten rechts auf dem Bildschirm."),
 };
 
 STR16 pAntiHackerString[] = 
@@ -7341,11 +7342,10 @@ STR16 gzLateLocalizedString[] =
 	L"Alle Söldner verarztet.",
 
 	//14-16
-#ifdef JA2UB
-	L"Tracona",
-#else
-	L"Arulco",
-#endif
+	I18N_COMPILED_CAMPAIGN_TEXT(
+		LateCountryName,
+		L"Arulco",
+		L"Tracona"),
 	L"(Dach)",
 	L"Gesundheit: %d/%d",
 
