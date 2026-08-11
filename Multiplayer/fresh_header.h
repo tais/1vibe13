@@ -56,7 +56,9 @@ void kick_player (void);
 void overide_turn (void);
 void send_fireweapon ( EV_S_FIREWEAPON * SFireWeapon);
 void end_interrupt ( BOOLEAN fMarkInterruptOccurred );
-void EndInterrupt( BOOLEAN fMarkInterruptOccurred );
+void EndInterrupt(
+	BOOLEAN fMarkInterruptOccurred,
+	BOOLEAN fReplicateInterrupt = TRUE );
 void sendRT (void);
 void startCombat(UINT8 ubStartingTeam);
 void intAI (TacticalActor *pSoldier );

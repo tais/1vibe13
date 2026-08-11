@@ -145,6 +145,15 @@ CommandDisposition MemoryTacticalSimulation::execute(
 			// remain outside the portable reference model.
 			return CommandDisposition::Discard;
 		}
+		else if constexpr (
+			std::is_same<Command, TraverseObstacleCommand>::value)
+		{
+			// Obstacle structures, animation continuations, AP policy and JA2
+			// route storage deliberately remain outside the portable reference
+			// simulation. The reference fails closed instead of inventing a
+			// second traversal model.
+			return CommandDisposition::Discard;
+		}
 		else
 		{
 			TacticalSimulationActorState* actor =

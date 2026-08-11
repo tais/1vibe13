@@ -277,6 +277,9 @@ BOOLEAN PlayerTeamFull( );
 void SetActionToDoOnceMercsGetToLocation( UINT8 ubActionCode, UINT8 uiNumMercsWaiting, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
 void ResetAllMercSpeeds( );
 BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOOLEAN fInitialMove, UINT16 usAnimState );
+void HaltGuyFromNewGridNoBecauseOfNoAPs(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateStop = TRUE );
 TacticalActor * ReduceAttackBusyCount( );
 
 // HEADROCK HAM B2.6: Made this public so it can be used elsewhere.

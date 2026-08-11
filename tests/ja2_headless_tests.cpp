@@ -233,9 +233,11 @@
 #include "World Tile Map.h"
 #include "worlddef.h"
 #include "worldman.h"
+#include "PATHAI.H"
 #include "lighting.h"
 #include "connect.h"
 #include "Overhead.h"
+#include "soldier tile.h"
 #include "ai.h"
 #include "Vehicles.h"
 #include "World Items.h"
@@ -6236,6 +6238,325 @@ int main( int, char** )
 		       commandHostExecutedState->direction == commandHostActor.position().direction() &&
 		       commandHostExecutedState->animation == commandHostActor.animationPlayback().state(),
 		       "structured commands execute and commit the resulting public actor state through one path" );
+
+		const TacticalActor previousTraversalActor = commandHostActor;
+		const bool traversalWorldAllocatedHere =
+			GetWorldTileMapSize() == 0 &&
+			AllocateWorldTileMap(
+				static_cast<std::uint32_t>( WORLD_MAX ) );
+		const bool traversalMovementCostsAllocatedHere =
+			gubWorldMovementCosts == nullptr;
+		if ( traversalMovementCostsAllocatedHere )
+		{
+			gubWorldMovementCosts = static_cast<UINT8 (*)[MAXDIR][2]>(
+				MemAlloc( static_cast<std::size_t>( WORLD_MAX ) *
+					MAXDIR * 2 ) );
+			if ( gubWorldMovementCosts )
+				std::memset(
+					gubWorldMovementCosts, 0,
+					static_cast<std::size_t>( WORLD_MAX ) * MAXDIR * 2 );
+		}
+		const bool traversalWorldReady =
+			GetWorldTileMapSize() != 0 && gubWorldMovementCosts;
+		commandHostActor.position().gridNo() =
+			( WORLD_ROWS / 2 ) * WORLD_COLS + WORLD_COLS / 2;
+		commandHostActor.position().level() = FIRST_LEVEL;
+		commandHostActor.position().direction() = NORTH;
+		commandHostActor.animationPlayback().state() = STANDING;
+		commandHostActor.identity().bodyType() = REGMALE;
+		commandHostActor.vitals().health() = OKLIFE;
+		commandHostActor.aiPlanning().action() = AI_ACTION_JUMP_WINDOW;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult liveAiWindowTraversal =
+			TryDispatchSystemAiTraverseObstacleCommandNow(
+				commandHostActorId,
+				TacticalTraversalKind::JumpWindow );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterLiveAiWindowTraversal =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* liveAiWindowRecord =
+			!journalAfterLiveAiWindowTraversal.empty()
+				? &journalAfterLiveAiWindowTraversal.back()
+				: nullptr;
+
+		const UINT8 traversalPathDirection = EAST;
+		const INT32 traversalFenceGrid = NewGridNo(
+			commandHostActor.position().gridNo(),
+			DirectionInc( traversalPathDirection ) );
+		const INT32 traversalBeyondFenceGrid = NewGridNo(
+			traversalFenceGrid,
+			DirectionInc( traversalPathDirection ) );
+		const UINT8 previousTraversalMovementCost = traversalWorldReady
+			? gubWorldMovementCosts[ traversalFenceGrid ]
+				[ traversalPathDirection ][ FIRST_LEVEL ]
+			: 0;
+		SimulationCommandDispatchResult livePathTraversal;
+		const RecordedSimulationCommand* livePathTraversalRecord = nullptr;
+		std::vector<RecordedSimulationCommand>
+			journalAfterLivePathTraversal;
+		if ( traversalWorldReady )
+		{
+			commandHostActor.position().direction() = traversalPathDirection;
+			commandHostActor.animationPlayback().state() = STANDING;
+			commandHostActor.actionPoints().current() = 100;
+			commandHostActor.vitals().breath() = 100;
+			commandHostActor.pathing().finalDestinationGrid() =
+				traversalBeyondFenceGrid;
+			commandHostActor.pathing().pathIndex() = 0;
+			commandHostActor.pathing().pathSize() = 2;
+			commandHostActor.pathing().path()[ 0 ] =
+				traversalPathDirection;
+			commandHostActor.pathing().path()[ 1 ] =
+				traversalPathDirection;
+			gubWorldMovementCosts[ traversalFenceGrid ]
+				[ traversalPathDirection ][ FIRST_LEVEL ] =
+					TRAVELCOST_FENCE;
+			beginCommandTestFrame();
+			livePathTraversal =
+				TryDispatchSystemPathTraverseObstacleCommandNow(
+					commandHostActorId, WALKING );
+			journalAfterLivePathTraversal =
+				compiledContext.commandJournal().snapshot();
+			livePathTraversalRecord =
+				!journalAfterLivePathTraversal.empty()
+					? &journalAfterLivePathTraversal.back()
+					: nullptr;
+		}
+		const bool livePathTraversalOrdered =
+			traversalWorldReady &&
+			livePathTraversal.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			commandHostActor.pathing().pathIndex() == 1 &&
+			( commandHostActor.status().flags() &
+				SOLDIER_LOCKPENDINGACTIONCOUNTER ) != 0 &&
+			commandHostActor.animationIntent().continuationMode() == 2 &&
+			livePathTraversalRecord &&
+			livePathTraversalRecord->status ==
+				CommandJournalStatus::Applied &&
+			std::holds_alternative<TraverseObstacleCommand>(
+				livePathTraversalRecord->command ) &&
+			std::get<TraverseObstacleCommand>(
+				livePathTraversalRecord->command ).origin ==
+					TacticalTraversalOrigin::PathCompletion &&
+			std::get<TraverseObstacleCommand>(
+				livePathTraversalRecord->command ).expectedPathIndex == 0 &&
+			std::get<TraverseObstacleCommand>(
+				livePathTraversalRecord->command ).expectedNextPathDirection ==
+					traversalPathDirection;
+		bool pendingReplaySuppressesAsyncPathProducer = false;
+		bool pendingReplayOwnsNoActionPointBranch = false;
+		if ( livePathTraversalRecord &&
+		     std::holds_alternative<TraverseObstacleCommand>(
+		         livePathTraversalRecord->command ) )
+		{
+			TraverseObstacleCommand pendingReplayTraversal =
+				std::get<TraverseObstacleCommand>(
+					livePathTraversalRecord->command );
+			pendingReplayTraversal.source =
+				SimulationCommandSource::Replay;
+			const std::uint64_t pendingReplaySequence =
+				compiledContext.commands().enqueue(
+					livePathTraversalRecord->tick + 1,
+					SimulationCommand{ pendingReplayTraversal } );
+			pendingReplaySuppressesAsyncPathProducer =
+				!IsReplaySimulationCommandExecutionActive() &&
+				HasPendingReplayPathTraversalCommand( commandHostActorId );
+
+			const INT16 liveTraversalActionPoints =
+				commandHostActor.actionPoints().current();
+			const UINT8 liveTraversalPathIndex =
+				commandHostActor.pathing().pathIndex();
+			const bool liveTraversalOutOfActionPoints =
+				commandHostActor.movement().outOfActionPoints();
+			commandHostActor.actionPoints().current() = 0;
+			commandHostActor.pathing().pathIndex() = 0;
+			commandHostActor.movement().setOutOfActionPoints( false );
+			BOOLEAN replayKeepMoving = FALSE;
+			const BOOLEAN replayFenceHandled = HandleGotoNewGridNo(
+				&commandHostActor, &replayKeepMoving, FALSE, WALKING );
+			pendingReplayOwnsNoActionPointBranch =
+				replayFenceHandled == FALSE &&
+				replayKeepMoving == TRUE &&
+				commandHostActor.actionPoints().current() == 0 &&
+				commandHostActor.pathing().pathIndex() == 0 &&
+				!commandHostActor.movement().outOfActionPoints() &&
+				HasPendingReplayPathTraversalCommand( commandHostActorId );
+			commandHostActor.actionPoints().current() =
+				liveTraversalActionPoints;
+			commandHostActor.pathing().pathIndex() =
+				liveTraversalPathIndex;
+			commandHostActor.movement().setOutOfActionPoints(
+				liveTraversalOutOfActionPoints );
+			(void)compiledContext.commands().acknowledge(
+				pendingReplaySequence );
+		}
+
+		commandHostActor.aiPlanning().action() = AI_ACTION_JUMP_WINDOW;
+		BeginSimulationCommandFrameBudget(
+			++commandTestFrameSequence, 0 );
+		const SimulationCommandDispatchResult retainedWindowTraversal =
+			TryDispatchSystemAiTraverseObstacleCommandNow(
+				commandHostActorId,
+				TacticalTraversalKind::JumpWindow );
+		commandHostActor.aiPlanning().actionInProgress() = TRUE;
+		commandHostActor.pathing().path()[ 1 ] = WEST;
+		const CommandProcessingResult staleWindowTraversalProcessing =
+			ExecuteSimulationCommandsThrough(
+				retainedWindowTraversal.tick, 1 );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterRetainedWindowTraversal =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* retainedWindowTraversalRecord =
+			!journalAfterRetainedWindowTraversal.empty()
+				? &journalAfterRetainedWindowTraversal.back()
+				: nullptr;
+		const bool retainedWindowRejectedChangedRoute =
+			retainedWindowTraversal.status ==
+				SimulationCommandDispatchStatus::RetryDeferred &&
+			retainedWindowTraversal.submitted &&
+			staleWindowTraversalProcessing.status ==
+				CommandProcessStatus::Completed &&
+			staleWindowTraversalProcessing.discarded == 1 &&
+			commandHostActor.aiPlanning().action() == AI_ACTION_JUMP_WINDOW &&
+			commandHostActor.aiPlanning().actionInProgress() == TRUE &&
+			commandHostActor.pathing().path()[ 1 ] == WEST &&
+			retainedWindowTraversalRecord &&
+			retainedWindowTraversalRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::holds_alternative<TraverseObstacleCommand>(
+				retainedWindowTraversalRecord->command ) &&
+			std::get<TraverseObstacleCommand>(
+				retainedWindowTraversalRecord->command ).expectedPathIndex == 1 &&
+			std::get<TraverseObstacleCommand>(
+				retainedWindowTraversalRecord->command ).expectedPathDirection ==
+					traversalPathDirection;
+
+		commandHostActor.aiPlanning().action() = AI_ACTION_CLIMB_ROOF;
+		const INT32 retainedTraversalGrid =
+			commandHostActor.position().gridNo();
+		BeginSimulationCommandFrameBudget(
+			++commandTestFrameSequence, 0 );
+		const SimulationCommandDispatchResult retainedAiTraversal =
+			TryDispatchSystemAiTraverseObstacleCommandNow(
+				commandHostActorId,
+				TacticalTraversalKind::ClimbUpRoof );
+		commandHostActor.position().gridNo() = retainedTraversalGrid + 1;
+		const CommandProcessingResult staleTraversalProcessing =
+			ExecuteSimulationCommandsThrough(
+				retainedAiTraversal.tick, 1 );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterRetainedAiTraversal =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* retainedAiTraversalRecord =
+			!journalAfterRetainedAiTraversal.empty()
+				? &journalAfterRetainedAiTraversal.back()
+				: nullptr;
+		const bool staleAiActionPreserved =
+			commandHostActor.aiPlanning().action() == AI_ACTION_CLIMB_ROOF;
+
+		commandHostActor.position().gridNo() = retainedTraversalGrid;
+		commandHostActor.actionPoints().current() = 100;
+		commandHostActor.aiPlanning().action() = AI_ACTION_CLIMB_ROOF;
+		BeginSimulationCommandFrameBudget(
+			++commandTestFrameSequence, 0 );
+		const SimulationCommandDispatchResult retainedRoofPointTraversal =
+			TryDispatchSystemAiTraverseObstacleCommandNow(
+				commandHostActorId,
+				TacticalTraversalKind::ClimbUpRoof );
+		commandHostActor.actionPoints().current() = 0;
+		const CommandProcessingResult staleRoofPointProcessing =
+			ExecuteSimulationCommandsThrough(
+				retainedRoofPointTraversal.tick, 1 );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterRetainedRoofPointTraversal =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* retainedRoofPointRecord =
+			!journalAfterRetainedRoofPointTraversal.empty()
+				? &journalAfterRetainedRoofPointTraversal.back()
+				: nullptr;
+		const bool retainedRoofRejectedChangedPointBudget =
+			retainedRoofPointTraversal.status ==
+				SimulationCommandDispatchStatus::RetryDeferred &&
+			retainedRoofPointTraversal.submitted &&
+			staleRoofPointProcessing.status ==
+				CommandProcessStatus::Completed &&
+			staleRoofPointProcessing.discarded == 1 &&
+			commandHostActor.actionPoints().current() == 0 &&
+			commandHostActor.aiPlanning().action() == AI_ACTION_CLIMB_ROOF &&
+			retainedRoofPointRecord &&
+			retainedRoofPointRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::holds_alternative<TraverseObstacleCommand>(
+				retainedRoofPointRecord->command ) &&
+			std::get<TraverseObstacleCommand>(
+				retainedRoofPointRecord->command ).expectedStateFingerprint !=
+					TacticalTraversalNoExpectedStateFingerprint &&
+			std::get<TraverseObstacleCommand>(
+				retainedRoofPointRecord->command ).expectedActionPointCost !=
+					TacticalTraversalNoExpectedPointCost;
+
+		const bool liveAiTraversalContinuationOwned =
+			liveAiWindowTraversal.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			liveAiWindowRecord &&
+			liveAiWindowRecord->status == CommandJournalStatus::Applied &&
+			std::holds_alternative<TraverseObstacleCommand>(
+				liveAiWindowRecord->command ) &&
+			std::get<TraverseObstacleCommand>(
+				liveAiWindowRecord->command ).origin ==
+					TacticalTraversalOrigin::AiAction &&
+			std::get<TraverseObstacleCommand>(
+				liveAiWindowRecord->command ).continuation ==
+					TacticalTraversalContinuation::CompleteAiAction;
+		const bool retainedTraversalRejectedStaleState =
+			retainedAiTraversal.status ==
+				SimulationCommandDispatchStatus::RetryDeferred &&
+			retainedAiTraversal.submitted &&
+			staleTraversalProcessing.status ==
+				CommandProcessStatus::Completed &&
+			staleTraversalProcessing.discarded == 1 &&
+			retainedAiTraversalRecord &&
+			retainedAiTraversalRecord->sequence ==
+				retainedAiTraversal.sequence &&
+			retainedAiTraversalRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::holds_alternative<TraverseObstacleCommand>(
+				retainedAiTraversalRecord->command ) &&
+			std::get<TraverseObstacleCommand>(
+				retainedAiTraversalRecord->command ).expectedGrid ==
+					retainedTraversalGrid &&
+			staleAiActionPreserved;
+
+		if ( traversalWorldReady &&
+		     commandHostActor.movement().reservedGrid() ==
+		         traversalBeyondFenceGrid )
+			UnMarkMovementReserved( &commandHostActor );
+		if ( traversalWorldReady )
+			gubWorldMovementCosts[ traversalFenceGrid ]
+				[ traversalPathDirection ][ FIRST_LEVEL ] =
+					previousTraversalMovementCost;
+		const bool traversalActorRestored =
+			soldierRepository.replace( 0, previousTraversalActor ) ==
+				&commandHostActor;
+		if ( traversalActorRestored )
+			(void)SynchronizeJa2TacticalEntityState( commandHostActor );
+		if ( traversalWorldAllocatedHere )
+			ReleaseWorldTileMap();
+		if ( traversalMovementCostsAllocatedHere && gubWorldMovementCosts )
+		{
+			MemFree( gubWorldMovementCosts );
+			gubWorldMovementCosts = nullptr;
+		}
+
+		CHECK( liveAiTraversalContinuationOwned &&
+		       livePathTraversalOrdered &&
+		       pendingReplaySuppressesAsyncPathProducer &&
+		       pendingReplayOwnsNoActionPointBranch &&
+		       retainedWindowRejectedChangedRoute &&
+		       retainedTraversalRejectedStaleState &&
+		       retainedRoofRejectedChangedPointBudget &&
+		       traversalActorRestored,
+		       "production traversal commands preserve path ordering, let queued Replay own both fence AP branches, own AI completion, and discard stale work without clobbering a newer AI action" );
 
 		const INT8 previousConfigurationWeaponMode =
 			commandHostActor.attackSelection().weaponMode();

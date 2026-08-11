@@ -173,6 +173,14 @@ public:
 			[tick](const Entry& entry) { return entry.tick <= tick; });
 	}
 
+	template <typename Predicate>
+	bool containsIf(Predicate&& predicate) const
+	{
+		return std::any_of(
+			entries_.begin(), entries_.end(),
+			std::forward<Predicate>(predicate));
+	}
+
 	std::size_t size() const { return entries_.size(); }
 	bool empty() const { return entries_.empty(); }
 	std::size_t liveSequenceCount() const { return liveSequences_.size(); }

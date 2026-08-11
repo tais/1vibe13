@@ -120,7 +120,8 @@ bool continuesFromExistingDestination(
 
 void setOutOfActionPointsUnchecked(
 	TacticalActor& actor,
-	BOOLEAN stopped)
+	BOOLEAN stopped,
+	BOOLEAN replicate)
 {
 	if (actor.identity().bodyType() == CROW)
 		return;
@@ -128,7 +129,7 @@ void setOutOfActionPointsUnchecked(
 	if ((actor.status().flags() & SOLDIER_VEHICLE) && stopped)
 		HandleVehicleMovementSound(&actor, FALSE);
 
-	if (is_networked && actor.identity().id() < 120)
+	if (replicate && is_networked && actor.identity().id() < 120)
 	{
 		EV_S_STOP_MERC stopEvent;
 		stopEvent.sGridNo = actor.position().gridNo();
@@ -584,7 +585,7 @@ void haltForSightingUnchecked(
 				actor.position().direction());
 		}
 
-		setOutOfActionPointsUnchecked(actor, TRUE);
+		setOutOfActionPointsUnchecked(actor, TRUE, TRUE);
 		actor.movement().stopReason() = REASON_STOPPED_SIGHT;
 
 		if (actor.animationActivity().turningToShoot() && sightingEnemy)
@@ -629,13 +630,17 @@ void haltForSightingUnchecked(
 
 bool TacticalActorRouteExecution::setOutOfActionPoints(
 	TacticalActor& actor,
-	bool stopped)
+	bool stopped,
+	bool replicate)
 {
 	if (!hasLiveRouteContext(actor) ||
 		!hasValidVehicleContext(actor))
 		return false;
 
-	setOutOfActionPointsUnchecked(actor, stopped ? TRUE : FALSE);
+	setOutOfActionPointsUnchecked(
+		actor,
+		stopped ? TRUE : FALSE,
+		replicate ? TRUE : FALSE);
 	return true;
 }
 
@@ -722,7 +727,7 @@ bool TacticalActorRouteExecution::continueMovement(
 			gFacesData[faceIndex].fDisplayTextOver = FACE_ERASE_TEXT_OVER;
 	}
 
-	setOutOfActionPointsUnchecked(actor, FALSE);
+	setOutOfActionPointsUnchecked(actor, FALSE, TRUE);
 	SetUIBusy(actor.identity().id());
 	return requestPath(
 		actor,

@@ -74,7 +74,6 @@
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorSkills.h"
-#include "TacticalActorTraversal.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -138,7 +137,9 @@ INT8 gbDiff[MAX_DIFF_PARMS][5] =
 // sevenfm
 extern time_t gtTimeSinceMercAIStart;
 
-void EndAIGuysTurn( TacticalActor *pSoldier );
+void EndAIGuysTurn(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateInterrupt );
 
 void DebugAI_( STR szOutput )
 {
@@ -899,13 +900,15 @@ void HandleSoldierAI( TacticalActor *pSoldier ) // FIXME - this function is name
 
 #define NOSCORE 99
 
-void EndAIGuysTurn( TacticalActor *pSoldier )
+void EndAIGuysTurn(
+	TacticalActor *pSoldier,
+	BOOLEAN fReplicateInterrupt )
 {
 	if (gfTurnBasedAI)
 	{
 		if (gTacticalStatus.uiFlags & PLAYER_TEAM_DEAD)
 		{
-			EndAITurn();
+			EndAITurn( fReplicateInterrupt );
 			return;
 		}
 
@@ -977,7 +980,7 @@ void EndAIGuysTurn( TacticalActor *pSoldier )
 
 		// We are at the end, return control to next team
 		DebugAI( String("Ending AI turn\n" ) );
-		EndAITurn();
+		EndAITurn( fReplicateInterrupt );
 
 	}
 	else
@@ -1353,7 +1356,10 @@ void FreeUpNPCFromRoofClimb(TacticalActor *pSoldier )
 		if (pSoldier->aiPlanning().action() == AI_ACTION_CLIMB_ROOF)
 		{
 			// yes! Free us up to do other fun things
-			ActionDone(pSoldier);
+			ActionDone(
+				pSoldier,
+				pSoldier->runtime().traversal.
+					consumeRoofCompletionReplication());
 		}
 	}
 }
@@ -1361,7 +1367,7 @@ void FreeUpNPCFromRoofClimb(TacticalActor *pSoldier )
 
 
 
-void ActionDone(TacticalActor *pSoldier)
+void ActionDone(TacticalActor *pSoldier, BOOLEAN fReplicateStop)
 {
 	// if an action is currently selected
 	if (pSoldier->aiPlanning().action() != AI_ACTION_NONE)
@@ -1389,7 +1395,8 @@ void ActionDone(TacticalActor *pSoldier)
 		if ( !pSoldier->movement().outOfActionPoints() )
 		{
 			(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
-			(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
+			(void)TacticalActorRouteExecution::setOutOfActionPoints(
+				*pSoldier, false, fReplicateStop != FALSE );
 		}
 
 		//Lalien: moved later in ExecuteAction() case AI_ACTION_RAISE_GUN:
@@ -1428,7 +1435,7 @@ void ActionDone(TacticalActor *pSoldier)
 	if (pSoldier->status().flags() & SOLDIER_DEAD)
 	{
 		// The last action killed the soldier (stepped on a mine, detonated a LAW too close, etc)
-		EndAIGuysTurn( pSoldier);
+		EndAIGuysTurn( pSoldier, fReplicateStop );
 	}
 }
 
@@ -2604,15 +2611,22 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
         case AI_ACTION_CLIMB_ROOF:
             DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Executing: AI_ACTION_CLIMB_ROOF");
 
-            if (pSoldier->position().level() == 0)
             {
-                (void)TacticalActorTraversal::
-                    beginRoofClimb(*pSoldier);
-            }
-            else
-            {
-                (void)TacticalActorTraversal::
-                    beginRoofDescent(*pSoldier);
+                const SimulationCommandDispatchResult traversal =
+                    TryDispatchSystemAiTraverseObstacleCommandNow(
+                    GetJa2TacticalEntityId( *pSoldier ),
+                    pSoldier->position().level() == 0
+                        ? TacticalTraversalKind::ClimbUpRoof
+                        : TacticalTraversalKind::ClimbDownRoof);
+                // The legacy roof action ignored a failed begin attempt and
+                // still reported that the AI action had been started. A
+                // processed discard is that same attempted begin; only an
+                // ingress failure needs the deadlock-safe fallback.
+                if (!traversal.accepted() && !traversal.processed())
+                {
+                    ActionDone(pSoldier);
+                    return FALSE;
+                }
             }
             break;
 
@@ -2675,9 +2689,13 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
         case AI_ACTION_JUMP_WINDOW:
             {
-                (void)TacticalActorTraversal::
-                    beginWindowJump(*pSoldier);
-				ActionDone( pSoldier );
+				if (!TryDispatchSystemAiTraverseObstacleCommandNow(
+						GetJa2TacticalEntityId( *pSoldier ),
+						TacticalTraversalKind::JumpWindow).accepted())
+				{
+					ActionDone(pSoldier);
+					return FALSE;
+				}
             }
             break;
 

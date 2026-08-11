@@ -19,7 +19,8 @@ namespace TacticalActorRouteExecution
 
 	[[nodiscard]] bool setOutOfActionPoints(
 		TacticalActor& actor,
-		bool stopped);
+		bool stopped,
+		bool replicate = true);
 	[[nodiscard]] bool requestPath(
 		TacticalActor& actor,
 		std::int32_t destinationGrid,

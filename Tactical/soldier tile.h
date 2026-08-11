@@ -17,7 +17,12 @@ void MarkMovementReserved( TacticalActor *pSoldier, INT32 sGridNo );
 
 void UnMarkMovementReserved( TacticalActor *pSoldier );
 
-BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo, INT32 sFinalDestTile );//dnl ch53 111009
+BOOLEAN HandleNextTile(
+	TacticalActor *pSoldier,
+	INT8 bDirection,
+	INT32 sGridNo,
+	INT32 sFinalDestTile,
+	BOOLEAN fReplicateStance = TRUE );//dnl ch53 111009
 
 BOOLEAN HandleNextTileWaiting( TacticalActor *pSoldier );
 

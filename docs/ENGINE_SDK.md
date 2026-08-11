@@ -1061,13 +1061,30 @@ already-created placeholders. Existing animation-profile binaries,
 hit-location flags, cursor behavior, maps, rendering, XML, Lua, save, and
 network formats remain unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
-and wall-climb initiation. Player producers continue to emit the stable
-`TraverseObstacleCommand`; command execution, AI, and path completion enter
-the same bounded domain. New code must not restore the retired
-`BeginSoldierClimb*` aggregate methods. The domain validates world lifetime,
-actor, body, animation, route, direction, level, destination, occupancy, and
-action-point state without changing maps, structures, animation data, AP
-settings, XML, Lua, or network command formats.
+and wall-climb initiation. Player, tactical-AI roof/window, and moving-path
+fence producers all emit `TraverseObstacleCommand`; only the compatibility
+executor enters the bounded domain. The original actor/kind/source codec prefix
+is retained. Player intent uses sentinel-only appended state, while retained
+System/Replay forms capture origin, continuation, event policy, exact issued
+grid/level/direction/animation, issued AP/breath costs, bounded route state, and
+a deterministic fingerprint of every actor field the retained continuation
+can clear. Changed incarnations, state, routes, point budgets, or cost results
+discard before mutation. Because AI actions do not yet expose a generation
+token, stale traversal fails closed without calling `ActionDone`; an
+indistinguishable identical-state ABA remains explicit follow-up debt, while
+the expected post-ingress `actionInProgress` transition is excluded from the
+fingerprint. Playback suppresses both nested and later per-frame duplicate path
+production before either fence AP branch, so a queued Replay command owns even
+a locally divergent no-AP outcome and cannot reflect its stance, stop, or
+AI-completion/interrupt traffic to peers; deferred roof animation completion
+carries that policy in actor-local runtime state until it is consumed. New code
+must not restore the retired
+`BeginSoldierClimb*` aggregate methods or call the traversal domain outside the
+command executor. Obstacle discovery, AP costs, blocked-tile waiting, and
+animation completion remain JA2 executor mechanics. The domain validates world
+lifetime, actor, body, animation, route, direction, level, destination,
+occupancy, and action-point state without changing maps, structures, animation
+data, AP settings, saves, XML, Lua, or RakNet packet formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,
