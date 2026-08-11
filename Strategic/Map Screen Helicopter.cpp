@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "CampaignMapScreenPolicy.h"
+#include "GameContext.h"
 #include "Map Screen Helicopter.h"
 #include "TacticalActor.h"
 #include "TacticalActorStateFlags.h"
@@ -1237,12 +1239,13 @@ void LandHelicopter( void )
 	}
 	else
 	{
-#ifdef JA2UB
-		//No meanwhiles in UB
-#else
-		// play meanwhile scene if it hasn't been used yet
-		HandleKillChopperMeanwhileScene();
-#endif
+		const CampaignMapScreenPolicy campaignPolicy(
+			GetGameContext().capabilities());
+		if ( campaignPolicy.hasMeanwhileScenes() )
+		{
+			// play meanwhile scene if it hasn't been used yet
+			HandleKillChopperMeanwhileScene();
+		}
 	}
 
 	// Flugente: once the AI 'learns' of the player using helis, it wants some for itself

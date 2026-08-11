@@ -56,10 +56,10 @@
 	#include "MilitiaSquads.h"				// added by Flugente
 	#include "SkillCheck.h"					// added by Flugente
 	#include "Strategic Transport Groups.h"
-	
-#ifdef JA2UB
+
+#include "CampaignMapScreenPolicy.h"
+#include "GameContext.h"
 #include "ub_config.h"
-#endif
 
 #include "GameInitOptionsScreen.h"
 
@@ -1168,10 +1168,14 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 #endif
 	SetMusicMode( MUSIC_TACTICAL_ENEMYPRESENT );
 
-#ifdef JA2UB	
-	if ( gGameUBOptions.AutoResolve == FALSE )
+	const CampaignMapScreenPolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if ( campaignPolicy.usesUnfinishedBusinessMapRules() &&
+		campaignPolicy.shouldDisableAutoResolve(
+			gGameUBOptions.AutoResolve != FALSE) )
+	{
 		DisableButton( iPBButton[0] );
-#endif
+	}
 	DoTransitionFromMapscreenToPreBattleInterface();
 
 	// clean up

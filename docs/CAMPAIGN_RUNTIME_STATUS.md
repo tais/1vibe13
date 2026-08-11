@@ -37,12 +37,22 @@ fallbacks coexist in the shared `files.cpp` and `history.cpp` implementations.
 Tactical door forcing, failed-lock feedback, and the UB tunnel-gate side effect
 now use `CampaignDoorPolicy`. Arulco retains the boot-door AP cost and
 ordinary force/curse paths, while UB retains its open-door AP cost and tunnel
-quote semantics in the same compiled implementation.
+quote semantics in the same compiled implementation. The tactical door menu
+now uses the same policy for cancel, open, explosive, and crowbar actions:
+Arulco retains its calculated open/bomb costs, while UB retains its fixed
+costs and short-circuited tunnel quote interception.
 The strategic map screen now uses `CampaignMapScreenPolicy`: Arulco retains
 its meanwhile-scene polling, while UB retains Jerry Milo's opening, full-load,
 no-mercenary, and time-compression guidance, custom-map regeneration,
 strategic-AI update, and helicopter-crash loss path in the same compiled
-implementation.
+implementation. The adjoining map shell now follows the same runtime policy
+for San Mona loss handling, UB loss dialogue, border-button configuration,
+pre-battle auto-resolve, and helicopter-landing meanwhile scenes. Initial
+Enrico congratulations mail is selected through
+`CampaignLaptopCommunicationsPolicy`, and the campaign-sector setup declaration
+is available to every host. Merc dismissal in `Assignments.cpp` likewise uses
+`CampaignMercenaryPolicy`: only UB blocks dismissal from tunnel column 14
+onward and retains the qualified/unqualified refusal quote choice.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -149,14 +159,14 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 108 active conditionals in 41
+milestone its per-file baseline contains 90 active conditionals in 34
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 10 |
-| Tactical gameplay/content | 44 |
-| Strategic gameplay/content | 36 |
+| Tactical gameplay/content | 39 |
+| Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
@@ -177,10 +187,15 @@ controls use `CampaignAimSitePolicy`. Email, insurance, and shipment notices
 use `CampaignLaptopCommunicationsPolicy`; file-viewer and history content uses
 `CampaignLaptopContentPolicy`. Door forcing and tunnel feedback use
 `CampaignDoorPolicy`, so `Tactical/Handle Doors.cpp` no longer contributes
-eight compiled branches to the tail. Strategic-map lifecycle and guidance use
-`CampaignMapScreenPolicy`, so `Strategic/mapscreen.cpp` no longer contributes
-twelve compiled branches to the tail. All nine policies are guarded by
-data-free headless tests plus named architecture checks. The seven remaining
+eight compiled branches and `Tactical/Interface.cpp` no longer contributes
+five. Merc dismissal uses `CampaignMercenaryPolicy`, removing four branches
+from `Strategic/Assignments.cpp`. Strategic-map lifecycle, guidance, and the
+adjoining shell use `CampaignMapScreenPolicy` plus
+`CampaignLaptopCommunicationsPolicy`; `Strategic/mapscreen.cpp` no longer
+contributes twelve compiled branches, while the four converted map-shell
+implementations and common map header no longer contribute nine more. All nine policies
+are guarded by data-free tests, headless integration coverage, and named
+architecture checks. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
@@ -201,8 +216,8 @@ The largest individual legacy leaves are:
 | `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |
 | `Tactical/Civ Quotes.cpp` | 5 |
-| `Tactical/Interface.cpp` | 5 |
 | `Laptop/email.h` | 4 |
+| `Tactical/Faces.cpp` | 4 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime

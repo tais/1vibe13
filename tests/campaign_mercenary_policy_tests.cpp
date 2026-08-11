@@ -40,7 +40,13 @@ int main()
 		!arulco.shouldSendMedicalDepositEmail(true, false, false) ||
 		arulco.usesUnfinishedBusinessMedicalDepositEmail() ||
 		!arulco.runsSlayDailyEvent() ||
-		!arulco.includesDevinInNpcContractGroup())
+		!arulco.includesDevinInNpcContractGroup() ||
+		!arulco.allowsDismissalFromSector(13) ||
+		!arulco.allowsDismissalFromSector(14) ||
+		arulco.dismissalRefusalQuote(true) !=
+			CampaignMercenaryPolicy::DismissalRefusalQuote::AnsweringMachine ||
+		arulco.dismissalRefusalQuote(false) !=
+			CampaignMercenaryPolicy::DismissalRefusalQuote::RefusingOrder)
 		return 1;
 
 	if (!unfinishedBusiness.usesUnfinishedBusinessRules() ||
@@ -79,7 +85,13 @@ int main()
 		!unfinishedBusiness.shouldSendMedicalDepositEmail(true, true, true) ||
 		!unfinishedBusiness.usesUnfinishedBusinessMedicalDepositEmail() ||
 		unfinishedBusiness.runsSlayDailyEvent() ||
-		unfinishedBusiness.includesDevinInNpcContractGroup())
+		unfinishedBusiness.includesDevinInNpcContractGroup() ||
+		!unfinishedBusiness.allowsDismissalFromSector(13) ||
+		unfinishedBusiness.allowsDismissalFromSector(14) ||
+		unfinishedBusiness.dismissalRefusalQuote(true) !=
+			CampaignMercenaryPolicy::DismissalRefusalQuote::AnsweringMachine ||
+		unfinishedBusiness.dismissalRefusalQuote(false) !=
+			CampaignMercenaryPolicy::DismissalRefusalQuote::RefusingOrder)
 		return 2;
 
 	constexpr std::array<std::uint8_t, 8> arulcoProfiles =

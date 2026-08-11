@@ -24,11 +24,10 @@
 	#include "popup_class.h"
 	#include "Queen Command.h"	// added by Flugente
 
+#include "CampaignMapScreenPolicy.h"
+#include "GameContext.h"
 #include "connect.h"
-
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 extern UINT16 UI_BOTTOM_X;
 extern UINT16 UI_BOTTOM_Y;
@@ -348,64 +347,30 @@ BOOLEAN CreateButtonsForMapBorder( void )
 
 		SetButtonCursor( giMapBorderButtons[MAP_BORDER_INTEL_BTN], MSYS_NO_CURSOR );
 	}
-
-#ifdef JA2UB
-    //EnableButton
-      
-	if (gGameUBOptions.BorderTown == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_TOWN_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_TOWN_BTN ]); 
-	   }
-	   
-	if (gGameUBOptions.BorderMine == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_MINE_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_MINE_BTN ]); 
-	   }
-	
-	if (gGameUBOptions.BorderTeams == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_TEAMS_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_TEAMS_BTN ]); 
-	   }
-	
-	if (gGameUBOptions.BorderMilitia == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_MILITIA_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_MILITIA_BTN ]); 
-	   }      
-	   
-	if (gGameUBOptions.BorderAirspace == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_AIRSPACE_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_AIRSPACE_BTN ]); 
-	   }      
-
-	if (gGameUBOptions.BorderItem == TRUE)  
-	   { 
-	   EnableButton( giMapBorderButtons[ MAP_BORDER_ITEM_BTN ]); 
-	   }  
-	   else
-	   {
-	   DisableButton( giMapBorderButtons[ MAP_BORDER_ITEM_BTN ]); 
-	   }  
-#endif
+	const CampaignMapScreenPolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if ( campaignPolicy.usesConfigurableMapBorderButtons() )
+	{
+		// Apply UB's configured strategic overlays. These globals are read only
+		// after the runtime campaign gate.
+		const auto applyButtonState = [](INT32 buttonId, BOOLEAN enabled)
+		{
+			if ( enabled ) EnableButton( buttonId );
+			else DisableButton( buttonId );
+		};
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_TOWN_BTN ],
+			gGameUBOptions.BorderTown == TRUE );
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_MINE_BTN ],
+			gGameUBOptions.BorderMine == TRUE );
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_TEAMS_BTN ],
+			gGameUBOptions.BorderTeams == TRUE );
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_MILITIA_BTN ],
+			gGameUBOptions.BorderMilitia == TRUE );
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_AIRSPACE_BTN ],
+			gGameUBOptions.BorderAirspace == TRUE );
+		applyButtonState( giMapBorderButtons[ MAP_BORDER_ITEM_BTN ],
+			gGameUBOptions.BorderItem == TRUE );
+	}
 
 #ifdef JA113DEMO
 	DisableButton( giMapBorderButtons[ MAP_BORDER_TOWN_BTN ]); 

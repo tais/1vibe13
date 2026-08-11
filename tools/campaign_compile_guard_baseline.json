@@ -9,16 +9,10 @@
     "Laptop/IMP Text System.cpp": 3,
     "Laptop/email.h": 4,
     "Multiplayer/connect.h": 1,
-    "Strategic/Assignments.cpp": 4,
     "Strategic/Auto Resolve.cpp": 1,
     "Strategic/Creature Spreading.cpp": 2,
     "Strategic/LuaInitNPCs.cpp": 11,
     "Strategic/Luaglobal.cpp": 5,
-    "Strategic/Map Screen Helicopter.cpp": 1,
-    "Strategic/Map Screen Interface Border.cpp": 2,
-    "Strategic/Map Screen Interface Map.h": 1,
-    "Strategic/Map Screen Interface.cpp": 3,
-    "Strategic/PreBattle Interface.cpp": 2,
     "Strategic/Strategic Status.cpp": 1,
     "Strategic/Town Militia.cpp": 1,
     "Strategic/strategic.cpp": 2,
@@ -28,7 +22,6 @@
     "Tactical/DynamicDialogue.cpp": 2,
     "Tactical/Faces.cpp": 4,
     "Tactical/Handle Items.cpp": 3,
-    "Tactical/Interface.cpp": 5,
     "Tactical/Items.cpp": 2,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Ani.cpp": 4,
@@ -43,5 +36,5 @@
     "TileEngine/Radar Screen.cpp": 1
   },
   "schema": 1,
-  "total": 108
+  "total": 90
 }

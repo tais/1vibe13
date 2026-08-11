@@ -34,6 +34,12 @@ int main()
 	Check(!unfinishedBusiness.shouldAttemptForceDoor(true) &&
 		unfinishedBusiness.shouldAttemptForceDoor(false),
 		"UB tunnel dialogue alone consumes a force attempt");
+	Check(arulco.shouldAttemptDoorMenuAction(true) &&
+		arulco.shouldAttemptDoorMenuAction(false),
+		"Arulco door-menu actions never invoke the UB tunnel gate");
+	Check(!unfinishedBusiness.shouldAttemptDoorMenuAction(true) &&
+		unfinishedBusiness.shouldAttemptDoorMenuAction(false),
+		"UB tunnel dialogue consumes each intercepted door-menu action");
 
 	Check(arulco.shouldOfferFailedUnlockCurse(true) &&
 		arulco.shouldOfferFailedUnlockCurse(false),

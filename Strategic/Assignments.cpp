@@ -39,6 +39,7 @@
 #include "PopUpBox.h"
 #include "Vehicles.h"
 #include "Merc Contract.h"
+#include "Ja25_Tactical.h"
 #include "Map Screen Interface Map.h"
 #include "Strategic Movement.h"
 #include "laptop.h"
@@ -98,17 +99,6 @@
 extern int POP_UP_BOX_X;
 extern WorldItems gAllWorldItems;
 
-
-#ifdef JA2UB
-#include "Explosion Control.h"
-#include "Ja25_Tactical.h"
-#include "Ja25 Strategic Ai.h"
-#include "MapScreen Quotes.h"
-#include "email.h"
-#include "interface Dialogue.h"
-#include "mercs.h"
-#include "ub_config.h"
-#endif
 
 // Flugente: external sector data
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
@@ -702,11 +692,6 @@ BOOLEAN RepairObject( TacticalActor * pSoldier, TacticalActor * pOwner, OBJECTTY
 BOOLEAN CleanObject( TacticalActor * pSoldier, TacticalActor * pOwner, OBJECTTYPE * pObj, UINT8 * pubCleaningPtsLeft );
 void RepairItemsOnOthers( TacticalActor *pSoldier, UINT8 *pubRepairPtsLeft );
 BOOLEAN UnjamGunsOnSoldier( TacticalActor *pOwnerSoldier, TacticalActor *pRepairSoldier, UINT8 *pubRepairPtsLeft );
-
-#ifdef JA2UB
-void HaveMercSayWhyHeWontLeave( TacticalActor *pSoldier ); //Ja25 UB
-BOOLEAN CanMercBeAllowedToLeaveTeam( TacticalActor *pSoldier ); //JA25 UB
-#endif
 
 BOOLEAN IsTheSAMSiteInSectorRepairable( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ );
 BOOLEAN CanSoldierRepairSAM( TacticalActor *pSoldier );
@@ -12781,16 +12766,19 @@ static void BeginRemoveMercFromContract( TacticalActor *pSoldier )
 	// This function will setup the quote, then start dialogue beginning the actual leave sequence
 	if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) )
 	{
-
-#ifdef JA2UB	
-		//Ja25 UB
-		//if the merc cant leave
-		if( !CanMercBeAllowedToLeaveTeam( pSoldier ) )
+		const CampaignMercenaryPolicy campaignPolicy(
+			GetGameContext().capabilities());
+		if ( !campaignPolicy.allowsDismissalFromSector(
+				pSoldier->deployment().sectorX()) )
 		{
-			HaveMercSayWhyHeWontLeave( pSoldier );
+			const auto refusalQuote = campaignPolicy.dismissalRefusalQuote(
+				IsSoldierQualifiedMerc( pSoldier ));
+			TacticalCharacterDialogue( pSoldier,
+				refusalQuote == CampaignMercenaryPolicy::DismissalRefusalQuote::AnsweringMachine
+					? QUOTE_ANSWERING_MACHINE_MSG
+					: QUOTE_REFUSING_ORDER );
 			return;
 		}
-#endif
 		//shadooow: it makes no sense, but if someone wants to dismiss vehicle then do not popup the department box and drop its items in current sector without asking
 		if (pSoldier->status().flags() & SOLDIER_VEHICLE)
 		{
@@ -22547,35 +22535,6 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 		}
 	}
 }
-#ifdef JA2UB
-//Ja25 UB
-
-BOOLEAN CanMercBeAllowedToLeaveTeam( TacticalActor *pSoldier )
-{
-	//if we are in, or passed the tunnels
-	if( pSoldier->deployment().sectorX() >= 14 )
-	{
-		//dont allow anyone to leave
-		return( FALSE );
-	}
-
-	return( TRUE );
-}
-
-void HaveMercSayWhyHeWontLeave( TacticalActor *pSoldier )
-{
-	//if the merc is qualified
-	if( IsSoldierQualifiedMerc( pSoldier ) )
-	{
-		TacticalCharacterDialogue( pSoldier, QUOTE_ANSWERING_MACHINE_MSG );
-	}
-	else
-	{
-		TacticalCharacterDialogue( pSoldier, QUOTE_REFUSING_ORDER );
-	}
-}
-#endif
-
 // Flugente: move items menu
 BOOLEAN DisplayMoveItemsMenu( TacticalActor *pSoldier )
 {

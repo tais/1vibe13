@@ -982,7 +982,12 @@ the engine must not contain SDL types in its public domain model.
   opportunity, while preserving UB's open-door AP charge, tunnel quote
   interception, and forced-gate strategic flag. All eight former `JA2UB`
   branches in `Handle Doors.cpp` are gone; a data-free policy test exercises
-  both paths and architecture CI prevents their return.
+  both paths and architecture CI prevents their return. The adjoining door
+  menu now follows the same live policy for cancel, open, explosive, and
+  crowbar actions. Arulco keeps its calculated open/bomb AP costs and never
+  evaluates the UB tunnel callback; UB keeps its fixed AP costs and exact
+  quote-consumes-action behavior. All five former guards in `Interface.cpp`
+  are gone.
 - The strategic map screen now selects campaign behavior through the
   value-only `CampaignMapScreenPolicy`. Arulco keeps its meanwhile-scene
   polling; UB keeps Jerry Milo's initial and full-load scheduling, quote pump,
@@ -990,12 +995,22 @@ the engine must not contain SDL types in its public domain model.
   strategic-AI update, and delayed helicopter-crash loss message. All twelve
   former `JA2UB` branches in `mapscreen.cpp` are gone; dependency-free truth
   tables exercise both campaigns and architecture CI prevents their return.
+  The strategic map shell now uses that policy for contested San Mona,
+  UB loss dialogue, configurable border buttons, pre-battle auto-resolve, and
+  helicopter-landing meanwhile scenes. Initial Enrico congratulations mail is
+  selected by `CampaignLaptopCommunicationsPolicy`, and the UB-only globals
+  remain behind left-hand runtime gates. The nine former guards across the
+  four shell implementations and map header are gone.
 - Mercenary lifecycle decisions now use the value-only
   `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter
   behavior, John Kulba delays, initial away assignments, RPC recruitment,
   sector coolness, AIM availability notices, medical-deposit refunds, and
-  daily Slay/contract rules are all emitted in every host. The semantic-profile
+  daily Slay/contract rules are all emitted in every host. The Assignments
+  dismissal path now also keeps UB's tunnel-column restriction and qualified
+  versus unqualified refusal quotes behind this live policy; Arulco remains
+  unrestricted. All four former guards in `Assignments.cpp` are gone. The
+  semantic-profile
   migration now covers tactical AI, strategic events, laptop/personnel UI,
   multiplayer, save migration, and tactical gameplay too. Semantic roles
   resolve the established Miguel-through-Slay one-slot shift without changing

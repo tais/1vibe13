@@ -10,6 +10,12 @@
 class CampaignMercenaryPolicy
 {
 public:
+	enum class DismissalRefusalQuote : std::uint8_t
+	{
+		AnsweringMachine,
+		RefusingOrder
+	};
+
 	explicit constexpr CampaignMercenaryPolicy(GameCampaign campaign) noexcept
 		: campaign_(campaign)
 	{
@@ -184,6 +190,21 @@ public:
 		return !usesUnfinishedBusinessRules();
 	}
 
+	// UB's tunnel sequence prevents dismissing a merc from sector column 14
+	// onward. Arulco has no campaign dismissal restriction.
+	constexpr bool allowsDismissalFromSector(int sectorX) const noexcept
+	{
+		return !usesUnfinishedBusinessRules() || sectorX < 14;
+	}
+
+	constexpr DismissalRefusalQuote dismissalRefusalQuote(
+		bool qualifiedMerc) const noexcept
+	{
+		return qualifiedMerc
+			? DismissalRefusalQuote::AnsweringMachine
+			: DismissalRefusalQuote::RefusingOrder;
+	}
+
 private:
 	GameCampaign campaign_;
 };
@@ -196,5 +217,9 @@ static_assert(CampaignMercenaryPolicy(GameCampaign::Arulco)
 	.profile(CampaignProfileCode::Role::Miguel) == 57);
 static_assert(CampaignMercenaryPolicy(GameCampaign::UnfinishedBusiness)
 	.profile(CampaignProfileCode::Role::Miguel) == 58);
+static_assert(CampaignMercenaryPolicy(GameCampaign::Arulco)
+	.allowsDismissalFromSector(14));
+static_assert(!CampaignMercenaryPolicy(GameCampaign::UnfinishedBusiness)
+	.allowsDismissalFromSector(14));
 
 #endif

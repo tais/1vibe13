@@ -28,6 +28,15 @@ int main()
 	Check(arulco.hasMeanwhileScenes() &&
 		!unfinishedBusiness.hasMeanwhileScenes(),
 		"only Arulco checks for meanwhile scenes on the map screen");
+	Check(arulco.treatsSanMonaAsUnimportant() &&
+		!unfinishedBusiness.treatsSanMonaAsUnimportant(),
+		"only Arulco suppresses the San Mona town-loss notification");
+	Check(!arulco.usesUnfinishedBusinessLossDialogue() &&
+		unfinishedBusiness.usesUnfinishedBusinessLossDialogue(),
+		"only UB plays its contested-town loss dialogue");
+	Check(!arulco.usesConfigurableMapBorderButtons() &&
+		unfinishedBusiness.usesConfigurableMapBorderButtons(),
+		"only UB applies its configurable map-border buttons");
 	Check(!arulco.runsUnfinishedBusinessStrategicAi() &&
 		unfinishedBusiness.runsUnfinishedBusinessStrategicAi(),
 		"only UB runs its strategic AI from the map screen");
@@ -54,6 +63,11 @@ int main()
 		Check(unfinishedBusiness.shouldCheckHelicopterCampaignLoss(enabled) ==
 			enabled,
 			"UB checks campaign loss exactly after its helicopter crash");
+
+		Check(!arulco.shouldDisableAutoResolve(enabled),
+			"Arulco auto-resolve availability ignores the UB option");
+		Check(unfinishedBusiness.shouldDisableAutoResolve(enabled) == !enabled,
+			"UB disables auto-resolve exactly when configured off");
 	}
 
 	std::cout << "campaign map-screen policy tests passed\n";
