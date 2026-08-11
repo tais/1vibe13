@@ -44,11 +44,18 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 485 `Text.h` globals,
-  35 JA25 globals, application-conditioned catalog entries, and the textual
+  preprocessor-selected legacy text body. The remaining 485 base definitions,
+  35 JA25 definitions, application-conditioned catalog entries, and the textual
   `ExportStrings.cpp` inclusion are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
+  The first text migration slice now commits a canonical 520-symbol ABI schema
+  and validates all eight catalogs across JA2/JA2UB and release/debug without a
+  build. Duplicate declarations and functions are normalized separately,
+  array/mutability/conditional shapes are explicit, and 59 existing foreign
+  compatibility gaps are exact ratcheted debt. English fallback is permitted
+  only for future keys explicitly marked optional; the current linker and
+  immutable `g_lang` perform no fallback or runtime selection.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

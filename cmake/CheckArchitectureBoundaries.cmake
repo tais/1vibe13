@@ -156,17 +156,128 @@ endforeach()
 file(READ "${SOURCE_ROOT}/docs/RUNTIME_I18N_ARCHITECTURE.md"
   runtime_i18n_architecture_contents)
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
-    "485 process-global text variables"
+    "482 unique data declarations"
     "58 application/configuration preprocessor"
     "ExportStrings.cpp"
     "Migration sequence"
-    "Explicit blockers and review gates")
+    "Explicit blockers and review gates"
+    "Canonical compiled-text ABI schema"
+    "520 unique data symbols"
+    "59 pre-existing foreign-catalog compatibility gaps"
+    "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_contents}"
     "${required_runtime_i18n_doc_fragment}"
     required_runtime_i18n_doc_position)
   if(required_runtime_i18n_doc_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime i18n architecture record lost '${required_runtime_i18n_doc_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tools/check_i18n_text_schema.py"
+  runtime_i18n_schema_tool_contents)
+foreach(required_runtime_i18n_schema_tool_fragment IN ITEMS
+    "LANGUAGES = ("
+    "QUADRANTS = ("
+    "FALLBACK_POLICY = {"
+    "MAX_COMPATIBILITY_DEBT_SYMBOLS = 59"
+    "implicit_linker_fallback"
+    "untracked conditional macro"
+    "missing symbol"
+    "extra symbol"
+    "type mismatch"
+    "dimension mismatch"
+    "conditional mismatch"
+    "catalog_compatibility_debt")
+  string(FIND "${runtime_i18n_schema_tool_contents}"
+    "${required_runtime_i18n_schema_tool_fragment}"
+    required_runtime_i18n_schema_tool_position)
+  if(required_runtime_i18n_schema_tool_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n schema validator lost '${required_runtime_i18n_schema_tool_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/text_abi_schema.json"
+  runtime_i18n_schema_contents)
+foreach(required_runtime_i18n_schema_fragment IN ITEMS
+    "\"schema_version\": 1"
+    "\"canonical_language\": \"English\""
+    "\"implicit_linker_fallback\": false"
+    "\"catalog_compatibility_debt\""
+    "\"ja2-release\""
+    "\"ja2-debug\""
+    "\"ja2ub-release\""
+    "\"ja2ub-debug\"")
+  string(FIND "${runtime_i18n_schema_contents}"
+    "${required_runtime_i18n_schema_fragment}"
+    required_runtime_i18n_schema_position)
+  if(required_runtime_i18n_schema_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n canonical schema lost '${required_runtime_i18n_schema_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tools/test_check_i18n_text_schema.py"
+  runtime_i18n_schema_test_contents)
+foreach(required_runtime_i18n_schema_test_fragment IN ITEMS
+    "test_header_inventory_normalizes_duplicates_functions_and_mutability"
+    "test_campaign_and_build_quadrants_select_exact_initializer_shapes"
+    "test_diagnostics_name_every_structural_mismatch_class"
+    "test_untracked_catalog_configuration_cannot_escape_the_four_quadrants"
+    "test_parser_rejects_unrecognized_top_level_catalog_storage"
+    "test_catalog_debt_rejects_wildcard_fields_and_growth"
+    "test_schema_json_rejects_shadowing_duplicate_keys"
+    "test_english_fallback_is_explicit_and_never_a_linker_accident")
+  string(FIND "${runtime_i18n_schema_test_contents}"
+    "${required_runtime_i18n_schema_test_fragment}"
+    required_runtime_i18n_schema_test_position)
+  if(required_runtime_i18n_schema_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n schema tests lost '${required_runtime_i18n_schema_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/.github/workflows/lint.yml"
+  runtime_i18n_lint_workflow_contents)
+foreach(required_runtime_i18n_lint_fragment IN ITEMS
+    "Validate all compiled-text catalogs"
+    "python3 tools/check_i18n_text_schema.py"
+    "python3 -m unittest tools/test_check_i18n_text_schema.py")
+  string(FIND "${runtime_i18n_lint_workflow_contents}"
+    "${required_runtime_i18n_lint_fragment}"
+    required_runtime_i18n_lint_position)
+  if(required_runtime_i18n_lint_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mandatory runtime i18n schema lint lost '${required_runtime_i18n_lint_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  runtime_i18n_test_build_contents)
+foreach(required_runtime_i18n_test_build_fragment IN ITEMS
+    "add_custom_target(i18n_text_schema_check"
+    "NAME i18n_text_schema"
+    "NAME i18n_text_schema_tool")
+  string(FIND "${runtime_i18n_test_build_contents}"
+    "${required_runtime_i18n_test_build_fragment}"
+    required_runtime_i18n_test_build_position)
+  if(required_runtime_i18n_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n schema CMake target lost '${required_runtime_i18n_test_build_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TODO" runtime_i18n_todo_contents)
+foreach(required_runtime_i18n_todo_fragment IN ITEMS
+    "mandatory 8-language/4-quadrant Text ABI schema is complete"
+    "next separate campaign- and build-conditioned text")
+  string(FIND "${runtime_i18n_todo_contents}"
+    "${required_runtime_i18n_todo_fragment}"
+    required_runtime_i18n_todo_position)
+  if(required_runtime_i18n_todo_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n migration TODO lost '${required_runtime_i18n_todo_fragment}'")
   endif()
 endforeach()
 
