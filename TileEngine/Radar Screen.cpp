@@ -1,4 +1,6 @@
 #include "builddefines.h"
+#include "CampaignApplicationPolicy.h"
+#include "GameContext.h"
 #include "GameSettings.h"
 	#include "TacticalActor.h"
 	#include "TacticalActorStateFlags.h"
@@ -431,15 +433,13 @@ void RenderRadarScreen( )
 		RenderSquadList( );
 		return;
 	}
-#ifdef JA2UB
-//JA25 No meanwhiles
-#else
-	if( AreInMeanwhile( ) == TRUE )
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) == TRUE )
 	{
 		// in a meanwhile, don't render any map
 		fImageLoaded = FALSE;
 	}
-#endif
 	if ( fInterfacePanelDirty == DIRTYLEVEL2 && fImageLoaded )
 	{
 		// Set to default

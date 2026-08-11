@@ -96,6 +96,15 @@ target_include_directories(campaign_application_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_application_policy COMMAND campaign_application_policy_tests)
 
+# Tactical dialogue, animation, melee, and radar behavior consume the same live
+# meanwhile capability. This data-free truth table also proves the UB path does
+# not evaluate Arulco's legacy meanwhile-state probe.
+add_executable(campaign_meanwhile_policy_tests
+  campaign_meanwhile_policy_tests.cpp)
+target_include_directories(campaign_meanwhile_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_meanwhile_policy COMMAND campaign_meanwhile_policy_tests)
+
 # Door forcing and tunnel feedback are selected from the live campaign rather
 # than from the executable's JA2UB compile definition.
 add_executable(campaign_door_policy_tests

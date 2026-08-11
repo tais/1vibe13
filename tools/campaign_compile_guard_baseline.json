@@ -15,22 +15,18 @@
     "Strategic/Town Militia.cpp": 1,
     "Strategic/strategic.cpp": 2,
     "Tactical/Campaign.cpp": 6,
-    "Tactical/DynamicDialogue.cpp": 2,
     "Tactical/Faces.cpp": 4,
     "Tactical/Handle Items.cpp": 3,
     "Tactical/Items.cpp": 2,
     "Tactical/Soldier Add.cpp": 3,
-    "Tactical/Soldier Ani.cpp": 4,
     "Tactical/Soldier Init List.cpp": 2,
     "Tactical/Strategic Exit GUI.cpp": 2,
     "Tactical/TeamTurns.cpp": 3,
-    "Tactical/Weapons.cpp": 1,
     "Tactical/soldier profile type.h": 1,
     "TacticalAI/AIMain.cpp": 2,
     "TacticalAI/DecideAction.cpp": 2,
-    "TacticalAI/NPC.cpp": 4,
-    "TileEngine/Radar Screen.cpp": 1
+    "TacticalAI/NPC.cpp": 4
   },
   "schema": 1,
-  "total": 78
+  "total": 70
 }

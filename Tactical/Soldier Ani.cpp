@@ -87,13 +87,11 @@
 #include "Civ Quotes.h"
 #include "connect.h"
 #include "fresh_header.h"
+#include "CampaignApplicationPolicy.h"
 #include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
 
-#ifdef JA2UB
-#else
 #include "Meanwhile.h"
-#endif // JA2UB
 
 
 //forward declarations of common classes to eliminate includes
@@ -1383,13 +1381,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						}
 						else
 						{
-#ifdef JA2UB
-					//Ja25 No meanwhiles		
-					          	if ( fMartialArtist )
-#else
-							if ( fMartialArtist && !AreInMeanwhile( ) )
-
-#endif
+							const CampaignApplicationPolicy campaignPolicy(
+								GetGameContext().capabilities());
+							if ( fMartialArtist &&
+								( !campaignPolicy.hasMeanwhileScenes() ||
+									!AreInMeanwhile( ) ) )
 							{
 								TacticalActorAnimationTransitions::changeState(*pSoldier,  NINJA_BREATH, 0, FALSE );
 								return( TRUE );
@@ -4464,11 +4460,10 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 			break;
 		}
 
+		const CampaignApplicationPolicy campaignPolicy(
+			GetGameContext().capabilities());
 		// OK, if we are in a meanwhile and this is elliot...
-#ifdef JA2UB
-//ja25: No queen
-#else
-		if ( AreInMeanwhile( ) )
+		if ( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) )
 		{
 			TacticalActor *pQueen;
 
@@ -4479,7 +4474,6 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 				TriggerNPCWithGivenApproach( QUEEN, APPROACH_DONE_SLAPPED, FALSE );
 			}
 		}
-#endif
 		// We are unconscious now, play randomly, this animation continued, or a new death
 		if ( TacticalActorLocomotion::checkRoofHit(*pSoldier) )
 		{
@@ -4489,11 +4483,8 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 		// If guy is now dead, play sound!
 		if ( pSoldier->vitals().health() == 0	)
 		{
-#ifdef JA2UB
-//Ja25 No meanwhiles		
-#else
-			if ( !AreInMeanwhile() )
-#endif
+			if ( !campaignPolicy.hasMeanwhileScenes() ||
+				!AreInMeanwhile() )
 			{
 				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_DIE1 );
 				pSoldier->dialogue().markDeathSoundPlayed();
