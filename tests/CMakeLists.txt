@@ -59,6 +59,14 @@ target_include_directories(campaign_door_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_door_policy COMMAND campaign_door_policy_tests)
 
+# Strategic-map guidance, custom-map processing, meanwhile scenes, and the UB
+# strategic hooks are selected from the live campaign rather than JA2UB.
+add_executable(campaign_map_screen_policy_tests
+  campaign_map_screen_policy_tests.cpp)
+target_include_directories(campaign_map_screen_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_map_screen_policy COMMAND campaign_map_screen_policy_tests)
+
 # Dealer identities overlap in the legacy persisted slots. This data-free
 # policy test verifies both complete rosters and their inverse mapping without
 # selecting behavior through a host compile definition.

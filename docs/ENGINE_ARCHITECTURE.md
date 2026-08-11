@@ -973,6 +973,13 @@ the engine must not contain SDL types in its public domain model.
   interception, and forced-gate strategic flag. All eight former `JA2UB`
   branches in `Handle Doors.cpp` are gone; a data-free policy test exercises
   both paths and architecture CI prevents their return.
+- The strategic map screen now selects campaign behavior through the
+  value-only `CampaignMapScreenPolicy`. Arulco keeps its meanwhile-scene
+  polling; UB keeps Jerry Milo's initial and full-load scheduling, quote pump,
+  no-mercenary and time-compression guidance, custom-map regeneration,
+  strategic-AI update, and delayed helicopter-crash loss message. All twelve
+  former `JA2UB` branches in `mapscreen.cpp` are gone; dependency-free truth
+  tables exercise both campaigns and architecture CI prevents their return.
 - Mercenary lifecycle decisions now use the value-only
   `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter
