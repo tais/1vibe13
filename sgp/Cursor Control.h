@@ -1,6 +1,8 @@
 #ifndef __CURSOR_DATABASE_
 #define __CURSOR_DATABASE_
 
+#include <cstddef>
+
 #include "types.h"
 #include "FileMan.h"
 #include "vobject.h"
@@ -13,11 +15,9 @@ extern "C" {
 #endif
 
 
-extern UINT32		GetCursorHandle(UINT32 uiCursorIndex);
 extern void	 UnloadCursorData(UINT32 uiCursorIndex);
 extern BOOLEAN	LoadCursorData(UINT32 uiCursorIndex);
 extern void	 CursorDatabaseClear(void);
-extern UINT16		GetCursorSubIndex(UINT32 uiCursorIndex);
 extern BOOLEAN	SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	);
 
 #define ANIMATED_CURSOR							0x02
@@ -99,10 +99,14 @@ extern BOOLEAN				gfExternUse2nd;
 
 typedef void (*MOUSEBLT_HOOK)( void );
 
-void InitCursorDatabase( CursorFileData *pCursorFileData, CursorData *pCursorData, UINT16 suNumDataFiles );
+void InitCursorDatabase(
+	CursorFileData *pCursorFileData,
+	CursorData *pCursorData,
+	std::size_t dataFileCount,
+	std::size_t cursorCount );
 void SetMouseBltHook( MOUSEBLT_HOOK pMouseBltOverride );
 
-void SetExternVOData( UINT32 uiCursorIndex, HVOBJECT hVObject, UINT16 usSubIndex );
+BOOLEAN SetExternVOData( UINT32 uiCursorIndex, HVOBJECT hVObject, UINT16 usSubIndex );
 void RemoveExternVOData( UINT32 uiCursorIndex );
 
 

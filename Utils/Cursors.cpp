@@ -1,32 +1,38 @@
-	#include "builddefines.h"
+#include "builddefines.h"
 #include "TacticalWorldAdapter.h"
-	#include <wchar.h>
-	#include "sgp.h"
-	#include "Cursors.h"
-	#include "Timer Control.h"
-	#include "jascreens.h"
-	#include "Font.h"
-	#include "Font Control.h"
-	#include "Sys Globals.h"
-	#include "Handle UI.h"
-	#include "Interface.h"
-	#include "Overhead.h"
-	#include "Cursor Control.h"
-	#include "Sound Control.h"
-	// HEADROCK HAM B2.6: included this here to allow toggling the CTH bars.
-	#include "GameSettings.h"
+
+#include <array>
+#include <cstddef>
+#include <iterator>
+#include <wchar.h>
+
+#include "sgp.h"
+#include "Cursors.h"
+#include "CursorStateModel.h"
+#include "Timer Control.h"
+#include "jascreens.h"
+#include "Font.h"
+#include "Font Control.h"
+#include "Sys Globals.h"
+#include "Handle UI.h"
+#include "Interface.h"
+#include "Overhead.h"
+#include "Cursor Control.h"
+#include "Sound Control.h"
+// HEADROCK HAM B2.6: included this here to allow toggling the CTH bars.
+#include "GameSettings.h"
 
 //aim
 extern UINT8	gubShowActionPointsInRed;
-UINT8 gpShadesFromWhiteToRed[] = {FONT_MCOLOR_WHITE, FONT_MCOLOR_DKWHITE, FONT_MCOLOR_DKGRAY, FONT_MCOLOR_DKRED, FONT_MCOLOR_RED };
+constexpr std::array<UINT8, 5> gpShadesFromWhiteToRed{{
+	FONT_MCOLOR_WHITE,
+	FONT_MCOLOR_DKWHITE,
+	FONT_MCOLOR_DKGRAY,
+	FONT_MCOLOR_DKRED,
+	FONT_MCOLOR_RED}};
 //aim
 
-#define NUM_MOUSE_LEVELS		2
-
-INT16 gsMouseGlobalYOffsets[ NUM_MOUSE_LEVELS ] =
-{
-	0, 50
-};
+constexpr std::array<INT16, 2> gsMouseGlobalYOffsets{{0, 50}};
 
 
 void UpdateFlashingCursorFrames( UINT32 uiCursorIndex );
@@ -165,7 +171,8 @@ CursorFileData CursorFileDatabase[] =
 
 void RaiseMouseToLevel( INT8 bLevel )
 {
-	gsGlobalCursorYOffset = gsMouseGlobalYOffsets[ bLevel ];
+	CursorStateModel::TrySelectMouseLevelOffset(
+		bLevel, gsMouseGlobalYOffsets, gsGlobalCursorYOffset);
 }
 
 CursorData CursorDatabase[] =
@@ -1408,11 +1415,197 @@ CursorData CursorDatabase[] =
 
 };
 
+static_assert(std::size(CursorFileDatabase) == NUM_CURSOR_FILES,
+	"cursor surface enum and resource catalogue must stay aligned");
+static_assert(std::size(CursorDatabase) == NUM_CURSORS,
+	"cursor enum and composite catalogue must stay aligned");
+
+namespace
+{
+	constexpr std::array<CursorStateModel::SurfacePair, 7> kNcthSurfacePairs{{
+		{C_ACTIONMODERED, C_ACTIONMODERED_NCTH},
+		{C_ACTIONMODEBLACK, C_ACTIONMODEBLACK_NCTH},
+		{C_TARGMODEBURSTRED, C_TARGMODEBURSTRED_NCTH},
+		{C_TARGMODEBURSTBLACK, C_TARGMODEBURSTBLACK_NCTH},
+		{C_TRINGS, C_TRINGS_NCTH},
+		{C_TWRINGS, C_TWRINGS_NCTH},
+		{C_YELLOWRINGS, C_YELLOWRINGS_NCTH}}};
+
+	bool IsCursorIndex(UINT32 cursor) noexcept
+	{
+		return CursorStateModel::IsValidIndex(std::size(CursorDatabase), cursor);
+	}
+
+	bool IsSelectableCursor(UINT32 cursor) noexcept
+	{
+		return IsCursorIndex(cursor) || cursor == VIDEO_NO_CURSOR ||
+			cursor == EXTERN_CURSOR || cursor == EXTERN2_CURSOR;
+	}
+
+	bool UsesNcthSurfaces(UINT32 cursor) noexcept
+	{
+		if (!UsingNewCTHSystem()) return false;
+		return !(cursor >= CURSOR_PUNCHRED_ON1 &&
+			cursor <= CURSOR_PUNCHNOGO_ON2) &&
+			!(cursor >= CURSOR_KNIFE_HIT_ON1 &&
+				cursor <= CURSOR_KNIFE_NOGO_ON2);
+	}
+
+	void RefreshAnimatedCursor(UINT32 cursor)
+	{
+		if (!IsSelectableCursor(cursor)) return;
+		UpdateAnimatedCursorFrames(cursor);
+		SetCurrentCursorFromDatabase(cursor);
+	}
+
+	class MouseBufferLock
+	{
+	public:
+		MouseBufferLock()
+		{
+			UINT32 pitchBytes = 0;
+			pixels_ = static_cast<PIXEL*>(LockMouseBuffer(&pitchBytes));
+			if (pixels_ != nullptr && pitchBytes % sizeof(PIXEL) == 0)
+			{
+				pitchPixels_ = pitchBytes / sizeof(PIXEL);
+			}
+		}
+
+		~MouseBufferLock()
+		{
+			if (pixels_ != nullptr) UnlockMouseBuffer();
+		}
+
+		MouseBufferLock(const MouseBufferLock&) = delete;
+		MouseBufferLock& operator=(const MouseBufferLock&) = delete;
+
+		bool valid() const noexcept
+		{
+			return pixels_ != nullptr && pitchPixels_ >= MAX_CURSOR_WIDTH;
+		}
+
+		void write(int x, int y, PIXEL color) noexcept
+		{
+			const auto offset = CursorStateModel::PixelOffset(
+				x, y, pitchPixels_, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT);
+			if (offset.has_value()) pixels_[*offset] = color;
+		}
+
+	private:
+		PIXEL* pixels_ = nullptr;
+		std::size_t pitchPixels_ = 0;
+	};
+
+	void DrawChanceToHitBars()
+	{
+		if (!gfUICtHBar) return;
+
+		std::size_t requestedBars = gbCtHBurstCount;
+		if (gbCtHAutoFire)
+		{
+			if (gGameExternalOptions.ubNewCTHBars == 1 ||
+				gGameExternalOptions.ubNewCTHBars == 3)
+			{
+				requestedBars = 2;
+				gbCtHBurstCount = 2;
+			}
+			else
+			{
+				requestedBars = 0;
+				gbCtHBurstCount = 0;
+			}
+		}
+
+		const std::size_t barCount = CursorStateModel::BoundedCount(
+			requestedBars, std::size(gbCtH));
+		if (barCount == 0) return;
+
+		const UINT32 firstChance = gbCtH[0] < 99 ? gbCtH[0] : 99;
+		const PIXEL borderTop =
+			PixFromColor16(Get16BPPColor(FROMRGB(155, 155, 155)));
+		const PIXEL borderBottom =
+			PixFromColor16(Get16BPPColor(FROMRGB(120, 120, 120)));
+		const PIXEL bar = PixFromColor16(Get16BPPColor(
+			FROMRGB(255, 255 - 255 * firstChance / 99, 0)));
+		const PIXEL background = PixFromColor16(Get16BPPColor(
+			FROMRGB(155, 155 - 155 * firstChance / 99, 0)));
+		const PIXEL lowerBar = PixFromColor16(Get16BPPColor(
+			FROMRGB(180, 140 - 140 * firstChance / 99, 0)));
+		const PIXEL lowerBackground = PixFromColor16(Get16BPPColor(
+			FROMRGB(110, 100 - 100 * firstChance / 99, 0)));
+
+		const bool raised =
+			(barCount > 1 && !gbCtHAutoFire &&
+				(gGameExternalOptions.ubNewCTHBars == 1 ||
+					gGameExternalOptions.ubNewCTHBars == 2)) ||
+			(barCount != 0 && gbCtHAutoFire &&
+				(gGameExternalOptions.ubNewCTHBars == 1 ||
+					gGameExternalOptions.ubNewCTHBars == 3));
+
+		MouseBufferLock mouseBuffer;
+		if (!mouseBuffer.valid()) return;
+
+		for (std::size_t row = 0; row < barCount; ++row)
+		{
+			const CursorStateModel::ChanceBarGeometry geometry =
+				CursorStateModel::ComputeChanceBarGeometry(
+					gsCurMouseOffsetX,
+					gsCurMouseOffsetY,
+					gsCurMouseWidth,
+					gsCurMouseHeight,
+					raised,
+					barCount > 1 ? row : 0);
+			if (!geometry.drawable()) continue;
+
+			for (int x = geometry.left + 1; x < geometry.right; ++x)
+			{
+				mouseBuffer.write(x, geometry.top, borderTop);
+				mouseBuffer.write(x, geometry.top + 3, borderBottom);
+			}
+			mouseBuffer.write(
+				geometry.left, geometry.top + 1, borderTop);
+			mouseBuffer.write(
+				geometry.left, geometry.top + 2, borderTop);
+			mouseBuffer.write(
+				geometry.right, geometry.top + 1, borderBottom);
+			mouseBuffer.write(
+				geometry.right, geometry.top + 2, borderBottom);
+
+			const std::size_t fillPixels =
+				CursorStateModel::ChanceBarFillPixels(
+					static_cast<std::size_t>(geometry.interiorPixels), gbCtH[row]);
+			for (int pixel = 0; pixel < geometry.interiorPixels; ++pixel)
+			{
+				const bool filled = static_cast<std::size_t>(pixel) < fillPixels;
+				const int x = geometry.left + 1 + pixel;
+				mouseBuffer.write(
+					x, geometry.top + 1, filled ? bar : background);
+				mouseBuffer.write(
+					x, geometry.top + 2,
+					filled ? lowerBar : lowerBackground);
+			}
+		}
+	}
+
+	void ConsumeActionPointShade()
+	{
+		const auto shade = CursorStateModel::OneBasedIndex(
+			gubShowActionPointsInRed, gpShadesFromWhiteToRed.size());
+		if (!shade.has_value()) return;
+		SetFontForeground(gpShadesFromWhiteToRed[*shade]);
+		gubShowActionPointsInRed = 0;
+	}
+}
+
 
 void InitCursors( )
 {
 
-	InitCursorDatabase( CursorFileDatabase, CursorDatabase, NUM_CURSOR_FILES );
+	InitCursorDatabase(
+		CursorFileDatabase,
+		CursorDatabase,
+		NUM_CURSOR_FILES,
+		NUM_CURSORS);
 
 	SetMouseBltHook( (MOUSEBLT_HOOK)BltJA2CursorData );
 }
@@ -1436,22 +1629,19 @@ void HandleAnimatedCursors( )
 
 		if ( gViewportRegion.uiFlags & MSYS_MOUSE_IN_AREA )
 		{
-			UpdateAnimatedCursorFrames( gViewportRegion.Cursor );
-			SetCurrentCursorFromDatabase(	gViewportRegion.Cursor	);
+			RefreshAnimatedCursor(gViewportRegion.Cursor);
 		}
 
 
 		if ( gDisableRegion.uiFlags & MSYS_MOUSE_IN_AREA )
 		{
-			UpdateAnimatedCursorFrames( gDisableRegion.Cursor );
-			SetCurrentCursorFromDatabase(	gDisableRegion.Cursor	);
+			RefreshAnimatedCursor(gDisableRegion.Cursor);
 		}
 
 
 		if ( gUserTurnRegion.uiFlags & MSYS_MOUSE_IN_AREA )
 		{
-			UpdateAnimatedCursorFrames( gUserTurnRegion.Cursor );
-			SetCurrentCursorFromDatabase(	gUserTurnRegion.Cursor	);
+			RefreshAnimatedCursor(gUserTurnRegion.Cursor);
 		}
 
 	}
@@ -1462,8 +1652,11 @@ void HandleAnimatedCursors( )
 
 		if ( gViewportRegion.uiFlags & MSYS_MOUSE_IN_AREA )
 		{
-			UpdateFlashingCursorFrames( gViewportRegion.Cursor );
-			SetCurrentCursorFromDatabase(	gViewportRegion.Cursor	);
+			if (IsCursorIndex(gViewportRegion.Cursor))
+			{
+				UpdateFlashingCursorFrames(gViewportRegion.Cursor);
+				SetCurrentCursorFromDatabase(gViewportRegion.Cursor);
+			}
 		}
 
 	}
@@ -1478,173 +1671,12 @@ extern UINT16				gsCurMouseWidth;*/
 
 void DrawMouseGraphicsNCTH( )
 {
-	if ( gfUICtHBar )
-	{
-		//////////////////////////////////////////////////////////////////////////////////////
-		// HEADROCK HAM 4: This entire cursor drawing function is now OBSOLETE in NCTH.
-		// Instead of drawing the targeting cursor on limited cursor space (in the MOUSEBUFFER),
-		// I draw the new indicator directly on the FRAMEBUFFER through a function in 
-		// Tactical\Interface.CPP. It bypasses the cursor system entirely in order to create
-		// a pseudo-cursor that can potentially be as large as the viewport (or larger). That
-		// is unfortunately not doable with the cursor system, so this code is now commented out.
-
-		// HEADROCK (HAM): Made several changes here to allow multi-shot CtH display for bursts.
-		PIXEL * ptrBuf;
-		UINT32 uiPitch;
-		UINT32 cnt, i;
-		UINT32 actualPct		= __min(gbCtH[0],99);
-		PIXEL usCBorderTop		= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155, 155 ) ));
-		PIXEL usCBorderBottom	= PixFromColor16(Get16BPPColor( FROMRGB( 120, 120, 120 ) ));
-		PIXEL usCBar			= PixFromColor16(Get16BPPColor( FROMRGB( 255, 255-255*actualPct/99, 0 ) ));
-		PIXEL usCBack			= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155-155*actualPct/99, 0 ) ));
-		PIXEL usCBar2			= PixFromColor16(Get16BPPColor( FROMRGB( 180, 140-140*actualPct/99, 0 ) ));
-		PIXEL usCBack2			= PixFromColor16(Get16BPPColor( FROMRGB( 110, 100-100*actualPct/99, 0 ) ));
-		UINT32 barLength		= __min(35,gsCurMouseWidth);
-		//UINT32 barY				= gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-		UINT32 barY;
-		
-		// HEADROCK HAM B1/2/2.6:
-		// This causes the function to display two CTH bars for autofire - the CTH of the first bullet,
-		// and the CTH of the last bullet in the volley, stored in gbCtH[0] and [1] respectively.
-		if ( gbCtHAutoFire )
-		{
-			if ( (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
-				gbCtHBurstCount = 2;
-			else
-				gbCtHBurstCount = 0;
-		}
-		
-		// Sets the initial offsets of the bars. Burst and Autofire will display them higher above the
-		// cursor, to avoid obscuring the target or other data.
-		if (gbCtHBurstCount > 1 && !gbCtHAutoFire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
-			barY = gsCurMouseOffsetY-__min(55,gsCurMouseHeight)/2;
-		else if (gbCtHBurstCount && gbCtHAutoFire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
-			barY = gsCurMouseOffsetY-__min(55,gsCurMouseHeight)/2;
-		else
-			barY = gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-		
-		for (i=0; i<gbCtHBurstCount; ++i)
-		{
-			actualPct		= __min(gbCtH[ i ],99);
-
-			ptrBuf = (PIXEL *) LockMouseBuffer( &uiPitch );
-			uiPitch /= sizeof(PIXEL);
-
-			for(cnt = gsCurMouseOffsetX+barLength/2;cnt > gsCurMouseOffsetX-barLength/2+1; --cnt)
-			{
-				ptrBuf[cnt-1 + uiPitch*(3+barY)] = usCBorderBottom;
-				ptrBuf[cnt-1 + uiPitch*barY] = usCBorderTop;
-			}
-
-			ptrBuf[gsCurMouseOffsetX+barLength/2 + uiPitch*(1+barY)] = usCBorderBottom;
-			ptrBuf[gsCurMouseOffsetX-barLength/2 + uiPitch*(1+barY)] = usCBorderTop;
-
-			ptrBuf[gsCurMouseOffsetX+barLength/2 + uiPitch*(2+barY)] = usCBorderBottom;
-			ptrBuf[gsCurMouseOffsetX-barLength/2 + uiPitch*(2+barY)] = usCBorderTop;
-			
-			for(cnt = 0;cnt < (barLength-2)*actualPct/99; ++cnt)
-			{
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+2)] = usCBar2;
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+1)] = usCBar;
-			}
-
-			for(cnt = (barLength-2)*actualPct/99;cnt < (barLength-2); ++cnt)
-			{
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+2)] = usCBack2;
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+1)] = usCBack;
-			}
-			
-			UnlockMouseBuffer();
-
-			if (gbCtHBurstCount>1)
-				barY = barY+5;	
-		}
-
-		barY = gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-	}
+	DrawChanceToHitBars();
 }
 
 void DrawMouseGraphics( )
 {
-	if(UsingNewCTHSystem() )
-		return DrawMouseGraphicsNCTH( );
-	
-	if(gfUICtHBar)
-	{
-		// HEADROCK (HAM): Made several changes here to allow multi-shot CtH display for bursts.
-		PIXEL * ptrBuf;
-		UINT32 uiPitch;
-		UINT32 cnt, i;
-		UINT32 actualPct		= __min( gbCtH[0], 99 );
-		PIXEL usCBorderTop		= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155, 155 ) ));
-		PIXEL usCBorderBottom	= PixFromColor16(Get16BPPColor( FROMRGB( 120, 120, 120 ) ));
-		PIXEL usCBar			= PixFromColor16(Get16BPPColor( FROMRGB( 255, 255 - 255 * actualPct / 99, 0 ) ));
-		PIXEL usCBack			= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155 - 155 * actualPct / 99, 0 ) ));
-		PIXEL usCBar2			= PixFromColor16(Get16BPPColor( FROMRGB( 180, 140 - 140 * actualPct / 99, 0 ) ));
-		PIXEL usCBack2			= PixFromColor16(Get16BPPColor( FROMRGB( 110, 100 - 100 * actualPct / 99, 0 ) ));
-		UINT32 barLength		= __min( 35, gsCurMouseWidth );
-		//UINT32 barY				= gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-		UINT32 barY;
-
-		// HEADROCK HAM B1/2/2.6:
-		// This causes the function to display two CTH bars for autofire - the CTH of the first bullet,
-		// and the CTH of the last bullet in the volley, stored in gbCtH[0] and [1] respectively.
-		if ( gbCtHAutoFire )
-		{
-			if ( (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
-				gbCtHBurstCount = 2;
-			else
-				gbCtHBurstCount = 0;
-		}
-		
-		// Sets the initial offsets of the bars. Burst and Autofire will display them higher above the
-		// cursor, to avoid obscuring the target or other data.
-		if (gbCtHBurstCount > 1 && !gbCtHAutoFire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
-			barY = gsCurMouseOffsetY-__min(55,gsCurMouseHeight)/2;
-		else if (gbCtHBurstCount && gbCtHAutoFire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
-			barY = gsCurMouseOffsetY-__min(55,gsCurMouseHeight)/2;
-		else
-			barY = gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-		
-		for (i=0; i<gbCtHBurstCount; ++i)
-		{
-			actualPct		= __min(gbCtH[ i ],99);
-
-			ptrBuf = (PIXEL *) LockMouseBuffer( &uiPitch );
-			uiPitch /= sizeof(PIXEL);
-
-			for(cnt = gsCurMouseOffsetX+barLength/2;cnt > gsCurMouseOffsetX-barLength/2+1; --cnt)
-			{
-				ptrBuf[cnt-1 + uiPitch*(3+barY)] = usCBorderBottom;
-				ptrBuf[cnt-1 + uiPitch*barY] = usCBorderTop;
-			}
-
-			ptrBuf[gsCurMouseOffsetX+barLength/2 + uiPitch*(1+barY)] = usCBorderBottom;
-			ptrBuf[gsCurMouseOffsetX-barLength/2 + uiPitch*(1+barY)] = usCBorderTop;
-
-			ptrBuf[gsCurMouseOffsetX+barLength/2 + uiPitch*(2+barY)] = usCBorderBottom;
-			ptrBuf[gsCurMouseOffsetX-barLength/2 + uiPitch*(2+barY)] = usCBorderTop;
-			
-			for(cnt = 0;cnt < (barLength-2)*actualPct/99; ++cnt)
-			{
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+2)] = usCBar2;
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+1)] = usCBar;
-			}
-
-			for(cnt = (barLength-2)*actualPct/99;cnt < (barLength-2); ++cnt)
-			{
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+2)] = usCBack2;
-				ptrBuf[cnt + gsCurMouseOffsetX-barLength/2+1 + uiPitch*(barY+1)] = usCBack;
-			}
-
-			UnlockMouseBuffer();
-
-			if (gbCtHBurstCount>1)
-				barY = barY+5;
-		}
-
-		barY = gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
-	}
+	DrawChanceToHitBars();
 }
 
 void BltJA2CursorData( )
@@ -1667,7 +1699,8 @@ void DrawMouseText( )
 	if ( gfUIBodyHitLocation )
 	{
 		// Set dest for gprintf to be different
-		SetFontDestBuffer( MOUSE_BUFFER , 0, 0, 64, 64, FALSE );
+		SetFontDestBuffer(
+			MOUSE_BUFFER, 0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, FALSE);
 
 		FindFontCenterCoordinates( 0, 0, gsCurMouseWidth, gsCurMouseHeight, gzLocation, TINYFONT1, &sX, &sY );
 		SetFont( TINYFONT1 );
@@ -1675,7 +1708,7 @@ void DrawMouseText( )
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		SetFontForeground( FONT_MCOLOR_WHITE );
 
-		mprintf( sX, sY + 12, gzLocation );
+		mprintf( sX, sY + 12, L"%ls", gzLocation );
 		// reset
 		SetFontDestBuffer( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
@@ -1684,7 +1717,8 @@ void DrawMouseText( )
 	if ( UsingNewCTHSystem() == false && gfUIAutofireBulletCount )
 	{
 		// Set dest for gprintf to be different
-		SetFontDestBuffer( MOUSE_BUFFER , 0, 0, 64, 64, FALSE );
+		SetFontDestBuffer(
+			MOUSE_BUFFER, 0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, FALSE);
 		
 
 		SetFont( TINYFONT1 );
@@ -1725,7 +1759,8 @@ void DrawMouseText( )
 	if ( gfUIIntTileLocation )
 	{
 		// Set dest for gprintf to be different
-		SetFontDestBuffer( MOUSE_BUFFER , 0, 0, 64, 64, FALSE );
+		SetFontDestBuffer(
+			MOUSE_BUFFER, 0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, FALSE);
 
 		FindFontCenterCoordinates( 0, 0, gsCurMouseWidth, gsCurMouseHeight, gzIntTileLocation, TINYFONT1, &sX, &sY );
 		SetFont( TINYFONT1 );
@@ -1733,7 +1768,7 @@ void DrawMouseText( )
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		SetFontForeground( FONT_MCOLOR_WHITE );
 
-		mprintf( sX, sY + 6, gzIntTileLocation );
+		mprintf( sX, sY + 6, L"%ls", gzIntTileLocation );
 		// reset
 		SetFontDestBuffer( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
@@ -1742,7 +1777,8 @@ void DrawMouseText( )
 	if ( gfUIIntTileLocation2 )
 	{
 		// Set dest for gprintf to be different
-		SetFontDestBuffer( MOUSE_BUFFER , 0, 0, 64, 64, FALSE );
+		SetFontDestBuffer(
+			MOUSE_BUFFER, 0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, FALSE);
 
 		FindFontCenterCoordinates( 0, 0, gsCurMouseWidth, gsCurMouseHeight, gzIntTileLocation2, TINYFONT1, &sX, &sY );
 		SetFont( TINYFONT1 );
@@ -1750,7 +1786,7 @@ void DrawMouseText( )
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		SetFontForeground( FONT_MCOLOR_WHITE );
 
-		mprintf( sX, sY - 2, gzIntTileLocation2 );
+		mprintf( sX, sY - 2, L"%ls", gzIntTileLocation2 );
 		// reset
 		SetFontDestBuffer( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 	}
@@ -1796,7 +1832,8 @@ void DrawMouseText( )
 			}
 
 				// Set dest for gprintf to be different
-			SetFontDestBuffer( MOUSE_BUFFER , 0, 0, 64, 64, FALSE );
+			SetFontDestBuffer(
+				MOUSE_BUFFER, 0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, FALSE);
 
 			swprintf( pStr, L"%d", gsCurrentActionPoints );
 
@@ -1829,8 +1866,7 @@ void DrawMouseText( )
 					//aim
 					if ( gubShowActionPointsInRed )
 					{
-						SetFontForeground( gpShadesFromWhiteToRed[ gubShowActionPointsInRed - 1 ] );
-						gubShowActionPointsInRed = 0;
+						ConsumeActionPointShade();
 					}
 					else
 						SetFontForeground( FONT_MCOLOR_WHITE );
@@ -1847,8 +1883,7 @@ void DrawMouseText( )
 				//aim
 				if ( gubShowActionPointsInRed )
 				{
-					SetFontForeground( gpShadesFromWhiteToRed[ gubShowActionPointsInRed - 1 ] );
-					gubShowActionPointsInRed = 0;
+					ConsumeActionPointShade();
 				}
 				else
 				//aim
@@ -1871,97 +1906,48 @@ void DrawMouseText( )
 
 void UpdateAnimatedCursorFrames( UINT32 uiCursorIndex )
 {
-	CursorData		*pCurData;
-	CursorImage		*pCurImage;
-	UINT32				cnt;
+	if (!IsCursorIndex(uiCursorIndex)) return;
 
-	if ( uiCursorIndex != VIDEO_NO_CURSOR )
+	CursorData& cursor = CursorDatabase[uiCursorIndex];
+	if (cursor.usNumComposites > MAX_COMPOSITES) return;
+
+	const bool useNcthSurfaces = UsesNcthSurfaces(uiCursorIndex);
+	for (UINT32 index = 0; index < cursor.usNumComposites; ++index)
 	{
-		pCurData = &( CursorDatabase[ uiCursorIndex ] );
-
-		for ( cnt = 0; cnt < pCurData->usNumComposites; cnt++ )
+		CursorImage& image = cursor.Composites[index];
+		image.uiFileIndex = CursorStateModel::ResolveSurface(
+			image.uiFileIndex, useNcthSurfaces, kNcthSurfacePairs);
+		if (!CursorStateModel::IsValidIndex(
+				std::size(CursorFileDatabase), image.uiFileIndex))
 		{
-
-			pCurImage = &( pCurData->Composites[ cnt ] );
-			// Flugente: now using enums instead of hardcoded values
-			//CHRISL: NCTH uses a completely different cursor so if we're in NCTH mode, we want to use different graphics
-			if (UsingNewCTHSystem() == true && !(uiCursorIndex >= CURSOR_PUNCHRED_ON1 && uiCursorIndex <= CURSOR_PUNCHNOGO_ON2) && !(uiCursorIndex >= CURSOR_KNIFE_HIT_ON1 && uiCursorIndex <= CURSOR_KNIFE_NOGO_ON2))
-			{
-				switch(pCurImage->uiFileIndex)
-				{
-					case C_ACTIONMODERED:
-						pCurImage->uiFileIndex = C_ACTIONMODERED_NCTH; break;
-					case C_ACTIONMODEBLACK:
-						pCurImage->uiFileIndex = C_ACTIONMODEBLACK_NCTH; break;
-					case C_TARGMODEBURSTRED:
-						pCurImage->uiFileIndex = C_TARGMODEBURSTRED_NCTH; break;
-					case C_TARGMODEBURSTBLACK:
-						pCurImage->uiFileIndex = C_TARGMODEBURSTBLACK_NCTH; break;
-					case C_TRINGS:
-						pCurImage->uiFileIndex = C_TRINGS_NCTH; break;
-					case C_TWRINGS:
-						pCurImage->uiFileIndex = C_TWRINGS_NCTH; break;
-					case C_YELLOWRINGS:
-						pCurImage->uiFileIndex = C_YELLOWRINGS_NCTH; break;
-				}
-			} 
-			else
-			{
-				switch(pCurImage->uiFileIndex)
-				{
-					case C_ACTIONMODERED_NCTH:
-						pCurImage->uiFileIndex = C_ACTIONMODERED; break;
-					case C_ACTIONMODEBLACK_NCTH:
-						pCurImage->uiFileIndex = C_ACTIONMODEBLACK; break;
-					case C_TARGMODEBURSTRED_NCTH:
-						pCurImage->uiFileIndex = C_TARGMODEBURSTRED; break;
-					case C_TARGMODEBURSTBLACK_NCTH:
-						pCurImage->uiFileIndex = C_TARGMODEBURSTBLACK; break;
-					case C_TRINGS_NCTH:
-						pCurImage->uiFileIndex = C_TRINGS; break;
-					case C_TWRINGS_NCTH:
-						pCurImage->uiFileIndex = C_TWRINGS; break;
-					case C_YELLOWRINGS_NCTH:
-						pCurImage->uiFileIndex = C_YELLOWRINGS; break;
-				}
-			}
-
-			if ( CursorFileDatabase[ pCurImage->uiFileIndex ].ubFlags & ANIMATED_CURSOR )
-			{
-				pCurImage->uiCurrentFrame++;
-
-				if ( pCurImage->uiCurrentFrame == CursorFileDatabase[ pCurImage->uiFileIndex ].ubNumberOfFrames )
-				{
-					pCurImage->uiCurrentFrame = 0;
-				}
-
-			}
+			continue;
 		}
+
+		const CursorFileData& file = CursorFileDatabase[image.uiFileIndex];
+		image.uiCurrentFrame = CursorStateModel::NextAnimationFrame(
+			image.uiCurrentFrame,
+			file.ubNumberOfFrames,
+			(file.ubFlags & ANIMATED_CURSOR) != 0);
 	}
 }
 
 
 void UpdateFlashingCursorFrames( UINT32 uiCursorIndex )
 {
-	CursorData		*pCurData;
+	if (!IsCursorIndex(uiCursorIndex)) return;
 
-	if ( uiCursorIndex != VIDEO_NO_CURSOR )
+	CursorData& cursor = CursorDatabase[uiCursorIndex];
+	const CursorStateModel::FlashTransition transition =
+		CursorStateModel::AdvanceFlash(
+			(cursor.bFlags & (CURSOR_TO_FLASH | CURSOR_TO_FLASH2)) != 0,
+			(cursor.bFlags & CURSOR_TO_PLAY_SOUND) != 0,
+			cursor.bFlashIndex);
+	if (!transition.changed) return;
+
+	cursor.bFlashIndex = transition.frame;
+	if (transition.playSound)
 	{
-		pCurData = &( CursorDatabase[ uiCursorIndex ] );
-
-		if ( ( pCurData->bFlags & ( CURSOR_TO_FLASH | CURSOR_TO_FLASH2 ) ) )
-		{
-			pCurData->bFlashIndex = !pCurData->bFlashIndex;
-
-		// Should we play a sound?
-		if ( pCurData->bFlags & ( CURSOR_TO_PLAY_SOUND ) )
-		{
-		 if ( pCurData->bFlashIndex )
-		 {
-			PlayJA2Sample( TARGET_OUT_OF_RANGE, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
-		 }
-		}
-		}
+		PlayJA2Sample(TARGET_OUT_OF_RANGE, RATE_11025, MIDVOLUME, 1, MIDDLEPAN);
 	}
 
 }
@@ -1969,22 +1955,30 @@ void UpdateFlashingCursorFrames( UINT32 uiCursorIndex )
 
 void SetCursorSpecialFrame( UINT32 uiCursor, UINT8 ubFrame )
 {
+	if (!IsCursorIndex(uiCursor)) return;
 	CursorDatabase[ uiCursor ].bFlashIndex = ubFrame;
 }
 
 void SetCursorFlags( UINT32 uiCursor, UINT8 ubFlags )
 {
+	if (!IsCursorIndex(uiCursor)) return;
 	CursorDatabase[ uiCursor ].bFlags |= ubFlags;
 }
 
 
 void RemoveCursorFlags( UINT32 uiCursor, UINT8 ubFlags )
 {
+	if (!IsCursorIndex(uiCursor)) return;
 	CursorDatabase[ uiCursor ].bFlags &= ( ~ubFlags );
 }
 
 
 HVOBJECT GetCursorFileVideoObject( UINT32 uiCursorFile )
 {
+	if (!CursorStateModel::IsValidIndex(
+			std::size(CursorFileDatabase), uiCursorFile))
+	{
+		return nullptr;
+	}
 	return( CursorFileDatabase[ uiCursorFile ].hVObject );
 }
