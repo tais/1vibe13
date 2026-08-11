@@ -1294,6 +1294,13 @@ execution work remains host-internal;
 the package-facing tactical turn snapshot still contains mode, team, and turn
 identity, so this ownership move requires no wire or service-version change.
 
+The same host session now owns creature-encounter narrative state: three
+legacy quote flags, the next tense-quote delay, and its last-update timestamp.
+The application supplies random delays and performs dialogue effects, while
+the session applies the established unsigned strict-deadline rule. These
+values remain host-internal and retain their exact save-stream positions; the
+five writable `gTacticalStatus` mirrors have been retired.
+
 The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
 as const-reference projections for source-compatible, allocation-free hot-path
 reads. Their hidden storage is published only by `TacticalWorldAdapter`; writes

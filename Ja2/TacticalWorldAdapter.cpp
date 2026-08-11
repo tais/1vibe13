@@ -154,6 +154,12 @@ const TacticalWorldSession::Snapshot::Turn& CaptureJa2TacticalTurn() noexcept
 	return CaptureJa2TacticalWorld().turn;
 }
 
+const TacticalWorldSession::Snapshot::CreatureQuote&
+CaptureJa2TacticalCreatureQuote() noexcept
+{
+	return CaptureJa2TacticalWorld().creatureQuote;
+}
+
 bool IsJa2TacticalWorldLoaded() noexcept
 {
 	return CaptureJa2TacticalWorld().loaded;
@@ -292,6 +298,43 @@ void ResetJa2TacticalCombatActions() noexcept
 {
 	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
 	session.resetCombatActions();
+}
+
+void ResetJa2TacticalCreatureQuoteState() noexcept
+{
+	GetJa2TacticalWorldAdapter().session().resetCreatureQuoteState();
+}
+
+void ResetJa2TacticalCreatureEncounterFlags() noexcept
+{
+	GetJa2TacticalWorldAdapter().session().resetCreatureEncounterFlags();
+}
+
+void SetJa2TacticalCreatureTenseQuoteDelay(
+	std::uint16_t delaySeconds) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().setCreatureTenseQuoteDelay(
+		delaySeconds);
+}
+
+bool IsJa2TacticalCreatureTenseQuoteDue(
+	std::uint32_t nowMilliseconds) noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().creatureTenseQuoteDue(
+		nowMilliseconds);
+}
+
+void RecordJa2TacticalCreatureTenseQuoteTime(
+	std::uint32_t nowMilliseconds) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().recordCreatureTenseQuoteTime(
+		nowMilliseconds);
+}
+
+void RestoreJa2TacticalCreatureQuoteState(
+	TacticalWorldSession::Snapshot::CreatureQuote state) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().restoreCreatureQuoteState(state);
 }
 
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept

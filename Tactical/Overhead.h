@@ -123,8 +123,6 @@ struct TacticalStatusType
     INT8                    bPanicTriggerIsAlarm[ NUM_PANIC_TRIGGERS ];
     UINT8                   ubPanicTolerance[ NUM_PANIC_TRIGGERS ];
     BOOLEAN                 fAtLeastOneGuyOnMultiSelect;
-    BOOLEAN                 fSaidCreatureFlavourQuote;
-    BOOLEAN                 fHaveSeenCreature;
     BOOLEAN                 fKilledEnemyOnAttack;
     UINT16                  ubEnemyKilledOnAttack;
     INT8                    bEnemyKilledOnAttackLevel;
@@ -132,7 +130,6 @@ struct TacticalStatusType
     BOOLEAN                 fItemsSeenOnAttack;
     BOOLEAN                 ubItemsSeenOnAttackSoldier;
     BOOLEAN                 fBeenInCombatOnce;
-    BOOLEAN                 fSaidCreatureSmellQuote;
     UINT32                  usItemsSeenOnAttackGridNo;
     BOOLEAN                 fLockItemLocators;
     UINT8                   ubLastQuoteSaid;
@@ -167,8 +164,6 @@ struct TacticalStatusType
     BOOLEAN                 fHasEnteredCombatModeSinceEntering;
     BOOLEAN                 fDontAddNewCrows;
     UINT8                   ubMorePadding;
-    UINT16                  sCreatureTenseQuoteDelay;
-    UINT32                  uiCreatureTenseQuoteLastUpdate;
     // SANDRO - added these
     SoldierID               ubLastRequesterSurgeryTargetID;
     UINT8                   ubInterruptPending;

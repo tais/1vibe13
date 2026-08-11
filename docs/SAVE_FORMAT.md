@@ -423,7 +423,7 @@ pointer-alignment padding differs between 32- and 64-bit):
 | Struct | Breaker | Handling |
 |---|---|---|
 | `SAVED_GAME_HEADER` | CHAR16 desc + GAME_OPTIONS | `wstr` desc; scalar GAME_OPTIONS as bytes; read before version gate |
-| `TacticalStatusType` | CHAR16 top-message | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes |
+| `TacticalStatusType` | CHAR16 top-message + runtime-owned turn/creature state | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes; turn and creature-quote values captured/restored through `TacticalWorldSession` at their established positions |
 | `MERCPROFILESTRUCT`, `TacticalActor`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
 | email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + exact, bounded reads; email list staged before publication |
 | `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |

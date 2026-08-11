@@ -61,6 +61,8 @@ private:
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
 const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept;
 const TacticalWorldSession::Snapshot::Turn& CaptureJa2TacticalTurn() noexcept;
+const TacticalWorldSession::Snapshot::CreatureQuote&
+CaptureJa2TacticalCreatureQuote() noexcept;
 bool IsJa2TacticalWorldLoaded() noexcept;
 inline bool IsJa2TacticalTurnBased() noexcept
 {
@@ -119,6 +121,20 @@ void AdvanceJa2TacticalCurrentTeam() noexcept;
 bool BeginJa2TacticalCombatAction() noexcept;
 bool CompleteJa2TacticalCombatAction() noexcept;
 void ResetJa2TacticalCombatActions() noexcept;
+
+// Creature encounter narrative timing is scoped to the tactical session. The
+// application retains quote selection and supplies randomized delays; these
+// gateways keep the persisted state and wrap-safe deadline under one owner.
+void ResetJa2TacticalCreatureQuoteState() noexcept;
+void ResetJa2TacticalCreatureEncounterFlags() noexcept;
+void SetJa2TacticalCreatureTenseQuoteDelay(
+	std::uint16_t delaySeconds) noexcept;
+bool IsJa2TacticalCreatureTenseQuoteDue(
+	std::uint32_t nowMilliseconds) noexcept;
+void RecordJa2TacticalCreatureTenseQuoteTime(
+	std::uint32_t nowMilliseconds) noexcept;
+void RestoreJa2TacticalCreatureQuoteState(
+	TacticalWorldSession::Snapshot::CreatureQuote state) noexcept;
 
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.
