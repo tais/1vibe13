@@ -1,0 +1,92 @@
+#!/bin/sh
+set -eu
+
+show_package_help()
+{
+	cat <<'EOF'
+Jagged Alliance 2 1.13 SDL3 engine AppImage
+
+Place the AppImage beside Ja2.ini and Data/, then run it normally for JA2.
+The first argument may select another bundled executable:
+
+  --ja2       Jagged Alliance 2 (default)
+  --ja2ub     Unfinished Business
+  --editor    JA2 map editor
+  --server    standalone multiplayer coordinator
+
+All remaining arguments are forwarded unchanged to the selected executable.
+The server reads ja2_mp.ini from the current directory, or from beside the
+AppImage when neither the current directory nor --ini selects a configuration.
+EOF
+}
+
+executable="JA2_ENGLISH"
+needs_game_data=true
+server_mode=false
+case "${1-}" in
+	--ja2)
+		shift
+		;;
+	--ja2ub)
+		executable="JA2UB_ENGLISH"
+		shift
+		;;
+	--editor)
+		executable="JA2MAPEDITOR_ENGLISH"
+		shift
+		;;
+	--server)
+		executable="../lib/ja2server/ja2server"
+		needs_game_data=false
+		server_mode=true
+		shift
+		;;
+	--help-engine-package)
+		show_package_help
+		exit 0
+		;;
+esac
+
+# APPIMAGE is supplied by the type-2 runtime and is an absolute path. Resolve
+# its containing directory once for both game-data and server-config lookup.
+appimage_directory=""
+if [ -n "${APPIMAGE-}" ]; then
+	appimage_directory=$(CDPATH= cd "$(dirname -- "$APPIMAGE")" && pwd -P)
+fi
+
+# JA2 resolves Ja2.ini, vfs_config.ini, and Data/ from its working directory.
+# A desktop launcher often starts in $HOME, so prefer the directory containing
+# the AppImage when it has the expected game-data marker.
+if [ "$needs_game_data" = true ] && [ ! -f "./Ja2.ini" ]; then
+	if [ -n "$appimage_directory" ] && [ -f "$appimage_directory/Ja2.ini" ]; then
+		cd "$appimage_directory"
+	else
+		cat >&2 <<'EOF'
+JA2 game data was not found.
+
+Place this AppImage in an existing JA2 1.13 directory beside Ja2.ini and
+Data/, or launch it from that directory. The AppImage contains the engine
+only; it cannot distribute the original game data.
+EOF
+		exit 2
+	fi
+fi
+
+# ja2server intentionally keeps its live configuration outside the immutable
+# AppImage. Preserve an explicit --ini path and the caller's ./ja2_mp.ini; only
+# otherwise move beside the AppImage when a user config is present there.
+if [ "$server_mode" = true ]; then
+	server_ini_explicit=false
+	for argument in "$@"; do
+		if [ "$argument" = "--ini" ]; then
+			server_ini_explicit=true
+		fi
+	done
+	if [ "$server_ini_explicit" = false ] && [ ! -f "./ja2_mp.ini" ] && \
+	   [ -n "$appimage_directory" ] && \
+	   [ -f "$appimage_directory/ja2_mp.ini" ]; then
+		cd "$appimage_directory"
+	fi
+fi
+
+exec "$APPDIR/usr/bin/$executable" "$@"

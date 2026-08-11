@@ -31,7 +31,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
-| 10 | Platform packaging + CI | 🟡 CI compile-check and tagged zip releases are live on **Linux x64, Linux ARM64, macOS, and Windows** (`.github/workflows/build_unix.yml`, `.github/workflows/release.yml`). macOS `.app` bundles are ad-hoc signed and strictly verified after staging; native installers and AppImage packaging remain pending. |
+| 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS, and Windows**. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
 | ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely. `Multiplayer/mp_stubs.cpp` (no-op definitions, STATIC) builds on every platform; the main-menu MP button is disabled. The 32-bit Win32 `RakNetLibStatic.lib` is unused. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
@@ -367,8 +367,11 @@ will revive them:
   `libexpatMT.lib`) already gated `if(WIN32)`. Pulling Lua, Expat,
   Bink (when replaced), Smacker (when replaced) from source on every
   platform is Phase 10 cleanup.
-- CI matrix for Windows / macOS / Linux. App bundle / AppImage / zip
-  packaging. None of this exists yet.
+- The completed CI matrix covers Windows, macOS, Linux x64, and Linux ARM64.
+  Tagged packaging retains the four zip artifacts, ships macOS app bundles,
+  creates reproducible AppImages, and creates a native Windows installer. The
+  implementation and signing boundary are documented in
+  [packaging/README.md](../packaging/README.md).
 
 ### Deferred indefinitely — Multiplayer
 
@@ -1309,11 +1312,21 @@ optional scalable path now renders or falls back safely on all three platforms.
   `SDL_GetBasePath`. The release workflow replaces the linker's executable-only
   signature with an ad-hoc bundle signature, then requires strict deep
   verification before archiving.
-- Linux: tagged x64 and ARM64 zip artifacts are live; AppImage remains pending.
-- Windows: tagged zip artifacts are live; a native installer remains pending.
+- Linux: tagged x64 and ARM64 zip artifacts remain unchanged. Both jobs also
+  build AppDir-based AppImages from the same staged payload, normalize input
+  mtimes to `SOURCE_DATE_EPOCH`, checksum-pin `appimagetool` and its explicit
+  runtime, and require two independently packaged images to compare equal.
+- Windows: the tagged zip remains unchanged. The same payload also feeds a
+  native NSIS per-user installer with explicit-file uninstall ownership. A CI
+  smoke test proves that uninstalling preserves a user-owned `Data/` sentinel.
 - CI builds JA2, UB, and Map Editor on every branch across Linux, macOS, and
   Windows, with Linux ASan headless tests and build-free release-workflow
-  safety checks.
+  safety checks. Every action in the privileged release workflow is pinned to
+  a full commit SHA; downloaded packaging tools are pinned by SHA-256.
+- AppImage GPG signing and Windows Authenticode signing are deliberately not
+  simulated. They require protected publisher keys and a release-key rotation
+  policy; current releases disclose that limitation instead of accepting an
+  unsigned fallback as publisher authentication.
 
 ---
 

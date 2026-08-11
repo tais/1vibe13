@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Jagged Alliance 2 1.13 SDL3
+Comment=Cross-platform JA2 1.13 engine
+Exec=JA2_ENGLISH
+Icon=org.ja2v113.JA2SDL3
+Categories=Game;StrategyGame;
+Terminal=false
+StartupNotify=true

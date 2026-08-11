@@ -133,25 +133,31 @@ export CXXFLAGS=--target=x86_64-pc-windows-msvc
 ```
 
 CI (`.github/workflows/build_unix.yml`) compiles all three platforms on every
-push; `.github/workflows/release.yml` packages per-platform zips on a `v*` tag.
+push. On a `v*` tag, `.github/workflows/release.yml` preserves the four
+per-platform zips and also publishes Linux x64/ARM64 AppImages and a native
+Windows installer. See [the packaging contract](packaging/README.md).
 
 
 ## Downloads
 
 Pre-built, per-platform archives are on the
-[releases page](https://github.com/tais/source/releases) — `windows`,
-`macos` and `linux` zips. Each archive contains the **engine executables plus
-the matching SDL3 / SDL3_mixer runtime libraries** (the bundled SDL libs are
-the ones this build produced — do not mix with a different SDL release).
+[releases page](https://github.com/tais/1vibe13/releases). Compatibility zip
+artifacts are available for Windows, macOS, Linux x64, and Linux ARM64. Linux
+also has a single-file AppImage on both architectures, and Windows has a native
+per-user setup executable. SDL3, SDL3_mixer, and their codecs are linked
+statically into each executable.
 
-The archives contain the **engine only, no game data**.
+Every package contains the **engine only, no game data**. AppImages and the
+Windows installer are currently unsigned; download them only from the official
+GitHub release.
 
 
 ## Installation
 
 1. Install the original **Jagged Alliance 2** and a working **JA2 1.13** data set.
-2. Download the archive for your platform and drop its contents into the JA2
-   game directory (overwrite when asked).
+2. Download the package for your platform. Extract a zip into the JA2 game
+   directory, place a Linux AppImage beside `Ja2.ini` and `Data/`, or point the
+   Windows installer at that directory.
 3. Adjust the `.ini` settings if you like, then run the executable.
 
 No `cnc-ddraw` / DirectDraw shim is required — SDL3 handles the window,
