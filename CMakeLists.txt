@@ -155,6 +155,21 @@ if(NOT TARGET SDL3_net::SDL3_net)
   FetchContent_MakeAvailable(SDL3_net)
 endif()
 
+# stb_truetype: portable rasterizer for the optional scalable-font path.
+# Keep the upstream snapshot pinned: font output and parser behavior are part
+# of the release surface, and a moving header would make builds non-reproducible.
+include(FetchContent)
+FetchContent_Declare(
+  stb
+  GIT_REPOSITORY https://github.com/nothings/stb.git
+  GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
+  GIT_SHALLOW FALSE
+)
+FetchContent_MakeAvailable(stb)
+add_library(ja2_stb_truetype INTERFACE)
+target_include_directories(ja2_stb_truetype INTERFACE
+  "${stb_SOURCE_DIR}")
+
 # libsmacker: Smacker (.SMK) video decoder. Replaces the Win32-only
 # binkw32.lib + Smacker-via-binkw32 path (Phase 6u). All JA2 cinematics
 # (intro, helicopter flyby, meanwhile scenes) ship as .SMK files, so
@@ -387,7 +402,8 @@ target_link_libraries(ja2_campaign_neutral_sgp PRIVATE
   libpng
   SDL3::SDL3
   SDL3_mixer::SDL3_mixer
-  libsmacker)
+  libsmacker
+  ja2_stb_truetype)
 target_link_libraries(ja2_campaign_neutral_utils PRIVATE
   SDL3::SDL3
   libsmacker)
@@ -526,6 +542,7 @@ foreach(app IN LISTS ApplicationTargets)
   target_link_libraries(${app}_sgp PRIVATE SDL3::SDL3)
   target_link_libraries(${app}_sgp PRIVATE SDL3_mixer::SDL3_mixer)
   target_link_libraries(${app}_sgp PRIVATE libsmacker)
+  target_link_libraries(${app}_sgp PRIVATE ja2_stb_truetype)
   target_compile_definitions(${app}_sgp PRIVATE ${compilationFlags} ${debugFlags} NO_ZLIB_COMPRESSION)
 endforeach()
 

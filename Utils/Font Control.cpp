@@ -173,13 +173,11 @@ BOOLEAN	InitializeFonts( )
 
 	gfFontsInit = TRUE;
 
-  // ATE: Init WinFont System and any winfonts we wish...
-#ifdef _WIN32
-    if ( iUseWinFonts ) {
-	    InitWinFonts( );
-    }
-	InitTooltipFonts();
-#endif
+	// The optional scalable path is portable now. A missing/invalid configured
+	// font disables it transactionally and leaves the shipped bitmap catalogue
+	// authoritative. Tooltip scaling independently uses the same backend.
+	if (iUseWinFonts && !InitWinFonts()) iUseWinFonts = 0;
+	if (fTooltipScaleFactor > 1.0F) InitTooltipFonts();
 
 	return( TRUE );
 }
@@ -213,13 +211,11 @@ void ShutdownFonts( )
 	UnloadManagedFont(gpHugeFont, gvoHugeFont);
 	#endif
 
-  // ATE: Shutdown any win fonts
-#ifdef _WIN32
-  if ( wasInitialized && iUseWinFonts ) {
-	ShutdownWinFonts();
-  }
-  if (wasInitialized) ShutdownTooltipFonts();
-#endif
+	if (wasInitialized)
+	{
+		ShutdownTooltipFonts();
+		ShutdownWinFonts();
+	}
 }
 
 // Set shades for fonts

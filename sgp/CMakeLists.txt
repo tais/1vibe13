@@ -41,8 +41,7 @@ set(sgpCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_native_image.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_native_pixel_blitters.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_native_pixel_cache.cpp"
-# WinFont.cpp (GDI + DirectDraw font rasterizer) retired in the SDL3
-# port; WinFont.h now provides no-op stubs on every platform.
+"${CMAKE_CURRENT_SOURCE_DIR}/WinFont.cpp"
 )
 
 # MemMan's emitted Release object changes with the application definitions.

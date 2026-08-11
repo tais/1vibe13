@@ -43,13 +43,13 @@
 // clipping rectangle in sync.
 extern std::map<SurfaceData::tID, ClipRectangle> g_SurfaceRectangle;
 
-// iUseWinFonts is a JA2 flag controlling whether GDI-rendered text is
+// iUseWinFonts is a JA2 flag controlling whether portable scalable text is
 // composed onto the locked surface. Declared in Ja2/local.h.
 extern int iUseWinFonts;
 
-// CurrentSurface is declared in sgp_portable_globals.cpp; LockVideoSurface
-// has to update it when iUseWinFonts is set so WinFont knows which
-// surface to draw into.
+// CurrentSurface is retained as a legacy "last mapped surface" compatibility
+// value. Portable font buffer calls resolve their exact surface through
+// SurfaceData instead of relying on this global.
 extern UINT32 CurrentSurface;
 
 namespace SurfaceData

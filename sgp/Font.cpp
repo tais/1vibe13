@@ -17,6 +17,7 @@
 	#include "vobject.h"
 	#include "vobject_blitters.h"
 
+	#include <limits>
 	#include <sstream>
 //*******************************************************
 //
@@ -79,6 +80,17 @@ PIXEL		SaveFontShadow16=0;
 PIXEL		SaveFontBackground16=0;
 UINT8			SaveFontForeground8=0;
 UINT8			SaveFontBackground8=0;
+
+static UINT32 MappedVideoSurfaceForFontBuffer(UINT8* buffer)
+{
+	if (!buffer) return 0;
+	const SurfaceData::tID surface = SurfaceData::GetSurfaceID(buffer);
+	if (surface == 0 ||
+		surface > static_cast<SurfaceData::tID>(
+			std::numeric_limits<UINT32>::max()))
+		return 0;
+	return static_cast<UINT32>(surface);
+}
 
 //*****************************************************************************
 // SetFontColors
@@ -603,7 +615,7 @@ INT16 StringPixLength(const STR16 string, INT32 UseFont)
 {
 	UINT32 Cur;
 	UINT16 *curletter,transletter;
-    if ( iUseWinFonts ) {
+	if (iUseWinFonts && UseFont >= 0 && UseFont < MAX_WINFONTMAP) {
 	    INT32 MapFont;
 	    MapFont = WinFontMap[UseFont];
 	    if (MapFont !=-1 )
@@ -735,10 +747,10 @@ UINT16 GetFontHeight(INT32 FontNum)
 {
 	Assert(IsFontLoaded(FontNum));
 
-    if ( iUseWinFonts ) {
+	if (iUseWinFonts && FontNum >= 0 && FontNum < MAX_WINFONTMAP) {
 	    INT32 MapFont;
 	    MapFont = WinFontMap[FontNum];
-	    if (FontNum != -1)
+	    if (MapFont != -1)
   	    {
 			return (GetWinFontHeight(MapFont));
   	    } 
@@ -1046,13 +1058,9 @@ UINT8				*pDestBuf;
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
 
-    if ( iUseWinFonts ) {
-	    if (GET_WINFONT() != -1)
-		    {
-		     PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string);
-		     return(0);
-		    }
-    }
+	if (iUseWinFonts && GET_WINFONT() != -1 &&
+		PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string))
+		return 0;
 
 	curletter=string;
 
@@ -1153,13 +1161,9 @@ UINT8				*pDestBuf;
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
 
-    if ( iUseWinFonts ) {
-	    if (GET_WINFONT() != -1)
-		    {
-		     PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string);
-		     return(0);
-		    }
-    }
+	if (iUseWinFonts && GET_WINFONT() != -1 &&
+		PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string))
+		return 0;
 	curletter=string;
 
 	destx=x;
@@ -1202,14 +1206,13 @@ UINT8				*pDestBuf;
 	va_start(argptr, pFontString);			// Set up variable argument pointer
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
-    if ( iUseWinFonts ) {
-	    if (GET_WINFONT() != -1)
-		    {
-		     PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string);
-  	 	     InvalidateRegion(x, y, x + StringPixLength(string, FontDefault), y + GetFontHeight(FontDefault));
-		     return(0);
-		    }
-    }
+	if (iUseWinFonts && GET_WINFONT() != -1 &&
+		PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string))
+	{
+		InvalidateRegion(x, y, x + StringPixLength(string, FontDefault),
+			y + GetFontHeight(FontDefault));
+		return 0;
+	}
 	curletter=string;
 
 	destx=x;
@@ -1297,15 +1300,11 @@ CHAR16	string[512];
 	va_start(argptr, pFontString);			// Set up variable argument pointer
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
-    if ( iUseWinFonts ) {
-	    if (GET_WINFONT() != -1)
-		    {
-		     UnLockVideoSurface( CurrentSurface );
-		     PrintWinFont(CurrentSurface, GET_WINFONT(), x, y, string);
-		     pDestBuf = LockVideoSurface( CurrentSurface, &uiDestPitchBYTES );
-		     return(0);
-		    }
-    }
+	const UINT32 mappedSurface =
+		MappedVideoSurfaceForFontBuffer(pDestBuf);
+	if (iUseWinFonts && GET_WINFONT() != -1 && mappedSurface != 0 &&
+		PrintWinFont(mappedSurface, GET_WINFONT(), x, y, string))
+		return 0;
 	curletter=string;
 
 	destx=x;
@@ -1341,15 +1340,11 @@ PIXEL	usOldForeColor;
 	va_start(argptr, pFontString);			// Set up variable argument pointer
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
-    if ( iUseWinFonts ) {
-	    if (GET_WINFONT() != -1)
-		    {
-		     UnLockVideoSurface( CurrentSurface );
-		     PrintWinFont(CurrentSurface, GET_WINFONT(), x, y, pFontString);
-		     pDestBuf = LockVideoSurface( CurrentSurface, &uiDestPitchBYTES );
-		     return(0);
-		    }
-    }
+	const UINT32 mappedSurface =
+		MappedVideoSurfaceForFontBuffer(pDestBuf);
+	if (iUseWinFonts && GET_WINFONT() != -1 && mappedSurface != 0 &&
+		PrintWinFont(mappedSurface, GET_WINFONT(), x, y, string))
+		return 0;
 	curletter=string;
 
 	destx=x;
@@ -1406,13 +1401,9 @@ UINT8				*pDestBuf;
 	va_start(argptr, pFontString);			// Set up variable argument pointer
 	vswprintf(string, pFontString, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
-    if ( iUseWinFonts ) {
-    	if (GET_WINFONT() != -1)
-		{
-		 PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, pFontString);
-		 return(0);
-		}
-    }
+	if (iUseWinFonts && GET_WINFONT() != -1 &&
+		PrintWinFont(FontDestBuffer, GET_WINFONT(), x, y, string))
+		return 0;
 	curletter=string;
 
 	destx=x;
@@ -2979,4 +2970,3 @@ FontTranslationTable *pTransTab;
 	UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 	MemFree(pFManager);
 }	*/
-

@@ -1098,8 +1098,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 	//   src byte 1 -> shadow     (only written if usShadow     != 0)
 	//   src byte >1 -> foreground
 	// Transparent runs (high-bit-set commands) write usBackground
-	// when non-zero, otherwise just skip. Used by WinFont when GDI
-	// rasterizes glyphs and needs to flatten them into the surface.
+	// when non-zero, otherwise just skip. The bitmap font path uses this
+	// to flatten indexed glyphs into the native surface.
 	{
 		const UINT8* src = SrcPtr;
 		for (INT32 i = 0; i < TopSkip; ++i) {

@@ -1375,7 +1375,9 @@ void SetRegionFastHelpText( MOUSE_REGION *region, const STR16 szText )
 }
 
 bool isTooltipScalingEnabled() {
-	return fTooltipScaleFactor > 1;
+	return fTooltipScaleFactor > 1 &&
+		IsWinFontReady(TOOLTIP_IFONT) &&
+		IsWinFontReady(TOOLTIP_IFONT_BOLD);
 }
 
 UINT16 GetScaledFontHeight()
@@ -1580,7 +1582,8 @@ void DisplayHelpTokenizedString(const STR16 inputString, INT16 sX, INT16 sY)
 				if (isTooltipScalingEnabled()) {
 					// the font color is set on font initialization
 					INT32 iFont = isBold ? TOOLTIP_IFONT_BOLD : TOOLTIP_IFONT;
-					PrintWinFont(FontDestBuffer, iFont, sX + xDelta, sY + lineCounter * (fontHeight + 1), L"%s", stringBuffer);
+					PrintWinFont(FontDestBuffer, iFont, sX + xDelta,
+						sY + lineCounter * (fontHeight + 1), stringBuffer);
 					xDelta += WinFontStringPixLength(stringBuffer, iFont);
 				}
 				else {

@@ -14108,5 +14108,148 @@ if(utils_runtime_control_audit_position EQUAL -1)
     "Utils runtime-control audit record is missing")
 endif()
 
+# Phase 9 has one portable, bounded scalable-font adapter. Unicode decoding
+# and size arithmetic stay dependency-free; SDL/VFS/stb/surface concerns stay
+# in the production adapter.
+file(READ "${SOURCE_ROOT}/sgp/WinFont.h" portable_font_header_contents)
+file(READ "${SOURCE_ROOT}/sgp/WinFont.cpp" portable_font_adapter_contents)
+file(READ "${SOURCE_ROOT}/sgp/Font.cpp" portable_font_caller_contents)
+file(READ "${SOURCE_ROOT}/sgp/PortableFontModel.h"
+  portable_font_model_contents)
+file(READ "${SOURCE_ROOT}/sgp/CMakeLists.txt" portable_font_build_contents)
+file(READ "${SOURCE_ROOT}/Utils/Font Control.cpp"
+  portable_font_control_contents)
+file(READ "${SOURCE_ROOT}/tests/portable_font_model_tests.cpp"
+  portable_font_test_contents)
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  portable_font_test_build_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  portable_font_ci_contents)
+file(READ "${SOURCE_ROOT}/docs/SDL3_PORT.md" sdl3_port_contents)
+
+foreach(retired_font_stub_fragment IN ITEMS
+    "inline void InitWinFonts()"
+    "CreateWinFont(void*)"
+    "inline void PrintWinFont"
+    "#include <windows.h>")
+  string(FIND "${portable_font_header_contents}"
+    "${retired_font_stub_fragment}" retired_font_stub_position)
+  if(NOT retired_font_stub_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable font header regained retired stub/platform path '${retired_font_stub_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_portable_font_fragment IN ITEMS
+    "STB_TRUETYPE_IMPLEMENTATION"
+    "MaximumFontBytes"
+    "MaximumGlyphPixels"
+    "CheckedBitmapArea"
+    "DecodeNext"
+    "GetVideoSurface"
+    "LockVideoSurface"
+    "surface->ubBitDepth <= 8"
+    "BlendGlyph"
+    "WIN_FONT_FILE"
+    "WIN_FONT_BOLD_FILE"
+    "g_lang == i18n::Lang::zh"
+    "stbtt_FindGlyphIndex(&probe, 0x4E00)"
+    "FONTS\\\\ja2font3.ttf"
+    "catch (...)")
+  string(FIND "${portable_font_adapter_contents}"
+    "${required_portable_font_fragment}" required_portable_font_position)
+  if(required_portable_font_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable font adapter lost '${required_portable_font_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${portable_font_adapter_contents}"
+  "surface->ubBitDepth != SGP_PIXEL_DEPTH"
+  rejected_native_font_surface_gate_position)
+if(NOT rejected_native_font_surface_gate_position EQUAL -1)
+  message(FATAL_ERROR
+    "Portable font adapter again rejects native 32-bit storage by its legacy 16-bit content tag")
+endif()
+
+string(FIND "${portable_font_caller_contents}"
+  "SurfaceData::GetSurfaceID" mapped_font_surface_position)
+string(FIND "${portable_font_caller_contents}"
+  "PrintWinFont(CurrentSurface" stale_font_surface_position)
+if(mapped_font_surface_position EQUAL -1 OR
+   NOT stale_font_surface_position EQUAL -1)
+  message(FATAL_ERROR
+    "Portable buffer-font calls no longer resolve the exact mapped surface")
+endif()
+
+string(REGEX MATCH
+  "#[ 	]*include[ 	]*[<\"](SDL|windows[.]h|types[.]h|FileMan|vsurface|stb_truetype)"
+  forbidden_portable_font_model_include "${portable_font_model_contents}")
+if(forbidden_portable_font_model_include)
+  message(FATAL_ERROR
+    "Portable font model regained a platform/game/parser dependency")
+endif()
+
+foreach(required_portable_font_model_test IN ITEMS
+    "UTF-16 surrogate-pair decoding"
+    "out-of-range UTF-32 is replaced"
+    "signed-min height cannot overflow"
+    "infinite scale is bounded"
+    "exact-capacity glyph bitmap"
+    "half coverage rounds deterministically"
+    "width accumulation saturates")
+  string(FIND "${portable_font_test_contents}"
+    "${required_portable_font_model_test}"
+    required_portable_font_model_test_position)
+  if(required_portable_font_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable font model lost test '${required_portable_font_model_test}'")
+  endif()
+endforeach()
+
+string(FIND "${portable_font_build_contents}" "WinFont.cpp"
+  portable_font_build_position)
+string(FIND "${portable_font_test_build_contents}"
+  "portable_font_model_tests" portable_font_test_build_position)
+string(FIND "${portable_font_ci_contents}"
+  "portable_font_model_tests" portable_font_ci_position)
+if(portable_font_build_position EQUAL -1 OR
+   portable_font_test_build_position EQUAL -1 OR
+   portable_font_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Portable font implementation/model is no longer mandatory in build/ASan CI")
+endif()
+foreach(required_portable_font_control_fragment IN ITEMS
+    "if (iUseWinFonts && !InitWinFonts()) iUseWinFonts = 0"
+    "fTooltipScaleFactor > 1.0F"
+    "ShutdownTooltipFonts()"
+    "ShutdownWinFonts()")
+  string(FIND "${portable_font_control_contents}"
+    "${required_portable_font_control_fragment}"
+    required_portable_font_control_position)
+  if(required_portable_font_control_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable font lifecycle lost '${required_portable_font_control_fragment}'")
+  endif()
+endforeach()
+
+string(REGEX REPLACE "[ \t\r\n]+" " " sdl3_port_normalized_contents
+  "${sdl3_port_contents}")
+foreach(required_portable_font_doc_fragment IN ITEMS
+    "Exit criterion: met."
+    "WIN_FONT_FILE"
+    "per-section `Name`"
+    "CJK-capable faces"
+    "trusted local configuration/content boundary"
+    "bitmap rendering remains active")
+  string(FIND "${sdl3_port_normalized_contents}"
+    "${required_portable_font_doc_fragment}"
+    required_portable_font_doc_position)
+  if(required_portable_font_doc_position EQUAL -1)
+    message(FATAL_ERROR
+      "SDL3 font completion record lost '${required_portable_font_doc_fragment}'")
+  endif()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")
