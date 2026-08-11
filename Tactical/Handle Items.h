@@ -4,6 +4,8 @@
 #include "World Items.h"
 #include "structure.h"
 
+#include <Engine/Adapters/JA2/SimulationCommand.h>
+
 class TacticalActor;
 
 #define ITEM_HANDLE_OK													1
@@ -177,6 +179,17 @@ extern STRUCTURE_MOVEPOSSIBLE gStructureMovePossible[STRUCTURE_MOVEPOSSIBLE_MAX]
 
 class TacticalActor;
 INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI );
+// Executor-only continuation for an already admitted weapon-configuration
+// command. It preserves HandleItem's established validation and preparation
+// while committing the selected fire event locally, without recursively
+// submitting a second simulation command from inside the authoritative drain.
+INT32 HandleItemFromWeaponConfigurationCommand(
+	TacticalActor* soldier,
+	INT32 grid,
+	INT8 level,
+	UINT16 handItem,
+	SimulationCommandSource source,
+	TacticalEventPolicy eventPolicy);
 void SoldierPickupItem(
 	TacticalActor *pSoldier,
 	INT32 iItemIndex,

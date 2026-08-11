@@ -1248,6 +1248,35 @@ pool. JA2's compatibility executor alone applies the established inventory
 policy after transactionally rebuilding and matching the complete live roster,
 selected squad, and tactical mode. Any stale or subset command is discarded
 before inventory or world-item state changes.
+`ApplyWeaponConfigurationCommand` represents equipment/attachment correction
+and friendly-retaliation mode selection as a System/Replay-only exact result;
+it is deliberately distinct from the local-player Cycle commands. The command
+captures the expected hand item plus the complete weapon mode, scope, fire
+progress, barrel, shown aim, and launcher-delay state. Equipment continuations
+also capture inventory position and old/new item IDs. Stable cause,
+presentation policy, ordered gameplay continuation, and outbound event policy
+are independent values. Before mutation, JA2 re-runs the cause-specific resolver
+and requires the captured result to match current actor incarnation, hand item,
+equipment slot/item, attachments, configuration, and target state. This gives
+legacy in-progress fire-counter tuples semantic validation without pretending
+the SDK owns JA2's item-capability tables. Equipment side effects remain one
+ordered continuation across retained ingress. Retaliation additionally captures
+the exact attacker incarnation and issued grid/level, fails closed when a
+required configuration is rejected, and replays its ready/configure/fire
+continuation locally at that level without re-emitting a peer event. Playback
+queues a `Replay`-origin copy while its diagnostic journal preserves the
+captured `System` source; this transformation is fixed by the runtime stream
+policy rather than supplied as two caller-controlled batches. Programmatic
+staging returns `CommandReplayStageResult::Invalid` if either the captured or
+normalized value is structurally invalid. The portable reference
+simulation explicitly discards this JA2 inventory/UI policy. Codec tag 29 is
+appended to the current journal version; no application packet or persistence
+format is reinterpreted.
+This wave does not migrate lower-level configuration writes in `Items.cpp`
+(rifle-grenade attachment insertion, direct hand placement, and attachment
+removal), nor `HandleSuppressionFire`'s forced alternative-hold scope reset in
+`Overhead.cpp`. Those named compatibility mechanics remain deferred and are not
+part of the command's ownership claim.
 The service deliberately does not expose draining or cancellation authority.
 Every callback receives a registry-issued `PackageIdentity`. It can be copied
 and passed to package-aware services, but cannot be constructed from an

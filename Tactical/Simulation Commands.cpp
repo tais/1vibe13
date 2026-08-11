@@ -47,6 +47,9 @@
 #include "soldier tile.h"
 #include "structure.h"
 #include "worldman.h"
+#include "ai.h"
+
+extern BOOLEAN gfAutofireInitBulletNum;
 
 namespace
 {
@@ -58,6 +61,13 @@ namespace
 			CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS +
 			CODE_MAXIMUM_NUMBER_OF_PLAYER_VEHICLES,
 		"public bulk-reload roster bound must match legacy player storage");
+	static_assert(
+		TacticalWeaponModeCount == NUM_WEAPON_MODES,
+		"public weapon-configuration mode bound must match JA2");
+	static_assert(
+		TacticalMinimumScopeMode == USE_ALT_WEAPON_HOLD &&
+			TacticalScopeModeCount == NUM_SCOPE_MODES,
+		"public weapon-configuration scope bound must match JA2");
 
 	struct SimulationCommandFrameBudget
 	{
@@ -92,6 +102,114 @@ namespace
 		TacticalActor* soldier = ResolveJa2TacticalEntity(actor);
 		if (!soldier || !soldier->roster().inSector()) return nullptr;
 		return soldier;
+	}
+
+	TacticalActor* ResolveWeaponConfigurationActor(
+		TacticalEntityId actor) noexcept
+	{
+		// Equipment reconciliation also runs for mercs viewed from the map
+		// screen. Exact entity identity is still required, but a loaded tactical
+		// world and in-sector membership are not.
+		return ResolveJa2TacticalEntity(actor);
+	}
+
+	void ApplyWeaponConfigurationResult(
+		TacticalActor& soldier,
+		const TacticalWeaponConfigurationResult& result) noexcept
+	{
+		soldier.attackSelection().weaponMode() = result.weaponMode;
+		soldier.attackSelection().scopeMode() = result.scopeMode;
+		soldier.fireControl().burstCounter() = result.burstCounter;
+		soldier.fireControl().autofireShots() = result.autofireShots;
+		soldier.fireControl().selectBarrelMode(result.barrelMode);
+		soldier.fireControl().setGrenadeLauncherDelay(
+			result.grenadeLauncherDelay);
+		soldier.aiPlanning().shownAimTime() = result.shownAimTime;
+		if (result.resetAutofireBulletInitialization)
+			gfAutofireInitBulletNum = FALSE;
+	}
+
+	void ApplyWeaponConfigurationPresentation(
+		TacticalActor& soldier,
+		TacticalWeaponConfigurationPostApplyPolicy policy)
+	{
+		if (policy == TacticalWeaponConfigurationPostApplyPolicy::None)
+			return;
+		DirtyMercPanelInterface(&soldier, DIRTYLEVEL2);
+		if (policy ==
+				TacticalWeaponConfigurationPostApplyPolicy::
+					DirtyMercPanelAndCursor ||
+			policy ==
+				TacticalWeaponConfigurationPostApplyPolicy::
+					DirtyMercPanelCursorAndSight)
+			gfUIForceReExamineCursorData = TRUE;
+		if (policy ==
+			TacticalWeaponConfigurationPostApplyPolicy::
+				DirtyMercPanelCursorAndSight)
+			ManLooksForOtherTeams(&soldier);
+	}
+
+	bool IsAttachedLauncherWeaponMode(std::int8_t weaponMode) noexcept
+	{
+		return weaponMode == WM_ATTACHED_GL ||
+			weaponMode == WM_ATTACHED_GL_BURST ||
+			weaponMode == WM_ATTACHED_GL_AUTO;
+	}
+
+	bool ResolveExpectedWeaponConfiguration(
+		TacticalActor& soldier,
+		const ApplyWeaponConfigurationCommand& command,
+		TacticalWeaponConfigurationResult& expected,
+		bool& expectedHandItemRefresh)
+	{
+		expectedHandItemRefresh = false;
+		switch (command.cause)
+		{
+			case TacticalWeaponConfigurationCause::EquipmentChanged:
+				if (command.inventoryPosition >= NUM_INV_SLOTS ||
+					command.previousItem >= MAXITEMS ||
+					command.changedItem >= MAXITEMS ||
+					soldier.inventory()[command.inventoryPosition].usItem !=
+						command.changedItem)
+					return false;
+				(void)ResolveEquipmentTacticalWeaponConfiguration(
+					soldier,
+					static_cast<UINT32>(command.inventoryPosition),
+					static_cast<UINT16>(command.previousItem),
+					static_cast<UINT16>(command.changedItem), expected,
+					expectedHandItemRefresh);
+				return true;
+			case TacticalWeaponConfigurationCause::LauncherUnavailable:
+				if (!IsAttachedLauncherWeaponMode(
+						soldier.attackSelection().weaponMode()) ||
+					!soldier.inventory()[HANDPOS].exists() ||
+					!IsGrenadeLauncherAttached(
+						&soldier.inventory()[HANDPOS]) ||
+					EnoughAmmo(&soldier, FALSE, HANDPOS))
+					return false;
+				return ResolveNextTacticalWeaponConfiguration(
+					soldier, expected);
+			case TacticalWeaponConfigurationCause::FriendlyRetaliation:
+				if (soldier.fireControl().burstCounter() != 0 ||
+					!IsGunBurstCapable(
+						&soldier.inventory()[HANDPOS], FALSE, &soldier))
+					return false;
+				return ResolveNextTacticalWeaponConfiguration(
+					soldier, expected);
+			case TacticalWeaponConfigurationCause::ScopeAttachmentChanged:
+				return ResolveNextTacticalScopeConfiguration(
+					soldier, NOWHERE, expected);
+			case TacticalWeaponConfigurationCause::
+				AttachedLauncherShotCompleted:
+				if (!IsAttachedLauncherWeaponMode(
+						soldier.attackSelection().weaponMode()))
+					return false;
+				expected = ResolveDefaultTacticalWeaponConfiguration(
+					soldier,
+					static_cast<UINT16>(command.handItem));
+				return true;
+		}
+		return false;
 	}
 
 	SimulationCommandDispatchResult InvalidCommandActorResult() noexcept
@@ -307,6 +425,83 @@ namespace
 				return ExecuteBulkReloadWeaponsCommand(value)
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+			{
+				TacticalActor* soldier =
+					ResolveWeaponConfigurationActor(value.soldier);
+				if (!soldier || !IsSimulationSystemSource(value.source) ||
+					value.handItem >= MAXITEMS ||
+					soldier->inventory()[HANDPOS].usItem != value.handItem)
+					return CommandDisposition::Discard;
+
+				TacticalWeaponConfigurationResult expectedConfiguration{};
+				bool expectedHandItemRefresh = false;
+				if (!ResolveExpectedWeaponConfiguration(
+						*soldier, value, expectedConfiguration,
+						expectedHandItemRefresh) ||
+					expectedConfiguration != value.result)
+					return CommandDisposition::Discard;
+
+				TacticalActor* retaliationTarget = nullptr;
+				const bool completesHandItemChange =
+					value.continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteHandItemChange;
+				const bool completesEquipmentChange =
+					value.continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteEquipmentChange;
+				if ((completesHandItemChange || completesEquipmentChange) &&
+					(expectedHandItemRefresh != completesHandItemChange ||
+						value.inventoryPosition >= NUM_INV_SLOTS))
+					return CommandDisposition::Discard;
+				if (value.continuation ==
+					TacticalWeaponConfigurationContinuation::
+						BeginFriendlyRetaliation)
+				{
+					retaliationTarget = ResolveLiveCommandActor(value.target);
+					if (!retaliationTarget ||
+						!soldier->roster().inSector() ||
+						retaliationTarget->position().gridNo() !=
+							value.targetGrid ||
+						retaliationTarget->position().level() !=
+							value.targetLevel ||
+						!soldier->inventory()[HANDPOS].exists() ||
+						soldier->inventory()[HANDPOS].usItem !=
+							value.handItem ||
+						Item[value.handItem].usItemClass != IC_GUN)
+						return CommandDisposition::Discard;
+
+					INT16 targetX = 0;
+					INT16 targetY = 0;
+					ConvertGridNoToXY(
+						value.targetGrid, &targetX, &targetY);
+					soldier->animationActivity().readyCostWaived() = TRUE;
+					(void)TacticalActorRangedActions::readyToward(
+						*soldier, targetX, targetY, false,
+						AIDecideHipOrShoulderStance(
+							soldier, value.targetGrid));
+				}
+
+				ApplyWeaponConfigurationResult(*soldier, value.result);
+				ApplyWeaponConfigurationPresentation(
+					*soldier, value.postApplyPolicy);
+				if (completesHandItemChange || completesEquipmentChange)
+					CompleteEquipmentTacticalEffects(
+						*soldier,
+						static_cast<UINT32>(value.inventoryPosition),
+						static_cast<UINT16>(value.previousItem),
+						static_cast<UINT16>(value.changedItem),
+						completesHandItemChange);
+
+				if (retaliationTarget)
+					(void)HandleItemFromWeaponConfigurationCommand(
+						soldier, value.targetGrid, value.targetLevel,
+						static_cast<UINT16>(value.handItem), value.source,
+						value.eventPolicy);
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
@@ -838,6 +1033,19 @@ namespace
 						(void)SynchronizeJa2TacticalEntityState(*soldier);
 			}
 			else if constexpr (
+				std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+			{
+				if (TacticalActor* soldier =
+					ResolveWeaponConfigurationActor(value.soldier))
+					(void)SynchronizeJa2TacticalEntityState(*soldier);
+				if (value.continuation ==
+						TacticalWeaponConfigurationContinuation::
+							BeginFriendlyRetaliation)
+					if (TacticalActor* target =
+						ResolveLiveCommandActor(value.target))
+						(void)SynchronizeJa2TacticalEntityState(*target);
+			}
+			else if constexpr (
 				!std::is_same<Command, EndTurnCommand>::value &&
 				!std::is_same<Command, SynchronizeTurnCommand>::value)
 			{
@@ -1017,6 +1225,86 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				index < TacticalBulkReloadActorCapacity; ++index)
 				if (value.soldiers[index] != TacticalEntityId{})
 					return SimulationCommandDomainError::InvalidBulkReloadRoster;
+			return SimulationCommandDomainError::None;
+		}
+		else if constexpr (
+			std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+		{
+			if (!value.soldier.valid() || value.soldier.slot >= TOTAL_SOLDIERS)
+				return SimulationCommandDomainError::InvalidActor;
+			if (!IsSimulationSystemSource(value.source))
+				return SimulationCommandDomainError::InvalidSource;
+			if (!IsValidTacticalWeaponConfigurationResult(value.result))
+				return SimulationCommandDomainError::
+					InvalidWeaponConfigurationResult;
+			if (!IsValidTacticalWeaponConfigurationCause(value.cause))
+				return SimulationCommandDomainError::
+					InvalidWeaponConfigurationCause;
+			if (!IsValidTacticalWeaponConfigurationPostApplyPolicy(
+					value.postApplyPolicy))
+				return SimulationCommandDomainError::
+					InvalidWeaponConfigurationPostApplyPolicy;
+			if (!IsValidTacticalWeaponConfigurationContinuation(
+					value.continuation) ||
+				!IsValidTacticalWeaponConfigurationPolicyForCause(
+					value.cause, value.postApplyPolicy,
+					value.continuation))
+				return SimulationCommandDomainError::
+					InvalidWeaponConfigurationContinuation;
+			if (!IsValidTacticalEventPolicy(value.eventPolicy))
+				return SimulationCommandDomainError::InvalidEventPolicy;
+			if (value.handItem >= MAXITEMS)
+				return SimulationCommandDomainError::InvalidAttackingWeapon;
+			if (value.continuation ==
+				TacticalWeaponConfigurationContinuation::
+					BeginFriendlyRetaliation)
+			{
+				if (value.eventPolicy != TacticalEventPolicy::Replicated)
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				if (!value.target.valid() ||
+					value.target.slot >= TOTAL_SOLDIERS ||
+					value.target == value.soldier)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (value.targetGrid < 0 || value.targetGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.targetLevel != FIRST_LEVEL &&
+					value.targetLevel != SECOND_LEVEL)
+					return SimulationCommandDomainError::InvalidTargetLevel;
+				if (value.previousItem != 0 || value.changedItem != 0 ||
+					value.inventoryPosition != TacticalNoInventoryPosition)
+					return SimulationCommandDomainError::
+						InvalidWeaponConfigurationContinuation;
+			}
+			else
+			{
+				if (value.target != TacticalEntityId{} ||
+					value.targetGrid != TacticalNoTargetGrid ||
+					value.targetLevel != 0 ||
+					value.eventPolicy != TacticalEventPolicy::LocalOnly)
+					return SimulationCommandDomainError::
+						InvalidWeaponConfigurationContinuation;
+				const bool completesHandItemChange =
+					value.continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteHandItemChange;
+				const bool completesEquipmentChange =
+					value.continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteEquipmentChange;
+				if (completesHandItemChange || completesEquipmentChange)
+				{
+					if (value.previousItem >= MAXITEMS ||
+						value.changedItem >= MAXITEMS ||
+						value.inventoryPosition >= NUM_INV_SLOTS)
+						return SimulationCommandDomainError::
+							InvalidWeaponConfigurationContinuation;
+				}
+				else if (value.previousItem != 0 ||
+					value.changedItem != 0 ||
+					value.inventoryPosition != TacticalNoInventoryPosition)
+					return SimulationCommandDomainError::
+						InvalidWeaponConfigurationContinuation;
+			}
 			return SimulationCommandDomainError::None;
 		}
 		else
@@ -1661,6 +1949,36 @@ TryDispatchSystemBeginSelectedFireWeaponCommand(
 			return BeginSelectedFireWeaponCommand{
 				actor, targetGrid, targetLevel, targetCubeLevel,
 				attackingHand, attackingWeapon,
+				SimulationCommandSource::System};
+		});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemApplyWeaponConfigurationCommand(
+	TacticalEntityId actor,
+	TacticalWeaponConfigurationResult result,
+	TacticalWeaponConfigurationCause cause,
+	TacticalWeaponConfigurationPostApplyPolicy postApplyPolicy,
+	TacticalWeaponConfigurationContinuation continuation,
+	TacticalEntityId target,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::uint32_t handItem,
+	std::uint32_t previousItem,
+	std::uint32_t changedItem,
+	std::uint32_t inventoryPosition,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return DispatchSystemActorCommand(
+		actor,
+		[result, cause, postApplyPolicy, continuation, target,
+			targetGrid, targetLevel, handItem, previousItem, changedItem,
+			inventoryPosition, eventPolicy](
+			TacticalEntityId actor) {
+			return ApplyWeaponConfigurationCommand{
+				actor, result, cause, postApplyPolicy, continuation,
+				eventPolicy, target, targetGrid, targetLevel, handItem,
+				previousItem, changedItem, inventoryPosition,
 				SimulationCommandSource::System};
 		});
 }

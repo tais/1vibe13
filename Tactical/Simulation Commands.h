@@ -54,7 +54,11 @@ enum class SimulationCommandDomainError
 	InvalidWorldItemPickupKind,
 	InvalidBulkReloadMode,
 	InvalidBulkReloadSquad,
-	InvalidBulkReloadRoster
+	InvalidBulkReloadRoster,
+	InvalidWeaponConfigurationResult,
+	InvalidWeaponConfigurationCause,
+	InvalidWeaponConfigurationPostApplyPolicy,
+	InvalidWeaponConfigurationContinuation
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -195,6 +199,24 @@ TryDispatchSystemBeginSelectedFireWeaponCommand(
 	std::int8_t targetCubeLevel,
 	std::uint8_t attackingHand,
 	std::uint32_t attackingWeapon) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemApplyWeaponConfigurationCommand(
+	TacticalEntityId actor,
+	TacticalWeaponConfigurationResult result,
+	TacticalWeaponConfigurationCause cause,
+	TacticalWeaponConfigurationPostApplyPolicy postApplyPolicy,
+	TacticalWeaponConfigurationContinuation continuation =
+		TacticalWeaponConfigurationContinuation::None,
+	TacticalEntityId target = {},
+	std::int32_t targetGrid = TacticalNoTargetGrid,
+	std::int8_t targetLevel = 0,
+	std::uint32_t handItem = 0,
+	std::uint32_t previousItem = 0,
+	std::uint32_t changedItem = 0,
+	std::uint32_t inventoryPosition = TacticalNoInventoryPosition,
+	TacticalEventPolicy eventPolicy =
+		TacticalEventPolicy::LocalOnly) noexcept;
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,

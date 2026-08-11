@@ -26,4 +26,8 @@ namespace TacticalActorRangedActions
 		TacticalActor& actor,
 		std::uint16_t oldItem,
 		std::uint16_t newItem);
+	[[nodiscard]] bool canRefreshAfterHandItemChange(
+		const TacticalActor& actor,
+		std::uint16_t oldItem,
+		std::uint16_t newItem) noexcept;
 }

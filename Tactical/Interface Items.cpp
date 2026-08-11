@@ -43,6 +43,7 @@
 	#include "TacticalActor.h"
 	#include "SoldierRepository.h"
 	#include "TacticalEntityHost.h"
+	#include "Simulation Commands.h"
 	#include "PATHAI.H"
 	#include "Weapons.h"
 	#include "lighting.h"
@@ -6563,10 +6564,33 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// Flugente: if we altered a gun's attachments, re-evaluate the scope mode and sight
 					if ( gGameExternalOptions.fScopeModes && GetItemPointerSoldier() && Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 					{
-						ChangeScopeMode(GetItemPointerSoldier(), NOWHERE);
-
-						// reevaluate sight
-						ManLooksForOtherTeams( GetItemPointerSoldier() );
+						TacticalActor* configurationActor =
+							GetItemPointerSoldier();
+						TacticalWeaponConfigurationResult configuration{};
+						if (ResolveNextTacticalScopeConfiguration(
+								*configurationActor, NOWHERE, configuration))
+						{
+							const SimulationCommandDispatchResult dispatch =
+								TryDispatchSystemApplyWeaponConfigurationCommand(
+								GetJa2TacticalEntityId(*configurationActor),
+								configuration,
+								TacticalWeaponConfigurationCause::
+									ScopeAttachmentChanged,
+								TacticalWeaponConfigurationPostApplyPolicy::
+									DirtyMercPanelCursorAndSight,
+								TacticalWeaponConfigurationContinuation::None,
+								{}, TacticalNoTargetGrid, 0,
+								configurationActor->inventory()[HANDPOS].usItem);
+							if (!dispatch.accepted())
+								ManLooksForOtherTeams(configurationActor);
+						}
+						else
+						{
+							// ChangeScopeMode was a no-op while firing or without
+							// a live hand item, but the legacy caller still refreshed
+							// sight after a successful attachment removal.
+							ManLooksForOtherTeams(configurationActor);
+						}
 					}
 
 					//Dirty interface

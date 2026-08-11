@@ -37,7 +37,8 @@ enum class CommandReplayStageResult
 {
 	Success,
 	IncompleteCapture,
-	SequenceConflict
+	SequenceConflict,
+	Invalid
 };
 
 // Durable transport for deterministic simulation input captures. The command

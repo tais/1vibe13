@@ -4,6 +4,8 @@
 #include "Item Types.h"
 #include "Overhead Types.h"
 
+#include <Engine/Adapters/JA2/SimulationCommand.h>
+
 class TacticalActor;
 
 //ADB moved from Soldier Control.h
@@ -40,6 +42,12 @@ enum ScopeMode
 
 //ADB moved from Interface Panels.h
 void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
+void CompleteEquipmentTacticalEffects(
+	TacticalActor& soldier,
+	UINT32 inventoryPosition,
+	UINT16 oldItem,
+	UINT16 newItem,
+	bool refreshHandItem);
 
 
 // HEADROCK: Removed this and externalized to JA2_OPTIONS.INI as part of HAM project.
@@ -493,6 +501,26 @@ extern UINT32 CalcThrownChanceToHit(TacticalActor *pSoldier, INT32 sGridNo, INT1
 
 extern void ChangeWeaponMode( TacticalActor * pSoldier );
 extern void ChangeScopeMode( TacticalActor * pSoldier, INT32 iTrgGridNo );		// Flugente: use different scope
+
+TacticalWeaponConfigurationResult CaptureTacticalWeaponConfiguration(
+	const TacticalActor& soldier) noexcept;
+bool ResolveNextTacticalWeaponConfiguration(
+	TacticalActor& soldier,
+	TacticalWeaponConfigurationResult& result);
+bool ResolveNextTacticalScopeConfiguration(
+	TacticalActor& soldier,
+	INT32 targetGrid,
+	TacticalWeaponConfigurationResult& result);
+bool ResolveEquipmentTacticalWeaponConfiguration(
+	TacticalActor& soldier,
+	UINT32 inventoryPosition,
+	UINT16 oldItem,
+	UINT16 newItem,
+	TacticalWeaponConfigurationResult& result,
+	bool& completesHandItemChange);
+TacticalWeaponConfigurationResult ResolveDefaultTacticalWeaponConfiguration(
+	const TacticalActor& soldier,
+	UINT16 handItem) noexcept;
 
 extern BOOLEAN UseHandToHand( TacticalActor *pSoldier , INT32 sTargetGridNo, BOOLEAN fStealing );
 

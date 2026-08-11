@@ -228,11 +228,19 @@ public:
 	{
 		if (replay.droppedCount != 0)
 			return CommandReplayStageResult::IncompleteCapture;
-		std::vector<ScheduledCommand<SimulationCommand>> batch;
-		batch.reserve(replay.records.size());
+		std::vector<ScheduledCommand<SimulationCommand>> recordedBatch;
+		recordedBatch.reserve(replay.records.size());
 		for (const RecordedSimulationCommand& record : replay.records)
-			batch.push_back({record.tick, record.sequence, record.command});
-		if (!commandStream_.stageRecordedBatch(batch))
+		{
+			if (!IsStructurallyValidSimulationCommand(record.command) ||
+				!IsStructurallyValidSimulationCommand(
+					SimulationCommandPlaybackPolicy::executionCommand(
+						record.command)))
+				return CommandReplayStageResult::Invalid;
+			recordedBatch.push_back(
+				{record.tick, record.sequence, record.command});
+		}
+		if (!commandStream_.stageRecordedPlaybackBatch(recordedBatch))
 			return CommandReplayStageResult::SequenceConflict;
 		return CommandReplayStageResult::Success;
 	}
@@ -307,7 +315,8 @@ private:
 	TacticalWorldItemDirectory tacticalWorldItemDirectory_;
 	TacticalWorldSession tacticalWorldSession_;
 	CommandReplayService commandReplay_;
-	CommandStream<SimulationCommand> commandStream_;
+	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy>
+		commandStream_;
 	SimulationCommandExecutor* commandExecutor_ =
 		&NullSimulationCommandExecutor::instance();
 	bool commandExecutionActive_ = false;

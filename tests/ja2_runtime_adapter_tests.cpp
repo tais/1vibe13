@@ -3580,13 +3580,24 @@ int main()
 		CommandReplayStageResult::Success,
 		"JA2 runtime transactionally stages a complete replay");
 	const auto replayed = playbackRuntime.commands().drainThrough(12);
+	const auto playbackJournal =
+		playbackRuntime.commandJournal().snapshot();
 	check(replayed.size() == 2 && replayed[0].tick == 11 &&
 		replayed[0].sequence == 1 && replayed[1].tick == 12 &&
 		replayed[1].sequence == 0 &&
 		std::get<EndTurnCommand>(replayed[0].command).nextTeam == 2 &&
+		std::get<EndTurnCommand>(replayed[0].command).source ==
+			SimulationCommandSource::Replay &&
 		std::get<ChangeStanceCommand>(replayed[1].command).soldier ==
-			TacticalEntityId{5, 501},
-		"staged replay retains deterministic tick and sequence order");
+			TacticalEntityId{5, 501} &&
+		std::get<ChangeStanceCommand>(replayed[1].command).source ==
+			SimulationCommandSource::Replay &&
+		playbackJournal.size() == 2 &&
+		std::get<ChangeStanceCommand>(playbackJournal[0].command).source ==
+			SimulationCommandSource::LocalPlayer &&
+		std::get<EndTurnCommand>(playbackJournal[1].command).source ==
+			SimulationCommandSource::NetworkPeer,
+		"staged replay retains deterministic order and captured journal provenance while execution is Replay-originated");
 	check(playbackRuntime.stageCommandReplay(replay) ==
 		CommandReplayStageResult::SequenceConflict &&
 		playbackRuntime.commands().empty(),
@@ -3596,6 +3607,13 @@ int main()
 	check(playbackRuntime.stageCommandReplay(incomplete) ==
 		CommandReplayStageResult::IncompleteCapture,
 		"JA2 runtime refuses playback of a truncated bounded journal");
+	SimulationCommandReplay invalidReplay = replay;
+	invalidReplay.records[0].command = SimulationCommand{ChangeStanceCommand{
+		{}, 1, SimulationCommandSource::LocalPlayer}};
+	check(playbackRuntime.stageCommandReplay(invalidReplay) ==
+			CommandReplayStageResult::Invalid &&
+		playbackRuntime.commands().empty(),
+		"programmatic replay staging cannot launder an invalid command through Replay provenance");
 	std::vector<std::uint8_t> corruptReplayBytes;
 	replayStorage.readAll("capture.replay", corruptReplayBytes);
 	corruptReplayBytes.back() ^= 0x80u;

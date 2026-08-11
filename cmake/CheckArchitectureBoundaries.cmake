@@ -8156,6 +8156,111 @@ endif()
 # authoritative command producers. Keep the legacy mutation APIs confined to
 # Tactical/Simulation Commands.cpp so future fixes cannot quietly recreate a
 # second execution path beside the deterministic queue.
+function(strip_cxx_comments input_variable output_variable)
+  # Avoid one whole-file nested regular expression here. CMake's regex engine
+  # can exhaust its stack on large first-party translation units. Consume each
+  # comment interval with bounded FIND/SUBSTRING operations. Choosing the first
+  # delimiter matters: decorative //******** lines contain a later /* pair,
+  # while block comments may themselves contain // text.
+  set(comment_remaining "${${input_variable}}")
+  set(comment_stripped "")
+  while(1)
+    string(FIND "${comment_remaining}" "/*" block_comment_start)
+    string(FIND "${comment_remaining}" "//" line_comment_start)
+    string(FIND "${comment_remaining}" "\"" double_quote_start)
+    string(FIND "${comment_remaining}" "'" single_quote_start)
+    set(next_comment_start -1)
+    set(next_comment_kind "")
+    if(line_comment_start GREATER -1)
+      set(next_comment_start ${line_comment_start})
+      set(next_comment_kind "line")
+    endif()
+    if(block_comment_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        block_comment_start LESS next_comment_start))
+      set(next_comment_start ${block_comment_start})
+      set(next_comment_kind "block")
+    endif()
+    if(double_quote_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        double_quote_start LESS next_comment_start))
+      set(next_comment_start ${double_quote_start})
+      set(next_comment_kind "double_quote")
+    endif()
+    if(single_quote_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        single_quote_start LESS next_comment_start))
+      set(next_comment_start ${single_quote_start})
+      set(next_comment_kind "single_quote")
+    endif()
+    if(next_comment_start EQUAL -1)
+      string(APPEND comment_stripped "${comment_remaining}")
+      break()
+    endif()
+    if(next_comment_start GREATER 0)
+      string(SUBSTRING "${comment_remaining}" 0
+        ${next_comment_start} comment_prefix)
+      string(APPEND comment_stripped "${comment_prefix}")
+    endif()
+    if(next_comment_kind STREQUAL "double_quote" OR
+       next_comment_kind STREQUAL "single_quote")
+      string(SUBSTRING "${comment_remaining}"
+        ${next_comment_start} -1 quoted_tail)
+      if(next_comment_kind STREQUAL "double_quote")
+        string(REGEX MATCH "^\"([^\"\\\\]|\\\\.)*\""
+          quoted_literal "${quoted_tail}")
+      else()
+        string(REGEX MATCH "^'([^'\\\\]|\\\\.)*'"
+          quoted_literal "${quoted_tail}")
+      endif()
+      if(quoted_literal STREQUAL "")
+        # A lone apostrophe can be a C++ digit separator. It is not a comment
+        # delimiter, so preserve it and continue instead of rejecting the file.
+        if(next_comment_kind STREQUAL "single_quote")
+          string(APPEND comment_stripped "'")
+          math(EXPR quoted_remainder_start "${next_comment_start} + 1")
+          string(SUBSTRING "${comment_remaining}"
+            ${quoted_remainder_start} -1 comment_remaining)
+          continue()
+        endif()
+        message(FATAL_ERROR
+          "Unterminated string literal while checking executable source")
+      endif()
+      string(APPEND comment_stripped "${quoted_literal}")
+      string(LENGTH "${quoted_literal}" quoted_literal_length)
+      math(EXPR quoted_remainder_start
+        "${next_comment_start} + ${quoted_literal_length}")
+      string(SUBSTRING "${comment_remaining}"
+        ${quoted_remainder_start} -1 comment_remaining)
+      continue()
+    endif()
+    math(EXPR comment_body_start "${next_comment_start} + 2")
+    string(SUBSTRING "${comment_remaining}"
+      ${comment_body_start} -1 comment_tail)
+    if(next_comment_kind STREQUAL "line")
+      string(FIND "${comment_tail}" "\n" line_comment_end)
+      if(line_comment_end EQUAL -1)
+        set(comment_remaining "")
+        break()
+      endif()
+      string(APPEND comment_stripped "\n")
+      math(EXPR line_comment_remainder_start "${line_comment_end} + 1")
+      string(SUBSTRING "${comment_tail}"
+        ${line_comment_remainder_start} -1 comment_remaining)
+      continue()
+    endif()
+    string(FIND "${comment_tail}" "*/" block_comment_end)
+    if(block_comment_end EQUAL -1)
+      message(FATAL_ERROR
+        "Unterminated block comment while checking executable source")
+    endif()
+    math(EXPR block_comment_remainder_start "${block_comment_end} + 2")
+    string(SUBSTRING "${comment_tail}"
+      ${block_comment_remainder_start} -1 comment_remaining)
+  endwhile()
+  set(${output_variable} "${comment_stripped}" PARENT_SCOPE)
+endfunction()
+
 function(check_network_command_ingress
     start_marker end_marker required_call forbidden_calls description)
   set(network_source_file "${SOURCE_ROOT}/Multiplayer/client.cpp")
@@ -8176,8 +8281,7 @@ function(check_network_command_ingress
   string(SUBSTRING "${ingress_tail}" 0 ${ingress_end}
     ingress_region)
   # Old commented-out examples are documentation, not executable bypasses.
-  string(REGEX REPLACE "//[^\r\n]*" ""
-    ingress_executable "${ingress_region}")
+  strip_cxx_comments(ingress_region ingress_executable)
 
   string(FIND "${ingress_executable}" "${required_call}"
     required_call_index)
@@ -8239,9 +8343,8 @@ set(system_command_ingress_files
 foreach(system_command_ingress_file IN LISTS system_command_ingress_files)
   file(READ "${system_command_ingress_file}"
     system_command_ingress_contents)
-  string(REGEX REPLACE "//[^\r\n]*" ""
-    system_command_ingress_executable
-    "${system_command_ingress_contents}")
+  strip_cxx_comments(system_command_ingress_contents
+    system_command_ingress_executable)
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(EVENT_InternalGetNewSoldierPath|SendSoldierSetDesiredDirectionEvent|SendChangeSoldierStanceEvent|EVENT_SetSoldierDesiredDirection|ChangeSoldierStance|SendBeginFireWeaponEvent)[ \t\r\n]*\\("
     direct_system_action
@@ -8252,10 +8355,14 @@ foreach(system_command_ingress_file IN LISTS system_command_ingress_files)
   endif()
 endforeach()
 
-function(require_system_command_ingress source_file required_call description)
+function(read_cxx_executable source_file output_variable)
   file(READ "${source_file}" source_contents)
-  string(REGEX REPLACE "//[^\r\n]*" ""
-    source_executable "${source_contents}")
+  strip_cxx_comments(source_contents source_executable)
+  set(${output_variable} "${source_executable}" PARENT_SCOPE)
+endfunction()
+
+function(require_system_command_ingress source_file required_call description)
+  read_cxx_executable("${source_file}" source_executable)
   string(FIND "${source_executable}" "${required_call}" required_call_index)
   if(required_call_index EQUAL -1)
     message(FATAL_ERROR
@@ -8288,16 +8395,54 @@ require_system_command_ingress(
   "TryDispatchSystemBeginSelectedFireWeaponCommand"
   "AI selected-weapon fire")
 
-file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
-  tactical_item_fire_contents)
-string(REGEX REPLACE "//[^\r\n]*" ""
-  tactical_item_fire_executable "${tactical_item_fire_contents}")
-string(REGEX MATCH
+read_cxx_executable(
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  tactical_item_fire_executable)
+string(REGEX MATCHALL
   "(^|[^A-Za-z0-9_])SendBeginFireWeaponEvent[ \t\r\n]*\\("
-  direct_item_fire_event "${tactical_item_fire_executable}")
-if(direct_item_fire_event)
+  direct_item_fire_events "${tactical_item_fire_executable}")
+list(LENGTH direct_item_fire_events direct_item_fire_event_count)
+if(NOT direct_item_fire_event_count EQUAL 1)
   message(FATAL_ERROR
-    "AI item handling bypasses the selected-weapon SimulationCommand")
+    "Handle Items must contain exactly one executor-continuation fire event; found ${direct_item_fire_event_count}")
+endif()
+string(FIND "${tactical_item_fire_executable}"
+  "bool DispatchBeginFireWeaponFromHandleItem"
+  item_fire_continuation_start)
+string(FIND "${tactical_item_fire_executable}"
+  "struct TacticalActorCallbackContext"
+  item_fire_continuation_end)
+if(item_fire_continuation_start EQUAL -1 OR
+   item_fire_continuation_end LESS_EQUAL item_fire_continuation_start)
+  message(FATAL_ERROR
+    "Cannot locate the Handle Items executor-continuation fire slice")
+endif()
+math(EXPR item_fire_continuation_length
+  "${item_fire_continuation_end} - ${item_fire_continuation_start}")
+string(SUBSTRING "${tactical_item_fire_executable}"
+  ${item_fire_continuation_start} ${item_fire_continuation_length}
+  item_fire_continuation_slice)
+foreach(required_item_fire_continuation IN ITEMS
+  "if (continuation)"
+  "SendBeginFireWeaponEvent"
+  "ShouldReplicateWeaponConfigurationFire"
+  "continuation->targetLevel"
+  "continuation->targetCubeLevel")
+  string(FIND "${item_fire_continuation_slice}"
+    "${required_item_fire_continuation}"
+    required_item_fire_continuation_index)
+  if(required_item_fire_continuation_index EQUAL -1)
+    message(FATAL_ERROR
+      "Handle Items fire continuation lost ${required_item_fire_continuation}")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])SendBeginFireWeaponEvent[ \t\r\n]*\\("
+  scoped_item_fire_events "${item_fire_continuation_slice}")
+list(LENGTH scoped_item_fire_events scoped_item_fire_event_count)
+if(NOT scoped_item_fire_event_count EQUAL 1)
+  message(FATAL_ERROR
+    "The sole direct Handle Items fire event escaped its admitted continuation")
 endif()
 
 # The public application command boundary is pointer-free. Every JA2 producer
@@ -8975,7 +9120,7 @@ set(player_weapon_control_files
   "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
 foreach(player_weapon_control_file IN LISTS player_weapon_control_files)
-  file(READ "${player_weapon_control_file}" contents)
+  read_cxx_executable("${player_weapon_control_file}" contents)
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(ChangeWeaponMode|ChangeScopeMode|InternalSoldierReadyWeapon|SoldierReadyWeapon)[ \t\r\n]*\\("
     direct_player_weapon_mode_call "${contents}")
@@ -8988,7 +9133,7 @@ endforeach()
 foreach(single_reload_file IN ITEMS
   "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
-  file(READ "${single_reload_file}" contents)
+  read_cxx_executable("${single_reload_file}" contents)
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])AutoReload[ \t\r\n]*\\("
     direct_player_reload_call "${contents}")
@@ -8998,7 +9143,7 @@ foreach(single_reload_file IN ITEMS
   endif()
 endforeach()
 
-file(READ "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
   turn_based_input_contents)
 string(REGEX MATCHALL
   "(^|[^A-Za-z0-9_])AutoReload[ \t\r\n]*\\("
@@ -9106,6 +9251,492 @@ foreach(bulk_reload_document IN ITEMS
   if(bulk_reload_document_index EQUAL -1)
     message(FATAL_ERROR
       "Bulk-reload command contract is undocumented in ${bulk_reload_document}")
+  endif()
+endforeach()
+
+# Equipment and attachment correction is an exact System/Replay result, not a
+# player Cycle command. Presentation, gameplay continuation, and event
+# replication remain separate values, and the portable model must explicitly
+# decline the JA2-only inventory policy.
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h"
+  weapon_configuration_value_executable)
+read_cxx_executable(
+  "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  weapon_configuration_executor_executable)
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.cpp"
+  weapon_configuration_codec_executable)
+foreach(required_weapon_configuration_value IN ITEMS
+  "struct TacticalWeaponConfigurationResult"
+  "struct ApplyWeaponConfigurationCommand"
+  "enum class TacticalWeaponConfigurationCause"
+  "enum class TacticalWeaponConfigurationPostApplyPolicy"
+  "enum class TacticalWeaponConfigurationContinuation"
+  "TacticalEventPolicy eventPolicy"
+  "IsSimulationSystemSource(value.source)"
+  "value.handItem"
+  "inventoryPosition"
+  "SimulationCommandPlaybackPolicy"
+  "ShouldReplicateWeaponConfigurationFire")
+  string(FIND "${weapon_configuration_value_executable}"
+    "${required_weapon_configuration_value}"
+    required_weapon_configuration_value_index)
+  if(required_weapon_configuration_value_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration value boundary lost ${required_weapon_configuration_value}")
+  endif()
+endforeach()
+
+string(FIND "${weapon_configuration_executor_executable}"
+  "std::is_same<Command, ApplyWeaponConfigurationCommand>::value)"
+  weapon_configuration_executor_start)
+string(FIND "${weapon_configuration_executor_executable}"
+  "else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)"
+  weapon_configuration_executor_end)
+if(weapon_configuration_executor_start EQUAL -1 OR
+   weapon_configuration_executor_end LESS_EQUAL
+     weapon_configuration_executor_start)
+  message(FATAL_ERROR
+    "Cannot locate the weapon-configuration execution branch")
+endif()
+math(EXPR weapon_configuration_executor_length
+  "${weapon_configuration_executor_end} - ${weapon_configuration_executor_start}")
+string(SUBSTRING "${weapon_configuration_executor_executable}"
+  ${weapon_configuration_executor_start}
+  ${weapon_configuration_executor_length}
+  weapon_configuration_executor_slice)
+foreach(required_weapon_configuration_executor IN ITEMS
+  "std::is_same<Command, ApplyWeaponConfigurationCommand>::value"
+  "ResolveExpectedWeaponConfiguration"
+  "ApplyWeaponConfigurationResult"
+  "ApplyWeaponConfigurationPresentation"
+  "CompleteHandItemChange"
+  "CompleteEquipmentChange"
+  "CompleteEquipmentTacticalEffects"
+  "BeginFriendlyRetaliation"
+  "HandleItemFromWeaponConfigurationCommand")
+  string(FIND "${weapon_configuration_executor_slice}"
+    "${required_weapon_configuration_executor}"
+    required_weapon_configuration_executor_index)
+  if(required_weapon_configuration_executor_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration executor lost ${required_weapon_configuration_executor}")
+  endif()
+endforeach()
+string(FIND "${weapon_configuration_executor_slice}"
+  "ResolveExpectedWeaponConfiguration"
+  weapon_configuration_resolve_before_mutation_index)
+string(FIND "${weapon_configuration_executor_slice}"
+  "ApplyWeaponConfigurationResult"
+  weapon_configuration_first_mutation_index)
+if(weapon_configuration_resolve_before_mutation_index EQUAL -1 OR
+   weapon_configuration_first_mutation_index EQUAL -1 OR
+   weapon_configuration_resolve_before_mutation_index GREATER
+     weapon_configuration_first_mutation_index)
+  message(FATAL_ERROR
+    "Weapon configuration is no longer re-resolved before mutation")
+endif()
+
+foreach(required_weapon_configuration_codec IN ITEMS
+  "ApplyWeaponConfiguration = 29"
+  "case CommandTag::ApplyWeaponConfiguration"
+  "WeaponConfigurationKnownFlags")
+  string(FIND "${weapon_configuration_codec_executable}"
+    "${required_weapon_configuration_codec}"
+    required_weapon_configuration_codec_index)
+  if(required_weapon_configuration_codec_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration replay codec lost ${required_weapon_configuration_codec}")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/MemoryTacticalSimulation.cpp"
+  memory_tactical_simulation_executable)
+string(FIND "${memory_tactical_simulation_executable}"
+  "std::is_same<Command, ApplyWeaponConfigurationCommand>::value"
+  weapon_configuration_reference_discard_index)
+if(weapon_configuration_reference_discard_index EQUAL -1)
+  message(FATAL_ERROR
+    "MemoryTacticalSimulation no longer explicitly declines weapon-configuration policy")
+endif()
+
+read_cxx_executable("${SOURCE_ROOT}/Tactical/UI Cursors.cpp"
+  weapon_configuration_cursor_contents)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Interface Items.cpp"
+  weapon_configuration_interface_items_contents)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  weapon_configuration_weapons_contents)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  weapon_configuration_overhead_contents)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/TacticalActorRangedActions.cpp"
+  weapon_configuration_ranged_actions_contents)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Items.cpp"
+  deferred_weapon_configuration_items_contents)
+foreach(weapon_configuration_producer_contents IN ITEMS
+  weapon_configuration_cursor_contents
+  weapon_configuration_interface_items_contents)
+  string(FIND "${${weapon_configuration_producer_contents}}"
+    "TryDispatchSystemApplyWeaponConfigurationCommand"
+    weapon_configuration_ingress_index)
+  if(weapon_configuration_ingress_index EQUAL -1)
+    message(FATAL_ERROR
+      "Equipment/attachment producer lost weapon-configuration command ingress")
+  endif()
+endforeach()
+foreach(required_attachment_configuration_marker IN ITEMS
+  "ResolveNextTacticalScopeConfiguration"
+  "TryDispatchSystemApplyWeaponConfigurationCommand"
+  "if (!dispatch.accepted())"
+  "ManLooksForOtherTeams(configurationActor)")
+  string(FIND "${weapon_configuration_interface_items_contents}"
+    "${required_attachment_configuration_marker}"
+    required_attachment_configuration_marker_index)
+  if(required_attachment_configuration_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Attachment removal/sight refresh lost ${required_attachment_configuration_marker}")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ChangeWeaponMode[ 	\r\n]*\\("
+  direct_cursor_weapon_mode_change
+  "${weapon_configuration_cursor_contents}")
+if(direct_cursor_weapon_mode_change)
+  message(FATAL_ERROR
+    "Unavailable-launcher cursor correction reused player ChangeWeaponMode")
+endif()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ChangeScopeMode[ 	\r\n]*\\("
+  direct_attachment_scope_change
+  "${weapon_configuration_interface_items_contents}")
+if(direct_attachment_scope_change)
+  message(FATAL_ERROR
+    "Attachment scope correction reused player ChangeScopeMode")
+endif()
+
+string(FIND "${weapon_configuration_weapons_contents}"
+  "void HandleTacticalEffectsOfEquipmentChange"
+  weapon_configuration_equipment_start)
+string(FIND "${weapon_configuration_weapons_contents}"
+  "void ChangeWeaponMode" weapon_configuration_equipment_end)
+if(weapon_configuration_equipment_start EQUAL -1 OR
+   weapon_configuration_equipment_end EQUAL -1 OR
+   weapon_configuration_equipment_end LESS_EQUAL
+     weapon_configuration_equipment_start)
+  message(FATAL_ERROR
+    "Cannot locate the equipment weapon-configuration compatibility slice")
+endif()
+math(EXPR weapon_configuration_equipment_length
+  "${weapon_configuration_equipment_end} - ${weapon_configuration_equipment_start}")
+string(SUBSTRING "${weapon_configuration_weapons_contents}"
+  ${weapon_configuration_equipment_start}
+  ${weapon_configuration_equipment_length}
+  weapon_configuration_equipment_slice)
+foreach(forbidden_equipment_configuration_write IN ITEMS
+  "pSoldier->attackSelection().weaponMode() = WM_"
+  "pSoldier->attackSelection().scopeMode() = USE_"
+  "pSoldier->fireControl().selectSingleShot()"
+  "pSoldier->fireControl().selectAutofire()")
+  string(FIND "${weapon_configuration_equipment_slice}"
+    "${forbidden_equipment_configuration_write}"
+    forbidden_equipment_configuration_write_index)
+  if(NOT forbidden_equipment_configuration_write_index EQUAL -1)
+    message(FATAL_ERROR
+      "Equipment reconciliation bypasses its exact command result: ${forbidden_equipment_configuration_write}")
+  endif()
+endforeach()
+foreach(required_equipment_configuration_marker IN ITEMS
+  "ResolveEquipmentTacticalWeaponConfiguration"
+  "TryDispatchSystemApplyWeaponConfigurationCommand"
+  "CompleteHandItemChange"
+  "CompleteEquipmentChange"
+  "CompleteEquipmentTacticalEffects")
+  string(FIND "${weapon_configuration_equipment_slice}"
+    "${required_equipment_configuration_marker}"
+    required_equipment_configuration_marker_index)
+  if(required_equipment_configuration_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Equipment reconciliation lost ${required_equipment_configuration_marker}")
+  endif()
+endforeach()
+
+string(FIND "${weapon_configuration_ranged_actions_contents}"
+  "bool TacticalActorRangedActions::refreshAfterHandItemChange"
+  weapon_configuration_refresh_start)
+if(weapon_configuration_refresh_start EQUAL -1)
+  message(FATAL_ERROR
+    "Cannot locate the post-configuration hand-item refresh slice")
+endif()
+string(SUBSTRING "${weapon_configuration_ranged_actions_contents}"
+  ${weapon_configuration_refresh_start} -1
+  weapon_configuration_refresh_slice)
+string(REGEX MATCH
+  "(weaponMode|scopeMode|burstCounter|autofireShots)[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*=[ \t\r\n]*[^= \t\r\n]"
+  direct_refresh_configuration_write
+  "${weapon_configuration_refresh_slice}")
+if(direct_refresh_configuration_write)
+  message(FATAL_ERROR
+    "Hand-item refresh reclaimed weapon-configuration mutation")
+endif()
+
+string(FIND "${weapon_configuration_overhead_contents}"
+  "const bool hasGun =" retaliation_configuration_start)
+string(FIND "${weapon_configuration_overhead_contents}"
+  "if ( IsProfileAHeadMiner" retaliation_configuration_end)
+if(retaliation_configuration_start EQUAL -1 OR
+   retaliation_configuration_end LESS_EQUAL retaliation_configuration_start)
+  message(FATAL_ERROR
+    "Cannot locate the friendly-retaliation configuration slice")
+endif()
+math(EXPR retaliation_configuration_length
+  "${retaliation_configuration_end} - ${retaliation_configuration_start}")
+string(SUBSTRING "${weapon_configuration_overhead_contents}"
+  ${retaliation_configuration_start} ${retaliation_configuration_length}
+  retaliation_configuration_slice)
+foreach(required_retaliation_configuration_marker IN ITEMS
+  "TacticalWeaponConfigurationCause::"
+  "FriendlyRetaliation"
+  "BeginFriendlyRetaliation"
+  "TacticalEventPolicy::Replicated"
+  "retaliationConfigurationRequired"
+  "!retaliationConfigurationRequired")
+  string(FIND "${retaliation_configuration_slice}"
+    "${required_retaliation_configuration_marker}"
+    required_retaliation_configuration_marker_index)
+  if(required_retaliation_configuration_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Overhead weapon-configuration slice lost ${required_retaliation_configuration_marker}")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ChangeWeaponMode[ 	\r\n]*\\("
+  direct_retaliation_weapon_mode_change
+  "${retaliation_configuration_slice}")
+if(direct_retaliation_weapon_mode_change)
+  message(FATAL_ERROR
+    "Friendly retaliation reused player ChangeWeaponMode")
+endif()
+string(REGEX MATCH
+  "(weaponMode|scopeMode|burstCounter|autofireShots)[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*=[ \t\r\n]*[^= \t\r\n]"
+  direct_retaliation_configuration_write
+  "${retaliation_configuration_slice}")
+if(direct_retaliation_configuration_write)
+  message(FATAL_ERROR
+    "Friendly retaliation mutates configuration outside its command")
+endif()
+
+string(FIND "${weapon_configuration_overhead_contents}"
+  "if ( pSoldier && (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL"
+  post_attack_configuration_start)
+string(FIND "${weapon_configuration_overhead_contents}"
+  "pSoldier->targeting().lastGridNo() ="
+  post_attack_configuration_end)
+if(post_attack_configuration_start EQUAL -1 OR
+   post_attack_configuration_end LESS_EQUAL post_attack_configuration_start)
+  message(FATAL_ERROR
+    "Cannot locate the attached-launcher post-attack reset slice")
+endif()
+math(EXPR post_attack_configuration_length
+  "${post_attack_configuration_end} - ${post_attack_configuration_start}")
+string(SUBSTRING "${weapon_configuration_overhead_contents}"
+  ${post_attack_configuration_start} ${post_attack_configuration_length}
+  post_attack_configuration_slice)
+string(FIND "${post_attack_configuration_slice}"
+  "TacticalWeaponConfigurationCause::AttachedLauncherShotCompleted"
+  post_attack_configuration_ingress_index)
+string(REGEX MATCH
+  "(weaponMode|scopeMode|burstCounter|autofireShots)[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*=[ \t\r\n]*[^= \t\r\n]"
+  direct_post_attack_configuration_write
+  "${post_attack_configuration_slice}")
+if(post_attack_configuration_ingress_index EQUAL -1 OR
+   direct_post_attack_configuration_write)
+  message(FATAL_ERROR
+    "Attached-launcher post-attack reset bypasses its exact command result")
+endif()
+
+# This wave intentionally does not claim the lower-level item/animation
+# mechanics that still write configuration directly. Pin the complete active
+# debt so new sites cannot hide behind that deferral and migration cannot be
+# claimed by comments alone.
+string(REGEX MATCHALL
+  "pSoldier->attackSelection[ \t\r\n]*\\([ \t\r\n]*\\)\\.(weaponMode|scopeMode)[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*=[ \t\r\n]*(WM_|USE_)"
+  deferred_items_configuration_writes
+  "${deferred_weapon_configuration_items_contents}")
+list(LENGTH deferred_items_configuration_writes
+  deferred_items_configuration_write_count)
+string(REGEX MATCHALL
+  "pSoldier->fireControl[ \t\r\n]*\\([ \t\r\n]*\\)\\.select(SingleShot|Autofire)[ \t\r\n]*\\("
+  deferred_items_fire_control_writes
+  "${deferred_weapon_configuration_items_contents}")
+list(LENGTH deferred_items_fire_control_writes
+  deferred_items_fire_control_write_count)
+string(FIND "${deferred_weapon_configuration_items_contents}"
+  "pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;"
+  deferred_rifle_grenade_configuration_index)
+if(NOT deferred_items_configuration_write_count EQUAL 9 OR
+   NOT deferred_items_fire_control_write_count EQUAL 4 OR
+   deferred_rifle_grenade_configuration_index EQUAL -1)
+  message(FATAL_ERROR
+    "Items.cpp weapon-configuration debt changed; migrate it or update the explicit deferred contract")
+endif()
+string(REGEX MATCHALL
+  "pSoldier->attackSelection[ \t\r\n]*\\([ \t\r\n]*\\)\\.scopeMode[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*=[ \t\r\n]*USE_BEST_SCOPE"
+  deferred_overhead_scope_writes
+  "${weapon_configuration_overhead_contents}")
+list(LENGTH deferred_overhead_scope_writes
+  deferred_overhead_scope_write_count)
+if(NOT deferred_overhead_scope_write_count EQUAL 1)
+  message(FATAL_ERROR
+    "Overhead suppression-scope debt changed; migrate it or update the explicit deferred contract")
+endif()
+
+foreach(weapon_configuration_debt_document IN ITEMS
+  "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${weapon_configuration_debt_document}"
+    weapon_configuration_debt_document_contents)
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    weapon_configuration_debt_document_contents
+    "${weapon_configuration_debt_document_contents}")
+  foreach(weapon_configuration_debt_marker IN ITEMS
+    "rifle-grenade attachment insertion"
+    "direct hand placement"
+    "attachment removal"
+    "HandleSuppressionFire")
+    string(FIND "${weapon_configuration_debt_document_contents}"
+      "${weapon_configuration_debt_marker}"
+      weapon_configuration_debt_marker_index)
+    if(weapon_configuration_debt_marker_index EQUAL -1)
+      message(FATAL_ERROR
+        "Weapon-configuration deferred debt is overclaimed in ${weapon_configuration_debt_document}: missing ${weapon_configuration_debt_marker}")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(weapon_configuration_test_manifest IN ITEMS
+  "${SOURCE_ROOT}/tests/simulation_command_weapon_configuration_model_tests.cpp"
+  "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  "${SOURCE_ROOT}/.github/workflows/build_unix.yml")
+  if(weapon_configuration_test_manifest MATCHES "ja2_headless_tests\\.cpp$")
+    read_cxx_executable("${weapon_configuration_test_manifest}"
+      weapon_configuration_test_manifest_contents)
+    set(weapon_configuration_test_marker
+      "validWeaponConfiguration")
+  elseif(weapon_configuration_test_manifest MATCHES "\\.cpp$")
+    read_cxx_executable("${weapon_configuration_test_manifest}"
+      weapon_configuration_test_manifest_contents)
+    set(weapon_configuration_test_marker
+      "ApplyWeaponConfigurationCommand")
+  else()
+    file(READ "${weapon_configuration_test_manifest}"
+      weapon_configuration_test_manifest_contents)
+    string(REGEX REPLACE "#[^\r\n]*" ""
+      weapon_configuration_test_manifest_contents
+      "${weapon_configuration_test_manifest_contents}")
+    set(weapon_configuration_test_marker
+      "simulation_command_weapon_configuration_model_tests")
+  endif()
+  string(FIND "${weapon_configuration_test_manifest_contents}"
+    "${weapon_configuration_test_marker}"
+    weapon_configuration_test_marker_index)
+  if(weapon_configuration_test_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration test manifest lost its marker: ${weapon_configuration_test_manifest}")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/tests/simulation_command_weapon_configuration_model_tests.cpp"
+  weapon_configuration_model_test_executable)
+foreach(required_weapon_configuration_model_marker IN ITEMS
+  "const std::vector<std::uint8_t> expectedWire"
+  "encoded == expectedWire"
+  "SourceOffset = 80"
+  "SameCommand(roundTrip, fixture)"
+  "stageRecordedPlaybackBatch"
+  "SimulationCommandSource::Replay"
+  "ShouldReplicateWeaponConfigurationFire"
+  "reference.snapshot() == referenceState")
+  string(FIND "${weapon_configuration_model_test_executable}"
+    "${required_weapon_configuration_model_marker}"
+    required_weapon_configuration_model_marker_index)
+  if(required_weapon_configuration_model_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration model lost ${required_weapon_configuration_model_marker}")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  weapon_configuration_headless_test_executable)
+foreach(required_weapon_configuration_headless_marker IN ITEMS
+  "ResolveDefaultTacticalWeaponConfiguration"
+  "staleConfigurationDiscarded"
+  "same-hand stale configuration")
+  string(FIND "${weapon_configuration_headless_test_executable}"
+    "${required_weapon_configuration_headless_marker}"
+    required_weapon_configuration_headless_marker_index)
+  if(required_weapon_configuration_headless_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration headless coverage lost ${required_weapon_configuration_headless_marker}")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/EngineRuntime.h"
+  weapon_configuration_runtime_executable)
+read_cxx_executable("${SOURCE_ROOT}/Engine/Core/CommandStream.h"
+  weapon_configuration_stream_executable)
+foreach(required_playback_origin_marker IN ITEMS
+  "CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy>"
+  "stageRecordedPlaybackBatch(recordedBatch)"
+  "IsStructurallyValidSimulationCommand(record.command)")
+  string(FIND "${weapon_configuration_runtime_executable}"
+    "${required_playback_origin_marker}"
+    required_playback_origin_marker_index)
+  if(required_playback_origin_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime playback origin lost ${required_playback_origin_marker}")
+  endif()
+endforeach()
+string(FIND "${weapon_configuration_stream_executable}"
+  "stageRecordedPlaybackBatch(const std::vector<Entry>& recordedBatch)"
+  constrained_playback_batch_index)
+if(constrained_playback_batch_index EQUAL -1)
+  message(FATAL_ERROR
+    "CommandStream playback publication is no longer derived from one recorded batch")
+endif()
+
+foreach(playback_origin_consumer IN ITEMS
+  "${SOURCE_ROOT}/tests/ja2_runtime_adapter_tests.cpp"
+  "${SOURCE_ROOT}/tests/sdk_consumer/main.cpp")
+  read_cxx_executable("${playback_origin_consumer}"
+    playback_origin_consumer_executable)
+  foreach(playback_origin_consumer_marker IN ITEMS
+    "SimulationCommandSource::Replay"
+    "commandJournal().snapshot()")
+    string(FIND "${playback_origin_consumer_executable}"
+      "${playback_origin_consumer_marker}"
+      playback_origin_consumer_marker_index)
+    if(playback_origin_consumer_marker_index EQUAL -1)
+      message(FATAL_ERROR
+        "Replay consumer lost ${playback_origin_consumer_marker}: ${playback_origin_consumer}")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(weapon_configuration_document IN ITEMS
+  "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${weapon_configuration_document}"
+    weapon_configuration_document_contents)
+  string(FIND "${weapon_configuration_document_contents}"
+    "ApplyWeaponConfigurationCommand"
+    weapon_configuration_document_index)
+  if(weapon_configuration_document_index EQUAL -1)
+    message(FATAL_ERROR
+      "Weapon-configuration command is undocumented in ${weapon_configuration_document}")
   endif()
 endforeach()
 
@@ -12690,7 +13321,7 @@ endforeach()
 string(REGEX MATCHALL
   "TacticalActorInteractions::beginItemTransfer\\([ \t\r\n]*\\*pSoldier\\)"
   item_transfer_owner_calls
-  "${tactical_item_fire_contents}")
+  "${tactical_item_fire_executable}")
 list(LENGTH item_transfer_owner_calls item_transfer_owner_call_count)
 if(NOT item_transfer_owner_call_count EQUAL 2)
   message(FATAL_ERROR

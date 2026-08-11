@@ -250,6 +250,220 @@ struct BulkReloadWeaponsCommand
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer;
 };
 
+// Equipment changes and system reactions choose an exact configuration before
+// entering the deterministic stream. They are results, not requests to cycle
+// mutable player state: a retained command therefore cannot select a different
+// mode after another attachment or weapon has changed.
+inline constexpr std::int8_t TacticalWeaponModeCount = 10;
+inline constexpr std::int8_t TacticalMinimumScopeMode = -1;
+inline constexpr std::int8_t TacticalScopeModeCount = 10;
+inline constexpr std::uint32_t TacticalNoInventoryPosition =
+	std::numeric_limits<std::uint32_t>::max();
+
+struct TacticalWeaponConfigurationResult
+{
+	std::int8_t weaponMode = 0;
+	std::int8_t scopeMode = 0;
+	std::int8_t burstCounter = 0;
+	std::uint8_t autofireShots = 0;
+	std::uint8_t barrelMode = 0;
+	std::int8_t shownAimTime = 0;
+	bool grenadeLauncherDelay = false;
+	bool resetAutofireBulletInitialization = false;
+};
+
+constexpr bool operator==(
+	const TacticalWeaponConfigurationResult& left,
+	const TacticalWeaponConfigurationResult& right) noexcept
+{
+	return left.weaponMode == right.weaponMode &&
+		left.scopeMode == right.scopeMode &&
+		left.burstCounter == right.burstCounter &&
+		left.autofireShots == right.autofireShots &&
+		left.barrelMode == right.barrelMode &&
+		left.shownAimTime == right.shownAimTime &&
+		left.grenadeLauncherDelay == right.grenadeLauncherDelay &&
+		left.resetAutofireBulletInitialization ==
+			right.resetAutofireBulletInitialization;
+}
+
+constexpr bool operator!=(
+	const TacticalWeaponConfigurationResult& left,
+	const TacticalWeaponConfigurationResult& right) noexcept
+{
+	return !(left == right);
+}
+
+constexpr bool IsValidTacticalWeaponConfigurationResult(
+	const TacticalWeaponConfigurationResult& result) noexcept
+{
+	if (result.weaponMode < 0 ||
+		result.weaponMode >= TacticalWeaponModeCount ||
+		result.scopeMode < TacticalMinimumScopeMode ||
+		result.scopeMode >= TacticalScopeModeCount)
+		return false;
+	// Fire progress is carried exactly because legacy attachment insertion can
+	// change the selected weapon mode without resetting an in-progress counter.
+	// Barrel mode is likewise an item-table-dependent component value, not a
+	// public enum. The one impossible representation is autofire without burst
+	// progression. JA2's executor supplies semantic validation by re-running the
+	// cause-specific resolver and comparing every result field before mutation.
+	return result.burstCounter >= 0 &&
+		(result.autofireShots == 0 || result.burstCounter != 0) &&
+		(!result.resetAutofireBulletInitialization ||
+			result.weaponMode == 2 || result.weaponMode == 5 ||
+			result.weaponMode == 8);
+}
+
+// Cause is stable replay/diagnostic vocabulary and constrains the legal
+// presentation/continuation combinations. Keeping it explicit makes an
+// equipment correction distinguishable from a friendly retaliation even when
+// both happen to select the same resulting mode.
+enum class TacticalWeaponConfigurationCause : std::uint8_t
+{
+	EquipmentChanged = 0,
+	LauncherUnavailable = 1,
+	ScopeAttachmentChanged = 2,
+	FriendlyRetaliation = 3,
+	AttachedLauncherShotCompleted = 4
+};
+
+constexpr bool IsValidTacticalWeaponConfigurationCause(
+	TacticalWeaponConfigurationCause cause) noexcept
+{
+	switch (cause)
+	{
+		case TacticalWeaponConfigurationCause::EquipmentChanged:
+		case TacticalWeaponConfigurationCause::LauncherUnavailable:
+		case TacticalWeaponConfigurationCause::ScopeAttachmentChanged:
+		case TacticalWeaponConfigurationCause::FriendlyRetaliation:
+		case TacticalWeaponConfigurationCause::AttachedLauncherShotCompleted:
+			return true;
+	}
+	return false;
+}
+
+// Presentation work is independent from event replication and gameplay
+// continuation. Only these established combinations are public vocabulary.
+enum class TacticalWeaponConfigurationPostApplyPolicy : std::uint8_t
+{
+	None = 0,
+	DirtyMercPanel = 1,
+	DirtyMercPanelAndCursor = 2,
+	DirtyMercPanelCursorAndSight = 3
+};
+
+constexpr bool IsValidTacticalWeaponConfigurationPostApplyPolicy(
+	TacticalWeaponConfigurationPostApplyPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case TacticalWeaponConfigurationPostApplyPolicy::None:
+		case TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanel:
+		case TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanelAndCursor:
+		case TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanelCursorAndSight:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalWeaponConfigurationContinuation : std::uint8_t
+{
+	None = 0,
+	CompleteHandItemChange = 1,
+	BeginFriendlyRetaliation = 2,
+	CompleteEquipmentChange = 3
+};
+
+constexpr bool IsValidTacticalWeaponConfigurationContinuation(
+	TacticalWeaponConfigurationContinuation continuation) noexcept
+{
+	switch (continuation)
+	{
+		case TacticalWeaponConfigurationContinuation::None:
+		case TacticalWeaponConfigurationContinuation::CompleteHandItemChange:
+		case TacticalWeaponConfigurationContinuation::BeginFriendlyRetaliation:
+		case TacticalWeaponConfigurationContinuation::CompleteEquipmentChange:
+			return true;
+	}
+	return false;
+}
+
+constexpr bool IsValidTacticalWeaponConfigurationPolicyForCause(
+	TacticalWeaponConfigurationCause cause,
+	TacticalWeaponConfigurationPostApplyPolicy postApplyPolicy,
+	TacticalWeaponConfigurationContinuation continuation) noexcept
+{
+	switch (cause)
+	{
+		case TacticalWeaponConfigurationCause::EquipmentChanged:
+			return postApplyPolicy ==
+					TacticalWeaponConfigurationPostApplyPolicy::None &&
+				(continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteEquipmentChange ||
+					continuation ==
+						TacticalWeaponConfigurationContinuation::
+							CompleteHandItemChange);
+		case TacticalWeaponConfigurationCause::LauncherUnavailable:
+			return postApplyPolicy ==
+					TacticalWeaponConfigurationPostApplyPolicy::
+						DirtyMercPanelAndCursor &&
+				continuation ==
+					TacticalWeaponConfigurationContinuation::None;
+		case TacticalWeaponConfigurationCause::ScopeAttachmentChanged:
+			return postApplyPolicy ==
+					TacticalWeaponConfigurationPostApplyPolicy::
+						DirtyMercPanelCursorAndSight &&
+				continuation ==
+					TacticalWeaponConfigurationContinuation::None;
+		case TacticalWeaponConfigurationCause::FriendlyRetaliation:
+			return postApplyPolicy ==
+					TacticalWeaponConfigurationPostApplyPolicy::
+						DirtyMercPanelAndCursor &&
+				continuation ==
+					TacticalWeaponConfigurationContinuation::
+						BeginFriendlyRetaliation;
+		case TacticalWeaponConfigurationCause::
+				AttachedLauncherShotCompleted:
+			return postApplyPolicy ==
+					TacticalWeaponConfigurationPostApplyPolicy::
+						DirtyMercPanel &&
+				continuation ==
+					TacticalWeaponConfigurationContinuation::None;
+	}
+	return false;
+}
+
+struct ApplyWeaponConfigurationCommand
+{
+	TacticalEntityId soldier;
+	TacticalWeaponConfigurationResult result;
+	TacticalWeaponConfigurationCause cause =
+		TacticalWeaponConfigurationCause::EquipmentChanged;
+	TacticalWeaponConfigurationPostApplyPolicy postApplyPolicy =
+		TacticalWeaponConfigurationPostApplyPolicy::None;
+	TacticalWeaponConfigurationContinuation continuation =
+		TacticalWeaponConfigurationContinuation::None;
+	TacticalEventPolicy eventPolicy = TacticalEventPolicy::LocalOnly;
+	// The expected hand item is populated for every command and rejects a
+	// correction retained across a weapon swap. Target identity/location belong
+	// only to BeginFriendlyRetaliation; inventory position and previous/changed
+	// item belong only to equipment continuations. The executor re-resolves the
+	// complete result from this context before any mutation, so a retained
+	// command cannot apply a result made stale by an in-place attachment or
+	// configuration change. Exact target incarnation and issued location prevent
+	// deferred retaliation from following a reused soldier slot.
+	TacticalEntityId target;
+	std::int32_t targetGrid = TacticalNoTargetGrid;
+	std::int8_t targetLevel = 0;
+	std::uint32_t handItem = 0;
+	std::uint32_t previousItem = 0;
+	std::uint32_t changedItem = 0;
+	std::uint32_t inventoryPosition = TacticalNoInventoryPosition;
+	SimulationCommandSource source = SimulationCommandSource::System;
+};
+
 // Ready/lower intent records the resolved eight-way direction rather than a
 // mouse coordinate. The compatibility executor may still select JA2's exact
 // animation, while replay and network producers retain the player's choice.
@@ -501,6 +715,17 @@ constexpr bool IsSimulationSystemSource(
 		source == SimulationCommandSource::Replay;
 }
 
+// Only a freshly produced authoritative System continuation may cross the
+// legacy multiplayer boundary. Replay is executable System provenance, but it
+// must never re-emit captured outbound traffic.
+constexpr bool ShouldReplicateWeaponConfigurationFire(
+	SimulationCommandSource source,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return source == SimulationCommandSource::System &&
+		eventPolicy == TacticalEventPolicy::Replicated;
+}
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -532,7 +757,23 @@ using SimulationCommand = std::variant<
 	SynchronizeActorFireCommand,
 	SynchronizeActorStopCommand,
 	SynchronizeTurnCommand,
-	BulkReloadWeaponsCommand>;
+	BulkReloadWeaponsCommand,
+	ApplyWeaponConfigurationCommand>;
+
+// EngineRuntime fixes this policy into its CommandStream type. Playback gets a
+// distinct execution origin for every variant while the stream journals the
+// original captured command; callers cannot supply a mismatched execution
+// batch and diagnostic batch.
+struct SimulationCommandPlaybackPolicy
+{
+	static SimulationCommand executionCommand(SimulationCommand command)
+	{
+		std::visit([](auto& value) noexcept {
+			value.source = SimulationCommandSource::Replay;
+		}, command);
+		return command;
+	}
+};
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -575,6 +816,73 @@ inline bool IsStructurallyValidSimulationCommand(
 				index < TacticalBulkReloadActorCapacity; ++index)
 				if (value.soldiers[index] != TacticalEntityId{}) return false;
 			return true;
+		}
+		else if constexpr (
+			std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+		{
+			if (!IsSimulationSystemSource(value.source) ||
+				!value.soldier.valid() ||
+				!IsValidTacticalWeaponConfigurationResult(value.result) ||
+				!IsValidTacticalWeaponConfigurationCause(value.cause) ||
+				!IsValidTacticalWeaponConfigurationPostApplyPolicy(
+					value.postApplyPolicy) ||
+				!IsValidTacticalWeaponConfigurationContinuation(
+					value.continuation) ||
+				!IsValidTacticalEventPolicy(value.eventPolicy) ||
+				!IsValidTacticalWeaponConfigurationPolicyForCause(
+					value.cause, value.postApplyPolicy,
+					value.continuation))
+				return false;
+			const bool continuesRetaliation =
+				value.continuation ==
+					TacticalWeaponConfigurationContinuation::
+						BeginFriendlyRetaliation;
+			if (continuesRetaliation)
+				return value.cause ==
+						TacticalWeaponConfigurationCause::FriendlyRetaliation &&
+					value.eventPolicy == TacticalEventPolicy::Replicated &&
+					value.postApplyPolicy ==
+						TacticalWeaponConfigurationPostApplyPolicy::
+							DirtyMercPanelAndCursor &&
+					value.target.valid() && value.target != value.soldier &&
+					value.targetGrid >= 0 &&
+					value.handItem <=
+						std::numeric_limits<std::uint16_t>::max() &&
+					value.previousItem == 0 && value.changedItem == 0 &&
+					value.inventoryPosition == TacticalNoInventoryPosition;
+			const bool completesHandItemChange =
+				value.continuation ==
+					TacticalWeaponConfigurationContinuation::
+						CompleteHandItemChange;
+			const bool completesEquipmentChange =
+				value.continuation ==
+					TacticalWeaponConfigurationContinuation::
+						CompleteEquipmentChange;
+			if (completesHandItemChange || completesEquipmentChange)
+				return value.cause ==
+						TacticalWeaponConfigurationCause::EquipmentChanged &&
+					value.eventPolicy == TacticalEventPolicy::LocalOnly &&
+					value.handItem <=
+						std::numeric_limits<std::uint16_t>::max() &&
+					value.previousItem <=
+						std::numeric_limits<std::uint16_t>::max() &&
+					value.changedItem <=
+						std::numeric_limits<std::uint16_t>::max() &&
+					value.inventoryPosition <=
+						std::numeric_limits<std::uint16_t>::max() &&
+					value.target == TacticalEntityId{} &&
+					value.targetGrid == TacticalNoTargetGrid &&
+					value.targetLevel == 0;
+			return value.cause !=
+					TacticalWeaponConfigurationCause::FriendlyRetaliation &&
+				value.eventPolicy == TacticalEventPolicy::LocalOnly &&
+				value.handItem <=
+					std::numeric_limits<std::uint16_t>::max() &&
+				value.target == TacticalEntityId{} &&
+				value.targetGrid == TacticalNoTargetGrid &&
+				value.targetLevel == 0 && value.previousItem == 0 &&
+				value.changedItem == 0 &&
+				value.inventoryPosition == TacticalNoInventoryPosition;
 		}
 		else
 		{
