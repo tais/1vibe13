@@ -108,7 +108,7 @@ public:
 			PackageAudio{id, audio_},
 			PackageTasks{id, tasks_}, descriptor.localizationSources,
 			descriptor.definitionSources, descriptor.saveStateSchemaVersion,
-			false, false});
+			false, false, {}});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -582,19 +582,20 @@ public:
 	PackageBootstrapResult bootstrapDetailed(PackageBootstrapPhase phase)
 	{
 		if (operationInProgress_)
-			return PackageBootstrapResult{PackageBootstrapError::OperationInProgress, {}};
+			return PackageBootstrapResult{
+				PackageBootstrapError::OperationInProgress, {}, {}};
 		OperationGuard operation(operationInProgress_);
 		const std::size_t phaseIndex = static_cast<std::size_t>(phase);
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
-			return PackageBootstrapResult{PackageBootstrapError::OutOfOrder, {}};
+			return PackageBootstrapResult{PackageBootstrapError::OutOfOrder, {}, {}};
 		if (phase == PackageBootstrapPhase::Configure)
 		{
 			const PackageBootstrapError serviceContracts = preflightServiceContracts();
 			if (serviceContracts != PackageBootstrapError::None)
-				return PackageBootstrapResult{serviceContracts, {}};
+				return PackageBootstrapResult{serviceContracts, {}, {}};
 			const PackageBootstrapError capabilityContracts = preflightCapabilityContracts();
 			if (capabilityContracts != PackageBootstrapError::None)
-				return PackageBootstrapResult{capabilityContracts, {}};
+				return PackageBootstrapResult{capabilityContracts, {}, {}};
 		}
 
 		for (std::size_t index = 0; index < active_.size(); ++index)

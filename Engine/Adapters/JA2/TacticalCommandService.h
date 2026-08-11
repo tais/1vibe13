@@ -240,7 +240,7 @@ inline TacticalCommandClientBindingResult BindTacticalCommandClient(
 {
 	if (!identity)
 		return TacticalCommandClientBindingResult{
-			TacticalCommandClientBindingError::InvalidIdentity};
+			TacticalCommandClientBindingError::InvalidIdentity, {}, {}};
 	const EngineServiceLookupResult<TacticalCommandService> resolved =
 		catalog.resolve(TacticalCommandServiceContract);
 	if (!resolved)
@@ -276,7 +276,7 @@ inline TacticalCommandClientBindingResult BindTacticalCommandClient(
 	catch (...)
 	{
 		return TacticalCommandClientBindingResult{
-			TacticalCommandClientBindingError::AllocationFailure};
+			TacticalCommandClientBindingError::AllocationFailure, {}, {}};
 	}
 }
 

@@ -583,6 +583,7 @@ add_test(
     "-DSDK_CONSUMER_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/sdk_consumer"
     "-DSDK_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/sdk-consumer-test/$<CONFIG>"
     "-DSDK_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
+    "-DSDK_INSTALL_DATADIR=${CMAKE_INSTALL_DATADIR}"
     "-DGENERATOR=${CMAKE_GENERATOR}"
     "-DGENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
     "-DGENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
@@ -597,6 +598,17 @@ add_test(
     "-DSYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
     "-DSANITIZER_ENABLED=${ADDRESS_SANITIZER}"
     -P ${CMAKE_SOURCE_DIR}/cmake/TestEngineSdk.cmake)
+
+# Fast source-level ratchet for the productized SDK surface. The deeper
+# engine_sdk_consumer test below the install boundary remains authoritative for
+# compile/link/runtime behavior; this catches missing release assets, examples,
+# compatibility metadata, and an accidentally broad pre-1.0 version rule.
+add_test(
+  NAME engine_sdk_product_contract
+  COMMAND ${CMAKE_COMMAND}
+    -DSOURCE_ROOT=${CMAKE_SOURCE_DIR}
+    -DBINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/sdk-product-contract/$<CONFIG>
+    -P ${CMAKE_SOURCE_DIR}/cmake/CheckEngineSdkProduct.cmake)
 
 add_test(
   NAME architecture_boundaries

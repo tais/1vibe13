@@ -1,6 +1,14 @@
 @PACKAGE_INIT@
 
 set(JA2Engine_VERSION "@JA2_ENGINE_SDK_VERSION@")
+set(JA2Engine_COMPATIBILITY_LINE "@JA2_ENGINE_SDK_COMPATIBILITY_LINE@")
+set(JA2Engine_STABILITY "@JA2_ENGINE_SDK_STABILITY@")
+set(JA2Engine_SOURCE_COMPATIBILITY
+  "@JA2_ENGINE_SDK_SOURCE_COMPATIBILITY@")
+set(JA2Engine_BINARY_COMPATIBILITY
+  "@JA2_ENGINE_SDK_BINARY_COMPATIBILITY@")
+set_and_check(JA2Engine_COMPATIBILITY_MANIFEST
+  "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/JA2Engine/compatibility/JA2EngineCompatibility.json")
 # Engine/Core follows the host repository's static MSVC CRT ABI. CMake runtime
 # selection is not transitive for static archives, so external Windows targets
 # must apply this exported value to MSVC_RUNTIME_LIBRARY before compiling.

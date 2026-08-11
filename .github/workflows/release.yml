@@ -3,11 +3,14 @@ name: release
 # Tagged-release pipeline. Push a tag like `v0.1.0` (or run manually) and
 # this builds the three shipped apps -- JA2_ENGLISH, JA2UB_ENGLISH,
 # JA2MAPEDITOR_ENGLISH -- plus the standalone ja2server multiplayer
-# coordinator, on Linux, macOS and Windows, and attaches a per-platform
-# archive to a GitHub Release. The game apps sit at the archive root; the
-# server (with a sample ja2_mp.ini + README) is in a ja2server/ subfolder.
-# The four zip assets remain the compatibility contract. Linux jobs also emit
-# byte-reproducible AppImages, and the Windows job emits a native NSIS setup.
+# coordinator, on Linux, macOS and Windows, and attaches per-platform game and
+# Engine SDK archives to a GitHub Release. The game apps sit at the archive
+# root; the server (with a sample ja2_mp.ini + README) is in a ja2server/
+# subfolder. The SDK archive is the installable EngineSDK CMake component for
+# the same platform/toolchain, including examples and its compatibility kit.
+# The four game zip assets remain the compatibility contract. Linux jobs also
+# emit byte-reproducible AppImages, and the Windows job emits a native NSIS
+# setup.
 #
 # The build steps deliberately mirror build_unix.yml (the per-commit
 # compile-check) so the toolchain stays identical; the extra work here
@@ -235,13 +238,25 @@ jobs:
           Copy-Item "Multiplayer/ja2server/ja2_mp.ini.sample" dist/ja2server/ja2_mp.ini
           Copy-Item "Multiplayer/ja2server/README.md"        dist/ja2server/README.md
 
-      # ---- archive per platform (.zip everywhere) ----
+      - name: Stage and verify Engine SDK
+        shell: bash
+        run: |
+          set -eux
+          cmake --install build \
+            --prefix sdk-dist \
+            --component EngineSDK \
+            --config Release
+          cmake \
+            -DJA2_ENGINE_SDK_MANIFEST=sdk-dist/share/JA2Engine/compatibility/JA2EngineCompatibility.json \
+            -P sdk-dist/share/JA2Engine/compatibility/VerifyManifest.cmake
+
+      # ---- game + platform-matching SDK archives (.zip everywhere) ----
       - name: Resolve package name
         shell: bash
         run: |
           set -eux
-          REF="$RELEASE_LABEL"
-          echo "PKG=ja2-sdl3-${{ matrix.platform.name }}-${REF}" >> "$GITHUB_ENV"
+          echo "PKG=ja2-sdl3-${{ matrix.platform.name }}-${RELEASE_LABEL}" >> "$GITHUB_ENV"
+          echo "SDK_PKG=ja2-engine-sdk-${{ matrix.platform.name }}-${RELEASE_LABEL}" >> "$GITHUB_ENV"
 
       - name: Archive (unix)
         if: matrix.platform.name != 'windows'
@@ -249,14 +264,18 @@ jobs:
         run: |
           set -eux
           ( cd dist && zip -r "../${PKG}.zip" . )
+          ( cd sdk-dist && zip -r "../${SDK_PKG}.zip" . )
           echo "ASSET=${PKG}.zip" >> "$GITHUB_ENV"
+          echo "SDK_ASSET=${SDK_PKG}.zip" >> "$GITHUB_ENV"
 
       - name: Archive (windows)
         if: matrix.platform.name == 'windows'
         shell: pwsh
         run: |
           Compress-Archive -Path dist/* -DestinationPath "$env:PKG.zip"
+          Compress-Archive -Path sdk-dist/* -DestinationPath "$env:SDK_PKG.zip"
           "ASSET=$env:PKG.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SDK_ASSET=$env:SDK_PKG.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # AppImage's current official tools are published from moving
       # `continuous` releases. Checksums make that input immutable: a replaced
@@ -467,6 +486,13 @@ jobs:
           path: ${{ env.WINDOWS_INSTALLER_ASSET }}
           if-no-files-found: error
 
+      - name: Upload Engine SDK workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ja2-engine-sdk-${{ matrix.platform.name }}
+          path: ${{ env.SDK_ASSET }}
+          if-no-files-found: error
+
       # ---- publish to the GitHub Release (tag pushes only) ----
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -487,4 +513,11 @@ jobs:
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: ${{ env.WINDOWS_INSTALLER_ASSET }}
+          fail_on_unmatched_files: true
+
+      - name: Attach Engine SDK to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          files: ${{ env.SDK_ASSET }}
           fail_on_unmatched_files: true

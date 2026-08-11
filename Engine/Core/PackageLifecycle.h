@@ -58,7 +58,7 @@ public:
 		std::size_t completed = packages_.completedBootstrapPhases();
 		if (completed > targetIndex)
 			return PackageLifecycleAdvanceResult{
-				PackageBootstrapError::None, target, completed, false};
+				PackageBootstrapError::None, target, completed, false, {}, {}};
 
 		while (completed <= targetIndex)
 		{
@@ -76,7 +76,7 @@ public:
 			completed = packages_.completedBootstrapPhases();
 		}
 		return PackageLifecycleAdvanceResult{
-			PackageBootstrapError::None, target, completed, false};
+			PackageBootstrapError::None, target, completed, false, {}, {}};
 	}
 
 	PackageLifecycleRollbackResult rollback()
