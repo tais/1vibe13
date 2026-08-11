@@ -1,143 +1,92 @@
-	#include "types.h"
-	#include <stdio.h>
-#ifdef _WIN32
-	#include <windows.h>
-#endif
-	#include "sgp.h"
-	#include "time.h"
-	#include "vobject.h"
-	#include "FileMan.h"
-	#include "Utilities.h"
-	#include "Font Control.h"
-	#include "Overhead.h"
-	#include "Overhead Types.h"
-	#include "Soldier Palette.h"
-	#include "WCheck.h"
-	#include "Sys Globals.h"
+#include "types.h"
+#include "sgp.h"
+#include "vobject.h"
+#include "FileMan.h"
+#include "Utilities.h"
+#include "Font Control.h"
+#include "Overhead.h"
+#include "Overhead Types.h"
+#include "Soldier Palette.h"
+#include "WCheck.h"
+#include "Sys Globals.h"
+#include "DataBoundaryModel.h"
+#include "LegacyUtilitiesModel.h"
+
+#include <Engine/Core/UniqueResourceHandle.h>
+
+#include <array>
+#include <cstdint>
+#include <cwchar>
+#include <limits>
+#include <string>
 
 
-extern BOOLEAN GetCDromDriveLetter( STR8	pString );
-
-BOOLEAN PerformTimeLimitedCheck();
-
-// WANNE: Given a string, replaces all instances of "oldpiece" with "newpiece"
-/*
- *
- * Modified this routine to eliminate recursion and to avoid infinite
- * expansion of string when newpiece contains oldpiece.	--Byron
-*/
-//STR8 Replace(STR8 string, STR8 oldpiece, STR8 newpiece)
-//{
-//	int str_index, newstr_index, oldpiece_index, end,
-//
-//		new_len, old_len, cpy_len;
-//	STR8 c;
-//	static char newstring[MAXLINE];
-//
-//	if ((c =	strstr(string, oldpiece)) == NULL)
-//
-//		return string;
-//
-//	new_len		= strlen(newpiece);
-//	old_len		= strlen(oldpiece);
-//	end			= strlen(string)	- old_len;
-//	oldpiece_index = c - string;
-//
-//
-//	newstr_index = 0;
-//	str_index = 0;
-//	while(str_index <= end && c != NULL)
-//	{
-//
-//		//Copy characters from the left of matched pattern occurence
-//		cpy_len = oldpiece_index-str_index;
-//		strncpy(newstring+newstr_index, string+str_index, cpy_len);
-//		newstr_index += cpy_len;
-//		str_index	+= cpy_len;
-//
-//		//Copy replacement characters instead of matched pattern
-//		strcpy(newstring+newstr_index, newpiece);
-//		newstr_index += new_len;
-//		str_index	+= old_len;
-//
-//		//Check for another pattern match
-//		if((c =	strstr(string+str_index, oldpiece)) != NULL)
-//		 oldpiece_index = c - string;
-//
-//
-//	}
-//	// Copy remaining characters from the right of last matched pattern
-//	strcpy(newstring+newstr_index, string+str_index);
-//
-//	return newstring;
-//}
-
-// WANNE: Replaces german	specific characters
-//STR8 ReplaceGermanSpecialCharacters(STR8 text)
-//{
-//	// ä
-//	text = Replace(text, "Ã¤", "ä");
-//	// Ä
-//	text = Replace(text, "Ã„", "Ä");
-//	// ö
-//	text = Replace(text, "Ã¶", "ö");
-//	// Ö
-//	text = Replace(text, "Ã–", "Ö");
-//	// ü
-//	text = Replace(text, "Ã¼", "ü");
-//	// Ü
-//	text = Replace(text, "Ãœ", "Ü");
-//	// ß
-//	text = Replace(text, "ÃŸ", "ß");
-//
-//	return text;
-//}
-
-
-
-//#define	TIME_LIMITED_VERSION
-void FilenameForBPP(STR pFilename, CHAR8 *pDestination)
+namespace
 {
-	strcpy(pDestination, pFilename);
+	struct LegacyFileTag {};
+	struct LegacyFileReleaser
+	{
+		void operator()(HWFILE file) const { FileClose(file); }
+	};
+	using LegacyFileOwner = UniqueResourceHandle<
+		LegacyFileTag, LegacyFileReleaser, HWFILE, static_cast<HWFILE>(0)>;
+}
+
+BOOLEAN FilenameForBPP(
+	STR pFilename, CHAR8* pDestination, std::size_t destinationCapacity)
+{
+	if (!pDestination || destinationCapacity == 0) return FALSE;
+	if (!pFilename)
+	{
+		pDestination[0] = '\0';
+		return FALSE;
+	}
+	return UtilsDataBoundaryModel::CopyString(
+		pDestination, destinationCapacity, pFilename) ? TRUE : FALSE;
 }
 
 BOOLEAN CreateSGPPaletteFromCOLFile( SGPPaletteEntry *pPalette, SGPFILENAME ColFile )
 {
-	HWFILE	 hFileHandle;
-	BYTE			bColHeader[ 8 ];
-	UINT32		cnt;
+	if (!pPalette || !ColFile || !ColFile[0]) return FALSE;
 
-	//See if files exists, if not, return error
-	if ( !FileExists( ColFile ) )
+	LegacyFileOwner file(FileOpen(ColFile, FILE_ACCESS_READ, FALSE));
+	if (!file)
 	{
-		// Return FALSE w/ debug
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot find COL file");
-		return( FALSE );
-	}
-
-	// Open and read in the file
-	if ( ( hFileHandle = FileOpen( ColFile, FILE_ACCESS_READ, FALSE)) == 0)
-	{
-		// Return FALSE w/ debug
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot open COL file");
-		return( FALSE );
+		return FALSE;
 	}
 
-	// Skip header
-	FileRead( hFileHandle, bColHeader, sizeof( bColHeader ) , NULL);
-
-	// Read in a palette entry at a time
-	for ( cnt = 0; cnt < 256; cnt++ )
+	constexpr std::size_t HeaderSize = 8;
+	constexpr std::size_t ComponentCount = 3;
+	std::array<BYTE, HeaderSize + 256 * ComponentCount> bytes{};
+	UINT32 bytesRead = 0;
+	if (!FileRead(file.get(), bytes.data(), static_cast<UINT32>(bytes.size()),
+		&bytesRead) || bytesRead != bytes.size())
 	{
-	FileRead( hFileHandle, &pPalette[ cnt ].peRed, sizeof( UINT8 ) , NULL);
-	FileRead( hFileHandle, &pPalette[ cnt ].peGreen, sizeof( UINT8 ) , NULL);
-	FileRead( hFileHandle, &pPalette[ cnt ].peBlue, sizeof( UINT8 ) , NULL);
+		return FALSE;
 	}
 
-	// Close file
-	FileClose( hFileHandle );
+	struct PaletteRgb
+	{
+		UINT8 red;
+		UINT8 green;
+		UINT8 blue;
+	};
+	std::array<PaletteRgb, 256> staged{};
+	for (std::size_t index = 0; index < staged.size(); ++index)
+	{
+		const std::size_t source = HeaderSize + index * ComponentCount;
+		staged[index] = {
+			bytes[source], bytes[source + 1], bytes[source + 2]};
+	}
+	for (std::size_t index = 0; index < staged.size(); ++index)
+	{
+		pPalette[index].peRed = staged[index].red;
+		pPalette[index].peGreen = staged[index].green;
+		pPalette[index].peBlue = staged[index].blue;
+	}
 
-	return( TRUE );
+	return TRUE;
 }
 
 BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UINT32 uiDestSurface )
@@ -175,82 +124,57 @@ BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UIN
 }
 
 
-BOOLEAN	WrapString( CHAR16 *pStr, CHAR16 *pStr2, UINT16 usWidth, INT32 uiFont )
+BOOLEAN WrapString(
+	CHAR16* pStr, std::size_t strCapacity,
+	CHAR16* pStr2, std::size_t str2Capacity,
+	UINT16 usWidth, INT32 uiFont)
 {
-	UINT32 Cur, uiLet, uiNewLet, uiHyphenLet;
-	STR16 curletter;
-	INT16 transletter;
-	BOOLEAN	fLineSplit = FALSE;
-	HVOBJECT	hFont;
+	if (!pStr || strCapacity == 0 || !pStr2 || str2Capacity == 0)
+		return FALSE;
+	pStr2[0] = L'\0';
 
-	// CHECK FOR WRAP
-	Cur=0;
-	uiLet = 0;
-	curletter = pStr;
+	const CHAR16* terminator = static_cast<const CHAR16*>(
+		std::wmemchr(pStr, L'\0', strCapacity));
+	if (!terminator) return FALSE;
+	const std::size_t length = static_cast<std::size_t>(terminator - pStr);
+	HVOBJECT font = GetFontObject(uiFont);
+	if (!font) return FALSE;
 
-	// GET FONT
-	hFont = GetFontObject( uiFont );
-
-	// LOOP FORWARDS AND COUNT
-	while((*curletter)!=0)
+	std::uint64_t width = 0;
+	std::size_t overflowIndex = length;
+	for (std::size_t index = 0; index < length; ++index)
 	{
-		transletter=GetIndex(*curletter);
-		Cur+=GetWidth( hFont, transletter );
-
-		if ( Cur > usWidth )
+		const INT16 glyph = GetIndex(pStr[index]);
+		const UINT32 glyphWidth = GetWidth(font, glyph);
+		width = glyphWidth > std::numeric_limits<std::uint64_t>::max() - width
+			? std::numeric_limits<std::uint64_t>::max()
+			: width + glyphWidth;
+		if (width > usWidth)
 		{
-			// We are here, loop backwards to find a space
-			// Generate second string, and exit upon completion.
-			uiHyphenLet = uiLet;	//Save the hyphen location as it won't change.
-			uiNewLet = uiLet;
-			while((*curletter)!=0)
-			{
-				if ( (*curletter) == 32 )
-				{
-					// Split Line!
-					fLineSplit = TRUE;
-
-					pStr[ uiNewLet ] = (INT16)'\0';
-
-					wcscpy( pStr2, &(pStr[ uiNewLet + 1 ]) );
-				}
-
-				if ( fLineSplit )
-					// HEADROCK HAM 3.6: This is erroneous. At this point, the function should RETURN, otherwise it
-					// cuts another bit off pStr for no reason.
-					return (fLineSplit);
-
-				uiNewLet--;
-				curletter--;
-
-			}
-			if( !fLineSplit)
-			{
-				//We completed the check for a space, but failed, so use the hyphen method.
-				sgp_swprintf( pStr2, 20, L"-%s", &(pStr[uiHyphenLet]) );
-				pStr[uiHyphenLet] = (INT16)'\0';
-				fLineSplit = TRUE;	//hyphen method
-				// HEADROCK HAM 3.6: This is erroneous. At this point, the function should RETURN, otherwise it
-				// cuts another bit off pStr for no reason.
-				return (fLineSplit);
-			}
+			overflowIndex = index;
+			break;
 		}
+	}
+	if (overflowIndex == length) return FALSE;
 
-//		if ( fLineSplit )
-//			break;
-
-		uiLet++;
-		curletter++;
+	LegacyUtilitiesModel::WideTextSplit split;
+	if (!LegacyUtilitiesModel::SplitWideText(
+		std::wstring_view(pStr, length), overflowIndex, split) ||
+		split.first.size() >= strCapacity ||
+		split.second.size() >= str2Capacity)
+	{
+		return FALSE;
 	}
 
-	return( fLineSplit );
-
+	std::wmemcpy(pStr, split.first.data(), split.first.size());
+	pStr[split.first.size()] = L'\0';
+	std::wmemcpy(pStr2, split.second.data(), split.second.size());
+	pStr2[split.second.size()] = L'\0';
+	return TRUE;
 }
 
 
-// gCheckFilenames is consumed by both the Win32 CD checks and by
-// DoJA2FilesExistsOnDrive, which is portable -- so it lives outside
-// the _WIN32 gate.
+// Preserve the established media-file probe order used by game settings.
 SGPFILENAME gCheckFilenames[] =
 {
 	"DATA\\INTRO.SLF",
@@ -260,197 +184,27 @@ SGPFILENAME gCheckFilenames[] =
 	"DATA\\SPEECH.SLF",
 };
 
-#ifdef _WIN32
-// The OS-version checks, demo run-counter and CD-presence check below
-// are all Win32-specific. Non-Windows builds get pass-through stubs at
-// the end of this _WIN32 block.
-BOOLEAN IfWinNT(void)
+BOOLEAN HandleJA2CDCheck()
 {
-	OSVERSIONINFO OsVerInfo;
-
-	OsVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-
-	GetVersionEx(&OsVerInfo);
-
-	if ( OsVerInfo.dwPlatformId == VER_PLATFORM_WIN32_NT)
-		return(TRUE);
-	else
-		return(FALSE);
+	// Retail CD and time-limited demo enforcement has been disabled in 1.13 for
+	// decades. Keep the active startup ABI while retiring the dead Win9x paths.
+	return TRUE;
 }
-
-BOOLEAN IfWin95(void)
-{
-	OSVERSIONINFO OsVerInfo;
-
-	OsVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-
-	GetVersionEx(&OsVerInfo);
-
-	if ( OsVerInfo.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS)
-		return(TRUE);
-	else
-		return(FALSE);
-}
-
-
-void HandleLimitedNumExecutions( )
-{
-	// Get system directory
-	HWFILE	 hFileHandle;
-	CHAR8	ubSysDir[ 512 ];
-	INT8	bNumRuns;
-
-	GetSystemDirectory( (LPSTR) ubSysDir, sizeof( ubSysDir ) );
-
-	// Append filename
-	strcat( ubSysDir, "\\winaese.dll" );
-
-	// Open file and check # runs...
-	if ( FileExists( (STR)ubSysDir ) )
-	{
-		// Open and read
-		if ( ( hFileHandle = FileOpen( (STR)ubSysDir, FILE_ACCESS_READ, FALSE)) == 0)
-		{
-			return;
-		}
-
-		// Read value
-		FileRead( hFileHandle, &bNumRuns, sizeof( bNumRuns ) , NULL);
-
-		// Close file
-		FileClose( hFileHandle );
-
-		if ( bNumRuns <= 0 )
-		{
-			// Fail!
-			SET_ERROR( "Error 1054: Cannot execute - contact Sir-Tech Software." );
-			return;
-		}
-
-	}
-	else
-	{
-		bNumRuns = 10;
-	}
-
-	// OK, decrement # runs...
-	bNumRuns--;
-
-	// Open and write
-	if ( ( hFileHandle = FileOpen( (STR)ubSysDir, FILE_ACCESS_WRITE, FALSE)) == 0)
-	{
-		return;
-	}
-
-	// Write value
-	FileWrite( hFileHandle, &bNumRuns, sizeof( bNumRuns ) , NULL);
-
-	// Close file
-	FileClose( hFileHandle );
-
-}
-
-
-UINT32 gCheckFileMinSizes[] =
-{
-	68000000,
-	36000000,
-	87000000,
-	187000000,
-	236000000
-};
-#define NOCDCHECK
-
-#if defined( JA2TESTVERSION	) || defined( _DEBUG )
-	#define NOCDCHECK
-#endif
-
-#if defined( RUSSIANGOLD )
-	// CD check enabled
-#else
-	#define NOCDCHECK
-#endif
-
-BOOLEAN HandleJA2CDCheck( )
-{
-#ifdef	TIME_LIMITED_VERSION
-	if( !PerformTimeLimitedCheck() )
-	{
-		return( FALSE );
-	}
-#endif
-
-
-
-	return( TRUE );
-
-
-}
-
-
-BOOLEAN HandleJA2CDCheckTwo( )
-{
-
-	return( TRUE );
-
-}
-
-
-BOOLEAN PerformTimeLimitedCheck()
-{
-#ifndef TIME_LIMITED_VERSION
-		return( TRUE );
-
-#else
-	SYSTEMTIME sSystemTime;
-
-	GetSystemTime( &sSystemTime );
-
-
-	//if according to the system clock, we are past july 1999, quit the game
-	if( sSystemTime.wYear > 1999 || sSystemTime.wMonth > 7 )
-	{
-		//spit out an error message
-		MessageBox( NULL, "This time limited version of Jagged Alliance 2 v1.13 has expired.", "Ja2 Error!", MB_OK	);
-		return( FALSE );
-	}
-
-	return( TRUE );
-#endif
-}
-
-#else // !_WIN32
-BOOLEAN IfWinNT(void) { return FALSE; }
-BOOLEAN IfWin95(void) { return FALSE; }
-void HandleLimitedNumExecutions() { /* demo run-counter is Win32-only */ }
-BOOLEAN HandleJA2CDCheck()    { return TRUE; }
-BOOLEAN HandleJA2CDCheckTwo() { return TRUE; }
-BOOLEAN PerformTimeLimitedCheck() { return TRUE; }
-#endif // _WIN32
 
 BOOLEAN DoJA2FilesExistsOnDrive( const CHAR8 *zCdLocation )
 {
-	BOOLEAN fFailed = FALSE;
-	CHAR8		zCdFile[ SGPFILENAME_LEN ];
-	INT32	cnt;
-	HWFILE	hFile;
-
-	for ( cnt = 0; cnt < 4; cnt++ )
+	if (!zCdLocation) return FALSE;
+	constexpr std::size_t RequiredFileCount = 4;
+	for (std::size_t index = 0; index < RequiredFileCount; ++index)
 	{
-		// OK, build filename
-		sprintf( zCdFile, "%s%s", zCdLocation, gCheckFilenames[ cnt ] );
-
-		hFile = FileOpen( zCdFile, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE );
-
-		// Check if it exists...
-		if ( !hFile )
-		{
-			fFailed = TRUE;
-			FileClose( hFile );
-		break;
-		}
-		FileClose( hFile );
+		std::string path;
+		if (!LegacyUtilitiesModel::JoinPath(
+			zCdLocation, gCheckFilenames[index], SGPFILENAME_LEN, path))
+			return FALSE;
+		LegacyFileOwner file(FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE));
+		if (!file) return FALSE;
 	}
-
-	return( !fFailed );
+	return TRUE;
 }

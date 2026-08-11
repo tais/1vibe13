@@ -4,6 +4,8 @@
 #include "Overhead Types.h"
 #include "sgp.h"
 
+#include <cstddef>
+
 
 // WANNE: Maximum number of characters in german description (German xml files)
 #define MAXLINE		200
@@ -11,24 +13,29 @@
 BOOLEAN CreateSGPPaletteFromCOLFile( SGPPaletteEntry *pPalette, SGPFILENAME ColFile );
 BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UINT32 uiDestSurface );
 
-void FilenameForBPP(STR pFilename, CHAR8 *pDestination);
+BOOLEAN FilenameForBPP(
+	STR pFilename, CHAR8* pDestination, std::size_t destinationCapacity);
+template <std::size_t Capacity>
+inline BOOLEAN FilenameForBPP(STR pFilename, CHAR8 (&pDestination)[Capacity])
+{
+	return FilenameForBPP(pFilename, pDestination, Capacity);
+}
 
-BOOLEAN	WrapString( CHAR16 *pStr, CHAR16 *pStr2, UINT16 usWidth, INT32 uiFont );
-
-BOOLEAN IfWinNT(void);
-BOOLEAN IfWin95(void);
-
-void HandleLimitedNumExecutions( );
+BOOLEAN WrapString(
+	CHAR16* pStr, std::size_t strCapacity,
+	CHAR16* pStr2, std::size_t str2Capacity,
+	UINT16 usWidth, INT32 uiFont);
+template <std::size_t FirstCapacity, std::size_t SecondCapacity>
+inline BOOLEAN WrapString(
+	CHAR16 (&pStr)[FirstCapacity], CHAR16 (&pStr2)[SecondCapacity],
+	UINT16 usWidth, INT32 uiFont)
+{
+	return WrapString(
+		pStr, FirstCapacity, pStr2, SecondCapacity, usWidth, uiFont);
+}
 
 BOOLEAN HandleJA2CDCheck( );
-BOOLEAN HandleJA2CDCheckTwo( );
-
-// WANNE: This method replaces characters in a given text with new characters
-STR8 Replace(STR8 string, STR8 oldpiece, STR8 newpiece);
-
-// WANNE: This method calls the replace method and replaces all german specific characters
-// WANNE: Not used!
-//STR8 ReplaceGermanSpecialCharacters(STR8 text);
+BOOLEAN DoJA2FilesExistsOnDrive(const CHAR8* zCdLocation);
 
 
 // Snap: integer division that rounds the result to the nearest integer

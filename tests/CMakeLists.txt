@@ -248,6 +248,15 @@ target_include_directories(utils_data_boundary_model_tests
 add_test(NAME utils_data_boundary_model
   COMMAND utils_data_boundary_model_tests)
 
+# Legacy filename joins and wide-text wrapping sit below rendering and FileMan.
+# Keep their exact-capacity and no-space behavior independently testable.
+add_executable(utils_legacy_utilities_model_tests
+  utils_legacy_utilities_model_tests.cpp)
+target_include_directories(utils_legacy_utilities_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_legacy_utilities_model
+  COMMAND utils_legacy_utilities_model_tests)
+
 # Indexed localization XML overlays are sparse and may repeat records, but no
 # record may reach the fixed legacy tables until every index and text payload
 # has parsed successfully. Keep those rules executable without Expat or JA2.
