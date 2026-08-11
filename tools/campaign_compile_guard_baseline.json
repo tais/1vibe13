@@ -21,7 +21,6 @@
     "Strategic/PreBattle Interface.cpp": 2,
     "Strategic/Strategic Status.cpp": 1,
     "Strategic/Town Militia.cpp": 1,
-    "Strategic/mapscreen.cpp": 12,
     "Strategic/strategic.cpp": 2,
     "Tactical/Campaign.cpp": 6,
     "Tactical/Civ Quotes.cpp": 5,
@@ -44,5 +43,5 @@
     "TileEngine/Radar Screen.cpp": 1
   },
   "schema": 1,
-  "total": 120
+  "total": 108
 }

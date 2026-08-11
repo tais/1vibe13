@@ -38,6 +38,11 @@ Tactical door forcing, failed-lock feedback, and the UB tunnel-gate side effect
 now use `CampaignDoorPolicy`. Arulco retains the boot-door AP cost and
 ordinary force/curse paths, while UB retains its open-door AP cost and tunnel
 quote semantics in the same compiled implementation.
+The strategic map screen now uses `CampaignMapScreenPolicy`: Arulco retains
+its meanwhile-scene polling, while UB retains Jerry Milo's opening, full-load,
+no-mercenary, and time-compression guidance, custom-map regeneration,
+strategic-AI update, and helicopter-crash loss path in the same compiled
+implementation.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -144,14 +149,14 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 120 active conditionals in 42
+milestone its per-file baseline contains 108 active conditionals in 41
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 10 |
 | Tactical gameplay/content | 44 |
-| Strategic gameplay/content | 48 |
+| Strategic gameplay/content | 36 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
@@ -172,7 +177,9 @@ controls use `CampaignAimSitePolicy`. Email, insurance, and shipment notices
 use `CampaignLaptopCommunicationsPolicy`; file-viewer and history content uses
 `CampaignLaptopContentPolicy`. Door forcing and tunnel feedback use
 `CampaignDoorPolicy`, so `Tactical/Handle Doors.cpp` no longer contributes
-eight compiled branches to the tail. All eight policies are guarded by
+eight compiled branches to the tail. Strategic-map lifecycle and guidance use
+`CampaignMapScreenPolicy`, so `Strategic/mapscreen.cpp` no longer contributes
+twelve compiled branches to the tail. All nine policies are guarded by
 data-free headless tests plus named architecture checks. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
@@ -190,7 +197,6 @@ The largest individual legacy leaves are:
 
 | File | Conditionals |
 | --- | ---: |
-| `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
 | `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |

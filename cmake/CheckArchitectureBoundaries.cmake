@@ -302,6 +302,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
@@ -345,6 +346,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
   "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
   "${SOURCE_ROOT}/Strategic/Player Command.cpp"
   "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
@@ -626,31 +628,124 @@ foreach(required_campaign_door_policy_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Strategic-map guidance and campaign hooks are selected from the live
+# capability set. Both paths must remain compiled in every host, and the
+# twelve retired mapscreen JA2UB guards must not return.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
+  runtime_campaign_map_screen_policy_contents)
+foreach(required_campaign_map_screen_policy_fragment IN ITEMS
+    "class CampaignMapScreenPolicy"
+    "usesUnfinishedBusinessMapRules"
+    "usesJerryMiloGuidance"
+    "shouldRebuildCustomMapList"
+    "shouldPumpJerryMiloQuotes"
+    "hasMeanwhileScenes"
+    "runsUnfinishedBusinessStrategicAi"
+    "shouldCheckHelicopterCampaignLoss")
+  string(FIND "${runtime_campaign_map_screen_policy_contents}"
+    "${required_campaign_map_screen_policy_fragment}"
+    required_campaign_map_screen_policy_position)
+  if(required_campaign_map_screen_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign map-screen policy lost '${required_campaign_map_screen_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  runtime_campaign_map_screen_source_contents)
+foreach(required_campaign_map_screen_source_fragment IN ITEMS
+    "#include \"CampaignMapScreenPolicy.h\""
+    "CampaignMapScreenPolicy campaignPolicy("
+    "campaignPolicy.usesUnfinishedBusinessMapRules() &&"
+    "campaignPolicy.usesJerryMiloGuidance()"
+    "campaignPolicy.shouldRebuildCustomMapList("
+    "campaignPolicy.shouldPumpJerryMiloQuotes("
+    "campaignPolicy.hasMeanwhileScenes()"
+    "campaignPolicy.runsUnfinishedBusinessStrategicAi()"
+    "campaignPolicy.shouldCheckHelicopterCampaignLoss("
+    "HandleWhenPlayerHasNoMercsAndNoLaptop()")
+  string(FIND "${runtime_campaign_map_screen_source_contents}"
+    "${required_campaign_map_screen_source_fragment}"
+    required_campaign_map_screen_source_position)
+  if(required_campaign_map_screen_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign map-screen integration lost '${required_campaign_map_screen_source_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_map_screen_source_contents}" "JA2UB"
+  retired_campaign_map_screen_guard_position)
+if(NOT retired_campaign_map_screen_guard_position EQUAL -1)
+  message(FATAL_ERROR
+    "Strategic map-screen behavior regained compiled JA2UB identity")
+endif()
+
+foreach(required_campaign_map_screen_test_manifest_fragment IN ITEMS
+    "campaign_map_screen_policy_tests.cpp"
+    "campaign_map_screen_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_map_screen_test_manifest_fragment}"
+    required_campaign_map_screen_test_manifest_position)
+  if(required_campaign_map_screen_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign map-screen policy lost its data-free test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_map_screen_policy_tests"
+  required_campaign_map_screen_policy_ci_position)
+if(required_campaign_map_screen_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime campaign map-screen policy target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_map_screen_policy_tests.cpp"
+  runtime_campaign_map_screen_policy_test_contents)
+foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
+    "only UB enables Jerry Milo map guidance"
+    "only Arulco checks for meanwhile scenes on the map screen"
+    "UB rebuilds custom maps exactly when requested"
+    "UB pumps Jerry Milo quotes exactly when enabled"
+    "UB checks campaign loss exactly after its helicopter crash")
+  string(FIND "${runtime_campaign_map_screen_policy_test_contents}"
+    "${required_campaign_map_screen_policy_test_fragment}"
+    required_campaign_map_screen_policy_test_position)
+  if(required_campaign_map_screen_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign map-screen policy coverage lost '${required_campaign_map_screen_policy_test_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
-  runtime_campaign_door_status_contents)
-foreach(required_campaign_door_status_fragment IN ITEMS
-    "120 active conditionals in 42"
+  runtime_campaign_status_contents)
+foreach(required_campaign_status_fragment IN ITEMS
+    "108 active conditionals in 41"
     "Laptop content/pages | 10"
     "Tactical gameplay/content | 44"
+    "Strategic gameplay/content | 36"
     "CampaignDoorPolicy"
-    "All eight policies")
-  string(FIND "${runtime_campaign_door_status_contents}"
-    "${required_campaign_door_status_fragment}"
-    required_campaign_door_status_position)
-  if(required_campaign_door_status_position EQUAL -1)
+    "CampaignMapScreenPolicy"
+    "All nine policies")
+  string(FIND "${runtime_campaign_status_contents}"
+    "${required_campaign_status_fragment}"
+    required_campaign_status_position)
+  if(required_campaign_status_position EQUAL -1)
     message(FATAL_ERROR
-      "Campaign runtime status lost '${required_campaign_door_status_fragment}'")
+      "Campaign runtime status lost '${required_campaign_status_fragment}'")
   endif()
 endforeach()
 file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
-  runtime_campaign_door_architecture_contents)
-string(FIND "${runtime_campaign_door_architecture_contents}"
-  "Tactical door behavior now selects through the value-only"
-  required_campaign_door_architecture_position)
-if(required_campaign_door_architecture_position EQUAL -1)
-  message(FATAL_ERROR
-    "Engine architecture lost the runtime tactical-door decision record")
-endif()
+  runtime_campaign_architecture_contents)
+foreach(required_campaign_architecture_fragment IN ITEMS
+    "Tactical door behavior now selects through the value-only"
+    "The strategic map screen now selects campaign behavior")
+  string(FIND "${runtime_campaign_architecture_contents}"
+    "${required_campaign_architecture_fragment}"
+    required_campaign_architecture_position)
+  if(required_campaign_architecture_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine architecture lost '${required_campaign_architecture_fragment}'")
+  endif()
+endforeach()
 
 # Dealer and shopkeeper behavior uses a typed runtime identity because raw
 # save/XML slots 5-18 have different meanings in the two campaign rosters.
