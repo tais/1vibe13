@@ -71,6 +71,8 @@
 #include "XMLWriter.h"
 #include "Utilities.h"
 #include "Button System.h"
+#include "Cursor Control.h"
+#include "Cursors.h"
 #include "message.h"
 #include "video.h"
 #include "vobject.h"
@@ -20923,7 +20925,103 @@ int main( int, char** )
 		       "framebuffer ownership exposes the expected legacy lock view" );
 		CHECK( LockBackBuffer( &backPitch ) != NULL && backPitch == SCREEN_WIDTH * sizeof( PIXEL ),
 		       "backbuffer ownership exposes the expected legacy lock view" );
-		if ( InitializeVideoObjectManager() )  std::printf( "ok    InitializeVideoObjectManager()\n" );
+		if ( InitializeVideoObjectManager() )
+		{
+			std::printf( "ok    InitializeVideoObjectManager()\n" );
+			InitCursors();
+			gsGlobalCursorYOffset = 17;
+			RaiseMouseToLevel(-1);
+			RaiseMouseToLevel(2);
+			const bool invalidLevelsPreservedOffset =
+				gsGlobalCursorYOffset == 17;
+			RaiseMouseToLevel(MOUSE_LEVEL_ROOF);
+			CHECK(invalidLevelsPreservedOffset && gsGlobalCursorYOffset == 50,
+				"cursor gateway rejects negative and exact-end mouse levels without publication");
+			UpdateAnimatedCursorFrames(NUM_CURSORS);
+			SetCursorSpecialFrame(NUM_CURSORS, 1);
+			SetCursorFlags(NUM_CURSORS, CURSOR_TO_FLASH);
+			RemoveCursorFlags(NUM_CURSORS, CURSOR_TO_FLASH);
+			UnloadCursorData(NUM_CURSORS);
+			RemoveExternVOData(NUM_CURSORS);
+			CHECK(!LoadCursorData(NUM_CURSORS) &&
+				!SetCurrentCursorFromDatabase(NUM_CURSORS) &&
+				!SetExternVOData(NUM_CURSORS, nullptr, 0) &&
+				GetCursorFileVideoObject(NUM_CURSOR_FILES) == nullptr,
+				"cursor gateways reject exact-end catalogue IDs before array or resource access");
+			CursorFileData missingCursorFiles[2]{};
+			ETRLEObject borrowedCursorRegion{};
+			borrowedCursorRegion.usWidth = 1;
+			borrowedCursorRegion.usHeight = 1;
+			SGPVObject borrowedCursorObject{};
+			borrowedCursorObject.pETRLEObject = &borrowedCursorRegion;
+			borrowedCursorObject.usNumberOfObjects = 1;
+			ETRLEObject replacementCursorRegion{};
+			replacementCursorRegion.usWidth = 2;
+			replacementCursorRegion.usHeight = 2;
+			SGPVObject replacementCursorObject{};
+			replacementCursorObject.pETRLEObject = &replacementCursorRegion;
+			replacementCursorObject.usNumberOfObjects = 1;
+			CursorFileData animatedCursorFiles[1]{};
+			animatedCursorFiles[0].ubFlags =
+				USE_EXTERN_VO_CURSOR | ANIMATED_CURSOR;
+			animatedCursorFiles[0].ubNumberOfFrames = 1;
+			animatedCursorFiles[0].hVObject = &borrowedCursorObject;
+			CursorData animatedCursors[1]{};
+			animatedCursors[0].Composites[0].uiFileIndex = 0;
+			animatedCursors[0].Composites[0].uiCurrentFrame =
+				std::numeric_limits<UINT32>::max();
+			animatedCursors[0].usNumComposites = 1;
+			InitCursorDatabase(animatedCursorFiles, animatedCursors, 1, 1);
+			CHECK(LoadCursorData(0) &&
+				animatedCursors[0].Composites[0].uiCurrentFrame == 0,
+				"cursor loads normalize stale animated frames before 16-bit subimage selection");
+			CursorDatabaseClear();
+			CHECK(!animatedCursorFiles[0].fLoaded &&
+				animatedCursorFiles[0].hVObject == nullptr,
+				"cursor database clear drops borrowed references without destroying them");
+			missingCursorFiles[0].ubFlags = USE_EXTERN_VO_CURSOR;
+			missingCursorFiles[0].hVObject = &borrowedCursorObject;
+			missingCursorFiles[0].fLoaded = TRUE;
+			std::strncpy(
+				reinterpret_cast<char*>(missingCursorFiles[1].ubFilename),
+				"HEADLESS/CURSOR-ASSET-DOES-NOT-EXIST.sti",
+				sizeof(missingCursorFiles[1].ubFilename) - 1);
+			CursorData missingCursors[1]{};
+			missingCursors[0].Composites[0].uiFileIndex = 0;
+			missingCursors[0].Composites[1].uiFileIndex = 1;
+			missingCursors[0].usNumComposites = 2;
+			missingCursors[0].usWidth = 7;
+			missingCursors[0].usHeight = 9;
+			InitCursorDatabase(missingCursorFiles, missingCursors, 2, 1);
+			gsCurMouseOffsetX = 3;
+			gsCurMouseOffsetY = 4;
+			gsCurMouseWidth = 11;
+			gsCurMouseHeight = 12;
+			CHECK(!SetExternVOData(0, &replacementCursorObject, 0) &&
+				missingCursorFiles[0].fLoaded &&
+				missingCursorFiles[0].hVObject == &borrowedCursorObject &&
+				missingCursors[0].Composites[0].uiSubIndex == 0 &&
+				!missingCursorFiles[1].fLoaded &&
+				missingCursorFiles[1].hVObject == nullptr &&
+				missingCursors[0].usWidth == 7 &&
+				missingCursors[0].usHeight == 9 &&
+				gsCurMouseOffsetX == 3 && gsCurMouseOffsetY == 4 &&
+				gsCurMouseWidth == 11 && gsCurMouseHeight == 12,
+				"borrowed cursor replacement rolls back when a companion asset fails");
+			CHECK(!SetCurrentCursorFromDatabase(0) &&
+				missingCursorFiles[0].fLoaded &&
+				!missingCursorFiles[1].fLoaded &&
+				missingCursorFiles[0].hVObject == &borrowedCursorObject &&
+				missingCursorFiles[1].hVObject == nullptr &&
+				missingCursors[0].usWidth == 7 &&
+				missingCursors[0].usHeight == 9 &&
+				gsCurMouseOffsetX == 3 && gsCurMouseOffsetY == 4 &&
+				gsCurMouseWidth == 11 && gsCurMouseHeight == 12,
+				"missing cursor assets fail without publishing or dereferencing a partial load");
+			InitCursors();
+			CHECK(!missingCursorFiles[0].fLoaded,
+				"cursor database replacement retires the previous cache lifetime");
+		}
 		if ( InitializeVideoSurfaceManager() ) std::printf( "ok    InitializeVideoSurfaceManager()\n" );
 		ShutdownVideoManager();
 		CHECK( LockFrameBuffer( NULL ) == NULL && LockBackBuffer( NULL ) == NULL,

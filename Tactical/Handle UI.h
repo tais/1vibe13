@@ -1,6 +1,8 @@
 #ifndef _HANDLE_UI_
 #define _HANDLE_UI_
 
+#include <cstddef>
+
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "input.h"
@@ -248,7 +250,8 @@ typedef struct
 
 extern CTHDISPLAY gCTHDisplay;
 // HEADROCK HAM B1/2: Multiple-bullet CTH bar array (replaces old single integer)
-extern UINT8		gbCtH[ 10 ];
+inline constexpr std::size_t CTH_BURST_SAMPLE_CAPACITY = 10;
+extern UINT8		gbCtH[ CTH_BURST_SAMPLE_CAPACITY ];
 extern UINT8		gbCtHBurstCount;
 // HEADROCK HAM B2: Track autofire on/off
 extern BOOLEAN		gbCtHAutoFire;

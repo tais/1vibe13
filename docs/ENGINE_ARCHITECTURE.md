@@ -1340,10 +1340,19 @@ the engine must not contain SDL types in its public domain model.
   files, and publishes a COL palette only after an exact complete read. Dead
   Win9x/demo/CD branches and the uncompiled DirectSound-era `Win Util` pair are
   retired. Dependency-free model tests and real-FileMan palette rollback tests
-  pin that compatibility boundary. The remaining 1 Utils translation unit is
-  deliberately still tracked as
-  unaudited; the detailed
-  findings, inventory, and next priority order live in
+  pin that compatibility boundary. `CursorStateModel` now keeps cursor IDs,
+  NCTH surface selection, animation, flashing, mouse levels, AP shades, and CTH
+  bar geometry dependency-free. The legacy cursor catalogue has compile-time
+  enum/cardinality checks; its production adapter validates every catalogue,
+  video-object, and subimage boundary, stages geometry before publication, owns
+  temporary image loads with RAII, rolls back newly acquired surfaces, and
+  propagates missing-asset failures. Chance bars clamp their ten-sample source
+  and clip signed coordinates to the fixed mouse surface. SDL3 window and
+  native cursor-buffer ownership stay below this layer in `sdl_video.cpp`.
+  Focused model and real headless failure-path tests run under ASan. With this
+  final slice, every Utils translation unit has received the ownership, bounds,
+  and failure-path audit; no unaudited Utils inventory remains. The detailed
+  findings and enforced compatibility constraints live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
   visual layout, XML schema, and gameplay behavior remain unchanged.
 - A.I.M. page resources now cross one transactional ownership boundary.

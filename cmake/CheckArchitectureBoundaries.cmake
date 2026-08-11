@@ -5452,6 +5452,184 @@ foreach(required_utils_indexed_xml_documentation_fragment IN ITEMS
   endif()
 endforeach()
 
+# Cursor selection and rendering geometry stay data-free while the concrete
+# legacy gateway owns lazy image resources and validates every raw catalogue
+# boundary before touching SDL3's fixed-capacity cursor storage.
+file(READ "${SOURCE_ROOT}/Utils/CursorStateModel.h"
+  runtime_utils_cursor_model_contents)
+foreach(required_utils_cursor_model_fragment IN ITEMS
+    "ResolveSurface"
+    "NextAnimationFrame"
+    "AdvanceFlash"
+    "TrySelectMouseLevelOffset"
+    "BoundedCount"
+    "OneBasedIndex"
+    "ComputeChanceBarGeometry"
+    "ChanceBarFillPixels"
+    "ClampToInt"
+    "PixelOffset")
+  string(FIND "${runtime_utils_cursor_model_contents}"
+    "${required_utils_cursor_model_fragment}"
+    required_utils_cursor_model_position)
+  if(required_utils_cursor_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor state model lost '${required_utils_cursor_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Cursors.cpp"
+  runtime_utils_cursor_contents)
+foreach(required_utils_cursor_fragment IN ITEMS
+    "static_assert(std::size(CursorFileDatabase) == NUM_CURSOR_FILES"
+    "static_assert(std::size(CursorDatabase) == NUM_CURSORS"
+    "CursorStateModel::TrySelectMouseLevelOffset"
+    "CursorStateModel::ResolveSurface"
+    "CursorStateModel::NextAnimationFrame"
+    "CursorStateModel::AdvanceFlash"
+    "CursorStateModel::BoundedCount"
+    "CursorStateModel::PixelOffset"
+    "class MouseBufferLock"
+    "MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT"
+    "mprintf( sX, sY + 12, L\"%ls\", gzLocation )")
+  string(FIND "${runtime_utils_cursor_contents}"
+    "${required_utils_cursor_fragment}"
+    required_utils_cursor_position)
+  if(required_utils_cursor_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor boundary lost '${required_utils_cursor_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_cursor_fragment IN ITEMS
+    "gsMouseGlobalYOffsets[ bLevel ]"
+    "ptrBuf["
+    "gbCtH[ i ]"
+    "pCurImage->uiCurrentFrame++"
+    "mprintf( sX, sY + 12, gzLocation )"
+    "SDL_"
+    "#ifdef _WIN32")
+  string(FIND "${runtime_utils_cursor_contents}"
+    "${retired_utils_cursor_fragment}"
+    retired_utils_cursor_position)
+  if(NOT retired_utils_cursor_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor path restored unsafe/platform-coupled '${retired_utils_cursor_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/UI Cursors.cpp"
+  runtime_tactical_cursor_producer_contents)
+foreach(required_tactical_cursor_producer_fragment IN ITEMS
+    "gbCtHBurstCount > CTH_BURST_SAMPLE_CAPACITY"
+    "CTH_BURST_SAMPLE_CAPACITY);")
+  string(FIND "${runtime_tactical_cursor_producer_contents}"
+    "${required_tactical_cursor_producer_fragment}"
+    required_tactical_cursor_producer_position)
+  if(required_tactical_cursor_producer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical CTH producer lost '${required_tactical_cursor_producer_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/sgp/Cursor Control.cpp"
+  runtime_sgp_cursor_gateway_contents)
+foreach(required_sgp_cursor_gateway_fragment IN ITEMS
+    "gusNumCursorData"
+    "using ImageOwner"
+    "class CursorFileLoadTransaction"
+    "HasValidCompositeCount"
+    "TryGetRegion"
+    "if (gfCursorDatabaseInit) CursorDatabaseClear()"
+    "CursorData stagedCursor"
+    "guiOldSetCursor = VIDEO_NO_CURSOR"
+    "if (!LoadCursorData(uiCursorIndex)) return FALSE"
+    "const CursorData cursorSnapshot = cursor"
+    "gpCursorFileDatabase[snapshot.index] = snapshot.value")
+  string(FIND "${runtime_sgp_cursor_gateway_contents}"
+    "${required_sgp_cursor_gateway_fragment}"
+    required_sgp_cursor_gateway_position)
+  if(required_sgp_cursor_gateway_position EQUAL -1)
+    message(FATAL_ERROR
+      "SGP cursor resource gateway lost '${required_sgp_cursor_gateway_fragment}'")
+  endif()
+endforeach()
+foreach(retired_sgp_cursor_gateway_fragment IN ITEMS
+    "pETRLEObject[ usVideoObjectSubIndex ]"
+    "UnLoadCursorData"
+    "DestroyImage( hImage )"
+    "SDL_")
+  string(FIND "${runtime_sgp_cursor_gateway_contents}"
+    "${retired_sgp_cursor_gateway_fragment}"
+    retired_sgp_cursor_gateway_position)
+  if(NOT retired_sgp_cursor_gateway_position EQUAL -1)
+    message(FATAL_ERROR
+      "SGP cursor gateway restored unchecked ownership/platform path '${retired_sgp_cursor_gateway_fragment}'")
+  endif()
+endforeach()
+
+foreach(utils_cursor_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_cursor_test_manifest}}"
+    "utils_cursor_state_model_tests" required_utils_cursor_test_position)
+  if(required_utils_cursor_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/utils_cursor_state_model_tests.cpp"
+  runtime_utils_cursor_model_test_contents)
+foreach(required_utils_cursor_model_test_fragment IN ITEMS
+    "cursor indices reject negative, exact-end, and oversized values"
+    "cursor surface selection round-trips legacy and NCTH families"
+    "animation frames wrap stale and zero-frame metadata safely"
+    "mouse levels reject negative and exact-end values without publication"
+    "chance-bar geometry stays signed and clips every fixed-buffer write"
+    "chance-bar arithmetic saturates coordinates and avoids size overflow"
+    "chance-bar shot counts clamp to the CTH sample capacity"
+    "flash transitions preserve sound-on-visible-frame behavior"
+    "one-based AP shades clamp oversized requests")
+  string(FIND "${runtime_utils_cursor_model_test_contents}"
+    "${required_utils_cursor_model_test_fragment}"
+    required_utils_cursor_model_test_position)
+  if(required_utils_cursor_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor model tests lost '${required_utils_cursor_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_cursor_headless_fragment IN ITEMS
+    "cursor gateway rejects negative and exact-end mouse levels without publication"
+    "cursor gateways reject exact-end catalogue IDs before array or resource access"
+    "cursor loads normalize stale animated frames before 16-bit subimage selection"
+    "cursor database clear drops borrowed references without destroying them"
+    "borrowed cursor replacement rolls back when a companion asset fails"
+    "missing cursor assets fail without publishing or dereferencing a partial load"
+    "cursor database replacement retires the previous cache lifetime")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_utils_cursor_headless_fragment}"
+    required_utils_cursor_headless_position)
+  if(required_utils_cursor_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor headless coverage lost '${required_utils_cursor_headless_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
+  runtime_utils_cursor_walkthrough_contents)
+foreach(required_utils_cursor_documentation_fragment IN ITEMS
+    "Cursor state and resource boundary"
+    "CursorStateModel.h"
+    "fixed 64-by-64"
+    "explicitly borrowed"
+    "sdl_video.cpp"
+    "No unaudited Utils inventory remains")
+  string(FIND "${runtime_utils_cursor_walkthrough_contents}"
+    "${required_utils_cursor_documentation_fragment}"
+    required_utils_cursor_documentation_position)
+  if(required_utils_cursor_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cursor walkthrough lost '${required_utils_cursor_documentation_fragment}'")
+  endif()
+endforeach()
+
 # Shared media adapters keep callback incarnation, clipped frame geometry, PCM
 # narrowing, volume, and fixed-slot rules dependency-free. The concrete legacy
 # gateways must validate before touching arrays/opaque handles and release
@@ -6357,8 +6535,8 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "production reader through"
     "authored nonzero-class item"
     "invalid UTF-8"
-    "Remaining Utils inventory"
-    "following 1 translation unit"
+    "Utils audit completion"
+    "No unaudited Utils inventory remains"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
     "same-directory sibling"
@@ -6396,7 +6574,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "encrypted text-record"
     "ImageUtilityModel"
     "LegacyUtilitiesModel"
-    "remaining 1 Utils"
+    "CursorStateModel"
+    "no unaudited Utils inventory remains"
     "all four 64-bit masks exact"
     "installed-data"
     "exact representable inverse"

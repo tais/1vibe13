@@ -258,7 +258,7 @@ BOOLEAN		gfUICtHBar;
 // HEADROCK HAM 4: A new Struct to contain all CTH display data
 CTHDISPLAY gCTHDisplay;
 // HEADROCK HAM B1/2: Created an array to hold CTH of different bullets for Burst/Auto CTH Bar.
-UINT8		gbCtH[ 10 ];
+UINT8		gbCtH[ CTH_BURST_SAMPLE_CAPACITY ];
 UINT8		gbCtHBurstCount;
 // HEADROCK HAM B2: This value tracks whether Autofire mode is selected. This value may be redundant... not sure.
 BOOLEAN		gbCtHAutoFire;

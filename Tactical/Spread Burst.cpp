@@ -245,9 +245,6 @@ void AIPickBurstLocations( TacticalActor *pSoldier, INT8 bTargets, TacticalActor
 }
 
 
-extern HVOBJECT GetCursorFileVideoObject( UINT32 uiCursorFile );
-
-
 void RenderAccumulatedBurstLocations( )
 {
 	INT32			cnt;

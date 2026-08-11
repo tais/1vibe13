@@ -1,6 +1,9 @@
 #ifndef __CURSORS_H
 #define __CURSORS_H
 
+#include "types.h"
+#include "vobject.h"
+
 // INDIVIDUAL CURSORS
 
 typedef enum
@@ -191,7 +194,8 @@ typedef enum
 		
 	CURSOR_FUEL,
 	CURSOR_FUEL_RED,
-		
+
+	NUM_CURSORS
 } CursorTypeDefines;
 
 typedef enum
@@ -308,7 +312,6 @@ void RaiseMouseToLevel( INT8 bLevel );
 void InitCursors( );
 void HandleAnimatedCursors( );
 
-void DrawMouseActionPoints( );
 void UpdateAnimatedCursorFrames( UINT32 uiCursorIndex );
 
 void SetCursorSpecialFrame( UINT32 uiCursor, UINT8 ubFrame );
@@ -317,5 +320,6 @@ void SetCursorFlags( UINT32 uiCursor, UINT8 ubFlags );
 
 void RemoveCursorFlags( UINT32 uiCursor, UINT8 ubFlags );
 
+HVOBJECT GetCursorFileVideoObject( UINT32 uiCursorFile );
 
 #endif

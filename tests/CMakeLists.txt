@@ -241,6 +241,15 @@ target_include_directories(utils_ui_state_model_tests
 add_test(NAME utils_ui_state_model
   COMMAND utils_ui_state_model_tests)
 
+# Cursor catalogue selection, animation, flashing, mouse levels, and chance-bar
+# geometry must remain safe without loading SDL, SGP, tactical state, or assets.
+add_executable(utils_cursor_state_model_tests
+  utils_cursor_state_model_tests.cpp)
+target_include_directories(utils_cursor_state_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_cursor_state_model
+  COMMAND utils_cursor_state_model_tests)
+
 # Shared message, localization, and fixed-buffer text paths need the same
 # negative/exact-end, capacity, serialization, and lazy-load rules in every
 # host. Keep those rules independently executable and data-free.

@@ -521,14 +521,56 @@ matrix compiles this common code once for JA2, UB, and editor hosts, and the
 architecture audit prevents platform/parser forks or compiled campaign
 identity from returning.
 
-## Remaining Utils inventory
+## Cursor state and resource boundary
 
-The following 1 translation unit is compiled and covered by the general
-build/test matrix, but has not yet received this same line-by-line ownership,
-bounds, and failure-path audit:
+`CursorStateModel.h` is the dependency-free contract for cursor IDs, legacy and
+NCTH surface-family selection, animation/frame wrapping, flashing, mouse-level
+offsets, AP-shade selection, bounded CTH sample counts, and signed chance-bar
+geometry. `Cursors.cpp` now consumes that contract while retaining the exact
+cursor enum order, resource paths, composite catalogue, hotspots, animation
+cadence, flash sound timing, and valid-input chance-bar layout. Compile-time
+cardinality checks keep both mutable legacy catalogues aligned with their
+public enums.
 
-- Input control: `Cursors.cpp`.
+The audit closed several unchecked fixed-array paths. Negative and exact-end
+mouse levels no longer index the two-level offset table; foreign and exact-end
+cursor/surface IDs are rejected by every animator and mutator. Animated
+surfaces recover from zero or stale frame metadata instead of incrementing or
+narrowing a foreign frame into a valid subimage. The tactical producer and CTH
+renderer clamp the shot count to `gbCtH[10]`, keep all coordinate arithmetic
+signed and overflow-safe, clip every write to the fixed 64-by-64 mouse surface,
+and treat a missing/invalid lock as a contained failure. The same scoped lock
+balances every successful mouse-buffer borrow. Localized location labels are
+now data arguments rather than `printf` format strings, and oversized AP-shade
+requests clamp to the established final red shade.
 
-The remaining cursor translation unit is the final Utils audit slice.
+The generic SGP cursor adapter now receives both catalogue capacities. It
+validates cursor, composite, file, video-object, subimage, frame-count, and
+surface-size boundaries before dereference. Temporary `HIMAGE` ownership is
+RAII-managed, so a failed video-object creation cannot leak it; a failed asset
+load is returned to the caller instead of being ignored and followed by a null
+dereference. Cursor geometry is staged and published only after every
+composite validates. Surfaces newly acquired by a failed composite load roll
+back in reverse order; successfully committed surfaces remain owned by the
+database cache until `CursorDatabaseClear`. External video objects remain
+explicitly borrowed; replacement rolls back if a companion asset fails, and a
+borrowed pointer is marked unloaded before it is removed without evicting
+regular companion assets. A full database clear drops every borrowed reference
+without attempting to destroy its externally owned object.
+Database replacement first retires the prior cache; initialization and clearing
+also reset active geometry and delayed-cursor bookkeeping, so a new lifetime
+cannot inherit stale presentation state.
+
+This layer contains no SDL or operating-system cursor calls. It consumes the
+legacy video lock/blit interface; `sdl_video.cpp` alone owns the SDL3 window and
+the fixed-capacity native-pixel cursor storage. Focused model coverage and the
+real headless gateway fixture run in normal CTest and the Linux AddressSanitizer
+matrix. The latter proves negative/exact-end inputs and a missing cursor asset
+through production initialization and teardown.
+
+## Utils audit completion
+
+All Utils translation units have now received the line-by-line ownership,
+bounds, and failure-path audit. No unaudited Utils inventory remains.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.
