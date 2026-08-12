@@ -7252,11 +7252,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"退出帮助屏幕",
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"战斗正在进行中，你只能在战术屏幕进行撤退。",

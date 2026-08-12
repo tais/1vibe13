@@ -4,7 +4,7 @@
 #include "Cursors.h"
 #include "Font Control.h"
 #include "Render Dirty.h"
-#include	"Text.h"
+#include "TextCatalog.h"
 #include	"Utilities.h"
 #include	"WordWrap.h"
 #include "HelpScreen.h"
@@ -575,7 +575,8 @@ BOOLEAN EnterHelpScreen()
 														TEXT_CJUSTIFIED,
 														usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
 														DEFAULT_MOVE_CALLBACK, BtnHelpScreenExitCallback );
-	SetButtonFastHelpText( guiHelpScreenExitBtn, gzHelpScreenText[HLP_SCRN_TXT__EXIT_SCREEN] );
+	SetButtonFastHelpText(guiHelpScreenExitBtn,
+		i18n::GetCompiledTextPack().text(i18n::TextKey::HelpScreenExit).data());
 	SetButtonCursor( guiHelpScreenExitBtn, gHelpScreen.usCursor);
 
 

@@ -7260,11 +7260,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Zamknij okno pomocy",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"Trwa walka. Najemników można wycofać tylko na ekranie taktycznym.",

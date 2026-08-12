@@ -11,9 +11,9 @@
 
 namespace i18n
 {
-// Runtime text-pack domains deliberately begin with immutable, one-entry
-// Laptop labels. New domains should add typed keys instead of exposing another
-// mutable process-global string table.
+// Runtime text-pack domains deliberately begin with immutable, one-entry UI
+// labels. New domains should add typed keys instead of exposing another mutable
+// process-global string table.
 enum class TextKey
 {
 	PersonnelTitle,
@@ -22,8 +22,12 @@ enum class TextKey
 	FilesTitle,
 	HistoryTitle,
 	AimLinksTitle,
+	HelpScreenExit,
 	count
 };
+
+static_assert(static_cast<std::size_t>(TextKey::HelpScreenExit) == 6,
+	"New TextKey entries append without renumbering published key ordinals");
 
 struct TextKeyDescriptor
 {
@@ -41,6 +45,7 @@ inline constexpr std::array<TextKeyDescriptor,
 	{TextKey::FilesTitle, "laptop.files.title", L"FilesTitle", false},
 	{TextKey::HistoryTitle, "laptop.history.title", L"HistoryTitle", false},
 	{TextKey::AimLinksTitle, "laptop.aim.links.title", L"AimLink", false},
+	{TextKey::HelpScreenExit, "help.screen.exit", L"HelpScreen", false},
 }};
 
 constexpr auto FindTextKey(TextKey key) noexcept

@@ -7246,11 +7246,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Esci dalla schermata di aiuto",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"È in corso una battaglia. Potete solo ritirarvi dalla schermata delle tattiche.",

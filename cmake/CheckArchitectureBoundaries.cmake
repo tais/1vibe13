@@ -132,9 +132,9 @@ file(READ "${SOURCE_ROOT}/i18n/include/Text.h" legacy_text_header_contents)
 string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
   legacy_text_declarations "${legacy_text_header_contents}")
 list(LENGTH legacy_text_declarations legacy_text_declaration_count)
-if(NOT legacy_text_declaration_count EQUAL 479)
+if(NOT legacy_text_declaration_count EQUAL 478)
   message(FATAL_ERROR
-    "The first two TextCatalog domains must leave exactly 479 legacy Text.h externs, found ${legacy_text_declaration_count}")
+    "The first three TextCatalog domains must leave exactly 478 legacy Text.h externs, found ${legacy_text_declaration_count}")
 endif()
 file(READ "${SOURCE_ROOT}/i18n/include/_Ja25EnglishText.h"
   legacy_ja25_text_header_contents)
@@ -161,14 +161,15 @@ foreach(required_i18n_test_fragment IN ITEMS
   endif()
 endforeach()
 
-# The first two domain migrations own six immutable one-entry Laptop labels.
-# All 48 translated definitions move together, every runtime/exporter consumer
+# The first three domain migrations own seven immutable one-entry UI labels.
+# All 56 translated definitions move together, every runtime/exporter consumer
 # enters through the validated pack, and no legacy declaration remains to
 # provide an accidental linker fallback.
 foreach(required_text_catalog_header_fragment IN ITEMS
     "enum class TextKey"
     "struct TextKeyDescriptor"
     "HasValidTextKeySchema"
+    "static_cast<std::size_t>(TextKey::HelpScreenExit) == 6"
     "englishFallbackAllowed"
     "enum class TextFallbackPolicy"
     "EnglishForOptionalKeys"
@@ -203,13 +204,14 @@ foreach(required_text_catalog_source_fragment IN ITEMS
   endif()
 endforeach()
 
-set(migrated_laptop_text_globals
+set(migrated_text_globals
   pPersonnelTitle
   pEmailTitleText
   pFinanceTitle
   pFilesTitle
   pHistoryTitle
-  AimLinkText)
+  AimLinkText
+  gzHelpScreenText)
 set(legacy_base_catalog_files
   _EnglishText.cpp
   _GermanText.cpp
@@ -219,53 +221,59 @@ set(legacy_base_catalog_files
   _FrenchText.cpp
   _ItalianText.cpp
   _ChineseText.cpp)
-foreach(migrated_laptop_text_global IN LISTS migrated_laptop_text_globals)
+foreach(migrated_text_global IN LISTS migrated_text_globals)
   if(legacy_text_header_contents MATCHES
-      "extern[ \t\r\n]+STR16[ \t\r\n]+${migrated_laptop_text_global}[ \t\r\n]*\\[")
+      "extern[ \t\r\n]+STR16[ \t\r\n]+${migrated_text_global}[ \t\r\n]*\\[")
     message(FATAL_ERROR
-      "Migrated Laptop text regained legacy declaration '${migrated_laptop_text_global}'")
+      "Migrated text regained legacy declaration '${migrated_text_global}'")
   endif()
   foreach(legacy_base_catalog_file IN LISTS legacy_base_catalog_files)
     file(READ "${SOURCE_ROOT}/i18n/${legacy_base_catalog_file}"
       legacy_base_catalog_contents)
     if(legacy_base_catalog_contents MATCHES
-        "STR16[ \t\r\n]+${migrated_laptop_text_global}[ \t\r\n]*\\[")
+        "STR16[ \t\r\n]+${migrated_text_global}[ \t\r\n]*\\[")
       message(FATAL_ERROR
-        "${legacy_base_catalog_file} regained migrated definition '${migrated_laptop_text_global}'")
+        "${legacy_base_catalog_file} regained migrated definition '${migrated_text_global}'")
     endif()
   endforeach()
 endforeach()
+if(legacy_text_header_contents MATCHES
+    "HLP_SCRN_TXT__EXIT_SCREEN|TEXT_NUM_HLP")
+  message(FATAL_ERROR
+    "Help-screen exit regained its retired one-entry legacy index constants")
+endif()
 
-set(migrated_laptop_text_consumers
+set(migrated_text_consumers
   "Laptop/personnel.cpp|pPersonnelTitle|PersonnelTitle|1"
   "Laptop/email.cpp|pEmailTitleText|EmailTitle|4"
   "Laptop/finances.cpp|pFinanceTitle|FinanceTitle|1"
   "Laptop/files.cpp|pFilesTitle|FilesTitle|1"
   "Laptop/history.cpp|pHistoryTitle|HistoryTitle|1"
-  "Laptop/AimLinks.cpp|AimLinkText|AimLinksTitle|1")
-foreach(migrated_laptop_text_consumer IN LISTS migrated_laptop_text_consumers)
-  string(REPLACE "|" ";" migrated_laptop_text_fields
-    "${migrated_laptop_text_consumer}")
-  list(GET migrated_laptop_text_fields 0 migrated_laptop_text_file)
-  list(GET migrated_laptop_text_fields 1 migrated_laptop_text_global)
-  list(GET migrated_laptop_text_fields 2 migrated_laptop_text_key)
-  list(GET migrated_laptop_text_fields 3 migrated_laptop_text_expected_count)
-  file(READ "${SOURCE_ROOT}/${migrated_laptop_text_file}"
-    migrated_laptop_text_consumer_contents)
-  if(migrated_laptop_text_consumer_contents MATCHES
-      "${migrated_laptop_text_global}")
+  "Laptop/AimLinks.cpp|AimLinkText|AimLinksTitle|1"
+  "Ja2/HelpScreen.cpp|gzHelpScreenText|HelpScreenExit|1")
+foreach(migrated_text_consumer IN LISTS migrated_text_consumers)
+  string(REPLACE "|" ";" migrated_text_fields
+    "${migrated_text_consumer}")
+  list(GET migrated_text_fields 0 migrated_text_file)
+  list(GET migrated_text_fields 1 migrated_text_global)
+  list(GET migrated_text_fields 2 migrated_text_key)
+  list(GET migrated_text_fields 3 migrated_text_expected_count)
+  file(READ "${SOURCE_ROOT}/${migrated_text_file}"
+    migrated_text_consumer_contents)
+  if(migrated_text_consumer_contents MATCHES
+      "${migrated_text_global}")
     message(FATAL_ERROR
-      "${migrated_laptop_text_file} regained direct '${migrated_laptop_text_global}' access")
+      "${migrated_text_file} regained direct '${migrated_text_global}' access")
   endif()
-  string(REGEX MATCHALL "TextKey::${migrated_laptop_text_key}"
-    migrated_laptop_text_key_uses
-    "${migrated_laptop_text_consumer_contents}")
-  list(LENGTH migrated_laptop_text_key_uses
-    migrated_laptop_text_actual_count)
-  if(NOT migrated_laptop_text_actual_count EQUAL
-      migrated_laptop_text_expected_count)
+  string(REGEX MATCHALL "TextKey::${migrated_text_key}"
+    migrated_text_key_uses
+    "${migrated_text_consumer_contents}")
+  list(LENGTH migrated_text_key_uses
+    migrated_text_actual_count)
+  if(NOT migrated_text_actual_count EQUAL
+      migrated_text_expected_count)
     message(FATAL_ERROR
-      "${migrated_laptop_text_file} must route exactly ${migrated_laptop_text_expected_count} '${migrated_laptop_text_key}' use(s), found ${migrated_laptop_text_actual_count}")
+      "${migrated_text_file} must route exactly ${migrated_text_expected_count} '${migrated_text_key}' use(s), found ${migrated_text_actual_count}")
   endif()
 endforeach()
 file(READ "${SOURCE_ROOT}/Laptop/AimLinks.cpp" aim_links_text_consumer_contents)
@@ -276,23 +284,33 @@ if(aim_links_text_consumer_contents MATCHES
   message(FATAL_ERROR
     "Aim Links must depend only on TextCatalog for its migrated text")
 endif()
+file(READ "${SOURCE_ROOT}/Ja2/HelpScreen.cpp"
+  help_screen_text_consumer_contents)
+if(help_screen_text_consumer_contents MATCHES
+    "#[ \t]*include[ \t]*[<\"]Text[.]h[>\"]" OR
+    NOT help_screen_text_consumer_contents MATCHES
+    "#[ \t]*include[ \t]*[<\"]TextCatalog[.]h[>\"]")
+  message(FATAL_ERROR
+    "Help screen must depend only on TextCatalog for its migrated exit label")
+endif()
 
-foreach(migrated_laptop_text_export IN ITEMS
-    PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle AimLinksTitle)
+foreach(migrated_text_export IN ITEMS
+    PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle AimLinksTitle
+    HelpScreenExit)
   if(export_strings_source_contents MATCHES
-      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText)")
+      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText)")
     message(FATAL_ERROR
-      "ExportStrings regained a legacy migrated Laptop-text global")
+      "ExportStrings regained a legacy migrated text global")
   endif()
   string(REGEX MATCHALL
-    "ExportTextPackEntry\\(props, i18n::TextKey::${migrated_laptop_text_export}\\)"
-    migrated_laptop_text_export_uses
+    "ExportTextPackEntry\\(props, i18n::TextKey::${migrated_text_export}\\)"
+    migrated_text_export_uses
     "${export_strings_source_contents}")
-  list(LENGTH migrated_laptop_text_export_uses
-    migrated_laptop_text_export_count)
-  if(NOT migrated_laptop_text_export_count EQUAL 1)
+  list(LENGTH migrated_text_export_uses
+    migrated_text_export_count)
+  if(NOT migrated_text_export_count EQUAL 1)
     message(FATAL_ERROR
-      "ExportStrings must publish '${migrated_laptop_text_export}' exactly once through TextPack")
+      "ExportStrings must publish '${migrated_text_export}' exactly once through TextPack")
   endif()
 endforeach()
 string(FIND "${export_strings_source_contents}" "Loc::AimPopUpText"
@@ -309,15 +327,33 @@ if(aim_popup_export_position EQUAL -1 OR aim_links_export_position EQUAL -1 OR
   message(FATAL_ERROR
     "Aim Links TextPack export must retain its legacy position between AimPopUp and AimHistory")
 endif()
+string(FIND "${export_strings_source_contents}" "Loc::gzLaptopHelpText"
+  laptop_help_export_position)
+string(FIND "${export_strings_source_contents}"
+  "ExportTextPackEntry(props, i18n::TextKey::HelpScreenExit)"
+  help_screen_exit_export_position)
+string(FIND "${export_strings_source_contents}" "Loc::gzNonPersistantPBIText"
+  non_persistant_pbi_export_position)
+if(laptop_help_export_position EQUAL -1 OR
+    help_screen_exit_export_position EQUAL -1 OR
+    non_persistant_pbi_export_position EQUAL -1 OR
+    NOT laptop_help_export_position LESS help_screen_exit_export_position OR
+    NOT help_screen_exit_export_position LESS non_persistant_pbi_export_position)
+  message(FATAL_ERROR
+    "Help-screen TextPack export must retain its legacy position between LaptopHelp and NonPersistantPBI")
+endif()
 
 file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
   i18n_text_catalog_test_contents)
 foreach(required_text_catalog_test_fragment IN ITEMS
-    "all 48 migrated translations remain byte-for-byte exact"
+    "all 56 migrated translations remain byte-for-byte exact"
     "legacy exporter section mapping stays exact"
-    "all six migrated keys remain required in every language"
+    "all seven migrated keys remain required in every language"
+    "the Help-screen key appends without renumbering existing TextKey ordinals"
     "compiled default behavior publishes the exact English Aim Links title"
+    "compiled default behavior publishes the exact English help-screen exit label"
     "English fallback cannot mask a missing required Aim Links translation"
+    "English fallback cannot mask a missing required help-screen exit translation"
     "typed key identities and names cannot duplicate"
     "TextPack owns stable storage after its catalog value is destroyed"
     "repeated lookup retains a stable text address"
@@ -364,7 +400,7 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_architecture_normalized
   "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
-    "476 unique data declarations"
+    "475 unique data declarations"
     "retires exactly 58 catalog guard groups"
     "98 conditioned table entries and 196 exact literal alternatives"
     "CompiledConditionalText.h"
@@ -373,10 +409,12 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Explicit blockers and review gates"
     "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
-    "514 unique data symbols"
+    "513 unique data symbols"
     "57 pre-existing foreign-catalog compatibility gaps"
-    "All six current `TextKey` descriptors are required"
+    "All seven current `TextKey` descriptors are required"
     "Immutable AIM Links-title pack boundary"
+    "Immutable Help-screen exit-label pack boundary"
+    "40 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_normalized}"
     "${required_runtime_i18n_doc_fragment}"
@@ -551,6 +589,7 @@ file(READ "${SOURCE_ROOT}/i18n/text_abi_schema.json"
 foreach(required_runtime_i18n_schema_fragment IN ITEMS
     "\"schema_version\": 1"
     "\"canonical_language\": \"English\""
+    "\"base_data_declarations\": 475"
     "\"implicit_linker_fallback\": false"
     "\"catalog_compatibility_debt\""
     "\"ja2-release\""
@@ -565,6 +604,15 @@ foreach(required_runtime_i18n_schema_fragment IN ITEMS
       "Runtime i18n canonical schema lost '${required_runtime_i18n_schema_fragment}'")
   endif()
 endforeach()
+string(REGEX MATCHALL "\"domain\": \"(base|ja25)\""
+  runtime_i18n_schema_data_symbols "${runtime_i18n_schema_contents}")
+list(LENGTH runtime_i18n_schema_data_symbols
+  runtime_i18n_schema_data_symbol_count)
+if(NOT runtime_i18n_schema_data_symbol_count EQUAL 513 OR
+    runtime_i18n_schema_contents MATCHES "\"gzHelpScreenText\"")
+  message(FATAL_ERROR
+    "Runtime i18n canonical schema must contain 513 data symbols without the migrated Help-screen global")
+endif()
 
 file(READ "${SOURCE_ROOT}/tools/test_check_i18n_text_schema.py"
   runtime_i18n_schema_test_contents)
@@ -648,9 +696,10 @@ endforeach()
 file(READ "${SOURCE_ROOT}/TODO" runtime_i18n_todo_contents)
 foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "mandatory 8-language/4-quadrant Text ABI schema"
-    "first five one-entry Laptop titles now use a validated immutable TextPack"
+    "first five one-entry Laptop titles use a validated immutable TextPack"
     "AIM Links title is the second complete pack domain"
-    "remaining 479 base and 35 JA25 definitions")
+    "Help-screen exit label is the third"
+    "remaining 478 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"
     required_runtime_i18n_todo_position)
