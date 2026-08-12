@@ -108,10 +108,9 @@
 	#include "Map Screen Interface Map.h"	// added by Flugente
 #include "WorldDat.h"
 #include "SoldierRepository.h"
-
-#ifdef JA2UB
+#include "CampaignGunCommentPolicy.h"
+#include "GameContext.h"
 #include "Ja25_Tactical.h"
-#endif
 
 #define					NUM_ITEMS_LISTED			8
 #define					NUM_ITEM_FLASH_SLOTS	50
@@ -2917,9 +2916,6 @@ void SoldierGetItemFromWorld( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 	BOOLEAN					fSaidBoobyTrapQuote = FALSE;
 	UINT16					sAPCost;//Moa: added for deduct points
 	BOOLEAN					fItemTaken = FALSE;//Moa: added for deduct points
-#ifdef JA2UB
-	UINT16					usItem=0;
-#endif
 
 	sAPCost = GetAPsToPickupItem( pSoldier, sGridNo );
 	// OK. CHECK IF WE ARE DOING ALL IN THIS POOL....
@@ -3225,15 +3221,14 @@ void SoldierGetItemFromWorld( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 			}
 		}
 	}
-#ifdef JA2UB	
-	//JA25 ub
-	//if the item is valid
-	if( iItemIndex != 0 )
+	const CampaignGunCommentPolicy gunCommentPolicy(
+		GetGameContext().capabilities());
+	if (gunCommentPolicy.usesUnfinishedBusinessGunComments() &&
+		iItemIndex != 0)
 	{
-		//handle the picking up of a new ja25 gun
+		// Preserve JA25's raw world-item-index input and ground flag.
 		HandleNewGunComment( pSoldier, iItemIndex, TRUE );
 	}
-#endif
 	// Aknowledge....
 	if( pSoldier->roster().team() == OUR_TEAM && !fDidSayCoolQuote && !fSaidBoobyTrapQuote )
 	{
