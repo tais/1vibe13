@@ -942,6 +942,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignCivilianQuotePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignGunCommentPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
@@ -1009,8 +1010,10 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.h"
   "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Items.cpp"
   "${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
   "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
   "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
@@ -1819,6 +1822,7 @@ file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
 foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignCivilianQuotePolicy.h\""
     "#include \"CampaignDoorPolicy.h\""
+    "#include \"CampaignGunCommentPolicy.h\""
     "#include \"CampaignImpPolicy.h\""
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
@@ -1838,6 +1842,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "ja2_headless_tests"
     "campaign_civilian_quote_policy_tests"
     "campaign_door_policy_tests"
+    "campaign_gun_comment_policy_tests"
     "campaign_imp_policy_tests"
     "campaign_map_screen_policy_tests"
     "campaign_meanwhile_policy_tests"
@@ -1859,11 +1864,12 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "67 active conditionals in 26"
+    "62 active conditionals in 24"
     "Laptop content/pages | 4"
-    "Tactical gameplay/content | 23"
+    "Tactical gameplay/content | 18"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
+    "CampaignGunCommentPolicy"
     "CampaignCivilianQuotePolicy"
     "CampaignImpPolicy"
     "CampaignMapScreenPolicy"
@@ -1872,7 +1878,7 @@ foreach(required_campaign_status_fragment IN ITEMS
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All twelve policies"
+    "All thirteen policies"
     "three remaining guards belong to separate dead-merc")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
@@ -1899,6 +1905,9 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "signed `INT8` strategic-sector lookup exactly"
     "Three former `JA2UB` guards are gone from `Tactical/Campaign.cpp`"
+    "JA25 new-gun dialogue now uses the value-only"
+    "All five former `JA2UB` guards in `Tactical/Handle Items.cpp`"
+    "Arulco gates both routes before either comment argument"
     "every converted"
     "`AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate"
     "All five former guards in `Interface.cpp`"
@@ -2062,6 +2071,222 @@ foreach(required_campaign_progress_test_fragment IN ITEMS
   if(required_campaign_progress_test_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign progress policy tests lost '${required_campaign_progress_test_fragment}'")
+  endif()
+endforeach()
+
+# JA25 new-gun dialogue is selected through one immutable campaign policy at
+# both tactical item boundaries. Keep the policy to the left of the raw input
+# checks/reads, preserve the exact legacy arguments, and keep both sources in
+# every application host.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignGunCommentPolicy.h"
+  runtime_campaign_gun_comment_policy_contents)
+foreach(required_campaign_gun_comment_policy_fragment IN ITEMS
+    "class CampaignGunCommentPolicy"
+    "const GameCapabilities& capabilities"
+    "usesUnfinishedBusinessGunComments"
+    "campaign_ == GameCampaign::UnfinishedBusiness")
+  string(FIND "${runtime_campaign_gun_comment_policy_contents}"
+    "${required_campaign_gun_comment_policy_fragment}"
+    required_campaign_gun_comment_policy_position)
+  if(required_campaign_gun_comment_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign gun-comment policy lost '${required_campaign_gun_comment_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  runtime_campaign_ground_gun_comment_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Items.cpp"
+  runtime_campaign_inventory_gun_comment_contents)
+foreach(required_campaign_ground_gun_comment_fragment IN ITEMS
+    "#include \"CampaignGunCommentPolicy.h\""
+    "#include \"GameContext.h\""
+    "#include \"Ja25_Tactical.h\""
+    "CampaignGunCommentPolicy gunCommentPolicy("
+    "GetGameContext().capabilities()"
+    "gunCommentPolicy.usesUnfinishedBusinessGunComments() &&"
+    "iItemIndex != 0"
+    "HandleNewGunComment( pSoldier, iItemIndex, TRUE )")
+  string(FIND "${runtime_campaign_ground_gun_comment_contents}"
+    "${required_campaign_ground_gun_comment_fragment}"
+    required_campaign_ground_gun_comment_position)
+  if(required_campaign_ground_gun_comment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Ground-pickup gun-comment routing lost '${required_campaign_ground_gun_comment_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_inventory_gun_comment_fragment IN ITEMS
+    "#include \"CampaignGunCommentPolicy.h\""
+    "#include \"GameContext.h\""
+    "#include \"Ja25_Tactical.h\""
+    "CampaignGunCommentPolicy gunCommentPolicy("
+    "GetGameContext().capabilities()"
+    "if (gunCommentPolicy.usesUnfinishedBusinessGunComments())"
+    "HandleNewGunComment( pSoldier, pObj->usItem, FALSE )")
+  string(FIND "${runtime_campaign_inventory_gun_comment_contents}"
+    "${required_campaign_inventory_gun_comment_fragment}"
+    required_campaign_inventory_gun_comment_position)
+  if(required_campaign_inventory_gun_comment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Inventory-placement gun-comment routing lost '${required_campaign_inventory_gun_comment_fragment}'")
+  endif()
+endforeach()
+
+foreach(runtime_campaign_gun_comment_source IN ITEMS
+    runtime_campaign_ground_gun_comment_contents
+    runtime_campaign_inventory_gun_comment_contents)
+  if("${${runtime_campaign_gun_comment_source}}" MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+    message(FATAL_ERROR
+      "Tactical gun-comment routing regained compiled JA2UB identity")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL "HandleNewGunComment[ \t]*\\("
+  runtime_campaign_ground_gun_comment_calls
+  "${runtime_campaign_ground_gun_comment_contents}")
+list(LENGTH runtime_campaign_ground_gun_comment_calls
+  runtime_campaign_ground_gun_comment_call_count)
+string(REGEX MATCHALL "HandleNewGunComment[ \t]*\\("
+  runtime_campaign_inventory_gun_comment_calls
+  "${runtime_campaign_inventory_gun_comment_contents}")
+list(LENGTH runtime_campaign_inventory_gun_comment_calls
+  runtime_campaign_inventory_gun_comment_call_count)
+if(NOT runtime_campaign_ground_gun_comment_call_count EQUAL 1 OR
+    NOT runtime_campaign_inventory_gun_comment_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "Each tactical gun-comment boundary must retain exactly one legacy call")
+endif()
+
+string(FIND "${runtime_campaign_ground_gun_comment_contents}"
+  "void SoldierGetItemFromWorld(" runtime_campaign_ground_comment_start)
+string(FIND "${runtime_campaign_ground_gun_comment_contents}"
+  "void HandleSoldierPickupItem(" runtime_campaign_ground_comment_end)
+if(runtime_campaign_ground_comment_start EQUAL -1 OR
+    runtime_campaign_ground_comment_end EQUAL -1 OR
+    NOT runtime_campaign_ground_comment_start LESS
+      runtime_campaign_ground_comment_end)
+  message(FATAL_ERROR "Cannot locate the ground-pickup gun-comment boundary")
+endif()
+math(EXPR runtime_campaign_ground_comment_length
+  "${runtime_campaign_ground_comment_end} - ${runtime_campaign_ground_comment_start}")
+string(SUBSTRING "${runtime_campaign_ground_gun_comment_contents}"
+  ${runtime_campaign_ground_comment_start}
+  ${runtime_campaign_ground_comment_length}
+  runtime_campaign_ground_comment_region)
+string(FIND "${runtime_campaign_ground_comment_region}"
+  "gunCommentPolicy.usesUnfinishedBusinessGunComments()"
+  runtime_campaign_ground_comment_gate_position)
+string(FIND "${runtime_campaign_ground_comment_region}"
+  "iItemIndex != 0" runtime_campaign_ground_comment_nonzero_position)
+string(FIND "${runtime_campaign_ground_comment_region}"
+  "HandleNewGunComment( pSoldier, iItemIndex, TRUE )"
+  runtime_campaign_ground_comment_call_position)
+string(FIND "${runtime_campaign_ground_comment_region}"
+  "// Aknowledge" runtime_campaign_ground_comment_ack_position)
+if(runtime_campaign_ground_comment_gate_position EQUAL -1 OR
+    runtime_campaign_ground_comment_nonzero_position EQUAL -1 OR
+    runtime_campaign_ground_comment_call_position EQUAL -1 OR
+    runtime_campaign_ground_comment_ack_position EQUAL -1 OR
+    NOT runtime_campaign_ground_comment_gate_position LESS
+      runtime_campaign_ground_comment_nonzero_position OR
+    NOT runtime_campaign_ground_comment_nonzero_position LESS
+      runtime_campaign_ground_comment_call_position OR
+    NOT runtime_campaign_ground_comment_call_position LESS
+      runtime_campaign_ground_comment_ack_position)
+  message(FATAL_ERROR
+    "Ground gun comments must gate campaign first, preserve raw nonzero input, and precede acknowledgement")
+endif()
+
+string(FIND "${runtime_campaign_inventory_gun_comment_contents}"
+  "BOOLEAN PlaceObject( TacticalActor * pSoldier, INT8 bPos, OBJECTTYPE * pObj )"
+  runtime_campaign_inventory_comment_start)
+string(FIND "${runtime_campaign_inventory_gun_comment_contents}"
+  "bool TryToStackInSlot(" runtime_campaign_inventory_comment_end)
+if(runtime_campaign_inventory_comment_start EQUAL -1 OR
+    runtime_campaign_inventory_comment_end EQUAL -1 OR
+    NOT runtime_campaign_inventory_comment_start LESS
+      runtime_campaign_inventory_comment_end)
+  message(FATAL_ERROR
+    "Cannot locate the inventory-placement gun-comment boundary")
+endif()
+math(EXPR runtime_campaign_inventory_comment_length
+  "${runtime_campaign_inventory_comment_end} - ${runtime_campaign_inventory_comment_start}")
+string(SUBSTRING "${runtime_campaign_inventory_gun_comment_contents}"
+  ${runtime_campaign_inventory_comment_start}
+  ${runtime_campaign_inventory_comment_length}
+  runtime_campaign_inventory_comment_region)
+string(FIND "${runtime_campaign_inventory_comment_region}"
+  "gunCommentPolicy.usesUnfinishedBusinessGunComments()"
+  runtime_campaign_inventory_comment_gate_position)
+string(FIND "${runtime_campaign_inventory_comment_region}"
+  "HandleNewGunComment( pSoldier, pObj->usItem, FALSE )"
+  runtime_campaign_inventory_comment_call_position)
+string(FIND "${runtime_campaign_inventory_comment_region}"
+  "pInSlot = &(pSoldier->inventory()[bPos])"
+  runtime_campaign_inventory_comment_placement_position)
+if(runtime_campaign_inventory_comment_gate_position EQUAL -1 OR
+    runtime_campaign_inventory_comment_call_position EQUAL -1 OR
+    runtime_campaign_inventory_comment_placement_position EQUAL -1 OR
+    NOT runtime_campaign_inventory_comment_gate_position LESS
+      runtime_campaign_inventory_comment_call_position OR
+    NOT runtime_campaign_inventory_comment_call_position LESS
+      runtime_campaign_inventory_comment_placement_position)
+  message(FATAL_ERROR
+    "Inventory gun comments must gate campaign before the exact pre-placement item read")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  runtime_campaign_gun_comment_tactical_build_contents)
+foreach(required_campaign_gun_comment_common_source IN ITEMS
+    "Handle Items.cpp"
+    "Items.cpp"
+    "Ja25_Tactical.cpp")
+  string(FIND "${runtime_campaign_gun_comment_tactical_build_contents}"
+    "${required_campaign_gun_comment_common_source}"
+    required_campaign_gun_comment_common_source_position)
+  if(required_campaign_gun_comment_common_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "All-host tactical gun-comment linkage lost '${required_campaign_gun_comment_common_source}'")
+  endif()
+endforeach()
+
+foreach(required_campaign_gun_comment_test_build_fragment IN ITEMS
+    "add_executable(campaign_gun_comment_policy_tests"
+    "campaign_gun_comment_policy_tests.cpp"
+    "add_test(NAME campaign_gun_comment_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_gun_comment_test_build_fragment}"
+    required_campaign_gun_comment_test_build_position)
+  if(required_campaign_gun_comment_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign gun-comment policy lost test manifest '${required_campaign_gun_comment_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_gun_comment_policy_tests"
+  runtime_campaign_gun_comment_ci_position)
+if(runtime_campaign_gun_comment_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the campaign gun-comment policy test")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_gun_comment_policy_tests.cpp"
+  runtime_campaign_gun_comment_test_contents)
+foreach(required_campaign_gun_comment_test_fragment IN ITEMS
+    "not editor host identity, selects gun comments"
+    "Arulco short-circuits the ground item-index read and gun-comment effect"
+    "UB preserves the ground path's raw zero-index rejection"
+    "31000, 32000"
+    "UB forwards every nonzero raw ground index exactly once with TRUE"
+    "Arulco short-circuits the inventory item read and gun-comment effect"
+    "UB inventory placement forwards every raw item ID once with FALSE")
+  string(FIND "${runtime_campaign_gun_comment_test_contents}"
+    "${required_campaign_gun_comment_test_fragment}"
+    required_campaign_gun_comment_test_position)
+  if(required_campaign_gun_comment_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign gun-comment policy tests lost '${required_campaign_gun_comment_test_fragment}'")
   endif()
 endforeach()
 

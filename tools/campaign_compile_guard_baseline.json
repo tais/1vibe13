@@ -16,8 +16,6 @@
     "Strategic/strategic.cpp": 2,
     "Tactical/Campaign.cpp": 3,
     "Tactical/Faces.cpp": 4,
-    "Tactical/Handle Items.cpp": 3,
-    "Tactical/Items.cpp": 2,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Init List.cpp": 2,
     "Tactical/Strategic Exit GUI.cpp": 2,
@@ -28,5 +26,5 @@
     "TacticalAI/NPC.cpp": 4
   },
   "schema": 1,
-  "total": 67
+  "total": 62
 }

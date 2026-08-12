@@ -63,10 +63,9 @@
 	#include "Food.h"
 	#include "CampaignStats.h"		// added by Flugente
 	#include "ai.h"					// added by Flugente
-
-#ifdef JA2UB
+#include "CampaignGunCommentPolicy.h"
+#include "GameContext.h"
 #include "Ja25_Tactical.h"
-#endif
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -6840,10 +6839,13 @@ BOOLEAN PlaceObject( TacticalActor * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
     }
     // Lesh: end
 
-#ifdef JA2UB
-	//handle the placing up of a new ja25 gun
-	HandleNewGunComment( pSoldier, pObj->usItem, FALSE );
-#endif	
+	const CampaignGunCommentPolicy gunCommentPolicy(
+		GetGameContext().capabilities());
+	if (gunCommentPolicy.usesUnfinishedBusinessGunComments())
+	{
+		// Preserve JA25's pre-placement item ID and inventory-source flag.
+		HandleNewGunComment( pSoldier, pObj->usItem, FALSE );
+	}
 	pInSlot = &(pSoldier->inventory()[bPos]);
 
 	//we are placing an object, how we handle this depends on what is in the slot already

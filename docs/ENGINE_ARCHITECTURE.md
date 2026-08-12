@@ -1150,6 +1150,18 @@ the engine must not contain SDL types in its public domain model.
   exhaustive truth tables, live-capability headless coverage, and architecture
   CI pin the extracted behavior without changing saves, maps, XML, events, or
   progression tuning.
+- JA25 new-gun dialogue now uses the value-only `CampaignGunCommentPolicy` in
+  both tactical item paths. UB keeps the ground-pickup path's raw nonzero
+  world-item index and `TRUE` source flag, including `ITEM_PICKUP_SELECTION`
+  (31000) and `ITEM_PICKUP_ACTION_ALL` (32000), and the inventory-placement
+  path's pre-placement `pObj->usItem`
+  read with a `FALSE` source flag. Arulco gates both routes before either
+  comment argument is evaluated or its dialogue effect is called. All five
+  former `JA2UB` guards in
+  `Tactical/Handle Items.cpp` and `Tactical/Items.cpp` are gone, including the
+  two include guards and unused local; dependency-free truth tables, all-host
+  syntax coverage, and architecture CI pin input identity, ordering, and
+  short-circuiting without changing item IDs, quotes, saves, or content.
 - Tactical door behavior now selects through the value-only
   `CampaignDoorPolicy`. The common implementation preserves Arulco's
   boot-door AP charge, ordinary force attempt, and failed-unlock curse

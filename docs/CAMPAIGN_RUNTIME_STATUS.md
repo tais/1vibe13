@@ -95,6 +95,17 @@ left-hand runtime campaign gate, so Arulco never reads that state. Three former
 the Arulco-only Madlab threshold read. The three remaining guards
 belong to separate dead-merc and M.E.R.C.-level email-content contracts.
 
+JA25 new-gun dialogue now uses `CampaignGunCommentPolicy` at both tactical
+entry points. UB retains the ground-pickup path's raw nonzero world-item index
+and `TRUE` source flag, including `ITEM_PICKUP_SELECTION` (31000) and
+`ITEM_PICKUP_ACTION_ALL` (32000), and the
+inventory-placement path's pre-placement `pObj->usItem` read with a `FALSE`
+source flag. Arulco short-circuits each comment route before its argument is
+evaluated or its dialogue effect is called.
+All five former `JA2UB` guards in `Tactical/Handle Items.cpp` and
+`Tactical/Items.cpp`, including the guarded includes and unused local, are
+gone without changing item IDs, quote records, call order, or save data.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -200,13 +211,13 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 67 active conditionals in 26
+milestone its per-file baseline contains 62 active conditionals in 24
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
-| Tactical gameplay/content | 23 |
+| Tactical gameplay/content | 18 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
@@ -239,16 +250,19 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All twelve policies
-are guarded by data-free tests and named architecture checks, with headless
-integration coverage where host composition is involved. Tactical meanwhile
+`Laptop/IMP Text System.cpp` no longer contribute six more. All thirteen
+policies are guarded by data-free tests and named architecture checks, with
+headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,
 so the four converted tactical/tile implementations no longer contribute
 eight more guards. Campaign progress and its scientist-AWOL threshold use
 `CampaignProgressPolicy`, removing three of the six former guards from
 `Tactical/Campaign.cpp` while leaving the two independent email behaviors for
-their own content-policy slices. The seven remaining
-`Ja2` conditionals are the
+their own content-policy slices. JA25 new-gun dialogue uses
+`CampaignGunCommentPolicy`; `Tactical/Handle Items.cpp` and
+`Tactical/Items.cpp` no longer contribute five guards, while their exact raw
+ground-index and pre-placement inventory-item inputs remain unchanged. The
+seven remaining `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
 they are deliberately separate compatibility seams.
