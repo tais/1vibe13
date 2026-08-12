@@ -1203,6 +1203,18 @@ the engine must not contain SDL types in its public domain model.
   truth tables, live-capability headless coverage, all-host syntax checks, and
   architecture CI pin the branch shape and short-circuiting without changing
   NPC files, records, quests, quotes, saves, or AI condition order.
+- Lua global initialization now selects through the value-only
+  `CampaignLuaGlobalPolicy`. The always-present arrival alias reads only the
+  active campaign's source value. UB retains exactly 92 guarded push/set pairs
+  in the established order and with the established integer/boolean push
+  types: 91 expose UB-only names and one repeats the common `difficultyLevel`
+  write at its legacy early position. Arulco retains the common write and the
+  other 91 names' absence. Every push/set pair and all 34 executable initializer
+  calls are unchanged, preserving Lua stack balance, names, values, and error
+  behavior. Five textual calls remain only in disabled legacy block comments.
+  All five former `JA2UB` guards in `Strategic/Luaglobal.cpp` are
+  gone; dependency-free truth tables, live-capability headless coverage,
+  all-host syntax checks, and an exact 92-entry export ratchet pin the boundary.
 - Tactical door behavior now selects through the value-only
   `CampaignDoorPolicy`. The common implementation preserves Arulco's
   boot-door AP charge, ordinary force attempt, and failed-unlock curse

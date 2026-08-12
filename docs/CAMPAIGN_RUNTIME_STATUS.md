@@ -129,11 +129,30 @@ guards across `TacticalAI/NPC.cpp`, `TacticalAI/AIMain.cpp`, and
 `TacticalAI/DecideAction.cpp` are gone without changing NPC files, records,
 quests, quotes, saves, or AI condition order.
 
+Lua global initialization now uses `CampaignLuaGlobalPolicy`. The always-
+published `iniNEW_MERC_ARRIVAL_LOCATION` reads Arulco's initial-arrival option
+or UB's `LOCATEGRIDNO` only after the live campaign is selected. UB still
+executes the exact 92 campaign-gated push/set pairs in their established order
+and with their established integer/boolean push types: two early difficulty
+assignments, 41 scenario settings, `TestUB`, and 48 character/item aliases.
+Those pairs expose 91 UB-only names; the remaining `difficultyLevel` write is
+the legacy early duplicate of the common write later in the initializer.
+Arulco retains that one common write and omits the other 91 names. This includes
+the legacy spelling
+`UB_SECTOR_DOOR_IN_TUNNEL_Z`. Each campaign gate precedes the corresponding
+campaign-specific read, and every push remains immediately paired with the
+same `lua_setglobal`, so initializer stack balance, all 34 executable call
+sites, and Lua API/error behavior are unchanged. Five additional calls remain
+inside disabled legacy block comments and are not runtime call sites. All five
+former `JA2UB` guards in
+`Strategic/Luaglobal.cpp` are gone.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
 
-This work does not alter maps, XML, Lua, dialogue, email text, artwork,
+This work does not alter maps, XML, Lua scripts or their public names,
+dialogue, email text, artwork,
 archives, package overlays, or other game-data formats. Campaign-qualified
 constants and typed profile/action/map-change/dealer resolvers preserve the
 existing numeric records. In particular, dealer save and merchant-XML storage
@@ -234,14 +253,14 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 51 active conditionals in 20
+milestone its per-file baseline contains 46 active conditionals in 19
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
 | Tactical gameplay/content | 15 |
-| Strategic gameplay/content | 23 |
+| Strategic gameplay/content | 18 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 0 |
 | Editor | 1 |
@@ -273,7 +292,7 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All fourteen
+`Laptop/IMP Text System.cpp` no longer contribute six more. All fifteen
 policies are guarded by data-free tests and named architecture checks, with
 headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,
@@ -289,6 +308,9 @@ ground-index and pre-placement inventory-item inputs remain unchanged. The
 Tactical AI tail no longer contributes: `CampaignNpcPolicy` removes all eight
 guards from `NPC.cpp`, `AIMain.cpp`, and `DecideAction.cpp` while retaining
 their left-to-right campaign gates and legacy call inputs. The
+Lua-global tail no longer contributes either: `CampaignLuaGlobalPolicy`
+removes all five guards from `Strategic/Luaglobal.cpp` while retaining its
+exact 92 guarded push/set pairs and campaign-selected arrival alias. The
 seven remaining `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
@@ -306,7 +328,6 @@ The largest individual legacy leaves are:
 | File | Conditionals |
 | --- | ---: |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Strategic/Luaglobal.cpp` | 5 |
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
 | `Ja2/GameVersion.cpp` | 3 |

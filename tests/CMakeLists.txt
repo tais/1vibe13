@@ -176,6 +176,15 @@ target_include_directories(campaign_npc_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_npc_policy COMMAND campaign_npc_policy_tests)
 
+# Lua global names stay campaign-compatible while their initializer selects
+# the live campaign rather than the JA2UB host definition.
+add_executable(campaign_lua_global_policy_tests
+  campaign_lua_global_policy_tests.cpp)
+target_include_directories(campaign_lua_global_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_lua_global_policy
+  COMMAND campaign_lua_global_policy_tests)
+
 # Civilian quote catalogues, dedicated group records, surrender completion,
 # and UB's unavailable-record sentinel follow the live campaign capability.
 add_executable(campaign_civilian_quote_policy_tests

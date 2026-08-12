@@ -126,6 +126,7 @@
 #include "CampaignGunCommentPolicy.h"
 #include "CampaignImpPolicy.h"
 #include "CampaignLaptopCommunicationsPolicy.h"
+#include "CampaignLuaGlobalPolicy.h"
 #include "CampaignMapScreenPolicy.h"
 #include "CampaignMercenaryPolicy.h"
 #include "CampaignNpcPolicy.h"
@@ -5731,6 +5732,8 @@ int main( int, char** )
 		const CampaignGunCommentPolicy gunCommentPolicy(
 			compiledContext.capabilities());
 		const CampaignImpPolicy impPolicy(compiledContext.capabilities());
+		const CampaignLuaGlobalPolicy luaGlobalPolicy(
+			compiledContext.capabilities());
 		const CampaignMapScreenPolicy mapScreenPolicy(
 			compiledContext.capabilities());
 		const CampaignMercenaryPolicy mercenaryPolicy(
@@ -5751,6 +5754,10 @@ int main( int, char** )
 		       gunCommentPolicy.usesUnfinishedBusinessGunComments() ==
 		           unfinishedBusiness &&
 		       impPolicy.usesUnfinishedBusinessImpRules() ==
+		           unfinishedBusiness &&
+		       luaGlobalPolicy.usesUnfinishedBusinessArrivalGrid() ==
+		           unfinishedBusiness &&
+		       luaGlobalPolicy.exportsUnfinishedBusinessScenarioGlobals() ==
 		           unfinishedBusiness &&
 		       mapScreenPolicy.usesUnfinishedBusinessMapRules() ==
 		           unfinishedBusiness &&
