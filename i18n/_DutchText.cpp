@@ -3149,10 +3149,6 @@ STR16 pSquadMenuStrings[] =
 	L"Stop",
 };
 
-STR16 pPersonnelTitle[] =
-{
-	L"Dossiers", // the title for the personnel screen/program application
-};
 
 STR16 pPersonnelScreenStrings[] =
 {
@@ -4660,17 +4656,9 @@ STR16 pEmailHeaders[] =
 
 // email titlebar text
 
-STR16 pEmailTitleText[] =
-{
-	L"Postvak",
-};
 
 
 // the financial screen strings
-STR16 pFinanceTitle[] =
-{
-	L"Account Plus",		//the name we made up for the financial program in the game
-};
 
 STR16 pFinanceSummary[] =
 {
@@ -5015,10 +5003,6 @@ STR16 pExtraIMPStrings[] =
 	L"Now that you have completed your appearence choice, proceed to character analysis.",
 };
 
-STR16 pFilesTitle[] =
-{
-	L"Bestanden Bekijken",		// ("File Viewer")
-};
 
 STR16 pFilesSenderList[] =
 {
@@ -5036,10 +5020,6 @@ STR16 pFilesSenderList[] =
 
 // Text having to do with the History Log
 
-STR16 pHistoryTitle[] =
-{
-	L"Geschiedenis",
-};
 
 STR16 pHistoryHeaders[] =
 {

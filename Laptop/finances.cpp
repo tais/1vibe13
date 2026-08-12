@@ -12,6 +12,7 @@
 	#include "Soldier Profile.h"
 	#include "Soldier Profile Constants.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "Strategic Mines.h"
 	#include "LaptopSave.h"
 	#include "Campaign Types.h"
@@ -957,7 +958,8 @@ void DrawFinanceTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X, TITLE_Y, L"%s", pFinanceTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::FinanceTitle).data());
 
 
 	return;

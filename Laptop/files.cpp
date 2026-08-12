@@ -25,6 +25,7 @@
 	#include "Cursors.h"
 	#include "email.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	// HEADROCK PROFEX: This is required to display the proper facial image.
 	#include "Soldier Profile.h"
 	#include "GameSettings.h"
@@ -733,7 +734,8 @@ void DrawFilesTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X, TITLE_Y, L"%s", pFilesTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::FilesTitle).data());
 
 
 	return;

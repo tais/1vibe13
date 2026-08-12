@@ -44,12 +44,12 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 485 base definitions,
+  preprocessor-selected legacy text body. The remaining 480 base definitions,
   35 JA25 definitions, compatibility globals, and the textual
   `ExportStrings.cpp` inclusion are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
-  The first text migration slice now commits a canonical 520-symbol ABI schema
+  The first text migration slice now commits a canonical 515-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
   array/mutability shapes are explicit, and 57 existing foreign
@@ -63,6 +63,13 @@ the engine must not contain SDL types in its public domain model.
   Each schema-owned entry contains both values while one quarantined
   compatibility publisher preserves the four legacy application/build
   quadrants.
+  The third slice introduces an immutable, validated `TextCatalog` and
+  lifetime-stable `TextPack`. Five one-entry Laptop title tables and all 40
+  translations leave the global ABI; nine render sites and their five exporter
+  sections consume typed keys from the same pack. Every current key is required,
+  English fallback remains prospective and schema-controlled, and the compiled
+  accessor still follows immutable `g_lang` without changing startup, archives,
+  mutable buffers, voice, or hot-reload policy.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

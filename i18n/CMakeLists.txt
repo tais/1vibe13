@@ -1,6 +1,7 @@
 set(i18nCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Ja2 Libs.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Multi Language Graphic Utils.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TextCatalog.cpp"
 PARENT_SCOPE
 )
 

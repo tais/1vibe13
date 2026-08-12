@@ -19,6 +19,7 @@
 #include "AimMembers.h"
 #include "random.h"
 #include "Text.h"
+#include "TextCatalog.h"
 #include "LaptopSave.h"
 #include "PostalService.h"
 #include "faces.h"
@@ -2111,7 +2112,8 @@ BOOLEAN DisplayNewMailBox( void )
 	SetFontShadow( DEFAULT_SHADOW );
 
 	// print warning
-	mprintf(EMAIL_WARNING_X + 30, EMAIL_WARNING_Y + 8, L"%s", pEmailTitleText[0] );
+	mprintf(EMAIL_WARNING_X + 30, EMAIL_WARNING_Y + 8, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::EmailTitle).data());
 
 	// font stuff
 	SetFontShadow( NO_SHADOW );
@@ -2440,7 +2442,8 @@ BOOLEAN DisplayDeleteNotice(EmailPtr pMail)
 	BltVideoObject( FRAME_BUFFER, hHandle, 0,EMAIL_WARNING_X + 5, EMAIL_WARNING_Y + 2, VO_BLT_SRCTRANSPARENCY,NULL );
 
 	// title
-	mprintf(EMAIL_WARNING_X + 30, EMAIL_WARNING_Y + 8, L"%s", pEmailTitleText[0] );
+	mprintf(EMAIL_WARNING_X + 30, EMAIL_WARNING_Y + 8, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::EmailTitle).data());
 
 	// shadow, font, and foreground
 	SetFontShadow( NO_SHADOW );
@@ -2649,7 +2652,8 @@ void DisplayTextOnTitleBar( void )
 	SetFontBackground( FONT_BLACK );
 
 	// printf the title
-	mprintf( EMAIL_TITLE_X, EMAIL_TITLE_Y, L"%s", pEmailTitleText[0] );
+	mprintf(EMAIL_TITLE_X, EMAIL_TITLE_Y, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::EmailTitle).data());
 
 	// reset the shadow
 }
@@ -2795,7 +2799,8 @@ void DrawEmailMessageDisplayTitleText( INT32 iViewerY )
 	SetFontBackground( FONT_BLACK );
 
 	// dsiplay mail viewer title on message viewer
-	mprintf( VIEWER_X + 30, VIEWER_Y + 8 + (UINT16) iViewerY, L"%s", pEmailTitleText[0] );
+	mprintf(VIEWER_X + 30, VIEWER_Y + 8 + (UINT16)iViewerY, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::EmailTitle).data());
 
 	return;
 }

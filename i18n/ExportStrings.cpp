@@ -1,5 +1,6 @@
 #include "ExportStrings.h"
 #include "CompiledConditionalText.h"
+#include "TextCatalog.h"
 #include "LocalizedStrings.h"
 #include "Map Screen Interface.h"
 #include "personnel.h"
@@ -106,6 +107,15 @@ void ExportSection<wchar_t>(vfs::PropertyContainer& props, const vfs::String::ch
 	ExportSection(props,section_name, &strings, min, max);
 }
 
+void ExportTextPackEntry(vfs::PropertyContainer& props, i18n::TextKey key)
+{
+	const auto* descriptor = i18n::FindTextKey(key);
+	const auto text = i18n::GetCompiledTextPack().lookup(key);
+	if (!descriptor || !text) return;
+	const wchar_t* oneEntry = text.text.data();
+	ExportSection(props, descriptor->legacyExportSection.data(), &oneEntry, 0, 1);
+}
+
 
 bool Loc::ExportStrings()
 {
@@ -160,7 +170,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"SnitchPrisonExposed",		Loc::pSnitchPrisonExposedStrings,	0,	NUM_SNITCH_PRISON_EXPOSED);
 	ExportSection(props, L"SnitchGatheringRumoursResult",	Loc::pSnitchGatheringRumoursResultStrings,	0,	NUM_SNITCH_GATHERING_RUMOURS_RESULT);
 
-	ExportSection(props, L"PersonnelTitle",				Loc::pPersonnelTitle,				0,	1);
+	ExportTextPackEntry(props, i18n::TextKey::PersonnelTitle);
 	ExportSection(props, L"PersonnelScreen",			Loc::pPersonnelScreenStrings,		0,	TEXT_NUM_PRSNL);
 
 	ExportSection(props, L"MercSkill",					Loc::gzMercSkillText,				0,	NUM_SKILLTRAITS_OT);
@@ -227,8 +237,8 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"DeleteMail",					Loc::pDeleteMailStrings,			0,	2);
 	ExportSection(props, L"EmailHeader",				Loc::pEmailHeaders,					0,	3);
 
-	ExportSection(props, L"EmailTitle",					Loc::pEmailTitleText,				0,	1);
-	ExportSection(props, L"FinanceTitle",				Loc::pFinanceTitle,					0,	1);
+	ExportTextPackEntry(props, i18n::TextKey::EmailTitle);
+	ExportTextPackEntry(props, i18n::TextKey::FinanceTitle);
 	ExportSection(props, L"FinanceSummary",				Loc::pFinanceSummary,				0,	12);
 	ExportSection(props, L"FinanceHeader",				Loc::pFinanceHeaders,				0,	7);
 	ExportSection(props, L"Transaction",				Loc::pTransactionText,				0,	TEXT_NUM_FINCANCES);
@@ -252,9 +262,9 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"ImpPopUp",					Loc::pImpPopUpStrings,				0,	12);
 	ExportSection(props, L"ImpButton",					Loc::pImpButtonText,				0,	26);
 	ExportSection(props, L"ExtraIMP",					Loc::pExtraIMPStrings,				0,	4);
-	ExportSection(props, L"FilesTitle",					Loc::pFilesTitle,					0,	1);
+	ExportTextPackEntry(props, i18n::TextKey::FilesTitle);
 	ExportSection(props, L"FilesSender",				Loc::pFilesSenderList,				0,	7);
-	ExportSection(props, L"HistoryTitle",				Loc::pHistoryTitle,					0,	1);
+	ExportTextPackEntry(props, i18n::TextKey::HistoryTitle);
 	ExportSection(props, L"HistoryHeader",				Loc::pHistoryHeaders,				0,	5);
 	//ExportSection(props, L"History",					Loc::pHistoryStrings,				0,	TEXT_NUM_HISTORY);
 	ExportSection(props, L"HistoryLocation",			Loc::pHistoryLocations,				0,	1);

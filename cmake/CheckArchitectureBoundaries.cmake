@@ -48,6 +48,7 @@ foreach(required_i18n_build_fragment IN ITEMS
     "set(i18nCommonSrc"
     "Ja2 Libs.cpp"
     "Multi Language Graphic Utils.cpp"
+    "TextCatalog.cpp"
     "set(i18nVariantSrc"
     "language.cpp"
     "ExportStrings.cpp")
@@ -70,6 +71,10 @@ foreach(required_i18n_root_build_fragment IN ITEMS
 endforeach()
 
 file(READ "${SOURCE_ROOT}/i18n/language.cpp" i18n_language_source_contents)
+file(READ "${SOURCE_ROOT}/i18n/TextCatalog.cpp"
+  i18n_text_catalog_source_contents)
+file(READ "${SOURCE_ROOT}/i18n/include/TextCatalog.h"
+  i18n_text_catalog_header_contents)
 file(READ "${SOURCE_ROOT}/Utils/LocalizedStrings.h"
   localized_strings_header_contents)
 file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
@@ -79,6 +84,8 @@ file(READ "${SOURCE_ROOT}/i18n/include/Ja2 Libs.h"
   ja2_libs_header_contents)
 foreach(neutral_i18n_contents IN ITEMS
     i18n_language_source_contents
+    i18n_text_catalog_source_contents
+    i18n_text_catalog_header_contents
     localized_strings_header_contents
     ja2_libs_source_contents
     ja2_libs_header_contents)
@@ -125,9 +132,9 @@ file(READ "${SOURCE_ROOT}/i18n/include/Text.h" legacy_text_header_contents)
 string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
   legacy_text_declarations "${legacy_text_header_contents}")
 list(LENGTH legacy_text_declarations legacy_text_declaration_count)
-if(legacy_text_declaration_count GREATER 485)
+if(NOT legacy_text_declaration_count EQUAL 480)
   message(FATAL_ERROR
-    "The legacy Text.h global ABI grew from 485 to ${legacy_text_declaration_count}; add new text through the runtime catalog")
+    "The first TextCatalog slice must leave exactly 480 legacy Text.h externs, found ${legacy_text_declaration_count}")
 endif()
 file(READ "${SOURCE_ROOT}/i18n/include/_Ja25EnglishText.h"
   legacy_ja25_text_header_contents)
@@ -153,22 +160,196 @@ foreach(required_i18n_test_fragment IN ITEMS
       "Runtime language catalog tests lost '${required_i18n_test_fragment}'")
   endif()
 endforeach()
+
+# The first domain migration owns five immutable one-entry Laptop titles. All
+# 40 translated definitions move together, every runtime/exporter consumer
+# enters through the validated pack, and no legacy declaration remains to
+# provide an accidental linker fallback.
+foreach(required_text_catalog_header_fragment IN ITEMS
+    "enum class TextKey"
+    "struct TextKeyDescriptor"
+    "HasValidTextKeySchema"
+    "englishFallbackAllowed"
+    "enum class TextFallbackPolicy"
+    "EnglishForOptionalKeys"
+    "struct TextPackDefinition"
+    "class TextPack"
+    "class TextCatalog"
+    "std::shared_ptr<const detail::TextCatalogStorage>"
+    "GetCompiledTextPack")
+  string(FIND "${i18n_text_catalog_header_contents}"
+    "${required_text_catalog_header_fragment}"
+    required_text_catalog_header_position)
+  if(required_text_catalog_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime TextCatalog boundary lost '${required_text_catalog_header_fragment}'")
+  endif()
+endforeach()
+foreach(required_text_catalog_source_fragment IN ITEMS
+    "BuiltinDefinitions"
+    "TextCatalog::Create"
+    "TextCatalogError::InvalidFallbackPolicy"
+    "TextCatalogError::DuplicateLanguage"
+    "TextCatalogError::MissingRequiredText"
+    "TextFallbackPolicy::EnglishForOptionalKeys"
+    "std::make_shared<detail::TextCatalogStorage>"
+    "TextPack::lookup")
+  string(FIND "${i18n_text_catalog_source_contents}"
+    "${required_text_catalog_source_fragment}"
+    required_text_catalog_source_position)
+  if(required_text_catalog_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime TextCatalog implementation lost '${required_text_catalog_source_fragment}'")
+  endif()
+endforeach()
+
+set(migrated_laptop_title_globals
+  pPersonnelTitle
+  pEmailTitleText
+  pFinanceTitle
+  pFilesTitle
+  pHistoryTitle)
+set(legacy_base_catalog_files
+  _EnglishText.cpp
+  _GermanText.cpp
+  _RussianText.cpp
+  _DutchText.cpp
+  _PolishText.cpp
+  _FrenchText.cpp
+  _ItalianText.cpp
+  _ChineseText.cpp)
+foreach(migrated_laptop_title_global IN LISTS migrated_laptop_title_globals)
+  if(legacy_text_header_contents MATCHES
+      "extern[ \t\r\n]+STR16[ \t\r\n]+${migrated_laptop_title_global}[ \t\r\n]*\\[")
+    message(FATAL_ERROR
+      "Migrated Laptop title regained legacy declaration '${migrated_laptop_title_global}'")
+  endif()
+  foreach(legacy_base_catalog_file IN LISTS legacy_base_catalog_files)
+    file(READ "${SOURCE_ROOT}/i18n/${legacy_base_catalog_file}"
+      legacy_base_catalog_contents)
+    if(legacy_base_catalog_contents MATCHES
+        "STR16[ \t\r\n]+${migrated_laptop_title_global}[ \t\r\n]*\\[")
+      message(FATAL_ERROR
+        "${legacy_base_catalog_file} regained migrated definition '${migrated_laptop_title_global}'")
+    endif()
+  endforeach()
+endforeach()
+
+set(migrated_laptop_title_consumers
+  "Laptop/personnel.cpp|pPersonnelTitle|PersonnelTitle|1"
+  "Laptop/email.cpp|pEmailTitleText|EmailTitle|4"
+  "Laptop/finances.cpp|pFinanceTitle|FinanceTitle|1"
+  "Laptop/files.cpp|pFilesTitle|FilesTitle|1"
+  "Laptop/history.cpp|pHistoryTitle|HistoryTitle|1")
+foreach(migrated_laptop_title_consumer IN LISTS migrated_laptop_title_consumers)
+  string(REPLACE "|" ";" migrated_laptop_title_fields
+    "${migrated_laptop_title_consumer}")
+  list(GET migrated_laptop_title_fields 0 migrated_laptop_title_file)
+  list(GET migrated_laptop_title_fields 1 migrated_laptop_title_global)
+  list(GET migrated_laptop_title_fields 2 migrated_laptop_title_key)
+  list(GET migrated_laptop_title_fields 3 migrated_laptop_title_expected_count)
+  file(READ "${SOURCE_ROOT}/${migrated_laptop_title_file}"
+    migrated_laptop_title_consumer_contents)
+  if(migrated_laptop_title_consumer_contents MATCHES
+      "${migrated_laptop_title_global}")
+    message(FATAL_ERROR
+      "${migrated_laptop_title_file} regained direct '${migrated_laptop_title_global}' access")
+  endif()
+  string(REGEX MATCHALL "TextKey::${migrated_laptop_title_key}"
+    migrated_laptop_title_key_uses
+    "${migrated_laptop_title_consumer_contents}")
+  list(LENGTH migrated_laptop_title_key_uses
+    migrated_laptop_title_actual_count)
+  if(NOT migrated_laptop_title_actual_count EQUAL
+      migrated_laptop_title_expected_count)
+    message(FATAL_ERROR
+      "${migrated_laptop_title_file} must route exactly ${migrated_laptop_title_expected_count} '${migrated_laptop_title_key}' use(s), found ${migrated_laptop_title_actual_count}")
+  endif()
+endforeach()
+
+foreach(migrated_laptop_title_export IN ITEMS
+    PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle)
+  if(export_strings_source_contents MATCHES
+      "Loc::p(PersonnelTitle|EmailTitleText|FinanceTitle|FilesTitle|HistoryTitle)")
+    message(FATAL_ERROR
+      "ExportStrings regained a legacy Laptop-title global")
+  endif()
+  string(REGEX MATCHALL
+    "ExportTextPackEntry\\(props, i18n::TextKey::${migrated_laptop_title_export}\\)"
+    migrated_laptop_title_export_uses
+    "${export_strings_source_contents}")
+  list(LENGTH migrated_laptop_title_export_uses
+    migrated_laptop_title_export_count)
+  if(NOT migrated_laptop_title_export_count EQUAL 1)
+    message(FATAL_ERROR
+      "ExportStrings must publish '${migrated_laptop_title_export}' exactly once through TextPack")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
+  i18n_text_catalog_test_contents)
+foreach(required_text_catalog_test_fragment IN ITEMS
+    "all eight migrated translations remain byte-for-byte exact"
+    "legacy exporter section mapping stays exact"
+    "all five migrated titles remain required in every language"
+    "typed key identities and names cannot duplicate"
+    "TextPack owns stable storage after its catalog value is destroyed"
+    "repeated lookup retains a stable text address"
+    "duplicate pack identity rejects the whole catalog"
+    "English fallback cannot mask a missing required translation"
+    "an unknown fallback policy rejects the whole catalog"
+    "compiled pack selection still follows immutable g_lang")
+  string(FIND "${i18n_text_catalog_test_contents}"
+    "${required_text_catalog_test_fragment}"
+    required_text_catalog_test_position)
+  if(required_text_catalog_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime TextCatalog tests lost '${required_text_catalog_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  i18n_text_catalog_test_build_contents)
+foreach(required_text_catalog_build_fragment IN ITEMS
+    "add_executable(i18n_text_catalog_tests"
+    "i18n/TextCatalog.cpp"
+    "i18n/language.cpp"
+    "target_compile_definitions(i18n_text_catalog_tests PRIVATE ENGLISH)"
+    "NAME i18n_text_catalog")
+  string(FIND "${i18n_text_catalog_test_build_contents}"
+    "${required_text_catalog_build_fragment}"
+    required_text_catalog_build_position)
+  if(required_text_catalog_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime TextCatalog test target lost '${required_text_catalog_build_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  i18n_text_catalog_ci_contents)
+if(NOT i18n_text_catalog_ci_contents MATCHES
+    "cmake --build build --target[^\r\n]*i18n_text_catalog_tests")
+  message(FATAL_ERROR
+    "Runtime TextCatalog sanitizer build coverage was removed")
+endif()
 file(READ "${SOURCE_ROOT}/docs/RUNTIME_I18N_ARCHITECTURE.md"
   runtime_i18n_architecture_contents)
 string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_architecture_normalized
   "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
-    "482 unique data declarations"
+    "477 unique data declarations"
     "retires exactly 58 catalog guard groups"
     "98 conditioned table entries and 196 exact literal alternatives"
     "CompiledConditionalText.h"
     "ExportStrings.cpp"
     "Migration sequence"
     "Explicit blockers and review gates"
+    "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
-    "520 unique data symbols"
+    "515 unique data symbols"
     "57 pre-existing foreign-catalog compatibility gaps"
+    "All five current `TextKey` descriptors are required"
     "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_normalized}"
     "${required_runtime_i18n_doc_fragment}"
@@ -404,6 +585,7 @@ foreach(required_runtime_i18n_test_build_fragment IN ITEMS
     "NAME i18n_conditional_text_schema"
     "NAME i18n_conditional_text_schema_tool"
     "i18n_conditional_text_policy_tests"
+    "i18n_text_catalog_tests"
     "i18n_compiled_conditional_text_ja2_release_tests"
     "i18n_compiled_conditional_text_ja2_beta_tests"
     "i18n_compiled_conditional_text_ja2ub_release_tests"
@@ -420,6 +602,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
   runtime_i18n_sanitizer_workflow_contents)
 foreach(required_runtime_i18n_sanitizer_target IN ITEMS
+    "i18n_text_catalog_tests"
     "i18n_conditional_text_policy_tests"
     "i18n_compiled_conditional_text_ja2_release_tests"
     "i18n_compiled_conditional_text_ja2_beta_tests"
@@ -438,8 +621,8 @@ endforeach()
 file(READ "${SOURCE_ROOT}/TODO" runtime_i18n_todo_contents)
 foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "mandatory 8-language/4-quadrant Text ABI schema"
-    "58-guard campaign/build value separation are complete"
-    "next move the 485 base and 35 JA25 definitions")
+    "first five one-entry Laptop titles now use a validated immutable TextPack"
+    "remaining 480 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"
     required_runtime_i18n_todo_position)
@@ -4578,7 +4761,7 @@ foreach(required_laptop_history_safety_fragment IN ITEMS
     "NormalizeOneBasedPage"
     "gHistoryRecordPageCount"
     "BoundedIndex"
-    "L\"%s\", pHistoryTitle"
+    "TextKey::HistoryTitle"
     "sgp_swprintf(pString, 512, L\"%s\", sString)"
     "AppendHistoryToEndOfFile(const HistoryUnit&")
   string(FIND "${runtime_laptop_history_contents}"

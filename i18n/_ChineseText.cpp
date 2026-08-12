@@ -3148,10 +3148,6 @@ STR16 pSquadMenuStrings[] =
 	L"取消",
 };
 
-STR16 pPersonnelTitle[] =
-{
-	L"佣兵", // the title for the personnel screen/program application
-};
 
 STR16 pPersonnelScreenStrings[] =
 {
@@ -4657,17 +4653,9 @@ STR16 pEmailHeaders[] =
 
 // email titlebar text
 
-STR16 pEmailTitleText[] =
-{
-	L"邮箱",
-};
 
 
 // the financial screen strings
-STR16 pFinanceTitle[] =
-{
-	L"帐簿",	//the name we made up for the financial program in the game
-};
 
 STR16 pFinanceSummary[] =
 {
@@ -5013,10 +5001,6 @@ STR16 pExtraIMPStrings[] =
 	L"初步阶段完成，现在开始角色性格特征分析部分。",
 };
 
-STR16 pFilesTitle[] =
-{
-  L"文件查看器",
-};
 
 STR16 pFilesSenderList[] =
 {
@@ -5031,10 +5015,6 @@ STR16 pFilesSenderList[] =
 
 // Text having to do with the History Log
 
-STR16 pHistoryTitle[] =
-{
-	L"日志",
-};
 
 STR16 pHistoryHeaders[] =
 {
