@@ -51,6 +51,16 @@ public:
 		bool available;
 	};
 
+	struct MercLevelUpEmailRecord
+	{
+		std::uint8_t xmlMessageOffset;
+		std::uint8_t xmlMessageLength;
+		std::uint8_t xmlSender;
+		std::uint8_t legacyOffset;
+		std::uint16_t legacyLength;
+		bool available;
+	};
+
 	explicit constexpr CampaignLaptopCommunicationsPolicy(
 		GameCampaign campaign) noexcept
 		: campaign_(campaign)
@@ -172,6 +182,38 @@ public:
 			true};
 	}
 
+	constexpr bool shouldSendUnhiredAimDeathNotice(
+		bool aimProfile,
+		bool laptopAvailable,
+		bool deadMercNoticesEnabled) const noexcept
+	{
+		return aimProfile &&
+			(!usesUnfinishedBusinessCatalog() ||
+				(laptopAvailable && deadMercNoticesEnabled));
+	}
+
+	// The four extended M.E.R.C. profiles use the legacy length field as a
+	// template selector. All other legacy offsets intentionally retain the
+	// original UINT8 wrap, as do the XML offset/sender calculations.
+	constexpr MercLevelUpEmailRecord mercLevelUpRecord(
+		std::uint8_t rawProfile) const noexcept
+	{
+		const bool extendedProfile =
+			rawProfile >= 124U && rawProfile <= 127U;
+		const std::uint16_t legacyLength = extendedProfile
+			? static_cast<std::uint16_t>(165U + rawProfile - 124U)
+			: 2U;
+		const std::uint8_t legacyOffset = extendedProfile
+			? std::uint8_t{38}
+			: static_cast<std::uint8_t>(38U + 2U * rawProfile);
+		const std::uint8_t xmlMessageOffset = rawProfile == 0U
+			? std::uint8_t{0}
+			: static_cast<std::uint8_t>(rawProfile + 1U);
+		return {xmlMessageOffset, rawProfile, rawProfile,
+			legacyOffset, legacyLength,
+			!usesUnfinishedBusinessCatalog()};
+	}
+
 	constexpr EmailRecord aimNoRefundRecord() const noexcept
 	{
 		return {217, 3, Catalog::Arulco,
@@ -218,5 +260,14 @@ static_assert(!CampaignLaptopCommunicationsPolicy(
 	GameCampaign::UnfinishedBusiness).johnKulbaShipmentNoticeAvailable());
 static_assert(CampaignLaptopCommunicationsPolicy(
 	GameCampaign::UnfinishedBusiness).impProfileResultsOffset() == 198);
+static_assert(CampaignLaptopCommunicationsPolicy(GameCampaign::Arulco)
+	.shouldSendUnhiredAimDeathNotice(true, false, false));
+static_assert(!CampaignLaptopCommunicationsPolicy(
+	GameCampaign::UnfinishedBusiness)
+	.shouldSendUnhiredAimDeathNotice(true, false, true));
+static_assert(CampaignLaptopCommunicationsPolicy(GameCampaign::Arulco)
+	.mercLevelUpRecord(124).legacyLength == 165);
+static_assert(!CampaignLaptopCommunicationsPolicy(
+	GameCampaign::UnfinishedBusiness).mercLevelUpRecord(127).available);
 
 #endif

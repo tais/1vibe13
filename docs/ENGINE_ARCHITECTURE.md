@@ -1168,12 +1168,17 @@ the engine must not contain SDL types in its public domain model.
   lookup exactly, including the established 50-percent fallback for later
   surface-sector constants outside that key domain. The UB-only strategic-AI
   probe and Arulco-only Madlab threshold read are behind left-hand runtime
-  campaign gates. Three former `JA2UB`
-  guards are gone from `Tactical/Campaign.cpp`; the remaining three are the
-  separate dead-merc and M.E.R.C.-level email-content seams. Dependency-free
-  exhaustive truth tables, live-capability headless coverage, and architecture
-  CI pin the extracted behavior without changing saves, maps, XML, events, or
-  progression tuning.
+  campaign gates. The first three former `JA2UB` guards in
+  `Tactical/Campaign.cpp` are gone through this progress policy.
+  `CampaignLaptopCommunicationsPolicy` now owns the remaining unhired-A.I.M.
+  death and delayed M.E.R.C.-level email content. Arulco retains death record
+  206 and its XML/legacy level-up identities, including byte wrapping and the
+  special 165-168 selectors; UB retains its laptop/death-option conditions,
+  Arulco-catalog substitution tag, and no-level-up behavior. UB configuration
+  reads remain behind the runtime UB gate, while UB returns before Arulco XML,
+  profile, and Speck probes. All six former `JA2UB` guards are gone from
+  `Tactical/Campaign.cpp` without changing the death counter, strategic-event
+  delay, email send time, IDs, saves, maps, XML, or progression tuning.
 - JA25 new-gun dialogue now uses the value-only `CampaignGunCommentPolicy` in
   both tactical item paths. UB keeps the ground-pickup path's raw nonzero
   world-item index and `TRUE` source flag, including `ITEM_PICKUP_SELECTION`
@@ -1291,9 +1296,12 @@ the engine must not contain SDL types in its public domain model.
   `CampaignLaptopCommunicationsPolicy`. Email subject/body loading selects
   Email.edt or Email25.edt from runtime capabilities; insurance and shipment
   producers select exact catalog offsets, substitution tags, and availability
-  rules without host compilation. Semantic classification resolves the legacy
-  collision where UB assigns offset 198 to both IMP profile results and Bobby
-  Ray shipment text. `email.cpp`, `insurance Contract.cpp`, and
+  rules without host compilation. The same policy closes Tactical's
+  unhired-A.I.M. death and M.E.R.C. level-up producers while preserving record
+  206, substitution tag 1, XML sender/message arithmetic, the wrapped legacy
+  byte offset, and extended selectors 165-168. Semantic classification resolves
+  the legacy collision where UB assigns offset 198 to both IMP profile results
+  and Bobby Ray shipment text. `email.cpp`, `insurance Contract.cpp`, and
   `PostalService.cpp` are consequently shared Laptop translation units in all
   hosts, and architecture CI prevents them from regaining `JA2UB` guards.
   A data-free test pins both campaigns' catalog, insurance, shipment, IMP, and

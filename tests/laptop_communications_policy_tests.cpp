@@ -32,6 +32,42 @@ int main()
 		Policy::Catalog::UnfinishedBusiness,
 		"UB selects Email25.edt for campaign mail");
 
+	for (const bool aimProfile : {false, true})
+	for (const bool laptopAvailable : {false, true})
+	for (const bool deadMercNoticesEnabled : {false, true})
+	{
+		Check(arulco.shouldSendUnhiredAimDeathNotice(
+				aimProfile, laptopAvailable, deadMercNoticesEnabled) ==
+				aimProfile,
+			"Arulco AIM death notices ignore UB laptop settings");
+		Check(unfinishedBusiness.shouldSendUnhiredAimDeathNotice(
+				aimProfile, laptopAvailable, deadMercNoticesEnabled) ==
+				(aimProfile && laptopAvailable && deadMercNoticesEnabled),
+			"UB AIM death notices require laptop access and opt-in");
+	}
+
+	int unfinishedBusinessOptionReads = 0;
+	const auto routeUnhiredAimDeathNotice =
+		[&](const Policy& policy)
+		{
+			bool laptopAvailable = true;
+			bool deadMercNoticesEnabled = true;
+			if (policy.usesUnfinishedBusinessCatalog())
+			{
+				++unfinishedBusinessOptionReads;
+				laptopAvailable = false;
+				deadMercNoticesEnabled = false;
+			}
+			return policy.shouldSendUnhiredAimDeathNotice(
+				true, laptopAvailable, deadMercNoticesEnabled);
+		};
+	Check(routeUnhiredAimDeathNotice(arulco) &&
+		unfinishedBusinessOptionReads == 0,
+		"Arulco does not evaluate UB dead-merc configuration");
+	Check(!routeUnhiredAimDeathNotice(unfinishedBusiness) &&
+		unfinishedBusinessOptionReads == 1,
+		"UB evaluates its dead-merc configuration exactly once");
+
 	Check(arulco.insuranceAvailable(false, true, false),
 		"Arulco insurance is not controlled by UB settings");
 	Check(!unfinishedBusiness.insuranceAvailable(false, true, true),
@@ -95,9 +131,63 @@ int main()
 	Check(arulco.sendsInitialArulcoCongratulations() &&
 		!unfinishedBusiness.sendsInitialArulcoCongratulations(),
 		"the initial Enrico congratulations mail remains Arulco-only");
-	Check(unfinishedBusiness.deadMercNoticeRecord().offset == 206 &&
+	const auto arulcoDeathNotice = arulco.deadMercNoticeRecord();
+	const auto unfinishedBusinessDeathNotice =
+		unfinishedBusiness.deadMercNoticeRecord();
+	Check(arulcoDeathNotice.offset == 206 &&
+		arulcoDeathNotice.length == 5 &&
+		arulcoDeathNotice.catalog == Policy::Catalog::Arulco &&
+		arulcoDeathNotice.substitution == Policy::Substitution::None &&
+		arulcoDeathNotice.available,
+		"Arulco AIM death notices retain Email.edt records 206-210");
+	Check(unfinishedBusinessDeathNotice.offset == 206 &&
+		unfinishedBusinessDeathNotice.length == 5 &&
+		unfinishedBusinessDeathNotice.catalog == Policy::Catalog::Arulco &&
+		unfinishedBusinessDeathNotice.substitution ==
+			Policy::Substitution::AimDeathNotice &&
+		unfinishedBusinessDeathNotice.available &&
 		unfinishedBusiness.aimNoRefundRecord().offset == 217,
 		"UB AIM substitutions retain their Arulco record IDs");
+
+	for (unsigned int raw = 0; raw <= 255U; ++raw)
+	{
+		const auto rawProfile = static_cast<std::uint8_t>(raw);
+		const auto arulcoLevelUp = arulco.mercLevelUpRecord(rawProfile);
+		const auto unfinishedBusinessLevelUp =
+			unfinishedBusiness.mercLevelUpRecord(rawProfile);
+		const bool extendedProfile = raw >= 124U && raw <= 127U;
+		const auto expectedLegacyOffset = extendedProfile
+			? std::uint8_t{38}
+			: static_cast<std::uint8_t>(38U + 2U * rawProfile);
+		const auto expectedLegacyLength = extendedProfile
+			? static_cast<std::uint16_t>(165U + raw - 124U)
+			: std::uint16_t{2};
+		const auto expectedXmlOffset = rawProfile == 0U
+			? std::uint8_t{0}
+			: static_cast<std::uint8_t>(rawProfile + 1U);
+		Check(arulcoLevelUp.available &&
+			arulcoLevelUp.xmlMessageOffset == expectedXmlOffset &&
+			arulcoLevelUp.xmlMessageLength == rawProfile &&
+			arulcoLevelUp.xmlSender == rawProfile &&
+			arulcoLevelUp.legacyOffset == expectedLegacyOffset &&
+			arulcoLevelUp.legacyLength == expectedLegacyLength,
+			"Arulco M.E.R.C. level-up IDs retain their full UINT8 truth table");
+		Check(!unfinishedBusinessLevelUp.available &&
+			unfinishedBusinessLevelUp.xmlMessageOffset == expectedXmlOffset &&
+			unfinishedBusinessLevelUp.xmlMessageLength == rawProfile &&
+			unfinishedBusinessLevelUp.xmlSender == rawProfile &&
+			unfinishedBusinessLevelUp.legacyOffset == expectedLegacyOffset &&
+			unfinishedBusinessLevelUp.legacyLength == expectedLegacyLength,
+			"UB suppresses M.E.R.C. level-up mail without changing its IDs");
+	}
+	Check(arulco.mercLevelUpRecord(124).legacyLength == 165 &&
+		arulco.mercLevelUpRecord(125).legacyLength == 166 &&
+		arulco.mercLevelUpRecord(126).legacyLength == 167 &&
+		arulco.mercLevelUpRecord(127).legacyLength == 168,
+		"extended M.E.R.C. level-up selectors remain exactly 165 through 168");
+	Check(arulco.mercLevelUpRecord(255).xmlMessageOffset == 0 &&
+		arulco.mercLevelUpRecord(255).legacyOffset == 36,
+		"M.E.R.C. level-up IDs retain legacy UINT8 wrap at 255");
 
 	Check(arulco.impIntroOffset() == 0 && arulco.impReminderOffset() == 13 &&
 		arulco.impProfileResultsOffset() == 29,

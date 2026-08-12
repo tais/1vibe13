@@ -1969,9 +1969,9 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "54 active conditionals in 21"
+    "51 active conditionals in 20"
     "Laptop content/pages | 4"
-    "Tactical gameplay/content | 18"
+    "Tactical gameplay/content | 15"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
     "CampaignGunCommentPolicy"
@@ -1985,7 +1985,7 @@ foreach(required_campaign_status_fragment IN ITEMS
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
     "All fourteen policies"
-    "three remaining guards belong to separate dead-merc")
+    "All six former guards in `Tactical/Campaign.cpp`")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -2010,7 +2010,7 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "signed `INT8` strategic-sector lookup exactly"
-    "Three former `JA2UB` guards are gone from `Tactical/Campaign.cpp`"
+    "All six former `JA2UB` guards are gone from `Tactical/Campaign.cpp`"
     "JA25 new-gun dialogue now uses the value-only"
     "All five former `JA2UB` guards in `Tactical/Handle Items.cpp`"
     "Arulco gates both routes before either comment argument"
@@ -2081,9 +2081,9 @@ string(REGEX MATCHALL
   "${runtime_campaign_progress_source_contents}")
 list(LENGTH runtime_campaign_progress_remaining_guards
   runtime_campaign_progress_remaining_guard_count)
-if(runtime_campaign_progress_remaining_guard_count GREATER 3)
+if(runtime_campaign_progress_remaining_guard_count GREATER 0)
   message(FATAL_ERROR
-    "Tactical/Campaign.cpp regained a JA2UB guard after the progress extraction")
+    "Tactical/Campaign.cpp regained compiled JA2UB campaign identity")
 endif()
 
 string(FIND "${runtime_campaign_progress_source_contents}"
@@ -2179,6 +2179,223 @@ foreach(required_campaign_progress_test_fragment IN ITEMS
   if(required_campaign_progress_test_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign progress policy tests lost '${required_campaign_progress_test_fragment}'")
+  endif()
+endforeach()
+
+# Tactical's unhired-A.I.M. death notice and delayed M.E.R.C. level-up email
+# now select through the existing value-only communications policy. UB option
+# reads must remain inside the runtime UB gate, the delayed event handler must
+# return before any Arulco content probe, and every legacy ID remains exact.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
+  runtime_campaign_email_policy_contents)
+foreach(required_campaign_email_policy_fragment IN ITEMS
+    "struct MercLevelUpEmailRecord"
+    "shouldSendUnhiredAimDeathNotice"
+    "mercLevelUpRecord"
+    "return {206, 5, Catalog::Arulco"
+    "Substitution::AimDeathNotice"
+    "rawProfile >= 124U && rawProfile <= 127U"
+    "165U + rawProfile - 124U"
+    "static_cast<std::uint8_t>(38U + 2U * rawProfile)"
+    "static_cast<std::uint8_t>(rawProfile + 1U)")
+  string(FIND "${runtime_campaign_email_policy_contents}"
+    "${required_campaign_email_policy_fragment}"
+    required_campaign_email_policy_position)
+  if(required_campaign_email_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign email policy lost '${required_campaign_email_policy_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_campaign_email_source_fragment IN ITEMS
+    "#include \"CampaignLaptopCommunicationsPolicy.h\""
+    "#include \"ub_config.h\""
+    "shouldSendUnhiredAimDeathNotice"
+    "deadMercNoticeRecord"
+    "TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT"
+    "TYPE_EMAIL_EMAIL_EDT"
+    "static_cast<UINT8>(notice.substitution)"
+    "mercLevelUpRecord(ubMercMercIdValue)"
+    "if (!levelUpEmail.available) return"
+    "levelUpEmail.xmlMessageOffset"
+    "levelUpEmail.xmlMessageLength"
+    "levelUpEmail.xmlSender"
+    "levelUpEmail.legacyOffset"
+    "levelUpEmail.legacyLength")
+  string(FIND "${runtime_campaign_progress_source_contents}"
+    "${required_campaign_email_source_fragment}"
+    required_campaign_email_source_position)
+  if(required_campaign_email_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical campaign email routing lost '${required_campaign_email_source_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "void HandleUnhiredMercDeaths( INT32 iProfileID )"
+  runtime_campaign_death_email_start)
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "UINT8 CurrentPlayerProgressPercentage(void)"
+  runtime_campaign_death_email_end)
+if(runtime_campaign_death_email_start EQUAL -1 OR
+    runtime_campaign_death_email_end EQUAL -1 OR
+    NOT runtime_campaign_death_email_start LESS
+      runtime_campaign_death_email_end)
+  message(FATAL_ERROR "Cannot locate the unhired-merc death-email boundary")
+endif()
+math(EXPR runtime_campaign_death_email_length
+  "${runtime_campaign_death_email_end} - ${runtime_campaign_death_email_start}")
+string(SUBSTRING "${runtime_campaign_progress_source_contents}"
+  ${runtime_campaign_death_email_start}
+  ${runtime_campaign_death_email_length}
+  runtime_campaign_death_email_region)
+string(FIND "${runtime_campaign_death_email_region}"
+  "gStrategicStatus.ubUnhiredMercDeaths++"
+  runtime_campaign_death_counter_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "if (communicationsPolicy.usesUnfinishedBusinessCatalog())"
+  runtime_campaign_death_gate_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "gGameUBOptions.LaptopQuestEnabled"
+  runtime_campaign_death_laptop_option_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "laptopAvailable && aimProfile &&"
+  runtime_campaign_death_aim_gate_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "gGameUBOptions.fDeadMerc"
+  runtime_campaign_death_notice_option_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "const auto notice = communicationsPolicy.deadMercNoticeRecord()"
+  runtime_campaign_death_record_position)
+string(FIND "${runtime_campaign_death_email_region}"
+  "AddEmailWithSpecialData("
+  runtime_campaign_death_effect_position)
+if(runtime_campaign_death_counter_position EQUAL -1 OR
+    runtime_campaign_death_gate_position EQUAL -1 OR
+    runtime_campaign_death_laptop_option_position EQUAL -1 OR
+    runtime_campaign_death_aim_gate_position EQUAL -1 OR
+    runtime_campaign_death_notice_option_position EQUAL -1 OR
+    runtime_campaign_death_record_position EQUAL -1 OR
+    runtime_campaign_death_effect_position EQUAL -1 OR
+    NOT runtime_campaign_death_counter_position LESS
+      runtime_campaign_death_gate_position OR
+    NOT runtime_campaign_death_gate_position LESS
+      runtime_campaign_death_laptop_option_position OR
+    NOT runtime_campaign_death_laptop_option_position LESS
+      runtime_campaign_death_aim_gate_position OR
+    NOT runtime_campaign_death_aim_gate_position LESS
+      runtime_campaign_death_notice_option_position OR
+    NOT runtime_campaign_death_notice_option_position LESS
+      runtime_campaign_death_record_position OR
+    NOT runtime_campaign_death_record_position LESS
+      runtime_campaign_death_effect_position)
+  message(FATAL_ERROR
+    "Unhired-A.I.M. death mail lost campaign/config gating, IDs, or timing order")
+endif()
+string(REGEX MATCHALL
+  "gGameUBOptions\\.(LaptopQuestEnabled|fDeadMerc)"
+  runtime_campaign_death_option_reads
+  "${runtime_campaign_death_email_region}")
+list(LENGTH runtime_campaign_death_option_reads
+  runtime_campaign_death_option_read_count)
+if(NOT runtime_campaign_death_option_read_count EQUAL 2)
+  message(FATAL_ERROR
+    "Unhired-A.I.M. death mail must retain exactly its two UB option reads")
+endif()
+
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "void MERCMercWentUpALevelSendEmail( UINT8 ubMercMercIdValue )"
+  runtime_campaign_level_email_start)
+if(runtime_campaign_level_email_start EQUAL -1)
+  message(FATAL_ERROR "Cannot locate the M.E.R.C. level-up email boundary")
+endif()
+string(SUBSTRING "${runtime_campaign_progress_source_contents}"
+  ${runtime_campaign_level_email_start} -1 runtime_campaign_level_email_region)
+string(FIND "${runtime_campaign_level_email_region}"
+  "if (!levelUpEmail.available) return"
+  runtime_campaign_level_gate_position)
+string(FIND "${runtime_campaign_level_email_region}"
+  "ReadXMLEmail == TRUE"
+  runtime_campaign_level_xml_probe_position)
+string(FIND "${runtime_campaign_level_email_region}"
+  "gMercProfiles[ubMercMercIdValue].Type"
+  runtime_campaign_level_profile_probe_position)
+string(FIND "${runtime_campaign_level_email_region}"
+  "IsSpeckComAvailable()"
+  runtime_campaign_level_speck_probe_position)
+string(FIND "${runtime_campaign_level_email_region}"
+  "AddEmailTypeXML("
+  runtime_campaign_level_xml_effect_position)
+string(FIND "${runtime_campaign_level_email_region}"
+  "AddEmail("
+  runtime_campaign_level_legacy_effect_position)
+if(runtime_campaign_level_gate_position EQUAL -1 OR
+    runtime_campaign_level_xml_probe_position EQUAL -1 OR
+    runtime_campaign_level_profile_probe_position EQUAL -1 OR
+    runtime_campaign_level_speck_probe_position EQUAL -1 OR
+    runtime_campaign_level_xml_effect_position EQUAL -1 OR
+    runtime_campaign_level_legacy_effect_position EQUAL -1 OR
+    NOT runtime_campaign_level_gate_position LESS
+      runtime_campaign_level_xml_probe_position OR
+    NOT runtime_campaign_level_xml_probe_position LESS
+      runtime_campaign_level_profile_probe_position OR
+    NOT runtime_campaign_level_profile_probe_position LESS
+      runtime_campaign_level_speck_probe_position OR
+    NOT runtime_campaign_level_speck_probe_position LESS
+      runtime_campaign_level_xml_effect_position OR
+    NOT runtime_campaign_level_xml_effect_position LESS
+      runtime_campaign_level_legacy_effect_position)
+  message(FATAL_ERROR
+    "M.E.R.C. level-up mail must gate UB before every Arulco content probe")
+endif()
+if(runtime_campaign_level_email_region MATCHES "MERC_UP_LEVEL_")
+  message(FATAL_ERROR
+    "Tactical campaign email routing restored host-qualified level-up macros")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  runtime_campaign_email_tactical_build_contents)
+file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
+  runtime_campaign_email_application_build_contents)
+string(FIND "${runtime_campaign_email_tactical_build_contents}"
+  "Campaign.cpp" runtime_campaign_email_common_source_position)
+string(FIND "${runtime_campaign_email_application_build_contents}"
+  "ub_config.cpp" runtime_campaign_email_config_source_position)
+if(runtime_campaign_email_common_source_position EQUAL -1 OR
+    runtime_campaign_email_config_source_position EQUAL -1)
+  message(FATAL_ERROR
+    "All-host tactical campaign email/config linkage is incomplete")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_communications_policy_tests.cpp"
+  runtime_campaign_email_policy_test_contents)
+foreach(required_campaign_email_test_fragment IN ITEMS
+    "Arulco does not evaluate UB dead-merc configuration"
+    "UB evaluates its dead-merc configuration exactly once"
+    "Arulco AIM death notices retain Email.edt records 206-210"
+    "UB AIM substitutions retain their Arulco record IDs"
+    "full UINT8 truth table"
+    "selectors remain exactly 165 through 168"
+    "legacy UINT8 wrap at 255"
+    "UB suppresses M.E.R.C. level-up mail without changing its IDs")
+  string(FIND "${runtime_campaign_email_policy_test_contents}"
+    "${required_campaign_email_test_fragment}"
+    required_campaign_email_test_position)
+  if(required_campaign_email_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign email policy tests lost '${required_campaign_email_test_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_campaign_email_headless_fragment IN ITEMS
+    "communicationsPolicy.shouldSendUnhiredAimDeathNotice("
+    "communicationsPolicy.mercLevelUpRecord(124).available")
+  string(FIND "${runtime_campaign_follow_through_headless_contents}"
+    "${required_campaign_email_headless_fragment}"
+    required_campaign_email_headless_position)
+  if(required_campaign_email_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Headless campaign email integration lost '${required_campaign_email_headless_fragment}'")
   endif()
 endforeach()
 
@@ -2810,12 +3027,13 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
   runtime_campaign_npc_guard_baseline_contents)
 string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
-  "\"total\": 54" runtime_campaign_npc_guard_total_position)
+  "\"total\": 51" runtime_campaign_npc_guard_total_position)
 if(runtime_campaign_npc_guard_total_position EQUAL -1)
   message(FATAL_ERROR
-    "Campaign compile-guard baseline did not retire the eight Tactical AI guards")
+    "Campaign compile-guard baseline does not match the retired tactical guards")
 endif()
 foreach(retired_campaign_npc_guard_file IN ITEMS
+    "Tactical/Campaign.cpp"
     "TacticalAI/AIMain.cpp"
     "TacticalAI/DecideAction.cpp"
     "TacticalAI/NPC.cpp")
@@ -3560,6 +3778,8 @@ foreach(required_laptop_communications_policy_fragment IN ITEMS
     "bobbyShipmentRecord"
     "johnKulbaShipmentNoticeAvailable"
     "sendsInitialArulcoCongratulations"
+    "shouldSendUnhiredAimDeathNotice"
+    "mercLevelUpRecord"
     "impProfileResultsOffset"
     "isImpProfileResultsMessage")
   string(FIND "${runtime_laptop_communications_policy_contents}"
