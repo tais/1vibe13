@@ -6032,14 +6032,6 @@ STR16			AimPopUpText[] =
 };
 
 
-//AIM Link.c
-
-STR16			AimLinkText[] =
-{
-	L"Liens AIM",	//The title of the AIM links page
-};
-
-
 
 //Aim History
 

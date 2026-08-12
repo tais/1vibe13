@@ -316,7 +316,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"CharacterInfo",				Loc::CharacterInfo,					0,	TEXT_NUM_AIM_MEMBER_CHARINFO);
 	ExportSection(props, L"VideoConfercing",			Loc::VideoConfercingText,			0,	TEXT_NUM_AIM_MEMBER_VCONF);
 	ExportSection(props, L"AimPopUp",					Loc::AimPopUpText,					0,	TEXT_NUM_AIM_MEMBER_POPUP);
-	ExportSection(props, L"AimLink",					Loc::AimLinkText,					0,	TEXM_NUM_AIM_LINK);
+	ExportTextPackEntry(props, i18n::TextKey::AimLinksTitle);
 	ExportSection(props, L"AimHistory",					Loc::AimHistoryText,				0,	TEXT_NUM_AIM_HISTORY);
 	ExportSection(props, L"AimFi",						Loc::AimFiText,						0,	TEXT_NUM_AIM_FI);
 	ExportSection(props, L"AimAlumni",					Loc::AimAlumniText,					0,	TEXT_NUM_AIM_ALUMNI);

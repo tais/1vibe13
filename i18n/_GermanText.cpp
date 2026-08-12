@@ -5931,12 +5931,6 @@ STR16 AimPopUpText[] =
 	L"Nachricht aufgenommen",
 };
 
-//AIM Link.c
-STR16 AimLinkText[] =
-{
-	L"A.I.M. Links",	//The title of the AIM links page
-};
-
 //Aim History
 // This page displays the history of AIM
 STR16 AimHistoryText[] =
