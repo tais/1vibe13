@@ -53,6 +53,8 @@
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorSkills.h"
+#include "CampaignNpcPolicy.h"
+#include "GameContext.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -5212,8 +5214,10 @@ INT16 ubMinAPCost;
 	}
 
 	// offer surrender?
-#ifndef JA2UB
-	if ( !is_networked ) // No surrender in multiplayer
+	const CampaignNpcPolicy campaignNpcPolicy(
+		GetGameContext().capabilities());
+	if ( campaignNpcPolicy.allowsEnemySurrenderOffers() &&
+		!is_networked ) // No surrender in multiplayer
 	{
 		if ( pSoldier->roster().team() == ENEMY_TEAM && pSoldier->awareness().visibility() == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
@@ -5226,7 +5230,6 @@ INT16 ubMinAPCost;
 			}
 		}
 	}
-#endif
 
 	////////////////////////////////////////////////////////////////////////////
 	// SOLDIER CAN ATTACK IF NOT IN WATER/GAS AND NOT DOING SOMETHING TOO FUNKY
@@ -9662,8 +9665,10 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 	}
 
 	// offer surrender?
-#ifndef JA2UB
-	if ( !is_networked ) // No surrender in multiplayer
+	const CampaignNpcPolicy campaignNpcPolicy(
+		GetGameContext().capabilities());
+	if ( campaignNpcPolicy.allowsEnemySurrenderOffers() &&
+		!is_networked ) // No surrender in multiplayer
 	{
 		if ( pSoldier->roster().team() == ENEMY_TEAM && pSoldier->awareness().visibility() == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
@@ -9676,7 +9681,6 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 			}
 		}
 	}
-#endif
 
 	////////////////////////////////////////////////////////////////////////////
 	// SOLDIER CAN ATTACK IF NOT IN WATER/GAS AND NOT DOING SOMETHING TOO FUNKY

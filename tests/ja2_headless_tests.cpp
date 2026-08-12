@@ -128,6 +128,7 @@
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignMapScreenPolicy.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignNpcPolicy.h"
 #include "CampaignProgressPolicy.h"
 #include "GameContext.h"
 #include "GameVersion.h"
@@ -5734,6 +5735,7 @@ int main( int, char** )
 			compiledContext.capabilities());
 		const CampaignMercenaryPolicy mercenaryPolicy(
 			compiledContext.capabilities());
+		const CampaignNpcPolicy npcPolicy(compiledContext.capabilities());
 		const CampaignProgressPolicy progressPolicy(
 			compiledContext.capabilities());
 		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
@@ -5755,6 +5757,12 @@ int main( int, char** )
 		       mapScreenPolicy.treatsSanMonaAsUnimportant() ==
 		           !unfinishedBusiness &&
 		       mercenaryPolicy.allowsDismissalFromSector(14) ==
+		           !unfinishedBusiness &&
+		       npcPolicy.usesUnfinishedBusinessNpcQuoteFiles() ==
+		           unfinishedBusiness &&
+		       npcPolicy.usesMeanwhileNpcQuoteOverrides() ==
+		           !unfinishedBusiness &&
+		       npcPolicy.allowsEnemySurrenderOffers() ==
 		           !unfinishedBusiness &&
 		       progressPolicy.usesUnfinishedBusinessProgress() ==
 		           unfinishedBusiness &&
