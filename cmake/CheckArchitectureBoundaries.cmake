@@ -11151,6 +11151,451 @@ foreach(system_world_object_document IN ITEMS
   endforeach()
 endforeach()
 
+# The legacy dialogue queue exposes every bit of its 32-bit special-event
+# field. One value has two campaign-specific names, hence 33 symbols. Keep the
+# complete inventory explicit before migrating behaviorally closed slices.
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
+  dialogue_effect_header_contents)
+string(REGEX MATCHALL
+  "#[ \t]*define[ \t]+(DIALOGUE_SPECIAL_EVENT_[A-Za-z0-9_]+|DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX)([ \t\r\n]|$)"
+  dialogue_effect_exposed_definitions "${dialogue_effect_header_contents}")
+list(LENGTH dialogue_effect_exposed_definitions
+  dialogue_effect_exposed_definition_count)
+if(NOT dialogue_effect_exposed_definition_count EQUAL 33)
+  message(FATAL_ERROR
+    "Dialogue-effect header must expose exactly 33 special-event symbols; found ${dialogue_effect_exposed_definition_count}")
+endif()
+set(dialogue_effect_symbol_values
+  "DIALOGUE_SPECIAL_EVENT_GIVE_ITEM|0x00000001"
+  "DIALOGUE_SPECIAL_EVENT_TRIGGER_NPC|0x00000002"
+  "DIALOGUE_SPECIAL_EVENT_GOTO_GRIDNO|0x00000004"
+  "DIALOGUE_SPECIAL_EVENT_DO_ACTION|0x00000008"
+  "DIALOGUE_SPECIAL_EVENT_CLOSE_PANEL|0x00000010"
+  "DIALOGUE_SPECIAL_EVENT_PCTRIGGERNPC|0x00000020"
+  "DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE|0x00000040"
+  "DIALOGUE_SPECIAL_EVENT_SKYRIDERMAPSCREENEVENT|0x00000080"
+  "DIALOGUE_SPECIAL_EVENT_SHOW_CONTRACT_MENU|0x00000100"
+  "DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT|0x00000200"
+  "DIALOGUE_SPECIAL_EVENT_SHOW_UPDATE_MENU|0x00000400"
+  "DIALOGUE_SPECIAL_EVENT_ENABLE_AI|0x00000800"
+  "DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES|0x00001000"
+  "DIALOGUE_SPECIAL_EVENT_JERRY_MILO|0x00002000"
+  "DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA|0x00002000"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING|0x00004000"
+  "DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE|0x00008000"
+  "DIALOGUE_SPECIAL_EVENT_SLEEP|0x00010000"
+  "DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND|0x00020000"
+  "DIALOGUE_SPECIAL_EVENT_SIGNAL_ITEM_LOCATOR_START|0x00040000"
+  "DIALOGUE_SPECIAL_EVENT_SHOPKEEPER|0x00080000"
+  "DIALOGUE_SPECIAL_EVENT_SKIP_A_FRAME|0x00100000"
+  "DIALOGUE_SPECIAL_EVENT_EXIT_MAP_SCREEN|0x00200000"
+  "DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE|0x00400000"
+  "DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG|0x00800000"
+  "DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE|0x01000000"
+  "DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX|0x02000000"
+  "DIALOGUE_SPECIAL_EVENT_ENTER_MAPSCREEN|0x04000000"
+  "DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE|0x08000000"
+  "DIALOGUE_SPECIAL_EVENT_REMOVE_EPC|0x10000000"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_WANTS_TO_RENEW|0x20000000"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_NOGO_TO_RENEW|0x40000000"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP|0x80000000")
+list(LENGTH dialogue_effect_symbol_values dialogue_effect_symbol_count)
+if(NOT dialogue_effect_symbol_count EQUAL 33)
+  message(FATAL_ERROR
+    "Dialogue-effect audit must enumerate exactly 33 exposed symbols")
+endif()
+set(dialogue_effect_bit_values)
+set(dialogue_effect_consumer_symbols)
+foreach(dialogue_effect_symbol_value IN LISTS dialogue_effect_symbol_values)
+  string(REPLACE "|" ";" dialogue_effect_pair
+    "${dialogue_effect_symbol_value}")
+  list(GET dialogue_effect_pair 0 dialogue_effect_symbol)
+  list(GET dialogue_effect_pair 1 dialogue_effect_value)
+  list(APPEND dialogue_effect_bit_values "${dialogue_effect_value}")
+  list(APPEND dialogue_effect_consumer_symbols "${dialogue_effect_symbol}")
+  string(REGEX MATCH
+    "#[ \t]*define[ \t]+${dialogue_effect_symbol}[ \t]+${dialogue_effect_value}([ \t\r\n]|$)"
+    dialogue_effect_exact_definition "${dialogue_effect_header_contents}")
+  if(NOT dialogue_effect_exact_definition)
+    message(FATAL_ERROR
+      "Dialogue-effect inventory lost ${dialogue_effect_symbol}=${dialogue_effect_value}")
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES dialogue_effect_bit_values)
+list(REMOVE_ITEM dialogue_effect_consumer_symbols
+  "DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA")
+list(LENGTH dialogue_effect_bit_values dialogue_effect_bit_count)
+if(NOT dialogue_effect_bit_count EQUAL 32)
+  message(FATAL_ERROR
+    "Dialogue-effect vocabulary no longer covers exactly 32 bit values")
+endif()
+
+set(dialogue_effect_producer_inventory
+  "DIALOGUE_SPECIAL_EVENT_GIVE_ITEM|1|Tactical/Interface Dialogue.cpp"
+  "DIALOGUE_SPECIAL_EVENT_TRIGGER_NPC|1|Tactical/Interface Dialogue.cpp"
+  "DIALOGUE_SPECIAL_EVENT_GOTO_GRIDNO|1|Tactical/Interface Dialogue.cpp"
+  "DIALOGUE_SPECIAL_EVENT_DO_ACTION|1|Tactical/Interface Dialogue.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CLOSE_PANEL|1|Tactical/Interface Dialogue.cpp"
+  "DIALOGUE_SPECIAL_EVENT_PCTRIGGERNPC|1|TacticalAI/NPC.cpp"
+  "DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE|1|Strategic/Strategic Movement.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SKYRIDERMAPSCREENEVENT|1|Strategic/Map Screen Helicopter.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SHOW_CONTRACT_MENU|2|Strategic/Map Screen Interface.cpp|Strategic/Merc Contract.cpp"
+  "DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT|2|Strategic/Map Screen Interface.cpp|Tactical/Merc Hiring.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SHOW_UPDATE_MENU|2|Strategic/Assignments.cpp|Strategic/Merc Contract.cpp"
+  "DIALOGUE_SPECIAL_EVENT_ENABLE_AI|1|Tactical/Merc Entering.cpp"
+  "DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES|2|Strategic/Quest Debug System.cpp|Tactical/Tactical Turns.cpp"
+  "DIALOGUE_SPECIAL_EVENT_JERRY_MILO|2|Strategic/MapScreen Quotes.cpp|Tactical/Ja25_Tactical.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA|1|Strategic/Town Militia.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING|3|Strategic/Assignments.cpp|Strategic/Merc Contract.cpp|Strategic/Strategic Merc Handler.cpp"
+  "DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE|3|Tactical/Dialogue Control.cpp|Tactical/End Game.cpp|Tactical/Overhead.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SLEEP|4|Strategic/Assignments.cpp|Strategic/Strategic Movement.cpp|Tactical/Dialogue Control.cpp|Tactical/Morale.cpp"
+  "DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND|3|Tactical/TacticalActorBattleSounds.cpp|Tactical/TacticalActorRadio.cpp|TileEngine/Interactive Tiles.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SIGNAL_ITEM_LOCATOR_START|2|Tactical/Overhead.cpp|Tactical/fov.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SHOPKEEPER|1|Tactical/ShopKeeper Interface.cpp"
+  "DIALOGUE_SPECIAL_EVENT_SKIP_A_FRAME|1|Tactical/ShopKeeper Interface.cpp"
+  "DIALOGUE_SPECIAL_EVENT_EXIT_MAP_SCREEN|1|Tactical/Air Raid.cpp"
+  "DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE|1|Tactical/Campaign.cpp"
+  "DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG|1|Tactical/Merc Hiring.cpp"
+  "DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE|1|Strategic/Strategic Movement.cpp"
+  "DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX|1|Strategic/Map Screen Interface.cpp"
+  "DIALOGUE_SPECIAL_EVENT_ENTER_MAPSCREEN|3|Strategic/Map Screen Interface.cpp|Strategic/Merc Contract.cpp|Strategic/Strategic Merc Handler.cpp"
+  "DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE|2|Strategic/Assignments.cpp|Strategic/Merc Contract.cpp"
+  "DIALOGUE_SPECIAL_EVENT_REMOVE_EPC|1|Strategic/Assignments.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_WANTS_TO_RENEW|1|Strategic/Merc Contract.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_NOGO_TO_RENEW|1|Strategic/Merc Contract.cpp"
+  "DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP|3|Strategic/Hourly Update.cpp|Strategic/Strategic Merc Handler.cpp|Strategic/strategicmap.cpp")
+list(LENGTH dialogue_effect_producer_inventory
+  dialogue_effect_producer_inventory_count)
+if(NOT dialogue_effect_producer_inventory_count EQUAL 33)
+  message(FATAL_ERROR
+    "Dialogue-effect source inventory must enumerate exactly 33 symbols")
+endif()
+foreach(dialogue_effect_producer_entry IN LISTS
+    dialogue_effect_producer_inventory)
+  string(REPLACE "|" ";" dialogue_effect_producer_parts
+    "${dialogue_effect_producer_entry}")
+  list(GET dialogue_effect_producer_parts 0 dialogue_effect_symbol)
+  set("dialogue_effect_actual_${dialogue_effect_symbol}")
+endforeach()
+# A bare symbol reference is not producer evidence. Require the symbol to be an
+# argument of one of the legacy queue-enqueue APIs, up to that call's statement
+# terminator. This also lets Dialogue Control.cpp participate without mistaking
+# its centralized flag tests for producers.
+set(dialogue_effect_producer_call_pattern
+  "(TacticalCharacterDialogueWithSpecialEventEx|TacticalCharacterDialogueWithSpecialEvent|CharacterDialogueWithSpecialEventEx|CharacterDialogueWithSpecialEvent|SpecialCharacterDialogueEventWithExtraParam|SpecialCharacterDialogueEvent|SnitchCharacterDialogue)")
+file(GLOB dialogue_effect_source_candidates
+  "${SOURCE_ROOT}/Strategic/*.cpp"
+  "${SOURCE_ROOT}/Tactical/*.cpp"
+  "${SOURCE_ROOT}/TacticalAI/*.cpp"
+  "${SOURCE_ROOT}/TileEngine/*.cpp")
+foreach(dialogue_effect_source_candidate IN LISTS
+    dialogue_effect_source_candidates)
+  read_cxx_executable("${dialogue_effect_source_candidate}"
+    dialogue_effect_source_executable)
+  file(RELATIVE_PATH dialogue_effect_source_relative
+    "${SOURCE_ROOT}" "${dialogue_effect_source_candidate}")
+  foreach(dialogue_effect_producer_entry IN LISTS
+      dialogue_effect_producer_inventory)
+    string(REPLACE "|" ";" dialogue_effect_producer_parts
+      "${dialogue_effect_producer_entry}")
+    list(GET dialogue_effect_producer_parts 0 dialogue_effect_symbol)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${dialogue_effect_producer_call_pattern}[ \t\r\n]*\\([^;{}]*[^A-Za-z0-9_]${dialogue_effect_symbol}([^A-Za-z0-9_]|$)"
+      dialogue_effect_source_producer
+      "${dialogue_effect_source_executable}")
+    if(dialogue_effect_source_producer)
+      list(APPEND "dialogue_effect_actual_${dialogue_effect_symbol}"
+        "${dialogue_effect_source_relative}")
+    endif()
+  endforeach()
+endforeach()
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  dialogue_effect_queue_executable)
+string(FIND "${dialogue_effect_queue_executable}"
+  "void HandleDialogue( )" dialogue_effect_consumer_start)
+string(FIND "${dialogue_effect_queue_executable}"
+  "BOOLEAN DelayedTacticalCharacterDialogue("
+  dialogue_effect_consumer_end)
+if(dialogue_effect_consumer_start EQUAL -1 OR
+   dialogue_effect_consumer_end EQUAL -1 OR
+   NOT dialogue_effect_consumer_start LESS dialogue_effect_consumer_end)
+  message(FATAL_ERROR
+    "Dialogue-effect audit cannot isolate the centralized HandleDialogue consumer")
+endif()
+math(EXPR dialogue_effect_consumer_length
+  "${dialogue_effect_consumer_end} - ${dialogue_effect_consumer_start}")
+string(SUBSTRING "${dialogue_effect_queue_executable}"
+  ${dialogue_effect_consumer_start} ${dialogue_effect_consumer_length}
+  dialogue_effect_consumer_executable)
+list(LENGTH dialogue_effect_consumer_symbols dialogue_effect_consumer_count)
+if(NOT dialogue_effect_consumer_count EQUAL 32)
+  message(FATAL_ERROR
+    "Dialogue-effect audit must enumerate exactly 32 centralized bit consumers")
+endif()
+foreach(dialogue_effect_consumer_symbol IN LISTS
+    dialogue_effect_consumer_symbols)
+  string(REGEX MATCH
+    "QItem[.]uiSpecialEventFlag[^\r\n]*${dialogue_effect_consumer_symbol}([^A-Za-z0-9_]|$)"
+    dialogue_effect_consumer_use "${dialogue_effect_consumer_executable}")
+  if(NOT dialogue_effect_consumer_use)
+    message(FATAL_ERROR
+      "Dialogue queue lost centralized consumer for ${dialogue_effect_consumer_symbol}")
+  endif()
+endforeach()
+foreach(dialogue_effect_producer_entry IN LISTS
+    dialogue_effect_producer_inventory)
+  string(REPLACE "|" ";" dialogue_effect_producer_parts
+    "${dialogue_effect_producer_entry}")
+  list(GET dialogue_effect_producer_parts 0 dialogue_effect_symbol)
+  list(GET dialogue_effect_producer_parts 1 dialogue_effect_expected_count)
+  list(SUBLIST dialogue_effect_producer_parts 2 -1
+    dialogue_effect_expected_producers)
+  set(dialogue_effect_actual_variable
+    "dialogue_effect_actual_${dialogue_effect_symbol}")
+  set(dialogue_effect_actual_producers
+    "${${dialogue_effect_actual_variable}}")
+  list(SORT dialogue_effect_expected_producers)
+  list(SORT dialogue_effect_actual_producers)
+  list(LENGTH dialogue_effect_actual_producers
+    dialogue_effect_actual_count)
+  if(NOT dialogue_effect_actual_count EQUAL dialogue_effect_expected_count OR
+     NOT "${dialogue_effect_actual_producers}" STREQUAL
+       "${dialogue_effect_expected_producers}")
+    message(FATAL_ERROR
+      "Dialogue-effect producer inventory changed for ${dialogue_effect_symbol}: expected '${dialogue_effect_expected_producers}', found '${dialogue_effect_actual_producers}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/Strategic/LuaInitNPCs.cpp"
+  dialogue_effect_lua_gateway_executable)
+foreach(required_dialogue_effect_lua_marker IN ITEMS
+    "lua_register(L, \"TacticalCharacterDialogueWithSpecialEvent\", l_TacticalCharacterDialogueWithSpecialEvent)"
+    "UINT32 uiFlag = lua_tointeger(L, 3)"
+    "TacticalCharacterDialogueWithSpecialEvent(pSoldier, usQuoteNum, uiFlag")
+  string(FIND "${dialogue_effect_lua_gateway_executable}"
+    "${required_dialogue_effect_lua_marker}"
+    required_dialogue_effect_lua_marker_index)
+  if(required_dialogue_effect_lua_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Dialogue-effect audit lost dynamic Lua ingress '${required_dialogue_effect_lua_marker}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/DIALOGUE_EFFECT_INVENTORY.md"
+  dialogue_effect_inventory_contents)
+foreach(dialogue_effect_symbol_value IN LISTS dialogue_effect_symbol_values)
+  string(REPLACE "|" ";" dialogue_effect_pair
+    "${dialogue_effect_symbol_value}")
+  list(GET dialogue_effect_pair 0 dialogue_effect_symbol)
+  list(GET dialogue_effect_pair 1 dialogue_effect_value)
+  string(REGEX MATCH
+    "\\|[ \t]*`${dialogue_effect_value}`[ \t]*\\|[ \t]*`${dialogue_effect_symbol}`[ \t]*\\|[^\r\n]*"
+    dialogue_effect_document_value_row
+    "${dialogue_effect_inventory_contents}")
+  if(NOT dialogue_effect_document_value_row)
+    message(FATAL_ERROR
+      "Dialogue-effect document lost exact row ${dialogue_effect_symbol}=${dialogue_effect_value}")
+  endif()
+endforeach()
+foreach(dialogue_effect_producer_entry IN LISTS
+    dialogue_effect_producer_inventory)
+  string(REPLACE "|" ";" dialogue_effect_producer_parts
+    "${dialogue_effect_producer_entry}")
+  list(GET dialogue_effect_producer_parts 0 dialogue_effect_symbol)
+  list(GET dialogue_effect_producer_parts 1 dialogue_effect_expected_count)
+  list(SUBLIST dialogue_effect_producer_parts 2 -1
+    dialogue_effect_expected_producers)
+  string(REGEX MATCH
+    "\\|[^\r\n]*`${dialogue_effect_symbol}`[^\r\n]*\\|"
+    dialogue_effect_document_row "${dialogue_effect_inventory_contents}")
+  if(NOT dialogue_effect_document_row)
+    message(FATAL_ERROR
+      "Dialogue-effect document lost row for ${dialogue_effect_symbol}")
+  endif()
+  string(REGEX MATCHALL "`[^`]+\\.cpp`"
+    dialogue_effect_document_producers "${dialogue_effect_document_row}")
+  list(LENGTH dialogue_effect_document_producers
+    dialogue_effect_document_producer_count)
+  if(NOT dialogue_effect_document_producer_count EQUAL
+      dialogue_effect_expected_count)
+    message(FATAL_ERROR
+      "Dialogue-effect document has the wrong producer count for ${dialogue_effect_symbol}")
+  endif()
+  foreach(dialogue_effect_expected_producer IN LISTS
+      dialogue_effect_expected_producers)
+    string(FIND "${dialogue_effect_document_row}"
+      "`${dialogue_effect_expected_producer}`"
+      dialogue_effect_document_producer_index)
+    if(dialogue_effect_document_producer_index EQUAL -1)
+      message(FATAL_ERROR
+        "Dialogue-effect document lost ${dialogue_effect_expected_producer} for ${dialogue_effect_symbol}")
+    endif()
+  endforeach()
+endforeach()
+set(dialogue_effect_audit_document_markers
+  "docs/ENGINE_ARCHITECTURE.md|The non-positional dialogue-effect audit covers all 32 legacy bits and all 33"
+  "docs/ENGINE_SDK.md|It records all 32 bit values, all 33 exposed"
+  "docs/DIALOGUE_EFFECT_INVENTORY.md|All 32 bit values and 33 exposed names remain legacy work")
+foreach(dialogue_effect_audit_document_marker IN LISTS
+    dialogue_effect_audit_document_markers)
+  string(REPLACE "|" ";" dialogue_effect_audit_document_parts
+    "${dialogue_effect_audit_document_marker}")
+  list(GET dialogue_effect_audit_document_parts 0
+    dialogue_effect_audit_document_relative)
+  list(GET dialogue_effect_audit_document_parts 1
+    dialogue_effect_audit_document_required_marker)
+  file(READ "${SOURCE_ROOT}/${dialogue_effect_audit_document_relative}"
+    dialogue_effect_audit_document_contents)
+  string(FIND "${dialogue_effect_audit_document_contents}"
+    "${dialogue_effect_audit_document_required_marker}"
+    dialogue_effect_audit_document_marker_index)
+  if(dialogue_effect_audit_document_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Dialogue-effect audit lost '${dialogue_effect_audit_document_required_marker}' in ${dialogue_effect_audit_document_relative}")
+  endif()
+endforeach()
+foreach(dialogue_effect_debt_marker IN ITEMS
+    "All 32 bit values and 33 exposed names remain legacy work"
+    "live `HandleFirstHeliDropOfGame`"
+    "dead `BeginMercEntering`"
+    "C++ declaration or call site"
+    "complete pause-state mutation token"
+    "continuation for the remaining same-item effects"
+    "command-ownership, provenance"
+    "codec, or replay claim")
+  string(FIND "${dialogue_effect_inventory_contents}"
+    "${dialogue_effect_debt_marker}"
+    dialogue_effect_debt_marker_index)
+  if(dialogue_effect_debt_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Dialogue-effect scope honesty lost '${dialogue_effect_debt_marker}'")
+  endif()
+endforeach()
+
+# ENABLE_AI's sole named C++ producer is in the live helicopter/airdrop
+# completion helper. The nearby manual helicopter pause is instead trapped in
+# the undeclared, uncalled BeginMercEntering body, so the live producer cannot
+# claim ownership of that pause. Keep both sides of that provenance explicit.
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
+  dialogue_enable_ai_producer_executable)
+string(FIND "${dialogue_enable_ai_producer_executable}"
+  "void BeginMercEntering(" dialogue_begin_merc_entering_start)
+string(FIND "${dialogue_enable_ai_producer_executable}"
+  "void HandleFirstHeliDropOfGame( )"
+  dialogue_handle_first_heli_drop_start REVERSE)
+string(FIND "${dialogue_enable_ai_producer_executable}"
+  "SoldierID SpawnAirDropElite(" dialogue_handle_first_heli_drop_end)
+if(dialogue_begin_merc_entering_start EQUAL -1 OR
+   dialogue_handle_first_heli_drop_start EQUAL -1 OR
+   dialogue_handle_first_heli_drop_end EQUAL -1 OR
+   NOT dialogue_begin_merc_entering_start LESS
+     dialogue_handle_first_heli_drop_start OR
+   NOT dialogue_handle_first_heli_drop_start LESS
+     dialogue_handle_first_heli_drop_end)
+  message(FATAL_ERROR
+    "Dialogue-effect audit cannot isolate helicopter ENABLE_AI ownership")
+endif()
+math(EXPR dialogue_begin_merc_entering_length
+  "${dialogue_handle_first_heli_drop_start} - ${dialogue_begin_merc_entering_start}")
+string(SUBSTRING "${dialogue_enable_ai_producer_executable}"
+  ${dialogue_begin_merc_entering_start}
+  ${dialogue_begin_merc_entering_length}
+  dialogue_begin_merc_entering_executable)
+math(EXPR dialogue_handle_first_heli_drop_length
+  "${dialogue_handle_first_heli_drop_end} - ${dialogue_handle_first_heli_drop_start}")
+string(SUBSTRING "${dialogue_enable_ai_producer_executable}"
+  ${dialogue_handle_first_heli_drop_start}
+  ${dialogue_handle_first_heli_drop_length}
+  dialogue_handle_first_heli_drop_executable)
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])DIALOGUE_SPECIAL_EVENT_ENABLE_AI([^A-Za-z0-9_]|$)"
+  dialogue_handle_first_heli_drop_enable_ai_uses
+  "${dialogue_handle_first_heli_drop_executable}")
+list(LENGTH dialogue_handle_first_heli_drop_enable_ai_uses
+  dialogue_handle_first_heli_drop_enable_ai_use_count)
+if(NOT dialogue_handle_first_heli_drop_enable_ai_use_count EQUAL 1)
+  message(FATAL_ERROR
+    "Dialogue-effect audit assumption changed: HandleFirstHeliDropOfGame must own the sole named ENABLE_AI enqueue")
+endif()
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])PauseAIUntilManuallyUnpaused[ \t\r\n]*\\("
+  dialogue_begin_merc_entering_pause_uses
+  "${dialogue_begin_merc_entering_executable}")
+list(LENGTH dialogue_begin_merc_entering_pause_uses
+  dialogue_begin_merc_entering_pause_use_count)
+if(NOT dialogue_begin_merc_entering_pause_use_count EQUAL 1)
+  message(FATAL_ERROR
+    "Dialogue-effect audit assumption changed: dead BeginMercEntering must contain the sole nearby manual helicopter pause")
+endif()
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])HandleFirstHeliDropOfGame([^A-Za-z0-9_]|$)"
+  dialogue_handle_first_heli_drop_local_uses
+  "${dialogue_enable_ai_producer_executable}")
+list(LENGTH dialogue_handle_first_heli_drop_local_uses
+  dialogue_handle_first_heli_drop_local_use_count)
+if(NOT dialogue_handle_first_heli_drop_local_use_count EQUAL 8)
+  message(FATAL_ERROR
+    "Dialogue-effect audit assumption changed: HandleFirstHeliDropOfGame must have one declaration, one definition, and six live call sites")
+endif()
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])BeginMercEntering([^A-Za-z0-9_]|$)"
+  dialogue_begin_merc_entering_local_uses
+  "${dialogue_enable_ai_producer_executable}")
+list(LENGTH dialogue_begin_merc_entering_local_uses
+  dialogue_begin_merc_entering_local_use_count)
+if(NOT dialogue_begin_merc_entering_local_use_count EQUAL 1)
+  message(FATAL_ERROR
+    "Dialogue-effect audit assumption changed: BeginMercEntering is no longer definition-only")
+endif()
+set(dialogue_begin_merc_entering_source_directories
+  Editor
+  Engine
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  i18n
+  lua
+  sgp)
+set(dialogue_begin_merc_entering_candidates)
+foreach(dialogue_begin_merc_entering_source_directory IN LISTS
+    dialogue_begin_merc_entering_source_directories)
+  file(GLOB_RECURSE dialogue_begin_merc_entering_directory_candidates
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.cc"
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.cpp"
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.cxx"
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.h"
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.hh"
+    "${SOURCE_ROOT}/${dialogue_begin_merc_entering_source_directory}/*.hpp")
+  list(APPEND dialogue_begin_merc_entering_candidates
+    ${dialogue_begin_merc_entering_directory_candidates})
+endforeach()
+foreach(dialogue_begin_merc_entering_candidate IN LISTS
+    dialogue_begin_merc_entering_candidates)
+  if(dialogue_begin_merc_entering_candidate STREQUAL
+      "${SOURCE_ROOT}/Tactical/Merc Entering.cpp")
+    continue()
+  endif()
+  # This is an absence check, so raw matching is deliberately conservative:
+  # even a comment or hand-written forward declaration outside the owner is
+  # enough to make the definition-only audit stale. Avoid the executable-text
+  # parser here; walking an in-tree build and its fetched dependencies made the
+  # former unbounded scan both slow and capable of exhausting CMake.
+  file(STRINGS "${dialogue_begin_merc_entering_candidate}"
+    dialogue_begin_merc_entering_external_use
+    LIMIT_COUNT 1
+    REGEX "(^|[^A-Za-z0-9_])BeginMercEntering([^A-Za-z0-9_]|$)")
+  if(dialogue_begin_merc_entering_external_use)
+    message(FATAL_ERROR
+      "Dialogue-effect audit assumption changed: BeginMercEntering appears outside its definition owner in ${dialogue_begin_merc_entering_candidate}")
+  endif()
+endforeach()
+
 # Player conversation and vehicle-entry targets are stable tactical entity
 # identities. In particular, delayed movement must not retain only a reusable
 # SoldierID or a grid containing a different actor by completion time.
