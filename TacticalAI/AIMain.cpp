@@ -81,12 +81,11 @@
 #include "PlanFactoryLibrary.h"
 #include "AbstractPlanFactory.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignNpcPolicy.h"
 #include "GameContext.h"
 
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
-#endif
 
 extern void PauseAITemporarily( void );
 extern void UpdateEnemyUIBar( void );
@@ -1092,18 +1091,15 @@ void StartNPCAI(TacticalActor *pSoldier)
 	// If we are not in an interrupt situation!
 	if ( (IsJa2TacticalTurnBasedCombat()) && gubOutOfTurnPersons == 0 )
 	{
-#ifdef JA2UB	
-			//JA25 UB
-				//if this is Morris
-			if( pSoldier->identity().profile() == MORRIS_UB  ) //MORRIS
-			{
-				//if we are to say the line if we are hurt the player
-				if( gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn )
-				{
-					TriggerNPCRecord( MORRIS_UB, 6 ); //MORRIS
-				}
-			}
-#endif						
+		const CampaignNpcPolicy campaignNpcPolicy(
+			GetGameContext().capabilities());
+		if ( campaignNpcPolicy.runsMorrisHurtPlayerTurnHook() &&
+			pSoldier->identity().profile() == MORRIS_UB &&
+			gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn )
+		{
+			TriggerNPCRecord( MORRIS_UB, 6 );
+		}
+
 		if( ( ( pSoldier->awareness().visibility() != -1 && pSoldier->vitals().health()) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
 		{
 			// If we are on a roof, set flag for rendering...

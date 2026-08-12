@@ -1172,6 +1172,18 @@ the engine must not contain SDL types in its public domain model.
   two include guards and unused local; dependency-free truth tables, all-host
   syntax coverage, and architecture CI pin input identity, ordering, and
   short-circuiting without changing item IDs, quotes, saves, or content.
+- NPC script loading and tactical-AI campaign choices now use the value-only
+  `CampaignNpcPolicy`. Arulco retains the PETER/ALBERTO/CARLO-to-Herve fallback
+  at the head of its quote-file else-chain, meanwhile quote overrides, the
+  pre-version-92 Auntie repair, and both enemy-surrender offer paths. UB retains
+  its historically independent general quote-routing pass, direct files for
+  the exact twelve UB NPC profiles, and Morris's pending hurt-player turn quote.
+  Each campaign gate remains left of the other campaign's profile/save,
+  meanwhile, quest, and team probes. All eight former `JA2UB` guards across
+  `NPC.cpp`, `AIMain.cpp`, and `DecideAction.cpp` are gone; dependency-free
+  truth tables, live-capability headless coverage, all-host syntax checks, and
+  architecture CI pin the branch shape and short-circuiting without changing
+  NPC files, records, quests, quotes, saves, or AI condition order.
 - Tactical door behavior now selects through the value-only
   `CampaignDoorPolicy`. The common implementation preserves Arulco's
   boot-door AP charge, ordinary force attempt, and failed-unlock curse

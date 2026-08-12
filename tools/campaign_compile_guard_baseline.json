@@ -20,11 +20,8 @@
     "Tactical/Soldier Init List.cpp": 2,
     "Tactical/Strategic Exit GUI.cpp": 2,
     "Tactical/TeamTurns.cpp": 3,
-    "Tactical/soldier profile type.h": 1,
-    "TacticalAI/AIMain.cpp": 2,
-    "TacticalAI/DecideAction.cpp": 2,
-    "TacticalAI/NPC.cpp": 4
+    "Tactical/soldier profile type.h": 1
   },
   "schema": 1,
-  "total": 62
+  "total": 54
 }

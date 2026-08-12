@@ -58,15 +58,12 @@
 	#include "SaveLoadGame.h"
 	#include "SoldierRepository.h"
 	#include "CampaignMercenaryPolicy.h"
+	#include "CampaignNpcPolicy.h"
 	#include "GameContext.h"
 
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
-#include "Ja25_Tactical.h"
-#include "ub_config.h"
-#endif
 
-	
+
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class TacticalActor;
@@ -159,8 +156,10 @@ NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC )
 	UINT32					uiBytesRead;
 	UINT32					uiFileSize;
 	DWORD					uiSignature = 0; // SB // WANNE - BMP: DONE!
+	const bool usesArulcoHerveFallback =
+		ubNPC == PETER || ubNPC == ALBERTO || ubNPC == CARLO;
 
-	if ( ubNPC == PETER || ubNPC == ALBERTO || ubNPC == CARLO )
+	if ( usesArulcoHerveFallback )
 	{
 		sprintf( zFileName, "NPCData\\%03d.npc", ubNPC );
 		if ( !FileExists( zFileName ) )
@@ -169,41 +168,47 @@ NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC )
 			sprintf( zFileName, "NPCData\\%03d.npc", HERVE );
 		}
 	}
-	
-#ifdef JA2UB
-	if ( ubNPC == MANUEL_UB||
-		ubNPC == BIGGENS_UB ||
-		ubNPC == JOHN_K_UB ||
-		ubNPC == TEX_UB ||
-		ubNPC == GASTON_UB ||
-		ubNPC == STOGIE_UB ||
-		ubNPC == JERRY_MILO_UB ||
-		ubNPC == PGMALE4_UB ||
-		ubNPC == BETTY_UB ||
-		ubNPC == RAUL_UB ||
-		ubNPC == MORRIS_UB ||
-		ubNPC == RUDY_UB )
+	const CampaignNpcPolicy campaignNpcPolicy(
+		GetGameContext().capabilities());
+
+	// In Arulco the Herve fallback is the head of the general-profile
+	// else-chain. UB historically compiled a second independent if and may
+	// therefore replace that first result. Preserve that exact branch shape.
+	if ( campaignNpcPolicy.shouldApplyGeneralNpcQuoteRouting(
+		usesArulcoHerveFallback) )
 	{
-		sprintf( zFileName, "NPCData\\%03d.npc", ubNPC );
-	}		
-#endif
-	else if ( gMercProfiles[ubNPC].Type == PROFILETYPE_AIM ||
-		gMercProfiles[ubNPC].Type == PROFILETYPE_MERC ||
-		(gMercProfiles[ubNPC].Type == PROFILETYPE_RPC && gMercProfiles[ubNPC].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) ||
-		gMercProfiles[ubNPC].Type == PROFILETYPE_IMP )
-	{
-		sprintf( zFileName, "NPCData\\000.npc" );
+		if ( campaignNpcPolicy.usesUnfinishedBusinessNpcQuoteFiles() &&
+			( ubNPC == MANUEL_UB ||
+			ubNPC == BIGGENS_UB ||
+			ubNPC == JOHN_K_UB ||
+			ubNPC == TEX_UB ||
+			ubNPC == GASTON_UB ||
+			ubNPC == STOGIE_UB ||
+			ubNPC == JERRY_MILO_UB ||
+			ubNPC == PGMALE4_UB ||
+			ubNPC == BETTY_UB ||
+			ubNPC == RAUL_UB ||
+			ubNPC == MORRIS_UB ||
+			ubNPC == RUDY_UB ) )
+		{
+			sprintf( zFileName, "NPCData\\%03d.npc", ubNPC );
+		}
+		else if ( gMercProfiles[ubNPC].Type == PROFILETYPE_AIM ||
+			gMercProfiles[ubNPC].Type == PROFILETYPE_MERC ||
+			(gMercProfiles[ubNPC].Type == PROFILETYPE_RPC && gMercProfiles[ubNPC].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) ||
+			gMercProfiles[ubNPC].Type == PROFILETYPE_IMP )
+		{
+			sprintf( zFileName, "NPCData\\000.npc" );
+		}
+		else
+		{
+			sprintf( zFileName, "NPCData\\%03d.npc", ubNPC );
+		}
 	}
-	else
-	{
-		sprintf( zFileName, "NPCData\\%03d.npc", ubNPC );
-	}
-#ifdef JA2UB
-//Ja25:  No meanwhiles
-#else
-	
+
 	// ATE: Put some stuff i here to use a different NPC file if we are in a meanwhile.....
-	if ( AreInMeanwhile( ) )
+	if ( campaignNpcPolicy.usesMeanwhileNpcQuoteOverrides() &&
+		AreInMeanwhile( ) )
 	{
 		// If we are the queen....
 		if ( ubNPC == QUEEN )
@@ -216,7 +221,6 @@ NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC )
 			sprintf( zFileName, "NPCData\\%03d.npc", gubAlternateNPCFileNumsForElliotMeanwhiles[ GetMeanwhileID( ) ] );
 		}
 	}
-#endif
 	CHECKN( FileExists( zFileName ) );
 
 	hFile = FileOpen( zFileName, FILE_ACCESS_READ, FALSE );
@@ -3454,11 +3458,11 @@ BOOLEAN LoadNPCInfoFromSavedGameFile( HWFILE hFile, UINT32 uiSaveGameVersion )
 	if ( uiSaveGameVersion < 92 )
 	{
 		RefreshNPCScriptRecord( MATT, 14 );
-#ifdef JA2UB
-//no Ub
-#else
-		RefreshNPCScriptRecord( AUNTIE, 8 );
-#endif
+		if ( CampaignNpcPolicy(GetGameContext().capabilities())
+			.shouldRefreshAuntieNpcScriptRecord(uiSaveGameVersion) )
+		{
+			RefreshNPCScriptRecord( AUNTIE, 8 );
+		}
 	}
 	if ( uiSaveGameVersion < 93 )
 	{

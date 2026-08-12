@@ -168,6 +168,14 @@ target_include_directories(campaign_gun_comment_policy_tests
 add_test(NAME campaign_gun_comment_policy
   COMMAND campaign_gun_comment_policy_tests)
 
+# NPC quote-file routing, old-save repair, Morris turn dialogue, and enemy
+# surrender offers follow the live campaign rather than JA2UB.
+add_executable(campaign_npc_policy_tests
+  campaign_npc_policy_tests.cpp)
+target_include_directories(campaign_npc_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_npc_policy COMMAND campaign_npc_policy_tests)
+
 # Civilian quote catalogues, dedicated group records, surrender completion,
 # and UB's unavailable-record sentinel follow the live campaign capability.
 add_executable(campaign_civilian_quote_policy_tests

@@ -947,6 +947,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
@@ -1827,6 +1828,7 @@ foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
     "#include \"CampaignMercenaryPolicy.h\""
+    "#include \"CampaignNpcPolicy.h\""
     "#include \"CampaignProgressPolicy.h\""
     "live campaign capabilities drive the tactical and strategic policy follow-throughs")
   string(FIND "${runtime_campaign_follow_through_headless_contents}"
@@ -1847,6 +1849,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_map_screen_policy_tests"
     "campaign_meanwhile_policy_tests"
     "campaign_mercenary_policy_tests"
+    "campaign_npc_policy_tests"
     "campaign_progress_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
@@ -1864,7 +1867,7 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "62 active conditionals in 24"
+    "54 active conditionals in 21"
     "Laptop content/pages | 4"
     "Tactical gameplay/content | 18"
     "Strategic gameplay/content | 23"
@@ -1873,12 +1876,13 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignCivilianQuotePolicy"
     "CampaignImpPolicy"
     "CampaignMapScreenPolicy"
+    "CampaignNpcPolicy"
     "CampaignProgressPolicy"
     "Tactical meanwhile-scene follow-through"
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All thirteen policies"
+    "All fourteen policies"
     "three remaining guards belong to separate dead-merc")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
@@ -1908,6 +1912,8 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "JA25 new-gun dialogue now uses the value-only"
     "All five former `JA2UB` guards in `Tactical/Handle Items.cpp`"
     "Arulco gates both routes before either comment argument"
+    "NPC script loading and tactical-AI campaign choices now use the value-only"
+    "All eight former `JA2UB` guards across `NPC.cpp`, `AIMain.cpp`, and `DecideAction.cpp`"
     "every converted"
     "`AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate"
     "All five former guards in `Interface.cpp`"
@@ -2287,6 +2293,436 @@ foreach(required_campaign_gun_comment_test_fragment IN ITEMS
   if(required_campaign_gun_comment_test_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign gun-comment policy tests lost '${required_campaign_gun_comment_test_fragment}'")
+  endif()
+endforeach()
+
+# NPC quote-file routing, old-save repair, Morris turn dialogue, and both
+# surrender-offer copies now select from one immutable runtime campaign. Keep
+# inactive-campaign globals/probes to the right of their gate and preserve the
+# unusual Arulco fallback versus UB independent-if branch shape exactly.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
+  runtime_campaign_npc_policy_contents)
+foreach(required_campaign_npc_policy_fragment IN ITEMS
+    "class CampaignNpcPolicy"
+    "const GameCapabilities& capabilities"
+    "usesUnfinishedBusinessNpcQuoteFiles"
+    "shouldApplyGeneralNpcQuoteRouting"
+    "usesMeanwhileNpcQuoteOverrides"
+    "shouldRefreshAuntieNpcScriptRecord"
+    "saveGameVersion < 92U"
+    "runsMorrisHurtPlayerTurnHook"
+    "allowsEnemySurrenderOffers")
+  string(FIND "${runtime_campaign_npc_policy_contents}"
+    "${required_campaign_npc_policy_fragment}"
+    required_campaign_npc_policy_position)
+  if(required_campaign_npc_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign NPC policy lost '${required_campaign_npc_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/NPC.cpp"
+  runtime_campaign_npc_source_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  runtime_campaign_npc_ai_main_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/DecideAction.cpp"
+  runtime_campaign_npc_decide_contents)
+foreach(runtime_campaign_npc_source_variable IN ITEMS
+    runtime_campaign_npc_source_contents
+    runtime_campaign_npc_ai_main_contents
+    runtime_campaign_npc_decide_contents)
+  if("${${runtime_campaign_npc_source_variable}}" MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+    message(FATAL_ERROR
+      "Tactical NPC/AI policy routing regained compiled JA2UB identity")
+  endif()
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    ${runtime_campaign_npc_source_variable}_normalized
+    "${${runtime_campaign_npc_source_variable}}")
+endforeach()
+
+foreach(required_campaign_npc_source_fragment IN ITEMS
+    "#include \"CampaignNpcPolicy.h\""
+    "#include \"GameContext.h\""
+    "#include \"Ja25_Tactical.h\"")
+  string(FIND "${runtime_campaign_npc_source_contents}"
+    "${required_campaign_npc_source_fragment}"
+    required_campaign_npc_source_position)
+  if(required_campaign_npc_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "NPC quote routing lost '${required_campaign_npc_source_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_npc_ai_main_fragment IN ITEMS
+    "#include \"CampaignNpcPolicy.h\""
+    "#include \"GameContext.h\""
+    "#include \"Ja25_Tactical.h\""
+    "#include \"Ja25 Strategic Ai.h\"")
+  string(FIND "${runtime_campaign_npc_ai_main_contents}"
+    "${required_campaign_npc_ai_main_fragment}"
+    required_campaign_npc_ai_main_position)
+  if(required_campaign_npc_ai_main_position EQUAL -1)
+    message(FATAL_ERROR
+      "NPC AI turn routing lost '${required_campaign_npc_ai_main_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_npc_decide_fragment IN ITEMS
+    "#include \"CampaignNpcPolicy.h\""
+    "#include \"GameContext.h\"")
+  string(FIND "${runtime_campaign_npc_decide_contents}"
+    "${required_campaign_npc_decide_fragment}"
+    required_campaign_npc_decide_position)
+  if(required_campaign_npc_decide_position EQUAL -1)
+    message(FATAL_ERROR
+      "NPC surrender routing lost '${required_campaign_npc_decide_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_npc_source_contents_normalized}"
+  "NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC ) {"
+  runtime_campaign_npc_quote_load_start)
+string(FIND "${runtime_campaign_npc_source_contents_normalized}"
+  "NPCQuoteInfo * LoadCivQuoteFile( UINT8 ubIndex )"
+  runtime_campaign_npc_quote_load_end)
+if(runtime_campaign_npc_quote_load_start EQUAL -1 OR
+    runtime_campaign_npc_quote_load_end EQUAL -1 OR
+    NOT runtime_campaign_npc_quote_load_start LESS
+      runtime_campaign_npc_quote_load_end)
+  message(FATAL_ERROR "Cannot locate the campaign NPC quote-file boundary")
+endif()
+math(EXPR runtime_campaign_npc_quote_load_length
+  "${runtime_campaign_npc_quote_load_end} - ${runtime_campaign_npc_quote_load_start}")
+string(SUBSTRING "${runtime_campaign_npc_source_contents_normalized}"
+  ${runtime_campaign_npc_quote_load_start}
+  ${runtime_campaign_npc_quote_load_length}
+  runtime_campaign_npc_quote_load_region)
+set(runtime_campaign_npc_quote_previous_position -1)
+foreach(runtime_campaign_npc_quote_ordered_fragment IN ITEMS
+    "const bool usesArulcoHerveFallback = ubNPC == PETER || ubNPC == ALBERTO || ubNPC == CARLO;"
+    "if ( usesArulcoHerveFallback )"
+    "sprintf( zFileName, \"NPCData\\\\%03d.npc\", HERVE )"
+    "campaignNpcPolicy.shouldApplyGeneralNpcQuoteRouting( usesArulcoHerveFallback)"
+    "campaignNpcPolicy.usesUnfinishedBusinessNpcQuoteFiles() &&"
+    "ubNPC == MANUEL_UB"
+    "gMercProfiles[ubNPC].Type == PROFILETYPE_AIM"
+    "campaignNpcPolicy.usesMeanwhileNpcQuoteOverrides() &&"
+    "AreInMeanwhile( )")
+  string(FIND "${runtime_campaign_npc_quote_load_region}"
+    "${runtime_campaign_npc_quote_ordered_fragment}"
+    runtime_campaign_npc_quote_ordered_position)
+  if(runtime_campaign_npc_quote_ordered_position EQUAL -1 OR
+      (NOT runtime_campaign_npc_quote_previous_position EQUAL -1 AND
+       NOT runtime_campaign_npc_quote_previous_position LESS
+         runtime_campaign_npc_quote_ordered_position))
+    message(FATAL_ERROR
+      "NPC quote-file routing lost ordered fragment '${runtime_campaign_npc_quote_ordered_fragment}'")
+  endif()
+  set(runtime_campaign_npc_quote_previous_position
+    ${runtime_campaign_npc_quote_ordered_position})
+endforeach()
+set(runtime_campaign_npc_ub_profiles
+  MANUEL_UB BIGGENS_UB JOHN_K_UB TEX_UB GASTON_UB STOGIE_UB
+  JERRY_MILO_UB PGMALE4_UB BETTY_UB RAUL_UB MORRIS_UB RUDY_UB)
+list(LENGTH runtime_campaign_npc_ub_profiles
+  runtime_campaign_npc_expected_ub_profile_count)
+if(NOT runtime_campaign_npc_expected_ub_profile_count EQUAL 12)
+  message(FATAL_ERROR
+    "Campaign NPC architecture inventory must name exactly twelve UB profiles")
+endif()
+string(CONCAT runtime_campaign_npc_expected_ub_profile_gate
+  "if ( campaignNpcPolicy.usesUnfinishedBusinessNpcQuoteFiles() && "
+  "( ubNPC == MANUEL_UB || ubNPC == BIGGENS_UB || ubNPC == JOHN_K_UB || ubNPC == TEX_UB || ubNPC == GASTON_UB || ubNPC == STOGIE_UB || "
+  "ubNPC == JERRY_MILO_UB || ubNPC == PGMALE4_UB || ubNPC == BETTY_UB || ubNPC == RAUL_UB || ubNPC == MORRIS_UB || ubNPC == RUDY_UB ) )")
+string(FIND "${runtime_campaign_npc_quote_load_region}"
+  "${runtime_campaign_npc_expected_ub_profile_gate}"
+  runtime_campaign_npc_exact_ub_profile_gate_position)
+if(runtime_campaign_npc_exact_ub_profile_gate_position EQUAL -1)
+  message(FATAL_ERROR
+    "NPC quote-file routing changed the exact UB profile predicate")
+endif()
+string(FIND "${runtime_campaign_npc_quote_load_region}"
+  "campaignNpcPolicy.usesUnfinishedBusinessNpcQuoteFiles() &&"
+  runtime_campaign_npc_ub_profile_list_start)
+string(FIND "${runtime_campaign_npc_quote_load_region}"
+  "else if ( gMercProfiles[ubNPC].Type == PROFILETYPE_AIM"
+  runtime_campaign_npc_ub_profile_list_end)
+if(runtime_campaign_npc_ub_profile_list_start EQUAL -1 OR
+    runtime_campaign_npc_ub_profile_list_end EQUAL -1 OR
+    NOT runtime_campaign_npc_ub_profile_list_start LESS
+      runtime_campaign_npc_ub_profile_list_end)
+  message(FATAL_ERROR "Cannot locate the exact UB NPC profile-list boundary")
+endif()
+math(EXPR runtime_campaign_npc_ub_profile_list_length
+  "${runtime_campaign_npc_ub_profile_list_end} - ${runtime_campaign_npc_ub_profile_list_start}")
+string(SUBSTRING "${runtime_campaign_npc_quote_load_region}"
+  ${runtime_campaign_npc_ub_profile_list_start}
+  ${runtime_campaign_npc_ub_profile_list_length}
+  runtime_campaign_npc_ub_profile_list_region)
+string(REGEX MATCHALL "ubNPC == [A-Za-z0-9_]+"
+  runtime_campaign_npc_actual_ub_profiles
+  "${runtime_campaign_npc_ub_profile_list_region}")
+list(LENGTH runtime_campaign_npc_actual_ub_profiles
+  runtime_campaign_npc_actual_ub_profile_count)
+if(NOT runtime_campaign_npc_actual_ub_profile_count EQUAL 12)
+  message(FATAL_ERROR
+    "NPC quote-file routing must retain exactly twelve UB profile entries")
+endif()
+foreach(runtime_campaign_npc_ub_profile IN LISTS
+    runtime_campaign_npc_ub_profiles)
+  string(REGEX MATCHALL
+    "(^|[^A-Za-z0-9_])${runtime_campaign_npc_ub_profile}([^A-Za-z0-9_]|$)"
+    runtime_campaign_npc_ub_profile_uses
+    "${runtime_campaign_npc_ub_profile_list_region}")
+  list(LENGTH runtime_campaign_npc_ub_profile_uses
+    runtime_campaign_npc_ub_profile_use_count)
+  if(NOT runtime_campaign_npc_ub_profile_use_count EQUAL 1)
+    message(FATAL_ERROR
+      "NPC quote-file routing changed ${runtime_campaign_npc_ub_profile}'s exact membership")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_npc_source_contents_normalized}"
+  "BOOLEAN LoadNPCInfoFromSavedGameFile( HWFILE hFile, UINT32 uiSaveGameVersion )"
+  runtime_campaign_npc_save_load_start)
+string(FIND "${runtime_campaign_npc_source_contents_normalized}"
+  "BOOLEAN SaveBackupNPCInfoToSaveGameFile( HWFILE hFile )"
+  runtime_campaign_npc_save_load_end)
+if(runtime_campaign_npc_save_load_start EQUAL -1 OR
+    runtime_campaign_npc_save_load_end EQUAL -1 OR
+    NOT runtime_campaign_npc_save_load_start LESS
+      runtime_campaign_npc_save_load_end)
+  message(FATAL_ERROR "Cannot locate the campaign NPC old-save boundary")
+endif()
+math(EXPR runtime_campaign_npc_save_load_length
+  "${runtime_campaign_npc_save_load_end} - ${runtime_campaign_npc_save_load_start}")
+string(SUBSTRING "${runtime_campaign_npc_source_contents_normalized}"
+  ${runtime_campaign_npc_save_load_start}
+  ${runtime_campaign_npc_save_load_length}
+  runtime_campaign_npc_save_load_region)
+set(runtime_campaign_npc_save_previous_position -1)
+foreach(runtime_campaign_npc_save_ordered_fragment IN ITEMS
+    "if ( uiSaveGameVersion < 92 )"
+    "RefreshNPCScriptRecord( MATT, 14 )"
+    "shouldRefreshAuntieNpcScriptRecord(uiSaveGameVersion)"
+    "RefreshNPCScriptRecord( AUNTIE, 8 )")
+  string(FIND "${runtime_campaign_npc_save_load_region}"
+    "${runtime_campaign_npc_save_ordered_fragment}"
+    runtime_campaign_npc_save_ordered_position)
+  if(runtime_campaign_npc_save_ordered_position EQUAL -1 OR
+      (NOT runtime_campaign_npc_save_previous_position EQUAL -1 AND
+       NOT runtime_campaign_npc_save_previous_position LESS
+         runtime_campaign_npc_save_ordered_position))
+    message(FATAL_ERROR
+      "NPC old-save routing lost ordered fragment '${runtime_campaign_npc_save_ordered_fragment}'")
+  endif()
+  set(runtime_campaign_npc_save_previous_position
+    ${runtime_campaign_npc_save_ordered_position})
+endforeach()
+
+string(FIND "${runtime_campaign_npc_ai_main_contents_normalized}"
+  "void StartNPCAI(TacticalActor *pSoldier)"
+  runtime_campaign_npc_turn_start)
+string(FIND "${runtime_campaign_npc_ai_main_contents_normalized}"
+  "BOOLEAN DestNotSpokenFor(TacticalActor *pSoldier, INT32 sGridNo)"
+  runtime_campaign_npc_turn_end)
+if(runtime_campaign_npc_turn_start EQUAL -1 OR
+    runtime_campaign_npc_turn_end EQUAL -1 OR
+    NOT runtime_campaign_npc_turn_start LESS runtime_campaign_npc_turn_end)
+  message(FATAL_ERROR "Cannot locate the campaign NPC turn boundary")
+endif()
+math(EXPR runtime_campaign_npc_turn_length
+  "${runtime_campaign_npc_turn_end} - ${runtime_campaign_npc_turn_start}")
+string(SUBSTRING "${runtime_campaign_npc_ai_main_contents_normalized}"
+  ${runtime_campaign_npc_turn_start} ${runtime_campaign_npc_turn_length}
+  runtime_campaign_npc_turn_region)
+set(runtime_campaign_npc_turn_previous_position -1)
+foreach(runtime_campaign_npc_turn_ordered_fragment IN ITEMS
+    "campaignNpcPolicy.runsMorrisHurtPlayerTurnHook() &&"
+    "pSoldier->identity().profile() == MORRIS_UB &&"
+    "gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn"
+    "TriggerNPCRecord( MORRIS_UB, 6 )")
+  string(FIND "${runtime_campaign_npc_turn_region}"
+    "${runtime_campaign_npc_turn_ordered_fragment}"
+    runtime_campaign_npc_turn_ordered_position)
+  if(runtime_campaign_npc_turn_ordered_position EQUAL -1 OR
+      (NOT runtime_campaign_npc_turn_previous_position EQUAL -1 AND
+       NOT runtime_campaign_npc_turn_previous_position LESS
+         runtime_campaign_npc_turn_ordered_position))
+    message(FATAL_ERROR
+      "Morris turn routing lost ordered fragment '${runtime_campaign_npc_turn_ordered_fragment}'")
+  endif()
+  set(runtime_campaign_npc_turn_previous_position
+    ${runtime_campaign_npc_turn_ordered_position})
+endforeach()
+
+string(REGEX MATCHALL
+  "campaignNpcPolicy\\.allowsEnemySurrenderOffers\\(\\)"
+  runtime_campaign_npc_surrender_gates
+  "${runtime_campaign_npc_decide_contents_normalized}")
+list(LENGTH runtime_campaign_npc_surrender_gates
+  runtime_campaign_npc_surrender_gate_count)
+if(NOT runtime_campaign_npc_surrender_gate_count EQUAL 2)
+  message(FATAL_ERROR
+    "NPC surrender policy must retain exactly the human and armed-vehicle gates")
+endif()
+foreach(runtime_campaign_npc_surrender_boundary IN ITEMS
+    "INT8 DecideActionBlack(TacticalActor *pSoldier) {|void DecideAlertStatus( TacticalActor *pSoldier ) {"
+    "INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier ) {|void LogDecideInfo(TacticalActor *pSoldier) {")
+  string(REPLACE "|" ";" runtime_campaign_npc_surrender_parts
+    "${runtime_campaign_npc_surrender_boundary}")
+  list(GET runtime_campaign_npc_surrender_parts 0
+    runtime_campaign_npc_surrender_start_marker)
+  list(GET runtime_campaign_npc_surrender_parts 1
+    runtime_campaign_npc_surrender_end_marker)
+  string(FIND "${runtime_campaign_npc_decide_contents_normalized}"
+    "${runtime_campaign_npc_surrender_start_marker}"
+    runtime_campaign_npc_surrender_start)
+  string(FIND "${runtime_campaign_npc_decide_contents_normalized}"
+    "${runtime_campaign_npc_surrender_end_marker}"
+    runtime_campaign_npc_surrender_end)
+  if(runtime_campaign_npc_surrender_start EQUAL -1 OR
+      runtime_campaign_npc_surrender_end EQUAL -1 OR
+      NOT runtime_campaign_npc_surrender_start LESS
+        runtime_campaign_npc_surrender_end)
+    message(FATAL_ERROR
+      "Cannot locate NPC surrender boundary '${runtime_campaign_npc_surrender_start_marker}'")
+  endif()
+  math(EXPR runtime_campaign_npc_surrender_length
+    "${runtime_campaign_npc_surrender_end} - ${runtime_campaign_npc_surrender_start}")
+  string(SUBSTRING "${runtime_campaign_npc_decide_contents_normalized}"
+    ${runtime_campaign_npc_surrender_start}
+    ${runtime_campaign_npc_surrender_length}
+    runtime_campaign_npc_surrender_region)
+  string(FIND "${runtime_campaign_npc_surrender_region}"
+    "campaignNpcPolicy.allowsEnemySurrenderOffers() &&"
+    runtime_campaign_npc_surrender_gate_anchor)
+  if(runtime_campaign_npc_surrender_gate_anchor EQUAL -1)
+    message(FATAL_ERROR
+      "NPC surrender boundary lost its left-hand campaign gate")
+  endif()
+  string(SUBSTRING "${runtime_campaign_npc_surrender_region}"
+    ${runtime_campaign_npc_surrender_gate_anchor} -1
+    runtime_campaign_npc_surrender_region)
+  set(runtime_campaign_npc_surrender_previous_position -1)
+  foreach(runtime_campaign_npc_surrender_ordered_fragment IN ITEMS
+      "campaignNpcPolicy.allowsEnemySurrenderOffers() &&"
+      "!is_networked"
+      "pSoldier->roster().team() == ENEMY_TEAM"
+      "gubQuest[QUEST_HELD_IN_ALMA] == QUESTNOTSTARTED"
+      "AI_ACTION_OFFER_SURRENDER")
+    string(FIND "${runtime_campaign_npc_surrender_region}"
+      "${runtime_campaign_npc_surrender_ordered_fragment}"
+      runtime_campaign_npc_surrender_ordered_position)
+    if(runtime_campaign_npc_surrender_ordered_position EQUAL -1 OR
+        (NOT runtime_campaign_npc_surrender_previous_position EQUAL -1 AND
+         NOT runtime_campaign_npc_surrender_previous_position LESS
+           runtime_campaign_npc_surrender_ordered_position))
+      message(FATAL_ERROR
+        "NPC surrender routing lost ordered fragment '${runtime_campaign_npc_surrender_ordered_fragment}'")
+    endif()
+    set(runtime_campaign_npc_surrender_previous_position
+      ${runtime_campaign_npc_surrender_ordered_position})
+  endforeach()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/CMakeLists.txt"
+  runtime_campaign_npc_ai_build_contents)
+foreach(required_campaign_npc_ai_common_source IN ITEMS
+    "AIMain.cpp"
+    "DecideAction.cpp"
+    "NPC.cpp")
+  string(FIND "${runtime_campaign_npc_ai_build_contents}"
+    "${required_campaign_npc_ai_common_source}"
+    required_campaign_npc_ai_common_source_position)
+  if(required_campaign_npc_ai_common_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "All-host NPC policy linkage lost '${required_campaign_npc_ai_common_source}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  runtime_campaign_npc_tactical_build_contents)
+file(READ "${SOURCE_ROOT}/Strategic/CMakeLists.txt"
+  runtime_campaign_npc_strategic_build_contents)
+string(FIND "${runtime_campaign_npc_tactical_build_contents}"
+  "Ja25_Tactical.cpp" runtime_campaign_npc_tactical_companion_position)
+string(FIND "${runtime_campaign_npc_strategic_build_contents}"
+  "Ja25 Strategic Ai.cpp" runtime_campaign_npc_strategic_companion_position)
+if(runtime_campaign_npc_tactical_companion_position EQUAL -1 OR
+    runtime_campaign_npc_strategic_companion_position EQUAL -1)
+  message(FATAL_ERROR
+    "All-host NPC policy linkage lost a JA25 tactical/strategic companion")
+endif()
+
+foreach(required_campaign_npc_test_build_fragment IN ITEMS
+    "add_executable(campaign_npc_policy_tests"
+    "campaign_npc_policy_tests.cpp"
+    "add_test(NAME campaign_npc_policy COMMAND campaign_npc_policy_tests)")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_npc_test_build_fragment}"
+    required_campaign_npc_test_build_position)
+  if(required_campaign_npc_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign NPC policy lost test manifest '${required_campaign_npc_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_npc_policy_tests" runtime_campaign_npc_ci_position)
+if(runtime_campaign_npc_ci_position EQUAL -1)
+  message(FATAL_ERROR "AddressSanitizer CI lost the campaign NPC policy test")
+endif()
+file(READ "${SOURCE_ROOT}/tests/campaign_npc_policy_tests.cpp"
+  runtime_campaign_npc_test_contents)
+foreach(required_campaign_npc_test_fragment IN ITEMS
+    "Arulco keeps the Herve fallback at the head of its else-chain"
+    "UB keeps its independent general NPC quote-routing pass"
+    "pre-92 Auntie refresh boundary"
+    "only UB evaluates the Morris hurt-player turn hook"
+    "only Arulco evaluates enemy surrender offers"
+    "CheckShortCircuit"
+    "Arulco does not evaluate UB quote-profile state"
+    "UB does not evaluate Arulco meanwhile state"
+    "Arulco does not evaluate Morris state"
+    "UB does not evaluate Arulco surrender state")
+  string(FIND "${runtime_campaign_npc_test_contents}"
+    "${required_campaign_npc_test_fragment}"
+    required_campaign_npc_test_position)
+  if(required_campaign_npc_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign NPC policy tests lost '${required_campaign_npc_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_npc_headless_fragment IN ITEMS
+    "const CampaignNpcPolicy npcPolicy(compiledContext.capabilities())"
+    "npcPolicy.usesUnfinishedBusinessNpcQuoteFiles()"
+    "npcPolicy.usesMeanwhileNpcQuoteOverrides()"
+    "npcPolicy.allowsEnemySurrenderOffers()")
+  string(FIND "${runtime_campaign_follow_through_headless_contents}"
+    "${required_campaign_npc_headless_fragment}"
+    required_campaign_npc_headless_position)
+  if(required_campaign_npc_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Headless campaign NPC integration lost '${required_campaign_npc_headless_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
+  runtime_campaign_npc_guard_baseline_contents)
+string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
+  "\"total\": 54" runtime_campaign_npc_guard_total_position)
+if(runtime_campaign_npc_guard_total_position EQUAL -1)
+  message(FATAL_ERROR
+    "Campaign compile-guard baseline did not retire the eight Tactical AI guards")
+endif()
+foreach(retired_campaign_npc_guard_file IN ITEMS
+    "TacticalAI/AIMain.cpp"
+    "TacticalAI/DecideAction.cpp"
+    "TacticalAI/NPC.cpp")
+  string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
+    "${retired_campaign_npc_guard_file}"
+    retired_campaign_npc_guard_file_position)
+  if(NOT retired_campaign_npc_guard_file_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign compile-guard baseline still owns ${retired_campaign_npc_guard_file}")
   endif()
 endforeach()
 
