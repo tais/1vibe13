@@ -37,15 +37,13 @@
 	#include "Strategic AI.h"
 	#include "interface Dialogue.h"
 	#include "DynamicDialogue.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignProgressPolicy.h"
 #include "GameContext.h"
 #include "Ja25 Strategic Ai.h"
 #include "email.h"
 #include "mercs.h"
-
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 #include "GameInitOptionsScreen.h"
 
@@ -1364,23 +1362,35 @@ void HandleUnhiredMercDeaths( INT32 iProfileID )
 
 		// keep count of how many there have been
 		gStrategicStatus.ubUnhiredMercDeaths++;
-		
-		//send an email as long as the merc is from aim
-#ifdef JA2UB
-		//ja25 ub	
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gMercProfiles[iProfileID].Type == PROFILETYPE_AIM && gGameUBOptions.fDeadMerc == TRUE )  //new profiles by Jazz
-			//send an email to the player telling the player that a merc died
-			AddEmailWithSpecialData(206, MERC_DIED_ON_OTHER_ASSIGNMENT_LENGTH, AIM_SITE, GetWorldTotalMin(), 0, iProfileID, TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L1, XML_AIM_NOTICE_OF_DEATH);
-	}
-#else
-		if ( gMercProfiles[iProfileID].Type == PROFILETYPE_AIM )
+
+		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
+			GetGameContext().capabilities());
+		const bool aimProfile = pProfile->Type == PROFILETYPE_AIM;
+		bool laptopAvailable = true;
+		bool deadMercNoticesEnabled = true;
+		if (communicationsPolicy.usesUnfinishedBusinessCatalog())
 		{
-			//send an email to the player telling the player that a merc died
-			AddEmailWithSpecialData(MERC_DIED_ON_OTHER_ASSIGNMENT, MERC_DIED_ON_OTHER_ASSIGNMENT_LENGTH, AIM_SITE, GetWorldTotalMin(), 0, iProfileID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_NOTICE_OF_DEATH);
+			laptopAvailable =
+				gubQuest[QUEST_FIX_LAPTOP] == QUESTDONE ||
+				gGameUBOptions.LaptopQuestEnabled == FALSE;
+			deadMercNoticesEnabled = laptopAvailable && aimProfile &&
+				gGameUBOptions.fDeadMerc == TRUE;
 		}
-#endif
+
+		if (communicationsPolicy.shouldSendUnhiredAimDeathNotice(
+				aimProfile, laptopAvailable, deadMercNoticesEnabled))
+		{
+			const auto notice = communicationsPolicy.deadMercNoticeRecord();
+			const UINT8 emailVersion =
+				communicationsPolicy.usesUnfinishedBusinessCatalog()
+					? TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT
+					: TYPE_EMAIL_EMAIL_EDT;
+			AddEmailWithSpecialData(
+				notice.offset, notice.length, AIM_SITE, GetWorldTotalMin(),
+				0, iProfileID, emailVersion,
+				static_cast<UINT8>(notice.substitution),
+				XML_AIM_NOTICE_OF_DEATH);
+		}
 	}
 }
 
@@ -1894,71 +1904,30 @@ UINT16 TotalVisitableSurfaceSectors( void )
 
 void MERCMercWentUpALevelSendEmail( UINT8 ubMercMercIdValue )
 {
-#ifdef JA2UB
-//JA25 UB
-#else
-	UINT8 ubEmailOffset = 0;
-	int iMsgLength = 0;
-	
-	UINT8 pMerc = 0;
-	UINT8 iMerc = 0;
-	UINT8 oMerc = 0;
-	
+	const CampaignLaptopCommunicationsPolicy communicationsPolicy(
+		GetGameContext().capabilities());
+	const auto levelUpEmail =
+		communicationsPolicy.mercLevelUpRecord(ubMercMercIdValue);
+	if (!levelUpEmail.available) return;
+
 	// Read from EmailMercAvailable.xml
 	if ( ReadXMLEmail == TRUE )
-	{		
-	oMerc = ubMercMercIdValue;				
-	iMerc = oMerc * 1;
-	
-	if ( oMerc != 0 )
-		pMerc = oMerc + 1;
-	else
-		pMerc = 0;
-
-	if ( gMercProfiles[ubMercMercIdValue].Type == PROFILETYPE_MERC )
-		if( IsSpeckComAvailable() )// anv: only send level up email if Speck is available at website
-			AddEmailTypeXML( pMerc, iMerc, iMerc, GetWorldTotalMin(), -1 , TYPE_EMAIL_MERC_LEVEL_UP);
+	{
+		if ( gMercProfiles[ubMercMercIdValue].Type == PROFILETYPE_MERC )
+			if( IsSpeckComAvailable() )// anv: only send level up email if Speck is available at website
+				AddEmailTypeXML(
+					levelUpEmail.xmlMessageOffset,
+					levelUpEmail.xmlMessageLength,
+					levelUpEmail.xmlSender,
+					GetWorldTotalMin(), -1, TYPE_EMAIL_MERC_LEVEL_UP);
 	}
 	else
 	{
-	// Read from Email.edt and sender (nickname) from MercProfiles.xml
-	// WANNE: TODO: Tex, Biggins, Stoggy and Gaston have special handling because they are the new MERC merc in 1.13
-	// There is no letter template in Email.edt. We have them hardcoded in the source code.
-	if (ubMercMercIdValue == 124 || ubMercMercIdValue == 125 || ubMercMercIdValue == 126 || ubMercMercIdValue == 127)
-	{
-		// Gaston
-		if (ubMercMercIdValue == 124)
-		{
-			ubEmailOffset = MERC_UP_LEVEL_BIFF;
-			iMsgLength = MERC_UP_LEVEL_GASTON;
-		}
-		// Stogie
-		else if (ubMercMercIdValue == 125)
-		{
-			ubEmailOffset = MERC_UP_LEVEL_BIFF;
-			iMsgLength = MERC_UP_LEVEL_STOGIE;
-		}
-		// Tex
-		else if (ubMercMercIdValue == 126)
-		{
-			ubEmailOffset = MERC_UP_LEVEL_BIFF;
-			iMsgLength = MERC_UP_LEVEL_TEX;
-		}
-		// Biggens
-		else if (ubMercMercIdValue == 127)
-		{
-			ubEmailOffset = MERC_UP_LEVEL_BIFF;
-			iMsgLength = MERC_UP_LEVEL_BIGGENS;
-		}
+		// Read from Email.edt and sender (nickname) from MercProfiles.xml.
+		// Extended 1.13 M.E.R.C. profiles retain their hardcoded selectors.
+		AddEmail(
+			levelUpEmail.legacyOffset, levelUpEmail.legacyLength,
+			SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1,
+			TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
 	}
-	else
-	{
-		iMsgLength = MERC_UP_LEVEL_LENGTH_BIFF;
-		ubEmailOffset = MERC_UP_LEVEL_BIFF + MERC_UP_LEVEL_LENGTH_BIFF * ( ubMercMercIdValue ); 
-	}
-
-	AddEmail( ubEmailOffset, iMsgLength, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
-	
-	}
-#endif
 }

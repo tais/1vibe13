@@ -5767,6 +5767,10 @@ int main( int, char** )
 		       progressPolicy.usesUnfinishedBusinessProgress() ==
 		           unfinishedBusiness &&
 		       communicationsPolicy.sendsInitialArulcoCongratulations() ==
+		           !unfinishedBusiness &&
+		       communicationsPolicy.shouldSendUnhiredAimDeathNotice(
+		           true, false, false) == !unfinishedBusiness &&
+		       communicationsPolicy.mercLevelUpRecord(124).available ==
 		           !unfinishedBusiness,
 		       "live campaign capabilities drive the tactical and strategic policy follow-throughs" );
 		Ja2SoldierRepository& soldierRepository = compiledContext.soldiers();

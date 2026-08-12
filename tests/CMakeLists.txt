@@ -219,9 +219,10 @@ target_include_directories(campaign_aim_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
 
-# Email catalogs, insurance templates, and shipment notices are selected at
-# runtime. The same data-free target pins the boundary checks used by Laptop's
-# legacy containers, dropdowns, and mail-order scrolling.
+# Email catalogs, insurance/shipment notices, tactical death notices, and
+# M.E.R.C. level-up IDs are selected at runtime. The same data-free target pins
+# the boundary checks used by Laptop's legacy containers, dropdowns, and
+# mail-order scrolling.
 add_executable(laptop_communications_policy_tests
   laptop_communications_policy_tests.cpp)
 target_include_directories(laptop_communications_policy_tests

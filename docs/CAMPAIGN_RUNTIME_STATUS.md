@@ -90,10 +90,22 @@ meanwhile trigger. UB retains its legacy signed `INT8` strategic-sector key
 lookup and exact fallback behavior; in particular, the later surface-sector
 constants remain outside that signed key domain and therefore still resolve to
 the established 50 percent default. The UB-only strategic-AI probe is behind a
-left-hand runtime campaign gate, so Arulco never reads that state. Three former
-`JA2UB` guards are gone from `Tactical/Campaign.cpp`; UB likewise short-circuits
-the Arulco-only Madlab threshold read. The three remaining guards
-belong to separate dead-merc and M.E.R.C.-level email-content contracts.
+left-hand runtime campaign gate, so Arulco never reads that state. The first
+three former `JA2UB` guards in `Tactical/Campaign.cpp` were removed by this
+progress seam; UB likewise short-circuits the Arulco-only Madlab threshold
+read.
+
+The remaining tactical email-content seam now uses
+`CampaignLaptopCommunicationsPolicy`. Arulco retains its unconditional A.I.M.
+death notice for eligible profiles and its delayed M.E.R.C. level-up email,
+including the XML identifiers, wrapped legacy byte offsets, and the special
+165-168 template selectors. UB retains its laptop-quest and dead-merc option
+gates, the Arulco `Email.edt` record 206 substitution, and the absence of the
+M.E.R.C. level-up email. The runtime UB gate precedes both option reads, so
+Arulco never touches `gGameUBOptions` here; UB returns before the level-up
+handler reads XML mode, profile data, or Speck availability. All six former
+guards in `Tactical/Campaign.cpp` are now gone without changing the death
+counter, delayed event, email IDs, send time, or campaign data.
 
 JA25 new-gun dialogue now uses `CampaignGunCommentPolicy` at both tactical
 entry points. UB retains the ground-pickup path's raw nonzero world-item index
@@ -222,13 +234,13 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 54 active conditionals in 21
+milestone its per-file baseline contains 51 active conditionals in 20
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
-| Tactical gameplay/content | 18 |
+| Tactical gameplay/content | 15 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 0 |
@@ -267,10 +279,11 @@ headless integration coverage where host composition is involved. Tactical meanw
 behavior uses the application policy,
 so the four converted tactical/tile implementations no longer contribute
 eight more guards. Campaign progress and its scientist-AWOL threshold use
-`CampaignProgressPolicy`, removing three of the six former guards from
-`Tactical/Campaign.cpp` while leaving the two independent email behaviors for
-their own content-policy slices. JA25 new-gun dialogue uses
-`CampaignGunCommentPolicy`; `Tactical/Handle Items.cpp` and
+`CampaignProgressPolicy`, removing the first three former guards from
+`Tactical/Campaign.cpp`. `CampaignLaptopCommunicationsPolicy` removes the
+remaining include/death/level-up trio while preserving exact mail identities
+and keeping UB configuration behind the runtime campaign gate. JA25 new-gun
+dialogue uses `CampaignGunCommentPolicy`; `Tactical/Handle Items.cpp` and
 `Tactical/Items.cpp` no longer contribute five guards, while their exact raw
 ground-index and pre-placement inventory-item inputs remain unchanged. The
 Tactical AI tail no longer contributes: `CampaignNpcPolicy` removes all eight
@@ -296,7 +309,7 @@ The largest individual legacy leaves are:
 | `Strategic/Luaglobal.cpp` | 5 |
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
-| `Tactical/Campaign.cpp` | 3 |
+| `Ja2/GameVersion.cpp` | 3 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime
