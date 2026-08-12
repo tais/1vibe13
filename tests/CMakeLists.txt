@@ -90,6 +90,16 @@ target_link_libraries(simulation_command_traversal_model_tests
 add_test(NAME simulation_command_traversal_model
   COMMAND simulation_command_traversal_model_tests)
 
+# Automatic AI, path, pending-action, and dialogue structure interactions use
+# one retained value contract. This adapter-only target pins its truth table,
+# tag-30 bytes, playback provenance, and explicit reference-model discard.
+add_executable(simulation_command_world_object_model_tests
+  simulation_command_world_object_model_tests.cpp)
+target_link_libraries(simulation_command_world_object_model_tests
+  PRIVATE JA2::RuntimeAdapter)
+add_test(NAME simulation_command_world_object_model
+  COMMAND simulation_command_world_object_model_tests)
+
 # Legacy map-temp action bytes overlap between campaign data sets. This tiny
 # data-free test keeps their runtime codec independent from the full game host.
 add_executable(campaign_map_change_code_tests

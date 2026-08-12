@@ -212,6 +212,7 @@ void stopAtUnchecked(
 	INT32 gridNo,
 	INT8 direction)
 {
+	actor.runtime().worldObject.reset();
 	INT16 worldX = 0;
 	INT16 worldY = 0;
 	ConvertGridNoToCenterCellXY(gridNo, &worldX, &worldY);
@@ -266,7 +267,8 @@ bool requestPathUnchecked(
 	INT32 destinationGrid,
 	UINT16 movementAnimation,
 	TacticalActorRouteExecution::PathOrigin origin,
-	BOOLEAN forceRestart)
+	BOOLEAN forceRestart,
+	BOOLEAN replicate)
 {
 	INT32 destination;
 	INT32 newGridNo;
@@ -375,8 +377,8 @@ bool requestPathUnchecked(
 				moveAnimationState,
 				0,
 				FALSE);
-			if (is_server ||
-				(is_client && actor.identity().id() < 20))
+			if (replicate &&
+				(is_server || (is_client && actor.identity().id() < 20)))
 			{
 				send_path(
 					&actor,
@@ -388,7 +390,8 @@ bool requestPathUnchecked(
 			return true;
 		}
 
-		if (is_server || (is_client && actor.identity().id() < 20))
+		if (replicate &&
+			(is_server || (is_client && actor.identity().id() < 20)))
 		{
 			send_path(
 				&actor,
@@ -452,7 +455,8 @@ bool requestPathUnchecked(
 	{
 		TacticalActorAnimationTransitions::initializeAnimation(actor, animationState, 0, FALSE);
 		actor.animationIntent().pendingAnimation() = moveAnimationState;
-		if (is_server || (is_client && actor.identity().id() < 20))
+		if (replicate &&
+			(is_server || (is_client && actor.identity().id() < 20)))
 		{
 			send_path(
 				&actor,
@@ -468,7 +472,8 @@ bool requestPathUnchecked(
 			moveAnimationState,
 			0,
 			forceRestart);
-		if (is_server || (is_client && actor.identity().id() < 20))
+		if (replicate &&
+			(is_server || (is_client && actor.identity().id() < 20)))
 		{
 			send_path(
 				&actor,
@@ -607,6 +612,7 @@ void haltForSightingUnchecked(
 				actor.position().gridNo() ==
 					actor.pathing().finalDestinationGrid())
 			{
+				actor.runtime().worldObject.reset();
 				actor.pendingAction().clearAction();
 			}
 			actor.animationIntent().clearPendingAnimations();
@@ -649,7 +655,8 @@ bool TacticalActorRouteExecution::requestPath(
 	std::int32_t destinationGrid,
 	std::uint16_t movementAnimation,
 	PathOrigin origin,
-	bool forceRestart)
+	bool forceRestart,
+	bool replicate)
 {
 	if (!hasLiveRouteContext(actor) ||
 		TileIsOutOfBounds(destinationGrid) ||
@@ -672,7 +679,8 @@ bool TacticalActorRouteExecution::requestPath(
 		static_cast<INT32>(destinationGrid),
 		static_cast<UINT16>(movementAnimation),
 		origin,
-		forceRestart ? TRUE : FALSE);
+		forceRestart ? TRUE : FALSE,
+		replicate ? TRUE : FALSE);
 }
 
 bool TacticalActorRouteExecution::continueMovement(
@@ -742,6 +750,7 @@ bool TacticalActorRouteExecution::stop(TacticalActor& actor)
 	if (!hasLiveRouteContext(actor))
 		return false;
 
+	actor.runtime().worldObject.reset();
 	TacticalActorMedicalServices::cancelReceiving(actor);
 	TacticalActorMedicalServices::cancelProviding(actor);
 	if (!(gAnimControl[actor.animationPlayback().state()].uiFlags &

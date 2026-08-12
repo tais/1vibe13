@@ -868,6 +868,22 @@ int main()
 	const SimulationCommand externalApproach{ApproachWorldObjectCommand{
 		actorId, TacticalWorldObjectId{1301, 17}, 2,
 		1300, 6, true, false, SimulationCommandSource::LocalPlayer}};
+	SystemWorldObjectInteractionCommand externalAutomaticValue{};
+	externalAutomaticValue.soldier = actorId;
+	externalAutomaticValue.object = TacticalWorldObjectId{1301, 17};
+	externalAutomaticValue.direction = 2;
+	externalAutomaticValue.operation = TacticalWorldObjectOperation::Open;
+	externalAutomaticValue.source = SimulationCommandSource::System;
+	externalAutomaticValue.origin = TacticalWorldObjectOrigin::AiAction;
+	externalAutomaticValue.continuation =
+		TacticalWorldObjectContinuation::None;
+	externalAutomaticValue.eventPolicy = TacticalEventPolicy::Replicated;
+	externalAutomaticValue.expectedGrid = 1300;
+	externalAutomaticValue.expectedLevel = 0;
+	externalAutomaticValue.expectedAnimationState = 6;
+	externalAutomaticValue.expectedStateFingerprint = 1;
+	externalAutomaticValue.expectedObjectFingerprint = 2;
+	const SimulationCommand externalAutomatic{externalAutomaticValue};
 	const TacticalEntityId targetId{8, 0x01020305u};
 	const SimulationCommand externalConversation{StartConversationCommand{
 		actorId, targetId, SimulationCommandSource::LocalPlayer}};
@@ -926,6 +942,8 @@ int main()
 			externalActivation) ||
 		!std::holds_alternative<ApproachWorldObjectCommand>(
 			externalApproach) ||
+		!std::holds_alternative<SystemWorldObjectInteractionCommand>(
+			externalAutomatic) ||
 		!std::holds_alternative<StartConversationCommand>(
 			externalConversation) ||
 		!std::holds_alternative<ApproachConversationCommand>(

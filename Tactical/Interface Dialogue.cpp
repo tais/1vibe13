@@ -5368,7 +5368,6 @@ BOOLEAN NPCOpenThing( TacticalActor *pSoldier, BOOLEAN fDoor )
 	INT32 sActionGridNo;
 	UINT8							ubDirection;
 	INT32 sGridNo;
-	DOOR *						pDoor;
 
 	// Find closest door and get struct data for it!
 	if ( fDoor )
@@ -5414,14 +5413,6 @@ BOOLEAN NPCOpenThing( TacticalActor *pSoldier, BOOLEAN fDoor )
 		return( FALSE );
 	}
 
-	// anything that an NPC opens this way should become unlocked!
-
-	pDoor = FindDoorInfoAtGridNo( sStructGridNo );
-	if ( pDoor )
-	{
-		pDoor->fLocked = FALSE;
-	}
-
 	sActionGridNo =	FindAdjacentGridEx( pSoldier, sStructGridNo, &ubDirection, NULL, FALSE, TRUE );
 	if ( sActionGridNo == -1 )
 	{
@@ -5431,21 +5422,15 @@ BOOLEAN NPCOpenThing( TacticalActor *pSoldier, BOOLEAN fDoor )
 	// Set dest gridno
 	sGridNo = sActionGridNo;
 
-	StartInteractiveObject( sStructGridNo, pStructure->usStructureID, pSoldier, ubDirection );
-
-	// check if we are at this location
-	if ( pSoldier->position().gridNo() == sGridNo )
-	{
-		InteractWithInteractiveObject( pSoldier, pStructure, ubDirection );
-	}
-	else
-	{
-		SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->movement().mode() );
-	}
-
-	pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
-
-	return( TRUE );
+	const TacticalEntityId actor = GetJa2TacticalEntityId( *pSoldier );
+	if ( HasPendingReplayWorldObjectInteractionCommand(
+			actor, TacticalWorldObjectOrigin::Dialogue ) )
+		return( TRUE );
+	return TryDispatchSystemDialogueWorldObjectInteractionCommandNow(
+		actor, sStructGridNo, pStructure->usStructureID, ubDirection,
+		sGridNo, pSoldier->movement().mode() ).accepted()
+		? TRUE
+		: FALSE;
 
 }
 

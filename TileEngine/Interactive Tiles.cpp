@@ -197,6 +197,7 @@ BOOLEAN SoldierHandleInteractiveObject( TacticalActor *pSoldier )
 	if (pStructure == NULL)
 	{
 		//DEBUG MSG!
+		pSoldier->runtime().worldObject.reset();
 		return( FALSE );
 	}
 

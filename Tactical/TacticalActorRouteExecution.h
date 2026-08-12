@@ -26,7 +26,8 @@ namespace TacticalActorRouteExecution
 		std::int32_t destinationGrid,
 		std::uint16_t movementAnimation,
 		PathOrigin origin = PathOrigin::System,
-		bool forceRestart = true);
+		bool forceRestart = true,
+		bool replicate = true);
 	[[nodiscard]] bool continueMovement(TacticalActor& actor);
 	[[nodiscard]] bool stop(TacticalActor& actor);
 	[[nodiscard]] bool settleIntoStationaryStance(

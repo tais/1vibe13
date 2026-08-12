@@ -210,10 +210,6 @@ INT8 DecideActionSchedule( TacticalActor * pSoldier )
 							// door already locked!
 							fDoUseDoor = FALSE;
 						}
-						else
-						{
-							pDoor->fLocked = TRUE;
-						}
 					}
 					else
 					{
@@ -324,15 +320,9 @@ INT8 DecideActionSchedule( TacticalActor * pSoldier )
 						pDoor = FindDoorInfoAtGridNo( usGridNo1 );
 						if (pDoor)
 						{
-							if (pDoor->fLocked)
-							{
-								pDoor->fLocked = FALSE;
-							}
-							else
-							{
-								// door already unlocked!
+							// The retained command owns the selected unlock.
+							if (!pDoor->fLocked)
 								fDoUseDoor = FALSE;
-							}
 						}
 						else
 						{

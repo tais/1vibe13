@@ -4463,12 +4463,46 @@ int main( int, char** )
 		invalidWeaponConfigurationSlot.previousItem = 11;
 		invalidWeaponConfigurationSlot.changedItem = 17;
 		invalidWeaponConfigurationSlot.inventoryPosition = NUM_INV_SLOTS;
+		SystemWorldObjectInteractionCommand validAutomaticWorldObject{};
+		validAutomaticWorldObject.soldier = actor;
+		validAutomaticWorldObject.object = TacticalWorldObjectId{ 100, 7 };
+		validAutomaticWorldObject.direction = EAST;
+		validAutomaticWorldObject.operation =
+			TacticalWorldObjectOperation::Open;
+		validAutomaticWorldObject.source = SimulationCommandSource::System;
+		validAutomaticWorldObject.origin =
+			TacticalWorldObjectOrigin::AiAction;
+		validAutomaticWorldObject.continuation =
+			TacticalWorldObjectContinuation::None;
+		validAutomaticWorldObject.eventPolicy =
+			TacticalEventPolicy::Replicated;
+		validAutomaticWorldObject.expectedGrid = 99;
+		validAutomaticWorldObject.expectedLevel = FIRST_LEVEL;
+		validAutomaticWorldObject.expectedAnimationState = STANDING;
+		validAutomaticWorldObject.expectedStateFingerprint = 1;
+		validAutomaticWorldObject.expectedObjectFingerprint = 2;
+		SystemWorldObjectInteractionCommand invalidAutomaticOrigin =
+			validAutomaticWorldObject;
+		invalidAutomaticOrigin.origin =
+			static_cast<TacticalWorldObjectOrigin>( 0xff );
+		SystemWorldObjectInteractionCommand invalidAutomaticSource =
+			validAutomaticWorldObject;
+		invalidAutomaticSource.source = SimulationCommandSource::LocalPlayer;
 		const SimulationCommand validMove{ MoveToGridCommand{
 			actor, 100, WALKING, false, false,
 			SimulationCommandSource::LocalPlayer } };
 		CHECK(
 			ValidateSimulationCommandDomain( validMove ) ==
 				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{ validAutomaticWorldObject } ) ==
+					SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{ invalidAutomaticOrigin } ) ==
+					SimulationCommandDomainError::InvalidWorldObjectOrigin &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{ invalidAutomaticSource } ) ==
+					SimulationCommandDomainError::InvalidSource &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				0xffu, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidTeam &&
@@ -6395,6 +6429,40 @@ int main( int, char** )
 			(void)compiledContext.commands().acknowledge(
 				pendingReplaySequence );
 		}
+		SystemWorldObjectInteractionCommand pendingReplayDoorProbe{};
+		pendingReplayDoorProbe.soldier = commandHostActorId;
+		pendingReplayDoorProbe.object =
+			TacticalWorldObjectId{ commandHostActor.position().gridNo(), 1 };
+		pendingReplayDoorProbe.direction = EAST;
+		pendingReplayDoorProbe.operation =
+			TacticalWorldObjectOperation::Open;
+		pendingReplayDoorProbe.source = SimulationCommandSource::Replay;
+		pendingReplayDoorProbe.origin =
+			TacticalWorldObjectOrigin::AiAction;
+		pendingReplayDoorProbe.continuation =
+			TacticalWorldObjectContinuation::None;
+		pendingReplayDoorProbe.eventPolicy =
+			TacticalEventPolicy::Replicated;
+		pendingReplayDoorProbe.expectedGrid =
+			commandHostActor.position().gridNo();
+		pendingReplayDoorProbe.expectedLevel = FIRST_LEVEL;
+		pendingReplayDoorProbe.expectedAnimationState = STANDING;
+		pendingReplayDoorProbe.expectedStateFingerprint = 1;
+		pendingReplayDoorProbe.expectedObjectFingerprint = 2;
+		const std::uint64_t pendingReplayDoorSequence =
+			compiledContext.commands().enqueue(
+				compiledContext.runtime().simulationTicks().completedTickSequence() +
+					1,
+				SimulationCommand{ pendingReplayDoorProbe } );
+		const bool pendingReplaySuppressesAutomaticDoorProducer =
+			HasPendingReplayWorldObjectInteractionCommand(
+				commandHostActorId,
+				TacticalWorldObjectOrigin::AiAction ) &&
+			!HasPendingReplayWorldObjectInteractionCommand(
+				commandHostActorId,
+				TacticalWorldObjectOrigin::Dialogue );
+		(void)compiledContext.commands().acknowledge(
+			pendingReplayDoorSequence );
 
 		commandHostActor.aiPlanning().action() = AI_ACTION_JUMP_WINDOW;
 		BeginSimulationCommandFrameBudget(
@@ -6500,6 +6568,80 @@ int main( int, char** )
 				retainedRoofPointRecord->command ).expectedActionPointCost !=
 					TacticalTraversalNoExpectedPointCost;
 
+		bool retainedDoorRejectedChangedStructure = false;
+		if ( traversalWorldReady )
+		{
+			const INT32 retainedDoorGrid =
+				commandHostActor.position().gridNo();
+			STRUCTURE retainedDoorStructure{};
+			retainedDoorStructure.fFlags =
+				STRUCTURE_BASE_TILE | STRUCTURE_OPENABLE |
+				STRUCTURE_DOOR;
+			retainedDoorStructure.sGridNo = retainedDoorGrid;
+			retainedDoorStructure.sBaseGridNo = retainedDoorGrid;
+			retainedDoorStructure.usStructureID = 0x7ffdu;
+			retainedDoorStructure.ubStructureHeight = 1;
+			STRUCTURE* const previousStructureHead =
+				gpWorldLevelData[ retainedDoorGrid ].pStructureHead;
+			retainedDoorStructure.pNext = previousStructureHead;
+			gpWorldLevelData[ retainedDoorGrid ].pStructureHead =
+				&retainedDoorStructure;
+
+			commandHostActor.animationPlayback().state() = STANDING;
+			commandHostActor.aiPlanning().action() =
+				AI_ACTION_OPEN_OR_CLOSE_DOOR;
+			commandHostActor.aiPlanning().actionData() = NewGridNo(
+				retainedDoorGrid, DirectionInc( EAST ) );
+			commandHostActor.aiPlanning().actionInProgress() = FALSE;
+			commandHostActor.pendingAction().clearAction();
+			commandHostActor.runtime().worldObject.reset();
+			BeginSimulationCommandFrameBudget(
+				++commandTestFrameSequence, 0 );
+			const SimulationCommandDispatchResult retainedDoorInteraction =
+				TryDispatchSystemAiWorldObjectInteractionCommandNow(
+					commandHostActorId, retainedDoorGrid,
+					retainedDoorStructure.usStructureID, EAST,
+					TacticalWorldObjectOperation::Open );
+			// Preserve identity and selected operation while changing one
+			// value-only structure property after capture.
+			retainedDoorStructure.ubStructureHeight = 2;
+			const CommandProcessingResult staleDoorProcessing =
+				ExecuteSimulationCommandsThrough(
+					retainedDoorInteraction.tick, 1 );
+			const std::vector<RecordedSimulationCommand>
+				journalAfterRetainedDoor =
+					compiledContext.commandJournal().snapshot();
+			const RecordedSimulationCommand* retainedDoorRecord =
+				!journalAfterRetainedDoor.empty()
+					? &journalAfterRetainedDoor.back()
+					: nullptr;
+			retainedDoorRejectedChangedStructure =
+				retainedDoorInteraction.status ==
+					SimulationCommandDispatchStatus::RetryDeferred &&
+				retainedDoorInteraction.submitted &&
+				staleDoorProcessing.status ==
+					CommandProcessStatus::Completed &&
+				staleDoorProcessing.discarded == 1 &&
+				retainedDoorStructure.ubStructureHeight == 2 &&
+				commandHostActor.pendingAction().action() ==
+					NO_PENDING_ACTION &&
+				!commandHostActor.runtime().worldObject.active() &&
+				commandHostActor.aiPlanning().action() ==
+					AI_ACTION_OPEN_OR_CLOSE_DOOR &&
+				retainedDoorRecord &&
+				retainedDoorRecord->status ==
+					CommandJournalStatus::Discarded &&
+				std::holds_alternative<
+					SystemWorldObjectInteractionCommand>(
+						retainedDoorRecord->command ) &&
+				std::get<SystemWorldObjectInteractionCommand>(
+					retainedDoorRecord->command ).
+						expectedObjectFingerprint !=
+						TacticalWorldObjectNoExpectedFingerprint;
+			gpWorldLevelData[ retainedDoorGrid ].pStructureHead =
+				previousStructureHead;
+		}
+
 		const bool liveAiTraversalContinuationOwned =
 			liveAiWindowTraversal.status ==
 				SimulationCommandDispatchStatus::Applied &&
@@ -6556,12 +6698,14 @@ int main( int, char** )
 		CHECK( liveAiTraversalContinuationOwned &&
 		       livePathTraversalOrdered &&
 		       pendingReplaySuppressesAsyncPathProducer &&
+		       pendingReplaySuppressesAutomaticDoorProducer &&
 		       pendingReplayOwnsNoActionPointBranch &&
 		       retainedWindowRejectedChangedRoute &&
 		       retainedTraversalRejectedStaleState &&
 		       retainedRoofRejectedChangedPointBudget &&
+		       retainedDoorRejectedChangedStructure &&
 		       traversalActorRestored,
-		       "production traversal commands preserve path ordering, let queued Replay own both fence AP branches, own AI completion, and discard stale work without clobbering a newer AI action" );
+		       "production traversal and automatic-door commands preserve path ordering, let queued Replay own async branches, and discard stale actor or structure work without mutation" );
 
 		const INT8 previousConfigurationWeaponMode =
 			commandHostActor.attackSelection().weaponMode();
@@ -19202,6 +19346,9 @@ int main( int, char** )
 		runtime.combatFeedback.lastArmourProtection = 15;
 		runtime.quickItem.itemId = 16;
 		runtime.quickItem.slot = 17;
+		runtime.worldObject.begin(
+			false, 99, 1234, 42,
+			SoldierWorldObjectContinuationOwner::ActorAction );
 
 		const SoldierRuntimeComponents copiedRuntime = runtime;
 		SoldierRuntimeComponents assignedRuntime;
@@ -19211,18 +19358,57 @@ int main( int, char** )
 		       !copiedRuntime.pendingAction.delayedDamage &&
 		       copiedRuntime.combatFeedback.lastShock == 0 &&
 		       copiedRuntime.quickItem.itemId == 0 &&
+		       !copiedRuntime.worldObject.active() &&
 		       assignedRuntime.pendingAction.grenadeItem == 0 &&
 		       !assignedRuntime.pendingAction.delayedDamage &&
 		       assignedRuntime.combatFeedback.lastArmourProtection == 0 &&
-		       assignedRuntime.quickItem.slot == 0,
-		       "soldier clones do not inherit transient callbacks or UI state" );
+		       assignedRuntime.quickItem.slot == 0 &&
+		       !assignedRuntime.worldObject.active(),
+		       "soldier clones and reused actor slots do not inherit transient callbacks, UI state, or door completion provenance" );
+
+		const bool replayDoorCompletionLocalOnly =
+			runtime.worldObject.completeDoorChange( 99, 1234, 42 ) == FALSE &&
+			runtime.worldObject.active() &&
+			!runtime.worldObject.awaitsDoorChange() &&
+			runtime.worldObject.consumeActorActionCompletionReplication() == FALSE &&
+			!runtime.worldObject.active();
+		runtime.worldObject.begin(
+			true, 99, 1234, 42,
+			SoldierWorldObjectContinuationOwner::ActorAction );
+		const bool localActorCompletionStillReleasesOwner =
+			runtime.worldObject.consumeActorActionCompletionReplication(
+				FALSE ) == FALSE &&
+			!runtime.worldObject.active();
+		runtime.worldObject.begin(
+			false, 99, 1234, 42,
+			SoldierWorldObjectContinuationOwner::PathRoute );
+		const bool replayPathContinuationLocalOnly =
+			runtime.worldObject.completeDoorChange( 99, 1234, 42 ) == FALSE &&
+			runtime.worldObject.active() &&
+			runtime.worldObject.consumePathContinuationReplication() == FALSE &&
+			!runtime.worldObject.active();
+		runtime.worldObject.begin( false, 99, 1234, 42 );
+		const bool staleReplayDoorCompletionLocalOnly =
+			runtime.worldObject.completeDoorChange( 99, 1234, 43 ) == FALSE &&
+			!runtime.worldObject.active();
+		const bool unownedDoorCompletionKeepsLegacyReplication =
+			runtime.worldObject.completeDoorChange( 99, 1234, 42 ) == TRUE &&
+			!runtime.worldObject.active();
+		runtime.worldObject.begin( false, 99, 1234, 42 );
 
 		runtime.reset();
 		CHECK( runtime.pendingAction.pathSearchSourceGrid == 0 &&
 		       runtime.pendingAction.targetIncarnation == 0 &&
 		       runtime.pendingAction.grenadeItem == 0 &&
-		       !runtime.pendingAction.delayedDamage,
-		       "soldier pending-action runtime component resets transient work" );
+		       !runtime.pendingAction.delayedDamage &&
+		       replayDoorCompletionLocalOnly &&
+		       localActorCompletionStillReleasesOwner &&
+		       replayPathContinuationLocalOnly &&
+		       staleReplayDoorCompletionLocalOnly &&
+		       unownedDoorCompletionKeepsLegacyReplication &&
+		       !runtime.worldObject.active() &&
+		       runtime.worldObject.objectGrid() == -1,
+		       "soldier pending-action and replay door owners consume or reset transient work exactly once" );
 		CHECK( runtime.combatFeedback.lastShock == 0 &&
 		       runtime.combatFeedback.lastSuppression == 0 &&
 		       runtime.combatFeedback.lastActionPoints == 0 &&

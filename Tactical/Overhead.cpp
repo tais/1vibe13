@@ -1328,37 +1328,45 @@ BOOLEAN ExecuteOverhead( )
 
                                     if ( pSoldier->pendingAction().action() == MERC_OPENDOOR ||   pSoldier->pendingAction().action() == MERC_OPENSTRUCT )
                                     {
-                                        sGridNo                              = pSoldier->pendingAction().secondaryData();
-                                        //usStructureID         = (UINT16)pSoldier->pendingAction().primaryData();
-                                        //pStructure = FindStructureByID( sGridNo, usStructureID );
-
-                                        // LOOK FOR STRUCT OPENABLE
-                                        pStructure = FindStructure( sGridNo, STRUCTURE_OPENABLE );
-
-                                        if ( pStructure == NULL )
+                                        const TacticalEntityId actor =
+                                            GetJa2TacticalEntityId( *pSoldier );
+                                        if ( HasPendingReplayWorldObjectInteractionCommand(
+                                                actor,
+                                                TacticalWorldObjectOrigin::PendingAction ) )
+                                        {
+											continue;
+                                        }
+                                        sGridNo =
+                                            pSoldier->pendingAction().secondaryData();
+                                        const UINT32 rawStructureId =
+                                            pSoldier->pendingAction().primaryData();
+                                        if ( rawStructureId > UINT16_MAX ||
+                                            FindStructureByID(
+                                                sGridNo,
+                                                static_cast<UINT16>( rawStructureId ) ) == NULL )
                                         {
 #ifdef JA2BETAVERSION
                                             ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Told to open struct at %d and none was found", sGridNo );
 #endif
-											// Flugente: if there is no structure for us to interact with, stop
 											(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
+											pSoldier->runtime().worldObject.reset();
 											pSoldier->pendingAction().clearAction();
-
                                             fKeepMoving = FALSE;
                                         }
                                         else
                                         {
-                                            CalcInteractiveObjectAPs( pSoldier, sGridNo, pStructure, &sAPCost, &sBPCost ); // SANDRO - added argument
-
-                                            if ( EnoughPoints( pSoldier, sAPCost, sBPCost , TRUE ) )
-                                            {
-                                                InteractWithInteractiveObject( pSoldier, pStructure, pSoldier->pendingAction().tertiaryData() );
-                                            }
-                                            else
-                                            {
-                                                fNoAPsForPendingAction = TRUE;
-                                            }
+                                        const SimulationCommandDispatchResult interaction =
+                                            TryDispatchSystemPendingWorldObjectInteractionCommandNow(
+                                                actor );
+                                        if ( interaction.accepted() )
+                                        {
+											if ( !interaction.processed() ) continue;
                                         }
+                                        else
+                                        {
+                                            fNoAPsForPendingAction = TRUE;
+                                        }
+										}
                                     }
 
 									// Flugente: we are doing something here - stop multi-turn-action
@@ -2108,6 +2116,13 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
         INT32               sDoorGridNo;
 
         // OK, if we are here, we have been told to get a pth through a door.
+		const TacticalEntityId actor = GetJa2TacticalEntityId( *pSoldier );
+        if ( HasPendingReplayWorldObjectInteractionCommand(
+                actor, TacticalWorldObjectOrigin::PathTraversal ) )
+		{
+			(*pfKeepMoving ) = FALSE;
+			return( FALSE );
+		}
 
         // No need to check if for AI
 
@@ -2153,14 +2168,14 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
             return( FALSE );
         }
 
-        // OK, open!
-        StartInteractiveObject( sDoorGridNo, pStructure->usStructureID, pSoldier, bDirection );
-        InteractWithInteractiveObject( pSoldier, pStructure, bDirection );
-
-        // One needs to walk after....
-        if ( (pSoldier->roster().team() != gbPlayerNum) || (gTacticalStatus.fAutoBandageMode) || ( pSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL ) )
+        const SimulationCommandDispatchResult interaction =
+            TryDispatchSystemPathWorldObjectInteractionCommandNow(
+                actor, sDoorGridNo, pStructure->usStructureID,
+                static_cast<UINT8>( bDirection ) );
+        if ( !interaction.accepted() )
         {
-            pSoldier->schedule().beginDoorContinuation(sDoorGridNo);
+			HaltGuyFromNewGridNoBecauseOfNoAPs( pSoldier );
+			pSoldier->schedule().cancelDoorContinuation();
         }
         (*pfKeepMoving ) = FALSE;
         return( FALSE );

@@ -43,7 +43,8 @@ enum class CommandTag : std::uint8_t
 	SynchronizeTurn = 26,
 	BeginSelectedFireWeapon = 27,
 	BulkReloadWeapons = 28,
-	ApplyWeaponConfiguration = 29
+	ApplyWeaponConfiguration = 29,
+	SystemWorldObjectInteraction = 30
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -117,6 +118,24 @@ bool IsValidTraversalContinuation(std::uint8_t value)
 {
 	return IsValidTacticalTraversalContinuation(
 		static_cast<TacticalTraversalContinuation>(value));
+}
+
+bool IsValidWorldObjectOperation(std::uint8_t value)
+{
+	return IsValidTacticalWorldObjectOperation(
+		static_cast<TacticalWorldObjectOperation>(value));
+}
+
+bool IsValidWorldObjectOrigin(std::uint8_t value)
+{
+	return IsValidTacticalWorldObjectOrigin(
+		static_cast<TacticalWorldObjectOrigin>(value));
+}
+
+bool IsValidWorldObjectContinuation(std::uint8_t value)
+{
+	return IsValidTacticalWorldObjectContinuation(
+		static_cast<TacticalWorldObjectContinuation>(value));
 }
 
 bool IsValidWeaponConfigurationCause(std::uint8_t value)
@@ -379,6 +398,36 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 				(value.reverse ? MoveReverseFlag : 0u) |
 				(value.forceRestart ? MoveForceRestartFlag : 0u));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command,
+				SystemWorldObjectInteractionCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(
+				CommandTag::SystemWorldObjectInteraction));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.object.grid);
+			writer.writeU16(value.object.structureId);
+			writer.writeU8(value.direction);
+			writer.writeU8(static_cast<std::uint8_t>(value.operation));
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.origin));
+			writer.writeU8(static_cast<std::uint8_t>(value.continuation));
+			writer.writeU8(static_cast<std::uint8_t>(value.eventPolicy));
+			writer.writeU8(value.unlockBeforeInteraction ? 1u : 0u);
+			writer.writeI32(value.expectedGrid);
+			writer.writeI32(value.expectedDestinationGrid);
+			writer.writeI8(value.expectedLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU16(value.movementMode);
+			writer.writeU16(value.expectedPathIndex);
+			writer.writeU16(value.expectedPathSize);
+			writer.writeU8(value.expectedPathDirection);
+			writer.writeU64(value.expectedStateFingerprint);
+			writer.writeU64(value.expectedObjectFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			WriteI16(writer, value.expectedBreathPointCost);
 		}
 		else if constexpr (
 			std::is_same<Command, StartConversationCommand>::value)
@@ -887,6 +936,58 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!ReadSource(reader, value.source)) return false;
 			value.reverse = (flags & MoveReverseFlag) != 0;
 			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::SystemWorldObjectInteraction:
+		{
+			SystemWorldObjectInteractionCommand value{};
+			std::uint8_t operation = 0;
+			std::uint8_t origin = 0;
+			std::uint8_t continuation = 0;
+			std::uint8_t eventPolicy = 0;
+			std::uint8_t unlockBeforeInteraction = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.object.grid) ||
+				!reader.readU16(value.object.structureId) ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readU8(operation) ||
+				!IsValidWorldObjectOperation(operation) ||
+				!ReadSource(reader, value.source) ||
+				!reader.readU8(origin) ||
+				!IsValidWorldObjectOrigin(origin) ||
+				!reader.readU8(continuation) ||
+				!IsValidWorldObjectContinuation(continuation) ||
+				!reader.readU8(eventPolicy) ||
+				!IsValidEventPolicy(eventPolicy) ||
+				!reader.readU8(unlockBeforeInteraction) ||
+				unlockBeforeInteraction > 1 ||
+				!reader.readI32(value.expectedGrid) ||
+				!reader.readI32(value.expectedDestinationGrid) ||
+				!reader.readI8(value.expectedLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU16(value.movementMode) ||
+				!reader.readU16(value.expectedPathIndex) ||
+				!reader.readU16(value.expectedPathSize) ||
+				!reader.readU8(value.expectedPathDirection) ||
+				!reader.readU64(value.expectedStateFingerprint) ||
+				!reader.readU64(value.expectedObjectFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadI16(reader, value.expectedBreathPointCost)) return false;
+			value.operation =
+				static_cast<TacticalWorldObjectOperation>(operation);
+			value.origin = static_cast<TacticalWorldObjectOrigin>(origin);
+			value.continuation =
+				static_cast<TacticalWorldObjectContinuation>(continuation);
+			value.eventPolicy =
+				static_cast<TacticalEventPolicy>(eventPolicy);
+			value.unlockBeforeInteraction =
+				unlockBeforeInteraction != 0;
+			if (!IsStructurallyValidSimulationCommand(
+					SimulationCommand{value})) return false;
 			command = value;
 			return true;
 		}

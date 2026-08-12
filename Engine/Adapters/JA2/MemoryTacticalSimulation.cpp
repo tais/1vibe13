@@ -154,6 +154,15 @@ CommandDisposition MemoryTacticalSimulation::execute(
 			// second traversal model.
 			return CommandDisposition::Discard;
 		}
+		else if constexpr (
+			std::is_same<Command,
+				SystemWorldObjectInteractionCommand>::value)
+		{
+			// Structure identity, door locks, route continuations and animation
+			// completion are JA2 adapter mechanics. The portable reference must
+			// fail closed instead of inventing a second door model.
+			return CommandDisposition::Discard;
+		}
 		else
 		{
 			TacticalSimulationActorState* actor =

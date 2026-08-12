@@ -2859,7 +2859,23 @@ int main()
 			44, 68, CommandJournalStatus::Queued,
 			SimulationCommand{BeginSelectedFireWeaponCommand{
 				firstIncarnation, 7000, 0, 3, 1, 4321,
-				SimulationCommandSource::System}}}};
+				SimulationCommandSource::System}}},
+		RecordedSimulationCommand{
+			45, 69, CommandJournalStatus::Queued,
+			SimulationCommand{SystemWorldObjectInteractionCommand{
+				firstIncarnation, TacticalWorldObjectId{7100, 0x3456}, 2,
+				TacticalWorldObjectOperation::Open,
+				SimulationCommandSource::System,
+				TacticalWorldObjectOrigin::AiAction,
+				TacticalWorldObjectContinuation::None,
+				TacticalEventPolicy::Replicated, false, 7099,
+				TacticalWorldObjectNoExpectedGrid, 0, 6,
+				TacticalWorldObjectNoExpectedAnimation,
+				TacticalWorldObjectNoExpectedPathValue,
+				TacticalWorldObjectNoExpectedPathValue,
+				TacticalDirectionCount, 1, 2,
+				TacticalWorldObjectNoExpectedPointCost,
+				TacticalWorldObjectNoExpectedPointCost}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2871,7 +2887,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 28)
+		decoded.size() == 29)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2922,6 +2938,9 @@ int main()
 		const auto& selectedFire =
 			std::get<BeginSelectedFireWeaponCommand>(
 				decoded[27].command);
+		const auto& automaticWorldObject =
+			std::get<SystemWorldObjectInteractionCommand>(
+				decoded[28].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -3050,6 +3069,11 @@ int main()
 			synchronizedTurn.source == SimulationCommandSource::Replay &&
 			selectedFire.soldier == firstIncarnation &&
 			selectedFire.targetGrid == 7000 &&
+			automaticWorldObject.object.grid == 7100 &&
+			automaticWorldObject.operation ==
+				TacticalWorldObjectOperation::Open &&
+			automaticWorldObject.origin ==
+				TacticalWorldObjectOrigin::AiAction &&
 			selectedFire.targetLevel == 0 &&
 			selectedFire.targetCubeLevel == 3 &&
 			selectedFire.attackingHand == 1 &&
