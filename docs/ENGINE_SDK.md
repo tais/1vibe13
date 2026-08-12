@@ -241,6 +241,13 @@ that legacy behavior through any selected AI/path continuation. Replay, and a
 shared player-object command carrying peer provenance, always complete locally
 without door, path, or stop reflection.
 
+The full non-positional dialogue-effect audit lives in
+`DIALOGUE_EFFECT_INVENTORY.md`. It records all 32 bit values, all 33 exposed
+symbols, their source-coded producers, the centralized queue effects, and the
+dynamic Lua gateway. No dialogue effect has entered the SDK command vocabulary:
+all remain legacy until a slice closes over composite ordering, stale-state
+identity, UI/campaign continuation, provenance, and replay behavior.
+
 `SimulationCommandExecutor` is the host-owned execution boundary beneath that
 value stream. It receives the exact command plus deterministic tick and
 sequence metadata and returns `Applied`, `Retry`, or `Discard`. The compiled
