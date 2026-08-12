@@ -23,10 +23,11 @@ enum class TextKey
 	HistoryTitle,
 	AimLinksTitle,
 	HelpScreenExit,
+	GameClockDay,
 	count
 };
 
-static_assert(static_cast<std::size_t>(TextKey::HelpScreenExit) == 6,
+static_assert(static_cast<std::size_t>(TextKey::GameClockDay) == 7,
 	"New TextKey entries append without renumbering published key ordinals");
 
 struct TextKeyDescriptor
@@ -46,6 +47,7 @@ inline constexpr std::array<TextKeyDescriptor,
 	{TextKey::HistoryTitle, "laptop.history.title", L"HistoryTitle", false},
 	{TextKey::AimLinksTitle, "laptop.aim.links.title", L"AimLink", false},
 	{TextKey::HelpScreenExit, "help.screen.exit", L"HelpScreen", false},
+	{TextKey::GameClockDay, "game.clock.day", L"GameClock", false},
 }};
 
 constexpr auto FindTextKey(TextKey key) noexcept

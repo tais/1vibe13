@@ -10,7 +10,7 @@
 #include "Font Control.h"
 	#include "message.h"
 	#include "MiniEvents.h"
-	#include "Text.h"
+	#include "TextCatalog.h"
 
 #ifdef JA2TESTVERSION
 
@@ -236,7 +236,7 @@ static void AdjustClockToEventStamp( STRATEGICEVENT *pEvent, UINT32 *puiAdjustme
 
 	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
-		gpGameClockString[ STR_GAMECLOCK_DAY_NAME ],
+		i18n::GetCompiledTextPack().text(i18n::TextKey::GameClockDay).data(),
 		clock.day, clock.hour, clock.minute );
 }
 

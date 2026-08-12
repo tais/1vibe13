@@ -7,6 +7,7 @@
 	#include "BobbyR.h"
 	#include "Utilities.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "BobbyRGuns.h"
 	#include "Cursors.h"
 	#include "BobbyRMailOrder.h"
@@ -370,7 +371,9 @@ void DisplayPreviousShipments()
 	UINT8		ubFontColor = BOBBYR_SHIPMENT_STATIC_TEXT_COLOR;
 	const BobbyRayLayoutModel::ShipmentLayout layout =
 		BobbyRayShipmentLayout();
-	
+	const auto gameClockDay =
+		i18n::GetCompiledTextPack().text(i18n::TextKey::GameClockDay);
+
 	uiNumItems = static_cast<UINT32>(gShipmentTable.size());
 
 	//loop through all the shipments
@@ -398,8 +401,8 @@ void DisplayPreviousShipments()
 			}
 
 			//Display the "ordered on day num"
-			//swprintf( zText, L"%s %d", gpGameClockString[0], gpNewBobbyrShipments[ uiCnt ].uiOrderedOnDayNum );
-			swprintf( zText, L"%s %d", gpGameClockString[0], gShipmentTable[ uiCnt ]->uiOrderDate );
+			swprintf( zText, L"%s %d", gameClockDay.data(),
+				gShipmentTable[ uiCnt ]->uiOrderDate );
 			DrawTextToScreen(zText, orderedOn.origin.x, orderedOn.origin.y,
 				orderedOn.width, BOBBYR_SHIPMENT_STATIC_TEXT_FONT,
 				ubFontColor, 0, FALSE, CENTER_JUSTIFIED);
