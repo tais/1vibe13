@@ -21,6 +21,8 @@
 #include "World Items.h"
 #include "Map Screen Helicopter.h"
 #include "Campaign Types.h"
+#include "CampaignLuaGlobalPolicy.h"
+#include "GameContext.h"
 
 #include "ub_config.h"
 #include "Ja25_Tactical.h"
@@ -62,8 +64,12 @@ void IniGlobalGameSetting(lua_State *L)
 	
 	lua_pushinteger(L, gGameOptions.ubDifficultyLevel);
 	lua_setglobal(L, "newDIFFICULTY_LEVEL");
-	
-#ifdef JA2UB
+
+	const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy(
+		GetGameContext().capabilities());
+	if (campaignLuaGlobalPolicy
+		.exportsUnfinishedBusinessDifficultyAliases())
+	{
 	//Old
 	lua_pushinteger(L, gGameOptions.ubDifficultyLevel);
 	lua_setglobal(L, "difficultyLevel");
@@ -71,7 +77,7 @@ void IniGlobalGameSetting(lua_State *L)
 	//new
 	lua_pushinteger(L, gGameOptions.ubDifficultyLevel);
 	lua_setglobal(L, "UB_difficultyLevel");
-#endif
+	}
 
 	// -------------------------------
 	// ja2_options.ini Settings (use "ini" prefix)
@@ -94,13 +100,16 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_pushinteger(L, gGameExternalOptions.fCanTrueCiviliansBecomeHostile);
 	lua_setglobal(L, "iniCAN_TRUE_CIVILIANS_BECOME_HOSTILE");
 
-#ifdef JA2UB
+	if (campaignLuaGlobalPolicy.usesUnfinishedBusinessArrivalGrid())
+	{
 	lua_pushinteger(L, gGameUBOptions.LOCATEGRIDNO);
 	lua_setglobal(L, "iniNEW_MERC_ARRIVAL_LOCATION");
-#else
+	}
+	else
+	{
 	lua_pushinteger(L, gGameExternalOptions.iInitialMercArrivalLocation);
 	lua_setglobal(L, "iniNEW_MERC_ARRIVAL_LOCATION");
-#endif
+	}
  
 	lua_pushinteger(L, gGameExternalOptions.ubDefaultArrivalSectorY);
 	lua_setglobal(L, "iniDEFAULT_ARRIVAL_SECTOR_Y");
@@ -108,7 +117,8 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_pushinteger(L, gGameExternalOptions.ubDefaultArrivalSectorX);
 	lua_setglobal(L, "iniDEFAULT_ARRIVAL_SECTOR_X");	
 	
-#ifdef JA2UB
+	if (campaignLuaGlobalPolicy.exportsUnfinishedBusinessScenarioGlobals())
+	{
 	//old
 	lua_pushinteger(L, gGameUBOptions.ubEndDefaultSectorX);
 	lua_setglobal(L, "iniDEFAULT_END_SECTOR_X");
@@ -230,8 +240,7 @@ void IniGlobalGameSetting(lua_State *L)
 
 	
 	
-	
-#endif
+	}
 	
 	//Mod Setting.ini
 
@@ -448,10 +457,11 @@ void IniGlobalGameSetting(lua_State *L)
 	// Other global variables
 	// -------------------------------
 	
-#ifdef JA2UB
+	if (campaignLuaGlobalPolicy.exportsUnfinishedBusinessTestGlobal())
+	{
 	lua_pushinteger(L, gGameUBOptions.TestUB);
 	lua_setglobal(L, "TestUB");
-#endif
+	}
 	
 	lua_pushinteger(L, gGameExternalOptions.ubDefaultArrivalSectorY);
 	lua_setglobal(L, "ubDefaultArrivalSectorY");
@@ -598,7 +608,9 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_pushinteger(L, GetCurrentScreen());
 	lua_setglobal(L, "GetCurrentScreen()");
 
-#ifdef JA2UB
+	if (campaignLuaGlobalPolicy
+		.exportsUnfinishedBusinessCharacterAndItemGlobals())
+	{
 	//old
 	lua_pushboolean(L, gGameUBOptions.fTexAndJohn);
 	lua_setglobal(L, "enabledJohnAndTex");		
@@ -746,5 +758,5 @@ void IniGlobalGameSetting(lua_State *L)
 	
 	lua_pushinteger(L, MORRIS_INSTRUCTION_NOTE);
 	lua_setglobal(L, "UB_itemMORRIS_INSTRUCTION_NOTE");
-#endif
+	}
 }

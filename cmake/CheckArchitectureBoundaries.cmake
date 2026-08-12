@@ -2,6 +2,107 @@ if(NOT DEFINED SOURCE_ROOT)
   message(FATAL_ERROR "SOURCE_ROOT is required")
 endif()
 
+# Return executable C/C++ text while preserving quoted literals. A number of
+# architecture inventories intentionally distinguish live code from disabled
+# legacy blocks, so raw token counts would make comments satisfy their gates.
+function(strip_cxx_comments input_variable output_variable)
+  set(comment_remaining "${${input_variable}}")
+  set(comment_stripped "")
+  while(1)
+    string(FIND "${comment_remaining}" "/*" block_comment_start)
+    string(FIND "${comment_remaining}" "//" line_comment_start)
+    string(FIND "${comment_remaining}" "\"" double_quote_start)
+    string(FIND "${comment_remaining}" "'" single_quote_start)
+    set(next_comment_start -1)
+    set(next_comment_kind "")
+    if(line_comment_start GREATER -1)
+      set(next_comment_start ${line_comment_start})
+      set(next_comment_kind "line")
+    endif()
+    if(block_comment_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        block_comment_start LESS next_comment_start))
+      set(next_comment_start ${block_comment_start})
+      set(next_comment_kind "block")
+    endif()
+    if(double_quote_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        double_quote_start LESS next_comment_start))
+      set(next_comment_start ${double_quote_start})
+      set(next_comment_kind "double_quote")
+    endif()
+    if(single_quote_start GREATER -1 AND
+       (next_comment_start EQUAL -1 OR
+        single_quote_start LESS next_comment_start))
+      set(next_comment_start ${single_quote_start})
+      set(next_comment_kind "single_quote")
+    endif()
+    if(next_comment_start EQUAL -1)
+      string(APPEND comment_stripped "${comment_remaining}")
+      break()
+    endif()
+    if(next_comment_start GREATER 0)
+      string(SUBSTRING "${comment_remaining}" 0
+        ${next_comment_start} comment_prefix)
+      string(APPEND comment_stripped "${comment_prefix}")
+    endif()
+    if(next_comment_kind STREQUAL "double_quote" OR
+       next_comment_kind STREQUAL "single_quote")
+      string(SUBSTRING "${comment_remaining}"
+        ${next_comment_start} -1 quoted_tail)
+      if(next_comment_kind STREQUAL "double_quote")
+        string(REGEX MATCH "^\"([^\"\\\\]|\\\\.)*\""
+          quoted_literal "${quoted_tail}")
+      else()
+        string(REGEX MATCH "^'([^'\\\\]|\\\\.)*'"
+          quoted_literal "${quoted_tail}")
+      endif()
+      if(quoted_literal STREQUAL "")
+        if(next_comment_kind STREQUAL "single_quote")
+          string(APPEND comment_stripped "'")
+          math(EXPR quoted_remainder_start "${next_comment_start} + 1")
+          string(SUBSTRING "${comment_remaining}"
+            ${quoted_remainder_start} -1 comment_remaining)
+          continue()
+        endif()
+        message(FATAL_ERROR
+          "Unterminated string literal while checking executable source")
+      endif()
+      string(APPEND comment_stripped "${quoted_literal}")
+      string(LENGTH "${quoted_literal}" quoted_literal_length)
+      math(EXPR quoted_remainder_start
+        "${next_comment_start} + ${quoted_literal_length}")
+      string(SUBSTRING "${comment_remaining}"
+        ${quoted_remainder_start} -1 comment_remaining)
+      continue()
+    endif()
+    math(EXPR comment_body_start "${next_comment_start} + 2")
+    string(SUBSTRING "${comment_remaining}"
+      ${comment_body_start} -1 comment_tail)
+    if(next_comment_kind STREQUAL "line")
+      string(FIND "${comment_tail}" "\n" line_comment_end)
+      if(line_comment_end EQUAL -1)
+        set(comment_remaining "")
+        break()
+      endif()
+      string(APPEND comment_stripped "\n")
+      math(EXPR line_comment_remainder_start "${line_comment_end} + 1")
+      string(SUBSTRING "${comment_tail}"
+        ${line_comment_remainder_start} -1 comment_remaining)
+      continue()
+    endif()
+    string(FIND "${comment_tail}" "*/" block_comment_end)
+    if(block_comment_end EQUAL -1)
+      message(FATAL_ERROR
+        "Unterminated block comment while checking executable source")
+    endif()
+    math(EXPR block_comment_remainder_start "${block_comment_end} + 2")
+    string(SUBSTRING "${comment_tail}"
+      ${block_comment_remainder_start} -1 comment_remaining)
+  endwhile()
+  set(${output_variable} "${comment_stripped}" PARENT_SCOPE)
+endfunction()
+
 file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
 foreach(required_lua_fetch_fragment IN ITEMS
     "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"
@@ -1046,6 +1147,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignGunCommentPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignLuaGlobalPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
@@ -1928,6 +2030,7 @@ foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignGunCommentPolicy.h\""
     "#include \"CampaignImpPolicy.h\""
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
+    "#include \"CampaignLuaGlobalPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
     "#include \"CampaignMercenaryPolicy.h\""
     "#include \"CampaignNpcPolicy.h\""
@@ -1948,6 +2051,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_door_policy_tests"
     "campaign_gun_comment_policy_tests"
     "campaign_imp_policy_tests"
+    "campaign_lua_global_policy_tests"
     "campaign_map_screen_policy_tests"
     "campaign_meanwhile_policy_tests"
     "campaign_mercenary_policy_tests"
@@ -1969,22 +2073,25 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "51 active conditionals in 20"
+    "46 active conditionals in 19"
     "Laptop content/pages | 4"
     "Tactical gameplay/content | 15"
-    "Strategic gameplay/content | 23"
+    "Strategic gameplay/content | 18"
     "CampaignDoorPolicy"
     "CampaignGunCommentPolicy"
     "CampaignCivilianQuotePolicy"
     "CampaignImpPolicy"
+    "CampaignLuaGlobalPolicy"
     "CampaignMapScreenPolicy"
     "CampaignNpcPolicy"
     "CampaignProgressPolicy"
+    "all 34 executable call sites"
+    "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All fourteen policies"
+    "All fifteen policies"
     "All six former guards in `Tactical/Campaign.cpp`")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
@@ -2016,6 +2123,11 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "Arulco gates both routes before either comment argument"
     "NPC script loading and tactical-AI campaign choices now use the value-only"
     "All eight former `JA2UB` guards across `NPC.cpp`, `AIMain.cpp`, and `DecideAction.cpp`"
+    "Lua global initialization now selects through the value-only"
+    "All five former `JA2UB` guards in `Strategic/Luaglobal.cpp`"
+    "all 34 executable initializer calls are unchanged"
+    "Five textual calls remain only in disabled legacy block comments"
+    "exact 92-entry export ratchet"
     "every converted"
     "`AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate"
     "All five former guards in `Interface.cpp`"
@@ -3027,10 +3139,10 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
   runtime_campaign_npc_guard_baseline_contents)
 string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
-  "\"total\": 51" runtime_campaign_npc_guard_total_position)
+  "\"total\": 46" runtime_campaign_npc_guard_total_position)
 if(runtime_campaign_npc_guard_total_position EQUAL -1)
   message(FATAL_ERROR
-    "Campaign compile-guard baseline does not match the retired tactical guards")
+    "Campaign compile-guard baseline does not match the migrated runtime-policy tail")
 endif()
 foreach(retired_campaign_npc_guard_file IN ITEMS
     "Tactical/Campaign.cpp"
@@ -3045,6 +3157,506 @@ foreach(retired_campaign_npc_guard_file IN ITEMS
       "Campaign compile-guard baseline still owns ${retired_campaign_npc_guard_file}")
   endif()
 endforeach()
+
+# Lua global initialization exposes the same symbol set, source values, push
+# types, and order as the two compiled hosts, but selects those five legacy
+# branch sites from immutable runtime capabilities. Campaign-specific reads
+# must remain after their policy gates so inactive content is never evaluated.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignLuaGlobalPolicy.h"
+  runtime_campaign_lua_global_policy_contents)
+foreach(required_campaign_lua_global_policy_fragment IN ITEMS
+    "class CampaignLuaGlobalPolicy"
+    "exportsUnfinishedBusinessDifficultyAliases"
+    "usesUnfinishedBusinessArrivalGrid"
+    "exportsUnfinishedBusinessScenarioGlobals"
+    "exportsUnfinishedBusinessTestGlobal"
+    "exportsUnfinishedBusinessCharacterAndItemGlobals")
+  string(FIND "${runtime_campaign_lua_global_policy_contents}"
+    "${required_campaign_lua_global_policy_fragment}"
+    required_campaign_lua_global_policy_position)
+  if(required_campaign_lua_global_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign Lua-global policy lost '${required_campaign_lua_global_policy_fragment}'")
+  endif()
+endforeach()
+strip_cxx_comments(runtime_campaign_lua_global_policy_contents
+  runtime_campaign_lua_global_policy_executable)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_lua_global_policy_normalized
+  "${runtime_campaign_lua_global_policy_executable}")
+foreach(required_campaign_lua_global_policy_result IN ITEMS
+    "exportsUnfinishedBusinessDifficultyAliases() const noexcept { return isUnfinishedBusiness(); }"
+    "usesUnfinishedBusinessArrivalGrid() const noexcept { return isUnfinishedBusiness(); }"
+    "exportsUnfinishedBusinessScenarioGlobals() const noexcept { return isUnfinishedBusiness(); }"
+    "exportsUnfinishedBusinessTestGlobal() const noexcept { return isUnfinishedBusiness(); }"
+    "exportsUnfinishedBusinessCharacterAndItemGlobals() const noexcept { return isUnfinishedBusiness(); }"
+    "return campaign_ == GameCampaign::UnfinishedBusiness;")
+  string(FIND "${runtime_campaign_lua_global_policy_normalized}"
+    "${required_campaign_lua_global_policy_result}"
+    required_campaign_lua_global_policy_result_position)
+  if(required_campaign_lua_global_policy_result_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign Lua-global policy changed exact result '${required_campaign_lua_global_policy_result}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Luaglobal.cpp"
+  runtime_campaign_lua_global_source_contents)
+strip_cxx_comments(runtime_campaign_lua_global_source_contents
+  runtime_campaign_lua_global_source_executable)
+if(runtime_campaign_lua_global_source_executable MATCHES
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+  message(FATAL_ERROR
+    "Lua-global initialization regained compiled JA2UB identity")
+endif()
+foreach(required_campaign_lua_global_source_fragment IN ITEMS
+    "#include \"CampaignLuaGlobalPolicy.h\""
+    "#include \"GameContext.h\""
+    "const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy("
+    "GetGameContext().capabilities())")
+  string(FIND "${runtime_campaign_lua_global_source_executable}"
+    "${required_campaign_lua_global_source_fragment}"
+    required_campaign_lua_global_source_position)
+  if(required_campaign_lua_global_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua-global runtime routing lost '${required_campaign_lua_global_source_fragment}'")
+  endif()
+endforeach()
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_lua_global_source_normalized
+  "${runtime_campaign_lua_global_source_executable}")
+string(REPLACE ";" "<SEMICOLON>"
+  runtime_campaign_lua_global_source_matchable
+  "${runtime_campaign_lua_global_source_normalized}")
+string(REGEX MATCHALL "lua_push(integer|boolean)[ \t\r\n]*\\("
+  runtime_campaign_lua_global_all_pushes
+  "${runtime_campaign_lua_global_source_executable}")
+string(REGEX MATCHALL "lua_setglobal[ \t\r\n]*\\("
+  runtime_campaign_lua_global_all_sets
+  "${runtime_campaign_lua_global_source_executable}")
+string(REGEX MATCHALL
+  "lua_push(integer|boolean)\\(L, [^<]+\\)<SEMICOLON> lua_setglobal\\(L, \"[^\"]+\"\\)<SEMICOLON>"
+  runtime_campaign_lua_global_all_pairs
+  "${runtime_campaign_lua_global_source_matchable}")
+list(LENGTH runtime_campaign_lua_global_all_pushes
+  runtime_campaign_lua_global_all_push_count)
+list(LENGTH runtime_campaign_lua_global_all_sets
+  runtime_campaign_lua_global_all_set_count)
+list(LENGTH runtime_campaign_lua_global_all_pairs
+  runtime_campaign_lua_global_all_pair_count)
+if(NOT runtime_campaign_lua_global_all_push_count EQUAL 217 OR
+    NOT runtime_campaign_lua_global_all_set_count EQUAL 217 OR
+    NOT runtime_campaign_lua_global_all_pair_count EQUAL 217)
+  message(FATAL_ERROR
+    "Lua-global initializer must retain exactly 217 immediate push/set pairs")
+endif()
+
+set(runtime_campaign_lua_global_gate_methods
+  exportsUnfinishedBusinessDifficultyAliases
+  usesUnfinishedBusinessArrivalGrid
+  exportsUnfinishedBusinessScenarioGlobals
+  exportsUnfinishedBusinessTestGlobal
+  exportsUnfinishedBusinessCharacterAndItemGlobals)
+set(runtime_campaign_lua_global_gate_positions)
+set(runtime_campaign_lua_global_previous_gate_position -1)
+foreach(runtime_campaign_lua_global_gate_method IN LISTS
+    runtime_campaign_lua_global_gate_methods)
+  string(REGEX MATCHALL
+    "${runtime_campaign_lua_global_gate_method}[ \t\r\n]*\\("
+    runtime_campaign_lua_global_gate_uses
+    "${runtime_campaign_lua_global_source_executable}")
+  list(LENGTH runtime_campaign_lua_global_gate_uses
+    runtime_campaign_lua_global_gate_use_count)
+  if(NOT runtime_campaign_lua_global_gate_use_count EQUAL 1)
+    message(FATAL_ERROR
+      "Lua-global initializer must use ${runtime_campaign_lua_global_gate_method} exactly once")
+  endif()
+  string(FIND "${runtime_campaign_lua_global_source_normalized}"
+    "${runtime_campaign_lua_global_gate_method}()"
+    runtime_campaign_lua_global_gate_position)
+  if(runtime_campaign_lua_global_gate_position EQUAL -1 OR
+      (NOT runtime_campaign_lua_global_previous_gate_position EQUAL -1 AND
+       NOT runtime_campaign_lua_global_previous_gate_position LESS
+         runtime_campaign_lua_global_gate_position))
+    message(FATAL_ERROR
+      "Lua-global campaign gates changed their exact legacy order at ${runtime_campaign_lua_global_gate_method}")
+  endif()
+  list(APPEND runtime_campaign_lua_global_gate_positions
+    ${runtime_campaign_lua_global_gate_position})
+  set(runtime_campaign_lua_global_previous_gate_position
+    ${runtime_campaign_lua_global_gate_position})
+endforeach()
+
+set(runtime_campaign_lua_global_exports
+    "integer|gGameOptions.ubDifficultyLevel|difficultyLevel"
+    "integer|gGameOptions.ubDifficultyLevel|UB_difficultyLevel"
+    "integer|gGameUBOptions.ubEndDefaultSectorX|iniDEFAULT_END_SECTOR_X"
+    "integer|gGameUBOptions.ubEndDefaultSectorY|iniDEFAULT_END_SECTOR_Y"
+    "integer|gGameUBOptions.ubEndDefaultSectorZ|iniDEFAULT_END_SECTOR_Z"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 0 ]|iniINITIALHELIGRIDNO1"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 1 ]|iniINITIALHELIGRIDNO2"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 2 ]|iniINITIALHELIGRIDNO3"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 3 ]|iniINITIALHELIGRIDNO4"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 4 ]|iniINITIALHELIGRIDNO5"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 5 ]|iniINITIALHELIGRIDNO6"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 6 ]|iniINITIALHELIGRIDNO7"
+    "integer|gGameUBOptions.JerryGridNo|iniJERRYGRIDNO"
+    "boolean|gGameUBOptions.LaptopQuestEnabled|iniLAPTOP_QUEST"
+    "boolean|gGameUBOptions.InJerry|iniJERRY"
+    "boolean|gGameUBOptions.JerryQuotes|iniJERRYQUOTES"
+    "boolean|gGameUBOptions.InGameHeliCrash|iniINGAMEHELICRASH"
+    "boolean|gGameUBOptions.InGameHeli|iniINGAMEHELI"
+    "integer|gGameUBOptions.ubEndDefaultSectorX|UB_iniDEFAULT_END_SECTOR_X"
+    "integer|gGameUBOptions.ubEndDefaultSectorY|UB_iniDEFAULT_END_SECTOR_Y"
+    "integer|gGameUBOptions.ubEndDefaultSectorZ|UB_iniDEFAULT_END_SECTOR_Z"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 0 ]|UB_iniINITIALHELIGRIDNO1"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 1 ]|UB_iniINITIALHELIGRIDNO2"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 2 ]|UB_iniINITIALHELIGRIDNO3"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 3 ]|UB_iniINITIALHELIGRIDNO4"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 4 ]|UB_iniINITIALHELIGRIDNO5"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 5 ]|UB_iniINITIALHELIGRIDNO6"
+    "integer|gGameUBOptions.InitialHeliGridNo[ 6 ]|UB_iniINITIALHELIGRIDNO7"
+    "integer|gGameUBOptions.JerryGridNo|UB_iniJERRYGRIDNO"
+    "boolean|gGameUBOptions.LaptopQuestEnabled|UB_iniLAPTOP_QUEST"
+    "boolean|gGameUBOptions.InJerry|UB_iniJERRY"
+    "boolean|gGameUBOptions.JerryQuotes|UB_iniJERRYQUOTES"
+    "boolean|gGameUBOptions.InGameHeliCrash|UB_iniINGAMEHELICRASH"
+    "boolean|gGameUBOptions.InGameHeli|UB_iniINGAMEHELI"
+    "integer|gGameUBOptions.SectorLaunchMisslesX|UB_iniSECTOR_LAUNCH_MISSLES_X"
+    "integer|gGameUBOptions.SectorLaunchMisslesY|UB_iniSECTOR_LAUNCH_MISSLES_Y"
+    "integer|gGameUBOptions.SectorLaunchMisslesZ|UB_iniSECTOR_LAUNCH_MISSLES_Z"
+    "integer|gGameUBOptions.SectorFanX|UB_iniPOWERGEN_SECTOR_X"
+    "integer|gGameUBOptions.SectorFanY|UB_iniPOWERGEN_SECTOR_Y"
+    "integer|gGameUBOptions.SectorFanZ|UB_iniPOWERGEN_SECTOR_Z"
+    "integer|gGameUBOptions.SectorDoorInTunnelX|UB_iniSECTOR_DOOR_IN_TUNNEL_X"
+    "integer|gGameUBOptions.SectorDoorInTunnelY|UB_iniSECTOR_DOOR_IN_TUNNEL_Y"
+    "integer|gGameUBOptions.SectorDoorInTunnelZ|UB_SECTOR_DOOR_IN_TUNNEL_Z"
+    "integer|gGameUBOptions.TestUB|TestUB"
+    "boolean|gGameUBOptions.fTexAndJohn|enabledJohnAndTex"
+    "boolean|gGameUBOptions.fRandomManuelText|RandomManuelText"
+    "boolean|gGameUBOptions.fTexAndJohn|UB_enabledJohnAndTex"
+    "boolean|gGameUBOptions.fRandomManuelText|UB_RandomManuelText"
+    "integer|BARRETT_UB|itemBARRETT_UB"
+    "integer|CALICO_960_UB|itemCALICO_960_UB"
+    "integer|PSG1_UB|itemPSG1_UB"
+    "integer|L85_UB|itemL85_UB"
+    "integer|TAR21_UB|itemTAR21_UB"
+    "integer|VAL_SILENT_UB|itemVAL_SILENT_UB"
+    "integer|MICRO_UZI_UB|itemMICRO_UZI_UB"
+    "integer|CALICO_950_UB|itemCALICO_950_UB"
+    "integer|CALICO_900_UB|itemCALICO_900_UB"
+    "integer|CLIP_CANNON_BALL|itemCLIP_CANNON_BALL"
+    "integer|MERC_UMBRELLA|itemMERC_UMBRELLA"
+    "integer|HAND_CANNON|itemHAND_CANNON"
+    "integer|HARTFORD_6_SHOOTER|itemHARTFORD_6_SHOOTER"
+    "integer|TEX_MOVIE_ATTACK_CLYDESDALES|itemTEX_MOVIE_ATTACK_CLYDESDALES"
+    "integer|TEX_MOVIE_WILD_EAST|itemTEX_MOVIE_WILD_EAST"
+    "integer|TEX_MOVIE_HAVE_HONDA|itemTEX_MOVIE_HAVE_HONDA"
+    "integer|LAPTOP_TRANSMITTER|itemLAPTOP_TRANSMITTER"
+    "integer|CHE_GUEVARA_CANTEEN|itemCHE_GUEVARA_CANTEEN"
+    "integer|MERC_WRISTWATCH|itemMERC_WRISTWATCH"
+    "integer|SAM_GARVER_COMBAT_KNIFE|itemSAM_GARVER_COMBAT_KNIFE"
+    "integer|MERC_UMBRELLA_OLD|itemMERC_UMBRELLA_OLD"
+    "integer|MORRIS_INSTRUCTION_NOTE|itemMORRIS_INSTRUCTION_NOTE"
+    "integer|BARRETT_UB|UB_itemBARRETT"
+    "integer|CALICO_960_UB|UB_itemCALICO_960"
+    "integer|PSG1_UB|UB_itemPSG1"
+    "integer|L85_UB|UB_itemL85"
+    "integer|TAR21_UB|UB_itemTAR21"
+    "integer|VAL_SILENT_UB|UB_itemVAL_SILENT"
+    "integer|MICRO_UZI_UB|UB_itemMICRO_UZI"
+    "integer|CALICO_950_UB|UB_itemCALICO_950"
+    "integer|CALICO_900_UB|UB_itemCALICO_900"
+    "integer|CLIP_CANNON_BALL|UB_itemCLIP_CANNON_BALL"
+    "integer|MERC_UMBRELLA|UB_itemMERC_UMBRELLA"
+    "integer|HAND_CANNON|UB_itemHAND_CANNON"
+    "integer|HARTFORD_6_SHOOTER|UB_itemHARTFORD_6_SHOOTER"
+    "integer|TEX_MOVIE_ATTACK_CLYDESDALES|UB_itemTEX_MOVIE_ATTACK_CLYDESDALES"
+    "integer|TEX_MOVIE_WILD_EAST|UB_itemTEX_MOVIE_WILD_EAST"
+    "integer|TEX_MOVIE_HAVE_HONDA|UB_itemTEX_MOVIE_HAVE_HONDA"
+    "integer|LAPTOP_TRANSMITTER|UB_itemLAPTOP_TRANSMITTER"
+    "integer|CHE_GUEVARA_CANTEEN|UB_itemCHE_GUEVARA_CANTEEN"
+    "integer|MERC_WRISTWATCH|UB_itemMERC_WRISTWATCH"
+    "integer|SAM_GARVER_COMBAT_KNIFE|UB_itemSAM_GARVER_COMBAT_KNIFE"
+    "integer|MERC_UMBRELLA_OLD|UB_itemMERC_UMBRELLA_OLD"
+    "integer|MORRIS_INSTRUCTION_NOTE|UB_itemMORRIS_INSTRUCTION_NOTE")
+list(LENGTH runtime_campaign_lua_global_exports
+  runtime_campaign_lua_global_export_count)
+if(NOT runtime_campaign_lua_global_export_count EQUAL 92)
+  message(FATAL_ERROR
+    "Campaign Lua-global inventory must contain exactly 92 gated push/set pairs")
+endif()
+
+set(runtime_campaign_lua_global_export_positions)
+set(runtime_campaign_lua_global_previous_export_position -1)
+set(runtime_campaign_lua_global_integer_count 0)
+set(runtime_campaign_lua_global_boolean_count 0)
+foreach(runtime_campaign_lua_global_export IN LISTS
+    runtime_campaign_lua_global_exports)
+  string(REPLACE "|" ";" runtime_campaign_lua_global_export_fields
+    "${runtime_campaign_lua_global_export}")
+  list(GET runtime_campaign_lua_global_export_fields 0
+    runtime_campaign_lua_global_push_type)
+  list(GET runtime_campaign_lua_global_export_fields 1
+    runtime_campaign_lua_global_value)
+  list(GET runtime_campaign_lua_global_export_fields 2
+    runtime_campaign_lua_global_name)
+  set(runtime_campaign_lua_global_export_fragment
+    "lua_push${runtime_campaign_lua_global_push_type}(L, ${runtime_campaign_lua_global_value}); lua_setglobal(L, \"${runtime_campaign_lua_global_name}\");")
+  string(FIND "${runtime_campaign_lua_global_source_normalized}"
+    "${runtime_campaign_lua_global_export_fragment}"
+    runtime_campaign_lua_global_export_position)
+  if(runtime_campaign_lua_global_export_position EQUAL -1 OR
+      (NOT runtime_campaign_lua_global_previous_export_position EQUAL -1 AND
+       NOT runtime_campaign_lua_global_previous_export_position LESS
+         runtime_campaign_lua_global_export_position))
+    message(FATAL_ERROR
+      "Lua-global inventory changed type, value, name, or order at ${runtime_campaign_lua_global_name}")
+  endif()
+  string(REGEX MATCHALL
+    "lua_setglobal\\(L, \"${runtime_campaign_lua_global_name}\"\\)"
+    runtime_campaign_lua_global_name_uses
+    "${runtime_campaign_lua_global_source_normalized}")
+  list(LENGTH runtime_campaign_lua_global_name_uses
+    runtime_campaign_lua_global_name_use_count)
+  set(runtime_campaign_lua_global_expected_name_use_count 1)
+  if(runtime_campaign_lua_global_name STREQUAL "difficultyLevel")
+    # UB historically writes this once in its early alias block and every
+    # campaign writes the same value again in the common options block.
+    set(runtime_campaign_lua_global_expected_name_use_count 2)
+  endif()
+  if(NOT runtime_campaign_lua_global_name_use_count EQUAL
+      runtime_campaign_lua_global_expected_name_use_count)
+    message(FATAL_ERROR
+      "Lua-global name ${runtime_campaign_lua_global_name} changed its exact publication count")
+  endif()
+  list(APPEND runtime_campaign_lua_global_export_positions
+    ${runtime_campaign_lua_global_export_position})
+  set(runtime_campaign_lua_global_previous_export_position
+    ${runtime_campaign_lua_global_export_position})
+  if(runtime_campaign_lua_global_push_type STREQUAL "integer")
+    math(EXPR runtime_campaign_lua_global_integer_count
+      "${runtime_campaign_lua_global_integer_count} + 1")
+  elseif(runtime_campaign_lua_global_push_type STREQUAL "boolean")
+    math(EXPR runtime_campaign_lua_global_boolean_count
+      "${runtime_campaign_lua_global_boolean_count} + 1")
+  else()
+    message(FATAL_ERROR
+      "Unsupported Lua-global push type ${runtime_campaign_lua_global_push_type}")
+  endif()
+endforeach()
+if(NOT runtime_campaign_lua_global_integer_count EQUAL 78 OR
+    NOT runtime_campaign_lua_global_boolean_count EQUAL 14)
+  message(FATAL_ERROR
+    "Lua-global inventory changed its exact 78-integer/14-boolean shape")
+endif()
+
+list(GET runtime_campaign_lua_global_gate_positions 0
+  runtime_campaign_lua_difficulty_gate_position)
+list(GET runtime_campaign_lua_global_gate_positions 1
+  runtime_campaign_lua_arrival_gate_position)
+list(GET runtime_campaign_lua_global_gate_positions 2
+  runtime_campaign_lua_scenario_gate_position)
+list(GET runtime_campaign_lua_global_gate_positions 3
+  runtime_campaign_lua_test_gate_position)
+list(GET runtime_campaign_lua_global_gate_positions 4
+  runtime_campaign_lua_content_gate_position)
+list(GET runtime_campaign_lua_global_export_positions 0
+  runtime_campaign_lua_difficulty_first_position)
+list(GET runtime_campaign_lua_global_export_positions 1
+  runtime_campaign_lua_difficulty_last_position)
+list(GET runtime_campaign_lua_global_export_positions 2
+  runtime_campaign_lua_scenario_first_position)
+list(GET runtime_campaign_lua_global_export_positions 42
+  runtime_campaign_lua_scenario_last_position)
+list(GET runtime_campaign_lua_global_export_positions 43
+  runtime_campaign_lua_test_export_position)
+list(GET runtime_campaign_lua_global_export_positions 44
+  runtime_campaign_lua_content_first_position)
+list(GET runtime_campaign_lua_global_export_positions 91
+  runtime_campaign_lua_content_last_position)
+foreach(required_campaign_lua_global_group_boundary IN ITEMS
+    "exportsUnfinishedBusinessDifficultyAliases()) { lua_pushinteger(L, gGameOptions.ubDifficultyLevel);"
+    "lua_setglobal(L, \"UB_difficultyLevel\"); }"
+    "exportsUnfinishedBusinessScenarioGlobals()) { lua_pushinteger(L, gGameUBOptions.ubEndDefaultSectorX);"
+    "lua_setglobal(L, \"UB_SECTOR_DOOR_IN_TUNNEL_Z\"); }"
+    "exportsUnfinishedBusinessTestGlobal()) { lua_pushinteger(L, gGameUBOptions.TestUB); lua_setglobal(L, \"TestUB\"); }"
+    "exportsUnfinishedBusinessCharacterAndItemGlobals()) { lua_pushboolean(L, gGameUBOptions.fTexAndJohn);"
+    "lua_setglobal(L, \"UB_itemMORRIS_INSTRUCTION_NOTE\"); }")
+  string(FIND "${runtime_campaign_lua_global_source_normalized}"
+    "${required_campaign_lua_global_group_boundary}"
+    required_campaign_lua_global_group_boundary_position)
+  if(required_campaign_lua_global_group_boundary_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua-global gated groups changed their exact 2/41/1/48 boundaries")
+  endif()
+endforeach()
+if(NOT runtime_campaign_lua_difficulty_gate_position LESS
+      runtime_campaign_lua_difficulty_first_position OR
+    NOT runtime_campaign_lua_difficulty_last_position LESS
+      runtime_campaign_lua_arrival_gate_position OR
+    NOT runtime_campaign_lua_arrival_gate_position LESS
+      runtime_campaign_lua_scenario_gate_position OR
+    NOT runtime_campaign_lua_scenario_gate_position LESS
+      runtime_campaign_lua_scenario_first_position OR
+    NOT runtime_campaign_lua_scenario_last_position LESS
+      runtime_campaign_lua_test_gate_position OR
+    NOT runtime_campaign_lua_test_gate_position LESS
+      runtime_campaign_lua_test_export_position OR
+    NOT runtime_campaign_lua_test_export_position LESS
+      runtime_campaign_lua_content_gate_position OR
+    NOT runtime_campaign_lua_content_gate_position LESS
+      runtime_campaign_lua_content_first_position OR
+    NOT runtime_campaign_lua_content_first_position LESS
+      runtime_campaign_lua_content_last_position)
+  message(FATAL_ERROR
+    "Lua-global campaign gate no longer precedes its exact export group")
+endif()
+
+set(runtime_campaign_lua_arrival_fragment
+  "usesUnfinishedBusinessArrivalGrid()) { lua_pushinteger(L, gGameUBOptions.LOCATEGRIDNO); lua_setglobal(L, \"iniNEW_MERC_ARRIVAL_LOCATION\"); } else { lua_pushinteger(L, gGameExternalOptions.iInitialMercArrivalLocation); lua_setglobal(L, \"iniNEW_MERC_ARRIVAL_LOCATION\"); }")
+string(FIND "${runtime_campaign_lua_global_source_normalized}"
+  "${runtime_campaign_lua_arrival_fragment}"
+  runtime_campaign_lua_arrival_fragment_position)
+if(runtime_campaign_lua_arrival_fragment_position EQUAL -1)
+  message(FATAL_ERROR
+    "Lua-global arrival alias lost its campaign-first UB/Arulco value selection")
+endif()
+string(REGEX MATCHALL
+  "lua_setglobal\\(L, \"iniNEW_MERC_ARRIVAL_LOCATION\"\\)"
+  runtime_campaign_lua_arrival_name_uses
+  "${runtime_campaign_lua_global_source_normalized}")
+list(LENGTH runtime_campaign_lua_arrival_name_uses
+  runtime_campaign_lua_arrival_name_use_count)
+if(NOT runtime_campaign_lua_arrival_name_use_count EQUAL 2)
+  message(FATAL_ERROR
+    "Lua-global arrival alias must retain exactly two campaign source branches")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/LuaInitNPCs.cpp"
+  runtime_campaign_lua_global_callers_contents)
+strip_cxx_comments(runtime_campaign_lua_global_callers_contents
+  runtime_campaign_lua_global_callers_executable)
+string(REGEX MATCHALL "IniGlobalGameSetting[ \t\r\n]*\\("
+  runtime_campaign_lua_global_calls
+  "${runtime_campaign_lua_global_callers_executable}")
+list(LENGTH runtime_campaign_lua_global_calls
+  runtime_campaign_lua_global_call_count)
+if(NOT runtime_campaign_lua_global_call_count EQUAL 34)
+  message(FATAL_ERROR
+    "Lua-global initializer inventory must retain exactly 34 executable calls")
+endif()
+string(REGEX MATCHALL "IniGlobalGameSetting[ \t\r\n]*\\("
+  runtime_campaign_lua_global_textual_calls
+  "${runtime_campaign_lua_global_callers_contents}")
+list(LENGTH runtime_campaign_lua_global_textual_calls
+  runtime_campaign_lua_global_textual_call_count)
+if(NOT runtime_campaign_lua_global_textual_call_count EQUAL 39)
+  message(FATAL_ERROR
+    "Lua-global initializer history must retain 34 executable and five disabled calls")
+endif()
+file(READ "${SOURCE_ROOT}/Strategic/Luaglobal.h"
+  runtime_campaign_lua_global_header_contents)
+strip_cxx_comments(runtime_campaign_lua_global_header_contents
+  runtime_campaign_lua_global_header_executable)
+string(FIND "${runtime_campaign_lua_global_header_executable}"
+  "void  IniGlobalGameSetting(lua_State *L);"
+  runtime_campaign_lua_global_signature_position)
+if(runtime_campaign_lua_global_signature_position EQUAL -1)
+  message(FATAL_ERROR
+    "Lua-global initializer changed its established void Lua-state API")
+endif()
+file(READ "${SOURCE_ROOT}/Strategic/CMakeLists.txt"
+  runtime_campaign_lua_global_build_contents)
+string(REGEX MATCHALL "Luaglobal\\.cpp"
+  runtime_campaign_lua_global_build_uses
+  "${runtime_campaign_lua_global_build_contents}")
+list(LENGTH runtime_campaign_lua_global_build_uses
+  runtime_campaign_lua_global_build_use_count)
+if(NOT runtime_campaign_lua_global_build_use_count EQUAL 1)
+  message(FATAL_ERROR
+    "Lua-global initializer must remain in the common Strategic archive")
+endif()
+file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
+  runtime_campaign_lua_global_ja2_build_contents)
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  runtime_campaign_lua_global_tactical_build_contents)
+foreach(required_campaign_lua_global_link_fragment IN ITEMS
+    "ub_config.cpp|runtime_campaign_lua_global_ja2_build_contents"
+    "Ja25_Tactical.cpp|runtime_campaign_lua_global_tactical_build_contents")
+  string(REPLACE "|" ";" required_campaign_lua_global_link_fields
+    "${required_campaign_lua_global_link_fragment}")
+  list(GET required_campaign_lua_global_link_fields 0
+    required_campaign_lua_global_link_source)
+  list(GET required_campaign_lua_global_link_fields 1
+    required_campaign_lua_global_link_manifest)
+  string(FIND "${${required_campaign_lua_global_link_manifest}}"
+    "${required_campaign_lua_global_link_source}"
+    required_campaign_lua_global_link_position)
+  if(required_campaign_lua_global_link_position EQUAL -1)
+    message(FATAL_ERROR
+      "All-host Lua-global linkage lost ${required_campaign_lua_global_link_source}")
+  endif()
+endforeach()
+
+foreach(required_campaign_lua_global_test_build_fragment IN ITEMS
+    "add_executable(campaign_lua_global_policy_tests"
+    "campaign_lua_global_policy_tests.cpp"
+    "add_test(NAME campaign_lua_global_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_lua_global_test_build_fragment}"
+    required_campaign_lua_global_test_build_position)
+  if(required_campaign_lua_global_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-global policy lost test manifest '${required_campaign_lua_global_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_lua_global_policy_tests"
+  runtime_campaign_lua_global_ci_position)
+if(runtime_campaign_lua_global_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the campaign Lua-global policy test")
+endif()
+file(READ "${SOURCE_ROOT}/tests/campaign_lua_global_policy_tests.cpp"
+  runtime_campaign_lua_global_test_contents)
+foreach(required_campaign_lua_global_test_fragment IN ITEMS
+    "CheckUnfinishedBusinessOnly"
+    "Arulco skips the UB-gated early difficulty writes"
+    "UB publishes both established difficulty aliases"
+    "Arulco reads only its initial mercenary arrival grid"
+    "UB reads only its LOCATEGRIDNO arrival grid"
+    "Arulco does not read UB scenario globals"
+    "Arulco does not read the UB test global"
+    "Arulco does not read UB character or item globals")
+  string(FIND "${runtime_campaign_lua_global_test_contents}"
+    "${required_campaign_lua_global_test_fragment}"
+    required_campaign_lua_global_test_position)
+  if(required_campaign_lua_global_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-global tests lost '${required_campaign_lua_global_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_lua_global_headless_fragment IN ITEMS
+    "const CampaignLuaGlobalPolicy luaGlobalPolicy("
+    "luaGlobalPolicy.usesUnfinishedBusinessArrivalGrid()"
+    "luaGlobalPolicy.exportsUnfinishedBusinessScenarioGlobals()")
+  string(FIND "${runtime_campaign_follow_through_headless_contents}"
+    "${required_campaign_lua_global_headless_fragment}"
+    required_campaign_lua_global_headless_position)
+  if(required_campaign_lua_global_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Headless campaign Lua-global integration lost '${required_campaign_lua_global_headless_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
+  "\"Strategic/Luaglobal.cpp\""
+  runtime_campaign_lua_global_retired_baseline_position)
+if(NOT runtime_campaign_lua_global_retired_baseline_position EQUAL -1)
+  message(FATAL_ERROR
+    "Campaign compile-guard baseline still owns Strategic/Luaglobal.cpp")
+endif()
 
 # IMP activation and text lookup are selected through one dependency-free
 # campaign policy. Production must gate UB option/file reads from the left so
@@ -9872,111 +10484,6 @@ endif()
 # authoritative command producers. Keep the legacy mutation APIs confined to
 # Tactical/Simulation Commands.cpp so future fixes cannot quietly recreate a
 # second execution path beside the deterministic queue.
-function(strip_cxx_comments input_variable output_variable)
-  # Avoid one whole-file nested regular expression here. CMake's regex engine
-  # can exhaust its stack on large first-party translation units. Consume each
-  # comment interval with bounded FIND/SUBSTRING operations. Choosing the first
-  # delimiter matters: decorative //******** lines contain a later /* pair,
-  # while block comments may themselves contain // text.
-  set(comment_remaining "${${input_variable}}")
-  set(comment_stripped "")
-  while(1)
-    string(FIND "${comment_remaining}" "/*" block_comment_start)
-    string(FIND "${comment_remaining}" "//" line_comment_start)
-    string(FIND "${comment_remaining}" "\"" double_quote_start)
-    string(FIND "${comment_remaining}" "'" single_quote_start)
-    set(next_comment_start -1)
-    set(next_comment_kind "")
-    if(line_comment_start GREATER -1)
-      set(next_comment_start ${line_comment_start})
-      set(next_comment_kind "line")
-    endif()
-    if(block_comment_start GREATER -1 AND
-       (next_comment_start EQUAL -1 OR
-        block_comment_start LESS next_comment_start))
-      set(next_comment_start ${block_comment_start})
-      set(next_comment_kind "block")
-    endif()
-    if(double_quote_start GREATER -1 AND
-       (next_comment_start EQUAL -1 OR
-        double_quote_start LESS next_comment_start))
-      set(next_comment_start ${double_quote_start})
-      set(next_comment_kind "double_quote")
-    endif()
-    if(single_quote_start GREATER -1 AND
-       (next_comment_start EQUAL -1 OR
-        single_quote_start LESS next_comment_start))
-      set(next_comment_start ${single_quote_start})
-      set(next_comment_kind "single_quote")
-    endif()
-    if(next_comment_start EQUAL -1)
-      string(APPEND comment_stripped "${comment_remaining}")
-      break()
-    endif()
-    if(next_comment_start GREATER 0)
-      string(SUBSTRING "${comment_remaining}" 0
-        ${next_comment_start} comment_prefix)
-      string(APPEND comment_stripped "${comment_prefix}")
-    endif()
-    if(next_comment_kind STREQUAL "double_quote" OR
-       next_comment_kind STREQUAL "single_quote")
-      string(SUBSTRING "${comment_remaining}"
-        ${next_comment_start} -1 quoted_tail)
-      if(next_comment_kind STREQUAL "double_quote")
-        string(REGEX MATCH "^\"([^\"\\\\]|\\\\.)*\""
-          quoted_literal "${quoted_tail}")
-      else()
-        string(REGEX MATCH "^'([^'\\\\]|\\\\.)*'"
-          quoted_literal "${quoted_tail}")
-      endif()
-      if(quoted_literal STREQUAL "")
-        # A lone apostrophe can be a C++ digit separator. It is not a comment
-        # delimiter, so preserve it and continue instead of rejecting the file.
-        if(next_comment_kind STREQUAL "single_quote")
-          string(APPEND comment_stripped "'")
-          math(EXPR quoted_remainder_start "${next_comment_start} + 1")
-          string(SUBSTRING "${comment_remaining}"
-            ${quoted_remainder_start} -1 comment_remaining)
-          continue()
-        endif()
-        message(FATAL_ERROR
-          "Unterminated string literal while checking executable source")
-      endif()
-      string(APPEND comment_stripped "${quoted_literal}")
-      string(LENGTH "${quoted_literal}" quoted_literal_length)
-      math(EXPR quoted_remainder_start
-        "${next_comment_start} + ${quoted_literal_length}")
-      string(SUBSTRING "${comment_remaining}"
-        ${quoted_remainder_start} -1 comment_remaining)
-      continue()
-    endif()
-    math(EXPR comment_body_start "${next_comment_start} + 2")
-    string(SUBSTRING "${comment_remaining}"
-      ${comment_body_start} -1 comment_tail)
-    if(next_comment_kind STREQUAL "line")
-      string(FIND "${comment_tail}" "\n" line_comment_end)
-      if(line_comment_end EQUAL -1)
-        set(comment_remaining "")
-        break()
-      endif()
-      string(APPEND comment_stripped "\n")
-      math(EXPR line_comment_remainder_start "${line_comment_end} + 1")
-      string(SUBSTRING "${comment_tail}"
-        ${line_comment_remainder_start} -1 comment_remaining)
-      continue()
-    endif()
-    string(FIND "${comment_tail}" "*/" block_comment_end)
-    if(block_comment_end EQUAL -1)
-      message(FATAL_ERROR
-        "Unterminated block comment while checking executable source")
-    endif()
-    math(EXPR block_comment_remainder_start "${block_comment_end} + 2")
-    string(SUBSTRING "${comment_tail}"
-      ${block_comment_remainder_start} -1 comment_remaining)
-  endwhile()
-  set(${output_variable} "${comment_stripped}" PARENT_SCOPE)
-endfunction()
-
 function(check_network_command_ingress
     start_marker end_marker required_call forbidden_calls description)
   set(network_source_file "${SOURCE_ROOT}/Multiplayer/client.cpp")
