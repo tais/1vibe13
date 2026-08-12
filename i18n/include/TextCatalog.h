@@ -11,9 +11,9 @@
 
 namespace i18n
 {
-// The first runtime text-pack domain deliberately contains only immutable,
-// one-entry Laptop titles. New domains should add typed keys instead of
-// exposing another mutable process-global string table.
+// Runtime text-pack domains deliberately begin with immutable, one-entry
+// Laptop labels. New domains should add typed keys instead of exposing another
+// mutable process-global string table.
 enum class TextKey
 {
 	PersonnelTitle,
@@ -21,6 +21,7 @@ enum class TextKey
 	FinanceTitle,
 	FilesTitle,
 	HistoryTitle,
+	AimLinksTitle,
 	count
 };
 
@@ -39,6 +40,7 @@ inline constexpr std::array<TextKeyDescriptor,
 	{TextKey::FinanceTitle, "laptop.finance.title", L"FinanceTitle", false},
 	{TextKey::FilesTitle, "laptop.files.title", L"FilesTitle", false},
 	{TextKey::HistoryTitle, "laptop.history.title", L"HistoryTitle", false},
+	{TextKey::AimLinksTitle, "laptop.aim.links.title", L"AimLink", false},
 }};
 
 constexpr auto FindTextKey(TextKey key) noexcept
@@ -74,7 +76,7 @@ static_assert(HasValidTextKeySchema(),
 
 // Missing text never falls through to whatever legacy symbol happened to
 // link. English may satisfy only a schema key that explicitly opts in; all
-// keys in this first slice are required in every language.
+// keys in the migrated slices are required in every language.
 enum class TextFallbackPolicy
 {
 	RejectMissing,

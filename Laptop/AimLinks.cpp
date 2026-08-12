@@ -3,7 +3,7 @@
 	#include "aim.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
-	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "Multi Language Graphic Utils.h"
 	#include "CampaignAimSitePolicy.h"
 	#include "GameContext.h"
@@ -162,7 +162,11 @@ void RenderAimLinks()
 	}
 	
 	//Draw Link Title
-	DrawTextToScreen(AimLinkText[AIM_LINK_TITLE], AIM_LINK_TITLE_X, AIM_LINK_TITLE_Y, AIM_LINK_TITLE_WIDTH, AIM_LINK_TITLE_FONT, AIM_LINK_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(
+		i18n::GetCompiledTextPack().text(i18n::TextKey::AimLinksTitle).data(),
+		AIM_LINK_TITLE_X, AIM_LINK_TITLE_Y, AIM_LINK_TITLE_WIDTH,
+		AIM_LINK_TITLE_FONT, AIM_LINK_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE,
+		CENTER_JUSTIFIED);
 
 	MarkButtonsDirty( );
 	RenderWWWProgramTitleBar( );

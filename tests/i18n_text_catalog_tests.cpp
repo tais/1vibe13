@@ -50,35 +50,37 @@ int main()
 
 	constexpr std::array<ExpectedPack, 8> expected{{
 		{Lang::en, {L"Personnel", L"Mail Box", L"Bookkeeper Plus",
-			L"File Viewer", L"History Log"}},
+			L"File Viewer", L"History Log", L"A.I.M. Links"}},
 		{Lang::de, {L"Personal", L"Mailbox", L"Buchhalter Plus",
-			L"Akten einsehen", L"Logbuch"}},
+			L"Akten einsehen", L"Logbuch", L"A.I.M. Links"}},
 		{Lang::ru, {L"Команда", L"Почтовый ящик", L"Финансовый отчет",
-			L"Просмотр данных", L"Журнал событий"}},
+			L"Просмотр данных", L"Журнал событий", L"A.I.M. Ссылки"}},
 		{Lang::nl, {L"Dossiers", L"Postvak", L"Account Plus",
-			L"Bestanden Bekijken", L"Geschiedenis"}},
+			L"Bestanden Bekijken", L"Geschiedenis", L"A.I.M. Links"}},
 		{Lang::pl, {L"Personel", L"Skrzynka odbiorcza", L"Księgowy Plus",
-			L"Przeglądarka plików", L"Historia"}},
+			L"Przeglądarka plików", L"Historia", L"A.I.M. Linki"}},
 		{Lang::fr, {L"Personnel", L"Boîte mail", L"Comptable Plus",
-			L"Fichiers", L"Historique"}},
+			L"Fichiers", L"Historique", L"Liens AIM"}},
 		{Lang::it, {L"Personale", L"posta elettronica", L"Contabile aggiuntivo",
-			L"Gestione risorse", L"Registro"}},
-		{Lang::zh, {L"佣兵", L"邮箱", L"帐簿", L"文件查看器", L"日志"}},
+			L"Gestione risorse", L"Registro", L"Collegamenti dell'A.I.M."}},
+		{Lang::zh, {L"佣兵", L"邮箱", L"帐簿", L"文件查看器", L"日志",
+			L"A.I.M 链接"}},
 	}};
 
-	constexpr std::array<std::string_view, 5> expectedNames{{
+	constexpr std::array<std::string_view, 6> expectedNames{{
 		"laptop.personnel.title",
 		"laptop.email.title",
 		"laptop.finance.title",
 		"laptop.files.title",
 		"laptop.history.title",
+		"laptop.aim.links.title",
 	}};
-	constexpr std::array<std::wstring_view, 5> expectedExportSections{{
+	constexpr std::array<std::wstring_view, 6> expectedExportSections{{
 		L"PersonnelTitle", L"EmailTitle", L"FinanceTitle", L"FilesTitle",
-		L"HistoryTitle",
+		L"HistoryTitle", L"AimLink",
 	}};
 	Check(i18n::TextKeys.size() == expectedNames.size(),
-		"the first pack domain exposes exactly five Laptop title keys");
+		"the first two pack domains expose exactly six immutable Laptop keys");
 	static_assert(i18n::HasValidTextKeySchema(),
 		"typed key shape makes missing or duplicate keys unrepresentable");
 	for (std::size_t index = 0; index < i18n::TextKeys.size(); ++index)
@@ -91,7 +93,7 @@ int main()
 		Check(descriptor.legacyExportSection == expectedExportSections[index],
 			"legacy exporter section mapping stays exact");
 		Check(!descriptor.englishFallbackAllowed,
-			"all five migrated titles remain required in every language");
+			"all six migrated keys remain required in every language");
 		Check(i18n::FindTextKey(descriptor.key) == &descriptor,
 			"valid typed keys resolve through the schema");
 		for (std::size_t other = index + 1; other < i18n::TextKeys.size(); ++other)
@@ -123,9 +125,9 @@ int main()
 		{
 			const auto lookup = selected->lookup(static_cast<TextKey>(key));
 			Check(static_cast<bool>(lookup),
-				"every required built-in title resolves");
+				"every required built-in Laptop label resolves");
 			Check(lookup.text == wanted.text[key],
-				"all eight migrated translations remain byte-for-byte exact");
+				"all 48 migrated translations remain byte-for-byte exact");
 			Check(lookup.sourceLanguage == wanted.language,
 				"complete built-in packs never fabricate English provenance");
 			Check(!lookup.usedFallback,
@@ -147,6 +149,8 @@ int main()
 		"compiled pack selection still follows immutable g_lang");
 	Check(compiled.text(TextKey::EmailTitle) == L"Mail Box",
 		"compiled default behavior publishes the exact English title");
+	Check(compiled.text(TextKey::AimLinksTitle) == L"A.I.M. Links",
+		"compiled default behavior publishes the exact English Aim Links title");
 	Check(&compiled == &i18n::GetCompiledTextPack(),
 		"compiled accessor publishes one process-lifetime pack");
 
@@ -162,7 +166,8 @@ int main()
 	std::optional<i18n::TextPack> retained;
 	if (strict) retained = strict->select(Lang::fr);
 	strict.reset();
-	Check(retained && retained->text(TextKey::HistoryTitle) == L"fixture",
+	Check(retained && retained->text(TextKey::HistoryTitle) == L"fixture" &&
+		retained->text(TextKey::AimLinksTitle) == L"fixture",
 		"TextPack owns stable storage after its catalog value is destroyed");
 
 	auto reordered = CompleteFixture();
@@ -200,6 +205,16 @@ int main()
 	Check(!TextCatalog::Create(missing, TextFallbackPolicy::RejectMissing,
 		&validation) && validation.error == TextCatalogError::MissingRequiredText,
 		"strict policy also rejects a missing required translation");
+
+	auto missingAimLinks = CompleteFixture();
+	missingAimLinks[static_cast<std::size_t>(Lang::zh)]
+		.text[static_cast<std::size_t>(TextKey::AimLinksTitle)] = {};
+	Check(!TextCatalog::Create(missingAimLinks,
+		TextFallbackPolicy::EnglishForOptionalKeys, &validation) &&
+		validation.error == TextCatalogError::MissingRequiredText &&
+		validation.language == Lang::zh &&
+		validation.key == TextKey::AimLinksTitle,
+		"English fallback cannot mask a missing required Aim Links translation");
 
 	if (failures == 0)
 	{

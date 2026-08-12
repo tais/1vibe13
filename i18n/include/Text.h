@@ -1668,15 +1668,6 @@ enum
 };
 extern		STR16			AimPopUpText[];
 
-//AIM Link.c
-enum
-{
-	AIM_LINK_TITLE,
-	TEXM_NUM_AIM_LINK,
-};
-extern		STR16			AimLinkText[];
-
-
 //Aim History
 enum
 {
