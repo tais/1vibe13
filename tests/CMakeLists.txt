@@ -425,6 +425,20 @@ add_executable(i18n_language_catalog_tests
 add_test(NAME i18n_language_catalog
   COMMAND i18n_language_catalog_tests)
 
+# The first immutable TextCatalog domain owns all eight exact Laptop-title
+# packs while a tiny compiled seam preserves today's g_lang-selected default.
+# This target links no game, SDL, VFS, archive, or installed localization data.
+add_executable(i18n_text_catalog_tests
+  i18n_text_catalog_tests.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/TextCatalog.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/language.cpp)
+target_compile_definitions(i18n_text_catalog_tests PRIVATE ENGLISH)
+target_include_directories(i18n_text_catalog_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/i18n
+  ${CMAKE_SOURCE_DIR}/i18n/include)
+target_compile_features(i18n_text_catalog_tests PRIVATE cxx_std_17)
+add_test(NAME i18n_text_catalog COMMAND i18n_text_catalog_tests)
+
 # Campaign and build-conditioned translations are language data selected by an
 # explicit policy. This data-free model pins the key schema and all four policy
 # quadrants without linking a legacy text catalog or game application.

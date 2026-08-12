@@ -3156,10 +3156,6 @@ STR16 pSquadMenuStrings[] =
 	L"Annuler",
 };
 
-STR16 pPersonnelTitle[] =
-{
-	L"Personnel", // the title for the personnel screen/program application
-};
 
 STR16 pPersonnelScreenStrings[] =
 {
@@ -4664,17 +4660,9 @@ STR16 pEmailHeaders[] =
 
 // email titlebar text
 
-STR16 pEmailTitleText[] =
-{
-	L"Boîte mail",
-};
 
 
 // the financial screen strings
-STR16 pFinanceTitle[] =
-{
-	L"Comptable Plus",		//the name we made up for the financial program in the game
-};
 
 STR16 pFinanceSummary[] =
 {
@@ -5020,10 +5008,6 @@ STR16 pExtraIMPStrings[] =
 	L"Maintenant que vous avez complété votre apparence, proccédons à l'analyse de votre personnage.",
 };
 
-STR16 pFilesTitle[] =
-{
-  L"Fichiers",
-};
 
 STR16 pFilesSenderList[] =
 {
@@ -5041,10 +5025,6 @@ STR16 pFilesSenderList[] =
 
 // Text having to do with the History Log
 
-STR16 pHistoryTitle[] =
-{
-	L"Historique",
-};
 
 STR16 pHistoryHeaders[] =
 {

@@ -15,6 +15,7 @@
 	#include "TacticalActorEmploymentTypes.h"
 	#include "Soldier Profile Constants.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "mapscreen.h"
 	#include "Game Clock.h"
 	#include "finances.h"
@@ -996,7 +997,8 @@ void DisplayHeader( void )
 	SetFontForeground(PERS_FONT_COLOR);
 	SetFontBackground( 0 );
 
-	mprintf(pPersonnelScreenPoints[18].x,pPersonnelScreenPoints[18].y,L"%s", pPersonnelTitle[0]);
+	mprintf(pPersonnelScreenPoints[18].x, pPersonnelScreenPoints[18].y, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::PersonnelTitle).data());
 
 	return;
 }

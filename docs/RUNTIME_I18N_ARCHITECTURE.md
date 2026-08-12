@@ -6,12 +6,14 @@ The target is one application build whose text language is selected at startup
 and can be changed in the options screen for the next restart. Text and voice
 are separate choices; hot-reloading either one is outside this migration.
 
-The first two migration slices do **not** make the legacy text catalogs runtime
-selectable. The foundation establishes one typed runtime catalog for the eight
-supported languages and inventories the legacy ABI. The second slice separates
-campaign/build-conditioned translations from the choice that publishes them.
-`g_lang` remains immutable because changing it while the global text variables
-still point at one compiled language would create a mixed and invalid runtime.
+The first three migration slices do **not** make the legacy text catalogs
+runtime selectable. The foundation establishes one typed runtime catalog for
+the eight supported languages and inventories the legacy ABI. The second slice
+separates campaign/build-conditioned translations from the choice that
+publishes them. The first domain slice moves five immutable Laptop titles
+behind a validated pack without changing startup selection. `g_lang` remains
+immutable because changing it while the other global text variables still
+point at one compiled language would create a mixed and invalid runtime.
 
 ## Why i18n is currently built per application and language
 
@@ -20,16 +22,18 @@ pair and passes exactly one of `ENGLISH`, `GERMAN`, `DUTCH`, `POLISH`,
 `RUSSIAN`, `FRENCH`, `ITALIAN`, or `CHINESE` to it. There are four independent
 reasons this is not merely a build-system naming problem:
 
-1. `i18n/include/Text.h` contains 485 `extern` lines. The normalized surface is
-   482 unique data declarations, two utility functions, and one duplicate
+1. `i18n/include/Text.h` now contains 480 `extern` lines. The normalized surface
+   is 477 unique data declarations, two utility functions, and one duplicate
    `pDownloadString` declaration; two of those data declarations have no
    compiled-catalog definition, while five catalog globals are declared only
-   at their consumers. The result is 485 base data definitions, and the JA25
-   compatibility surface adds 35 more. There are 245 source/header files that
-   include `Text.h` directly. The eight base-language translation units and
-   eight JA25 translation units deliberately define the same external names.
-   Compiling more than one language body into a program therefore creates
-   duplicate global symbols; simply linking every existing archive cannot work.
+   at their consumers. The initial schema contained 485 base data definitions;
+   the first domain slice retires five, leaving 480 base definitions, while the
+   JA25 compatibility surface still adds 35. There are 245 source/header files
+   that include `Text.h` directly. The eight base-language translation units
+   and eight JA25 translation units deliberately define the remaining same
+   external names. Compiling more than one language body into a program
+   therefore still creates duplicate global symbols; simply linking every
+   existing archive cannot work.
 2. The variables do not form one uniform immutable table. They include arrays
    of string pointers, fixed two-dimensional writable character buffers, and
    differently sized domain tables. Callers consume them directly and rely on
@@ -44,12 +48,12 @@ reasons this is not merely a build-system naming problem:
    but the compatibility publisher still selects one when constructing the old
    global tables. Runtime language selection still cannot silently choose the
    campaign.
-4. `ExportStrings.cpp` textually includes the selected base-language `.cpp`
-   inside namespace `Loc` to create a second namespaced copy for the developer
-   XML exporter. The selected source is also compiled normally to define the
-   process globals; every non-selected source compiles only its dummy archive
-   symbol. This tool path must consume the future pack schema rather than
-   textual source inclusion before all language bodies can coexist.
+4. `ExportStrings.cpp` still textually includes the selected base-language
+   `.cpp` inside namespace `Loc` to create a second namespaced copy for most of
+   the developer XML exporter. The five migrated title sections now consume the
+   same `TextPack` as the game, but the remaining selected source is also
+   compiled normally to define process globals. This tool path must finish
+   consuming pack schemas before all language bodies can coexist.
 
 The old language-dependent entries in `Ja2 Libs.cpp` were not a fifth runtime
 requirement. The legacy file database is a stub and bfVFS owns SLF mounting.
@@ -59,7 +63,8 @@ live only as language/package metadata in the runtime catalog.
 The existing XML localization support is not yet a replacement for the global
 ABI. `LocalizedStrings` serves AIM biography/history/policy and dialogue-style
 resources. `ExportStrings` can write a large `GameStrings.xml`, but there is no
-inverse publisher that validates and installs all 485 base catalog variables.
+inverse publisher that validates and installs all 480 remaining base catalog
+variables.
 `XML_Language.cpp` transactionally overlays its dedicated tactical-message
 table, not the general text catalog.
 
@@ -81,14 +86,14 @@ sources remain variant objects by design.
 The data-free `i18n_language_catalog_tests` pins all eight identities, their
 existing Lua numbers and paths, unique lookup keys, Chinese layout behavior,
 and invalid-input rejection. Architecture checks prevent language compile
-guards from spreading back into neutral i18n files and prevent the 485 + 35
-global definition surfaces from growing.
+guards from spreading back into neutral i18n files and pin the remaining
+480 + 35 global definition surfaces exactly.
 
 ## Canonical compiled-text ABI schema
 
 Migration step 1 is now a build-free, mandatory source gate. The committed
-`i18n/text_abi_schema.json` inventories the 485 base definitions and 35 JA25
-definitions as 520 unique data symbols. It also normalizes a historical
+`i18n/text_abi_schema.json` inventories the 480 remaining base definitions and
+35 JA25 definitions as 515 unique data symbols. It also normalizes a historical
 duplicate `pDownloadString` declaration, keeps function declarations separate
 from data, records each array rank and effective dimension, and distinguishes
 mutable pointer slots from the 26 writable `CHAR16` buffers. Campaign/build
@@ -150,12 +155,39 @@ mutability.
 
 English fallback is explicit and prospective. Every symbol is required by
 default, there are currently no optional symbols, and the linker is never a
-fallback mechanism. A future validated `TextPack` may resolve a key from
-English only when that key is explicitly listed as optional and only after the
-selected pack has passed validation. Until then, each selected legacy compiled
-catalog must remain complete according to its ratcheted compatibility schema.
-`g_lang` therefore remains immutable and no runtime language selection occurs
-in this slice.
+fallback mechanism. `TextFallbackPolicy::EnglishForOptionalKeys` may resolve a
+key from English only when its descriptor explicitly opts in and only after
+the whole catalog validates. All five current `TextKey` descriptors are
+required, so an absent title rejects construction rather than falling back.
+Each selected legacy compiled catalog must likewise remain complete according
+to its ratcheted compatibility schema. `g_lang` therefore remains immutable
+and no runtime language selection occurs in this slice.
+
+## Immutable Laptop-title pack boundary
+
+Migration step 3 begins with exactly five one-entry tables:
+`pPersonnelTitle`, `pEmailTitleText`, `pFinanceTitle`, `pFilesTitle`, and
+`pHistoryTitle`. Their 40 literals move unchanged from the eight duplicate
+language bodies into neutral `BuiltinDefinitions`. The five `Text.h`
+declarations and all 40 global definitions are gone.
+
+`TextCatalog::Create` validates one uniquely identified pack for each of the
+eight `SupportedLanguages`, rejects unknown or duplicate identities, and
+rejects every missing required key before returning a catalog. Construction
+copies the input into immutable shared storage. A selected `TextPack` shares
+ownership of that storage, so its `wstring_view` results stay valid for the
+pack lifetime even if the `TextCatalog` value is destroyed. The compiled seam
+publishes one function-static pack selected by the existing immutable
+`g_lang`; it performs no startup selection and never swaps consumer addresses.
+
+Nine Laptop render sites (four email sites and one on each other page) now use
+typed keys. The five existing `GameStrings.xml` sections are emitted at their
+original positions from that same pack, preserving exporter names and values.
+Dependency-free tests pin all 40 literals, all five exporter mappings, compiled
+English behavior, invalid identities/keys, duplicate-identity rejection,
+required-key rollback, lookup provenance, and pointer/lifetime stability.
+Mutable buffers, the other legacy globals, archive collapse, persisted language
+selection, voice, and hot reload remain outside this bounded slice.
 
 ## Migration sequence
 
@@ -170,15 +202,15 @@ in this slice.
    schema data, campaign keys belong to campaign policy, and beta/debug wording
    belongs to build policy. A language catalog translates those keys but does
    not choose the campaign.
-3. Introduce an immutable, validated `TextCatalog`/`TextPack` and migrate direct
-   globals domain by domain. Start with small scalar/pointer tables, then fixed
-   character buffers and genuinely mutable destinations. During migration one
-   compatibility owner may publish legacy views once at startup; it must not
-   copy partially validated data or swap addresses after consumers initialize.
-4. Make the XML exporter consume the same pack schema and remove textual `.cpp`
-   inclusion. Decide separately whether shipped packs remain generated C++
-   data or become versioned package resources; the runtime API and validation
-   rules must be identical either way.
+3. **In progress:** the immutable, validated `TextCatalog`/`TextPack` boundary
+   owns the first five one-entry Laptop title tables across all eight languages.
+   Continue migrating direct globals domain by domain, then fixed character
+   buffers and genuinely mutable destinations. No slice may copy partially
+   validated data or swap addresses after consumers initialize.
+4. **In progress:** the XML exporter consumes the same pack for those five
+   sections. Move the remaining sections, then remove textual `.cpp` inclusion.
+   Decide separately whether shipped packs remain generated C++ data or become
+   versioned package resources; runtime API and validation rules stay identical.
 5. Select and validate the language code during startup before rules/campaign
    text is consumed. Persist changes from the options screen for the next
    restart, then route text paths, graphics, word wrapping/fonts, and data

@@ -18,6 +18,7 @@
 	#include "QuestText.h"
 	#include "Quests.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "message.h"
 	#include "LaptopSave.h"
 
@@ -443,7 +444,8 @@ void DrawHistoryTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X, TITLE_Y, L"%s", pHistoryTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s",
+		i18n::GetCompiledTextPack().text(i18n::TextKey::HistoryTitle).data());
 
 	return;
 }

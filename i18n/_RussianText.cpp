@@ -3148,10 +3148,6 @@ STR16 pSquadMenuStrings[] =
 	L"Отмена",
 };
 
-STR16 pPersonnelTitle[] =
-{
-	L"Команда", // the title for the personnel screen/program application
-};
 
 STR16 pPersonnelScreenStrings[] =
 {
@@ -4657,17 +4653,9 @@ STR16 pEmailHeaders[] =
 
 // email titlebar text
 
-STR16 pEmailTitleText[] =
-{
-	L"Почтовый ящик",
-};
 
 
 // the financial screen strings
-STR16 pFinanceTitle[] =
-{
-	L"Финансовый отчет",		//the name we made up for the financial program in the game
-};
 
 STR16 pFinanceSummary[] =
 {
@@ -5013,10 +5001,6 @@ STR16 pExtraIMPStrings[] =
 	L"Теперь, когда вы завершили формирование своей внешности, перейдём к анализу ваших личных качеств.",	//Now that you have completed your appearence choice, proceed to character analysis.
 };
 
-STR16 pFilesTitle[] =
-{
-  L"Просмотр данных",
-};
 
 STR16 pFilesSenderList[] =
 {
@@ -5031,10 +5015,6 @@ STR16 pFilesSenderList[] =
 
 // Text having to do with the History Log
 
-STR16 pHistoryTitle[] =
-{
-	L"Журнал событий", 
-};
 
 STR16 pHistoryHeaders[] =
 {

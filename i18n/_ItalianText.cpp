@@ -3144,10 +3144,6 @@ STR16 pSquadMenuStrings[] =
 	L"Annulla",
 };
 
-STR16 pPersonnelTitle[] =
-{
-	L"Personale", // the title for the personnel screen/program application
-};
 
 STR16 pPersonnelScreenStrings[] =
 {
@@ -4654,17 +4650,9 @@ STR16 pEmailHeaders[] =
 
 // email titlebar text
 
-STR16 pEmailTitleText[] =
-{
-	L"posta elettronica",
-};
 
 
 // the financial screen strings
-STR16 pFinanceTitle[] =
-{
-	L"Contabile aggiuntivo",		//the name we made up for the financial program in the game
-};
 
 STR16 pFinanceSummary[] =
 {
@@ -5008,10 +4996,6 @@ STR16 pExtraIMPStrings[] =
 	L"Now that you have completed your appearence choice, proceed to character analysis.",
 };
 
-STR16 pFilesTitle[] =
-{
-  L"Gestione risorse",
-};
 
 STR16 pFilesSenderList[] =
 {
@@ -5026,10 +5010,6 @@ STR16 pFilesSenderList[] =
 
 // Text having to do with the History Log
 
-STR16 pHistoryTitle[] =
-{
-	L"Registro",
-};
 
 STR16 pHistoryHeaders[] =
 {

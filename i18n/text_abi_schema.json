@@ -94,7 +94,7 @@
     }
   ],
   "header_inventory": {
-    "base_data_declarations": 482,
+    "base_data_declarations": 477,
     "ja25_data_declarations": 35,
     "duplicate_data_declarations": {
       "pDownloadString": 2
@@ -7997,42 +7997,6 @@
       },
       "declaration": "Text.h"
     },
-    "pEmailTitleText": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        }
-      },
-      "declaration": "Text.h"
-    },
     "pEncyclopediaFilterCharText": {
       "domain": "base",
       "type": "STR16",
@@ -8753,42 +8717,6 @@
       },
       "declaration": "Text.h"
     },
-    "pFilesTitle": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        }
-      },
-      "declaration": "Text.h"
-    },
     "pFinanceHeaders": {
       "domain": "base",
       "type": "STR16",
@@ -8857,42 +8785,6 @@
             "12"
           ],
           "initializer_entries": 12
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "pFinanceTitle": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
         }
       },
       "declaration": "Text.h"
@@ -9078,42 +8970,6 @@
       "declaration": "Text.h"
     },
     "pHistoryLocations": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "pHistoryTitle": {
       "domain": "base",
       "type": "STR16",
       "source_dimensions": [
@@ -11557,42 +11413,6 @@
             "11"
           ],
           "initializer_entries": 11
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "pPersonnelTitle": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
         }
       },
       "declaration": "Text.h"

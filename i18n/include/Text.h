@@ -199,7 +199,6 @@ extern CHAR16 pCountryNames[][MAX_TOWN_NAME_LENGHT];
 extern CHAR16 pTownNames[MAX_TOWNS][MAX_TOWN_NAME_LENGHT];	// Lesh: look mapscreen.h for definitions
 extern STR16 pPersonnelScreenStrings[];
 extern STR16 pPersonnelRecordsHelpTexts[]; // added by SANDRO
-extern STR16 pPersonnelTitle[];
 extern STR16 pUpperLeftMapScreenStrings[];
 extern STR16 pTacticalPopupButtonStrings[];
 extern STR16 pSquadMenuStrings[];
@@ -252,8 +251,6 @@ extern STR16 pTraverseStrings[];
 extern STR16 pNewMailStrings[];
 extern STR16 pDeleteMailStrings[];
 extern STR16 pEmailHeaders[];
-extern STR16 pEmailTitleText[];
-extern STR16 pFinanceTitle[];
 extern STR16 pFinanceSummary[];
 extern STR16 pFinanceHeaders[];
 extern STR16 pTransactionText[];
@@ -275,13 +272,11 @@ extern STR16 pMercSheLeaveString[];
 extern STR16 pImpPopUpStrings[];
 extern STR16 pImpButtonText[];
 extern STR16 pExtraIMPStrings[];
-extern STR16 pFilesTitle[];
 extern STR16 pFilesSenderList[];
 extern STR16 pHistoryLocations[];
 //extern STR16 pHistoryAlternateStrings[];
 //extern STR16 pHistoryStrings[];		// Externalized to "TableData\History.xml"
 extern STR16 pHistoryHeaders[];
-extern STR16 pHistoryTitle[];
 extern STR16 pShowBookmarkString[];
 extern STR16 pWebPagesTitles[];
 extern STR16 pWebTitle[ ];
