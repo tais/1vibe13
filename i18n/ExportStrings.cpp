@@ -184,7 +184,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"LandType",					Loc::pLandTypeStrings,				0,	NUM_TRAVTERRAIN_TYPES);
 	ExportSection(props, L"Strategic",					Loc::gpStrategicString,				0,	TEXT_NUM_STRATEGIC_TEXT);
 
-	ExportSection(props, L"GameClock",					Loc::gpGameClockString,				0,	TEXT_NUM_GAMECLOCK);
+	ExportTextPackEntry(props, i18n::TextKey::GameClockDay);
 	ExportSection(props, L"KeyDescription",				Loc::sKeyDescriptionStrings,		0,	2);
 	ExportSection(props, L"WeaponStatsDesc",			Loc::gWeaponStatsDesc,				0,	17);	
 	ExportSection(props, L"WeaponStatsFasthelpTactical",Loc::gzWeaponStatsFasthelpTactical, 0,	29);

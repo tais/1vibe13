@@ -1907,13 +1907,6 @@ enum
 //Strings used in conjunction with above enumerations
 extern STR16 gpStrategicString[];
 
-enum
-{
-	STR_GAMECLOCK_DAY_NAME,
-	TEXT_NUM_GAMECLOCK,
-};
-extern STR16 gpGameClockString[];
-
 //enums for the Shopkeeper Interface
 enum
 {

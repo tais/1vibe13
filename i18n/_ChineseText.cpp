@@ -3649,12 +3649,6 @@ STR16 gpStrategicString[] =
 	L"运输队已出发",   //L"Transport group en route",
 };
 
-STR16 gpGameClockString[] =
-{
-	//This is the day represented in the game clock.  Must be very short, 4 characters max.
-	L"日",
-};
-
 //When the merc finds a key, they can get a description of it which
 //tells them where and when they found it.
 STR16 sKeyDescriptionStrings[2] =

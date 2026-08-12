@@ -44,12 +44,12 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 478 base definitions,
+  preprocessor-selected legacy text body. The remaining 477 base definitions,
   35 JA25 definitions, compatibility globals, and the textual
   `ExportStrings.cpp` inclusion are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
-  The first text migration slice now commits a canonical 513-symbol ABI schema
+  The first text migration slice now commits a canonical 512-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
   array/mutability shapes are explicit, and 57 existing foreign
@@ -82,6 +82,13 @@ the engine must not contain SDL types in its public domain model.
   scope. The required append-only key preserves earlier ordinals; the catalog
   now covers 56 literals and seven exporter mappings with the same immutable
   `g_lang`, no-fallback, ownership, and lifetime contract.
+  The fourth complete domain moves the one-entry game-clock day label: eight
+  exact unguarded literals, all three formatting consumers, and the in-place
+  `GameClock` exporter section. `Game Events.cpp` loses its complete direct
+  `Text.h` dependency, and the required append-only key preserves the seven
+  earlier ordinals. The catalog now covers 64 literals and eight exporter
+  mappings while startup selection, archives, mutable buffers, and `g_lang`
+  remain unchanged.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been
