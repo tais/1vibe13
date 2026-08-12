@@ -140,6 +140,15 @@ target_include_directories(campaign_imp_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_imp_policy COMMAND campaign_imp_policy_tests)
 
+# Campaign progress calculation and progress-triggered story events are
+# selected from immutable runtime capabilities. This dependency-free target
+# pins UB's signed legacy progress-key behavior and Arulco's threshold event.
+add_executable(campaign_progress_policy_tests
+  campaign_progress_policy_tests.cpp)
+target_include_directories(campaign_progress_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_progress_policy COMMAND campaign_progress_policy_tests)
+
 # Civilian quote catalogues, dedicated group records, surrender completion,
 # and UB's unavailable-record sentinel follow the live campaign capability.
 add_executable(campaign_civilian_quote_policy_tests
