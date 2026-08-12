@@ -7121,11 +7121,6 @@ STR16 gzLaptopHelpText[] =
 	L"Controlled factories",	// TODO.Translate
 };
 
-STR16 gzHelpScreenText[] =
-{
-	L"Helpscreen verlassen",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"Es tobt eine Schlacht. Sie können sich nur im Taktik-Bildschirm zurückziehen.",

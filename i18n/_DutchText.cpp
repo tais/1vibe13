@@ -7261,11 +7261,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Verlaat help-scherm",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"Er is een gevecht gaande. Je kan alleen terugtrekken m.b.v. het tactische scherm.",

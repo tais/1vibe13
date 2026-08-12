@@ -359,7 +359,7 @@ bool Loc::ExportStrings()
 
 	ExportSection(props, L"AntiHacker",					Loc::pAntiHackerString,				0,	TEXT_NUM_ANTIHACKERSTR);
 	ExportSection(props, L"LaptopHelp",					Loc::gzLaptopHelpText,				0,	TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT);
-	ExportSection(props, L"HelpScreen",					Loc::gzHelpScreenText,				0,	TEXT_NUM_HLP);
+	ExportTextPackEntry(props, i18n::TextKey::HelpScreenExit);
 	ExportSection(props, L"NonPersistantPBI",			Loc::gzNonPersistantPBIText,		0,	10);
 	ExportSection(props, L"MiscString",					Loc::gzMiscString,					0,	5);
 	ExportSection(props, L"IntroScreen",				Loc::gzIntroScreen,					0,	1);

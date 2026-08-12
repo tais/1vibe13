@@ -461,10 +461,10 @@ add_executable(i18n_language_catalog_tests
 add_test(NAME i18n_language_catalog
   COMMAND i18n_language_catalog_tests)
 
-# The first two immutable TextCatalog domains own all eight exact Laptop-title
-# and AIM Links-title packs while a tiny compiled seam preserves today's
-# g_lang-selected default. This target links no game, SDL, VFS, archive, or
-# installed localization data.
+# The first three immutable TextCatalog domains own all eight exact Laptop-title,
+# AIM Links-title, and Help-screen exit-label packs while a tiny compiled seam
+# preserves today's g_lang-selected default. This target links no game, SDL,
+# VFS, archive, or installed localization data.
 add_executable(i18n_text_catalog_tests
   i18n_text_catalog_tests.cpp
   ${CMAKE_SOURCE_DIR}/i18n/TextCatalog.cpp

@@ -2371,15 +2371,6 @@ enum
 };
 
 
-//enums for the help screen
-enum
-{
-	HLP_SCRN_TXT__EXIT_SCREEN,
-	TEXT_NUM_HLP
-};
-extern	STR16	gzHelpScreenText[];
-
-
 extern	STR16 gzLaptopHelpText[];
 
 

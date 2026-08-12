@@ -7252,11 +7252,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Exit help screen",
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"There is a battle in progress. You can only retreat from the tactical screen.",

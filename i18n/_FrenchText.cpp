@@ -7258,11 +7258,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Quitter l'écran d'aide",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"Vous êtes en plein combat. Vous pouvez donner l'ordre de retraite depuis l'écran tactique.",

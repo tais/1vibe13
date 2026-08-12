@@ -7247,11 +7247,6 @@ STR16 gzLaptopHelpText[] =
 };
 
 
-STR16 gzHelpScreenText[] =
-{
-	L"Закрыть окно помощи",	
-};
-
 STR16 gzNonPersistantPBIText[] =
 {
 	L"Идет бой. Вы можете отступить только через тактический экран.",

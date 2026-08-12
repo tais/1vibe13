@@ -94,7 +94,7 @@
     }
   ],
   "header_inventory": {
-    "base_data_declarations": 476,
+    "base_data_declarations": 475,
     "ja25_data_declarations": 35,
     "duplicate_data_declarations": {
       "pDownloadString": 2
@@ -3344,42 +3344,6 @@
             "69"
           ],
           "initializer_entries": 69
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "gzHelpScreenText": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
         }
       },
       "declaration": "Text.h"
