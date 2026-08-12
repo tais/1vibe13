@@ -2206,6 +2206,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if (pSoldier->aiPlanning().action() == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiPlanning().action() == AI_ACTION_LOCK_DOOR && !(pSoldier->aiBehavior().flags() & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
 				{
 					// EVENT HAS BEEN HANDLED
+					// No door-change keyframe follows; ActionDone consumes the
+					// retained completion provenance at the animation boundary.
 					pSoldier->pendingAction().clearAction();
 
 					// do nothing here
@@ -2613,8 +2615,17 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							// we close the door!
 							pSoldier->schedule().completeDoorAnimation();
 
-							// yes..
-							(void)TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
+							// yes; Replay resumes locally without reflecting path traffic.
+							const BOOLEAN replicateDoorContinuation =
+								pSoldier->runtime().worldObject.
+									consumePathContinuationReplication();
+							(void)TacticalActorRouteExecution::requestPath(
+								*pSoldier,
+								pSoldier->pathing().finalDestinationGrid(),
+								pSoldier->movement().mode(),
+								TacticalActorRouteExecution::PathOrigin::System,
+								true,
+								replicateDoorContinuation != FALSE );
 
 							if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING ) ) )
 							{								

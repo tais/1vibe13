@@ -760,6 +760,228 @@ struct ApproachWorldObjectCommand
 	SimulationCommandSource source;
 };
 
+// Automatic structure handling is not player intent. It can be retained by
+// the authoritative stream, so the selected operation and every live-world
+// precondition needed by its continuation travel as values instead of being
+// rediscovered after backpressure.
+enum class TacticalWorldObjectOperation : std::uint8_t
+{
+	Open = 0,
+	Close = 1,
+	Unlock = 2,
+	Lock = 3
+};
+
+constexpr bool IsValidTacticalWorldObjectOperation(
+	TacticalWorldObjectOperation operation) noexcept
+{
+	switch (operation)
+	{
+		case TacticalWorldObjectOperation::Open:
+		case TacticalWorldObjectOperation::Close:
+		case TacticalWorldObjectOperation::Unlock:
+		case TacticalWorldObjectOperation::Lock:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalWorldObjectOrigin : std::uint8_t
+{
+	AiAction = 0,
+	PathTraversal = 1,
+	PendingAction = 2,
+	Dialogue = 3
+};
+
+constexpr bool IsValidTacticalWorldObjectOrigin(
+	TacticalWorldObjectOrigin origin) noexcept
+{
+	switch (origin)
+	{
+		case TacticalWorldObjectOrigin::AiAction:
+		case TacticalWorldObjectOrigin::PathTraversal:
+		case TacticalWorldObjectOrigin::PendingAction:
+		case TacticalWorldObjectOrigin::Dialogue:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalWorldObjectContinuation : std::uint8_t
+{
+	None = 0,
+	ResumePathAndCloseDoor = 1,
+	MarkDialogueActionPending = 2,
+	MarkDialogueApproachPending = 3
+};
+
+constexpr bool IsValidTacticalWorldObjectContinuation(
+	TacticalWorldObjectContinuation continuation) noexcept
+{
+	switch (continuation)
+	{
+		case TacticalWorldObjectContinuation::None:
+		case TacticalWorldObjectContinuation::ResumePathAndCloseDoor:
+		case TacticalWorldObjectContinuation::MarkDialogueActionPending:
+		case TacticalWorldObjectContinuation::MarkDialogueApproachPending:
+			return true;
+	}
+	return false;
+}
+
+inline constexpr std::int32_t TacticalWorldObjectNoExpectedGrid = -1;
+inline constexpr std::int8_t TacticalWorldObjectNoExpectedLevel = -1;
+inline constexpr std::uint16_t TacticalWorldObjectNoExpectedAnimation =
+	std::numeric_limits<std::uint16_t>::max();
+inline constexpr std::uint16_t TacticalWorldObjectNoExpectedPathValue =
+	std::numeric_limits<std::uint16_t>::max();
+inline constexpr std::uint64_t TacticalWorldObjectNoExpectedFingerprint =
+	std::numeric_limits<std::uint64_t>::max();
+inline constexpr std::int16_t TacticalWorldObjectNoExpectedPointCost =
+	std::numeric_limits<std::int16_t>::min();
+
+struct SystemWorldObjectInteractionCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldObjectId object;
+	std::uint8_t direction;
+	TacticalWorldObjectOperation operation;
+	SimulationCommandSource source;
+	TacticalWorldObjectOrigin origin;
+	TacticalWorldObjectContinuation continuation;
+	TacticalEventPolicy eventPolicy;
+	bool unlockBeforeInteraction = false;
+	std::int32_t expectedGrid;
+	std::int32_t expectedDestinationGrid =
+		TacticalWorldObjectNoExpectedGrid;
+	std::int8_t expectedLevel;
+	std::uint16_t expectedAnimationState;
+	std::uint16_t movementMode =
+		TacticalWorldObjectNoExpectedAnimation;
+	std::uint16_t expectedPathIndex =
+		TacticalWorldObjectNoExpectedPathValue;
+	std::uint16_t expectedPathSize =
+		TacticalWorldObjectNoExpectedPathValue;
+	std::uint8_t expectedPathDirection = TacticalDirectionCount;
+	std::uint64_t expectedStateFingerprint;
+	std::uint64_t expectedObjectFingerprint;
+	std::int16_t expectedActionPointCost =
+		TacticalWorldObjectNoExpectedPointCost;
+	std::int16_t expectedBreathPointCost =
+		TacticalWorldObjectNoExpectedPointCost;
+};
+
+static_assert(
+	std::is_trivially_copyable<SystemWorldObjectInteractionCommand>::value,
+	"automatic world-object commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidSystemWorldObjectInteractionCommand(
+	const SystemWorldObjectInteractionCommand& command) noexcept
+{
+	if ((command.source != SimulationCommandSource::System &&
+		 command.source != SimulationCommandSource::Replay) ||
+		command.object.grid < 0 ||
+		!IsValidTacticalDirection(command.direction) ||
+		!IsValidTacticalWorldObjectOperation(command.operation) ||
+		!IsValidTacticalWorldObjectOrigin(command.origin) ||
+		!IsValidTacticalWorldObjectContinuation(command.continuation) ||
+		!IsValidTacticalEventPolicy(command.eventPolicy) ||
+		command.eventPolicy != TacticalEventPolicy::Replicated ||
+		command.expectedGrid < 0 ||
+		(command.expectedLevel != 0 && command.expectedLevel != 1) ||
+		command.expectedAnimationState ==
+			TacticalWorldObjectNoExpectedAnimation ||
+		command.expectedStateFingerprint ==
+			TacticalWorldObjectNoExpectedFingerprint ||
+		command.expectedObjectFingerprint ==
+			TacticalWorldObjectNoExpectedFingerprint)
+		return false;
+
+	const bool noPath =
+		command.expectedPathIndex == TacticalWorldObjectNoExpectedPathValue &&
+		command.expectedPathSize == TacticalWorldObjectNoExpectedPathValue &&
+		command.expectedPathDirection == TacticalDirectionCount;
+	const bool noPoints =
+		command.expectedActionPointCost ==
+			TacticalWorldObjectNoExpectedPointCost &&
+		command.expectedBreathPointCost ==
+			TacticalWorldObjectNoExpectedPointCost;
+	const bool noDestination =
+		command.expectedDestinationGrid ==
+			TacticalWorldObjectNoExpectedGrid &&
+		command.movementMode == TacticalWorldObjectNoExpectedAnimation;
+	const bool opensOrCloses =
+		command.operation == TacticalWorldObjectOperation::Open ||
+		command.operation == TacticalWorldObjectOperation::Close;
+
+	switch (command.origin)
+	{
+		case TacticalWorldObjectOrigin::AiAction:
+			return command.continuation ==
+					TacticalWorldObjectContinuation::None &&
+				!command.unlockBeforeInteraction && noPath && noPoints &&
+				noDestination;
+		case TacticalWorldObjectOrigin::PathTraversal:
+			return opensOrCloses && !command.unlockBeforeInteraction &&
+				noPoints &&
+				(command.continuation ==
+					TacticalWorldObjectContinuation::None ||
+				 command.continuation ==
+					TacticalWorldObjectContinuation::
+						ResumePathAndCloseDoor) &&
+				command.expectedDestinationGrid >= 0 &&
+				command.movementMode !=
+					TacticalWorldObjectNoExpectedAnimation &&
+				command.expectedPathSize > 0 &&
+				command.expectedPathSize <= TacticalTraversalPathCapacity &&
+				command.expectedPathIndex < command.expectedPathSize &&
+				IsValidTacticalDirection(command.expectedPathDirection) &&
+				(command.direction & 1u) == 0 &&
+				command.expectedPathDirection == command.direction;
+		case TacticalWorldObjectOrigin::PendingAction:
+			return opensOrCloses &&
+				!command.unlockBeforeInteraction &&
+				command.continuation ==
+					TacticalWorldObjectContinuation::None &&
+				noPath && noDestination &&
+				command.expectedActionPointCost !=
+					TacticalWorldObjectNoExpectedPointCost &&
+				command.expectedBreathPointCost !=
+					TacticalWorldObjectNoExpectedPointCost;
+		case TacticalWorldObjectOrigin::Dialogue:
+			if (command.operation != TacticalWorldObjectOperation::Open ||
+				!noPath || !noPoints ||
+				command.expectedDestinationGrid < 0)
+				return false;
+			if (command.continuation ==
+				TacticalWorldObjectContinuation::
+					MarkDialogueActionPending)
+				return command.movementMode ==
+						TacticalWorldObjectNoExpectedAnimation &&
+					command.expectedDestinationGrid == command.expectedGrid;
+			return command.continuation ==
+					TacticalWorldObjectContinuation::
+						MarkDialogueApproachPending &&
+				command.movementMode !=
+					TacticalWorldObjectNoExpectedAnimation &&
+				command.expectedDestinationGrid != command.expectedGrid;
+	}
+	return false;
+}
+
+// Door completion can outlive the executor scope. Newly produced local/System
+// work may cross the established peer boundary; replay and peer-originated work
+// perform the same local animation without reflection.
+constexpr bool ShouldReplicateWorldObjectCompletion(
+	SimulationCommandSource source,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return eventPolicy == TacticalEventPolicy::Replicated &&
+		(source == SimulationCommandSource::LocalPlayer ||
+		 source == SimulationCommandSource::System);
+}
+
 // Entity-to-entity player intent always carries both incarnations. Soldier
 // pool slots are reused, including while an actor is walking toward a delayed
 // interaction, so a slot alone is not an authoritative target identity.
@@ -977,7 +1199,8 @@ using SimulationCommand = std::variant<
 	SynchronizeActorStopCommand,
 	SynchronizeTurnCommand,
 	BulkReloadWeaponsCommand,
-	ApplyWeaponConfigurationCommand>;
+	ApplyWeaponConfigurationCommand,
+	SystemWorldObjectInteractionCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1102,6 +1325,13 @@ inline bool IsStructurallyValidSimulationCommand(
 				value.targetLevel == 0 && value.previousItem == 0 &&
 				value.changedItem == 0 &&
 				value.inventoryPosition == TacticalNoInventoryPosition;
+		}
+		else if constexpr (
+			std::is_same<Command,
+				SystemWorldObjectInteractionCommand>::value)
+		{
+			return value.soldier.valid() &&
+				IsStructurallyValidSystemWorldObjectInteractionCommand(value);
 		}
 		else
 		{

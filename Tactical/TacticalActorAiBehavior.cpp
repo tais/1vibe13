@@ -183,6 +183,9 @@ void TacticalActorAiBehavior::handleNewSituation(
 	actor.animationIntent().clearSecondaryPendingAnimation();
 	actor.animationActivity().turningFromProneMode() = FALSE;
 	actor.animationIntent().clearPendingDirection();
+	if (actor.runtime().worldObject.owner() ==
+		SoldierWorldObjectContinuationOwner::PathRoute)
+		actor.runtime().worldObject.reset();
 	actor.pendingAction().clearAction();
 	actor.schedule().cancelDoorContinuation();
 

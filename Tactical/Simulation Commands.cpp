@@ -11,6 +11,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorLongActions.h"
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
@@ -25,12 +26,15 @@
 
 #include "Animation Control.h"
 #include "GameContext.h"
+#include "Grid Direction.h"
 #include "Handle UI.h"
 #include "Handle Items.h"
+#include "Handle Doors.h"
 #include "Interactive Tiles.h"
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Map Information.h"
+#include "Keys.h"
 #include "Overhead.h"
 #include "PATHAI.H"
 #include "Points.h"
@@ -565,6 +569,244 @@ namespace
 		return fingerprint == TacticalTraversalNoExpectedStateFingerprint
 			? fingerprint - 1
 			: fingerprint;
+	}
+
+	std::uint64_t CaptureWorldObjectActorStateFingerprint(
+		const TacticalActor& soldier) noexcept
+	{
+		std::uint64_t fingerprint =
+			CaptureTraversalStateFingerprint(soldier);
+		MixTraversalState(fingerprint, soldier.roster().team());
+		MixTraversalState(fingerprint, soldier.movement().mode());
+		MixTraversalState(
+			fingerprint, soldier.movement().absoluteDestination());
+		MixTraversalState(fingerprint, soldier.aiBehavior().flags());
+		MixTraversalState(fingerprint, soldier.schedule().id());
+		MixTraversalState(fingerprint, soldier.schedule().progress());
+		MixTraversalState(
+			fingerprint,
+			soldier.runtime().pendingAction.targetIncarnation);
+		// Replication provenance deliberately stays out: playback changes it
+		// from live System to Replay. The async owner's exact identity remains
+		// deterministic and must still match across the delayed completion.
+		MixTraversalState(
+			fingerprint,
+			soldier.runtime().worldObject.actorIncarnation());
+		MixTraversalState(
+			fingerprint, soldier.runtime().worldObject.objectGrid());
+		MixTraversalState(
+			fingerprint,
+			soldier.runtime().worldObject.objectStructureId());
+		MixTraversalState(
+			fingerprint,
+			static_cast<std::uint8_t>(
+				soldier.runtime().worldObject.owner()));
+		MixTraversalState(
+			fingerprint,
+			static_cast<std::uint8_t>(
+				soldier.runtime().worldObject.awaitsDoorChange()));
+		return fingerprint == TacticalWorldObjectNoExpectedFingerprint
+			? fingerprint - 1
+			: fingerprint;
+	}
+
+	std::uint64_t CaptureWorldObjectFingerprint(
+		const STRUCTURE& structure) noexcept
+	{
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		const STRUCTURE* base = FindBaseStructure(
+			const_cast<STRUCTURE*>(&structure));
+		if (!base) return TacticalWorldObjectNoExpectedFingerprint;
+		const auto mixStructure = [&fingerprint](const STRUCTURE& value) {
+			// Only persisted/gameplay value fields participate. Linkage,
+			// database/shape pointers, density caches, and other address-backed
+			// representation details are deliberately excluded.
+			MixTraversalState(fingerprint, value.fFlags);
+			MixTraversalState(fingerprint, value.sGridNo);
+			MixTraversalState(fingerprint, value.sBaseGridNo);
+			MixTraversalState(fingerprint, value.usStructureID);
+			MixTraversalState(fingerprint, value.sCubeOffset);
+			MixTraversalState(fingerprint, value.ubWallOrientation);
+			MixTraversalState(fingerprint, value.ubStructureHeight);
+		};
+		mixStructure(structure);
+		mixStructure(*base);
+		if (const DOOR* door = FindDoorInfoAtGridNo(base->sGridNo))
+		{
+			MixTraversalState(
+				fingerprint, static_cast<std::uint8_t>(1));
+			MixTraversalState(fingerprint, door->sGridNo);
+			MixTraversalState(fingerprint, door->fLocked);
+			MixTraversalState(fingerprint, door->ubTrapLevel);
+			MixTraversalState(fingerprint, door->ubTrapID);
+			MixTraversalState(fingerprint, door->ubLockID);
+			MixTraversalState(fingerprint, door->bPerceivedLocked);
+			MixTraversalState(fingerprint, door->bPerceivedTrapped);
+			MixTraversalState(fingerprint, door->bLockDamage);
+		}
+		else
+			MixTraversalState(
+				fingerprint, static_cast<std::uint8_t>(0));
+		if (const DOOR_STATUS* status = GetDoorStatus(base->sGridNo))
+		{
+			MixTraversalState(
+				fingerprint, static_cast<std::uint8_t>(1));
+			MixTraversalState(fingerprint, status->sGridNo);
+			MixTraversalState(fingerprint, status->ubFlags);
+		}
+		else
+			MixTraversalState(
+				fingerprint, static_cast<std::uint8_t>(0));
+		return fingerprint == TacticalWorldObjectNoExpectedFingerprint
+			? fingerprint - 1
+			: fingerprint;
+	}
+
+	bool IsWorldObjectOperationCurrent(
+		const STRUCTURE& structure,
+		TacticalWorldObjectOperation operation) noexcept
+	{
+		const bool open = (structure.fFlags & STRUCTURE_OPEN) != 0;
+		const STRUCTURE* base = FindBaseStructure(
+			const_cast<STRUCTURE*>(&structure));
+		const DOOR* door = base ? FindDoorInfoAtGridNo(base->sGridNo) : nullptr;
+		switch (operation)
+		{
+			case TacticalWorldObjectOperation::Open:
+				return !open;
+			case TacticalWorldObjectOperation::Close:
+				return open;
+			case TacticalWorldObjectOperation::Unlock:
+				return !open && door && door->fLocked;
+			case TacticalWorldObjectOperation::Lock:
+				return !open && door && !door->fLocked;
+		}
+		return false;
+	}
+
+	bool WorldObjectKindMatchesOrigin(
+		const STRUCTURE& structure,
+		TacticalWorldObjectOrigin origin) noexcept
+	{
+		if (origin == TacticalWorldObjectOrigin::AiAction ||
+			origin == TacticalWorldObjectOrigin::PathTraversal)
+			return (structure.fFlags & STRUCTURE_ANYDOOR) != 0;
+		return (structure.fFlags &
+			(STRUCTURE_ANYDOOR | STRUCTURE_OPENABLE)) != 0;
+	}
+
+	bool IsSelectedAiWorldObjectOperation(
+		const TacticalActor& soldier,
+		TacticalWorldObjectOperation operation) noexcept
+	{
+		const UINT8 action = soldier.aiPlanning().action();
+		return (action == AI_ACTION_OPEN_OR_CLOSE_DOOR &&
+				(operation == TacticalWorldObjectOperation::Open ||
+				 operation == TacticalWorldObjectOperation::Close)) ||
+			(action == AI_ACTION_UNLOCK_DOOR &&
+				operation == TacticalWorldObjectOperation::Unlock) ||
+			(action == AI_ACTION_LOCK_DOOR &&
+				(operation == TacticalWorldObjectOperation::Lock ||
+				 ((soldier.aiBehavior().flags() &
+					AI_LOCK_DOOR_INCLUDES_CLOSE) != 0 &&
+				  operation == TacticalWorldObjectOperation::Close)));
+	}
+
+	bool IsSelectedAiWorldObjectInteraction(
+		TacticalActor& soldier,
+		std::int32_t objectGrid,
+		std::uint8_t direction,
+		TacticalWorldObjectOperation operation) noexcept
+	{
+		const UINT8 selectedDirection = GetDirectionFromGridNo(
+			soldier.aiPlanning().actionData(), &soldier);
+		if (selectedDirection != direction ||
+			(selectedDirection != NORTH && selectedDirection != EAST &&
+			 selectedDirection != SOUTH && selectedDirection != WEST))
+			return false;
+		const INT32 expectedObjectGrid =
+			selectedDirection == NORTH || selectedDirection == WEST
+				? soldier.position().gridNo() +
+					DirectionInc(selectedDirection)
+				: soldier.position().gridNo();
+		return objectGrid == expectedObjectGrid &&
+			IsSelectedAiWorldObjectOperation(soldier, operation);
+	}
+
+	bool WorldObjectExpectationMatches(
+		TacticalActor& soldier,
+		STRUCTURE& structure,
+		const SystemWorldObjectInteractionCommand& command) noexcept
+	{
+		if (soldier.position().gridNo() != command.expectedGrid ||
+			soldier.position().level() != command.expectedLevel ||
+			soldier.animationPlayback().state() !=
+				command.expectedAnimationState ||
+			CaptureWorldObjectActorStateFingerprint(soldier) !=
+				command.expectedStateFingerprint ||
+			CaptureWorldObjectFingerprint(structure) !=
+				command.expectedObjectFingerprint ||
+			!WorldObjectKindMatchesOrigin(structure, command.origin) ||
+			!IsWorldObjectOperationCurrent(structure, command.operation))
+			return false;
+
+		if (command.origin == TacticalWorldObjectOrigin::PathTraversal)
+		{
+			const INT32 expectedObjectGrid =
+				command.direction == NORTH || command.direction == WEST
+					? NewGridNo(
+						soldier.position().gridNo(),
+						DirectionInc(command.direction))
+					: soldier.position().gridNo();
+			if (soldier.pathing().finalDestinationGrid() !=
+					command.expectedDestinationGrid ||
+				command.object.grid != expectedObjectGrid ||
+				soldier.movement().mode() != command.movementMode ||
+				soldier.pathing().pathIndex() != command.expectedPathIndex ||
+				soldier.pathing().pathSize() != command.expectedPathSize ||
+				soldier.pathing().path()[command.expectedPathIndex] !=
+					command.expectedPathDirection)
+				return false;
+		}
+		else if (command.origin == TacticalWorldObjectOrigin::AiAction)
+		{
+			if (!IsSelectedAiWorldObjectInteraction(
+					soldier, command.object.grid, command.direction,
+					command.operation))
+				return false;
+		}
+		else if (command.origin ==
+			TacticalWorldObjectOrigin::PendingAction)
+		{
+			INT16 actionPointCost = 0;
+			INT16 breathPointCost = 0;
+			if (soldier.pendingAction().secondaryData() !=
+					command.object.grid ||
+				soldier.pendingAction().primaryData() !=
+					command.object.structureId ||
+				soldier.pendingAction().tertiaryData() !=
+					command.direction ||
+				!CalcInteractiveObjectAPs(
+					&soldier, command.object.grid, &structure,
+					&actionPointCost, &breathPointCost) ||
+				actionPointCost != command.expectedActionPointCost ||
+				breathPointCost != command.expectedBreathPointCost ||
+				!EnoughPoints(
+					&soldier, actionPointCost, breathPointCost, TRUE))
+				return false;
+		}
+		else if (command.origin == TacticalWorldObjectOrigin::Dialogue)
+		{
+			if (command.expectedDestinationGrid < 0 ||
+				(command.continuation ==
+					TacticalWorldObjectContinuation::
+						MarkDialogueActionPending
+					? soldier.position().gridNo() !=
+						command.expectedDestinationGrid
+					: soldier.movement().mode() != command.movementMode))
+				return false;
+		}
+		return CanBeginWorldObjectInteraction(soldier);
 	}
 
 	bool TraversalExpectationMatches(
@@ -1107,6 +1349,109 @@ namespace
 					: CommandDisposition::Discard;
 			}
 			else if constexpr (
+				std::is_same<Command,
+					SystemWorldObjectInteractionCommand>::value)
+			{
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier) return CommandDisposition::Discard;
+				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
+				if (!structure ||
+					!WorldObjectExpectationMatches(*soldier, *structure, value))
+					return CommandDisposition::Discard;
+
+				STRUCTURE* base = FindBaseStructure(structure);
+				if (!base) return CommandDisposition::Discard;
+				if (DOOR_STATUS* status = GetDoorStatus(base->sGridNo))
+					if ((status->ubFlags & DOOR_BUSY) != 0)
+						return CommandDisposition::Discard;
+				DOOR* door = FindDoorInfoAtGridNo(base->sGridNo);
+				if (value.origin == TacticalWorldObjectOrigin::Dialogue &&
+					value.unlockBeforeInteraction != (door != nullptr))
+					return CommandDisposition::Discard;
+				if (value.operation == TacticalWorldObjectOperation::Unlock ||
+					value.operation == TacticalWorldObjectOperation::Lock ||
+					value.unlockBeforeInteraction)
+				{
+					if (!door) return CommandDisposition::Discard;
+				}
+				SoldierWorldObjectContinuationOwner continuationOwner =
+					SoldierWorldObjectContinuationOwner::None;
+				if (value.origin == TacticalWorldObjectOrigin::PendingAction)
+					continuationOwner =
+						soldier->runtime().worldObject.owner();
+				else if (value.origin == TacticalWorldObjectOrigin::AiAction ||
+					value.origin == TacticalWorldObjectOrigin::Dialogue)
+					continuationOwner =
+						SoldierWorldObjectContinuationOwner::ActorAction;
+				else if (value.continuation ==
+					TacticalWorldObjectContinuation::ResumePathAndCloseDoor)
+					continuationOwner =
+						SoldierWorldObjectContinuationOwner::PathRoute;
+
+				// Every lookup, identity, route, point-cost and selected operation
+				// check is complete before the first legacy mutation.
+				if (value.origin != TacticalWorldObjectOrigin::PendingAction &&
+					!StartInteractiveObject(
+						value.object.grid, value.object.structureId,
+						soldier, value.direction))
+					return CommandDisposition::Discard;
+				if (value.operation == TacticalWorldObjectOperation::Unlock ||
+					value.operation == TacticalWorldObjectOperation::Lock)
+					door->fLocked =
+						value.operation == TacticalWorldObjectOperation::Lock
+							? TRUE
+							: FALSE;
+				else if (value.unlockBeforeInteraction && door)
+					door->fLocked = FALSE;
+
+				soldier->runtime().worldObject.begin(
+					ShouldReplicateWorldObjectCompletion(
+						value.source, value.eventPolicy),
+					soldier->identity().incarnation(), value.object.grid,
+					value.object.structureId, continuationOwner);
+
+				if (value.continuation ==
+					TacticalWorldObjectContinuation::
+						MarkDialogueApproachPending)
+				{
+					if (!TacticalActorRouteExecution::requestPath(
+						*soldier, value.expectedDestinationGrid,
+						value.movementMode,
+						TacticalActorRouteExecution::PathOrigin::System,
+						true,
+						ShouldReplicateWorldObjectCompletion(
+							value.source, value.eventPolicy)))
+					{
+						soldier->runtime().worldObject.reset();
+						return CommandDisposition::Discard;
+					}
+					soldier->aiPlanning().action() =
+						AI_ACTION_PENDING_ACTION;
+					return CommandDisposition::Applied;
+				}
+
+				if (!InteractWithInteractiveObject(
+						soldier, structure, value.direction))
+				{
+					soldier->runtime().worldObject.reset();
+					return CommandDisposition::Discard;
+				}
+				if (value.origin ==
+					TacticalWorldObjectOrigin::PendingAction)
+					TacticalActorLongActions::cancel(*soldier, FALSE);
+				if (value.continuation ==
+					TacticalWorldObjectContinuation::
+						ResumePathAndCloseDoor)
+					soldier->schedule().beginDoorContinuation(
+						value.object.grid);
+				else if (value.continuation ==
+					TacticalWorldObjectContinuation::
+						MarkDialogueActionPending)
+					soldier->aiPlanning().action() =
+						AI_ACTION_PENDING_ACTION;
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, ActivateWorldObjectCommand>::value)
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
@@ -1118,10 +1463,18 @@ namespace
 						value.object.grid, value.object.structureId,
 						soldier, value.direction))
 					return CommandDisposition::Discard;
-				return InteractWithInteractiveObject(
-					soldier, structure, value.direction)
-					? CommandDisposition::Applied
-					: CommandDisposition::Discard;
+				soldier->runtime().worldObject.begin(
+					ShouldReplicateWorldObjectCompletion(
+						value.source, TacticalEventPolicy::Replicated),
+					soldier->identity().incarnation(), value.object.grid,
+					value.object.structureId);
+				if (!InteractWithInteractiveObject(
+						soldier, structure, value.direction))
+				{
+					soldier->runtime().worldObject.reset();
+					return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (
 				std::is_same<Command, ApproachWorldObjectCommand>::value)
@@ -1139,13 +1492,21 @@ namespace
 				if (!TacticalActorRouteExecution::requestPath(*soldier,
 						value.destinationGrid, value.movementMode,
 						TacticalActorRouteExecution::PathOrigin::PlayerUi,
-						value.forceRestart))
+						value.forceRestart,
+						ShouldReplicateWorldObjectCompletion(
+							value.source,
+							TacticalEventPolicy::Replicated)))
 					return CommandDisposition::Discard;
-				return StartInteractiveObject(
-					value.object.grid, value.object.structureId,
-					soldier, value.direction)
-					? CommandDisposition::Applied
-					: CommandDisposition::Discard;
+				if (!StartInteractiveObject(
+						value.object.grid, value.object.structureId,
+						soldier, value.direction))
+					return CommandDisposition::Discard;
+				soldier->runtime().worldObject.begin(
+					ShouldReplicateWorldObjectCompletion(
+						value.source, TacticalEventPolicy::Replicated),
+					soldier->identity().incarnation(), value.object.grid,
+					value.object.structureId);
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (
 				std::is_same<Command, StartConversationCommand>::value)
@@ -1535,6 +1896,24 @@ bool HasPendingReplayPathTraversalCommand(
 		});
 }
 
+bool HasPendingReplayWorldObjectInteractionCommand(
+	TacticalEntityId actor,
+	TacticalWorldObjectOrigin origin) noexcept
+{
+	if (!actor.valid() || !IsValidTacticalWorldObjectOrigin(origin))
+		return false;
+	return GetGameContext().commands().containsIf(
+		[actor, origin](
+			const ScheduledCommand<SimulationCommand>& entry) noexcept {
+			const SystemWorldObjectInteractionCommand* interaction =
+				std::get_if<SystemWorldObjectInteractionCommand>(
+					&entry.command);
+			return interaction && interaction->soldier == actor &&
+				interaction->source == SimulationCommandSource::Replay &&
+				interaction->origin == origin;
+		});
+}
+
 bool BindJa2SimulationCommandExecutor(GameContext& game) noexcept
 {
 	return game.runtime().bindSimulationCommandExecutor(
@@ -1674,7 +2053,48 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 		{
 			if (!value.soldier.valid() || value.soldier.slot >= TOTAL_SOLDIERS)
 				return SimulationCommandDomainError::InvalidActor;
-			if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
+			if constexpr (
+				std::is_same<Command,
+					SystemWorldObjectInteractionCommand>::value)
+			{
+				if (!IsSimulationSystemSource(value.source))
+					return SimulationCommandDomainError::InvalidSource;
+				if (!IsValidTacticalWorldObjectOperation(value.operation))
+					return SimulationCommandDomainError::
+						InvalidWorldObjectOperation;
+				if (!IsValidTacticalWorldObjectOrigin(value.origin))
+					return SimulationCommandDomainError::
+						InvalidWorldObjectOrigin;
+				if (!IsValidTacticalWorldObjectContinuation(
+						value.continuation))
+					return SimulationCommandDomainError::
+						InvalidWorldObjectContinuation;
+				if (!IsValidTacticalEventPolicy(value.eventPolicy))
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				if (!IsStructurallyValidSystemWorldObjectInteractionCommand(
+						value))
+					return SimulationCommandDomainError::
+						InvalidWorldObjectPrecondition;
+				if (value.object.grid < 0 || value.object.grid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidObjectGrid;
+				if (value.expectedGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::
+						InvalidWorldObjectPrecondition;
+				if (value.expectedDestinationGrid !=
+						TacticalWorldObjectNoExpectedGrid &&
+					value.expectedDestinationGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidDestinationGrid;
+				if (value.movementMode !=
+						TacticalWorldObjectNoExpectedAnimation &&
+					(value.movementMode >= NUMANIMATIONSTATES ||
+					 (gAnimControl[value.movementMode].uiFlags &
+						 ANIM_MOVING) == 0))
+					return SimulationCommandDomainError::InvalidMovementMode;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
 				if (!IsValidTacticalEventPolicy(value.eventPolicy))
 					return SimulationCommandDomainError::InvalidEventPolicy;
@@ -2502,6 +2922,226 @@ TryDispatchSystemPathTraverseObstacleCommandNow(
 		fenceGrid,
 		static_cast<INT8>(pathDirection),
 		movementAnimationState);
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
+}
+
+namespace
+{
+	bool InitializeSystemWorldObjectInteractionCommand(
+		TacticalEntityId actorId,
+		std::int32_t objectGrid,
+		std::uint16_t structureId,
+		std::uint8_t direction,
+		TacticalWorldObjectOperation operation,
+		TacticalWorldObjectOrigin origin,
+		SystemWorldObjectInteractionCommand& command) noexcept
+	{
+		TacticalActor* actor = ResolveLiveCommandActor(actorId);
+		if (!actor || !IsValidTacticalDirection(direction) ||
+			!IsValidTacticalWorldObjectOperation(operation) ||
+			!CanBeginWorldObjectInteraction(*actor))
+			return false;
+		if ((origin != TacticalWorldObjectOrigin::PendingAction &&
+			 actor->runtime().worldObject.active()) ||
+			(origin == TacticalWorldObjectOrigin::PendingAction &&
+			 !actor->runtime().worldObject.matches(
+				actor->identity().incarnation(), objectGrid, structureId)))
+			return false;
+		STRUCTURE* structure = ResolveLiveWorldObject(
+			TacticalWorldObjectId{objectGrid, structureId});
+		if (!structure || !FindBaseStructure(structure) ||
+			!WorldObjectKindMatchesOrigin(*structure, origin) ||
+			!IsWorldObjectOperationCurrent(*structure, operation))
+			return false;
+		if (DOOR_STATUS* status = GetDoorStatus(
+				FindBaseStructure(structure)->sGridNo))
+			if ((status->ubFlags & DOOR_BUSY) != 0) return false;
+
+		command = SystemWorldObjectInteractionCommand{};
+		command.soldier = actorId;
+		command.object = TacticalWorldObjectId{objectGrid, structureId};
+		command.direction = direction;
+		command.operation = operation;
+		command.source = SimulationCommandSource::System;
+		command.origin = origin;
+		command.continuation =
+			TacticalWorldObjectContinuation::None;
+		command.eventPolicy = TacticalEventPolicy::Replicated;
+		command.expectedGrid = actor->position().gridNo();
+		command.expectedLevel = actor->position().level();
+		command.expectedAnimationState =
+			actor->animationPlayback().state();
+		command.expectedStateFingerprint =
+			CaptureWorldObjectActorStateFingerprint(*actor);
+		command.expectedObjectFingerprint =
+			CaptureWorldObjectFingerprint(*structure);
+		return command.expectedStateFingerprint !=
+				TacticalWorldObjectNoExpectedFingerprint &&
+			command.expectedObjectFingerprint !=
+				TacticalWorldObjectNoExpectedFingerprint;
+	}
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemAiWorldObjectInteractionCommandNow(
+	TacticalEntityId actorId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	TacticalWorldObjectOperation operation) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* actor = ResolveLiveCommandActor(actorId);
+	if (!actor) return InvalidCommandActorResult();
+	if (!IsSelectedAiWorldObjectInteraction(
+			*actor, objectGrid, direction, operation))
+		return InvalidCommandDomainResult();
+
+	SystemWorldObjectInteractionCommand command{};
+	if (!InitializeSystemWorldObjectInteractionCommand(
+			actorId, objectGrid, structureId, direction, operation,
+			TacticalWorldObjectOrigin::AiAction, command))
+		return InvalidCommandDomainResult();
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemPathWorldObjectInteractionCommandNow(
+	TacticalEntityId actorId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* actor = ResolveLiveCommandActor(actorId);
+	if (!actor) return InvalidCommandActorResult();
+	if (actor->pathing().pathSize() == 0 ||
+		actor->pathing().pathSize() > MAX_PATH_LIST_SIZE ||
+		actor->pathing().pathIndex() >= actor->pathing().pathSize() ||
+		actor->pathing().path()[actor->pathing().pathIndex()] != direction ||
+		actor->movement().mode() >= NUMANIMATIONSTATES ||
+		(gAnimControl[actor->movement().mode()].uiFlags & ANIM_MOVING) == 0 ||
+		TileIsOutOfBounds(actor->pathing().finalDestinationGrid()))
+		return InvalidCommandDomainResult();
+	if ((direction != NORTH && direction != EAST &&
+		 direction != SOUTH && direction != WEST) ||
+		objectGrid !=
+			(direction == NORTH || direction == WEST
+				? NewGridNo(
+					actor->position().gridNo(), DirectionInc(direction))
+				: actor->position().gridNo()))
+		return InvalidCommandDomainResult();
+	STRUCTURE* structure = ResolveLiveWorldObject(
+		TacticalWorldObjectId{objectGrid, structureId});
+	if (!structure) return InvalidCommandDomainResult();
+	const TacticalWorldObjectOperation operation =
+		(structure->fFlags & STRUCTURE_OPEN) != 0
+			? TacticalWorldObjectOperation::Close
+			: TacticalWorldObjectOperation::Open;
+	SystemWorldObjectInteractionCommand command{};
+	if (!InitializeSystemWorldObjectInteractionCommand(
+			actorId, objectGrid, structureId, direction, operation,
+			TacticalWorldObjectOrigin::PathTraversal, command))
+		return InvalidCommandDomainResult();
+	command.expectedDestinationGrid =
+		actor->pathing().finalDestinationGrid();
+	command.movementMode = actor->movement().mode();
+	command.expectedPathIndex = actor->pathing().pathIndex();
+	command.expectedPathSize = actor->pathing().pathSize();
+	command.expectedPathDirection = direction;
+	if (actor->roster().team() != gbPlayerNum ||
+		gTacticalStatus.fAutoBandageMode ||
+		(actor->status().flags() & SOLDIER_PCUNDERAICONTROL) != 0)
+		command.continuation =
+			TacticalWorldObjectContinuation::ResumePathAndCloseDoor;
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemPendingWorldObjectInteractionCommandNow(
+	TacticalEntityId actorId) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* actor = ResolveLiveCommandActor(actorId);
+	if (!actor) return InvalidCommandActorResult();
+	if (actor->pendingAction().action() != MERC_OPENDOOR &&
+		actor->pendingAction().action() != MERC_OPENSTRUCT)
+		return InvalidCommandDomainResult();
+	const std::int32_t objectGrid =
+		actor->pendingAction().secondaryData();
+	const std::uint32_t rawStructureId =
+		actor->pendingAction().primaryData();
+	const std::int8_t rawDirection =
+		actor->pendingAction().tertiaryData();
+	if (rawStructureId > std::numeric_limits<std::uint16_t>::max() ||
+		rawDirection < 0 || rawDirection >= TacticalDirectionCount)
+		return InvalidCommandDomainResult();
+	const auto structureId = static_cast<std::uint16_t>(rawStructureId);
+	const auto direction = static_cast<std::uint8_t>(rawDirection);
+	STRUCTURE* structure = ResolveLiveWorldObject(
+		TacticalWorldObjectId{objectGrid, structureId});
+	if (!structure) return InvalidCommandDomainResult();
+	const TacticalWorldObjectOperation operation =
+		(structure->fFlags & STRUCTURE_OPEN) != 0
+			? TacticalWorldObjectOperation::Close
+			: TacticalWorldObjectOperation::Open;
+	SystemWorldObjectInteractionCommand command{};
+	if (!InitializeSystemWorldObjectInteractionCommand(
+			actorId, objectGrid, structureId, direction, operation,
+			TacticalWorldObjectOrigin::PendingAction, command))
+		return InvalidCommandDomainResult();
+	INT16 actionPointCost = 0;
+	INT16 breathPointCost = 0;
+	if (!CalcInteractiveObjectAPs(
+			actor, objectGrid, structure,
+			&actionPointCost, &breathPointCost) ||
+		!EnoughPoints(
+			actor, actionPointCost, breathPointCost, TRUE))
+		return InvalidCommandDomainResult();
+	command.expectedActionPointCost = actionPointCost;
+	command.expectedBreathPointCost = breathPointCost;
+	return TryDispatchSystemSimulationCommand(
+		SimulationCommand{std::move(command)});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemDialogueWorldObjectInteractionCommandNow(
+	TacticalEntityId actorId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t actionGrid,
+	std::uint16_t movementMode) noexcept
+{
+	if (!actorId.valid()) return InvalidCommandActorResult();
+	TacticalActor* actor = ResolveLiveCommandActor(actorId);
+	if (!actor) return InvalidCommandActorResult();
+	if (TileIsOutOfBounds(actionGrid)) return InvalidCommandDomainResult();
+	const bool atActionGrid = actor->position().gridNo() == actionGrid;
+	if (!atActionGrid &&
+		(movementMode >= NUMANIMATIONSTATES ||
+		 (gAnimControl[movementMode].uiFlags & ANIM_MOVING) == 0))
+		return InvalidCommandDomainResult();
+	SystemWorldObjectInteractionCommand command{};
+	if (!InitializeSystemWorldObjectInteractionCommand(
+			actorId, objectGrid, structureId, direction,
+			TacticalWorldObjectOperation::Open,
+			TacticalWorldObjectOrigin::Dialogue, command))
+		return InvalidCommandDomainResult();
+	command.expectedDestinationGrid = actionGrid;
+	command.continuation = atActionGrid
+		? TacticalWorldObjectContinuation::MarkDialogueActionPending
+		: TacticalWorldObjectContinuation::MarkDialogueApproachPending;
+	command.movementMode = atActionGrid
+		? TacticalWorldObjectNoExpectedAnimation
+		: movementMode;
+	STRUCTURE* structure = ResolveLiveWorldObject(command.object);
+	STRUCTURE* base = structure ? FindBaseStructure(structure) : nullptr;
+	command.unlockBeforeInteraction =
+		base && FindDoorInfoAtGridNo(base->sGridNo);
 	return TryDispatchSystemSimulationCommand(
 		SimulationCommand{std::move(command)});
 }

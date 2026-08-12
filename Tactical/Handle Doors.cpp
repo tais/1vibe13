@@ -308,6 +308,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 {
 	STRUCTURE *			pBaseStructure;
 	BOOLEAN					fDoMenu = FALSE;
+	BOOLEAN					fCompletionPending = FALSE;
 	DOOR		*				pDoor = NULL;
 	DOOR_STATUS *		pDoorStatus;
 	BOOLEAN		 fTrapsFound = FALSE;
@@ -315,6 +316,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 	pBaseStructure = FindBaseStructure( pStructure );
 	if ( pBaseStructure == NULL )
 	{
+		pSoldier->runtime().worldObject.reset();
 		return;
 	}
 
@@ -365,12 +367,14 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 				// P.S. I don't think it's even possible for opened structures to be trapped to begin with.
 				//InitDoorOpenMenu( pSoldier, pStructure, ubDirection, TRUE );
 				TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
+				fCompletionPending = TRUE;
 			}
 		}
 		else
 		{
 			// Easily close door....
 			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
+			fCompletionPending = TRUE;
 		}
 	}
 	else
@@ -411,10 +415,12 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		  if (gTacticalStatus.fAutoBandageMode)
 		  {
 			  AttemptToUnlockDoor( pSoldier, pDoor);
+			  pSoldier->runtime().worldObject.reset();
 			  return;
 		  }
 
-			InitDoorOpenMenu( pSoldier, pStructure, ubDirection, FALSE );
+			fCompletionPending = InitDoorOpenMenu(
+				pSoldier, pStructure, ubDirection, FALSE );
 		}
 		else
 		{
@@ -426,8 +432,14 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 			pSoldier->pendingAction().doorHandleCode() = HANDLE_DOOR_OPEN;
 
 			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, OPEN_DOOR ), 0, FALSE );
+			fCompletionPending = TRUE;
 		}
 	}
+
+	// Trap discovery, an unavailable menu, and other no-animation exits have no
+	// keyframe that could consume the retained command owner.
+	if ( !fCompletionPending )
+		pSoldier->runtime().worldObject.reset();
 
 }
 
@@ -481,6 +493,10 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 	BOOLEAN	fDoor	 = FALSE;
 	const CampaignDoorPolicy campaignPolicy(
 		GetGameContext().capabilities());
+	const BOOLEAN replicateCommandCompletion =
+		pSoldier->runtime().worldObject.completeDoorChange(
+			pSoldier->identity().incarnation(), sGridNo,
+			pStructure ? pStructure->usStructureID : 0);
 
 	// Are we a door?
 	if (pStructure->fFlags & STRUCTURE_ANYDOOR)
@@ -1011,7 +1027,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 				// WANNE - MP: General Info!
 				// If pure client calls "send_door" also the method "receive_door" (client.cpp) gets called
 				// If server calls "send_door", the method "receive_door" on the server doest not get called.
-				if(is_client)
+				if(is_client && replicateCommandCompletion)
 					send_door( pSoldier, sGridNo, FALSE );
 			}
 			else

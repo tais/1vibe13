@@ -220,13 +220,26 @@ host nodes.
 JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
 as `ja2.tactical-commands` before package bootstrap, validates application
 domains at its safe simulation boundary, and drains only a configured prefix.
-The current command vocabulary includes pointer-free world-object activation
-and approach, stable conversation and vehicle-entry targets, typed roof, fence,
+The current command vocabulary includes pointer-free player world-object
+activation/approach and retained System/Replay automatic world-object
+interaction, stable conversation and vehicle-entry targets, typed roof, fence,
 wall, and window traversal, and player weapon-mode, scope-mode, reload,
 ready/lower, turn, stance, fire, movement, facing, stealth, stop-movement,
 drag cancellation, stealing, position exchange, and world-item pickup intent.
 An approach combines movement with its pending interaction so command pressure
 cannot apply one without the other.
+
+`SystemWorldObjectInteractionCommand` is the automatic counterpart, not a
+player request. AI, path traversal, pending-action completion, and dialogue NPC
+opening carry separate origins and closed continuation shapes. Package and replay
+hosts see only values: exact actor/object identities, selected operation, route
+and point-cost preconditions where applicable, deterministic state fingerprints,
+and event policy. The portable reference simulation deliberately discards this
+JA2 structure/animation policy. Only a newly produced command may retain peer
+replication for its later animation keyframe: local player and System work keep
+that legacy behavior through any selected AI/path continuation. Replay, and a
+shared player-object command carrying peer provenance, always complete locally
+without door, path, or stop reflection.
 
 `SimulationCommandExecutor` is the host-owned execution boundary beneath that
 value stream. It receives the exact command plus deterministic tick and

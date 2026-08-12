@@ -658,10 +658,38 @@ the engine must not contain SDL types in its public domain model.
   mechanics inside `TacticalActorTraversal` and the route engine; they are not
   parallel command producers. No save, map, item, XML, Lua, installed-content,
   or RakNet packet format changes.
-  Two named command gaps remain, in increasing coupling order: automatic and
-  pathfinding door handling, and non-positional dialogue effects. Each remains
-  a local mechanic until its distinct event policy and value result are modeled
-  rather than masquerading as player intent.
+  The exact seven remaining `StartInteractiveObject`/
+  `InteractWithInteractiveObject` calls in tactical AI, movement-overhead, and
+  dialogue-driven NPC opening now enter one
+  `SystemWorldObjectInteractionCommand`. Its four origins distinguish selected
+  AI open/close/unlock/lock work, a route encountering a door, delayed pending
+  interaction completion, and NPC dialogue opening/approach. The value captures
+  exact actor incarnation and structure grid/ID, selected operation, direction,
+  animation, route cursor/destination where present, pending-action AP/breath
+  costs, deterministic actor/structure/lock/status fingerprints, continuation,
+  and outbound event policy. All identity, state, route, cost, busy-door, and
+  selected-result checks finish before the first mutation. Playback executes
+  with `Replay` provenance and queued Replay is detected at recursive overhead
+  producer sites, so neither path nor pending completion synthesizes a duplicate.
+  Door animation keyframes remain compatibility mechanics; their actor-local
+  owner is bound to the actor incarnation plus structure identity and carries
+  provenance through the door-change keyframe and, when selected, the later AI
+  action or path-resumption boundary. It resets on completed continuation,
+  missing or mismatched structure, no-op/cancelled schedule work,
+  cancelled/unavailable door menus, route/action cancellation, or actor-runtime
+  reset. Existing
+  player activation/approach commands bind that same owner before their shared
+  pending-action continuation, retaining their original local-versus-replayed
+  event provenance.
+  Consequently a replayed delayed completion cannot emit `send_door`,
+  `send_path`, or its AI completion stop.
+  This slice does not claim lower-level action-item door changes, militia route
+  requests, door-menu choices, animation keyframes, schedule discovery, or
+  non-positional dialogue effects. No save, map, item, XML, Lua, installed-content,
+  or RakNet packet format changes; replay tag 30 extends the one unshipped
+  current command-journal layout.
+  One named command gap remains: non-positional dialogue effects. It remains a
+  local mechanic until its distinct value result is modeled.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded

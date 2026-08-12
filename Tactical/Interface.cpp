@@ -3814,6 +3814,12 @@ BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 
 	HandleTacticalUI( );
 
 	PopupDoorOpenMenu( fClosingDoor );
+	if ( !gfInOpenDoorMenu )
+	{
+		pSoldier->runtime().worldObject.reset();
+		gOpenDoorMenu.pSoldier = NULL;
+		return( FALSE );
+	}
 
 	return( TRUE );
 }
@@ -4100,6 +4106,12 @@ void PopDownOpenDoorMenu( )
 {
 	if ( gfInOpenDoorMenu )
 	{
+		// A chosen action consumes this at its animation keyframe. Cancellation
+		// has no completion, so it must release the exact replay/replication
+		// owner here. Other forced teardown is handled by route/action reset.
+		if ( gOpenDoorMenu.fMenuHandled != TRUE &&
+			gOpenDoorMenu.pSoldier )
+			gOpenDoorMenu.pSoldier->runtime().worldObject.reset();
 		UnLockPauseState();
 		UnPauseGame();
 		// UnPause timers as well....
@@ -4129,6 +4141,7 @@ void PopDownOpenDoorMenu( )
 	}
 
 	gfInOpenDoorMenu = FALSE;
+	gOpenDoorMenu.pSoldier = NULL;
 
 }
 

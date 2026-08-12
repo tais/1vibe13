@@ -1369,6 +1369,9 @@ void FreeUpNPCFromRoofClimb(TacticalActor *pSoldier )
 
 void ActionDone(TacticalActor *pSoldier, BOOLEAN fReplicateStop)
 {
+	if (pSoldier->runtime().worldObject.active())
+		fReplicateStop = pSoldier->runtime().worldObject.
+			consumeActorActionCompletionReplication(fReplicateStop);
 	// if an action is currently selected
 	if (pSoldier->aiPlanning().action() != AI_ACTION_NONE)
 	{
@@ -2575,10 +2578,40 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
                     }
 #endif
                     EndAIGuysTurn( pSoldier );
+					return FALSE;
                 }
 
-                StartInteractiveObject( sDoorGridNo, pStructure->usStructureID, pSoldier, ubDirection );
-                InteractWithInteractiveObject( pSoldier, pStructure, ubDirection );
+				const TacticalEntityId actor =
+					GetJa2TacticalEntityId( *pSoldier );
+				if ( HasPendingReplayWorldObjectInteractionCommand(
+						actor, TacticalWorldObjectOrigin::AiAction ) )
+					break;
+				TacticalWorldObjectOperation operation =
+					(pStructure->fFlags & STRUCTURE_OPEN)
+						? TacticalWorldObjectOperation::Close
+						: TacticalWorldObjectOperation::Open;
+				if ( pSoldier->aiPlanning().action() ==
+					AI_ACTION_UNLOCK_DOOR )
+					operation = TacticalWorldObjectOperation::Unlock;
+				else if ( pSoldier->aiPlanning().action() ==
+					AI_ACTION_LOCK_DOOR )
+					operation =
+						(pSoldier->aiBehavior().flags() &
+						 AI_LOCK_DOOR_INCLUDES_CLOSE)
+							? TacticalWorldObjectOperation::Close
+							: TacticalWorldObjectOperation::Lock;
+				const SimulationCommandDispatchResult interaction =
+					TryDispatchSystemAiWorldObjectInteractionCommandNow(
+						actor, sDoorGridNo, pStructure->usStructureID,
+						ubDirection, operation );
+				if ( !interaction.accepted() )
+				{
+					DebugAI(AI_MSG_INFO, pSoldier,
+						String("CancelAIAction: door command rejected"));
+					CancelAIAction( pSoldier, FORCE );
+					EndAIGuysTurn( pSoldier );
+					return FALSE;
+				}
             }
             break;
 

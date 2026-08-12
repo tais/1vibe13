@@ -10735,9 +10735,9 @@ foreach(traversal_document IN ITEMS
   endforeach()
 endforeach()
 
-# Mouse-driven door, switch, and openable-structure intent is a public
-# pointer-free command. Animation completion, AI movement, dialogue scripting,
-# and automatic door handling remain internal legacy mechanics.
+# Mouse-driven and automatic door/switch/openable-structure intent use public
+# pointer-free commands. Only the compatibility executor may call the legacy
+# begin/interaction pair; animation keyframes stay internal mechanics.
 file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   player_world_object_contents)
 string(REGEX MATCH
@@ -10747,6 +10747,156 @@ if(direct_player_world_object_call)
   message(FATAL_ERROR
     "Player world-object interaction bypasses SimulationCommand in Tactical/Handle UI.cpp")
 endif()
+
+set(system_world_object_producers
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp")
+foreach(system_world_object_producer IN LISTS system_world_object_producers)
+  read_cxx_executable("${system_world_object_producer}"
+    system_world_object_producer_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(StartInteractiveObject|InteractWithInteractiveObject)[ \t\r\n]*\\("
+    direct_system_world_object_call
+    "${system_world_object_producer_contents}")
+  if(direct_system_world_object_call)
+    message(FATAL_ERROR
+      "Automatic world-object interaction bypasses SimulationCommand in ${system_world_object_producer}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  system_world_object_executor_contents)
+foreach(required_system_world_object_executor_marker IN ITEMS
+    "TryDispatchSystemAiWorldObjectInteractionCommandNow"
+    "TryDispatchSystemPathWorldObjectInteractionCommandNow"
+    "TryDispatchSystemPendingWorldObjectInteractionCommandNow"
+    "TryDispatchSystemDialogueWorldObjectInteractionCommandNow"
+    "CaptureWorldObjectActorStateFingerprint"
+    "CaptureWorldObjectFingerprint"
+    "HasPendingReplayWorldObjectInteractionCommand"
+    "ShouldReplicateWorldObjectCompletion")
+  string(FIND "${system_world_object_executor_contents}"
+    "${required_system_world_object_executor_marker}"
+    required_system_world_object_executor_marker_index)
+  if(required_system_world_object_executor_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Automatic world-object command lost '${required_system_world_object_executor_marker}'")
+  endif()
+endforeach()
+
+foreach(system_world_object_test_manifest IN ITEMS
+    "${SOURCE_ROOT}/tests/CMakeLists.txt"
+    "${SOURCE_ROOT}/.github/workflows/build_unix.yml")
+  file(READ "${system_world_object_test_manifest}"
+    system_world_object_test_manifest_contents)
+  string(FIND "${system_world_object_test_manifest_contents}"
+    "simulation_command_world_object_model_tests"
+    system_world_object_test_manifest_index)
+  if(system_world_object_test_manifest_index EQUAL -1)
+    message(FATAL_ERROR
+      "Automatic world-object model target is missing from ${system_world_object_test_manifest}")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/tests/simulation_command_world_object_model_tests.cpp"
+  system_world_object_model_executable)
+foreach(required_system_world_object_model_marker IN ITEMS
+    "const std::vector<std::uint8_t> expectedWire"
+    "encoded == expectedWire"
+    "SameCommand"
+    "legalCommands.size() == 28"
+    "sentinel[0].tick == decoded[0].tick"
+    "stageRecordedPlaybackBatch"
+    "ShouldReplicateWorldObjectCompletion"
+    "reference.snapshot() == referenceState")
+  string(FIND "${system_world_object_model_executable}"
+    "${required_system_world_object_model_marker}"
+    required_system_world_object_model_marker_index)
+  if(required_system_world_object_model_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Automatic world-object model lost '${required_system_world_object_model_marker}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  system_world_object_headless_executable)
+foreach(required_system_world_object_headless_marker IN ITEMS
+    "retainedDoorRejectedChangedStructure"
+    "expectedObjectFingerprint"
+    "pendingReplaySuppressesAutomaticDoorProducer"
+    "replayDoorCompletionLocalOnly"
+    "localActorCompletionStillReleasesOwner"
+    "replayPathContinuationLocalOnly"
+    "staleReplayDoorCompletionLocalOnly"
+    "unownedDoorCompletionKeepsLegacyReplication"
+    "reused actor slots do not inherit")
+  string(FIND "${system_world_object_headless_executable}"
+    "${required_system_world_object_headless_marker}"
+    required_system_world_object_headless_marker_index)
+  if(required_system_world_object_headless_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Automatic world-object headless coverage lost '${required_system_world_object_headless_marker}'")
+  endif()
+endforeach()
+
+set(system_world_object_lifecycle_files
+    "${SOURCE_ROOT}/Tactical/Handle Doors.cpp"
+    "${SOURCE_ROOT}/Tactical/Interface.cpp"
+    "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.cpp"
+    "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+    "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+    "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
+    "${SOURCE_ROOT}/TileEngine/Interactive Tiles.cpp")
+set(system_world_object_lifecycle_markers
+    "completeDoorChange"
+    "worldObject.reset()"
+    "worldObject.reset()"
+    "consumeActorActionCompletionReplication(fReplicateStop)"
+    "consumePathContinuationReplication"
+    "worldObject.reset()"
+    "worldObject.reset()")
+list(LENGTH system_world_object_lifecycle_files
+  system_world_object_lifecycle_count)
+math(EXPR system_world_object_lifecycle_last
+  "${system_world_object_lifecycle_count} - 1")
+foreach(system_world_object_lifecycle_index RANGE
+    ${system_world_object_lifecycle_last})
+  list(GET system_world_object_lifecycle_files
+    ${system_world_object_lifecycle_index}
+    system_world_object_lifecycle_file)
+  list(GET system_world_object_lifecycle_markers
+    ${system_world_object_lifecycle_index}
+    system_world_object_lifecycle_marker)
+  file(READ "${system_world_object_lifecycle_file}"
+    system_world_object_lifecycle_contents)
+  string(FIND "${system_world_object_lifecycle_contents}"
+    "${system_world_object_lifecycle_marker}"
+    system_world_object_lifecycle_reset_index)
+  if(system_world_object_lifecycle_reset_index EQUAL -1)
+    message(FATAL_ERROR
+      "Automatic world-object lifecycle marker '${system_world_object_lifecycle_marker}' is missing from ${system_world_object_lifecycle_file}")
+  endif()
+endforeach()
+
+foreach(system_world_object_document IN ITEMS
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${system_world_object_document}"
+    system_world_object_document_contents)
+  foreach(system_world_object_document_marker IN ITEMS
+      "SystemWorldObjectInteractionCommand"
+      "Replay")
+    string(FIND "${system_world_object_document_contents}"
+      "${system_world_object_document_marker}"
+      system_world_object_document_marker_index)
+    if(system_world_object_document_marker_index EQUAL -1)
+      message(FATAL_ERROR
+        "Automatic world-object contract lost '${system_world_object_document_marker}' in ${system_world_object_document}")
+    endif()
+  endforeach()
+endforeach()
 
 # Player conversation and vehicle-entry targets are stable tactical entity
 # identities. In particular, delayed movement must not retain only a reusable

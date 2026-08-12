@@ -50,6 +50,10 @@ enum class SimulationCommandDomainError
 	InvalidTraversalContinuation,
 	InvalidTraversalPrecondition,
 	InvalidObjectGrid,
+	InvalidWorldObjectOperation,
+	InvalidWorldObjectOrigin,
+	InvalidWorldObjectContinuation,
+	InvalidWorldObjectPrecondition,
 	InvalidTargetActor,
 	InvalidVehicleSeat,
 	InvalidWorldItem,
@@ -181,6 +185,9 @@ SimulationCommandDispatchResult TryDispatchSystemSimulationCommand(
 bool IsReplaySimulationCommandExecutionActive() noexcept;
 bool HasPendingReplayPathTraversalCommand(
 	TacticalEntityId actor) noexcept;
+bool HasPendingReplayWorldObjectInteractionCommand(
+	TacticalEntityId actor,
+	TacticalWorldObjectOrigin origin) noexcept;
 
 SimulationCommandDispatchResult TryDispatchSystemChangeStanceCommand(
 	TacticalEntityId actor,
@@ -237,6 +244,34 @@ SimulationCommandDispatchResult
 TryDispatchSystemPathTraverseObstacleCommandNow(
 	TacticalEntityId actor,
 	std::uint16_t movementAnimationState) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemAiWorldObjectInteractionCommandNow(
+	TacticalEntityId actor,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	TacticalWorldObjectOperation operation) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemPathWorldObjectInteractionCommandNow(
+	TacticalEntityId actor,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemPendingWorldObjectInteractionCommandNow(
+	TacticalEntityId actor) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemDialogueWorldObjectInteractionCommandNow(
+	TacticalEntityId actor,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t actionGrid,
+	std::uint16_t movementMode) noexcept;
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,

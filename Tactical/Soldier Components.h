@@ -3482,12 +3482,140 @@ struct SoldierTraversalRuntimeState
 	void reset() noexcept { replicateRoofCompletion = TRUE; }
 };
 
+enum class SoldierWorldObjectContinuationOwner : UINT8
+{
+	None = 0,
+	ActorAction = 1,
+	PathRoute = 2
+};
+
+struct SoldierWorldObjectRuntimeState
+{
+	// Door state changes occur at animation keyframes, while AI completion or
+	// route resumption can occur at a later animation boundary. Keep the command's
+	// outbound policy with that exact pending structure through both stages.
+	BOOLEAN replicateCompletion = TRUE;
+	UINT32 interactionIncarnation = 0;
+	INT32 grid = -1;
+	UINT16 structureId = 0;
+	SoldierWorldObjectContinuationOwner continuationOwner =
+		SoldierWorldObjectContinuationOwner::None;
+	BOOLEAN doorChangePending = FALSE;
+
+	bool active() const noexcept { return interactionIncarnation != 0; }
+	UINT32 actorIncarnation() const noexcept
+	{
+		return interactionIncarnation;
+	}
+	INT32 objectGrid() const noexcept { return grid; }
+	UINT16 objectStructureId() const noexcept { return structureId; }
+	SoldierWorldObjectContinuationOwner owner() const noexcept
+	{
+		return continuationOwner;
+	}
+	bool awaitsDoorChange() const noexcept
+	{
+		return doorChangePending != FALSE;
+	}
+
+	void begin(
+		bool replicate,
+		UINT32 actorIncarnation,
+		INT32 objectGrid,
+		UINT16 objectStructureId,
+		SoldierWorldObjectContinuationOwner owner =
+			SoldierWorldObjectContinuationOwner::None) noexcept
+	{
+		replicateCompletion = replicate ? TRUE : FALSE;
+		interactionIncarnation = actorIncarnation;
+		grid = objectGrid;
+		structureId = objectStructureId;
+		continuationOwner = owner;
+		doorChangePending = TRUE;
+	}
+
+	bool matches(
+		UINT32 actorIncarnation,
+		INT32 objectGrid,
+		UINT16 objectStructureId) const noexcept
+	{
+		return interactionIncarnation != 0 &&
+			interactionIncarnation == actorIncarnation &&
+			grid == objectGrid && structureId == objectStructureId;
+	}
+
+	BOOLEAN completeDoorChange(
+		UINT32 actorIncarnation,
+		INT32 objectGrid,
+		UINT16 objectStructureId) noexcept
+	{
+		if (!active()) return TRUE;
+		if (!matches(actorIncarnation, objectGrid, objectStructureId))
+		{
+			reset();
+			return FALSE;
+		}
+		const BOOLEAN replicate = replicateCompletion;
+		doorChangePending = FALSE;
+		if (continuationOwner ==
+			SoldierWorldObjectContinuationOwner::None)
+			reset();
+		return replicate;
+	}
+
+	BOOLEAN consumeActorActionCompletionReplication(
+		BOOLEAN requestedReplication = TRUE) noexcept
+	{
+		if (!active()) return requestedReplication;
+		// Release the owner even when the caller already suppressed its stop;
+		// combining at the call site with && would strand this continuation.
+		const BOOLEAN replicate = continuationOwner !=
+			SoldierWorldObjectContinuationOwner::PathRoute
+				? replicateCompletion
+				: FALSE;
+		reset();
+		return requestedReplication && replicate;
+	}
+
+	BOOLEAN consumePathContinuationReplication() noexcept
+	{
+		return consumeContinuation(
+			SoldierWorldObjectContinuationOwner::PathRoute, true);
+	}
+
+	void reset() noexcept
+	{
+		replicateCompletion = TRUE;
+		interactionIncarnation = 0;
+		grid = -1;
+		structureId = 0;
+		continuationOwner = SoldierWorldObjectContinuationOwner::None;
+		doorChangePending = FALSE;
+	}
+
+private:
+	BOOLEAN consumeContinuation(
+		SoldierWorldObjectContinuationOwner expectedOwner,
+		bool requireDoorChange) noexcept
+	{
+		if (!active()) return TRUE;
+		const BOOLEAN replicate =
+			continuationOwner == expectedOwner &&
+			(!requireDoorChange || doorChangePending == FALSE)
+				? replicateCompletion
+				: FALSE;
+		reset();
+		return replicate;
+	}
+};
+
 struct SoldierRuntimeComponents
 {
 	SoldierPendingActionRuntimeState pendingAction;
 	SoldierCombatFeedbackState combatFeedback;
 	SoldierQuickItemRuntimeState quickItem;
 	SoldierTraversalRuntimeState traversal;
+	SoldierWorldObjectRuntimeState worldObject;
 
 	SoldierRuntimeComponents() = default;
 
@@ -3508,6 +3636,7 @@ struct SoldierRuntimeComponents
 		combatFeedback.reset();
 		quickItem.reset();
 		traversal.reset();
+		worldObject.reset();
 	}
 };
 
