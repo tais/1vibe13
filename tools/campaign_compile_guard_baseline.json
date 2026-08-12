@@ -14,7 +14,7 @@
     "Strategic/Strategic Status.cpp": 1,
     "Strategic/Town Militia.cpp": 1,
     "Strategic/strategic.cpp": 2,
-    "Tactical/Campaign.cpp": 6,
+    "Tactical/Campaign.cpp": 3,
     "Tactical/Faces.cpp": 4,
     "Tactical/Handle Items.cpp": 3,
     "Tactical/Items.cpp": 2,
@@ -28,5 +28,5 @@
     "TacticalAI/NPC.cpp": 4
   },
   "schema": 1,
-  "total": 70
+  "total": 67
 }

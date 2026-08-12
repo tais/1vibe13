@@ -37,11 +37,13 @@
 	#include "Strategic AI.h"
 	#include "interface Dialogue.h"
 	#include "DynamicDialogue.h"
+#include "CampaignProgressPolicy.h"
+#include "GameContext.h"
+#include "Ja25 Strategic Ai.h"
 #include "email.h"
 #include "mercs.h"
 
 #ifdef JA2UB
-#include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
 #endif
 
@@ -1393,11 +1395,20 @@ void HandleUnhiredMercDeaths( INT32 iProfileID )
 // returns a number between 0-100, this is an estimate of how far a player has progressed through the game
 UINT8 CurrentPlayerProgressPercentage(void)
 {
-#ifdef JA2UB
-	INT8	bFurthestSectorPlayerOwns=-1; //JA25 UB
-	UINT8 ubCurrentProgress;
-#else
-	
+	const CampaignProgressPolicy progressPolicy(
+		GetGameContext().capabilities());
+	if (progressPolicy.usesUnfinishedBusinessProgress())
+	{
+		// Keep the UB-only strategic-AI state behind the runtime campaign gate.
+		const INT8 furthestSectorPlayerOwns =
+			GetTheFurthestSectorPlayerOwns();
+		return progressPolicy.unfinishedBusinessProgress(
+			furthestSectorPlayerOwns);
+	}
+
+	if( gfEditMode )
+		return 0;
+
 	UINT32 uiCurrentIncome;
 	UINT32 uiPossibleIncome;
 	UINT16 usCurrentProgress;
@@ -1415,131 +1426,6 @@ UINT8 CurrentPlayerProgressPercentage(void)
 	UINT16 usMaxIncomeProgress;
 	UINT16 usMaxControlProgress;
 	UINT16 usMaxVisitProgress;
-#endif
-
-#ifdef JA2UB	
-	//Get the furthest sector the player owns
-	bFurthestSectorPlayerOwns = GetTheFurthestSectorPlayerOwns();
-	//JA25 UB
-	switch( bFurthestSectorPlayerOwns )
-	{
-		//initial sector
-		case SEC_H7:
-			ubCurrentProgress = 44;
-			break;
-
-		case SEC_H8:
-			ubCurrentProgress = 45;
-			break;
-
-		//guard post
-		case SEC_H9:
-			ubCurrentProgress = 55;
-			break;
-
-		//field
-		case SEC_H10:
-			ubCurrentProgress = 58;
-			break;
-
-		//field
-		case SEC_I9:
-			ubCurrentProgress = 60;
-			break;
-
-		//first part of town
-		case SEC_I10:
-			ubCurrentProgress = 63;
-			break;
-
-		//second part of town
-		case SEC_I11:
-			ubCurrentProgress = 65;
-			break;
-
-		//field
-		case SEC_I12:
-			ubCurrentProgress = 68;
-			break;
-
-		//Abondoned mine
-		case SEC_I13:
-			ubCurrentProgress = 70;
-			break;
-
-		// cave under abondoned mine
-/*	case SEC_I13_1:
-			ubCurrentProgress = 72;
-			break;
-*/
-		//field
-		case SEC_J11:
-			ubCurrentProgress = 70;
-			break;
-
-		//field
-		case SEC_J12:
-			ubCurrentProgress = 70;
-			break;
-
-		//power gen plant
-		case SEC_J13:
-			ubCurrentProgress = 75;
-			break;
-/*
-			//power gen plant, sub level
-		case JA25_J13_1:
-			ubCurrentProgress = 75;
-			break;
-
-		//first part of tunnel
-		case JA25_J14_1:
-			ubCurrentProgress = 80;
-			break;
-
-		//second part of tunnel
-		case JA25_K14_1:
-			ubCurrentProgress = 82;
-			break;
-
-		//ground level of complex
-		case JA25_K15:
-			ubCurrentProgress = 90;
-			break;
-
-		//initial sector of complex
-		case JA25_K15_1:
-			ubCurrentProgress = 85;
-			break;
-
-		// 2nd level down of complex
-		case JA25_K15_2:
-			ubCurrentProgress = 95;
-			break;
-
-		//2nd last sector
-		case JA25_L15_2:
-			ubCurrentProgress = 98;
-			break;
-
-		//last sector
-		case JA25_L15_3:
-			ubCurrentProgress = 100;
-			break;
-*/
-		default:
-
-			// OK, use percentage complete from map...
-			//Assert( 0 );
-			//ubCurrentProgress = SectorInfo[ bFurthestSectorPlayerOwns ].ubCurrentProgressValue;
-			ubCurrentProgress = 50;
-			break;
-	}
-
-	return(ubCurrentProgress);
-#else
-	if( gfEditMode )
-		return 0;
 
 	// HEADROCK HAM 3: If the alternate progress calculation is used, all four INI settings should be set to 100,
 	// otherwise progress cannot ever reach 100...
@@ -1664,8 +1550,6 @@ UINT8 CurrentPlayerProgressPercentage(void)
 
 
 	return((UINT8)usCurrentProgress);
-	
-#endif
 }
 
 UINT8 HighestPlayerProgressPercentage(void)
@@ -1690,14 +1574,16 @@ void HourlyProgressUpdate(void)
 		// CJC:  note when progress goes above certain values for the first time
 
 		// at 35% start the Madlab quest
-#ifdef JA2UB
-// no UB
-#else
-		if ( ubCurrentProgress >= gGameExternalOptions.ubGameProgressStartMadlabQuest && gStrategicStatus.ubHighestProgress < gGameExternalOptions.ubGameProgressStartMadlabQuest )
+		const CampaignProgressPolicy progressPolicy(
+			GetGameContext().capabilities());
+		if ( !progressPolicy.usesUnfinishedBusinessProgress() &&
+			progressPolicy.shouldStartScientistAwolMeanwhile(
+				ubCurrentProgress,
+				gStrategicStatus.ubHighestProgress,
+				gGameExternalOptions.ubGameProgressStartMadlabQuest ) )
 		{
 			HandleScientistAWOLMeanwhileScene();
 		}
-#endif
 		// at 50% make Mike available to the strategic AI
 		if ( ubCurrentProgress >= gGameExternalOptions.ubGameProgressMikeAvailable && gStrategicStatus.ubHighestProgress < gGameExternalOptions.ubGameProgressMikeAvailable )
 		{

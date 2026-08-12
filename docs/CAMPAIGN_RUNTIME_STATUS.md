@@ -83,6 +83,18 @@ Arulco-only scene state. All eight former `JA2UB` guards across
 `Radar Screen.cpp` are gone without changing RNG, animation order, dialogue
 records, tactical saves, or artwork.
 
+Campaign progress selection and its scientist-AWOL threshold event now use
+`CampaignProgressPolicy`. Arulco retains editor-mode suppression, the complete
+mine/kills/control/visited composite calculation, modifiers, and its Madlab
+meanwhile trigger. UB retains its legacy signed `INT8` strategic-sector key
+lookup and exact fallback behavior; in particular, the later surface-sector
+constants remain outside that signed key domain and therefore still resolve to
+the established 50 percent default. The UB-only strategic-AI probe is behind a
+left-hand runtime campaign gate, so Arulco never reads that state. Three former
+`JA2UB` guards are gone from `Tactical/Campaign.cpp`; UB likewise short-circuits
+the Arulco-only Madlab threshold read. The three remaining guards
+belong to separate dead-merc and M.E.R.C.-level email-content contracts.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -188,13 +200,13 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 70 active conditionals in 26
+milestone its per-file baseline contains 67 active conditionals in 26
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
-| Tactical gameplay/content | 26 |
+| Tactical gameplay/content | 23 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
@@ -227,12 +239,15 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All eleven policies
+`Laptop/IMP Text System.cpp` no longer contribute six more. All twelve policies
 are guarded by data-free tests and named architecture checks, with headless
 integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,
 so the four converted tactical/tile implementations no longer contribute
-eight more guards. The seven remaining
+eight more guards. Campaign progress and its scientist-AWOL threshold use
+`CampaignProgressPolicy`, removing three of the six former guards from
+`Tactical/Campaign.cpp` while leaving the two independent email behaviors for
+their own content-policy slices. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
@@ -250,10 +265,10 @@ The largest individual legacy leaves are:
 | File | Conditionals |
 | --- | ---: |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
+| `Tactical/Campaign.cpp` | 3 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime

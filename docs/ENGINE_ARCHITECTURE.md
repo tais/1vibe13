@@ -1104,6 +1104,19 @@ the engine must not contain SDL types in its public domain model.
   architecture CI prevents the guards or ungated converted calls from
   returning. RNG, animation and dialogue order, records, saves, and artwork
   remain unchanged.
+- Campaign progress and its scientist-AWOL threshold event now use the
+  value-only `CampaignProgressPolicy`. Arulco keeps editor suppression, its
+  complete mine/kills/control/visited calculation, modifiers, and Madlab
+  meanwhile trigger. UB keeps the effective signed `INT8` strategic-sector
+  lookup exactly, including the established 50-percent fallback for later
+  surface-sector constants outside that key domain. The UB-only strategic-AI
+  probe and Arulco-only Madlab threshold read are behind left-hand runtime
+  campaign gates. Three former `JA2UB`
+  guards are gone from `Tactical/Campaign.cpp`; the remaining three are the
+  separate dead-merc and M.E.R.C.-level email-content seams. Dependency-free
+  exhaustive truth tables, live-capability headless coverage, and architecture
+  CI pin the extracted behavior without changing saves, maps, XML, events, or
+  progression tuning.
 - Tactical door behavior now selects through the value-only
   `CampaignDoorPolicy`. The common implementation preserves Arulco's
   boot-door AP charge, ordinary force attempt, and failed-unlock curse

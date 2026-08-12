@@ -918,6 +918,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
@@ -1794,6 +1795,7 @@ foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
     "#include \"CampaignMercenaryPolicy.h\""
+    "#include \"CampaignProgressPolicy.h\""
     "live campaign capabilities drive the tactical and strategic policy follow-throughs")
   string(FIND "${runtime_campaign_follow_through_headless_contents}"
     "${required_campaign_follow_through_headless_fragment}"
@@ -1812,6 +1814,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_map_screen_policy_tests"
     "campaign_meanwhile_policy_tests"
     "campaign_mercenary_policy_tests"
+    "campaign_progress_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
     "${required_campaign_follow_through_ci_target}"
@@ -1828,19 +1831,21 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "70 active conditionals in 26"
+    "67 active conditionals in 26"
     "Laptop content/pages | 4"
-    "Tactical gameplay/content | 26"
+    "Tactical gameplay/content | 23"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
     "CampaignCivilianQuotePolicy"
     "CampaignImpPolicy"
     "CampaignMapScreenPolicy"
+    "CampaignProgressPolicy"
     "Tactical meanwhile-scene follow-through"
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All eleven policies")
+    "All twelve policies"
+    "three remaining guards belong to separate dead-merc")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -1863,6 +1868,9 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "Tactical door behavior now selects through the value-only"
     "The strategic map screen now selects campaign behavior"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
+    "Campaign progress and its scientist-AWOL threshold event now use the"
+    "signed `INT8` strategic-sector lookup exactly"
+    "Three former `JA2UB` guards are gone from `Tactical/Campaign.cpp`"
     "every converted"
     "`AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate"
     "All five former guards in `Interface.cpp`"
@@ -1875,6 +1883,157 @@ foreach(required_campaign_architecture_fragment IN ITEMS
   if(required_campaign_architecture_position EQUAL -1)
     message(FATAL_ERROR
       "Engine architecture lost '${required_campaign_architecture_fragment}'")
+  endif()
+endforeach()
+
+# Current progress and its scientist-AWOL threshold notification select from
+# immutable capabilities. The UB-only strategic-AI probe must remain after the
+# runtime gate, and neither converted function may regain compiled identity.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
+  runtime_campaign_progress_policy_contents)
+foreach(required_campaign_progress_policy_fragment IN ITEMS
+    "class CampaignProgressPolicy"
+    "usesUnfinishedBusinessProgress"
+    "std::int8_t furthestSectorPlayerOwns"
+    "unfinishedBusinessProgress"
+    "shouldStartScientistAwolMeanwhile"
+    "currentProgress > previousHighestProgress"
+    "return 50")
+  string(FIND "${runtime_campaign_progress_policy_contents}"
+    "${required_campaign_progress_policy_fragment}"
+    required_campaign_progress_policy_position)
+  if(required_campaign_progress_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign progress policy lost '${required_campaign_progress_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Campaign.cpp"
+  runtime_campaign_progress_source_contents)
+foreach(required_campaign_progress_source_fragment IN ITEMS
+    "#include \"CampaignProgressPolicy.h\""
+    "#include \"GameContext.h\""
+    "#include \"Ja25 Strategic Ai.h\""
+    "CampaignProgressPolicy progressPolicy("
+    "if (progressPolicy.usesUnfinishedBusinessProgress())"
+    "GetTheFurthestSectorPlayerOwns()"
+    "progressPolicy.unfinishedBusinessProgress("
+    "if ( !progressPolicy.usesUnfinishedBusinessProgress() &&"
+    "progressPolicy.shouldStartScientistAwolMeanwhile("
+    "HandleScientistAWOLMeanwhileScene()")
+  string(FIND "${runtime_campaign_progress_source_contents}"
+    "${required_campaign_progress_source_fragment}"
+    required_campaign_progress_source_position)
+  if(required_campaign_progress_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign progress routing lost '${required_campaign_progress_source_fragment}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+  runtime_campaign_progress_remaining_guards
+  "${runtime_campaign_progress_source_contents}")
+list(LENGTH runtime_campaign_progress_remaining_guards
+  runtime_campaign_progress_remaining_guard_count)
+if(runtime_campaign_progress_remaining_guard_count GREATER 3)
+  message(FATAL_ERROR
+    "Tactical/Campaign.cpp regained a JA2UB guard after the progress extraction")
+endif()
+
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "UINT8 CurrentPlayerProgressPercentage(void)"
+  runtime_campaign_current_progress_start)
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "UINT8 HighestPlayerProgressPercentage(void)"
+  runtime_campaign_current_progress_end)
+if(runtime_campaign_current_progress_start EQUAL -1 OR
+    runtime_campaign_current_progress_end EQUAL -1 OR
+    NOT runtime_campaign_current_progress_start LESS
+      runtime_campaign_current_progress_end)
+  message(FATAL_ERROR "Cannot locate the runtime current-progress function")
+endif()
+math(EXPR runtime_campaign_current_progress_length
+  "${runtime_campaign_current_progress_end} - ${runtime_campaign_current_progress_start}")
+string(SUBSTRING "${runtime_campaign_progress_source_contents}"
+  ${runtime_campaign_current_progress_start}
+  ${runtime_campaign_current_progress_length}
+  runtime_campaign_current_progress_region)
+
+string(FIND "${runtime_campaign_current_progress_region}"
+  "if (progressPolicy.usesUnfinishedBusinessProgress())"
+  runtime_campaign_progress_gate_position)
+string(FIND "${runtime_campaign_current_progress_region}"
+  "GetTheFurthestSectorPlayerOwns()"
+  runtime_campaign_progress_probe_position)
+string(FIND "${runtime_campaign_current_progress_region}"
+  "if( gfEditMode )"
+  runtime_campaign_progress_editor_position)
+if(runtime_campaign_progress_gate_position EQUAL -1 OR
+    runtime_campaign_progress_probe_position EQUAL -1 OR
+    runtime_campaign_progress_editor_position EQUAL -1 OR
+    NOT runtime_campaign_progress_gate_position LESS
+      runtime_campaign_progress_probe_position OR
+    NOT runtime_campaign_progress_probe_position LESS
+      runtime_campaign_progress_editor_position)
+  message(FATAL_ERROR
+    "UB strategic progress must be capability-gated before its probe and before Arulco editor suppression")
+endif()
+if(runtime_campaign_current_progress_region MATCHES
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+  message(FATAL_ERROR
+    "CurrentPlayerProgressPercentage regained compiled campaign identity")
+endif()
+
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "void HourlyProgressUpdate(void)"
+  runtime_campaign_hourly_progress_start)
+string(FIND "${runtime_campaign_progress_source_contents}"
+  "void TestDumpStatChanges(void)"
+  runtime_campaign_hourly_progress_end)
+if(runtime_campaign_hourly_progress_start EQUAL -1 OR
+    runtime_campaign_hourly_progress_end EQUAL -1 OR
+    NOT runtime_campaign_hourly_progress_start LESS
+      runtime_campaign_hourly_progress_end)
+  message(FATAL_ERROR "Cannot locate the runtime hourly-progress function")
+endif()
+math(EXPR runtime_campaign_hourly_progress_length
+  "${runtime_campaign_hourly_progress_end} - ${runtime_campaign_hourly_progress_start}")
+string(SUBSTRING "${runtime_campaign_progress_source_contents}"
+  ${runtime_campaign_hourly_progress_start}
+  ${runtime_campaign_hourly_progress_length}
+  runtime_campaign_hourly_progress_region)
+if(runtime_campaign_hourly_progress_region MATCHES
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+  message(FATAL_ERROR "HourlyProgressUpdate regained compiled campaign identity")
+endif()
+
+foreach(required_campaign_progress_test_build_fragment IN ITEMS
+    "add_executable(campaign_progress_policy_tests"
+    "campaign_progress_policy_tests.cpp"
+    "add_test(NAME campaign_progress_policy COMMAND campaign_progress_policy_tests)")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_progress_test_build_fragment}"
+    required_campaign_progress_test_build_position)
+  if(required_campaign_progress_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign progress policy lost test manifest '${required_campaign_progress_test_build_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/campaign_progress_policy_tests.cpp"
+  runtime_campaign_progress_policy_test_contents)
+foreach(required_campaign_progress_test_fragment IN ITEMS
+    "Arulco short-circuits the UB-only strategic progress probe"
+    "UB preserves every effective signed legacy progress-key result"
+    "UB short-circuits Arulco's scientist-AWOL threshold read"
+    "scientist-AWOL threshold truth table"
+    "UB never starts Arulco's scientist-AWOL meanwhile scene")
+  string(FIND "${runtime_campaign_progress_policy_test_contents}"
+    "${required_campaign_progress_test_fragment}"
+    required_campaign_progress_test_position)
+  if(required_campaign_progress_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign progress policy tests lost '${required_campaign_progress_test_fragment}'")
   endif()
 endforeach()
 

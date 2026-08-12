@@ -127,6 +127,7 @@
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignMapScreenPolicy.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignProgressPolicy.h"
 #include "GameContext.h"
 #include "GameVersion.h"
 #include "gameloop.h"
@@ -5696,6 +5697,8 @@ int main( int, char** )
 			compiledContext.capabilities());
 		const CampaignMercenaryPolicy mercenaryPolicy(
 			compiledContext.capabilities());
+		const CampaignProgressPolicy progressPolicy(
+			compiledContext.capabilities());
 		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
 			compiledContext.capabilities());
 		CHECK( civilianQuotePolicy.usesUnfinishedBusinessQuoteCatalogue() ==
@@ -5714,6 +5717,8 @@ int main( int, char** )
 		           !unfinishedBusiness &&
 		       mercenaryPolicy.allowsDismissalFromSector(14) ==
 		           !unfinishedBusiness &&
+		       progressPolicy.usesUnfinishedBusinessProgress() ==
+		           unfinishedBusiness &&
 		       communicationsPolicy.sendsInitialArulcoCongratulations() ==
 		           !unfinishedBusiness,
 		       "live campaign capabilities drive the tactical and strategic policy follow-throughs" );
