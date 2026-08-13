@@ -30,7 +30,7 @@ void CallAvailableTeamEnemiesTo( INT32 sGridNo, INT8 bTeam )
 
 	// All enemy teams become aware of a very important "noise" coming from here!
 	// if this team is active
-	if (gTacticalStatus.Team[bTeam].bTeamActive)
+	if (IsTacticalTeamActive( bTeam ))
 	{
 		// if this team is computer-controlled, and isn't the CIVILIAN "team"
 		if (!(gTacticalStatus.Team[bTeam].bHuman) && (bTeam != CIV_TEAM))
@@ -64,7 +64,7 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 
 	// All enemy teams become aware of a very important "noise" coming from here!
 	// if this team is active
-	if (gTacticalStatus.Team[CIV_TEAM].bTeamActive)
+	if (IsTacticalTeamActive( CIV_TEAM ))
 	{
 		// make this team (publicly) aware of the "noise"
 		gsPublicNoiseGridNo[CIV_TEAM] = sGridNo;
@@ -92,7 +92,7 @@ void CallEldinTo( INT32 sGridNo )
 
 	// Eldin becomes aware of a very important "noise" coming from here!
 	// So long as he hasn't already heard a noise a sec ago...
-	if (gTacticalStatus.Team[CIV_TEAM].bTeamActive)
+	if (IsTacticalTeamActive( CIV_TEAM ))
 	{
 		// new situation for Eldin
 		pSoldier = FindSoldierByProfileID( ELDIN, FALSE );

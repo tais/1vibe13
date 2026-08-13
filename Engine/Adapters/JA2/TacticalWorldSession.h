@@ -1,6 +1,8 @@
 #ifndef ENGINE_ADAPTERS_JA2_TACTICAL_WORLD_SESSION_H
 #define ENGINE_ADAPTERS_JA2_TACTICAL_WORLD_SESSION_H
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 
 // Engine-owned identity and location of the currently selected tactical world.
@@ -11,6 +13,8 @@
 class TacticalWorldSession
 {
 public:
+	static constexpr std::size_t TacticalTeamCount = 11;
+
 	struct Sector
 	{
 		std::int16_t x = 0;
@@ -25,6 +29,23 @@ public:
 
 	struct Snapshot
 	{
+		struct TeamPopulation
+		{
+			std::int16_t menInSector = 0;
+			// Retain the complete legacy signed-byte domain at persistence and
+			// compatibility boundaries; gameplay treats every nonzero value as
+			// active and normal transitions publish canonical zero/one values.
+			std::int8_t active = 0;
+
+			friend bool operator==(
+				const TeamPopulation& lhs,
+				const TeamPopulation& rhs) noexcept
+			{
+				return lhs.menInSector == rhs.menInSector &&
+					lhs.active == rhs.active;
+			}
+		};
+
 		struct Turn
 		{
 			bool turnBased = false;
@@ -101,6 +122,7 @@ public:
 		Turn turn;
 		CreatureQuote creatureQuote;
 		Interrupt interrupt;
+		std::array<TeamPopulation, TacticalTeamCount> teamPopulations{};
 	};
 
 	const Snapshot& snapshot() const noexcept { return state_; }
@@ -182,6 +204,33 @@ public:
 	{
 		state_.interrupt = Snapshot::Interrupt{};
 	}
+	const Snapshot::TeamPopulation* teamPopulation(
+		std::size_t team) const noexcept
+	{
+		return team < state_.teamPopulations.size()
+			? &state_.teamPopulations[team]
+			: nullptr;
+	}
+	bool setTeamPopulation(
+		std::size_t team,
+		Snapshot::TeamPopulation population) noexcept
+	{
+		if (team >= state_.teamPopulations.size()) return false;
+		state_.teamPopulations[team] = population;
+		return true;
+	}
+	void resetTeamPopulations() noexcept
+	{
+		state_.teamPopulations = {};
+	}
+	bool addTeamMember(std::size_t team) noexcept;
+	// Returns false for an invalid team. A valid removal reports whether the
+	// legacy count crossed below zero so the application can retain its beta
+	// diagnostic without owning the state transition.
+	bool removeTeamMember(
+		std::size_t team,
+		bool& underflow,
+		std::int16_t& observedCount) noexcept;
 
 	// Preserve the legacy generation sequence: zero is reserved, and wrapping
 	// the unsigned counter starts again at one. A committed world starts with

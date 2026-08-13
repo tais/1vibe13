@@ -52,7 +52,7 @@ int main()
 	session.setPlayerInterruptsDisabled(false);
 	if (!Same(session.snapshot().interrupt, {3, false})) return 4;
 
-	// World lifecycle did not implicitly rewrite either legacy field. Their
+	// World lifecycle did not implicitly rewrite either legacy field. Its
 	// established reset site calls the explicit reset gateway instead.
 	session.commitLoad();
 	session.unload();

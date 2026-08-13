@@ -2061,7 +2061,7 @@ BOOLEAN GuySawEnemy( TacticalActor * pSoldier, UINT8 ubMax )
 
 	for ( ubTeamLoop = 0; ubTeamLoop < MAXTEAMS; ++ubTeamLoop )
 	{
-		if(!gTacticalStatus.Team[ubTeamLoop].bTeamActive)//dnl ch58 070913 skip any inactive teams
+		if(!IsTacticalTeamActive( ubTeamLoop ))//dnl ch58 070913 skip any inactive teams
 			continue;
 
 		if ( gTacticalStatus.Team[ ubTeamLoop ].bSide != pSoldier->roster().side() )
@@ -4907,7 +4907,7 @@ UINT16 CountSeenEnemiesLastTurn( TacticalActor* pSoldier )
 
 	for( ubTeamLoop = 0; ubTeamLoop < MAXTEAMS; ubTeamLoop++ )
 	{
-		if( !gTacticalStatus.Team[ubTeamLoop].bTeamActive )
+		if( !IsTacticalTeamActive( ubTeamLoop ) )
 			continue;
 
 		if( gTacticalStatus.Team[ ubTeamLoop ].bSide != pSoldier->roster().side() )
@@ -5870,12 +5870,12 @@ INT8 KnownPublicLevel(UINT8 bTeam, SoldierID ubOpponentID)
 
 UINT8 ArmyPercentKilled(void)
 {
-	if (gTacticalStatus.Team[ENEMY_TEAM].bMenInSector + gTacticalStatus.ubArmyGuysKilled == 0)
+	if (GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled == 0)
 	{
 		return 0;
 	}
 
-	return 100 * gTacticalStatus.ubArmyGuysKilled / (gTacticalStatus.Team[ENEMY_TEAM].bMenInSector + gTacticalStatus.ubArmyGuysKilled);
+	return 100 * gTacticalStatus.ubArmyGuysKilled / (GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled);
 }
 
 UINT8 TeamPercentKilled(INT8 bTeam)

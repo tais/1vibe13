@@ -670,7 +670,7 @@ INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
 	////////////////////////////////////////////////////////////////////////////
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{
@@ -719,7 +719,7 @@ INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	if ( CAN_CALL( pSoldier ) && (!gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1))
 		{
 			// if there hasn't been a general sighting call sent yet
 
@@ -947,7 +947,7 @@ INT8 CreatureDecideActionBlack( TacticalActor * pSoldier )
 
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{

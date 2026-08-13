@@ -158,7 +158,7 @@ BOOLEAN BloodcatsPresent( void )
 	TacticalActor *pSoldier;
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"BloodcatsPresent");
-	if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
+	if ( IsTacticalTeamActive( CREATURE_TEAM ) == FALSE )
 	{
 		return( FALSE );
 	}
@@ -617,7 +617,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 				break;
 			}
 		}
-		else if (!(gTacticalStatus.Team[ ubTeam ].bTeamActive))
+		else if (!(IsTacticalTeamActive( ubTeam )))
 		{
 			// inactive team, skip to the next one
 			ubTeam++;
@@ -625,7 +625,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 			// skip back to the top, as we are processing another team now.
 			continue;
 		}
-		if ((!(gTacticalStatus.Team[ ubTeam ].bTeamActive))&& is_networked)
+		if ((!(IsTacticalTeamActive( ubTeam )))&& is_networked)
 		{
 			// inactive team, skip to the next one
 			ubTeam++;
@@ -2696,7 +2696,7 @@ void ResolveInterruptsVs( TacticalActor * pSoldier, UINT8 ubInterruptType)
 		for (ubTeam = 0; ubTeam < MAXTEAMS; ubTeam++)
 		{
 			// WDS fix broken interrupts (I hope...)
-			if (/*gTacticalStatus.Team[ubTeam].bTeamActive &&*/ (gTacticalStatus.Team[ubTeam].bSide != pSoldier->roster().side()) && ubTeam != CIV_TEAM)
+			if (/*IsTacticalTeamActive( ubTeam ) &&*/ (gTacticalStatus.Team[ubTeam].bSide != pSoldier->roster().side()) && ubTeam != CIV_TEAM)
 			{
 				for ( ubOpp = gTacticalStatus.Team[ ubTeam ].bFirstID; ubOpp <= gTacticalStatus.Team[ ubTeam ].bLastID; ++ubOpp)
 				{

@@ -610,7 +610,6 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 		if ( is_client && !is_server && (tbTeam > OUR_TEAM && tbTeam < PLAYER_PLAN) && tfPP == 0 )
 		{
 			return NULL; // pure client to not spawn AI unless from server, Hayden.
-			//gTacticalStatus.Team[ tbTeam ].bTeamActive=0;
 		}
 		if ( is_server && tbTeam > OUR_TEAM && tbTeam < PLAYER_PLAN )
 		{

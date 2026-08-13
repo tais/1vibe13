@@ -570,6 +570,7 @@ BOOLEAN InitOverhead( )
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
     soldiers.initializeSlots();
     memset( &gTacticalStatus, 0, sizeof( TacticalStatusType ) );
+    ResetTacticalTeamPopulations();
     ResetJa2TacticalCreatureQuoteState();
     ResetJa2TacticalInterruptState();
     UINT8 maxteams;
@@ -653,7 +654,6 @@ BOOLEAN InitOverhead( )
             gTacticalStatus.Team[ cnt ].bHuman = FALSE;
         }
         gTacticalStatus.Team[ cnt ].ubLastMercToRadio = NOBODY;
-        gTacticalStatus.Team[ cnt ].bTeamActive = FALSE;
         gTacticalStatus.Team[ cnt ].bAwareOfOpposition = FALSE;
 
         // set team values in soldier structures for all who are on this team
@@ -4663,7 +4663,7 @@ void MilitiaChangesSides( )
     // make all the militia change sides
     TacticalActor *pSoldier;
 
-    if ( gTacticalStatus.Team[ MILITIA_TEAM ].bMenInSector == 0 )
+    if ( GetTacticalTeamMenInSector( MILITIA_TEAM ) == 0 )
     {
         return;
     }
@@ -8528,7 +8528,7 @@ BOOLEAN CheckForLosingEndOfBattle( )
             if ( bNumNotOKRealMercs < 4 && bNumNotOKRealMercs > 1 )
             {
                 // Check if any enemies exist....
-                if ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 )
+                if ( GetTacticalTeamMenInSector( ENEMY_TEAM ) > 0 )
                 {
                     //if( GetWorldDay() > STARTDAY_ALLOW_PLAYER_CAPTURE_FOR_RESCUE && !( gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_RESCUE ))
                     {
@@ -10054,6 +10054,35 @@ TacticalActor * FreeUpAttacker( )
     return( ReduceAttackBusyCount( ) );
 }
 
+INT16 GetTacticalTeamMenInSector( INT8 bTeam )
+{
+    if ( bTeam < 0 ) return 0;
+    return static_cast<INT16>(
+        GetJa2TacticalTeamMenInSector( static_cast<std::size_t>( bTeam ) ) );
+}
+
+BOOLEAN IsTacticalTeamActive( INT8 bTeam )
+{
+    if ( bTeam < 0 ) return FALSE;
+    return IsJa2TacticalTeamActive( static_cast<std::size_t>( bTeam ) )
+        ? TRUE : FALSE;
+}
+
+BOOLEAN SetTacticalTeamPopulation(
+    INT8 bTeam, INT16 menInSector, INT8 active )
+{
+    if ( bTeam < 0 ) return FALSE;
+    return SetJa2TacticalTeamPopulation(
+        static_cast<std::size_t>( bTeam ),
+        static_cast<std::int16_t>( menInSector ),
+        active ) ? TRUE : FALSE;
+}
+
+void ResetTacticalTeamPopulations()
+{
+    ResetJa2TacticalTeamPopulations();
+}
+
 
 
 void StopMercAnimation( BOOLEAN fStop )
@@ -10177,12 +10206,9 @@ void AddManToTeam( INT8 bTeam )
     // ATE: If not loading game!
     if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
     {
-        // Increment men in sector number!
-        if (gTacticalStatus.Team[ bTeam ].bMenInSector == 0)
-        {
-            gTacticalStatus.Team[ bTeam ].bTeamActive = TRUE;
-        }
-        gTacticalStatus.Team[ bTeam ].bMenInSector++;
+        // Increment men in sector number and publish activity atomically.
+        (void)AddJa2TacticalTeamMember(
+            static_cast<std::size_t>( bTeam ) );
         if ( bTeam == ENEMY_TEAM )
         {
             gTacticalStatus.bOriginalSizeOfEnemyForce++;
@@ -10195,19 +10221,15 @@ void RemoveManFromTeam( INT8 bTeam )
     // ATE; if not loading game!
     if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
     {
-        // Decrement men in sector number!
-        gTacticalStatus.Team[ bTeam ].bMenInSector--;
-        if (gTacticalStatus.Team[ bTeam ].bMenInSector == 0)
-        {
-            gTacticalStatus.Team[ bTeam ].bTeamActive = FALSE;
-        }
-        else if (gTacticalStatus.Team[ bTeam ].bMenInSector < 0)
+        bool underflow = false;
+		std::int16_t observedCount = 0;
+        (void)RemoveJa2TacticalTeamMember(
+            static_cast<std::size_t>( bTeam ), underflow, observedCount );
+        if (underflow)
         {
 #ifdef JA2BETAVERSION
-            ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Number of people on team %d dropped to %d", bTeam, gTacticalStatus.Team[ bTeam ].bMenInSector );
+            ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Number of people on team %d dropped to %d", bTeam, observedCount );
 #endif
-            // reset!
-            gTacticalStatus.Team[ bTeam ].bMenInSector = 0;
         }
     }
 }
@@ -10372,7 +10394,7 @@ void HandleEndDemoInCreatureLevel( )
 
 void DeathTimerCallback( )
 {
-    if (gTacticalStatus.Team[ CREATURE_TEAM ].bMenInSector > gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector )
+    if (GetTacticalTeamMenInSector( CREATURE_TEAM ) > GetTacticalTeamMenInSector( ENEMY_TEAM ) )
     {
         DoMessageBox( MSG_BOX_BASIC_STYLE, LargeTacticalStr[ LARGESTR_NOONE_LEFT_CAPABLE_OF_BATTLE_AGAINST_CREATURES_STR ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, EndBattleWithUnconsciousGuysCallback, NULL );
     }
@@ -10447,7 +10469,7 @@ BOOLEAN HostileCiviliansPresent( )
 {
     TacticalActor *       pSoldier;
 
-    if ( gTacticalStatus.Team[ CIV_TEAM ].bTeamActive == FALSE )
+    if ( IsTacticalTeamActive( CIV_TEAM ) == FALSE )
     {
         return( FALSE );
     }
@@ -10469,7 +10491,7 @@ BOOLEAN HostileCiviliansWithGunsPresent( )
 {
     TacticalActor *pSoldier;
 
-    if ( gTacticalStatus.Team[ CIV_TEAM ].bTeamActive == FALSE )
+    if ( IsTacticalTeamActive( CIV_TEAM ) == FALSE )
     {
         return( FALSE );
     }
@@ -10495,7 +10517,7 @@ BOOLEAN HostileBloodcatsPresent( )
 {
     TacticalActor *pSoldier;
 
-    if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
+    if ( IsTacticalTeamActive( CREATURE_TEAM ) == FALSE )
     {
         return( FALSE );
     }
@@ -10520,7 +10542,7 @@ BOOLEAN HostileZombiesPresent( )
 {
     TacticalActor *pSoldier;
 
-    if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
+    if ( IsTacticalTeamActive( CREATURE_TEAM ) == FALSE )
     {
         return( FALSE );
     }
@@ -10542,7 +10564,7 @@ BOOLEAN HostileCreaturesPresent()
 {
 	TacticalActor* pSoldier;
 
-	if ( gTacticalStatus.Team[CREATURE_TEAM].bTeamActive == FALSE )
+	if ( IsTacticalTeamActive( CREATURE_TEAM ) == FALSE )
 	{
 		return( FALSE );
 	}
@@ -11149,7 +11171,7 @@ void AttemptToCapturePlayerSoldiers()
     }
 
     // in order for this to work, there must be no militia present, the enemy must not already have offered asked you to surrender, and certain quests may not be active
-    if (!(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && gTacticalStatus.Team[MILITIA_TEAM].bMenInSector == 0)
+    if (!(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && GetTacticalTeamMenInSector( MILITIA_TEAM ) == 0)
     {
         gTacticalStatus.fEnemyFlags |= ENEMY_OFFERED_SURRENDER;
 

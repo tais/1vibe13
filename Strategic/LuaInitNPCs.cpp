@@ -5330,7 +5330,7 @@ static int l_TacticalStatusTeamActive(lua_State* L)
 	{
 		UINT8 team = lua_tointeger(L, 1);
 
-		if (gTacticalStatus.Team[team].bTeamActive)
+		if (IsTacticalTeamActive( team ))
 			Bool = TRUE;
 		else
 			Bool = FALSE;

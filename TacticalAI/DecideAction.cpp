@@ -1903,7 +1903,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 	// if we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	if ( !fCivilian && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
-		(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+		(GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 		// base chance depends on how much new info we have to radio to the others
 		iChance = 5 * WhatIKnowThatPublicDont(pSoldier,FALSE);   // use 5 * for YELLOW alert
@@ -2884,7 +2884,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 			if ((BestThrow.bWeaponIn != NO_SLOT) &&
 				(CalcMaxTossRange(pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE) > TacticalActorVisibility::normalMaximumDistance()) &&
-				(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
+				(GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) &&
 				(gTacticalStatus.ubSpottersCalledForBy == NOBODY))
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("throw not possible, call for spotters!"));
@@ -3004,9 +3004,9 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				// WDS - Fix problem when there is no "best shot" weapon (i.e., BestShot.bWeaponIn == NO_SLOT)
 				if (BestShot.bWeaponIn != NO_SLOT) {
 					OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
-					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY));
+					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: men in sector %d, ubspotters called by %d, nobody %d", GetTacticalTeamMenInSector( pSoldier->roster().team() ), gTacticalStatus.ubSpottersCalledForBy, NOBODY));
 					if (((IsScoped(gun) && GunRange(gun, pSoldier) > TacticalActorVisibility::normalMaximumDistance()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
-						(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
+						(GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) &&
 						(gTacticalStatus.ubSpottersCalledForBy == NOBODY))
 
 					{
@@ -3593,7 +3593,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 	// if we're a computer merc, and we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && !fCivilian && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && !fCivilian && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: checking to radio red alert");
@@ -5221,7 +5221,7 @@ INT16 ubMinAPCost;
 	{
 		if ( pSoldier->roster().team() == ENEMY_TEAM && pSoldier->awareness().visibility() == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
-			if ( gTacticalStatus.Team[ MILITIA_TEAM ].bMenInSector == 0 && gTacticalStatus.Team[ CREATURE_TEAM ].bMenInSector == 0 && NumPCsInSector() < 4 && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector >= NumPCsInSector() * 3 )
+			if ( GetTacticalTeamMenInSector( MILITIA_TEAM ) == 0 && GetTacticalTeamMenInSector( CREATURE_TEAM ) == 0 && NumPCsInSector() < 4 && GetTacticalTeamMenInSector( ENEMY_TEAM ) >= NumPCsInSector() * 3 )
 			{
 				if (gubQuest[QUEST_HELD_IN_ALMA] == QUESTNOTSTARTED || gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED || gubQuest[QUEST_INTERROGATION] == QUESTNOTSTARTED)
 				{
@@ -7120,7 +7120,7 @@ L_NEWAIM:
 	// and we see the location of at least 2 opponents
 	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
 		(pSoldier->awareness().opponentCount() > 1) && !fCivilian &&
-		(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) && !bInDeepWater)
+		(GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) && !bInDeepWater)
 	{
 		// base chance depends on how much new info we have to radio to the others
 		iChance = 25 * WhatIKnowThatPublicDont(pSoldier,TRUE);	// just count them
@@ -7257,7 +7257,7 @@ L_NEWAIM:
 	// RADIO RED ALERT: determine %chance to call others and report contact
 	////////////////////////////////////////////////////////////////////////////
 	DebugAI(AI_MSG_TOPIC, pSoldier, String("[Report contacts]"));
-	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && pSoldier->roster().team() == MILITIA_TEAM && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && pSoldier->roster().team() == MILITIA_TEAM && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 
 		// if there hasn't been an initial RED ALERT yet in this sector
@@ -8025,7 +8025,7 @@ INT8 ArmedVehicleDecideActionYellow( TacticalActor *pSoldier )
 	// if we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	if ( (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
-		 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+		 (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 		// base chance depends on how much new info we have to radio to the others
 		iChance = 5 * WhatIKnowThatPublicDont( pSoldier, FALSE );   // use 5 * for YELLOW alert
@@ -8537,7 +8537,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 
 			if ( (BestThrow.bWeaponIn != NO_SLOT) &&
 				 (CalcMaxTossRange( pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE ) > TacticalActorVisibility::normalMaximumDistance()) &&
-				 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
+				 (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) &&
 				 (gTacticalStatus.ubSpottersCalledForBy == NOBODY) )
 			{
 				// then call for spotters!  Uses up the rest of his turn (whatever
@@ -8591,9 +8591,9 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			// WDS - Fix problem when there is no "best shot" weapon (i.e., BestShot.bWeaponIn == NO_SLOT)
 			if ( BestShot.bWeaponIn != NO_SLOT ) {
 				OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionRed: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY ) );
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionRed: men in sector %d, ubspotters called by %d, nobody %d", GetTacticalTeamMenInSector( pSoldier->roster().team() ), gTacticalStatus.ubSpottersCalledForBy, NOBODY ) );
 				if ( ((IsScoped( gun ) && GunRange( gun, pSoldier ) > TacticalActorVisibility::normalMaximumDistance()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
-					 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
+					 (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) &&
 					 (gTacticalStatus.ubSpottersCalledForBy == NOBODY) )
 				{
 					// then call for spotters!  Uses up the rest of his turn (whatever
@@ -8740,7 +8740,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 
 	// if we're a computer merc, and we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: checking to radio red alert" );
 
@@ -9672,7 +9672,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 	{
 		if ( pSoldier->roster().team() == ENEMY_TEAM && pSoldier->awareness().visibility() == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
-			if ( gTacticalStatus.Team[MILITIA_TEAM].bMenInSector == 0 && gTacticalStatus.Team[CREATURE_TEAM].bMenInSector == 0 && NumPCsInSector() < 4 && gTacticalStatus.Team[ENEMY_TEAM].bMenInSector >= NumPCsInSector() * 3 )
+			if ( GetTacticalTeamMenInSector( MILITIA_TEAM ) == 0 && GetTacticalTeamMenInSector( CREATURE_TEAM ) == 0 && NumPCsInSector() < 4 && GetTacticalTeamMenInSector( ENEMY_TEAM ) >= NumPCsInSector() * 3 )
 			{
 				if ( gubQuest[QUEST_HELD_IN_ALMA] == QUESTNOTSTARTED || gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED || gubQuest[QUEST_INTERROGATION] == QUESTNOTSTARTED )
 				{
@@ -10356,7 +10356,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 	// and we see the location of at least 2 opponents
 	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
 		 (pSoldier->awareness().opponentCount() > 1) &&
-		 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) && !bInDeepWater )
+		 (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) && !bInDeepWater )
 	{
 		// base chance depends on how much new info we have to radio to the others
 		iChance = 25 * WhatIKnowThatPublicDont( pSoldier, TRUE );	// just count them

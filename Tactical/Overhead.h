@@ -33,12 +33,19 @@ typedef struct
     SoldierID   bLastID;
     COLORVAL    RadarColor;
     INT8        bSide;
-    INT16       bMenInSector;
     SoldierID   ubLastMercToRadio;
-    INT8        bTeamActive;
     INT8        bAwareOfOpposition;
     INT8        bHuman;
 } TacticalTeamType;
+
+// TacticalWorldSession owns the activity/count pair. The remaining team
+// metadata stays in TacticalStatusType while legacy gameplay reads this
+// narrow value API instead of writable duplicate fields.
+INT16 GetTacticalTeamMenInSector( INT8 bTeam );
+BOOLEAN IsTacticalTeamActive( INT8 bTeam );
+BOOLEAN SetTacticalTeamPopulation(
+    INT8 bTeam, INT16 menInSector, INT8 active );
+void ResetTacticalTeamPopulations();
 
 //for use with TacticalStatusType.ubEnemyIntention 
 enum

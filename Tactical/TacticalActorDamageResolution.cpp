@@ -1286,7 +1286,7 @@ std::uint8_t TacticalActorDamageResolution::takeDamage(TacticalActor& subject, I
 			if ( ubReason == TAKE_DAMAGE_BLOODLOSS )
 			{
 				// Fifty-fifty chance to die now!
-				if ( Random( 3 ) == 0 || gTacticalStatus.Team[subject.roster().team()].bMenInSector == 1 )
+				if ( Random( 3 ) == 0 || GetTacticalTeamMenInSector( subject.roster().team() ) == 1 )
 				{
 					// Kill!
 					subject.vitals().health() = 0;

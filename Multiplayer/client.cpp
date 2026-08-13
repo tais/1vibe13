@@ -5111,8 +5111,10 @@ BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 
 		if(soldiers>0)
 		{
-			gTacticalStatus.Team[ x ].bTeamActive=1;
-			gTacticalStatus.Team[ x ].bMenInSector=soldiers;
+			(void)SetTacticalTeamPopulation(
+				static_cast<INT8>( x ),
+				static_cast<INT16>( soldiers ),
+				TRUE );
 
 			if (cGameType==MP_TYPE_TEAMDEATMATCH && (x==0 || x>5))
 			{
@@ -5129,12 +5131,12 @@ BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 		}
 		else
 		{
-			gTacticalStatus.Team[ x ].bTeamActive=0;
-			gTacticalStatus.Team[x].bMenInSector=0;
+			(void)SetTacticalTeamPopulation(
+				static_cast<INT8>( x ), 0, FALSE );
 		}
 	}
 
-	if( (gTacticalStatus.Team[ 0 ].bTeamActive == 0) && wiped==0)//server's team has been knocked out
+	if( (IsTacticalTeamActive( 0 ) == 0) && wiped==0)//server's team has been knocked out
 	{		
 		wiped=1;
 		ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, MPClientMessage[40] );
@@ -5175,7 +5177,7 @@ BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 	{
 		// check for game end for CO-OP
 		// If any player team is alive && the number of enemies > 0 then continue game (true), else quit (false) 
-		return ((gTacticalStatus.Team[ 0 ].bTeamActive==1 || gTacticalStatus.Team[ 6 ].bTeamActive==1 || gTacticalStatus.Team[ 7 ].bTeamActive==1 || gTacticalStatus.Team[ 8 ].bTeamActive==1 || gTacticalStatus.Team[ 9 ].bTeamActive==1  )&& NumEnemyInSector() > 0);
+		return ((IsTacticalTeamActive( 0 )==1 || IsTacticalTeamActive( 6 )==1 || IsTacticalTeamActive( 7 )==1 || IsTacticalTeamActive( 8 )==1 || IsTacticalTeamActive( 9 )==1  )&& NumEnemyInSector() > 0);
 	}
 
 	// dont stop the game by default

@@ -213,8 +213,8 @@ void HandleTacticalEndTurn( )
 
 	if(gGameExternalOptions.gfAllowReinforcements)//dnl ch68 100913
 	{
-		if ( gTacticalStatus.Team[ENEMY_TEAM].bTeamActive || gfPendingNonPlayerTeam[ENEMY_TEAM] || 
-			 gTacticalStatus.Team[MILITIA_TEAM].bTeamActive || gfPendingNonPlayerTeam[MILITIA_TEAM] )
+		if ( IsTacticalTeamActive( ENEMY_TEAM ) || gfPendingNonPlayerTeam[ENEMY_TEAM] ||
+			 IsTacticalTeamActive( MILITIA_TEAM ) || gfPendingNonPlayerTeam[MILITIA_TEAM] )
 			 ++guiTurnCnt;
 		else
 			guiTurnCnt = 0;
@@ -231,7 +231,7 @@ void HandleTacticalEndTurn( )
 	/*
 	for( cnt = 0; cnt < MAXTEAMS; cnt++ )
 	{
-		if ( gTacticalStatus.Team[ cnt ].bMenInSector > 0 )
+		if ( GetTacticalTeamMenInSector( cnt ) > 0 )
 		{
 			// decay team's public opplist
 			DecayPublicOpplist( (INT8)cnt );

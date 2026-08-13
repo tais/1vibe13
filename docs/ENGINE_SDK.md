@@ -1396,6 +1396,19 @@ snapshot or any network protocol.
 `InitOverhead` still clears both values at the former whole-status reset
 boundary. World commit and unload introduce no implicit interrupt reset.
 
+The same session owns each tactical team's in-sector count and activity byte
+as one host-internal value. JA2's gameplay readers use a narrow application
+gateway, and add/remove or multiplayer recount operations publish the pair in
+one transition. This does not expose team rosters to packages: ID ranges,
+side, color, awareness, and human-control metadata remain in the application,
+and the package-facing tactical snapshot is unchanged. Save compatibility
+reconstructs the established 20-byte records at the persistence boundary.
+`InitOverhead` resets all 11 values at the former whole-status reset boundary;
+world commit and unload preserve them. Because `TacticalWorldSession` is an
+installed C++ source contract, consumers must rebuild for its additive state
+layout. `TacticalWorldSnapshot`, wire data, and the versioned tactical-world
+service contract remain unchanged.
+
 The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
 as const-reference projections for source-compatible, allocation-free hot-path
 reads. Their hidden storage is published only by `TacticalWorldAdapter`; writes

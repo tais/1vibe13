@@ -642,13 +642,13 @@ void HandleWhenCertainPercentageOfEnemiesDie()
 	UINT8					ubSectorID;
 
 	//if there isn't enemies in the sector
-	if( ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector + gTacticalStatus.ubArmyGuysKilled ) == 0 )
+	if( ( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled ) == 0 )
 	{
 		//get out
 		return;
 	}
 	
-	uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled + 1) / (UINT32)( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector + gTacticalStatus.ubArmyGuysKilled ) );	
+	uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled + 1) / (UINT32)( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled ) );
 
 	ubSectorID = SECTOR( gWorldSectorX, gWorldSectorY );
 

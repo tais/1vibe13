@@ -1166,12 +1166,12 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, TacticalActor *pOpponent, SoldierID ubE
 	#ifdef WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
 		if ( bIteration == 0 )
 		{
-			if ( ubTeam == gbPlayerNum && gTacticalStatus.Team[ MILITIA_TEAM ].bTeamActive )
+			if ( ubTeam == gbPlayerNum && IsTacticalTeamActive( MILITIA_TEAM ) )
 			{
 				// check militia team as well
 				return( TeamNoLongerSeesMan( MILITIA_TEAM, pOpponent, ubExcludeID, 1 ) );
 			}
-			else if ( ubTeam == MILITIA_TEAM && gTacticalStatus.Team[ gbPlayerNum ].bTeamActive )
+			else if ( ubTeam == MILITIA_TEAM && IsTacticalTeamActive( gbPlayerNum ) )
 			{
 				// check player team as well
 				return( TeamNoLongerSeesMan( gbPlayerNum, pOpponent, ubExcludeID, 1 ) );
@@ -1184,12 +1184,12 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, TacticalActor *pOpponent, SoldierID ubE
 	{
 		if ( bIteration == 0 )
 		{
-			if ( ubTeam == gbPlayerNum && gTacticalStatus.Team[MILITIA_TEAM].bTeamActive )
+			if ( ubTeam == gbPlayerNum && IsTacticalTeamActive( MILITIA_TEAM ) )
 			{
 				// check militia team as well
 				return(TeamNoLongerSeesMan( MILITIA_TEAM, pOpponent, ubExcludeID, 1 ));
 			}
-			else if ( ubTeam == MILITIA_TEAM && gTacticalStatus.Team[gbPlayerNum].bTeamActive )
+			else if ( ubTeam == MILITIA_TEAM && IsTacticalTeamActive( gbPlayerNum ) )
 			{
 				// check player team as well
 				return(TeamNoLongerSeesMan( gbPlayerNum, pOpponent, ubExcludeID, 1 ));
@@ -3692,7 +3692,7 @@ void RadioSightings(TacticalActor *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadio
 			else
 			{
 				// radioing to militia that we saw someone! alert them!
-				if ( gTacticalStatus.Team[ MILITIA_TEAM ].bTeamActive && !gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition )
+				if ( IsTacticalTeamActive( MILITIA_TEAM ) && !gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition )
 				{
 					HandleInitialRedAlert( MILITIA_TEAM, FALSE );
 				}
@@ -5639,7 +5639,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 	for (bTeam = 0; bTeam < MAXTEAMS; bTeam++)
 	{
 		// skip any inactive teams
-		if (!gTacticalStatus.Team[bTeam].bTeamActive)
+		if (!IsTacticalTeamActive( bTeam ))
 		{
 			continue;
 		}
@@ -7095,7 +7095,7 @@ void NonCombatDecayPublicOpplist( UINT32 uiTime )
 
 		for( cnt = 0; cnt < MAXTEAMS; cnt++ )
 		{
-			if ( gTacticalStatus.Team[ cnt ].bMenInSector > 0 )
+			if ( GetTacticalTeamMenInSector( cnt ) > 0 )
 			{
 				// decay team's public opplist
 				DecayPublicOpplist( (INT8)cnt );
@@ -7353,7 +7353,7 @@ BOOLEAN ArmyKnowsOfPlayersPresence( void )
 	TacticalActor * pSoldier;
 
 	// if anyone is still left...
-	if (gTacticalStatus.Team[ ENEMY_TEAM ].bTeamActive && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 )
+	if (IsTacticalTeamActive( ENEMY_TEAM ) && GetTacticalTeamMenInSector( ENEMY_TEAM ) > 0 )
 	{
 		for ( ubID = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubID <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++ubID )
 		{

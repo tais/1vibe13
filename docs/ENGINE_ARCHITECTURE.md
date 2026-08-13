@@ -999,6 +999,19 @@ the engine must not contain SDL types in its public domain model.
   validated. `InitOverhead` explicitly clears the extracted pair at the same
   reset boundary as the former whole-status `memset`; ordinary world
   commit/unload transitions otherwise preserve the legacy lifecycle.
+  Tactical team in-sector population and activity are another session-owned
+  value pair. All 11 teams retain the complete signed 16-bit count and signed
+  8-bit activity domains at compatibility boundaries, while ordinary add and
+  remove transitions publish both fields together. The rest of each
+  `TacticalTeamType` record (ID range, side, color, radio owner, awareness,
+  and human-control flag) remains application metadata. Save/load projects
+  both halves into the exact historical 20-byte team record and restores the
+  session only after that section validates. `InitOverhead` resets all 11
+  values at the former whole-status reset boundary; world commit and unload
+  preserve them. This additive installed session-state value changes the C++
+  layout of `TacticalWorldSession`, so SDK consumers must rebuild, but it does
+  not change `TacticalWorldSnapshot`, save format, wire data, or the
+  package-facing service version.
   The sector-heavy
   compatibility names `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
   are const-reference projections backed only by the application adapter:

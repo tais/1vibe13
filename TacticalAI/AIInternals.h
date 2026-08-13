@@ -56,7 +56,7 @@ enum
 #define PTR_CIV_OR_MILITIA ( PTR_CIVILIAN || (pSoldier->roster().team() == MILITIA_TEAM) )
 
 #define REALTIME_AI_DELAY (10000 + Random( 1000 ))
-#define REALTIME_CIV_AI_DELAY ( 1000 * (gTacticalStatus.Team[ MILITIA_TEAM ].bMenInSector + gTacticalStatus.Team[ CIV_TEAM ].bMenInSector) + 5000 + 2000 * Random( 3 ) )
+#define REALTIME_CIV_AI_DELAY ( 1000 * (GetTacticalTeamMenInSector( MILITIA_TEAM ) + GetTacticalTeamMenInSector( CIV_TEAM )) + 5000 + 2000 * Random( 3 ) )
 #define REALTIME_CREATURE_AI_DELAY ( 10000 + 1000 * Random( 3 ) )
 
 //#define PLAYINGMODE			 0

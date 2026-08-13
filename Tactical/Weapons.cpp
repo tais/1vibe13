@@ -5964,7 +5964,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 						// say taunt only to inform others
 						if (gbPublicOpplist[Team][ShooterID] != SEEN_CURRENTLY &&
 							gbPublicOpplist[Team][ShooterID] != SEEN_THIS_TURN &&
-							gTacticalStatus.Team[Team].bMenInSector > 1)
+							GetTacticalTeamMenInSector( Team ) > 1)
 						{
 							PossiblyStartEnemyTaunt(
 								opponent,

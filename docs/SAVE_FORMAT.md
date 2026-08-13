@@ -416,14 +416,16 @@ contract/air-raid/team-turn structs, etc. needed **no change**.
 > `XferRottingCorpseDef` field list), `name` written 16-bit on disk. This is the
 > change that bumped the format to 1001.
 
-The structs that actually carried breakers were all migrated to field-by-field
-serialization (no padding ever written — byte-block shortcuts are unsafe because
-pointer-alignment padding differs between 32- and 64-bit):
+The structs that actually carried breakers were all migrated to explicit
+serialization. No implicit host-ABI padding is written; where compatibility
+requires historical reserved bytes, the schema emits those slots explicitly
+and initializes them deterministically. Unspecified byte-block shortcuts are
+unsafe because pointer-alignment padding differs between 32- and 64-bit:
 
 | Struct | Breaker | Handling |
 |---|---|---|
 | `SAVED_GAME_HEADER` | CHAR16 desc + GAME_OPTIONS | `wstr` desc; scalar GAME_OPTIONS as bytes; read before version gate |
-| `TacticalStatusType` | CHAR16 top-message + runtime-owned turn/creature/interrupt state | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes; turn, creature-quote, and interrupt-control values captured/restored through `TacticalWorldSession` at their established positions; its tail remains surgery-target `u16`, pending-interrupt `u8`, then disabled-interrupt boolean `u8` |
+| `TacticalStatusType` | CHAR16 top-message + runtime-owned turn/creature/interrupt/team-population state | `wstr`; SoldierID via `.i`; each team is reconstructed as the exact historical 20-byte record, including zeroed reserved bytes at offsets 9 and 17–19, with population/activity projected through `TacticalWorldSession`; turn and creature-quote values retain their established positions; its tail remains surgery-target `u16`, pending-interrupt `u8`, then disabled-interrupt boolean `u8` |
 | `MERCPROFILESTRUCT`, `TacticalActor`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
 | email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + exact, bounded reads; email list staged before publication |
 | `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |
