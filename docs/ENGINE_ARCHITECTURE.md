@@ -723,19 +723,22 @@ the engine must not contain SDL types in its public domain model.
   requests, door-menu choices, animation keyframes, or schedule discovery. No
   save, map, item, XML, Lua, installed-content, or RakNet packet format changes;
   replay tag 30 extends the one unshipped current command-journal layout.
-  The non-positional dialogue-effect audit covers all 32 legacy bits and all 33
-  exposed names (the UB Jerry Milo and Arulco militia-training names share bit
+  The non-positional dialogue-effect audit covers all 32 bit values and all 33
+  legacy exposed names (the UB Jerry Milo and Arulco militia-training names share bit
   `0x00002000`) in `DIALOGUE_EFFECT_INVENTORY.md`. Their priority chains,
   composable branches, face callbacks, modal UI, identities, campaign
   continuations, and dynamic Lua ingress are not one behaviorally closed
-  command. No effect is migrated by that audit. In particular, `ENABLE_AI`
+  command. The first-party stat-change notification now uses a private typed
+  queue payload with exact `bool`/`INT16`/`UINT8` fields. The queue derives its
+  existing `0x00400000` priority bit from that payload, while the raw numeric
+  lane remains intact for Lua and legacy composites. The other 31 effects and
+  raw stat-change compatibility remain legacy. In particular, `ENABLE_AI`
   remains legacy: its sole symbol-naming C++ producer is the live
   `HandleFirstHeliDropOfGame` completion helper, while the nearby manual
   helicopter pause is in dead `BeginMercEntering`. Lua can submit raw or
   composite values, its state domain is broader than that unowned pause, and a
   retained unpause would need to own the later effects of a composite queue item.
-  All 32 bit values/33 names therefore remain named non-positional dialogue
-  command debt.
+  It therefore remains named non-positional dialogue command debt.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded
