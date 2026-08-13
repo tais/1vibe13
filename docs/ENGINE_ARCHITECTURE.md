@@ -1240,6 +1240,23 @@ the engine must not contain SDL types in its public domain model.
   profile, and Speck probes. All six former `JA2UB` guards are gone from
   `Tactical/Campaign.cpp` without changing the death counter, strategic-event
   delay, email send time, IDs, saves, maps, XML, or progression tuning.
+- Quest/fact campaign decisions now use the value-only
+  `CampaignQuestPolicy`. Arulco keeps all twelve campaign-gated fact
+  evaluations, the 25-point kill-Deidranna reward, deliver-letter startup, and
+  POW state handling. UB keeps those fact slots unchanged, the 4-point reward,
+  destroy-missiles startup, no POW processing, and the exact fix-laptop
+  completion effects and order. The runtime campaign test remains left of the
+  quest and typed laptop-option probes. Thus all sixteen direct
+  campaign-identity checks in `Strategic/Quests.cpp` and its raw option read
+  are retired while effects and state stay in their established source. A
+  lazy application bridge resolves the policy at each former campaign check;
+  it does not initialize `GameContext` eagerly for unrelated fact cases or
+  ahead of established quest effects.
+  Dependency-free truth tables cover both editor hosts, every Boolean
+  short-circuit combination, unchanged fact values, rewards, initial quests,
+  laptop effects, and POW support; architecture CI pins the single bridge,
+  all sixteen lookup sites, twelve fact gates, effect order, and zero raw
+  identity/option reads.
 - JA25 new-gun dialogue now uses the value-only `CampaignGunCommentPolicy` in
   both tactical item paths. UB keeps the ground-pickup path's raw nonzero
   world-item index and `TRUE` source flag, including `ITEM_PICKUP_SELECTION`

@@ -1270,6 +1270,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
@@ -2205,6 +2206,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_mercenary_policy_tests"
     "campaign_npc_policy_tests"
     "campaign_progress_policy_tests"
+    "campaign_quest_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
     "${required_campaign_follow_through_ci_target}"
@@ -2233,13 +2235,14 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignMapScreenPolicy"
     "CampaignNpcPolicy"
     "CampaignProgressPolicy"
+    "CampaignQuestPolicy"
     "all 34 executable call sites"
     "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All fifteen policies"
+    "All sixteen policies"
     "All six former guards in `Tactical/Campaign.cpp`")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
@@ -2264,6 +2267,8 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "The strategic map screen now selects campaign behavior"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
+    "Quest/fact campaign decisions now use the value-only"
+    "all sixteen direct campaign-identity checks in `Strategic/Quests.cpp`"
     "signed `INT8` strategic-sector lookup exactly"
     "All six former `JA2UB` guards are gone from `Tactical/Campaign.cpp`"
     "JA25 new-gun dialogue now uses the value-only"
@@ -2439,6 +2444,311 @@ foreach(required_campaign_progress_test_fragment IN ITEMS
   if(required_campaign_progress_test_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign progress policy tests lost '${required_campaign_progress_test_fragment}'")
+  endif()
+endforeach()
+
+# Quest/fact availability, campaign completion rewards, initial quest choice,
+# laptop recovery, and POW support now select through one value-only policy.
+# Quests.cpp must not regain direct campaign identity or the raw laptop option;
+# every policy lookup and inactive-campaign probe remains at its original gate.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
+  runtime_campaign_quest_policy_contents)
+foreach(required_campaign_quest_policy_fragment IN ITEMS
+    "class CampaignQuestPolicy"
+    "enum class InitialQuest"
+    "evaluatesArulcoFactRules"
+    "killDeidrannaReward"
+    "hasLaptopQuestCompletionEffects"
+    "initialQuest"
+    "supportsPrisonerOfWarQuests")
+  string(FIND "${runtime_campaign_quest_policy_contents}"
+    "${required_campaign_quest_policy_fragment}"
+    required_campaign_quest_policy_position)
+  if(required_campaign_quest_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign quest policy lost '${required_campaign_quest_policy_fragment}'")
+  endif()
+endforeach()
+strip_cxx_comments(runtime_campaign_quest_policy_contents
+  runtime_campaign_quest_policy_executable)
+if(runtime_campaign_quest_policy_executable MATCHES
+    "#[ \t]*include[ \t]*[<\"](Quests|ub_config|email|GameContext)[.]h[>\"]|(^|[^A-Za-z0-9_])g(Game|ub|Ja25|Merc|Tactical)[A-Za-z0-9_]*")
+  message(FATAL_ERROR
+    "CampaignQuestPolicy must remain value-only and free of application data")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Quests.cpp"
+  runtime_campaign_quest_policy_source_contents)
+strip_cxx_comments(runtime_campaign_quest_policy_source_contents
+  runtime_campaign_quest_policy_source_executable)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_quest_policy_source_normalized
+  "${runtime_campaign_quest_policy_source_executable}")
+foreach(required_campaign_quest_source_fragment IN ITEMS
+    "#include \"CampaignQuestPolicy.h\""
+    "static CampaignQuestPolicy CurrentCampaignQuestPolicy() { return CampaignQuestPolicy(GetGameContext().capabilities()); }"
+    "CurrentCampaignQuestPolicy().killDeidrannaReward()"
+    "CurrentCampaignQuestPolicy().hasLaptopQuestCompletionEffects() && ubQuest == QUEST_FIX_LAPTOP && IsLaptopQuestEnabled()"
+    "CurrentCampaignQuestPolicy().initialQuest() == CampaignQuestPolicy::InitialQuest::DestroyMissiles"
+    "!CurrentCampaignQuestPolicy().supportsPrisonerOfWarQuests()")
+  string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+    "${required_campaign_quest_source_fragment}"
+    required_campaign_quest_source_position)
+  if(required_campaign_quest_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime quest/fact routing lost '${required_campaign_quest_source_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_quest_policy_source_executable MATCHES
+    "GetGameContext[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*[.]capabilities[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*[.]isUnfinishedBusiness[ \t\r\n]*\\(" OR
+    runtime_campaign_quest_policy_source_executable MATCHES
+    "gGameUBOptions[ \t\r\n]*[.]LaptopQuestEnabled")
+  message(FATAL_ERROR
+    "Strategic/Quests.cpp regained raw campaign identity or laptop-option access")
+endif()
+
+string(REGEX MATCHALL
+  "CampaignQuestPolicy[ \t\r\n]*\\([ \t\r\n]*GetGameContext[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*[.]capabilities[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*\\)"
+  runtime_campaign_quest_policy_resolutions
+  "${runtime_campaign_quest_policy_source_executable}")
+list(LENGTH runtime_campaign_quest_policy_resolutions
+  runtime_campaign_quest_policy_resolution_count)
+if(NOT runtime_campaign_quest_policy_resolution_count EQUAL 1)
+  message(FATAL_ERROR
+    "Strategic/Quests.cpp must resolve quest policy through exactly one application bridge")
+endif()
+if(runtime_campaign_quest_policy_source_executable MATCHES
+    "CampaignQuestPolicy[ \t\r\n]+[A-Za-z_][A-Za-z0-9_]*[ \t\r\n]*\\([ \t\r\n]*GetGameContext")
+  message(FATAL_ERROR
+    "Strategic/Quests.cpp must not eagerly resolve quest policy at function entry")
+endif()
+string(REGEX MATCHALL
+  "CurrentCampaignQuestPolicy[ \t\r\n]*\\([ \t\r\n]*\\)"
+  runtime_campaign_quest_policy_bridge_sites
+  "${runtime_campaign_quest_policy_source_executable}")
+list(LENGTH runtime_campaign_quest_policy_bridge_sites
+  runtime_campaign_quest_policy_bridge_site_count)
+if(NOT runtime_campaign_quest_policy_bridge_site_count EQUAL 17)
+  message(FATAL_ERROR
+    "Quest routing must retain one lazy bridge definition and all sixteen original lookup sites")
+endif()
+string(REGEX MATCHALL
+  "CurrentCampaignQuestPolicy[ \t\r\n]*\\([ \t\r\n]*\\)[.]evaluatesArulcoFactRules[ \t\r\n]*\\([ \t\r\n]*\\)"
+  runtime_campaign_quest_fact_gates
+  "${runtime_campaign_quest_policy_source_executable}")
+list(LENGTH runtime_campaign_quest_fact_gates
+  runtime_campaign_quest_fact_gate_count)
+if(NOT runtime_campaign_quest_fact_gate_count EQUAL 12)
+  message(FATAL_ERROR
+    "Quest fact routing must retain exactly twelve Arulco-only update gates")
+endif()
+foreach(runtime_campaign_quest_fact IN ITEMS
+    FACT_DIMITRI_DEAD
+    FACT_IRA_NOT_PRESENT
+    FACT_IRA_TALKING
+    FACT_IRA_UNHIRED_AND_ALIVE
+    FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_SAN_MONA
+    FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_CAMBRIA
+    FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_DRASSEN
+    FACT_QUEEN_DEAD
+    FACT_PLAYER_OWNS_2_TOWNS_INCLUDING_OMERTA
+    FACT_PLAYER_OWNS_3_TOWNS_INCLUDING_OMERTA
+    FACT_PLAYER_OWNS_4_TOWNS_INCLUDING_OMERTA
+    FACT_PERKO_ALIVE)
+  string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+    "case ${runtime_campaign_quest_fact}: if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )"
+    runtime_campaign_quest_fact_gate_position)
+  if(runtime_campaign_quest_fact_gate_position EQUAL -1)
+    message(FATAL_ERROR
+      "${runtime_campaign_quest_fact} lost its left-hand Arulco fact gate")
+  endif()
+endforeach()
+foreach(runtime_campaign_quest_single_use IN ITEMS
+    killDeidrannaReward
+    hasLaptopQuestCompletionEffects
+    initialQuest
+    supportsPrisonerOfWarQuests)
+  string(REGEX MATCHALL
+    "CurrentCampaignQuestPolicy[ \t\r\n]*\\([ \t\r\n]*\\)[.]${runtime_campaign_quest_single_use}[ \t\r\n]*\\([ \t\r\n]*\\)"
+    runtime_campaign_quest_single_uses
+    "${runtime_campaign_quest_policy_source_executable}")
+  list(LENGTH runtime_campaign_quest_single_uses
+    runtime_campaign_quest_single_use_count)
+  if(NOT runtime_campaign_quest_single_use_count EQUAL 1)
+    message(FATAL_ERROR
+      "Quest routing must use ${runtime_campaign_quest_single_use} exactly once")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "case QUEST_KILL_DEIDRANNA : GiveQuestRewardPoint( sSectorX, sSectorY, CurrentCampaignQuestPolicy().killDeidrannaReward(), NO_PROFILE );"
+  runtime_campaign_quest_reward_position)
+if(runtime_campaign_quest_reward_position EQUAL -1)
+  message(FATAL_ERROR
+    "Kill-Deidranna completion lost its campaign-selected reward at the existing effect site")
+endif()
+
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "void InternalEndQuest(" runtime_campaign_quest_completion_start)
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "void InitQuestEngine()" runtime_campaign_quest_completion_end)
+if(runtime_campaign_quest_completion_start EQUAL -1 OR
+    runtime_campaign_quest_completion_end EQUAL -1 OR
+    NOT runtime_campaign_quest_completion_start LESS
+      runtime_campaign_quest_completion_end)
+  message(FATAL_ERROR "Cannot locate the quest-completion policy boundary")
+endif()
+math(EXPR runtime_campaign_quest_completion_length
+  "${runtime_campaign_quest_completion_end} - ${runtime_campaign_quest_completion_start}")
+string(SUBSTRING "${runtime_campaign_quest_policy_source_normalized}"
+  ${runtime_campaign_quest_completion_start}
+  ${runtime_campaign_quest_completion_length}
+  runtime_campaign_quest_completion_region)
+set(runtime_campaign_quest_completion_previous_position -1)
+foreach(runtime_campaign_quest_completion_fragment IN ITEMS
+    "LuaInternalQuest( ubQuest, sSectorX, sSectorY, fUpdateHistory, 0)"
+    "CurrentCampaignQuestPolicy().killDeidrannaReward()"
+    "gubQuest[ubQuest] = QUESTDONE"
+    "ResetHistoryFact( ubQuest, sSectorX, sSectorY )"
+    "if ( ubQuest == QUEST_RESCUE_MARIA )"
+    "gMercProfiles[ MADAME ].bNPCData2 = 0"
+    "CurrentCampaignQuestPolicy().hasLaptopQuestCompletionEffects()"
+    "ubQuest == QUEST_FIX_LAPTOP"
+    "IsLaptopQuestEnabled()"
+    "gJa25SaveStruct.fHaveAimandMercOffferItems = TRUE"
+    "gJa25SaveStruct.fSendEmail_10_NextSector = TRUE"
+    "AddEmail( JA25_EMAIL_PILOT_MISSING"
+    "AddEmail( JA25_EMAIL_MAKE_CONTACT"
+    "AddEmail( JA25_EMAIL_AIM_PROMOTION_1"
+    "AddEmail( JA25_EMAIL_MERC_PROMOTION_1"
+    "AddEmail( JA25_EMAIL_AIM_PROMOTION_2"
+    "FindSoldierByProfileID( MANUEL_UB , TRUE )"
+    "AddEmail( JA25_EMAIL_MANUEL"
+    "gubFact[ FACT_PLAYER_IMPORTED_SAVE_MIGUEL_DEAD ] == FALSE"
+    "AddEmail( JA25_EMAIL_MIGUEL_HELLO"
+    "HandleAddingAnyAimAwayEmailsWhenLaptopGoesOnline()"
+    "ShouldImpReminderEmailBeSentWhenLaptopBackOnline()"
+    "HandleEmailBeingSentWhenEnteringSector( 0, 0, 0, TRUE )")
+  string(FIND "${runtime_campaign_quest_completion_region}"
+    "${runtime_campaign_quest_completion_fragment}"
+    runtime_campaign_quest_completion_position)
+  if(runtime_campaign_quest_completion_position EQUAL -1 OR
+      (NOT runtime_campaign_quest_completion_previous_position EQUAL -1 AND
+       NOT runtime_campaign_quest_completion_previous_position LESS
+         runtime_campaign_quest_completion_position))
+    message(FATAL_ERROR
+      "Laptop quest completion lost ordered fragment '${runtime_campaign_quest_completion_fragment}'")
+  endif()
+  set(runtime_campaign_quest_completion_previous_position
+    ${runtime_campaign_quest_completion_position})
+endforeach()
+
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "void CheckForQuests(" runtime_campaign_quest_initial_start)
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "BOOLEAN SaveQuestInfoToSavedGameFile(" runtime_campaign_quest_initial_end)
+if(runtime_campaign_quest_initial_start EQUAL -1 OR
+    runtime_campaign_quest_initial_end EQUAL -1 OR
+    NOT runtime_campaign_quest_initial_start LESS
+      runtime_campaign_quest_initial_end)
+  message(FATAL_ERROR "Cannot locate the initial quest-policy boundary")
+endif()
+math(EXPR runtime_campaign_quest_initial_length
+  "${runtime_campaign_quest_initial_end} - ${runtime_campaign_quest_initial_start}")
+string(SUBSTRING "${runtime_campaign_quest_policy_source_normalized}"
+  ${runtime_campaign_quest_initial_start}
+  ${runtime_campaign_quest_initial_length}
+  runtime_campaign_quest_initial_region)
+set(runtime_campaign_quest_initial_previous_position -1)
+foreach(runtime_campaign_quest_initial_fragment IN ITEMS
+    "ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L\"Checking For Quests, Day %d\", uiDay )"
+    "CurrentCampaignQuestPolicy().initialQuest() == CampaignQuestPolicy::InitialQuest::DestroyMissiles"
+    "gubQuest[ QUEST_DESTROY_MISSLES ] == QUESTNOTSTARTED"
+    "StartQuest( QUEST_DESTROY_MISSLES, -1, -1 )"
+    "else if (gubQuest[QUEST_DELIVER_LETTER] == QUESTNOTSTARTED)"
+    "StartQuest( QUEST_DELIVER_LETTER, -1, -1 )")
+  string(FIND "${runtime_campaign_quest_initial_region}"
+    "${runtime_campaign_quest_initial_fragment}"
+    runtime_campaign_quest_initial_position)
+  if(runtime_campaign_quest_initial_position EQUAL -1 OR
+      (NOT runtime_campaign_quest_initial_previous_position EQUAL -1 AND
+       NOT runtime_campaign_quest_initial_previous_position LESS
+         runtime_campaign_quest_initial_position))
+    message(FATAL_ERROR
+      "Initial quest routing lost ordered fragment '${runtime_campaign_quest_initial_fragment}'")
+  endif()
+  set(runtime_campaign_quest_initial_previous_position
+    ${runtime_campaign_quest_initial_position})
+endforeach()
+
+string(FIND "${runtime_campaign_quest_policy_source_normalized}"
+  "void HandlePOWQuestState(" runtime_campaign_quest_pow_start)
+if(runtime_campaign_quest_pow_start EQUAL -1)
+  message(FATAL_ERROR "Cannot locate the POW quest-policy boundary")
+endif()
+string(SUBSTRING "${runtime_campaign_quest_policy_source_normalized}"
+  ${runtime_campaign_quest_pow_start} -1 runtime_campaign_quest_pow_region)
+string(FIND "${runtime_campaign_quest_pow_region}"
+  "!CurrentCampaignQuestPolicy().supportsPrisonerOfWarQuests()"
+  runtime_campaign_quest_pow_gate_position)
+string(FIND "${runtime_campaign_quest_pow_region}"
+  "bool correctSector = false" runtime_campaign_quest_pow_probe_position)
+if(runtime_campaign_quest_pow_gate_position EQUAL -1 OR
+    runtime_campaign_quest_pow_probe_position EQUAL -1 OR
+    NOT runtime_campaign_quest_pow_gate_position LESS
+      runtime_campaign_quest_pow_probe_position)
+  message(FATAL_ERROR
+    "POW quest handling must return on the campaign gate before sector/state probes")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/ub_config.cpp"
+  runtime_campaign_quest_option_owner_contents)
+strip_cxx_comments(runtime_campaign_quest_option_owner_contents
+  runtime_campaign_quest_option_owner_executable)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_quest_option_owner_normalized
+  "${runtime_campaign_quest_option_owner_executable}")
+string(FIND "${runtime_campaign_quest_option_owner_normalized}"
+  "bool IsLaptopQuestEnabled() { return gGameUBOptions.LaptopQuestEnabled == TRUE; }"
+  runtime_campaign_quest_option_accessor_position)
+if(runtime_campaign_quest_option_accessor_position EQUAL -1)
+  message(FATAL_ERROR
+    "UB configuration lost the typed laptop-quest option accessor")
+endif()
+
+foreach(required_campaign_quest_test_build_fragment IN ITEMS
+    "add_executable(campaign_quest_policy_tests"
+    "campaign_quest_policy_tests.cpp"
+    "add_test(NAME campaign_quest_policy COMMAND campaign_quest_policy_tests)")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_quest_test_build_fragment}"
+    required_campaign_quest_test_build_position)
+  if(required_campaign_quest_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign quest policy lost test manifest '${required_campaign_quest_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_quest_policy_tests" runtime_campaign_quest_ci_position)
+if(runtime_campaign_quest_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the campaign quest policy test")
+endif()
+file(READ "${SOURCE_ROOT}/tests/campaign_quest_policy_tests.cpp"
+  runtime_campaign_quest_policy_test_contents)
+foreach(required_campaign_quest_test_fragment IN ITEMS
+    "UB leaves every guarded fact unchanged without evaluating it"
+    "exact Arulco 25 and UB 4 rewards"
+    "initial quest selection keeps deliver-letter versus destroy-missiles"
+    "Arulco short-circuits the UB quest and option reads"
+    "campaign, quest, option, then effect evaluation order"
+    "UB returns before POW quest state is evaluated")
+  string(FIND "${runtime_campaign_quest_policy_test_contents}"
+    "${required_campaign_quest_test_fragment}"
+    required_campaign_quest_test_position)
+  if(required_campaign_quest_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign quest policy tests lost '${required_campaign_quest_test_fragment}'")
   endif()
 endforeach()
 
@@ -10062,11 +10372,11 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Strategic/Quests.cpp"
   runtime_campaign_quest_rules_contents)
 foreach(required_runtime_quest_rule_fragment IN ITEMS
+    "CampaignQuestPolicy"
     "CampaignProfileCode::Role::Slay"
     "QUEST_DESTROY_MISSLES"
     "JA25_EMAIL_PILOT_MISSING"
-    "HandlePOWQuestState"
-    "GetGameContext().capabilities().isUnfinishedBusiness()")
+    "HandlePOWQuestState")
   string(FIND "${runtime_campaign_quest_rules_contents}"
     "${required_runtime_quest_rule_fragment}" runtime_quest_rule_fragment_position)
   if(runtime_quest_rule_fragment_position EQUAL -1)

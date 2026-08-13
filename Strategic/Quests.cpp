@@ -32,6 +32,7 @@
 	#include "TacticalActorEmploymentTypes.h"
 	#include "TacticalActorStateFlags.h"
 	#include "GameContext.h"
+	#include "CampaignQuestPolicy.h"
 	#include "CampaignProfileCodes.h"
 
 #include "BobbyRMailOrder.h"
@@ -67,6 +68,11 @@ extern void	GuaranteeAtLeastXItemsOfIndex( UINT8 ubArmsDealer, UINT16 usItemInde
 extern void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpReward, UINT8 bException );
 
 extern void DebugQuestInfo(STR szOutput);
+
+static CampaignQuestPolicy CurrentCampaignQuestPolicy()
+{
+	return CampaignQuestPolicy(GetGameContext().capabilities());
+}
 
 void SetFactTrue( UINT16 usFact )
 {
@@ -704,7 +710,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 	switch( usFact )
 	{
 		case FACT_DIMITRI_DEAD:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				const UINT8 dimitri = CampaignProfileCode::profile(
 					GameCampaign::Arulco, CampaignProfileCode::Role::Dimitri );
@@ -755,7 +761,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[FACT_NPC_WOUNDED_BY_PLAYER] = CheckNPCWounded( ubProfileID, TRUE );
 			break;
 		case FACT_IRA_NOT_PRESENT:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				const UINT8 ira = CampaignProfileCode::profile(
 					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
@@ -764,7 +770,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			}
 			break;
 		case FACT_IRA_TALKING:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				const UINT8 ira = CampaignProfileCode::profile(
 					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
@@ -772,7 +778,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			}
 			break;
 		case FACT_IRA_UNHIRED_AND_ALIVE:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				const UINT8 ira = CampaignProfileCode::profile(
 					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
@@ -797,7 +803,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			}
 			break;
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_SAN_MONA:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					CheckNPCSector( CARMEN, 5, MAP_ROW_C, 0 ) &&
@@ -806,7 +812,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_CAMBRIA:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					CheckNPCSector( CARMEN, 9, MAP_ROW_G, 0 ) &&
@@ -815,7 +821,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_DRASSEN:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					CheckNPCSector( CARMEN, 13, MAP_ROW_C, 0 ) &&
@@ -966,7 +972,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[usFact] = ( FindSoldierByProfileID( SHANK, FALSE ) == NULL );
 			break;
 		case FACT_QUEEN_DEAD:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					(gMercProfiles[ QUEEN ].bMercStatus == MERC_IS_DEAD);
@@ -1122,7 +1128,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_OWNS_2_TOWNS_INCLUDING_OMERTA:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					(GetNumberOfWholeTownsUnderControl() ==
@@ -1135,7 +1141,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_OWNS_3_TOWNS_INCLUDING_OMERTA:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					(GetNumberOfWholeTownsUnderControl() ==
@@ -1148,7 +1154,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_OWNS_4_TOWNS_INCLUDING_OMERTA:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					(GetNumberOfWholeTownsUnderControl() >=
@@ -1289,7 +1295,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[usFact] = gMercProfiles[ WALDO ].bMercStatus != MERC_IS_DEAD;
 			break;
 		case FACT_PERKO_ALIVE:
-			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CurrentCampaignQuestPolicy().evaluatesArulcoFactRules() )
 			{
 				gubFact[usFact] =
 					gMercProfiles[ PERKO ].bMercStatus != MERC_IS_DEAD;
@@ -1526,7 +1532,6 @@ void EndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY )
 
 void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fUpdateHistory )
 {
-
 #ifdef LUA_QUESTS
 		LuaInternalQuest( ubQuest, sSectorX, sSectorY, fUpdateHistory, 0);
 #else
@@ -1585,9 +1590,7 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 			case QUEST_KILL_DEIDRANNA :
 				GiveQuestRewardPoint(
 					sSectorX, sSectorY,
-					GetGameContext().capabilities().isUnfinishedBusiness()
-						? 4
-						: 25,
+					CurrentCampaignQuestPolicy().killDeidrannaReward(),
 					NO_PROFILE );
 				break;
 			default :
@@ -1619,11 +1622,11 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 	}
 	
 #endif
-	
+
 	//if the quest is the FIX LAPTOP quest
-	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+	if( CurrentCampaignQuestPolicy().hasLaptopQuestCompletionEffects() &&
 		ubQuest == QUEST_FIX_LAPTOP &&
-		gGameUBOptions.LaptopQuestEnabled == TRUE )
+		IsLaptopQuestEnabled() )
 	{
 		//Set the fact that AIM and MERC should start selling
 		gJa25SaveStruct.fHaveAimandMercOffferItems = TRUE;
@@ -1710,7 +1713,8 @@ void CheckForQuests( UINT32 uiDay )
 
 	ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Checking For Quests, Day %d", uiDay );
 
-	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	if( CurrentCampaignQuestPolicy().initialQuest() ==
+		CampaignQuestPolicy::InitialQuest::DestroyMissiles )
 	{
 		// Unfinished Business always begins with the destroy-missiles quest.
 		if( gubQuest[ QUEST_DESTROY_MISSLES ] == QUESTNOTSTARTED )
@@ -1838,7 +1842,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 
 void HandlePOWQuestState(PowQuestState state, Quests quest, INT16 mapX, INT16 mapY, INT8 mapZ)
 {
-	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	if( !CurrentCampaignQuestPolicy().supportsPrisonerOfWarQuests() )
 	{
 		return;
 	}
