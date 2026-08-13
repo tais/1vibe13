@@ -12,6 +12,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <string.h>
 #include <stdio.h>
 #include "DEBUG.H"
@@ -6902,14 +6903,61 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 // Portable (save-format v2) field list for the tactical-status compatibility
 // section. Runtime-owned turn, creature-quote, and interrupt-control values
 // retain their exact legacy positions through TacticalStatusPersistenceFields.
-// CHAR16
-// zTopMessageString via wstr; SoldierID fields via their UINT16 .i; the
-// scalar-only TacticalTeamType Team[] stays a byte block (deterministic
-// layout on our targets). Replaces the legacy raw-blob save / ReadFieldByField
-// load pair.
+// CHAR16 zTopMessageString via wstr; SoldierID fields via their UINT16 .i.
+// The team block retains its exact historical 20-byte record layout while
+// runtime-owned population/activity values are projected into and restored
+// from their established offsets. Replaces the legacy raw-blob save /
+// ReadFieldByField load pair.
+struct TacticalTeamPersistenceRecord
+{
+	UINT16 firstId = 0;
+	UINT16 lastId = 0;
+	UINT32 radarColor = 0;
+	INT8 side = 0;
+	UINT8 paddingAfterSide = 0;
+	INT16 menInSector = 0;
+	UINT16 lastMercToRadio = 0;
+	INT8 active = 0;
+	INT8 awareOfOpposition = 0;
+	INT8 human = 0;
+	UINT8 trailingPadding[3] = {};
+};
+
+static_assert(std::is_standard_layout<TacticalTeamPersistenceRecord>::value,
+	"Tactical team save record must remain a standard-layout byte record");
+static_assert(std::is_trivially_copyable<TacticalTeamPersistenceRecord>::value,
+	"Tactical team save record must remain safe for exact byte transfer");
+static_assert(sizeof(TacticalTeamPersistenceRecord) == 20,
+	"Tactical team save record must retain its established 20-byte layout");
+static_assert(alignof(TacticalTeamPersistenceRecord) == 4,
+	"Tactical team save record alignment changed");
+static_assert(offsetof(TacticalTeamPersistenceRecord, firstId) == 0,
+	"Tactical team first ID moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, lastId) == 2,
+	"Tactical team last ID moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, radarColor) == 4,
+	"Tactical team radar color moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, side) == 8,
+	"Tactical team side moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, paddingAfterSide) == 9,
+	"Tactical team interior padding moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, menInSector) == 10,
+	"Tactical team population moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, lastMercToRadio) == 12,
+	"Tactical team radio owner moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, active) == 14,
+	"Tactical team activity moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, awareOfOpposition) == 15,
+	"Tactical team awareness moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, human) == 16,
+	"Tactical team human-control flag moved within the save record");
+static_assert(offsetof(TacticalTeamPersistenceRecord, trailingPadding) == 17,
+	"Tactical team trailing padding moved within the save record");
+
 struct TacticalStatusPersistenceFields
 {
 	UINT32 flags = 0;
+	TacticalTeamPersistenceRecord teams[MAXTEAMS] = {};
 	UINT8 currentTeam = 0;
 	UINT8 pendingCombatActions = 0;
 	BOOLEAN saidCreatureFlavourQuote = FALSE;
@@ -6921,12 +6969,56 @@ struct TacticalStatusPersistenceFields
 	BOOLEAN playerInterruptsDisabled = FALSE;
 };
 
+static void CaptureTacticalTeamPersistence(
+	TacticalStatusPersistenceFields& state )
+{
+	static_assert(MAXTEAMS == TacticalWorldSession::TacticalTeamCount,
+		"JA2 and runtime tactical-team counts diverged");
+	for (int team = 0; team < MAXTEAMS; ++team)
+	{
+		const TacticalTeamType& source = gTacticalStatus.Team[team];
+		const TacticalWorldSession::Snapshot::TeamPopulation* population =
+			CaptureJa2TacticalTeamPopulation(static_cast<std::size_t>(team));
+		TacticalTeamPersistenceRecord& target = state.teams[team];
+		target.firstId = source.bFirstID.i;
+		target.lastId = source.bLastID.i;
+		target.radarColor = source.RadarColor;
+		target.side = source.bSide;
+		target.menInSector = population ? population->menInSector : 0;
+		target.lastMercToRadio = source.ubLastMercToRadio.i;
+		target.active = population ? population->active : 0;
+		target.awareOfOpposition = source.bAwareOfOpposition;
+		target.human = source.bHuman;
+	}
+}
+
+static void RestoreTacticalTeamPersistence(
+	const TacticalStatusPersistenceFields& state )
+{
+	for (int team = 0; team < MAXTEAMS; ++team)
+	{
+		const TacticalTeamPersistenceRecord& source = state.teams[team];
+		TacticalTeamType& target = gTacticalStatus.Team[team];
+		target.bFirstID.i = source.firstId;
+		target.bLastID.i = source.lastId;
+		target.RadarColor = source.radarColor;
+		target.bSide = source.side;
+		target.ubLastMercToRadio.i = source.lastMercToRadio;
+		target.bAwareOfOpposition = source.awareOfOpposition;
+		target.bHuman = source.human;
+		(void)SetJa2TacticalTeamPopulation(
+			static_cast<std::size_t>(team),
+			source.menInSector,
+			source.active);
+	}
+}
+
 template<class Ar> static void XferTacticalStatus(
 	Ar& ar, TacticalStatusType& s, TacticalStatusPersistenceFields& state )
 {
 	int i;
 	ar.u32(state.flags);
-	ar.bytes(&s.Team, sizeof(s.Team));
+	ar.bytes(&state.teams, sizeof(state.teams));
 	ar.u8 (state.currentTeam);
 	ar.i32(s.sSlideTarget);
 	ar.i16(s.sSlideReason_UNUSED);
@@ -7039,21 +7131,24 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 			CaptureJa2TacticalCreatureQuote();
 		const TacticalWorldSession::Snapshot::Interrupt& interrupt =
 			CaptureJa2TacticalInterruptState();
-		TacticalStatusPersistenceFields state{
-			CaptureJa2TacticalStatusFlags(),
-			GetJa2TacticalCurrentTeam(),
-			CaptureJa2SerializedPendingCombatActions(),
-			static_cast<BOOLEAN>(
-				creatureQuote.saidFlavourQuote ? TRUE : FALSE),
-			static_cast<BOOLEAN>(
-				creatureQuote.hasSeenCreature ? TRUE : FALSE),
-			static_cast<BOOLEAN>(
-				creatureQuote.saidSmellQuote ? TRUE : FALSE),
-			creatureQuote.tenseDelaySeconds,
-			creatureQuote.lastTenseQuoteMilliseconds,
-			interrupt.pending,
-			static_cast<BOOLEAN>(
-				interrupt.playerInterruptsDisabled ? TRUE : FALSE)};
+		TacticalStatusPersistenceFields state;
+		state.flags = CaptureJa2TacticalStatusFlags();
+		state.currentTeam = GetJa2TacticalCurrentTeam();
+		state.pendingCombatActions =
+			CaptureJa2SerializedPendingCombatActions();
+		state.saidCreatureFlavourQuote = static_cast<BOOLEAN>(
+			creatureQuote.saidFlavourQuote ? TRUE : FALSE);
+		state.hasSeenCreature = static_cast<BOOLEAN>(
+			creatureQuote.hasSeenCreature ? TRUE : FALSE);
+		state.saidCreatureSmellQuote = static_cast<BOOLEAN>(
+			creatureQuote.saidSmellQuote ? TRUE : FALSE);
+		state.creatureTenseQuoteDelay = creatureQuote.tenseDelaySeconds;
+		state.creatureTenseQuoteLastUpdate =
+			creatureQuote.lastTenseQuoteMilliseconds;
+		state.interruptPending = interrupt.pending;
+		state.playerInterruptsDisabled = static_cast<BOOLEAN>(
+			interrupt.playerInterruptsDisabled ? TRUE : FALSE);
+		CaptureTacticalTeamPersistence(state);
 		SaveWriter w(hFile);
 		SaveFieldWriter ar(w);
 		XferTacticalStatus(ar, gTacticalStatus, state);
@@ -7118,6 +7213,7 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 			return(FALSE);
 		}
 	}
+	RestoreTacticalTeamPersistence(state);
 	RestoreJa2TacticalTurnState(
 		state.flags, state.currentTeam, state.pendingCombatActions);
 	RestoreJa2TacticalCreatureQuoteState({

@@ -208,8 +208,8 @@ void PossiblyMakeThisEnemyChosenOne( TacticalActor * pSoldier )
 
 	sPanicTriggerGridNo = gTacticalStatus.sPanicTriggerGridNo[ bPanicTrigger ];
 
-	if ( gTacticalStatus.Team[ENEMY_TEAM].bMenInSector + gTacticalStatus.ubArmyGuysKilled > 0 )
-		uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector + gTacticalStatus.ubArmyGuysKilled ) );
+	if ( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled > 0 )
+		uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled ) );
 
 	if ( gTacticalStatus.ubPanicTolerance[ bPanicTrigger ] > uiPercentEnemiesKilled )
 	{
@@ -451,8 +451,8 @@ INT8 ClosestPanicTrigger( TacticalActor * pSoldier )
 	INT8		bClosestTrigger = -1;
 	UINT32	uiPercentEnemiesKilled = 0;
 
-	if ( gTacticalStatus.Team[ENEMY_TEAM].bMenInSector + gTacticalStatus.ubArmyGuysKilled > 0 )
-		 uiPercentEnemiesKilled = (UINT32)(100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)(gTacticalStatus.Team[ENEMY_TEAM].bMenInSector + gTacticalStatus.ubArmyGuysKilled));
+	if ( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled > 0 )
+		 uiPercentEnemiesKilled = (UINT32)(100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)(GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled));
 
 	for ( bLoop = 0; bLoop < NUM_PANIC_TRIGGERS; ++bLoop )
 	{		
@@ -503,7 +503,7 @@ BOOLEAN NeedToRadioAboutPanicTrigger( void )
 		return( FALSE );
 	}
 
-	if ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector == 0 )
+	if ( GetTacticalTeamMenInSector( ENEMY_TEAM ) == 0 )
 	{
 		return( FALSE );
 	}
@@ -519,7 +519,7 @@ BOOLEAN NeedToRadioAboutPanicTrigger( void )
 	}
 
 
-	uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector + gTacticalStatus.ubArmyGuysKilled ) );
+	uiPercentEnemiesKilled = (UINT32)( 100 * (UINT32)(gTacticalStatus.ubArmyGuysKilled) / (UINT32)( GetTacticalTeamMenInSector( ENEMY_TEAM ) + gTacticalStatus.ubArmyGuysKilled ) );
 
 	for ( bLoop = 0; bLoop < NUM_PANIC_TRIGGERS; bLoop++ )
 	{

@@ -65,6 +65,8 @@ const TacticalWorldSession::Snapshot::CreatureQuote&
 CaptureJa2TacticalCreatureQuote() noexcept;
 const TacticalWorldSession::Snapshot::Interrupt&
 CaptureJa2TacticalInterruptState() noexcept;
+const TacticalWorldSession::Snapshot::TeamPopulation*
+CaptureJa2TacticalTeamPopulation(std::size_t team) noexcept;
 bool IsJa2TacticalWorldLoaded() noexcept;
 inline bool IsJa2TacticalTurnBased() noexcept
 {
@@ -153,6 +155,20 @@ void SetJa2PlayerInterruptsDisabled(bool disabled) noexcept;
 void ResetJa2TacticalInterruptState() noexcept;
 void RestoreJa2TacticalInterruptState(
 	TacticalWorldSession::Snapshot::Interrupt state) noexcept;
+
+// Team activity and in-sector cardinality form one tactical-session value.
+// Reads and writes pass through these gateways so a count transition cannot
+// publish a stale activity bit. The remaining team metadata stays in JA2.
+std::int16_t GetJa2TacticalTeamMenInSector(std::size_t team) noexcept;
+bool IsJa2TacticalTeamActive(std::size_t team) noexcept;
+bool SetJa2TacticalTeamPopulation(
+	std::size_t team, std::int16_t menInSector,
+	std::int8_t active) noexcept;
+void ResetJa2TacticalTeamPopulations() noexcept;
+bool AddJa2TacticalTeamMember(std::size_t team) noexcept;
+bool RemoveJa2TacticalTeamMember(
+	std::size_t team, bool& underflow,
+	std::int16_t& observedCount) noexcept;
 
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.

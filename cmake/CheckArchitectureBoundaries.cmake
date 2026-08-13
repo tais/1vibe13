@@ -17919,23 +17919,8 @@ set(retired_tactical_interrupt_fields
   ubInterruptPending
   ubDisablePlayerInterrupts)
 set(tactical_interrupt_production_directories
-  Engine
-  Editor
-  Ja2
-  Laptop
-  ModularizedTacticalAI
-  Multiplayer
-  Strategic
-  Tactical
-  TacticalAI
-  TileEngine
-  Utils
-  examples
-  i18n
-  lua
-  sdk
-  sgp
-  tools)
+  Engine Editor Ja2 Laptop ModularizedTacticalAI Multiplayer Strategic
+  Tactical TacticalAI TileEngine Utils examples i18n lua sdk sgp tools)
 set(tactical_interrupt_production_files)
 foreach(source_directory IN LISTS tactical_interrupt_production_directories)
   file(GLOB_RECURSE tactical_interrupt_directory_files
@@ -18050,6 +18035,173 @@ if(tactical_interrupt_load_xfer_position EQUAL -1 OR
      tactical_interrupt_load_restore_position)
   message(FATAL_ERROR
     "Tactical interrupt load must publish only after the complete tactical-status transfer validates")
+endif()
+
+# In-sector count and activity are one TacticalWorldSession value for each of
+# the 11 fixed teams. Neither old writable field may return in application or
+# engine source; save compatibility reconstructs the established 20-byte team
+# record explicitly rather than relying on the now-split runtime struct.
+set(retired_tactical_team_population_fields
+  bMenInSector
+  bTeamActive)
+foreach(source_file IN LISTS tactical_interrupt_production_files)
+  file(READ "${source_file}" contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    tactical_team_population_executable "${contents}")
+  foreach(retired_field IN LISTS retired_tactical_team_population_fields)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_field}([^A-Za-z0-9_]|$)"
+      retired_tactical_team_population_field
+      "${tactical_team_population_executable}")
+    if(retired_tactical_team_population_field)
+      message(FATAL_ERROR
+        "Retired tactical-team population field '${retired_field}' returned in ${source_file}; use the session-backed tactical-team gateway")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(tactical_team_population_contract IN ITEMS
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|TacticalTeamCount = 11"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|std::array<TeamPopulation, TacticalTeamCount>"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.cpp|TacticalWorldSession::addTeamMember"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.cpp|TacticalWorldSession::removeTeamMember"
+    "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp|SetJa2TacticalTeamPopulation"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|ResetTacticalTeamPopulations();"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|AddJa2TacticalTeamMember"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|RemoveJa2TacticalTeamMember"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|if (underflow)"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|Number of people on team %d dropped to %d"
+    "${SOURCE_ROOT}/Multiplayer/client.cpp|SetTacticalTeamPopulation"
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp|sizeof(TacticalTeamPersistenceRecord) == 20"
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp|CaptureTacticalTeamPersistence(state);"
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp|RestoreTacticalTeamPersistence(state);"
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md|SDK consumers must rebuild"
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md|world commit and unload"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md|consumers must rebuild"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md|TacticalWorldSnapshot`, wire data"
+    "${SOURCE_ROOT}/docs/SAVE_FORMAT.md|reserved bytes at offsets 9 and 17–19"
+    "${SOURCE_ROOT}/tests/tactical_team_population_session_model_tests.cpp|rawMen <= std::numeric_limits<std::int16_t>::max()"
+    "${SOURCE_ROOT}/tests/tactical_team_population_session_model_tests.cpp|rawActive <= 127"
+    "${SOURCE_ROOT}/tests/tactical_team_population_session_model_tests.cpp|sizeof(TacticalWorldSession::Snapshot::TeamPopulation) == 4"
+    "${SOURCE_ROOT}/tests/tactical_team_population_session_model_tests.cpp|TeamPopulation, menInSector) == 0"
+    "${SOURCE_ROOT}/tests/tactical_team_population_session_model_tests.cpp|TeamPopulation, active) == 2"
+    "${SOURCE_ROOT}/tests/CMakeLists.txt|add_executable(tactical_team_population_session_model_tests"
+    "${SOURCE_ROOT}/.github/workflows/build_unix.yml|tactical_team_population_session_model_tests"
+    "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp|tactical team population and activity publish atomically through the runtime session")
+  string(REPLACE "|" ";" tactical_team_population_parts
+    "${tactical_team_population_contract}")
+  list(GET tactical_team_population_parts 0 tactical_team_population_file)
+  list(GET tactical_team_population_parts 1 tactical_team_population_fragment)
+  file(READ "${tactical_team_population_file}"
+    tactical_team_population_contents)
+  string(FIND "${tactical_team_population_contents}"
+    "${tactical_team_population_fragment}"
+    tactical_team_population_fragment_position)
+  if(tactical_team_population_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical-team population contract lost '${tactical_team_population_fragment}' in ${tactical_team_population_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  tactical_team_population_persistence_contents)
+foreach(tactical_team_population_save_fragment IN ITEMS
+    "std::is_standard_layout<TacticalTeamPersistenceRecord>::value"
+    "std::is_trivially_copyable<TacticalTeamPersistenceRecord>::value"
+    "alignof(TacticalTeamPersistenceRecord) == 4"
+    "offsetof(TacticalTeamPersistenceRecord, firstId) == 0"
+    "offsetof(TacticalTeamPersistenceRecord, lastId) == 2"
+    "offsetof(TacticalTeamPersistenceRecord, radarColor) == 4"
+    "offsetof(TacticalTeamPersistenceRecord, side) == 8"
+    "offsetof(TacticalTeamPersistenceRecord, paddingAfterSide) == 9"
+    "offsetof(TacticalTeamPersistenceRecord, menInSector) == 10"
+    "offsetof(TacticalTeamPersistenceRecord, lastMercToRadio) == 12"
+    "offsetof(TacticalTeamPersistenceRecord, active) == 14"
+    "offsetof(TacticalTeamPersistenceRecord, awareOfOpposition) == 15"
+    "offsetof(TacticalTeamPersistenceRecord, human) == 16"
+    "offsetof(TacticalTeamPersistenceRecord, trailingPadding) == 17"
+    "UINT8 paddingAfterSide = 0;"
+    "UINT8 trailingPadding[3] = {};"
+    "target.firstId = source.bFirstID.i;"
+    "target.lastId = source.bLastID.i;"
+    "target.radarColor = source.RadarColor;"
+    "target.side = source.bSide;"
+    "target.menInSector = population ? population->menInSector : 0;"
+    "target.lastMercToRadio = source.ubLastMercToRadio.i;"
+    "target.active = population ? population->active : 0;"
+    "target.awareOfOpposition = source.bAwareOfOpposition;"
+    "target.human = source.bHuman;"
+    "target.bFirstID.i = source.firstId;"
+    "target.bLastID.i = source.lastId;"
+    "target.RadarColor = source.radarColor;"
+    "target.bSide = source.side;"
+    "target.ubLastMercToRadio.i = source.lastMercToRadio;"
+    "target.bAwareOfOpposition = source.awareOfOpposition;"
+    "target.bHuman = source.human;"
+    "source.menInSector,"
+    "source.active);"
+    "ar.bytes(&state.teams, sizeof(state.teams));")
+  string(FIND "${tactical_team_population_persistence_contents}"
+    "${tactical_team_population_save_fragment}"
+    tactical_team_population_save_position)
+  if(tactical_team_population_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical-team population save layout lost '${tactical_team_population_save_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${tactical_team_population_persistence_contents}"
+  "BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )\n{"
+  tactical_team_population_save_start)
+if(tactical_team_population_save_start EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical-team population persistence lost the tactical-status save definition")
+endif()
+string(SUBSTRING "${tactical_team_population_persistence_contents}"
+  ${tactical_team_population_save_start} -1
+  tactical_team_population_save_contents)
+string(FIND "${tactical_team_population_save_contents}"
+  "CaptureTacticalTeamPersistence(state);"
+  tactical_team_population_capture_position)
+string(FIND "${tactical_team_population_save_contents}"
+  "XferTacticalStatus(ar, gTacticalStatus, state);"
+  tactical_team_population_save_xfer_position)
+if(tactical_team_population_capture_position EQUAL -1 OR
+   tactical_team_population_save_xfer_position EQUAL -1 OR
+   tactical_team_population_capture_position GREATER_EQUAL
+     tactical_team_population_save_xfer_position)
+  message(FATAL_ERROR
+    "Tactical-team population must be captured before tactical-status serialization")
+endif()
+
+string(FIND "${tactical_team_population_persistence_contents}"
+  "BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )\n{"
+  tactical_team_population_load_start)
+if(tactical_team_population_load_start EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical-team population persistence lost the tactical-status load definition")
+endif()
+string(SUBSTRING "${tactical_team_population_persistence_contents}"
+  ${tactical_team_population_load_start} -1
+  tactical_team_population_load_contents)
+string(FIND "${tactical_team_population_load_contents}"
+  "XferTacticalStatus(ar, gTacticalStatus, state);"
+  tactical_team_population_load_xfer_position)
+string(FIND "${tactical_team_population_load_contents}"
+  "if( !r.good() )"
+  tactical_team_population_load_validation_position)
+string(FIND "${tactical_team_population_load_contents}"
+  "RestoreTacticalTeamPersistence(state);"
+  tactical_team_population_restore_position)
+if(tactical_team_population_load_xfer_position EQUAL -1 OR
+   tactical_team_population_load_validation_position EQUAL -1 OR
+   tactical_team_population_restore_position EQUAL -1 OR
+   tactical_team_population_load_xfer_position GREATER_EQUAL
+     tactical_team_population_load_validation_position OR
+   tactical_team_population_load_validation_position GREATER_EQUAL
+     tactical_team_population_restore_position)
+  message(FATAL_ERROR
+    "Tactical-team population load must publish only after the complete tactical-status transfer validates")
 endif()
 
 # Campaign time identity is owned solely by EngineRuntime's

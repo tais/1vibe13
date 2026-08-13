@@ -5379,7 +5379,7 @@ void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
 				// ignore if the player is fighting the enemy here and this is a good guy
-				if ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 && (gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) )
+				if ( GetTacticalTeamMenInSector( ENEMY_TEAM ) > 0 && (gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) )
 				{
 					continue;
 				}

@@ -166,6 +166,12 @@ CaptureJa2TacticalInterruptState() noexcept
 	return CaptureJa2TacticalWorld().interrupt;
 }
 
+const TacticalWorldSession::Snapshot::TeamPopulation*
+CaptureJa2TacticalTeamPopulation(std::size_t team) noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().teamPopulation(team);
+}
+
 bool IsJa2TacticalWorldLoaded() noexcept
 {
 	return CaptureJa2TacticalWorld().loaded;
@@ -362,6 +368,46 @@ void RestoreJa2TacticalInterruptState(
 	TacticalWorldSession::Snapshot::Interrupt state) noexcept
 {
 	GetJa2TacticalWorldAdapter().session().restoreInterruptState(state);
+}
+
+std::int16_t GetJa2TacticalTeamMenInSector(std::size_t team) noexcept
+{
+	const TacticalWorldSession::Snapshot::TeamPopulation* population =
+		CaptureJa2TacticalTeamPopulation(team);
+	return population ? population->menInSector : 0;
+}
+
+bool IsJa2TacticalTeamActive(std::size_t team) noexcept
+{
+	const TacticalWorldSession::Snapshot::TeamPopulation* population =
+		CaptureJa2TacticalTeamPopulation(team);
+	return population && population->active != 0;
+}
+
+bool SetJa2TacticalTeamPopulation(
+	std::size_t team, std::int16_t menInSector,
+	std::int8_t active) noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().setTeamPopulation(
+		team, {menInSector, active});
+}
+
+void ResetJa2TacticalTeamPopulations() noexcept
+{
+	GetJa2TacticalWorldAdapter().session().resetTeamPopulations();
+}
+
+bool AddJa2TacticalTeamMember(std::size_t team) noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().addTeamMember(team);
+}
+
+bool RemoveJa2TacticalTeamMember(
+	std::size_t team, bool& underflow,
+	std::int16_t& observedCount) noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().removeTeamMember(
+		team, underflow, observedCount);
 }
 
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept

@@ -1417,7 +1417,7 @@ void HandleRottingCorpses( )
 		return;
 	}
 
-	if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive )
+	if ( IsTacticalTeamActive( CREATURE_TEAM ) )
 	{
 		// don't add any crows while there are predators around
 		return;

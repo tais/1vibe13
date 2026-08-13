@@ -559,7 +559,7 @@ void sendREAL(RPCParameters *rpcParameters)
 			else 
 				b=i;
 
-			if(gTacticalStatus.Team[ b ].bTeamActive)
+			if(IsTacticalTeamActive( b ))
 				numactiveteams++;
 		}
 

@@ -1417,7 +1417,7 @@ void RenderOverheadOverlays()
 	PIXEL jamcolour = Get16BPPColor( FROMRGB( 36, 219, 151 ) );
 
 	BOOLEAN marklastenemy = FALSE;
-	if ( (gGameSettings.fOptions[TOPTION_SHOW_LAST_ENEMY] && gGameExternalOptions.ubMarkerMode && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector <= gGameExternalOptions.ubSoldiersLeft)
+	if ( (gGameSettings.fOptions[TOPTION_SHOW_LAST_ENEMY] && gGameExternalOptions.ubMarkerMode && GetTacticalTeamMenInSector( ENEMY_TEAM ) <= gGameExternalOptions.ubSoldiersLeft)
 		|| RebelCommand::ShowApproximateEnemyLocations())
 		marklastenemy = TRUE;
 	

@@ -456,7 +456,7 @@ INT8 ZombieDecideActionYellow(TacticalActor *pSoldier)
 
 	// if we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (GetTacticalTeamMenInSector( pSoldier->roster().team() ) > 1) )
 	{
 		// base chance depends on how much new info we have to radio to the others
 		iChance = 5 * WhatIKnowThatPublicDont(pSoldier,FALSE);   // use 5 * for YELLOW alert

@@ -1535,7 +1535,7 @@ void EndAirRaid( )
 	{
 		SetMusicMode( MUSIC_TACTICAL_NOTHING );
 
-		if ( !gTacticalStatus.Team[ ENEMY_TEAM ].bTeamActive && !gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive )
+		if ( !IsTacticalTeamActive( ENEMY_TEAM ) && !IsTacticalTeamActive( CREATURE_TEAM ) )
 		{
 			TacticalActor * pTeamSoldier;
 

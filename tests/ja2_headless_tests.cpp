@@ -8158,6 +8158,28 @@ int main( int, char** )
 		       CaptureJa2TacticalInterruptState() == previousInterruptSession,
 		       "tactical interrupt control is atomically owned by the runtime session" );
 
+		const TacticalWorldSession::Snapshot::TeamPopulation
+			previousCivilianPopulation =
+				*CaptureJa2TacticalTeamPopulation(CIV_TEAM);
+		const bool exactPopulationAccepted =
+			SetJa2TacticalTeamPopulation(CIV_TEAM, 7, -7);
+		const bool populationIsSessionOwned =
+			exactPopulationAccepted &&
+			GetTacticalTeamMenInSector(CIV_TEAM) == 7 &&
+			IsTacticalTeamActive(CIV_TEAM) &&
+			compiledContext.runtime().tacticalWorldSession().snapshot()
+				.teamPopulations[CIV_TEAM] ==
+					(TacticalWorldSession::Snapshot::TeamPopulation{7, -7}) &&
+			!SetJa2TacticalTeamPopulation(MAXTEAMS, 1, 1);
+		(void)SetJa2TacticalTeamPopulation(
+			CIV_TEAM,
+			previousCivilianPopulation.menInSector,
+			previousCivilianPopulation.active);
+		CHECK( populationIsSessionOwned &&
+		       *CaptureJa2TacticalTeamPopulation(CIV_TEAM) ==
+		           previousCivilianPopulation,
+		       "tactical team population and activity publish atomically through the runtime session" );
+
 		const TacticalActor previousWorldActor = soldierRepository.record( 0 );
 		TacticalActor& worldActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousWorldEntity =

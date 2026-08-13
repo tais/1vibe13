@@ -55,6 +55,49 @@ bool TacticalWorldSession::completeCombatAction() noexcept
 	return true;
 }
 
+bool TacticalWorldSession::addTeamMember(std::size_t team) noexcept
+{
+	if (team >= state_.teamPopulations.size()) return false;
+	Snapshot::TeamPopulation& population = state_.teamPopulations[team];
+	if (population.menInSector == 0) population.active = 1;
+	if (population.menInSector ==
+		std::numeric_limits<std::int16_t>::max())
+		return false;
+	++population.menInSector;
+	return true;
+}
+
+bool TacticalWorldSession::removeTeamMember(
+	std::size_t team,
+	bool& underflow,
+	std::int16_t& observedCount) noexcept
+{
+	underflow = false;
+	observedCount = 0;
+	if (team >= state_.teamPopulations.size()) return false;
+	Snapshot::TeamPopulation& population = state_.teamPopulations[team];
+	if (population.menInSector ==
+		std::numeric_limits<std::int16_t>::min())
+	{
+		observedCount = std::numeric_limits<std::int16_t>::min();
+		population.menInSector = 0;
+		underflow = true;
+		return true;
+	}
+	--population.menInSector;
+	observedCount = population.menInSector;
+	if (population.menInSector == 0)
+	{
+		population.active = 0;
+	}
+	else if (population.menInSector < 0)
+	{
+		population.menInSector = 0;
+		underflow = true;
+	}
+	return true;
+}
+
 void TacticalWorldSession::restore(Snapshot state) noexcept
 {
 	if (!state.loaded || state.worldGeneration == 0)
