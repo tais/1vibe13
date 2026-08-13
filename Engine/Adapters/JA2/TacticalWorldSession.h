@@ -75,12 +75,32 @@ public:
 			}
 		};
 
+		// Tactical interrupt-control state that spans input, turn resolution,
+		// and save/load. The application still owns the legacy interrupt rules;
+		// this session owns the selected pending kind and the per-player-turn
+		// suppression latch so they cannot diverge through writable mirrors.
+		struct Interrupt
+		{
+			std::uint8_t pending = 0;
+			bool playerInterruptsDisabled = false;
+
+			friend bool operator==(
+				const Interrupt& lhs,
+				const Interrupt& rhs) noexcept
+			{
+				return lhs.pending == rhs.pending &&
+					lhs.playerInterruptsDisabled ==
+						rhs.playerInterruptsDisabled;
+			}
+		};
+
 		Sector sector;
 		bool loaded = false;
 		std::uint64_t worldGeneration = 0;
 		std::uint64_t turnSerial = 0;
 		Turn turn;
 		CreatureQuote creatureQuote;
+		Interrupt interrupt;
 	};
 
 	const Snapshot& snapshot() const noexcept { return state_; }
@@ -145,6 +165,22 @@ public:
 		Snapshot::CreatureQuote state) noexcept
 	{
 		state_.creatureQuote = state;
+	}
+	void setPendingInterrupt(std::uint8_t pending) noexcept
+	{
+		state_.interrupt.pending = pending;
+	}
+	void setPlayerInterruptsDisabled(bool disabled) noexcept
+	{
+		state_.interrupt.playerInterruptsDisabled = disabled;
+	}
+	void restoreInterruptState(Snapshot::Interrupt state) noexcept
+	{
+		state_.interrupt = state;
+	}
+	void resetInterruptState() noexcept
+	{
+		state_.interrupt = Snapshot::Interrupt{};
 	}
 
 	// Preserve the legacy generation sequence: zero is reserved, and wrapping

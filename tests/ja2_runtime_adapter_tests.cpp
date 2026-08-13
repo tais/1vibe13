@@ -538,6 +538,19 @@ int main()
 	check(worldSession.snapshot().creatureQuote ==
 			TacticalWorldSession::Snapshot::CreatureQuote{},
 		"tactical-session reset clears creature narrative state atomically");
+	worldSession.restoreInterruptState({7, true});
+	check(worldSession.snapshot().interrupt ==
+			TacticalWorldSession::Snapshot::Interrupt{7, true},
+		"tactical sessions restore pending interrupt control atomically");
+	worldSession.setPendingInterrupt(3);
+	worldSession.setPlayerInterruptsDisabled(false);
+	check(worldSession.snapshot().interrupt ==
+			TacticalWorldSession::Snapshot::Interrupt{3, false},
+		"interrupt kind and player suppression share one runtime owner");
+	worldSession.resetInterruptState();
+	check(worldSession.snapshot().interrupt ==
+			TacticalWorldSession::Snapshot::Interrupt{},
+		"tactical-session reset clears interrupt control atomically");
 	check(&legacyBraceRuntime.tacticalWorldSession() ==
 		&legacyBraceRuntime.tacticalWorldSession(),
 		"EngineRuntime owns one stable tactical world session");

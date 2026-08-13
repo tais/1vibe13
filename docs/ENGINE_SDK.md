@@ -1372,6 +1372,17 @@ the session applies the established unsigned strict-deadline rule. These
 values remain host-internal and retain their exact save-stream positions; the
 five writable `gTacticalStatus` mirrors have been retired.
 
+Pending improved-interrupt kind and the player-turn interrupt-suppression
+latch are also host-session state. The JA2 adapter exposes value accessors and
+the only production write gateways; input, turn logic, and interrupt
+resolution no longer share writable `gTacticalStatus` fields. Both values
+retain their exact trailing save-stream positions and are restored together
+after the complete tactical-status section validates. They remain
+host-internal legacy-rule inputs and do not extend the package-facing tactical
+snapshot or any network protocol.
+`InitOverhead` still clears both values at the former whole-status reset
+boundary. World commit and unload introduce no implicit interrupt reset.
+
 The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
 as const-reference projections for source-compatible, allocation-free hot-path
 reads. Their hidden storage is published only by `TacticalWorldAdapter`; writes

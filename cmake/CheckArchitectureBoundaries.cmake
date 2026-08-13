@@ -17373,6 +17373,147 @@ foreach(creature_quote_contract IN ITEMS
   endif()
 endforeach()
 
+# Pending interrupt kind and the per-player-turn suppression latch are owned
+# by the same tactical runtime session. Their former trailing status fields
+# must not return; save compatibility uses local persistence values and one
+# atomic restore gateway instead of publishing a partially read mirror.
+set(retired_tactical_interrupt_fields
+  ubInterruptPending
+  ubDisablePlayerInterrupts)
+set(tactical_interrupt_production_directories
+  Engine
+  Editor
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  examples
+  i18n
+  lua
+  sdk
+  sgp
+  tools)
+set(tactical_interrupt_production_files)
+foreach(source_directory IN LISTS tactical_interrupt_production_directories)
+  file(GLOB_RECURSE tactical_interrupt_directory_files
+    "${SOURCE_ROOT}/${source_directory}/*.c"
+    "${SOURCE_ROOT}/${source_directory}/*.C"
+    "${SOURCE_ROOT}/${source_directory}/*.cc"
+    "${SOURCE_ROOT}/${source_directory}/*.CC"
+    "${SOURCE_ROOT}/${source_directory}/*.cpp"
+    "${SOURCE_ROOT}/${source_directory}/*.CPP"
+    "${SOURCE_ROOT}/${source_directory}/*.cxx"
+    "${SOURCE_ROOT}/${source_directory}/*.CXX"
+    "${SOURCE_ROOT}/${source_directory}/*.h"
+    "${SOURCE_ROOT}/${source_directory}/*.H"
+    "${SOURCE_ROOT}/${source_directory}/*.hh"
+    "${SOURCE_ROOT}/${source_directory}/*.HH"
+    "${SOURCE_ROOT}/${source_directory}/*.hpp"
+    "${SOURCE_ROOT}/${source_directory}/*.HPP")
+  list(APPEND tactical_interrupt_production_files
+    ${tactical_interrupt_directory_files})
+endforeach()
+list(REMOVE_DUPLICATES tactical_interrupt_production_files)
+foreach(source_file IN LISTS tactical_interrupt_production_files)
+  file(READ "${source_file}" contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    tactical_interrupt_executable "${contents}")
+  foreach(retired_field IN LISTS retired_tactical_interrupt_fields)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_field}([^A-Za-z0-9_]|$)"
+      retired_tactical_interrupt_field "${tactical_interrupt_executable}")
+    if(retired_tactical_interrupt_field)
+      message(FATAL_ERROR
+        "Retired tactical-interrupt field '${retired_field}' returned in ${source_file}; use TacticalWorldSession through TacticalWorldAdapter")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(tactical_interrupt_contract IN ITEMS
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|struct Interrupt"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|std::uint8_t pending = 0"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|bool playerInterruptsDisabled = false"
+    "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSession.h|resetInterruptState"
+    "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp|RestoreJa2TacticalInterruptState"
+    "${SOURCE_ROOT}/Tactical/Overhead.cpp|ResetJa2TacticalInterruptState"
+    "${SOURCE_ROOT}/Tactical/TacticalActorInterrupts.cpp|SetJa2PendingInterrupt"
+    "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp|SetJa2PlayerInterruptsDisabled"
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp|CaptureJa2TacticalInterruptState"
+    "${SOURCE_ROOT}/tests/tactical_interrupt_session_model_tests.cpp|value <= 255"
+    "${SOURCE_ROOT}/tests/tactical_interrupt_session_model_tests.cpp|sizeof(TacticalWorldSession::Snapshot::Interrupt) == 2"
+    "${SOURCE_ROOT}/tests/CMakeLists.txt|add_executable(tactical_interrupt_session_model_tests"
+    "${SOURCE_ROOT}/.github/workflows/build_unix.yml|tactical_interrupt_session_model_tests"
+    "${SOURCE_ROOT}/tests/ja2_runtime_adapter_tests.cpp|tactical-session reset clears interrupt control atomically"
+    "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp|worldBindingFixture.session().restoreInterruptState"
+    "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp|tactical interrupt control is atomically owned by the runtime session"
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md|commit/unload transitions otherwise preserve the legacy lifecycle"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md|World commit and unload introduce no implicit interrupt reset"
+    "${SOURCE_ROOT}/docs/SAVE_FORMAT.md|pending-interrupt `u8`, then disabled-interrupt boolean `u8`")
+  string(REPLACE "|" ";" tactical_interrupt_parts
+    "${tactical_interrupt_contract}")
+  list(GET tactical_interrupt_parts 0 tactical_interrupt_file)
+  list(GET tactical_interrupt_parts 1 tactical_interrupt_fragment)
+  file(READ "${tactical_interrupt_file}" tactical_interrupt_contents)
+  string(FIND "${tactical_interrupt_contents}"
+    "${tactical_interrupt_fragment}" tactical_interrupt_fragment_position)
+  if(tactical_interrupt_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical-interrupt session contract lost '${tactical_interrupt_fragment}' in ${tactical_interrupt_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  tactical_interrupt_persistence_contents)
+string(REGEX MATCH
+  "ar[.]u16[(]s[.]ubLastRequesterSurgeryTargetID[.]i[)];[ \t\r\n]*ar[.]u8[ \t]*[(]state[.]interruptPending[)];[ \t\r\n]*ar[.]boolean[(]state[.]playerInterruptsDisabled[)];[ \t\r\n]*[}]"
+  tactical_interrupt_persistence_order
+  "${tactical_interrupt_persistence_contents}")
+if(NOT tactical_interrupt_persistence_order)
+  message(FATAL_ERROR
+    "Tactical interrupt state no longer retains its exact trailing save-field order")
+endif()
+string(REGEX MATCH
+  "RestoreJa2TacticalInterruptState[(][ \t\r\n]*[{][ \t\r\n]*state[.]interruptPending,[ \t\r\n]*state[.]playerInterruptsDisabled != FALSE[}][)];"
+  tactical_interrupt_atomic_restore
+  "${tactical_interrupt_persistence_contents}")
+if(NOT tactical_interrupt_atomic_restore)
+  message(FATAL_ERROR
+    "Tactical interrupt state no longer restores atomically after tactical-status validation")
+endif()
+string(FIND "${tactical_interrupt_persistence_contents}"
+  "BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )\n{"
+  tactical_interrupt_load_start)
+if(tactical_interrupt_load_start EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical interrupt persistence lost the tactical-status load definition")
+endif()
+string(SUBSTRING "${tactical_interrupt_persistence_contents}"
+  ${tactical_interrupt_load_start} -1 tactical_interrupt_load_contents)
+string(FIND "${tactical_interrupt_load_contents}"
+  "XferTacticalStatus(ar, gTacticalStatus, state);"
+  tactical_interrupt_load_xfer_position)
+string(FIND "${tactical_interrupt_load_contents}"
+  "if( !r.good() )"
+  tactical_interrupt_load_validation_position)
+string(FIND "${tactical_interrupt_load_contents}"
+  "RestoreJa2TacticalInterruptState"
+  tactical_interrupt_load_restore_position)
+if(tactical_interrupt_load_xfer_position EQUAL -1 OR
+   tactical_interrupt_load_validation_position EQUAL -1 OR
+   tactical_interrupt_load_restore_position EQUAL -1 OR
+   tactical_interrupt_load_xfer_position GREATER_EQUAL
+     tactical_interrupt_load_validation_position OR
+   tactical_interrupt_load_validation_position GREATER_EQUAL
+     tactical_interrupt_load_restore_position)
+  message(FATAL_ERROR
+    "Tactical interrupt load must publish only after the complete tactical-status transfer validates")
+endif()
+
 # Campaign time identity is owned solely by EngineRuntime's
 # CampaignClockSession. These former writable scalars have been retired; the
 # established game reads value accessors backed by the session instead.

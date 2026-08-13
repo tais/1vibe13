@@ -160,6 +160,12 @@ CaptureJa2TacticalCreatureQuote() noexcept
 	return CaptureJa2TacticalWorld().creatureQuote;
 }
 
+const TacticalWorldSession::Snapshot::Interrupt&
+CaptureJa2TacticalInterruptState() noexcept
+{
+	return CaptureJa2TacticalWorld().interrupt;
+}
+
 bool IsJa2TacticalWorldLoaded() noexcept
 {
 	return CaptureJa2TacticalWorld().loaded;
@@ -335,6 +341,27 @@ void RestoreJa2TacticalCreatureQuoteState(
 	TacticalWorldSession::Snapshot::CreatureQuote state) noexcept
 {
 	GetJa2TacticalWorldAdapter().session().restoreCreatureQuoteState(state);
+}
+
+void SetJa2PendingInterrupt(std::uint8_t pending) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().setPendingInterrupt(pending);
+}
+
+void SetJa2PlayerInterruptsDisabled(bool disabled) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().setPlayerInterruptsDisabled(disabled);
+}
+
+void ResetJa2TacticalInterruptState() noexcept
+{
+	GetJa2TacticalWorldAdapter().session().resetInterruptState();
+}
+
+void RestoreJa2TacticalInterruptState(
+	TacticalWorldSession::Snapshot::Interrupt state) noexcept
+{
+	GetJa2TacticalWorldAdapter().session().restoreInterruptState(state);
 }
 
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept

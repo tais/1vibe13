@@ -6900,8 +6900,9 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 
 
 // Portable (save-format v2) field list for the tactical-status compatibility
-// section. Runtime-owned turn and creature-quote values retain their exact
-// legacy positions through TacticalStatusPersistenceFields. CHAR16
+// section. Runtime-owned turn, creature-quote, and interrupt-control values
+// retain their exact legacy positions through TacticalStatusPersistenceFields.
+// CHAR16
 // zTopMessageString via wstr; SoldierID fields via their UINT16 .i; the
 // scalar-only TacticalTeamType Team[] stays a byte block (deterministic
 // layout on our targets). Replaces the legacy raw-blob save / ReadFieldByField
@@ -6916,6 +6917,8 @@ struct TacticalStatusPersistenceFields
 	BOOLEAN saidCreatureSmellQuote = FALSE;
 	UINT16 creatureTenseQuoteDelay = 0;
 	UINT32 creatureTenseQuoteLastUpdate = 0;
+	UINT8 interruptPending = 0;
+	BOOLEAN playerInterruptsDisabled = FALSE;
 };
 
 template<class Ar> static void XferTacticalStatus(
@@ -7019,8 +7022,8 @@ template<class Ar> static void XferTacticalStatus(
 	ar.u16(state.creatureTenseQuoteDelay);
 	ar.u32(state.creatureTenseQuoteLastUpdate);
 	ar.u16(s.ubLastRequesterSurgeryTargetID.i);
-	ar.u8 (s.ubInterruptPending);
-	ar.boolean(s.ubDisablePlayerInterrupts);
+	ar.u8 (state.interruptPending);
+	ar.boolean(state.playerInterruptsDisabled);
 }
 
 BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
@@ -7034,6 +7037,8 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 	{
 		const TacticalWorldSession::Snapshot::CreatureQuote& creatureQuote =
 			CaptureJa2TacticalCreatureQuote();
+		const TacticalWorldSession::Snapshot::Interrupt& interrupt =
+			CaptureJa2TacticalInterruptState();
 		TacticalStatusPersistenceFields state{
 			CaptureJa2TacticalStatusFlags(),
 			GetJa2TacticalCurrentTeam(),
@@ -7045,7 +7050,10 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 			static_cast<BOOLEAN>(
 				creatureQuote.saidSmellQuote ? TRUE : FALSE),
 			creatureQuote.tenseDelaySeconds,
-			creatureQuote.lastTenseQuoteMilliseconds};
+			creatureQuote.lastTenseQuoteMilliseconds,
+			interrupt.pending,
+			static_cast<BOOLEAN>(
+				interrupt.playerInterruptsDisabled ? TRUE : FALSE)};
 		SaveWriter w(hFile);
 		SaveFieldWriter ar(w);
 		XferTacticalStatus(ar, gTacticalStatus, state);
@@ -7118,6 +7126,9 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 		state.saidCreatureSmellQuote != FALSE,
 		state.creatureTenseQuoteDelay,
 		state.creatureTenseQuoteLastUpdate});
+	RestoreJa2TacticalInterruptState({
+		state.interruptPending,
+		state.playerInterruptsDisabled != FALSE});
 
 //	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
 //		gTacticalStatus.Team[idx] = savedTeamSettings[idx];

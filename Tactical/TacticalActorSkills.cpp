@@ -332,7 +332,7 @@ bool TacticalActorSkills::canUse(
 			&& TacticalActorRadio::canUse(actor, checkForActionPoints)
 			&& gSkillTraitValues.fCOTurncoats
 			&& !gbWorldSectorZ
-			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
+			&& GetJa2PendingInterrupt() == DISABLED_INTERRUPT
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
 			canuse = true;
 		break;
@@ -458,7 +458,7 @@ bool TacticalActorSkills::canUse(
 		// not during an interrupt
 		if ( gSkillTraitValues.fCOTurncoats
 			&& !gbWorldSectorZ
-			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
+			&& GetJa2PendingInterrupt() == DISABLED_INTERRUPT
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
 		{
 			TacticalActor* pSoldier =
@@ -482,7 +482,7 @@ bool TacticalActorSkills::canUse(
 		// not during an interrupt
 		if ( gSkillTraitValues.fCOTurncoats
 			&& !gbWorldSectorZ
-			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
+			&& GetJa2PendingInterrupt() == DISABLED_INTERRUPT
 			&& !gSkillTraitValues.fCOTurncoats_SectorActivationRequiresRadioOperator
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
 		{

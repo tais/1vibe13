@@ -190,7 +190,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 	SetFastForwardMode(FALSE);
 	SetClockSpeedPercent(gGameExternalOptions.fClockSpeedPercent);	// sevenfm: set default clock speed
 
-	gTacticalStatus.ubDisablePlayerInterrupts = FALSE;
+	SetJa2PlayerInterruptsDisabled(false);
 
 	// Start the turn of player charactors
 
@@ -297,7 +297,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 	/// that a baddie can die and still maintain it's attacker ID
 	gTacticalStatus.fKilledEnemyOnAttack = FALSE;
 	
-	gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
+	SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 
 	HandleTacticalUI( );
 }
@@ -391,7 +391,7 @@ void EndTurn( UINT8 ubNextTeam )
 
 		SetJa2TacticalCurrentTeam( ubNextTeam );
 		
-		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
+		SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 
 		if(is_server || !is_client) BeginTeamTurn( GetJa2TacticalCurrentTeam() );
 
@@ -491,7 +491,7 @@ void EndAllAITurns( void )
 		SetJa2TacticalCurrentTeam( gbPlayerNum );
 		//BeginTeamTurn( GetJa2TacticalCurrentTeam() );
 		
-		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
+		SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 	}
 }
 
@@ -2289,7 +2289,7 @@ BOOLEAN InterruptDuel( TacticalActor * pSoldier, TacticalActor * pOpponent)
 	BOOLEAN fResult = FALSE;
 
 	// sevenfm: if Ctrl+D pressed - skip all player interrupts for this turn
-	if( !is_networked && !UsingImprovedInterruptSystem() && pSoldier->roster().team() == OUR_TEAM && gTacticalStatus.ubDisablePlayerInterrupts )
+	if( !is_networked && !UsingImprovedInterruptSystem() && pSoldier->roster().team() == OUR_TEAM && AreJa2PlayerInterruptsDisabled() )
 		return FALSE;
 
 	// if opponent can't currently see us and we can see them

@@ -571,6 +571,7 @@ BOOLEAN InitOverhead( )
     soldiers.initializeSlots();
     memset( &gTacticalStatus, 0, sizeof( TacticalStatusType ) );
     ResetJa2TacticalCreatureQuoteState();
+    ResetJa2TacticalInterruptState();
     UINT8 maxteams;
     if (!is_networked)
         maxteams = MAXTEAMS_SP;
@@ -6344,9 +6345,9 @@ void CommonEnterCombatModeCode( )
     gTacticalStatus.fLastBattleWon      = FALSE;
     gTacticalStatus.fItemsSeenOnAttack  = FALSE;
 
-    gTacticalStatus.ubInterruptPending  = DISABLED_INTERRUPT;
+	SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 
-	gTacticalStatus.ubDisablePlayerInterrupts = FALSE;
+	SetJa2PlayerInterruptsDisabled(false);
 
     // ATE: If we have an item pointer end it!
     CancelItemPointer( );
@@ -6578,7 +6579,7 @@ void ExitCombatMode( )
 
     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_FTM_EXIT_COMBAT ] );// ary-05/05/2009 : add forced turn mode
 
-	gTacticalStatus.ubDisablePlayerInterrupts = FALSE;
+	SetJa2PlayerInterruptsDisabled(false);
 
     // OK, we have exited combat mode.....
     // Reset some flags for no aps to move, etc

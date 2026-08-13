@@ -63,6 +63,8 @@ const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept;
 const TacticalWorldSession::Snapshot::Turn& CaptureJa2TacticalTurn() noexcept;
 const TacticalWorldSession::Snapshot::CreatureQuote&
 CaptureJa2TacticalCreatureQuote() noexcept;
+const TacticalWorldSession::Snapshot::Interrupt&
+CaptureJa2TacticalInterruptState() noexcept;
 bool IsJa2TacticalWorldLoaded() noexcept;
 inline bool IsJa2TacticalTurnBased() noexcept
 {
@@ -135,6 +137,22 @@ void RecordJa2TacticalCreatureTenseQuoteTime(
 	std::uint32_t nowMilliseconds) noexcept;
 void RestoreJa2TacticalCreatureQuoteState(
 	TacticalWorldSession::Snapshot::CreatureQuote state) noexcept;
+
+// Interrupt control is part of the tactical runtime session. The numeric kind
+// remains application-defined so the engine does not duplicate legacy rules.
+inline std::uint8_t GetJa2PendingInterrupt() noexcept
+{
+	return CaptureJa2TacticalInterruptState().pending;
+}
+inline bool AreJa2PlayerInterruptsDisabled() noexcept
+{
+	return CaptureJa2TacticalInterruptState().playerInterruptsDisabled;
+}
+void SetJa2PendingInterrupt(std::uint8_t pending) noexcept;
+void SetJa2PlayerInterruptsDisabled(bool disabled) noexcept;
+void ResetJa2TacticalInterruptState() noexcept;
+void RestoreJa2TacticalInterruptState(
+	TacticalWorldSession::Snapshot::Interrupt state) noexcept;
 
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.
