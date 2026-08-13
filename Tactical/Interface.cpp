@@ -40,6 +40,7 @@
 	#include "Utilities.h"
 	#include "Interface Cursors.h"
 	#include "Sound Control.h"
+	#include "Timer Control.h"
 	#include "lighting.h"
 	#include "Interface Panels.h"
 	#include "PATHAI.H"
@@ -75,6 +76,7 @@
 #include "GameContext.h"
 #include "InterfaceItemImages.h"
 #include "Ja25_Tactical.h"
+#include "TacticalDoorUiAdapter.h"
 
 #include "connect.h"
 //const UINT32 INTERFACE_START_X			= 0;
@@ -274,7 +276,7 @@ RECT LeftRect2;
 extern BOOLEAN gfDisplayFullCountRing;
 
 void DrawBarsInUIBox( TacticalActor *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 interval);
-void PopupDoorOpenMenu( BOOLEAN fClosingDoor );
+BOOLEAN PopupDoorOpenMenu( );
 
 
 BOOLEAN fFirstTimeInGameScreen	= TRUE;
@@ -3737,18 +3739,110 @@ void DirtyMercPanelInterface( TacticalActor *pSoldier, UINT8 ubDirtyLevel )
 
 typedef struct
 {
-	TacticalActor *pSoldier;
-	STRUCTURE		*pStructure;
-	UINT8				ubDirection;
 	INT16				sX;
 	INT16				sY;
 	BOOLEAN			fMenuHandled;
-	BOOLEAN			fClosingDoor;
+	BOOLEAN			fGamePauseOwned;
+	BOOLEAN			fPauseLockOwned;
+	BOOLEAN			fClockPauseOwned;
+	BOOLEAN			fOverlayOwned;
+	BOOLEAN			fIgnoreScrollingOwned;
 
 } OPENDOOR_MENU;
 
 OPENDOOR_MENU	gOpenDoorMenu;
 BOOLEAN				gfInOpenDoorMenu = FALSE;
+
+namespace
+{
+const INT32 gDoorMenuIconIndices[] = {
+	USE_KEYRING_ICON,
+	USE_CROWBAR_ICON,
+	LOCKPICK_DOOR_ICON,
+	EXPLOSIVE_DOOR_ICON,
+	OPEN_DOOR_ICON,
+	EXAMINE_DOOR_ICON,
+	BOOT_DOOR_ICON,
+	UNTRAP_DOOR_ICON,
+	CANCEL_ICON};
+
+#ifdef JA2TESTVERSION
+INT8 gDoorMenuButtonFailureAfter = -1;
+#endif
+
+void ResetDoorMenuButtonHandles()
+{
+	for (const INT32 icon : gDoorMenuIconIndices)
+		iActionIcons[icon] = -1;
+}
+
+void RemoveDoorMenuButtons()
+{
+	for (const INT32 icon : gDoorMenuIconIndices)
+	{
+		if (iActionIcons[icon] == -1) continue;
+		RemoveButton(iActionIcons[icon]);
+		iActionIcons[icon] = -1;
+	}
+}
+
+void ResetDoorMenuPresentationOwnership()
+{
+	gOpenDoorMenu.fGamePauseOwned = FALSE;
+	gOpenDoorMenu.fPauseLockOwned = FALSE;
+	gOpenDoorMenu.fClockPauseOwned = FALSE;
+	gOpenDoorMenu.fOverlayOwned = FALSE;
+	gOpenDoorMenu.fIgnoreScrollingOwned = FALSE;
+	ResetDoorMenuButtonHandles();
+}
+
+void AcquireDoorMenuPresentationOwnership()
+{
+	InterruptTime();
+	if (!GamePaused())
+	{
+		PauseGame();
+		gOpenDoorMenu.fGamePauseOwned = TRUE;
+	}
+	if (!PauseStateLocked())
+	{
+		LockPauseState(19);
+		gOpenDoorMenu.fPauseLockOwned = TRUE;
+	}
+	if (!IsJA2ClockPaused())
+	{
+		PauseTime(TRUE);
+		gOpenDoorMenu.fClockPauseOwned = TRUE;
+	}
+}
+
+INT32 CreateDoorMenuButton(
+	UINT32 image, INT16 x, INT16 y, INT32 type, INT16 priority,
+	GUI_CALLBACK moveCallback, GUI_CALLBACK clickCallback)
+{
+#ifdef JA2TESTVERSION
+	if (gDoorMenuButtonFailureAfter >= 0)
+	{
+		if (gDoorMenuButtonFailureAfter == 0)
+		{
+			gDoorMenuButtonFailureAfter = -1;
+			return -1;
+		}
+		--gDoorMenuButtonFailureAfter;
+	}
+#endif
+	return QuickCreateButton(
+		image, x, y, type, priority, moveCallback, clickCallback);
+}
+
+bool ResolveOpenDoorMenu(TacticalActor*& soldier) noexcept
+{
+	STRUCTURE* structure = nullptr;
+	return ResolveJa2TacticalDoorUiContext(
+		GetGameContext().runtime().tacticalDoorUiSession(),
+		soldier, structure);
+}
+}
 
 BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor )
 {
@@ -3756,25 +3850,24 @@ BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 
 	INT16	sScreenX, sScreenY;
 
 	// Can't bring up this menu if in autobandage mode
-	if (gTacticalStatus.fAutoBandageMode)
+	if (gTacticalStatus.fAutoBandageMode || !pSoldier || !pStructure)
 	{
 		return FALSE;
 	}
 
 	// Erase other menus....
 	EraseInterfaceMenus( TRUE );
+	TacticalDoorUiSession& doorUiSession =
+		GetGameContext().runtime().tacticalDoorUiSession();
+	doorUiSession.reset();
+	if (!CaptureJa2TacticalDoorUiContext(
+			doorUiSession, *pSoldier, *pStructure, ubDirection,
+			fClosingDoor != FALSE))
+		return FALSE;
 
-	InterruptTime();
-	PauseGame();
-	LockPauseState( 19 );
-	// Pause timers as well....
-	PauseTime( TRUE );
-
-
-	gOpenDoorMenu.pSoldier		= pSoldier;
-	gOpenDoorMenu.pStructure	= pStructure;
-	gOpenDoorMenu.ubDirection	= ubDirection;
-	gOpenDoorMenu.fClosingDoor	= fClosingDoor;
+	gOpenDoorMenu.fMenuHandled = FALSE;
+	ResetDoorMenuPresentationOwnership();
+	AcquireDoorMenuPresentationOwnership();
 
 	// OK, Determine position...
 	// Center on guy
@@ -3808,26 +3901,29 @@ BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 
 	}
 
 
-	gOpenDoorMenu.fMenuHandled	= FALSE;
-
 	guiPendingOverrideEvent		= OP_OPENDOORMENU;
 	HandleTacticalUI( );
 
-	PopupDoorOpenMenu( fClosingDoor );
-	if ( !gfInOpenDoorMenu )
+	if (!PopupDoorOpenMenu())
 	{
-		pSoldier->runtime().worldObject.reset();
-		gOpenDoorMenu.pSoldier = NULL;
+		gOpenDoorMenu.fMenuHandled = 2;
+		PopDownOpenDoorMenu();
 		return( FALSE );
 	}
 
 	return( TRUE );
 }
 
-void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
+BOOLEAN PopupDoorOpenMenu( )
 {
 	INT32								iMenuAnchorX, iMenuAnchorY;
 	CHAR16								zDisp[ 100 ];
+	TacticalActor* pSoldier = nullptr;
+	if (!ResolveOpenDoorMenu(pSoldier)) return FALSE;
+	const BOOLEAN fClosingDoor =
+		GetGameContext().runtime().tacticalDoorUiSession().
+			context().closingDoor
+			? TRUE : FALSE;
 
 	//iMenuAnchorX = gOpenDoorMenu.sX;
 	//iMenuAnchorY = gOpenDoorMenu.sY;
@@ -3843,15 +3939,16 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 						CURSOR_NORMAL, MSYS_NO_CALLBACK, DoorMenuBackregionCallback );
 	// Add region
 	MSYS_AddRegion( &gMenuOverlayRegion);
+	gOpenDoorMenu.fOverlayOwned = TRUE;
 
 
-	iActionIcons[ USE_KEYRING_ICON ] = QuickCreateButton( iIconImages[ USE_KEYRING_IMAGES ], (INT16)(iMenuAnchorX + 20 ), (INT16)(iMenuAnchorY ),
+	iActionIcons[ USE_KEYRING_ICON ] = CreateDoorMenuButton( iIconImages[ USE_KEYRING_IMAGES ], (INT16)(iMenuAnchorX + 20 ), (INT16)(iMenuAnchorY ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ USE_KEYRING_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -3864,25 +3961,25 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	SetButtonFastHelpText( iActionIcons[ USE_KEYRING_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) )
+	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
 	{
 		DisableButton( iActionIcons[ USE_KEYRING_ICON ] );
 	}
 
 	// Greyout if no keys found...
-	if ( !SoldierHasKey( gOpenDoorMenu.pSoldier, ANYKEY ) )
+	if ( !SoldierHasKey( pSoldier, ANYKEY ) )
 	{
 		DisableButton( iActionIcons[ USE_KEYRING_ICON ] );
 	}
 
 
-	iActionIcons[ USE_CROWBAR_ICON ] = QuickCreateButton( iIconImages[ CROWBAR_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY	),
+	iActionIcons[ USE_CROWBAR_ICON ] = CreateDoorMenuButton( iIconImages[ CROWBAR_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY	),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ USE_CROWBAR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -3896,23 +3993,23 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	SetButtonFastHelpText( iActionIcons[ USE_CROWBAR_ICON ], zDisp );
 
 	// Greyout if no crowbar found...
-	if ( FindUsableCrowbar ( gOpenDoorMenu.pSoldier ) == NO_SLOT	|| fClosingDoor )
+	if ( FindUsableCrowbar ( pSoldier ) == NO_SLOT	|| fClosingDoor )
 	{
 		DisableButton( iActionIcons[ USE_CROWBAR_ICON ] );
 	}
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
+	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
 	{
 		DisableButton( iActionIcons[ USE_CROWBAR_ICON ] );
 	}
 
-	iActionIcons[ LOCKPICK_DOOR_ICON ] = QuickCreateButton( iIconImages[ LOCKPICK_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 20 ),
+	iActionIcons[ LOCKPICK_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ LOCKPICK_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 20 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ LOCKPICK_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -3921,30 +4018,30 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	else
 	{
-		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ LOCKPICK_DOOR_ICON ], GetAPsToPicklock( gOpenDoorMenu.pSoldier ) ); // SANDRO
+		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ LOCKPICK_DOOR_ICON ], GetAPsToPicklock( pSoldier ) ); // SANDRO
 	}
 	SetButtonFastHelpText( iActionIcons[ LOCKPICK_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToPicklock( gOpenDoorMenu.pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) ) // SANDRO
+	if ( !EnoughPoints(	pSoldier, GetAPsToPicklock( pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ LOCKPICK_DOOR_ICON ] );
 	}
 
 
 	// Grayout if no lockpick found....
-	if ( FindLocksmithKit( gOpenDoorMenu.pSoldier ) == NO_SLOT )
+	if ( FindLocksmithKit( pSoldier ) == NO_SLOT )
 	{
 		DisableButton( iActionIcons[ LOCKPICK_DOOR_ICON ] );
 	}
 
 
-	iActionIcons[ EXPLOSIVE_DOOR_ICON ] = QuickCreateButton( iIconImages[ EXPLOSIVE_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 40 ),
+	iActionIcons[ EXPLOSIVE_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ EXPLOSIVE_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 40 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ EXPLOSIVE_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -3953,30 +4050,30 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	else
 	{
-		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ EXPLOSIVE_DOOR_ICON ], GetAPsToBombDoor( gOpenDoorMenu.pSoldier ) ); // SANDRO
+		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ EXPLOSIVE_DOOR_ICON ], GetAPsToBombDoor( pSoldier ) ); // SANDRO
 	}
 	SetButtonFastHelpText( iActionIcons[ EXPLOSIVE_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToBombDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_EXPLODE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) ) // SANDRO
+	if ( !EnoughPoints(	pSoldier, GetAPsToBombDoor( pSoldier ), APBPConstants[BP_EXPLODE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ EXPLOSIVE_DOOR_ICON ] );
 	}
 
 	// Grayout if no lock explosive found....
 	// For no use bomb1 until we get a special item for this
-	if ( FindLockBomb ( gOpenDoorMenu.pSoldier ) == NO_SLOT )
+	if ( FindLockBomb ( pSoldier ) == NO_SLOT )
 	{
 		DisableButton( iActionIcons[ EXPLOSIVE_DOOR_ICON ] );
 	}
 
 
-	iActionIcons[ OPEN_DOOR_ICON ] = QuickCreateButton( iIconImages[ OPEN_DOOR_IMAGES ], (INT16)(iMenuAnchorX ), (INT16)(iMenuAnchorY ),
+	iActionIcons[ OPEN_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ OPEN_DOOR_IMAGES ], (INT16)(iMenuAnchorX ), (INT16)(iMenuAnchorY ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ OPEN_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if ( fClosingDoor )
@@ -3987,7 +4084,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		}
 		else
 		{
-			swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ CANCEL_ICON + 1 ], GetAPsToOpenDoor( gOpenDoorMenu.pSoldier ) ); // SANDRO
+			swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ CANCEL_ICON + 1 ], GetAPsToOpenDoor( pSoldier ) ); // SANDRO
 		}
 	}
 	else
@@ -3998,25 +4095,25 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		}
 		else
 		{
-			swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ OPEN_DOOR_ICON ], GetAPsToOpenDoor( gOpenDoorMenu.pSoldier ) ); // SANDRO
+			swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ OPEN_DOOR_ICON ], GetAPsToOpenDoor( pSoldier ) ); // SANDRO
 		}
 	}
 	SetButtonFastHelpText( iActionIcons[ OPEN_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToOpenDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_OPEN_DOOR], FALSE ) ) // SANDRO
+	if ( !EnoughPoints(	pSoldier, GetAPsToOpenDoor( pSoldier ), APBPConstants[BP_OPEN_DOOR], FALSE ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ OPEN_DOOR_ICON ] );
 	}
 
 
 	// Create button based on what is in our hands at the moment!
-	iActionIcons[ EXAMINE_DOOR_ICON ] = QuickCreateButton( iIconImages[ EXAMINE_DOOR_IMAGES ], (INT16)(iMenuAnchorX	), (INT16)(iMenuAnchorY + 20 ),
+	iActionIcons[ EXAMINE_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ EXAMINE_DOOR_IMAGES ], (INT16)(iMenuAnchorX	), (INT16)(iMenuAnchorY + 20 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ EXAMINE_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -4029,18 +4126,18 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	SetButtonFastHelpText( iActionIcons[ EXAMINE_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) )
+	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
 	{
 		DisableButton( iActionIcons[ EXAMINE_DOOR_ICON ] );
 	}
 
-	iActionIcons[ BOOT_DOOR_ICON ] = QuickCreateButton( iIconImages[ BOOT_DOOR_IMAGES ], (INT16)(iMenuAnchorX	), (INT16)(iMenuAnchorY + 40 ),
+	iActionIcons[ BOOT_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ BOOT_DOOR_IMAGES ], (INT16)(iMenuAnchorX	), (INT16)(iMenuAnchorY + 40 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ BOOT_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -4053,19 +4150,19 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	SetButtonFastHelpText( iActionIcons[ BOOT_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) )
+	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
 	{
 		DisableButton( iActionIcons[ BOOT_DOOR_ICON ] );
 	}
 
 
-	iActionIcons[ UNTRAP_DOOR_ICON ] = QuickCreateButton( iIconImages[ UNTRAP_DOOR_ICON ], (INT16)(iMenuAnchorX + 20	), (INT16)(iMenuAnchorY + 40 ),
+	iActionIcons[ UNTRAP_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ UNTRAP_DOOR_ICON ], (INT16)(iMenuAnchorX + 20	), (INT16)(iMenuAnchorY + 40 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ UNTRAP_DOOR_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 
 	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -4074,22 +4171,22 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	else
 	{
-		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ UNTRAP_DOOR_ICON ], GetAPsToUntrapDoor( gOpenDoorMenu.pSoldier ) ); // SANDRO
+		swprintf( zDisp, L"%s ( %d )", pTacticalPopupButtonStrings[ UNTRAP_DOOR_ICON ], GetAPsToUntrapDoor( pSoldier ) ); // SANDRO
 	}
 	SetButtonFastHelpText( iActionIcons[ UNTRAP_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToUntrapDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( gOpenDoorMenu.pSoldier ) ) // SANDRO
+	if ( !EnoughPoints(	pSoldier, GetAPsToUntrapDoor( pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ UNTRAP_DOOR_ICON ] );
 	}
 
-	iActionIcons[ CANCEL_ICON ] = QuickCreateButton( iIconImages[ CANCEL_IMAGES ], (INT16)(iMenuAnchorX + 20	), (INT16)(iMenuAnchorY + 20 ),
+	iActionIcons[ CANCEL_ICON ] = CreateDoorMenuButton( iIconImages[ CANCEL_IMAGES ], (INT16)(iMenuAnchorX + 20	), (INT16)(iMenuAnchorY + 20 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
 										DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnDoorMenuCallback );
 	if ( iActionIcons[ CANCEL_ICON ] == -1 )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot create Interface button" );
-		return;
+		return FALSE;
 	}
 	SetButtonFastHelpText( iActionIcons[ CANCEL_ICON ], pTacticalPopupButtonStrings[ CANCEL_ICON ] );
 
@@ -4098,37 +4195,65 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	gfInOpenDoorMenu = TRUE;
 
 	// Ignore scrolling
-	gfIgnoreScrolling = TRUE;
+	if (!gfIgnoreScrolling)
+	{
+		gfIgnoreScrolling = TRUE;
+		gOpenDoorMenu.fIgnoreScrollingOwned = TRUE;
+	}
+	return TRUE;
 }
 
 
 void PopDownOpenDoorMenu( )
 {
-	if ( gfInOpenDoorMenu )
+	TacticalDoorUiSession& doorUiSession =
+		GetGameContext().runtime().tacticalDoorUiSession();
+	const bool ownedDoorMenuState =
+		doorUiSession.active() || gfInOpenDoorMenu ||
+		gOpenDoorMenu.fGamePauseOwned ||
+		gOpenDoorMenu.fPauseLockOwned ||
+		gOpenDoorMenu.fClockPauseOwned ||
+		gOpenDoorMenu.fOverlayOwned ||
+		gOpenDoorMenu.fIgnoreScrollingOwned;
+	if ( ownedDoorMenuState )
 	{
 		// A chosen action consumes this at its animation keyframe. Cancellation
 		// has no completion, so it must release the exact replay/replication
-		// owner here. Other forced teardown is handled by route/action reset.
-		if ( gOpenDoorMenu.fMenuHandled != TRUE &&
-			gOpenDoorMenu.pSoldier )
-			gOpenDoorMenu.pSoldier->runtime().worldObject.reset();
-		UnLockPauseState();
-		UnPauseGame();
-		// UnPause timers as well....
-		PauseTime( FALSE );
+		// owner here. Missing/replaced doors do not prevent cleanup of the exact
+		// actor while its world generation is still current.
+		TacticalActor* const pSoldier =
+			ResolveJa2TacticalDoorUiActorForCleanup(doorUiSession);
+		if ( gOpenDoorMenu.fMenuHandled != TRUE && pSoldier )
+			pSoldier->runtime().worldObject.reset();
+		if (gOpenDoorMenu.fPauseLockOwned && PauseStateLocked() &&
+			guiLockPauseStateLastReasonId == 19)
+			UnLockPauseState();
+		if (gOpenDoorMenu.fGamePauseOwned && GamePaused())
+		{
+			// UnPauseGame refuses to run while another subsystem's lock is
+			// active. Preserve that exact lock while restoring the pre-menu
+			// game-pause state.
+			if (PauseStateLocked())
+			{
+				const UINT32 lockReason =
+					guiLockPauseStateLastReasonId;
+				UnLockPauseState();
+				UnPauseGame();
+				LockPauseState(lockReason);
+			}
+			else
+			{
+				UnPauseGame();
+			}
+		}
+		if (gOpenDoorMenu.fClockPauseOwned && IsJA2ClockPaused())
+			PauseTime(FALSE);
 
-		RemoveButton( iActionIcons[ USE_KEYRING_ICON	] );
-		RemoveButton( iActionIcons[ USE_CROWBAR_ICON	] );
-		RemoveButton( iActionIcons[ LOCKPICK_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ EXPLOSIVE_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ OPEN_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ EXAMINE_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ BOOT_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ UNTRAP_DOOR_ICON	] );
-		RemoveButton( iActionIcons[ CANCEL_ICON	] );
+		RemoveDoorMenuButtons();
 
 		// Turn off Ignore scrolling
-		gfIgnoreScrolling = FALSE;
+		if (gOpenDoorMenu.fIgnoreScrollingOwned)
+			gfIgnoreScrolling = FALSE;
 
 		// Rerender world
 		SetRenderFlags( RENDER_FLAG_FULL );
@@ -4136,19 +4261,88 @@ void PopDownOpenDoorMenu( )
 		fInterfacePanelDirty = DIRTYLEVEL2;
 
 		//UnLockTacticalInterface( );
-		MSYS_RemoveRegion( &gMenuOverlayRegion);
+		if (gOpenDoorMenu.fOverlayOwned)
+			MSYS_RemoveRegion( &gMenuOverlayRegion);
 
 	}
 
 	gfInOpenDoorMenu = FALSE;
-	gOpenDoorMenu.pSoldier = NULL;
+	ResetDoorMenuPresentationOwnership();
+	doorUiSession.reset();
 
 }
+
+#ifdef JA2TESTVERSION
+BOOLEAN RunDoorMenuButtonFailureCleanupForTesting(
+	INT32 buttonImage, UINT8 successfulButtonCreations)
+{
+	TacticalDoorUiSession& doorUiSession =
+		GetGameContext().runtime().tacticalDoorUiSession();
+	if (!doorUiSession.active() || buttonImage < 0 ||
+		successfulButtonCreations > 9)
+		return FALSE;
+
+	INT32 savedIconImages[NUM_ICON_IMAGES];
+	for (INT32 index = 0; index < NUM_ICON_IMAGES; ++index)
+	{
+		savedIconImages[index] = iIconImages[index];
+		iIconImages[index] = buttonImage;
+	}
+
+	gOpenDoorMenu.sX = 0;
+	gOpenDoorMenu.sY = 0;
+	gOpenDoorMenu.fMenuHandled = FALSE;
+	ResetDoorMenuPresentationOwnership();
+	AcquireDoorMenuPresentationOwnership();
+	gDoorMenuButtonFailureAfter = successfulButtonCreations < 9
+		? static_cast<INT8>(successfulButtonCreations)
+		: static_cast<INT8>(-1);
+	const bool popupCreated = PopupDoorOpenMenu();
+	INT32 createdButtonHandles[9];
+	for (INT32 index = 0; index < 9; ++index)
+		createdButtonHandles[index] =
+			iActionIcons[gDoorMenuIconIndices[index]];
+	gDoorMenuButtonFailureAfter = -1;
+	gOpenDoorMenu.fMenuHandled = 2;
+	PopDownOpenDoorMenu();
+
+	bool buttonsReleased = true;
+	for (INT32 index = 0; index < 9; ++index)
+	{
+		buttonsReleased = buttonsReleased &&
+			iActionIcons[gDoorMenuIconIndices[index]] == -1 &&
+			(createdButtonHandles[index] == -1 ||
+				GetButtonPtr(createdButtonHandles[index]) == nullptr);
+	}
+	const bool presentationReleased =
+		!gfInOpenDoorMenu &&
+		(gMenuOverlayRegion.uiFlags & MSYS_REGION_EXISTS) == 0 &&
+		!gOpenDoorMenu.fGamePauseOwned &&
+		!gOpenDoorMenu.fPauseLockOwned &&
+		!gOpenDoorMenu.fClockPauseOwned &&
+		!gOpenDoorMenu.fOverlayOwned &&
+		!gOpenDoorMenu.fIgnoreScrollingOwned &&
+		!doorUiSession.active();
+
+	for (INT32 index = 0; index < NUM_ICON_IMAGES; ++index)
+		iIconImages[index] = savedIconImages[index];
+	const bool expectedPopupResult =
+		popupCreated == (successfulButtonCreations == 9);
+	return expectedPopupResult && buttonsReleased && presentationReleased;
+}
+#endif
 
 void RenderOpenDoorMenu( )
 {
 	if ( gfInOpenDoorMenu )
 	{
+		TacticalActor* pSoldier = nullptr;
+		if (!ResolveOpenDoorMenu(pSoldier))
+		{
+			gOpenDoorMenu.fMenuHandled = 2;
+			HandleOpenDoorMenu();
+			return;
+		}
 		BltVideoObjectFromIndex( FRAME_BUFFER, guiBUTTONBORDER, 0, gOpenDoorMenu.sX, gOpenDoorMenu.sY, VO_BLT_SRCTRANSPARENCY, NULL );
 
 		// Mark buttons dirty!
@@ -4184,6 +4378,16 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 
 	if ( reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
+		TacticalActor* pSoldier = nullptr;
+		if (!ResolveOpenDoorMenu(pSoldier))
+		{
+			gOpenDoorMenu.fMenuHandled = 2;
+			HandleOpenDoorMenu();
+			return;
+		}
+		const bool fClosingDoor =
+			GetGameContext().runtime().tacticalDoorUiSession().
+				context().closingDoor;
 		btn->uiFlags |= BUTTON_CLICKED_ON;
 
 		uiBtnID = btn->IDNum;
@@ -4201,7 +4405,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			{
 				// Handle cancelling the UB tunnel-gate interaction.
 				HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel(
-					gOpenDoorMenu.pSoldier, FALSE );
+					pSoldier, FALSE );
 			}
 		}
 
@@ -4211,7 +4415,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			const bool tunnelQuoteHandled =
 				campaignPolicy.usesUnfinishedBusinessTunnelGate() &&
 				HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel(
-					gOpenDoorMenu.pSoldier, TRUE );
+					pSoldier, TRUE );
 			if ( !campaignPolicy.shouldAttemptDoorMenuAction(
 					tunnelQuoteHandled) )
 			{
@@ -4225,24 +4429,24 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 				const INT16 actionPointCost =
 					campaignPolicy.usesOpenDoorCostWhenForcing()
 						? APBPConstants[AP_OPEN_DOOR]
-						: GetAPsToOpenDoor( gOpenDoorMenu.pSoldier );
-				if ( EnoughPoints( gOpenDoorMenu.pSoldier, actionPointCost,
+						: GetAPsToOpenDoor( pSoldier );
+				if ( EnoughPoints( pSoldier, actionPointCost,
 					APBPConstants[BP_OPEN_DOOR], FALSE ) )
 				{
 					// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+					SetUIBusy( pSoldier->identity().id() );
 
-					if ( gOpenDoorMenu.fClosingDoor )
+					if ( fClosingDoor )
 					{
 						TacticalActorAnimationTransitions::changeState(
-							*gOpenDoorMenu.pSoldier,
-							GetAnimStateForInteraction(gOpenDoorMenu.pSoldier, TRUE, CLOSE_DOOR),
+							*pSoldier,
+							GetAnimStateForInteraction(pSoldier, TRUE, CLOSE_DOOR),
 							0,
 							false);
 					}
 					else
 					{
-						InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_OPEN );
+						InteractWithClosedDoor( pSoldier, HANDLE_DOOR_OPEN );
 					}
 				}
 				else
@@ -4256,12 +4460,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( uiBtnID == iActionIcons[ BOOT_DOOR_ICON ] )
 		{
 			// Boot door
-			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) )
+			if ( EnoughPoints(	pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+				SetUIBusy( pSoldier->identity().id() );
 
-				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_FORCE );
+				InteractWithClosedDoor( pSoldier, HANDLE_DOOR_FORCE );
 			}
 			else
 			{
@@ -4273,12 +4477,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( uiBtnID == iActionIcons[ USE_KEYRING_ICON ] )
 		{
 			// Unlock door
-			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) )
+			if ( EnoughPoints(	pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+				SetUIBusy( pSoldier->identity().id() );
 
-				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_UNLOCK );
+				InteractWithClosedDoor( pSoldier, HANDLE_DOOR_UNLOCK );
 			}
 			else
 			{
@@ -4290,12 +4494,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( uiBtnID == iActionIcons[ LOCKPICK_DOOR_ICON ] )
 		{
 			// Lockpick
-			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToPicklock( gOpenDoorMenu.pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) ) // SANDRO
+			if ( EnoughPoints(	pSoldier, GetAPsToPicklock( pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) ) // SANDRO
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+				SetUIBusy( pSoldier->identity().id() );
 
-				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_LOCKPICK );
+				InteractWithClosedDoor( pSoldier, HANDLE_DOOR_LOCKPICK );
 			}
 			else
 			{
@@ -4307,12 +4511,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( uiBtnID == iActionIcons[ EXAMINE_DOOR_ICON ] )
 		{
 			// Lockpick
-			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) )
+			if ( EnoughPoints(	pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+				SetUIBusy( pSoldier->identity().id() );
 
-				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_EXAMINE );
+				InteractWithClosedDoor( pSoldier, HANDLE_DOOR_EXAMINE );
 			}
 			else
 			{
@@ -4326,7 +4530,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			const bool tunnelQuoteHandled =
 				campaignPolicy.usesUnfinishedBusinessTunnelGate() &&
 				HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel(
-					gOpenDoorMenu.pSoldier, TRUE );
+					pSoldier, TRUE );
 			if ( !campaignPolicy.shouldAttemptDoorMenuAction(
 					tunnelQuoteHandled) )
 			{
@@ -4339,14 +4543,14 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 				const INT16 actionPointCost =
 					campaignPolicy.usesUnfinishedBusinessTunnelGate()
 						? APBPConstants[AP_EXPLODE_DOOR]
-						: GetAPsToBombDoor( gOpenDoorMenu.pSoldier );
-				if ( EnoughPoints( gOpenDoorMenu.pSoldier, actionPointCost,
+						: GetAPsToBombDoor( pSoldier );
+				if ( EnoughPoints( pSoldier, actionPointCost,
 					APBPConstants[BP_EXPLODE_DOOR], FALSE ) )
 				{
 					// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+					SetUIBusy( pSoldier->identity().id() );
 
-					InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_EXPLODE );
+					InteractWithClosedDoor( pSoldier, HANDLE_DOOR_EXPLODE );
 				}
 				else
 				{
@@ -4359,12 +4563,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( uiBtnID == iActionIcons[ UNTRAP_DOOR_ICON ] )
 		{
 			// Explode
-			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToUntrapDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) ) // SANDRO
+			if ( EnoughPoints(	pSoldier, GetAPsToUntrapDoor( pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) ) // SANDRO
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+				SetUIBusy( pSoldier->identity().id() );
 
-				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_UNTRAP );
+				InteractWithClosedDoor( pSoldier, HANDLE_DOOR_UNTRAP );
 			}
 			else
 			{
@@ -4378,7 +4582,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			const bool tunnelQuoteHandled =
 				campaignPolicy.usesUnfinishedBusinessTunnelGate() &&
 				HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel(
-					gOpenDoorMenu.pSoldier, TRUE );
+					pSoldier, TRUE );
 			if ( !campaignPolicy.shouldAttemptDoorMenuAction(
 					tunnelQuoteHandled) )
 			{
@@ -4388,12 +4592,12 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			else
 			{
 				// Explode
-				if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
+				if ( EnoughPoints(	pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
 				{
 					// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
+					SetUIBusy( pSoldier->identity().id() );
 
-					InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_CROWBAR );
+					InteractWithClosedDoor( pSoldier, HANDLE_DOOR_CROWBAR );
 				}
 				else
 				{
@@ -4411,6 +4615,15 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 
 BOOLEAN HandleOpenDoorMenu( )
 {
+	// Button callbacks preflight immediately before applying their action. Do
+	// not revalidate after that action has legitimately advanced animation or
+	// pending-door state; idle frames still fail closed on lifecycle changes.
+	if (gfInOpenDoorMenu && !gOpenDoorMenu.fMenuHandled)
+	{
+		TacticalActor* pSoldier = nullptr;
+		if (!ResolveOpenDoorMenu(pSoldier))
+			gOpenDoorMenu.fMenuHandled = 2;
+	}
 	if ( gOpenDoorMenu.fMenuHandled )
 	{
 		PopDownOpenDoorMenu( );

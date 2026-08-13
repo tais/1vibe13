@@ -10,6 +10,7 @@
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
+#include <Engine/Adapters/JA2/TacticalDoorUiSession.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
@@ -1015,6 +1016,17 @@ int main()
 		&legacyBraceRuntime.tacticalEntityDirectory() &&
 		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
 		"EngineRuntime owns one stable bounded tactical entity directory");
+
+	const TacticalDoorStructureIdentity runtimeDoor{
+		1311, 1310, 0x4567u, 0x0102030405060708ull};
+	check(legacyBraceRuntime.tacticalDoorUiSession().begin(
+			{savedEntity, 41, runtimeDoor, 2, false}) &&
+		legacyBraceRuntime.tacticalDoorUiSession().matches(
+			41, savedEntity, runtimeDoor) &&
+		&legacyBraceRuntime.tacticalDoorUiSession() ==
+			&legacyBraceRuntime.tacticalDoorUiSession(),
+		"EngineRuntime owns one stable pointer-free tactical door UI session");
+	legacyBraceRuntime.tacticalDoorUiSession().reset();
 
 	TacticalInventoryUiSession inventoryUiSession;
 	const TacticalEntityId selectedInventoryActor{3, 301};

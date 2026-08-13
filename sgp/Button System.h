@@ -175,6 +175,13 @@ void ShutdownButtonImageManager(void);
 BOOLEAN InitButtonSystem(void);
 void ShutdownButtonSystem(void);
 
+#ifdef JA2TESTVERSION
+// Initializes only the quick-button slots used by data-free headless tests.
+// Unlike InitButtonSystem(), this does not load the generic button artwork.
+BOOLEAN InitExternalButtonTestFixture(void);
+void ShutdownExternalButtonTestFixture(void);
+#endif
+
 INT16 FindFreeIconSlot(void);
 INT32 FindFreeButtonSlot(void);
 INT16 FindFreeGenericSlot(void);

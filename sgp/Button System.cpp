@@ -1198,6 +1198,62 @@ BOOLEAN InitButtonSystem(void)
 	return(TRUE);
 }
 
+#ifdef JA2TESTVERSION
+BOOLEAN InitExternalButtonTestFixture(void)
+{
+	// The headless suite deliberately has no game-data mount, while the normal
+	// button initializer loads generic STI artwork.  This fixture owns only the
+	// quick-button/image slots required to exercise the production creator and
+	// teardown with an externally supplied in-memory video object.
+	if (ButtonsInList != 0 || ButtonPicsLoaded != 0)
+		return FALSE;
+	for (const GUI_BUTTON* const button : ButtonList)
+	{
+		if (button != nullptr)
+			return FALSE;
+	}
+	for (const BUTTON_PICS& picture : ButtonPictures)
+	{
+		if (picture.vobj != nullptr)
+			return FALSE;
+	}
+	for (GUI_BUTTON*& button : ButtonList)
+		button = nullptr;
+	for (BUTTON_PICS& picture : ButtonPictures)
+	{
+		picture.vobj = nullptr;
+		picture.Grayed = -1;
+		picture.OffNormal = -1;
+		picture.OffHilite = -1;
+		picture.OnNormal = -1;
+		picture.OnHilite = -1;
+		picture.MaxWidth = 0;
+		picture.MaxHeight = 0;
+		picture.fFlags = GUI_BTN_NONE;
+	}
+	ButtonsInList = 0;
+	ButtonPicsLoaded = 0;
+
+	return TRUE;
+}
+
+void ShutdownExternalButtonTestFixture(void)
+{
+	for (INT32 index = 0; index < MAX_BUTTONS; ++index)
+	{
+		if (ButtonList[index] != nullptr)
+			RemoveButton(index);
+	}
+	for (INT32 index = 0; index < MAX_BUTTON_PICS; ++index)
+	{
+		if (ButtonPictures[index].vobj != nullptr)
+			UnloadButtonImage(index);
+	}
+	ButtonsInList = 0;
+	ButtonPicsLoaded = 0;
+}
+#endif
+
 
 
 //=============================================================================
