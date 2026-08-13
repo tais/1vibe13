@@ -56,6 +56,7 @@
 	#include "Items.h"
 	#include "Cursor Control.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "strategic.h"
 	#include "strategicmap.h"
 	#include "Strategic Pathing.h"
@@ -3682,7 +3683,9 @@ void DisplayGroundEta( void )
 	SetFontForeground( FONT_LTGREEN );
 	SetFontBackground( FONT_BLACK );
 
-	mprintf(UI_MAP.ETA.Clock_X, UI_MAP.ETA.Start_Y, pEtaString[ 0 ] );
+	mprintf(UI_MAP.ETA.Clock_X, UI_MAP.ETA.Start_Y,
+		i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::Eta, 0).data() );
 
 	// if less than one day
 	if( ( iTotalTime / ( 60 * 24 ) ) < 1 )
@@ -6155,7 +6158,8 @@ void SetDayAlternate(STR16 pStringA, ...)
 		String[1]=String[0];
 		String[0]=L' ';
 	}
-	String[2]=gsTimeStrings[ 3 ][ 0 ];
+	String[2] = i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::TimeUnits, 3)[0];
 	String[3]=L' ';
 	String[4]=0;
 
@@ -6188,7 +6192,8 @@ void SetHourAlternate(STR16 pStringA, ...)
 		String[0]=L' ';
 	}
 
-	String[2]=gsTimeStrings[ 0 ][ 0 ];
+	String[2] = i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::TimeUnits, 0)[0];
 	String[3]=L' ';
 	String[4]= 0;
 	uiX = UI_MAP.ETA.Min_X - 5;
@@ -6220,7 +6225,8 @@ void SetClockHour(STR16 pStringA, ...)
 		String[1]=String[0];
 		String[0]=L' ';
 	}
-	String[2]=gsTimeStrings[ 0 ][ 0 ];
+	String[2] = i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::TimeUnits, 0)[0];
 	String[3]=L' ';
 	String[4]=0;
 	uiX = UI_MAP.ETA.Hour_X - 8;
@@ -6248,7 +6254,8 @@ void SetClockMin(STR16 pStringA, ...)
 		String[1]=String[0];
 		String[0]=L' ';
 	}
-	String[2]=gsTimeStrings[ 1 ][ 0 ];
+	String[2] = i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::TimeUnits, 1)[0];
 	String[3]=L' ';
 	String[4]=0;
 
@@ -16024,9 +16031,8 @@ void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std:
 	uiHour = (uiTimeInMin - (uiDay * NUM_MIN_IN_DAY)) / NUM_MIN_IN_HOUR;
 	uiMin = uiTimeInMin - ((uiDay * NUM_MIN_IN_DAY) + (uiHour * NUM_MIN_IN_HOUR));
 
-	// there ain't enough room to show both the day and ETA: and without ETA it's confused as the current time
-	//	sgp_swprintf( sString, 32,L"%s %s %d, %02d:%02d", pEtaString[ 0 ], pDayStrings[ 0 ], uiDay, uiHour, uiMin );
-	//	sgp_swprintf( sString, 32,L"%s %d, %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
+	// There is not enough room to show both day and ETA; without ETA this is
+	// easily confused with the current time.
 	sgp_swprintf( sString, capacity, L"%02d:%02d", uiHour, uiMin );
 }
 
@@ -16035,7 +16041,9 @@ void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, s
 	CHAR16 timestring[64];
 	ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring, std::size(timestring) );
 
-	sgp_swprintf( sString, capacity, L"%s %s", pEtaString[0], timestring );
+	sgp_swprintf( sString, capacity, L"%s %s",
+		i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::Eta, 0).data(), timestring );
 }
 
 

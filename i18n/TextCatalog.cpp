@@ -14,6 +14,7 @@ struct StoredTextPack
 {
 	Lang language = Lang::en;
 	std::array<std::wstring, static_cast<std::size_t>(TextKey::count)> text;
+	std::array<std::wstring, TextTableEntryCount> tableText;
 };
 
 struct TextCatalogStorage
@@ -32,27 +33,53 @@ static_assert(LanguageCount == SupportedLanguages.size());
 constexpr std::array<TextPackDefinition, LanguageCount> BuiltinDefinitions{{
 	{Lang::en, {L"Personnel", L"Mail Box", L"Bookkeeper Plus",
 		L"File Viewer", L"History Log", L"A.I.M. Links",
-		L"Exit help screen", L"Day"}},
+		L"Exit help screen", L"Day"},
+		{L"Paused", L"Normal", L"5 min", L"30 min", L"60 min", L"6 hrs",
+			L"h", L"m", L"s", L"d", L"Day", L"ETA:", L"Game Paused",
+			L"Resume Game (|P|a|u|s|e)", L"Pause Game (|P|a|u|s|e)"}},
 	{Lang::de, {L"Personal", L"Mailbox", L"Buchhalter Plus",
 		L"Akten einsehen", L"Logbuch", L"A.I.M. Links",
-		L"Helpscreen verlassen", L"Tag"}},
+		L"Helpscreen verlassen", L"Tag"},
+		{L"Pause", L"Normal", L"5 Min", L"30 Min", L"60 Min", L"6 Std",
+			L"h", L"m", L"s", L"T", L"Tag", L"Ank.:", L"Pause",
+			L"Zurück zum Spiel (|P|a|u|s|e)", L"Pause (|P|a|u|s|e)"}},
 	{Lang::ru, {L"Команда", L"Почтовый ящик", L"Финансовый отчет",
 		L"Просмотр данных", L"Журнал событий", L"A.I.M. Ссылки",
-		L"Закрыть окно помощи", L"День"}},
+		L"Закрыть окно помощи", L"День"},
+		{L"Пауза", L"Норма", L"5 мин", L"30 мин", L"60 мин", L"6 часов",
+			L"ч", L"м", L"с", L"д", L"День", L"РВП:", L"Пауза в игре",
+			L"Продолжить (|P|a|u|s|e)", L"Пауза (|P|a|u|s|e)"}},
 	{Lang::nl, {L"Dossiers", L"Postvak", L"Account Plus",
 		L"Bestanden Bekijken", L"Geschiedenis", L"A.I.M. Links",
-		L"Verlaat help-scherm", L"Dag"}},
+		L"Verlaat help-scherm", L"Dag"},
+		{L"Pause", L"Normal", L"5 min", L"30 min", L"60 min", L"6 uur",
+			L"u", L"m", L"s", L"d", L"Dag", L"aank:", L"Spel Gepauzeerd",
+			L"Doorgaan (|P|a|u|s|e)", L"Pauze Spel (|P|a|u|s|e)"}},
 	{Lang::pl, {L"Personel", L"Skrzynka odbiorcza", L"Księgowy Plus",
 		L"Przeglądarka plików", L"Historia", L"A.I.M. Linki",
-		L"Zamknij okno pomocy", L"Dzień"}},
+		L"Zamknij okno pomocy", L"Dzień"},
+		{L"Pauza", L"Normalna", L"5 min.", L"30 min.", L"60 min.",
+			L"6 godz.", L"g", L"m", L"s", L"d", L"Dzień", L"PCP:",
+			L"Gra wstrzymana", L"Wznów grę (|P|a|u|s|e)",
+			L"Wstrzymaj grę (|P|a|u|s|e)"}},
 	{Lang::fr, {L"Personnel", L"Boîte mail", L"Comptable Plus",
 		L"Fichiers", L"Historique", L"Liens AIM",
-		L"Quitter l'écran d'aide", L"Jour"}},
+		L"Quitter l'écran d'aide", L"Jour"},
+		{L"Pause", L"Normal", L"5 min", L"30 min", L"60 min", L"6 H",
+			L"h", L"m", L"s", L"j", L"Jour", L"HPA :", L"Pause",
+			L"Reprendre (|P|a|u|s|e)", L"Pause (|P|a|u|s|e)"}},
 	{Lang::it, {L"Personale", L"posta elettronica", L"Contabile aggiuntivo",
 		L"Gestione risorse", L"Registro", L"Collegamenti dell'A.I.M.",
-		L"Esci dalla schermata di aiuto", L"Gg"}},
+		L"Esci dalla schermata di aiuto", L"Gg"},
+		{L"Fermo", L"Normale", L"5 min", L"30 min", L"60 min", L"6 ore",
+			L"h", L"m", L"s", L"g", L"Giorno", L"TAP", L"Partita in pausa",
+			L"Riprendi la partita (|P|a|u|s|a)",
+			L"Metti in pausa la partita (|P|a|u|s|a)"}},
 	{Lang::zh, {L"佣兵", L"邮箱", L"帐簿", L"文件查看器", L"日志",
-		L"A.I.M 链接", L"退出帮助屏幕", L"日"}},
+		L"A.I.M 链接", L"退出帮助屏幕", L"日"},
+		{L"暂停", L"普通", L"5分钟", L"30分钟", L"60分钟", L"6小时",
+			L"小时", L"分钟", L"秒", L"日", L"日", L"耗时: ", L"游戏暂停",
+			L"继续游戏 (|P|a|u|s|e)", L"暂停游戏 (|P|a|u|s|e)"}},
 }};
 
 void SetValidation(TextCatalogValidation* validation, TextCatalogError error,
@@ -60,6 +87,17 @@ void SetValidation(TextCatalogValidation* validation, TextCatalogError error,
 	TextKey key = TextKey::PersonnelTitle) noexcept
 {
 	if (validation) *validation = TextCatalogValidation{error, language, key};
+}
+
+void SetTableValidation(TextCatalogValidation* validation,
+	TextCatalogError error, Lang language, TextTableKey table,
+	std::size_t tableIndex) noexcept
+{
+	if (validation)
+	{
+		*validation = TextCatalogValidation{error, language,
+			TextKey::PersonnelTitle, table, tableIndex};
+	}
 }
 
 auto FindStoredPack(const detail::TextCatalogStorage& storage, Lang language)
@@ -143,6 +181,38 @@ auto TextCatalog::Create(
 				return std::nullopt;
 			}
 		}
+		for (const auto& tableDescriptor : TextTables)
+		{
+			for (std::size_t tableIndex = 0;
+				tableIndex < tableDescriptor.entryCount; ++tableIndex)
+			{
+				const auto flatIndex = tableDescriptor.offset + tableIndex;
+				if (!definition.tableText[flatIndex].empty()) continue;
+				if (!tableDescriptor.englishFallbackAllowed)
+				{
+					SetTableValidation(validation,
+						TextCatalogError::MissingRequiredTableText,
+						definition.language, tableDescriptor.key, tableIndex);
+					return std::nullopt;
+				}
+				if (definition.language == Lang::en || !englishDefinition ||
+					englishDefinition->tableText[flatIndex].empty())
+				{
+					SetTableValidation(validation,
+						TextCatalogError::MissingEnglishTableFallback,
+						definition.language, tableDescriptor.key, tableIndex);
+					return std::nullopt;
+				}
+				if (fallbackPolicy !=
+					TextFallbackPolicy::EnglishForOptionalKeys)
+				{
+					SetTableValidation(validation,
+						TextCatalogError::MissingOptionalTableText,
+						definition.language, tableDescriptor.key, tableIndex);
+					return std::nullopt;
+				}
+			}
+		}
 	}
 
 	try
@@ -157,6 +227,11 @@ auto TextCatalog::Create(
 			for (std::size_t keyIndex = 0; keyIndex < TextKeyCount; ++keyIndex)
 			{
 				stored.text[keyIndex] = definition.text[keyIndex];
+			}
+			for (std::size_t tableIndex = 0;
+				tableIndex < TextTableEntryCount; ++tableIndex)
+			{
+				stored.tableText[tableIndex] = definition.tableText[tableIndex];
 			}
 		}
 		return TextCatalog{
@@ -205,6 +280,28 @@ auto TextPack::lookup(TextKey key) const noexcept -> TextLookup
 	const auto* english = FindStoredPack(*storage_, Lang::en);
 	if (!english || english->text[keyIndex].empty()) return {};
 	return TextLookup{english->text[keyIndex], Lang::en, true};
+}
+
+auto TextPack::lookup(TextTableKey table, std::size_t index) const noexcept
+	-> TextLookup
+{
+	const auto* descriptor = FindTextTable(table);
+	if (!storage_ || !descriptor || index >= descriptor->entryCount) return {};
+	const auto flatIndex = descriptor->offset + index;
+	const auto* selected = FindStoredPack(*storage_, language_);
+	if (!selected) return {};
+	if (!selected->tableText[flatIndex].empty())
+	{
+		return TextLookup{selected->tableText[flatIndex], language_, false};
+	}
+	if (!descriptor->englishFallbackAllowed ||
+		storage_->fallbackPolicy != TextFallbackPolicy::EnglishForOptionalKeys)
+	{
+		return {};
+	}
+	const auto* english = FindStoredPack(*storage_, Lang::en);
+	if (!english || english->tableText[flatIndex].empty()) return {};
+	return TextLookup{english->tableText[flatIndex], Lang::en, true};
 }
 
 auto BuiltinTextCatalog() noexcept -> const TextCatalog&

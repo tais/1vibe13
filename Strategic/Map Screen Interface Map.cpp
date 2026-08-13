@@ -15,6 +15,7 @@
 	#include "strategicmap.h"
 	#include "Strategic Pathing.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "vsurface.h"
 	#include "video.h"
 	#include "vobject_blitters.h"
@@ -4517,7 +4518,10 @@ void DisplayDistancesForHelicopter( void )
 	// add travel time for any prior path segments (stored in the helicopter's mercpath, but waypoints aren't built)
 	iTime += GetPathTravelTimeDuringPlotting( pVehicleList[ iHelicopterVehicleId ].pMercPath );
 
-	swprintf( sString, L"%d%s %d%s", iTime / 60, gsTimeStrings[0], iTime % 60, gsTimeStrings[1] );
+	const auto& textPack = i18n::GetCompiledTextPack();
+	swprintf( sString, L"%d%s %d%s", iTime / 60,
+		textPack.text(i18n::TextTableKey::TimeUnits, 0).data(), iTime % 60,
+		textPack.text(i18n::TextTableKey::TimeUnits, 1).data() );
 	FindFontRightCoordinates(UI_MAP.HeliETA.PopupBox.x + 5, ( INT16 ) ( sYPosition + 5 + 4 * GetFontHeight( MAP_FONT ) ), UI_MAP.HeliETA.PopupBox.width, 0,  sString, MAP_FONT,  &sX, &sY );
 	mprintf( sX, ( INT16 ) ( sYPosition + 5 + 4 * GetFontHeight( MAP_FONT ) ), sString );
 

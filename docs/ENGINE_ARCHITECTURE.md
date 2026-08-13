@@ -44,12 +44,12 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 477 base definitions,
+  preprocessor-selected legacy text body. The remaining 472 base definitions,
   35 JA25 definitions, compatibility globals, and the textual
   `ExportStrings.cpp` inclusion are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
-  The first text migration slice now commits a canonical 512-symbol ABI schema
+  The first text migration slice now commits a canonical 507-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
   array/mutability shapes are explicit, and 57 existing foreign
@@ -89,6 +89,14 @@ the engine must not contain SDL types in its public domain model.
   earlier ordinals. The catalog now covers 64 literals and eight exporter
   mappings while startup selection, archives, mutable buffers, and `g_lang`
   remain unchanged.
+  The fifth complete domain moves five indexed game-time tables with 15 entries
+  per language behind a typed bounds-and-export schema. All 120 exact table
+  translations and every live consumer now share immutable pack storage;
+  `Game Clock.cpp` drops its final `Text.h` dependency. Historical XML names,
+  order, and ranges remain exact, including misspelled `TimeStings` exporting
+  only one of its four runtime entries, and Italian `Giorno` stays distinct
+  from scalar `GameClockDay` value `Gg`. The catalog now covers 184 literals and
+  13 exporter mappings without changing startup selection or archive layout.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

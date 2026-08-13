@@ -6,14 +6,15 @@ The target is one application build whose text language is selected at startup
 and can be changed in the options screen for the next restart. Text and voice
 are separate choices; hot-reloading either one is outside this migration.
 
-The completed foundation, conditional-data, and first four domain slices do
+The completed foundation, conditional-data, and first five domain slices do
 **not** make the legacy text catalogs runtime selectable. The foundation
 establishes one typed runtime catalog for the eight supported languages and
 inventories the legacy ABI. The conditional-data slice separates
 campaign/build-conditioned translations from the choice that publishes them.
-The first four domain slices move five immutable Laptop titles, the AIM Links
+The first five domain slices move five immutable Laptop titles, the AIM Links
 page title, the Help-screen exit label, and the game-clock day label behind a
-validated pack without changing startup selection. `g_lang` remains immutable:
+validated pack, then add five indexed game-time tables without changing startup
+selection. `g_lang` remains immutable:
 changing it while the other global text variables still point at one compiled
 language would create a mixed and invalid runtime.
 
@@ -24,13 +25,13 @@ pair and passes exactly one of `ENGLISH`, `GERMAN`, `DUTCH`, `POLISH`,
 `RUSSIAN`, `FRENCH`, `ITALIAN`, or `CHINESE` to it. There are four independent
 reasons this is not merely a build-system naming problem:
 
-1. `i18n/include/Text.h` now contains 477 `extern` lines. The normalized surface
-   is 474 unique data declarations, two utility functions, and one duplicate
+1. `i18n/include/Text.h` now contains 472 `extern` lines. The normalized surface
+   is 469 unique data declarations, two utility functions, and one duplicate
    `pDownloadString` declaration; two of those data declarations have no
    compiled-catalog definition, while five catalog globals are declared only
    at their consumers. The initial schema contained 485 base data definitions;
-   the first four domain slices retire eight, leaving 477 base definitions,
-   while the JA25 compatibility surface still adds 35. There are 242 source/header
+   the first five domain slices retire thirteen, leaving 472 base definitions,
+   while the JA25 compatibility surface still adds 35. There are 241 source/header
    files that include `Text.h` directly. The eight base-language translation units
    and eight JA25 translation units deliberately define the remaining same
    external names. Compiling more than one language body into a program
@@ -52,7 +53,7 @@ reasons this is not merely a build-system naming problem:
    campaign.
 4. `ExportStrings.cpp` still textually includes the selected base-language
    `.cpp` inside namespace `Loc` to create a second namespaced copy for most of
-   the developer XML exporter. The eight migrated sections now consume the same
+   the developer XML exporter. The 13 migrated sections now consume the same
    `TextPack` as the game, but the remaining selected source is also
    compiled normally to define process globals. This tool path must finish
    consuming pack schemas before all language bodies can coexist.
@@ -65,7 +66,7 @@ live only as language/package metadata in the runtime catalog.
 The existing XML localization support is not yet a replacement for the global
 ABI. `LocalizedStrings` serves AIM biography/history/policy and dialogue-style
 resources. `ExportStrings` can write a large `GameStrings.xml`, but there is no
-inverse publisher that validates and installs all 477 remaining base catalog
+inverse publisher that validates and installs all 472 remaining base catalog
 variables.
 `XML_Language.cpp` transactionally overlays its dedicated tactical-message
 table, not the general text catalog.
@@ -89,13 +90,13 @@ The data-free `i18n_language_catalog_tests` pins all eight identities, their
 existing Lua numbers and paths, unique lookup keys, Chinese layout behavior,
 and invalid-input rejection. Architecture checks prevent language compile
 guards from spreading back into neutral i18n files and pin the remaining
-477 + 35 global definition surfaces exactly.
+472 + 35 global definition surfaces exactly.
 
 ## Canonical compiled-text ABI schema
 
 Migration step 1 is now a build-free, mandatory source gate. The committed
-`i18n/text_abi_schema.json` inventories the 477 remaining base definitions and
-35 JA25 definitions as 512 unique data symbols. It also normalizes a historical
+`i18n/text_abi_schema.json` inventories the 472 remaining base definitions and
+35 JA25 definitions as 507 unique data symbols. It also normalizes a historical
 duplicate `pDownloadString` declaration, keeps function declarations separate
 from data, records each array rank and effective dimension, and distinguishes
 mutable pointer slots from the 26 writable `CHAR16` buffers. Campaign/build
@@ -161,6 +162,8 @@ fallback mechanism. `TextFallbackPolicy::EnglishForOptionalKeys` may resolve a
 key from English only when its descriptor explicitly opts in and only after
 the whole catalog validates. All eight current `TextKey` descriptors are
 required, so an absent title rejects construction rather than falling back.
+All five current `TextTableKey` descriptors are required as well; construction
+reports the exact missing table and index before publishing any selected pack.
 Each selected legacy compiled catalog must likewise remain complete according
 to its ratcheted compatibility schema. `g_lang` therefore remains immutable
 and no runtime language selection occurs in this slice.
@@ -269,6 +272,36 @@ symbols (512 total), and 39 base singleton pointer tables remain. The direct
 `Text.h` include surface is 242 files. Startup selection, `g_lang`, archives,
 mutable buffers, voice, and hot reload remain outside this slice.
 
+## Immutable indexed game-time pack boundary
+
+The fifth complete domain introduces first-class indexed tables instead of
+flattening multi-entry data into unrelated scalar keys. `TextTableKey` and its
+descriptor schema pin each table's stable identity, contiguous offset, entry
+count, fallback rule, and historical exporter range. Catalog construction owns
+and validates every indexed entry transactionally; lookup rejects an invalid
+table or index, reports exact missing-entry provenance, and retains the same
+lifetime-stable storage contract as scalar text.
+
+Exactly `sTimeStrings[6]`, `gsTimeStrings[4]`, `pDayStrings[1]`,
+`pEtaString[1]`, and `pPausedGameText[3]` move into that boundary: 15 entries
+in each of eight languages, or 120 exact indexed translations. All live time
+compression, unit-suffix, day, ETA, and pause-screen consumers now use typed
+indexed lookup. `Strategic/Game Clock.cpp` consequently closes its remaining
+direct `Text.h` dependency. Italian deliberately retains `Giorno` for the
+former `pDayStrings` entry while the separate scalar `GameClockDay` remains
+`Gg`; the two historical domains are not normalized together.
+
+The exporter keeps all five calls at their original positions and retains the
+exact section contracts: `Time` exports indices `[0, 6)`, the misspelled
+`TimeStings` exports only `[0, 1)` from its four-entry runtime table, `Day` and
+`Eta` each export `[0, 1)`, and `PausedGame` exports `[0, 3)`. The old five
+declarations and all 40 duplicate table definitions are gone. The catalog now
+covers 184 literals and 13 exporter mappings. The canonical legacy ABI contains
+472 base plus 35 JA25 data symbols (507 total), 37 base singleton pointer tables
+remain, and the direct `Text.h` include surface is 241 files. Startup selection,
+mutable buffers, archive collapse, language macros, voice, and hot reload remain
+outside this slice.
+
 ## Migration sequence
 
 1. **Complete:** generate and validate a text-pack schema from the current
@@ -284,12 +317,12 @@ mutable buffers, voice, and hot reload remain outside this slice.
    not choose the campaign.
 3. **In progress:** the immutable, validated `TextCatalog`/`TextPack` boundary
    owns the first five one-entry Laptop title tables, the complete AIM Links
-   title domain, the Help-screen exit label, and the game-clock day label
-   across all eight languages.
+   title domain, the Help-screen exit label, the game-clock day label, and five
+   indexed game-time tables across all eight languages.
    Continue migrating direct globals domain by domain, then fixed character
    buffers and genuinely mutable destinations. No slice may copy partially
    validated data or swap addresses after consumers initialize.
-4. **In progress:** the XML exporter consumes the same pack for those eight
+4. **In progress:** the XML exporter consumes the same pack for those 13
    sections. Move the remaining sections, then remove textual `.cpp` inclusion.
    Decide separately whether shipped packs remain generated C++ data or become
    versioned package resources; runtime API and validation rules stay identical.

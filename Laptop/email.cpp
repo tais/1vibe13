@@ -1445,7 +1445,9 @@ static void DrawDate(INT32 iCounter, INT32 iDate, BOOLEAN fRead)
 		SetFont( FONT10ARIALBOLD );
 	}
 	// draw date of message being displayed in mail viewer
-	sgp_swprintf(sString, 20, L"%s %d", pDayStrings[0],
+	sgp_swprintf(sString, 20, L"%s %d",
+		i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::Day, 0).data(),
 		iDate / (24 * 60));
 	mprintf(DATE_X,(( UINT16 )( 4 + MIDDLE_Y + iCounter * MIDDLE_WIDTH ) ),L"%s", sString);
 

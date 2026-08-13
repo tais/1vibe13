@@ -116,6 +116,28 @@ void ExportTextPackEntry(vfs::PropertyContainer& props, i18n::TextKey key)
 	ExportSection(props, descriptor->legacyExportSection.data(), &oneEntry, 0, 1);
 }
 
+void ExportTextPackTable(vfs::PropertyContainer& props,
+	i18n::TextTableKey key)
+{
+	const auto* descriptor = i18n::FindTextTable(key);
+	if (!descriptor) return;
+	const auto& pack = i18n::GetCompiledTextPack();
+	const auto exportEnd =
+		descriptor->legacyExportFirst + descriptor->legacyExportCount;
+	for (std::size_t index = descriptor->legacyExportFirst;
+		index < exportEnd; ++index)
+	{
+		const auto text = pack.lookup(key, index);
+		if (!text) continue;
+		vfs::String value(text.text.data());
+		if (!value.empty())
+		{
+			props.setStringProperty(descriptor->legacyExportSection.data(),
+				vfs::toString<wchar_t>(static_cast<int>(index)), value);
+		}
+	}
+}
+
 
 bool Loc::ExportStrings()
 {
@@ -133,7 +155,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"TeamTurn",					Loc::TeamTurnString,				0,	10);
 	ExportSection(props, L"Message",					Loc::Message,						0,	TEXT_NUM_STR_MESSAGE);
 	ExportSection(props, L"TownNames",					Loc::pTownNames,					0,	MAX_TOWNS);
-	ExportSection(props, L"Time",						Loc::sTimeStrings,					0,	6);
+	ExportTextPackTable(props, i18n::TextTableKey::TimeCompression);
 	ExportSection(props, L"Assignment",					Loc::pAssignmentStrings,			0,	NUM_ASSIGNMENTS);
 	ExportSection(props, L"PersonnelAssignment",		Loc::pPersonnelAssignmentStrings,	0,	NUM_ASSIGNMENTS);
 	ExportSection(props, L"LongAssignment",				Loc::pLongAssignmentStrings,		0,	NUM_ASSIGNMENTS);
@@ -213,7 +235,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"MapLevel",					Loc::sMapLevelString,				0,	1);
 	ExportSection(props, L"Loyal",						Loc::gsLoyalString,					0,	1);
 	ExportSection(props, L"Underground",				Loc::gsUndergroundString,			0,	1);
-	ExportSection(props, L"TimeStings",					Loc::gsTimeStrings,					0,	1);
+	ExportTextPackTable(props, i18n::TextTableKey::TimeUnits);
 
 	ExportSection(props, L"Facilities",					Loc::sFacilitiesStrings,			0,	7);
 	ExportSection(props, L"MapPopUpInventory",			Loc::pMapPopUpInventoryText,		0,	2);
@@ -230,7 +252,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"MapScreenBottomFastHelp",	Loc::pMapScreenBottomFastHelp,		0,	8);
 	ExportSection(props, L"MapScreenBottom",			Loc::pMapScreenBottomText,			0,	1);
 	ExportSection(props, L"MercDead",					Loc::pMercDeadString,				0,	1);
-	ExportSection(props, L"Day",						Loc::pDayStrings,					0,	1);
+	ExportTextPackTable(props, i18n::TextTableKey::Day);
 	ExportSection(props, L"SenderName",					Loc::pSenderNameList,				0,	51);
 	ExportSection(props, L"Traverse",					Loc::pTraverseStrings,				0,	2);
 	ExportSection(props, L"NewMail",					Loc::pNewMailStrings,				0,	1);
@@ -249,7 +271,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"MapScreenStatus",			Loc::pMapScreenStatusStrings,		0,	5);
 
 	ExportSection(props, L"MapScreenPrevNextCharButtonHelp",	Loc::pMapScreenPrevNextCharButtonHelpText,	0,	2);
-	ExportSection(props, L"Eta",								Loc::pEtaString,							0,	1);
+	ExportTextPackTable(props, i18n::TextTableKey::Eta);
 	ExportSection(props, L"TrashItem",							Loc::pTrashItemText,						0,	2);
 	ExportSection(props, L"MapError",							Loc::pMapErrorString,						0,	50);
 	ExportSection(props, L"MapPlot",							Loc::pMapPlotStrings,						0,	5);
@@ -350,7 +372,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"IMPVoices",					Loc::pIMPVoicesStrings,				0,	1);
 	ExportSection(props, L"DepartedMercPortrait",		Loc::pDepartedMercPortraitStrings,	0,	3);
 	ExportSection(props, L"PersTitle",					Loc::pPersTitleText,				0,	1);
-	ExportSection(props, L"PausedGame",					Loc::pPausedGameText,				0,	3);
+	ExportTextPackTable(props, i18n::TextTableKey::PausedGame);
 	ExportSection(props, L"MessageStrings",				Loc::pMessageStrings,				0,	TEXT_NUM_MSG);
 	ExportSection(props, L"ItemPickupHelpPopup",		Loc::ItemPickupHelpPopup,			0,	5);
 	ExportSection(props, L"DoctorWarning",				Loc::pDoctorWarningString,			0,	2);

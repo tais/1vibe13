@@ -24,6 +24,7 @@
 	#include "vobject_blitters.h"
 	#include "finances.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "Cursor Control.h"
 	#include "input.h"
 	#include "Arms Dealer Init.h"
@@ -7207,7 +7208,10 @@ void BuildDoneWhenTimeString( CHAR16 sString[], UINT8 ubArmsDealer, INVENTORY_IN
 	// only show day if it's gonna take overnight
 	if ( GetWorldDay() != uiDay )
 	{
-		sgp_swprintf( sString, 64, L"%s %d %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
+		sgp_swprintf( sString, 64, L"%s %d %02d:%02d",
+			i18n::GetCompiledTextPack().text(
+				i18n::TextTableKey::Day, 0).data(),
+			uiDay, uiHour, uiMin );
 	}
 	else
 	{

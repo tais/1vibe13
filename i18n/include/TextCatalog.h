@@ -11,9 +11,9 @@
 
 namespace i18n
 {
-// Runtime text-pack domains deliberately begin with immutable, one-entry UI
-// labels. New domains should add typed keys instead of exposing another mutable
-// process-global string table.
+// Runtime text-pack domains begin with immutable UI labels. Scalar and indexed
+// domains have separate typed keys so a multi-entry table retains its validated
+// bounds instead of becoming another mutable process-global pointer array.
 enum class TextKey
 {
 	PersonnelTitle,
@@ -81,6 +81,91 @@ constexpr bool HasValidTextKeySchema() noexcept
 static_assert(HasValidTextKeySchema(),
 	"TextKey identities, names, and exporter sections must be complete and unique");
 
+enum class TextTableKey
+{
+	TimeCompression,
+	TimeUnits,
+	Day,
+	Eta,
+	PausedGame,
+	count
+};
+
+static_assert(static_cast<std::size_t>(TextTableKey::PausedGame) == 4,
+	"New TextTableKey entries append without renumbering published table ordinals");
+
+inline constexpr std::size_t TextTableEntryCount = 15;
+
+struct TextTableDescriptor
+{
+	TextTableKey key;
+	std::string_view name;
+	std::wstring_view legacyExportSection;
+	std::size_t offset;
+	std::size_t entryCount;
+	std::size_t legacyExportFirst;
+	std::size_t legacyExportCount;
+	bool englishFallbackAllowed;
+};
+
+inline constexpr std::array<TextTableDescriptor,
+	static_cast<std::size_t>(TextTableKey::count)> TextTables{{
+	{TextTableKey::TimeCompression, "game.time.compression", L"Time",
+		0, 6, 0, 6, false},
+	{TextTableKey::TimeUnits, "game.time.units", L"TimeStings",
+		6, 4, 0, 1, false},
+	{TextTableKey::Day, "game.time.day", L"Day",
+		10, 1, 0, 1, false},
+	{TextTableKey::Eta, "game.time.eta", L"Eta",
+		11, 1, 0, 1, false},
+	{TextTableKey::PausedGame, "game.time.paused", L"PausedGame",
+		12, 3, 0, 3, false},
+}};
+
+constexpr auto FindTextTable(TextTableKey key) noexcept
+	-> const TextTableDescriptor*
+{
+	for (const auto& descriptor : TextTables)
+	{
+		if (descriptor.key == key) return &descriptor;
+	}
+	return nullptr;
+}
+
+constexpr bool HasValidTextTableSchema() noexcept
+{
+	std::size_t expectedOffset = 0;
+	for (std::size_t index = 0; index < TextTables.size(); ++index)
+	{
+		const auto& descriptor = TextTables[index];
+		if (static_cast<std::size_t>(descriptor.key) != index ||
+			descriptor.name.empty() || descriptor.legacyExportSection.empty() ||
+			descriptor.offset != expectedOffset || descriptor.entryCount == 0 ||
+			descriptor.legacyExportFirst > descriptor.entryCount ||
+			descriptor.legacyExportCount == 0 ||
+			descriptor.legacyExportCount >
+				descriptor.entryCount - descriptor.legacyExportFirst) return false;
+		expectedOffset += descriptor.entryCount;
+		for (const auto& scalar : TextKeys)
+		{
+			if (descriptor.name == scalar.name ||
+				descriptor.legacyExportSection == scalar.legacyExportSection)
+				return false;
+		}
+		for (std::size_t other = index + 1; other < TextTables.size(); ++other)
+		{
+			if (descriptor.key == TextTables[other].key ||
+				descriptor.name == TextTables[other].name ||
+				descriptor.legacyExportSection ==
+					TextTables[other].legacyExportSection) return false;
+		}
+	}
+	return expectedOffset == TextTableEntryCount;
+}
+
+static_assert(HasValidTextTableSchema(),
+	"Indexed text-table identities, bounds, and exporter ranges must be valid");
+
 // Missing text never falls through to whatever legacy symbol happened to
 // link. English may satisfy only a schema key that explicitly opts in; all
 // keys in the migrated slices are required in every language.
@@ -94,6 +179,7 @@ struct TextPackDefinition
 {
 	Lang language;
 	std::array<std::wstring_view, static_cast<std::size_t>(TextKey::count)> text;
+	std::array<std::wstring_view, TextTableEntryCount> tableText;
 };
 
 enum class TextCatalogError
@@ -105,14 +191,23 @@ enum class TextCatalogError
 	MissingRequiredText,
 	MissingOptionalText,
 	MissingEnglishFallback,
-	AllocationFailure
+	AllocationFailure,
+	MissingRequiredTableText,
+	MissingOptionalTableText,
+	MissingEnglishTableFallback
 };
+
+static_assert(static_cast<std::size_t>(TextCatalogError::AllocationFailure) == 7 &&
+	static_cast<std::size_t>(TextCatalogError::MissingEnglishTableFallback) == 10,
+	"New TextCatalogError entries append without renumbering published errors");
 
 struct TextCatalogValidation
 {
 	TextCatalogError error = TextCatalogError::None;
 	Lang language = Lang::en;
 	TextKey key = TextKey::PersonnelTitle;
+	TextTableKey table = TextTableKey::TimeCompression;
+	std::size_t tableIndex = 0;
 
 	explicit operator bool() const noexcept
 	{
@@ -143,9 +238,16 @@ public:
 	auto language() const noexcept -> Lang { return language_; }
 	auto fallbackPolicy() const noexcept -> TextFallbackPolicy;
 	auto lookup(TextKey key) const noexcept -> TextLookup;
+	auto lookup(TextTableKey table, std::size_t index) const noexcept
+		-> TextLookup;
 	auto text(TextKey key) const noexcept -> std::wstring_view
 	{
 		return lookup(key).text;
+	}
+	auto text(TextTableKey table, std::size_t index) const noexcept
+		-> std::wstring_view
+	{
+		return lookup(table, index).text;
 	}
 
 private:
