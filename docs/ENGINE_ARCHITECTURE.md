@@ -1086,6 +1086,25 @@ the engine must not contain SDL types in its public domain model.
   and load teardown clear these runtime-only roles. Architecture checks prevent
   pointer setters or raw getters from returning to the stable host. No soldier,
   inventory, map, save, or content representation changes.
+- `TacticalDoorUiSession` owns the single door-action modal's exact actor
+  incarnation, tactical-world generation, structure grid, base-grid and
+  map-local ID, value fingerprint, direction, and open/close mode.
+  `OPENDOOR_MENU` now keeps
+  presentation coordinates and resource-lifecycle flags only. Popup creation,
+  rendering, button callbacks, and teardown resolve through the application
+  adapter each time; an unloaded/replaced world, recycled actor slot, missing or
+  changed structure, mismatched pending action, or partial button-allocation
+  failure cancels without following stale pointers. Teardown releases only the
+  captured pending door continuation, preserves newer actor work, removes every
+  partially created button/overlay, and restores only the game pause, pause
+  lock, timer pause, and scrolling states acquired by this menu; pre-existing
+  owners remain unchanged. The Debug/headless fault-injection path initializes
+  only empty quick-button registries and supplies an in-memory external image,
+  so the real button creator and teardown run without loading generic STI
+  artwork or installed game data.
+  The eight established door choices still execute through their existing
+  compatibility actions; this ownership slice deliberately does not change
+  their command semantics, save data, map data, or network format.
 - `TacticalWorldItemDirectory` gives reusable `gWorldItems` slots the same
   bounded incarnation protection without moving or reformatting game data.
   Storage grows only through an activated slot and is capped before allocation.

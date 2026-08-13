@@ -65,6 +65,14 @@ target_include_directories(tactical_interrupt_session_model_tests PRIVATE ..)
 add_test(NAME tactical_interrupt_session_model
   COMMAND tactical_interrupt_session_model_tests)
 
+# The door action popup retains one exact actor/world/structure selection while
+# UI callbacks are pending. Keep that lifecycle model adapter-only so raw JA2
+# pointers, world storage, SDL, and presentation resources cannot leak into it.
+add_executable(tactical_door_ui_session_tests
+  tactical_door_ui_session_tests.cpp)
+target_link_libraries(tactical_door_ui_session_tests PRIVATE JA2::RuntimeAdapter)
+add_test(NAME tactical_door_ui_session COMMAND tactical_door_ui_session_tests)
+
 # Reload-all captures one bounded exact roster and its environment policy before
 # touching legacy inventory state. This adapter-only target pins that value and
 # replay codec without linking the game, SDL, or installed data.

@@ -13,6 +13,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
 #include <Engine/Adapters/JA2/StrategicGroupDirectory.h>
+#include <Engine/Adapters/JA2/TacticalDoorUiSession.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldItemDirectory.h>
@@ -185,6 +186,14 @@ public:
 	}
 	TacticalEntityDirectory& tacticalEntityDirectory() { return tacticalEntityDirectory_; }
 	const TacticalEntityDirectory& tacticalEntityDirectory() const { return tacticalEntityDirectory_; }
+	TacticalDoorUiSession& tacticalDoorUiSession()
+	{
+		return tacticalDoorUiSession_;
+	}
+	const TacticalDoorUiSession& tacticalDoorUiSession() const
+	{
+		return tacticalDoorUiSession_;
+	}
 	TacticalInventoryUiSession& tacticalInventoryUiSession()
 	{
 		return tacticalInventoryUiSession_;
@@ -311,6 +320,7 @@ private:
 	CampaignEventQueue campaignEventQueue_;
 	StrategicGroupDirectory strategicGroupDirectory_;
 	TacticalEntityDirectory tacticalEntityDirectory_;
+	TacticalDoorUiSession tacticalDoorUiSession_;
 	TacticalInventoryUiSession tacticalInventoryUiSession_;
 	TacticalWorldItemDirectory tacticalWorldItemDirectory_;
 	TacticalWorldSession tacticalWorldSession_;

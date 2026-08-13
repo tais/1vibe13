@@ -1278,6 +1278,19 @@ header. Resolution and stale-modal cancellation remain responsibilities of the
 JA2 application adapter, so this SDK type grants neither inventory mutation nor
 UI control and changes no game-data or persistence format.
 
+`TacticalDoorUiSession` is the corresponding single-modal value contract for
+JA2's door-action popup. Hosts may begin, inspect, match, and reset a context
+containing `TacticalEntityId`, tactical-world generation, exact structure grid,
+base-grid and map-local ID plus a value fingerprint, direction, and close/open
+mode. Both public identity records are standard-layout, trivially copyable
+values. The SDK object never
+imports `TacticalActor`, `STRUCTURE`, mouse regions, or buttons. JA2's
+application adapter captures and re-resolves those compatibility records at
+each UI use, rejects a world transition, actor incarnation change, invalid
+base-grid, or missing/replaced structure, and clears a cancelled continuation
+only while its exact pending-door identity still matches. The session is
+runtime-only and adds no map, save, command-journal, or package schema.
+
 The command journal has one current wire layout. It retains a version field so
 a genuinely published format can evolve later, but unsupported versions are
 rejected rather than supported speculatively.

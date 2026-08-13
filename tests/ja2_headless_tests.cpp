@@ -149,6 +149,7 @@
 #include "StrategicGroupHost.h"
 #include "StrategicSquadHost.h"
 #include "TacticalCommandHost.h"
+#include "TacticalDoorUiAdapter.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInventoryUiLegacy.h"
 #include "VehiclePassengerHost.h"
@@ -6638,6 +6639,11 @@ int main( int, char** )
 					TacticalTraversalNoExpectedPointCost;
 
 		bool retainedDoorRejectedChangedStructure = false;
+		bool doorMenuIdentityRejectedChangedStructure = false;
+		bool doorMenuRejectedInvalidBaseGrid = false;
+		bool doorMenuCleanupProtectedNewContinuation = false;
+		bool doorMenuRejectedChangedWorld = false;
+		bool doorMenuPartialFailureCleanup = true;
 		if ( traversalWorldReady )
 		{
 			const INT32 retainedDoorGrid =
@@ -6707,8 +6713,230 @@ int main( int, char** )
 					retainedDoorRecord->command ).
 						expectedObjectFingerprint !=
 						TacticalWorldObjectNoExpectedFingerprint;
+
+			// The production door-menu adapter retains only values. Recreate the
+			// pending door context, prove exact live resolution, then change one
+			// structure value without changing its address or map-local ID.
+			retainedDoorStructure.ubStructureHeight = 1;
+			commandHostActor.pendingAction().begin(MERC_OPENDOOR);
+			commandHostActor.pendingAction().primaryData() =
+				retainedDoorStructure.usStructureID;
+			commandHostActor.pendingAction().secondaryData() =
+				retainedDoorGrid;
+			commandHostActor.pendingAction().tertiaryData() = EAST;
+			commandHostActor.runtime().worldObject.begin(
+				true, commandHostActor.identity().incarnation(),
+				retainedDoorGrid, retainedDoorStructure.usStructureID);
+			TacticalDoorUiSession& doorUiSession =
+				compiledContext.runtime().tacticalDoorUiSession();
+			doorUiSession.reset();
+			TacticalActor* resolvedDoorActor = nullptr;
+			TAG_STRUCTURE* resolvedDoorStructure = nullptr;
+			const bool doorMenuIdentityCaptured =
+				CaptureJa2TacticalDoorUiContext(
+					doorUiSession, commandHostActor,
+					retainedDoorStructure, EAST, false) &&
+				ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == &commandHostActor &&
+				resolvedDoorStructure == &retainedDoorStructure;
+			const bool capturedContinuationResolvedForCleanup =
+				doorMenuIdentityCaptured &&
+				ResolveJa2TacticalDoorUiActorForCleanup(
+					doorUiSession) == &commandHostActor;
+			const UINT16 newerDoorStructureId =
+				static_cast<UINT16>(
+					retainedDoorStructure.usStructureID - 1);
+			const INT32 newerDoorGrid = retainedDoorGrid + 1;
+			commandHostActor.pendingAction().begin(MERC_OPENDOOR);
+			commandHostActor.pendingAction().primaryData() =
+				newerDoorStructureId;
+			commandHostActor.pendingAction().secondaryData() =
+				newerDoorGrid;
+			commandHostActor.pendingAction().tertiaryData() = SOUTH;
+			commandHostActor.runtime().worldObject.begin(
+				true, commandHostActor.identity().incarnation(),
+				newerDoorGrid, newerDoorStructureId);
+			doorMenuCleanupProtectedNewContinuation =
+				capturedContinuationResolvedForCleanup &&
+				ResolveJa2TacticalDoorUiActorForCleanup(
+					doorUiSession) == nullptr &&
+				commandHostActor.runtime().worldObject.matches(
+					commandHostActor.identity().incarnation(),
+					newerDoorGrid, newerDoorStructureId);
+			commandHostActor.pendingAction().begin(MERC_OPENDOOR);
+			commandHostActor.pendingAction().primaryData() =
+				retainedDoorStructure.usStructureID;
+			commandHostActor.pendingAction().secondaryData() =
+				retainedDoorGrid;
+			commandHostActor.pendingAction().tertiaryData() = EAST;
+			commandHostActor.runtime().worldObject.begin(
+				true, commandHostActor.identity().incarnation(),
+				retainedDoorGrid, retainedDoorStructure.usStructureID);
+
+			const TacticalWorldSession::Snapshot capturedDoorWorld =
+				CaptureJa2TacticalWorld();
+			TacticalWorldSession::Snapshot changedDoorWorld =
+				capturedDoorWorld;
+			++changedDoorWorld.worldGeneration;
+			if (changedDoorWorld.worldGeneration == 0)
+				changedDoorWorld.worldGeneration = 1;
+			RestoreJa2TacticalWorldSession(changedDoorWorld);
+			doorMenuRejectedChangedWorld =
+				!ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == nullptr &&
+				resolvedDoorStructure == nullptr &&
+				ResolveJa2TacticalDoorUiActorForCleanup(
+					doorUiSession) == nullptr;
+			RestoreJa2TacticalWorldSession(capturedDoorWorld);
+
+			const UINT32 capturedDoorFlags =
+				retainedDoorStructure.fFlags;
+			const INT32 capturedDoorBaseGrid =
+				retainedDoorStructure.sBaseGridNo;
+			retainedDoorStructure.fFlags &= ~STRUCTURE_BASE_TILE;
+			retainedDoorStructure.sBaseGridNo = -1;
+			const bool rejectedNegativeDoorBaseGrid =
+				!ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == nullptr &&
+				resolvedDoorStructure == nullptr;
+			retainedDoorStructure.sBaseGridNo = WORLD_MAX;
+			doorMenuRejectedInvalidBaseGrid =
+				rejectedNegativeDoorBaseGrid &&
+				!ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == nullptr &&
+				resolvedDoorStructure == nullptr;
+			retainedDoorStructure.sBaseGridNo =
+				capturedDoorBaseGrid;
+			retainedDoorStructure.fFlags = capturedDoorFlags;
+			retainedDoorStructure.ubWallOrientation = 2;
+			const bool changedDoorStructureRejected =
+				doorMenuIdentityCaptured &&
+				!ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == nullptr &&
+				resolvedDoorStructure == nullptr &&
+				ResolveJa2TacticalDoorUiActorForCleanup(
+					doorUiSession) == &commandHostActor;
+			retainedDoorStructure.ubWallOrientation = 0;
+
+#ifdef JA2TESTVERSION
+			// Exercise the production button creator and teardown after three
+			// successful allocations. The data-free fixture supplies one inert
+			// external video object; no game data or tactical UI assets are read.
+			const BOOLEAN previousGamePaused = GamePaused();
+			const BOOLEAN previousPauseLocked = PauseStateLocked();
+			const UINT32 previousPauseReason =
+				guiLockPauseStateLastReasonId;
+			const BOOLEAN previousClockPaused = IsJA2ClockPaused();
+			const BOOLEAN previousIgnoreScrolling =
+				gfIgnoreScrolling;
+			const bool mouseInitialized = MSYS_Init() == 1;
+			const bool buttonSystemInitialized = mouseInitialized &&
+				InitExternalButtonTestFixture();
+			ETRLEObject doorButtonFrame{};
+			doorButtonFrame.usWidth = 1;
+			doorButtonFrame.usHeight = 1;
+			SGPVObject doorButtonVideoObject{};
+			doorButtonVideoObject.pETRLEObject = &doorButtonFrame;
+			doorButtonVideoObject.usNumberOfObjects = 1;
+			const INT32 doorButtonImage = buttonSystemInitialized
+				? UseVObjAsButtonImage(
+					&doorButtonVideoObject, BUTTON_NO_IMAGE, 0, 0, 0,
+					BUTTON_NO_IMAGE)
+				: -1;
+
+			if (PauseStateLocked()) UnLockPauseState();
+			if (GamePaused()) UnPauseGame();
+			PauseTime(FALSE);
+			gfIgnoreScrolling = FALSE;
+			const bool acquiredStateReleased =
+				doorButtonImage >= 0 &&
+				RunDoorMenuButtonFailureCleanupForTesting(
+					doorButtonImage, 3) &&
+				!GamePaused() && !PauseStateLocked() &&
+				!IsJA2ClockPaused() && !gfIgnoreScrolling &&
+				!commandHostActor.runtime().worldObject.active();
+
+			commandHostActor.pendingAction().begin(MERC_OPENDOOR);
+			commandHostActor.pendingAction().primaryData() =
+				retainedDoorStructure.usStructureID;
+			commandHostActor.pendingAction().secondaryData() =
+				retainedDoorGrid;
+			commandHostActor.pendingAction().tertiaryData() = EAST;
+			commandHostActor.runtime().worldObject.begin(
+				true, commandHostActor.identity().incarnation(),
+				retainedDoorGrid, retainedDoorStructure.usStructureID);
+			const bool recapturedForPreexistingState =
+				CaptureJa2TacticalDoorUiContext(
+					doorUiSession, commandHostActor,
+					retainedDoorStructure, EAST, false);
+			PauseGame();
+			LockPauseState(77);
+			PauseTime(TRUE);
+			gfIgnoreScrolling = TRUE;
+			const bool preexistingStatePreserved =
+				recapturedForPreexistingState && doorButtonImage >= 0 &&
+				RunDoorMenuButtonFailureCleanupForTesting(
+					doorButtonImage, 9) &&
+				GamePaused() && PauseStateLocked() &&
+				guiLockPauseStateLastReasonId == 77 &&
+				IsJA2ClockPaused() && gfIgnoreScrolling &&
+				!commandHostActor.runtime().worldObject.active();
+			doorMenuPartialFailureCleanup =
+				acquiredStateReleased && preexistingStatePreserved;
+
+			if (buttonSystemInitialized)
+				ShutdownExternalButtonTestFixture();
+			if (mouseInitialized) MSYS_Shutdown();
+			if (PauseStateLocked()) UnLockPauseState();
+			if (GamePaused()) UnPauseGame();
+			PauseTime(FALSE);
+			gfIgnoreScrolling = FALSE;
+			if (previousGamePaused) PauseGame();
+			if (previousPauseLocked)
+				LockPauseState(previousPauseReason);
+			PauseTime(previousClockPaused);
+			gfIgnoreScrolling = previousIgnoreScrolling;
+#endif
+
+			commandHostActor.pendingAction().begin(MERC_OPENDOOR);
+			commandHostActor.pendingAction().primaryData() =
+				retainedDoorStructure.usStructureID;
+			commandHostActor.pendingAction().secondaryData() =
+				retainedDoorGrid;
+			commandHostActor.pendingAction().tertiaryData() = EAST;
+			commandHostActor.runtime().worldObject.begin(
+				true, commandHostActor.identity().incarnation(),
+				retainedDoorGrid, retainedDoorStructure.usStructureID);
+			doorUiSession.reset();
+			const bool recapturedForMissingStructure =
+				CaptureJa2TacticalDoorUiContext(
+					doorUiSession, commandHostActor,
+					retainedDoorStructure, EAST, false);
 			gpWorldLevelData[ retainedDoorGrid ].pStructureHead =
 				previousStructureHead;
+			doorMenuIdentityRejectedChangedStructure =
+				changedDoorStructureRejected &&
+				recapturedForMissingStructure &&
+				!ResolveJa2TacticalDoorUiContext(
+					doorUiSession, resolvedDoorActor,
+					resolvedDoorStructure) &&
+				resolvedDoorActor == nullptr &&
+				resolvedDoorStructure == nullptr &&
+				ResolveJa2TacticalDoorUiActorForCleanup(
+					doorUiSession) == &commandHostActor;
+			doorUiSession.reset();
+			commandHostActor.pendingAction().clearAction();
+			commandHostActor.runtime().worldObject.reset();
 		}
 
 		const bool liveAiTraversalContinuationOwned =
@@ -6773,8 +7001,13 @@ int main( int, char** )
 		       retainedTraversalRejectedStaleState &&
 		       retainedRoofRejectedChangedPointBudget &&
 		       retainedDoorRejectedChangedStructure &&
+		       doorMenuIdentityRejectedChangedStructure &&
+		       doorMenuRejectedInvalidBaseGrid &&
+		       doorMenuCleanupProtectedNewContinuation &&
+		       doorMenuRejectedChangedWorld &&
+		       doorMenuPartialFailureCleanup &&
 		       traversalActorRestored,
-		       "production traversal and automatic-door commands preserve path ordering, let queued Replay own async branches, and discard stale actor or structure work without mutation" );
+		       "production traversal, automatic-door commands, and door UI reject stale identity while partial presentation failure restores ownership" );
 
 		const INT8 previousConfigurationWeaponMode =
 			commandHostActor.attackSelection().weaponMode();

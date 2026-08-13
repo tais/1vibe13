@@ -2139,6 +2139,37 @@ foreach(runtime_campaign_follow_through_contents IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  tactical_door_test_build_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  tactical_door_ci_contents)
+foreach(required_door_test_build_marker IN ITEMS
+    "add_executable(tactical_door_ui_session_tests"
+    "add_test(NAME tactical_door_ui_session")
+  string(FIND
+    "${tactical_door_test_build_contents}"
+    "${required_door_test_build_marker}"
+    required_door_test_build_marker_index)
+  if(required_door_test_build_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI lifecycle model lost CMake marker '${required_door_test_build_marker}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "cmake --build build --target[^\r\n]*ja2_headless_tests[^\r\n]*tactical_door_ui_session_tests"
+  tactical_door_ci_build_command
+  "${tactical_door_ci_contents}")
+if(NOT tactical_door_ci_build_command)
+  message(FATAL_ERROR
+    "Door UI model and production/headless coverage are no longer built together by sanitizer CI")
+endif()
+string(FIND "${tactical_door_ci_contents}"
+  "-DCMAKE_BUILD_TYPE=Debug" tactical_door_ci_debug_index)
+if(tactical_door_ci_debug_index EQUAL -1)
+  message(FATAL_ERROR
+    "Door UI fault injection is no longer enabled in sanitizer CI")
+endif()
+
 file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
   runtime_campaign_follow_through_headless_contents)
 foreach(required_campaign_follow_through_headless_fragment IN ITEMS
@@ -11190,6 +11221,513 @@ foreach(tactical_inventory_ui_file IN LISTS tactical_inventory_ui_files)
   if(raw_tactical_inventory_ui_producer)
     message(FATAL_ERROR
       "Inventory UI producer passes a raw actor in ${tactical_inventory_ui_file}; capture or copy TacticalEntityId and clear roles explicitly")
+  endif()
+endforeach()
+
+# The door-action popup retains one exact value context in EngineRuntime. Its
+# legacy visual record may own only presentation/lifecycle fields; every
+# callback must re-resolve the actor incarnation, world generation, and live
+# structure through the explicit application adapter.
+file(READ "${SOURCE_ROOT}/Tactical/Interface.cpp"
+  tactical_door_ui_contents)
+string(REPLACE "\r\n" "\n" tactical_door_ui_contents
+  "${tactical_door_ui_contents}")
+string(REGEX MATCH
+  "typedef[ \t\r\n]+struct[ \t\r\n]*\\{[^}]*\\}[ \t\r\n]*OPENDOOR_MENU[ \t\r\n]*;"
+  tactical_door_ui_record
+  "${tactical_door_ui_contents}")
+if(NOT tactical_door_ui_record)
+  message(FATAL_ERROR "Door UI presentation record is no longer identifiable")
+endif()
+string(REGEX MATCH
+  "TacticalActor|STRUCTURE|TacticalDoor|[*]|(^|[^A-Za-z0-9_])(actor|structure|worldGeneration|direction|closingDoor|fingerprint|grid|baseGrid|structureId)([^A-Za-z0-9_]|$)|[A-Za-z0-9_]*(Actor|Soldier|Structure|WorldGeneration|Direction|ClosingDoor|Fingerprint|BaseGrid|GridNo)[A-Za-z0-9_]*"
+  retained_door_ui_identity
+  "${tactical_door_ui_record}")
+if(retained_door_ui_identity)
+  message(FATAL_ERROR
+    "OPENDOOR_MENU regained retained modal identity or pointer state")
+endif()
+foreach(required_door_presentation_field IN ITEMS
+    "sX" "sY" "fMenuHandled"
+    "fGamePauseOwned" "fPauseLockOwned" "fClockPauseOwned"
+    "fOverlayOwned" "fIgnoreScrollingOwned")
+  string(FIND "${tactical_door_ui_record}"
+    "${required_door_presentation_field}"
+    required_door_presentation_field_index)
+  if(required_door_presentation_field_index EQUAL -1)
+    message(FATAL_ERROR
+      "OPENDOOR_MENU lost presentation lifecycle field '${required_door_presentation_field}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "gOpenDoorMenu[ \t\r\n]*\\.[ \t\r\n]*(pSoldier|pStructure|ubDirection|fClosingDoor)"
+  raw_tactical_door_ui_state
+  "${tactical_door_ui_contents}")
+if(raw_tactical_door_ui_state)
+  message(FATAL_ERROR
+    "Door UI retains raw actor/structure or duplicate modal identity in OPENDOOR_MENU")
+endif()
+foreach(required_door_ui_marker IN ITEMS
+    "CaptureJa2TacticalDoorUiContext("
+    "ResolveJa2TacticalDoorUiContext("
+    "ResolveJa2TacticalDoorUiActorForCleanup("
+    "RemoveDoorMenuButtons()"
+    "AcquireDoorMenuPresentationOwnership()"
+    "RunDoorMenuButtonFailureCleanupForTesting("
+    "doorUiSession.active() || gfInOpenDoorMenu"
+    "tacticalDoorUiSession()")
+  string(FIND "${tactical_door_ui_contents}"
+    "${required_door_ui_marker}" required_door_ui_marker_index)
+  if(required_door_ui_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI lost lifecycle boundary '${required_door_ui_marker}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/sgp/Button System.cpp"
+  tactical_door_button_fixture_contents)
+string(REPLACE "\r\n" "\n" tactical_door_button_fixture_contents
+  "${tactical_door_button_fixture_contents}")
+strip_cxx_comments(tactical_door_button_fixture_contents
+  tactical_door_button_fixture_executable)
+string(REGEX MATCHALL "InitExternalButtonTestFixture"
+  door_button_fixture_init_tokens
+  "${tactical_door_button_fixture_executable}")
+list(LENGTH door_button_fixture_init_tokens
+  door_button_fixture_init_token_count)
+string(REGEX MATCHALL "ShutdownExternalButtonTestFixture"
+  door_button_fixture_shutdown_tokens
+  "${tactical_door_button_fixture_executable}")
+list(LENGTH door_button_fixture_shutdown_tokens
+  door_button_fixture_shutdown_token_count)
+if(NOT door_button_fixture_init_token_count EQUAL 1 OR
+    NOT door_button_fixture_shutdown_token_count EQUAL 1)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture must expose exactly one init/shutdown implementation")
+endif()
+string(FIND "${tactical_door_button_fixture_contents}"
+  "BOOLEAN InitExternalButtonTestFixture(void)"
+  door_button_fixture_start)
+string(FIND "${tactical_door_button_fixture_contents}"
+  "void ShutdownExternalButtonTestFixture(void)"
+  door_button_fixture_end)
+if(door_button_fixture_start EQUAL -1 OR
+    door_button_fixture_end LESS_EQUAL door_button_fixture_start)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture bounds are no longer identifiable")
+endif()
+string(SUBSTRING "${tactical_door_button_fixture_contents}"
+  ${door_button_fixture_end} -1 door_button_fixture_shutdown_tail)
+string(FIND "${door_button_fixture_shutdown_tail}"
+  "//============================================================================="
+  door_button_fixture_after_shutdown)
+if(door_button_fixture_after_shutdown EQUAL -1)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture teardown boundary is no longer identifiable")
+endif()
+math(EXPR door_button_fixture_length
+  "${door_button_fixture_end} - ${door_button_fixture_start}")
+string(SUBSTRING "${tactical_door_button_fixture_contents}"
+  ${door_button_fixture_start} ${door_button_fixture_length}
+  door_button_fixture_init_contents)
+set(door_button_fixture_shutdown_length
+  ${door_button_fixture_after_shutdown})
+string(SUBSTRING "${door_button_fixture_shutdown_tail}"
+  0 ${door_button_fixture_shutdown_length}
+  door_button_fixture_shutdown_contents)
+strip_cxx_comments(door_button_fixture_init_contents
+  door_button_fixture_init_executable)
+strip_cxx_comments(door_button_fixture_shutdown_contents
+  door_button_fixture_shutdown_executable)
+foreach(door_button_fixture_body IN ITEMS init shutdown)
+  set(door_button_fixture_body_contents
+    "${door_button_fixture_${door_button_fixture_body}_executable}")
+  string(REGEX MATCHALL
+    "(^|\n)[A-Za-z_][A-Za-z0-9_:<>*& 	]*[ 	]+[A-Za-z_][A-Za-z0-9_]*[ 	]*\\("
+    door_button_fixture_body_signatures
+    "${door_button_fixture_body_contents}")
+  list(LENGTH door_button_fixture_body_signatures
+    door_button_fixture_body_signature_count)
+  if(NOT door_button_fixture_body_signature_count EQUAL 1)
+    message(FATAL_ERROR
+      "Door UI button fixture ${door_button_fixture_body} must contain exactly one function body")
+  endif()
+endforeach()
+string(FIND "${door_button_fixture_init_executable}" "#"
+  door_button_fixture_init_preprocessor)
+string(REGEX MATCH "#[ 	]*(if|ifdef|ifndef|elif|else)"
+  door_button_fixture_shutdown_preprocessor
+  "${door_button_fixture_shutdown_executable}")
+if(NOT door_button_fixture_init_preprocessor EQUAL -1 OR
+    door_button_fixture_shutdown_preprocessor)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture contains an unverified preprocessor branch")
+endif()
+foreach(required_door_button_fixture_init_marker IN ITEMS
+    "ButtonsInList != 0 || ButtonPicsLoaded != 0"
+    "ButtonsInList = 0"
+    "ButtonPicsLoaded = 0")
+  string(FIND "${door_button_fixture_init_executable}"
+    "${required_door_button_fixture_init_marker}"
+    required_door_button_fixture_init_marker_index)
+  if(required_door_button_fixture_init_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI button fixture initialization lost '${required_door_button_fixture_init_marker}'")
+  endif()
+endforeach()
+foreach(required_door_button_fixture_shutdown_marker IN ITEMS
+    "RemoveButton(index)"
+    "UnloadButtonImage(index)"
+    "ButtonsInList = 0"
+    "ButtonPicsLoaded = 0")
+  string(FIND "${door_button_fixture_shutdown_executable}"
+    "${required_door_button_fixture_shutdown_marker}"
+    required_door_button_fixture_shutdown_marker_index)
+  if(required_door_button_fixture_shutdown_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI button fixture teardown lost '${required_door_button_fixture_shutdown_marker}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "InitButtonSystem|InitializeButtonImageManager|CreateVideoObject|LoadButtonImage|LoadGenericButtonIcon|LoadGenericButtonImages|CreateSimpleButton|CreateEasy(NoToggle|Toggle|NewToggle)?Button|CreateCheckBoxButton"
+  door_button_fixture_asset_ingress
+  "${door_button_fixture_init_executable}")
+if(door_button_fixture_asset_ingress)
+  message(FATAL_ERROR
+    "Door UI headless button fixture must not load generic artwork")
+endif()
+string(FIND "${tactical_door_button_fixture_executable}"
+  "#ifdef JA2TESTVERSION\nBOOLEAN InitExternalButtonTestFixture(void)"
+  guarded_door_button_fixture_start)
+string(FIND "${door_button_fixture_shutdown_executable}"
+  "}\n#endif" guarded_door_button_fixture_end)
+if(guarded_door_button_fixture_start EQUAL -1 OR
+    guarded_door_button_fixture_end EQUAL -1)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture must remain JA2TESTVERSION-only")
+endif()
+
+file(READ "${SOURCE_ROOT}/sgp/Button System.h"
+  tactical_door_button_fixture_header_contents)
+string(REPLACE "\r\n" "\n" tactical_door_button_fixture_header_contents
+  "${tactical_door_button_fixture_header_contents}")
+strip_cxx_comments(tactical_door_button_fixture_header_contents
+  tactical_door_button_fixture_header_executable)
+string(REGEX MATCHALL "InitExternalButtonTestFixture"
+  door_button_fixture_header_init_tokens
+  "${tactical_door_button_fixture_header_executable}")
+list(LENGTH door_button_fixture_header_init_tokens
+  door_button_fixture_header_init_token_count)
+string(REGEX MATCHALL "ShutdownExternalButtonTestFixture"
+  door_button_fixture_header_shutdown_tokens
+  "${tactical_door_button_fixture_header_executable}")
+list(LENGTH door_button_fixture_header_shutdown_tokens
+  door_button_fixture_header_shutdown_token_count)
+string(FIND "${tactical_door_button_fixture_header_executable}"
+  "#ifdef JA2TESTVERSION\n\n\nBOOLEAN InitExternalButtonTestFixture(void);\nvoid ShutdownExternalButtonTestFixture(void);\n#endif"
+  guarded_door_button_fixture_header)
+if(guarded_door_button_fixture_header EQUAL -1 OR
+    NOT door_button_fixture_header_init_token_count EQUAL 1 OR
+    NOT door_button_fixture_header_shutdown_token_count EQUAL 1)
+  message(FATAL_ERROR
+    "Door UI asset-free button fixture declarations must remain JA2TESTVERSION-only")
+endif()
+
+foreach(door_ui_function_bounds IN ITEMS
+    "BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor )\n{|BOOLEAN PopupDoorOpenMenu( )\n{|init"
+    "BOOLEAN PopupDoorOpenMenu( )\n{|void PopDownOpenDoorMenu( )\n{|popup"
+    "void RenderOpenDoorMenu( )\n{|void CancelOpenDoorMenu( )\n{|render"
+    "void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)\n{|BOOLEAN HandleOpenDoorMenu( )\n{|callback")
+  string(REPLACE "|" ";" door_ui_function_bound_parts
+    "${door_ui_function_bounds}")
+  list(GET door_ui_function_bound_parts 0 door_ui_function_start_marker)
+  list(GET door_ui_function_bound_parts 1 door_ui_function_end_marker)
+  list(GET door_ui_function_bound_parts 2 door_ui_function_name)
+  string(FIND "${tactical_door_ui_contents}"
+    "${door_ui_function_start_marker}" door_ui_function_start)
+  string(FIND "${tactical_door_ui_contents}"
+    "${door_ui_function_end_marker}" door_ui_function_end)
+  if(door_ui_function_start EQUAL -1 OR
+      door_ui_function_end LESS_EQUAL door_ui_function_start)
+    message(FATAL_ERROR
+      "Door UI ${door_ui_function_name} function boundary is no longer identifiable")
+  endif()
+  math(EXPR door_ui_function_length
+    "${door_ui_function_end} - ${door_ui_function_start}")
+  string(SUBSTRING "${tactical_door_ui_contents}"
+    ${door_ui_function_start} ${door_ui_function_length}
+    tactical_door_ui_${door_ui_function_name}_contents)
+endforeach()
+
+string(FIND "${tactical_door_ui_init_contents}"
+  "CaptureJa2TacticalDoorUiContext(" door_ui_capture_index)
+string(FIND "${tactical_door_ui_init_contents}"
+  "AcquireDoorMenuPresentationOwnership()" door_ui_pause_acquire_index)
+string(FIND "${tactical_door_ui_init_contents}"
+  "LocateSoldier(" door_ui_first_actor_effect_index)
+if(door_ui_capture_index EQUAL -1 OR
+    door_ui_pause_acquire_index LESS_EQUAL door_ui_capture_index OR
+    door_ui_first_actor_effect_index LESS_EQUAL door_ui_capture_index)
+  message(FATAL_ERROR
+    "Door UI initialization must capture exact identity before presentation or actor effects")
+endif()
+
+foreach(door_ui_preflight_contract IN ITEMS
+    "popup|MSYS_DefineRegion("
+    "render|BltVideoObjectFromIndex("
+    "callback|btn->uiFlags")
+  string(REPLACE "|" ";" door_ui_preflight_parts
+    "${door_ui_preflight_contract}")
+  list(GET door_ui_preflight_parts 0 door_ui_preflight_function)
+  list(GET door_ui_preflight_parts 1 door_ui_first_effect_marker)
+  set(door_ui_function_contents
+    "${tactical_door_ui_${door_ui_preflight_function}_contents}")
+  string(FIND "${door_ui_function_contents}"
+    "ResolveOpenDoorMenu(" door_ui_preflight_index)
+  string(FIND "${door_ui_function_contents}"
+    "${door_ui_first_effect_marker}" door_ui_first_effect_index)
+  if(door_ui_preflight_index EQUAL -1 OR
+      door_ui_first_effect_index EQUAL -1 OR
+      door_ui_preflight_index GREATER door_ui_first_effect_index)
+    message(FATAL_ERROR
+      "Door UI ${door_ui_preflight_function} no longer preflights before '${door_ui_first_effect_marker}'")
+  endif()
+endforeach()
+
+set(previous_door_action_index -1)
+foreach(legacy_door_action_marker IN ITEMS
+    "iActionIcons[ OPEN_DOOR_ICON ]"
+    "iActionIcons[ BOOT_DOOR_ICON ]"
+    "iActionIcons[ USE_KEYRING_ICON ]"
+    "iActionIcons[ LOCKPICK_DOOR_ICON ]"
+    "iActionIcons[ EXAMINE_DOOR_ICON ]"
+    "iActionIcons[ EXPLOSIVE_DOOR_ICON ]"
+    "iActionIcons[ UNTRAP_DOOR_ICON ]"
+    "iActionIcons[ USE_CROWBAR_ICON ]")
+  string(FIND "${tactical_door_ui_callback_contents}"
+    "${legacy_door_action_marker}" legacy_door_action_index)
+  if(legacy_door_action_index EQUAL -1 OR
+      legacy_door_action_index LESS_EQUAL previous_door_action_index)
+    message(FATAL_ERROR
+      "Door UI lost or reordered legacy action '${legacy_door_action_marker}'")
+  endif()
+  set(previous_door_action_index ${legacy_door_action_index})
+endforeach()
+string(REGEX MATCH "TryDispatch|SimulationCommand"
+  commandified_door_menu_action
+  "${tactical_door_ui_callback_contents}")
+if(commandified_door_menu_action)
+  message(FATAL_ERROR
+    "Door UI choices must retain their eight established compatibility actions")
+endif()
+foreach(legacy_door_action_contract IN ITEMS
+    "iActionIcons[ OPEN_DOOR_ICON ]|HANDLE_DOOR_OPEN|iActionIcons[ BOOT_DOOR_ICON ]"
+    "iActionIcons[ BOOT_DOOR_ICON ]|HANDLE_DOOR_FORCE|iActionIcons[ USE_KEYRING_ICON ]"
+    "iActionIcons[ USE_KEYRING_ICON ]|HANDLE_DOOR_UNLOCK|iActionIcons[ LOCKPICK_DOOR_ICON ]"
+    "iActionIcons[ LOCKPICK_DOOR_ICON ]|HANDLE_DOOR_LOCKPICK|iActionIcons[ EXAMINE_DOOR_ICON ]"
+    "iActionIcons[ EXAMINE_DOOR_ICON ]|HANDLE_DOOR_EXAMINE|iActionIcons[ EXPLOSIVE_DOOR_ICON ]"
+    "iActionIcons[ EXPLOSIVE_DOOR_ICON ]|HANDLE_DOOR_EXPLODE|iActionIcons[ UNTRAP_DOOR_ICON ]"
+    "iActionIcons[ UNTRAP_DOOR_ICON ]|HANDLE_DOOR_UNTRAP|iActionIcons[ USE_CROWBAR_ICON ]"
+    "iActionIcons[ USE_CROWBAR_ICON ]|HANDLE_DOOR_CROWBAR|HandleOpenDoorMenu( );")
+  string(REPLACE "|" ";" legacy_door_action_contract_parts
+    "${legacy_door_action_contract}")
+  list(GET legacy_door_action_contract_parts 0 legacy_door_branch_marker)
+  list(GET legacy_door_action_contract_parts 1 legacy_door_effect_marker)
+  list(GET legacy_door_action_contract_parts 2 legacy_door_next_marker)
+  string(FIND "${tactical_door_ui_callback_contents}"
+    "${legacy_door_branch_marker}" legacy_door_branch_index)
+  string(FIND "${tactical_door_ui_callback_contents}"
+    "${legacy_door_effect_marker}" legacy_door_effect_index)
+  string(FIND "${tactical_door_ui_callback_contents}"
+    "${legacy_door_next_marker}" legacy_door_next_index)
+  if(legacy_door_branch_index EQUAL -1 OR
+      legacy_door_effect_index LESS_EQUAL legacy_door_branch_index OR
+      legacy_door_next_index LESS_EQUAL legacy_door_effect_index)
+    message(FATAL_ERROR
+      "Door UI branch '${legacy_door_branch_marker}' no longer maps to '${legacy_door_effect_marker}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/TacticalDoorUiAdapter.cpp"
+  tactical_door_ui_adapter_contents)
+foreach(required_door_adapter_marker IN ITEMS
+    "world.worldGeneration != context.worldGeneration"
+    "ResolveJa2TacticalEntity(context.actor)"
+    "FindStructureByID("
+    "PendingDoorMatches("
+    "structure.sBaseGridNo < 0"
+    "structure.sBaseGridNo >= WORLD_MAX"
+    "PendingDoorMatches(*actor, session.context())"
+    "CaptureStructureIdentity(")
+  string(FIND "${tactical_door_ui_adapter_contents}"
+    "${required_door_adapter_marker}" required_door_adapter_marker_index)
+  if(required_door_adapter_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI adapter lost preflight '${required_door_adapter_marker}'")
+  endif()
+endforeach()
+
+file(READ
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalDoorUiSession.h"
+  tactical_door_ui_public_header_contents)
+string(REGEX MATCH "TacticalActor|STRUCTURE|[*]"
+  pointer_bearing_door_ui_public_abi
+  "${tactical_door_ui_public_header_contents}")
+if(pointer_bearing_door_ui_public_abi)
+  message(FATAL_ERROR
+    "Public TacticalDoorUiSession ABI must remain pointer-free")
+endif()
+foreach(required_door_public_value IN ITEMS
+    "std::int32_t grid"
+    "std::int32_t baseGrid"
+    "std::uint16_t structureId"
+    "std::uint64_t fingerprint"
+    "TacticalEntityId actor"
+    "std::uint64_t worldGeneration"
+    "std::uint8_t direction"
+    "bool closingDoor")
+  string(FIND "${tactical_door_ui_public_header_contents}"
+    "${required_door_public_value}" required_door_public_value_index)
+  if(required_door_public_value_index EQUAL -1)
+    message(FATAL_ERROR
+      "Public door UI value ABI lost '${required_door_public_value}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/EngineRuntime.h"
+  tactical_door_runtime_contents)
+if(NOT tactical_door_runtime_contents MATCHES
+    "TacticalDoorUiSession[ \t]+tacticalDoorUiSession_")
+  message(FATAL_ERROR
+    "EngineRuntime no longer owns the tactical door UI session")
+endif()
+
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/CMakeLists.txt"
+  tactical_door_adapter_build_contents)
+foreach(required_door_build_fragment IN ITEMS
+    "TacticalDoorUiSession.h"
+    "TacticalDoorUiSession.cpp")
+  string(FIND "${tactical_door_adapter_build_contents}"
+    "${required_door_build_fragment}" required_door_build_index)
+  if(required_door_build_index EQUAL -1)
+    message(FATAL_ERROR
+      "RuntimeAdapter no longer builds or installs ${required_door_build_fragment}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/tactical_door_ui_session_tests.cpp"
+  tactical_door_ui_model_test_contents)
+foreach(required_door_test_marker IN ITEMS
+    "actor slot reuse"
+    "missing or replaced structures"
+    "explicit teardown"
+    "std::is_standard_layout<TacticalDoorStructureIdentity>"
+    "offsetof(TacticalDoorUiContext, closingDoor)"
+    "door.baseGrid + 1")
+  string(FIND "${tactical_door_ui_model_test_contents}"
+    "${required_door_test_marker}" required_door_test_marker_index)
+  if(required_door_test_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI model coverage lost '${required_door_test_marker}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  tactical_door_ui_headless_contents)
+foreach(required_door_headless_marker IN ITEMS
+    "doorMenuIdentityCaptured"
+    "doorMenuIdentityRejectedChangedStructure"
+    "doorMenuRejectedInvalidBaseGrid"
+    "retainedDoorStructure.sBaseGridNo = WORLD_MAX"
+    "doorMenuCleanupProtectedNewContinuation"
+    "doorMenuRejectedChangedWorld"
+    "InitExternalButtonTestFixture()"
+    "ShutdownExternalButtonTestFixture()"
+    "RunDoorMenuButtonFailureCleanupForTesting("
+    "acquiredStateReleased"
+    "preexistingStatePreserved")
+  string(FIND "${tactical_door_ui_headless_contents}"
+    "${required_door_headless_marker}" required_door_headless_index)
+  if(required_door_headless_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI production/headless coverage lost '${required_door_headless_marker}'")
+  endif()
+endforeach()
+string(FIND "${tactical_door_ui_headless_contents}"
+  "const bool mouseInitialized = MSYS_Init() == 1;"
+  door_ui_headless_fixture_start)
+string(FIND "${tactical_door_ui_headless_contents}"
+  "if (mouseInitialized) MSYS_Shutdown();"
+  door_ui_headless_fixture_end)
+if(door_ui_headless_fixture_start EQUAL -1 OR
+    door_ui_headless_fixture_end LESS_EQUAL door_ui_headless_fixture_start)
+  message(FATAL_ERROR
+    "Door UI headless button fixture bounds are no longer identifiable")
+endif()
+math(EXPR door_ui_headless_fixture_length
+  "${door_ui_headless_fixture_end} - ${door_ui_headless_fixture_start}")
+string(SUBSTRING "${tactical_door_ui_headless_contents}"
+  ${door_ui_headless_fixture_start} ${door_ui_headless_fixture_length}
+  door_ui_headless_fixture_contents)
+strip_cxx_comments(door_ui_headless_fixture_contents
+  door_ui_headless_fixture_executable)
+string(REGEX MATCH "#[ 	]*(if|ifdef|ifndef|elif|else)"
+  door_ui_headless_fixture_preprocessor
+  "${door_ui_headless_fixture_executable}")
+if(door_ui_headless_fixture_preprocessor)
+  message(FATAL_ERROR
+    "Door UI headless button fixture contains an unverified preprocessor branch")
+endif()
+foreach(required_door_headless_fixture_call IN ITEMS
+    "InitExternalButtonTestFixture()"
+    "UseVObjAsButtonImage("
+    "RunDoorMenuButtonFailureCleanupForTesting("
+    "ShutdownExternalButtonTestFixture()")
+  string(FIND "${door_ui_headless_fixture_executable}"
+    "${required_door_headless_fixture_call}"
+    required_door_headless_fixture_call_index)
+  if(required_door_headless_fixture_call_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI headless button fixture lost '${required_door_headless_fixture_call}'")
+  endif()
+endforeach()
+string(FIND "${door_ui_headless_fixture_executable}"
+  "InitButtonSystem()" door_ui_headless_asset_init_index)
+if(NOT door_ui_headless_asset_init_index EQUAL -1)
+  message(FATAL_ERROR
+    "Door UI headless coverage regained an installed-artwork button initializer")
+endif()
+
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  tactical_door_architecture_document_contents)
+foreach(required_door_architecture_document_fragment IN ITEMS
+    "TacticalDoorUiSession"
+    "base-grid"
+    "preserves newer actor work"
+    "owners remain unchanged"
+    "in-memory external image")
+  string(FIND "${tactical_door_architecture_document_contents}"
+    "${required_door_architecture_document_fragment}"
+    required_door_architecture_document_index)
+  if(required_door_architecture_document_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI architecture contract lost '${required_door_architecture_document_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/ENGINE_SDK.md"
+  tactical_door_sdk_document_contents)
+foreach(required_door_sdk_document_fragment IN ITEMS
+    "TacticalDoorUiSession"
+    "base-grid"
+    "standard-layout, trivially copyable"
+    "exact pending-door identity")
+  string(FIND "${tactical_door_sdk_document_contents}"
+    "${required_door_sdk_document_fragment}"
+    required_door_sdk_document_index)
+  if(required_door_sdk_document_index EQUAL -1)
+    message(FATAL_ERROR
+      "Door UI SDK contract lost '${required_door_sdk_document_fragment}'")
   endif()
 endforeach()
 

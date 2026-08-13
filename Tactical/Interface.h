@@ -455,6 +455,13 @@ void RenderOpenDoorMenu( );
 BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor );
 BOOLEAN HandleOpenDoorMenu( );
 void CancelOpenDoorMenu( );
+#ifdef JA2TESTVERSION
+// Debug/headless fault injection exercises the production popup and teardown
+// with a QuickCreateButton failure after zero through eight successful
+// allocations; nine exercises complete popup teardown.
+BOOLEAN RunDoorMenuButtonFailureCleanupForTesting(
+	INT32 buttonImage, UINT8 successfulButtonCreations);
+#endif
 
 void HandleInterfaceBackgrounds( );
 

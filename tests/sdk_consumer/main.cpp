@@ -9,6 +9,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
+#include <Engine/Adapters/JA2/TacticalDoorUiSession.h>
 #include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -32,6 +33,13 @@
 
 namespace
 {
+static_assert(
+	std::is_standard_layout<TacticalDoorStructureIdentity>::value &&
+	std::is_trivially_copyable<TacticalDoorStructureIdentity>::value &&
+	std::is_standard_layout<TacticalDoorUiContext>::value &&
+	std::is_trivially_copyable<TacticalDoorUiContext>::value,
+	"installed door UI identities remain portable pointer-free values");
+
 TacticalActorSnapshot MakeExternalActor(
 	TacticalEntityId id,
 	std::int32_t grid,
@@ -210,6 +218,15 @@ int main()
 	legacyBraceRuntime.tacticalInventoryUiSession().reset();
 	if (legacyBraceRuntime.tacticalInventoryUiSession().actorContextCount() != 0)
 		return 59;
+	const TacticalDoorStructureIdentity externalDoor{
+		1311, 1310, 0x4567u, 0x0102030405060708ull};
+	if (!legacyBraceRuntime.tacticalDoorUiSession().begin(
+			{externalInventoryActor, 41, externalDoor, 2, false}) ||
+		!legacyBraceRuntime.tacticalDoorUiSession().matches(
+			41, externalInventoryActor, externalDoor))
+		return 60;
+	legacyBraceRuntime.tacticalDoorUiSession().reset();
+	if (legacyBraceRuntime.tacticalDoorUiSession().active()) return 60;
 	CampaignClockSession externalCampaignClock;
 	externalCampaignClock.initialize(90061);
 	externalCampaignClock.advanceUncommitted(60);
