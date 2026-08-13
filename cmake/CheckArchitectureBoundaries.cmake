@@ -233,9 +233,9 @@ file(READ "${SOURCE_ROOT}/i18n/include/Text.h" legacy_text_header_contents)
 string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
   legacy_text_declarations "${legacy_text_header_contents}")
 list(LENGTH legacy_text_declarations legacy_text_declaration_count)
-if(NOT legacy_text_declaration_count EQUAL 477)
+if(NOT legacy_text_declaration_count EQUAL 472)
   message(FATAL_ERROR
-    "The first four TextCatalog domains must leave exactly 477 legacy Text.h externs, found ${legacy_text_declaration_count}")
+    "The first five TextCatalog domains must leave exactly 472 legacy Text.h externs, found ${legacy_text_declaration_count}")
 endif()
 file(READ "${SOURCE_ROOT}/i18n/include/_Ja25EnglishText.h"
   legacy_ja25_text_header_contents)
@@ -262,15 +262,22 @@ foreach(required_i18n_test_fragment IN ITEMS
   endif()
 endforeach()
 
-# The first four domain migrations own eight immutable one-entry UI labels.
-# All 64 translated definitions move together, every runtime/exporter consumer
-# enters through the validated pack, and no legacy declaration remains to
-# provide an accidental linker fallback.
+# The first five domain migrations own eight scalar UI labels and five indexed
+# game-time tables. All 64 scalar plus 120 indexed translations move together,
+# every runtime/exporter consumer enters through the validated pack, and no
+# legacy declaration remains to provide an accidental linker fallback.
 foreach(required_text_catalog_header_fragment IN ITEMS
     "enum class TextKey"
     "struct TextKeyDescriptor"
     "HasValidTextKeySchema"
     "static_cast<std::size_t>(TextKey::GameClockDay) == 7"
+    "enum class TextTableKey"
+    "struct TextTableDescriptor"
+    "TextTableEntryCount = 15"
+    "HasValidTextTableSchema"
+    "static_cast<std::size_t>(TextTableKey::PausedGame) == 4"
+    "static_cast<std::size_t>(TextCatalogError::AllocationFailure) == 7"
+    "legacyExportCount"
     "englishFallbackAllowed"
     "enum class TextFallbackPolicy"
     "EnglishForOptionalKeys"
@@ -293,8 +300,10 @@ foreach(required_text_catalog_source_fragment IN ITEMS
     "TextCatalogError::InvalidFallbackPolicy"
     "TextCatalogError::DuplicateLanguage"
     "TextCatalogError::MissingRequiredText"
+    "TextCatalogError::MissingRequiredTableText"
     "TextFallbackPolicy::EnglishForOptionalKeys"
     "std::make_shared<detail::TextCatalogStorage>"
+    "stored.tableText"
     "TextPack::lookup")
   string(FIND "${i18n_text_catalog_source_contents}"
     "${required_text_catalog_source_fragment}"
@@ -313,7 +322,12 @@ set(migrated_text_globals
   pHistoryTitle
   AimLinkText
   gzHelpScreenText
-  gpGameClockString)
+  gpGameClockString
+  sTimeStrings
+  gsTimeStrings
+  pDayStrings
+  pEtaString
+  pPausedGameText)
 set(legacy_base_catalog_files
   _EnglishText.cpp
   _GermanText.cpp
@@ -381,6 +395,40 @@ foreach(migrated_text_consumer IN LISTS migrated_text_consumers)
       "${migrated_text_file} must route exactly ${migrated_text_expected_count} '${migrated_text_key}' use(s), found ${migrated_text_actual_count}")
   endif()
 endforeach()
+
+set(migrated_text_table_consumers
+  "Strategic/Map Screen Interface Bottom.cpp|sTimeStrings|TimeCompression|2"
+  "Strategic/Map Screen Interface Map.cpp|gsTimeStrings|TimeUnits|2"
+  "Strategic/mapscreen.cpp|gsTimeStrings|TimeUnits|4"
+  "Strategic/mapscreen.cpp|pEtaString|Eta|2"
+  "Strategic/Game Clock.cpp|pDayStrings|Day|2"
+  "Strategic/Game Clock.cpp|pPausedGameText|PausedGame|5"
+  "Tactical/ShopKeeper Interface.cpp|pDayStrings|Day|1"
+  "Laptop/email.cpp|pDayStrings|Day|1")
+foreach(migrated_text_table_consumer IN LISTS migrated_text_table_consumers)
+  string(REPLACE "|" ";" migrated_text_table_fields
+    "${migrated_text_table_consumer}")
+  list(GET migrated_text_table_fields 0 migrated_text_table_file)
+  list(GET migrated_text_table_fields 1 migrated_text_table_global)
+  list(GET migrated_text_table_fields 2 migrated_text_table_key)
+  list(GET migrated_text_table_fields 3 migrated_text_table_expected_count)
+  file(READ "${SOURCE_ROOT}/${migrated_text_table_file}"
+    migrated_text_table_consumer_contents)
+  if(migrated_text_table_consumer_contents MATCHES
+      "${migrated_text_table_global}")
+    message(FATAL_ERROR
+      "${migrated_text_table_file} regained direct '${migrated_text_table_global}' access")
+  endif()
+  string(REGEX MATCHALL "TextTableKey::${migrated_text_table_key}"
+    migrated_text_table_uses "${migrated_text_table_consumer_contents}")
+  list(LENGTH migrated_text_table_uses migrated_text_table_actual_count)
+  if(NOT migrated_text_table_actual_count EQUAL
+      migrated_text_table_expected_count)
+    message(FATAL_ERROR
+      "${migrated_text_table_file} must route exactly ${migrated_text_table_expected_count} '${migrated_text_table_key}' indexed use(s), found ${migrated_text_table_actual_count}")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Laptop/AimLinks.cpp" aim_links_text_consumer_contents)
 if(aim_links_text_consumer_contents MATCHES
     "#[ \t]*include[ \t]*[<\"]Text[.]h[>\"]" OR
@@ -407,12 +455,21 @@ if(game_events_text_consumer_contents MATCHES
   message(FATAL_ERROR
     "Game Events must depend only on TextCatalog for its migrated game-clock label")
 endif()
+file(READ "${SOURCE_ROOT}/Strategic/Game Clock.cpp"
+  game_clock_text_consumer_contents)
+if(game_clock_text_consumer_contents MATCHES
+    "#[ \t]*include[ \t]*[<\"]Text[.]h[>\"]" OR
+    NOT game_clock_text_consumer_contents MATCHES
+    "#[ \t]*include[ \t]*[<\"]TextCatalog[.]h[>\"]")
+  message(FATAL_ERROR
+    "Game Clock must depend only on TextCatalog for its migrated text")
+endif()
 
 foreach(migrated_text_export IN ITEMS
     PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle AimLinksTitle
     HelpScreenExit GameClockDay)
   if(export_strings_source_contents MATCHES
-      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString)")
+      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText)")
     message(FATAL_ERROR
       "ExportStrings regained a legacy migrated text global")
   endif()
@@ -425,6 +482,49 @@ foreach(migrated_text_export IN ITEMS
   if(NOT migrated_text_export_count EQUAL 1)
     message(FATAL_ERROR
       "ExportStrings must publish '${migrated_text_export}' exactly once through TextPack")
+  endif()
+endforeach()
+foreach(migrated_text_table_export IN ITEMS
+    TimeCompression TimeUnits Day Eta PausedGame)
+  string(REGEX MATCHALL
+    "ExportTextPackTable\\(props, i18n::TextTableKey::${migrated_text_table_export}\\)"
+    migrated_text_table_export_uses "${export_strings_source_contents}")
+  list(LENGTH migrated_text_table_export_uses
+    migrated_text_table_export_count)
+  if(NOT migrated_text_table_export_count EQUAL 1)
+    message(FATAL_ERROR
+      "ExportStrings must publish '${migrated_text_table_export}' exactly once through TextPack")
+  endif()
+endforeach()
+set(migrated_text_table_export_positions
+  "Loc::pTownNames|ExportTextPackTable(props, i18n::TextTableKey::TimeCompression)|Loc::pAssignmentStrings|TimeCompression"
+  "Loc::gsUndergroundString|ExportTextPackTable(props, i18n::TextTableKey::TimeUnits)|Loc::sFacilitiesStrings|TimeUnits"
+  "Loc::pMercDeadString|ExportTextPackTable(props, i18n::TextTableKey::Day)|Loc::pSenderNameList|Day"
+  "Loc::pMapScreenPrevNextCharButtonHelpText|ExportTextPackTable(props, i18n::TextTableKey::Eta)|Loc::pTrashItemText|Eta"
+  "Loc::pPersTitleText|ExportTextPackTable(props, i18n::TextTableKey::PausedGame)|Loc::pMessageStrings|PausedGame")
+foreach(migrated_text_table_export_position IN LISTS
+    migrated_text_table_export_positions)
+  string(REPLACE "|" ";" migrated_text_table_export_fields
+    "${migrated_text_table_export_position}")
+  list(GET migrated_text_table_export_fields 0 migrated_text_table_before)
+  list(GET migrated_text_table_export_fields 1 migrated_text_table_export_call)
+  list(GET migrated_text_table_export_fields 2 migrated_text_table_after)
+  list(GET migrated_text_table_export_fields 3 migrated_text_table_export_name)
+  string(FIND "${export_strings_source_contents}"
+    "${migrated_text_table_before}" migrated_text_table_before_position)
+  string(FIND "${export_strings_source_contents}"
+    "${migrated_text_table_export_call}" migrated_text_table_call_position)
+  string(FIND "${export_strings_source_contents}"
+    "${migrated_text_table_after}" migrated_text_table_after_position)
+  if(migrated_text_table_before_position EQUAL -1 OR
+      migrated_text_table_call_position EQUAL -1 OR
+      migrated_text_table_after_position EQUAL -1 OR
+      NOT migrated_text_table_before_position LESS
+        migrated_text_table_call_position OR
+      NOT migrated_text_table_call_position LESS
+        migrated_text_table_after_position)
+    message(FATAL_ERROR
+      "${migrated_text_table_export_name} TextPack export lost its historical section position")
   endif()
 endforeach()
 string(FIND "${export_strings_source_contents}" "Loc::AimPopUpText"
@@ -476,15 +576,22 @@ file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
   i18n_text_catalog_test_contents)
 foreach(required_text_catalog_test_fragment IN ITEMS
     "all 64 migrated translations remain byte-for-byte exact"
+    "all 120 indexed translations remain byte-for-byte exact"
     "legacy exporter section mapping stays exact"
+    "legacy exporter table ranges stay exact, including one-of-four TimeStings"
     "all eight migrated keys remain required in every language"
+    "all five indexed tables remain required in every language"
+    "Italian pDayStrings remains distinct from the GameClockDay label"
     "the game-clock key appends without renumbering existing TextKey ordinals"
+    "the game-time tables preserve append-only typed ordinals"
+    "indexed validation errors append without renumbering existing errors"
     "compiled default behavior publishes the exact English Aim Links title"
     "compiled default behavior publishes the exact English help-screen exit label"
     "compiled default behavior publishes the exact English game-clock day label"
     "English fallback cannot mask a missing required Aim Links translation"
     "English fallback cannot mask a missing required help-screen exit translation"
     "English fallback cannot mask a missing required game-clock day translation"
+    "English fallback cannot mask a missing required indexed translation"
     "typed key identities and names cannot duplicate"
     "TextPack owns stable storage after its catalog value is destroyed"
     "repeated lookup retains a stable text address"
@@ -508,7 +615,7 @@ foreach(required_text_catalog_build_fragment IN ITEMS
     "i18n/TextCatalog.cpp"
     "i18n/language.cpp"
     "target_compile_definitions(i18n_text_catalog_tests PRIVATE ENGLISH)"
-    "game-clock day-label packs"
+    "indexed game-time tables"
     "NAME i18n_text_catalog")
   string(FIND "${i18n_text_catalog_test_build_contents}"
     "${required_text_catalog_build_fragment}"
@@ -526,13 +633,18 @@ if(NOT i18n_text_catalog_ci_contents MATCHES
   message(FATAL_ERROR
     "Runtime TextCatalog sanitizer build coverage was removed")
 endif()
+if(NOT i18n_text_catalog_ci_contents MATCHES
+    "including indexed runtime-i18n packs")
+  message(FATAL_ERROR
+    "Runtime TextCatalog CI lost explicit indexed-pack coverage")
+endif()
 file(READ "${SOURCE_ROOT}/docs/RUNTIME_I18N_ARCHITECTURE.md"
   runtime_i18n_architecture_contents)
 string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_architecture_normalized
   "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
-    "474 unique data declarations"
+    "469 unique data declarations"
     "retires exactly 58 catalog guard groups"
     "98 conditioned table entries and 196 exact literal alternatives"
     "CompiledConditionalText.h"
@@ -541,13 +653,16 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Explicit blockers and review gates"
     "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
-    "512 unique data symbols"
+    "507 unique data symbols"
     "57 pre-existing foreign-catalog compatibility gaps"
     "All eight current `TextKey` descriptors are required"
+    "All five current `TextTableKey` descriptors are required"
     "Immutable AIM Links-title pack boundary"
     "Immutable Help-screen exit-label pack boundary"
     "Immutable game-clock day-label pack boundary"
-    "39 base singleton pointer tables remain"
+    "Immutable indexed game-time pack boundary"
+    "120 exact indexed translations"
+    "37 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_normalized}"
     "${required_runtime_i18n_doc_fragment}"
@@ -564,10 +679,11 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_engine_summary_normalized
   "${runtime_i18n_engine_summary_contents}")
 foreach(required_runtime_i18n_engine_summary_fragment IN ITEMS
-    "remaining 477 base definitions"
-    "canonical 512-symbol ABI schema"
+    "remaining 472 base definitions"
+    "canonical 507-symbol ABI schema"
     "fourth complete domain moves the one-entry game-clock day label"
-    "catalog now covers 64 literals and eight exporter mappings")
+    "fifth complete domain moves five indexed game-time tables"
+    "catalog now covers 184 literals and 13 exporter mappings")
   string(FIND "${runtime_i18n_engine_summary_normalized}"
     "${required_runtime_i18n_engine_summary_fragment}"
     required_runtime_i18n_engine_summary_position)
@@ -741,7 +857,7 @@ file(READ "${SOURCE_ROOT}/i18n/text_abi_schema.json"
 foreach(required_runtime_i18n_schema_fragment IN ITEMS
     "\"schema_version\": 1"
     "\"canonical_language\": \"English\""
-    "\"base_data_declarations\": 474"
+    "\"base_data_declarations\": 469"
     "\"implicit_linker_fallback\": false"
     "\"catalog_compatibility_debt\""
     "\"ja2-release\""
@@ -760,11 +876,11 @@ string(REGEX MATCHALL "\"domain\": \"(base|ja25)\""
   runtime_i18n_schema_data_symbols "${runtime_i18n_schema_contents}")
 list(LENGTH runtime_i18n_schema_data_symbols
   runtime_i18n_schema_data_symbol_count)
-if(NOT runtime_i18n_schema_data_symbol_count EQUAL 512 OR
+if(NOT runtime_i18n_schema_data_symbol_count EQUAL 507 OR
     runtime_i18n_schema_contents MATCHES
-      "\"(gzHelpScreenText|gpGameClockString)\"")
+      "\"(gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText)\"")
   message(FATAL_ERROR
-    "Runtime i18n canonical schema must contain 512 data symbols without migrated Help-screen or game-clock globals")
+    "Runtime i18n canonical schema must contain 507 data symbols without migrated scalar or indexed globals")
 endif()
 
 file(READ "${SOURCE_ROOT}/tools/test_check_i18n_text_schema.py"
@@ -853,7 +969,8 @@ foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "AIM Links title is the second complete pack domain"
     "Help-screen exit label is the third"
     "game-clock day label is the fourth"
-    "remaining 477 base and 35 JA25 definitions")
+    "indexed game-time tables are the fifth"
+    "remaining 472 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"
     required_runtime_i18n_todo_position)

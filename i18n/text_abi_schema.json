@@ -94,7 +94,7 @@
     }
   ],
   "header_inventory": {
-    "base_data_declarations": 474,
+    "base_data_declarations": 469,
     "ja25_data_declarations": 35,
     "duplicate_data_declarations": {
       "pDownloadString": 2
@@ -2578,42 +2578,6 @@
             "1"
           ],
           "initializer_entries": 1
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "gsTimeStrings": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "4"
-          ],
-          "initializer_entries": 4
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "4"
-          ],
-          "initializer_entries": 4
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "4"
-          ],
-          "initializer_entries": 4
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "4"
-          ],
-          "initializer_entries": 4
         }
       },
       "declaration": "Text.h"
@@ -7349,42 +7313,6 @@
       },
       "declaration": "Text.h"
     },
-    "pDayStrings": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        }
-      },
-      "declaration": "Text.h"
-    },
     "pDeleteMailStrings": {
       "domain": "base",
       "type": "STR16",
@@ -8461,42 +8389,6 @@
             "5"
           ],
           "initializer_entries": 5
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "pEtaString": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "1"
-          ],
-          "initializer_entries": 1
         }
       },
       "declaration": "Text.h"
@@ -10878,42 +10770,6 @@
       "declaration": "Text.h"
     },
     "pPasteMercPlacementText": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "3"
-          ],
-          "initializer_entries": 3
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "3"
-          ],
-          "initializer_entries": 3
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "3"
-          ],
-          "initializer_entries": 3
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "3"
-          ],
-          "initializer_entries": 3
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "pPausedGameText": {
       "domain": "base",
       "type": "STR16",
       "source_dimensions": [
@@ -14416,42 +14272,6 @@
             "11"
           ],
           "initializer_entries": 11
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "sTimeStrings": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "6"
-          ],
-          "initializer_entries": 6
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "6"
-          ],
-          "initializer_entries": 6
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "6"
-          ],
-          "initializer_entries": 6
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "6"
-          ],
-          "initializer_entries": 6
         }
       },
       "declaration": "Text.h"

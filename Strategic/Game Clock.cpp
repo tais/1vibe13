@@ -14,7 +14,6 @@
 #include "lighting.h"
 #include "Map Screen Interface.h"
 #include "Event Pump.h"
-#include "Text.h"
 #include "TextCatalog.h"
 #include "Interface Control.h"
 #include "Map Screen Interface Map.h"
@@ -115,7 +114,8 @@ void InitNewGameClock( )
 	InitializeJa2CampaignClock( gGameExternalOptions.iGameStartingTime );
 	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
-		pDayStrings[ 0 ], clock.day, clock.hour, clock.minute );
+		i18n::GetCompiledTextPack().text(i18n::TextTableKey::Day, 0).data(),
+		clock.day, clock.hour, clock.minute );
 	guiTimeCurrentSectorWasLastLoaded = 0;
 	guiGameSecondsPerRealSecond = 0;
 	gubClockResolution = 1;
@@ -301,7 +301,7 @@ BOOLEAN HasTimeCompressOccured( void )
 }
 
 //
-// \brief renders WORLDTIMESTR or pPausedGameText[0] centered into a box located at sX, sY (top left coords)
+// \brief renders WORLDTIMESTR or the paused-game label centered into a box located at sX, sY (top left coords)
 //
 void RenderClock( INT16 sX, INT16 sY )
 {
@@ -341,8 +341,11 @@ void RenderClock( INT16 sX, INT16 sY )
 	}
 	else
 	{
-		FindFontCenterCoordinates(sX, sY, CLOCK_AREA_WIDTH, CLOCK_AREA_HEIGHT, pPausedGameText[ 0 ], CLOCKFONT, &centeredX, &centeredY);
-		mprintf( centeredX, centeredY, pPausedGameText[ 0 ] );
+		const auto paused = i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::PausedGame, 0);
+		FindFontCenterCoordinates(sX, sY, CLOCK_AREA_WIDTH, CLOCK_AREA_HEIGHT,
+			paused.data(), CLOCKFONT, &centeredX, &centeredY);
+		mprintf( centeredX, centeredY, paused.data() );
 	}
 
 }
@@ -980,7 +983,8 @@ BOOLEAN LoadGameClock( HWFILE hFile )
 
 	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
-		pDayStrings[ 0 ], clock.day, clock.hour, clock.minute );
+		i18n::GetCompiledTextPack().text(i18n::TextTableKey::Day, 0).data(),
+		clock.day, clock.hour, clock.minute );
 
 	if( !gfBasement && !gfCaves )
 		gfDoLighting		= TRUE;
@@ -1007,11 +1011,15 @@ void CreateMouseRegionForPauseOfClock( INT16 sX, INT16 sY )
 
 		if ( gfGamePaused == FALSE )
 		{
-			SetRegionFastHelpText( &gClockMouseRegion, pPausedGameText[ 2 ] );
+			SetRegionFastHelpText( &gClockMouseRegion,
+				i18n::GetCompiledTextPack().text(
+					i18n::TextTableKey::PausedGame, 2).data() );
 		}
 		else
 		{
-			SetRegionFastHelpText( &gClockMouseRegion, pPausedGameText[ 1 ] );
+			SetRegionFastHelpText( &gClockMouseRegion,
+				i18n::GetCompiledTextPack().text(
+					i18n::TextTableKey::PausedGame, 1).data() );
 		}
 	}
 }
@@ -1112,14 +1120,20 @@ void CreateDestroyScreenMaskForPauseGame( void )
 		RemoveMouseRegionForPauseOfClock( );
 		CreateMouseRegionForPauseOfClock( sX + CLOCK_REGION_OFFSET_X, sY + CLOCK_REGION_OFFSET_Y );
 
-		SetRegionFastHelpText( &gClockMouseRegion, pPausedGameText[ 1 ] );
+		SetRegionFastHelpText( &gClockMouseRegion,
+			i18n::GetCompiledTextPack().text(
+				i18n::TextTableKey::PausedGame, 1).data() );
 
 		fMapScreenBottomDirty = TRUE;
 
 		//UnMarkButtonsDirty( );
 
 		// now create the pop up box to say the game is paused
-		iPausedPopUpBox = PrepareMercPopupBox ( iPausedPopUpBox ,BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, pPausedGameText[ 0 ], 300, 0, 0, 0, &usPausedActualWidth, &usPausedActualHeight );
+		iPausedPopUpBox = PrepareMercPopupBox ( iPausedPopUpBox,
+			BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER,
+			i18n::GetCompiledTextPack().text(
+				i18n::TextTableKey::PausedGame, 0).data(),
+			300, 0, 0, 0, &usPausedActualWidth, &usPausedActualHeight );
 	}
 }
 

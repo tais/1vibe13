@@ -2398,17 +2398,6 @@ CHAR16 pTownNames[MAX_TOWNS][MAX_TOWN_NAME_LENGHT] =
 // the types of time compression. For example: is the timer paused? at normal speed, 5 minutes per second, etc.
 // min is an abbreviation for minutes
 
-STR16 sTimeStrings[] =
-{
-	L"Paused",
-	L"Normal",
-	L"5 min",
-	L"30 min",
-	L"60 min",
-	L"6 hrs",
-};
-
-
 // Assignment Strings: what assignment does the merc  have right now? For example, are they on a squad, training,
 // administering medical aid (doctor) or training a town. All are abbreviated. 8 letters is the longest it can be.
 
@@ -4322,14 +4311,6 @@ STR16 gsUndergroundString[] =
 	L"can't get travel orders underground.",
 };
 
-STR16 gsTimeStrings[] =
-{
-	L"h",				// hours abbreviation
-	L"m",				// minutes abbreviation
-	L"s",				// seconds abbreviation
-	L"d",				// days abbreviation
-};
-
 // text for the various facilities in the sector
 
 STR16 sFacilitiesStrings[] =
@@ -4542,11 +4523,6 @@ STR16 pMercDeadString[] =
 	L"%s is dead.",
 };
 
-
-STR16 pDayStrings[] =
-{
-	L"Day",
-};
 
 // the list of email sender names
 
@@ -4790,11 +4766,6 @@ STR16 pMapScreenPrevNextCharButtonHelpText[] =
 	L"Next Merc (|R|i|g|h|t)", 				// next merc in the list
 };
 
-
-STR16 pEtaString[] =
-{
-	L"ETA:", 				// eta is an acronym for Estimated Time of Arrival
-};
 
 STR16 pTrashItemText[] =
 {
@@ -7013,15 +6984,6 @@ STR16 pPersTitleText[] =
 {
 	L"Personnel Manager",
 };
-
-// paused game strings
-STR16 pPausedGameText[] =
-{
-	L"Game Paused",
-	L"Resume Game (|P|a|u|s|e)",
-	L"Pause Game (|P|a|u|s|e)",
-};
-
 
 STR16 pMessageStrings[] =
 {

@@ -23,6 +23,7 @@
 	#include "Map Screen Interface.h"
 	#include "Map Screen Interface Map.h"
 	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "Overhead.h"
 	#include "PreBattle Interface.h"
 	#include "Options Screen.h"
@@ -1024,11 +1025,16 @@ void DisplayCompressMode( void )
 	{
 		if( IsTimeBeingCompressed() )
 		{
-			swprintf( sString, L"%s", sTimeStrings[ giTimeCompressMode ] );
+			swprintf( sString, L"%s",
+				i18n::GetCompiledTextPack().text(
+					i18n::TextTableKey::TimeCompression,
+					static_cast<std::size_t>(giTimeCompressMode)).data() );
 		}
 		else
 		{
-			swprintf( sString, L"%s", sTimeStrings[ 0 ] );
+			swprintf( sString, L"%s",
+				i18n::GetCompiledTextPack().text(
+					i18n::TextTableKey::TimeCompression, 0).data() );
 		}
 	}
 
