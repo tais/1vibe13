@@ -178,6 +178,16 @@ target_include_directories(campaign_door_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_door_policy COMMAND campaign_door_policy_tests)
 
+# Power-generator, tunnel, fortified-door, and mine content is projected into
+# typed sectors and grid sets. This data-free target pins both campaigns,
+# distinct authored sentinels, and the live tunnel-enemy option decision.
+add_executable(campaign_tactical_scenario_policy_tests
+  campaign_tactical_scenario_policy_tests.cpp)
+target_include_directories(campaign_tactical_scenario_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_tactical_scenario_policy
+  COMMAND campaign_tactical_scenario_policy_tests)
+
 # Strategic-map guidance, custom-map processing, meanwhile scenes, and the UB
 # strategic hooks are selected from the live campaign rather than JA2UB.
 add_executable(campaign_map_screen_policy_tests

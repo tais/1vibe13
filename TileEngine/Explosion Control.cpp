@@ -49,13 +49,14 @@
 #include "Campaign.h" // yet another one added
 #include "CampaignStats.h"		// added by Flugente
 #include "Points.h"				// added by Flugente
+#include "CampaignTacticalScenarioContent.h"
+#include "CampaignTacticalScenarioPolicy.h"
 #include "Interface Control.h"		// added by Flugente for DrawExplosionWarning(...)
 #include "SkillMenu.h"
 #include "GameContext.h"
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
 #include "Dialogue Control.h"
-#include "ub_config.h"
 
 #include "Soldier macros.h"
 #include "connect.h"
@@ -73,6 +74,16 @@
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class TacticalActor;
+
+namespace
+{
+	CampaignTacticalSector CurrentCampaignTacticalSector()
+	{
+		return {static_cast<std::uint32_t>(gWorldSectorX),
+			static_cast<std::uint32_t>(gWorldSectorY),
+			static_cast<std::uint32_t>(gbWorldSectorZ)};
+	}
+}
 //DBrot: More Rooms
 BOOLEAN HookerInRoom( UINT16 usRoom );
 
@@ -710,7 +721,9 @@ INT8 ExplosiveDamageStructureAtGridNo( STRUCTURE * pCurrent, STRUCTURE **ppNextC
 		ChangeO3SectorStatue( TRUE );
 		return( 1 );
 	}
-	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy tacticalScenarioPolicy(
+		GetGameContext().capabilities());
+	if( tacticalScenarioPolicy.usesUnfinishedBusinessScenario() )
 	{
 		// Replace the UB mine entrance when its scripted explosion fires.
 		if( IsMineEntranceInSectorI13AtThisGridNo( sGridNo ) && ubOwner == NOBODY )
@@ -750,7 +763,8 @@ INT8 ExplosiveDamageStructureAtGridNo( STRUCTURE * pCurrent, STRUCTURE **ppNextC
 		// Damage structure!
 		if ( ( bDamageReturnVal = DamageStructure( pCurrent, (UINT8)sWoundAmt, STRUCTURE_DAMAGE_EXPLOSION, sGridNo, sX, sY, NOBODY ) ) != 0 )
 		{
-			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			if( CampaignTacticalScenarioPolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessScenario() &&
 			    IsFanGraphicInSectorAtThisGridNo( sGridNo ) )
 			{
 				HandleDestructionOfPowerGenFan();
@@ -3668,7 +3682,8 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 		break;
 		case ACTION_ITEM_BIGGENS_BOMBS:
 
-			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			if( CampaignTacticalScenarioPolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessScenario() &&
 			    ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 17 ) )
 			{
 				HavePersonAtGridnoStop( sGridNo );
@@ -3680,7 +3695,8 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			break;
 		case ACTION_ITEM_BIGGENS_WARNING:
 			
-			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			if( CampaignTacticalScenarioPolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessScenario() &&
 			    ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 16 ) )
 			{
 				HavePersonAtGridnoStop( sGridNo );
@@ -3692,34 +3708,42 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			break;
 
 		case ACTION_ITEM_SEE_FORTIFIED_DOOR:
-			if( GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CampaignTacticalScenarioPolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessScenario() )
 				HandleSeeingFortifiedDoor( sGridNo );
 			break;
 
 		case ACTION_ITEM_OPEN_FORTIFED_DOOR:
-			if( GetGameContext().capabilities().isUnfinishedBusiness() )
+			if( CampaignTacticalScenarioPolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessScenario() )
 				HandleSwitchToOpenFortifiedDoor( sGridNo );
 			break;
 
 		case ACTION_ITEM_SEE_POWER_GEN_FAN:
-			
-			//if the player is in the power plant J13
-			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
-			    gWorldSectorX == gGameUBOptions.SectorFanX &&
-			    gWorldSectorY == gGameUBOptions.SectorFanY &&
-			    gbWorldSectorZ == gGameUBOptions.SectorFanZ )
 			{
-				HandleSeeingPowerGenFan( sGridNo );
+				const CampaignTacticalScenarioPolicy scenarioPolicy(
+					GetGameContext().capabilities());
+				if( scenarioPolicy.usesUnfinishedBusinessScenario() )
+				{
+					const CampaignTacticalScenarioContent scenarioContent =
+						ReadCampaignTacticalScenarioContent();
+					const auto decision = scenarioPolicy.powerGeneratorSwitchDecision(
+						scenarioContent, CurrentCampaignTacticalSector());
+
+					//if the player is in the power plant J13
+					if( decision == CampaignTacticalScenarioPolicy::
+						PowerGeneratorSwitchDecision::InspectFan )
+					{
+						HandleSeeingPowerGenFan( sGridNo );
+					}
+					else if( decision == CampaignTacticalScenarioPolicy::
+						PowerGeneratorSwitchDecision::LaunchMissiles ) //L15-3
+					{
+						//The player is hitting the switch to launch the missles
+						HandlePlayerHittingSwitchToLaunchMissles();
+					}
+				}
 			}
-			else if( GetGameContext().capabilities().isUnfinishedBusiness() &&
-			         gWorldSectorX == gGameUBOptions.SectorLaunchMisslesX &&
-			         gWorldSectorY == gGameUBOptions.SectorLaunchMisslesY &&
-			         gbWorldSectorZ == gGameUBOptions.SectorLaunchMisslesZ ) //L15-3
-			{
-				//The player is hitting the switch to launch the missles
-				HandlePlayerHittingSwitchToLaunchMissles();
-			}
-			
 			break;
 	default:
 		// error message here
@@ -5666,7 +5690,9 @@ void FireFragmentsTrapGun( TacticalActor* pThrower, INT32 gridno, INT16 sZ, OBJE
 
 void HavePersonAtGridnoStop( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
 	//Sewe if there is a person at the gridno
@@ -5687,7 +5713,9 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 //JA25 UB
 BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return( FALSE );
 
 	TacticalActor *pSoldier=NULL;
@@ -5708,43 +5736,24 @@ BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum )
 // This function checks if we should replace the fan graphic
 BOOLEAN IsFanGraphicInSectorAtThisGridNo( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return( FALSE );
 
-	// First check current sector...... J13-0
-	if( gWorldSectorX == gGameUBOptions.SectorFanX && gWorldSectorY == gGameUBOptions.SectorFanY && gbWorldSectorZ == gGameUBOptions.SectorFanZ )
-	{
-		//if this is the right gridno
-		/*if( sGridNo == 10978 || 
-				sGridNo == 10979 || 
-				sGridNo == 10980 || 
-				sGridNo == 10818 || 
-				sGridNo == 10819 || 
-				sGridNo == 10820 || 
-				sGridNo == 10658 || 
-				sGridNo == 10659 || 
-				sGridNo == 10660 )
-				*/
-		if( sGridNo == gGameUBOptions.FanGridNo[0] || 
-				sGridNo == gGameUBOptions.FanGridNo[1] || 
-				sGridNo == gGameUBOptions.FanGridNo[2] || 
-				sGridNo == gGameUBOptions.FanGridNo[3] || 
-				sGridNo == gGameUBOptions.FanGridNo[4] || 
-				sGridNo == gGameUBOptions.FanGridNo[5] || 
-				sGridNo == gGameUBOptions.FanGridNo[6] || 
-				sGridNo == gGameUBOptions.FanGridNo[7] || 
-				sGridNo == gGameUBOptions.FanGridNo[8] )
-		{
-			return( TRUE );
-		}
-	}
-
-	return( FALSE );
+	const CampaignTacticalScenarioContent scenarioContent =
+		ReadCampaignTacticalScenarioContent();
+	return scenarioPolicy.isFanGraphic(
+		scenarioContent, CurrentCampaignTacticalSector(), sGridNo)
+		? TRUE
+		: FALSE;
 }
 
 void HandleDestructionOfPowerGenFan()
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
 	UINT8 ubShadeLevel=0;
@@ -5771,7 +5780,8 @@ void HandleDestructionOfPowerGenFan()
 	//Since the player is making LOTS of noise, add more enemies to the tunnel sector
 //	AddEnemiesToJa25TunnelMaps();
 
-	if ( gGameUBOptions.HandleAddingEnemiesToTunnelMaps == TRUE )
+	if ( scenarioPolicy.shouldAddEnemiesToTunnelMaps(
+		ReadCampaignHandleAddingEnemiesToTunnelMaps()) )
         {
         	HandleAddingEnemiesToTunnelMaps();
 	}
@@ -5806,11 +5816,16 @@ void HandleDestructionOfPowerGenFan()
 
 void HandleExplosionsInTunnelSector( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
+	const CampaignTacticalScenarioContent scenarioContent =
+		ReadCampaignTacticalScenarioContent();
 	//if this isnt the tunnel sectors J14-1 and K14-1
-	if( !( gWorldSectorX == gGameUBOptions.ExitForFanToPowerGenSectorX && ( gWorldSectorY == gGameUBOptions.ExitForFanToPowerGenSectorY || gWorldSectorY == gGameUBOptions.SectorOpenGateInTunnelY ) && gbWorldSectorZ == 1 ) )
+	if( !scenarioPolicy.recordsTunnelExplosion(
+		scenarioContent, CurrentCampaignTacticalSector()) )
 	{
 		//get the fuck out...
 		return;
@@ -5823,11 +5838,16 @@ void HandleExplosionsInTunnelSector( UINT32 sGridNo )
 
 void HandleSeeingFortifiedDoor( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
+	const CampaignTacticalScenarioContent scenarioContent =
+		ReadCampaignTacticalScenarioContent();
 	//if this isnt the First level of the complex K15-1
-	if( !( gWorldSectorX == gGameUBOptions.SectorDoorInTunnelX && gWorldSectorY == gGameUBOptions.SectorDoorInTunnelY && gbWorldSectorZ == gGameUBOptions.SectorDoorInTunnelZ ) )
+	if( !scenarioPolicy.isFortifiedDoorSector(
+		scenarioContent, CurrentCampaignTacticalSector()) )
 	{
 		//get the fuck out...
 		return;
@@ -5868,7 +5888,9 @@ void HandleSeeingFortifiedDoor( UINT32 sGridNo )
 
 void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
 	//if the door is already opened
@@ -5893,7 +5915,9 @@ void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
 
 void HandleSeeingPowerGenFan( UINT32 sGridNo )
 {
-	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
 	SoldierID ubPerson;

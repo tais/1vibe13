@@ -1305,6 +1305,25 @@ the engine must not contain SDL types in its public domain model.
   evaluates the UB tunnel callback; UB keeps its fixed AP costs and exact
   quote-consumes-action behavior. All five former guards in `Interface.cpp`
   are gone.
+- Tactical scenario coordinates and decisions now cross the application
+  boundary as `CampaignTacticalScenarioContent` and the value-only
+  `CampaignTacticalScenarioPolicy`. The legacy UB configuration adapter
+  projects fan and missile sectors, all nine fan grids, the two depth-one
+  tunnel alternatives, the fortified-door sector, and distinct surface and
+  underground mine targets. Sector coordinates retain their legacy unsigned
+  32-bit domain, and signed world coordinates use the same modulo projection
+  as the former comparisons, including negative sentinels.
+  `Explosion Control.cpp` has no direct campaign
+  selector or UB-option read; the mine block in `Interface Dialogue.cpp`
+  likewise receives only typed values. Arulco exits before the adapter is
+  evaluated. UB preserves exact dialogue, save-flag, map-temp, rendering, and
+  movement-cost effect order. The save-restored tunnel-enemy option stays a
+  separate live read rather than entering the content snapshot. A data-free
+  sentinel test covers every typed coordinate/grid and both live option states;
+  architecture CI ratchets the executable raw-selector inventory to 114 sites
+  (109 live-context calls, four cached-campaign comparisons, and one active-
+  package capability leaf) and
+  the raw UB-option inventory to 33 consumer files.
 - The strategic map screen now selects campaign behavior through the
   value-only `CampaignMapScreenPolicy`. Arulco keeps its meanwhile-scene
   polling; UB keeps Jerry Milo's initial and full-load scheduling, quote pump,

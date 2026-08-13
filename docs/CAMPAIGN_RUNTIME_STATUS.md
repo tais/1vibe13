@@ -167,6 +167,23 @@ inside disabled legacy block comments and are not runtime call sites. All five
 former `JA2UB` guards in
 `Strategic/Luaglobal.cpp` are gone.
 
+Power-generator, tunnel, fortified-door, and mine scripting now uses
+`CampaignTacticalScenarioContent` and `CampaignTacticalScenarioPolicy`.
+`ub_config.cpp` is the narrow read-through adapter for typed sectors, the
+nine-grid fan set, paired mine targets, and explicit switch decisions.
+Sector coordinates retain the legacy unsigned 32-bit value domain; signed
+world coordinates are projected with the same modulo conversion used by the
+former direct comparisons, including negative sentinels.
+`TileEngine/Explosion Control.cpp` therefore contains neither a raw campaign
+selector nor a direct `gGameUBOptions` read, and the mine block in
+`Tactical/Interface Dialogue.cpp` has the same boundary. The campaign gate
+precedes every content read, so Arulco neither reads UB scenario data nor
+touches its effects. UB retains the two tunnel Y alternatives at hard-coded
+depth one, every dialogue/save flag and map mutation in its established order,
+and the exact surface/underground mine targets. The save-restored
+`HandleAddingEnemiesToTunnelMaps` option is deliberately not part of the
+content snapshot: it is read live at the fan-destruction decision point.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -270,6 +287,20 @@ discarding the live inbox. The established email catalogs, XML identifiers,
 sender and substitution semantics, save structures, artwork, and campaign
 behavior remain unchanged.
 
+## Runtime-selection TODO
+
+The reviewed executable raw-selector baseline is now 114 sites, down from 149:
+109 live-context calls, four cached-campaign comparisons, and one active-
+package capability leaf. The raw UB-option consumer baseline is 33 files,
+down from 36. These are
+source-level ratchets in architecture CI rather than completion claims.
+The contiguous UB sector-script block in `Strategic/strategicmap.cpp` is the
+next bounded scenario-content island now that typed tactical content exists;
+later work should continue replacing a complete behavioral cluster at a time
+while keeping campaign gates left of configuration, save, dialogue, and effect
+probes. The legacy option record remains an application adapter until all such
+consumers have moved to typed content.
+
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
@@ -312,7 +343,7 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All sixteen
+`Laptop/IMP Text System.cpp` no longer contribute six more. All seventeen
 policies are guarded by data-free tests and named architecture checks, with
 headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,

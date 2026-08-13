@@ -80,6 +80,8 @@
 #include "Simulation Commands.h"
 #include "GameContext.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignTacticalScenarioContent.h"
+#include "CampaignTacticalScenarioPolicy.h"
 #include "SoldierRepository.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
@@ -91,7 +93,6 @@
 #include "Soldier macros.h"
 #include "LOS.h"
 #include "Ja25Update.h"
-#include "ub_config.h"
 // anv: for playable Speck
 #include "Speck Quotes.h"
 #include "mercs.h"
@@ -5772,24 +5773,25 @@ void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile )
 // This function checks if we should replace the mine entrance graphic
 BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if ( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return( FALSE );
 
-	// First check current sector...... I13
-	if( gWorldSectorX == gGameUBOptions.MineSectorX && gWorldSectorY == gGameUBOptions.MineSectorY && gbWorldSectorZ == gGameUBOptions.MineSectorZ )
-	{
-		//if this is the right gridno
-		if( sGridNo == gGameUBOptions.MineEntranceGridno )
-		{
-			return( TRUE );
-		}
-	}
-
-	return( FALSE );
+	const CampaignTacticalScenarioContent scenarioContent =
+		ReadCampaignTacticalScenarioContent();
+	const CampaignTacticalSector currentSector{
+		static_cast<std::uint32_t>(gWorldSectorX),
+		static_cast<std::uint32_t>(gWorldSectorY),
+		static_cast<std::uint32_t>(gbWorldSectorZ)};
+	return scenarioPolicy.isMineEntrance(
+		scenarioContent, currentSector, sGridNo) ? TRUE : FALSE;
 }
 void HaveBiggensDetonatingExplosivesByTheMine()
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if ( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
 	TacticalActor *pSoldier = NULL;
@@ -5806,11 +5808,16 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 
 void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignTacticalScenarioPolicy scenarioPolicy(
+		GetGameContext().capabilities());
+	if ( !scenarioPolicy.usesUnfinishedBusinessScenario() )
 		return;
 
+	const CampaignTacticalScenarioContent scenarioContent =
+		ReadCampaignTacticalScenarioContent();
+	const CampaignTacticalMineContent& mine = scenarioContent.mine;
 	UINT16									usTileIndex;
-	UINT32 usGridNo = gGameUBOptions.MineGridnoAddStructToHead; //12745;
+	UINT32 usGridNo = mine.collapsedEntranceGrid; //12745;
 
 	//Make sure wed ont blow things up twice
 	//off
@@ -5830,10 +5837,12 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 	AddStructToHead( usGridNo, usTileIndex );
 
 	//remove the exit grid from the world
-	RemoveExitGridFromWorld( gGameUBOptions.MineRemoveExitGridFromWorld1 );
-	RemoveExitGridFromWorld( gGameUBOptions.MineRemoveExitGridFromWorld2 );
-	AddRemoveExitGridToUnloadedMapTempFile( gGameUBOptions.MineRemoveExitGridFromWorld1 , gGameUBOptions.MineSectorX, gGameUBOptions.MineSectorY, gGameUBOptions.MineSectorZ ); //I13
-	AddRemoveExitGridToUnloadedMapTempFile( gGameUBOptions.MineRemoveExitGridFromWorld2 , gGameUBOptions.MineSectorX, gGameUBOptions.MineSectorY, gGameUBOptions.MineSectorZ ); //I13
+	RemoveExitGridFromWorld( mine.surfaceExitGrids[0] );
+	RemoveExitGridFromWorld( mine.surfaceExitGrids[1] );
+	AddRemoveExitGridToUnloadedMapTempFile( mine.surfaceExitGrids[0],
+		mine.surfaceSector.x, mine.surfaceSector.y, mine.surfaceSector.z ); //I13
+	AddRemoveExitGridToUnloadedMapTempFile( mine.surfaceExitGrids[1],
+		mine.surfaceSector.x, mine.surfaceSector.y, mine.surfaceSector.z ); //I13
 
 	gpWorldLevelData[ usGridNo ].uiFlags |= MAPELEMENT_REVEALED;
 
@@ -5858,37 +5867,47 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 	//Remove the old tunnel pieces first
 
 	//First half of entrance
-	usGridNo = gGameUBOptions.MineSectorUndergroundGridno1; //13057;
+	usGridNo = mine.undergroundEntranceGrids[0]; //13057;
 
 	// Get index for it...
 	GetTileIndexFromTypeSubIndex( FIRSTDECORATIONS, (INT8)( 1 ), &usTileIndex );
 
-	RemoveStructFromUnLoadedMapTempFile( usGridNo, usTileIndex,gGameUBOptions.MineSectorUndergroundX, gGameUBOptions.MineSectorUndergroundY, gGameUBOptions.MineSectorUndergroundZ );
+	RemoveStructFromUnLoadedMapTempFile( usGridNo, usTileIndex,
+		mine.undergroundSector.x, mine.undergroundSector.y,
+		mine.undergroundSector.z );
 
 	// Get index for it...
 	GetTileIndexFromTypeSubIndex( FIRSTDECORATIONS, (INT8)( 5 ), &usTileIndex );
 
 	//Apply changes
-	AddStructToUnLoadedMapTempFile( usGridNo, usTileIndex, gGameUBOptions.MineSectorUndergroundX, gGameUBOptions.MineSectorUndergroundY, gGameUBOptions.MineSectorUndergroundZ );
+	AddStructToUnLoadedMapTempFile( usGridNo, usTileIndex,
+		mine.undergroundSector.x, mine.undergroundSector.y,
+		mine.undergroundSector.z );
 
 
 
 	// 2nd half of entrance
-	usGridNo = gGameUBOptions.MineSectorUndergroundGridno2;  //12897;
+	usGridNo = mine.undergroundEntranceGrids[1];  //12897;
 
 	// Get index for it...
 	GetTileIndexFromTypeSubIndex( FIRSTDECORATIONS, (INT8)( 2 ), &usTileIndex );
 
-	RemoveStructFromUnLoadedMapTempFile(usGridNo, usTileIndex, gGameUBOptions.MineSectorUndergroundX, gGameUBOptions.MineSectorUndergroundY, gGameUBOptions.MineSectorUndergroundZ);
+	RemoveStructFromUnLoadedMapTempFile(usGridNo, usTileIndex,
+		mine.undergroundSector.x, mine.undergroundSector.y,
+		mine.undergroundSector.z);
 
 	// Get index for it...
 	GetTileIndexFromTypeSubIndex( FIRSTDECORATIONS, (INT8)( 6 ), &usTileIndex );
 
 	//Apply changes
-	AddStructToUnLoadedMapTempFile(usGridNo, usTileIndex, gGameUBOptions.MineSectorUndergroundX, gGameUBOptions.MineSectorUndergroundY, gGameUBOptions.MineSectorUndergroundZ);
+	AddStructToUnLoadedMapTempFile(usGridNo, usTileIndex,
+		mine.undergroundSector.x, mine.undergroundSector.y,
+		mine.undergroundSector.z);
 
 	//Remove the exit grid
-	AddRemoveExitGridToUnloadedMapTempFile(usGridNo, gGameUBOptions.MineSectorUndergroundX, gGameUBOptions.MineSectorUndergroundY, gGameUBOptions.MineSectorUndergroundZ);
+	AddRemoveExitGridToUnloadedMapTempFile(usGridNo,
+		mine.undergroundSector.x, mine.undergroundSector.y,
+		mine.undergroundSector.z);
 
 	// Turn off permenant changes....
 	ApplyMapChangesToMapTempFile( FALSE );
