@@ -44,7 +44,8 @@ enum class CommandTag : std::uint8_t
 	BeginSelectedFireWeapon = 27,
 	BulkReloadWeapons = 28,
 	ApplyWeaponConfiguration = 29,
-	SystemWorldObjectInteraction = 30
+	SystemWorldObjectInteraction = 30,
+	SynchronizeActorVitals = 31
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -564,6 +565,17 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			WriteI16(writer, value.positionY);
 			writer.writeU8(value.direction);
 			writer.writeU8(value.stop ? StopMovementFlag : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, SynchronizeActorVitalsCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SynchronizeActorVitals));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI8(value.health);
+			writer.writeI8(value.bleeding);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 		else if constexpr (
@@ -1176,6 +1188,20 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!IsSimulationSynchronizationSource(value.source))
 				return false;
 			value.stop = (flags & StopMovementFlag) != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::SynchronizeActorVitals:
+		{
+			SynchronizeActorVitalsCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI8(value.health) ||
+				!reader.readI8(value.bleeding) ||
+				!ReadSource(reader, value.source) ||
+				!IsSimulationSynchronizationSource(value.source))
+				return false;
 			command = value;
 			return true;
 		}

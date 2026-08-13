@@ -1251,6 +1251,21 @@ namespace
 				soldier->animationActivity().turningFromProneMode() = FALSE;
 				return CommandDisposition::Applied;
 			}
+			else if constexpr (
+				std::is_same<Command, SynchronizeActorVitalsCommand>::value)
+			{
+				// The legacy handler accepted any SafeMerc result, including a
+				// currently off-sector record. Exact identity is the only added
+				// retention precondition; do not strengthen packet validation.
+				TacticalActor* soldier = ResolveJa2TacticalEntity(value.soldier);
+				if (!soldier ||
+					!IsSimulationSynchronizationSource(value.source))
+					return CommandDisposition::Discard;
+				// Preserve the legacy receive order and signed-byte assignment.
+				soldier->vitals().bleeding() = value.bleeding;
+				soldier->vitals().health() = value.health;
+				return CommandDisposition::Applied;
+			}
 			else if constexpr (std::is_same<Command, CancelDragCommand>::value)
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
@@ -2224,6 +2239,13 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					: SimulationCommandDomainError::InvalidDirection;
 			}
 			else if constexpr (
+				std::is_same<Command, SynchronizeActorVitalsCommand>::value)
+			{
+				return IsSimulationSynchronizationSource(value.source)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidSource;
+			}
+			else if constexpr (
 				std::is_same<Command, SetWeaponReadyCommand>::value)
 			{
 				return IsValidTacticalDirection(value.direction)
@@ -2690,6 +2712,20 @@ SimulationCommandDispatchResult TryDispatchNetworkActorStopCommand(
 			TacticalEntityId actor) {
 			return SynchronizeActorStopCommand{
 				actor, reportedGrid, positionX, positionY, direction, stop,
+				SimulationCommandSource::NetworkPeer};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchNetworkActorVitalsCommand(
+	TacticalEntityId actor,
+	std::int8_t health,
+	std::int8_t bleeding) noexcept
+{
+	return DispatchNetworkActorCommand(
+		actor,
+		[health, bleeding](TacticalEntityId actor) {
+			return SynchronizeActorVitalsCommand{
+				actor, health, bleeding,
 				SimulationCommandSource::NetworkPeer};
 		});
 }

@@ -266,6 +266,13 @@ CommandDisposition MemoryTacticalSimulation::execute(
 				actor->stopped = value.stop;
 				return CommandDisposition::Applied;
 			}
+			else if constexpr (
+				std::is_same<Command, SynchronizeActorVitalsCommand>::value)
+			{
+				actor->bleeding = value.bleeding;
+				actor->health = value.health;
+				return CommandDisposition::Applied;
+			}
 			else
 			{
 				return CommandDisposition::Discard;

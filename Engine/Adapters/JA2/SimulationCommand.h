@@ -1130,6 +1130,19 @@ struct SynchronizeActorStopCommand
 	SimulationCommandSource source;
 };
 
+// Multiplayer healing is an authoritative vitals snapshot rather than a
+// request to run local medical treatment. Retain both signed legacy bytes with
+// the resolved actor incarnation so queue pressure cannot redirect a packet to
+// a later occupant of the same soldier slot. Application is intrinsically
+// local-only: received and replayed snapshots never emit another heal packet.
+struct SynchronizeActorVitalsCommand
+{
+	TacticalEntityId soldier;
+	std::int8_t health;
+	std::int8_t bleeding;
+	SimulationCommandSource source;
+};
+
 // Network turn synchronization has two host-dependent compatibility actions:
 // clients may need to enter combat and close their current turn before the
 // common BeginTeamTurn boundary. Recording those decisions makes replay
@@ -1200,7 +1213,8 @@ using SimulationCommand = std::variant<
 	SynchronizeTurnCommand,
 	BulkReloadWeaponsCommand,
 	ApplyWeaponConfigurationCommand,
-	SystemWorldObjectInteractionCommand>;
+	SystemWorldObjectInteractionCommand,
+	SynchronizeActorVitalsCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1351,6 +1365,9 @@ inline bool IsStructurallyValidSimulationCommand(
 				std::is_same<Command, SynchronizeActorStopCommand>::value)
 				return IsSimulationSynchronizationSource(value.source) &&
 					IsValidTacticalDirection(value.direction);
+			if constexpr (
+				std::is_same<Command, SynchronizeActorVitalsCommand>::value)
+				return IsSimulationSynchronizationSource(value.source);
 			if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 				return IsValidTacticalMoveOrigin(value.origin) &&
 					IsValidTacticalPendingActionPolicy(value.pendingAction);

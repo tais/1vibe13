@@ -25,6 +25,9 @@ typedef struct
 	INT8 bBleeding;
 }heal;
 
+static_assert(sizeof(heal) == 4,
+	"multiplayer heal packet wire size changed");
+
 typedef struct
 {
 	SoldierID ubID;

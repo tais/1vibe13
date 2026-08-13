@@ -100,6 +100,16 @@ target_link_libraries(simulation_command_world_object_model_tests
 add_test(NAME simulation_command_world_object_model
   COMMAND simulation_command_world_object_model_tests)
 
+# Multiplayer healing is a local-only authoritative vitals snapshot. This
+# adapter-only target pins exact actor identity, the legacy signed-byte domain,
+# appended tag-31 bytes, playback provenance, and reference-model behavior.
+add_executable(simulation_command_actor_vitals_model_tests
+  simulation_command_actor_vitals_model_tests.cpp)
+target_link_libraries(simulation_command_actor_vitals_model_tests
+  PRIVATE JA2::RuntimeAdapter)
+add_test(NAME simulation_command_actor_vitals_model
+  COMMAND simulation_command_actor_vitals_model_tests)
+
 # Legacy map-temp action bytes overlap between campaign data sets. This tiny
 # data-free test keeps their runtime codec independent from the full game host.
 add_executable(campaign_map_change_code_tests

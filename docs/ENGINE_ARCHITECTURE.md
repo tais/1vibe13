@@ -534,6 +534,14 @@ the engine must not contain SDL types in its public domain model.
   replay/network hosts. It deliberately has one current layout: the header
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
+  The existing multiplayer healing packet remains a four-byte legacy record.
+  Its receiver resolves the reusable soldier slot once, captures the live
+  incarnation plus both signed vitals bytes in
+  `SynchronizeActorVitalsCommand`, and enters the retained authoritative
+  stream. Only network/replay provenance is valid; the compatibility executor
+  applies bleeding before health exactly as the old handler did and never
+  calls the outbound heal RPC. Queue pressure can therefore delay the snapshot
+  without redirecting it to a reused slot or reflecting it back to peers.
   `SimulationCommandExecutor` now separates that deterministic stream from its
   world implementation. The production compatibility executor implements the
   same installed interface used by tools and headless tests; queue processing
@@ -550,8 +558,9 @@ the engine must not contain SDL types in its public domain model.
   `MemoryTacticalSimulation` is the bounded, pointer-free reference
   implementation. It transactionally validates and canonicalizes actor
   incarnations, preallocates its configured state ceilings, and applies the
-  portable movement, stance, facing, fire, synchronization, stop, and turn
-  subset without linking the game or SDL. It deliberately discards unsupported
+  portable movement, stance, facing, fire, stop, turn, and path/stop/vitals
+  synchronization subset without linking the game or SDL. It deliberately
+  discards unsupported
   mechanics instead of duplicating JA2 combat policy.
   Firearm actions, player weapon mode, scope, reload, and ready/lower controls,
   stance changes, drag cancellation, obstacle traversal, world-object

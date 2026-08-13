@@ -6302,6 +6302,51 @@ int main( int, char** )
 		       commandHostExecutedState->animation == commandHostActor.animationPlayback().state(),
 		       "structured commands execute and commit the resulting public actor state through one path" );
 
+		commandHostActor.vitals().health() = 61;
+		commandHostActor.vitals().bleeding() = 17;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult synchronizedVitals =
+			TryDispatchNetworkActorVitalsCommand(
+				commandHostActorId, 73, 12 );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterSynchronizedVitals =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* synchronizedVitalsRecord =
+			!journalAfterSynchronizedVitals.empty()
+				? &journalAfterSynchronizedVitals.back() : nullptr;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleSynchronizedVitals =
+			TryDispatchNetworkActorVitalsCommand(
+				TacticalEntityId{
+					commandHostActorId.slot,
+					commandHostActorId.incarnation + 1 },
+				1, 2 );
+		CHECK(
+			synchronizedVitals.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			commandHostActor.vitals().bleeding() == 12 &&
+			commandHostActor.vitals().health() == 73 &&
+			synchronizedVitalsRecord &&
+			synchronizedVitalsRecord->status ==
+				CommandJournalStatus::Applied &&
+			std::holds_alternative<SynchronizeActorVitalsCommand>(
+				synchronizedVitalsRecord->command ) &&
+			std::get<SynchronizeActorVitalsCommand>(
+				synchronizedVitalsRecord->command ).soldier ==
+					commandHostActorId &&
+			std::get<SynchronizeActorVitalsCommand>(
+				synchronizedVitalsRecord->command ).health == 73 &&
+			std::get<SynchronizeActorVitalsCommand>(
+				synchronizedVitalsRecord->command ).bleeding == 12 &&
+			std::get<SynchronizeActorVitalsCommand>(
+				synchronizedVitalsRecord->command ).source ==
+					SimulationCommandSource::NetworkPeer &&
+			staleSynchronizedVitals.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			commandHostActor.vitals().health() == 73 &&
+			commandHostActor.vitals().bleeding() == 12,
+			"network vitals apply in legacy order and retained stale incarnations fail closed" );
+
 		const TacticalActor previousTraversalActor = commandHostActor;
 		const bool traversalWorldAllocatedHere =
 			GetWorldTileMapSize() == 0 &&
@@ -7367,6 +7412,9 @@ int main( int, char** )
 					staleActor, ANIM_STAND,
 					SimulationCommandSource::NetworkPeer,
 					TacticalEventPolicy::LocalOnly } } );
+		const SimulationCommandDispatchResult retainedVitalsPacket =
+			TryDispatchNetworkActorVitalsCommand(
+				commandHostActorId, 82, 6 );
 		const SimulationCommandDispatchResult retainedSystemAction =
 			TryDispatchSystemSimulationCommand(
 				SimulationCommand{ BeginSelectedFireWeaponCommand{
@@ -7386,11 +7434,18 @@ int main( int, char** )
 		       retainedNetworkPacket.status ==
 		           SimulationCommandDispatchStatus::RetryDeferred &&
 		       retainedNetworkPacket.submitted &&
+		       retainedVitalsPacket.status ==
+		           SimulationCommandDispatchStatus::RetryDeferred &&
+		       retainedVitalsPacket.submitted &&
+		       retainedVitalsPacket.sequence ==
+		           retainedNetworkPacket.sequence + 1 &&
+		       commandHostActor.vitals().health() == 73 &&
+		       commandHostActor.vitals().bleeding() == 12 &&
 		       retainedSystemAction.status ==
 		           SimulationCommandDispatchStatus::RetryDeferred &&
 		       retainedSystemAction.submitted &&
 		       retainedSystemAction.sequence ==
-		           retainedNetworkPacket.sequence + 1 &&
+		           retainedVitalsPacket.sequence + 1 &&
 		       afterImmediateMoveDrain.receiptsQueued ==
 		           retainedBeforeImmediateMove.receiptsQueued,
 		       "local dispatch preserves earlier work while reliable network and System ingress queue behind it" );
@@ -7402,6 +7457,11 @@ int main( int, char** )
 			journalAfterRetainedNetworkPacket =
 				compiledContext.commandJournal().snapshot();
 		const RecordedSimulationCommand* retainedNetworkRecord =
+			journalAfterRetainedNetworkPacket.size() >= 3
+				? &journalAfterRetainedNetworkPacket[
+					journalAfterRetainedNetworkPacket.size() - 3]
+				: nullptr;
+		const RecordedSimulationCommand* retainedVitalsRecord =
 			journalAfterRetainedNetworkPacket.size() >= 2
 				? &journalAfterRetainedNetworkPacket[
 					journalAfterRetainedNetworkPacket.size() - 2]
@@ -7420,6 +7480,22 @@ int main( int, char** )
 			std::get<ChangeStanceCommand>(
 				retainedNetworkRecord->command ).source ==
 				SimulationCommandSource::NetworkPeer &&
+			retainedVitalsRecord &&
+			retainedVitalsRecord->sequence ==
+				retainedVitalsPacket.sequence &&
+			retainedVitalsRecord->status ==
+				CommandJournalStatus::Applied &&
+			std::holds_alternative<SynchronizeActorVitalsCommand>(
+				retainedVitalsRecord->command ) &&
+			std::get<SynchronizeActorVitalsCommand>(
+				retainedVitalsRecord->command ).health == 82 &&
+			std::get<SynchronizeActorVitalsCommand>(
+				retainedVitalsRecord->command ).bleeding == 6 &&
+			std::get<SynchronizeActorVitalsCommand>(
+				retainedVitalsRecord->command ).source ==
+					SimulationCommandSource::NetworkPeer &&
+			commandHostActor.vitals().health() == 82 &&
+			commandHostActor.vitals().bleeding() == 6 &&
 			retainedSystemRecord &&
 			retainedSystemRecord->sequence ==
 				retainedSystemAction.sequence &&
