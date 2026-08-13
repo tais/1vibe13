@@ -25,7 +25,7 @@ BOOLEAN ResolvePendingInterrupt(
 	if (!IsJa2TacticalTurnBased() ||
 		!IsJa2TacticalCombatActive())
 	{
-		gTacticalStatus.ubInterruptPending = DISABLED_INTERRUPT;
+		SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 		ClearIntList();
 		return FALSE;
 	}
@@ -36,13 +36,14 @@ BOOLEAN ResolvePendingInterrupt(
 	if (GetJa2TacticalCurrentTeam() != pSoldier->roster().team())
 		return FALSE;
 
-	if (gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT ||
-		gTacticalStatus.ubInterruptPending == UNTRIGGERED_INTERRUPT)
+	const UINT8 pendingInterrupt = GetJa2PendingInterrupt();
+	if (pendingInterrupt == DISABLED_INTERRUPT ||
+		pendingInterrupt == UNTRIGGERED_INTERRUPT)
 	{
 		return FALSE;
 	}
 
-	if (gTacticalStatus.ubInterruptPending != ubInterruptType &&
+	if (pendingInterrupt != ubInterruptType &&
 		ubInterruptType != INSTANT_INTERRUPT)
 	{
 		return FALSE;
@@ -201,7 +202,7 @@ BOOLEAN ResolvePendingInterrupt(
 
 	if (ubInterruptersFound == 0)
 	{
-		gTacticalStatus.ubInterruptPending = DISABLED_INTERRUPT;
+		SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 		return FALSE;
 	}
 
@@ -298,7 +299,7 @@ BOOLEAN ResolvePendingInterrupt(
 		pSoldier->status().flags() &= ~SOLDIER_UNDERAICONTROL;
 	}
 
-	gTacticalStatus.ubInterruptPending = DISABLED_INTERRUPT;
+	SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 	DoneAddingToIntList(pSoldier, TRUE, 1);
 	return TRUE;
 }

@@ -7888,6 +7888,8 @@ int main( int, char** )
 			worldBindingFixture.session().commitLoad();
 		worldBindingFixture.session().setTurnState(
 			{ true, true, 3 } );
+		worldBindingFixture.session().restoreInterruptState(
+			{ 9, true } );
 		TacticalWorldSession boundWorldFixture;
 		worldBindingFixture.bindSession( boundWorldFixture );
 		const TacticalWorldSession::Snapshot& boundWorldState =
@@ -7898,8 +7900,30 @@ int main( int, char** )
 		       boundWorldState.loaded &&
 		       boundWorldState.worldGeneration == bindingFixtureGeneration &&
 		       boundWorldState.turn ==
-		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ) &&
+		       boundWorldState.interrupt ==
+		           ( TacticalWorldSession::Snapshot::Interrupt{ 9, true } ),
 		       "tactical world composition transfers pre-runtime state without a generation mirror" );
+
+		const TacticalWorldSession::Snapshot::Interrupt
+			previousInterruptSession = CaptureJa2TacticalInterruptState();
+		constexpr UINT8 testPendingInterrupt = 7;
+		SetJa2PendingInterrupt( testPendingInterrupt );
+		SetJa2PlayerInterruptsDisabled( true );
+		const bool interruptControlIsSessionOwned =
+			GetJa2PendingInterrupt() == testPendingInterrupt &&
+			AreJa2PlayerInterruptsDisabled() &&
+			compiledContext.runtime().tacticalWorldSession().snapshot().interrupt ==
+				( TacticalWorldSession::Snapshot::Interrupt{
+					testPendingInterrupt, true } );
+		ResetJa2TacticalInterruptState();
+		const bool interruptControlResetIsAtomic =
+			CaptureJa2TacticalInterruptState() ==
+				TacticalWorldSession::Snapshot::Interrupt{};
+		RestoreJa2TacticalInterruptState( previousInterruptSession );
+		CHECK( interruptControlIsSessionOwned && interruptControlResetIsAtomic &&
+		       CaptureJa2TacticalInterruptState() == previousInterruptSession,
+		       "tactical interrupt control is atomically owned by the runtime session" );
 
 		const TacticalActor previousWorldActor = soldierRepository.record( 0 );
 		TacticalActor& worldActor = soldierRepository.record( 0 );
@@ -8579,6 +8603,7 @@ int main( int, char** )
 		restoredProjectionState.worldGeneration = 77;
 		restoredProjectionState.turnSerial = 11;
 		restoredProjectionState.turn = { true, false, 3, 4 };
+		restoredProjectionState.interrupt = { 5, true };
 		RestoreJa2TacticalWorldSession( restoredProjectionState );
 		CHECK( CaptureJa2TacticalWorld().sector ==
 		           restoredProjectionState.sector &&
@@ -8586,6 +8611,8 @@ int main( int, char** )
 		       CaptureJa2TacticalWorld().worldGeneration == 77 &&
 		       CaptureJa2TacticalWorld().turnSerial == 11 &&
 		       CaptureJa2TacticalWorld().turn == restoredProjectionState.turn &&
+		       CaptureJa2TacticalInterruptState() ==
+		           restoredProjectionState.interrupt &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1 &&
 		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
 		       IsJa2TacticalTurnBased() &&
@@ -8602,12 +8629,16 @@ int main( int, char** )
 		       CaptureJa2TacticalWorld().worldGeneration == 78 &&
 		       CaptureJa2TacticalWorld().turnSerial == 1 &&
 		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 0 &&
+		       CaptureJa2TacticalInterruptState() ==
+		           restoredProjectionState.interrupt &&
 		       GetJa2PendingTacticalCombatActions() == 0 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
 		       "world lifecycle publication resets turn identity and pending work without splitting coordinates" );
 		NotifyJa2TacticalWorldUnloaded();
 		CHECK( !CaptureJa2TacticalWorld().loaded &&
 		       CaptureJa2TacticalWorld().turnSerial == 0 &&
+		       CaptureJa2TacticalInterruptState() ==
+		           restoredProjectionState.interrupt &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
 		       "world unload retires identity while retaining the selected-sector projection" );
 
@@ -14063,8 +14094,8 @@ int main( int, char** )
 	{
 		const BOOLEAN previousTraitSystem =
 			gGameOptions.fNewTraitSystem;
-		const UINT8 previousInterruptPending =
-			gTacticalStatus.ubInterruptPending;
+		const TacticalWorldSession::Snapshot::Interrupt previousInterruptState =
+			CaptureJa2TacticalInterruptState();
 		gGameOptions.fNewTraitSystem = TRUE;
 
 		TacticalActor residualActor;
@@ -14162,7 +14193,7 @@ int main( int, char** )
 			ResolvePendingInterrupt(nullptr, 0) == FALSE;
 
 		gGameOptions.fNewTraitSystem = previousTraitSystem;
-		gTacticalStatus.ubInterruptPending = previousInterruptPending;
+		RestoreJa2TacticalInterruptState(previousInterruptState);
 		CHECK(
 			bleedingIntervalsAreOwned &&
 			traitClassificationIsOwned &&

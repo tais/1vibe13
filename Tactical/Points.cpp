@@ -1151,7 +1151,7 @@ void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 
 				ubInterruptType = AFTERACTION_INTERRUPT;
 			}
 			// OK, something happened, set the interrupt pending flag
-			gTacticalStatus.ubInterruptPending = ubInterruptType;
+			SetJa2PendingInterrupt(ubInterruptType);
 		}
 	}
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

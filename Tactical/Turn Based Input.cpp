@@ -1925,7 +1925,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				{
 					if ( !( gTacticalStatus.uiFlags & ENGAGED_IN_CONV ) )
 					{
-						gTacticalStatus.ubDisablePlayerInterrupts = FALSE;
+						SetJa2PlayerInterruptsDisabled(false);
 
 						gfSaveGame = FALSE;
 						gfCameDirectlyFromGame = TRUE;
@@ -3469,7 +3469,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							{
 								//End turn only if in combat and it is the player's turn
 								if ( fCtrl )
-									gTacticalStatus.ubDisablePlayerInterrupts = TRUE;								
+									SetJa2PlayerInterruptsDisabled(true);
 								
 								*puiNewEvent = I_ENDTURN;
 							}

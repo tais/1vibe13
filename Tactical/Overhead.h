@@ -164,11 +164,8 @@ struct TacticalStatusType
     BOOLEAN                 fHasEnteredCombatModeSinceEntering;
     BOOLEAN                 fDontAddNewCrows;
     UINT8                   ubMorePadding;
-    // SANDRO - added these
+    // SANDRO - added this
     SoldierID               ubLastRequesterSurgeryTargetID;
-    UINT8                   ubInterruptPending;
-	// sevenfm: Ctrl+D disable interrupts
-	BOOLEAN					ubDisablePlayerInterrupts;
     // PADDING GONE!!!!!
 
 };

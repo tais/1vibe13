@@ -58,6 +58,13 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+add_executable(tactical_interrupt_session_model_tests
+  tactical_interrupt_session_model_tests.cpp
+  ../Engine/Adapters/JA2/TacticalWorldSession.cpp)
+target_include_directories(tactical_interrupt_session_model_tests PRIVATE ..)
+add_test(NAME tactical_interrupt_session_model
+  COMMAND tactical_interrupt_session_model_tests)
+
 # Reload-all captures one bounded exact roster and its environment policy before
 # touching legacy inventory state. This adapter-only target pins that value and
 # replay codec without linking the game, SDL, or installed data.

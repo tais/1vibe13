@@ -990,6 +990,15 @@ the engine must not contain SDL types in its public domain model.
   unsigned clock-wrap and strict `elapsed > delay` rule. Its five former
   `gTacticalStatus` fields are gone, while save/load visits the same boolean,
   16-bit delay, and 32-bit timestamp positions through the session snapshot.
+  The same session now owns the pending improved-interrupt kind and the
+  per-player-turn interrupt-suppression latch. Input, turn transitions,
+  point deduction, and interrupt resolution use narrow adapter accessors; the
+  two writable `gTacticalStatus` fields are retired. Save/load still visits
+  their established trailing byte and boolean positions, and load publishes
+  both values atomically only after the complete tactical-status section has
+  validated. `InitOverhead` explicitly clears the extracted pair at the same
+  reset boundary as the former whole-status `memset`; ordinary world
+  commit/unload transitions otherwise preserve the legacy lifecycle.
   The sector-heavy
   compatibility names `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
   are const-reference projections backed only by the application adapter:
