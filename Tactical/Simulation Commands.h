@@ -168,6 +168,11 @@ SimulationCommandDispatchResult TryDispatchNetworkActorStopCommand(
 	std::uint8_t direction,
 	bool stop) noexcept;
 
+SimulationCommandDispatchResult TryDispatchNetworkActorVitalsCommand(
+	TacticalEntityId actor,
+	std::int8_t health,
+	std::int8_t bleeding) noexcept;
+
 SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
 	std::uint8_t nextTeam,
 	bool enterCombat,

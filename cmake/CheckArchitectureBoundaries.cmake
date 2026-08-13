@@ -10673,6 +10673,213 @@ check_network_command_ingress(
   "TryDispatchNetworkActorStopCommand"
   "(^|[^A-Za-z0-9_])(StopSoldier|EVENT_StopMerc|EVENT_InternalSetSoldierPosition|EVENT_SetSoldierDirection|AdjustNoAPToFinishMove)[ \t\r\n]*\\("
   "Received multiplayer stop")
+check_network_command_ingress(
+  "void recieve_heal ("
+  "void requestAIint("
+  "TryDispatchNetworkActorVitalsCommand"
+  "vitals[ \t\r\n]*\\(\\)[ \t\r\n]*\\.[ \t\r\n]*(bleeding|health)[ \t\r\n]*\\(\\)[ \t\r\n]*="
+  "Received multiplayer vitals")
+
+function(read_cxx_executable source_file output_variable)
+  file(READ "${source_file}" source_contents)
+  strip_cxx_comments(source_contents source_executable)
+  set(${output_variable} "${source_executable}" PARENT_SCOPE)
+endfunction()
+
+# Healing keeps its established four-byte RakNet record and validation order,
+# but accepted values cross exact actor identity into retained command ingress.
+# The compatibility executor is the only mutation site and may never reflect a
+# received or replayed snapshot through send_heal.
+read_cxx_executable("${SOURCE_ROOT}/Multiplayer/fresh_header.h"
+  multiplayer_heal_wire_executable)
+string(REGEX MATCH
+  "SoldierID[ \t\r\n]+ubID;[ \t\r\n]+INT8[ \t\r\n]+bLife;[ \t\r\n]+INT8[ \t\r\n]+bBleeding;[ \t\r\n]*}heal;"
+  multiplayer_heal_wire_shape "${multiplayer_heal_wire_executable}")
+if(NOT multiplayer_heal_wire_shape OR
+   NOT multiplayer_heal_wire_executable MATCHES
+     "static_assert\\(sizeof\\(heal\\) == 4")
+  message(FATAL_ERROR
+    "Multiplayer heal packet lost its exact SoldierID/life/bleeding four-byte wire shape")
+endif()
+
+read_cxx_executable("${SOURCE_ROOT}/Multiplayer/client.cpp"
+  multiplayer_heal_client_executable)
+string(FIND "${multiplayer_heal_client_executable}"
+  "void send_heal (" multiplayer_send_heal_start)
+string(FIND "${multiplayer_heal_client_executable}"
+  "void recieve_heal (" multiplayer_receive_heal_start)
+string(FIND "${multiplayer_heal_client_executable}"
+  "void requestAIint(" multiplayer_receive_heal_end)
+if(multiplayer_send_heal_start EQUAL -1 OR
+   multiplayer_receive_heal_start LESS_EQUAL multiplayer_send_heal_start OR
+   multiplayer_receive_heal_end LESS_EQUAL multiplayer_receive_heal_start)
+  message(FATAL_ERROR "Cannot locate multiplayer heal send/receive regions")
+endif()
+math(EXPR multiplayer_send_heal_length
+  "${multiplayer_receive_heal_start} - ${multiplayer_send_heal_start}")
+string(SUBSTRING "${multiplayer_heal_client_executable}"
+  ${multiplayer_send_heal_start} ${multiplayer_send_heal_length}
+  multiplayer_send_heal_slice)
+math(EXPR multiplayer_receive_heal_length
+  "${multiplayer_receive_heal_end} - ${multiplayer_receive_heal_start}")
+string(SUBSTRING "${multiplayer_heal_client_executable}"
+  ${multiplayer_receive_heal_start} ${multiplayer_receive_heal_length}
+  multiplayer_receive_heal_slice)
+foreach(required_multiplayer_send_heal_marker IN ITEMS
+    "data.ubID=pSoldier->identity().id()"
+    "data.bLife=pSoldier->vitals().health()"
+    "data.bBleeding=pSoldier->vitals().bleeding()"
+    "sizeof(heal)*8")
+  string(FIND "${multiplayer_send_heal_slice}"
+    "${required_multiplayer_send_heal_marker}"
+    multiplayer_send_heal_marker_index)
+  if(multiplayer_send_heal_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Multiplayer heal sender lost '${required_multiplayer_send_heal_marker}'")
+  endif()
+endforeach()
+set(multiplayer_receive_heal_previous_index -1)
+foreach(required_multiplayer_receive_heal_marker IN ITEMS
+    "RPC_REQUIRE_BYTES(rpcParameters, heal)"
+    "MPDecodeSoldierID( data->ubID )"
+    "SafeMerc( healed.i )"
+    "TryDispatchNetworkActorVitalsCommand"
+    "data->bLife, data->bBleeding")
+  string(FIND "${multiplayer_receive_heal_slice}"
+    "${required_multiplayer_receive_heal_marker}"
+    multiplayer_receive_heal_marker_index)
+  if(multiplayer_receive_heal_marker_index EQUAL -1 OR
+     multiplayer_receive_heal_marker_index LESS_EQUAL
+       multiplayer_receive_heal_previous_index)
+    message(FATAL_ERROR
+      "Multiplayer heal validation/order lost '${required_multiplayer_receive_heal_marker}'")
+  endif()
+  set(multiplayer_receive_heal_previous_index
+    ${multiplayer_receive_heal_marker_index})
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h"
+  actor_vitals_command_value_executable)
+foreach(required_actor_vitals_value_marker IN ITEMS
+    "struct SynchronizeActorVitalsCommand"
+    "std::int8_t health"
+    "std::int8_t bleeding"
+    "IsSimulationSynchronizationSource(value.source)")
+  string(FIND "${actor_vitals_command_value_executable}"
+    "${required_actor_vitals_value_marker}"
+    actor_vitals_value_marker_index)
+  if(actor_vitals_value_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Actor-vitals command lost '${required_actor_vitals_value_marker}'")
+  endif()
+endforeach()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.cpp"
+  actor_vitals_command_codec_executable)
+foreach(required_actor_vitals_codec_marker IN ITEMS
+    "SynchronizeActorVitals = 31"
+    "case CommandTag::SynchronizeActorVitals"
+    "writer.writeI8(value.health)"
+    "writer.writeI8(value.bleeding)"
+    "reader.readI8(value.health)"
+    "reader.readI8(value.bleeding)")
+  string(FIND "${actor_vitals_command_codec_executable}"
+    "${required_actor_vitals_codec_marker}"
+    actor_vitals_codec_marker_index)
+  if(actor_vitals_codec_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Actor-vitals replay codec lost '${required_actor_vitals_codec_marker}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  actor_vitals_command_executor_executable)
+string(FIND "${actor_vitals_command_executor_executable}"
+  "std::is_same<Command, SynchronizeActorVitalsCommand>::value)"
+  actor_vitals_executor_start)
+string(FIND "${actor_vitals_command_executor_executable}"
+  "else if constexpr (std::is_same<Command, CancelDragCommand>::value)"
+  actor_vitals_executor_end)
+if(actor_vitals_executor_start EQUAL -1 OR
+   actor_vitals_executor_end LESS_EQUAL actor_vitals_executor_start)
+  message(FATAL_ERROR "Cannot locate actor-vitals execution branch")
+endif()
+math(EXPR actor_vitals_executor_length
+  "${actor_vitals_executor_end} - ${actor_vitals_executor_start}")
+string(SUBSTRING "${actor_vitals_command_executor_executable}"
+  ${actor_vitals_executor_start} ${actor_vitals_executor_length}
+  actor_vitals_executor_slice)
+string(FIND "${actor_vitals_executor_slice}"
+  "soldier->vitals().bleeding() = value.bleeding"
+  actor_vitals_bleeding_assignment_index)
+string(FIND "${actor_vitals_executor_slice}"
+  "ResolveJa2TacticalEntity(value.soldier)"
+  actor_vitals_identity_resolution_index)
+string(FIND "${actor_vitals_executor_slice}"
+  "soldier->vitals().health() = value.health"
+  actor_vitals_health_assignment_index)
+string(FIND "${actor_vitals_executor_slice}" "send_heal("
+  actor_vitals_reflection_index)
+if(actor_vitals_identity_resolution_index EQUAL -1 OR
+   actor_vitals_bleeding_assignment_index LESS_EQUAL
+     actor_vitals_identity_resolution_index OR
+   actor_vitals_health_assignment_index LESS_EQUAL
+     actor_vitals_bleeding_assignment_index OR
+   NOT actor_vitals_reflection_index EQUAL -1)
+  message(FATAL_ERROR
+    "Actor-vitals executor lost legacy order or regained outbound reflection")
+endif()
+
+read_cxx_executable(
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/MemoryTacticalSimulation.cpp"
+  actor_vitals_reference_executable)
+foreach(required_actor_vitals_reference_marker IN ITEMS
+    "std::is_same<Command, SynchronizeActorVitalsCommand>::value"
+    "actor->bleeding = value.bleeding"
+    "actor->health = value.health")
+  string(FIND "${actor_vitals_reference_executable}"
+    "${required_actor_vitals_reference_marker}"
+    actor_vitals_reference_marker_index)
+  if(actor_vitals_reference_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Actor-vitals reference model lost '${required_actor_vitals_reference_marker}'")
+  endif()
+endforeach()
+
+foreach(actor_vitals_test_manifest IN ITEMS
+    "${SOURCE_ROOT}/tests/simulation_command_actor_vitals_model_tests.cpp"
+    "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+    "${SOURCE_ROOT}/tests/sdk_consumer/main.cpp"
+    "${SOURCE_ROOT}/tests/CMakeLists.txt"
+    "${SOURCE_ROOT}/.github/workflows/build_unix.yml")
+  file(READ "${actor_vitals_test_manifest}"
+    actor_vitals_test_manifest_contents)
+  if(actor_vitals_test_manifest MATCHES "CMakeLists|build_unix")
+    set(actor_vitals_test_marker
+      "simulation_command_actor_vitals_model_tests")
+  else()
+    set(actor_vitals_test_marker "SynchronizeActorVitalsCommand")
+  endif()
+  string(FIND "${actor_vitals_test_manifest_contents}"
+    "${actor_vitals_test_marker}" actor_vitals_test_marker_index)
+  if(actor_vitals_test_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Actor-vitals coverage lost '${actor_vitals_test_marker}' in ${actor_vitals_test_manifest}")
+  endif()
+endforeach()
+foreach(actor_vitals_document IN ITEMS
+    "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+    "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${actor_vitals_document}" actor_vitals_document_contents)
+  string(FIND "${actor_vitals_document_contents}"
+    "SynchronizeActorVitalsCommand" actor_vitals_document_index)
+  if(actor_vitals_document_index EQUAL -1)
+    message(FATAL_ERROR
+      "Actor-vitals command is undocumented in ${actor_vitals_document}")
+  endif()
+endforeach()
 
 set(system_command_ingress_files
   "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
@@ -10694,12 +10901,6 @@ foreach(system_command_ingress_file IN LISTS system_command_ingress_files)
       "AI or script action bypasses reliable System SimulationCommand ingress in ${system_command_ingress_file}")
   endif()
 endforeach()
-
-function(read_cxx_executable source_file output_variable)
-  file(READ "${source_file}" source_contents)
-  strip_cxx_comments(source_contents source_executable)
-  set(${output_variable} "${source_executable}" PARENT_SCOPE)
-endfunction()
 
 function(require_system_command_ingress source_file required_call description)
   read_cxx_executable("${source_file}" source_executable)

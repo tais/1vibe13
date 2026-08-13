@@ -926,6 +926,10 @@ int main()
 		SynchronizeActorStopCommand{
 			actorId, 1300, 5, 5, 2, true,
 			SimulationCommandSource::NetworkPeer}};
+	const SimulationCommand externalVitalsSynchronization{
+		SynchronizeActorVitalsCommand{
+			actorId, 73, 12,
+			SimulationCommandSource::NetworkPeer}};
 	const SimulationCommand externalTurnSynchronization{
 		SynchronizeTurnCommand{
 			1, false, true, SimulationCommandSource::NetworkPeer}};
@@ -963,6 +967,8 @@ int main()
 			externalSelectedFire) ||
 		!std::holds_alternative<SynchronizeActorStopCommand>(
 			externalStopSynchronization) ||
+		!std::holds_alternative<SynchronizeActorVitalsCommand>(
+			externalVitalsSynchronization) ||
 		!std::holds_alternative<SynchronizeTurnCommand>(
 			externalTurnSynchronization) ||
 		!worldItemId.valid())

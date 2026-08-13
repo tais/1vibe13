@@ -274,8 +274,9 @@ continues normally.
 headless hosts, replay inspection, and package tests. Its reset accepts a
 pointer-free `TacticalSimulationSnapshot`, validates and sorts exact actor
 incarnations transactionally, and reserves the configured actor and shot
-ceilings before publication. Movement, stance, facing, stealth, stop, path/stop
-synchronization, fire, and turn commands update this stable state without SDL,
+ceilings before publication. Movement, stance, facing, stealth, stop,
+path/stop/vitals synchronization, fire, and turn commands update this stable
+state without SDL,
 game data, or legacy headers. Unsupported commands and stale identities are
 discarded without partial mutation; shot and turn overflow fail closed. Raw
 stance and movement values remain opaque adapter data, so this reference model
@@ -301,14 +302,18 @@ Squad controls remain a UI-side fan-out: each accepted stealth or stop intent is
 still an ordinary per-actor command with an independently verified incarnation,
 so no package-only batch type or global squad identity leaks into the engine
 contract.
-Legacy multiplayer path, fire, stop, stance, facing, and turn packets retain
-their existing wire structures. The application adapter resolves their reusable
-soldier slot once and submits the same stable command vocabulary. Path and stop
-packets are represented as explicit bounded reconciliation snapshots rather
-than being misread as local movement intent; synchronized fire captures the
-packet's selected weapon; and synchronized turn capture records whether the
+Legacy multiplayer path, fire, stop, healing, stance, facing, and turn packets
+retain their existing wire structures. The application adapter resolves their
+reusable soldier slot once and submits the same stable command vocabulary.
+Path and stop packets are represented as explicit bounded reconciliation
+snapshots rather than being misread as local movement intent; synchronized fire captures the
+packet's selected weapon; `SynchronizeActorVitalsCommand` captures the heal
+packet's signed health and bleeding bytes with the exact actor incarnation; and
+synchronized turn capture records whether the
 receiving host must enter combat or close its client turn. These synchronization
-commands accept only network/replay provenance. Reliable network ingress queues
+commands accept only network/replay provenance. Vitals application is
+intrinsically local-only, so neither received nor replayed snapshots can emit
+another heal packet. Reliable network ingress queues
 behind existing authoritative work when immediate execution is unavailable.
 AI and script producers use an equivalent retained `System` ingress path.
 AI movement preserves System path origin and pending-action state; final fire

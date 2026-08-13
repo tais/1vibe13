@@ -5775,8 +5775,9 @@ void recieve_heal (RPCParameters *rpcParameters)
 	TacticalActor *pSoldier = SafeMerc( healed.i );
 	if ( pSoldier == NULL )
 		return;
-	pSoldier->vitals().bleeding()=data->bBleeding;
-	pSoldier->vitals().health()=data->bLife;
+	(void)TryDispatchNetworkActorVitalsCommand(
+		GetJa2TacticalEntityId(*pSoldier),
+		data->bLife, data->bBleeding );
 
 #ifdef BETAVERSION
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, L"healing..." );

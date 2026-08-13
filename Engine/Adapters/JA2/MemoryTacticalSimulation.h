@@ -20,6 +20,8 @@ struct TacticalSimulationActorState
 	std::uint8_t direction = 0;
 	bool stealth = false;
 	bool stopped = true;
+	std::int8_t health = 0;
+	std::int8_t bleeding = 0;
 
 	friend bool operator==(
 		const TacticalSimulationActorState& left,
@@ -32,7 +34,9 @@ struct TacticalSimulationActorState
 			left.stance == right.stance &&
 			left.direction == right.direction &&
 			left.stealth == right.stealth &&
-			left.stopped == right.stopped;
+			left.stopped == right.stopped &&
+			left.health == right.health &&
+			left.bleeding == right.bleeding;
 	}
 };
 
