@@ -3408,6 +3408,7 @@ file(GLOB runtime_campaign_raw_selector_inventory_files
 set(runtime_campaign_context_selector_count 0)
 set(runtime_campaign_cached_selector_count 0)
 set(runtime_campaign_package_selector_count 0)
+set(runtime_campaign_raw_selector_file_count 0)
 set(runtime_campaign_raw_option_consumer_count 0)
 set(runtime_campaign_external_option_executable_count 0)
 set(runtime_campaign_external_option_raw_count 0)
@@ -3437,6 +3438,7 @@ foreach(runtime_campaign_inventory_file IN LISTS
     runtime_campaign_file_context_selector_count)
   math(EXPR runtime_campaign_context_selector_count
     "${runtime_campaign_context_selector_count} + ${runtime_campaign_file_context_selector_count}")
+  set(runtime_campaign_file_cached_selector_count 0)
   if(NOT runtime_campaign_inventory_file STREQUAL
       "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h")
     string(REGEX MATCHALL
@@ -3456,6 +3458,12 @@ foreach(runtime_campaign_inventory_file IN LISTS
     runtime_campaign_file_package_selector_count)
   math(EXPR runtime_campaign_package_selector_count
     "${runtime_campaign_package_selector_count} + ${runtime_campaign_file_package_selector_count}")
+  math(EXPR runtime_campaign_file_raw_selector_count
+    "${runtime_campaign_file_context_selector_count} + ${runtime_campaign_file_cached_selector_count} + ${runtime_campaign_file_package_selector_count}")
+  if(runtime_campaign_file_raw_selector_count GREATER 0)
+    math(EXPR runtime_campaign_raw_selector_file_count
+      "${runtime_campaign_raw_selector_file_count} + 1")
+  endif()
   string(REGEX MATCHALL "gGameUBOptions"
     runtime_campaign_file_raw_option_matches
     "${runtime_campaign_inventory_contents}")
@@ -3520,12 +3528,13 @@ foreach(runtime_campaign_inventory_file IN LISTS
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
   "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
-if(NOT runtime_campaign_context_selector_count EQUAL 109 OR
+if(NOT runtime_campaign_context_selector_count EQUAL 105 OR
     NOT runtime_campaign_cached_selector_count EQUAL 4 OR
     NOT runtime_campaign_package_selector_count EQUAL 1 OR
-    NOT runtime_campaign_raw_selector_count EQUAL 114)
+    NOT runtime_campaign_raw_selector_count EQUAL 110 OR
+    NOT runtime_campaign_raw_selector_file_count EQUAL 33)
   message(FATAL_ERROR
-    "Raw runtime campaign selector inventory changed from the reviewed 109 context + 4 cached-campaign + 1 active-package leaves")
+    "Raw runtime campaign selector inventory changed from the reviewed 105 context + 4 cached-campaign + 1 active-package leaves across 33 files")
 endif()
 if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
     NOT runtime_campaign_external_option_executable_count EQUAL 297 OR
@@ -3556,6 +3565,7 @@ foreach(required_campaign_map_screen_policy_fragment IN ITEMS
     "class CampaignMapScreenPolicy"
     "usesUnfinishedBusinessMapRules"
     "usesJerryMiloGuidance"
+    "allowsIntroScreenExit"
     "shouldRebuildCustomMapList"
     "shouldPumpJerryMiloQuotes"
     "hasMeanwhileScenes"
@@ -3625,6 +3635,7 @@ file(READ "${SOURCE_ROOT}/tests/campaign_map_screen_policy_tests.cpp"
   runtime_campaign_map_screen_policy_test_contents)
 foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
     "only UB enables Jerry Milo map guidance"
+    "only UB permits the intro-screen exit"
     "only Arulco checks for meanwhile scenes on the map screen"
     "only Arulco suppresses the San Mona town-loss notification"
     "only UB plays its contested-town loss dialogue"
@@ -3632,7 +3643,16 @@ foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
     "UB disables auto-resolve exactly when configured off"
     "UB rebuilds custom maps exactly when requested"
     "UB pumps Jerry Milo quotes exactly when enabled"
-    "UB checks campaign loss exactly after its helicopter crash")
+    "UB checks campaign loss exactly after its helicopter crash"
+    "Arulco pending meanwhile gate runs before map guidance"
+    "Arulco map availability never probes UB arrival or Jerry state"
+    "UB follows entered-sector state before Jerry permission"
+    "UB probes arrival before Jerry and skips Jerry after entry"
+    "UB map availability never probes Arulco meanwhile state"
+    "Arulco rejects intro exit before pending meanwhile state"
+    "main-menu exit stays ahead of pending meanwhile state"
+    "Arulco ordinary exit follows pending meanwhile state once"
+    "UB exits without probing Arulco pending meanwhile state")
   string(FIND "${runtime_campaign_map_screen_policy_test_contents}"
     "${required_campaign_map_screen_policy_test_fragment}"
     required_campaign_map_screen_policy_test_position)
@@ -3641,6 +3661,148 @@ foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
       "Runtime campaign map-screen policy coverage lost '${required_campaign_map_screen_policy_test_fragment}'")
   endif()
 endforeach()
+
+# Map-screen availability keeps each campaign lookup at the former raw leaf.
+# In particular, main-menu exit precedes the second lookup, Arulco alone reads
+# pending-meanwhile state, and UB reads arrival state before asking Jerry.
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
+  runtime_campaign_map_bottom_contents)
+strip_cxx_comments(runtime_campaign_map_bottom_contents
+  runtime_campaign_map_bottom_executable)
+string(REPLACE "\r\n" "\n" runtime_campaign_map_bottom_executable
+  "${runtime_campaign_map_bottom_executable}")
+
+string(REGEX MATCHALL
+  "#[ \t]*include[ \t]*\"CampaignMapScreenPolicy[.]h\""
+  runtime_campaign_map_bottom_policy_includes
+  "${runtime_campaign_map_bottom_executable}")
+list(LENGTH runtime_campaign_map_bottom_policy_includes
+  runtime_campaign_map_bottom_policy_include_count)
+if(NOT runtime_campaign_map_bottom_policy_include_count EQUAL 1)
+  message(FATAL_ERROR
+    "Map-screen bottom must include CampaignMapScreenPolicy exactly once")
+endif()
+
+string(REGEX MATCHALL
+  "CampaignMapScreenPolicy[ \t\r\n]*[(][ \t\r\n]*GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[)]"
+  runtime_campaign_map_bottom_policy_constructions
+  "${runtime_campaign_map_bottom_executable}")
+list(LENGTH runtime_campaign_map_bottom_policy_constructions
+  runtime_campaign_map_bottom_policy_construction_count)
+if(NOT runtime_campaign_map_bottom_policy_construction_count EQUAL 4)
+  message(FATAL_ERROR
+    "Map-screen bottom must retain exactly four inline live campaign policy constructions")
+endif()
+
+foreach(runtime_campaign_map_bottom_method_spec IN ITEMS
+    "hasMeanwhileScenes|2"
+    "usesJerryMiloGuidance|1"
+    "allowsIntroScreenExit|1")
+  string(REPLACE "|" ";" runtime_campaign_map_bottom_method_parts
+    "${runtime_campaign_map_bottom_method_spec}")
+  list(GET runtime_campaign_map_bottom_method_parts 0
+    runtime_campaign_map_bottom_method)
+  list(GET runtime_campaign_map_bottom_method_parts 1
+    runtime_campaign_map_bottom_expected_method_count)
+  string(REGEX MATCHALL
+    "[.]${runtime_campaign_map_bottom_method}[ \t\r\n]*[(][)]"
+    runtime_campaign_map_bottom_method_calls
+    "${runtime_campaign_map_bottom_executable}")
+  list(LENGTH runtime_campaign_map_bottom_method_calls
+    runtime_campaign_map_bottom_method_count)
+  if(NOT runtime_campaign_map_bottom_method_count EQUAL
+      runtime_campaign_map_bottom_expected_method_count)
+    message(FATAL_ERROR
+      "Map-screen bottom changed the reviewed ${runtime_campaign_map_bottom_method} call count")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[.][ \t\r\n]*isUnfinishedBusiness[(][)]"
+  runtime_campaign_map_bottom_context_selectors
+  "${runtime_campaign_map_bottom_executable}")
+string(REGEX MATCHALL
+  "campaign[ \t\r\n]*==[ \t\r\n]*GameCampaign::Arulco"
+  runtime_campaign_map_bottom_cached_selectors
+  "${runtime_campaign_map_bottom_executable}")
+string(REGEX MATCHALL
+  "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*hasCapability[(][ \t\r\n]*GameCapability::CampaignUnfinishedBusiness[ \t\r\n]*[)]"
+  runtime_campaign_map_bottom_package_selectors
+  "${runtime_campaign_map_bottom_executable}")
+list(LENGTH runtime_campaign_map_bottom_context_selectors
+  runtime_campaign_map_bottom_context_selector_count)
+list(LENGTH runtime_campaign_map_bottom_cached_selectors
+  runtime_campaign_map_bottom_cached_selector_count)
+list(LENGTH runtime_campaign_map_bottom_package_selectors
+  runtime_campaign_map_bottom_package_selector_count)
+if(NOT runtime_campaign_map_bottom_context_selector_count EQUAL 0 OR
+    NOT runtime_campaign_map_bottom_cached_selector_count EQUAL 0 OR
+    NOT runtime_campaign_map_bottom_package_selector_count EQUAL 0)
+  message(FATAL_ERROR
+    "Map-screen bottom regained raw runtime campaign identity")
+endif()
+if(runtime_campaign_map_bottom_executable MATCHES
+    "(^|[^A-Za-z0-9_])gGameUBOptions([^A-Za-z0-9_]|$)")
+  message(FATAL_ERROR
+    "Map-screen availability must not acquire direct UB-option coupling")
+endif()
+
+extract_bounded_slice(runtime_campaign_map_bottom_executable
+  "BOOLEAN AllowedToTimeCompress( void )"
+  "void DisplayCurrentBalanceTitleForMapBottom( void )\n{"
+  runtime_campaign_map_bottom_time_slice
+  "Could not bound AllowedToTimeCompress for campaign-order checks")
+extract_bounded_slice(runtime_campaign_map_bottom_executable
+  "BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )"
+  "void HandleExitsFromMapScreen( void )\n{"
+  runtime_campaign_map_bottom_exit_slice
+  "Could not bound AllowedToExitFromMapscreenTo for campaign-order checks")
+foreach(runtime_campaign_map_bottom_slice_variable IN ITEMS
+    runtime_campaign_map_bottom_time_slice
+    runtime_campaign_map_bottom_exit_slice)
+  if("${${runtime_campaign_map_bottom_slice_variable}}" MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)")
+    message(FATAL_ERROR
+      "Map-screen availability slices must not regain conditional compilation")
+  endif()
+  string(FIND "${${runtime_campaign_map_bottom_slice_variable}}" "\""
+    runtime_campaign_map_bottom_double_quote_position)
+  string(FIND "${${runtime_campaign_map_bottom_slice_variable}}" "'"
+    runtime_campaign_map_bottom_single_quote_position)
+  if(NOT runtime_campaign_map_bottom_double_quote_position EQUAL -1 OR
+      NOT runtime_campaign_map_bottom_single_quote_position EQUAL -1)
+    message(FATAL_ERROR
+      "Map-screen availability slices must keep policy evidence in code, not literals")
+  endif()
+endforeach()
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_map_bottom_time_normalized
+  "${runtime_campaign_map_bottom_time_slice}")
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_map_bottom_exit_normalized
+  "${runtime_campaign_map_bottom_exit_slice}")
+
+require_ordered_fragments(runtime_campaign_map_bottom_time_normalized
+  "AllowedToTimeCompress changed campaign probe or early-return order"
+  "if (is_networked)"
+  "if ( fLeavingMapScreen )"
+  "if ( gbExitingMapScreenToWhere != -1 )"
+  "if ( PauseStateLocked() )"
+  "if ( CampaignMapScreenPolicy(GetGameContext().capabilities()) .hasMeanwhileScenes() && gfMeanwhileTryingToStart )"
+  "if ( !DialogueQueueIsEmpty() )"
+  "if ( HostileCiviliansPresent() || HostileBloodcatsPresent() )"
+  "if( CampaignMapScreenPolicy(GetGameContext().capabilities()) .usesJerryMiloGuidance() && !GetSectorFlagStatus("
+  "if( !WillJerryMiloAllowThePlayerToCompressTimeAtBeginingOfGame() )")
+require_ordered_fragments(runtime_campaign_map_bottom_exit_normalized
+  "AllowedToExitFromMapscreenTo changed campaign probe or early-return order"
+  "Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_MAINMENU ) );"
+  "if ( bExitToWhere == MAP_EXIT_TO_INTRO_SCREEN && !CampaignMapScreenPolicy(GetGameContext().capabilities()) .allowsIntroScreenExit() )"
+  "if ( fLeavingMapScreen )"
+  "if (bExitToWhere == MAP_EXIT_TO_MAINMENU)"
+  "return( TRUE );"
+  "if ( !DialogueQueueIsEmpty() )"
+  "if ( CampaignMapScreenPolicy(GetGameContext().capabilities()) .hasMeanwhileScenes() && gfMeanwhileTryingToStart )"
+  "if ( PauseStateLocked() )")
 
 # Civilian dialogue catalogue selection, dedicated-group ranges, surrender
 # completion, and UB's unavailable-record sentinel belong to the live campaign.
@@ -12521,7 +12683,10 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   runtime_campaign_map_exit_contents)
 foreach(required_runtime_map_exit_fragment IN ITEMS
-    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "#include \"CampaignMapScreenPolicy.h\""
+    ".allowsIntroScreenExit()"
+    ".usesJerryMiloGuidance()"
+    ".hasMeanwhileScenes()"
     "MAP_EXIT_TO_INTRO_SCREEN"
     "MAP_EXIT_TO_MAINMENU"
     "WillJerryMiloAllowThePlayerToCompressTimeAtBeginingOfGame"

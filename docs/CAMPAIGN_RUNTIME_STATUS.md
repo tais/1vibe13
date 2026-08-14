@@ -56,6 +56,12 @@ Enrico congratulations mail is selected through
 is available to every host. Merc dismissal in `Assignments.cpp` likewise uses
 `CampaignMercenaryPolicy`: only UB blocks dismissal from tunnel column 14
 onward and retains the qualified/unqualified refusal quote choice.
+The map-bottom availability and exit checks now use the same map policy at
+their four former raw campaign leaves. Arulco alone polls pending meanwhile
+state and continues to reject the UB intro destination. UB alone checks its
+initial-sector entry before asking Jerry for time-compression permission, and
+it retains the intro exit. Generic early returns, the unconditional main-menu
+exit, and the sector-before-Jerry probe order remain unchanged.
 Civilian tactical dialogue now uses `CampaignCivilianQuotePolicy`. Both quote
 catalogues and both dedicated-group ranges are emitted in every host; Arulco
 retains surrender completion and its complete town/hint/miner logic, while UB
@@ -325,12 +331,12 @@ behavior remain unchanged.
 
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline remains 114 sites, down from
-149: 109 live-context calls, four cached-campaign comparisons, and one active-
-package capability leaf. The strategic sector slice reduces its private
-wrapper call inventory from 26 to 20 without changing the single underlying
-context selector. The UB-option boundary now has 297 executable and 299
-raw external occurrences across 33 consumer files; including the declaration
+The reviewed executable raw-selector baseline is 110 sites across 33 files,
+down from 149: 105 live-context calls, four cached-campaign comparisons, and
+one active-package capability leaf. The strategic sector slice reduces its
+private wrapper call inventory from 26 to 20 without changing the single
+underlying context selector. The UB-option boundary now has 297 executable and
+299 raw external occurrences across 33 consumer files; including the declaration
 and adapter owners, it has 561 executable and 563 raw occurrences across 35
 files. These are source-level ratchets in architecture CI rather than
 completion claims. Later work should continue replacing a complete behavioral

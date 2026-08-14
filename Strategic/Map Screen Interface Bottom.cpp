@@ -30,6 +30,7 @@
 	#include "Cursor Control.h"
 	#include "gameloop.h"
 	#include "Tactical Save.h"
+	#include "CampaignMapScreenPolicy.h"
 	#include "Campaign Types.h"
 	#include "finances.h"
 	#include "LaptopSave.h"
@@ -1407,7 +1408,8 @@ BOOLEAN AllowedToTimeCompress( void )
 	}
 
 	// meanwhile coming up
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+	if ( CampaignMapScreenPolicy(GetGameContext().capabilities())
+		.hasMeanwhileScenes() &&
 	     gfMeanwhileTryingToStart )
 	{
 		return( FALSE );
@@ -1506,7 +1508,8 @@ BOOLEAN AllowedToTimeCompress( void )
 	}
 
 		//if the player hasnt been to the initial sector yet
-	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+	if( CampaignMapScreenPolicy(GetGameContext().capabilities())
+		.usesJerryMiloGuidance() &&
 	    !GetSectorFlagStatus( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY, 0, SF_HAS_ENTERED_TACTICAL ) ) //7, 8
 	{
 		//if there is something that jerry wants to say
@@ -1873,7 +1876,8 @@ BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )
 {
 	Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_MAINMENU ) );
 	if ( bExitToWhere == MAP_EXIT_TO_INTRO_SCREEN &&
-	     !GetGameContext().capabilities().isUnfinishedBusiness() )
+	     !CampaignMapScreenPolicy(GetGameContext().capabilities())
+		.allowsIntroScreenExit() )
 	{
 		return( FALSE );
 	}
@@ -1912,7 +1916,8 @@ BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )
 	}
 
 	// meanwhile coming up
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+	if ( CampaignMapScreenPolicy(GetGameContext().capabilities())
+		.hasMeanwhileScenes() &&
 	     gfMeanwhileTryingToStart )
 	{
 		return( FALSE );
