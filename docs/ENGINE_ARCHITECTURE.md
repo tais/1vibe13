@@ -1340,6 +1340,23 @@ the engine must not contain SDL types in its public domain model.
   campaign, one active-package) because those wrapper callers share one
   underlying context selector. The UB boundary now has 316 executable/318 raw
   external option occurrences across 33 consumer files.
+- JA25's built-in-versus-custom strategic-AI origin now uses the value-only
+  `CampaignStrategicAiScenarioPolicy`. It is deliberately independent of
+  `GameCampaign`: runtime campaign routing still keeps Arulco left of the live
+  UB adapter, while one origin read inside each of 15 JA25 functions selects
+  built-in sector-AI behavior, custom strategic state, or neither for a
+  noncanonical saved byte. The H8 warning chooses the built-in H9 record or the
+  default-arrival strategic record without evaluating the other source. The
+  complex-history path likewise preserves its built-in K15 record, custom
+  `SectorInfo` plus depth-one test, and source-before-player-probe order.
+  Thirteen other built-in-only gates retain their exact no-op, sentinel,
+  untouched-output, and saved-flag behavior outside origin one.
+  `ub_config.cpp` owns the sole live getter/setter pair. Configuration still
+  defaults the legacy byte to one, and the unchanged `BOOLEAN` save slot
+  round-trips all 256 byte values before the common JA25 strategic section is
+  loaded. The resulting UB boundary has 297 executable/299 raw external option
+  occurrences across the same 33 consumers and 561 executable/563 raw total
+  occurrences across the same 35 files.
 - The strategic map screen now selects campaign behavior through the
   value-only `CampaignMapScreenPolicy`. Arulco keeps its meanwhile-scene
   polling; UB keeps Jerry Milo's initial and full-load scheduling, quote pump,

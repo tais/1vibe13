@@ -198,6 +198,16 @@ target_include_directories(campaign_strategic_sector_script_policy_tests
 add_test(NAME campaign_strategic_sector_script_policy
   COMMAND campaign_strategic_sector_script_policy_tests)
 
+# The live JA25 scenario-origin byte is distinct from runtime campaign
+# identity. This data-free target pins built-in, custom, and noncanonical save
+# values plus the source-selection and short-circuit contract.
+add_executable(campaign_strategic_ai_scenario_policy_tests
+  campaign_strategic_ai_scenario_policy_tests.cpp)
+target_include_directories(campaign_strategic_ai_scenario_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_strategic_ai_scenario_policy
+  COMMAND campaign_strategic_ai_scenario_policy_tests)
+
 # Strategic-map guidance, custom-map processing, meanwhile scenes, and the UB
 # strategic hooks are selected from the live campaign rather than JA2UB.
 add_executable(campaign_map_screen_policy_tests

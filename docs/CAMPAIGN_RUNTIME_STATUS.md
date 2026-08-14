@@ -200,6 +200,26 @@ and difficulty order, fortified-door grid, and roof 2a-to-2a/3a-to-3a aliases
 are unchanged. The bounded block now has zero direct `gGameUBOptions` reads and
 the file retains only four unrelated option reads outside that island.
 
+JA25 strategic-AI scenario origin now crosses the application boundary through
+the dependency-free `CampaignStrategicAiScenarioPolicy`. This origin is not
+campaign identity: both recognized values belong to the runtime Unfinished
+Business campaign and choose built-in JA25 sector-AI state or custom strategic
+state. Fifteen strategic-AI entry points take one fresh origin value per
+invocation, after their existing runtime campaign callers have selected UB.
+The H8 warning and complex-history paths read only the state source selected by
+that value; all built-in-only mutations, return sentinels, untouched output
+pointers, and saved seek flags retain their established behavior.
+
+The adapter preserves the complete legacy byte rather than converting it to a
+boolean. Zero selects custom state, one selects built-in state, and every other
+value continues to match neither branch. Configuration keeps its established
+default of one, while the unchanged one-byte general-save field serializes and
+restores the exact byte before JA25 sector state is loaded. The origin remains
+a live read because both main-menu option reload and save restoration can
+replace it. `Strategic/Ja25 Strategic Ai.cpp` and `SaveLoadGame.cpp` now have
+no direct access to the raw member; its only two accesses are the getter and
+setter in `ub_config.cpp`.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -309,9 +329,9 @@ The reviewed executable raw-selector baseline remains 114 sites, down from
 149: 109 live-context calls, four cached-campaign comparisons, and one active-
 package capability leaf. The strategic sector slice reduces its private
 wrapper call inventory from 26 to 20 without changing the single underlying
-context selector. The UB-option boundary now has 316 executable and 318
+context selector. The UB-option boundary now has 297 executable and 299
 raw external occurrences across 33 consumer files; including the declaration
-and adapter owners, it has 579 executable and 581 raw occurrences across 35
+and adapter owners, it has 561 executable and 563 raw occurrences across 35
 files. These are source-level ratchets in architecture CI rather than
 completion claims. Later work should continue replacing a complete behavioral
 cluster at a time while keeping campaign gates left of configuration, save,

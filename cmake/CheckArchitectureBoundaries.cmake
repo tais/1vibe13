@@ -2943,6 +2943,352 @@ foreach(required_campaign_strategic_sector_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# JA25 strategic AI has a second, byte-valued discriminator beneath campaign
+# identity: original UB content is raw one, custom content is raw zero, and
+# every other legacy byte intentionally selects neither path. Keep that value
+# boundary dependency-free, live at every behavior invocation, and lossless
+# across the existing general-save slot.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignStrategicAiScenarioPolicy.h"
+  runtime_campaign_strategic_ai_scenario_policy_contents)
+strip_cxx_comments(runtime_campaign_strategic_ai_scenario_policy_contents
+  runtime_campaign_strategic_ai_scenario_policy_executable)
+foreach(required_campaign_strategic_ai_scenario_policy_fragment IN ITEMS
+    "class CampaignScenarioOrigin"
+    "fromLegacyByte"
+    "legacyByte"
+    "isOriginalUnfinishedBusiness"
+    "isCustomScenario"
+    "class CampaignStrategicAiScenarioPolicy"
+    "enum class H8AdvanceSource"
+    "BuiltInGuardPost"
+    "DefaultArrivalSector"
+    "enum class ComplexHistorySource"
+    "BuiltInSectorAi"
+    "StrategicSector"
+    "std::uint8_t value_;"
+    "value_ == 1"
+    "value_ == 0"
+    "CampaignScenarioOrigin ReadCampaignScenarioOrigin();"
+    "void SetCampaignScenarioOrigin(CampaignScenarioOrigin origin);")
+  string(FIND "${runtime_campaign_strategic_ai_scenario_policy_contents}"
+    "${required_campaign_strategic_ai_scenario_policy_fragment}"
+    required_campaign_strategic_ai_scenario_policy_position)
+  if(required_campaign_strategic_ai_scenario_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-AI scenario policy lost '${required_campaign_strategic_ai_scenario_policy_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "#include[ \t]+[<\"]"
+  runtime_campaign_strategic_ai_scenario_policy_include_matches
+  "${runtime_campaign_strategic_ai_scenario_policy_contents}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_policy_include_matches
+  runtime_campaign_strategic_ai_scenario_policy_include_count)
+if(NOT runtime_campaign_strategic_ai_scenario_policy_include_count EQUAL 1 OR
+    NOT runtime_campaign_strategic_ai_scenario_policy_contents MATCHES
+      "#include[ \t]+<cstdint>")
+  message(FATAL_ERROR
+    "Campaign strategic-AI scenario policy must retain its sole cstdint dependency")
+endif()
+if(runtime_campaign_strategic_ai_scenario_policy_executable MATCHES
+    "GameCapabilities|GameContext|GameCampaign|gGameUBOptions|ub_config[.]h|gJa25|SectorInfo|gWorldSector|TacticalCharacterDialogue|bool[ \t\r\n]+value_")
+  message(FATAL_ERROR
+    "Campaign strategic-AI scenario policy regained identity, storage, or effect dependencies")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/ub_config.cpp"
+  runtime_campaign_strategic_ai_scenario_adapter_file_contents)
+string(FIND "${runtime_campaign_strategic_ai_scenario_adapter_file_contents}"
+  "CampaignScenarioOrigin ReadCampaignScenarioOrigin()"
+  runtime_campaign_strategic_ai_scenario_adapter_start)
+string(FIND "${runtime_campaign_strategic_ai_scenario_adapter_file_contents}"
+  "bool IsLaptopQuestEnabled()"
+  runtime_campaign_strategic_ai_scenario_adapter_end)
+if(runtime_campaign_strategic_ai_scenario_adapter_start EQUAL -1 OR
+    runtime_campaign_strategic_ai_scenario_adapter_end EQUAL -1 OR
+    NOT runtime_campaign_strategic_ai_scenario_adapter_start LESS
+      runtime_campaign_strategic_ai_scenario_adapter_end)
+  message(FATAL_ERROR
+    "Cannot isolate the live scenario-origin adapter")
+endif()
+math(EXPR runtime_campaign_strategic_ai_scenario_adapter_length
+  "${runtime_campaign_strategic_ai_scenario_adapter_end} - ${runtime_campaign_strategic_ai_scenario_adapter_start}")
+string(SUBSTRING "${runtime_campaign_strategic_ai_scenario_adapter_file_contents}"
+  ${runtime_campaign_strategic_ai_scenario_adapter_start}
+  ${runtime_campaign_strategic_ai_scenario_adapter_length}
+  runtime_campaign_strategic_ai_scenario_adapter_contents)
+strip_cxx_comments(runtime_campaign_strategic_ai_scenario_adapter_contents
+  runtime_campaign_strategic_ai_scenario_adapter_executable)
+string(REGEX MATCHALL
+  "gGameUBOptions[ \t\r\n]*[.][ \t\r\n]*pJA2UB"
+  runtime_campaign_strategic_ai_scenario_adapter_member_matches
+  "${runtime_campaign_strategic_ai_scenario_adapter_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_adapter_member_matches
+  runtime_campaign_strategic_ai_scenario_adapter_member_count)
+string(REGEX MATCHALL "gGameUBOptions[ \t\r\n]*[.]"
+  runtime_campaign_strategic_ai_scenario_adapter_option_matches
+  "${runtime_campaign_strategic_ai_scenario_adapter_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_adapter_option_matches
+  runtime_campaign_strategic_ai_scenario_adapter_option_count)
+if(NOT runtime_campaign_strategic_ai_scenario_adapter_member_count EQUAL 2 OR
+    NOT runtime_campaign_strategic_ai_scenario_adapter_option_count EQUAL 2 OR
+    runtime_campaign_strategic_ai_scenario_adapter_executable MATCHES "static")
+  message(FATAL_ERROR
+    "Scenario-origin adapter must remain one live getter/setter pair over its sole owner byte")
+endif()
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_adapter_executable
+  "Scenario-origin adapter getter/setter or raw-byte order changed"
+  "CampaignScenarioOrigin ReadCampaignScenarioOrigin()"
+  "CampaignScenarioOrigin::fromLegacyByte("
+  "gGameUBOptions.pJA2UB"
+  "void SetCampaignScenarioOrigin(CampaignScenarioOrigin origin)"
+  "gGameUBOptions.pJA2UB = origin.legacyByte();")
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_adapter_file_contents
+  "Scenario-origin configuration no longer enters through its lossless setter"
+  "SetCampaignScenarioOrigin(CampaignScenarioOrigin::fromLegacyByte("
+  "iniReader.ReadBoolean(\"Campaign Settings\", \"JA2UB\", TRUE)))")
+
+file(READ "${SOURCE_ROOT}/Strategic/Ja25 Strategic Ai.cpp"
+  runtime_campaign_strategic_ai_scenario_source_contents)
+strip_cxx_comments(runtime_campaign_strategic_ai_scenario_source_contents
+  runtime_campaign_strategic_ai_scenario_source_executable)
+if(runtime_campaign_strategic_ai_scenario_source_contents MATCHES "pJA2UB")
+  message(FATAL_ERROR
+    "JA25 strategic AI regained raw scenario-origin storage")
+endif()
+string(REGEX MATCHALL "ReadCampaignScenarioOrigin[(]"
+  runtime_campaign_strategic_ai_scenario_read_matches
+  "${runtime_campaign_strategic_ai_scenario_source_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_read_matches
+  runtime_campaign_strategic_ai_scenario_read_count)
+string(REGEX MATCHALL
+  "CampaignStrategicAiScenarioPolicy[ \t\r\n]+scenarioPolicy"
+  runtime_campaign_strategic_ai_scenario_policy_matches
+  "${runtime_campaign_strategic_ai_scenario_source_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_policy_matches
+  runtime_campaign_strategic_ai_scenario_policy_count)
+string(REGEX MATCHALL "scenarioPolicy[.]usesBuiltInSectorAi[(][)]"
+  runtime_campaign_strategic_ai_scenario_builtin_matches
+  "${runtime_campaign_strategic_ai_scenario_source_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_builtin_matches
+  runtime_campaign_strategic_ai_scenario_builtin_count)
+string(REGEX MATCHALL "scenarioPolicy[.]h8AdvanceSource[(][)]"
+  runtime_campaign_strategic_ai_scenario_h8_source_matches
+  "${runtime_campaign_strategic_ai_scenario_source_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_h8_source_matches
+  runtime_campaign_strategic_ai_scenario_h8_source_count)
+string(REGEX MATCHALL "scenarioPolicy[.]complexHistorySource[(][)]"
+  runtime_campaign_strategic_ai_scenario_complex_source_matches
+  "${runtime_campaign_strategic_ai_scenario_source_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_complex_source_matches
+  runtime_campaign_strategic_ai_scenario_complex_source_count)
+if(NOT runtime_campaign_strategic_ai_scenario_read_count EQUAL 15 OR
+    NOT runtime_campaign_strategic_ai_scenario_policy_count EQUAL 15 OR
+    NOT runtime_campaign_strategic_ai_scenario_builtin_count EQUAL 13 OR
+    NOT runtime_campaign_strategic_ai_scenario_h8_source_count EQUAL 1 OR
+    NOT runtime_campaign_strategic_ai_scenario_complex_source_count EQUAL 1)
+  message(FATAL_ERROR
+    "JA25 strategic AI must retain 15 live origin reads: 13 built-in gates plus H8 and complex routing")
+endif()
+if(runtime_campaign_strategic_ai_scenario_source_executable MATCHES
+    "static[ \t\r\n]+[^;{}]*ReadCampaignScenarioOrigin[(]" OR
+    runtime_campaign_strategic_ai_scenario_source_executable MATCHES
+    "static[ \t\r\n]+(const[ \t\r\n]+)?CampaignStrategicAiScenarioPolicy")
+  message(FATAL_ERROR
+    "JA25 strategic AI must read scenario origin into invocation-local policy values, never function-static caches")
+endif()
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_source_executable
+  "The fifteen JA25 strategic-AI entry points no longer read origin once per invocation"
+  "static BOOLEAN AddEnemiesToSectorPlayerIsIn"
+  "ReadCampaignScenarioOrigin()"
+  "BOOLEAN InitJa25SectorAi()"
+  "ReadCampaignScenarioOrigin()"
+  "INT8\tGetTheFurthestSectorPlayerOwns()"
+  "ReadCampaignScenarioOrigin()"
+  "void SetJa25SectorOwnedStatus"
+  "ReadCampaignScenarioOrigin()"
+  "INT16 GetJA25SectorID"
+  "ReadCampaignScenarioOrigin()"
+  "void JA25_HandleUpdateOfStrategicAi()"
+  "ReadCampaignScenarioOrigin()"
+  "BOOLEAN HandleAddEnemiesToSectorPlayerIsntIn"
+  "ReadCampaignScenarioOrigin()"
+  "BOOLEAN HandleAddingEnemiesToSector"
+  "ReadCampaignScenarioOrigin()"
+  "void SetEnemiesToFindThePlayerMercs()"
+  "ReadCampaignScenarioOrigin()"
+  "INT16 GetGridNoEnemyWillSeekWhenAttacking"
+  "ReadCampaignScenarioOrigin()"
+  "void Ja25SAI_DetermineWhichLevelToAttackFrom"
+  "ReadCampaignScenarioOrigin()"
+  "void HandleSayingDontStayToLongWarningInSectorH8()"
+  "ReadCampaignScenarioOrigin()"
+  "void HandleRemovingEnemySoldierInitLinksIfPlayerEverWonInSector()"
+  "ReadCampaignScenarioOrigin()"
+  "void Ja25HandleStartingAnyBattlesInOtherSectors()"
+  "ReadCampaignScenarioOrigin()"
+  "BOOLEAN\tHaveMercsEverBeenInComplex()"
+  "ReadCampaignScenarioOrigin()")
+extract_bounded_slice(runtime_campaign_strategic_ai_scenario_source_executable
+  "void HandleSayingDontStayToLongWarningInSectorH8()"
+  "void FixEnemyCounterInSectorBug()"
+  runtime_campaign_strategic_ai_scenario_h8_contents
+  "Cannot isolate JA25 H8 warning behavior")
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_h8_contents
+  "H8 scenario-origin branch/probe order changed"
+  "ReadCampaignScenarioOrigin()"
+  "switch (scenarioPolicy.h8AdvanceSource())"
+  "BuiltInGuardPost:"
+  "gJa25AiSectorStruct[JA25_H9].fPlayerControlled"
+  "DefaultArrivalSector:"
+  "gGameExternalOptions.ubDefaultArrivalSectorX"
+  "gGameExternalOptions.ubDefaultArrivalSectorY"
+  ".fSurfaceWasEverPlayerControlled == TRUE"
+  "H8AdvanceSource::None:"
+  "NumNonPlayerTeamMembersInSector( 8, 8, ENEMY_TEAM )"
+  "AreAllPlayerMercTraversingBetweenSectors()"
+  "PlayerMercsInSector( 8, 8, 0 )"
+  "TacticalCharacterDialogue")
+extract_bounded_slice(runtime_campaign_strategic_ai_scenario_source_executable
+  "BOOLEAN\tHaveMercsEverBeenInComplex()"
+  "BOOLEAN Ja25BetaDateToInvalidateExe()"
+  runtime_campaign_strategic_ai_scenario_complex_contents
+  "Cannot isolate JA25 complex-history behavior")
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_complex_contents
+  "Complex-history scenario branch/probe order changed"
+  "ReadCampaignScenarioOrigin()"
+  "switch (scenarioPolicy.complexHistorySource())"
+  "BuiltInSectorAi:"
+  "gJa25AiSectorStruct[JA25_K15_1]"
+  ".fPlayerHasLiberatedSectorBefore"
+  "AreAnyPlayerMercsStillInSector(15, 11, 1)"
+  "StrategicSector:"
+  "SectorInfo[SEC_K15].uiTimeLastPlayerLiberated"
+  "gbWorldSectorZ == 1"
+  "AreAnyPlayerMercsStillInSector(15, 11, 1)"
+  "ComplexHistorySource::None:"
+  "return( FALSE );")
+string(REGEX MATCHALL "AreAnyPlayerMercsStillInSector[(]15, 11, 1[)]"
+  runtime_campaign_strategic_ai_scenario_complex_probe_matches
+  "${runtime_campaign_strategic_ai_scenario_complex_contents}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_complex_probe_matches
+  runtime_campaign_strategic_ai_scenario_complex_probe_count)
+if(NOT runtime_campaign_strategic_ai_scenario_complex_probe_count EQUAL 2)
+  message(FATAL_ERROR
+    "JA25 complex-history routing must retain one player probe per known origin")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  runtime_campaign_strategic_ai_scenario_save_contents)
+strip_cxx_comments(runtime_campaign_strategic_ai_scenario_save_contents
+  runtime_campaign_strategic_ai_scenario_save_executable)
+string(REGEX MATCHALL "spJA2UB"
+  runtime_campaign_strategic_ai_scenario_save_carrier_matches
+  "${runtime_campaign_strategic_ai_scenario_save_executable}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_save_carrier_matches
+  runtime_campaign_strategic_ai_scenario_save_carrier_count)
+if(NOT runtime_campaign_strategic_ai_scenario_save_carrier_count EQUAL 5 OR
+    runtime_campaign_strategic_ai_scenario_save_contents MATCHES
+      "gGameUBOptions[ \t\r\n]*[.][ \t\r\n]*pJA2UB")
+  message(FATAL_ERROR
+    "Scenario-origin save carrier or adapter ownership changed")
+endif()
+foreach(required_campaign_strategic_ai_scenario_save_fragment IN ITEMS
+    "sGeneralInfo.spJA2UB = ReadCampaignScenarioOrigin().legacyByte();"
+    "ReadFieldByField(hFile, &sGeneralInfo.spJA2UB, sizeof(sGeneralInfo.spJA2UB), sizeof(BOOLEAN), numBytesRead)"
+    "if ( IsUnfinishedBusinessCampaign() )\n\t{\n\t\tgGameUBOptions.InitialHeliGridNo[ 0 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 0 ]"
+    "SetCampaignScenarioOrigin(CampaignScenarioOrigin::fromLegacyByte(\n\t\t\tsGeneralInfo.spJA2UB));")
+  string(FIND "${runtime_campaign_strategic_ai_scenario_save_contents}"
+    "${required_campaign_strategic_ai_scenario_save_fragment}"
+    required_campaign_strategic_ai_scenario_save_position)
+  if(required_campaign_strategic_ai_scenario_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Scenario-origin save compatibility lost '${required_campaign_strategic_ai_scenario_save_fragment}'")
+  endif()
+endforeach()
+if(NOT runtime_campaign_strategic_ai_scenario_save_contents MATCHES
+    "BOOLEAN[ \t]+sInGameHeli;[ \t\r\n]*BOOLEAN[ \t]+spJA2UB;[ \t\r\n]*BOOLEAN[ \t]+sfDeadMerc;")
+  message(FATAL_ERROR
+    "Scenario-origin general-save byte moved within its legacy field sequence")
+endif()
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_save_executable
+  "Scenario-origin save layout or restore order changed"
+  "BOOLEAN sInGameHeli;"
+  "BOOLEAN spJA2UB;"
+  "BOOLEAN sfDeadMerc;"
+  "sGeneralInfo.sInGameHeli"
+  "sGeneralInfo.spJA2UB = ReadCampaignScenarioOrigin().legacyByte();"
+  "sGeneralInfo.sfDeadMerc"
+  "ReadFieldByField(hFile, &sGeneralInfo.sInGameHeli"
+  "ReadFieldByField(hFile, &sGeneralInfo.spJA2UB"
+  "ReadFieldByField(hFile, &sGeneralInfo.sfDeadMerc"
+  "gGameUBOptions.InGameHeli = sGeneralInfo.sInGameHeli;"
+  "SetCampaignScenarioOrigin(CampaignScenarioOrigin::fromLegacyByte("
+  "sGeneralInfo.spJA2UB));"
+  "gGameUBOptions.fDeadMerc = sGeneralInfo.sfDeadMerc;")
+require_ordered_fragments(runtime_campaign_strategic_ai_scenario_save_executable
+  "Scenario origin must be serialized and restored before the common JA25 state"
+  "if( !SaveGeneralInfo( hFile ) )"
+  "if( !SaveJa25SaveInfoToSaveGame( hFile ) )"
+  "if( !LoadGeneralInfo( hFile ) )"
+  "if ( !LoadJa25SaveInfoFromSavedGame( hFile ) )")
+
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  runtime_campaign_strategic_ai_scenario_test_manifest_contents)
+foreach(required_campaign_strategic_ai_scenario_test_manifest_fragment IN ITEMS
+    "campaign_strategic_ai_scenario_policy_tests.cpp"
+    "campaign_strategic_ai_scenario_policy")
+  string(FIND "${runtime_campaign_strategic_ai_scenario_test_manifest_contents}"
+    "${required_campaign_strategic_ai_scenario_test_manifest_fragment}"
+    required_campaign_strategic_ai_scenario_test_manifest_position)
+  if(required_campaign_strategic_ai_scenario_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-AI scenario policy lost its dependency-free test target")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_strategic_ai_scenario_policy_tests"
+  runtime_campaign_strategic_ai_scenario_test_manifest_matches
+  "${runtime_campaign_strategic_ai_scenario_test_manifest_contents}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_test_manifest_matches
+  runtime_campaign_strategic_ai_scenario_test_manifest_count)
+if(NOT runtime_campaign_strategic_ai_scenario_test_manifest_count EQUAL 4)
+  message(FATAL_ERROR
+    "Campaign strategic-AI scenario test target manifest count changed")
+endif()
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  runtime_campaign_strategic_ai_scenario_ci_contents)
+string(REGEX MATCHALL "campaign_strategic_ai_scenario_policy_tests"
+  runtime_campaign_strategic_ai_scenario_ci_matches
+  "${runtime_campaign_strategic_ai_scenario_ci_contents}")
+list(LENGTH runtime_campaign_strategic_ai_scenario_ci_matches
+  runtime_campaign_strategic_ai_scenario_ci_count)
+if(NOT runtime_campaign_strategic_ai_scenario_ci_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one strategic-AI scenario policy target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_strategic_ai_scenario_policy_tests.cpp"
+  runtime_campaign_strategic_ai_scenario_test_contents)
+foreach(required_campaign_strategic_ai_scenario_test_fragment IN ITEMS
+    "all 256 legacy bytes round-trip without canonicalizing unknown origins"
+    "only raw one enables built-in JA25 sector AI"
+    "only raw zero selects custom scenario state"
+    "H8 routing reads only the selected advancement source"
+    "built-in complex history keeps sector-AI before player probe order"
+    "custom complex history keeps strategic-sector before player probe order"
+    "an unknown origin touches neither complex probe and retains false"
+    "Arulco left-gates the live scenario-origin read"
+    "UB reads the live origin once and runs built-in effects only for raw one"
+    "custom UB content suppresses built-in effects after one live read"
+    "origin policy remains a one-byte trivially copyable value boundary")
+  string(FIND "${runtime_campaign_strategic_ai_scenario_test_contents}"
+    "${required_campaign_strategic_ai_scenario_test_fragment}"
+    required_campaign_strategic_ai_scenario_test_position)
+  if(required_campaign_strategic_ai_scenario_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-AI scenario coverage lost '${required_campaign_strategic_ai_scenario_test_fragment}'")
+  endif()
+endforeach()
+
 # Global raw-selector and option-consumer inventories are shrinking baselines.
 # Count executable consumer decisions rather than similarly named definitions
 # in GameCapabilities, package/bootstrap plumbing, or policy implementations.
@@ -2967,6 +3313,10 @@ set(runtime_campaign_external_option_raw_count 0)
 set(runtime_campaign_total_option_executable_count 0)
 set(runtime_campaign_total_option_raw_count 0)
 set(runtime_campaign_total_option_file_count 0)
+set(runtime_campaign_scenario_origin_substring_count 0)
+set(runtime_campaign_scenario_origin_save_carrier_count 0)
+set(runtime_campaign_scenario_origin_member_raw_count 0)
+set(runtime_campaign_scenario_origin_member_executable_count 0)
 foreach(runtime_campaign_inventory_file IN LISTS
     runtime_campaign_raw_selector_inventory_files)
   file(READ "${runtime_campaign_inventory_file}"
@@ -3015,6 +3365,36 @@ foreach(runtime_campaign_inventory_file IN LISTS
     "${runtime_campaign_inventory_executable}")
   list(LENGTH runtime_campaign_file_executable_option_matches
     runtime_campaign_file_executable_option_count)
+  string(REGEX MATCHALL "pJA2UB"
+    runtime_campaign_file_scenario_origin_substring_matches
+    "${runtime_campaign_inventory_contents}")
+  list(LENGTH runtime_campaign_file_scenario_origin_substring_matches
+    runtime_campaign_file_scenario_origin_substring_count)
+  math(EXPR runtime_campaign_scenario_origin_substring_count
+    "${runtime_campaign_scenario_origin_substring_count} + ${runtime_campaign_file_scenario_origin_substring_count}")
+  string(REGEX MATCHALL "spJA2UB"
+    runtime_campaign_file_scenario_origin_save_carrier_matches
+    "${runtime_campaign_inventory_contents}")
+  list(LENGTH runtime_campaign_file_scenario_origin_save_carrier_matches
+    runtime_campaign_file_scenario_origin_save_carrier_count)
+  math(EXPR runtime_campaign_scenario_origin_save_carrier_count
+    "${runtime_campaign_scenario_origin_save_carrier_count} + ${runtime_campaign_file_scenario_origin_save_carrier_count}")
+  string(REGEX MATCHALL
+    "gGameUBOptions[ \t\r\n]*[.][ \t\r\n]*pJA2UB"
+    runtime_campaign_file_scenario_origin_member_raw_matches
+    "${runtime_campaign_inventory_contents}")
+  list(LENGTH runtime_campaign_file_scenario_origin_member_raw_matches
+    runtime_campaign_file_scenario_origin_member_raw_count)
+  math(EXPR runtime_campaign_scenario_origin_member_raw_count
+    "${runtime_campaign_scenario_origin_member_raw_count} + ${runtime_campaign_file_scenario_origin_member_raw_count}")
+  string(REGEX MATCHALL
+    "gGameUBOptions[ \t\r\n]*[.][ \t\r\n]*pJA2UB"
+    runtime_campaign_file_scenario_origin_member_executable_matches
+    "${runtime_campaign_inventory_executable}")
+  list(LENGTH runtime_campaign_file_scenario_origin_member_executable_matches
+    runtime_campaign_file_scenario_origin_member_executable_count)
+  math(EXPR runtime_campaign_scenario_origin_member_executable_count
+    "${runtime_campaign_scenario_origin_member_executable_count} + ${runtime_campaign_file_scenario_origin_member_executable_count}")
   math(EXPR runtime_campaign_total_option_raw_count
     "${runtime_campaign_total_option_raw_count} + ${runtime_campaign_file_raw_option_count}")
   math(EXPR runtime_campaign_total_option_executable_count
@@ -3047,16 +3427,23 @@ if(NOT runtime_campaign_context_selector_count EQUAL 109 OR
     "Raw runtime campaign selector inventory changed from the reviewed 109 context + 4 cached-campaign + 1 active-package leaves")
 endif()
 if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
-    NOT runtime_campaign_external_option_executable_count EQUAL 316 OR
-    NOT runtime_campaign_external_option_raw_count EQUAL 318)
+    NOT runtime_campaign_external_option_executable_count EQUAL 297 OR
+    NOT runtime_campaign_external_option_raw_count EQUAL 299)
   message(FATAL_ERROR
-    "External UB option inventory changed from the reviewed 316 executable + 318 raw occurrences across 33 files")
+    "External UB option inventory changed from the reviewed 297 executable + 299 raw occurrences across 33 files")
 endif()
-if(NOT runtime_campaign_total_option_executable_count EQUAL 579 OR
-    NOT runtime_campaign_total_option_raw_count EQUAL 581 OR
+if(NOT runtime_campaign_total_option_executable_count EQUAL 561 OR
+    NOT runtime_campaign_total_option_raw_count EQUAL 563 OR
     NOT runtime_campaign_total_option_file_count EQUAL 35)
   message(FATAL_ERROR
-    "Total UB option inventory changed from the reviewed 579 executable + 581 raw occurrences across 35 files")
+    "Total UB option inventory changed from the reviewed 561 executable + 563 raw occurrences across 35 files")
+endif()
+if(NOT runtime_campaign_scenario_origin_substring_count EQUAL 8 OR
+    NOT runtime_campaign_scenario_origin_save_carrier_count EQUAL 5 OR
+    NOT runtime_campaign_scenario_origin_member_raw_count EQUAL 2 OR
+    NOT runtime_campaign_scenario_origin_member_executable_count EQUAL 2)
+  message(FATAL_ERROR
+    "Scenario-origin spelling inventory changed from 3 exact tokens (2 owner refs + 1 declaration) and 5 save-carrier substrings")
 endif()
 
 # Strategic-map guidance and campaign hooks are selected from the live
@@ -3481,6 +3868,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_npc_policy_tests"
     "campaign_progress_policy_tests"
     "campaign_quest_policy_tests"
+    "campaign_strategic_ai_scenario_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
     "${required_campaign_follow_through_ci_target}"
@@ -3517,7 +3905,13 @@ foreach(required_campaign_status_fragment IN ITEMS
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
     "All seventeen policies"
-    "All six former guards in `Tactical/Campaign.cpp`")
+    "All six former guards in `Tactical/Campaign.cpp`"
+    "JA25 strategic-AI scenario origin now crosses the application boundary"
+    "Fifteen strategic-AI entry points take one fresh origin value per invocation"
+    "Zero selects custom state, one selects built-in state"
+    "no direct access to the raw member; its only two accesses are the getter and setter"
+    "297 executable and 299 raw external occurrences"
+    "561 executable and 563 raw occurrences")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -3560,7 +3954,13 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "All five former guards in `Interface.cpp`"
     "All four former guards in `Assignments.cpp`"
     "nine former guards across the"
-    "four shell implementations and map header")
+    "four shell implementations and map header"
+    "JA25's built-in-versus-custom strategic-AI origin now uses the value-only"
+    "one origin read inside each of 15 JA25 functions"
+    "noncanonical saved byte"
+    "round-trips all 256 byte values"
+    "297 executable/299 raw external option occurrences"
+    "561 executable/563 raw total occurrences")
   string(FIND "${runtime_campaign_architecture_normalized}"
     "${required_campaign_architecture_fragment}"
     required_campaign_architecture_position)
