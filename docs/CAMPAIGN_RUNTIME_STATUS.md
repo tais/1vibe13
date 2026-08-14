@@ -184,6 +184,22 @@ and the exact surface/underground mine targets. The save-restored
 `HandleAddingEnemiesToTunnelMaps` option is deliberately not part of the
 content snapshot: it is read live at the fan-destruction decision point.
 
+The contiguous strategic sector-script island from player-entry quotes through
+roof placement now consumes `CampaignStrategicSectorScriptContent` through the
+value-only `CampaignStrategicSectorScriptPolicy`. Five consuming entry points
+take at most one fresh snapshot after their left-hand UB gate; the gate-only
+first-tunnel quote entry point does not touch content, and the email path keeps
+its earlier live laptop short circuit. The adapter reuses the tactical
+fan, missile, and fortified-door sectors, then projects the remaining 41
+immutable option fields exactly once. The laptop-quest switch remains a
+separate live `IsLaptopQuestEnabled()` read after the quest and just-fixed
+short circuits and before the email snapshot. The exact six-entry quote table,
+Manuel/Biggens and email ordering, literal 12,9,0 fallback, repeated clock
+reads, map load/unload action order, first-town X-as-Z comparison, money drop
+and difficulty order, fortified-door grid, and roof 2a-to-2a/3a-to-3a aliases
+are unchanged. The bounded block now has zero direct `gGameUBOptions` reads and
+the file retains only four unrelated option reads outside that island.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -289,17 +305,18 @@ behavior remain unchanged.
 
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline is now 114 sites, down from 149:
-109 live-context calls, four cached-campaign comparisons, and one active-
-package capability leaf. The raw UB-option consumer baseline is 33 files,
-down from 36. These are
-source-level ratchets in architecture CI rather than completion claims.
-The contiguous UB sector-script block in `Strategic/strategicmap.cpp` is the
-next bounded scenario-content island now that typed tactical content exists;
-later work should continue replacing a complete behavioral cluster at a time
-while keeping campaign gates left of configuration, save, dialogue, and effect
-probes. The legacy option record remains an application adapter until all such
-consumers have moved to typed content.
+The reviewed executable raw-selector baseline remains 114 sites, down from
+149: 109 live-context calls, four cached-campaign comparisons, and one active-
+package capability leaf. The strategic sector slice reduces its private
+wrapper call inventory from 26 to 20 without changing the single underlying
+context selector. The UB-option boundary now has 316 executable and 318
+raw external occurrences across 33 consumer files; including the declaration
+and adapter owners, it has 579 executable and 581 raw occurrences across 35
+files. These are source-level ratchets in architecture CI rather than
+completion claims. Later work should continue replacing a complete behavioral
+cluster at a time while keeping campaign gates left of configuration, save,
+dialogue, and effect probes. The legacy option record remains an application
+adapter until all such consumers have moved to typed content.
 
 ## Literal remaining tail
 

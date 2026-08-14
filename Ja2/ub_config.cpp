@@ -47,6 +47,7 @@
 	#include "Items.h"
 	#include "Text.h"
 	#include "GameSettings.h"
+	#include "CampaignStrategicSectorScriptContent.h"
 	#include "CampaignTacticalScenarioContent.h"
 
 #include "Ja25 Strategic Ai.h"
@@ -115,6 +116,81 @@ bool ReadCampaignHandleAddingEnemiesToTunnelMaps()
 #define				GAME_UB_OPTIONS_FILE	"UB_Options.ini"
 
 void LoadGameUBOptions();
+
+CampaignStrategicSectorScriptContent
+ReadCampaignStrategicSectorScriptContent()
+{
+	const CampaignTacticalScenarioContent tacticalScenario =
+		ReadCampaignTacticalScenarioContent();
+	CampaignStrategicSectorScriptContent content;
+	content.fanSector = tacticalScenario.fanSector;
+	content.missileLaunchSector = tacticalScenario.missileLaunchSector;
+	content.fortifiedDoorSector = tacticalScenario.fortifiedDoorSector;
+
+	content.firstTunnelSector = {
+		gGameUBOptions.ExitForFanToPowerGenSectorX,
+		gGameUBOptions.ExitForFanToPowerGenSectorY,
+		gGameUBOptions.ExitForFanToPowerGenSectorZ};
+	content.gateTunnelSector = {
+		gGameUBOptions.SectorOpenGateInTunnelX,
+		gGameUBOptions.SectorOpenGateInTunnelY,
+		gGameUBOptions.SectorOpenGateInTunnelZ};
+	content.guardPostSector = {
+		gGameUBOptions.SectorGuardPostX,
+		gGameUBOptions.SectorGuardPostY,
+		gGameUBOptions.SectorGuardPostZ};
+	content.firstTownSector = {
+		gGameUBOptions.FristSectorTownX,
+		gGameUBOptions.FristSectorTownY,
+		gGameUBOptions.FristSectorTownZ};
+	content.town2Sector = {
+		gGameUBOptions.SectorTown2X,
+		gGameUBOptions.SectorTown2Y,
+		gGameUBOptions.SectorTown2Z};
+	content.town3Sector = {
+		gGameUBOptions.SectorTown3X,
+		gGameUBOptions.SectorTown3Y,
+		gGameUBOptions.SectorTown3Z};
+	content.i9QuoteSector = {
+		gGameUBOptions.I9SectorPlayerQuoteX,
+		gGameUBOptions.I9SectorPlayerQuoteY,
+		gGameUBOptions.I9SectorPlayerQuoteZ};
+	content.h10QuoteSector = {
+		gGameUBOptions.H10SectorPlayerQuoteX,
+		gGameUBOptions.H10SectorPlayerQuoteY,
+		gGameUBOptions.H10SectorPlayerQuoteZ};
+
+	content.guardPostMoney = {
+		gGameUBOptions.H9MoneyGridNo,
+		gGameUBOptions.H9MoneyEasy,
+		gGameUBOptions.H9MoneyMedium,
+		gGameUBOptions.H9MoneyHard};
+	content.firstTownMoney = {{
+		{gGameUBOptions.I10MoneyGridNo1,
+		 gGameUBOptions.I10MoneyEasy1,
+		 gGameUBOptions.I10MoneyMedium1,
+		 gGameUBOptions.I10MoneyHard1},
+		{gGameUBOptions.I10MoneyGridNo2,
+		 gGameUBOptions.I10MoneyEasy2,
+		 gGameUBOptions.I10MoneyMedium2,
+		 gGameUBOptions.I10MoneyHard2}
+	}};
+	content.fortifiedDoorGrid =
+		gGameUBOptions.SectorDoorInTunnelGridNo;
+	const std::uint32_t town2SecondSelfMoveGrid =
+		gGameUBOptions.SectorTownGridNo2a;
+	const std::uint32_t town3SelfMoveGrid =
+		gGameUBOptions.SectorTownGridNo3a;
+	content.town2RoofMoves = {{
+		{gGameUBOptions.SectorTownGridNo1a,
+		 gGameUBOptions.SectorTownGridNo1b},
+		{town2SecondSelfMoveGrid, town2SecondSelfMoveGrid}
+	}};
+	content.town3RoofMoves = {{
+		{town3SelfMoveGrid, town3SelfMoveGrid}
+	}};
+	return content;
+}
 
 void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level );
 

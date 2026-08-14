@@ -97,6 +97,8 @@
 #include "Explosion Control.h"
 #include "Auto Resolve.h"
 #include "Cursors.h"
+#include "CampaignStrategicSectorScriptContent.h"
+#include "CampaignStrategicSectorScriptPolicy.h"
 #include "GameContext.h"
 #include "CampaignProfileCodes.h"
 #include "GameVersion.h"
@@ -188,6 +190,15 @@ Ja2StrategicGroupReference gAdjacentGroup;
 bool IsUnfinishedBusinessCampaign()
 {
 	return GetGameContext().capabilities().isUnfinishedBusiness();
+}
+
+CampaignTacticalSector CurrentStrategicSector(
+	INT16 x, INT16 y, INT16 z)
+{
+	return {
+		static_cast<std::uint32_t>(x),
+		static_cast<std::uint32_t>(y),
+		static_cast<std::uint32_t>(z)};
 }
 }
 
@@ -361,7 +372,8 @@ void AddExitGridForFanToPowerGenSector( );
 void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ );
 //void MakeAllTeamMembersCrouchedThenStand();
 void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( );
-void HandleFortifiedDoor( );
+void HandleFortifiedDoor(
+	const CampaignStrategicSectorScriptContent& sectorScriptContent);
 void CreateAndAddMoneyObjectToGround( UINT32 sGridNo, INT32 iEasyAmount, INT32 iNormalAmount, INT32 iHardAmount );
 void HandleGoingUpOrDownStairsForLoadScreensPurposes( INT16 sCurrentlyInSectorZ, INT16 sGoingToSectorZ );
 void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( );
@@ -369,7 +381,9 @@ void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( );
 void HandleFirstPartOfTunnelFanSound( );
 void HandlePowerGenFanSoundModification( );
 BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridNo );
-void		HandleMovingEnemiesOntoRoofs( );
+void HandleMovingEnemiesOntoRoofs(
+	const CampaignStrategicSectorScriptPolicy& sectorScriptPolicy,
+	const CampaignStrategicSectorScriptContent& sectorScriptContent);
 
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ );
 void HandlePotentialMoraleHitForSkimmingSectors( GROUP *pGroup );
@@ -6769,10 +6783,15 @@ typedef struct
 
 void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
+	const CampaignStrategicSectorScriptContent sectorScriptContent =
+		ReadCampaignStrategicSectorScriptContent();
+	const auto playerQuoteSectors = sectorScriptContent.playerQuoteSectors();
 
 	UINT32		uiCnt;
 	UINT8		usNumValidMercs = 0;
@@ -6786,22 +6805,22 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 	ENTER_SECTOR_PLAYER_QUOTE	PlayerSectorDescQuote[ NUM_VALID_SECTORS ] = 
 	{
 	    //SEC_H9-0
-		{ SECTOR( gGameUBOptions.SectorGuardPostX, gGameUBOptions.SectorGuardPostY ),		(INT8)gGameUBOptions.SectorGuardPostZ,	QUOTE_HATED_1_ON_TEAM },
+		{ SECTOR( playerQuoteSectors[0].x, playerQuoteSectors[0].y ),		(INT8)playerQuoteSectors[0].z,	QUOTE_HATED_1_ON_TEAM },
 
 		//SEC_I9-0
-		{ SECTOR( gGameUBOptions.I9SectorPlayerQuoteX, gGameUBOptions.I9SectorPlayerQuoteY ),		(INT8)gGameUBOptions.I9SectorPlayerQuoteZ,	QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM },
+		{ SECTOR( playerQuoteSectors[1].x, playerQuoteSectors[1].y ),		(INT8)playerQuoteSectors[1].z,	QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM },
 
 		//SEC_H10-0
-		{ SECTOR( gGameUBOptions.H10SectorPlayerQuoteX, gGameUBOptions.H10SectorPlayerQuoteY ),	(INT8)gGameUBOptions.H10SectorPlayerQuoteZ,	QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM },
+		{ SECTOR( playerQuoteSectors[2].x, playerQuoteSectors[2].y ),	(INT8)playerQuoteSectors[2].z,	QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM },
 
 		//SEC_I10-0
-		{ SECTOR( gGameUBOptions.FristSectorTownX, gGameUBOptions.FristSectorTownY ),	(INT8)gGameUBOptions.FristSectorTownZ,	QUOTE_HATED_2_ON_TEAM },
+		{ SECTOR( playerQuoteSectors[3].x, playerQuoteSectors[3].y ),	(INT8)playerQuoteSectors[3].z,	QUOTE_HATED_2_ON_TEAM },
 
 		//SEC_J13-0
-		{ SECTOR( gGameUBOptions.SectorFanX, gGameUBOptions.SectorFanY ),	(INT8)gGameUBOptions.SectorFanZ,	QUOTE_ENTER_SECTOR_WITH_FAN_1 },
+		{ SECTOR( playerQuoteSectors[4].x, playerQuoteSectors[4].y ),	(INT8)playerQuoteSectors[4].z,	QUOTE_ENTER_SECTOR_WITH_FAN_1 },
 
 		//SEC_J14-1
-		{ SECTOR( gGameUBOptions.SectorGuardPostX, gGameUBOptions.SectorGuardPostY ),	(INT8)gGameUBOptions.ExitForFanToPowerGenSectorZ,	0 },
+		{ SECTOR( playerQuoteSectors[5].x, playerQuoteSectors[5].y ),	(INT8)playerQuoteSectors[5].z,	0 },
 	};
 
 	//loop through all the sectors that have the quotes
@@ -6828,7 +6847,9 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 
 					//Switch on the town ID
 					//I10
-					if ( iSectorID == SECTOR( gGameUBOptions.FristSectorTownX, gGameUBOptions.FristSectorTownY ) )
+					if ( iSectorID == SECTOR(
+						sectorScriptContent.firstTownSector.x,
+						sectorScriptContent.firstTownSector.y) )
 					{
 						UINT8	cnt;
 	
@@ -6839,9 +6860,11 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 						}
 					}
 					//J13
-					else if ( iSectorID == SECTOR( gGameUBOptions.SectorFanX, gGameUBOptions.SectorFanY ) )
+					else if ( iSectorID == SECTOR(
+						sectorScriptContent.fanSector.x,
+						sectorScriptContent.fanSector.y) )
 					{
-						if( PlayerSectorDescQuote[ uiCnt ].bSectorZ == gGameUBOptions.SectorFanZ )
+						if( PlayerSectorDescQuote[ uiCnt ].bSectorZ == sectorScriptContent.fanSector.z )
 						{
 							//See if Manuel is on the team
 							pSoldier = FindSoldierByProfileID( MANUEL_UB, TRUE );
@@ -6876,7 +6899,9 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 						}	
 					}
 					//J14
-					else if ( iSectorID == SECTOR( gGameUBOptions.ExitForFanToPowerGenSectorX, gGameUBOptions.ExitForFanToPowerGenSectorY ) )
+					else if ( iSectorID == SECTOR(
+						sectorScriptContent.firstTunnelSector.x,
+						sectorScriptContent.firstTunnelSector.y) )
 					{
 					  //first underground sector
 					  HandlePlayerQuotesWhenEnteringFirstTunnelSector();
@@ -6960,13 +6985,19 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 */
 					//if this sector is one of the fields before the town, only say the quote once for both sectors
 					//I9 or H10
-					if( ( iSectorID ==  SECTOR( gGameUBOptions.I9SectorPlayerQuoteX, gGameUBOptions.I9SectorPlayerQuoteY ) || iSectorID ==  SECTOR( gGameUBOptions.H10SectorPlayerQuoteX, gGameUBOptions.H10SectorPlayerQuoteY ) ) && sSectorZ == 0 )
+					if( ( iSectorID == SECTOR(
+							sectorScriptContent.i9QuoteSector.x,
+							sectorScriptContent.i9QuoteSector.y) ||
+						iSectorID == SECTOR(
+							sectorScriptContent.h10QuoteSector.x,
+							sectorScriptContent.h10QuoteSector.y) ) &&
+						sSectorZ == 0 )
 					{
 						//Remeber that we said the quote
 						//SetSectorFlag( 9, 9, 0, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );
 						//SetSectorFlag( 10, 8, 0, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );
-						SetSectorFlag( gGameUBOptions.I9SectorPlayerQuoteX, gGameUBOptions.I9SectorPlayerQuoteY, gGameUBOptions.I9SectorPlayerQuoteZ, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );
-						SetSectorFlag( gGameUBOptions.H10SectorPlayerQuoteX, gGameUBOptions.H10SectorPlayerQuoteY, gGameUBOptions.H10SectorPlayerQuoteZ, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );	
+						SetSectorFlag( sectorScriptContent.i9QuoteSector.x, sectorScriptContent.i9QuoteSector.y, sectorScriptContent.i9QuoteSector.z, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );
+						SetSectorFlag( sectorScriptContent.h10QuoteSector.x, sectorScriptContent.h10QuoteSector.y, sectorScriptContent.h10QuoteSector.z, SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR );
 					}
 
 					//default
@@ -6986,7 +7017,9 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 
 void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
@@ -7034,7 +7067,9 @@ void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 
 void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLaptopJustGotFixed )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
@@ -7046,19 +7081,25 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 	//
 
 	//if the laptop transmiter is not working yet
-	if ( gubQuest[QUEST_FIX_LAPTOP] != QUESTDONE && !fLaptopJustGotFixed && gGameUBOptions.LaptopQuestEnabled == TRUE )
+	if ( gubQuest[QUEST_FIX_LAPTOP] != QUESTDONE && !fLaptopJustGotFixed && IsLaptopQuestEnabled() )
 	{
 		//we will send these emails later
 		return;
 	}
+	const CampaignStrategicSectorScriptContent sectorScriptContent =
+		ReadCampaignStrategicSectorScriptContent();
+	const CampaignTacticalSector currentSector =
+		CurrentStrategicSector(sMapX, sMapY, bMapZ);
 
 	//if miguel is alive
 	if ( gubFact[FACT_PLAYER_IMPORTED_SAVE_MIGUEL_DEAD] == FALSE )
 	{
 		//if its either J11 or I12 ( or we just got the email back up and we have been to the sector
-		if( ( ( sMapY == gGameUBOptions.SectorTown2Y && sMapX == gGameUBOptions.SectorTown2X ) || ( sMapY == 9 && sMapX == 12 ) && bMapZ == 0 ) ||
+		if( ( sectorScriptPolicy.isConfiguredTownEmailSector(
+				sectorScriptContent, currentSector) ||
+			sectorScriptPolicy.isLegacyTownEmailFallbackSector(currentSector) ) ||
 			fLaptopJustGotFixed && 
-			( GetSectorFlagStatus( gGameUBOptions.SectorTown2X, gGameUBOptions.SectorTown2Y, gGameUBOptions.SectorTown2Z, SF_HAS_ENTERED_TACTICAL ) == TRUE || GetSectorFlagStatus( 12, 9, 0, SF_HAS_ENTERED_TACTICAL ) == TRUE ) )
+			( GetSectorFlagStatus( sectorScriptContent.town2Sector.x, sectorScriptContent.town2Sector.y, sectorScriptContent.town2Sector.z, SF_HAS_ENTERED_TACTICAL ) == TRUE || GetSectorFlagStatus( 12, 9, 0, SF_HAS_ENTERED_TACTICAL ) == TRUE ) )
 		{
 			//and we havent sent it before
 			if ( !(gJa25SaveStruct.ubEmailFromSectorFlag & SECTOR_EMAIL__J11_J12) )
@@ -7083,8 +7124,8 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 		}
 
 		//if its the power generator sector J13
-		if( sMapY == gGameUBOptions.SectorFanY && sMapX == gGameUBOptions.SectorFanX && bMapZ == gGameUBOptions.SectorFanZ ||
-			fLaptopJustGotFixed && GetSectorFlagStatus( gGameUBOptions.SectorFanX, gGameUBOptions.SectorFanY, gGameUBOptions.SectorFanZ, SF_HAS_ENTERED_TACTICAL ) == TRUE )
+		if( sectorScriptPolicy.isFanSector(sectorScriptContent, currentSector) ||
+			fLaptopJustGotFixed && GetSectorFlagStatus( sectorScriptContent.fanSector.x, sectorScriptContent.fanSector.y, sectorScriptContent.fanSector.z, SF_HAS_ENTERED_TACTICAL ) == TRUE )
 		{
 			//and we havent sent it before
 			if ( !(gJa25SaveStruct.ubEmailFromSectorFlag & SECTOR_EMAIL__POWER_GEN) )
@@ -7099,8 +7140,9 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 
 
 	//if its the tunnel sector J14-1
-	if( sMapY == gGameUBOptions.ExitForFanToPowerGenSectorY && sMapX == gGameUBOptions.ExitForFanToPowerGenSectorX && bMapZ == gGameUBOptions.ExitForFanToPowerGenSectorZ ||
-		fLaptopJustGotFixed && GetSectorFlagStatus( gGameUBOptions.ExitForFanToPowerGenSectorX, gGameUBOptions.ExitForFanToPowerGenSectorY, gGameUBOptions.ExitForFanToPowerGenSectorZ, SF_HAS_ENTERED_TACTICAL ) == TRUE	)
+	if( sectorScriptPolicy.isFirstTunnelSector(
+			sectorScriptContent, currentSector) ||
+		fLaptopJustGotFixed && GetSectorFlagStatus( sectorScriptContent.firstTunnelSector.x, sectorScriptContent.firstTunnelSector.y, sectorScriptContent.firstTunnelSector.z, SF_HAS_ENTERED_TACTICAL ) == TRUE	)
 	{
 		//and we havent sent it before
 		if ( !(gJa25SaveStruct.ubEmailFromSectorFlag & SECTOR_EMAIL__TUNNEL) )
@@ -7121,17 +7163,23 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 
 void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
+	const CampaignStrategicSectorScriptContent sectorScriptContent =
+		ReadCampaignStrategicSectorScriptContent();
+	const CampaignTacticalSector currentSector =
+		CurrentStrategicSector(sMapX, sMapY, bMapZ);
 
 	//if Manuel has never been added before
 	if ( !(gJa25SaveStruct.fNpcHasBeenAdded & SECTOR_ADDED_NPC__MANUEL) )
 	{
 		//if it is the right sector H10 or I9
-		if( ( sMapY == gGameUBOptions.H10SectorPlayerQuoteY && sMapX == gGameUBOptions.H10SectorPlayerQuoteX && bMapZ == gGameUBOptions.H10SectorPlayerQuoteZ ) ||
-				( sMapY == gGameUBOptions.I9SectorPlayerQuoteY && sMapX == gGameUBOptions.I9SectorPlayerQuoteX && bMapZ == gGameUBOptions.I9SectorPlayerQuoteZ ) )
+		if( sectorScriptPolicy.isManuelPlacementSector(
+				sectorScriptContent, currentSector) )
 		{
 			//Change his sector values to 
 			gMercProfiles[MANUEL_UB].sSectorX = sMapX;
@@ -7188,14 +7236,21 @@ void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
+	const CampaignStrategicSectorScriptContent sectorScriptContent =
+		ReadCampaignStrategicSectorScriptContent();
+	const CampaignTacticalSector currentSector =
+		CurrentStrategicSector(sMapX, sMapY, bMapZ);
 
-	//if this is the power gen map J13
-	if( sMapX == gGameUBOptions.SectorFanX && sMapY == gGameUBOptions.SectorFanY && bMapZ == gGameUBOptions.SectorFanZ )
+	switch ( sectorScriptPolicy.unloadAction(
+		sectorScriptContent, currentSector) )
 	{
+	case CampaignStrategicSectorScriptPolicy::UnloadAction::PowerGenerator:
 		switch ( gJa25SaveStruct.ubStateOfFanInPowerGenSector )
 		{
 		case PGF__RUNNING_NORMALLY:
@@ -7205,10 +7260,9 @@ void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 		//Remeber how the player got through
 		HandleHowPlayerGotThroughFan( );
-	}
-	//else if this is the 1st level of tunne;l J14-1
-	else	if( sMapX == gGameUBOptions.ExitForFanToPowerGenSectorX && sMapY == gGameUBOptions.ExitForFanToPowerGenSectorY && bMapZ == gGameUBOptions.ExitForFanToPowerGenSectorZ )
-	{
+		break;
+
+	case CampaignStrategicSectorScriptPolicy::UnloadAction::FirstTunnel:
 		switch ( gJa25SaveStruct.ubStateOfFanInPowerGenSector )
 		{
 		case PGF__RUNNING_NORMALLY:
@@ -7218,13 +7272,19 @@ void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			HandleRemovingPowerGenFanSound( );
 			break;
 		}
+		break;
+
+	case CampaignStrategicSectorScriptPolicy::UnloadAction::None:
+		break;
 	}
 }
 
 
 void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame )
 {
-	if ( !IsUnfinishedBusinessCampaign() )
+	const CampaignStrategicSectorScriptPolicy sectorScriptPolicy(
+		GetGameContext().capabilities());
+	if ( !sectorScriptPolicy.usesUnfinishedBusinessSectorScript() )
 	{
 		return;
 	}
@@ -7239,6 +7299,10 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 	}
 
 	SetTileAnimCounter( TILE_ANIM__NORMAL_SPEED );
+	const CampaignStrategicSectorScriptContent sectorScriptContent =
+		ReadCampaignStrategicSectorScriptContent();
+	const CampaignTacticalSector currentSector =
+		CurrentStrategicSector(sMapX, sMapY, bMapZ);
 
 	//if we are being called from LoadSavedGame()
 	if ( fLoadingSavedGame )
@@ -7247,32 +7311,35 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 		// only do certain modifications
 		//
 
-		//if this is the power gen map J13-0
-		if( sMapX == gGameUBOptions.SectorFanX && sMapY == gGameUBOptions.SectorFanY && bMapZ == gGameUBOptions.SectorFanZ )
+		switch ( sectorScriptPolicy.savedMapAction(
+			sectorScriptContent, currentSector) )
 		{
+		case CampaignStrategicSectorScriptPolicy::SavedMapAction::PowerGenerator:
 			HandlePowerGenFanSoundModification( );
-		}
-		else	if( sMapX == gGameUBOptions.ExitForFanToPowerGenSectorX && sMapY == gGameUBOptions.ExitForFanToPowerGenSectorY && bMapZ == gGameUBOptions.ExitForFanToPowerGenSectorZ ) //J14-1
-		{
-			HandleFirstPartOfTunnelFanSound( );
-		}
+			break;
 
-		//if this is the Final Sector of the complex L15-3
-		else if( sMapX == gGameUBOptions.SectorLaunchMisslesX && sMapY == gGameUBOptions.SectorLaunchMisslesY && bMapZ == gGameUBOptions.SectorLaunchMisslesZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::SavedMapAction::FirstTunnel:
+			HandleFirstPartOfTunnelFanSound( );
+			break;
+
+		case CampaignStrategicSectorScriptPolicy::SavedMapAction::MissileControl:
 			HandleOpenControlPanelToRevealSwitchInMorrisArea( );
+			break;
+
+		case CampaignStrategicSectorScriptPolicy::SavedMapAction::None:
+			break;
 		}
 	}
 	else
 	{
-		//if this is the first map H7
-		if( sMapX == gGameExternalOptions.ubDefaultArrivalSectorX && sMapY == gGameExternalOptions.ubDefaultArrivalSectorY && bMapZ == 0 )
+		const bool isDefaultArrivalSector =
+			sMapX == gGameExternalOptions.ubDefaultArrivalSectorX &&
+			sMapY == gGameExternalOptions.ubDefaultArrivalSectorY &&
+			bMapZ == 0;
+		switch ( sectorScriptPolicy.freshMapAction(
+			sectorScriptContent, currentSector, isDefaultArrivalSector) )
 		{
-		}
-
-		//if this is the guardpost H9
-		else if( sMapX == gGameUBOptions.SectorGuardPostX && sMapY == gGameUBOptions.SectorGuardPostY && bMapZ == gGameUBOptions.SectorGuardPostZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::GuardPostMoney:
 			//if we havent added the money to the sector before
 			if ( !IsJa25GeneralFlagSet( JA_GF__PICKED_UP_MONEY_IN_GUARD_POST ) )
 			{
@@ -7280,13 +7347,14 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 
 				// Add some money to the location
 				//CreateAndAddMoneyObjectToGround( 9026, 15000, 10000, 7000 );
-				  CreateAndAddMoneyObjectToGround( gGameUBOptions.H9MoneyGridNo, gGameUBOptions.H9MoneyEasy, gGameUBOptions.H9MoneyMedium, gGameUBOptions.H9MoneyHard);
+				const CampaignStrategicMoneyDrop& money =
+					sectorScriptContent.guardPostMoney;
+				CreateAndAddMoneyObjectToGround( money.grid,
+					money.easyAmount, money.mediumAmount, money.hardAmount );
 			}
-		}
+			break;
 
-		//if this is the First sector of the town I10
-		else if( sMapX == gGameUBOptions.FristSectorTownX && sMapY == gGameUBOptions.FristSectorTownY && bMapZ == gGameUBOptions.FristSectorTownX )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::FirstTownMoney:
 			//if we havent added the money to the sector before
 			if ( !IsJa25GeneralFlagSet( JA_GF__PICKED_UP_MONEY_IN_FIRST_TOWN ) )
 			{
@@ -7295,41 +7363,41 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 				// Add some money to the location
 				//CreateAndAddMoneyObjectToGround( 11894, 8000, 4000, 3000 );
 				//CreateAndAddMoneyObjectToGround( 7906,  12000, 6000, 5000 );
-				CreateAndAddMoneyObjectToGround( gGameUBOptions.I10MoneyGridNo1, gGameUBOptions.I10MoneyEasy1, gGameUBOptions.I10MoneyMedium1, gGameUBOptions.I10MoneyHard1 );
-				CreateAndAddMoneyObjectToGround( gGameUBOptions.I10MoneyGridNo2, gGameUBOptions.I10MoneyEasy2, gGameUBOptions.I10MoneyMedium2, gGameUBOptions.I10MoneyHard2 );
+				const CampaignStrategicMoneyDrop& firstMoney =
+					sectorScriptContent.firstTownMoney[0];
+				CreateAndAddMoneyObjectToGround( firstMoney.grid,
+					firstMoney.easyAmount, firstMoney.mediumAmount,
+					firstMoney.hardAmount );
+				const CampaignStrategicMoneyDrop& secondMoney =
+					sectorScriptContent.firstTownMoney[1];
+				CreateAndAddMoneyObjectToGround( secondMoney.grid,
+					secondMoney.easyAmount, secondMoney.mediumAmount,
+					secondMoney.hardAmount );
 				
 			}
-		}
+			break;
 
-		//if this is the power gen map J13
-		else if( sMapX == gGameUBOptions.SectorFanX && sMapY == gGameUBOptions.SectorFanY && bMapZ == gGameUBOptions.SectorFanZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::PowerGenerator:
 			HandlePowerGenFanSoundModification( );
-		}
+			break;
 
-		//else if this is the 1st part of tunnel J14-1
-		else	if( sMapX == gGameUBOptions.ExitForFanToPowerGenSectorX && sMapY == gGameUBOptions.ExitForFanToPowerGenSectorY && bMapZ == gGameUBOptions.ExitForFanToPowerGenSectorZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::FirstTunnel:
 			HandleFirstPartOfTunnelFanSound( );
 
 			if ( IsJa25GeneralFlagSet( JA_GF__MOVE_ENEMIES_TO_EDGE_IN_TUNNEL_1 ) )
 			{
 				HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( );
 			}
-		}
+			break;
 
-		//else if this is the 2nd part of tunnel K14-1
-		else	if( sMapX == gGameUBOptions.SectorOpenGateInTunnelX && sMapY == gGameUBOptions.SectorOpenGateInTunnelY && bMapZ == gGameUBOptions.SectorOpenGateInTunnelZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::GateTunnel:
 			if ( IsJa25GeneralFlagSet( JA_GF__MOVE_ENEMIES_TO_EDGE_IN_TUNNEL_1 ) )
 			{
 				HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( );
 			}
-		}
+			break;
 
-		//else if this is the 1st level in the complex K15-1
-		else	if( sMapX == gGameUBOptions.SectorDoorInTunnelX && sMapY == gGameUBOptions.SectorDoorInTunnelY && bMapZ == gGameUBOptions.SectorDoorInTunnelZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::FortifiedDoor:
 			//Make all the team members look like they dropped from a high place
 			//		MakeAllTeamMembersCrouchedThenStand();
 
@@ -7337,13 +7405,16 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 			//HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap(); //is Disabled. The problem of moving from K14_1 to K15_1.
 
 			//if the big door should be opened
-			HandleFortifiedDoor( );
-		}
+			HandleFortifiedDoor( sectorScriptContent );
+			break;
 
-		//if this is the Final Sector of the complex L15-3
-		else if( sMapX == gGameUBOptions.SectorLaunchMisslesX && sMapY == gGameUBOptions.SectorLaunchMisslesY && bMapZ == gGameUBOptions.SectorLaunchMisslesZ )
-		{
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::MissileControl:
 			HandleOpenControlPanelToRevealSwitchInMorrisArea( );
+			break;
+
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::DefaultArrival:
+		case CampaignStrategicSectorScriptPolicy::FreshMapAction::None:
+			break;
 		}
 
 
@@ -7358,7 +7429,8 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 
 		//if this is a sector we feel can be made harder for players ( on hard difficulty levels ), then move some
 		//enemies onto roofs.
-		HandleMovingEnemiesOntoRoofs( );
+		HandleMovingEnemiesOntoRoofs(
+			sectorScriptPolicy, sectorScriptContent );
 	}
 }
 /*
@@ -7460,12 +7532,14 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 	}
 }
 
-void HandleFortifiedDoor( )
+void HandleFortifiedDoor(
+	const CampaignStrategicSectorScriptContent& sectorScriptContent)
 {
 	//if the fortified door should be open
 	if ( gJa25SaveStruct.ubStatusOfFortifiedDoor == FD__OPEN )
 	{
-		ModifyDoorStatus( gGameUBOptions.SectorDoorInTunnelGridNo, TRUE, DONTSETDOORSTATUS ); //11419
+		ModifyDoorStatus( sectorScriptContent.fortifiedDoorGrid,
+			TRUE, DONTSETDOORSTATUS ); //11419
 	}
 }
 
@@ -7653,50 +7727,69 @@ void HandleFirstPartOfTunnelFanSound( )
 	}
 }
 
-void HandleMovingEnemiesOntoRoofs( )
+void HandleMovingEnemiesOntoRoofs(
+	const CampaignStrategicSectorScriptPolicy& sectorScriptPolicy,
+	const CampaignStrategicSectorScriptContent& sectorScriptContent)
 {
 	if ( gWorldSectorX <= 0 || gWorldSectorY <= 0 || gbWorldSectorZ < 0 )
 	{
 		return;
 	}
+	const CampaignTacticalSector currentSector = CurrentStrategicSector(
+		gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
 
-	//if this is the sector south of the town J11
-	if( gWorldSectorX == gGameUBOptions.SectorTown2X && gWorldSectorY ==gGameUBOptions.SectorTown2Y && gbWorldSectorZ == gGameUBOptions.SectorTown2Z )
+	switch ( sectorScriptPolicy.roofAction(
+		sectorScriptContent, currentSector) )
 	{
+	case CampaignStrategicSectorScriptPolicy::RoofAction::Town2:
 		switch ( gGameOptions.ubDifficultyLevel )
 		{
 		case DIF_LEVEL_EASY:
 		case DIF_LEVEL_MEDIUM:
 			break;
 		case DIF_LEVEL_HARD:
-				//MoveEnemyFromGridNoToRoofGridNo( 15446, 13993 );
-				//MoveEnemyFromGridNoToRoofGridNo( 15436, 14006 );
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo1a, gGameUBOptions.SectorTownGridNo1b );
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo2a, gGameUBOptions.SectorTownGridNo2a );
+			//MoveEnemyFromGridNoToRoofGridNo( 15446, 13993 );
+			//MoveEnemyFromGridNoToRoofGridNo( 15436, 14006 );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town2RoofMoves[0].sourceGrid,
+				sectorScriptContent.town2RoofMoves[0].destinationGrid );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town2RoofMoves[1].sourceGrid,
+				sectorScriptContent.town2RoofMoves[1].destinationGrid );
 			break;
 		default:
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo1a, gGameUBOptions.SectorTownGridNo1b );
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo2a, gGameUBOptions.SectorTownGridNo2a );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town2RoofMoves[0].sourceGrid,
+				sectorScriptContent.town2RoofMoves[0].destinationGrid );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town2RoofMoves[1].sourceGrid,
+				sectorScriptContent.town2RoofMoves[1].destinationGrid );
 			break;
 		}
-	}
+		break;
 
-	//else if this is the sector south of the town H11
-	else if( gWorldSectorX == gGameUBOptions.SectorTown3X && gWorldSectorY == gGameUBOptions.SectorTown3Y && gbWorldSectorZ == gGameUBOptions.SectorTown3Z )
-	{
+	case CampaignStrategicSectorScriptPolicy::RoofAction::Town3:
 		switch ( gGameOptions.ubDifficultyLevel )
 		{
 		case DIF_LEVEL_EASY:
 		case DIF_LEVEL_MEDIUM:
 			break;
 		case DIF_LEVEL_HARD:
-				//MoveEnemyFromGridNoToRoofGridNo( 8711, 5521 );
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo3a, gGameUBOptions.SectorTownGridNo3a );
+			//MoveEnemyFromGridNoToRoofGridNo( 8711, 5521 );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town3RoofMoves[0].sourceGrid,
+				sectorScriptContent.town3RoofMoves[0].destinationGrid );
 			break;
 		default:
-				MoveEnemyFromGridNoToRoofGridNo( gGameUBOptions.SectorTownGridNo3a, gGameUBOptions.SectorTownGridNo3a );
+			MoveEnemyFromGridNoToRoofGridNo(
+				sectorScriptContent.town3RoofMoves[0].sourceGrid,
+				sectorScriptContent.town3RoofMoves[0].destinationGrid );
 			break;
 		}
+		break;
+
+	case CampaignStrategicSectorScriptPolicy::RoofAction::None:
+		break;
 	}
 }
 

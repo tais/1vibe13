@@ -1303,6 +1303,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptContent.h"
+  "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioContent.h"
   "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
@@ -2416,6 +2418,531 @@ foreach(required_campaign_tactical_scenario_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# The contiguous UB sector-script island in strategicmap.cpp now receives one
+# fresh immutable value snapshot per consuming invocation. Its live laptop
+# switch remains behind the original quest/fixed-state short circuit, while
+# application effects and all deliberate legacy coordinate oddities stay put.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptContent.h"
+  runtime_campaign_strategic_sector_content_contents)
+foreach(required_campaign_strategic_sector_content_fragment IN ITEMS
+    "struct CampaignStrategicMoneyDrop"
+    "struct CampaignStrategicGridMove"
+    "struct CampaignStrategicSectorScriptContent"
+    "CampaignTacticalSector fanSector"
+    "CampaignTacticalSector missileLaunchSector"
+    "CampaignTacticalSector fortifiedDoorSector"
+    "CampaignTacticalSector firstTunnelSector"
+    "CampaignTacticalSector gateTunnelSector"
+    "CampaignTacticalSector guardPostSector"
+    "CampaignTacticalSector firstTownSector"
+    "CampaignTacticalSector town2Sector"
+    "CampaignTacticalSector town3Sector"
+    "CampaignTacticalSector i9QuoteSector"
+    "CampaignTacticalSector h10QuoteSector"
+    "std::array<CampaignStrategicMoneyDrop, 2> firstTownMoney"
+    "std::array<CampaignStrategicGridMove, 2> town2RoofMoves"
+    "std::array<CampaignStrategicGridMove, 1> town3RoofMoves"
+    "playerQuoteSectors() const noexcept"
+    "legacyTownEmailFallbackSector() noexcept"
+    "return {12, 9, 0}"
+    "ReadCampaignStrategicSectorScriptContent")
+  string(FIND "${runtime_campaign_strategic_sector_content_contents}"
+    "${required_campaign_strategic_sector_content_fragment}"
+    required_campaign_strategic_sector_content_position)
+  if(required_campaign_strategic_sector_content_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic sector content lost '${required_campaign_strategic_sector_content_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_strategic_sector_content_contents MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h|GameContext[.]h|GetGameContext")
+  message(FATAL_ERROR
+    "Typed strategic sector content exposed an application or legacy-option dependency")
+endif()
+extract_bounded_slice(runtime_campaign_strategic_sector_content_contents
+  "struct CampaignStrategicSectorScriptContent"
+  "CampaignStrategicSectorScriptContent\nReadCampaignStrategicSectorScriptContent()"
+  runtime_campaign_strategic_sector_content_value_contents
+  "Cannot locate the typed strategic sector-script value")
+require_ordered_fragments(runtime_campaign_strategic_sector_content_value_contents
+  "Strategic sector-script content field order changed"
+  "CampaignTacticalSector fanSector"
+  "CampaignTacticalSector missileLaunchSector"
+  "CampaignTacticalSector fortifiedDoorSector"
+  "CampaignTacticalSector firstTunnelSector"
+  "CampaignTacticalSector gateTunnelSector"
+  "CampaignTacticalSector guardPostSector"
+  "CampaignTacticalSector firstTownSector"
+  "CampaignTacticalSector town2Sector"
+  "CampaignTacticalSector town3Sector"
+  "CampaignTacticalSector i9QuoteSector"
+  "CampaignTacticalSector h10QuoteSector"
+  "CampaignStrategicMoneyDrop guardPostMoney"
+  "std::array<CampaignStrategicMoneyDrop, 2> firstTownMoney"
+  "std::uint32_t fortifiedDoorGrid"
+  "std::array<CampaignStrategicGridMove, 2> town2RoofMoves"
+  "std::array<CampaignStrategicGridMove, 1> town3RoofMoves"
+  "guardPostSector,"
+  "i9QuoteSector,"
+  "h10QuoteSector,"
+  "firstTownSector,"
+  "fanSector,"
+  "{guardPostSector.x, guardPostSector.y, firstTunnelSector.z}")
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptPolicy.h"
+  runtime_campaign_strategic_sector_policy_contents)
+foreach(required_campaign_strategic_sector_policy_fragment IN ITEMS
+    "class CampaignStrategicSectorScriptPolicy"
+    "enum class UnloadAction"
+    "enum class SavedMapAction"
+    "enum class FreshMapAction"
+    "enum class RoofAction"
+    "usesUnfinishedBusinessSectorScript"
+    "isConfiguredTownEmailSector"
+    "isLegacyTownEmailFallbackSector"
+    "isManuelPlacementSector"
+    "unloadAction"
+    "savedMapAction"
+    "freshMapAction"
+    "roofAction"
+    "sector.z == content.firstTownSector.x"
+    "private:\n\tstatic constexpr bool sameSurfaceCoordinates"
+    "GameCampaign campaign_;")
+  string(FIND "${runtime_campaign_strategic_sector_policy_contents}"
+    "${required_campaign_strategic_sector_policy_fragment}"
+    required_campaign_strategic_sector_policy_position)
+  if(required_campaign_strategic_sector_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic sector policy lost '${required_campaign_strategic_sector_policy_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_strategic_sector_policy_contents MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h|GameContext[.]h|GetGameContext|ReadCampaignStrategic|gWorldSector|gJa25SaveStruct|gubQuest|AddEmail|DelayedMercQuote|CreateAndAddMoneyObjectToGround|MoveEnemyFromGridNoToRoofGridNo")
+  message(FATAL_ERROR
+    "Campaign strategic sector policy regained an application read or effect dependency")
+endif()
+
+string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+  "CampaignStrategicSectorScriptContent\nReadCampaignStrategicSectorScriptContent()"
+  runtime_campaign_strategic_sector_adapter_start)
+string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+  "void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level );"
+  runtime_campaign_strategic_sector_adapter_end)
+if(runtime_campaign_strategic_sector_adapter_start EQUAL -1 OR
+    runtime_campaign_strategic_sector_adapter_end EQUAL -1 OR
+    NOT runtime_campaign_strategic_sector_adapter_start LESS
+      runtime_campaign_strategic_sector_adapter_end)
+  message(FATAL_ERROR
+    "Cannot locate the bounded strategic sector-script content adapter")
+endif()
+math(EXPR runtime_campaign_strategic_sector_adapter_length
+  "${runtime_campaign_strategic_sector_adapter_end} - ${runtime_campaign_strategic_sector_adapter_start}")
+string(SUBSTRING "${runtime_campaign_tactical_scenario_adapter_contents}"
+  ${runtime_campaign_strategic_sector_adapter_start}
+  ${runtime_campaign_strategic_sector_adapter_length}
+  runtime_campaign_strategic_sector_adapter_contents)
+strip_cxx_comments(runtime_campaign_strategic_sector_adapter_contents
+  runtime_campaign_strategic_sector_adapter_executable)
+if(runtime_campaign_strategic_sector_adapter_executable MATCHES
+    "(^|[ 	\r\n])static[ 	\r\n]" OR
+    runtime_campaign_strategic_sector_adapter_executable MATCHES
+    "LaptopQuestEnabled|SectorFan[XYZ]|SectorLaunchMissles[XYZ]|SectorDoorInTunnel[XYZ][^A-Za-z0-9_]")
+  message(FATAL_ERROR
+    "Strategic sector-script content must be fresh, exclude the live laptop option, and reuse tactical coordinates")
+endif()
+string(REGEX MATCHALL "ReadCampaignTacticalScenarioContent[(][)]"
+  runtime_campaign_strategic_sector_reuse_matches
+  "${runtime_campaign_strategic_sector_adapter_executable}")
+list(LENGTH runtime_campaign_strategic_sector_reuse_matches
+  runtime_campaign_strategic_sector_reuse_count)
+if(NOT runtime_campaign_strategic_sector_reuse_count EQUAL 1)
+  message(FATAL_ERROR
+    "Strategic sector content must reuse exactly one fresh tactical-scenario projection")
+endif()
+set(runtime_campaign_strategic_sector_adapter_fields
+  ExitForFanToPowerGenSectorX ExitForFanToPowerGenSectorY
+  ExitForFanToPowerGenSectorZ SectorOpenGateInTunnelX
+  SectorOpenGateInTunnelY SectorOpenGateInTunnelZ
+  SectorGuardPostX SectorGuardPostY SectorGuardPostZ
+  FristSectorTownX FristSectorTownY FristSectorTownZ
+  SectorTown2X SectorTown2Y SectorTown2Z
+  SectorTown3X SectorTown3Y SectorTown3Z
+  I9SectorPlayerQuoteX I9SectorPlayerQuoteY I9SectorPlayerQuoteZ
+  H10SectorPlayerQuoteX H10SectorPlayerQuoteY H10SectorPlayerQuoteZ
+  H9MoneyGridNo H9MoneyEasy H9MoneyMedium H9MoneyHard
+  I10MoneyGridNo1 I10MoneyEasy1 I10MoneyMedium1 I10MoneyHard1
+  I10MoneyGridNo2 I10MoneyEasy2 I10MoneyMedium2 I10MoneyHard2
+  SectorDoorInTunnelGridNo SectorTownGridNo2a SectorTownGridNo3a
+  SectorTownGridNo1a SectorTownGridNo1b)
+foreach(runtime_campaign_strategic_sector_adapter_field IN LISTS
+    runtime_campaign_strategic_sector_adapter_fields)
+  string(REGEX MATCHALL
+    "gGameUBOptions[.]${runtime_campaign_strategic_sector_adapter_field}"
+    runtime_campaign_strategic_sector_adapter_field_matches
+    "${runtime_campaign_strategic_sector_adapter_executable}")
+  list(LENGTH runtime_campaign_strategic_sector_adapter_field_matches
+    runtime_campaign_strategic_sector_adapter_field_count)
+  if(NOT runtime_campaign_strategic_sector_adapter_field_count EQUAL 1)
+    message(FATAL_ERROR
+      "Strategic sector snapshot must project '${runtime_campaign_strategic_sector_adapter_field}' exactly once")
+  endif()
+endforeach()
+string(REGEX MATCHALL "gGameUBOptions[.]"
+  runtime_campaign_strategic_sector_adapter_option_matches
+  "${runtime_campaign_strategic_sector_adapter_executable}")
+list(LENGTH runtime_campaign_strategic_sector_adapter_option_matches
+  runtime_campaign_strategic_sector_adapter_option_count)
+if(NOT runtime_campaign_strategic_sector_adapter_option_count EQUAL 41)
+  message(FATAL_ERROR
+    "Strategic sector snapshot must contain exactly its 41 direct option projections")
+endif()
+require_ordered_fragments(runtime_campaign_strategic_sector_adapter_executable
+  "Strategic sector snapshot projection or alias order changed"
+  "ReadCampaignTacticalScenarioContent()"
+  "content.fanSector = tacticalScenario.fanSector"
+  "content.missileLaunchSector = tacticalScenario.missileLaunchSector"
+  "content.fortifiedDoorSector = tacticalScenario.fortifiedDoorSector"
+  "gGameUBOptions.ExitForFanToPowerGenSectorX"
+  "gGameUBOptions.SectorOpenGateInTunnelX"
+  "gGameUBOptions.SectorGuardPostX"
+  "gGameUBOptions.FristSectorTownX"
+  "gGameUBOptions.SectorTown2X"
+  "gGameUBOptions.SectorTown3X"
+  "gGameUBOptions.I9SectorPlayerQuoteX"
+  "gGameUBOptions.H10SectorPlayerQuoteX"
+  "gGameUBOptions.H9MoneyGridNo"
+  "gGameUBOptions.I10MoneyGridNo1"
+  "gGameUBOptions.I10MoneyGridNo2"
+  "gGameUBOptions.SectorDoorInTunnelGridNo"
+  "gGameUBOptions.SectorTownGridNo2a"
+  "gGameUBOptions.SectorTownGridNo3a"
+  "gGameUBOptions.SectorTownGridNo1a"
+  "gGameUBOptions.SectorTownGridNo1b"
+  "{town2SecondSelfMoveGrid, town2SecondSelfMoveGrid}"
+  "{town3SelfMoveGrid, town3SelfMoveGrid}"
+  "return content")
+
+file(READ "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  runtime_campaign_strategic_sector_source_contents)
+strip_cxx_comments(runtime_campaign_strategic_sector_source_contents
+  runtime_campaign_strategic_sector_source_executable)
+string(REGEX MATCHALL "IsUnfinishedBusinessCampaign[(][ 	]*[)]"
+  runtime_campaign_strategic_sector_remaining_wrapper_matches
+  "${runtime_campaign_strategic_sector_source_executable}")
+list(LENGTH runtime_campaign_strategic_sector_remaining_wrapper_matches
+  runtime_campaign_strategic_sector_remaining_wrapper_count)
+string(REGEX MATCHALL "gGameUBOptions[.]"
+  runtime_campaign_strategic_sector_remaining_option_matches
+  "${runtime_campaign_strategic_sector_source_executable}")
+list(LENGTH runtime_campaign_strategic_sector_remaining_option_matches
+  runtime_campaign_strategic_sector_remaining_option_count)
+if(NOT runtime_campaign_strategic_sector_remaining_wrapper_count EQUAL 21 OR
+    NOT runtime_campaign_strategic_sector_remaining_option_count EQUAL 4)
+  message(FATAL_ERROR
+    "strategicmap.cpp must retain one wrapper definition plus 20 unrelated calls and four unrelated option reads")
+endif()
+extract_bounded_slice(runtime_campaign_strategic_sector_source_executable
+  "void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )\n{"
+  "BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridNo )\n{"
+  runtime_campaign_strategic_sector_block_contents
+  "Cannot locate the complete strategic sector-script block")
+if(runtime_campaign_strategic_sector_block_contents MATCHES
+    "gGameUBOptions|IsUnfinishedBusinessCampaign[(]|#[ 	]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB")
+  message(FATAL_ERROR
+    "Strategic sector-script block regained raw UB options or campaign identity")
+endif()
+foreach(required_campaign_strategic_sector_source_fragment IN ITEMS
+    "#include \"CampaignStrategicSectorScriptContent.h\""
+    "#include \"CampaignStrategicSectorScriptPolicy.h\""
+    "CurrentStrategicSector("
+    "ReadCampaignStrategicSectorScriptContent()"
+    "IsLaptopQuestEnabled()")
+  string(FIND "${runtime_campaign_strategic_sector_source_contents}"
+    "${required_campaign_strategic_sector_source_fragment}"
+    required_campaign_strategic_sector_source_position)
+  if(required_campaign_strategic_sector_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic sector routing lost '${required_campaign_strategic_sector_source_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "CampaignStrategicSectorScriptPolicy[ 	\r\n]+sectorScriptPolicy[(]"
+  runtime_campaign_strategic_sector_policy_resolution_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_policy_resolution_matches
+  runtime_campaign_strategic_sector_policy_resolution_count)
+string(REGEX MATCHALL "usesUnfinishedBusinessSectorScript[(][)]"
+  runtime_campaign_strategic_sector_gate_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_gate_matches
+  runtime_campaign_strategic_sector_gate_count)
+string(REGEX MATCHALL "ReadCampaignStrategicSectorScriptContent[(][)]"
+  runtime_campaign_strategic_sector_snapshot_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_snapshot_matches
+  runtime_campaign_strategic_sector_snapshot_count)
+if(NOT runtime_campaign_strategic_sector_policy_resolution_count EQUAL 6 OR
+    NOT runtime_campaign_strategic_sector_gate_count EQUAL 6 OR
+    NOT runtime_campaign_strategic_sector_snapshot_count EQUAL 5)
+  message(FATAL_ERROR
+    "Strategic sector block must retain six policy gates and five fresh value snapshots")
+endif()
+string(REGEX MATCHALL "IsLaptopQuestEnabled[(][)]"
+  runtime_campaign_strategic_sector_laptop_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_laptop_matches
+  runtime_campaign_strategic_sector_laptop_count)
+string(REGEX MATCHALL "GetWorldTotalSeconds[(][ 	]*[)]"
+  runtime_campaign_strategic_sector_seconds_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_seconds_matches
+  runtime_campaign_strategic_sector_seconds_count)
+string(REGEX MATCHALL "GetWorldTotalMin[(][ 	]*[)]"
+  runtime_campaign_strategic_sector_minutes_matches
+  "${runtime_campaign_strategic_sector_block_contents}")
+list(LENGTH runtime_campaign_strategic_sector_minutes_matches
+  runtime_campaign_strategic_sector_minutes_count)
+if(NOT runtime_campaign_strategic_sector_laptop_count EQUAL 1 OR
+    NOT runtime_campaign_strategic_sector_seconds_count EQUAL 7 OR
+    NOT runtime_campaign_strategic_sector_minutes_count EQUAL 4)
+  message(FATAL_ERROR
+    "Strategic sector script changed its live laptop or repeated dialogue/email clock reads")
+endif()
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )\n{"
+  "void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )"
+  runtime_campaign_strategic_sector_quote_contents
+  "Cannot locate strategic player-entry quote routing")
+require_ordered_fragments(runtime_campaign_strategic_sector_quote_contents
+  "Strategic entry quotes lost their table, speaker, or flag order"
+  "usesUnfinishedBusinessSectorScript()"
+  "ReadCampaignStrategicSectorScriptContent()"
+  "playerQuoteSectors[0].x"
+  "playerQuoteSectors[1].x"
+  "playerQuoteSectors[2].x"
+  "playerQuoteSectors[3].x"
+  "playerQuoteSectors[4].x"
+  "playerQuoteSectors[5].x"
+  "sectorScriptContent.firstTownSector.x"
+  "DelayedMercQuote( ubValidMercProfileIDArray[ cnt ]"
+  "sectorScriptContent.fanSector.x"
+  "FindSoldierByProfileID( MANUEL_UB, TRUE )"
+  "DelayedMercQuote( MANUEL_UB"
+  "QUOTE_ENTER_SECTOR_WITH_FAN_2"
+  "FindSoldierByProfileID( BIGGENS_UB, TRUE )"
+  "DelayedMercQuote( BIGGENS_UB"
+  "JA_GF__BIGGENS_SAID_QUOTE_117"
+  "FACT_PLAYER_KNOWS_ABOUT_FAN_STOPPING"
+  "sectorScriptContent.firstTunnelSector.x"
+  "HandlePlayerQuotesWhenEnteringFirstTunnelSector()"
+  "RandomProfileIdFromNewMercsOnPlayerTeam()"
+  "sectorScriptContent.i9QuoteSector.x"
+  "sectorScriptContent.h10QuoteSector.x"
+  "sSectorZ == 0"
+  "SetSectorFlag( sectorScriptContent.i9QuoteSector.x"
+  "SetSectorFlag( sectorScriptContent.h10QuoteSector.x"
+  "SetSectorFlag( sSectorX")
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )\n{"
+  "void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )"
+  runtime_campaign_strategic_sector_npc_contents
+  "Cannot locate strategic sector NPC placement")
+require_ordered_fragments(runtime_campaign_strategic_sector_npc_contents
+  "Strategic sector NPC placement order changed"
+  "usesUnfinishedBusinessSectorScript()"
+  "ReadCampaignStrategicSectorScriptContent()"
+  "isManuelPlacementSector("
+  "gMercProfiles[MANUEL_UB].sSectorX"
+  "SECTOR_ADDED_NPC__MANUEL"
+  "FACT_TEX_IS_IN_GAME_AND_ALIVE_IN_STORE"
+  "gMercProfiles[TEX_UB].sSectorX"
+  "SECTOR_ADDED_NPC__TEX"
+  "gJa25SaveStruct.ubJohnKulbaInitialSectorX"
+  "gMercProfiles[JOHN_K_UB].sSectorX"
+  "SECTOR_ADDED_NPC__JOHN_K")
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLaptopJustGotFixed )\n{"
+  "void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )"
+  runtime_campaign_strategic_sector_email_contents
+  "Cannot locate strategic sector email routing")
+require_ordered_fragments(runtime_campaign_strategic_sector_email_contents
+  "Strategic sector email routing lost its campaign/live-option/effect order"
+  "usesUnfinishedBusinessSectorScript()"
+  "gubQuest[QUEST_FIX_LAPTOP] != QUESTDONE"
+  "!fLaptopJustGotFixed"
+  "IsLaptopQuestEnabled()"
+  "ReadCampaignStrategicSectorScriptContent()"
+  "gubFact[FACT_PLAYER_IMPORTED_SAVE_MIGUEL_DEAD]"
+  "isConfiguredTownEmailSector("
+  "isLegacyTownEmailFallbackSector(currentSector)"
+  "GetSectorFlagStatus( sectorScriptContent.town2Sector.x"
+  "GetSectorFlagStatus( 12, 9, 0"
+  "FindSoldierByProfileID( MANUEL_UB, TRUE )"
+  "JA25_EMAIL_MIGUEL_SORRY"
+  "JA25_EMAIL_MIGUEL_MANUEL"
+  "SECTOR_EMAIL__J11_J12"
+  "isFanSector(sectorScriptContent, currentSector)"
+  "JA25_EMAIL_MIGUEL_SICK"
+  "SECTOR_EMAIL__POWER_GEN"
+  "isFirstTunnelSector("
+  "JERRY_MILO_UB"
+  "JA25_EMAIL_PILOT_FOUND"
+  "SECTOR_EMAIL__TUNNEL")
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )\n{"
+  "void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame )"
+  runtime_campaign_strategic_sector_unload_contents
+  "Cannot locate strategic sector unload routing")
+require_ordered_fragments(runtime_campaign_strategic_sector_unload_contents
+  "Strategic sector unload action order changed"
+  "usesUnfinishedBusinessSectorScript()"
+  "ReadCampaignStrategicSectorScriptContent()"
+  "UnloadAction::PowerGenerator"
+  "HandleRemovingPowerGenFanSound( )"
+  "HandleHowPlayerGotThroughFan( )"
+  "UnloadAction::FirstTunnel"
+  "HandleRemovingPowerGenFanSound( )"
+  "UnloadAction::None")
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame )\n{"
+  "void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )"
+  runtime_campaign_strategic_sector_modification_contents
+  "Cannot locate strategic sector map-modification routing")
+require_ordered_fragments(runtime_campaign_strategic_sector_modification_contents
+  "Strategic sector load/map action order changed"
+  "usesUnfinishedBusinessSectorScript()"
+  "LOADING_SAVED_GAME"
+  "SetTileAnimCounter( TILE_ANIM__NORMAL_SPEED )"
+  "ReadCampaignStrategicSectorScriptContent()"
+  "if ( fLoadingSavedGame )"
+  "SavedMapAction::PowerGenerator"
+  "HandlePowerGenFanSoundModification( )"
+  "SavedMapAction::FirstTunnel"
+  "HandleFirstPartOfTunnelFanSound( )"
+  "SavedMapAction::MissileControl"
+  "HandleOpenControlPanelToRevealSwitchInMorrisArea( )"
+  "isDefaultArrivalSector"
+  "FreshMapAction::GuardPostMoney"
+  "JA_GF__PICKED_UP_MONEY_IN_GUARD_POST"
+  "sectorScriptContent.guardPostMoney"
+  "FreshMapAction::FirstTownMoney"
+  "JA_GF__PICKED_UP_MONEY_IN_FIRST_TOWN"
+  "sectorScriptContent.firstTownMoney[0]"
+  "CreateAndAddMoneyObjectToGround( firstMoney.grid"
+  "sectorScriptContent.firstTownMoney[1]"
+  "CreateAndAddMoneyObjectToGround( secondMoney.grid"
+  "FreshMapAction::PowerGenerator"
+  "FreshMapAction::FirstTunnel"
+  "FreshMapAction::GateTunnel"
+  "FreshMapAction::FortifiedDoor"
+  "HandleFortifiedDoor( sectorScriptContent )"
+  "FreshMapAction::MissileControl"
+  "GetSectorEnemyIsToImmediatelySeekEnemyIn( )"
+  "SetEnemiesToFindThePlayerMercs( )"
+  "HandleMovingEnemiesOntoRoofs(")
+
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void HandleFortifiedDoor("
+  "void CreateAndAddMoneyObjectToGround("
+  runtime_campaign_strategic_sector_door_contents
+  "Cannot locate strategic fortified-door application")
+require_ordered_fragments(runtime_campaign_strategic_sector_door_contents
+  "Fortified-door effect lost its typed grid and save-state order"
+  "gJa25SaveStruct.ubStatusOfFortifiedDoor == FD__OPEN"
+  "sectorScriptContent.fortifiedDoorGrid"
+  "TRUE, DONTSETDOORSTATUS")
+extract_bounded_slice(runtime_campaign_strategic_sector_block_contents
+  "void CreateAndAddMoneyObjectToGround("
+  "void HandleGoingUpOrDownStairsForLoadScreensPurposes("
+  runtime_campaign_strategic_sector_money_contents
+  "Cannot locate strategic money-drop application")
+require_ordered_fragments(runtime_campaign_strategic_sector_money_contents
+  "Money selection, creation, and drop order changed"
+  "case DIF_LEVEL_EASY:"
+  "iCash = iEasyAmount"
+  "case DIF_LEVEL_MEDIUM:"
+  "iCash = iNormalAmount"
+  "case DIF_LEVEL_HARD:"
+  "iCash = iHardAmount"
+  "default:"
+  "iCash = iNormalAmount"
+  "CreateMoney( iCash, &Object )"
+  "AddItemToPool( sGridNo, &Object")
+extract_bounded_slice(runtime_campaign_strategic_sector_source_executable
+  "void HandleMovingEnemiesOntoRoofs(\n\tconst CampaignStrategicSectorScriptPolicy& sectorScriptPolicy,\n\tconst CampaignStrategicSectorScriptContent& sectorScriptContent)\n{"
+  "BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridNo )\n{"
+  runtime_campaign_strategic_sector_roof_contents
+  "Cannot locate strategic roof routing")
+require_ordered_fragments(runtime_campaign_strategic_sector_roof_contents
+  "Roof difficulty, town, and move order changed"
+  "gWorldSectorX <= 0"
+  "RoofAction::Town2"
+  "case DIF_LEVEL_EASY:"
+  "case DIF_LEVEL_MEDIUM:"
+  "case DIF_LEVEL_HARD:"
+  "town2RoofMoves[0].sourceGrid"
+  "town2RoofMoves[0].destinationGrid"
+  "town2RoofMoves[1].sourceGrid"
+  "town2RoofMoves[1].destinationGrid"
+  "default:"
+  "town2RoofMoves[0].sourceGrid"
+  "town2RoofMoves[1].sourceGrid"
+  "RoofAction::Town3"
+  "case DIF_LEVEL_EASY:"
+  "case DIF_LEVEL_MEDIUM:"
+  "case DIF_LEVEL_HARD:"
+  "town3RoofMoves[0].sourceGrid"
+  "town3RoofMoves[0].destinationGrid"
+  "default:"
+  "town3RoofMoves[0].sourceGrid"
+  "town3RoofMoves[0].destinationGrid"
+  "RoofAction::None")
+
+foreach(required_campaign_strategic_sector_test_manifest_fragment IN ITEMS
+    "campaign_strategic_sector_script_policy_tests.cpp"
+    "campaign_strategic_sector_script_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_strategic_sector_test_manifest_fragment}"
+    required_campaign_strategic_sector_test_manifest_position)
+  if(required_campaign_strategic_sector_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic sector policy lost its dependency-free test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_strategic_sector_script_policy_tests"
+  required_campaign_strategic_sector_ci_position)
+if(required_campaign_strategic_sector_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the strategic sector-script policy target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_strategic_sector_script_policy_tests.cpp"
+  runtime_campaign_strategic_sector_test_contents)
+foreach(required_campaign_strategic_sector_test_fragment IN ITEMS
+    "the six quote entries retain guard, I9, H10, town, then fan ordering"
+    "the final quote entry retains guard-post X/Y and tunnel-Z fallback"
+    "the literal 12,9,0 email fallback remains exact"
+    "the first-town money trigger preserves the legacy X-as-Z bug"
+    "roof moves retain 1a-to-1b plus the 2a-to-2a and 3a-to-3a aliases"
+    "money difficulty fields, two-drop order, and fortified-door grid remain distinct"
+    "Arulco left-gates the sector script before reading content"
+    "email routing keeps quest, fixed, live laptop, then snapshot order"
+    "every strategic sector-script decision is disabled in Arulco")
+  string(FIND "${runtime_campaign_strategic_sector_test_contents}"
+    "${required_campaign_strategic_sector_test_fragment}"
+    required_campaign_strategic_sector_test_position)
+  if(required_campaign_strategic_sector_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic sector coverage lost '${required_campaign_strategic_sector_test_fragment}'")
+  endif()
+endforeach()
+
 # Global raw-selector and option-consumer inventories are shrinking baselines.
 # Count executable consumer decisions rather than similarly named definitions
 # in GameCapabilities, package/bootstrap plumbing, or policy implementations.
@@ -2435,6 +2962,11 @@ set(runtime_campaign_context_selector_count 0)
 set(runtime_campaign_cached_selector_count 0)
 set(runtime_campaign_package_selector_count 0)
 set(runtime_campaign_raw_option_consumer_count 0)
+set(runtime_campaign_external_option_executable_count 0)
+set(runtime_campaign_external_option_raw_count 0)
+set(runtime_campaign_total_option_executable_count 0)
+set(runtime_campaign_total_option_raw_count 0)
+set(runtime_campaign_total_option_file_count 0)
 foreach(runtime_campaign_inventory_file IN LISTS
     runtime_campaign_raw_selector_inventory_files)
   file(READ "${runtime_campaign_inventory_file}"
@@ -2473,13 +3005,36 @@ foreach(runtime_campaign_inventory_file IN LISTS
     runtime_campaign_file_package_selector_count)
   math(EXPR runtime_campaign_package_selector_count
     "${runtime_campaign_package_selector_count} + ${runtime_campaign_file_package_selector_count}")
+  string(REGEX MATCHALL "gGameUBOptions"
+    runtime_campaign_file_raw_option_matches
+    "${runtime_campaign_inventory_contents}")
+  list(LENGTH runtime_campaign_file_raw_option_matches
+    runtime_campaign_file_raw_option_count)
+  string(REGEX MATCHALL "gGameUBOptions"
+    runtime_campaign_file_executable_option_matches
+    "${runtime_campaign_inventory_executable}")
+  list(LENGTH runtime_campaign_file_executable_option_matches
+    runtime_campaign_file_executable_option_count)
+  math(EXPR runtime_campaign_total_option_raw_count
+    "${runtime_campaign_total_option_raw_count} + ${runtime_campaign_file_raw_option_count}")
+  math(EXPR runtime_campaign_total_option_executable_count
+    "${runtime_campaign_total_option_executable_count} + ${runtime_campaign_file_executable_option_count}")
+  if(runtime_campaign_file_raw_option_count GREATER 0)
+    math(EXPR runtime_campaign_total_option_file_count
+      "${runtime_campaign_total_option_file_count} + 1")
+  endif()
   if(NOT runtime_campaign_inventory_file STREQUAL
       "${SOURCE_ROOT}/Ja2/ub_config.cpp" AND
       NOT runtime_campaign_inventory_file STREQUAL
-      "${SOURCE_ROOT}/Ja2/ub_config.h" AND
-      runtime_campaign_inventory_executable MATCHES "gGameUBOptions")
-    math(EXPR runtime_campaign_raw_option_consumer_count
-      "${runtime_campaign_raw_option_consumer_count} + 1")
+      "${SOURCE_ROOT}/Ja2/ub_config.h")
+    math(EXPR runtime_campaign_external_option_raw_count
+      "${runtime_campaign_external_option_raw_count} + ${runtime_campaign_file_raw_option_count}")
+    math(EXPR runtime_campaign_external_option_executable_count
+      "${runtime_campaign_external_option_executable_count} + ${runtime_campaign_file_executable_option_count}")
+    if(runtime_campaign_file_executable_option_count GREATER 0)
+      math(EXPR runtime_campaign_raw_option_consumer_count
+        "${runtime_campaign_raw_option_consumer_count} + 1")
+    endif()
   endif()
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
@@ -2491,9 +3046,17 @@ if(NOT runtime_campaign_context_selector_count EQUAL 109 OR
   message(FATAL_ERROR
     "Raw runtime campaign selector inventory changed from the reviewed 109 context + 4 cached-campaign + 1 active-package leaves")
 endif()
-if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33)
+if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
+    NOT runtime_campaign_external_option_executable_count EQUAL 316 OR
+    NOT runtime_campaign_external_option_raw_count EQUAL 318)
   message(FATAL_ERROR
-    "Raw UB option consumer inventory changed from the reviewed 33-file baseline")
+    "External UB option inventory changed from the reviewed 316 executable + 318 raw occurrences across 33 files")
+endif()
+if(NOT runtime_campaign_total_option_executable_count EQUAL 579 OR
+    NOT runtime_campaign_total_option_raw_count EQUAL 581 OR
+    NOT runtime_campaign_total_option_file_count EQUAL 35)
+  message(FATAL_ERROR
+    "Total UB option inventory changed from the reviewed 579 executable + 581 raw occurrences across 35 files")
 endif()
 
 # Strategic-map guidance and campaign hooks are selected from the live
