@@ -1,0 +1,8663 @@
+{
+  "schema_version": 1,
+  "purpose": "ordered source model of the developer GameStrings exporter",
+  "runtime_behavior": "unchanged: selected catalog bodies remain textually included",
+  "adapter_status": {
+    "state": "blocked",
+    "reason": "14 foreign-language legacy ranges exceed their selected catalog arrays; resolve them before a linked-global export adapter"
+  },
+  "counts": {
+    "logical_sections": 238,
+    "legacy_sections": 224,
+    "text_pack_sections": 14,
+    "text_pack_entries": 8,
+    "text_pack_tables": 6,
+    "legacy_pointer_tables": 208,
+    "legacy_writable_buffers": 16,
+    "legacy_text_h_symbols": 219,
+    "legacy_local_extern_symbols": 5,
+    "exported_compatibility_debt_pairs": 33,
+    "unsafe_range_debt_pairs": 14,
+    "exporter_only_tables": 14,
+    "exporter_only_entries_per_language": 85
+  },
+  "textual_catalog_includes": [
+    "_ChineseText.cpp",
+    "_DutchText.cpp",
+    "_EnglishText.cpp",
+    "_FrenchText.cpp",
+    "_GermanText.cpp",
+    "_ItalianText.cpp",
+    "_PolishText.cpp",
+    "_RussianText.cpp"
+  ],
+  "startup_contract": {
+    "legacy_boundary": {
+      "source": "sgp/sgp.cpp",
+      "function": "InitializeLegacyContentBoundary",
+      "outer_guard": "g_bUseXML_Strings",
+      "export_guard": "s_bExportStrings",
+      "ordered_calls": [
+        "Loc::ExportStrings()",
+        "Loc::ImportStrings()",
+        "InitJA2SplashScreen()"
+      ]
+    },
+    "subsystem_order_constraint": [
+      "legacy content",
+      "game"
+    ],
+    "external_load_contract": {
+      "definition": "Utils/Text Utils.cpp",
+      "post_startup_rules_call": {
+        "source": "Ja2/CompiledGameplayBootstrap.cpp",
+        "function": "loadRulesContent",
+        "phase_owner": "LegacyRulesPackage/LoadContent"
+      },
+      "later_multiplayer_reload": {
+        "source": "Ja2/MPConnectScreen.cpp",
+        "function": "DoneFadeOutForExitMPCScreen"
+      },
+      "production_call_sites": 2
+    }
+  },
+  "sections": [
+    {
+      "ordinal": 1,
+      "source_kind": "legacy",
+      "section": "WeaponType",
+      "symbol": "WeaponType",
+      "range": {
+        "first": "0",
+        "limit": "MAXITEMS"
+      }
+    },
+    {
+      "ordinal": 2,
+      "source_kind": "legacy",
+      "section": "TeamTurn",
+      "symbol": "TeamTurnString",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 3,
+      "source_kind": "legacy",
+      "section": "Message",
+      "symbol": "Message",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_STR_MESSAGE"
+      }
+    },
+    {
+      "ordinal": 4,
+      "source_kind": "legacy",
+      "section": "TownNames",
+      "symbol": "pTownNames",
+      "range": {
+        "first": "0",
+        "limit": "MAX_TOWNS"
+      }
+    },
+    {
+      "ordinal": 5,
+      "source_kind": "text-pack-table",
+      "key": "TimeCompression",
+      "section": "Time",
+      "range": {
+        "first": 0,
+        "limit": 6
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.time.compression",
+        "section": "Time",
+        "offset": 0,
+        "entry_count": 6,
+        "export_first": 0,
+        "export_count": 6,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 6,
+      "source_kind": "legacy",
+      "section": "Assignment",
+      "symbol": "pAssignmentStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_ASSIGNMENTS"
+      }
+    },
+    {
+      "ordinal": 7,
+      "source_kind": "legacy",
+      "section": "PersonnelAssignment",
+      "symbol": "pPersonnelAssignmentStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_ASSIGNMENTS"
+      }
+    },
+    {
+      "ordinal": 8,
+      "source_kind": "legacy",
+      "section": "LongAssignment",
+      "symbol": "pLongAssignmentStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_ASSIGNMENTS"
+      }
+    },
+    {
+      "ordinal": 9,
+      "source_kind": "legacy",
+      "section": "Militia",
+      "symbol": "pMilitiaString",
+      "range": {
+        "first": "0",
+        "limit": "3"
+      }
+    },
+    {
+      "ordinal": 10,
+      "source_kind": "legacy",
+      "section": "MilitiaButton",
+      "symbol": "pMilitiaButtonString",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 11,
+      "source_kind": "legacy",
+      "section": "Condition",
+      "symbol": "pConditionStrings",
+      "range": {
+        "first": "0",
+        "limit": "9"
+      }
+    },
+    {
+      "ordinal": 12,
+      "source_kind": "legacy",
+      "section": "EpcMenu",
+      "symbol": "pEpcMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_EPC_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 13,
+      "source_kind": "legacy",
+      "section": "Contract",
+      "symbol": "pContractStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_CONTRACT_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 14,
+      "source_kind": "legacy",
+      "section": "POW",
+      "symbol": "pPOWStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 15,
+      "source_kind": "legacy",
+      "section": "InvPanelTitle",
+      "symbol": "pInvPanelTitleStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 16,
+      "source_kind": "legacy",
+      "section": "LongAttribute",
+      "symbol": "pLongAttributeStrings",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 17,
+      "source_kind": "legacy",
+      "section": "ShortAttribute",
+      "symbol": "pShortAttributeStrings",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 18,
+      "source_kind": "legacy",
+      "section": "UpperLeftMapScreen",
+      "symbol": "pUpperLeftMapScreenStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 19,
+      "source_kind": "legacy",
+      "section": "Training",
+      "symbol": "pTrainingStrings",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 20,
+      "source_kind": "legacy",
+      "section": "GuardMenu",
+      "symbol": "pGuardMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 21,
+      "source_kind": "legacy",
+      "section": "OtherGuardMenu",
+      "symbol": "pOtherGuardMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 22,
+      "source_kind": "legacy",
+      "section": "AssignMenu",
+      "symbol": "pAssignMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_ASSIGN_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 23,
+      "source_kind": "legacy",
+      "section": "MilitiaControlMenu",
+      "symbol": "pMilitiaControlMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_MILCON_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 24,
+      "source_kind": "legacy",
+      "section": "RemoveMerc",
+      "symbol": "pRemoveMercStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_REMOVE_MERC_COUNT"
+      }
+    },
+    {
+      "ordinal": 25,
+      "source_kind": "legacy",
+      "section": "AttributeMenu",
+      "symbol": "pAttributeMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_ATTRIBUTE_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 26,
+      "source_kind": "legacy",
+      "section": "TrainingMenu",
+      "symbol": "pTrainingMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_TRAIN_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 27,
+      "source_kind": "legacy",
+      "section": "SquadMenu",
+      "symbol": "pSquadMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SQUAD_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 28,
+      "source_kind": "legacy",
+      "section": "SnitchMenu",
+      "symbol": "pSnitchMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 29,
+      "source_kind": "legacy",
+      "section": "SnitchMenuDesc",
+      "symbol": "pSnitchMenuDescStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_MENU_STRING_COUNT-1"
+      }
+    },
+    {
+      "ordinal": 30,
+      "source_kind": "legacy",
+      "section": "SnitchToggleMenu",
+      "symbol": "pSnitchToggleMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_TOGGLE_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 31,
+      "source_kind": "legacy",
+      "section": "SnitchToggleMenuDesc",
+      "symbol": "pSnitchToggleMenuDescStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_TOGGLE_MENU_STRING_COUNT-1"
+      }
+    },
+    {
+      "ordinal": 32,
+      "source_kind": "legacy",
+      "section": "SnitchSectorMenu",
+      "symbol": "pSnitchSectorMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_SECTOR_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 33,
+      "source_kind": "legacy",
+      "section": "SnitchSectorMenuDesc",
+      "symbol": "pSnitchSectorMenuDescStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_SNITCH_SECTOR_MENU_STRING_COUNT-1"
+      }
+    },
+    {
+      "ordinal": 34,
+      "source_kind": "legacy",
+      "section": "PrisonerMenu",
+      "symbol": "pPrisonerMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_PRISONER_MENU_STRING_COUNT"
+      }
+    },
+    {
+      "ordinal": 35,
+      "source_kind": "legacy",
+      "section": "PrisonerMenuDesc",
+      "symbol": "pPrisonerMenuDescStrings",
+      "range": {
+        "first": "0",
+        "limit": "MAX_PRISONER_MENU_STRING_COUNT-1"
+      }
+    },
+    {
+      "ordinal": 36,
+      "source_kind": "legacy",
+      "section": "SnitchPrisonExposed",
+      "symbol": "pSnitchPrisonExposedStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_SNITCH_PRISON_EXPOSED"
+      }
+    },
+    {
+      "ordinal": 37,
+      "source_kind": "legacy",
+      "section": "SnitchGatheringRumoursResult",
+      "symbol": "pSnitchGatheringRumoursResultStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_SNITCH_GATHERING_RUMOURS_RESULT"
+      }
+    },
+    {
+      "ordinal": 38,
+      "source_kind": "text-pack-entry",
+      "key": "PersonnelTitle",
+      "section": "PersonnelTitle",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.personnel.title",
+        "section": "PersonnelTitle",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 39,
+      "source_kind": "legacy",
+      "section": "PersonnelScreen",
+      "symbol": "pPersonnelScreenStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_PRSNL"
+      }
+    },
+    {
+      "ordinal": 40,
+      "source_kind": "legacy",
+      "section": "MercSkill",
+      "symbol": "gzMercSkillText",
+      "range": {
+        "first": "0",
+        "limit": "NUM_SKILLTRAITS_OT"
+      }
+    },
+    {
+      "ordinal": 41,
+      "source_kind": "legacy",
+      "section": "TacticalPopupButton",
+      "symbol": "pTacticalPopupButtonStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_ICONS"
+      }
+    },
+    {
+      "ordinal": 42,
+      "source_kind": "legacy",
+      "section": "DoorTrap",
+      "symbol": "pDoorTrapStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_DOOR_TRAPS"
+      }
+    },
+    {
+      "ordinal": 43,
+      "source_kind": "legacy",
+      "section": "ContractExtend",
+      "symbol": "pContractExtendStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_CONTRACT_EXTEND"
+      }
+    },
+    {
+      "ordinal": 44,
+      "source_kind": "legacy",
+      "section": "MapScreenMouseRegionHelp",
+      "symbol": "pMapScreenMouseRegionHelpText",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 45,
+      "source_kind": "legacy",
+      "section": "NoiseVol",
+      "symbol": "pNoiseVolStr",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 46,
+      "source_kind": "legacy",
+      "section": "NoiseType",
+      "symbol": "pNoiseTypeStr",
+      "range": {
+        "first": "0",
+        "limit": "12"
+      }
+    },
+    {
+      "ordinal": 47,
+      "source_kind": "legacy",
+      "section": "Direction",
+      "symbol": "pDirectionStr",
+      "range": {
+        "first": "0",
+        "limit": "8"
+      }
+    },
+    {
+      "ordinal": 48,
+      "source_kind": "legacy",
+      "section": "LandType",
+      "symbol": "pLandTypeStrings",
+      "range": {
+        "first": "0",
+        "limit": "NUM_TRAVTERRAIN_TYPES"
+      }
+    },
+    {
+      "ordinal": 49,
+      "source_kind": "legacy",
+      "section": "Strategic",
+      "symbol": "gpStrategicString",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_STRATEGIC_TEXT"
+      }
+    },
+    {
+      "ordinal": 50,
+      "source_kind": "text-pack-entry",
+      "key": "GameClockDay",
+      "section": "GameClock",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "game.clock.day",
+        "section": "GameClock",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 51,
+      "source_kind": "legacy",
+      "section": "KeyDescription",
+      "symbol": "sKeyDescriptionStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 52,
+      "source_kind": "legacy",
+      "section": "WeaponStatsDesc",
+      "symbol": "gWeaponStatsDesc",
+      "range": {
+        "first": "0",
+        "limit": "17"
+      }
+    },
+    {
+      "ordinal": 53,
+      "source_kind": "legacy",
+      "section": "WeaponStatsFasthelpTactical",
+      "symbol": "gzWeaponStatsFasthelpTactical",
+      "range": {
+        "first": "0",
+        "limit": "29"
+      }
+    },
+    {
+      "ordinal": 54,
+      "source_kind": "legacy",
+      "section": "MiscItemStatsFasthelp",
+      "symbol": "gzMiscItemStatsFasthelp",
+      "range": {
+        "first": "0",
+        "limit": "34"
+      }
+    },
+    {
+      "ordinal": 55,
+      "source_kind": "legacy",
+      "section": "MoneyStatsDesc",
+      "symbol": "gMoneyStatsDesc",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MONEY_DESC"
+      }
+    },
+    {
+      "ordinal": 56,
+      "source_kind": "legacy",
+      "section": "Health",
+      "symbol": "zHealthStr",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 57,
+      "source_kind": "legacy",
+      "section": "MoneyAmounts",
+      "symbol": "gzMoneyAmounts",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 58,
+      "source_kind": "legacy",
+      "section": "ProsLabel",
+      "symbol": "gzProsLabel",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 59,
+      "source_kind": "legacy",
+      "section": "ConsLabel",
+      "symbol": "gzConsLabel",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 60,
+      "source_kind": "legacy",
+      "section": "TalkMenu",
+      "symbol": "zTalkMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 61,
+      "source_kind": "legacy",
+      "section": "Dealer",
+      "symbol": "zDealerStrings",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 62,
+      "source_kind": "legacy",
+      "section": "DialogActions",
+      "symbol": "zDialogActions",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 63,
+      "source_kind": "legacy",
+      "section": "Vehicle",
+      "symbol": "pVehicleStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 64,
+      "source_kind": "legacy",
+      "section": "ShortVehicle",
+      "symbol": "pShortVehicleStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 65,
+      "source_kind": "legacy",
+      "section": "VehicleName",
+      "symbol": "zVehicleName",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 66,
+      "source_kind": "legacy",
+      "section": "VehicleSeatsStrings",
+      "symbol": "pVehicleSeatsStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 67,
+      "source_kind": "legacy",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_TACTICAL_STR"
+      }
+    },
+    {
+      "ordinal": 68,
+      "source_kind": "legacy",
+      "section": "ExitingSectorHelp",
+      "symbol": "pExitingSectorHelpText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_EXIT_GUI"
+      }
+    },
+    {
+      "ordinal": 69,
+      "source_kind": "legacy",
+      "section": "Repair",
+      "symbol": "pRepairStrings",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 70,
+      "source_kind": "legacy",
+      "section": "PreStatBuild",
+      "symbol": "sPreStatBuildString",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 71,
+      "source_kind": "legacy",
+      "section": "StatGain",
+      "symbol": "sStatGainStrings",
+      "range": {
+        "first": "0",
+        "limit": "11"
+      }
+    },
+    {
+      "ordinal": 72,
+      "source_kind": "legacy",
+      "section": "HelicopterEta",
+      "symbol": "pHelicopterEtaStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_STR_HELI_ETA"
+      }
+    },
+    {
+      "ordinal": 73,
+      "source_kind": "legacy",
+      "section": "HelicopterRepair",
+      "symbol": "pHelicopterRepairRefuelStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_STR_HELI_REPAIRS"
+      }
+    },
+    {
+      "ordinal": 74,
+      "source_kind": "legacy",
+      "section": "MapLevel",
+      "symbol": "sMapLevelString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 75,
+      "source_kind": "legacy",
+      "section": "Loyal",
+      "symbol": "gsLoyalString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 76,
+      "source_kind": "legacy",
+      "section": "Underground",
+      "symbol": "gsUndergroundString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 77,
+      "source_kind": "text-pack-table",
+      "key": "TimeUnits",
+      "section": "TimeStings",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.time.units",
+        "section": "TimeStings",
+        "offset": 6,
+        "entry_count": 4,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 78,
+      "source_kind": "legacy",
+      "section": "Facilities",
+      "symbol": "sFacilitiesStrings",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 79,
+      "source_kind": "legacy",
+      "section": "MapPopUpInventory",
+      "symbol": "pMapPopUpInventoryText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 80,
+      "source_kind": "legacy",
+      "section": "TownInfo",
+      "symbol": "pwTownInfoStrings",
+      "range": {
+        "first": "0",
+        "limit": "12"
+      }
+    },
+    {
+      "ordinal": 81,
+      "source_kind": "legacy",
+      "section": "Mine",
+      "symbol": "pwMineStrings",
+      "range": {
+        "first": "0",
+        "limit": "14"
+      }
+    },
+    {
+      "ordinal": 82,
+      "source_kind": "legacy",
+      "section": "MiscSector",
+      "symbol": "pwMiscSectorStrings",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 83,
+      "source_kind": "legacy",
+      "section": "MapInventoryError",
+      "symbol": "pMapInventoryErrorString",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 84,
+      "source_kind": "legacy",
+      "section": "MapInventory",
+      "symbol": "pMapInventoryStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 85,
+      "source_kind": "legacy",
+      "section": "MapScreenFastHelp",
+      "symbol": "pMapScreenFastHelpTextList",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 86,
+      "source_kind": "legacy",
+      "section": "MovementMenu",
+      "symbol": "pMovementMenuStrings",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 87,
+      "source_kind": "legacy",
+      "section": "UpdateMerc",
+      "symbol": "pUpdateMercStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 88,
+      "source_kind": "legacy",
+      "section": "MapScreenBorderButtonHelp",
+      "symbol": "pMapScreenBorderButtonHelpText",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 89,
+      "source_kind": "legacy",
+      "section": "MapScreenBottomFastHelp",
+      "symbol": "pMapScreenBottomFastHelp",
+      "range": {
+        "first": "0",
+        "limit": "8"
+      }
+    },
+    {
+      "ordinal": 90,
+      "source_kind": "legacy",
+      "section": "MapScreenBottom",
+      "symbol": "pMapScreenBottomText",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 91,
+      "source_kind": "legacy",
+      "section": "MercDead",
+      "symbol": "pMercDeadString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 92,
+      "source_kind": "text-pack-table",
+      "key": "Day",
+      "section": "Day",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.time.day",
+        "section": "Day",
+        "offset": 10,
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 93,
+      "source_kind": "legacy",
+      "section": "SenderName",
+      "symbol": "pSenderNameList",
+      "range": {
+        "first": "0",
+        "limit": "51"
+      }
+    },
+    {
+      "ordinal": 94,
+      "source_kind": "legacy",
+      "section": "Traverse",
+      "symbol": "pTraverseStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 95,
+      "source_kind": "legacy",
+      "section": "NewMail",
+      "symbol": "pNewMailStrings",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 96,
+      "source_kind": "legacy",
+      "section": "DeleteMail",
+      "symbol": "pDeleteMailStrings",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 97,
+      "source_kind": "legacy",
+      "section": "EmailHeader",
+      "symbol": "pEmailHeaders",
+      "range": {
+        "first": "0",
+        "limit": "3"
+      }
+    },
+    {
+      "ordinal": 98,
+      "source_kind": "text-pack-entry",
+      "key": "EmailTitle",
+      "section": "EmailTitle",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.email.title",
+        "section": "EmailTitle",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 99,
+      "source_kind": "text-pack-entry",
+      "key": "FinanceTitle",
+      "section": "FinanceTitle",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.finance.title",
+        "section": "FinanceTitle",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 100,
+      "source_kind": "legacy",
+      "section": "FinanceSummary",
+      "symbol": "pFinanceSummary",
+      "range": {
+        "first": "0",
+        "limit": "12"
+      }
+    },
+    {
+      "ordinal": 101,
+      "source_kind": "legacy",
+      "section": "FinanceHeader",
+      "symbol": "pFinanceHeaders",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 102,
+      "source_kind": "legacy",
+      "section": "Transaction",
+      "symbol": "pTransactionText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FINCANCES"
+      }
+    },
+    {
+      "ordinal": 103,
+      "source_kind": "legacy",
+      "section": "TransactionAlternate",
+      "symbol": "pTransactionAlternateText",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 104,
+      "source_kind": "legacy",
+      "section": "Skyrider",
+      "symbol": "pSkyriderText",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 105,
+      "source_kind": "legacy",
+      "section": "Moral",
+      "symbol": "pMoralStrings",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 106,
+      "source_kind": "legacy",
+      "section": "LeftEquipment",
+      "symbol": "pLeftEquipmentString",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 107,
+      "source_kind": "legacy",
+      "section": "MapScreenStatus",
+      "symbol": "pMapScreenStatusStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 108,
+      "source_kind": "legacy",
+      "section": "MapScreenPrevNextCharButtonHelp",
+      "symbol": "pMapScreenPrevNextCharButtonHelpText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 109,
+      "source_kind": "text-pack-table",
+      "key": "Eta",
+      "section": "Eta",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.time.eta",
+        "section": "Eta",
+        "offset": 11,
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 110,
+      "source_kind": "legacy",
+      "section": "TrashItem",
+      "symbol": "pTrashItemText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 111,
+      "source_kind": "legacy",
+      "section": "MapError",
+      "symbol": "pMapErrorString",
+      "range": {
+        "first": "0",
+        "limit": "50"
+      }
+    },
+    {
+      "ordinal": 112,
+      "source_kind": "legacy",
+      "section": "MapPlot",
+      "symbol": "pMapPlotStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 113,
+      "source_kind": "legacy",
+      "section": "Bullseye",
+      "symbol": "pBullseyeStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 114,
+      "source_kind": "legacy",
+      "section": "MiscMapScreenMouseRegionHelp",
+      "symbol": "pMiscMapScreenMouseRegionHelpText",
+      "range": {
+        "first": "0",
+        "limit": "3"
+      }
+    },
+    {
+      "ordinal": 115,
+      "source_kind": "legacy",
+      "section": "MercHeLeave",
+      "symbol": "pMercHeLeaveString",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 116,
+      "source_kind": "legacy",
+      "section": "MercSheLeave",
+      "symbol": "pMercSheLeaveString",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 117,
+      "source_kind": "legacy",
+      "section": "MercContractOver",
+      "symbol": "pMercContractOverStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 118,
+      "source_kind": "legacy",
+      "section": "ImpPopUp",
+      "symbol": "pImpPopUpStrings",
+      "range": {
+        "first": "0",
+        "limit": "12"
+      }
+    },
+    {
+      "ordinal": 119,
+      "source_kind": "legacy",
+      "section": "ImpButton",
+      "symbol": "pImpButtonText",
+      "range": {
+        "first": "0",
+        "limit": "26"
+      }
+    },
+    {
+      "ordinal": 120,
+      "source_kind": "legacy",
+      "section": "ExtraIMP",
+      "symbol": "pExtraIMPStrings",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 121,
+      "source_kind": "text-pack-entry",
+      "key": "FilesTitle",
+      "section": "FilesTitle",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.files.title",
+        "section": "FilesTitle",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 122,
+      "source_kind": "legacy",
+      "section": "FilesSender",
+      "symbol": "pFilesSenderList",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 123,
+      "source_kind": "text-pack-entry",
+      "key": "HistoryTitle",
+      "section": "HistoryTitle",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.history.title",
+        "section": "HistoryTitle",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 124,
+      "source_kind": "legacy",
+      "section": "HistoryHeader",
+      "symbol": "pHistoryHeaders",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 125,
+      "source_kind": "legacy",
+      "section": "HistoryLocation",
+      "symbol": "pHistoryLocations",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 126,
+      "source_kind": "legacy",
+      "section": "LaptopIcon",
+      "symbol": "pLaptopIcons",
+      "range": {
+        "first": "0",
+        "limit": "8"
+      }
+    },
+    {
+      "ordinal": 127,
+      "source_kind": "legacy",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_LAPTOP_BOOKMARKS"
+      }
+    },
+    {
+      "ordinal": 128,
+      "source_kind": "legacy",
+      "section": "BookmarkTitle",
+      "symbol": "pBookmarkTitle",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 129,
+      "source_kind": "legacy",
+      "section": "Download",
+      "symbol": "pDownloadString",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 130,
+      "source_kind": "legacy",
+      "section": "AtmStartButton",
+      "symbol": "gsAtmStartButtonText",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 131,
+      "source_kind": "legacy",
+      "section": "Error",
+      "symbol": "pErrorStrings",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 132,
+      "source_kind": "legacy",
+      "section": "Personnel",
+      "symbol": "pPersonnelString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 133,
+      "source_kind": "legacy",
+      "section": "WebTitle",
+      "symbol": "pWebTitle",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 134,
+      "source_kind": "legacy",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "range": {
+        "first": "0",
+        "limit": "36"
+      }
+    },
+    {
+      "ordinal": 135,
+      "source_kind": "legacy",
+      "section": "ShowBookmark",
+      "symbol": "pShowBookmarkString",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 136,
+      "source_kind": "legacy",
+      "section": "LaptopTitle",
+      "symbol": "pLaptopTitles",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 137,
+      "source_kind": "legacy",
+      "section": "PersonnelDepartedState",
+      "symbol": "pPersonnelDepartedStateStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_DEPARTED"
+      }
+    },
+    {
+      "ordinal": 138,
+      "source_kind": "legacy",
+      "section": "PersonelTeam",
+      "symbol": "pPersonelTeamStrings",
+      "range": {
+        "first": "0",
+        "limit": "8"
+      }
+    },
+    {
+      "ordinal": 139,
+      "source_kind": "legacy",
+      "section": "PersonnelCurrentTeamStats",
+      "symbol": "pPersonnelCurrentTeamStatsStrings",
+      "range": {
+        "first": "0",
+        "limit": "3"
+      }
+    },
+    {
+      "ordinal": 140,
+      "source_kind": "legacy",
+      "section": "PersonnelTeamStats",
+      "symbol": "pPersonnelTeamStatsStrings",
+      "range": {
+        "first": "0",
+        "limit": "11"
+      }
+    },
+    {
+      "ordinal": 141,
+      "source_kind": "legacy",
+      "section": "MapVertIndex",
+      "symbol": "pMapVertIndex",
+      "range": {
+        "first": "0",
+        "limit": "17"
+      }
+    },
+    {
+      "ordinal": 142,
+      "source_kind": "legacy",
+      "section": "MapHortIndex",
+      "symbol": "pMapHortIndex",
+      "range": {
+        "first": "0",
+        "limit": "17"
+      }
+    },
+    {
+      "ordinal": 143,
+      "source_kind": "legacy",
+      "section": "MapDepthIndex",
+      "symbol": "pMapDepthIndex",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 144,
+      "source_kind": "legacy",
+      "section": "ContractButton",
+      "symbol": "pContractButtonString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 145,
+      "source_kind": "legacy",
+      "section": "UpdatePanelButton",
+      "symbol": "pUpdatePanelButtons",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 146,
+      "source_kind": "legacy",
+      "section": "LargeTactical",
+      "symbol": "LargeTacticalStr",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_LARGESTR"
+      }
+    },
+    {
+      "ordinal": 147,
+      "source_kind": "legacy",
+      "section": "InsContract",
+      "symbol": "InsContractText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_INS_CONTRACT"
+      }
+    },
+    {
+      "ordinal": 148,
+      "source_kind": "legacy",
+      "section": "InsInfo",
+      "symbol": "InsInfoText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_INS_INFO"
+      }
+    },
+    {
+      "ordinal": 149,
+      "source_kind": "legacy",
+      "section": "MercAccount",
+      "symbol": "MercAccountText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MERC_ACCOUNT"
+      }
+    },
+    {
+      "ordinal": 150,
+      "source_kind": "legacy",
+      "section": "MercAccountPage",
+      "symbol": "MercAccountPageText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 151,
+      "source_kind": "legacy",
+      "section": "MercInfo",
+      "symbol": "MercInfo",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MERC_FILES"
+      }
+    },
+    {
+      "ordinal": 152,
+      "source_kind": "legacy",
+      "section": "MercNoAccount",
+      "symbol": "MercNoAccountText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MERC_NO_ACC"
+      }
+    },
+    {
+      "ordinal": 153,
+      "source_kind": "legacy",
+      "section": "MercHomePage",
+      "symbol": "MercHomePageText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MERC"
+      }
+    },
+    {
+      "ordinal": 154,
+      "source_kind": "legacy",
+      "section": "Funeral",
+      "symbol": "sFuneralString",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FUNERAL"
+      }
+    },
+    {
+      "ordinal": 155,
+      "source_kind": "legacy",
+      "section": "Florist",
+      "symbol": "sFloristText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FLORIST"
+      }
+    },
+    {
+      "ordinal": 156,
+      "source_kind": "legacy",
+      "section": "OrderForm",
+      "symbol": "sOrderFormText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FLORIST_ORDER"
+      }
+    },
+    {
+      "ordinal": 157,
+      "source_kind": "legacy",
+      "section": "FloristGallery",
+      "symbol": "sFloristGalleryText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FLORIST_GALLERY"
+      }
+    },
+    {
+      "ordinal": 158,
+      "source_kind": "legacy",
+      "section": "FloristCards",
+      "symbol": "sFloristCards",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_FLORIST_CARDS"
+      }
+    },
+    {
+      "ordinal": 159,
+      "source_kind": "legacy",
+      "section": "BobbyROrderForm",
+      "symbol": "BobbyROrderFormText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BOBBYR_MAILORDER"
+      }
+    },
+    {
+      "ordinal": 160,
+      "source_kind": "legacy",
+      "section": "BobbyRFilter",
+      "symbol": "BobbyRFilter",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BOBBYR_FILTER"
+      }
+    },
+    {
+      "ordinal": 161,
+      "source_kind": "legacy",
+      "section": "BobbyR",
+      "symbol": "BobbyRText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BOBBYR_GUNS"
+      }
+    },
+    {
+      "ordinal": 162,
+      "source_kind": "legacy",
+      "section": "BobbyRaysFront",
+      "symbol": "BobbyRaysFrontText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BOBBYR"
+      }
+    },
+    {
+      "ordinal": 163,
+      "source_kind": "text-pack-table",
+      "key": "AimSort",
+      "section": "AimSort",
+      "range": {
+        "first": 0,
+        "limit": 20
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "laptop.aim.sort",
+        "section": "AimSort",
+        "offset": 15,
+        "entry_count": 20,
+        "export_first": 0,
+        "export_count": 20,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 164,
+      "source_kind": "legacy",
+      "section": "AimPolicy",
+      "symbol": "AimPolicyText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_POLICIES"
+      }
+    },
+    {
+      "ordinal": 165,
+      "source_kind": "legacy",
+      "section": "AimMember",
+      "symbol": "AimMemberText",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 166,
+      "source_kind": "legacy",
+      "section": "CharacterInfo",
+      "symbol": "CharacterInfo",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_MEMBER_CHARINFO"
+      }
+    },
+    {
+      "ordinal": 167,
+      "source_kind": "legacy",
+      "section": "VideoConfercing",
+      "symbol": "VideoConfercingText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_MEMBER_VCONF"
+      }
+    },
+    {
+      "ordinal": 168,
+      "source_kind": "legacy",
+      "section": "AimPopUp",
+      "symbol": "AimPopUpText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_MEMBER_POPUP"
+      }
+    },
+    {
+      "ordinal": 169,
+      "source_kind": "text-pack-entry",
+      "key": "AimLinksTitle",
+      "section": "AimLink",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "laptop.aim.links.title",
+        "section": "AimLink",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 170,
+      "source_kind": "legacy",
+      "section": "AimHistory",
+      "symbol": "AimHistoryText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_HISTORY"
+      }
+    },
+    {
+      "ordinal": 171,
+      "source_kind": "legacy",
+      "section": "AimFi",
+      "symbol": "AimFiText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_FI"
+      }
+    },
+    {
+      "ordinal": 172,
+      "source_kind": "legacy",
+      "section": "AimAlumni",
+      "symbol": "AimAlumniText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_ALUMNI"
+      }
+    },
+    {
+      "ordinal": 173,
+      "source_kind": "legacy",
+      "section": "AimScreen",
+      "symbol": "AimScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_SCREEN"
+      }
+    },
+    {
+      "ordinal": 174,
+      "source_kind": "legacy",
+      "section": "AimBottomMenu",
+      "symbol": "AimBottomMenuText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_AIM_MENU"
+      }
+    },
+    {
+      "ordinal": 175,
+      "source_kind": "legacy",
+      "section": "SKI",
+      "symbol": "SKI_Text",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_SKI_TEXT"
+      }
+    },
+    {
+      "ordinal": 176,
+      "source_kind": "legacy",
+      "section": "SkiAtm",
+      "symbol": "SkiAtmText",
+      "range": {
+        "first": "0",
+        "limit": "NUM_SKI_ATM_BUTTONS"
+      }
+    },
+    {
+      "ordinal": 177,
+      "source_kind": "legacy",
+      "section": "SkiAtmText",
+      "symbol": "gzSkiAtmText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_SKI_ATM_MODE_TEXT"
+      }
+    },
+    {
+      "ordinal": 178,
+      "source_kind": "legacy",
+      "section": "SkiMessageBox",
+      "symbol": "SkiMessageBoxText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_SKI_MBOX_TEXT"
+      }
+    },
+    {
+      "ordinal": 179,
+      "source_kind": "legacy",
+      "section": "Options",
+      "symbol": "zOptionsText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_OPT_TEXT"
+      }
+    },
+    {
+      "ordinal": 180,
+      "source_kind": "legacy",
+      "section": "SaveLoad",
+      "symbol": "zSaveLoadText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_SLG_TEXT"
+      }
+    },
+    {
+      "ordinal": 181,
+      "source_kind": "legacy",
+      "section": "MarksMapScreen",
+      "symbol": "zMarksMapScreenText",
+      "range": {
+        "first": "0",
+        "limit": "25"
+      }
+    },
+    {
+      "ordinal": 182,
+      "source_kind": "legacy",
+      "section": "LandMarkInSector",
+      "symbol": "pLandMarkInSectorString",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 183,
+      "source_kind": "legacy",
+      "section": "MilitiaConfirm",
+      "symbol": "pMilitiaConfirmStrings",
+      "range": {
+        "first": "0",
+        "limit": "11"
+      }
+    },
+    {
+      "ordinal": 184,
+      "source_kind": "legacy",
+      "section": "MoneyWithdrawMessage",
+      "symbol": "gzMoneyWithdrawMessageText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MONEY_WITHDRAW"
+      }
+    },
+    {
+      "ordinal": 185,
+      "source_kind": "legacy",
+      "section": "Copyright",
+      "symbol": "gzCopyrightText",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 186,
+      "source_kind": "legacy",
+      "section": "OptionsToggle",
+      "symbol": "zOptionsToggleText",
+      "range": {
+        "first": "0",
+        "limit": "49"
+      }
+    },
+    {
+      "ordinal": 187,
+      "source_kind": "legacy",
+      "section": "OptionsScreenHelp",
+      "symbol": "zOptionsScreenHelpText",
+      "range": {
+        "first": "0",
+        "limit": "49"
+      }
+    },
+    {
+      "ordinal": 188,
+      "source_kind": "legacy",
+      "section": "GIOScreen",
+      "symbol": "gzGIOScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_GIO_TEXT"
+      }
+    },
+    {
+      "ordinal": 189,
+      "source_kind": "legacy",
+      "section": "MPJScreen",
+      "symbol": "gzMPJScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MPJ_TEXT"
+      }
+    },
+    {
+      "ordinal": 190,
+      "source_kind": "legacy",
+      "section": "MPJHelpText",
+      "symbol": "gzMPJHelpText",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 191,
+      "source_kind": "legacy",
+      "section": "MPHScreen",
+      "symbol": "gzMPHScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MPH_TEXT"
+      }
+    },
+    {
+      "ordinal": 192,
+      "source_kind": "legacy",
+      "section": "DeliveryLocation",
+      "symbol": "pDeliveryLocationStrings",
+      "range": {
+        "first": "0",
+        "limit": "17"
+      }
+    },
+    {
+      "ordinal": 193,
+      "source_kind": "legacy",
+      "section": "SkillAtZeroWarning",
+      "symbol": "pSkillAtZeroWarning",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 194,
+      "source_kind": "legacy",
+      "section": "IMPBeginScreen",
+      "symbol": "pIMPBeginScreenStrings",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 195,
+      "source_kind": "legacy",
+      "section": "IMPFinishButton",
+      "symbol": "pIMPFinishButtonText",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 196,
+      "source_kind": "legacy",
+      "section": "IMPFinish",
+      "symbol": "pIMPFinishStrings",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 197,
+      "source_kind": "legacy",
+      "section": "IMPVoices",
+      "symbol": "pIMPVoicesStrings",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 198,
+      "source_kind": "legacy",
+      "section": "DepartedMercPortrait",
+      "symbol": "pDepartedMercPortraitStrings",
+      "range": {
+        "first": "0",
+        "limit": "3"
+      }
+    },
+    {
+      "ordinal": 199,
+      "source_kind": "legacy",
+      "section": "PersTitle",
+      "symbol": "pPersTitleText",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 200,
+      "source_kind": "text-pack-table",
+      "key": "PausedGame",
+      "section": "PausedGame",
+      "range": {
+        "first": 0,
+        "limit": 3
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.time.paused",
+        "section": "PausedGame",
+        "offset": 12,
+        "entry_count": 3,
+        "export_first": 0,
+        "export_count": 3,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 201,
+      "source_kind": "legacy",
+      "section": "MessageStrings",
+      "symbol": "pMessageStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MSG"
+      }
+    },
+    {
+      "ordinal": 202,
+      "source_kind": "legacy",
+      "section": "ItemPickupHelpPopup",
+      "symbol": "ItemPickupHelpPopup",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 203,
+      "source_kind": "legacy",
+      "section": "DoctorWarning",
+      "symbol": "pDoctorWarningString",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 204,
+      "source_kind": "legacy",
+      "section": "MilitiaButtonsHelp",
+      "symbol": "pMilitiaButtonsHelpText",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 205,
+      "source_kind": "legacy",
+      "section": "MapScreenJustStartedHelp",
+      "symbol": "pMapScreenJustStartedHelpText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 206,
+      "source_kind": "legacy",
+      "section": "AntiHacker",
+      "symbol": "pAntiHackerString",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_ANTIHACKERSTR"
+      }
+    },
+    {
+      "ordinal": 207,
+      "source_kind": "legacy",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT"
+      }
+    },
+    {
+      "ordinal": 208,
+      "source_kind": "text-pack-entry",
+      "key": "HelpScreenExit",
+      "section": "HelpScreen",
+      "range": {
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextKey",
+        "name": "help.screen.exit",
+        "section": "HelpScreen",
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
+      }
+    },
+    {
+      "ordinal": 209,
+      "source_kind": "legacy",
+      "section": "NonPersistantPBI",
+      "symbol": "gzNonPersistantPBIText",
+      "range": {
+        "first": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "ordinal": 210,
+      "source_kind": "legacy",
+      "section": "MiscString",
+      "symbol": "gzMiscString",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 211,
+      "source_kind": "legacy",
+      "section": "IntroScreen",
+      "symbol": "gzIntroScreen",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 212,
+      "source_kind": "legacy",
+      "section": "NewNoise",
+      "symbol": "pNewNoiseStr",
+      "range": {
+        "first": "0",
+        "limit": "11"
+      }
+    },
+    {
+      "ordinal": 213,
+      "source_kind": "legacy",
+      "section": "MapScreenSortButtonHelp",
+      "symbol": "wMapScreenSortButtonHelpText",
+      "range": {
+        "first": "0",
+        "limit": "6"
+      }
+    },
+    {
+      "ordinal": 214,
+      "source_kind": "legacy",
+      "section": "BrokenLink",
+      "symbol": "BrokenLinkText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BROKEN_LINK"
+      }
+    },
+    {
+      "ordinal": 215,
+      "source_kind": "legacy",
+      "section": "BobbyRShipment",
+      "symbol": "gzBobbyRShipmentText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_BOBBYR_SHIPMENT"
+      }
+    },
+    {
+      "ordinal": 216,
+      "source_kind": "legacy",
+      "section": "CreditNames",
+      "symbol": "gzCreditNames",
+      "range": {
+        "first": "0",
+        "limit": "15"
+      }
+    },
+    {
+      "ordinal": 217,
+      "source_kind": "legacy",
+      "section": "CreditNameTitle",
+      "symbol": "gzCreditNameTitle",
+      "range": {
+        "first": "0",
+        "limit": "15"
+      }
+    },
+    {
+      "ordinal": 218,
+      "source_kind": "legacy",
+      "section": "CreditNameFunny",
+      "symbol": "gzCreditNameFunny",
+      "range": {
+        "first": "0",
+        "limit": "15"
+      }
+    },
+    {
+      "ordinal": 219,
+      "source_kind": "legacy",
+      "section": "RepairsDone",
+      "symbol": "sRepairsDoneString",
+      "range": {
+        "first": "0",
+        "limit": "7"
+      }
+    },
+    {
+      "ordinal": 220,
+      "source_kind": "legacy",
+      "section": "GioDifConfirm",
+      "symbol": "zGioDifConfirmText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_GIO_CFS"
+      }
+    },
+    {
+      "ordinal": 221,
+      "source_kind": "legacy",
+      "section": "LateLocalized",
+      "symbol": "gzLateLocalizedString",
+      "range": {
+        "first": "0",
+        "limit": "64"
+      }
+    },
+    {
+      "ordinal": 222,
+      "source_kind": "legacy",
+      "section": "CWStrings",
+      "symbol": "gzCWStrings",
+      "range": {
+        "first": "0",
+        "limit": "1"
+      }
+    },
+    {
+      "ordinal": 223,
+      "source_kind": "legacy",
+      "section": "TooltipStrings",
+      "symbol": "gzTooltipStrings",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_STR_TT"
+      }
+    },
+    {
+      "ordinal": 224,
+      "source_kind": "legacy",
+      "section": "New113Message",
+      "symbol": "New113Message",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MSG113"
+      }
+    },
+    {
+      "ordinal": 225,
+      "source_kind": "legacy",
+      "section": "New113HAMMessage",
+      "symbol": "New113HAMMessage",
+      "range": {
+        "first": "0",
+        "limit": "25"
+      }
+    },
+    {
+      "ordinal": 226,
+      "source_kind": "legacy",
+      "section": "New113MERCMercMail",
+      "symbol": "New113MERCMercMailTexts",
+      "range": {
+        "first": "0",
+        "limit": "4"
+      }
+    },
+    {
+      "ordinal": 227,
+      "source_kind": "legacy",
+      "section": "New113AIMMercMail",
+      "symbol": "New113AIMMercMailTexts",
+      "range": {
+        "first": "0",
+        "limit": "16"
+      }
+    },
+    {
+      "ordinal": 228,
+      "source_kind": "legacy",
+      "section": "MissingIMPSkills",
+      "symbol": "MissingIMPSkillsDescriptions",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 229,
+      "source_kind": "legacy",
+      "section": "NewInvMessage",
+      "symbol": "NewInvMessage",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_NIV"
+      }
+    },
+    {
+      "ordinal": 230,
+      "source_kind": "legacy",
+      "section": "MPServerMessage",
+      "symbol": "MPServerMessage",
+      "range": {
+        "first": "0",
+        "limit": "13"
+      }
+    },
+    {
+      "ordinal": 231,
+      "source_kind": "legacy",
+      "section": "MPClientMessage",
+      "symbol": "MPClientMessage",
+      "range": {
+        "first": "0",
+        "limit": "69"
+      }
+    },
+    {
+      "ordinal": 232,
+      "source_kind": "legacy",
+      "section": "MPEdges",
+      "symbol": "gszMPEdgesText",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 233,
+      "source_kind": "legacy",
+      "section": "MPTeamName",
+      "symbol": "gszMPTeamNames",
+      "range": {
+        "first": "0",
+        "limit": "5"
+      }
+    },
+    {
+      "ordinal": 234,
+      "source_kind": "legacy",
+      "section": "MPMapscreen",
+      "symbol": "gszMPMapscreenText",
+      "range": {
+        "first": "0",
+        "limit": "9"
+      }
+    },
+    {
+      "ordinal": 235,
+      "source_kind": "legacy",
+      "section": "MPSScreen",
+      "symbol": "gzMPSScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MPS_TEXT"
+      }
+    },
+    {
+      "ordinal": 236,
+      "source_kind": "legacy",
+      "section": "MPCScreen",
+      "symbol": "gzMPCScreenText",
+      "range": {
+        "first": "0",
+        "limit": "TEXT_NUM_MPC_TEXT"
+      }
+    },
+    {
+      "ordinal": 237,
+      "source_kind": "legacy",
+      "section": "MPChatToggle",
+      "symbol": "gzMPChatToggleText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    },
+    {
+      "ordinal": 238,
+      "source_kind": "legacy",
+      "section": "MPChatbox",
+      "symbol": "gzMPChatboxText",
+      "range": {
+        "first": "0",
+        "limit": "2"
+      }
+    }
+  ],
+  "legacy_symbols": {
+    "WeaponType": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "MAXITEMS",
+        "30"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "MAXITEMS",
+          "30"
+        ],
+        "ja2-debug": [
+          "MAXITEMS",
+          "30"
+        ],
+        "ja2ub-release": [
+          "MAXITEMS",
+          "30"
+        ],
+        "ja2ub-debug": [
+          "MAXITEMS",
+          "30"
+        ]
+      }
+    },
+    "TeamTurnString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10",
+          "STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "10",
+          "STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "10",
+          "STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "10",
+          "STRING_LENGTH"
+        ]
+      }
+    },
+    "Message": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "88",
+          "STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "88",
+          "STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "88",
+          "STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "88",
+          "STRING_LENGTH"
+        ]
+      }
+    },
+    "pTownNames": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "MAX_TOWNS",
+        "MAX_TOWN_NAME_LENGHT"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "MAX_TOWNS",
+          "MAX_TOWN_NAME_LENGHT"
+        ],
+        "ja2-debug": [
+          "MAX_TOWNS",
+          "MAX_TOWN_NAME_LENGHT"
+        ],
+        "ja2ub-release": [
+          "MAX_TOWNS",
+          "MAX_TOWN_NAME_LENGHT"
+        ],
+        "ja2ub-debug": [
+          "MAX_TOWNS",
+          "MAX_TOWN_NAME_LENGHT"
+        ]
+      }
+    },
+    "pAssignmentStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "85"
+        ],
+        "ja2-debug": [
+          "85"
+        ],
+        "ja2ub-release": [
+          "85"
+        ],
+        "ja2ub-debug": [
+          "85"
+        ]
+      }
+    },
+    "pPersonnelAssignmentStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "83"
+        ],
+        "ja2-debug": [
+          "83"
+        ],
+        "ja2ub-release": [
+          "83"
+        ],
+        "ja2ub-debug": [
+          "83"
+        ]
+      }
+    },
+    "pLongAssignmentStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "82"
+        ],
+        "ja2-debug": [
+          "82"
+        ],
+        "ja2ub-release": [
+          "82"
+        ],
+        "ja2ub-debug": [
+          "82"
+        ]
+      }
+    },
+    "pMilitiaString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pMilitiaButtonString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pConditionStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "pEpcMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pContractStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pPOWStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pInvPanelTitleStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pLongAttributeStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pShortAttributeStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pUpperLeftMapScreenStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pTrainingStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pGuardMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pOtherGuardMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pAssignMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pMilitiaControlMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pRemoveMercStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pAttributeMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pTrainingMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pSquadMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "41"
+        ],
+        "ja2-debug": [
+          "41"
+        ],
+        "ja2ub-release": [
+          "41"
+        ],
+        "ja2ub-debug": [
+          "41"
+        ]
+      }
+    },
+    "pSnitchMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pSnitchMenuDescStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pSnitchToggleMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pSnitchToggleMenuDescStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pSnitchSectorMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pSnitchSectorMenuDescStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pPrisonerMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pPrisonerMenuDescStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pSnitchPrisonExposedStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "12"
+        ],
+        "ja2-debug": [
+          "12"
+        ],
+        "ja2ub-release": [
+          "12"
+        ],
+        "ja2ub-debug": [
+          "12"
+        ]
+      }
+    },
+    "pSnitchGatheringRumoursResultStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pPersonnelScreenStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "26"
+        ],
+        "ja2-debug": [
+          "26"
+        ],
+        "ja2ub-release": [
+          "26"
+        ],
+        "ja2ub-debug": [
+          "26"
+        ]
+      }
+    },
+    "gzMercSkillText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pTacticalPopupButtonStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "19"
+        ],
+        "ja2-debug": [
+          "19"
+        ],
+        "ja2ub-release": [
+          "19"
+        ],
+        "ja2ub-debug": [
+          "19"
+        ]
+      }
+    },
+    "pDoorTrapStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pContractExtendStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pMapScreenMouseRegionHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pNoiseVolStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pNoiseTypeStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "12"
+        ],
+        "ja2-debug": [
+          "12"
+        ],
+        "ja2ub-release": [
+          "12"
+        ],
+        "ja2ub-debug": [
+          "12"
+        ]
+      }
+    },
+    "pDirectionStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "pLandTypeStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "41"
+        ],
+        "ja2-debug": [
+          "41"
+        ],
+        "ja2ub-release": [
+          "41"
+        ],
+        "ja2ub-debug": [
+          "41"
+        ]
+      }
+    },
+    "gpStrategicString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "88"
+        ],
+        "ja2-debug": [
+          "88"
+        ],
+        "ja2ub-release": [
+          "88"
+        ],
+        "ja2ub-debug": [
+          "88"
+        ]
+      }
+    },
+    "sKeyDescriptionStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "2"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "gWeaponStatsDesc": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "20"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "21",
+          "20"
+        ],
+        "ja2-debug": [
+          "21",
+          "20"
+        ],
+        "ja2ub-release": [
+          "21",
+          "20"
+        ],
+        "ja2ub-debug": [
+          "21",
+          "20"
+        ]
+      }
+    },
+    "gzWeaponStatsFasthelpTactical": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "33"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "33"
+        ],
+        "ja2-debug": [
+          "33"
+        ],
+        "ja2ub-release": [
+          "33"
+        ],
+        "ja2ub-debug": [
+          "33"
+        ]
+      }
+    },
+    "gzMiscItemStatsFasthelp": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "36"
+        ],
+        "ja2-debug": [
+          "36"
+        ],
+        "ja2ub-release": [
+          "36"
+        ],
+        "ja2ub-debug": [
+          "36"
+        ]
+      }
+    },
+    "gMoneyStatsDesc": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "14"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8",
+          "14"
+        ],
+        "ja2-debug": [
+          "8",
+          "14"
+        ],
+        "ja2ub-release": [
+          "8",
+          "14"
+        ],
+        "ja2ub-debug": [
+          "8",
+          "14"
+        ]
+      }
+    },
+    "zHealthStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "13"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8",
+          "13"
+        ],
+        "ja2-debug": [
+          "8",
+          "13"
+        ],
+        "ja2ub-release": [
+          "8",
+          "13"
+        ],
+        "ja2ub-debug": [
+          "8",
+          "13"
+        ]
+      }
+    },
+    "gzMoneyAmounts": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "6"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "gzProsLabel": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 1,
+      "source_dimensions": [
+        "10"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "gzConsLabel": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 1,
+      "source_dimensions": [
+        "10"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "zTalkMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "6",
+        "SMALL_STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "6",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "6",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "6",
+          "SMALL_STRING_LENGTH"
+        ]
+      }
+    },
+    "zDealerStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "4",
+        "SMALL_STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "4",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "4",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "4",
+          "SMALL_STRING_LENGTH"
+        ]
+      }
+    },
+    "zDialogActions": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "1",
+        "SMALL_STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "1",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "1",
+          "SMALL_STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "1",
+          "SMALL_STRING_LENGTH"
+        ]
+      }
+    },
+    "pVehicleStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pShortVehicleStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "zVehicleName": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pVehicleSeatsStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "TacticalStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "MED_STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "213",
+          "MED_STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "213",
+          "MED_STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "213",
+          "MED_STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "213",
+          "MED_STRING_LENGTH"
+        ]
+      }
+    },
+    "pExitingSectorHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "pRepairStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "sPreStatBuildString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "sStatGainStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "11"
+        ],
+        "ja2-debug": [
+          "11"
+        ],
+        "ja2ub-release": [
+          "11"
+        ],
+        "ja2ub-debug": [
+          "11"
+        ]
+      }
+    },
+    "pHelicopterEtaStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "pHelicopterRepairRefuelStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "sMapLevelString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "gsLoyalString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "gsUndergroundString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "sFacilitiesStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pMapPopUpInventoryText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pwTownInfoStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "22"
+        ],
+        "ja2-debug": [
+          "22"
+        ],
+        "ja2ub-release": [
+          "22"
+        ],
+        "ja2ub-debug": [
+          "22"
+        ]
+      }
+    },
+    "pwMineStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "pwMiscSectorStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "pMapInventoryErrorString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pMapInventoryStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMapScreenFastHelpTextList": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "pMovementMenuStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pUpdateMercStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pMapScreenBorderButtonHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "pMapScreenBottomFastHelp": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "pMapScreenBottomText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pMercDeadString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pSenderNameList": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "500",
+        "128"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "500",
+          "128"
+        ],
+        "ja2-debug": [
+          "500",
+          "128"
+        ],
+        "ja2ub-release": [
+          "500",
+          "128"
+        ],
+        "ja2ub-debug": [
+          "500",
+          "128"
+        ]
+      }
+    },
+    "pTraverseStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pNewMailStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pDeleteMailStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pEmailHeaders": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pFinanceSummary": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "12"
+        ],
+        "ja2-debug": [
+          "12"
+        ],
+        "ja2ub-release": [
+          "12"
+        ],
+        "ja2ub-debug": [
+          "12"
+        ]
+      }
+    },
+    "pFinanceHeaders": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pTransactionText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "41"
+        ],
+        "ja2-debug": [
+          "41"
+        ],
+        "ja2ub-release": [
+          "41"
+        ],
+        "ja2ub-debug": [
+          "41"
+        ]
+      }
+    },
+    "pTransactionAlternateText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pSkyriderText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pMoralStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pLeftEquipmentString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMapScreenStatusStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "pMapScreenPrevNextCharButtonHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pTrashItemText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMapErrorString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "52"
+        ],
+        "ja2-debug": [
+          "52"
+        ],
+        "ja2ub-release": [
+          "52"
+        ],
+        "ja2ub-debug": [
+          "52"
+        ]
+      }
+    },
+    "pMapPlotStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pBullseyeStrings": {
+      "schema_domain": "base",
+      "declaration": "local-extern",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pMiscMapScreenMouseRegionHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pMercHeLeaveString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMercSheLeaveString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMercContractOverStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pImpPopUpStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "pImpButtonText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "27"
+        ],
+        "ja2-debug": [
+          "27"
+        ],
+        "ja2ub-release": [
+          "27"
+        ],
+        "ja2ub-debug": [
+          "27"
+        ]
+      }
+    },
+    "pExtraIMPStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pFilesSenderList": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "pHistoryHeaders": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pHistoryLocations": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pLaptopIcons": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "pBookMarkStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "18"
+        ],
+        "ja2-debug": [
+          "18"
+        ],
+        "ja2ub-release": [
+          "18"
+        ],
+        "ja2ub-debug": [
+          "18"
+        ]
+      }
+    },
+    "pBookmarkTitle": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pDownloadString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "gsAtmStartButtonText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pErrorStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pPersonnelString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pWebTitle": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pWebPagesTitles": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "60"
+        ],
+        "ja2-debug": [
+          "60"
+        ],
+        "ja2ub-release": [
+          "60"
+        ],
+        "ja2ub-debug": [
+          "60"
+        ]
+      }
+    },
+    "pShowBookmarkString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pLaptopTitles": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "pPersonnelDepartedStateStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "pPersonelTeamStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "pPersonnelCurrentTeamStatsStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pPersonnelTeamStatsStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "11"
+        ],
+        "ja2-debug": [
+          "11"
+        ],
+        "ja2ub-release": [
+          "11"
+        ],
+        "ja2ub-debug": [
+          "11"
+        ]
+      }
+    },
+    "pMapVertIndex": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pMapHortIndex": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pMapDepthIndex": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pContractButtonString": {
+      "schema_domain": "base",
+      "declaration": "local-extern",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pUpdatePanelButtons": {
+      "schema_domain": "base",
+      "declaration": "local-extern",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "LargeTacticalStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "LARGE_STRING_LENGTH"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4",
+          "LARGE_STRING_LENGTH"
+        ],
+        "ja2-debug": [
+          "4",
+          "LARGE_STRING_LENGTH"
+        ],
+        "ja2ub-release": [
+          "4",
+          "LARGE_STRING_LENGTH"
+        ],
+        "ja2ub-debug": [
+          "4",
+          "LARGE_STRING_LENGTH"
+        ]
+      }
+    },
+    "InsContractText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "InsInfoText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "MercAccountText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "MercAccountPageText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "MercInfo": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "29"
+        ],
+        "ja2-debug": [
+          "29"
+        ],
+        "ja2ub-release": [
+          "29"
+        ],
+        "ja2ub-debug": [
+          "29"
+        ]
+      }
+    },
+    "MercNoAccountText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "MercHomePageText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "sFuneralString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "12"
+        ],
+        "ja2-debug": [
+          "12"
+        ],
+        "ja2ub-release": [
+          "12"
+        ],
+        "ja2ub-debug": [
+          "12"
+        ]
+      }
+    },
+    "sFloristText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "sOrderFormText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "22"
+        ],
+        "ja2-debug": [
+          "22"
+        ],
+        "ja2ub-release": [
+          "22"
+        ],
+        "ja2ub-debug": [
+          "22"
+        ]
+      }
+    },
+    "sFloristGalleryText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "sFloristCards": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "BobbyROrderFormText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "26"
+        ],
+        "ja2-debug": [
+          "26"
+        ],
+        "ja2ub-release": [
+          "26"
+        ],
+        "ja2ub-debug": [
+          "26"
+        ]
+      }
+    },
+    "BobbyRFilter": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "41"
+        ],
+        "ja2-debug": [
+          "41"
+        ],
+        "ja2ub-release": [
+          "41"
+        ],
+        "ja2ub-debug": [
+          "41"
+        ]
+      }
+    },
+    "BobbyRText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "37"
+        ],
+        "ja2-debug": [
+          "37"
+        ],
+        "ja2ub-release": [
+          "37"
+        ],
+        "ja2ub-debug": [
+          "37"
+        ]
+      }
+    },
+    "BobbyRaysFrontText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "AimPolicyText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "AimMemberText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "CharacterInfo": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "30"
+        ],
+        "ja2-debug": [
+          "30"
+        ],
+        "ja2ub-release": [
+          "30"
+        ],
+        "ja2ub-debug": [
+          "30"
+        ]
+      }
+    },
+    "VideoConfercingText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "AimPopUpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "AimHistoryText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "AimFiText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "22"
+        ],
+        "ja2-debug": [
+          "22"
+        ],
+        "ja2ub-release": [
+          "22"
+        ],
+        "ja2ub-debug": [
+          "22"
+        ]
+      }
+    },
+    "AimAlumniText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "AimScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "AimBottomMenuText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "SKI_Text": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "SkiAtmText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "gzSkiAtmText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "SkiMessageBoxText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "zOptionsText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "zSaveLoadText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "32"
+        ],
+        "ja2-debug": [
+          "32"
+        ],
+        "ja2ub-release": [
+          "32"
+        ],
+        "ja2ub-debug": [
+          "32"
+        ]
+      }
+    },
+    "zMarksMapScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "28"
+        ],
+        "ja2-debug": [
+          "28"
+        ],
+        "ja2ub-release": [
+          "28"
+        ],
+        "ja2ub-debug": [
+          "28"
+        ]
+      }
+    },
+    "pLandMarkInSectorString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMilitiaConfirmStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "gzMoneyWithdrawMessageText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "gzCopyrightText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "zOptionsToggleText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "69"
+        ],
+        "ja2-debug": [
+          "69"
+        ],
+        "ja2ub-release": [
+          "69"
+        ],
+        "ja2ub-debug": [
+          "69"
+        ]
+      }
+    },
+    "zOptionsScreenHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "69"
+        ],
+        "ja2-debug": [
+          "69"
+        ],
+        "ja2ub-release": [
+          "69"
+        ],
+        "ja2ub-debug": [
+          "69"
+        ]
+      }
+    },
+    "gzGIOScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "69"
+        ],
+        "ja2-debug": [
+          "69"
+        ],
+        "ja2ub-release": [
+          "69"
+        ],
+        "ja2ub-debug": [
+          "69"
+        ]
+      }
+    },
+    "gzMPJScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "16"
+        ],
+        "ja2-debug": [
+          "16"
+        ],
+        "ja2ub-release": [
+          "16"
+        ],
+        "ja2ub-debug": [
+          "16"
+        ]
+      }
+    },
+    "gzMPJHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "11"
+        ],
+        "ja2-debug": [
+          "11"
+        ],
+        "ja2ub-release": [
+          "11"
+        ],
+        "ja2ub-debug": [
+          "11"
+        ]
+      }
+    },
+    "gzMPHScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "64"
+        ],
+        "ja2-debug": [
+          "64"
+        ],
+        "ja2ub-release": [
+          "64"
+        ],
+        "ja2ub-debug": [
+          "64"
+        ]
+      }
+    },
+    "pDeliveryLocationStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "17"
+        ],
+        "ja2-debug": [
+          "17"
+        ],
+        "ja2ub-release": [
+          "17"
+        ],
+        "ja2ub-debug": [
+          "17"
+        ]
+      }
+    },
+    "pSkillAtZeroWarning": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pIMPBeginScreenStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pIMPFinishButtonText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "1"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pIMPFinishStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pIMPVoicesStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pDepartedMercPortraitStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "3"
+        ],
+        "ja2-debug": [
+          "3"
+        ],
+        "ja2ub-release": [
+          "3"
+        ],
+        "ja2ub-debug": [
+          "3"
+        ]
+      }
+    },
+    "pPersTitleText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pMessageStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "114"
+        ],
+        "ja2-debug": [
+          "114"
+        ],
+        "ja2ub-release": [
+          "114"
+        ],
+        "ja2ub-debug": [
+          "114"
+        ]
+      }
+    },
+    "ItemPickupHelpPopup": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "CHAR16",
+      "rank": 2,
+      "source_dimensions": [
+        "*",
+        "40"
+      ],
+      "mutability": "writable-character-buffer",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5",
+          "40"
+        ],
+        "ja2-debug": [
+          "5",
+          "40"
+        ],
+        "ja2ub-release": [
+          "5",
+          "40"
+        ],
+        "ja2ub-debug": [
+          "5",
+          "40"
+        ]
+      }
+    },
+    "pDoctorWarningString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pMilitiaButtonsHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "pMapScreenJustStartedHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "pAntiHackerString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "gzLaptopHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "27"
+        ],
+        "ja2-debug": [
+          "27"
+        ],
+        "ja2ub-release": [
+          "27"
+        ],
+        "ja2ub-debug": [
+          "27"
+        ]
+      }
+    },
+    "gzNonPersistantPBIText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "10"
+        ],
+        "ja2-debug": [
+          "10"
+        ],
+        "ja2ub-release": [
+          "10"
+        ],
+        "ja2ub-debug": [
+          "10"
+        ]
+      }
+    },
+    "gzMiscString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "gzIntroScreen": {
+      "schema_domain": "base",
+      "declaration": "local-extern",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "pNewNoiseStr": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "wMapScreenSortButtonHelpText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "6"
+        ],
+        "ja2-debug": [
+          "6"
+        ],
+        "ja2ub-release": [
+          "6"
+        ],
+        "ja2ub-debug": [
+          "6"
+        ]
+      }
+    },
+    "BrokenLinkText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "gzBobbyRShipmentText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "gzCreditNames": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "gzCreditNameTitle": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "gzCreditNameFunny": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "15"
+        ],
+        "ja2-debug": [
+          "15"
+        ],
+        "ja2ub-release": [
+          "15"
+        ],
+        "ja2ub-debug": [
+          "15"
+        ]
+      }
+    },
+    "sRepairsDoneString": {
+      "schema_domain": "base",
+      "declaration": "local-extern",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "8"
+        ],
+        "ja2-debug": [
+          "8"
+        ],
+        "ja2ub-release": [
+          "8"
+        ],
+        "ja2ub-debug": [
+          "8"
+        ]
+      }
+    },
+    "zGioDifConfirmText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "gzLateLocalizedString": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "66"
+        ],
+        "ja2-debug": [
+          "66"
+        ],
+        "ja2ub-release": [
+          "66"
+        ],
+        "ja2ub-debug": [
+          "66"
+        ]
+      }
+    },
+    "gzCWStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "1"
+        ],
+        "ja2-debug": [
+          "1"
+        ],
+        "ja2ub-release": [
+          "1"
+        ],
+        "ja2ub-debug": [
+          "1"
+        ]
+      }
+    },
+    "gzTooltipStrings": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "48"
+        ],
+        "ja2-debug": [
+          "48"
+        ],
+        "ja2ub-release": [
+          "48"
+        ],
+        "ja2ub-debug": [
+          "48"
+        ]
+      }
+    },
+    "New113Message": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "78"
+        ],
+        "ja2-debug": [
+          "78"
+        ],
+        "ja2ub-release": [
+          "78"
+        ],
+        "ja2ub-debug": [
+          "78"
+        ]
+      }
+    },
+    "New113HAMMessage": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "25"
+        ],
+        "ja2-debug": [
+          "25"
+        ],
+        "ja2ub-release": [
+          "25"
+        ],
+        "ja2ub-debug": [
+          "25"
+        ]
+      }
+    },
+    "New113MERCMercMailTexts": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "4"
+        ],
+        "ja2-debug": [
+          "4"
+        ],
+        "ja2ub-release": [
+          "4"
+        ],
+        "ja2ub-debug": [
+          "4"
+        ]
+      }
+    },
+    "New113AIMMercMailTexts": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "18"
+        ],
+        "ja2-debug": [
+          "18"
+        ],
+        "ja2ub-release": [
+          "18"
+        ],
+        "ja2ub-debug": [
+          "18"
+        ]
+      }
+    },
+    "MissingIMPSkillsDescriptions": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "NewInvMessage": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "12"
+        ],
+        "ja2-debug": [
+          "12"
+        ],
+        "ja2ub-release": [
+          "12"
+        ],
+        "ja2ub-debug": [
+          "12"
+        ]
+      }
+    },
+    "MPServerMessage": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "14"
+        ],
+        "ja2-debug": [
+          "14"
+        ],
+        "ja2ub-release": [
+          "14"
+        ],
+        "ja2ub-debug": [
+          "14"
+        ]
+      }
+    },
+    "MPClientMessage": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "81"
+        ],
+        "ja2-debug": [
+          "81"
+        ],
+        "ja2ub-release": [
+          "81"
+        ],
+        "ja2ub-debug": [
+          "81"
+        ]
+      }
+    },
+    "gszMPEdgesText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "gszMPTeamNames": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "5"
+        ],
+        "ja2-debug": [
+          "5"
+        ],
+        "ja2ub-release": [
+          "5"
+        ],
+        "ja2ub-debug": [
+          "5"
+        ]
+      }
+    },
+    "gszMPMapscreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "9"
+        ],
+        "ja2-debug": [
+          "9"
+        ],
+        "ja2ub-release": [
+          "9"
+        ],
+        "ja2ub-debug": [
+          "9"
+        ]
+      }
+    },
+    "gzMPSScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "13"
+        ],
+        "ja2-debug": [
+          "13"
+        ],
+        "ja2ub-release": [
+          "13"
+        ],
+        "ja2ub-debug": [
+          "13"
+        ]
+      }
+    },
+    "gzMPCScreenText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "7"
+        ],
+        "ja2-debug": [
+          "7"
+        ],
+        "ja2ub-release": [
+          "7"
+        ],
+        "ja2ub-debug": [
+          "7"
+        ]
+      }
+    },
+    "gzMPChatToggleText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    },
+    "gzMPChatboxText": {
+      "schema_domain": "base",
+      "declaration": "Text.h",
+      "type": "STR16",
+      "rank": 1,
+      "source_dimensions": [
+        "*"
+      ],
+      "mutability": "mutable-pointer-slots-to-const-text",
+      "conditional_layout": [],
+      "effective_dimensions_by_quadrant": {
+        "ja2-release": [
+          "2"
+        ],
+        "ja2-debug": [
+          "2"
+        ],
+        "ja2ub-release": [
+          "2"
+        ],
+        "ja2ub-debug": [
+          "2"
+        ]
+      }
+    }
+  },
+  "exported_compatibility_debt": [
+    {
+      "language": "German",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 212,
+      "export_limit": 213,
+      "shortfall": 1
+    },
+    {
+      "language": "German",
+      "section": "WeaponType",
+      "symbol": "WeaponType",
+      "compatibility_fields": [
+        "source_dimensions"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "German",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "German",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 17,
+      "export_limit": 18,
+      "shortfall": 1
+    },
+    {
+      "language": "German",
+      "section": "IMPFinishButton",
+      "symbol": "pIMPFinishButtonText",
+      "compatibility_fields": [
+        "source_dimensions"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "German",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Russian",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Russian",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 17,
+      "export_limit": 18,
+      "shortfall": 1
+    },
+    {
+      "language": "Russian",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Dutch",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 212,
+      "export_limit": 213,
+      "shortfall": 1
+    },
+    {
+      "language": "Dutch",
+      "section": "WeaponType",
+      "symbol": "WeaponType",
+      "compatibility_fields": [
+        "source_dimensions"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Dutch",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Dutch",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 17,
+      "export_limit": 18,
+      "shortfall": 1
+    },
+    {
+      "language": "Dutch",
+      "section": "PersonnelScreen",
+      "symbol": "pPersonnelScreenStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 25,
+      "export_limit": 26,
+      "shortfall": 1
+    },
+    {
+      "language": "Dutch",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Polish",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 212,
+      "export_limit": 213,
+      "shortfall": 1
+    },
+    {
+      "language": "Polish",
+      "section": "TeamTurn",
+      "symbol": "TeamTurnString",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 9,
+      "export_limit": 10,
+      "shortfall": 1
+    },
+    {
+      "language": "Polish",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Polish",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 17,
+      "export_limit": 18,
+      "shortfall": 1
+    },
+    {
+      "language": "Polish",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "French",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 212,
+      "export_limit": 213,
+      "shortfall": 1
+    },
+    {
+      "language": "French",
+      "section": "WeaponType",
+      "symbol": "WeaponType",
+      "compatibility_fields": [
+        "source_dimensions"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "French",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "French",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 17,
+      "export_limit": 18,
+      "shortfall": 1
+    },
+    {
+      "language": "French",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Italian",
+      "section": "Message",
+      "symbol": "Message",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 85,
+      "export_limit": 88,
+      "shortfall": 3
+    },
+    {
+      "language": "Italian",
+      "section": "Tactical",
+      "symbol": "TacticalStr",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 211,
+      "export_limit": 213,
+      "shortfall": 2
+    },
+    {
+      "language": "Italian",
+      "section": "WeaponType",
+      "symbol": "WeaponType",
+      "compatibility_fields": [
+        "source_dimensions"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Italian",
+      "section": "GIOScreen",
+      "symbol": "gzGIOScreenText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Italian",
+      "section": "LaptopHelp",
+      "symbol": "gzLaptopHelpText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Italian",
+      "section": "BookMark",
+      "symbol": "pBookMarkStrings",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": true,
+      "actual_entries": 15,
+      "export_limit": 18,
+      "shortfall": 3
+    },
+    {
+      "language": "Italian",
+      "section": "WebPagesTitle",
+      "symbol": "pWebPagesTitles",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    },
+    {
+      "language": "Italian",
+      "section": "MarksMapScreen",
+      "symbol": "zMarksMapScreenText",
+      "compatibility_fields": [
+        "quadrants"
+      ],
+      "unsafe_range": false
+    }
+  ],
+  "exporter_only_tables": [
+    {
+      "section": "LongAttribute",
+      "symbol": "pLongAttributeStrings",
+      "entries_per_language": 10
+    },
+    {
+      "section": "Training",
+      "symbol": "pTrainingStrings",
+      "entries_per_language": 4
+    },
+    {
+      "section": "GuardMenu",
+      "symbol": "pGuardMenuStrings",
+      "entries_per_language": 10
+    },
+    {
+      "section": "OtherGuardMenu",
+      "symbol": "pOtherGuardMenuStrings",
+      "entries_per_language": 10
+    },
+    {
+      "section": "ContractExtend",
+      "symbol": "pContractExtendStrings",
+      "entries_per_language": 3
+    },
+    {
+      "section": "NoiseType",
+      "symbol": "pNoiseTypeStr",
+      "entries_per_language": 12
+    },
+    {
+      "section": "Traverse",
+      "symbol": "pTraverseStrings",
+      "entries_per_language": 2
+    },
+    {
+      "section": "MercContractOver",
+      "symbol": "pMercContractOverStrings",
+      "entries_per_language": 5
+    },
+    {
+      "section": "SkiAtm",
+      "symbol": "SkiAtmText",
+      "entries_per_language": 15
+    },
+    {
+      "section": "IMPFinishButton",
+      "symbol": "pIMPFinishButtonText",
+      "entries_per_language": 1
+    },
+    {
+      "section": "IMPVoices",
+      "symbol": "pIMPVoicesStrings",
+      "entries_per_language": 1
+    },
+    {
+      "section": "DepartedMercPortrait",
+      "symbol": "pDepartedMercPortraitStrings",
+      "entries_per_language": 3
+    },
+    {
+      "section": "MiscString",
+      "symbol": "gzMiscString",
+      "entries_per_language": 5
+    },
+    {
+      "section": "GioDifConfirm",
+      "symbol": "zGioDifConfirmText",
+      "entries_per_language": 4
+    }
+  ]
+}

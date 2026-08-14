@@ -105,6 +105,15 @@ the engine must not contain SDL types in its public domain model.
   descriptor leaves earlier ordinals and ranges intact; the catalog now covers
   344 literals and 14 exporter mappings without changing startup selection,
   `g_lang`, mutable globals, or archive layout.
+  The exporter prerequisite now commits a source-only ordered manifest for all
+  238 `GameStrings` sections: 224 selected legacy mappings and those 14 pack
+  mappings. It pins each range and storage shape, 33 exported foreign-catalog
+  compatibility pairs, the exact 14 pairs whose ranges currently exceed their
+  selected arrays, and 14 exporter-only tables totaling 85 entries per
+  language. It also proves startup export precedes string import and later
+  external-text loading. Runtime behavior and the eight textual language-body
+  includes remain unchanged; the selected-catalog adapter is explicitly
+  blocked until the 14 unsafe ranges have defined, golden-covered behavior.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

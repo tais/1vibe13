@@ -40,13 +40,17 @@ jobs:
       - name: Validate all compiled-text catalogs
         # Structural parity and exact campaign/build alternatives are mandatory
         # for all eight languages and all four JA2/JA2UB x release/debug
-        # quadrants. The legacy executable matrix may still treat foreign
-        # compiles as soft while this build-free gate does not.
+        # quadrants. The ordered developer-export manifest also keeps its
+        # currently unsafe foreign ranges explicit; it does not normalize them.
+        # The legacy executable matrix may still treat foreign compiles as soft
+        # while this build-free gate does not.
         run: |
           python3 tools/check_i18n_text_schema.py
           python3 -m unittest tools/test_check_i18n_text_schema.py
           python3 tools/check_i18n_conditional_text.py
           python3 -m unittest tools/test_check_i18n_conditional_text.py
+          python3 tools/check_i18n_export_schema.py
+          python3 -m unittest tools/test_check_i18n_export_schema.py
 
       - name: Validate release metadata stamping
         run: |
