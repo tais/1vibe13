@@ -3,11 +3,11 @@
 
 	#ifdef FRENCH
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2626,6 +2626,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -2687,6 +2689,7 @@ STR16 pLongAssignmentStrings[] =
 	L"Elève",
 	L"Déplacer les objets",	// move items
 	L"Renseignement",	//!!! Idem ? -> Current translation is OK
+	L"Mange",
 	L"Repos",
 	L"Interroger captif(s)",	 // Flugente: interrogate prisoners
 	L"Mort(e)",
@@ -2715,6 +2718,8 @@ STR16 pLongAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -3371,6 +3376,8 @@ STR16 pDoorTrapStrings[] =
 	L"un piège électrique",
 	L"une alarme sonore",
 	L"une alarme silencieuse",
+	L"une alarme sonore",
+	L"un piège électrique",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3485,6 +3492,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"Abri",				//The shelter underneath the queen's palace !!! "Bunker" is much better here. Char limit ?
 	L"",							//Unused
+	L"Final Complex", // TODO.Translate
+	L"Guard Post", // TODO.Translate
+	L"Crash Site", // TODO.Translate
+	L"Power Plant", // TODO.Translate
+	L"Mountains", // TODO.Translate
+	L"Unknown", // TODO.Translate
 };
 
 STR16 gpStrategicString[] =
@@ -4182,6 +4195,7 @@ CHAR16 TacticalStr[][ MED_STRING_LENGTH ] =
 	L"%s picked up %s",	// TODO.Translate
 
 	L"%s has stopped chatting with %s", // TODO.Translate
+	L"Attempt to turn", // TODO.Translate
 };
 
 //Varying helptext explains (for the "Go to Sector/Map" checkbox) what will happen given different circumstances in the "exiting sector" interface.
@@ -5150,6 +5164,7 @@ STR16 pBookMarkStrings[] =
 	L"Militia Overview",	// TODO.Translate
 	L"R.I.S.",
 	L"Factories",	// TODO.Translate
+	L"A.R.C.",	// TODO.Translate
 };
 
 STR16 pBookmarkTitle[] =

@@ -3,8 +3,8 @@
   "purpose": "ordered source model of the developer GameStrings exporter",
   "runtime_behavior": "unchanged: selected catalog bodies remain textually included",
   "adapter_status": {
-    "state": "blocked",
-    "reason": "14 foreign-language legacy ranges exceed their selected catalog arrays; resolve them before a linked-global export adapter"
+    "state": "ready",
+    "reason": "all 224 selected legacy ranges pass the exhaustive eight-language, four-quadrant live-provider/raw textual-copy gate, all exported pointer entries have literal-only validated storage, and every repaired semantic slot has source-level golden coverage"
   },
   "counts": {
     "logical_sections": 238,
@@ -16,10 +16,96 @@
     "legacy_writable_buffers": 16,
     "legacy_text_h_symbols": 219,
     "legacy_local_extern_symbols": 5,
-    "exported_compatibility_debt_pairs": 33,
-    "unsafe_range_debt_pairs": 14,
+    "exported_compatibility_debt_pairs": 18,
+    "legacy_range_comparisons": 7168,
+    "unsafe_range_sections": 0,
+    "unsafe_range_language_pairs": 0,
+    "unsafe_range_quadrant_failures": 0,
+    "potential_oob_reads_per_selected_build": 0,
     "exporter_only_tables": 14,
     "exporter_only_entries_per_language": 85
+  },
+  "named_export_limits": {
+    "MAXITEMS": 16001,
+    "GUN_TYPES_MAX": 9,
+    "MAX_ASSIGN_STRING_COUNT": 17,
+    "MAX_ATTRIBUTE_STRING_COUNT": 10,
+    "MAX_CONTRACT_MENU_STRING_COUNT": 7,
+    "MAX_EPC_MENU_STRING_COUNT": 5,
+    "MAX_MILCON_STRING_COUNT": 17,
+    "MAX_PRISONER_MENU_STRING_COUNT": 7,
+    "MAX_REMOVE_MERC_COUNT": 2,
+    "MAX_SNITCH_MENU_STRING_COUNT": 3,
+    "MAX_SNITCH_SECTOR_MENU_STRING_COUNT": 3,
+    "MAX_SNITCH_TOGGLE_MENU_STRING_COUNT": 5,
+    "MAX_SQUAD_MENU_STRING_COUNT": 41,
+    "MAX_TRAIN_STRING_COUNT": 5,
+    "MAX_TOWNS": 50,
+    "NUM_ASSIGNMENTS": 85,
+    "NUM_SNITCH_GATHERING_RUMOURS_RESULT": 1,
+    "NUM_SNITCH_PRISON_EXPOSED": 12,
+    "NUM_CONTRACT_EXTEND": 3,
+    "NUM_DOOR_TRAPS": 7,
+    "NUM_ICONS": 18,
+    "NUM_SKILLTRAITS_OT": 17,
+    "NUM_TRAVTERRAIN_TYPES": 47,
+    "TEXT_NUM_LAPTOP_BOOKMARKS": 18,
+    "TEXT_NUM_FINCANCES": 41,
+    "TEXT_NUM_DEPARTED": 6,
+    "TEXT_NUM_PRSNL": 26,
+    "NUM_SKI_ATM_BUTTONS": 15,
+    "TEXT_NUM_AIM_ALUMNI": 5,
+    "TEXT_NUM_AIM_FI": 22,
+    "TEXT_NUM_AIM_HISTORY": 5,
+    "TEXT_NUM_AIM_MEMBER_CHARINFO": 30,
+    "TEXT_NUM_AIM_MEMBER_POPUP": 9,
+    "TEXT_NUM_AIM_MEMBER_VCONF": 15,
+    "TEXT_NUM_AIM_MENU": 6,
+    "TEXT_NUM_AIM_POLICIES": 6,
+    "TEXT_NUM_AIM_SCREEN": 8,
+    "TEXT_NUM_ANTIHACKERSTR": 1,
+    "TEXT_NUM_BOBBYR": 9,
+    "TEXT_NUM_BOBBYR_FILTER": 41,
+    "TEXT_NUM_BOBBYR_GUNS": 37,
+    "TEXT_NUM_BOBBYR_MAILORDER": 26,
+    "TEXT_NUM_BOBBYR_SHIPMENT": 4,
+    "TEXT_NUM_BROKEN_LINK": 2,
+    "TEXT_NUM_EXIT_GUI": 15,
+    "TEXT_NUM_FLORIST": 14,
+    "TEXT_NUM_FLORIST_CARDS": 2,
+    "TEXT_NUM_FLORIST_GALLERY": 5,
+    "TEXT_NUM_FLORIST_ORDER": 22,
+    "TEXT_NUM_FUNERAL": 12,
+    "TEXT_NUM_GIO_CFS": 4,
+    "TEXT_NUM_GIO_TEXT": 69,
+    "TEXT_NUM_INS_CONTRACT": 4,
+    "TEXT_NUM_INS_INFO": 2,
+    "TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT": 16,
+    "TEXT_NUM_LARGESTR": 3,
+    "TEXT_NUM_MERC": 6,
+    "TEXT_NUM_MERC_ACCOUNT": 10,
+    "TEXT_NUM_MERC_FILES": 29,
+    "TEXT_NUM_MERC_NO_ACC": 3,
+    "TEXT_NUM_MONEY_DESC": 8,
+    "TEXT_NUM_MONEY_WITHDRAW": 2,
+    "TEXT_NUM_MPC_TEXT": 7,
+    "TEXT_NUM_MPH_TEXT": 64,
+    "TEXT_NUM_MPJ_TEXT": 16,
+    "TEXT_NUM_MPS_TEXT": 13,
+    "TEXT_NUM_MSG": 114,
+    "TEXT_NUM_MSG113": 78,
+    "TEXT_NUM_NIV": 12,
+    "TEXT_NUM_OPT_TEXT": 14,
+    "TEXT_NUM_SKI_ATM_MODE_TEXT": 6,
+    "TEXT_NUM_SKI_MBOX_TEXT": 9,
+    "TEXT_NUM_SKI_TEXT": 15,
+    "TEXT_NUM_SLG_TEXT": 32,
+    "TEXT_NUM_STRATEGIC_TEXT": 88,
+    "TEXT_NUM_STR_HELI_ETA": 14,
+    "TEXT_NUM_STR_HELI_REPAIRS": 5,
+    "TEXT_NUM_STR_MESSAGE": 88,
+    "TEXT_NUM_STR_TT": 48,
+    "TEXT_NUM_TACTICAL_STR": 213
   },
   "textual_catalog_includes": [
     "_ChineseText.cpp",
@@ -69,7 +155,7 @@
       "symbol": "WeaponType",
       "range": {
         "first": "0",
-        "limit": "MAXITEMS"
+        "limit": "GUN_TYPES_MAX"
       }
     },
     {
@@ -1285,7 +1371,7 @@
       "symbol": "pMercHeLeaveString",
       "range": {
         "first": "0",
-        "limit": "5"
+        "limit": "2"
       }
     },
     {
@@ -1295,7 +1381,7 @@
       "symbol": "pMercSheLeaveString",
       "range": {
         "first": "0",
-        "limit": "5"
+        "limit": "2"
       }
     },
     {
@@ -2733,16 +2819,16 @@
       "conditional_layout": [],
       "effective_dimensions_by_quadrant": {
         "ja2-release": [
-          "83"
+          "85"
         ],
         "ja2-debug": [
-          "83"
+          "85"
         ],
         "ja2ub-release": [
-          "83"
+          "85"
         ],
         "ja2ub-debug": [
-          "83"
+          "85"
         ]
       }
     },
@@ -2758,16 +2844,16 @@
       "conditional_layout": [],
       "effective_dimensions_by_quadrant": {
         "ja2-release": [
-          "82"
+          "85"
         ],
         "ja2-debug": [
-          "82"
+          "85"
         ],
         "ja2ub-release": [
-          "82"
+          "85"
         ],
         "ja2ub-debug": [
-          "82"
+          "85"
         ]
       }
     },
@@ -3583,16 +3669,16 @@
       "conditional_layout": [],
       "effective_dimensions_by_quadrant": {
         "ja2-release": [
-          "5"
+          "7"
         ],
         "ja2-debug": [
-          "5"
+          "7"
         ],
         "ja2ub-release": [
-          "5"
+          "7"
         ],
         "ja2ub-debug": [
-          "5"
+          "7"
         ]
       }
     },
@@ -3733,16 +3819,16 @@
       "conditional_layout": [],
       "effective_dimensions_by_quadrant": {
         "ja2-release": [
-          "41"
+          "47"
         ],
         "ja2-debug": [
-          "41"
+          "47"
         ],
         "ja2ub-release": [
-          "41"
+          "47"
         ],
         "ja2ub-debug": [
-          "41"
+          "47"
         ]
       }
     },
@@ -8247,19 +8333,17 @@
       }
     }
   },
+  "legacy_range_contract": {
+    "comparisons": 7168,
+    "unsafe_sections": 0,
+    "unsafe_language_pairs": 0,
+    "unsafe_quadrant_failures": 0,
+    "potential_oob_reads_per_selected_build": 0,
+    "exported_pointer_entry_checks": 85760,
+    "direct_wide_literal_entry_checks": 85432,
+    "compiled_selector_entry_checks": 328
+  },
   "exported_compatibility_debt": [
-    {
-      "language": "German",
-      "section": "Tactical",
-      "symbol": "TacticalStr",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 212,
-      "export_limit": 213,
-      "shortfall": 1
-    },
     {
       "language": "German",
       "section": "WeaponType",
@@ -8277,18 +8361,6 @@
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "German",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 17,
-      "export_limit": 18,
-      "shortfall": 1
     },
     {
       "language": "German",
@@ -8319,36 +8391,12 @@
     },
     {
       "language": "Russian",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 17,
-      "export_limit": 18,
-      "shortfall": 1
-    },
-    {
-      "language": "Russian",
       "section": "WebPagesTitle",
       "symbol": "pWebPagesTitles",
       "compatibility_fields": [
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "Dutch",
-      "section": "Tactical",
-      "symbol": "TacticalStr",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 212,
-      "export_limit": 213,
-      "shortfall": 1
     },
     {
       "language": "Dutch",
@@ -8370,60 +8418,12 @@
     },
     {
       "language": "Dutch",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 17,
-      "export_limit": 18,
-      "shortfall": 1
-    },
-    {
-      "language": "Dutch",
-      "section": "PersonnelScreen",
-      "symbol": "pPersonnelScreenStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 25,
-      "export_limit": 26,
-      "shortfall": 1
-    },
-    {
-      "language": "Dutch",
       "section": "WebPagesTitle",
       "symbol": "pWebPagesTitles",
       "compatibility_fields": [
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "Polish",
-      "section": "Tactical",
-      "symbol": "TacticalStr",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 212,
-      "export_limit": 213,
-      "shortfall": 1
-    },
-    {
-      "language": "Polish",
-      "section": "TeamTurn",
-      "symbol": "TeamTurnString",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 9,
-      "export_limit": 10,
-      "shortfall": 1
     },
     {
       "language": "Polish",
@@ -8436,36 +8436,12 @@
     },
     {
       "language": "Polish",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 17,
-      "export_limit": 18,
-      "shortfall": 1
-    },
-    {
-      "language": "Polish",
       "section": "WebPagesTitle",
       "symbol": "pWebPagesTitles",
       "compatibility_fields": [
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "French",
-      "section": "Tactical",
-      "symbol": "TacticalStr",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 212,
-      "export_limit": 213,
-      "shortfall": 1
     },
     {
       "language": "French",
@@ -8487,48 +8463,12 @@
     },
     {
       "language": "French",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 17,
-      "export_limit": 18,
-      "shortfall": 1
-    },
-    {
-      "language": "French",
       "section": "WebPagesTitle",
       "symbol": "pWebPagesTitles",
       "compatibility_fields": [
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "Italian",
-      "section": "Message",
-      "symbol": "Message",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 85,
-      "export_limit": 88,
-      "shortfall": 3
-    },
-    {
-      "language": "Italian",
-      "section": "Tactical",
-      "symbol": "TacticalStr",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 211,
-      "export_limit": 213,
-      "shortfall": 2
     },
     {
       "language": "Italian",
@@ -8541,33 +8481,12 @@
     },
     {
       "language": "Italian",
-      "section": "GIOScreen",
-      "symbol": "gzGIOScreenText",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": false
-    },
-    {
-      "language": "Italian",
       "section": "LaptopHelp",
       "symbol": "gzLaptopHelpText",
       "compatibility_fields": [
         "quadrants"
       ],
       "unsafe_range": false
-    },
-    {
-      "language": "Italian",
-      "section": "BookMark",
-      "symbol": "pBookMarkStrings",
-      "compatibility_fields": [
-        "quadrants"
-      ],
-      "unsafe_range": true,
-      "actual_entries": 15,
-      "export_limit": 18,
-      "shortfall": 3
     },
     {
       "language": "Italian",

@@ -3,11 +3,11 @@
 
 	#if defined( DUTCH )
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2617,6 +2617,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -2678,6 +2680,7 @@ STR16 pLongAssignmentStrings[] =
 	L"Student", // being trained by someone else
 	L"Get Item",	// get items	// TODO.Translate
 	L"Staff Facility",		// TODO.Translate
+	L"Eat",
 	L"Rest at Facility",	// TODO.Translate
 	L"Interrogate prisoners",		// Flugente: interrogate prisoners TODO.Translate
 	L"Dood", // dead
@@ -2706,6 +2709,8 @@ STR16 pLongAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -3158,6 +3163,7 @@ STR16 pPersonnelScreenStrings[] =
 	L"Hulp: ", // number of assists on kills by merc
 	L"Dag. Kosten:", // daily cost of merc
 	L"Huidige Tot. Kosten:", // total cost of merc
+	L"Contract:", // current contract
 	L"Huidige Tot. Service:", // total service rendered by merc
 	L"Salaris Tegoed:", // amount left on MERC merc to be paid
 	L"Trefzekerheid:", // percentage of shots that hit target
@@ -3363,6 +3369,8 @@ STR16 pDoorTrapStrings[] =
 	L"een elektrische val",
 	L"alarm",
 	L"stil alarm",
+	L"alarm",
+	L"een elektrische val",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3477,6 +3485,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"Schuilplaats",			//The shelter underneath the queen's palace
 	L"",					//Unused
+	L"Final Complex", // TODO.Translate
+	L"Guard Post", // TODO.Translate
+	L"Crash Site", // TODO.Translate
+	L"Power Plant", // TODO.Translate
+	L"Mountains", // TODO.Translate
+	L"Unknown", // TODO.Translate
 };
 
 STR16 gpStrategicString[] =
@@ -4178,6 +4192,7 @@ CHAR16 TacticalStr[][ MED_STRING_LENGTH ] =
 	L"%s picked up %s",	// TODO.Translate
 
 	L"%s has stopped chatting with %s", // TODO.Translate
+	L"Attempt to turn", // TODO.Translate
 };
 
 //Varying helptext explains (for the "Go to Sector/Map" checkbox) what will happen given different circumstances in the "exiting sector" interface.
@@ -5145,6 +5160,7 @@ STR16 pBookMarkStrings[] =
 	L"Militia Overview",	// TODO.Translate
 	L"R.I.S.",
 	L"Factories",	// TODO.Translate
+	L"A.R.C.",	// TODO.Translate
 };
 
 STR16 pBookmarkTitle[] =

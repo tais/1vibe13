@@ -6,6 +6,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parent
@@ -32,18 +33,63 @@ STR16 table[] = {
         )
 
     def test_commented_policy_include_does_not_satisfy_catalog_gate(self):
-        actual = '#include "CompiledConditionalText.h"\n'
-        commented = '/*\n#include "CompiledConditionalText.h"\n*/\n'
+        actual = '#include "CompiledConditionalTextSelectors.inc"\n'
+        commented = '/*\n#include "CompiledConditionalTextSelectors.inc"\n*/\n'
         self.assertEqual(
-            POLICY.code_match_count(actual, POLICY.COMPILED_POLICY_INCLUDE), 1
+            POLICY.code_match_count(actual, POLICY.COMPILED_SELECTOR_INCLUDE), 1
         )
         self.assertEqual(
-            POLICY.code_match_count(commented, POLICY.COMPILED_POLICY_INCLUDE), 0
+            POLICY.code_match_count(commented, POLICY.COMPILED_SELECTOR_INCLUDE), 0
         )
         self.assertEqual(
-            POLICY.code_match_count(actual + actual, POLICY.COMPILED_POLICY_INCLUDE),
+            POLICY.code_match_count(actual + actual, POLICY.COMPILED_SELECTOR_INCLUDE),
             2,
         )
+
+    def test_selector_seam_pins_complete_reincludeable_macro_inventory(self):
+        source = POLICY._read(POLICY.COMPILED_SELECTOR_SOURCE)
+        self.assertEqual(POLICY.selector_source_issues(source), [])
+        self.assertEqual(len(POLICY.OWNED_SELECTOR_MACROS), 17)
+        mutations = {
+            "missing undef": source.replace(
+                "#undef I18N_COMPILED_BUILD_TEXT\n", "", 1
+            ),
+            "null selector": source.replace(
+                "I18N_DETAIL_BUILD_##key(release, beta)", "nullptr", 1
+            ),
+            "extra directive": source + "\n#define UNREVIEWED_SELECTOR nullptr\n",
+            "C++ declaration": (
+                source + "\ninline constexpr int UnreviewedSelectorSeamToken = 1;\n"
+            ),
+            "pragma operator": source + '\n_Pragma("unreviewed selector seam")\n',
+            "bare macro invocation": source + "\nUNREVIEWED_SELECTOR_SEAM()\n",
+        }
+        for label, changed in mutations.items():
+            with self.subTest(label=label):
+                self.assertTrue(POLICY.selector_source_issues(changed))
+
+    def test_compiled_policy_and_selector_import_remain_active(self):
+        source = POLICY._read(POLICY.COMPILED_POLICY_HEADER)
+        self.assertEqual(POLICY.compiled_policy_source_issues(source), [])
+        include = '#include "CompiledConditionalTextSelectors.inc"'
+        mutations = {
+            "selector include inactive": source.replace(
+                include, "#if 0\n" + include + "\n#endif", 1
+            ),
+            "whole header inactive": "#if 0\n" + source + "#endif\n",
+        }
+        for label, changed in mutations.items():
+            with self.subTest(label=label):
+                self.assertTrue(POLICY.compiled_policy_source_issues(changed))
+                original_read = POLICY._read
+
+                def changed_read(path):
+                    if path == POLICY.COMPILED_POLICY_HEADER:
+                        return changed
+                    return original_read(path)
+
+                with mock.patch.object(POLICY, "_read", side_effect=changed_read):
+                    self.assertTrue(POLICY.validate_policy_headers())
 
     def test_all_58_legacy_guards_have_explicit_groups_and_positions(self):
         self.assertEqual(POLICY.RETIRED_GUARD_COUNT, 58)
@@ -51,14 +97,7 @@ STR16 table[] = {
         self.assertEqual(POLICY.LITERAL_ALTERNATIVE_COUNT, 196)
         self.assertEqual(len(POLICY.CONDITIONED_VALUES), 13)
         self.assertEqual(len(POLICY.CONDITIONED_VALUE_BY_KEY), 13)
-        self.assertEqual(
-            POLICY.LEGACY_INDEX_OVERRIDES,
-            {
-                ("Italian", "TerroristOptionsLabel"): 43,
-                ("Italian", "TerroristOptionsFirstChoice"): 44,
-                ("Italian", "TerroristOptionsSecondChoice"): 45,
-            },
-        )
+        self.assertEqual(POLICY.LEGACY_INDEX_OVERRIDES, {})
         self.assertEqual(
             sum(len(group.languages) for group in POLICY.GUARD_GROUPS), 58
         )

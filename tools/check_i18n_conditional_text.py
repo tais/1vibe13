@@ -31,6 +31,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "i18n" / "conditional_text_schema.json"
 POLICY_HEADER = ROOT / "i18n" / "include" / "ConditionalTextPolicy.h"
 COMPILED_POLICY_HEADER = ROOT / "i18n" / "CompiledConditionalText.h"
+COMPILED_SELECTOR_SOURCE = (
+    ROOT / "i18n" / "include" / "CompiledConditionalTextSelectors.inc"
+)
 
 
 @dataclass(frozen=True)
@@ -69,14 +72,7 @@ CONDITIONED_VALUES = (
 )
 CONDITIONED_VALUE_BY_KEY = {value.key: value for value in CONDITIONED_VALUES}
 
-# Italian's existing gzGIOScreenText compatibility shape has one extra entry
-# before the second campaign group. Keep that pre-existing positional debt
-# explicit rather than pretending every translated table has canonical shape.
-LEGACY_INDEX_OVERRIDES = {
-    ("Italian", "TerroristOptionsLabel"): 43,
-    ("Italian", "TerroristOptionsFirstChoice"): 44,
-    ("Italian", "TerroristOptionsSecondChoice"): 45,
-}
+LEGACY_INDEX_OVERRIDES: Mapping[tuple[str, str], int] = {}
 
 GUARD_GROUPS = (
     GuardGroup("CountryNames", "campaign", "pCountryNames",
@@ -114,9 +110,35 @@ SELECTOR = re.compile(
     r"\bI18N_COMPILED_(CAMPAIGN|BUILD)_TEXT[ \t\r\n]*\("
 )
 WIDE_LITERAL = re.compile(r'L"(?:\\.|[^"\\])*"')
-COMPILED_POLICY_INCLUDE = re.compile(
-    r'^[ \t]*#[ \t]*include[ \t]*"CompiledConditionalText[.]h"',
+COMPILED_SELECTOR_INCLUDE = re.compile(
+    r'^[ \t]*#[ \t]*include[ \t]*"CompiledConditionalTextSelectors[.]inc"',
     re.MULTILINE,
+)
+CAMPAIGN_SELECTOR_KEYS = tuple(
+    value.key for value in CONDITIONED_VALUES if value.axis == "campaign"
+)
+BUILD_SELECTOR_KEYS = tuple(
+    value.key for value in CONDITIONED_VALUES if value.axis == "build"
+)
+OWNED_SELECTOR_MACROS = (
+    "I18N_DETAIL_SELECT_CAMPAIGN_TEXT",
+    "I18N_DETAIL_SELECT_BUILD_TEXT",
+    *(f"I18N_DETAIL_CAMPAIGN_{key}" for key in CAMPAIGN_SELECTOR_KEYS),
+    *(f"I18N_DETAIL_BUILD_{key}" for key in BUILD_SELECTOR_KEYS),
+    "I18N_COMPILED_CAMPAIGN_TEXT",
+    "I18N_COMPILED_BUILD_TEXT",
+)
+
+EXPECTED_COMPILED_POLICY_DIRECTIVES = (
+    "#pragma once",
+    "#include <ConditionalTextPolicy.h>",
+    "#if defined(JA2UB)",
+    "#else",
+    "#endif",
+    "#if defined(JA2BETAVERSION)",
+    "#else",
+    "#endif",
+    '#include "CompiledConditionalTextSelectors.inc"',
 )
 
 
@@ -171,6 +193,160 @@ def code_match_count(text: str, pattern: re.Pattern[str]) -> int:
         if token < match.end() and masked[token] == text[token]:
             count += 1
     return count
+
+
+def _selector_source_snapshot(source: str) -> tuple[list[str], str]:
+    logical = re.sub(r"\\\r?\n[ \t]*", " ", source)
+    masked = ABI.lexical_mask(logical)
+    directives = []
+    residual = list(masked)
+    for match in re.finditer(r"^[ \t]*#[^\r\n]*", masked, re.MULTILINE):
+        raw = logical[match.start():match.end()].strip()
+        directives.append(re.sub(r"[ \t]+", " ", raw))
+        residual[match.start():match.end()] = " " * (match.end() - match.start())
+    return directives, "".join(residual)
+
+
+def _normalized_selector_directives(source: str) -> list[str]:
+    return _selector_source_snapshot(source)[0]
+
+
+def _expected_selector_directives() -> list[str]:
+    expected = [f"#undef {name}" for name in OWNED_SELECTOR_MACROS]
+    expected.extend(
+        [
+            "#if defined(JA2UB)",
+            "#define I18N_DETAIL_SELECT_CAMPAIGN_TEXT(ja2_text, ja2ub_text) ja2ub_text",
+            "#else",
+            "#define I18N_DETAIL_SELECT_CAMPAIGN_TEXT(ja2_text, ja2ub_text) ja2_text",
+            "#endif",
+            "#if defined(JA2BETAVERSION)",
+            "#define I18N_DETAIL_SELECT_BUILD_TEXT(release_text, beta_text) beta_text",
+            "#else",
+            "#define I18N_DETAIL_SELECT_BUILD_TEXT(release_text, beta_text) release_text",
+            "#endif",
+        ]
+    )
+    expected.extend(
+        f"#define I18N_DETAIL_CAMPAIGN_{key}(ja2, ja2ub) "
+        "I18N_DETAIL_SELECT_CAMPAIGN_TEXT(ja2, ja2ub)"
+        for key in CAMPAIGN_SELECTOR_KEYS
+    )
+    expected.extend(
+        f"#define I18N_DETAIL_BUILD_{key}(release, beta) "
+        "I18N_DETAIL_SELECT_BUILD_TEXT(release, beta)"
+        for key in BUILD_SELECTOR_KEYS
+    )
+    expected.extend(
+        [
+            "#define I18N_COMPILED_CAMPAIGN_TEXT(key, ja2, ja2ub) "
+            "I18N_DETAIL_CAMPAIGN_##key(ja2, ja2ub)",
+            "#define I18N_COMPILED_BUILD_TEXT(key, release, beta) "
+            "I18N_DETAIL_BUILD_##key(release, beta)",
+        ]
+    )
+    return expected
+
+
+def selector_source_issues(source: str) -> list[str]:
+    directives, residual = _selector_source_snapshot(source)
+    if directives != _expected_selector_directives():
+        return [
+            "CompiledConditionalTextSelectors.inc lost its exact re-includable "
+            f"{len(OWNED_SELECTOR_MACROS)}-macro directive inventory"
+        ]
+    if residual.strip():
+        return [
+            "CompiledConditionalTextSelectors.inc must remain a macro-only "
+            "directive seam"
+        ]
+    return []
+
+
+def compiled_policy_source_issues(source: str) -> list[str]:
+    """Pin the policy header and selector import outside enclosing conditionals."""
+
+    masked = ABI.lexical_mask(source)
+    if re.search(r"^[ \t]*(?:%:|\?\?=)", masked, re.MULTILINE) or re.search(
+        r"\\[ \t]*(?:\r?\n|$)|\?\?/", masked
+    ):
+        return [
+            "CompiledConditionalText.h uses unsupported preprocessor spelling"
+        ]
+    directive_matches = list(
+        re.finditer(r"^[ \t]*#[^\r\n]*", masked, re.MULTILINE)
+    )
+    directives = tuple(
+        re.sub(r"[ \t]+", " ", source[match.start():match.end()].strip())
+        for match in directive_matches
+    )
+    if directives != EXPECTED_COMPILED_POLICY_DIRECTIVES:
+        return [
+            "CompiledConditionalText.h lost its exact active policy/selector "
+            "directive inventory"
+        ]
+
+    policy = re.compile(
+        r"\bCompiledConditionalTextPolicy\s*\(\s*\)\s*noexcept\s*"
+        r"->[ \t\r\n]*ConditionalTextPolicy\s*\{"
+    )
+    definitions = list(policy.finditer(masked))
+    selector_include = re.compile(
+        r'^[ \t]*#[ \t]*include[ \t]*'
+        r'"CompiledConditionalTextSelectors[.]inc"[ \t]*$',
+        re.MULTILINE,
+    )
+    includes = list(selector_include.finditer(source))
+    if len(definitions) != 1 or len(includes) != 1:
+        return [
+            "CompiledConditionalText.h must own one policy function and one "
+            "selector import"
+        ]
+    opening = masked.find("{", definitions[0].start(), definitions[0].end())
+    try:
+        closing = ABI._matching_brace(masked, opening)
+    except ABI.SchemaError:
+        return ["CompiledConditionalText.h policy function is not balanced"]
+    depth = 0
+    function_depth = None
+    include_depth = None
+    for directive in directive_matches:
+        if function_depth is None and directive.start() >= definitions[0].start():
+            function_depth = depth
+        if include_depth is None and directive.start() >= includes[0].start():
+            include_depth = depth
+        name_match = re.match(r"^[ \t]*#[ \t]*([A-Za-z_]\w*)", masked[
+            directive.start():directive.end()
+        ])
+        if name_match is None:
+            return ["CompiledConditionalText.h has an unreadable directive"]
+        name = name_match.group(1)
+        if name in {"if", "ifdef", "ifndef"}:
+            depth += 1
+        elif name in {"else", "elif"}:
+            if depth == 0:
+                return ["CompiledConditionalText.h has an unmatched branch"]
+        elif name == "endif":
+            depth -= 1
+            if depth < 0:
+                return ["CompiledConditionalText.h has an unmatched #endif"]
+    if function_depth is None:
+        function_depth = depth
+    if include_depth is None:
+        include_depth = depth
+    policy_conditionals = directive_matches[2:8]
+    if (
+        depth != 0
+        or function_depth != 0
+        or include_depth != 0
+        or includes[0].start() <= closing
+        or not all(opening < match.start() < closing for match in policy_conditionals)
+    ):
+        return [
+            "CompiledConditionalText.h policy function and selector import "
+            "must remain unconditional and top-level"
+        ]
+    return []
 
 
 def _split_arguments(raw: str, masked: str) -> list[str]:
@@ -258,9 +434,9 @@ def collect_catalog(language: ABI.Language) -> dict[str, dict[str, str]]:
         raise ConditionalTextError(
             f"{relative}: catalog regained JA2UB/JA2BETAVERSION directives"
         )
-    if code_match_count(text, COMPILED_POLICY_INCLUDE) != 1:
+    if code_match_count(text, COMPILED_SELECTOR_INCLUDE) != 1:
         raise ConditionalTextError(
-            f"{relative}: compiled conditional-text policy include is missing or duplicated"
+            f"{relative}: compiled selector seam include is missing or duplicated"
         )
 
     definitions = ABI.parse_definitions(text, str(relative))
@@ -363,12 +539,26 @@ def validate_policy_headers() -> list[str]:
 
     compiled = _read(COMPILED_POLICY_HEADER)
     compiled_masked = ABI.lexical_mask(compiled)
+    issues.extend(compiled_policy_source_issues(compiled))
+    selector_include = re.compile(
+        r'^[ \t]*#[ \t]*include[ \t]*'
+        r'"CompiledConditionalTextSelectors[.]inc"',
+        re.MULTILINE,
+    )
+    if code_match_count(compiled, selector_include) != 1:
+        issues.append(
+            "CompiledConditionalText.h must import the selector seam exactly once"
+        )
+    selectors = _read(COMPILED_SELECTOR_SOURCE)
+    selectors_masked = ABI.lexical_mask(selectors)
+    issues.extend(selector_source_issues(selectors))
     for value in CONDITIONED_VALUES:
         prefix = "CAMPAIGN" if value.axis == "campaign" else "BUILD"
         marker = f"#define I18N_DETAIL_{prefix}_{value.key}("
-        if compiled_masked.count(marker) != 1:
+        if selectors_masked.count(marker) != 1:
             issues.append(
-                f"CompiledConditionalText.h lost exact {value.axis} alias for {value.key}"
+                "CompiledConditionalTextSelectors.inc lost exact "
+                f"{value.axis} alias for {value.key}"
             )
     for required in (
         "CampaignTextVariant::ja2",

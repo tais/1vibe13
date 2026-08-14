@@ -2148,7 +2148,6 @@ enum
 	// anv: new iron man modes
 	GIO_ALMOST_IRON_MAN_TEXT,
 	GIO_EXTREME_IRON_MAN_TEXT,
-	GIO_ULTIMATE_IRON_MAN_TEXT,
 
 	////////////////////////////////////
 	TEXT_NUM_GIO_TEXT

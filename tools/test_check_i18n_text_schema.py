@@ -2,6 +2,7 @@
 """Focused tests for the build-free compiled-text ABI validator."""
 
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -85,6 +86,23 @@ STR16 EditorOnly[] = { L"editor" };
                 "constinit STR16 Unsupported[] = { L\"text\" };\n",
                 "fixture.cpp",
             )
+
+    def test_definition_lexer_hides_raw_strings_and_keeps_digit_separators(self):
+        source = r'''auto raw = R"tag(
+STR16 Fake[] =
+{ nullptr, nullptr };
+)tag";
+constexpr auto count = 1'000;
+STR16 Real[] = { L"real" };
+'''
+        masked = SCHEMA.lexical_mask(source)
+        self.assertNotIn("Fake", masked)
+        self.assertIn("1'000", masked)
+        self.assertIn("Real", masked)
+        self.assertEqual(
+            set(SCHEMA.parse_definitions(source, "fixture.cpp")),
+            {"Real"},
+        )
 
     def test_campaign_and_build_quadrants_select_exact_initializer_shapes(self):
         source = """
@@ -204,7 +222,40 @@ STR16 Labels[] = {
         }
         diagnostics = "\n".join(SCHEMA.validate_compatibility_debt(debt))
         self.assertIn("unexpected field(s): *", diagnostics)
-        self.assertIn("grew from the 57-symbol ceiling to 58", diagnostics)
+        self.assertIn("grew from the 42-symbol ceiling to 43", diagnostics)
+
+    def test_committed_debt_is_42_and_drops_all_15_normalized_pairs(self):
+        schema = json.loads(
+            SCHEMA.SCHEMA_PATH.read_text(encoding="utf-8"),
+            object_pairs_hook=SCHEMA.unique_json_object,
+        )
+        pairs = {
+            (language, symbol)
+            for language, overlay in schema["catalog_compatibility_debt"].items()
+            for symbol in overlay["symbols"]
+        }
+        self.assertEqual(len(pairs), 42)
+        self.assertTrue(
+            pairs.isdisjoint(
+                {
+                    ("German", "TacticalStr"),
+                    ("German", "pBookMarkStrings"),
+                    ("Russian", "pBookMarkStrings"),
+                    ("Dutch", "TacticalStr"),
+                    ("Dutch", "pBookMarkStrings"),
+                    ("Dutch", "pPersonnelScreenStrings"),
+                    ("Polish", "TacticalStr"),
+                    ("Polish", "TeamTurnString"),
+                    ("Polish", "pBookMarkStrings"),
+                    ("French", "TacticalStr"),
+                    ("French", "pBookMarkStrings"),
+                    ("Italian", "Message"),
+                    ("Italian", "TacticalStr"),
+                    ("Italian", "pBookMarkStrings"),
+                    ("Italian", "gzGIOScreenText"),
+                }
+            )
+        )
 
     def test_schema_json_rejects_shadowing_duplicate_keys(self):
         with self.assertRaisesRegex(SCHEMA.SchemaError, "duplicate JSON object key"):

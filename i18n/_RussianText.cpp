@@ -3,11 +3,11 @@
 
 	#if defined( RUSSIAN )
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2618,6 +2618,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -2679,6 +2681,7 @@ STR16 pLongAssignmentStrings[] =
 	L"Обучается",
 	L"Носильщик",	// move items
 	L"Работает с населением",		//Staff Facility
+	L"Питается",
 	L"Отдыхает в заведении",		//Resting at Facility
 	L"Допрашивает пленных",		// Flugente: interrogate prisoners
 	L"Мёртв",
@@ -2707,6 +2710,8 @@ STR16 pLongAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -3363,6 +3368,8 @@ STR16 pDoorTrapStrings[] =
 	L"электроловушка",
 	L"сирена",
 	L"сигнализация",
+	L"сирена",
+	L"электроловушка",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3477,6 +3484,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"Убежище",		//The shelter underneath the queen's palace
 	L"",							//Unused
+	L"Final Complex", // TODO.Translate
+	L"Guard Post", // TODO.Translate
+	L"Crash Site", // TODO.Translate
+	L"Power Plant", // TODO.Translate
+	L"Mountains", // TODO.Translate
+	L"Unknown", // TODO.Translate
 };
 
 STR16 gpStrategicString[] =
@@ -5140,6 +5153,7 @@ STR16 pBookMarkStrings[] =
 	L"Ополчение",
 	L"R.I.S.",
 	L"Factories",	// TODO.Translate
+	L"A.R.C.",	// TODO.Translate
 };
 
 STR16 pBookmarkTitle[] =

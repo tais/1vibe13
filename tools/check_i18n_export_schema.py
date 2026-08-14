@@ -6,10 +6,11 @@ immutable TextPack.  This tool records that exact ordered boundary and checks
 it against ExportStrings.cpp, TextCatalog.h, the compiled-text ABI schema, all
 eight catalog shapes, and the startup call chain.
 
-The manifest is deliberately descriptive: it does not bless the fourteen
-foreign-catalog ranges that currently exceed their selected source arrays.
-Those ranges are explicit non-growing debt and block replacing the textual
-catalog inclusion with a linked-global adapter.
+The manifest is deliberately descriptive. Every selected catalog now covers
+the reviewed legacy export ranges, and exact semantic-slot goldens keep those
+repairs from being replaced by empty padding or shifted entries. This makes
+the selected-catalog side ready for a future linked-global adapter without
+changing current runtime publication.
 
 Usage:
     python3 tools/check_i18n_export_schema.py
@@ -19,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import re
 import sys
@@ -42,8 +44,17 @@ EXPECTED_LEGACY_POINTER_TABLES = 208
 EXPECTED_LEGACY_WRITABLE_BUFFERS = 16
 EXPECTED_LEGACY_TEXT_H_SYMBOLS = 219
 EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS = 5
-MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 33
-MAX_UNSAFE_RANGE_DEBT_PAIRS = 14
+MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 18
+EXPECTED_LEGACY_RANGE_COMPARISONS = (
+    EXPECTED_LEGACY_SECTIONS * len(ABI.LANGUAGES) * len(ABI.QUADRANTS)
+)
+EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS = 85760
+EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS = 85432
+EXPECTED_COMPILED_SELECTOR_ENTRY_CHECKS = 328
+MAX_UNSAFE_RANGE_SECTIONS = 0
+MAX_UNSAFE_RANGE_LANGUAGE_PAIRS = 0
+MAX_UNSAFE_RANGE_QUADRANT_FAILURES = 0
+MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD = 0
 EXPECTED_EXPORTER_ONLY_TABLES = 14
 EXPECTED_EXPORTER_ONLY_ENTRIES = 85
 EXPECTED_TEXTUAL_CATALOG_INCLUDES = [
@@ -56,21 +67,229 @@ EXPECTED_TEXTUAL_CATALOG_INCLUDES = [
     "_PolishText.cpp",
     "_RussianText.cpp",
 ]
+EXPECTED_CATALOG_PREAMBLE_INCLUDES = [
+    "Text.h",
+    "FileMan.h",
+    "Scheduling.h",
+    "EditorMercs.h",
+    "Item Statistics.h",
+    "CompiledConditionalTextSelectors.inc",
+]
 
-# Only exported compatibility-debt symbols and full exporter-only tables need
-# numeric resolution. Unknown expressions fail closed instead of silently
-# classifying a new short foreign table as safe.
-NAMED_EXPORT_LIMITS: Mapping[str, int | str] = {
-    "MAXITEMS": "MAXITEMS",
-    "NUM_CONTRACT_EXTEND": 3,
-    "NUM_SKI_ATM_BUTTONS": 15,
-    "TEXT_NUM_GIO_CFS": 4,
-    "TEXT_NUM_GIO_TEXT": 69,
-    "TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT": 16,
-    "TEXT_NUM_LAPTOP_BOOKMARKS": 18,
-    "TEXT_NUM_PRSNL": 26,
-    "TEXT_NUM_STR_MESSAGE": 88,
-    "TEXT_NUM_TACTICAL_STR": 213,
+EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES = [
+    "#ifdef static_assert",
+    '#error "GameStrings export limits require the built-in static_assert keyword"',
+    "#endif",
+    '#include "ExportStringLimitContract.inc"',
+]
+
+NAMED_EXPORT_LIMIT_MANIFEST = "i18n/include/ExportStringLimitContract.inc"
+EXPECTED_NAMED_EXPORT_LIMITS = 80
+
+EXPECTED_NORMALIZED_EXPORT_LIMITS: Mapping[str, int] = {
+    "WeaponType": 9,
+    "TeamTurnString": 10,
+    "Message": 88,
+    "pPersonnelAssignmentStrings": 85,
+    "pLongAssignmentStrings": 85,
+    "pPersonnelScreenStrings": 26,
+    "pDoorTrapStrings": 7,
+    "pLandTypeStrings": 47,
+    "TacticalStr": 213,
+    "pBookMarkStrings": 18,
+    "pMercHeLeaveString": 2,
+    "pMercSheLeaveString": 2,
+    "gzGIOScreenText": 69,
+}
+
+# The repaired slots are source/schema boundaries, not translation policy.
+# Native catalog literals are retained where they already exist; otherwise the
+# canonical English fallback remains visibly marked TODO.Translate in source.
+FOREIGN_NORMALIZED_REPAIRED_SLOTS = frozenset(
+    {
+        ("German", "TacticalStr", 212),
+        ("German", "pBookMarkStrings", 17),
+        ("Russian", "pBookMarkStrings", 17),
+        ("Dutch", "TacticalStr", 212),
+        ("Dutch", "pBookMarkStrings", 17),
+        ("Dutch", "pPersonnelScreenStrings", 17),
+        ("Polish", "TacticalStr", 212),
+        ("Polish", "TeamTurnString", 5),
+        ("Polish", "pBookMarkStrings", 17),
+        ("French", "TacticalStr", 212),
+        ("French", "pBookMarkStrings", 17),
+        ("Italian", "Message", 65),
+        ("Italian", "Message", 66),
+        ("Italian", "Message", 67),
+        ("Italian", "TacticalStr", 103),
+        ("Italian", "TacticalStr", 212),
+        ("Italian", "pBookMarkStrings", 8),
+        ("Italian", "pBookMarkStrings", 9),
+        ("Italian", "pBookMarkStrings", 17),
+    }
+)
+
+# Include both repaired slots and the adjacent/tail anchors that prove later
+# entries retained their canonical GameStrings ordinals.
+NORMALIZED_CATALOG_GOLDENS: dict[tuple[str, str], dict[int, str]] = {
+    ("German", "TacticalStr"): {
+        211: "%s has stopped chatting with %s",
+        212: "Attempt to turn",
+    },
+    ("German", "pBookMarkStrings"): {17: "A.R.C."},
+    ("Russian", "pBookMarkStrings"): {17: "A.R.C."},
+    ("Dutch", "TacticalStr"): {
+        211: "%s has stopped chatting with %s",
+        212: "Attempt to turn",
+    },
+    ("Dutch", "pBookMarkStrings"): {17: "A.R.C."},
+    ("Dutch", "pPersonnelScreenStrings"): {
+        17: "Contract:",
+        18: "Huidige Tot. Service:",
+        25: "Achievements:",
+    },
+    ("Polish", "TacticalStr"): {
+        211: "%s has stopped chatting with %s",
+        212: "Attempt to turn",
+    },
+    ("Polish", "TeamTurnString"): {
+        4: "Tura cywili",
+        5: "Player_Plan",
+    },
+    ("Polish", "pBookMarkStrings"): {17: "A.R.C."},
+    ("French", "TacticalStr"): {
+        211: "%s has stopped chatting with %s",
+        212: "Attempt to turn",
+    },
+    ("French", "pBookMarkStrings"): {17: "A.R.C."},
+    ("Italian", "Message"): {
+        65: "accurate",
+        66: "inaccurate",
+        67: "no semi auto",
+        68: "The enemy has no more items to steal!",
+        85: "Assignment not possible at the moment",
+        86: "No militia that can be drilled present.",
+        87: "%s has fully explored %s.",
+    },
+    ("Italian", "TacticalStr"): {
+        103: "PRISONER",
+        104: "Settore di uscita",
+        211: "%s has stopped chatting with %s",
+        212: "Attempt to turn",
+    },
+    ("Italian", "pBookMarkStrings"): {
+        8: "Encyclopedia",
+        9: "Briefing Room",
+        17: "A.R.C.",
+    },
+}
+
+ASSIGNMENT_REPAIR_LITERALS: Mapping[str, tuple[str, str, str]] = {
+    "English": ("Eat", "Event", "Mission"),
+    "German": ("Essen", "Event", "Mission"),
+    "Russian": ("Питается", "Event", "Mission"),
+    "Dutch": ("Eat", "Event", "Mission"),
+    "Polish": ("Eat", "Event", "Mission"),
+    "French": ("Mange", "Event", "Mission"),
+    "Italian": ("Eat", "Event", "Mission"),
+    "Chinese": ("用餐", "事件", "任务"),
+}
+
+ASSIGNMENT_ALIGNMENT_LITERALS: Mapping[str, tuple[str, str, str, str]] = {
+    "English": ("Exploration", "Staff Facility", "Rest at Facility", "Empty"),
+    "German": ("Exploration", "Betriebspersonal", "Betriebspause", "Leer"),
+    "Russian": ("Exploration", "Работает с населением", "Отдыхает в заведении", "Без пассажиров"),
+    "Dutch": ("Exploration", "Staff Facility", "Rest at Facility", "Leeg"),
+    "Polish": ("Exploration", "Staff Facility", "Rest at Facility", "Pusty"),
+    "French": ("Exploration", "Renseignement", "Repos", "Vide"),
+    "Italian": ("Exploration", "Staff Facility", "Rest at Facility", "Vuoto"),
+    "Chinese": ("探索事项", "兼职", "休养", "空车"),
+}
+
+DOOR_TRAP_LITERALS: Mapping[str, tuple[str, str, str]] = {
+    "English": ("an electric trap", "a siren trap", "a silent alarm trap"),
+    "German": ("eine elektrische Falle", "eine Falle mit Sirene", "eine Falle mit stummem Alarm"),
+    "Russian": ("электроловушка", "сирена", "сигнализация"),
+    "Dutch": ("een elektrische val", "alarm", "stil alarm"),
+    "Polish": ("jest pod napięciem", "posiada syrenę alarmową", "posiada dyskretny alarm"),
+    "French": ("un piège électrique", "une alarme sonore", "une alarme silencieuse"),
+    "Italian": ("una trappola elettrica", "una trappola con sirena", "una trappola con allarme insonoro"),
+    "Chinese": ("一个带电陷阱", "一个警报陷阱", "一个无声警报陷阱"),
+}
+
+LAND_TYPE_TAIL = (
+    "Final Complex",
+    "Guard Post",
+    "Crash Site",
+    "Power Plant",
+    "Mountains",
+    "Unknown",
+)
+
+UNIVERSAL_RANGE_REPAIRED_SLOTS = frozenset(
+    (language.name, symbol, index)
+    for language in ABI.LANGUAGES
+    for symbol, indices in (
+        ("pPersonnelAssignmentStrings", (83, 84)),
+        ("pLongAssignmentStrings", (54, 83, 84)),
+        ("pDoorTrapStrings", (5, 6)),
+        ("pLandTypeStrings", (41, 42, 43, 44, 45, 46)),
+    )
+    for index in indices
+)
+NORMALIZED_REPAIRED_SLOTS = (
+    FOREIGN_NORMALIZED_REPAIRED_SLOTS | UNIVERSAL_RANGE_REPAIRED_SLOTS
+)
+
+for _language in ABI.LANGUAGES:
+    _name = _language.name
+    _eat, _event, _mission = ASSIGNMENT_REPAIR_LITERALS[_name]
+    _exploration, _staff, _rest, _empty = ASSIGNMENT_ALIGNMENT_LITERALS[_name]
+    _electric, _siren, _silent = DOOR_TRAP_LITERALS[_name]
+    NORMALIZED_CATALOG_GOLDENS.setdefault(
+        (_name, "pPersonnelAssignmentStrings"), {}
+    ).update({82: _exploration, 83: _event, 84: _mission})
+    NORMALIZED_CATALOG_GOLDENS.setdefault(
+        (_name, "pLongAssignmentStrings"), {}
+    ).update(
+        {
+            53: _staff,
+            54: _eat,
+            55: _rest,
+            61: _empty,
+            82: _exploration,
+            83: _event,
+            84: _mission,
+        }
+    )
+    NORMALIZED_CATALOG_GOLDENS.setdefault(
+        (_name, "pDoorTrapStrings"), {}
+    ).update({2: _electric, 3: _siren, 4: _silent, 5: _siren, 6: _electric})
+    NORMALIZED_CATALOG_GOLDENS.setdefault(
+        (_name, "pLandTypeStrings"), {}
+    ).update({40: "", **{41 + index: value for index, value in enumerate(LAND_TYPE_TAIL)}})
+
+NORMALIZED_CATALOG_GOLDENS.setdefault(("Italian", "gzGIOScreenText"), {}).update(
+    {
+        5: "Opzioni delle armi",
+        6: "Varietà di armi",
+        11: "Professionista",
+        12: "INSANE",
+        13: "Start",
+        23: "Awesome",
+        24: "Inventory / Attachments",
+        68: "Extreme Iron Man",
+    }
+)
+
+READY_ADAPTER_STATUS = {
+    "state": "ready",
+    "reason": (
+        "all 224 selected legacy ranges pass the exhaustive eight-language, "
+        "four-quadrant live-provider/raw textual-copy gate, all exported "
+        "pointer entries have literal-only validated storage, and every "
+        "repaired semantic slot has source-level golden coverage"
+    ),
 }
 
 SOURCE_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"})
@@ -245,6 +464,228 @@ def lexical_mask(text: str) -> str:
     return "".join(output)
 
 
+NAMED_LIMIT_ENTRY = re.compile(
+    r'static_assert\(([A-Za-z_]\w*)[ \t]*==[ \t]*(\d+),[ \t]*'
+    r'"GameStrings:\1"\);'
+)
+
+PREPROCESSOR_DIRECTIVE = re.compile(
+    r"^[ \t]*#[ \t]*(?P<name>[A-Za-z_]\w*)(?P<rest>[^\r\n]*)",
+    re.MULTILINE,
+)
+
+EXPORT_FUNCTION_DEFINITION = re.compile(
+    r"\bbool[ \t\r\n]+Loc::ExportStrings[ \t\r\n]*"
+    r"\([ \t\r\n]*\)[ \t\r\n]*\{"
+)
+
+CONDITIONAL_DIRECTIVE_OPENERS = {"if", "ifdef", "ifndef"}
+CONDITIONAL_DIRECTIVE_BRANCHES = {"elif", "else"}
+
+
+def _reject_preprocessor_obfuscation(source: str, context: str) -> str:
+    """Return a lexical mask after rejecting alternate/spliced directives."""
+
+    masked = lexical_mask(source)
+    if re.search(r"^[ \t]*(?:%:|\?\?=)", masked, re.MULTILINE):
+        raise ExportSchemaError(
+            f"{context}: alternative preprocessor tokens are unsupported"
+        )
+    if re.search(r"\\[ \t]*(?:\r?\n|$)|\?\?/", masked):
+        raise ExportSchemaError(
+            f"{context}: continued preprocessor spellings are unsupported"
+        )
+    return masked
+
+
+def _directive_matches(source: str, context: str) -> tuple[str, list[re.Match]]:
+    masked = _reject_preprocessor_obfuscation(source, context)
+    return masked, list(PREPROCESSOR_DIRECTIVE.finditer(masked))
+
+
+def _structural_directive_matches(
+    source: str, context: str
+) -> list[re.Match]:
+    """Parse directive nesting while honoring ordinary line splicing."""
+
+    masked = lexical_mask(source)
+    if re.search(r"^[ \t]*(?:%:|\?\?=)", masked, re.MULTILINE) or "??/" in masked:
+        raise ExportSchemaError(
+            f"{context}: alternative preprocessor tokens are unsupported"
+        )
+    logical = re.sub(r"\\[ \t]*\r?\n", "", masked)
+    return list(PREPROCESSOR_DIRECTIVE.finditer(logical))
+
+
+def _conditional_depth(
+    directives: Sequence[re.Match], context: str, initial: int = 0
+) -> int:
+    depth = initial
+    for directive in directives:
+        name = directive.group("name")
+        if name in CONDITIONAL_DIRECTIVE_OPENERS:
+            depth += 1
+        elif name in CONDITIONAL_DIRECTIVE_BRANCHES:
+            if depth == 0:
+                raise ExportSchemaError(f"{context}: unmatched conditional branch")
+        elif name == "endif":
+            depth -= 1
+            if depth < 0:
+                raise ExportSchemaError(f"{context}: unmatched #endif")
+    return depth
+
+
+def _require_unconditional_definition(
+    directives: Sequence[re.Match], definition_start: int, context: str
+) -> None:
+    """Require one definition to start/end outside every conditional region."""
+
+    depth = 0
+    definition_depth = None
+    for directive in directives:
+        if definition_depth is None and directive.start() >= definition_start:
+            definition_depth = depth
+        name = directive.group("name")
+        if name in CONDITIONAL_DIRECTIVE_OPENERS:
+            depth += 1
+        elif name in CONDITIONAL_DIRECTIVE_BRANCHES:
+            if depth == 0:
+                raise ExportSchemaError(f"{context}: unmatched conditional branch")
+        elif name == "endif":
+            depth -= 1
+            if depth < 0:
+                raise ExportSchemaError(f"{context}: unmatched #endif")
+    if definition_depth is None:
+        definition_depth = depth
+    if definition_depth != 0:
+        raise ExportSchemaError(
+            f"{context} must be an unconditional top-level definition"
+        )
+    if depth != 0:
+        raise ExportSchemaError(
+            f"a preprocessor conditional crosses the {context} boundary"
+        )
+
+
+def _validate_export_source_preprocessor(export_source: str) -> None:
+    """Keep the exporter active and its compiler-owned seam unreplaced."""
+
+    masked = lexical_mask(export_source)
+    definitions = list(EXPORT_FUNCTION_DEFINITION.finditer(masked))
+    if len(definitions) != 1:
+        raise ExportSchemaError(
+            "ExportStrings must retain one exact zero-parameter bool definition"
+        )
+    opening = masked.find("{", definitions[0].start(), definitions[0].end())
+    closing = _matching_delimiter(masked, opening, "{", "}")
+    reviewed_source = export_source[:closing + 1]
+    _masked, directives = _directive_matches(
+        reviewed_source, "ExportStrings.cpp"
+    )
+    for directive in directives:
+        if directive.group("name") in {"define", "undef"}:
+            raise ExportSchemaError(
+                "ExportStrings.cpp may not define or undefine macros across "
+                "the reviewed export boundary"
+            )
+    _require_unconditional_definition(
+        directives, definitions[0].start(), "Loc::ExportStrings"
+    )
+
+
+def _validated_export_body_directives(raw_body: str) -> list[re.Match]:
+    _masked, directives = _directive_matches(
+        raw_body, "Loc::ExportStrings"
+    )
+    actual = [raw_body[match.start():match.end()].strip() for match in directives]
+    if actual != EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES:
+        raise ExportSchemaError(
+            "Loc::ExportStrings must begin with the exact static_assert guard "
+            "and named-limit contract include"
+        )
+    prefix = raw_body[:directives[-1].end()]
+    prefix_lines = [line.strip() for line in prefix.splitlines() if line.strip()]
+    if prefix_lines != EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES:
+        raise ExportSchemaError(
+            "the static_assert guard and named-limit include must be the exact "
+            "exporter prefix"
+        )
+    return directives
+
+
+def parse_named_export_limit_manifest(source: str) -> dict[str, int]:
+    """Parse the strict compiler-owned list of live limit assertions."""
+
+    masked = lexical_mask(source)
+    if re.search(r"^[ \t]*(?:#|%:)", masked, re.MULTILINE) or (
+        comments_blanked(source) != source
+    ):
+        raise ExportSchemaError(
+            "named export-limit contract may not contain directives or comments"
+        )
+    lines = source.splitlines()
+    if len(lines) != EXPECTED_NAMED_EXPORT_LIMITS or any(
+        not line.strip() for line in lines
+    ):
+        raise ExportSchemaError(
+            "named export-limit contract must be exactly "
+            f"{EXPECTED_NAMED_EXPORT_LIMITS} nonblank rows"
+        )
+    result: dict[str, int] = {}
+    order = []
+    for line_number, line in enumerate(lines, start=1):
+        match = NAMED_LIMIT_ENTRY.fullmatch(line.strip())
+        if match is None:
+            raise ExportSchemaError(
+                f"named export-limit contract:{line_number}: unsupported assertion"
+            )
+        name, value_text = match.groups()
+        if name in result:
+            raise ExportSchemaError(
+                f"named export-limit contract duplicates {name}"
+            )
+        result[name] = int(value_text)
+        order.append(name)
+    if len(result) != EXPECTED_NAMED_EXPORT_LIMITS:
+        raise ExportSchemaError(
+            "named export-limit contract must contain exactly "
+            f"{EXPECTED_NAMED_EXPORT_LIMITS} entries, got {len(result)}"
+        )
+    if order != sorted(order):
+        raise ExportSchemaError(
+            "named export-limit contract entries must remain alphabetically ordered"
+        )
+    return result
+
+
+def validate_named_limit_static_assert_seam(export_source: str) -> None:
+    """Pin one direct, first-statement include in the exporter TU."""
+
+    _validate_export_source_preprocessor(export_source)
+    if len(list(EXPORT_FUNCTION_DEFINITION.finditer(lexical_mask(export_source)))) != 1:
+        raise ExportSchemaError(
+            "ExportStrings must retain its exact zero-parameter bool definition"
+        )
+
+    include_pattern = re.compile(
+        r'^[ \t]*#[ \t]*include[ \t]+"ExportStringLimitContract[.]inc"[ \t]*$',
+        re.MULTILINE,
+    )
+    includes = list(include_pattern.finditer(comments_blanked(export_source)))
+    if len(includes) != 1:
+        raise ExportSchemaError(
+            "ExportStrings must include the named-limit static-assert contract "
+            "exactly once"
+        )
+    body = extract_function_body(export_source, "Loc::ExportStrings")
+    _validated_export_body_directives(body)
+
+
+NAMED_EXPORT_LIMITS: Mapping[str, int] = parse_named_export_limit_manifest(
+    _read(NAMED_EXPORT_LIMIT_MANIFEST)
+)
+
+
 def _matching_delimiter(masked: str, opening: int, opener: str, closer: str) -> int:
     depth = 0
     for index in range(opening, len(masked)):
@@ -257,8 +698,10 @@ def _matching_delimiter(masked: str, opening: int, opener: str, closer: str) -> 
     raise ExportSchemaError(f"unmatched {opener!r}")
 
 
-def extract_function_body(text: str, qualified_name: str) -> str:
-    """Return one function body, ignoring calls and declarations."""
+def _function_definition_span(
+    text: str, qualified_name: str
+) -> tuple[int, int, int]:
+    """Return the start/open/close offsets of one function definition."""
 
     masked = lexical_mask(text)
     pattern = re.compile(
@@ -272,7 +715,37 @@ def extract_function_body(text: str, qualified_name: str) -> str:
         )
     opening = masked.find("{", matches[0].start())
     closing = _matching_delimiter(masked, opening, "{", "}")
+    return matches[0].start(), opening, closing
+
+
+def extract_function_body(text: str, qualified_name: str) -> str:
+    """Return one function body, ignoring calls and declarations."""
+
+    _start, opening, closing = _function_definition_span(text, qualified_name)
     return text[opening + 1:closing]
+
+
+def _active_function_body(
+    source: str, qualified_name: str, context: str
+) -> str:
+    """Return a uniquely defined function that is not preprocessor-wrapped."""
+
+    start, opening, closing = _function_definition_span(source, qualified_name)
+    prefix_depth = _conditional_depth(
+        _structural_directive_matches(source[:start], context), context
+    )
+    if prefix_depth != 0:
+        raise ExportSchemaError(
+            f"{context} must be an unconditional top-level definition"
+        )
+    span_depth = _conditional_depth(
+        _structural_directive_matches(source[start:closing + 1], context), context
+    )
+    if span_depth != 0:
+        raise ExportSchemaError(
+            f"a preprocessor conditional crosses the {context} boundary"
+        )
+    return source[opening + 1:closing]
 
 
 def _split_arguments(arguments: str) -> list[str]:
@@ -302,9 +775,174 @@ def normalize_expression(expression: str) -> str:
     return re.sub(r"\s+", "", expression)
 
 
+def _reject_conditionals(source: str, context: str) -> None:
+    if re.search(
+        r"^[ \t]*#[ \t]*(?:if|ifdef|ifndef|elif|else|endif)\b",
+        lexical_mask(source),
+        re.MULTILINE,
+    ):
+        raise ExportSchemaError(
+            f"{context} may not place reviewed source behind preprocessor conditionals"
+        )
+
+
+def _export_top_level_statements(
+    raw_body: str, directives: Sequence[re.Match]
+) -> list[str]:
+    """Split the deliberately flat exporter into its depth-zero statements."""
+
+    without_directives = list(raw_body)
+    for directive in directives:
+        _blank_span(
+            without_directives, raw_body, directive.start(), directive.end()
+        )
+    source = "".join(without_directives)
+    masked = lexical_mask(source)
+    if "{" in masked or "}" in masked:
+        raise ExportSchemaError(
+            "Loc::ExportStrings must remain a flat control-flow-free body"
+        )
+    statements = []
+    start = 0
+    paren_depth = bracket_depth = 0
+    for index, character in enumerate(masked):
+        if character == "(":
+            paren_depth += 1
+        elif character == ")":
+            paren_depth -= 1
+        elif character == "[":
+            bracket_depth += 1
+        elif character == "]":
+            bracket_depth -= 1
+        if min(paren_depth, bracket_depth) < 0:
+            raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+        if character == ";" and paren_depth == 0 and bracket_depth == 0:
+            statement = normalize_expression(
+                comments_blanked(source[start:index + 1])
+            )
+            if statement:
+                statements.append(statement)
+            start = index + 1
+    if (paren_depth, bracket_depth) != (0, 0):
+        raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+    if lexical_mask(source[start:]).strip():
+        raise ExportSchemaError(
+            "Loc::ExportStrings has executable text outside a direct statement"
+        )
+    return statements
+
+
+def _validate_named_limit_usage_provenance(
+    raw_body: str, calls: Sequence[Mapping]
+) -> None:
+    """Require each limit identifier use to belong to a parsed range."""
+
+    expected = Counter()
+    for call in calls:
+        if call["source_kind"] != "legacy":
+            continue
+        for expression in call["range"].values():
+            expected.update(
+                name
+                for name in re.findall(r"\b[A-Za-z_]\w*\b", expression)
+                if name in NAMED_EXPORT_LIMITS
+            )
+    active = lexical_mask(raw_body)
+    actual = Counter(
+        {
+            name: len(re.findall(rf"\b{re.escape(name)}\b", active))
+            for name in NAMED_EXPORT_LIMITS
+        }
+    )
+    differences = [
+        f"{name}:body={actual[name]},ranges={expected[name]}"
+        for name in NAMED_EXPORT_LIMITS
+        if actual[name] != expected[name]
+    ]
+    if differences:
+        raise ExportSchemaError(
+            "named export-limit identifier escaped parsed range ownership: "
+            + ", ".join(differences)
+        )
+
+
+def _validate_export_statement_inventory(
+    raw_body: str,
+    calls: Sequence[Mapping],
+    directives: Sequence[re.Match],
+) -> None:
+    statements = _export_top_level_statements(raw_body, directives)
+    expected_prefix = [
+        "vfs::PropertyContainer::TagMaptmap;",
+        "vfs::PropertyContainerprops;",
+    ]
+    expected_tail = [
+        'props.writeToXMLFile(L"Localization/GameStrings.xml",tmap);',
+        'props.writeToIniFile(L"Localization/GameStrings.ini",true);',
+        "Loc::ExportMercBio();",
+        "Loc::ExportAIMHistory();",
+        "Loc::ExportAIMPolicy();",
+        "Loc::ExportAlumniName();",
+        "Loc::ExportDialogues();",
+        "Loc::ExportNPCDialogues();",
+        "returntrue;",
+    ]
+    expected_count = len(expected_prefix) + len(calls) + len(expected_tail)
+    if len(statements) != expected_count:
+        raise ExportSchemaError(
+            "Loc::ExportStrings depth-zero statement inventory changed: "
+            f"expected {expected_count}, got {len(statements)}"
+        )
+    if statements[:2] != expected_prefix or statements[-len(expected_tail):] != expected_tail:
+        raise ExportSchemaError(
+            "Loc::ExportStrings prologue/write/raw-export/final-return inventory changed"
+        )
+    owned = statements[2:2 + len(calls)]
+    for statement, call in zip(owned, calls):
+        expected_name = {
+            "legacy": "ExportSection",
+            "text-pack-entry": "ExportTextPackEntry",
+            "text-pack-table": "ExportTextPackTable",
+        }[call["source_kind"]]
+        if not statement.startswith(expected_name + "(") or not statement.endswith(");"):
+            raise ExportSchemaError(
+                "Loc::ExportStrings owned export statements are not exact and contiguous"
+            )
+
+
+def _descriptor_array_region(header: str, variable: str) -> str:
+    masked = _reject_preprocessor_obfuscation(
+        header, f"TextCatalog {variable} descriptors"
+    )
+    marker = re.compile(rf"\b{re.escape(variable)}\s*(?:=\s*)?\{{\s*\{{")
+    candidates = []
+    for match in marker.finditer(masked):
+        line_start = masked.rfind("\n", 0, match.start()) + 1
+        if re.match(r"[ \t]*#", masked[line_start:match.start()]):
+            continue
+        candidates.append(match)
+    if len(candidates) != 1:
+        raise ExportSchemaError(
+            f"TextCatalog must own exactly one active {variable} descriptor array"
+        )
+    outer_open = masked.find("{", candidates[0].start(), candidates[0].end())
+    inner_open = masked.find("{", outer_open + 1, candidates[0].end())
+    inner_close = _matching_delimiter(masked, inner_open, "{", "}")
+    region = header[inner_open + 1:inner_close]
+    _region_masked, directives = _directive_matches(
+        region, f"TextCatalog {variable} descriptor array"
+    )
+    if directives:
+        raise ExportSchemaError(
+            f"TextCatalog {variable} descriptor array may not contain directives"
+        )
+    return region
+
+
 def parse_text_pack_descriptors(header: str) -> tuple[dict[str, dict], dict[str, dict]]:
-    clean = comments_blanked(header)
-    active = lexical_mask(header)
+    _reject_conditionals(header, "TextCatalog descriptors")
+    scalar_region = _descriptor_array_region(header, "TextKeys")
+    table_region = _descriptor_array_region(header, "TextTables")
     scalar_pattern = re.compile(
         r"\{\s*TextKey::(?P<key>[A-Za-z_]\w*)\s*,\s*"
         r'"(?P<name>[^"]+)"\s*,\s*L"(?P<section>[^"]+)"\s*,\s*'
@@ -317,9 +955,11 @@ def parse_text_pack_descriptors(header: str) -> tuple[dict[str, dict], dict[str,
         r"(?P<first>\d+)\s*,\s*(?P<count>\d+)\s*,\s*"
         r"(?P<fallback>true|false)\s*\}"
     )
+    scalar_clean = comments_blanked(scalar_region)
+    scalar_active = lexical_mask(scalar_region)
     scalars = {}
-    for match in scalar_pattern.finditer(clean):
-        if active[match.start()] != "{":
+    for match in scalar_pattern.finditer(scalar_clean):
+        if scalar_active[match.start()] != "{":
             continue
         key = match.group("key")
         if key in scalars:
@@ -333,9 +973,11 @@ def parse_text_pack_descriptors(header: str) -> tuple[dict[str, dict], dict[str,
             "export_count": 1,
             "english_fallback_allowed": match.group("fallback") == "true",
         }
+    table_clean = comments_blanked(table_region)
+    table_active = lexical_mask(table_region)
     tables = {}
-    for match in table_pattern.finditer(clean):
-        if active[match.start()] != "{":
+    for match in table_pattern.finditer(table_clean):
+        if table_active[match.start()] != "{":
             continue
         key = match.group("key")
         if key in tables:
@@ -356,17 +998,64 @@ def parse_text_pack_descriptors(header: str) -> tuple[dict[str, dict], dict[str,
 
 
 def parse_export_calls(source: str) -> list[dict]:
-    body = comments_blanked(extract_function_body(source, "Loc::ExportStrings"))
+    _validate_export_source_preprocessor(source)
+    raw_body = extract_function_body(source, "Loc::ExportStrings")
+    raw_masked = lexical_mask(raw_body)
+    _masked, body_directives = _directive_matches(
+        raw_body, "Loc::ExportStrings"
+    )
+    has_limit_contract = 'ExportStringLimitContract.inc' in raw_body
+    if has_limit_contract:
+        body_directives = _validated_export_body_directives(raw_body)
+    elif body_directives:
+        raise ExportSchemaError(
+            "Loc::ExportStrings may not hide export calls behind "
+            "preprocessor directives"
+        )
+    body = comments_blanked(raw_body)
     active = lexical_mask(body)
+    delimiter_depths: list[tuple[int, int, int]] = []
+    paren_depth = bracket_depth = brace_depth = 0
+    for character in active:
+        delimiter_depths.append((paren_depth, bracket_depth, brace_depth))
+        if character == "(":
+            paren_depth += 1
+        elif character == ")":
+            paren_depth -= 1
+        elif character == "[":
+            bracket_depth += 1
+        elif character == "]":
+            bracket_depth -= 1
+        elif character == "{":
+            brace_depth += 1
+        elif character == "}":
+            brace_depth -= 1
+        if min(paren_depth, bracket_depth, brace_depth) < 0:
+            raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+    if (paren_depth, bracket_depth, brace_depth) != (0, 0, 0):
+        raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
     call_pattern = re.compile(
         r"\b(?P<name>ExportSection|ExportTextPackEntry|ExportTextPackTable)\s*\("
     )
     calls = []
     for match in call_pattern.finditer(active):
+        if delimiter_depths[match.start()] != (0, 0, 0):
+            raise ExportSchemaError(
+                f"{match.group('name')} must be a direct top-level statement"
+            )
+        prefix = active[:match.start()].rstrip()
+        if prefix and prefix[-1] not in ";}":
+            raise ExportSchemaError(
+                f"{match.group('name')} must be a direct top-level statement"
+            )
         opening = active.find("(", match.start())
         closing = _matching_delimiter(active, opening, "(", ")")
-        if active[closing + 1:].lstrip()[:1] != ";":
-            raise ExportSchemaError(f"{match.group('name')} call is not a statement")
+        trailing = active[closing + 1:]
+        semicolon = len(trailing) - len(trailing.lstrip())
+        if trailing[semicolon:semicolon + 1] != ";":
+            raise ExportSchemaError(
+                f"{match.group('name')} must be a direct top-level statement"
+            )
         arguments = _split_arguments(body[opening + 1:closing])
         name = match.group("name")
         if name == "ExportSection":
@@ -405,27 +1094,92 @@ def parse_export_calls(source: str) -> list[dict]:
                 "key": key_match.group(1),
             }
         )
+    if has_limit_contract:
+        _validate_named_limit_usage_provenance(raw_body, calls)
+        _validate_export_statement_inventory(raw_body, calls, body_directives)
     return calls
 
 
 def textual_catalog_includes(source: str) -> list[str]:
-    clean = comments_blanked(source)
-    active = lexical_mask(source)
     include_pattern = re.compile(
         r'^[ \t]*#[ \t]*include[ \t]+"(_(?:Chinese|Dutch|English|French|German|'
         r'Italian|Polish|Russian)Text[.]cpp)"',
         re.MULTILINE,
     )
-    includes = [
-        match.group(1)
-        for match in include_pattern.finditer(clean)
-        if active[match.start():match.end()].lstrip().startswith("#")
+
+    def parsed_includes(selected_source: str) -> list[str]:
+        clean = comments_blanked(selected_source)
+        active = lexical_mask(selected_source)
+        return [
+            match.group(1)
+            for match in include_pattern.finditer(clean)
+            if active[match.start():match.end()].lstrip().startswith("#")
+        ]
+
+    masked = lexical_mask(source)
+    if re.search(r"^[ \t]*%:", masked, re.MULTILINE):
+        raise ExportSchemaError("alternative preprocessor tokens are unsupported")
+    if re.search(r"^[ \t]*#[^\r\n]*\\[ \t]*$", masked, re.MULTILINE):
+        raise ExportSchemaError("continued catalog-selection directives are unsupported")
+    language_macros = {language.macro for language in ABI.LANGUAGES}
+    mutation_pattern = re.compile(
+        r"^[ \t]*#[ \t]*(?:define|undef)[ \t]+([A-Za-z_]\w*)\b",
+        re.MULTILINE,
+    )
+    for match in mutation_pattern.finditer(masked):
+        if match.group(1) in language_macros:
+            raise ExportSchemaError(
+                "ExportStrings.cpp may not redefine a language-selection macro"
+            )
+    conditional_pattern = re.compile(
+        r"^[ \t]*#[ \t]*(?P<kind>if|ifdef|ifndef|elif|else|endif)\b"
+        r"(?P<expression>[^\r\n]*)",
+        re.MULTILINE,
+    )
+    conditionals = list(conditional_pattern.finditer(masked))
+    static_assert_guards = [
+        match
+        for match in conditionals
+        if match.group("kind") == "ifdef"
+        and match.group("expression").strip() == "static_assert"
     ]
+    if static_assert_guards:
+        validate_named_limit_static_assert_seam(source)
+        if len(static_assert_guards) != 1:
+            raise ExportSchemaError(
+                "ExportStrings must have exactly one static_assert macro guard"
+            )
+    for match in conditionals:
+        if match.group("kind") in {"else", "endif"}:
+            continue
+        if match in static_assert_guards:
+            continue
+        identifiers = set(
+            re.findall(r"\b[A-Za-z_]\w*\b", match.group("expression"))
+        )
+        identifiers.discard("defined")
+        unknown = sorted(identifiers - language_macros)
+        if unknown:
+            raise ExportSchemaError(
+                "catalog selection uses untracked conditional macro(s): "
+                + ", ".join(unknown)
+            )
+
+    includes = parsed_includes(source)
     if includes != EXPECTED_TEXTUAL_CATALOG_INCLUDES:
         raise ExportSchemaError(
             "selected textual catalog includes changed: "
             f"expected {EXPECTED_TEXTUAL_CATALOG_INCLUDES!r}, got {includes!r}"
         )
+    for language in ABI.LANGUAGES:
+        expected = Path(language.base_source).name
+        selected = ABI.preprocess(source, {language.macro})
+        active_includes = parsed_includes(selected)
+        if active_includes != [expected]:
+            raise ExportSchemaError(
+                f"{language.name}: active textual catalog include must be "
+                f"{expected!r}, got {active_includes!r}"
+            )
     return includes
 
 
@@ -462,10 +1216,27 @@ def _legacy_storage(symbol: Mapping) -> dict:
     }
 
 
-def _resolve_export_limit(expression: str) -> int | str | None:
-    if re.fullmatch(r"\d+", expression):
-        return int(expression)
-    return NAMED_EXPORT_LIMITS.get(expression)
+def _resolve_export_limit(expression: str) -> int | None:
+    """Evaluate the intentionally small exact integer range grammar."""
+
+    normalized = normalize_expression(expression)
+    if re.fullmatch(r"\d+", normalized):
+        return int(normalized)
+    match = re.fullmatch(
+        r"(?P<name>[A-Za-z_]\w*)(?:(?P<operator>[+-])(?P<delta>\d+))?",
+        normalized,
+    )
+    if match is None:
+        return None
+    value = NAMED_EXPORT_LIMITS.get(match.group("name"))
+    if value is None:
+        return None
+    delta = int(match.group("delta") or 0)
+    if match.group("operator") == "-":
+        value -= delta
+    elif match.group("operator") == "+":
+        value += delta
+    return value if value >= 0 else None
 
 
 def _debt_inventory(
@@ -505,22 +1276,15 @@ def _debt_inventory(
                 raise ExportSchemaError(
                     f"{language.name}/{symbol} has quadrant-dependent export bounds"
                 )
-            actual_entries: int | str = next(iter(unique_dimensions))
-            if isinstance(export_limit, int):
-                if not re.fullmatch(r"\d+", actual_entries):
-                    raise ExportSchemaError(
-                        f"cannot compare {language.name}/{symbol} dimension "
-                        f"{actual_entries!r} with {export_limit}"
-                    )
-                actual_entries = int(actual_entries)
-                unsafe = actual_entries < export_limit
-            else:
-                if actual_entries != export_limit:
-                    raise ExportSchemaError(
-                        f"cannot compare symbolic {language.name}/{symbol} dimension "
-                        f"{actual_entries!r} with {export_limit!r}"
-                    )
-                unsafe = False
+            raw_entries = next(iter(unique_dimensions))
+            resolved_entries = _resolve_export_limit(str(raw_entries))
+            if resolved_entries is None:
+                raise ExportSchemaError(
+                    f"cannot compare {language.name}/{symbol} dimension "
+                    f"{raw_entries!r} with {export_limit}"
+                )
+            actual_entries = resolved_entries
+            unsafe = actual_entries < export_limit
             record = {
                 "language": language.name,
                 "section": section["section"],
@@ -601,11 +1365,132 @@ def _exporter_only_inventory(
 
 
 def _ordered_tokens(body: str, tokens: Sequence[str], context: str) -> None:
+    counts = [body.count(token) for token in tokens]
     positions = [body.find(token) for token in tokens]
-    if any(position < 0 for position in positions) or positions != sorted(positions):
+    if (
+        counts != [1] * len(tokens)
+        or any(position < 0 for position in positions)
+        or positions != sorted(positions)
+    ):
         raise ExportSchemaError(
-            f"{context} lost required order: " + " -> ".join(tokens)
+            f"{context} lost exact required order/occurrence: " + " -> ".join(tokens)
         )
+
+
+def _condition_free_function_body(
+    source: str, qualified_name: str, context: str
+) -> str:
+    body = _active_function_body(source, qualified_name, context)
+    _masked, directives = _directive_matches(body, context)
+    if directives:
+        raise ExportSchemaError(
+            f"{context} may not contain preprocessor directives"
+        )
+    return body
+
+
+def _reject_conditionally_nested_tokens(
+    source: str, tokens: Sequence[str], context: str
+) -> None:
+    masked, directives = _directive_matches(source, context)
+    allowed = {"if", "ifdef", "ifndef", "elif", "else", "endif"}
+    unreviewed = next(
+        (item for item in directives if item.group("name") not in allowed), None
+    )
+    if unreviewed is not None:
+        raise ExportSchemaError(
+            f"{context}: unreviewed preprocessor directive "
+            f"#{unreviewed.group('name')}"
+        )
+    depth = 0
+    conditional_source = []
+    for line_number, line in enumerate(masked.splitlines(), start=1):
+        directive = re.match(
+            r"^[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)\b", line
+        )
+        if directive:
+            kind = directive.group(1)
+            if kind in {"if", "ifdef", "ifndef"}:
+                depth += 1
+            elif kind == "endif":
+                depth -= 1
+                if depth < 0:
+                    raise ExportSchemaError(f"{context}: unmatched #endif")
+            continue
+        if depth:
+            conditional_source.append(line)
+    if depth:
+        raise ExportSchemaError(f"{context}: unterminated preprocessor conditional")
+    conditional = normalize_expression("\n".join(conditional_source))
+    nested = next(
+        (
+            token
+            for token in tokens
+            if normalize_expression(token) in conditional
+        ),
+        None,
+    )
+    if nested is not None:
+        raise ExportSchemaError(
+            f"{context}: reviewed startup token is conditional: {nested}"
+        )
+
+
+def _reject_direct_control_transfer_before(
+    masked: str, limit: int, context: str
+) -> None:
+    depths = {"(": 0, "[": 0, "{": 0}
+    closing = {")": "(", "]": "[", "}": "{"}
+    statement_start = 0
+    transfer = re.compile(r"\b(?:return|goto|throw|co_return)\b")
+    transfer_starts = {match.start() for match in transfer.finditer(masked[:limit])}
+    for index, character in enumerate(masked[:limit]):
+        if index in transfer_starts and not any(depths.values()):
+            if not masked[statement_start:index].strip():
+                raise ExportSchemaError(
+                    f"{context}: direct control transfer precedes reviewed call"
+                )
+        if character in depths:
+            depths[character] += 1
+        elif character in closing:
+            opener = closing[character]
+            depths[opener] -= 1
+            if depths[opener] < 0:
+                raise ExportSchemaError(f"{context}: unbalanced delimiter")
+            if character == "}" and not any(depths.values()):
+                statement_start = index + 1
+        elif character == ";" and not any(depths.values()):
+            statement_start = index + 1
+
+
+def _require_direct_statement(body: str, token: str, context: str) -> None:
+    masked = lexical_mask(body)
+    matches = list(re.finditer(re.escape(token), masked))
+    if len(matches) != 1:
+        raise ExportSchemaError(
+            f"{context} must contain exactly one direct {token} statement"
+        )
+    match = matches[0]
+    _reject_direct_control_transfer_before(masked, match.start(), context)
+    brace_depth = 0
+    for character in masked[:match.start()]:
+        if character == "{":
+            brace_depth += 1
+        elif character == "}":
+            brace_depth -= 1
+    prefix = masked[:match.start()].rstrip()
+    opening = masked.find("(", match.start(), match.end() + 2)
+    if opening < 0:
+        raise ExportSchemaError(f"{context}: {token} is not a call")
+    closing = _matching_delimiter(masked, opening, "(", ")")
+    trailing = masked[closing + 1:]
+    semicolon = len(trailing) - len(trailing.lstrip())
+    if (
+        brace_depth != 0
+        or (prefix and prefix[-1] not in ";}")
+        or trailing[semicolon:semicolon + 1] != ";"
+    ):
+        raise ExportSchemaError(f"{context}: {token} is not a direct statement")
 
 
 def _load_all_external_text_occurrences() -> dict[str, int]:
@@ -628,15 +1513,29 @@ def legacy_startup_contract(sgp_source: str) -> dict:
     """Validate and describe the export/import portion of SGP startup."""
 
     boundary = comments_blanked(
-        extract_function_body(sgp_source, "InitializeLegacyContentBoundary")
+        _condition_free_function_body(
+            sgp_source,
+            "InitializeLegacyContentBoundary",
+            "legacy localization boundary",
+        )
     )
     boundary_mask = ABI.lexical_mask(boundary)
     xml_guard = re.search(r"\bif\s*\(\s*g_bUseXML_Strings\s*\)\s*\{", boundary_mask)
     if not xml_guard:
         raise ExportSchemaError("legacy content lost USE_XML_STRINGS export/import guard")
+    _reject_direct_control_transfer_before(
+        boundary_mask, xml_guard.start(), "legacy localization boundary"
+    )
     xml_open = boundary_mask.find("{", xml_guard.start())
     xml_close = _matching_delimiter(boundary_mask, xml_open, "{", "}")
     xml_body = boundary_mask[xml_open + 1:xml_close]
+    if normalize_expression(xml_body) != (
+        "if(s_bExportStrings)Loc::ExportStrings();Loc::ImportStrings();"
+    ):
+        raise ExportSchemaError(
+            "legacy localization boundary must remain the exact startup-only "
+            "export-then-import body"
+        )
     _ordered_tokens(
         xml_body,
         ["if(s_bExportStrings) Loc::ExportStrings();", "Loc::ImportStrings();"],
@@ -645,9 +1544,21 @@ def legacy_startup_contract(sgp_source: str) -> dict:
     splash_position = boundary_mask.find("InitJA2SplashScreen();")
     if splash_position < xml_close:
         raise ExportSchemaError("splash initialization moved before localization export/import")
+    _reject_direct_control_transfer_before(
+        boundary_mask, splash_position, "legacy localization boundary"
+    )
 
     runtime_body = comments_blanked(
-        extract_function_body(sgp_source, "GetStandardGamingPlatformRuntime")
+        _active_function_body(
+            sgp_source,
+            "GetStandardGamingPlatformRuntime",
+            "standard gaming platform runtime",
+        )
+    )
+    _reject_conditionally_nested_tokens(
+        runtime_body,
+        ["InitializeLegacyContentBoundary", "InitializeGameBoundary"],
+        "standard gaming platform subsystem order",
     )
     runtime_mask = lexical_mask(runtime_body)
     subsystem_pattern = re.compile(
@@ -660,6 +1571,18 @@ def legacy_startup_contract(sgp_source: str) -> dict:
         == "SubsystemDefinition"
     ]
     subsystem_names = [match.group(1) for match in subsystem_matches]
+    if (
+        subsystem_names.count("legacy content") != 1
+        or subsystem_names.count("game") != 1
+    ):
+        raise ExportSchemaError(
+            "legacy content/game subsystem definitions must each occur exactly once"
+        )
+    _reject_direct_control_transfer_before(
+        runtime_mask,
+        subsystem_matches[0].start(),
+        "standard gaming platform subsystem order",
+    )
     try:
         legacy_index = subsystem_names.index("legacy content")
         game_index = subsystem_names.index("game")
@@ -687,9 +1610,11 @@ def legacy_startup_contract(sgp_source: str) -> dict:
     ):
         raise ExportSchemaError("game subsystem lost InitializeGameBoundary")
     game_boundary = lexical_mask(
-        extract_function_body(sgp_source, "InitializeGameBoundary")
+        _condition_free_function_body(
+            sgp_source, "InitializeGameBoundary", "game startup boundary"
+        )
     )
-    if "InitializeGame()" not in normalize_expression(game_boundary):
+    if normalize_expression(game_boundary).count("InitializeGame()") != 1:
         raise ExportSchemaError("InitializeGameBoundary no longer calls InitializeGame")
 
     return {
@@ -711,11 +1636,12 @@ def legacy_startup_contract(sgp_source: str) -> dict:
 def startup_contract() -> dict:
     contract = legacy_startup_contract(_read("sgp/sgp.cpp"))
 
-    compiled = lexical_mask(
-        extract_function_body(
-            _read("Ja2/CompiledGameplayBootstrap.cpp"), "loadRulesContent"
-        )
+    compiled_raw = _condition_free_function_body(
+        _read("Ja2/CompiledGameplayBootstrap.cpp"),
+        "loadRulesContent",
+        "compiled rules content load",
     )
+    compiled = lexical_mask(compiled_raw)
     _ordered_tokens(
         normalize_expression(compiled),
         [
@@ -724,26 +1650,115 @@ def startup_contract() -> dict:
         ],
         "compiled rules content load",
     )
-    rules = lexical_mask(
-        extract_function_body(_read("Ja2/RulesPackage.cpp"), "LegacyRulesPackage::bootstrap")
+    macro = re.compile(r"\bSGP_TRYCATCH_RETHROW\s*\(")
+    macro_matches = list(macro.finditer(lexical_mask(compiled_raw)))
+    if len(macro_matches) != 1:
+        raise ExportSchemaError(
+            "compiled rules content load lost its direct load wrapper"
+        )
+    _require_direct_statement(
+        compiled_raw, "SGP_TRYCATCH_RETHROW", "compiled rules content load"
     )
+    macro_open = lexical_mask(compiled_raw).find("(", macro_matches[0].start())
+    macro_close = _matching_delimiter(
+        lexical_mask(compiled_raw), macro_open, "(", ")"
+    )
+    macro_arguments = _split_arguments(compiled_raw[macro_open + 1:macro_close])
+    if (
+        len(macro_arguments) != 2
+        or normalize_expression(lexical_mask(macro_arguments[0]))
+        != "loaded=LoadExternalGameplayData(TABLEDATA_DIRECTORY,false)"
+    ):
+        raise ExportSchemaError(
+            "compiled rules content load must directly assign the reviewed data load"
+        )
+    _require_direct_statement(
+        compiled_raw, "LoadAllExternalText()", "compiled rules content load"
+    )
+    rules_raw = _condition_free_function_body(
+        _read("Ja2/RulesPackage.cpp"),
+        "LegacyRulesPackage::bootstrap",
+        "rules-package load phase",
+    )
+    rules = lexical_mask(rules_raw)
     _ordered_tokens(
         normalize_expression(rules),
         ["PackageBootstrapPhase::LoadContent", "bootstrapHost_.loadRulesContent(capabilities_)"],
         "rules-package load phase",
     )
-    initialize_ja2 = normalize_expression(
-        lexical_mask(extract_function_body(_read("Ja2/Init.cpp"), "InitializeJA2"))
+    load_phase = rules.find("PackageBootstrapPhase::LoadContent")
+    _reject_direct_control_transfer_before(
+        rules, load_phase, "rules-package load phase"
     )
-    if "advancePackagesTo(PackageBootstrapPhase::LoadContent)" not in initialize_ja2:
-        raise ExportSchemaError("InitializeJA2 lost the post-startup LoadContent phase")
-    multiplayer = normalize_expression(
-        lexical_mask(
-            extract_function_body(
-                _read("Ja2/MPConnectScreen.cpp"), "DoneFadeOutForExitMPCScreen"
-            )
+    expected_rules_body = (
+        "switch(phase){casePackageBootstrapPhase::Configure:"
+        "casePackageBootstrapPhase::StartRuntime:returntrue;"
+        "casePackageBootstrapPhase::LoadContent:"
+        "if(contentLoaded_)returntrue;"
+        "if(contentLoadAttempted_)returnfalse;"
+        "contentLoadAttempted_=true;"
+        "if(!bootstrapHost_.loadRulesContent(capabilities_))returnfalse;"
+        "contentLoaded_=true;returntrue;}returnfalse;"
+    )
+    if normalize_expression(rules) != expected_rules_body:
+        raise ExportSchemaError(
+            "rules-package LoadContent phase lost its exact host-load condition/flow"
         )
+    initialize_ja2_raw = _active_function_body(
+        _read("Ja2/Init.cpp"), "InitializeJA2", "InitializeJA2 content phase"
     )
+    _reject_conditionally_nested_tokens(
+        initialize_ja2_raw,
+        ["advancePackagesTo(PackageBootstrapPhase::LoadContent)"],
+        "InitializeJA2 content phase",
+    )
+    initialize_ja2 = normalize_expression(lexical_mask(initialize_ja2_raw))
+    if initialize_ja2.count(
+        "advancePackagesTo(PackageBootstrapPhase::LoadContent)"
+    ) != 1:
+        raise ExportSchemaError("InitializeJA2 lost the post-startup LoadContent phase")
+    initialize_ja2_masked = lexical_mask(initialize_ja2_raw)
+    advance_position = initialize_ja2_masked.find(
+        "gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent)"
+    )
+    _reject_direct_control_transfer_before(
+        initialize_ja2_masked, advance_position, "InitializeJA2 content phase"
+    )
+    content_load_statement = re.compile(
+        r"\bconst\s+RuntimeSessionAdvanceResult\s+contentLoad\s*=\s*"
+        r"gameContext[.]advancePackagesTo\s*\(\s*"
+        r"PackageBootstrapPhase::LoadContent\s*\)\s*;"
+    )
+    content_load_matches = list(content_load_statement.finditer(initialize_ja2_masked))
+    if len(content_load_matches) != 1:
+        raise ExportSchemaError(
+            "InitializeJA2 must directly initialize contentLoad from LoadContent"
+        )
+    brace_depth = 0
+    for character in initialize_ja2_masked[:content_load_matches[0].start()]:
+        if character == "{":
+            brace_depth += 1
+        elif character == "}":
+            brace_depth -= 1
+    if brace_depth != 0:
+        raise ExportSchemaError(
+            "InitializeJA2 LoadContent initialization must be a top-level statement"
+        )
+    if (
+        initialize_ja2.count("gameContext.advancePackagesTo(") != 2
+        or initialize_ja2.count(
+            "gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime)"
+        ) != 1
+    ):
+        raise ExportSchemaError(
+            "InitializeJA2 changed its reviewed package-advance call inventory"
+        )
+    multiplayer_raw = _condition_free_function_body(
+        _read("Ja2/MPConnectScreen.cpp"),
+        "DoneFadeOutForExitMPCScreen",
+        "multiplayer reload",
+    )
+    multiplayer = normalize_expression(lexical_mask(multiplayer_raw))
     _ordered_tokens(
         multiplayer,
         [
@@ -751,6 +1766,14 @@ def startup_contract() -> dict:
             "LoadAllExternalText()",
         ],
         "multiplayer reload",
+    )
+    _require_direct_statement(
+        multiplayer_raw,
+        "LoadExternalGameplayData(TABLEDATA_DIRECTORY, true)",
+        "multiplayer reload",
+    )
+    _require_direct_statement(
+        multiplayer_raw, "LoadAllExternalText()", "multiplayer reload"
     )
     occurrences = _load_all_external_text_occurrences()
     expected_occurrences = {
@@ -808,9 +1831,685 @@ def _resolve_sections(calls: Sequence[dict], header: str) -> list[dict]:
     return sections
 
 
+WIDE_STRING_LITERAL = re.compile(r'\bL"(?P<body>(?:\\.|[^"\\])*)"')
+
+
+def _initializer_entry_sources(
+    source: str,
+    source_name: str,
+    definitions: Mapping[str, Mapping],
+    symbol: str,
+    *,
+    masked: str | None = None,
+) -> list[str]:
+    """Return top-level initializer entries without compiling the catalog."""
+
+    definition = definitions.get(symbol)
+    if definition is None:
+        raise ExportSchemaError(f"{source_name}: missing normalized symbol {symbol}")
+    masked = ABI.lexical_mask(source) if masked is None else masked
+    if len(masked) != len(source):
+        raise ExportSchemaError(
+            f"{source_name}/{symbol}: lexical mask changed source length"
+        )
+    opening = masked.find(
+        "{",
+        definition["raw_start"],
+        definition["raw_end"],
+    )
+    if opening < 0:
+        raise ExportSchemaError(f"{source_name}/{symbol}: initializer is not braced")
+    closing = ABI._matching_brace(masked, opening)
+    body = source[opening + 1:closing]
+    body_mask = masked[opening + 1:closing]
+
+    entries: list[str] = []
+    start = 0
+    delimiter_depth = {"(": 0, "[": 0, "{": 0}
+    matching_open = {")": "(", "]": "[", "}": "{"}
+    for index, character in enumerate(body_mask):
+        if character in delimiter_depth:
+            delimiter_depth[character] += 1
+        elif character in matching_open:
+            opener = matching_open[character]
+            delimiter_depth[opener] -= 1
+            if delimiter_depth[opener] < 0:
+                raise ExportSchemaError(
+                    f"{source_name}/{symbol}: unbalanced initializer delimiter"
+                )
+        elif character == "," and not any(delimiter_depth.values()):
+            if body_mask[start:index].strip():
+                entries.append(body[start:index])
+            start = index + 1
+    if any(delimiter_depth.values()):
+        raise ExportSchemaError(
+            f"{source_name}/{symbol}: unbalanced nested initializer"
+        )
+    if body_mask[start:].strip():
+        entries.append(body[start:])
+    return entries
+
+
+def _single_wide_literal(entry: str, label: str) -> str:
+    literals = list(WIDE_STRING_LITERAL.finditer(comments_blanked(entry)))
+    if len(literals) != 1:
+        raise ExportSchemaError(
+            f"{label}: expected exactly one wide-string literal, found {len(literals)}"
+        )
+    return literals[0].group("body")
+
+
+DIRECT_WIDE_LITERAL_SEQUENCE = re.compile(
+    r'(?:L"(?:\\.|[^"\\])*"\s*)+'
+)
+COMPILED_SELECTOR_START = re.compile(
+    r"I18N_COMPILED_(?:BUILD|CAMPAIGN)_TEXT\s*\("
+)
+
+
+def _pointer_initializer_kind(entry: str, label: str) -> str:
+    """Classify one exported STR16 slot or reject executable/null expressions."""
+
+    clean = comments_blanked(entry).strip()
+    if DIRECT_WIDE_LITERAL_SEQUENCE.fullmatch(clean):
+        return "direct_wide_literal"
+    masked = lexical_mask(clean)
+    selector = COMPILED_SELECTOR_START.match(masked)
+    if selector is not None:
+        opening = masked.find("(", selector.start(), selector.end())
+        closing = _matching_delimiter(masked, opening, "(", ")")
+        if not masked[closing + 1:].strip():
+            arguments = _split_arguments(clean[opening + 1:closing])
+            if (
+                len(arguments) == 3
+                and re.fullmatch(r"[A-Za-z_]\w*", arguments[0])
+                and DIRECT_WIDE_LITERAL_SEQUENCE.fullmatch(
+                    comments_blanked(arguments[1]).strip()
+                )
+                and DIRECT_WIDE_LITERAL_SEQUENCE.fullmatch(
+                    comments_blanked(arguments[2]).strip()
+                )
+            ):
+                return "compiled_selector"
+    raise ExportSchemaError(
+        f"{label}: exported STR16 initializer must be a direct wide-literal "
+        "sequence or an exact compiled-text selector"
+    )
+
+
+def _catalog_preamble_includes(source: str) -> list[tuple[str, int]]:
+    clean = comments_blanked(source)
+    direct_quoted = re.compile(r'"([^"\\]+)"[ \t]*$')
+    includes = []
+    _masked, directives = _directive_matches(source, "catalog preamble")
+    for directive in directives:
+        if directive.group("name") != "include":
+            continue
+        raw = clean[directive.start():directive.end()]
+        include = re.fullmatch(
+            r'[ \t]*#[ \t]*include[ \t]+(?P<argument>[^\r\n]+)', raw
+        )
+        if include is None:
+            raise ExportSchemaError("catalog include directive is malformed")
+        argument = direct_quoted.fullmatch(include.group("argument").strip())
+        if argument is None:
+            raise ExportSchemaError(
+                "catalog include must use a direct reviewed quoted path"
+            )
+        includes.append((argument.group(1), directive.start()))
+    return includes
+
+
+def _validate_catalog_selector_boundary(
+    source: str, language: ABI.Language
+) -> None:
+    """Pin the include/macro seam that makes selector-shaped slots non-null."""
+
+    source_name = language.base_source
+    _masked, directives = _directive_matches(source, source_name)
+    allowed_directives = {
+        "if", "ifdef", "ifndef", "elif", "else", "endif", "include"
+    }
+    unreviewed = next(
+        (item for item in directives if item.group("name") not in allowed_directives),
+        None,
+    )
+    if unreviewed is not None:
+        line = source.count("\n", 0, unreviewed.start()) + 1
+        raise ExportSchemaError(
+            f"{source_name}:{line}: unreviewed catalog preprocessor directive "
+            f"#{unreviewed.group('name')}"
+        )
+    try:
+        ABI.validate_catalog_conditionals(source, language, source_name)
+    except ABI.SchemaError as error:
+        raise ExportSchemaError(str(error)) from error
+
+    selector_pattern = re.compile(
+        r"\bI18N_COMPILED_(?:CAMPAIGN|BUILD)_TEXT\s*\("
+    )
+
+    def validate_one(selected_source: str, label: str) -> None:
+        includes = _catalog_preamble_includes(selected_source)
+        include_names = [name for name, _position in includes]
+        if include_names != EXPECTED_CATALOG_PREAMBLE_INCLUDES:
+            raise ExportSchemaError(
+                f"{label}: catalog preamble includes changed: "
+                f"expected {EXPECTED_CATALOG_PREAMBLE_INCLUDES!r}, "
+                f"got {include_names!r}"
+            )
+        if include_names[-1] != "CompiledConditionalTextSelectors.inc":
+            raise ExportSchemaError(
+                f"{label}: the compiled selector seam must be the final preamble include"
+            )
+        selector_positions = [
+            match.start()
+            for match in selector_pattern.finditer(lexical_mask(selected_source))
+        ]
+        if not selector_positions:
+            raise ExportSchemaError(f"{label}: compiled selectors disappeared")
+        compiled_position = next(
+            position
+            for name, position in includes
+            if name == "CompiledConditionalTextSelectors.inc"
+        )
+        if compiled_position >= min(selector_positions):
+            raise ExportSchemaError(
+                f"{label}: compiled selector seam must precede every selector"
+            )
+
+    validate_one(source, source_name)
+    for quadrant in ABI.QUADRANTS:
+        active_source = ABI.preprocess(
+            source, {language.macro, *quadrant.macros}
+        )
+        validate_one(active_source, f"{source_name}/{quadrant.name}")
+
+
+def _raw_catalog_snapshot(
+    sections: Sequence[dict],
+    catalog_sources: Mapping[str, str] | None = None,
+) -> tuple[dict[tuple[str, str, str], int], dict[str, int]]:
+    """Resolve raw dimensions and validate every exported pointer initializer.
+
+    A wildcard array owns exactly its top-level initializer count. Explicit
+    dimensions use the same fail-closed integer evaluator as export ranges.
+    Declaration dimensions are deliberately irrelevant here: ExportStrings.cpp
+    textually includes each selected definition inside namespace Loc.
+    """
+
+    legacy_sections = [
+        section for section in sections if section["source_kind"] == "legacy"
+    ]
+    ranges = {}
+    for section in legacy_sections:
+        first = _resolve_export_limit(str(section["range"]["first"]))
+        limit = _resolve_export_limit(str(section["range"]["limit"]))
+        if first is None or limit is None:
+            raise ExportSchemaError(
+                f"cannot resolve exact export range for {section['section']}/"
+                f"{section['symbol']}: [{section['range']['first']},"
+                f"{section['range']['limit']})"
+            )
+        if first > limit:
+            raise ExportSchemaError(
+                f"invalid descending export range for {section['section']}/"
+                f"{section['symbol']}: [{first},{limit})"
+            )
+        ranges[section["symbol"]] = (first, limit)
+
+    dimensions: dict[tuple[str, str, str], int] = {}
+    pointer_entry_checks = 0
+    direct_literal_checks = 0
+    compiled_selector_checks = 0
+    for language in ABI.LANGUAGES:
+        source = (
+            catalog_sources[language.name]
+            if catalog_sources is not None and language.name in catalog_sources
+            else _read(language.base_source)
+        )
+        _validate_catalog_selector_boundary(source, language)
+        for quadrant in ABI.QUADRANTS:
+            selected = {language.macro, *quadrant.macros}
+            active_source = ABI.preprocess(source, selected)
+            active_masked = ABI.lexical_mask(active_source)
+            try:
+                definitions = ABI.parse_definitions(
+                    active_source,
+                    f"{language.base_source}/{quadrant.name}",
+                    masked=active_masked,
+                )
+            except ABI.SchemaError as error:
+                raise ExportSchemaError(str(error)) from error
+            for section in legacy_sections:
+                symbol = section["symbol"]
+                definition = definitions.get(symbol)
+                if definition is None:
+                    raise ExportSchemaError(
+                        f"{language.name}/{quadrant.name}: missing legacy export "
+                        f"symbol {symbol}"
+                    )
+                source_dimensions = definition["source_dimensions"]
+                if not source_dimensions:
+                    raise ExportSchemaError(
+                        f"{language.name}/{quadrant.name}/{symbol}: scalar storage "
+                        "cannot back ExportSection"
+                    )
+                first_dimension = source_dimensions[0]
+                if first_dimension == "*":
+                    physical_entries = definition["initializer_entries"]
+                else:
+                    resolved = _resolve_export_limit(first_dimension)
+                    if resolved is None:
+                        raise ExportSchemaError(
+                            f"{language.name}/{quadrant.name}/{symbol}: cannot "
+                            f"resolve raw first dimension {first_dimension!r}"
+                        )
+                    physical_entries = resolved
+                dimensions[(language.name, quadrant.name, symbol)] = physical_entries
+
+                if definition["type"] != "STR16":
+                    continue
+                entries = _initializer_entry_sources(
+                    active_source,
+                    f"{language.base_source}/{quadrant.name}",
+                    definitions,
+                    symbol,
+                    masked=active_masked,
+                )
+                first, limit = ranges[symbol]
+                if limit > len(entries):
+                    raise ExportSchemaError(
+                        f"{language.name}/{quadrant.name}/{symbol}: exported "
+                        f"pointer range [{first},{limit}) reaches implicit/null "
+                        f"initialization after {len(entries)} explicit entries"
+                    )
+                for index in range(first, limit):
+                    kind = _pointer_initializer_kind(
+                        entries[index],
+                        f"{language.name}/{quadrant.name}/{symbol}[{index}]",
+                    )
+                    pointer_entry_checks += 1
+                    if kind == "direct_wide_literal":
+                        direct_literal_checks += 1
+                    else:
+                        compiled_selector_checks += 1
+    return dimensions, {
+        "exported_pointer_entry_checks": pointer_entry_checks,
+        "direct_wide_literal_entry_checks": direct_literal_checks,
+        "compiled_selector_entry_checks": compiled_selector_checks,
+    }
+
+
+def _raw_catalog_dimensions(
+    sections: Sequence[dict],
+    catalog_sources: Mapping[str, str] | None = None,
+) -> dict[tuple[str, str, str], int]:
+    """Compatibility wrapper for callers that need only physical dimensions."""
+
+    dimensions, _entry_evidence = _raw_catalog_snapshot(
+        sections, catalog_sources
+    )
+    return dimensions
+
+
+def summarize_range_safety(
+    sections: Sequence[dict],
+    dimensions: Mapping[tuple[str, str, str], int],
+) -> tuple[dict, list[dict]]:
+    """Summarize every legacy language/quadrant range comparison."""
+
+    failures: list[dict] = []
+    comparisons = 0
+    pair_shortfalls: dict[tuple[str, str], int] = {}
+    legacy_sections = [
+        section for section in sections if section["source_kind"] == "legacy"
+    ]
+    for section in legacy_sections:
+        first = _resolve_export_limit(str(section["range"]["first"]))
+        limit = _resolve_export_limit(str(section["range"]["limit"]))
+        if first is None or limit is None:
+            raise ExportSchemaError(
+                f"cannot resolve exact export range for {section['section']}/"
+                f"{section['symbol']}: [{section['range']['first']},"
+                f"{section['range']['limit']})"
+            )
+        if first > limit:
+            raise ExportSchemaError(
+                f"invalid descending export range for {section['section']}/"
+                f"{section['symbol']}: [{first},{limit})"
+            )
+        for language in ABI.LANGUAGES:
+            for quadrant in ABI.QUADRANTS:
+                key = (language.name, quadrant.name, section["symbol"])
+                if key not in dimensions:
+                    raise ExportSchemaError(
+                        "missing raw catalog dimension for " + "/".join(key)
+                    )
+                comparisons += 1
+                physical_entries = dimensions[key]
+                if limit <= physical_entries:
+                    continue
+                shortfall = limit - physical_entries
+                failures.append(
+                    {
+                        "language": language.name,
+                        "quadrant": quadrant.name,
+                        "section": section["section"],
+                        "symbol": section["symbol"],
+                        "physical_entries": physical_entries,
+                        "export_first": first,
+                        "export_limit": limit,
+                        "shortfall": shortfall,
+                    }
+                )
+                pair = (language.name, section["symbol"])
+                pair_shortfalls[pair] = max(pair_shortfalls.get(pair, 0), shortfall)
+    summary = {
+        "comparisons": comparisons,
+        "unsafe_sections": len({entry["section"] for entry in failures}),
+        "unsafe_language_pairs": len(pair_shortfalls),
+        "unsafe_quadrant_failures": len(failures),
+        "potential_oob_reads_per_selected_build": sum(pair_shortfalls.values()),
+    }
+    return summary, failures
+
+
+def exhaustive_range_contract(
+    sections: Sequence[dict],
+    catalog_sources: Mapping[str, str] | None = None,
+) -> dict:
+    dimensions, entry_evidence = _raw_catalog_snapshot(
+        sections, catalog_sources
+    )
+    summary, failures = summarize_range_safety(sections, dimensions)
+    if summary["comparisons"] != EXPECTED_LEGACY_RANGE_COMPARISONS:
+        raise ExportSchemaError(
+            "legacy range comparison count changed: expected "
+            f"{EXPECTED_LEGACY_RANGE_COMPARISONS}, got {summary['comparisons']}"
+        )
+    ceilings = {
+        "unsafe_sections": MAX_UNSAFE_RANGE_SECTIONS,
+        "unsafe_language_pairs": MAX_UNSAFE_RANGE_LANGUAGE_PAIRS,
+        "unsafe_quadrant_failures": MAX_UNSAFE_RANGE_QUADRANT_FAILURES,
+        "potential_oob_reads_per_selected_build": (
+            MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD
+        ),
+    }
+    exceeded = {
+        field: value
+        for field, value in summary.items()
+        if field in ceilings and value > ceilings[field]
+    }
+    if exceeded:
+        first = failures[0]
+        raise ExportSchemaError(
+            "exhaustive raw catalog range gate failed: "
+            + ", ".join(f"{field}={value}" for field, value in exceeded.items())
+            + "; first failure "
+            + "/".join(
+                str(first[field])
+                for field in ("language", "quadrant", "section", "symbol")
+            )
+            + f" has {first['physical_entries']} entries for "
+            f"[0,{first['export_limit']})"
+        )
+    expected_entry_evidence = {
+        "exported_pointer_entry_checks": EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS,
+        "direct_wide_literal_entry_checks": (
+            EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS
+        ),
+        "compiled_selector_entry_checks": (
+            EXPECTED_COMPILED_SELECTOR_ENTRY_CHECKS
+        ),
+    }
+    if entry_evidence != expected_entry_evidence:
+        raise ExportSchemaError(
+            "exported STR16 initializer evidence changed: expected "
+            f"{expected_entry_evidence!r}, got {entry_evidence!r}"
+        )
+    summary.update(entry_evidence)
+    return summary
+
+
+def normalized_range_issues(
+    sections: Sequence[dict],
+    abi_schema: Mapping,
+    catalog_sources: Mapping[str, str] | None = None,
+    check_exhaustive: bool = True,
+) -> list[str]:
+    """Prove exact repaired limits and the exhaustive raw range contract."""
+
+    del abi_schema  # ABI storage debt is intentionally not a physical Loc bound.
+    issues: list[str] = []
+    legacy_by_symbol = {
+        section["symbol"]: section
+        for section in sections
+        if section["source_kind"] == "legacy"
+    }
+    for symbol, expected_limit in EXPECTED_NORMALIZED_EXPORT_LIMITS.items():
+        section = legacy_by_symbol.get(symbol)
+        if section is None:
+            issues.append(f"normalized export symbol is missing: {symbol}")
+            continue
+        actual_limit = _resolve_export_limit(section["range"]["limit"])
+        if section["range"]["first"] != "0" or actual_limit != expected_limit:
+            issues.append(
+                f"{symbol}: normalized export range must remain [0,{expected_limit}), "
+                f"got [{section['range']['first']},{section['range']['limit']})"
+            )
+    if check_exhaustive:
+        try:
+            exhaustive_range_contract(sections, catalog_sources)
+        except ExportSchemaError as error:
+            issues.append(str(error))
+    return issues
+
+
+def catalog_source_golden_issues(language_name: str, source: str) -> list[str]:
+    """Check one repaired catalog's literal values at their exact ordinals."""
+
+    issues: list[str] = []
+    languages = {language.name: language for language in ABI.LANGUAGES}
+    language = languages.get(language_name)
+    if language is None:
+        return [f"unknown normalized catalog language: {language_name}"]
+    try:
+        definitions = ABI.parse_definitions(source, language.base_source)
+    except ABI.SchemaError as error:
+        return [str(error)]
+    parsed_entries: dict[str, list[str]] = {}
+    for (golden_language, symbol), expected_entries in (
+        NORMALIZED_CATALOG_GOLDENS.items()
+    ):
+        if golden_language != language_name:
+            continue
+        try:
+            entries = _initializer_entry_sources(
+                source,
+                language.base_source,
+                definitions,
+                symbol,
+            )
+            parsed_entries[symbol] = entries
+            for index, expected in expected_entries.items():
+                label = f"{language_name}/{symbol}[{index}]"
+                if index >= len(entries):
+                    issues.append(
+                        f"{label}: missing; initializer has {len(entries)} entries"
+                    )
+                    continue
+                literal = _single_wide_literal(entries[index], label)
+                if not literal and (language_name, symbol, index) in NORMALIZED_REPAIRED_SLOTS:
+                    issues.append(f"{label}: repaired slot must remain nonempty")
+                elif literal != expected:
+                    issues.append(f"{label}: expected {expected!r}, got {literal!r}")
+        except ExportSchemaError as error:
+            issues.append(str(error))
+
+    exact_sizes = {
+        "pPersonnelAssignmentStrings": 85,
+        "pLongAssignmentStrings": 85,
+        "pDoorTrapStrings": 7,
+        "pLandTypeStrings": 47,
+        "gzGIOScreenText": 69,
+    }
+    for symbol, expected_size in exact_sizes.items():
+        try:
+            entries = parsed_entries.get(symbol) or _initializer_entry_sources(
+                source, language.base_source, definitions, symbol
+            )
+            parsed_entries[symbol] = entries
+            if len(entries) != expected_size:
+                issues.append(
+                    f"{language_name}/{symbol}: expected exactly {expected_size} "
+                    f"initializer entries, got {len(entries)}"
+                )
+        except ExportSchemaError as error:
+            issues.append(str(error))
+
+    try:
+        assignment = _initializer_entry_sources(
+            source, language.base_source, definitions, "pAssignmentStrings"
+        )
+        personnel = parsed_entries["pPersonnelAssignmentStrings"]
+        door = parsed_entries["pDoorTrapStrings"]
+        for target_symbol, target_index, source_entries, source_index in (
+            ("pPersonnelAssignmentStrings", 83, assignment, 83),
+            ("pPersonnelAssignmentStrings", 84, assignment, 84),
+            ("pLongAssignmentStrings", 54, personnel, 54),
+            ("pLongAssignmentStrings", 83, assignment, 83),
+            ("pLongAssignmentStrings", 84, assignment, 84),
+            ("pDoorTrapStrings", 5, door, 3),
+            ("pDoorTrapStrings", 6, door, 2),
+        ):
+            target_entries = parsed_entries[target_symbol]
+            target = _single_wide_literal(
+                target_entries[target_index],
+                f"{language_name}/{target_symbol}[{target_index}]",
+            )
+            source_literal = _single_wide_literal(
+                source_entries[source_index],
+                f"{language_name}/alias-source[{source_index}]",
+            )
+            if target != source_literal:
+                issues.append(
+                    f"{language_name}/{target_symbol}[{target_index}]: "
+                    f"must remain the same-catalog alias of index {source_index}"
+                )
+        if language_name != "English":
+            land_definition = definitions["pLandTypeStrings"]
+            raw_land_definition = source[
+                land_definition["raw_start"]:land_definition["raw_end"]
+            ]
+            for index, value in enumerate(LAND_TYPE_TAIL, 41):
+                fallback_line = re.compile(
+                    rf'L"{re.escape(value)}"\s*,[^\r\n]*TODO[.]Translate'
+                )
+                if fallback_line.search(raw_land_definition) is None:
+                    issues.append(
+                        f"{language_name}/pLandTypeStrings[{index}]: canonical "
+                        "English fallback lost TODO.Translate"
+                    )
+    except (ExportSchemaError, KeyError, IndexError) as error:
+        issues.append(str(error))
+    return issues
+
+
+def normalized_catalog_issues(
+    sections: Sequence[dict],
+    abi_schema: Mapping,
+    catalog_sources: Mapping[str, str] | None = None,
+    check_exhaustive: bool = True,
+) -> list[str]:
+    """Validate repaired ordinals and every affected range in all quadrants."""
+
+    issues: list[str] = []
+    if len(FOREIGN_NORMALIZED_REPAIRED_SLOTS) != 19:
+        issues.append(
+            "foreign normalization inventory no longer names exactly 19 repaired slots"
+        )
+    if len(UNIVERSAL_RANGE_REPAIRED_SLOTS) != 104:
+        issues.append(
+            "universal normalization inventory no longer names exactly 104 inserts"
+        )
+    goldens = {
+        (language, symbol, index)
+        for (language, symbol), entries in NORMALIZED_CATALOG_GOLDENS.items()
+        for index in entries
+    }
+    missing_goldens = sorted(NORMALIZED_REPAIRED_SLOTS - goldens)
+    if missing_goldens:
+        issues.append(f"repaired slots lack goldens: {missing_goldens!r}")
+
+    issues.extend(
+        normalized_range_issues(
+            sections,
+            abi_schema,
+            catalog_sources,
+            check_exhaustive=check_exhaustive,
+        )
+    )
+    actual_by_language = {
+        language.name: ABI.apply_inventory_overrides(
+            abi_schema["symbols"],
+            abi_schema["catalog_compatibility_debt"][language.name],
+        )
+        if language.name != "English"
+        else abi_schema["symbols"]
+        for language in ABI.LANGUAGES
+    }
+    languages = {language.name: language for language in ABI.LANGUAGES}
+    for (language_name, symbol), _expected_entries in (
+        NORMALIZED_CATALOG_GOLDENS.items()
+    ):
+        language = languages.get(language_name)
+        if language is None:
+            issues.append(f"unknown normalized catalog language: {language_name}")
+            continue
+        # Range shape is proved in all four quadrants above. These repaired
+        # definitions must remain unconditional, so one raw-source parse is
+        # sufficient for the literal/order goldens and keeps the check light.
+        inventory = actual_by_language[language_name].get(symbol)
+        if inventory is not None and inventory.get("conditional_layout"):
+            issues.append(
+                f"{language_name}/{symbol}: repaired catalog gained conditional layout"
+            )
+
+    catalog_names: set[str] = set()
+    for language_name, _symbol in NORMALIZED_CATALOG_GOLDENS:
+        if language_name in catalog_names:
+            continue
+        catalog_names.add(language_name)
+        language = languages[language_name]
+        source = (
+            catalog_sources[language_name]
+            if catalog_sources is not None and language_name in catalog_sources
+            else _read(language.base_source)
+        )
+        issues.extend(catalog_source_golden_issues(language_name, source))
+
+    imp_gear = lexical_mask(_read("Laptop/IMP Gear.cpp"))
+    named_empty_reads = len(
+        re.findall(r"\bpLongAssignmentStrings\s*\[\s*ASSIGNMENT_EMPTY\s*\]", imp_gear)
+    )
+    numeric_empty_reads = len(
+        re.findall(r"\bpLongAssignmentStrings\s*\[\s*60\s*\]", imp_gear)
+    )
+    if named_empty_reads != 4 or numeric_empty_reads:
+        issues.append(
+            "IMP Gear must retain exactly four pLongAssignmentStrings"
+            "[ASSIGNMENT_EMPTY] reads and zero numeric [60] reads"
+        )
+    if re.search(r"\bGIO_ULTIMATE_IRON_MAN_TEXT\b", lexical_mask(_read("i18n/include/Text.h"))):
+        issues.append("unused GIO_ULTIMATE_IRON_MAN_TEXT enum slot returned")
+    return issues
+
+
 def make_schema() -> dict:
     abi_schema = _load_abi_schema()
     export_source = _read(EXPORT_SOURCE)
+    validate_named_limit_static_assert_seam(export_source)
     sections = _resolve_sections(
         parse_export_calls(export_source), _read(TEXT_CATALOG_HEADER)
     )
@@ -831,6 +2530,15 @@ def make_schema() -> dict:
     ]
     if any(section["range"]["first"] != "0" for section in legacy_sections):
         raise ExportSchemaError("every active legacy export must retain first index zero")
+
+    normalization_issues = normalized_catalog_issues(
+        sections, abi_schema, check_exhaustive=False
+    )
+    if normalization_issues:
+        raise ExportSchemaError(
+            "normalized catalog contract failed: " + "; ".join(normalization_issues)
+        )
+    legacy_range_contract = exhaustive_range_contract(sections)
     legacy_names = [section["symbol"] for section in legacy_sections]
     if len(set(legacy_names)) != len(legacy_names):
         raise ExportSchemaError("a legacy catalog symbol is exported more than once")
@@ -847,13 +2555,14 @@ def make_schema() -> dict:
     unsafe_debt = [record for record in debt if record["unsafe_range"]]
     if len(debt) > MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS:
         raise ExportSchemaError(
-            "exported compatibility debt grew from the 33-pair ceiling to "
+            "exported compatibility debt grew from the "
+            f"{MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS}-pair ceiling to "
             f"{len(debt)}"
         )
-    if len(unsafe_debt) > MAX_UNSAFE_RANGE_DEBT_PAIRS:
+    if unsafe_debt:
         raise ExportSchemaError(
-            "unsafe export-range debt grew from the 14-pair ceiling to "
-            f"{len(unsafe_debt)}"
+            "compatibility-debt inventory still contains an unsafe export range: "
+            f"{len(unsafe_debt)} pair(s)"
         )
     exporter_only = _exporter_only_inventory(sections, legacy_symbols)
     exporter_only_entries = sum(
@@ -886,7 +2595,17 @@ def make_schema() -> dict:
         "legacy_text_h_symbols": text_h_symbols,
         "legacy_local_extern_symbols": local_extern_symbols,
         "exported_compatibility_debt_pairs": len(debt),
-        "unsafe_range_debt_pairs": len(unsafe_debt),
+        "legacy_range_comparisons": legacy_range_contract["comparisons"],
+        "unsafe_range_sections": legacy_range_contract["unsafe_sections"],
+        "unsafe_range_language_pairs": legacy_range_contract[
+            "unsafe_language_pairs"
+        ],
+        "unsafe_range_quadrant_failures": legacy_range_contract[
+            "unsafe_quadrant_failures"
+        ],
+        "potential_oob_reads_per_selected_build": legacy_range_contract[
+            "potential_oob_reads_per_selected_build"
+        ],
         "exporter_only_tables": len(exporter_only),
         "exporter_only_entries_per_language": exporter_only_entries,
     }
@@ -900,6 +2619,13 @@ def make_schema() -> dict:
         "legacy_writable_buffers": EXPECTED_LEGACY_WRITABLE_BUFFERS,
         "legacy_text_h_symbols": EXPECTED_LEGACY_TEXT_H_SYMBOLS,
         "legacy_local_extern_symbols": EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS,
+        "legacy_range_comparisons": EXPECTED_LEGACY_RANGE_COMPARISONS,
+        "unsafe_range_sections": MAX_UNSAFE_RANGE_SECTIONS,
+        "unsafe_range_language_pairs": MAX_UNSAFE_RANGE_LANGUAGE_PAIRS,
+        "unsafe_range_quadrant_failures": MAX_UNSAFE_RANGE_QUADRANT_FAILURES,
+        "potential_oob_reads_per_selected_build": (
+            MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD
+        ),
         "exporter_only_tables": EXPECTED_EXPORTER_ONLY_TABLES,
         "exporter_only_entries_per_language": EXPECTED_EXPORTER_ONLY_ENTRIES,
     }
@@ -921,18 +2647,14 @@ def make_schema() -> dict:
         "schema_version": 1,
         "purpose": "ordered source model of the developer GameStrings exporter",
         "runtime_behavior": "unchanged: selected catalog bodies remain textually included",
-        "adapter_status": {
-            "state": "blocked",
-            "reason": (
-                f"{len(unsafe_debt)} foreign-language legacy ranges exceed their selected catalog "
-                "arrays; resolve them before a linked-global export adapter"
-            ),
-        },
+        "adapter_status": READY_ADAPTER_STATUS,
         "counts": counts,
+        "named_export_limits": dict(NAMED_EXPORT_LIMITS),
         "textual_catalog_includes": textual_catalog_includes(export_source),
         "startup_contract": startup_contract(),
         "sections": sections,
         "legacy_symbols": legacy_symbols,
+        "legacy_range_contract": legacy_range_contract,
         "exported_compatibility_debt": debt,
         "exporter_only_tables": exporter_only,
     }
@@ -948,10 +2670,12 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         "runtime_behavior",
         "adapter_status",
         "counts",
+        "named_export_limits",
         "textual_catalog_includes",
         "startup_contract",
         "sections",
         "legacy_symbols",
+        "legacy_range_contract",
         "exported_compatibility_debt",
         "exporter_only_tables",
     }
@@ -975,11 +2699,18 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         "legacy_writable_buffers": EXPECTED_LEGACY_WRITABLE_BUFFERS,
         "legacy_text_h_symbols": EXPECTED_LEGACY_TEXT_H_SYMBOLS,
         "legacy_local_extern_symbols": EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS,
+        "legacy_range_comparisons": EXPECTED_LEGACY_RANGE_COMPARISONS,
+        "unsafe_range_sections": MAX_UNSAFE_RANGE_SECTIONS,
+        "unsafe_range_language_pairs": MAX_UNSAFE_RANGE_LANGUAGE_PAIRS,
+        "unsafe_range_quadrant_failures": MAX_UNSAFE_RANGE_QUADRANT_FAILURES,
+        "potential_oob_reads_per_selected_build": (
+            MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD
+        ),
         "exporter_only_tables": EXPECTED_EXPORTER_ONLY_TABLES,
         "exporter_only_entries_per_language": EXPECTED_EXPORTER_ONLY_ENTRIES,
     }
     expected_count_fields = set(fixed_counts) | {
-        "exported_compatibility_debt_pairs", "unsafe_range_debt_pairs"
+        "exported_compatibility_debt_pairs"
     }
     if set(counts) != expected_count_fields or any(
         counts.get(key) != value for key, value in fixed_counts.items()
@@ -990,10 +2721,27 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         <= MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS
     ):
         issues.append("schema: exported compatibility debt count exceeds its ceiling")
-    if not isinstance(counts.get("unsafe_range_debt_pairs"), int) or not (
-        0 <= counts["unsafe_range_debt_pairs"] <= MAX_UNSAFE_RANGE_DEBT_PAIRS
-    ):
-        issues.append("schema: unsafe range debt count exceeds its ceiling")
+    if schema.get("named_export_limits") != dict(NAMED_EXPORT_LIMITS):
+        issues.append("schema: live named export-limit values changed")
+    range_contract = schema.get("legacy_range_contract")
+    expected_range_contract = {
+        "comparisons": EXPECTED_LEGACY_RANGE_COMPARISONS,
+        "unsafe_sections": MAX_UNSAFE_RANGE_SECTIONS,
+        "unsafe_language_pairs": MAX_UNSAFE_RANGE_LANGUAGE_PAIRS,
+        "unsafe_quadrant_failures": MAX_UNSAFE_RANGE_QUADRANT_FAILURES,
+        "potential_oob_reads_per_selected_build": (
+            MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD
+        ),
+        "exported_pointer_entry_checks": EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS,
+        "direct_wide_literal_entry_checks": (
+            EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS
+        ),
+        "compiled_selector_entry_checks": (
+            EXPECTED_COMPILED_SELECTOR_ENTRY_CHECKS
+        ),
+    }
+    if range_contract != expected_range_contract:
+        issues.append("schema: exhaustive raw catalog range contract changed")
     if schema.get("textual_catalog_includes") != EXPECTED_TEXTUAL_CATALOG_INCLUDES:
         issues.append("schema: the eight selected textual catalog includes changed")
     sections = schema.get("sections")
@@ -1053,15 +2801,16 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
     if len(debt) != counts.get("exported_compatibility_debt_pairs"):
         issues.append("schema: exported compatibility debt count does not match its inventory")
     if len(debt) > MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS:
-        issues.append("schema: exported compatibility debt exceeds the 33-pair ceiling")
+        issues.append(
+            "schema: exported compatibility debt exceeds the "
+            f"{MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS}-pair ceiling"
+        )
     unsafe = [
         entry for entry in debt
         if isinstance(entry, dict) and entry.get("unsafe_range") is True
     ]
-    if len(unsafe) > MAX_UNSAFE_RANGE_DEBT_PAIRS:
-        issues.append("schema: unsafe range debt exceeds the 14-pair ceiling")
-    if len(unsafe) != counts.get("unsafe_range_debt_pairs"):
-        issues.append("schema: unsafe range debt count does not match its inventory")
+    if unsafe:
+        issues.append("schema: compatibility debt contains an unsafe export range")
     safe_debt_fields = {
         "language", "section", "symbol", "compatibility_fields", "unsafe_range"
     }
@@ -1117,14 +2866,10 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         issues.append("schema: exporter-only entry count is not exactly 85")
     if exporter_only_entries != counts.get("exporter_only_entries_per_language"):
         issues.append("schema: exporter-only entry total does not match its inventory")
-    adapter = schema.get("adapter_status")
-    if (
-        not isinstance(adapter, dict)
-        or adapter.get("state") != "blocked"
-        or str(counts.get("unsafe_range_debt_pairs"))
-        not in str(adapter.get("reason", ""))
-    ):
-        issues.append("schema: adapter must remain explicitly blocked by unsafe ranges")
+    if schema.get("adapter_status") != READY_ADAPTER_STATUS:
+        issues.append(
+            "schema: selected-catalog adapter prerequisite must remain explicitly ready"
+        )
     return issues
 
 
@@ -1169,7 +2914,10 @@ def summary(schema: Mapping) -> str:
         f"{counts['logical_sections']} ordered GameStrings sections: "
         f"{counts['legacy_sections']} legacy + {counts['text_pack_sections']} TextPack; "
         f"{counts['exported_compatibility_debt_pairs']} exported debt pairs, "
-        f"{counts['unsafe_range_debt_pairs']} unsafe; "
+        f"{counts['legacy_range_comparisons']} exhaustive range comparisons, "
+        f"{counts['unsafe_range_language_pairs']} unsafe; "
+        f"{schema['legacy_range_contract']['exported_pointer_entry_checks']} "
+        "pointer entries; "
         f"{counts['exporter_only_tables']} exporter-only tables/"
         f"{counts['exporter_only_entries_per_language']} entries"
     )
