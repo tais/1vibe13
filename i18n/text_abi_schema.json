@@ -94,7 +94,7 @@
     }
   ],
   "header_inventory": {
-    "base_data_declarations": 469,
+    "base_data_declarations": 468,
     "ja25_data_declarations": 35,
     "duplicate_data_declarations": {
       "pDownloadString": 2
@@ -569,42 +569,6 @@
             "8"
           ],
           "initializer_entries": 8
-        }
-      },
-      "declaration": "Text.h"
-    },
-    "AimSortText": {
-      "domain": "base",
-      "type": "STR16",
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "quadrants": {
-        "ja2-release": {
-          "effective_dimensions": [
-            "20"
-          ],
-          "initializer_entries": 20
-        },
-        "ja2-debug": {
-          "effective_dimensions": [
-            "20"
-          ],
-          "initializer_entries": 20
-        },
-        "ja2ub-release": {
-          "effective_dimensions": [
-            "20"
-          ],
-          "initializer_entries": 20
-        },
-        "ja2ub-debug": {
-          "effective_dimensions": [
-            "20"
-          ],
-          "initializer_entries": 20
         }
       },
       "declaration": "Text.h"

@@ -331,7 +331,7 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"BobbyRFilter",				Loc::BobbyRFilter,					0,	TEXT_NUM_BOBBYR_FILTER);
 	ExportSection(props, L"BobbyR",						Loc::BobbyRText,					0,	TEXT_NUM_BOBBYR_GUNS);
 	ExportSection(props, L"BobbyRaysFront",				Loc::BobbyRaysFrontText,			0,	TEXT_NUM_BOBBYR);
-	ExportSection(props, L"AimSort", Loc::AimSortText, 0, TEXT_NUM_AIM_SORT);
+	ExportTextPackTable(props, i18n::TextTableKey::AimSort);
 	ExportSection(props, L"AimPolicy", Loc::AimPolicyText, 0, TEXT_NUM_AIM_POLICIES);
 
 	ExportSection(props, L"AimMember",					Loc::AimMemberText,					0,	4);

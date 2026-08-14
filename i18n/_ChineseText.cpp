@@ -5810,44 +5810,6 @@ STR16			BobbyRaysFrontText[] =
 
 
 
-// Text for the AIM page.
-// This is the text used when the user selects the way to sort the aim mercanaries on the AIM mug shot page
-
-STR16			AimSortText[] =
-{
-	L"A.I.M 成员",	//"A.I.M. Members",				// Title
-	// Title for the way to sort
-	L"排序: ",	//"Sort By:",
-
-	// sort by...
-
-	L"薪金",	//"Price",
-	L"级别",	//"Experience",
-	L"枪法",	//"Marksmanship",
-	L"机械",	//"Mechanical",
-	L"爆破",	//"Explosives",
-	L"医疗",	//"Medical",
-	L"生命",	//"Health",
-	L"敏捷",	//"Agility",
-	L"灵巧",	//"Dexterity",
-	L"力量",	//"Strength",
-	L"领导",	//"Leadership",
-	L"智慧",	//"Wisdom",
-	L"姓名",	//"Name",
-
-	//Text of the links to other AIM pages
-
-	L"查看佣兵的肖像索引",	//"View the mercenary mug shot index",
-	L"查看单独的佣兵档案",	//"Review the individual mercenary's file",
-	L"浏览 A.I.M 前成员",	//"Browse the A.I.M. Alumni Gallery",
-
-	// text to display how the entries will be sorted
-
-	L"升序",	//"Ascending",
-	L"降序",	//"Descending",
-};
-
-
 //Aim Policies.c
 //The page in which the AIM policies and regulations are displayed
 

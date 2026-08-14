@@ -5812,44 +5812,6 @@ STR16			BobbyRaysFrontText[] =
 
 
 
-// Text for the AIM page.
-// This is the text used when the user selects the way to sort the aim mercanaries on the AIM mug shot page
-
-STR16			AimSortText[] =
-{
-	L"A.I.M. Leden",				// Title
-	// Title for the way to sort
-	L"Sort. op:",					
-
-	// sort by...
-
-	L"Prijs",
-	L"Ervaring",
-	L"Trefzekerheid",
-	L"Technisch",
-	L"Explosieven",
-	L"Medisch",
-	L"Gezondheid",
-	L"Beweeglijkheid",
-	L"Handigheid",
-	L"Kracht",
-	L"Leiderschap",
-	L"Wijsheid",
-	L"Naam",
-
-	//Text of the links to other AIM pages
-
-	L"Bekijk portretfotoindex van huurlingen",
-	L"Bekijk het huurlingendossier",
-	L"Bekijk de A.I.M. Veteranen",
-
-	// text to display how the entries will be sorted
-
-	L"Oplopend",
-	L"Aflopend",
-};
-
-
 //Aim Policies.c
 //The page in which the AIM policies and regulations are displayed
 
