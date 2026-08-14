@@ -88,13 +88,15 @@ enum class TextTableKey
 	Day,
 	Eta,
 	PausedGame,
+	AimSort,
 	count
 };
 
-static_assert(static_cast<std::size_t>(TextTableKey::PausedGame) == 4,
+static_assert(static_cast<std::size_t>(TextTableKey::PausedGame) == 4 &&
+	static_cast<std::size_t>(TextTableKey::AimSort) == 5,
 	"New TextTableKey entries append without renumbering published table ordinals");
 
-inline constexpr std::size_t TextTableEntryCount = 15;
+inline constexpr std::size_t TextTableEntryCount = 35;
 
 struct TextTableDescriptor
 {
@@ -120,6 +122,8 @@ inline constexpr std::array<TextTableDescriptor,
 		11, 1, 0, 1, false},
 	{TextTableKey::PausedGame, "game.time.paused", L"PausedGame",
 		12, 3, 0, 3, false},
+	{TextTableKey::AimSort, "laptop.aim.sort", L"AimSort",
+		15, 20, 0, 20, false},
 }};
 
 constexpr auto FindTextTable(TextTableKey key) noexcept

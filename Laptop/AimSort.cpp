@@ -6,7 +6,7 @@
 	#include "WordWrap.h"
 	#include "Soldier Profile.h"
 	#include "stdlib.h"
-	#include "Text.h"
+	#include "TextCatalog.h"
 	#include "Multi Language Graphic Utils.h"
 	#include "english.h"
 	#include "sysutil.h"
@@ -36,21 +36,60 @@ namespace
 {
 LaptopPageResourceOwner gAimSortResources;
 
+enum class AimSortTextIndex : std::size_t
+{
+	MembersTitle,
+	SortBy,
+	Price,
+	Experience,
+	Marksmanship,
+	Mechanical,
+	Explosives,
+	Medical,
+	Health,
+	Agility,
+	Dexterity,
+	Strength,
+	Leadership,
+	Wisdom,
+	Name,
+	MugshotIndex,
+	MercenaryFiles,
+	AlumniGallery,
+	Ascending,
+	Descending,
+	Count
+};
+
+static_assert(static_cast<std::size_t>(AimSortTextIndex::Count) == 20,
+	"AIM Sort text indices must remain aligned with the validated pack table");
+
+constexpr std::size_t AimSortTextOffset(AimSortTextIndex index) noexcept
+{
+	return static_cast<std::size_t>(index);
+}
+
 std::array<MOUSE_REGION, AimWebsiteLayoutModel::kSortNavigationCount>
 	gAimSortNavigationRegions;
 std::array<MOUSE_REGION, AimWebsiteLayoutModel::kSortCriterionCount>
 	gAimSortCriterionRegions;
 std::array<MOUSE_REGION, 2> gAimSortOrderRegions;
 
-constexpr std::array<int, AimWebsiteLayoutModel::kSortCriterionCount>
+constexpr std::array<AimSortTextIndex,
+	AimWebsiteLayoutModel::kSortCriterionCount>
 	kCriterionText = {{
-		PRICE, EXPERIENCE, AIMMARKSMANSHIP,
-		AIMMECHANICAL, AIMEXPLOSIVES, AIMMEDICAL,
-		AIMHEALTH, AIMAGILITY, AIMDEXTERITY,
-		AIMSTRENGTH, AIMLEADERSHIP, AIMWISDOM, NAME}};
+		AimSortTextIndex::Price, AimSortTextIndex::Experience,
+		AimSortTextIndex::Marksmanship, AimSortTextIndex::Mechanical,
+		AimSortTextIndex::Explosives, AimSortTextIndex::Medical,
+		AimSortTextIndex::Health, AimSortTextIndex::Agility,
+		AimSortTextIndex::Dexterity, AimSortTextIndex::Strength,
+		AimSortTextIndex::Leadership, AimSortTextIndex::Wisdom,
+		AimSortTextIndex::Name}};
 
-constexpr std::array<int, AimWebsiteLayoutModel::kSortNavigationCount>
-	kNavigationText = {{MUGSHOT_INDEX, MERCENARY_FILES, ALUMNI_GALLERY}};
+constexpr std::array<AimSortTextIndex,
+	AimWebsiteLayoutModel::kSortNavigationCount>
+	kNavigationText = {{AimSortTextIndex::MugshotIndex,
+		AimSortTextIndex::MercenaryFiles, AimSortTextIndex::AlumniGallery}};
 
 constexpr std::array<UINT32, AimWebsiteLayoutModel::kSortNavigationCount>
 	kNavigationModes = {{
@@ -152,7 +191,9 @@ BOOLEAN EnterAimSort()
 		criterion < AimWebsiteLayoutModel::kSortCriterionCount; ++criterion)
 	{
 		const int textWidth = StringPixLength(
-			AimSortText[kCriterionText[criterion]], AIM_SORT_FONT_SORT_TEXT);
+			i18n::GetCompiledTextPack().text(i18n::TextTableKey::AimSort,
+				AimSortTextOffset(kCriterionText[criterion])).data(),
+			AIM_SORT_FONT_SORT_TEXT);
 		const auto bounds = layout.criterionHitbox(criterion, textWidth);
 		MSYS_DefineRegion(&gAimSortCriterionRegions[criterion],
 			bounds.x, bounds.y, bounds.right(), bounds.bottom(),
@@ -166,9 +207,11 @@ BOOLEAN EnterAimSort()
 	for (std::size_t index = 0; index < gAimSortOrderRegions.size(); ++index)
 	{
 		const std::size_t mode = AIM_ASCEND + index;
-		const int textIndex = index == 0 ? ASCENDING : DESCENDING;
+		const auto textIndex = index == 0 ? AimSortTextIndex::Ascending
+			: AimSortTextIndex::Descending;
 		const int textWidth = StringPixLength(
-			AimSortText[textIndex], AIM_SORT_FONT_SORT_TEXT);
+			i18n::GetCompiledTextPack().text(i18n::TextTableKey::AimSort,
+				AimSortTextOffset(textIndex)).data(), AIM_SORT_FONT_SORT_TEXT);
 		const auto bounds = layout.orderHitbox(mode, textWidth);
 		MSYS_DefineRegion(&gAimSortOrderRegions[index],
 			bounds.x, bounds.y, bounds.right(), bounds.bottom(),
@@ -228,18 +271,24 @@ void RenderAimSort()
 	}
 
 	DisplayAimSlogan();
-	DrawTextToScreen(AimSortText[AIM_AIMMEMBERS],
+	DrawTextToScreen(i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::AimSort,
+		AimSortTextOffset(AimSortTextIndex::MembersTitle)).data(),
 		layout.memberTitle.origin.x, layout.memberTitle.origin.y,
 		layout.memberTitle.width, AIM_MAINTITLE_FONT, AIM_MAINTITLE_COLOR,
 		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-	DrawTextToScreen(AimSortText[SORT_BY],
+	DrawTextToScreen(i18n::GetCompiledTextPack().text(
+		i18n::TextTableKey::AimSort,
+		AimSortTextOffset(AimSortTextIndex::SortBy)).data(),
 		layout.sortTitle.x, layout.sortTitle.y, 0, AIM_SORT_FONT_TITLE,
 		AIM_SORT_SORT_BY_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 	for (std::size_t criterion = 0; criterion < kCriterionText.size(); ++criterion)
 	{
 		const auto position = layout.criterionText(criterion);
-		DrawTextToScreen(AimSortText[kCriterionText[criterion]],
+		DrawTextToScreen(i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::AimSort,
+			AimSortTextOffset(kCriterionText[criterion])).data(),
 			position.x, position.y, 0, AIM_SORT_FONT_SORT_TEXT,
 			AIM_SORT_COLOR_SORT_TEXT, FONT_MCOLOR_BLACK, FALSE,
 			LEFT_JUSTIFIED);
@@ -248,7 +297,11 @@ void RenderAimSort()
 	{
 		const std::size_t mode = AIM_ASCEND + index;
 		const auto text = layout.orderText(mode);
-		DrawTextToScreen(AimSortText[index == 0 ? ASCENDING : DESCENDING],
+		const auto textIndex = index == 0 ? AimSortTextIndex::Ascending
+			: AimSortTextIndex::Descending;
+		DrawTextToScreen(i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::AimSort,
+			AimSortTextOffset(textIndex)).data(),
 			text.origin.x, text.origin.y, text.width, AIM_SORT_FONT_SORT_TEXT,
 			AIM_SORT_COLOR_SORT_TEXT, FONT_MCOLOR_BLACK, FALSE,
 			RIGHT_JUSTIFIED);
@@ -256,7 +309,9 @@ void RenderAimSort()
 	for (std::size_t index = 0; index < kNavigationText.size(); ++index)
 	{
 		const auto position = layout.navigationText(index);
-		DrawTextToScreen(AimSortText[kNavigationText[index]],
+		DrawTextToScreen(i18n::GetCompiledTextPack().text(
+			i18n::TextTableKey::AimSort,
+			AimSortTextOffset(kNavigationText[index])).data(),
 			position.x, position.y, 0, AIM_SORT_FONT_SORT_TEXT,
 			AIM_SORT_LINK_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE,
 			LEFT_JUSTIFIED);

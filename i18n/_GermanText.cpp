@@ -5731,41 +5731,6 @@ STR16 BobbyRaysFrontText[] =
 	L"In Arbeit",
 };
 
-// Text for the AIM page.
-// This is the text used when the user selects the way to sort the aim mercanaries on the AIM mug shot page
-STR16 AimSortText[] =
-{
-	L"A.I.M. Mitglieder",				// Title
-	L"Sortieren:",					// Title for the way to sort
-
-	// sort by...
-
-	L"Preis",
-	L"Erfahrung",
-	L"Treffsicherheit",
-	L"Technik",
-	L"Sprengstoff",
-	L"Medizin",
-	L"Gesundheit",
-	L"Beweglichkeit",
-	L"Geschicklichkeit",
-	L"Kraft",
-	L"Führungsqualität",
-	L"Weisheit",
-	L"Name",
-
-	//Text of the links to other AIM pages
-
-	L"Den Söldner-Kurzindex ansehen",
-	L"Personalakte der Söldner ansehen",
-	L"Die AIM-Veteranengalerie ansehen",
-
-	// text to display how the entries will be sorted
-
-	L"Aufsteigend",
-	L"Absteigend",
-};
-
 //Aim Policies.c
 //The page in which the AIM policies and regulations are displayed
 STR16 AimPolicyText[] =

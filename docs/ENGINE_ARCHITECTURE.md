@@ -44,12 +44,12 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 472 base definitions,
+  preprocessor-selected legacy text body. The remaining 471 base definitions,
   35 JA25 definitions, compatibility globals, and the textual
   `ExportStrings.cpp` inclusion are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
-  The first text migration slice now commits a canonical 507-symbol ABI schema
+  The first text migration slice now commits a canonical 506-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
   array/mutability shapes are explicit, and 57 existing foreign
@@ -97,6 +97,14 @@ the engine must not contain SDL types in its public domain model.
   only one of its four runtime entries, and Italian `Giorno` stays distinct
   from scalar `GameClockDay` value `Gg`. The catalog now covers 184 literals and
   13 exporter mappings without changing startup selection or archive layout.
+  The sixth complete domain moves the 20-entry AIM Sort table in full: 160 exact
+  translations, all seven bounded consumer reads, and all 20 entries in its
+  in-place exporter section. A local scoped index model preserves the legacy
+  entry order, `AimSort.cpp` drops its complete `Text.h` dependency, and the
+  Chinese sort prefix retains its trailing ASCII space. The append-only table
+  descriptor leaves earlier ordinals and ranges intact; the catalog now covers
+  344 literals and 14 exporter mappings without changing startup selection,
+  `g_lang`, mutable globals, or archive layout.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

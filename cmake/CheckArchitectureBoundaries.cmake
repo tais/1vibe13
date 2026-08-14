@@ -265,9 +265,9 @@ file(READ "${SOURCE_ROOT}/i18n/include/Text.h" legacy_text_header_contents)
 string(REGEX MATCHALL "(^|[\r\n])[ \t]*extern[ \t]+"
   legacy_text_declarations "${legacy_text_header_contents}")
 list(LENGTH legacy_text_declarations legacy_text_declaration_count)
-if(NOT legacy_text_declaration_count EQUAL 472)
+if(NOT legacy_text_declaration_count EQUAL 471)
   message(FATAL_ERROR
-    "The first five TextCatalog domains must leave exactly 472 legacy Text.h externs, found ${legacy_text_declaration_count}")
+    "The first six TextCatalog domains must leave exactly 471 legacy Text.h externs, found ${legacy_text_declaration_count}")
 endif()
 file(READ "${SOURCE_ROOT}/i18n/include/_Ja25EnglishText.h"
   legacy_ja25_text_header_contents)
@@ -294,10 +294,10 @@ foreach(required_i18n_test_fragment IN ITEMS
   endif()
 endforeach()
 
-# The first five domain migrations own eight scalar UI labels and five indexed
-# game-time tables. All 64 scalar plus 120 indexed translations move together,
-# every runtime/exporter consumer enters through the validated pack, and no
-# legacy declaration remains to provide an accidental linker fallback.
+# The first six domain migrations own eight scalar UI labels, five indexed
+# game-time tables, and the complete 20-entry AIM Sort page. All 64 scalar plus
+# 280 indexed translations move together, every runtime/exporter consumer enters
+# through the validated pack, and no legacy declaration remains as fallback.
 foreach(required_text_catalog_header_fragment IN ITEMS
     "enum class TextKey"
     "struct TextKeyDescriptor"
@@ -305,9 +305,10 @@ foreach(required_text_catalog_header_fragment IN ITEMS
     "static_cast<std::size_t>(TextKey::GameClockDay) == 7"
     "enum class TextTableKey"
     "struct TextTableDescriptor"
-    "TextTableEntryCount = 15"
+    "TextTableEntryCount = 35"
     "HasValidTextTableSchema"
     "static_cast<std::size_t>(TextTableKey::PausedGame) == 4"
+    "static_cast<std::size_t>(TextTableKey::AimSort) == 5"
     "static_cast<std::size_t>(TextCatalogError::AllocationFailure) == 7"
     "legacyExportCount"
     "englishFallbackAllowed"
@@ -345,6 +346,13 @@ foreach(required_text_catalog_source_fragment IN ITEMS
       "Runtime TextCatalog implementation lost '${required_text_catalog_source_fragment}'")
   endif()
 endforeach()
+string(REGEX MATCHALL "L\"" builtin_text_pack_literals
+  "${i18n_text_catalog_source_contents}")
+list(LENGTH builtin_text_pack_literals builtin_text_pack_literal_count)
+if(NOT builtin_text_pack_literal_count EQUAL 344)
+  message(FATAL_ERROR
+    "Runtime TextPack must own exactly 344 built-in literals, found ${builtin_text_pack_literal_count}")
+endif()
 
 set(migrated_text_globals
   pPersonnelTitle
@@ -359,7 +367,8 @@ set(migrated_text_globals
   gsTimeStrings
   pDayStrings
   pEtaString
-  pPausedGameText)
+  pPausedGameText
+  AimSortText)
 set(legacy_base_catalog_files
   _EnglishText.cpp
   _GermanText.cpp
@@ -386,9 +395,9 @@ foreach(migrated_text_global IN LISTS migrated_text_globals)
   endforeach()
 endforeach()
 if(legacy_text_header_contents MATCHES
-    "HLP_SCRN_TXT__EXIT_SCREEN|TEXT_NUM_HLP|STR_GAMECLOCK_DAY_NAME|TEXT_NUM_GAMECLOCK")
+    "HLP_SCRN_TXT__EXIT_SCREEN|TEXT_NUM_HLP|STR_GAMECLOCK_DAY_NAME|TEXT_NUM_GAMECLOCK|AIM_AIMMEMBERS|TEXT_NUM_AIM_SORT")
   message(FATAL_ERROR
-    "A migrated singleton regained retired legacy index constants")
+    "A migrated TextPack domain regained retired legacy index constants")
 endif()
 
 set(migrated_text_consumers
@@ -436,7 +445,8 @@ set(migrated_text_table_consumers
   "Strategic/Game Clock.cpp|pDayStrings|Day|2"
   "Strategic/Game Clock.cpp|pPausedGameText|PausedGame|5"
   "Tactical/ShopKeeper Interface.cpp|pDayStrings|Day|1"
-  "Laptop/email.cpp|pDayStrings|Day|1")
+  "Laptop/email.cpp|pDayStrings|Day|1"
+  "Laptop/AimSort.cpp|AimSortText|AimSort|7")
 foreach(migrated_text_table_consumer IN LISTS migrated_text_table_consumers)
   string(REPLACE "|" ";" migrated_text_table_fields
     "${migrated_text_table_consumer}")
@@ -447,7 +457,7 @@ foreach(migrated_text_table_consumer IN LISTS migrated_text_table_consumers)
   file(READ "${SOURCE_ROOT}/${migrated_text_table_file}"
     migrated_text_table_consumer_contents)
   if(migrated_text_table_consumer_contents MATCHES
-      "${migrated_text_table_global}")
+      "(^|[^A-Za-z0-9_])${migrated_text_table_global}([^A-Za-z0-9_]|$)")
     message(FATAL_ERROR
       "${migrated_text_table_file} regained direct '${migrated_text_table_global}' access")
   endif()
@@ -496,12 +506,35 @@ if(game_clock_text_consumer_contents MATCHES
   message(FATAL_ERROR
     "Game Clock must depend only on TextCatalog for its migrated text")
 endif()
+file(READ "${SOURCE_ROOT}/Laptop/AimSort.cpp"
+  aim_sort_text_consumer_contents)
+if(aim_sort_text_consumer_contents MATCHES
+    "#[ \t]*include[ \t]*[<\"]Text[.]h[>\"]" OR
+    NOT aim_sort_text_consumer_contents MATCHES
+      "#[ \t]*include[ \t]*[<\"]TextCatalog[.]h[>\"]")
+  message(FATAL_ERROR
+    "AIM Sort must depend only on TextCatalog for its migrated text")
+endif()
+foreach(required_aim_sort_consumer_fragment IN ITEMS
+    "enum class AimSortTextIndex : std::size_t"
+    "static_cast<std::size_t>(AimSortTextIndex::Count) == 20"
+    "std::array<AimSortTextIndex"
+    "AimSortTextIndex::MembersTitle"
+    "AimSortTextIndex::Descending")
+  string(FIND "${aim_sort_text_consumer_contents}"
+    "${required_aim_sort_consumer_fragment}"
+    required_aim_sort_consumer_position)
+  if(required_aim_sort_consumer_position EQUAL -1)
+    message(FATAL_ERROR
+      "AIM Sort typed text model lost '${required_aim_sort_consumer_fragment}'")
+  endif()
+endforeach()
 
 foreach(migrated_text_export IN ITEMS
     PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle AimLinksTitle
     HelpScreenExit GameClockDay)
   if(export_strings_source_contents MATCHES
-      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText)")
+      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText|AimSortText)")
     message(FATAL_ERROR
       "ExportStrings regained a legacy migrated text global")
   endif()
@@ -517,7 +550,7 @@ foreach(migrated_text_export IN ITEMS
   endif()
 endforeach()
 foreach(migrated_text_table_export IN ITEMS
-    TimeCompression TimeUnits Day Eta PausedGame)
+    TimeCompression TimeUnits Day Eta PausedGame AimSort)
   string(REGEX MATCHALL
     "ExportTextPackTable\\(props, i18n::TextTableKey::${migrated_text_table_export}\\)"
     migrated_text_table_export_uses "${export_strings_source_contents}")
@@ -528,12 +561,29 @@ foreach(migrated_text_table_export IN ITEMS
       "ExportStrings must publish '${migrated_text_table_export}' exactly once through TextPack")
   endif()
 endforeach()
+string(REGEX MATCHALL
+  "(^|[\r\n])[ \t]*ExportSection\\(props,[ \t]*L\""
+  remaining_legacy_export_calls "${export_strings_source_contents}")
+list(LENGTH remaining_legacy_export_calls remaining_legacy_export_call_count)
+if(NOT remaining_legacy_export_call_count EQUAL 224)
+  message(FATAL_ERROR
+    "Runtime TextPack migration must leave exactly 224 executable legacy exporter sections, found ${remaining_legacy_export_call_count}")
+endif()
+string(REGEX MATCHALL
+  "ExportTextPack(Entry|Table)\\(props,[ \t\r\n]*i18n::Text(Table)?Key::"
+  migrated_text_export_calls "${export_strings_source_contents}")
+list(LENGTH migrated_text_export_calls migrated_text_export_call_count)
+if(NOT migrated_text_export_call_count EQUAL 14)
+  message(FATAL_ERROR
+    "Runtime TextPack must publish exactly 14 migrated exporter mappings, found ${migrated_text_export_call_count}")
+endif()
 set(migrated_text_table_export_positions
   "Loc::pTownNames|ExportTextPackTable(props, i18n::TextTableKey::TimeCompression)|Loc::pAssignmentStrings|TimeCompression"
   "Loc::gsUndergroundString|ExportTextPackTable(props, i18n::TextTableKey::TimeUnits)|Loc::sFacilitiesStrings|TimeUnits"
   "Loc::pMercDeadString|ExportTextPackTable(props, i18n::TextTableKey::Day)|Loc::pSenderNameList|Day"
   "Loc::pMapScreenPrevNextCharButtonHelpText|ExportTextPackTable(props, i18n::TextTableKey::Eta)|Loc::pTrashItemText|Eta"
-  "Loc::pPersTitleText|ExportTextPackTable(props, i18n::TextTableKey::PausedGame)|Loc::pMessageStrings|PausedGame")
+  "Loc::pPersTitleText|ExportTextPackTable(props, i18n::TextTableKey::PausedGame)|Loc::pMessageStrings|PausedGame"
+  "Loc::BobbyRaysFrontText|ExportTextPackTable(props, i18n::TextTableKey::AimSort)|Loc::AimPolicyText|AimSort")
 foreach(migrated_text_table_export_position IN LISTS
     migrated_text_table_export_positions)
   string(REPLACE "|" ";" migrated_text_table_export_fields
@@ -604,18 +654,45 @@ if(strategic_export_position EQUAL -1 OR
     "Game-clock TextPack export must retain its legacy position between Strategic and KeyDescription")
 endif()
 
+file(GLOB_RECURSE direct_legacy_text_include_candidates
+  LIST_DIRECTORIES FALSE
+  "${SOURCE_ROOT}/*.c"
+  "${SOURCE_ROOT}/*.cc"
+  "${SOURCE_ROOT}/*.cpp"
+  "${SOURCE_ROOT}/*.cxx"
+  "${SOURCE_ROOT}/*.h"
+  "${SOURCE_ROOT}/*.hpp")
+list(FILTER direct_legacy_text_include_candidates EXCLUDE REGEX
+  "/(build|build-[^/]+|cmake-build[^/]*)/")
+set(direct_legacy_text_include_count 0)
+foreach(direct_legacy_text_include_candidate IN LISTS
+    direct_legacy_text_include_candidates)
+  file(READ "${direct_legacy_text_include_candidate}"
+    direct_legacy_text_include_contents)
+  if(direct_legacy_text_include_contents MATCHES
+      "#[ \t]*include[ \t]*[<\"]Text[.]h[>\"]")
+    math(EXPR direct_legacy_text_include_count
+      "${direct_legacy_text_include_count} + 1")
+  endif()
+endforeach()
+if(NOT direct_legacy_text_include_count EQUAL 240)
+  message(FATAL_ERROR
+    "The AIM Sort boundary must leave exactly 240 direct Text.h consumers, found ${direct_legacy_text_include_count}")
+endif()
+
 file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
   i18n_text_catalog_test_contents)
 foreach(required_text_catalog_test_fragment IN ITEMS
     "all 64 migrated translations remain byte-for-byte exact"
-    "all 120 indexed translations remain byte-for-byte exact"
+    "all 280 indexed translations remain byte-for-byte exact"
     "legacy exporter section mapping stays exact"
     "legacy exporter table ranges stay exact, including one-of-four TimeStings"
     "all eight migrated keys remain required in every language"
-    "all five indexed tables remain required in every language"
+    "all six indexed tables remain required in every language"
     "Italian pDayStrings remains distinct from the GameClockDay label"
+    "Chinese AIM Sort label retains its exact trailing ASCII space"
     "the game-clock key appends without renumbering existing TextKey ordinals"
-    "the game-time tables preserve append-only typed ordinals"
+    "the AIM Sort table appends without renumbering existing table ordinals"
     "indexed validation errors append without renumbering existing errors"
     "compiled default behavior publishes the exact English Aim Links title"
     "compiled default behavior publishes the exact English help-screen exit label"
@@ -624,6 +701,11 @@ foreach(required_text_catalog_test_fragment IN ITEMS
     "English fallback cannot mask a missing required help-screen exit translation"
     "English fallback cannot mask a missing required game-clock day translation"
     "English fallback cannot mask a missing required indexed translation"
+    "English fallback cannot mask a missing required AIM Sort translation"
+    "AIM Sort lookup rejects its exact upper bound 20"
+    "AIM Sort lookup retains exact text and language provenance"
+    "AIM Sort lookup retains a stable process-pack address"
+    "compiled default behavior publishes every indexed TextPack table"
     "typed key identities and names cannot duplicate"
     "TextPack owns stable storage after its catalog value is destroyed"
     "repeated lookup retains a stable text address"
@@ -647,7 +729,7 @@ foreach(required_text_catalog_build_fragment IN ITEMS
     "i18n/TextCatalog.cpp"
     "i18n/language.cpp"
     "target_compile_definitions(i18n_text_catalog_tests PRIVATE ENGLISH)"
-    "indexed game-time tables"
+    "indexed game-time and AIM Sort tables"
     "NAME i18n_text_catalog")
   string(FIND "${i18n_text_catalog_test_build_contents}"
     "${required_text_catalog_build_fragment}"
@@ -666,7 +748,7 @@ if(NOT i18n_text_catalog_ci_contents MATCHES
     "Runtime TextCatalog sanitizer build coverage was removed")
 endif()
 if(NOT i18n_text_catalog_ci_contents MATCHES
-    "including indexed runtime-i18n packs")
+    "including indexed runtime-i18n and AIM Sort packs")
   message(FATAL_ERROR
     "Runtime TextCatalog CI lost explicit indexed-pack coverage")
 endif()
@@ -676,7 +758,7 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_architecture_normalized
   "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
-    "469 unique data declarations"
+    "468 unique data declarations"
     "retires exactly 58 catalog guard groups"
     "98 conditioned table entries and 196 exact literal alternatives"
     "CompiledConditionalText.h"
@@ -685,15 +767,16 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Explicit blockers and review gates"
     "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
-    "507 unique data symbols"
+    "506 unique data symbols"
     "57 pre-existing foreign-catalog compatibility gaps"
     "All eight current `TextKey` descriptors are required"
-    "All five current `TextTableKey` descriptors are required"
+    "All six current `TextTableKey` descriptors are required"
     "Immutable AIM Links-title pack boundary"
     "Immutable Help-screen exit-label pack boundary"
     "Immutable game-clock day-label pack boundary"
     "Immutable indexed game-time pack boundary"
-    "120 exact indexed translations"
+    "Immutable AIM Sort pack boundary"
+    "280 exact indexed translations"
     "37 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
   string(FIND "${runtime_i18n_architecture_normalized}"
@@ -711,11 +794,12 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_i18n_engine_summary_normalized
   "${runtime_i18n_engine_summary_contents}")
 foreach(required_runtime_i18n_engine_summary_fragment IN ITEMS
-    "remaining 472 base definitions"
-    "canonical 507-symbol ABI schema"
+    "remaining 471 base definitions"
+    "canonical 506-symbol ABI schema"
     "fourth complete domain moves the one-entry game-clock day label"
     "fifth complete domain moves five indexed game-time tables"
-    "catalog now covers 184 literals and 13 exporter mappings")
+    "sixth complete domain moves the 20-entry AIM Sort table"
+    "catalog now covers 344 literals and 14 exporter mappings")
   string(FIND "${runtime_i18n_engine_summary_normalized}"
     "${required_runtime_i18n_engine_summary_fragment}"
     required_runtime_i18n_engine_summary_position)
@@ -889,7 +973,7 @@ file(READ "${SOURCE_ROOT}/i18n/text_abi_schema.json"
 foreach(required_runtime_i18n_schema_fragment IN ITEMS
     "\"schema_version\": 1"
     "\"canonical_language\": \"English\""
-    "\"base_data_declarations\": 469"
+    "\"base_data_declarations\": 468"
     "\"implicit_linker_fallback\": false"
     "\"catalog_compatibility_debt\""
     "\"ja2-release\""
@@ -908,11 +992,27 @@ string(REGEX MATCHALL "\"domain\": \"(base|ja25)\""
   runtime_i18n_schema_data_symbols "${runtime_i18n_schema_contents}")
 list(LENGTH runtime_i18n_schema_data_symbols
   runtime_i18n_schema_data_symbol_count)
-if(NOT runtime_i18n_schema_data_symbol_count EQUAL 507 OR
+string(REGEX MATCHALL "\"domain\": \"base\""
+  runtime_i18n_schema_base_data_symbols "${runtime_i18n_schema_contents}")
+list(LENGTH runtime_i18n_schema_base_data_symbols
+  runtime_i18n_schema_base_data_symbol_count)
+string(REGEX MATCHALL "\"domain\": \"ja25\""
+  runtime_i18n_schema_ja25_data_symbols "${runtime_i18n_schema_contents}")
+list(LENGTH runtime_i18n_schema_ja25_data_symbols
+  runtime_i18n_schema_ja25_data_symbol_count)
+string(REGEX MATCHALL
+  "\"mutability\": \"mutable-pointer-slots-to-const-text\""
+  runtime_i18n_schema_pointer_slots "${runtime_i18n_schema_contents}")
+list(LENGTH runtime_i18n_schema_pointer_slots
+  runtime_i18n_schema_pointer_slot_count)
+if(NOT runtime_i18n_schema_base_data_symbol_count EQUAL 471 OR
+    NOT runtime_i18n_schema_ja25_data_symbol_count EQUAL 35 OR
+    NOT runtime_i18n_schema_data_symbol_count EQUAL 506 OR
+    NOT runtime_i18n_schema_pointer_slot_count EQUAL 480 OR
     runtime_i18n_schema_contents MATCHES
-      "\"(gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText)\"")
+      "\"(gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText|AimSortText)\"")
   message(FATAL_ERROR
-    "Runtime i18n canonical schema must contain 507 data symbols without migrated scalar or indexed globals")
+    "Runtime i18n canonical schema must contain 471 base plus 35 JA25 data symbols and 480 pointer-slot tables without migrated globals")
 endif()
 
 file(READ "${SOURCE_ROOT}/tools/test_check_i18n_text_schema.py"
@@ -1002,7 +1102,8 @@ foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "Help-screen exit label is the third"
     "game-clock day label is the fourth"
     "indexed game-time tables are the fifth"
-    "remaining 472 base and 35 JA25 definitions")
+    "AIM Sort table is the sixth"
+    "remaining 471 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"
     required_runtime_i18n_todo_position)
