@@ -13274,7 +13274,7 @@ endforeach()
 
 # The legacy dialogue queue exposes every bit of its 32-bit special-event
 # field. One value has two campaign-specific names, hence 33 symbols. Keep the
-# complete inventory explicit before migrating behaviorally closed slices.
+# complete inventory explicit while migrating behaviorally closed slices.
 file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
   dialogue_effect_header_contents)
 string(REGEX MATCHALL
@@ -13404,15 +13404,52 @@ endforeach()
 # its centralized flag tests for producers.
 set(dialogue_effect_producer_call_pattern
   "(TacticalCharacterDialogueWithSpecialEventEx|TacticalCharacterDialogueWithSpecialEvent|CharacterDialogueWithSpecialEventEx|CharacterDialogueWithSpecialEvent|SpecialCharacterDialogueEventWithExtraParam|SpecialCharacterDialogueEvent|SnitchCharacterDialogue)")
-file(GLOB dialogue_effect_source_candidates
-  "${SOURCE_ROOT}/Strategic/*.cpp"
-  "${SOURCE_ROOT}/Tactical/*.cpp"
-  "${SOURCE_ROOT}/TacticalAI/*.cpp"
-  "${SOURCE_ROOT}/TileEngine/*.cpp")
+set(dialogue_effect_production_directories
+  Editor
+  Engine
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  i18n
+  lua
+  sgp)
+set(dialogue_effect_source_candidates)
+foreach(dialogue_effect_production_directory IN LISTS
+    dialogue_effect_production_directories)
+  file(GLOB_RECURSE dialogue_effect_directory_candidates
+    LIST_DIRECTORIES FALSE
+    "${SOURCE_ROOT}/${dialogue_effect_production_directory}/*.cc"
+    "${SOURCE_ROOT}/${dialogue_effect_production_directory}/*.cpp"
+    "${SOURCE_ROOT}/${dialogue_effect_production_directory}/*.cxx")
+  list(APPEND dialogue_effect_source_candidates
+    ${dialogue_effect_directory_candidates})
+endforeach()
+set(dialogue_stat_change_typed_call_count 0)
 foreach(dialogue_effect_source_candidate IN LISTS
     dialogue_effect_source_candidates)
   read_cxx_executable("${dialogue_effect_source_candidate}"
     dialogue_effect_source_executable)
+  # Remove the one implementation signature before counting typed call
+  # expressions. A typed producer in any scanned source file must participate
+  # in the same exact inventory as the legacy flag-bearing calls.
+  string(REGEX REPLACE
+    "(^|[^A-Za-z0-9_])BOOLEAN[ \t\r\n]+TacticalCharacterDialogueWithStatChange[ \t\r\n]*\\([^;{}]*\\)[ \t\r\n]*[{]"
+    "\\1" dialogue_effect_source_without_stat_definition
+    "${dialogue_effect_source_executable}")
+  string(REGEX MATCHALL
+    "(^|[^A-Za-z0-9_])TacticalCharacterDialogueWithStatChange[ \t\r\n]*\\([^;{}]*\\)"
+    dialogue_stat_change_source_calls
+    "${dialogue_effect_source_without_stat_definition}")
+  list(LENGTH dialogue_stat_change_source_calls
+    dialogue_stat_change_source_call_count)
+  math(EXPR dialogue_stat_change_typed_call_count
+    "${dialogue_stat_change_typed_call_count} + ${dialogue_stat_change_source_call_count}")
   file(RELATIVE_PATH dialogue_effect_source_relative
     "${SOURCE_ROOT}" "${dialogue_effect_source_candidate}")
   foreach(dialogue_effect_producer_entry IN LISTS
@@ -13420,16 +13457,35 @@ foreach(dialogue_effect_source_candidate IN LISTS
     string(REPLACE "|" ";" dialogue_effect_producer_parts
       "${dialogue_effect_producer_entry}")
     list(GET dialogue_effect_producer_parts 0 dialogue_effect_symbol)
-    string(REGEX MATCH
-      "(^|[^A-Za-z0-9_])${dialogue_effect_producer_call_pattern}[ \t\r\n]*\\([^;{}]*[^A-Za-z0-9_]${dialogue_effect_symbol}([^A-Za-z0-9_]|$)"
-      dialogue_effect_source_producer
-      "${dialogue_effect_source_executable}")
+    if(dialogue_effect_symbol STREQUAL
+        "DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE")
+      string(REGEX MATCH
+        "(^|[^A-Za-z0-9_])${dialogue_effect_producer_call_pattern}[ \t\r\n]*\\([^;{}]*[^A-Za-z0-9_]DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE([^A-Za-z0-9_]|$)"
+        dialogue_effect_source_producer
+        "${dialogue_effect_source_executable}")
+      if(NOT dialogue_effect_source_producer AND
+         dialogue_stat_change_source_call_count GREATER 0)
+        string(REGEX MATCH
+          "(^|[^A-Za-z0-9_])TacticalCharacterDialogueWithStatChange[ \t\r\n]*\\("
+          dialogue_effect_source_producer
+          "${dialogue_effect_source_without_stat_definition}")
+      endif()
+    else()
+      string(REGEX MATCH
+        "(^|[^A-Za-z0-9_])${dialogue_effect_producer_call_pattern}[ \t\r\n]*\\([^;{}]*[^A-Za-z0-9_]${dialogue_effect_symbol}([^A-Za-z0-9_]|$)"
+        dialogue_effect_source_producer
+        "${dialogue_effect_source_executable}")
+    endif()
     if(dialogue_effect_source_producer)
       list(APPEND "dialogue_effect_actual_${dialogue_effect_symbol}"
         "${dialogue_effect_source_relative}")
     endif()
   endforeach()
 endforeach()
+if(NOT dialogue_stat_change_typed_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "Typed stat-change producer count changed across dialogue sources; expected exactly one call, found ${dialogue_stat_change_typed_call_count}")
+endif()
 read_cxx_executable("${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   dialogue_effect_queue_executable)
 string(FIND "${dialogue_effect_queue_executable}"
@@ -13455,13 +13511,83 @@ if(NOT dialogue_effect_consumer_count EQUAL 32)
 endif()
 foreach(dialogue_effect_consumer_symbol IN LISTS
     dialogue_effect_consumer_symbols)
-  string(REGEX MATCH
-    "QItem[.]uiSpecialEventFlag[^\r\n]*${dialogue_effect_consumer_symbol}([^A-Za-z0-9_]|$)"
-    dialogue_effect_consumer_use "${dialogue_effect_consumer_executable}")
-  if(NOT dialogue_effect_consumer_use)
-    message(FATAL_ERROR
-      "Dialogue queue lost centralized consumer for ${dialogue_effect_consumer_symbol}")
+  string(REGEX MATCHALL
+    "uiSpecialEventFlags[ \t\r\n]*(&|==)[ \t\r\n]*${dialogue_effect_consumer_symbol}([^A-Za-z0-9_]|$)"
+    dialogue_effect_consumer_uses "${dialogue_effect_consumer_executable}")
+  list(LENGTH dialogue_effect_consumer_uses
+    dialogue_effect_consumer_use_count)
+  set(dialogue_effect_expected_consumer_use_count 1)
+  if(dialogue_effect_consumer_symbol STREQUAL
+      "DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND")
+    set(dialogue_effect_expected_consumer_use_count 2)
   endif()
+  if(NOT dialogue_effect_consumer_use_count EQUAL
+      dialogue_effect_expected_consumer_use_count)
+    message(FATAL_ERROR
+      "Dialogue queue consumer count changed for ${dialogue_effect_consumer_symbol}: expected ${dialogue_effect_expected_consumer_use_count}, found ${dialogue_effect_consumer_use_count}")
+  endif()
+endforeach()
+
+# The legacy consumer deliberately mixes exclusive chains with composable
+# branches. Compact only whitespace, then pin every bit test's operator,
+# branch kind, and relative position so a typed lane cannot change the
+# priority or continuation behavior of a raw composite.
+string(REGEX REPLACE "[ \t\r\n]+" ""
+  dialogue_effect_consumer_compact
+  "${dialogue_effect_consumer_executable}")
+set(dialogue_effect_priority_fragments
+  "if(uiSpecialEventFlags==DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND)"
+  "if((guiTacticalInterfaceFlags&INTERFACE_MAPSCREEN)&&(uiSpecialEventFlags==0))"
+  "if(uiSpecialEventFlags==0)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SKIP_A_FRAME)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_REMOVE_EPC)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_CONTRACT_WANTS_TO_RENEW)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_CONTRACT_NOGO_TO_RENEW)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_PCTRIGGERNPC)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SHOW_CONTRACT_MENU)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SIGNAL_ITEM_LOCATOR_START)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_ENABLE_AI)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE)"
+  "if(uiSpecialEventFlags&DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SHOPKEEPER)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_EXIT_MAP_SCREEN)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SKYRIDERMAPSCREENEVENT)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT)"
+  "if(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_GIVE_ITEM)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_TRIGGER_NPC)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_GOTO_GRIDNO)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_DO_ACTION)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_CLOSE_PANEL)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SHOW_UPDATE_MENU)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_JERRY_MILO)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_ENTER_MAPSCREEN)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE)"
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_SLEEP)")
+set(dialogue_effect_priority_tail "${dialogue_effect_consumer_compact}")
+foreach(dialogue_effect_priority_fragment IN LISTS
+    dialogue_effect_priority_fragments)
+  string(FIND "${dialogue_effect_priority_tail}"
+    "${dialogue_effect_priority_fragment}"
+    dialogue_effect_priority_fragment_index)
+  if(dialogue_effect_priority_fragment_index EQUAL -1)
+    message(FATAL_ERROR
+      "Dialogue raw/composite priority changed at '${dialogue_effect_priority_fragment}'")
+  endif()
+  string(LENGTH "${dialogue_effect_priority_fragment}"
+    dialogue_effect_priority_fragment_length)
+  math(EXPR dialogue_effect_priority_next_index
+    "${dialogue_effect_priority_fragment_index} + ${dialogue_effect_priority_fragment_length}")
+  string(SUBSTRING "${dialogue_effect_priority_tail}"
+    ${dialogue_effect_priority_next_index} -1
+    dialogue_effect_priority_tail)
 endforeach()
 foreach(dialogue_effect_producer_entry IN LISTS
     dialogue_effect_producer_inventory)
@@ -13554,9 +13680,9 @@ foreach(dialogue_effect_producer_entry IN LISTS
   endforeach()
 endforeach()
 set(dialogue_effect_audit_document_markers
-  "docs/ENGINE_ARCHITECTURE.md|The non-positional dialogue-effect audit covers all 32 legacy bits and all 33"
+  "docs/ENGINE_ARCHITECTURE.md|The non-positional dialogue-effect audit covers all 32 bit values and all 33"
   "docs/ENGINE_SDK.md|It records all 32 bit values, all 33 exposed"
-  "docs/DIALOGUE_EFFECT_INVENTORY.md|All 32 bit values and 33 exposed names remain legacy work")
+  "docs/DIALOGUE_EFFECT_INVENTORY.md|The first-party stat-change producer is now typed")
 foreach(dialogue_effect_audit_document_marker IN LISTS
     dialogue_effect_audit_document_markers)
   string(REPLACE "|" ";" dialogue_effect_audit_document_parts
@@ -13576,7 +13702,9 @@ foreach(dialogue_effect_audit_document_marker IN LISTS
   endif()
 endforeach()
 foreach(dialogue_effect_debt_marker IN ITEMS
-    "All 32 bit values and 33 exposed names remain legacy work"
+    "The first-party stat-change producer is now typed"
+    "other 31 bit values"
+    "raw compatibility path for stat change"
     "live `HandleFirstHeliDropOfGame`"
     "dead `BeginMercEntering`"
     "C++ declaration or call site"
@@ -13592,6 +13720,391 @@ foreach(dialogue_effect_debt_marker IN ITEMS
       "Dialogue-effect scope honesty lost '${dialogue_effect_debt_marker}'")
   endif()
 endforeach()
+string(FIND "${dialogue_effect_inventory_contents}"
+  "This audit intentionally migrates no effect"
+  dialogue_effect_stale_no_migration_index)
+if(NOT dialogue_effect_stale_no_migration_index EQUAL -1)
+  message(FATAL_ERROR
+    "Dialogue-effect inventory contradicts the typed stat-change migration")
+endif()
+
+# DISPLAY_STAT_CHANGE is the first behaviorally closed typed queue payload.
+# The first-party producer no longer packs semantic values into uint32 slots,
+# while the legacy numeric lane remains explicit for Lua and composites.
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Campaign.cpp"
+  dialogue_stat_change_producer_executable)
+read_cxx_executable("${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  dialogue_stat_change_queue_executable)
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Effect.h"
+  dialogue_effect_payload_header_contents)
+file(READ "${SOURCE_ROOT}/tests/dialogue_effect_payload_model_tests.cpp"
+  dialogue_effect_payload_model_contents)
+foreach(dialogue_stat_change_marker IN ITEMS
+    "TacticalCharacterDialogueWithStatChange( pSoldier, fChangeTypeIncrease, sPtsChanged, ubStat )"
+    "DialogueEffectPayload specialEvent{}"
+    "LegacyFlagsForDialogueEffect(QItem.specialEvent)"
+    "GetStatChangeDialogueEffect(QItem.specialEvent)")
+  if(dialogue_stat_change_marker MATCHES "^TacticalCharacter")
+    set(dialogue_stat_change_marker_source
+      "${dialogue_stat_change_producer_executable}")
+  else()
+    set(dialogue_stat_change_marker_source
+      "${dialogue_stat_change_queue_executable}")
+  endif()
+  string(FIND "${dialogue_stat_change_marker_source}"
+    "${dialogue_stat_change_marker}" dialogue_stat_change_marker_index)
+  if(dialogue_stat_change_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed stat-change dialogue lane lost '${dialogue_stat_change_marker}'")
+  endif()
+endforeach()
+foreach(dialogue_stat_change_payload_marker IN ITEMS
+    "struct LegacyDialogueEffect"
+    "struct StatChangeDialogueEffect"
+    "std::int16_t points"
+    "std::uint8_t stat"
+    "std::variant<LegacyDialogueEffect, StatChangeDialogueEffect>"
+    "kLegacyStatChangeDialogueEffectFlag")
+  string(FIND "${dialogue_effect_payload_header_contents}"
+    "${dialogue_stat_change_payload_marker}"
+    dialogue_stat_change_payload_marker_index)
+  if(dialogue_stat_change_payload_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed stat-change payload lost '${dialogue_stat_change_payload_marker}'")
+  endif()
+endforeach()
+
+# The tagged queue storage remains translation-unit private. Keep the payload
+# types out of the legacy application header and both installed SDK header
+# lists; only the additive scalar helper declaration is visible to callers.
+foreach(dialogue_stat_change_private_token IN ITEMS
+    "Dialogue Effect.h"
+    "DialogueEffectPayload"
+    "LegacyDialogueEffect"
+    "StatChangeDialogueEffect")
+  string(FIND "${dialogue_effect_header_contents}"
+    "${dialogue_stat_change_private_token}"
+    dialogue_stat_change_public_token_index)
+  if(NOT dialogue_stat_change_public_token_index EQUAL -1)
+    message(FATAL_ERROR
+      "Private dialogue-effect payload leaked into Tactical/Dialogue Control.h via '${dialogue_stat_change_private_token}'")
+  endif()
+endforeach()
+string(FIND "${dialogue_effect_header_contents}"
+  "BOOLEAN TacticalCharacterDialogueWithStatChange( TacticalActor *pSoldier, BOOLEAN fIncrease, INT16 sPoints, UINT8 ubStat );"
+  dialogue_stat_change_scalar_declaration_index)
+if(dialogue_stat_change_scalar_declaration_index EQUAL -1)
+  message(FATAL_ERROR
+    "Typed stat-change ingress lost its scalar legacy-domain declaration")
+endif()
+file(READ "${SOURCE_ROOT}/Engine/Core/CMakeLists.txt"
+  dialogue_stat_change_core_install_contents)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/CMakeLists.txt"
+  dialogue_stat_change_adapter_install_contents)
+if(dialogue_stat_change_core_install_contents MATCHES "Dialogue Effect[.]h" OR
+   dialogue_stat_change_adapter_install_contents MATCHES "Dialogue Effect[.]h")
+  message(FATAL_ERROR
+    "Private dialogue-effect payload entered an installed SDK header list")
+endif()
+
+# Preserve the exact behavior of the old stat-change call through its new
+# typed ingress: the BATTLE_SOUND_DIE1 data-value bypass, all rejection gates,
+# and every queue metadata field are intentionally unchanged.
+string(FIND "${dialogue_stat_change_queue_executable}"
+  "BOOLEAN TacticalCharacterDialogueWithStatChange("
+  dialogue_stat_change_ingress_start)
+string(FIND "${dialogue_stat_change_queue_executable}"
+  "BOOLEAN TacticalCharacterDialogue("
+  dialogue_stat_change_ingress_end)
+if(dialogue_stat_change_ingress_start EQUAL -1 OR
+   dialogue_stat_change_ingress_end EQUAL -1 OR
+   NOT dialogue_stat_change_ingress_start LESS
+     dialogue_stat_change_ingress_end)
+  message(FATAL_ERROR
+    "Cannot isolate TacticalCharacterDialogueWithStatChange")
+endif()
+math(EXPR dialogue_stat_change_ingress_length
+  "${dialogue_stat_change_ingress_end} - ${dialogue_stat_change_ingress_start}")
+string(SUBSTRING "${dialogue_stat_change_queue_executable}"
+  ${dialogue_stat_change_ingress_start}
+  ${dialogue_stat_change_ingress_length}
+  dialogue_stat_change_ingress_executable)
+string(REGEX REPLACE "[ \t\r\n]+" ""
+  dialogue_stat_change_ingress_compact
+  "${dialogue_stat_change_ingress_executable}")
+set(dialogue_stat_change_ingress_fragments
+  "if(pSoldier->identity().profile()==NO_PROFILE)"
+  "if(fIncrease!=BATTLE_SOUND_DIE1)"
+  "if(pSoldier->vitals().health()<CONSCIOUSNESS)"
+  "if(pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO))"
+  "if(pSoldier->status().flags()&SOLDIER_GASSED)"
+  "if((AM_A_ROBOT(pSoldier)))"
+  "if(pSoldier->vitals().health()<OKLIFE)"
+  "if(pSoldier->assignment().current()==ASSIGNMENT_POW)"
+  "if(pSoldier->assignment().current()==ASSIGNMENT_MINIEVENT)"
+  "if(pSoldier->assignment().current()==ASSIGNMENT_REBELCOMMAND)"
+  "DIALOGUE_Q_STRUCTQItem{}"
+  "QItem.ubCharacterNum=pSoldier->identity().profile()"
+  "QItem.usQuoteNum=0"
+  "QItem.iFaceIndex=pSoldier->renderBindings().faceIndex()"
+  "QItem.bUIHandlerID=DIALOGUE_TACTICAL_UI"
+  "QItem.iTimeStamp=GetJA2Clock()"
+  "QItem.fFromSoldier=TRUE"
+  "QItem.specialEvent=StatChangeDialogueEffect{fIncrease!=FALSE,sPoints,ubStat}"
+  "ghDialogueQ.push(QItem)"
+  "return(TRUE)")
+set(dialogue_stat_change_ingress_tail
+  "${dialogue_stat_change_ingress_compact}")
+foreach(dialogue_stat_change_ingress_fragment IN LISTS
+    dialogue_stat_change_ingress_fragments)
+  string(FIND "${dialogue_stat_change_ingress_tail}"
+    "${dialogue_stat_change_ingress_fragment}"
+    dialogue_stat_change_ingress_fragment_index)
+  if(dialogue_stat_change_ingress_fragment_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed stat-change validation/metadata changed at '${dialogue_stat_change_ingress_fragment}'")
+  endif()
+  string(LENGTH "${dialogue_stat_change_ingress_fragment}"
+    dialogue_stat_change_ingress_fragment_length)
+  math(EXPR dialogue_stat_change_ingress_next_index
+    "${dialogue_stat_change_ingress_fragment_index} + ${dialogue_stat_change_ingress_fragment_length}")
+  string(SUBSTRING "${dialogue_stat_change_ingress_tail}"
+    ${dialogue_stat_change_ingress_next_index} -1
+    dialogue_stat_change_ingress_tail)
+endforeach()
+string(REGEX MATCHALL "if\\("
+  dialogue_stat_change_ingress_conditions
+  "${dialogue_stat_change_ingress_compact}")
+list(LENGTH dialogue_stat_change_ingress_conditions
+  dialogue_stat_change_ingress_condition_count)
+if(NOT dialogue_stat_change_ingress_condition_count EQUAL 10)
+  message(FATAL_ERROR
+    "Typed stat-change ingress must retain exactly the ten legacy validation conditions")
+endif()
+string(REGEX MATCHALL "QItem[.][A-Za-z0-9_]+="
+  dialogue_stat_change_ingress_assignments
+  "${dialogue_stat_change_ingress_compact}")
+list(LENGTH dialogue_stat_change_ingress_assignments
+  dialogue_stat_change_ingress_assignment_count)
+if(NOT dialogue_stat_change_ingress_assignment_count EQUAL 7)
+  message(FATAL_ERROR
+    "Typed stat-change queue metadata must retain exactly seven explicit assignments over a value-initialized item")
+endif()
+foreach(dialogue_stat_change_forbidden_ingress_fragment IN ITEMS
+    "QUOTE_SERIOUSLY_WOUNDED"
+    "DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND"
+    "is_client"
+    "AreInMeanwhile")
+  string(FIND "${dialogue_stat_change_ingress_compact}"
+    "${dialogue_stat_change_forbidden_ingress_fragment}"
+    dialogue_stat_change_forbidden_ingress_index)
+  if(NOT dialogue_stat_change_forbidden_ingress_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed stat-change ingress gained non-legacy validation '${dialogue_stat_change_forbidden_ingress_fragment}'")
+  endif()
+endforeach()
+
+# Every raw ingress must still tag the original uint32 flag and copy each raw
+# slot verbatim. Isolate each helper so a duplicate assignment in one cannot
+# hide a missing compatibility lane in another.
+string(REGEX REPLACE "[ \t\r\n]+" ""
+  dialogue_stat_change_queue_compact
+  "${dialogue_stat_change_queue_executable}")
+set(dialogue_legacy_ingress_contracts
+  "BOOLEANCharacterDialogueWithSpecialEvent(|BOOLEANCharacterDialogueWithSpecialEventEx(|QItem.specialEvent=LegacyDialogueEffect{uiFlag}|QItem.uiSpecialEventData=uiData1|QItem.uiSpecialEventData2=uiData2"
+  "BOOLEANCharacterDialogueWithSpecialEventEx(|BOOLEANCharacterDialogue(|QItem.specialEvent=LegacyDialogueEffect{uiFlag}|QItem.uiSpecialEventData=uiData1|QItem.uiSpecialEventData2=uiData2|QItem.uiSpecialEventData3=uiData3"
+  "BOOLEANSnitchCharacterDialogue(|BOOLEANSpecialCharacterDialogueEvent(|QItem.specialEvent=LegacyDialogueEffect{uiSpecialEventFlag}|QItem.uiSpecialEventData=uiSpecialEventData1|QItem.uiSpecialEventData2=uiSpecialEventData2|QItem.uiSpecialEventData3=uiSpecialEventData3|QItem.uiSpecialEventData4=uiSpecialEventData4"
+  "BOOLEANSpecialCharacterDialogueEvent(|BOOLEANSpecialCharacterDialogueEventWithExtraParam(|QItem.specialEvent=LegacyDialogueEffect{uiSpecialEventFlag}|QItem.uiSpecialEventData=uiSpecialEventData1|QItem.uiSpecialEventData2=uiSpecialEventData2|QItem.uiSpecialEventData3=uiSpecialEventData3"
+  "BOOLEANSpecialCharacterDialogueEventWithExtraParam(|externINT8gbSelectedArmsDealerID|QItem.specialEvent=LegacyDialogueEffect{uiSpecialEventFlag}|QItem.uiSpecialEventData=uiSpecialEventData1|QItem.uiSpecialEventData2=uiSpecialEventData2|QItem.uiSpecialEventData3=uiSpecialEventData3|QItem.uiSpecialEventData4=uiSpecialEventData4")
+foreach(dialogue_legacy_ingress_contract IN LISTS
+    dialogue_legacy_ingress_contracts)
+  string(REPLACE "|" ";" dialogue_legacy_ingress_parts
+    "${dialogue_legacy_ingress_contract}")
+  list(GET dialogue_legacy_ingress_parts 0
+    dialogue_legacy_ingress_start_marker)
+  list(GET dialogue_legacy_ingress_parts 1
+    dialogue_legacy_ingress_end_marker)
+  string(FIND "${dialogue_stat_change_queue_compact}"
+    "${dialogue_legacy_ingress_start_marker}"
+    dialogue_legacy_ingress_start)
+  string(FIND "${dialogue_stat_change_queue_compact}"
+    "${dialogue_legacy_ingress_end_marker}"
+    dialogue_legacy_ingress_end)
+  if(dialogue_legacy_ingress_start EQUAL -1 OR
+     dialogue_legacy_ingress_end EQUAL -1 OR
+     NOT dialogue_legacy_ingress_start LESS dialogue_legacy_ingress_end)
+    message(FATAL_ERROR
+      "Cannot isolate raw dialogue ingress '${dialogue_legacy_ingress_start_marker}'")
+  endif()
+  math(EXPR dialogue_legacy_ingress_length
+    "${dialogue_legacy_ingress_end} - ${dialogue_legacy_ingress_start}")
+  string(SUBSTRING "${dialogue_stat_change_queue_compact}"
+    ${dialogue_legacy_ingress_start} ${dialogue_legacy_ingress_length}
+    dialogue_legacy_ingress_body)
+  list(LENGTH dialogue_legacy_ingress_parts
+    dialogue_legacy_ingress_part_count)
+  math(EXPR dialogue_legacy_ingress_last_part
+    "${dialogue_legacy_ingress_part_count} - 1")
+  foreach(dialogue_legacy_ingress_part_index RANGE 2
+      ${dialogue_legacy_ingress_last_part})
+    list(GET dialogue_legacy_ingress_parts
+      ${dialogue_legacy_ingress_part_index}
+      dialogue_legacy_ingress_required_fragment)
+    string(FIND "${dialogue_legacy_ingress_body}"
+      "${dialogue_legacy_ingress_required_fragment}"
+      dialogue_legacy_ingress_required_index)
+    if(dialogue_legacy_ingress_required_index EQUAL -1)
+      message(FATAL_ERROR
+        "Raw dialogue ingress '${dialogue_legacy_ingress_start_marker}' lost '${dialogue_legacy_ingress_required_fragment}'")
+    endif()
+  endforeach()
+  string(FIND "${dialogue_legacy_ingress_body}"
+    "ghDialogueQ.push(QItem)" dialogue_legacy_ingress_push_index)
+  if(dialogue_legacy_ingress_push_index EQUAL -1)
+    message(FATAL_ERROR
+      "Raw dialogue ingress '${dialogue_legacy_ingress_start_marker}' no longer publishes to the FIFO queue")
+  endif()
+  string(REGEX MATCHALL
+    "QItem[.]specialEvent=LegacyDialogueEffect[{]"
+    dialogue_legacy_ingress_payload_assignments
+    "${dialogue_legacy_ingress_body}")
+  list(LENGTH dialogue_legacy_ingress_payload_assignments
+    dialogue_legacy_ingress_payload_assignment_count)
+  if(NOT dialogue_legacy_ingress_payload_assignment_count EQUAL 1)
+    message(FATAL_ERROR
+      "Raw dialogue ingress '${dialogue_legacy_ingress_start_marker}' must contain exactly one tagged flag assignment")
+  endif()
+  math(EXPR dialogue_legacy_ingress_expected_data_count
+    "${dialogue_legacy_ingress_part_count} - 3")
+  string(REGEX MATCHALL "QItem[.]uiSpecialEventData[0-9]*="
+    dialogue_legacy_ingress_data_assignments
+    "${dialogue_legacy_ingress_body}")
+  list(LENGTH dialogue_legacy_ingress_data_assignments
+    dialogue_legacy_ingress_data_assignment_count)
+  if(NOT dialogue_legacy_ingress_data_assignment_count EQUAL
+      dialogue_legacy_ingress_expected_data_count)
+    message(FATAL_ERROR
+      "Raw dialogue ingress '${dialogue_legacy_ingress_start_marker}' changed its legacy data-slot count")
+  endif()
+endforeach()
+
+# The stat consumer reads semantic values only from the typed alternative and
+# retains the old narrowing casts for every raw Lua/composite queue item.
+set(dialogue_stat_change_consumer_start_marker
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE)")
+set(dialogue_stat_change_consumer_end_marker
+  "elseif(uiSpecialEventFlags&DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG)")
+string(FIND "${dialogue_effect_consumer_compact}"
+  "${dialogue_stat_change_consumer_start_marker}"
+  dialogue_stat_change_consumer_start)
+string(FIND "${dialogue_effect_consumer_compact}"
+  "${dialogue_stat_change_consumer_end_marker}"
+  dialogue_stat_change_consumer_end)
+if(dialogue_stat_change_consumer_start EQUAL -1 OR
+   dialogue_stat_change_consumer_end EQUAL -1 OR
+   NOT dialogue_stat_change_consumer_start LESS
+     dialogue_stat_change_consumer_end)
+  message(FATAL_ERROR
+    "Cannot isolate the typed/raw stat-change consumer")
+endif()
+math(EXPR dialogue_stat_change_consumer_length
+  "${dialogue_stat_change_consumer_end} - ${dialogue_stat_change_consumer_start}")
+string(SUBSTRING "${dialogue_effect_consumer_compact}"
+  ${dialogue_stat_change_consumer_start}
+  ${dialogue_stat_change_consumer_length}
+  dialogue_stat_change_consumer_body)
+foreach(dialogue_stat_change_consumer_fragment IN ITEMS
+    "pSoldier=FindSoldierByProfileID(QItem.ubCharacterNum,FALSE)"
+    "constStatChangeDialogueEffect*statChange=GetStatChangeDialogueEffect(QItem.specialEvent)"
+    "constBOOLEANincreased=statChange?(statChange->increased?TRUE:FALSE):static_cast<BOOLEAN>(QItem.uiSpecialEventData)"
+    "constINT16points=statChange?statChange->points:static_cast<INT16>(QItem.uiSpecialEventData2)"
+    "constUINT8stat=statChange?statChange->stat:static_cast<UINT8>(QItem.uiSpecialEventData3)"
+    "BuildStatChangeString(wTempString,pSoldier->identity().name(),increased,points,stat)")
+  string(FIND "${dialogue_stat_change_consumer_body}"
+    "${dialogue_stat_change_consumer_fragment}"
+    dialogue_stat_change_consumer_fragment_index)
+  if(dialogue_stat_change_consumer_fragment_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed/raw stat-change consumer lost '${dialogue_stat_change_consumer_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])TacticalCharacterDialogueWithStatChange[ \t\r\n]*\\("
+  dialogue_stat_change_first_party_calls
+  "${dialogue_stat_change_producer_executable}")
+list(LENGTH dialogue_stat_change_first_party_calls
+  dialogue_stat_change_first_party_call_count)
+if(NOT dialogue_stat_change_first_party_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "Typed stat-change producer count changed; expected exactly one first-party call")
+endif()
+string(REGEX MATCHALL
+  "specialEvent[ \t]*=[ \t]*LegacyDialogueEffect[{]"
+  dialogue_legacy_payload_assignments
+  "${dialogue_stat_change_queue_executable}")
+list(LENGTH dialogue_legacy_payload_assignments
+  dialogue_legacy_payload_assignment_count)
+if(NOT dialogue_legacy_payload_assignment_count EQUAL 5)
+  message(FATAL_ERROR
+    "Dialogue raw compatibility lane must remain explicit in exactly five queue ingress helpers")
+endif()
+if(dialogue_stat_change_queue_executable MATCHES
+    "QItem[.]uiSpecialEventFlag")
+  message(FATAL_ERROR
+    "Dialogue queue regained an untagged raw special-event field")
+endif()
+string(REGEX MATCH
+  "TacticalCharacterDialogueWithSpecialEventEx[ \t\r\n]*\\([^;{}]*DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE"
+  dialogue_stat_change_raw_first_party_producer
+  "${dialogue_stat_change_producer_executable}")
+if(dialogue_stat_change_raw_first_party_producer)
+  message(FATAL_ERROR
+    "First-party stat changes regressed to the raw dialogue-effect lane")
+endif()
+foreach(dialogue_stat_change_model_marker IN ITEMS
+    "decltype(LegacyDialogueEffect::flags)"
+    "decltype(StatChangeDialogueEffect::increased)"
+    "kLegacyStatChangeDialogueEffectFlag == 0x00400000u"
+    "raw compatibility lane preserves arbitrary composite flags"
+    "complete legacy stat payload domains"
+    "both boolean states traverse a legal typed payload"
+    "every int16 point value traverses the typed payload"
+    "every uint8 stat ID traverses the typed payload"
+    "queue retention preserves typed payload identity and value")
+  string(FIND "${dialogue_effect_payload_model_contents}"
+    "${dialogue_stat_change_model_marker}"
+    dialogue_stat_change_model_marker_index)
+  if(dialogue_stat_change_model_marker_index EQUAL -1)
+    message(FATAL_ERROR
+      "Typed stat-change model lost '${dialogue_stat_change_model_marker}'")
+  endif()
+endforeach()
+string(FIND "${dialogue_effect_inventory_contents}"
+  "Typed first-party / raw compatibility"
+  dialogue_stat_change_document_status_index)
+if(dialogue_stat_change_document_status_index EQUAL -1)
+  message(FATAL_ERROR
+    "Dialogue-effect inventory lost the typed/raw stat-change status")
+endif()
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  dialogue_effect_test_build_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  dialogue_effect_ci_contents)
+string(FIND "${dialogue_effect_test_build_contents}"
+  "add_executable(dialogue_effect_payload_model_tests"
+  dialogue_effect_payload_model_target_index)
+string(FIND "${dialogue_effect_ci_contents}"
+  "dialogue_effect_payload_model_tests"
+  dialogue_effect_payload_model_ci_index)
+string(FIND "${dialogue_effect_ci_contents}"
+  "Build focused simulation-command and dialogue-effect models"
+  dialogue_effect_payload_model_ci_label_index)
+if(dialogue_effect_payload_model_target_index EQUAL -1 OR
+   dialogue_effect_payload_model_ci_index EQUAL -1 OR
+   dialogue_effect_payload_model_ci_label_index EQUAL -1)
+  message(FATAL_ERROR
+    "Typed stat-change payload model is not honestly registered in CMake and sanitizer CI")
+endif()
 
 # ENABLE_AI's sole named C++ producer is in the live helicopter/airdrop
 # completion helper. The nearby manual helicopter pause is instead trapped in

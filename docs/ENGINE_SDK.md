@@ -244,9 +244,12 @@ without door, path, or stop reflection.
 The full non-positional dialogue-effect audit lives in
 `DIALOGUE_EFFECT_INVENTORY.md`. It records all 32 bit values, all 33 exposed
 symbols, their source-coded producers, the centralized queue effects, and the
-dynamic Lua gateway. No dialogue effect has entered the SDK command vocabulary:
-all remain legacy until a slice closes over composite ordering, stale-state
-identity, UI/campaign continuation, provenance, and replay behavior.
+dynamic Lua gateway. The first-party stat-change producer now uses a typed
+private queue payload while retaining the raw bit/data lane for Lua and legacy
+composites. This is not an SDK simulation command and changes no installed
+content contract. The other 31 effects remain legacy until a slice closes over
+composite ordering, stale-state identity, UI/campaign continuation, provenance,
+and replay behavior.
 
 `SimulationCommandExecutor` is the host-owned execution boundary beneath that
 value stream. It receives the exact command plus deterministic tick and

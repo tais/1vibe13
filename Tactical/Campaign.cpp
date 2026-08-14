@@ -693,7 +693,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, TacticalActor *pSoldier, UINT8 ubS
 			//if ( (ubStat != EXPERAMT) && (ubStat != HEALTHAMT) && ( Random( 100 ) < 25 ) )
 			{
 				// Pipe up with "I'm getting better at this!"
-				TacticalCharacterDialogueWithSpecialEventEx( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE, fChangeTypeIncrease, sPtsChanged, ubStat );
+				TacticalCharacterDialogueWithStatChange( pSoldier, fChangeTypeIncrease, sPtsChanged, ubStat );
 
 				//Madd: option to make mercs quiet during training / doctoring / repairing
 				if ( ((pSoldier->assignment().current() == TRAIN_BY_OTHER || pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_SELF ||

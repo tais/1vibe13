@@ -13,7 +13,10 @@ producers for `MULTIPURPOSE` and `SLEEP` are listed. In addition, the registered
 `Strategic/LuaInitNPCs.cpp` gateway accepts an arbitrary numeric `uiFlag`, so
 Lua/content can produce every individual row or any bitwise composite without
 naming the C++ symbol. “Legacy” means the effect still executes directly in the
-dialogue queue; it does not mean the effect is unused or safe to combine.
+dialogue queue; it does not mean the effect is unused or safe to combine. The
+first-party stat-change notification is the first exception: it now enters as a
+typed payload, while the raw bit remains available to Lua and legacy composite
+events.
 
 | Bit | Exposed symbol | Producer files | Dialogue-queue effect | Status |
 | --- | --- | --- | --- | --- |
@@ -40,7 +43,7 @@ dialogue queue; it does not mean the effect is unused or safe to combine.
 | `0x00080000` | `DIALOGUE_SPECIAL_EVENT_SHOPKEEPER` | `Tactical/ShopKeeper Interface.cpp` | dispatch the shopkeeper message/button/session operation matrix | Legacy |
 | `0x00100000` | `DIALOGUE_SPECIAL_EVENT_SKIP_A_FRAME` | `Tactical/ShopKeeper Interface.cpp` | consume one empty queue step | Legacy |
 | `0x00200000` | `DIALOGUE_SPECIAL_EVENT_EXIT_MAP_SCREEN` | `Tactical/Air Raid.cpp` | select a sector and request tactical-screen entry | Legacy |
-| `0x00400000` | `DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE` | `Tactical/Campaign.cpp` | resolve profile and display the stat-change message | Legacy |
+| `0x00400000` | `DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE` | `Tactical/Campaign.cpp` | typed first-party payload resolves the profile and displays the stat-change message; raw Lua/composite values retain the legacy data casts | Typed first-party / raw compatibility |
 | `0x00800000` | `DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG` | `Tactical/Merc Hiring.cpp` | clear the arriving-quote flag | Legacy |
 | `0x01000000` | `DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE` | `Strategic/Strategic Movement.cpp` | unlock pause, resolve exact group identity, and open pre-battle UI | Legacy |
 | `0x02000000` | `DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX` | `Strategic/Map Screen Interface.cpp` | add an exact soldier, set reason, or show the update box | Legacy |
@@ -61,8 +64,9 @@ group identities, and others open modal UI or run campaign-dependent nested
 subevents. Flattening all 32 bits into a single command would silently change
 that precedence and continuation ownership.
 
-This audit intentionally migrates no effect. In particular, `ENABLE_AI` is not
-a closed one-bit command boundary:
+Beyond the typed stat-change slice, this audit intentionally migrates no
+additional effect. In particular, `ENABLE_AI` is not a closed one-bit command
+boundary:
 
 - its only symbol-naming C++ producer is the live `HandleFirstHeliDropOfGame`
   helper, reached by six helicopter/airdrop completion or skip call sites;
@@ -81,7 +85,9 @@ continuation for the remaining same-item effects. Reviving `BeginMercEntering`
 or treating its pause as the live producer's owner would change legacy behavior
 rather than model it.
 
-All 32 bit values and 33 exposed names remain legacy work. Each future migration
-must close over its own identity, UI, campaign, quote, and asynchronous
-continuation semantics; this document makes no command-ownership, provenance,
-codec, or replay claim.
+The first-party stat-change producer is now typed. The other 31 bit values, and
+the raw compatibility path for stat change, remain legacy work. Each future
+migration must close over its own identity, UI, campaign, quote, and
+asynchronous continuation semantics. This first slice changes neither the Lua
+numeric gateway nor bit priority/composition, and it makes no
+command-ownership, provenance, codec, or replay claim.

@@ -133,6 +133,17 @@ target_link_libraries(simulation_command_actor_vitals_model_tests
 add_test(NAME simulation_command_actor_vitals_model
   COMMAND simulation_command_actor_vitals_model_tests)
 
+# The first typed dialogue effect coexists with the arbitrary legacy bitmask
+# lane. This dependency-free model pins the tagged payload, full numeric
+# domains, composite compatibility, and retained FIFO identity.
+add_executable(dialogue_effect_payload_model_tests
+  dialogue_effect_payload_model_tests.cpp)
+target_include_directories(dialogue_effect_payload_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Tactical)
+target_compile_features(dialogue_effect_payload_model_tests PRIVATE cxx_std_17)
+add_test(NAME dialogue_effect_payload_model
+  COMMAND dialogue_effect_payload_model_tests)
+
 # Legacy map-temp action bytes overlap between campaign data sets. This tiny
 # data-free test keeps their runtime codec independent from the full game host.
 add_executable(campaign_map_change_code_tests

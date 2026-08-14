@@ -330,6 +330,10 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( TacticalActor *pSoldier, UINT
 // A higher level function used for tactical quotes
 BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
 
+// First typed dialogue-effect producer. The raw flag/data API remains the
+// explicit compatibility lane for installed Lua and legacy composite events.
+BOOLEAN TacticalCharacterDialogueWithStatChange( TacticalActor *pSoldier, BOOLEAN fIncrease, INT16 sPoints, UINT8 ubStat );
+
 // A higher level function used for tactical quotes
 BOOLEAN TacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum );
 
