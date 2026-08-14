@@ -123,6 +123,54 @@ translated wording or silently pads tables. Compatibility debt may not waive a
 missing or extra symbol, a type mismatch, or a mutability mismatch; only the
 exact legacy dimension/entry shapes are grandfathered.
 
+## Canonical GameStrings export schema
+
+The build-free `i18n/export_text_schema.json` manifest now records the entire
+developer `GameStrings` boundary without changing it. Its ordered list contains
+exactly 238 unique logical sections at their source positions: 224 direct
+legacy `ExportSection` calls and 14 `TextPack` mappings. Every legacy entry
+pins its section name, zero-based half-open range expression, base-ABI symbol,
+declaration owner, rank, source and effective dimensions in all four compiled
+quadrants, and storage mutability. The current lane consists of 208 mutable
+pointer-slot tables and 16 writable `CHAR16` buffers; 219 symbols are declared
+in `Text.h` and five retain consumer-local extern declarations. Every pack
+entry instead pins its `TextKey` or `TextTableKey` descriptor, historical
+section name, and export range. Misspellings and deliberately partial tables,
+including
+`TimeStings[0,1)`, remain data rather than being normalized by the validator.
+
+The export view intersects 33 of the ABI schema's 57 foreign compatibility
+debt pairs. Fourteen of those pairs are currently unsafe: their selected
+foreign source array is shorter than the active export limit. They cover
+German, Russian, Dutch, Polish, French, and Italian instances of `Message`,
+`TacticalStr`, `TeamTurnString`, `pBookMarkStrings`, and
+`pPersonnelScreenStrings`; each manifest entry records the actual entry count,
+export limit, and shortfall. These are explicit non-growing debt, not approved
+behavior. Reproducing the current out-of-range reads is not an adapter
+compatibility contract. A linked-global selected-catalog/export adapter remains
+blocked until all fourteen ranges receive a defined policy and golden coverage.
+
+The same source inventory conservatively identifies exactly 14 tables whose
+identifiers occur nowhere else in production C/C++ outside catalog bodies,
+`Text.h`, and the exporter. They total 85 exported entries per language. A
+commented historical consumer still counts as ownership, so this label does
+not silently expand by treating commented dependencies as nonexistent. These
+tables are later pack-migration candidates; this prerequisite does not move
+their translations or change their storage.
+
+`tools/check_i18n_export_schema.py` derives the manifest from
+`ExportStrings.cpp`, `TextCatalog.h`, the validated ABI schema, and all eight
+catalog shapes. It also pins startup ordering: the guarded export precedes
+`Loc::ImportStrings` inside the legacy-content subsystem, legacy content starts
+before the game subsystem, and the only two production `LoadAllExternalText`
+calls remain in the later rules `LoadContent` path and multiplayer reload path.
+Its focused unit tests reject commented-call parsing, range or order drift,
+unknown debt ranges, wildcard or growing debt, storage/schema mismatch, and
+startup reversal. CMake exposes the checks through the existing no-build i18n
+target and lint CI runs them unconditionally. `ExportStrings.cpp`, the language
+arrays, its eight textual includes, and runtime output are unchanged by this
+manifest slice.
+
 ## Conditional value/schema policy
 
 Migration step 2 retires exactly 58 catalog guard groups: seven common groups
@@ -352,16 +400,23 @@ voice, and hot reload remain outside this slice.
    Continue migrating direct globals domain by domain, then fixed character
    buffers and genuinely mutable destinations. No slice may copy partially
    validated data or swap addresses after consumers initialize.
-4. **In progress:** the XML exporter consumes the same pack for those 14
+4. **Complete prerequisite; adapter blocked:** commit the exact ordered
+   GameStrings manifest, including 224 legacy and 14 pack sections, 33 exported
+   compatibility-debt pairs, the 14 currently unsafe range pairs, the 14
+   exporter-only tables, and startup export-before-import/external-load order.
+   This source-only gate changes no language storage or exporter behavior.
+5. **In progress:** the XML exporter consumes the same pack for those 14
    sections. Move the remaining sections, then remove textual `.cpp` inclusion.
+   The linked-global adapter cannot begin by copying undefined reads: first
+   resolve the fourteen unsafe foreign ranges and add intended-output goldens.
    Decide separately whether shipped packs remain generated C++ data or become
    versioned package resources; runtime API and validation rules stay identical.
-5. Select and validate the language code during startup before rules/campaign
+6. Select and validate the language code during startup before rules/campaign
    text is consumed. Persist changes from the options screen for the next
    restart, then route text paths, graphics, word wrapping/fonts, and data
    overlays through the selected descriptor and pack. Voice selection remains
    independent.
-6. Once no process-global catalog definitions remain, remove the eight legacy
+7. Once no process-global catalog definitions remain, remove the eight legacy
    language macros, collapse `${application}_${language}_i18n` into one i18n
    target, and update release artifacts from language-named executables to one
    executable plus language packages.
@@ -376,6 +431,10 @@ voice, and hot reload remain outside this slice.
   exact literal alternatives must stay behind the value/schema policy.
   Flattening either axis under one arbitrary application would be behavior
   drift.
+- The selected developer exporter still has 14 foreign-language ranges that
+  exceed their source arrays. They must remain explicit, may only shrink, and
+  block replacing textual catalog inclusion with a linked-global adapter until
+  their intended empty/missing-entry behavior is defined and covered.
 - Asset availability and overlay precedence must be defined for prefixes,
   graphics, fonts, SLFs, XML, Lua, dialogue, and voice. Selecting a text pack
   without the matching required assets must fail before game initialization or

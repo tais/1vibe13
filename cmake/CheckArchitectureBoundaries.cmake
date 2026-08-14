@@ -776,6 +776,12 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Immutable game-clock day-label pack boundary"
     "Immutable indexed game-time pack boundary"
     "Immutable AIM Sort pack boundary"
+    "Canonical GameStrings export schema"
+    "exactly 238 unique logical sections"
+    "Fourteen of those pairs are currently unsafe"
+    "exactly 14 tables"
+    "219 symbols are declared in `Text.h` and five retain consumer-local extern declarations"
+    "runtime output are unchanged"
     "280 exact indexed translations"
     "37 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
@@ -799,7 +805,9 @@ foreach(required_runtime_i18n_engine_summary_fragment IN ITEMS
     "fourth complete domain moves the one-entry game-clock day label"
     "fifth complete domain moves five indexed game-time tables"
     "sixth complete domain moves the 20-entry AIM Sort table"
-    "catalog now covers 344 literals and 14 exporter mappings")
+    "catalog now covers 344 literals and 14 exporter mappings"
+    "source-only ordered manifest for all 238"
+    "adapter is explicitly blocked until the 14 unsafe ranges")
   string(FIND "${runtime_i18n_engine_summary_normalized}"
     "${required_runtime_i18n_engine_summary_fragment}"
     required_runtime_i18n_engine_summary_position)
@@ -1035,6 +1043,127 @@ foreach(required_runtime_i18n_schema_test_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/tools/check_i18n_export_schema.py"
+  runtime_i18n_export_schema_tool_contents)
+foreach(required_runtime_i18n_export_schema_tool_fragment IN ITEMS
+    "EXPECTED_LOGICAL_SECTIONS = 238"
+    "EXPECTED_LEGACY_SECTIONS = 224"
+    "EXPECTED_TEXT_PACK_SECTIONS = 14"
+    "EXPECTED_LEGACY_TEXT_H_SYMBOLS = 219"
+    "EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS = 5"
+    "MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 33"
+    "MAX_UNSAFE_RANGE_DEBT_PAIRS = 14"
+    "EXPECTED_EXPORTER_ONLY_TABLES = 14"
+    "EXPECTED_EXPORTER_ONLY_ENTRIES = 85"
+    "EXPECTED_TEXTUAL_CATALOG_INCLUDES"
+    "parse_export_calls"
+    "production_consumers"
+    "legacy_startup_contract"
+    "LoadAllExternalText call/definition sites changed"
+    "adapter must remain explicitly blocked by unsafe ranges")
+  string(FIND "${runtime_i18n_export_schema_tool_contents}"
+    "${required_runtime_i18n_export_schema_tool_fragment}"
+    required_runtime_i18n_export_schema_tool_position)
+  if(required_runtime_i18n_export_schema_tool_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n exporter schema validator lost '${required_runtime_i18n_export_schema_tool_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/i18n/export_text_schema.json"
+  runtime_i18n_export_schema_contents)
+foreach(required_runtime_i18n_export_schema_fragment IN ITEMS
+    "\"logical_sections\": 238"
+    "\"legacy_sections\": 224"
+    "\"text_pack_sections\": 14"
+    "\"legacy_pointer_tables\": 208"
+    "\"legacy_writable_buffers\": 16"
+    "\"legacy_text_h_symbols\": 219"
+    "\"legacy_local_extern_symbols\": 5"
+    "\"exported_compatibility_debt_pairs\": 33"
+    "\"unsafe_range_debt_pairs\": 14"
+    "\"exporter_only_tables\": 14"
+    "\"exporter_only_entries_per_language\": 85"
+    "\"state\": \"blocked\""
+    "selected catalog bodies remain textually included"
+    "\"textual_catalog_includes\""
+    "resolve them before a linked-global export adapter"
+    "\"subsystem_order_constraint\""
+    "\"production_call_sites\": 2")
+  string(FIND "${runtime_i18n_export_schema_contents}"
+    "${required_runtime_i18n_export_schema_fragment}"
+    required_runtime_i18n_export_schema_position)
+  if(required_runtime_i18n_export_schema_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n exporter manifest lost '${required_runtime_i18n_export_schema_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "\"source_kind\": \"legacy\""
+  runtime_i18n_export_schema_legacy_sections
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_legacy_sections
+  runtime_i18n_export_schema_legacy_section_count)
+string(REGEX MATCHALL "\"source_kind\": \"text-pack-(entry|table)\""
+  runtime_i18n_export_schema_pack_sections
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_pack_sections
+  runtime_i18n_export_schema_pack_section_count)
+string(REGEX MATCHALL "\"unsafe_range\": (true|false)"
+  runtime_i18n_export_schema_debt_pairs
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_debt_pairs
+  runtime_i18n_export_schema_debt_pair_count)
+string(REGEX MATCHALL "\"unsafe_range\": true"
+  runtime_i18n_export_schema_unsafe_pairs
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_unsafe_pairs
+  runtime_i18n_export_schema_unsafe_pair_count)
+string(REGEX MATCHALL "\"entries_per_language\":"
+  runtime_i18n_export_schema_exporter_only_tables
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_exporter_only_tables
+  runtime_i18n_export_schema_exporter_only_table_count)
+string(REGEX MATCHALL
+  "\"_(Chinese|Dutch|English|French|German|Italian|Polish|Russian)Text[.]cpp\""
+  runtime_i18n_export_schema_textual_includes
+  "${runtime_i18n_export_schema_contents}")
+list(LENGTH runtime_i18n_export_schema_textual_includes
+  runtime_i18n_export_schema_textual_include_count)
+if(NOT runtime_i18n_export_schema_legacy_section_count EQUAL 224 OR
+    NOT runtime_i18n_export_schema_pack_section_count EQUAL 14 OR
+    NOT runtime_i18n_export_schema_debt_pair_count EQUAL 33 OR
+    NOT runtime_i18n_export_schema_unsafe_pair_count EQUAL 14 OR
+    NOT runtime_i18n_export_schema_exporter_only_table_count EQUAL 14 OR
+    NOT runtime_i18n_export_schema_textual_include_count EQUAL 8)
+  message(FATAL_ERROR
+    "Runtime i18n exporter manifest lost its 224/14 section, 33/14 debt, or 14-table ownership contract")
+endif()
+
+file(READ "${SOURCE_ROOT}/tools/test_check_i18n_export_schema.py"
+  runtime_i18n_export_schema_test_contents)
+foreach(required_runtime_i18n_export_schema_test_fragment IN ITEMS
+    "test_lexical_mask_blanks_raw_literals_and_keeps_digit_separators"
+    "test_export_parser_ignores_comments_and_preserves_interleaved_ranges"
+    "test_textual_catalog_include_parser_rejects_raw_string_bypass"
+    "test_text_pack_descriptor_parser_pins_schema_sections_and_export_ranges"
+    "test_debt_range_model_classifies_short_catalogs_and_fails_closed"
+    "test_startup_model_rejects_import_before_export"
+    "test_external_text_load_sites_remain_post_startup"
+    "test_committed_manifest_pins_all_238_sections_and_storage_membership"
+    "test_exact_33_debt_pairs_and_14_unsafe_ranges_are_reviewable"
+    "test_exact_14_exporter_only_tables_total_85_entries"
+    "test_manifest_rejects_wildcard_or_growing_debt"
+    "test_manifest_rejects_order_range_and_symbol_bypass"
+    "test_debt_ceiling_allows_an_explicit_reviewed_shrink")
+  string(FIND "${runtime_i18n_export_schema_test_contents}"
+    "${required_runtime_i18n_export_schema_test_fragment}"
+    required_runtime_i18n_export_schema_test_position)
+  if(required_runtime_i18n_export_schema_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime i18n exporter schema tests lost '${required_runtime_i18n_export_schema_test_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/.github/workflows/lint.yml"
   runtime_i18n_lint_workflow_contents)
 foreach(required_runtime_i18n_lint_fragment IN ITEMS
@@ -1042,7 +1171,9 @@ foreach(required_runtime_i18n_lint_fragment IN ITEMS
     "python3 tools/check_i18n_text_schema.py"
     "python3 -m unittest tools/test_check_i18n_text_schema.py"
     "python3 tools/check_i18n_conditional_text.py"
-    "python3 -m unittest tools/test_check_i18n_conditional_text.py")
+    "python3 -m unittest tools/test_check_i18n_conditional_text.py"
+    "python3 tools/check_i18n_export_schema.py"
+    "python3 -m unittest tools/test_check_i18n_export_schema.py")
   string(FIND "${runtime_i18n_lint_workflow_contents}"
     "${required_runtime_i18n_lint_fragment}"
     required_runtime_i18n_lint_position)
@@ -1060,6 +1191,8 @@ foreach(required_runtime_i18n_test_build_fragment IN ITEMS
     "NAME i18n_text_schema_tool"
     "NAME i18n_conditional_text_schema"
     "NAME i18n_conditional_text_schema_tool"
+    "NAME i18n_export_schema"
+    "NAME i18n_export_schema_tool"
     "i18n_conditional_text_policy_tests"
     "i18n_text_catalog_tests"
     "i18n_compiled_conditional_text_ja2_release_tests"
@@ -1103,6 +1236,8 @@ foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "game-clock day label is the fourth"
     "indexed game-time tables are the fifth"
     "AIM Sort table is the sixth"
+    "complete 238-section GameStrings source manifest"
+    "adapter remains blocked by 14 unsafe foreign ranges"
     "remaining 471 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"

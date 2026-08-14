@@ -849,9 +849,10 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  # Build-free shape and exact conditioned-value gate for all eight compiled
-  # catalogs. This remains mandatory even while the legacy foreign executable
-  # matrix is allowed to fail, and gives developers one named no-build target.
+  # Build-free shape, exact conditioned-value, and ordered GameStrings export
+  # gates for all eight compiled catalogs. These remain mandatory even while
+  # the legacy foreign executable matrix is allowed to fail, and give
+  # developers one named no-build target.
   add_custom_target(i18n_text_schema_check
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py
@@ -861,8 +862,12 @@ if(Python3_Interpreter_FOUND)
       ${CMAKE_SOURCE_DIR}/tools/check_i18n_conditional_text.py
     COMMAND ${Python3_EXECUTABLE} -m unittest
       tools/test_check_i18n_conditional_text.py
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_export_schema.py
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_export_schema.py
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Validating compiled text ABI shapes and conditioned values")
+    COMMENT "Validating compiled text ABI, conditioned values, and exporter schema")
   add_test(
     NAME i18n_text_schema
     COMMAND ${Python3_EXECUTABLE}
@@ -882,6 +887,16 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} -m unittest
       tools/test_check_i18n_conditional_text.py)
   set_tests_properties(i18n_conditional_text_schema_tool PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  add_test(
+    NAME i18n_export_schema
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/check_i18n_export_schema.py)
+  add_test(
+    NAME i18n_export_schema_tool
+    COMMAND ${Python3_EXECUTABLE} -m unittest
+      tools/test_check_i18n_export_schema.py)
+  set_tests_properties(i18n_export_schema_tool PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   add_test(
     NAME campaign_compile_guards
