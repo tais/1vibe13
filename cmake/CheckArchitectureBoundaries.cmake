@@ -1806,6 +1806,7 @@ file(READ "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   runtime_campaign_application_policy_contents)
 foreach(required_application_policy_fragment IN ITEMS
     "class CampaignApplicationPolicy"
+    "shouldLoadUnfinishedBusinessOptions"
     "usesLocalizedArulcoMercData"
     "usesArulcoMerchantRoster"
     "hasMeanwhileScenes"
@@ -1909,6 +1910,32 @@ foreach(required_campaign_policy_test_fragment IN ITEMS
       "Runtime application campaign policy lost its headless test target")
   endif()
 endforeach()
+string(REGEX REPLACE "#[^\r\n]*" ""
+  runtime_campaign_policy_test_build_executable
+  "${runtime_campaign_policy_test_build_contents}")
+foreach(runtime_campaign_application_test_manifest_spec IN ITEMS
+    "add_executable[ \t\r\n]*[(][ \t\r\n]*campaign_application_policy_tests|1"
+    "campaign_application_policy_tests[.]cpp|1"
+    "add_test[ \t\r\n]*[(][ \t\r\n]*NAME[ \t\r\n]+campaign_application_policy[ \t\r\n]+COMMAND[ \t\r\n]+campaign_application_policy_tests[ \t\r\n]*[)]|1")
+  string(REPLACE "|" ";"
+    runtime_campaign_application_test_manifest_parts
+    "${runtime_campaign_application_test_manifest_spec}")
+  list(GET runtime_campaign_application_test_manifest_parts 0
+    runtime_campaign_application_test_manifest_pattern)
+  list(GET runtime_campaign_application_test_manifest_parts 1
+    runtime_campaign_application_test_manifest_expected_count)
+  string(REGEX MATCHALL
+    "${runtime_campaign_application_test_manifest_pattern}"
+    runtime_campaign_application_test_manifest_matches
+    "${runtime_campaign_policy_test_build_executable}")
+  list(LENGTH runtime_campaign_application_test_manifest_matches
+    runtime_campaign_application_test_manifest_count)
+  if(NOT runtime_campaign_application_test_manifest_count EQUAL
+      runtime_campaign_application_test_manifest_expected_count)
+    message(FATAL_ERROR
+      "Runtime application campaign policy must retain exactly one data-free test registration")
+  endif()
+endforeach()
 
 file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
   runtime_campaign_policy_ci_contents)
@@ -1919,11 +1946,25 @@ if(runtime_campaign_policy_ci_position EQUAL -1)
   message(FATAL_ERROR
     "AddressSanitizer CI lost the runtime application campaign policy test target")
 endif()
+string(REGEX MATCHALL "campaign_application_policy_tests"
+  runtime_campaign_application_policy_ci_targets
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_application_policy_ci_targets
+  runtime_campaign_application_policy_ci_target_count)
+if(NOT runtime_campaign_application_policy_ci_target_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one application campaign policy target")
+endif()
 
 file(READ "${SOURCE_ROOT}/tests/campaign_application_policy_tests.cpp"
   runtime_campaign_policy_test_contents)
 foreach(required_campaign_policy_assertion IN ITEMS
     "GameCampaign::UnfinishedBusiness"
+    "shouldLoadUnfinishedBusinessOptions"
+    "TraceOptionsBootstrap"
+    "for (const bool editor : {false, true})"
+    "Trace{\"rebel-settings\", \"visibility-ranges\"}"
+    "Trace{\"rebel-settings\", \"ub-options\", \"visibility-ranges\"}"
     "usesLocalizedArulcoMercData"
     "usesArulcoMerchantRoster"
     "hasMeanwhileScenes"
@@ -1939,6 +1980,123 @@ foreach(required_campaign_policy_assertion IN ITEMS
       "Runtime application campaign policy lost test coverage for '${required_campaign_policy_assertion}'")
   endif()
 endforeach()
+
+# The only production UB-options loads stay at their original application
+# bootstrap leaves. The policy lookup replaces the campaign selector only:
+# common rebel settings remain first and visibility-range initialization stays
+# after the optional effect in both entry points.
+function(check_campaign_options_bootstrap relative_source end_marker source_label)
+  file(READ "${SOURCE_ROOT}/${relative_source}"
+    runtime_campaign_options_bootstrap_contents)
+  strip_cxx_comments(runtime_campaign_options_bootstrap_contents
+    runtime_campaign_options_bootstrap_executable)
+  string(REPLACE "\r\n" "\n"
+    runtime_campaign_options_bootstrap_executable
+    "${runtime_campaign_options_bootstrap_executable}")
+
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(u8|u|U|L)?R\""
+    runtime_campaign_options_bootstrap_raw_literal
+    "${runtime_campaign_options_bootstrap_executable}")
+  if(runtime_campaign_options_bootstrap_raw_literal)
+    message(FATAL_ERROR
+      "${source_label} must keep bootstrap policy evidence out of raw literals")
+  endif()
+
+  string(REGEX MATCHALL
+    "(^|[\r\n])#[ \t]*include[ \t]*\"CampaignApplicationPolicy[.]h\""
+    runtime_campaign_options_bootstrap_policy_includes
+    "${runtime_campaign_options_bootstrap_executable}")
+  list(LENGTH runtime_campaign_options_bootstrap_policy_includes
+    runtime_campaign_options_bootstrap_policy_include_count)
+  if(NOT runtime_campaign_options_bootstrap_policy_include_count EQUAL 1)
+    message(FATAL_ERROR
+      "${source_label} must include CampaignApplicationPolicy exactly once")
+  endif()
+
+  string(REGEX MATCHALL
+    "CampaignApplicationPolicy[ \t\r\n]*[(][ \t\r\n]*GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[)]"
+    runtime_campaign_options_bootstrap_policy_constructions
+    "${runtime_campaign_options_bootstrap_executable}")
+  list(LENGTH runtime_campaign_options_bootstrap_policy_constructions
+    runtime_campaign_options_bootstrap_policy_construction_count)
+  string(REGEX MATCHALL
+    "[.]shouldLoadUnfinishedBusinessOptions[ \t\r\n]*[(][)]"
+    runtime_campaign_options_bootstrap_policy_calls
+    "${runtime_campaign_options_bootstrap_executable}")
+  list(LENGTH runtime_campaign_options_bootstrap_policy_calls
+    runtime_campaign_options_bootstrap_policy_call_count)
+  string(REGEX MATCHALL
+    "(^|[^A-Za-z0-9_])LoadGameUBOptions[ \t\r\n]*[(][)]"
+    runtime_campaign_options_bootstrap_effect_calls
+    "${runtime_campaign_options_bootstrap_executable}")
+  list(LENGTH runtime_campaign_options_bootstrap_effect_calls
+    runtime_campaign_options_bootstrap_effect_call_count)
+  if(NOT runtime_campaign_options_bootstrap_policy_construction_count EQUAL 1 OR
+      NOT runtime_campaign_options_bootstrap_policy_call_count EQUAL 1 OR
+      NOT runtime_campaign_options_bootstrap_effect_call_count EQUAL 1)
+    message(FATAL_ERROR
+      "${source_label} must retain one live policy lookup and one UB-options effect")
+  endif()
+
+  string(REGEX MATCHALL
+    "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[.][ \t\r\n]*isUnfinishedBusiness[(][)]"
+    runtime_campaign_options_bootstrap_context_selectors
+    "${runtime_campaign_options_bootstrap_executable}")
+  string(REGEX MATCHALL
+    "campaign[ \t\r\n]*==[ \t\r\n]*GameCampaign::Arulco"
+    runtime_campaign_options_bootstrap_cached_selectors
+    "${runtime_campaign_options_bootstrap_executable}")
+  string(REGEX MATCHALL
+    "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*hasCapability[(][ \t\r\n]*GameCapability::CampaignUnfinishedBusiness[ \t\r\n]*[)]"
+    runtime_campaign_options_bootstrap_package_selectors
+    "${runtime_campaign_options_bootstrap_executable}")
+  list(LENGTH runtime_campaign_options_bootstrap_context_selectors
+    runtime_campaign_options_bootstrap_context_selector_count)
+  list(LENGTH runtime_campaign_options_bootstrap_cached_selectors
+    runtime_campaign_options_bootstrap_cached_selector_count)
+  list(LENGTH runtime_campaign_options_bootstrap_package_selectors
+    runtime_campaign_options_bootstrap_package_selector_count)
+  if(NOT runtime_campaign_options_bootstrap_context_selector_count EQUAL 0 OR
+      NOT runtime_campaign_options_bootstrap_cached_selector_count EQUAL 0 OR
+      NOT runtime_campaign_options_bootstrap_package_selector_count EQUAL 0)
+    message(FATAL_ERROR
+      "${source_label} regained raw runtime campaign identity")
+  endif()
+
+  extract_bounded_slice(runtime_campaign_options_bootstrap_executable
+    "LoadRebelCommandSettings();" "${end_marker}"
+    runtime_campaign_options_bootstrap_slice
+    "Could not bound ${source_label} options-bootstrap sequence")
+  if(runtime_campaign_options_bootstrap_slice MATCHES
+      "#[ \t]*(if|ifdef|ifndef|elif)")
+    message(FATAL_ERROR
+      "${source_label} options-bootstrap sequence regained conditional compilation")
+  endif()
+  string(FIND "${runtime_campaign_options_bootstrap_slice}" "\""
+    runtime_campaign_options_bootstrap_double_quote_position)
+  string(FIND "${runtime_campaign_options_bootstrap_slice}" "'"
+    runtime_campaign_options_bootstrap_single_quote_position)
+  if(NOT runtime_campaign_options_bootstrap_double_quote_position EQUAL -1 OR
+      NOT runtime_campaign_options_bootstrap_single_quote_position EQUAL -1)
+    message(FATAL_ERROR
+      "${source_label} must keep bootstrap policy evidence in code, not literals")
+  endif()
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_options_bootstrap_normalized
+    "${runtime_campaign_options_bootstrap_slice}")
+  require_ordered_fragments(runtime_campaign_options_bootstrap_normalized
+    "${source_label} changed UB-options effect order"
+    "LoadRebelCommandSettings();"
+    "if (CampaignApplicationPolicy(GetGameContext().capabilities()) .shouldLoadUnfinishedBusinessOptions())"
+    "LoadGameUBOptions();"
+    "TacticalActorVisibility::initializeRanges();")
+endfunction()
+
+check_campaign_options_bootstrap(
+  "Ja2/MainMenuScreen.cpp" "ReStartingGame();" "Main-menu reinitialization")
+check_campaign_options_bootstrap(
+  "Ja2/gameloop.cpp" "startup.attemptingMouse();" "Common game startup")
 
 # Tactical dialogue, animation, melee, and radar meanwhile behavior follows the
 # live application capability. The former eight JA2UB guards must stay retired,
@@ -3814,13 +3972,13 @@ foreach(runtime_campaign_inventory_file IN LISTS
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
   "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
-if(NOT runtime_campaign_context_selector_count EQUAL 104 OR
+if(NOT runtime_campaign_context_selector_count EQUAL 102 OR
     NOT runtime_campaign_cached_selector_count EQUAL 4 OR
     NOT runtime_campaign_package_selector_count EQUAL 1 OR
-    NOT runtime_campaign_raw_selector_count EQUAL 109 OR
-    NOT runtime_campaign_raw_selector_file_count EQUAL 32)
+    NOT runtime_campaign_raw_selector_count EQUAL 107 OR
+    NOT runtime_campaign_raw_selector_file_count EQUAL 30)
   message(FATAL_ERROR
-    "Raw runtime campaign selector inventory changed from the reviewed 104 context + 4 cached-campaign + 1 active-package leaves across 32 files")
+    "Raw runtime campaign selector inventory changed from the reviewed 102 context + 4 cached-campaign + 1 active-package leaves across 30 files")
 endif()
 if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
     NOT runtime_campaign_external_option_executable_count EQUAL 297 OR
@@ -4798,8 +4956,10 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignProgressPolicy"
     "CampaignQuestPolicy"
     "CampaignStrategicEventPolicy"
-    "109 sites across 32 files"
-    "104 live-context calls"
+    "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
+    "rebel-command settings first, UB options only for UB"
+    "107 sites across 30 files"
+    "102 live-context calls"
     "all 34 executable call sites"
     "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
@@ -4839,6 +4999,8 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "CampaignStrategicEventPolicy"
     "exhaustive 9-Arulco/5-UB partition"
     "raw-selector inventory is now 109 sites across 32 files"
+    "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
+    "raw-selector inventory is now 107 sites across 30 files"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "Quest/fact campaign decisions now use the value-only"
@@ -4873,6 +5035,19 @@ foreach(required_campaign_architecture_fragment IN ITEMS
   if(required_campaign_architecture_position EQUAL -1)
     message(FATAL_ERROR
       "Engine architecture lost '${required_campaign_architecture_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TODO" runtime_campaign_todo_contents)
+foreach(required_runtime_campaign_todo_fragment IN ITEMS
+    "CampaignStrategicEventPolicy now owns the complete 14-route dispatcher table"
+    "CampaignApplicationPolicy now gates both UB-options bootstrap calls")
+  string(FIND "${runtime_campaign_todo_contents}"
+    "${required_runtime_campaign_todo_fragment}"
+    required_runtime_campaign_todo_position)
+  if(required_runtime_campaign_todo_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign TODO lost '${required_runtime_campaign_todo_fragment}'")
   endif()
 endforeach()
 

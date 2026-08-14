@@ -28,6 +28,11 @@ public:
 		return campaign_ == GameCampaign::UnfinishedBusiness;
 	}
 
+	constexpr bool shouldLoadUnfinishedBusinessOptions() const noexcept
+	{
+		return usesUnfinishedBusinessContent();
+	}
+
 	constexpr bool usesLocalizedArulcoMercData() const noexcept
 	{
 		return !usesUnfinishedBusinessContent();
@@ -68,6 +73,10 @@ static_assert(CampaignApplicationPolicy(GameCampaign::Arulco)
 	.hasMeanwhileScenes());
 static_assert(!CampaignApplicationPolicy(GameCampaign::UnfinishedBusiness)
 	.hasMeanwhileScenes());
+static_assert(!CampaignApplicationPolicy(GameCampaign::Arulco)
+	.shouldLoadUnfinishedBusinessOptions());
+static_assert(CampaignApplicationPolicy(GameCampaign::UnfinishedBusiness)
+	.shouldLoadUnfinishedBusinessOptions());
 static_assert(CampaignApplicationPolicy(GameCampaign::Arulco)
 	.shouldLoadExternalEnemyDeployment(false));
 static_assert(!CampaignApplicationPolicy(GameCampaign::UnfinishedBusiness)

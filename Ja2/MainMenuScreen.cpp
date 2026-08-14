@@ -1,3 +1,4 @@
+#include "CampaignApplicationPolicy.h"
 #include "TacticalActorVisibility.h"
 #include "sgp.h"
 #include "screenids.h"
@@ -391,7 +392,8 @@ void InitDependingGameStyleOptions()
 	// Load rebel command settings
 	LoadRebelCommandSettings();
 
-	if (GetGameContext().capabilities().isUnfinishedBusiness())
+	if (CampaignApplicationPolicy(GetGameContext().capabilities())
+			.shouldLoadUnfinishedBusinessOptions())
 		LoadGameUBOptions();
 
 	TacticalActorVisibility::initializeRanges(); //lal

@@ -1,3 +1,4 @@
+#include "CampaignApplicationPolicy.h"
 #include "TacticalActorVisibility.h"
 	#include "sgp.h"
 	#include "gameloop.h"
@@ -269,7 +270,8 @@ BOOLEAN InitializeGame(void)
 	// Load rebel command settings
 	LoadRebelCommandSettings();
 
-	if (GetGameContext().capabilities().isUnfinishedBusiness())
+	if (CampaignApplicationPolicy(GetGameContext().capabilities())
+			.shouldLoadUnfinishedBusinessOptions())
 		LoadGameUBOptions();
 
 	TacticalActorVisibility::initializeRanges(); //lal

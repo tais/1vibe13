@@ -87,6 +87,13 @@ implementations are now common Laptop translation units, bringing the current
 partition to 84 common and 14 per-application variants without changing IMP
 profiles, saves, text records, or assets.
 
+The only two production calls to `LoadGameUBOptions` now use
+`CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()`. The main-
+menu reinitialization and common game-start path both retain the exact order:
+rebel-command settings first, UB options only for UB, then tactical visibility-
+range initialization. Arulco therefore still skips the UB option effect, and
+neither entry point moves or duplicates a configuration read.
+
 Tactical meanwhile-scene follow-through now uses
 `CampaignApplicationPolicy::hasMeanwhileScenes()`. Arulco retains its exact
 dynamic-dialogue suppression, martial-artist idle suppression, Elliot/queen
@@ -338,8 +345,8 @@ behavior remain unchanged.
 
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline is 109 sites across 32 files,
-down from 149: 104 live-context calls, four cached-campaign comparisons, and
+The reviewed executable raw-selector baseline is 107 sites across 30 files,
+down from 149: 102 live-context calls, four cached-campaign comparisons, and
 one active-package capability leaf. The strategic sector slice reduces its
 private wrapper call inventory from 26 to 20 without changing the single
 underlying context selector. The UB-option boundary now has 297 executable and
