@@ -103,6 +103,38 @@ function(strip_cxx_comments input_variable output_variable)
   set(${output_variable} "${comment_stripped}" PARENT_SCOPE)
 endfunction()
 
+function(require_ordered_fragments input_variable diagnostic)
+  set(ordered_fragment_tail "${${input_variable}}")
+  foreach(ordered_fragment IN LISTS ARGN)
+    string(FIND "${ordered_fragment_tail}" "${ordered_fragment}"
+      ordered_fragment_position)
+    if(ordered_fragment_position EQUAL -1)
+      message(FATAL_ERROR
+        "${diagnostic}; missing or out-of-order '${ordered_fragment}'")
+    endif()
+    string(LENGTH "${ordered_fragment}" ordered_fragment_length)
+    math(EXPR ordered_fragment_tail_start
+      "${ordered_fragment_position} + ${ordered_fragment_length}")
+    string(SUBSTRING "${ordered_fragment_tail}"
+      ${ordered_fragment_tail_start} -1 ordered_fragment_tail)
+  endforeach()
+endfunction()
+
+function(extract_bounded_slice input_variable start_marker end_marker
+    output_variable diagnostic)
+  string(FIND "${${input_variable}}" "${start_marker}" bounded_slice_start)
+  string(FIND "${${input_variable}}" "${end_marker}" bounded_slice_end)
+  if(bounded_slice_start EQUAL -1 OR bounded_slice_end EQUAL -1 OR
+      NOT bounded_slice_start LESS bounded_slice_end)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  math(EXPR bounded_slice_length
+    "${bounded_slice_end} - ${bounded_slice_start}")
+  string(SUBSTRING "${${input_variable}}" ${bounded_slice_start}
+    ${bounded_slice_length} bounded_slice_contents)
+  set(${output_variable} "${bounded_slice_contents}" PARENT_SCOPE)
+endfunction()
+
 file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
 foreach(required_lua_fetch_fragment IN ITEMS
     "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"
@@ -1271,6 +1303,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioContent.h"
+  "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
@@ -1785,6 +1819,683 @@ foreach(required_campaign_door_policy_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Power-generator, tunnel, fortified-door, and mine coordinates are projected
+# once through an application-owned value adapter. Tactical consumers may use
+# only typed sectors/grid sets and decisions; the mutable tunnel-enemy switch
+# remains a separate live read after the left-hand campaign gate.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioContent.h"
+  runtime_campaign_tactical_scenario_content_contents)
+foreach(required_campaign_tactical_scenario_content_fragment IN ITEMS
+    "struct CampaignTacticalSector"
+    "std::uint32_t x = 0"
+    "struct CampaignTacticalGridSet"
+    "using CampaignTacticalFanGridSet = CampaignTacticalGridSet<9>"
+    "struct CampaignTacticalTunnelSectorSet"
+    "sector.z == 1"
+    "struct CampaignTacticalMineContent"
+    "struct CampaignTacticalScenarioContent"
+    "ReadCampaignTacticalScenarioContent"
+    "ReadCampaignHandleAddingEnemiesToTunnelMaps")
+  string(FIND "${runtime_campaign_tactical_scenario_content_contents}"
+    "${required_campaign_tactical_scenario_content_fragment}"
+    required_campaign_tactical_scenario_content_position)
+  if(required_campaign_tactical_scenario_content_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario content lost '${required_campaign_tactical_scenario_content_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_tactical_scenario_content_contents MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h")
+  message(FATAL_ERROR
+    "Typed campaign tactical-scenario content exposed the legacy UB option record")
+endif()
+extract_bounded_slice(runtime_campaign_tactical_scenario_content_contents
+  "struct CampaignTacticalSector"
+  "template<std::size_t Size>"
+  runtime_campaign_tactical_scenario_sector_contents
+  "Cannot locate the typed tactical-scenario sector value")
+require_ordered_fragments(runtime_campaign_tactical_scenario_sector_contents
+  "Tactical-scenario sectors must retain the legacy unsigned coordinate domain"
+  "std::uint32_t x = 0"
+  "std::uint32_t y = 0"
+  "std::uint32_t z = 0")
+extract_bounded_slice(runtime_campaign_tactical_scenario_content_contents
+  "struct CampaignTacticalTunnelSectorSet"
+  "struct CampaignTacticalMineContent"
+  runtime_campaign_tactical_scenario_tunnel_content_contents
+  "Cannot locate the typed tactical-scenario tunnel set")
+require_ordered_fragments(runtime_campaign_tactical_scenario_tunnel_content_contents
+  "Tactical-scenario tunnel coordinates must retain their unsigned domain and depth-one rule"
+  "std::uint32_t x = 0"
+  "std::array<std::uint32_t, 2> y"
+  "sector.z == 1")
+extract_bounded_slice(runtime_campaign_tactical_scenario_content_contents
+  "struct CampaignTacticalMineContent"
+  "struct CampaignTacticalScenarioContent"
+  runtime_campaign_tactical_scenario_mine_content_contents
+  "Cannot locate the typed tactical-scenario mine content")
+require_ordered_fragments(runtime_campaign_tactical_scenario_mine_content_contents
+  "Typed mine content field order changed"
+  "CampaignTacticalSector surfaceSector"
+  "std::uint32_t entranceGrid"
+  "std::uint32_t collapsedEntranceGrid"
+  "CampaignTacticalGridPair surfaceExitGrids"
+  "CampaignTacticalSector undergroundSector"
+  "CampaignTacticalGridPair undergroundEntranceGrids")
+extract_bounded_slice(runtime_campaign_tactical_scenario_content_contents
+  "struct CampaignTacticalScenarioContent"
+  "CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()"
+  runtime_campaign_tactical_scenario_value_contents
+  "Cannot locate the complete typed tactical-scenario content")
+require_ordered_fragments(runtime_campaign_tactical_scenario_value_contents
+  "Typed tactical-scenario content field order changed"
+  "CampaignTacticalSector fanSector"
+  "CampaignTacticalFanGridSet fanGrids"
+  "CampaignTacticalSector missileLaunchSector"
+  "CampaignTacticalTunnelSectorSet tunnelExplosionSectors"
+  "CampaignTacticalSector fortifiedDoorSector"
+  "CampaignTacticalMineContent mine")
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioPolicy.h"
+  runtime_campaign_tactical_scenario_policy_contents)
+foreach(required_campaign_tactical_scenario_policy_fragment IN ITEMS
+    "class CampaignTacticalScenarioPolicy"
+    "enum class PowerGeneratorSwitchDecision"
+    "InspectFan"
+    "LaunchMissiles"
+    "usesUnfinishedBusinessScenario"
+    "powerGeneratorSwitchDecision"
+    "isFanGraphic"
+    "recordsTunnelExplosion"
+    "isFortifiedDoorSector"
+    "isMineEntrance"
+    "shouldAddEnemiesToTunnelMaps"
+    "private:
+\tGameCampaign campaign_;")
+  string(FIND "${runtime_campaign_tactical_scenario_policy_contents}"
+    "${required_campaign_tactical_scenario_policy_fragment}"
+    required_campaign_tactical_scenario_policy_position)
+  if(required_campaign_tactical_scenario_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario policy lost '${required_campaign_tactical_scenario_policy_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_tactical_scenario_policy_contents MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h|GameContext[.]h|GetGameContext|ReadCampaignTactical|gWorldSector|gJa25SaveStruct|TacticalCharacterDialogue|ApplyMapChangesToMapTempFile|HandleAddingEnemiesToTunnelMaps[(]")
+  message(FATAL_ERROR
+    "Campaign tactical-scenario policy regained an application read or effect dependency")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/ub_config.cpp"
+  runtime_campaign_tactical_scenario_adapter_contents)
+foreach(required_campaign_tactical_scenario_adapter_fragment IN ITEMS
+    "CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()"
+    "gGameUBOptions.FanGridNo[0]"
+    "gGameUBOptions.FanGridNo[8]"
+    "gGameUBOptions.SectorLaunchMisslesX"
+    "gGameUBOptions.ExitForFanToPowerGenSectorX"
+    "gGameUBOptions.SectorOpenGateInTunnelY"
+    "gGameUBOptions.SectorDoorInTunnelZ"
+    "gGameUBOptions.MineEntranceGridno"
+    "gGameUBOptions.MineGridnoAddStructToHead"
+    "gGameUBOptions.MineRemoveExitGridFromWorld1"
+    "gGameUBOptions.MineRemoveExitGridFromWorld2"
+    "gGameUBOptions.MineSectorUndergroundGridno1"
+    "gGameUBOptions.MineSectorUndergroundGridno2"
+    "bool ReadCampaignHandleAddingEnemiesToTunnelMaps()"
+    "gGameUBOptions.HandleAddingEnemiesToTunnelMaps == TRUE")
+  string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+    "${required_campaign_tactical_scenario_adapter_fragment}"
+    required_campaign_tactical_scenario_adapter_position)
+  if(required_campaign_tactical_scenario_adapter_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario adapter lost '${required_campaign_tactical_scenario_adapter_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+  "CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()"
+  runtime_campaign_tactical_scenario_snapshot_start)
+string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+  "bool ReadCampaignHandleAddingEnemiesToTunnelMaps()"
+  runtime_campaign_tactical_scenario_live_option_start)
+if(runtime_campaign_tactical_scenario_snapshot_start EQUAL -1 OR
+    runtime_campaign_tactical_scenario_live_option_start EQUAL -1 OR
+    NOT runtime_campaign_tactical_scenario_snapshot_start LESS
+      runtime_campaign_tactical_scenario_live_option_start)
+  message(FATAL_ERROR
+    "Campaign tactical-scenario snapshot/live-option adapter order changed")
+endif()
+math(EXPR runtime_campaign_tactical_scenario_snapshot_length
+  "${runtime_campaign_tactical_scenario_live_option_start} - ${runtime_campaign_tactical_scenario_snapshot_start}")
+string(SUBSTRING "${runtime_campaign_tactical_scenario_adapter_contents}"
+  ${runtime_campaign_tactical_scenario_snapshot_start}
+  ${runtime_campaign_tactical_scenario_snapshot_length}
+  runtime_campaign_tactical_scenario_snapshot_contents)
+if(runtime_campaign_tactical_scenario_snapshot_contents MATCHES
+    "HandleAddingEnemiesToTunnelMaps")
+  message(FATAL_ERROR
+    "Save-restored tunnel-enemy control was incorrectly snapshotted as scenario content")
+endif()
+foreach(required_campaign_tactical_scenario_adapter_field IN ITEMS
+    "SectorFanX"
+    "SectorFanY"
+    "SectorFanZ"
+    "FanGridNo\\[0\\]"
+    "FanGridNo\\[1\\]"
+    "FanGridNo\\[2\\]"
+    "FanGridNo\\[3\\]"
+    "FanGridNo\\[4\\]"
+    "FanGridNo\\[5\\]"
+    "FanGridNo\\[6\\]"
+    "FanGridNo\\[7\\]"
+    "FanGridNo\\[8\\]"
+    "SectorLaunchMisslesX"
+    "SectorLaunchMisslesY"
+    "SectorLaunchMisslesZ"
+    "ExitForFanToPowerGenSectorX"
+    "ExitForFanToPowerGenSectorY"
+    "SectorOpenGateInTunnelY"
+    "SectorDoorInTunnelX"
+    "SectorDoorInTunnelY"
+    "SectorDoorInTunnelZ"
+    "MineSectorX"
+    "MineSectorY"
+    "MineSectorZ"
+    "MineEntranceGridno"
+    "MineGridnoAddStructToHead"
+    "MineRemoveExitGridFromWorld1"
+    "MineRemoveExitGridFromWorld2"
+    "MineSectorUndergroundX"
+    "MineSectorUndergroundY"
+    "MineSectorUndergroundZ"
+    "MineSectorUndergroundGridno1"
+    "MineSectorUndergroundGridno2")
+  string(REGEX MATCHALL
+    "gGameUBOptions[.]${required_campaign_tactical_scenario_adapter_field}"
+    runtime_campaign_tactical_scenario_adapter_field_matches
+    "${runtime_campaign_tactical_scenario_snapshot_contents}")
+  list(LENGTH runtime_campaign_tactical_scenario_adapter_field_matches
+    runtime_campaign_tactical_scenario_adapter_field_count)
+  if(NOT runtime_campaign_tactical_scenario_adapter_field_count EQUAL 1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario snapshot must project '${required_campaign_tactical_scenario_adapter_field}' exactly once")
+  endif()
+endforeach()
+string(REGEX MATCHALL "gGameUBOptions[.]"
+  runtime_campaign_tactical_scenario_snapshot_field_matches
+  "${runtime_campaign_tactical_scenario_snapshot_contents}")
+list(LENGTH runtime_campaign_tactical_scenario_snapshot_field_matches
+  runtime_campaign_tactical_scenario_snapshot_field_count)
+if(NOT runtime_campaign_tactical_scenario_snapshot_field_count EQUAL 33)
+  message(FATAL_ERROR
+    "Campaign tactical-scenario snapshot must contain exactly its 33 reviewed option-field projections")
+endif()
+require_ordered_fragments(runtime_campaign_tactical_scenario_snapshot_contents
+  "Campaign tactical-scenario snapshot field projection order changed"
+  "gGameUBOptions.SectorFanX"
+  "gGameUBOptions.SectorFanY"
+  "gGameUBOptions.SectorFanZ"
+  "gGameUBOptions.FanGridNo[0]"
+  "gGameUBOptions.FanGridNo[1]"
+  "gGameUBOptions.FanGridNo[2]"
+  "gGameUBOptions.FanGridNo[3]"
+  "gGameUBOptions.FanGridNo[4]"
+  "gGameUBOptions.FanGridNo[5]"
+  "gGameUBOptions.FanGridNo[6]"
+  "gGameUBOptions.FanGridNo[7]"
+  "gGameUBOptions.FanGridNo[8]"
+  "gGameUBOptions.SectorLaunchMisslesX"
+  "gGameUBOptions.SectorLaunchMisslesY"
+  "gGameUBOptions.SectorLaunchMisslesZ"
+  "gGameUBOptions.ExitForFanToPowerGenSectorX"
+  "gGameUBOptions.ExitForFanToPowerGenSectorY"
+  "gGameUBOptions.SectorOpenGateInTunnelY"
+  "gGameUBOptions.SectorDoorInTunnelX"
+  "gGameUBOptions.SectorDoorInTunnelY"
+  "gGameUBOptions.SectorDoorInTunnelZ"
+  "gGameUBOptions.MineSectorX"
+  "gGameUBOptions.MineSectorY"
+  "gGameUBOptions.MineSectorZ"
+  "gGameUBOptions.MineEntranceGridno"
+  "gGameUBOptions.MineGridnoAddStructToHead"
+  "gGameUBOptions.MineRemoveExitGridFromWorld1"
+  "gGameUBOptions.MineRemoveExitGridFromWorld2"
+  "gGameUBOptions.MineSectorUndergroundX"
+  "gGameUBOptions.MineSectorUndergroundY"
+  "gGameUBOptions.MineSectorUndergroundZ"
+  "gGameUBOptions.MineSectorUndergroundGridno1"
+  "gGameUBOptions.MineSectorUndergroundGridno2")
+string(FIND "${runtime_campaign_tactical_scenario_adapter_contents}"
+  "void LoadGameUBOptions();"
+  runtime_campaign_tactical_scenario_live_option_end)
+if(runtime_campaign_tactical_scenario_live_option_end EQUAL -1 OR
+    NOT runtime_campaign_tactical_scenario_live_option_start LESS
+      runtime_campaign_tactical_scenario_live_option_end)
+  message(FATAL_ERROR
+    "Cannot locate the bounded live tunnel-enemy option adapter")
+endif()
+math(EXPR runtime_campaign_tactical_scenario_live_option_length
+  "${runtime_campaign_tactical_scenario_live_option_end} - ${runtime_campaign_tactical_scenario_live_option_start}")
+string(SUBSTRING "${runtime_campaign_tactical_scenario_adapter_contents}"
+  ${runtime_campaign_tactical_scenario_live_option_start}
+  ${runtime_campaign_tactical_scenario_live_option_length}
+  runtime_campaign_tactical_scenario_live_option_contents)
+string(REGEX MATCHALL "gGameUBOptions[.]HandleAddingEnemiesToTunnelMaps"
+  runtime_campaign_tactical_scenario_live_option_matches
+  "${runtime_campaign_tactical_scenario_live_option_contents}")
+list(LENGTH runtime_campaign_tactical_scenario_live_option_matches
+  runtime_campaign_tactical_scenario_live_option_count)
+if(NOT runtime_campaign_tactical_scenario_live_option_count EQUAL 1 OR
+    runtime_campaign_tactical_scenario_live_option_contents MATCHES
+      "gGameUBOptions[.](Sector|Fan|Mine|Exit)")
+  message(FATAL_ERROR
+    "Live tunnel-enemy adapter must read only its save-restored option exactly once")
+endif()
+
+file(READ "${SOURCE_ROOT}/TileEngine/Explosion Control.cpp"
+  runtime_campaign_tactical_scenario_explosion_contents)
+foreach(required_campaign_tactical_scenario_explosion_fragment IN ITEMS
+    "#include \"CampaignTacticalScenarioContent.h\""
+    "#include \"CampaignTacticalScenarioPolicy.h\""
+    "ReadCampaignTacticalScenarioContent()"
+    "PowerGeneratorSwitchDecision::InspectFan"
+    "PowerGeneratorSwitchDecision::LaunchMissiles"
+    "scenarioPolicy.isFanGraphic("
+    "scenarioPolicy.recordsTunnelExplosion("
+    "scenarioPolicy.isFortifiedDoorSector("
+    "scenarioPolicy.shouldAddEnemiesToTunnelMaps("
+    "ReadCampaignHandleAddingEnemiesToTunnelMaps())")
+  string(FIND "${runtime_campaign_tactical_scenario_explosion_contents}"
+    "${required_campaign_tactical_scenario_explosion_fragment}"
+    required_campaign_tactical_scenario_explosion_position)
+  if(required_campaign_tactical_scenario_explosion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Explosion tactical-scenario routing lost '${required_campaign_tactical_scenario_explosion_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_tactical_scenario_explosion_contents MATCHES
+    "isUnfinishedBusiness[(]|gGameUBOptions|ub_config[.]h|GameCampaign::(Arulco|UnfinishedBusiness)|CampaignUnfinishedBusiness")
+  message(FATAL_ERROR
+    "Explosion Control bypassed typed tactical-scenario campaign content")
+endif()
+string(REGEX MATCHALL "ReadCampaignTacticalScenarioContent[(][)]"
+  runtime_campaign_tactical_scenario_explosion_read_matches
+  "${runtime_campaign_tactical_scenario_explosion_contents}")
+list(LENGTH runtime_campaign_tactical_scenario_explosion_read_matches
+  runtime_campaign_tactical_scenario_explosion_read_count)
+if(NOT runtime_campaign_tactical_scenario_explosion_read_count EQUAL 4)
+  message(FATAL_ERROR
+    "Explosion Control must retain exactly four gated tactical-scenario content reads")
+endif()
+extract_bounded_slice(runtime_campaign_tactical_scenario_explosion_contents
+  "CampaignTacticalSector CurrentCampaignTacticalSector()"
+  "//DBrot: More Rooms"
+  runtime_campaign_tactical_scenario_current_sector_contents
+  "Cannot locate the tactical-scenario current-sector projection")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_current_sector_contents
+  "Signed world coordinates must retain legacy unsigned projection semantics"
+  "static_cast<std::uint32_t>(gWorldSectorX)"
+  "static_cast<std::uint32_t>(gWorldSectorY)"
+  "static_cast<std::uint32_t>(gbWorldSectorZ)")
+extract_bounded_slice(runtime_campaign_tactical_scenario_explosion_contents
+  "case ACTION_ITEM_SEE_POWER_GEN_FAN:"
+  "default:
+\t\t// error message here"
+  runtime_campaign_tactical_scenario_power_switch_contents
+  "Cannot locate the power-generator action-item routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_power_switch_contents
+  "Power-generator action must gate content before selecting and applying one decision"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "powerGeneratorSwitchDecision("
+  "HandleSeeingPowerGenFan( sGridNo )"
+  "HandlePlayerHittingSwitchToLaunchMissles()")
+
+extract_bounded_slice(runtime_campaign_tactical_scenario_explosion_contents
+  "BOOLEAN IsFanGraphicInSectorAtThisGridNo( UINT32 sGridNo )
+{"
+  "void HandleDestructionOfPowerGenFan()
+{"
+  runtime_campaign_tactical_scenario_fan_graphic_contents
+  "Cannot locate the power-generator fan-graphic routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_fan_graphic_contents
+  "Fan-graphic routing must gate the campaign before reading content"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "scenarioPolicy.isFanGraphic(")
+string(FIND "${runtime_campaign_tactical_scenario_explosion_contents}"
+  "void HandleDestructionOfPowerGenFan()
+{"
+  runtime_campaign_tactical_scenario_fan_destruction_start)
+string(FIND "${runtime_campaign_tactical_scenario_explosion_contents}"
+  "void HandleExplosionsInTunnelSector( UINT32 sGridNo )
+{"
+  runtime_campaign_tactical_scenario_fan_destruction_end)
+if(runtime_campaign_tactical_scenario_fan_destruction_start EQUAL -1 OR
+    runtime_campaign_tactical_scenario_fan_destruction_end EQUAL -1 OR
+    NOT runtime_campaign_tactical_scenario_fan_destruction_start LESS
+      runtime_campaign_tactical_scenario_fan_destruction_end)
+  message(FATAL_ERROR "Cannot locate power-generator fan destruction routing")
+endif()
+math(EXPR runtime_campaign_tactical_scenario_fan_destruction_length
+  "${runtime_campaign_tactical_scenario_fan_destruction_end} - ${runtime_campaign_tactical_scenario_fan_destruction_start}")
+string(SUBSTRING "${runtime_campaign_tactical_scenario_explosion_contents}"
+  ${runtime_campaign_tactical_scenario_fan_destruction_start}
+  ${runtime_campaign_tactical_scenario_fan_destruction_length}
+  runtime_campaign_tactical_scenario_fan_destruction_contents)
+string(FIND "${runtime_campaign_tactical_scenario_fan_destruction_contents}"
+  "if( !scenarioPolicy.usesUnfinishedBusinessScenario() )"
+  runtime_campaign_tactical_scenario_fan_gate_position)
+string(FIND "${runtime_campaign_tactical_scenario_fan_destruction_contents}"
+  "gJa25SaveStruct.ubStateOfFanInPowerGenSector = PGF__BLOWN_UP"
+  runtime_campaign_tactical_scenario_fan_save_position)
+string(FIND "${runtime_campaign_tactical_scenario_fan_destruction_contents}"
+  "ReadCampaignHandleAddingEnemiesToTunnelMaps()"
+  runtime_campaign_tactical_scenario_fan_option_position)
+string(FIND "${runtime_campaign_tactical_scenario_fan_destruction_contents}"
+  "HandleAddingEnemiesToTunnelMaps();"
+  runtime_campaign_tactical_scenario_fan_effect_position)
+if(runtime_campaign_tactical_scenario_fan_gate_position EQUAL -1 OR
+    runtime_campaign_tactical_scenario_fan_save_position EQUAL -1 OR
+    runtime_campaign_tactical_scenario_fan_option_position EQUAL -1 OR
+    runtime_campaign_tactical_scenario_fan_effect_position EQUAL -1 OR
+    NOT runtime_campaign_tactical_scenario_fan_gate_position LESS
+      runtime_campaign_tactical_scenario_fan_save_position OR
+    NOT runtime_campaign_tactical_scenario_fan_save_position LESS
+      runtime_campaign_tactical_scenario_fan_option_position OR
+    NOT runtime_campaign_tactical_scenario_fan_option_position LESS
+      runtime_campaign_tactical_scenario_fan_effect_position)
+  message(FATAL_ERROR
+    "Fan destruction must gate the campaign, preserve the save mutation, then sample and apply the live tunnel-enemy option")
+endif()
+
+extract_bounded_slice(runtime_campaign_tactical_scenario_explosion_contents
+  "void HandleExplosionsInTunnelSector( UINT32 sGridNo )
+{"
+  "void HandleSeeingFortifiedDoor( UINT32 sGridNo )
+{"
+  runtime_campaign_tactical_scenario_tunnel_contents
+  "Cannot locate the tunnel-explosion routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_tunnel_contents
+  "Tunnel-explosion routing must gate content before its save effect"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "scenarioPolicy.recordsTunnelExplosion("
+  "gJa25SaveStruct.uiJa25GeneralFlags |= JA_GF__DID_PLAYER_MAKE_SOUND_GOING_THROUGH_TUNNEL_GATE")
+
+extract_bounded_slice(runtime_campaign_tactical_scenario_explosion_contents
+  "void HandleSeeingFortifiedDoor( UINT32 sGridNo )
+{"
+  "void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
+{"
+  runtime_campaign_tactical_scenario_fortified_door_contents
+  "Cannot locate the fortified-door routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_fortified_door_contents
+  "Fortified-door routing must gate content before its save/dialogue effects"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "scenarioPolicy.isFortifiedDoorSector("
+  "gJa25SaveStruct.uiJa25GeneralFlags |= JA_GF__PLAYER_HAS_SEEN_FORTIFIED_DOOR"
+  "TacticalCharacterDialogue(")
+
+file(READ "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  runtime_campaign_tactical_scenario_dialogue_contents)
+if(runtime_campaign_tactical_scenario_dialogue_contents MATCHES
+    "gGameUBOptions|ub_config[.]h")
+  message(FATAL_ERROR
+    "Interface Dialogue regained a direct legacy UB option dependency")
+endif()
+strip_cxx_comments(runtime_campaign_tactical_scenario_dialogue_contents
+  runtime_campaign_tactical_scenario_dialogue_executable)
+string(REGEX MATCHALL
+  "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[.][ \t\r\n]*isUnfinishedBusiness[(][)]"
+  runtime_campaign_tactical_scenario_dialogue_selector_matches
+  "${runtime_campaign_tactical_scenario_dialogue_executable}")
+list(LENGTH runtime_campaign_tactical_scenario_dialogue_selector_matches
+  runtime_campaign_tactical_scenario_dialogue_selector_count)
+if(NOT runtime_campaign_tactical_scenario_dialogue_selector_count EQUAL 8)
+  message(FATAL_ERROR
+    "Interface Dialogue raw campaign-selector inventory changed from the reviewed eight unrelated sites")
+endif()
+string(REGEX MATCHALL "ReadCampaignTacticalScenarioContent[(][)]"
+  runtime_campaign_tactical_scenario_dialogue_read_matches
+  "${runtime_campaign_tactical_scenario_dialogue_contents}")
+list(LENGTH runtime_campaign_tactical_scenario_dialogue_read_matches
+  runtime_campaign_tactical_scenario_dialogue_read_count)
+if(NOT runtime_campaign_tactical_scenario_dialogue_read_count EQUAL 2)
+  message(FATAL_ERROR
+    "Interface Dialogue must retain exactly its two gated tactical-scenario content reads")
+endif()
+string(FIND "${runtime_campaign_tactical_scenario_dialogue_contents}"
+  "BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
+{"
+  runtime_campaign_tactical_scenario_mine_start)
+string(FIND "${runtime_campaign_tactical_scenario_dialogue_contents}"
+  "void HandleCannotAffordNpcMsgBox()
+{"
+  runtime_campaign_tactical_scenario_mine_end)
+if(runtime_campaign_tactical_scenario_mine_start EQUAL -1 OR
+    runtime_campaign_tactical_scenario_mine_end EQUAL -1 OR
+    NOT runtime_campaign_tactical_scenario_mine_start LESS
+      runtime_campaign_tactical_scenario_mine_end)
+  message(FATAL_ERROR "Cannot locate the tactical mine scenario block")
+endif()
+math(EXPR runtime_campaign_tactical_scenario_mine_length
+  "${runtime_campaign_tactical_scenario_mine_end} - ${runtime_campaign_tactical_scenario_mine_start}")
+string(SUBSTRING "${runtime_campaign_tactical_scenario_dialogue_contents}"
+  ${runtime_campaign_tactical_scenario_mine_start}
+  ${runtime_campaign_tactical_scenario_mine_length}
+  runtime_campaign_tactical_scenario_mine_contents)
+foreach(required_campaign_tactical_scenario_mine_fragment IN ITEMS
+    "CampaignTacticalScenarioPolicy scenarioPolicy("
+    "if ( !scenarioPolicy.usesUnfinishedBusinessScenario() )"
+    "ReadCampaignTacticalScenarioContent()"
+    "scenarioPolicy.isMineEntrance("
+    "mine.collapsedEntranceGrid"
+    "mine.surfaceExitGrids[0]"
+    "mine.surfaceExitGrids[1]"
+    "mine.undergroundEntranceGrids[0]"
+    "mine.undergroundEntranceGrids[1]"
+    "mine.undergroundSector")
+  string(FIND "${runtime_campaign_tactical_scenario_mine_contents}"
+    "${required_campaign_tactical_scenario_mine_fragment}"
+    required_campaign_tactical_scenario_mine_position)
+  if(required_campaign_tactical_scenario_mine_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical mine scenario routing lost '${required_campaign_tactical_scenario_mine_fragment}'")
+  endif()
+endforeach()
+if(runtime_campaign_tactical_scenario_mine_contents MATCHES
+    "isUnfinishedBusiness[(]|gGameUBOptions|ub_config[.]h|GameCampaign::(Arulco|UnfinishedBusiness)|CampaignUnfinishedBusiness")
+  message(FATAL_ERROR
+    "Tactical mine scenario bypassed typed campaign content")
+endif()
+extract_bounded_slice(runtime_campaign_tactical_scenario_dialogue_contents
+  "BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
+{"
+  "void HaveBiggensDetonatingExplosivesByTheMine()
+{"
+  runtime_campaign_tactical_scenario_mine_detection_contents
+  "Cannot locate the mine-entrance detection routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_mine_detection_contents
+  "Mine detection must gate the campaign before reading content"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "static_cast<std::uint32_t>(gWorldSectorX)"
+  "static_cast<std::uint32_t>(gWorldSectorY)"
+  "static_cast<std::uint32_t>(gbWorldSectorZ)"
+  "scenarioPolicy.isMineEntrance(")
+
+extract_bounded_slice(runtime_campaign_tactical_scenario_dialogue_contents
+  "void HaveBiggensDetonatingExplosivesByTheMine()
+{"
+  "void ReplaceMineEntranceGraphicWithCollapsedEntrance()
+{"
+  runtime_campaign_tactical_scenario_mine_detonation_contents
+  "Cannot locate the mine-detonation routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_mine_detonation_contents
+  "Mine detonation must gate the campaign before actor and bomb effects"
+  "usesUnfinishedBusinessScenario()"
+  "FindSoldierByProfileID( BIGGENS_UB , FALSE )"
+  "SetOffBombsByFrequency(")
+
+extract_bounded_slice(runtime_campaign_tactical_scenario_dialogue_contents
+  "void ReplaceMineEntranceGraphicWithCollapsedEntrance()
+{"
+  "void HandleCannotAffordNpcMsgBox()
+{"
+  runtime_campaign_tactical_scenario_mine_replacement_contents
+  "Cannot locate the mine-replacement routing")
+require_ordered_fragments(
+  runtime_campaign_tactical_scenario_mine_replacement_contents
+  "Mine replacement lost its gated content or established effect order"
+  "usesUnfinishedBusinessScenario()"
+  "ReadCampaignTacticalScenarioContent()"
+  "if( gJa25SaveStruct.fBiggensUsedDetonator )"
+  "gJa25SaveStruct.fBiggensUsedDetonator = TRUE"
+  "ApplyMapChangesToMapTempFile( TRUE )"
+  "AddStructToHead( usGridNo, usTileIndex )"
+  "RemoveExitGridFromWorld( mine.surfaceExitGrids[0] )"
+  "RemoveExitGridFromWorld( mine.surfaceExitGrids[1] )"
+  "AddRemoveExitGridToUnloadedMapTempFile( mine.surfaceExitGrids[0]"
+  "AddRemoveExitGridToUnloadedMapTempFile( mine.surfaceExitGrids[1]"
+  "RecompileLocalMovementCostsFromRadius( usGridNo, 5 )"
+  "usGridNo = mine.undergroundEntranceGrids[0]"
+  "RemoveStructFromUnLoadedMapTempFile("
+  "AddStructToUnLoadedMapTempFile("
+  "usGridNo = mine.undergroundEntranceGrids[1]"
+  "RemoveStructFromUnLoadedMapTempFile("
+  "AddStructToUnLoadedMapTempFile("
+  "AddRemoveExitGridToUnloadedMapTempFile(usGridNo"
+  "ApplyMapChangesToMapTempFile( FALSE )")
+
+foreach(required_campaign_tactical_scenario_test_manifest_fragment IN ITEMS
+    "campaign_tactical_scenario_policy_tests.cpp"
+    "campaign_tactical_scenario_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_tactical_scenario_test_manifest_fragment}"
+    required_campaign_tactical_scenario_test_manifest_position)
+  if(required_campaign_tactical_scenario_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario policy lost its data-free test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_tactical_scenario_policy_tests"
+  required_campaign_tactical_scenario_ci_position)
+if(required_campaign_tactical_scenario_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the campaign tactical-scenario policy target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_tactical_scenario_policy_tests.cpp"
+  runtime_campaign_tactical_scenario_test_contents)
+foreach(required_campaign_tactical_scenario_test_fragment IN ITEMS
+    "each of the nine authored fan grids is retained"
+    "a nonmember grid is not treated as fan geometry"
+    "the distinct typed missile sector selects missile launch"
+    "signed negative world sentinels retain legacy unsigned comparison behavior"
+    "both authored tunnel Y alternatives retain hard-coded depth one"
+    "fortified-door dialogue uses the complete typed sector"
+    "mine replacement retains distinct surface and underground targets"
+    "each tunnel-enemy decision samples the current false/true option state"
+    "Arulco neither reads the UB option nor touches the tunnel effect")
+  string(FIND "${runtime_campaign_tactical_scenario_test_contents}"
+    "${required_campaign_tactical_scenario_test_fragment}"
+    required_campaign_tactical_scenario_test_position)
+  if(required_campaign_tactical_scenario_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign tactical-scenario coverage lost '${required_campaign_tactical_scenario_test_fragment}'")
+  endif()
+endforeach()
+
+# Global raw-selector and option-consumer inventories are shrinking baselines.
+# Count executable consumer decisions rather than similarly named definitions
+# in GameCapabilities, package/bootstrap plumbing, or policy implementations.
+# Four tactical call sites cache the campaign enum before comparing Arulco;
+# MPScoreScreen uses the equivalent active-package capability leaf. The UB
+# option declaration/read-through adapter owner is likewise not a consumer.
+file(GLOB runtime_campaign_raw_selector_inventory_files
+  "${SOURCE_ROOT}/Ja2/*.cpp" "${SOURCE_ROOT}/Ja2/*.h"
+  "${SOURCE_ROOT}/Ja2/*.hpp" "${SOURCE_ROOT}/Laptop/*.cpp"
+  "${SOURCE_ROOT}/Laptop/*.h" "${SOURCE_ROOT}/Strategic/*.cpp"
+  "${SOURCE_ROOT}/Strategic/*.h" "${SOURCE_ROOT}/Tactical/*.cpp"
+  "${SOURCE_ROOT}/Tactical/*.h" "${SOURCE_ROOT}/TacticalAI/*.cpp"
+  "${SOURCE_ROOT}/TacticalAI/*.h" "${SOURCE_ROOT}/TileEngine/*.cpp"
+  "${SOURCE_ROOT}/TileEngine/*.h" "${SOURCE_ROOT}/Multiplayer/*.cpp"
+  "${SOURCE_ROOT}/Multiplayer/*.h")
+set(runtime_campaign_context_selector_count 0)
+set(runtime_campaign_cached_selector_count 0)
+set(runtime_campaign_package_selector_count 0)
+set(runtime_campaign_raw_option_consumer_count 0)
+foreach(runtime_campaign_inventory_file IN LISTS
+    runtime_campaign_raw_selector_inventory_files)
+  file(READ "${runtime_campaign_inventory_file}"
+    runtime_campaign_inventory_contents)
+  if(runtime_campaign_inventory_contents MATCHES
+      "isUnfinishedBusiness|GameCampaign::Arulco|CampaignUnfinishedBusiness|gGameUBOptions")
+    strip_cxx_comments(runtime_campaign_inventory_contents
+      runtime_campaign_inventory_executable)
+  else()
+    set(runtime_campaign_inventory_executable "")
+  endif()
+  string(REGEX MATCHALL
+    "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[.][ \t\r\n]*isUnfinishedBusiness[(][)]"
+    runtime_campaign_context_selectors
+    "${runtime_campaign_inventory_executable}")
+  list(LENGTH runtime_campaign_context_selectors
+    runtime_campaign_file_context_selector_count)
+  math(EXPR runtime_campaign_context_selector_count
+    "${runtime_campaign_context_selector_count} + ${runtime_campaign_file_context_selector_count}")
+  if(NOT runtime_campaign_inventory_file STREQUAL
+      "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h")
+    string(REGEX MATCHALL
+      "campaign[ \t\r\n]*==[ \t\r\n]*GameCampaign::Arulco"
+      runtime_campaign_cached_selectors
+      "${runtime_campaign_inventory_executable}")
+    list(LENGTH runtime_campaign_cached_selectors
+      runtime_campaign_file_cached_selector_count)
+    math(EXPR runtime_campaign_cached_selector_count
+      "${runtime_campaign_cached_selector_count} + ${runtime_campaign_file_cached_selector_count}")
+  endif()
+  string(REGEX MATCHALL
+    "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*hasCapability[(][ \t\r\n]*GameCapability::CampaignUnfinishedBusiness[ \t\r\n]*[)]"
+    runtime_campaign_package_selectors
+    "${runtime_campaign_inventory_executable}")
+  list(LENGTH runtime_campaign_package_selectors
+    runtime_campaign_file_package_selector_count)
+  math(EXPR runtime_campaign_package_selector_count
+    "${runtime_campaign_package_selector_count} + ${runtime_campaign_file_package_selector_count}")
+  if(NOT runtime_campaign_inventory_file STREQUAL
+      "${SOURCE_ROOT}/Ja2/ub_config.cpp" AND
+      NOT runtime_campaign_inventory_file STREQUAL
+      "${SOURCE_ROOT}/Ja2/ub_config.h" AND
+      runtime_campaign_inventory_executable MATCHES "gGameUBOptions")
+    math(EXPR runtime_campaign_raw_option_consumer_count
+      "${runtime_campaign_raw_option_consumer_count} + 1")
+  endif()
+endforeach()
+math(EXPR runtime_campaign_raw_selector_count
+  "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
+if(NOT runtime_campaign_context_selector_count EQUAL 109 OR
+    NOT runtime_campaign_cached_selector_count EQUAL 4 OR
+    NOT runtime_campaign_package_selector_count EQUAL 1 OR
+    NOT runtime_campaign_raw_selector_count EQUAL 114)
+  message(FATAL_ERROR
+    "Raw runtime campaign selector inventory changed from the reviewed 109 context + 4 cached-campaign + 1 active-package leaves")
+endif()
+if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33)
+  message(FATAL_ERROR
+    "Raw UB option consumer inventory changed from the reviewed 33-file baseline")
+endif()
+
 # Strategic-map guidance and campaign hooks are selected from the live
 # capability set. Both paths must remain compiled in every host, and the
 # twelve retired mapscreen JA2UB guards must not return.
@@ -2242,7 +2953,7 @@ foreach(required_campaign_status_fragment IN ITEMS
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All sixteen policies"
+    "All seventeen policies"
     "All six former guards in `Tactical/Campaign.cpp`")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
@@ -10625,7 +11336,9 @@ endforeach()
 file(READ "${SOURCE_ROOT}/TileEngine/Explosion Control.cpp"
   runtime_campaign_explosion_contents)
 foreach(required_runtime_explosion_fragment IN ITEMS
-    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "CampaignTacticalScenarioPolicy"
+    "usesUnfinishedBusinessScenario()"
+    "ReadCampaignTacticalScenarioContent()"
     "ReplaceMineEntranceGraphicWithCollapsedEntrance"
     "HandleDestructionOfPowerGenFan"
     "HandleExplosionsInTunnelSector"

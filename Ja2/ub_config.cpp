@@ -47,6 +47,7 @@
 	#include "Items.h"
 	#include "Text.h"
 	#include "GameSettings.h"
+	#include "CampaignTacticalScenarioContent.h"
 
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
@@ -69,6 +70,46 @@ GAME_UB_OPTIONS gGameUBOptions;
 bool IsLaptopQuestEnabled()
 {
 	return gGameUBOptions.LaptopQuestEnabled == TRUE;
+}
+
+CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()
+{
+	return {
+		{gGameUBOptions.SectorFanX,
+		 gGameUBOptions.SectorFanY,
+		 gGameUBOptions.SectorFanZ},
+		{{gGameUBOptions.FanGridNo[0], gGameUBOptions.FanGridNo[1],
+		  gGameUBOptions.FanGridNo[2], gGameUBOptions.FanGridNo[3],
+		  gGameUBOptions.FanGridNo[4], gGameUBOptions.FanGridNo[5],
+		  gGameUBOptions.FanGridNo[6], gGameUBOptions.FanGridNo[7],
+		  gGameUBOptions.FanGridNo[8]}},
+		{gGameUBOptions.SectorLaunchMisslesX,
+		 gGameUBOptions.SectorLaunchMisslesY,
+		 gGameUBOptions.SectorLaunchMisslesZ},
+		{gGameUBOptions.ExitForFanToPowerGenSectorX,
+		 {gGameUBOptions.ExitForFanToPowerGenSectorY,
+		  gGameUBOptions.SectorOpenGateInTunnelY}},
+		{gGameUBOptions.SectorDoorInTunnelX,
+		 gGameUBOptions.SectorDoorInTunnelY,
+		 gGameUBOptions.SectorDoorInTunnelZ},
+		{{gGameUBOptions.MineSectorX,
+		  gGameUBOptions.MineSectorY,
+		  gGameUBOptions.MineSectorZ},
+		 gGameUBOptions.MineEntranceGridno,
+		 gGameUBOptions.MineGridnoAddStructToHead,
+		 {{gGameUBOptions.MineRemoveExitGridFromWorld1,
+		   gGameUBOptions.MineRemoveExitGridFromWorld2}},
+		 {gGameUBOptions.MineSectorUndergroundX,
+		  gGameUBOptions.MineSectorUndergroundY,
+		  gGameUBOptions.MineSectorUndergroundZ},
+		 {{gGameUBOptions.MineSectorUndergroundGridno1,
+		   gGameUBOptions.MineSectorUndergroundGridno2}}}
+	};
+}
+
+bool ReadCampaignHandleAddingEnemiesToTunnelMaps()
+{
+	return gGameUBOptions.HandleAddingEnemiesToTunnelMaps == TRUE;
 }
 
 #define				GAME_UB_OPTIONS_FILE	"UB_Options.ini"
