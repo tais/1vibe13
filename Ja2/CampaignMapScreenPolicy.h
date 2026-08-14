@@ -30,6 +30,11 @@ public:
 		return usesUnfinishedBusinessMapRules();
 	}
 
+	constexpr bool allowsIntroScreenExit() const noexcept
+	{
+		return usesUnfinishedBusinessMapRules();
+	}
+
 	constexpr bool shouldRebuildCustomMapList(
 		bool rebuildRequested) const noexcept
 	{
@@ -87,6 +92,10 @@ static_assert(!CampaignMapScreenPolicy(GameCampaign::Arulco)
 	.usesJerryMiloGuidance());
 static_assert(CampaignMapScreenPolicy(GameCampaign::UnfinishedBusiness)
 	.usesJerryMiloGuidance());
+static_assert(!CampaignMapScreenPolicy(GameCampaign::Arulco)
+	.allowsIntroScreenExit());
+static_assert(CampaignMapScreenPolicy(GameCampaign::UnfinishedBusiness)
+	.allowsIntroScreenExit());
 static_assert(!CampaignMapScreenPolicy(GameCampaign::Arulco)
 	.shouldRebuildCustomMapList(true));
 static_assert(CampaignMapScreenPolicy(GameCampaign::UnfinishedBusiness)

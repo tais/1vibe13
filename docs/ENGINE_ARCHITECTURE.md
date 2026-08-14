@@ -1377,7 +1377,16 @@ the engine must not contain SDL types in its public domain model.
   helicopter-landing meanwhile scenes. Initial Enrico congratulations mail is
   selected by `CampaignLaptopCommunicationsPolicy`, and the UB-only globals
   remain behind left-hand runtime gates. The nine former guards across the
-  four shell implementations and map header are gone.
+  four shell implementations and map header are gone. The map-bottom
+  availability and exit functions now use the same value policy at all four
+  former raw selectors. Arulco alone polls pending meanwhile state and rejects
+  the UB intro destination; UB alone reads initial-sector entry state before
+  asking Jerry for time-compression permission and permits that intro exit.
+  Generic early returns, main-menu precedence, and the sector-before-Jerry
+  probe order are pinned by bounded lexical checks and dependency-free probe
+  tests. The executable raw-selector inventory is therefore 110 sites across
+  33 files: 105 live-context calls, four cached-campaign comparisons, and one
+  active-package capability leaf.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,
