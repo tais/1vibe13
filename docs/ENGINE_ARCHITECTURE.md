@@ -1320,10 +1320,26 @@ the engine must not contain SDL types in its public domain model.
   movement-cost effect order. The save-restored tunnel-enemy option stays a
   separate live read rather than entering the content snapshot. A data-free
   sentinel test covers every typed coordinate/grid and both live option states;
-  architecture CI ratchets the executable raw-selector inventory to 114 sites
-  (109 live-context calls, four cached-campaign comparisons, and one active-
-  package capability leaf) and
-  the raw UB-option inventory to 33 consumer files.
+  at that milestone architecture CI reduced the executable raw-selector
+  inventory to 114 sites (109 live-context calls, four cached-campaign
+  comparisons, and one active-package capability leaf) and the raw UB-option
+  inventory to 33 consumer files; the strategic slice below advances the
+  option-occurrence and wrapper-call ratchets again.
+- The contiguous UB sector script in `Strategic/strategicmap.cpp` now consumes
+  `CampaignStrategicSectorScriptContent` through the value-only
+  `CampaignStrategicSectorScriptPolicy`. Its adapter reuses the tactical fan,
+  missile, and fortified-door sectors and projects the other 41 immutable
+  fields once into a fresh invocation-owned value. Six raw campaign wrappers
+  and all 126 direct option reads are gone from the bounded block. The laptop
+  switch stays a separate live helper behind its original quest/fixed-state
+  short circuit. Sentinel tests and lexical ratchets pin quote/email and map-
+  effect ordering, the literal fallback, the legacy X-as-Z comparison, money
+  and difficulty order, door grid, roof self-move aliases, and repeated time
+  reads. The strategic helper now has 20 unrelated callers, while the global
+  inventory remains 114 raw selector sites (109 live-context, four cached-
+  campaign, one active-package) because those wrapper callers share one
+  underlying context selector. The UB boundary now has 316 executable/318 raw
+  external option occurrences across 33 consumer files.
 - The strategic map screen now selects campaign behavior through the
   value-only `CampaignMapScreenPolicy`. Arulco keeps its meanwhile-scene
   polling; UB keeps Jerry Milo's initial and full-load scheduling, quote pump,
