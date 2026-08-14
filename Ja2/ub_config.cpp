@@ -47,6 +47,7 @@
 	#include "Items.h"
 	#include "Text.h"
 	#include "GameSettings.h"
+	#include "CampaignStrategicAiScenarioPolicy.h"
 	#include "CampaignStrategicSectorScriptContent.h"
 	#include "CampaignTacticalScenarioContent.h"
 
@@ -67,6 +68,17 @@
 #include <vfs/Core/vfs.h>
 
 GAME_UB_OPTIONS gGameUBOptions;
+
+CampaignScenarioOrigin ReadCampaignScenarioOrigin()
+{
+	return CampaignScenarioOrigin::fromLegacyByte(
+		gGameUBOptions.pJA2UB);
+}
+
+void SetCampaignScenarioOrigin(CampaignScenarioOrigin origin)
+{
+	gGameUBOptions.pJA2UB = origin.legacyByte();
+}
 
 bool IsLaptopQuestEnabled()
 {
@@ -505,7 +517,8 @@ void LoadGameUBOptions()
 	gGameUBOptions.StrategicMovementCostsXML = iniReader.ReadBoolean("Campaign Settings","STRATEGIC_MOVEMENT_COSTS_XML", FALSE);
 	gGameUBOptions.MakeStrategicMovementCosts = iniReader.ReadBoolean("Campaign Settings","MAKE_STRATEGIC_MOVEMENT_COSTS", FALSE);	
 	gGameUBOptions.LaptopQuestEnabled = iniReader.ReadBoolean("Campaign Settings","LAPTOP_QUEST", TRUE);	
-	gGameUBOptions.pJA2UB = iniReader.ReadBoolean("Campaign Settings","JA2UB", TRUE);	
+	SetCampaignScenarioOrigin(CampaignScenarioOrigin::fromLegacyByte(
+		iniReader.ReadBoolean("Campaign Settings", "JA2UB", TRUE)));
 	gGameUBOptions.fDeadMerc = iniReader.ReadBoolean("Campaign Settings","NOTIFY_ON_DEAD_AIM_MERCS", FALSE);			
 			
 	// -----------------------

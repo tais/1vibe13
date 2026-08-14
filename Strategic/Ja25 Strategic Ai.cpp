@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "CampaignStrategicAiScenarioPolicy.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
@@ -1278,7 +1279,9 @@ void InitJa25StrategicAiBloodcats( )
 
 static BOOLEAN AddEnemiesToSectorPlayerIsIn(INT16 sectorX, INT16 sectorY, INT8 sectorZ, UINT8 admins, UINT8 troops, UINT8 elites)
 {
-	if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+	if (scenarioPolicy.usesBuiltInSectorAi())
 	{
 
 		if ( !(IsJa2TacticalCombatActive()) )
@@ -1557,10 +1560,12 @@ BOOLEAN InitJa25StrategicSectorAI( BOOLEAN fReset )
 BOOLEAN InitJa25SectorAi()
 {
 UINT32 ubCnt;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 	//
 	// H7: Initial sector
 	//
-if ( gGameUBOptions.pJA2UB == TRUE )
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 
 	for( ubCnt=0; ubCnt<CUSTOMSECTOR; ubCnt++)
@@ -1959,8 +1964,10 @@ INT8	GetTheFurthestSectorPlayerOwns()
 	INT8	bCnt;
 	BOOLEAN	fFoundLatest=FALSE;
 	INT8	bSector=-1;
-	
-if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	//Loop through from the end of the list
 	for( bCnt=giNumJA25Sectors-1; bCnt>=0; bCnt-- )
@@ -1992,8 +1999,10 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 void SetJa25SectorOwnedStatus( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, BOOLEAN fPlayerOwned )
 {
 	INT8 bSector;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 
-	if ( gGameUBOptions.pJA2UB == TRUE )
+	if (scenarioPolicy.usesBuiltInSectorAi())
 	{
 	//get the sector id
 	bSector = (INT8)GetJA25SectorID( sSectorX, sSectorY, bSectorZ );
@@ -2048,8 +2057,10 @@ INT16 GetJA25SectorID( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
 	INT8 bCnt=0;
 	INT16	sSector = 0;
-	
-if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 
 	if ( gJa25AiSectorStruct == NULL )
@@ -2103,8 +2114,10 @@ void JA25_HandleUpdateOfStrategicAi()
 	INT8	bAttackDirection=-1;
 	INT8	bRandom=0;
 	INT16	sGridNo=-1;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 
-if ( gGameUBOptions.pJA2UB == TRUE )
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	if ( !gJa25AiSectorStruct )
 	{
@@ -2251,8 +2264,10 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 }
 
 BOOLEAN HandleAddEnemiesToSectorPlayerIsntIn( INT16 sSaiSector, UINT8 ubNumEnemies )
-{	
-	if ( gGameUBOptions.pJA2UB == TRUE )
+{
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+	if (scenarioPolicy.usesBuiltInSectorAi())
 	{
 		INT16 sSectorX = SECTORX( gJa25AiSectorStruct[sSaiSector].iSectorID );
 		INT16 sSectorY = SECTORY( gJa25AiSectorStruct[sSaiSector].iSectorID );
@@ -2282,7 +2297,9 @@ BOOLEAN HandleAddingEnemiesToSector( INT16 sSaiSector, UINT8 ubNumEnemies, INT8 
 	INT16		sSector;
 	UINT32	uiWorldMin=0;
 	INT8		bLevel=0;
-if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	sSectorToAttack = gJa25AiSectorStruct[ sSaiSector ].iSectorID;
 
@@ -2397,8 +2414,10 @@ void SetEnemiesToFindThePlayerMercs()
 	INT32 cnt;
 	TacticalActor             *pSoldier;
 	INT16	sGridNoToGoto=0;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 
-if ( gGameUBOptions.pJA2UB == TRUE )
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	sGridNoToGoto = GetGridNoEnemyWillSeekWhenAttacking( gJa25SaveStruct.bSectorTheEnemyWillSeekEnemy );
 
@@ -2436,7 +2455,9 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 INT16 GetGridNoEnemyWillSeekWhenAttacking( INT8 bSaiSector )
 {
 	INT16	sGridNo=0;
-if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	switch( bSaiSector )
 	{
@@ -2475,7 +2496,9 @@ void Ja25SAI_DetermineWhichLevelToAttackFrom( INT16 sSaiSector, INT16 *psSector,
 {
 	INT8	bLevel=0;
 	INT16 sSector=0;
-if ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	switch( sSaiSector )
 	{
@@ -2683,18 +2706,30 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 	UINT8			ubNumMercs=0;
 	TacticalActor *pSoldier=NULL;
 	INT32			cnt;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 
 	//if the player has advance passed this sector, leave
-	
-	if( gJa25AiSectorStruct[ JA25_H9 ].fPlayerControlled && gGameUBOptions.pJA2UB == TRUE )
+	switch (scenarioPolicy.h8AdvanceSource())
 	{
-		return;
+	case CampaignStrategicAiScenarioPolicy::H8AdvanceSource::
+		BuiltInGuardPost:
+		if (gJa25AiSectorStruct[JA25_H9].fPlayerControlled)
+			return;
+		break;
+	case CampaignStrategicAiScenarioPolicy::H8AdvanceSource::
+		DefaultArrivalSector:
+		if (SectorInfo[(UINT8)SECTOR(
+				gGameExternalOptions.ubDefaultArrivalSectorX,
+				gGameExternalOptions.ubDefaultArrivalSectorY)]
+			.fSurfaceWasEverPlayerControlled == TRUE)
+		{
+			return;
+		}
+		break;
+	case CampaignStrategicAiScenarioPolicy::H8AdvanceSource::None:
+		break;
 	}
-	
-	if ( SectorInfo[ (UINT8)SECTOR( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY ) ].fSurfaceWasEverPlayerControlled == TRUE && gGameUBOptions.pJA2UB == FALSE )
-	{
-		return;
-	} 
 	
 	//if there are no enemies in the sector, leave
 	if ( NumNonPlayerTeamMembersInSector( 8, 8, ENEMY_TEAM ) > 0 )
@@ -2794,8 +2829,10 @@ void HandleEnricosUnderstandingEmail()
 void HandleRemovingEnemySoldierInitLinksIfPlayerEverWonInSector()
 {
 	INT16	sJa25SaiSectorValue;
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
 
-if ( gGameUBOptions.pJA2UB == TRUE )
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 	//Get the Ja25 SAI sector value for the sector that is being attacked
 	sJa25SaiSectorValue = GetJA25SectorID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -2835,8 +2872,10 @@ void Ja25HandleStartingAnyBattlesInOtherSectors()
 	UINT8 ubNumPlayers=0;
 	INT8 bCnt;
 	INT8	bSectorX, bSectorY, bSectorZ;
-	
-if  ( gGameUBOptions.pJA2UB == TRUE )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+
+if (scenarioPolicy.usesBuiltInSectorAi())
 {
 
 	//if there is a world loaded
@@ -2942,32 +2981,39 @@ void SetH11NumEnemiesInSector()
 
 BOOLEAN	HaveMercsEverBeenInComplex()
 {
-
-if (gGameUBOptions.pJA2UB == TRUE )
-{
-	//if the player has liberated K15 level 1
-	if( gJa25AiSectorStruct[ JA25_K15_1 ].fPlayerHasLiberatedSectorBefore )
+	const CampaignStrategicAiScenarioPolicy scenarioPolicy(
+		ReadCampaignScenarioOrigin());
+	switch (scenarioPolicy.complexHistorySource())
 	{
-		return( TRUE );
+	case CampaignStrategicAiScenarioPolicy::ComplexHistorySource::
+		BuiltInSectorAi:
+		//if the player has liberated K15 level 1
+		if (gJa25AiSectorStruct[JA25_K15_1]
+			.fPlayerHasLiberatedSectorBefore)
+		{
+			return(TRUE);
+		}
+		else if (AreAnyPlayerMercsStillInSector(15, 11, 1))
+		{
+			return(TRUE);
+		}
+		break;
+	case CampaignStrategicAiScenarioPolicy::ComplexHistorySource::
+		StrategicSector:
+		//if the player has liberated K15 level 1
+		if (SectorInfo[SEC_K15].uiTimeLastPlayerLiberated &&
+			gbWorldSectorZ == 1)
+		{
+			return(TRUE);
+		}
+		else if (AreAnyPlayerMercsStillInSector(15, 11, 1))
+		{
+			return(TRUE);
+		}
+		break;
+	case CampaignStrategicAiScenarioPolicy::ComplexHistorySource::None:
+		break;
 	}
-	else if( AreAnyPlayerMercsStillInSector( 15, 11, 1 ) )
-	{
-		return( TRUE );
-	}
-}	
-else if (gGameUBOptions.pJA2UB == FALSE )
-{
-	//if the player has liberated K15 level 1
-	if( SectorInfo[ SEC_K15 ].uiTimeLastPlayerLiberated && gbWorldSectorZ == 1 )
-	{
-		return( TRUE );
-	}
-	else if( AreAnyPlayerMercsStillInSector( 15, 11, 1 ) )
-	{
-		return( TRUE );
-	}
-	
-}
 
 	return( FALSE );
 }

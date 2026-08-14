@@ -36,6 +36,7 @@
 #include "SaveLoadGame.h"
 #include "GameContext.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignStrategicAiScenarioPolicy.h"
 #include "RuntimeSaveState.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
@@ -8121,7 +8122,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	sGeneralInfo.sEVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE_UB		= gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere;
 	sGeneralInfo.sHandleAddingEnemiesToTunnelMaps_UB						= gGameUBOptions.HandleAddingEnemiesToTunnelMaps;
 	sGeneralInfo.sInGameHeli				= gGameUBOptions.InGameHeli;
-	sGeneralInfo.spJA2UB					= gGameUBOptions.pJA2UB;
+	sGeneralInfo.spJA2UB = ReadCampaignScenarioOrigin().legacyByte();
 	
 	sGeneralInfo.sfDeadMerc					= gGameUBOptions.fDeadMerc;
 	
@@ -8716,7 +8717,8 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 		gGameUBOptions.HandleAddingEnemiesToTunnelMaps =
 			sGeneralInfo.sHandleAddingEnemiesToTunnelMaps_UB;
 		gGameUBOptions.InGameHeli = sGeneralInfo.sInGameHeli;
-		gGameUBOptions.pJA2UB = sGeneralInfo.spJA2UB;
+		SetCampaignScenarioOrigin(CampaignScenarioOrigin::fromLegacyByte(
+			sGeneralInfo.spJA2UB));
 
 		gGameUBOptions.fDeadMerc = sGeneralInfo.sfDeadMerc;
 		gGameUBOptions.ubEndDefaultSectorX = sGeneralInfo.subEndDefaultSectorX;
