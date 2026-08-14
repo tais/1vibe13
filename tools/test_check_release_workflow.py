@@ -5,12 +5,34 @@ from pathlib import Path
 import unittest
 
 from tools.check_release_workflow import (
+    RELEASE_SAVE_CONTRACT_COMMAND,
+    RELEASE_SAVE_CONTRACT_INVOCATIONS,
     validate_release_packaging,
+    validate_release_save_contract,
     validate_release_workflow,
 )
 
 
 VALID_WORKFLOW = """
+  package:
+    name: package (${{ matrix.platform.name }})
+    strategy:
+      matrix:
+        platform:
+          - { os: ubuntu-latest,    name: linux,       family: linux }
+          - { os: ubuntu-24.04-arm, name: linux-arm64, family: linux }
+          - { os: macos-latest,     name: macos,       family: macos }
+          - { os: windows-latest,   name: windows,     family: windows }
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      - name: Build
+      - name: Run release save-contract tests
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: """ + RELEASE_SAVE_CONTRACT_COMMAND + """
+      - name: Stage payload (linux)
       - name: Stage payload (macos)
       - name: Sign and verify macOS app bundles
         if: matrix.platform.name == 'macos'
@@ -23,6 +45,181 @@ VALID_WORKFLOW = """
       - name: Stage payload (windows)
       - name: Archive (unix)
 """
+
+
+class ReleaseSaveContractTests(unittest.TestCase):
+    def test_complete_save_contract_is_accepted(self):
+        validate_release_save_contract(VALID_WORKFLOW)
+
+    def test_save_contract_step_removal_is_rejected(self):
+        start = VALID_WORKFLOW.index(
+            "      - name: Run release save-contract tests")
+        end = VALID_WORKFLOW.index("      - name: Stage payload (linux)")
+        workflow = VALID_WORKFLOW[:start] + VALID_WORKFLOW[end:]
+        with self.assertRaisesRegex(RuntimeError, "save-contract step"):
+            validate_release_save_contract(workflow)
+
+    def test_save_contract_before_build_is_rejected(self):
+        build = "      - name: Build\n"
+        workflow = VALID_WORKFLOW.replace(build, "")
+        staging = workflow.index("      - name: Stage payload (linux)")
+        workflow = workflow[:staging] + build + workflow[staging:]
+        with self.assertRaisesRegex(RuntimeError, "after Build"):
+            validate_release_save_contract(workflow)
+
+    def test_save_contract_after_staging_is_rejected(self):
+        start = VALID_WORKFLOW.index(
+            "      - name: Run release save-contract tests")
+        end = VALID_WORKFLOW.index("      - name: Stage payload (linux)")
+        step = VALID_WORKFLOW[start:end]
+        workflow = VALID_WORKFLOW[:start] + VALID_WORKFLOW[end:]
+        insertion = workflow.index("      - name: Stage payload (macos)")
+        workflow = workflow[:insertion] + step + workflow[insertion:]
+        with self.assertRaisesRegex(RuntimeError, "before staging"):
+            validate_release_save_contract(workflow)
+
+    def test_each_required_test_name_is_pinned(self):
+        for target in ("engine_core", "save_serializer_golden", "ja2_headless"):
+            with self.subTest(target=target):
+                workflow = VALID_WORKFLOW.replace(target, "replacement_test")
+                with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+                    validate_release_save_contract(workflow)
+
+    def test_required_test_cannot_be_omitted(self):
+        workflow = VALID_WORKFLOW.replace(
+            " && " + RELEASE_SAVE_CONTRACT_INVOCATIONS[1], "")
+        with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+            validate_release_save_contract(workflow)
+
+    def test_test_selection_regex_must_remain_anchored(self):
+        workflow = VALID_WORKFLOW.replace(
+            "^engine_core$", "engine_core")
+        with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+            validate_release_save_contract(workflow)
+
+    def test_each_test_must_error_when_its_registration_is_missing(self):
+        for invocation in RELEASE_SAVE_CONTRACT_INVOCATIONS:
+            with self.subTest(invocation=invocation):
+                workflow = VALID_WORKFLOW.replace(
+                    invocation, invocation.replace("--no-tests=error ", ""))
+                with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+                    validate_release_save_contract(workflow)
+
+    def test_condition_cannot_disable_a_release_runner(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        shell: bash\n        env:",
+            "        if: matrix.platform.name == 'linux'\n"
+            "        shell: bash\n        env:",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "unconditionally"):
+            validate_release_save_contract(workflow)
+
+    def test_false_condition_cannot_disable_the_gate(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        shell: bash\n        env:",
+            "        if: false\n        shell: bash\n        env:",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "unconditionally"):
+            validate_release_save_contract(workflow)
+
+    def test_quoted_false_condition_cannot_disable_the_gate(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        shell: bash\n        env:",
+            "        'if': false\n        shell: bash\n        env:",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "unconditionally"):
+            validate_release_save_contract(workflow)
+
+    def test_job_condition_cannot_disable_all_release_runners(self):
+        workflow = VALID_WORKFLOW.replace(
+            "    name: package (${{ matrix.platform.name }})",
+            "    name: package (${{ matrix.platform.name }})\n    if: false",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "package job must run"):
+            validate_release_save_contract(workflow)
+
+    def test_commented_matrix_row_cannot_impersonate_a_runner(self):
+        workflow = VALID_WORKFLOW.replace(
+            "          - { os: windows-latest,   name: windows,     family: windows }",
+            "          # - { os: windows-latest,   name: windows,     family: windows }",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "four active"):
+            validate_release_save_contract(workflow)
+
+    def test_matrix_exclusion_cannot_remove_a_release_runner(self):
+        workflow = VALID_WORKFLOW.replace(
+            "          - { os: windows-latest,   name: windows,     family: windows }",
+            "          - { os: windows-latest,   name: windows,     family: windows }\n"
+            "        exclude:\n"
+            "          - platform: { os: windows-latest, name: windows, family: windows }",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "must not include or exclude"):
+            validate_release_save_contract(workflow)
+
+    def test_duplicate_matrix_row_cannot_add_a_release_runner(self):
+        row = "          - { os: windows-latest,   name: windows,     family: windows }"
+        workflow = VALID_WORKFLOW.replace(row, row + "\n" + row, 1)
+        with self.assertRaisesRegex(RuntimeError, "exactly four"):
+            validate_release_save_contract(workflow)
+
+    def test_matrix_rows_in_an_unrelated_list_cannot_substitute_targets(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        platform:", "        unrelated:", 1)
+        with self.assertRaisesRegex(RuntimeError, "platform matrix"):
+            validate_release_save_contract(workflow)
+
+    def test_continue_on_error_cannot_disable_the_gate(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        shell: bash\n        env:",
+            "        continue-on-error: true\n"
+            "        shell: bash\n        env:",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "must block packaging"):
+            validate_release_save_contract(workflow)
+
+    def test_shell_environment_cannot_substitute_ctest(self):
+        workflow = VALID_WORKFLOW.replace(
+            "          SDL_AUDIODRIVER: dummy",
+            "          SDL_AUDIODRIVER: dummy\n"
+            "          BASH_ENV: tools/fake-ctest.sh",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "only the two dummy"):
+            validate_release_save_contract(workflow)
+
+    def test_commented_step_cannot_impersonate_the_gate(self):
+        start = VALID_WORKFLOW.index(
+            "      - name: Run release save-contract tests")
+        end = VALID_WORKFLOW.index("      - name: Stage payload (linux)")
+        step = VALID_WORKFLOW[start:end]
+        commented_step = "".join(
+            "# " + line if line.strip() else line
+            for line in step.splitlines(keepends=True))
+        workflow = VALID_WORKFLOW[:start] + commented_step + VALID_WORKFLOW[end:]
+        with self.assertRaisesRegex(RuntimeError, "save-contract step"):
+            validate_release_save_contract(workflow)
+
+    def test_echoed_command_cannot_impersonate_the_gate(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        run: ctest ", "        run: echo ctest ", 1)
+        with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+            validate_release_save_contract(workflow)
+
+    def test_shell_dead_branch_cannot_hide_the_gate(self):
+        workflow = VALID_WORKFLOW.replace(
+            "        run: ctest ",
+            "        run: if false; then ctest ",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+            validate_release_save_contract(workflow)
+
+    def test_target_name_in_comment_cannot_replace_command_target(self):
+        workflow = VALID_WORKFLOW.replace(
+            "^ja2_headless$", "^replacement_test$")
+        workflow = workflow.replace(
+            "        run: ctest ",
+            "        # ja2_headless\n        run: ctest ", 1)
+        with self.assertRaisesRegex(RuntimeError, "must run exactly"):
+            validate_release_save_contract(workflow)
 
 
 class ReleaseWorkflowSigningTests(unittest.TestCase):
