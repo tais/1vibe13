@@ -64,7 +64,12 @@
 #include "Debug Control.h"
 #include <vfs/Core/vfs.h>
 
-GAME_UB_OPTIONS gGameUBOptions; 
+GAME_UB_OPTIONS gGameUBOptions;
+
+bool IsLaptopQuestEnabled()
+{
+	return gGameUBOptions.LaptopQuestEnabled == TRUE;
+}
 
 #define				GAME_UB_OPTIONS_FILE	"UB_Options.ini"
 

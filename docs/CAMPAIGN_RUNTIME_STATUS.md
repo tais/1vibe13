@@ -11,7 +11,10 @@ composition root, persistence/bootstrap, strategic event dispatch, dialogue
 action decoding, tactical overhead/endgame flow, map changes and sector state,
 strategic ownership/movement, queen command, quests/facts, and the laptop
 lifecycle/router emit both campaign paths and select them through
-`GameCapabilities`. Dealer inventory, lifecycle, repair rules, and shopkeeper
+`GameCapabilities`. Quest/fact campaign decisions now do so through
+`CampaignQuestPolicy`; the shared implementation keeps every mutation, email,
+and reward effect in `Strategic/Quests.cpp`. Dealer inventory, lifecycle,
+repair rules, and shopkeeper
 transactions now do the same through `CampaignDealerPolicy`. Mercenary profile
 loading, hiring and arrival, recruitment, creation, contract refunds, daily
 availability, and campaign-specific Slay handling use
@@ -94,6 +97,23 @@ left-hand runtime campaign gate, so Arulco never reads that state. The first
 three former `JA2UB` guards in `Tactical/Campaign.cpp` were removed by this
 progress seam; UB likewise short-circuits the Arulco-only Madlab threshold
 read.
+
+Quest/fact campaign decisions now use `CampaignQuestPolicy`. Arulco retains
+all twelve guarded fact evaluations, the 25-point kill-Deidranna reward, the
+deliver-letter initial quest, and POW quest handling. UB retains the exact
+leave-existing-`gubFact`-value-unchanged behavior for those unavailable fact
+cases, the 4-point reward, destroy-missiles initial quest, no POW processing,
+and the fix-laptop completion sequence. That sequence still performs the same
+save-state writes, emails, Manuel/Miguel conditions, away-email recovery, IMP
+reminder, and forced email delivery in the same order. Its campaign gate stays
+left of the quest comparison and the typed laptop-option accessor, so Arulco
+does not read UB configuration and a different UB quest short-circuits the
+option read. The application resolves the policy lazily at each former
+campaign check, so unrelated fact evaluation cannot initialize `GameContext`
+earlier than before. All sixteen direct campaign-identity checks in
+`Strategic/Quests.cpp` and its one raw `LaptopQuestEnabled` behavioral read are
+gone; quest state, profile lookup, history, rewards, email effects, and POW
+mutations remain in that source.
 
 The remaining tactical email-content seam now uses
 `CampaignLaptopCommunicationsPolicy`. Arulco retains its unconditional A.I.M.
@@ -292,7 +312,7 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All fifteen
+`Laptop/IMP Text System.cpp` no longer contribute six more. All sixteen
 policies are guarded by data-free tests and named architecture checks, with
 headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,
@@ -311,6 +331,10 @@ their left-to-right campaign gates and legacy call inputs. The
 Lua-global tail no longer contributes either: `CampaignLuaGlobalPolicy`
 removes all five guards from `Strategic/Luaglobal.cpp` while retaining its
 exact 92 guarded push/set pairs and campaign-selected arrival alias. The
+quest/fact tail now uses `CampaignQuestPolicy`, removing all sixteen direct
+campaign identity checks and the raw laptop-option read from
+`Strategic/Quests.cpp` while preserving unavailable UB fact values, reward
+amounts, initial selection, laptop effects, and POW support. The
 seven remaining `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;

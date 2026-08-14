@@ -4,6 +4,7 @@
 #include "soldier profile type.h"
 
 extern void LoadGameUBOptions();
+bool IsLaptopQuestEnabled();
 
 typedef struct
 {
@@ -234,7 +235,7 @@ typedef struct
 	INT8 Tunnel2_SectorZ;
 } GAME_UB_OPTIONS;
 
-extern GAME_UB_OPTIONS gGameUBOptions; 
+extern GAME_UB_OPTIONS gGameUBOptions;
 
 extern void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level );
 extern void RandomStats ();

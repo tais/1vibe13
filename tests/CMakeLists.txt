@@ -203,6 +203,15 @@ target_include_directories(campaign_progress_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_progress_policy COMMAND campaign_progress_policy_tests)
 
+# Quest/fact availability, initial selection, completion rewards, laptop
+# recovery, and POW support follow the live campaign. This dependency-free
+# target also pins UB's leave-the-existing-fact-value-untouched behavior.
+add_executable(campaign_quest_policy_tests
+  campaign_quest_policy_tests.cpp)
+target_include_directories(campaign_quest_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_quest_policy COMMAND campaign_quest_policy_tests)
+
 # JA25 new-gun dialogue is selected from immutable runtime capabilities. This
 # dependency-free target pins both call boundaries and their short-circuiting.
 add_executable(campaign_gun_comment_policy_tests
