@@ -62,6 +62,13 @@ state and continues to reject the UB intro destination. UB alone checks its
 initial-sector entry before asking Jerry for time-compression permission, and
 it retains the intro exit. Generic early returns, the unconditional main-menu
 exit, and the sector-before-Jerry probe order remain unchanged.
+The strategic-event dispatcher now uses `CampaignStrategicEventPolicy` for
+all fourteen campaign-owned callbacks. Arulco retains its nine M.E.R.C.,
+meanwhile, PMC, Kingpin, militia-roster, and intel routes; UB retains its five
+initial-sector, delayed-dialogue, H8-warning, and Enrico-understanding routes.
+The initial-sector option remains behind the UB route, the battle-delay probe
+remains behind the Arulco meanwhile route, and all existing effects remain in
+`ExecuteStrategicEvent` in their original order.
 Civilian tactical dialogue now uses `CampaignCivilianQuotePolicy`. Both quote
 catalogues and both dedicated-group ranges are emitted in every host; Arulco
 retains surrender completion and its complete town/hint/miner logic, while UB
@@ -331,8 +338,8 @@ behavior remain unchanged.
 
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline is 110 sites across 33 files,
-down from 149: 105 live-context calls, four cached-campaign comparisons, and
+The reviewed executable raw-selector baseline is 109 sites across 32 files,
+down from 149: 104 live-context calls, four cached-campaign comparisons, and
 one active-package capability leaf. The strategic sector slice reduces its
 private wrapper call inventory from 26 to 20 without changing the single
 underlying context selector. The UB-option boundary now has 297 executable and
@@ -380,13 +387,16 @@ from `Strategic/Assignments.cpp`. Strategic-map lifecycle, guidance, and the
 adjoining shell use `CampaignMapScreenPolicy` plus
 `CampaignLaptopCommunicationsPolicy`; `Strategic/mapscreen.cpp` no longer
 contributes twelve compiled branches, while the four converted map-shell
-implementations and common map header no longer contribute nine more. Civilian
+implementations and common map header no longer contribute nine more. The
+strategic-event dispatcher uses `CampaignStrategicEventPolicy`; its one raw
+selector no longer contributes to the tail, and all fourteen campaign-owned
+callbacks remain locally routed in their existing switch cases. Civilian
 quote catalogue selection, dedicated-group boundaries, UB's unavailable-record
 sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All seventeen
+`Laptop/IMP Text System.cpp` no longer contribute six more. All eighteen
 policies are guarded by data-free tests and named architecture checks, with
 headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,

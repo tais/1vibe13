@@ -1384,9 +1384,22 @@ the engine must not contain SDL types in its public domain model.
   asking Jerry for time-compression permission and permits that intro exit.
   Generic early returns, main-menu precedence, and the sector-before-Jerry
   probe order are pinned by bounded lexical checks and dependency-free probe
-  tests. The executable raw-selector inventory is therefore 110 sites across
-  33 files: 105 live-context calls, four cached-campaign comparisons, and one
-  active-package capability leaf.
+  tests. At that milestone the executable raw-selector inventory was 110 sites
+  across 33 files: 105 live-context calls, four cached-campaign comparisons,
+  and one active-package capability leaf.
+- `ExecuteStrategicEvent` now routes its complete campaign-specific callback
+  set through the value-only `CampaignStrategicEventPolicy`. Its fourteen
+  typed event kinds form an exhaustive 9-Arulco/5-UB partition. Campaign
+  ownership stays left of M.E.R.C.'s live day-one option, UB's live initial-
+  sector attack option, the Arulco battle-delay probe, and every callback
+  effect. The dispatcher still owns those options, probes, early returns, and
+  effects; the policy owns only the immutable route table. Dependency-free
+  truth tables exercise both campaigns, editor composition, every event kind,
+  and rejected-probe behavior. Bounded comment/string-aware source ratchets
+  pin the fourteen case associations and their effect order. The executable
+  raw-selector inventory is now 109 sites across 32 files: 104 live-context
+  calls, four cached-campaign comparisons, and one active-package capability
+  leaf. UB-option baselines remain unchanged.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,

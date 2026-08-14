@@ -49,6 +49,7 @@
 	#include "MiniEvents.h"
 	#include "Rebel Command.h"
 	#include "interface Dialogue.h"
+	#include "CampaignStrategicEventPolicy.h"
 	#include "GameContext.h"
 	#include "Explosion Control.h"
 	#include "Ja25_Tactical.h"
@@ -95,8 +96,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 {
 
 	BOOLEAN bMercDayOne = FALSE;
-	const bool unfinishedBusiness =
-		GetGameContext().capabilities().isUnfinishedBusiness();
+	const CampaignStrategicEventPolicy campaignEventPolicy(
+		GetGameContext().capabilities());
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"ExecuteStrategicEvent");
 
 	if( gGameExternalOptions.gfEnableEmergencyButton_SkipStrategicEvents && _KeyDown( NUM_LOCK ) )
@@ -205,7 +206,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 		case EVENT_DAY3_ADD_EMAIL_FROM_SPECK:
 			// WANNE: This fixes the bug, that Speck did not sent the email on Day 3, when MERC_WEBSITE_ALL_MERCS_AVAILABLE = TRUE!
-			if ( !unfinishedBusiness &&
+			if ( campaignEventPolicy.handles(
+					CampaignStrategicEvent::MercIntroductionEmail) &&
 				gGameExternalOptions.fMercDayOne == FALSE /* && gGameExternalOptions.fAllMercsAvailable == FALSE */ )
 			{
 				AddEmail(JA2_EMAIL_MERC_INTRO, JA2_EMAIL_MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_INTRO);
@@ -343,7 +345,9 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		//	break;
 
 		case EVENT_MEANWHILE:
-			if( !unfinishedBusiness && !DelayEventIfBattleInProgress( pEvent ) )
+			if( campaignEventPolicy.handles(
+					CampaignStrategicEvent::MeanwhileScene) &&
+				!DelayEventIfBattleInProgress( pEvent ) )
 			{
 				BeginMeanwhile( (UINT8)pEvent->uiParam );
 				InterruptTime();
@@ -405,7 +409,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			}
 			break;
 		case EVENT_MERC_SITE_BACK_ONLINE:
-			if (!unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::MercSiteBackOnline))
 				GetMercSiteBackOnline();
 			break;
 		case EVENT_INVESTIGATE_SECTOR:
@@ -445,7 +450,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 		//Ja25 UB
 		case EVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE:
-			if ( unfinishedBusiness &&
+			if ( campaignEventPolicy.handles(
+					CampaignStrategicEvent::InitialSectorAttack) &&
 				gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere == TRUE )
 			{
 				ShouldEnemiesBeAddedToInitialSector();
@@ -453,22 +459,26 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_SAY_DELAYED_MERC_QUOTE:
-			if (unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::DelayedMercQuote))
 				DelayedSayingOfMercQuote( pEvent->uiParam );
 			break;
 
 		case EVENT_DELAY_SOMEONE_IN_SECTOR_MSGBOX:
-			if (unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::DelayedSomeoneInSectorMessage))
 				SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector();
 			break;
 
 		case EVENT_SECTOR_H8_DONT_WAIT_IN_SECTOR:
-			if (unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::SectorH8Warning))
 				HandleSayingDontStayToLongWarningInSectorH8();
 			break;
 
 		case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:
-			if (unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::EnricoUnderstandingEmail))
 				HandleEnricosUnderstandingEmail();
 			break;
 
@@ -482,7 +492,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_PMC_EMAIL:
-			if (!unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::PmcIntroductionEmail))
 				AddEmail(JA2_EMAIL_PMC_INTRO, JA2_EMAIL_PMC_INTRO_LENGTH, PMC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KERBERUS_OFFER);
 			break;
 
@@ -490,7 +501,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			HandlePMCArrival( (UINT8)pEvent->uiParam );
 			break;
 		case EVENT_KINGPIN_BOUNTY_INITIAL:
-			if (unfinishedBusiness)
+			if (!campaignEventPolicy.handles(
+					CampaignStrategicEvent::KingpinBountyInitial))
 				break;
 			// if Kingpin, Angel and Maria are still alive, we can start the quest
 			if ( gMercProfiles[KINGPIN].bMercStatus != MERC_IS_DEAD && !CheckFact( FACT_KINGPIN_DEAD, NO_PROFILE ) && !CheckFact( FACT_KINGPIN_IS_ENEMY, NO_PROFILE ) && 
@@ -502,7 +514,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_KINGPIN_BOUNTY_END_KILLEDTHEM:
-			if (unfinishedBusiness)
+			if (!campaignEventPolicy.handles(
+					CampaignStrategicEvent::KingpinBountyKilledThem))
 				break;
 			if ( gMercProfiles[KINGPIN].bMercStatus != MERC_IS_DEAD && !CheckFact( FACT_KINGPIN_DEAD, NO_PROFILE ) && !CheckFact( FACT_KINGPIN_IS_ENEMY, NO_PROFILE ) )
 			{
@@ -517,7 +530,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_KINGPIN_BOUNTY_END_TIME_PASSED:
-			if (unfinishedBusiness)
+			if (!campaignEventPolicy.handles(
+					CampaignStrategicEvent::KingpinBountyTimePassed))
 				break;
 
 			// if we eliminated all bounty hunters and Angel & Maria are still alive, they send us an email
@@ -594,7 +608,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_MILITIAROSTER_EMAIL:
-			if (!unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::MilitiaRosterEmail))
 				AddEmail(JA2_EMAIL_MILITIA_ROSTER_INTRO, JA2_EMAIL_MILITIA_ROSTER_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_MILITIA_WEBSITE);
 			break;
 
@@ -620,7 +635,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_INTEL_ENRICO_EMAIL:
-			if (!unfinishedBusiness)
+			if (campaignEventPolicy.handles(
+					CampaignStrategicEvent::IntelEnricoEmail))
 				AddEmail(JA2_EMAIL_INTEL_INTRO, JA2_EMAIL_INTEL_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_INTEL);
 			break;
 

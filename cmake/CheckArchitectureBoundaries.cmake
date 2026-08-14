@@ -1404,6 +1404,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignStrategicEventPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptContent.h"
   "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignTacticalScenarioContent.h"
@@ -3528,13 +3529,13 @@ foreach(runtime_campaign_inventory_file IN LISTS
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
   "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
-if(NOT runtime_campaign_context_selector_count EQUAL 105 OR
+if(NOT runtime_campaign_context_selector_count EQUAL 104 OR
     NOT runtime_campaign_cached_selector_count EQUAL 4 OR
     NOT runtime_campaign_package_selector_count EQUAL 1 OR
-    NOT runtime_campaign_raw_selector_count EQUAL 110 OR
-    NOT runtime_campaign_raw_selector_file_count EQUAL 33)
+    NOT runtime_campaign_raw_selector_count EQUAL 109 OR
+    NOT runtime_campaign_raw_selector_file_count EQUAL 32)
   message(FATAL_ERROR
-    "Raw runtime campaign selector inventory changed from the reviewed 105 context + 4 cached-campaign + 1 active-package leaves across 33 files")
+    "Raw runtime campaign selector inventory changed from the reviewed 104 context + 4 cached-campaign + 1 active-package leaves across 32 files")
 endif()
 if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
     NOT runtime_campaign_external_option_executable_count EQUAL 297 OR
@@ -3555,6 +3556,355 @@ if(NOT runtime_campaign_scenario_origin_substring_count EQUAL 8 OR
   message(FATAL_ERROR
     "Scenario-origin spelling inventory changed from 3 exact tokens (2 owner refs + 1 declaration) and 5 save-carrier substrings")
 endif()
+
+# The strategic-event dispatcher owns one closed campaign-routing table. Keep
+# all fourteen typed routes in the existing switch, with campaign selection
+# ahead of live configuration, delay, and effect probes. Comments and ordinary
+# literals are removed before the bounded source checks so they cannot satisfy
+# these ratchets; raw strings are rejected in this legacy function.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignStrategicEventPolicy.h"
+  runtime_campaign_strategic_event_policy_contents)
+strip_cxx_comments(runtime_campaign_strategic_event_policy_contents
+  runtime_campaign_strategic_event_policy_executable)
+foreach(required_campaign_strategic_event_policy_fragment IN ITEMS
+    "enum class CampaignStrategicEvent"
+    "class CampaignStrategicEventPolicy"
+    "constexpr bool handles(CampaignStrategicEvent event) const noexcept"
+    "static_assert(static_cast<std::uint8_t>(CampaignStrategicEvent::Count) == 14)"
+    "return campaign_ == GameCampaign::Arulco"
+    "return campaign_ == GameCampaign::UnfinishedBusiness")
+  string(FIND "${runtime_campaign_strategic_event_policy_executable}"
+    "${required_campaign_strategic_event_policy_fragment}"
+    required_campaign_strategic_event_policy_position)
+  if(required_campaign_strategic_event_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-event policy lost '${required_campaign_strategic_event_policy_fragment}'")
+  endif()
+endforeach()
+foreach(runtime_campaign_strategic_event_name IN ITEMS
+    MercIntroductionEmail
+    MeanwhileScene
+    MercSiteBackOnline
+    InitialSectorAttack
+    DelayedMercQuote
+    DelayedSomeoneInSectorMessage
+    SectorH8Warning
+    EnricoUnderstandingEmail
+    PmcIntroductionEmail
+    KingpinBountyInitial
+    KingpinBountyKilledThem
+    KingpinBountyTimePassed
+    MilitiaRosterEmail
+    IntelEnricoEmail)
+  string(FIND "${runtime_campaign_strategic_event_policy_executable}"
+    "CampaignStrategicEvent::${runtime_campaign_strategic_event_name}"
+    required_campaign_strategic_event_name_position)
+  if(required_campaign_strategic_event_name_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-event policy lost typed route '${runtime_campaign_strategic_event_name}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  runtime_campaign_strategic_event_source_contents)
+strip_cxx_comments(runtime_campaign_strategic_event_source_contents
+  runtime_campaign_strategic_event_source_executable)
+string(REPLACE "\r\n" "\n" runtime_campaign_strategic_event_source_executable
+  "${runtime_campaign_strategic_event_source_executable}")
+extract_bounded_slice(runtime_campaign_strategic_event_source_executable
+  "BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )\n{"
+  "void CrippledVersionEndGameCheck()\n{"
+  runtime_campaign_strategic_event_function
+  "Could not bound ExecuteStrategicEvent for campaign routing checks")
+if(runtime_campaign_strategic_event_function MATCHES
+    "(^|[^A-Za-z0-9_])R\"")
+  message(FATAL_ERROR
+    "ExecuteStrategicEvent gained a raw string that the source ratchet cannot mask")
+endif()
+string(REGEX REPLACE "\"([^\"\\\\]|\\\\.)*\"" "\"\""
+  runtime_campaign_strategic_event_function_code
+  "${runtime_campaign_strategic_event_function}")
+string(REGEX REPLACE "'([^'\\\\]|\\\\.)*'" "''"
+  runtime_campaign_strategic_event_function_code
+  "${runtime_campaign_strategic_event_function_code}")
+
+string(REGEX MATCHALL
+  "#[ \t]*include[ \t]*\"CampaignStrategicEventPolicy[.]h\""
+  runtime_campaign_strategic_event_policy_includes
+  "${runtime_campaign_strategic_event_source_executable}")
+list(LENGTH runtime_campaign_strategic_event_policy_includes
+  runtime_campaign_strategic_event_policy_include_count)
+if(NOT runtime_campaign_strategic_event_policy_include_count EQUAL 1)
+  message(FATAL_ERROR
+    "Game Event Hook must include CampaignStrategicEventPolicy exactly once")
+endif()
+string(REGEX MATCHALL
+  "CampaignStrategicEventPolicy[ \t\r\n]+campaignEventPolicy[ \t\r\n]*[(][ \t\r\n]*GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[)]"
+  runtime_campaign_strategic_event_policy_constructions
+  "${runtime_campaign_strategic_event_function_code}")
+list(LENGTH runtime_campaign_strategic_event_policy_constructions
+  runtime_campaign_strategic_event_policy_construction_count)
+if(NOT runtime_campaign_strategic_event_policy_construction_count EQUAL 1)
+  message(FATAL_ERROR
+    "ExecuteStrategicEvent must retain exactly one live strategic-event policy construction")
+endif()
+string(REGEX MATCHALL
+  "[.]handles[ \t\r\n]*[(][ \t\r\n]*CampaignStrategicEvent::"
+  runtime_campaign_strategic_event_handle_calls
+  "${runtime_campaign_strategic_event_function_code}")
+list(LENGTH runtime_campaign_strategic_event_handle_calls
+  runtime_campaign_strategic_event_handle_call_count)
+if(NOT runtime_campaign_strategic_event_handle_call_count EQUAL 14)
+  message(FATAL_ERROR
+    "ExecuteStrategicEvent must retain exactly fourteen typed campaign routes")
+endif()
+
+foreach(runtime_campaign_strategic_event_name IN ITEMS
+    MercIntroductionEmail
+    MeanwhileScene
+    MercSiteBackOnline
+    InitialSectorAttack
+    DelayedMercQuote
+    DelayedSomeoneInSectorMessage
+    SectorH8Warning
+    EnricoUnderstandingEmail
+    PmcIntroductionEmail
+    KingpinBountyInitial
+    KingpinBountyKilledThem
+    KingpinBountyTimePassed
+    MilitiaRosterEmail
+    IntelEnricoEmail)
+  string(REGEX MATCHALL
+    "CampaignStrategicEvent::${runtime_campaign_strategic_event_name}([^A-Za-z0-9_]|$)"
+    runtime_campaign_strategic_event_route_matches
+    "${runtime_campaign_strategic_event_function_code}")
+  list(LENGTH runtime_campaign_strategic_event_route_matches
+    runtime_campaign_strategic_event_route_count)
+  if(NOT runtime_campaign_strategic_event_route_count EQUAL 1)
+    message(FATAL_ERROR
+      "ExecuteStrategicEvent changed the exact '${runtime_campaign_strategic_event_name}' route count")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*capabilities[(][)][ \t\r\n]*[.][ \t\r\n]*isUnfinishedBusiness[(][)]"
+  runtime_campaign_strategic_event_context_selectors
+  "${runtime_campaign_strategic_event_function_code}")
+string(REGEX MATCHALL
+  "campaign[ \t\r\n]*==[ \t\r\n]*GameCampaign::Arulco"
+  runtime_campaign_strategic_event_cached_selectors
+  "${runtime_campaign_strategic_event_function_code}")
+string(REGEX MATCHALL
+  "GetGameContext[(][)][ \t\r\n]*[.][ \t\r\n]*hasCapability[(][ \t\r\n]*GameCapability::CampaignUnfinishedBusiness[ \t\r\n]*[)]"
+  runtime_campaign_strategic_event_package_selectors
+  "${runtime_campaign_strategic_event_function_code}")
+list(LENGTH runtime_campaign_strategic_event_context_selectors
+  runtime_campaign_strategic_event_context_selector_count)
+list(LENGTH runtime_campaign_strategic_event_cached_selectors
+  runtime_campaign_strategic_event_cached_selector_count)
+list(LENGTH runtime_campaign_strategic_event_package_selectors
+  runtime_campaign_strategic_event_package_selector_count)
+if(NOT runtime_campaign_strategic_event_context_selector_count EQUAL 0 OR
+    NOT runtime_campaign_strategic_event_cached_selector_count EQUAL 0 OR
+    NOT runtime_campaign_strategic_event_package_selector_count EQUAL 0 OR
+    runtime_campaign_strategic_event_function_code MATCHES
+      "(^|[^A-Za-z0-9_])unfinishedBusiness([^A-Za-z0-9_]|$)")
+  message(FATAL_ERROR
+    "ExecuteStrategicEvent regained raw runtime campaign identity")
+endif()
+string(REGEX MATCHALL
+  "gGameUBOptions[ \t\r\n]*[.][ \t\r\n]*EventAttackInitialSectorIfPlayerStillThere"
+  runtime_campaign_strategic_event_initial_sector_options
+  "${runtime_campaign_strategic_event_function_code}")
+list(LENGTH runtime_campaign_strategic_event_initial_sector_options
+  runtime_campaign_strategic_event_initial_sector_option_count)
+if(NOT runtime_campaign_strategic_event_initial_sector_option_count EQUAL 1)
+  message(FATAL_ERROR
+    "Initial-sector attack must retain its one live UB option after campaign routing")
+endif()
+
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_strategic_event_function_normalized
+  "${runtime_campaign_strategic_event_function_code}")
+require_ordered_fragments(runtime_campaign_strategic_event_function_normalized
+  "ExecuteStrategicEvent changed policy construction or generic early-return order"
+  "BOOLEAN bMercDayOne = FALSE;"
+  "const CampaignStrategicEventPolicy campaignEventPolicy( GetGameContext().capabilities());"
+  "DebugMsg (TOPIC_JA2,DBG_LEVEL_3,\"\")"
+  "if( gGameExternalOptions.gfEnableEmergencyButton_SkipStrategicEvents && _KeyDown( NUM_LOCK ) )"
+  "return TRUE;"
+  "BOOLEAN fOrigPreventFlag;"
+  "fOrigPreventFlag = gfPreventDeletionOfAnyEvent;"
+  "gfPreventDeletionOfAnyEvent = TRUE;"
+  "if( pEvent->ubFlags & SEF_DELETION_PENDING)"
+  "gfPreventDeletionOfAnyEvent = fOrigPreventFlag;"
+  "return FALSE;")
+
+function(require_campaign_strategic_event_route start_marker end_marker
+    diagnostic)
+  extract_bounded_slice(runtime_campaign_strategic_event_function_code
+    "${start_marker}" "${end_marker}"
+    runtime_campaign_strategic_event_route_slice "${diagnostic}")
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_strategic_event_route_normalized
+    "${runtime_campaign_strategic_event_route_slice}")
+  require_ordered_fragments(runtime_campaign_strategic_event_route_normalized
+    "${diagnostic}" ${ARGN})
+endfunction()
+
+require_campaign_strategic_event_route(
+  "case EVENT_DAY3_ADD_EMAIL_FROM_SPECK:"
+  "case EVENT_DAY2_ADD_EMAIL_FROM_IMP:"
+  "M.E.R.C. introduction routing changed campaign/configuration/effect order"
+  "CampaignStrategicEvent::MercIntroductionEmail"
+  "gGameExternalOptions.fMercDayOne == FALSE"
+  "AddEmail(JA2_EMAIL_MERC_INTRO")
+require_campaign_strategic_event_route(
+  "case EVENT_MEANWHILE:"
+  "case EVENT_BEGIN_CREATURE_QUEST:"
+  "Meanwhile routing changed campaign/delay/effect order"
+  "CampaignStrategicEvent::MeanwhileScene"
+  "DelayEventIfBattleInProgress( pEvent )"
+  "BeginMeanwhile( (UINT8)pEvent->uiParam )"
+  "InterruptTime()")
+require_campaign_strategic_event_route(
+  "case EVENT_MERC_SITE_BACK_ONLINE:"
+  "case EVENT_INVESTIGATE_SECTOR:"
+  "M.E.R.C. site routing changed campaign/effect order"
+  "CampaignStrategicEvent::MercSiteBackOnline"
+  "GetMercSiteBackOnline()")
+require_campaign_strategic_event_route(
+  "case EVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE:"
+  "case EVENT_SAY_DELAYED_MERC_QUOTE:"
+  "Initial-sector routing changed campaign/option/effect order"
+  "CampaignStrategicEvent::InitialSectorAttack"
+  "gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere == TRUE"
+  "ShouldEnemiesBeAddedToInitialSector()")
+require_campaign_strategic_event_route(
+  "case EVENT_SAY_DELAYED_MERC_QUOTE:"
+  "case EVENT_DELAY_SOMEONE_IN_SECTOR_MSGBOX:"
+  "Delayed merc quote routing changed campaign/effect order"
+  "CampaignStrategicEvent::DelayedMercQuote"
+  "DelayedSayingOfMercQuote( pEvent->uiParam )")
+require_campaign_strategic_event_route(
+  "case EVENT_DELAY_SOMEONE_IN_SECTOR_MSGBOX:"
+  "case EVENT_SECTOR_H8_DONT_WAIT_IN_SECTOR:"
+  "Delayed sector message routing changed campaign/effect order"
+  "CampaignStrategicEvent::DelayedSomeoneInSectorMessage"
+  "SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector()")
+require_campaign_strategic_event_route(
+  "case EVENT_SECTOR_H8_DONT_WAIT_IN_SECTOR:"
+  "case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:"
+  "H8 warning routing changed campaign/effect order"
+  "CampaignStrategicEvent::SectorH8Warning"
+  "HandleSayingDontStayToLongWarningInSectorH8()")
+require_campaign_strategic_event_route(
+  "case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:"
+  "case EVENT_CRIPPLED_VERSION_END_GAME_CHECK:"
+  "Enrico understanding routing changed campaign/effect order"
+  "CampaignStrategicEvent::EnricoUnderstandingEmail"
+  "HandleEnricosUnderstandingEmail()")
+require_campaign_strategic_event_route(
+  "case EVENT_PMC_EMAIL:"
+  "case EVENT_PMC_REINFORCEMENT_ARRIVAL:"
+  "PMC introduction routing changed campaign/effect order"
+  "CampaignStrategicEvent::PmcIntroductionEmail"
+  "AddEmail(JA2_EMAIL_PMC_INTRO")
+require_campaign_strategic_event_route(
+  "case EVENT_KINGPIN_BOUNTY_INITIAL:"
+  "case EVENT_KINGPIN_BOUNTY_END_KILLEDTHEM:"
+  "Initial Kingpin bounty routing changed gate/effect order"
+  "CampaignStrategicEvent::KingpinBountyInitial"
+  "break;"
+  "gMercProfiles[KINGPIN]"
+  "StartQuest( QUEST_KINGPIN_ANGEL_MARIA"
+  "AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_INITIAL")
+require_campaign_strategic_event_route(
+  "case EVENT_KINGPIN_BOUNTY_END_KILLEDTHEM:"
+  "case EVENT_KINGPIN_BOUNTY_END_TIME_PASSED:"
+  "Completed Kingpin bounty routing changed gate/effect order"
+  "CampaignStrategicEvent::KingpinBountyKilledThem"
+  "break;"
+  "gMercProfiles[KINGPIN]"
+  "AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_REWARD"
+  "AddTransactionToPlayersBook( ANONYMOUS_DEPOSIT"
+  "EndQuest( QUEST_KINGPIN_ANGEL_MARIA")
+require_campaign_strategic_event_route(
+  "case EVENT_KINGPIN_BOUNTY_END_TIME_PASSED:"
+  "case EVENT_ASD_UPDATE:"
+  "Expired Kingpin bounty routing changed gate/effect order"
+  "CampaignStrategicEvent::KingpinBountyTimePassed"
+  "break;"
+  "gMercProfiles[MARIA]"
+  "AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_ANGEL_THANKS"
+  "gMercProfiles[KINGPIN]"
+  "AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_TARGET_FOUND"
+  "EndQuest( QUEST_KINGPIN_ANGEL_MARIA")
+require_campaign_strategic_event_route(
+  "case EVENT_MILITIAROSTER_EMAIL:"
+  "case EVENT_WEATHER_NORMAL:"
+  "Militia-roster routing changed campaign/effect order"
+  "CampaignStrategicEvent::MilitiaRosterEmail"
+  "AddEmail(JA2_EMAIL_MILITIA_ROSTER_INTRO")
+require_campaign_strategic_event_route(
+  "case EVENT_INTEL_ENRICO_EMAIL:"
+  "case EVENT_INTEL_PHOTOFACT_VERIFY:"
+  "Intel introduction routing changed campaign/effect order"
+  "CampaignStrategicEvent::IntelEnricoEmail"
+  "AddEmail(JA2_EMAIL_INTEL_INTRO")
+
+foreach(required_campaign_strategic_event_test_manifest_fragment IN ITEMS
+    "add_executable(campaign_strategic_event_policy_tests"
+    "campaign_strategic_event_policy_tests.cpp"
+    "add_test(NAME campaign_strategic_event_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_strategic_event_test_manifest_fragment}"
+    required_campaign_strategic_event_test_manifest_position)
+  if(required_campaign_strategic_event_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-event policy lost test manifest '${required_campaign_strategic_event_test_manifest_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_strategic_event_policy_tests"
+  runtime_campaign_strategic_event_test_manifest_matches
+  "${runtime_campaign_policy_test_build_contents}")
+list(LENGTH runtime_campaign_strategic_event_test_manifest_matches
+  runtime_campaign_strategic_event_test_manifest_count)
+if(NOT runtime_campaign_strategic_event_test_manifest_count EQUAL 4)
+  message(FATAL_ERROR
+    "Campaign strategic-event test target manifest count changed")
+endif()
+string(REGEX MATCHALL "campaign_strategic_event_policy_tests"
+  runtime_campaign_strategic_event_ci_matches
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_strategic_event_ci_matches
+  runtime_campaign_strategic_event_ci_count)
+if(NOT runtime_campaign_strategic_event_ci_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one strategic-event policy target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_strategic_event_policy_tests.cpp"
+  runtime_campaign_strategic_event_test_contents)
+foreach(required_campaign_strategic_event_test_fragment IN ITEMS
+    "all fourteen strategic event kinds are classified exactly once"
+    "Arulco routes only its nine strategic event kinds"
+    "UB routes only its five strategic event kinds"
+    "editor capability does not change campaign event routing"
+    "rejected campaigns never evaluate event effects"
+    "unknown strategic event kinds are unavailable"
+    "initial-sector option remains behind the UB event gate"
+    "initial-sector effect remains behind the live option"
+    "meanwhile delay remains behind the Arulco event gate"
+    "Arulco keeps delay before meanwhile effects")
+  string(FIND "${runtime_campaign_strategic_event_test_contents}"
+    "${required_campaign_strategic_event_test_fragment}"
+    required_campaign_strategic_event_test_position)
+  if(required_campaign_strategic_event_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-event coverage lost '${required_campaign_strategic_event_test_fragment}'")
+  endif()
+endforeach()
 
 # Strategic-map guidance and campaign hooks are selected from the live
 # capability set. Both paths must remain compiled in every host, and the
@@ -4132,6 +4482,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_progress_policy_tests"
     "campaign_quest_policy_tests"
     "campaign_strategic_ai_scenario_policy_tests"
+    "campaign_strategic_event_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
     "${required_campaign_follow_through_ci_target}"
@@ -4161,13 +4512,16 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignNpcPolicy"
     "CampaignProgressPolicy"
     "CampaignQuestPolicy"
+    "CampaignStrategicEventPolicy"
+    "109 sites across 32 files"
+    "104 live-context calls"
     "all 34 executable call sites"
     "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All seventeen policies"
+    "All eighteen policies"
     "All six former guards in `Tactical/Campaign.cpp`"
     "JA25 strategic-AI scenario origin now crosses the application boundary"
     "Fifteen strategic-AI entry points take one fresh origin value per invocation"
@@ -4196,6 +4550,10 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "84-common/14-variant Laptop partition"
     "Tactical door behavior now selects through the value-only"
     "The strategic map screen now selects campaign behavior"
+    "`ExecuteStrategicEvent` now routes its complete campaign-specific callback"
+    "CampaignStrategicEventPolicy"
+    "exhaustive 9-Arulco/5-UB partition"
+    "raw-selector inventory is now 109 sites across 32 files"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "Quest/fact campaign decisions now use the value-only"
@@ -12627,7 +12985,10 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
   runtime_campaign_event_hook_contents)
 foreach(required_runtime_event_fragment IN ITEMS
-    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "#include \"CampaignStrategicEventPolicy.h\""
+    "CampaignStrategicEventPolicy campaignEventPolicy("
+    "CampaignStrategicEvent::InitialSectorAttack"
+    "CampaignStrategicEvent::MeanwhileScene"
     "case EVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE:"
     "case EVENT_SAY_DELAYED_MERC_QUOTE:"
     "case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:"
