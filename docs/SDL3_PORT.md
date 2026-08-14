@@ -32,7 +32,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
 | 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS, and Windows**. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
-| ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely. `Multiplayer/mp_stubs.cpp` (no-op definitions, STATIC) builds on every platform; the main-menu MP button is disabled. The 32-bit Win32 `RakNetLibStatic.lib` is unused. |
+| ∞ | Multiplayer — client/server wrapper + SDL3_net compatibility shim | ✅ Built. The main-menu entry is enabled, and tagged releases package `ja2server`. This is not a protocol-interoperability claim. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
 on macOS. The resulting binary prints a "not yet implemented" notice
@@ -70,8 +70,9 @@ named phase below**; that's the work plan.
 - Touching the modding/INI/Lua interfaces.
 - Rewriting the editor as a separate concern — it must keep building
   but is not the focus.
-- Networking (Multiplayer) beyond keeping it linking; SDL_net swap is
-  out of scope.
+- Certifying multiplayer protocol interoperability or end-to-end behavior;
+  the current port establishes the client/server/netshim build, enabled menu
+  entry, and `ja2server` packaging only.
 
 ## Approach
 
@@ -373,27 +374,18 @@ will revive them:
   implementation and signing boundary are documented in
   [packaging/README.md](../packaging/README.md).
 
-### Deferred indefinitely — Multiplayer
+### Multiplayer — current build and packaging state
 
-- JA2 uses **RakNet 3.401** as a Win32 prebuilt `.lib`
-  (`Multiplayer/raknet/RakNetLibStatic.lib`, 5.3 MB). The matching
-  3.x source isn't on any public mirror — Jenkins Software's SVN
-  died with the company. Facebook open-sourced only 4.x
-  ([facebookarchive/RakNet](https://github.com/facebookarchive/RakNet))
-  and 4.x has substantial API breaks from 3.x (`RakNetworkFactory`
-  removed, `AutoRPC` removed, `RPC()` gone, `BitStream` semantics
-  changed, types namespaced).
-- [Multiplayer/mp_stubs.cpp](../Multiplayer/mp_stubs.cpp) provides
-  no-op definitions for every external symbol JA2 references from
-  the network wrapper (~50 globals like `is_networked` /
-  `is_connected`, ~70 functions like `send_path` / `send_fire` /
-  `NetworkAutoStart`, plus `CTransferRules`). The `Multiplayer`
-  CMake target builds `mp_stubs.cpp` on non-Windows; on Windows it
-  builds the three wrapper files and links RakNet as before.
-- Reviving multiplayer on non-Windows = vendoring RakNet 4 + porting
-  JA2's wrapper code (~327 RakNet API references) per the upstream
-  `3.x_to_4.x_upgrade.txt`, **or** retargeting to a different netlib
-  (SDL3_net, enet, asio). Multi-day project either way.
+- The `Multiplayer` CMake target builds `client.cpp`, `server.cpp`,
+  `transfer_rules.cpp`, and `netshim/netshim.cpp`. The shim supplies the
+  RakNet 3.401 API surface used by the wrapper over SDL3_net; neither
+  `mp_stubs.cpp` nor the old 32-bit Win32 `RakNetLibStatic.lib` is part of
+  that target.
+- The main-menu Multiplayer entry is enabled.
+- Tagged release jobs build `ja2server` and package it with its sample
+  configuration and README on Linux, macOS, and Windows. These source, menu,
+  and packaging facts do not by themselves establish protocol interoperability
+  or end-to-end multiplayer behavior.
 
 ### Other clang-strictness fixes landed in Phase 1
 
@@ -1519,8 +1511,9 @@ _None currently open._
 1. **Lua 5.1 vs Lua 5.4** — the master-branch TODO mentions building
    Lua from source. JA2 mods may depend on 5.1 semantics. Default:
    stay on 5.1.x source build, defer any version bump.
-2. **Multiplayer long-term** — RakNet 4 port, SDL3_net swap, or just
-   leave it Windows-only forever? Question for the maintainers.
+2. **Multiplayer validation** — protocol interoperability and end-to-end
+   behavior remain to be established. The client/server/netshim build, enabled
+   menu entry, and packaged `ja2server` do not answer those questions.
 3. **Editor builds** — JA2MAPEDITOR / JA2UBMAPEDITOR targets must
    keep building. Should they share the SDL3 surface or stay legacy?
 4. **Threading** — once Phase 2 ports Timer Control to std::thread,

@@ -51,7 +51,7 @@ and have fun. :)
 | Cinematics | Smacker via `binkw32.lib` / `SMACKW32.LIB` | libsmacker (Bink path stubbed — no shipped `.bik`) |
 | Dependencies | prebuilt MSVC `.lib` blobs in-tree | built from source (FetchContent) / vendored |
 | Display shim | cnc-ddraw | none — SDL3 owns the window & scaling |
-| Multiplayer | RakNet (32-bit Win32 `.lib`) | stubbed / disabled (not ported) |
+| Multiplayer | RakNet (32-bit Win32 `.lib`) | client/server wrapper and SDL3_net `netshim` built; menu entry enabled; `ja2server` packaged |
 
 
 ## Dependencies
@@ -169,7 +169,11 @@ fullscreen and scaling on every platform.
 The port landed in phases (see [`docs/SDL3_PORT.md`](docs/SDL3_PORT.md) for the
 full plan). Window, input, video, audio and cinematics are all SDL3-backed,
 colour is 32-bit internally, and the build is CMake-only with dependencies
-pulled from source. Multiplayer is deferred (currently stubbed).
+pulled from source. The `Multiplayer` target now builds the client/server
+wrapper and SDL3_net compatibility shim. The main-menu entry is enabled, and
+tagged releases package `ja2server`. These statements cover build, menu, and
+packaging state only; they do not assert protocol interoperability or
+end-to-end multiplayer behavior.
 
 Mod authors can optionally wrap existing content in a validated, dependency-
 ordered [Data Package](docs/DATA_PACKAGES.md) manifest. Version 4 can select a
