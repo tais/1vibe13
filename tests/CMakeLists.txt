@@ -208,6 +208,16 @@ target_include_directories(campaign_strategic_ai_scenario_policy_tests
 add_test(NAME campaign_strategic_ai_scenario_policy
   COMMAND campaign_strategic_ai_scenario_policy_tests)
 
+# Strategic-event callback ownership is selected from the live campaign. This
+# dependency-free target pins all fourteen routes plus the two live probes that
+# must remain behind their campaign gates.
+add_executable(campaign_strategic_event_policy_tests
+  campaign_strategic_event_policy_tests.cpp)
+target_include_directories(campaign_strategic_event_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_strategic_event_policy
+  COMMAND campaign_strategic_event_policy_tests)
+
 # Strategic-map guidance, custom-map processing, meanwhile scenes, and the UB
 # strategic hooks are selected from the live campaign rather than JA2UB.
 add_executable(campaign_map_screen_policy_tests
