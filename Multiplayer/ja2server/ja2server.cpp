@@ -1,9 +1,10 @@
 // ============================================================================
 //  ja2server -- standalone JA2 1.13 multiplayer coordinator / relay server.
 //
-//  Speaks the netshim (RakNet-3.401-compat over SDL3_net TCP) wire protocol, so
-//  stock JA2 MP clients connect to it UNCHANGED. Unlike the old "--dedicated"
-//  headless-game mode, this is a PURE coordinator: no game engine, no SDL video,
+//  Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. Protocol
+//  interoperability with in-game clients and end-to-end multiplayer behavior
+//  remain experimental and unverified. Unlike the old "--dedicated" headless-
+//  game mode, this is a PURE coordinator: no game engine, no SDL video,
 //  no game loop, and -- crucially -- NO loopback "player 1". The server is never
 //  a participant; it only assigns client numbers, brokers the lobby/start
 //  handshake, and relays in-game RPC traffic between the real clients.
