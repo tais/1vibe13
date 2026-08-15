@@ -31,6 +31,54 @@ EXPECTED_RELEASE_PLATFORMS = {
     ("macos-latest", "macos", "macos"),
     ("windows-latest", "windows", "windows"),
 }
+NSIS_DOWNLOAD_STEP = "Download checksum-pinned NSIS compiler"
+NSIS_URL = (
+    "https://downloads.sourceforge.net/project/nsis/"
+    "NSIS%203/3.12/nsis-3.12.zip")
+NSIS_SHA256 = (
+    "56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f")
+NSIS_STEP_PREFIX = (
+    "      - name: Download checksum-pinned NSIS compiler\n"
+    "        if: matrix.platform.name == 'windows'\n"
+    "        shell: pwsh\n"
+    "        run: |\n")
+NSIS_SETUP_BLOCK = (
+    "          $ErrorActionPreference = 'Stop'\n"
+    "          $tools = Join-Path $PWD '.release-tools'\n"
+    "          New-Item -ItemType Directory -Force $tools | Out-Null\n"
+    "          $archive = Join-Path $tools 'nsis-3.12.zip'\n")
+NSIS_URL_LINE = f"          $url = '{NSIS_URL}'\n"
+NSIS_EXPECTED_LINE = f"          $expected = '{NSIS_SHA256}'\n"
+NSIS_CURL_BLOCK = (
+    "          & curl.exe --proto '=https' --tlsv1.2 --fail --location `\n"
+    "            --retry 5 --retry-all-errors --output $archive $url\n"
+    "          if ($LASTEXITCODE -ne 0) {\n"
+    "            throw \"NSIS archive download failed with curl exit code "
+    "$LASTEXITCODE\"\n"
+    "          }\n")
+NSIS_HASH_BLOCK = (
+    "          $actual = (Get-FileHash -Algorithm SHA256 "
+    "$archive).Hash.ToLowerInvariant()\n"
+    "          if ($actual -ne $expected) {\n"
+    "            throw \"NSIS archive checksum mismatch: expected $expected, "
+    "got $actual\"\n"
+    "          }\n")
+NSIS_EXPAND_LINE = (
+    "          Expand-Archive -LiteralPath $archive -DestinationPath $tools\n")
+NSIS_COMPILER_BLOCK = (
+    "          # Use the portable distribution's public launcher. It resolves "
+    "the\n"
+    "          # matching compiler and its Include/Contrib/Stubs directories.\n"
+    "          $compiler = Join-Path $tools 'nsis-3.12/makensis.exe'\n"
+    "          if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) {\n"
+    "            throw \"NSIS compiler was not present after extraction\"\n"
+    "          }\n"
+    "          \"NSIS_MAKENSIS=$compiler\" | Out-File -FilePath "
+    "$env:GITHUB_ENV -Append\n")
+NSIS_EXPECTED_STEP = (
+    NSIS_STEP_PREFIX + NSIS_SETUP_BLOCK + NSIS_URL_LINE + NSIS_EXPECTED_LINE
+    + NSIS_CURL_BLOCK + NSIS_HASH_BLOCK + NSIS_EXPAND_LINE
+    + NSIS_COMPILER_BLOCK + "\n")
 
 
 def release_steps(contents: str) -> list[tuple[str, str]]:
@@ -179,6 +227,46 @@ def validate_release_workflow(contents: str) -> None:
         fail("macOS signing step lost: " + ", ".join(missing))
 
 
+def validate_nsis_download(workflow: str) -> None:
+    """Require the bounded, fail-closed NSIS acquisition statement sequence."""
+
+    matches = [body for name, body in release_steps(package_job(workflow))
+               if name == NSIS_DOWNLOAD_STEP]
+    if len(matches) != 1:
+        fail("release workflow must contain exactly one active NSIS download step")
+    step = matches[0]
+
+    if mapping_key("continue-on-error", 8).search(step):
+        fail("NSIS download failures must block packaging")
+    conditions = re.findall(
+        r"(?m)^ {8}(?:if|'if'|\"if\")\s*:[^\n]*$", step)
+    if conditions != ["        if: matrix.platform.name == 'windows'"]:
+        fail("NSIS download must retain only its Windows matrix condition")
+    if re.search(r"(?m)^ {8}<<\s*:", step):
+        fail("NSIS download step must not inherit hidden YAML controls")
+    if "Invoke-WebRequest" in step:
+        fail("NSIS download must not use Invoke-WebRequest")
+    if NSIS_URL_LINE not in step:
+        fail("NSIS download must retain its exact SourceForge URL assignment")
+    if NSIS_CURL_BLOCK not in step:
+        fail("NSIS download must use the pinned curl.exe transport contract")
+    if NSIS_EXPECTED_LINE not in step or NSIS_HASH_BLOCK not in step:
+        fail("NSIS download must retain its exact SHA-256 verification contract")
+    ordered_blocks = (
+        NSIS_URL_LINE,
+        NSIS_EXPECTED_LINE,
+        NSIS_CURL_BLOCK,
+        NSIS_HASH_BLOCK,
+        NSIS_EXPAND_LINE,
+    )
+    positions = [step.find(block) for block in ordered_blocks]
+    if min(positions) < 0 or positions != sorted(positions):
+        fail("NSIS download must directly order curl, exit gate, hash, "
+             "mismatch gate, then extraction")
+    if step != NSIS_EXPECTED_STEP:
+        fail("NSIS download step contains unapproved controls or statements")
+
+
 def validate_release_packaging(
         workflow: str,
         windows_installer: str,
@@ -186,6 +274,8 @@ def validate_release_packaging(
         appimage_build: str,
         appimage_run: str) -> None:
     """Ratchet legacy zips, native packages, pins, and uninstall safety."""
+
+    validate_nsis_download(workflow)
 
     legacy_fragments = (
         "{ os: ubuntu-latest,    name: linux,       family: linux }",
@@ -233,9 +323,8 @@ def validate_release_packaging(
 
     windows_fragments = (
         "- name: Download checksum-pinned NSIS compiler",
-        "NSIS%203/3.12/nsis-3.12.zip",
-        "56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f",
-        "Get-FileHash -Algorithm SHA256",
+        NSIS_URL,
+        NSIS_SHA256,
         "nsis-3.12/makensis.exe",
         "- name: Build native Windows installer",
         '"/DRELEASE_LABEL=$env:RELEASE_LABEL"',
