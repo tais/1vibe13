@@ -1562,7 +1562,12 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 
 	lua_register(L, "InitMercFace", l_InitFace);
 
-#ifdef JA2UB	
+	const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy =
+		ReadCampaignLuaGlobalPolicy();
+	const bool registerUnfinishedBusinessCallbacks =
+		campaignLuaGlobalPolicy.registersUnfinishedBusinessCallbacks();
+	if (registerUnfinishedBusinessCallbacks)
+	{
 	lua_register(L, "AddProfileToMap", l_InitMapProfil);
 
 	lua_register(L, "SetKeyProfile", l_SetKeySoldier); // tactical mode
@@ -1620,7 +1625,7 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 	lua_register(L, "UB_HandlePlayerHittingSwitchToLaunchMissles", l_HandlePlayerHittingSwitchToLaunchMissles);
 	lua_register(L, "UB_HavePersonAtGridnoStop", l_HavePersonAtGridnoStop);
 
-#endif	
+	}
 
 	lua_register(L, "WhoIsThere2", l_WhoIsThere2);
 
@@ -1632,12 +1637,13 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 
 	lua_register(L, "SetCurrentWorldSector", l_SetCurrentWorldSector);
 
-#ifdef JA2UB
-	//old compatibility script variable 
+	if (registerUnfinishedBusinessCallbacks)
+	{
+	//old compatibility script variable
 	lua_register(L, "EnterTacticalInFinalSector", l_EnterTacticalInFinalSector);
 	//new
 	lua_register(L, "UB_EnterTacticalInFinalSector", l_EnterTacticalInFinalSector);
-#endif
+	}
 
 	lua_register(L, "ReStartingGame", l_ReStartingGame);
 
@@ -1649,7 +1655,8 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 
 	lua_register(L, "InitialProfile", l_InitProfile);
 
-#ifdef JA2UB
+	if (registerUnfinishedBusinessCallbacks)
+	{
 	//old scripts
 	lua_register(L, "InitialHeliGridNo1", l_InitMercgridNo0);
 	lua_register(L, "InitialHeliGridNo2", l_InitMercgridNo1);
@@ -1689,7 +1696,7 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 	lua_register(L, "UB_InitialHeli", l_setInGameHeli);
 
 	lua_register(L, "UB_InternalLocateGridNo", l_SetInternalLocateGridNo);
-#endif
+	}
 
 	//lua_register(L, "ExecuteTacticalTextBox", l_ExecuteTacticalTextBox);
 

@@ -281,9 +281,16 @@ The implementation side of the Lua UB callback surface is now available in
 every host. `Strategic/LuaInitNPCs.cpp` unconditionally includes the JA25
 strategic, tactical, update, end-game, and typed arrival-mutation contracts;
 its exact 40 formerly guarded callback definitions and declarations therefore
-compile for JA2, UB, and both editor compositions. The three registration
-blocks remain deliberately host-gated for the next runtime-registration slice,
-with their exact 40 + 2 + 28 public-name/function mappings and order unchanged.
+compile for JA2, UB, and both editor compositions. Its three registration
+blocks now use one fresh `CampaignLuaGlobalPolicy` value read immediately after
+`InitMercFace` and one cached Boolean reused at all three original positions.
+Arulco and unknown campaign values expose none of the selected names; UB
+exposes all 40 + 2 + 28 mappings in their exact established order, independent
+of editor state. The 512 common registrations, 34 executable callers, and
+`bQuests` behavior remain unchanged. A dependency-free fake-registration trace
+pins 70 unique names, 42 callbacks, 28 compatibility alias pairs, the late
+single read, and per-invocation freeze/refresh, while source checks hash the
+complete 582-entry sequence and reject preprocessor or helper bypasses.
 The fourteen arrival-setting callbacks retain their original Lua argument
 guards, `lua_tointeger`/`lua_toboolean` conversions, and zero return counts,
 but their sixteen direct legacy writes now cross eight narrow semantic APIs.
@@ -424,14 +431,14 @@ adapter until all such consumers have moved to typed content.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 31 active conditionals in 14
+milestone its per-file baseline contains 28 active conditionals in 13
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
 | Tactical gameplay/content | 15 |
-| Strategic gameplay/content | 3 |
+| Strategic gameplay/content | 0 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 0 |
 | Editor | 1 |
@@ -512,7 +519,8 @@ The largest individual legacy leaves are:
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
 | `Ja2/GameVersion.cpp` | 3 |
-| `Strategic/LuaInitNPCs.cpp` | 3 |
+| `Tactical/Soldier Add.cpp` | 3 |
+| `Tactical/TeamTurns.cpp` | 3 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime

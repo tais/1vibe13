@@ -1489,9 +1489,18 @@ the engine must not contain SDL types in its public domain model.
   occurrences across 34 files.
 - `Strategic/LuaInitNPCs.cpp` now compiles its exact 40 formerly guarded UB
   callback definitions, declarations, and required JA25 dependencies in every
-  host. The exact three registration islands remain the only `JA2UB` guards in
-  that file and retain all 40 + 2 + 28 public-name/function mappings in their
-  established order for the subsequent runtime-registration slice. Fourteen
+  host, and has no remaining `JA2UB` guard. `IniFunction` retains all
+  40 + 2 + 28 public-name/function mappings at their original three positions,
+  but reads one fresh value-only `CampaignLuaGlobalPolicy` immediately after
+  `InitMercFace`, caches one registration decision, and reuses it across all
+  three direct gates. Arulco exports none of those names; UB exports all 70 in
+  the established order. Editor state is orthogonal and unknown campaign
+  values fail closed. The 512 common registrations, exact 34 live callers,
+  two `bQuests` gates, and overwrite order of four duplicate common names are
+  unchanged.
+  A dependency-free fake registrar pins the 70 unique names, 42 callbacks,
+  28 compatibility alias pairs, late single read, and invocation freeze and
+  refresh; source ratchets pin the complete 582-entry sequence. Fourteen
   arrival-setting callbacks keep their exact Lua argument-count checks,
   integer/Boolean conversions, and return counts while eight typed semantic
   APIs move all sixteen direct `gGameUBOptions` writes into `ub_config.cpp`.
@@ -1505,6 +1514,8 @@ the engine must not contain SDL types in its public domain model.
   fallback 7,8. The selector ratchet remains 104 sites across 29 files. The UB
   boundary is now 252 executable/254 raw external occurrences across 31
   consumers and 552 executable/554 raw total occurrences across 33 files.
+  The campaign compile-guard baseline is now 28 conditionals across 13 files,
+  with zero remaining in Strategic.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,
