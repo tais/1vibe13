@@ -1,6 +1,7 @@
 #ifndef _LUAGLOBAL_H
 #define _LUAGLOBAL_H
 
+#include "CampaignLuaGlobalPolicy.h"
 #include "types.h"
 
 extern "C" {
@@ -26,5 +27,6 @@ extern "C" {
 // --------------------------
 
 void  IniGlobalGameSetting(lua_State *L);
+CampaignLuaGlobalPolicy ReadCampaignLuaGlobalPolicy();
 
 #endif

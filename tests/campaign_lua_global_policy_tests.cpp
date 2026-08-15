@@ -87,6 +87,17 @@ int main()
 				.exportsUnfinishedBusinessCharacterAndItemGlobals();
 		}, true, "UB publishes the established character and item globals");
 
+	Check(!arulco
+		.mirrorsDefaultArrivalSectorToUnfinishedBusinessState() &&
+		arulco.invalidDefaultArrivalSector().x == 9 &&
+		arulco.invalidDefaultArrivalSector().y == 1,
+		"Arulco leaves JA25 arrival state untouched and keeps fallback 9,1");
+	Check(unfinishedBusiness
+		.mirrorsDefaultArrivalSectorToUnfinishedBusinessState() &&
+		unfinishedBusiness.invalidDefaultArrivalSector().x == 7 &&
+		unfinishedBusiness.invalidDefaultArrivalSector().y == 8,
+		"UB mirrors default arrival state and keeps fallback 7,8");
+
 	std::cout << "campaign Lua-global policy tests passed\n";
 	return 0;
 }

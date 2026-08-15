@@ -4270,17 +4270,17 @@ if(NOT runtime_campaign_context_selector_count EQUAL 99 OR
   message(FATAL_ERROR
     "Raw runtime campaign selector inventory changed from the reviewed 99 context + 4 cached-campaign + 1 active-package leaves across 29 files")
 endif()
-if(NOT runtime_campaign_raw_option_consumer_count EQUAL 32 OR
-    NOT runtime_campaign_external_option_executable_count EQUAL 268 OR
-    NOT runtime_campaign_external_option_raw_count EQUAL 270)
+if(NOT runtime_campaign_raw_option_consumer_count EQUAL 31 OR
+    NOT runtime_campaign_external_option_executable_count EQUAL 252 OR
+    NOT runtime_campaign_external_option_raw_count EQUAL 254)
   message(FATAL_ERROR
-    "External UB option inventory changed from the reviewed 268 executable + 270 raw occurrences across 32 files")
+    "External UB option inventory changed from the reviewed 252 executable + 254 raw occurrences across 31 files")
 endif()
 if(NOT runtime_campaign_total_option_executable_count EQUAL 552 OR
     NOT runtime_campaign_total_option_raw_count EQUAL 554 OR
-    NOT runtime_campaign_total_option_file_count EQUAL 34)
+    NOT runtime_campaign_total_option_file_count EQUAL 33)
   message(FATAL_ERROR
-    "Total UB option inventory changed from the reviewed 552 executable + 554 raw occurrences across 34 files")
+    "Total UB option inventory changed from the reviewed 552 executable + 554 raw occurrences across 33 files")
 endif()
 if(NOT runtime_campaign_scenario_origin_substring_count EQUAL 8 OR
     NOT runtime_campaign_scenario_origin_save_carrier_count EQUAL 5 OR
@@ -5714,10 +5714,10 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "39 active conditionals in 14"
+    "31 active conditionals in 14"
     "Laptop content/pages | 4"
     "Tactical gameplay/content | 15"
-    "Strategic gameplay/content | 11"
+    "Strategic gameplay/content | 3"
     "CampaignDoorPolicy"
     "CampaignGunCommentPolicy"
     "CampaignCivilianQuotePolicy"
@@ -5752,8 +5752,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "Fifteen strategic-AI entry points take one fresh origin value per invocation"
     "Zero selects custom state, one selects built-in state"
     "no direct access to the raw member; its only two accesses are the getter and setter"
-    "268 executable and 270 raw external occurrences"
-    "552 executable and 554 raw occurrences")
+    "252 executable and 254 raw external occurrences"
+    "552 executable and 554 raw occurrences across 33")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -5819,7 +5819,12 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "297 executable/299 raw external option occurrences"
     "561 executable/563 raw total occurrences"
     "268 executable/270 raw external option occurrences across 32 consumers"
-    "552 executable/554 raw total occurrences across 34 files")
+    "552 executable/554 raw total occurrences across 34 files"
+    "exact 40 formerly guarded UB callback definitions"
+    "40 + 2 + 28 public-name/function mappings"
+    "all sixteen direct `gGameUBOptions` writes"
+    "252 executable/254 raw external occurrences across 31"
+    "552 executable/554 raw total occurrences across 33 files")
   string(FIND "${runtime_campaign_architecture_normalized}"
     "${required_campaign_architecture_fragment}"
     required_campaign_architecture_position)
@@ -5834,7 +5839,8 @@ foreach(required_runtime_campaign_todo_fragment IN ITEMS
     "CampaignStrategicEventPolicy now owns the complete 14-route dispatcher table"
     "CampaignStrategicContentPolicy retired the seven remaining Strategic gameplay guards"
     "CampaignApplicationPolicy now gates both UB-options bootstrap calls"
-    "CampaignMercenaryArrivalContent removed Merc Hiring's three raw selectors and 29 external UB reads")
+    "CampaignMercenaryArrivalContent removed Merc Hiring's three raw selectors and 29 external UB reads"
+    "LuaInitNPCs now compiles all 40 UB callback definitions on every host")
   string(FIND "${runtime_campaign_todo_contents}"
     "${required_runtime_campaign_todo_fragment}"
     required_runtime_campaign_todo_position)
@@ -7145,7 +7151,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
   runtime_campaign_npc_guard_baseline_contents)
 string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
-  "\"total\": 39" runtime_campaign_npc_guard_total_position)
+  "\"total\": 31" runtime_campaign_npc_guard_total_position)
 if(runtime_campaign_npc_guard_total_position EQUAL -1)
   message(FATAL_ERROR
     "Campaign compile-guard baseline does not match the migrated runtime-policy tail")
@@ -7181,7 +7187,10 @@ foreach(required_campaign_lua_global_policy_fragment IN ITEMS
     "usesUnfinishedBusinessArrivalGrid"
     "exportsUnfinishedBusinessScenarioGlobals"
     "exportsUnfinishedBusinessTestGlobal"
-    "exportsUnfinishedBusinessCharacterAndItemGlobals")
+    "exportsUnfinishedBusinessCharacterAndItemGlobals"
+    "struct CampaignLuaDefaultArrivalSector"
+    "mirrorsDefaultArrivalSectorToUnfinishedBusinessState"
+    "invalidDefaultArrivalSector")
   string(FIND "${runtime_campaign_lua_global_policy_contents}"
     "${required_campaign_lua_global_policy_fragment}"
     required_campaign_lua_global_policy_position)
@@ -7201,6 +7210,8 @@ foreach(required_campaign_lua_global_policy_result IN ITEMS
     "exportsUnfinishedBusinessScenarioGlobals() const noexcept { return isUnfinishedBusiness(); }"
     "exportsUnfinishedBusinessTestGlobal() const noexcept { return isUnfinishedBusiness(); }"
     "exportsUnfinishedBusinessCharacterAndItemGlobals() const noexcept { return isUnfinishedBusiness(); }"
+    "mirrorsDefaultArrivalSectorToUnfinishedBusinessState() const noexcept { return isUnfinishedBusiness(); }"
+    "invalidDefaultArrivalSector() const noexcept { return isUnfinishedBusiness() ? CampaignLuaDefaultArrivalSector{7, 8} : CampaignLuaDefaultArrivalSector{9, 1}; }"
     "return campaign_ == GameCampaign::UnfinishedBusiness;")
   string(FIND "${runtime_campaign_lua_global_policy_normalized}"
     "${required_campaign_lua_global_policy_result}"
@@ -7223,8 +7234,10 @@ endif()
 foreach(required_campaign_lua_global_source_fragment IN ITEMS
     "#include \"CampaignLuaGlobalPolicy.h\""
     "#include \"GameContext.h\""
-    "const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy("
-    "GetGameContext().capabilities())")
+    "CampaignLuaGlobalPolicy ReadCampaignLuaGlobalPolicy()"
+    "return CampaignLuaGlobalPolicy(GetGameContext().capabilities())"
+    "const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy ="
+    "ReadCampaignLuaGlobalPolicy()")
   string(FIND "${runtime_campaign_lua_global_source_executable}"
     "${required_campaign_lua_global_source_fragment}"
     required_campaign_lua_global_source_position)
@@ -7577,6 +7590,22 @@ if(runtime_campaign_lua_global_signature_position EQUAL -1)
   message(FATAL_ERROR
     "Lua-global initializer changed its established void Lua-state API")
 endif()
+string(FIND "${runtime_campaign_lua_global_header_executable}"
+  "CampaignLuaGlobalPolicy ReadCampaignLuaGlobalPolicy();"
+  runtime_campaign_lua_global_policy_adapter_signature_position)
+if(runtime_campaign_lua_global_policy_adapter_signature_position EQUAL -1)
+  message(FATAL_ERROR
+    "Lua-global policy adapter lost its fresh value-returning API")
+endif()
+string(REGEX MATCHALL "GetGameContext"
+  runtime_campaign_lua_global_context_reads
+  "${runtime_campaign_lua_global_source_executable}")
+list(LENGTH runtime_campaign_lua_global_context_reads
+  runtime_campaign_lua_global_context_read_count)
+if(NOT runtime_campaign_lua_global_context_read_count EQUAL 1)
+  message(FATAL_ERROR
+    "Lua-global policy adapter must retain exactly one live context selector")
+endif()
 file(READ "${SOURCE_ROOT}/Strategic/CMakeLists.txt"
   runtime_campaign_lua_global_build_contents)
 string(REGEX MATCHALL "Luaglobal\\.cpp"
@@ -7639,7 +7668,9 @@ foreach(required_campaign_lua_global_test_fragment IN ITEMS
     "UB reads only its LOCATEGRIDNO arrival grid"
     "Arulco does not read UB scenario globals"
     "Arulco does not read the UB test global"
-    "Arulco does not read UB character or item globals")
+    "Arulco does not read UB character or item globals"
+    "Arulco leaves JA25 arrival state untouched and keeps fallback 9,1"
+    "UB mirrors default arrival state and keeps fallback 7,8")
   string(FIND "${runtime_campaign_lua_global_test_contents}"
     "${required_campaign_lua_global_test_fragment}"
     required_campaign_lua_global_test_position)
@@ -8467,6 +8498,758 @@ foreach(required_campaign_mercenary_arrival_test_fragment IN ITEMS
   if(required_campaign_mercenary_arrival_test_position EQUAL -1)
     message(FATAL_ERROR
       "Mercenary-arrival coverage lost '${required_campaign_mercenary_arrival_test_fragment}'")
+  endif()
+endforeach()
+
+# Lua-authored arrival mutations cross a typed write-only application seam.
+# All legacy record writes stay in ub_config, while every host compiles the
+# formerly guarded callback implementations. The three registration islands
+# remain deliberately guarded until runtime registration is selected.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryArrivalMutators.h"
+  runtime_campaign_lua_arrival_mutator_header_contents)
+reject_cxx_raw_string_literals(
+  runtime_campaign_lua_arrival_mutator_header_contents
+  "Campaign Lua-arrival mutator contract cannot be source-ratcheted")
+strip_cxx_comments_and_literals(
+  runtime_campaign_lua_arrival_mutator_header_contents
+  runtime_campaign_lua_arrival_mutator_header_code)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_lua_arrival_mutator_header_normalized
+  "${runtime_campaign_lua_arrival_mutator_header_code}")
+if(runtime_campaign_lua_arrival_mutator_header_code MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h|GameContext|GetGameContext|void[ 	]*[*]")
+  message(FATAL_ERROR
+    "Campaign Lua-arrival mutators exposed application storage, context, or a generic pointer")
+endif()
+foreach(required_campaign_lua_arrival_mutator_header_fragment IN ITEMS
+    "enum class CampaignMercenaryHelicopterArrivalSlot : std::uint8_t"
+    "First, Second, Third, Fourth, Fifth, Sixth, Seventh"
+    "enum class CampaignMercenaryJerryGridUpdate : std::uint8_t"
+    "Preserve, Requested, LegacyFallback"
+    "struct CampaignMercenaryJerryMutation"
+    "inline constexpr std::uint32_t CampaignMercenaryLegacyJerryGridNo = 15943;"
+    "constexpr CampaignMercenaryJerryMutation PlanCampaignMercenaryJerryMutation("
+    "if (requestedGridNo > 0)"
+    "CampaignMercenaryJerryGridUpdate::Requested"
+    "if (requestedGridNo < 0)"
+    "CampaignMercenaryJerryGridUpdate::LegacyFallback"
+    "CampaignMercenaryLegacyJerryGridNo"
+    "CampaignMercenaryJerryGridUpdate::Preserve"
+    "void SetCampaignMercenaryHelicopterArrivalGrid("
+    "void SetCampaignMercenaryJerryArrivalGrid(std::uint32_t gridNo);"
+    "void SetCampaignMercenaryLaptopQuestEnabled(bool enabled);"
+    "void ConfigureCampaignMercenaryJerry("
+    "void SetCampaignMercenaryJerryQuotesEnabled(bool enabled);"
+    "void SetCampaignMercenaryHelicopterCrashEnabled(bool enabled);"
+    "void SetCampaignMercenaryHelicopterEnabled(bool enabled);"
+    "void SetCampaignMercenaryOffscreenArrivalGrid(std::uint32_t gridNo);")
+  string(FIND "${runtime_campaign_lua_arrival_mutator_header_normalized}"
+    "${required_campaign_lua_arrival_mutator_header_fragment}"
+    required_campaign_lua_arrival_mutator_header_position)
+  if(required_campaign_lua_arrival_mutator_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-arrival mutator contract lost '${required_campaign_lua_arrival_mutator_header_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "void (Set|Configure)CampaignMercenary[A-Za-z]+"
+  runtime_campaign_lua_arrival_mutator_declarations
+  "${runtime_campaign_lua_arrival_mutator_header_code}")
+list(LENGTH runtime_campaign_lua_arrival_mutator_declarations
+  runtime_campaign_lua_arrival_mutator_declaration_count)
+if(NOT runtime_campaign_lua_arrival_mutator_declaration_count EQUAL 8)
+  message(FATAL_ERROR
+    "Campaign Lua-arrival boundary must expose exactly eight semantic void mutators")
+endif()
+
+extract_bounded_slice(runtime_campaign_mercenary_arrival_adapter_code
+  "void SetCampaignMercenaryHelicopterArrivalGrid("
+  "#define"
+  runtime_campaign_lua_arrival_mutator_owner_slice
+  "Cannot isolate ub_config's Lua-arrival mutator ownership block")
+if(runtime_campaign_lua_arrival_mutator_owner_slice MATCHES
+    "(^|[\r\n])[ 	]*#[ 	]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Campaign Lua-arrival mutators must not hide owner writes behind preprocessing")
+endif()
+require_ordered_fragments(runtime_campaign_lua_arrival_mutator_owner_slice
+  "Campaign Lua-arrival owner lost a semantic command or legacy field order"
+  "void SetCampaignMercenaryHelicopterArrivalGrid("
+  "CampaignMercenaryHelicopterArrivalSlot::First"
+  "gGameUBOptions.InitialHeliGridNo[0] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Second"
+  "gGameUBOptions.InitialHeliGridNo[1] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Third"
+  "gGameUBOptions.InitialHeliGridNo[2] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Fourth"
+  "gGameUBOptions.InitialHeliGridNo[3] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Fifth"
+  "gGameUBOptions.InitialHeliGridNo[4] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Sixth"
+  "gGameUBOptions.InitialHeliGridNo[5] = gridNo"
+  "CampaignMercenaryHelicopterArrivalSlot::Seventh"
+  "gGameUBOptions.InitialHeliGridNo[6] = gridNo"
+  "void SetCampaignMercenaryJerryArrivalGrid"
+  "gGameUBOptions.JerryGridNo = gridNo"
+  "void SetCampaignMercenaryLaptopQuestEnabled"
+  "gGameUBOptions.LaptopQuestEnabled = enabled"
+  "void ConfigureCampaignMercenaryJerry("
+  "PlanCampaignMercenaryJerryMutation(includesJerry, requestedGridNo)"
+  "gGameUBOptions.InJerry = mutation.includesJerry"
+  "CampaignMercenaryJerryGridUpdate::Requested"
+  "gGameUBOptions.JerryGridNo = mutation.gridNo"
+  "CampaignMercenaryJerryGridUpdate::LegacyFallback"
+  "gGameUBOptions.JerryGridNo = mutation.gridNo"
+  "CampaignMercenaryJerryGridUpdate::Preserve"
+  "void SetCampaignMercenaryJerryQuotesEnabled"
+  "gGameUBOptions.JerryQuotes = enabled"
+  "void SetCampaignMercenaryHelicopterCrashEnabled"
+  "gGameUBOptions.InGameHeliCrash = enabled"
+  "void SetCampaignMercenaryHelicopterEnabled"
+  "gGameUBOptions.InGameHeli = enabled"
+  "void SetCampaignMercenaryOffscreenArrivalGrid"
+  "gGameUBOptions.LOCATEGRIDNO = gridNo")
+string(REGEX MATCHALL "gGameUBOptions[.]"
+  runtime_campaign_lua_arrival_owner_writes
+  "${runtime_campaign_lua_arrival_mutator_owner_slice}")
+list(LENGTH runtime_campaign_lua_arrival_owner_writes
+  runtime_campaign_lua_arrival_owner_write_count)
+if(NOT runtime_campaign_lua_arrival_owner_write_count EQUAL 16)
+  message(FATAL_ERROR
+    "ub_config must retain exactly sixteen explicit Lua-arrival legacy writes")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/LuaInitNPCs.cpp"
+  runtime_campaign_lua_callback_contents)
+reject_cxx_raw_string_literals(runtime_campaign_lua_callback_contents
+  "Lua callback source cannot be source-ratcheted")
+strip_cxx_comments(runtime_campaign_lua_callback_contents
+  runtime_campaign_lua_callback_source)
+strip_cxx_comments_and_literals(runtime_campaign_lua_callback_contents
+  runtime_campaign_lua_callback_code)
+string(REPLACE "\r\n" "\n" runtime_campaign_lua_callback_code
+  "${runtime_campaign_lua_callback_code}")
+if(runtime_campaign_lua_callback_code MATCHES "gGameUBOptions" OR
+   runtime_campaign_lua_callback_source MATCHES "ub_config[.]h")
+  message(FATAL_ERROR
+    "Lua callback source regained direct legacy UB option access")
+endif()
+foreach(required_campaign_lua_callback_include IN ITEMS
+    "#include \"Ja25 Strategic Ai.h\""
+    "#include \"Ja25_Tactical.h\""
+    "#include \"Ja25Update.h\""
+    "#include \"CampaignMercenaryArrivalMutators.h\""
+    "#include \"End Game.h\"")
+  string(FIND "${runtime_campaign_lua_callback_source}"
+    "${required_campaign_lua_callback_include}"
+    required_campaign_lua_callback_include_position)
+  if(required_campaign_lua_callback_include_position EQUAL -1)
+    message(FATAL_ERROR
+      "All-host Lua callback dependencies lost '${required_campaign_lua_callback_include}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "#[ 	]*ifdef[ 	]+JA2UB"
+  runtime_campaign_lua_callback_guards
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_callback_guards
+  runtime_campaign_lua_callback_guard_count)
+if(NOT runtime_campaign_lua_callback_guard_count EQUAL 3)
+  message(FATAL_ERROR
+    "LuaInitNPCs must retain exactly its three deferred registration guards")
+endif()
+
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_lua_callback_registration_normalized
+  "${runtime_campaign_lua_callback_source}")
+set(runtime_campaign_lua_guarded_registrations
+  "AddProfileToMap|l_InitMapProfil"
+  "SetKeyProfile|l_SetKeySoldier"
+  "UB_GetManuelID|l_Ja25MANUEL_UB"
+  "UB_GetBiggensID|l_Ja25BIGGENS_UB"
+  "UB_GetJohnID|l_Ja25JOHN_K_UB"
+  "UB_GetTexID|l_Ja25TEX_UB"
+  "UB_GetStogieID|l_Ja25STOGIE_UB"
+  "UB_GetGastonID|l_Ja25GASTON_UB"
+  "UB_GetJerryID|l_Ja2JERRY_MILO_UB"
+  "UB_GetPgmale4ID|l_Ja25PGMALE4_UB"
+  "UB_GetBettyID|l_Ja25BETTY_UB"
+  "UB_GetRaulID|l_Ja25RAUL_UB"
+  "UB_GetMorrisID|l_Ja25MORRIS_UB"
+  "UB_GetRudyID|l_Ja25RUDY_UB"
+  "Ja25JohnKulbaIsInGame|l_Ja25SaveStructJohnKulbaIsInGame"
+  "Ja25CheckJohnKulbaIsInGame|l_Ja25SaveCheckStructJohnKulbaIsInGame"
+  "Ja25JohnKulbaInitialSectorY|l_Ja25SaveStructubJohnKulbaInitialSectorY"
+  "Ja25JohnKulbaInitialSectorX|l_Ja25SaveStructubJohnKulbaInitialSectorX"
+  "SetNumberJa25EnemiesInSurfaceSector|l_SetNumberJa25EnemiesInSurfaceSector"
+  "SetNumberOfJa25BloodCatsInSector|l_SetNumberOfJa25BloodCatsInSector"
+  "HasNpcSaidQuoteBefore|l_HasNpcSaidQuoteBefore"
+  "ShouldThePlayerStopWhenWalkingOnBiggensActionItem|l_ShouldThePlayerStopWhenWalkingOnBiggensActionItem"
+  "HandleSeeingPowerGenFan|l_HandleSeeingPowerGenFan"
+  "HandleSwitchToOpenFortifiedDoor|l_HandleSwitchToOpenFortifiedDoor"
+  "HandleSeeingFortifiedDoor|l_HandleSeeingFortifiedDoor"
+  "HandlePlayerHittingSwitchToLaunchMissles|l_HandlePlayerHittingSwitchToLaunchMissles"
+  "HavePersonAtGridnoStop|l_HavePersonAtGridnoStop"
+  "UB_JohnKulbaIsInGame|l_Ja25SaveStructJohnKulbaIsInGame"
+  "UB_CheckJohnKulbaIsInGame|l_Ja25SaveCheckStructJohnKulbaIsInGame"
+  "UB_JohnKulbaInitialSectorY|l_Ja25SaveStructubJohnKulbaInitialSectorY"
+  "UB_JohnKulbaInitialSectorX|l_Ja25SaveStructubJohnKulbaInitialSectorX"
+  "UB_SetNumberJa25EnemiesInSurfaceSector|l_SetNumberJa25EnemiesInSurfaceSector"
+  "UB_SetNumberOfJa25BloodCatsInSector|l_SetNumberOfJa25BloodCatsInSector"
+  "UB_HasNpcSaidQuoteBefore|l_HasNpcSaidQuoteBefore"
+  "UB_ShouldThePlayerStopWhenWalkingOnBiggensActionItem|l_ShouldThePlayerStopWhenWalkingOnBiggensActionItem"
+  "UB_HandleSeeingPowerGenFan|l_HandleSeeingPowerGenFan"
+  "UB_HandleSwitchToOpenFortifiedDoor|l_HandleSwitchToOpenFortifiedDoor"
+  "UB_HandleSeeingFortifiedDoor|l_HandleSeeingFortifiedDoor"
+  "UB_HandlePlayerHittingSwitchToLaunchMissles|l_HandlePlayerHittingSwitchToLaunchMissles"
+  "UB_HavePersonAtGridnoStop|l_HavePersonAtGridnoStop"
+  "EnterTacticalInFinalSector|l_EnterTacticalInFinalSector"
+  "UB_EnterTacticalInFinalSector|l_EnterTacticalInFinalSector"
+  "InitialHeliGridNo1|l_InitMercgridNo0"
+  "InitialHeliGridNo2|l_InitMercgridNo1"
+  "InitialHeliGridNo3|l_InitMercgridNo2"
+  "InitialHeliGridNo4|l_InitMercgridNo3"
+  "InitialHeliGridNo5|l_InitMercgridNo4"
+  "InitialHeliGridNo6|l_InitMercgridNo5"
+  "InitialHeliGridNo7|l_InitMercgridNo6"
+  "InitialJerryGridNo|l_InitJerryGridNo"
+  "InitialLaptopQuest|l_setLaptopQuest"
+  "InitialHeliCrash|l_setInGameHeliCrash"
+  "InitialJerryQuotes|l_setJerryQuotes"
+  "InitialJerry|l_setInJerry"
+  "InitialHeli|l_setInGameHeli"
+  "InternalLocateGridNo|l_SetInternalLocateGridNo"
+  "UB_InitialHeliGridNo1|l_InitMercgridNo0"
+  "UB_InitialHeliGridNo2|l_InitMercgridNo1"
+  "UB_InitialHeliGridNo3|l_InitMercgridNo2"
+  "UB_InitialHeliGridNo4|l_InitMercgridNo3"
+  "UB_InitialHeliGridNo5|l_InitMercgridNo4"
+  "UB_InitialHeliGridNo6|l_InitMercgridNo5"
+  "UB_InitialHeliGridNo7|l_InitMercgridNo6"
+  "UB_InitialJerryGridNo|l_InitJerryGridNo"
+  "UB_InitialLaptopQuest|l_setLaptopQuest"
+  "UB_InitialHeliCrash|l_setInGameHeliCrash"
+  "UB_InitialJerryQuotes|l_setJerryQuotes"
+  "UB_InitialJerry|l_setInJerry"
+  "UB_InitialHeli|l_setInGameHeli"
+  "UB_InternalLocateGridNo|l_SetInternalLocateGridNo")
+list(LENGTH runtime_campaign_lua_guarded_registrations
+  runtime_campaign_lua_guarded_registration_count)
+if(NOT runtime_campaign_lua_guarded_registration_count EQUAL 70)
+  message(FATAL_ERROR
+    "Deferred Lua registration inventory must retain its exact 40 + 2 + 28 shape")
+endif()
+
+set(runtime_campaign_lua_guard_tail
+  "${runtime_campaign_lua_callback_registration_normalized}")
+foreach(runtime_campaign_lua_guard_group RANGE 1 3)
+  string(FIND "${runtime_campaign_lua_guard_tail}" "#ifdef JA2UB"
+    runtime_campaign_lua_guard_start)
+  if(runtime_campaign_lua_guard_start EQUAL -1)
+    message(FATAL_ERROR
+      "Cannot isolate deferred Lua registration guard ${runtime_campaign_lua_guard_group}")
+  endif()
+  string(LENGTH "#ifdef JA2UB" runtime_campaign_lua_guard_marker_length)
+  math(EXPR runtime_campaign_lua_guard_body_start
+    "${runtime_campaign_lua_guard_start} + ${runtime_campaign_lua_guard_marker_length}")
+  string(SUBSTRING "${runtime_campaign_lua_guard_tail}"
+    ${runtime_campaign_lua_guard_body_start} -1
+    runtime_campaign_lua_guard_after_start)
+  string(FIND "${runtime_campaign_lua_guard_after_start}" "#endif"
+    runtime_campaign_lua_guard_end)
+  if(runtime_campaign_lua_guard_end EQUAL -1)
+    message(FATAL_ERROR
+      "Deferred Lua registration guard ${runtime_campaign_lua_guard_group} is unterminated")
+  endif()
+  string(SUBSTRING "${runtime_campaign_lua_guard_after_start}" 0
+    ${runtime_campaign_lua_guard_end}
+    runtime_campaign_lua_guard_body_${runtime_campaign_lua_guard_group})
+  string(REGEX MATCHALL "lua_register[ 	]*[(]"
+    runtime_campaign_lua_guard_registration_calls
+    "${runtime_campaign_lua_guard_body_${runtime_campaign_lua_guard_group}}")
+  list(LENGTH runtime_campaign_lua_guard_registration_calls
+    runtime_campaign_lua_guard_registration_count)
+  if(runtime_campaign_lua_guard_group EQUAL 1)
+    set(runtime_campaign_lua_guard_expected_registration_count 40)
+  elseif(runtime_campaign_lua_guard_group EQUAL 2)
+    set(runtime_campaign_lua_guard_expected_registration_count 2)
+  else()
+    set(runtime_campaign_lua_guard_expected_registration_count 28)
+  endif()
+  if(NOT runtime_campaign_lua_guard_registration_count EQUAL
+      runtime_campaign_lua_guard_expected_registration_count)
+    message(FATAL_ERROR
+      "Deferred Lua registration guard ${runtime_campaign_lua_guard_group} must retain exactly ${runtime_campaign_lua_guard_expected_registration_count} mappings")
+  endif()
+  math(EXPR runtime_campaign_lua_guard_remainder_start
+    "${runtime_campaign_lua_guard_end} + 6")
+  string(SUBSTRING "${runtime_campaign_lua_guard_after_start}"
+    ${runtime_campaign_lua_guard_remainder_start} -1
+    runtime_campaign_lua_guard_tail)
+endforeach()
+
+set(runtime_campaign_lua_registration_order_tail
+  "${runtime_campaign_lua_callback_registration_normalized}")
+set(runtime_campaign_lua_registration_index 0)
+foreach(runtime_campaign_lua_guarded_registration IN LISTS
+    runtime_campaign_lua_guarded_registrations)
+  string(REPLACE "|" ";" runtime_campaign_lua_registration_fields
+    "${runtime_campaign_lua_guarded_registration}")
+  list(GET runtime_campaign_lua_registration_fields 0
+    runtime_campaign_lua_registration_public_name)
+  list(GET runtime_campaign_lua_registration_fields 1
+    runtime_campaign_lua_registration_function)
+  set(runtime_campaign_lua_registration_fragment
+    "lua_register(L, \"${runtime_campaign_lua_registration_public_name}\", ${runtime_campaign_lua_registration_function});")
+  if(runtime_campaign_lua_registration_index LESS 40)
+    set(runtime_campaign_lua_registration_group 1)
+  elseif(runtime_campaign_lua_registration_index LESS 42)
+    set(runtime_campaign_lua_registration_group 2)
+  else()
+    set(runtime_campaign_lua_registration_group 3)
+  endif()
+  string(FIND
+    "${runtime_campaign_lua_guard_body_${runtime_campaign_lua_registration_group}}"
+    "${runtime_campaign_lua_registration_fragment}"
+    runtime_campaign_lua_registration_guard_position)
+  if(runtime_campaign_lua_registration_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "Deferred Lua registration ${runtime_campaign_lua_registration_public_name} escaped guard ${runtime_campaign_lua_registration_group}")
+  endif()
+  string(FIND "${runtime_campaign_lua_registration_order_tail}"
+    "${runtime_campaign_lua_registration_fragment}"
+    runtime_campaign_lua_registration_order_position)
+  if(runtime_campaign_lua_registration_order_position EQUAL -1)
+    message(FATAL_ERROR
+      "Deferred Lua registration changed name, function, or order at ${runtime_campaign_lua_registration_public_name}")
+  endif()
+  string(LENGTH "${runtime_campaign_lua_registration_fragment}"
+    runtime_campaign_lua_registration_fragment_length)
+  math(EXPR runtime_campaign_lua_registration_remainder_start
+    "${runtime_campaign_lua_registration_order_position} + ${runtime_campaign_lua_registration_fragment_length}")
+  string(SUBSTRING "${runtime_campaign_lua_registration_order_tail}"
+    ${runtime_campaign_lua_registration_remainder_start} -1
+    runtime_campaign_lua_registration_order_tail)
+  string(FIND "${runtime_campaign_lua_registration_order_tail}"
+    "${runtime_campaign_lua_registration_fragment}"
+    runtime_campaign_lua_duplicate_registration_position)
+  if(NOT runtime_campaign_lua_duplicate_registration_position EQUAL -1)
+    message(FATAL_ERROR
+      "Deferred Lua registration ${runtime_campaign_lua_registration_public_name} is duplicated")
+  endif()
+  math(EXPR runtime_campaign_lua_registration_index
+    "${runtime_campaign_lua_registration_index} + 1")
+endforeach()
+require_ordered_fragments(
+  runtime_campaign_lua_callback_registration_normalized
+  "Deferred Lua registrations escaped one of their exact three guard islands"
+  "#ifdef JA2UB"
+  "lua_register(L, \"AddProfileToMap\", l_InitMapProfil);"
+  "lua_register(L, \"UB_HavePersonAtGridnoStop\", l_HavePersonAtGridnoStop);"
+  "#endif"
+  "lua_register(L, \"WhoIsThere2\", l_WhoIsThere2);"
+  "#ifdef JA2UB"
+  "lua_register(L, \"EnterTacticalInFinalSector\", l_EnterTacticalInFinalSector);"
+  "lua_register(L, \"UB_EnterTacticalInFinalSector\", l_EnterTacticalInFinalSector);"
+  "#endif"
+  "lua_register(L, \"InitialProfile\", l_InitProfile);"
+  "#ifdef JA2UB"
+  "lua_register(L, \"InitialHeliGridNo1\", l_InitMercgridNo0);"
+  "lua_register(L, \"UB_InternalLocateGridNo\", l_SetInternalLocateGridNo);"
+  "#endif")
+
+set(runtime_campaign_lua_common_callback_names
+  l_EnterTacticalInFinalSector
+  l_HandlePlayerHittingSwitchToLaunchMissles
+  l_HavePersonAtGridnoStop
+  l_HandleSeeingPowerGenFan
+  l_HandleSwitchToOpenFortifiedDoor
+  l_HandleSeeingFortifiedDoor
+  l_ShouldThePlayerStopWhenWalkingOnBiggensActionItem
+  l_HasNpcSaidQuoteBefore
+  l_SetNumberOfJa25BloodCatsInSector
+  l_SetNumberJa25EnemiesInSurfaceSector
+  l_Ja25SaveStructubJohnKulbaInitialSectorY
+  l_Ja25SaveStructubJohnKulbaInitialSectorX
+  l_Ja25SaveCheckStructJohnKulbaIsInGame
+  l_Ja25SaveStructJohnKulbaIsInGame
+  l_InitMercgridNo0
+  l_InitMercgridNo1
+  l_InitMercgridNo2
+  l_InitMercgridNo3
+  l_InitMercgridNo4
+  l_InitMercgridNo5
+  l_InitMercgridNo6
+  l_InitJerryGridNo
+  l_Ja25STOGIE_UB
+  l_Ja25RUDY_UB
+  l_Ja25MORRIS_UB
+  l_Ja25RAUL_UB
+  l_Ja25BETTY_UB
+  l_Ja25PGMALE4_UB
+  l_Ja2JERRY_MILO_UB
+  l_Ja25GASTON_UB
+  l_Ja25MANUEL_UB
+  l_Ja25BIGGENS_UB
+  l_Ja25JOHN_K_UB
+  l_Ja25TEX_UB
+  l_setLaptopQuest
+  l_setInJerry
+  l_setJerryQuotes
+  l_setInGameHeliCrash
+  l_setInGameHeli
+  l_SetInternalLocateGridNo)
+list(LENGTH runtime_campaign_lua_common_callback_names
+  runtime_campaign_lua_common_callback_name_count)
+if(NOT runtime_campaign_lua_common_callback_name_count EQUAL 40)
+  message(FATAL_ERROR
+    "Lua common-callback inventory must retain exactly forty definitions")
+endif()
+foreach(runtime_campaign_lua_common_callback_name IN LISTS
+    runtime_campaign_lua_common_callback_names)
+  string(REGEX MATCHALL
+    "int[ 	\r\n]+${runtime_campaign_lua_common_callback_name}[ 	\r\n]*[(]"
+    runtime_campaign_lua_common_callback_signatures
+    "${runtime_campaign_lua_callback_code}")
+  list(LENGTH runtime_campaign_lua_common_callback_signatures
+    runtime_campaign_lua_common_callback_signature_count)
+  if(NOT runtime_campaign_lua_common_callback_signature_count EQUAL 2)
+    message(FATAL_ERROR
+      "Lua callback ${runtime_campaign_lua_common_callback_name} must retain one declaration and one definition")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_lua_callback_code}"
+  "static int l_EnterTacticalInFinalSector(lua_State* L)\n{"
+  runtime_campaign_lua_common_callback_definition_start)
+if(runtime_campaign_lua_common_callback_definition_start EQUAL -1)
+  message(FATAL_ERROR
+    "Cannot isolate the common Lua callback definition tail")
+endif()
+string(SUBSTRING "${runtime_campaign_lua_callback_code}"
+  ${runtime_campaign_lua_common_callback_definition_start} -1
+  runtime_campaign_lua_common_callback_definition_tail)
+foreach(runtime_campaign_lua_common_callback_name IN LISTS
+    runtime_campaign_lua_common_callback_names)
+  extract_brace_bounded_slice(
+    runtime_campaign_lua_common_callback_definition_tail
+    "int ${runtime_campaign_lua_common_callback_name}(lua_State* L)"
+    runtime_campaign_lua_common_callback_slice
+    "Cannot brace-bound common Lua callback ${runtime_campaign_lua_common_callback_name}")
+  if(runtime_campaign_lua_common_callback_slice MATCHES
+      "GetGameContext|ReadCampaignLuaGlobalPolicy|CampaignLuaGlobalPolicy|gGameUBOptions")
+    message(FATAL_ERROR
+      "Common UB callback ${runtime_campaign_lua_common_callback_name} regained campaign/configuration lookup")
+  endif()
+endforeach()
+
+foreach(required_campaign_lua_arrival_callback_fragment IN ITEMS
+    "CampaignMercenaryHelicopterArrivalSlot::First, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Second, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Third, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Fourth, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Fifth, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Sixth, sGridNo"
+    "CampaignMercenaryHelicopterArrivalSlot::Seventh, sGridNo"
+    "SetCampaignMercenaryJerryArrivalGrid(sGridNo)"
+    "SetCampaignMercenaryLaptopQuestEnabled(set)"
+    "ConfigureCampaignMercenaryJerry(set, sGridNo)"
+    "SetCampaignMercenaryJerryQuotesEnabled(set)"
+    "SetCampaignMercenaryHelicopterCrashEnabled(set)"
+    "SetCampaignMercenaryHelicopterEnabled(set)"
+    "SetCampaignMercenaryOffscreenArrivalGrid(sGridNo)")
+  string(FIND "${runtime_campaign_lua_callback_code}"
+    "${required_campaign_lua_arrival_callback_fragment}"
+    required_campaign_lua_arrival_callback_position)
+  if(required_campaign_lua_arrival_callback_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua arrival callback wiring lost '${required_campaign_lua_arrival_callback_fragment}'")
+  endif()
+endforeach()
+
+set(runtime_campaign_lua_grid_callback_contracts
+  "l_InitMercgridNo0|CampaignMercenaryHelicopterArrivalSlot::First"
+  "l_InitMercgridNo1|CampaignMercenaryHelicopterArrivalSlot::Second"
+  "l_InitMercgridNo2|CampaignMercenaryHelicopterArrivalSlot::Third"
+  "l_InitMercgridNo3|CampaignMercenaryHelicopterArrivalSlot::Fourth"
+  "l_InitMercgridNo4|CampaignMercenaryHelicopterArrivalSlot::Fifth"
+  "l_InitMercgridNo5|CampaignMercenaryHelicopterArrivalSlot::Sixth"
+  "l_InitMercgridNo6|CampaignMercenaryHelicopterArrivalSlot::Seventh")
+foreach(runtime_campaign_lua_grid_callback_contract IN LISTS
+    runtime_campaign_lua_grid_callback_contracts)
+  string(REPLACE "|" ";" runtime_campaign_lua_grid_callback_fields
+    "${runtime_campaign_lua_grid_callback_contract}")
+  list(GET runtime_campaign_lua_grid_callback_fields 0
+    runtime_campaign_lua_grid_callback_name)
+  list(GET runtime_campaign_lua_grid_callback_fields 1
+    runtime_campaign_lua_grid_callback_slot)
+  extract_brace_bounded_slice(
+    runtime_campaign_lua_common_callback_definition_tail
+    "int ${runtime_campaign_lua_grid_callback_name}(lua_State* L)"
+    runtime_campaign_lua_grid_callback_slice
+    "Cannot isolate Lua grid callback ${runtime_campaign_lua_grid_callback_name}")
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_lua_grid_callback_normalized
+    "${runtime_campaign_lua_grid_callback_slice}")
+  set(runtime_campaign_lua_grid_callback_expected
+    "if (lua_gettop(L)) { UINT32 sGridNo = lua_tointeger(L, 1); SetCampaignMercenaryHelicopterArrivalGrid( ${runtime_campaign_lua_grid_callback_slot}, sGridNo); } return 0;")
+  string(FIND "${runtime_campaign_lua_grid_callback_normalized}"
+    "${runtime_campaign_lua_grid_callback_expected}"
+    runtime_campaign_lua_grid_callback_expected_position)
+  if(runtime_campaign_lua_grid_callback_expected_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua grid callback ${runtime_campaign_lua_grid_callback_name} changed its argument guard, conversion, slot, or return count")
+  endif()
+endforeach()
+
+set(runtime_campaign_lua_boolean_callback_contracts
+  "l_setLaptopQuest|SetCampaignMercenaryLaptopQuestEnabled"
+  "l_setJerryQuotes|SetCampaignMercenaryJerryQuotesEnabled"
+  "l_setInGameHeliCrash|SetCampaignMercenaryHelicopterCrashEnabled"
+  "l_setInGameHeli|SetCampaignMercenaryHelicopterEnabled")
+foreach(runtime_campaign_lua_boolean_callback_contract IN LISTS
+    runtime_campaign_lua_boolean_callback_contracts)
+  string(REPLACE "|" ";" runtime_campaign_lua_boolean_callback_fields
+    "${runtime_campaign_lua_boolean_callback_contract}")
+  list(GET runtime_campaign_lua_boolean_callback_fields 0
+    runtime_campaign_lua_boolean_callback_name)
+  list(GET runtime_campaign_lua_boolean_callback_fields 1
+    runtime_campaign_lua_boolean_callback_mutator)
+  extract_brace_bounded_slice(
+    runtime_campaign_lua_common_callback_definition_tail
+    "int ${runtime_campaign_lua_boolean_callback_name}(lua_State* L)"
+    runtime_campaign_lua_boolean_callback_slice
+    "Cannot isolate Lua Boolean callback ${runtime_campaign_lua_boolean_callback_name}")
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_lua_boolean_callback_normalized
+    "${runtime_campaign_lua_boolean_callback_slice}")
+  set(runtime_campaign_lua_boolean_callback_expected
+    "if (lua_gettop(L)) { bool set = lua_toboolean(L, 1); ${runtime_campaign_lua_boolean_callback_mutator}(set); } return 0;")
+  string(FIND "${runtime_campaign_lua_boolean_callback_normalized}"
+    "${runtime_campaign_lua_boolean_callback_expected}"
+    runtime_campaign_lua_boolean_callback_expected_position)
+  if(runtime_campaign_lua_boolean_callback_expected_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua Boolean callback ${runtime_campaign_lua_boolean_callback_name} changed its argument guard, conversion, command, or return count")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(
+  runtime_campaign_lua_common_callback_definition_tail
+  "int l_InitJerryGridNo(lua_State* L)"
+  runtime_campaign_lua_jerry_grid_callback_slice
+  "Cannot isolate the direct Jerry-grid Lua callback")
+extract_brace_bounded_slice(
+  runtime_campaign_lua_common_callback_definition_tail
+  "int l_SetInternalLocateGridNo(lua_State* L)"
+  runtime_campaign_lua_locate_grid_callback_slice
+  "Cannot isolate the offscreen-grid Lua callback")
+extract_brace_bounded_slice(
+  runtime_campaign_lua_common_callback_definition_tail
+  "int l_setInJerry(lua_State* L)"
+  runtime_campaign_lua_jerry_callback_slice
+  "Cannot isolate the configured-Jerry Lua callback")
+
+function(campaign_lua_single_grid_callback_contract_matches
+    callback_variable expected_mutator output_variable)
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    callback_normalized "${${callback_variable}}")
+  set(callback_expected
+    "if (lua_gettop(L)) { UINT32 sGridNo = lua_tointeger(L, 1); ${expected_mutator}(sGridNo); } return 0;")
+  string(FIND "${callback_normalized}" "${callback_expected}"
+    callback_expected_position)
+  if(callback_expected_position EQUAL -1)
+    set(${output_variable} 0 PARENT_SCOPE)
+  else()
+    set(${output_variable} 1 PARENT_SCOPE)
+  endif()
+endfunction()
+
+# Exercise both positive mappings and both crossed negative mappings under the
+# same CMake policy semantics as the production source check.
+set(runtime_campaign_lua_jerry_grid_callback_fixture
+  "if (lua_gettop(L)) { UINT32 sGridNo = lua_tointeger(L, 1); SetCampaignMercenaryJerryArrivalGrid(sGridNo); } return 0;")
+set(runtime_campaign_lua_locate_grid_callback_fixture
+  "if (lua_gettop(L)) { UINT32 sGridNo = lua_tointeger(L, 1); SetCampaignMercenaryOffscreenArrivalGrid(sGridNo); } return 0;")
+campaign_lua_single_grid_callback_contract_matches(
+  runtime_campaign_lua_jerry_grid_callback_fixture
+  SetCampaignMercenaryJerryArrivalGrid
+  runtime_campaign_lua_jerry_grid_callback_fixture_positive)
+campaign_lua_single_grid_callback_contract_matches(
+  runtime_campaign_lua_jerry_grid_callback_fixture
+  SetCampaignMercenaryOffscreenArrivalGrid
+  runtime_campaign_lua_jerry_grid_callback_fixture_negative)
+campaign_lua_single_grid_callback_contract_matches(
+  runtime_campaign_lua_locate_grid_callback_fixture
+  SetCampaignMercenaryOffscreenArrivalGrid
+  runtime_campaign_lua_locate_grid_callback_fixture_positive)
+campaign_lua_single_grid_callback_contract_matches(
+  runtime_campaign_lua_locate_grid_callback_fixture
+  SetCampaignMercenaryJerryArrivalGrid
+  runtime_campaign_lua_locate_grid_callback_fixture_negative)
+if(NOT runtime_campaign_lua_jerry_grid_callback_fixture_positive OR
+   runtime_campaign_lua_jerry_grid_callback_fixture_negative OR
+   NOT runtime_campaign_lua_locate_grid_callback_fixture_positive OR
+   runtime_campaign_lua_locate_grid_callback_fixture_negative)
+  message(FATAL_ERROR
+    "Lua single-grid callback contract matcher failed its positive/negative fixtures")
+endif()
+
+# Keep each slice name adjacent to its expected API. Selecting an API through
+# a quoted variable-name comparison is policy-dependent under CMake CMP0054.
+set(runtime_campaign_lua_single_grid_callback_contracts
+  "runtime_campaign_lua_jerry_grid_callback_slice|SetCampaignMercenaryJerryArrivalGrid"
+  "runtime_campaign_lua_locate_grid_callback_slice|SetCampaignMercenaryOffscreenArrivalGrid")
+foreach(runtime_campaign_lua_single_grid_callback_contract IN LISTS
+    runtime_campaign_lua_single_grid_callback_contracts)
+  string(REPLACE "|" ";" runtime_campaign_lua_single_grid_callback_fields
+    "${runtime_campaign_lua_single_grid_callback_contract}")
+  list(GET runtime_campaign_lua_single_grid_callback_fields 0
+    runtime_campaign_lua_single_grid_callback)
+  list(GET runtime_campaign_lua_single_grid_callback_fields 1
+    runtime_campaign_lua_single_grid_callback_mutator)
+  campaign_lua_single_grid_callback_contract_matches(
+    "${runtime_campaign_lua_single_grid_callback}"
+    "${runtime_campaign_lua_single_grid_callback_mutator}"
+    runtime_campaign_lua_single_grid_callback_matches)
+  if(NOT runtime_campaign_lua_single_grid_callback_matches)
+    message(FATAL_ERROR
+      "Lua single-grid callback changed its argument guard, integer conversion, command, or return count")
+  endif()
+endforeach()
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_lua_jerry_callback_normalized
+  "${runtime_campaign_lua_jerry_callback_slice}")
+string(FIND "${runtime_campaign_lua_jerry_callback_normalized}"
+  "if (lua_gettop(L) >= 2) { bool set = lua_toboolean(L, 1); INT32 sGridNo = lua_tointeger(L, 2); ConfigureCampaignMercenaryJerry(set, sGridNo); } return 0;"
+  runtime_campaign_lua_jerry_callback_expected_position)
+if(runtime_campaign_lua_jerry_callback_expected_position EQUAL -1)
+  message(FATAL_ERROR
+    "Configured-Jerry Lua callback changed its two-argument guard, conversions, command, or return count")
+endif()
+
+foreach(required_campaign_lua_common_callback_effect IN ITEMS
+    "EnterTacticalInFinalSector();"
+    "HandlePlayerHittingSwitchToLaunchMissles();"
+    "HavePersonAtGridnoStop(sGridNo);"
+    "HandleSeeingPowerGenFan(sGridNo);"
+    "HandleSwitchToOpenFortifiedDoor(sGridNo);"
+    "HandleSeeingFortifiedDoor(sGridNo);"
+    "ShouldThePlayerStopWhenWalkingOnBiggensActionItem(ubRecordNum)"
+    "HasNpcSaidQuoteBefore(ubNPC, ubRecord)"
+    "SectorInfo[SECTOR(sSectorX, sSectorY)].bBloodCatPlacements = bBloodCatPlacements"
+    "SectorInfo[SECTOR(sSectorX, sSectorY)].bBloodCats = bNumBloodCats"
+    "SetNumberJa25EnemiesInSurfaceSector(SECTOR(sSectorX, sSectorY), ubNumAdmins, ubNumTroops, ubNumElites, ubNumTanks, ubNumJeeps, ubNumRobots)"
+    "gJa25SaveStruct.ubJohnKulbaInitialSectorY = Y"
+    "gJa25SaveStruct.ubJohnKulbaInitialSectorX = X"
+    "gJa25SaveStruct.fJohnKulbaIsInGame = FactFalse"
+    "lua_pushinteger(L, STOGIE_UB)"
+    "lua_pushinteger(L, RUDY_UB)"
+    "lua_pushinteger(L, MORRIS_UB)"
+    "lua_pushinteger(L, RAUL_UB)"
+    "lua_pushinteger(L, BETTY_UB)"
+    "lua_pushinteger(L, PGMALE4_UB)"
+    "lua_pushinteger(L, JERRY_MILO_UB)"
+    "lua_pushinteger(L, GASTON_UB)"
+    "lua_pushinteger(L, MANUEL_UB)"
+    "lua_pushinteger(L, BIGGENS_UB)"
+    "lua_pushinteger(L, JOHN_K_UB)"
+    "lua_pushinteger(L, TEX_UB)")
+  string(FIND "${runtime_campaign_lua_common_callback_definition_tail}"
+    "${required_campaign_lua_common_callback_effect}"
+    required_campaign_lua_common_callback_effect_position)
+  if(required_campaign_lua_common_callback_effect_position EQUAL -1)
+    message(FATAL_ERROR
+      "Common Lua callback effect inventory lost '${required_campaign_lua_common_callback_effect}'")
+  endif()
+endforeach()
+require_ordered_fragments(runtime_campaign_lua_callback_code
+  "Default-arrival callback lost its live campaign truth paths or effect order"
+  "if ((sSectorX >= 1 || sSectorX <= 16) && (sSectorY >= 1 || sSectorY <= 16))"
+  "gsMercArriveSectorX = sSectorX"
+  "gsMercArriveSectorY = sSectorY"
+  "ReadCampaignLuaGlobalPolicy()"
+  "mirrorsDefaultArrivalSectorToUnfinishedBusinessState()"
+  "JA2_5_START_SECTOR_X = sSectorX"
+  "JA2_5_START_SECTOR_Y = sSectorY"
+  "gGameExternalOptions.ubDefaultArrivalSectorX = sSectorX"
+  "gGameExternalOptions.ubDefaultArrivalSectorY = sSectorY"
+  "const CampaignLuaGlobalPolicy campaignPolicy ="
+  "ReadCampaignLuaGlobalPolicy()"
+  "campaignPolicy.invalidDefaultArrivalSector()"
+  "campaignPolicy"
+  "mirrorsDefaultArrivalSectorToUnfinishedBusinessState()"
+  "JA2_5_START_SECTOR_X = defaultSector.x"
+  "JA2_5_START_SECTOR_Y = defaultSector.y"
+  "gsMercArriveSectorX = defaultSector.x"
+  "gsMercArriveSectorY = defaultSector.y"
+  "gGameExternalOptions.ubDefaultArrivalSectorX = defaultSector.x"
+  "gGameExternalOptions.ubDefaultArrivalSectorY = defaultSector.y")
+
+foreach(required_campaign_lua_arrival_test_manifest_fragment IN ITEMS
+    "campaign_mercenary_arrival_mutation_tests.cpp"
+    "campaign_mercenary_arrival_mutation")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_lua_arrival_test_manifest_fragment}"
+    required_campaign_lua_arrival_test_manifest_position)
+  if(required_campaign_lua_arrival_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-arrival mutation policy lost its dependency-free test target")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_mercenary_arrival_mutation_tests"
+  runtime_campaign_lua_arrival_ci_targets
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_lua_arrival_ci_targets
+  runtime_campaign_lua_arrival_ci_target_count)
+if(NOT runtime_campaign_lua_arrival_ci_target_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one Lua-arrival mutation target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_mercenary_arrival_mutation_tests.cpp"
+  runtime_campaign_lua_arrival_test_contents)
+foreach(required_campaign_lua_arrival_test_fragment IN ITEMS
+    "the Jerry command always carries the requested enabled state"
+    "positive Jerry grids retain the requested value"
+    "every negative Jerry grid selects legacy grid 15943"
+    "zero requests no Jerry-grid mutation"
+    "the complete signed-16 Jerry domain retains its three-way policy"
+    "zero Jerry commands update enabled state while preserving the grid"
+    "the legacy OR range check keeps its fallback unreachable")
+  string(FIND "${runtime_campaign_lua_arrival_test_contents}"
+    "${required_campaign_lua_arrival_test_fragment}"
+    required_campaign_lua_arrival_test_position)
+  if(required_campaign_lua_arrival_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-arrival mutation coverage lost '${required_campaign_lua_arrival_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/CMakeLists.txt"
+  runtime_campaign_lua_callback_strategic_build_contents)
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  runtime_campaign_lua_callback_tactical_build_contents)
+file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
+  runtime_campaign_lua_callback_ja2_build_contents)
+foreach(required_campaign_lua_callback_link IN ITEMS
+    "LuaInitNPCs.cpp|runtime_campaign_lua_callback_strategic_build_contents"
+    "Ja25 Strategic Ai.cpp|runtime_campaign_lua_callback_strategic_build_contents"
+    "Ja25_Tactical.cpp|runtime_campaign_lua_callback_tactical_build_contents"
+    "End Game.cpp|runtime_campaign_lua_callback_tactical_build_contents"
+    "Ja25Update.cpp|runtime_campaign_lua_callback_ja2_build_contents"
+    "ub_config.cpp|runtime_campaign_lua_callback_ja2_build_contents")
+  string(REPLACE "|" ";" required_campaign_lua_callback_link_fields
+    "${required_campaign_lua_callback_link}")
+  list(GET required_campaign_lua_callback_link_fields 0
+    required_campaign_lua_callback_link_source)
+  list(GET required_campaign_lua_callback_link_fields 1
+    required_campaign_lua_callback_link_manifest)
+  string(FIND "${${required_campaign_lua_callback_link_manifest}}"
+    "${required_campaign_lua_callback_link_source}"
+    required_campaign_lua_callback_link_position)
+  if(required_campaign_lua_callback_link_position EQUAL -1)
+    message(FATAL_ERROR
+      "All-host Lua callback linkage lost ${required_campaign_lua_callback_link_source}")
   endif()
 endforeach()
 

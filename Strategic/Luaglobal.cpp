@@ -45,6 +45,10 @@ using namespace std;
 extern	BOOLEAN	gfDoneWithSplashScreen;
 extern UINT8	gubWaitingForAllMercsToExitCode;
 
+CampaignLuaGlobalPolicy ReadCampaignLuaGlobalPolicy()
+{
+	return CampaignLuaGlobalPolicy(GetGameContext().capabilities());
+}
 
 void IniGlobalGameSetting(lua_State *L)
 {
@@ -65,8 +69,8 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_pushinteger(L, gGameOptions.ubDifficultyLevel);
 	lua_setglobal(L, "newDIFFICULTY_LEVEL");
 
-	const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy(
-		GetGameContext().capabilities());
+	const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy =
+		ReadCampaignLuaGlobalPolicy();
 	if (campaignLuaGlobalPolicy
 		.exportsUnfinishedBusinessDifficultyAliases())
 	{

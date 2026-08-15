@@ -277,6 +277,32 @@ covers both campaigns, the full array and scalar shape,
 fresh invocation reads, all Jerry/crash combinations, and every early return;
 bounded source ratchets pin the adapter mapping and production effect order.
 
+The implementation side of the Lua UB callback surface is now available in
+every host. `Strategic/LuaInitNPCs.cpp` unconditionally includes the JA25
+strategic, tactical, update, end-game, and typed arrival-mutation contracts;
+its exact 40 formerly guarded callback definitions and declarations therefore
+compile for JA2, UB, and both editor compositions. The three registration
+blocks remain deliberately host-gated for the next runtime-registration slice,
+with their exact 40 + 2 + 28 public-name/function mappings and order unchanged.
+The fourteen arrival-setting callbacks retain their original Lua argument
+guards, `lua_tointeger`/`lua_toboolean` conversions, and zero return counts,
+but their sixteen direct legacy writes now cross eight narrow semantic APIs.
+Only `ub_config.cpp` mutates the record: a strong seven-slot type owns the
+helicopter grids, and Jerry's signed command still treats positive values as
+the requested grid, negative values as fallback 15943, and zero as no grid
+mutation while always updating InJerry. The APIs return no record or reference
+and accept no generic field selector.
+
+The generic default-arrival callback also replaces its two compiled branches
+with a fresh `CampaignLuaGlobalPolicy` value at each original branch point.
+Valid Arulco input still leaves `JA2_5_START_SECTOR_X/Y` untouched while valid
+UB input mirrors it; the legacy OR range condition keeps the fallback
+unreachable for all byte inputs, but the preserved fallback truth table remains
+Arulco 9,1 versus UB 7,8. The value adapter reuses Lua-global initialization's
+single live context selector, so the reviewed 104-site/29-file selector
+inventory is unchanged; the callback reads that value only after its Lua
+argument gate and at the selected legacy branch point.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -386,9 +412,9 @@ The reviewed executable raw-selector baseline is 104 sites across 29 files,
 down from 149: 99 live-context calls, four cached-campaign comparisons, and
 one active-package capability leaf. The strategic sector slice reduces its
 private wrapper call inventory from 26 to 20 without changing the single
-underlying context selector. The UB-option boundary now has 268 executable and
-270 raw external occurrences across 32 consumer files; including the declaration
-and adapter owner, it has 552 executable and 554 raw occurrences across 34
+underlying context selector. The UB-option boundary now has 252 executable and
+254 raw external occurrences across 31 consumer files; including the declaration
+and adapter owner, it has 552 executable and 554 raw occurrences across 33
 files. These are source-level ratchets in architecture CI rather than
 completion claims. Later work should continue replacing a complete behavioral
 cluster at a time while keeping campaign gates left of configuration, save,
@@ -398,14 +424,14 @@ adapter until all such consumers have moved to typed content.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 39 active conditionals in 14
+milestone its per-file baseline contains 31 active conditionals in 14
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
 | Tactical gameplay/content | 15 |
-| Strategic gameplay/content | 11 |
+| Strategic gameplay/content | 3 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 0 |
 | Editor | 1 |
@@ -483,10 +509,10 @@ The largest individual legacy leaves are:
 
 | File | Conditionals |
 | --- | ---: |
-| `Strategic/LuaInitNPCs.cpp` | 11 |
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
 | `Ja2/GameVersion.cpp` | 3 |
+| `Strategic/LuaInitNPCs.cpp` | 3 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime
