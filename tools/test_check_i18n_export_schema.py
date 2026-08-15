@@ -79,19 +79,18 @@ class ExportSchemaToolTests(unittest.TestCase):
 
     def test_export_parser_ignores_comments_and_preserves_interleaved_ranges(self):
         source = r'''
-bool Loc::ExportStrings()
+void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 {
-    // ExportSection(props, L"Commented", Loc::Old, 0, 9);
+    // ExportSection(sink, L"Commented", ::Old, 0, 9);
     const char* ordinary =
-        "ExportSection(props, L\"StringLiteral\", Loc::Literal, 0, 8);";
+        "ExportSection(sink, L\"StringLiteral\", ::Literal, 0, 8);";
     const char* raw = R"schema(
-        ExportSection(props, L"RawLiteral", Loc::RawLiteral, 0, 7);
+        ExportSection(sink, L"RawLiteral", ::RawLiteral, 0, 7);
     )schema";
-    ExportSection(props, L"First", Loc::FirstTable, 0, LIMIT - 1);
-    ExportTextPackEntry(props, i18n::TextKey::Title);
-    /* ExportTextPackTable(props, i18n::TextTableKey::Old); */
-    ExportTextPackTable(props, i18n::TextTableKey::Times);
-    return true;
+    ExportSection(sink, L"First", ::FirstTable, 0, LIMIT - 1);
+    ExportTextPackEntry(sink, i18n::TextKey::Title);
+    /* ExportTextPackTable(sink, i18n::TextTableKey::Old); */
+    ExportTextPackTable(sink, i18n::TextTableKey::Times);
 }
 '''
         self.assertEqual(
@@ -110,12 +109,11 @@ bool Loc::ExportStrings()
 
     def test_export_parser_rejects_inactive_preprocessor_calls(self):
         source = r'''
-bool Loc::ExportStrings()
+void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 {
 #if 0
-    ExportSection(props, L"Fake", Loc::Fake, 0, 1);
+    ExportSection(sink, L"Fake", ::Fake, 0, 1);
 #endif
-    return true;
 }
 '''
         with self.assertRaisesRegex(
@@ -125,16 +123,17 @@ bool Loc::ExportStrings()
 
     def test_export_parser_requires_direct_top_level_statements(self):
         wrappers = [
-            'if (false)\n    ExportSection(props, L"Fake", Loc::Fake, 0, 1);',
-            '{ ExportTextPackEntry(props, i18n::TextKey::Title); }',
-            '[] { ExportTextPackTable(props, i18n::TextTableKey::Times); }();',
+            'if (false)\n    ExportSection(sink, L"Fake", ::Fake, 0, 1);',
+            '{ ExportTextPackEntry(sink, i18n::TextKey::Title); }',
+            '[] { ExportTextPackTable(sink, i18n::TextTableKey::Times); }();',
         ]
         for wrapped in wrappers:
             with self.subTest(wrapped=wrapped):
                 source = (
-                    "bool Loc::ExportStrings()\n{\n"
+                    "void i18n::ExportSelectedCatalog("
+                    "SelectedCatalogExportSink& sink)\n{\n"
                     + wrapped
-                    + "\nreturn true;\n}\n"
+                    + "\n}\n"
                 )
                 with self.assertRaisesRegex(
                     EXPORT.ExportSchemaError, "direct top-level statement"
@@ -148,7 +147,7 @@ bool Loc::ExportStrings()
             "throw": "\tthrow 1;\n",
             "extra declaration": "\tint unreviewed = 0;\n",
         }
-        insertion = "\tvfs::PropertyContainer props;\n"
+        insertion = '#include "ExportStringLimitContract.inc"\n'
         for label, statement in early_control.items():
             with self.subTest(label=label):
                 changed = production.replace(
@@ -164,57 +163,255 @@ bool Loc::ExportStrings()
             insertion + "%:if 0\n",
             1,
         ).replace(
-            "\tprops.writeToXMLFile", "%:endif\n\tprops.writeToXMLFile", 1
+            '\tExportSection(sink, L"MPChatbox"',
+            '%:endif\n\tExportSection(sink, L"MPChatbox"',
+            1,
         )
         with self.assertRaisesRegex(
             EXPORT.ExportSchemaError, "alternative preprocessor tokens"
         ):
             EXPORT.parse_export_calls(digraph)
 
-    def test_textual_catalog_include_parser_rejects_raw_string_bypass(self):
+    def test_textual_catalog_include_scanner_rejects_raw_string_bypass(self):
         fake_chinese = r'''R"schema(
 #include "_ChineseText.cpp"
 )schema";
 '''
-        real_includes = "\n".join(
-            f'#include "{name}"'
-            for name in EXPORT.EXPECTED_TEXTUAL_CATALOG_INCLUDES[1:]
-        )
-        with self.assertRaisesRegex(
-            EXPORT.ExportSchemaError, "selected textual catalog includes changed"
-        ):
-            EXPORT.textual_catalog_includes(fake_chinese + real_includes)
-
-    def test_textual_catalog_includes_must_be_active_for_each_language(self):
-        guarded = "\n".join(
-            f'#ifdef {name[1:-8].upper()}\n#include "{name}"\n#endif'
-            for name in EXPORT.EXPECTED_TEXTUAL_CATALOG_INCLUDES
-        )
         self.assertEqual(
-            EXPORT.textual_catalog_includes(guarded),
-            EXPORT.EXPECTED_TEXTUAL_CATALOG_INCLUDES,
+            EXPORT._textual_catalog_includes(fake_chinese),
+            [],
         )
-        inactive = guarded.replace("#ifdef CHINESE", "#if 0", 1)
-        with self.assertRaisesRegex(
-            EXPORT.ExportSchemaError, "Chinese: active textual catalog include"
-        ):
-            EXPORT.textual_catalog_includes(inactive)
+        real = fake_chinese + '#include "_EnglishText.cpp"\n'
+        self.assertEqual(
+            EXPORT._textual_catalog_includes(real), ["_EnglishText.cpp"]
+        )
 
-        local_macro_bypass = "#define LOCAL_LIVE_SELECT 1\n" + "\n".join(
-            (
-                (
-                    "#if LOCAL_LIVE_SELECT || defined(ENGLISH)"
-                    if name == "_EnglishText.cpp"
-                    else f"#if !LOCAL_LIVE_SELECT && defined({name[1:-8].upper()})"
+    def test_selected_catalog_adapter_contract_is_linked_and_immediate_copy(self):
+        adapter = EXPORT._read(EXPORT.EXPORT_SOURCE)
+        writer = EXPORT._read(EXPORT.PROPERTY_EXPORT_SOURCE)
+        header = EXPORT._read(EXPORT.EXPORT_HEADER)
+        build = EXPORT._read(EXPORT.I18N_BUILD_SOURCE)
+        self.assertEqual(
+            EXPORT.selected_catalog_adapter_contract(
+                adapter, writer, header, build
+            )["textual_catalog_includes"],
+            [],
+        )
+        mutations = {
+            "textual catalog": (
+                adapter + '\n#include "_EnglishText.cpp"\n', writer, header, build
+            ),
+            "retained view": (
+                adapter,
+                writer.replace(
+                    "props_.setStringProperty(vfs::String(std::wstring(section)),",
+                    "retained_ = text;\n"
+                    "props_.setStringProperty(vfs::String(std::wstring(section)),",
+                    1,
+                ),
+                header,
+                build,
+            ),
+            "missing local extern": (
+                adapter.replace("extern STR16 gzIntroScreen[];\n", "", 1),
+                writer,
+                header,
+                build,
+            ),
+            "relative index": (
+                adapter.replace(
+                    "sink.copyEntry(section, index, text);",
+                    "sink.copyEntry(section, index - first, text);",
+                    1,
+                ),
+                writer,
+                header,
+                build,
+            ),
+            "empty values published": (
+                adapter.replace(
+                    "if (!text.empty()) sink.copyEntry(section, index, text);",
+                    "sink.copyEntry(section, index, text);",
+                    1,
+                ),
+                writer,
+                header,
+                build,
+            ),
+            "scalar wchar path removed": (
+                adapter.replace("template<>\nvoid ExportSection<wchar_t>",
+                                "template<>\nvoid RemovedExportSection<wchar_t>", 1),
+                writer,
+                header,
+                build,
+            ),
+            "neutral adapter": (
+                adapter,
+                writer,
+                header,
+                build.replace(
+                    "set(i18nVariantSrc",
+                    '"${CMAKE_CURRENT_SOURCE_DIR}/SelectedCatalogExport.cpp"\n'
+                    "set(i18nVariantSrc",
+                    1,
+                ),
+            ),
+        }
+        for label, arguments in mutations.items():
+            with self.subTest(label=label):
+                with self.assertRaises(EXPORT.ExportSchemaError):
+                    EXPORT.selected_catalog_adapter_contract(*arguments)
+
+        original_read = EXPORT._read
+
+        def mismatched_language(path):
+            value = original_read(path)
+            if path == "i18n/language.cpp":
+                return value.replace(
+                    "BuiltinTextCatalog().select(g_lang)",
+                    "BuiltinTextCatalog().select(i18n::Lang::en)",
+                    1,
                 )
-                + f'\n#include "{name}"\n#endif'
+            return value
+
+        with mock.patch.object(EXPORT, "_read", side_effect=mismatched_language):
+            with self.assertRaisesRegex(
+                EXPORT.ExportSchemaError, "no longer selects exactly once"
+            ):
+                EXPORT.selected_catalog_adapter_contract(
+                    adapter, writer, header, build
+                )
+
+        def mismatched_compiled_language(path):
+            value = original_read(path)
+            if path == "i18n/CompiledLanguage.h":
+                return value.replace(
+                    "#if defined(ENGLISH)\n  return Lang::en;",
+                    "#if defined(ENGLISH)\n  return Lang::de;",
+                    1,
+                )
+            return value
+
+        with mock.patch.object(
+            EXPORT, "_read", side_effect=mismatched_compiled_language
+        ):
+            with self.assertRaisesRegex(
+                EXPORT.ExportSchemaError, "macro-to-Lang mapping"
+            ):
+                EXPORT.selected_catalog_adapter_contract(
+                    adapter, writer, header, build
+                )
+
+    def test_adapter_helpers_reject_literal_inactive_and_control_flow_spoofs(self):
+        adapter = EXPORT._read(EXPORT.EXPORT_SOURCE)
+        writer = EXPORT._read(EXPORT.PROPERTY_EXPORT_SOURCE)
+        header = EXPORT._read(EXPORT.EXPORT_HEADER)
+        build = EXPORT._read(EXPORT.I18N_BUILD_SOURCE)
+        arguments = (writer, header, build)
+        live_guard = "if (!text.empty()) sink.copyEntry(section, index, text);"
+
+        raw_spoof = (
+            adapter.replace(
+                live_guard,
+                "if (false) sink.copyEntry(section, index, text);",
+                1,
             )
-            for name in EXPORT.EXPECTED_TEXTUAL_CATALOG_INCLUDES
+            + '\nconst char* spoof = R"ratchet('
+            + EXPORT.EXPECTED_ADAPTER_HELPER_NAMESPACE
+            + ')ratchet";\n'
+        )
+        inactive_namespace = adapter.replace(
+            "namespace\n{", "#if 0\nnamespace\n{", 1
+        ).replace(
+            "\n}\n\nvoid i18n::ExportSelectedCatalog",
+            "\n}\n#endif\n\nvoid i18n::ExportSelectedCatalog",
+            1,
+        )
+        mutations = {
+            "raw literal impersonation": raw_spoof,
+            "inactive namespace": inactive_namespace,
+            "disabled empty suppression": adapter.replace(
+                "if (!text.empty())", "if (false && !text.empty())", 1
+            ),
+            "extra overload": adapter + "\nvoid ExportSection();\n",
+        }
+        for label, changed in mutations.items():
+            with self.subTest(label=label):
+                with self.assertRaises(EXPORT.ExportSchemaError):
+                    EXPORT.selected_catalog_adapter_contract(changed, *arguments)
+
+    def test_adapter_header_build_and_language_contracts_ignore_spoof_text(self):
+        adapter = EXPORT._read(EXPORT.EXPORT_SOURCE)
+        writer = EXPORT._read(EXPORT.PROPERTY_EXPORT_SOURCE)
+        header = EXPORT._read(EXPORT.EXPORT_HEADER)
+        build = EXPORT._read(EXPORT.I18N_BUILD_SOURCE)
+
+        commented_build_entry = build.replace(
+            '"${CMAKE_CURRENT_SOURCE_DIR}/SelectedCatalogExport.cpp"',
+            '# "${CMAKE_CURRENT_SOURCE_DIR}/SelectedCatalogExport.cpp"',
+            1,
         )
         with self.assertRaisesRegex(
-            EXPORT.ExportSchemaError, "untracked conditional macro"
+            EXPORT.ExportSchemaError, "exact direct ordered source list"
         ):
-            EXPORT.textual_catalog_includes(local_macro_bypass)
+            EXPORT.selected_catalog_adapter_contract(
+                adapter, writer, header, commented_build_entry
+            )
+
+        commented_header = header.replace(
+            "class SelectedCatalogExportSink",
+            "class RemovedSelectedCatalogExportSink",
+            1,
+        ) + "\n// class SelectedCatalogExportSink\n"
+        with self.assertRaisesRegex(
+            EXPORT.ExportSchemaError, "exact sink/entrypoint interface"
+        ):
+            EXPORT.selected_catalog_adapter_contract(
+                adapter, writer, commented_header, build
+            )
+
+        original_read = EXPORT._read
+
+        def commented_language_agreement(path):
+            value = original_read(path)
+            if path == "i18n/language.cpp":
+                return value.replace(
+                    "BuiltinTextCatalog().select(g_lang)",
+                    "BuiltinTextCatalog().select(i18n::Lang::en) "
+                    "/* BuiltinTextCatalog().select(g_lang) */",
+                    1,
+                )
+            return value
+
+        with mock.patch.object(
+            EXPORT, "_read", side_effect=commented_language_agreement
+        ):
+            with self.assertRaisesRegex(
+                EXPORT.ExportSchemaError, "no longer selects exactly once"
+            ):
+                EXPORT.selected_catalog_adapter_contract(
+                    adapter, writer, header, build
+                )
+
+    def test_adapter_storage_paths_reject_scalar_overrun_and_unknown_rank(self):
+        sections = copy.deepcopy(self.schema["sections"])
+        pros = next(
+            section for section in sections
+            if section.get("symbol") == "gzProsLabel"
+        )
+        pros["range"]["limit"] = "2"
+        with self.assertRaisesRegex(
+            EXPORT.ExportSchemaError, "scalar wchar storage must export exactly"
+        ):
+            EXPORT._validate_legacy_storage_paths(sections, self.abi_schema)
+
+        sections = copy.deepcopy(self.schema["sections"])
+        changed_abi = copy.deepcopy(self.abi_schema)
+        changed_abi["symbols"]["WeaponType"]["source_dimensions"].append("2")
+        with self.assertRaisesRegex(
+            EXPORT.ExportSchemaError, "unsupported adapter storage shape"
+        ):
+            EXPORT._validate_legacy_storage_paths(sections, changed_abi)
 
     def test_text_pack_descriptor_parser_pins_schema_sections_and_export_ranges(self):
         header = r'''
@@ -393,7 +590,6 @@ inline constexpr auto TextTables = {{
                 for validator in (
                     EXPORT.validate_named_limit_static_assert_seam,
                     EXPORT.parse_export_calls,
-                    EXPORT.textual_catalog_includes,
                 ):
                     with self.assertRaisesRegex(
                         EXPORT.ExportSchemaError, "unconditional top-level"
@@ -405,13 +601,12 @@ inline constexpr auto TextTables = {{
             "",
             1,
         ).replace(
-            "\tvfs::PropertyContainer::TagMap tmap;",
-            "\tvfs::PropertyContainer::TagMap tmap;\n"
-            + seam.rstrip(),
+            '\tExportSection(sink, L"WeaponType"',
+            seam.rstrip() + '\n\tExportSection(sink, L"WeaponType"',
             1,
         )
         with self.assertRaisesRegex(
-            EXPORT.ExportSchemaError, "exact static_assert guard|exact exporter prefix"
+            EXPORT.ExportSchemaError, "exact static_assert guard|exact adapter prefix"
         ):
             EXPORT.validate_named_limit_static_assert_seam(moved)
 
@@ -433,12 +628,13 @@ inline constexpr auto TextTables = {{
                     EXPORT.validate_named_limit_static_assert_seam(shadowed)
 
         parameter = export_source.replace(
-            "bool Loc::ExportStrings()",
-            "bool Loc::ExportStrings(int NUM_ICONS)",
+            "void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)",
+            "void i18n::ExportSelectedCatalog("
+            "SelectedCatalogExportSink& sink, int NUM_ICONS)",
             1,
         )
         with self.assertRaisesRegex(
-            EXPORT.ExportSchemaError, "zero-parameter bool definition"
+            EXPORT.ExportSchemaError, "exact sink entrypoint"
         ):
             EXPORT.validate_named_limit_static_assert_seam(parameter)
 
@@ -722,8 +918,15 @@ advancePackagesTo(
         self.assertEqual(EXPORT.validate_manifest_contract(self.schema), [])
         self.assertEqual(len(self.schema["sections"]), 238)
         self.assertEqual(
-            self.schema["textual_catalog_includes"],
-            EXPORT.EXPECTED_TEXTUAL_CATALOG_INCLUDES,
+            self.schema["catalog_adapter"]["linked_catalog_sources"],
+            EXPORT.EXPECTED_LINKED_CATALOG_SOURCES,
+        )
+        self.assertEqual(
+            self.schema["catalog_adapter"]["textual_catalog_includes"], []
+        )
+        self.assertEqual(
+            self.schema["catalog_adapter"]["local_extern_symbols"],
+            EXPORT.EXPECTED_LOCAL_EXTERN_SYMBOLS,
         )
         self.assertEqual(
             [entry["source_kind"] for entry in self.schema["sections"]].count("legacy"),
@@ -786,7 +989,38 @@ advancePackagesTo(
                 ("Italian", "pBookMarkStrings"),
             }.isdisjoint((entry["language"], entry["symbol"]) for entry in debt)
         )
-        self.assertEqual(self.schema["adapter_status"], EXPORT.READY_ADAPTER_STATUS)
+        self.assertEqual(
+            self.schema["adapter_status"], EXPORT.IMPLEMENTED_ADAPTER_STATUS
+        )
+
+    def test_ordered_output_bytes_and_all_build_quadrants_are_pinned(self):
+        output = self.schema["output_contract"]
+        self.assertEqual(output["empty_values"], "suppressed")
+        self.assertEqual(output["indexing"], "absolute source index")
+        self.assertEqual(len(output["snapshots"]), 32)
+        self.assertEqual(
+            output["snapshots"]["English/ja2-release"],
+            {
+                "emitted_sections": 237,
+                "emitted_entries": 3078,
+                "value_utf8_bytes": 69893,
+                "ordered_payload_sha256": (
+                    "2248046a8cbcce195213baddb848ac897a153bafaff55f8f2d207b699b8a3902"
+                ),
+            },
+        )
+        self.assertEqual(
+            set(output["snapshots"]),
+            {
+                f"{language.name}/{quadrant.name}"
+                for language in EXPORT.ABI.LANGUAGES
+                for quadrant in EXPORT.ABI.QUADRANTS
+            },
+        )
+        self.assertEqual(
+            self.schema["catalog_adapter"]["language_agreement"],
+            "one language-target definition selects linked globals, g_lang, and TextPack",
+        )
 
     def test_all_19_foreign_and_104_universal_repairs_have_exact_goldens(self):
         self.assertEqual(len(EXPORT.FOREIGN_NORMALIZED_REPAIRED_SLOTS), 19)

@@ -45,8 +45,7 @@ the engine must not contain SDL types in its public domain model.
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
   preprocessor-selected legacy text body. The remaining 471 base definitions,
-  35 JA25 definitions, compatibility globals, and the textual
-  `ExportStrings.cpp` inclusion are explicitly staged in
+  35 JA25 definitions, and compatibility globals are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
   The first text migration slice now commits a canonical 506-symbol ABI schema
@@ -109,7 +108,7 @@ the engine must not contain SDL types in its public domain model.
   238 `GameStrings` sections: 224 selected legacy mappings and those 14 pack
   mappings. It pins each range and storage shape, 18 exported foreign-catalog
   compatibility pairs, and 14 exporter-only tables totaling 85 entries per
-  language. Its fail-closed raw textual-copy gate covers all 224 legacy sections
+  language. Its fail-closed raw catalog-source gate covers all 224 legacy sections
   across eight languages and four quadrants: 7,168 comparisons, with zero unsafe
   sections, language pairs, quadrant failures, or potential OOB reads. The 19
   earlier foreign repairs plus 104 assignment, trap, and terrain inserts occupy
@@ -118,9 +117,15 @@ the engine must not contain SDL types in its public domain model.
   index overrides. Live provider enums/macros own all 80 symbolic limits, while
   85,760 selected pointer entries are restricted to direct wide literals or 328
   validated conditional selectors. It also proves startup export precedes
-  string import and later external-text loading. Runtime publication and the
-  eight textual language-body includes remain unchanged; the selected-catalog
-  adapter prerequisite is explicitly ready while implementation remains staged.
+  string import and later external-text loading. A dedicated language-variant
+  adapter now owns the exact 238-call order and links the selected globals; the
+  eight textual language-body includes are gone. An injected sink copies each
+  borrowed view immediately into the VFS property writer, preserves empty-value
+  suppression and absolute indices across all storage shapes, and retains the
+  two property writes plus six EDT exporters. All 32 ordered UTF-8 payload
+  snapshots are pinned, and the same language-target definition selects the
+  globals, immutable `g_lang`, and compiled `TextPack`. A focused linked-English
+  sanitizer test exercises ownership and later/manual mutable-global snapshots.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

@@ -41,11 +41,12 @@ jobs:
         # Structural parity and exact campaign/build alternatives are mandatory
         # for all eight languages and all four JA2/JA2UB x release/debug
         # quadrants. The ordered developer-export manifest also requires all
-        # 224 x 8 x 4 raw textual-copy range checks to pass, consumes the same
+        # 224 x 8 x 4 raw catalog-source range checks to pass, consumes the same
         # strict 80-row limit contract that normal builds static-assert against
-        # live providers, pins the flat reachable exporter statement inventory
-        # and selector-header seam, validates every exported pointer entry, and
-        # keeps exact nonempty goldens for every repaired ordinal.
+        # live providers, pins the linked adapter's 238-call order, immediate
+        # copy/storage-shape rules, all 32 ordered output payloads, and the
+        # selector-header seam, validates every exported pointer entry, and keeps
+        # exact nonempty goldens for every repaired ordinal.
         # The legacy executable matrix may still treat foreign compiles as soft
         # while this build-free gate does not.
         run: |

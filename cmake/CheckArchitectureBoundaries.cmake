@@ -184,7 +184,8 @@ foreach(required_i18n_build_fragment IN ITEMS
     "TextCatalog.cpp"
     "set(i18nVariantSrc"
     "language.cpp"
-    "ExportStrings.cpp")
+    "ExportStrings.cpp"
+    "SelectedCatalogExport.cpp")
   string(FIND "${i18n_build_contents}" "${required_i18n_build_fragment}"
     required_i18n_build_position)
   if(required_i18n_build_position EQUAL -1)
@@ -210,7 +211,7 @@ file(READ "${SOURCE_ROOT}/i18n/include/TextCatalog.h"
   i18n_text_catalog_header_contents)
 file(READ "${SOURCE_ROOT}/Utils/LocalizedStrings.h"
   localized_strings_header_contents)
-file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
+file(READ "${SOURCE_ROOT}/i18n/SelectedCatalogExport.cpp"
   export_strings_source_contents)
 file(READ "${SOURCE_ROOT}/i18n/Ja2 Libs.cpp" ja2_libs_source_contents)
 file(READ "${SOURCE_ROOT}/i18n/include/Ja2 Libs.h"
@@ -233,9 +234,12 @@ if(localized_strings_header_contents MATCHES
   message(FATAL_ERROR
     "LocalizedStrings regained a second, incompatible language identity")
 endif()
-if(NOT export_strings_source_contents MATCHES "i18n::Lang")
+string(FIND "${i18n_language_source_contents}"
+  "const i18n::Lang g_lang{i18n::CompiledDefaultLanguage()};"
+  i18n_compiled_language_identity_position)
+if(i18n_compiled_language_identity_position EQUAL -1)
   message(FATAL_ERROR
-    "The legacy string exporter must consume the canonical runtime language identity")
+    "The compiled TextPack must consume the canonical selected language identity")
 endif()
 
 file(GLOB i18n_guard_candidate_files
@@ -534,12 +538,12 @@ foreach(migrated_text_export IN ITEMS
     PersonnelTitle EmailTitle FinanceTitle FilesTitle HistoryTitle AimLinksTitle
     HelpScreenExit GameClockDay)
   if(export_strings_source_contents MATCHES
-      "Loc::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText|AimSortText)")
+      "::(pPersonnelTitle|pEmailTitleText|pFinanceTitle|pFilesTitle|pHistoryTitle|AimLinkText|gzHelpScreenText|gpGameClockString|sTimeStrings|gsTimeStrings|pDayStrings|pEtaString|pPausedGameText|AimSortText)")
     message(FATAL_ERROR
-      "ExportStrings regained a legacy migrated text global")
+      "Selected catalog adapter regained a migrated legacy text global")
   endif()
   string(REGEX MATCHALL
-    "ExportTextPackEntry\\(props, i18n::TextKey::${migrated_text_export}\\)"
+    "ExportTextPackEntry\\(sink, i18n::TextKey::${migrated_text_export}\\)"
     migrated_text_export_uses
     "${export_strings_source_contents}")
   list(LENGTH migrated_text_export_uses
@@ -552,7 +556,7 @@ endforeach()
 foreach(migrated_text_table_export IN ITEMS
     TimeCompression TimeUnits Day Eta PausedGame AimSort)
   string(REGEX MATCHALL
-    "ExportTextPackTable\\(props, i18n::TextTableKey::${migrated_text_table_export}\\)"
+    "ExportTextPackTable\\(sink, i18n::TextTableKey::${migrated_text_table_export}\\)"
     migrated_text_table_export_uses "${export_strings_source_contents}")
   list(LENGTH migrated_text_table_export_uses
     migrated_text_table_export_count)
@@ -562,7 +566,7 @@ foreach(migrated_text_table_export IN ITEMS
   endif()
 endforeach()
 string(REGEX MATCHALL
-  "(^|[\r\n])[ \t]*ExportSection\\(props,[ \t]*L\""
+  "(^|[\r\n])[ \t]*ExportSection\\(sink,[ \t]*L\""
   remaining_legacy_export_calls "${export_strings_source_contents}")
 list(LENGTH remaining_legacy_export_calls remaining_legacy_export_call_count)
 if(NOT remaining_legacy_export_call_count EQUAL 224)
@@ -570,7 +574,7 @@ if(NOT remaining_legacy_export_call_count EQUAL 224)
     "Runtime TextPack migration must leave exactly 224 executable legacy exporter sections, found ${remaining_legacy_export_call_count}")
 endif()
 string(REGEX MATCHALL
-  "ExportTextPack(Entry|Table)\\(props,[ \t\r\n]*i18n::Text(Table)?Key::"
+  "ExportTextPack(Entry|Table)\\(sink,[ \t\r\n]*i18n::Text(Table)?Key::"
   migrated_text_export_calls "${export_strings_source_contents}")
 list(LENGTH migrated_text_export_calls migrated_text_export_call_count)
 if(NOT migrated_text_export_call_count EQUAL 14)
@@ -578,12 +582,12 @@ if(NOT migrated_text_export_call_count EQUAL 14)
     "Runtime TextPack must publish exactly 14 migrated exporter mappings, found ${migrated_text_export_call_count}")
 endif()
 set(migrated_text_table_export_positions
-  "Loc::pTownNames|ExportTextPackTable(props, i18n::TextTableKey::TimeCompression)|Loc::pAssignmentStrings|TimeCompression"
-  "Loc::gsUndergroundString|ExportTextPackTable(props, i18n::TextTableKey::TimeUnits)|Loc::sFacilitiesStrings|TimeUnits"
-  "Loc::pMercDeadString|ExportTextPackTable(props, i18n::TextTableKey::Day)|Loc::pSenderNameList|Day"
-  "Loc::pMapScreenPrevNextCharButtonHelpText|ExportTextPackTable(props, i18n::TextTableKey::Eta)|Loc::pTrashItemText|Eta"
-  "Loc::pPersTitleText|ExportTextPackTable(props, i18n::TextTableKey::PausedGame)|Loc::pMessageStrings|PausedGame"
-  "Loc::BobbyRaysFrontText|ExportTextPackTable(props, i18n::TextTableKey::AimSort)|Loc::AimPolicyText|AimSort")
+  "::pTownNames|ExportTextPackTable(sink, i18n::TextTableKey::TimeCompression)|::pAssignmentStrings|TimeCompression"
+  "::gsUndergroundString|ExportTextPackTable(sink, i18n::TextTableKey::TimeUnits)|::sFacilitiesStrings|TimeUnits"
+  "::pMercDeadString|ExportTextPackTable(sink, i18n::TextTableKey::Day)|::pSenderNameList|Day"
+  "::pMapScreenPrevNextCharButtonHelpText|ExportTextPackTable(sink, i18n::TextTableKey::Eta)|::pTrashItemText|Eta"
+  "::pPersTitleText|ExportTextPackTable(sink, i18n::TextTableKey::PausedGame)|::pMessageStrings|PausedGame"
+  "::BobbyRaysFrontText|ExportTextPackTable(sink, i18n::TextTableKey::AimSort)|::AimPolicyText|AimSort")
 foreach(migrated_text_table_export_position IN LISTS
     migrated_text_table_export_positions)
   string(REPLACE "|" ";" migrated_text_table_export_fields
@@ -609,12 +613,12 @@ foreach(migrated_text_table_export_position IN LISTS
       "${migrated_text_table_export_name} TextPack export lost its historical section position")
   endif()
 endforeach()
-string(FIND "${export_strings_source_contents}" "Loc::AimPopUpText"
+string(FIND "${export_strings_source_contents}" "::AimPopUpText"
   aim_popup_export_position)
 string(FIND "${export_strings_source_contents}"
-  "ExportTextPackEntry(props, i18n::TextKey::AimLinksTitle)"
+  "ExportTextPackEntry(sink, i18n::TextKey::AimLinksTitle)"
   aim_links_export_position)
-string(FIND "${export_strings_source_contents}" "Loc::AimHistoryText"
+string(FIND "${export_strings_source_contents}" "::AimHistoryText"
   aim_history_export_position)
 if(aim_popup_export_position EQUAL -1 OR aim_links_export_position EQUAL -1 OR
     aim_history_export_position EQUAL -1 OR
@@ -623,12 +627,12 @@ if(aim_popup_export_position EQUAL -1 OR aim_links_export_position EQUAL -1 OR
   message(FATAL_ERROR
     "Aim Links TextPack export must retain its legacy position between AimPopUp and AimHistory")
 endif()
-string(FIND "${export_strings_source_contents}" "Loc::gzLaptopHelpText"
+string(FIND "${export_strings_source_contents}" "::gzLaptopHelpText"
   laptop_help_export_position)
 string(FIND "${export_strings_source_contents}"
-  "ExportTextPackEntry(props, i18n::TextKey::HelpScreenExit)"
+  "ExportTextPackEntry(sink, i18n::TextKey::HelpScreenExit)"
   help_screen_exit_export_position)
-string(FIND "${export_strings_source_contents}" "Loc::gzNonPersistantPBIText"
+string(FIND "${export_strings_source_contents}" "::gzNonPersistantPBIText"
   non_persistant_pbi_export_position)
 if(laptop_help_export_position EQUAL -1 OR
     help_screen_exit_export_position EQUAL -1 OR
@@ -638,12 +642,12 @@ if(laptop_help_export_position EQUAL -1 OR
   message(FATAL_ERROR
     "Help-screen TextPack export must retain its legacy position between LaptopHelp and NonPersistantPBI")
 endif()
-string(FIND "${export_strings_source_contents}" "Loc::gpStrategicString"
+string(FIND "${export_strings_source_contents}" "::gpStrategicString"
   strategic_export_position)
 string(FIND "${export_strings_source_contents}"
-  "ExportTextPackEntry(props, i18n::TextKey::GameClockDay)"
+  "ExportTextPackEntry(sink, i18n::TextKey::GameClockDay)"
   game_clock_day_export_position)
-string(FIND "${export_strings_source_contents}" "Loc::sKeyDescriptionStrings"
+string(FIND "${export_strings_source_contents}" "::sKeyDescriptionStrings"
   key_description_export_position)
 if(strategic_export_position EQUAL -1 OR
     game_clock_day_export_position EQUAL -1 OR
@@ -675,9 +679,9 @@ foreach(direct_legacy_text_include_candidate IN LISTS
       "${direct_legacy_text_include_count} + 1")
   endif()
 endforeach()
-if(NOT direct_legacy_text_include_count EQUAL 240)
+if(NOT direct_legacy_text_include_count EQUAL 241)
   message(FATAL_ERROR
-    "The AIM Sort boundary must leave exactly 240 direct Text.h consumers, found ${direct_legacy_text_include_count}")
+    "The linked export adapter must leave exactly 241 direct Text.h consumers, found ${direct_legacy_text_include_count}")
 endif()
 
 file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
@@ -767,6 +771,7 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Explicit blockers and review gates"
     "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
+    "A focused linked-English sanitizer test additionally executes"
     "506 unique data symbols"
     "42 pre-existing foreign-catalog compatibility gaps"
     "All eight current `TextKey` descriptors are required"
@@ -786,7 +791,9 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "exactly 104 semantic entries"
     "exactly 14 tables"
     "219 symbols are declared in `Text.h` and five retain consumer-local extern declarations"
-    "runtime publication mechanism remain unchanged"
+    "The eight textual catalog includes are gone"
+    "all 32 language/campaign/build snapshots"
+    "A deliberate later/manual call has a clearer contract"
     "280 exact indexed translations"
     "37 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
@@ -813,7 +820,7 @@ foreach(required_runtime_i18n_engine_summary_fragment IN ITEMS
     "catalog now covers 344 literals and 14 exporter mappings"
     "source-only ordered manifest for all 238"
     "85,760 selected pointer entries"
-    "adapter prerequisite is explicitly ready")
+    "dedicated language-variant adapter now owns the exact 238-call order")
   string(FIND "${runtime_i18n_engine_summary_normalized}"
     "${required_runtime_i18n_engine_summary_fragment}"
     required_runtime_i18n_engine_summary_position)
@@ -925,28 +932,32 @@ if(NOT runtime_i18n_compiled_selector_undef_count EQUAL 17)
     "Compiled selector seam must reset exactly 17 owned macros")
 endif()
 
+file(READ "${SOURCE_ROOT}/i18n/SelectedCatalogExport.cpp"
+  runtime_i18n_selected_export_contents)
 file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
   runtime_i18n_export_strings_contents)
-string(FIND "${runtime_i18n_export_strings_contents}"
+file(READ "${SOURCE_ROOT}/i18n/include/SelectedCatalogExport.h"
+  runtime_i18n_selected_export_header_contents)
+string(FIND "${runtime_i18n_selected_export_contents}"
   "#include \"ExportStringLimitContract.inc\""
   runtime_i18n_export_limit_contract_include)
 if(runtime_i18n_export_limit_contract_include EQUAL -1)
   message(FATAL_ERROR
-    "ExportStrings lost its compiler-owned named-limit contract")
+    "Selected catalog adapter lost its compiler-owned named-limit contract")
 endif()
-string(FIND "${runtime_i18n_export_strings_contents}"
+string(FIND "${runtime_i18n_selected_export_contents}"
   "#include \"GameSettings.h\""
   runtime_i18n_export_gun_type_provider_include)
 if(runtime_i18n_export_gun_type_provider_include EQUAL -1)
   message(FATAL_ERROR
-    "ExportStrings must directly import the GUN_TYPES_MAX provider")
+    "Selected catalog adapter must directly import the GUN_TYPES_MAX provider")
 endif()
-string(FIND "${runtime_i18n_export_strings_contents}"
+string(FIND "${runtime_i18n_selected_export_contents}"
   "#ifdef static_assert\n#error \"GameStrings export limits require the built-in static_assert keyword\"\n#endif\n#include \"ExportStringLimitContract.inc\""
   runtime_i18n_export_limit_contract_guard)
 if(runtime_i18n_export_limit_contract_guard EQUAL -1)
   message(FATAL_ERROR
-    "ExportStrings lost its non-macroable static_assert contract seam")
+    "Selected catalog adapter lost its non-macroable static_assert contract seam")
 endif()
 file(READ "${SOURCE_ROOT}/i18n/include/ExportStringLimitContract.inc"
   runtime_i18n_export_limit_contract_contents)
@@ -965,23 +976,72 @@ if(NOT runtime_i18n_export_limit_contract_row_count EQUAL 80 OR
   message(FATAL_ERROR
     "Named GameStrings export limits must remain 80 direct static_assert rows")
 endif()
-string(FIND "${runtime_i18n_export_strings_contents}"
-  "#include \"CompiledConditionalText.h\""
-  runtime_i18n_export_conditional_include)
-if(runtime_i18n_export_conditional_include EQUAL -1)
-  message(FATAL_ERROR
-    "ExportStrings must import the global conditional policy before catalog inclusion")
-endif()
 foreach(required_runtime_i18n_range IN ITEMS
-    "Loc::WeaponType,[ \t]*0,[ \t]*GUN_TYPES_MAX"
-    "Loc::pMercHeLeaveString,[ \t]*0,[ \t]*2"
-    "Loc::pMercSheLeaveString,[ \t]*0,[ \t]*2")
-  if(NOT runtime_i18n_export_strings_contents MATCHES
+    "::WeaponType,[ \t]*0,[ \t]*GUN_TYPES_MAX"
+    "::pMercHeLeaveString,[ \t]*0,[ \t]*2"
+    "::pMercSheLeaveString,[ \t]*0,[ \t]*2")
+  if(NOT runtime_i18n_selected_export_contents MATCHES
       "${required_runtime_i18n_range}")
     message(FATAL_ERROR
-      "ExportStrings lost normalized range '${required_runtime_i18n_range}'")
+      "Selected catalog adapter lost normalized range '${required_runtime_i18n_range}'")
   endif()
 endforeach()
+
+foreach(required_runtime_i18n_adapter_fragment IN ITEMS
+    "class SelectedCatalogExportSink"
+    "must copy section and text before copyEntry returns")
+  string(FIND "${runtime_i18n_selected_export_header_contents}"
+    "${required_runtime_i18n_adapter_fragment}"
+    required_runtime_i18n_adapter_fragment_position)
+  if(required_runtime_i18n_adapter_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Selected catalog sink lost '${required_runtime_i18n_adapter_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/selected_catalog_export_tests.cpp"
+  runtime_i18n_selected_export_test_contents)
+foreach(required_runtime_i18n_selected_export_test_fragment IN ITEMS
+    "class RecordingSink final"
+    "std::wstring(section), index, std::wstring(text)"
+    "startupSnapshot.entries.size() == 3078"
+    "emittedSections.size() == 237"
+    "Count(startupSnapshot, L\"WeaponType\") == 9"
+    "Find(startupSnapshot, L\"TownNames\", 0) == nullptr"
+    "HasText(startupSnapshot, L\"Assignment\", 0, L\"Squad 1\")"
+    "HasText(startupSnapshot, L\"ProsLabel\", 0, L\"Pros:\")"
+    "HasText(startupSnapshot, L\"PersonnelTitle\", 0, L\"Personnel\")"
+    "startupSnapshot.entries.back().section == L\"MPChatbox\""
+    "pAssignmentStrings[0] = L\"Current pointer slot\""
+    "a later manual export snapshots the then-current fixed row"
+    "the immediate-copy sink owns its first snapshot after globals mutate")
+  string(FIND "${runtime_i18n_selected_export_test_contents}"
+    "${required_runtime_i18n_selected_export_test_fragment}"
+    required_runtime_i18n_selected_export_test_position)
+  if(required_runtime_i18n_selected_export_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Selected catalog executable test lost '${required_runtime_i18n_selected_export_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_runtime_i18n_writer_fragment IN ITEMS
+    "PropertyContainerExportSink sink(props)"
+    "i18n::ExportSelectedCatalog(sink)"
+    "vfs::String(std::wstring(section))"
+    "vfs::String(std::wstring(text))")
+  string(FIND "${runtime_i18n_export_strings_contents}"
+    "${required_runtime_i18n_writer_fragment}"
+    required_runtime_i18n_writer_fragment_position)
+  if(required_runtime_i18n_writer_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "GameStrings property writer lost '${required_runtime_i18n_writer_fragment}'")
+  endif()
+endforeach()
+if(runtime_i18n_selected_export_contents MATCHES
+    "#include[ \t]+\"_(Chinese|Dutch|English|French|German|Italian|Polish|Russian)Text[.]cpp\"" OR
+   runtime_i18n_export_strings_contents MATCHES
+    "#include[ \t]+\"_(Chinese|Dutch|English|French|German|Italian|Polish|Russian)Text[.]cpp\"")
+  message(FATAL_ERROR
+    "GameStrings exporter regained textual language-catalog inclusion")
+endif()
 
 file(READ "${SOURCE_ROOT}/Laptop/IMP Gear.cpp"
   runtime_i18n_imp_gear_contents)
@@ -1158,7 +1218,9 @@ foreach(required_runtime_i18n_export_schema_tool_fragment IN ITEMS
     "MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD = 0"
     "EXPECTED_EXPORTER_ONLY_TABLES = 14"
     "EXPECTED_EXPORTER_ONLY_ENTRIES = 85"
-    "EXPECTED_TEXTUAL_CATALOG_INCLUDES"
+    "EXPECTED_LINKED_CATALOG_SOURCES"
+    "EXPECTED_LOCAL_EXTERN_SYMBOLS"
+    "EXPECTED_ADAPTER_HELPER_NAMESPACE"
     "EXPECTED_NAMED_EXPORT_LIMITS = 80"
     "EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES"
     "parse_named_export_limit_manifest"
@@ -1170,6 +1232,14 @@ foreach(required_runtime_i18n_export_schema_tool_fragment IN ITEMS
     "_reject_preprocessor_obfuscation"
     "_descriptor_array_region"
     "parse_export_calls"
+    "selected_catalog_adapter_contract"
+    "validate_property_container_exporter"
+    "_validate_adapter_helper_namespace"
+    "_validate_adapter_header"
+    "_validate_variant_source_list"
+    "_validate_compiled_language_agreement"
+    "_validate_legacy_storage_paths"
+    "ordered_output_contract"
     "_pointer_initializer_kind"
     "_validate_catalog_selector_boundary"
     "production_consumers"
@@ -1180,7 +1250,7 @@ foreach(required_runtime_i18n_export_schema_tool_fragment IN ITEMS
     "normalized_catalog_issues"
     "legacy_startup_contract"
     "LoadAllExternalText call/definition sites changed"
-    "adapter prerequisite must remain explicitly ready")
+    "selected-catalog adapter must remain explicitly implemented")
   string(FIND "${runtime_i18n_export_schema_tool_contents}"
     "${required_runtime_i18n_export_schema_tool_fragment}"
     required_runtime_i18n_export_schema_tool_position)
@@ -1215,10 +1285,16 @@ foreach(required_runtime_i18n_export_schema_fragment IN ITEMS
     "\"compiled_selector_entry_checks\": 328"
     "\"exporter_only_tables\": 14"
     "\"exporter_only_entries_per_language\": 85"
-    "\"state\": \"ready\""
-    "selected catalog bodies remain textually included"
+    "\"state\": \"implemented\""
+    "injected immediate-copy sink"
+    "\"source\": \"i18n/SelectedCatalogExport.cpp\""
+    "borrowed views copied before callback return"
+    "one language-target definition selects linked globals, g_lang, and TextPack"
     "\"textual_catalog_includes\""
-    "live-provider/raw textual-copy gate"
+    "\"output_contract\""
+    "\"English/ja2-release\""
+    "\"empty_values\": \"suppressed\""
+    "\"indexing\": \"absolute source index\""
     "\"subsystem_order_constraint\""
     "\"production_call_sites\": 2")
   string(FIND "${runtime_i18n_export_schema_contents}"
@@ -1256,16 +1332,18 @@ list(LENGTH runtime_i18n_export_schema_exporter_only_tables
   runtime_i18n_export_schema_exporter_only_table_count)
 string(REGEX MATCHALL
   "\"_(Chinese|Dutch|English|French|German|Italian|Polish|Russian)Text[.]cpp\""
-  runtime_i18n_export_schema_textual_includes
+  runtime_i18n_export_schema_linked_catalogs
   "${runtime_i18n_export_schema_contents}")
-list(LENGTH runtime_i18n_export_schema_textual_includes
-  runtime_i18n_export_schema_textual_include_count)
+list(LENGTH runtime_i18n_export_schema_linked_catalogs
+  runtime_i18n_export_schema_linked_catalog_count)
 if(NOT runtime_i18n_export_schema_legacy_section_count EQUAL 224 OR
     NOT runtime_i18n_export_schema_pack_section_count EQUAL 14 OR
     NOT runtime_i18n_export_schema_debt_pair_count EQUAL 18 OR
     NOT runtime_i18n_export_schema_unsafe_pair_count EQUAL 0 OR
     NOT runtime_i18n_export_schema_exporter_only_table_count EQUAL 14 OR
-    NOT runtime_i18n_export_schema_textual_include_count EQUAL 8)
+    NOT runtime_i18n_export_schema_linked_catalog_count EQUAL 8 OR
+    NOT runtime_i18n_export_schema_contents MATCHES
+      "\"textual_catalog_includes\": \\[\\]")
   message(FATAL_ERROR
     "Runtime i18n exporter manifest lost its 224/14 section, 18/0 debt, exhaustive range, or 14-table ownership contract")
 endif()
@@ -1277,8 +1355,11 @@ foreach(required_runtime_i18n_export_schema_test_fragment IN ITEMS
     "test_export_parser_ignores_comments_and_preserves_interleaved_ranges"
     "test_export_parser_rejects_inactive_preprocessor_calls"
     "test_export_parser_requires_direct_top_level_statements"
-    "test_textual_catalog_include_parser_rejects_raw_string_bypass"
-    "test_textual_catalog_includes_must_be_active_for_each_language"
+    "test_textual_catalog_include_scanner_rejects_raw_string_bypass"
+    "test_selected_catalog_adapter_contract_is_linked_and_immediate_copy"
+    "test_adapter_helpers_reject_literal_inactive_and_control_flow_spoofs"
+    "test_adapter_header_build_and_language_contracts_ignore_spoof_text"
+    "test_adapter_storage_paths_reject_scalar_overrun_and_unknown_rank"
     "test_text_pack_descriptor_parser_pins_schema_sections_and_export_ranges"
     "test_debt_range_model_classifies_short_catalogs_and_fails_closed"
     "test_named_limit_table_exactly_covers_export_and_raw_dimension_names"
@@ -1289,6 +1370,7 @@ foreach(required_runtime_i18n_export_schema_test_fragment IN ITEMS
     "test_startup_chain_definitions_and_calls_remain_active_and_reachable"
     "test_committed_manifest_pins_all_238_sections_and_storage_membership"
     "test_exact_18_debt_pairs_and_exhaustive_zero_unsafe_gate_are_reviewable"
+    "test_ordered_output_bytes_and_all_build_quadrants_are_pinned"
     "test_all_19_foreign_and_104_universal_repairs_have_exact_goldens"
     "test_missing_polish_teamturn_comma_is_rejected"
     "test_missing_italian_middle_slot_is_rejected"
@@ -1345,6 +1427,11 @@ foreach(required_runtime_i18n_test_build_fragment IN ITEMS
     "NAME i18n_export_schema_tool"
     "i18n_conditional_text_policy_tests"
     "i18n_text_catalog_tests"
+    "add_executable(selected_catalog_export_tests"
+    "i18n/SelectedCatalogExport.cpp"
+    "i18n/_EnglishText.cpp"
+    "target_compile_definitions(selected_catalog_export_tests PRIVATE ENGLISH)"
+    "NAME selected_catalog_export"
     "i18n_compiled_conditional_text_ja2_release_tests"
     "i18n_compiled_conditional_text_ja2_beta_tests"
     "i18n_compiled_conditional_text_ja2ub_release_tests"
@@ -1362,6 +1449,7 @@ file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
   runtime_i18n_sanitizer_workflow_contents)
 foreach(required_runtime_i18n_sanitizer_target IN ITEMS
     "i18n_text_catalog_tests"
+    "selected_catalog_export_tests"
     "i18n_conditional_text_policy_tests"
     "i18n_compiled_conditional_text_ja2_release_tests"
     "i18n_compiled_conditional_text_ja2_beta_tests"
@@ -1387,7 +1475,8 @@ foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "indexed game-time tables are the fifth"
     "AIM Sort table is the sixth"
     "complete 238-section GameStrings source manifest"
-    "adapter prerequisite is ready only because the exhaustive"
+    "linked selected-catalog export adapter are committed"
+    "all 32 ordered output payloads are pinned"
     "remaining 471 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"

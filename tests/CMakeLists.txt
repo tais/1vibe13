@@ -579,6 +579,23 @@ target_include_directories(i18n_text_catalog_tests PRIVATE
 target_compile_features(i18n_text_catalog_tests PRIVATE cxx_std_17)
 add_test(NAME i18n_text_catalog COMMAND i18n_text_catalog_tests)
 
+# The selected-catalog adapter borrows all legacy storage shapes but the
+# injected sink must copy immediately. Link the English catalog directly so
+# empty suppression, absolute indices, TextPack agreement, and later snapshots
+# of mutable globals stay executable without VFS or the game application.
+add_executable(selected_catalog_export_tests
+  selected_catalog_export_tests.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/SelectedCatalogExport.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/TextCatalog.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/language.cpp
+  ${CMAKE_SOURCE_DIR}/i18n/_EnglishText.cpp)
+target_compile_definitions(selected_catalog_export_tests PRIVATE ENGLISH)
+target_include_directories(selected_catalog_export_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/i18n
+  ${CMAKE_SOURCE_DIR}/i18n/include)
+target_compile_features(selected_catalog_export_tests PRIVATE cxx_std_17)
+add_test(NAME selected_catalog_export COMMAND selected_catalog_export_tests)
+
 # Campaign and build-conditioned translations are language data selected by an
 # explicit policy. This data-free model pins the key schema and all four policy
 # quadrants without linking a legacy text catalog or game application.
@@ -849,11 +866,11 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  # Build-free shape, exact conditioned-value, ordered GameStrings export,
-  # source-derived limits, and exhaustive raw-range/pointer-entry gates for all
-  # compiled catalogs. These remain mandatory even while the legacy foreign
-  # executable matrix is allowed to fail, and give developers one named
-  # no-build target.
+  # Build-free shape, exact conditioned-value, linked GameStrings adapter,
+  # ordered output-byte snapshots, source-derived limits, and exhaustive
+  # raw-range/pointer-entry gates for all compiled catalogs. These remain
+  # mandatory even while the legacy foreign executable matrix is allowed to
+  # fail, and give developers one named no-build target.
   add_custom_target(i18n_text_schema_check
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py
