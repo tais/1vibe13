@@ -2734,19 +2734,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-  L"STRENGTH",
-	L"DEXTERITY",
-	L"AGILITY",
-	L"WISDOM",
-	L"MARKSMANSHIP",
-	L"MEDICAL",
-	L"MECHANICAL",
-	L"LEADERSHIP",
-	L"EXPLOSIVES",
-	L"LEVEL",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2782,43 +2770,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Fuel",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Practice", // tell merc to train self
-  L"Militia", // tell merc to train town
-	L"Trainer", // tell merc to act as trainer
-	L"Student", // tell merc to be train by other
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Fire Rate:", // the allowable rate of fire for a merc who is guarding
-	L" Aggressive Fire", // the merc can be aggressive in their choice of fire rates
-	L" Conserve Ammo", // conserve ammo
-	L" Refrain From Firing", // fire only when the merc needs to
-	L"Other Options:", // other options available to merc
-	L" Can Retreat", // merc can retreat
-	L" Can Seek Cover",  // merc is allowed to seek cover
-	L" Can Assist Teammates", // merc can assist teammates
-	L"Done", // done with this menu
-	L"Cancel", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Fire Rate:",
-	L" *Aggressive Fire*",
-	L" *Conserve Ammo*",
-	L" *Refrain From Firing*",
-	L"Other Options:",
-	L" *Can Retreat*",
-	L" *Can Seek Cover*",
-	L" *Can Assist Teammates*",
-	L"Done",
-	L"Cancel",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3372,14 +3329,8 @@ STR16 pDoorTrapStrings[] =
 	L"an electric trap",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"day",
-	L"week",
-	L"two weeks",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3403,23 +3354,8 @@ STR16 pNoiseVolStr[] =
 	L"VERY LOUD",
 };
 
-// types of noises
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"UNKNOWN",
-	L"sound of MOVEMENT",
-	L"CREAKING",
-	L"SPLASHING",
-	L"IMPACT",
-	L"GUNSHOT",
-	L"EXPLOSION",
-	L"SCREAM",
-	L"IMPACT",
-	L"IMPACT",
-	L"SHATTERING",
-	L"SMASH",
-};
+
 
 // Directions that are used to report noises
 
@@ -4600,13 +4536,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"Previous",
-  L"Next",
-};
+
 
 // new mail notify string
 
@@ -4905,14 +4836,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L"'s contract ended, so he's gone home.", 		// merc's contract is over and has departed
-	L"'s contract ended, so she's gone home.", 		// merc's contract is over and has departed
-	L"'s contract was terminated, so he left.", 		// merc's contract has been terminated
-	L"'s contract was terminated, so she left.",		// merc's contract has been terminated
-	L"You owe M.E.R.C. too much cash, so %s took off.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6108,27 +6032,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Take",					// Take money from the player
-	L"Give",					// Give money to the player
-	L"Cancel",					// Cancel the transfer
-	L"Clear",					// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6931,28 +6836,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"( 8 Characters Max )",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Analyzing",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Thank You, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Voice",
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Killed in Action",
-	L"Dismissed",
-	L"Other",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7197,14 +7090,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"You cannot retreat at this time.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Your militia continue to battle without the aid of your mercs...",
-	L"The vehicle does not need anymore fuel right now.",
-	L"The fuel tank is %d%% full.",
-	L"Deidranna's army has regained complete control over %s.",
-	L"You have lost a refueling site.",
-};
+
 
 STR16	gzIntroScreen[] =
 {
@@ -7337,13 +7223,7 @@ STR16 sRepairsDoneString[] =
 	L"%s finished cleaning everyone's guns.",
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"You have chosen NOVICE mode. This setting is appropriate for those new to Jagged Alliance, those new to strategy games in general, or those wishing shorter battles in the game. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Novice mode?",
-	L"You have chosen EXPERIENCED mode. This setting is suitable for those already familiar with Jagged Alliance or similar games. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Experienced mode?",
-	L"You have chosen EXPERT mode. We warned you. Don't blame us if you get shipped back in a body bag. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Expert mode?",
-	L"You have chosen INSANE mode. WARNING: Don't blame us if you get shipped back in little pieces... Deidranna WILL kick your ass.  Hard.  Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in INSANE mode?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

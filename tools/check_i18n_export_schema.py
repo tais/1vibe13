@@ -41,27 +41,27 @@ I18N_BUILD_SOURCE = "i18n/CMakeLists.txt"
 TEXT_CATALOG_HEADER = "i18n/include/TextCatalog.h"
 
 EXPECTED_LOGICAL_SECTIONS = 238
-EXPECTED_LEGACY_SECTIONS = 224
-EXPECTED_TEXT_PACK_SECTIONS = 14
+EXPECTED_LEGACY_SECTIONS = 210
+EXPECTED_TEXT_PACK_SECTIONS = 28
 EXPECTED_TEXT_PACK_ENTRIES = 8
-EXPECTED_TEXT_PACK_TABLES = 6
-EXPECTED_LEGACY_POINTER_TABLES = 208
+EXPECTED_TEXT_PACK_TABLES = 20
+EXPECTED_LEGACY_POINTER_TABLES = 194
 EXPECTED_LEGACY_WRITABLE_BUFFERS = 16
-EXPECTED_LEGACY_TEXT_H_SYMBOLS = 219
+EXPECTED_LEGACY_TEXT_H_SYMBOLS = 205
 EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS = 5
-MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 18
+MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 17
 EXPECTED_LEGACY_RANGE_COMPARISONS = (
     EXPECTED_LEGACY_SECTIONS * len(ABI.LANGUAGES) * len(ABI.QUADRANTS)
 )
-EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS = 85760
-EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS = 85432
+EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS = 83040
+EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS = 82712
 EXPECTED_COMPILED_SELECTOR_ENTRY_CHECKS = 328
 MAX_UNSAFE_RANGE_SECTIONS = 0
 MAX_UNSAFE_RANGE_LANGUAGE_PAIRS = 0
 MAX_UNSAFE_RANGE_QUADRANT_FAILURES = 0
 MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD = 0
-EXPECTED_EXPORTER_ONLY_TABLES = 14
-EXPECTED_EXPORTER_ONLY_ENTRIES = 85
+EXPECTED_EXPORTER_ONLY_TABLES = 0
+EXPECTED_EXPORTER_ONLY_ENTRIES = 0
 EXPECTED_LINKED_CATALOG_SOURCES = [
     "_ChineseText.cpp",
     "_DutchText.cpp",
@@ -89,7 +89,7 @@ EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES = [
 ]
 
 NAMED_EXPORT_LIMIT_MANIFEST = "i18n/include/ExportStringLimitContract.inc"
-EXPECTED_NAMED_EXPORT_LIMITS = 80
+EXPECTED_NAMED_EXPORT_LIMITS = 77
 
 EXPECTED_NORMALIZED_EXPORT_LIMITS: Mapping[str, int] = {
     "WeaponType": 9,
@@ -292,7 +292,7 @@ IMPLEMENTED_ADAPTER_STATUS = {
     "reason": (
         "one language-variant translation unit enumerates all 238 ordered "
         "sections from selected linked globals and the immutable TextPack "
-        "through an injected immediate-copy sink; all 224 legacy ranges retain "
+        "through an injected immediate-copy sink; all 210 legacy ranges retain "
         "their exhaustive eight-language/four-quadrant proof"
     ),
 }
@@ -2367,28 +2367,80 @@ def _selected_pointer_text(
 def _builtin_text_pack_values(source: str) -> dict[str, tuple[list[str], list[str]]]:
     """Parse the eight literal-only BuiltinDefinitions rows."""
 
-    row_pattern = re.compile(
-        r"\{Lang::(?P<language>en|de|ru|nl|pl|fr|it|zh)\s*,\s*"
-        r"\{(?P<keys>.*?)\}\s*,\s*\{(?P<tables>.*?)\}\s*\}",
-        re.DOTALL,
-    )
+    _reject_conditionals(source, "built-in TextPack definitions")
+    region = _descriptor_array_region(source, "BuiltinDefinitions")
+    rows = _split_arguments(region)
+    if rows and not rows[-1]:
+        rows.pop()
+    if len(rows) != len(ABI.LANGUAGES):
+        raise ExportSchemaError(
+            "built-in TextPack must contain exactly eight direct language rows"
+        )
+
+    def parse_literal_list(text: str, label: str, expected: int) -> list[str]:
+        entries = _split_arguments(text)
+        if entries and not entries[-1]:
+            entries.pop()
+        values = [
+            _decode_wide_literal_sequence(entry, f"{label}[{index}]")
+            for index, entry in enumerate(entries)
+        ]
+        if len(values) != expected:
+            raise ExportSchemaError(
+                f"{label}: expected {expected} direct wide-literal entries"
+            )
+        return values
+
     result = {}
-    for match in row_pattern.finditer(comments_blanked(source)):
-        code = match.group("language")
+    for row_index, row in enumerate(rows):
+        masked = lexical_mask(row)
+        prefix = re.match(
+            r"\s*\{\s*Lang::(?P<language>en|de|ru|nl|pl|fr|it|zh)\s*,\s*",
+            masked,
+        )
+        if prefix is None:
+            raise ExportSchemaError(
+                f"built-in TextPack row {row_index} lost its direct Lang key"
+            )
+        code = prefix.group("language")
         if code in result:
             raise ExportSchemaError(f"duplicate built-in TextPack row {code}")
-        keys = [
-            _decode_wide_literal_body(literal.group("body"), f"TextPack/{code}")
-            for literal in WIDE_STRING_LITERAL.finditer(match.group("keys"))
-        ]
-        tables = [
-            _decode_wide_literal_body(literal.group("body"), f"TextPack/{code}")
-            for literal in WIDE_STRING_LITERAL.finditer(match.group("tables"))
-        ]
-        if len(keys) != EXPECTED_TEXT_PACK_ENTRIES or len(tables) != 35:
+
+        key_open = prefix.end()
+        if key_open >= len(masked) or masked[key_open] != "{":
             raise ExportSchemaError(
-                f"TextPack/{code}: expected 8 scalar and 35 table literals"
+                f"TextPack/{code}: scalar entries must use one direct braced list"
             )
+        key_close = _matching_delimiter(masked, key_open, "{", "}")
+        cursor = key_close + 1
+        separator = re.match(r"\s*,\s*", masked[cursor:])
+        if separator is None:
+            raise ExportSchemaError(
+                f"TextPack/{code}: scalar/table list separator changed"
+            )
+        table_open = cursor + separator.end()
+        if table_open >= len(masked) or masked[table_open] != "{":
+            raise ExportSchemaError(
+                f"TextPack/{code}: table entries must use one direct braced list"
+            )
+        table_close = _matching_delimiter(masked, table_open, "{", "}")
+        cursor = table_close + 1
+        tail = re.fullmatch(r"\s*\}\s*", masked[cursor:])
+        if tail is None:
+            raise ExportSchemaError(
+                f"TextPack/{code}: language row contains unreviewed syntax"
+            )
+
+        keys = parse_literal_list(
+            row[key_open + 1:key_close],
+            f"TextPack/{code}/keys",
+            EXPECTED_TEXT_PACK_ENTRIES,
+        )
+        tables = parse_literal_list(
+            row[table_open + 1:table_close],
+            f"TextPack/{code}/tables",
+            120,
+        )
         result[code] = (keys, tables)
     expected_codes = ["en", "de", "ru", "nl", "pl", "fr", "it", "zh"]
     if list(result) != expected_codes:
@@ -3454,7 +3506,10 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         issues.append("schema: exporter-only inventory is missing")
         exporter_only = []
     if len(exporter_only) != EXPECTED_EXPORTER_ONLY_TABLES:
-        issues.append("schema: exporter-only table count is not exactly 14")
+        issues.append(
+            "schema: exporter-only table count is not exactly "
+            f"{EXPECTED_EXPORTER_ONLY_TABLES}"
+        )
     if len(exporter_only) != counts.get("exporter_only_tables"):
         issues.append("schema: exporter-only count does not match its inventory")
     exporter_only_pairs = [
@@ -3475,7 +3530,10 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         if isinstance(entry, dict)
     )
     if exporter_only_entries != EXPECTED_EXPORTER_ONLY_ENTRIES:
-        issues.append("schema: exporter-only entry count is not exactly 85")
+        issues.append(
+            "schema: exporter-only entry count is not exactly "
+            f"{EXPECTED_EXPORTER_ONLY_ENTRIES}"
+        )
     if exporter_only_entries != counts.get("exporter_only_entries_per_language"):
         issues.append("schema: exporter-only entry total does not match its inventory")
     if schema.get("adapter_status") != IMPLEMENTED_ADAPTER_STATUS:

@@ -564,10 +564,10 @@ add_executable(i18n_language_catalog_tests
 add_test(NAME i18n_language_catalog
   COMMAND i18n_language_catalog_tests)
 
-# The first six immutable TextCatalog domains own all eight scalar labels and
-# the indexed game-time and AIM Sort tables while a tiny compiled seam preserves
-# today's g_lang-selected default. This target links no game, SDL, VFS, archive,
-# or installed localization data.
+# The first seven immutable TextCatalog domains own all eight scalar labels,
+# the indexed game-time and AIM Sort tables, and the 85-entry exporter-only
+# cohort while a tiny compiled seam preserves today's g_lang-selected default.
+# This target links no game, SDL, VFS, archive, or installed localization data.
 add_executable(i18n_text_catalog_tests
   i18n_text_catalog_tests.cpp
   ${CMAKE_SOURCE_DIR}/i18n/TextCatalog.cpp

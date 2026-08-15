@@ -4,7 +4,7 @@
   "runtime_behavior": "selected linked globals and immutable TextPack entries are emitted through an injected immediate-copy sink; language remains compile-time",
   "adapter_status": {
     "state": "implemented",
-    "reason": "one language-variant translation unit enumerates all 238 ordered sections from selected linked globals and the immutable TextPack through an injected immediate-copy sink; all 224 legacy ranges retain their exhaustive eight-language/four-quadrant proof"
+    "reason": "one language-variant translation unit enumerates all 238 ordered sections from selected linked globals and the immutable TextPack through an injected immediate-copy sink; all 210 legacy ranges retain their exhaustive eight-language/four-quadrant proof"
   },
   "catalog_adapter": {
     "source": "i18n/SelectedCatalogExport.cpp",
@@ -39,22 +39,22 @@
   },
   "counts": {
     "logical_sections": 238,
-    "legacy_sections": 224,
-    "text_pack_sections": 14,
+    "legacy_sections": 210,
+    "text_pack_sections": 28,
     "text_pack_entries": 8,
-    "text_pack_tables": 6,
-    "legacy_pointer_tables": 208,
+    "text_pack_tables": 20,
+    "legacy_pointer_tables": 194,
     "legacy_writable_buffers": 16,
-    "legacy_text_h_symbols": 219,
+    "legacy_text_h_symbols": 205,
     "legacy_local_extern_symbols": 5,
-    "exported_compatibility_debt_pairs": 18,
-    "legacy_range_comparisons": 7168,
+    "exported_compatibility_debt_pairs": 17,
+    "legacy_range_comparisons": 6720,
     "unsafe_range_sections": 0,
     "unsafe_range_language_pairs": 0,
     "unsafe_range_quadrant_failures": 0,
     "potential_oob_reads_per_selected_build": 0,
-    "exporter_only_tables": 14,
-    "exporter_only_entries_per_language": 85
+    "exporter_only_tables": 0,
+    "exporter_only_entries_per_language": 0
   },
   "named_export_limits": {
     "GUN_TYPES_MAX": 9,
@@ -73,11 +73,9 @@
     "MAX_TOWNS": 50,
     "MAX_TRAIN_STRING_COUNT": 5,
     "NUM_ASSIGNMENTS": 85,
-    "NUM_CONTRACT_EXTEND": 3,
     "NUM_DOOR_TRAPS": 7,
     "NUM_ICONS": 18,
     "NUM_SKILLTRAITS_OT": 17,
-    "NUM_SKI_ATM_BUTTONS": 15,
     "NUM_SNITCH_GATHERING_RUMOURS_RESULT": 1,
     "NUM_SNITCH_PRISON_EXPOSED": 12,
     "NUM_TRAVTERRAIN_TYPES": 47,
@@ -105,7 +103,6 @@
     "TEXT_NUM_FLORIST_GALLERY": 5,
     "TEXT_NUM_FLORIST_ORDER": 22,
     "TEXT_NUM_FUNERAL": 12,
-    "TEXT_NUM_GIO_CFS": 4,
     "TEXT_NUM_GIO_TEXT": 69,
     "TEXT_NUM_INS_CONTRACT": 4,
     "TEXT_NUM_INS_INFO": 2,
@@ -531,12 +528,22 @@
     },
     {
       "ordinal": 16,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "LongAttribute",
       "section": "LongAttribute",
-      "symbol": "pLongAttributeStrings",
       "range": {
-        "first": "0",
-        "limit": "10"
+        "first": 0,
+        "limit": 10
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "mapscreen.attribute.long",
+        "section": "LongAttribute",
+        "offset": 35,
+        "entry_count": 10,
+        "export_first": 0,
+        "export_count": 10,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -561,32 +568,62 @@
     },
     {
       "ordinal": 19,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "Training",
       "section": "Training",
-      "symbol": "pTrainingStrings",
       "range": {
-        "first": "0",
-        "limit": "4"
+        "first": 0,
+        "limit": 4
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "mapscreen.training",
+        "section": "Training",
+        "offset": 45,
+        "entry_count": 4,
+        "export_first": 0,
+        "export_count": 4,
+        "english_fallback_allowed": false
       }
     },
     {
       "ordinal": 20,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "GuardMenu",
       "section": "GuardMenu",
-      "symbol": "pGuardMenuStrings",
       "range": {
-        "first": "0",
-        "limit": "10"
+        "first": 0,
+        "limit": 10
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "tactical.guard.menu",
+        "section": "GuardMenu",
+        "offset": 49,
+        "entry_count": 10,
+        "export_first": 0,
+        "export_count": 10,
+        "english_fallback_allowed": false
       }
     },
     {
       "ordinal": 21,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "OtherGuardMenu",
       "section": "OtherGuardMenu",
-      "symbol": "pOtherGuardMenuStrings",
       "range": {
-        "first": "0",
-        "limit": "10"
+        "first": 0,
+        "limit": 10
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "tactical.guard.other-menu",
+        "section": "OtherGuardMenu",
+        "offset": 59,
+        "entry_count": 10,
+        "export_first": 0,
+        "export_count": 10,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -810,12 +847,22 @@
     },
     {
       "ordinal": 43,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "ContractExtend",
       "section": "ContractExtend",
-      "symbol": "pContractExtendStrings",
       "range": {
-        "first": "0",
-        "limit": "NUM_CONTRACT_EXTEND"
+        "first": 0,
+        "limit": 3
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "mapscreen.contract.extend",
+        "section": "ContractExtend",
+        "offset": 69,
+        "entry_count": 3,
+        "export_first": 0,
+        "export_count": 3,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -840,12 +887,22 @@
     },
     {
       "ordinal": 46,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "NoiseType",
       "section": "NoiseType",
-      "symbol": "pNoiseTypeStr",
       "range": {
-        "first": "0",
-        "limit": "12"
+        "first": 0,
+        "limit": 12
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "tactical.noise.type",
+        "section": "NoiseType",
+        "offset": 72,
+        "entry_count": 12,
+        "export_first": 0,
+        "export_count": 12,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -1349,12 +1406,22 @@
     },
     {
       "ordinal": 94,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "Traverse",
       "section": "Traverse",
-      "symbol": "pTraverseStrings",
       "range": {
-        "first": "0",
-        "limit": "2"
+        "first": 0,
+        "limit": 2
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "mapscreen.traverse",
+        "section": "Traverse",
+        "offset": 84,
+        "entry_count": 2,
+        "export_first": 0,
+        "export_count": 2,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -1607,12 +1674,22 @@
     },
     {
       "ordinal": 117,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "MercContractOver",
       "section": "MercContractOver",
-      "symbol": "pMercContractOverStrings",
       "range": {
-        "first": "0",
-        "limit": "5"
+        "first": 0,
+        "limit": 5
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "mapscreen.contract.over",
+        "section": "MercContractOver",
+        "offset": 86,
+        "entry_count": 5,
+        "export_first": 0,
+        "export_count": 5,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -2234,12 +2311,22 @@
     },
     {
       "ordinal": 176,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "SkiAtm",
       "section": "SkiAtm",
-      "symbol": "SkiAtmText",
       "range": {
-        "first": "0",
-        "limit": "NUM_SKI_ATM_BUTTONS"
+        "first": 0,
+        "limit": 15
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "shopkeeper.atm.buttons",
+        "section": "SkiAtm",
+        "offset": 91,
+        "entry_count": 15,
+        "export_first": 0,
+        "export_count": 15,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -2424,12 +2511,22 @@
     },
     {
       "ordinal": 195,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "ImpFinishButton",
       "section": "IMPFinishButton",
-      "symbol": "pIMPFinishButtonText",
       "range": {
-        "first": "0",
-        "limit": "1"
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "laptop.imp.finish.button",
+        "section": "IMPFinishButton",
+        "offset": 106,
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -2444,22 +2541,42 @@
     },
     {
       "ordinal": 197,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "ImpVoices",
       "section": "IMPVoices",
-      "symbol": "pIMPVoicesStrings",
       "range": {
-        "first": "0",
-        "limit": "1"
+        "first": 0,
+        "limit": 1
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "laptop.imp.voices",
+        "section": "IMPVoices",
+        "offset": 107,
+        "entry_count": 1,
+        "export_first": 0,
+        "export_count": 1,
+        "english_fallback_allowed": false
       }
     },
     {
       "ordinal": 198,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "DepartedMercPortrait",
       "section": "DepartedMercPortrait",
-      "symbol": "pDepartedMercPortraitStrings",
       "range": {
-        "first": "0",
-        "limit": "3"
+        "first": 0,
+        "limit": 3
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "laptop.personnel.departed-portrait",
+        "section": "DepartedMercPortrait",
+        "offset": 108,
+        "entry_count": 3,
+        "export_first": 0,
+        "export_count": 3,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -2593,12 +2710,22 @@
     },
     {
       "ordinal": 210,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "MiscString",
       "section": "MiscString",
-      "symbol": "gzMiscString",
       "range": {
-        "first": "0",
-        "limit": "5"
+        "first": 0,
+        "limit": 5
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.misc",
+        "section": "MiscString",
+        "offset": 111,
+        "entry_count": 5,
+        "export_first": 0,
+        "export_count": 5,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -2693,12 +2820,22 @@
     },
     {
       "ordinal": 220,
-      "source_kind": "legacy",
+      "source_kind": "text-pack-table",
+      "key": "GioDifConfirm",
       "section": "GioDifConfirm",
-      "symbol": "zGioDifConfirmText",
       "range": {
-        "first": "0",
-        "limit": "TEXT_NUM_GIO_CFS"
+        "first": 0,
+        "limit": 4
+      },
+      "text_pack_descriptor": {
+        "schema": "TextTableKey",
+        "name": "game.options.difficulty-confirmation",
+        "section": "GioDifConfirm",
+        "offset": 116,
+        "entry_count": 4,
+        "export_first": 0,
+        "export_count": 4,
+        "english_fallback_allowed": false
       }
     },
     {
@@ -3253,31 +3390,6 @@
         ]
       }
     },
-    "pLongAttributeStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "10"
-        ],
-        "ja2-debug": [
-          "10"
-        ],
-        "ja2ub-release": [
-          "10"
-        ],
-        "ja2ub-debug": [
-          "10"
-        ]
-      }
-    },
     "pShortAttributeStrings": {
       "schema_domain": "base",
       "declaration": "Text.h",
@@ -3325,81 +3437,6 @@
         ],
         "ja2ub-debug": [
           "6"
-        ]
-      }
-    },
-    "pTrainingStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "4"
-        ],
-        "ja2-debug": [
-          "4"
-        ],
-        "ja2ub-release": [
-          "4"
-        ],
-        "ja2ub-debug": [
-          "4"
-        ]
-      }
-    },
-    "pGuardMenuStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "10"
-        ],
-        "ja2-debug": [
-          "10"
-        ],
-        "ja2ub-release": [
-          "10"
-        ],
-        "ja2ub-debug": [
-          "10"
-        ]
-      }
-    },
-    "pOtherGuardMenuStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "10"
-        ],
-        "ja2-debug": [
-          "10"
-        ],
-        "ja2ub-release": [
-          "10"
-        ],
-        "ja2ub-debug": [
-          "10"
         ]
       }
     },
@@ -3903,31 +3940,6 @@
         ]
       }
     },
-    "pContractExtendStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "3"
-        ],
-        "ja2-debug": [
-          "3"
-        ],
-        "ja2ub-release": [
-          "3"
-        ],
-        "ja2ub-debug": [
-          "3"
-        ]
-      }
-    },
     "pMapScreenMouseRegionHelpText": {
       "schema_domain": "base",
       "declaration": "Text.h",
@@ -3975,31 +3987,6 @@
         ],
         "ja2ub-debug": [
           "4"
-        ]
-      }
-    },
-    "pNoiseTypeStr": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "12"
-        ],
-        "ja2-debug": [
-          "12"
-        ],
-        "ja2ub-release": [
-          "12"
-        ],
-        "ja2ub-debug": [
-          "12"
         ]
       }
     },
@@ -5143,31 +5130,6 @@
         ]
       }
     },
-    "pTraverseStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "2"
-        ],
-        "ja2-debug": [
-          "2"
-        ],
-        "ja2ub-release": [
-          "2"
-        ],
-        "ja2ub-debug": [
-          "2"
-        ]
-      }
-    },
     "pNewMailStrings": {
       "schema_domain": "base",
       "declaration": "Text.h",
@@ -5640,31 +5602,6 @@
         ],
         "ja2ub-debug": [
           "2"
-        ]
-      }
-    },
-    "pMercContractOverStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "5"
-        ],
-        "ja2-debug": [
-          "5"
-        ],
-        "ja2ub-release": [
-          "5"
-        ],
-        "ja2ub-debug": [
-          "5"
         ]
       }
     },
@@ -7023,31 +6960,6 @@
         ]
       }
     },
-    "SkiAtmText": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "15"
-        ],
-        "ja2-debug": [
-          "15"
-        ],
-        "ja2ub-release": [
-          "15"
-        ],
-        "ja2ub-debug": [
-          "15"
-        ]
-      }
-    },
     "gzSkiAtmText": {
       "schema_domain": "base",
       "declaration": "Text.h",
@@ -7498,31 +7410,6 @@
         ]
       }
     },
-    "pIMPFinishButtonText": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "1"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "1"
-        ],
-        "ja2-debug": [
-          "1"
-        ],
-        "ja2ub-release": [
-          "1"
-        ],
-        "ja2ub-debug": [
-          "1"
-        ]
-      }
-    },
     "pIMPFinishStrings": {
       "schema_domain": "base",
       "declaration": "Text.h",
@@ -7545,56 +7432,6 @@
         ],
         "ja2ub-debug": [
           "1"
-        ]
-      }
-    },
-    "pIMPVoicesStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "1"
-        ],
-        "ja2-debug": [
-          "1"
-        ],
-        "ja2ub-release": [
-          "1"
-        ],
-        "ja2ub-debug": [
-          "1"
-        ]
-      }
-    },
-    "pDepartedMercPortraitStrings": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "3"
-        ],
-        "ja2-debug": [
-          "3"
-        ],
-        "ja2ub-release": [
-          "3"
-        ],
-        "ja2ub-debug": [
-          "3"
         ]
       }
     },
@@ -7828,31 +7665,6 @@
         ]
       }
     },
-    "gzMiscString": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "5"
-        ],
-        "ja2-debug": [
-          "5"
-        ],
-        "ja2ub-release": [
-          "5"
-        ],
-        "ja2ub-debug": [
-          "5"
-        ]
-      }
-    },
     "gzIntroScreen": {
       "schema_domain": "base",
       "declaration": "local-extern",
@@ -8075,31 +7887,6 @@
         ],
         "ja2ub-debug": [
           "8"
-        ]
-      }
-    },
-    "zGioDifConfirmText": {
-      "schema_domain": "base",
-      "declaration": "Text.h",
-      "type": "STR16",
-      "rank": 1,
-      "source_dimensions": [
-        "*"
-      ],
-      "mutability": "mutable-pointer-slots-to-const-text",
-      "conditional_layout": [],
-      "effective_dimensions_by_quadrant": {
-        "ja2-release": [
-          "4"
-        ],
-        "ja2-debug": [
-          "4"
-        ],
-        "ja2ub-release": [
-          "4"
-        ],
-        "ja2ub-debug": [
-          "4"
         ]
       }
     },
@@ -8555,13 +8342,13 @@
     }
   },
   "legacy_range_contract": {
-    "comparisons": 7168,
+    "comparisons": 6720,
     "unsafe_sections": 0,
     "unsafe_language_pairs": 0,
     "unsafe_quadrant_failures": 0,
     "potential_oob_reads_per_selected_build": 0,
-    "exported_pointer_entry_checks": 85760,
-    "direct_wide_literal_entry_checks": 85432,
+    "exported_pointer_entry_checks": 83040,
+    "direct_wide_literal_entry_checks": 82712,
     "compiled_selector_entry_checks": 328
   },
   "exported_compatibility_debt": [
@@ -8580,15 +8367,6 @@
       "symbol": "gzLaptopHelpText",
       "compatibility_fields": [
         "quadrants"
-      ],
-      "unsafe_range": false
-    },
-    {
-      "language": "German",
-      "section": "IMPFinishButton",
-      "symbol": "pIMPFinishButtonText",
-      "compatibility_fields": [
-        "source_dimensions"
       ],
       "unsafe_range": false
     },
@@ -8728,76 +8506,5 @@
       "unsafe_range": false
     }
   ],
-  "exporter_only_tables": [
-    {
-      "section": "LongAttribute",
-      "symbol": "pLongAttributeStrings",
-      "entries_per_language": 10
-    },
-    {
-      "section": "Training",
-      "symbol": "pTrainingStrings",
-      "entries_per_language": 4
-    },
-    {
-      "section": "GuardMenu",
-      "symbol": "pGuardMenuStrings",
-      "entries_per_language": 10
-    },
-    {
-      "section": "OtherGuardMenu",
-      "symbol": "pOtherGuardMenuStrings",
-      "entries_per_language": 10
-    },
-    {
-      "section": "ContractExtend",
-      "symbol": "pContractExtendStrings",
-      "entries_per_language": 3
-    },
-    {
-      "section": "NoiseType",
-      "symbol": "pNoiseTypeStr",
-      "entries_per_language": 12
-    },
-    {
-      "section": "Traverse",
-      "symbol": "pTraverseStrings",
-      "entries_per_language": 2
-    },
-    {
-      "section": "MercContractOver",
-      "symbol": "pMercContractOverStrings",
-      "entries_per_language": 5
-    },
-    {
-      "section": "SkiAtm",
-      "symbol": "SkiAtmText",
-      "entries_per_language": 15
-    },
-    {
-      "section": "IMPFinishButton",
-      "symbol": "pIMPFinishButtonText",
-      "entries_per_language": 1
-    },
-    {
-      "section": "IMPVoices",
-      "symbol": "pIMPVoicesStrings",
-      "entries_per_language": 1
-    },
-    {
-      "section": "DepartedMercPortrait",
-      "symbol": "pDepartedMercPortraitStrings",
-      "entries_per_language": 3
-    },
-    {
-      "section": "MiscString",
-      "symbol": "gzMiscString",
-      "entries_per_language": 5
-    },
-    {
-      "section": "GioDifConfirm",
-      "symbol": "zGioDifConfirmText",
-      "entries_per_language": 4
-    }
-  ]
+  "exporter_only_tables": []
 }

@@ -2742,19 +2742,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-	L"FORCE", 
-	L"DEXTÉRITÉ",  
-	L"AGILITÉ", 
-	L"SAGESSE", 
-	L"PRÉCISION",//!!! Accurate but not very good. Char limit ? -> 12 characters is the limit
-	L"MÉDECINE",
-	L"MÉCANIQUE",
-	L"COMMANDEMENT",
-	L"EXPLOSIFS",
-	L"NIVEAU",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2790,43 +2778,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Carb.",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Formation", // tell merc to train self 
-	L"Milice", // tell merc to train town 
-	L"Entraîneur", // tell merc to act as trainer
-	L"Élève", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Cadence de tir :", // the allowable rate of fire for a merc who is guarding
-	L"Feu à volonté", // the merc can be aggressive in their choice of fire rates
-	L"Économiser munitions", // conserve ammo 
-	L"Tir restreint", // fire only when the merc needs to 
-	L"Autres Options :", // other options available to merc
-	L"Retraite", // merc can retreat
-	L"Abri",  // merc is allowed to seek cover
-	L"Assistance", // merc can assist teammates
-	L"OK", // done with this menu
-	L"Annuler", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Cadence de tir :",
-	L"*Feu à volonté*",
-	L"*Économiser munitions*",
-	L"*Tir restreint*",
-	L"Autres Options :",
-	L"*Retraite*",
-	L"*Abri*",
-	L"*Assistance*",
-	L"OK",
-	L"Annuler",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3380,14 +3337,8 @@ STR16 pDoorTrapStrings[] =
 	L"un piège électrique",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"jour",
-	L"semaine",
-	L"2 semaines",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3411,23 +3362,8 @@ STR16 pNoiseVolStr[] =
 	L"TRÈS FORT",
 };
 
-// types of noises 
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"INCONNU",
-	L"MOUVEMENT",
-	L"GRINCEMENT",
-	L"CLAPOTEMENT",
-	L"IMPACT",
-	L"COUP DE FEU",
-	L"EXPLOSION",
-	L"CRI",
-	L"IMPACT",
-	L"IMPACT",
-	L"BRUIT",
-	L"COLLISION",
-};
+
 
 // Directions that are used to report noises
 
@@ -4608,13 +4544,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"Précédent",
-  L"Suivant",
-};
+
 
 // new mail notify string 
 
@@ -4913,14 +4844,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L"a rempli son contrat, il est rentré chez lui.", 		// merc's contract is over and has departed
-	L"a rempli son contrat, elle est rentrée chez elle.", 		// merc's contract is over and has departed
-	L"est parti, son contrat ayant été annulé.", 		// merc's contract has been terminated
-	L"est partie, son contrat ayant été annulé.",		// merc's contract has been terminated
-	L"Vous devez trop d'argent à la MERC, %s quitte Arulco.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6117,27 +6041,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Prendre",					// Take money from the player
-	L"Donner",					// Give money to the player
-	L"Annuler",					// Cancel the transfer
-	L"Effacer",					// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6939,28 +6844,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"(8 Caractères Max)",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Analyse",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Nous vous remercions, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Voix", 
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Mort(e)",
-	L"Renvoyé(e)",
-	L"Autre",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7205,14 +7098,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"Retraite impossible.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Votre milice continue le combat sans vos mercenaires...",
-	L"Ce véhicule n'a plus besoin de carburant pour le moment.",
-	L"Le réservoir est plein à %d%%.",
-	L"L'armée de Deidranna a repris le contrôle de %s.",
-	L"Vous avez perdu un site de ravitaillement.",
-};
+
 
 STR16	gzIntroScreen[] = 
 {
@@ -7345,13 +7231,7 @@ STR16 sRepairsDoneString[] =
 	L"%s finished cleaning everyone's guns.",	// TODO.Translate
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"Vous avez choisi le mode de difficulté NOVICE. Ce mode de jeu est conseillé pour les joueurs qui découvrent Jagged Alliance, qui n'ont pas l'habitude de jouer à des jeux de stratégie ou qui souhaitent que les combats ne durent pas trop longtemps. Ce choix influe sur de nombreux paramètres du jeu. Êtes-vous certain de vouloir jouer en mode Novice ?",
-	L"Vous avez choisi le mode de difficulté EXPÉRIMENTE. Ce mode de jeu est conseillé pour les joueurs qui ont déjà joué à Jagged Alliance ou des jeux de stratégie. Ce choix influe sur de nombreux paramètres du jeu. Êtes-vous certain de vouloir jouer en mode Expérimenté ?",
-	L"Vous avez choisi le mode de difficulté EXPERT. Vous aurez été prévenu. Ne venez pas vous plaindre, si vos mercenaires quittent Arulco dans un cerceuil. Ce choix influe sur de nombreux paramètres du jeu. Êtes-vous certain de vouloir jouer en mode Expert ?",
-	L"Vous avez choisi le mode de difficulté INCROYABLE. ATTENTION : Ne venez pas vous plaindre, si vos mercenaires quittent Arulco en petits morceaux... Deidranna va vous tuer. À coup sûr.  Ce choix influe sur de nombreux paramètres du jeu. Êtes-vous certain de vouloir jouer en mode INCROYABLE ?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

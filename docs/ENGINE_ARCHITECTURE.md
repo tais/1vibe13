@@ -44,14 +44,14 @@ the engine must not contain SDL types in its public domain model.
   legacy archive metadata, localization suffixes, and language-specific layout
   policy; Lua-visible enum values remain unchanged. Language-neutral i18n
   support objects compile once, while the compatibility archives still own one
-  preprocessor-selected legacy text body. The remaining 471 base definitions,
+  preprocessor-selected legacy text body. The remaining 457 base definitions,
   35 JA25 definitions, and compatibility globals are explicitly staged in
   [Runtime i18n architecture](RUNTIME_I18N_ARCHITECTURE.md); `g_lang` must stay
   immutable until that text ABI is behind validated runtime packs.
-  The first text migration slice now commits a canonical 506-symbol ABI schema
+  The first text migration slice now commits a canonical 492-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
-  array/mutability shapes are explicit, and 42 existing foreign
+  array/mutability shapes are explicit, and 41 existing foreign
   compatibility gaps are exact ratcheted debt. English fallback is permitted
   only for future keys explicitly marked optional; the current linker and
   immutable `g_lang` perform no fallback or runtime selection.
@@ -104,18 +104,25 @@ the engine must not contain SDL types in its public domain model.
   descriptor leaves earlier ordinals and ranges intact; the catalog now covers
   344 literals and 14 exporter mappings without changing startup selection,
   `g_lang`, mutable globals, or archive layout.
+  The seventh complete domain moves the 85-entry exporter-only cohort: fourteen
+  legacy tables, 680 exact native translations, and their in-place exporter
+  sections append as required typed tables. The old 14 declarations and 112
+  definitions are gone, all 32 ordered output hashes remain identical, and
+  zero exporter-only legacy tables remain. The catalog now covers 1,024
+  literals and 28 exporter mappings; the ABI contains 457 base plus 35 JA25
+  symbols, with 466 mutable pointer-slot tables and 26 fixed writable buffers.
   The exporter prerequisite now commits a source-only ordered manifest for all
-  238 `GameStrings` sections: 224 selected legacy mappings and those 14 pack
-  mappings. It pins each range and storage shape, 18 exported foreign-catalog
-  compatibility pairs, and 14 exporter-only tables totaling 85 entries per
-  language. Its fail-closed raw catalog-source gate covers all 224 legacy sections
-  across eight languages and four quadrants: 7,168 comparisons, with zero unsafe
+  238 `GameStrings` sections: 210 selected legacy mappings and 28 pack
+  mappings. It pins each range and storage shape, 17 exported foreign-catalog
+  compatibility pairs, and the closure of the exporter-only inventory. Its
+  fail-closed raw catalog-source gate covers all 210 legacy sections across
+  eight languages and four quadrants: 6,720 comparisons, with zero unsafe
   sections, language pairs, quadrant failures, or potential OOB reads. The 19
   earlier foreign repairs plus 104 assignment, trap, and terrain inserts occupy
   their canonical semantic ordinals, with exact nonempty goldens and alignment
   anchors; Italian GIO is aligned at 69 entries and no longer needs conditional
-  index overrides. Live provider enums/macros own all 80 symbolic limits, while
-  85,760 selected pointer entries are restricted to direct wide literals or 328
+  index overrides. Live provider enums/macros own all 77 symbolic limits, while
+  83,040 selected pointer entries are restricted to direct wide literals or 328
   validated conditional selectors. It also proves startup export precedes
   string import and later external-text loading. A dedicated language-variant
   adapter now owns the exact 238-call order and links the selected globals; the

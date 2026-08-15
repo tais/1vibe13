@@ -6,7 +6,7 @@ The target is one application build whose text language is selected at startup
 and can be changed in the options screen for the next restart. Text and voice
 are separate choices; hot-reloading either one is outside this migration.
 
-The completed foundation, conditional-data, and first six domain slices do
+The completed foundation, conditional-data, and first seven domain slices do
 **not** make the legacy text catalogs runtime selectable. The foundation
 establishes one typed runtime catalog for the eight supported languages and
 inventories the legacy ABI. The conditional-data slice separates
@@ -14,7 +14,8 @@ campaign/build-conditioned translations from the choice that publishes them.
 The first six domain slices move five immutable Laptop titles, the AIM Links
 page title, the Help-screen exit label, and the game-clock day label behind a
 validated pack, then add five indexed game-time tables and the AIM Sort table
-without changing startup selection. `g_lang` remains immutable:
+without changing startup selection. The seventh moves the complete 14-table,
+85-entry exporter-only cohort into that same pack. `g_lang` remains immutable:
 changing it while the other global text variables still point at one compiled
 language would create a mixed and invalid runtime.
 
@@ -25,12 +26,12 @@ pair and passes exactly one of `ENGLISH`, `GERMAN`, `DUTCH`, `POLISH`,
 `RUSSIAN`, `FRENCH`, `ITALIAN`, or `CHINESE` to it. There are four independent
 reasons this is not merely a build-system naming problem:
 
-1. `i18n/include/Text.h` now contains 471 `extern` lines. The normalized surface
-   is 468 unique data declarations, two utility functions, and one duplicate
+1. `i18n/include/Text.h` now contains 457 `extern` lines. The normalized surface
+   is 454 unique data declarations, two utility functions, and one duplicate
    `pDownloadString` declaration; two of those data declarations have no
    compiled-catalog definition, while five catalog globals are declared only
    at their consumers. The initial schema contained 485 base data definitions;
-   the first six domain slices retire fourteen, leaving 471 base definitions,
+   the first seven domain slices retire twenty-eight, leaving 457 base definitions,
    while the JA25 compatibility surface still adds 35. There are 240 source/header
    files that include `Text.h` directly. The eight base-language translation units
    and eight JA25 translation units deliberately define the remaining same
@@ -54,8 +55,8 @@ reasons this is not merely a build-system naming problem:
 4. `SelectedCatalogExport.cpp` now links the normally compiled selected
    base-language globals and emits them through an injected immediate-copy
    sink. `ExportStrings.cpp` owns only the VFS writer and six raw EDT exporters;
-   it no longer creates a second namespaced catalog copy. The 14 migrated
-   sections consume the same `TextPack` as the game. The remaining 224 globals
+   it no longer creates a second namespaced catalog copy. The 28 migrated
+   sections consume the same `TextPack` as the game. The remaining 210 globals
    still need domain-by-domain pack migration before all language bodies can
    coexist in one process.
 
@@ -67,7 +68,7 @@ live only as language/package metadata in the runtime catalog.
 The existing XML localization support is not yet a replacement for the global
 ABI. `LocalizedStrings` serves AIM biography/history/policy and dialogue-style
 resources. `ExportStrings` can write a large `GameStrings.xml`, but there is no
-inverse publisher that validates and installs all 471 remaining base catalog
+inverse publisher that validates and installs all 457 remaining base catalog
 variables.
 `XML_Language.cpp` transactionally overlays its dedicated tactical-message
 table, not the general text catalog.
@@ -91,13 +92,13 @@ The data-free `i18n_language_catalog_tests` pins all eight identities, their
 existing Lua numbers and paths, unique lookup keys, Chinese layout behavior,
 and invalid-input rejection. Architecture checks prevent language compile
 guards from spreading back into neutral i18n files and pin the remaining
-471 + 35 global definition surfaces exactly.
+457 + 35 global definition surfaces exactly.
 
 ## Canonical compiled-text ABI schema
 
 Migration step 1 is now a build-free, mandatory source gate. The committed
-`i18n/text_abi_schema.json` inventories the 471 remaining base definitions and
-35 JA25 definitions as 506 unique data symbols. It also normalizes a historical
+`i18n/text_abi_schema.json` inventories the 457 remaining base definitions and
+35 JA25 definitions as 492 unique data symbols. It also normalizes a historical
 duplicate `pDownloadString` declaration, keeps function declarations separate
 from data, records each array rank and effective dimension, and distinguishes
 mutable pointer slots from the 26 writable `CHAR16` buffers. Campaign/build
@@ -115,7 +116,7 @@ Catalog conditionals may name only their language macro. Reintroducing
 `JA2UB`, `JA2BETAVERSION`, or another configuration macro fails instead of
 creating an untracked catalog variant.
 
-The schema records 42 pre-existing foreign-catalog compatibility gaps by
+The schema records 41 pre-existing foreign-catalog compatibility gaps by
 language and symbol. They are exact, reviewable debt rather than a wildcard:
 any new gap or any unreviewed change to one fails validation. Removing the two
 foreign-only guard shapes first shrank this ceiling from 59 to 57. Normalizing
@@ -123,7 +124,8 @@ the 14 unsafe GameStrings range pairs then removed another 14 exact overlays;
 realigning Italian `gzGIOScreenText` to the canonical 69 entries removed its
 last index-shift overlay. The range repairs insert nonempty entries at their
 canonical semantic ordinals rather than silently padding or shifting later
-keys. Compatibility debt may not waive a missing or extra symbol, a type
+keys. Migrating German `pIMPFinishButtonText` also removed its former dimension
+overlay. Compatibility debt may not waive a missing or extra symbol, a type
 mismatch, or a mutability mismatch; only the exact remaining legacy
 dimension/entry shapes are grandfathered.
 
@@ -131,19 +133,20 @@ dimension/entry shapes are grandfathered.
 
 The build-free `i18n/export_text_schema.json` manifest now records the entire
 developer `GameStrings` boundary without changing it. Its ordered list contains
-exactly 238 unique logical sections at their source positions: 224 direct
-legacy `ExportSection` calls and 14 `TextPack` mappings. Every legacy entry
+exactly 238 unique logical sections at their source positions: 210 direct
+legacy `ExportSection` calls and 28 `TextPack` mappings. Every legacy entry
 pins its section name, zero-based half-open range expression, base-ABI symbol,
 declaration owner, rank, source and effective dimensions in all four compiled
-quadrants, and storage mutability. The current lane consists of 208 mutable
-pointer-slot tables and 16 writable `CHAR16` buffers; 219 symbols are declared
-in `Text.h` and five retain consumer-local extern declarations. Every pack
-entry instead pins its `TextKey` or `TextTableKey` descriptor, historical
-section name, and export range. Misspellings and deliberately partial tables,
+quadrants, and storage mutability. Every pack entry instead pins its `TextKey`
+or `TextTableKey` descriptor, historical section name, and export range. The
+current legacy lane consists of 194 mutable
+pointer-slot tables and 16 writable `CHAR16` buffers; 205 symbols are declared
+in `Text.h` and five retain consumer-local extern declarations. Misspellings
+and deliberately partial tables,
 including
 `TimeStings[0,1)`, remain data rather than being normalized by the validator.
 
-The export view intersects 18 of the ABI schema's 42 remaining foreign
+The export view intersects 17 of the ABI schema's 41 remaining foreign
 compatibility-debt pairs, and none exceeds its selected source array. The 14
 previously unsafe German, Russian, Dutch, Polish, French, and Italian instances
 of `Message`, `TacticalStr`, `TeamTurnString`, `pBookMarkStrings`, and
@@ -160,13 +163,13 @@ the unchanged 238-section order through an injected borrowed-view sink and
 never textually includes a catalog body.
 
 That adapter safety claim is exhaustive rather than foreign-debt-only. For every
-one of the 224 legacy sections, the validator evaluates the exact exporter
+one of the 210 legacy sections, the validator evaluates the exact exporter
 range expression and compares it with each raw catalog-source definition in all
-eight languages and four campaign/build quadrants: 7,168 comparisons. A
+eight languages and four campaign/build quadrants: 6,720 comparisons. A
 wildcard first dimension means the top-level initializer count; the enclosing
 `Text.h` declaration cannot mask a short linked definition. Unknown names,
 unsupported expressions, missing symbols, and unresolved dimensions fail
-closed. All 80 symbolic limits have one strict, unconditional compiler contract
+closed. All 77 symbolic limits have one strict, unconditional compiler contract
 of direct decimal `static_assert` rows. `SelectedCatalogExport.cpp` includes it
 as the first adapter statement, so every normal language/configuration build compares
 the reviewed values with the live C++ macro or enum providers in the actual
@@ -185,8 +188,8 @@ all four failure measures.
 
 Capacity alone is insufficient for mutable pointer-slot tables: an in-range
 `nullptr`, identifier, or other expression would still make export behavior
-undefined or adapter-dependent. The same pass therefore validates all 85,760
-selected `STR16` entries across the 32 catalog/quadrant combinations: 85,432
+undefined or adapter-dependent. The same pass therefore validates all 83,040
+selected `STR16` entries across the 32 catalog/quadrant combinations: 82,712
 are direct (possibly concatenated) wide literals and 328 are exact
 `I18N_COMPILED_BUILD_TEXT` or `I18N_COMPILED_CAMPAIGN_TEXT` selectors. Any
 implicit zero-initialized tail or other expression fails closed. Each catalog
@@ -208,13 +211,12 @@ moves `INSANE` to canonical index 12, and drops the unused ultimate-iron-man
 enum slot. Exact middle/tail goldens, alias checks, 69-entry GIO alignment, and
 four named `ASSIGNMENT_EMPTY` consumers prevent ordinal regression.
 
-The same source inventory conservatively identifies exactly 14 tables whose
-identifiers occur nowhere else in production C/C++ outside catalog bodies,
-`Text.h`, and the exporter. They total 85 exported entries per language. A
-commented historical consumer still counts as ownership, so this label does
-not silently expand by treating commented dependencies as nonexistent. These
-tables are later pack-migration candidates; this prerequisite does not move
-their translations or change their storage.
+The same source inventory previously identified exactly 14 tables whose
+identifiers occurred nowhere else in production C/C++ outside catalog bodies,
+`Text.h`, and the exporter. They totaled 85 exported entries per language.
+Those tables now have typed `TextTableKey` ownership, so zero exporter-only
+tables remain in the legacy inventory. A commented historical consumer still
+counts as ownership, preventing this category from silently expanding.
 
 `tools/check_i18n_export_schema.py` derives the manifest from
 `SelectedCatalogExport.cpp`, `ExportStrings.cpp`, `TextCatalog.h`, the
@@ -309,7 +311,7 @@ fallback mechanism. `TextFallbackPolicy::EnglishForOptionalKeys` may resolve a
 key from English only when its descriptor explicitly opts in and only after
 the whole catalog validates. All eight current `TextKey` descriptors are
 required, so an absent title rejects construction rather than falling back.
-All six current `TextTableKey` descriptors are required as well; construction
+All twenty current `TextTableKey` descriptors are required as well; construction
 reports the exact missing table and index before publishing any selected pack.
 Each selected legacy compiled catalog must likewise remain complete according
 to its ratcheted compatibility schema. `g_lang` therefore remains immutable
@@ -479,6 +481,41 @@ exporter sections remain.
 Startup selection, `g_lang`, per-language archive collapse, mutable globals,
 voice, and hot reload remain outside this slice.
 
+## Immutable exporter-only TextPack cohort
+
+The seventh complete domain closes the exporter-only legacy tail identified by
+the exhaustive GameStrings inventory. Fourteen tables append in their original
+exporter order: `LongAttribute[10]`, `Training[4]`, `GuardMenu[10]`,
+`OtherGuardMenu[10]`, `ContractExtend[3]`, `NoiseType[12]`, `Traverse[2]`,
+`MercContractOver[5]`, `SkiAtm[15]`, `IMPFinishButton[1]`, `IMPVoices[1]`,
+`DepartedMercPortrait[3]`, `MiscString[5]`, and `GioDifConfirm[4]`. Their 85
+entries in each of eight languages add 680 exact literals without an English
+fallback. Together all twenty indexed tables now pin 960 exact indexed
+translations, and the complete catalog owns 1,024 literals.
+
+The new keys occupy append-only ordinals 6 through 19 and contiguous offsets
+35 through 119. All fourteen old `Text.h` declarations and 112 catalog
+definitions are gone. The unused Ski ATM and difficulty-confirmation index
+enums are retired; the gameplay-owned contract-duration enum remains in its
+strategic owner. German `pIMPFinishButtonText` no longer needs its historical
+dimension overlay, shrinking canonical compatibility debt from 42 to 41.
+
+Each adapter call stays at its exact former ordinal—16, 19, 20, 21, 43, 46,
+94, 117, 176, 195, 197, 198, 210, and 220—and emits the same absolute indices.
+All 32 language/campaign/build output hashes are identical to the linked-adapter
+parent. The manifest therefore remains 238 logical sections while changing its
+ownership split from 224 legacy plus 14 pack mappings to 210 legacy plus 28
+pack mappings. The live named-limit contract drops only the three bounds no
+longer consumed by legacy export calls and now contains 77 rows. Exact-literal,
+missing-required-entry, upper-bound, provenance, stable-address, linked-English
+sanitizer, and ordered-output tests cover the boundary. Zero exporter-only
+tables remain.
+
+The canonical ABI now contains 457 base plus 35 JA25 data symbols (492 total),
+including 466 mutable pointer-slot tables and 26 writable fixed buffers. Runtime
+language selection, archive collapse, mutable destinations, voice, and hot
+reload remain outside this slice.
+
 ## Migration sequence
 
 1. **Complete:** generate and validate a text-pack schema from the current
@@ -495,21 +532,21 @@ voice, and hot reload remain outside this slice.
 3. **In progress:** the immutable, validated `TextCatalog`/`TextPack` boundary
    owns the first five one-entry Laptop title tables, the complete AIM Links
    title domain, the Help-screen exit label, the game-clock day label, and five
-   indexed game-time tables plus the complete AIM Sort table across all eight
-   languages.
+   indexed game-time tables, the complete AIM Sort table, and the complete
+   14-table/85-entry exporter-only cohort across all eight languages.
    Continue migrating direct globals domain by domain, then fixed character
    buffers and genuinely mutable destinations. No slice may copy partially
    validated data or swap addresses after consumers initialize.
 4. **Complete prerequisite:** commit the exact ordered
-   GameStrings manifest, including 224 legacy and 14 pack sections, 18 exported
-   compatibility-debt pairs, 7,168 exhaustive raw-dimension comparisons with
-   zero unsafe results, the 14 exporter-only tables, and startup
+   GameStrings manifest, including 210 legacy and 28 pack sections, 17 exported
+   compatibility-debt pairs, 6,720 exhaustive raw-dimension comparisons with
+   zero unsafe results, zero remaining exporter-only tables, and startup
    export-before-import/external-load order. The repaired semantic ordinals and
    three narrowed limits remove undefined adjacent-array reads without changing
    startup order.
 5. **Adapter complete; pack migration in progress:** the XML exporter consumes
-   the same pack for those 14 sections, and one variant adapter now links the
-   remaining 224 globals without any textual `.cpp` inclusion. Its borrowed
+   the same pack for those 28 sections, and one variant adapter now links the
+   remaining 210 globals without any textual `.cpp` inclusion. Its borrowed
    views are copied immediately and all 32 ordered-output snapshots are pinned.
    Move the remaining sections into validated packs domain by domain.
    Decide separately whether shipped packs remain generated C++ data or become
@@ -527,14 +564,14 @@ voice, and hot reload remain outside this slice.
 ## Explicit blockers and review gates
 
 - All eight catalogs now have mandatory schema checks even though CI still
-  treats non-English/non-German full legacy executable builds as soft. The 42
+  treats non-English/non-German full legacy executable builds as soft. The 41
   inventoried compatibility gaps must shrink or remain exact; they may not grow
   while translated tables move toward canonical parity.
 - The 58 retired campaign/build guard groups, 98 conditioned entries, and 196
   exact literal alternatives must stay behind the value/schema policy.
   Flattening either axis under one arbitrary application would be behavior
   drift.
-- Every one of the 224 selected developer-export ranges now fits all eight
+- Every one of the 210 selected developer-export ranges now fits all eight
   catalogs in all four quadrants. Zero unsafe sections, language pairs,
   quadrant failures, and potential OOB reads is a hard gate; exact nonempty
   semantic goldens prevent empty padding or shifted-key repairs.
