@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Tests for the tagged-release signing and native-package ratchets."""
 
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 from tools.check_release_workflow import (
@@ -323,6 +326,75 @@ class NativeReleasePackagingTests(unittest.TestCase):
             'WriteUninstaller "$INSTDIR\\Uninstall.exe"')
         with self.assertRaisesRegex(RuntimeError, "generic uninstaller name"):
             self.validate(installer=installer)
+
+
+class AppImageBuildScriptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(__file__).resolve().parent.parent
+        cls.build_script = cls.root / "packaging/linux/build_appimage.sh"
+
+    def setUp(self):
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        self.workdir = Path(temporary_directory.name)
+
+        self.appdir = self.workdir / "AppDir"
+        self.appdir.mkdir()
+        for required in (
+                "AppRun",
+                "org.ja2v113.JA2SDL3.desktop",
+                "org.ja2v113.JA2SDL3.png"):
+            (self.appdir / required).write_text("fixture\n", encoding="utf-8")
+
+        self.runtime = self.workdir / "runtime"
+        self.runtime.write_bytes(b"runtime fixture\n")
+        self.appimagetool = self.workdir / "fake-appimagetool"
+        self.appimagetool.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+output=${!#}
+cat > "$output" <<'APPIMAGE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ ${1-} == --appimage-offset ]]
+printf '4096\\n'
+APPIMAGE
+""",
+            encoding="utf-8")
+        self.appimagetool.chmod(0o755)
+
+    def build(self, output: str) -> subprocess.CompletedProcess[str]:
+        environment = dict(os.environ)
+        environment["PATH"] = "/usr/bin:/bin"
+        return subprocess.run(
+            [
+                self.build_script,
+                self.appdir,
+                output,
+                "x86_64",
+                self.appimagetool,
+                self.runtime,
+                "1",
+            ],
+            cwd=self.workdir,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False)
+
+    def test_generated_image_is_executed_by_path(self):
+        outputs = (
+            ("relative", "release.AppImage"),
+            ("absolute", str(self.workdir / "absolute.AppImage")),
+        )
+        for label, output in outputs:
+            with self.subTest(label=label):
+                result = self.build(output)
+                self.assertEqual(
+                    0,
+                    result.returncode,
+                    result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

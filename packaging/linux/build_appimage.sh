@@ -59,7 +59,11 @@ APPIMAGE_EXTRACT_AND_RUN=1 \
 	"$appdir" "$output"
 
 chmod 0755 "$output"
-offset=$("$output" --appimage-offset)
+output_executable=$output
+if [[ $output_executable != /* ]]; then
+	output_executable=$PWD/$output_executable
+fi
+offset=$("$output_executable" --appimage-offset)
 if [[ ! $offset =~ ^[0-9]+$ || $offset -le 0 ]]; then
 	echo "generated file does not report a valid AppImage payload offset" >&2
 	exit 65
