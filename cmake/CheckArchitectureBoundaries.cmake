@@ -135,6 +135,65 @@ function(extract_bounded_slice input_variable start_marker end_marker
   set(${output_variable} "${bounded_slice_contents}" PARENT_SCOPE)
 endfunction()
 
+# Isolate one C/C++ definition through its matching outer brace. Callers pass
+# comment-stripped, literal-masked text so braces in non-code cannot affect the
+# scan. Requiring only whitespace between the signature and opening brace also
+# prevents a declaration plus later marker helper from impersonating a body.
+function(extract_brace_bounded_slice input_variable start_marker
+    output_variable diagnostic)
+  set(brace_source "${${input_variable}}")
+  string(FIND "${brace_source}" "${start_marker}" brace_slice_start)
+  if(brace_slice_start EQUAL -1)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  string(LENGTH "${start_marker}" brace_start_marker_length)
+  math(EXPR brace_search_start
+    "${brace_slice_start} + ${brace_start_marker_length}")
+  string(SUBSTRING "${brace_source}" ${brace_search_start} -1
+    brace_after_marker)
+  string(FIND "${brace_after_marker}" "{" brace_relative_open)
+  if(brace_relative_open EQUAL -1)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  string(SUBSTRING "${brace_after_marker}" 0 ${brace_relative_open}
+    brace_before_open)
+  string(REGEX REPLACE "[ \t\r\n]" "" brace_before_open_compact
+    "${brace_before_open}")
+  if(NOT brace_before_open_compact STREQUAL "")
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  math(EXPR brace_scan_position
+    "${brace_search_start} + ${brace_relative_open}")
+  string(LENGTH "${brace_source}" brace_source_length)
+  set(brace_depth 0)
+  set(brace_slice_end -1)
+  while(brace_scan_position LESS brace_source_length)
+    string(SUBSTRING "${brace_source}" ${brace_scan_position} 1
+      brace_character)
+    if(brace_character STREQUAL "{")
+      math(EXPR brace_depth "${brace_depth} + 1")
+    elseif(brace_character STREQUAL "}")
+      math(EXPR brace_depth "${brace_depth} - 1")
+      if(brace_depth EQUAL 0)
+        math(EXPR brace_slice_end "${brace_scan_position} + 1")
+        break()
+      endif()
+      if(brace_depth LESS 0)
+        message(FATAL_ERROR "${diagnostic}")
+      endif()
+    endif()
+    math(EXPR brace_scan_position "${brace_scan_position} + 1")
+  endwhile()
+  if(brace_slice_end EQUAL -1 OR NOT brace_depth EQUAL 0)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  math(EXPR brace_slice_length
+    "${brace_slice_end} - ${brace_slice_start}")
+  string(SUBSTRING "${brace_source}" ${brace_slice_start}
+    ${brace_slice_length} brace_slice_contents)
+  set(${output_variable} "${brace_slice_contents}" PARENT_SCOPE)
+endfunction()
+
 file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
 foreach(required_lua_fetch_fragment IN ITEMS
     "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"
@@ -1816,6 +1875,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignLuaGlobalPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignMercenaryArrivalContent.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
@@ -4104,25 +4164,25 @@ foreach(runtime_campaign_inventory_file IN LISTS
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
   "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
-if(NOT runtime_campaign_context_selector_count EQUAL 102 OR
+if(NOT runtime_campaign_context_selector_count EQUAL 99 OR
     NOT runtime_campaign_cached_selector_count EQUAL 4 OR
     NOT runtime_campaign_package_selector_count EQUAL 1 OR
-    NOT runtime_campaign_raw_selector_count EQUAL 107 OR
-    NOT runtime_campaign_raw_selector_file_count EQUAL 30)
+    NOT runtime_campaign_raw_selector_count EQUAL 104 OR
+    NOT runtime_campaign_raw_selector_file_count EQUAL 29)
   message(FATAL_ERROR
-    "Raw runtime campaign selector inventory changed from the reviewed 102 context + 4 cached-campaign + 1 active-package leaves across 30 files")
+    "Raw runtime campaign selector inventory changed from the reviewed 99 context + 4 cached-campaign + 1 active-package leaves across 29 files")
 endif()
-if(NOT runtime_campaign_raw_option_consumer_count EQUAL 33 OR
-    NOT runtime_campaign_external_option_executable_count EQUAL 297 OR
-    NOT runtime_campaign_external_option_raw_count EQUAL 299)
+if(NOT runtime_campaign_raw_option_consumer_count EQUAL 32 OR
+    NOT runtime_campaign_external_option_executable_count EQUAL 268 OR
+    NOT runtime_campaign_external_option_raw_count EQUAL 270)
   message(FATAL_ERROR
-    "External UB option inventory changed from the reviewed 297 executable + 299 raw occurrences across 33 files")
+    "External UB option inventory changed from the reviewed 268 executable + 270 raw occurrences across 32 files")
 endif()
-if(NOT runtime_campaign_total_option_executable_count EQUAL 561 OR
-    NOT runtime_campaign_total_option_raw_count EQUAL 563 OR
-    NOT runtime_campaign_total_option_file_count EQUAL 35)
+if(NOT runtime_campaign_total_option_executable_count EQUAL 552 OR
+    NOT runtime_campaign_total_option_raw_count EQUAL 554 OR
+    NOT runtime_campaign_total_option_file_count EQUAL 34)
   message(FATAL_ERROR
-    "Total UB option inventory changed from the reviewed 561 executable + 563 raw occurrences across 35 files")
+    "Total UB option inventory changed from the reviewed 552 executable + 554 raw occurrences across 34 files")
 endif()
 if(NOT runtime_campaign_scenario_origin_substring_count EQUAL 8 OR
     NOT runtime_campaign_scenario_origin_save_carrier_count EQUAL 5 OR
@@ -5089,9 +5149,14 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignQuestPolicy"
     "CampaignStrategicEventPolicy"
     "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
+    "CampaignMercenaryArrivalContent"
+    "The value contains all seven initial helicopter grids, all seven signed random times"
+    "two former eager InGameHeli argument evaluations"
+    "frozen projection across actor, quest, and random effects"
+    "Future setters remain separate `ub_config`-owned APIs"
     "rebel-command settings first, UB options only for UB"
-    "107 sites across 30 files"
-    "102 live-context calls"
+    "104 sites across 29 files"
+    "99 live-context calls"
     "all 34 executable call sites"
     "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
@@ -5104,8 +5169,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "Fifteen strategic-AI entry points take one fresh origin value per invocation"
     "Zero selects custom state, one selects built-in state"
     "no direct access to the raw member; its only two accesses are the getter and setter"
-    "297 executable and 299 raw external occurrences"
-    "561 executable and 563 raw occurrences")
+    "268 executable and 270 raw external occurrences"
+    "552 executable and 554 raw occurrences")
   string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -5133,6 +5198,11 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "raw-selector inventory is now 109 sites across 32 files"
     "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
     "raw-selector inventory is now 107 sites across 30 files"
+    "Mercenary hiring and initial-sector setup now consume `CampaignMercenaryArrivalContent`"
+    "two eager UB reads"
+    "same frozen projection across intervening actor, quest, and random effects"
+    "Future mutations remain separate `ub_config`-owned APIs"
+    "raw-selector inventory is now 104 sites across 29 files"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "Quest/fact campaign decisions now use the value-only"
@@ -5160,7 +5230,9 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "noncanonical saved byte"
     "round-trips all 256 byte values"
     "297 executable/299 raw external option occurrences"
-    "561 executable/563 raw total occurrences")
+    "561 executable/563 raw total occurrences"
+    "268 executable/270 raw external option occurrences across 32 consumers"
+    "552 executable/554 raw total occurrences across 34 files")
   string(FIND "${runtime_campaign_architecture_normalized}"
     "${required_campaign_architecture_fragment}"
     required_campaign_architecture_position)
@@ -5173,7 +5245,8 @@ endforeach()
 file(READ "${SOURCE_ROOT}/TODO" runtime_campaign_todo_contents)
 foreach(required_runtime_campaign_todo_fragment IN ITEMS
     "CampaignStrategicEventPolicy now owns the complete 14-route dispatcher table"
-    "CampaignApplicationPolicy now gates both UB-options bootstrap calls")
+    "CampaignApplicationPolicy now gates both UB-options bootstrap calls"
+    "CampaignMercenaryArrivalContent removed Merc Hiring's three raw selectors and 29 external UB reads")
   string(FIND "${runtime_campaign_todo_contents}"
     "${required_runtime_campaign_todo_fragment}"
     required_runtime_campaign_todo_position)
@@ -7330,6 +7403,479 @@ if(required_merc_hiring_position EQUAL -1)
   message(FATAL_ERROR
     "Mercenary hiring/arrival lost runtime campaign routing")
 endif()
+
+# Hiring, on/off-screen arrival, helicopter initialization, and Jerry's
+# initial-sector setup consume one fresh typed value per routed invocation.
+# Keep the legacy mutable option record inside ub_config, preserve all seven
+# grid and signed-time slots, and keep every content probe behind UB's left
+# campaign gate. In particular, the two policy-call arguments that formerly
+# evaluated InGameHeli eagerly must never regain direct option reads.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryArrivalContent.h"
+  runtime_campaign_mercenary_arrival_content_contents)
+strip_cxx_comments(runtime_campaign_mercenary_arrival_content_contents
+  runtime_campaign_mercenary_arrival_content_executable)
+string(REPLACE "\r\n" "\n"
+  runtime_campaign_mercenary_arrival_content_executable
+  "${runtime_campaign_mercenary_arrival_content_executable}")
+if(runtime_campaign_mercenary_arrival_content_executable MATCHES
+    "(^|[^A-Za-z0-9_])(u8|u|U|L)?R\"")
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract gained a raw literal that its source ratchet cannot mask")
+endif()
+string(REGEX REPLACE "\"([^\"\\\\]|\\\\.)*\"" "\"\""
+  runtime_campaign_mercenary_arrival_content_code
+  "${runtime_campaign_mercenary_arrival_content_executable}")
+string(REGEX REPLACE "'([^'\\\\]|\\\\.)*'" "''"
+  runtime_campaign_mercenary_arrival_content_code
+  "${runtime_campaign_mercenary_arrival_content_code}")
+string(REGEX MATCHALL
+  "(^|[\r\n])#[ \t]*(if|ifdef|ifndef|elif|else|endif)([ \t]|[\r\n]|$)[^\r\n]*"
+  runtime_campaign_mercenary_arrival_content_conditionals
+  "${runtime_campaign_mercenary_arrival_content_code}")
+list(LENGTH runtime_campaign_mercenary_arrival_content_conditionals
+  runtime_campaign_mercenary_arrival_content_conditional_count)
+if(NOT runtime_campaign_mercenary_arrival_content_conditional_count EQUAL 2)
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract must retain only its outer include guard")
+endif()
+string(REGEX MATCHALL "(^|[\r\n])[ \t]*#[^\r\n]*"
+  runtime_campaign_mercenary_arrival_content_directives
+  "${runtime_campaign_mercenary_arrival_content_code}")
+list(LENGTH runtime_campaign_mercenary_arrival_content_directives
+  runtime_campaign_mercenary_arrival_content_directive_count)
+if(NOT runtime_campaign_mercenary_arrival_content_directive_count EQUAL 6)
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract changed its reviewed include-guard/include directive inventory")
+endif()
+string(FIND "${runtime_campaign_mercenary_arrival_content_code}"
+  "#ifndef JA2_CAMPAIGN_MERCENARY_ARRIVAL_CONTENT_H"
+  runtime_campaign_mercenary_arrival_include_guard_position)
+if(NOT runtime_campaign_mercenary_arrival_include_guard_position EQUAL 0)
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract lost its unconditional outer include guard")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_arrival_content_code
+  "Mercenary-arrival value contract changed its unconditional header topology"
+  "#ifndef JA2_CAMPAIGN_MERCENARY_ARRIVAL_CONTENT_H"
+  "#define JA2_CAMPAIGN_MERCENARY_ARRIVAL_CONTENT_H"
+  "#include <array>"
+  "#include <cstddef>"
+  "#include <cstdint>"
+  "struct CampaignMercenaryArrivalContent"
+  "CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent();"
+  "#endif")
+extract_bounded_slice(runtime_campaign_mercenary_arrival_content_code
+  "struct CampaignMercenaryArrivalContent\n{"
+  "\n};"
+  runtime_campaign_mercenary_arrival_content_struct
+  "Cannot isolate the mercenary-arrival value contract")
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_mercenary_arrival_content_struct_normalized
+  "${runtime_campaign_mercenary_arrival_content_struct}")
+require_ordered_fragments(
+  runtime_campaign_mercenary_arrival_content_struct_normalized
+  "Typed mercenary-arrival content lost a field, exact type, or declaration order"
+  "struct CampaignMercenaryArrivalContent {"
+  "static constexpr std::size_t HelicopterEntryCount = 7;"
+  "std::array<std::uint32_t, HelicopterEntryCount> initialHelicopterGridNos{};"
+  "std::array<std::int16_t, HelicopterEntryCount> initialHelicopterRandomTimes{};"
+  "bool includesJerry = false;"
+  "bool inGameHelicopter = false;"
+  "bool inGameHelicopterCrash = false;"
+  "std::uint32_t jerryGridNo = 0;"
+  "bool laptopQuestEnabled = false;"
+  "std::uint32_t offscreenArrivalGridNo = 0;")
+string(REGEX MATCHALL
+  "CampaignMercenaryArrivalContent[ \t\r\n]+ReadCampaignMercenaryArrivalContent[ \t\r\n]*[(][ \t\r\n]*[)]"
+  runtime_campaign_mercenary_arrival_declarations
+  "${runtime_campaign_mercenary_arrival_content_code}")
+list(LENGTH runtime_campaign_mercenary_arrival_declarations
+  runtime_campaign_mercenary_arrival_declaration_count)
+if(NOT runtime_campaign_mercenary_arrival_declaration_count EQUAL 1)
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract must expose exactly one value-returning read adapter")
+endif()
+string(FIND "${runtime_campaign_mercenary_arrival_content_code}"
+  "CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent();"
+  runtime_campaign_mercenary_arrival_declaration_position)
+if(runtime_campaign_mercenary_arrival_declaration_position EQUAL -1)
+  message(FATAL_ERROR
+    "Mercenary-arrival read adapter must remain a value-returning declaration")
+endif()
+foreach(required_campaign_mercenary_arrival_contract_note IN ITEMS
+    "repeated decisions in that invocation deliberately observe one"
+    "Future configuration mutations remain separate ub_config-owned APIs")
+  string(FIND "${runtime_campaign_mercenary_arrival_content_contents}"
+    "${required_campaign_mercenary_arrival_contract_note}"
+    required_campaign_mercenary_arrival_contract_note_position)
+  if(required_campaign_mercenary_arrival_contract_note_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary-arrival snapshot ownership lost '${required_campaign_mercenary_arrival_contract_note}'")
+  endif()
+endforeach()
+if(runtime_campaign_mercenary_arrival_content_executable MATCHES
+    "GAME_UB_OPTIONS|gGameUBOptions|ub_config[.]h|GameContext|GetGameContext")
+  message(FATAL_ERROR
+    "Mercenary-arrival value contract regained application globals")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/ub_config.cpp"
+  runtime_campaign_mercenary_arrival_adapter_contents)
+strip_cxx_comments(runtime_campaign_mercenary_arrival_adapter_contents
+  runtime_campaign_mercenary_arrival_adapter_executable)
+string(REPLACE "\r\n" "\n"
+  runtime_campaign_mercenary_arrival_adapter_executable
+  "${runtime_campaign_mercenary_arrival_adapter_executable}")
+extract_bounded_slice(
+  runtime_campaign_mercenary_arrival_adapter_executable
+  "CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent()"
+  "CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()"
+  runtime_campaign_mercenary_arrival_adapter_unmasked_slice
+  "Cannot isolate the mercenary-arrival option adapter")
+if(runtime_campaign_mercenary_arrival_adapter_unmasked_slice MATCHES
+    "(^|[^A-Za-z0-9_])(u8|u|U|L)?R\"")
+  message(FATAL_ERROR
+    "UB configuration owner gained a raw literal that the arrival-adapter ratchet cannot mask")
+endif()
+string(REGEX REPLACE "\"([^\"\\\\]|\\\\.)*\"" "\"\""
+  runtime_campaign_mercenary_arrival_adapter_code
+  "${runtime_campaign_mercenary_arrival_adapter_executable}")
+string(REGEX REPLACE "'([^'\\\\]|\\\\.)*'" "''"
+  runtime_campaign_mercenary_arrival_adapter_code
+  "${runtime_campaign_mercenary_arrival_adapter_code}")
+extract_bounded_slice(
+  runtime_campaign_mercenary_arrival_adapter_code
+  "CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent()"
+  "CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()"
+  runtime_campaign_mercenary_arrival_adapter_broad_slice
+  "Cannot isolate the mercenary-arrival option adapter")
+extract_brace_bounded_slice(
+  runtime_campaign_mercenary_arrival_adapter_code
+  "CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent()"
+  runtime_campaign_mercenary_arrival_adapter_slice
+  "Cannot brace-bound the mercenary-arrival option adapter")
+string(LENGTH "${runtime_campaign_mercenary_arrival_adapter_broad_slice}"
+  runtime_campaign_mercenary_arrival_adapter_broad_length)
+string(LENGTH "${runtime_campaign_mercenary_arrival_adapter_slice}"
+  runtime_campaign_mercenary_arrival_adapter_length)
+if(runtime_campaign_mercenary_arrival_adapter_length GREATER
+    runtime_campaign_mercenary_arrival_adapter_broad_length)
+  message(FATAL_ERROR
+    "Mercenary-arrival adapter crossed its next-function boundary")
+endif()
+string(SUBSTRING "${runtime_campaign_mercenary_arrival_adapter_broad_slice}"
+  ${runtime_campaign_mercenary_arrival_adapter_length} -1
+  runtime_campaign_mercenary_arrival_adapter_trailing)
+string(REGEX REPLACE "[ \t\r\n]" ""
+  runtime_campaign_mercenary_arrival_adapter_trailing_compact
+  "${runtime_campaign_mercenary_arrival_adapter_trailing}")
+if(NOT runtime_campaign_mercenary_arrival_adapter_trailing_compact STREQUAL "")
+  message(FATAL_ERROR
+    "Mercenary-arrival adapter must be the only definition before the tactical-scenario adapter")
+endif()
+if(runtime_campaign_mercenary_arrival_adapter_broad_slice MATCHES
+    "(^|[\r\n])[ \t]*#[ \t]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Mercenary-arrival adapter must not hide projection evidence behind preprocessing")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_arrival_adapter_slice
+  "Mercenary-arrival adapter lost a field, type conversion, or source order"
+  "CampaignMercenaryArrivalContent content"
+  "content.initialHelicopterGridNos"
+  "gGameUBOptions.InitialHeliGridNo[0]"
+  "gGameUBOptions.InitialHeliGridNo[1]"
+  "gGameUBOptions.InitialHeliGridNo[2]"
+  "gGameUBOptions.InitialHeliGridNo[3]"
+  "gGameUBOptions.InitialHeliGridNo[4]"
+  "gGameUBOptions.InitialHeliGridNo[5]"
+  "gGameUBOptions.InitialHeliGridNo[6]"
+  "content.initialHelicopterRandomTimes"
+  "gGameUBOptions.InitalHeliRandomTimes[0]"
+  "gGameUBOptions.InitalHeliRandomTimes[1]"
+  "gGameUBOptions.InitalHeliRandomTimes[2]"
+  "gGameUBOptions.InitalHeliRandomTimes[3]"
+  "gGameUBOptions.InitalHeliRandomTimes[4]"
+  "gGameUBOptions.InitalHeliRandomTimes[5]"
+  "gGameUBOptions.InitalHeliRandomTimes[6]"
+  "content.includesJerry = gGameUBOptions.InJerry == TRUE"
+  "content.inGameHelicopter = gGameUBOptions.InGameHeli == TRUE"
+  "content.inGameHelicopterCrash"
+  "gGameUBOptions.InGameHeliCrash == TRUE"
+  "content.jerryGridNo = gGameUBOptions.JerryGridNo"
+  "content.laptopQuestEnabled"
+  "gGameUBOptions.LaptopQuestEnabled == TRUE"
+  "content.offscreenArrivalGridNo = gGameUBOptions.LOCATEGRIDNO"
+  "return content")
+string(REGEX MATCHALL "gGameUBOptions[.]"
+  runtime_campaign_mercenary_arrival_adapter_option_reads
+  "${runtime_campaign_mercenary_arrival_adapter_slice}")
+list(LENGTH runtime_campaign_mercenary_arrival_adapter_option_reads
+  runtime_campaign_mercenary_arrival_adapter_option_read_count)
+if(NOT runtime_campaign_mercenary_arrival_adapter_option_read_count EQUAL 20)
+  message(FATAL_ERROR
+    "Mercenary-arrival adapter must retain exactly 20 unique legacy option projections")
+endif()
+
+strip_cxx_comments(runtime_campaign_merc_hiring_contents
+  runtime_campaign_merc_hiring_executable)
+string(REPLACE "\r\n" "\n" runtime_campaign_merc_hiring_executable
+  "${runtime_campaign_merc_hiring_executable}")
+if(runtime_campaign_merc_hiring_executable MATCHES
+    "(^|[^A-Za-z0-9_])(u8|u|U|L)?R\"")
+  message(FATAL_ERROR
+    "Merc Hiring gained a raw literal that the arrival source ratchets cannot mask")
+endif()
+string(REGEX REPLACE "\"([^\"\\\\]|\\\\.)*\"" "\"\""
+  runtime_campaign_merc_hiring_code
+  "${runtime_campaign_merc_hiring_executable}")
+string(REGEX REPLACE "'([^'\\\\]|\\\\.)*'" "''"
+  runtime_campaign_merc_hiring_code
+  "${runtime_campaign_merc_hiring_code}")
+if(runtime_campaign_merc_hiring_code MATCHES
+    "gGameUBOptions|isUnfinishedBusiness[ \\t\\r\\n]*[(]" OR
+   runtime_campaign_merc_hiring_contents MATCHES "ub_config[.]h")
+  message(FATAL_ERROR
+    "Merc Hiring regained direct campaign identity or legacy UB option access")
+endif()
+string(REGEX MATCHALL "ReadCampaignMercenaryArrivalContent[(][)]"
+  runtime_campaign_mercenary_arrival_snapshot_reads
+  "${runtime_campaign_merc_hiring_code}")
+list(LENGTH runtime_campaign_mercenary_arrival_snapshot_reads
+  runtime_campaign_mercenary_arrival_snapshot_read_count)
+if(NOT runtime_campaign_mercenary_arrival_snapshot_read_count EQUAL 6)
+  message(FATAL_ERROR
+    "Merc Hiring must retain six routed snapshot sites across its five invocation paths")
+endif()
+
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)"
+  "void MercArrivesCallback("
+  runtime_campaign_mercenary_hire_slice
+  "Cannot isolate initial mercenary hiring")
+string(REGEX MATCHALL "(^|[\r\n])[ \t]*#[^\r\n]*"
+  runtime_campaign_mercenary_hire_directives
+  "${runtime_campaign_mercenary_hire_slice}")
+list(LENGTH runtime_campaign_mercenary_hire_directives
+  runtime_campaign_mercenary_hire_directive_count)
+if(NOT runtime_campaign_mercenary_hire_directive_count EQUAL 2)
+  message(FATAL_ERROR
+    "Initial HireMerc must retain only its established JA2TESTVERSION directive pair")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_hire_slice
+  "Initial hire lost campaign-first snapshot and arrival effect order"
+  "#ifdef JA2TESTVERSION"
+  "if( !gForceHireMerc )"
+  "#endif"
+  "if( ( pMerc->bMercStatus"
+  "if (!is_networked)"
+  "if( DidGameJustStart() )"
+  "CampaignMercenaryArrivalContent arrivalContent"
+  "if ( mercenaryPolicy.usesUnfinishedBusinessRules() )"
+  "arrivalContent = ReadCampaignMercenaryArrivalContent()"
+  "gfFirstTimeInGameHeliCrash ="
+  "arrivalContent.inGameHelicopterCrash"
+  "!arrivalContent.inGameHelicopter"
+  "pHireMerc->uiTimeTillMercArrives ="
+  "mercenaryPolicy.usesGroundArrival("
+  "arrivalContent.inGameHelicopter"
+  "pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO"
+  "GetInitialHeliGridNo( )"
+  "Random( NUM_WORLD_DIRECTIONS )"
+  "GetInitialHeliRandomTime()"
+  "pHireMerc->ubInsertionCode"
+  "INSERTION_CODE_CHOPPER")
+string(REGEX MATCHALL "ReadCampaignMercenaryArrivalContent[(][)]"
+  runtime_campaign_mercenary_hire_snapshot_reads
+  "${runtime_campaign_mercenary_hire_slice}")
+list(LENGTH runtime_campaign_mercenary_hire_snapshot_reads
+  runtime_campaign_mercenary_hire_snapshot_read_count)
+if(NOT runtime_campaign_mercenary_hire_snapshot_read_count EQUAL 1)
+  message(FATAL_ERROR
+    "Each initial HireMerc route must acquire exactly one fresh UB snapshot")
+endif()
+
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "void MercArrivesCallback("
+  "BOOLEAN IsMercHireable("
+  runtime_campaign_mercenary_arrives_slice
+  "Cannot isolate the mercenary-arrival callback")
+if(runtime_campaign_mercenary_arrives_slice MATCHES
+    "(^|[\r\n])[ \t]*#[ \t]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Mercenary-arrival callback must not hide routed snapshots behind conditional compilation")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_arrives_slice
+  "Mercenary callback lost current/off-screen arrival probe and effect order"
+  "AddCharacterToAnySquad( pSoldier )"
+  "pSoldier->deployment().usesLandingZoneForArrival()"
+  "gWorldSectorX == pSoldier->deployment().sectorX()"
+  "const bool isAtDefaultArrivalSector"
+  "CampaignMercenaryArrivalContent arrivalContent"
+  "if ( mercenaryPolicy.usesUnfinishedBusinessRules() )"
+  "arrivalContent = ReadCampaignMercenaryArrivalContent()"
+  "mercenaryPolicy.shouldStartArrivalHelicopter("
+  "arrivalContent.inGameHelicopter"
+  "gfTacticalDoHeliRun = TRUE"
+  "SetHelicopterDroppoint("
+  "UpdateMercInSector("
+  "mercenaryPolicy.usesGridInsertionForOffscreenArrival()"
+  "strategicInsertionCode() = INSERTION_CODE_GRIDNO"
+  "const CampaignMercenaryArrivalContent arrivalContent ="
+  "ReadCampaignMercenaryArrivalContent()"
+  "strategicInsertionData() ="
+  "arrivalContent.offscreenArrivalGridNo"
+  "strategicInsertionCode() = INSERTION_CODE_CENTER")
+
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "void InitializeHeliGridnoAndTime( BOOLEAN fLoading )"
+  "void InitJerryMiloInfo()"
+  runtime_campaign_mercenary_helicopter_initialization_slice
+  "Cannot isolate helicopter-content initialization")
+if(runtime_campaign_mercenary_helicopter_initialization_slice MATCHES
+    "(^|[\r\n])[ \t]*#[ \t]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Helicopter initialization must not hide its snapshot behind conditional compilation")
+endif()
+require_ordered_fragments(
+  runtime_campaign_mercenary_helicopter_initialization_slice
+  "Helicopter initialization lost its gate, reset, or complete array order"
+  "CampaignMercenaryPolicy mercenaryPolicy("
+  "if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )"
+  "return"
+  "Assert( NUM_INITIAL_GRIDNOS_FOR_HELI_CRASH == 7 )"
+  "if( !fLoading )"
+  "gfFirstTimeInGameHeliCrash = FALSE"
+  "ReadCampaignMercenaryArrivalContent()"
+  "initialHelicopterGridNos[ 0 ]"
+  "initialHelicopterGridNos[ 1 ]"
+  "initialHelicopterGridNos[ 2 ]"
+  "initialHelicopterGridNos[ 3 ]"
+  "initialHelicopterGridNos[ 4 ]"
+  "initialHelicopterGridNos[ 5 ]"
+  "initialHelicopterGridNos[ 6 ]"
+  "initialHelicopterRandomTimes[ 0 ]"
+  "initialHelicopterRandomTimes[ 1 ]"
+  "initialHelicopterRandomTimes[ 2 ]"
+  "initialHelicopterRandomTimes[ 3 ]"
+  "initialHelicopterRandomTimes[ 4 ]"
+  "initialHelicopterRandomTimes[ 5 ]"
+  "initialHelicopterRandomTimes[ 6 ]")
+
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "void InitJerryMiloInfo()"
+  "void UpdateJerryMiloInInitialSector()"
+  runtime_campaign_mercenary_jerry_initialization_slice
+  "Cannot isolate Jerry profile initialization")
+if(runtime_campaign_mercenary_jerry_initialization_slice MATCHES
+    "(^|[\r\n])[ \t]*#[ \t]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Jerry initialization must not hide its snapshot behind conditional compilation")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_jerry_initialization_slice
+  "Jerry initialization lost campaign/content gates or profile effect order"
+  "CampaignMercenaryPolicy mercenaryPolicy("
+  "if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )"
+  "ReadCampaignMercenaryArrivalContent()"
+  "if ( arrivalContent.includesJerry )"
+  "sSectorX = JA2_5_START_SECTOR_X"
+  "sSectorY = JA2_5_START_SECTOR_Y"
+  "bSectorZ = 0"
+  "sGridNo = arrivalContent.jerryGridNo"
+  "fUseProfileInsertionInfo = TRUE"
+  "ubStrategicInsertionCode = INSERTION_CODE_GRIDNO"
+  "usStrategicInsertionData = arrivalContent.jerryGridNo"
+  "if ( arrivalContent.inGameHelicopterCrash )"
+  "InitJerryQuotes()")
+
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "void UpdateJerryMiloInInitialSector()"
+  "void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType )\n{"
+  runtime_campaign_mercenary_jerry_update_slice
+  "Cannot isolate Jerry initial-sector update")
+if(runtime_campaign_mercenary_jerry_update_slice MATCHES
+    "(^|[\r\n])[ \t]*#[ \t]*[A-Za-z_]")
+  message(FATAL_ERROR
+    "Jerry initial-sector update must not hide its snapshot behind conditional compilation")
+endif()
+require_ordered_fragments(runtime_campaign_mercenary_jerry_update_slice
+  "Jerry update lost a short circuit, probe, random sample, or effect order"
+  "CampaignMercenaryPolicy mercenaryPolicy("
+  "if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )"
+  "fSurfaceWasEverPlayerControlled = TRUE"
+  "fEnemyControlled = FALSE"
+  "ReadCampaignMercenaryArrivalContent()"
+  "if ( arrivalContent.inGameHelicopter )"
+  "return"
+  "if ( arrivalContent.inGameHelicopterCrash )"
+  "if ( !gfFirstTimeInGameHeliCrash )"
+  "return"
+  "if ( arrivalContent.includesJerry )"
+  "FindSoldierByProfileID( JERRY_MILO_UB, FALSE )"
+  "if ( pSoldier == NULL )"
+  "Assert( 0 )"
+  "return"
+  "if ( arrivalContent.laptopQuestEnabled )"
+  "StartQuest( QUEST_FIX_LAPTOP, -1, -1 )"
+  "fSurfaceWasEverPlayerControlled = TRUE"
+  "fEnemyControlled = FALSE"
+  "if ( arrivalContent.includesJerry )"
+  "beginArrivalGetup()"
+  "RESETTIMECOUNTER("
+  "Random( 400 )"
+  "Random( 100 )"
+  "initializeAnimation("
+  "if ( arrivalContent.includesJerry )"
+  "FindSoldierByProfileID( JERRY_MILO_UB, FALSE )"
+  "if ( pJerrySoldier != NULL )"
+  "gbPublicOpplist"
+  "markVisible()"
+  "guiPendingOverrideEvent = LU_BEGINUILOCK")
+
+foreach(required_campaign_mercenary_arrival_test_manifest_fragment IN ITEMS
+    "campaign_mercenary_arrival_content_tests.cpp"
+    "campaign_mercenary_arrival_content")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_mercenary_arrival_test_manifest_fragment}"
+    required_campaign_mercenary_arrival_test_manifest_position)
+  if(required_campaign_mercenary_arrival_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary-arrival content lost its dependency-free test target")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_mercenary_arrival_content_tests"
+  runtime_campaign_mercenary_arrival_ci_targets
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_mercenary_arrival_ci_targets
+  runtime_campaign_mercenary_arrival_ci_target_count)
+if(NOT runtime_campaign_mercenary_arrival_ci_target_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one mercenary-arrival content target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_mercenary_arrival_content_tests.cpp"
+  runtime_campaign_mercenary_arrival_test_contents)
+foreach(required_campaign_mercenary_arrival_test_fragment IN ITEMS
+    "the snapshot retains both seven-entry arrays and all six scalar values"
+    "helicopter random times retain the complete signed INT16 domain"
+    "Arulco initial hiring never eagerly evaluates UB arrival content"
+    "each UB hire invocation observes a fresh helicopter snapshot"
+    "Arulco on-screen arrival starts its helicopter without a UB probe"
+    "UB off-screen arrival sets insertion mode before reading its typed grid"
+    "fresh initialization resets first, then copies all grids before all times"
+    "Jerry/profile and crash-quote effects retain their independent truth table"
+    "one invocation freezes repeated arrival values across intervening effects"
+    "the next invocation refreshes the complete arrival snapshot"
+    "Arulco Jerry update performs no UB probes or map effects"
+    "missing configured Jerry aborts before quest and later arrival effects"
+    "full Jerry crash retains lookup, map, random, visibility, and UI order")
+  string(FIND "${runtime_campaign_mercenary_arrival_test_contents}"
+    "${required_campaign_mercenary_arrival_test_fragment}"
+    required_campaign_mercenary_arrival_test_position)
+  if(required_campaign_mercenary_arrival_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary-arrival coverage lost '${required_campaign_mercenary_arrival_test_fragment}'")
+  endif()
+endforeach()
 
 file(READ "${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
   runtime_campaign_merc_entering_contents)
@@ -13406,7 +13952,9 @@ file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
   runtime_campaign_arrival_contents)
 foreach(required_runtime_arrival_fragment IN ITEMS
     "void UpdateJerryMiloInInitialSector()"
-    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "#include \"CampaignMercenaryArrivalContent.h\""
+    "CampaignMercenaryPolicy mercenaryPolicy("
+    "ReadCampaignMercenaryArrivalContent()"
     "if ( pSoldier == NULL )")
   string(FIND "${runtime_campaign_arrival_contents}"
     "${required_runtime_arrival_fragment}" runtime_arrival_fragment_position)

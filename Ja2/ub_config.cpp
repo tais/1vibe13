@@ -47,6 +47,7 @@
 	#include "Items.h"
 	#include "Text.h"
 	#include "GameSettings.h"
+	#include "CampaignMercenaryArrivalContent.h"
 	#include "CampaignStrategicAiScenarioPolicy.h"
 	#include "CampaignStrategicSectorScriptContent.h"
 	#include "CampaignTacticalScenarioContent.h"
@@ -83,6 +84,38 @@ void SetCampaignScenarioOrigin(CampaignScenarioOrigin origin)
 bool IsLaptopQuestEnabled()
 {
 	return gGameUBOptions.LaptopQuestEnabled == TRUE;
+}
+
+CampaignMercenaryArrivalContent ReadCampaignMercenaryArrivalContent()
+{
+	CampaignMercenaryArrivalContent content;
+	content.initialHelicopterGridNos = {{
+		gGameUBOptions.InitialHeliGridNo[0],
+		gGameUBOptions.InitialHeliGridNo[1],
+		gGameUBOptions.InitialHeliGridNo[2],
+		gGameUBOptions.InitialHeliGridNo[3],
+		gGameUBOptions.InitialHeliGridNo[4],
+		gGameUBOptions.InitialHeliGridNo[5],
+		gGameUBOptions.InitialHeliGridNo[6]
+	}};
+	content.initialHelicopterRandomTimes = {{
+		gGameUBOptions.InitalHeliRandomTimes[0],
+		gGameUBOptions.InitalHeliRandomTimes[1],
+		gGameUBOptions.InitalHeliRandomTimes[2],
+		gGameUBOptions.InitalHeliRandomTimes[3],
+		gGameUBOptions.InitalHeliRandomTimes[4],
+		gGameUBOptions.InitalHeliRandomTimes[5],
+		gGameUBOptions.InitalHeliRandomTimes[6]
+	}};
+	content.includesJerry = gGameUBOptions.InJerry == TRUE;
+	content.inGameHelicopter = gGameUBOptions.InGameHeli == TRUE;
+	content.inGameHelicopterCrash =
+		gGameUBOptions.InGameHeliCrash == TRUE;
+	content.jerryGridNo = gGameUBOptions.JerryGridNo;
+	content.laptopQuestEnabled =
+		gGameUBOptions.LaptopQuestEnabled == TRUE;
+	content.offscreenArrivalGridNo = gGameUBOptions.LOCATEGRIDNO;
+	return content;
 }
 
 CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()
