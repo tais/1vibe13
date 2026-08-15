@@ -51,12 +51,13 @@ reasons this is not merely a build-system naming problem:
    but the compatibility publisher still selects one when constructing the old
    global tables. Runtime language selection still cannot silently choose the
    campaign.
-4. `ExportStrings.cpp` still textually includes the selected base-language
-   `.cpp` inside namespace `Loc` to create a second namespaced copy for most of
-   the developer XML exporter. The 14 migrated sections now consume the same
-   `TextPack` as the game, but the remaining selected source is also
-   compiled normally to define process globals. This tool path must finish
-   consuming pack schemas before all language bodies can coexist.
+4. `SelectedCatalogExport.cpp` now links the normally compiled selected
+   base-language globals and emits them through an injected immediate-copy
+   sink. `ExportStrings.cpp` owns only the VFS writer and six raw EDT exporters;
+   it no longer creates a second namespaced catalog copy. The 14 migrated
+   sections consume the same `TextPack` as the game. The remaining 224 globals
+   still need domain-by-domain pack migration before all language bodies can
+   coexist in one process.
 
 The old language-dependent entries in `Ja2 Libs.cpp` were not a fifth runtime
 requirement. The legacy file database is a stub and bfVFS owns SLF mounting.
@@ -151,20 +152,23 @@ canonical semantic ordinals. The Polish TeamTurn repair separates its two
 adjacent literals; Italian and Dutch middle insertions preserve every later
 GameStrings key. Source-level goldens pin all repaired entries plus their
 alignment/tail anchors, require nonempty values, and reject a missing comma,
-missing middle entry, empty replacement, or exporter-range shrink. The
-selected-catalog prerequisite for a future linked-global export adapter is now
-ready; implementing that adapter remains a separate migration.
+missing middle entry, empty replacement, or exporter-range shrink. That
+prerequisite now feeds a dedicated linked-global export adapter.
+`SelectedCatalogExport.cpp` is compiled in the same language, campaign, and
+build variant target as `language.cpp` and the catalog sources. It enumerates
+the unchanged 238-section order through an injected borrowed-view sink and
+never textually includes a catalog body.
 
-That readiness claim is exhaustive rather than foreign-debt-only. For every
+That adapter safety claim is exhaustive rather than foreign-debt-only. For every
 one of the 224 legacy sections, the validator evaluates the exact exporter
-range expression and compares it with each raw textual-copy definition in all
+range expression and compares it with each raw catalog-source definition in all
 eight languages and four campaign/build quadrants: 7,168 comparisons. A
 wildcard first dimension means the top-level initializer count; the enclosing
-`Text.h` declaration cannot mask a short `Loc` definition. Unknown names,
+`Text.h` declaration cannot mask a short linked definition. Unknown names,
 unsupported expressions, missing symbols, and unresolved dimensions fail
 closed. All 80 symbolic limits have one strict, unconditional compiler contract
-of direct decimal `static_assert` rows. `ExportStrings.cpp` includes it as the
-first exporter statement, so every normal language/configuration build compares
+of direct decimal `static_assert` rows. `SelectedCatalogExport.cpp` includes it
+as the first adapter statement, so every normal language/configuration build compares
 the reviewed values with the live C++ macro or enum providers in the actual
 exporter translation unit; the exporter source may not locally shadow any of
 those provider names. An immediately preceding `#ifdef static_assert`/`#error`
@@ -213,8 +217,9 @@ tables are later pack-migration candidates; this prerequisite does not move
 their translations or change their storage.
 
 `tools/check_i18n_export_schema.py` derives the manifest from
-`ExportStrings.cpp`, `TextCatalog.h`, the validated ABI schema, and all eight
-catalog shapes. It also pins startup ordering: the guarded export precedes
+`SelectedCatalogExport.cpp`, `ExportStrings.cpp`, `TextCatalog.h`, the
+validated ABI schema, and all eight catalog shapes. It also pins startup
+ordering: the guarded export precedes
 `Loc::ImportStrings` inside the legacy-content subsystem, legacy content starts
 before the game subsystem, and the only two production `LoadAllExternalText`
 calls remain in the later rules `LoadContent` path and multiplayer reload path.
@@ -222,16 +227,18 @@ Its focused unit tests reject commented/raw-literal parsing bypasses, range or
 name drift, unknown range expressions, unresolved wildcard dimensions,
 wildcard or growing debt, storage/schema mismatch, startup reversal, missing
 middle or tail entries, empty repaired slots, missing translation markers, and
-adjacent literal concatenation. The exporter has an exact flat depth-zero
-statement inventory: two declarations, 238 direct exports, two property writes,
-six raw EDT exporters, and one final return. Only the compiler guard and
-first-statement limit-contract include are allowed as directives in its body,
-and all symbolic-limit identifier uses must belong to parsed export ranges.
-The unique zero-argument exporter definition itself must also begin at
-preprocessor depth zero, and no conditional may cross its closing brace.
-Each language macro must activate exactly its
-own textual catalog include, unknown local selection macros fail closed,
-TextPack descriptors and startup-order tokens cannot hide in inactive
+adjacent literal concatenation. The variant adapter has an exact flat
+depth-zero inventory of 238 direct export statements. Only the compiler guard
+and first-statement limit-contract include are allowed in that body, and all
+symbolic-limit identifier uses must belong to parsed ranges.
+`Loc::ExportStrings` separately owns three declarations, the one adapter call,
+two property writes, six raw EDT exporters, and the final return. Its sink
+materializes both borrowed views into VFS strings before the callback returns;
+the adapter suppresses empty values, retains absolute source indices, and has
+explicit paths for `STR16` slots, fixed `wchar_t[N]` rows, and scalar `wchar_t`
+storage. The unique adapter and exporter definitions begin at preprocessor
+depth zero, and no conditional may cross either boundary. TextPack descriptors
+and startup-order tokens cannot hide in inactive
 preprocessor branches or macro bodies. The selector `.inc` has no active
 non-directive residue, while its policy API and final selector import remain
 unconditional. Reviewed startup functions are likewise active top-level
@@ -239,11 +246,28 @@ definitions; their required load/phase calls retain exact evaluated expression
 shapes and cannot follow direct control transfer. The shared lexer hides multiline raw strings before
 looking for storage. CMake exposes the build-free checks through the existing
 i18n target and lint CI runs them unconditionally; mandatory normal builds own
-the separate live-provider `static_assert` proof. The eight textual includes
-and runtime publication mechanism remain unchanged. Three deliberately
-overbroad export limits are narrowed to their defined semantic tables; the 19
-earlier foreign repairs and 104 new catalog entries now have exact source-level
-goldens.
+the separate live-provider `static_assert` proof. The eight textual catalog
+includes are gone. The exact five globals absent from `Text.h`
+(`pBullseyeStrings`, `pContractButtonString`, `pUpdatePanelButtons`,
+`gzIntroScreen`, and `sRepairsDoneString`) have direct adapter-local extern
+declarations; all other legacy values link through `Text.h`. `g_lang` remains
+immutable, and one language-target definition selects linked globals,
+`g_lang`, and `GetCompiledTextPack`. Three deliberately overbroad export limits
+remain narrowed to their defined semantic tables; the 19 earlier foreign
+repairs and 104 catalog entries retain exact source-level goldens. The manifest
+also hashes ordered section/index/value UTF-8 bytes in all 32
+language/campaign/build snapshots, so output order and values cannot drift
+under a schema rewrite. A focused linked-English sanitizer test additionally
+executes pointer-slot, fixed-row, scalar-buffer, empty-suppression, absolute-
+index, immediate-copy, and later/manual mutable-global snapshot behavior.
+
+The sole production export still runs inside the legacy-content boundary before
+`Loc::ImportStrings`, game startup, or either external-text load. At that point
+the linked mutable globals retain their compiled initializers, making its output
+byte-for-byte equivalent to the retired private textual copies. A deliberate
+later/manual call has a clearer contract: it snapshots the then-current linked
+globals. The sink still copies each view immediately and never retains an
+address across calls.
 
 ## Conditional value/schema policy
 
@@ -340,8 +364,8 @@ At that boundary the dependency-free catalog model pinned all 48 migrated
 literals and six export mappings, including the exact compiled English AIM
 Links title, missing AIM Links translation rollback, lookup provenance, and
 storage lifetime. The same sanitizer CI target covers every completed domain.
-Startup selection, `g_lang`, legacy archives, mutable buffers, and textual
-inclusion for the other tables remain unchanged.
+At that earlier boundary startup selection, `g_lang`, legacy archives, mutable
+buffers, and textual inclusion for the other tables remained unchanged.
 
 ## Immutable Help-screen exit-label pack boundary
 
@@ -450,7 +474,8 @@ exact-literal tests cover the new boundary. The catalog now covers 344 literals
 and 14 exporter mappings. The canonical ABI contains 471 base plus 35 JA25 data
 symbols (506 total), including 480 mutable pointer slots and 26 writable fixed
 buffers; 37 base singleton pointer tables remain. The direct `Text.h` include
-surface is 240 files, and 224 executable legacy exporter sections remain.
+surface is 241 files (including the linked adapter), and 224 executable legacy
+exporter sections remain.
 Startup selection, `g_lang`, per-language archive collapse, mutable globals,
 voice, and hot reload remain outside this slice.
 
@@ -475,17 +500,18 @@ voice, and hot reload remain outside this slice.
    Continue migrating direct globals domain by domain, then fixed character
    buffers and genuinely mutable destinations. No slice may copy partially
    validated data or swap addresses after consumers initialize.
-4. **Complete prerequisite; adapter ready:** commit the exact ordered
+4. **Complete prerequisite:** commit the exact ordered
    GameStrings manifest, including 224 legacy and 14 pack sections, 18 exported
    compatibility-debt pairs, 7,168 exhaustive raw-dimension comparisons with
    zero unsafe results, the 14 exporter-only tables, and startup
    export-before-import/external-load order. The repaired semantic ordinals and
    three narrowed limits remove undefined adjacent-array reads without changing
    startup order.
-5. **In progress:** the XML exporter consumes the same pack for those 14
-   sections. Move the remaining sections, then remove textual `.cpp` inclusion.
-   The linked-global adapter may now rely on fully defined selected-catalog
-   ranges and their intended-output goldens.
+5. **Adapter complete; pack migration in progress:** the XML exporter consumes
+   the same pack for those 14 sections, and one variant adapter now links the
+   remaining 224 globals without any textual `.cpp` inclusion. Its borrowed
+   views are copied immediately and all 32 ordered-output snapshots are pinned.
+   Move the remaining sections into validated packs domain by domain.
    Decide separately whether shipped packs remain generated C++ data or become
    versioned package resources; runtime API and validation rules stay identical.
 6. Select and validate the language code during startup before rules/campaign

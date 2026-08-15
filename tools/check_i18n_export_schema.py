@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Validate the complete GameStrings export contract without building JA2.
 
-The developer exporter still mixes selected legacy catalog globals with the
-immutable TextPack.  This tool records that exact ordered boundary and checks
-it against ExportStrings.cpp, TextCatalog.h, the compiled-text ABI schema, all
-eight catalog shapes, and the startup call chain.
+The developer exporter injects an immediate-copy sink into one language-variant
+adapter. That adapter enumerates the selected linked legacy globals and the
+immutable TextPack in the historical order. This tool checks the split against
+ExportStrings.cpp, SelectedCatalogExport.cpp, TextCatalog.h, the compiled-text
+ABI schema, all eight catalog shapes, CMake ownership, and the startup call
+chain.
 
-The manifest is deliberately descriptive. Every selected catalog now covers
-the reviewed legacy export ranges, and exact semantic-slot goldens keep those
-repairs from being replaced by empty padding or shifted entries. This makes
-the selected-catalog side ready for a future linked-global adapter without
-changing current runtime publication.
+The manifest is deliberately descriptive. Every selected catalog covers the
+reviewed legacy export ranges, exact semantic-slot goldens keep those repairs
+from becoming empty padding or shifted entries, and source ratchets prevent the
+sink from retaining borrowed global storage.
 
 Usage:
     python3 tools/check_i18n_export_schema.py
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+import hashlib
 import json
 import re
 import sys
@@ -32,7 +34,10 @@ import check_i18n_text_schema as ABI
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "i18n" / "export_text_schema.json"
-EXPORT_SOURCE = "i18n/ExportStrings.cpp"
+EXPORT_SOURCE = "i18n/SelectedCatalogExport.cpp"
+PROPERTY_EXPORT_SOURCE = "i18n/ExportStrings.cpp"
+EXPORT_HEADER = "i18n/include/SelectedCatalogExport.h"
+I18N_BUILD_SOURCE = "i18n/CMakeLists.txt"
 TEXT_CATALOG_HEADER = "i18n/include/TextCatalog.h"
 
 EXPECTED_LOGICAL_SECTIONS = 238
@@ -57,7 +62,7 @@ MAX_UNSAFE_RANGE_QUADRANT_FAILURES = 0
 MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD = 0
 EXPECTED_EXPORTER_ONLY_TABLES = 14
 EXPECTED_EXPORTER_ONLY_ENTRIES = 85
-EXPECTED_TEXTUAL_CATALOG_INCLUDES = [
+EXPECTED_LINKED_CATALOG_SOURCES = [
     "_ChineseText.cpp",
     "_DutchText.cpp",
     "_EnglishText.cpp",
@@ -282,15 +287,95 @@ NORMALIZED_CATALOG_GOLDENS.setdefault(("Italian", "gzGIOScreenText"), {}).update
     }
 )
 
-READY_ADAPTER_STATUS = {
-    "state": "ready",
+IMPLEMENTED_ADAPTER_STATUS = {
+    "state": "implemented",
     "reason": (
-        "all 224 selected legacy ranges pass the exhaustive eight-language, "
-        "four-quadrant live-provider/raw textual-copy gate, all exported "
-        "pointer entries have literal-only validated storage, and every "
-        "repaired semantic slot has source-level golden coverage"
+        "one language-variant translation unit enumerates all 238 ordered "
+        "sections from selected linked globals and the immutable TextPack "
+        "through an injected immediate-copy sink; all 224 legacy ranges retain "
+        "their exhaustive eight-language/four-quadrant proof"
     ),
 }
+
+EXPECTED_LOCAL_EXTERN_SYMBOLS = [
+    "pBullseyeStrings",
+    "pContractButtonString",
+    "pUpdatePanelButtons",
+    "gzIntroScreen",
+    "sRepairsDoneString",
+]
+
+EXPECTED_VARIANT_SOURCES = [
+    "language.cpp",
+    "ExportStrings.cpp",
+    "SelectedCatalogExport.cpp",
+    "_ChineseText.cpp",
+    "_DutchText.cpp",
+    "_EnglishText.cpp",
+    "_FrenchText.cpp",
+    "_GermanText.cpp",
+    "_ItalianText.cpp",
+    "_Ja25ChineseText.cpp",
+    "_Ja25DutchText.cpp",
+    "_Ja25EnglishText.cpp",
+    "_Ja25FrenchText.cpp",
+    "_Ja25GermanText.cpp",
+    "_Ja25ItalianText.cpp",
+    "_Ja25PolishText.cpp",
+    "_Ja25RussianText.cpp",
+    "_PolishText.cpp",
+    "_RussianText.cpp",
+]
+
+EXPECTED_ADAPTER_HELPER_NAMESPACE = r"""
+namespace
+{
+template<typename T>
+void ExportSection(i18n::SelectedCatalogExportSink& sink,
+    std::wstring_view section, T* strings, int first, int limit)
+{
+    for (int index = first; index < limit; ++index)
+    {
+        const std::wstring_view text{strings[index]};
+        if (!text.empty()) sink.copyEntry(section, index, text);
+    }
+}
+
+template<>
+void ExportSection<wchar_t>(i18n::SelectedCatalogExportSink& sink,
+    std::wstring_view section, wchar_t* strings, int first, int limit)
+{
+    ExportSection(sink, section, &strings, first, limit);
+}
+
+void ExportTextPackEntry(i18n::SelectedCatalogExportSink& sink,
+    i18n::TextKey key)
+{
+    const auto* descriptor = i18n::FindTextKey(key);
+    const auto text = i18n::GetCompiledTextPack().lookup(key);
+    if (!descriptor || !text || text.text.empty()) return;
+    sink.copyEntry(descriptor->legacyExportSection, 0, text.text);
+}
+
+void ExportTextPackTable(i18n::SelectedCatalogExportSink& sink,
+    i18n::TextTableKey key)
+{
+    const auto* descriptor = i18n::FindTextTable(key);
+    if (!descriptor) return;
+    const auto& pack = i18n::GetCompiledTextPack();
+    const auto exportEnd =
+        descriptor->legacyExportFirst + descriptor->legacyExportCount;
+    for (std::size_t index = descriptor->legacyExportFirst;
+        index < exportEnd; ++index)
+    {
+        const auto text = pack.lookup(key, index);
+        if (!text || text.text.empty()) continue;
+        sink.copyEntry(descriptor->legacyExportSection,
+            static_cast<int>(index), text.text);
+    }
+}
+}
+"""
 
 SOURCE_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"})
 CATALOG_SOURCES = frozenset(
@@ -299,7 +384,7 @@ CATALOG_SOURCES = frozenset(
     for path in (language.base_source, language.ja25_source)
 )
 EXPORTER_ONLY_SCAN_EXCLUSIONS = CATALOG_SOURCES | frozenset(
-    {EXPORT_SOURCE, "i18n/include/Text.h"}
+    {EXPORT_SOURCE, PROPERTY_EXPORT_SOURCE, "i18n/include/Text.h"}
 )
 
 
@@ -475,8 +560,9 @@ PREPROCESSOR_DIRECTIVE = re.compile(
 )
 
 EXPORT_FUNCTION_DEFINITION = re.compile(
-    r"\bbool[ \t\r\n]+Loc::ExportStrings[ \t\r\n]*"
-    r"\([ \t\r\n]*\)[ \t\r\n]*\{"
+    r"\bvoid[ \t\r\n]+i18n::ExportSelectedCatalog[ \t\r\n]*"
+    r"\([ \t\r\n]*SelectedCatalogExportSink[ \t\r\n]*&[ \t\r\n]*sink"
+    r"[ \t\r\n]*\)[ \t\r\n]*\{"
 )
 
 CONDITIONAL_DIRECTIVE_OPENERS = {"if", "ifdef", "ifndef"}
@@ -568,47 +654,47 @@ def _require_unconditional_definition(
 
 
 def _validate_export_source_preprocessor(export_source: str) -> None:
-    """Keep the exporter active and its compiler-owned seam unreplaced."""
+    """Keep the selected-catalog adapter and compiler seam unreplaced."""
 
     masked = lexical_mask(export_source)
     definitions = list(EXPORT_FUNCTION_DEFINITION.finditer(masked))
     if len(definitions) != 1:
         raise ExportSchemaError(
-            "ExportStrings must retain one exact zero-parameter bool definition"
+            "selected-catalog adapter must retain one exact sink entrypoint"
         )
     opening = masked.find("{", definitions[0].start(), definitions[0].end())
     closing = _matching_delimiter(masked, opening, "{", "}")
     reviewed_source = export_source[:closing + 1]
     _masked, directives = _directive_matches(
-        reviewed_source, "ExportStrings.cpp"
+        reviewed_source, "SelectedCatalogExport.cpp"
     )
     for directive in directives:
         if directive.group("name") in {"define", "undef"}:
             raise ExportSchemaError(
-                "ExportStrings.cpp may not define or undefine macros across "
-                "the reviewed export boundary"
+                "SelectedCatalogExport.cpp may not define or undefine macros "
+                "across the reviewed export boundary"
             )
     _require_unconditional_definition(
-        directives, definitions[0].start(), "Loc::ExportStrings"
+        directives, definitions[0].start(), "i18n::ExportSelectedCatalog"
     )
 
 
 def _validated_export_body_directives(raw_body: str) -> list[re.Match]:
     _masked, directives = _directive_matches(
-        raw_body, "Loc::ExportStrings"
+        raw_body, "i18n::ExportSelectedCatalog"
     )
     actual = [raw_body[match.start():match.end()].strip() for match in directives]
     if actual != EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES:
         raise ExportSchemaError(
-            "Loc::ExportStrings must begin with the exact static_assert guard "
-            "and named-limit contract include"
+            "i18n::ExportSelectedCatalog must begin with the exact static_assert "
+            "guard and named-limit contract include"
         )
     prefix = raw_body[:directives[-1].end()]
     prefix_lines = [line.strip() for line in prefix.splitlines() if line.strip()]
     if prefix_lines != EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES:
         raise ExportSchemaError(
             "the static_assert guard and named-limit include must be the exact "
-            "exporter prefix"
+            "adapter prefix"
         )
     return directives
 
@@ -659,12 +745,12 @@ def parse_named_export_limit_manifest(source: str) -> dict[str, int]:
 
 
 def validate_named_limit_static_assert_seam(export_source: str) -> None:
-    """Pin one direct, first-statement include in the exporter TU."""
+    """Pin one direct, first-statement include in the variant adapter TU."""
 
     _validate_export_source_preprocessor(export_source)
     if len(list(EXPORT_FUNCTION_DEFINITION.finditer(lexical_mask(export_source)))) != 1:
         raise ExportSchemaError(
-            "ExportStrings must retain its exact zero-parameter bool definition"
+            "selected-catalog adapter must retain its exact sink entrypoint"
         )
 
     include_pattern = re.compile(
@@ -674,10 +760,10 @@ def validate_named_limit_static_assert_seam(export_source: str) -> None:
     includes = list(include_pattern.finditer(comments_blanked(export_source)))
     if len(includes) != 1:
         raise ExportSchemaError(
-            "ExportStrings must include the named-limit static-assert contract "
-            "exactly once"
+            "selected-catalog adapter must include the named-limit static-assert "
+            "contract exactly once"
         )
-    body = extract_function_body(export_source, "Loc::ExportStrings")
+    body = extract_function_body(export_source, "i18n::ExportSelectedCatalog")
     _validated_export_body_directives(body)
 
 
@@ -800,7 +886,7 @@ def _export_top_level_statements(
     masked = lexical_mask(source)
     if "{" in masked or "}" in masked:
         raise ExportSchemaError(
-            "Loc::ExportStrings must remain a flat control-flow-free body"
+            "i18n::ExportSelectedCatalog must remain a flat control-flow-free body"
         )
     statements = []
     start = 0
@@ -815,7 +901,9 @@ def _export_top_level_statements(
         elif character == "]":
             bracket_depth -= 1
         if min(paren_depth, bracket_depth) < 0:
-            raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+            raise ExportSchemaError(
+                "unbalanced delimiter in i18n::ExportSelectedCatalog"
+            )
         if character == ";" and paren_depth == 0 and bracket_depth == 0:
             statement = normalize_expression(
                 comments_blanked(source[start:index + 1])
@@ -824,10 +912,12 @@ def _export_top_level_statements(
                 statements.append(statement)
             start = index + 1
     if (paren_depth, bracket_depth) != (0, 0):
-        raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+        raise ExportSchemaError(
+            "unbalanced delimiter in i18n::ExportSelectedCatalog"
+        )
     if lexical_mask(source[start:]).strip():
         raise ExportSchemaError(
-            "Loc::ExportStrings has executable text outside a direct statement"
+            "i18n::ExportSelectedCatalog has executable text outside a direct statement"
         )
     return statements
 
@@ -872,33 +962,12 @@ def _validate_export_statement_inventory(
     directives: Sequence[re.Match],
 ) -> None:
     statements = _export_top_level_statements(raw_body, directives)
-    expected_prefix = [
-        "vfs::PropertyContainer::TagMaptmap;",
-        "vfs::PropertyContainerprops;",
-    ]
-    expected_tail = [
-        'props.writeToXMLFile(L"Localization/GameStrings.xml",tmap);',
-        'props.writeToIniFile(L"Localization/GameStrings.ini",true);',
-        "Loc::ExportMercBio();",
-        "Loc::ExportAIMHistory();",
-        "Loc::ExportAIMPolicy();",
-        "Loc::ExportAlumniName();",
-        "Loc::ExportDialogues();",
-        "Loc::ExportNPCDialogues();",
-        "returntrue;",
-    ]
-    expected_count = len(expected_prefix) + len(calls) + len(expected_tail)
-    if len(statements) != expected_count:
+    if len(statements) != len(calls):
         raise ExportSchemaError(
-            "Loc::ExportStrings depth-zero statement inventory changed: "
-            f"expected {expected_count}, got {len(statements)}"
+            "i18n::ExportSelectedCatalog statement inventory changed: "
+            f"expected {len(calls)}, got {len(statements)}"
         )
-    if statements[:2] != expected_prefix or statements[-len(expected_tail):] != expected_tail:
-        raise ExportSchemaError(
-            "Loc::ExportStrings prologue/write/raw-export/final-return inventory changed"
-        )
-    owned = statements[2:2 + len(calls)]
-    for statement, call in zip(owned, calls):
+    for statement, call in zip(statements, calls):
         expected_name = {
             "legacy": "ExportSection",
             "text-pack-entry": "ExportTextPackEntry",
@@ -906,7 +975,7 @@ def _validate_export_statement_inventory(
         }[call["source_kind"]]
         if not statement.startswith(expected_name + "(") or not statement.endswith(");"):
             raise ExportSchemaError(
-                "Loc::ExportStrings owned export statements are not exact and contiguous"
+                "selected-catalog adapter export statements are not exact and contiguous"
             )
 
 
@@ -999,20 +1068,28 @@ def parse_text_pack_descriptors(header: str) -> tuple[dict[str, dict], dict[str,
 
 def parse_export_calls(source: str) -> list[dict]:
     _validate_export_source_preprocessor(source)
-    raw_body = extract_function_body(source, "Loc::ExportStrings")
+    raw_body = extract_function_body(source, "i18n::ExportSelectedCatalog")
     raw_masked = lexical_mask(raw_body)
     _masked, body_directives = _directive_matches(
-        raw_body, "Loc::ExportStrings"
+        raw_body, "i18n::ExportSelectedCatalog"
     )
     has_limit_contract = 'ExportStringLimitContract.inc' in raw_body
     if has_limit_contract:
         body_directives = _validated_export_body_directives(raw_body)
     elif body_directives:
         raise ExportSchemaError(
-            "Loc::ExportStrings may not hide export calls behind "
+            "i18n::ExportSelectedCatalog may not hide export calls behind "
             "preprocessor directives"
         )
-    body = comments_blanked(raw_body)
+    body_without_directives = list(comments_blanked(raw_body))
+    for directive in body_directives:
+        _blank_span(
+            body_without_directives,
+            raw_body,
+            directive.start(),
+            directive.end(),
+        )
+    body = "".join(body_without_directives)
     active = lexical_mask(body)
     delimiter_depths: list[tuple[int, int, int]] = []
     paren_depth = bracket_depth = brace_depth = 0
@@ -1031,9 +1108,13 @@ def parse_export_calls(source: str) -> list[dict]:
         elif character == "}":
             brace_depth -= 1
         if min(paren_depth, bracket_depth, brace_depth) < 0:
-            raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+            raise ExportSchemaError(
+                "unbalanced delimiter in i18n::ExportSelectedCatalog"
+            )
     if (paren_depth, bracket_depth, brace_depth) != (0, 0, 0):
-        raise ExportSchemaError("unbalanced delimiter in Loc::ExportStrings")
+        raise ExportSchemaError(
+            "unbalanced delimiter in i18n::ExportSelectedCatalog"
+        )
     call_pattern = re.compile(
         r"\b(?P<name>ExportSection|ExportTextPackEntry|ExportTextPackTable)\s*\("
     )
@@ -1059,13 +1140,13 @@ def parse_export_calls(source: str) -> list[dict]:
         arguments = _split_arguments(body[opening + 1:closing])
         name = match.group("name")
         if name == "ExportSection":
-            if len(arguments) != 5 or arguments[0] != "props":
+            if len(arguments) != 5 or arguments[0] != "sink":
                 raise ExportSchemaError("unsupported legacy ExportSection call shape")
             section_match = re.fullmatch(r'L"([^"\\]*)"', arguments[1])
-            symbol_match = re.fullmatch(r"Loc::([A-Za-z_]\w*)", arguments[2])
+            symbol_match = re.fullmatch(r"::([A-Za-z_]\w*)", arguments[2])
             if not section_match or not symbol_match:
                 raise ExportSchemaError(
-                    "legacy export section/symbol is not a direct literal/global"
+                    "legacy export section/symbol is not a direct literal/linked global"
                 )
             calls.append(
                 {
@@ -1079,7 +1160,7 @@ def parse_export_calls(source: str) -> list[dict]:
                 }
             )
             continue
-        if len(arguments) != 2 or arguments[0] != "props":
+        if len(arguments) != 2 or arguments[0] != "sink":
             raise ExportSchemaError(f"unsupported {name} call shape")
         key_type = "TextKey" if name == "ExportTextPackEntry" else "TextTableKey"
         key_match = re.fullmatch(rf"i18n::{key_type}::([A-Za-z_]\w*)", arguments[1])
@@ -1100,87 +1181,347 @@ def parse_export_calls(source: str) -> list[dict]:
     return calls
 
 
-def textual_catalog_includes(source: str) -> list[str]:
+def _textual_catalog_includes(source: str) -> list[str]:
     include_pattern = re.compile(
         r'^[ \t]*#[ \t]*include[ \t]+"(_(?:Chinese|Dutch|English|French|German|'
         r'Italian|Polish|Russian)Text[.]cpp)"',
         re.MULTILINE,
     )
+    clean = comments_blanked(source)
+    active = lexical_mask(source)
+    return [
+        match.group(1)
+        for match in include_pattern.finditer(clean)
+        if active[match.start():match.end()].lstrip().startswith("#")
+    ]
 
-    def parsed_includes(selected_source: str) -> list[str]:
-        clean = comments_blanked(selected_source)
-        active = lexical_mask(selected_source)
-        return [
-            match.group(1)
-            for match in include_pattern.finditer(clean)
-            if active[match.start():match.end()].lstrip().startswith("#")
-        ]
+
+def validate_property_container_exporter(source: str) -> None:
+    """Pin the immediate-copy VFS writer and raw-export tail."""
+
+    body = _active_function_body(
+        source, "Loc::ExportStrings", "Loc::ExportStrings"
+    )
+    _reject_conditionals(body, "Loc::ExportStrings")
+    statements = _export_top_level_statements(body, [])
+    expected = [
+        "vfs::PropertyContainer::TagMaptmap;",
+        "vfs::PropertyContainerprops;",
+        "PropertyContainerExportSinksink(props);",
+        "i18n::ExportSelectedCatalog(sink);",
+        'props.writeToXMLFile(L"Localization/GameStrings.xml",tmap);',
+        'props.writeToIniFile(L"Localization/GameStrings.ini",true);',
+        "Loc::ExportMercBio();",
+        "Loc::ExportAIMHistory();",
+        "Loc::ExportAIMPolicy();",
+        "Loc::ExportAlumniName();",
+        "Loc::ExportDialogues();",
+        "Loc::ExportNPCDialogues();",
+        "returntrue;",
+    ]
+    if statements != expected:
+        raise ExportSchemaError(
+            "Loc::ExportStrings lost its adapter/write/six-EDT/final-return inventory"
+        )
+
+    copy_body = _active_function_body(
+        source, "copyEntry", "PropertyContainerExportSink::copyEntry"
+    )
+    copy_statement = normalize_expression(comments_blanked(copy_body))
+    expected_copy = normalize_expression(
+        """props_.setStringProperty(
+            vfs::String(std::wstring(section)),
+            vfs::toString<wchar_t>(index),
+            vfs::String(std::wstring(text)));"""
+    )
+    if copy_statement != expected_copy:
+        raise ExportSchemaError(
+            "PropertyContainerExportSink must immediately materialize both borrowed views"
+        )
+
+
+def _validate_adapter_helper_namespace(source: str) -> None:
+    """Pin the live helper definitions, not text that merely resembles them."""
 
     masked = lexical_mask(source)
-    if re.search(r"^[ \t]*%:", masked, re.MULTILINE):
-        raise ExportSchemaError("alternative preprocessor tokens are unsupported")
-    if re.search(r"^[ \t]*#[^\r\n]*\\[ \t]*$", masked, re.MULTILINE):
-        raise ExportSchemaError("continued catalog-selection directives are unsupported")
-    language_macros = {language.macro for language in ABI.LANGUAGES}
-    mutation_pattern = re.compile(
-        r"^[ \t]*#[ \t]*(?:define|undef)[ \t]+([A-Za-z_]\w*)\b",
-        re.MULTILINE,
-    )
-    for match in mutation_pattern.finditer(masked):
-        if match.group(1) in language_macros:
-            raise ExportSchemaError(
-                "ExportStrings.cpp may not redefine a language-selection macro"
-            )
-    conditional_pattern = re.compile(
-        r"^[ \t]*#[ \t]*(?P<kind>if|ifdef|ifndef|elif|else|endif)\b"
-        r"(?P<expression>[^\r\n]*)",
-        re.MULTILINE,
-    )
-    conditionals = list(conditional_pattern.finditer(masked))
-    static_assert_guards = [
-        match
-        for match in conditionals
-        if match.group("kind") == "ifdef"
-        and match.group("expression").strip() == "static_assert"
-    ]
-    if static_assert_guards:
-        validate_named_limit_static_assert_seam(source)
-        if len(static_assert_guards) != 1:
-            raise ExportSchemaError(
-                "ExportStrings must have exactly one static_assert macro guard"
-            )
-    for match in conditionals:
-        if match.group("kind") in {"else", "endif"}:
-            continue
-        if match in static_assert_guards:
-            continue
-        identifiers = set(
-            re.findall(r"\b[A-Za-z_]\w*\b", match.group("expression"))
-        )
-        identifiers.discard("defined")
-        unknown = sorted(identifiers - language_macros)
-        if unknown:
-            raise ExportSchemaError(
-                "catalog selection uses untracked conditional macro(s): "
-                + ", ".join(unknown)
-            )
-
-    includes = parsed_includes(source)
-    if includes != EXPECTED_TEXTUAL_CATALOG_INCLUDES:
+    namespaces = list(re.finditer(r"\bnamespace[ \t\r\n]*\{", masked))
+    if len(namespaces) != 1:
         raise ExportSchemaError(
-            "selected textual catalog includes changed: "
-            f"expected {EXPECTED_TEXTUAL_CATALOG_INCLUDES!r}, got {includes!r}"
+            "selected-catalog adapter must retain one exact anonymous helper namespace"
         )
-    for language in ABI.LANGUAGES:
-        expected = Path(language.base_source).name
-        selected = ABI.preprocess(source, {language.macro})
-        active_includes = parsed_includes(selected)
-        if active_includes != [expected]:
+    namespace_start = namespaces[0].start()
+    opening = masked.find("{", namespace_start, namespaces[0].end())
+    closing = _matching_delimiter(masked, opening, "{", "}")
+    context = "selected-catalog helper namespace"
+    if _conditional_depth(
+        _structural_directive_matches(source[:namespace_start], context), context
+    ) != 0:
+        raise ExportSchemaError(
+            "selected-catalog helper namespace must be unconditional"
+        )
+    region = source[namespace_start:closing + 1]
+    _masked, directives = _directive_matches(region, context)
+    if directives:
+        raise ExportSchemaError(
+            "selected-catalog helper namespace may not contain directives"
+        )
+    if normalize_expression(lexical_mask(region)) != normalize_expression(
+        lexical_mask(EXPECTED_ADAPTER_HELPER_NAMESPACE)
+    ):
+        raise ExportSchemaError(
+            "selected-catalog helper definitions changed storage, range, "
+            "empty-suppression, or borrowed-view behavior"
+        )
+
+    export_start, _export_opening, export_closing = _function_definition_span(
+        source, "i18n::ExportSelectedCatalog"
+    )
+    residual = list(source)
+    _blank_span(residual, source, namespace_start, closing + 1)
+    _blank_span(residual, source, export_start, export_closing + 1)
+    unexpected = re.search(
+        r"\b(?:ExportSection|ExportTextPackEntry|ExportTextPackTable)\b",
+        lexical_mask("".join(residual)),
+    )
+    if unexpected is not None:
+        raise ExportSchemaError(
+            "selected-catalog helper name escaped its exact namespace/export body"
+        )
+
+
+def _validate_adapter_header(source: str) -> None:
+    """Require one unconditional, data-free immediate-copy sink interface."""
+
+    _masked, directives = _directive_matches(source, "SelectedCatalogExport.h")
+    clean = comments_blanked(source)
+    actual_directives = [
+        clean[directive.start():directive.end()].strip()
+        for directive in directives
+    ]
+    if actual_directives != ["#pragma once", "#include <string_view>"]:
+        raise ExportSchemaError(
+            "SelectedCatalogExport.h must retain its exact pragma/include prefix"
+        )
+    without_directives = list(source)
+    for directive in directives:
+        _blank_span(
+            without_directives, source, directive.start(), directive.end()
+        )
+    expected = r"""
+namespace i18n
+{
+class SelectedCatalogExportSink
+{
+public:
+    virtual ~SelectedCatalogExportSink() = default;
+    virtual void copyEntry(std::wstring_view section, int index,
+        std::wstring_view text) = 0;
+};
+void ExportSelectedCatalog(SelectedCatalogExportSink& sink);
+}
+"""
+    if normalize_expression(lexical_mask("".join(without_directives))) != (
+        normalize_expression(lexical_mask(expected))
+    ):
+        raise ExportSchemaError(
+            "SelectedCatalogExport.h lost its exact sink/entrypoint interface"
+        )
+    if source.count("must copy section and text before copyEntry returns") != 1:
+        raise ExportSchemaError(
+            "selected-catalog sink must document immediate ownership of both views"
+        )
+
+
+def _cmake_comments_removed(source: str) -> str:
+    """Remove the comment forms relevant to reviewed CMake source lists."""
+
+    source = re.sub(r"#\[(?P<equals>=*)\[.*?\](?P=equals)\]", "", source,
+                    flags=re.DOTALL)
+    return re.sub(r"(?m)#.*$", "", source)
+
+
+def _validate_variant_source_list(build_source: str) -> None:
+    """Require direct, ordered variant sources rather than comment matches."""
+
+    clean = _cmake_comments_removed(build_source)
+    blocks = list(re.finditer(
+        r"set\s*\(\s*i18nVariantSrc(?P<body>.*?)PARENT_SCOPE\s*\)",
+        clean,
+        re.DOTALL,
+    ))
+    if len(blocks) != 1:
+        raise ExportSchemaError("i18n variant source partition is not parseable")
+    body = blocks[0].group("body")
+    entry_pattern = re.compile(
+        r'"\$\{CMAKE_CURRENT_SOURCE_DIR\}/(?P<source>[^"$]+)"'
+    )
+    entries = [match.group("source") for match in entry_pattern.finditer(body)]
+    residual = entry_pattern.sub("", body)
+    if residual.strip() or entries != EXPECTED_VARIANT_SOURCES:
+        raise ExportSchemaError(
+            "i18nVariantSrc must retain its exact direct ordered source list"
+        )
+    if clean.count("SelectedCatalogExport.cpp") != 1:
+        raise ExportSchemaError(
+            "SelectedCatalogExport.cpp must occur only in i18nVariantSrc"
+        )
+
+
+def _validate_compiled_language_agreement() -> None:
+    """Pin the common compile-time selector used by globals and TextPack."""
+
+    language_source = _read("i18n/language.cpp")
+    _reject_conditionals(language_source, "i18n/language.cpp")
+    active_language = lexical_mask(language_source)
+    identity = "const i18n::Lang g_lang{i18n::CompiledDefaultLanguage()};"
+    identity_matches = list(re.finditer(re.escape(identity), active_language))
+    if len(identity_matches) != 1:
+        raise ExportSchemaError(
+            "compiled TextPack lost its exact immutable g_lang definition"
+        )
+    if active_language[:identity_matches[0].start()].count("{") != (
+        active_language[:identity_matches[0].start()].count("}")
+    ):
+        raise ExportSchemaError("g_lang must remain a top-level definition")
+
+    pack_definition = re.compile(
+        r"\bauto[ \t\r\n]+i18n::GetCompiledTextPack\(\)[ \t\r\n]+"
+        r"noexcept[ \t\r\n]*->[ \t\r\n]*const[ \t\r\n]+TextPack&"
+        r"[ \t\r\n]*\{"
+    )
+    pack_matches = list(pack_definition.finditer(active_language))
+    if len(pack_matches) != 1:
+        raise ExportSchemaError(
+            "compiled TextPack accessor must retain one exact definition"
+        )
+    pack_opening = active_language.find(
+        "{", pack_matches[0].start(), pack_matches[0].end()
+    )
+    pack_closing = _matching_delimiter(
+        active_language, pack_opening, "{", "}"
+    )
+    pack_body = language_source[pack_opening + 1:pack_closing]
+    expected_pack_body = r"""
+static const TextPack pack = [] {
+    auto selected = BuiltinTextCatalog().select(g_lang);
+    if (!selected) std::abort();
+    return std::move(*selected);
+}();
+return pack;
+"""
+    if normalize_expression(lexical_mask(pack_body)) != normalize_expression(
+        lexical_mask(expected_pack_body)
+    ):
+        raise ExportSchemaError(
+            "compiled TextPack no longer selects exactly once from immutable g_lang"
+        )
+
+    compiled_language = _read("i18n/CompiledLanguage.h")
+    compiled_body = _active_function_body(
+        compiled_language,
+        "CompiledDefaultLanguage",
+        "i18n::CompiledDefaultLanguage",
+    )
+    expected_compiled_body = r"""
+#if defined(ENGLISH)
+  return Lang::en;
+#elif defined(CHINESE)
+  return Lang::zh;
+#elif defined(DUTCH)
+  return Lang::nl;
+#elif defined(FRENCH)
+  return Lang::fr;
+#elif defined(GERMAN)
+  return Lang::de;
+#elif defined(ITALIAN)
+  return Lang::it;
+#elif defined(POLISH)
+  return Lang::pl;
+#elif defined(RUSSIAN)
+  return Lang::ru;
+#endif
+"""
+    if normalize_expression(comments_blanked(compiled_body)) != (
+        normalize_expression(comments_blanked(expected_compiled_body))
+    ):
+        raise ExportSchemaError(
+            "compiled language macro-to-Lang mapping changed or became ambiguous"
+        )
+
+
+def selected_catalog_adapter_contract(
+    adapter_source: str,
+    property_source: str,
+    adapter_header: str,
+    build_source: str,
+) -> dict:
+    """Validate linkage, sink lifetime, variant ownership, and no textual copy."""
+
+    if _textual_catalog_includes(adapter_source + "\n" + property_source):
+        raise ExportSchemaError(
+            "selected-catalog adapter may not textually include a language body"
+        )
+    combined_masked = lexical_mask(adapter_source + "\n" + property_source)
+    language_macros = [language.macro for language in ABI.LANGUAGES]
+    escaped_macros = [
+        macro
+        for macro in language_macros
+        if re.search(rf"\b{re.escape(macro)}\b", combined_masked)
+    ]
+    if escaped_macros:
+        raise ExportSchemaError(
+            "export adapter/writer regained language selection macro(s): "
+            + ", ".join(escaped_macros)
+        )
+
+    _validate_adapter_helper_namespace(adapter_source)
+
+    first_namespace = adapter_source.find("namespace")
+    if first_namespace < 0:
+        raise ExportSchemaError("selected-catalog adapter lost its helper namespace")
+    externs = re.findall(
+        r"^[ \t]*extern[ \t]+STR16[ \t]+([A-Za-z_]\w*)\[\][ \t]*;[ \t]*$",
+        lexical_mask(adapter_source[:first_namespace]),
+        re.MULTILINE,
+    )
+    if externs != EXPECTED_LOCAL_EXTERN_SYMBOLS:
+        raise ExportSchemaError(
+            "selected-catalog adapter must own the exact five local externs"
+        )
+
+    _validate_adapter_header(adapter_header)
+    _validate_variant_source_list(build_source)
+
+    root_build = _cmake_comments_removed(_read("CMakeLists.txt"))
+    for fragment in (
+        "target_sources(${language_library} PRIVATE\n      ${i18nVariantSrc}",
+        "target_compile_definitions(${language_library} PRIVATE "
+        "${compilationFlags} ${debugFlags} ${lang})",
+    ):
+        if fragment not in root_build:
             raise ExportSchemaError(
-                f"{language.name}: active textual catalog include must be "
-                f"{expected!r}, got {active_includes!r}"
+                "language globals, adapter, and g_lang lost their shared variant target"
             )
-    return includes
+    _validate_compiled_language_agreement()
+    if "i18n::GetCompiledTextPack()" not in adapter_source:
+        raise ExportSchemaError(
+            "selected linked globals and TextPack lost their shared adapter"
+        )
+    validate_property_container_exporter(property_source)
+    return {
+        "source": EXPORT_SOURCE,
+        "entrypoint": "i18n::ExportSelectedCatalog(SelectedCatalogExportSink&)",
+        "sink_header": EXPORT_HEADER,
+        "sink_lifetime": "borrowed views copied before callback return",
+        "property_writer": PROPERTY_EXPORT_SOURCE,
+        "linked_catalog_sources": EXPECTED_LINKED_CATALOG_SOURCES,
+        "textual_catalog_includes": [],
+        "local_extern_symbols": EXPECTED_LOCAL_EXTERN_SYMBOLS,
+        "variant_axes": ["language", "campaign", "build"],
+        "language_agreement": (
+            "one language-target definition selects linked globals, g_lang, and TextPack"
+        ),
+    }
 
 
 def _load_abi_schema() -> dict:
@@ -1214,6 +1555,40 @@ def _legacy_storage(symbol: Mapping) -> dict:
             for quadrant in ABI.QUADRANTS
         },
     }
+
+
+def _validate_legacy_storage_paths(
+    sections: Sequence[Mapping], abi_schema: Mapping
+) -> None:
+    """Keep every legacy range on one of the adapter's three safe shapes."""
+
+    for section in sections:
+        if section["source_kind"] != "legacy":
+            continue
+        symbol_name = section["symbol"]
+        symbol = abi_schema["symbols"].get(symbol_name)
+        if symbol is None:
+            raise ExportSchemaError(
+                f"legacy export symbol is absent from ABI schema: {symbol_name}"
+            )
+        storage_type = symbol["type"]
+        rank = len(symbol["source_dimensions"])
+        label = f"{section['section']}/{symbol_name}"
+        if storage_type == "STR16" and rank == 1:
+            continue
+        if storage_type == "CHAR16" and rank == 2:
+            continue
+        if storage_type == "CHAR16" and rank == 1:
+            first = _resolve_export_limit(str(section["range"]["first"]))
+            limit = _resolve_export_limit(str(section["range"]["limit"]))
+            if (first, limit) == (0, 1):
+                continue
+            raise ExportSchemaError(
+                f"{label}: scalar wchar storage must export exactly [0,1)"
+            )
+        raise ExportSchemaError(
+            f"{label}: unsupported adapter storage shape {storage_type} rank {rank}"
+        )
 
 
 def _resolve_export_limit(expression: str) -> int | None:
@@ -1937,6 +2312,194 @@ def _pointer_initializer_kind(entry: str, label: str) -> str:
     )
 
 
+def _decode_wide_literal_body(body: str, label: str) -> str:
+    """Decode the deliberately narrow escape grammar used by text catalogs."""
+
+    escapes = {"n": "\n", '"': '"', "'": "'", "\\": "\\"}
+    result = []
+    index = 0
+    while index < len(body):
+        if body[index] != "\\":
+            result.append(body[index])
+            index += 1
+            continue
+        if index + 1 >= len(body) or body[index + 1] not in escapes:
+            raise ExportSchemaError(
+                f"{label}: unsupported wide-string escape in output model"
+            )
+        result.append(escapes[body[index + 1]])
+        index += 2
+    return "".join(result)
+
+
+def _decode_wide_literal_sequence(expression: str, label: str) -> str:
+    clean = comments_blanked(expression).strip()
+    if not DIRECT_WIDE_LITERAL_SEQUENCE.fullmatch(clean):
+        raise ExportSchemaError(
+            f"{label}: output model requires a direct wide-literal sequence"
+        )
+    return "".join(
+        _decode_wide_literal_body(match.group("body"), label)
+        for match in WIDE_STRING_LITERAL.finditer(clean)
+    )
+
+
+def _selected_pointer_text(
+    expression: str, quadrant: ABI.Quadrant, label: str
+) -> str:
+    kind = _pointer_initializer_kind(expression, label)
+    if kind == "direct_wide_literal":
+        return _decode_wide_literal_sequence(expression, label)
+    clean = comments_blanked(expression).strip()
+    masked = lexical_mask(clean)
+    selector = COMPILED_SELECTOR_START.match(masked)
+    assert selector is not None
+    opening = masked.find("(", selector.start(), selector.end())
+    closing = _matching_delimiter(masked, opening, "(", ")")
+    arguments = _split_arguments(clean[opening + 1:closing])
+    if "BUILD" in selector.group(0):
+        selected = arguments[2] if "JA2BETAVERSION" in quadrant.macros else arguments[1]
+    else:
+        selected = arguments[2] if "JA2UB" in quadrant.macros else arguments[1]
+    return _decode_wide_literal_sequence(selected, label)
+
+
+def _builtin_text_pack_values(source: str) -> dict[str, tuple[list[str], list[str]]]:
+    """Parse the eight literal-only BuiltinDefinitions rows."""
+
+    row_pattern = re.compile(
+        r"\{Lang::(?P<language>en|de|ru|nl|pl|fr|it|zh)\s*,\s*"
+        r"\{(?P<keys>.*?)\}\s*,\s*\{(?P<tables>.*?)\}\s*\}",
+        re.DOTALL,
+    )
+    result = {}
+    for match in row_pattern.finditer(comments_blanked(source)):
+        code = match.group("language")
+        if code in result:
+            raise ExportSchemaError(f"duplicate built-in TextPack row {code}")
+        keys = [
+            _decode_wide_literal_body(literal.group("body"), f"TextPack/{code}")
+            for literal in WIDE_STRING_LITERAL.finditer(match.group("keys"))
+        ]
+        tables = [
+            _decode_wide_literal_body(literal.group("body"), f"TextPack/{code}")
+            for literal in WIDE_STRING_LITERAL.finditer(match.group("tables"))
+        ]
+        if len(keys) != EXPECTED_TEXT_PACK_ENTRIES or len(tables) != 35:
+            raise ExportSchemaError(
+                f"TextPack/{code}: expected 8 scalar and 35 table literals"
+            )
+        result[code] = (keys, tables)
+    expected_codes = ["en", "de", "ru", "nl", "pl", "fr", "it", "zh"]
+    if list(result) != expected_codes:
+        raise ExportSchemaError("built-in TextPack language order changed")
+    return result
+
+
+def ordered_output_contract(sections: Sequence[dict]) -> dict:
+    """Hash every emitted section/index/value byte in all 32 variants."""
+
+    text_header = _read(TEXT_CATALOG_HEADER)
+    scalar_descriptors, table_descriptors = parse_text_pack_descriptors(text_header)
+    scalar_order = list(scalar_descriptors)
+    packs = _builtin_text_pack_values(_read("i18n/TextCatalog.cpp"))
+    language_codes = ["en", "de", "ru", "nl", "pl", "fr", "it", "zh"]
+    snapshots = {}
+    for language, language_code in zip(ABI.LANGUAGES, language_codes):
+        source = _read(language.base_source)
+        key_values, table_values = packs[language_code]
+        for quadrant in ABI.QUADRANTS:
+            active = ABI.preprocess(source, {language.macro, *quadrant.macros})
+            active_masked = ABI.lexical_mask(active)
+            try:
+                definitions = ABI.parse_definitions(
+                    active,
+                    f"{language.base_source}/{quadrant.name}",
+                    masked=active_masked,
+                )
+            except ABI.SchemaError as error:
+                raise ExportSchemaError(str(error)) from error
+            records: list[tuple[str, int, str]] = []
+            entry_cache: dict[str, list[str]] = {}
+            for section in sections:
+                first = _resolve_export_limit(str(section["range"]["first"]))
+                limit = _resolve_export_limit(str(section["range"]["limit"]))
+                if first is None or limit is None:
+                    raise ExportSchemaError(
+                        f"cannot resolve output range for {section['section']}"
+                    )
+                if section["source_kind"] == "legacy":
+                    symbol = section["symbol"]
+                    entries = entry_cache.get(symbol)
+                    if entries is None:
+                        entries = _initializer_entry_sources(
+                            active,
+                            f"{language.base_source}/{quadrant.name}",
+                            definitions,
+                            symbol,
+                            masked=active_masked,
+                        )
+                        entry_cache[symbol] = entries
+                    storage_type = definitions[symbol]["type"]
+                    for index in range(first, limit):
+                        label = f"{language.name}/{quadrant.name}/{symbol}[{index}]"
+                        if index >= len(entries):
+                            if storage_type == "CHAR16":
+                                # Fixed buffers may have an implicit zero-filled
+                                # tail; the legacy exporter suppresses it.
+                                continue
+                            raise ExportSchemaError(
+                                f"{label}: pointer output reaches implicit storage"
+                            )
+                        text = (
+                            _selected_pointer_text(entries[index], quadrant, label)
+                            if storage_type == "STR16"
+                            else _decode_wide_literal_sequence(entries[index], label)
+                        )
+                        if text:
+                            records.append((section["section"], index, text))
+                    continue
+                if section["source_kind"] == "text-pack-entry":
+                    text = key_values[scalar_order.index(section["key"])]
+                    if text:
+                        records.append((section["section"], 0, text))
+                    continue
+                descriptor = table_descriptors[section["key"]]
+                offset = descriptor["offset"]
+                for index in range(first, limit):
+                    text = table_values[offset + index]
+                    if text:
+                        records.append((section["section"], index, text))
+
+            digest = hashlib.sha256()
+            value_bytes = 0
+            for section_name, index, text in records:
+                fields = (
+                    section_name.encode("utf-8"),
+                    str(index).encode("ascii"),
+                    text.encode("utf-8"),
+                )
+                value_bytes += len(fields[2])
+                for field in fields:
+                    digest.update(len(field).to_bytes(8, "big"))
+                    digest.update(field)
+            snapshots[f"{language.name}/{quadrant.name}"] = {
+                "emitted_sections": len({record[0] for record in records}),
+                "emitted_entries": len(records),
+                "value_utf8_bytes": value_bytes,
+                "ordered_payload_sha256": digest.hexdigest(),
+            }
+    if len(snapshots) != len(ABI.LANGUAGES) * len(ABI.QUADRANTS):
+        raise ExportSchemaError("ordered output contract lost a build quadrant")
+    return {
+        "encoding": "UTF-8",
+        "record_framing": "u64be length + section, index, value",
+        "empty_values": "suppressed",
+        "indexing": "absolute source index",
+        "snapshots": snapshots,
+    }
+
+
 def _catalog_preamble_includes(source: str) -> list[tuple[str, int]]:
     clean = comments_blanked(source)
     direct_quoted = re.compile(r'"([^"\\]+)"[ \t]*$')
@@ -2034,8 +2597,9 @@ def _raw_catalog_snapshot(
 
     A wildcard array owns exactly its top-level initializer count. Explicit
     dimensions use the same fail-closed integer evaluator as export ranges.
-    Declaration dimensions are deliberately irrelevant here: ExportStrings.cpp
-    textually includes each selected definition inside namespace Loc.
+    Declaration dimensions are deliberately irrelevant here: the variant
+    adapter links the selected global definition, whose raw source shape is the
+    storage actually enumerated.
     """
 
     legacy_sections = [
@@ -2509,7 +3073,13 @@ def normalized_catalog_issues(
 def make_schema() -> dict:
     abi_schema = _load_abi_schema()
     export_source = _read(EXPORT_SOURCE)
+    property_source = _read(PROPERTY_EXPORT_SOURCE)
+    adapter_header = _read(EXPORT_HEADER)
+    build_source = _read(I18N_BUILD_SOURCE)
     validate_named_limit_static_assert_seam(export_source)
+    adapter_contract = selected_catalog_adapter_contract(
+        export_source, property_source, adapter_header, build_source
+    )
     sections = _resolve_sections(
         parse_export_calls(export_source), _read(TEXT_CATALOG_HEADER)
     )
@@ -2530,6 +3100,7 @@ def make_schema() -> dict:
     ]
     if any(section["range"]["first"] != "0" for section in legacy_sections):
         raise ExportSchemaError("every active legacy export must retain first index zero")
+    _validate_legacy_storage_paths(legacy_sections, abi_schema)
 
     normalization_issues = normalized_catalog_issues(
         sections, abi_schema, check_exhaustive=False
@@ -2643,14 +3214,20 @@ def make_schema() -> dict:
             )
         )
 
+    output_contract = ordered_output_contract(sections)
+
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "purpose": "ordered source model of the developer GameStrings exporter",
-        "runtime_behavior": "unchanged: selected catalog bodies remain textually included",
-        "adapter_status": READY_ADAPTER_STATUS,
+        "runtime_behavior": (
+            "selected linked globals and immutable TextPack entries are emitted "
+            "through an injected immediate-copy sink; language remains compile-time"
+        ),
+        "adapter_status": IMPLEMENTED_ADAPTER_STATUS,
+        "catalog_adapter": adapter_contract,
         "counts": counts,
         "named_export_limits": dict(NAMED_EXPORT_LIMITS),
-        "textual_catalog_includes": textual_catalog_includes(export_source),
+        "output_contract": output_contract,
         "startup_contract": startup_contract(),
         "sections": sections,
         "legacy_symbols": legacy_symbols,
@@ -2662,16 +3239,17 @@ def make_schema() -> dict:
 
 def validate_manifest_contract(schema: Mapping) -> list[str]:
     issues = []
-    if schema.get("schema_version") != 1:
+    if schema.get("schema_version") != 2:
         issues.append("schema: unsupported schema_version")
     expected_fields = {
         "schema_version",
         "purpose",
         "runtime_behavior",
         "adapter_status",
+        "catalog_adapter",
         "counts",
         "named_export_limits",
-        "textual_catalog_includes",
+        "output_contract",
         "startup_contract",
         "sections",
         "legacy_symbols",
@@ -2723,6 +3301,25 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         issues.append("schema: exported compatibility debt count exceeds its ceiling")
     if schema.get("named_export_limits") != dict(NAMED_EXPORT_LIMITS):
         issues.append("schema: live named export-limit values changed")
+    output_contract = schema.get("output_contract")
+    if not isinstance(output_contract, dict) or set(output_contract) != {
+        "encoding",
+        "record_framing",
+        "empty_values",
+        "indexing",
+        "snapshots",
+    }:
+        issues.append("schema: ordered output-byte contract is missing")
+    else:
+        snapshots = output_contract.get("snapshots")
+        if (
+            output_contract.get("encoding") != "UTF-8"
+            or output_contract.get("empty_values") != "suppressed"
+            or output_contract.get("indexing") != "absolute source index"
+            or not isinstance(snapshots, dict)
+            or len(snapshots) != len(ABI.LANGUAGES) * len(ABI.QUADRANTS)
+        ):
+            issues.append("schema: ordered output-byte/quadrant contract changed")
     range_contract = schema.get("legacy_range_contract")
     expected_range_contract = {
         "comparisons": EXPECTED_LEGACY_RANGE_COMPARISONS,
@@ -2742,8 +3339,23 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
     }
     if range_contract != expected_range_contract:
         issues.append("schema: exhaustive raw catalog range contract changed")
-    if schema.get("textual_catalog_includes") != EXPECTED_TEXTUAL_CATALOG_INCLUDES:
-        issues.append("schema: the eight selected textual catalog includes changed")
+    adapter = schema.get("catalog_adapter")
+    expected_adapter = {
+        "source": EXPORT_SOURCE,
+        "entrypoint": "i18n::ExportSelectedCatalog(SelectedCatalogExportSink&)",
+        "sink_header": EXPORT_HEADER,
+        "sink_lifetime": "borrowed views copied before callback return",
+        "property_writer": PROPERTY_EXPORT_SOURCE,
+        "linked_catalog_sources": EXPECTED_LINKED_CATALOG_SOURCES,
+        "textual_catalog_includes": [],
+        "local_extern_symbols": EXPECTED_LOCAL_EXTERN_SYMBOLS,
+        "variant_axes": ["language", "campaign", "build"],
+        "language_agreement": (
+            "one language-target definition selects linked globals, g_lang, and TextPack"
+        ),
+    }
+    if adapter != expected_adapter:
+        issues.append("schema: selected linked-catalog adapter contract changed")
     sections = schema.get("sections")
     if not isinstance(sections, list):
         issues.append("schema: ordered sections are missing")
@@ -2866,9 +3478,9 @@ def validate_manifest_contract(schema: Mapping) -> list[str]:
         issues.append("schema: exporter-only entry count is not exactly 85")
     if exporter_only_entries != counts.get("exporter_only_entries_per_language"):
         issues.append("schema: exporter-only entry total does not match its inventory")
-    if schema.get("adapter_status") != READY_ADAPTER_STATUS:
+    if schema.get("adapter_status") != IMPLEMENTED_ADAPTER_STATUS:
         issues.append(
-            "schema: selected-catalog adapter prerequisite must remain explicitly ready"
+            "schema: selected-catalog adapter must remain explicitly implemented"
         )
     return issues
 

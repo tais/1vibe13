@@ -1,10 +1,41 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "purpose": "ordered source model of the developer GameStrings exporter",
-  "runtime_behavior": "unchanged: selected catalog bodies remain textually included",
+  "runtime_behavior": "selected linked globals and immutable TextPack entries are emitted through an injected immediate-copy sink; language remains compile-time",
   "adapter_status": {
-    "state": "ready",
-    "reason": "all 224 selected legacy ranges pass the exhaustive eight-language, four-quadrant live-provider/raw textual-copy gate, all exported pointer entries have literal-only validated storage, and every repaired semantic slot has source-level golden coverage"
+    "state": "implemented",
+    "reason": "one language-variant translation unit enumerates all 238 ordered sections from selected linked globals and the immutable TextPack through an injected immediate-copy sink; all 224 legacy ranges retain their exhaustive eight-language/four-quadrant proof"
+  },
+  "catalog_adapter": {
+    "source": "i18n/SelectedCatalogExport.cpp",
+    "entrypoint": "i18n::ExportSelectedCatalog(SelectedCatalogExportSink&)",
+    "sink_header": "i18n/include/SelectedCatalogExport.h",
+    "sink_lifetime": "borrowed views copied before callback return",
+    "property_writer": "i18n/ExportStrings.cpp",
+    "linked_catalog_sources": [
+      "_ChineseText.cpp",
+      "_DutchText.cpp",
+      "_EnglishText.cpp",
+      "_FrenchText.cpp",
+      "_GermanText.cpp",
+      "_ItalianText.cpp",
+      "_PolishText.cpp",
+      "_RussianText.cpp"
+    ],
+    "textual_catalog_includes": [],
+    "local_extern_symbols": [
+      "pBullseyeStrings",
+      "pContractButtonString",
+      "pUpdatePanelButtons",
+      "gzIntroScreen",
+      "sRepairsDoneString"
+    ],
+    "variant_axes": [
+      "language",
+      "campaign",
+      "build"
+    ],
+    "language_agreement": "one language-target definition selects linked globals, g_lang, and TextPack"
   },
   "counts": {
     "logical_sections": 238,
@@ -26,8 +57,8 @@
     "exporter_only_entries_per_language": 85
   },
   "named_export_limits": {
-    "MAXITEMS": 16001,
     "GUN_TYPES_MAX": 9,
+    "MAXITEMS": 16001,
     "MAX_ASSIGN_STRING_COUNT": 17,
     "MAX_ATTRIBUTE_STRING_COUNT": 10,
     "MAX_CONTRACT_MENU_STRING_COUNT": 7,
@@ -39,21 +70,17 @@
     "MAX_SNITCH_SECTOR_MENU_STRING_COUNT": 3,
     "MAX_SNITCH_TOGGLE_MENU_STRING_COUNT": 5,
     "MAX_SQUAD_MENU_STRING_COUNT": 41,
-    "MAX_TRAIN_STRING_COUNT": 5,
     "MAX_TOWNS": 50,
+    "MAX_TRAIN_STRING_COUNT": 5,
     "NUM_ASSIGNMENTS": 85,
-    "NUM_SNITCH_GATHERING_RUMOURS_RESULT": 1,
-    "NUM_SNITCH_PRISON_EXPOSED": 12,
     "NUM_CONTRACT_EXTEND": 3,
     "NUM_DOOR_TRAPS": 7,
     "NUM_ICONS": 18,
     "NUM_SKILLTRAITS_OT": 17,
-    "NUM_TRAVTERRAIN_TYPES": 47,
-    "TEXT_NUM_LAPTOP_BOOKMARKS": 18,
-    "TEXT_NUM_FINCANCES": 41,
-    "TEXT_NUM_DEPARTED": 6,
-    "TEXT_NUM_PRSNL": 26,
     "NUM_SKI_ATM_BUTTONS": 15,
+    "NUM_SNITCH_GATHERING_RUMOURS_RESULT": 1,
+    "NUM_SNITCH_PRISON_EXPOSED": 12,
+    "NUM_TRAVTERRAIN_TYPES": 47,
     "TEXT_NUM_AIM_ALUMNI": 5,
     "TEXT_NUM_AIM_FI": 22,
     "TEXT_NUM_AIM_HISTORY": 5,
@@ -70,7 +97,9 @@
     "TEXT_NUM_BOBBYR_MAILORDER": 26,
     "TEXT_NUM_BOBBYR_SHIPMENT": 4,
     "TEXT_NUM_BROKEN_LINK": 2,
+    "TEXT_NUM_DEPARTED": 6,
     "TEXT_NUM_EXIT_GUI": 15,
+    "TEXT_NUM_FINCANCES": 41,
     "TEXT_NUM_FLORIST": 14,
     "TEXT_NUM_FLORIST_CARDS": 2,
     "TEXT_NUM_FLORIST_GALLERY": 5,
@@ -81,6 +110,7 @@
     "TEXT_NUM_INS_CONTRACT": 4,
     "TEXT_NUM_INS_INFO": 2,
     "TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT": 16,
+    "TEXT_NUM_LAPTOP_BOOKMARKS": 18,
     "TEXT_NUM_LARGESTR": 3,
     "TEXT_NUM_MERC": 6,
     "TEXT_NUM_MERC_ACCOUNT": 10,
@@ -96,6 +126,7 @@
     "TEXT_NUM_MSG113": 78,
     "TEXT_NUM_NIV": 12,
     "TEXT_NUM_OPT_TEXT": 14,
+    "TEXT_NUM_PRSNL": 26,
     "TEXT_NUM_SKI_ATM_MODE_TEXT": 6,
     "TEXT_NUM_SKI_MBOX_TEXT": 9,
     "TEXT_NUM_SKI_TEXT": 15,
@@ -107,16 +138,206 @@
     "TEXT_NUM_STR_TT": 48,
     "TEXT_NUM_TACTICAL_STR": 213
   },
-  "textual_catalog_includes": [
-    "_ChineseText.cpp",
-    "_DutchText.cpp",
-    "_EnglishText.cpp",
-    "_FrenchText.cpp",
-    "_GermanText.cpp",
-    "_ItalianText.cpp",
-    "_PolishText.cpp",
-    "_RussianText.cpp"
-  ],
+  "output_contract": {
+    "encoding": "UTF-8",
+    "record_framing": "u64be length + section, index, value",
+    "empty_values": "suppressed",
+    "indexing": "absolute source index",
+    "snapshots": {
+      "English/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 69893,
+        "ordered_payload_sha256": "2248046a8cbcce195213baddb848ac897a153bafaff55f8f2d207b699b8a3902"
+      },
+      "English/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 69897,
+        "ordered_payload_sha256": "504a0dab0717173ba20c010824f243ee52ad9e1545f9f2e1bfd42618c4cb30a9"
+      },
+      "English/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 69887,
+        "ordered_payload_sha256": "1cd12fbb6365868fe7ce146927a807d91514ecebf01799b4666b7a522d4d5d11"
+      },
+      "English/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 69891,
+        "ordered_payload_sha256": "ad01e52dc4500c3c79c6f38cbf5ef0b3d487f38f349aee5ce33ebbcba7bb23bc"
+      },
+      "German/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3080,
+        "value_utf8_bytes": 80571,
+        "ordered_payload_sha256": "3991b516df4a9c3e3a2e13770f252f095e1134889a5d459a0af26dcb1091314d"
+      },
+      "German/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3080,
+        "value_utf8_bytes": 80588,
+        "ordered_payload_sha256": "1a51bd36f75876f8afd9bca748479b103d43d20ccb7754031ab58fcd02e4dee6"
+      },
+      "German/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3080,
+        "value_utf8_bytes": 80561,
+        "ordered_payload_sha256": "93c34acb79ec190ee11802faca52c10029998712815c5c291b4e7aeb6e4e8cc5"
+      },
+      "German/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3080,
+        "value_utf8_bytes": 80578,
+        "ordered_payload_sha256": "084e01e0fcb76f1139067f1bbe69d00335bc419b12b6c81d76afe17c2cad4f5b"
+      },
+      "Russian/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 130156,
+        "ordered_payload_sha256": "3aaaa7e5a3638496caa8c780a8157342ca22e96ae254b4341ab4ff89153b7953"
+      },
+      "Russian/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 130276,
+        "ordered_payload_sha256": "f3f712d306de82957512cb5a43b26578d9dd1665cbb13d25837f3249163232aa"
+      },
+      "Russian/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 130148,
+        "ordered_payload_sha256": "5072de1053a8d541b0df0807b326b8ed494e595417b3da36b8d6c413755bf107"
+      },
+      "Russian/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 130268,
+        "ordered_payload_sha256": "ba30e421eb03470d28d99b4ba3e8230d1b256598ca900d89cf383cab5dc534c0"
+      },
+      "Dutch/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 71349,
+        "ordered_payload_sha256": "88041698297b40ee072752be558adb54fecb97fd0460d654d6c56a61bad4f50e"
+      },
+      "Dutch/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 71353,
+        "ordered_payload_sha256": "a7440039afe5cf476ece9c99c3211b6dfbdb9a8257adef2ef8f8b536b05a956f"
+      },
+      "Dutch/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 71345,
+        "ordered_payload_sha256": "a72e844f96b8f43d124ebfc92b281f693715c27c1c5843f59152b6172a75d60a"
+      },
+      "Dutch/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 71349,
+        "ordered_payload_sha256": "66668f9617ad913d24da2d7a64a9a35bc8823e479cbd4c9f7eff8bc7204df642"
+      },
+      "Polish/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 78413,
+        "ordered_payload_sha256": "373177e183ed0f29159b878247a5771cebe415bdc621f0518b67ad718580bdff"
+      },
+      "Polish/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 78411,
+        "ordered_payload_sha256": "789a72096e1bae6e528cdd5bf7022d1418d710d6bff3bbdeedc8b255db0a1308"
+      },
+      "Polish/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 78404,
+        "ordered_payload_sha256": "9b59a6f0bcd36020d0739dac8276ad29d5d410b7d388032a0b3aef9ca272e7ca"
+      },
+      "Polish/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 78402,
+        "ordered_payload_sha256": "d138c59ed4a22f7b38f4e007fd510e9b4756ec9a4cbfd8b0bcc9e8cde6eef33e"
+      },
+      "French/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 77288,
+        "ordered_payload_sha256": "ef03e52d41a596471a87f1ac53628f9ba9e0c0fb79555e3d8d980fa54cf704e3"
+      },
+      "French/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 77204,
+        "ordered_payload_sha256": "b85c597690a89ee7f6ce786cb0b1c450e3d6f5eb3a14de49d1559add0e08a10f"
+      },
+      "French/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 77292,
+        "ordered_payload_sha256": "a47dbdb0d3c05557cc8dbba92b85a4f21a3acd010af18219111f241f31a3c2e2"
+      },
+      "French/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3077,
+        "value_utf8_bytes": 77208,
+        "ordered_payload_sha256": "ab5bc5cac26257221bf9781e1471d5a4a51b29543996e1c61d5296f1b278fdac"
+      },
+      "Italian/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3075,
+        "value_utf8_bytes": 77355,
+        "ordered_payload_sha256": "9662278b1b6c470d71bc20ac067542e7b11685b7976a49c4c7285e741c1c86c3"
+      },
+      "Italian/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3075,
+        "value_utf8_bytes": 77355,
+        "ordered_payload_sha256": "e8a2f66cf22b9dfb8553b850df751aa458706cbfc22cda58002f728b843e7cae"
+      },
+      "Italian/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3075,
+        "value_utf8_bytes": 77329,
+        "ordered_payload_sha256": "ef263a5c2e13232ad81ab4753207082e9e52a6bdeb41df6ae1707250f878fe81"
+      },
+      "Italian/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3075,
+        "value_utf8_bytes": 77329,
+        "ordered_payload_sha256": "3e03f36f6ba3877a49c540f0b02496df70ccb49decf31ec28c2988f77bcabb30"
+      },
+      "Chinese/ja2-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 65691,
+        "ordered_payload_sha256": "0844ff7bcf273dfdc31400e0c112be62671fad0ab545438e337f5e6a5efa7681"
+      },
+      "Chinese/ja2-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 65697,
+        "ordered_payload_sha256": "fba5e1103dbf6f98b08f801f5ab4b4cff99b924156af449c66c2b1ef1927caf7"
+      },
+      "Chinese/ja2ub-release": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 65686,
+        "ordered_payload_sha256": "5c416998ec3804d9b82dc4f2d87f1774cde7bf0524277f042a65c3f433a48573"
+      },
+      "Chinese/ja2ub-debug": {
+        "emitted_sections": 237,
+        "emitted_entries": 3078,
+        "value_utf8_bytes": 65692,
+        "ordered_payload_sha256": "32bf0777f91798a58cb22e987f7a444c769c2e8b8b5e8395fa95e4004ba5d27c"
+      }
+    }
+  },
   "startup_contract": {
     "legacy_boundary": {
       "source": "sgp/sgp.cpp",

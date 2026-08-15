@@ -8,6 +8,7 @@ PARENT_SCOPE
 set(i18nVariantSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/language.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/ExportStrings.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/SelectedCatalogExport.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_ChineseText.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_DutchText.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/_EnglishText.cpp"
