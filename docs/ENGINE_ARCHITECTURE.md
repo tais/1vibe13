@@ -1221,9 +1221,13 @@ the engine must not contain SDL types in its public domain model.
   meanwhile, JA25 strategic-AI, power-generator, sector-notification, and
   helicopter-crash hooks the same way. Underground loading screens retain the
   distinct Arulco mine/cave mapping and UB tunnel/stair/complex mapping without
-  a compiled branch. Both campaigns' XML path constants and four alternative
-  dealer inventory buffers are emitted in every host. `CampaignDealerPolicy`
-  now separates semantic dealer identities from their raw persisted positions:
+  a compiled branch. The main-menu reinitialization and common game-start
+  paths also use the policy for the only two production UB-options loads,
+  preserving rebel-command settings before the optional UB load and tactical
+  visibility-range initialization after it. Both campaigns' XML path constants
+  and four alternative dealer inventory buffers are emitted in every host.
+  `CampaignDealerPolicy` now separates semantic dealer identities from their
+  raw persisted positions:
   it resolves both complete rosters, including the different meanings of slots
   5-18, while the 19 original slots, Tina at 19, the first extension at 20, and
   the total 80-slot save/XML layout remain unchanged. Dealer restocking,
@@ -1416,6 +1420,16 @@ the engine must not contain SDL types in its public domain model.
   raw-selector inventory is now 109 sites across 32 files: 104 live-context
   calls, four cached-campaign comparisons, and one active-package capability
   leaf. UB-option baselines remain unchanged.
+- Both application bootstrap entry points now gate their sole
+  `LoadGameUBOptions` effects through
+  `CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()`. Arulco
+  skips the effect and UB performs it once; both retain rebel-command settings
+  before the decision and tactical visibility-range initialization afterward.
+  Dependency-free traces and bounded lexical checks pin those effects and
+  their order. The executable raw-selector inventory is now 107 sites across
+  30 files: 102 live-context calls, four cached-campaign comparisons, and one
+  active-package capability leaf. UB-option occurrence baselines remain
+  unchanged.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,
