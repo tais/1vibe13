@@ -167,6 +167,16 @@ jobs:
         shell: bash
         run: cmake --build build
 
+      # This is a data-free release contract gate, not a live-gameplay or
+      # installed-Data save/load smoke test. The latter remains a separate
+      # release-validation responsibility.
+      - name: Run release save-contract tests
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^engine_core$' && ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^save_serializer_golden$' && ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^ja2_headless$'
+
       - name: sccache stats
         if: always()
         shell: bash

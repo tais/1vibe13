@@ -13,12 +13,144 @@ APPIMAGE_PREPARE = ROOT / "packaging" / "linux" / "prepare_appdir.sh"
 APPIMAGE_BUILD = ROOT / "packaging" / "linux" / "build_appimage.sh"
 APPIMAGE_RUN = ROOT / "packaging" / "linux" / "AppRun"
 
+RELEASE_SAVE_CONTRACT_STEP = "Run release save-contract tests"
+RELEASE_SAVE_CONTRACT_TESTS = (
+    "engine_core",
+    "save_serializer_golden",
+    "ja2_headless",
+)
+RELEASE_SAVE_CONTRACT_INVOCATIONS = tuple(
+    "ctest --test-dir build --output-on-failure --no-tests=error "
+    f"--tests-regex '^{test_name}$'"
+    for test_name in RELEASE_SAVE_CONTRACT_TESTS)
+RELEASE_SAVE_CONTRACT_COMMAND = " && ".join(
+    RELEASE_SAVE_CONTRACT_INVOCATIONS)
+EXPECTED_RELEASE_PLATFORMS = {
+    ("ubuntu-latest", "linux", "linux"),
+    ("ubuntu-24.04-arm", "linux-arm64", "linux"),
+    ("macos-latest", "macos", "macos"),
+    ("windows-latest", "windows", "windows"),
+}
+
+
+def release_steps(contents: str) -> list[tuple[str, str]]:
+    """Return active package step names and bodies from the workflow."""
+
+    matches = list(re.finditer(
+        r"(?m)^ {6}- name: ([A-Za-z0-9][A-Za-z0-9 ()-]*)\s*$",
+        contents))
+    return [
+        (match.group(1), contents[match.start():
+                                  matches[index + 1].start()
+                                  if index + 1 < len(matches)
+                                  else len(contents)])
+        for index, match in enumerate(matches)
+    ]
+
+
+def package_job(contents: str) -> str:
+    """Return the one active package job, excluding sibling jobs."""
+
+    matches = list(re.finditer(r"(?m)^ {2}package:\s*$", contents))
+    if len(matches) != 1:
+        fail("release workflow must contain exactly one active package job")
+    start = matches[0].start()
+    next_job = re.search(
+        r"(?m)^ {2}[A-Za-z_][A-Za-z0-9_-]*:\s*$", contents[matches[0].end():])
+    end = (matches[0].end() + next_job.start()
+           if next_job is not None else len(contents))
+    return contents[start:end]
+
+
+def mapping_key(pattern: str, indent: int) -> re.Pattern[str]:
+    """Match a plain or quoted YAML mapping key at one exact indentation."""
+
+    return re.compile(
+        rf"(?m)^ {{{indent}}}(?:{pattern}|'(?:{pattern})'|\"(?:{pattern})\")\s*:")
+
 
 def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
+def validate_release_save_contract(contents: str) -> None:
+    """Pin the unconditional, data-free save contract before staging."""
+
+    job = package_job(contents)
+    steps_markers = list(re.finditer(r"(?m)^ {4}steps:\s*$", job))
+    if len(steps_markers) != 1:
+        fail("package job must contain exactly one active steps list")
+    job_header = job[:steps_markers[0].start()]
+    if mapping_key("if|continue-on-error", 4).search(job_header):
+        fail("package job must run unconditionally and block on failure")
+    if re.search(r"(?m)^ {4}<<\s*:", job_header):
+        fail("package job must not inherit hidden YAML controls")
+    if not re.search(
+            r"(?m)^ {4}runs-on:\s*\$\{\{\s*matrix[.]platform[.]os\s*}}\s*$",
+            job_header):
+        fail("package job must run on the declared platform matrix")
+    if mapping_key("include|exclude", 8).search(job_header):
+        fail("release platform matrix must not include or exclude hidden rows")
+    if re.search(r"(?m)^ {6,8}<<\s*:", job_header):
+        fail("release platform matrix must not inherit hidden YAML rows")
+    platform_blocks = list(re.finditer(
+        r"(?m)^ {8}platform:\s*$\n(?P<rows>(?:^ {10}[^\n]*\n?)+)",
+        job_header))
+    if len(platform_blocks) != 1:
+        fail("package job must contain one active platform matrix")
+    platform_rows = [
+        tuple(value.strip() for value in match.groups())
+        for match in re.finditer(
+            r"(?m)^ {10}-\s*\{\s*os:\s*([^,}]+),\s*"
+            r"name:\s*([^,}]+),\s*family:\s*([^,}]+)\s*}\s*$",
+            platform_blocks[0].group("rows"))
+    ]
+    if (len(platform_rows) != len(EXPECTED_RELEASE_PLATFORMS)
+            or set(platform_rows) != EXPECTED_RELEASE_PLATFORMS):
+        fail("package job must retain exactly four active release platforms")
+
+    steps = release_steps(job)
+    names = [name for name, _body in steps]
+    if names.count("Build") != 1:
+        fail("release workflow must contain exactly one Build step")
+    if names.count(RELEASE_SAVE_CONTRACT_STEP) != 1:
+        fail("release workflow must contain exactly one save-contract step")
+
+    build_position = names.index("Build")
+    contract_position = names.index(RELEASE_SAVE_CONTRACT_STEP)
+    staging_positions = [
+        index for index, name in enumerate(names) if name.startswith("Stage ")]
+    if not staging_positions:
+        fail("release workflow lost its staging steps")
+    if not build_position < contract_position < min(staging_positions):
+        fail("release save-contract tests must run after Build and before staging")
+
+    contract_step = steps[contract_position][1]
+    if mapping_key("if", 8).search(contract_step):
+        fail("release save-contract tests must run unconditionally")
+    if mapping_key("continue-on-error", 8).search(contract_step):
+        fail("release save-contract failures must block packaging")
+    if re.search(r"(?m)^ {8}<<\s*:", contract_step):
+        fail("release save-contract step must not inherit hidden YAML controls")
+    if not re.search(r"(?m)^ {8}shell:\s*bash\s*$", contract_step):
+        fail("release save-contract tests must use the Bash runner")
+    if not re.search(
+            r"(?m)^ {8}env:\s*$\n"
+            r"^ {10}SDL_VIDEODRIVER:\s*dummy\s*$\n"
+            r"^ {10}SDL_AUDIODRIVER:\s*dummy\s*$"
+            r"(?!\n {10})",
+            contract_step):
+        fail("release save-contract tests require only the two dummy SDL drivers")
+
+    run_lines = re.findall(r"(?m)^ {8}run:\s*(\S.*)\s*$", contract_step)
+    if run_lines != [RELEASE_SAVE_CONTRACT_COMMAND]:
+        fail("release save-contract tests must run exactly: "
+             + RELEASE_SAVE_CONTRACT_COMMAND)
+
+
 def validate_release_workflow(contents: str) -> None:
+    validate_release_save_contract(contents)
+
     stage_marker = "- name: Stage payload (macos)"
     sign_marker = "- name: Sign and verify macOS app bundles"
     archive_marker = "- name: Archive (unix)"
