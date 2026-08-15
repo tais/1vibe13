@@ -1432,6 +1432,23 @@ the engine must not contain SDL types in its public domain model.
   raw-selector inventory is now 109 sites across 32 files: 104 live-context
   calls, four cached-campaign comparisons, and one active-package capability
   leaf. UB-option baselines remain unchanged.
+- The final seven `JA2UB` guards in the five Strategic gameplay sources now
+  route through the value-only `CampaignStrategicContentPolicy`. Its closed
+  six-effect vocabulary owns only campaign selection: first-battle town
+  loyalty, creature-release meanwhile publication and debug reset, the Enrico
+  progress-email cycle, militia continuation dialogue, and Speck's employee-
+  death reaction remain in their established implementations. Arulco keeps
+  every effect; UB short-circuits each before its campaign-specific probes or
+  writes. Common first-battle facts and sector publication, creature quest
+  initialization, current/highest progress reads, militia continuation state,
+  daily sector reset, and buddy comments retain their exact order. Nine
+  campaign-qualified Enrico record/length pairs make Arulco's established
+  Email.edt content available in every host and static-assert against the
+  original aliases. The Speck declaration is likewise compiled everywhere and
+  its implementation remains in the common Laptop source partition. The
+  dependency-free test exhausts both campaigns, both editor compositions, all
+  six routes, every Boolean probe combination, early-return behavior, and
+  effect traces; bounded source ratchets keep all five callers guard-free.
 - Both application bootstrap entry points now gate their sole
   `LoadGameUBOptions` effects through
   `CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()`. Arulco

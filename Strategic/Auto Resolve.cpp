@@ -76,6 +76,7 @@
 #include "Rebel Command.h"
 #include "Reinforcement.h"
 #include "CampaignMercenaryPolicy.h"
+#include "CampaignStrategicContentPolicy.h"
 #include "GameContext.h"
 
 //#define INVULNERABILITY
@@ -1846,11 +1847,12 @@ void RenderAutoResolve()
 					SetFactTrue( FACT_FIRST_BATTLE_WON );
 				}
 				SetTheFirstBattleSector( ( INT16 ) (gpAR->ubSectorX + gpAR->ubSectorY * MAP_WORLD_X ) );
-#ifdef JA2UB
-//Ja25:	no loyalty
-#else
-				HandleFirstBattleEndingWhileInTown( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
-#endif
+				if ( CampaignStrategicContentPolicy(
+					GetGameContext().capabilities())
+					.handlesFirstBattleTownLoyalty() )
+				{
+					HandleFirstBattleEndingWhileInTown( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
+				}
 			}
 
 			switch( gpAR->ubBattleStatus )

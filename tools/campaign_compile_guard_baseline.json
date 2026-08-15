@@ -7,12 +7,7 @@
     "Ja2/GameVersion.cpp": 3,
     "Laptop/email.h": 4,
     "Multiplayer/connect.h": 1,
-    "Strategic/Auto Resolve.cpp": 1,
-    "Strategic/Creature Spreading.cpp": 2,
     "Strategic/LuaInitNPCs.cpp": 11,
-    "Strategic/Strategic Status.cpp": 1,
-    "Strategic/Town Militia.cpp": 1,
-    "Strategic/strategic.cpp": 2,
     "Tactical/Faces.cpp": 4,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Init List.cpp": 2,
@@ -21,5 +16,5 @@
     "Tactical/soldier profile type.h": 1
   },
   "schema": 1,
-  "total": 46
+  "total": 39
 }

@@ -13,12 +13,10 @@
 	#include "Isometric Utils.h"
 	#include "Vehicles.h"
 	#include "Game Clock.h"
-						
-#ifdef JA2UB
-#else
-	// anv: for playable Speck
-	#include "mercs.h"
-#endif
+
+#include "CampaignStrategicContentPolicy.h"
+#include "GameContext.h"
+#include "mercs.h"
 
 StrategicMapElement StrategicMap[MAP_WORLD_X*MAP_WORLD_Y];
 
@@ -148,13 +146,15 @@ void HandleSoldierDeadComments( TacticalActor *pSoldier )
 					break;
 				}
 			}
-
-#ifdef JA2UB
-#else
 			// anv: handle Speck witnessing his employee death
-			if( pTeamSoldier->identity().profile() == SPECK_PLAYABLE && pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
+			if( CampaignStrategicContentPolicy(
+					GetGameContext().capabilities())
+					.notifiesSpeckOfEmployeeDeath() &&
+				pTeamSoldier->identity().profile() == SPECK_PLAYABLE &&
+				pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
+			{
 				HandleSpeckWitnessingEmployeeDeath( pSoldier );
-#endif
+			}
 
 		}
 }

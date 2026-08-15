@@ -30,7 +30,9 @@
 	#include "Queen Command.h"
 	#include "ai.h"					// added by Flugente
 	#include "Soldier Create.h"		// added by Flugente
-	
+
+#include "CampaignStrategicContentPolicy.h"
+#include "GameContext.h"
 #include "connect.h"
 
 #include "GameInitOptionsScreen.h"
@@ -337,16 +339,15 @@ void InitCreatureQuest()
 		fPlayMeanwhile = TRUE;
 	#endif
 
-#ifdef JA2UB 
-//Ja25 No meanwhiles && no creatures
-#else
-	if( fPlayMeanwhile && !gfCreatureMeanwhileScenePlayed && gModSettings.CreatureMeanwhileCutscene == TRUE )
+	if( CampaignStrategicContentPolicy(GetGameContext().capabilities())
+			.playsCreatureReleaseMeanwhile() &&
+		fPlayMeanwhile && !gfCreatureMeanwhileScenePlayed &&
+		gModSettings.CreatureMeanwhileCutscene == TRUE )
 	{
 		//Start the meanwhile scene for the queen ordering the release of the creatures.
 		HandleCreatureRelease();
 		gfCreatureMeanwhileScenePlayed = TRUE;
 	}
-#endif
 	giHabitatedDistance = 0;
 	
 	giPopulationModifier = zDiffSetting[gGameOptions.ubDifficultyLevel].iCreaturePopulationModifier;
@@ -2170,12 +2171,13 @@ BOOLEAN LoadCreatureDirectives( HWFILE hFile, UINT32 uiSavedGameVersion )
 		if( gfClearCreatureQuest && giLairID != -1 )
 		{
 			giLairID = 0;
-#ifdef JA2UB 
-// no UB
-#else
-			gfCreatureMeanwhileScenePlayed = FALSE;
-			uiMeanWhileFlags &= ~(0x00000800);
-#endif
+			if ( CampaignStrategicContentPolicy(
+				GetGameContext().capabilities())
+				.resetsCreatureMeanwhileState() )
+			{
+				gfCreatureMeanwhileScenePlayed = FALSE;
+				uiMeanWhileFlags &= ~(0x00000800);
+			}
 		}
 		gfClearCreatureQuest = FALSE;
 	#endif
