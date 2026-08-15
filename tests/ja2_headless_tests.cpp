@@ -131,6 +131,7 @@
 #include "CampaignMercenaryPolicy.h"
 #include "CampaignNpcPolicy.h"
 #include "CampaignProgressPolicy.h"
+#include "CampaignStrategicContentPolicy.h"
 #include "GameContext.h"
 #include "GameVersion.h"
 #include "gameloop.h"
@@ -5742,6 +5743,8 @@ int main( int, char** )
 		const CampaignNpcPolicy npcPolicy(compiledContext.capabilities());
 		const CampaignProgressPolicy progressPolicy(
 			compiledContext.capabilities());
+		const CampaignStrategicContentPolicy strategicContentPolicy(
+			compiledContext.capabilities());
 		const CampaignLaptopCommunicationsPolicy communicationsPolicy(
 			compiledContext.capabilities());
 		CHECK( civilianQuotePolicy.usesUnfinishedBusinessQuoteCatalogue() ==
@@ -5774,6 +5777,14 @@ int main( int, char** )
 		           !unfinishedBusiness &&
 		       progressPolicy.usesUnfinishedBusinessProgress() ==
 		           unfinishedBusiness &&
+		       strategicContentPolicy.handlesFirstBattleTownLoyalty() ==
+		           !unfinishedBusiness &&
+		       strategicContentPolicy.playsCreatureReleaseMeanwhile() ==
+		           !unfinishedBusiness &&
+		       strategicContentPolicy.runsEnricoProgressEmailCycle() ==
+		           !unfinishedBusiness &&
+		       strategicContentPolicy.notifiesSpeckOfEmployeeDeath() ==
+		           !unfinishedBusiness &&
 		       communicationsPolicy.sendsInitialArulcoCongratulations() ==
 		           !unfinishedBusiness &&
 		       communicationsPolicy.shouldSendUnhiredAimDeathNotice(

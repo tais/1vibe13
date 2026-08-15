@@ -35,6 +35,9 @@
 	#include "Rebel Command.h"
 	#include "TacticalEntityHost.h"
 
+#include "CampaignStrategicContentPolicy.h"
+#include "GameContext.h"
+
 // HEADROCK HAM 3: include these files so that a militia trainer's Effective Leadership can be determined. Used
 // to determine the number of militia trained by this merc per session. In the future may also determine QUALITY
 // of trained troops.
@@ -1601,11 +1604,12 @@ void HandleContinueOfTownTraining( void )
 		if( pSoldier->roster().active() )
 		{
 			fContinueEventPosted = TRUE;
-#ifdef JA2UB
-//no UB
-#else
-			SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA, pSoldier->identity().profile(), 0, 0, 0, 0 );
-#endif
+			if ( CampaignStrategicContentPolicy(
+				GetGameContext().capabilities())
+				.promptsContinuedMilitiaTraining() )
+			{
+				SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA, pSoldier->identity().profile(), 0, 0, 0, 0 );
+			}
 
 			// now set all of these peoples assignment done too
 			//HandleInterfaceMessageForContinuingTrainingMilitia( pSoldier );

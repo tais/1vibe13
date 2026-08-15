@@ -103,6 +103,98 @@ function(strip_cxx_comments input_variable output_variable)
   set(${output_variable} "${comment_stripped}" PARENT_SCOPE)
 endfunction()
 
+# Source-contract checks must not be satisfiable by prose embedded in comments
+# or literals. Keep strip_cxx_comments() for checks that intentionally inspect
+# include spellings, and use this stricter view for executable identifiers,
+# calls, ordering, and preprocessor identity.
+function(strip_cxx_comments_and_literals input_variable output_variable)
+  strip_cxx_comments(${input_variable} literal_stripped)
+  # Walk from literal to literal instead of applying a repeated-alternation
+  # regex to the whole translation unit. The latter can exhaust the Windows
+  # CMake regex stack on the larger Strategic sources. Choosing the earliest
+  # delimiter also consumes C++ character literals such as `case '"':`
+  # atomically instead of treating their embedded double quote as a string.
+  set(literal_remaining "${literal_stripped}")
+  set(literal_masked "")
+  while(1)
+    string(FIND "${literal_remaining}" "\"" double_quote_start)
+    string(FIND "${literal_remaining}" "'" single_quote_start)
+    set(next_literal_start -1)
+    set(next_literal_kind "")
+    if(double_quote_start GREATER -1)
+      set(next_literal_start ${double_quote_start})
+      set(next_literal_kind "double_quote")
+    endif()
+    if(single_quote_start GREATER -1 AND
+       (next_literal_start EQUAL -1 OR
+        single_quote_start LESS next_literal_start))
+      set(next_literal_start ${single_quote_start})
+      set(next_literal_kind "single_quote")
+    endif()
+    if(next_literal_start EQUAL -1)
+      string(APPEND literal_masked "${literal_remaining}")
+      break()
+    endif()
+    if(next_literal_start GREATER 0)
+      string(SUBSTRING "${literal_remaining}" 0
+        ${next_literal_start} literal_prefix)
+      string(APPEND literal_masked "${literal_prefix}")
+    endif()
+    string(SUBSTRING "${literal_remaining}"
+      ${next_literal_start} -1 quoted_tail)
+    if(next_literal_kind STREQUAL "double_quote")
+      string(REGEX MATCH "^\"([^\"\\\\]|\\\\.)*\""
+        quoted_literal "${quoted_tail}")
+      set(masked_literal "\"\"")
+    else()
+      string(REGEX MATCH "^'([^'\\\\]|\\\\.)*'"
+        quoted_literal "${quoted_tail}")
+      set(masked_literal "''")
+    endif()
+    if(quoted_literal STREQUAL "")
+      # A single apostrophe can be a C++ digit separator rather than the start
+      # of a character literal. Preserve it and continue, matching the lexical
+      # treatment in strip_cxx_comments(). Double quotes must still close.
+      if(next_literal_kind STREQUAL "single_quote")
+        string(APPEND literal_masked "'")
+        math(EXPR literal_remainder_start "${next_literal_start} + 1")
+        string(SUBSTRING "${literal_remaining}"
+          ${literal_remainder_start} -1 literal_remaining)
+        continue()
+      endif()
+      message(FATAL_ERROR
+        "Unterminated string literal while checking executable source")
+    endif()
+    string(APPEND literal_masked "${masked_literal}")
+    string(LENGTH "${quoted_literal}" quoted_literal_length)
+    math(EXPR literal_remainder_start
+      "${next_literal_start} + ${quoted_literal_length}")
+    string(SUBSTRING "${literal_remaining}"
+      ${literal_remainder_start} -1 literal_remaining)
+  endwhile()
+  set(${output_variable} "${literal_masked}" PARENT_SCOPE)
+endfunction()
+
+function(reject_cxx_raw_string_literals input_variable diagnostic)
+  string(REGEX MATCH "(^|[^A-Za-z0-9_])(u8|u|U|L)?R\""
+    raw_string_literal "${${input_variable}}")
+  if(NOT raw_string_literal STREQUAL "")
+    message(FATAL_ERROR "${diagnostic}; raw string literals are not allowed")
+  endif()
+endfunction()
+
+set(cxx_literal_mask_fixture
+  [=[visible("hidden \" token", '\'', '"', 1'000); /* hiddenComment */ visibleAgain("later hidden");]=])
+strip_cxx_comments_and_literals(cxx_literal_mask_fixture
+  cxx_literal_mask_fixture_result)
+if(NOT cxx_literal_mask_fixture_result STREQUAL
+    [=[visible("", '', '', 1'000);  visibleAgain("");]=])
+  message(FATAL_ERROR
+    "C/C++ literal masking changed escaped-quote or digit-separator semantics")
+endif()
+unset(cxx_literal_mask_fixture)
+unset(cxx_literal_mask_fixture_result)
+
 function(require_ordered_fragments input_variable diagnostic)
   set(ordered_fragment_tail "${${input_variable}}")
   foreach(ordered_fragment IN LISTS ARGN)
@@ -1881,6 +1973,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignNpcPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignProgressPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignQuestPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignStrategicContentPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignStrategicEventPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptContent.h"
   "${SOURCE_ROOT}/Ja2/CampaignStrategicSectorScriptPolicy.h"
@@ -1919,7 +2012,9 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Laptop/personnel.cpp"
   "${SOURCE_ROOT}/Laptop/PostalService.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
+  "${SOURCE_ROOT}/Strategic/Auto Resolve.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
+  "${SOURCE_ROOT}/Strategic/Creature Spreading.cpp"
   "${SOURCE_ROOT}/Strategic/Game Init.cpp"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
   "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
@@ -1933,9 +2028,12 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
   "${SOURCE_ROOT}/Strategic/Quests.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Status.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Event Handler.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Town Loyalty.cpp"
+  "${SOURCE_ROOT}/Strategic/Town Militia.cpp"
+  "${SOURCE_ROOT}/Strategic/strategic.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
@@ -4541,6 +4639,484 @@ foreach(required_campaign_strategic_event_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# The last five Strategic gameplay sources select six Arulco-authored effects
+# through one closed value policy. State, probes, early returns, and effects
+# stay in their original owners and order; every host compiles the same calls.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignStrategicContentPolicy.h"
+  runtime_campaign_strategic_content_policy_contents)
+reject_cxx_raw_string_literals(
+  runtime_campaign_strategic_content_policy_contents
+  "Campaign strategic-content policy source contract changed")
+strip_cxx_comments(runtime_campaign_strategic_content_policy_contents
+  runtime_campaign_strategic_content_policy_executable)
+strip_cxx_comments_and_literals(
+  runtime_campaign_strategic_content_policy_contents
+  runtime_campaign_strategic_content_policy_semantic)
+foreach(required_campaign_strategic_content_policy_fragment IN ITEMS
+    "enum class CampaignStrategicContentEffect"
+    "class CampaignStrategicContentPolicy"
+    "constexpr bool owns(CampaignStrategicContentEffect effect) const noexcept"
+    "handlesFirstBattleTownLoyalty"
+    "playsCreatureReleaseMeanwhile"
+    "resetsCreatureMeanwhileState"
+    "runsEnricoProgressEmailCycle"
+    "promptsContinuedMilitiaTraining"
+    "notifiesSpeckOfEmployeeDeath"
+    "CampaignStrategicContentEffect::Count) == 6"
+    "return campaign_ == GameCampaign::Arulco")
+  string(FIND "${runtime_campaign_strategic_content_policy_semantic}"
+    "${required_campaign_strategic_content_policy_fragment}"
+    required_campaign_strategic_content_policy_position)
+  if(required_campaign_strategic_content_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-content policy lost '${required_campaign_strategic_content_policy_fragment}'")
+  endif()
+endforeach()
+foreach(runtime_campaign_strategic_content_effect IN ITEMS
+    FirstBattleTownLoyalty
+    CreatureReleaseMeanwhile
+    CreatureMeanwhileReset
+    EnricoProgressEmails
+    ContinueMilitiaTrainingDialogue
+    SpeckEmployeeDeathReaction)
+  string(REGEX MATCHALL
+    "case[ \t\r\n]+CampaignStrategicContentEffect::${runtime_campaign_strategic_content_effect}([^A-Za-z0-9_]|$)"
+    runtime_campaign_strategic_content_effect_matches
+    "${runtime_campaign_strategic_content_policy_semantic}")
+  list(LENGTH runtime_campaign_strategic_content_effect_matches
+    runtime_campaign_strategic_content_effect_count)
+  if(NOT runtime_campaign_strategic_content_effect_count EQUAL 1)
+    message(FATAL_ERROR
+      "Campaign strategic-content policy changed '${runtime_campaign_strategic_content_effect}' classification")
+  endif()
+endforeach()
+string(REGEX MATCHALL "(^|[\r\n])[ \t]*#include[ \t]+[<\"]"
+  runtime_campaign_strategic_content_policy_includes
+  "${runtime_campaign_strategic_content_policy_executable}")
+list(LENGTH runtime_campaign_strategic_content_policy_includes
+  runtime_campaign_strategic_content_policy_include_count)
+if(NOT runtime_campaign_strategic_content_policy_include_count EQUAL 2 OR
+    NOT runtime_campaign_strategic_content_policy_executable MATCHES
+      "(^|[\r\n])[ \t]*#include[ \t]+\"GameCapabilities[.]h\"" OR
+    NOT runtime_campaign_strategic_content_policy_executable MATCHES
+      "(^|[\r\n])[ \t]*#include[ \t]+<cstdint>")
+  message(FATAL_ERROR
+    "Campaign strategic-content policy must retain only GameCapabilities and cstdint dependencies")
+endif()
+if(runtime_campaign_strategic_content_policy_semantic MATCHES
+    "GameContext|gGame|gpAR|gStrategicStatus|TacticalActor|AddEmail|SpecialCharacterDialogueEvent|HandleCreatureRelease|HandleSpeckWitnessingEmployeeDeath")
+  message(FATAL_ERROR
+    "Campaign strategic-content policy regained application state, probes, or effects")
+endif()
+
+# Arulco's Enrico Email.edt records were previously absent from UB hosts.
+# Campaign-qualified constants keep those exact offsets available to the common
+# Strategic source, while compile-time aliases pin them to the legacy layout.
+file(READ "${SOURCE_ROOT}/Laptop/email.h"
+  runtime_campaign_strategic_content_email_contents)
+reject_cxx_raw_string_literals(
+  runtime_campaign_strategic_content_email_contents
+  "Campaign-qualified Enrico email source contract changed")
+strip_cxx_comments_and_literals(
+  runtime_campaign_strategic_content_email_contents
+  runtime_campaign_strategic_content_email_semantic)
+foreach(required_campaign_strategic_content_email_fragment IN ITEMS
+    "JA2_EMAIL_ENRICO_PROGRESS_20 = 152;"
+    "JA2_EMAIL_ENRICO_PROGRESS_55 = 155;"
+    "JA2_EMAIL_ENRICO_PROGRESS_80 = 158;"
+    "JA2_EMAIL_ENRICO_SETBACK = 161;"
+    "JA2_EMAIL_ENRICO_SETBACK_2 = 164;"
+    "JA2_EMAIL_ENRICO_CREATURES = 167;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_1 = 189;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_2 = 192;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_3 = 195;"
+    "JA2_EMAIL_ENRICO_PROGRESS_20_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_PROGRESS_55_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_PROGRESS_80_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_SETBACK_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_SETBACK_2_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_CREATURES_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_1_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_2_LENGTH = 3;"
+    "JA2_EMAIL_ENRICO_LACK_PROGRESS_3_LENGTH = 3;"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_20 == ENRICO_PROG_20);"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_55 == ENRICO_PROG_55);"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_80 == ENRICO_PROG_80);"
+    "static_assert(JA2_EMAIL_ENRICO_SETBACK == ENRICO_SETBACK);"
+    "static_assert(JA2_EMAIL_ENRICO_SETBACK_2 == ENRICO_SETBACK_2);"
+    "static_assert(JA2_EMAIL_ENRICO_CREATURES == ENRICO_CREATURES);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_1 == LACK_PLAYER_PROGRESS_1);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_2 == LACK_PLAYER_PROGRESS_2);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_3 == LACK_PLAYER_PROGRESS_3);"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_20_LENGTH == ENRICO_PROG_20_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_55_LENGTH == ENRICO_PROG_55_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_PROGRESS_80_LENGTH == ENRICO_PROG_80_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_SETBACK_LENGTH == ENRICO_SETBACK_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_SETBACK_2_LENGTH == ENRICO_SETBACK_2_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_CREATURES_LENGTH == ENRICO_CREATURES_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_1_LENGTH == LACK_PLAYER_PROGRESS_1_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_2_LENGTH == LACK_PLAYER_PROGRESS_2_LENGTH);"
+    "static_assert(JA2_EMAIL_ENRICO_LACK_PROGRESS_3_LENGTH == LACK_PLAYER_PROGRESS_3_LENGTH);")
+  string(FIND "${runtime_campaign_strategic_content_email_semantic}"
+    "${required_campaign_strategic_content_email_fragment}"
+    required_campaign_strategic_content_email_position)
+  if(required_campaign_strategic_content_email_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign-qualified Enrico email content lost '${required_campaign_strategic_content_email_fragment}'")
+  endif()
+endforeach()
+
+set(runtime_campaign_strategic_content_source_files
+  "${SOURCE_ROOT}/Strategic/Auto Resolve.cpp"
+  "${SOURCE_ROOT}/Strategic/Creature Spreading.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Status.cpp"
+  "${SOURCE_ROOT}/Strategic/Town Militia.cpp"
+  "${SOURCE_ROOT}/Strategic/strategic.cpp")
+set(runtime_campaign_strategic_content_sources_executable "")
+foreach(runtime_campaign_strategic_content_source IN LISTS
+    runtime_campaign_strategic_content_source_files)
+  file(READ "${runtime_campaign_strategic_content_source}"
+    runtime_campaign_strategic_content_source_contents)
+  reject_cxx_raw_string_literals(
+    runtime_campaign_strategic_content_source_contents
+    "Strategic content caller source contract changed in ${runtime_campaign_strategic_content_source}")
+  # Translation phase two removes continued newlines before directives are
+  # interpreted. Mirror that here so a split JA2UB token cannot evade the
+  # all-host source contract.
+  string(REGEX REPLACE "\\\\[ \t]*\r?\n" ""
+    runtime_campaign_strategic_content_source_logical
+    "${runtime_campaign_strategic_content_source_contents}")
+  strip_cxx_comments(runtime_campaign_strategic_content_source_logical
+    runtime_campaign_strategic_content_source_executable)
+  strip_cxx_comments_and_literals(
+    runtime_campaign_strategic_content_source_logical
+    runtime_campaign_strategic_content_source_semantic)
+  string(APPEND runtime_campaign_strategic_content_sources_executable
+    "\n${runtime_campaign_strategic_content_source_semantic}")
+  string(REGEX MATCHALL
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    runtime_campaign_strategic_content_guards
+    "${runtime_campaign_strategic_content_source_semantic}")
+  list(LENGTH runtime_campaign_strategic_content_guards
+    runtime_campaign_strategic_content_guard_count)
+  if(NOT runtime_campaign_strategic_content_guard_count EQUAL 0)
+    message(FATAL_ERROR
+      "Strategic content routing regained compiled JA2UB identity in ${runtime_campaign_strategic_content_source}")
+  endif()
+  string(REGEX MATCHALL
+    "(^|[\r\n])[ \t]*#[ \t]*include[ \t]*\"CampaignStrategicContentPolicy[.]h\""
+    runtime_campaign_strategic_content_policy_source_includes
+    "${runtime_campaign_strategic_content_source_executable}")
+  list(LENGTH runtime_campaign_strategic_content_policy_source_includes
+    runtime_campaign_strategic_content_policy_source_include_count)
+  string(REGEX MATCHALL
+    "(^|[\r\n])[ \t]*#[ \t]*include[ \t]*\"GameContext[.]h\""
+    runtime_campaign_strategic_content_context_includes
+    "${runtime_campaign_strategic_content_source_executable}")
+  list(LENGTH runtime_campaign_strategic_content_context_includes
+    runtime_campaign_strategic_content_context_include_count)
+  if(NOT runtime_campaign_strategic_content_policy_source_include_count EQUAL 1 OR
+      NOT runtime_campaign_strategic_content_context_include_count EQUAL 1)
+    message(FATAL_ERROR
+      "Strategic content caller must include its value policy and live context exactly once: ${runtime_campaign_strategic_content_source}")
+  endif()
+  if(runtime_campaign_strategic_content_source_semantic MATCHES
+      "[.]isUnfinishedBusiness[(][)]|GameCampaign::(Arulco|UnfinishedBusiness)|GameCapability::CampaignUnfinishedBusiness|IsUnfinishedBusinessCampaign[(]")
+    message(FATAL_ERROR
+      "Strategic content caller regained raw runtime campaign selection in ${runtime_campaign_strategic_content_source}")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "CampaignStrategicContentPolicy[ \t\r\n]*[(]"
+  runtime_campaign_strategic_content_policy_constructions
+  "${runtime_campaign_strategic_content_sources_executable}")
+list(LENGTH runtime_campaign_strategic_content_policy_constructions
+  runtime_campaign_strategic_content_policy_construction_count)
+if(NOT runtime_campaign_strategic_content_policy_construction_count EQUAL 6)
+  message(FATAL_ERROR
+    "The five Strategic callers must retain exactly six live content-policy values")
+endif()
+foreach(runtime_campaign_strategic_content_policy_call IN ITEMS
+    handlesFirstBattleTownLoyalty
+    playsCreatureReleaseMeanwhile
+    resetsCreatureMeanwhileState
+    runsEnricoProgressEmailCycle
+    promptsContinuedMilitiaTraining
+    notifiesSpeckOfEmployeeDeath)
+  string(REGEX MATCHALL
+    "[.]${runtime_campaign_strategic_content_policy_call}[ \t\r\n]*[(][ \t\r\n]*[)]"
+    runtime_campaign_strategic_content_policy_call_matches
+    "${runtime_campaign_strategic_content_sources_executable}")
+  list(LENGTH runtime_campaign_strategic_content_policy_call_matches
+    runtime_campaign_strategic_content_policy_call_count)
+  if(NOT runtime_campaign_strategic_content_policy_call_count EQUAL 1)
+    message(FATAL_ERROR
+      "Strategic content routing changed '${runtime_campaign_strategic_content_policy_call}' call count")
+  endif()
+endforeach()
+
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_strategic_content_sources_normalized
+  "${runtime_campaign_strategic_content_sources_executable}")
+require_ordered_fragments(runtime_campaign_strategic_content_sources_normalized
+  "Strategic content effect ordering changed"
+  "CheckFact( FACT_FIRST_BATTLE_FOUGHT, 0 ) == FALSE"
+  "SetFactTrue( FACT_FIRST_BATTLE_FOUGHT )"
+  "SetFactTrue( FACT_FIRST_BATTLE_WON )"
+  "SetTheFirstBattleSector"
+  ".handlesFirstBattleTownLoyalty()"
+  "HandleFirstBattleEndingWhileInTown"
+  "void InitCreatureQuest()"
+  ".playsCreatureReleaseMeanwhile()"
+  "fPlayMeanwhile"
+  "!gfCreatureMeanwhileScenePlayed"
+  "gModSettings.CreatureMeanwhileCutscene == TRUE"
+  "HandleCreatureRelease()"
+  "gfCreatureMeanwhileScenePlayed = TRUE"
+  "giHabitatedDistance = 0"
+  "BOOLEAN LoadCreatureDirectives"
+  "giLairID = 0"
+  ".resetsCreatureMeanwhileState()"
+  "gfCreatureMeanwhileScenePlayed = FALSE"
+  "uiMeanWhileFlags &= ~(0x00000800)"
+  "gfClearCreatureQuest = FALSE"
+  "void HandleEnricoEmail(void)"
+  "CurrentPlayerProgressPercentage()"
+  "HighestPlayerProgressPercentage()"
+  ".runsEnricoProgressEmailCycle()"
+  "HasAnyMineBeenAttackedByMonsters()"
+  "AddEmail(JA2_EMAIL_ENRICO_CREATURES"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_CREATURES"
+  "return;"
+  "ubCurrentProgress >= SOME_PROGRESS_THRESHOLD"
+  "AddEmail(JA2_EMAIL_ENRICO_PROGRESS_20"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_SOME_PROGRESS"
+  "return;"
+  "ubCurrentProgress >= ABOUT_HALFWAY_THRESHOLD"
+  "AddEmail(JA2_EMAIL_ENRICO_PROGRESS_55"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_ABOUT_HALFWAY"
+  "return;"
+  "ubCurrentProgress >= NEARLY_DONE_THRESHOLD"
+  "AddEmail(JA2_EMAIL_ENRICO_PROGRESS_80"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_NEARLY_DONE"
+  "return;"
+  "ubHighestProgress - ubCurrentProgress) >= MAJOR_SETBACK_THRESHOLD"
+  "AddEmail(JA2_EMAIL_ENRICO_SETBACK"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_MAJOR_SETBACK"
+  "ubHighestProgress - ubCurrentProgress) >= MINOR_SETBACK_THRESHOLD"
+  "AddEmail(JA2_EMAIL_ENRICO_SETBACK_2"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_MINOR_SETBACK"
+  "ubHighestProgress == ubCurrentProgress"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_FLAG_SETBACK_OVER"
+  "GetWorldDay() > (UINT32) (gStrategicStatus.usLastDayOfPlayerActivity)"
+  "gStrategicStatus.ubNumberOfDaysOfInactivity++"
+  "ubTolerance = LackOfProgressTolerance()"
+  "AddEmail(JA2_EMAIL_ENRICO_LACK_PROGRESS_3"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_LACK_PROGRESS3"
+  "AddEmail(JA2_EMAIL_ENRICO_LACK_PROGRESS_2"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_LACK_PROGRESS2"
+  "AddEmail(JA2_EMAIL_ENRICO_LACK_PROGRESS_1"
+  "gStrategicStatus.usEnricoEmailFlags |= ENRICO_EMAIL_SENT_LACK_PROGRESS1"
+  "AddHistoryToPlayersLog( HISTORY_ENRICO_COMPLAINED"
+  "if ( gStrategicStatus.usEnricoEmailFlags & ENRICO_EMAIL_SENT_LACK_PROGRESS2 )"
+  "gStrategicStatus.ubNumberOfDaysOfInactivity - LackOfProgressTolerance() + 1"
+  "gStrategicStatus.ubNumberOfDaysOfInactivity - LackOfProgressTolerance() )"
+  "gStrategicStatus.ubNumNewSectorsVisitedToday ="
+  "void HandleContinueOfTownTraining( void )"
+  "pSoldier->roster().active()"
+  "fContinueEventPosted = TRUE"
+  ".promptsContinuedMilitiaTraining()"
+  "SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA"
+  "ClearSectorListForCompletedTrainingOfMilitia( )"
+  "void HandleSoldierDeadComments( TacticalActor *pSoldier )"
+  "switch( bBuddyIndex )"
+  ".notifiesSpeckOfEmployeeDeath()"
+  "pTeamSoldier->identity().profile() == SPECK_PLAYABLE"
+  "pSoldier->employment().mercenaryType() == MERC_TYPE__MERC"
+  "HandleSpeckWitnessingEmployeeDeath( pSoldier )")
+
+# Ordered names alone cannot prove that an effect remains inside its policy or
+# that the following common work remains outside it. Pin the local brace
+# boundaries around every short routed effect as executable, literal-free text.
+string(REPLACE ";" "<SEMICOLON>"
+  runtime_campaign_strategic_content_sources_scoped
+  "${runtime_campaign_strategic_content_sources_normalized}")
+foreach(required_campaign_strategic_content_scope_fragment IN ITEMS
+    ".handlesFirstBattleTownLoyalty() ) { HandleFirstBattleEndingWhileInTown("
+    "TRUE )<SEMICOLON> } } switch( gpAR->ubBattleStatus )"
+    ".playsCreatureReleaseMeanwhile() && fPlayMeanwhile && !gfCreatureMeanwhileScenePlayed && gModSettings.CreatureMeanwhileCutscene == TRUE ) { HandleCreatureRelease()<SEMICOLON> gfCreatureMeanwhileScenePlayed = TRUE<SEMICOLON> } giHabitatedDistance = 0"
+    ".resetsCreatureMeanwhileState() ) { gfCreatureMeanwhileScenePlayed = FALSE<SEMICOLON> uiMeanWhileFlags &= ~(0x00000800)<SEMICOLON> } } gfClearCreatureQuest = FALSE"
+    ".promptsContinuedMilitiaTraining() ) { SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA"
+    "pSoldier->identity().profile(), 0, 0, 0, 0 )<SEMICOLON> } } iCounter++<SEMICOLON>"
+    ".notifiesSpeckOfEmployeeDeath() && pTeamSoldier->identity().profile() == SPECK_PLAYABLE && pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ) { HandleSpeckWitnessingEmployeeDeath( pSoldier )<SEMICOLON> } } }")
+  string(FIND "${runtime_campaign_strategic_content_sources_scoped}"
+    "${required_campaign_strategic_content_scope_fragment}"
+    required_campaign_strategic_content_scope_position)
+  if(required_campaign_strategic_content_scope_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic content policy scope changed '${required_campaign_strategic_content_scope_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Status.cpp"
+  runtime_campaign_strategic_content_status_contents)
+strip_cxx_comments_and_literals(
+  runtime_campaign_strategic_content_status_contents
+  runtime_campaign_strategic_content_status_executable)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_strategic_content_status_normalized
+  "${runtime_campaign_strategic_content_status_executable}")
+string(REPLACE ";" "<SEMICOLON>"
+  runtime_campaign_strategic_content_status_scoped
+  "${runtime_campaign_strategic_content_status_normalized}")
+extract_bounded_slice(runtime_campaign_strategic_content_status_scoped
+  "void HandleEnricoEmail(void) {"
+  "void TrackEnemiesKilled( UINT8 ubKilledHow, UINT8 ubSoldierClass )"
+  runtime_campaign_strategic_content_enrico_slice
+  "Strategic Enrico source slice changed")
+foreach(required_campaign_strategic_content_enrico_boundary IN ITEMS
+    "HighestPlayerProgressPercentage()<SEMICOLON> if ( CampaignStrategicContentPolicy(GetGameContext().capabilities()) .runsEnricoProgressEmailCycle() ) {"
+    "} } } } gStrategicStatus.ubNumNewSectorsVisitedToday =")
+  string(FIND "${runtime_campaign_strategic_content_enrico_slice}"
+    "${required_campaign_strategic_content_enrico_boundary}"
+    required_campaign_strategic_content_enrico_boundary_position)
+  if(required_campaign_strategic_content_enrico_boundary_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic Enrico policy scope changed '${required_campaign_strategic_content_enrico_boundary}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "AddEmail[ \t\r\n]*[(][ \t\r\n]*JA2_EMAIL_ENRICO_"
+  runtime_campaign_strategic_content_email_calls
+  "${runtime_campaign_strategic_content_status_executable}")
+list(LENGTH runtime_campaign_strategic_content_email_calls
+  runtime_campaign_strategic_content_email_call_count)
+if(NOT runtime_campaign_strategic_content_email_call_count EQUAL 9 OR
+    runtime_campaign_strategic_content_status_executable MATCHES
+      "(^|[^A-Za-z0-9_])(ENRICO_PROG_(20|55|80)|ENRICO_SETBACK(_2)?|ENRICO_CREATURES|LACK_PLAYER_PROGRESS_[123])([^A-Za-z0-9_]|$)")
+  message(FATAL_ERROR
+    "Strategic Enrico cycle must retain nine campaign-qualified Email.edt calls and no host-selected aliases")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/strategic.cpp"
+  runtime_campaign_strategic_content_speck_source_contents)
+strip_cxx_comments(runtime_campaign_strategic_content_speck_source_contents
+  runtime_campaign_strategic_content_speck_source_executable)
+string(REGEX MATCHALL
+  "(^|[\r\n])[ \t]*#[ \t]*include[ \t]*\"mercs[.]h\""
+  runtime_campaign_strategic_content_mercs_includes
+  "${runtime_campaign_strategic_content_speck_source_executable}")
+list(LENGTH runtime_campaign_strategic_content_mercs_includes
+  runtime_campaign_strategic_content_mercs_include_count)
+if(NOT runtime_campaign_strategic_content_mercs_include_count EQUAL 1)
+  message(FATAL_ERROR
+    "Strategic Speck reaction must retain one all-host mercs declaration include")
+endif()
+file(READ "${SOURCE_ROOT}/Laptop/mercs.cpp"
+  runtime_campaign_strategic_content_mercs_source_contents)
+reject_cxx_raw_string_literals(
+  runtime_campaign_strategic_content_mercs_source_contents
+  "Strategic Speck link source contract changed")
+strip_cxx_comments_and_literals(
+  runtime_campaign_strategic_content_mercs_source_contents
+  runtime_campaign_strategic_content_mercs_source_semantic)
+string(REGEX MATCHALL
+  "void[ \t\r\n]+HandleSpeckWitnessingEmployeeDeath[ \t\r\n]*[(][ \t\r\n]*TacticalActor[ \t\r\n]*[*][ \t\r\n]*pSoldier[ \t\r\n]*[)]"
+  runtime_campaign_strategic_content_speck_definitions
+  "${runtime_campaign_strategic_content_mercs_source_semantic}")
+list(LENGTH runtime_campaign_strategic_content_speck_definitions
+  runtime_campaign_strategic_content_speck_definition_count)
+file(READ "${SOURCE_ROOT}/Laptop/mercs.h"
+  runtime_campaign_strategic_content_mercs_header_contents)
+reject_cxx_raw_string_literals(
+  runtime_campaign_strategic_content_mercs_header_contents
+  "Strategic Speck declaration source contract changed")
+strip_cxx_comments_and_literals(
+  runtime_campaign_strategic_content_mercs_header_contents
+  runtime_campaign_strategic_content_mercs_header_semantic)
+string(REGEX MATCHALL
+  "void[ \t\r\n]+HandleSpeckWitnessingEmployeeDeath[ \t\r\n]*[(][ \t\r\n]*TacticalActor[ \t\r\n]*[*][ \t\r\n]*pSoldier[ \t\r\n]*[)]"
+  runtime_campaign_strategic_content_speck_declarations
+  "${runtime_campaign_strategic_content_mercs_header_semantic}")
+list(LENGTH runtime_campaign_strategic_content_speck_declarations
+  runtime_campaign_strategic_content_speck_declaration_count)
+file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
+  runtime_campaign_strategic_content_laptop_manifest_contents)
+string(REGEX REPLACE "#[^\r\n]*" ""
+  runtime_campaign_strategic_content_laptop_manifest_executable
+  "${runtime_campaign_strategic_content_laptop_manifest_contents}")
+string(FIND "${runtime_campaign_strategic_content_laptop_manifest_executable}"
+  [=["${CMAKE_CURRENT_SOURCE_DIR}/mercs.cpp"]=]
+  runtime_campaign_strategic_content_mercs_manifest_position)
+string(FIND "${runtime_campaign_strategic_content_laptop_manifest_executable}"
+  "set(LaptopVariantSrc"
+  runtime_campaign_strategic_content_laptop_variant_position)
+if(NOT runtime_campaign_strategic_content_speck_definition_count EQUAL 1 OR
+    NOT runtime_campaign_strategic_content_speck_declaration_count EQUAL 1 OR
+    runtime_campaign_strategic_content_mercs_manifest_position EQUAL -1 OR
+    runtime_campaign_strategic_content_laptop_variant_position EQUAL -1 OR
+    NOT runtime_campaign_strategic_content_mercs_manifest_position LESS
+      runtime_campaign_strategic_content_laptop_variant_position)
+  message(FATAL_ERROR
+    "The unconditional Strategic Speck call lost its one all-host Laptop link source")
+endif()
+
+foreach(required_campaign_strategic_content_test_manifest_fragment IN ITEMS
+    "add_executable(campaign_strategic_content_policy_tests"
+    "campaign_strategic_content_policy_tests.cpp"
+    "add_test(NAME campaign_strategic_content_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_strategic_content_test_manifest_fragment}"
+    required_campaign_strategic_content_test_manifest_position)
+  if(required_campaign_strategic_content_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-content policy lost test manifest '${required_campaign_strategic_content_test_manifest_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_strategic_content_policy_tests"
+  runtime_campaign_strategic_content_test_manifest_matches
+  "${runtime_campaign_policy_test_build_contents}")
+list(LENGTH runtime_campaign_strategic_content_test_manifest_matches
+  runtime_campaign_strategic_content_test_manifest_count)
+if(NOT runtime_campaign_strategic_content_test_manifest_count EQUAL 4)
+  message(FATAL_ERROR
+    "Campaign strategic-content test target manifest count changed")
+endif()
+string(REGEX MATCHALL "campaign_strategic_content_policy_tests"
+  runtime_campaign_strategic_content_ci_matches
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_strategic_content_ci_matches
+  runtime_campaign_strategic_content_ci_count)
+if(NOT runtime_campaign_strategic_content_ci_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one strategic-content policy target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_strategic_content_policy_tests.cpp"
+  runtime_campaign_strategic_content_test_contents)
+foreach(required_campaign_strategic_content_test_fragment IN ITEMS
+    "all six strategic content effects are classified exactly once"
+    "editor capability does not change strategic content ownership"
+    "UB short-circuits every Arulco-only strategic content effect"
+    "unknown strategic content effects are unavailable"
+    "unknown campaigns own no strategic content"
+    "strategic content policy remains a single trivially copyable campaign value"
+    "first-battle common effects precede optional town loyalty"
+    "creature release keeps campaign, meanwhile, scene, option, effect, then publication order"
+    "creature reset keeps lair reset before Arulco meanwhile state"
+    "Enrico progress probes remain common and campaign email returns still precede daily reset"
+    "militia continuation publication precedes its optional dialogue"
+    "Speck reaction stays after buddy comments and left-gates profile and employment probes")
+  string(FIND "${runtime_campaign_strategic_content_test_contents}"
+    "${required_campaign_strategic_content_test_fragment}"
+    required_campaign_strategic_content_test_position)
+  if(required_campaign_strategic_content_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign strategic-content coverage lost '${required_campaign_strategic_content_test_fragment}'")
+  endif()
+endforeach()
+
 # Strategic-map guidance and campaign hooks are selected from the live
 # capability set. Both paths must remain compiled in every host, and the
 # twelve retired mapscreen JA2UB guards must not return.
@@ -5093,6 +5669,9 @@ foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignMercenaryPolicy.h\""
     "#include \"CampaignNpcPolicy.h\""
     "#include \"CampaignProgressPolicy.h\""
+    "#include \"CampaignStrategicContentPolicy.h\""
+    "strategicContentPolicy.handlesFirstBattleTownLoyalty()"
+    "strategicContentPolicy.runsEnricoProgressEmailCycle()"
     "live campaign capabilities drive the tactical and strategic policy follow-throughs")
   string(FIND "${runtime_campaign_follow_through_headless_contents}"
     "${required_campaign_follow_through_headless_fragment}"
@@ -5117,6 +5696,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_progress_policy_tests"
     "campaign_quest_policy_tests"
     "campaign_strategic_ai_scenario_policy_tests"
+    "campaign_strategic_content_policy_tests"
     "campaign_strategic_event_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
@@ -5134,10 +5714,10 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "46 active conditionals in 19"
+    "39 active conditionals in 14"
     "Laptop content/pages | 4"
     "Tactical gameplay/content | 15"
-    "Strategic gameplay/content | 18"
+    "Strategic gameplay/content | 11"
     "CampaignDoorPolicy"
     "CampaignGunCommentPolicy"
     "CampaignCivilianQuotePolicy"
@@ -5147,6 +5727,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "CampaignNpcPolicy"
     "CampaignProgressPolicy"
     "CampaignQuestPolicy"
+    "CampaignStrategicContentPolicy"
+    "exact Arulco Email.edt offsets 152, 155, 158, 161, 164, 167, 189, 192, and 195"
     "CampaignStrategicEventPolicy"
     "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
     "CampaignMercenaryArrivalContent"
@@ -5163,7 +5745,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All eighteen policies"
+    "All nineteen policies"
+    "All seven former `JA2UB` guards across `Auto Resolve.cpp`"
     "All six former guards in `Tactical/Campaign.cpp`"
     "JA25 strategic-AI scenario origin now crosses the application boundary"
     "Fifteen strategic-AI entry points take one fresh origin value per invocation"
@@ -5195,6 +5778,10 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "`ExecuteStrategicEvent` now routes its complete campaign-specific callback"
     "CampaignStrategicEventPolicy"
     "exhaustive 9-Arulco/5-UB partition"
+    "The final seven `JA2UB` guards in the five Strategic gameplay sources"
+    "CampaignStrategicContentPolicy"
+    "closed six-effect vocabulary"
+    "Email.edt content available in every host"
     "raw-selector inventory is now 109 sites across 32 files"
     "CampaignApplicationPolicy::shouldLoadUnfinishedBusinessOptions()"
     "raw-selector inventory is now 107 sites across 30 files"
@@ -5245,6 +5832,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/TODO" runtime_campaign_todo_contents)
 foreach(required_runtime_campaign_todo_fragment IN ITEMS
     "CampaignStrategicEventPolicy now owns the complete 14-route dispatcher table"
+    "CampaignStrategicContentPolicy retired the seven remaining Strategic gameplay guards"
     "CampaignApplicationPolicy now gates both UB-options bootstrap calls"
     "CampaignMercenaryArrivalContent removed Merc Hiring's three raw selectors and 29 external UB reads")
   string(FIND "${runtime_campaign_todo_contents}"
@@ -6557,12 +7145,17 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
   runtime_campaign_npc_guard_baseline_contents)
 string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
-  "\"total\": 46" runtime_campaign_npc_guard_total_position)
+  "\"total\": 39" runtime_campaign_npc_guard_total_position)
 if(runtime_campaign_npc_guard_total_position EQUAL -1)
   message(FATAL_ERROR
     "Campaign compile-guard baseline does not match the migrated runtime-policy tail")
 endif()
 foreach(retired_campaign_npc_guard_file IN ITEMS
+    "Strategic/Auto Resolve.cpp"
+    "Strategic/Creature Spreading.cpp"
+    "Strategic/Strategic Status.cpp"
+    "Strategic/Town Militia.cpp"
+    "Strategic/strategic.cpp"
     "Tactical/Campaign.cpp"
     "TacticalAI/AIMain.cpp"
     "TacticalAI/DecideAction.cpp"

@@ -69,6 +69,22 @@ initial-sector, delayed-dialogue, H8-warning, and Enrico-understanding routes.
 The initial-sector option remains behind the UB route, the battle-delay probe
 remains behind the Arulco meanwhile route, and all existing effects remain in
 `ExecuteStrategicEvent` in their original order.
+The remaining strategic gameplay leaves now use
+`CampaignStrategicContentPolicy`, a closed six-effect value boundary. Arulco
+retains first-battle town loyalty, the creature-release meanwhile and its debug
+reset, the complete Enrico progress-email cycle, continued-militia-training
+dialogue, and Speck's employee-death reaction. UB retains the absence of those
+effects while common first-battle facts, creature state, progress probes,
+militia continuation publication, daily sector reset, and buddy comments keep
+their established order. Campaign-qualified Enrico records expose the exact
+Arulco Email.edt offsets 152, 155, 158, 161, 164, 167, 189, 192, and 195 to
+every host, with compile-time aliases back to the legacy Arulco layout. All
+seven former `JA2UB` guards across
+`Auto Resolve.cpp`, `Creature Spreading.cpp`, `Strategic Status.cpp`,
+`Town Militia.cpp`, and `strategic.cpp` are gone; both campaigns now compile
+the same calls and choose ownership from the live context. The formerly
+guarded `mercs.h` declaration is unconditional, and common `mercs.cpp` remains
+the all-host link source for Speck's reaction.
 Civilian tactical dialogue now uses `CampaignCivilianQuotePolicy`. Both quote
 catalogues and both dedicated-group ranges are emitted in every host; Arulco
 retains surrender completion and its complete town/hint/miner logic, while UB
@@ -382,14 +398,14 @@ adapter until all such consumers have moved to typed content.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 46 active conditionals in 19
+milestone its per-file baseline contains 39 active conditionals in 14
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
 | Tactical gameplay/content | 15 |
-| Strategic gameplay/content | 18 |
+| Strategic gameplay/content | 11 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 0 |
 | Editor | 1 |
@@ -424,7 +440,7 @@ sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
-`Laptop/IMP Text System.cpp` no longer contribute six more. All eighteen
+`Laptop/IMP Text System.cpp` no longer contribute six more. All nineteen
 policies are guarded by data-free tests and named architecture checks, with
 headless integration coverage where host composition is involved. Tactical meanwhile
 behavior uses the application policy,
@@ -447,6 +463,10 @@ quest/fact tail now uses `CampaignQuestPolicy`, removing all sixteen direct
 campaign identity checks and the raw laptop-option read from
 `Strategic/Quests.cpp` while preserving unavailable UB fact values, reward
 amounts, initial selection, laptop effects, and POW support. The
+strategic-content tail now uses `CampaignStrategicContentPolicy`, removing the
+seven guards from its five Strategic sources while retaining Arulco's six
+effects and every common predecessor, short circuit, state write, and daily
+follow-through. The
 seven remaining `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
