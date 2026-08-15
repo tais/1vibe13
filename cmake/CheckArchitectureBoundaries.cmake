@@ -5689,6 +5689,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_gun_comment_policy_tests"
     "campaign_imp_policy_tests"
     "campaign_lua_global_policy_tests"
+    "campaign_lua_registration_policy_tests"
     "campaign_map_screen_policy_tests"
     "campaign_meanwhile_policy_tests"
     "campaign_mercenary_policy_tests"
@@ -5714,10 +5715,10 @@ string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_status_normalized
   "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "31 active conditionals in 14"
+    "28 active conditionals in 13"
     "Laptop content/pages | 4"
     "Tactical gameplay/content | 15"
-    "Strategic gameplay/content | 3"
+    "Strategic gameplay/content | 0"
     "CampaignDoorPolicy"
     "CampaignGunCommentPolicy"
     "CampaignCivilianQuotePolicy"
@@ -5736,6 +5737,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "two former eager InGameHeli argument evaluations"
     "frozen projection across actor, quest, and random effects"
     "Future setters remain separate `ub_config`-owned APIs"
+    "one cached Boolean reused at all three original positions"
+    "complete 582-entry sequence"
     "rebel-command settings first, UB options only for UB"
     "104 sites across 29 files"
     "99 live-context calls"
@@ -5822,6 +5825,8 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "552 executable/554 raw total occurrences across 34 files"
     "exact 40 formerly guarded UB callback definitions"
     "40 + 2 + 28 public-name/function mappings"
+    "has no remaining `JA2UB` guard"
+    "complete 582-entry sequence"
     "all sixteen direct `gGameUBOptions` writes"
     "252 executable/254 raw external occurrences across 31"
     "552 executable/554 raw total occurrences across 33 files")
@@ -7151,7 +7156,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tools/campaign_compile_guard_baseline.json"
   runtime_campaign_npc_guard_baseline_contents)
 string(FIND "${runtime_campaign_npc_guard_baseline_contents}"
-  "\"total\": 31" runtime_campaign_npc_guard_total_position)
+  "\"total\": 28" runtime_campaign_npc_guard_total_position)
 if(runtime_campaign_npc_guard_total_position EQUAL -1)
   message(FATAL_ERROR
     "Campaign compile-guard baseline does not match the migrated runtime-policy tail")
@@ -7162,6 +7167,7 @@ foreach(retired_campaign_npc_guard_file IN ITEMS
     "Strategic/Strategic Status.cpp"
     "Strategic/Town Militia.cpp"
     "Strategic/strategic.cpp"
+    "Strategic/LuaInitNPCs.cpp"
     "Tactical/Campaign.cpp"
     "TacticalAI/AIMain.cpp"
     "TacticalAI/DecideAction.cpp"
@@ -7188,6 +7194,7 @@ foreach(required_campaign_lua_global_policy_fragment IN ITEMS
     "exportsUnfinishedBusinessScenarioGlobals"
     "exportsUnfinishedBusinessTestGlobal"
     "exportsUnfinishedBusinessCharacterAndItemGlobals"
+    "registersUnfinishedBusinessCallbacks"
     "struct CampaignLuaDefaultArrivalSector"
     "mirrorsDefaultArrivalSectorToUnfinishedBusinessState"
     "invalidDefaultArrivalSector")
@@ -7210,6 +7217,7 @@ foreach(required_campaign_lua_global_policy_result IN ITEMS
     "exportsUnfinishedBusinessScenarioGlobals() const noexcept { return isUnfinishedBusiness(); }"
     "exportsUnfinishedBusinessTestGlobal() const noexcept { return isUnfinishedBusiness(); }"
     "exportsUnfinishedBusinessCharacterAndItemGlobals() const noexcept { return isUnfinishedBusiness(); }"
+    "registersUnfinishedBusinessCallbacks() const noexcept { return isUnfinishedBusiness(); }"
     "mirrorsDefaultArrivalSectorToUnfinishedBusinessState() const noexcept { return isUnfinishedBusiness(); }"
     "invalidDefaultArrivalSector() const noexcept { return isUnfinishedBusiness() ? CampaignLuaDefaultArrivalSector{7, 8} : CampaignLuaDefaultArrivalSector{9, 1}; }"
     "return campaign_ == GameCampaign::UnfinishedBusiness;")
@@ -7677,6 +7685,55 @@ foreach(required_campaign_lua_global_test_fragment IN ITEMS
   if(required_campaign_lua_global_test_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign Lua-global tests lost '${required_campaign_lua_global_test_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_campaign_lua_registration_test_build_fragment IN ITEMS
+    "add_executable(campaign_lua_registration_policy_tests"
+    "campaign_lua_registration_policy_tests.cpp"
+    "add_test(NAME campaign_lua_registration_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_lua_registration_test_build_fragment}"
+    required_campaign_lua_registration_test_build_position)
+  if(required_campaign_lua_registration_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-registration policy lost test manifest '${required_campaign_lua_registration_test_build_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL "campaign_lua_registration_policy_tests"
+  runtime_campaign_lua_registration_ci_targets
+  "${runtime_campaign_policy_ci_contents}")
+list(LENGTH runtime_campaign_lua_registration_ci_targets
+  runtime_campaign_lua_registration_ci_target_count)
+if(NOT runtime_campaign_lua_registration_ci_target_count EQUAL 1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI must retain exactly one Lua-registration policy target")
+endif()
+file(READ
+  "${SOURCE_ROOT}/tests/campaign_lua_registration_policy_tests.cpp"
+  runtime_campaign_lua_registration_test_contents)
+foreach(required_campaign_lua_registration_test_fragment IN ITEMS
+    "FirstUnfinishedBusinessGroup"
+    "SecondUnfinishedBusinessGroup"
+    "ThirdUnfinishedBusinessGroup"
+    "FirstUnfinishedBusinessGroup.size() == 40"
+    "SecondUnfinishedBusinessGroup.size() == 2"
+    "ThirdUnfinishedBusinessGroup.size() == 28"
+    "the three UB groups retain seventy unique Lua names"
+    "UB registers all seventy callbacks in their legacy 40/2/28 order"
+    "each initializer reads policy once immediately after InitMercFace"
+    "bQuests never changes campaign callback registration"
+    "the editor flag does not give Arulco UB callbacks"
+    "the editor flag does not remove UB callbacks from the UB campaign"
+    "unknown campaign values fail closed without UB callbacks"
+    "one invocation freezes one UB decision across all three groups"
+    "the next invocation refreshes policy and observes Arulco")
+  string(FIND "${runtime_campaign_lua_registration_test_contents}"
+    "${required_campaign_lua_registration_test_fragment}"
+    required_campaign_lua_registration_test_position)
+  if(required_campaign_lua_registration_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua-registration tests lost '${required_campaign_lua_registration_test_fragment}'")
   endif()
 endforeach()
 foreach(required_campaign_lua_global_headless_fragment IN ITEMS
@@ -8503,8 +8560,8 @@ endforeach()
 
 # Lua-authored arrival mutations cross a typed write-only application seam.
 # All legacy record writes stay in ub_config, while every host compiles the
-# formerly guarded callback implementations. The three registration islands
-# remain deliberately guarded until runtime registration is selected.
+# formerly guarded callback implementations. Their three registration islands
+# now reuse one late, value-only runtime campaign decision.
 file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryArrivalMutators.h"
   runtime_campaign_lua_arrival_mutator_header_contents)
 reject_cxx_raw_string_literals(
@@ -8627,8 +8684,14 @@ strip_cxx_comments(runtime_campaign_lua_callback_contents
   runtime_campaign_lua_callback_source)
 strip_cxx_comments_and_literals(runtime_campaign_lua_callback_contents
   runtime_campaign_lua_callback_code)
-string(REPLACE "\r\n" "\n" runtime_campaign_lua_callback_code
-  "${runtime_campaign_lua_callback_code}")
+foreach(runtime_campaign_lua_callback_view IN ITEMS
+    runtime_campaign_lua_callback_source
+    runtime_campaign_lua_callback_code)
+  string(REPLACE "\r\n" "\n" ${runtime_campaign_lua_callback_view}
+    "${${runtime_campaign_lua_callback_view}}")
+  string(REPLACE "\\\n" "" ${runtime_campaign_lua_callback_view}
+    "${${runtime_campaign_lua_callback_view}}")
+endforeach()
 if(runtime_campaign_lua_callback_code MATCHES "gGameUBOptions" OR
    runtime_campaign_lua_callback_source MATCHES "ub_config[.]h")
   message(FATAL_ERROR
@@ -8648,20 +8711,179 @@ foreach(required_campaign_lua_callback_include IN ITEMS
       "All-host Lua callback dependencies lost '${required_campaign_lua_callback_include}'")
   endif()
 endforeach()
-string(REGEX MATCHALL "#[ 	]*ifdef[ 	]+JA2UB"
+string(REGEX MATCHALL
+  "#[ 	]*(if|ifdef|ifndef|elif)[^\n]*JA2UB"
   runtime_campaign_lua_callback_guards
   "${runtime_campaign_lua_callback_code}")
 list(LENGTH runtime_campaign_lua_callback_guards
   runtime_campaign_lua_callback_guard_count)
-if(NOT runtime_campaign_lua_callback_guard_count EQUAL 3)
+if(NOT runtime_campaign_lua_callback_guard_count EQUAL 0)
   message(FATAL_ERROR
-    "LuaInitNPCs must retain exactly its three deferred registration guards")
+    "LuaInitNPCs regained compiled JA2UB identity")
+endif()
+if(runtime_campaign_lua_callback_code MATCHES
+    "(^|\n)[ \t]*#[ \t]*(define|undef)([^A-Za-z0-9_]|$)")
+  message(FATAL_ERROR
+    "LuaInitNPCs may not introduce macro aliases around registration routing")
+endif()
+string(REGEX MATCHALL
+  "(^|\n)[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)[^\n]*"
+  runtime_campaign_lua_callback_control_directives
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_callback_control_directives
+  runtime_campaign_lua_callback_control_directive_count)
+string(REGEX MATCHALL
+  "(^|\n)[ \t]*#[ \t]*ifdef[ \t]+NEWMUSIC[ \t\r]*($|\n)"
+  runtime_campaign_lua_callback_newmusic_directives
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_callback_newmusic_directives
+  runtime_campaign_lua_callback_newmusic_directive_count)
+string(REGEX MATCHALL
+  "(^|\n)[ \t]*#[ \t]*endif[ \t\r]*($|\n)"
+  runtime_campaign_lua_callback_endif_directives
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_callback_endif_directives
+  runtime_campaign_lua_callback_endif_directive_count)
+if(NOT runtime_campaign_lua_callback_control_directive_count EQUAL 10 OR
+   NOT runtime_campaign_lua_callback_newmusic_directive_count EQUAL 5 OR
+   NOT runtime_campaign_lua_callback_endif_directive_count EQUAL 5)
+  message(FATAL_ERROR
+    "LuaInitNPCs changed its exact five established NEWMUSIC directive pairs")
+endif()
+
+# The selected definition must itself be live, rather than a source decoy in
+# an outer preprocessor branch. Count nesting in the literal-masked executable
+# prefix; line splices were already removed above.
+set(runtime_campaign_lua_initializer_marker
+  "static void IniFunction(lua_State* L, BOOLEAN bQuests)")
+string(FIND "${runtime_campaign_lua_callback_code}"
+  "${runtime_campaign_lua_initializer_marker}"
+  runtime_campaign_lua_initializer_marker_position)
+if(runtime_campaign_lua_initializer_marker_position EQUAL -1)
+  message(FATAL_ERROR "Cannot find the Lua initializer")
+endif()
+string(SUBSTRING "${runtime_campaign_lua_callback_code}" 0
+  ${runtime_campaign_lua_initializer_marker_position}
+  runtime_campaign_lua_initializer_prefix)
+string(REGEX MATCHALL
+  "(^|\n)[ \t]*#[ \t]*(if|ifdef|ifndef|endif)[^\n]*"
+  runtime_campaign_lua_initializer_prefix_conditionals
+  "${runtime_campaign_lua_initializer_prefix}")
+set(runtime_campaign_lua_initializer_preprocessor_depth 0)
+foreach(runtime_campaign_lua_initializer_prefix_conditional IN LISTS
+    runtime_campaign_lua_initializer_prefix_conditionals)
+  if(runtime_campaign_lua_initializer_prefix_conditional STREQUAL "")
+    continue()
+  elseif(runtime_campaign_lua_initializer_prefix_conditional MATCHES
+      "#[ \t]*endif([ \t\r]|$)")
+    math(EXPR runtime_campaign_lua_initializer_preprocessor_depth
+      "${runtime_campaign_lua_initializer_preprocessor_depth} - 1")
+    if(runtime_campaign_lua_initializer_preprocessor_depth LESS 0)
+      message(FATAL_ERROR
+        "LuaInitNPCs has an unmatched preprocessor terminator before IniFunction")
+    endif()
+  else()
+    math(EXPR runtime_campaign_lua_initializer_preprocessor_depth
+      "${runtime_campaign_lua_initializer_preprocessor_depth} + 1")
+  endif()
+endforeach()
+if(NOT runtime_campaign_lua_initializer_preprocessor_depth EQUAL 0)
+  message(FATAL_ERROR
+    "Lua initializer may not be hidden in an outer preprocessor branch")
+endif()
+
+extract_bounded_slice(runtime_campaign_lua_callback_source
+  "${runtime_campaign_lua_initializer_marker}"
+  "BOOLEAN LetLuaMusicControl(UINT8 Init)\n{"
+  runtime_campaign_lua_initializer_source
+  "Cannot bound the literal-preserving Lua initializer")
+extract_brace_bounded_slice(runtime_campaign_lua_callback_code
+  "${runtime_campaign_lua_initializer_marker}"
+  runtime_campaign_lua_initializer_code
+  "Cannot brace-bound the literal-masked Lua initializer")
+string(REGEX REPLACE "[ 	\r\n]+" " "
+  runtime_campaign_lua_initializer_normalized
+  "${runtime_campaign_lua_initializer_source}")
+string(REGEX REPLACE "[ 	\r\n]+" " "
+  runtime_campaign_lua_initializer_code_normalized
+  "${runtime_campaign_lua_initializer_code}")
+
+string(REGEX MATCHALL
+  "(^|\n)[ 	]*#[ 	]*(if|ifdef|ifndef|elif|else|endif|define|undef)[^\n]*"
+  runtime_campaign_lua_initializer_directives
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_directives
+  runtime_campaign_lua_initializer_directive_count)
+if(NOT runtime_campaign_lua_initializer_directive_count EQUAL 2)
+  message(FATAL_ERROR
+    "Lua initializer must retain only its established NEWMUSIC directive pair")
+endif()
+require_ordered_fragments(runtime_campaign_lua_initializer_code
+  "Lua initializer preprocessor shape changed"
+  "#ifdef NEWMUSIC"
+  "#endif")
+
+string(REGEX MATCHALL "(^|[^A-Za-z0-9_])if[ 	\r\n]*[(]"
+  runtime_campaign_lua_initializer_conditionals
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_conditionals
+  runtime_campaign_lua_initializer_conditional_count)
+if(NOT runtime_campaign_lua_initializer_conditional_count EQUAL 5)
+  message(FATAL_ERROR
+    "Lua initializer must retain two quest gates and three campaign gates")
+endif()
+if(runtime_campaign_lua_initializer_code MATCHES
+    "(^|[^A-Za-z0-9_])(else|for|while|do|switch|case|goto|return|break|continue|throw|try|catch)([^A-Za-z0-9_]|$)")
+  message(FATAL_ERROR
+    "Lua initializer gained control flow outside its exact five direct gates")
+endif()
+if(runtime_campaign_lua_initializer_code MATCHES
+    "[(][ 	]*[A-Za-z_][A-Za-z0-9_]*[ 	]*[)][ 	\r\n]*[(]")
+  message(FATAL_ERROR
+    "Lua initializer may not bypass direct registration through a function pointer")
+endif()
+string(REGEX MATCHALL "[A-Za-z_][A-Za-z0-9_]*[ 	\r\n]*[(]"
+  runtime_campaign_lua_initializer_calls
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_calls
+  runtime_campaign_lua_initializer_call_count)
+if(NOT runtime_campaign_lua_initializer_call_count EQUAL 590)
+  message(FATAL_ERROR
+    "Lua initializer gained a helper call or lost a direct registration")
+endif()
+string(REGEX MATCHALL "ReadCampaignLuaGlobalPolicy[ 	\r\n]*[(][ 	\r\n]*[)]"
+  runtime_campaign_lua_initializer_policy_reads
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_policy_reads
+  runtime_campaign_lua_initializer_policy_read_count)
+string(REGEX MATCHALL
+  "[.]registersUnfinishedBusinessCallbacks[ 	\r\n]*[(][ 	\r\n]*[)]"
+  runtime_campaign_lua_initializer_policy_decisions
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_policy_decisions
+  runtime_campaign_lua_initializer_policy_decision_count)
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])registerUnfinishedBusinessCallbacks([^A-Za-z0-9_]|$)"
+  runtime_campaign_lua_initializer_cached_decisions
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_cached_decisions
+  runtime_campaign_lua_initializer_cached_decision_count)
+if(NOT runtime_campaign_lua_initializer_policy_read_count EQUAL 1 OR
+   NOT runtime_campaign_lua_initializer_policy_decision_count EQUAL 1 OR
+   NOT runtime_campaign_lua_initializer_cached_decision_count EQUAL 4)
+  message(FATAL_ERROR
+    "Lua initializer must read one fresh policy, cache one decision, and reuse it at three gates")
+endif()
+if(runtime_campaign_lua_initializer_code MATCHES
+    "GetGameContext|GameCampaign|isUnfinishedBusiness|CampaignUnfinishedBusiness|gGameUBOptions|ub_config[.]h")
+  message(FATAL_ERROR
+    "Lua initializer regained raw campaign or UB-option selection")
 endif()
 
 string(REGEX REPLACE "[ \t\r\n]+" " "
   runtime_campaign_lua_callback_registration_normalized
   "${runtime_campaign_lua_callback_source}")
-set(runtime_campaign_lua_guarded_registrations
+set(runtime_campaign_lua_selected_registrations
   "AddProfileToMap|l_InitMapProfil"
   "SetKeyProfile|l_SetKeySoldier"
   "UB_GetManuelID|l_Ja25MANUEL_UB"
@@ -8732,95 +8954,84 @@ set(runtime_campaign_lua_guarded_registrations
   "UB_InitialJerry|l_setInJerry"
   "UB_InitialHeli|l_setInGameHeli"
   "UB_InternalLocateGridNo|l_SetInternalLocateGridNo")
-list(LENGTH runtime_campaign_lua_guarded_registrations
-  runtime_campaign_lua_guarded_registration_count)
-if(NOT runtime_campaign_lua_guarded_registration_count EQUAL 70)
+list(LENGTH runtime_campaign_lua_selected_registrations
+  runtime_campaign_lua_selected_registration_count)
+if(NOT runtime_campaign_lua_selected_registration_count EQUAL 70)
   message(FATAL_ERROR
-    "Deferred Lua registration inventory must retain its exact 40 + 2 + 28 shape")
+    "Runtime Lua registration inventory must retain its exact 40 + 2 + 28 shape")
 endif()
+foreach(runtime_campaign_lua_selected_registration IN LISTS
+    runtime_campaign_lua_selected_registrations)
+  string(REPLACE "|" ";" runtime_campaign_lua_model_fields
+    "${runtime_campaign_lua_selected_registration}")
+  list(GET runtime_campaign_lua_model_fields 0
+    runtime_campaign_lua_model_public_name)
+  list(GET runtime_campaign_lua_model_fields 1
+    runtime_campaign_lua_model_function)
+  string(REGEX MATCHALL
+    "\"${runtime_campaign_lua_model_public_name}\"[ 	\r\n]*,[ 	\r\n]*\"${runtime_campaign_lua_model_function}\""
+    runtime_campaign_lua_model_mappings
+    "${runtime_campaign_lua_registration_test_contents}")
+  list(LENGTH runtime_campaign_lua_model_mappings
+    runtime_campaign_lua_model_mapping_count)
+  if(NOT runtime_campaign_lua_model_mapping_count EQUAL 1)
+    message(FATAL_ERROR
+      "Lua-registration trace model changed exact mapping ${runtime_campaign_lua_model_public_name} -> ${runtime_campaign_lua_model_function}")
+  endif()
+endforeach()
 
-set(runtime_campaign_lua_guard_tail
-  "${runtime_campaign_lua_callback_registration_normalized}")
-foreach(runtime_campaign_lua_guard_group RANGE 1 3)
-  string(FIND "${runtime_campaign_lua_guard_tail}" "#ifdef JA2UB"
-    runtime_campaign_lua_guard_start)
-  if(runtime_campaign_lua_guard_start EQUAL -1)
+list(SUBLIST runtime_campaign_lua_selected_registrations 0 40
+  runtime_campaign_lua_registration_group_1)
+list(SUBLIST runtime_campaign_lua_selected_registrations 40 2
+  runtime_campaign_lua_registration_group_2)
+list(SUBLIST runtime_campaign_lua_selected_registrations 42 28
+  runtime_campaign_lua_registration_group_3)
+foreach(runtime_campaign_lua_registration_group RANGE 1 3)
+  set(runtime_campaign_lua_registration_block_${runtime_campaign_lua_registration_group}
+    "if (registerUnfinishedBusinessCallbacks) {")
+  foreach(runtime_campaign_lua_group_registration IN LISTS
+      runtime_campaign_lua_registration_group_${runtime_campaign_lua_registration_group})
+    string(REPLACE "|" ";" runtime_campaign_lua_group_fields
+      "${runtime_campaign_lua_group_registration}")
+    list(GET runtime_campaign_lua_group_fields 0
+      runtime_campaign_lua_group_public_name)
+    list(GET runtime_campaign_lua_group_fields 1
+      runtime_campaign_lua_group_function)
+    string(APPEND
+      runtime_campaign_lua_registration_block_${runtime_campaign_lua_registration_group}
+      " lua_register(L, \"${runtime_campaign_lua_group_public_name}\", ${runtime_campaign_lua_group_function});")
+  endforeach()
+  string(APPEND
+    runtime_campaign_lua_registration_block_${runtime_campaign_lua_registration_group}
+    " }")
+  string(FIND "${runtime_campaign_lua_initializer_normalized}"
+    "${runtime_campaign_lua_registration_block_${runtime_campaign_lua_registration_group}}"
+    runtime_campaign_lua_registration_block_position)
+  if(runtime_campaign_lua_registration_block_position EQUAL -1)
     message(FATAL_ERROR
-      "Cannot isolate deferred Lua registration guard ${runtime_campaign_lua_guard_group}")
+      "Runtime Lua registration group ${runtime_campaign_lua_registration_group} escaped its exact direct cached-policy gate")
   endif()
-  string(LENGTH "#ifdef JA2UB" runtime_campaign_lua_guard_marker_length)
-  math(EXPR runtime_campaign_lua_guard_body_start
-    "${runtime_campaign_lua_guard_start} + ${runtime_campaign_lua_guard_marker_length}")
-  string(SUBSTRING "${runtime_campaign_lua_guard_tail}"
-    ${runtime_campaign_lua_guard_body_start} -1
-    runtime_campaign_lua_guard_after_start)
-  string(FIND "${runtime_campaign_lua_guard_after_start}" "#endif"
-    runtime_campaign_lua_guard_end)
-  if(runtime_campaign_lua_guard_end EQUAL -1)
-    message(FATAL_ERROR
-      "Deferred Lua registration guard ${runtime_campaign_lua_guard_group} is unterminated")
-  endif()
-  string(SUBSTRING "${runtime_campaign_lua_guard_after_start}" 0
-    ${runtime_campaign_lua_guard_end}
-    runtime_campaign_lua_guard_body_${runtime_campaign_lua_guard_group})
-  string(REGEX MATCHALL "lua_register[ 	]*[(]"
-    runtime_campaign_lua_guard_registration_calls
-    "${runtime_campaign_lua_guard_body_${runtime_campaign_lua_guard_group}}")
-  list(LENGTH runtime_campaign_lua_guard_registration_calls
-    runtime_campaign_lua_guard_registration_count)
-  if(runtime_campaign_lua_guard_group EQUAL 1)
-    set(runtime_campaign_lua_guard_expected_registration_count 40)
-  elseif(runtime_campaign_lua_guard_group EQUAL 2)
-    set(runtime_campaign_lua_guard_expected_registration_count 2)
-  else()
-    set(runtime_campaign_lua_guard_expected_registration_count 28)
-  endif()
-  if(NOT runtime_campaign_lua_guard_registration_count EQUAL
-      runtime_campaign_lua_guard_expected_registration_count)
-    message(FATAL_ERROR
-      "Deferred Lua registration guard ${runtime_campaign_lua_guard_group} must retain exactly ${runtime_campaign_lua_guard_expected_registration_count} mappings")
-  endif()
-  math(EXPR runtime_campaign_lua_guard_remainder_start
-    "${runtime_campaign_lua_guard_end} + 6")
-  string(SUBSTRING "${runtime_campaign_lua_guard_after_start}"
-    ${runtime_campaign_lua_guard_remainder_start} -1
-    runtime_campaign_lua_guard_tail)
 endforeach()
 
 set(runtime_campaign_lua_registration_order_tail
-  "${runtime_campaign_lua_callback_registration_normalized}")
+  "${runtime_campaign_lua_initializer_normalized}")
 set(runtime_campaign_lua_registration_index 0)
-foreach(runtime_campaign_lua_guarded_registration IN LISTS
-    runtime_campaign_lua_guarded_registrations)
+foreach(runtime_campaign_lua_selected_registration IN LISTS
+    runtime_campaign_lua_selected_registrations)
   string(REPLACE "|" ";" runtime_campaign_lua_registration_fields
-    "${runtime_campaign_lua_guarded_registration}")
+    "${runtime_campaign_lua_selected_registration}")
   list(GET runtime_campaign_lua_registration_fields 0
     runtime_campaign_lua_registration_public_name)
   list(GET runtime_campaign_lua_registration_fields 1
     runtime_campaign_lua_registration_function)
   set(runtime_campaign_lua_registration_fragment
     "lua_register(L, \"${runtime_campaign_lua_registration_public_name}\", ${runtime_campaign_lua_registration_function});")
-  if(runtime_campaign_lua_registration_index LESS 40)
-    set(runtime_campaign_lua_registration_group 1)
-  elseif(runtime_campaign_lua_registration_index LESS 42)
-    set(runtime_campaign_lua_registration_group 2)
-  else()
-    set(runtime_campaign_lua_registration_group 3)
-  endif()
-  string(FIND
-    "${runtime_campaign_lua_guard_body_${runtime_campaign_lua_registration_group}}"
-    "${runtime_campaign_lua_registration_fragment}"
-    runtime_campaign_lua_registration_guard_position)
-  if(runtime_campaign_lua_registration_guard_position EQUAL -1)
-    message(FATAL_ERROR
-      "Deferred Lua registration ${runtime_campaign_lua_registration_public_name} escaped guard ${runtime_campaign_lua_registration_group}")
-  endif()
   string(FIND "${runtime_campaign_lua_registration_order_tail}"
     "${runtime_campaign_lua_registration_fragment}"
     runtime_campaign_lua_registration_order_position)
   if(runtime_campaign_lua_registration_order_position EQUAL -1)
     message(FATAL_ERROR
-      "Deferred Lua registration changed name, function, or order at ${runtime_campaign_lua_registration_public_name}")
+      "Runtime Lua registration changed name, function, or order at ${runtime_campaign_lua_registration_public_name}")
   endif()
   string(LENGTH "${runtime_campaign_lua_registration_fragment}"
     runtime_campaign_lua_registration_fragment_length)
@@ -8834,28 +9045,206 @@ foreach(runtime_campaign_lua_guarded_registration IN LISTS
     runtime_campaign_lua_duplicate_registration_position)
   if(NOT runtime_campaign_lua_duplicate_registration_position EQUAL -1)
     message(FATAL_ERROR
-      "Deferred Lua registration ${runtime_campaign_lua_registration_public_name} is duplicated")
+      "Runtime Lua registration ${runtime_campaign_lua_registration_public_name} is duplicated")
   endif()
   math(EXPR runtime_campaign_lua_registration_index
     "${runtime_campaign_lua_registration_index} + 1")
 endforeach()
-require_ordered_fragments(
-  runtime_campaign_lua_callback_registration_normalized
-  "Deferred Lua registrations escaped one of their exact three guard islands"
-  "#ifdef JA2UB"
-  "lua_register(L, \"AddProfileToMap\", l_InitMapProfil);"
-  "lua_register(L, \"UB_HavePersonAtGridnoStop\", l_HavePersonAtGridnoStop);"
-  "#endif"
-  "lua_register(L, \"WhoIsThere2\", l_WhoIsThere2);"
-  "#ifdef JA2UB"
-  "lua_register(L, \"EnterTacticalInFinalSector\", l_EnterTacticalInFinalSector);"
-  "lua_register(L, \"UB_EnterTacticalInFinalSector\", l_EnterTacticalInFinalSector);"
-  "#endif"
-  "lua_register(L, \"InitialProfile\", l_InitProfile);"
-  "#ifdef JA2UB"
-  "lua_register(L, \"InitialHeliGridNo1\", l_InitMercgridNo0);"
-  "lua_register(L, \"UB_InternalLocateGridNo\", l_SetInternalLocateGridNo);"
-  "#endif")
+set(runtime_campaign_lua_between_group_1_and_2
+  "WhoIsThere2|l_WhoIsThere2"
+  "WhoIs|l_WhoIs"
+  "FindUnderGroundSector|l_FindUnderGroundSector"
+  "AddEnemyToUnderGroundSector|l_AddEnemyToUnderGroundSector"
+  "FindUnderGroundSectorVisited|l_FindUnderGroundSectorVisited"
+  "SetCurrentWorldSector|l_SetCurrentWorldSector")
+set(runtime_campaign_lua_between_group_2_and_3
+  "ReStartingGame|l_ReStartingGame"
+  "SetDefaultArrivalSector|l_SetDefaultArrivalSector"
+  "GetDefaultArrivalSector|l_GetDefaultArrivalSector"
+  "SetDefaultArrivalGridNo|l_SetMercArrivalLocation"
+  "GetDefaultArrivalSectorX|l_GetDefaultArrivalSectorX"
+  "GetDefaultArrivalSectorY|l_GetDefaultArrivalSectorY"
+  "InitialProfile|l_InitProfile")
+set(runtime_campaign_lua_policy_read_fragment
+  "const CampaignLuaGlobalPolicy campaignLuaGlobalPolicy = ReadCampaignLuaGlobalPolicy(); const bool registerUnfinishedBusinessCallbacks = campaignLuaGlobalPolicy.registersUnfinishedBusinessCallbacks();")
+set(runtime_campaign_lua_registration_region
+  "lua_register(L, \"InitMercFace\", l_InitFace); ${runtime_campaign_lua_policy_read_fragment} ${runtime_campaign_lua_registration_block_1}")
+foreach(runtime_campaign_lua_common_registration IN LISTS
+    runtime_campaign_lua_between_group_1_and_2)
+  string(REPLACE "|" ";" runtime_campaign_lua_common_fields
+    "${runtime_campaign_lua_common_registration}")
+  list(GET runtime_campaign_lua_common_fields 0
+    runtime_campaign_lua_common_public_name)
+  list(GET runtime_campaign_lua_common_fields 1
+    runtime_campaign_lua_common_function)
+  string(APPEND runtime_campaign_lua_registration_region
+    " lua_register(L, \"${runtime_campaign_lua_common_public_name}\", ${runtime_campaign_lua_common_function});")
+endforeach()
+string(APPEND runtime_campaign_lua_registration_region
+  " ${runtime_campaign_lua_registration_block_2}")
+foreach(runtime_campaign_lua_common_registration IN LISTS
+    runtime_campaign_lua_between_group_2_and_3)
+  string(REPLACE "|" ";" runtime_campaign_lua_common_fields
+    "${runtime_campaign_lua_common_registration}")
+  list(GET runtime_campaign_lua_common_fields 0
+    runtime_campaign_lua_common_public_name)
+  list(GET runtime_campaign_lua_common_fields 1
+    runtime_campaign_lua_common_function)
+  string(APPEND runtime_campaign_lua_registration_region
+    " lua_register(L, \"${runtime_campaign_lua_common_public_name}\", ${runtime_campaign_lua_common_function});")
+endforeach()
+string(APPEND runtime_campaign_lua_registration_region
+  " ${runtime_campaign_lua_registration_block_3} lua_register(L, \"gubBoxerID\", l_gubBoxerID);")
+string(FIND "${runtime_campaign_lua_initializer_normalized}"
+  "${runtime_campaign_lua_registration_region}"
+  runtime_campaign_lua_registration_region_position)
+if(runtime_campaign_lua_registration_region_position EQUAL -1)
+  message(FATAL_ERROR
+    "Lua registration routing changed its exact late read or 425/40/6/2/7/28/74 boundary")
+endif()
+
+foreach(required_campaign_lua_quest_gate IN ITEMS
+    "if (bQuests == TRUE) { lua_register(L, \"SetFactTrue\", l_SetFactTrue); lua_register(L, \"SetFactFalse\", l_SetFactFalse); }"
+    "if (bQuests == TRUE) { lua_register(L, \"StartQuest\", l_StartQuest); lua_register(L, \"EndQuest\", l_EndQuest); }")
+  string(FIND "${runtime_campaign_lua_initializer_normalized}"
+    "${required_campaign_lua_quest_gate}"
+    required_campaign_lua_quest_gate_position)
+  if(required_campaign_lua_quest_gate_position EQUAL -1)
+    message(FATAL_ERROR
+      "Lua initializer changed one of its exact bQuests registration pairs")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "lua_register[(]L, \"[A-Za-z0-9_]+\", [A-Za-z_][A-Za-z0-9_]*[)]"
+  runtime_campaign_lua_initializer_registrations
+  "${runtime_campaign_lua_initializer_normalized}")
+list(LENGTH runtime_campaign_lua_initializer_registrations
+  runtime_campaign_lua_initializer_registration_count)
+string(REGEX MATCHALL "lua_register"
+  runtime_campaign_lua_initializer_registration_tokens
+  "${runtime_campaign_lua_initializer_code}")
+list(LENGTH runtime_campaign_lua_initializer_registration_tokens
+  runtime_campaign_lua_initializer_registration_token_count)
+if(NOT runtime_campaign_lua_initializer_registration_count EQUAL 582 OR
+   NOT runtime_campaign_lua_initializer_registration_token_count EQUAL 582)
+  message(FATAL_ERROR
+    "Lua initializer must retain exactly 582 direct, unshadowed registration statements")
+endif()
+set(runtime_campaign_lua_registration_pairs "")
+set(runtime_campaign_lua_common_registration_pairs "")
+set(runtime_campaign_lua_selected_registration_pairs "")
+foreach(runtime_campaign_lua_initializer_registration IN LISTS
+    runtime_campaign_lua_initializer_registrations)
+  string(REGEX REPLACE
+    "^lua_register[(]L, \"([A-Za-z0-9_]+)\", ([A-Za-z_][A-Za-z0-9_]*)[)]$"
+    "\\1|\\2" runtime_campaign_lua_initializer_pair
+    "${runtime_campaign_lua_initializer_registration}")
+  list(APPEND runtime_campaign_lua_registration_pairs
+    "${runtime_campaign_lua_initializer_pair}")
+  list(FIND runtime_campaign_lua_selected_registrations
+    "${runtime_campaign_lua_initializer_pair}"
+    runtime_campaign_lua_selected_pair_position)
+  if(runtime_campaign_lua_selected_pair_position EQUAL -1)
+    list(APPEND runtime_campaign_lua_common_registration_pairs
+      "${runtime_campaign_lua_initializer_pair}")
+  else()
+    list(APPEND runtime_campaign_lua_selected_registration_pairs
+      "${runtime_campaign_lua_initializer_pair}")
+  endif()
+endforeach()
+list(LENGTH runtime_campaign_lua_common_registration_pairs
+  runtime_campaign_lua_common_registration_pair_count)
+list(LENGTH runtime_campaign_lua_selected_registration_pairs
+  runtime_campaign_lua_selected_registration_pair_count)
+if(NOT runtime_campaign_lua_common_registration_pair_count EQUAL 512 OR
+   NOT runtime_campaign_lua_selected_registration_pair_count EQUAL 70)
+  message(FATAL_ERROR
+    "Lua initializer changed its exact 512 common plus 70 selected inventory")
+endif()
+string(JOIN "\n" runtime_campaign_lua_registration_sequence
+  ${runtime_campaign_lua_registration_pairs})
+string(JOIN "\n" runtime_campaign_lua_common_registration_sequence
+  ${runtime_campaign_lua_common_registration_pairs})
+string(JOIN "\n" runtime_campaign_lua_selected_registration_sequence
+  ${runtime_campaign_lua_selected_registration_pairs})
+string(SHA256 runtime_campaign_lua_registration_sequence_hash
+  "${runtime_campaign_lua_registration_sequence}")
+string(SHA256 runtime_campaign_lua_common_registration_sequence_hash
+  "${runtime_campaign_lua_common_registration_sequence}")
+string(SHA256 runtime_campaign_lua_selected_registration_sequence_hash
+  "${runtime_campaign_lua_selected_registration_sequence}")
+if(NOT runtime_campaign_lua_registration_sequence_hash STREQUAL
+      "44b252109458d0b20855bbee77725e97b6bbac4b88926fec25c1035d80f14b4d" OR
+   NOT runtime_campaign_lua_common_registration_sequence_hash STREQUAL
+      "0a55b56a4b18c83e53a771637d55c3daf4a6d362bc214e59af54f424f865dbb2" OR
+   NOT runtime_campaign_lua_selected_registration_sequence_hash STREQUAL
+      "ef9cb98d589a00193dc1949baeedd4be0d5c06c9049f28e670323eee6c760711")
+  message(FATAL_ERROR
+    "Lua initializer changed a public name, callback mapping, or common registration order")
+endif()
+
+foreach(runtime_campaign_lua_registration_ordinal IN ITEMS
+    "InitMercFace|l_InitFace|424"
+    "AddProfileToMap|l_InitMapProfil|425"
+    "EnterTacticalInFinalSector|l_EnterTacticalInFinalSector|471"
+    "InitialHeliGridNo1|l_InitMercgridNo0|480"
+    "UB_InternalLocateGridNo|l_SetInternalLocateGridNo|507"
+    "gubBoxerID|l_gubBoxerID|508")
+  string(REPLACE "|" ";" runtime_campaign_lua_registration_ordinal_fields
+    "${runtime_campaign_lua_registration_ordinal}")
+  list(GET runtime_campaign_lua_registration_ordinal_fields 0
+    runtime_campaign_lua_registration_ordinal_name)
+  list(GET runtime_campaign_lua_registration_ordinal_fields 1
+    runtime_campaign_lua_registration_ordinal_function)
+  list(GET runtime_campaign_lua_registration_ordinal_fields 2
+    runtime_campaign_lua_registration_expected_ordinal)
+  list(FIND runtime_campaign_lua_registration_pairs
+    "${runtime_campaign_lua_registration_ordinal_name}|${runtime_campaign_lua_registration_ordinal_function}"
+    runtime_campaign_lua_registration_actual_ordinal)
+  if(NOT runtime_campaign_lua_registration_actual_ordinal EQUAL
+      runtime_campaign_lua_registration_expected_ordinal)
+    message(FATAL_ERROR
+      "Lua registration boundary changed at ${runtime_campaign_lua_registration_ordinal_name}")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL "IniFunction[ 	\r\n]*[(]"
+  runtime_campaign_lua_initializer_executable_tokens
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_initializer_executable_tokens
+  runtime_campaign_lua_initializer_executable_token_count)
+string(REGEX MATCHALL "IniFunction[ 	\r\n]*[(]"
+  runtime_campaign_lua_initializer_textual_tokens
+  "${runtime_campaign_lua_callback_contents}")
+list(LENGTH runtime_campaign_lua_initializer_textual_tokens
+  runtime_campaign_lua_initializer_textual_token_count)
+string(REGEX MATCHALL
+  "IniFunction[ 	\r\n]*[(]_LS[.]L[(][)][ 	\r\n]*,[ 	\r\n]*TRUE[ 	\r\n]*[)]"
+  runtime_campaign_lua_initializer_scope_true_calls
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_initializer_scope_true_calls
+  runtime_campaign_lua_initializer_scope_true_call_count)
+string(REGEX MATCHALL
+  "IniFunction[ 	\r\n]*[(]L[ 	\r\n]*,[ 	\r\n]*TRUE[ 	\r\n]*[)]"
+  runtime_campaign_lua_initializer_raw_true_calls
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_initializer_raw_true_calls
+  runtime_campaign_lua_initializer_raw_true_call_count)
+string(REGEX MATCHALL
+  "IniFunction[ 	\r\n]*[(]_LS[.]L[(][)][ 	\r\n]*,[ 	\r\n]*FALSE[ 	\r\n]*[)]"
+  runtime_campaign_lua_initializer_false_calls
+  "${runtime_campaign_lua_callback_code}")
+list(LENGTH runtime_campaign_lua_initializer_false_calls
+  runtime_campaign_lua_initializer_false_call_count)
+if(NOT runtime_campaign_lua_initializer_executable_token_count EQUAL 35 OR
+   NOT runtime_campaign_lua_initializer_textual_token_count EQUAL 40 OR
+   NOT runtime_campaign_lua_initializer_scope_true_call_count EQUAL 31 OR
+   NOT runtime_campaign_lua_initializer_raw_true_call_count EQUAL 1 OR
+   NOT runtime_campaign_lua_initializer_false_call_count EQUAL 2)
+  message(FATAL_ERROR
+    "Lua initializer must retain 34 executable callers (32 true, two false) and five disabled callers")
+endif()
 
 set(runtime_campaign_lua_common_callback_names
   l_EnterTacticalInFinalSector

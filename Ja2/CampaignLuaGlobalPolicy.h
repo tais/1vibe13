@@ -14,7 +14,8 @@ struct CampaignLuaDefaultArrivalSector
 // Lua's global-setting adapter preserves the legacy per-campaign symbol
 // surface while selecting it from the live campaign. Its original five named
 // decisions mirror the former JA2UB branches in Luaglobal.cpp; the arrival
-// decisions retain LuaInitNPCs' two legacy truth paths on the same boundary.
+// decisions retain LuaInitNPCs' two legacy truth paths, and the callback
+// decision keeps its three public registration groups on the same boundary.
 class CampaignLuaGlobalPolicy
 {
 public:
@@ -55,6 +56,11 @@ public:
 		return isUnfinishedBusiness();
 	}
 
+	constexpr bool registersUnfinishedBusinessCallbacks() const noexcept
+	{
+		return isUnfinishedBusiness();
+	}
+
 	constexpr bool mirrorsDefaultArrivalSectorToUnfinishedBusinessState()
 		const noexcept
 	{
@@ -88,6 +94,12 @@ static_assert(CampaignLuaGlobalPolicy(GameCampaign::UnfinishedBusiness)
 	.exportsUnfinishedBusinessTestGlobal());
 static_assert(!CampaignLuaGlobalPolicy(GameCampaign::Arulco)
 	.exportsUnfinishedBusinessCharacterAndItemGlobals());
+static_assert(!CampaignLuaGlobalPolicy(GameCampaign::Arulco)
+	.registersUnfinishedBusinessCallbacks());
+static_assert(CampaignLuaGlobalPolicy(GameCampaign::UnfinishedBusiness)
+	.registersUnfinishedBusinessCallbacks());
+static_assert(!CampaignLuaGlobalPolicy(static_cast<GameCampaign>(255))
+	.registersUnfinishedBusinessCallbacks());
 static_assert(!CampaignLuaGlobalPolicy(GameCampaign::Arulco)
 	.mirrorsDefaultArrivalSectorToUnfinishedBusinessState());
 static_assert(CampaignLuaGlobalPolicy(GameCampaign::UnfinishedBusiness)
