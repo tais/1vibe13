@@ -324,6 +324,18 @@ target_include_directories(campaign_mercenary_arrival_content_tests
 add_test(NAME campaign_mercenary_arrival_content
   COMMAND campaign_mercenary_arrival_content_tests)
 
+# Lua-authored arrival settings cross a typed, write-only application seam.
+# This dependency-free target pins all seven slots plus Jerry's signed
+# positive/negative/zero mutation contract without exposing GAME_UB_OPTIONS.
+add_executable(campaign_mercenary_arrival_mutation_tests
+  campaign_mercenary_arrival_mutation_tests.cpp)
+target_include_directories(campaign_mercenary_arrival_mutation_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+target_compile_features(campaign_mercenary_arrival_mutation_tests
+  PRIVATE cxx_std_17)
+add_test(NAME campaign_mercenary_arrival_mutation
+  COMMAND campaign_mercenary_arrival_mutation_tests)
+
 # M.E.R.C. account, pricing, gear, availability, and Speck quote records are
 # selected at runtime. This data-free target pins both complete policy paths
 # without relying on the host executable's campaign compile definition.

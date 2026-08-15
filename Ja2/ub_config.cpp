@@ -48,6 +48,7 @@
 	#include "Text.h"
 	#include "GameSettings.h"
 	#include "CampaignMercenaryArrivalContent.h"
+	#include "CampaignMercenaryArrivalMutators.h"
 	#include "CampaignStrategicAiScenarioPolicy.h"
 	#include "CampaignStrategicSectorScriptContent.h"
 	#include "CampaignTacticalScenarioContent.h"
@@ -156,6 +157,84 @@ CampaignTacticalScenarioContent ReadCampaignTacticalScenarioContent()
 bool ReadCampaignHandleAddingEnemiesToTunnelMaps()
 {
 	return gGameUBOptions.HandleAddingEnemiesToTunnelMaps == TRUE;
+}
+
+void SetCampaignMercenaryHelicopterArrivalGrid(
+	CampaignMercenaryHelicopterArrivalSlot slot, std::uint32_t gridNo)
+{
+	switch (slot)
+	{
+		case CampaignMercenaryHelicopterArrivalSlot::First:
+			gGameUBOptions.InitialHeliGridNo[0] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Second:
+			gGameUBOptions.InitialHeliGridNo[1] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Third:
+			gGameUBOptions.InitialHeliGridNo[2] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Fourth:
+			gGameUBOptions.InitialHeliGridNo[3] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Fifth:
+			gGameUBOptions.InitialHeliGridNo[4] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Sixth:
+			gGameUBOptions.InitialHeliGridNo[5] = gridNo;
+			return;
+		case CampaignMercenaryHelicopterArrivalSlot::Seventh:
+			gGameUBOptions.InitialHeliGridNo[6] = gridNo;
+			return;
+	}
+}
+
+void SetCampaignMercenaryJerryArrivalGrid(std::uint32_t gridNo)
+{
+	gGameUBOptions.JerryGridNo = gridNo;
+}
+
+void SetCampaignMercenaryLaptopQuestEnabled(bool enabled)
+{
+	gGameUBOptions.LaptopQuestEnabled = enabled;
+}
+
+void ConfigureCampaignMercenaryJerry(
+	bool includesJerry, std::int32_t requestedGridNo)
+{
+	const CampaignMercenaryJerryMutation mutation =
+		PlanCampaignMercenaryJerryMutation(includesJerry, requestedGridNo);
+	gGameUBOptions.InJerry = mutation.includesJerry;
+	switch (mutation.gridUpdate)
+	{
+		case CampaignMercenaryJerryGridUpdate::Requested:
+			gGameUBOptions.JerryGridNo = mutation.gridNo;
+			return;
+		case CampaignMercenaryJerryGridUpdate::LegacyFallback:
+			gGameUBOptions.JerryGridNo = mutation.gridNo;
+			return;
+		case CampaignMercenaryJerryGridUpdate::Preserve:
+			return;
+	}
+}
+
+void SetCampaignMercenaryJerryQuotesEnabled(bool enabled)
+{
+	gGameUBOptions.JerryQuotes = enabled;
+}
+
+void SetCampaignMercenaryHelicopterCrashEnabled(bool enabled)
+{
+	gGameUBOptions.InGameHeliCrash = enabled;
+}
+
+void SetCampaignMercenaryHelicopterEnabled(bool enabled)
+{
+	gGameUBOptions.InGameHeli = enabled;
+}
+
+void SetCampaignMercenaryOffscreenArrivalGrid(std::uint32_t gridNo)
+{
+	gGameUBOptions.LOCATEGRIDNO = gridNo;
 }
 
 #define				GAME_UB_OPTIONS_FILE	"UB_Options.ini"

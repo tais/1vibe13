@@ -59,14 +59,11 @@
 
 #include "GameInitOptionsScreen.h"
 
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "Ja25Update.h"
-#include "ub_config.h"
-#include "Ja25Update.h"
+#include "CampaignMercenaryArrivalMutators.h"
 #include "End Game.h"
-#endif
 
 #include "Intro.h"
 #include "Queen Command.h"
@@ -131,8 +128,6 @@ static int l_GetDefaultArrivalSectorY(lua_State* L);
 
 static int l_InitProfile(lua_State* L);
 
-#ifdef JA2UB
-
 static int l_InitMercgridNo0(lua_State* L);
 static int l_InitMercgridNo1(lua_State* L);
 static int l_InitMercgridNo2(lua_State* L);
@@ -195,8 +190,6 @@ static int l_HandleSeeingFortifiedDoor(lua_State* L);
 static int l_HandlePlayerHittingSwitchToLaunchMissles(lua_State* L);
 static int l_HavePersonAtGridnoStop(lua_State* L);
 
-#endif
-
 static int l_WhoIsThere2(lua_State* L);
 
 static int l_GuaranteeAtLeastXItemsOfIndex(lua_State* L);
@@ -208,9 +201,7 @@ static int l_FindUnderGroundSector(lua_State* L);
 static int l_AddEnemyToUnderGroundSector(lua_State* L);
 static int l_FindUnderGroundSectorVisited(lua_State* L);
 
-#ifdef JA2UB
 static int l_EnterTacticalInFinalSector(lua_State* L);
-#endif
 
 static int l_ReStartingGame(lua_State* L);
 
@@ -1936,7 +1927,6 @@ static int l_StartVideo(lua_State* L)
 }
 
 //------------------- End intro -----------
-#ifdef JA2UB
 static int l_EnterTacticalInFinalSector(lua_State* L)
 {
 
@@ -1944,7 +1934,6 @@ static int l_EnterTacticalInFinalSector(lua_State* L)
 
 	return 0;
 }
-#endif
 
 static int l_ReStartingGame(lua_State* L)
 {
@@ -2137,7 +2126,6 @@ static int l_WhoIs(lua_State* L)
 	return 1;
 }
 
-#ifdef JA2UB
 static int l_HandlePlayerHittingSwitchToLaunchMissles(lua_State* L)
 {
 	HandlePlayerHittingSwitchToLaunchMissles();
@@ -2312,8 +2300,6 @@ static int l_Ja25SaveStructJohnKulbaIsInGame(lua_State* L)
 
 	return 0;
 }
-
-#endif
 
 //-------------- End UB ----------------
 
@@ -3045,13 +3031,13 @@ BOOLEAN LetLuaHourlyQuestUpdate(UINT8 Init)
 //object
 
 //---------------
-#ifdef JA2UB
 static int l_InitMercgridNo0(lua_State* L)
 {
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[0] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::First, sGridNo);
 	}
 
 	return 0;
@@ -3062,7 +3048,8 @@ static int l_InitMercgridNo1(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[1] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Second, sGridNo);
 	}
 
 	return 0;
@@ -3073,7 +3060,8 @@ static int l_InitMercgridNo2(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[2] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Third, sGridNo);
 	}
 
 	return 0;
@@ -3084,7 +3072,8 @@ static int l_InitMercgridNo3(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[3] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Fourth, sGridNo);
 	}
 
 	return 0;
@@ -3095,7 +3084,8 @@ static int l_InitMercgridNo4(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[4] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Fifth, sGridNo);
 	}
 
 	return 0;
@@ -3106,7 +3096,8 @@ static int l_InitMercgridNo5(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[5] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Sixth, sGridNo);
 	}
 
 	return 0;
@@ -3117,7 +3108,8 @@ static int l_InitMercgridNo6(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.InitialHeliGridNo[6] = sGridNo;
+		SetCampaignMercenaryHelicopterArrivalGrid(
+			CampaignMercenaryHelicopterArrivalSlot::Seventh, sGridNo);
 	}
 
 	return 0;
@@ -3128,7 +3120,7 @@ static int l_InitJerryGridNo(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.JerryGridNo = sGridNo;
+		SetCampaignMercenaryJerryArrivalGrid(sGridNo);
 	}
 
 	return 0;
@@ -3222,7 +3214,7 @@ static int l_setLaptopQuest(lua_State* L)
 	if (lua_gettop(L))
 	{
 		bool set = lua_toboolean(L, 1);
-		gGameUBOptions.LaptopQuestEnabled = set;
+		SetCampaignMercenaryLaptopQuestEnabled(set);
 	}
 
 	return 0;
@@ -3235,12 +3227,7 @@ static int l_setInJerry(lua_State* L)
 		bool set = lua_toboolean(L, 1);
 		INT32 sGridNo = lua_tointeger(L, 2);
 
-		gGameUBOptions.InJerry = set;
-
-		if (sGridNo > 0)
-			gGameUBOptions.JerryGridNo = sGridNo;
-		else if (sGridNo < 0)
-			gGameUBOptions.JerryGridNo = 15943;
+		ConfigureCampaignMercenaryJerry(set, sGridNo);
 	}
 	return 0;
 }
@@ -3250,7 +3237,7 @@ static int l_setJerryQuotes(lua_State* L)
 	if (lua_gettop(L))
 	{
 		bool set = lua_toboolean(L, 1);
-		gGameUBOptions.JerryQuotes = set;
+		SetCampaignMercenaryJerryQuotesEnabled(set);
 	}
 
 	return 0;
@@ -3261,7 +3248,7 @@ static int l_setInGameHeliCrash(lua_State* L)
 	if (lua_gettop(L))
 	{
 		bool set = lua_toboolean(L, 1);
-		gGameUBOptions.InGameHeliCrash = set;
+		SetCampaignMercenaryHelicopterCrashEnabled(set);
 	}
 
 	return 0;
@@ -3272,7 +3259,7 @@ static int l_setInGameHeli(lua_State* L)
 	if (lua_gettop(L))
 	{
 		bool set = lua_toboolean(L, 1);
-		gGameUBOptions.InGameHeli = set;
+		SetCampaignMercenaryHelicopterEnabled(set);
 	}
 
 	return 0;
@@ -3283,12 +3270,11 @@ static int l_SetInternalLocateGridNo(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 sGridNo = lua_tointeger(L, 1);
-		gGameUBOptions.LOCATEGRIDNO = sGridNo;
+		SetCampaignMercenaryOffscreenArrivalGrid(sGridNo);
 	}
 
 	return 0;
 }
-#endif
 
 
 static int l_ExecuteTacticalTextBox(lua_State* L)
@@ -3377,35 +3363,34 @@ static int l_SetDefaultArrivalSector(lua_State* L)
 			gsMercArriveSectorX = sSectorX;
 			gsMercArriveSectorY = sSectorY;
 
-#ifdef JA2UB
-			JA2_5_START_SECTOR_X = sSectorX;
-			JA2_5_START_SECTOR_Y = sSectorY;
-#endif
+			if (ReadCampaignLuaGlobalPolicy()
+				.mirrorsDefaultArrivalSectorToUnfinishedBusinessState())
+			{
+				JA2_5_START_SECTOR_X = sSectorX;
+				JA2_5_START_SECTOR_Y = sSectorY;
+			}
 			gGameExternalOptions.ubDefaultArrivalSectorX = sSectorX;
 			gGameExternalOptions.ubDefaultArrivalSectorY = sSectorY;
 		}
 		else
 		{
 
-#ifdef JA2UB
-			JA2_5_START_SECTOR_X = 7;
-			JA2_5_START_SECTOR_Y = 8;
+			const CampaignLuaGlobalPolicy campaignPolicy =
+				ReadCampaignLuaGlobalPolicy();
+			const CampaignLuaDefaultArrivalSector defaultSector =
+				campaignPolicy.invalidDefaultArrivalSector();
+			if (campaignPolicy
+				.mirrorsDefaultArrivalSectorToUnfinishedBusinessState())
+			{
+				JA2_5_START_SECTOR_X = defaultSector.x;
+				JA2_5_START_SECTOR_Y = defaultSector.y;
+			}
 
-			gsMercArriveSectorX = 7;
-			gsMercArriveSectorY = 8;
+			gsMercArriveSectorX = defaultSector.x;
+			gsMercArriveSectorY = defaultSector.y;
 
-			gGameExternalOptions.ubDefaultArrivalSectorX = 7;
-			gGameExternalOptions.ubDefaultArrivalSectorY = 8;
-
-#else
-
-			gsMercArriveSectorX = 9;
-			gsMercArriveSectorY = 1;
-
-
-			gGameExternalOptions.ubDefaultArrivalSectorX = 9;
-			gGameExternalOptions.ubDefaultArrivalSectorY = 1;
-#endif
+			gGameExternalOptions.ubDefaultArrivalSectorX = defaultSector.x;
+			gGameExternalOptions.ubDefaultArrivalSectorY = defaultSector.y;
 		}
 	}
 
