@@ -273,7 +273,7 @@ void IMPGearDisplay( )
 			gIMPGearGun1 = currentWeapon;
 
 			std::vector<std::pair<INT16, STR16> > entries;
-			entries.push_back(std::make_pair(0, pLongAssignmentStrings[60])); //Reusing AssignmentString for "Empty" text
+			entries.push_back(std::make_pair(0, pLongAssignmentStrings[ASSIGNMENT_EMPTY])); //Reusing AssignmentString for "Empty" text
 
 			if (Item[gIMPGearGun1].usItemClass & IC_GUN)
 			{
@@ -325,7 +325,7 @@ void IMPGearDisplay( )
 
 
 			std::vector<std::pair<INT16, STR16> > entries;
-			entries.push_back(std::make_pair(0, pLongAssignmentStrings[60])); //Reusing AssignmentString for "Empty" text
+			entries.push_back(std::make_pair(0, pLongAssignmentStrings[ASSIGNMENT_EMPTY])); //Reusing AssignmentString for "Empty" text
 
 
 			if (Item[gIMPGearGun2].usItemClass & IC_GUN)
@@ -376,7 +376,7 @@ void IMPGearDisplay( )
 			gIMPGearGun3 = currentWeapon;
 
 			std::vector<std::pair<INT16, STR16> > entries;
-			entries.push_back(std::make_pair(0, pLongAssignmentStrings[60])); //Reusing AssignmentString for "Empty" text
+			entries.push_back(std::make_pair(0, pLongAssignmentStrings[ASSIGNMENT_EMPTY])); //Reusing AssignmentString for "Empty" text
 
 			if (Item[gIMPGearGun3].usItemClass & IC_GUN)
 			{
@@ -1306,7 +1306,7 @@ void DistributePossibleItemsToVectors(void)
 	// it is always possible to not select something
 	for (int i = 0; i < NUM_INV_SLOTS; ++i)
 	{
-		gIMPPossibleItems[i].push_back(std::make_pair(0, pLongAssignmentStrings[60])); //Reusing AssignmentString for "Empty" text
+		gIMPPossibleItems[i].push_back(std::make_pair(0, pLongAssignmentStrings[ASSIGNMENT_EMPTY])); //Reusing AssignmentString for "Empty" text
 		SetChoiceForPocket(i, 0, 1); // Initialize all selections to empty at first
 	}
 

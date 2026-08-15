@@ -76,8 +76,9 @@ FALLBACK_POLICY = {
 # This is a ceiling, not a target.  Regeneration may remove grandfathered
 # language/symbol mismatches, but it must not turn a newly introduced mismatch
 # into accepted debt merely because the schema was rewritten alongside it.
-MAX_COMPATIBILITY_DEBT_SYMBOLS = 57
-# Campaign/build choices moved behind CompiledConditionalText.h. A catalog may
+MAX_COMPATIBILITY_DEBT_SYMBOLS = 42
+# Campaign/build choices moved behind the compiled conditional policy/selector
+# seam. A catalog may
 # now condition only its own legacy language body; configuration guards are no
 # longer part of the ABI shape and are rejected here.
 CATALOG_CONFIGURATION_MACROS = frozenset()
@@ -127,64 +128,92 @@ def _blank(character: str) -> str:
     return "\n" if character == "\n" else " "
 
 
+RAW_STRING_START = re.compile(
+    r'(?:u8|u|U|L)?R"(?P<delimiter>[^ ()\\\t\v\f\r\n]{0,16})\('
+)
+
+
+def _raw_string_end(text: str, index: int) -> int | None:
+    if index and (text[index - 1].isalnum() or text[index - 1] == "_"):
+        return None
+    match = RAW_STRING_START.match(text, index)
+    if not match:
+        return None
+    closing = ")" + match.group("delimiter") + '"'
+    closing_index = text.find(closing, match.end())
+    if closing_index < 0:
+        raise SchemaError("unterminated raw string literal")
+    return closing_index + len(closing)
+
+
+def _blank_span(output: list[str], text: str, start: int, end: int) -> None:
+    for index in range(start, end):
+        output[index] = _blank(text[index])
+
+
+def _is_numeric_separator(text: str, index: int) -> bool:
+    if not (
+        index > 0
+        and index + 1 < len(text)
+        and text[index - 1] in "0123456789abcdefABCDEF"
+        and text[index + 1] in "0123456789abcdefABCDEF"
+    ):
+        return False
+    if text[max(0, index - 2):index] == "u8" and (
+        index == 2
+        or not (text[index - 3].isalnum() or text[index - 3] == "_")
+    ):
+        return False
+    return True
+
+
 def lexical_mask(text: str) -> str:
     """Blank comments and literal bodies while retaining layout and delimiters."""
 
     output = list(text)
     index = 0
-    state = "code"
     while index < len(text):
-        char = text[index]
-        next_char = text[index + 1] if index + 1 < len(text) else ""
-        if state == "code":
-            if char == "/" and next_char == "/":
-                output[index] = output[index + 1] = " "
-                index += 2
-                state = "line-comment"
-                continue
-            if char == "/" and next_char == "*":
-                output[index] = output[index + 1] = " "
-                index += 2
-                state = "block-comment"
-                continue
-            if char == '"':
-                state = "string"
-            elif char == "'":
-                state = "character"
+        raw_end = _raw_string_end(text, index)
+        if raw_end is not None:
+            _blank_span(output, text, index, raw_end)
+            index = raw_end
+            continue
+        if text.startswith("//", index):
+            end = text.find("\n", index + 2)
+            end = len(text) if end < 0 else end
+            _blank_span(output, text, index, end)
+            index = end
+            continue
+        if text.startswith("/*", index):
+            closing = text.find("*/", index + 2)
+            if closing < 0:
+                raise SchemaError("unterminated block comment")
+            end = closing + 2
+            _blank_span(output, text, index, end)
+            index = end
+            continue
+        quote = text[index]
+        numeric_separator = quote == "'" and _is_numeric_separator(text, index)
+        if quote not in {'"', "'"} or numeric_separator:
             index += 1
             continue
-        if state == "line-comment":
-            output[index] = _blank(char)
-            if char == "\n":
-                state = "code"
-            index += 1
-            continue
-        if state == "block-comment":
-            if char == "*" and next_char == "/":
-                output[index] = output[index + 1] = " "
-                index += 2
-                state = "code"
+        end = index + 1
+        while end < len(text):
+            if text[end] == "\\":
+                end += 2
                 continue
-            output[index] = _blank(char)
-            index += 1
-            continue
-        quote = '"' if state == "string" else "'"
-        if char == "\\":
-            output[index] = " "
-            if index + 1 < len(text):
-                output[index + 1] = _blank(text[index + 1])
-            index += 2
-            continue
-        if char == quote:
-            state = "code"
-        elif char != "\n":
-            output[index] = " "
-        index += 1
-
-    if state == "block-comment":
-        raise SchemaError("unterminated block comment")
-    if state in {"string", "character"}:
-        raise SchemaError(f"unterminated {state} literal")
+            if text[end] == quote:
+                end += 1
+                break
+            end += 1
+        else:
+            kind = "string" if quote == '"' else "character"
+            raise SchemaError(f"unterminated {kind} literal")
+        # Keep ordinary quote delimiters for existing parser consumers while
+        # blanking the complete body. Raw strings above are blanked wholesale
+        # because their multiline payload may impersonate source structure.
+        _blank_span(output, text, index + 1, max(index + 1, end - 1))
+        index = end
     return "".join(output)
 
 
@@ -299,8 +328,15 @@ def conditional_layout(raw_definition: str) -> list[str]:
     return profile
 
 
-def parse_definitions(text: str, source_name: str) -> dict[str, dict]:
-    masked = lexical_mask(text)
+def parse_definitions(
+    text: str,
+    source_name: str,
+    *,
+    masked: str | None = None,
+) -> dict[str, dict]:
+    masked = lexical_mask(text) if masked is None else masked
+    if len(masked) != len(text):
+        raise SchemaError(f"{source_name}: lexical mask changed source length")
     depths = _depth_at_positions(masked)
     definitions: dict[str, dict] = {}
     for match in SOURCE_DEFINITION.finditer(masked):
@@ -381,6 +417,11 @@ def _evaluate_expression(expression: str, defined: set[str]) -> bool:
     )
     expression = expression.replace("&&", " and ").replace("||", " or ")
     expression = re.sub(r"!(?!=)", " not ", expression)
+    expression = re.sub(
+        r"\b\d+\b",
+        lambda match: "False" if int(match.group(0)) == 0 else "True",
+        expression,
+    )
     if re.search(r"[^\s()TrueFalsandornot]", expression):
         raise SchemaError(f"unsupported preprocessor expression: {expression!r}")
     try:
@@ -815,7 +856,8 @@ def validate_compatibility_debt(debt: Mapping) -> list[str]:
                         )
     if debt_symbol_count > MAX_COMPATIBILITY_DEBT_SYMBOLS:
         issues.append(
-            "schema: catalog compatibility debt grew from the 57-symbol ceiling "
+            "schema: catalog compatibility debt grew from the "
+            f"{MAX_COMPATIBILITY_DEBT_SYMBOLS}-symbol ceiling "
             f"to {debt_symbol_count}"
         )
     return issues

@@ -849,10 +849,11 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  # Build-free shape, exact conditioned-value, and ordered GameStrings export
-  # gates for all eight compiled catalogs. These remain mandatory even while
-  # the legacy foreign executable matrix is allowed to fail, and give
-  # developers one named no-build target.
+  # Build-free shape, exact conditioned-value, ordered GameStrings export,
+  # source-derived limits, and exhaustive raw-range/pointer-entry gates for all
+  # compiled catalogs. These remain mandatory even while the legacy foreign
+  # executable matrix is allowed to fail, and give developers one named
+  # no-build target.
   add_custom_target(i18n_text_schema_check
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_SOURCE_DIR}/tools/check_i18n_text_schema.py

@@ -52,7 +52,7 @@ the engine must not contain SDL types in its public domain model.
   The first text migration slice now commits a canonical 506-symbol ABI schema
   and validates all eight catalogs across JA2/JA2UB and release/debug without a
   build. Duplicate declarations and functions are normalized separately,
-  array/mutability shapes are explicit, and 57 existing foreign
+  array/mutability shapes are explicit, and 42 existing foreign
   compatibility gaps are exact ratcheted debt. English fallback is permitted
   only for future keys explicitly marked optional; the current linker and
   immutable `g_lang` perform no fallback or runtime selection.
@@ -107,13 +107,20 @@ the engine must not contain SDL types in its public domain model.
   `g_lang`, mutable globals, or archive layout.
   The exporter prerequisite now commits a source-only ordered manifest for all
   238 `GameStrings` sections: 224 selected legacy mappings and those 14 pack
-  mappings. It pins each range and storage shape, 33 exported foreign-catalog
-  compatibility pairs, the exact 14 pairs whose ranges currently exceed their
-  selected arrays, and 14 exporter-only tables totaling 85 entries per
-  language. It also proves startup export precedes string import and later
-  external-text loading. Runtime behavior and the eight textual language-body
-  includes remain unchanged; the selected-catalog adapter is explicitly
-  blocked until the 14 unsafe ranges have defined, golden-covered behavior.
+  mappings. It pins each range and storage shape, 18 exported foreign-catalog
+  compatibility pairs, and 14 exporter-only tables totaling 85 entries per
+  language. Its fail-closed raw textual-copy gate covers all 224 legacy sections
+  across eight languages and four quadrants: 7,168 comparisons, with zero unsafe
+  sections, language pairs, quadrant failures, or potential OOB reads. The 19
+  earlier foreign repairs plus 104 assignment, trap, and terrain inserts occupy
+  their canonical semantic ordinals, with exact nonempty goldens and alignment
+  anchors; Italian GIO is aligned at 69 entries and no longer needs conditional
+  index overrides. Live provider enums/macros own all 80 symbolic limits, while
+  85,760 selected pointer entries are restricted to direct wide literals or 328
+  validated conditional selectors. It also proves startup export precedes
+  string import and later external-text loading. Runtime publication and the
+  eight textual language-body includes remain unchanged; the selected-catalog
+  adapter prerequisite is explicitly ready while implementation remains staged.
 - `ContentRegistry` validates package identity, required engine API version,
   ordered requirements, optional requirements, conflicts, and weak ordering
   relationships. Relationships may target packages that have not been

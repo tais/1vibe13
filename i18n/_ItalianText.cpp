@@ -3,11 +3,11 @@
 
 	#if defined( ITALIAN )
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2327,6 +2327,9 @@ CHAR16 Message[][STRING_LENGTH] =
 	L"Turno dei Bloodcat",
 	L"automatic",
 	L"no full auto",
+	L"accurate",	// TODO.Translate
+	L"inaccurate",	// TODO.Translate
+	L"no semi auto",	// TODO.Translate
 	L"The enemy has no more items to steal!",
 	L"The enemy has no item in its hand!",
 // TODO.Translate
@@ -2612,6 +2615,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -2673,6 +2678,7 @@ STR16 pLongAssignmentStrings[] =
 	L"Studente",
 	L"Get Item",	// get items	// TODO.Translate
 	L"Staff Facility",		// TODO.Translate
+	L"Eat",
 	L"Rest at Facility",	// TODO.Translate
 	L"Interrogate prisoners",		// Flugente: interrogate prisoners TODO.Translate
 	L"Morto",
@@ -2701,6 +2707,8 @@ STR16 pLongAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",	// TODO.Translate
 	L"Exploration",	// TODO.Translate
+	L"Event",// rftr: merc is on a mini event // TODO: translate
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -3358,6 +3366,8 @@ STR16 pDoorTrapStrings[] =
 	L"una trappola elettrica",
 	L"una trappola con sirena",
 	L"una trappola con allarme insonoro",
+	L"una trappola con sirena",
+	L"una trappola elettrica",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3472,6 +3482,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"Rifugio",				//The shelter underneath the queen's palace
 	L"",							//Unused
+	L"Final Complex", // TODO.Translate
+	L"Guard Post", // TODO.Translate
+	L"Crash Site", // TODO.Translate
+	L"Power Plant", // TODO.Translate
+	L"Mountains", // TODO.Translate
+	L"Unknown", // TODO.Translate
 };
 
 STR16 gpStrategicString[] =
@@ -4043,6 +4059,7 @@ CHAR16 TacticalStr[][ MED_STRING_LENGTH ] =
 	L"ESERCITO",
 	L"CIVILE",
 	L"ZOMBIE",		// TODO.Translate
+	L"PRISONER",	// TODO.Translate
 	L"Settore di uscita",
 	L"OK",
 	L"Annulla",
@@ -4172,6 +4189,7 @@ CHAR16 TacticalStr[][ MED_STRING_LENGTH ] =
 	L"%s picked up %s",	// TODO.Translate
 
 	L"%s has stopped chatting with %s", // TODO.Translate
+	L"Attempt to turn", // TODO.Translate
 };
 
 //Varying helptext explains (for the "Go to Sector/Map" checkbox) what will happen given different circumstances in the "exiting sector" interface.
@@ -5126,6 +5144,8 @@ STR16 pBookMarkStrings[] =
 	L"Fiorista",
 	L"Assicurazione",
 	L"Annulla",
+	L"Encyclopedia",	// TODO.Translate
+	L"Briefing Room",	// TODO.Translate
 	L"Campaign History",	// TODO.Translate
 	L"MeLoDY",
 	L"WHO",
@@ -5133,6 +5153,7 @@ STR16 pBookMarkStrings[] =
 	L"Militia Overview",	// TODO.Translate
 	L"R.I.S.",
 	L"Factories",	// TODO.Translate
+	L"A.R.C.",	// TODO.Translate
 };
 
 STR16 pBookmarkTitle[] =
@@ -6677,13 +6698,13 @@ STR16	gzGIOScreenText[] =
 		L"On"),
 	L"Platinum", //Placeholder English
 	L"Opzioni delle armi",
-	L"Available Arsenal", // changed by SANDRO
 	L"Varietà di armi",
 	L"Normale",
 	L"Livello di difficoltà",
 	L"Principiante",
 	L"Esperto",
 	L"Professionista",
+	L"INSANE",
 	L"Start",		// TODO.Translate
 	L"Annulla",
 	L"Difficoltà extra",
@@ -6695,7 +6716,6 @@ STR16	gzGIOScreenText[] =
 	L"Great",
 	L"Excellent",
 	L"Awesome",
-	L"INSANE",
 	L"Inventory / Attachments",	// TODO.Translate
 	L"NOT USED",
 	L"NOT USED",

@@ -14,23 +14,7 @@
   "retired_catalog_guard_count": 58,
   "conditioned_entry_count": 98,
   "literal_alternative_count": 196,
-  "legacy_index_overrides": [
-    {
-      "language": "Italian",
-      "key": "TerroristOptionsLabel",
-      "legacy_index": 43
-    },
-    {
-      "language": "Italian",
-      "key": "TerroristOptionsFirstChoice",
-      "legacy_index": 44
-    },
-    {
-      "language": "Italian",
-      "key": "TerroristOptionsSecondChoice",
-      "legacy_index": 45
-    }
-  ],
+  "legacy_index_overrides": [],
   "guard_groups": [
     {
       "name": "CountryNames",

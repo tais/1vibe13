@@ -9,6 +9,7 @@
 #include "Keys.h"
 #include "Merc Contract.h"
 #include "Campaign Types.h"
+#include "GameSettings.h"
 #include "finances.h"
 #include "laptop.h"
 #include <language.hpp>
@@ -141,6 +142,11 @@ void ExportTextPackTable(vfs::PropertyContainer& props,
 
 bool Loc::ExportStrings()
 {
+#ifdef static_assert
+#error "GameStrings export limits require the built-in static_assert keyword"
+#endif
+#include "ExportStringLimitContract.inc"
+
 	vfs::PropertyContainer::TagMap tmap;
 	//tmap.Container(L"LocalizedStrings");
 	//tmap.Section(L"Topic");
@@ -151,7 +157,7 @@ bool Loc::ExportStrings()
 	vfs::PropertyContainer props;
 
 	//not_required ExportSection(props, L"Ja2Credits", Loc::pCreditsJA2113, 0, 7);
-	ExportSection(props, L"WeaponType",					Loc::WeaponType,					0,	MAXITEMS);
+	ExportSection(props, L"WeaponType",					Loc::WeaponType,					0,	GUN_TYPES_MAX);
 	ExportSection(props, L"TeamTurn",					Loc::TeamTurnString,				0,	10);
 	ExportSection(props, L"Message",					Loc::Message,						0,	TEXT_NUM_STR_MESSAGE);
 	ExportSection(props, L"TownNames",					Loc::pTownNames,					0,	MAX_TOWNS);
@@ -277,8 +283,8 @@ bool Loc::ExportStrings()
 	ExportSection(props, L"MapPlot",							Loc::pMapPlotStrings,						0,	5);
 	ExportSection(props, L"Bullseye",							Loc::pBullseyeStrings,						0,	5);
 	ExportSection(props, L"MiscMapScreenMouseRegionHelp",		Loc::pMiscMapScreenMouseRegionHelpText,		0,	3);
-	ExportSection(props, L"MercHeLeave",						Loc::pMercHeLeaveString,					0,	5);
-	ExportSection(props, L"MercSheLeave",						Loc::pMercSheLeaveString,					0,	5);
+	ExportSection(props, L"MercHeLeave",						Loc::pMercHeLeaveString,					0,	2);
+	ExportSection(props, L"MercSheLeave",						Loc::pMercSheLeaveString,					0,	2);
 	ExportSection(props, L"MercContractOver",					Loc::pMercContractOverStrings,				0,	5);
 
 	ExportSection(props, L"ImpPopUp",					Loc::pImpPopUpStrings,				0,	12);

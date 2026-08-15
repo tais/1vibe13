@@ -7648,27 +7648,27 @@
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
-            "5"
+            "7"
           ],
-          "initializer_entries": 5
+          "initializer_entries": 7
         },
         "ja2-debug": {
           "effective_dimensions": [
-            "5"
+            "7"
           ],
-          "initializer_entries": 5
+          "initializer_entries": 7
         },
         "ja2ub-release": {
           "effective_dimensions": [
-            "5"
+            "7"
           ],
-          "initializer_entries": 5
+          "initializer_entries": 7
         },
         "ja2ub-debug": {
           "effective_dimensions": [
-            "5"
+            "7"
           ],
-          "initializer_entries": 5
+          "initializer_entries": 7
         }
       },
       "declaration": "Text.h"
@@ -9088,27 +9088,27 @@
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
-            "41"
+            "47"
           ],
-          "initializer_entries": 41
+          "initializer_entries": 47
         },
         "ja2-debug": {
           "effective_dimensions": [
-            "41"
+            "47"
           ],
-          "initializer_entries": 41
+          "initializer_entries": 47
         },
         "ja2ub-release": {
           "effective_dimensions": [
-            "41"
+            "47"
           ],
-          "initializer_entries": 41
+          "initializer_entries": 47
         },
         "ja2ub-debug": {
           "effective_dimensions": [
-            "41"
+            "47"
           ],
-          "initializer_entries": 41
+          "initializer_entries": 47
         }
       },
       "declaration": "Text.h"
@@ -9268,27 +9268,27 @@
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
-            "82"
+            "85"
           ],
-          "initializer_entries": 82
+          "initializer_entries": 85
         },
         "ja2-debug": {
           "effective_dimensions": [
-            "82"
+            "85"
           ],
-          "initializer_entries": 82
+          "initializer_entries": 85
         },
         "ja2ub-release": {
           "effective_dimensions": [
-            "82"
+            "85"
           ],
-          "initializer_entries": 82
+          "initializer_entries": 85
         },
         "ja2ub-debug": {
           "effective_dimensions": [
-            "82"
+            "85"
           ],
-          "initializer_entries": 82
+          "initializer_entries": 85
         }
       },
       "declaration": "Text.h"
@@ -10888,27 +10888,27 @@
       "quadrants": {
         "ja2-release": {
           "effective_dimensions": [
-            "83"
+            "85"
           ],
-          "initializer_entries": 83
+          "initializer_entries": 85
         },
         "ja2-debug": {
           "effective_dimensions": [
-            "83"
+            "85"
           ],
-          "initializer_entries": 83
+          "initializer_entries": 85
         },
         "ja2ub-release": {
           "effective_dimensions": [
-            "83"
+            "85"
           ],
-          "initializer_entries": 83
+          "initializer_entries": 85
         },
         "ja2ub-debug": {
           "effective_dimensions": [
-            "83"
+            "85"
           ],
-          "initializer_entries": 83
+          "initializer_entries": 85
         }
       },
       "declaration": "Text.h"
@@ -18596,38 +18596,6 @@
       "missing_symbols": [],
       "extra_symbols": {},
       "symbols": {
-        "TacticalStr": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            }
-          }
-        },
         "WeaponType": {
           "source_dimensions": [
             "*",
@@ -18715,34 +18683,6 @@
                 "26"
               ],
               "initializer_entries": 26
-            }
-          }
-        },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
             }
           }
         },
@@ -18897,34 +18837,6 @@
             }
           }
         },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            }
-          }
-        },
         "pWebPagesTitles": {
           "quadrants": {
             "ja2-release": {
@@ -18959,38 +18871,6 @@
       "missing_symbols": [],
       "extra_symbols": {},
       "symbols": {
-        "TacticalStr": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            }
-          }
-        },
         "WeaponType": {
           "source_dimensions": [
             "*",
@@ -19022,62 +18902,6 @@
                 "26"
               ],
               "initializer_entries": 26
-            }
-          }
-        },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            }
-          }
-        },
-        "pPersonnelScreenStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "25"
-              ],
-              "initializer_entries": 25
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "25"
-              ],
-              "initializer_entries": 25
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "25"
-              ],
-              "initializer_entries": 25
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "25"
-              ],
-              "initializer_entries": 25
             }
           }
         },
@@ -19199,70 +19023,6 @@
       "missing_symbols": [],
       "extra_symbols": {},
       "symbols": {
-        "TacticalStr": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            }
-          }
-        },
-        "TeamTurnString": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "9",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 9
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "9",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 9
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "9",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 9
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "9",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 9
-            }
-          }
-        },
         "gzFacilityAssignmentStrings": {
           "quadrants": {
             "ja2-release": {
@@ -19316,34 +19076,6 @@
                 "26"
               ],
               "initializer_entries": 26
-            }
-          }
-        },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
             }
           }
         },
@@ -19549,38 +19281,6 @@
       "missing_symbols": [],
       "extra_symbols": {},
       "symbols": {
-        "TacticalStr": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "212",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 212
-            }
-          }
-        },
         "WeaponType": {
           "source_dimensions": [
             "*",
@@ -19612,34 +19312,6 @@
                 "26"
               ],
               "initializer_entries": 26
-            }
-          }
-        },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "17"
-              ],
-              "initializer_entries": 17
             }
           }
         },
@@ -19817,103 +19489,11 @@
       "missing_symbols": [],
       "extra_symbols": {},
       "symbols": {
-        "Message": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "85",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 85
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "85",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 85
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "85",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 85
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "85",
-                "STRING_LENGTH"
-              ],
-              "initializer_entries": 85
-            }
-          }
-        },
-        "TacticalStr": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "211",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 211
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "211",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 211
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "211",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 211
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "211",
-                "MED_STRING_LENGTH"
-              ],
-              "initializer_entries": 211
-            }
-          }
-        },
         "WeaponType": {
           "source_dimensions": [
             "*",
             "30"
           ]
-        },
-        "gzGIOScreenText": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "70"
-              ],
-              "initializer_entries": 70
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "70"
-              ],
-              "initializer_entries": 70
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "70"
-              ],
-              "initializer_entries": 70
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "70"
-              ],
-              "initializer_entries": 70
-            }
-          }
         },
         "gzLaptopHelpText": {
           "quadrants": {
@@ -19940,34 +19520,6 @@
                 "26"
               ],
               "initializer_entries": 26
-            }
-          }
-        },
-        "pBookMarkStrings": {
-          "quadrants": {
-            "ja2-release": {
-              "effective_dimensions": [
-                "15"
-              ],
-              "initializer_entries": 15
-            },
-            "ja2-debug": {
-              "effective_dimensions": [
-                "15"
-              ],
-              "initializer_entries": 15
-            },
-            "ja2ub-release": {
-              "effective_dimensions": [
-                "15"
-              ],
-              "initializer_entries": 15
-            },
-            "ja2ub-debug": {
-              "effective_dimensions": [
-                "15"
-              ],
-              "initializer_entries": 15
             }
           }
         },

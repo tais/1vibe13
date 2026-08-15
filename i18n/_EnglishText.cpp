@@ -3,11 +3,11 @@
 
 	#if defined( ENGLISH )
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2618,6 +2618,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",
 	L"Exploration",
+	L"Event", // rftr: merc is on a mini event
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -2679,6 +2681,7 @@ STR16 pLongAssignmentStrings[] =
 	L"Student",
 	L"Get Item",	// move items
 	L"Staff Facility",	// Missing
+	L"Eat",
 	L"Rest at Facility",	// Missing
 	L"Interrogate prisoners",		// Flugente: interrogate prisoners
 	L"Dead",
@@ -2707,6 +2710,8 @@ STR16 pLongAssignmentStrings[] =
 	L"Bury corpses",
 	L"Administration",
 	L"Exploration",
+	L"Event", // rftr: merc is on a mini event
+	L"Mission", // rftr: rebel command
 };
 
 
@@ -3363,6 +3368,8 @@ STR16 pDoorTrapStrings[] =
 	L"an electric trap",
 	L"a siren trap",
 	L"a silent alarm trap",
+	L"a siren trap",
+	L"an electric trap",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3477,6 +3484,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"Shelter",				//The shelter underneath the queen's palace
 	L"",							//Unused
+	L"Final Complex",
+	L"Guard Post",
+	L"Crash Site",
+	L"Power Plant",
+	L"Mountains",
+	L"Unknown",
 };
 
 STR16 gpStrategicString[] =

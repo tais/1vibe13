@@ -3,11 +3,11 @@
 
 	#if defined( CHINESE )
 		#include "Text.h"
-		#include "CompiledConditionalText.h"
 		#include "FileMan.h"
 		#include "Scheduling.h"
 		#include "EditorMercs.h"
 		#include "Item Statistics.h"
+		#include "CompiledConditionalTextSelectors.inc"
 	#endif
 
 //suppress : warning LNK4221: no public symbols found; archive member will be inaccessible
@@ -2618,6 +2618,8 @@ STR16 pPersonnelAssignmentStrings[] =
 	L"掩埋尸体", //L"Bury corpses",
 	L"管理人员",	//L"Administration",
 	L"探索事项",	//L"Exploration",
+	L"事件",  //L"Event",  rftr: merc is on a mini event
+	L"任务", //L"Mission", rftr: rebel command
 };
 
 
@@ -2679,6 +2681,7 @@ STR16 pLongAssignmentStrings[] =
 	L"学员",
 	L"搬运物品",	// get items
 	L"兼职",  //L"Staff Facility",
+	L"用餐",
 	L"休养",  //L"Rest at Facility",
 	L"审讯俘虏", // L"Interrogate prisoners",
 	L"死亡",
@@ -2707,6 +2710,8 @@ STR16 pLongAssignmentStrings[] =
 	L"掩埋尸体", //L"Bury corpses",
 	L"管理人员",	//L"Administration",
 	L"探索事项",	//L"Exploration",
+	L"事件",  //L"Event",  rftr: merc is on a mini event
+	L"任务", //L"Mission", rftr: rebel command
 };
 
 
@@ -3363,6 +3368,8 @@ STR16 pDoorTrapStrings[] =
 	L"一个带电陷阱",
 	L"一个警报陷阱",
 	L"一个无声警报陷阱",
+	L"一个警报陷阱",
+	L"一个带电陷阱",
 };
 
 // Contract Extension. These are used for the contract extension with AIM mercenaries.
@@ -3477,6 +3484,12 @@ STR16 pLandTypeStrings[] =
 										//leading to the secret shelter underneath the palace
 	L"地下掩体",				//The shelter underneath the queen's palace
 	L"",							//Unused
+	L"Final Complex", // TODO.Translate
+	L"Guard Post", // TODO.Translate
+	L"Crash Site", // TODO.Translate
+	L"Power Plant", // TODO.Translate
+	L"Mountains", // TODO.Translate
+	L"Unknown", // TODO.Translate
 };
 
 STR16 gpStrategicString[] =

@@ -768,7 +768,7 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Immutable Laptop-title pack boundary"
     "Canonical compiled-text ABI schema"
     "506 unique data symbols"
-    "57 pre-existing foreign-catalog compatibility gaps"
+    "42 pre-existing foreign-catalog compatibility gaps"
     "All eight current `TextKey` descriptors are required"
     "All six current `TextTableKey` descriptors are required"
     "Immutable AIM Links-title pack boundary"
@@ -778,10 +778,15 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "Immutable AIM Sort pack boundary"
     "Canonical GameStrings export schema"
     "exactly 238 unique logical sections"
-    "Fourteen of those pairs are currently unsafe"
+    "none exceeds its selected source array"
+    "7,168 comparisons"
+    "All 80 symbolic limits have one strict, unconditional compiler contract"
+    "validates all 85,760"
+    "eight sections, 59 language/table pairs, 236 quadrant failures, and 64,127 potential"
+    "exactly 104 semantic entries"
     "exactly 14 tables"
     "219 symbols are declared in `Text.h` and five retain consumer-local extern declarations"
-    "runtime output are unchanged"
+    "runtime publication mechanism remain unchanged"
     "280 exact indexed translations"
     "37 base singleton pointer tables remain"
     "linker is never a fallback mechanism")
@@ -807,7 +812,8 @@ foreach(required_runtime_i18n_engine_summary_fragment IN ITEMS
     "sixth complete domain moves the 20-entry AIM Sort table"
     "catalog now covers 344 literals and 14 exporter mappings"
     "source-only ordered manifest for all 238"
-    "adapter is explicitly blocked until the 14 unsafe ranges")
+    "85,760 selected pointer entries"
+    "adapter prerequisite is explicitly ready")
   string(FIND "${runtime_i18n_engine_summary_normalized}"
     "${required_runtime_i18n_engine_summary_fragment}"
     required_runtime_i18n_engine_summary_position)
@@ -823,7 +829,7 @@ foreach(required_runtime_i18n_schema_tool_fragment IN ITEMS
     "LANGUAGES = ("
     "QUADRANTS = ("
     "FALLBACK_POLICY = {"
-    "MAX_COMPATIBILITY_DEBT_SYMBOLS = 57"
+    "MAX_COMPATIBILITY_DEBT_SYMBOLS = 42"
     "implicit_linker_fallback"
     "untracked conditional macro"
     "missing symbol"
@@ -863,7 +869,7 @@ foreach(runtime_i18n_catalog IN ITEMS
       "${runtime_i18n_catalog} regained compiled campaign/build text selection")
   endif()
   string(FIND "${runtime_i18n_catalog_contents}"
-    "#include \"CompiledConditionalText.h\""
+    "#include \"CompiledConditionalTextSelectors.inc\""
     runtime_i18n_catalog_policy_include)
   if(runtime_i18n_catalog_policy_include EQUAL -1)
     message(FATAL_ERROR
@@ -891,13 +897,17 @@ endforeach()
 
 file(READ "${SOURCE_ROOT}/i18n/CompiledConditionalText.h"
   runtime_i18n_compiled_conditional_contents)
+file(READ "${SOURCE_ROOT}/i18n/include/CompiledConditionalTextSelectors.inc"
+  runtime_i18n_compiled_selector_contents)
+set(runtime_i18n_compiled_conditional_contract
+  "${runtime_i18n_compiled_conditional_contents}\n${runtime_i18n_compiled_selector_contents}")
 foreach(required_runtime_i18n_compiled_conditional_fragment IN ITEMS
     "I18N_COMPILED_CAMPAIGN_TEXT"
     "I18N_COMPILED_BUILD_TEXT"
     "CompiledConditionalTextPolicy"
     "CampaignTextVariant::ja2ub"
     "BuildTextVariant::beta")
-  string(FIND "${runtime_i18n_compiled_conditional_contents}"
+  string(FIND "${runtime_i18n_compiled_conditional_contract}"
     "${required_runtime_i18n_compiled_conditional_fragment}"
     required_runtime_i18n_compiled_conditional_position)
   if(required_runtime_i18n_compiled_conditional_position EQUAL -1)
@@ -905,15 +915,94 @@ foreach(required_runtime_i18n_compiled_conditional_fragment IN ITEMS
       "Compiled conditional text seam lost '${required_runtime_i18n_compiled_conditional_fragment}'")
   endif()
 endforeach()
+string(REGEX MATCHALL "#undef I18N_[A-Za-z0-9_]+"
+  runtime_i18n_compiled_selector_undefs
+  "${runtime_i18n_compiled_selector_contents}")
+list(LENGTH runtime_i18n_compiled_selector_undefs
+  runtime_i18n_compiled_selector_undef_count)
+if(NOT runtime_i18n_compiled_selector_undef_count EQUAL 17)
+  message(FATAL_ERROR
+    "Compiled selector seam must reset exactly 17 owned macros")
+endif()
 
 file(READ "${SOURCE_ROOT}/i18n/ExportStrings.cpp"
   runtime_i18n_export_strings_contents)
+string(FIND "${runtime_i18n_export_strings_contents}"
+  "#include \"ExportStringLimitContract.inc\""
+  runtime_i18n_export_limit_contract_include)
+if(runtime_i18n_export_limit_contract_include EQUAL -1)
+  message(FATAL_ERROR
+    "ExportStrings lost its compiler-owned named-limit contract")
+endif()
+string(FIND "${runtime_i18n_export_strings_contents}"
+  "#include \"GameSettings.h\""
+  runtime_i18n_export_gun_type_provider_include)
+if(runtime_i18n_export_gun_type_provider_include EQUAL -1)
+  message(FATAL_ERROR
+    "ExportStrings must directly import the GUN_TYPES_MAX provider")
+endif()
+string(FIND "${runtime_i18n_export_strings_contents}"
+  "#ifdef static_assert\n#error \"GameStrings export limits require the built-in static_assert keyword\"\n#endif\n#include \"ExportStringLimitContract.inc\""
+  runtime_i18n_export_limit_contract_guard)
+if(runtime_i18n_export_limit_contract_guard EQUAL -1)
+  message(FATAL_ERROR
+    "ExportStrings lost its non-macroable static_assert contract seam")
+endif()
+file(READ "${SOURCE_ROOT}/i18n/include/ExportStringLimitContract.inc"
+  runtime_i18n_export_limit_contract_contents)
+string(REGEX MATCHALL
+  "static_assert\\([A-Z0-9_]+ == [0-9]+, \"GameStrings:[A-Z0-9_]+\"\\);"
+  runtime_i18n_export_limit_contract_rows
+  "${runtime_i18n_export_limit_contract_contents}")
+# CMake 4 preserves the empty list element after each matched semicolon,
+# while older CMP0007 behavior drops it. Normalize both versions to rows.
+list(FILTER runtime_i18n_export_limit_contract_rows EXCLUDE REGEX "^$")
+list(LENGTH runtime_i18n_export_limit_contract_rows
+  runtime_i18n_export_limit_contract_row_count)
+if(NOT runtime_i18n_export_limit_contract_row_count EQUAL 80 OR
+    runtime_i18n_export_limit_contract_contents MATCHES
+      "(^|\n)[ \t]*(#|//|/\\*)")
+  message(FATAL_ERROR
+    "Named GameStrings export limits must remain 80 direct static_assert rows")
+endif()
 string(FIND "${runtime_i18n_export_strings_contents}"
   "#include \"CompiledConditionalText.h\""
   runtime_i18n_export_conditional_include)
 if(runtime_i18n_export_conditional_include EQUAL -1)
   message(FATAL_ERROR
-    "ExportStrings must import conditional policy before catalog textual inclusion")
+    "ExportStrings must import the global conditional policy before catalog inclusion")
+endif()
+foreach(required_runtime_i18n_range IN ITEMS
+    "Loc::WeaponType,[ \t]*0,[ \t]*GUN_TYPES_MAX"
+    "Loc::pMercHeLeaveString,[ \t]*0,[ \t]*2"
+    "Loc::pMercSheLeaveString,[ \t]*0,[ \t]*2")
+  if(NOT runtime_i18n_export_strings_contents MATCHES
+      "${required_runtime_i18n_range}")
+    message(FATAL_ERROR
+      "ExportStrings lost normalized range '${required_runtime_i18n_range}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/IMP Gear.cpp"
+  runtime_i18n_imp_gear_contents)
+string(REGEX MATCHALL
+  "pLongAssignmentStrings\\[[ \t]*ASSIGNMENT_EMPTY[ \t]*\\]"
+  runtime_i18n_named_empty_reads "${runtime_i18n_imp_gear_contents}")
+list(LENGTH runtime_i18n_named_empty_reads
+  runtime_i18n_named_empty_read_count)
+if(NOT runtime_i18n_named_empty_read_count EQUAL 4 OR
+    runtime_i18n_imp_gear_contents MATCHES
+      "pLongAssignmentStrings\\[[ \t]*60[ \t]*\\]")
+  message(FATAL_ERROR
+    "IMP Gear must retain four named ASSIGNMENT_EMPTY reads and zero numeric [60] reads")
+endif()
+
+file(READ "${SOURCE_ROOT}/i18n/include/Text.h"
+  runtime_i18n_text_header_contents)
+if(runtime_i18n_text_header_contents MATCHES
+    "GIO_ULTIMATE_IRON_MAN_TEXT")
+  message(FATAL_ERROR
+    "The unused GIO ultimate-iron-man enum slot returned")
 endif()
 
 file(READ "${SOURCE_ROOT}/tools/check_i18n_conditional_text.py"
@@ -922,6 +1011,10 @@ foreach(required_runtime_i18n_conditional_tool_fragment IN ITEMS
     "RETIRED_GUARD_COUNT"
     "CONDITIONED_ENTRY_COUNT"
     "LITERAL_ALTERNATIVE_COUNT"
+    "OWNED_SELECTOR_MACROS"
+    "selector_source_issues"
+    "compiled_policy_source_issues"
+    "must remain a macro-only"
     "LEGACY_INDEX_OVERRIDES"
     "catalog regained JA2UB/JA2BETAVERSION directives"
     "conditioned catalog values differ from exact schema"
@@ -941,7 +1034,7 @@ foreach(required_runtime_i18n_conditional_schema_fragment IN ITEMS
     "\"retired_catalog_guard_count\": 58"
     "\"conditioned_entry_count\": 98"
     "\"literal_alternative_count\": 196"
-    "\"legacy_index_overrides\""
+    "\"legacy_index_overrides\": []"
     "\"catalog_values\""
     "\"SaveAndGameVersionChanged\""
     "\"FilesSenderReport\"")
@@ -961,6 +1054,8 @@ foreach(required_runtime_i18n_conditional_test_fragment IN ITEMS
     "test_selector_requires_one_key_and_two_literal_alternatives"
     "test_initializer_comments_cannot_invent_table_entries"
     "test_commented_policy_include_does_not_satisfy_catalog_gate"
+    "test_selector_seam_pins_complete_reincludeable_macro_inventory"
+    "test_compiled_policy_and_selector_import_remain_active"
     "test_every_catalog_has_only_schema_owned_selectors"
     "test_all_four_quadrants_choose_the_declared_axis_only"
     "test_committed_values_resolve_exactly_in_every_catalog_quadrant"
@@ -1031,7 +1126,9 @@ foreach(required_runtime_i18n_schema_test_fragment IN ITEMS
     "test_diagnostics_name_every_structural_mismatch_class"
     "test_untracked_catalog_configuration_cannot_escape_the_four_quadrants"
     "test_parser_rejects_unrecognized_top_level_catalog_storage"
+    "test_definition_lexer_hides_raw_strings_and_keeps_digit_separators"
     "test_catalog_debt_rejects_wildcard_fields_and_growth"
+    "test_committed_debt_is_42_and_drops_all_15_normalized_pairs"
     "test_schema_json_rejects_shadowing_duplicate_keys"
     "test_english_fallback_is_explicit_and_never_a_linker_accident")
   string(FIND "${runtime_i18n_schema_test_contents}"
@@ -1051,16 +1148,39 @@ foreach(required_runtime_i18n_export_schema_tool_fragment IN ITEMS
     "EXPECTED_TEXT_PACK_SECTIONS = 14"
     "EXPECTED_LEGACY_TEXT_H_SYMBOLS = 219"
     "EXPECTED_LEGACY_LOCAL_EXTERN_SYMBOLS = 5"
-    "MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 33"
-    "MAX_UNSAFE_RANGE_DEBT_PAIRS = 14"
+    "MAX_EXPORTED_COMPATIBILITY_DEBT_PAIRS = 18"
+    "EXPECTED_LEGACY_RANGE_COMPARISONS"
+    "EXPECTED_EXPORTED_POINTER_ENTRY_CHECKS = 85760"
+    "EXPECTED_DIRECT_WIDE_LITERAL_ENTRY_CHECKS = 85432"
+    "EXPECTED_COMPILED_SELECTOR_ENTRY_CHECKS = 328"
+    "MAX_UNSAFE_RANGE_LANGUAGE_PAIRS = 0"
+    "MAX_UNSAFE_RANGE_QUADRANT_FAILURES = 0"
+    "MAX_POTENTIAL_OOB_READS_PER_SELECTED_BUILD = 0"
     "EXPECTED_EXPORTER_ONLY_TABLES = 14"
     "EXPECTED_EXPORTER_ONLY_ENTRIES = 85"
     "EXPECTED_TEXTUAL_CATALOG_INCLUDES"
+    "EXPECTED_NAMED_EXPORT_LIMITS = 80"
+    "EXPECTED_EXPORT_LIMIT_SEAM_DIRECTIVES"
+    "parse_named_export_limit_manifest"
+    "validate_named_limit_static_assert_seam"
+    "_require_unconditional_definition"
+    "_active_function_body"
+    "_validate_named_limit_usage_provenance"
+    "_validate_export_statement_inventory"
+    "_reject_preprocessor_obfuscation"
+    "_descriptor_array_region"
     "parse_export_calls"
+    "_pointer_initializer_kind"
+    "_validate_catalog_selector_boundary"
     "production_consumers"
+    "NORMALIZED_REPAIRED_SLOTS"
+    "UNIVERSAL_RANGE_REPAIRED_SLOTS"
+    "summarize_range_safety"
+    "exhaustive_range_contract"
+    "normalized_catalog_issues"
     "legacy_startup_contract"
     "LoadAllExternalText call/definition sites changed"
-    "adapter must remain explicitly blocked by unsafe ranges")
+    "adapter prerequisite must remain explicitly ready")
   string(FIND "${runtime_i18n_export_schema_tool_contents}"
     "${required_runtime_i18n_export_schema_tool_fragment}"
     required_runtime_i18n_export_schema_tool_position)
@@ -1080,14 +1200,25 @@ foreach(required_runtime_i18n_export_schema_fragment IN ITEMS
     "\"legacy_writable_buffers\": 16"
     "\"legacy_text_h_symbols\": 219"
     "\"legacy_local_extern_symbols\": 5"
-    "\"exported_compatibility_debt_pairs\": 33"
-    "\"unsafe_range_debt_pairs\": 14"
+    "\"exported_compatibility_debt_pairs\": 18"
+    "\"legacy_range_comparisons\": 7168"
+    "\"unsafe_range_sections\": 0"
+    "\"unsafe_range_language_pairs\": 0"
+    "\"unsafe_range_quadrant_failures\": 0"
+    "\"potential_oob_reads_per_selected_build\": 0"
+    "\"named_export_limits\""
+    "\"NUM_ICONS\": 18"
+    "\"TEXT_NUM_AIM_ALUMNI\": 5"
+    "\"TEXT_NUM_LARGESTR\": 3"
+    "\"exported_pointer_entry_checks\": 85760"
+    "\"direct_wide_literal_entry_checks\": 85432"
+    "\"compiled_selector_entry_checks\": 328"
     "\"exporter_only_tables\": 14"
     "\"exporter_only_entries_per_language\": 85"
-    "\"state\": \"blocked\""
+    "\"state\": \"ready\""
     "selected catalog bodies remain textually included"
     "\"textual_catalog_includes\""
-    "resolve them before a linked-global export adapter"
+    "live-provider/raw textual-copy gate"
     "\"subsystem_order_constraint\""
     "\"production_call_sites\": 2")
   string(FIND "${runtime_i18n_export_schema_contents}"
@@ -1131,12 +1262,12 @@ list(LENGTH runtime_i18n_export_schema_textual_includes
   runtime_i18n_export_schema_textual_include_count)
 if(NOT runtime_i18n_export_schema_legacy_section_count EQUAL 224 OR
     NOT runtime_i18n_export_schema_pack_section_count EQUAL 14 OR
-    NOT runtime_i18n_export_schema_debt_pair_count EQUAL 33 OR
-    NOT runtime_i18n_export_schema_unsafe_pair_count EQUAL 14 OR
+    NOT runtime_i18n_export_schema_debt_pair_count EQUAL 18 OR
+    NOT runtime_i18n_export_schema_unsafe_pair_count EQUAL 0 OR
     NOT runtime_i18n_export_schema_exporter_only_table_count EQUAL 14 OR
     NOT runtime_i18n_export_schema_textual_include_count EQUAL 8)
   message(FATAL_ERROR
-    "Runtime i18n exporter manifest lost its 224/14 section, 33/14 debt, or 14-table ownership contract")
+    "Runtime i18n exporter manifest lost its 224/14 section, 18/0 debt, exhaustive range, or 14-table ownership contract")
 endif()
 
 file(READ "${SOURCE_ROOT}/tools/test_check_i18n_export_schema.py"
@@ -1144,13 +1275,32 @@ file(READ "${SOURCE_ROOT}/tools/test_check_i18n_export_schema.py"
 foreach(required_runtime_i18n_export_schema_test_fragment IN ITEMS
     "test_lexical_mask_blanks_raw_literals_and_keeps_digit_separators"
     "test_export_parser_ignores_comments_and_preserves_interleaved_ranges"
+    "test_export_parser_rejects_inactive_preprocessor_calls"
+    "test_export_parser_requires_direct_top_level_statements"
     "test_textual_catalog_include_parser_rejects_raw_string_bypass"
+    "test_textual_catalog_includes_must_be_active_for_each_language"
     "test_text_pack_descriptor_parser_pins_schema_sections_and_export_ranges"
     "test_debt_range_model_classifies_short_catalogs_and_fails_closed"
+    "test_named_limit_table_exactly_covers_export_and_raw_dimension_names"
+    "test_compiler_owned_named_limit_contract_is_strict_and_unconditional"
     "test_startup_model_rejects_import_before_export"
     "test_external_text_load_sites_remain_post_startup"
+    "test_startup_helpers_reject_inactive_or_nested_load_impersonation"
+    "test_startup_chain_definitions_and_calls_remain_active_and_reachable"
     "test_committed_manifest_pins_all_238_sections_and_storage_membership"
-    "test_exact_33_debt_pairs_and_14_unsafe_ranges_are_reviewable"
+    "test_exact_18_debt_pairs_and_exhaustive_zero_unsafe_gate_are_reviewable"
+    "test_all_19_foreign_and_104_universal_repairs_have_exact_goldens"
+    "test_missing_polish_teamturn_comma_is_rejected"
+    "test_missing_italian_middle_slot_is_rejected"
+    "test_empty_repaired_slot_is_rejected"
+    "test_normalized_export_range_shrink_is_rejected"
+    "test_original_eight_short_sections_pin_all_failure_totals"
+    "test_unknown_range_and_symbol_name_mutations_fail_closed"
+    "test_unknown_explicit_raw_dimension_and_comment_only_fallback_fail"
+    "test_exported_pointer_slots_reject_null_and_identifier_expressions"
+    "test_catalog_selector_boundary_rejects_macro_and_include_bypasses"
+    "test_italian_gio_middle_and_tail_alignment_is_exact"
+    "test_imp_gear_has_four_named_assignment_empty_reads"
     "test_exact_14_exporter_only_tables_total_85_entries"
     "test_manifest_rejects_wildcard_or_growing_debt"
     "test_manifest_rejects_order_range_and_symbol_bypass"
@@ -1237,7 +1387,7 @@ foreach(required_runtime_i18n_todo_fragment IN ITEMS
     "indexed game-time tables are the fifth"
     "AIM Sort table is the sixth"
     "complete 238-section GameStrings source manifest"
-    "adapter remains blocked by 14 unsafe foreign ranges"
+    "adapter prerequisite is ready only because the exhaustive"
     "remaining 471 base and 35 JA25 definitions")
   string(FIND "${runtime_i18n_todo_contents}"
     "${required_runtime_i18n_todo_fragment}"

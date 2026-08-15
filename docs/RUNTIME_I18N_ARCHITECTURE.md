@@ -114,14 +114,17 @@ Catalog conditionals may name only their language macro. Reintroducing
 `JA2UB`, `JA2BETAVERSION`, or another configuration macro fails instead of
 creating an untracked catalog variant.
 
-The schema records 57 pre-existing foreign-catalog compatibility gaps by
+The schema records 42 pre-existing foreign-catalog compatibility gaps by
 language and symbol. They are exact, reviewable debt rather than a wildcard:
 any new gap or any unreviewed change to one fails validation. Removing the two
-foreign-only guard shapes shrank this ceiling from 59; the existing Italian
-`gzGIOScreenText` index shift remains explicit. Neither migration slice edits
-translated wording or silently pads tables. Compatibility debt may not waive a
-missing or extra symbol, a type mismatch, or a mutability mismatch; only the
-exact legacy dimension/entry shapes are grandfathered.
+foreign-only guard shapes first shrank this ceiling from 59 to 57. Normalizing
+the 14 unsafe GameStrings range pairs then removed another 14 exact overlays;
+realigning Italian `gzGIOScreenText` to the canonical 69 entries removed its
+last index-shift overlay. The range repairs insert nonempty entries at their
+canonical semantic ordinals rather than silently padding or shifting later
+keys. Compatibility debt may not waive a missing or extra symbol, a type
+mismatch, or a mutability mismatch; only the exact remaining legacy
+dimension/entry shapes are grandfathered.
 
 ## Canonical GameStrings export schema
 
@@ -139,16 +142,67 @@ section name, and export range. Misspellings and deliberately partial tables,
 including
 `TimeStings[0,1)`, remain data rather than being normalized by the validator.
 
-The export view intersects 33 of the ABI schema's 57 foreign compatibility
-debt pairs. Fourteen of those pairs are currently unsafe: their selected
-foreign source array is shorter than the active export limit. They cover
-German, Russian, Dutch, Polish, French, and Italian instances of `Message`,
-`TacticalStr`, `TeamTurnString`, `pBookMarkStrings`, and
-`pPersonnelScreenStrings`; each manifest entry records the actual entry count,
-export limit, and shortfall. These are explicit non-growing debt, not approved
-behavior. Reproducing the current out-of-range reads is not an adapter
-compatibility contract. A linked-global selected-catalog/export adapter remains
-blocked until all fourteen ranges receive a defined policy and golden coverage.
+The export view intersects 18 of the ABI schema's 42 remaining foreign
+compatibility-debt pairs, and none exceeds its selected source array. The 14
+previously unsafe German, Russian, Dutch, Polish, French, and Italian instances
+of `Message`, `TacticalStr`, `TeamTurnString`, `pBookMarkStrings`, and
+`pPersonnelScreenStrings` now define all 19 missing physical entries at their
+canonical semantic ordinals. The Polish TeamTurn repair separates its two
+adjacent literals; Italian and Dutch middle insertions preserve every later
+GameStrings key. Source-level goldens pin all repaired entries plus their
+alignment/tail anchors, require nonempty values, and reject a missing comma,
+missing middle entry, empty replacement, or exporter-range shrink. The
+selected-catalog prerequisite for a future linked-global export adapter is now
+ready; implementing that adapter remains a separate migration.
+
+That readiness claim is exhaustive rather than foreign-debt-only. For every
+one of the 224 legacy sections, the validator evaluates the exact exporter
+range expression and compares it with each raw textual-copy definition in all
+eight languages and four campaign/build quadrants: 7,168 comparisons. A
+wildcard first dimension means the top-level initializer count; the enclosing
+`Text.h` declaration cannot mask a short `Loc` definition. Unknown names,
+unsupported expressions, missing symbols, and unresolved dimensions fail
+closed. All 80 symbolic limits have one strict, unconditional compiler contract
+of direct decimal `static_assert` rows. `ExportStrings.cpp` includes it as the
+first exporter statement, so every normal language/configuration build compares
+the reviewed values with the live C++ macro or enum providers in the actual
+exporter translation unit; the exporter source may not locally shadow any of
+those provider names. An immediately preceding `#ifdef static_assert`/`#error`
+guard also prevents a transitive or command-line macro from erasing the compiler
+checks. The build-free validator parses that same controlled list for range
+arithmetic; it deliberately does not reimplement the C++
+preprocessor, enum grammar, or signed integer semantics. In particular,
+`NUM_ICONS`, `TEXT_NUM_AIM_ALUMNI`, and `TEXT_NUM_LARGESTR` are 18, 5, and 3.
+The captured pre-fix
+fixture proves why this matters: eight sections,
+59 language/table pairs, 236 quadrant failures, and 64,127 potential
+out-of-bounds reads per selected build. The committed manifest records zero in
+all four failure measures.
+
+Capacity alone is insufficient for mutable pointer-slot tables: an in-range
+`nullptr`, identifier, or other expression would still make export behavior
+undefined or adapter-dependent. The same pass therefore validates all 85,760
+selected `STR16` entries across the 32 catalog/quadrant combinations: 85,432
+are direct (possibly concatenated) wide literals and 328 are exact
+`I18N_COMPILED_BUILD_TEXT` or `I18N_COMPILED_CAMPAIGN_TEXT` selectors. Any
+implicit zero-initialized tail or other expression fails closed. Each catalog
+must also retain its exact six-include preamble, with
+the re-includable macro-only `CompiledConditionalTextSelectors.inc` as the
+final include before every selector and no unreviewed catalog directive that
+could turn a reviewed selector into `nullptr`. The global
+`CompiledConditionalText.h` owns only the policy API and imports that same
+17-macro seam once; each selected catalog resets it after its other headers.
+
+The closure adds exactly 104 semantic entries across the eight catalogs:
+`pPersonnelAssignmentStrings[83..84]`, `pLongAssignmentStrings[54,83..84]`,
+`pDoorTrapStrings[5..6]`, and `pLandTypeStrings[41..46]`. Assignment and trap
+aliases reuse the same-catalog canonical literals; untranslated land-type
+tails use explicit `TODO.Translate` English fallbacks. `WeaponType` exports the
+nine gun-type labels rather than `MAXITEMS`, and the two two-entry merc-leave
+tables export two entries. Italian GIO removes its duplicate arsenal label,
+moves `INSANE` to canonical index 12, and drops the unused ultimate-iron-man
+enum slot. Exact middle/tail goldens, alias checks, 69-entry GIO alignment, and
+four named `ASSIGNMENT_EMPTY` consumers prevent ordinal regression.
 
 The same source inventory conservatively identifies exactly 14 tables whose
 identifiers occur nowhere else in production C/C++ outside catalog bodies,
@@ -164,12 +218,32 @@ catalog shapes. It also pins startup ordering: the guarded export precedes
 `Loc::ImportStrings` inside the legacy-content subsystem, legacy content starts
 before the game subsystem, and the only two production `LoadAllExternalText`
 calls remain in the later rules `LoadContent` path and multiplayer reload path.
-Its focused unit tests reject commented-call parsing, range or order drift,
-unknown debt ranges, wildcard or growing debt, storage/schema mismatch, and
-startup reversal. CMake exposes the checks through the existing no-build i18n
-target and lint CI runs them unconditionally. `ExportStrings.cpp`, the language
-arrays, its eight textual includes, and runtime output are unchanged by this
-manifest slice.
+Its focused unit tests reject commented/raw-literal parsing bypasses, range or
+name drift, unknown range expressions, unresolved wildcard dimensions,
+wildcard or growing debt, storage/schema mismatch, startup reversal, missing
+middle or tail entries, empty repaired slots, missing translation markers, and
+adjacent literal concatenation. The exporter has an exact flat depth-zero
+statement inventory: two declarations, 238 direct exports, two property writes,
+six raw EDT exporters, and one final return. Only the compiler guard and
+first-statement limit-contract include are allowed as directives in its body,
+and all symbolic-limit identifier uses must belong to parsed export ranges.
+The unique zero-argument exporter definition itself must also begin at
+preprocessor depth zero, and no conditional may cross its closing brace.
+Each language macro must activate exactly its
+own textual catalog include, unknown local selection macros fail closed,
+TextPack descriptors and startup-order tokens cannot hide in inactive
+preprocessor branches or macro bodies. The selector `.inc` has no active
+non-directive residue, while its policy API and final selector import remain
+unconditional. Reviewed startup functions are likewise active top-level
+definitions; their required load/phase calls retain exact evaluated expression
+shapes and cannot follow direct control transfer. The shared lexer hides multiline raw strings before
+looking for storage. CMake exposes the build-free checks through the existing
+i18n target and lint CI runs them unconditionally; mandatory normal builds own
+the separate live-provider `static_assert` proof. The eight textual includes
+and runtime publication mechanism remain unchanged. Three deliberately
+overbroad export limits are narrowed to their defined semantic tables; the 19
+earlier foreign repairs and 104 new catalog entries now have exact source-level
+goldens.
 
 ## Conditional value/schema policy
 
@@ -186,11 +260,12 @@ eight catalogs. `FilesSenderReport` occurs only in Dutch and French because
 only those two sources historically guarded `pFilesSenderList[0]`; the other
 six catalogs retain their one unconditional value and do not claim a second
 translation. Each schema-owned catalog instance supplies both literal
-alternatives. `CompiledConditionalText.h` is the deliberately narrow
-compatibility seam: it maps the legacy `JA2UB` and `JA2BETAVERSION` definitions
-to a `ConditionalTextPolicy` and publishes the matching value into the
-unchanged global table ABI. Thus a catalog translates campaign/build keys but
-does not contain the policy that chooses a campaign. The fixed writable
+alternatives. `CompiledConditionalText.h` and its re-includable macro-only
+selector seam form the deliberately narrow compatibility boundary: they map
+the legacy `JA2UB` and `JA2BETAVERSION` definitions to a
+`ConditionalTextPolicy` and publish the matching value into the unchanged
+global table ABI. Thus a catalog translates campaign/build keys but does not
+contain the policy that chooses a campaign. The fixed writable
 `pCountryNames` rows are why this seam still publishes at compile time; step 3
 will replace that limitation with validated startup pack publication.
 
@@ -400,15 +475,17 @@ voice, and hot reload remain outside this slice.
    Continue migrating direct globals domain by domain, then fixed character
    buffers and genuinely mutable destinations. No slice may copy partially
    validated data or swap addresses after consumers initialize.
-4. **Complete prerequisite; adapter blocked:** commit the exact ordered
-   GameStrings manifest, including 224 legacy and 14 pack sections, 33 exported
-   compatibility-debt pairs, the 14 currently unsafe range pairs, the 14
-   exporter-only tables, and startup export-before-import/external-load order.
-   This source-only gate changes no language storage or exporter behavior.
+4. **Complete prerequisite; adapter ready:** commit the exact ordered
+   GameStrings manifest, including 224 legacy and 14 pack sections, 18 exported
+   compatibility-debt pairs, 7,168 exhaustive raw-dimension comparisons with
+   zero unsafe results, the 14 exporter-only tables, and startup
+   export-before-import/external-load order. The repaired semantic ordinals and
+   three narrowed limits remove undefined adjacent-array reads without changing
+   startup order.
 5. **In progress:** the XML exporter consumes the same pack for those 14
    sections. Move the remaining sections, then remove textual `.cpp` inclusion.
-   The linked-global adapter cannot begin by copying undefined reads: first
-   resolve the fourteen unsafe foreign ranges and add intended-output goldens.
+   The linked-global adapter may now rely on fully defined selected-catalog
+   ranges and their intended-output goldens.
    Decide separately whether shipped packs remain generated C++ data or become
    versioned package resources; runtime API and validation rules stay identical.
 6. Select and validate the language code during startup before rules/campaign
@@ -424,17 +501,17 @@ voice, and hot reload remain outside this slice.
 ## Explicit blockers and review gates
 
 - All eight catalogs now have mandatory schema checks even though CI still
-  treats non-English/non-German full legacy executable builds as soft. The 57
+  treats non-English/non-German full legacy executable builds as soft. The 42
   inventoried compatibility gaps must shrink or remain exact; they may not grow
   while translated tables move toward canonical parity.
 - The 58 retired campaign/build guard groups, 98 conditioned entries, and 196
   exact literal alternatives must stay behind the value/schema policy.
   Flattening either axis under one arbitrary application would be behavior
   drift.
-- The selected developer exporter still has 14 foreign-language ranges that
-  exceed their source arrays. They must remain explicit, may only shrink, and
-  block replacing textual catalog inclusion with a linked-global adapter until
-  their intended empty/missing-entry behavior is defined and covered.
+- Every one of the 224 selected developer-export ranges now fits all eight
+  catalogs in all four quadrants. Zero unsafe sections, language pairs,
+  quadrant failures, and potential OOB reads is a hard gate; exact nonempty
+  semantic goldens prevent empty padding or shifted-key repairs.
 - Asset availability and overlay precedence must be defined for prefixes,
   graphics, fonts, SLFs, XML, Lua, dialogue, and voice. Selecting a text pack
   without the matching required assets must fail before game initialization or
