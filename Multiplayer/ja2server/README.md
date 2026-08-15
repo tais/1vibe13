@@ -1,9 +1,11 @@
 # ja2server — standalone JA2 1.13 multiplayer coordinator
 
-A headless server/relay for SDL3-port multiplayer. It speaks the same wire
-protocol as the in-game host, so stock clients connect to it unchanged — no one
-has to keep a full game instance running just to host. It owns the lobby, turn
-order, the interrupt arbiter, the win check and the scoreboard.
+A headless server/relay included with the SDL3 multiplayer port. The
+`Multiplayer` target builds the client/server wrapper and SDL3_net compatibility
+`netshim`; the main-menu entry is enabled, and tagged releases package
+`ja2server`. Those are build, menu, and packaging milestones only: wire
+compatibility with in-game clients and end-to-end multiplayer behavior are
+experimental and unverified.
 
 ## Running
 
@@ -31,7 +33,8 @@ Flags override the matching `ja2_mp.ini` keys:
 
 ## Notes
 
-- Clients connect with the in-game **Join** screen using the server's IP and port.
+- The experimental client path uses the in-game **Join** screen with the
+  server's IP and port; it has not been verified end to end.
 - The server and dashboard bind to **127.0.0.1** by default. Set `SERVER_BIND` /
   `DASHBOARD_BIND` to `0.0.0.0` (or a specific interface) for LAN/public play.
 - The dashboard status view is read-only and open; **write actions** (save config,

@@ -968,8 +968,9 @@ if(Python3_Interpreter_FOUND)
 endif()
 
 # Standalone multiplayer coordinator/relay server (no game engine).
-# Speaks the same netshim wire protocol as the game's MP client, so stock clients
-# connect unchanged. Built only when explicitly requested.
+# Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. Protocol
+# interoperability with in-game clients and end-to-end multiplayer behavior are
+# experimental and unverified. Built only when explicitly requested.
 option(BUILD_JA2SERVER "Build the standalone ja2server MP coordinator" OFF)
 if(BUILD_JA2SERVER)
   add_executable(ja2server
