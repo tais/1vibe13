@@ -38,6 +38,7 @@
 	#include "GameSettings.h"
 	#include "DynamicDialogue.h"// added by Flugente
 #include "GameContext.h"
+#include "CampaignMercenaryArrivalContent.h"
 #include "CampaignMercenaryPolicy.h"
 #include "connect.h"
 #include "Map Information.h"
@@ -51,7 +52,6 @@
 #include "MapScreen Quotes.h"
 #include "opplist.h"
 #include "Ja25Update.h"
-#include "ub_config.h"
 #include "email.h"
 
 //forward declarations of common classes to eliminate includes
@@ -263,18 +263,20 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	{
 	if( DidGameJustStart() )
 	{
+		CampaignMercenaryArrivalContent arrivalContent;
 		if ( mercenaryPolicy.usesUnfinishedBusinessRules() )
 		{
+			arrivalContent = ReadCampaignMercenaryArrivalContent();
 			//set a flag so we know we are doing the heli crash
 			gfFirstTimeInGameHeliCrash =
-				gGameUBOptions.InGameHeliCrash == TRUE ||
-				gGameUBOptions.InGameHeli == FALSE;
+				arrivalContent.inGameHelicopterCrash ||
+				!arrivalContent.inGameHelicopter;
 		}
 
 		pHireMerc->uiTimeTillMercArrives = ( gGameExternalOptions.iGameStartingTime + gGameExternalOptions.iFirstArrivalDelay ) / NUM_SEC_IN_MIN;
 
 	if ( mercenaryPolicy.usesGroundArrival(
-			gGameUBOptions.InGameHeli == TRUE) )
+			arrivalContent.inGameHelicopter) )
 	{
 		// Set the gridno for the soldier
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
@@ -513,11 +515,16 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 				gGameExternalOptions.ubDefaultArrivalSectorX &&
 			pSoldier->deployment().sectorY() ==
 				gGameExternalOptions.ubDefaultArrivalSectorY;
+		CampaignMercenaryArrivalContent arrivalContent;
+		if ( mercenaryPolicy.usesUnfinishedBusinessRules() )
+		{
+			arrivalContent = ReadCampaignMercenaryArrivalContent();
+		}
 		if ( mercenaryPolicy.shouldStartArrivalHelicopter(
 				pSoldier->deployment().strategicInsertionCode() ==
 					INSERTION_CODE_CHOPPER,
 				isAtDefaultArrivalSector,
-				gGameUBOptions.InGameHeli == TRUE) )
+				arrivalContent.inGameHelicopter) )
 		{
 			gfTacticalDoHeliRun = TRUE;
 			if (gfFirstHeliRun)
@@ -549,8 +556,10 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		if ( mercenaryPolicy.usesGridInsertionForOffscreenArrival() )
 		{
 			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			const CampaignMercenaryArrivalContent arrivalContent =
+				ReadCampaignMercenaryArrivalContent();
 			pSoldier->deployment().strategicInsertionData() =
-				gGameUBOptions.LOCATEGRIDNO;
+				arrivalContent.offscreenArrivalGridNo;
 		}
 		else
 		{
@@ -969,7 +978,9 @@ UINT16	GetInitialHeliRandomTime()
 
 void InitializeHeliGridnoAndTime( BOOLEAN fLoading )
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
 	{
 		return;
 	}
@@ -981,31 +992,37 @@ void InitializeHeliGridnoAndTime( BOOLEAN fLoading )
 		gfFirstTimeInGameHeliCrash = FALSE;
 	}
 
-	gsInitialHeliGridNo[ 0 ] = gGameUBOptions.InitialHeliGridNo[ 0 ];//14947;
-	gsInitialHeliGridNo[ 1 ] = gGameUBOptions.InitialHeliGridNo[ 1 ];//15584;//16067;
-	gsInitialHeliGridNo[ 2 ] = gGameUBOptions.InitialHeliGridNo[ 2 ];//15754;
-	gsInitialHeliGridNo[ 3 ] = gGameUBOptions.InitialHeliGridNo[ 3 ];//16232;
-	gsInitialHeliGridNo[ 4 ] = gGameUBOptions.InitialHeliGridNo[ 4 ];//16067;
-	gsInitialHeliGridNo[ 5 ] = gGameUBOptions.InitialHeliGridNo[ 5 ];//16230;
-	gsInitialHeliGridNo[ 6 ] = gGameUBOptions.InitialHeliGridNo[ 6 ];//15272;
+	const CampaignMercenaryArrivalContent arrivalContent =
+		ReadCampaignMercenaryArrivalContent();
+	gsInitialHeliGridNo[ 0 ] = arrivalContent.initialHelicopterGridNos[ 0 ];//14947;
+	gsInitialHeliGridNo[ 1 ] = arrivalContent.initialHelicopterGridNos[ 1 ];//15584;//16067;
+	gsInitialHeliGridNo[ 2 ] = arrivalContent.initialHelicopterGridNos[ 2 ];//15754;
+	gsInitialHeliGridNo[ 3 ] = arrivalContent.initialHelicopterGridNos[ 3 ];//16232;
+	gsInitialHeliGridNo[ 4 ] = arrivalContent.initialHelicopterGridNos[ 4 ];//16067;
+	gsInitialHeliGridNo[ 5 ] = arrivalContent.initialHelicopterGridNos[ 5 ];//16230;
+	gsInitialHeliGridNo[ 6 ] = arrivalContent.initialHelicopterGridNos[ 6 ];//15272;
 
-	gsInitialHeliRandomTimes[ 0 ] = gGameUBOptions.InitalHeliRandomTimes[ 0 ];//1300;
-	gsInitialHeliRandomTimes[ 1 ] = gGameUBOptions.InitalHeliRandomTimes[ 1 ];//2000;
-	gsInitialHeliRandomTimes[ 2 ] = gGameUBOptions.InitalHeliRandomTimes[ 2 ];//2750;
-	gsInitialHeliRandomTimes[ 3 ] = gGameUBOptions.InitalHeliRandomTimes[ 3 ];//3400;
-	gsInitialHeliRandomTimes[ 4 ] = gGameUBOptions.InitalHeliRandomTimes[ 4 ];//4160;
-	gsInitialHeliRandomTimes[ 5 ] = gGameUBOptions.InitalHeliRandomTimes[ 5 ];//4700;
-	gsInitialHeliRandomTimes[ 6 ] = gGameUBOptions.InitalHeliRandomTimes[ 6 ];//5630;
+	gsInitialHeliRandomTimes[ 0 ] = arrivalContent.initialHelicopterRandomTimes[ 0 ];//1300;
+	gsInitialHeliRandomTimes[ 1 ] = arrivalContent.initialHelicopterRandomTimes[ 1 ];//2000;
+	gsInitialHeliRandomTimes[ 2 ] = arrivalContent.initialHelicopterRandomTimes[ 2 ];//2750;
+	gsInitialHeliRandomTimes[ 3 ] = arrivalContent.initialHelicopterRandomTimes[ 3 ];//3400;
+	gsInitialHeliRandomTimes[ 4 ] = arrivalContent.initialHelicopterRandomTimes[ 4 ];//4160;
+	gsInitialHeliRandomTimes[ 5 ] = arrivalContent.initialHelicopterRandomTimes[ 5 ];//4700;
+	gsInitialHeliRandomTimes[ 6 ] = arrivalContent.initialHelicopterRandomTimes[ 6 ];//5630;
 }
 
 void InitJerryMiloInfo()
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
 	{
 		return;
 	}
 
- if ( gGameUBOptions.InJerry == TRUE )
+	const CampaignMercenaryArrivalContent arrivalContent =
+		ReadCampaignMercenaryArrivalContent();
+ if ( arrivalContent.includesJerry )
 {
   //  return; //AA
 	//Set Jerry Milo's Gridno h7
@@ -1013,16 +1030,16 @@ void InitJerryMiloInfo()
 	gMercProfiles[ JERRY_MILO_UB ].sSectorY = JA2_5_START_SECTOR_Y;
 	gMercProfiles[ JERRY_MILO_UB ].bSectorZ = 0;
 
-	gMercProfiles[ JERRY_MILO_UB ].sGridNo = gGameUBOptions.JerryGridNo; //15109;
+	gMercProfiles[ JERRY_MILO_UB ].sGridNo = arrivalContent.jerryGridNo; //15109;
 
 	gMercProfiles[ JERRY_MILO_UB ].fUseProfileInsertionInfo = TRUE;
 
 	gMercProfiles[ JERRY_MILO_UB ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-	gMercProfiles[ JERRY_MILO_UB ].usStrategicInsertionData = gGameUBOptions.JerryGridNo; //15109;
+	gMercProfiles[ JERRY_MILO_UB ].usStrategicInsertionData = arrivalContent.jerryGridNo; //15109;
 	
 }
 	
-if ( gGameUBOptions.InGameHeliCrash == TRUE )
+if ( arrivalContent.inGameHelicopterCrash )
 	{
 	//init Jerry Milo quotes
 	InitJerryQuotes();
@@ -1032,7 +1049,9 @@ if ( gGameUBOptions.InGameHeliCrash == TRUE )
 
 void UpdateJerryMiloInInitialSector()
 {
-	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
 	{
 		return;
 	}
@@ -1046,16 +1065,18 @@ void UpdateJerryMiloInInitialSector()
 	//SectorInfo[ SEC_H7 ].ubNumAdmins = 2;
 	StrategicMap[CALCULATE_STRATEGIC_INDEX( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY )].fEnemyControlled = FALSE;
 
-	if ( gGameUBOptions.InGameHeli == TRUE )
+	const CampaignMercenaryArrivalContent arrivalContent =
+		ReadCampaignMercenaryArrivalContent();
+	if ( arrivalContent.inGameHelicopter )
 		return; //AA
 
-	if ( gGameUBOptions.InGameHeliCrash == TRUE )
+	if ( arrivalContent.inGameHelicopterCrash )
 	{
 		//if it is the first sector we are loading up, place Jerry in the map
 		if ( !gfFirstTimeInGameHeliCrash )
 			return;
 
-		if ( gGameUBOptions.InJerry == TRUE )
+		if ( arrivalContent.includesJerry )
 		{
 			pSoldier = FindSoldierByProfileID( JERRY_MILO_UB, FALSE ); //JERRY
 			if ( pSoldier == NULL )
@@ -1067,7 +1088,7 @@ void UpdateJerryMiloInInitialSector()
 		}
 
 		//the internet part of the laptop isnt working.  It gets broken in the heli crash.
-		if ( gGameUBOptions.LaptopQuestEnabled == TRUE )
+		if ( arrivalContent.laptopQuestEnabled )
 			StartQuest( QUEST_FIX_LAPTOP, -1, -1 );
 
 		//Record the initial sector as ours
@@ -1075,7 +1096,7 @@ void UpdateJerryMiloInInitialSector()
 		SectorInfo[(UINT8)SECTOR( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY )].fSurfaceWasEverPlayerControlled = TRUE;
 		StrategicMap[CALCULATE_STRATEGIC_INDEX( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY )].fEnemyControlled = FALSE;
 
-		if ( gGameUBOptions.InJerry == TRUE )
+		if ( arrivalContent.includesJerry )
 		{
 			//Set some variable so Jerry will be on the ground
 			pSoldier->deployment().beginArrivalGetup();
@@ -1095,7 +1116,7 @@ void UpdateJerryMiloInInitialSector()
 		//Wont work cause it gets reset every frame
 			//make sure we can see Jerry
 
-		if ( gGameUBOptions.InJerry == TRUE )
+		if ( arrivalContent.includesJerry )
 		{
 			pJerrySoldier = FindSoldierByProfileID( JERRY_MILO_UB, FALSE );//JERRY
 			if ( pJerrySoldier != NULL )

@@ -304,6 +304,16 @@ target_include_directories(campaign_mercenary_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_mercenary_policy COMMAND campaign_mercenary_policy_tests)
 
+# Mercenary hiring and initial-sector setup consume one typed UB arrival
+# snapshot per routed invocation. This dependency-free trace suite pins the two
+# formerly eager argument probes, the complete content shape, and effect order.
+add_executable(campaign_mercenary_arrival_content_tests
+  campaign_mercenary_arrival_content_tests.cpp)
+target_include_directories(campaign_mercenary_arrival_content_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_mercenary_arrival_content
+  COMMAND campaign_mercenary_arrival_content_tests)
+
 # M.E.R.C. account, pricing, gear, availability, and Speck quote records are
 # selected at runtime. This data-free target pins both complete policy paths
 # without relying on the host executable's campaign compile definition.

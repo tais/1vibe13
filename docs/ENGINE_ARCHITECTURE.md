@@ -1442,6 +1442,34 @@ the engine must not contain SDL types in its public domain model.
   30 files: 102 live-context calls, four cached-campaign comparisons, and one
   active-package capability leaf. UB-option occurrence baselines remain
   unchanged.
+- Mercenary hiring and initial-sector setup now consume
+  `CampaignMercenaryArrivalContent`, a fresh invocation-owned value containing
+  both exact seven-entry helicopter arrays and the six arrival/Jerry switches
+  and grids used by `Tactical/Merc Hiring.cpp`. The narrow read-through adapter
+  in `ub_config.cpp` is the only projection from the mutable legacy option
+  record. `HireMerc`, `MercArrivesCallback`, helicopter initialization, Jerry
+  profile initialization, and Jerry's initial-sector update all keep the live
+  campaign decision left of that adapter. The current-sector and off-screen
+  callback branches are mutually exclusive and each take one fresh value at
+  its former option-read point. Repeated InJerry, JerryGridNo, helicopter, and
+  laptop decisions within that invocation intentionally use the same frozen
+  projection across intervening actor, quest, and random effects; a later
+  invocation refreshes it. Future mutations remain separate `ub_config`-owned
+  APIs rather than exposing the legacy record. This also removes the two eager
+  UB reads that previously occurred while evaluating `usesGroundArrival` and
+  `shouldStartArrivalHelicopter` arguments in Arulco. The first-crash flag,
+  arrival-time and insertion decisions, full grid-before-time copy order,
+  initial ownership writes, Jerry lookup/null return, laptop quest, random
+  get-up/animation samples, visibility updates, and interface lock retain their
+  established order. `Merc Hiring.cpp` has no direct option read and no direct
+  campaign selector. Dependency-free traces cover both campaigns, every
+  scalar branch, fresh reads, all fourteen array positions, early
+  returns, and effect order; bounded source checks pin the production wiring.
+  The executable raw-selector inventory is now 104 sites across 29 files: 99
+  live-context calls, four cached-campaign comparisons, and one active-package
+  capability leaf. The UB boundary is now 268 executable/270 raw external
+  option occurrences across 32 consumers and 552 executable/554 raw total
+  occurrences across 34 files.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,

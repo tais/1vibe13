@@ -240,6 +240,27 @@ replace it. `Strategic/Ja25 Strategic Ai.cpp` and `SaveLoadGame.cpp` now have
 no direct access to the raw member; its only two accesses are the getter and
 setter in `ub_config.cpp`.
 
+Mercenary hiring and initial-sector setup now consume a fresh
+`CampaignMercenaryArrivalContent` value after the live
+`CampaignMercenaryPolicy` selects UB. The value contains all seven initial
+helicopter grids, all seven signed random times, and the InJerry, InGameHeli,
+InGameHeliCrash, JerryGridNo, LaptopQuestEnabled, and LOCATEGRIDNO projections.
+Only `ub_config.cpp` reads those legacy fields. `Tactical/Merc Hiring.cpp` now
+has neither a direct campaign selector nor a direct option read; Arulco exits
+or chooses its ordinary route before the adapter is evaluated. That removes
+the two former eager InGameHeli argument evaluations while keeping crash-flag,
+arrival, insertion, array-copy, initial-sector ownership, Jerry lookup, quest,
+random animation, visibility, and interface-lock order unchanged. The
+on-screen and off-screen callback routes are mutually exclusive and each
+samples one fresh value at its established decision point. Repeated
+InJerry/JerryGridNo, helicopter, and laptop decisions then deliberately use
+that frozen projection across actor, quest, and random effects; the next
+invocation refreshes it. Future setters remain separate `ub_config`-owned APIs
+and do not expose the legacy record. A dependency-free truth/trace suite
+covers both campaigns, the full array and scalar shape,
+fresh invocation reads, all Jerry/crash combinations, and every early return;
+bounded source ratchets pin the adapter mapping and production effect order.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -345,13 +366,13 @@ behavior remain unchanged.
 
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline is 107 sites across 30 files,
-down from 149: 102 live-context calls, four cached-campaign comparisons, and
+The reviewed executable raw-selector baseline is 104 sites across 29 files,
+down from 149: 99 live-context calls, four cached-campaign comparisons, and
 one active-package capability leaf. The strategic sector slice reduces its
 private wrapper call inventory from 26 to 20 without changing the single
-underlying context selector. The UB-option boundary now has 297 executable and
-299 raw external occurrences across 33 consumer files; including the declaration
-and adapter owners, it has 561 executable and 563 raw occurrences across 35
+underlying context selector. The UB-option boundary now has 268 executable and
+270 raw external occurrences across 32 consumer files; including the declaration
+and adapter owner, it has 552 executable and 554 raw occurrences across 34
 files. These are source-level ratchets in architecture CI rather than
 completion claims. Later work should continue replacing a complete behavioral
 cluster at a time while keeping campaign gates left of configuration, save,
