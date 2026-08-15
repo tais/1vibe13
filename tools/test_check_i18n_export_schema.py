@@ -450,6 +450,56 @@ inline constexpr auto TextTables = {{
         ):
             EXPORT.parse_text_pack_descriptors(macro_only)
 
+    def test_builtin_text_pack_payload_parser_requires_direct_literal_elements(self):
+        source = EXPORT._read("i18n/TextCatalog.cpp")
+        baseline = EXPORT._builtin_text_pack_values(source)
+        conditional_row = source.replace(
+            "\t{Lang::en,", "#if 1\n\t{Lang::en,", 1
+        ).replace(
+            "\n\t{Lang::de,", "\n#endif\n\t{Lang::de,", 1
+        )
+        mutations = {
+            "pointer arithmetic": source.replace(
+                'L"STRENGTH",', 'L"STRENGTH" + 1,', 1
+            ),
+            "comment-spoofed pointer arithmetic": source.replace(
+                'L"STRENGTH",',
+                'L"STRENGTH" + 1 /* L"STRENGTH" */,',
+                1,
+            ),
+            "helper call": source.replace(
+                'L"STRENGTH",', 'SelectText(L"STRENGTH"),', 1
+            ),
+            "conditional expression": source.replace(
+                'L"STRENGTH",',
+                'false ? L"WRONG" : L"STRENGTH",',
+                1,
+            ),
+            "raw wide literal": source.replace(
+                'L"STRENGTH",', 'LR"(STRENGTH)",', 1
+            ),
+            "conditional row": conditional_row,
+        }
+        for label, changed in mutations.items():
+            with self.subTest(label=label):
+                self.assertNotEqual(changed, source)
+                with self.assertRaises(EXPORT.ExportSchemaError):
+                    EXPORT._builtin_text_pack_values(changed)
+
+        adjacent = source.replace(
+            'L"STRENGTH",', 'L"STREN" L"GTH",', 1
+        )
+        self.assertEqual(EXPORT._builtin_text_pack_values(adjacent), baseline)
+
+        raw_spoof = source + r'''
+const char* ignored = R"schema(
+constexpr auto BuiltinDefinitions{{
+    {Lang::en, {L"fake"}, {L"fake"}},
+}};
+)schema";
+'''
+        self.assertEqual(EXPORT._builtin_text_pack_values(raw_spoof), baseline)
+
     def test_debt_range_model_classifies_short_catalogs_and_fails_closed(self):
         canonical = {"Names": abi_symbol(10)}
         overlays = {
@@ -524,7 +574,11 @@ inline constexpr auto TextTables = {{
                 EXPORT._read(EXPORT.NAMED_EXPORT_LIMIT_MANIFEST)
             )),
         )
-        self.assertEqual(len(EXPORT.NAMED_EXPORT_LIMITS), 80)
+        self.assertEqual(len(EXPORT.NAMED_EXPORT_LIMITS), 77)
+        self.assertTrue(
+            {"NUM_CONTRACT_EXTEND", "NUM_SKI_ATM_BUTTONS", "TEXT_NUM_GIO_CFS"}
+            .isdisjoint(EXPORT.NAMED_EXPORT_LIMITS)
+        )
         self.assertEqual(EXPORT.NAMED_EXPORT_LIMITS["NUM_ICONS"], 18)
         self.assertEqual(EXPORT.NAMED_EXPORT_LIMITS["TEXT_NUM_AIM_ALUMNI"], 5)
         self.assertEqual(EXPORT.NAMED_EXPORT_LIMITS["TEXT_NUM_LARGESTR"], 3)
@@ -930,10 +984,10 @@ advancePackagesTo(
         )
         self.assertEqual(
             [entry["source_kind"] for entry in self.schema["sections"]].count("legacy"),
-            224,
+            210,
         )
-        self.assertEqual(len(self.schema["legacy_symbols"]), 224)
-        self.assertEqual(self.schema["counts"]["legacy_text_h_symbols"], 219)
+        self.assertEqual(len(self.schema["legacy_symbols"]), 210)
+        self.assertEqual(self.schema["counts"]["legacy_text_h_symbols"], 205)
         self.assertEqual(self.schema["counts"]["legacy_local_extern_symbols"], 5)
         self.assertTrue(
             all(
@@ -949,9 +1003,9 @@ advancePackagesTo(
             "mutable-pointer-slots-to-const-text",
         )
 
-    def test_exact_18_debt_pairs_and_exhaustive_zero_unsafe_gate_are_reviewable(self):
+    def test_exact_17_debt_pairs_and_exhaustive_zero_unsafe_gate_are_reviewable(self):
         debt = self.schema["exported_compatibility_debt"]
-        self.assertEqual(len(debt), 18)
+        self.assertEqual(len(debt), 17)
         unsafe = {
             (entry["language"], entry["symbol"])
             for entry in debt
@@ -961,13 +1015,13 @@ advancePackagesTo(
         self.assertEqual(
             self.schema["legacy_range_contract"],
             {
-                "comparisons": 7168,
+                "comparisons": 6720,
                 "unsafe_sections": 0,
                 "unsafe_language_pairs": 0,
                 "unsafe_quadrant_failures": 0,
                 "potential_oob_reads_per_selected_build": 0,
-                "exported_pointer_entry_checks": 85760,
-                "direct_wide_literal_entry_checks": 85432,
+                "exported_pointer_entry_checks": 83040,
+                "direct_wide_literal_entry_checks": 82712,
                 "compiled_selector_entry_checks": 328,
             },
         )
@@ -1276,28 +1330,50 @@ advancePackagesTo(
         )
         self.assertNotIn("pLongAssignmentStrings[60]", source)
 
-    def test_exact_14_exporter_only_tables_total_85_entries(self):
+    def test_exporter_only_cohort_is_exactly_owned_by_typed_text_pack_tables(self):
         inventory = self.schema["exporter_only_tables"]
+        self.assertEqual(inventory, [])
+        cohort = [
+            ("LongAttribute", "LongAttribute", 16),
+            ("Training", "Training", 19),
+            ("GuardMenu", "GuardMenu", 20),
+            ("OtherGuardMenu", "OtherGuardMenu", 21),
+            ("ContractExtend", "ContractExtend", 43),
+            ("NoiseType", "NoiseType", 46),
+            ("Traverse", "Traverse", 94),
+            ("MercContractOver", "MercContractOver", 117),
+            ("SkiAtm", "SkiAtm", 176),
+            ("IMPFinishButton", "ImpFinishButton", 195),
+            ("IMPVoices", "ImpVoices", 197),
+            ("DepartedMercPortrait", "DepartedMercPortrait", 198),
+            ("MiscString", "MiscString", 210),
+            ("GioDifConfirm", "GioDifConfirm", 220),
+        ]
+        sections = {entry["section"]: entry for entry in self.schema["sections"]}
         self.assertEqual(
-            {entry["symbol"] for entry in inventory},
-            {
-                "pLongAttributeStrings",
-                "pTrainingStrings",
-                "pGuardMenuStrings",
-                "pOtherGuardMenuStrings",
-                "pContractExtendStrings",
-                "pNoiseTypeStr",
-                "pTraverseStrings",
-                "pMercContractOverStrings",
-                "SkiAtmText",
-                "pIMPFinishButtonText",
-                "pIMPVoicesStrings",
-                "pDepartedMercPortraitStrings",
-                "gzMiscString",
-                "zGioDifConfirmText",
-            },
+            [
+                (section, sections[section]["key"], sections[section]["ordinal"])
+                for section, _key, _ordinal in cohort
+            ],
+            cohort,
         )
-        self.assertEqual(sum(entry["entries_per_language"] for entry in inventory), 85)
+        self.assertTrue(
+            all(sections[section]["source_kind"] == "text-pack-table"
+                for section, _key, _ordinal in cohort)
+        )
+        legacy_symbols = {
+            "pLongAttributeStrings", "pTrainingStrings", "pGuardMenuStrings",
+            "pOtherGuardMenuStrings", "pContractExtendStrings", "pNoiseTypeStr",
+            "pTraverseStrings", "pMercContractOverStrings", "SkiAtmText",
+            "pIMPFinishButtonText", "pIMPVoicesStrings",
+            "pDepartedMercPortraitStrings", "gzMiscString", "zGioDifConfirmText",
+        }
+        self.assertTrue(legacy_symbols.isdisjoint(self.schema["legacy_symbols"]))
+        for language in EXPORT.ABI.LANGUAGES:
+            definitions = EXPORT.ABI.parse_definitions(
+                EXPORT._read(language.base_source), language.base_source
+            )
+            self.assertTrue(legacy_symbols.isdisjoint(definitions), language.name)
 
     def test_manifest_rejects_wildcard_or_growing_debt(self):
         changed = copy.deepcopy(self.schema)
@@ -1309,9 +1385,11 @@ advancePackagesTo(
         extra = copy.deepcopy(changed["exported_compatibility_debt"][0])
         extra["language"] = "NewLanguage"
         changed["exported_compatibility_debt"].append(extra)
-        changed["counts"]["exported_compatibility_debt_pairs"] = 20
+        changed["counts"]["exported_compatibility_debt_pairs"] = len(
+            changed["exported_compatibility_debt"]
+        )
         diagnostics = "\n".join(EXPORT.validate_manifest_contract(changed))
-        self.assertIn("18-pair ceiling", diagnostics)
+        self.assertIn("17-pair ceiling", diagnostics)
 
     def test_manifest_rejects_order_range_and_symbol_bypass(self):
         changed = copy.deepcopy(self.schema)

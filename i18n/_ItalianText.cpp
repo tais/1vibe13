@@ -2731,19 +2731,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-  L"FORZA", 
-	L"DESTREZZA",  
-	L"AGILITÀ", 
-	L"SAGGEZZA", 
-	L"MIRA",
-	L"PRONTO SOCC.",
-	L"MECCANICA",
-	L"COMANDO",
-	L"ESPLOSIVI",
-	L"LIVELLO",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2779,43 +2767,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Benzina",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Esercitarsi", // tell merc to train self 
-  L"Esercito", // tell merc to train town 
-	L"Allenatore", // tell merc to act as trainer
-	L"Studente", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Frequenza di fuoco:", // the allowable rate of fire for a merc who is guarding
-	L"Fuoco aggressivo", // the merc can be aggressive in their choice of fire rates
-	L"Conservare munizioni", // conserve ammo 
-	L"Astenersi dal fuoco", // fire only when the merc needs to 
-	L"Altre opzioni:", // other options available to merc
-	L"Può ritrattare", // merc can retreat
-	L"Può cercare rifugio",  // merc is allowed to seek cover
-	L"Può assistere compagni di squadra", // merc can assist teammates
-	L"Fine", // done with this menu
-	L"Annulla", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Frequenza di fuoco:",
-	L" *Fuoco aggressivo*",
-	L" *Conservare munizioni*",
-	L" *Astenersi dal fuoco*",
-	L"Altre opzioni:",
-	L" *Può ritrattare*",
-	L" *Può cercare rifugio*",
-	L" *Può assistere compagni di squadra*",
-	L"Fine",
-	L"Annulla",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3370,14 +3327,8 @@ STR16 pDoorTrapStrings[] =
 	L"una trappola elettrica",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"giorno",
-	L"settimana",
-	L"due settimane",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3401,23 +3352,8 @@ STR16 pNoiseVolStr[] =
 	L"MOLTO FORTE",
 };
 
-// types of noises 
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"SCONOSCIUTO",
-	L"rumore di MOVIMENTO",
-	L"SCRICCHIOLIO",
-	L"TONFO IN ACQUA",
-	L"IMPATTO",
-	L"SPARO",
-	L"ESPLOSIONE",
-	L"URLA",
-	L"IMPATTO",
-	L"IMPATTO",
-	L"FRASTUONO",
-	L"SCHIANTO",
-};
+
 
 // Directions that are used to report noises
 
@@ -4602,13 +4538,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"Indietro",
-  L"Avanti",
-};
+
 
 // new mail notify string 
 
@@ -4907,14 +4838,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L": contratto scaduto. Egli è tornato a casa.", 		// merc's contract is over and has departed
-	L": contratto scaduto. Ella è tornata a casa.", 		// merc's contract is over and has departed
-	L": contratto terminato. Egli è partito.", 		// merc's contract has been terminated
-	L": contratto terminato. Ella è partita.",		// merc's contract has been terminated
-	L"Dovete al M.E.R.C. troppi soldi, così %s è partito.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6105,27 +6029,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Prendi",					// Take money from the player
-	L"Dai",					// Give money to the player
-	L"Annulla",					// Cancel the transfer
-	L"Pulisci",					// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6929,28 +6834,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"(max 8 personaggi)",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Analisi",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Grazie, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Voce", 
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Ucciso in azione",
-	L"Licenziato",
-	L"Altro",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7198,14 +7091,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"Non potete ritirarvi ora.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"I vostri soldati continuano a combattere senza l'aiuto dei vostri mercenari...",
-	L"Il veicolo non ha più bisogno di carburante.",
-	L"La tanica della benzina è piena %d%%.",
-	L"L'esercito di Deidrannaha riguadagnato il controllo completo su %s.",
-	L"Avete perso una stazione di rifornimento.",
-};
+
 
 STR16	gzIntroScreen[] = 
 {
@@ -7338,19 +7224,7 @@ STR16 sRepairsDoneString[] =
 	L"%s finished cleaning everyone's guns.",	// TODO.Translate
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	//L"You have chosen NOVICE mode. This setting is appropriate for those new to Jagged Alliance, those new to strategy games in general, or those wishing shorter battles in the game. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Novice mode?",
-	L"Avete selezionato la modalità PRINCIPIANTE. Questo scenario è adatto a chi gioca per la prima volta a Jagged Alliance, a chi prova a giocare per la prima volta in generale o a chi desidera combattere battaglie più brevi nel gioco. La vostra decisione influirà sull'intero corso della partita; scegliete, quindi, con attenzione. Siete sicuri di voler giocare nella modalità PRINCIPIANTE?",
 
-	//L"You have chosen EXPERIENCED mode. This setting is suitable for those already familiar with Jagged Alliance or similar games. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Experienced mode?",
-	L"Avete selezionato la modalità ESPERTO. Questo scenario è adatto a chi ha già una certa dimestichezza con Jagged Alliance o con giochi simili. La vostra decisione influirà sull'intero corso della partita; scegliete, quindi, con attenzione. Siete sicuri di voler giocare nella modalità ESPERTO?",
-
-	//L"You have chosen EXPERT mode. We warned you. Don't blame us if you get shipped back in a body bag. Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in Expert mode?",
-	L"Avete selezionato la modalità PROFESSIONISTA. Siete avvertiti. Non malediteci, se vi ritroverete a brandelli. La vostra decisione influirà sull'intero corso della partita; scegliete, quindi, con attenzione. Siete sicuri di voler giocare nella modalità PROFESSIONISTA?",
- 
-	L"You have chosen INSANE mode. WARNING: Don't blame us if you get shipped back in little pieces... Deidranna WILL kick your ass.  Hard.  Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in INSANE mode?",
-};
 
 STR16 gzLateLocalizedString[] =
 {

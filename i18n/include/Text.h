@@ -186,12 +186,10 @@ extern STR16 pPrisonerMenuDescStrings[];
 extern STR16 pSnitchPrisonExposedStrings[];
 extern STR16 pSnitchGatheringRumoursResultStrings[];
 extern STR16 pAssignMenuStrings[];
-extern STR16 pTrainingStrings[];
 extern STR16 pTrainingMenuStrings[];
 extern STR16 pAttributeMenuStrings[];
 extern STR16 pVehicleStrings[];
 extern STR16 pShortAttributeStrings[];
-extern STR16 pLongAttributeStrings[];
 extern STR16 pContractStrings[];
 extern STR16 pAssignmentStrings[];
 extern STR16 pConditionStrings[];
@@ -204,16 +202,12 @@ extern STR16 pTacticalPopupButtonStrings[];
 extern STR16 pSquadMenuStrings[];
 extern STR16 pDoorTrapStrings[];
 extern STR16 pLongAssignmentStrings[];
-extern STR16 pContractExtendStrings[];
 extern STR16 pMapScreenMouseRegionHelpText[];
 extern STR16 pPersonnelAssignmentStrings[];
 extern STR16 pNoiseVolStr[];
-extern STR16 pNoiseTypeStr[];
 extern STR16 pDirectionStr[];
 extern STR16 pRemoveMercStrings[];
 extern STR16 pLandTypeStrings[];
-extern STR16 pGuardMenuStrings[];
-extern STR16 pOtherGuardMenuStrings[];
 extern STR16 pInvPanelTitleStrings[];
 extern STR16 pPOWStrings[];
 extern STR16 pMilitiaString[];
@@ -245,7 +239,6 @@ extern STR16 pMapScreenBottomFastHelp[];
 extern STR16 pMapScreenBottomText[];
 extern STR16 pMercDeadString[];
 extern CHAR16 pSenderNameList[500][128];
-extern STR16 pTraverseStrings[];
 extern STR16 pNewMailStrings[];
 extern STR16 pDeleteMailStrings[];
 extern STR16 pEmailHeaders[];
@@ -295,15 +288,11 @@ extern STR16 pMapDepthIndex[];
 //extern STR16 sCritLocationStrings[];
 //extern STR16 sVehicleHit[ ];
 extern STR16 pLaptopTitles[];
-extern STR16 pMercContractOverStrings[];
 extern STR16 pMilitiaConfirmStrings[];
 extern STR16 pDeliveryLocationStrings[];
 extern STR16 pSkillAtZeroWarning[];
 extern STR16 pIMPBeginScreenStrings[];
-extern STR16 pIMPFinishButtonText[1];
 extern STR16 pIMPFinishStrings[];
-extern STR16 pIMPVoicesStrings[];
-extern STR16 pDepartedMercPortraitStrings[];
 extern STR16 pPersTitleText[];
 extern STR16	zOptionsToggleText[];
 extern STR16	zOptionsScreenHelpText[];
@@ -314,8 +303,6 @@ extern STR16 pLandMarkInSectorString[];
 extern STR16 gzMercSkillText[];
 extern STR16 gzMercSkillTextNew[]; // added by SANDRO
 extern STR16 gzNonPersistantPBIText[];
-extern STR16 gzMiscString[];
-
 extern STR16 wMapScreenSortButtonHelpText[];
 extern STR16 pNewNoiseStr[];
 extern STR16 pTauntUnknownVoice[]; // anv: for enemy taunts
@@ -1900,29 +1887,6 @@ extern	STR16			SKI_Text[];
 //ShopKeeper Interface
 enum
 {
-	SKI_ATM_0,
-	SKI_ATM_1,
-	SKI_ATM_2,
-	SKI_ATM_3,
-	SKI_ATM_4,
-	SKI_ATM_5,
-	SKI_ATM_6,
-	SKI_ATM_7,
-	SKI_ATM_8,
-	SKI_ATM_9,
-	SKI_ATM_OK,
-	SKI_ATM_TAKE,
-	SKI_ATM_GIVE,
-	SKI_ATM_CANCEL,
-	SKI_ATM_CLEAR,
-
-	NUM_SKI_ATM_BUTTONS
-};
-extern	STR16	SkiAtmText[];
-
-//ShopKeeper Interface
-enum
-{
 	SKI_ATM_MODE_TEXT_SELECT_MODE,
 	SKI_ATM_MODE_TEXT_ENTER_AMOUNT,
 	SKI_ATM_MODE_TEXT_SELECT_TO_MERC,
@@ -2372,17 +2336,6 @@ enum
 };
 
 extern STR16 gzBobbyRShipmentText[];
-
-
-enum
-{
-	GIO_CFS_NOVICE,
-	GIO_CFS_EXPERIENCED,
-	GIO_CFS_EXPERT,
-	GIO_CFS_INSANE,
-	TEXT_NUM_GIO_CFS,
-};
-extern STR16 zGioDifConfirmText[];
 
 
 enum

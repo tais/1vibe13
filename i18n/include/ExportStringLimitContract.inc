@@ -14,11 +14,9 @@ static_assert(MAX_SQUAD_MENU_STRING_COUNT == 41, "GameStrings:MAX_SQUAD_MENU_STR
 static_assert(MAX_TOWNS == 50, "GameStrings:MAX_TOWNS");
 static_assert(MAX_TRAIN_STRING_COUNT == 5, "GameStrings:MAX_TRAIN_STRING_COUNT");
 static_assert(NUM_ASSIGNMENTS == 85, "GameStrings:NUM_ASSIGNMENTS");
-static_assert(NUM_CONTRACT_EXTEND == 3, "GameStrings:NUM_CONTRACT_EXTEND");
 static_assert(NUM_DOOR_TRAPS == 7, "GameStrings:NUM_DOOR_TRAPS");
 static_assert(NUM_ICONS == 18, "GameStrings:NUM_ICONS");
 static_assert(NUM_SKILLTRAITS_OT == 17, "GameStrings:NUM_SKILLTRAITS_OT");
-static_assert(NUM_SKI_ATM_BUTTONS == 15, "GameStrings:NUM_SKI_ATM_BUTTONS");
 static_assert(NUM_SNITCH_GATHERING_RUMOURS_RESULT == 1, "GameStrings:NUM_SNITCH_GATHERING_RUMOURS_RESULT");
 static_assert(NUM_SNITCH_PRISON_EXPOSED == 12, "GameStrings:NUM_SNITCH_PRISON_EXPOSED");
 static_assert(NUM_TRAVTERRAIN_TYPES == 47, "GameStrings:NUM_TRAVTERRAIN_TYPES");
@@ -46,7 +44,6 @@ static_assert(TEXT_NUM_FLORIST_CARDS == 2, "GameStrings:TEXT_NUM_FLORIST_CARDS")
 static_assert(TEXT_NUM_FLORIST_GALLERY == 5, "GameStrings:TEXT_NUM_FLORIST_GALLERY");
 static_assert(TEXT_NUM_FLORIST_ORDER == 22, "GameStrings:TEXT_NUM_FLORIST_ORDER");
 static_assert(TEXT_NUM_FUNERAL == 12, "GameStrings:TEXT_NUM_FUNERAL");
-static_assert(TEXT_NUM_GIO_CFS == 4, "GameStrings:TEXT_NUM_GIO_CFS");
 static_assert(TEXT_NUM_GIO_TEXT == 69, "GameStrings:TEXT_NUM_GIO_TEXT");
 static_assert(TEXT_NUM_INS_CONTRACT == 4, "GameStrings:TEXT_NUM_INS_CONTRACT");
 static_assert(TEXT_NUM_INS_INFO == 2, "GameStrings:TEXT_NUM_INS_INFO");

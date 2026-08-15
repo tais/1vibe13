@@ -89,14 +89,30 @@ enum class TextTableKey
 	Eta,
 	PausedGame,
 	AimSort,
+	LongAttribute,
+	Training,
+	GuardMenu,
+	OtherGuardMenu,
+	ContractExtend,
+	NoiseType,
+	Traverse,
+	MercContractOver,
+	SkiAtm,
+	ImpFinishButton,
+	ImpVoices,
+	DepartedMercPortrait,
+	MiscString,
+	GioDifConfirm,
 	count
 };
 
 static_assert(static_cast<std::size_t>(TextTableKey::PausedGame) == 4 &&
-	static_cast<std::size_t>(TextTableKey::AimSort) == 5,
+	static_cast<std::size_t>(TextTableKey::AimSort) == 5 &&
+	static_cast<std::size_t>(TextTableKey::LongAttribute) == 6 &&
+	static_cast<std::size_t>(TextTableKey::GioDifConfirm) == 19,
 	"New TextTableKey entries append without renumbering published table ordinals");
 
-inline constexpr std::size_t TextTableEntryCount = 35;
+inline constexpr std::size_t TextTableEntryCount = 120;
 
 struct TextTableDescriptor
 {
@@ -124,6 +140,34 @@ inline constexpr std::array<TextTableDescriptor,
 		12, 3, 0, 3, false},
 	{TextTableKey::AimSort, "laptop.aim.sort", L"AimSort",
 		15, 20, 0, 20, false},
+	{TextTableKey::LongAttribute, "mapscreen.attribute.long", L"LongAttribute",
+		35, 10, 0, 10, false},
+	{TextTableKey::Training, "mapscreen.training", L"Training",
+		45, 4, 0, 4, false},
+	{TextTableKey::GuardMenu, "tactical.guard.menu", L"GuardMenu",
+		49, 10, 0, 10, false},
+	{TextTableKey::OtherGuardMenu, "tactical.guard.other-menu", L"OtherGuardMenu",
+		59, 10, 0, 10, false},
+	{TextTableKey::ContractExtend, "mapscreen.contract.extend", L"ContractExtend",
+		69, 3, 0, 3, false},
+	{TextTableKey::NoiseType, "tactical.noise.type", L"NoiseType",
+		72, 12, 0, 12, false},
+	{TextTableKey::Traverse, "mapscreen.traverse", L"Traverse",
+		84, 2, 0, 2, false},
+	{TextTableKey::MercContractOver, "mapscreen.contract.over", L"MercContractOver",
+		86, 5, 0, 5, false},
+	{TextTableKey::SkiAtm, "shopkeeper.atm.buttons", L"SkiAtm",
+		91, 15, 0, 15, false},
+	{TextTableKey::ImpFinishButton, "laptop.imp.finish.button", L"IMPFinishButton",
+		106, 1, 0, 1, false},
+	{TextTableKey::ImpVoices, "laptop.imp.voices", L"IMPVoices",
+		107, 1, 0, 1, false},
+	{TextTableKey::DepartedMercPortrait, "laptop.personnel.departed-portrait", L"DepartedMercPortrait",
+		108, 3, 0, 3, false},
+	{TextTableKey::MiscString, "game.misc", L"MiscString",
+		111, 5, 0, 5, false},
+	{TextTableKey::GioDifConfirm, "game.options.difficulty-confirmation", L"GioDifConfirm",
+		116, 4, 0, 4, false},
 }};
 
 constexpr auto FindTextTable(TextTableKey key) noexcept

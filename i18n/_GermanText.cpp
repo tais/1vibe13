@@ -2766,19 +2766,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-	L"KRAFT", //The merc's strength attribute. Others below represent the other attributes.
-	L"GESCHICKLICHKEIT",
-	L"BEWEGLICHKEIT", 
-	L"WEISHEIT", 
-	L"TREFFSICHERHEIT",
-	L"MEDIZIN",
-	L"TECHNIK",
-	L"FÜHRUNGSQUALITÄT",
-	L"SPRENGSTOFFE",
-	L"ERFAHRUNGSSTUFE",
-};
+
 
 STR16 pInvPanelTitleStrings[] = 
 {
@@ -2813,42 +2801,11 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Tank",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Üben", // tell merc to train self 
-	L"Miliz", // tell merc to train town // 
-	L"Trainer", // tell merc to act as trainer
-	L"Rekrut", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] = 
-{
-	L"Schussrate:", // the allowable rate of fire for a merc who is guarding
-	L" Aggressiv feuern", // the merc can be aggressive in their choice of fire rates
-	L" Munition sparen", // conserve ammo 
-	L" Nur bei Bedarf feuern", // fire only when the merc needs to 
-	L"Andere Optionen:", // other options available to merc
-	L" Rückzug möglich", // merc can retreat
-	L" Deckung möglich", // merc is allowed to seek cover
-	L" Kann Kameraden helfen", // merc can assist teammates
-	L"Fertig", // done with this menu
-	L"Abbruch", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
-STR16 pOtherGuardMenuStrings[] = 
-{
-	L"Schussrate:",
-	L" *Aggressiv feuern*",
-	L" *Munition sparen*",
-	L" *Nur bei Bedarf feuern*",
-	L"Andere Optionen:",
-	L" *Rückzug möglich*",
-	L" *Deckung möglich*",
-	L" *Kann Kameraden helfen*",
-	L"Fertig",
-	L"Abbruch",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3412,13 +3369,7 @@ STR16 pDoorTrapStrings[] =
 	L"eine elektrische Falle",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
-STR16 pContractExtendStrings[] =
-{
-	L"1 Tag",
-	L"1 Woche",
-	L"2 Wochen",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 STR16 pMapScreenMouseRegionHelpText[] =
@@ -3443,22 +3394,7 @@ STR16 pNoiseVolStr[] =
 	L"SEHR LAUT",
 };
 
-// types of noises 
-STR16 pNoiseTypeStr[] =
-{
-	L"EIN UNBEKANNTES GERÄUSCH",
-	L"EINE BEWEGUNG",
-	L"EIN KNARREN",
-	L"EIN KLATSCHEN",
-	L"EINEN AUFSCHLAG",
-	L"EINEN SCHUSS",
-	L"EINE EXPLOSION",
-	L"EINEN SCHREI",
-	L"EINEN AUFSCHLAG",
-	L"EINEN AUFSCHLAG",
-	L"EIN ZERBRECHEN",
-	L"EIN ZERSCHMETTERN",
-};
+
 
 // Directions that are used throughout the code for identification.
 STR16 pDirectionStr[] = 
@@ -4618,12 +4554,7 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
-STR16 pTraverseStrings[] =
-{
-	L"Vorige",
-	L"Nächste",
-};
+
 
 // new mail notify string 
 STR16 pNewMailStrings[] =
@@ -4896,14 +4827,7 @@ STR16 pMercSheLeaveString[] =
 	L"%s geht bald und lässt ihre Ausrüstung in %s.",
 };
 
-STR16 pMercContractOverStrings[] =
-{
-	L"s Vertrag war abgelaufen, und er ist nach Hause gegangen.", 		// merc's contract is over and has departed
-	L"s Vertrag war abgelaufen, und sie ist nach Hause gegangen.", 		// merc's contract is over and has departed
-	L"s Vertrag wurde gekündigt, und er ist weggegangen.", 			// merc's contract has been terminated
-	L"s Vertrag wurde gekündigt, und sie ist weggegangen.",			// merc's contract has been terminated
-	L"Sie schulden M.E.R.C. zu viel, also ist %s gegangen.", 		// Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 STR16 pImpPopUpStrings[] =
@@ -5997,26 +5921,7 @@ STR16 SKI_Text[] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
-STR16 SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Nehmen",					// Take money from the player
-	L"Geben",					// Give money to the player
-	L"Abbruch",					// Cancel the transfer
-	L"Löschen",					// Clear the money display
-};
+
 
 //Shopkeeper Interface
 STR16 gzSkiAtmText[] = 
@@ -6811,28 +6716,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"(max. 8 Buchstaben)",
 };
 
-STR16 pIMPFinishButtonText[] =
-{
-	L"Analyse wird durchgeführt",
-};
+
 
 STR16 pIMPFinishStrings[] =
 {
 	L"Danke, %s",	//%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] = 
-{
-	L"Stimme", 
-};
 
-STR16 pDepartedMercPortraitStrings[] = 
-{
-	L"Im Einsatz getötet",
-	L"Entlassen",
-	L"Sonstiges",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7073,14 +6966,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"Sie können sich nicht zurückziehen, wenn Sie in einem Hinterhalt sind.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Ihre Milizen kämpfen ohne die Hilfe der Söldner weiter...",
-	L"Das Fahrzeug muss nicht mehr aufgetankt werden.",
-	L"Der Tank ist %d%% voll.",
-	L"Deidrannas Armee hat wieder volle Kontrolle über %s.",
-	L"Sie haben ein Tanklager verloren.",
-};
+
 
 
 STR16 gzIntroScreen[] = 
@@ -7213,13 +7099,7 @@ STR16 sRepairsDoneString[] =
 	L"%s hat die Waffen aller Teammitglieder gereinigt.",
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"Sie haben sich für den Einsteiger-Modus entschieden. Dies ist die passende Einstellung für Spieler, die noch nie zuvor Jagged Alliance oder ähnliche Spiele gespielt haben oder für Spieler, die sich ganz einfach kürzere Schlachten wünschen. Ihre Wahl wird den Verlauf des ganzen Spiels beeinflussen. Treffen Sie also eine sorgfältige Wahl. Sind Sie ganz sicher, dass Sie im Einsteiger-Modus spielen wollen?",
-	L"Sie haben sich für den Profi-Modus entschieden. Dies ist die passende Einstellung für Spieler, die bereits Erfahrung mit Jagged Alliance oder ähnlichen Spielen haben. Ihre Wahl wird den Verlauf des ganzen Spiels beeinflussen. Treffen Sie also eine sorgfältige Wahl. Sind Sie ganz sicher, dass Sie im Profi-Modus spielen wollen?",
-	L"Sie haben sich für den Alter Hase-Modus entschieden. Na gut, wir haben Sie gewarnt. Machen Sie hinterher bloß nicht uns dafür verantwortlich, wenn Sie im Sarg nach Hause kommen. Ihre Wahl wird den Verlauf des ganzen Spiels beeinflussen. Treffen Sie also eine sorgfältige Wahl. Sind Sie ganz sicher, dass Sie im Alter Hase-Modus spielen wollen?",
-	L"Sie haben sich für den WAHNSINNIG-Modus entschieden. WARNUNG: Beschweren Sie sich nicht, wenn Sie in kleinen Stücken zurückkommen ... Deidranna wird Sie in den Allerwertesten treten und das schmerzhaft. Ihre Wahl wird den Verlauf des ganzen Spiels beeinflussen. Treffen Sie also eine sorgfältige Wahl. Sind Sie ganz sicher, dass Sie im WAHNSINNIG-Modus spielen wollen?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

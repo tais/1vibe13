@@ -2734,19 +2734,7 @@ STR16 pPOWStrings[] =
 	L" ？？ ",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-	L"力量",
-	L"灵巧",
-	L"敏捷",
-	L"智慧",
-	L"枪法",
-	L"医疗",
-	L"机械",
-	L"领导",
-	L"爆破",
-	L"级别",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2782,43 +2770,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"油量",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"锻炼", // tell merc to train self
-    L"民兵",// tell merc to train town
-	L"教练", // tell merc to act as trainer
-	L"学员", // tell merc to be train by other
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"防备模式: ", // the allowable rate of fire for a merc who is guarding
-	L" 主动射击", // the merc can be aggressive in their choice of fire rates
-	L" 节约弹药", // conserve ammo
-	L" 自卫射击", // fire only when the merc needs to
-	L"其它选择: ", // other options available to merc
-	L" 允许撤退", // merc can retreat
-	L" 自动隐蔽",  // merc is allowed to seek cover
-	L" 自动掩护", // merc can assist teammates
-	L"完成", // done with this menu
-	L"取消", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"防备模式：",
-	L" *主动射击*",
-	L" *节约弹药*",
-	L" *自卫射击*",
-	L"其它选择: ",
-	L" *允许撤退*",
-	L" *自动隐蔽*",
-	L" *自动掩护*",
-	L"完成",
-	L"取消",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3372,14 +3329,8 @@ STR16 pDoorTrapStrings[] =
 	L"一个带电陷阱",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"日",
-	L"周",
-	L"两周",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3403,23 +3354,8 @@ STR16 pNoiseVolStr[] =
 	L"非常大声的",
 };
 
-// types of noises
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"未知",
-	L"脚步声",
-	L"辗扎声",
-	L"溅泼声",
-	L"撞击声",
-	L"枪声",
-	L"爆炸声",
-	L"尖叫声",
-	L"撞击声",
-	L"撞击声",
-	L"粉碎声",
-	L"破碎声",
-};
+
 
 // Directions that are used to report noises
 
@@ -4600,13 +4536,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"上一个",
-  L"下一个",
-};
+
 
 // new mail notify string
 
@@ -4905,14 +4836,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L"的合同到期了，所以他回家了。",
-	L"的合同到期了，所以她回家了。",
-	L"的合同中止了，所以他离开了。",
-	L"的合同中止了，所以她离开了。",
-	L"你欠了M.E.R.C太多钱，所以%s离开了。",
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6108,27 +6032,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"确认",	//"OK",				// Transfer the money
-	L"拿",		//"Take",				// Take money from the player
-	L"给",		//"Give",				// Give money to the player
-	L"取消",	//"Cancel",				// Cancel the transfer
-	L"清除",	//"Clear",				// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6931,28 +6836,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"(最多8个字符)",	//"( 8 Characters Max )",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"分析...",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"谢谢你，%s",
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"嗓音",
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"阵亡",	//"Killed in Action",
-	L"解雇",		//"Dismissed",
-	L"其他",		//"Other",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7197,14 +7090,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"你不能在这时撤退。",
 };
 
-STR16 gzMiscString[] =
-{
-	L"在没有你的佣兵支援下，民兵继续战斗...",
-	L"现在车辆不需要加油。",	//"The vehicle does not need anymore fuel right now.",
-	L"油箱装了%d％的油。",	//"The fuel tank is %d%% full.",
-	L"Deidranna女王的军队重新完全占领了%s。",
-	L"你丢失了加油点。",	//"You have lost a refueling site.",
-};
+
 
 STR16	gzIntroScreen[] =
 {
@@ -7337,13 +7223,7 @@ STR16 sRepairsDoneString[] =
 	L"%s 清洁了所有人的枪支。", //L"%s finished cleaning everyone's guns.",
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"你选择了“新手”模式。这个设置是为那些刚玩铁血联盟的玩家准备的，他们刚接触策略游戏，或者他们希望快点结束战斗。你的选择会在整个游戏中生效，所以请作出明智的选择。你真的要玩“新手”模式吗？",
-	L"你选择了“老手”模式。这个设置是为那些已经熟悉铁血联盟或类似游戏的玩家准备的。你的选择会在整个游戏中生效，所以请作出明智的选择。你真的要玩“老手”模式吗？",
-	L"你选择了“专家”模式。我们警告你，如果你被装在尸袋里运回来，不要来向我们抱怨。你的选择会在整个游戏中生效，所以请作出明智的选择。你真的要玩“专家”模式吗？",
-	L"你选择了“疯狂”模式。警告: 如果你被装在塑料袋里一块块运回来，不要来向我们抱怨。女王会狠狠地凌虐你。你的选择会在整个游戏中生效，所以请作出明智的选择。你真的要玩“疯狂”模式吗？",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

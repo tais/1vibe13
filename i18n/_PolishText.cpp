@@ -2740,19 +2740,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-	L"SIŁA", //The merc's strength attribute. Others below represent the other attributes.
-	L"ZRĘCZNOŚĆ",  
-	L"ZWINNOŚĆ", 
-	L"INTELIGENCJA", 
-	L"UMIEJĘTNOŚCI STRZELECKIE",
-	L"WIEDZA MEDYCZNA",
-	L"ZNAJOMOŚĆ MECHANIKI",
-	L"UMIEJĘTNOŚĆ DOWODZENIA",
-	L"ZNAJOMOŚĆ MATERIAŁÓW WYBUCHOWYCH",
-	L"POZIOM DOŚWIADCZENIA",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2788,43 +2776,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Paliwo",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Praktyka", // tell merc to train self 
-	L"Samoobrona", // tell merc to train town 
-	L"Instruktor", // tell merc to act as trainer
-	L"Uczeń", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Limit ognia:", // the allowable rate of fire for a merc who is guarding
-	L" Agresywny ogień", // the merc can be aggressive in their choice of fire rates
-	L" Oszczędzaj amunicję", // conserve ammo 
-	L" Strzelaj w ostateczności", // fire only when the merc needs to 
-	L"Inne opcje:", // other options available to merc
-	L" Może się wycofać", // merc can retreat
-	L" Może szukać schronienia",  // merc is allowed to seek cover
-	L" Może pomagać partnerom", // merc can assist teammates
-	L"OK", // done with this menu
-	L"Anuluj", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Limit ognia:",
-	L" *Agresywny ogień*",
-	L" *Oszczędzaj amunicję*",
-	L" *Strzelaj w ostateczności*",
-	L"Inne opcje:",
-	L" *Może się wycofać*",
-	L" *Może szukać schronienia*",
-	L" *Może pomagać partnerom*",
-	L"OK",
-	L"Anuluj",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3378,14 +3335,8 @@ STR16 pDoorTrapStrings[] =
 	L"jest pod napięciem",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"dzień",
-	L"tydzień",
-	L"dwa tygodnie",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3409,23 +3360,8 @@ STR16 pNoiseVolStr[] =
 	L"BARDZO GŁOŚNY"
 };
 
-// types of noises 
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"NIEOKREŚLONY DŹWIĘK",
-	L"ODGŁOS RUCHU",
-	L"ODGŁOS SKRZYPNIĘCIA",
-	L"PLUSK",
-	L"ODGŁOS UDERZENIA",
-	L"STRZAŁ",
-	L"WYBUCH",
-	L"KRZYK",
-	L"ODGŁOS UDERZENIA",
-	L"ODGŁOS UDERZENIA",
-	L"ŁOMOT",
-	L"TRZASK"
-};
+
 
 // Directions that are used to report noises
 
@@ -4609,13 +4545,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"Poprzedni",
-  L"Następny",
-};
+
 
 // new mail notify string 
 
@@ -4914,14 +4845,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L" zakończył kontrakt więc wyjechał.", 		// merc's contract is over and has departed
-	L" zakończyła kontrakt więc wyjechała.", 		// merc's contract is over and has departed
-	L" - jego kontrakt został zerwany więc odszedł.", 		// merc's contract has been terminated
-	L" - jej kontrakt został zerwany więc odeszła.",		// merc's contract has been terminated
-	L"Masz za duży dług wobec M.E.R.C. więc %s odchodzi.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6114,27 +6038,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Weź",					// Take money from the player
-	L"Daj",					// Give money to the player
-	L"Anuluj",					// Cancel the transfer
-	L"Skasuj",					// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6939,28 +6844,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"( Maks. 8 znaków )",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Analizuję",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Dziękujemy, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Głos", 
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Śmierć w akcji",
-	L"Zwolnienie",
-	L"Inny",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7207,14 +7100,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"W tym momencie nie możesz się wycofać.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Żołnierze samoobrony kontynuują walkę bez pomocy twoich najemników...",
-	L"W tym momencie tankowanie nie jest konieczne.",
-	L"W baku jest %d%% paliwa.",
-	L"Żołnierze Deidranny przejęli całkowitą kontrolę nad - %s.",
-	L"Nie masz już gdzie zatankować.",
-};
+
 
 STR16	gzIntroScreen[] = 
 {
@@ -7347,13 +7233,7 @@ STR16 sRepairsDoneString[] =
 	L"%s finished cleaning everyone's guns.",	// TODO.Translate
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"Wybrano opcję NOWICJUSZ. Opcja ta jest przeznaczona dla niedoświadczonych graczy, lub dla tych, którzy nie mają ochoty na długie i ciężkie walki. Pamiętaj, że opcja ta ma wpływ na przebieg całej gry. Czy na pewno chcesz grać w trybie Nowicjusz?",
-	L"Wybrano opcję DOŚWIADCZONY. Opcja ta jest przenaczona dla graczy posiadających już pewne doświadczenie w grach tego typu. Pamiętaj, że opcja ta ma wpływ na przebieg całej gry. Czy na pewno chcesz grać w trybie Doświadczony?",
-	L"Wybrano opcję EKSPERT. Jakby co, to ostrzegaliśmy cię. Nie obwiniaj nas, jeśli wrócisz w plastikowym worku. Pamiętaj, że opcja ta ma wpływ na przebieg całej gry. Czy na pewno chcesz grać w trybie Ekspert?",
-	L"Wybrano opcję SZALONY. OSTRZEŻENIE: Nie obwiniaj nas, jeśli wrócisz w malutkich kawałeczkach... Deidranna NAPRAWDę skopie ci tyłek. Mocno. Pamiętaj, że opcja ta ma wpływ na przebieg całej gry. Czy na pewno chcesz grać w trybie SZALONY?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

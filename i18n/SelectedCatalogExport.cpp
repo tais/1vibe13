@@ -92,13 +92,13 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"Contract",					::pContractStrings,				0,	MAX_CONTRACT_MENU_STRING_COUNT);
 	ExportSection(sink, L"POW",						::pPOWStrings,					0,	2);
 	ExportSection(sink, L"InvPanelTitle",				::pInvPanelTitleStrings,			0,	5);
-	ExportSection(sink, L"LongAttribute",				::pLongAttributeStrings,			0,	10);
+	ExportTextPackTable(sink, i18n::TextTableKey::LongAttribute);
 	ExportSection(sink, L"ShortAttribute",				::pShortAttributeStrings,		0,	10);
 	ExportSection(sink, L"UpperLeftMapScreen",			::pUpperLeftMapScreenStrings,	0,	6);
-	ExportSection(sink, L"Training",					::pTrainingStrings,				0,	4);
+	ExportTextPackTable(sink, i18n::TextTableKey::Training);
 
-	ExportSection(sink, L"GuardMenu",					::pGuardMenuStrings,				0,	10);
-	ExportSection(sink, L"OtherGuardMenu",				::pOtherGuardMenuStrings,		0,	10);
+	ExportTextPackTable(sink, i18n::TextTableKey::GuardMenu);
+	ExportTextPackTable(sink, i18n::TextTableKey::OtherGuardMenu);
 	ExportSection(sink, L"AssignMenu",					::pAssignMenuStrings,			0,	MAX_ASSIGN_STRING_COUNT);
 	ExportSection(sink, L"MilitiaControlMenu",			::pMilitiaControlMenuStrings,	0,	MAX_MILCON_STRING_COUNT);
 	ExportSection(sink, L"RemoveMerc",					::pRemoveMercStrings,			0,	MAX_REMOVE_MERC_COUNT);
@@ -123,10 +123,10 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"MercSkill",					::gzMercSkillText,				0,	NUM_SKILLTRAITS_OT);
 	ExportSection(sink, L"TacticalPopupButton",		::pTacticalPopupButtonStrings,	0,	NUM_ICONS);
 	ExportSection(sink, L"DoorTrap",					::pDoorTrapStrings,				0,	NUM_DOOR_TRAPS);
-	ExportSection(sink, L"ContractExtend",				::pContractExtendStrings,		0,	NUM_CONTRACT_EXTEND);
+	ExportTextPackTable(sink, i18n::TextTableKey::ContractExtend);
 	ExportSection(sink, L"MapScreenMouseRegionHelp",	::pMapScreenMouseRegionHelpText,	0,	6);
 	ExportSection(sink, L"NoiseVol",					::pNoiseVolStr,					0,	4);
-	ExportSection(sink, L"NoiseType",					::pNoiseTypeStr,					0,	12);
+	ExportTextPackTable(sink, i18n::TextTableKey::NoiseType);
 	ExportSection(sink, L"Direction",					::pDirectionStr,					0,	8);
 	ExportSection(sink, L"LandType",					::pLandTypeStrings,				0,	NUM_TRAVTERRAIN_TYPES);
 	ExportSection(sink, L"Strategic",					::gpStrategicString,				0,	TEXT_NUM_STRATEGIC_TEXT);
@@ -179,7 +179,7 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"MercDead",					::pMercDeadString,				0,	1);
 	ExportTextPackTable(sink, i18n::TextTableKey::Day);
 	ExportSection(sink, L"SenderName",					::pSenderNameList,				0,	51);
-	ExportSection(sink, L"Traverse",					::pTraverseStrings,				0,	2);
+	ExportTextPackTable(sink, i18n::TextTableKey::Traverse);
 	ExportSection(sink, L"NewMail",					::pNewMailStrings,				0,	1);
 	ExportSection(sink, L"DeleteMail",					::pDeleteMailStrings,			0,	2);
 	ExportSection(sink, L"EmailHeader",				::pEmailHeaders,					0,	3);
@@ -204,7 +204,7 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"MiscMapScreenMouseRegionHelp",		::pMiscMapScreenMouseRegionHelpText,		0,	3);
 	ExportSection(sink, L"MercHeLeave",						::pMercHeLeaveString,					0,	2);
 	ExportSection(sink, L"MercSheLeave",						::pMercSheLeaveString,					0,	2);
-	ExportSection(sink, L"MercContractOver",					::pMercContractOverStrings,				0,	5);
+	ExportTextPackTable(sink, i18n::TextTableKey::MercContractOver);
 
 	ExportSection(sink, L"ImpPopUp",					::pImpPopUpStrings,				0,	12);
 	ExportSection(sink, L"ImpButton",					::pImpButtonText,				0,	26);
@@ -271,7 +271,7 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"AimBottomMenu",				::AimBottomMenuText,				0,	TEXT_NUM_AIM_MENU);
 
 	ExportSection(sink, L"SKI",						::SKI_Text,						0, TEXT_NUM_SKI_TEXT);
-	ExportSection(sink, L"SkiAtm",						::SkiAtmText,					0, NUM_SKI_ATM_BUTTONS);
+	ExportTextPackTable(sink, i18n::TextTableKey::SkiAtm);
 	ExportSection(sink, L"SkiAtmText",					::gzSkiAtmText,					0, TEXT_NUM_SKI_ATM_MODE_TEXT);
 	ExportSection(sink, L"SkiMessageBox",				::SkiMessageBoxText,				0, TEXT_NUM_SKI_MBOX_TEXT);
 	ExportSection(sink, L"Options",					::zOptionsText,					0, TEXT_NUM_OPT_TEXT);
@@ -291,11 +291,11 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"DeliveryLocation",			::pDeliveryLocationStrings,		0,	17);
 	ExportSection(sink, L"SkillAtZeroWarning",			::pSkillAtZeroWarning,			0,	1);
 	ExportSection(sink, L"IMPBeginScreen",				::pIMPBeginScreenStrings,		0,	1);
-	ExportSection(sink, L"IMPFinishButton",			::pIMPFinishButtonText,			0,	1);
+	ExportTextPackTable(sink, i18n::TextTableKey::ImpFinishButton);
 
 	ExportSection(sink, L"IMPFinish",					::pIMPFinishStrings,				0,	1);
-	ExportSection(sink, L"IMPVoices",					::pIMPVoicesStrings,				0,	1);
-	ExportSection(sink, L"DepartedMercPortrait",		::pDepartedMercPortraitStrings,	0,	3);
+	ExportTextPackTable(sink, i18n::TextTableKey::ImpVoices);
+	ExportTextPackTable(sink, i18n::TextTableKey::DepartedMercPortrait);
 	ExportSection(sink, L"PersTitle",					::pPersTitleText,				0,	1);
 	ExportTextPackTable(sink, i18n::TextTableKey::PausedGame);
 	ExportSection(sink, L"MessageStrings",				::pMessageStrings,				0,	TEXT_NUM_MSG);
@@ -308,7 +308,7 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"LaptopHelp",					::gzLaptopHelpText,				0,	TEXT_NUM_LAPTOP_BN_BOOKMARK_TEXT);
 	ExportTextPackEntry(sink, i18n::TextKey::HelpScreenExit);
 	ExportSection(sink, L"NonPersistantPBI",			::gzNonPersistantPBIText,		0,	10);
-	ExportSection(sink, L"MiscString",					::gzMiscString,					0,	5);
+	ExportTextPackTable(sink, i18n::TextTableKey::MiscString);
 	ExportSection(sink, L"IntroScreen",				::gzIntroScreen,					0,	1);
 	ExportSection(sink, L"NewNoise",					::pNewNoiseStr,					0,	11/*MAX_NOISES*/);
 	ExportSection(sink, L"MapScreenSortButtonHelp",	::wMapScreenSortButtonHelpText,	0,	6);
@@ -319,7 +319,7 @@ void i18n::ExportSelectedCatalog(SelectedCatalogExportSink& sink)
 	ExportSection(sink, L"CreditNameTitle",			::gzCreditNameTitle,				0,	15);
 	ExportSection(sink, L"CreditNameFunny",			::gzCreditNameFunny,				0,	15);
 	ExportSection(sink, L"RepairsDone",				::sRepairsDoneString,			0,	7);
-	ExportSection(sink, L"GioDifConfirm",				::zGioDifConfirmText,			0,	TEXT_NUM_GIO_CFS);
+	ExportTextPackTable(sink, i18n::TextTableKey::GioDifConfirm);
 	ExportSection(sink, L"LateLocalized",				::gzLateLocalizedString,			0,	64);
 	ExportSection(sink, L"CWStrings",					::gzCWStrings,					0,	1);
 	ExportSection(sink, L"TooltipStrings",				::gzTooltipStrings,				0,	TEXT_NUM_STR_TT);

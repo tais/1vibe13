@@ -2733,19 +2733,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-	L"KRACHT",
-	L"HANDIGHEID",
-	L"BEWEEGLIJKHEID",
-	L"WIJSHEID",
-	L"TREFZEKERHEID",
-	L"MEDISCH",
-	L"TECHNISCH",
-	L"LEIDERSCHAP",
-	L"EXPLOSIEVEN",
-	L"NIVEAU",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2781,43 +2769,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Tank",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Oefen", // tell merc to train self 
-	L"Militie", // tell merc to train town 
-	L"Trainer", // tell merc to act as trainer
-	L"Student", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Schietniveau:", // the allowable rate of fire for a merc who is guarding
-	L" Agressief vuren", // the merc can be aggressive in their choice of fire rates
-	L" Spaar Munitie", // conserve ammo 
-	L" Afzien van Vuren", // fire only when the merc needs to
-	L"Andere Opties:", // other options available to merc
-	L" Kan Vluchten", // merc can retreat
-	L" Kan Dekking Zoeken",  // merc is allowed to seek cover
-	L" Kan Team Helpen", // merc can assist teammates
-	L"OK", // done with this menu
-	L"Stop", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Schietniveau:",
-	L" *Agressief vuren*",
-	L" *Spaar Munitie*",
-	L" *Afzien van Vuren*",
-	L"Andere Opties:",
-	L" *Kan Vluchten*",
-	L" *Kan Dekking Zoeken*",
-	L" *Kan Team Helpen*",
-	L"OK",
-	L"Stop",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3373,14 +3330,8 @@ STR16 pDoorTrapStrings[] =
 	L"een elektrische val",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"dag",
-	L"week",
-	L"twee weken",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3404,23 +3355,8 @@ STR16 pNoiseVolStr[] =
 	L"ERG HARD",
 };
 
-// types of noises 
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"ONBEKEND",
-	L"geluid van BEWEGING",
-	L"GEKRAAK",
-	L"PLONZEN",
-	L"INSLAG",
-	L"SCHOT",
-	L"EXPLOSIE",
-	L"GEGIL",
-	L"INSLAG",
-	L"INSLAG",
-	L"BARSTEN",
-	L"DREUN",
-};
+
 
 // Directions that are used to report noises
 
@@ -4605,13 +4541,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"Vorige",
-  L"Volgende",
-};
+
 
 // new mail notify string 
 
@@ -4911,14 +4842,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L"'s contract is geëindigd, hij is dus naar huis.",	// merc's contract is over and has departed
-	L"'s contract is geëindigd, ze is dus naar huis.", 		// merc's contract is over and has departed
-	L"'s contract is opgezegd, hij is dus weg.", 		// merc's contract has been terminated
-	L"'s contract is opgezegd, ze is dus weg.",		// merc's contract has been terminated
-	L"M.E.R.C. krijgt nog teveel geld van je, %s is dus weggegaan.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6113,27 +6037,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Neem",					// Take money from the player
-	L"Geef",					// Give money to the player
-	L"Stop",					// Cancel the transfer
-	L"Leeg",					// Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6940,28 +6845,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"( 8 Karakters Max )",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Analiseren",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Bedankt, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Stem", 
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Gedood tijdens gevecht",
-	L"Ontslagen",
-	L"Anders",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7209,14 +7102,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"je kan je op dit moment niet terugtrekken.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Je militie vecht door zonder hulp van je huurlingen...",
-	L"Het voertuig heeft geen brandstof meer nodig.",
-	L"De brandstoftank is voor %d%% gevuld.",
-	L"Het leger van Deidranna heeft totale controle verkregen over %s.",
-	L"Je hebt een tankplaats verloren.",
-};
+
 
 STR16	gzIntroScreen[] = 
 {
@@ -7349,13 +7235,7 @@ STR16 sRepairsDoneString[] =
 	L"%s finished cleaning everyone's guns.",	// TODO.Translate
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"Je hebt de NOVICE-modus geselecteerd. Deze instelling is geschikt voor diegenen die Jagged Alliance voor de eerste keer spelen, voor diegenen die nog niet zo bekend zijn met strategy games, of voor diegenen die kortere gevechten in de game willen hebben.", //Je keuze beïnvloedt dingen in het hele verloop van de game, dus weet wat je doet. Weet je zeker dat je in de Novice-modus wilt spelen?",
-	L"Je hebt de EXPERIENCED-modus geselecteerd. Deze instelling is geschikt voor diegenen die al bekend zijn met Jagged Alliance of dergelijke games. Je keuze beïnvloedt dingen in het hele verloop van de game, dus weet wat je doet. Weet je zeker dat je in de Experienced-modus wilt spelen ?",
-	L"Je hebt de EXPERT-modus geselecteerd. We hebben je gewaarschuwd. Geef ons niet de schuld als je in een kist terugkomt. Je keuze beïnvloedt dingen in het hele verloop van de game, dus weet wat je doet. Weet je zeker dat je in de Expert-modus wilt spelen?",
-	L"You have chosen INSANE mode. WARNING: Don't blame us if you get shipped back in little pieces... Deidranna WILL kick your ass.  Hard.  Your choice will affect things throughout the entire course of the game, so choose wisely. Are you sure you want to play in INSANE mode?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {

@@ -224,7 +224,7 @@ STR16 Labels[] = {
         self.assertIn("unexpected field(s): *", diagnostics)
         self.assertIn("grew from the 42-symbol ceiling to 43", diagnostics)
 
-    def test_committed_debt_is_42_and_drops_all_15_normalized_pairs(self):
+    def test_committed_debt_is_41_and_drops_migrated_german_imp_gap(self):
         schema = json.loads(
             SCHEMA.SCHEMA_PATH.read_text(encoding="utf-8"),
             object_pairs_hook=SCHEMA.unique_json_object,
@@ -234,7 +234,8 @@ STR16 Labels[] = {
             for language, overlay in schema["catalog_compatibility_debt"].items()
             for symbol in overlay["symbols"]
         }
-        self.assertEqual(len(pairs), 42)
+        self.assertEqual(len(pairs), 41)
+        self.assertNotIn(("German", "pIMPFinishButtonText"), pairs)
         self.assertTrue(
             pairs.isdisjoint(
                 {

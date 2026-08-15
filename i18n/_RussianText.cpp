@@ -2734,19 +2734,7 @@ STR16 pPOWStrings[] =
 	L"??",
 };
 
-STR16 pLongAttributeStrings[] =
-{
-  L"СИЛА", 
-	L"ЛОВКОСТЬ",  
-	L"ПРОВОРНОСТЬ", 
-	L"ИНТЕЛЛЕКТ", 
-	L"МЕТКОСТЬ",
-	L"МЕДИЦИНА",
-	L"МЕХАНИКА",
-	L"ЛИДЕРСТВО",
-	L"ВЗРЫВЧАТКА",
-	L"УРОВЕНЬ",
-};
+
 
 STR16 pInvPanelTitleStrings[] =
 {
@@ -2782,43 +2770,12 @@ STR16 pUpperLeftMapScreenStrings[] =
 	L"Топливо",	// the fuel level of the current vehicle
 };
 
-STR16 pTrainingStrings[] =
-{
-	L"Практика", // tell merc to train self 
-	L"Ополчение", // tell merc to train town 
-	L"Тренер", // tell merc to act as trainer
-	L"Ученик", // tell merc to be train by other 
-};
 
-STR16 pGuardMenuStrings[] =
-{
-	L"Ведение огня:", // the allowable rate of fire for a merc who is guarding
-	L" Агрессивная атака", // the merc can be aggressive in their choice of fire rates
-	L" Беречь патроны", // conserve ammo 
-	L" Воздержаться от стрельбы", // fire only when the merc needs to 
-	L"Другие параметры:", // other options available to merc
-	L" Может отступить", // merc can retreat
-	L" Может искать укрытие",  // merc is allowed to seek cover
-	L" Может помочь команде", // merc can assist teammates
-	L"Готово", // done with this menu
-	L"Отмена", // cancel this menu
-};
 
-// This string has the same comments as above, however the * denotes the option has been selected by the player
 
-STR16 pOtherGuardMenuStrings[] =
-{
-	L"Ведение огня:",
-	L" *Агрессивная атака*",
-	L" *Беречь патроны*",
-	L" *Воздержаться от стрельбы*",
-	L"Другие параметры:",
-	L" *Может отступить*",
-	L" *Может искать укрытие*",
-	L" *Может помочь команде*",
-	L"Готово",
-	L"Отмена",
-};
+
+
+
 
 STR16 pAssignMenuStrings[] =
 {
@@ -3372,14 +3329,8 @@ STR16 pDoorTrapStrings[] =
 	L"электроловушка",
 };
 
-// Contract Extension. These are used for the contract extension with AIM mercenaries.
 
-STR16 pContractExtendStrings[] =
-{
-	L"1 день",
-	L"7 дней",
-	L"14 дней",
-};
+
 
 // On the map screen, there are four columns. This text is popup help text that identifies the individual columns.
 
@@ -3403,23 +3354,8 @@ STR16 pNoiseVolStr[] =
 	L"ОЧЕНЬ ГРОМКИЙ",
 };
 
-// types of noises 
 
-STR16 pNoiseTypeStr[] = // OBSOLETE
-{
-	L"НЕПОНЯТНЫЙ",
-	L"ШАГИ",
-	L"СКРИП",
-	L"ВСПЛЕСК",
-	L"УДАР",
-	L"ВЫСТРЕЛ",
-	L"ВЗРЫВ",
-	L"КРИК",
-	L"УДАР",
-	L"УДАР",
-	L"ЗВОН",
-	L"ГРОХОТ",
-};
+
 
 // Directions that are used to report noises
 
@@ -4600,13 +4536,8 @@ CHAR16 pSenderNameList[500][128] =
 };
 */
 
-// next/prev strings
 
-STR16 pTraverseStrings[] =
-{
-  L"<<",
-  L">>",
-};
+
 
 // new mail notify string 
 
@@ -4905,14 +4836,7 @@ STR16 pMercSheLeaveString[] =
 };
 
 
-STR16 pMercContractOverStrings[] =
-{
-	L"отправляется домой, так как время его контракта истекло.", 		// merc's contract is over and has departed
-	L"отправляется домой, так как время её контракта истекло.", 		// merc's contract is over and has departed
-	L"уходит, так как его контракт был прерван.", 		// merc's contract has been terminated
-	L"уходит, так как ее контракт был прерван.",		// merc's contract has been terminated
-	L"Вы должны M.E.R.C. слишком много денег, так что %s уходит.", // Your M.E.R.C. account is invalid so merc left
-};
+
 
 // Text used on IMP Web Pages
 
@@ -6105,27 +6029,8 @@ STR16 SKI_Text[ ] =
 };
 
 //ShopKeeper Interface
-//for the bank machine panels. Referenced here is the acronym ATM, which means Automatic Teller Machine
 
-STR16	SkiAtmText[] =
-{
-	//Text on buttons on the banking machine, displayed at the bottom of the page
-	L"0",
-	L"1",
-	L"2",
-	L"3",
-	L"4",
-	L"5",
-	L"6",
-	L"7",
-	L"8",
-	L"9",
-	L"OK",						// Transfer the money
-	L"Взять",				//Take money from the player
-	L"Дать",				//Give money to the player
-	L"Отмена",				//Cancel the transfer
-	L"Очистить",			//Clear the money display
-};
+
 
 
 //Shopkeeper Interface
@@ -6928,28 +6833,16 @@ STR16 pIMPBeginScreenStrings[] =
 	L"( до 8 символов )",
 };
 
-STR16 pIMPFinishButtonText[ 1 ]=
-{
-	L"Анализ",
-};
+
 
 STR16 pIMPFinishStrings[ ]=
 {
 	L"Спасибо, %s", //%s is the name of the merc
 };
 
-// the strings for imp voices screen
-STR16 pIMPVoicesStrings[] =
-{
-	L"Голос", 
-};
 
-STR16 pDepartedMercPortraitStrings[ ]=
-{
-	L"Погиб в бою",
-	L"Уволен",
-	L"Другое",
-};
+
+
 
 // title for program
 STR16 pPersTitleText[] =
@@ -7193,14 +7086,7 @@ STR16 gzNonPersistantPBIText[] =
 	L"Сейчас вы не можете отступить.",
 };
 
-STR16 gzMiscString[] =
-{
-	L"Ваши ополченцы продолжают бой без помощи наёмников...",
-	L"Сейчас машине топливо не требуется.",
-	L"Топливный бак полон на %d%%.",
-	L"%s полностью под контролем Дейдраны.",
-	L"Вы потеряли заправочную станцию.",
-};
+
 
 STR16	gzIntroScreen[] = 
 {
@@ -7333,13 +7219,7 @@ STR16 sRepairsDoneString[] =
 	L"%s: завершена чистка всего оружия отряда.",
 };
 
-STR16 zGioDifConfirmText[]=
-{
-	L"Вы выбрали ЛЁГКИЙ уровень сложности. Этот режим предназначен для первичного ознакомления с Jagged Alliance. Ваш выбор определит ход всей игры, так что будьте осторожны. Вы действительно хотите начать игру в этом режиме?", 
-	L"Вы выбрали СРЕДНИЙ уровень сложности. Этот режим предназначен для тех, кто знаком с Jagged Alliance и подобными играми. Ваш выбор определит ход всей игры, так что будьте осторожны. Вы действительно хотите начать игру в этом режиме?", 
-	L"Вы выбрали ТЯЖЁЛЫЙ уровень сложности. В этом режиме вам потребуется немалый опыт игры в Jagged Alliance. Ваш выбор определит ход всей игры, так что будьте осторожны. Вы действительно хотите начать игру в этом режиме?", 
-	L"Вы выбрали БЕЗУМНЫЙ уровень сложности. Имейте в виду - в этом режиме возможности Дейдраны воистину за пределами разумного! Но если с головой вы не в ладах, то вам даже понравится. Рискнете?",
-};
+
 
 STR16 gzLateLocalizedString[] =
 {
