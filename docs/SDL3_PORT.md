@@ -32,7 +32,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
 | 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS, and Windows**. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
-| ∞ | Multiplayer — client/server wrapper + SDL3_net compatibility shim | ✅ Built. The main-menu entry is enabled, and tagged releases package `ja2server`. This is not a protocol-interoperability claim. |
+| ∞ | Multiplayer — client/server wrapper + SDL3_net compatibility shim | ✅ Built. The main-menu entry is enabled, tagged releases package `ja2server`, and a data-free two-client loopback test covers its coordinator/session protocol. Full in-engine play remains experimental. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
 on macOS. The resulting binary prints a "not yet implemented" notice
@@ -70,9 +70,9 @@ named phase below**; that's the work plan.
 - Touching the modding/INI/Lua interfaces.
 - Rewriting the editor as a separate concern — it must keep building
   but is not the focus.
-- Certifying multiplayer protocol interoperability or end-to-end behavior;
-  the current port establishes the client/server/netshim build, enabled menu
-  entry, and `ja2server` packaging only.
+- Certifying a complete in-engine, two-machine multiplayer playthrough. The
+  standalone coordinator's admission/session path is loopback-tested, but its
+  data-free process deliberately cannot host co-op AI or campaign state.
 
 ## Approach
 
@@ -383,9 +383,11 @@ will revive them:
   that target.
 - The main-menu Multiplayer entry is enabled.
 - Tagged release jobs build `ja2server` and package it with its sample
-  configuration and README on Linux, macOS, and Windows. These source, menu,
-  and packaging facts do not by themselves establish protocol interoperability
-  or end-to-end multiplayer behavior.
+  configuration and README on Linux, macOS, and Windows. The real coordinator
+  pump has a data-free two-client loopback test for admission, roster, barriers,
+  PvP turns/interrupts, late join, and disconnect. Full in-engine play remains
+  experimental; standalone co-op is rejected because there is no AI/campaign
+  authority in this process.
 
 ### Other clang-strictness fixes landed in Phase 1
 
@@ -1511,9 +1513,10 @@ _None currently open._
 1. **Lua 5.1 vs Lua 5.4** — the master-branch TODO mentions building
    Lua from source. JA2 mods may depend on 5.1 semantics. Default:
    stay on 5.1.x source build, defer any version bump.
-2. **Multiplayer validation** — protocol interoperability and end-to-end
-   behavior remain to be established. The client/server/netshim build, enabled
-   menu entry, and packaged `ja2server` do not answer those questions.
+2. **Multiplayer validation** — the standalone coordinator/session protocol is
+   exercised over real loopback sockets with two lightweight clients. A full
+   game-engine, two-machine playthrough and long-running soak still remain; the
+   data-free coordinator explicitly does not claim co-op/campaign authority.
 3. **Editor builds** — JA2MAPEDITOR / JA2UBMAPEDITOR targets must
    keep building. Should they share the SDL3 surface or stay legacy?
 4. **Threading** — once Phase 2 ports Timer Control to std::thread,

@@ -54,6 +54,35 @@ target_include_directories(full_engine_coop_ingress_tests PRIVATE
 target_compile_features(full_engine_coop_ingress_tests PRIVATE cxx_std_17)
 add_test(NAME full_engine_coop_ingress COMMAND full_engine_coop_ingress_tests)
 
+# Drive the real standalone coordinator pump over loopback with two lightweight
+# clients. The server translation unit is unchanged except for its test-only
+# entry-point name; no game data or engine target is linked.
+find_package(Threads REQUIRED)
+add_library(mp_coordinator_server_for_tests OBJECT
+  ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server/ja2server.cpp)
+target_compile_definitions(mp_coordinator_server_for_tests PRIVATE
+  main=ja2server_test_main
+  JA2SERVER_LOOPBACK_TEST=1)
+target_include_directories(mp_coordinator_server_for_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim
+  ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server)
+target_link_libraries(mp_coordinator_server_for_tests PRIVATE
+  SDL3_net::SDL3_net SDL3::SDL3)
+
+add_executable(mp_coordinator_session_tests
+  mp_coordinator_session_tests.cpp
+  $<TARGET_OBJECTS:mp_coordinator_server_for_tests>
+  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim/netshim.cpp)
+target_include_directories(mp_coordinator_session_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim
+  ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server)
+target_link_libraries(mp_coordinator_session_tests PRIVATE
+  SDL3_net::SDL3_net SDL3::SDL3 Threads::Threads)
+add_test(NAME mp_coordinator_session COMMAND mp_coordinator_session_tests)
+set_tests_properties(mp_coordinator_session PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME mp_coordinator_coop_rejection
+  COMMAND mp_coordinator_session_tests --coop-only)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.
@@ -1026,8 +1055,9 @@ endif()
 
 # Standalone multiplayer coordinator/relay server (no game engine).
 # Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. Protocol
-# interoperability with in-game clients and end-to-end multiplayer behavior are
-# experimental and unverified. Built only when explicitly requested.
+# admission and coordinator session behavior are covered above by the real-pump
+# loopback test; a complete in-engine playthrough remains experimental. Built
+# only when explicitly requested.
 option(BUILD_JA2SERVER "Build the standalone ja2server MP coordinator" OFF)
 if(BUILD_JA2SERVER)
   add_executable(ja2server

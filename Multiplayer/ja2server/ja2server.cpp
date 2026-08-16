@@ -1,20 +1,21 @@
 // ============================================================================
 //  ja2server -- standalone JA2 1.13 multiplayer coordinator / relay server.
 //
-//  Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. Protocol
-//  interoperability with in-game clients and end-to-end multiplayer behavior
-//  remain experimental and unverified. Unlike the old "--dedicated" headless-
-//  game mode, this is a PURE coordinator: no game engine, no SDL video,
-//  no game loop, and -- crucially -- NO loopback "player 1". The server is never
-//  a participant; it only assigns client numbers, brokers the lobby/start
-//  handshake, and relays in-game RPC traffic between the real clients.
+//  Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. The wire
+//  admission/session flow is covered by a real loopback coordinator test; a
+//  full game-engine multiplayer playthrough remains experimental. Unlike the
+//  old "--dedicated" headless-game mode, this is a PURE coordinator: no game
+//  engine, SDL video, or game loop and -- crucially -- NO loopback "player 1".
+//  The server is never a participant; it only assigns client numbers, brokers
+//  the lobby/start handshake, and relays in-game RPC traffic between clients.
 //
 //  Design + scope: BUG_NOTES.md "NEXT MAJOR: standalone central-server executable".
-//  Milestone 1 (this file): lobby -> load-into-sector. ~45 of 47 server RPCs are
-//  pure relays (rebroadcast wire bytes); the coordinator logic lives in
+//  The coordinator owns admission, lobby/placement barriers, PvP turn order,
+//  interrupts, disconnect liveness, and last-standing game-over. Most tactical
+//  RPCs remain byte-for-byte relays; the coordinator logic lives in
 //  requestSETTINGS / sendREADY / adminCmd / requestFILE_TRANSFER_SETTINGS /
-//  disconnect. Combat turn-sequencing (startCOMBAT -> EndTurn state machine) is
-//  Milestone 2; it is stubbed here and logged.
+//  disconnect and the combat handlers below. Co-op/campaign simulation is not
+//  available here because this executable deliberately has no game engine.
 //
 //  Build: cmake -DBUILD_JA2SERVER=ON ...  (see tests/CMakeLists.txt)
 // ============================================================================
@@ -22,7 +23,6 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include <cstdint>
 #include <csignal>
 #include <string>
 #include <map>
@@ -39,6 +39,8 @@
 #include "RakNetTypes.h"
 #include "RakSleep.h"
 
+#include "CoordinatorProtocol.h"
+
 // ---- game type shim --------------------------------------------------------
 // Match sgp/types.h widths on this platform so the packet structs below have the
 // IDENTICAL byte layout the clients compile.
@@ -52,150 +54,8 @@
 // settings_struct, admin_cmd_struct, ready_struct, ...) use only fixed-width members,
 // and the byte-count-sensitive one (filetransfersettings_struct) now uses INT64, so the
 // layout is identical on every target. static_assert below guards the sensitive cases.
-typedef uint8_t  UINT8;
-typedef int8_t   INT8;
-typedef uint16_t UINT16;
-typedef int16_t  INT16;
-typedef uint32_t UINT32;
-typedef int32_t  INT32;
-typedef int64_t  INT64;
-typedef float    FLOAT;
-typedef unsigned char BOOLEAN;
-typedef char     STRING512[512];
-#define MAX_PREGENERATED_NUMS 256
-
-// ---- packet structs (copied VERBATIM from Multiplayer/network.h, connect.h,
-//      client.cpp -- field order/types must not change or the wire breaks) -----
-typedef struct
-{
-	UINT8 cmd;
-	char  password[64];
-} admin_cmd_struct;                         // connect.h enum below
-
-typedef struct
-{
-	UINT8 client_num;
-	char client_name[30];
-	int team;
-	int cl_edge;
-	char client_version[30];
-} client_info;
-
-typedef struct
-{
-	UINT8	maxClients;
-	UINT8	sameMercAllowed;
-	float	damageMultiplier;
-	INT16	gsMercArriveSectorX;
-	INT16	gsMercArriveSectorY;
-	UINT8	enemyEnabled;
-	UINT8	creatureEnabled;
-	UINT8	militiaEnabled;
-	UINT8	civEnabled;
-	UINT8	gameType;
-	INT32	secondsPerTick;
-	INT32	startingCash;
-	UINT8	disableBobbyRay;
-	UINT8	disableMercEquipment;
-	BOOLEAN sofGunNut;
-	UINT8	soubGameStyle;
-	UINT8	soubDifficultyLevel;
-	UINT8	soubSkillTraits;
-	BOOLEAN	sofTurnTimeLimit;
-	BOOLEAN	sofIronManMode;
-	UINT8	soubBobbyRayQuality;
-	UINT8	soubBobbyRayQuantity;
-	UINT8	maxMercs;
-	UINT8	client_num;
-	char	client_name[30];
-	char	client_names[4][30];
-	int		client_edges[5];
-	int		client_teams[4];
-	char	server_name[30];
-	int		team;
-	char	kitBag[100];
-	UINT8	disableMorale;
-	UINT8	reportHiredMerc;
-	UINT8	startingSectorEdge;
-	float	startingTime;
-	UINT8	weaponReadyBonus;
-	UINT8	inventoryAttachment;
-	UINT8	disableSpectatorMode;
-	UINT8	randomStartingEdge;
-	UINT8	randomMercs;
-	int		random_mercs[7];
-	char	server_version[30];
-	UINT32	random_table[MAX_PREGENERATED_NUMS];
-} settings_struct;
-
-typedef struct
-{
-	STRING512 fileTransferDirectory;
-	int syncClientsDirectory;
-	char serverName[30];
-	INT64 totalTransferBytes;       // PORTABLE WIRE FORMAT (H18): was `long` (8B/4B by ABI)
-} filetransfersettings_struct;
-static_assert(sizeof(filetransfersettings_struct) == 560, "filetransfersettings_struct wire size changed");
-
-typedef struct
-{
-	INT16 gsMercArriveSectorX;
-	INT16 gsMercArriveSectorY;
-	float startingTime;
-} mapchange_struct;
-
-typedef struct                              // client.cpp:435
-{
-	UINT8 client_num;
-	bool status;
-	UINT8 ready_stage;
-} ready_struct;
-
-typedef struct                              // real_struct -- realtime changeover vote
-{
-	INT8 bteam;
-} real_struct;
-
-typedef struct                              // client.cpp turn_struct -- turn handoff
-{
-	UINT8 tsnetbTeam;                       // team that ended its turn / authority stamp
-	UINT8 tsubNextTeam;                     // team to go next
-} turn_struct;
-
-typedef struct                              // network.h sc_struct -- start-combat / wipe
-{
-	UINT8 ubStartingTeam;
-} sc_struct;
-
-typedef struct                              // fresh_header.h death_struct (SoldierID == UINT16)
-{
-	UINT16 soldier_id;
-	UINT16 attacker_id;
-	UINT8  attacker_team;                   // 1-based player index into the scoreboard
-	UINT8  soldier_team;
-} death_struct;
-
-typedef struct                              // connect.h:191 -- scoreboard
-{
-	int kills;
-	int deaths;
-	int hits;
-	int misses;
-} player_stats;
-
-enum { ADMIN_CMD_AUTH = 1, ADMIN_CMD_START = 2 };   // connect.h:69
-enum { MP_TYPE_DEATHMATCH, MP_TYPE_TEAMDEATMATCH, MP_TYPE_COOP };
-
-// MP spawn edges -- MUST match the game enum order (i18n/include/Text.h):
-// NORTH, EAST, SOUTH, WEST, CENTER. (Earlier these had SOUTH/EAST swapped, so
-// client 2 spawned East instead of South.)
-#define MP_EDGE_NORTH  0
-#define MP_EDGE_EAST   1
-#define MP_EDGE_SOUTH  2
-#define MP_EDGE_WEST   3
-#define MP_EDGE_CENTER 4
-
-#define MPVERSION "MP v3.2"                 // must match the client build (connect.h); v3.2 = portable wire format
+// Packet structs and constants live in CoordinatorProtocol.h so the data-free
+// loopback session test exercises the exact declarations used here.
 
 // ============================================================================
 //  Coordinator state
@@ -221,6 +81,8 @@ static int           g_connectedCount = 0;
 static int           g_numReady = 0;
 static int           g_guiLoaded = 0;       // placement: clients that loaded the sector (stage 1)
 static int           g_guiPlaced = 0;       // placement: clients done placing mercs (stage 3)
+static bool          g_guiLoadedBy[4] = { false };
+static bool          g_guiPlacedBy[4] = { false };
 
 static SystemAddress g_adminAddr;
 static bool          g_hasAdmin = false;
@@ -262,6 +124,7 @@ static std::vector<unsigned char> g_interruptPayload;
 // order; a closer approximation of SP's gubOutOfTurnOrder serialization than dropping).
 struct PendingInterrupt { SystemAddress from; std::vector<unsigned char> payload; };
 static std::deque<PendingInterrupt> g_interruptQueue;
+static const size_t MAX_PENDING_INTERRUPTS = 4;   // one possible pending request per admitted slot
 
 // ---- settings (from ja2_mp.ini) --------------------------------------------
 static char   g_serverName[30]   = "My JA2 Server";
@@ -315,11 +178,24 @@ static int SlotOf(SystemAddress a)
 		    g_clients[x].address.port == a.port) return x;
 	return -1;
 }
+static UINT8 TeamOfSlot(int slot)
+{
+	return (slot >= 0 && slot < 4) ? (UINT8)(6 + slot) : 0;
+}
 static int CountConnected()
 {
 	int n = 0;
 	for (int x = 0; x < 4; x++) if (g_clients[x].address.binaryAddress != 0) n++;
 	return n;
+}
+static void ResetClientSelections()
+{
+	memset(g_client_teams, 0, sizeof(g_client_teams));
+	memset(g_client_edges, 0, sizeof(g_client_edges));
+	g_client_edges[0] = MP_EDGE_NORTH;
+	g_client_edges[1] = MP_EDGE_SOUTH;
+	g_client_edges[2] = MP_EDGE_EAST;
+	g_client_edges[3] = MP_EDGE_WEST;
 }
 
 // ============================================================================
@@ -327,9 +203,16 @@ static int CountConnected()
 // ============================================================================
 static inline void RelayExcept(const char* recvName, RPCParameters* p)
 {
+	if (SlotOf(p->sender) < 0) return;
 	// broadcast=true + sender addr -> everyone EXCEPT the sender
 	g_server->RPC(recvName, (const char*)p->input, p->numberOfBitsOfData,
 	              HIGH_PRIORITY, RELIABLE, 0, p->sender, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+static inline void RelayExceptBytes(const char* recvName, const char* data, int bytes,
+	SystemAddress except)
+{
+	g_server->RPC(recvName, data, (BitSize_t)(bytes * 8), HIGH_PRIORITY, RELIABLE,
+	              0, except, true, 0, UNASSIGNED_NETWORK_ID, 0);
 }
 static inline void BroadcastAll(const char* recvName, const char* data, int bytes)
 {
@@ -355,6 +238,7 @@ static inline void SendTo(const char* recvName, const char* data, int bytes, Sys
 // ============================================================================
 #define RELAY_EXC(FN, RECV) static void FN(RPCParameters* p) { RelayExcept(RECV, p); }
 #define RELAY_ALL(FN, RECV) static void FN(RPCParameters* p) { \
+	if (SlotOf(p->sender) < 0) return; \
 	g_server->RPC(RECV, (const char*)p->input, p->numberOfBitsOfData, \
 	HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0); }
 
@@ -391,10 +275,7 @@ RELAY_EXC(sendFIREW,            "recieve_fireweapon")
 RELAY_EXC(sendDOOR,             "recieve_door")
 // sendWIPE is NOT a pure relay -- it drives the deathmatch win check (coordinator fn below)
 RELAY_EXC(sendHEAL,             "recieve_heal")
-RELAY_EXC(sendEDGECHANGE,       "recieveEDGECHANGE")
-RELAY_EXC(sendTEAMCHANGE,       "recieveTEAMCHANGE")
 
-RELAY_ALL(Snull_team,           "null_team")
 RELAY_ALL(sendCHATMSG,          "recieveCHATMSG")
 
 // ============================================================================
@@ -407,6 +288,8 @@ static void BroadcastUnlockLaptop()
 	if (g_allowlaptop) return;
 	g_allowlaptop = true;
 	memset(g_client_ready, 0, sizeof(g_client_ready));
+	memset(g_guiLoadedBy, 0, sizeof(g_guiLoadedBy));
+	memset(g_guiPlacedBy, 0, sizeof(g_guiPlacedBy));
 	g_numReady = 0;
 	ready_struct rs; memset(&rs, 0, sizeof(rs));
 	rs.client_num = 1; rs.status = 1; rs.ready_stage = 36;   // 36 == unlock laptop
@@ -492,12 +375,6 @@ static void requestSETTINGS(RPCParameters* p)
 		printf("[ja2server] client #%d is now ADMIN (press G to start)\n", cl_num); fflush(stdout);
 	}
 
-	// default per-client spawn edges for (team) deathmatch
-	g_client_edges[0] = MP_EDGE_NORTH;
-	g_client_edges[1] = MP_EDGE_SOUTH;
-	g_client_edges[2] = MP_EDGE_EAST;
-	g_client_edges[3] = MP_EDGE_WEST;
-
 	settings_struct lan; memset(&lan, 0, sizeof(lan));
 	lan.maxClients        = (UINT8)g_maxClients;
 	lan.sameMercAllowed   = (UINT8)g_sameMercAllowed;
@@ -543,27 +420,30 @@ static void requestSETTINGS(RPCParameters* p)
 
 static void sendREADY(RPCParameters* p)
 {
-	NEED(p, ready_struct);   // H14: short-frame over-read guard
-	ready_struct* rs = (ready_struct*)p->input;
-	// relay the toggle so the other clients' lobby displays update
-	RelayExcept("recieveREADY", p);
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(ready_struct)) return;
+	const unsigned char* wire = (const unsigned char*)p->input;
+	if (wire[1] > 1) return;   // never load an invalid raw representation into C++ bool
+	int slot = SlotOf(p->sender);
+	if (slot < 0 || wire[2] != 0 || !g_allowlaptop || g_battleStarted) return;
+	int ready = wire[1];
+	if (g_client_ready[slot] == ready) return;    // repeated votes cannot inflate either peer
+	g_client_ready[slot] = ready;
+	g_numReady = 0;
+	for (int i = 0; i < 4; i++) g_numReady += g_client_ready[i];
 
-	if (rs->ready_stage == 0)
+	ready_struct authored = {};
+	authored.client_num = (UINT8)(slot + 1);
+	authored.status = ready != 0;
+	authored.ready_stage = 0;
+	RelayExceptBytes("recieveREADY", (const char*)&authored, sizeof(authored), p->sender);
+	VLOG("[ja2server] ready %d/%d\n", g_numReady, g_connectedCount); fflush(stdout);
+
+	// Auto-barrier: with laptops unlocked and every connected client ready,
+	// begin the battle. (The standalone host casts no ready vote of its own.)
+	if (g_allowlaptop && g_connectedCount > 0 && g_numReady >= g_connectedCount)
 	{
-		if (rs->client_num >= 1 && rs->client_num <= 4)
-			g_client_ready[rs->client_num - 1] = rs->status ? 1 : 0;
-		g_numReady = 0;
-		for (int i = 0; i < 4; i++) g_numReady += g_client_ready[i];
-		VLOG("[ja2server] ready %d/%d\n", g_numReady, g_connectedCount); fflush(stdout);
-
-		// Auto-barrier: with laptops unlocked and every connected client ready,
-		// begin the battle. (The standalone host casts no ready vote of its own,
-		// which is what made the old headless host hang at "2/3".)
-		if (g_allowlaptop && g_connectedCount > 0 && g_numReady >= g_connectedCount)
-		{
-			printf("[ja2server] all clients ready -> auto-start\n"); fflush(stdout);
-			BroadcastStartBattle();
-		}
+		printf("[ja2server] all clients ready -> auto-start\n"); fflush(stdout);
+		BroadcastStartBattle();
 	}
 }
 
@@ -575,10 +455,17 @@ static void sendREADY(RPCParameters* p)
 // lockui(1) -> PlaceMercs() + dismiss the dialog. Likewise stage3(done) -> stage4(go).
 static void sendGUI(RPCParameters* p)
 {
-	NEED(p, ready_struct);   // H14: short-frame over-read guard
-	ready_struct* info = (ready_struct*)p->input;
-	if (info->ready_stage == 1 && info->status)            // a client loaded the sector
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(ready_struct)) return;
+	const unsigned char* wire = (const unsigned char*)p->input;
+	if (wire[1] > 1) return;   // never load an invalid raw representation into C++ bool
+	UINT8 status = wire[1];
+	UINT8 stage = wire[2];
+	int slot = SlotOf(p->sender);
+	if (slot < 0 || !g_battleStarted) return;
+	if (stage == 1 && status)            // a client loaded the sector
 	{
+		if (g_guiLoadedBy[slot]) return;
+		g_guiLoadedBy[slot] = true;
 		g_guiLoaded++;
 		VLOG("[ja2server] placement: %d/%d loaded\n", g_guiLoaded, g_connectedCount); fflush(stdout);
 		if (g_connectedCount > 0 && g_guiLoaded >= g_connectedCount)
@@ -589,8 +476,11 @@ static void sendGUI(RPCParameters* p)
 			printf("[ja2server] all loaded -> placement UNLOCKED\n"); fflush(stdout);
 		}
 	}
-	else if (info->ready_stage == 3 && info->status)       // a client finished placing
+	else if (stage == 3 && status)       // a client finished placing
 	{
+		if (!g_guiLoadedBy[slot] || g_guiLoaded < g_connectedCount) return;
+		if (g_guiPlacedBy[slot]) return;
+		g_guiPlacedBy[slot] = true;
 		g_guiPlaced++;
 		VLOG("[ja2server] placement: %d/%d placed\n", g_guiPlaced, g_connectedCount); fflush(stdout);
 		if (g_connectedCount > 0 && g_guiPlaced >= g_connectedCount)
@@ -602,19 +492,19 @@ static void sendGUI(RPCParameters* p)
 			printf("[ja2server] all placed -> entering tactical\n"); fflush(stdout);
 		}
 	}
-	else if (info->ready_stage == 3 && !info->status)      // a client retracted "done"
+	else if (stage == 3 && !status)      // a client retracted "done"
 	{
+		if (!g_guiPlacedBy[slot]) return;
+		g_guiPlacedBy[slot] = false;
 		if (g_guiPlaced > 0) g_guiPlaced--;
 	}
-	else                                                   // stage 2/4 etc: pass through
-	{
-		RelayExcept("recieveGUI", p);
-	}
+	// Stages 2 and 4 are coordinator-owned and cannot be injected by a client.
 }
 
 static void adminCmd(RPCParameters* p)
 {
 	NEED(p, admin_cmd_struct);   // H14: short-frame over-read guard (reads password[63])
+	if (SlotOf(p->sender) < 0) return;
 	admin_cmd_struct* ac = (admin_cmd_struct*)p->input;
 	ac->password[63] = 0;
 	if (ac->cmd == ADMIN_CMD_AUTH)
@@ -640,11 +530,52 @@ static void adminCmd(RPCParameters* p)
 	}
 }
 
-static void sendGAMEOVER(RPCParameters* /*p*/)
+// Lobby roster changes carry a legacy client_num supplied by the client. Bind
+// that byte to the admitted connection and accept only values the UI can emit.
+static void sendEDGECHANGE(RPCParameters* p)
 {
-	// broadcast the (server-side) scoreboard to everyone. Stat tracking is M2; for
-	// now this carries whatever g_scoreboard holds (zeros until tracking lands).
-	BroadcastAll("recieveGAMEOVER", (const char*)g_scoreboard, sizeof(g_scoreboard));
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(edgechange_struct)) return;
+	int slot = SlotOf(p->sender);
+	edgechange_struct* requested = (edgechange_struct*)p->input;
+	if (slot < 0 || g_allowlaptop || g_battleStarted || g_client_ready[slot] ||
+	    requested->newedge > MP_EDGE_CENTER) return;
+	edgechange_struct authored = { (UINT8)(slot + 1), requested->newedge };
+	g_client_edges[slot] = authored.newedge;
+	RelayExceptBytes("recieveEDGECHANGE", (const char*)&authored, sizeof(authored), p->sender);
+}
+
+static void sendTEAMCHANGE(RPCParameters* p)
+{
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(teamchange_struct)) return;
+	int slot = SlotOf(p->sender);
+	teamchange_struct* requested = (teamchange_struct*)p->input;
+	if (slot < 0 || g_gameType != MP_TYPE_TEAMDEATMATCH || g_allowlaptop ||
+	    g_battleStarted || g_client_ready[slot] || requested->newteam > 3) return;
+	teamchange_struct authored = { (UINT8)(slot + 1), requested->newteam };
+	g_client_teams[slot] = authored.newteam;
+	RelayExceptBytes("recieveTEAMCHANGE", (const char*)&authored, sizeof(authored), p->sender);
+}
+
+// Legacy "kick" removes a player's tactical team on every client. It is an
+// admin command, not a general relay; the target must be another occupied slot.
+static void Snull_team(RPCParameters* p)
+{
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(kickR)) return;
+	if (!g_hasAdmin || p->sender != g_adminAddr) return;
+	kickR* requested = (kickR*)p->input;
+	if (requested->ubResult < 6 || requested->ubResult > 9) return;
+	int target = requested->ubResult - 6;
+	if (!g_clients[target].address.binaryAddress || g_clients[target].address == p->sender) return;
+	kickR authored = { TeamOfSlot(target) };
+	BroadcastAll("null_team", (const char*)&authored, sizeof(authored));
+}
+
+static void sendGAMEOVER(RPCParameters* p)
+{
+	// In a standalone session game-over is coordinator-owned (last standing). A
+	// client has no authority to end the match or publish a scoreboard.
+	if (SlotOf(p->sender) >= 0)
+		VLOG("[ja2server] client GAMEOVER claim ignored -- coordinator decides\n");
 }
 
 static void ResetGameState();   // defined below; used by the game-over rematch reset
@@ -657,24 +588,27 @@ static void BroadcastTurn(UINT8 team);   // announce whose turn it is (defined b
 // kill/death scoreboard the headless host used to own. Then relay the death event.
 static void sendDEATH(RPCParameters* p)
 {
-	NEED(p, death_struct);   // H14: short-frame over-read guard
+	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(death_struct)) return;
+	int slot = SlotOf(p->sender);
+	if (slot < 0) return;
 	death_struct* d = (death_struct*)p->input;
-	if (d->soldier_team  >= 1 && d->soldier_team  <= 5) g_scoreboard[d->soldier_team  - 1].deaths++;
-	if (d->attacker_team >= 1 && d->attacker_team <= 5) g_scoreboard[d->attacker_team - 1].kills++;
-	VLOG("[ja2server] death: player %d killed by player %d\n", d->soldier_team, d->attacker_team); fflush(stdout);
-	RelayExcept("recieveDEATH", p);
+	UINT8 victim = (UINT8)(slot + 1);
+	UINT8 attacker = d->attacker_team;
+	if (d->soldier_team != victim || attacker < 1 || attacker > 4 ||
+	    !g_clients[attacker - 1].address.binaryAddress) return;
+	death_struct authored = *d;
+	authored.soldier_team = victim;
+	g_scoreboard[victim - 1].deaths++;
+	g_scoreboard[attacker - 1].kills++;
+	VLOG("[ja2server] death: player %d killed by player %d\n", victim, attacker); fflush(stdout);
+	RelayExceptBytes("recieveDEATH", (const char*)&authored, sizeof(authored), p->sender);
 }
 
-// Hits & misses for the scoreboard. Unlike deaths (where the victim reports and the
-// struct carries an explicit attacker_team), a shot is reported by the FIRER's own
-// client -- it simulates its own bullet -- so the sender IS the attacker. ja2server
-// is stateless and can't deref the wire attacker id into a TacticalActor the way the
-// old in-game host did, so attribute the shot to the sender's scoreboard slot. That
-// slot (0-based) is exactly the death path's (attacker_team-1) row, so a player's
-// hits and kills accumulate together. A bullet hitting a structure/window/nothing is
-// a miss (no enemy hit); accuracy = hits/(hits+misses), as MPScoreScreen computes.
-// (Coop AI shots are reported by the host and would mis-attribute, but DM/PvP -- the
-// only mode wired up -- always has firer == sender.)
+// A death is reported by the client that owns the dying soldier, so sendDEATH
+// derives the victim from the admitted sender and accepts only an occupied
+// attacker slot. A shot is reported by the client simulating its own bullet, so
+// the sender is the attacker for hit/miss scoring. A bullet hitting a structure,
+// window, or nothing is a miss; accuracy = hits/(hits+misses).
 static void TallyShot(RPCParameters* p, bool hit)
 {
 	int s = SlotOf(p->sender);
@@ -722,9 +656,18 @@ static void sendWIPE(RPCParameters* p)
 {
 	NEED(p, sc_struct);   // H14: short-frame over-read guard
 	sc_struct* sc = (sc_struct*)p->input;
-	UINT8 team = sc->ubStartingTeam;
+	int slot = SlotOf(p->sender);
+	if (slot < 0) return;
+	UINT8 team = TeamOfSlot(slot);
+	if (sc->ubStartingTeam != team)
+	{
+		VLOG("[ja2server] spoofed wipe team %d ignored for slot %d\n",
+		     sc->ubStartingTeam, slot + 1); fflush(stdout);
+		return;
+	}
 	if (team >= 6 && team < 16) g_teamWiped[team] = true;
-	RelayExcept("recieve_wipe", p);
+	sc_struct authored = { team };
+	RelayExceptBytes("recieve_wipe", (const char*)&authored, sizeof(authored), p->sender);
 	printf("[ja2server] team %d WIPED OUT\n", team); fflush(stdout);
 
 	// Declare game-over FIRST (it resets state) -- mirrors the in-combat disconnect path.
@@ -754,8 +697,11 @@ static void sendREAL(RPCParameters* p)
 	// clients to switch back to realtime. (Approximation of the engine's
 	// per-active-team count, which we cannot see without game state.)
 	NEED(p, real_struct);   // H14: short-frame over-read guard
+	int slot = SlotOf(p->sender);
+	if (slot < 0) return;
 	real_struct* rd = (real_struct*)p->input;
-	int b = (rd->bteam >= 0 && rd->bteam < 16) ? rd->bteam : 0;
+	int b = TeamOfSlot(slot);
+	if ((UINT8)rd->bteam != (UINT8)b) return;
 	if (!g_rtTeamVoted[b]) { g_rtTeamVoted[b] = true; g_rtVotes++; }
 	if (g_rtVotes >= g_connectedCount && g_connectedCount > 0)
 	{
@@ -934,16 +880,34 @@ static void TickInterruptWatchdog()
 	ForceReleaseInterrupt();
 }
 
+static bool ValidInterruptWire(const RPCParameters* p)
+{
+	if ((p->numberOfBitsOfData & 7) != 0) return false;
+	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
+	if (bytes < COORDINATOR_INT_WIRE_HEADER_BYTES + 2 ||
+	    bytes > COORDINATOR_INT_WIRE_MAX_BYTES)
+		return false;
+	const unsigned char* data = (const unsigned char*)p->input;
+	UINT16 persons = (UINT16)(data[3] | ((UINT16)data[4] << 8));
+	if (persons >= COORDINATOR_INT_WIRE_ORDER_ENTRIES) return false;
+	size_t expected = COORDINATOR_INT_WIRE_HEADER_BYTES + 2 * ((size_t)persons + 1);
+	return bytes == expected;
+}
+
 static void sendINTERRUPT(RPCParameters* p)
 {
 	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
-	// H14: reject a short/empty frame. An empty grant can't be resumed (ReleaseInterrupt
-	// patches byte 2; ForceReleaseInterrupt no-ops on an empty payload) and would wedge the
-	// turn until the 30s watchdog. A valid frame is the 8-byte INT_STRUCT header + >=1 order
-	// entry = 10 bytes.
-	if (bytes < 10)
+	// Require the exact portable SerializeINT shape. This rejects short frames,
+	// over-sized queued vectors, invalid order counts, and trailing garbage.
+	if (!ValidInterruptWire(p))
 	{
-		VLOG("[ja2server] sendINTERRUPT dropped -- short frame (%zu bytes)\n", bytes); fflush(stdout);
+		VLOG("[ja2server] sendINTERRUPT dropped -- malformed frame (%zu bytes)\n", bytes); fflush(stdout);
+		return;
+	}
+	int slot = SlotOf(p->sender);
+	if (slot < 0 || ((const unsigned char*)p->input)[2] != TeamOfSlot(slot))
+	{
+		VLOG("[ja2server] sendINTERRUPT dropped -- sender/team mismatch\n"); fflush(stdout);
 		return;
 	}
 	// An interrupt only makes sense in a turn-based fight. A grant while !g_inCombat records
@@ -959,6 +923,20 @@ static void sendINTERRUPT(RPCParameters* p)
 		// Concurrent interrupt: the requester already paused locally and is waiting for a
 		// grant. QUEUE it (FIFO) so it is chained when the current holder releases, instead
 		// of dropping it and freezing that client forever (H24).
+		for (std::deque<PendingInterrupt>::const_iterator it = g_interruptQueue.begin();
+		     it != g_interruptQueue.end(); ++it)
+		{
+			if (it->from == p->sender)
+			{
+				VLOG("[ja2server]   duplicate queued interrupt ignored\n"); fflush(stdout);
+				return;
+			}
+		}
+		if (g_interruptQueue.size() >= MAX_PENDING_INTERRUPTS)
+		{
+			VLOG("[ja2server]   interrupt queue full -- request ignored\n"); fflush(stdout);
+			return;
+		}
 		PendingInterrupt pi;
 		pi.from = p->sender;
 		pi.payload.assign((const unsigned char*)p->input, (const unsigned char*)p->input + bytes);
@@ -971,9 +949,18 @@ static void sendINTERRUPT(RPCParameters* p)
 }
 static void endINTERRUPT(RPCParameters* p)
 {
+	int slot = SlotOf(p->sender);
+	if (slot < 0 || !ValidInterruptWire(p) ||
+	    ((const unsigned char*)p->input)[2] != TeamOfSlot(slot))
+		return;
 	if (!g_interruptActive)
 	{
 		VLOG("[ja2server]   interrupt release ignored -- none active\n"); fflush(stdout);
+		return;
+	}
+	if (p->sender != g_interruptHolder)
+	{
+		VLOG("[ja2server] interrupt release ignored -- sender is not holder\n"); fflush(stdout);
 		return;
 	}
 	ReleaseInterrupt((const unsigned char*)p->input, (int)p->numberOfBitsOfData);
@@ -985,12 +972,19 @@ static void startCOMBAT(RPCParameters* p)
 {
 	NEED(p, sc_struct);   // H14: short-frame over-read guard
 	sc_struct* sc = (sc_struct*)p->input;
+	int slot = SlotOf(p->sender);
+	UINT8 senderTeam = TeamOfSlot(slot);
+	if (slot < 0 || sc->ubStartingTeam != senderTeam)
+	{
+		VLOG("[ja2server] startCOMBAT ignored -- sender/team mismatch\n"); fflush(stdout);
+		return;
+	}
 	if (g_inCombat)                         // first request wins; ignore the rest
 	{
 		VLOG("[ja2server] startCOMBAT(team %d) ignored -- already in combat\n", sc->ubStartingTeam); fflush(stdout);
 		return;
 	}
-	UINT8 first = (sc->ubStartingTeam >= 6 && sc->ubStartingTeam <= 9) ? sc->ubStartingTeam : 6;
+	UINT8 first = senderTeam;
 	g_inCombat = true;
 	printf("[ja2server] COMBAT START (team %d sighted)\n", first); fflush(stdout);
 	BroadcastTurn(first);
@@ -1002,6 +996,13 @@ static void sendEndTurn(RPCParameters* p)
 {
 	NEED(p, turn_struct);   // H14: short-frame over-read guard
 	turn_struct* ts = (turn_struct*)p->input;
+	int slot = SlotOf(p->sender);
+	UINT8 senderTeam = TeamOfSlot(slot);
+	if (slot < 0 || ts->tsnetbTeam != senderTeam)
+	{
+		VLOG("[ja2server] endturn ignored -- sender/team mismatch\n"); fflush(stdout);
+		return;
+	}
 	if (!g_inCombat)                        // an end-turn before combat formally opened
 	{
 		g_inCombat = true;
@@ -1051,8 +1052,9 @@ static void ResetGameState()
 	g_rtVotes      = 0;
 	memset(g_rtTeamVoted, 0, sizeof(g_rtTeamVoted));
 	memset(g_client_ready, 0, sizeof(g_client_ready));
-	memset(g_client_teams, 0, sizeof(g_client_teams));   // L10: were left stale across resets
-	memset(g_client_edges, 0, sizeof(g_client_edges));   //      (g_client_edges[4] was never set)
+	memset(g_guiLoadedBy, 0, sizeof(g_guiLoadedBy));
+	memset(g_guiPlacedBy, 0, sizeof(g_guiPlacedBy));
+	ResetClientSelections();
 	g_hasAdmin     = false;
 	g_adminAddr    = SystemAddress();
 	for (int i = 0; i < 4; i++)
@@ -1081,6 +1083,8 @@ static void HandleDisconnect(SystemAddress who)
 	g_clients[slot].cl_number = 0;
 	g_client_names[slot][0] = 0;
 	g_client_ready[slot] = 0;
+	if (g_guiLoadedBy[slot]) { g_guiLoadedBy[slot] = false; if (g_guiLoaded > 0) g_guiLoaded--; }
+	if (g_guiPlacedBy[slot]) { g_guiPlacedBy[slot] = false; if (g_guiPlaced > 0) g_guiPlaced--; }
 	g_connectedCount = CountConnected();
 	g_numReady = 0; for (int i = 0; i < 4; i++) g_numReady += g_client_ready[i];
 	printf("[ja2server] client #%d dropped (%d connected)\n", cl_num, g_connectedCount); fflush(stdout);
@@ -1151,7 +1155,7 @@ static void HandleDisconnect(SystemAddress who)
 // Lets the clients narrate things only THEY know (who sighted whom, ranges, etc.).
 static void serverLog(RPCParameters* p)
 {
-	if (g_logLevel < LOG_VERBOSE) return;
+	if (g_logLevel < LOG_VERBOSE || SlotOf(p->sender) < 0) return;
 	char line[260];
 	size_t n = (p->numberOfBitsOfData + 7) / 8;
 	if (n >= sizeof(line)) n = sizeof(line) - 1;
@@ -1387,12 +1391,12 @@ static std::string StatusJson()
 }
 
 // Apply a single config field (validated + clamped). Takes effect on the NEXT game.
-static void ApplyConfigKV(const std::string& k, const std::string& v)
+static bool ApplyConfigKV(const std::string& k, const std::string& v)
 {
 	if      (k == "serverName")  { strncpy(g_serverName, v.c_str(), 29); g_serverName[29] = 0; }
 	else if (k == "adminPassword"){ strncpy(g_adminPassword, v.c_str(), 63); g_adminPassword[63] = 0; }
 	else if (k == "maxClients")  { int x = atoi(v.c_str()); g_maxClients = x < 1 ? 1 : (x > 4 ? 4 : x); }
-	else if (k == "gameType")    { int x = atoi(v.c_str()); g_gameType = x < 0 ? 0 : (x > 2 ? 2 : x); }
+	else if (k == "gameType")    { int x = atoi(v.c_str()); if (x != 0 && x != 1) return false; g_gameType = x; }
 	else if (k == "sectorX")     { int x = atoi(v.c_str()); g_sectorX = (INT16)(x < 1 ? 1 : (x > 16 ? 16 : x)); }
 	else if (k == "sectorY")     { int x = atoi(v.c_str()); g_sectorY = (INT16)(x < 1 ? 1 : (x > 16 ? 16 : x)); }
 	else if (k == "damage")      { float x = (float)atof(v.c_str()); g_damageMultiplier = x < 0.1f ? 0.1f : (x > 2.0f ? 2.0f : x); }
@@ -1401,6 +1405,7 @@ static void ApplyConfigKV(const std::string& k, const std::string& v)
 	else if (k == "maxMercs")    { int x = atoi(v.c_str()); g_maxMercs = x < 1 ? 1 : (x > 18 ? 18 : x); }
 	else if (k == "sameMerc")    { g_sameMercAllowed = atoi(v.c_str()) ? 1 : 0; }
 	else if (k == "logLevel")    { int x = atoi(v.c_str()); g_logLevel = x < 0 ? 0 : (x > 2 ? 2 : x); }  // applies immediately
+	return true;
 }
 static int ApplyConfigBody(const std::string& body)
 {
@@ -1410,7 +1415,10 @@ static int ApplyConfigBody(const std::string& body)
 		size_t amp = body.find('&', i);
 		std::string pair = body.substr(i, amp == std::string::npos ? std::string::npos : amp - i);
 		size_t eq = pair.find('=');
-		if (eq != std::string::npos) { ApplyConfigKV(UrlDecode(pair.substr(0, eq)), UrlDecode(pair.substr(eq + 1))); n++; }
+		if (eq != std::string::npos) {
+			if (!ApplyConfigKV(UrlDecode(pair.substr(0, eq)), UrlDecode(pair.substr(eq + 1)))) return -1;
+			n++;
+		}
 		if (amp == std::string::npos) break;
 		i = amp + 1;
 	}
@@ -1453,7 +1461,7 @@ button.sec{background:#2c313c;color:var(--txt)}button.danger{background:#7a3a32;
 <label>Server name<input name=serverName maxlength=29></label>
 <label>Admin password <span class=note id=pwset></span><input name=adminPassword type=password placeholder="(unchanged)"></label>
 <label>Max players<input name=maxClients type=number min=1 max=4></label>
-<label>Game type<select name=gameType><option value=0>Deathmatch</option><option value=1>Team Deathmatch</option><option value=2>Co-op</option></select></label>
+<label>Game type<select name=gameType><option value=0>Deathmatch</option><option value=1>Team Deathmatch</option></select></label>
 <label>Arena sector X (1-16)<input name=sectorX type=number min=1 max=16></label>
 <label>Arena sector Y (1-16)<input name=sectorY type=number min=1 max=16></label>
 <label>Damage multiplier<input name=damage type=number step=0.1 min=0.1 max=2></label>
@@ -1462,7 +1470,7 @@ button.sec{background:#2c313c;color:var(--txt)}button.danger{background:#7a3a32;
 <label>Max mercs / player<input name=maxMercs type=number min=1 max=18></label>
 <label>Same merc allowed<select name=sameMerc><option value=1>Yes</option><option value=0>No</option></select></label>
 <label>Log level (live)<select name=logLevel><option value=0>Normal</option><option value=1>Verbose</option><option value=2>Debug</option></select></label>
-<div class=row><button type=submit>Save settings</button><span class=msg id=saved></span></div>
+<div class=row><button type=submit>Apply runtime settings</button><span class=msg id=saved></span></div>
 </form></div>
 <div class=card><h2>Actions</h2><div class=row>
 <button class=sec id=reset>Reset lobby</button>
@@ -1497,7 +1505,7 @@ async function refresh(){
 $('cfg').addEventListener('submit',async e=>{e.preventDefault();
  const fd=new FormData(e.target);if(!fd.get('adminPassword'))fd.delete('adminPassword');
  const res=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',...AUTH},body:new URLSearchParams(fd)});
- $('saved').textContent=res.ok?'saved (next game)':'auth required (?token=)';setTimeout(()=>$('saved').textContent='',2500)});
+ $('saved').textContent=res.ok?'applied in memory (next game)':(res.status===401?'auth required (?token=)':'unsupported setting');setTimeout(()=>$('saved').textContent='',2500)});
 $('reset').addEventListener('click',async()=>{const res=await fetch('/api/reset',{method:'POST',headers:AUTH});$('acted').textContent=res.ok?'lobby reset':'auth required (?token=)';setTimeout(()=>$('acted').textContent='',2500)});
 $('kick').addEventListener('click',async()=>{if(!confirm('Kick all players and reset?'))return;const res=await fetch('/api/reset?kick=1',{method:'POST',headers:AUTH});$('acted').textContent=res.ok?'kicked + reset':'auth required (?token=)';setTimeout(()=>$('acted').textContent='',2500)});
 refresh();setInterval(refresh,1500);
@@ -1530,6 +1538,9 @@ static std::string HttpHandle(const HttpReq& r)
 	}
 	if (r.method == "POST" && r.path == "/api/config") {
 		int applied = ApplyConfigBody(r.body);
+		if (applied < 0)
+			return HttpResponse(400, "Bad Request", "application/json",
+				"{\"ok\":false,\"error\":\"standalone coordinator supports game types 0 and 1 only\"}");
 		// L11: maxClients may have changed -- reflect it in the live netshim cap so
 		// the change takes effect immediately, not only on the next process start.
 		g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
@@ -1718,6 +1729,18 @@ int main(int argc, char** argv)
 	if (portOverride) g_serverPort = portOverride;
 	if (dashOverride >= 0) g_dashboardPort = dashOverride;
 	if (logOverride >= 0) g_logLevel = logOverride > LOG_DEBUG ? LOG_DEBUG : logOverride;
+	if (g_gameType == MP_TYPE_COOP)
+	{
+		fprintf(stderr,
+		        "[ja2server] FATAL: GAME_TYPE=2 co-op requires a full-engine host with AI/campaign authority; "
+		        "the standalone coordinator supports GAME_TYPE 0 or 1 only.\n");
+		return 2;
+	}
+	if (g_gameType != MP_TYPE_DEATHMATCH && g_gameType != MP_TYPE_TEAMDEATMATCH)
+	{
+		fprintf(stderr, "[ja2server] FATAL: unsupported GAME_TYPE=%d (expected 0 or 1).\n", g_gameType);
+		return 2;
+	}
 
 	signal(SIGINT, OnSignal);
 	signal(SIGTERM, OnSignal);
@@ -1730,6 +1753,7 @@ int main(int argc, char** argv)
 	SDL_Init(0);   // netshim's NET_Init (refcounted in Startup) needs SDL up
 
 	for (int x = 0; x < 4; x++) { g_clients[x].address = SystemAddress(); g_clients[x].cl_number = 0; }
+	ResetClientSelections();
 
 	g_server = RakNetworkFactory::GetRakPeerInterface();
 	g_server->SetTimeoutTime(120000, UNASSIGNED_SYSTEM_ADDRESS);
@@ -1739,8 +1763,21 @@ int main(int argc, char** argv)
 	SocketDescriptor sd((unsigned short)g_serverPort, g_serverBind);
 	if (!g_server->Startup((unsigned short)g_maxClients, 30, &sd, 1))
 	{
-		fprintf(stderr, "[ja2server] FATAL: could not bind port %d\n", g_serverPort);
+		const char* bindError = SDL_GetError();
+		bool sandboxDenied = bindError && strstr(bindError, "Operation not permitted");
+		fprintf(stderr, "[ja2server] FATAL: could not bind %s:%d (%s)\n",
+		        g_serverBind, g_serverPort, bindError ? bindError : "unknown error");
+		RakNetworkFactory::DestroyRakPeerInterface(g_server);
+		g_server = NULL;
+		SDL_Quit();
+		// Restricted build sandboxes can deny even 127.0.0.1 listeners. Let the
+		// loopback test report that environment as skipped; production still fails.
+#ifdef JA2SERVER_LOOPBACK_TEST
+		return sandboxDenied ? 77 : 1;
+#else
+		(void)sandboxDenied;
 		return 1;
+#endif
 	}
 	g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
 	g_server->SetOccasionalPing(true);

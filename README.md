@@ -51,7 +51,7 @@ and have fun. :)
 | Cinematics | Smacker via `binkw32.lib` / `SMACKW32.LIB` | libsmacker (Bink path stubbed — no shipped `.bik`) |
 | Dependencies | prebuilt MSVC `.lib` blobs in-tree | built from source (FetchContent) / vendored |
 | Display shim | cnc-ddraw | none — SDL3 owns the window & scaling |
-| Multiplayer | RakNet (32-bit Win32 `.lib`) | client/server wrapper and SDL3_net `netshim` built; menu entry enabled; `ja2server` packaged |
+| Multiplayer | RakNet (32-bit Win32 `.lib`) | SDL3_net `netshim`; menu entry; packaged PvP-only `ja2server` with a loopback-tested coordinator session |
 
 
 ## Dependencies
@@ -171,9 +171,12 @@ full plan). Window, input, video, audio and cinematics are all SDL3-backed,
 colour is 32-bit internally, and the build is CMake-only with dependencies
 pulled from source. The `Multiplayer` target now builds the client/server
 wrapper and SDL3_net compatibility shim. The main-menu entry is enabled, and
-tagged releases package `ja2server`. These statements cover build, menu, and
-packaging state only; they do not assert protocol interoperability or
-end-to-end multiplayer behavior.
+tagged releases package `ja2server`. Its data-free loopback suite exercises the
+real coordinator pump from version admission through two-client lobby,
+placement, PvP turns/interrupts, late join, and disconnect. A complete
+two-machine game-engine playthrough is still experimental. The standalone
+server supports Deathmatch and Team Deathmatch only; it rejects co-op because
+it has no AI or campaign authority.
 
 Mod authors can optionally wrap existing content in a validated, dependency-
 ordered [Data Package](docs/DATA_PACKAGES.md) manifest. Version 4 can select a

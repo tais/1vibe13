@@ -3,9 +3,16 @@
 A headless server/relay included with the SDL3 multiplayer port. The
 `Multiplayer` target builds the client/server wrapper and SDL3_net compatibility
 `netshim`; the main-menu entry is enabled, and tagged releases package
-`ja2server`. Those are build, menu, and packaging milestones only: wire
-compatibility with in-game clients and end-to-end multiplayer behavior are
-experimental and unverified.
+`ja2server`. A data-free loopback test now drives the real coordinator pump
+through version admission, a two-client lobby, placement barriers, PvP turns,
+interrupts, late join, and disconnect. That exercises the coordinator/session
+contract; a complete two-machine playthrough in the game engine remains
+experimental.
+
+The standalone executable supports Deathmatch (`GAME_TYPE=0`) and Team
+Deathmatch (`GAME_TYPE=1`) tactical sessions only. It has no game engine, AI,
+campaign clock, strategic state, saves, or persistence. `GAME_TYPE=2` is
+rejected at startup: co-op requires a full-engine host that owns those systems.
 
 ## Running
 
@@ -34,11 +41,15 @@ Flags override the matching `ja2_mp.ini` keys:
 ## Notes
 
 - The experimental client path uses the in-game **Join** screen with the
-  server's IP and port; it has not been verified end to end.
+  server's IP and port. Every peer must use the exact `MP v3.2` protocol build.
+- This is an arena-session coordinator, not a co-op campaign or dedicated
+  campaign simulation. Lobby progress and scores are in memory only.
 - The server and dashboard bind to **127.0.0.1** by default. Set `SERVER_BIND` /
   `DASHBOARD_BIND` to `0.0.0.0` (or a specific interface) for LAN/public play.
-- The dashboard status view is read-only and open; **write actions** (save config,
-  reset, kick) require `DASHBOARD_TOKEN`. With no token set the controls are
-  disabled. When set, open the panel as `http://host:port/?token=SECRET`.
+- The dashboard status view is read-only and open; **write actions** (runtime
+  config, reset, kick) require `DASHBOARD_TOKEN`. With no token set the controls
+  are disabled. When set, open the panel as `http://host:port/?token=SECRET`.
+- Transport and dashboard authentication are intended for trusted networks;
+  they do not provide encrypted Internet matchmaking or account identity.
 - On Linux/macOS, `kill -HUP <pid>` resets the lobby for a rematch without a
   full restart. (Windows has no SIGHUP; restart the process instead.)
