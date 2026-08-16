@@ -78,6 +78,7 @@
 #include "SmokeEffects.h"
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
+#include "InterruptWire.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 
@@ -714,15 +715,12 @@ static int SerializeINT( uint8_t* dst, size_t cap, const INT_STRUCT& src )
 	UINT16 persons = src.gubOutOfTurnPersons;
 	if ( persons >= MAXMERCS )
 		persons = MAXMERCS - 1;	// never serialize past the array
-	MPWireWriter w( dst, cap );
-	w.put16( src.ubID.i );
-	w.put8 ( (uint8_t)src.bTeam );
-	w.put16( persons );
-	w.put8 ( (uint8_t)src.fMarkInterruptOccurred );
-	w.put16( src.Interrupted.i );
-	for ( int i = 0; i <= (int)persons; ++i )
-		w.put16( src.gubOutOfTurnOrder[i] );
-	return (int)w.off;
+	static_assert(MAXMERCS == MpInterruptWire::kSoldierSlots,
+	              "client and coordinator interrupt soldier domains diverged");
+	return (int)MpInterruptWire::Encode(
+		dst, cap, src.ubID.i, (uint8_t)src.bTeam, persons,
+		(uint8_t)src.fMarkInterruptOccurred, src.Interrupted.i,
+		src.gubOutOfTurnOrder);
 }
 
 // Deserializes into dst. Zeroes the unused tail of gubOutOfTurnOrder so downstream loops
@@ -2554,12 +2552,13 @@ void mp_log_sighting( TacticalActor* pSighter, TacticalActor* pSeen, int range )
 
 void send_interrupt (TacticalActor *pSoldier)
 {
-	INT_STRUCT INT;
+	INT_STRUCT INT = {};
 
 	INT.ubID = pSoldier->identity().id();
 	INT.bTeam = pSoldier->roster().team();
 	memcpy(INT.gubOutOfTurnOrder, gubOutOfTurnOrder, sizeof(UINT16) * MAXMERCS);
 	INT.gubOutOfTurnPersons = gubOutOfTurnPersons;
+	INT.fMarkInterruptOccurred = FALSE;
 	
 	INT.Interrupted = gusSelectedSoldier + ubID_prefix;
 
@@ -2848,12 +2847,13 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 	if ( pSoldier == NULL )
 		return;
 
-	INT_STRUCT INT;
+	INT_STRUCT INT = {};
 	INT.ubID = pSoldier->identity().id();
 	INT.bTeam = pSoldier->roster().team();
 	memcpy(INT.gubOutOfTurnOrder, gubOutOfTurnOrder, sizeof(UINT16) * MAXMERCS);
 	INT.gubOutOfTurnPersons = gubOutOfTurnPersons;
 	INT.fMarkInterruptOccurred=fMarkInterruptOccurred;
+	INT.Interrupted = NOBODY; // release does not name a newly interrupted soldier
 	if(is_server)Sawarded=false;
 
 	if(INT.bTeam==0)

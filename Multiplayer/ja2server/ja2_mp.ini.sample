@@ -48,7 +48,7 @@ STARTING_TIME = 1
 ; DASHBOARD_PORT  Web status panel port; 0 = disabled (--dashboard <n>).   [0]
 ; DASHBOARD_BIND  Interface the dashboard binds to.                        [127.0.0.1]
 ;                 Default loopback; set "0.0.0.0" to reach it from the LAN.
-; DASHBOARD_TOKEN Secret required for runtime config, reset, and kick.     [empty]
+; DASHBOARD_TOKEN Secret required for empty-lobby config and reset+kick.  [empty]
 ;                 Empty = the dashboard is READ-ONLY (status only).
 ;                 When set, open the panel as  http://host:port/?token=SECRET
 ;                 (sent as the X-Auth-Token header). Read views stay open.

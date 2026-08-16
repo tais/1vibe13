@@ -5,6 +5,8 @@
 
 #include <cstdint>
 
+#include "../InterruptWire.h"
+
 typedef uint8_t UINT8;
 typedef int8_t INT8;
 typedef uint16_t UINT16;
@@ -21,10 +23,10 @@ typedef char STRING512[512];
 // Portable INT wire format (Multiplayer/client.cpp SerializeINT): an 8-byte
 // header followed by persons+1 little-endian UINT16 order entries. The tactical
 // repository currently has 1284 soldier slots, so persons is at most 1283.
-static constexpr UINT16 COORDINATOR_INT_WIRE_ORDER_ENTRIES = 1284;
-static constexpr UINT16 COORDINATOR_INT_WIRE_HEADER_BYTES = 8;
+static constexpr UINT16 COORDINATOR_INT_WIRE_ORDER_ENTRIES = MpInterruptWire::kSoldierSlots;
+static constexpr UINT16 COORDINATOR_INT_WIRE_HEADER_BYTES = MpInterruptWire::kHeaderBytes;
 static constexpr UINT16 COORDINATOR_INT_WIRE_MAX_BYTES =
-	COORDINATOR_INT_WIRE_HEADER_BYTES + 2 * COORDINATOR_INT_WIRE_ORDER_ENTRIES;
+	static_cast<UINT16>(MpInterruptWire::kMaxBytes);
 
 struct admin_cmd_struct { UINT8 cmd; char password[64]; };
 
@@ -127,6 +129,62 @@ static_assert(sizeof(player_stats) == 16, "player_stats wire size changed");
 
 enum { ADMIN_CMD_AUTH = 1, ADMIN_CMD_START = 2 };
 enum { MP_TYPE_DEATHMATCH, MP_TYPE_TEAMDEATMATCH, MP_TYPE_COOP };
+
+// Coordinator-owned lobby/placement barriers advance when every currently
+// connected participant has reached the relevant stage. This pure decision is
+// shared with the data-free loopback test so disconnect re-evaluation cannot
+// regress into a permanently wedged session.
+enum class CoordinatorBarrierAction : UINT8
+{
+	None,
+	StartBattle,
+	UnlockPlacement,
+	EnterTactical
+};
+
+inline CoordinatorBarrierAction CoordinatorNextBarrierAction(
+	bool laptopUnlocked, bool battleStarted, bool placementUnlocked,
+	bool tacticalEntered, int connected, int standingSides,
+	int ready, int loaded, int placed) noexcept
+{
+	if (connected <= 0 || standingSides < 2) return CoordinatorBarrierAction::None;
+	if (laptopUnlocked && !battleStarted && ready >= connected)
+		return CoordinatorBarrierAction::StartBattle;
+	if (battleStarted && !placementUnlocked && loaded >= connected)
+		return CoordinatorBarrierAction::UnlockPlacement;
+	if (placementUnlocked && !tacticalEntered && placed >= connected)
+		return CoordinatorBarrierAction::EnterTactical;
+	return CoordinatorBarrierAction::None;
+}
+
+inline bool CoordinatorTransportTeamActive(bool connected, bool wiped) noexcept
+{
+	return connected && !wiped;
+}
+
+// Deathmatch counts each occupied transport slot as its own side. Team
+// deathmatch instead collapses active slots onto their validated selected
+// alliance (0..3), both for the lobby's two-side start requirement and for the
+// last-standing decision after wipes/disconnects.
+inline int CoordinatorStandingSideCount(
+	int gameType, const bool connected[4], const bool wiped[4],
+	const int selectedTeams[4], int* lastSide = nullptr) noexcept
+{
+	bool seen[4] = { false, false, false, false };
+	int count = 0;
+	int last = -1;
+	for (int slot = 0; slot < 4; ++slot)
+	{
+		if (!CoordinatorTransportTeamActive(connected[slot], wiped[slot])) continue;
+		int side = gameType == MP_TYPE_TEAMDEATMATCH ? selectedTeams[slot] : slot;
+		if (side < 0 || side >= 4 || seen[side]) continue;
+		seen[side] = true;
+		++count;
+		last = side;
+	}
+	if (lastSide) *lastSide = last;
+	return count;
+}
 
 #define MP_EDGE_NORTH 0
 #define MP_EDGE_EAST 1

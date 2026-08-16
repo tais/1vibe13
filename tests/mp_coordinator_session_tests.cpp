@@ -17,6 +17,11 @@
 #include "RakPeerInterface.h"
 
 int ja2server_test_main(int argc, char** argv);
+bool ja2server_test_dashboard_bind_resolves(const char* host);
+const char* ja2server_test_dashboard_html();
+const char* ja2server_test_phase();
+void ja2server_test_request_reset();
+std::size_t ja2server_test_transport_count();
 
 static int g_failures = 0;
 #define CHECK(c, m) do { if (!(c)) { ++g_failures; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, m); } else std::printf("ok   %s\n", m); } while (0)
@@ -30,6 +35,7 @@ struct ClientLog
 	int admin = 0;
 	int interrupts = 0;
 	int resumes = 0;
+	int realtime = 0;
 	int gameovers = 0;
 	std::vector<settings_struct> settings;
 	std::vector<filetransfersettings_struct> transfer;
@@ -90,6 +96,7 @@ static void Capture(std::vector<T>& out, RPCParameters* p)
 	static void tag##_admin(RPCParameters*) { g_logs[index]->admin++; } \
 	static void tag##_interrupt(RPCParameters*) { g_logs[index]->interrupts++; } \
 	static void tag##_resume(RPCParameters*) { g_logs[index]->resumes++; } \
+	static void tag##_realtime(RPCParameters*) { g_logs[index]->realtime++; } \
 	static void tag##_gameover(RPCParameters*) { g_logs[index]->gameovers++; }
 
 CLIENT_HANDLERS(c0, 0)
@@ -111,6 +118,7 @@ static RpcHandler DISCONNECT[4] = { c0_disconnect, c1_disconnect, c2_disconnect,
 static RpcHandler ADMIN[4] = { c0_admin, c1_admin, c2_admin, c3_admin };
 static RpcHandler INTERRUPT[4] = { c0_interrupt, c1_interrupt, c2_interrupt, c3_interrupt };
 static RpcHandler RESUME[4] = { c0_resume, c1_resume, c2_resume, c3_resume };
+static RpcHandler REALTIME[4] = { c0_realtime, c1_realtime, c2_realtime, c3_realtime };
 static RpcHandler GAMEOVER[4] = { c0_gameover, c1_gameover, c2_gameover, c3_gameover };
 
 static bool StartClient(ClientLog& c, int index, unsigned short port)
@@ -132,6 +140,7 @@ static bool StartClient(ClientLog& c, int index, unsigned short port)
 	c.peer->RegisterAsRemoteProcedureCall("recieveADMIN", ADMIN[index]);
 	c.peer->RegisterAsRemoteProcedureCall("recieveINTERRUPT", INTERRUPT[index]);
 	c.peer->RegisterAsRemoteProcedureCall("resume_turn", RESUME[index]);
+	c.peer->RegisterAsRemoteProcedureCall("gotoRT", REALTIME[index]);
 	c.peer->RegisterAsRemoteProcedureCall("recieveGAMEOVER", GAMEOVER[index]);
 	return c.peer->Connect("127.0.0.1", port, nullptr, 0);
 }
@@ -175,12 +184,13 @@ static void Send(ClientLog& c, const char* rpc, const T& value)
 	SendRaw(c, rpc, &value, sizeof(value));
 }
 
-static void Join(ClientLog& c, const char* name, const char* version = MPVERSION)
+static void Join(ClientLog& c, const char* name, const char* version = MPVERSION, int team = 0)
 {
 	SendRaw(c, "requestFILE_TRANSFER_SETTINGS", "", 0);
 	client_info info = {};
 	std::strncpy(info.client_name, name, sizeof(info.client_name) - 1);
 	std::strncpy(info.client_version, version, sizeof(info.client_version) - 1);
+	info.team = team;
 	Send(c, "requestSETTINGS", info);
 }
 
@@ -199,9 +209,48 @@ static int GuiStage(const ClientLog& c, int stage)
 }
 
 static unsigned char InterruptWireTeam(const unsigned char wire[10]) { return wire[2]; }
+static bool EncodeInterruptWire(
+	unsigned char (&wire)[10], UINT16 actor, UINT8 team,
+	UINT8 markOccurred, UINT16 interrupted)
+{
+	const UINT16 order[1] = { 1 };
+	return MpInterruptWire::Encode(
+		wire, sizeof(wire), actor, team, 0, markOccurred, interrupted, order) == sizeof(wire);
+}
 
 int main(int argc, char** argv)
 {
+	CHECK(CoordinatorNextBarrierAction(true, false, false, false, 1, 1, 1, 0, 0) ==
+	      CoordinatorBarrierAction::None,
+	      "ready barrier cannot advance a sole remaining side");
+	CHECK(CoordinatorNextBarrierAction(true, true, false, false, 1, 1, 0, 1, 0) ==
+	      CoordinatorBarrierAction::None,
+	      "load barrier cannot advance a sole remaining side");
+	CHECK(CoordinatorNextBarrierAction(true, true, true, false, 1, 1, 0, 1, 1) ==
+	      CoordinatorBarrierAction::None,
+	      "placement barrier cannot advance a sole remaining side");
+	CHECK(CoordinatorNextBarrierAction(true, false, false, false, 2, 2, 2, 0, 0) ==
+	      CoordinatorBarrierAction::StartBattle,
+	      "ready barrier advances two opposing sides");
+	{
+		const bool connected[4] = { true, true, true, true };
+		const bool wiped[4] = { false, false, true, true };
+		const int alliances[4] = { 0, 0, 1, 1 };
+		CHECK(CoordinatorStandingSideCount(
+		          MP_TYPE_TEAMDEATMATCH, connected, wiped, alliances) == 1,
+		      "team deathmatch last-standing collapses transport slots onto alliances");
+		CHECK(!CoordinatorTransportTeamActive(true, true),
+		      "wiped-but-connected transport teams cannot issue tactical authority");
+	}
+	{
+		const char* dashboard = ja2server_test_dashboard_html();
+		CHECK(dashboard && !std::strstr(dashboard, "insertAdjacentHTML") &&
+		      !std::strstr(dashboard, "innerHTML") && std::strstr(dashboard, "textContent=String(v)"),
+		      "dashboard renders untrusted player names through textContent only");
+		CHECK(dashboard && !std::strstr(dashboard, "Reset lobby</button>") &&
+		      std::strstr(dashboard, "Disconnect all &amp; reset lobby"),
+		      "dashboard exposes no roster-clearing reset without disconnecting transports");
+	}
 	const auto seed = (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count();
 	const unsigned short port = (unsigned short)(40000 + seed % 20000);
 	const std::string base = (std::filesystem::temp_directory_path() /
@@ -246,6 +295,117 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	// Manual reset owns every accepted transport, including a connection that has
+	// not sent requestSETTINGS and therefore has no roster slot yet.
+	{
+		ClientLog orphan;
+		g_active = { &orphan };
+		CHECK(StartClient(orphan, 0, port), "pre-admission reset peer connection initiated");
+		CHECK(PumpUntil([&] { return orphan.accepted; }), "pre-admission reset peer connected");
+		ja2server_test_request_reset();
+		CHECK(PumpUntil([&] { return orphan.closed; }),
+		      "manual reset disconnects a pre-admission transport");
+		orphan.Stop();
+		g_active.clear(); g_logs[0] = nullptr;
+	}
+
+	// Real-pump disconnect coverage for all three session barriers. A remaining
+	// sole TDM side must never auto-progress through ready/loading/placement.
+	auto runBarrierDisconnect = [&](int phase)
+	{
+		ClientLog left, right;
+		g_active = { &left, &right };
+		CHECK(StartClient(left, 0, port), "barrier-left connection initiated");
+		CHECK(PumpUntil([&] { return left.accepted; }), "barrier-left connected");
+		Join(left, "GateLeft", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return !left.settings.empty() && left.admin == 1; }),
+		      "barrier-left admitted as admin side 0");
+		CHECK(StartClient(right, 1, port), "barrier-right connection initiated");
+		CHECK(PumpUntil([&] { return right.accepted; }), "barrier-right connected");
+		Join(right, "GateRight", MPVERSION, 1);
+		CHECK(PumpUntil([&] { return !right.settings.empty() && left.settings.size() >= 2; }),
+		      "barrier-right admitted as opposing side 1");
+
+		admin_cmd_struct unlock = {}; unlock.cmd = ADMIN_CMD_START;
+		Send(left, "adminCmd", unlock);
+		CHECK(PumpUntil([&] { return ReadyStage(left, 36) == 1; }),
+		      "barrier session hiring unlocked");
+		ready_struct leftReady = { 1, true, 0 }, rightReady = { 1, true, 0 };
+		Send(left, "sendREADY", leftReady);
+		if (phase > 0)
+		{
+			Send(right, "sendREADY", rightReady);
+			CHECK(PumpUntil([&] { return ReadyStage(left, 1) == 1; }),
+			      "barrier session entered sector loading");
+			ready_struct leftLoaded = { 1, true, 1 }, rightLoaded = { 1, true, 1 };
+			Send(left, "sendGUI", leftLoaded);
+			if (phase > 1)
+			{
+				Send(right, "sendGUI", rightLoaded);
+				CHECK(PumpUntil([&] { return GuiStage(left, 2) == 1; }),
+				      "barrier session unlocked placement");
+				ready_struct leftPlaced = { 1, true, 3 };
+				Send(left, "sendGUI", leftPlaced);
+			}
+		}
+
+		const std::size_t disconnectsBefore = left.disconnects.size();
+		right.peer->CloseConnection(right.server, true);
+		CHECK(PumpUntil([&] { return left.disconnects.size() > disconnectsBefore; }),
+		      "opposing barrier peer disconnect is observed");
+		if (phase == 0)
+		{
+			CHECK(PumpUntil([&] { return left.closed; }),
+			      "ready disconnect aborts and disconnects the locked sole side");
+			CHECK(ReadyStage(left, 1) == 0 && left.gameovers == 0,
+			      "ready disconnect cannot auto-start a sole side");
+		}
+		else if (phase == 1)
+		{
+			CHECK(PumpUntil([&] { return left.gameovers == 1; }),
+			      "loading disconnect aborts a match that lost its opposing side");
+			CHECK(GuiStage(left, 2) == 0,
+			      "loading disconnect cannot unlock solo placement");
+		}
+		else
+		{
+			CHECK(PumpUntil([&] { return left.gameovers == 1; }),
+			      "placement disconnect aborts a match that lost its opposing side");
+			CHECK(GuiStage(left, 4) == 0,
+			      "placement disconnect cannot enter solo tactical play");
+		}
+
+		right.Stop();
+		if (!left.closed) left.peer->CloseConnection(left.server, true);
+		PumpFor(75); left.Stop();
+		g_active.clear(); g_logs[0] = nullptr; g_logs[1] = nullptr;
+
+		if (phase == 0)
+		{
+			ClientLog replacement;
+			g_active = { &replacement };
+			CHECK(StartClient(replacement, 0, port), "replacement connection initiated after ready abort");
+			CHECK(PumpUntil([&] { return replacement.accepted; }),
+			      "replacement connects to reopened lobby");
+			Join(replacement, "Replacement", MPVERSION, 0);
+			CHECK(PumpUntil([&] { return !replacement.settings.empty() && replacement.admin == 1; }),
+			      "replacement is admitted into the fresh lobby");
+			ja2server_test_request_reset();
+			CHECK(PumpUntil([&] { return replacement.closed; }),
+			      "replacement cleanup reset closes its transport");
+			replacement.Stop();
+			g_active.clear(); g_logs[0] = nullptr;
+		}
+		else
+		{
+			ja2server_test_request_reset();
+			std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		}
+	};
+	runBarrierDisconnect(0);
+	runBarrierDisconnect(1);
+	runBarrierDisconnect(2);
+
 	ClientLog a, b;
 	g_active = { &a, &b };
 	CHECK(StartClient(a, 0, port), "client A connection initiated");
@@ -265,6 +425,15 @@ int main(int argc, char** argv)
 	CHECK(roster.client_num == 2 && !std::strcmp(roster.client_names[0], "Alice") &&
 	      !std::strcmp(roster.client_names[1], "Bob"), "stable slots 1/2 and two-player roster");
 	CHECK(a.admin == 1 && b.admin == 0, "only first admitted client is admin");
+	CHECK(ja2server_test_dashboard_bind_resolves("*"),
+	      "explicit dashboard wildcard is a valid all-interface bind request");
+	CHECK(!ja2server_test_dashboard_bind_resolves("invalid host name"),
+	      "invalid explicit dashboard bind fails instead of becoming a wildcard");
+
+	admin_cmd_struct start = {}; start.cmd = ADMIN_CMD_START;
+	Send(a, "adminCmd", start); PumpFor(100);
+	CHECK(ReadyStage(a, 36) == 0,
+	      "team deathmatch cannot start until two selected alliances oppose each other");
 
 	// Lobby roster mutations are sender-authored and value/phase constrained.
 	edgechange_struct edge = { 1, MP_EDGE_WEST };
@@ -295,12 +464,34 @@ int main(int argc, char** argv)
 	CHECK(PumpUntil([&] { return a.nullTeams.size() == 1 && b.nullTeams.size() == 1; }) &&
 	      a.nullTeams.back().ubResult == 7, "admin can issue a validated occupied-team null");
 
+	ClientLog badTeam;
+	g_active.push_back(&badTeam);
+	CHECK(StartClient(badTeam, 2, port), "invalid-team peer connection initiated");
+	CHECK(PumpUntil([&] { return badTeam.accepted; }), "invalid-team peer connected");
+	Join(badTeam, "BadTeam", MPVERSION, 99);
+	CHECK(PumpUntil([&] { return badTeam.closed; }),
+	      "out-of-range initial team is rejected before roster admission");
+	CHECK(badTeam.settings.empty() && badTeam.admin == 0,
+	      "invalid initial team cannot reach client team arrays or authority");
+	badTeam.Stop(); g_active.pop_back(); g_logs[2] = nullptr;
+	for (int attempt = 0; attempt < 6; ++attempt)
+	{
+		ClientLog rejected;
+		g_active.push_back(&rejected);
+		CHECK(StartClient(rejected, 2, port), "repeated rejected peer connection initiated");
+		CHECK(PumpUntil([&] { return rejected.accepted; }), "repeated rejected peer connected");
+		Join(rejected, "BadTeam", MPVERSION, 99);
+		CHECK(PumpUntil([&] { return rejected.closed; }), "repeated invalid admission is closed");
+		rejected.Stop(); g_active.pop_back(); g_logs[2] = nullptr;
+	}
+	CHECK(ja2server_test_transport_count() == 2,
+	      "server-rejected transports retire without growing the live tracker");
+
 	// A connected but unadmitted peer cannot invoke any session authority.
 	ClientLog rogue;
 	g_active.push_back(&rogue);
 	CHECK(StartClient(rogue, 3, port), "unadmitted peer connection initiated");
 	CHECK(PumpUntil([&] { return rogue.accepted; }), "unadmitted peer connected");
-	admin_cmd_struct start = {}; start.cmd = ADMIN_CMD_START;
 	ready_struct fakeReady = { 1, true, 0 };
 	sc_struct fakeCombat = { 6 };
 	Send(rogue, "adminCmd", start); Send(rogue, "sendREADY", fakeReady);
@@ -313,12 +504,39 @@ int main(int argc, char** argv)
 	CHECK(rogue.settings.empty() && rogue.admin == 0, "rejected version receives no slot or admin");
 	rogue.Stop(); g_active.pop_back(); g_logs[3] = nullptr;
 
+	// Keep four admitted peers through lobby/placement so the live combat checks
+	// can exercise wiped-team and multi-peer barrier/interrupt authority.
+	ClientLog c, d;
+	g_active.push_back(&c);
+	CHECK(StartClient(c, 2, port), "client C connection initiated");
+	CHECK(PumpUntil([&] { return c.accepted; }), "client C connected");
+	Join(c, "Carol", MPVERSION, 0);
+	CHECK(PumpUntil([&] { return !c.settings.empty(); }) && c.settings.back().client_num == 3,
+	      "client C admitted in stable slot 3");
+	g_active.push_back(&d);
+	CHECK(StartClient(d, 3, port), "client D connection initiated");
+	CHECK(PumpUntil([&] { return d.accepted; }), "client D connected");
+	Join(d, "Dave", MPVERSION, 2);
+	CHECK(PumpUntil([&] { return !d.settings.empty(); }) && d.settings.back().client_num == 4,
+	      "client D admitted in stable slot 4");
+
 	// Admin ownership and idempotent, sender-authored ready barrier.
 	Send(b, "adminCmd", start); PumpFor(100);
 	CHECK(ReadyStage(a, 36) == 0, "non-admin cannot unlock the lobby");
 	Send(a, "adminCmd", start);
 	CHECK(PumpUntil([&] { return ReadyStage(a, 36) == 1 && ReadyStage(b, 36) == 1; }),
 	      "admin unlock reaches both admitted clients");
+	// Tactical authority remains inert until the coordinator has emitted stage 4.
+	sc_struct prematureCombat = { 6 }, prematureWipe = { 6 };
+	turn_struct prematureTurn = { 6, 0 };
+	real_struct prematureReal = { 6 };
+	death_struct prematureDeath = { 10, 20, 1, 1 };
+	Send(a, "startCOMBAT", prematureCombat); Send(a, "sendEndTurn", prematureTurn);
+	Send(a, "sendWIPE", prematureWipe); Send(a, "sendREAL", prematureReal);
+	Send(a, "sendDEATH", prematureDeath); PumpFor(100);
+	CHECK(a.turns.empty() && b.turns.empty() && b.deaths.empty() &&
+	      a.gameovers == 0 && b.realtime == 0,
+	      "combat, wipe, realtime, and scoring authority are inert before tactical stage 4");
 	unsigned char invalidReady[3] = { 1, 2, 0 };
 	SendRaw(a, "sendREADY", invalidReady, sizeof(invalidReady)); PumpFor(100);
 	CHECK(ReadyStage(b, 0) == 0, "invalid raw bool cannot cast a ready vote");
@@ -331,15 +549,21 @@ int main(int argc, char** argv)
 	      "duplicate ready vote is a no-op and cannot trip the barrier");
 	ready_struct bReady = { 1, true, 0 };
 	Send(b, "sendREADY", bReady);
-	CHECK(PumpUntil([&] { return ReadyStage(a, 1) == 1 && ReadyStage(b, 1) == 1; }),
-	      "two distinct admitted senders cross the ready barrier");
+	PumpFor(100);
+	CHECK(ReadyStage(a, 1) == 0,
+	      "two ready votes cannot cross a four-participant barrier");
+	ready_struct cReady = { 1, true, 0 }, dReady = { 1, true, 0 };
+	Send(c, "sendREADY", cReady); Send(d, "sendREADY", dReady);
+	CHECK(PumpUntil([&] { return ReadyStage(a, 1) == 1 && ReadyStage(b, 1) == 1 &&
+	                             ReadyStage(c, 1) == 1 && ReadyStage(d, 1) == 1; }),
+	      "four distinct admitted senders cross the ready barrier");
 
 	ClientLog late;
 	g_active.push_back(&late);
 	CHECK(StartClient(late, 3, port), "late peer connection initiated");
 	CHECK(PumpUntil([&] { return late.closed; }), "late join is rejected after lobby lock");
 	CHECK(late.settings.empty(), "late join never enters the roster");
-	late.Stop(); g_active.pop_back(); g_logs[3] = nullptr;
+	late.Stop(); g_active.pop_back(); g_logs[3] = &d;
 
 	// Placement stages are coordinator-owned and count each admitted slot once.
 	unsigned char invalidGui[3] = { 1, 2, 1 };
@@ -352,23 +576,89 @@ int main(int argc, char** argv)
 	Send(a, "sendGUI", loadedA); Send(a, "sendGUI", loadedA); PumpFor(100);
 	CHECK(GuiStage(a, 2) == 0, "duplicate loaded vote cannot unlock placement");
 	ready_struct loadedB = { 1, true, 1 };
-	Send(b, "sendGUI", loadedB);
-	CHECK(PumpUntil([&] { return GuiStage(a, 2) == 1 && GuiStage(b, 2) == 1; }),
-	      "two distinct loaded clients unlock placement");
+	ready_struct loadedC = { 1, true, 1 }, loadedD = { 1, true, 1 };
+	Send(b, "sendGUI", loadedB); Send(c, "sendGUI", loadedC); PumpFor(100);
+	CHECK(GuiStage(a, 2) == 0,
+	      "three loaded votes cannot cross a four-participant barrier");
+	Send(d, "sendGUI", loadedD);
+	CHECK(PumpUntil([&] { return GuiStage(a, 2) == 1 && GuiStage(b, 2) == 1 &&
+	                             GuiStage(c, 2) == 1 && GuiStage(d, 2) == 1; }),
+	      "four distinct loaded clients unlock placement");
 	ready_struct placedA = { 3, true, 3 };
 	Send(a, "sendGUI", placedA); Send(a, "sendGUI", placedA); PumpFor(100);
 	CHECK(GuiStage(a, 4) == 0, "duplicate placed vote cannot enter tactical");
 	ready_struct placedB = { 1, true, 3 };
-	Send(b, "sendGUI", placedB);
-	CHECK(PumpUntil([&] { return GuiStage(a, 4) == 1 && GuiStage(b, 4) == 1; }),
-	      "two distinct placed clients enter tactical");
+	ready_struct placedC = { 1, true, 3 }, placedD = { 1, true, 3 };
+	Send(b, "sendGUI", placedB); Send(c, "sendGUI", placedC); PumpFor(100);
+	CHECK(GuiStage(a, 4) == 0,
+	      "three placed votes cannot cross a four-participant barrier");
+	Send(d, "sendGUI", placedD);
+	CHECK(PumpUntil([&] { return GuiStage(a, 4) == 1 && GuiStage(b, 4) == 1 &&
+	                             GuiStage(c, 4) == 1 && GuiStage(d, 4) == 1; }),
+	      "four distinct placed clients enter tactical");
+	CHECK(!std::strcmp(ja2server_test_phase(), "tactical"),
+	      "dashboard reports tactical after stage 4");
+	const int stage4Count = GuiStage(a, 4);
+	ready_struct retractAfterTactical = { 4, false, 3 };
+	Send(d, "sendGUI", retractAfterTactical); Send(d, "sendGUI", loadedD); PumpFor(100);
+	CHECK(GuiStage(a, 4) == stage4Count,
+	      "GUI votes are immutable after the tactical completion latch");
 	edge.newedge = MP_EDGE_NORTH; Send(b, "sendEDGECHANGE", edge); PumpFor(100);
 	CHECK(a.edges.size() == 1, "roster changes are rejected after lobby lock");
+
+	// A current-team wipe during an interrupt must author a resume before the
+	// turn handoff and discard queued requests whose old-turn premise is stale.
+	unsigned char handoffInt7[10], handoffInt8[10], handoffInt9[10];
+	CHECK(EncodeInterruptWire(handoffInt7, 1, 7, 1, 2) &&
+	      EncodeInterruptWire(handoffInt8, 1, 8, 1, 2) &&
+	      EncodeInterruptWire(handoffInt9, 1, 9, 1, 2),
+	      "shared production interrupt encoder builds handoff fixtures");
+	sc_struct team9 = { 9 };
+	Send(d, "startCOMBAT", team9);
+	CHECK(PumpUntil([&] { return !a.turns.empty() && a.turns.back().tsubNextTeam == 9; }),
+	      "slot-4 tactical contact starts on its active transport team");
+	SendRaw(b, "sendINTERRUPT", handoffInt7, sizeof(handoffInt7));
+	CHECK(PumpUntil([&] { return a.interrupts == 1 && b.interrupts == 1 && c.interrupts == 1; }),
+	      "interrupt is granted before the current-team wipe");
+	SendRaw(b, "sendINTERRUPT", handoffInt7, sizeof(handoffInt7));
+	SendRaw(c, "sendINTERRUPT", handoffInt8, sizeof(handoffInt8)); PumpFor(100);
+	CHECK(a.interrupts == 1,
+	      "active holder retry is ignored while a distinct requester queues once");
+	sc_struct wipe9 = { 9 };
+	Send(d, "sendWIPE", wipe9);
+	CHECK(PumpUntil([&] { return a.resumes == 1 && a.turns.back().tsubNextTeam == 6; }),
+	      "current-team wipe resumes the active interrupt before handing off the turn");
+	PumpFor(100);
+	CHECK(a.interrupts == 1 && b.interrupts == 1 && c.interrupts == 1,
+	      "turn handoff discards queued old-turn interrupt requests instead of chaining them");
+	const size_t authorityTurns = a.turns.size();
+	const int authorityInterrupts = a.interrupts;
+	turn_struct end9 = { 9, 0 };
+	Send(d, "startCOMBAT", team9); Send(d, "sendEndTurn", end9);
+	SendRaw(d, "sendINTERRUPT", handoffInt9, sizeof(handoffInt9)); PumpFor(100);
+	CHECK(a.turns.size() == authorityTurns && a.interrupts == authorityInterrupts,
+	      "wiped-but-connected sender cannot start, advance, or interrupt combat");
+
+	// Realtime votes count active tactical teams only. With A/B voted, C's
+	// disconnect removes the sole active non-voter; wiped D cannot hold the barrier.
+	real_struct rt6 = { 6 }, rt7 = { 7 };
+	Send(a, "sendREAL", rt6); Send(b, "sendREAL", rt7); PumpFor(100);
+	CHECK(a.realtime == 0 && b.realtime == 0,
+	      "realtime waits for the remaining active non-voter");
+	c.peer->CloseConnection(c.server, true);
+	CHECK(PumpUntil([&] { return a.realtime == 1 && b.realtime == 1; }),
+	      "active non-voter disconnect re-evaluates and completes realtime transition");
+	CHECK(!std::strcmp(ja2server_test_phase(), "tactical"),
+	      "dashboard returns to tactical after realtime transition");
+	c.Stop(); g_active.erase(g_active.begin() + 2); g_logs[2] = nullptr;
+	a.turns.clear(); b.turns.clear();
+	a.interrupts = b.interrupts = 0;
+	a.resumes = b.resumes = 0;
 
 	death_struct death = { 10, 20, 1, 1 };
 	Send(b, "sendDEATH", death); PumpFor(100);
 	CHECK(a.deaths.empty(), "client cannot report another slot as its dead soldier");
-	death.soldier_team = 2; death.attacker_team = 4;
+	death.soldier_team = 2; death.attacker_team = 5;
 	Send(b, "sendDEATH", death); PumpFor(100);
 	CHECK(a.deaths.empty(), "client cannot credit an unoccupied attacker slot");
 	death.attacker_team = 1;
@@ -405,14 +695,30 @@ int main(int argc, char** argv)
 	CHECK(PumpUntil([&] { return a.turns.size() == turns + 1; }) && a.turns.back().tsubNextTeam == 6,
 	      "valid slot-2 end-turn returns authority to team 6");
 
-	unsigned char int6[10] = { 1, 0, 6, 0, 0, 1, 2, 0, 1, 0 };
-	unsigned char int7[10]; std::memcpy(int7, int6, sizeof(int7)); int7[2] = 7;
+	unsigned char int6[10], int7[10], release6[10], release7[10];
+	CHECK(EncodeInterruptWire(int6, 1, 6, 1, 2) &&
+	      EncodeInterruptWire(int7, 1, 7, 1, 2) &&
+	      EncodeInterruptWire(release6, 1, 6, 1, COORDINATOR_INT_WIRE_ORDER_ENTRIES) &&
+	      EncodeInterruptWire(release7, 1, 7, 1, COORDINATOR_INT_WIRE_ORDER_ENTRIES),
+	      "shared production serializer emits request and NOBODY release wires");
+	CHECK(MpInterruptWire::Validate(int7, sizeof(int7), false) &&
+	      MpInterruptWire::Validate(release7, sizeof(release7), true) &&
+	      !MpInterruptWire::Validate(release7, sizeof(release7), false),
+	      "coordinator accepts NOBODY only for the release-only Interrupted field");
 	CHECK(InterruptWireTeam(int7) == 7, "interrupt fixture carries team byte at wire offset 2");
 	unsigned char countMismatch[10]; std::memcpy(countMismatch, int7, sizeof(countMismatch));
 	countMismatch[3] = 1;
 	SendRaw(b, "sendINTERRUPT", countMismatch, sizeof(countMismatch));
 	std::vector<unsigned char> trailing(int7, int7 + sizeof(int7)); trailing.push_back(0);
 	SendRaw(b, "sendINTERRUPT", trailing.data(), trailing.size());
+	unsigned char invalidActor[10]; std::memcpy(invalidActor, int7, sizeof(invalidActor)); invalidActor[0] = invalidActor[1] = 0xff;
+	unsigned char invalidMarker[10]; std::memcpy(invalidMarker, int7, sizeof(invalidMarker)); invalidMarker[5] = 2;
+	unsigned char invalidInterrupted[10]; std::memcpy(invalidInterrupted, int7, sizeof(invalidInterrupted)); invalidInterrupted[6] = invalidInterrupted[7] = 0xff;
+	unsigned char invalidOrder[10]; std::memcpy(invalidOrder, int7, sizeof(invalidOrder)); invalidOrder[8] = invalidOrder[9] = 0xff;
+	SendRaw(b, "sendINTERRUPT", invalidActor, sizeof(invalidActor));
+	SendRaw(b, "sendINTERRUPT", invalidMarker, sizeof(invalidMarker));
+	SendRaw(b, "sendINTERRUPT", invalidInterrupted, sizeof(invalidInterrupted));
+	SendRaw(b, "sendINTERRUPT", invalidOrder, sizeof(invalidOrder));
 	std::vector<unsigned char> maxInterrupt(COORDINATOR_INT_WIRE_MAX_BYTES, 0);
 	maxInterrupt[2] = 7;
 	const UINT16 maxPersons = COORDINATOR_INT_WIRE_ORDER_ENTRIES - 1;
@@ -426,7 +732,7 @@ int main(int argc, char** argv)
 	SendRaw(b, "sendINTERRUPT", overInterrupt.data(), overInterrupt.size());
 	PumpFor(100);
 	CHECK(a.interrupts == 0 && b.interrupts == 0,
-	      "mismatched, trailing, invalid-count, and over-bound interrupt frames are rejected");
+	      "shape, bool, actor, interrupted, order-ID, count, and size violations are rejected");
 	SendRaw(b, "sendINTERRUPT", maxInterrupt.data(), maxInterrupt.size());
 	CHECK(PumpUntil([&] { return a.interrupts == 1 && b.interrupts == 1; }),
 	      "exact maximum portable interrupt frame is accepted");
@@ -447,13 +753,13 @@ int main(int argc, char** argv)
 	SendRaw(a, "sendINTERRUPT", int6, sizeof(int6)); PumpFor(100);
 	CHECK(a.interrupts == 1 && b.interrupts == 1,
 	      "queued interrupt requests do not alter the active grant");
-	SendRaw(a, "endINTERRUPT", int6, sizeof(int6)); PumpFor(100);
+	SendRaw(a, "endINTERRUPT", release6, sizeof(release6)); PumpFor(100);
 	CHECK(a.resumes == 0 && b.resumes == 0, "non-holder cannot release an interrupt");
-	SendRaw(b, "endINTERRUPT", int7, sizeof(int7));
+	SendRaw(b, "endINTERRUPT", release7, sizeof(release7));
 	CHECK(PumpUntil([&] { return a.resumes == 1 && b.resumes == 1 &&
 	                              a.interrupts == 2 && b.interrupts == 2; }),
 	      "holder release resumes the turn and chains one queued sender");
-	SendRaw(a, "endINTERRUPT", int6, sizeof(int6));
+	SendRaw(a, "endINTERRUPT", release6, sizeof(release6));
 	CHECK(PumpUntil([&] { return a.resumes == 2 && b.resumes == 2; }),
 	      "queued sender releases the chained interrupt");
 	PumpFor(100);
@@ -461,12 +767,16 @@ int main(int argc, char** argv)
 	      "duplicate queued requests cannot create additional grants");
 
 	const int beforeGameover = a.gameovers;
+	const std::size_t beforeDisconnects = a.disconnects.size();
 	b.peer->CloseConnection(b.server, true);
-	CHECK(PumpUntil([&] { return !a.disconnects.empty(); }), "remaining client receives slot disconnect");
+	CHECK(PumpUntil([&] { return a.disconnects.size() > beforeDisconnects; }),
+	      "remaining client receives slot disconnect");
 	CHECK(a.disconnects.back() == 2, "disconnect notice identifies slot 2");
 	CHECK(PumpUntil([&] { return a.gameovers == beforeGameover + 1; }),
 	      "coordinator, not a client, publishes last-standing game-over");
 	b.Stop();
+	d.Stop(); g_logs[3] = nullptr;
+	g_active.clear(); g_active.push_back(&a);
 	a.peer->CloseConnection(a.server, true); PumpFor(50); a.Stop();
 	g_active.clear();
 

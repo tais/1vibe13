@@ -46,9 +46,11 @@ Flags override the matching `ja2_mp.ini` keys:
   campaign simulation. Lobby progress and scores are in memory only.
 - The server and dashboard bind to **127.0.0.1** by default. Set `SERVER_BIND` /
   `DASHBOARD_BIND` to `0.0.0.0` (or a specific interface) for LAN/public play.
-- The dashboard status view is read-only and open; **write actions** (runtime
-  config, reset, kick) require `DASHBOARD_TOKEN`. With no token set the controls
-  are disabled. When set, open the panel as `http://host:port/?token=SECRET`.
+- The dashboard status view is read-only and open; **write actions** require
+  `DASHBOARD_TOKEN`. Session configuration is accepted only while no players are
+  connected and commits transactionally for the next admission. Reset always
+  disconnects every transport before reopening the lobby. With no token set the
+  controls are disabled. When set, open the panel as `http://host:port/?token=SECRET`.
 - Transport and dashboard authentication are intended for trusted networks;
   they do not provide encrypted Internet matchmaking or account identity.
 - On Linux/macOS, `kill -HUP <pid>` resets the lobby for a rematch without a
