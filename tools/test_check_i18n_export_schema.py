@@ -1057,9 +1057,9 @@ advancePackagesTo(
             {
                 "emitted_sections": 237,
                 "emitted_entries": 3078,
-                "value_utf8_bytes": 69893,
+                "value_utf8_bytes": 69903,
                 "ordered_payload_sha256": (
-                    "2248046a8cbcce195213baddb848ac897a153bafaff55f8f2d207b699b8a3902"
+                    "09366533c0235bc09807b9226acaae4642ff80ed36a2046ce1ef9b53274a3dc4"
                 ),
             },
         )
