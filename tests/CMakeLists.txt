@@ -20,6 +20,23 @@ target_include_directories(coop_session_protocol_tests
 target_compile_features(coop_session_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_session_protocol COMMAND coop_session_protocol_tests)
 
+# The first authoritative co-op command boundary is deliberately independent
+# from the game and transport implementations. It pins the exact intent bytes,
+# sender-bound admission, command order, tactical context, and actor ACL before
+# a future full-engine adapter is permitted to execute anything.
+add_executable(coop_tactical_authority_tests
+  coop_tactical_authority_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+)
+target_include_directories(coop_tactical_authority_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_tactical_authority_tests PRIVATE cxx_std_17)
+add_test(NAME coop_tactical_authority COMMAND coop_tactical_authority_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

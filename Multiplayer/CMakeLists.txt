@@ -14,12 +14,15 @@ add_library(Multiplayer STATIC
   "client.cpp"
   "CoopAdmission.cpp"
   "CoopSessionProtocol.cpp"
+  "CoopTacticalAuthority.cpp"
+  "CoopTacticalIntent.cpp"
   "server.cpp"
   "transfer_rules.cpp"
   "netshim/netshim.cpp"
 )
 
 target_include_directories(Multiplayer PUBLIC
+  ${PROJECT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}
   "netshim"
 )

@@ -107,6 +107,14 @@ sequence, simulation tick, terminal status, rejection reason, and resulting
 world revision. TCP ordering is not used as a substitute for these application
 identifiers.
 
+The data-free foundation now includes exact codecs for move, face, stance,
+stop, and end-turn intents plus a bounded authority gate. The gate resolves the
+peer from the transport-bound admission registry, verifies the claimed identity,
+world generation, exact revision and turn serial, enforces a per-peer monotonic
+command sequence, and checks a server-owned peer-to-actor ACL. It deliberately
+executes no game action. Wiring successful intents to live JA2 legality checks
+and the simulation command queue remains part of milestone 3.
+
 ## Replication
 
 Join and reconnect begin with a complete, checksummed baseline for one world
