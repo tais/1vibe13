@@ -26,8 +26,10 @@
 #include <SDL3/SDL.h>
 
 #include <deque>
+#include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 #include <cstring>
 #include <cstdio>
@@ -69,7 +71,16 @@ const unsigned int HEARTBEAT_INTERVAL_MS = 5000;
 // a malformed/hostile length header can't make us reserve a huge body buffer.
 const unsigned int MAX_RPC_FRAME  = 1u * 1024u * 1024u;   // any RPC struct is well under 1MB
 const unsigned int MAX_FILE_FRAME = 1u * 1024u * 1024u;   // file header + one chunk (chunkSize<=256KB)
-const unsigned int MAX_FRAME      = MAX_RPC_FRAME > MAX_FILE_FRAME ? MAX_RPC_FRAME : MAX_FILE_FRAME;
+const unsigned int MAX_TRANSFER_FILE_BYTES = 32u * 1024u * 1024u;
+const unsigned int MAX_TRANSFER_SET_BYTES = 512u * 1024u * 1024u;
+const unsigned int MAX_TRANSFER_FILES = 4096u;
+const unsigned int MAX_ACTIVE_TRANSFER_SETS = 8u;
+const size_t MAX_RECEIVE_REGISTRATIONS = 64u;
+const unsigned short INVALID_TRANSFER_SET_ID = 0xffffu;
+const size_t MAX_BUFFERED_TRANSFER_BYTES = 32u * 1024u * 1024u;
+const uint64_t MAX_RESERVED_TRANSFER_BYTES = 512ull * 1024ull * 1024ull;
+const unsigned int FILE_FRAME_FIXED_BYTES = 28u;
+const unsigned int MAX_TRANSFER_NAME_BYTES = 511u;
 
 // Slow-loris guards: cap how much we drain from one socket per pump pass (so no
 // single peer starves the others), and how large a single peer's unparsed input
@@ -164,10 +175,24 @@ struct Lingering
 struct RxFile
 {
 	FileListTransferCBInterface::OnFileStruct meta;
+	std::string name;
 	std::vector<char> buf;
 	unsigned received = 0;
 	unsigned partTotal = 1;
 	unsigned partCount = 0;
+};
+
+struct RxSet
+{
+	FileListTransferCBInterface* handler = nullptr;
+	SystemAddress allowedSender;
+	bool started = false;
+	unsigned int setCount = 0;
+	unsigned int setTotal = 0;
+	unsigned int nextFileIndex = 0;
+	uint64_t completedBytes = 0;
+	bool hasFile = false;
+	RxFile file;
 };
 
 } // namespace
@@ -175,11 +200,43 @@ struct RxFile
 struct NetShimFltState
 {
 	unsigned short nextSetId = 0;
-	std::map<unsigned short, FileListTransferCBInterface*> handlers;
+	std::map<unsigned short, RxSet> receivers;
 	FileListProgress* progress = nullptr;
-	std::map<unsigned short, RxFile> rx;   // keyed by setID (one in-flight file per set)
-	std::map<unsigned short, unsigned> rxDone; // files completed per set
+	unsigned int activeSets = 0;
+	size_t bufferedBytes = 0;
+	uint64_t reservedBytes = 0;
 };
+
+static void DropReceiversForSender( NetShimFltState* fs, const SystemAddress& sender )
+{
+	if ( !fs ) return;
+	for ( std::map<unsigned short, RxSet>::iterator it = fs->receivers.begin();
+	      it != fs->receivers.end(); )
+	{
+		RxSet& set = it->second;
+		if ( set.allowedSender != sender )
+		{
+			++it;
+			continue;
+		}
+		if ( set.hasFile ) fs->bufferedBytes -= set.file.buf.size();
+		if ( set.started )
+		{
+			--fs->activeSets;
+			fs->reservedBytes -= set.setTotal;
+		}
+		it = fs->receivers.erase( it );
+	}
+}
+
+static void ClearReceivers( NetShimFltState* fs )
+{
+	if ( !fs ) return;
+	fs->receivers.clear();
+	fs->activeSets = 0;
+	fs->bufferedBytes = 0;
+	fs->reservedBytes = 0;
+}
 
 struct NetShimPeerState
 {
@@ -205,6 +262,9 @@ struct NetShimPeerState
 	// nextSyntheticPort++ wrapped and could collide with a still-open peer).
 	unsigned int nextSyntheticId = 1;
 	bool inShutdown = false;            // guard against reentrant Shutdown()
+	unsigned int pumpDepth = 0;         // callbacks may call Receive(); never recurse I/O/parsing
+	bool shutdownPending = false;       // callbacks may request teardown; execute after outer pump
+	unsigned int pendingShutdownBlockDuration = 0;
 	RakPeerInterface* self = nullptr;
 	// Dead-peer detection. 0 == disabled (the RakNet default until SetTimeoutTime is
 	// called). A peer that has not sent ANY bytes for timeoutMs is declared lost.
@@ -315,7 +375,14 @@ struct NetShimPeerState
 	// use-after-free) and never blocks the game loop on a wedged peer.
 	void CloseConn( Conn* c, bool sendBye, unsigned int drainMs )
 	{
-		if ( !c || !c->sock || !c->open )
+		if ( !c )
+			return;
+		// Receiver cleanup is idempotent and must run even if SendFrame already
+		// flag-closed the connection. Shutdown can otherwise delete that closed
+		// Conn before the next sweep and strand its buffer/reservation accounting.
+		if ( flt && flt->state )
+			DropReceiversForSender( flt->state, c->addr );
+		if ( !c->sock || !c->open )
 			return;
 		if ( sendBye && !c->sentBye )
 		{
@@ -327,7 +394,7 @@ struct NetShimPeerState
 	}
 
 	void DispatchRPC( Conn* c, const unsigned char* body, unsigned int len );
-	void HandleFileFrame( const unsigned char* body, unsigned int len );
+	bool HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len );
 	void ParseFrames( Conn* c );
 	void Liveness();
 	void PumpSockets();
@@ -380,52 +447,102 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	it->second( &params );
 }
 
-void NetShimPeerState::HandleFileFrame( const unsigned char* body, unsigned int len )
+bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len )
 {
-	if ( !flt || !flt->state || len < 2 + 4 + 4 + 4 + 2 )
-		return;
+	if ( !flt || !flt->state )
+		return true;   // no transfer plugin/registration: ignore the frame
 	NetShimFltState* fs = flt->state;
+	if ( len < FILE_FRAME_FIXED_BYTES )
+		return false;
+
 	unsigned int o = 0;
 	unsigned short setID = GetU16( body + o ); o += 2;
+	std::map<unsigned short, RxSet>::iterator sit = fs->receivers.find( setID );
+	if ( sit == fs->receivers.end() )
+		return true;   // completed/unknown set IDs cannot trigger callbacks
+	RxSet& set = sit->second;
+	if ( !c || ( set.allowedSender != UNASSIGNED_SYSTEM_ADDRESS && set.allowedSender != c->addr ) )
+		return false;
+
+	// Any malformed frame from the registered sender invalidates the whole set.
+	// This both frees bounded live storage and prevents a later frame from
+	// continuing with ambiguous state.
+	auto fail = [&]() -> bool
+	{
+		if ( set.hasFile )
+			fs->bufferedBytes -= set.file.buf.size();
+		if ( set.started )
+		{
+			--fs->activeSets;
+			fs->reservedBytes -= set.setTotal;
+		}
+		fs->receivers.erase( sit );
+		return false;
+	};
+	if ( !set.handler )
+		return fail();
+
 	unsigned int fileIndex = GetU32( body + o ); o += 4;
 	unsigned int setCount = GetU32( body + o ); o += 4;
 	unsigned int setTotal = GetU32( body + o ); o += 4;
 	unsigned short nameLen = GetU16( body + o ); o += 2;
-	if ( o + nameLen + 12 > len )
-		return;
+	if ( nameLen > MAX_TRANSFER_NAME_BYTES || nameLen > len - FILE_FRAME_FIXED_BYTES )
+		return fail();
 	std::string name( (const char*)body + o, nameLen ); o += nameLen;
 	unsigned int fileLen = GetU32( body + o ); o += 4;
 	unsigned int offset = GetU32( body + o ); o += 4;
 	unsigned int chunkLen = GetU32( body + o ); o += 4;
-	if ( o + chunkLen > len )
-		return;
-
-	std::map<unsigned short, FileListTransferCBInterface*>::iterator hit = fs->handlers.find( setID );
-	if ( hit == fs->handlers.end() )
-		return;
-	FileListTransferCBInterface* cb = hit->second;
+	if ( chunkLen != len - o )
+		return fail();
 
 	if ( setCount == 0 )
 	{
-		// Empty file set: real RakNet still sent the set header, and the receiver
-		// completed at once. Without this the joining client waits forever when the
-		// host's sync directory is empty.
-		fs->rx.erase( setID );
-		fs->rxDone.erase( setID );
+		// The empty-set marker is a single exact, all-zero metadata frame.
+		if ( set.started || fileIndex != 0 || setTotal != 0 || nameLen != 0 ||
+		     fileLen != 0 || offset != 0 || chunkLen != 0 )
+			return fail();
+		FileListTransferCBInterface* cb = set.handler;
+		fs->receivers.erase( sit );   // retire before callback: replay is inert
 		cb->OnDownloadComplete();
-		return;
+		return true;
 	}
 
-	// A file always begins with its offset==0 chunk. Reject a continuation chunk
-	// for a set we haven't started (L9): otherwise a spoofed non-zero-offset chunk
-	// could write into a default-constructed RxFile and fake an OnFile/complete.
-	if ( offset != 0 && fs->rx.find( setID ) == fs->rx.end() )
-		return;
+	if ( setCount > MAX_TRANSFER_FILES || fileIndex >= setCount ||
+	     setTotal > MAX_TRANSFER_SET_BYTES || fileLen > MAX_TRANSFER_FILE_BYTES ||
+	     name.find( '\0' ) != std::string::npos || offset > fileLen ||
+	     chunkLen > fileLen - offset || ( fileLen != 0 && chunkLen == 0 ) ||
+	     ( fileLen == 0 && ( offset != 0 || chunkLen != 0 ) ) )
+		return fail();
 
-	RxFile& rx = fs->rx[setID];
-	if ( offset == 0 )
+	if ( !set.started )
 	{
+		if ( fileIndex != 0 || offset != 0 || fs->activeSets >= MAX_ACTIVE_TRANSFER_SETS ||
+		     fs->reservedBytes > MAX_RESERVED_TRANSFER_BYTES - setTotal )
+			return fail();
+		set.started = true;
+		if ( set.allowedSender == UNASSIGNED_SYSTEM_ADDRESS )
+			set.allowedSender = c->addr;   // wildcard selects, then pins, one sender per set
+		set.setCount = setCount;
+		set.setTotal = setTotal;
+		++fs->activeSets;
+		fs->reservedBytes += setTotal;
+	}
+	else if ( set.setCount != setCount || set.setTotal != setTotal )
+		return fail();
+
+	if ( !set.hasFile )
+	{
+		if ( fileIndex != set.nextFileIndex || offset != 0 ||
+		     set.completedBytes > set.setTotal ||
+		     fileLen > set.setTotal - set.completedBytes ||
+		     fs->bufferedBytes > MAX_BUFFERED_TRANSFER_BYTES ||
+		     fileLen > MAX_BUFFERED_TRANSFER_BYTES - fs->bufferedBytes )
+			return fail();
+
+		set.hasFile = true;
+		RxFile& rx = set.file;
 		rx = RxFile();
+		rx.name = name;
 		rx.meta.fileIndex = fileIndex;
 		rx.meta.setID = setID;
 		rx.meta.setCount = setCount;
@@ -433,29 +550,60 @@ void NetShimPeerState::HandleFileFrame( const unsigned char* body, unsigned int 
 		rx.meta.setTotalCompressedTransmissionLength = setTotal;
 		rx.meta.finalDataLength = fileLen;
 		rx.meta.compressedTransmissionLength = fileLen;
-		snprintf( rx.meta.fileName, sizeof( rx.meta.fileName ), "%s", name.c_str() );
+		memcpy( rx.meta.fileName, name.data(), nameLen );
+		rx.meta.fileName[nameLen] = 0;
 		rx.buf.assign( fileLen, 0 );
-		rx.partTotal = fileLen ? ( fileLen + chunkLen - 1 ) / ( chunkLen ? chunkLen : 1 ) : 1;
+		fs->bufferedBytes += fileLen;
+		rx.partTotal = fileLen == 0 ? 1 : ( fileLen - 1 ) / chunkLen + 1;
 	}
-	if ( offset + chunkLen <= rx.buf.size() && chunkLen )
-		memcpy( rx.buf.data() + offset, body + o, chunkLen );
-	rx.partCount++;
-	cb->OnFileProgress( &rx.meta, rx.partCount, rx.partTotal, chunkLen, ( char* )( body + o ) );
-	rx.received += chunkLen;
+	else if ( fileIndex != set.file.meta.fileIndex || fileLen != set.file.meta.finalDataLength ||
+	          name != set.file.name )
+		return fail();
 
-	if ( rx.received >= rx.meta.finalDataLength )
+	RxFile& rx = set.file;
+	if ( offset != rx.received )   // exact contiguity rejects holes, overlap and duplicates
+		return fail();
+	if ( fileIndex + 1 == set.setCount &&
+	     set.completedBytes + fileLen != set.setTotal )
+		return fail();
+	if ( chunkLen )
+		memcpy( rx.buf.data() + offset, body + o, chunkLen );
+	++rx.partCount;
+	rx.received += chunkLen;
+	rx.meta.fileData = rx.buf.empty() ? nullptr : rx.buf.data();
+	FileListTransferCBInterface* cb = set.handler;
+
+	if ( rx.received != fileLen )
 	{
-		rx.meta.fileData = rx.buf.empty() ? nullptr : rx.buf.data();
-		cb->OnFile( &rx.meta );      // shim retains ownership of fileData
-		fs->rx.erase( setID );
-		unsigned& done = fs->rxDone[setID];
-		++done;
-		if ( done >= setCount )
-		{
-			fs->rxDone.erase( setID );
-			cb->OnDownloadComplete();
-		}
+		// The callback may re-enter the peer/plugin. All state mutation for this
+		// chunk is complete, and no state references are touched after it returns.
+		cb->OnFileProgress( &rx.meta, rx.partCount, rx.partTotal, chunkLen,
+		                    chunkLen ? ( char* )( body + o ) : nullptr );
+		return true;
 	}
+
+	// Move completed storage to the stack so fileData stays valid for the exact
+	// duration of OnFile even though the receive slot is advanced/retired first.
+	RxFile delivered = std::move( set.file );
+	delivered.meta.fileData = delivered.buf.empty() ? nullptr : delivered.buf.data();
+	fs->bufferedBytes -= delivered.buf.size();
+	set.completedBytes += fileLen;
+	set.hasFile = false;
+	++set.nextFileIndex;
+	const bool setComplete = set.nextFileIndex == set.setCount;
+	if ( setComplete )
+	{
+		--fs->activeSets;
+		fs->reservedBytes -= set.setTotal;
+		fs->receivers.erase( sit );   // replay/reentrancy cannot find this set
+	}
+
+	cb->OnFileProgress( &delivered.meta, delivered.partCount, delivered.partTotal, chunkLen,
+	                    chunkLen ? ( char* )( body + o ) : nullptr );
+	cb->OnFile( &delivered.meta );  // delivered owns fileData through callback return
+	if ( setComplete )
+		cb->OnDownloadComplete();
+	return true;
 }
 
 void NetShimPeerState::ParseFrames( Conn* c )
@@ -471,15 +619,27 @@ void NetShimPeerState::ParseFrames( Conn* c )
 		const unsigned char* p = c->in.data() + c->inOff;
 		unsigned int bodyLen = GetU32( p );
 		unsigned char type = p[4];
-		// Per-type ceiling (replaces the single 64MB limit). A length above the
-		// realistic max for this frame type means a corrupt/hostile peer: drop it.
-		unsigned int ceiling = ( type == FT_FILE ) ? MAX_FILE_FRAME : MAX_RPC_FRAME;
-		if ( type != FT_RPC && type != FT_FILE )
-			ceiling = MAX_FRAME;   // BYE/FULL/unknown carry tiny bodies; cap generously
-		if ( bodyLen > ceiling )
+		bool validHeader = false;
+		switch ( type )
 		{
-			c->open = false;
+			case FT_RPC:
+				validHeader = bodyLen >= 2 && bodyLen <= MAX_RPC_FRAME;
+				break;
+			case FT_FILE:
+				validHeader = bodyLen >= FILE_FRAME_FIXED_BYTES && bodyLen <= MAX_FILE_FRAME;
+				break;
+			case FT_BYE:
+			case FT_FULL:
+			case FT_PING:
+				validHeader = bodyLen == 0;
+				break;
+			default:
+				break;
+		}
+		if ( !validHeader )
+		{
 			Synthesize( ID_CONNECTION_LOST, c->addr );
+			CloseConn( c, false, 0 );
 			break;
 		}
 		if ( avail < 5u + bodyLen )
@@ -501,15 +661,20 @@ void NetShimPeerState::ParseFrames( Conn* c )
 				CloseConn( c, false, 0 );
 				break;
 			case FT_FILE:
-				HandleFileFrame( body, bodyLen );
+				if ( !HandleFileFrame( c, body, bodyLen ) )
+				{
+					Synthesize( ID_CONNECTION_LOST, c->addr );
+					CloseConn( c, false, 0 );
+				}
 				break;
 			case FT_PING:
 				break;   // keepalive: arrival already refreshed lastRecvMs; nothing to do
 			default:
-				break;   // unknown frame type from a future version: skip
+				break;   // rejected above
 		}
-		// CloseConn / SendFrame-failure can flag-close mid-parse; stop then.
-		if ( !c->open )
+		// CloseConn / SendFrame-failure can flag-close mid-parse. A callback can
+		// also request deferred shutdown; stop before dispatching another frame.
+		if ( shutdownPending || !c->open )
 			break;
 	}
 
@@ -633,7 +798,7 @@ void NetShimPeerState::PumpSockets()
 
 	// 3. reads + framing (index loop: handlers don't add conns; they may flag
 	//    closes via CloseConnection, which is now deferred to the step-4 sweep)
-	for ( size_t i = 0; i < conns.size(); ++i )
+	for ( size_t i = 0; i < conns.size() && !shutdownPending; ++i )
 	{
 		Conn* c = conns[i];
 		if ( !c->open || !c->sock )
@@ -674,6 +839,8 @@ void NetShimPeerState::PumpSockets()
 		if ( c->open )
 			ParseFrames( c );
 	}
+	if ( shutdownPending )
+		return;
 
 	// 3.5 heartbeat + timeout (after reads so a peer that just spoke isn't reaped)
 	Liveness();
@@ -685,6 +852,8 @@ void NetShimPeerState::PumpSockets()
 	{
 		if ( !conns[i]->open )
 		{
+			if ( flt && flt->state )
+				DropReceiversForSender( flt->state, conns[i]->addr );
 			Linger( conns[i]->sock, conns[i]->drainMs );
 			delete conns[i];
 			conns.erase( conns.begin() + i );
@@ -771,7 +940,19 @@ void RakPeerInterface::Shutdown( unsigned int blockDuration, unsigned char )
 	// flight (or from the destructor after one) must be a no-op, not a double-free.
 	if ( !state->started || state->inShutdown )
 		return;
+	// File/RPC callbacks run synchronously inside the socket pump. Teardown there
+	// would delete the Conn currently owned by the outer parser. Defer the whole
+	// operation until Receive() has unwound the one active pump.
+	if ( state->pumpDepth != 0 )
+	{
+		state->shutdownPending = true;
+		if ( blockDuration > state->pendingShutdownBlockDuration )
+			state->pendingShutdownBlockDuration = blockDuration;
+		return;
+	}
 	state->inShutdown = true;
+	state->shutdownPending = false;
+	state->pendingShutdownBlockDuration = 0;
 
 	// Flag-close every conn (sends FT_BYE) and hand its socket to the lingering
 	// list so writes flush without blocking N x blockDuration on the game loop.
@@ -782,6 +963,12 @@ void RakPeerInterface::Shutdown( unsigned int blockDuration, unsigned char )
 		delete c;
 	}
 	state->conns.clear();
+	// Shutdown also retires registrations which never received a first frame and
+	// therefore are still bound to the wildcard sender.  This keeps a persistent
+	// FileListTransfer reusable across a RakPeer restart without carrying stale
+	// capacity charges or handlers into the next session.
+	if ( state->flt && state->flt->state )
+		ClearReceivers( state->flt->state );
 
 	// Single bounded global drain: poll the lingering sockets for up to
 	// blockDuration total wall-time (NOT per-socket), then force-destroy the rest.
@@ -836,7 +1023,28 @@ Packet* RakPeerInterface::Receive( void )
 {
 	if ( !state->started )
 		return nullptr;
-	state->PumpSockets();
+	if ( state->pumpDepth == 0 )
+	{
+		struct PumpScope
+		{
+			explicit PumpScope( unsigned int& depth ) : depth( depth ) { ++depth; }
+			~PumpScope() { --depth; }
+			unsigned int& depth;
+		} scope( state->pumpDepth );
+		state->PumpSockets();
+	}
+	// A nested Receive() deliberately skips I/O and parsing. Only the outermost
+	// call owns connection lifetime and services a teardown requested in a
+	// callback after every parser reference has unwound.
+	if ( state->pumpDepth == 0 && state->shutdownPending )
+	{
+		const unsigned int blockDuration = state->pendingShutdownBlockDuration;
+		state->shutdownPending = false;
+		state->pendingShutdownBlockDuration = 0;
+		Shutdown( blockDuration );
+	}
+	if ( !state->started )
+		return nullptr;
 	if ( state->q.empty() )
 		return nullptr;
 	Packet* p = state->q.front();
@@ -870,10 +1078,13 @@ bool RakPeerInterface::RPC( const char* uniqueID, const char* data, BitSize_t bi
 	unsigned int nameLen = (unsigned int)strlen( uniqueID );
 	if ( nameLen == 0 || nameLen > 255 )
 		return false;
-	unsigned int payloadLen = ( bitLength + 7 ) / 8;   // round bits up to bytes
-	// Ceiling: a crafted bitLength must never make us frame (and reserve) a body
-	// past the per-type wire limit. Legit RPC structs are far below this.
-	if ( payloadLen > MAX_RPC_FRAME )
+	// The shim transports byte strings, not RakNet's bit-packed payloads. Reject
+	// lossy/non-byte-aligned requests and validate the complete frame before any
+	// pointer arithmetic or allocation.
+	if ( bitLength % 8 != 0 )
+		return false;
+	unsigned int payloadLen = bitLength / 8;
+	if ( ( payloadLen != 0 && !data ) || payloadLen > MAX_RPC_FRAME - 1u - nameLen )
 		return false;
 
 	std::vector<unsigned char> body;
@@ -944,7 +1155,15 @@ void RakPeerInterface::DetachPlugin( PluginInterface* plugin )
 		}
 	}
 	if ( state->flt == plugin )
+	{
+		// The shipped client/server detach persistent FileListTransfer instances
+		// before Shutdown and attach them again on reconnect.  Retire every pending
+		// or partial receive here so handlers, buffers, and reservation accounting
+		// cannot leak across those sessions.
+		if ( state->flt->state )
+			ClearReceivers( state->flt->state );
 		state->flt = nullptr;
+	}
 }
 
 void RakPeerInterface::SetSplitMessageProgressInterval( int ) {}   // progress is per-chunk already
@@ -989,11 +1208,25 @@ FileListTransfer::~FileListTransfer()
 	state = nullptr;   // hardening (L12): a stale flt->state access faults cleanly as null
 }
 
-unsigned short FileListTransfer::SetupReceive( FileListTransferCBInterface* handler, bool, SystemAddress )
+unsigned short FileListTransfer::SetupReceive( FileListTransferCBInterface* handler, bool, SystemAddress allowedSender )
 {
-	unsigned short id = state->nextSetId++;
-	state->handlers[id] = handler;
-	return id;
+	if ( !handler || state->receivers.size() >= MAX_RECEIVE_REGISTRATIONS )
+		return INVALID_TRANSFER_SET_ID;
+	// With at most 64 registrations, inspecting 65 usable consecutive IDs is
+	// sufficient to find a free slot even when the 16-bit counter wraps. Never
+	// overwrite a live transfer, and reserve 0xffff as the failure sentinel.
+	for ( size_t attempts = 0; attempts < MAX_RECEIVE_REGISTRATIONS + 2; ++attempts )
+	{
+		unsigned short id = state->nextSetId++;
+		if ( id == INVALID_TRANSFER_SET_ID || state->receivers.find( id ) != state->receivers.end() )
+			continue;
+		RxSet receiver;
+		receiver.handler = handler;
+		receiver.allowedSender = allowedSender;
+		state->receivers.insert( std::make_pair( id, receiver ) );
+		return id;
+	}
+	return INVALID_TRANSFER_SET_ID;
 }
 
 void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, SystemAddress recipient, unsigned short setID,
@@ -1001,6 +1234,18 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 {
 	if ( !fileList || !rakPeer || !rakPeer->state )
 		return;
+	if ( fileList->files.size() > MAX_TRANSFER_FILES )
+		return;
+	uint64_t checkedTotal = 0;
+	for ( const FileList::FileEntry& e : fileList->files )
+	{
+		if ( e.filename.size() > MAX_TRANSFER_NAME_BYTES ||
+		     e.filename.find( '\0' ) != std::string::npos ||
+		     e.data.size() > MAX_TRANSFER_FILE_BYTES ||
+		     checkedTotal > MAX_TRANSFER_SET_BYTES - e.data.size() )
+			return;
+		checkedTotal += e.data.size();
+	}
 	if ( chunkSize == 0 || chunkSize > 256 * 1024 )
 		chunkSize = 64 * 1024;
 	NetShimPeerState* ps = rakPeer->state;
@@ -1009,9 +1254,7 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 		return;
 
 	unsigned int setCount = (unsigned int)fileList->files.size();
-	unsigned int setTotal = 0;
-	for ( const FileList::FileEntry& e : fileList->files )
-		setTotal += (unsigned int)e.data.size();
+	unsigned int setTotal = (unsigned int)checkedTotal;
 
 	if ( setCount == 0 )
 	{
