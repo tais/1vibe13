@@ -62,11 +62,15 @@ is accepted, peers exchange a fixed-width, explicitly little-endian admission
 message containing:
 
 - authoritative co-op protocol version;
-- application/campaign identity;
 - server session epoch;
 - runtime compatibility fingerprint;
 - installed-content manifest digest;
 - optional server-issued peer identity and reconnect token.
+
+The current 116-byte request has no separate application or campaign-name
+field. A future live adapter must derive the session being joined from the
+server endpoint and bind its exact runtime/content identities before enabling
+admission; it must not infer a campaign identity from client-provided prose.
 
 An all-zero identity/token requests a new seat. A successful new admission
 returns a unique identity and opaque reconnect token. A reconnect presents the

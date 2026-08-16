@@ -265,6 +265,7 @@ struct NetShimPeerState
 	unsigned int pumpDepth = 0;         // callbacks may call Receive(); never recurse I/O/parsing
 	bool shutdownPending = false;       // callbacks may request teardown; execute after outer pump
 	unsigned int pendingShutdownBlockDuration = 0;
+	PluginInterface* detachPending = nullptr; // callback detach runs after borrowed frame data expires
 	RakPeerInterface* self = nullptr;
 	// Dead-peer detection. 0 == disabled (the RakNet default until SetTimeoutTime is
 	// called). A peer that has not sent ANY bytes for timeoutMs is declared lost.
@@ -378,9 +379,10 @@ struct NetShimPeerState
 		if ( !c )
 			return;
 		// Receiver cleanup is idempotent and must run even if SendFrame already
-		// flag-closed the connection. Shutdown can otherwise delete that closed
-		// Conn before the next sweep and strand its buffer/reservation accounting.
-		if ( flt && flt->state )
+		// flag-closed the connection. During the socket pump, however, callbacks
+		// still borrow RxFile storage; the post-parse sweep performs this same drop
+		// after they unwind. Outside the pump (including Shutdown) clean immediately.
+		if ( pumpDepth == 0 && flt && flt->state )
 			DropReceiversForSender( flt->state, c->addr );
 		if ( !c->sock || !c->open )
 			return;
@@ -413,13 +415,10 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	unsigned int payloadLen = len - 1 - nameLen;
 	const unsigned char* payload = body + 1 + nameLen;
 
-	std::map<std::string, void ( * )( RPCParameters* )>::iterator it = rpcs.find( name );
-	if ( it == rpcs.end() )
-		return;   // unknown RPC name: drop silently (matches RakNet behavior for unregistered IDs)
-
 	// Per-conn inbound token bucket (M18): refill by elapsed time, then charge this
-	// frame's wire size. A peer that out-floods its sustained budget gets its RPCs
-	// dropped (not dispatched/relayed) until it refills -- prevents relay amplify DoS.
+	// frame's wire size, including unknown names. Reliable/TCP state cannot be
+	// silently discarded without desynchronizing the session, so a peer that
+	// exceeds the bounded burst is disconnected rather than partially relayed.
 	Uint64 nowMs = SDL_GetTicks();
 	if ( c->lastRefillMs == 0 )
 		c->lastRefillMs = nowMs;
@@ -429,8 +428,16 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	c->lastRefillMs = nowMs;
 	double cost = (double)( len + 5 );   // frame body + header overhead
 	if ( c->tokens < cost )
-		return;   // over budget: drop this frame
+	{
+		Synthesize( ID_CONNECTION_LOST, c->addr );
+		CloseConn( c, false, 0 );
+		return;
+	}
 	c->tokens -= cost;
+
+	std::map<std::string, void ( * )( RPCParameters* )>::iterator it = rpcs.find( name );
+	if ( it == rpcs.end() )
+		return;   // unknown RPC name: drop silently (matches RakNet behavior for unregistered IDs)
 
 	// Zero-padded copy: the wrapper atoi()s / wcscpy()s wire data and relies on
 	// termination it never sends (e.g. receiveSETID's 1-byte payload).
@@ -673,8 +680,10 @@ void NetShimPeerState::ParseFrames( Conn* c )
 				break;   // rejected above
 		}
 		// CloseConn / SendFrame-failure can flag-close mid-parse. A callback can
-		// also request deferred shutdown; stop before dispatching another frame.
-		if ( shutdownPending || !c->open )
+		// also request deferred shutdown or detach the active transfer plugin;
+		// stop before dispatching another frame to state whose cleanup is waiting
+		// for the borrowed callback storage to unwind.
+		if ( shutdownPending || detachPending || !c->open )
 			break;
 	}
 
@@ -798,7 +807,7 @@ void NetShimPeerState::PumpSockets()
 
 	// 3. reads + framing (index loop: handlers don't add conns; they may flag
 	//    closes via CloseConnection, which is now deferred to the step-4 sweep)
-	for ( size_t i = 0; i < conns.size() && !shutdownPending; ++i )
+	for ( size_t i = 0; i < conns.size() && !shutdownPending && !detachPending; ++i )
 	{
 		Conn* c = conns[i];
 		if ( !c->open || !c->sock )
@@ -899,10 +908,12 @@ bool RakPeerInterface::Startup( unsigned short maxConnections, int /*threadSleep
 		     strcmp( host, "0.0.0.0" ) != 0 && strcmp( host, "::" ) != 0 && strcmp( host, "*" ) != 0 )
 		{
 			bindAddr = NET_ResolveHostname( host );
-			if ( bindAddr && NET_WaitUntilResolved( bindAddr, 5000 ) != NET_SUCCESS )
+			if ( !bindAddr || NET_WaitUntilResolved( bindAddr, 5000 ) != NET_SUCCESS )
 			{
-				NET_UnrefAddress( bindAddr );
-				bindAddr = nullptr;
+				if ( bindAddr ) NET_UnrefAddress( bindAddr );
+				NetUnref();
+				state->netRef = false;
+				return false;
 			}
 		}
 		state->listener = NET_CreateServer( bindAddr, port, 0 );
@@ -1010,6 +1021,7 @@ void RakPeerInterface::Shutdown( unsigned int blockDuration, unsigned char )
 	state->rpcs.clear();
 	state->plugins.clear();
 	state->flt = nullptr;
+	state->detachPending = nullptr;
 	state->started = false;
 	state->inShutdown = false;
 	if ( state->netRef )
@@ -1032,6 +1044,15 @@ Packet* RakPeerInterface::Receive( void )
 			unsigned int& depth;
 		} scope( state->pumpDepth );
 		state->PumpSockets();
+	}
+	// File callbacks borrow metadata/storage from the active receive set. A
+	// callback may detach its own plugin, but cleanup must wait until that callback
+	// and the outer parser have returned so those borrowed pointers remain valid.
+	if ( state->pumpDepth == 0 && state->detachPending )
+	{
+		PluginInterface* plugin = state->detachPending;
+		state->detachPending = nullptr;
+		DetachPlugin( plugin );
 	}
 	// A nested Receive() deliberately skips I/O and parsing. Only the outermost
 	// call owns connection lifetime and services a teardown requested in a
@@ -1146,6 +1167,11 @@ void RakPeerInterface::AttachPlugin( PluginInterface* plugin )
 
 void RakPeerInterface::DetachPlugin( PluginInterface* plugin )
 {
+	if ( state->pumpDepth != 0 && state->flt == plugin )
+	{
+		state->detachPending = plugin;
+		return;
+	}
 	for ( size_t i = 0; i < state->plugins.size(); ++i )
 	{
 		if ( state->plugins[i] == plugin )

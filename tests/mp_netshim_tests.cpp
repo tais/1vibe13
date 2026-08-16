@@ -156,6 +156,42 @@ struct ShutdownFtCap : public FileListTransferCBInterface
 	bool OnDownloadComplete( void ) override { ++complete; return false; }
 };
 
+struct CloseConnectionFtCap : public FileListTransferCBInterface
+{
+	RakPeerInterface* peer = nullptr;
+	SystemAddress sender;
+	int progress = 0;
+	bool borrowedDataSurvived = false;
+
+	void OnFileProgress( OnFileStruct* s, unsigned, unsigned, unsigned, char* ) override
+	{
+		++progress;
+		peer->CloseConnection( sender, false );
+		// RakNet promises these borrowed fields for the entire callback. Reading
+		// them after the close request catches eager RxSet/RxFile destruction.
+		borrowedDataSurvived = s && strcmp( s->fileName, "close-during-callback" ) == 0 &&
+			s->fileData && s->fileData[0] == 'a';
+	}
+	bool OnFile( OnFileStruct* ) override { return true; }
+};
+
+struct DetachPluginFtCap : public FileListTransferCBInterface
+{
+	RakPeerInterface* peer = nullptr;
+	FileListTransfer* plugin = nullptr;
+	int progress = 0;
+	bool borrowedDataSurvived = false;
+
+	void OnFileProgress( OnFileStruct* s, unsigned, unsigned, unsigned, char* ) override
+	{
+		++progress;
+		peer->DetachPlugin( plugin );
+		borrowedDataSurvived = s && strcmp( s->fileName, "detach-during-callback" ) == 0 &&
+			s->fileData && s->fileData[0] == 'b';
+	}
+	bool OnFile( OnFileStruct* ) override { return true; }
+};
+
 static void WireU16( std::vector<unsigned char>& out, unsigned int value )
 {
 	out.push_back( (unsigned char)( value & 0xff ) );
@@ -765,6 +801,70 @@ int main( int, char** )
 		}
 	}
 
+	// CloseConnection requested from a partial-file callback is flag-only until
+	// the outer parser unwinds. The callback's borrowed metadata and file buffer
+	// must remain valid for the complete callback invocation.
+	{
+		RawConn raw;
+		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-close client connected" );
+		if ( raw.sock )
+		{
+			FileListTransfer receiver;
+			srv->AttachPlugin( &receiver );
+			CloseConnectionFtCap cap;
+			cap.peer = srv;
+			cap.sender = raw.onServer;
+			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			std::vector<unsigned char> frame = WireFrame( 4,
+				FileBody( setID, 0, 1, 2, "close-during-callback", 2, 0,
+				          std::vector<unsigned char>{ 'a' } ) );
+			CHECK( SendRaw( raw, frame ), "callback-close partial frame queued" );
+			CHECK( PumpUntil( { &L_srv }, [&] { return cap.progress == 1; } ),
+			       "CloseConnection callback returns through the outer parser" );
+			CHECK( cap.borrowedDataSurvived,
+			       "CloseConnection preserves borrowed file data through callback return" );
+			srv->DetachPlugin( &receiver );
+			NET_DestroyStreamSocket( raw.sock );
+		}
+	}
+
+	// Detaching the persistent FileListTransfer from its own callback follows the
+	// same borrowed-storage rule, then retires the partial registration before a
+	// later reattach.
+	{
+		RawConn raw;
+		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-detach client connected" );
+		if ( raw.sock )
+		{
+			FileListTransfer receiver;
+			srv->AttachPlugin( &receiver );
+			DetachPluginFtCap cap;
+			cap.peer = srv;
+			cap.plugin = &receiver;
+			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			std::vector<unsigned char> stream = WireFrame( 4,
+				FileBody( setID, 0, 1, 2, "detach-during-callback", 2, 0,
+				          std::vector<unsigned char>{ 'b' } ) );
+			std::vector<unsigned char> finalFrame = WireFrame( 4,
+				FileBody( setID, 0, 1, 2, "detach-during-callback", 2, 1,
+				          std::vector<unsigned char>{ 'c' } ) );
+			stream.insert( stream.end(), finalFrame.begin(), finalFrame.end() );
+			CHECK( SendRaw( raw, stream ), "callback-detach buffered frames queued" );
+			CHECK( PumpUntil( { &L_srv }, [&] { return cap.progress == 1; } ),
+			       "DetachPlugin callback returns through the outer parser" );
+			CHECK( cap.borrowedDataSurvived,
+			       "DetachPlugin preserves borrowed file data through callback return" );
+			PumpUntil( { &L_srv }, [] { return false; }, 100 );
+			CHECK( cap.progress == 1,
+			       "deferred detach stops buffered file callbacks after the detach request" );
+			srv->AttachPlugin( &receiver );
+			CHECK( receiver.SetupReceive( &cap, false, raw.onServer ) != 0xffffu,
+			       "deferred detach retires the partial registration before reattach" );
+			srv->DetachPlugin( &receiver );
+			NET_DestroyStreamSocket( raw.sock );
+		}
+	}
+
 	// Nine simultaneous partial sets exceed the per-plugin active-set bound.
 	{
 		RawConn raw;
@@ -913,6 +1013,40 @@ int main( int, char** )
 	RunBadHeader( "undersized file body is rejected from its header", 4, 27 );
 	RunBadHeader( "oversized file frame is rejected from its header", 4, 1024u * 1024u + 1u );
 
+	// Reliable/TCP RPC frames cannot be silently discarded when a peer exceeds
+	// its work budget: that would leave the two simulations on different event
+	// streams. Four fast 300KiB RPCs exceed the 1MiB burst; the first three fit,
+	// while the fourth must close the peer instead of disappearing.
+	{
+		RawConn raw;
+		CHECK( ConnectRaw( srv, L_srv, raw ), "raw RPC-budget client connected" );
+		if ( raw.sock )
+		{
+			const std::string rpcName = "srvPING";
+			std::vector<unsigned char> body;
+			body.reserve( 1 + rpcName.size() + 300u * 1024u );
+			body.push_back( (unsigned char)rpcName.size() );
+			body.insert( body.end(), rpcName.begin(), rpcName.end() );
+			body.resize( 1 + rpcName.size() + 300u * 1024u, 0x5a );
+			const std::vector<unsigned char> frame = WireFrame( 1, body );
+			g_capSrv = Captured();
+			bool firstThree = true;
+			for ( int expected = 1; expected <= 3; ++expected )
+			{
+				firstThree = SendRaw( raw, frame ) && firstThree;
+				firstThree = PumpUntil( { &L_srv }, [&] { return g_capSrv.count == expected; } ) && firstThree;
+			}
+			CHECK( firstThree, "first three in-budget reliable RPCs dispatch" );
+			size_t beforeLoss = L_srv.ids.size();
+			CHECK( SendRaw( raw, frame ), "over-budget reliable RPC queued" );
+			CHECK( PumpUntil( { &L_srv }, [&] { return LostSince( L_srv, beforeLoss, raw.onServer ); } ),
+			       "over-budget reliable RPC disconnects instead of silently dropping state" );
+			CHECK( g_capSrv.count == 3,
+			       "only in-budget RPCs are dispatched before disconnect" );
+			NET_DestroyStreamSocket( raw.sock );
+		}
+	}
+
 	// Shutdown requested by a callback is deferred until the active parser and
 	// all callbacks for its completed file have unwound. This is intentionally
 	// last because successful deferred shutdown stops the server peer.
@@ -942,6 +1076,13 @@ int main( int, char** )
 
 	srv->Shutdown( 0 );
 	RakNetworkFactory::DestroyRakPeerInterface( srv );
+	{
+		RakPeerInterface* invalidBind = RakNetworkFactory::GetRakPeerInterface();
+		SocketDescriptor invalidSocket( g_port, "not a valid bind address" );
+		CHECK( !invalidBind->Startup( 1, 30, &invalidSocket, 1 ),
+		       "invalid explicit bind address fails instead of exposing all interfaces" );
+		RakNetworkFactory::DestroyRakPeerInterface( invalidBind );
+	}
 
 	printf( g_failures ? "\n%d FAILURE(S)\n" : "\nALL TESTS PASSED\n", g_failures );
 	SDL_Quit();
