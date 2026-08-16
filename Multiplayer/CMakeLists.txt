@@ -16,6 +16,7 @@ add_library(Multiplayer STATIC
   "CoopSessionProtocol.cpp"
   "CoopTacticalAuthority.cpp"
   "CoopTacticalIntent.cpp"
+  "FullEngineCoopIngress.cpp"
   "server.cpp"
   "transfer_rules.cpp"
   "netshim/netshim.cpp"

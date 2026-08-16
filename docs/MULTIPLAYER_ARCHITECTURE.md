@@ -115,6 +115,16 @@ command sequence, and checks a server-owned peer-to-actor ACL. It deliberately
 executes no game action. Wiring successful intents to live JA2 legality checks
 and the simulation command queue remains part of milestone 3.
 
+`FullEngineCoopIngress` now composes those contracts behind an explicit
+session/generation lifecycle for the future full-engine dedicated adapter. It
+decodes admission and intent bytes, derives authority only from the receiving
+transport, and hands an authorized, identity-sanitized value to an injected
+execution sink. It is deliberately not installed in `Multiplayer/server.cpp`:
+the full-engine startup path does not yet produce a canonical installed-content
+manifest digest, and no authoritative receipt/delta path exists. The seam does
+not register a legacy RPC, calculate a placeholder digest, execute JA2 commands,
+or make co-op playable.
+
 ## Replication
 
 Join and reconnect begin with a complete, checksummed baseline for one world

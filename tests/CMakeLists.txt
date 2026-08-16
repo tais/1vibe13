@@ -37,6 +37,23 @@ target_include_directories(coop_tactical_authority_tests PRIVATE
 target_compile_features(coop_tactical_authority_tests PRIVATE cxx_std_17)
 add_test(NAME coop_tactical_authority COMMAND coop_tactical_authority_tests)
 
+# Compose admission, sender-derived intent authority, and an injected execution
+# sink at the boundary intended for JA2 --dedicated. This remains data-free and
+# does not register or reinterpret any legacy multiplayer RPC.
+add_executable(full_engine_coop_ingress_tests
+  full_engine_coop_ingress_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
+)
+target_include_directories(full_engine_coop_ingress_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_ingress_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_ingress COMMAND full_engine_coop_ingress_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.
