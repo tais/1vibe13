@@ -58,6 +58,17 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+# Co-op join/reconnect requires a complete generation baseline before ordered
+# tactical deltas can be applied. Keep the versioned baseline codec adapter-only
+# and data-free so every host platform pins identical bytes and fail-closed
+# decode behavior without installed game data.
+add_executable(tactical_world_snapshot_codec_tests
+  tactical_world_snapshot_codec_tests.cpp)
+target_link_libraries(tactical_world_snapshot_codec_tests
+  PRIVATE JA2::RuntimeAdapter)
+add_test(NAME tactical_world_snapshot_codec
+  COMMAND tactical_world_snapshot_codec_tests)
+
 add_executable(tactical_interrupt_session_model_tests
   tactical_interrupt_session_model_tests.cpp
   ../Engine/Adapters/JA2/TacticalWorldSession.cpp)
