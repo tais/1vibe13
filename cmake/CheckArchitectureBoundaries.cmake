@@ -766,6 +766,136 @@ if(dedicated_production_build_position EQUAL -1 OR
     "Dedicated launch contract lost production build or ASan test coverage")
 endif()
 
+# Dedicated persistence stays a dependency-free, fail-closed A/B transaction
+# until the engine has a real state root, lock, atomic save adapter, content
+# identity, and dedicated load entry point. Pin both its byte contract and its
+# publish-last ordering without allowing direct legacy save/VFS coupling.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.h"
+  dedicated_campaign_store_header)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.cpp"
+  dedicated_campaign_store_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_store_tests.cpp"
+  dedicated_campaign_store_tests)
+file(READ "${SOURCE_ROOT}/docs/MULTIPLAYER_ARCHITECTURE.md"
+  dedicated_campaign_store_docs)
+strip_cxx_comments_and_literals(dedicated_campaign_store_header
+  dedicated_campaign_store_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_store_source
+  dedicated_campaign_store_code)
+strip_cxx_comments_and_literals(dedicated_campaign_store_tests
+  dedicated_campaign_store_test_code)
+
+foreach(dedicated_campaign_store_header_contract IN ITEMS
+    "DedicatedCampaignManifestWireSize = 176"
+    "DedicatedCampaignMaximumIdBytes = 48"
+    "DedicatedCampaignContentManifestSha256"
+    "DedicatedCampaignCheckpointSha256"
+    "DedicatedCampaignManifestRead"
+    "readManifest("
+    "writeCheckpoint("
+    "syncCheckpoint("
+    "probeCheckpoint("
+    "publishManifest("
+    "AlreadyOpen"
+    "AlreadyExists"
+    "UnsupportedManifestFormat"
+    "SplitBrain"
+    "GenerationExhausted")
+  string(FIND "${dedicated_campaign_store_header_code}"
+    "${dedicated_campaign_store_header_contract}"
+    dedicated_campaign_store_header_contract_position)
+  if(dedicated_campaign_store_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign store lost '${dedicated_campaign_store_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_store_forbidden_dependency IN ITEMS
+    "SaveGame("
+    "LoadSavedGame("
+    "GetGameContext("
+    "SDL_"
+    "vfs::")
+  string(FIND
+    "${dedicated_campaign_store_header_code}${dedicated_campaign_store_code}"
+    "${dedicated_campaign_store_forbidden_dependency}"
+    dedicated_campaign_store_forbidden_dependency_position)
+  if(NOT dedicated_campaign_store_forbidden_dependency_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign store regained live dependency '${dedicated_campaign_store_forbidden_dependency}'")
+  endif()
+endforeach()
+
+set(dedicated_campaign_checkpoint_marker
+  "DedicatedCampaignStoreError DedicatedCampaignStore::checkpoint(\n\tstd::uint64_t worldMinutes) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_campaign_store_code
+  "${dedicated_campaign_checkpoint_marker}"
+  "Dedicated campaign checkpoint definition is hidden or duplicated")
+extract_brace_bounded_slice(dedicated_campaign_store_code
+  "${dedicated_campaign_checkpoint_marker}"
+  dedicated_campaign_checkpoint_slice
+  "Cannot bound dedicated campaign checkpoint transaction")
+require_ordered_fragments(dedicated_campaign_checkpoint_slice
+  "Dedicated campaign checkpoint lost write/sync/probe/publish/state ordering"
+  "DedicatedCampaignStoreState nextState = state_;"
+  "backend_.writeCheckpoint(nextState.activeSlot)"
+  "backend_.syncCheckpoint(nextState.activeSlot)"
+  "backend_.probeCheckpoint(nextState.activeSlot, probe)"
+  "EncodeDedicatedCampaignManifest(manifest, encoded)"
+  "backend_.publishManifest(nextState.activeSlot, encoded)"
+  "state_ = std::move(nextState);")
+
+foreach(dedicated_campaign_store_test_contract IN ITEMS
+    "TestManifestCodec();"
+    "TestCreateAndCheckpoint();"
+    "TestResume();"
+    "DedicatedCampaignStoreError::AlreadyExists"
+    "DedicatedCampaignStoreError::UnsupportedManifestFormat"
+    "DedicatedCampaignStoreError::SplitBrain"
+    "DedicatedCampaignStoreError::GenerationExhausted")
+  string(FIND "${dedicated_campaign_store_test_code}"
+    "${dedicated_campaign_store_test_contract}"
+    dedicated_campaign_store_test_contract_position)
+  if(dedicated_campaign_store_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign store tests lost '${dedicated_campaign_store_test_contract}'")
+  endif()
+endforeach()
+
+string(FIND "${dedicated_ja2_build_source}" "DedicatedCampaignStore.cpp"
+  dedicated_campaign_store_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_executable(dedicated_campaign_store_tests"
+  dedicated_campaign_store_test_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_test(NAME dedicated_campaign_store"
+  dedicated_campaign_store_ctest_position)
+string(FIND "${dedicated_ci_source}"
+  "--target dedicated_campaign_store_tests"
+  dedicated_campaign_store_ci_position)
+if(dedicated_campaign_store_build_position EQUAL -1 OR
+   dedicated_campaign_store_test_build_position EQUAL -1 OR
+   dedicated_campaign_store_ctest_position EQUAL -1 OR
+   dedicated_campaign_store_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated campaign store lost production, CTest, or ASan coverage")
+endif()
+
+foreach(dedicated_campaign_store_doc_contract IN ITEMS
+    "## Durable campaign checkpoints"
+    "176-byte little-endian manifest"
+    "publishes that slot's manifest"
+    "not wired to `SaveGame`"
+    "co-op admission remains closed")
+  string(FIND "${dedicated_campaign_store_docs}"
+    "${dedicated_campaign_store_doc_contract}"
+    dedicated_campaign_store_doc_contract_position)
+  if(dedicated_campaign_store_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign documentation lost '${dedicated_campaign_store_doc_contract}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
 foreach(required_lua_fetch_fragment IN ITEMS
     "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"

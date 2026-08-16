@@ -90,6 +90,16 @@ target_include_directories(dedicated_server_options_tests PRIVATE
 target_compile_features(dedicated_server_options_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_server_options COMMAND dedicated_server_options_tests)
 
+# Pin the fixed campaign-manifest bytes and the fail-closed A/B transaction
+# state machine without linking VFS, SDL, SaveGame, or installed game data.
+add_executable(dedicated_campaign_store_tests
+  dedicated_campaign_store_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignStore.cpp)
+target_include_directories(dedicated_campaign_store_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_campaign_store_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_campaign_store COMMAND dedicated_campaign_store_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

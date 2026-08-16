@@ -164,6 +164,37 @@ The full-engine process now has an explicit startup contract:
 This repairs the full-engine PvP bootstrap; it does not yet satisfy campaign
 persistence milestone 3 or make network co-op playable.
 
+## Durable campaign checkpoints
+
+The data-free dedicated campaign store defines the crash boundary before the
+legacy save system is connected to it. A campaign has two checkpoint slots,
+`A` and `B`, and one fixed, checksummed manifest beside each slot. A checkpoint
+always writes the inactive slot, flushes it through an injected backend,
+verifies its exact size and SHA-256 digest, and publishes that slot's manifest
+last. Only a successful manifest publication advances the in-memory active
+generation. Resume validates both manifest/checkpoint pairs and selects the
+highest valid generation; it can fall back from a corrupt or incomplete newer
+pair, but rejects equal-generation split brain and any valid incompatible
+manifest. A checksum-valid unknown envelope/version or oversized future record
+blocks resume rather than being mistaken for corruption and overwritten by a
+downgrade.
+
+The 176-byte little-endian manifest binds the full campaign identifier, mode,
+slot, generation, world time, runtime compatibility fingerprint, separately
+named installed-content SHA-256, and checkpoint size/SHA-256. New campaigns
+refuse any pre-existing manifest bytes, and missing storage is distinct from an
+I/O failure. Co-op creation and resume reject an absent installed-content
+digest. The checksum protects the manifest from accidental corruption; it is
+not an authentication mechanism.
+
+This store is deliberately not wired to `SaveGame` or startup yet. The
+production adapter still needs an isolated state root and process-lifetime
+lock, atomic publication of the runtime save container itself, an exact
+installed-content digest, a dedicated load entry point, and either disabled or
+transactionally bound InventoryPoolQ sidecars. Until those conditions are met,
+co-op admission remains closed and no persistent-campaign compatibility claim
+is made.
+
 ## Replication
 
 Join and reconnect begin with a complete, checksummed baseline for one world
