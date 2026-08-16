@@ -346,6 +346,426 @@ function(extract_brace_bounded_slice input_variable start_marker
   set(${output_variable} "${brace_slice_contents}" PARENT_SCOPE)
 endfunction()
 
+function(require_cxx_marker_at_preprocessor_depth_zero input_variable
+    marker diagnostic)
+  string(FIND "${${input_variable}}" "${marker}" marker_position)
+  if(marker_position EQUAL -1)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+  string(SUBSTRING "${${input_variable}}" 0 ${marker_position}
+    marker_prefix)
+  string(REGEX MATCHALL
+    "(^|\n)[ \t]*#[ \t]*(if|ifdef|ifndef|endif)[^\n]*"
+    marker_prefix_conditionals "${marker_prefix}")
+  set(marker_preprocessor_depth 0)
+  foreach(marker_prefix_conditional IN LISTS marker_prefix_conditionals)
+    if(marker_prefix_conditional STREQUAL "")
+      continue()
+    elseif(marker_prefix_conditional MATCHES "#[ \t]*endif([ \t\r]|$)")
+      math(EXPR marker_preprocessor_depth "${marker_preprocessor_depth} - 1")
+      if(marker_preprocessor_depth LESS 0)
+        message(FATAL_ERROR "${diagnostic}")
+      endif()
+    else()
+      math(EXPR marker_preprocessor_depth "${marker_preprocessor_depth} + 1")
+    endif()
+  endforeach()
+  if(NOT marker_preprocessor_depth EQUAL 0)
+    message(FATAL_ERROR "${diagnostic}")
+  endif()
+endfunction()
+
+# The full-engine dedicated entry point must retain one explicit, testable
+# launch contract. PvP still uses the transitional self-client flow, but that
+# flow must visit MP_CONNECT_SCREEN so NetworkAutoStart()/start_server(), the
+# transitional self-client, and canonical settings precede InitNewGame().
+# Co-op is parsed yet remains fail-closed until authoritative campaign
+# execution and replication are installed.
+file(READ "${SOURCE_ROOT}/sgp/sgp.cpp" dedicated_main_source)
+file(READ "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp" dedicated_menu_source)
+file(READ "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp" dedicated_host_source)
+file(READ "${SOURCE_ROOT}/Ja2/MPJoinScreen.cpp" dedicated_join_source)
+file(READ "${SOURCE_ROOT}/Ja2/MPConnectScreen.cpp"
+  dedicated_connect_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp" dedicated_client_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/server.cpp" dedicated_server_source)
+strip_cxx_comments_and_literals(dedicated_main_source dedicated_main_code)
+strip_cxx_comments_and_literals(dedicated_menu_source dedicated_menu_code)
+strip_cxx_comments_and_literals(dedicated_host_source dedicated_host_code)
+strip_cxx_comments_and_literals(dedicated_join_source dedicated_join_code)
+strip_cxx_comments_and_literals(dedicated_connect_source
+  dedicated_connect_code)
+strip_cxx_comments_and_literals(dedicated_client_source dedicated_client_code)
+strip_cxx_comments_and_literals(dedicated_server_source dedicated_server_code)
+
+set(dedicated_main_marker "int main(int argc, char** argv)")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_main_code
+  "${dedicated_main_marker}"
+  "Dedicated process entry point is missing or inactive")
+extract_brace_bounded_slice(dedicated_main_code "${dedicated_main_marker}"
+  dedicated_main_slice "Cannot bound the dedicated process entry point")
+require_ordered_fragments(dedicated_main_slice
+  "Dedicated launch/shutdown order changed"
+  "ParseDedicatedServerOptions(argc, argv)"
+  "InstallDedicatedServerOptions(dedicated.options)"
+  "dedicated.options.mode == DedicatedServerMode::Coop"
+  "return 2;"
+  "gfDedicatedServer = TRUE;"
+  "std::signal(SIGINT, RequestProcessTermination)"
+  "std::signal(SIGTERM, RequestProcessTermination)"
+  "while (gfProgramIsRunning && !s_TerminationRequested)"
+  "gfProgramIsRunning = FALSE;"
+  "client_disconnect();"
+  "server_disconnect();"
+  "return gfDedicatedServerProcessFailed ? 2 : 0;")
+
+set(dedicated_signal_marker
+  "static void RequestProcessTermination(int) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_main_code
+  "${dedicated_signal_marker}"
+  "Dedicated signal handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_main_code "${dedicated_signal_marker}"
+  dedicated_signal_slice "Cannot bound the dedicated signal handler")
+string(REGEX REPLACE "[ \t\r\n]+" "" dedicated_signal_compact
+  "${dedicated_signal_slice}")
+if(NOT dedicated_signal_compact STREQUAL
+    "staticvoidRequestProcessTermination(int)noexcept{s_TerminationRequested=1;}")
+  message(FATAL_ERROR
+    "Dedicated signal handler must remain a signal-safe flag assignment")
+endif()
+
+set(dedicated_loop_failure_marker
+  "static bool StopDedicatedProcessAfterException(const char* reason) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_main_code
+  "${dedicated_loop_failure_marker}"
+  "Dedicated game-loop failure handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_loop_failure_marker}" dedicated_loop_failure_slice
+  "Cannot bound dedicated game-loop failure handler")
+require_ordered_fragments(dedicated_loop_failure_slice
+  "Dedicated game-loop failure status changed"
+  "if (!gfDedicatedServer) return false;"
+  "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;"
+  "return true;")
+set(dedicated_game_loop_marker "static void SGPGameLoop()")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_main_code
+  "${dedicated_game_loop_marker}"
+  "Dedicated game-loop exception boundary is missing or inactive")
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_game_loop_marker}" dedicated_game_loop_slice
+  "Cannot bound dedicated game-loop exception boundary")
+string(REGEX MATCHALL
+  "StopDedicatedProcessAfterException[ \t\r\n]*\\("
+  dedicated_loop_failure_calls "${dedicated_game_loop_slice}")
+list(LENGTH dedicated_loop_failure_calls dedicated_loop_failure_call_count)
+if(NOT dedicated_loop_failure_call_count EQUAL 5)
+  message(FATAL_ERROR
+    "Dedicated game-loop exceptions must all terminate with a failing status")
+endif()
+
+set(dedicated_menu_failure_marker
+  "static void FailDedicatedMainMenuStartup(const char* reason) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_menu_code
+  "${dedicated_menu_failure_marker}"
+  "Dedicated main-menu failure handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_menu_code
+  "${dedicated_menu_failure_marker}" dedicated_menu_failure_slice
+  "Cannot bound dedicated main-menu failure handler")
+require_ordered_fragments(dedicated_menu_failure_slice
+  "Dedicated main-menu failure status changed"
+  "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;")
+set(dedicated_menu_handler_marker "UINT32\tMainMenuScreenHandle( )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_menu_code
+  "${dedicated_menu_handler_marker}"
+  "Dedicated main-menu automation is missing or inactive")
+extract_brace_bounded_slice(dedicated_menu_code
+  "${dedicated_menu_handler_marker}" dedicated_menu_handler_slice
+  "Cannot bound dedicated main-menu automation")
+require_ordered_fragments(dedicated_menu_handler_slice
+  "Dedicated main-menu automation order changed"
+  "fDedicatedAutoMP = TRUE;"
+  "gbHandledMainMenu = NEW_MP_GAME;"
+  "HandleMainMenuInput();")
+string(REGEX MATCHALL "FailDedicatedMainMenuStartup[ \t\r\n]*\\("
+  dedicated_menu_failures "${dedicated_menu_handler_slice}")
+list(LENGTH dedicated_menu_failures dedicated_menu_failure_count)
+if(NOT dedicated_menu_failure_count EQUAL 2)
+  message(FATAL_ERROR
+    "Dedicated main-menu setup exceptions must fail closed")
+endif()
+set(dedicated_menu_input_marker "void HandleMainMenuInput()\n")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_menu_code
+  "${dedicated_menu_input_marker}"
+  "Multiplayer main-menu routing is missing or inactive")
+extract_brace_bounded_slice(dedicated_menu_code
+  "${dedicated_menu_input_marker}" dedicated_menu_input_slice
+  "Cannot bound multiplayer main-menu routing")
+require_ordered_fragments(dedicated_menu_input_slice
+  "Dedicated main-menu to join-screen route changed"
+  "case NEW_MP_GAME:"
+  "is_networked = TRUE;"
+  "SetMainMenuExitScreen( MP_JOIN_SCREEN );"
+  "InitDependingGameStyleOptions();")
+
+set(dedicated_host_exit_marker
+  "void DoneFadeOutForExitMPHScreen( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_host_code
+  "${dedicated_host_exit_marker}"
+  "Multiplayer host exit route is missing or inactive")
+extract_brace_bounded_slice(dedicated_host_code
+  "${dedicated_host_exit_marker}" dedicated_host_exit_slice
+  "Cannot bound the multiplayer host exit route")
+string(REGEX MATCHALL
+  "gubMPHExitScreen[ \t\r\n]*=[ \t\r\n]*MP_CONNECT_SCREEN"
+  dedicated_connect_assignments "${dedicated_host_exit_slice}")
+list(LENGTH dedicated_connect_assignments dedicated_connect_assignment_count)
+if(NOT dedicated_connect_assignment_count EQUAL 1 OR
+   dedicated_host_exit_slice MATCHES
+     "gubMPHExitScreen[ \t\r\n]*=[ \t\r\n]*INTRO_SCREEN")
+  message(FATAL_ERROR
+    "Full-engine host no longer routes exactly once through MP_CONNECT_SCREEN")
+endif()
+
+set(dedicated_host_init_marker "UINT32\tMPHostScreenInit( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_host_code
+  "${dedicated_host_init_marker}"
+  "Multiplayer host settings loader is missing or inactive")
+extract_brace_bounded_slice(dedicated_host_code
+  "${dedicated_host_init_marker}" dedicated_host_init_slice
+  "Cannot bound the multiplayer host settings loader")
+string(REGEX MATCHALL
+  "gDedicatedPvpHostSettingsRaw[.][A-Za-z]+[ \t\r\n]*=[ \t\r\n]*props[.]getIntProperty"
+  dedicated_host_raw_setting_reads "${dedicated_host_init_slice}")
+list(LENGTH dedicated_host_raw_setting_reads
+  dedicated_host_raw_setting_read_count)
+if(NOT dedicated_host_raw_setting_read_count EQUAL 19 OR
+   dedicated_host_init_slice MATCHES
+     "\\(UINT8\\)[ \t\r\n]*props[.]getIntProperty")
+  message(FATAL_ERROR
+    "Dedicated PvP must retain all 19 INI integers before GUI narrowing")
+endif()
+require_ordered_fragments(dedicated_host_init_slice
+  "Dedicated PvP settings must be validated before lossy GUI narrowing"
+  "gDedicatedPvpHostSettingsRaw.serverPort = props.getIntProperty("
+  "gDedicatedPvpHostSettingsRaw.maximumPlayers = props.getIntProperty("
+  "gDedicatedPvpHostSettingsRaw.gameType = props.getIntProperty("
+  "gDedicatedPvpHostSettingsRaw.disableBobbyRay = props.getIntProperty("
+  "!IsSupportedDedicatedPvpHostSettings(gDedicatedPvpHostSettingsRaw)"
+  "FailDedicatedAutoStart("
+  "return 0;"
+  "guiMPHMaxPlayers = (UINT8)NormalizeLegacyMultiplayerSettingForUi("
+  "gDedicatedPvpHostSettingsRaw.maximumPlayers, 2, 4, 4);"
+  "guiMPHGameType = (UINT8)NormalizeLegacyMultiplayerGameTypeForUi("
+  "gDedicatedPvpHostSettingsRaw.gameType);")
+
+set(dedicated_host_handler_marker "UINT32\tMPHostScreenHandle( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_host_code
+  "${dedicated_host_handler_marker}"
+  "Multiplayer host screen handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_host_code
+  "${dedicated_host_handler_marker}" dedicated_host_handler_slice
+  "Cannot bound the multiplayer host screen handler")
+require_ordered_fragments(dedicated_host_handler_slice
+  "Dedicated host must stop before rendering rejected raw settings"
+  "if (!MPHostScreenInit())"
+  "EndFrameBufferRender();"
+  "return gubMPHExitScreen;"
+  "EnterMPHScreen();")
+
+set(dedicated_connect_handler_marker "UINT32\tMPConnectScreenHandle( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_connect_code
+  "${dedicated_connect_handler_marker}"
+  "Multiplayer connection handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_connect_code
+  "${dedicated_connect_handler_marker}" dedicated_connect_handler_slice
+  "Cannot bound the multiplayer connection handler")
+string(REGEX MATCHALL "NetworkAutoStart[ \t\r\n]*\\("
+  dedicated_network_autostart_calls "${dedicated_connect_handler_slice}")
+list(LENGTH dedicated_network_autostart_calls
+  dedicated_network_autostart_call_count)
+if(NOT dedicated_network_autostart_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "MP_CONNECT_SCREEN must invoke NetworkAutoStart exactly once per frame")
+endif()
+
+set(dedicated_failure_marker
+  "static void FailDedicatedAutoStart(const char* reason) noexcept\n")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_host_code
+  "${dedicated_failure_marker}"
+  "Dedicated PvP failure handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_host_code
+  "${dedicated_failure_marker}" dedicated_failure_slice
+  "Cannot bound dedicated PvP failure handler")
+require_ordered_fragments(dedicated_failure_slice
+  "Dedicated PvP failure status changed"
+  "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;")
+
+set(dedicated_autostart_marker
+  "static void DedicatedAutoStartHost( void ) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_host_code
+  "${dedicated_autostart_marker}"
+  "Dedicated PvP autostart is missing or inactive")
+extract_brace_bounded_slice(dedicated_host_code
+  "${dedicated_autostart_marker}" dedicated_autostart_slice
+  "Cannot bound dedicated PvP autostart")
+string(REGEX MATCHALL
+  "FailDedicatedAutoStart[ \t\r\n]*\\("
+  dedicated_autostart_failures "${dedicated_autostart_slice}")
+list(LENGTH dedicated_autostart_failures dedicated_autostart_failure_count)
+if(NOT dedicated_autostart_failure_count EQUAL 4 OR
+   NOT dedicated_autostart_slice MATCHES
+     "IsSupportedDedicatedPvpGameType[ \t\r\n]*\\([ \t\r\n]*gDedicatedPvpHostSettingsRaw[.]gameType[ \t\r\n]*\\)" OR
+   NOT dedicated_autostart_slice MATCHES
+     "ValidateMPSettings[ \t\r\n]*\\(")
+  message(FATAL_ERROR
+    "Dedicated PvP autostart must fail closed on mode, settings, or setup exceptions")
+endif()
+
+set(dedicated_join_failure_marker
+  "static void FailDedicatedJoinStartup(const char* reason) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_join_code
+  "${dedicated_join_failure_marker}"
+  "Dedicated join failure handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_join_code
+  "${dedicated_join_failure_marker}" dedicated_join_failure_slice
+  "Cannot bound dedicated join failure handler")
+require_ordered_fragments(dedicated_join_failure_slice
+  "Dedicated join failure status changed"
+  "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;")
+set(dedicated_join_handler_marker "UINT32\tMPJoinScreenHandle( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_join_code
+  "${dedicated_join_handler_marker}"
+  "Dedicated join automation is missing or inactive")
+extract_brace_bounded_slice(dedicated_join_code
+  "${dedicated_join_handler_marker}" dedicated_join_handler_slice
+  "Cannot bound dedicated join automation")
+require_ordered_fragments(dedicated_join_handler_slice
+  "Dedicated join automation order changed"
+  "fDedicatedAutoHost = TRUE;"
+  "ValidateJoinSettings( true, false )"
+  "SaveJoinSettings( false );"
+  "gubMPJScreenHandler = MPJ_HOST;")
+string(REGEX MATCHALL "FailDedicatedJoinStartup[ \t\r\n]*\\("
+  dedicated_join_failures "${dedicated_join_handler_slice}")
+list(LENGTH dedicated_join_failures dedicated_join_failure_count)
+if(NOT dedicated_join_failure_count EQUAL 2)
+  message(FATAL_ERROR
+    "Dedicated join validation and setup exceptions must both fail closed")
+endif()
+
+set(dedicated_network_failure_marker
+  "static void FailDedicatedNetworkAutoStart(const char* reason) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_client_code
+  "${dedicated_network_failure_marker}"
+  "Dedicated network failure handler is missing or inactive")
+extract_brace_bounded_slice(dedicated_client_code
+  "${dedicated_network_failure_marker}" dedicated_network_failure_slice
+  "Cannot bound dedicated network failure handler")
+require_ordered_fragments(dedicated_network_failure_slice
+  "Dedicated network failure status changed"
+  "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;")
+
+set(dedicated_network_autostart_marker "void NetworkAutoStart()")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_client_code
+  "${dedicated_network_autostart_marker}"
+  "Dedicated network autostart is missing or inactive")
+extract_brace_bounded_slice(dedicated_client_code
+  "${dedicated_network_autostart_marker}" dedicated_network_autostart_slice
+  "Cannot bound dedicated network autostart")
+require_ordered_fragments(dedicated_network_autostart_slice
+  "Dedicated listener failure path changed"
+  "giNumTries <= 0 || !auto_retry"
+  "FailDedicatedNetworkAutoStart("
+  "connect_client();"
+  "start_server();"
+  "gfDedicatedServer && !is_server"
+  "FailDedicatedNetworkAutoStart(")
+string(REGEX MATCHALL
+  "FailDedicatedNetworkAutoStart[ \t\r\n]*\\("
+  dedicated_network_failure_statuses "${dedicated_network_autostart_slice}")
+list(LENGTH dedicated_network_failure_statuses
+  dedicated_network_failure_status_count)
+if(NOT dedicated_network_failure_status_count EQUAL 6)
+  message(FATAL_ERROR
+    "Dedicated PvP must fail on listener/self-connect errors and exceptions")
+endif()
+
+set(dedicated_client_packet_marker "void client_packet ( void )")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_client_code
+  "${dedicated_client_packet_marker}"
+  "Multiplayer client packet pump is missing or inactive")
+extract_brace_bounded_slice(dedicated_client_code
+  "${dedicated_client_packet_marker}" dedicated_client_packet_slice
+  "Cannot bound the multiplayer client packet pump")
+require_ordered_fragments(dedicated_client_packet_slice
+  "A full listener must release the dedicated self-connect retry state"
+  "case SDLNET_NO_FREE_INCOMING_CONNECTIONS:"
+  "is_connected=false;"
+  "is_connecting=false;"
+  "giNextRetryTime = guiBaseJA2NoPauseClock + 5000;")
+
+set(dedicated_server_start_marker "void start_server (void)")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_server_code
+  "${dedicated_server_start_marker}"
+  "Dedicated listener implementation is missing or inactive")
+extract_brace_bounded_slice(dedicated_server_code
+  "${dedicated_server_start_marker}" dedicated_server_start_slice
+  "Cannot bound dedicated listener implementation")
+string(REGEX MATCHALL
+  "rawSettings[.][A-Za-z]+[ \t\r\n]*=[ \t\r\n]*props[.]getIntProperty"
+  dedicated_server_raw_setting_reads "${dedicated_server_start_slice}")
+list(LENGTH dedicated_server_raw_setting_reads
+  dedicated_server_raw_setting_read_count)
+if(NOT dedicated_server_raw_setting_read_count EQUAL 19 OR
+   dedicated_server_start_slice MATCHES
+     "\\(UINT(8|16)\\)[ \t\r\n]*props[.]getIntProperty")
+  message(FATAL_ERROR
+    "Dedicated listener must revalidate all 19 raw settings before narrowing")
+endif()
+require_ordered_fragments(dedicated_server_start_slice
+  "Dedicated listener validation or failed-transport cleanup changed"
+  "DedicatedPvpHostSettings rawSettings;"
+  "rawSettings.serverPort = props.getIntProperty("
+  "rawSettings.maximumPlayers = props.getIntProperty("
+  "rawSettings.gameType = props.getIntProperty("
+  "rawSettings.inventoryAttachments = props.getIntProperty("
+  "if (gfDedicatedServer &&"
+  "!IsSupportedDedicatedPvpHostSettings(rawSettings))"
+  "const UINT16 serverPort = (UINT16)rawSettings.serverPort;"
+  "const UINT8 maxClients = (UINT8)rawSettings.maximumPlayers;"
+  "bool b = server->Start(gMaxClients, sd);"
+  "if (b)"
+  "else"
+  "DestroySdlNetPeer(server);"
+  "server = nullptr;")
+
+file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt" dedicated_ja2_build_source)
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt" dedicated_test_build_source)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  dedicated_ci_source)
+string(FIND "${dedicated_ja2_build_source}" "DedicatedServerOptions.cpp"
+  dedicated_production_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_executable(dedicated_server_options_tests"
+  dedicated_test_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_test(NAME dedicated_server_options"
+  dedicated_test_registration_position)
+string(FIND "${dedicated_ci_source}" "dedicated_server_options_tests"
+  dedicated_test_ci_position)
+if(dedicated_production_build_position EQUAL -1 OR
+   dedicated_test_build_position EQUAL -1 OR
+   dedicated_test_registration_position EQUAL -1 OR
+   dedicated_test_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated launch contract lost production build or ASan test coverage")
+endif()
+
 file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
 foreach(required_lua_fetch_fragment IN ITEMS
     "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"
@@ -4322,13 +4742,13 @@ foreach(runtime_campaign_inventory_file IN LISTS
 endforeach()
 math(EXPR runtime_campaign_raw_selector_count
   "${runtime_campaign_context_selector_count} + ${runtime_campaign_cached_selector_count} + ${runtime_campaign_package_selector_count}")
-if(NOT runtime_campaign_context_selector_count EQUAL 99 OR
+if(NOT runtime_campaign_context_selector_count EQUAL 98 OR
     NOT runtime_campaign_cached_selector_count EQUAL 4 OR
     NOT runtime_campaign_package_selector_count EQUAL 1 OR
-    NOT runtime_campaign_raw_selector_count EQUAL 104 OR
-    NOT runtime_campaign_raw_selector_file_count EQUAL 29)
+    NOT runtime_campaign_raw_selector_count EQUAL 103 OR
+    NOT runtime_campaign_raw_selector_file_count EQUAL 28)
   message(FATAL_ERROR
-    "Raw runtime campaign selector inventory changed from the reviewed 99 context + 4 cached-campaign + 1 active-package leaves across 29 files")
+    "Raw runtime campaign selector inventory changed from the reviewed 98 context + 4 cached-campaign + 1 active-package leaves across 28 files")
 endif()
 if(NOT runtime_campaign_raw_option_consumer_count EQUAL 31 OR
     NOT runtime_campaign_external_option_executable_count EQUAL 252 OR
@@ -5800,8 +6220,8 @@ foreach(required_campaign_status_fragment IN ITEMS
     "one cached Boolean reused at all three original positions"
     "complete 582-entry sequence"
     "rebel-command settings first, UB options only for UB"
-    "104 sites across 29 files"
-    "99 live-context calls"
+    "103 sites across 28 files"
+    "98 live-context calls"
     "all 34 executable call sites"
     "Five additional calls remain inside disabled legacy block comments"
     "Tactical meanwhile-scene follow-through"
@@ -5853,6 +6273,7 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "same frozen projection across intervening actor, quest, and random effects"
     "Future mutations remain separate `ub_config`-owned APIs"
     "raw-selector inventory is now 104 sites across 29 files"
+    "raw-selector inventory is now 103 sites across 28 files"
     "Tactical meanwhile-scene follow-through now uses the same value-only"
     "Campaign progress and its scientist-AWOL threshold event now use the"
     "Quest/fact campaign decisions now use the value-only"

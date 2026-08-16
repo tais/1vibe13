@@ -269,6 +269,7 @@
 int      iWindowedMode        = 1;
 BOOLEAN  gfProgramIsRunning   = TRUE;
 BOOLEAN  gfDedicatedServer    = FALSE;
+BOOLEAN  gfDedicatedServerProcessFailed = FALSE;
 
 // Legacy animation control keeps this resolver table source-local rather than
 // publishing it from Animation Control.h. The fixture saves and restores one

@@ -39,6 +39,7 @@
 #include "Utilities.h"
 #include "structure.h"
 #include "GameSettings.h"
+#include "DedicatedServerOptions.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
 #include "video.h"
@@ -66,6 +67,7 @@ static void MAGIC(std::string const& aarrrrgggh = "")
 {}
 
 static bool			s_VfsIsInitialized = false;
+static volatile std::sig_atomic_t s_TerminationRequested = 0;
 static std::list<vfs::Path> vfs_config_ini;
 static PackageStartupOptions s_packageStartupOptions;
 
@@ -73,6 +75,11 @@ static bool			s_DebugKeyboardInput = false;
 static vfs::Path	s_CodePage;
 
 static vfs::FileLogger *vfslog = NULL;
+
+static void RequestProcessTermination(int) noexcept
+{
+	s_TerminationRequested = 1;
+}
 
 int		iWindowedMode;
 
@@ -141,6 +148,7 @@ static bool CallGameLoop(bool wait);
 // Dedicated multiplayer host: --dedicated runs the full game headless on
 // SDL's offscreen/dummy drivers; the MP screens auto-drive to the lobby.
 BOOLEAN gfDedicatedServer = FALSE;
+BOOLEAN gfDedicatedServerProcessFailed = FALSE;
 
 // Argv cached for PopulateSectionFromCommandLine.
 static int    g_argc = 0;
@@ -1192,6 +1200,16 @@ static void PopulateSectionFromCommandLine(vfs::PropertyContainer& oProps,
 // portably wants a signal handler hooked up via SDL_SetSignalHandler;
 // that's a future cleanup.
 
+static bool StopDedicatedProcessAfterException(const char* reason) noexcept
+{
+	if (!gfDedicatedServer) return false;
+	std::fprintf(stderr, "[dedicated] fatal game-loop exception: %s\n", reason);
+	std::fflush(stderr);
+	gfDedicatedServerProcessFailed = TRUE;
+	gfProgramIsRunning = FALSE;
+	return true;
+}
+
 static void SGPGameLoop()
 {
 	try
@@ -1201,28 +1219,38 @@ static void SGPGameLoop()
 	catch(sgp::Exception &ex)
 	{
 		std::fprintf(stderr, "[SGPGameLoop] sgp::Exception: %s\n", ex.what()); std::fflush(stderr);
+		if (StopDedicatedProcessAfterException(ex.what())) return;
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(vfs::Exception &ex)
 	{
 		std::fprintf(stderr, "[SGPGameLoop] vfs::Exception: %s\n", ex.what()); std::fflush(stderr);
+		if (StopDedicatedProcessAfterException(ex.what())) return;
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(std::exception &ex)
 	{
 		std::fprintf(stderr, "[SGPGameLoop] std::exception: %s\n", ex.what()); std::fflush(stderr);
+		if (StopDedicatedProcessAfterException(ex.what())) return;
 		sgp::Exception nex(ex.what());
 		SGP_ERROR(nex.what());
 		SHOWEXCEPTION(nex);
 	}
 	catch(const char* msg)
 	{
-		std::fprintf(stderr, "[SGPGameLoop] const char*: %s\n", msg); std::fflush(stderr);
-		sgp::Exception ex(msg);
+		const char* safeMessage = msg ? msg : "null const-char exception";
+		std::fprintf(stderr, "[SGPGameLoop] const char*: %s\n", safeMessage); std::fflush(stderr);
+		if (StopDedicatedProcessAfterException(safeMessage)) return;
+		sgp::Exception ex(safeMessage);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
+	}
+	catch (...)
+	{
+		if (StopDedicatedProcessAfterException("unknown exception")) return;
+		throw;
 	}
 }
 
@@ -1304,16 +1332,32 @@ int main(int argc, char** argv)
 	g_argc = argc;
 	g_argv = argv;
 
-	for (int i = 1; i < argc; ++i) {
-		if (SDL_strcasecmp(argv[i], "--dedicated") == 0) {
-			gfDedicatedServer = TRUE;
-			SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
-			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
-			SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
-			std::printf("[dedicated] headless multiplayer host mode\n");
-			std::fflush(stdout);
-			break;
+	const DedicatedServerOptionParseResult dedicated =
+		ParseDedicatedServerOptions(argc, argv);
+	if (!dedicated)
+	{
+		std::fprintf(stderr, "[dedicated] invalid options: %s%s%s\n",
+			DedicatedServerOptionErrorName(dedicated.error),
+			dedicated.argument.empty() ? "" : " near ",
+			dedicated.argument.c_str());
+		return 2;
+	}
+	InstallDedicatedServerOptions(dedicated.options);
+	if (dedicated.options.enabled)
+	{
+		if (dedicated.options.mode == DedicatedServerMode::Coop)
+		{
+			std::fprintf(stderr,
+				"[dedicated] co-op admission remains closed: authoritative "
+				"campaign execution and replication are not installed yet\n");
+			return 2;
 		}
+		gfDedicatedServer = TRUE;
+		SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+		SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+		std::printf("[dedicated] full-engine PvP host mode\n");
+		std::fflush(stdout);
 	}
 
 	// Working-directory rescue. A bare executable launched from Finder (macOS) or
@@ -1371,10 +1415,11 @@ int main(int argc, char** argv)
 		cmdline += argv[i];
 	}
 
-	// Make Ctrl+C / SIGTERM tear the game down cleanly instead of
-	// requiring a force-quit if the SDL3 window stops responding.
-	std::signal(SIGINT,  [](int){ gfProgramIsRunning = FALSE; });
-	std::signal(SIGTERM, [](int){ gfProgramIsRunning = FALSE; });
+	// Signal handlers only publish a signal-safe request. The main thread owns
+	// transport shutdown today and will own the final campaign checkpoint; no
+	// game, allocator, filesystem, or network code may run in signal context.
+	std::signal(SIGINT, RequestProcessTermination);
+	std::signal(SIGTERM, RequestProcessTermination);
 
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -1412,7 +1457,7 @@ int main(int argc, char** argv)
 	// message pump used to: events feed input.cpp's queue (via
 	// SgpHandleSDLEvent), CallGameLoop runs one tick of game logic
 	// each iteration. The video manager's RefreshScreen presents.
-	while (gfProgramIsRunning) {
+	while (gfProgramIsRunning && !s_TerminationRequested) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			// Opt-in mouse-coordinate diagnostics (set JA2_MOUSE_DEBUG): dump
@@ -1473,7 +1518,16 @@ int main(int argc, char** argv)
 		}
 	}
 
+	gfProgramIsRunning = FALSE;
+	if (is_networked)
+	{
+		// Keep the listener and local transitional host client alive until the
+		// frame loop has stopped, then close both before game/VFS teardown.
+		client_disconnect();
+		server_disconnect();
+	}
+
 	FastDebugMsg("Exiting Game");
 	// SGPExit() runs via atexit() registered in InitializeStandardGamingPlatform.
-	return 0;
+	return gfDedicatedServerProcessFailed ? 2 : 0;
 }

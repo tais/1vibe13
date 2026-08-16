@@ -413,10 +413,19 @@ discarding the live inbox. The established email catalogs, XML identifiers,
 sender and substitution semantics, save structures, artwork, and campaign
 behavior remain unchanged.
 
+Full-engine multiplayer host startup no longer reads campaign identity merely
+to choose an intro route. Both supported dedicated PvP variants now enter the
+connection screen so listener startup, self-connect, and canonical settings
+precede game initialization, while the new co-op launch form is rejected
+before engine initialization until authoritative campaign
+execution and replication exist. Removing that presentation-only selector
+reduces the reviewed inventory by one context leaf and one consumer file; it
+does not enable legacy `GAME_TYPE=2` or claim playable co-op.
+
 ## Runtime-selection TODO
 
-The reviewed executable raw-selector baseline is 104 sites across 29 files,
-down from 149: 99 live-context calls, four cached-campaign comparisons, and
+The reviewed executable raw-selector baseline is 103 sites across 28 files,
+down from 149: 98 live-context calls, four cached-campaign comparisons, and
 one active-package capability leaf. The strategic sector slice reduces its
 private wrapper call inventory from 26 to 20 without changing the single
 underlying context selector. The UB-option boundary now has 252 executable and

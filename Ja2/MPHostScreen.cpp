@@ -1,4 +1,6 @@
-	#include <filesystem>
+#include <cstdio>
+#include <exception>
+#include <filesystem>
 #include <string>
 #include <system_error>
 #include "types.h"
@@ -29,6 +31,7 @@
 #include "SaveLoadScreen.h"
 
 #include "GameInitOptionsScreen.h"
+#include "DedicatedServerOptions.h"
 
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
@@ -1527,6 +1530,7 @@ UINT8		guiMPHSameMerc;
 UINT8		guiMPHReportMerc;
 UINT8		guiMPHCivs;
 UINT8		guiMPHNewTraits;
+static DedicatedPvpHostSettings gDedicatedPvpHostSettingsRaw;
 // ------------
 
 ////////////////////////////////////////////
@@ -1564,6 +1568,7 @@ UINT8		GetMPHGameTypeButtonSetting();
 BOOLEAN		DoMPHMessageBox( UINT8 ubStyle, const STR16 zString, UINT32 uiExitScreen, UINT16 usFlags, MSGBOX_CALLBACK ReturnCallback );
 void		DoneFadeOutForExitMPHScreen( void );
 void		DoneFadeInForExitMPHScreen( void );
+static void FailDedicatedAutoStart(const char* reason) noexcept;
 
 ////////////////////////////////////////////
 //
@@ -1666,54 +1671,107 @@ UINT32	MPHostScreenInit( void )
 
 	props.getStringProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_NAME, gzServerNameField, 30, L"My JA2 Server");
 	
-	guiMPHMaxPlayers =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_CLIENTS, 4);
-	
-	guiMPHSquadSize =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_MERCS, 6);
-	
-	guiMPHStartingCash =	(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_STARTING_BALANCE, 1);
-	
-	guiMPHWeaponDamage =	(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DAMAGE_MULTIPLIER, 1);
-	
-	guiMPHTimeTurns =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIMED_TURN_SECS_PER_TICK, 2);
-	
 	props.getStringProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_FILE_TRANSFER_DIRECTORY, gzFileTransferDirectory, 100, L"MULTIPLAYER/Servers/My Server");
-			
-	props.getStringProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_KIT_BAG, gzKitBag, 100, L"");
 		
-	guiMPHStartingTime =	(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIME, 1);
-	
-	guiMPHMaxEnemies =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_OVERRIDE_MAX_AI, 0);
-	
-	guiMPHNewTraits =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_NEW_TRAITS, 0);
+	props.getStringProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_KIT_BAG, gzKitBag, 100, L"");
+
+	gDedicatedPvpHostSettingsRaw.serverPort = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_PORT, 60005);
+	gDedicatedPvpHostSettingsRaw.maximumPlayers = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_CLIENTS, 4);
+	gDedicatedPvpHostSettingsRaw.maximumMercenaries = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_MERCS, 6);
+	gDedicatedPvpHostSettingsRaw.gameType = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_GAME_MODE, MP_TYPE_DEATHMATCH);
+	gDedicatedPvpHostSettingsRaw.difficultyLevel = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_DIFFICULT_LEVEL, 3);
+	gDedicatedPvpHostSettingsRaw.weaponDamage = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_DAMAGE_MULTIPLIER, 1);
+	gDedicatedPvpHostSettingsRaw.timedTurns = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_TIMED_TURN_SECS_PER_TICK, 2);
+	gDedicatedPvpHostSettingsRaw.startingCash = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_STARTING_BALANCE, 1);
+	gDedicatedPvpHostSettingsRaw.startingTime = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_TIME, 1);
+	gDedicatedPvpHostSettingsRaw.inventoryAttachments = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_ALLOW_CUSTOM_NIV, 0);
+	gDedicatedPvpHostSettingsRaw.sameMercAllowed = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_SAME_MERC, 1);
+	gDedicatedPvpHostSettingsRaw.civiliansEnabled = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_CIV_ENABLED, 0);
+	gDedicatedPvpHostSettingsRaw.skillTraits = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_NEW_TRAITS, 0);
+	gDedicatedPvpHostSettingsRaw.randomMercenaries = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_RANDOM_MERCS, 0);
+	gDedicatedPvpHostSettingsRaw.randomStartingEdge = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_RANDOM_EDGES, 0);
+	gDedicatedPvpHostSettingsRaw.maximumEnemiesEnabled = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_OVERRIDE_MAX_AI, 0);
+	gDedicatedPvpHostSettingsRaw.synchronizeGameDirectory = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_SYNC_CLIENTS_MP_DIR, 1);
+	gDedicatedPvpHostSettingsRaw.reportHiredMercenaryName = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_REPORT_NAME, 1);
+	gDedicatedPvpHostSettingsRaw.disableBobbyRay = props.getIntProperty(
+		JA2MP_INI_INITIAL_SECTION, JA2MP_DISABLE_BOBBY_RAYS, 0);
+
+	extern BOOLEAN gfDedicatedServer;
+	if (gfDedicatedServer &&
+		!IsSupportedDedicatedPvpHostSettings(gDedicatedPvpHostSettingsRaw))
+	{
+		FailDedicatedAutoStart(
+			"ja2_mp.ini contains an out-of-range PvP host setting");
+		return 0;
+	}
+
+	guiMPHMaxPlayers = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.maximumPlayers, 2, 4, 4);
+	guiMPHSquadSize = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.maximumMercenaries, 1, 6, 6);
+	guiMPHStartingCash = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.startingCash, 0, 3, 1);
+	guiMPHWeaponDamage = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.weaponDamage, 0, 2, 1);
+	guiMPHTimeTurns = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.timedTurns, 0, 3, 2);
+	guiMPHStartingTime = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.startingTime, 0, 2, 1);
+	guiMPHMaxEnemies = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.maximumEnemiesEnabled, 0, 1, 0);
+	guiMPHNewTraits = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.skillTraits, 0, 1, 0);
 	
 	// It is not allowed to play with new traits
 	if (!gGameExternalOptions.fReadProfileDataFromXML)
 		guiMPHNewTraits = 0;
 
 	
-	guiMPHHireMerc =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_RANDOM_MERCS, 0);
-	
-	guiMPHSameMerc =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_SAME_MERC, 1);
-	
-	guiMPHReportMerc =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_REPORT_NAME, 1);
-	
-	guiMPHBobbyRay =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_DISABLE_BOBBY_RAYS, 0);
-	
-	guiMPHSectorEdge =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_RANDOM_EDGES, 0);
-	
-	guiMPHCivs =			(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_CIV_ENABLED, 0);
-	
-	guiMPHInventory =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_ALLOW_CUSTOM_NIV, 0);
+	guiMPHHireMerc = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.randomMercenaries, 0, 1, 0);
+	guiMPHSameMerc = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.sameMercAllowed, 0, 1, 1);
+	guiMPHReportMerc = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.reportHiredMercenaryName, 0, 1, 1);
+	guiMPHBobbyRay = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.disableBobbyRay, 0, 1, 0);
+	guiMPHSectorEdge = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.randomStartingEdge, 0, 1, 0);
+	guiMPHCivs = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.civiliansEnabled, 0, 1, 0);
+	guiMPHInventory = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.inventoryAttachments, 0, 2, 0);
 	
 	// It is not allowed to play with NIV
 	if (!IsNIVModeValid(true))
 		guiMPHInventory = 0;
 
-	guiMPHSendFiles =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_SYNC_CLIENTS_MP_DIR, 1);
+	guiMPHSendFiles = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.synchronizeGameDirectory, 0, 1, 1);
 
-	guiMPHGameType =		(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_GAME_MODE, MP_TYPE_DEATHMATCH);
+	guiMPHGameType = (UINT8)NormalizeLegacyMultiplayerGameTypeForUi(
+		gDedicatedPvpHostSettingsRaw.gameType);
 
-	guiMPHDifficultLevel =	(UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_DIFFICULT_LEVEL, 3) + 1;
+	guiMPHDifficultLevel = (UINT8)NormalizeLegacyMultiplayerSettingForUi(
+		gDedicatedPvpHostSettingsRaw.difficultyLevel, 0, 3, 3) + 1;
 		
 	return( 1 );
 }
@@ -1726,7 +1784,11 @@ UINT32	MPHostScreenHandle( void )
 	if( gfMPHScreenEntry )
 	{
 		// need to reload ja2_mp.ini
-		MPHostScreenInit();
+		if (!MPHostScreenInit())
+		{
+			EndFrameBufferRender();
+			return gubMPHExitScreen;
+		}
 
 		EnterMPHScreen();
 		gfMPHScreenEntry = FALSE;
@@ -2525,29 +2587,63 @@ BOOLEAN		ExitMPHScreen()
 }
 
 
-static void DedicatedAutoStartHost( void )
+static void FailDedicatedAutoStart(const char* reason) noexcept
 {
-	// all options come from Profiles/UserProfile/ja2_mp.ini; the sync
-	// directory must exist or validation refuses to start
+	extern BOOLEAN gfDedicatedServerProcessFailed;
+	extern BOOLEAN gfProgramIsRunning;
+	std::fprintf(stderr, "[dedicated] ERROR: %s\n", reason);
+	std::fflush(stderr);
+	gfDedicatedServerProcessFailed = TRUE;
+	gfProgramIsRunning = FALSE;
+}
+
+static void DedicatedAutoStartHost( void ) noexcept
+{
+	extern BOOLEAN gfDedicatedServer;
+	try
 	{
-		std::error_code ec;
-		std::filesystem::create_directories( std::filesystem::path( std::wstring( gzFileTransferDirectory ) ), ec );
-	}
-	if ( ValidateMPSettings() )
-	{
+		if ( gfDedicatedServer &&
+			!IsSupportedDedicatedPvpGameType(
+				gDedicatedPvpHostSettingsRaw.gameType ) )
+		{
+			FailDedicatedAutoStart(
+				"PvP mode requires GAME_TYPE 0 or 1; legacy GAME_TYPE 2 "
+				"is not authoritative campaign co-op");
+			return;
+		}
+
+		// All options come from Profiles/UserProfile/ja2_mp.ini; the sync
+		// directory must exist or validation refuses to start.
+		{
+			std::error_code ec;
+			std::filesystem::create_directories(
+				std::filesystem::path(std::wstring(gzFileTransferDirectory)), ec);
+		}
+		if ( !ValidateMPSettings() )
+		{
+			FailDedicatedAutoStart(
+				"MP settings failed validation -- check ja2_mp.ini");
+			return;
+		}
+
 		gubMPHScreenHandler = MPH_START;
 		SaveMPSettings();
-		SGP_TRYCATCH_RETHROW( ja2::mp::InitializeMultiplayerProfile(vfs::Path(gzFileTransferDirectory)), L"" );
+		SGP_TRYCATCH_RETHROW(
+			ja2::mp::InitializeMultiplayerProfile(
+				vfs::Path(gzFileTransferDirectory)), L"");
 		gGameOptions.ubDifficultyLevel = iMPHDifficulty + 1;
 		LoadExternalGameplayData(TABLEDATA_DIRECTORY, true);
 		InitDependingGameStyleOptions();
-		printf( "[dedicated] hosting game (settings from ja2_mp.ini)\n" );
-		fflush( stdout );
+		std::printf("[dedicated] hosting game (settings from ja2_mp.ini)\n");
+		std::fflush(stdout);
 	}
-	else
+	catch (const std::exception& error)
 	{
-		printf( "[dedicated] ERROR: MP settings failed validation -- check ja2_mp.ini\n" );
-		fflush( stdout );
+		FailDedicatedAutoStart(error.what());
+	}
+	catch (...)
+	{
+		FailDedicatedAutoStart("unexpected exception during PvP host setup");
 	}
 }
 
@@ -2873,10 +2969,11 @@ void DoneFadeOutForExitMPHScreen( void )
 	gGameOptions.ubBobbyRayQuality = BR_AWESOME;
 	gGameOptions.ubBobbyRayQuantity = BR_AWESOME;
 			
-	gubMPHExitScreen = INTRO_SCREEN;
-
-	if (!GetGameContext().capabilities().isUnfinishedBusiness())
-		SetIntroType( INTRO_BEGINNING );
+	// Both GUI and headless hosts enter the connection screen so listener
+	// startup, transitional self-connect, and canonical settings all complete
+	// before InitNewGame(). The old direct Intro -> Init -> Map route deferred
+	// NetworkAutoStart() until the map was already running.
+	gubMPHExitScreen = MP_CONNECT_SCREEN;
 
 	ExitMPHScreen(); // cleanup please, if we called a fadeout then we didnt do it above
 

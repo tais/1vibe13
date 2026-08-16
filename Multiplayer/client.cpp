@@ -86,6 +86,7 @@
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <stdlib.h>
 #include "Music Control.h"
 #include "Map Edgepoints.h"
@@ -1069,10 +1070,22 @@ ConnectionId serverAddr;
 settings_struct gMPServerSettings; // store a copy of our settings after we receive them
 CHAR16			gszDisconnectReason[255]; // the reason we were disconnected from the server
 
+static void FailDedicatedNetworkAutoStart(const char* reason) noexcept
+{
+	extern BOOLEAN gfDedicatedServerProcessFailed;
+	extern BOOLEAN gfProgramIsRunning;
+	std::fprintf(stderr, "[dedicated] ERROR: %s\n", reason);
+	std::fflush(stderr);
+	gfDedicatedServerProcessFailed = TRUE;
+	gfProgramIsRunning = FALSE;
+}
+
 // OJW - added 20081130
 // <TODO> - add retry timer and notification
 void NetworkAutoStart()
 {
+	extern BOOLEAN gfDedicatedServer;
+
 	if (!is_networked)
 		return; // not networked, bad call
 
@@ -1093,22 +1106,63 @@ void NetworkAutoStart()
 		else
 		{
 			if (giNumTries <= 0 || !auto_retry)
+			{
+				if (gfDedicatedServer)
+				{
+					FailDedicatedNetworkAutoStart(
+						"failed to self-connect the PvP host");
+				}
 				return; // dont auto-retry
+			}
 
 			if (guiBaseJA2NoPauseClock < giNextRetryTime)
 				return; // we are waiting for a retry timer
 
 			// try and connect
 			giNumTries--;
-			connect_client();
+			try
+			{
+				connect_client();
+			}
+			catch (const std::exception& error)
+			{
+				if (!gfDedicatedServer) throw;
+				FailDedicatedNetworkAutoStart(error.what());
+			}
+			catch (...)
+			{
+				if (!gfDedicatedServer) throw;
+				FailDedicatedNetworkAutoStart(
+					"unexpected exception during PvP self-connect");
+			}
 
 			// next rety time is set in client_packet()
 		}
 	}
-	else 
+	else
 	{
 		// is host and server isnt started so start it
-		start_server();
+		try
+		{
+			start_server();
+		}
+		catch (const std::exception& error)
+		{
+			if (!gfDedicatedServer) throw;
+			FailDedicatedNetworkAutoStart(error.what());
+			return;
+		}
+		catch (...)
+		{
+			if (!gfDedicatedServer) throw;
+			FailDedicatedNetworkAutoStart(
+				"unexpected exception starting the PvP listener");
+			return;
+		}
+		if (gfDedicatedServer && !is_server)
+		{
+			FailDedicatedNetworkAutoStart("failed to start the PvP listener");
+		}
 	}
 }
 
@@ -6063,9 +6117,12 @@ void client_packet ( void )
 					giNextRetryTime = guiBaseJA2NoPauseClock + 5000; // 5 seconds?
 					break;
 				case SDLNET_NO_FREE_INCOMING_CONNECTIONS:
-					 // Sorry, the server is full.  I don't do anything here but
-					// A real app should tell the user
+					// Let the finite auto-retry policy advance instead of leaving
+					// the full-engine host permanently stuck in is_connecting.
 					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_NO_FREE_INCOMING_CONNECTIONS");
+					is_connected=false;
+					is_connecting=false;
+					giNextRetryTime = guiBaseJA2NoPauseClock + 5000;
 					break;
 				case SDLNET_CONNECTION_LOST:
 					// Couldn't deliver a reliable packet - i.e. the other system was abnormally

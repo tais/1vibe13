@@ -131,6 +131,39 @@ manifest digest, and no authoritative receipt/delta path exists. The seam does
 not register a legacy RPC, calculate a placeholder digest, execute JA2 commands,
 or make co-op playable.
 
+## Dedicated launch lifecycle
+
+The full-engine process now has an explicit startup contract:
+
+- `JA2 --dedicated` and `JA2 --dedicated --dedicated-mode=pvp` select the
+  transitional PvP host. Only legacy deathmatch and team-deathmatch settings
+  are accepted; legacy `GAME_TYPE=2` is rejected.
+- `--dedicated-mode=coop` requires a bounded campaign identifier and an
+  explicit `--campaign-action=new|resume`. The options are parsed so the
+  durable lifecycle can attach to a stable interface, but startup currently
+  exits before SDL initialization because campaign authority and replication
+  are not installed.
+- GUI and headless PvP hosts both enter `MP_CONNECT_SCREEN`. That screen owns
+  the pre-game `NetworkAutoStart()` call, starts the listener, self-connects
+  the transitional host client, receives canonical settings, and only then
+  initializes the game. The map also retains a defensive autostart call, but a
+  direct host-to-map route is forbidden because it initializes world state
+  before the host has received those canonical settings.
+- Invalid PvP settings, an unsupported legacy game type, or listener bind
+  failure stops the headless process with a nonzero status instead of leaving
+  an idle supervisor-visible process or retrying an unreleased transport.
+  Exceptions during any auto-driven setup or later game-loop frame are fatal
+  to the dedicated process rather than being swallowed behind a latched UI
+  transition.
+- `SIGINT` and `SIGTERM` publish only a signal-safe termination flag. The main
+  thread stops the frame loop and closes the local client before the server
+  transport, ahead of game and VFS teardown. A future final campaign
+  checkpoint belongs at this same main-thread boundary, never in the signal
+  handler.
+
+This repairs the full-engine PvP bootstrap; it does not yet satisfy campaign
+persistence milestone 3 or make network co-op playable.
+
 ## Replication
 
 Join and reconnect begin with a complete, checksummed baseline for one world

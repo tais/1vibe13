@@ -79,6 +79,17 @@ set_tests_properties(mp_coordinator_session PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME mp_coordinator_coop_rejection
   COMMAND mp_coordinator_session_tests --coop-only)
 
+# The full-engine dedicated process has one explicit launch contract. PvP
+# retains the transitional arena route; co-op campaign creation/resume is
+# parsed now but admission remains fail-closed until authority is installed.
+add_executable(dedicated_server_options_tests
+  dedicated_server_options_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedServerOptions.cpp)
+target_include_directories(dedicated_server_options_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_server_options_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_server_options COMMAND dedicated_server_options_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

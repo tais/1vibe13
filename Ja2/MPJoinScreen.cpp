@@ -30,6 +30,8 @@
 
 #include "random.h"
 
+#include <cstdio>
+
 ////////////////////////////////////////////
 //
 //	Global Defines
@@ -329,6 +331,16 @@ bool	ValidateJoinSettings(bool bSkipServerAddress, bool bSkipSyncDir)
 	return true;
 }
 
+static void FailDedicatedJoinStartup(const char* reason) noexcept
+{
+	extern BOOLEAN gfDedicatedServerProcessFailed;
+	extern BOOLEAN gfProgramIsRunning;
+	std::fprintf(stderr, "[dedicated] ERROR: %s\n", reason);
+	std::fflush(stderr);
+	gfDedicatedServerProcessFailed = TRUE;
+	gfProgramIsRunning = FALSE;
+}
+
 UINT32	MPJoinScreenHandle( void )
 {
 	{	// dedicated server: choose "Host" automatically (player name etc. come
@@ -340,17 +352,26 @@ UINT32	MPJoinScreenHandle( void )
 		if ( gfDedicatedServer && !fDedicatedAutoHost && ++uiDedicatedTicks > 30 )
 		{
 			fDedicatedAutoHost = TRUE;
-			if ( ValidateJoinSettings( true, false ) )
+			try
 			{
-				SaveJoinSettings( false );
-				gubMPJScreenHandler = MPJ_HOST;
-				printf( "[dedicated] join screen -> hosting\n" );
+				if ( ValidateJoinSettings( true, false ) )
+				{
+					SaveJoinSettings( false );
+					gubMPJScreenHandler = MPJ_HOST;
+					std::printf("[dedicated] join screen -> hosting\n");
+					std::fflush(stdout);
+				}
+				else
+				{
+					FailDedicatedJoinStartup(
+						"join settings invalid (player name in ja2_mp.ini?)");
+				}
 			}
-			else
+			catch (...)
 			{
-				printf( "[dedicated] ERROR: join settings invalid (player name in ja2_mp.ini?)\n" );
+				FailDedicatedJoinStartup(
+					"unexpected exception during join-settings setup");
 			}
-			fflush( stdout );
 		}
 	}
 	StartFrameBufferRender();

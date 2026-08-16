@@ -75,6 +75,7 @@
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE;
 BOOLEAN gfDedicatedServer = FALSE;
+BOOLEAN gfDedicatedServerProcessFailed = FALSE;
 BOOLEAN gfDontUseDDBlits = FALSE;
 bool g_bUseXML_Structures = false;
 CHAR8 gzCommandLine[100] = { 0 };

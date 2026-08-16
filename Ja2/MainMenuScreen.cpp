@@ -29,6 +29,9 @@
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_profile.h>
 
+#include <cstdio>
+#include <exception>
+
 #include "ub_config.h"
 
 #define	MAINMENU_TEXT_FILE						"LoadScreens\\MainMenu.edt"
@@ -96,6 +99,15 @@ UINT32	MainMenuScreenInit( )
 	return( TRUE );
 }
 
+static void FailDedicatedMainMenuStartup(const char* reason) noexcept
+{
+	extern BOOLEAN gfDedicatedServerProcessFailed;
+	std::fprintf(stderr, "[dedicated] ERROR: %s\n", reason);
+	std::fflush(stderr);
+	gfDedicatedServerProcessFailed = TRUE;
+	gfProgramIsRunning = FALSE;
+}
+
 UINT32	MainMenuScreenHandle( )
 {
 	extern BOOLEAN gfDedicatedServer;
@@ -107,8 +119,20 @@ UINT32	MainMenuScreenHandle( )
 		if ( !fDedicatedAutoMP && guiSplashStartTime + 6000 < GetJA2Clock() )
 		{
 			fDedicatedAutoMP = TRUE;
-			gbHandledMainMenu = NEW_MP_GAME;
-			HandleMainMenuInput();
+			try
+			{
+				gbHandledMainMenu = NEW_MP_GAME;
+				HandleMainMenuInput();
+			}
+			catch (const std::exception& error)
+			{
+				FailDedicatedMainMenuStartup(error.what());
+			}
+			catch (...)
+			{
+				FailDedicatedMainMenuStartup(
+					"unexpected exception entering multiplayer setup");
+			}
 		}
 	}
 	UINT32 cnt;

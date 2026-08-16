@@ -1516,6 +1516,17 @@ the engine must not contain SDL types in its public domain model.
   consumers and 552 executable/554 raw total occurrences across 33 files.
   The campaign compile-guard baseline is now 28 conditionals across 13 files,
   with zero remaining in Strategic.
+- Full-engine multiplayer hosting now routes both GUI and headless PvP hosts
+  through `MP_CONNECT_SCREEN`, establishing the listener, transitional
+  self-client, and canonical settings before `InitNewGame()`. The dedicated
+  command line distinguishes `pvp` from
+  `coop`, accepts explicit campaign create/resume inputs, and rejects co-op
+  before engine initialization until its authority, replication, and durable
+  campaign store are installed; it never aliases that request to legacy
+  `GAME_TYPE=2`. This removes the presentation-only campaign selector formerly
+  used to choose an intro route. The raw-selector inventory is now 103 sites
+  across 28 files: 98 live-context calls, four cached-campaign comparisons,
+  and one active-package capability leaf.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,

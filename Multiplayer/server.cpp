@@ -1,9 +1,11 @@
 #include "sgp_bounded_string.h"
 #include "TacticalWorldAdapter.h"
 #include "SdlNetTransport.h"
+#include "DedicatedServerOptions.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -976,25 +978,50 @@ void start_server (void)
 		
 		vfs::PropertyContainer props;
 		props.initFromIniFile(JA2MP_INI_FILENAME);
-		UINT16 serverPort = (UINT16)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_PORT, 60005);		
-		UINT8 maxClients = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_MAX_CLIENTS, 4);										
-		UINT8 sameMercAllowed = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_SAME_MERC, 1);
-		UINT8 civEnabled = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_CIV_ENABLED, 0);
-		UINT8 gameType = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_GAME_MODE, 0);
-		UINT8 difficultyLevel = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_DIFFICULT_LEVEL, 3);
-		UINT8 skillTraits = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_NEW_TRAITS, 0);
-		UINT8 randomMercs = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION,JA2MP_RANDOM_MERCS, 0);
-		UINT8 randomStartingEdge = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_RANDOM_EDGES, 0);		
-		UINT8 damageSelection = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DAMAGE_MULTIPLIER, 1);
-		UINT8 maxEnemiesEnabled = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_OVERRIDE_MAX_AI, 0);
-		UINT8 syncGameDirectory = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SYNC_CLIENTS_MP_DIR, 1);
-		UINT8 reportHiredMerc = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_REPORT_NAME, 1);
-		UINT8 startingCashSelection = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_STARTING_BALANCE, 25000);
-		UINT8 timeTurnsSelection = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIMED_TURN_SECS_PER_TICK, 2);
-		UINT8 disableBobbyRay = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DISABLE_BOBBY_RAYS, 0);
-		UINT8 maxMercs = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_MERCS, 6);
-		UINT8 timeSelection = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIME, 1);
-		UINT8 inventoryAttachment = (UINT8)props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_ALLOW_CUSTOM_NIV, 0);
+		DedicatedPvpHostSettings rawSettings;
+		rawSettings.serverPort = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_PORT, 60005);
+		rawSettings.maximumPlayers = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_CLIENTS, 4);
+		rawSettings.sameMercAllowed = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SAME_MERC, 1);
+		rawSettings.civiliansEnabled = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_CIV_ENABLED, 0);
+		rawSettings.gameType = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_GAME_MODE, 0);
+		rawSettings.difficultyLevel = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DIFFICULT_LEVEL, 3);
+		rawSettings.skillTraits = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_NEW_TRAITS, 0);
+		rawSettings.randomMercenaries = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_RANDOM_MERCS, 0);
+		rawSettings.randomStartingEdge = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_RANDOM_EDGES, 0);
+		rawSettings.weaponDamage = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DAMAGE_MULTIPLIER, 1);
+		rawSettings.maximumEnemiesEnabled = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_OVERRIDE_MAX_AI, 0);
+		rawSettings.synchronizeGameDirectory = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_SYNC_CLIENTS_MP_DIR, 1);
+		rawSettings.reportHiredMercenaryName = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_REPORT_NAME, 1);
+		rawSettings.startingCash = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_STARTING_BALANCE, 1);
+		rawSettings.timedTurns = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIMED_TURN_SECS_PER_TICK, 2);
+		rawSettings.disableBobbyRay = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_DISABLE_BOBBY_RAYS, 0);
+		rawSettings.maximumMercenaries = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_MAX_MERCS, 6);
+		rawSettings.startingTime = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_TIME, 1);
+		rawSettings.inventoryAttachments = props.getIntProperty(JA2MP_INI_INITIAL_SECTION, JA2MP_ALLOW_CUSTOM_NIV, 0);
+		extern BOOLEAN gfDedicatedServer;
+		if (gfDedicatedServer &&
+			!IsSupportedDedicatedPvpHostSettings(rawSettings))
+			throw std::runtime_error("ja2_mp.ini contains an out-of-range PvP host setting");
+
+		const UINT16 serverPort = (UINT16)rawSettings.serverPort;
+		const UINT8 maxClients = (UINT8)rawSettings.maximumPlayers;
+		const UINT8 sameMercAllowed = (UINT8)rawSettings.sameMercAllowed;
+		const UINT8 civEnabled = (UINT8)rawSettings.civiliansEnabled;
+		const UINT8 gameType = (UINT8)rawSettings.gameType;
+		const UINT8 difficultyLevel = (UINT8)rawSettings.difficultyLevel;
+		const UINT8 skillTraits = (UINT8)rawSettings.skillTraits;
+		const UINT8 randomMercs = (UINT8)rawSettings.randomMercenaries;
+		const UINT8 randomStartingEdge = (UINT8)rawSettings.randomStartingEdge;
+		const UINT8 damageSelection = (UINT8)rawSettings.weaponDamage;
+		const UINT8 maxEnemiesEnabled = (UINT8)rawSettings.maximumEnemiesEnabled;
+		const UINT8 syncGameDirectory = (UINT8)rawSettings.synchronizeGameDirectory;
+		const UINT8 reportHiredMerc = (UINT8)rawSettings.reportHiredMercenaryName;
+		const UINT8 startingCashSelection = (UINT8)rawSettings.startingCash;
+		const UINT8 timeTurnsSelection = (UINT8)rawSettings.timedTurns;
+		const UINT8 disableBobbyRay = (UINT8)rawSettings.disableBobbyRay;
+		const UINT8 maxMercs = (UINT8)rawSettings.maximumMercenaries;
+		const UINT8 timeSelection = (UINT8)rawSettings.startingTime;
+		const UINT8 inventoryAttachment = (UINT8)rawSettings.inventoryAttachments;
 
 		// ----------------------------
 		// Save to global values
@@ -1191,6 +1218,8 @@ void start_server (void)
 		else
 		{
 			ScreenMsg( FONT_LTBLUE, MSG_MPSYSTEM, MPServerMessage[4]);
+			DestroySdlNetPeer(server);
+			server = nullptr;
 		}
 	}
 	else
@@ -1284,6 +1313,7 @@ void server_disconnect (void)
 	fileList.Clear();
 	// We're done with the network
 	DestroySdlNetPeer(server);
+	server = nullptr;
 	ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, MPServerMessage[6]);
 	}
 	else
