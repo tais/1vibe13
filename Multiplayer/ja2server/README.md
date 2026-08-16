@@ -1,18 +1,20 @@
 # ja2server — standalone JA2 1.13 multiplayer coordinator
 
 A headless server/relay included with the SDL3 multiplayer port. The
-`Multiplayer` target builds the client/server wrapper and SDL3_net compatibility
-`netshim`; the main-menu entry is enabled, and tagged releases package
+`Multiplayer` target builds the client/server wrapper and native SDL3_net
+transport; the main-menu entry is enabled, and tagged releases package
 `ja2server`. A data-free loopback test now drives the real coordinator pump
 through version admission, a two-client lobby, placement barriers, PvP turns,
 interrupts, late join, and disconnect. That exercises the coordinator/session
 contract; a complete two-machine playthrough in the game engine remains
 experimental.
 
-The standalone executable supports Deathmatch (`GAME_TYPE=0`) and Team
-Deathmatch (`GAME_TYPE=1`) tactical sessions only. It has no game engine, AI,
-campaign clock, strategic state, saves, or persistence. `GAME_TYPE=2` is
-rejected at startup: co-op requires a full-engine host that owns those systems.
+The standalone executable is a transition product while PvP authority moves
+into the full-engine `JA2 --dedicated` host. It supports Deathmatch
+(`GAME_TYPE=0`) and Team Deathmatch (`GAME_TYPE=1`) tactical sessions only. It
+has no game engine, AI, campaign clock, strategic state, saves, or persistence.
+`GAME_TYPE=2` is rejected at startup: co-op requires a full-engine host that
+owns those systems.
 
 ## Running
 

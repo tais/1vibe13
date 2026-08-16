@@ -317,7 +317,7 @@ BOOLEAN InitMainMenu( )
 		DisableButton( iMenuButtons[ LOAD_GAME ] );
 		
 		
-	// Multiplayer is live again (RakNet-compat netshim over SDL3_net);
+	// Multiplayer uses the project-native SDL3_net transport;
 	// the button is enabled like any other.
 
 	gbHandledMainMenu = 0;

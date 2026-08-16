@@ -418,7 +418,7 @@ void TestFailClosedAdmission()
 {
 	const AuthorityConfiguration complete = CompleteConfiguration();
 	const AdmissionRequest request = FirstJoinRequest(complete);
-	const TransportPeer sender{UINT32_C(0x01020304), UINT16_C(5000)};
+	const TransportPeer sender{5000};
 	ScriptedTokenSource source;
 	source.script.push_back(MakeCredential(1, 64));
 
@@ -453,10 +453,10 @@ void TestFailClosedAdmission()
 	altered.protocolVersion++;
 	CheckReason(registry.admit(sender, altered), AdmissionRejectReason::UnsupportedProtocol,
 		"unsupported protocol is explicit");
-	CheckReason(registry.admit(TransportPeer{0, 5000}, request),
-		AdmissionRejectReason::InvalidTransport, "zero sender address is rejected");
-	CheckReason(registry.admit(TransportPeer{1, 0}, request),
-		AdmissionRejectReason::InvalidTransport, "zero sender port is rejected");
+	CheckReason(registry.admit(TransportPeer{}, request),
+		AdmissionRejectReason::InvalidTransport, "missing connection is rejected");
+	CheckReason(registry.admit(TransportPeer{UINT64_MAX}, request),
+		AdmissionRejectReason::InvalidTransport, "wildcard connection is rejected");
 	altered = request; altered.sessionEpoch++;
 	CheckReason(registry.admit(sender, altered), AdmissionRejectReason::SessionEpochMismatch,
 		"session epoch mismatch is explicit");
@@ -491,8 +491,8 @@ void TestAdmissionLifecycleAndIntentGate()
 {
 	const AuthorityConfiguration configuration = CompleteConfiguration();
 	const AdmissionRequest firstJoin = FirstJoinRequest(configuration);
-	const TransportPeer firstTransport{UINT32_C(0x01020304), UINT16_C(5000)};
-	const TransportPeer secondTransport{UINT32_C(0x01020304), UINT16_C(5001)};
+	const TransportPeer firstTransport{5000};
+	const TransportPeer secondTransport{5001};
 	ScriptedTokenSource source;
 	source.script.push_back(MakeCredential(1, 64));
 	AdmissionRegistry registry(&source);
@@ -560,9 +560,9 @@ void TestReconnectRejectionsAndCapacity()
 {
 	const AuthorityConfiguration configuration = CompleteConfiguration(2);
 	const AdmissionRequest firstJoin = FirstJoinRequest(configuration);
-	const TransportPeer transportA{1, 1001};
-	const TransportPeer transportB{2, 1002};
-	const TransportPeer transportC{3, 1003};
+	const TransportPeer transportA{1001};
+	const TransportPeer transportB{1002};
+	const TransportPeer transportC{1003};
 	ScriptedTokenSource source;
 	source.script.push_back(MakeCredential(1, 64));
 	source.script.push_back(MakeCredential(17, 96));
@@ -606,8 +606,8 @@ void TestCredentialIssuanceUniqueness()
 	source.script.push_back(MakeCredential(17, 96));
 	AdmissionRegistry registry(&source);
 	registry.beginSession(configuration);
-	const AdmissionResponse first = registry.admit(TransportPeer{1, 1}, request);
-	const AdmissionResponse second = registry.admit(TransportPeer{2, 2}, request);
+	const AdmissionResponse first = registry.admit(TransportPeer{1}, request);
+	const AdmissionResponse second = registry.admit(TransportPeer{2}, request);
 	CHECK(first.admitted() && second.admitted(),
 		"issuer retries zero and duplicate credentials until unique");
 	CHECK(source.calls == 5 && first.peerIdentity != second.peerIdentity &&
@@ -618,7 +618,7 @@ void TestCredentialIssuanceUniqueness()
 	for (unsigned index = 0; index < 16; ++index) invalid.script.push_back(Credential{});
 	AdmissionRegistry exhausted(&invalid);
 	exhausted.beginSession(configuration);
-	CheckReason(exhausted.admit(TransportPeer{3, 3}, request),
+	CheckReason(exhausted.admit(TransportPeer{3}, request),
 		AdmissionRejectReason::TokenIssuanceFailed,
 		"bounded issuance retries fail closed");
 	CHECK(invalid.calls == 16 && exhausted.peerCount() == 0,
@@ -639,14 +639,13 @@ void TestMaximumCapacityBoundary()
 	for (std::uint16_t index = 0; index < MaximumAuthorityPeers; ++index)
 	{
 		CHECK(registry.admit(TransportPeer{
-			static_cast<std::uint32_t>(index + 1),
-			static_cast<std::uint16_t>(2000 + index)}, request).admitted(),
+			static_cast<std::uint64_t>(2000 + index)}, request).admitted(),
 			"every fixed registry seat is usable");
 	}
 	CHECK(registry.peerCount() == MaximumAuthorityPeers &&
 		registry.boundPeerCount() == MaximumAuthorityPeers,
 		"fixed registry reaches its exact maximum without allocation");
-	CheckReason(registry.admit(TransportPeer{99, 2099}, request),
+	CheckReason(registry.admit(TransportPeer{2099}, request),
 		AdmissionRejectReason::CapacityReached,
 		"one request beyond the fixed registry is rejected");
 	CHECK(source.calls == MaximumAuthorityPeers,

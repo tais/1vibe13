@@ -1,6 +1,7 @@
 #ifndef MULTIPLAYER_COOP_ADMISSION_H
 #define MULTIPLAYER_COOP_ADMISSION_H
 
+#include "ConnectionId.h"
 #include "CoopSessionProtocol.h"
 
 #include <array>
@@ -11,19 +12,10 @@ namespace CoopSession
 {
 constexpr std::size_t MaximumAuthorityPeers = 4;
 
-// The network adapter must construct this value from RPCParameters::sender (or
-// its transport's equivalent). It must never deserialize an address supplied by
-// the peer. A binding is scoped to one server-owned session epoch.
-struct TransportPeer
-{
-	std::uint32_t binaryAddress = 0;
-	std::uint16_t port = 0;
-};
-
-bool operator==(
-	const TransportPeer& left, const TransportPeer& right) noexcept;
-bool operator!=(
-	const TransportPeer& left, const TransportPeer& right) noexcept;
+// The network adapter supplies this opaque, process-local connection identity.
+// It must never deserialize an address or identifier claimed by the peer. A
+// binding is scoped to one server-owned session epoch.
+using TransportPeer = ja2::mp::ConnectionId;
 
 struct AuthorityConfiguration
 {

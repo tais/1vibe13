@@ -197,14 +197,14 @@ void TestLifecycleFailsClosed()
 	const AdmissionRequestBytes inactiveRequest =
 		RequestBytes(FirstJoin(valid.admission));
 	const AdmissionResponse inactiveResponse = DecodeResponse(
-		ingress.handleAdmission(TransportPeer{0x0100007f, 6001},
+		ingress.handleAdmission(TransportPeer{6001},
 			inactiveRequest.data(), inactiveRequest.size()));
 	CHECK(inactiveResponse.rejectReason ==
 		AdmissionRejectReason::AuthorityDisabled,
 		"inactive ingress rejects even a structurally valid admission");
 
 	const TacticalIntentIngressResult inactiveTactical =
-		ingress.handleTacticalIntent(TransportPeer{0x0100007f, 6001},
+		ingress.handleTacticalIntent(TransportPeer{6001},
 			nullptr, 0);
 	CHECK(inactiveTactical.authorization.reason ==
 		TacticalIntentAuthorizationReason::NotConfigured &&
@@ -222,7 +222,7 @@ void TestAdmissionDecodeAndExactResponses()
 		FullEngineCoopStartResult::Success, "admission test session starts");
 
 	const AdmissionIngressResult truncated =
-		ingress.handleAdmission(TransportPeer{0x0100007f, 6101}, nullptr, 0);
+		ingress.handleAdmission(TransportPeer{6101}, nullptr, 0);
 	const AdmissionResponse truncatedResponse = DecodeResponse(truncated);
 	CHECK(truncated.decodeResult == DecodeResult::WrongSize &&
 		truncatedResponse.rejectReason == AdmissionRejectReason::MalformedRequest &&
@@ -236,7 +236,7 @@ void TestAdmissionDecodeAndExactResponses()
 	unsupported[4] = static_cast<std::uint8_t>(CurrentProtocolVersion + 1);
 	unsupported[5] = 0;
 	const AdmissionIngressResult unsupportedResult = ingress.handleAdmission(
-		TransportPeer{0x0100007f, 6101}, unsupported.data(), unsupported.size());
+		TransportPeer{6101}, unsupported.data(), unsupported.size());
 	const AdmissionResponse unsupportedResponse = DecodeResponse(unsupportedResult);
 	CHECK(unsupportedResult.decodeResult == DecodeResult::UnsupportedProtocol &&
 		unsupportedResponse.rejectReason ==
@@ -248,12 +248,12 @@ void TestAdmissionDecodeAndExactResponses()
 		RequestBytes(FirstJoin(configuration.admission));
 	badMagic[0] ^= 0xff;
 	const AdmissionResponse badMagicResponse = DecodeResponse(
-		ingress.handleAdmission(TransportPeer{0x0100007f, 6101},
+		ingress.handleAdmission(TransportPeer{6101},
 			badMagic.data(), badMagic.size()));
 	CHECK(badMagicResponse.rejectReason == AdmissionRejectReason::MalformedRequest,
 		"bad admission magic cannot leak partially decoded identity");
 
-	const TransportPeer sender{0x0100007f, 6101};
+	const TransportPeer sender{6101};
 	const AdmissionRequestBytes valid =
 		RequestBytes(FirstJoin(configuration.admission));
 	const AdmissionIngressResult admittedResult = ingress.handleAdmission(
@@ -274,9 +274,9 @@ void TestIntentRoutingAndLifecycle()
 	CHECK(ingress.beginSession(configuration) ==
 		FullEngineCoopStartResult::Success, "intent routing session starts");
 
-	const TransportPeer senderA{0x0100007f, 6201};
-	const TransportPeer senderB{0x0100007f, 6202};
-	const TransportPeer senderC{0x0100007f, 6203};
+	const TransportPeer senderA{6201};
+	const TransportPeer senderB{6202};
+	const TransportPeer senderC{6203};
 	const AdmissionRequestBytes firstJoin =
 		RequestBytes(FirstJoin(configuration.admission));
 	const AdmissionResponse peerA = DecodeResponse(ingress.handleAdmission(

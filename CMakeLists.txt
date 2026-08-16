@@ -144,9 +144,7 @@ if(NOT TARGET SDL3_mixer::SDL3_mixer)
   FetchContent_MakeAvailable(SDL3_mixer)
 endif()
 
-# SDL3_net: transport for the revived multiplayer. Multiplayer/netshim
-# implements the RakNet-3.401 API surface the MP wrapper was written
-# against on top of SDL3_net TCP stream sockets. Pinned to the first
+# SDL3_net: native transport for multiplayer. Pinned to the first
 # stable SDL3-line release (release-3.2.0, May 2026) -- unlike the
 # main-tracking SDL3/SDL3_mixer above, this one has a real tag.
 find_package(SDL3_net QUIET CONFIG)

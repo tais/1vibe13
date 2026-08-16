@@ -376,11 +376,11 @@ will revive them:
 
 ### Multiplayer — current build and packaging state
 
-- The `Multiplayer` CMake target builds `client.cpp`, `server.cpp`,
-  `transfer_rules.cpp`, and `netshim/netshim.cpp`. The shim supplies the
-  RakNet 3.401 API surface used by the wrapper over SDL3_net; neither
-  `mp_stubs.cpp` nor the old 32-bit Win32 `RakNetLibStatic.lib` is part of
-  that target.
+- The `Multiplayer` CMake target builds `client.cpp`, `server.cpp`, and
+  `transfer_rules.cpp`, and links the production `SdlNetTransport` target.
+  The transport owns the project-private framed SDL3_net TCP protocol directly;
+  the compatibility shim, dormant third-party source archive, and no-op stubs
+  have been removed.
 - The main-menu Multiplayer entry is enabled.
 - Tagged release jobs build `ja2server` and package it with its sample
   configuration and README on Linux, macOS, and Windows. The real coordinator
@@ -454,7 +454,7 @@ Done.
 **Actual outcome**: configures AND compiles AND links 100% on macOS,
 producing a runnable (no-op) `JA2_ENGLISH` executable. Took ~50 commits
 because of the extensive Win32 surface across `sgp/`, the multiple
-inline-asm blocks, the Multiplayer/RakNet situation, and AppleClang's
+inline-asm blocks, the legacy multiplayer transport situation, and AppleClang's
 strictness vs MSVC.
 
 What landed:
@@ -1534,9 +1534,6 @@ _None currently open._
   and 1.13's feature surface is dramatically larger. License is
   compatible (SFI-1.0 / GPL-style); attribution required if we lift
   specific code.
-- [facebookarchive/RakNet](https://github.com/facebookarchive/RakNet)
-  — RakNet 4.081, the only public RakNet source. JA2 uses 3.401
-  which has incompatible API; see Multiplayer section.
 - [libsdl-org/SDL](https://github.com/libsdl-org/SDL) — SDL3, latest
   release.
 - [nothings/stb](https://github.com/nothings/stb) — stb_truetype for

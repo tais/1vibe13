@@ -1,11 +1,12 @@
 // ============================================================================
 //  ja2server -- standalone JA2 1.13 multiplayer coordinator / relay server.
 //
-//  Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. The wire
+//  Uses the project's native SDL3_net TCP transport. The private wire
 //  admission/session flow is covered by a real loopback coordinator test; a
-//  full game-engine multiplayer playthrough remains experimental. Unlike the
-//  old "--dedicated" headless-game mode, this is a PURE coordinator: no game
-//  engine, SDL video, or game loop and -- crucially -- NO loopback "player 1".
+//  full game-engine multiplayer playthrough remains experimental. This
+//  transitional executable is a PURE coordinator: no game engine, SDL video,
+//  or game loop and -- crucially -- NO loopback "player 1". The product target
+//  is the full-engine JA2 --dedicated host for both PvP and co-op.
 //  The server is never a participant; it only assigns client numbers, brokers
 //  the lobby/start handshake, and relays in-game RPC traffic between clients.
 //
@@ -32,14 +33,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
 
-// ---- netshim (RakNet-3.401 API-compat over SDL3_net) -----------------------
-#include "MessageIdentifiers.h"
-#include "RakNetworkFactory.h"
-#include "RakPeerInterface.h"
-#include "RakNetTypes.h"
-#include "RakSleep.h"
+#include "SdlNetTransport.h"
 
 #include "CoordinatorProtocol.h"
+
+using namespace ja2::mp;
+using namespace ja2::mp::net;
 
 // ---- game type shim --------------------------------------------------------
 // Match sgp/types.h widths on this platform so the packet structs below have the
@@ -54,18 +53,18 @@
 // settings_struct, admin_cmd_struct, ready_struct, ...) use only fixed-width members,
 // and the byte-count-sensitive one (filetransfersettings_struct) now uses INT64, so the
 // layout is identical on every target. static_assert below guards the sensitive cases.
-// Packet structs and constants live in CoordinatorProtocol.h so the data-free
+// SdlNetEvent structs and constants live in CoordinatorProtocol.h so the data-free
 // loopback session test exercises the exact declarations used here.
 
 // ============================================================================
 //  Coordinator state
 // ============================================================================
-static RakPeerInterface* g_server = NULL;
+static SdlNetPeer* g_server = NULL;
 
-struct client_slot { SystemAddress address; int cl_number; };
-static client_slot g_clients[4];            // f_rec_num roster; binaryAddress==0 == empty
-static std::vector<SystemAddress> g_transportPeers; // includes pre-admission connections
-static std::vector<SystemAddress> g_closedBeforeIncoming; // RPC rejected before queued ID_NEW was consumed
+struct client_slot { ConnectionId address; int cl_number; };
+static client_slot g_clients[4];            // an empty ConnectionId means no client
+static std::vector<ConnectionId> g_transportPeers; // includes pre-admission connections
+static std::vector<ConnectionId> g_closedBeforeIncoming; // RPC rejected before queued ID_NEW was consumed
 
 static char  g_client_names[4][30];
 // Which player NAME owns each slot. Unlike g_client_names (cleared on reset), this
@@ -88,7 +87,7 @@ static bool          g_guiPlacedBy[4] = { false };
 static bool          g_placementUnlocked = false; // coordinator emitted stage 2
 static bool          g_tacticalEntered = false;   // coordinator emitted stage 4
 
-static SystemAddress g_adminAddr;
+static ConnectionId g_adminAddr;
 static bool          g_hasAdmin = false;
 static char          g_adminPassword[64] = {0};
 
@@ -115,7 +114,7 @@ static bool  g_teamWiped[16] = { false };   // index by team number (6..9)
 // one client; if that client drops (or wedges) the paused turn would never resume,
 // so we track the holder for force-release on disconnect and time out a grant that
 // is never released (stale-interrupt watchdog).
-static SystemAddress g_interruptHolder;             // addr of the client granted the active interrupt
+static ConnectionId g_interruptHolder;             // addr of the client granted the active interrupt
 static Uint64        g_interruptGrantedMs = 0;       // SDL_GetTicks() when the active interrupt was granted
 static const Uint64  INTERRUPT_STALE_MS   = 30000;   // force-release an interrupt held this long with no release
 // The exact wire bytes of the active grant, kept so a force-release (holder dropped or
@@ -126,7 +125,7 @@ static std::vector<unsigned char> g_interruptPayload;
 // an interrupt while one is active already paused locally and is waiting for a grant.
 // Queue its request and grant it when the current holder releases (FIFO == arrival
 // order; a closer approximation of SP's gubOutOfTurnOrder serialization than dropping).
-struct PendingInterrupt { SystemAddress from; std::vector<unsigned char> payload; };
+struct PendingInterrupt { ConnectionId from; std::vector<unsigned char> payload; };
 static std::deque<PendingInterrupt> g_interruptQueue;
 static const size_t MAX_PENDING_INTERRUPTS = 4;   // one possible pending request per admitted slot
 
@@ -172,14 +171,13 @@ static char   g_dashboardToken[64] = "";
 static int FindEmptySlot()
 {
 	for (int x = 0; x < 4; x++)
-		if (g_clients[x].address.binaryAddress == 0) return x;
+		if (!g_clients[x].address) return x;
 	return -1;
 }
-static int SlotOf(SystemAddress a)
+static int SlotOf(ConnectionId a)
 {
 	for (int x = 0; x < 4; x++)
-		if (g_clients[x].address.binaryAddress == a.binaryAddress &&
-		    g_clients[x].address.port == a.port) return x;
+		if (g_clients[x].address == a) return x;
 	return -1;
 }
 static UINT8 TeamOfSlot(int slot)
@@ -189,40 +187,40 @@ static UINT8 TeamOfSlot(int slot)
 static int CountConnected()
 {
 	int n = 0;
-	for (int x = 0; x < 4; x++) if (g_clients[x].address.binaryAddress != 0) n++;
+	for (int x = 0; x < 4; x++) if (g_clients[x].address) n++;
 	return n;
 }
-static void TrackTransport(const SystemAddress& address)
+static void TrackTransport(const ConnectionId& address)
 {
-	for (std::vector<SystemAddress>::iterator it = g_closedBeforeIncoming.begin();
+	for (std::vector<ConnectionId>::iterator it = g_closedBeforeIncoming.begin();
 	     it != g_closedBeforeIncoming.end(); ++it)
 	{
 		if (*it == address) { g_closedBeforeIncoming.erase(it); return; }
 	}
-	for (std::vector<SystemAddress>::const_iterator it = g_transportPeers.begin();
+	for (std::vector<ConnectionId>::const_iterator it = g_transportPeers.begin();
 	     it != g_transportPeers.end(); ++it)
 		if (*it == address) return;
 	g_transportPeers.push_back(address);
 }
-static bool ForgetTransport(const SystemAddress& address)
+static bool ForgetTransport(const ConnectionId& address)
 {
-	for (std::vector<SystemAddress>::iterator it = g_transportPeers.begin();
+	for (std::vector<ConnectionId>::iterator it = g_transportPeers.begin();
 	     it != g_transportPeers.end(); ++it)
 	{
 		if (*it == address) { g_transportPeers.erase(it); return true; }
 	}
 	return false;
 }
-static void CloseTransport(const SystemAddress& address)
+static void CloseTransport(const ConnectionId& address)
 {
 	// Server-initiated closes do not synthesize a local disconnect packet in the
-	// netshim. An RPC can also be dispatched before the queued ID_NEW packet is
+	// transport. A message can also be dispatched before the queued connect event is
 	// returned to this pump, so leave a bounded tombstone for TrackTransport to
 	// consume instead of resurrecting the already-rejected connection.
 	if (!ForgetTransport(address))
 	{
 		bool known = false;
-		for (std::vector<SystemAddress>::const_iterator it = g_closedBeforeIncoming.begin();
+		for (std::vector<ConnectionId>::const_iterator it = g_closedBeforeIncoming.begin();
 		     it != g_closedBeforeIncoming.end(); ++it)
 			if (*it == address) { known = true; break; }
 		if (!known) g_closedBeforeIncoming.push_back(address);
@@ -233,10 +231,10 @@ static void DisconnectAllTransports()
 {
 	// Snapshot first: CloseConnection may defer notifications until the next pump.
 	// Clear ownership immediately so repeated reset paths remain idempotent.
-	const std::vector<SystemAddress> peers = g_transportPeers;
+	const std::vector<ConnectionId> peers = g_transportPeers;
 	g_transportPeers.clear();
 	g_closedBeforeIncoming.clear();
-	for (std::vector<SystemAddress>::const_iterator it = peers.begin(); it != peers.end(); ++it)
+	for (std::vector<ConnectionId>::const_iterator it = peers.begin(); it != peers.end(); ++it)
 		g_server->CloseConnection(*it, true);
 }
 static int CountStandingSides(bool honorWipes, int* lastSide = NULL)
@@ -245,7 +243,7 @@ static int CountStandingSides(bool honorWipes, int* lastSide = NULL)
 	bool wiped[4];
 	for (int slot = 0; slot < 4; ++slot)
 	{
-		connected[slot] = g_clients[slot].address.binaryAddress != 0;
+		connected[slot] = static_cast<bool>(g_clients[slot].address);
 		wiped[slot] = honorWipes && g_teamWiped[6 + slot];
 	}
 	return CoordinatorStandingSideCount(
@@ -264,46 +262,41 @@ static void ResetClientSelections()
 // ============================================================================
 //  Broadcast helpers
 // ============================================================================
-static inline void RelayExcept(const char* recvName, RPCParameters* p)
+static inline void RelayExcept(const char* recvName, SdlNetMessage* p)
 {
 	if (SlotOf(p->sender) < 0) return;
 	// broadcast=true + sender addr -> everyone EXCEPT the sender
-	g_server->RPC(recvName, (const char*)p->input, p->numberOfBitsOfData,
-	              HIGH_PRIORITY, RELIABLE, 0, p->sender, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	g_server->SendMessage(recvName, (const char*)p->data, p->size, p->sender, true);
 }
 static inline void RelayExceptBytes(const char* recvName, const char* data, int bytes,
-	SystemAddress except)
+	ConnectionId except)
 {
-	g_server->RPC(recvName, data, (BitSize_t)(bytes * 8), HIGH_PRIORITY, RELIABLE,
-	              0, except, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	g_server->SendMessage(recvName, data, (std::size_t)bytes, except, true);
 }
 static inline void BroadcastAll(const char* recvName, const char* data, int bytes)
 {
-	// broadcast=true + UNASSIGNED_SYSTEM_ADDRESS -> everyone
-	g_server->RPC(recvName, data, (BitSize_t)(bytes * 8),
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	// broadcast=true + AnyConnection -> everyone
+	g_server->SendMessage(recvName, data, (std::size_t)bytes, AnyConnection, true);
 }
-static inline void SendTo(const char* recvName, const char* data, int bytes, SystemAddress to)
+static inline void SendTo(const char* recvName, const char* data, int bytes, ConnectionId to)
 {
 	// broadcast=false + addr -> only that client
-	g_server->RPC(recvName, data, (BitSize_t)(bytes * 8),
-	              HIGH_PRIORITY, RELIABLE, 0, to, false, 0, UNASSIGNED_NETWORK_ID, 0);
+	g_server->SendMessage(recvName, data, (std::size_t)bytes, to, false);
 }
 
-// PR-1 (H14): central short-frame guard. Handlers that (Struct*)cast p->input and
+// PR-1 (H14): central short-frame guard. Handlers that (Struct*)cast p->data and
 // read sizeof(Struct) must first verify the wire payload is at least that large,
 // or they over-read the heap buffer (which is sized to the actual payload).
-#define NEED(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+#define NEED(p,T) do{ if ( ((long)(p)->size) < (long)sizeof(T) ) return; }while(0)
 
 // ============================================================================
-//  Pure relay handlers (rebroadcast wire bytes). RPCParameters carries no name,
+//  Pure relay handlers (rebroadcast wire bytes). SdlNetMessage carries no name,
 //  so each RPC needs its own tiny function -- generated by these macros.
 // ============================================================================
-#define RELAY_EXC(FN, RECV) static void FN(RPCParameters* p) { RelayExcept(RECV, p); }
-#define RELAY_ALL(FN, RECV) static void FN(RPCParameters* p) { \
+#define RELAY_EXC(FN, RECV) static void FN(SdlNetMessage* p) { RelayExcept(RECV, p); }
+#define RELAY_ALL(FN, RECV) static void FN(SdlNetMessage* p) { \
 	if (SlotOf(p->sender) < 0) return; \
-	g_server->RPC(RECV, (const char*)p->input, p->numberOfBitsOfData, \
-	HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0); }
+	g_server->SendMessage(RECV, (const char*)p->data, p->size, AnyConnection, true); }
 
 RELAY_EXC(sendPATH,             "recievePATH")
 RELAY_EXC(sendDOWNLOADSTATUS,   "recieveDOWNLOADSTATUS")
@@ -407,7 +400,7 @@ static void AdvanceSessionBarrier()
 	}
 }
 
-static void requestFILE_TRANSFER_SETTINGS(RPCParameters* p)
+static void requestFILE_TRANSFER_SETTINGS(SdlNetMessage* p)
 {
 	// Milestone 1: no file sync. Tell the client there is nothing to download so
 	// it proceeds straight to requestSETTINGS.
@@ -418,7 +411,7 @@ static void requestFILE_TRANSFER_SETTINGS(RPCParameters* p)
 	SendTo("recieveFILE_TRANSFER_SETTINGS", (const char*)&fts, sizeof(fts), p->sender);
 }
 
-static void requestSETTINGS(RPCParameters* p)
+static void requestSETTINGS(SdlNetMessage* p)
 {
 	if (g_allowlaptop) { // can_joingame() == !allowlaptop : reject late joins
 		printf("[ja2server] rejecting join -- game already locked\n"); fflush(stdout);
@@ -426,7 +419,7 @@ static void requestSETTINGS(RPCParameters* p)
 		return;
 	}
 	NEED(p, client_info);   // H14: short-frame over-read guard
-	client_info* ci = (client_info*)p->input;
+	client_info* ci = (client_info*)p->data;
 	ci->client_name[29] = 0;
 	ci->client_version[29] = 0;
 
@@ -453,7 +446,7 @@ static void requestSETTINGS(RPCParameters* p)
 		// stable across a rematch instead of shuffling them.
 		for (int i = 0; i < 4; i++)
 			if (g_knownName[i][0] && strcmp(g_knownName[i], ci->client_name) == 0
-			    && g_clients[i].address.binaryAddress == 0) { slot = i; welcomeBack = true; break; }
+			    && !g_clients[i].address) { slot = i; welcomeBack = true; break; }
 	}
 	if (slot < 0) slot = FindEmptySlot();
 	if (slot < 0) { CloseTransport(p->sender); return; }
@@ -526,10 +519,10 @@ static void requestSETTINGS(RPCParameters* p)
 	       g_sectorX, g_sectorY, g_gameType); fflush(stdout);
 }
 
-static void sendREADY(RPCParameters* p)
+static void sendREADY(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(ready_struct)) return;
-	const unsigned char* wire = (const unsigned char*)p->input;
+	if (p->size != sizeof(ready_struct)) return;
+	const unsigned char* wire = (const unsigned char*)p->data;
 	if (wire[1] > 1) return;   // never load an invalid raw representation into C++ bool
 	int slot = SlotOf(p->sender);
 	if (slot < 0 || wire[2] != 0 || !g_allowlaptop || g_battleStarted) return;
@@ -557,10 +550,10 @@ static void sendREADY(RPCParameters* p)
 // is_server -> emit stage2) used to run on the loopback client; the standalone host
 // has none, so the coordinator must aggregate here. stage2 makes each client run
 // lockui(1) -> PlaceMercs() + dismiss the dialog. Likewise stage3(done) -> stage4(go).
-static void sendGUI(RPCParameters* p)
+static void sendGUI(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(ready_struct)) return;
-	const unsigned char* wire = (const unsigned char*)p->input;
+	if (p->size != sizeof(ready_struct)) return;
+	const unsigned char* wire = (const unsigned char*)p->data;
 	if (wire[1] > 1) return;   // never load an invalid raw representation into C++ bool
 	UINT8 status = wire[1];
 	UINT8 stage = wire[2];
@@ -592,11 +585,11 @@ static void sendGUI(RPCParameters* p)
 	// Stages 2 and 4 are coordinator-owned and cannot be injected by a client.
 }
 
-static void adminCmd(RPCParameters* p)
+static void adminCmd(SdlNetMessage* p)
 {
 	NEED(p, admin_cmd_struct);   // H14: short-frame over-read guard (reads password[63])
 	if (SlotOf(p->sender) < 0) return;
-	admin_cmd_struct* ac = (admin_cmd_struct*)p->input;
+	admin_cmd_struct* ac = (admin_cmd_struct*)p->data;
 	ac->password[63] = 0;
 	if (ac->cmd == ADMIN_CMD_AUTH)
 	{
@@ -628,11 +621,11 @@ static void adminCmd(RPCParameters* p)
 
 // Lobby roster changes carry a legacy client_num supplied by the client. Bind
 // that byte to the admitted connection and accept only values the UI can emit.
-static void sendEDGECHANGE(RPCParameters* p)
+static void sendEDGECHANGE(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(edgechange_struct)) return;
+	if (p->size != sizeof(edgechange_struct)) return;
 	int slot = SlotOf(p->sender);
-	edgechange_struct* requested = (edgechange_struct*)p->input;
+	edgechange_struct* requested = (edgechange_struct*)p->data;
 	if (slot < 0 || g_allowlaptop || g_battleStarted || g_client_ready[slot] ||
 	    requested->newedge > MP_EDGE_CENTER) return;
 	edgechange_struct authored = { (UINT8)(slot + 1), requested->newedge };
@@ -640,11 +633,11 @@ static void sendEDGECHANGE(RPCParameters* p)
 	RelayExceptBytes("recieveEDGECHANGE", (const char*)&authored, sizeof(authored), p->sender);
 }
 
-static void sendTEAMCHANGE(RPCParameters* p)
+static void sendTEAMCHANGE(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(teamchange_struct)) return;
+	if (p->size != sizeof(teamchange_struct)) return;
 	int slot = SlotOf(p->sender);
-	teamchange_struct* requested = (teamchange_struct*)p->input;
+	teamchange_struct* requested = (teamchange_struct*)p->data;
 	if (slot < 0 || g_gameType != MP_TYPE_TEAMDEATMATCH || g_allowlaptop ||
 	    g_battleStarted || g_client_ready[slot] || requested->newteam > 3) return;
 	teamchange_struct authored = { (UINT8)(slot + 1), requested->newteam };
@@ -654,19 +647,19 @@ static void sendTEAMCHANGE(RPCParameters* p)
 
 // Legacy "kick" removes a player's tactical team on every client. It is an
 // admin command, not a general relay; the target must be another occupied slot.
-static void Snull_team(RPCParameters* p)
+static void Snull_team(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(kickR)) return;
+	if (p->size != sizeof(kickR)) return;
 	if (!g_hasAdmin || p->sender != g_adminAddr) return;
-	kickR* requested = (kickR*)p->input;
+	kickR* requested = (kickR*)p->data;
 	if (requested->ubResult < 6 || requested->ubResult > 9) return;
 	int target = requested->ubResult - 6;
-	if (!g_clients[target].address.binaryAddress || g_clients[target].address == p->sender) return;
+	if (!g_clients[target].address || g_clients[target].address == p->sender) return;
 	kickR authored = { TeamOfSlot(target) };
 	BroadcastAll("null_team", (const char*)&authored, sizeof(authored));
 }
 
-static void sendGAMEOVER(RPCParameters* p)
+static void sendGAMEOVER(SdlNetMessage* p)
 {
 	// In a standalone session game-over is coordinator-owned (last standing). A
 	// client has no authority to end the match or publish a scoreboard.
@@ -684,16 +677,16 @@ static void ForceReleaseInterrupt();
 // A merc died. death_struct carries the 1-based player indices plainly (no pointer
 // deref needed, unlike the hit/miss handlers), so the coordinator can keep the
 // kill/death scoreboard the headless host used to own. Then relay the death event.
-static void sendDEATH(RPCParameters* p)
+static void sendDEATH(SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 != sizeof(death_struct)) return;
+	if (p->size != sizeof(death_struct)) return;
 	int slot = SlotOf(p->sender);
 	if (slot < 0 || !g_tacticalEntered) return;
-	death_struct* d = (death_struct*)p->input;
+	death_struct* d = (death_struct*)p->data;
 	UINT8 victim = (UINT8)(slot + 1);
 	UINT8 attacker = d->attacker_team;
 	if (d->soldier_team != victim || attacker < 1 || attacker > 4 ||
-	    !g_clients[attacker - 1].address.binaryAddress) return;
+	    !g_clients[attacker - 1].address) return;
 	death_struct authored = *d;
 	authored.soldier_team = victim;
 	g_scoreboard[victim - 1].deaths++;
@@ -707,7 +700,7 @@ static void sendDEATH(RPCParameters* p)
 // attacker slot. A shot is reported by the client simulating its own bullet, so
 // the sender is the attacker for hit/miss scoring. A bullet hitting a structure,
 // window, or nothing is a miss; accuracy = hits/(hits+misses).
-static void TallyShot(RPCParameters* p, bool hit)
+static void TallyShot(SdlNetMessage* p, bool hit)
 {
 	int s = SlotOf(p->sender);
 	if (s < 0 || s >= 4 || !g_tacticalEntered) return;
@@ -718,10 +711,10 @@ static void TallyShot(RPCParameters* p, bool hit)
 	     s + 1, hit ? "HIT " : "miss", h, shots, shots ? (100.0 * h / shots) : 0.0);
 	fflush(stdout);
 }
-static void sendHIT(RPCParameters* p)       { TallyShot(p, true);  RelayExcept("recieveHIT",       p); }
-static void sendMISS(RPCParameters* p)      { TallyShot(p, false); RelayExcept("recieveMISS",      p); }
-static void sendhitSTRUCT(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitSTRUCT", p); }
-static void sendhitWINDOW(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitWINDOW", p); }
+static void sendHIT(SdlNetMessage* p)       { TallyShot(p, true);  RelayExcept("recieveHIT",       p); }
+static void sendMISS(SdlNetMessage* p)      { TallyShot(p, false); RelayExcept("recieveMISS",      p); }
+static void sendhitSTRUCT(SdlNetMessage* p) { TallyShot(p, false); RelayExcept("recievehitSTRUCT", p); }
+static void sendhitWINDOW(SdlNetMessage* p) { TallyShot(p, false); RelayExcept("recievehitWINDOW", p); }
 
 // Declare the deathmatch winner when only one team is left in play (wiped out OR
 // disconnected). Over the FIXED team space {6+slot : occupied && !wiped} -- NOT
@@ -751,10 +744,10 @@ static bool CheckLastStanding()
 // Relay the notice, then -- for deathmatch -- end the game when only one team is left
 // standing. The win used to be declared by the host game-instance's is_server-gated
 // path, which the coordinator now owns.
-static void sendWIPE(RPCParameters* p)
+static void sendWIPE(SdlNetMessage* p)
 {
 	NEED(p, sc_struct);   // H14: short-frame over-read guard
-	sc_struct* sc = (sc_struct*)p->input;
+	sc_struct* sc = (sc_struct*)p->data;
 	int slot = SlotOf(p->sender);
 	if (slot < 0 || !g_tacticalEntered) return;
 	UINT8 team = TeamOfSlot(slot);
@@ -797,7 +790,7 @@ static void sendWIPE(RPCParameters* p)
 	}
 }
 
-static void sendREAL(RPCParameters* p)
+static void sendREAL(SdlNetMessage* p)
 {
 	// realtime-changeover vote: when every connected client has voted, tell all
 	// clients to switch back to realtime. (Approximation of the engine's
@@ -805,7 +798,7 @@ static void sendREAL(RPCParameters* p)
 	NEED(p, real_struct);   // H14: short-frame over-read guard
 	int slot = SlotOf(p->sender);
 	if (slot < 0) return;
-	real_struct* rd = (real_struct*)p->input;
+	real_struct* rd = (real_struct*)p->data;
 	int b = TeamOfSlot(slot);
 	if ((UINT8)rd->bteam != (UINT8)b || !g_inCombat || !TeamActive((UINT8)b)) return;
 	if (!g_rtTeamVoted[b]) { g_rtTeamVoted[b] = true; g_rtVotes++; }
@@ -823,7 +816,7 @@ static bool TeamActive(UINT8 team)
 	if (team < 6 || team >= 6 + 4) return false;
 	int slot = (int)team - 6;
 	return CoordinatorTransportTeamActive(
-		g_clients[slot].address.binaryAddress != 0, g_teamWiped[team]);
+		static_cast<bool>(g_clients[slot].address), g_teamWiped[team]);
 }
 
 static bool MaybeFinishRealtime()
@@ -838,7 +831,7 @@ static bool MaybeFinishRealtime()
 	g_inCombat = false;
 	g_currentTeam = 0;
 	g_interruptActive = false;
-	g_interruptHolder = SystemAddress();
+	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
 	g_interruptQueue.clear();
 	real_struct authored = { 0 };
@@ -875,16 +868,14 @@ static void BroadcastTurn(UINT8 team)
 		std::vector<unsigned char> resume = g_interruptPayload;
 		if (g_preInterruptTeam >= 6 && resume.size() > 2)
 			resume[2] = g_preInterruptTeam;
-		g_server->RPC("resume_turn", (const char*)resume.data(),
-		              (BitSize_t)(resume.size() * 8), HIGH_PRIORITY, RELIABLE, 0,
-		              UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+		g_server->SendMessage("resume_turn", resume.data(), resume.size(), AnyConnection, true);
 		VLOG("[ja2server]   <<< interrupt cancelled for turn handoff\n"); fflush(stdout);
 	}
 	g_currentTeam = team;
 	// turn boundary: no interrupt (active OR queued) should outlive a turn handoff
 	g_interruptActive = false;
 	g_pendingEndTurn  = false;   // a new turn started -> any deferred end-turn is moot
-	g_interruptHolder = SystemAddress();
+	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
 	g_interruptQueue.clear();
 	turn_struct ts;
@@ -920,16 +911,15 @@ static void BroadcastTurn(UINT8 team)
 // or never releases (TickInterruptWatchdog) is force-released instead of wedging the turn.
 // Broadcast a granted interrupt (recieveINTERRUPT) to EVERYONE: the requester acts,
 // the others pause. `from` becomes the holder so a disconnect can force-release it.
-static void GrantInterrupt(SystemAddress from, const unsigned char* payload, int bits)
+static void GrantInterrupt(ConnectionId from, const unsigned char* payload, std::size_t bytes)
 {
 	g_interruptActive    = true;
 	g_interruptHolder    = from;
 	g_interruptGrantedMs = SDL_GetTicks();
 	g_preInterruptTeam   = g_currentTeam;
-	g_interruptPayload.assign(payload, payload + (size_t)((bits + 7) / 8));
+	g_interruptPayload.assign(payload, payload + bytes);
 	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
-	g_server->RPC("recieveINTERRUPT", (const char*)payload, (BitSize_t)bits,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	g_server->SendMessage("recieveINTERRUPT", payload, bytes, AnyConnection, true);
 }
 
 // Release the active interrupt and resume the paused turn. The resume target is taken
@@ -938,19 +928,17 @@ static void GrantInterrupt(SystemAddress from, const unsigned char* payload, int
 // { SoldierID ubID (UINT16); INT8 bTeam; ... }, so bTeam is byte offset 2 -- patch it
 // in a copy of the wire payload before forwarding so the rest (out-of-turn order) is
 // untouched. Then chain the next queued interrupt, if any (H24).
-static void ReleaseInterrupt(const unsigned char* payload, int bits)
+static void ReleaseInterrupt(const unsigned char* payload, std::size_t bytes)
 {
 	g_interruptActive = false;
-	g_interruptHolder = SystemAddress();
+	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
 
-	size_t bytes = (size_t)((bits + 7) / 8);
 	std::vector<unsigned char> buf(payload, payload + bytes);
 	if (g_preInterruptTeam >= 6 && bytes > 2)
 		buf[2] = (unsigned char)g_preInterruptTeam;   // author resume target from server state
 	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
-	g_server->RPC("resume_turn", (const char*)buf.data(), (BitSize_t)bits,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	g_server->SendMessage("resume_turn", buf.data(), bytes, AnyConnection, true);
 
 	// chain: grant the oldest queued concurrent interrupt instead of dropping it (H24).
 	while (!g_interruptQueue.empty())
@@ -960,7 +948,7 @@ static void ReleaseInterrupt(const unsigned char* payload, int bits)
 		int nslot = SlotOf(next.from);
 		if (nslot < 0 || g_teamWiped[6 + nslot]) continue;   // requester left OR its team was wiped -- skip
 		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
-		GrantInterrupt(next.from, next.payload.data(), (int)next.payload.size() * 8);
+		GrantInterrupt(next.from, next.payload.data(), next.payload.size());
 		return;
 	}
 
@@ -990,12 +978,12 @@ static void ForceReleaseInterrupt()
 		// so clear the grant and resume the paused team by number so the turn can't wedge.
 		// (sendINTERRUPT now rejects short frames, so this is defense-in-depth.)
 		g_interruptActive = false;
-		g_interruptHolder = SystemAddress();
+		g_interruptHolder = ConnectionId();
 		g_interruptQueue.clear();
 		if (g_preInterruptTeam >= 6) BroadcastTurn(g_preInterruptTeam);
 		return;
 	}
-	ReleaseInterrupt(grant.data(), (int)grant.size() * 8);
+	ReleaseInterrupt(grant.data(), grant.size());
 }
 
 // Per-tick watchdog: an interrupt grant whose holder never sends endINTERRUPT (wedged
@@ -1010,17 +998,16 @@ static void TickInterruptWatchdog()
 	ForceReleaseInterrupt();
 }
 
-static bool ValidInterruptWire(const RPCParameters* p, bool release)
+static bool ValidInterruptWire(const SdlNetMessage* p, bool release)
 {
-	if ((p->numberOfBitsOfData & 7) != 0) return false;
-	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
-	const unsigned char* data = (const unsigned char*)p->input;
+	size_t bytes = (size_t)p->size;
+	const unsigned char* data = (const unsigned char*)p->data;
 	return MpInterruptWire::Validate(data, bytes, release);
 }
 
-static void sendINTERRUPT(RPCParameters* p)
+static void sendINTERRUPT(SdlNetMessage* p)
 {
-	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
+	size_t bytes = (size_t)p->size;
 	// Require the exact portable SerializeINT shape. This rejects short frames,
 	// over-sized queued vectors, invalid order counts, and trailing garbage.
 	if (!ValidInterruptWire(p, false))
@@ -1029,7 +1016,7 @@ static void sendINTERRUPT(RPCParameters* p)
 		return;
 	}
 	int slot = SlotOf(p->sender);
-	if (slot < 0 || ((const unsigned char*)p->input)[2] != TeamOfSlot(slot) ||
+	if (slot < 0 || ((const unsigned char*)p->data)[2] != TeamOfSlot(slot) ||
 	    !TeamActive(TeamOfSlot(slot)))
 	{
 		VLOG("[ja2server] sendINTERRUPT dropped -- sender/team mismatch\n"); fflush(stdout);
@@ -1069,19 +1056,19 @@ static void sendINTERRUPT(RPCParameters* p)
 		}
 		PendingInterrupt pi;
 		pi.from = p->sender;
-		pi.payload.assign((const unsigned char*)p->input, (const unsigned char*)p->input + bytes);
+		pi.payload.assign((const unsigned char*)p->data, (const unsigned char*)p->data + bytes);
 		g_interruptQueue.push_back(pi);
 		VLOG("[ja2server]   interrupt request QUEUED (%zu waiting -- one already active)\n",
 		     g_interruptQueue.size()); fflush(stdout);
 		return;
 	}
-	GrantInterrupt(p->sender, (const unsigned char*)p->input, (int)p->numberOfBitsOfData);
+	GrantInterrupt(p->sender, (const unsigned char*)p->data, p->size);
 }
-static void endINTERRUPT(RPCParameters* p)
+static void endINTERRUPT(SdlNetMessage* p)
 {
 	int slot = SlotOf(p->sender);
 	if (slot < 0 || !ValidInterruptWire(p, true) || !TeamActive(TeamOfSlot(slot)) ||
-	    ((const unsigned char*)p->input)[2] != TeamOfSlot(slot))
+	    ((const unsigned char*)p->data)[2] != TeamOfSlot(slot))
 		return;
 	if (!g_interruptActive)
 	{
@@ -1093,15 +1080,15 @@ static void endINTERRUPT(RPCParameters* p)
 		VLOG("[ja2server] interrupt release ignored -- sender is not holder\n"); fflush(stdout);
 		return;
 	}
-	ReleaseInterrupt((const unsigned char*)p->input, (int)p->numberOfBitsOfData);
+	ReleaseInterrupt((const unsigned char*)p->data, p->size);
 }
 
 // First contact: a client switched to turn-based and is asking the authority to run
 // the turn order. The team that sighted (ubStartingTeam, 6..9) takes the first turn.
-static void startCOMBAT(RPCParameters* p)
+static void startCOMBAT(SdlNetMessage* p)
 {
 	NEED(p, sc_struct);   // H14: short-frame over-read guard
-	sc_struct* sc = (sc_struct*)p->input;
+	sc_struct* sc = (sc_struct*)p->data;
 	int slot = SlotOf(p->sender);
 	UINT8 senderTeam = TeamOfSlot(slot);
 	if (slot < 0 || !g_tacticalEntered || sc->ubStartingTeam != senderTeam ||
@@ -1123,10 +1110,10 @@ static void startCOMBAT(RPCParameters* p)
 
 // A client finished its turn (END TURN button -> send_EndTurn(netbTeam+1)). Only the
 // team whose turn it actually is may advance it; hand the turn to the next active team.
-static void sendEndTurn(RPCParameters* p)
+static void sendEndTurn(SdlNetMessage* p)
 {
 	NEED(p, turn_struct);   // H14: short-frame over-read guard
-	turn_struct* ts = (turn_struct*)p->input;
+	turn_struct* ts = (turn_struct*)p->data;
 	int slot = SlotOf(p->sender);
 	UINT8 senderTeam = TeamOfSlot(slot);
 	if (slot < 0 || !g_tacticalEntered || ts->tsnetbTeam != senderTeam ||
@@ -1167,7 +1154,7 @@ static void ResetGameState()
 	g_inCombat     = false;
 	g_currentTeam  = 0;
 	g_interruptActive = false;
-	g_interruptHolder = SystemAddress();
+	g_interruptHolder = ConnectionId();
 	g_interruptQueue.clear();
 	g_pendingEndTurn = false;
 	g_gameOver     = false;
@@ -1185,10 +1172,10 @@ static void ResetGameState()
 	memset(g_guiPlacedBy, 0, sizeof(g_guiPlacedBy));
 	ResetClientSelections();
 	g_hasAdmin     = false;
-	g_adminAddr    = SystemAddress();
+	g_adminAddr    = ConnectionId();
 	for (int i = 0; i < 4; i++)
 	{
-		g_clients[i].address = SystemAddress();
+		g_clients[i].address = ConnectionId();
 		g_clients[i].cl_number = 0;
 		g_client_names[i][0] = 0;
 	}
@@ -1196,7 +1183,7 @@ static void ResetGameState()
 	printf("[ja2server] ---- game reset, lobby open for new players ----\n"); fflush(stdout);
 }
 
-static void HandleDisconnect(SystemAddress who)
+static void HandleDisconnect(ConnectionId who)
 {
 	int slot = SlotOf(who);
 	if (slot < 0) return;
@@ -1207,8 +1194,7 @@ static void HandleDisconnect(SystemAddress who)
 	UINT8 currentTeam   = g_currentTeam;
 
 	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
-	g_clients[slot].address.binaryAddress = 0;
-	g_clients[slot].address.port = 0;
+	g_clients[slot].address = NoConnection;
 	g_clients[slot].cl_number = 0;
 	g_client_names[slot][0] = 0;
 	g_client_ready[slot] = 0;
@@ -1225,7 +1211,7 @@ static void HandleDisconnect(SystemAddress who)
 	if (g_hasAdmin && who == g_adminAddr)
 	{
 		g_hasAdmin = false;
-		g_adminAddr = SystemAddress();   // binaryAddress 0
+		g_adminAddr = NoConnection;
 		printf("[ja2server] admin dropped -- admin slot released\n"); fflush(stdout);
 	}
 
@@ -1303,13 +1289,13 @@ static void HandleDisconnect(SystemAddress who)
 // Diagnostic log channel. A client sends a preformatted text line (zero-padded,
 // NUL-terminated); the coordinator prints it centrally when verbose logging is on.
 // Lets the clients narrate things only THEY know (who sighted whom, ranges, etc.).
-static void serverLog(RPCParameters* p)
+static void serverLog(SdlNetMessage* p)
 {
 	if (g_logLevel < LOG_VERBOSE || SlotOf(p->sender) < 0) return;
 	char line[260];
-	size_t n = (p->numberOfBitsOfData + 7) / 8;
+	size_t n = p->size;
 	if (n >= sizeof(line)) n = sizeof(line) - 1;
-	memcpy(line, p->input, n);
+	memcpy(line, p->data, n);
 	line[n] = 0;
 	line[sizeof(line) - 1] = 0;
 	printf("[mp] %s\n", line); fflush(stdout);
@@ -1320,61 +1306,58 @@ static void serverLog(RPCParameters* p)
 // ============================================================================
 static void RegisterHandlers()
 {
-	REGISTER_STATIC_RPC(g_server, sendPATH);
-	REGISTER_STATIC_RPC(g_server, sendDOWNLOADSTATUS);
-	REGISTER_STATIC_RPC(g_server, sendSTANCE);
-	REGISTER_STATIC_RPC(g_server, sendDIR);
-	REGISTER_STATIC_RPC(g_server, sendFIRE);
-	REGISTER_STATIC_RPC(g_server, sendHIT);
-	REGISTER_STATIC_RPC(g_server, sendHIRE);
-	REGISTER_STATIC_RPC(g_server, sendDISMISS);
-	REGISTER_STATIC_RPC(g_server, sendguiPOS);
-	REGISTER_STATIC_RPC(g_server, sendguiDIR);
-	REGISTER_STATIC_RPC(g_server, sendEndTurn);
-	REGISTER_STATIC_RPC(g_server, sendAI);
-	REGISTER_STATIC_RPC(g_server, sendSTOP);
-	REGISTER_STATIC_RPC(g_server, sendINTERRUPT);
-	REGISTER_STATIC_RPC(g_server, sendREADY);
-	REGISTER_STATIC_RPC(g_server, sendGUI);
-	REGISTER_STATIC_RPC(g_server, sendBULLET);
-	REGISTER_STATIC_RPC(g_server, sendGRENADE);
-	REGISTER_STATIC_RPC(g_server, sendGRENADERESULT);
-	REGISTER_STATIC_RPC(g_server, sendPLANTEXPLOSIVE);
-	REGISTER_STATIC_RPC(g_server, sendDETONATEEXPLOSIVE);
-	REGISTER_STATIC_RPC(g_server, sendDISARMEXPLOSIVE);
-	REGISTER_STATIC_RPC(g_server, sendSPREADEFFECT);
-	REGISTER_STATIC_RPC(g_server, sendNEWSMOKEEFFECT);
-	REGISTER_STATIC_RPC(g_server, sendEXPLOSIONDAMAGE);
-	REGISTER_STATIC_RPC(g_server, requestSETTINGS);
-	REGISTER_STATIC_RPC(g_server, requestFILE_TRANSFER_SETTINGS);
-	REGISTER_STATIC_RPC(g_server, sendSTATE);
-	REGISTER_STATIC_RPC(g_server, sendDEATH);
-	REGISTER_STATIC_RPC(g_server, sendhitSTRUCT);
-	REGISTER_STATIC_RPC(g_server, sendhitWINDOW);
-	REGISTER_STATIC_RPC(g_server, sendMISS);
-	REGISTER_STATIC_RPC(g_server, updatenetworksoldier);
-	REGISTER_STATIC_RPC(g_server, Snull_team);
-	REGISTER_STATIC_RPC(g_server, sendFIREW);
-	REGISTER_STATIC_RPC(g_server, sendDOOR);
-	REGISTER_STATIC_RPC(g_server, endINTERRUPT);
-	REGISTER_STATIC_RPC(g_server, adminCmd);
-	REGISTER_STATIC_RPC(g_server, sendREAL);
-	REGISTER_STATIC_RPC(g_server, startCOMBAT);
-	REGISTER_STATIC_RPC(g_server, sendWIPE);
-	REGISTER_STATIC_RPC(g_server, sendHEAL);
-	REGISTER_STATIC_RPC(g_server, sendEDGECHANGE);
-	REGISTER_STATIC_RPC(g_server, sendTEAMCHANGE);
-	REGISTER_STATIC_RPC(g_server, sendGAMEOVER);
-	REGISTER_STATIC_RPC(g_server, sendCHATMSG);
-	REGISTER_STATIC_RPC(g_server, serverLog);
+	REGISTER_SDLNET_MESSAGE(g_server, sendPATH);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDOWNLOADSTATUS);
+	REGISTER_SDLNET_MESSAGE(g_server, sendSTANCE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDIR);
+	REGISTER_SDLNET_MESSAGE(g_server, sendFIRE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendHIT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendHIRE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDISMISS);
+	REGISTER_SDLNET_MESSAGE(g_server, sendguiPOS);
+	REGISTER_SDLNET_MESSAGE(g_server, sendguiDIR);
+	REGISTER_SDLNET_MESSAGE(g_server, sendEndTurn);
+	REGISTER_SDLNET_MESSAGE(g_server, sendAI);
+	REGISTER_SDLNET_MESSAGE(g_server, sendSTOP);
+	REGISTER_SDLNET_MESSAGE(g_server, sendINTERRUPT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendREADY);
+	REGISTER_SDLNET_MESSAGE(g_server, sendGUI);
+	REGISTER_SDLNET_MESSAGE(g_server, sendBULLET);
+	REGISTER_SDLNET_MESSAGE(g_server, sendGRENADE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendGRENADERESULT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendPLANTEXPLOSIVE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDETONATEEXPLOSIVE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDISARMEXPLOSIVE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendSPREADEFFECT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendNEWSMOKEEFFECT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendEXPLOSIONDAMAGE);
+	REGISTER_SDLNET_MESSAGE(g_server, requestSETTINGS);
+	REGISTER_SDLNET_MESSAGE(g_server, requestFILE_TRANSFER_SETTINGS);
+	REGISTER_SDLNET_MESSAGE(g_server, sendSTATE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDEATH);
+	REGISTER_SDLNET_MESSAGE(g_server, sendhitSTRUCT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendhitWINDOW);
+	REGISTER_SDLNET_MESSAGE(g_server, sendMISS);
+	REGISTER_SDLNET_MESSAGE(g_server, updatenetworksoldier);
+	REGISTER_SDLNET_MESSAGE(g_server, Snull_team);
+	REGISTER_SDLNET_MESSAGE(g_server, sendFIREW);
+	REGISTER_SDLNET_MESSAGE(g_server, sendDOOR);
+	REGISTER_SDLNET_MESSAGE(g_server, endINTERRUPT);
+	REGISTER_SDLNET_MESSAGE(g_server, adminCmd);
+	REGISTER_SDLNET_MESSAGE(g_server, sendREAL);
+	REGISTER_SDLNET_MESSAGE(g_server, startCOMBAT);
+	REGISTER_SDLNET_MESSAGE(g_server, sendWIPE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendHEAL);
+	REGISTER_SDLNET_MESSAGE(g_server, sendEDGECHANGE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendTEAMCHANGE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendGAMEOVER);
+	REGISTER_SDLNET_MESSAGE(g_server, sendCHATMSG);
+	REGISTER_SDLNET_MESSAGE(g_server, serverLog);
 }
 
-static unsigned char PacketId(Packet* p)
+static unsigned char PacketId(SdlNetEvent* p)
 {
-	if (!p) return 255;
-	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
-		return (unsigned char)p->data[sizeof(unsigned char) + sizeof(RakNetTime)];
-	return (unsigned char)p->data[0];
+	return !p || p->size == 0 ? 255 : p->data[0];
 }
 
 static volatile sig_atomic_t g_run = 1;
@@ -1528,7 +1511,7 @@ static std::string StatusJson()
 	o += "\"players\":[";
 	bool first = true;
 	for (int i = 0; i < 4; i++) {
-		if (!g_clients[i].address.binaryAddress) continue;
+		if (!g_clients[i].address) continue;
 		bool isAdmin = g_hasAdmin && g_clients[i].address == g_adminAddr;
 		snprintf(b, sizeof(b),
 			"%s{\"num\":%d,\"name\":\"%s\",\"team\":%d,\"ready\":%s,\"admin\":%s}",
@@ -1718,7 +1701,7 @@ static std::string HttpHandle(const HttpReq& r)
 		if (applied < 0)
 			return HttpResponse(400, "Bad Request", "application/json",
 				"{\"ok\":false,\"error\":\"standalone coordinator supports game types 0 and 1 only\"}");
-		// L11: maxClients may have changed -- reflect it in the live netshim cap so
+		// L11: maxClients may have changed -- reflect it in the live transport cap so
 		// the change takes effect immediately, not only on the next process start.
 		g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
 		char b[64]; snprintf(b, sizeof(b), "{\"ok\":true,\"applied\":%d}", applied);
@@ -1942,26 +1925,26 @@ int main(int argc, char** argv)
 	(void)&OnReset;            // Windows has no SIGHUP; keep the handler referenced
 #endif
 
-	SDL_Init(0);   // netshim's NET_Init (refcounted in Startup) needs SDL up
+	SDL_Init(0);   // the transport's refcounted NET_Init needs SDL up
 
 	g_transportPeers.clear();
 	g_closedBeforeIncoming.clear();
-	for (int x = 0; x < 4; x++) { g_clients[x].address = SystemAddress(); g_clients[x].cl_number = 0; }
+	for (int x = 0; x < 4; x++) { g_clients[x].address = ConnectionId(); g_clients[x].cl_number = 0; }
 	ResetClientSelections();
 
-	g_server = RakNetworkFactory::GetRakPeerInterface();
-	g_server->SetTimeoutTime(120000, UNASSIGNED_SYSTEM_ADDRESS);
+	g_server = CreateSdlNetPeer();
+	g_server->SetTimeout(120000);
 	// Bind the game listener to SERVER_BIND (default 127.0.0.1). Use "0.0.0.0" for
 	// real LAN play; loopback-by-default keeps the server off public interfaces unless
 	// the operator opts in.
-	SocketDescriptor sd((unsigned short)g_serverPort, g_serverBind);
-	if (!g_server->Startup((unsigned short)g_maxClients, 30, &sd, 1))
+	SdlNetEndpoint sd((unsigned short)g_serverPort, g_serverBind);
+	if (!g_server->Start((unsigned short)g_maxClients, sd))
 	{
 		const char* bindError = SDL_GetError();
 		bool sandboxDenied = bindError && strstr(bindError, "Operation not permitted");
 		fprintf(stderr, "[ja2server] FATAL: could not bind %s:%d (%s)\n",
 		        g_serverBind, g_serverPort, bindError ? bindError : "unknown error");
-		RakNetworkFactory::DestroyRakPeerInterface(g_server);
+		DestroySdlNetPeer(g_server);
 		g_server = NULL;
 		SDL_Quit();
 		// Restricted build sandboxes can deny even 127.0.0.1 listeners. Let the
@@ -1974,7 +1957,6 @@ int main(int argc, char** argv)
 #endif
 	}
 	g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
-	g_server->SetOccasionalPing(true);
 	RegisterHandlers();
 
 	printf("========================================================\n");
@@ -1987,35 +1969,35 @@ int main(int argc, char** argv)
 
 	HttpInit();   // optional web dashboard (DASHBOARD_PORT)
 
-	// Pump loop. Receive() does socket I/O AND dispatches RPC handlers in-place.
+	// Pump loop. Poll() does socket I/O and dispatches named handlers in-place.
 	while (g_run)
 	{
-		Packet* p = g_server->Receive();
+		SdlNetEvent* p = g_server->Poll();
 		while (p)
 		{
 			switch (PacketId(p))
 			{
-				case ID_NEW_INCOMING_CONNECTION:
-					TrackTransport(p->systemAddress);
+				case SDLNET_NEW_INCOMING_CONNECTION:
+					TrackTransport(p->connection);
 					if (g_allowlaptop) { // reject joins once the game is locked
 						VLOG("[ja2server] rejecting late connection (game locked)\n"); fflush(stdout);
-						CloseTransport(p->systemAddress);
+						CloseTransport(p->connection);
 					}
 					break;
-				case ID_DISCONNECTION_NOTIFICATION:
-				case ID_CONNECTION_LOST:
-					ForgetTransport(p->systemAddress);
-					for (std::vector<SystemAddress>::iterator it = g_closedBeforeIncoming.begin();
+				case SDLNET_DISCONNECTION_NOTIFICATION:
+				case SDLNET_CONNECTION_LOST:
+					ForgetTransport(p->connection);
+					for (std::vector<ConnectionId>::iterator it = g_closedBeforeIncoming.begin();
 					     it != g_closedBeforeIncoming.end(); ++it)
 					{
-						if (*it == p->systemAddress) { g_closedBeforeIncoming.erase(it); break; }
+						if (*it == p->connection) { g_closedBeforeIncoming.erase(it); break; }
 					}
-					HandleDisconnect(p->systemAddress);
+					HandleDisconnect(p->connection);
 					break;
 				default: break;
 			}
-			g_server->DeallocatePacket(p);
-			p = g_server->Receive();
+			g_server->Release(p);
+			p = g_server->Poll();
 		}
 		if (g_reset)
 		{
@@ -2027,13 +2009,13 @@ int main(int argc, char** argv)
 		}
 		TickInterruptWatchdog();   // force-release a wedged interrupt (stale watchdog)
 		HttpTick();   // serve at most one slice of dashboard work per tick
-		RakSleep(10);
+		SDL_Delay(10);
 	}
 
 	printf("\n[ja2server] shutting down...\n"); fflush(stdout);
 	HttpShutdown();
 	g_server->Shutdown(300);
-	RakNetworkFactory::DestroyRakPeerInterface(g_server);
+	DestroySdlNetPeer(g_server);
 	SDL_Quit();
 	return 0;
 }

@@ -1112,7 +1112,7 @@ command executor. Obstacle discovery, AP costs, blocked-tile waiting, and
 animation completion remain JA2 executor mechanics. The domain validates world
 lifetime, actor, body, animation, route, direction, level, destination,
 occupancy, and action-point state without changing maps, structures, animation
-data, AP settings, saves, XML, Lua, or RakNet packet formats.
+data, AP settings, saves, XML, Lua, or legacy multiplayer packet formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

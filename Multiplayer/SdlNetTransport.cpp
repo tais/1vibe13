@@ -1,26 +1,19 @@
-// netshim.cpp -- RakNet 3.401 API-compat layer over SDL3_net TCP stream sockets.
+// Native SDL3_net transport for JA2 multiplayer.
 //
-// Replaces the prebuilt 32-bit Win32 RakNetLibStatic.lib the JA2 1.13 MP wrapper
-// was written against, so Multiplayer/client.cpp + server.cpp run unmodified on
-// every 64-bit platform the SDL3 port ships.
-//
-// Model: everything is polled on the main thread from the wrapper's per-frame
-// client_packet()/server_packet() pumps (GameLoop). No threads, no locks.
-// Transport is TCP (every wrapper send is HIGH_PRIORITY/RELIABLE, i.e. exactly
-// TCP semantics), framed as:
+// Everything is polled on the game thread. The current private arena wire is a
+// reliable TCP stream framed as:
 //
 //     [u32 LE bodyLen][u8 frameType][body ...]
 //
-// frame types: FT_RPC      [u8 nameLen][name][payload]
+// frame types: FT_MESSAGE  [u8 nameLen][name][payload]
 //              FT_BYE      graceful disconnect notification
 //              FT_FULL     server refused us (max incoming connections reached)
 //              FT_FILE     [u16 setID][u32 fileIndex][u32 setCount][u32 setTotalBytes]
 //                          [u16 nameLen][name][u32 fileLen][u32 offset][u32 chunkLen][chunk]
 //
-// Connection events are synthesized into RakNet ID_* packets; RPC frames are
-// dispatched to registered handlers synchronously inside Receive() and never
-// returned to the caller (RakNet 3.x behavior the wrapper relies on -- its
-// default: branch logs an error for unknown packets).
+// Connection events are queued for Poll(). Named messages are dispatched to
+// registered handlers synchronously during Poll() while the legacy arena
+// protocol is moved to typed codecs.
 
 #include <SDL3_net/SDL_net.h>
 #include <SDL3/SDL.h>
@@ -34,26 +27,24 @@
 #include <cstring>
 #include <cstdio>
 
-#include "RakPeerInterface.h"
-#include "RakNetworkFactory.h"
-#include "MessageIdentifiers.h"
-#include "FileListTransfer.h"
-#include "BitStream.h"
-#include "RakSleep.h"
-#include "SuperFastHash.h"
+#include "SdlNetTransport.h"
 
 // The whole protocol is little-endian on the wire (PutU16/PutU32 emit LE, the
-// GetU16/GetU32 readers assume LE, and RPC payloads are raw struct bytes sent
-// without byte-swap, BitStream::DoEndianSwap()==false). A big-endian build would
+// GetU16/GetU32 readers assume LE, and legacy payloads are raw struct bytes sent
+// without byte-swap). A big-endian build would
 // silently corrupt every frame, so fail the compile instead.
-static_assert( SDL_BYTEORDER == SDL_LIL_ENDIAN, "netshim wire format is little-endian only" );
+static_assert(SDL_BYTEORDER == SDL_LIL_ENDIAN,
+	"SDL multiplayer wire format is little-endian only");
+
+namespace ja2::mp::net
+{
 
 namespace
 {
 
 enum : unsigned char
 {
-	FT_RPC  = 1,
+	FT_MESSAGE  = 1,
 	FT_BYE  = 2,
 	FT_FULL = 3,
 	FT_FILE = 4,
@@ -61,7 +52,7 @@ enum : unsigned char
 };
 
 // Liveness: how often we emit a keepalive on an otherwise-idle connection.
-// Kept well below the default SetTimeoutTime so a healthy peer never trips the
+// Kept well below a configured timeout so a healthy peer never trips the
 // timeout. A frozen/half-open peer stops sending bytes (incl. its own pings) and
 // is reaped once it has been silent for timeoutMs.
 const unsigned int HEARTBEAT_INTERVAL_MS = 5000;
@@ -69,7 +60,7 @@ const unsigned int HEARTBEAT_INTERVAL_MS = 5000;
 // Per-type frame ceilings. The old single 64MB limit was a forced-64MB-alloc
 // primitive far above any legitimate frame; cap each type at a realistic size so
 // a malformed/hostile length header can't make us reserve a huge body buffer.
-const unsigned int MAX_RPC_FRAME  = 1u * 1024u * 1024u;   // any RPC struct is well under 1MB
+const unsigned int MAX_MESSAGE_FRAME  = 1u * 1024u * 1024u;   // legacy payloads are well under 1MB
 const unsigned int MAX_FILE_FRAME = 1u * 1024u * 1024u;   // file header + one chunk (chunkSize<=256KB)
 const unsigned int MAX_TRANSFER_FILE_BYTES = 32u * 1024u * 1024u;
 const unsigned int MAX_TRANSFER_SET_BYTES = 512u * 1024u * 1024u;
@@ -88,7 +79,7 @@ const unsigned int MAX_TRANSFER_NAME_BYTES = 511u;
 const size_t READ_CAP_PER_PASS = 256u * 1024u;
 const size_t MAX_CONN_IN       = 4u * 1024u * 1024u;
 
-// Per-connection token bucket: cap inbound RPC dispatch rate so a flooding peer
+// Per-connection token bucket: cap inbound message dispatch so a flooding peer
 // can't amplify through the relay handlers. Tokens are bytes; refilled per ms.
 const double TOKEN_RATE_PER_MS = 256.0 * 1024.0 / 1000.0;   // ~256 KB/s sustained
 const double TOKEN_BUCKET_MAX  = 1024.0 * 1024.0;           // 1MB burst
@@ -126,30 +117,10 @@ void PutU32( std::vector<unsigned char>& v, unsigned int x )
 unsigned short GetU16( const unsigned char* p ) { return (unsigned short)( p[0] | ( p[1] << 8 ) ); }
 unsigned int   GetU32( const unsigned char* p ) { return (unsigned int)p[0] | ( (unsigned int)p[1] << 8 ) | ( (unsigned int)p[2] << 16 ) | ( (unsigned int)p[3] << 24 ); }
 
-// Derive a nonzero 32-bit value from a peer's real address for SystemAddress::
-// binaryAddress. Real uniqueness per connection comes from the synthetic port.
-unsigned int AddressToU32( NET_Address* addr )
-{
-	if ( addr )
-	{
-		int n = 0;
-		const unsigned char* b = (const unsigned char*)NET_GetAddressBytes( addr, &n );
-		if ( b && n >= 4 )
-		{
-			unsigned int v = GetU32( b );
-			if ( n > 4 )   // IPv6: fold remaining bytes in so it stays distinctive
-				for ( int i = 4; i < n; ++i ) v = v * 31u + b[i];
-			if ( v != 0 && v != 0xFFFFFFFFu )
-				return v;
-		}
-	}
-	return 0x7F000001u;   // 127.0.0.1 fallback -- nonzero, not UNASSIGNED
-}
-
 struct Conn
 {
 	NET_StreamSocket* sock = nullptr;
-	SystemAddress     addr;
+	ConnectionId     addr;
 	std::vector<unsigned char> in;
 	size_t inOff = 0;       // parse cursor into 'in' (avoids erase()+copy per frame)
 	bool open = true;       // false => teardown deferred to the step-4 sweep
@@ -171,10 +142,10 @@ struct Lingering
 	Uint64 deadlineMs = 0;   // give up and destroy after this
 };
 
-// Receiver-side state for one incoming file-transfer set.
+// Receiver-side state_ for one incoming file-transfer set.
 struct RxFile
 {
-	FileListTransferCBInterface::OnFileStruct meta;
+	SdlNetFileInfo meta;
 	std::string name;
 	std::vector<char> buf;
 	unsigned received = 0;
@@ -184,8 +155,8 @@ struct RxFile
 
 struct RxSet
 {
-	FileListTransferCBInterface* handler = nullptr;
-	SystemAddress allowedSender;
+	SdlNetFileReceiver* handler = nullptr;
+	ConnectionId allowedSender;
 	bool started = false;
 	unsigned int setCount = 0;
 	unsigned int setTotal = 0;
@@ -197,17 +168,17 @@ struct RxSet
 
 } // namespace
 
-struct NetShimFltState
+struct SdlNetFileTransferState
 {
 	unsigned short nextSetId = 0;
 	std::map<unsigned short, RxSet> receivers;
-	FileListProgress* progress = nullptr;
+	SdlNetFileProgress* progress = nullptr;
 	unsigned int activeSets = 0;
 	size_t bufferedBytes = 0;
 	uint64_t reservedBytes = 0;
 };
 
-static void DropReceiversForSender( NetShimFltState* fs, const SystemAddress& sender )
+static void DropReceiversForSender( SdlNetFileTransferState* fs, const ConnectionId& sender )
 {
 	if ( !fs ) return;
 	for ( std::map<unsigned short, RxSet>::iterator it = fs->receivers.begin();
@@ -229,7 +200,7 @@ static void DropReceiversForSender( NetShimFltState* fs, const SystemAddress& se
 	}
 }
 
-static void ClearReceivers( NetShimFltState* fs )
+static void ClearReceivers( SdlNetFileTransferState* fs )
 {
 	if ( !fs ) return;
 	fs->receivers.clear();
@@ -238,7 +209,7 @@ static void ClearReceivers( NetShimFltState* fs )
 	fs->reservedBytes = 0;
 }
 
-struct NetShimPeerState
+struct SdlNetPeerState
 {
 	bool started = false;
 	bool netRef = false;
@@ -249,40 +220,36 @@ struct NetShimPeerState
 	NET_Address* resolving = nullptr;
 	NET_StreamSocket* connecting = nullptr;
 	unsigned short connectPort = 0;
-	SystemAddress serverAddr;
+	ConnectionId serverAddr;
 
 	std::vector<Conn*> conns;
 	std::vector<Lingering> lingering;   // closed sockets draining their write buffer (non-blocking)
-	std::deque<Packet*> q;
-	std::map<std::string, void ( * )( RPCParameters* )> rpcs;
-	std::vector<PluginInterface*> plugins;
-	FileListTransfer* flt = nullptr;
-	// 32-bit monotonic synthetic-port/id counter. Folded into binaryAddress so
-	// identity never aliases a live conn even after >64k accepts (the old 16-bit
-	// nextSyntheticPort++ wrapped and could collide with a still-open peer).
-	unsigned int nextSyntheticId = 1;
+	std::deque<SdlNetEvent*> q;
+	std::map<std::string, void ( * )( SdlNetMessage* )> handlers;
+	SdlNetFileTransfer* flt = nullptr;
+	// Opaque process-local identifiers never expose peer IP/port as authority.
+	std::uint64_t nextConnectionId = 1;
 	bool inShutdown = false;            // guard against reentrant Shutdown()
-	unsigned int pumpDepth = 0;         // callbacks may call Receive(); never recurse I/O/parsing
+	unsigned int pumpDepth = 0;         // callbacks may call Poll(); never recurse I/O/parsing
 	bool shutdownPending = false;       // callbacks may request teardown; execute after outer pump
 	unsigned int pendingShutdownBlockDuration = 0;
-	PluginInterface* detachPending = nullptr; // callback detach runs after borrowed frame data expires
-	RakPeerInterface* self = nullptr;
-	// Dead-peer detection. 0 == disabled (the RakNet default until SetTimeoutTime is
-	// called). A peer that has not sent ANY bytes for timeoutMs is declared lost.
+	SdlNetFileTransfer* detachPending = nullptr; // cleanup after borrowed frame data expires
+	SdlNetPeer* self = nullptr;
+	// Dead-peer detection. 0 == disabled. A peer that has not sent any bytes for
+	// timeoutMs is declared lost.
 	unsigned int timeoutMs = 0;
 
-	void Synthesize( unsigned char id, const SystemAddress& from )
+	void Synthesize( unsigned char id, const ConnectionId& from )
 	{
-		Packet* p = new Packet();
-		p->systemAddress = from;
-		p->length = 1;
-		p->bitSize = 8;
+		SdlNetEvent* p = new SdlNetEvent();
+		p->connection = from;
+		p->size = 1;
 		p->data = new unsigned char[1];
 		p->data[0] = id;
 		q.push_back( p );
 	}
 
-	Conn* Find( const SystemAddress& a )
+	Conn* Find( const ConnectionId& a )
 	{
 		for ( Conn* c : conns )
 			if ( c->open && c->addr == a )
@@ -290,25 +257,14 @@ struct NetShimPeerState
 		return nullptr;
 	}
 
-	// Build a SystemAddress that is unique among live conns. binaryAddress stays
-	// derived from the peer's real IP (the server slot logic keys off it); the
-	// 32-bit monotonic counter supplies the port and, once it exceeds 16 bits,
-	// perturbs binaryAddress too, so the (binaryAddress,port) pair can never wrap
-	// back onto a still-open connection.
-	SystemAddress MakeSyntheticAddr( NET_Address* realAddr )
+	ConnectionId MakeConnectionId()
 	{
-		unsigned int base = AddressToU32( realAddr );
-		for ( int guard = 0; guard < 0x20000; ++guard )
+		for (;;)
 		{
-			unsigned int id = nextSyntheticId++;
-			unsigned int bin = base ^ ( id & 0xFFFF0000u );
-			if ( bin == 0 || bin == 0xFFFFFFFFu )
-				bin = 0x7F000001u;
-			SystemAddress a( bin, (unsigned short)( id & 0xFFFFu ) );
-			if ( !Find( a ) )
-				return a;
+			ConnectionId id{nextConnectionId++};
+			if (id == NoConnection || id == AnyConnection) continue;
+			if (!Find(id)) return id;
 		}
-		return SystemAddress( base, (unsigned short)( nextSyntheticId++ & 0xFFFFu ) );
 	}
 
 	// Non-blocking close: hand the socket to the lingering list to flush its write
@@ -361,7 +317,7 @@ struct NetShimPeerState
 			// does, so HandleDisconnect fires and the player isn't left phantom in
 			// ready/maxClients counts. Flag-close only; the sweep tears down.
 			if ( c->open )
-				Synthesize( ID_CONNECTION_LOST, c->addr );
+				Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			c->open = false;
 			c->sentBye = true;   // socket is dead; don't try to send FT_BYE
 			return false;
@@ -372,7 +328,7 @@ struct NetShimPeerState
 	// Flag-close only: send FT_BYE if asked, record how long the socket may drain,
 	// then mark the conn closed. The actual NET_DestroyStreamSocket happens in the
 	// step-4 sweep via the (non-blocking) lingering list. This keeps closes safe to
-	// call from inside an RPC handler mid-iteration (no synchronous teardown / no
+	// call from inside a message handler mid-iteration (no synchronous teardown / no
 	// use-after-free) and never blocks the game loop on a wedged peer.
 	void CloseConn( Conn* c, bool sendBye, unsigned int drainMs )
 	{
@@ -382,8 +338,8 @@ struct NetShimPeerState
 		// flag-closed the connection. During the socket pump, however, callbacks
 		// still borrow RxFile storage; the post-parse sweep performs this same drop
 		// after they unwind. Outside the pump (including Shutdown) clean immediately.
-		if ( pumpDepth == 0 && flt && flt->state )
-			DropReceiversForSender( flt->state, c->addr );
+		if ( pumpDepth == 0 && flt && flt->state_ )
+			DropReceiversForSender( flt->state_, c->addr );
 		if ( !c->sock || !c->open )
 			return;
 		if ( sendBye && !c->sentBye )
@@ -395,7 +351,7 @@ struct NetShimPeerState
 		c->open = false;
 	}
 
-	void DispatchRPC( Conn* c, const unsigned char* body, unsigned int len );
+	void DispatchMessage( Conn* c, const unsigned char* body, unsigned int len );
 	bool HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len );
 	void ParseFrames( Conn* c );
 	void Liveness();
@@ -404,7 +360,7 @@ struct NetShimPeerState
 
 // ---- frame handling --------------------------------------------------------
 
-void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned int len )
+void SdlNetPeerState::DispatchMessage( Conn* c, const unsigned char* body, unsigned int len )
 {
 	if ( len < 1 )
 		return;
@@ -415,8 +371,8 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	unsigned int payloadLen = len - 1 - nameLen;
 	const unsigned char* payload = body + 1 + nameLen;
 
-	// Per-conn inbound token bucket (M18): refill by elapsed time, then charge this
-	// frame's wire size, including unknown names. Reliable/TCP state cannot be
+	// Per-connection inbound token bucket: refill by elapsed time, then charge this
+	// frame's wire size, including unknown names. Reliable/TCP state_ cannot be
 	// silently discarded without desynchronizing the session, so a peer that
 	// exceeds the bounded burst is disconnected rather than partially relayed.
 	Uint64 nowMs = SDL_GetTicks();
@@ -429,15 +385,15 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	double cost = (double)( len + 5 );   // frame body + header overhead
 	if ( c->tokens < cost )
 	{
-		Synthesize( ID_CONNECTION_LOST, c->addr );
+		Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 		CloseConn( c, false, 0 );
 		return;
 	}
 	c->tokens -= cost;
 
-	std::map<std::string, void ( * )( RPCParameters* )>::iterator it = rpcs.find( name );
-	if ( it == rpcs.end() )
-		return;   // unknown RPC name: drop silently (matches RakNet behavior for unregistered IDs)
+	std::map<std::string, void ( * )( SdlNetMessage* )>::iterator it = handlers.find( name );
+	if ( it == handlers.end() )
+		return;   // unknown legacy message name: ignore
 
 	// Zero-padded copy: the wrapper atoi()s / wcscpy()s wire data and relies on
 	// termination it never sends (e.g. receiveSETID's 1-byte payload).
@@ -445,20 +401,18 @@ void NetShimPeerState::DispatchRPC( Conn* c, const unsigned char* body, unsigned
 	if ( payloadLen )
 		memcpy( buf.data(), payload, payloadLen );
 
-	RPCParameters params;
-	params.input = buf.data();
-	params.numberOfBitsOfData = payloadLen * 8;
+	SdlNetMessage params;
+	params.data = buf.data();
+	params.size = payloadLen;
 	params.sender = c->addr;
-	params.recipient = self;
-	params.replyToSender = nullptr;
 	it->second( &params );
 }
 
-bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len )
+bool SdlNetPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len )
 {
-	if ( !flt || !flt->state )
-		return true;   // no transfer plugin/registration: ignore the frame
-	NetShimFltState* fs = flt->state;
+	if ( !flt || !flt->state_ )
+		return true;   // no transfer service/registration: ignore the frame
+	SdlNetFileTransferState* fs = flt->state_;
 	if ( len < FILE_FRAME_FIXED_BYTES )
 		return false;
 
@@ -468,12 +422,12 @@ bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsi
 	if ( sit == fs->receivers.end() )
 		return true;   // completed/unknown set IDs cannot trigger callbacks
 	RxSet& set = sit->second;
-	if ( !c || ( set.allowedSender != UNASSIGNED_SYSTEM_ADDRESS && set.allowedSender != c->addr ) )
+	if ( !c || ( set.allowedSender != AnyConnection && set.allowedSender != c->addr ) )
 		return false;
 
 	// Any malformed frame from the registered sender invalidates the whole set.
 	// This both frees bounded live storage and prevents a later frame from
-	// continuing with ambiguous state.
+	// continuing with ambiguous state_.
 	auto fail = [&]() -> bool
 	{
 		if ( set.hasFile )
@@ -508,7 +462,7 @@ bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsi
 		if ( set.started || fileIndex != 0 || setTotal != 0 || nameLen != 0 ||
 		     fileLen != 0 || offset != 0 || chunkLen != 0 )
 			return fail();
-		FileListTransferCBInterface* cb = set.handler;
+		SdlNetFileReceiver* cb = set.handler;
 		fs->receivers.erase( sit );   // retire before callback: replay is inert
 		cb->OnDownloadComplete();
 		return true;
@@ -527,7 +481,7 @@ bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsi
 		     fs->reservedBytes > MAX_RESERVED_TRANSFER_BYTES - setTotal )
 			return fail();
 		set.started = true;
-		if ( set.allowedSender == UNASSIGNED_SYSTEM_ADDRESS )
+		if ( set.allowedSender == AnyConnection )
 			set.allowedSender = c->addr;   // wildcard selects, then pins, one sender per set
 		set.setCount = setCount;
 		set.setTotal = setTotal;
@@ -578,12 +532,12 @@ bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsi
 	++rx.partCount;
 	rx.received += chunkLen;
 	rx.meta.fileData = rx.buf.empty() ? nullptr : rx.buf.data();
-	FileListTransferCBInterface* cb = set.handler;
+	SdlNetFileReceiver* cb = set.handler;
 
 	if ( rx.received != fileLen )
 	{
-		// The callback may re-enter the peer/plugin. All state mutation for this
-		// chunk is complete, and no state references are touched after it returns.
+		// The callback may re-enter the peer/transfer service. All state mutation for this
+		// chunk is complete, and no state_ references are touched after it returns.
 		cb->OnFileProgress( &rx.meta, rx.partCount, rx.partTotal, chunkLen,
 		                    chunkLen ? ( char* )( body + o ) : nullptr );
 		return true;
@@ -613,7 +567,7 @@ bool NetShimPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsi
 	return true;
 }
 
-void NetShimPeerState::ParseFrames( Conn* c )
+void SdlNetPeerState::ParseFrames( Conn* c )
 {
 	// Parse via an offset cursor (inOff) rather than erase()ing each consumed frame
 	// off the front of the vector (which was O(n) per frame -> O(n^2) under load).
@@ -629,8 +583,8 @@ void NetShimPeerState::ParseFrames( Conn* c )
 		bool validHeader = false;
 		switch ( type )
 		{
-			case FT_RPC:
-				validHeader = bodyLen >= 2 && bodyLen <= MAX_RPC_FRAME;
+			case FT_MESSAGE:
+				validHeader = bodyLen >= 2 && bodyLen <= MAX_MESSAGE_FRAME;
 				break;
 			case FT_FILE:
 				validHeader = bodyLen >= FILE_FRAME_FIXED_BYTES && bodyLen <= MAX_FILE_FRAME;
@@ -645,7 +599,7 @@ void NetShimPeerState::ParseFrames( Conn* c )
 		}
 		if ( !validHeader )
 		{
-			Synthesize( ID_CONNECTION_LOST, c->addr );
+			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			CloseConn( c, false, 0 );
 			break;
 		}
@@ -656,21 +610,21 @@ void NetShimPeerState::ParseFrames( Conn* c )
 
 		switch ( type )
 		{
-			case FT_RPC:
-				DispatchRPC( c, body, bodyLen );
+			case FT_MESSAGE:
+				DispatchMessage( c, body, bodyLen );
 				break;
 			case FT_BYE:
-				Synthesize( ID_DISCONNECTION_NOTIFICATION, c->addr );
+				Synthesize( SDLNET_DISCONNECTION_NOTIFICATION, c->addr );
 				CloseConn( c, false, 0 );
 				break;
 			case FT_FULL:
-				Synthesize( ID_NO_FREE_INCOMING_CONNECTIONS, c->addr );
+				Synthesize( SDLNET_NO_FREE_INCOMING_CONNECTIONS, c->addr );
 				CloseConn( c, false, 0 );
 				break;
 			case FT_FILE:
 				if ( !HandleFileFrame( c, body, bodyLen ) )
 				{
-					Synthesize( ID_CONNECTION_LOST, c->addr );
+					Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 					CloseConn( c, false, 0 );
 				}
 				break;
@@ -680,8 +634,8 @@ void NetShimPeerState::ParseFrames( Conn* c )
 				break;   // rejected above
 		}
 		// CloseConn / SendFrame-failure can flag-close mid-parse. A callback can
-		// also request deferred shutdown or detach the active transfer plugin;
-		// stop before dispatching another frame to state whose cleanup is waiting
+		// also request deferred shutdown or detach the active transfer service;
+		// stop before dispatching another frame to state_ whose cleanup is waiting
 		// for the borrowed callback storage to unwind.
 		if ( shutdownPending || detachPending || !c->open )
 			break;
@@ -698,12 +652,12 @@ void NetShimPeerState::ParseFrames( Conn* c )
 	}
 }
 
-// Heartbeat + dead-peer detection. Real RakNet pings idle links and times out
-// silent peers; TCP alone does neither promptly (a half-open peer that stops
+// Heartbeat + dead-peer detection. TCP alone does not promptly time out a
+// half-open peer that stops
 // reading/writing leaves the socket "connected" until an OS keepalive fires
-// minutes later). We emit an FT_PING on each idle link and, when SetTimeoutTime
-// has armed a timeout, synthesize ID_CONNECTION_LOST for a peer gone silent.
-void NetShimPeerState::Liveness()
+// minutes later). We emit an FT_PING on each idle link and, when SetTimeout
+// has armed a timeout, synthesize SDLNET_CONNECTION_LOST for a peer gone silent.
+void SdlNetPeerState::Liveness()
 {
 	Uint64 now = SDL_GetTicks();
 	for ( Conn* c : conns )
@@ -716,16 +670,16 @@ void NetShimPeerState::Liveness()
 			c->lastPingMs = now;
 			SendFrame( c, FT_PING, nullptr, 0 );   // marks c closed on write failure
 		}
-		// honor SetTimeoutTime: a peer silent past the timeout is declared lost
+		// A peer silent past the configured timeout is declared lost.
 		if ( c->open && timeoutMs != 0 && now - c->lastRecvMs >= (Uint64)timeoutMs )
 		{
-			Synthesize( ID_CONNECTION_LOST, c->addr );
+			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			CloseConn( c, false, 0 );
 		}
 	}
 }
 
-void NetShimPeerState::PumpSockets()
+void SdlNetPeerState::PumpSockets()
 {
 	// 1. client-side pending connect
 	if ( resolving )
@@ -734,17 +688,17 @@ void NetShimPeerState::PumpSockets()
 		if ( st == NET_SUCCESS )
 		{
 			connecting = NET_CreateClient( resolving, connectPort, 0 );
-			serverAddr = SystemAddress( AddressToU32( resolving ), connectPort );
+			serverAddr = MakeConnectionId();
 			NET_UnrefAddress( resolving );
 			resolving = nullptr;
 			if ( !connecting )
-				Synthesize( ID_CONNECTION_ATTEMPT_FAILED, UNASSIGNED_SYSTEM_ADDRESS );
+				Synthesize( SDLNET_CONNECTION_ATTEMPT_FAILED, AnyConnection );
 		}
 		else if ( st == NET_FAILURE )
 		{
 			NET_UnrefAddress( resolving );
 			resolving = nullptr;
-			Synthesize( ID_CONNECTION_ATTEMPT_FAILED, UNASSIGNED_SYSTEM_ADDRESS );
+			Synthesize( SDLNET_CONNECTION_ATTEMPT_FAILED, AnyConnection );
 		}
 	}
 	if ( connecting )
@@ -758,13 +712,13 @@ void NetShimPeerState::PumpSockets()
 			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
 			connecting = nullptr;
-			Synthesize( ID_CONNECTION_REQUEST_ACCEPTED, c->addr );
+			Synthesize( SDLNET_CONNECTION_ACCEPTED, c->addr );
 		}
 		else if ( st == NET_FAILURE )
 		{
 			NET_DestroyStreamSocket( connecting );
 			connecting = nullptr;
-			Synthesize( ID_CONNECTION_ATTEMPT_FAILED, serverAddr );
+			Synthesize( SDLNET_CONNECTION_ATTEMPT_FAILED, serverAddr );
 		}
 	}
 
@@ -778,8 +732,8 @@ void NetShimPeerState::PumpSockets()
 			{
 				// false-return is a listener error, NOT "no pending client" (that's
 				// true + s==NULL). Log it so a broken listener isn't silently dead.
-				SDL_LogError( SDL_LOG_CATEGORY_APPLICATION,
-				              "netshim: NET_AcceptClient failed: %s", SDL_GetError() );
+				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+					"SDL multiplayer: NET_AcceptClient failed: %s", SDL_GetError());
 				break;
 			}
 			if ( !s )
@@ -798,10 +752,10 @@ void NetShimPeerState::PumpSockets()
 			}
 			Conn* c = new Conn();
 			c->sock = s;
-			c->addr = MakeSyntheticAddr( NET_GetStreamSocketAddress( s ) );
+			c->addr = MakeConnectionId();
 			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
-			Synthesize( ID_NEW_INCOMING_CONNECTION, c->addr );
+			Synthesize( SDLNET_NEW_INCOMING_CONNECTION, c->addr );
 		}
 	}
 
@@ -833,7 +787,7 @@ void NetShimPeerState::PumpSockets()
 				break;
 			else
 			{
-				Synthesize( ID_CONNECTION_LOST, c->addr );
+				Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 				CloseConn( c, false, 0 );
 				break;
 			}
@@ -842,7 +796,7 @@ void NetShimPeerState::PumpSockets()
 		// complete frame (slow loris) is treated as hostile and dropped.
 		if ( c->open && c->in.size() - c->inOff > MAX_CONN_IN )
 		{
-			Synthesize( ID_CONNECTION_LOST, c->addr );
+			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			CloseConn( c, false, 0 );
 		}
 		if ( c->open )
@@ -861,8 +815,8 @@ void NetShimPeerState::PumpSockets()
 	{
 		if ( !conns[i]->open )
 		{
-			if ( flt && flt->state )
-				DropReceiversForSender( flt->state, conns[i]->addr );
+			if ( flt && flt->state_ )
+				DropReceiversForSender( flt->state_, conns[i]->addr );
 			Linger( conns[i]->sock, conns[i]->drainMs );
 			delete conns[i];
 			conns.erase( conns.begin() + i );
@@ -875,35 +829,45 @@ void NetShimPeerState::PumpSockets()
 	PumpLingering();
 }
 
-// ---- RakPeerInterface ------------------------------------------------------
+// ---- public transport ------------------------------------------------------
 
-RakPeerInterface::RakPeerInterface()
+SdlNetEndpoint::SdlNetEndpoint(
+	std::uint16_t endpointPort, const char* bindHost) noexcept
+	: port(endpointPort)
 {
-	state = new NetShimPeerState();
-	state->self = this;
+	if (!bindHost) return;
+	std::strncpy(host, bindHost, sizeof(host) - 1);
+	host[sizeof(host) - 1] = '\0';
 }
 
-RakPeerInterface::~RakPeerInterface()
+SdlNetPeer::SdlNetPeer()
+{
+	state_ = new SdlNetPeerState();
+	state_->self = this;
+}
+
+SdlNetPeer::~SdlNetPeer()
 {
 	Shutdown( 0 );
-	delete state;
+	delete state_;
 }
 
-bool RakPeerInterface::Startup( unsigned short maxConnections, int /*threadSleepTimer*/, SocketDescriptor* socketDescriptors, unsigned /*socketDescriptorCount*/ )
+bool SdlNetPeer::Start(
+	std::uint16_t maxConnections, const SdlNetEndpoint& endpoint)
 {
-	if ( state->started )
+	if ( state_->started )
 		return true;
 	if ( !NetRef() )
 		return false;
-	state->netRef = true;
-	unsigned short port = socketDescriptors ? socketDescriptors->port : 0;
+	state_->netRef = true;
+	const std::uint16_t port = endpoint.port;
 	if ( port != 0 )
 	{
-		// Honor an explicit bind address (SocketDescriptor::hostAddress) when set, so a
+		// Honor an explicit bind address when set, so a
 		// caller can restrict the listener to e.g. 127.0.0.1 instead of all interfaces.
 		// Empty / "0.0.0.0" / "::" / "*" keep the all-interfaces behavior (nullptr).
 		NET_Address* bindAddr = nullptr;
-		const char* host = socketDescriptors->hostAddress;
+		const char* host = endpoint.host;
 		if ( host && host[0] &&
 		     strcmp( host, "0.0.0.0" ) != 0 && strcmp( host, "::" ) != 0 && strcmp( host, "*" ) != 0 )
 		{
@@ -912,358 +876,331 @@ bool RakPeerInterface::Startup( unsigned short maxConnections, int /*threadSleep
 			{
 				if ( bindAddr ) NET_UnrefAddress( bindAddr );
 				NetUnref();
-				state->netRef = false;
+				state_->netRef = false;
 				return false;
 			}
 		}
-		state->listener = NET_CreateServer( bindAddr, port, 0 );
+		state_->listener = NET_CreateServer( bindAddr, port, 0 );
 		if ( bindAddr )
 			NET_UnrefAddress( bindAddr );
-		if ( !state->listener )
+		if ( !state_->listener )
 		{
 			NetUnref();
-			state->netRef = false;
+			state_->netRef = false;
 			return false;
 		}
-		state->maxIncoming = maxConnections;
+		state_->maxIncoming = maxConnections;
 	}
-	state->started = true;
+	state_->started = true;
 	return true;
 }
 
-bool RakPeerInterface::Connect( const char* host, unsigned short remotePort, const char*, int )
+bool SdlNetPeer::Connect(const char* host, std::uint16_t remotePort)
 {
-	if ( !state->started || state->connecting || state->resolving )
+	if ( !state_->started || state_->connecting || state_->resolving )
 		return false;
-	state->resolving = NET_ResolveHostname( host );
-	state->connectPort = remotePort;
-	if ( !state->resolving )
+	state_->resolving = NET_ResolveHostname( host );
+	state_->connectPort = remotePort;
+	if ( !state_->resolving )
 	{
-		state->Synthesize( ID_CONNECTION_ATTEMPT_FAILED, UNASSIGNED_SYSTEM_ADDRESS );
+		state_->Synthesize( SDLNET_CONNECTION_ATTEMPT_FAILED, AnyConnection );
 		return false;
 	}
 	return true;
 }
 
-void RakPeerInterface::Shutdown( unsigned int blockDuration, unsigned char )
+void SdlNetPeer::Shutdown(unsigned int blockDuration)
 {
 	// Reentry guard: a handler calling Shutdown() while a Shutdown is already in
 	// flight (or from the destructor after one) must be a no-op, not a double-free.
-	if ( !state->started || state->inShutdown )
+	if ( !state_->started || state_->inShutdown )
 		return;
-	// File/RPC callbacks run synchronously inside the socket pump. Teardown there
+	// File/message callbacks run synchronously inside the socket pump. Teardown there
 	// would delete the Conn currently owned by the outer parser. Defer the whole
-	// operation until Receive() has unwound the one active pump.
-	if ( state->pumpDepth != 0 )
+	// operation until Poll() has unwound the one active pump.
+	if ( state_->pumpDepth != 0 )
 	{
-		state->shutdownPending = true;
-		if ( blockDuration > state->pendingShutdownBlockDuration )
-			state->pendingShutdownBlockDuration = blockDuration;
+		state_->shutdownPending = true;
+		if ( blockDuration > state_->pendingShutdownBlockDuration )
+			state_->pendingShutdownBlockDuration = blockDuration;
 		return;
 	}
-	state->inShutdown = true;
-	state->shutdownPending = false;
-	state->pendingShutdownBlockDuration = 0;
+	state_->inShutdown = true;
+	state_->shutdownPending = false;
+	state_->pendingShutdownBlockDuration = 0;
 
 	// Flag-close every conn (sends FT_BYE) and hand its socket to the lingering
 	// list so writes flush without blocking N x blockDuration on the game loop.
-	for ( Conn* c : state->conns )
+	for ( Conn* c : state_->conns )
 	{
-		state->CloseConn( c, true, blockDuration );
-		state->Linger( c->sock, blockDuration );
+		state_->CloseConn( c, true, blockDuration );
+		state_->Linger( c->sock, blockDuration );
 		delete c;
 	}
-	state->conns.clear();
+	state_->conns.clear();
 	// Shutdown also retires registrations which never received a first frame and
 	// therefore are still bound to the wildcard sender.  This keeps a persistent
-	// FileListTransfer reusable across a RakPeer restart without carrying stale
+	// SdlNetFileTransfer reusable across a peer restart without carrying stale
 	// capacity charges or handlers into the next session.
-	if ( state->flt && state->flt->state )
-		ClearReceivers( state->flt->state );
+	if ( state_->flt && state_->flt->state_ )
+		ClearReceivers( state_->flt->state_ );
 
 	// Single bounded global drain: poll the lingering sockets for up to
 	// blockDuration total wall-time (NOT per-socket), then force-destroy the rest.
-	if ( blockDuration && !state->lingering.empty() )
+	if ( blockDuration && !state_->lingering.empty() )
 	{
 		Uint64 deadline = SDL_GetTicks() + blockDuration;
-		while ( !state->lingering.empty() && SDL_GetTicks() < deadline )
+		while ( !state_->lingering.empty() && SDL_GetTicks() < deadline )
 		{
-			state->PumpLingering();
-			if ( !state->lingering.empty() )
+			state_->PumpLingering();
+			if ( !state_->lingering.empty() )
 				SDL_Delay( 1 );
 		}
 	}
-	for ( Lingering& l : state->lingering )
+	for ( Lingering& l : state_->lingering )
 		NET_DestroyStreamSocket( l.sock );
-	state->lingering.clear();
+	state_->lingering.clear();
 
-	if ( state->connecting )
+	if ( state_->connecting )
 	{
-		NET_DestroyStreamSocket( state->connecting );
-		state->connecting = nullptr;
+		NET_DestroyStreamSocket( state_->connecting );
+		state_->connecting = nullptr;
 	}
-	if ( state->resolving )
+	if ( state_->resolving )
 	{
-		NET_UnrefAddress( state->resolving );
-		state->resolving = nullptr;
+		NET_UnrefAddress( state_->resolving );
+		state_->resolving = nullptr;
 	}
-	if ( state->listener )
+	if ( state_->listener )
 	{
-		NET_DestroyServer( state->listener );
-		state->listener = nullptr;
+		NET_DestroyServer( state_->listener );
+		state_->listener = nullptr;
 	}
-	for ( Packet* p : state->q )
+	for ( SdlNetEvent* p : state_->q )
 	{
 		delete[] p->data;
 		delete p;
 	}
-	state->q.clear();
-	state->rpcs.clear();
-	state->plugins.clear();
-	state->flt = nullptr;
-	state->detachPending = nullptr;
-	state->started = false;
-	state->inShutdown = false;
-	if ( state->netRef )
+	state_->q.clear();
+	state_->handlers.clear();
+	state_->flt = nullptr;
+	state_->detachPending = nullptr;
+	state_->started = false;
+	state_->inShutdown = false;
+	if ( state_->netRef )
 	{
 		NetUnref();
-		state->netRef = false;
+		state_->netRef = false;
 	}
 }
 
-Packet* RakPeerInterface::Receive( void )
+SdlNetEvent* SdlNetPeer::Poll()
 {
-	if ( !state->started )
+	if ( !state_->started )
 		return nullptr;
-	if ( state->pumpDepth == 0 )
+	if ( state_->pumpDepth == 0 )
 	{
 		struct PumpScope
 		{
 			explicit PumpScope( unsigned int& depth ) : depth( depth ) { ++depth; }
 			~PumpScope() { --depth; }
 			unsigned int& depth;
-		} scope( state->pumpDepth );
-		state->PumpSockets();
+		} scope( state_->pumpDepth );
+		state_->PumpSockets();
 	}
 	// File callbacks borrow metadata/storage from the active receive set. A
-	// callback may detach its own plugin, but cleanup must wait until that callback
+	// callback may detach its own transfer service, but cleanup waits until that callback
 	// and the outer parser have returned so those borrowed pointers remain valid.
-	if ( state->pumpDepth == 0 && state->detachPending )
+	if ( state_->pumpDepth == 0 && state_->detachPending )
 	{
-		PluginInterface* plugin = state->detachPending;
-		state->detachPending = nullptr;
-		DetachPlugin( plugin );
+		SdlNetFileTransfer* transfer = state_->detachPending;
+		state_->detachPending = nullptr;
+		DetachFileTransfer(*transfer);
 	}
-	// A nested Receive() deliberately skips I/O and parsing. Only the outermost
+	// A nested Poll() deliberately skips I/O and parsing. Only the outermost
 	// call owns connection lifetime and services a teardown requested in a
 	// callback after every parser reference has unwound.
-	if ( state->pumpDepth == 0 && state->shutdownPending )
+	if ( state_->pumpDepth == 0 && state_->shutdownPending )
 	{
-		const unsigned int blockDuration = state->pendingShutdownBlockDuration;
-		state->shutdownPending = false;
-		state->pendingShutdownBlockDuration = 0;
+		const unsigned int blockDuration = state_->pendingShutdownBlockDuration;
+		state_->shutdownPending = false;
+		state_->pendingShutdownBlockDuration = 0;
 		Shutdown( blockDuration );
 	}
-	if ( !state->started )
+	if ( !state_->started )
 		return nullptr;
-	if ( state->q.empty() )
+	if ( state_->q.empty() )
 		return nullptr;
-	Packet* p = state->q.front();
-	state->q.pop_front();
+	SdlNetEvent* p = state_->q.front();
+	state_->q.pop_front();
 	return p;
 }
 
-void RakPeerInterface::DeallocatePacket( Packet* packet )
+void SdlNetPeer::Release(SdlNetEvent* event)
 {
-	if ( !packet )
+	if ( !event )
 		return;
-	delete[] packet->data;
-	delete packet;
+	delete[] event->data;
+	delete event;
 }
 
-bool RakPeerInterface::RegisterAsRemoteProcedureCall( const char* uniqueID, void ( *functionPointer )( RPCParameters* ) )
+bool SdlNetPeer::RegisterMessage(
+	const char* name, SdlNetMessageHandler handler)
 {
-	if ( !uniqueID || !functionPointer )
+	if (!name || !handler)
 		return false;
-	state->rpcs[uniqueID] = functionPointer;
+	state_->handlers[name] = handler;
 	return true;
 }
 
-bool RakPeerInterface::RPC( const char* uniqueID, const char* data, BitSize_t bitLength,
-                            PacketPriority, PacketReliability, char,
-                            SystemAddress systemAddress, bool broadcast, RakNetTime*,
-                            NetworkID, RakNet::BitStream* )
+bool SdlNetPeer::SendMessage(const char* name, const void* data,
+	std::size_t size, ConnectionId connection, bool broadcast)
 {
-	if ( !state->started || !uniqueID )
+	if (!state_->started || !name)
 		return false;
-	unsigned int nameLen = (unsigned int)strlen( uniqueID );
+	const unsigned int nameLen = static_cast<unsigned int>(std::strlen(name));
 	if ( nameLen == 0 || nameLen > 255 )
 		return false;
-	// The shim transports byte strings, not RakNet's bit-packed payloads. Reject
-	// lossy/non-byte-aligned requests and validate the complete frame before any
-	// pointer arithmetic or allocation.
-	if ( bitLength % 8 != 0 )
+	if ((size != 0 && !data) || size > MAX_MESSAGE_FRAME - 1u - nameLen)
 		return false;
-	unsigned int payloadLen = bitLength / 8;
-	if ( ( payloadLen != 0 && !data ) || payloadLen > MAX_RPC_FRAME - 1u - nameLen )
-		return false;
+	const unsigned int payloadLen = static_cast<unsigned int>(size);
 
 	std::vector<unsigned char> body;
 	body.reserve( 1 + nameLen + payloadLen );
 	body.push_back( (unsigned char)nameLen );
-	body.insert( body.end(), (const unsigned char*)uniqueID, (const unsigned char*)uniqueID + nameLen );
+	body.insert(body.end(), reinterpret_cast<const unsigned char*>(name),
+		reinterpret_cast<const unsigned char*>(name) + nameLen);
 	if ( payloadLen && data )
-		body.insert( body.end(), (const unsigned char*)data, (const unsigned char*)data + payloadLen );
+		body.insert(body.end(), reinterpret_cast<const unsigned char*>(data),
+			reinterpret_cast<const unsigned char*>(data) + payloadLen);
 
 	bool sentAny = false;
-	for ( Conn* c : state->conns )
+	for ( Conn* c : state_->conns )
 	{
 		if ( !c->open )
 			continue;
 		if ( broadcast )
 		{
-			if ( systemAddress != UNASSIGNED_SYSTEM_ADDRESS && c->addr == systemAddress )
+			if ( connection != AnyConnection && c->addr == connection )
 				continue;   // broadcast=true + addr: everyone EXCEPT addr
 		}
-		else if ( !( c->addr == systemAddress ) )
+		else if (c->addr != connection)
 			continue;       // broadcast=false: only addr
-		sentAny |= state->SendFrame( c, FT_RPC, body.data(), (unsigned int)body.size() );
+		sentAny |= state_->SendFrame( c, FT_MESSAGE, body.data(), (unsigned int)body.size() );
 	}
 	return sentAny;
 }
 
-void RakPeerInterface::SetMaximumIncomingConnections( unsigned short numberAllowed )
+void SdlNetPeer::SetMaximumIncomingConnections(std::uint16_t numberAllowed)
 {
-	state->maxIncoming = numberAllowed;
+	state_->maxIncoming = numberAllowed;
 }
 
-void RakPeerInterface::SetOccasionalPing( bool ) {}                       // shim heartbeats unconditionally (see Liveness)
-void RakPeerInterface::SetTimeoutTime( RakNetTime timeMS, const SystemAddress )
+void SdlNetPeer::SetTimeout(unsigned milliseconds)
 {
-	// Per-peer timeouts aren't modelled (the shim's only callers arm a single global
-	// timeout for UNASSIGNED_SYSTEM_ADDRESS); apply it to every connection. A silent
-	// peer is reaped after timeMS in Liveness().
-	state->timeoutMs = (unsigned int)timeMS;
+	state_->timeoutMs = milliseconds;
 }
 
-void RakPeerInterface::CloseConnection( const SystemAddress target, bool sendDisconnectionNotification, unsigned char )
+void SdlNetPeer::CloseConnection(ConnectionId target, bool notifyPeer)
 {
-	Conn* c = state->Find( target );
+	Conn* c = state_->Find( target );
 	if ( c )
-		state->CloseConn( c, sendDisconnectionNotification, 100 );
+		state_->CloseConn(c, notifyPeer, 100);
 }
 
-void RakPeerInterface::AttachPlugin( PluginInterface* plugin )
+void SdlNetPeer::AttachFileTransfer(SdlNetFileTransfer& transfer)
 {
-	if ( !plugin )
-		return;
-	for ( PluginInterface* p : state->plugins )
-		if ( p == plugin )
-			return;   // idempotent: the wrapper re-attaches on every connect retry
-	state->plugins.push_back( plugin );
-	if ( plugin->NetShimPluginId() == 1 )
-		state->flt = static_cast<FileListTransfer*>( plugin );
+	if (state_->flt == &transfer) return;
+	if (state_->flt && state_->flt->state_)
+		ClearReceivers(state_->flt->state_);
+	state_->flt = &transfer;
 }
 
-void RakPeerInterface::DetachPlugin( PluginInterface* plugin )
+void SdlNetPeer::DetachFileTransfer(SdlNetFileTransfer& transfer)
 {
-	if ( state->pumpDepth != 0 && state->flt == plugin )
+	if (state_->flt != &transfer) return;
+	if (state_->pumpDepth != 0)
 	{
-		state->detachPending = plugin;
+		state_->detachPending = &transfer;
 		return;
 	}
-	for ( size_t i = 0; i < state->plugins.size(); ++i )
-	{
-		if ( state->plugins[i] == plugin )
-		{
-			state->plugins.erase( state->plugins.begin() + i );
-			break;
-		}
-	}
-	if ( state->flt == plugin )
-	{
-		// The shipped client/server detach persistent FileListTransfer instances
-		// before Shutdown and attach them again on reconnect.  Retire every pending
-		// or partial receive here so handlers, buffers, and reservation accounting
-		// cannot leak across those sessions.
-		if ( state->flt->state )
-			ClearReceivers( state->flt->state );
-		state->flt = nullptr;
-	}
+	// Persistent transfer objects are reattached after reconnect. Retire pending
+	// and partial receives so handlers and reservation accounting cannot leak.
+	if (state_->flt->state_) ClearReceivers(state_->flt->state_);
+	state_->flt = nullptr;
 }
-
-void RakPeerInterface::SetSplitMessageProgressInterval( int ) {}   // progress is per-chunk already
 
 // ---- factory ---------------------------------------------------------------
 
-RakPeerInterface* RakNetworkFactory::GetRakPeerInterface( void )
+SdlNetPeer* CreateSdlNetPeer()
 {
-	return new RakPeerInterface();
+	return new SdlNetPeer();
 }
 
-void RakNetworkFactory::DestroyRakPeerInterface( RakPeerInterface* i )
+void DestroySdlNetPeer(SdlNetPeer* peer)
 {
-	delete i;
+	delete peer;
 }
 
-// ---- FileList / FileListTransfer -------------------------------------------
+// ---- SdlNetFileList / SdlNetFileTransfer -------------------------------------------
 
-void FileList::AddFile( const char* filename, const char* data, const unsigned dataLength, const unsigned fileLength, FileListNodeContext, bool )
+void SdlNetFileList::AddFile(
+	const char* filename, const char* data, unsigned dataLength)
 {
 	FileEntry e;
 	e.filename = filename ? filename : "";
-	e.fileLength = fileLength;
 	if ( data && dataLength )
 		e.data.assign( data, data + dataLength );
-	files.push_back( e );
+	files_.push_back( e );
 }
 
-void FileList::Clear( void )
+void SdlNetFileList::Clear( void )
 {
-	files.clear();
+	files_.clear();
 }
 
-FileListTransfer::FileListTransfer()
+SdlNetFileTransfer::SdlNetFileTransfer()
 {
-	state = new NetShimFltState();
+	state_ = new SdlNetFileTransferState();
 }
 
-FileListTransfer::~FileListTransfer()
+SdlNetFileTransfer::~SdlNetFileTransfer()
 {
-	delete state;
-	state = nullptr;   // hardening (L12): a stale flt->state access faults cleanly as null
+	delete state_;
+	state_ = nullptr;   // hardening (L12): a stale flt->state_ access faults cleanly as null
 }
 
-unsigned short FileListTransfer::SetupReceive( FileListTransferCBInterface* handler, bool, SystemAddress allowedSender )
+std::uint16_t SdlNetFileTransfer::SetupReceive(
+	SdlNetFileReceiver* handler, ConnectionId allowedSender)
 {
-	if ( !handler || state->receivers.size() >= MAX_RECEIVE_REGISTRATIONS )
+	if ( !handler || state_->receivers.size() >= MAX_RECEIVE_REGISTRATIONS )
 		return INVALID_TRANSFER_SET_ID;
 	// With at most 64 registrations, inspecting 65 usable consecutive IDs is
 	// sufficient to find a free slot even when the 16-bit counter wraps. Never
 	// overwrite a live transfer, and reserve 0xffff as the failure sentinel.
 	for ( size_t attempts = 0; attempts < MAX_RECEIVE_REGISTRATIONS + 2; ++attempts )
 	{
-		unsigned short id = state->nextSetId++;
-		if ( id == INVALID_TRANSFER_SET_ID || state->receivers.find( id ) != state->receivers.end() )
+		unsigned short id = state_->nextSetId++;
+		if ( id == INVALID_TRANSFER_SET_ID || state_->receivers.find( id ) != state_->receivers.end() )
 			continue;
 		RxSet receiver;
 		receiver.handler = handler;
 		receiver.allowedSender = allowedSender;
-		state->receivers.insert( std::make_pair( id, receiver ) );
+		state_->receivers.insert( std::make_pair( id, receiver ) );
 		return id;
 	}
 	return INVALID_TRANSFER_SET_ID;
 }
 
-void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, SystemAddress recipient, unsigned short setID,
-                             PacketPriority, char, bool, IncrementalReadInterface*, unsigned int chunkSize )
+void SdlNetFileTransfer::Send(SdlNetFileList& fileList, SdlNetPeer& peer,
+	ConnectionId recipient, std::uint16_t setID, unsigned int chunkSize)
 {
-	if ( !fileList || !rakPeer || !rakPeer->state )
+	if (!peer.state_)
 		return;
-	if ( fileList->files.size() > MAX_TRANSFER_FILES )
+	if (fileList.files_.size() > MAX_TRANSFER_FILES)
 		return;
 	uint64_t checkedTotal = 0;
-	for ( const FileList::FileEntry& e : fileList->files )
+	for (const SdlNetFileList::FileEntry& e : fileList.files_)
 	{
 		if ( e.filename.size() > MAX_TRANSFER_NAME_BYTES ||
 		     e.filename.find( '\0' ) != std::string::npos ||
@@ -1274,12 +1211,12 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 	}
 	if ( chunkSize == 0 || chunkSize > 256 * 1024 )
 		chunkSize = 64 * 1024;
-	NetShimPeerState* ps = rakPeer->state;
+	SdlNetPeerState* ps = peer.state_;
 	Conn* c = ps->Find( recipient );
 	if ( !c )
 		return;
 
-	unsigned int setCount = (unsigned int)fileList->files.size();
+	unsigned int setCount = (unsigned int)fileList.files_.size();
 	unsigned int setTotal = (unsigned int)checkedTotal;
 
 	if ( setCount == 0 )
@@ -1299,7 +1236,7 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 
 	for ( unsigned int fi = 0; fi < setCount && c->open; ++fi )
 	{
-		const FileList::FileEntry& e = fileList->files[fi];
+		const SdlNetFileList::FileEntry& e = fileList.files_[fi];
 		unsigned int fileLen = (unsigned int)e.data.size();
 		unsigned int offset = 0;
 		do
@@ -1322,46 +1259,15 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 				body.insert( body.end(), (const unsigned char*)e.data.data() + offset, (const unsigned char*)e.data.data() + offset + chunk );
 			ps->SendFrame( c, FT_FILE, body.data(), (unsigned int)body.size() );
 			offset += chunk;
-			if ( state->progress )
-				state->progress->OnFilePush( e.filename.c_str(), fileLen, offset, chunk, offset >= fileLen, recipient );
+			if ( state_->progress )
+				state_->progress->OnFilePush( e.filename.c_str(), fileLen, offset, chunk, offset >= fileLen, recipient );
 		} while ( offset < fileLen );
 	}
 }
 
-void FileListTransfer::SetCallback( FileListProgress* callback )
+void SdlNetFileTransfer::SetCallback( SdlNetFileProgress* callback )
 {
-	state->progress = callback;
+	state_->progress = callback;
 }
 
-// ---- misc compat -----------------------------------------------------------
-
-void RakSleep( unsigned int ms )
-{
-	SDL_Delay( ms );
-}
-
-unsigned int SuperFastHash( const char* data, int length )
-{
-	// FNV-1a; only referenced from commented-out wrapper code, kept linkable.
-	unsigned int h = 2166136261u;
-	for ( int i = 0; i < length; ++i )
-	{
-		h ^= (unsigned char)data[i];
-		h *= 16777619u;
-	}
-	return h;
-}
-
-namespace RakNet
-{
-	bool BitStream::DoEndianSwap( void ) { return false; }
-	void BitStream::ReverseBytesInPlace( unsigned char* data, unsigned int length )
-	{
-		for ( unsigned int i = 0; i < length / 2; ++i )
-		{
-			unsigned char t = data[i];
-			data[i] = data[length - 1 - i];
-			data[length - 1 - i] = t;
-		}
-	}
 }

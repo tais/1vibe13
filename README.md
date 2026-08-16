@@ -51,7 +51,7 @@ and have fun. :)
 | Cinematics | Smacker via `binkw32.lib` / `SMACKW32.LIB` | libsmacker (Bink path stubbed — no shipped `.bik`) |
 | Dependencies | prebuilt MSVC `.lib` blobs in-tree | built from source (FetchContent) / vendored |
 | Display shim | cnc-ddraw | none — SDL3 owns the window & scaling |
-| Multiplayer | RakNet (32-bit Win32 `.lib`) | SDL3_net `netshim`; menu entry; packaged PvP-only `ja2server` with a loopback-tested coordinator session |
+| Multiplayer | 32-bit-only third-party transport | Native SDL3_net transport; menu entry; transitional packaged PvP coordinator; full-engine dedicated host in progress |
 
 
 ## Dependencies

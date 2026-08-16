@@ -1,18 +1,6 @@
 #include "sgp_bounded_string.h"
 #include "TacticalWorldAdapter.h"
-#include "MessageIdentifiers.h"
-#include "RakNetworkFactory.h"
-#include "RakPeerInterface.h"
-#include "RakNetStatistics.h"
-#include "RakNetTypes.h"
-#include "FileListTransfer.h"
-#include "FileListTransferCBInterface.h"
-#include "FileOperations.h"
-#include "SuperFastHash.h"
-#include "RakAssert.h"
-#include "IncrementalReadInterface.h"
-#include "BitStream.h"
-#include "RakSleep.h"
+#include "SdlNetTransport.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
@@ -40,15 +28,18 @@
 #include "Debug Control.h"
 #include "MPXmlTeams.hpp"
 
+using namespace ja2::mp;
+using namespace ja2::mp::net;
+
 extern CHAR16 gzFileTransferDirectory[100];
 
 // WANNE: FILE TRANSFER
 unsigned int setID;
 
 // Sender progress notification
-class ServerFileListProgress : public FileListProgress
+class ServerFileListProgress : public SdlNetFileProgress
 {
-	virtual void OnFilePush(const char *fileName, unsigned int fileLengthBytes, unsigned int offset, unsigned int bytesBeingSent, bool done, SystemAddress targetSystem)
+	virtual void OnFilePush(const char *fileName, unsigned int fileLengthBytes, unsigned int offset, unsigned int bytesBeingSent, bool done, ConnectionId targetSystem)
 	{
 		// WANNE: Removed output in strategy log screen, because otherwise we do not see chat messages easily
 		/*
@@ -102,19 +93,18 @@ UINT16 ncr; //number of ready confirmed connections
 //something keep record of ready connections ..
 int mercs_ready[255];
 
-unsigned char SGetPacketIdentifier(Packet *p);
+unsigned char SGetPacketIdentifier(SdlNetEvent *p);
 unsigned char SpacketIdentifier;
 
-RakPeerInterface *server;
+SdlNetPeer *server;
 
 // PR-1: central short-frame guard -- bail before a (Struct*)cast if the wire
 // payload is smaller than the struct the handler reads (heap over-read otherwise).
-#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(p)->size) < (long)sizeof(T) ) return; }while(0)
 
 // WANNE: FILE TRANSFER
-FileListTransfer fltServer;	// flt1
-IncrementalReadInterface incrementalReadInterface;
-FileList fileList;
+SdlNetFileTransfer fltServer;	// flt1
+SdlNetFileList fileList;
 // OJW - 20090405
 long fileListTotalBytes=0;
 
@@ -123,11 +113,11 @@ int readyteamreg[10];
 
 bool Sawarded;
 
-SystemAddress blank;
+ConnectionId blank;
 
 typedef struct
 {
-	SystemAddress address;
+	ConnectionId address;
 	int cl_number;
 	
 }client_data;
@@ -136,13 +126,13 @@ client_data client_d[4];
 int client_mercteam[4] = { 0 , 1 , 2 , 3 }; // random index of random_merc_teams per player
 
 // Dedicated-server admin: a connected client granted host-style control.
-SystemAddress gAdminAddr;
+ConnectionId gAdminAddr;
 bool          gHasAdmin = false;
 char          gAdminPassword[64] = {0};   // from ja2_mp.ini; empty => first remote client auto-admin
 
 bool inline can_joingame();
 
-int f_rec_num(int mode, SystemAddress sender)//from client data
+int f_rec_num(int mode, ConnectionId sender)//from client data
 {
 	int x;
 	client_data cl_record;
@@ -152,22 +142,20 @@ int f_rec_num(int mode, SystemAddress sender)//from client data
 
 		if(mode==0)//find empty slot for new record
 		{
-			if(cl_record.address.binaryAddress==0)
+			if(!cl_record.address)
 				return(x);
 		}
 		if(mode==1)//wipe clean all
 		{
-			client_d[x].address.binaryAddress=0;
-			client_d[x].address.port=0;
+			client_d[x].address = NoConnection;
 			client_d[x].cl_number=0;
 		}
 		if(mode==2)//clear one record
 		{
-			if(cl_record.address.binaryAddress==sender.binaryAddress && cl_record.address.port==sender.port)
+			if(cl_record.address == sender)
 			{
-				client_d[x].address.port=0;
+				client_d[x].address = NoConnection;
 				client_d[x].cl_number=0;
-				client_d[x].address.binaryAddress=0;
 				return(254);
 			}
 
@@ -175,7 +163,7 @@ int f_rec_num(int mode, SystemAddress sender)//from client data
 		// OJW - 090212 - look up client number
 		if (mode == 3)
 		{
-			if(cl_record.address.binaryAddress==sender.binaryAddress && cl_record.address.port==sender.port)
+			if(cl_record.address == sender)
 			{
 				return (x);
 			}
@@ -189,39 +177,39 @@ int f_rec_num(int mode, SystemAddress sender)//from client data
 	return(254);
 }
 
-// use UNASSIGNED_SYSTEM_ADDRESS instead of rpcParameters->sender to send it back to yourself (the sender)
+// use AnyConnection instead of rpcParameters->sender to send it back to yourself (the sender)
 // there is very little in here dependant on the game engine and originally started out as an independant dedicated server .exe, and could if go ther again ... hayden.
 //********* RPC SECTION ************
 
-void sendPATH(RPCParameters *rpcParameters)
+void sendPATH(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recievePATH",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recievePATH", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
 // OJW - 20090405
-void sendDOWNLOADSTATUS(RPCParameters *rpcParameters)
+void sendDOWNLOADSTATUS(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveDOWNLOADSTATUS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDOWNLOADSTATUS", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendSTANCE(RPCParameters *rpcParameters)
+void sendSTANCE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveSTANCE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveSTANCE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendDIR(RPCParameters *rpcParameters)
+void sendDIR(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveDIR",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDIR", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendFIRE(RPCParameters *rpcParameters)
+void sendFIRE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveFIRE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveFIRE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendHIT(RPCParameters *rpcParameters)
+void sendHIT(SdlNetMessage *rpcParameters)
 {
-	EV_S_WEAPONHIT* hit = (EV_S_WEAPONHIT*)rpcParameters->input;
+	EV_S_WEAPONHIT* hit = (EV_S_WEAPONHIT*)rpcParameters->data;
 
 	// MP wire guard: the attacker id is raw wire data; the slot can be empty or
 	// the sentinel NOBODY -- never deref unchecked (mp_audit_findings.json)
@@ -247,112 +235,112 @@ void sendHIT(RPCParameters *rpcParameters)
 			gMPPlayerStats[team].hits++;
 	}
 
-	server->RPC("recieveHIT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveHIT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendDISMISS(RPCParameters *rpcParameters)
+void sendDISMISS(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveDISMISS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDISMISS", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendHIRE(RPCParameters *rpcParameters)
+void sendHIRE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveHIRE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveHIRE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendguiPOS(RPCParameters *rpcParameters)
+void sendguiPOS(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveguiPOS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveguiPOS", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendguiDIR(RPCParameters *rpcParameters)
+void sendguiDIR(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveguiDIR",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveguiDIR", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendEndTurn(RPCParameters *rpcParameters)
+void sendEndTurn(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveEndTurn",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveEndTurn", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendAI(RPCParameters *rpcParameters)
+void sendAI(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveAI",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveAI", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendSTOP(RPCParameters *rpcParameters)
+void sendSTOP(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveSTOP",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveSTOP", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
-void sendINTERRUPT(RPCParameters *rpcParameters)
+void sendINTERRUPT(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveINTERRUPT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveINTERRUPT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
-void sendREADY(RPCParameters *rpcParameters)
+void sendREADY(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveREADY",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
-}
-
-void sendGUI(RPCParameters *rpcParameters)
-{
-	server->RPC("recieveGUI",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveREADY", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendBULLET(RPCParameters *rpcParameters)
+void sendGUI(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveBULLET",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveGUI", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendGRENADE(RPCParameters *rpcParameters)
+void sendBULLET(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveGRENADE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveBULLET", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendGRENADERESULT(RPCParameters *rpcParameters)
+void sendGRENADE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveGRENADERESULT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveGRENADE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendPLANTEXPLOSIVE(RPCParameters *rpcParameters)
+void sendGRENADERESULT(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recievePLANTEXPLOSIVE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveGRENADERESULT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendDETONATEEXPLOSIVE(RPCParameters *rpcParameters)
+void sendPLANTEXPLOSIVE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveDETONATEEXPLOSIVE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recievePLANTEXPLOSIVE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendDISARMEXPLOSIVE(RPCParameters *rpcParameters)
+void sendDETONATEEXPLOSIVE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveDISARMEXPLOSIVE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDETONATEEXPLOSIVE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendSPREADEFFECT(RPCParameters *rpcParameters)
+void sendDISARMEXPLOSIVE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveSPREADEFFECT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDISARMEXPLOSIVE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendNEWSMOKEEFFECT(RPCParameters *rpcParameters)
+void sendSPREADEFFECT(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveNEWSMOKEEFFECT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveSPREADEFFECT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendEXPLOSIONDAMAGE(RPCParameters *rpcParameters)
+void sendNEWSMOKEEFFECT(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveEXPLOSIONDAMAGE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveNEWSMOKEEFFECT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendSTATE(RPCParameters *rpcParameters)
+void sendEXPLOSIONDAMAGE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveSTATE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveEXPLOSIONDAMAGE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendDEATH(RPCParameters *rpcParameters)
+void sendSTATE(SdlNetMessage *rpcParameters)
+{
+	server->SendMessage("recieveSTATE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
+}
+
+void sendDEATH(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (H12/H13)
 	// the master copy of the scoreboard is kept on the server
-	death_struct* nDeath = (death_struct*)rpcParameters->input;
+	death_struct* nDeath = (death_struct*)rpcParameters->data;
 
 	// Save Stats on the server side
 	// H12: wire team-1 indexes gMPPlayerStats[5]; team==0 underflows to [-1], >5 overflows.
@@ -365,7 +353,7 @@ void sendDEATH(RPCParameters *rpcParameters)
 	// get the client number of the client sending the message
 	int iCLnum = f_rec_num(3,rpcParameters->sender)+1;
 
-	server->RPC("recieveDEATH",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveDEATH", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 
 #ifdef JA2BETAVERSION
 	wchar_t ateam[5];
@@ -380,9 +368,9 @@ void sendDEATH(RPCParameters *rpcParameters)
 	MPDebugMsg( logmsg );
 #endif
 }
-void sendhitSTRUCT(RPCParameters *rpcParameters)
+void sendhitSTRUCT(SdlNetMessage *rpcParameters)
 {
-	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->input;
+	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->data;
 	
 	TacticalActor* attacker =
 		miss->ubAttackerID != NOBODY
@@ -407,11 +395,11 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 			gMPPlayerStats[team].misses++;
 	}
 
-	server->RPC("recievehitSTRUCT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recievehitSTRUCT", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
-void sendhitWINDOW(RPCParameters *rpcParameters)
+void sendhitWINDOW(SdlNetMessage *rpcParameters)
 {
-	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->input;
+	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->data;
 	
 
 	TacticalActor* attacker =
@@ -437,11 +425,11 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 			gMPPlayerStats[team].misses++;
 	}
 
-	server->RPC("recievehitWINDOW",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recievehitWINDOW", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
-void sendMISS(RPCParameters *rpcParameters)
+void sendMISS(SdlNetMessage *rpcParameters)
 {
-	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->input;
+	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->data;
 
 	TacticalActor* attacker =
 		miss->ubAttackerID != NOBODY
@@ -466,68 +454,68 @@ void sendMISS(RPCParameters *rpcParameters)
 			gMPPlayerStats[team].misses++;
 	}
 
-	server->RPC("recieveMISS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveMISS", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
-void updatenetworksoldier(RPCParameters *rpcParameters)
+void updatenetworksoldier(SdlNetMessage *rpcParameters)
 {
-	server->RPC("UpdateSoldierFromNetwork",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
-}
-
-void Snull_team(RPCParameters *rpcParameters)
-{
-	server->RPC("null_team",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("UpdateSoldierFromNetwork", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendFIREW(RPCParameters *rpcParameters)
+void Snull_team(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieve_fireweapon",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("null_team", (const char*)rpcParameters->data, (*rpcParameters).size, AnyConnection, true);
 }
 
-void sendDOOR(RPCParameters *rpcParameters)
+void sendFIREW(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieve_door",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieve_fireweapon", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void endINTERRUPT(RPCParameters *rpcParameters)
+void sendDOOR(SdlNetMessage *rpcParameters)
 {
-	server->RPC("resume_turn",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieve_door", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendWIPE(RPCParameters *rpcParameters)
+void endINTERRUPT(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieve_wipe",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("resume_turn", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendHEAL(RPCParameters *rpcParameters)
+void sendWIPE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieve_heal",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieve_wipe", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
+}
+
+void sendHEAL(SdlNetMessage *rpcParameters)
+{
+	server->SendMessage("recieve_heal", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
 // OJW - edge and team changes
-void sendEDGECHANGE(RPCParameters *rpcParameters)
+void sendEDGECHANGE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveEDGECHANGE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveEDGECHANGE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void sendTEAMCHANGE(RPCParameters *rpcParameters)
+void sendTEAMCHANGE(SdlNetMessage *rpcParameters)
 {
-	server->RPC("recieveTEAMCHANGE",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveTEAMCHANGE", (const char*)rpcParameters->data, (*rpcParameters).size, rpcParameters->sender, true);
 }
 
-void requestSETID(SystemAddress addr)
+void requestSETID(ConnectionId addr)
 {
-	server->RPC("requestSETID","", 0, HIGH_PRIORITY, RELIABLE, 0, addr, false, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("requestSETID", "", 0, addr, false);
 }
 
-void receiveSETID(RPCParameters *rpcParameters)
+void receiveSETID(SdlNetMessage *rpcParameters)
 {
-	setID = atoi((const char *)rpcParameters->input);
+	setID = atoi((const char *)rpcParameters->data);
 
 	// WANNE: FILE TRANSFER: Send the files to the client
-	fltServer.Send(&fileList,server,rpcParameters->sender,setID,MEDIUM_PRIORITY,0,false, &incrementalReadInterface, 5000);
+	fltServer.Send(fileList, *server, rpcParameters->sender, setID, 5000);
 }
 
-void startCOMBAT(RPCParameters *rpcParameters)
+void startCOMBAT(SdlNetMessage *rpcParameters)
 {
 	if(!( IsJa2TacticalCombatActive() ))
 	
@@ -535,15 +523,15 @@ void startCOMBAT(RPCParameters *rpcParameters)
 
 		SetJa2TacticalCombatMode( true );
 
-		sc_struct* data = (sc_struct*)rpcParameters->input;
+		sc_struct* data = (sc_struct*)rpcParameters->data;
 		EndTurn( data->ubStartingTeam );
 	}
 
 }
 
-void sendREAL(RPCParameters *rpcParameters)
+void sendREAL(SdlNetMessage *rpcParameters)
 {
-	real_struct* rData = (real_struct*)rpcParameters->input;
+	real_struct* rData = (real_struct*)rpcParameters->data;
 
 	if(readyteamreg[rData->bteam]==0)
 	{
@@ -571,27 +559,27 @@ void sendREAL(RPCParameters *rpcParameters)
 			numreadyteams=0;
 			memset( &readyteamreg , 0 , sizeof (int) * 10);
 
-			server->RPC("gotoRT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			server->SendMessage("gotoRT", (const char*)rpcParameters->data, (*rpcParameters).size, AnyConnection, true);
 		}
 	}
 }
 
 // 20081222 - OJW
-void sendGAMEOVER(RPCParameters *rpcParameters)
+void sendGAMEOVER(SdlNetMessage *rpcParameters)
 {
 	// ignore the RPCParams and send the server side scoreboard
-	server->RPC("recieveGAMEOVER",(const char*)gMPPlayerStats, sizeof(gMPPlayerStats)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveGAMEOVER", (const char*)gMPPlayerStats, sizeof(gMPPlayerStats), AnyConnection, true);
 }
 
-void sendCHATMSG(RPCParameters *rpcParameters)
+void sendCHATMSG(SdlNetMessage *rpcParameters)
 {
 	// ignore the RPCParams and send the server side scoreboard
-	server->RPC("recieveCHATMSG",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveCHATMSG", (const char*)rpcParameters->data, (*rpcParameters).size, AnyConnection, true);
 }
 
 // OJW - 20081223
 // fix client disconnecting mid game, allowing the game to proceed
-void HandleDisconnect(SystemAddress sender)
+void HandleDisconnect(ConnectionId sender)
 {
 	// find the CLIENT_NUM of the player
 	int x;
@@ -600,10 +588,10 @@ void HandleDisconnect(SystemAddress sender)
 	for ( x=0; x<4;x++)
 	{
 		cl_record = client_d[x];
-		if(cl_record.address.binaryAddress==sender.binaryAddress && cl_record.address.port==sender.port)
+		if(cl_record.address == sender)
 		{
 			// notify all the clients of the disconnect
-			server->RPC("recieveDISCONNECT",(const char*)&cl_record.cl_number , sizeof(int)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			server->SendMessage("recieveDISCONNECT", (const char*)&cl_record.cl_number, sizeof(int), AnyConnection, true);
 			f_rec_num(2,sender); // remove from server's client list
 
 			// dedicated server: if the admin dropped, release the admin slot so the
@@ -611,7 +599,7 @@ void HandleDisconnect(SystemAddress sender)
 			if ( gHasAdmin && sender == gAdminAddr )
 			{
 				gHasAdmin = false;
-				gAdminAddr = UNASSIGNED_SYSTEM_ADDRESS;
+				gAdminAddr = NoConnection;
 				printf( "[dedicated] admin (client #%d) dropped -- admin slot released\n", cl_record.cl_number ); fflush( stdout );
 			}
 			break;
@@ -652,9 +640,9 @@ void rSortArray(int* arr, int len)
 }
 
 // WANNE: FILE TRANSFER: Send all the settings the client needs to know for the file transfer before file transfer starts
-void requestFILE_TRANSFER_SETTINGS(RPCParameters *rpcParameters)
+void requestFILE_TRANSFER_SETTINGS(SdlNetMessage *rpcParameters)
 {
-	SystemAddress sender = rpcParameters->sender;//get senders address
+	ConnectionId sender = rpcParameters->sender;//get senders address
 
 	// The complete struct is sent over the wire. Clear padding as well as fields
 	// so the packet never exposes stale stack bytes.
@@ -666,16 +654,16 @@ void requestFILE_TRANSFER_SETTINGS(RPCParameters *rpcParameters)
 	fts.totalTransferBytes = fileListTotalBytes;
 
 	// OJW - 200907819 - Only send to the client that asked for it
-	server->RPC("recieveFILE_TRANSFER_SETTINGS",(const char*)&fts, (int)sizeof(filetransfersettings_struct)*8, HIGH_PRIORITY, RELIABLE, 0, sender, false, 0, UNASSIGNED_NETWORK_ID,0);
+	server->SendMessage("recieveFILE_TRANSFER_SETTINGS", (const char*)&fts, sizeof(filetransfersettings_struct), sender, false);
 }
 
-//************************* //UNASSIGNED_SYSTEM_ADDRESS
+//************************* //AnyConnection
 //START INTERNAL SERVER
 //*************************
 //void send_settings (void)//send server settings to client
-void adminCmd(RPCParameters *rpcParameters)
+void adminCmd(SdlNetMessage *rpcParameters)
 {
-	admin_cmd_struct* ac = (admin_cmd_struct*)rpcParameters->input;
+	admin_cmd_struct* ac = (admin_cmd_struct*)rpcParameters->data;
 	ac->password[63] = 0;
 	printf( "[dedicated] adminCmd received: cmd=%d (hasAdmin=%d isAdminSender=%d)\n", (int)ac->cmd, gHasAdmin?1:0, (gHasAdmin && rpcParameters->sender == gAdminAddr)?1:0 ); fflush( stdout );
 	if ( ac->cmd == ADMIN_CMD_AUTH )
@@ -685,7 +673,7 @@ void adminCmd(RPCParameters *rpcParameters)
 			gAdminAddr = rpcParameters->sender;
 			gHasAdmin = true;
 			unsigned char one = 1;
-			server->RPC("recieveADMIN",(const char*)&one, 8, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, false, 0, UNASSIGNED_NETWORK_ID, 0);
+			server->SendMessage("recieveADMIN", (const char*)&one, 1, rpcParameters->sender, false);
 			ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"A client authenticated as the server admin" );
 			printf( "[dedicated] a client authenticated as admin\n" ); fflush( stdout );
 		}
@@ -708,14 +696,14 @@ void adminCmd(RPCParameters *rpcParameters)
 	}
 }
 
-void requestSETTINGS(RPCParameters *rpcParameters )
+void requestSETTINGS(SdlNetMessage *rpcParameters )
 {
 	RPC_REQUIRE_BYTES(rpcParameters, client_info);	// short-frame guard (H14/H13)
 	// dont generate or send settings to a new user if they are about to be disconnected
 	// because no more players can join the the game
 	if (can_joingame())
 	{
-		client_info* clinf = (client_info*)rpcParameters->input;
+		client_info* clinf = (client_info*)rpcParameters->data;
 
 		// L3: wire name/version are strcmp'd and strcpy'd -- force NUL-termination so a
 		// non-terminated field can't over-read past the fixed buffers.
@@ -730,7 +718,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 			sgp_swprintf(verErrMsg, 255, MPClientMessage[66], clinf->client_version,MPVERSION);
 
 			// send disconnect reason only to this client
-			server->RPC("recieveDISCONNECTREASON",(const char*)&verErrMsg, (int)sizeof(CHAR16)*255*8, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, false, 0, UNASSIGNED_NETWORK_ID,0);
+			server->SendMessage("recieveDISCONNECTREASON", (const char*)&verErrMsg, sizeof(CHAR16) * 255, rpcParameters->sender, false);
 
 			ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"CONNECTION REJECTED - CLIENT HAS WRONG VERSION");
 			// disconnect this client
@@ -739,7 +727,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		}
 		
 		//server assigned client numbers - hayden.
-		SystemAddress sender = rpcParameters->sender;//get senders address
+		ConnectionId sender = rpcParameters->sender;//get senders address
 		int bslot = f_rec_num(0,blank);//get empty record slot
 		client_d[bslot].address=sender; //record clients address
 		int new_cl_num = bslot+1;//client number to assign
@@ -755,7 +743,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 				gAdminAddr = sender;
 				gHasAdmin = true;
 				unsigned char one = 1;
-				server->RPC("recieveADMIN",(const char*)&one, 8, HIGH_PRIORITY, RELIABLE, 0, sender, false, 0, UNASSIGNED_NETWORK_ID, 0);
+				server->SendMessage("recieveADMIN", (const char*)&one, 1, sender, false);
 				ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Client #%d is now the server admin", new_cl_num );
 				printf( "[dedicated] client #%d is now admin\n", new_cl_num ); fflush( stdout );
 			}
@@ -880,7 +868,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		// send server version to client
 		sgp_strlcpy(lan.server_version, MPVERSION);
 
-		server->RPC("recieveSETTINGS",(const char*)&lan, (int)sizeof(settings_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		server->SendMessage("recieveSETTINGS", (const char*)&lan, sizeof(settings_struct), AnyConnection, true);
 
 		// WANNE: FILE TRANSFER: A client connected -> start the file transfer!
 		if (gSyncGameDirectory)
@@ -899,7 +887,7 @@ void send_mapchange(void)
 		lan.gsMercArriveSectorY=gsMercArriveSectorY;
 		lan.startingTime = gStartingTime;
 
-		server->RPC("recieveMAPCHANGE",(const char*)&lan, (int)sizeof(mapchange_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		server->SendMessage("recieveMAPCHANGE", (const char*)&lan, sizeof(mapchange_struct), AnyConnection, true);
 	}
 	else
 	{
@@ -914,7 +902,7 @@ bool inline can_joingame()
 }
 
 // Allow server to disconnect incoming clients after the game has started
-void CheckIncomingConnection(Packet* p)
+void CheckIncomingConnection(SdlNetEvent* p)
 {
 	// some clients might reconnect after disconnecting, either after the laptop is unlocked
 	// or after the game has started
@@ -924,7 +912,7 @@ void CheckIncomingConnection(Packet* p)
 		ScreenMsg( FONT_LTBLUE, MSG_MPSYSTEM, L"CONNECTION REJECTED - GAME HAS STARTED");
 		// disconnect this client, no need to notify them as they will know if they disconnected
 		// before receiving a settings packet that they were not allowed to join
-		server->CloseConnection(p->systemAddress, true);
+		server->CloseConnection(p->connection, true);
 	}
 }
 
@@ -964,7 +952,8 @@ void AddFilesToSendList()
 				std::vector<vfs::Byte> data(fsize,0);
 				rfile->read(&data[0], fsize);
 				rfile->close();
-				fileList.AddFile(vfs::String::as_utf8(valid_path()).c_str(),&data[0], fsize,fsize,FileListNodeContext(0,0), false);
+				fileList.AddFile(
+					vfs::String::as_utf8(valid_path()).c_str(), &data[0], fsize);
 			}
 		}
 	}	
@@ -1122,66 +1111,65 @@ void start_server (void)
 
 		ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, MPServerMessage[0] );
 
-		server=RakNetworkFactory::GetRakPeerInterface();
+		server=CreateSdlNetPeer();
 		
 		// WANNE: Set higher timeout than default (30 seconds)
-		server->SetTimeoutTime(120000, UNASSIGNED_SYSTEM_ADDRESS);	// 120 Seconds
+		server->SetTimeout(120000);	// 120 Seconds
 
 
-		SocketDescriptor sd(serverPort,0);
-		bool b = server->Startup(gMaxClients, 30, &sd, 1);
+		SdlNetEndpoint sd(serverPort,0);
+		bool b = server->Start(gMaxClients, sd);
 
 		server->SetMaximumIncomingConnections((gMaxClients));
-		server->SetOccasionalPing(true);
 
 		//RPC's
-		REGISTER_STATIC_RPC(server, sendPATH);
-		REGISTER_STATIC_RPC(server, sendDOWNLOADSTATUS);
-		REGISTER_STATIC_RPC(server, sendSTANCE);
-		REGISTER_STATIC_RPC(server, sendDIR);
-		REGISTER_STATIC_RPC(server, sendFIRE);
-		REGISTER_STATIC_RPC(server, sendHIT);
-		REGISTER_STATIC_RPC(server, sendHIRE);
-		REGISTER_STATIC_RPC(server, sendDISMISS);
-		REGISTER_STATIC_RPC(server, sendguiPOS);
-		REGISTER_STATIC_RPC(server, sendguiDIR);
-		REGISTER_STATIC_RPC(server, sendEndTurn);
-		REGISTER_STATIC_RPC(server, sendAI);
-		REGISTER_STATIC_RPC(server, sendSTOP);
-		REGISTER_STATIC_RPC(server, sendINTERRUPT);
-		REGISTER_STATIC_RPC(server, sendREADY);
-		REGISTER_STATIC_RPC(server, sendGUI);
-		REGISTER_STATIC_RPC(server, sendBULLET);
-		REGISTER_STATIC_RPC(server, sendGRENADE);
-		REGISTER_STATIC_RPC(server, sendGRENADERESULT);
-		REGISTER_STATIC_RPC(server, sendPLANTEXPLOSIVE);
-		REGISTER_STATIC_RPC(server, sendDETONATEEXPLOSIVE);
-		REGISTER_STATIC_RPC(server, sendDISARMEXPLOSIVE);
-		REGISTER_STATIC_RPC(server, sendSPREADEFFECT);
-		REGISTER_STATIC_RPC(server, sendNEWSMOKEEFFECT);
-		REGISTER_STATIC_RPC(server, sendEXPLOSIONDAMAGE);
-		REGISTER_STATIC_RPC(server, requestSETTINGS);
-		REGISTER_STATIC_RPC(server, requestFILE_TRANSFER_SETTINGS);
-		REGISTER_STATIC_RPC(server, sendSTATE);
-		REGISTER_STATIC_RPC(server, sendDEATH);
-		REGISTER_STATIC_RPC(server, sendhitSTRUCT);
-		REGISTER_STATIC_RPC(server, sendhitWINDOW);
-		REGISTER_STATIC_RPC(server, sendMISS);		
-		REGISTER_STATIC_RPC(server, updatenetworksoldier);
-		REGISTER_STATIC_RPC(server, Snull_team);
-		REGISTER_STATIC_RPC(server, sendFIREW);
-		REGISTER_STATIC_RPC(server, sendDOOR);
-		REGISTER_STATIC_RPC(server, endINTERRUPT);
-		REGISTER_STATIC_RPC(server, adminCmd);
-		REGISTER_STATIC_RPC(server, sendREAL);
-		REGISTER_STATIC_RPC(server, startCOMBAT);
-		REGISTER_STATIC_RPC(server, sendWIPE);
-		REGISTER_STATIC_RPC(server, sendHEAL);
-		REGISTER_STATIC_RPC(server, sendEDGECHANGE);
-		REGISTER_STATIC_RPC(server, sendTEAMCHANGE);
-		REGISTER_STATIC_RPC(server, sendGAMEOVER);
-		REGISTER_STATIC_RPC(server, sendCHATMSG);
-		REGISTER_STATIC_RPC(server, receiveSETID);		
+		REGISTER_SDLNET_MESSAGE(server, sendPATH);
+		REGISTER_SDLNET_MESSAGE(server, sendDOWNLOADSTATUS);
+		REGISTER_SDLNET_MESSAGE(server, sendSTANCE);
+		REGISTER_SDLNET_MESSAGE(server, sendDIR);
+		REGISTER_SDLNET_MESSAGE(server, sendFIRE);
+		REGISTER_SDLNET_MESSAGE(server, sendHIT);
+		REGISTER_SDLNET_MESSAGE(server, sendHIRE);
+		REGISTER_SDLNET_MESSAGE(server, sendDISMISS);
+		REGISTER_SDLNET_MESSAGE(server, sendguiPOS);
+		REGISTER_SDLNET_MESSAGE(server, sendguiDIR);
+		REGISTER_SDLNET_MESSAGE(server, sendEndTurn);
+		REGISTER_SDLNET_MESSAGE(server, sendAI);
+		REGISTER_SDLNET_MESSAGE(server, sendSTOP);
+		REGISTER_SDLNET_MESSAGE(server, sendINTERRUPT);
+		REGISTER_SDLNET_MESSAGE(server, sendREADY);
+		REGISTER_SDLNET_MESSAGE(server, sendGUI);
+		REGISTER_SDLNET_MESSAGE(server, sendBULLET);
+		REGISTER_SDLNET_MESSAGE(server, sendGRENADE);
+		REGISTER_SDLNET_MESSAGE(server, sendGRENADERESULT);
+		REGISTER_SDLNET_MESSAGE(server, sendPLANTEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(server, sendDETONATEEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(server, sendDISARMEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(server, sendSPREADEFFECT);
+		REGISTER_SDLNET_MESSAGE(server, sendNEWSMOKEEFFECT);
+		REGISTER_SDLNET_MESSAGE(server, sendEXPLOSIONDAMAGE);
+		REGISTER_SDLNET_MESSAGE(server, requestSETTINGS);
+		REGISTER_SDLNET_MESSAGE(server, requestFILE_TRANSFER_SETTINGS);
+		REGISTER_SDLNET_MESSAGE(server, sendSTATE);
+		REGISTER_SDLNET_MESSAGE(server, sendDEATH);
+		REGISTER_SDLNET_MESSAGE(server, sendhitSTRUCT);
+		REGISTER_SDLNET_MESSAGE(server, sendhitWINDOW);
+		REGISTER_SDLNET_MESSAGE(server, sendMISS);
+		REGISTER_SDLNET_MESSAGE(server, updatenetworksoldier);
+		REGISTER_SDLNET_MESSAGE(server, Snull_team);
+		REGISTER_SDLNET_MESSAGE(server, sendFIREW);
+		REGISTER_SDLNET_MESSAGE(server, sendDOOR);
+		REGISTER_SDLNET_MESSAGE(server, endINTERRUPT);
+		REGISTER_SDLNET_MESSAGE(server, adminCmd);
+		REGISTER_SDLNET_MESSAGE(server, sendREAL);
+		REGISTER_SDLNET_MESSAGE(server, startCOMBAT);
+		REGISTER_SDLNET_MESSAGE(server, sendWIPE);
+		REGISTER_SDLNET_MESSAGE(server, sendHEAL);
+		REGISTER_SDLNET_MESSAGE(server, sendEDGECHANGE);
+		REGISTER_SDLNET_MESSAGE(server, sendTEAMCHANGE);
+		REGISTER_SDLNET_MESSAGE(server, sendGAMEOVER);
+		REGISTER_SDLNET_MESSAGE(server, sendCHATMSG);
+		REGISTER_SDLNET_MESSAGE(server, receiveSETID);
 
 		if (b)
 		{
@@ -1189,8 +1177,7 @@ void start_server (void)
 			is_server = true;
 
 			// WANNE: FILE TRANSFER
-			server->AttachPlugin(&fltServer);
-			server->SetSplitMessageProgressInterval(1);
+			server->AttachFileTransfer(fltServer);
 			fltServer.SetCallback(&serverFileListProgress);
 
 			fileListTotalBytes=0;
@@ -1218,12 +1205,12 @@ void start_server (void)
 void server_packet ( void )
 {
 	
-	Packet* p;
+	SdlNetEvent* p;
 
 	if (is_server)
 	{
 
-	p = server->Receive();
+	p = server->Poll();
 
 	while(p)
 	{
@@ -1235,57 +1222,38 @@ void server_packet ( void )
 		// Check if this is a network message packet
 		switch (SpacketIdentifier)
 		{
-			case ID_DISCONNECTION_NOTIFICATION://client disconnected purposefullly
+			case SDLNET_DISCONNECTION_NOTIFICATION://client disconnected purposefullly
 				// Connection lost normally
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_DISCONNECTION_NOTIFICATION");
-				HandleDisconnect(p->systemAddress);//clear record
+				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_DISCONNECTION_NOTIFICATION");
+				HandleDisconnect(p->connection);//clear record
 				break;
-			case ID_ALREADY_CONNECTED:
-				// Connection lost normally
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_ALREADY_CONNECTED");
+			case SDLNET_CONNECTION_ATTEMPT_FAILED:
+				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_ATTEMPT_FAILED");
 				break;
-			case ID_REMOTE_DISCONNECTION_NOTIFICATION: // Server telling the clients of another client disconnecting gracefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_REMOTE_DISCONNECTION_NOTIFICATION");
-				break;
-			case ID_REMOTE_CONNECTION_LOST: // Server telling the clients of another client disconnecting forcefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_REMOTE_CONNECTION_LOST");
-				break;
-			case ID_REMOTE_NEW_INCOMING_CONNECTION: // Server telling the clients of another client connecting.  You can manually broadcast this in a peer to peer enviroment if you want.
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_REMOT/MING_CONNECTION");
-				break;
-			case ID_CONNECTION_ATTEMPT_FAILED:
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_CONNECTION_ATTEMPT_FAILED");
-				break;
-			case ID_NO_FREE_INCOMING_CONNECTIONS:
+			case SDLNET_NO_FREE_INCOMING_CONNECTIONS:
 				// Sorry, the server is full.  I don't do anything here but
 				// A real app should tell the user
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_NO_FREE_INCOMING_CONNECTIONS");
+				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_NO_FREE_INCOMING_CONNECTIONS");
 				break;
-			case ID_CONNECTION_LOST:
+			case SDLNET_CONNECTION_LOST:
 				// Couldn't deliver a reliable packet - i.e. the other system was abnormally
 				// terminated
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_CONNECTION_LOST");//client dropped
-				HandleDisconnect(p->systemAddress);//clear record
+				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_LOST");//client dropped
+				HandleDisconnect(p->connection);//clear record
 				break;
-			case ID_CONNECTION_REQUEST_ACCEPTED:
+			case SDLNET_CONNECTION_ACCEPTED:
 				// This tells the client they have connected
-				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_CONNECTION_REQUEST_ACCEPTED");
+				ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_ACCEPTED");
 				break;
-			case ID_NEW_INCOMING_CONNECTION:
+			case SDLNET_NEW_INCOMING_CONNECTION:
 				//tells server client has connected
 				#ifdef JA2BETAVERSION
-					ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_NEW_INCOMING_CONNECTION");
+					ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"SDLNET_NEW_INCOMING_CONNECTION");
 				#endif
 				// make sure they can connect
 				CheckIncomingConnection(p);
 				//send_settings();//send off server set settings
 
-				break;
-			case ID_MODIFIED_PACKET:
-				// Cheater!
-				#ifdef JA2BETAVERSION
-					ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"ID_MODIFIED_PACKET");
-				#endif
 				break;
 			default:
 				#ifdef JA2BETAVERSION	
@@ -1296,38 +1264,26 @@ void server_packet ( void )
 
 
 		// We're done with the packet, get more :)
-		server->DeallocatePacket(p);
-		p = server->Receive();
+		server->Release(p);
+		p = server->Poll();
 	}
 	}
 }
-// Copied from Multiplayer.cpp
-// If the first byte is ID_TIMESTAMP, then we want the 5th byte
-// Otherwise we want the 1st byte
-unsigned char SGetPacketIdentifier(Packet *p)
+unsigned char SGetPacketIdentifier(SdlNetEvent *p)
 {
-	if (p==0)
-		return 255;
-
-	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
-	{
-		assert(p->length > sizeof(unsigned char) + sizeof(unsigned long));
-		return (unsigned char) p->data[sizeof(unsigned char) + sizeof(unsigned long)];
-	}
-	else
-		return (unsigned char) p->data[0];
+	return !p || p->size == 0 ? 255 : p->data[0];
 }
 
 void server_disconnect (void)
 {
 	if(is_server)
 	{
-		server->DetachPlugin(&fltServer);
+		server->DetachFileTransfer(fltServer);
 	server->Shutdown(300);
 	is_server = false;
 	fileList.Clear();
 	// We're done with the network
-	RakNetworkFactory::DestroyRakPeerInterface(server);
+	DestroySdlNetPeer(server);
 	ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, MPServerMessage[6]);
 	}
 	else

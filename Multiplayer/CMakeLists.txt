@@ -1,10 +1,17 @@
-# Multiplayer, revived (was: deferred stub -- see git history for the
-# RakNetLibStatic.lib story). The wrapper (client.cpp/server.cpp/
-# transfer_rules.cpp) still speaks the RakNet 3.401 API it was written
-# against; netshim/ implements exactly that surface over SDL3_net TCP
-# stream sockets, so the same code now builds and runs on every 64-bit
-# platform. The prebuilt 32-bit Win32 RakNetLibStatic.lib and the no-op
-# mp_stubs.cpp are no longer used anywhere.
+# Project-native SDL3_net TCP transport. The game, transition coordinator, and
+# adversarial tests all link this exact framing, liveness, and backpressure code.
+add_library(SdlNetTransport STATIC
+  "SdlNetTransport.cpp"
+)
+
+target_include_directories(SdlNetTransport PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_compile_features(SdlNetTransport PUBLIC cxx_std_17)
+target_link_libraries(SdlNetTransport PUBLIC SDL3_net::SDL3_net SDL3::SDL3)
+
+# Multiplayer remains static because it references main-executable globals.
+# Its legacy arena messages now use the native transport directly.
 #
 # STATIC: the lib references main-executable globals (gTacticalStatus,
 # ScreenMsg, ...); a Windows DLL can't leave those unresolved, and
@@ -19,13 +26,11 @@ add_library(Multiplayer STATIC
   "FullEngineCoopIngress.cpp"
   "server.cpp"
   "transfer_rules.cpp"
-  "netshim/netshim.cpp"
 )
 
 target_include_directories(Multiplayer PUBLIC
   ${PROJECT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}
-  "netshim"
 )
 
-target_link_libraries(Multiplayer PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
+target_link_libraries(Multiplayer PRIVATE SdlNetTransport)

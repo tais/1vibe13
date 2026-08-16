@@ -378,9 +378,9 @@ void TestAuthorityAuthorization()
 	AdmissionRegistry admission(&tokens);
 	AuthorityConfiguration configuration = Configuration();
 	admission.beginSession(configuration);
-	const TransportPeer senderA{0x0100007f, 5001};
-	const TransportPeer senderB{0x0100007f, 5002};
-	const TransportPeer senderC{0x0100007f, 5003};
+	const TransportPeer senderA{5001};
+	const TransportPeer senderB{5002};
+	const TransportPeer senderC{5003};
 	const AdmissionResponse peerA = admission.admit(senderA, FirstJoin(configuration));
 	const AdmissionResponse peerB = admission.admit(senderB, FirstJoin(configuration));
 	CHECK(peerA.admitted() && peerB.admitted(), "two peers are admitted");
@@ -515,8 +515,8 @@ void TestAuthoritySessionResetAndPeerBound()
 	std::array<AdmissionResponse, MaximumAuthorityPeers> peers{};
 	for (std::size_t index = 0; index < MaximumAuthorityPeers; ++index)
 	{
-		senders[index] = TransportPeer{0x0100007f,
-			static_cast<std::uint16_t>(6000 + index)};
+		senders[index] = TransportPeer{
+			static_cast<std::uint64_t>(6000 + index)};
 		peers[index] = admission.admit(senders[index], FirstJoin(first));
 		CHECK(peers[index].admitted(), "fixed peer registry admits declared capacity");
 		const TacticalEntityId actor{static_cast<std::uint16_t>(index), 1};
@@ -536,7 +536,7 @@ void TestAuthoritySessionResetAndPeerBound()
 		"new admission epoch starts new authority session");
 	CHECK(authority.actorBindingCount() == 0,
 		"new session clears every prior actor binding");
-	const TransportPeer newSender{0x0100007f, 7000};
+	const TransportPeer newSender{7000};
 	const AdmissionResponse newPeer = admission.admit(newSender, FirstJoin(second));
 	CHECK(newPeer.admitted(), "new session issues a fresh peer identity");
 	const TacticalEntityId actor{20, 1};
@@ -555,7 +555,7 @@ void TestAdmissionEpochCannotOutrunAuthority()
 	AdmissionRegistry admission(&tokens);
 	AuthorityConfiguration first = Configuration(0x301);
 	admission.beginSession(first);
-	const TransportPeer firstSender{0x0100007f, 8001};
+	const TransportPeer firstSender{8001};
 	const AdmissionResponse firstPeer = admission.admit(firstSender, FirstJoin(first));
 	CHECK(firstPeer.admitted(), "first epoch peer is admitted");
 
@@ -569,7 +569,7 @@ void TestAdmissionEpochCannotOutrunAuthority()
 	// the integration failure mode the explicit context epoch check must contain.
 	AuthorityConfiguration second = Configuration(0x302);
 	admission.beginSession(second);
-	const TransportPeer secondSender{0x0100007f, 8002};
+	const TransportPeer secondSender{8002};
 	const AdmissionResponse secondPeer = admission.admit(secondSender, FirstJoin(second));
 	CHECK(secondPeer.admitted(), "second epoch peer is admitted");
 	const TacticalEntityId actor{30, 1};

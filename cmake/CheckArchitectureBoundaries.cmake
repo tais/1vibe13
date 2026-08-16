@@ -2,6 +2,66 @@ if(NOT DEFINED SOURCE_ROOT)
   message(FATAL_ERROR "SOURCE_ROOT is required")
 endif()
 
+# Multiplayer transport is project-native SDL3_net code. Keep the retired
+# compatibility trees and their authority-leaking types from returning.
+foreach(retired_multiplayer_path IN ITEMS
+    "${SOURCE_ROOT}/Multiplayer/raknet"
+    "${SOURCE_ROOT}/Multiplayer/netshim"
+    "${SOURCE_ROOT}/Multiplayer/mp_stubs.cpp")
+  if(EXISTS "${retired_multiplayer_path}")
+    message(FATAL_ERROR
+      "Retired multiplayer transport path returned: ${retired_multiplayer_path}")
+  endif()
+endforeach()
+file(GLOB_RECURSE native_multiplayer_sources
+  "${SOURCE_ROOT}/Multiplayer/*.h"
+  "${SOURCE_ROOT}/Multiplayer/*.cpp")
+foreach(native_multiplayer_source IN LISTS native_multiplayer_sources)
+  file(READ "${native_multiplayer_source}" native_multiplayer_contents)
+  foreach(retired_multiplayer_token IN ITEMS
+      "RakNet"
+      "RakPeerInterface"
+      "SystemAddress"
+      "RPCParameters"
+      "REGISTER_STATIC_RPC")
+    string(FIND "${native_multiplayer_contents}"
+      "${retired_multiplayer_token}" retired_multiplayer_token_position)
+    if(NOT retired_multiplayer_token_position EQUAL -1)
+      message(FATAL_ERROR
+        "Retired multiplayer token '${retired_multiplayer_token}' returned in ${native_multiplayer_source}")
+    endif()
+  endforeach()
+endforeach()
+file(READ "${SOURCE_ROOT}/Multiplayer/CMakeLists.txt"
+  native_multiplayer_build_contents)
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  native_multiplayer_test_build_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  native_multiplayer_ci_contents)
+foreach(native_multiplayer_contract IN ITEMS
+    "add_library(SdlNetTransport STATIC"
+    "target_link_libraries(Multiplayer PRIVATE SdlNetTransport)")
+  string(FIND "${native_multiplayer_build_contents}"
+    "${native_multiplayer_contract}" native_multiplayer_contract_position)
+  if(native_multiplayer_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Native multiplayer build lost '${native_multiplayer_contract}'")
+  endif()
+endforeach()
+foreach(native_multiplayer_test_contract IN ITEMS
+    "mp_sdl_net_transport_tests"
+    "target_link_libraries(mp_sdl_net_transport_tests PRIVATE SdlNetTransport)")
+  string(FIND "${native_multiplayer_test_build_contents}"
+    "${native_multiplayer_test_contract}" native_multiplayer_test_position)
+  string(FIND "${native_multiplayer_ci_contents}"
+    "mp_sdl_net_transport_tests" native_multiplayer_ci_position)
+  if(native_multiplayer_test_position EQUAL -1 OR
+     native_multiplayer_ci_position EQUAL -1)
+    message(FATAL_ERROR
+      "Native multiplayer transport test is no longer mandatory")
+  endif()
+endforeach()
+
 # Return executable C/C++ text while preserving quoted literals. A number of
 # architecture inventories intentionally distinguish live code from disabled
 # legacy blocks, so raw token counts would make comments satisfy their gates.
@@ -16235,7 +16295,7 @@ function(read_cxx_executable source_file output_variable)
   set(${output_variable} "${source_executable}" PARENT_SCOPE)
 endfunction()
 
-# Healing keeps its established four-byte RakNet record and validation order,
+# Healing keeps its established four-byte private-wire record and validation order,
 # but accepted values cross exact actor identity into retained command ingress.
 # The compatibility executor is the only mutation site and may never reflect a
 # received or replayed snapshot through send_heal.
@@ -16278,7 +16338,7 @@ foreach(required_multiplayer_send_heal_marker IN ITEMS
     "data.ubID=pSoldier->identity().id()"
     "data.bLife=pSoldier->vitals().health()"
     "data.bBleeding=pSoldier->vitals().bleeding()"
-    "sizeof(heal)*8")
+    "sizeof(heal)")
   string(FIND "${multiplayer_send_heal_slice}"
     "${required_multiplayer_send_heal_marker}"
     multiplayer_send_heal_marker_index)

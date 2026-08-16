@@ -12,9 +12,10 @@
 #include <vector>
 
 #include "CoordinatorProtocol.h"
-#include "MessageIdentifiers.h"
-#include "RakNetworkFactory.h"
-#include "RakPeerInterface.h"
+#include "SdlNetTransport.h"
+
+using namespace ja2::mp;
+using namespace ja2::mp::net;
 
 int ja2server_test_main(int argc, char** argv);
 bool ja2server_test_dashboard_bind_resolves(const char* host);
@@ -28,8 +29,8 @@ static int g_failures = 0;
 
 struct ClientLog
 {
-	RakPeerInterface* peer = nullptr;
-	SystemAddress server;
+	SdlNetPeer* peer = nullptr;
+	ConnectionId server;
 	bool accepted = false;
 	bool closed = false;
 	int admin = 0;
@@ -51,14 +52,14 @@ struct ClientLog
 	void Pump()
 	{
 		if (!peer) return;
-		for (Packet* p = peer->Receive(); p; p = peer->Receive())
+		for (SdlNetEvent* p = peer->Poll(); p; p = peer->Poll())
 		{
 			unsigned char id = p->data[0];
-			if (id == ID_CONNECTION_REQUEST_ACCEPTED) { accepted = true; server = p->systemAddress; }
-			if (id == ID_DISCONNECTION_NOTIFICATION || id == ID_CONNECTION_LOST ||
-			    id == ID_CONNECTION_ATTEMPT_FAILED || id == ID_NO_FREE_INCOMING_CONNECTIONS)
+			if (id == SDLNET_CONNECTION_ACCEPTED) { accepted = true; server = p->connection; }
+			if (id == SDLNET_DISCONNECTION_NOTIFICATION || id == SDLNET_CONNECTION_LOST ||
+			    id == SDLNET_CONNECTION_ATTEMPT_FAILED || id == SDLNET_NO_FREE_INCOMING_CONNECTIONS)
 				closed = true;
-			peer->DeallocatePacket(p);
+			peer->Release(p);
 		}
 	}
 
@@ -66,7 +67,7 @@ struct ClientLog
 	{
 		if (!peer) return;
 		peer->Shutdown(0);
-		RakNetworkFactory::DestroyRakPeerInterface(peer);
+		DestroySdlNetPeer(peer);
 		peer = nullptr;
 	}
 };
@@ -74,37 +75,37 @@ struct ClientLog
 static ClientLog* g_logs[4] = { nullptr, nullptr, nullptr, nullptr };
 
 template <typename T>
-static void Capture(std::vector<T>& out, RPCParameters* p)
+static void Capture(std::vector<T>& out, SdlNetMessage* p)
 {
-	if ((p->numberOfBitsOfData + 7) / 8 < sizeof(T)) return;
+	if (p->size < sizeof(T)) return;
 	T value;
-	std::memcpy(&value, p->input, sizeof(value));
+	std::memcpy(&value, p->data, sizeof(value));
 	out.push_back(value);
 }
 
 #define CLIENT_HANDLERS(tag, index) \
-	static void tag##_settings(RPCParameters* p) { Capture(g_logs[index]->settings, p); } \
-	static void tag##_transfer(RPCParameters* p) { Capture(g_logs[index]->transfer, p); } \
-	static void tag##_ready(RPCParameters* p) { Capture(g_logs[index]->ready, p); } \
-	static void tag##_gui(RPCParameters* p) { Capture(g_logs[index]->gui, p); } \
-	static void tag##_turn(RPCParameters* p) { Capture(g_logs[index]->turns, p); } \
-	static void tag##_edge(RPCParameters* p) { Capture(g_logs[index]->edges, p); } \
-	static void tag##_team(RPCParameters* p) { Capture(g_logs[index]->teams, p); } \
-	static void tag##_nullteam(RPCParameters* p) { Capture(g_logs[index]->nullTeams, p); } \
-	static void tag##_death(RPCParameters* p) { Capture(g_logs[index]->deaths, p); } \
-	static void tag##_disconnect(RPCParameters* p) { Capture(g_logs[index]->disconnects, p); } \
-	static void tag##_admin(RPCParameters*) { g_logs[index]->admin++; } \
-	static void tag##_interrupt(RPCParameters*) { g_logs[index]->interrupts++; } \
-	static void tag##_resume(RPCParameters*) { g_logs[index]->resumes++; } \
-	static void tag##_realtime(RPCParameters*) { g_logs[index]->realtime++; } \
-	static void tag##_gameover(RPCParameters*) { g_logs[index]->gameovers++; }
+	static void tag##_settings(SdlNetMessage* p) { Capture(g_logs[index]->settings, p); } \
+	static void tag##_transfer(SdlNetMessage* p) { Capture(g_logs[index]->transfer, p); } \
+	static void tag##_ready(SdlNetMessage* p) { Capture(g_logs[index]->ready, p); } \
+	static void tag##_gui(SdlNetMessage* p) { Capture(g_logs[index]->gui, p); } \
+	static void tag##_turn(SdlNetMessage* p) { Capture(g_logs[index]->turns, p); } \
+	static void tag##_edge(SdlNetMessage* p) { Capture(g_logs[index]->edges, p); } \
+	static void tag##_team(SdlNetMessage* p) { Capture(g_logs[index]->teams, p); } \
+	static void tag##_nullteam(SdlNetMessage* p) { Capture(g_logs[index]->nullTeams, p); } \
+	static void tag##_death(SdlNetMessage* p) { Capture(g_logs[index]->deaths, p); } \
+	static void tag##_disconnect(SdlNetMessage* p) { Capture(g_logs[index]->disconnects, p); } \
+	static void tag##_admin(SdlNetMessage*) { g_logs[index]->admin++; } \
+	static void tag##_interrupt(SdlNetMessage*) { g_logs[index]->interrupts++; } \
+	static void tag##_resume(SdlNetMessage*) { g_logs[index]->resumes++; } \
+	static void tag##_realtime(SdlNetMessage*) { g_logs[index]->realtime++; } \
+	static void tag##_gameover(SdlNetMessage*) { g_logs[index]->gameovers++; }
 
 CLIENT_HANDLERS(c0, 0)
 CLIENT_HANDLERS(c1, 1)
 CLIENT_HANDLERS(c2, 2)
 CLIENT_HANDLERS(c3, 3)
 
-typedef void (*RpcHandler)(RPCParameters*);
+typedef void (*RpcHandler)(SdlNetMessage*);
 static RpcHandler SETTINGS[4] = { c0_settings, c1_settings, c2_settings, c3_settings };
 static RpcHandler TRANSFER[4] = { c0_transfer, c1_transfer, c2_transfer, c3_transfer };
 static RpcHandler READY[4] = { c0_ready, c1_ready, c2_ready, c3_ready };
@@ -124,25 +125,25 @@ static RpcHandler GAMEOVER[4] = { c0_gameover, c1_gameover, c2_gameover, c3_game
 static bool StartClient(ClientLog& c, int index, unsigned short port)
 {
 	g_logs[index] = &c;
-	c.peer = RakNetworkFactory::GetRakPeerInterface();
-	SocketDescriptor local;
-	if (!c.peer->Startup(1, 30, &local, 1)) return false;
-	c.peer->RegisterAsRemoteProcedureCall("recieveSETTINGS", SETTINGS[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveFILE_TRANSFER_SETTINGS", TRANSFER[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveREADY", READY[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveGUI", GUI[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveEndTurn", TURN[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveEDGECHANGE", EDGE[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveTEAMCHANGE", TEAM[index]);
-	c.peer->RegisterAsRemoteProcedureCall("null_team", NULLTEAM[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveDEATH", DEATH[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveDISCONNECT", DISCONNECT[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveADMIN", ADMIN[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveINTERRUPT", INTERRUPT[index]);
-	c.peer->RegisterAsRemoteProcedureCall("resume_turn", RESUME[index]);
-	c.peer->RegisterAsRemoteProcedureCall("gotoRT", REALTIME[index]);
-	c.peer->RegisterAsRemoteProcedureCall("recieveGAMEOVER", GAMEOVER[index]);
-	return c.peer->Connect("127.0.0.1", port, nullptr, 0);
+	c.peer = CreateSdlNetPeer();
+	SdlNetEndpoint local;
+	if (!c.peer->Start(1, local)) return false;
+	c.peer->RegisterMessage("recieveSETTINGS", SETTINGS[index]);
+	c.peer->RegisterMessage("recieveFILE_TRANSFER_SETTINGS", TRANSFER[index]);
+	c.peer->RegisterMessage("recieveREADY", READY[index]);
+	c.peer->RegisterMessage("recieveGUI", GUI[index]);
+	c.peer->RegisterMessage("recieveEndTurn", TURN[index]);
+	c.peer->RegisterMessage("recieveEDGECHANGE", EDGE[index]);
+	c.peer->RegisterMessage("recieveTEAMCHANGE", TEAM[index]);
+	c.peer->RegisterMessage("null_team", NULLTEAM[index]);
+	c.peer->RegisterMessage("recieveDEATH", DEATH[index]);
+	c.peer->RegisterMessage("recieveDISCONNECT", DISCONNECT[index]);
+	c.peer->RegisterMessage("recieveADMIN", ADMIN[index]);
+	c.peer->RegisterMessage("recieveINTERRUPT", INTERRUPT[index]);
+	c.peer->RegisterMessage("resume_turn", RESUME[index]);
+	c.peer->RegisterMessage("gotoRT", REALTIME[index]);
+	c.peer->RegisterMessage("recieveGAMEOVER", GAMEOVER[index]);
+	return c.peer->Connect("127.0.0.1", port);
 }
 
 static std::vector<ClientLog*> g_active;
@@ -173,9 +174,7 @@ static void PumpFor(int milliseconds)
 
 static void SendRaw(ClientLog& c, const char* rpc, const void* data, size_t bytes)
 {
-	c.peer->RPC(rpc, (const char*)data, (BitSize_t)(bytes * 8), HIGH_PRIORITY,
-	            RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0,
-	            UNASSIGNED_NETWORK_ID, 0);
+	c.peer->SendMessage(rpc, data, bytes, AnyConnection, true);
 }
 
 template <typename T>

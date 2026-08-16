@@ -7705,7 +7705,7 @@ STR16 NewInvMessage[] =
 STR16 MPServerMessage[] =
 {
 	// 0
-	L"Inicjacja serwera RakNet...",
+	L"Inicjacja serwera multiplayer...",
 	L"Serwer wł., oczekiwanie na połączenie",
 	L"Musisz teraz połączyć swojego klienta z serwerem, wciskając 2",
 	L"Serwer już działa",
@@ -7726,7 +7726,7 @@ STR16 MPServerMessage[] =
 STR16 MPClientMessage[] =
 {
 	// 0
-	L"Inicjacja klienta RakNet…",
+	L"Inicjacja klienta multiplayer…",
 	L"Łączenie z IP: %S ...",
 	L"Otrzymano ustawienia:",
 	L"Jesteś już połączony.",

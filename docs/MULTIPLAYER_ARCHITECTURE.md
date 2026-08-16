@@ -2,20 +2,22 @@
 
 ## Status and terminology
 
-The SDL3 multiplayer port contains two different server programs. They must not
-be described as interchangeable:
+The target product is one mode-configurable full-engine `JA2 --dedicated`
+server for PvP and co-op. During migration the tree still contains two server
+programs, and they must not be described as interchangeable:
 
-- `ja2server` is a data-free lobby, turn-serialization, and packet-relay
+- `ja2server` is a transitional, data-free lobby, turn-serialization, and packet-relay
   coordinator. It does not link the JA2 engine, load a world, run AI, advance a
   campaign, or create saves.
 - `JA2 --dedicated` runs the complete game with dummy presentation drivers. It
   is the only current server process capable of owning tactical AI and campaign
   simulation.
 
-The code under `Multiplayer/netshim/` is a narrow source/API compatibility
-layer for the RakNet calls used by the legacy wrapper. Its wire protocol is a
-project-specific framed SDL3_net TCP stream. It is not RakNet 3.401 wire or ABI
-compatibility, and historical RakNet clients are not expected to connect.
+`Multiplayer/SdlNetTransport` is the project-native transport. It owns the
+project-specific framed SDL3_net TCP stream, opaque process-local connection
+identities, liveness, fairness, backpressure, and bounded file transfer. The
+obsolete compatibility API and dormant third-party source archive have been
+removed. Historical multiplayer clients are not expected to connect.
 
 Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
@@ -75,7 +77,7 @@ admission; it must not infer a campaign identity from client-provided prose.
 An all-zero identity/token requests a new seat. A successful new admission
 returns a unique identity and opaque reconnect token. A reconnect presents the
 pair and atomically replaces the previous transport binding. The registry binds
-identity to the transport-derived peer address; gameplay payloads never select
+identity to the transport-derived opaque connection ID; gameplay payloads never select
 their own sender identity.
 
 Reconnect tokens travel over the current plaintext transport. They are bearer
@@ -181,23 +183,27 @@ The transport treats every peer and frame as untrusted even on a trusted LAN:
 
 The current plaintext protocol and admin password are suitable only for
 experimental trusted-LAN use. No release should claim secure public hosting or
-RakNet interoperability.
+historical-client interoperability.
 
 ## Delivery milestones
 
 1. Harden framing and file transfer; add malformed raw-wire tests.
 2. Add the versioned admission registry and exact codec tests while leaving
    legacy arena bytes unchanged.
-3. Admit two players to one fixed tactical sector, bind one mercenary to each,
+3. Add one explicit `JA2 --dedicated` PvP/co-op lifecycle plus crash-safe
+   campaign create/resume, locking, periodic/manual checkpoint, and graceful
+   shutdown checkpoint. Co-op networking remains closed until authority and
+   replication are ready.
+4. Admit two players to one fixed tactical sector, bind one mercenary to each,
    and authoritatively execute movement, facing, stance, stop, and end turn.
-4. Add a complete tactical baseline and one authoritative firefight, including
+5. Add a complete tactical baseline and one authoritative firefight, including
    AI, RNG, interrupts, damage, death, inventory/ammunition, and reconnect.
-5. Add tactical-to-map transition, one shared squad, adjacent-sector travel,
+6. Add tactical-to-map transition, one shared squad, adjacent-sector travel,
    and a paused strategic map.
-6. Add one server-owned campaign day: compression policy, hourly events,
+7. Add one server-owned campaign day: compression policy, hourly events,
    assignments, contracts, finance, and one serialized story interaction.
-7. Add server startup load, autosave/manual save, reconnect after restart,
-   join-in-progress, revision resynchronization, and state-hash diagnostics.
+8. Add reconnect after restart, join-in-progress, revision resynchronization,
+   and state-hash diagnostics.
 
 Every milestone requires data-free model/codec tests plus a separate
 installed-data end-to-end smoke. Building and packaging the server is not proof

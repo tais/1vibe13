@@ -1,7 +1,7 @@
-// mp_netshim_tests.cpp -- loopback tests for the RakNet-compat netshim over
-// SDL3_net (Multiplayer/netshim/). Links ONLY the shim + SDL3_net, no game code.
+// Loopback and raw-wire tests for the native SDL3_net multiplayer transport.
+// Links only the production transport target and SDL3_net, with no game code.
 // Drives real TCP sockets on 127.0.0.1; exercises the exact semantics the JA2
-// MP wrapper depends on (see RakPeerInterface.h).
+// arena wrapper depends on (see SdlNetTransport.h).
 
 #include <cstdio>
 #include <chrono>
@@ -11,10 +11,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
 
-#include "RakPeerInterface.h"
-#include "RakNetworkFactory.h"
-#include "MessageIdentifiers.h"
-#include "FileListTransfer.h"
+#include "SdlNetTransport.h"
+
+using namespace ja2::mp;
+using namespace ja2::mp::net;
 
 static int g_failures = 0;
 #define CHECK( cond, msg ) do { if ( !( cond ) ) { ++g_failures; printf( "FAIL %s:%d  %s\n", __FILE__, __LINE__, msg ); } else { printf( "ok   %s\n", msg ); } } while ( 0 )
@@ -33,9 +33,11 @@ static bool BytesEqual( const std::vector<char>& actual, const void* expected, s
 
 struct PeerLog
 {
-	RakPeerInterface* peer;
+	explicit PeerLog(SdlNetPeer* transport) : peer(transport) {}
+
+	SdlNetPeer* peer = nullptr;
 	std::vector<unsigned char> ids;
-	std::vector<SystemAddress> addrs;
+	std::vector<ConnectionId> addrs;
 	bool Got( unsigned char id ) const
 	{
 		for ( unsigned char x : ids ) if ( x == id ) return true;
@@ -52,11 +54,11 @@ static bool PumpUntil( std::vector<PeerLog*> peers, Pred pred, int timeoutMs = 5
 	{
 		for ( PeerLog* pl : peers )
 		{
-			for ( Packet* pk = pl->peer->Receive(); pk; pk = pl->peer->Receive() )
+			for ( SdlNetEvent* pk = pl->peer->Poll(); pk; pk = pl->peer->Poll() )
 			{
 				pl->ids.push_back( pk->data[0] );
-				pl->addrs.push_back( pk->systemAddress );
-				pl->peer->DeallocatePacket( pk );
+				pl->addrs.push_back( pk->connection );
+				pl->peer->Release( pk );
 			}
 		}
 		if ( pred() )
@@ -67,42 +69,41 @@ static bool PumpUntil( std::vector<PeerLog*> peers, Pred pred, int timeoutMs = 5
 	}
 }
 
-// ---- RPC capture (static handlers, RakNet-style) ----------------------------
+// ---- named-message capture --------------------------------------------------
 struct Captured
 {
 	int count = 0;
 	std::vector<unsigned char> bytes;   // payload + 2 peeked pad bytes
-	unsigned int bits = 0;
-	SystemAddress sender;
+	std::size_t size = 0;
+	ConnectionId sender;
 };
 static Captured g_capSrv, g_capA, g_capB;
-static RakPeerInterface* g_relayPeer = nullptr;
+static SdlNetPeer* g_relayPeer = nullptr;
 
-static void Capture( Captured& c, RPCParameters* p )
+static void Capture( Captured& c, SdlNetMessage* p )
 {
 	c.count++;
-	c.bits = p->numberOfBitsOfData;
-	unsigned int n = ( p->numberOfBitsOfData + 7 ) / 8;
-	c.bytes.assign( p->input, p->input + n + 2 );   // +2: verify zero-padding
+	c.size = p->size;
+	std::size_t n = p->size;
+	c.bytes.assign( p->data, p->data + n + 2 );   // +2: verify zero-padding
 	c.sender = p->sender;
 }
-static void srvPING( RPCParameters* p )
+static void srvPING( SdlNetMessage* p )
 {
 	Capture( g_capSrv, p );
 	if ( g_relayPeer )   // canonical server.cpp relay: everyone EXCEPT sender
-		g_relayPeer->RPC( "clPONG", (const char*)p->input, p->numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0,
-		                  p->sender, true, 0, UNASSIGNED_NETWORK_ID, 0 );
+		g_relayPeer->SendMessage("clPONG", (const char*)p->data, p->size, p->sender, true);
 }
-static void clPONG_A( RPCParameters* p ) { Capture( g_capA, p ); }
-static void clPONG_B( RPCParameters* p ) { Capture( g_capB, p ); }
+static void clPONG_A( SdlNetMessage* p ) { Capture( g_capA, p ); }
+static void clPONG_B( SdlNetMessage* p ) { Capture( g_capB, p ); }
 
 // ---- file transfer capture ---------------------------------------------------
-struct FtCap : public FileListTransferCBInterface
+struct FtCap : public SdlNetFileReceiver
 {
 	int files = 0, progress = 0, complete = 0;
 	std::string lastName;
 	std::vector<char> lastData;
-	bool OnFile( OnFileStruct* s ) override
+	bool OnFile( SdlNetFileInfo* s ) override
 	{
 		files++;
 		lastName = s->fileName;
@@ -111,24 +112,24 @@ struct FtCap : public FileListTransferCBInterface
 			lastData.assign( s->fileData, s->fileData + s->finalDataLength );
 		return true;
 	}
-	void OnFileProgress( OnFileStruct*, unsigned, unsigned, unsigned, char* ) override { progress++; }
+	void OnFileProgress( SdlNetFileInfo*, unsigned, unsigned, unsigned, char* ) override { progress++; }
 	bool OnDownloadComplete( void ) override { complete++; return false; }
 };
 
-struct ReentrantFtCap : public FileListTransferCBInterface
+struct ReentrantFtCap : public SdlNetFileReceiver
 {
-	RakPeerInterface* peer = nullptr;
+	SdlNetPeer* peer = nullptr;
 	std::vector<std::string> events;
 	int nestedReceives = 0;
 
-	void OnFileProgress( OnFileStruct* s, unsigned, unsigned, unsigned, char* ) override
+	void OnFileProgress( SdlNetFileInfo* s, unsigned, unsigned, unsigned, char* ) override
 	{
 		events.push_back( "progress" + std::to_string( s->fileIndex ) );
 		++nestedReceives;
-		Packet* packet = peer->Receive();
-		if ( packet ) peer->DeallocatePacket( packet );
+		SdlNetEvent* packet = peer->Poll();
+		if ( packet ) peer->Release( packet );
 	}
-	bool OnFile( OnFileStruct* s ) override
+	bool OnFile( SdlNetFileInfo* s ) override
 	{
 		events.push_back( "file" + std::to_string( s->fileIndex ) );
 		return true;
@@ -140,56 +141,56 @@ struct ReentrantFtCap : public FileListTransferCBInterface
 	}
 };
 
-struct ShutdownFtCap : public FileListTransferCBInterface
+struct ShutdownFtCap : public SdlNetFileReceiver
 {
-	RakPeerInterface* peer = nullptr;
+	SdlNetPeer* peer = nullptr;
 	int progress = 0;
 	int files = 0;
 	int complete = 0;
 
-	void OnFileProgress( OnFileStruct*, unsigned, unsigned, unsigned, char* ) override
+	void OnFileProgress( SdlNetFileInfo*, unsigned, unsigned, unsigned, char* ) override
 	{
 		++progress;
 		peer->Shutdown( 0 );
 	}
-	bool OnFile( OnFileStruct* ) override { ++files; return true; }
+	bool OnFile( SdlNetFileInfo* ) override { ++files; return true; }
 	bool OnDownloadComplete( void ) override { ++complete; return false; }
 };
 
-struct CloseConnectionFtCap : public FileListTransferCBInterface
+struct CloseConnectionFtCap : public SdlNetFileReceiver
 {
-	RakPeerInterface* peer = nullptr;
-	SystemAddress sender;
+	SdlNetPeer* peer = nullptr;
+	ConnectionId sender;
 	int progress = 0;
 	bool borrowedDataSurvived = false;
 
-	void OnFileProgress( OnFileStruct* s, unsigned, unsigned, unsigned, char* ) override
+	void OnFileProgress( SdlNetFileInfo* s, unsigned, unsigned, unsigned, char* ) override
 	{
 		++progress;
 		peer->CloseConnection( sender, false );
-		// RakNet promises these borrowed fields for the entire callback. Reading
+		// The transport promises these borrowed fields for the entire callback. Reading
 		// them after the close request catches eager RxSet/RxFile destruction.
 		borrowedDataSurvived = s && strcmp( s->fileName, "close-during-callback" ) == 0 &&
 			s->fileData && s->fileData[0] == 'a';
 	}
-	bool OnFile( OnFileStruct* ) override { return true; }
+	bool OnFile( SdlNetFileInfo* ) override { return true; }
 };
 
-struct DetachPluginFtCap : public FileListTransferCBInterface
+struct DetachTransferFtCap : public SdlNetFileReceiver
 {
-	RakPeerInterface* peer = nullptr;
-	FileListTransfer* plugin = nullptr;
+	SdlNetPeer* peer = nullptr;
+	SdlNetFileTransfer* transfer = nullptr;
 	int progress = 0;
 	bool borrowedDataSurvived = false;
 
-	void OnFileProgress( OnFileStruct* s, unsigned, unsigned, unsigned, char* ) override
+	void OnFileProgress( SdlNetFileInfo* s, unsigned, unsigned, unsigned, char* ) override
 	{
 		++progress;
-		peer->DetachPlugin( plugin );
+		peer->DetachFileTransfer(*transfer);
 		borrowedDataSurvived = s && strcmp( s->fileName, "detach-during-callback" ) == 0 &&
 			s->fileData && s->fileData[0] == 'b';
 	}
-	bool OnFile( OnFileStruct* ) override { return true; }
+	bool OnFile( SdlNetFileInfo* ) override { return true; }
 };
 
 static void WireU16( std::vector<unsigned char>& out, unsigned int value )
@@ -237,10 +238,10 @@ static std::vector<unsigned char> FileBody( unsigned short setID, unsigned int f
 struct RawConn
 {
 	NET_StreamSocket* sock = nullptr;
-	SystemAddress onServer;
+	ConnectionId onServer;
 };
 
-static bool ConnectRaw( RakPeerInterface* server, PeerLog& log, RawConn& raw )
+static bool ConnectRaw( PeerLog& log, RawConn& raw )
 {
 	NET_Address* address = NET_ResolveHostname( "127.0.0.1" );
 	if ( !address || NET_WaitUntilResolved( address, 5000 ) != NET_SUCCESS )
@@ -259,7 +260,7 @@ static bool ConnectRaw( RakPeerInterface* server, PeerLog& log, RawConn& raw )
 	size_t before = log.ids.size();
 	if ( !PumpUntil( { &log }, [&] {
 		for ( size_t i = before; i < log.ids.size(); ++i )
-			if ( log.ids[i] == ID_NEW_INCOMING_CONNECTION )
+			if ( log.ids[i] == SDLNET_NEW_INCOMING_CONNECTION )
 			{
 				raw.onServer = log.addrs[i];
 				return true;
@@ -279,10 +280,10 @@ static bool SendRaw( RawConn& raw, const std::vector<unsigned char>& bytes )
 	return raw.sock && NET_WriteToStreamSocket( raw.sock, bytes.data(), (int)bytes.size() );
 }
 
-static bool LostSince( const PeerLog& log, size_t before, const SystemAddress& address )
+static bool LostSince( const PeerLog& log, size_t before, const ConnectionId& address )
 {
 	for ( size_t i = before; i < log.ids.size(); ++i )
-		if ( log.ids[i] == ID_CONNECTION_LOST && log.addrs[i] == address )
+		if ( log.ids[i] == SDLNET_CONNECTION_LOST && log.addrs[i] == address )
 			return true;
 	return false;
 }
@@ -296,7 +297,7 @@ int main( int, char** )
 	SDL_Init( 0 );
 
 	// ---------- 1. handshake: accept + connect events ----------
-	RakPeerInterface* srv = RakNetworkFactory::GetRakPeerInterface();
+	SdlNetPeer* srv = CreateSdlNetPeer();
 	// A fixed port makes concurrent CI jobs and an immediately repeated test run
 	// contend with one another. Pick a high per-run starting point and probe a
 	// small range. Startup() is explicitly retry-safe after a bind failure.
@@ -305,78 +306,71 @@ int main( int, char** )
 	for ( unsigned int attempt = 0; attempt < 128 && !serverStarted; ++attempt )
 	{
 		g_port = (unsigned short)( 40000 + ( seed + attempt ) % 20000 );
-		SocketDescriptor sd( g_port, "127.0.0.1" );
-		serverStarted = srv->Startup( 4, 30, &sd, 1 );
+		SdlNetEndpoint sd( g_port, "127.0.0.1" );
+		serverStarted = srv->Start( 4, sd );
 	}
 	CHECK( serverStarted, "server Startup binds listener" );
 	if ( !serverStarted )
 	{
-		RakNetworkFactory::DestroyRakPeerInterface( srv );
+		DestroySdlNetPeer( srv );
 		SDL_Quit();
 		return 1;
 	}
 	srv->SetMaximumIncomingConnections( 2 );
-	srv->SetOccasionalPing( true );
-	srv->SetTimeoutTime( 120000, UNASSIGNED_SYSTEM_ADDRESS );
-	REGISTER_STATIC_RPC( srv, srvPING );
+	srv->SetTimeout( 120000 );
+	REGISTER_SDLNET_MESSAGE( srv, srvPING );
 	g_relayPeer = srv;
 
-	RakPeerInterface* clA = RakNetworkFactory::GetRakPeerInterface();
-	SocketDescriptor sd0;
-	CHECK( clA->Startup( 1, 30, &sd0, 1 ), "client A Startup" );
-	clA->RegisterAsRemoteProcedureCall( "clPONG", clPONG_A );
-	CHECK( clA->Connect( "127.0.0.1", g_port, 0, 0 ), "client A Connect initiated" );
+	SdlNetPeer* clA = CreateSdlNetPeer();
+	SdlNetEndpoint sd0;
+	CHECK( clA->Start( 1, sd0 ), "client A startup" );
+	clA->RegisterMessage( "clPONG", clPONG_A );
+	CHECK( clA->Connect( "127.0.0.1", g_port ), "client A connect initiated" );
 
 	PeerLog L_srv{ srv }, L_A{ clA };
 	const bool handshakeComplete = PumpUntil( { &L_srv, &L_A }, [&] {
-		return L_srv.Got( ID_NEW_INCOMING_CONNECTION ) && L_A.Got( ID_CONNECTION_REQUEST_ACCEPTED );
+		return L_srv.Got( SDLNET_NEW_INCOMING_CONNECTION ) && L_A.Got( SDLNET_CONNECTION_ACCEPTED );
 	} );
 	CHECK( handshakeComplete, "handshake events on both sides" );
 	if ( !handshakeComplete )
 	{
 		clA->Shutdown( 0 );
 		srv->Shutdown( 0 );
-		RakNetworkFactory::DestroyRakPeerInterface( clA );
-		RakNetworkFactory::DestroyRakPeerInterface( srv );
+		DestroySdlNetPeer( clA );
+		DestroySdlNetPeer( srv );
 		SDL_Quit();
 		return 1;
 	}
 
 	// the wrapper's empty-slot sentinel must stay valid: real peers are nonzero/non-UNASSIGNED
-	SystemAddress aOnSrv;
+	ConnectionId aOnSrv;
 	for ( size_t i = 0; i < L_srv.ids.size(); ++i )
-		if ( L_srv.ids[i] == ID_NEW_INCOMING_CONNECTION ) aOnSrv = L_srv.addrs[i];
-	CHECK( aOnSrv.binaryAddress != 0 && aOnSrv != UNASSIGNED_SYSTEM_ADDRESS, "client addr nonzero + not UNASSIGNED" );
-	SystemAddress serverOnA;
+		if ( L_srv.ids[i] == SDLNET_NEW_INCOMING_CONNECTION ) aOnSrv = L_srv.addrs[i];
+	CHECK(aOnSrv && aOnSrv != AnyConnection,
+		"client connection id is nonzero and not the wildcard");
+	ConnectionId serverOnA;
 	for ( size_t i = 0; i < L_A.ids.size(); ++i )
-		if ( L_A.ids[i] == ID_CONNECTION_REQUEST_ACCEPTED ) serverOnA = L_A.addrs[i];
-	CHECK( serverOnA.binaryAddress != 0 && serverOnA != UNASSIGNED_SYSTEM_ADDRESS,
-	       "client A retained its accepted server address" );
+		if ( L_A.ids[i] == SDLNET_CONNECTION_ACCEPTED ) serverOnA = L_A.addrs[i];
+	CHECK(serverOnA && serverOnA != AnyConnection,
+		"client A retained its accepted server connection id");
 
 	// ---------- 2. RPC client->server: bytes, bit count, zero-pad, sender ----------
 	WirePayload pay; memset( &pay, 0, sizeof( pay ) );
 	pay.a = 0x11223344; pay.b = 0x55; strcpy( pay.name, "merc" );
-	clA->RPC( "srvPING", (const char*)&pay, (unsigned int)sizeof( pay ) * 8, HIGH_PRIORITY, RELIABLE, 0,
-	          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
+	clA->SendMessage("srvPING", &pay, sizeof( pay ), AnyConnection, true);
 	CHECK( PumpUntil( { &L_srv, &L_A }, [&] { return g_capSrv.count >= 1; } ), "RPC reached server handler" );
-	CHECK( g_capSrv.bits == sizeof( pay ) * 8, "numberOfBitsOfData exact" );
+	CHECK( g_capSrv.size == sizeof( pay ), "size exact" );
 	CHECK( BytesEqual( g_capSrv.bytes, &pay, sizeof( pay ) ), "payload byte-exact" );
 	CHECK( g_capSrv.bytes.size() >= sizeof( pay ) + 2 &&
 	       g_capSrv.bytes[sizeof( pay )] == 0 && g_capSrv.bytes[sizeof( pay ) + 1] == 0,
 	       "input zero-padded past payload" );
-	CHECK( g_capSrv.sender == aOnSrv, "RPCParameters::sender == accept-time address" );
-	CHECK( !clA->RPC( "srvPING", nullptr, 8, HIGH_PRIORITY, RELIABLE, 0,
-	                  UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 ),
+	CHECK( g_capSrv.sender == aOnSrv, "SdlNetMessage::sender == accept-time address" );
+	CHECK( !clA->SendMessage("srvPING", nullptr, 1, AnyConnection, true),
 	       "RPC rejects nonempty null payload" );
-	CHECK( !clA->RPC( "srvPING", (const char*)&pay, 7, HIGH_PRIORITY, RELIABLE, 0,
-	                  UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 ),
-	       "RPC rejects non-byte-aligned payload" );
-	CHECK( !clA->RPC( "srvPING", (const char*)&pay, 0xffffffffu, HIGH_PRIORITY, RELIABLE, 0,
-	                  UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 ),
-	       "RPC rejects overflowing/oversized bit length" );
-	CHECK( !clA->RPC( "srvPING", (const char*)&pay, 0xfffffff8u, HIGH_PRIORITY, RELIABLE, 0,
-	                  UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 ),
-	       "RPC rejects byte-aligned body above the full-frame cap" );
+	CHECK( !clA->SendMessage("srvPING", &pay, 1024u * 1024u, AnyConnection, true),
+	       "message rejects body at the full-frame cap" );
+	CHECK( !clA->SendMessage("srvPING", &pay, 0xffffffffu, AnyConnection, true),
+	       "message rejects oversized byte length" );
 
 	// relay went back out broadcast-except-sender; A must NOT get its own echo
 	SDL_Delay( 100 );
@@ -384,82 +378,77 @@ int main( int, char** )
 	CHECK( g_capA.count == 0, "broadcast-except-sender excludes the sender" );
 
 	// ---------- 3. second client: relay reaches the OTHER client ----------
-	RakPeerInterface* clB = RakNetworkFactory::GetRakPeerInterface();
-	CHECK( clB->Startup( 1, 30, &sd0, 1 ), "client B Startup" );
-	clB->RegisterAsRemoteProcedureCall( "clPONG", clPONG_B );
-	clB->Connect( "127.0.0.1", g_port, 0, 0 );
+	SdlNetPeer* clB = CreateSdlNetPeer();
+	CHECK( clB->Start( 1, sd0 ), "client B startup" );
+	clB->RegisterMessage( "clPONG", clPONG_B );
+	clB->Connect( "127.0.0.1", g_port );
 	PeerLog L_B{ clB };
-	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return L_B.Got( ID_CONNECTION_REQUEST_ACCEPTED ); } ), "client B connected" );
-	SystemAddress serverOnB;
+	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return L_B.Got( SDLNET_CONNECTION_ACCEPTED ); } ), "client B connected" );
+	ConnectionId serverOnB;
 	for ( size_t i = 0; i < L_B.ids.size(); ++i )
-		if ( L_B.ids[i] == ID_CONNECTION_REQUEST_ACCEPTED ) serverOnB = L_B.addrs[i];
-	CHECK( serverOnB.binaryAddress != 0 && serverOnB != UNASSIGNED_SYSTEM_ADDRESS,
+		if ( L_B.ids[i] == SDLNET_CONNECTION_ACCEPTED ) serverOnB = L_B.addrs[i];
+	CHECK(serverOnB && serverOnB != AnyConnection,
 	       "client B retained its accepted server address" );
 
 	g_capSrv = Captured(); g_capA = Captured(); g_capB = Captured();
-	clA->RPC( "srvPING", (const char*)&pay, (unsigned int)sizeof( pay ) * 8, HIGH_PRIORITY, RELIABLE, 0,
-	          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
+	clA->SendMessage("srvPING", &pay, sizeof( pay ), AnyConnection, true);
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return g_capB.count >= 1; } ), "relay delivered to client B" );
 	CHECK( g_capA.count == 0, "relay still excludes sender A" );
 	CHECK( BytesEqual( g_capB.bytes, &pay, sizeof( pay ) ), "relayed payload byte-exact" );
 
 	// ---------- 4. targeted send (broadcast=false) ----------
 	g_capA = Captured(); g_capB = Captured();
-	srv->RPC( "clPONG", (const char*)&pay, (unsigned int)sizeof( pay ) * 8, HIGH_PRIORITY, RELIABLE, 0,
-	          aOnSrv, false, 0, UNASSIGNED_NETWORK_ID, 0 );
+	srv->SendMessage("clPONG", &pay, sizeof( pay ), aOnSrv, false);
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return g_capA.count >= 1; } ), "targeted RPC reached A" );
 	SDL_Delay( 50 );
 	PumpUntil( { &L_srv, &L_A, &L_B }, [] { return false; }, 100 );
 	CHECK( g_capB.count == 0, "targeted RPC did not reach B" );
 
 	// ---------- 5. unknown RPC name: dropped silently ----------
-	clA->RPC( "noSuchHandler", (const char*)&pay, (unsigned int)sizeof( pay ) * 8, HIGH_PRIORITY, RELIABLE, 0,
-	          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
+	clA->SendMessage("noSuchHandler", &pay, sizeof( pay ), AnyConnection, true);
 	size_t srvPackets = L_srv.ids.size();
 	SDL_Delay( 50 );
 	PumpUntil( { &L_srv, &L_A, &L_B }, [] { return false; }, 100 );
 	CHECK( L_srv.ids.size() == srvPackets, "unknown RPC produced no user packet" );
 
 	// ---------- 6. server full: third client refused ----------
-	RakPeerInterface* clC = RakNetworkFactory::GetRakPeerInterface();
-	CHECK( clC->Startup( 1, 30, &sd0, 1 ), "client C Startup" );
-	clC->Connect( "127.0.0.1", g_port, 0, 0 );
+	SdlNetPeer* clC = CreateSdlNetPeer();
+	CHECK( clC->Start( 1, sd0 ), "client C startup" );
+	clC->Connect( "127.0.0.1", g_port );
 	PeerLog L_C{ clC };
-	CHECK( PumpUntil( { &L_srv, &L_A, &L_B, &L_C }, [&] { return L_C.Got( ID_NO_FREE_INCOMING_CONNECTIONS ); } ),
-	       "third client got ID_NO_FREE_INCOMING_CONNECTIONS" );
+	CHECK( PumpUntil( { &L_srv, &L_A, &L_B, &L_C }, [&] { return L_C.Got( SDLNET_NO_FREE_INCOMING_CONNECTIONS ); } ),
+	       "third client got SDLNET_NO_FREE_INCOMING_CONNECTIONS" );
 	clC->Shutdown( 0 );
-	RakNetworkFactory::DestroyRakPeerInterface( clC );
+	DestroySdlNetPeer( clC );
 
 	// ---------- 7. big payload (256 KB) framed across many reads ----------
 	{
 		std::vector<char> big( 256 * 1024 );
 		for ( size_t i = 0; i < big.size(); ++i ) big[i] = (char)( i * 31 + 7 );
 		g_capSrv = Captured(); g_relayPeer = nullptr;   // no relay for this one
-		clA->RPC( "srvPING", big.data(), (unsigned int)big.size() * 8, HIGH_PRIORITY, RELIABLE, 0,
-		          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
+		clA->SendMessage("srvPING", big.data(), big.size(), AnyConnection, true);
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return g_capSrv.count >= 1; }, 10000 ), "256KB RPC arrived" );
-		CHECK( g_capSrv.bits == big.size() * 8 && BytesEqual( g_capSrv.bytes, big.data(), big.size() ),
+		CHECK( g_capSrv.size == big.size() && BytesEqual( g_capSrv.bytes, big.data(), big.size() ),
 		       "256KB payload byte-exact" );
 	}
 
 	// ---------- 8. file transfer: 2 files, progress + bytes + completion ----------
 	{
-		FileListTransfer fltS, fltR;
-		srv->AttachPlugin( &fltS );
-		srv->AttachPlugin( &fltS );          // wrapper re-attaches on retry: must be idempotent
-		clA->AttachPlugin( &fltR );
-		clA->SetSplitMessageProgressInterval( 1 );
+		SdlNetFileTransfer fltS, fltR;
+		srv->AttachFileTransfer(fltS );
+		srv->AttachFileTransfer(fltS );          // wrapper re-attaches on retry: must be idempotent
+		clA->AttachFileTransfer(fltR );
 
 		FtCap cap;
-		unsigned short setID = fltR.SetupReceive( &cap, false, serverOnA );
+		unsigned short setID = fltR.SetupReceive(&cap, serverOnA );
 
 		std::vector<char> f1( 200 * 1024 );
 		for ( size_t i = 0; i < f1.size(); ++i ) f1[i] = (char)( i ^ 0x5A );
 		const char* f2 = "tiny file";
-		FileList fl;
-		fl.AddFile( "Data/Maps/big.dat", f1.data(), (unsigned)f1.size(), (unsigned)f1.size(), FileListNodeContext( 0, 0 ), false );
-		fl.AddFile( "Data/tiny.txt", f2, 9, 9, FileListNodeContext( 0, 0 ), false );
-		fltS.Send( &fl, srv, aOnSrv, setID, MEDIUM_PRIORITY, 0, false, 0, 5000 );
+		SdlNetFileList fl;
+		fl.AddFile("Data/Maps/big.dat", f1.data(), (unsigned)f1.size());
+		fl.AddFile("Data/tiny.txt", f2, 9);
+		fltS.Send(fl, *srv, aOnSrv, setID, 5000);
 
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return cap.complete >= 1; }, 10000 ), "file set completed" );
 		CHECK( cap.files == 2, "both files delivered" );
@@ -468,66 +457,66 @@ int main( int, char** )
 		// empty file set (host sync dir empty) must still complete -- the
 		// joining client otherwise hangs forever on the download screen
 		FtCap capEmpty;
-		unsigned short setE = fltR.SetupReceive( &capEmpty, false, serverOnA );
-		FileList flEmpty;
-		fltS.Send( &flEmpty, srv, aOnSrv, setE, MEDIUM_PRIORITY, 0, false, 0, 5000 );
+		unsigned short setE = fltR.SetupReceive(&capEmpty, serverOnA );
+		SdlNetFileList flEmpty;
+		fltS.Send(flEmpty, *srv, aOnSrv, setE, 5000);
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return capEmpty.complete >= 1; } ), "empty file set completes immediately" );
 		CHECK( capEmpty.files == 0, "empty set delivered zero files" );
 
 		// A zero-length file is distinct from an empty set: it still reports one
 		// progress part and one OnFile callback before set completion.
 		FtCap capZero;
-		unsigned short setZ = fltR.SetupReceive( &capZero, false, serverOnA );
-		FileList flZero;
-		flZero.AddFile( "Data/empty.dat", nullptr, 0, 0, FileListNodeContext( 0, 0 ), false );
-		fltS.Send( &flZero, srv, aOnSrv, setZ, MEDIUM_PRIORITY, 0, false, 0, 5000 );
+		unsigned short setZ = fltR.SetupReceive(&capZero, serverOnA );
+		SdlNetFileList flZero;
+		flZero.AddFile("Data/empty.dat", nullptr, 0);
+		fltS.Send(flZero, *srv, aOnSrv, setZ, 5000);
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return capZero.complete >= 1; } ),
 		       "zero-length file set completes" );
 		CHECK( capZero.files == 1 && capZero.progress == 1 && capZero.lastData.empty(),
 		       "zero-length file delivers exactly one zero-chunk file" );
 
-		srv->DetachPlugin( &fltS );
-		clA->DetachPlugin( &fltR );
+		srv->DetachFileTransfer(fltS );
+		clA->DetachFileTransfer(fltR );
 	}
 	{
-		FileListTransfer registrations;
+		SdlNetFileTransfer registrations;
 		FtCap cap;
 		std::vector<unsigned short> ids;
 		for ( unsigned int i = 0; i < 64; ++i )
-			ids.push_back( registrations.SetupReceive( &cap, false, UNASSIGNED_SYSTEM_ADDRESS ) );
+			ids.push_back( registrations.SetupReceive(&cap, AnyConnection ) );
 		bool unique = true;
 		for ( size_t i = 0; i < ids.size(); ++i )
 			for ( size_t j = i + 1; j < ids.size(); ++j )
 				if ( ids[i] == ids[j] || ids[i] == 0xffffu ) unique = false;
 		CHECK( unique, "bounded receive registrations use unique live set IDs" );
-		CHECK( registrations.SetupReceive( &cap, false, UNASSIGNED_SYSTEM_ADDRESS ) == 0xffffu,
+		CHECK( registrations.SetupReceive(&cap, AnyConnection ) == 0xffffu,
 		       "65th pending receive registration is rejected" );
 	}
 	{
-		// RakPeer::Shutdown clears plugin attachment, while the shipped wrapper
-		// persists and reattaches the FileListTransfer object on its next session.
-		RakPeerInterface* lifecyclePeer = RakNetworkFactory::GetRakPeerInterface();
-		SocketDescriptor lifecycleSocket;
-		FileListTransfer registrations;
+		// Peer shutdown clears the file-transfer attachment, while the game wrapper
+		// persists and reattaches the SdlNetFileTransfer object on its next session.
+		SdlNetPeer* lifecyclePeer = CreateSdlNetPeer();
+		SdlNetEndpoint lifecycleSocket;
+		SdlNetFileTransfer registrations;
 		FtCap cap;
-		CHECK( lifecyclePeer->Startup( 1, 30, &lifecycleSocket, 1 ),
+		CHECK( lifecyclePeer->Start( 1, lifecycleSocket ),
 		       "receiver lifecycle peer starts" );
-		lifecyclePeer->AttachPlugin( &registrations );
+		lifecyclePeer->AttachFileTransfer(registrations );
 		for ( unsigned int i = 0; i < 64; ++i )
-			registrations.SetupReceive( &cap, false, UNASSIGNED_SYSTEM_ADDRESS );
+			registrations.SetupReceive(&cap, AnyConnection );
 		lifecyclePeer->Shutdown( 0 );
-		CHECK( lifecyclePeer->Startup( 1, 30, &lifecycleSocket, 1 ),
+		CHECK( lifecyclePeer->Start( 1, lifecycleSocket ),
 		       "receiver lifecycle peer restarts" );
-		lifecyclePeer->AttachPlugin( &registrations );
+		lifecyclePeer->AttachFileTransfer(registrations );
 		bool reset = true;
 		for ( unsigned int i = 0; i < 64; ++i )
-			if ( registrations.SetupReceive( &cap, false, UNASSIGNED_SYSTEM_ADDRESS ) == 0xffffu )
+			if ( registrations.SetupReceive(&cap, AnyConnection ) == 0xffffu )
 				reset = false;
-		CHECK( reset && registrations.SetupReceive( &cap, false, UNASSIGNED_SYSTEM_ADDRESS ) == 0xffffu,
+		CHECK( reset && registrations.SetupReceive(&cap, AnyConnection ) == 0xffffu,
 		       "Shutdown retires all pending receiver registrations before reattach" );
-		lifecyclePeer->DetachPlugin( &registrations );
+		lifecyclePeer->DetachFileTransfer(registrations );
 		lifecyclePeer->Shutdown( 0 );
-		RakNetworkFactory::DestroyRakPeerInterface( lifecyclePeer );
+		DestroySdlNetPeer( lifecyclePeer );
 	}
 
 	// ---------- 9. graceful disconnect ----------
@@ -540,72 +529,72 @@ int main( int, char** )
 	clB->CloseConnection( serverOnB, true );
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] {
 		for ( size_t i = before; i < L_srv.ids.size(); ++i )
-			if ( L_srv.ids[i] == ID_DISCONNECTION_NOTIFICATION ) return true;
+			if ( L_srv.ids[i] == SDLNET_DISCONNECTION_NOTIFICATION ) return true;
 		return false;
-	} ), "server saw ID_DISCONNECTION_NOTIFICATION for B" );
+	} ), "server saw SDLNET_DISCONNECTION_NOTIFICATION for B" );
 	clB->Shutdown( 0 );
-	RakNetworkFactory::DestroyRakPeerInterface( clB );
+	DestroySdlNetPeer( clB );
 
 	// ---------- 10. a second peer cannot inject into A's receive set ----------
-	RakPeerInterface* clD = RakNetworkFactory::GetRakPeerInterface();
-	CHECK( clD->Startup( 1, 30, &sd0, 1 ), "client D Startup" );
-	CHECK( clD->Connect( "127.0.0.1", g_port, 0, 0 ), "client D Connect initiated" );
+	SdlNetPeer* clD = CreateSdlNetPeer();
+	CHECK( clD->Start( 1, sd0 ), "client D startup" );
+	CHECK( clD->Connect( "127.0.0.1", g_port ), "client D connect initiated" );
 	PeerLog L_D{ clD };
 	size_t beforeDOnSrv = L_srv.ids.size();
-	CHECK( PumpUntil( { &L_srv, &L_A, &L_D }, [&] { return L_D.Got( ID_CONNECTION_REQUEST_ACCEPTED ); } ),
+	CHECK( PumpUntil( { &L_srv, &L_A, &L_D }, [&] { return L_D.Got( SDLNET_CONNECTION_ACCEPTED ); } ),
 	       "client D connected for sender-binding test" );
-	SystemAddress serverOnD;
+	ConnectionId serverOnD;
 	for ( size_t i = 0; i < L_D.ids.size(); ++i )
-		if ( L_D.ids[i] == ID_CONNECTION_REQUEST_ACCEPTED ) serverOnD = L_D.addrs[i];
-	SystemAddress dOnSrv;
+		if ( L_D.ids[i] == SDLNET_CONNECTION_ACCEPTED ) serverOnD = L_D.addrs[i];
+	ConnectionId dOnSrv;
 	for ( size_t i = beforeDOnSrv; i < L_srv.ids.size(); ++i )
-		if ( L_srv.ids[i] == ID_NEW_INCOMING_CONNECTION ) dOnSrv = L_srv.addrs[i];
+		if ( L_srv.ids[i] == SDLNET_NEW_INCOMING_CONNECTION ) dOnSrv = L_srv.addrs[i];
 	{
-		FileListTransfer receiveA, sendD;
-		srv->AttachPlugin( &receiveA );
-		clD->AttachPlugin( &sendD );
+		SdlNetFileTransfer receiveA, sendD;
+		srv->AttachFileTransfer(receiveA );
+		clD->AttachFileTransfer(sendD );
 		FtCap cap;
-		unsigned short setID = receiveA.SetupReceive( &cap, false, aOnSrv );
+		unsigned short setID = receiveA.SetupReceive(&cap, aOnSrv );
 		const char rogueByte = 'x';
-		FileList rogue;
-		rogue.AddFile( "rogue.dat", &rogueByte, 1, 1, FileListNodeContext( 0, 0 ), false );
+		SdlNetFileList rogue;
+		rogue.AddFile("rogue.dat", &rogueByte, 1);
 		size_t beforeLoss = L_srv.ids.size();
-		sendD.Send( &rogue, clD, serverOnD, setID, MEDIUM_PRIORITY, 0, false, 0, 1024 );
+		sendD.Send(rogue, *clD, serverOnD, setID, 1024);
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_D }, [&] { return LostSince( L_srv, beforeLoss, dOnSrv ); } ),
 		       "wrong sender file frame disconnects injecting peer" );
 		CHECK( cap.files == 0 && cap.progress == 0 && cap.complete == 0,
 		       "wrong sender cannot advance or complete A's transfer" );
-		clD->DetachPlugin( &sendD );
-		srv->DetachPlugin( &receiveA );
+		clD->DetachFileTransfer(sendD );
+		srv->DetachFileTransfer(receiveA );
 	}
 	clD->Shutdown( 0 );
-	RakNetworkFactory::DestroyRakPeerInterface( clD );
+	DestroySdlNetPeer( clD );
 
 	// ---------- 11. CloseConnection kick: client sees the drop ----------
 	size_t beforeA = L_A.ids.size();
 	srv->CloseConnection( aOnSrv, true );
 	CHECK( PumpUntil( { &L_A }, [&] {
 		for ( size_t i = beforeA; i < L_A.ids.size(); ++i )
-			if ( L_A.ids[i] == ID_DISCONNECTION_NOTIFICATION || L_A.ids[i] == ID_CONNECTION_LOST ) return true;
+			if ( L_A.ids[i] == SDLNET_DISCONNECTION_NOTIFICATION || L_A.ids[i] == SDLNET_CONNECTION_LOST ) return true;
 		return false;
 	} ), "kicked client A notified" );
 
 	clA->Shutdown( 0 );
-	RakNetworkFactory::DestroyRakPeerInterface( clA );
+	DestroySdlNetPeer( clA );
 
 	// ---------- 12. adversarial raw-wire file/control frames ----------
-	// These bypass FileListTransfer::Send so malformed lengths and state changes
+	// These bypass SdlNetFileTransfer::Send so malformed lengths and state changes
 	// reach the receiver exactly as a hostile TCP peer could encode them.
 	auto RunBadFile = [&]( const char* label, auto buildBodies, int expectedFiles )
 	{
 		RawConn raw;
-		bool connected = ConnectRaw( srv, L_srv, raw );
+		bool connected = ConnectRaw( L_srv, raw );
 		CHECK( connected, "raw adversarial client connected" );
 		if ( !connected ) return;
-		FileListTransfer receiver;
-		srv->AttachPlugin( &receiver );
+		SdlNetFileTransfer receiver;
+		srv->AttachFileTransfer(receiver );
 		FtCap cap;
-		unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+		unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 		std::vector<std::vector<unsigned char> > bodies = buildBodies( setID );
 		size_t beforeLoss = L_srv.ids.size();
 		bool wrote = true;
@@ -615,7 +604,7 @@ int main( int, char** )
 		CHECK( PumpUntil( { &L_srv }, [&] { return LostSince( L_srv, beforeLoss, raw.onServer ); } ), label );
 		CHECK( cap.files == expectedFiles && cap.complete == 0,
 		       "rejected file sequence cannot complete or duplicate a file callback" );
-		srv->DetachPlugin( &receiver );
+		srv->DetachFileTransfer(receiver );
 		NET_DestroyStreamSocket( raw.sock );
 	};
 
@@ -703,13 +692,13 @@ int main( int, char** )
 	// callbacks so a wire replay cannot deliver it twice.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw zero-file client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw zero-file client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap cap;
-			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 			std::vector<unsigned char> frame = WireFrame( 4,
 				FileBody( setID, 0, 1, 0, "zero", 0, 0, std::vector<unsigned char>() ) );
 			CHECK( SendRaw( raw, frame ), "raw zero-file frame queued" );
@@ -721,7 +710,7 @@ int main( int, char** )
 			PumpUntil( { &L_srv }, [] { return false; }, 100 );
 			CHECK( cap.files == 1 && cap.complete == 1 && !LostSince( L_srv, beforeReplay, raw.onServer ),
 			       "completed set replay is inert" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -730,11 +719,11 @@ int main( int, char** )
 	// ever overwriting a live entry; 0xffff remains the explicit failure sentinel.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw set-ID-wrap client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw set-ID-wrap client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap cap;
 			unsigned int allocated = 0;
 			bool idsValid = true;
@@ -745,7 +734,7 @@ int main( int, char** )
 				std::vector<unsigned char> stream;
 				for ( unsigned int i = 0; i < batch; ++i )
 				{
-					unsigned short id = receiver.SetupReceive( &cap, false, raw.onServer );
+					unsigned short id = receiver.SetupReceive(&cap, raw.onServer );
 					if ( id == 0xffffu ) idsValid = false;
 					std::vector<unsigned char> frame = WireFrame( 4,
 						FileBody( id, 0, 0, 0, "", 0, 0, std::vector<unsigned char>() ) );
@@ -760,9 +749,9 @@ int main( int, char** )
 				}
 			}
 			CHECK( idsValid, "set IDs remain usable through the full non-sentinel range" );
-			CHECK( receiver.SetupReceive( &cap, false, raw.onServer ) == 0,
+			CHECK( receiver.SetupReceive(&cap, raw.onServer ) == 0,
 			       "set-ID allocator skips 0xffff and wraps to a free zero" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -772,14 +761,14 @@ int main( int, char** )
 	// second file before the first OnFile and can sweep the outer parser's Conn.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-reentry client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw callback-reentry client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			ReentrantFtCap cap;
 			cap.peer = srv;
-			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 			std::vector<unsigned char> stream = WireFrame( 4,
 				FileBody( setID, 0, 2, 2, "first", 1, 0,
 				          std::vector<unsigned char>{ 'a' } ) );
@@ -796,7 +785,7 @@ int main( int, char** )
 				"progress0", "file0", "progress1", "file1", "complete" };
 			CHECK( cap.events == expected && cap.nestedReceives == 2,
 			       "nested Receive preserves file callback order and one outer pump" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -806,15 +795,15 @@ int main( int, char** )
 	// must remain valid for the complete callback invocation.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-close client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw callback-close client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			CloseConnectionFtCap cap;
 			cap.peer = srv;
 			cap.sender = raw.onServer;
-			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 			std::vector<unsigned char> frame = WireFrame( 4,
 				FileBody( setID, 0, 1, 2, "close-during-callback", 2, 0,
 				          std::vector<unsigned char>{ 'a' } ) );
@@ -823,25 +812,25 @@ int main( int, char** )
 			       "CloseConnection callback returns through the outer parser" );
 			CHECK( cap.borrowedDataSurvived,
 			       "CloseConnection preserves borrowed file data through callback return" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
 
-	// Detaching the persistent FileListTransfer from its own callback follows the
+	// Detaching the persistent SdlNetFileTransfer from its own callback follows the
 	// same borrowed-storage rule, then retires the partial registration before a
 	// later reattach.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-detach client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw callback-detach client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
-			DetachPluginFtCap cap;
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
+			DetachTransferFtCap cap;
 			cap.peer = srv;
-			cap.plugin = &receiver;
-			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			cap.transfer = &receiver;
+			unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 			std::vector<unsigned char> stream = WireFrame( 4,
 				FileBody( setID, 0, 1, 2, "detach-during-callback", 2, 0,
 				          std::vector<unsigned char>{ 'b' } ) );
@@ -851,16 +840,16 @@ int main( int, char** )
 			stream.insert( stream.end(), finalFrame.begin(), finalFrame.end() );
 			CHECK( SendRaw( raw, stream ), "callback-detach buffered frames queued" );
 			CHECK( PumpUntil( { &L_srv }, [&] { return cap.progress == 1; } ),
-			       "DetachPlugin callback returns through the outer parser" );
+			       "file-transfer detach callback returns through the outer parser" );
 			CHECK( cap.borrowedDataSurvived,
-			       "DetachPlugin preserves borrowed file data through callback return" );
+			       "file-transfer detach preserves borrowed data through callback return" );
 			PumpUntil( { &L_srv }, [] { return false; }, 100 );
 			CHECK( cap.progress == 1,
 			       "deferred detach stops buffered file callbacks after the detach request" );
-			srv->AttachPlugin( &receiver );
-			CHECK( receiver.SetupReceive( &cap, false, raw.onServer ) != 0xffffu,
+			srv->AttachFileTransfer(receiver );
+			CHECK( receiver.SetupReceive(&cap, raw.onServer ) != 0xffffu,
 			       "deferred detach retires the partial registration before reattach" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -868,16 +857,16 @@ int main( int, char** )
 	// Nine simultaneous partial sets exceed the per-plugin active-set bound.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw active-set-cap client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw active-set-cap client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap caps[9];
 			std::vector<unsigned char> stream;
 			for ( unsigned int i = 0; i < 9; ++i )
 			{
-				unsigned short id = receiver.SetupReceive( &caps[i], false, raw.onServer );
+				unsigned short id = receiver.SetupReceive(&caps[i], raw.onServer );
 				std::vector<unsigned char> frame = WireFrame( 4,
 					FileBody( id, 0, 1, 2, "active", 2, 0, std::vector<unsigned char>{ 'a' } ) );
 				stream.insert( stream.end(), frame.begin(), frame.end() );
@@ -889,7 +878,7 @@ int main( int, char** )
 			bool noneComplete = true;
 			for ( const FtCap& cap : caps ) if ( cap.files || cap.complete ) noneComplete = false;
 			CHECK( noneComplete, "active-set cap cannot synthesize completion" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -898,14 +887,14 @@ int main( int, char** )
 	// buffers, preventing many cheap partial sets from claiming unbounded state.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw aggregate-reservation client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw aggregate-reservation client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap caps[2];
-			unsigned short a = receiver.SetupReceive( &caps[0], false, raw.onServer );
-			unsigned short b = receiver.SetupReceive( &caps[1], false, raw.onServer );
+			unsigned short a = receiver.SetupReceive(&caps[0], raw.onServer );
+			unsigned short b = receiver.SetupReceive(&caps[1], raw.onServer );
 			std::vector<unsigned char> stream = WireFrame( 4,
 				FileBody( a, 0, 2, 300u * 1024u * 1024u, "reserve-a", 2, 0,
 				          std::vector<unsigned char>{ 'a' } ) );
@@ -917,7 +906,7 @@ int main( int, char** )
 			CHECK( SendRaw( raw, stream ), "aggregate reservation frames queued" );
 			CHECK( PumpUntil( { &L_srv }, [&] { return LostSince( L_srv, beforeLoss, raw.onServer ); } ),
 			       "aggregate declared-set cap is enforced" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -926,14 +915,14 @@ int main( int, char** )
 	// exact 32MiB boundary once; the next one-byte file must be rejected pre-alloc.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw aggregate-buffer client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw aggregate-buffer client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap caps[2];
-			unsigned short a = receiver.SetupReceive( &caps[0], false, raw.onServer );
-			unsigned short b = receiver.SetupReceive( &caps[1], false, raw.onServer );
+			unsigned short a = receiver.SetupReceive(&caps[0], raw.onServer );
+			unsigned short b = receiver.SetupReceive(&caps[1], raw.onServer );
 			std::vector<unsigned char> first = WireFrame( 4,
 				FileBody( a, 0, 2, 32u * 1024u * 1024u + 1u, "buffer-a", 32u * 1024u * 1024u,
 				          0, std::vector<unsigned char>{ 'a' } ) );
@@ -946,25 +935,25 @@ int main( int, char** )
 			CHECK( SendRaw( raw, second ), "over-cap buffer declaration queued" );
 			CHECK( PumpUntil( { &L_srv }, [&] { return LostSince( L_srv, beforeLoss, raw.onServer ); } ),
 			       "aggregate live-buffer cap is enforced before allocation" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
 
-	// The shipped client/server detach persistent FileListTransfer plugins before
+	// The shipped client/server detach persistent SdlNetFileTransfer plugins before
 	// Shutdown and attach them again on reconnect.  A partial old-session set must
 	// release its handler, live buffer, and declared-byte reservation at detach;
 	// otherwise this valid new-session reservation is rejected as an aggregate
 	// overflow even though the old transport is no longer reachable.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw detach-reset client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw detach-reset client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			FtCap oldCap;
-			unsigned short oldID = receiver.SetupReceive( &oldCap, false, raw.onServer );
+			unsigned short oldID = receiver.SetupReceive(&oldCap, raw.onServer );
 			std::vector<unsigned char> oldFrame = WireFrame( 4,
 				FileBody( oldID, 0, 10, 300u * 1024u * 1024u, "old-session", 2, 0,
 				          std::vector<unsigned char>{ 'a' } ) );
@@ -972,10 +961,10 @@ int main( int, char** )
 			CHECK( PumpUntil( { &L_srv }, [&] { return oldCap.progress == 1; } ),
 			       "old-session partial set reserves capacity" );
 
-			srv->DetachPlugin( &receiver );
-			srv->AttachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
+			srv->AttachFileTransfer(receiver );
 			FtCap newCap;
-			unsigned short newID = receiver.SetupReceive( &newCap, false, raw.onServer );
+			unsigned short newID = receiver.SetupReceive(&newCap, raw.onServer );
 			std::vector<unsigned char> newFrame = WireFrame( 4,
 				FileBody( newID, 0, 10, 300u * 1024u * 1024u, "new-session", 2, 0,
 				          std::vector<unsigned char>{ 'b' } ) );
@@ -985,7 +974,7 @@ int main( int, char** )
 			       "detach retires stale receiver accounting before reattach" );
 			CHECK( !LostSince( L_srv, beforeLoss, raw.onServer ) && oldCap.progress == 1,
 			       "reattach accepts new reservation without reviving old handler" );
-			srv->DetachPlugin( &receiver );
+			srv->DetachFileTransfer(receiver );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
@@ -993,7 +982,7 @@ int main( int, char** )
 	auto RunBadHeader = [&]( const char* label, unsigned char type, unsigned int bodyLen )
 	{
 		RawConn raw;
-		bool connected = ConnectRaw( srv, L_srv, raw );
+		bool connected = ConnectRaw( L_srv, raw );
 		CHECK( connected, "raw control-header client connected" );
 		if ( !connected ) return;
 		std::vector<unsigned char> header;
@@ -1019,7 +1008,7 @@ int main( int, char** )
 	// while the fourth must close the peer instead of disappearing.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw RPC-budget client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw RPC-budget client connected" );
 		if ( raw.sock )
 		{
 			const std::string rpcName = "srvPING";
@@ -1052,14 +1041,14 @@ int main( int, char** )
 	// last because successful deferred shutdown stops the server peer.
 	{
 		RawConn raw;
-		CHECK( ConnectRaw( srv, L_srv, raw ), "raw callback-shutdown client connected" );
+		CHECK( ConnectRaw( L_srv, raw ), "raw callback-shutdown client connected" );
 		if ( raw.sock )
 		{
-			FileListTransfer receiver;
-			srv->AttachPlugin( &receiver );
+			SdlNetFileTransfer receiver;
+			srv->AttachFileTransfer(receiver );
 			ShutdownFtCap cap;
 			cap.peer = srv;
-			unsigned short setID = receiver.SetupReceive( &cap, false, raw.onServer );
+			unsigned short setID = receiver.SetupReceive(&cap, raw.onServer );
 			std::vector<unsigned char> frame = WireFrame( 4,
 				FileBody( setID, 0, 1, 1, "shutdown", 1, 0,
 				          std::vector<unsigned char>{ 'x' } ) );
@@ -1068,20 +1057,20 @@ int main( int, char** )
 			       "callback-requested shutdown unwinds safely" );
 			CHECK( cap.progress == 1 && cap.files == 1 && cap.complete == 1,
 			       "deferred shutdown preserves the current completed-file callbacks" );
-			CHECK( srv->Receive() == nullptr,
+			CHECK( srv->Poll() == nullptr,
 			       "deferred shutdown completes before outer Receive returns" );
 			NET_DestroyStreamSocket( raw.sock );
 		}
 	}
 
 	srv->Shutdown( 0 );
-	RakNetworkFactory::DestroyRakPeerInterface( srv );
+	DestroySdlNetPeer( srv );
 	{
-		RakPeerInterface* invalidBind = RakNetworkFactory::GetRakPeerInterface();
-		SocketDescriptor invalidSocket( g_port, "not a valid bind address" );
-		CHECK( !invalidBind->Startup( 1, 30, &invalidSocket, 1 ),
+		SdlNetPeer* invalidBind = CreateSdlNetPeer();
+		SdlNetEndpoint invalidSocket( g_port, "not a valid bind address" );
+		CHECK( !invalidBind->Start( 1, invalidSocket ),
 		       "invalid explicit bind address fails instead of exposing all interfaces" );
-		RakNetworkFactory::DestroyRakPeerInterface( invalidBind );
+		DestroySdlNetPeer( invalidBind );
 	}
 
 	printf( g_failures ? "\n%d FAILURE(S)\n" : "\nALL TESTS PASSED\n", g_failures );

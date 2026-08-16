@@ -631,7 +631,7 @@ the engine must not contain SDL types in its public domain model.
   the existing semantic commands without echoing outbound replication.
   Authoritative path, fire, stop, and turn packets use explicit synchronization
   commands because they carry remote state snapshots rather than local
-  pathfinding intent. Their established RakNet packet bytes are unchanged.
+  pathfinding intent. Their established legacy multiplayer packet bytes are unchanged.
   When synchronous execution is backpressured or the frame budget is spent, a
   validated reliable packet is retained in sequence for the safe-frame drain
   instead of being silently lost.
@@ -660,7 +660,7 @@ the engine must not contain SDL types in its public domain model.
   changes made by hostile turn-based reload. The dependency-free reference
   simulation explicitly discards this inventory-only mechanic instead of
   inventing parallel item rules.
-  No RakNet packet, save, item, map, XML, Lua, or installed-content format is
+  No legacy multiplayer packet, save, item, map, XML, Lua, or installed-content format is
   changed; reload-all had no peer packet and replay uses the explicit command
   tag without reinterpreting an existing tag.
   Equipment-driven weapon/scope correction and friendly-retaliation mode
@@ -689,7 +689,7 @@ the engine must not contain SDL types in its public domain model.
   with replicated event policy emits the established peer fire event. The
   portable reference simulation explicitly discards this inventory-only JA2
   policy, and replay tag 29 extends the current wire version without changing
-  any RakNet, save, item, map, XML, Lua, or installed-content format.
+  any legacy multiplayer, save, item, map, XML, Lua, or installed-content format.
   This wave intentionally leaves three lower-level compatibility writes in
   `Items.cpp`: rifle-grenade attachment insertion, direct hand placement, and
   attachment removal. It also leaves `HandleSuppressionFire`'s forced
@@ -729,7 +729,7 @@ the engine must not contain SDL types in its public domain model.
   blocked-tile waiting, and animation completion remain named JA2 executor
   mechanics inside `TacticalActorTraversal` and the route engine; they are not
   parallel command producers. No save, map, item, XML, Lua, installed-content,
-  or RakNet packet format changes.
+  or legacy multiplayer packet format changes.
   The exact seven remaining `StartInteractiveObject`/
   `InteractWithInteractiveObject` calls in tactical AI, movement-overhead, and
   dialogue-driven NPC opening now enter one
@@ -757,7 +757,7 @@ the engine must not contain SDL types in its public domain model.
   `send_path`, or its AI completion stop.
   This slice does not claim lower-level action-item door changes, militia route
   requests, door-menu choices, animation keyframes, or schedule discovery. No
-  save, map, item, XML, Lua, installed-content, or RakNet packet format changes;
+  save, map, item, XML, Lua, installed-content, or legacy multiplayer packet format changes;
   replay tag 30 extends the one unshipped current command-journal layout.
   The non-positional dialogue-effect audit covers all 32 bit values and all 33
   legacy exposed names (the UB Jerry Milo and Arulco militia-training names share bit
@@ -2954,7 +2954,7 @@ the engine must not contain SDL types in its public domain model.
   starting an animation or teleport fallback. Structure discovery, cost
   calculation, blocked-tile waiting, and animation completion deliberately
   remain executor-side traversal mechanics. Existing maps, structures,
-  animation data, AP settings, XML, Lua, art, sounds, saves, and RakNet packet
+  animation data, AP settings, XML, Lua, art, sounds, saves, and legacy multiplayer packet
   formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:

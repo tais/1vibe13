@@ -82,27 +82,16 @@
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 
-#include "MessageIdentifiers.h"
-#include "RakNetworkFactory.h"
-#include "RakPeerInterface.h"
-#include "RakNetStatistics.h"
-#include "RakNetTypes.h"
-#include "RakSleep.h"
-
-#include "FileListTransfer.h"
-#include "FileListTransferCBInterface.h"
-#include "FileOperations.h"
-#include "SuperFastHash.h"
-#include "RakAssert.h"
-#include "IncrementalReadInterface.h"
-
-#include "BitStream.h"
+#include "SdlNetTransport.h"
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
 #include "Music Control.h"
 #include "Map Edgepoints.h"
+
+using namespace ja2::mp;
+using namespace ja2::mp::net;
 
 #include "fresh_header.h"
 #include "network.h"
@@ -154,7 +143,7 @@ STRING512	server_fileTransferDirectoryPath;	// the server file transfer director
 INT16		fileTransferProgress = 0;
 INT16		serverSyncClientsDirectory = 0;
 
-unsigned char GetPacketIdentifier(Packet *p);
+unsigned char GetPacketIdentifier(SdlNetEvent *p);
 unsigned char packetIdentifier;
 
 // OJW - 20090405
@@ -165,18 +154,17 @@ INT32		gTotalTransferBytes = 0;
 extern BOOLEAN gfTemporaryDisablingOfLoadPendingFlag;
 
 extern INT8 SquadMovementGroups[ ];
-RakPeerInterface *client;
+SdlNetPeer *client;
 // WANNE: FILE TRANSFER
-FileListTransfer fltClient;	// flt2
+SdlNetFileTransfer fltClient;	// flt2
 
 // --- MP wire-hardening helpers (PR-1) -------------------------------------
 // Every recieveX/sendX RPC handler receives a heap buffer sized to the ACTUAL
 // wire payload (payloadLen+4), then (Struct*)casts and reads sizeof(Struct).
 // A short/malformed frame is therefore a heap over-read. RPC_REQUIRE_BYTES is
 // the central length guard: bail before the cast if the payload is too small.
-// numberOfBitsOfData is unsigned (BitSize_t); cast sizeof to long so the
-// comparison is well-defined.
-#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+// size is unsigned; cast sizeof to long so the comparison is well-defined.
+#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(p)->size) < (long)sizeof(T) ) return; }while(0)
 
 // Resolve a wire soldier id without relying on SoldierID's constructors. A raw
 // RPC memcpy can leave the index anywhere in 0..65535.
@@ -204,12 +192,12 @@ static BOOLEAN IsValidAnimState(UINT16 s)
 }
 // --------------------------------------------------------------------------
 
-class ClientTransferCB : public FileListTransferCBInterface
+class ClientTransferCB : public SdlNetFileReceiver
 {
 	public:
 		// This method gets called for each file when it is completly received by the client.
 		// Now the file will be saved on the client
-		bool OnFile(OnFileStruct *onFileStruct)
+		bool OnFile(SdlNetFileInfo *onFileStruct)
 		{
 
 			if(!transferRules)
@@ -257,26 +245,14 @@ class ClientTransferCB : public FileListTransferCBInterface
 				ScreenMsg( FONT_BCOLOR_BLUE, MSG_CHAT, MPClientMessage[70], targetFileName);				
 			}
 
-			/*
-			// Make sure it worked
-			unsigned int hash1 = SuperFastHashFile(fileToSend);
-			if (RakNet::BitStream::DoEndianSwap())
-				RakNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash1, sizeof(hash1));
-			unsigned int hash2 = SuperFastHashFile(targetFileName);
-			if (RakNet::BitStream::DoEndianSwap())
-				RakNet::BitStream::ReverseBytesInPlace((unsigned char*) &hash2, sizeof(hash2));
-			RakAssert(hash1==hash2);
-			*/
-
 			//ScreenMsg( FONT_BCOLOR_ORANGE, MSG_MPSYSTEM, L"Saved file local in %S", file);
 
-			// Return true to have RakNet delete the memory allocated to hold this file.
-			// False if you hold onto the memory, and plan to delete it yourself later
+			// The transport owns the borrowed data for the duration of this callback.
 			return true;
 		}
 
 		// WANNE: FILE TRANSFER: This method gets called each periodically
-		virtual void OnFileProgress(OnFileStruct *onFileStruct,unsigned int partCount,unsigned int partTotal,unsigned int partLength, char *firstDataChunk)
+		virtual void OnFileProgress(SdlNetFileInfo *onFileStruct,unsigned int partCount,unsigned int partTotal,unsigned int partLength, char *firstDataChunk)
 		{
 			static UINT32 iNextTransferProgressUpdateTime;
 
@@ -314,7 +290,7 @@ class ClientTransferCB : public FileListTransferCBInterface
 					prog.downloading = 1;
 					prog.progress = currentProgress;
 
-					client->RPC("sendDOWNLOADSTATUS",(const char*)&prog, (int)sizeof(progress_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+					client->SendMessage("sendDOWNLOADSTATUS", (const char*)&prog, sizeof(progress_struct), AnyConnection, true);
 				}
 			}
 
@@ -373,7 +349,7 @@ class ClientTransferCB : public FileListTransferCBInterface
 
 					fDrawCharacterList = true;
 
-					client->RPC("sendDOWNLOADSTATUS",(const char*)&prog, (int)sizeof(progress_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+					client->SendMessage("sendDOWNLOADSTATUS", (const char*)&prog, sizeof(progress_struct), AnyConnection, true);
 				}
 			}
 
@@ -669,7 +645,7 @@ static void MPTextFromWire( wchar_t* dst, size_t dstCount, const uint16_t* src )
 
 // ---------------------------------------------------------------------------
 // Little-endian byte cursor for explicit field-by-field (de)serialization. All MP
-// targets are little-endian today (netshim.cpp:DoEndianSwap==false); writing/reading
+// The private SDL3_net wire is little-endian; writing and reading
 // byte-by-byte in LE order keeps the wire identical regardless of host endianness or
 // struct padding. The reader is bounds-checked against the actual payload length so a
 // short/malformed frame can never over-read past the heap buffer.
@@ -1087,7 +1063,7 @@ void StartScoreScreen(); // this screen will send us to the multiplayer score sc
 extern BOOLEAN		gfMPSScoreScreenCanContinue; // can the score screen continue
 
 // OJW - 20090430
-SystemAddress serverAddr;
+ConnectionId serverAddr;
 
 // OJW - 20090507
 settings_struct gMPServerSettings; // store a copy of our settings after we receive them
@@ -1218,16 +1194,16 @@ void send_path (  TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementA
 		SNetPath.usPathDataSize=pSoldier->pathing().pathSize();
 		SNetPath.sDestGridNo=sDestGridNo;
 			
-		client->RPC("sendPATH",(const char*)&SNetPath, (int)sizeof(EV_S_SENDPATHTONETWORK)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendPATH", (const char*)&SNetPath, sizeof(EV_S_SENDPATHTONETWORK), AnyConnection, true);
 	}
 }
 
-void recievePATH(RPCParameters *rpcParameters)
+void recievePATH(SdlNetMessage *rpcParameters)
 {
 	//ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Recieving new path," );
 				
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_SENDPATHTONETWORK);	// short-frame guard (H6/H13)
-	EV_S_SENDPATHTONETWORK* SNetPath = (EV_S_SENDPATHTONETWORK*)rpcParameters->input;
+	EV_S_SENDPATHTONETWORK* SNetPath = (EV_S_SENDPATHTONETWORK*)rpcParameters->data;
 
 	// H6: ubNewState indexes gAnimControl[] / TacticalActorAnimationTransitions::initializeAnimation() -- bound it.
 	if ( !IsValidAnimState( SNetPath->ubNewState ) )
@@ -1273,17 +1249,17 @@ void send_stance ( TacticalActor *pSoldier, UINT8 ubDesiredStance )
 
 		//ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"change stance: %d",ubDesiredStance );
 	
-		client->RPC("sendSTANCE",(const char*)&SChangeStance, (int)sizeof(EV_S_CHANGESTANCE)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendSTANCE", (const char*)&SChangeStance, sizeof(EV_S_CHANGESTANCE), AnyConnection, true);
 	}
 }
 
 
-void recieveSTANCE(RPCParameters *rpcParameters)
+void recieveSTANCE(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_CHANGESTANCE);
 
 
-		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->input;
+		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->data;
 	
 		TacticalActor *pSoldier = SafeMerc( SChangeStance->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
@@ -1323,16 +1299,16 @@ void send_dir ( TacticalActor *pSoldier, UINT16 usDesiredDirection )
 		SSetDesiredDirection.usDesiredDirection = usDesiredDirection;
 		SSetDesiredDirection.uiUniqueId = pSoldier -> identity().incarnation();
 
-		client->RPC("sendDIR",(const char*)&SSetDesiredDirection, (int)sizeof(EV_S_SETDESIREDDIRECTION)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendDIR", (const char*)&SSetDesiredDirection, sizeof(EV_S_SETDESIREDDIRECTION), AnyConnection, true);
 	}
 }
 
 
-void recieveDIR(RPCParameters *rpcParameters)
+void recieveDIR(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_SETDESIREDDIRECTION);
 
-		EV_S_SETDESIREDDIRECTION* SSetDesiredDirection = (EV_S_SETDESIREDDIRECTION*)rpcParameters->input;			
+		EV_S_SETDESIREDDIRECTION* SSetDesiredDirection = (EV_S_SETDESIREDDIRECTION*)rpcParameters->data;
 			
 
 		TacticalActor *pSoldier = SafeMerc( SSetDesiredDirection->usSoldierID );
@@ -1373,14 +1349,14 @@ void send_fire( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	SBeginFireWeapon.uiUniqueId = pSoldier->attackSelection().weapon();
 		
 
-	client->RPC("sendFIRE",(const char*)&SBeginFireWeapon, (int)sizeof(EV_S_BEGINFIREWEAPON)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendFIRE", (const char*)&SBeginFireWeapon, sizeof(EV_S_BEGINFIREWEAPON), AnyConnection, true);
 	}
 }
 
-void recieveFIRE(RPCParameters *rpcParameters)
+void recieveFIRE(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_BEGINFIREWEAPON);
-	EV_S_BEGINFIREWEAPON* SBeginFireWeapon = (EV_S_BEGINFIREWEAPON*)rpcParameters->input;
+	EV_S_BEGINFIREWEAPON* SBeginFireWeapon = (EV_S_BEGINFIREWEAPON*)rpcParameters->data;
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"SendBeginFireWeaponEvent" );
 
 	TacticalActor *pSoldier = SafeMerc( SBeginFireWeapon->usSoldierID );
@@ -1412,15 +1388,15 @@ void send_hit(  EV_S_WEAPONHIT *SWeaponHit  )
 	if(SWeaponHit->usSoldierID < 20)weaphit_struct.usSoldierID = weaphit_struct.usSoldierID+ubID_prefix;
 	if(SWeaponHit->ubAttackerID < 20)weaphit_struct.ubAttackerID = weaphit_struct.ubAttackerID+ubID_prefix;
 		
-	client->RPC("sendHIT",(const char*)&weaphit_struct, (int)sizeof(EV_S_WEAPONHIT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendHIT", (const char*)&weaphit_struct, sizeof(EV_S_WEAPONHIT), AnyConnection, true);
 }
 
-void recieveHIT(RPCParameters *rpcParameters)
+void recieveHIT(SdlNetMessage *rpcParameters)
 {
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"recieveHIT" );
 		
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_WEAPONHIT);	// short-frame guard (H11/H13)
-	EV_S_WEAPONHIT* SWeaponHit = (EV_S_WEAPONHIT*)rpcParameters->input;
+	EV_S_WEAPONHIT* SWeaponHit = (EV_S_WEAPONHIT*)rpcParameters->data;
 	
 	SoldierID usSoldierID;
 	SoldierID ubAttackerID;
@@ -1473,7 +1449,7 @@ void send_dismiss(UINT16 ubCurrentSoldierID)
 
 	sDismissMerc.ubProfileID = ubCurrentSoldierID + ubID_prefix;
 
-	client->RPC("sendDISMISS",(const char*)&sDismissMerc, (int)sizeof(send_dismiss_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendDISMISS", (const char*)&sDismissMerc, sizeof(send_dismiss_struct), AnyConnection, true);
 }
 
 void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContractLength, BOOLEAN fCopyProfileItemsOver)
@@ -1525,13 +1501,13 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 		}
 	}
 
-	client->RPC("sendHIRE",(const char*)&sHireMerc, (int)sizeof(send_hire_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendHIRE", (const char*)&sHireMerc, sizeof(send_hire_struct), AnyConnection, true);
 }
 
-void recieveDISMISS(RPCParameters *rpcParameters)
+void recieveDISMISS(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, send_dismiss_struct);
-	send_dismiss_struct* sDismissMerc = (send_dismiss_struct*)rpcParameters->input;
+	send_dismiss_struct* sDismissMerc = (send_dismiss_struct*)rpcParameters->data;
 
 	// Get soldier we should dismiss
 	if ( sDismissMerc->ubProfileID >= TOTAL_SOLDIERS )
@@ -1548,12 +1524,12 @@ void recieveDISMISS(RPCParameters *rpcParameters)
 	TacticalRemoveSoldier( pSoldier->identity().id() );
 }
 
-void recieveHIRE(RPCParameters *rpcParameters)
+void recieveHIRE(SdlNetMessage *rpcParameters)
 {
 	const CampaignMercenaryPolicy mercenaryPolicy(
 		GetGameContext().capabilities());
 	RPC_REQUIRE_BYTES(rpcParameters, send_hire_struct);	// short-frame guard (M6/H13)
-	send_hire_struct* sHireMerc = (send_hire_struct*)rpcParameters->input;
+	send_hire_struct* sHireMerc = (send_hire_struct*)rpcParameters->data;
 
 	// M6: bTeam indexes gTacticalStatus.Team[] (writes) and client_names[bTeam-6];
 	// ubProfileID indexes gMercProfiles[]. A bad wire value creates a mis-sided merc
@@ -1666,13 +1642,13 @@ void send_gui_pos(TacticalActor *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos)
 	gnPOS.dNewXPos = dNewXPos;
 	gnPOS.dNewYPos = dNewYPos;
 
-	client->RPC("sendguiPOS",(const char*)&gnPOS, (int)sizeof(gui_pos)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendguiPOS", (const char*)&gnPOS, sizeof(gui_pos), AnyConnection, true);
 }
 
-void recieveguiPOS(RPCParameters *rpcParameters)
+void recieveguiPOS(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, gui_pos);
-	gui_pos* gnPOS = (gui_pos*)rpcParameters->input;
+	gui_pos* gnPOS = (gui_pos*)rpcParameters->data;
 
 	TacticalActor *pSoldier =
 		SafeMerc(gnPOS->usSoldierID.i);
@@ -1703,13 +1679,13 @@ void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection)
 	gnDIR.usSoldierID = (pSoldier->identity().id())+ubID_prefix;
 	gnDIR.usNewDirection = usNewDirection;
 	
-	client->RPC("sendguiDIR",(const char*)&gnDIR, (int)sizeof(gui_dir)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendguiDIR", (const char*)&gnDIR, sizeof(gui_dir), AnyConnection, true);
 }
 
-void recieveguiDIR(RPCParameters *rpcParameters)
+void recieveguiDIR(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, gui_dir);
-	gui_dir* gnDIR = (gui_dir*)rpcParameters->input;
+	gui_dir* gnDIR = (gui_dir*)rpcParameters->data;
 
 	TacticalActor *pSoldier =
 		SafeMerc(gnDIR->usSoldierID.i);
@@ -1748,13 +1724,13 @@ void send_EndTurn( UINT8 ubNextTeam )
 	tStruct.tsnetbTeam = netbTeam;
 	tStruct.tsubNextTeam = ubNextTeam;
 	
-	client->RPC("sendEndTurn",(const char*)&tStruct, (int)sizeof(turn_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendEndTurn", (const char*)&tStruct, sizeof(turn_struct), AnyConnection, true);
 }
 
-void recieveEndTurn(RPCParameters *rpcParameters)
+void recieveEndTurn(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, turn_struct);	// short-frame guard (M7/H13)
-	turn_struct* tStruct = (turn_struct*)rpcParameters->input;
+	turn_struct* tStruct = (turn_struct*)rpcParameters->data;
 	UINT8 sender_bTeam;
 	UINT8 ubTeam;
 	sender_bTeam=tStruct->tsnetbTeam;
@@ -1812,10 +1788,10 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct )
 	// {usItem,ubNumberOfObjects,fFlags}. No std::vector/std::list/pointers cross the wire.
 	uint8_t wire[AI_WIRE_MAX_BYTES];
 	int wireBytes = SerializeAI( wire, sizeof(wire), pCreateStruct );
-	client->RPC("sendAI",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendAI", (const char*)wire, wireBytes, AnyConnection, true);
 }
 
-void recieveAI (RPCParameters *rpcParameters)
+void recieveAI (SdlNetMessage *rpcParameters)
 {
 	SoldierID iNewIndex;
 	TacticalActor *pSoldier;
@@ -1827,7 +1803,7 @@ void recieveAI (RPCParameters *rpcParameters)
 	// from the fixed-width payload. pExistingSoldier is forced NULL (never a sender pointer);
 	// the wire carries no std::vector/std::list. Drop short/bad frames.
 	ai_wire_slot slots[AI_WIRE_SLOTS];
-	if ( !DeserializeAI( new_standard_data, slots, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+	if ( !DeserializeAI( new_standard_data, slots, rpcParameters->data, rpcParameters->size ) )
 		return;
 	new_standard_data.pExistingSoldier = NULL;   // raw pointer from the sender's address space -- never dereference
 	new_standard_data.fUseExistingSoldier = FALSE;
@@ -1900,7 +1876,7 @@ void send_ready ( void )
 		info.status = 1; 					
 	}	
 			
-	client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 
 	if(is_server && numready == cMaxClients)
 	{
@@ -1910,10 +1886,10 @@ void send_ready ( void )
 	}
 }
 
-void recieveREADY (RPCParameters *rpcParameters)
+void recieveREADY (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, ready_struct);	// short-frame guard (H8/H13)
-	ready_struct* info = (ready_struct*)rpcParameters->input;
+	ready_struct* info = (ready_struct*)rpcParameters->data;
 
 	// H8: client_num indexes client_names[4]/client_ready[4] as [client_num-1];
 	// an out-of-range wire byte is an OOB read/write. (1-based, 1..4.)
@@ -2001,7 +1977,7 @@ void send_loaded (void)
 		info.status=1;
 	}
 
-	client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 }
 
 void send_donegui ( UINT8 ubResult )
@@ -2044,13 +2020,13 @@ void send_donegui ( UINT8 ubResult )
 		info.status=0;
 	}
 
-	client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 }
 
-void recieveGUI (RPCParameters *rpcParameters)
+void recieveGUI (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, ready_struct);
-	ready_struct* info = (ready_struct*)rpcParameters->input;
+	ready_struct* info = (ready_struct*)rpcParameters->data;
 	if ( info->client_num < 1 || info->client_num > 4 || info->ready_stage > 4 )
 		return;
 
@@ -2068,7 +2044,7 @@ void recieveGUI (RPCParameters *rpcParameters)
 			info.ready_stage = 2;//done placing mercs
 			info.status=1;
 
-			client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 		}
 	}
 
@@ -2095,7 +2071,7 @@ void recieveGUI (RPCParameters *rpcParameters)
 			KillTacticalPlacementGUI();
 			ScreenMsg( FONT_LTBLUE, MSG_MPSYSTEM, MPClientMessage[13]);
 
-			client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 		}
 	}
 
@@ -2114,7 +2090,7 @@ void recieveGUI (RPCParameters *rpcParameters)
 	}
 }
 
-void recieveADMIN(RPCParameters *rpcParameters)
+void recieveADMIN(SdlNetMessage *rpcParameters)
 {
 	gfIAmAdmin = true;
 	ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"You are the server admin. Press 'G' to start the game once everyone has joined and readied." );
@@ -2126,7 +2102,7 @@ void send_admin_cmd(UINT8 cmd, const char* password)
 	memset( &ac, 0, sizeof( ac ) );
 	ac.cmd = cmd;
 	if ( password ) strncpy( ac.password, password, 63 );
-	client->RPC("adminCmd",(const char*)&ac, (int)sizeof(admin_cmd_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	client->SendMessage("adminCmd", (const char*)&ac, sizeof(admin_cmd_struct), AnyConnection, true);
 }
 
 void allowlaptop_callback ( UINT8 ubResult )
@@ -2161,7 +2137,7 @@ void allowlaptop_callback ( UINT8 ubResult )
 			cMaxClients = iPlayersConnected - ( gfDedicatedServer ? 1 : 0 );
 		}
 
-		client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 	}
 }
 
@@ -2182,7 +2158,7 @@ void mp_broadcast_force_start ( void )
 	info.ready_stage = 1;   // "go ahead, load the level"
 	info.status = 1;
 	printf( "[dedicated] broadcasting force-start (ready_stage=1) to all clients\n" ); fflush( stdout );
-	client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 }
 
 void StartBattleChatBoxClosedCallback(void)
@@ -2479,14 +2455,14 @@ void send_stop (EV_S_STOP_MERC *SStopMerc) // used to stop a merc when he spots 
 
 		stop_struct.sXPos=SStopMerc->sXPos;
 		stop_struct.sYPos=SStopMerc->sYPos;
-		client->RPC("sendSTOP",(const char*)&stop_struct, (int)sizeof(EV_S_STOP_MERC)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendSTOP", (const char*)&stop_struct, sizeof(EV_S_STOP_MERC), AnyConnection, true);
 	}
 }
 
-void recieveSTOP (RPCParameters *rpcParameters)
+void recieveSTOP (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STOP_MERC);
-	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->input;
+	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->data;
 	
 	TacticalActor *pSoldier = SafeMerc( SStopMerc->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
@@ -2509,7 +2485,7 @@ void mp_log_event( const char* msg )
 	if (!is_networked || !is_client || !client) return;
 	char buf[256];
 	strncpy( buf, msg, sizeof(buf) - 1 ); buf[sizeof(buf) - 1] = 0;
-	client->RPC("serverLog", buf, (int)(strlen(buf) + 1) * 8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	client->SendMessage("serverLog", buf, strlen(buf) + 1, AnyConnection, true);
 }
 void mp_log_soldier( TacticalActor* pSoldier, const char* event )
 {
@@ -2583,16 +2559,16 @@ void send_interrupt (TacticalActor *pSoldier)
 	// (gubOutOfTurnPersons+1) order entries instead of memcpy'ing the whole MAXMERCS array.
 	uint8_t wire[INT_WIRE_MAX_BYTES];
 	int wireBytes = SerializeINT( wire, sizeof(wire), INT );
-	client->RPC("sendINTERRUPT",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendINTERRUPT", (const char*)wire, wireBytes, AnyConnection, true);
 }
 
 #ifdef INTERRUPT_MP_DEADLOCK_FIX
-	void recieveINTERRUPT (RPCParameters *rpcParameters)
+	void recieveINTERRUPT (SdlNetMessage *rpcParameters)
 	{
 		// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload into a
 		// local struct (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
 		INT_STRUCT _intWire;
-		if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+		if ( !DeserializeINT( _intWire, rpcParameters->data, rpcParameters->size ) )
 			return;
 		INT_STRUCT* INT = &_intWire;
 		if (cGameType == MP_TYPE_COOP)
@@ -2758,11 +2734,11 @@ void send_interrupt (TacticalActor *pSoldier)
 	}
 #else
 
-	void recieveINTERRUPT (RPCParameters *rpcParameters)
+	void recieveINTERRUPT (SdlNetMessage *rpcParameters)
 	{
 		// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload.
 		INT_STRUCT _intWire;
-		if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+		if ( !DeserializeINT( _intWire, rpcParameters->data, rpcParameters->size ) )
 			return;
 		INT_STRUCT* INT = &_intWire;
 		// C1: clamp wire SoldierID before repository resolution.
@@ -2873,15 +2849,15 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 	// PORTABLE WIRE FORMAT (L6): serialize header + consumed order entries only.
 	uint8_t wire[INT_WIRE_MAX_BYTES];
 	int wireBytes = SerializeINT( wire, sizeof(wire), INT );
-	client->RPC("endINTERRUPT",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("endINTERRUPT", (const char*)wire, wireBytes, AnyConnection, true);
 }
 
-void resume_turn(RPCParameters *rpcParameters)
+void resume_turn(SdlNetMessage *rpcParameters)
 {
 	// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload
 	// (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
 	INT_STRUCT _intWire;
-	if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+	if ( !DeserializeINT( _intWire, rpcParameters->data, rpcParameters->size ) )
 		return;
 	INT_STRUCT* INT = &_intWire;
 
@@ -2971,7 +2947,7 @@ void overide_callback( UINT8 ubResult )
 			info.ready_stage = 1;
 			info.status = 1; 		
 			
-			client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 	
 			status=0;//reset
 			numready=0;
@@ -2989,7 +2965,7 @@ void overide_callback( UINT8 ubResult )
 			numready=0;
 			info.ready_stage = 2;//done placing mercs
 			info.status=1;
-			client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 		}
 
 		if(ubResult==4) //overide waiting on merc placement
@@ -3005,7 +2981,7 @@ void overide_callback( UINT8 ubResult )
 			KillTacticalPlacementGUI(); //kill
 			ScreenMsg( FONT_LTBLUE, MSG_MPSYSTEM, MPClientMessage[13]);
 
-			client->RPC("sendGUI",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGUI", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 		}
 	
 		goahead = 0;
@@ -3017,7 +2993,7 @@ void overide_callback( UINT8 ubResult )
 
 void requestFILE_TRANSFER_SETTINGS(void)
 {
-	client->RPC("requestFILE_TRANSFER_SETTINGS","", 0, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("requestFILE_TRANSFER_SETTINGS", "", 0, AnyConnection, true);
 }
 
 // OJW - 20090430
@@ -3028,14 +3004,14 @@ void allowDownloadCallback( UINT8 ubResult )
 	{
 		// yes
 		// begin downloading of files
-		setID = fltClient.SetupReceive(&transferCBClient, false, serverAddr);
+		setID = fltClient.SetupReceive(&transferCBClient, serverAddr);
 
 		// Decimal UINT16 plus terminator ("65535\0"). The legacy 3-byte
 		// buffer overflowed as soon as the transfer set ID reached 100.
 		char buffer[6];
 		snprintf(buffer, sizeof(buffer), "%u", (unsigned)setID);
 
-		client->RPC("receiveSETID", (const char*) buffer, (int)((strlen(buffer)+1)*8), HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("receiveSETID", (const char*) buffer, strlen(buffer) + 1, AnyConnection, true);
 	}
 	else
 	{
@@ -3047,7 +3023,7 @@ void allowDownloadCallback( UINT8 ubResult )
 }
 
 // THIS METHOD IS CALLED FROM THE SERVER WHENEVER A NEW CLIENT CONNECTS
-void requestSETID(RPCParameters *rpcParameters)
+void requestSETID(SdlNetMessage *rpcParameters)
 {
 	// WANNE: FILE TRANSFER
 	if (!is_server)
@@ -3076,14 +3052,14 @@ void requestSETTINGS(void)
 	// OJW - 20090507
 	// send client version to server
 	strcpy(cl_name.client_version,MPVERSION);
-	client->RPC("requestSETTINGS",(const char*)&cl_name, (int)sizeof(client_info)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("requestSETTINGS", (const char*)&cl_name, sizeof(client_info), AnyConnection, true);
 }
 
 // OJW: FILE TRANSFER: Clients get notified of other clients transfer progress
-void recieveDOWNLOADSTATUS(RPCParameters *rpcParameters)
+void recieveDOWNLOADSTATUS(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, progress_struct);
-	progress_struct* prog = (progress_struct*)rpcParameters->input;
+	progress_struct* prog = (progress_struct*)rpcParameters->data;
 	if ( prog->client_num < 1 || prog->client_num > 4 || prog->downloading > 1 )
 		return;
 	int i = prog->client_num - 1;
@@ -3106,16 +3082,16 @@ void recieveDOWNLOADSTATUS(RPCParameters *rpcParameters)
 //
 // DESIGN NOTE (so this isn't re-misdiagnosed as the cause of a laptop "Downloading"
 // freeze): this is a CONNECT-TIME handshake -- requestFILE_TRANSFER_SETTINGS() is sent
-// exactly once, from ID_CONNECTION_REQUEST_ACCEPTED, NOT when the laptop / AIM / Bobby
+// exactly once, from SDLNET_CONNECTION_ACCEPTED, NOT when the laptop / AIM / Bobby
 // Ray opens. And syncClientsDirectory == 0 is the INTENTIONAL "no file sync, no download
 // dialog" mode, not a failure: we record the value and return; only == 1 does any sync.
 // There is no "0 == fatal VFS error" path and no connect semaphore left dangling here.
-void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
+void recieveFILE_TRANSFER_SETTINGS (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, filetransfersettings_struct);
 	if (!is_server && recieved_transfer_settings == 0)
 	{
-		filetransfersettings_struct* fts = (filetransfersettings_struct*)rpcParameters->input;
+		filetransfersettings_struct* fts = (filetransfersettings_struct*)rpcParameters->data;
 
 		gCurrentTransferBytes = 0;
 		gTotalTransferBytes = fts->totalTransferBytes;
@@ -3140,12 +3116,12 @@ void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
 	}
 }
 
-void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from server
+void recieveSETTINGS (SdlNetMessage *rpcParameters) //recive settings from server
 {
 	RPC_REQUIRE_BYTES(rpcParameters, settings_struct);
 	int startingEdge = MP_EDGE_NORTH;
 
-	settings_struct* cl_lan = (settings_struct*)rpcParameters->input;
+	settings_struct* cl_lan = (settings_struct*)rpcParameters->data;
 	if ( cl_lan->client_num < 1 || cl_lan->client_num > 4 )
 	{
 		return;	// client_names[4] / Team[6..9] only valid for 1..4 (audit [36])
@@ -3629,10 +3605,10 @@ void reapplySETTINGS()
 	fDrawCharacterList = true; // set the character list to be redrawn
 }
 
-void recieveTEAMCHANGE( RPCParameters *rpcParameters )
+void recieveTEAMCHANGE( SdlNetMessage *rpcParameters )
 {
 	RPC_REQUIRE_BYTES(rpcParameters, teamchange_struct);	// short-frame guard (H9/H13)
-	teamchange_struct* cl_lan = (teamchange_struct*)rpcParameters->input;
+	teamchange_struct* cl_lan = (teamchange_struct*)rpcParameters->data;
 	// H9: client_num indexes client_teams[4] as [client_num-1] -- bound it.
 	if ( cl_lan->client_num < 1 || cl_lan->client_num > 4 )
 		return;
@@ -3655,10 +3631,10 @@ void recieveTEAMCHANGE( RPCParameters *rpcParameters )
 	}
 }
 
-void recieveEDGECHANGE( RPCParameters *rpcParameters )
+void recieveEDGECHANGE( SdlNetMessage *rpcParameters )
 {
 	RPC_REQUIRE_BYTES(rpcParameters, edgechange_struct);	// short-frame guard (H9/H13)
-	edgechange_struct* cl_lan = (edgechange_struct*)rpcParameters->input;
+	edgechange_struct* cl_lan = (edgechange_struct*)rpcParameters->data;
 	// H9: client_num indexes client_edges[5] as [client_num-1] -- bound it.
 	if ( cl_lan->client_num < 1 || cl_lan->client_num > 5 )
 		return;
@@ -3682,9 +3658,9 @@ void recieveEDGECHANGE( RPCParameters *rpcParameters )
 	}
 }
 
-void recieveMAPCHANGE( RPCParameters *rpcParameters )
+void recieveMAPCHANGE( SdlNetMessage *rpcParameters )
 {
-	mapchange_struct* cl_lan = (mapchange_struct*)rpcParameters->input;
+	mapchange_struct* cl_lan = (mapchange_struct*)rpcParameters->data;
 
 	if (!is_client || allowlaptop)
 	{
@@ -3769,15 +3745,15 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			client->RPC("sendGRENADE",(const char*)&gren, (int)sizeof(physics_object)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGRENADE", (const char*)&gren, sizeof(physics_object), AnyConnection, true);
 		}
 	}
 }
 
-void recieveGRENADE (RPCParameters *rpcParameters)
+void recieveGRENADE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, physics_object);	// short-frame guard (M8/H13)
-	physics_object* gren = (physics_object*)rpcParameters->input;
+	physics_object* gren = (physics_object*)rpcParameters->data;
 
 	gren->ubID = MPDecodeSoldierID(gren->ubID);
 
@@ -3919,15 +3895,15 @@ void send_grenade_result (float xPos, float yPos, float zPos, INT32 sGridNo, Sol
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			client->RPC("sendGRENADERESULT",(const char*)&gres, (int)sizeof(grenade_result)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("sendGRENADERESULT", (const char*)&gres, sizeof(grenade_result), AnyConnection, true);
 		}
 	}
 }
 
-void recieveGRENADERESULT (RPCParameters *rpcParameters)
+void recieveGRENADERESULT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, grenade_result);   // short-frame over-read guard (sibling handlers have it)
-	grenade_result* gres = (grenade_result*)rpcParameters->input;
+	grenade_result* gres = (grenade_result*)rpcParameters->data;
 
 	gres->ubOwnerID = MPDecodeSoldierID(gres->ubOwnerID);
 
@@ -4015,13 +3991,13 @@ void send_plant_explosive (SoldierID ubID,UINT16 usItem,UINT8 ubItemStatus,UINT1
 	MPDebugMsg(tmpMPDbgString);
 #endif
 
-	client->RPC("sendPLANTEXPLOSIVE",(const char*)&exp, (int)sizeof(explosive_obj)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendPLANTEXPLOSIVE", (const char*)&exp, sizeof(explosive_obj), AnyConnection, true);
 }
 
-void recievePLANTEXPLOSIVE (RPCParameters *rpcParameters)
+void recievePLANTEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, explosive_obj);
-	explosive_obj* exp = (explosive_obj*)rpcParameters->input;
+	explosive_obj* exp = (explosive_obj*)rpcParameters->data;
 
 	exp->ubID = MPDecodeSoldierID( exp->ubID );
 
@@ -4143,7 +4119,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 				gfMPDebugOutputRandoms = true;
 #endif
 
-				client->RPC("sendDETONATEEXPLOSIVE",(const char*)&det, (int)sizeof(detonate_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+				client->SendMessage("sendDETONATEEXPLOSIVE", (const char*)&det, sizeof(detonate_struct), AnyConnection, true);
 			}
 			else
 			{
@@ -4156,10 +4132,10 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 	}
 }
 
-void recieveDETONATEEXPLOSIVE (RPCParameters *rpcParameters)
+void recieveDETONATEEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, detonate_struct);
-	detonate_struct* det = (detonate_struct*)rpcParameters->input;
+	detonate_struct* det = (detonate_struct*)rpcParameters->data;
 
 	det->ubID = MPDecodeSoldierID(det->ubID);
 
@@ -4257,7 +4233,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 				gfMPDebugOutputRandoms = true;
 	#endif
 
-				client->RPC("sendDISARMEXPLOSIVE",(const char*)&disarm, (int)sizeof(disarm_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+				client->SendMessage("sendDISARMEXPLOSIVE", (const char*)&disarm, sizeof(disarm_struct), AnyConnection, true);
 			}
 			else
 			{
@@ -4270,10 +4246,10 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 	}
 }
 
-void recieveDISARMEXPLOSIVE (RPCParameters *rpcParameters)
+void recieveDISARMEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, disarm_struct);
-	disarm_struct* disarm = (disarm_struct*)rpcParameters->input; 
+	disarm_struct* disarm = (disarm_struct*)rpcParameters->data;
 
 	disarm->ubID = MPDecodeSoldierID(disarm->ubID);
 
@@ -4355,13 +4331,13 @@ void send_spreadeffect ( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID
 	MPDebugMsg(tmpMPDbgString);
 #endif
 
-	client->RPC("sendSPREADEFFECT",(const char*)&sef, (int)sizeof(spreadeffect_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendSPREADEFFECT", (const char*)&sef, sizeof(spreadeffect_struct), AnyConnection, true);
 }
 
-void recieveSPREADEFFECT (RPCParameters *rpcParameters)
+void recieveSPREADEFFECT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
-	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->input;
+	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->data;
 
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
 
@@ -4440,13 +4416,13 @@ void send_newsmokeeffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ub
 	MPDebugMsg(tmpMPDbgString);
 #endif
 
-	client->RPC("sendNEWSMOKEEFFECT",(const char*)&sef, (int)sizeof(spreadeffect_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendNEWSMOKEEFFECT", (const char*)&sef, sizeof(spreadeffect_struct), AnyConnection, true);
 }
 
-void recieveNEWSMOKEEFFECT (RPCParameters *rpcParameters)
+void recieveNEWSMOKEEFFECT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
-	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->input;
+	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->data;
 
 	// translate any of our soldier ids back to the correct local copy
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
@@ -4503,7 +4479,7 @@ void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 
 	MPDebugMsg(tmpMPDbgString);
 #endif
 
-	client->RPC("sendEXPLOSIONDAMAGE",(const char*)&exp, (int)sizeof(explosiondamage_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendEXPLOSIONDAMAGE", (const char*)&exp, sizeof(explosiondamage_struct), AnyConnection, true);
 }
 
 void send_explosivedamage( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent )
@@ -4526,13 +4502,13 @@ void send_explosivedamage( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGri
 	MPDebugMsg(tmpMPDbgString);
 #endif
 
-	client->RPC("sendEXPLOSIONDAMAGE",(const char*)&exp, (int)sizeof(explosiondamage_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendEXPLOSIONDAMAGE", (const char*)&exp, sizeof(explosiondamage_struct), AnyConnection, true);
 }
 
-void recieveEXPLOSIONDAMAGE (RPCParameters *rpcParameters)
+void recieveEXPLOSIONDAMAGE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, explosiondamage_struct);	// short-frame guard (H5/H13)
-	explosiondamage_struct* exp = (explosiondamage_struct*)rpcParameters->input;
+	explosiondamage_struct* exp = (explosiondamage_struct*)rpcParameters->data;
 
 	// H5: usItem indexes Item[]/Explosive[] (compounding OOB read) -- bound it.
 	if ( exp->usItem == 0 || exp->usItem >= MAXITEMS )
@@ -4617,14 +4593,14 @@ void send_bullet(  BULLET * pBullet,UINT16 usHandItem )
 
 	uint8_t wire[BULLET_WIRE_BYTES];
 	int wireBytes = SerializeBullet( wire, sizeof(wire), b );
-	client->RPC("sendBULLET",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendBULLET", (const char*)wire, wireBytes, AnyConnection, true);
 }
 
-void recieveBULLET(RPCParameters *rpcParameters)
+void recieveBULLET(SdlNetMessage *rpcParameters)
 {
 	// PORTABLE WIRE FORMAT (H16): deserialize the fixed-width bullet payload. Drop short frames.
 	bullet_wire b;
-	if ( !DeserializeBullet( b, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+	if ( !DeserializeBullet( b, rpcParameters->data, rpcParameters->size ) )
 		return;
 
 	INT32 net_iBullet=b.iBullet;
@@ -4706,13 +4682,13 @@ void send_changestate (EV_S_CHANGESTATE * SChangeState)
 	if(new_state.usSoldierID < 20)
 		new_state.usSoldierID = new_state.usSoldierID+ubID_prefix;
 	
-	client->RPC("sendSTATE",(const char*)&new_state, (int)sizeof(EV_S_CHANGESTATE)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendSTATE", (const char*)&new_state, sizeof(EV_S_CHANGESTATE), AnyConnection, true);
 }
 
-void recieveSTATE(RPCParameters *rpcParameters)
+void recieveSTATE(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_CHANGESTATE);	// short-frame guard (H6/H13)
-	EV_S_CHANGESTATE*	new_state = (EV_S_CHANGESTATE*)rpcParameters->input;
+	EV_S_CHANGESTATE*	new_state = (EV_S_CHANGESTATE*)rpcParameters->data;
 
 	// H6: usNewState indexes gAnimControl[] and drives TacticalActorAnimationTransitions::initializeAnimation() --
 	// an out-of-range wire value is an OOB read + invalid anim init.
@@ -4878,7 +4854,7 @@ void send_death( TacticalActor *pSoldier )
 	nDeath.soldier_team = pS_bTeam;
 
 	// notify other clients of death
-	client->RPC("sendDEATH",(const char*)&nDeath, (int)sizeof(death_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendDEATH", (const char*)&nDeath, sizeof(death_struct), AnyConnection, true);
 	
 	// print kill notice to screen	
 	if (pSoldier && pSoldier->roster().team()==1)
@@ -4903,10 +4879,10 @@ void send_death( TacticalActor *pSoldier )
 #endif
 }
 
-void recieveDEATH (RPCParameters *rpcParameters)
+void recieveDEATH (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (M2/H13)
-	death_struct* nDeath = (death_struct*)rpcParameters->input;
+	death_struct* nDeath = (death_struct*)rpcParameters->data;
 	TacticalActor * pSoldier =
 		ResolveMerc(nDeath->soldier_id.i);
 	if ( pSoldier == NULL )
@@ -5013,7 +4989,7 @@ void send_hitstruct(EV_S_STRUCTUREHIT	*	SStructureHit)
 	memcpy( &struct_hit , SStructureHit, sizeof( EV_S_STRUCTUREHIT ));
 	if(SStructureHit->ubAttackerID <20)struct_hit.ubAttackerID = SStructureHit->ubAttackerID+ubID_prefix;
 			
-	client->RPC("sendhitSTRUCT",(const char*)&struct_hit, (int)sizeof(EV_S_STRUCTUREHIT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendhitSTRUCT", (const char*)&struct_hit, sizeof(EV_S_STRUCTUREHIT), AnyConnection, true);
 }
 
 void send_hitwindow(EV_S_WINDOWHIT * SWindowHit)
@@ -5024,7 +5000,7 @@ void send_hitwindow(EV_S_WINDOWHIT * SWindowHit)
 	if(SWindowHit->ubAttackerID <20)
 		window_hit.ubAttackerID = SWindowHit->ubAttackerID+ubID_prefix;
 			
-	client->RPC("sendhitWINDOW",(const char*)&window_hit, (int)sizeof(EV_S_WINDOWHIT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendhitWINDOW", (const char*)&window_hit, sizeof(EV_S_WINDOWHIT), AnyConnection, true);
 }
 
 void send_miss(EV_S_MISS * SMiss)
@@ -5035,13 +5011,13 @@ void send_miss(EV_S_MISS * SMiss)
 	if(SMiss->ubAttackerID <20)
 		shot_miss.ubAttackerID = SMiss->ubAttackerID+ubID_prefix;
 			
-	client->RPC("sendMISS",(const char*)&shot_miss, (int)sizeof(EV_S_MISS)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendMISS", (const char*)&shot_miss, sizeof(EV_S_MISS), AnyConnection, true);
 }
 
-void recievehitSTRUCT  (RPCParameters *rpcParameters)
+void recievehitSTRUCT  (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STRUCTUREHIT);	// short-frame guard (H1/H13)
-	EV_S_STRUCTUREHIT* struct_hit = (EV_S_STRUCTUREHIT*)rpcParameters->input;
+	EV_S_STRUCTUREHIT* struct_hit = (EV_S_STRUCTUREHIT*)rpcParameters->data;
 	// H1: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
 	TacticalActor *pSoldier = SafeMerc( struct_hit->ubAttackerID.i );
 	if ( pSoldier == NULL
@@ -5060,20 +5036,20 @@ void recievehitSTRUCT  (RPCParameters *rpcParameters)
 		RemoveBullet(iBullet);
 }
 
-void recievehitWINDOW  (RPCParameters *rpcParameters)
+void recievehitWINDOW  (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_WINDOWHIT);	// short-frame guard (H3/H13)
-	EV_S_WINDOWHIT* window_hit = (EV_S_WINDOWHIT*)rpcParameters->input;
+	EV_S_WINDOWHIT* window_hit = (EV_S_WINDOWHIT*)rpcParameters->data;
 	// H3: wire gridno walks gpWorldLevelData[] (WORLD_MAX-sized) -- bound it.
 	if ( window_hit->sGridNo < 0 || window_hit->sGridNo >= WORLD_MAX )
 		return;
 	WindowHit( window_hit->sGridNo, window_hit->usStructureID, window_hit->fBlowWindowSouth, window_hit->fLargeForce );
 }
 
-void recieveMISS  (RPCParameters *rpcParameters)
+void recieveMISS  (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_MISS);	// short-frame guard (H2/H13)
-	EV_S_MISS* shot_miss = (EV_S_MISS*)rpcParameters->input;
+	EV_S_MISS* shot_miss = (EV_S_MISS*)rpcParameters->data;
 
 	// H2: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
 	TacticalActor *pSoldier = SafeMerc( shot_miss->ubAttackerID.i );
@@ -5224,15 +5200,15 @@ void UpdateSoldierToNetwork ( TacticalActor *pSoldier )
 			else
 				SUpdateNetworkSoldier.usTactialTurnLimitCounter = 9999;
 			
-			client->RPC("updatenetworksoldier",(const char*)&SUpdateNetworkSoldier, (int)sizeof(EV_S_UPDATENETWORKSOLDIER)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+			client->SendMessage("updatenetworksoldier", (const char*)&SUpdateNetworkSoldier, sizeof(EV_S_UPDATENETWORKSOLDIER), AnyConnection, true);
 		}
 	}
 }
 
-void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
+void UpdateSoldierFromNetwork  (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_UPDATENETWORKSOLDIER);
-	EV_S_UPDATENETWORKSOLDIER* SUpdateNetworkSoldier = (EV_S_UPDATENETWORKSOLDIER*)rpcParameters->input;
+	EV_S_UPDATENETWORKSOLDIER* SUpdateNetworkSoldier = (EV_S_UPDATENETWORKSOLDIER*)rpcParameters->data;
 
 	TacticalActor *pSoldier =
 		SafeMerc(SUpdateNetworkSoldier->usSoldierID.i);
@@ -5309,7 +5285,7 @@ void kick_callback (UINT8 ubResult)
 				kickR kick;
 				kick.ubResult=ubResult+5;
 				
-				client->RPC("Snull_team",(const char*)&kick, (int)sizeof(kickR)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+				client->SendMessage("Snull_team", (const char*)&kick, sizeof(kickR), AnyConnection, true);
 
 				// If the team that should be kicked has the turn, give the turn to the server
 				if (GetJa2TacticalCurrentTeam() == kick.ubResult)
@@ -5325,10 +5301,10 @@ void kick_callback (UINT8 ubResult)
 	}
 }
 
-void null_team (RPCParameters *rpcParameters)
+void null_team (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, kickR);
-	kickR* kick = (kickR*)rpcParameters->input;
+	kickR* kick = (kickR*)rpcParameters->data;
 	if ( kick->ubResult < 6 || kick->ubResult > 9 )
 		return;
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[29],(kick->ubResult-5),client_names[kick->ubResult-6] );
@@ -5417,13 +5393,13 @@ void send_fireweapon (EV_S_FIREWEAPON  *SFireWeapon)
 	sFire.bTargetCubeLevel=SFireWeapon->bTargetCubeLevel;
 	sFire.bTargetLevel=SFireWeapon->bTargetLevel;
 
-	client->RPC("sendFIREW",(const char*)&sFire, (int)sizeof(EV_S_FIREWEAPON)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendFIREW", (const char*)&sFire, sizeof(EV_S_FIREWEAPON), AnyConnection, true);
 }
 
-void recieve_fireweapon (RPCParameters *rpcParameters)
+void recieve_fireweapon (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_FIREWEAPON);
-	EV_S_FIREWEAPON* SFireWeapon = (EV_S_FIREWEAPON*)rpcParameters->input;
+	EV_S_FIREWEAPON* SFireWeapon = (EV_S_FIREWEAPON*)rpcParameters->data;
 
 	TacticalActor *pSoldier =
 		SafeMerc(SFireWeapon->usSoldierID.i);
@@ -5447,14 +5423,14 @@ void send_door ( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
 		sDoor.sGridNo=sGridNo;
 		sDoor.fNoAnimations=fNoAnimations;
 		
-		client->RPC("sendDOOR",(const char*)&sDoor, (int)sizeof(doors)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendDOOR", (const char*)&sDoor, sizeof(doors), AnyConnection, true);
 	}
 }
 
-void recieve_door (RPCParameters *rpcParameters)
+void recieve_door (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, doors);
-	doors* sDoor = (doors*)rpcParameters->input;
+	doors* sDoor = (doors*)rpcParameters->data;
 
 	TacticalActor *pSoldier = SafeMerc(sDoor->ubID.i);
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
@@ -5471,10 +5447,10 @@ void recieve_door (RPCParameters *rpcParameters)
 	HandleDoorChangeFromGridNo( pSoldier, sDoor->sGridNo, fNoAnimations );
 }
 
-void recieveCHATMSG(RPCParameters* rpcParameters)
+void recieveCHATMSG(SdlNetMessage* rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, chat_msg);	// short-frame guard (M4/H13)
-	chat_msg* cmsg = (chat_msg*)rpcParameters->input;
+	chat_msg* cmsg = (chat_msg*)rpcParameters->data;
 
 	// PORTABLE WIRE FORMAT (H15): widen fixed-width UTF-16LE back to the engine's wchar_t.
 	// MPTextFromWire always NUL-terminates, fixing the unterminated-msg over-read (M4).
@@ -5502,13 +5478,13 @@ void recieveCHATMSG(RPCParameters* rpcParameters)
 
 /// OJW - 20081223
 // recieveDISCONNECT - Handle disconnection
-void recieveDISCONNECT(RPCParameters* rpcParameters)
+void recieveDISCONNECT(SdlNetMessage* rpcParameters)
 {
 	// H10: payload is a single client-number byte; require it before reading.
-	if ( ((long)((rpcParameters->numberOfBitsOfData)+7)/8) < 1 )
+	if ( rpcParameters->size < 1 )
 		return;
 	// for starters - we shouldnt get a message for ourselves :)
-	int cl_num = (int) *rpcParameters->input; // cl_num starts at 1
+	int cl_num = (int) *rpcParameters->data; // cl_num starts at 1
 	// H10: cl_num indexes client_names[4]/client_ready[4]/client_teams[4] as [cl_num-1]
 	// and Team[cl_num+5]; an out-of-range wire byte is an OOB write/read. (1..4.)
 	if ( cl_num < 1 || cl_num > 4 )
@@ -5570,10 +5546,10 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 
 // OJW - 20090507
 // this function stores a reason from the server that we were disconnected
-void recieveDISCONNECTREASON(RPCParameters *rpcParameters )
+void recieveDISCONNECTREASON(SdlNetMessage *rpcParameters )
 {
-	CHAR16* reason = (CHAR16*)rpcParameters->input;
-	size_t availChars = (size_t)((rpcParameters->numberOfBitsOfData + 7) / 8) / sizeof(CHAR16);   // don't over-read past the frame
+	CHAR16* reason = (CHAR16*)rpcParameters->data;
+	size_t availChars = (size_t)(rpcParameters->size) / sizeof(CHAR16);   // don't over-read past the frame
 	size_t n = (availChars < 254) ? availChars : 254;
 	wcsncpy(gszDisconnectReason, reason, n);
 	gszDisconnectReason[n] = L'\0';
@@ -5667,11 +5643,11 @@ void sendRT(void)
 		real_struct rData;
 		rData.bteam=netbTeam;
 
-		client->RPC("sendREAL",(const char*)&rData, (int)sizeof(real_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendREAL", (const char*)&rData, sizeof(real_struct), AnyConnection, true);
 	}
 }
 
-void gotoRT(RPCParameters *rpcParameters)
+void gotoRT(SdlNetMessage *rpcParameters)
 {
 	getReal=true;//MAY NOT BE NEEDED ANY MORE
 
@@ -5702,7 +5678,7 @@ void startCombat(UINT8 ubStartingTeam)
 
 	data.ubStartingTeam=ubStartingTeam;
 
-	client->RPC("startCOMBAT",(const char*)&data, (int)sizeof(sc_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("startCOMBAT", (const char*)&data, sizeof(sc_struct), AnyConnection, true);
 }
 
 void teamwiped ( void )
@@ -5718,7 +5694,7 @@ void teamwiped ( void )
 	sc_struct data;
 	data.ubStartingTeam=netbTeam;
 
-	client->RPC("sendWIPE",(const char*)&data, (int)sizeof(sc_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendWIPE", (const char*)&data, sizeof(sc_struct), AnyConnection, true);
 
 	if (is_server)
 	{
@@ -5733,10 +5709,10 @@ void teamwiped ( void )
 	}
 }
 
-void recieve_wipe (RPCParameters *rpcParameters)
+void recieve_wipe (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, sc_struct);	// short-frame guard (M5/H13)
-	sc_struct* data = (sc_struct*)rpcParameters->input;
+	sc_struct* data = (sc_struct*)rpcParameters->data;
 	// M5: wire team indexes TeamNameStrings[] and drives EndTurn() -- bound it.
 	if ( data->ubStartingTeam >= MAXTEAMS )
 		return;
@@ -5762,13 +5738,13 @@ void send_heal (TacticalActor *pSoldier )
 	data.bLife=pSoldier->vitals().health();
 	data.bBleeding=pSoldier->vitals().bleeding();
 
-	client->RPC("sendHEAL",(const char*)&data, (int)sizeof(heal)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendHEAL", (const char*)&data, sizeof(heal), AnyConnection, true);
 }
 
-void recieve_heal (RPCParameters *rpcParameters)
+void recieve_heal (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, heal);	// short-frame guard (H4/H13)
-	heal* data = (heal*)rpcParameters->input;
+	heal* data = (heal*)rpcParameters->data;
 
 	// H4: decode via the shared helper (+7, matches the rest of the codebase; the
 	// old hand-rolled +6 mis-decoded the 7th merc) and guard the resolved pointer.
@@ -5796,13 +5772,13 @@ void requestAIint(TacticalActor *pSoldier )
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, L"interrupt requested" );
 #endif
 		
-	client->RPC("rINT",(const char*)&data, (int)sizeof(AIint)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("rINT", (const char*)&data, sizeof(AIint), AnyConnection, true);
 }
 
-void awardINT (RPCParameters *rpcParameters)
+void awardINT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, AIint);
-	AIint* data= (AIint*)rpcParameters->input;
+	AIint* data= (AIint*)rpcParameters->data;
 
 	TacticalActor *pSoldier = SafeMerc(data->ubID.i);
 
@@ -5843,14 +5819,14 @@ void send_gameover()
 	iScoreScreenTime = 0;
 
 	// notify all the clients that the game is over
-	client->RPC("sendGAMEOVER",(const char*)&CLIENT_NUM, (int)sizeof(CLIENT_NUM)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	client->SendMessage("sendGAMEOVER", (const char*)&CLIENT_NUM, sizeof(CLIENT_NUM), AnyConnection, true);
 }
 
-void recieveGAMEOVER(RPCParameters *rpcParameters)
+void recieveGAMEOVER(SdlNetMessage *rpcParameters)
 {
-	if ( (INT32)((rpcParameters->numberOfBitsOfData + 7) / 8) < (INT32)(sizeof(player_stats) * 5) )   // short-frame over-read guard
+	if ( (INT32)(rpcParameters->size) < (INT32)(sizeof(player_stats) * 5) )   // short-frame over-read guard
 		return;
-	player_stats* data= (player_stats*)rpcParameters->input;
+	player_stats* data= (player_stats*)rpcParameters->data;
 	memcpy(gMPPlayerStats,data,sizeof(player_stats)*5);
 
 	// fire the score screen
@@ -5867,61 +5843,61 @@ void connect_client ( void )
 	{
 		ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, MPClientMessage[0] );
 			
-		client = RakNetworkFactory::GetRakPeerInterface();
-		SocketDescriptor sd;
-		bool b = client->Startup(1,30,&sd, 1);
+		client = CreateSdlNetPeer();
+		SdlNetEndpoint sd;
+		bool b = client->Start(1, sd);
 
 		//RPC's
-		REGISTER_STATIC_RPC(client, recievePATH);
-		REGISTER_STATIC_RPC(client, recieveADMIN);
-		REGISTER_STATIC_RPC(client, recieveSTANCE);
-		REGISTER_STATIC_RPC(client, recieveDIR);
-		REGISTER_STATIC_RPC(client, recieveFIRE);
-		REGISTER_STATIC_RPC(client, recieveHIT);
-		REGISTER_STATIC_RPC(client, recieveHIRE);
-		REGISTER_STATIC_RPC(client, recieveDISMISS);
-		REGISTER_STATIC_RPC(client, recieveguiPOS);
-		REGISTER_STATIC_RPC(client, recieveguiDIR);
-		REGISTER_STATIC_RPC(client, recieveEndTurn);
-		REGISTER_STATIC_RPC(client, recieveAI);
-		REGISTER_STATIC_RPC(client, recieveSTOP);
-		REGISTER_STATIC_RPC(client, recieveINTERRUPT);
-		REGISTER_STATIC_RPC(client, recieveREADY);
-		REGISTER_STATIC_RPC(client, recieveGUI);
-		REGISTER_STATIC_RPC(client, recieveSETTINGS);
-		REGISTER_STATIC_RPC(client, recieveDOWNLOADSTATUS);
-		REGISTER_STATIC_RPC(client, recieveFILE_TRANSFER_SETTINGS);
-		REGISTER_STATIC_RPC(client, recieveTEAMCHANGE);
-		REGISTER_STATIC_RPC(client, recieveEDGECHANGE);
-		REGISTER_STATIC_RPC(client, recieveMAPCHANGE);
-		REGISTER_STATIC_RPC(client, recieveBULLET);
-		REGISTER_STATIC_RPC(client, recieveGRENADE);
-		REGISTER_STATIC_RPC(client, recieveGRENADERESULT);
-		REGISTER_STATIC_RPC(client, recievePLANTEXPLOSIVE);
-		REGISTER_STATIC_RPC(client, recieveDETONATEEXPLOSIVE);
-		REGISTER_STATIC_RPC(client, recieveDISARMEXPLOSIVE);
-		REGISTER_STATIC_RPC(client, recieveSPREADEFFECT);
-		REGISTER_STATIC_RPC(client, recieveNEWSMOKEEFFECT);
-		REGISTER_STATIC_RPC(client, recieveEXPLOSIONDAMAGE);
-		REGISTER_STATIC_RPC(client, recieveSTATE);
-		REGISTER_STATIC_RPC(client, recieveDEATH);
-		REGISTER_STATIC_RPC(client, recievehitSTRUCT);
-		REGISTER_STATIC_RPC(client, recievehitWINDOW);
-		REGISTER_STATIC_RPC(client, recieveMISS);
-		REGISTER_STATIC_RPC(client, resume_turn);
-		REGISTER_STATIC_RPC(client, UpdateSoldierFromNetwork);
-		REGISTER_STATIC_RPC(client, recieve_fireweapon);
-		REGISTER_STATIC_RPC(client, recieve_door);
-		REGISTER_STATIC_RPC(client, null_team);
-		REGISTER_STATIC_RPC(client, gotoRT);
-		REGISTER_STATIC_RPC(client, recieve_wipe);
-		REGISTER_STATIC_RPC(client, recieve_heal);
-		REGISTER_STATIC_RPC(client, awardINT);
-		REGISTER_STATIC_RPC(client, recieveGAMEOVER);
-		REGISTER_STATIC_RPC(client, recieveDISCONNECT);
-		REGISTER_STATIC_RPC(client, recieveCHATMSG);
-		REGISTER_STATIC_RPC(client, requestSETID);
-		REGISTER_STATIC_RPC(client, recieveDISCONNECTREASON);
+		REGISTER_SDLNET_MESSAGE(client, recievePATH);
+		REGISTER_SDLNET_MESSAGE(client, recieveADMIN);
+		REGISTER_SDLNET_MESSAGE(client, recieveSTANCE);
+		REGISTER_SDLNET_MESSAGE(client, recieveDIR);
+		REGISTER_SDLNET_MESSAGE(client, recieveFIRE);
+		REGISTER_SDLNET_MESSAGE(client, recieveHIT);
+		REGISTER_SDLNET_MESSAGE(client, recieveHIRE);
+		REGISTER_SDLNET_MESSAGE(client, recieveDISMISS);
+		REGISTER_SDLNET_MESSAGE(client, recieveguiPOS);
+		REGISTER_SDLNET_MESSAGE(client, recieveguiDIR);
+		REGISTER_SDLNET_MESSAGE(client, recieveEndTurn);
+		REGISTER_SDLNET_MESSAGE(client, recieveAI);
+		REGISTER_SDLNET_MESSAGE(client, recieveSTOP);
+		REGISTER_SDLNET_MESSAGE(client, recieveINTERRUPT);
+		REGISTER_SDLNET_MESSAGE(client, recieveREADY);
+		REGISTER_SDLNET_MESSAGE(client, recieveGUI);
+		REGISTER_SDLNET_MESSAGE(client, recieveSETTINGS);
+		REGISTER_SDLNET_MESSAGE(client, recieveDOWNLOADSTATUS);
+		REGISTER_SDLNET_MESSAGE(client, recieveFILE_TRANSFER_SETTINGS);
+		REGISTER_SDLNET_MESSAGE(client, recieveTEAMCHANGE);
+		REGISTER_SDLNET_MESSAGE(client, recieveEDGECHANGE);
+		REGISTER_SDLNET_MESSAGE(client, recieveMAPCHANGE);
+		REGISTER_SDLNET_MESSAGE(client, recieveBULLET);
+		REGISTER_SDLNET_MESSAGE(client, recieveGRENADE);
+		REGISTER_SDLNET_MESSAGE(client, recieveGRENADERESULT);
+		REGISTER_SDLNET_MESSAGE(client, recievePLANTEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(client, recieveDETONATEEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(client, recieveDISARMEXPLOSIVE);
+		REGISTER_SDLNET_MESSAGE(client, recieveSPREADEFFECT);
+		REGISTER_SDLNET_MESSAGE(client, recieveNEWSMOKEEFFECT);
+		REGISTER_SDLNET_MESSAGE(client, recieveEXPLOSIONDAMAGE);
+		REGISTER_SDLNET_MESSAGE(client, recieveSTATE);
+		REGISTER_SDLNET_MESSAGE(client, recieveDEATH);
+		REGISTER_SDLNET_MESSAGE(client, recievehitSTRUCT);
+		REGISTER_SDLNET_MESSAGE(client, recievehitWINDOW);
+		REGISTER_SDLNET_MESSAGE(client, recieveMISS);
+		REGISTER_SDLNET_MESSAGE(client, resume_turn);
+		REGISTER_SDLNET_MESSAGE(client, UpdateSoldierFromNetwork);
+		REGISTER_SDLNET_MESSAGE(client, recieve_fireweapon);
+		REGISTER_SDLNET_MESSAGE(client, recieve_door);
+		REGISTER_SDLNET_MESSAGE(client, null_team);
+		REGISTER_SDLNET_MESSAGE(client, gotoRT);
+		REGISTER_SDLNET_MESSAGE(client, recieve_wipe);
+		REGISTER_SDLNET_MESSAGE(client, recieve_heal);
+		REGISTER_SDLNET_MESSAGE(client, awardINT);
+		REGISTER_SDLNET_MESSAGE(client, recieveGAMEOVER);
+		REGISTER_SDLNET_MESSAGE(client, recieveDISCONNECT);
+		REGISTER_SDLNET_MESSAGE(client, recieveCHATMSG);
+		REGISTER_SDLNET_MESSAGE(client, requestSETID);
+		REGISTER_SDLNET_MESSAGE(client, recieveDISCONNECTREASON);
 		//***
 		
 		if (b)
@@ -6017,15 +5993,14 @@ void connect_client ( void )
 		strcat(client_fileTransferDirectoryPath, cGameDataSyncDirectory);
 
 		// WANNE: FILE TRANSFER
-		client->AttachPlugin(&fltClient);
-		client->SetSplitMessageProgressInterval(1);
+		client->AttachFileTransfer(fltClient);
 		
 		CHAR16 tmpMessage[512];
 		swprintf( tmpMessage, MPClientMessage[1],serverIP );
 		ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, tmpMessage); // we are connecting
 		SetConnectScreenSubMessageW( tmpMessage );
 
-		client->Connect(serverIP, serverPort, 0,0);
+		client->Connect(serverIP, serverPort);
 		is_connecting = true;	
 	}
 	else if (is_connecting)
@@ -6040,11 +6015,11 @@ void connect_client ( void )
 
 void client_packet ( void )
 {	
-	Packet* p;
+	SdlNetEvent* p;
 
 	if (is_client)
 	{
-		p = client->Receive();
+		p = client->Poll();
 
 		while(p)
 		{
@@ -6054,32 +6029,19 @@ void client_packet ( void )
 			// Check if this is a network message packet
 			switch (packetIdentifier)
 			{
-				case ID_DISCONNECTION_NOTIFICATION:
+				case SDLNET_DISCONNECTION_NOTIFICATION:
 					  // Connection lost normally
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_DISCONNECTION_NOTIFICATION");
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_DISCONNECTION_NOTIFICATION");
 					is_connected=false;
 					//OJW - 20081223
 					//Gracefully notify and disconnect the client
-					client->DeallocatePacket(p); // HandleClientConnectionLost shuts down the client
+					client->Release(p); // HandleClientConnectionLost shuts down the client
 					HandleClientConnectionLost();
 					//OJW - 2009
 					return;
 					break;
-				case ID_ALREADY_CONNECTED:
-					// Connection lost normally
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_ALREADY_CONNECTED");
-					break;
-				case ID_REMOTE_DISCONNECTION_NOTIFICATION: // Server telling the clients of another client disconnecting gracefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_REMOTE_DISCONNECTION_NOTIFICATION");
-					break;
-				case ID_REMOTE_CONNECTION_LOST: // Server telling the clients of another client disconnecting forcefully.  You can manually broadcast this in a peer to peer enviroment if you want.
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_REMOTE_CONNECTION_LOST");
-					break;
-				case ID_REMOTE_NEW_INCOMING_CONNECTION: // Server telling the clients of another client connecting.  You can manually broadcast this in a peer to peer enviroment if you want.
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_REMOTE_NEW_INCOMING_CONNECTION");
-					break;
-				case ID_CONNECTION_ATTEMPT_FAILED:
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_CONNECTION_ATTEMPT_FAILED");
+				case SDLNET_CONNECTION_ATTEMPT_FAILED:
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_ATTEMPT_FAILED");
 					is_connected=false;
 					is_connecting=false;
 
@@ -6100,26 +6062,26 @@ void client_packet ( void )
 					}
 					giNextRetryTime = guiBaseJA2NoPauseClock + 5000; // 5 seconds?
 					break;
-				case ID_NO_FREE_INCOMING_CONNECTIONS:
+				case SDLNET_NO_FREE_INCOMING_CONNECTIONS:
 					 // Sorry, the server is full.  I don't do anything here but
 					// A real app should tell the user
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_NO_FREE_INCOMING_CONNECTIONS");
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_NO_FREE_INCOMING_CONNECTIONS");
 					break;
-				case ID_CONNECTION_LOST:
+				case SDLNET_CONNECTION_LOST:
 					// Couldn't deliver a reliable packet - i.e. the other system was abnormally
 					// terminated
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_CONNECTION_LOST");
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_LOST");
 					
 					is_connected=false;
 					//OJW - 20081223
 					//Gracefully notify and disconnect the client
-					client->DeallocatePacket(p); // HandleClientConnectionLost shuts down the client
+					client->Release(p); // HandleClientConnectionLost shuts down the client
 					HandleClientConnectionLost();
 					return;
 					break;
-				case ID_CONNECTION_REQUEST_ACCEPTED:
+				case SDLNET_CONNECTION_ACCEPTED:
 					// This tells the client they have connected
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_CONNECTION_REQUEST_ACCEPTED");
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_CONNECTION_ACCEPTED");
 					is_connected=true;
 					is_connecting=false;
 
@@ -6129,13 +6091,9 @@ void client_packet ( void )
 
 					requestSETTINGS();
 					break;
-				case ID_NEW_INCOMING_CONNECTION:
+				case SDLNET_NEW_INCOMING_CONNECTION:
 					//tells server client has connected
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_NEW_INCOMING_CONNECTION");
-					break;
-				case ID_MODIFIED_PACKET:
-					// Cheater!
-					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"ID_MODIFIED_PACKET");
+					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"SDLNET_NEW_INCOMING_CONNECTION");
 					break;
 				default:
 					ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, L"** a packet has been recieved for which i dont know what to do... **");
@@ -6143,8 +6101,8 @@ void client_packet ( void )
 			}
 
 			// We're done with the packet, get more :)
-			client->DeallocatePacket(p);
-			p = client->Receive();
+			client->Release(p);
+			p = client->Poll();
 		}
 
 		// OJW - 20081223
@@ -6169,21 +6127,9 @@ void client_packet ( void )
 	}
 }
 
-// Copied from Multiplayer.cpp
-// If the first byte is ID_TIMESTAMP, then we want the 5th byte
-// Otherwise we want the 1st byte
-unsigned char GetPacketIdentifier(Packet *p)
+unsigned char GetPacketIdentifier(SdlNetEvent *p)
 {
-	if (p==0)
-		return 255;
-
-	if ((unsigned char)p->data[0] == ID_TIMESTAMP)
-	{
-		assert(p->length > sizeof(unsigned char) + sizeof(unsigned long));
-		return (unsigned char) p->data[sizeof(unsigned char) + sizeof(unsigned long)];
-	}
-	else
-		return (unsigned char) p->data[0];
+	return !p || p->size == 0 ? 255 : p->data[0];
 }
 
 
@@ -6191,7 +6137,7 @@ void client_disconnect (void)
 {
 	if(is_client)
 	{
-		client->DetachPlugin(&fltClient);
+		client->DetachFileTransfer(fltClient);
 
 		client->Shutdown(300);
 		is_client = false;
@@ -6214,7 +6160,7 @@ void client_disconnect (void)
 		memset ( &client_progress,0,sizeof(int)*4);	
 
 		// We're done with the network
-		RakNetworkFactory::DestroyRakPeerInterface(client);
+		DestroySdlNetPeer(client);
 		ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, MPClientMessage[77]);
 
 		#ifdef JA2BETAVERSION
@@ -6238,7 +6184,7 @@ void send_edgechange(int newedge)
 		lan.client_num = CLIENT_NUM;
 		lan.newedge = newedge;
 
-		client->RPC("sendEDGECHANGE",(const char*)&lan, (int)sizeof(edgechange_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendEDGECHANGE", (const char*)&lan, sizeof(edgechange_struct), AnyConnection, true);
 
 		// redraw the character list on the map screen
 		fDrawCharacterList = true;
@@ -6268,7 +6214,7 @@ void send_teamchange(int newteam)
 		lan.client_num = CLIENT_NUM;
 		lan.newteam = newteam;
 
-		client->RPC("sendTEAMCHANGE",(const char*)&lan, (int)sizeof(teamchange_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendTEAMCHANGE", (const char*)&lan, sizeof(teamchange_struct), AnyConnection, true);
 
 		// redraw the character list on the map screen
 		fDrawCharacterList = true;
@@ -6324,7 +6270,7 @@ void ChatCallback( UINT8 ubResult )
 		cmsg.client_num = CLIENT_NUM;
 
 		// notify all of the chat message
-		client->RPC("sendCHATMSG",(const char*)&cmsg, (int)sizeof(chat_msg)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->SendMessage("sendCHATMSG", (const char*)&cmsg, sizeof(chat_msg), AnyConnection, true);
 	}
 
 	memset(gszMsgBoxInputString,0,sizeof(gszMsgBoxInputString));

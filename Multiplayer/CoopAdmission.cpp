@@ -19,20 +19,8 @@ bool ConstantTimeTokenEqual(
 
 bool ValidTransport(const TransportPeer& transport) noexcept
 {
-	return transport.binaryAddress != 0 && transport.port != 0;
+	return static_cast<bool>(transport) && transport != ja2::mp::AnyConnection;
 }
-}
-
-bool operator==(
-	const TransportPeer& left, const TransportPeer& right) noexcept
-{
-	return left.binaryAddress == right.binaryAddress && left.port == right.port;
-}
-
-bool operator!=(
-	const TransportPeer& left, const TransportPeer& right) noexcept
-{
-	return !(left == right);
 }
 
 bool AuthorityConfiguration::complete() const noexcept

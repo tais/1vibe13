@@ -7695,7 +7695,7 @@ STR16 NewInvMessage[] =
 STR16 MPServerMessage[] =
 {
 	// 0
-	L"Initiating RakNet server...",
+	L"Avvio del server multigiocatore...",
 	L"Server started, waiting for connections...",
 	L"You must now connect with your client to the server by pressing '2'.",
 	L"Server is already running.",
@@ -7716,7 +7716,7 @@ STR16 MPServerMessage[] =
 STR16 MPClientMessage[] =
 {
 	// 0
-	L"Initiating RakNet client...",		
+	L"Avvio del client multigiocatore...",
 	L"Connecting to IP: %S ...",
 	L"Received game settings:",
 	L"You are already connected.",

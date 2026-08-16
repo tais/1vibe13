@@ -1,15 +1,12 @@
-# First test suite in the project: loopback tests for the multiplayer netshim.
-# Links only the shim + SDL3_net + SDL3 -- no game code.
-add_executable(mp_netshim_tests
-  mp_netshim_tests.cpp
-  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim/netshim.cpp
+# Loopback and raw-wire tests link the production SDL3_net transport target.
+add_executable(mp_sdl_net_transport_tests
+  mp_sdl_net_transport_tests.cpp
 )
-target_include_directories(mp_netshim_tests PRIVATE ${CMAKE_SOURCE_DIR}/Multiplayer/netshim)
-target_link_libraries(mp_netshim_tests PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
-add_test(NAME mp_netshim COMMAND mp_netshim_tests)
+target_link_libraries(mp_sdl_net_transport_tests PRIVATE SdlNetTransport)
+add_test(NAME mp_sdl_net_transport COMMAND mp_sdl_net_transport_tests)
 
 # Fixed-width co-op admission codecs and sender/epoch binding are independent
-# from SDL, RakNet, the game engine, and installed Data.
+# from SDL, the game engine, and installed Data.
 add_executable(coop_session_protocol_tests
   coop_session_protocol_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
@@ -64,20 +61,19 @@ target_compile_definitions(mp_coordinator_server_for_tests PRIVATE
   main=ja2server_test_main
   JA2SERVER_LOOPBACK_TEST=1)
 target_include_directories(mp_coordinator_server_for_tests PRIVATE
-  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim
+  ${CMAKE_SOURCE_DIR}/Multiplayer
   ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server)
 target_link_libraries(mp_coordinator_server_for_tests PRIVATE
-  SDL3_net::SDL3_net SDL3::SDL3)
+  SdlNetTransport)
 
 add_executable(mp_coordinator_session_tests
   mp_coordinator_session_tests.cpp
-  $<TARGET_OBJECTS:mp_coordinator_server_for_tests>
-  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim/netshim.cpp)
+  $<TARGET_OBJECTS:mp_coordinator_server_for_tests>)
 target_include_directories(mp_coordinator_session_tests PRIVATE
-  ${CMAKE_SOURCE_DIR}/Multiplayer/netshim
+  ${CMAKE_SOURCE_DIR}/Multiplayer
   ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server)
 target_link_libraries(mp_coordinator_session_tests PRIVATE
-  SDL3_net::SDL3_net SDL3::SDL3 Threads::Threads)
+  SdlNetTransport Threads::Threads)
 add_test(NAME mp_coordinator_session COMMAND mp_coordinator_session_tests)
 set_tests_properties(mp_coordinator_session PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME mp_coordinator_coop_rejection
@@ -1054,7 +1050,7 @@ if(Python3_Interpreter_FOUND)
 endif()
 
 # Standalone multiplayer coordinator/relay server (no game engine).
-# Uses the netshim's RakNet 3.401-compatible API over SDL3_net TCP. Protocol
+# Uses the project-native SDL3_net TCP transport. Protocol
 # admission and coordinator session behavior are covered above by the real-pump
 # loopback test; a complete in-engine playthrough remains experimental. Built
 # only when explicitly requested.
@@ -1062,10 +1058,8 @@ option(BUILD_JA2SERVER "Build the standalone ja2server MP coordinator" OFF)
 if(BUILD_JA2SERVER)
   add_executable(ja2server
     ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server/ja2server.cpp
-    ${CMAKE_SOURCE_DIR}/Multiplayer/netshim/netshim.cpp
   )
-  target_include_directories(ja2server PRIVATE ${CMAKE_SOURCE_DIR}/Multiplayer/netshim)
-  target_link_libraries(ja2server PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
+  target_link_libraries(ja2server PRIVATE SdlNetTransport)
   if(APPLE)
     # The linker's ad-hoc signature on a bare arm64 executable can intermittently
     # fail dyld's page validation at launch (SIGKILL "Code Signature Invalid",

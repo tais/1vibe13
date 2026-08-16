@@ -7697,7 +7697,7 @@ STR16 NewInvMessage[] =
 STR16 MPServerMessage[] =
 {
 	// 0
-	L"启动RakNet服务器...",
+	L"启动多人游戏服务器...",
 	L"服务器启动,等待连接...",
 	L"你现在必须按'2'来连接你的客户端和服务器。",
 	L"服务器已经在运行。",
@@ -7718,7 +7718,7 @@ STR16 MPServerMessage[] =
 STR16 MPClientMessage[] =
 {
 	// 0
-	L"启动RakNet客户端...",
+	L"启动多人游戏客户端...",
 	L"正在连接IP: %S ...",
 	L"接受游戏设置: ",
 	L"你已经连接上了。",
