@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Tests for the tagged-release signing and native-package ratchets."""
 
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 from tools.check_release_workflow import (
@@ -267,6 +270,15 @@ class NativeReleasePackagingTests(unittest.TestCase):
             self.build,
             self.app_run)
 
+    def mutate_nsis_step(self, original, replacement):
+        start = self.workflow.index(
+            "      - name: Download checksum-pinned NSIS compiler")
+        end = self.workflow.index("\n      - name:", start + 1)
+        step = self.workflow[start:end]
+        self.assertIn(original, step)
+        step = step.replace(original, replacement, 1)
+        return self.workflow[:start] + step + self.workflow[end:]
+
     def test_complete_native_packaging_contract_is_accepted(self):
         self.validate()
 
@@ -297,6 +309,129 @@ class NativeReleasePackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "four-zip contract"):
             self.validate(workflow=workflow)
 
+    def test_nsis_download_cannot_revert_to_invoke_web_request(self):
+        workflow = self.mutate_nsis_step(
+            "& curl.exe --proto '=https'", "Invoke-WebRequest -Uri $url")
+        with self.assertRaisesRegex(RuntimeError, "Invoke-WebRequest"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_remain_https_only(self):
+        workflow = self.mutate_nsis_step(
+            "--proto '=https'", "--proto '=http,https'")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_require_tls_1_2(self):
+        workflow = self.mutate_nsis_step("--tlsv1.2", "--tlsv1.0")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_follow_redirects(self):
+        workflow = self.mutate_nsis_step("--fail --location", "--fail")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_fail_on_http_errors(self):
+        workflow = self.mutate_nsis_step("--fail --location", "--location")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_retry_all_errors(self):
+        workflow = self.mutate_nsis_step("--retry-all-errors ", "")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_write_the_validated_archive(self):
+        workflow = self.mutate_nsis_step(
+            "--output $archive $url", "--remote-name $url")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_hard_fail_on_curl_exit(self):
+        workflow = self.mutate_nsis_step(
+            "if ($LASTEXITCODE -ne 0)", "if ($LASTEXITCODE -eq 0)")
+        with self.assertRaisesRegex(RuntimeError, "curl.exe transport"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_sha256_pin_cannot_change(self):
+        workflow = self.mutate_nsis_step(
+            "56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f",
+            "0" * 64)
+        with self.assertRaisesRegex(RuntimeError, "SHA-256 verification"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_must_use_sha256(self):
+        workflow = self.mutate_nsis_step(
+            "Get-FileHash -Algorithm SHA256",
+            "Get-FileHash -Algorithm SHA1")
+        with self.assertRaisesRegex(RuntimeError, "SHA-256 verification"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_hash_mismatch_must_fail(self):
+        workflow = self.mutate_nsis_step(
+            "if ($actual -ne $expected)", "if ($actual -eq $expected)")
+        with self.assertRaisesRegex(RuntimeError, "SHA-256 verification"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_archive_cannot_be_expanded_before_hash_verification(self):
+        expand = (
+            "          Expand-Archive -LiteralPath $archive "
+            "-DestinationPath $tools\n")
+        workflow = self.mutate_nsis_step(expand, "")
+        workflow = workflow.replace(
+            "          $actual = (Get-FileHash -Algorithm SHA256 $archive)",
+            expand
+            + "          $actual = (Get-FileHash -Algorithm SHA256 $archive)",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "then extraction"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_sourceforge_url_must_be_the_active_assignment(self):
+        canonical = (
+            "https://downloads.sourceforge.net/project/nsis/"
+            "NSIS%203/3.12/nsis-3.12.zip")
+        workflow = self.mutate_nsis_step(
+            f"$url = '{canonical}'",
+            "$url = 'https://example.invalid/nsis-3.12.zip'\n"
+            f"          # expected source: {canonical}")
+        with self.assertRaisesRegex(RuntimeError, "SourceForge URL assignment"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_cannot_continue_on_error(self):
+        workflow = self.mutate_nsis_step(
+            "        shell: pwsh",
+            "        continue-on-error: true\n        shell: pwsh")
+        with self.assertRaisesRegex(RuntimeError, "must block packaging"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_curl_block_cannot_be_wrapped_in_false_control_flow(self):
+        curl = "          & curl.exe --proto '=https'"
+        workflow = self.mutate_nsis_step(
+            curl,
+            "          if ($false) {\n" + curl)
+        workflow = workflow.replace(
+            "          $actual = (Get-FileHash -Algorithm SHA256 $archive)",
+            "          }\n"
+            "          $actual = (Get-FileHash -Algorithm SHA256 $archive)",
+            1)
+        with self.assertRaisesRegex(RuntimeError, "unapproved controls"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_cannot_add_an_extra_statement(self):
+        workflow = self.mutate_nsis_step(
+            "          & curl.exe --proto '=https'",
+            "          Write-Output 'skip gate'\n"
+            "          & curl.exe --proto '=https'")
+        with self.assertRaisesRegex(RuntimeError, "unapproved controls"):
+            self.validate(workflow=workflow)
+
+    def test_nsis_download_cannot_add_a_step_condition(self):
+        workflow = self.mutate_nsis_step(
+            "        shell: pwsh",
+            "        'if': false\n        shell: pwsh")
+        with self.assertRaisesRegex(RuntimeError, "only its Windows"):
+            self.validate(workflow=workflow)
+
     def test_recursive_uninstall_is_rejected(self):
         installer = self.installer.replace(
             'RMDir "$INSTDIR"', 'RMDir /r "$INSTDIR"')
@@ -323,6 +458,75 @@ class NativeReleasePackagingTests(unittest.TestCase):
             'WriteUninstaller "$INSTDIR\\Uninstall.exe"')
         with self.assertRaisesRegex(RuntimeError, "generic uninstaller name"):
             self.validate(installer=installer)
+
+
+class AppImageBuildScriptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(__file__).resolve().parent.parent
+        cls.build_script = cls.root / "packaging/linux/build_appimage.sh"
+
+    def setUp(self):
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        self.workdir = Path(temporary_directory.name)
+
+        self.appdir = self.workdir / "AppDir"
+        self.appdir.mkdir()
+        for required in (
+                "AppRun",
+                "org.ja2v113.JA2SDL3.desktop",
+                "org.ja2v113.JA2SDL3.png"):
+            (self.appdir / required).write_text("fixture\n", encoding="utf-8")
+
+        self.runtime = self.workdir / "runtime"
+        self.runtime.write_bytes(b"runtime fixture\n")
+        self.appimagetool = self.workdir / "fake-appimagetool"
+        self.appimagetool.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+output=${!#}
+cat > "$output" <<'APPIMAGE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ ${1-} == --appimage-offset ]]
+printf '4096\\n'
+APPIMAGE
+""",
+            encoding="utf-8")
+        self.appimagetool.chmod(0o755)
+
+    def build(self, output: str) -> subprocess.CompletedProcess[str]:
+        environment = dict(os.environ)
+        environment["PATH"] = "/usr/bin:/bin"
+        return subprocess.run(
+            [
+                self.build_script,
+                self.appdir,
+                output,
+                "x86_64",
+                self.appimagetool,
+                self.runtime,
+                "1",
+            ],
+            cwd=self.workdir,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False)
+
+    def test_generated_image_is_executed_by_path(self):
+        outputs = (
+            ("relative", "release.AppImage"),
+            ("absolute", str(self.workdir / "absolute.AppImage")),
+        )
+        for label, output in outputs:
+            with self.subTest(label=label):
+                result = self.build(output)
+                self.assertEqual(
+                    0,
+                    result.returncode,
+                    result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
