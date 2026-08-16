@@ -8,6 +8,18 @@ target_include_directories(mp_netshim_tests PRIVATE ${CMAKE_SOURCE_DIR}/Multipla
 target_link_libraries(mp_netshim_tests PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
 add_test(NAME mp_netshim COMMAND mp_netshim_tests)
 
+# Fixed-width co-op admission codecs and sender/epoch binding are independent
+# from SDL, RakNet, the game engine, and installed Data.
+add_executable(coop_session_protocol_tests
+  coop_session_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+)
+target_include_directories(coop_session_protocol_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_session_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_session_protocol COMMAND coop_session_protocol_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

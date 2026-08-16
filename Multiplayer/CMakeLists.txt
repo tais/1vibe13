@@ -12,6 +12,8 @@
 # folds it into the executable.
 add_library(Multiplayer STATIC
   "client.cpp"
+  "CoopAdmission.cpp"
+  "CoopSessionProtocol.cpp"
   "server.cpp"
   "transfer_rules.cpp"
   "netshim/netshim.cpp"
