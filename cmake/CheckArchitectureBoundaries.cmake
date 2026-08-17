@@ -802,6 +802,8 @@ file(READ "${SOURCE_ROOT}/Engine/Core/SimulationRandom.h"
   dedicated_simulation_random_header)
 file(READ "${SOURCE_ROOT}/Engine/Core/SimulationRandom.cpp"
   dedicated_simulation_random_source)
+file(READ "${SOURCE_ROOT}/Engine/Core/RandomConsumptionEpoch.h"
+  dedicated_random_consumption_epoch_header)
 file(READ "${SOURCE_ROOT}/tests/simulation_random_tests.cpp"
   dedicated_simulation_random_tests)
 file(READ "${SOURCE_ROOT}/sgp/random.h"
@@ -854,6 +856,8 @@ file(READ "${SOURCE_ROOT}/tests/runtime_random_checkpoint_tests.cpp"
   dedicated_runtime_random_tests)
 file(READ "${SOURCE_ROOT}/tests/package_save_rng_policy_tests.cpp"
   dedicated_package_save_rng_policy_tests)
+file(READ "${SOURCE_ROOT}/tests/package_random_transaction_tests.cpp"
+  dedicated_package_random_transaction_tests)
 file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
   dedicated_runtime_save_headless_tests)
 file(READ "${SOURCE_ROOT}/Engine/Core/CMakeLists.txt"
@@ -917,6 +921,8 @@ strip_cxx_comments_and_literals(dedicated_simulation_random_header
   dedicated_simulation_random_header_code)
 strip_cxx_comments_and_literals(dedicated_simulation_random_source
   dedicated_simulation_random_code)
+strip_cxx_comments_and_literals(dedicated_random_consumption_epoch_header
+  dedicated_random_consumption_epoch_code)
 strip_cxx_comments_and_literals(dedicated_simulation_random_tests
   dedicated_simulation_random_test_code)
 strip_cxx_comments_and_literals(dedicated_game_random_header
@@ -969,6 +975,8 @@ strip_cxx_comments_and_literals(dedicated_runtime_random_tests
   dedicated_runtime_random_test_code)
 strip_cxx_comments_and_literals(dedicated_package_save_rng_policy_tests
   dedicated_package_save_rng_policy_test_code)
+strip_cxx_comments_and_literals(dedicated_package_random_transaction_tests
+  dedicated_package_random_transaction_test_code)
 strip_cxx_comments_and_literals(dedicated_runtime_save_headless_tests
   dedicated_runtime_save_headless_test_code)
 strip_cxx_comments_and_literals(dedicated_determinism_sdk_consumer
@@ -1497,6 +1505,7 @@ foreach(dedicated_simulation_random_contract IN ITEMS
     "SimulationRandomResult nextRaw() noexcept"
     "SimulationRandomResult tryNext(std::uint32_t upperBound) noexcept"
     "SimulationRandomError health() const noexcept"
+    "std::uint64_t consumptionEpoch() const noexcept"
     "SimulationRandomCheckpoint checkpoint() const noexcept"
     "validateCheckpoint("
     "restoreCheckpoint(")
@@ -1509,10 +1518,29 @@ foreach(dedicated_simulation_random_contract IN ITEMS
   endif()
 endforeach()
 
+foreach(dedicated_random_consumption_epoch_contract IN ITEMS
+    "class NonRewindableRandomEpoch final"
+    "std::uint64_t value() const noexcept"
+    "bool tryAdvance(std::uint64_t count = 1) noexcept"
+    "std::atomic<std::uint64_t> value_"
+    "count > std::numeric_limits<std::uint64_t>::max() - current"
+    "compare_exchange_weak(")
+  string(FIND "${dedicated_random_consumption_epoch_code}"
+    "${dedicated_random_consumption_epoch_contract}"
+    dedicated_random_consumption_epoch_contract_position)
+  if(dedicated_random_consumption_epoch_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Non-rewindable random epoch lost '${dedicated_random_consumption_epoch_contract}'")
+  endif()
+endforeach()
+
 foreach(dedicated_simulation_random_source_contract IN ITEMS
     "Pcg32Multiplier = 6364136223846793005ULL"
     "if (upperBound <= 1) return {SimulationRandomError::None, 0};"
     "static_cast<std::uint32_t>(0u - upperBound) % upperBound"
+    "consumptionEpoch_.tryAdvance()"
+    "nextGenerated - rawValuesGenerated_"
+    "consumptionEpoch_.tryAdvance(consumed)"
     "rawValuesGenerated_ = nextGenerated;"
     "health_ = SimulationRandomError::SequenceExhausted"
     "WriteU32(encoded, 0, checkpoint.schema)"
@@ -1545,6 +1573,8 @@ foreach(dedicated_simulation_random_forbidden IN ITEMS
 endforeach()
 
 foreach(dedicated_simulation_random_test_contract IN ITEMS
+    "TestNonRewindableEpochPrimitive();"
+    "TestConsumptionEpochIntegration();"
     "TestPcg32GoldenVector();"
     "TestSeedAndBoundSemantics();"
     "TestBoundedGoldenVector();"
@@ -1555,6 +1585,8 @@ foreach(dedicated_simulation_random_test_contract IN ITEMS
     "0x7b47f409u"
     "0x812fff6du"
     "0x0730f84eec16daf0ULL"
+    "differentEpoch.checkpoint() == SimulationRandom(9).checkpoint()"
+    "consumptionEpoch() == maximum"
     "SimulationRandomCheckpointWireSize == 40"
     "SimulationRandomError::SequenceExhausted")
   string(FIND "${dedicated_simulation_random_test_code}"
@@ -1813,6 +1845,106 @@ foreach(dedicated_package_random_test_contract IN ITEMS
   if(dedicated_package_random_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Package RNG root-state tests lost '${dedicated_package_random_test_contract}'")
+  endif()
+endforeach()
+
+# A process-local epoch makes draw-and-rewind observable without changing the
+# persisted PGST wire. One move-only transaction freezes package dispatch,
+# snapshots every active registry-owned source, and owns allocation-free
+# rollback until an exact unchanged/save or target/load commit succeeds.
+foreach(dedicated_package_random_epoch_contract IN ITEMS
+    "using ConsumptionEpochHandle = std::shared_ptr<NonRewindableRandomEpoch>;"
+    "consumptionEpoch_(other.consumptionEpoch_)"
+    "consumptionEpoch_->tryAdvance()"
+    "if (!consumptionEpoch_) consumptionEpoch_ = other.consumptionEpoch_;"
+    "ConsumptionEpochHandle consumptionEpoch_;")
+  string(FIND "${dedicated_package_random_header_code}"
+    "${dedicated_package_random_epoch_contract}"
+    dedicated_package_random_epoch_contract_position)
+  if(dedicated_package_random_epoch_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG non-rewindable epoch lost '${dedicated_package_random_epoch_contract}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_package_random_archive_code}"
+  "consumptionEpoch" dedicated_package_random_epoch_on_wire)
+if(NOT dedicated_package_random_epoch_on_wire EQUAL -1)
+  message(FATAL_ERROR
+    "Process-local package RNG consumption epoch leaked into PGST")
+endif()
+
+foreach(dedicated_package_random_transaction_value_contract IN ITEMS
+    "struct PackageRandomTransactionStamp"
+    "std::uint64_t consumptionEpoch = 0;"
+    "std::vector<PackageEngineSaveStateRecord> engineRecords;"
+    "enum class PackageRandomTransactionError"
+    "TransactionAlreadyActive"
+    "StateChanged"
+    "RandomConsumed"
+    "struct PackageRandomTransactionResult")
+  string(FIND "${dedicated_package_save_state_header_code}"
+    "${dedicated_package_random_transaction_value_contract}"
+    dedicated_package_random_transaction_value_contract_position)
+  if(dedicated_package_random_transaction_value_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG transaction values lost '${dedicated_package_random_transaction_value_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_random_transaction_api_contract IN ITEMS
+    "PackageRandomTransaction beginRandomTransaction() noexcept;"
+    "bool hasActiveStatefulSaveState() const noexcept"
+    "std::shared_ptr<NonRewindableRandomEpoch> packageRandomConsumptionEpoch_;"
+    "bool randomTransactionActive_ = false;"
+    "class PackageRandomTransaction final"
+    "PackageRandomTransaction(const PackageRandomTransaction&) = delete;"
+    "PackageRandomTransactionResult commitUnchanged() noexcept"
+    "PackageRandomTransactionResult commitTarget("
+    "PackageRandomTransactionResult rollback() noexcept"
+    "baselineRecord.random.rootSeed"
+    "registry->swapRandomStates(rollbackStates_);"
+    "registry->packageRandomConsumptionEpoch_->value()"
+    "randomTransactionLifetime_->owner = nullptr;")
+  string(FIND "${dedicated_package_random_api_code}"
+    "${dedicated_package_random_transaction_api_contract}"
+    dedicated_package_random_transaction_api_contract_position)
+  if(dedicated_package_random_transaction_api_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG transaction API lost '${dedicated_package_random_transaction_api_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_package_random_api_code
+  "PackageRandomTransactionResult commitAgainst("
+  "void moveFrom("
+  dedicated_package_random_transaction_commit_slice
+  "Cannot bound package RNG transaction commit")
+require_ordered_fragments(dedicated_package_random_transaction_commit_slice
+  "Package RNG transaction lost its final consumption linearization check"
+  "registry->packageRandomConsumptionEpoch_->value()"
+  "for (std::size_t index = 0; index < expected.size(); ++index)"
+  "registry->packageRandomConsumptionEpoch_->value()"
+  "registry->randomTransactionActive_ = false;")
+
+foreach(dedicated_package_random_transaction_test_contract IN ITEMS
+    "TestBeginContractAndStatefulQuery();"
+    "TestOwnerOperationsAndDispatchFreeze();"
+    "TestEpochDetectsDerivedDrawAndRollbackNeverRewindsIt();"
+    "TestCommitRechecksEpochAtPublication();"
+    "TestInvalidAndUnboundDrawsDoNotTripRegistryEvidence();"
+    "TestOwnerRestoreAndTargetCommit();"
+    "TestStateComparisonTargetCommitAndMoveOwnership();"
+    "TestAllocationFailureRollbackAndEscapedLifetime();"
+    "RejectAllocations = true;"
+    "baseline().consumptionEpoch + 1"
+    "rootSeed ^= 0x8000000000000000ULL"
+    "registry.reset();")
+  string(FIND "${dedicated_package_random_transaction_test_code}"
+    "${dedicated_package_random_transaction_test_contract}"
+    dedicated_package_random_transaction_test_contract_position)
+  if(dedicated_package_random_transaction_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG transaction tests lost '${dedicated_package_random_transaction_test_contract}'")
   endif()
 endforeach()
 
@@ -2226,6 +2358,7 @@ string(SUBSTRING "${dedicated_determinism_core_build_code}"
   dedicated_determinism_source_slice)
 foreach(dedicated_determinism_public_contract IN ITEMS
     "DedicatedCheckpointEligibility.h"
+    "RandomConsumptionEpoch.h"
     "SimulationRandom.h"
     "RuntimeRandomCheckpoint.h")
   string(FIND "${dedicated_determinism_public_slice}"
@@ -2399,7 +2532,7 @@ require_ordered_fragments(dedicated_runtime_random_test_build_slice
 
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(package_save_rng_policy_tests"
-  "add_executable(engine_core_tests"
+  "add_executable(package_random_transaction_tests"
   dedicated_package_save_rng_policy_test_build_slice
   "Cannot bound the package-save-RNG-policy test target")
 require_ordered_fragments(dedicated_package_save_rng_policy_test_build_slice
@@ -2409,6 +2542,20 @@ require_ordered_fragments(dedicated_package_save_rng_policy_test_build_slice
   "target_link_libraries(package_save_rng_policy_tests PRIVATE JA2::EngineCore)"
   "target_compile_features(package_save_rng_policy_tests PRIVATE cxx_std_17)"
   "add_test(NAME package_save_rng_policy COMMAND package_save_rng_policy_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(package_random_transaction_tests"
+  "add_executable(engine_core_tests"
+  dedicated_package_random_transaction_test_build_slice
+  "Cannot bound the package-RNG-transaction test target")
+require_ordered_fragments(dedicated_package_random_transaction_test_build_slice
+  "Package RNG transaction test lost active Engine Core/CTest wiring"
+  "add_executable(package_random_transaction_tests"
+  "package_random_transaction_tests.cpp"
+  "target_link_libraries(package_random_transaction_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(package_random_transaction_tests PRIVATE cxx_std_17)"
+  "add_test(NAME package_random_transaction"
+  "COMMAND package_random_transaction_tests)")
 
 extract_bounded_slice(dedicated_determinism_ci_code
   "- name: Build dedicated campaign store contract"
@@ -2425,12 +2572,16 @@ require_ordered_fragments(dedicated_determinism_ci_slice
   "package_random_root_state_tests"
   "runtime_checkpoint_v2_tests"
   "runtime_random_checkpoint_tests"
-  "package_save_rng_policy_tests")
+  "package_save_rng_policy_tests"
+  "package_random_transaction_tests")
 
 foreach(dedicated_determinism_sdk_contract IN ITEMS
     "#include <Engine/Core/DedicatedCheckpointEligibility.h>"
+    "#include <Engine/Core/RandomConsumptionEpoch.h>"
     "#include <Engine/Core/RuntimeRandomCheckpoint.h>"
     "#include <Engine/Core/SimulationRandom.h>"
+    "NonRewindableRandomEpoch installedConsumptionEpoch(9);"
+    "installedConsumptionEpoch.tryAdvance(7)"
     "SimulationRandom installedRandom(42);"
     "EncodeSimulationRandomCheckpoint("
     "DecodeSimulationRandomCheckpoint("
@@ -2473,12 +2624,18 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "CHKP v2"
     "GRNG v1"
     "package RNG callback policy"
+    "process-local, non-rewindable consumption epoch"
+    "move-only package"
+    "rollback restores deterministic active-source state"
+    "epoch is intentionally absent from PGST"
     "interactive CHKP v1 metadata"
     "separate interactive and dedicated"
     "Every fixed-slot dedicated bridge explicitly selects the strict"
     "and publish exactly those"
     "three sections. Strict load requires that same exact section set"
     "LegacyGameRandomSource"
+    "package-RNG transaction now exists"
+    "save/load execution guard to own it"
     "closed gate rather than a persistent-campaign compatibility claim"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")

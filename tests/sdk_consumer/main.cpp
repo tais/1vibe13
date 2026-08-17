@@ -19,6 +19,7 @@
 #include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EngineServiceContracts.h>
 #include <Engine/Core/DedicatedCheckpointEligibility.h>
+#include <Engine/Core/RandomConsumptionEpoch.h>
 #include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/RuntimeRandomCheckpoint.h>
@@ -194,6 +195,11 @@ inline constexpr EngineServiceContract<ExternalTypedService>
 
 int main()
 {
+	NonRewindableRandomEpoch installedConsumptionEpoch(9);
+	if (!installedConsumptionEpoch.tryAdvance(7) ||
+		installedConsumptionEpoch.value() != 16)
+		return 63;
+
 	SimulationRandom installedRandom(42);
 	const SimulationRandomResult installedRandomDraw =
 		installedRandom.tryNext(1000);

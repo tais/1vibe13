@@ -100,7 +100,14 @@ SimulationRandomCheckpointDecodeError DecodeSimulationRandomCheckpoint(
 }
 
 SimulationRandom::SimulationRandom(std::uint64_t campaignSeed) noexcept
-	: campaignSeed_(campaignSeed), state_(seededState(campaignSeed))
+	: SimulationRandom(campaignSeed, 0)
+{
+}
+
+SimulationRandom::SimulationRandom(std::uint64_t campaignSeed,
+	std::uint64_t initialConsumptionEpoch) noexcept
+	: campaignSeed_(campaignSeed), state_(seededState(campaignSeed)),
+	  consumptionEpoch_(initialConsumptionEpoch)
 {
 }
 
@@ -117,6 +124,11 @@ SimulationRandomResult SimulationRandom::nextRaw() noexcept
 	std::uint64_t nextGenerated = rawValuesGenerated_;
 	std::uint32_t value = 0;
 	if (!takeRaw(nextState, nextGenerated, value))
+	{
+		health_ = SimulationRandomError::SequenceExhausted;
+		return {SimulationRandomError::SequenceExhausted, 0};
+	}
+	if (!consumptionEpoch_.tryAdvance())
 	{
 		health_ = SimulationRandomError::SequenceExhausted;
 		return {SimulationRandomError::SequenceExhausted, 0};
@@ -146,6 +158,13 @@ SimulationRandomResult SimulationRandom::tryNext(
 		}
 		if (value >= threshold)
 		{
+			const std::uint64_t consumed =
+				nextGenerated - rawValuesGenerated_;
+			if (!consumptionEpoch_.tryAdvance(consumed))
+			{
+				health_ = SimulationRandomError::SequenceExhausted;
+				return {SimulationRandomError::SequenceExhausted, 0};
+			}
 			state_ = nextState;
 			rawValuesGenerated_ = nextGenerated;
 			return {SimulationRandomError::None, value % upperBound};

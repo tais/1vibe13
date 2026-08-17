@@ -52,6 +52,7 @@ set(engine_core_public_headers
   PackageTasks.h
   PersistenceService.h
   PinnedSlotCache.h
+  RandomConsumptionEpoch.h
   RandomSource.h
   RenderCommands.h
   RenderSurfaceAccess.h

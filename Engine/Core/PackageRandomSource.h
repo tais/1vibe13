@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <Engine/Core/Identifier.h>
+#include <Engine/Core/RandomConsumptionEpoch.h>
 
 enum class PackageRandomError
 {
@@ -99,7 +100,8 @@ public:
 	PackageRandomSource(const PackageRandomSource& other)
 		: packageId_(other.packageId_), packageSeed_(other.packageSeed_),
 		  maximumStreams_(other.maximumStreams_), streams_(other.streams_),
-		  consumptionProbe_(other.consumptionProbe_) {}
+		  consumptionProbe_(other.consumptionProbe_),
+		  consumptionEpoch_(other.consumptionEpoch_) {}
 	// Moving must not hollow out a registry-bound live source while a callback
 	// probe is attached. Treat construction from an rvalue as a value copy; the
 	// source remains rollback-compatible, and the new value shares any active
@@ -107,7 +109,8 @@ public:
 	PackageRandomSource(PackageRandomSource&& other)
 		: packageId_(other.packageId_), packageSeed_(other.packageSeed_),
 		  maximumStreams_(other.maximumStreams_), streams_(other.streams_),
-		  consumptionProbe_(other.consumptionProbe_) {}
+		  consumptionProbe_(other.consumptionProbe_),
+		  consumptionEpoch_(other.consumptionEpoch_) {}
 	PackageRandomSource& operator=(const PackageRandomSource& other)
 	{
 		return assignRuntimeState(other);
@@ -155,7 +158,15 @@ public:
 		if (upperBound == 0)
 			return PackageRandomResult{PackageRandomError::InvalidUpperBound, 0};
 
+		// Epoch exhaustion must not create a stream or advance deterministic
+		// state. Registry-bound sources share this process-local epoch, including
+		// copies retained by package code; public standalone sources are unbound.
+		if (consumptionEpoch_ &&
+			consumptionEpoch_->value() == std::numeric_limits<std::uint64_t>::max())
+			return PackageRandomResult{PackageRandomError::SequenceExhausted, 0};
+
 		StreamState* stream = nullptr;
+		bool insertedStream = false;
 		auto found = streams_.find(streamId);
 		if (found != streams_.end())
 		{
@@ -170,6 +181,7 @@ public:
 				const auto inserted = streams_.emplace(
 					streamId, StreamState{derive(packageSeed_, streamId), 0});
 				stream = &inserted.first->second;
+				insertedStream = inserted.second;
 			}
 			catch (...)
 			{
@@ -179,13 +191,20 @@ public:
 		if (stream->valuesGenerated == std::numeric_limits<std::uint64_t>::max())
 			return PackageRandomResult{PackageRandomError::SequenceExhausted, 0};
 
+		std::uint64_t nextState = stream->state;
 		const std::uint32_t threshold = static_cast<std::uint32_t>(-upperBound) % upperBound;
 		std::uint32_t value = 0;
 		do
 		{
-			value = static_cast<std::uint32_t>(nextValue(stream->state) >> 32);
+			value = static_cast<std::uint32_t>(nextValue(nextState) >> 32);
 		}
 		while (value < threshold);
+		if (consumptionEpoch_ && !consumptionEpoch_->tryAdvance())
+		{
+			if (insertedStream) streams_.erase(streamId);
+			return PackageRandomResult{PackageRandomError::SequenceExhausted, 0};
+		}
+		stream->state = nextState;
 		++stream->valuesGenerated;
 		markConsumptionProbe();
 		return PackageRandomResult{PackageRandomError::None, value % upperBound};
@@ -297,6 +316,7 @@ public:
 
 private:
 	friend class PackageRegistry;
+	friend class PackageRandomTransaction;
 
 	struct ConsumptionProbe
 	{
@@ -304,6 +324,14 @@ private:
 		std::atomic<bool> consumed{false};
 	};
 	using ConsumptionProbeHandle = std::shared_ptr<ConsumptionProbe>;
+	using ConsumptionEpochHandle = std::shared_ptr<NonRewindableRandomEpoch>;
+
+	PackageRandomSource(std::string packageId, std::uint64_t hostSeed,
+		std::size_t maximumStreams, ConsumptionEpochHandle consumptionEpoch)
+		: packageId_(std::move(packageId)),
+		  packageSeed_(derive(hostSeed, packageId_)),
+		  maximumStreams_(maximumStreams),
+		  consumptionEpoch_(std::move(consumptionEpoch)) {}
 
 	struct StreamState
 	{
@@ -400,6 +428,10 @@ private:
 		PackageRandomSource replacement(other);
 		swapRuntimeState(replacement);
 		inheritActiveConsumptionProbe(other);
+		// A registry-owned destination never changes transaction provenance.
+		// A standalone destination adopts provenance when assigned from a live
+		// source so a directly derived value cannot evade registry-wide evidence.
+		if (!consumptionEpoch_) consumptionEpoch_ = other.consumptionEpoch_;
 		return *this;
 	}
 
@@ -424,6 +456,7 @@ private:
 	// Detaching marks the shared token inactive, so retained copies can safely
 	// outlive the registry guard without retaining a dangling stack pointer.
 	ConsumptionProbeHandle consumptionProbe_;
+	ConsumptionEpochHandle consumptionEpoch_;
 	inline static thread_local ConsumptionProbeHandle callbackConsumptionProbe_;
 };
 

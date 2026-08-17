@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -23,9 +24,24 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
 
+class PackageRandomTransaction;
+
 class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
 	public RuntimeMessageSink, public SimulationTickSink
 {
+private:
+	struct RandomTransactionLifetime
+	{
+		// PackageRegistry and its transaction API are coordinator-thread-only.
+		// This token prevents a later same-thread destructor from dereferencing a
+		// destroyed registry; it is not a cross-thread ownership primitive.
+		explicit RandomTransactionLifetime(PackageRegistry* owner) noexcept
+			: owner(owner) {}
+		PackageRegistry* owner;
+	};
+
+	friend class PackageRandomTransaction;
+
 public:
 	static constexpr std::size_t MaximumSaveStateRecords = 4096;
 	static constexpr std::size_t MaximumPackageSaveStateBytes = 4u * 1024u * 1024u;
@@ -65,6 +81,10 @@ public:
 		  audio_(audio),
 		  hostCapabilities_(hostCapabilities),
 		  tasks_(tasks),
+		  randomTransactionLifetime_(
+			  std::make_shared<RandomTransactionLifetime>(this)),
+		  packageRandomConsumptionEpoch_(
+			  std::make_shared<NonRewindableRandomEpoch>()),
 		  packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit),
 		  maximumSaveStateRecords_(maximumSaveStateRecords),
@@ -78,10 +98,19 @@ public:
 	PackageRegistry& operator=(const PackageRegistry&) = delete;
 	PackageRegistry(PackageRegistry&&) = delete;
 	PackageRegistry& operator=(PackageRegistry&&) = delete;
+	~PackageRegistry()
+	{
+		// Transactions may intentionally escape a coordinator scope. Invalidate
+		// their non-owning registry pointer before any registry member is torn down;
+		// a later transaction destructor then becomes a safe no-op.
+		randomTransactionLifetime_->owner = nullptr;
+		randomTransactionActive_ = false;
+	}
 
 	PackageRegistrationError registerPackage(EnginePackage& package)
 	{
-		if (operationInProgress_) return PackageRegistrationError::OperationInProgress;
+		if (operationInProgress_ || randomTransactionActive_)
+			return PackageRegistrationError::OperationInProgress;
 		OperationGuard operation(operationInProgress_);
 		const PackageDescriptor& descriptor = package.descriptor();
 		const std::string& id = descriptor.content.id;
@@ -101,7 +130,8 @@ public:
 			descriptor.requiredCapabilities, PackageIdentity{id},
 			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_},
-			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
+			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_,
+				packageRandomConsumptionEpoch_},
 			PackageLocalization{id, localization_},
 			PackageDefinitions{id, definitions_},
 			PackageEntities{id, entities_},
@@ -139,7 +169,7 @@ public:
 	PackageUnregistrationBatchResult unregisterPackages(
 		const std::vector<std::string>& requested)
 	{
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 			return PackageUnregistrationBatchResult{
 				PackageUnregistrationError::OperationInProgress, {}, {}, {}};
 		OperationGuard operation(operationInProgress_);
@@ -231,7 +261,7 @@ public:
 
 	PackageActivationResult activateAll(const std::vector<std::string>& requested)
 	{
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 			return PackageActivationResult{PackageActivationError::OperationInProgress, {}, {}, {}};
 		OperationGuard operation(operationInProgress_);
 		if (completedBootstrapPhases_ != 0)
@@ -266,7 +296,8 @@ public:
 
 	PackageActivationError activate(const std::string& id)
 	{
-		if (operationInProgress_) return PackageActivationError::OperationInProgress;
+		if (operationInProgress_ || randomTransactionActive_)
+			return PackageActivationError::OperationInProgress;
 		if (completedBootstrapPhases_ != 0) return PackageActivationError::BootstrapInProgress;
 		const auto found = packages_.find(id);
 		if (found == packages_.end()) return PackageActivationError::NotFound;
@@ -276,7 +307,7 @@ public:
 
 	PackageDeactivationResult deactivateDetailed(const std::string& id)
 	{
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 			return PackageDeactivationResult{PackageDeactivationError::OperationInProgress, {}, {}};
 		OperationGuard operation(operationInProgress_);
 		if (completedBootstrapPhases_ != 0)
@@ -313,13 +344,14 @@ public:
 
 	bool deactivate(const std::string& id)
 	{
-		if (operationInProgress_ || completedBootstrapPhases_ != 0) return false;
+		if (operationInProgress_ || randomTransactionActive_ ||
+			completedBootstrapPhases_ != 0) return false;
 		return static_cast<bool>(deactivateDetailed(id));
 	}
 
 	PackageDeactivationBatchResult deactivateAll()
 	{
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 			return PackageDeactivationBatchResult{
 				PackageDeactivationError::OperationInProgress, {}, {}};
 		OperationGuard operation(operationInProgress_);
@@ -581,7 +613,7 @@ public:
 
 	PackageBootstrapResult bootstrapDetailed(PackageBootstrapPhase phase)
 	{
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 			return PackageBootstrapResult{
 				PackageBootstrapError::OperationInProgress, {}, {}};
 		OperationGuard operation(operationInProgress_);
@@ -671,7 +703,7 @@ public:
 	PackageBootstrapShutdownResult shutdownBootstrap()
 	{
 		PackageBootstrapShutdownResult result;
-		if (operationInProgress_)
+		if (operationInProgress_ || randomTransactionActive_)
 		{
 			result.error = PackageBootstrapShutdownError::OperationInProgress;
 			return result;
@@ -716,6 +748,24 @@ public:
 		if (result.callbackFailures != 0)
 			result.error = PackageBootstrapShutdownError::CallbackFailed;
 		return result;
+	}
+
+	// Arms a callback-free process-local guard around package RNG state. The
+	// returned value owns a preallocated rollback snapshot and must be committed
+	// or allowed to roll back before package lifecycle/runtime dispatch resumes.
+	PackageRandomTransaction beginRandomTransaction() noexcept;
+
+	// Strict runtime save policy can reject opaque package state before invoking
+	// any package callback. Missing internal entries fail closed as stateful.
+	bool hasActiveStatefulSaveState() const noexcept
+	{
+		for (const std::string& packageId : active_)
+		{
+			const auto found = packages_.find(packageId);
+			if (found == packages_.end() ||
+				found->second.saveStateSchemaVersion != 0) return true;
+		}
+		return false;
 	}
 
 	PackageSaveStateCaptureResult captureSaveState(
@@ -1003,7 +1053,8 @@ public:
 
 	void receiveInput(const EngineInputEvent& event) override
 	{
-		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+		if (operationInProgress_ || randomTransactionActive_ ||
+			completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
 		for (const std::string& packageId : active_)
@@ -1026,7 +1077,8 @@ public:
 
 	void updateRuntime(const RuntimeUpdateContext& update) override
 	{
-		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+		if (operationInProgress_ || randomTransactionActive_ ||
+			completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
 		tasks_.drain([this](const PackageTaskRecord& task, std::uint64_t failure)
@@ -1057,7 +1109,8 @@ public:
 
 	void receiveMessage(const RuntimeMessage& message) override
 	{
-		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+		if (operationInProgress_ || randomTransactionActive_ ||
+			completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
 		for (const std::string& packageId : active_)
@@ -1087,7 +1140,8 @@ public:
 
 	void simulate(const SimulationTickContext& tick) override
 	{
-		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+		if (operationInProgress_ || randomTransactionActive_ ||
+			completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
 		for (const std::string& packageId : active_)
@@ -1681,6 +1735,8 @@ private:
 	AudioGroupService& audio_;
 	const RuntimeCapabilities* hostCapabilities_;
 	PackageTaskQueue& tasks_;
+	std::shared_ptr<RandomTransactionLifetime> randomTransactionLifetime_;
+	std::shared_ptr<NonRewindableRandomEpoch> packageRandomConsumptionEpoch_;
 	const std::uint64_t packageRandomSeed_;
 	const std::size_t packageRandomStreamLimit_;
 	std::size_t maximumSaveStateRecords_;
@@ -1693,7 +1749,327 @@ private:
 	PackageServiceContractFailure lastServiceContractFailure_;
 	PackageCapabilityContractFailure lastCapabilityContractFailure_;
 	bool operationInProgress_ = false;
+	bool randomTransactionActive_ = false;
 	static constexpr std::size_t bootstrapPhaseCount_ = 3;
 };
+
+// Coordinator-thread-only move transaction over every active package RNG in
+// activation order.
+// Construction invokes no package callback. Until commit or rollback, package
+// lifecycle and runtime dispatch are frozen while save-state capture/restore is
+// still allowed to run under the owning coordinator transaction.
+class PackageRandomTransaction final
+{
+public:
+	PackageRandomTransaction() noexcept
+		: beginResult_{PackageRandomTransactionError::InvariantViolation, {}} {}
+
+	~PackageRandomTransaction()
+	{
+		(void)rollback();
+	}
+
+	PackageRandomTransaction(const PackageRandomTransaction&) = delete;
+	PackageRandomTransaction& operator=(const PackageRandomTransaction&) = delete;
+
+	PackageRandomTransaction(PackageRandomTransaction&& other) noexcept
+	{
+		moveFrom(std::move(other));
+	}
+
+	PackageRandomTransaction& operator=(PackageRandomTransaction&& other) noexcept
+	{
+		if (this == &other) return *this;
+		(void)rollback();
+		moveFrom(std::move(other));
+		return *this;
+	}
+
+	explicit operator bool() const noexcept
+	{
+		return armed_ &&
+			beginResult_.error == PackageRandomTransactionError::None &&
+			lifetime_ && lifetime_->owner != nullptr;
+	}
+
+	const PackageRandomTransactionResult& beginResult() const noexcept
+	{
+		return beginResult_;
+	}
+
+	const PackageRandomTransactionStamp& baseline() const noexcept
+	{
+		return baseline_;
+	}
+
+	// A save transaction succeeds only when both the deterministic state and
+	// process-local consumption evidence remain at the baseline.
+	PackageRandomTransactionResult commitUnchanged() noexcept
+	{
+		return commitAgainst(baseline_.engineRecords);
+	}
+
+	// A load transaction succeeds only after the registry publishes precisely
+	// the preflighted activation-ordered target. The target is observed, never
+	// installed by this method; any failure leaves rollback armed.
+	PackageRandomTransactionResult commitTarget(
+		const std::vector<PackageEngineSaveStateRecord>& engineRecords) noexcept
+	{
+		return commitAgainst(engineRecords);
+	}
+
+	// Rollback performs only invariant checks and no-throw swaps against the
+	// registry-owned active states allocated at begin. The shared consumption
+	// epoch intentionally does not rewind. Out-of-band use of an inactive-derived
+	// source is therefore terminal evidence rather than state this active-save
+	// contract claims to restore. Calling rollback on a failed/default transaction
+	// is harmless.
+	PackageRandomTransactionResult rollback() noexcept
+	{
+		if (!armed_) return copyResult(beginResult_);
+		PackageRegistry* registry = liveRegistry();
+		if (registry == nullptr)
+		{
+			armed_ = false;
+			return makeResult(PackageRandomTransactionError::InvariantViolation);
+		}
+
+		bool valid = registry->randomTransactionActive_ &&
+			registry->active_.size() == rollbackStates_.size() &&
+			baseline_.engineRecords.size() == rollbackStates_.size();
+		if (valid)
+		{
+			for (std::size_t index = 0; index < rollbackStates_.size(); ++index)
+			{
+				const std::string& packageId = registry->active_[index];
+				const auto found = registry->packages_.find(packageId);
+				if (found == registry->packages_.end() ||
+					baseline_.engineRecords[index].packageId != packageId ||
+					rollbackStates_[index].packageId() != packageId ||
+					found->second.version !=
+						baseline_.engineRecords[index].packageVersion ||
+					found->second.random.packageId() != packageId ||
+					found->second.random.maximumStreams() !=
+						rollbackStates_[index].maximumStreams() ||
+					found->second.random.consumptionEpoch_ !=
+						registry->packageRandomConsumptionEpoch_)
+				{
+					valid = false;
+					break;
+				}
+			}
+		}
+
+		if (valid)
+			registry->swapRandomStates(rollbackStates_);
+		registry->randomTransactionActive_ = false;
+		armed_ = false;
+		return makeResult(valid ? PackageRandomTransactionError::None
+			: PackageRandomTransactionError::InvariantViolation);
+	}
+
+private:
+	friend class PackageRegistry;
+
+	PackageRandomTransaction(
+		std::shared_ptr<PackageRegistry::RandomTransactionLifetime> lifetime,
+		PackageRandomTransactionStamp baseline,
+		std::vector<PackageRandomSource> rollbackStates) noexcept
+		: lifetime_(std::move(lifetime)), baseline_(std::move(baseline)),
+		  rollbackStates_(std::move(rollbackStates)), armed_(true) {}
+
+	explicit PackageRandomTransaction(
+		PackageRandomTransactionResult beginResult) noexcept
+		: beginResult_(std::move(beginResult)) {}
+
+	PackageRegistry* liveRegistry() const noexcept
+	{
+		return lifetime_ ? lifetime_->owner : nullptr;
+	}
+
+	static PackageRandomTransactionResult makeResult(
+		PackageRandomTransactionError error) noexcept
+	{
+		return PackageRandomTransactionResult{error, {}};
+	}
+
+	static PackageRandomTransactionResult makeResult(
+		PackageRandomTransactionError error,
+		const std::string& packageId) noexcept
+	{
+		try
+		{
+			return PackageRandomTransactionResult{error, packageId};
+		}
+		catch (...)
+		{
+			return makeResult(PackageRandomTransactionError::AllocationFailure);
+		}
+	}
+
+	static PackageRandomTransactionResult copyResult(
+		const PackageRandomTransactionResult& result) noexcept
+	{
+		if (result.packageId.empty()) return makeResult(result.error);
+		return makeResult(result.error, result.packageId);
+	}
+
+	PackageRandomTransactionResult commitAgainst(
+		const std::vector<PackageEngineSaveStateRecord>& expected) noexcept
+	{
+		if (!armed_) return copyResult(beginResult_);
+		PackageRegistry* registry = liveRegistry();
+		if (registry == nullptr)
+		{
+			armed_ = false;
+			return makeResult(PackageRandomTransactionError::InvariantViolation);
+		}
+		if (!registry->randomTransactionActive_ ||
+			!registry->packageRandomConsumptionEpoch_)
+			return makeResult(PackageRandomTransactionError::InvariantViolation);
+		if (registry->packageRandomConsumptionEpoch_->value() !=
+			baseline_.consumptionEpoch)
+			return makeResult(PackageRandomTransactionError::RandomConsumed);
+		if (baseline_.engineRecords.size() != registry->active_.size())
+			return makeResult(PackageRandomTransactionError::InvariantViolation);
+		if (expected.size() != registry->active_.size())
+			return makeResult(PackageRandomTransactionError::IdentityMismatch);
+
+		try
+		{
+			for (std::size_t index = 0; index < expected.size(); ++index)
+			{
+				const std::string& packageId = registry->active_[index];
+				const auto found = registry->packages_.find(packageId);
+				if (found == registry->packages_.end() ||
+					found->second.random.consumptionEpoch_ !=
+						registry->packageRandomConsumptionEpoch_)
+					return makeResult(
+						PackageRandomTransactionError::InvariantViolation);
+
+				const PackageEngineSaveStateRecord& record = expected[index];
+				const PackageEngineSaveStateRecord& baselineRecord =
+					baseline_.engineRecords[index];
+				if (baselineRecord.packageId != packageId ||
+					baselineRecord.random.packageId != packageId ||
+					baselineRecord.packageVersion != found->second.version ||
+					baselineRecord.random.schema !=
+						PackageRandomCheckpoint::CurrentSchema)
+					return makeResult(
+						PackageRandomTransactionError::InvariantViolation);
+				if (record.packageId != packageId ||
+					record.random.packageId != packageId)
+					return makeResult(
+						PackageRandomTransactionError::IdentityMismatch, packageId);
+				if (record.packageVersion != found->second.version)
+					return makeResult(
+						PackageRandomTransactionError::VersionMismatch, packageId);
+				// Publication cannot adopt a different package root/configuration
+				// merely because a caller bypassed strict save-state preflight.
+				if (record.random.schema !=
+						PackageRandomCheckpoint::CurrentSchema ||
+					record.random.rootSeed !=
+						baselineRecord.random.rootSeed ||
+					record.random.maximumStreams !=
+						baselineRecord.random.maximumStreams)
+					return makeResult(
+						PackageRandomTransactionError::InvalidCheckpoint, packageId);
+				if (found->second.random.validateCheckpoint(record.random) !=
+					PackageRandomCheckpointError::None)
+					return makeResult(
+						PackageRandomTransactionError::InvalidCheckpoint, packageId);
+				if (!(found->second.random.checkpoint() == record.random))
+					return makeResult(
+						PackageRandomTransactionError::StateChanged, packageId);
+			}
+		}
+		catch (...)
+		{
+			return makeResult(PackageRandomTransactionError::AllocationFailure);
+		}
+		// This second read is the commit linearization point. A retained derived
+		// source may advance the shared epoch while the exact checkpoint loop is
+		// running even though its private stream state cannot change the registry.
+		if (registry->packageRandomConsumptionEpoch_->value() !=
+			baseline_.consumptionEpoch)
+			return makeResult(PackageRandomTransactionError::RandomConsumed);
+
+		registry->randomTransactionActive_ = false;
+		armed_ = false;
+		return makeResult(PackageRandomTransactionError::None);
+	}
+
+	void moveFrom(PackageRandomTransaction&& other) noexcept
+	{
+		lifetime_ = std::move(other.lifetime_);
+		baseline_ = std::move(other.baseline_);
+		rollbackStates_ = std::move(other.rollbackStates_);
+		beginResult_ = std::move(other.beginResult_);
+		armed_ = other.armed_;
+		other.armed_ = false;
+	}
+
+	std::shared_ptr<PackageRegistry::RandomTransactionLifetime> lifetime_;
+	PackageRandomTransactionStamp baseline_;
+	std::vector<PackageRandomSource> rollbackStates_;
+	PackageRandomTransactionResult beginResult_;
+	bool armed_ = false;
+};
+
+inline PackageRandomTransaction
+PackageRegistry::beginRandomTransaction() noexcept
+{
+	if (operationInProgress_)
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::OperationInProgress, {}});
+	if (randomTransactionActive_)
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::TransactionAlreadyActive, {}});
+	if (completedBootstrapPhases_ != bootstrapPhaseCount_)
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::RuntimeNotReady, {}});
+	if (active_.size() > maximumSaveStateRecords_)
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::TooManyPackages, {}});
+	if (!packageRandomConsumptionEpoch_ ||
+		!randomTransactionLifetime_ ||
+		randomTransactionLifetime_->owner != this)
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::InvariantViolation, {}});
+
+	try
+	{
+		PackageRandomTransactionStamp baseline;
+		std::vector<PackageRandomSource> rollbackStates;
+		baseline.engineRecords.reserve(active_.size());
+		rollbackStates.reserve(active_.size());
+		baseline.consumptionEpoch = packageRandomConsumptionEpoch_->value();
+		for (const std::string& packageId : active_)
+		{
+			const auto found = packages_.find(packageId);
+			if (found == packages_.end() ||
+				found->second.random.packageId() != packageId ||
+				found->second.random.consumptionEpoch_ !=
+					packageRandomConsumptionEpoch_)
+				return PackageRandomTransaction(PackageRandomTransactionResult{
+					PackageRandomTransactionError::InvariantViolation, {}});
+			rollbackStates.push_back(found->second.random);
+			baseline.engineRecords.push_back(PackageEngineSaveStateRecord{
+				packageId, found->second.version,
+				rollbackStates.back().checkpoint()});
+		}
+		if (packageRandomConsumptionEpoch_->value() != baseline.consumptionEpoch)
+			return PackageRandomTransaction(PackageRandomTransactionResult{
+				PackageRandomTransactionError::RandomConsumed, {}});
+		randomTransactionActive_ = true;
+		return PackageRandomTransaction(randomTransactionLifetime_,
+			std::move(baseline), std::move(rollbackStates));
+	}
+	catch (...)
+	{
+		return PackageRandomTransaction(PackageRandomTransactionResult{
+			PackageRandomTransactionError::AllocationFailure, {}});
+	}
+}
 
 #endif

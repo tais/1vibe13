@@ -27,6 +27,65 @@ struct PackageEngineSaveStateRecord
 	std::string packageId;
 	std::string packageVersion;
 	PackageRandomCheckpoint random;
+
+	bool operator==(const PackageEngineSaveStateRecord& other) const
+	{
+		return packageId == other.packageId &&
+			packageVersion == other.packageVersion && random == other.random;
+	}
+
+	bool operator!=(const PackageEngineSaveStateRecord& other) const
+	{
+		return !(*this == other);
+	}
+};
+
+// Process-local evidence captured around a strict runtime save/load boundary.
+// The activation-ordered engine records are deterministic state; the epoch is
+// deliberately non-serializable and only proves that no registry-derived RNG
+// source consumed randomness while a transaction was armed.
+struct PackageRandomTransactionStamp
+{
+	std::uint64_t consumptionEpoch = 0;
+	std::vector<PackageEngineSaveStateRecord> engineRecords;
+
+	bool operator==(const PackageRandomTransactionStamp& other) const
+	{
+		return consumptionEpoch == other.consumptionEpoch &&
+			engineRecords == other.engineRecords;
+	}
+
+	bool operator!=(const PackageRandomTransactionStamp& other) const
+	{
+		return !(*this == other);
+	}
+};
+
+enum class PackageRandomTransactionError
+{
+	None,
+	RuntimeNotReady,
+	OperationInProgress,
+	TransactionAlreadyActive,
+	TooManyPackages,
+	IdentityMismatch,
+	VersionMismatch,
+	InvalidCheckpoint,
+	StateChanged,
+	RandomConsumed,
+	AllocationFailure,
+	InvariantViolation
+};
+
+struct PackageRandomTransactionResult
+{
+	PackageRandomTransactionError error = PackageRandomTransactionError::None;
+	std::string packageId;
+
+	explicit operator bool() const
+	{
+		return error == PackageRandomTransactionError::None;
+	}
 };
 
 struct PackageSaveStateSnapshot

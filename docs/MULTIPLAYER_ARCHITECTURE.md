@@ -290,6 +290,19 @@ synchronous UI saves still emit interactive CHKP v1 metadata because their
 screen handler runs inside an uncommitted application frame; they do not claim
 a restorable deterministic boundary.
 
+Every registry-bound package RNG and its directly derived copies now also
+share a process-local, non-rewindable consumption epoch. A move-only package
+RNG transaction captures that epoch plus exact activation-ordered PGST engine
+records, freezes package lifecycle and runtime dispatch, and preallocates
+rollback state for every active registry-owned source. Save commits require an
+unchanged epoch and state; load commits require the exact preflighted target,
+including the original package root seed and stream limit. Failed commits stay
+armed, and rollback restores deterministic active-source state without
+rewinding consumption evidence. The epoch is intentionally absent from PGST
+and GRNG. Out-of-band consumption through an inactive retained derivative is
+terminal evidence; the transaction does not claim it can roll back arbitrary
+package-owned objects.
+
 The runtime-save coordinator now has separate interactive and dedicated
 policies. Every fixed-slot dedicated bridge explicitly selects the strict
 policy. Strict saves require a healthy canonical `SimulationRandom`, a
@@ -307,10 +320,10 @@ accessors then expose that exact object for the rest of the process; late or
 repeat installation fails and there is no reset. Production startup does not
 call this seam yet, so the live game still exposes `LegacyGameRandomSource` as
 its canonical random service and the strict policy deliberately fails at its
-first entry before any dedicated domain save or load is attempted. Opening the
-gate also requires a transaction guard spanning every legacy save/load exit and
-an exact, non-rewindable package-RNG transaction stamp. Until those
-prerequisites and the audited transient-state collector are installed, this
+first entry before any dedicated domain save or load is attempted. The exact,
+non-rewindable package-RNG transaction now exists, but opening the gate still
+requires a save/load execution guard to own it across every legacy exit. Until
+that guard and the audited transient-state collector are installed, this
 coordinator remains a
 closed gate rather than a persistent-campaign compatibility claim.
 

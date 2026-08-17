@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <Engine/Core/RandomConsumptionEpoch.h>
 #include <Engine/Core/RandomSource.h>
 
 // The simulation stream is a PCG XSH-RR 64/32 generator with the reference
@@ -100,13 +101,18 @@ class SimulationRandom final : public RandomSource
 {
 public:
 	explicit SimulationRandom(std::uint64_t campaignSeed) noexcept;
+	// The initial epoch is process-local transaction evidence. It is not part of
+	// the deterministic stream or its checkpoint/wire representation.
+	SimulationRandom(std::uint64_t campaignSeed,
+		std::uint64_t initialConsumptionEpoch) noexcept;
 	SimulationRandom(const SimulationRandom&) = delete;
 	SimulationRandom& operator=(const SimulationRandom&) = delete;
 	SimulationRandom(SimulationRandom&&) = delete;
 	SimulationRandom& operator=(SimulationRandom&&) = delete;
 
 	// The RandomSource override is the legacy-compatible surface. It returns
-	// zero if the counter is exhausted and records that failure in health().
+	// zero if the stream counter or process epoch is exhausted and records that
+	// failure in health().
 	// Authoritative callers use tryNext() so exhaustion cannot be mistaken for
 	// a random zero. Bounds zero and one both return zero without consuming.
 	std::uint32_t next(std::uint32_t upperBound) noexcept override;
@@ -132,6 +138,13 @@ public:
 	{
 		return rawValuesGenerated_;
 	}
+	// Counts every raw value committed by this process instance, including
+	// rejected bounded candidates and replay after checkpoint restore. It never
+	// rewinds and is deliberately absent from SimulationRandomCheckpoint.
+	std::uint64_t consumptionEpoch() const noexcept
+	{
+		return consumptionEpoch_.value();
+	}
 
 private:
 	static std::uint64_t seededState(std::uint64_t campaignSeed) noexcept;
@@ -143,6 +156,7 @@ private:
 	std::uint64_t campaignSeed_ = 0;
 	std::uint64_t state_ = 0;
 	std::uint64_t rawValuesGenerated_ = 0;
+	NonRewindableRandomEpoch consumptionEpoch_;
 	SimulationRandomError health_ = SimulationRandomError::None;
 };
 

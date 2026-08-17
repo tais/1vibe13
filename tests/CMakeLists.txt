@@ -199,6 +199,13 @@ target_link_libraries(package_save_rng_policy_tests PRIVATE JA2::EngineCore)
 target_compile_features(package_save_rng_policy_tests PRIVATE cxx_std_17)
 add_test(NAME package_save_rng_policy COMMAND package_save_rng_policy_tests)
 
+add_executable(package_random_transaction_tests
+  package_random_transaction_tests.cpp)
+target_link_libraries(package_random_transaction_tests PRIVATE JA2::EngineCore)
+target_compile_features(package_random_transaction_tests PRIVATE cxx_std_17)
+add_test(NAME package_random_transaction
+  COMMAND package_random_transaction_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

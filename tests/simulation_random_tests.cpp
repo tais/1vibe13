@@ -41,6 +41,171 @@ void CheckUnchanged(const SimulationRandom& random,
 	Check(random.checkpoint() == before, message);
 }
 
+void TestNonRewindableEpochPrimitive()
+{
+	const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
+	NonRewindableRandomEpoch epoch;
+	Check(epoch.value() == 0, "default consumption epoch starts at zero");
+	Check(epoch.tryAdvance(0) && epoch.value() == 0,
+		"zero-count epoch advance is an exact no-op");
+	Check(epoch.tryAdvance() && epoch.value() == 1,
+		"default epoch advance commits exactly one");
+	Check(epoch.tryAdvance(41) && epoch.value() == 42,
+		"multi-value epoch advance commits the exact requested count");
+	Check(!epoch.tryAdvance(maximum) && epoch.value() == 42,
+		"overflowing epoch advance fails without mutation");
+
+	NonRewindableRandomEpoch boundary(maximum - 2);
+	Check(!boundary.tryAdvance(3) && boundary.value() == maximum - 2,
+		"epoch refuses an addition that would overflow by one");
+	Check(boundary.tryAdvance(2) && boundary.value() == maximum,
+		"epoch can advance exactly to its terminal value");
+	Check(!boundary.tryAdvance() && boundary.value() == maximum,
+		"terminal epoch fails closed without wrapping");
+	Check(boundary.tryAdvance(0) && boundary.value() == maximum,
+		"zero-count advance remains valid at the terminal epoch");
+
+	NonRewindableRandomEpoch terminal(maximum);
+	Check(!terminal.tryAdvance(maximum) && terminal.value() == maximum,
+		"terminal epoch rejects every positive overflowing count");
+}
+
+void TestConsumptionEpochIntegration()
+{
+	const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
+
+	SimulationRandom random(9);
+	Check(random.consumptionEpoch() == 0,
+		"production simulation RNG starts with a zero process epoch");
+	const SimulationRandomCheckpoint initial = random.checkpoint();
+	Check(random.tryNext(0) && random.tryNext(1) &&
+		random.consumptionEpoch() == 0,
+		"bounds zero and one do not advance the process epoch");
+	RandomSource& legacy = random;
+	Check(legacy.next(0) == 0 && legacy.next(1) == 0 &&
+		random.consumptionEpoch() == 0,
+		"legacy small bounds do not advance the process epoch");
+	CheckUnchanged(random, initial,
+		"non-consuming bounds preserve checkpointed stream state");
+
+	Check(static_cast<bool>(random.nextRaw()) &&
+		random.rawValuesGenerated() == 1 && random.consumptionEpoch() == 1,
+		"successful raw draw commits one stream value and one epoch tick");
+	const SimulationRandomCheckpoint saved = random.checkpoint();
+	Check(static_cast<bool>(random.nextRaw()) && random.consumptionEpoch() == 2,
+		"second raw draw advances the process epoch exactly");
+	Check(random.restoreCheckpoint(saved) ==
+		SimulationRandomCheckpointError::None,
+		"checkpoint restores while testing the process epoch");
+	Check(random.checkpoint() == saved && random.consumptionEpoch() == 2,
+		"checkpoint restore rewinds stream state but never the process epoch");
+	Check(static_cast<bool>(random.nextRaw()) && random.consumptionEpoch() == 3,
+		"replayed raw consumption remains visible in the process epoch");
+	SimulationRandomCheckpoint invalid = saved;
+	invalid.schema = 2;
+	Check(random.restoreCheckpoint(invalid) ==
+		SimulationRandomCheckpointError::InvalidSchema &&
+		random.consumptionEpoch() == 3,
+		"failed checkpoint restore cannot mutate the process epoch");
+
+	SimulationRandom rejection(9);
+	SimulationRandomCheckpoint forced = rejection.checkpoint();
+	forced.state = 0;
+	forced.rawValuesGenerated = 1;
+	Check(rejection.restoreCheckpoint(forced) ==
+		SimulationRandomCheckpointError::None,
+		"rejection epoch fixture restores");
+	const SimulationRandomResult accepted = rejection.tryNext(0x80000001u);
+	Check(accepted && rejection.rawValuesGenerated() == 5 &&
+		rejection.consumptionEpoch() == 4,
+		"bounded rejection advances epoch by every committed raw candidate");
+
+	SimulationRandom differentEpoch(9, 123456789);
+	Check(differentEpoch.checkpoint() == SimulationRandom(9).checkpoint(),
+		"initial process epoch does not change deterministic stream state");
+	SimulationRandomCheckpointBytes defaultBytes{};
+	SimulationRandomCheckpointBytes differentBytes{};
+	SimulationRandom defaultEpoch(9);
+	Check(EncodeSimulationRandomCheckpoint(defaultEpoch.checkpoint(),
+		defaultBytes) && EncodeSimulationRandomCheckpoint(
+		differentEpoch.checkpoint(), differentBytes) &&
+		defaultBytes == differentBytes,
+		"process epoch is absent from the fixed 40-byte checkpoint wire");
+
+	SimulationRandom terminal(77, maximum);
+	const SimulationRandomCheckpoint terminalBefore = terminal.checkpoint();
+	Check(terminal.nextRaw().error ==
+		SimulationRandomError::SequenceExhausted,
+		"terminal process epoch rejects a raw draw");
+	CheckUnchanged(terminal, terminalBefore,
+		"epoch exhaustion fails before stream state publication");
+	Check(terminal.consumptionEpoch() == maximum && !terminal.healthy(),
+		"epoch exhaustion remains terminal and marks stream health failed");
+	Check(terminal.tryNext(0) && terminal.tryNext(1) &&
+		terminal.consumptionEpoch() == maximum,
+		"small constant bounds remain non-consuming after epoch exhaustion");
+	Check(terminal.restoreCheckpoint(terminalBefore) ==
+		SimulationRandomCheckpointError::None && terminal.healthy(),
+		"valid checkpoint restore retains its established health semantics");
+	Check(terminal.consumptionEpoch() == maximum,
+		"health reset cannot rewind the terminal process epoch");
+	Check(terminal.nextRaw().error ==
+		SimulationRandomError::SequenceExhausted && !terminal.healthy(),
+		"next draw after restore fails again at the terminal process epoch");
+
+	SimulationRandom lastRaw(77, maximum - 1);
+	Check(static_cast<bool>(lastRaw.nextRaw()) &&
+		lastRaw.consumptionEpoch() == maximum,
+		"last representable epoch tick publishes its raw draw");
+	const SimulationRandomCheckpoint afterLast = lastRaw.checkpoint();
+	Check(lastRaw.nextRaw().error ==
+		SimulationRandomError::SequenceExhausted,
+		"draw after last representable epoch tick fails closed");
+	CheckUnchanged(lastRaw, afterLast,
+		"post-terminal epoch failure preserves published stream state");
+
+	SimulationRandom boundedFailure(9, maximum - 3);
+	forced = boundedFailure.checkpoint();
+	forced.state = 0;
+	forced.rawValuesGenerated = 1;
+	Check(boundedFailure.restoreCheckpoint(forced) ==
+		SimulationRandomCheckpointError::None,
+		"bounded overflow fixture restores");
+	const SimulationRandomCheckpoint boundedBefore =
+		boundedFailure.checkpoint();
+	Check(boundedFailure.tryNext(0x80000001u).error ==
+		SimulationRandomError::SequenceExhausted,
+		"multi-candidate draw rejects an overflowing epoch reservation");
+	CheckUnchanged(boundedFailure, boundedBefore,
+		"failed multi-candidate epoch reservation is transactional");
+	Check(boundedFailure.consumptionEpoch() == maximum - 3 &&
+		!boundedFailure.healthy(),
+		"failed epoch reservation neither partially advances nor hides failure");
+
+	SimulationRandom boundedLast(9, maximum - 4);
+	forced = boundedLast.checkpoint();
+	forced.state = 0;
+	forced.rawValuesGenerated = 1;
+	Check(boundedLast.restoreCheckpoint(forced) ==
+		SimulationRandomCheckpointError::None,
+		"last bounded epoch fixture restores");
+	Check(static_cast<bool>(boundedLast.tryNext(0x80000001u)) &&
+		boundedLast.rawValuesGenerated() == 5 &&
+		boundedLast.consumptionEpoch() == maximum,
+		"exact terminal multi-candidate reservation publishes all raw values");
+
+	SimulationRandom counterFirst(77, 19);
+	SimulationRandomCheckpoint counterTerminal = counterFirst.checkpoint();
+	counterTerminal.rawValuesGenerated = maximum;
+	Check(counterFirst.restoreCheckpoint(counterTerminal) ==
+		SimulationRandomCheckpointError::None,
+		"raw-counter-first failure fixture restores");
+	Check(counterFirst.nextRaw().error ==
+		SimulationRandomError::SequenceExhausted &&
+		counterFirst.consumptionEpoch() == 19,
+		"raw counter failure cannot consume the process epoch");
+}
+
 void TestPcg32GoldenVector()
 {
 	SimulationRandom random(42);
@@ -396,6 +561,18 @@ int main()
 		"PCG32 stream selector is a deterministic contract");
 	static_assert(std::is_nothrow_constructible<SimulationRandom,
 		std::uint64_t>::value, "campaign seeding cannot fail");
+	static_assert(std::is_nothrow_constructible<SimulationRandom,
+		std::uint64_t, std::uint64_t>::value,
+		"campaign seeding with a process epoch cannot fail");
+	static_assert(std::is_nothrow_constructible<NonRewindableRandomEpoch,
+		std::uint64_t>::value, "process epoch construction cannot fail");
+	static_assert(!std::is_copy_constructible<NonRewindableRandomEpoch>::value &&
+		!std::is_move_constructible<NonRewindableRandomEpoch>::value,
+		"non-rewindable epoch identity cannot be copied or moved");
+	static_assert(noexcept(std::declval<const NonRewindableRandomEpoch&>().value()),
+		"process epoch observation cannot fail");
+	static_assert(noexcept(std::declval<NonRewindableRandomEpoch&>().tryAdvance()),
+		"process epoch advancement cannot throw");
 	static_assert(std::is_base_of<RandomSource, SimulationRandom>::value,
 		"simulation RNG is directly usable through the engine random contract");
 	static_assert(noexcept(std::declval<const SimulationRandom&>().checkpoint()),
@@ -404,6 +581,8 @@ int main()
 		std::declval<const SimulationRandomCheckpoint&>())),
 		"checkpoint restore cannot throw");
 
+	TestNonRewindableEpochPrimitive();
+	TestConsumptionEpochIntegration();
 	TestPcg32GoldenVector();
 	TestSeedAndBoundSemantics();
 	TestBoundedGoldenVector();
