@@ -140,10 +140,12 @@ The full-engine process now has an explicit startup contract:
   are accepted; legacy `GAME_TYPE=2` is rejected.
 - `--dedicated-mode=coop` requires a bounded campaign identifier, an explicit
   `--campaign-action=new|resume`, and an absolute `--dedicated-state-dir`.
-  Campaign identifiers are lowercase-canonical. The options are parsed so the
-  durable lifecycle can attach to a stable interface, but startup currently
-  exits before SDL initialization because campaign authority and replication
-  are not installed.
+  Campaign identifiers are lowercase-canonical. Creating a campaign also
+  requires an explicit decimal `--campaign-seed` (zero is valid); resume
+  forbids an operator seed and discovers the immutable value from the two
+  bounded manifests instead. The options are parsed so the durable lifecycle
+  can attach to a stable interface, but startup currently exits before SDL
+  initialization because campaign authority and replication are not installed.
 - GUI and headless PvP hosts both enter `MP_CONNECT_SCREEN`. That screen owns
   the pre-game `NetworkAutoStart()` call, starts the listener, self-connects
   the transitional host client, receives canonical settings, and only then
@@ -180,13 +182,15 @@ manifest. A checksum-valid unknown envelope/version or oversized future record
 blocks resume rather than being mistaken for corruption and overwritten by a
 downgrade.
 
-The 176-byte little-endian manifest binds the full campaign identifier, mode,
-slot, generation, world time, runtime compatibility fingerprint, separately
-named installed-content SHA-256, and checkpoint size/SHA-256. New campaigns
-refuse any pre-existing manifest bytes, and missing storage is distinct from an
-I/O failure. Co-op creation and resume reject an absent installed-content
-digest. The checksum protects the manifest from accidental corruption; it is
-not an authentication mechanism.
+The version-2, 184-byte little-endian manifest binds the full lowercase-canonical
+campaign identifier, mode, immutable 64-bit campaign seed, slot, generation,
+world time, runtime compatibility fingerprint, separately named
+installed-content SHA-256, and checkpoint size/SHA-256. A checksummed version-1
+record is rejected rather than silently inventing a seed. New campaigns refuse
+any pre-existing manifest bytes, and missing storage is distinct from an I/O
+failure. Co-op creation and resume reject an absent installed-content digest.
+The checksum protects the manifest from accidental corruption; it is not an
+authentication mechanism.
 
 The native filesystem backend now turns an operator-created absolute state
 root into one retained process lease and fixed campaign-local paths. The root
@@ -215,7 +219,7 @@ this seam yet, and native opt-in diagnostic sinks outside bfVFS still need an
 explicit campaign-local log policy.
 
 Checkpoint probing is bounded to 256 MiB and hashes the closed file with
-streaming SHA-256. Manifest reads buffer at most 176 bytes plus an oversized
+streaming SHA-256. Manifest reads buffer at most 184 bytes plus an oversized
 sentinel. Manifest publication uses an exclusive same-directory temporary,
 file flush, atomic replacement, and POSIX parent-directory sync. The publish
 contract distinguishes not-published, durably published, known-visible with
@@ -237,13 +241,16 @@ does not consume simulation RNG during a dedicated save. The interactive
 save/load paths retain their legacy filename derivation and save-screen
 presence checks.
 
-The adapter is deliberately not wired into dedicated startup yet. Startup
-still needs to acquire the lease before VFS initialization, install the
-prepared campaign-isolated writable profile (including `Temp/`, not merely
-`SavedGames/`), enforce the new-versus-resume profile policy, materialize and
-verify the active checkpoint before the VFS scan, and run periodic/final
-checkpoints only at committed main-thread frame boundaries. Installed-content
-identity and deterministic host RNG/reinforcement state also remain mandatory.
+The adapter is deliberately not wired into dedicated startup yet. The
+filesystem backend can acquire its lease and expose `profile/` before the
+adapter exists, then bind that checkpoint writer exactly once; publication
+fails closed while it is unbound. Startup still needs to do that before VFS
+initialization, install the prepared campaign-isolated writable profile
+(including `Temp/`, not merely `SavedGames/`), enforce the new-versus-resume
+profile policy, materialize and verify the active checkpoint before the VFS
+scan, and run periodic/final checkpoints only at committed main-thread frame
+boundaries. Installed-content identity and
+deterministic host RNG/reinforcement state also remain mandatory.
 
 The deterministic foundation is now explicit but still unwired. The engine
 core provides a fixed PCG32 simulation stream with a canonical 40-byte
@@ -293,12 +300,18 @@ dismantles live state. Package-defined opaque save records also remain closed
 until their semantic validation can be staged before that destructive load;
 engine-owned package RNG records are structurally preflighted separately.
 
-The live game still exposes `LegacyGameRandomSource` as its canonical random
-service, so the strict policy deliberately fails at its first entry before any
-dedicated domain save or load is attempted. Installing `SimulationRandom`
-also requires a transaction guard spanning every legacy save/load exit and an
-exact, non-rewindable package-RNG transaction stamp. Until those prerequisites
-and the audited transient-state collector are installed, this coordinator is a
+The process-global game RNG now has a one-shot installation seam: before either
+typed or generic accessor observes the default source, a caller may install the
+actual `SimulationRandom` object with the immutable campaign seed. Both
+accessors then expose that exact object for the rest of the process; late or
+repeat installation fails and there is no reset. Production startup does not
+call this seam yet, so the live game still exposes `LegacyGameRandomSource` as
+its canonical random service and the strict policy deliberately fails at its
+first entry before any dedicated domain save or load is attempted. Opening the
+gate also requires a transaction guard spanning every legacy save/load exit and
+an exact, non-rewindable package-RNG transaction stamp. Until those
+prerequisites and the audited transient-state collector are installed, this
+coordinator remains a
 closed gate rather than a persistent-campaign compatibility claim.
 
 Writing the inactive A/B slot means the runtime container itself need not gain

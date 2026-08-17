@@ -144,6 +144,24 @@ target_link_libraries(simulation_random_tests PRIVATE JA2::EngineCore)
 target_compile_features(simulation_random_tests PRIVATE cxx_std_17)
 add_test(NAME simulation_random COMMAND simulation_random_tests)
 
+# The game RNG is process-global and deliberately has no reset API. Each CTest
+# case therefore starts this focused production-Random.cpp harness in a fresh
+# process, proving both install-before-observe and permanently closed branches.
+add_executable(game_random_installation_tests
+  game_random_installation_tests.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/Random.cpp)
+target_link_libraries(game_random_installation_tests
+  PRIVATE JA2::EngineCore SDL3::SDL3 Threads::Threads)
+target_compile_features(game_random_installation_tests PRIVATE cxx_std_17)
+add_test(NAME game_random_legacy_observation
+  COMMAND game_random_installation_tests --legacy-observation)
+add_test(NAME game_random_typed_observation
+  COMMAND game_random_installation_tests --typed-observation)
+add_test(NAME game_random_install_zero
+  COMMAND game_random_installation_tests --install-zero)
+add_test(NAME game_random_install_max
+  COMMAND game_random_installation_tests --install-max)
+
 add_executable(dedicated_checkpoint_eligibility_tests
   dedicated_checkpoint_eligibility_tests.cpp)
 target_link_libraries(dedicated_checkpoint_eligibility_tests

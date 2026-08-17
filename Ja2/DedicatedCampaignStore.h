@@ -10,7 +10,7 @@
 // owns the potentially large JA2 save and is responsible for atomically
 // publishing each manifest after its checkpoint has reached durable storage.
 
-constexpr std::size_t DedicatedCampaignManifestWireSize = 176;
+constexpr std::size_t DedicatedCampaignManifestWireSize = 184;
 constexpr std::size_t DedicatedCampaignMaximumIdBytes = 48;
 
 using DedicatedCampaignManifestBytes =
@@ -45,6 +45,9 @@ struct DedicatedCampaignIdentity
 	// This digest names the installed-content manifest. It is deliberately
 	// distinct from the digest of an individual checkpoint below.
 	DedicatedCampaignContentManifestSha256 contentManifestSha256{};
+	// Immutable root of the authoritative simulation and package random streams.
+	// Zero is a valid campaign seed and is distinct from a missing v2 field.
+	std::uint64_t campaignSeed = 0;
 };
 
 struct DedicatedCampaignManifest
@@ -181,6 +184,13 @@ public:
 
 	DedicatedCampaignStoreError create(
 		const DedicatedCampaignIdentity& identity) noexcept;
+	// Reads only the two bounded manifests and never probes or loads checkpoint
+	// bytes. The output is published only when every usable v2 manifest agrees
+	// on campaign id, mode, and immutable seed.
+	DedicatedCampaignStoreError inspectCampaignSeedForResume(
+		const std::string& expectedCampaignId,
+		DedicatedCampaignMode expectedMode,
+		std::uint64_t& campaignSeed) noexcept;
 	DedicatedCampaignStoreError resume(
 		const DedicatedCampaignIdentity& expectedIdentity) noexcept;
 	DedicatedCampaignStoreError checkpoint(std::uint64_t worldMinutes) noexcept;

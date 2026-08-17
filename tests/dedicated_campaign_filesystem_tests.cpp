@@ -538,6 +538,31 @@ void TestStoreRoundTripAndSha256()
 		"resume falls back to the older valid pair when newer bytes mismatch");
 }
 
+void TestLateCheckpointWriterBinding()
+{
+	TemporaryRoot root;
+	DedicatedCampaignFilesystemBackend backend;
+	Check(backend.open(root.path(), "late_writer") ==
+		DedicatedCampaignFilesystemError::None &&
+		backend.profileDirectoryState() ==
+			DedicatedCampaignProfileDirectoryState::Empty,
+		"filesystem lease and isolated profile open before the save adapter exists");
+	DedicatedCampaignStore store(backend);
+	Check(store.create(Identity("late_writer")) ==
+			DedicatedCampaignStoreError::None &&
+		store.checkpoint(1) == DedicatedCampaignStoreError::BackendFailure,
+		"checkpoint publication fails closed while its writer is unbound");
+
+	FileCheckpointWriter writer;
+	FileCheckpointWriter replacement;
+	Check(backend.bindCheckpointWriter(writer) &&
+		!backend.bindCheckpointWriter(replacement) &&
+		store.checkpoint(2) == DedicatedCampaignStoreError::None &&
+		writer.calls == 1 && replacement.calls == 0 &&
+		store.state() && store.state()->generation == 1,
+		"the post-open checkpoint writer binds exactly once and publishes normally");
+}
+
 void TestInvalidNewerCheckpointSizeFallback()
 {
 	for (unsigned oversized = 0; oversized < 2; ++oversized)
@@ -746,6 +771,7 @@ int main(int argc, char** argv)
 	TestOpenAndLock();
 	TestProfilePathIdentity();
 	TestStoreRoundTripAndSha256();
+	TestLateCheckpointWriterBinding();
 	TestInvalidNewerCheckpointSizeFallback();
 	TestSha256PaddingBoundariesAndSizeCap();
 	TestFailuresAndBoundedReads();

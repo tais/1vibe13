@@ -804,6 +804,12 @@ file(READ "${SOURCE_ROOT}/Engine/Core/SimulationRandom.cpp"
   dedicated_simulation_random_source)
 file(READ "${SOURCE_ROOT}/tests/simulation_random_tests.cpp"
   dedicated_simulation_random_tests)
+file(READ "${SOURCE_ROOT}/sgp/random.h"
+  dedicated_game_random_header)
+file(READ "${SOURCE_ROOT}/sgp/Random.cpp"
+  dedicated_game_random_source)
+file(READ "${SOURCE_ROOT}/tests/game_random_installation_tests.cpp"
+  dedicated_game_random_installation_tests)
 file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.h"
   dedicated_checkpoint_eligibility_header)
 file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.cpp"
@@ -913,6 +919,12 @@ strip_cxx_comments_and_literals(dedicated_simulation_random_source
   dedicated_simulation_random_code)
 strip_cxx_comments_and_literals(dedicated_simulation_random_tests
   dedicated_simulation_random_test_code)
+strip_cxx_comments_and_literals(dedicated_game_random_header
+  dedicated_game_random_header_code)
+strip_cxx_comments_and_literals(dedicated_game_random_source
+  dedicated_game_random_code)
+strip_cxx_comments_and_literals(dedicated_game_random_installation_tests
+  dedicated_game_random_installation_test_code)
 strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_header
   dedicated_checkpoint_eligibility_header_code)
 strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_source
@@ -980,10 +992,12 @@ strip_cxx_comments_and_literals(dedicated_campaign_vfs_init_source
   dedicated_campaign_vfs_init_code)
 
 foreach(dedicated_campaign_store_header_contract IN ITEMS
-    "DedicatedCampaignManifestWireSize = 176"
+    "DedicatedCampaignManifestWireSize = 184"
     "DedicatedCampaignMaximumIdBytes = 48"
     "DedicatedCampaignContentManifestSha256"
     "DedicatedCampaignCheckpointSha256"
+    "campaignSeed = 0"
+    "inspectCampaignSeedForResume("
     "DedicatedCampaignManifestRead"
     "acceptsIdentity("
     "ManifestPublishResult"
@@ -1006,6 +1020,26 @@ foreach(dedicated_campaign_store_header_contract IN ITEMS
   if(dedicated_campaign_store_header_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Dedicated campaign store lost '${dedicated_campaign_store_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_manifest_v2_contract IN ITEMS
+    "ManifestVersion = 2"
+    "LegacySeedlessManifestVersion = 1"
+    "CampaignSeedOffset = 112"
+    "GenerationOffset = 120"
+    "CheckpointSizeOffset = 128"
+    "CheckpointSha256Offset = 136"
+    "WorldMinutesOffset = 168"
+    "ChecksumOffset = 180"
+    "WriteU64(encoded, CampaignSeedOffset, manifest.identity.campaignSeed)"
+    "decoded.identity.campaignSeed = ReadU64(bytes, CampaignSeedOffset)")
+  string(FIND "${dedicated_campaign_store_code}"
+    "${dedicated_campaign_manifest_v2_contract}"
+    dedicated_campaign_manifest_v2_contract_position)
+  if(dedicated_campaign_manifest_v2_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign manifest v2 lost '${dedicated_campaign_manifest_v2_contract}'")
   endif()
 endforeach()
 
@@ -1044,10 +1078,40 @@ require_ordered_fragments(dedicated_campaign_checkpoint_slice
   "backend_.publishManifest(nextState.activeSlot, encoded)"
   "state_ = std::move(nextState);")
 
+set(dedicated_campaign_seed_inspection_marker
+  "DedicatedCampaignStoreError DedicatedCampaignStore::inspectCampaignSeedForResume(\n\tconst std::string& expectedCampaignId,\n\tDedicatedCampaignMode expectedMode,\n\tstd::uint64_t& campaignSeed) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(dedicated_campaign_store_code
+  "${dedicated_campaign_seed_inspection_marker}"
+  "Dedicated campaign seed inspection is hidden or duplicated")
+extract_brace_bounded_slice(dedicated_campaign_store_code
+  "${dedicated_campaign_seed_inspection_marker}"
+  dedicated_campaign_seed_inspection_slice
+  "Cannot bound dedicated campaign seed inspection")
+require_ordered_fragments(dedicated_campaign_seed_inspection_slice
+  "Dedicated campaign seed inspection lost bounded transactional publication"
+  "if (open_) return DedicatedCampaignStoreError::AlreadyOpen;"
+  "ReadResumeCandidates(backend_, candidates)"
+  "candidate.manifest.identity.campaignId != expectedCampaignId"
+  "candidate.manifest.identity.mode != expectedMode"
+  "candidate.manifest.identity.campaignSeed != inspectedSeed"
+  "backend_.acceptsIdentity(candidate.manifest.identity)"
+  "campaignSeed = inspectedSeed;"
+  "return DedicatedCampaignStoreError::None;")
+string(FIND "${dedicated_campaign_seed_inspection_slice}"
+  "probeCheckpoint(" dedicated_campaign_seed_inspection_probe_position)
+if(NOT dedicated_campaign_seed_inspection_probe_position EQUAL -1)
+  message(FATAL_ERROR
+    "Campaign-seed bootstrap started probing checkpoint bytes")
+endif()
+
 foreach(dedicated_campaign_store_test_contract IN ITEMS
     "TestManifestCodec();"
     "TestCreateAndCheckpoint();"
+    "TestInspectCampaignSeedForResume();"
     "TestResume();"
+    "DedicatedCampaignManifestWireSize == 184"
+    "LegacyManifestWireSize = 176"
+    "EncodeLegacySeedless("
     "DedicatedCampaignStoreError::AlreadyExists"
     "DedicatedCampaignStoreError::BackendIdentityMismatch"
     "DedicatedCampaignStoreError::PublicationDurabilityUnknown"
@@ -2187,7 +2251,7 @@ endforeach()
 
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(simulation_random_tests"
-  "add_executable(dedicated_checkpoint_eligibility_tests"
+  "add_executable(game_random_installation_tests"
   dedicated_simulation_random_test_build_slice
   "Cannot bound the simulation RNG test target")
 require_ordered_fragments(dedicated_simulation_random_test_build_slice
@@ -2197,6 +2261,73 @@ require_ordered_fragments(dedicated_simulation_random_test_build_slice
   "target_link_libraries(simulation_random_tests PRIVATE JA2::EngineCore)"
   "target_compile_features(simulation_random_tests PRIVATE cxx_std_17)"
   "add_test(NAME simulation_random COMMAND simulation_random_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(game_random_installation_tests"
+  "add_executable(dedicated_checkpoint_eligibility_tests"
+  dedicated_game_random_installation_test_build_slice
+  "Cannot bound the process-global simulation RNG test target")
+require_ordered_fragments(dedicated_game_random_installation_test_build_slice
+  "Process-global simulation RNG test lost active production/CTest wiring"
+  "add_executable(game_random_installation_tests"
+  "game_random_installation_tests.cpp"
+  "sgp/Random.cpp"
+  "target_link_libraries(game_random_installation_tests"
+  "PRIVATE JA2::EngineCore SDL3::SDL3 Threads::Threads"
+  "target_compile_features(game_random_installation_tests PRIVATE cxx_std_17)"
+  "add_test(NAME game_random_legacy_observation"
+  "add_test(NAME game_random_typed_observation"
+  "add_test(NAME game_random_install_zero"
+  "add_test(NAME game_random_install_max")
+
+foreach(dedicated_game_random_contract IN ITEMS
+    "GameSimulationRandomInstallError"
+    "InstallGameSimulationRandom("
+    "GetGameSimulationRandomSource() noexcept"
+    "std::optional<SimulationRandom> simulation_"
+    "std::atomic<RandomSource*> observedSource_"
+    "std::mutex configurationMutex_"
+    "simulation_.emplace(campaignSeed)"
+    "observedSource_.store(&*simulation_, std::memory_order_release)"
+    "return GameRandomSources().observe()"
+    "dynamic_cast<SimulationRandom*>(&GameRandomSources().observe())")
+  string(FIND
+    "${dedicated_game_random_header_code}${dedicated_game_random_code}"
+    "${dedicated_game_random_contract}"
+    dedicated_game_random_contract_position)
+  if(dedicated_game_random_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Process-global simulation RNG seam lost '${dedicated_game_random_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_game_random_forbidden_contract IN ITEMS
+    "ResetGameSimulationRandom"
+    "ResetGameRandomSource")
+  string(FIND
+    "${dedicated_game_random_header_code}${dedicated_game_random_code}"
+    "${dedicated_game_random_forbidden_contract}"
+    dedicated_game_random_forbidden_contract_position)
+  if(NOT dedicated_game_random_forbidden_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Process-global simulation RNG regained reset surface '${dedicated_game_random_forbidden_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_game_random_test_contract IN ITEMS
+    "TestLegacyObservation()"
+    "TestTypedObservation()"
+    "TestInstalledSeed(0, std::numeric_limits<std::uint64_t>::max())"
+    "std::numeric_limits<std::uint64_t>::max(), 0"
+    "Random(0xf0000001u)"
+    "!std::is_copy_constructible<SimulationRandom>::value"
+    "!std::is_move_constructible<SimulationRandom>::value")
+  string(FIND "${dedicated_game_random_installation_test_code}"
+    "${dedicated_game_random_test_contract}"
+    dedicated_game_random_test_contract_position)
+  if(dedicated_game_random_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Process-global simulation RNG tests lost '${dedicated_game_random_test_contract}'")
+  endif()
+endforeach()
 
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(dedicated_checkpoint_eligibility_tests"
@@ -2288,6 +2419,7 @@ require_ordered_fragments(dedicated_determinism_ci_slice
   "Dedicated determinism tests left the active campaign ASan build step"
   "run: cmake --build build --target"
   "simulation_random_tests"
+  "game_random_installation_tests"
   "dedicated_checkpoint_eligibility_tests"
   "runtime_boundary_state_tests"
   "package_random_root_state_tests"
@@ -2318,7 +2450,11 @@ endforeach()
 
 foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "## Durable campaign checkpoints"
-    "176-byte little-endian manifest"
+    "184-byte little-endian manifest"
+    "--campaign-seed"
+    "checksummed version-1"
+    "bind that checkpoint writer exactly once"
+    "one-shot installation seam"
     "publishes that slot's manifest"
     "separately managed `profile/` child"
     "configured `WRITE=true` profile"
@@ -2359,6 +2495,8 @@ foreach(dedicated_campaign_filesystem_contract IN ITEMS
     "DedicatedCampaignMaximumCheckpointBytes"
     "DedicatedCampaignCheckpointWriter"
     "DedicatedCampaignFilesystemBackend"
+    "DedicatedCampaignFilesystemBackend() noexcept"
+    "bindCheckpointWriter("
     "DedicatedCampaignProfileDirectoryState"
     "profileDirectory()"
     "profileDirectoryState()"
@@ -2388,6 +2526,7 @@ foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
     "TestOpenAndLock();"
     "TestProfilePathIdentity();"
     "TestStoreRoundTripAndSha256();"
+    "TestLateCheckpointWriterBinding();"
     "TestInvalidNewerCheckpointSizeFallback();"
     "TestSha256PaddingBoundariesAndSizeCap();"
     "TestFailuresAndBoundedReads();"
@@ -2407,6 +2546,26 @@ foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
       "Dedicated campaign filesystem tests lost '${dedicated_campaign_filesystem_test_contract}'")
   endif()
 endforeach()
+
+extract_brace_bounded_slice(dedicated_campaign_filesystem_code
+  "bool DedicatedCampaignFilesystemBackend::bindCheckpointWriter(\n\tDedicatedCampaignCheckpointWriter& writer) noexcept"
+  dedicated_campaign_writer_bind_slice
+  "Cannot bound dedicated campaign writer binding")
+require_ordered_fragments(dedicated_campaign_writer_bind_slice
+  "Dedicated campaign checkpoint writer is no longer bind-once"
+  "if (writer_ != nullptr) return false;"
+  "writer_ = &writer;"
+  "return true;")
+
+extract_brace_bounded_slice(dedicated_campaign_filesystem_code
+  "bool DedicatedCampaignFilesystemBackend::writeCheckpoint(\n\tDedicatedCampaignSlot slot)"
+  dedicated_campaign_writer_use_slice
+  "Cannot bound dedicated campaign checkpoint writer use")
+require_ordered_fragments(dedicated_campaign_writer_use_slice
+  "Dedicated campaign checkpoint can run without a bound writer"
+  "writer_ == nullptr"
+  "ReserveEmptyFile("
+  "writer_->writeCheckpoint(slot, staging)")
 
 extract_brace_bounded_slice(dedicated_campaign_filesystem_code
   "~Impl() noexcept"
@@ -2500,6 +2659,26 @@ foreach(dedicated_state_directory_contract IN ITEMS
   if(dedicated_state_directory_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Dedicated state-directory CLI lost '${dedicated_state_directory_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_seed_option_contract IN ITEMS
+    "campaignSeed"
+    "InvalidCampaignSeed"
+    "CoopCreateSeedRequired"
+    "CoopResumeSeedForbidden"
+    "--campaign-seed"
+    "std::from_chars(first, last, campaignSeed)"
+    "options.campaignSeed = campaignSeed"
+    "18446744073709551615"
+    "18446744073709551616")
+  string(FIND
+    "${dedicated_options_header_source}${dedicated_options_implementation_source}${dedicated_options_test_source}"
+    "${dedicated_campaign_seed_option_contract}"
+    dedicated_campaign_seed_option_contract_position)
+  if(dedicated_campaign_seed_option_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign-seed CLI lost '${dedicated_campaign_seed_option_contract}'")
   endif()
 endforeach()
 

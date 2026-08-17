@@ -1,6 +1,12 @@
 #include "random.h"
 #include "Debug Control.h"
 
+#include <Engine/Core/SimulationRandom.h>
+
+#include <atomic>
+#include <mutex>
+#include <optional>
+
 extern bool is_client;
 extern bool is_server;
 extern bool is_networked;
@@ -98,10 +104,68 @@ public:
 	}
 };
 
+namespace
+{
+class GameRandomSourceHolder
+{
+public:
+	GameSimulationRandomInstallError install(
+		std::uint64_t campaignSeed) noexcept
+	{
+		std::lock_guard<std::mutex> lock(configurationMutex_);
+		if (simulation_) return GameSimulationRandomInstallError::AlreadyInstalled;
+		if (observedSource_.load(std::memory_order_relaxed) != nullptr)
+			return GameSimulationRandomInstallError::SourceAlreadyObserved;
+
+		simulation_.emplace(campaignSeed);
+		observedSource_.store(&*simulation_, std::memory_order_release);
+		return GameSimulationRandomInstallError::None;
+	}
+
+	RandomSource& observe() noexcept
+	{
+		RandomSource* source =
+			observedSource_.load(std::memory_order_acquire);
+		if (source != nullptr) return *source;
+
+		std::lock_guard<std::mutex> lock(configurationMutex_);
+		source = observedSource_.load(std::memory_order_relaxed);
+		if (source == nullptr)
+		{
+			source = &legacy_;
+			observedSource_.store(source, std::memory_order_release);
+		}
+		return *source;
+	}
+
+private:
+	LegacyGameRandomSource legacy_;
+	std::optional<SimulationRandom> simulation_;
+	std::atomic<RandomSource*> observedSource_{nullptr};
+	std::mutex configurationMutex_;
+};
+
+GameRandomSourceHolder& GameRandomSources() noexcept
+{
+	static GameRandomSourceHolder sources;
+	return sources;
+}
+}
+
 RandomSource& GetGameRandomSource()
 {
-	static LegacyGameRandomSource randomSource;
-	return randomSource;
+	return GameRandomSources().observe();
+}
+
+GameSimulationRandomInstallError InstallGameSimulationRandom(
+	std::uint64_t campaignSeed) noexcept
+{
+	return GameRandomSources().install(campaignSeed);
+}
+
+SimulationRandom* GetGameSimulationRandomSource() noexcept
+{
+	return dynamic_cast<SimulationRandom*>(&GameRandomSources().observe());
 }
 
 void InitializeRandom(void)

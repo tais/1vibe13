@@ -94,6 +94,7 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 	bool sawMode = false;
 	bool sawCampaign = false;
 	bool sawAction = false;
+	bool sawCampaignSeed = false;
 	bool sawCheckpoint = false;
 	bool sawStateDirectory = false;
 	bool sawDedicated = false;
@@ -184,6 +185,27 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				continue;
 			}
 
+			if (readValue("--campaign-seed"))
+			{
+				sawDedicatedOption = true;
+				if (sawCampaignSeed)
+					return Failure(options,
+						DedicatedServerOptionError::DuplicateOption, argument);
+				sawCampaignSeed = true;
+				if (value.empty())
+					return Failure(options,
+						DedicatedServerOptionError::MissingValue, argument);
+				std::uint64_t campaignSeed = 0;
+				const char* first = value.data();
+				const char* last = value.data() + value.size();
+				const auto parsed = std::from_chars(first, last, campaignSeed);
+				if (parsed.ec != std::errc{} || parsed.ptr != last)
+					return Failure(options,
+						DedicatedServerOptionError::InvalidCampaignSeed, argument);
+				options.campaignSeed = campaignSeed;
+				continue;
+			}
+
 			if (readValue("--dedicated-state-dir"))
 			{
 				sawDedicatedOption = true;
@@ -236,7 +258,8 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				DedicatedServerOptionError::DedicatedOptionWithoutDedicated, {});
 		if (!options.enabled) return {options, DedicatedServerOptionError::None, {}};
 		if (options.mode == DedicatedServerMode::Pvp &&
-			(sawCampaign || sawAction || sawCheckpoint || sawStateDirectory))
+			(sawCampaign || sawAction || sawCampaignSeed || sawCheckpoint ||
+				sawStateDirectory))
 			return Failure(options,
 				DedicatedServerOptionError::PvpCampaignOption, {});
 		if (options.mode == DedicatedServerMode::Coop && !sawCampaign)
@@ -248,6 +271,16 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 		if (options.mode == DedicatedServerMode::Coop && !sawStateDirectory)
 			return Failure(options,
 				DedicatedServerOptionError::CoopStateDirectoryRequired, {});
+		if (options.mode == DedicatedServerMode::Coop &&
+			options.campaignAction == DedicatedCampaignAction::Create &&
+			!sawCampaignSeed)
+			return Failure(options,
+				DedicatedServerOptionError::CoopCreateSeedRequired, {});
+		if (options.mode == DedicatedServerMode::Coop &&
+			options.campaignAction == DedicatedCampaignAction::Resume &&
+			sawCampaignSeed)
+			return Failure(options,
+				DedicatedServerOptionError::CoopResumeSeedForbidden, {});
 		options.campaignId = LowerAscii(options.campaignId);
 		return {options, DedicatedServerOptionError::None, {}};
 	}
@@ -336,6 +369,7 @@ const char* DedicatedServerOptionErrorName(
 		case DedicatedServerOptionError::InvalidMode: return "invalid dedicated mode";
 		case DedicatedServerOptionError::InvalidCampaignAction: return "invalid campaign action";
 		case DedicatedServerOptionError::InvalidCampaignId: return "invalid campaign id";
+		case DedicatedServerOptionError::InvalidCampaignSeed: return "invalid campaign seed";
 		case DedicatedServerOptionError::InvalidStateDirectory: return "invalid dedicated state directory";
 		case DedicatedServerOptionError::InvalidCheckpointInterval: return "invalid checkpoint interval";
 		case DedicatedServerOptionError::UnknownDedicatedOption: return "unknown dedicated option";
@@ -344,6 +378,8 @@ const char* DedicatedServerOptionErrorName(
 		case DedicatedServerOptionError::CoopCampaignRequired: return "co-op mode requires --campaign";
 		case DedicatedServerOptionError::CoopCampaignActionRequired: return "co-op mode requires --campaign-action";
 		case DedicatedServerOptionError::CoopStateDirectoryRequired: return "co-op mode requires --dedicated-state-dir";
+		case DedicatedServerOptionError::CoopCreateSeedRequired: return "new co-op campaign requires --campaign-seed";
+		case DedicatedServerOptionError::CoopResumeSeedForbidden: return "resumed co-op campaign forbids --campaign-seed";
 	}
 	return "unknown dedicated option error";
 }

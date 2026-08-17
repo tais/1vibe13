@@ -60,11 +60,23 @@ int main()
 	{
 		const auto parsed = Parse({"JA2", "--dedicated",
 			"--dedicated-mode", "coop", "--campaign", "Alpha-1",
-			"--campaign-action", "new", "--dedicated-state-dir", StateRoot});
+			"--campaign-action", "new", "--campaign-seed", "0",
+			"--dedicated-state-dir", StateRoot});
 		Check(parsed &&
 			parsed.options.campaignAction == DedicatedCampaignAction::Create &&
-			parsed.options.campaignId == "alpha-1",
-			"new co-op campaign is explicit and its id is lowercase canonical");
+			parsed.options.campaignId == "alpha-1" &&
+			parsed.options.campaignSeed == 0,
+			"new co-op campaign has an explicit seed and lowercase canonical id");
+	}
+	{
+		const auto parsed = Parse({"JA2", "--dedicated",
+			"--dedicated-mode=coop", "--campaign=max-seed",
+			"--campaign-action=new",
+			"--campaign-seed=18446744073709551615",
+			"--dedicated-state-dir", StateRoot});
+		Check(parsed && parsed.options.campaignSeed ==
+			UINT64_C(18446744073709551615),
+			"the complete unsigned 64-bit campaign-seed domain parses exactly");
 	}
 
 	Check(Parse({"JA2", "--dedicated-mode=coop"}).error ==
@@ -81,12 +93,48 @@ int main()
 		"--campaign=one", "--campaign-action=new"}).error ==
 		DedicatedServerOptionError::CoopStateDirectoryRequired,
 		"co-op requires an explicit isolated state root");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::CoopCreateSeedRequired,
+		"new co-op campaigns require an explicit seed even when it is zero");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=resume",
+		"--campaign-seed=1", "--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::CoopResumeSeedForbidden,
+		"resume obtains its seed from durable campaign identity, not the operator");
 	Check(Parse({"JA2", "--dedicated", "--campaign=one"}).error ==
 		DedicatedServerOptionError::PvpCampaignOption,
 		"PvP cannot silently acquire campaign state");
 	Check(Parse({"JA2", "--dedicated", "--dedicated-state-dir", StateRoot}).error ==
 		DedicatedServerOptionError::PvpCampaignOption,
 		"PvP cannot silently acquire the campaign state root");
+	Check(Parse({"JA2", "--dedicated", "--campaign-seed=1"}).error ==
+		DedicatedServerOptionError::PvpCampaignOption,
+		"PvP cannot acquire a campaign random root");
+	Check(Parse({"JA2", "--campaign-seed=1"}).error ==
+		DedicatedServerOptionError::DedicatedOptionWithoutDedicated,
+		"a campaign seed cannot enable dedicated mode implicitly");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new", "--campaign-seed"}).error ==
+		DedicatedServerOptionError::MissingValue,
+		"a campaign-seed option requires a decimal value");
+	for (const char* invalidSeed : {"-1", "+1", "0x1", "1x",
+		"18446744073709551616"})
+	{
+		std::string option = "--campaign-seed=";
+		option += invalidSeed;
+		Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+			"--campaign=one", "--campaign-action=new", option.c_str(),
+			"--dedicated-state-dir", StateRoot}).error ==
+			DedicatedServerOptionError::InvalidCampaignSeed,
+			"campaign seeds accept only an exact decimal uint64");
+	}
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new", "--campaign-seed=1",
+		"--campaign-seed=2", "--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::DuplicateOption,
+		"duplicate campaign seeds are rejected");
 	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
 		"--campaign=one", "--campaign-action=new",
 		"--dedicated-state-dir=relative/state"}).error ==
@@ -255,11 +303,14 @@ int main()
 	installed.enabled = true;
 	installed.mode = DedicatedServerMode::Coop;
 	installed.campaignId = "installed";
+	installed.campaignSeed = UINT64_C(0x1020304050607080);
 	installed.stateDirectory = StateRoot;
 	InstallDedicatedServerOptions(installed);
 	Check(GetDedicatedServerOptions().enabled &&
 		GetDedicatedServerOptions().mode == DedicatedServerMode::Coop &&
 		GetDedicatedServerOptions().campaignId == "installed" &&
+		GetDedicatedServerOptions().campaignSeed ==
+			UINT64_C(0x1020304050607080) &&
 		GetDedicatedServerOptions().stateDirectory == StateRoot,
 		"validated options are installed for later lifecycle seams");
 

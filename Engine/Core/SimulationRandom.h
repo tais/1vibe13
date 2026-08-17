@@ -100,6 +100,10 @@ class SimulationRandom final : public RandomSource
 {
 public:
 	explicit SimulationRandom(std::uint64_t campaignSeed) noexcept;
+	SimulationRandom(const SimulationRandom&) = delete;
+	SimulationRandom& operator=(const SimulationRandom&) = delete;
+	SimulationRandom(SimulationRandom&&) = delete;
+	SimulationRandom& operator=(SimulationRandom&&) = delete;
 
 	// The RandomSource override is the legacy-compatible surface. It returns
 	// zero if the counter is exhausted and records that failure in health().

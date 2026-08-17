@@ -1064,9 +1064,12 @@ struct DedicatedCampaignFilesystemBackend::Impl
 	}
 };
 
+DedicatedCampaignFilesystemBackend::DedicatedCampaignFilesystemBackend() noexcept =
+	default;
+
 DedicatedCampaignFilesystemBackend::DedicatedCampaignFilesystemBackend(
 	DedicatedCampaignCheckpointWriter& writer) noexcept
-	: writer_(writer)
+	: writer_(&writer)
 {
 }
 
@@ -1313,6 +1316,14 @@ DedicatedCampaignFilesystemBackend::manifestPath(
 		? impl_->manifestPaths[SlotIndex(slot)] : EmptyPath();
 }
 
+bool DedicatedCampaignFilesystemBackend::bindCheckpointWriter(
+	DedicatedCampaignCheckpointWriter& writer) noexcept
+{
+	if (writer_ != nullptr) return false;
+	writer_ = &writer;
+	return true;
+}
+
 bool DedicatedCampaignFilesystemBackend::acceptsIdentity(
 	const DedicatedCampaignIdentity& identity) const noexcept
 {
@@ -1334,7 +1345,7 @@ DedicatedCampaignFilesystemBackend::readManifest(
 bool DedicatedCampaignFilesystemBackend::writeCheckpoint(
 	DedicatedCampaignSlot slot)
 {
-	if (!isOpen() || !KnownSlot(slot)) return false;
+	if (!isOpen() || !KnownSlot(slot) || writer_ == nullptr) return false;
 	const std::filesystem::path& target =
 		impl_->checkpointPaths[SlotIndex(slot)];
 	if (!SafeRegularEntryOrMissing(
@@ -1353,7 +1364,7 @@ bool DedicatedCampaignFilesystemBackend::writeCheckpoint(
 				 std::to_string(sequence));
 			if (!ReserveEmptyFile(impl_->campaignDirectoryHandle, staging))
 				continue;
-			if (!writer_.writeCheckpoint(slot, staging) ||
+			if (!writer_->writeCheckpoint(slot, staging) ||
 				!SafeRegularEntryOrMissing(
 					impl_->campaignDirectoryHandle, staging) ||
 				!SyncFilePath(impl_->campaignDirectoryHandle, staging))

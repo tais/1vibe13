@@ -22,12 +22,21 @@ constexpr std::size_t RuntimeSchemaOffset = 60;
 constexpr std::size_t RuntimeHighOffset = 64;
 constexpr std::size_t RuntimeLowOffset = 72;
 constexpr std::size_t ContentShaOffset = 80;
-constexpr std::size_t GenerationOffset = 112;
-constexpr std::size_t CheckpointSizeOffset = 120;
-constexpr std::size_t CheckpointShaOffset = 128;
-constexpr std::size_t WorldMinutesOffset = 160;
-constexpr std::size_t TailReservedOffset = 168;
-constexpr std::size_t ChecksumOffset = 172;
+constexpr std::size_t CampaignSeedOffset = 112;
+constexpr std::size_t GenerationOffset = 120;
+constexpr std::size_t CheckpointSizeOffset = 128;
+constexpr std::size_t CheckpointShaOffset = 136;
+constexpr std::size_t WorldMinutesOffset = 168;
+constexpr std::size_t TailReservedOffset = 176;
+constexpr std::size_t ChecksumOffset = 180;
+constexpr std::size_t LegacyManifestWireSize = 176;
+constexpr std::size_t LegacyGenerationOffset = 112;
+constexpr std::size_t LegacyCheckpointSizeOffset = 120;
+constexpr std::size_t LegacyCheckpointShaOffset = 128;
+constexpr std::size_t LegacyWorldMinutesOffset = 160;
+constexpr std::size_t LegacyChecksumOffset = 172;
+using LegacyManifestBytes =
+	std::array<std::uint8_t, LegacyManifestWireSize>;
 
 void Check(bool condition, const char* message)
 {
@@ -58,6 +67,7 @@ DedicatedCampaignIdentity Identity(
 		0x10203040u, 0x0102030405060708ull, 0x1112131415161718ull};
 	identity.contentManifestSha256 =
 		Sha<DedicatedCampaignContentManifestSha256>(0x40);
+	identity.campaignSeed = UINT64_C(0x6162636465666768);
 	return identity;
 }
 
@@ -83,7 +93,8 @@ bool SameIdentity(const DedicatedCampaignIdentity& left,
 		left.runtimeFingerprint.schema == right.runtimeFingerprint.schema &&
 		left.runtimeFingerprint.high == right.runtimeFingerprint.high &&
 		left.runtimeFingerprint.low == right.runtimeFingerprint.low &&
-		left.contentManifestSha256 == right.contentManifestSha256;
+		left.contentManifestSha256 == right.contentManifestSha256 &&
+		left.campaignSeed == right.campaignSeed;
 }
 
 bool SameManifest(const DedicatedCampaignManifest& left,
@@ -121,7 +132,8 @@ std::uint32_t Crc32(const std::uint8_t* bytes, std::size_t size)
 	return checksum ^ 0xffffffffu;
 }
 
-void WriteU32(DedicatedCampaignManifestBytes& bytes,
+template <std::size_t Size>
+void WriteU32(std::array<std::uint8_t, Size>& bytes,
 	std::size_t offset, std::uint32_t value)
 {
 	for (unsigned shift = 0; shift < 32; shift += 8)
@@ -131,6 +143,34 @@ void WriteU32(DedicatedCampaignManifestBytes& bytes,
 void Seal(DedicatedCampaignManifestBytes& bytes)
 {
 	WriteU32(bytes, ChecksumOffset, Crc32(bytes.data(), ChecksumOffset));
+}
+
+LegacyManifestBytes EncodeLegacySeedless(
+	const DedicatedCampaignManifest& manifest)
+{
+	DedicatedCampaignManifestBytes current{};
+	Check(EncodeDedicatedCampaignManifest(manifest, current),
+		"legacy fixture source manifest encodes");
+	LegacyManifestBytes legacy{};
+	std::copy(current.begin(), current.begin() + CampaignSeedOffset,
+		legacy.begin());
+	legacy[4] = 1;
+	legacy[5] = 0;
+	std::copy(current.begin() + GenerationOffset,
+		current.begin() + GenerationOffset + sizeof(std::uint64_t),
+		legacy.begin() + LegacyGenerationOffset);
+	std::copy(current.begin() + CheckpointSizeOffset,
+		current.begin() + CheckpointSizeOffset + sizeof(std::uint64_t),
+		legacy.begin() + LegacyCheckpointSizeOffset);
+	std::copy(current.begin() + CheckpointShaOffset,
+		current.begin() + CheckpointShaOffset + 32,
+		legacy.begin() + LegacyCheckpointShaOffset);
+	std::copy(current.begin() + WorldMinutesOffset,
+		current.begin() + WorldMinutesOffset + sizeof(std::uint64_t),
+		legacy.begin() + LegacyWorldMinutesOffset);
+	WriteU32(legacy, LegacyChecksumOffset,
+		Crc32(legacy.data(), LegacyChecksumOffset));
+	return legacy;
 }
 
 std::vector<std::uint8_t> Encode(const DedicatedCampaignManifest& manifest)
@@ -220,6 +260,18 @@ public:
 		manifestResult[index] = DedicatedCampaignBackendResult::Present;
 	}
 
+	template <std::size_t Size>
+	void setRawManifest(DedicatedCampaignSlot slot,
+		const std::array<std::uint8_t, Size>& bytes)
+	{
+		static_assert(Size <= DedicatedCampaignManifestWireSize,
+			"test manifest must fit the backend's bounded read buffer");
+		const std::size_t index = SlotIndex(slot);
+		std::copy(bytes.begin(), bytes.end(), manifestRead[index].bytes.begin());
+		manifestRead[index].size = bytes.size();
+		manifestResult[index] = DedicatedCampaignBackendResult::Present;
+	}
+
 	void setCheckpoint(DedicatedCampaignSlot slot, std::uint64_t size,
 		DedicatedCampaignCheckpointSha256 sha)
 	{
@@ -257,7 +309,7 @@ void CheckStateUnchanged(const DedicatedCampaignStore& store,
 
 void TestManifestCodec()
 {
-	static_assert(DedicatedCampaignManifestWireSize == 176,
+	static_assert(DedicatedCampaignManifestWireSize == 184,
 		"campaign manifest wire size is fixed");
 	static_assert(!std::is_copy_constructible<DedicatedCampaignStore>::value &&
 		!std::is_move_constructible<DedicatedCampaignStore>::value,
@@ -299,7 +351,7 @@ void TestManifestCodec()
 	Check(EncodeDedicatedCampaignManifest(manifest, bytes),
 		"layout fixture encodes");
 	Check(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'D' &&
-		bytes[3] == 'C' && bytes[4] == 1 && bytes[5] == 0 &&
+		bytes[3] == 'C' && bytes[4] == 2 && bytes[5] == 0 &&
 		bytes[ModeOffset] == 2 && bytes[SlotOffset] == 2,
 		"manifest header is fixed and little endian");
 	Check(bytes[RuntimeSchemaOffset] == 0x40 &&
@@ -313,11 +365,13 @@ void TestManifestCodec()
 		bytes[CheckpointShaOffset] == 0x80 &&
 		bytes[CheckpointShaOffset + 31] == 0x9f,
 		"content and checkpoint SHA-256 fields remain distinct");
-	Check(bytes[GenerationOffset] == 0x28 && bytes[GenerationOffset + 7] == 0x21 &&
+	Check(bytes[CampaignSeedOffset] == 0x68 &&
+		bytes[CampaignSeedOffset + 7] == 0x61 &&
+		bytes[GenerationOffset] == 0x28 && bytes[GenerationOffset + 7] == 0x21 &&
 		bytes[CheckpointSizeOffset] == 0x38 &&
 		bytes[CheckpointSizeOffset + 7] == 0x31 &&
 		bytes[WorldMinutesOffset] == 0x48 && bytes[WorldMinutesOffset + 7] == 0x41,
-		"generation, size, and world time are exact little-endian u64 fields");
+		"seed, generation, size, and world time are exact little-endian u64 fields");
 	Check(std::all_of(bytes.begin() + HeaderReservedOffset,
 		bytes.begin() + CampaignIdOffset,
 		[](std::uint8_t value) { return value == 0; }) &&
@@ -379,7 +433,7 @@ void TestManifestCodec()
 			expected && SameManifest(output, sentinel), message);
 	};
 	{
-		auto altered = bytes; altered[4] = 2;
+		auto altered = bytes; altered[4] = 3;
 		ExpectSemanticError(altered,
 			DedicatedCampaignManifestDecodeError::UnsupportedVersion,
 			"unknown manifest versions fail closed");
@@ -416,6 +470,12 @@ void TestManifestCodec()
 		ExpectSemanticError(altered,
 			DedicatedCampaignManifestDecodeError::NonCanonicalCampaignId,
 			"non-portable campaign ids fail closed");
+	}
+	{
+		auto altered = bytes; altered[CampaignIdOffset] = 'A';
+		ExpectSemanticError(altered,
+			DedicatedCampaignManifestDecodeError::NonCanonicalCampaignId,
+			"uppercase campaign ids are not canonical store identities");
 	}
 	{
 		auto altered = bytes;
@@ -489,6 +549,29 @@ void TestManifestCodec()
 		DedicatedCampaignManifestDecodeError::None && SameManifest(decodedPvp, pvp),
 		"a canonical PvP manifest with no content digest round trips");
 
+	for (std::uint64_t campaignSeed :
+		{UINT64_C(0), std::numeric_limits<std::uint64_t>::max()})
+	{
+		DedicatedCampaignManifest seeded = manifest;
+		seeded.identity.campaignSeed = campaignSeed;
+		DedicatedCampaignManifestBytes seededBytes{};
+		DedicatedCampaignManifest decodedSeeded;
+		Check(EncodeDedicatedCampaignManifest(seeded, seededBytes) &&
+			DecodeDedicatedCampaignManifest(seededBytes.data(), seededBytes.size(),
+				decodedSeeded) == DedicatedCampaignManifestDecodeError::None &&
+			SameManifest(decodedSeeded, seeded),
+			"zero and maximum campaign seeds round trip as explicit v2 identity");
+	}
+	{
+		const LegacyManifestBytes legacy = EncodeLegacySeedless(manifest);
+		DedicatedCampaignManifest output = sentinel;
+		Check(DecodeDedicatedCampaignManifest(
+			legacy.data(), legacy.size(), output) ==
+				DedicatedCampaignManifestDecodeError::WrongSize &&
+			SameManifest(output, sentinel),
+			"the v2 codec never invents a seed while decoding a v1 record");
+	}
+
 	DedicatedCampaignManifest invalid = manifest;
 	DedicatedCampaignManifestBytes unchanged{};
 	unchanged.fill(0xa5);
@@ -504,6 +587,8 @@ void TestManifestCodec()
 	CheckEncodeRejects(invalid, "encoder rejects oversized campaign ids transactionally");
 	invalid = manifest; invalid.identity.campaignId = "../escape";
 	CheckEncodeRejects(invalid, "encoder rejects path-like campaign ids transactionally");
+	invalid = manifest; invalid.identity.campaignId = "Shared_01";
+	CheckEncodeRejects(invalid, "encoder rejects uppercase campaign ids transactionally");
 	invalid = manifest; invalid.identity.campaignId = "caf\xC3\xA9";
 	CheckEncodeRejects(invalid, "encoder rejects non-ASCII campaign ids transactionally");
 	invalid = manifest; invalid.identity.runtimeFingerprint.schema = 0;
@@ -525,6 +610,14 @@ void TestManifestCodec()
 void TestCreateAndCheckpoint()
 {
 	const DedicatedCampaignIdentity identity = Identity();
+	{
+		MemoryBackend backend;
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity("Shared_01")) ==
+			DedicatedCampaignStoreError::InvalidIdentity &&
+			store.state() == nullptr && backend.events.empty(),
+			"create rejects noncanonical uppercase campaign ids before storage");
+	}
 	{
 		MemoryBackend backend;
 		backend.acceptsIdentityValue = false;
@@ -777,9 +870,259 @@ void TestCreateAndCheckpoint()
 	}
 }
 
+void TestInspectCampaignSeedForResume()
+{
+	constexpr std::uint64_t SentinelSeed = UINT64_C(0xfedcba9876543210);
+	{
+		MemoryBackend backend;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::NotFound &&
+			output == SentinelSeed && store.state() == nullptr &&
+			backend.events == std::vector<std::string>({"read-A", "read-B"}),
+			"seed inspection reports absence transactionally after both bounded reads");
+	}
+	for (std::size_t failedRead = 0; failedRead < 2; ++failedRead)
+	{
+		MemoryBackend backend;
+		backend.manifestResult[failedRead] =
+			DedicatedCampaignBackendResult::Failure;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::BackendFailure &&
+			output == SentinelSeed,
+			"either seed-inspection manifest I/O failure preserves output");
+	}
+	for (std::size_t failedRead = 0; failedRead < 2; ++failedRead)
+	{
+		MemoryBackend backend;
+		backend.throwRead[failedRead] = true;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::BackendFailure &&
+			output == SentinelSeed,
+			"throwing bounded seed inspection fails transactionally");
+	}
+	{
+		MemoryBackend backend;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"../escape", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::InvalidIdentity &&
+			output == SentinelSeed && backend.events.empty(),
+			"seed inspection rejects a nonportable campaign key before storage");
+		Check(store.inspectCampaignSeedForResume(
+			"Shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::InvalidIdentity &&
+			output == SentinelSeed && backend.events.empty(),
+			"seed inspection rejects uppercase campaign keys before storage");
+		Check(store.inspectCampaignSeedForResume("shared_01",
+			static_cast<DedicatedCampaignMode>(0), output) ==
+				DedicatedCampaignStoreError::InvalidIdentity &&
+			output == SentinelSeed && backend.events.empty(),
+			"seed inspection rejects an unknown campaign mode before storage");
+	}
+	{
+		MemoryBackend backend;
+		backend.acceptsIdentityValue = false;
+		backend.setManifest(DedicatedCampaignSlot::A,
+			Manifest(DedicatedCampaignSlot::A, 1, 20));
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::BackendIdentityMismatch &&
+			output == SentinelSeed && store.state() == nullptr &&
+			backend.events == std::vector<std::string>({"read-A", "read-B"}),
+			"backend identity rejection preserves the inspected seed output");
+	}
+	for (std::uint64_t expectedSeed :
+		{UINT64_C(0), std::numeric_limits<std::uint64_t>::max()})
+	{
+		MemoryBackend backend;
+		DedicatedCampaignManifest manifest = Manifest(
+			expectedSeed == 0 ? DedicatedCampaignSlot::A :
+				DedicatedCampaignSlot::B, 1, 20);
+		manifest.identity.campaignSeed = expectedSeed;
+		backend.setManifest(manifest.slot, manifest);
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::None &&
+			output == expectedSeed && store.state() == nullptr &&
+			backend.events == std::vector<std::string>({"read-A", "read-B"}),
+			"seed inspection publishes the full uint64 domain without probing checkpoints");
+	}
+	{
+		MemoryBackend backend;
+		DedicatedCampaignManifest usable = Manifest(
+			DedicatedCampaignSlot::A, 2, 30);
+		usable.identity.campaignSeed = 11;
+		DedicatedCampaignManifest corrupt = Manifest(
+			DedicatedCampaignSlot::B, 3, 40);
+		corrupt.identity.campaignSeed = 12;
+		backend.setManifest(DedicatedCampaignSlot::A, usable);
+		backend.setManifest(DedicatedCampaignSlot::B, corrupt);
+		backend.manifestRead[1].bytes[CheckpointShaOffset] ^= 1;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::None && output == 11 &&
+			backend.events == std::vector<std::string>({"read-A", "read-B"}),
+			"seed inspection falls back from a checksum-corrupt manifest");
+	}
+	{
+		MemoryBackend backend;
+		DedicatedCampaignManifest first = Manifest(
+			DedicatedCampaignSlot::A, 4, 50);
+		DedicatedCampaignManifest second = Manifest(
+			DedicatedCampaignSlot::B, 5, 60);
+		++second.identity.runtimeFingerprint.low;
+		++second.identity.contentManifestSha256[0];
+		backend.setManifest(DedicatedCampaignSlot::A, first);
+		backend.setManifest(DedicatedCampaignSlot::B, second);
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::None &&
+			output == first.identity.campaignSeed,
+			"bootstrap inspection defers runtime and content identity to full resume");
+	}
+	for (std::size_t mismatch = 0; mismatch < 3; ++mismatch)
+	{
+		MemoryBackend backend;
+		DedicatedCampaignManifest first = Manifest(
+			DedicatedCampaignSlot::A, 6, 70);
+		DedicatedCampaignManifest incompatible = Manifest(
+			DedicatedCampaignSlot::B, 7, 80);
+		if (mismatch == 0) incompatible.identity.campaignId = "another";
+		if (mismatch == 1)
+			incompatible.identity.mode = DedicatedCampaignMode::Pvp;
+		if (mismatch == 2) ++incompatible.identity.campaignSeed;
+		backend.setManifest(DedicatedCampaignSlot::A, first);
+		backend.setManifest(DedicatedCampaignSlot::B, incompatible);
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::IncompatibleManifest &&
+			output == SentinelSeed,
+			"every decoded manifest must agree on bootstrap id, mode, and seed");
+	}
+	{
+		MemoryBackend backend;
+		DedicatedCampaignManifest incompatible = Manifest(
+			DedicatedCampaignSlot::A, 8, 90);
+		incompatible.identity.campaignId = "another";
+		DedicatedCampaignManifest future = Manifest(
+			DedicatedCampaignSlot::B, 9, 100);
+		backend.setManifest(DedicatedCampaignSlot::A, incompatible);
+		backend.setManifest(DedicatedCampaignSlot::B, future);
+		backend.manifestRead[1].bytes[4] = 3;
+		Seal(backend.manifestRead[1].bytes);
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::UnsupportedManifestFormat &&
+			output == SentinelSeed,
+			"a checksummed future version dominates other bootstrap errors");
+	}
+	{
+		MemoryBackend backend;
+		backend.setManifest(DedicatedCampaignSlot::A,
+			Manifest(DedicatedCampaignSlot::A, 10, 110));
+		backend.manifestResult[1] = DedicatedCampaignBackendResult::Present;
+		backend.manifestRead[1].size = DedicatedCampaignManifestWireSize + 1;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::UnsupportedManifestFormat &&
+			output == SentinelSeed,
+			"a bounded oversized future manifest dominates bootstrap fallback");
+	}
+	{
+		MemoryBackend backend;
+		const DedicatedCampaignManifest current = Manifest(
+			DedicatedCampaignSlot::A, 11, 120);
+		backend.setManifest(DedicatedCampaignSlot::A, current);
+		backend.setRawManifest(DedicatedCampaignSlot::B,
+			EncodeLegacySeedless(Manifest(DedicatedCampaignSlot::B, 12, 130)));
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::UnsupportedManifestFormat &&
+			output == SentinelSeed,
+			"a checksummed seedless v1 manifest cannot donate or default a seed");
+	}
+	{
+		MemoryBackend backend;
+		const DedicatedCampaignManifest current = Manifest(
+			DedicatedCampaignSlot::A, 13, 140);
+		backend.setManifest(DedicatedCampaignSlot::A, current);
+		LegacyManifestBytes corruptLegacy = EncodeLegacySeedless(
+			Manifest(DedicatedCampaignSlot::B, 14, 150));
+		corruptLegacy[LegacyCheckpointShaOffset] ^= 1;
+		backend.setRawManifest(DedicatedCampaignSlot::B, corruptLegacy);
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::None &&
+			output == current.identity.campaignSeed,
+			"corrupt seedless bytes do not block fallback to a valid v2 identity");
+	}
+	{
+		MemoryBackend backend;
+		backend.manifestResult[0] = DedicatedCampaignBackendResult::Present;
+		backend.manifestRead[0].bytes[0] = 1;
+		backend.manifestRead[0].size = 1;
+		DedicatedCampaignStore store(backend);
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::NoValidCheckpoint &&
+			output == SentinelSeed,
+			"only corrupt manifest bytes cannot publish a bootstrap seed");
+	}
+	{
+		MemoryBackend backend;
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity()) == DedicatedCampaignStoreError::None,
+			"open-store inspection fixture creates");
+		backend.events.clear();
+		std::uint64_t output = SentinelSeed;
+		Check(store.inspectCampaignSeedForResume(
+			"shared_01", DedicatedCampaignMode::Coop, output) ==
+				DedicatedCampaignStoreError::AlreadyOpen &&
+			output == SentinelSeed && backend.events.empty(),
+			"seed inspection cannot replace an open store or touch its backend");
+	}
+}
+
 void TestResume()
 {
 	const DedicatedCampaignIdentity expected = Identity();
+	{
+		MemoryBackend backend;
+		DedicatedCampaignStore store(backend);
+		Check(store.resume(Identity("Shared_01")) ==
+			DedicatedCampaignStoreError::InvalidIdentity &&
+			store.state() == nullptr && backend.events.empty(),
+			"resume rejects noncanonical uppercase campaign ids before storage");
+	}
 	{
 		MemoryBackend backend;
 		DedicatedCampaignStore store(backend);
@@ -910,6 +1253,17 @@ void TestResume()
 	}
 	{
 		MemoryBackend backend;
+		backend.setRawManifest(DedicatedCampaignSlot::A,
+			EncodeLegacySeedless(Manifest(DedicatedCampaignSlot::A, 25, 300)));
+		DedicatedCampaignStore store(backend);
+		Check(store.resume(expected) ==
+			DedicatedCampaignStoreError::UnsupportedManifestFormat &&
+			store.state() == nullptr && backend.events ==
+				std::vector<std::string>({"read-A", "read-B"}),
+			"strict resume rejects a checksummed v1 manifest with no campaign seed");
+	}
+	{
+		MemoryBackend backend;
 		const DedicatedCampaignManifest older = Manifest(
 			DedicatedCampaignSlot::A, 26, 300, 0x30);
 		const DedicatedCampaignManifest newer = Manifest(
@@ -918,7 +1272,7 @@ void TestResume()
 		backend.setManifest(DedicatedCampaignSlot::B, newer);
 		backend.setCheckpoint(DedicatedCampaignSlot::A,
 			older.checkpointSize, older.checkpointSha256);
-		backend.manifestRead[1].bytes[4] = 2;
+		backend.manifestRead[1].bytes[4] = 3;
 		Seal(backend.manifestRead[1].bytes);
 		DedicatedCampaignStore store(backend);
 		Check(store.resume(expected) ==
@@ -988,7 +1342,7 @@ void TestResume()
 			"manifest location and recorded slot must match before checkpoint probing");
 	}
 
-	for (std::size_t mismatch = 0; mismatch < 4; ++mismatch)
+	for (std::size_t mismatch = 0; mismatch < 5; ++mismatch)
 	{
 		MemoryBackend backend;
 		DedicatedCampaignManifest compatible = Manifest(DedicatedCampaignSlot::A, 4, 10);
@@ -997,6 +1351,7 @@ void TestResume()
 		if (mismatch == 1) incompatible.identity.mode = DedicatedCampaignMode::Pvp;
 		if (mismatch == 2) ++incompatible.identity.runtimeFingerprint.low;
 		if (mismatch == 3) ++incompatible.identity.contentManifestSha256[0];
+		if (mismatch == 4) ++incompatible.identity.campaignSeed;
 		backend.setManifest(DedicatedCampaignSlot::A, compatible);
 		backend.setManifest(DedicatedCampaignSlot::B, incompatible);
 		backend.setCheckpoint(DedicatedCampaignSlot::A,
@@ -1006,7 +1361,7 @@ void TestResume()
 			DedicatedCampaignStoreError::IncompatibleManifest &&
 			store.state() == nullptr && backend.events ==
 				std::vector<std::string>({"read-A", "read-B"}),
-			"any valid incompatible id/mode/runtime/content manifest rejects resume");
+			"any valid incompatible id/mode/runtime/content/seed manifest rejects resume");
 	}
 	for (std::size_t failedProbe = 0; failedProbe < 2; ++failedProbe)
 	{
@@ -1101,6 +1456,7 @@ int main()
 {
 	TestManifestCodec();
 	TestCreateAndCheckpoint();
+	TestInspectCampaignSeedForResume();
 	TestResume();
 	std::puts("dedicated campaign store tests passed");
 	return 0;

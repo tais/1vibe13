@@ -50,6 +50,7 @@ class DedicatedCampaignFilesystemBackend final
 	: public DedicatedCampaignStoreBackend
 {
 public:
+	DedicatedCampaignFilesystemBackend() noexcept;
 	explicit DedicatedCampaignFilesystemBackend(
 		DedicatedCampaignCheckpointWriter& writer) noexcept;
 	~DedicatedCampaignFilesystemBackend() noexcept override;
@@ -88,6 +89,11 @@ public:
 	// failed/crashed earlier creation attempt from silently donating writable
 	// runtime state to a nominally new campaign.
 	DedicatedCampaignProfileDirectoryState profileDirectoryState() const noexcept;
+	// Startup must acquire the process lease and discover profileDirectory()
+	// before it can construct the VFS-backed legacy save adapter. Bind that
+	// writer once afterward; checkpoint publication fails closed until then.
+	bool bindCheckpointWriter(
+		DedicatedCampaignCheckpointWriter& writer) noexcept;
 	const std::filesystem::path& checkpointPath(
 		DedicatedCampaignSlot slot) const noexcept;
 	const std::filesystem::path& manifestPath(
@@ -108,7 +114,7 @@ public:
 
 private:
 	struct Impl;
-	DedicatedCampaignCheckpointWriter& writer_;
+	DedicatedCampaignCheckpointWriter* writer_ = nullptr;
 	std::unique_ptr<Impl> impl_;
 };
 

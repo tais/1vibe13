@@ -8,6 +8,8 @@
 #include "GameSettings.h"
 #include "../Engine/Core/RandomSource.h"
 
+class SimulationRandom;
+
 //IMPORTANT: Changing this define will invalidate the JA2 save.	If this is necessary, please ifdef your own value.
 #define MAX_PREGENERATED_NUMS 256		
 
@@ -22,6 +24,20 @@ extern bool gfMPDebugOutputRandoms;
 
 UINT32 NewRandom(UINT32 max);
 RandomSource& GetGameRandomSource();
+
+enum class GameSimulationRandomInstallError : std::uint8_t
+{
+	None,
+	SourceAlreadyObserved,
+	AlreadyInstalled
+};
+
+// The authoritative source can be selected exactly once, before either game
+// RNG accessor has exposed the process-default legacy source. There is no reset:
+// source identity and campaign seed remain immutable for the process lifetime.
+GameSimulationRandomInstallError InstallGameSimulationRandom(
+	std::uint64_t campaignSeed) noexcept;
+SimulationRandom* GetGameSimulationRandomSource() noexcept;
 
 extern GAME_EXTERNAL_OPTIONS gGameExternalOptions;
 

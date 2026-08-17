@@ -9,7 +9,10 @@
 namespace
 {
 constexpr std::uint8_t ManifestMagic[4] = {'J', '2', 'D', 'C'};
-constexpr std::uint16_t ManifestVersion = 1;
+constexpr std::uint16_t ManifestVersion = 2;
+constexpr std::uint16_t LegacySeedlessManifestVersion = 1;
+constexpr std::size_t LegacySeedlessManifestWireSize = 176;
+constexpr std::size_t LegacySeedlessChecksumOffset = 172;
 
 constexpr std::size_t MagicOffset = 0;
 constexpr std::size_t VersionOffset = 4;
@@ -23,13 +26,14 @@ constexpr std::size_t RuntimeSchemaOffset = 60;
 constexpr std::size_t RuntimeHighOffset = 64;
 constexpr std::size_t RuntimeLowOffset = 72;
 constexpr std::size_t ContentManifestSha256Offset = 80;
-constexpr std::size_t GenerationOffset = 112;
-constexpr std::size_t CheckpointSizeOffset = 120;
-constexpr std::size_t CheckpointSha256Offset = 128;
-constexpr std::size_t WorldMinutesOffset = 160;
-constexpr std::size_t TailReservedOffset = 168;
+constexpr std::size_t CampaignSeedOffset = 112;
+constexpr std::size_t GenerationOffset = 120;
+constexpr std::size_t CheckpointSizeOffset = 128;
+constexpr std::size_t CheckpointSha256Offset = 136;
+constexpr std::size_t WorldMinutesOffset = 168;
+constexpr std::size_t TailReservedOffset = 176;
 constexpr std::size_t TailReservedSize = 4;
-constexpr std::size_t ChecksumOffset = 172;
+constexpr std::size_t ChecksumOffset = 180;
 
 static_assert(VersionOffset == MagicOffset + sizeof(ManifestMagic),
 	"dedicated campaign manifest magic layout changed");
@@ -54,8 +58,10 @@ static_assert(RuntimeLowOffset == RuntimeHighOffset + sizeof(std::uint64_t),
 static_assert(ContentManifestSha256Offset ==
 	RuntimeLowOffset + sizeof(std::uint64_t),
 	"dedicated campaign manifest runtime-low layout changed");
-static_assert(GenerationOffset == ContentManifestSha256Offset + 32,
+static_assert(CampaignSeedOffset == ContentManifestSha256Offset + 32,
 	"dedicated campaign manifest content-SHA-256 layout changed");
+static_assert(GenerationOffset == CampaignSeedOffset + sizeof(std::uint64_t),
+	"dedicated campaign manifest campaign-seed layout changed");
 static_assert(CheckpointSizeOffset == GenerationOffset + sizeof(std::uint64_t),
 	"dedicated campaign manifest generation layout changed");
 static_assert(CheckpointSha256Offset ==
@@ -69,7 +75,7 @@ static_assert(ChecksumOffset == TailReservedOffset + TailReservedSize,
 	"dedicated campaign manifest tail-reserved layout changed");
 static_assert(DedicatedCampaignManifestWireSize ==
 	ChecksumOffset + sizeof(std::uint32_t),
-	"dedicated campaign manifest must remain exactly 176 bytes");
+	"dedicated campaign manifest must remain exactly 184 bytes");
 static_assert(std::is_nothrow_move_assignable<DedicatedCampaignManifest>::value,
 	"manifest decode must publish output without throwing");
 static_assert(std::is_nothrow_move_assignable<DedicatedCampaignStoreState>::value,
@@ -83,7 +89,6 @@ bool IsPortableCampaignId(const std::string& campaignId)
 	for (const unsigned char value : campaignId)
 	{
 		if ((value >= 'a' && value <= 'z') ||
-			(value >= 'A' && value <= 'Z') ||
 			(value >= '0' && value <= '9') || value == '-' || value == '_')
 			continue;
 		return false;
@@ -134,7 +139,8 @@ bool SameIdentity(const DedicatedCampaignIdentity& left,
 {
 	return left.campaignId == right.campaignId && left.mode == right.mode &&
 		SameRuntimeFingerprint(left.runtimeFingerprint, right.runtimeFingerprint) &&
-		left.contentManifestSha256 == right.contentManifestSha256;
+		left.contentManifestSha256 == right.contentManifestSha256 &&
+		left.campaignSeed == right.campaignSeed;
 }
 
 void WriteU16(DedicatedCampaignManifestBytes& bytes,
@@ -193,6 +199,17 @@ std::uint32_t RecordChecksum(const std::uint8_t* bytes, std::size_t size)
 	return checksum ^ 0xffffffffu;
 }
 
+bool IsChecksummedLegacySeedlessManifest(
+	const DedicatedCampaignManifestRead& manifest)
+{
+	const std::uint8_t* bytes = manifest.bytes.data();
+	return manifest.size == LegacySeedlessManifestWireSize &&
+		std::equal(std::begin(ManifestMagic), std::end(ManifestMagic), bytes) &&
+		ReadU16(bytes, VersionOffset) == LegacySeedlessManifestVersion &&
+		ReadU32(bytes, LegacySeedlessChecksumOffset) ==
+			RecordChecksum(bytes, LegacySeedlessChecksumOffset);
+}
+
 DedicatedCampaignSlot InactiveSlot(const DedicatedCampaignStoreState& state)
 {
 	if (!state.hasCheckpoint || state.activeSlot == DedicatedCampaignSlot::B)
@@ -207,6 +224,65 @@ struct ResumeCandidate
 	bool pairValid = false;
 	DedicatedCampaignManifest manifest;
 };
+
+DedicatedCampaignStoreError ReadResumeCandidates(
+	DedicatedCampaignStoreBackend& backend,
+	ResumeCandidate (&candidates)[2])
+{
+	const DedicatedCampaignSlot slots[2] = {
+		DedicatedCampaignSlot::A, DedicatedCampaignSlot::B};
+	DedicatedCampaignManifestRead manifestReads[2];
+	DedicatedCampaignBackendResult reads[2];
+	for (std::size_t index = 0; index < 2; ++index)
+		reads[index] = backend.readManifest(slots[index], manifestReads[index]);
+
+	bool backendFailure = false;
+	bool unsupportedFormat = false;
+	for (std::size_t index = 0; index < 2; ++index)
+	{
+		if (reads[index] == DedicatedCampaignBackendResult::Failure ||
+			(reads[index] == DedicatedCampaignBackendResult::Missing &&
+				manifestReads[index].size != 0))
+		{
+			backendFailure = true;
+			continue;
+		}
+		if (reads[index] == DedicatedCampaignBackendResult::Missing) continue;
+		if (reads[index] != DedicatedCampaignBackendResult::Present)
+		{
+			backendFailure = true;
+			continue;
+		}
+
+		candidates[index].manifestPresent = true;
+		if (manifestReads[index].size > DedicatedCampaignManifestWireSize ||
+			IsChecksummedLegacySeedlessManifest(manifestReads[index]))
+		{
+			unsupportedFormat = true;
+			continue;
+		}
+		const DedicatedCampaignManifestDecodeError decodeError =
+			DecodeDedicatedCampaignManifest(manifestReads[index].bytes.data(),
+				manifestReads[index].size, candidates[index].manifest);
+		if (decodeError == DedicatedCampaignManifestDecodeError::ResourceFailure)
+		{
+			backendFailure = true;
+			continue;
+		}
+		if (decodeError == DedicatedCampaignManifestDecodeError::WrongMagic ||
+			decodeError == DedicatedCampaignManifestDecodeError::UnsupportedVersion)
+		{
+			unsupportedFormat = true;
+			continue;
+		}
+		candidates[index].decoded =
+			decodeError == DedicatedCampaignManifestDecodeError::None;
+	}
+	if (unsupportedFormat)
+		return DedicatedCampaignStoreError::UnsupportedManifestFormat;
+	if (backendFailure) return DedicatedCampaignStoreError::BackendFailure;
+	return DedicatedCampaignStoreError::None;
+}
 }
 
 bool EncodeDedicatedCampaignManifest(
@@ -237,6 +313,7 @@ bool EncodeDedicatedCampaignManifest(
 	std::copy(manifest.identity.contentManifestSha256.begin(),
 		manifest.identity.contentManifestSha256.end(),
 		encoded.begin() + ContentManifestSha256Offset);
+	WriteU64(encoded, CampaignSeedOffset, manifest.identity.campaignSeed);
 	WriteU64(encoded, GenerationOffset, manifest.generation);
 	WriteU64(encoded, CheckpointSizeOffset, manifest.checkpointSize);
 	std::copy(manifest.checkpointSha256.begin(), manifest.checkpointSha256.end(),
@@ -309,6 +386,7 @@ DedicatedCampaignManifestDecodeError DecodeDedicatedCampaignManifest(
 	if (decoded.identity.mode == DedicatedCampaignMode::Coop &&
 		IsZeroDigest(decoded.identity.contentManifestSha256))
 		return DedicatedCampaignManifestDecodeError::MissingContentManifestSha256;
+	decoded.identity.campaignSeed = ReadU64(bytes, CampaignSeedOffset);
 	decoded.generation = ReadU64(bytes, GenerationOffset);
 	if (decoded.generation == 0)
 		return DedicatedCampaignManifestDecodeError::InvalidGeneration;
@@ -375,6 +453,54 @@ DedicatedCampaignStoreError DedicatedCampaignStore::create(
 	}
 }
 
+DedicatedCampaignStoreError DedicatedCampaignStore::inspectCampaignSeedForResume(
+	const std::string& expectedCampaignId,
+	DedicatedCampaignMode expectedMode,
+	std::uint64_t& campaignSeed) noexcept
+{
+	if (publicationStateUnknown_)
+		return DedicatedCampaignStoreError::PublicationStateUnknown;
+	if (open_) return DedicatedCampaignStoreError::AlreadyOpen;
+	if (!IsPortableCampaignId(expectedCampaignId) || !IsKnownMode(expectedMode))
+		return DedicatedCampaignStoreError::InvalidIdentity;
+
+	try
+	{
+		ResumeCandidate candidates[2];
+		const DedicatedCampaignStoreError readError =
+			ReadResumeCandidates(backend_, candidates);
+		if (readError != DedicatedCampaignStoreError::None) return readError;
+		if (!candidates[0].manifestPresent && !candidates[1].manifestPresent)
+			return DedicatedCampaignStoreError::NotFound;
+
+		bool foundSeed = false;
+		std::uint64_t inspectedSeed = 0;
+		for (const ResumeCandidate& candidate : candidates)
+		{
+			if (!candidate.decoded) continue;
+			if (candidate.manifest.identity.campaignId != expectedCampaignId ||
+				candidate.manifest.identity.mode != expectedMode)
+				return DedicatedCampaignStoreError::IncompatibleManifest;
+			if (!foundSeed)
+			{
+				inspectedSeed = candidate.manifest.identity.campaignSeed;
+				foundSeed = true;
+			}
+			else if (candidate.manifest.identity.campaignSeed != inspectedSeed)
+				return DedicatedCampaignStoreError::IncompatibleManifest;
+			if (!backend_.acceptsIdentity(candidate.manifest.identity))
+				return DedicatedCampaignStoreError::BackendIdentityMismatch;
+		}
+		if (!foundSeed) return DedicatedCampaignStoreError::NoValidCheckpoint;
+		campaignSeed = inspectedSeed;
+		return DedicatedCampaignStoreError::None;
+	}
+	catch (...)
+	{
+		return DedicatedCampaignStoreError::BackendFailure;
+	}
+}
+
 DedicatedCampaignStoreError DedicatedCampaignStore::resume(
 	const DedicatedCampaignIdentity& expectedIdentity) noexcept
 {
@@ -392,33 +518,11 @@ DedicatedCampaignStoreError DedicatedCampaignStore::resume(
 		const DedicatedCampaignSlot slots[2] = {
 			DedicatedCampaignSlot::A, DedicatedCampaignSlot::B};
 		ResumeCandidate candidates[2];
-		DedicatedCampaignManifestRead manifestReads[2];
-		DedicatedCampaignBackendResult reads[2];
-		for (std::size_t index = 0; index < 2; ++index)
-			reads[index] = backend_.readManifest(slots[index], manifestReads[index]);
-
+		const DedicatedCampaignStoreError readError =
+			ReadResumeCandidates(backend_, candidates);
+		if (readError != DedicatedCampaignStoreError::None) return readError;
 		for (std::size_t index = 0; index < 2; ++index)
 		{
-			if (reads[index] == DedicatedCampaignBackendResult::Failure ||
-				(reads[index] == DedicatedCampaignBackendResult::Missing &&
-					manifestReads[index].size != 0))
-				return DedicatedCampaignStoreError::BackendFailure;
-			if (reads[index] == DedicatedCampaignBackendResult::Missing) continue;
-			if (reads[index] != DedicatedCampaignBackendResult::Present)
-				return DedicatedCampaignStoreError::BackendFailure;
-			candidates[index].manifestPresent = true;
-			if (manifestReads[index].size > DedicatedCampaignManifestWireSize)
-				return DedicatedCampaignStoreError::UnsupportedManifestFormat;
-			const DedicatedCampaignManifestDecodeError decodeError =
-				DecodeDedicatedCampaignManifest(manifestReads[index].bytes.data(),
-					manifestReads[index].size, candidates[index].manifest);
-			if (decodeError == DedicatedCampaignManifestDecodeError::ResourceFailure)
-				return DedicatedCampaignStoreError::BackendFailure;
-			if (decodeError == DedicatedCampaignManifestDecodeError::WrongMagic ||
-				decodeError == DedicatedCampaignManifestDecodeError::UnsupportedVersion)
-				return DedicatedCampaignStoreError::UnsupportedManifestFormat;
-			candidates[index].decoded =
-				decodeError == DedicatedCampaignManifestDecodeError::None;
 			if (candidates[index].decoded &&
 				!SameIdentity(candidates[index].manifest.identity, expectedIdentity))
 				return DedicatedCampaignStoreError::IncompatibleManifest;
