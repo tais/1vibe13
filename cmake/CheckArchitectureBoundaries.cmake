@@ -766,10 +766,10 @@ if(dedicated_production_build_position EQUAL -1 OR
     "Dedicated launch contract lost production build or ASan test coverage")
 endif()
 
-# Dedicated persistence stays a dependency-free, fail-closed A/B transaction
-# until the engine has a real state root, lock, atomic save adapter, content
-# identity, and dedicated load entry point. Pin both its byte contract and its
-# publish-last ordering without allowing direct legacy save/VFS coupling.
+# Dedicated persistence keeps the crash-safe A/B store independent from the
+# legacy serializer. The fixed-slot adapter may bridge the two only through a
+# campaign-isolated VFS scratch file and the exact backend-reserved inactive
+# staging file; startup remains closed until lifecycle and determinism land.
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.h"
   dedicated_campaign_store_header)
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.cpp"
@@ -778,10 +778,26 @@ file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignFilesystem.h"
   dedicated_campaign_filesystem_header)
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignFilesystem.cpp"
   dedicated_campaign_filesystem_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignSaveAdapter.h"
+  dedicated_campaign_save_adapter_header)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignSaveAdapter.cpp"
+  dedicated_campaign_save_adapter_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignSaveBridge.h"
+  dedicated_campaign_save_bridge_header)
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  dedicated_campaign_save_load_game_source)
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadScreen.cpp"
+  dedicated_campaign_save_load_screen_source)
+file(READ "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
+  dedicated_campaign_hourly_update_source)
+file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  dedicated_campaign_handle_ui_source)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_store_tests.cpp"
   dedicated_campaign_store_tests)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_filesystem_tests.cpp"
   dedicated_campaign_filesystem_tests)
+file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_save_adapter_tests.cpp"
+  dedicated_campaign_save_adapter_tests)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_vfs_profile_tests.cpp"
   dedicated_campaign_vfs_profile_tests)
 file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_init.h"
@@ -802,6 +818,37 @@ strip_cxx_comments_and_literals(dedicated_campaign_filesystem_source
   dedicated_campaign_filesystem_code)
 strip_cxx_comments_and_literals(dedicated_campaign_filesystem_tests
   dedicated_campaign_filesystem_test_code)
+foreach(dedicated_campaign_save_normalized_source IN ITEMS
+    dedicated_campaign_save_adapter_header
+    dedicated_campaign_save_adapter_source
+    dedicated_campaign_save_bridge_header
+    dedicated_campaign_save_load_game_source
+    dedicated_campaign_save_load_screen_source
+    dedicated_campaign_hourly_update_source
+    dedicated_campaign_handle_ui_source
+    dedicated_campaign_save_adapter_tests)
+  string(REPLACE "\r\n" "\n"
+    ${dedicated_campaign_save_normalized_source}
+    "${${dedicated_campaign_save_normalized_source}}")
+endforeach()
+strip_cxx_comments_and_literals(dedicated_campaign_save_adapter_header
+  dedicated_campaign_save_adapter_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_save_adapter_source
+  dedicated_campaign_save_adapter_code)
+strip_cxx_comments(dedicated_campaign_save_adapter_source
+  dedicated_campaign_save_adapter_contract_text)
+strip_cxx_comments_and_literals(dedicated_campaign_save_bridge_header
+  dedicated_campaign_save_bridge_code)
+strip_cxx_comments_and_literals(dedicated_campaign_save_load_game_source
+  dedicated_campaign_save_load_game_code)
+strip_cxx_comments_and_literals(dedicated_campaign_save_load_screen_source
+  dedicated_campaign_save_load_screen_code)
+strip_cxx_comments_and_literals(dedicated_campaign_hourly_update_source
+  dedicated_campaign_hourly_update_code)
+strip_cxx_comments_and_literals(dedicated_campaign_handle_ui_source
+  dedicated_campaign_handle_ui_code)
+strip_cxx_comments_and_literals(dedicated_campaign_save_adapter_tests
+  dedicated_campaign_save_adapter_test_code)
 strip_cxx_comments_and_literals(dedicated_campaign_vfs_profile_tests
   dedicated_campaign_vfs_profile_test_code)
 strip_cxx_comments(dedicated_campaign_vfs_profile_tests
@@ -931,6 +978,316 @@ if(dedicated_campaign_store_build_position EQUAL -1 OR
     "Dedicated campaign store lost production, CTest, or ASan coverage")
 endif()
 
+# The legacy serializer bridge is deliberately narrow: two fixed VFS scratch
+# names map to legacy slots 6/7, the closed runtime container is preflighted,
+# and bytes enter only the already-created inactive staging entry. It must not
+# expose arbitrary paths, replace that entry, or reopen legacy autosave paths.
+foreach(dedicated_campaign_save_adapter_contract IN ITEMS
+    "DedicatedCampaignSaveAdapter final"
+    "DedicatedCampaignCheckpointWriter"
+    "writeCheckpoint("
+    "profileDirectory()"
+    "logicalScratchPath("
+    "DedicatedCampaignLogicalScratch("
+    "IsDedicatedCampaignPersistenceRequested()"
+    "SaveDedicatedCampaignGame("
+    "ValidateDedicatedCampaignGame("
+    "LoadDedicatedCampaignGame(")
+  string(FIND
+    "${dedicated_campaign_save_adapter_header_code}${dedicated_campaign_save_bridge_code}"
+    "${dedicated_campaign_save_adapter_contract}"
+    dedicated_campaign_save_adapter_contract_position)
+  if(dedicated_campaign_save_adapter_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign save adapter lost '${dedicated_campaign_save_adapter_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_save_adapter_forbidden IN ITEMS
+    "SAVE__END_TURN_NUM"
+    "248"
+    "FileDelete("
+    "std::filesystem::remove("
+    "std::filesystem::rename("
+    "renameat("
+    "MoveFileEx")
+  string(FIND
+    "${dedicated_campaign_save_adapter_header_code}${dedicated_campaign_save_adapter_code}${dedicated_campaign_save_bridge_code}"
+    "${dedicated_campaign_save_adapter_forbidden}"
+    dedicated_campaign_save_adapter_forbidden_position)
+  if(NOT dedicated_campaign_save_adapter_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign save adapter regained '${dedicated_campaign_save_adapter_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_save_adapter_native_guard IN ITEMS
+    "FILE_FLAG_OPEN_REPARSE_POINT"
+    "FILE_FLAG_BACKUP_SEMANTICS"
+    "information.nNumberOfLinks == 1"
+    "::lstat("
+    "S_ISREG(status.st_mode)"
+    "status.st_nlink == 1"
+    "SafeSingleLinkRegularFileOrMissing(")
+  string(FIND "${dedicated_campaign_save_adapter_code}"
+    "${dedicated_campaign_save_adapter_native_guard}"
+    dedicated_campaign_save_adapter_native_guard_position)
+  if(dedicated_campaign_save_adapter_native_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign save adapter lost native guard '${dedicated_campaign_save_adapter_native_guard}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_save_adapter_literal IN ITEMS
+    "DedicatedCheckpointA.sav"
+    "DedicatedCheckpointB.sav"
+    "checkpoint-a.sav.pending."
+    "checkpoint-b.sav.pending.")
+  string(FIND "${dedicated_campaign_save_adapter_contract_text}"
+    "${dedicated_campaign_save_adapter_literal}"
+    dedicated_campaign_save_adapter_literal_position)
+  if(dedicated_campaign_save_adapter_literal_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign save adapter lost fixed name '${dedicated_campaign_save_adapter_literal}'")
+  endif()
+endforeach()
+
+set(dedicated_campaign_adapter_write_marker
+  "bool DedicatedCampaignSaveAdapter::writeCheckpoint(\n\tDedicatedCampaignSlot slot,\n\tconst std::filesystem::path& reservedStagingPath) noexcept")
+require_cxx_marker_at_preprocessor_depth_zero(
+  dedicated_campaign_save_adapter_code
+  "${dedicated_campaign_adapter_write_marker}"
+  "Dedicated campaign adapter write entry is hidden or duplicated")
+extract_brace_bounded_slice(dedicated_campaign_save_adapter_code
+  "${dedicated_campaign_adapter_write_marker}"
+  dedicated_campaign_adapter_write_slice
+  "Cannot bound dedicated campaign adapter write")
+require_ordered_fragments(dedicated_campaign_adapter_write_slice
+  "Dedicated campaign adapter lost validate-before-copy ordering"
+  "SafeSingleLinkRegularFile(reservedStagingPath)"
+  "SafeSingleLinkRegularFileOrMissing(scratch)"
+  "SaveDedicatedCampaignGame(slot)"
+  "ValidateDedicatedCampaignGame(slot)"
+  "CopyIntoReservedStaging(scratch, reservedStagingPath)")
+
+set(dedicated_campaign_adapter_copy_marker
+  "bool CopyIntoReservedStaging(const std::filesystem::path& source,\n\tconst std::filesystem::path& destination) noexcept")
+extract_brace_bounded_slice(dedicated_campaign_save_adapter_code
+  "${dedicated_campaign_adapter_copy_marker}"
+  dedicated_campaign_adapter_copy_slice
+  "Cannot bound dedicated campaign staging copy")
+require_ordered_fragments(dedicated_campaign_adapter_copy_slice
+  "Dedicated campaign adapter lost bounded truncate-only staging copy"
+  "SafeSingleLinkRegularFile(source)"
+  "SafeSingleLinkRegularFile(destination)"
+  "sourceSize == 0"
+  "sourceSize > DedicatedCampaignMaximumCheckpointBytes"
+  "std::ofstream output(destination,"
+  "std::ios::binary | std::ios::out | std::ios::trunc"
+  "output.flush()"
+  "output.close()"
+  "SafeSingleLinkRegularFile(destination)")
+
+foreach(dedicated_campaign_save_adapter_test_contract IN ITEMS
+    "TestFixedSlotCopy();"
+    "TestFailuresFailClosed();"
+    "ReadFileIdentity(staging, before)"
+    "ReadFileIdentity(staging, after)"
+    "after == before"
+    "create_hard_link(outside, staging"
+    "create_hard_link(outside, scratch"
+    "create_symlink(outside, scratch"
+    "SaveCalls == 1 && ValidateCalls == 0"
+    "SaveCalls == 1 && ValidateCalls == 1")
+  string(FIND "${dedicated_campaign_save_adapter_test_code}"
+    "${dedicated_campaign_save_adapter_test_contract}"
+    dedicated_campaign_save_adapter_test_contract_position)
+  if(dedicated_campaign_save_adapter_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign save adapter tests lost '${dedicated_campaign_save_adapter_test_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_campaign_legacy_slot_marker
+  "int DedicatedLegacySaveSlot(DedicatedCampaignSlot slot) noexcept")
+string(FIND "${dedicated_campaign_save_load_game_code}"
+  "static_assert(SAVE__END_TURN_NUM_1 == 6 && SAVE__END_TURN_NUM_2 == 7"
+  dedicated_campaign_legacy_slot_identity_position)
+if(dedicated_campaign_legacy_slot_identity_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated campaign legacy slots lost numeric identities 6/7")
+endif()
+extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+  "${dedicated_campaign_legacy_slot_marker}"
+  dedicated_campaign_legacy_slot_slice
+  "Cannot bound dedicated campaign legacy-slot mapping")
+require_ordered_fragments(dedicated_campaign_legacy_slot_slice
+  "Dedicated campaign A/B mapping no longer uses only legacy slots 6/7"
+  "DedicatedCampaignSlot::A"
+  "SAVE__END_TURN_NUM_1"
+  "DedicatedCampaignSlot::B"
+  "SAVE__END_TURN_NUM_2"
+  "return -1;")
+
+set(dedicated_campaign_save_impl_marker
+  "static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,\n\tconst char* logicalVfsPath, LegacySaveInvocation invocation)")
+require_cxx_marker_at_preprocessor_depth_zero(
+  dedicated_campaign_save_load_game_code
+  "${dedicated_campaign_save_impl_marker}"
+  "Dedicated campaign path save is hidden or duplicated")
+extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+  "${dedicated_campaign_save_impl_marker}"
+  dedicated_campaign_save_impl_slice
+  "Cannot bound dedicated campaign path save")
+require_ordered_fragments(dedicated_campaign_save_impl_slice
+  "Dedicated campaign save lost preflight/path/sidecar ordering"
+  "invocation == LegacySaveInvocation::DedicatedCampaign"
+  "ExactDedicatedScratch("
+  "gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;"
+  "PrepareRuntimeSave( GetGameContext() )"
+  "if (!preparedRuntimeSave)"
+  "goto FAILED_TO_SAVE;"
+  "SaveGameHeader.ubLoadScreenID = dedicatedCampaign"
+  "? LOADINGSCREEN_NOTHING"
+  ": GetLoadScreenID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );"
+  "SaveGameHeader.uiRandom = dedicatedCampaign ? 0 : Random( RAND_MAX );"
+  "std::snprintf(zSaveGameName,"
+  "if( !dedicatedCampaign && FileExists( zSaveGameName ) )"
+  "if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)"
+  "SaveInventoryPoolQ(ubSaveGameID)"
+  "CommitRuntimeSave("
+  "if (!dedicatedCampaign)"
+  "SaveGameSettings()"
+  "SaveFeatureFlags()")
+
+set(dedicated_campaign_load_impl_marker
+  "static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,\n\tconst char* logicalVfsPath, LegacySaveInvocation invocation)")
+require_cxx_marker_at_preprocessor_depth_zero(
+  dedicated_campaign_save_load_game_code
+  "${dedicated_campaign_load_impl_marker}"
+  "Dedicated campaign path load is hidden or duplicated")
+extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+  "${dedicated_campaign_load_impl_marker}"
+  dedicated_campaign_load_impl_slice
+  "Cannot bound dedicated campaign path load")
+require_ordered_fragments(dedicated_campaign_load_impl_slice
+  "Dedicated campaign load lost preflight and fail-closed ordering"
+  "invocation == LegacySaveInvocation::DedicatedCampaign"
+  "ExactDedicatedScratch(ubSavedGameID, logicalVfsPath)"
+  "gbSaveGameArray[ ubSavedGameID ]"
+  "PrepareRuntimeLoad("
+  "TrashAllSoldiers( )"
+  "LoadCurrentSectorsInformationFromTempItemsFile()"
+  "if (dedicatedCampaign)"
+  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;"
+  "return FALSE;"
+  "InitExitGameDialogBecauseFileHackDetected()"
+  "if (!dedicatedCampaign)"
+  "SaveGameSettings()"
+  "SaveFeatureFlags()"
+  "if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)"
+  "LoadInventoryPoolQ(ubSavedGameID)"
+  "RestorePreparedRuntimeSave("
+  "if ( !restored )"
+  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;"
+  "return FALSE;")
+
+foreach(dedicated_campaign_public_gate IN ITEMS
+    "BOOLEAN SaveGame(int ubSaveGameID, CHAR16* pGameDesc)"
+    "BOOLEAN LoadSavedGame(int ubSavedGameID)")
+  extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+    "${dedicated_campaign_public_gate}"
+    dedicated_campaign_public_gate_slice
+    "Cannot bound dedicated campaign public save/load gate")
+  require_ordered_fragments(dedicated_campaign_public_gate_slice
+    "Interactive save/load can bypass dedicated campaign isolation"
+    "IsDedicatedCampaignPersistenceRequested()"
+    "return FALSE;")
+endforeach()
+
+foreach(dedicated_campaign_bridge_entry IN ITEMS
+    "bool SaveDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept"
+    "bool LoadDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept")
+  extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+    "${dedicated_campaign_bridge_entry}"
+    dedicated_campaign_bridge_entry_slice
+    "Cannot bound fixed-slot dedicated campaign bridge")
+  require_ordered_fragments(dedicated_campaign_bridge_entry_slice
+    "Dedicated campaign bridge lost fixed slot/path invocation"
+    "DedicatedLegacySaveSlot(slot)"
+    "DedicatedCampaignLogicalScratch(slot)"
+    "LegacySaveInvocation::DedicatedCampaign")
+endforeach()
+
+set(dedicated_campaign_autosave_marker
+  "BOOLEAN DoAutoSave( int ubSaveGameID, CHAR16 *pGameDesc )\n")
+extract_brace_bounded_slice(dedicated_campaign_save_load_screen_code
+  "${dedicated_campaign_autosave_marker}"
+  dedicated_campaign_autosave_slice
+  "Cannot bound dedicated campaign autosave gate")
+require_ordered_fragments(dedicated_campaign_autosave_slice
+  "Dedicated campaign autosave can reach the interactive serializer"
+  "IsDedicatedCampaignPersistenceRequested()"
+  "return TRUE;"
+  "SaveGame( ubSaveGameID, pGameDesc )")
+foreach(dedicated_campaign_quick_gate IN ITEMS
+    "BOOLEAN DoQuickSave()"
+    "BOOLEAN DoQuickLoad()")
+  extract_brace_bounded_slice(dedicated_campaign_save_load_screen_code
+    "${dedicated_campaign_quick_gate}"
+    dedicated_campaign_quick_gate_slice
+    "Cannot bound dedicated campaign quick-save/load gate")
+  require_ordered_fragments(dedicated_campaign_quick_gate_slice
+    "Dedicated campaign quick-save/load gate moved after UI work"
+    "IsDedicatedCampaignPersistenceRequested()"
+    "return FALSE;")
+endforeach()
+
+set(dedicated_campaign_end_turn_marker
+  "UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )\n")
+extract_brace_bounded_slice(dedicated_campaign_handle_ui_code
+  "${dedicated_campaign_end_turn_marker}"
+  dedicated_campaign_end_turn_slice
+  "Cannot bound dedicated campaign end-turn autosave gate")
+require_ordered_fragments(dedicated_campaign_end_turn_slice
+  "Dedicated campaign end-turn autosave can rotate legacy slots"
+  "!IsDedicatedCampaignPersistenceRequested()"
+  "++guiLastSaveGameNum"
+  "SaveGame(SAVE__END_TURN_NUM, zString )")
+
+set(dedicated_campaign_hourly_marker "void HandleHourlyUpdate()")
+extract_brace_bounded_slice(dedicated_campaign_hourly_update_code
+  "${dedicated_campaign_hourly_marker}"
+  dedicated_campaign_hourly_update_slice
+  "Cannot bound dedicated campaign hourly autosave gate")
+require_ordered_fragments(dedicated_campaign_hourly_update_slice
+  "Dedicated campaign hourly autosave can rotate legacy slots"
+  "BOOLEAN doAutoSave = TRUE;"
+  "IsDedicatedCampaignPersistenceRequested()"
+  "doAutoSave = FALSE;"
+  "if (doAutoSave)"
+  "DoAutoSave(")
+
+string(FIND "${dedicated_ja2_build_source}"
+  "DedicatedCampaignSaveAdapter.cpp"
+  dedicated_campaign_save_adapter_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_executable(dedicated_campaign_save_adapter_tests"
+  dedicated_campaign_save_adapter_test_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_test(NAME dedicated_campaign_save_adapter"
+  dedicated_campaign_save_adapter_ctest_position)
+string(FIND "${dedicated_ci_source}"
+  "dedicated_campaign_save_adapter_tests"
+  dedicated_campaign_save_adapter_ci_position)
+if(dedicated_campaign_save_adapter_build_position EQUAL -1 OR
+   dedicated_campaign_save_adapter_test_build_position EQUAL -1 OR
+   dedicated_campaign_save_adapter_ctest_position EQUAL -1 OR
+   dedicated_campaign_save_adapter_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated campaign save adapter lost production, CTest, or ASan coverage")
+endif()
+
 foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "## Durable campaign checkpoints"
     "176-byte little-endian manifest"
@@ -939,7 +1296,11 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "configured `WRITE=true` profile"
     "global user-profile files do not leak"
     "pre-existing nonempty `profile/`"
-    "not wired to `SaveGame`"
+    "fixed A/B scratch names"
+    "slot identities 6 and 7"
+    "quick-load entry points"
+    "not wired into dedicated startup"
+    "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"
     "${dedicated_campaign_store_doc_contract}"
@@ -1046,6 +1407,7 @@ foreach(dedicated_campaign_vfs_test_contract IN ITEMS
     "data-only.txt"
     "Temp/temp-write.bin"
     "SavedGames/save-write.sav"
+    "DedicatedCheckpointA.sav"
     "package-only.txt"
     "campaign-one"
     "campaign-two")

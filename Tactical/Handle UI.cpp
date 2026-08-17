@@ -86,6 +86,7 @@
 #include "Queen Command.h"
 #include "Options Screen.h"
 #include "SaveLoadGame.h"
+#include "DedicatedCampaignSaveBridge.h"
 #include "Spread burst.h"
 #include "ai.h"
 #include "Game Clock.h"
@@ -1431,7 +1432,9 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		// to an option setting.
 		// So no more need to have a file AutoSave.pls in you ja2 root directory
 		//if( FileExists( "..\\AutoSave.pls" ) && CanGameBeSaved() )
-		if (GetGameContext().settings().fOptions[TOPTION_USE_AUTO_SAVE] == TRUE && CanGameBeSaved() )
+		if (!IsDedicatedCampaignPersistenceRequested() &&
+			GetGameContext().settings().fOptions[TOPTION_USE_AUTO_SAVE] == TRUE &&
+			CanGameBeSaved() )
 		{
 			SetOptionsPreviousScreen(GetCurrentScreen());
 

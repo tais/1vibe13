@@ -36,6 +36,7 @@
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
 #include "SaveLoadGame.h"
+#include "DedicatedCampaignSaveBridge.h"
 #include "GameContext.h"
 #include "CampaignMercenaryPolicy.h"
 #include "GameSettings.h"
@@ -162,6 +163,8 @@ CHAR16	zString[128];
 
 	// WANNE: This check should avoid the resaving of a loaded auto-save game, when entering tactical
 	BOOLEAN doAutoSave = TRUE;
+	if (IsDedicatedCampaignPersistenceRequested())
+		doAutoSave = FALSE;
 	if (lastLoadedSaveGameDay == GetWorldDay() && lastLoadedSaveGameHour == GetWorldHour() )
 	{
 		doAutoSave = FALSE;

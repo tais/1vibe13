@@ -9,6 +9,8 @@
 #include "FileMan.h"
 #include "SaveSerializer.h"
 #include <cstddef>      // offsetof
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -34,6 +36,8 @@
 #include "LaptopSave.h"
 #include "Queen Command.h"
 #include "SaveLoadGame.h"
+#include "DedicatedCampaignSaveBridge.h"
+#include "DedicatedServerOptions.h"
 #include "GameContext.h"
 #include "CampaignMercenaryPolicy.h"
 #include "CampaignStrategicAiScenarioPolicy.h"
@@ -2620,8 +2624,50 @@ BOOLEAN LoadPathNodeFromFile( HWFILE hFile, PathSt* p )
 extern bool alreadySaving = false;
 extern bool bHideTopMessage;
 
-BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
+namespace
 {
+enum class LegacySaveInvocation : std::uint8_t
+{
+	Interactive,
+	DedicatedCampaign
+};
+
+static_assert(SAVE__END_TURN_NUM_1 == 6 && SAVE__END_TURN_NUM_2 == 7,
+	"Dedicated campaign A/B slots require legacy identities 6 and 7");
+
+int DedicatedLegacySaveSlot(DedicatedCampaignSlot slot) noexcept
+{
+	switch (slot)
+	{
+		case DedicatedCampaignSlot::A: return SAVE__END_TURN_NUM_1;
+		case DedicatedCampaignSlot::B: return SAVE__END_TURN_NUM_2;
+	}
+	return -1;
+}
+
+bool ExactDedicatedScratch(int legacySlot, const char* path) noexcept
+{
+	if (!path) return false;
+	const DedicatedCampaignSlot slot = legacySlot == SAVE__END_TURN_NUM_1
+		? DedicatedCampaignSlot::A : DedicatedCampaignSlot::B;
+	return (legacySlot == SAVE__END_TURN_NUM_1 ||
+		legacySlot == SAVE__END_TURN_NUM_2) &&
+		std::strcmp(path, DedicatedCampaignLogicalScratch(slot)) == 0;
+}
+}
+
+bool IsDedicatedCampaignPersistenceRequested() noexcept
+{
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop &&
+		options.campaignAction != DedicatedCampaignAction::None;
+}
+
+static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
+	const char* logicalVfsPath, LegacySaveInvocation invocation)
+{
+	const bool dedicatedCampaign =
+		invocation == LegacySaveInvocation::DedicatedCampaign;
 	UINT32	uiNumBytesWritten=0;
 	HWFILE	hFile=0;
 	SAVED_GAME_HEADER SaveGameHeader;
@@ -2639,6 +2685,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	if( ubSaveGameID > NUM_SAVE_GAMES || ubSaveGameID == EARLIST_SPECIAL_SAVE )
 		return( FALSE );
+	if (dedicatedCampaign && !ExactDedicatedScratch(
+		ubSaveGameID, logicalVfsPath))
+		return FALSE;
 	alreadySaving = true;
 
 #ifdef LOADSAVEGAME_LOGTIME
@@ -2657,55 +2706,41 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		InitShutDownMapTempFileTest( TRUE, "SaveMapTempFile", ubSaveGameID );
 	#endif
 
-	//Place a message on the screen telling the user that we are saving the game
-	if ( ubSaveGameID >= SAVE__TIMED_AUTOSAVE_SLOT1 && ubSaveGameID < SAVE__TIMED_AUTOSAVE_SLOT5 + 1 )
+	if (!dedicatedCampaign)
 	{
-		swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_SAVING_TEXT ],ubSaveGameID );
-		iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zString, 300, 0, 0, 0, &usActualWidth, &usActualHeight);
-	}
-	else if ( ubSaveGameID == SAVE__END_TURN_NUM ) //SAVE__END_TURN_NUM_1 || ubSaveGameID == SAVE__END_TURN_NUM_2 )
-	{
-		swprintf( zString, L"%s",pMessageStrings[ MSG_SAVE_END_TURN_SAVE_SAVING_TEXT ] );
-		iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zString, 300, 0, 0, 0, &usActualWidth, &usActualHeight);
-	}
-	else	
-		iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zSaveLoadText[ SLG_SAVING_GAME_MESSAGE ], 300, 0, 0, 0, &usActualWidth, &usActualHeight);
-	
-	usPosX = ( SCREEN_WIDTH - usActualWidth ) / 2 ;
+		// Place a message on the screen telling the player that we are saving.
+		if ( ubSaveGameID >= SAVE__TIMED_AUTOSAVE_SLOT1 && ubSaveGameID < SAVE__TIMED_AUTOSAVE_SLOT5 + 1 )
+		{
+			swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_SAVING_TEXT ],ubSaveGameID );
+			iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zString, 300, 0, 0, 0, &usActualWidth, &usActualHeight);
+		}
+		else if ( ubSaveGameID == SAVE__END_TURN_NUM )
+		{
+			swprintf( zString, L"%s",pMessageStrings[ MSG_SAVE_END_TURN_SAVE_SAVING_TEXT ] );
+			iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zString, 300, 0, 0, 0, &usActualWidth, &usActualHeight);
+		}
+		else
+			iSaveLoadGameMessageBoxID = PrepareMercPopupBox( iSaveLoadGameMessageBoxID, BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER, zSaveLoadText[ SLG_SAVING_GAME_MESSAGE ], 300, 0, 0, 0, &usActualWidth, &usActualHeight);
 
-	RenderMercPopUpBoxFromIndex( iSaveLoadGameMessageBoxID, usPosX, iScreenHeightOffset + 160, FRAME_BUFFER );
+		usPosX = ( SCREEN_WIDTH - usActualWidth ) / 2 ;
+		RenderMercPopUpBoxFromIndex( iSaveLoadGameMessageBoxID, usPosX, iScreenHeightOffset + 160, FRAME_BUFFER );
+		InvalidateRegion(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+		ExecuteBaseDirtyRectQueue( );
+		EndFrameBufferRender( );
+		RefreshScreen( NULL );
+		if( RemoveMercPopupBoxFromIndex( iSaveLoadGameMessageBoxID ) )
+			iSaveLoadGameMessageBoxID = -1;
 
-	InvalidateRegion(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
-
-	ExecuteBaseDirtyRectQueue( );
-	EndFrameBufferRender( );
-	RefreshScreen( NULL );
-
-	if( RemoveMercPopupBoxFromIndex( iSaveLoadGameMessageBoxID ) )
-	{
-		iSaveLoadGameMessageBoxID = -1;
-	}
-
-	//
-	// make sure we redraw the screen when we are done
-	//
-
-	//if we are in the game screen
-	if( GetCurrentScreen() == GAME_SCREEN )
-	{
-		SetRenderFlags( RENDER_FLAG_FULL );
-	}
-
-	else if( GetCurrentScreen() == MAP_SCREEN )
-	{
-		fMapPanelDirty = TRUE;
-		fTeamPanelDirty = TRUE;
-		fCharacterInfoPanelDirty = TRUE;
-	}
-
-	else if( GetCurrentScreen() == SAVE_LOAD_SCREEN )
-	{
-		gfRedrawSaveLoadScreen = TRUE;
+		if( GetCurrentScreen() == GAME_SCREEN )
+			SetRenderFlags( RENDER_FLAG_FULL );
+		else if( GetCurrentScreen() == MAP_SCREEN )
+		{
+			fMapPanelDirty = TRUE;
+			fTeamPanelDirty = TRUE;
+			fCharacterInfoPanelDirty = TRUE;
+		}
+		else if( GetCurrentScreen() == SAVE_LOAD_SCREEN )
+			gfRedrawSaveLoadScreen = TRUE;
 	}
 
 
@@ -2723,6 +2758,8 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	// Capture framework state at this single paused-game boundary. It is sealed
 	// into the same file only after the domain serializer closes successfully.
 	preparedRuntimeSave = PrepareRuntimeSave( GetGameContext() );
+	if (!preparedRuntimeSave)
+		goto FAILED_TO_SAVE;
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -2765,7 +2802,12 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	if( IsJa2TacticalWorldLoaded() )
 	{
 		SaveGameHeader.fWorldLoaded = TRUE;
-		SaveGameHeader.ubLoadScreenID = GetLoadScreenID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
+		// Loading-screen selection is cosmetic and can consume gameplay RNG for
+		// town variants. A service checkpoint must not advance simulation after
+		// PrepareRuntimeSave captured its framework state.
+		SaveGameHeader.ubLoadScreenID = dedicatedCampaign
+			? LOADINGSCREEN_NOTHING
+			: GetLoadScreenID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
 	else
 	{
@@ -2773,7 +2815,10 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		SaveGameHeader.ubLoadScreenID = 0;
 	}
 
-	SaveGameHeader.uiRandom = Random( RAND_MAX );
+	// The legacy header selector need not consume simulation RNG. Persistent
+	// service checkpoints use a fixed valid selector; interactive saves retain
+	// their historical randomized selector.
+	SaveGameHeader.uiRandom = dedicatedCampaign ? 0 : Random( RAND_MAX );
 
 	// CHRISL: We need to know what inventory system we're using early on
 	SaveGameHeader.sInitialGameOptions.ubInventorySystem = gGameOptions.ubInventorySystem;
@@ -2824,16 +2869,28 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		}
 	}*/
 
-	//Create the name of the file
-	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	if (dedicatedCampaign)
+	{
+		const int length = std::snprintf(zSaveGameName,
+			sizeof(zSaveGameName), "%s", logicalVfsPath);
+		if (length <= 0 || static_cast<std::size_t>(length) >= sizeof(zSaveGameName))
+			goto FAILED_TO_SAVE;
+	}
+	else
+	{
+		CreateSavedGameFileNameFromNumber(
+			ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	}
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Save ");
 	TimingLogWrite(zSaveGameName);
 	TimingLog("\nShutdown stuff", 10);
 #endif
 
-	//if the file already exists, delete it
-	if( FileExists( zSaveGameName ) )
+	// Interactive saves preserve the legacy delete-before-create behavior.
+	// Dedicated scratch may intentionally shadow a same-name read-only Data or
+	// package entry; FILE_CREATE_ALWAYS selects the campaign write profile.
+	if( !dedicatedCampaign && FileExists( zSaveGameName ) )
 	{
 		if( !FileDelete( zSaveGameName ) )
 		{
@@ -2842,7 +2899,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		}
 	}
 
-	if(gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
+	if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
 		if(!SaveInventoryPoolQ(ubSaveGameID))
 			goto FAILED_TO_SAVE;
 
@@ -3711,66 +3768,48 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		}
 	}
 
-	// This defines, which savegame is highlighted in the load screen
-	if (ubSaveGameID == SAVE__END_TURN_NUM)
+	if (!dedicatedCampaign)
 	{
-		if (guiLastSaveGameNum == 0)
-			gGameSettings.bLastSavedGameSlot = SAVE__END_TURN_NUM_1;
+		if (ubSaveGameID == SAVE__END_TURN_NUM)
+		{
+			if (guiLastSaveGameNum == 0)
+				gGameSettings.bLastSavedGameSlot = SAVE__END_TURN_NUM_1;
+			else
+				gGameSettings.bLastSavedGameSlot = SAVE__END_TURN_NUM_2;
+		}
+		else if ( ubSaveGameID >= 0 && (ubSaveGameID != SAVE__ASSERTION_FAILURE || ubSaveGameID != EARLIST_SPECIAL_SAVE))
+			gGameSettings.bLastSavedGameSlot = ubSaveGameID;
 		else
-			gGameSettings.bLastSavedGameSlot = SAVE__END_TURN_NUM_2;
-	}
-	else if ( ubSaveGameID >= 0 && (ubSaveGameID != SAVE__ASSERTION_FAILURE || ubSaveGameID != EARLIST_SPECIAL_SAVE))
-	{
-		gGameSettings.bLastSavedGameSlot = ubSaveGameID;
-	}
-	else
-	{
-		// No selection
-		gGameSettings.bLastSavedGameSlot = -1;
-	}
+			gGameSettings.bLastSavedGameSlot = -1;
+		SaveGameSettings();
+		SaveFeatureFlags();
 
-	//Save the save game settings
-	SaveGameSettings();
-	SaveFeatureFlags();
+		if( ubSaveGameID == 0 )
+			ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_SAVESUCCESS ] );
+		else if( ubSaveGameID != SAVE__END_TURN_NUM )
+			ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_SAVESLOTSUCCESS ] );
 
-	//
-	// Display a screen message that the save was succesful
-	//
-
-	//if its the quick save slot
-	if( ubSaveGameID == 0 )
-	{
-		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_SAVESUCCESS ] );
+		#ifdef NEWMUSIC
+		if ( GetMusicMode() == MUSIC_TACTICAL_NOTHING && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalNothing[gbWorldSectorZ] != -1 )
+			SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalNothing[gbWorldSectorZ] );
+		else if ( GetMusicMode() == MUSIC_TACTICAL_ENEMYPRESENT && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalTensor[gbWorldSectorZ] != -1 )
+			SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalTensor[gbWorldSectorZ] );
+		else if ( GetMusicMode() == MUSIC_TACTICAL_BATTLE && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalBattle[gbWorldSectorZ] != -1 )
+			SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalBattle[gbWorldSectorZ] );
+		else if ( GetMusicMode() == MUSIC_TACTICAL_VICTORY && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalVictory[gbWorldSectorZ] != -1 )
+			SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalVictory[gbWorldSectorZ] );
+		else
+		#endif
+		SetMusicMode( GetMusicMode() );
 	}
-//#ifdef JA2BETAVERSION
-	else if( ubSaveGameID == SAVE__END_TURN_NUM ) //SAVE__END_TURN_NUM_1 || ubSaveGameID == SAVE__END_TURN_NUM_2 )
-	{
-//		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_END_TURN_AUTO_SAVE ] );
-	}
-//#endif
-	else
-	{
-		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_SAVESLOTSUCCESS ] );
-	}
-
-	//restore the music mode
-	#ifdef NEWMUSIC
-	if ( GetMusicMode() == MUSIC_TACTICAL_NOTHING && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalNothing[gbWorldSectorZ] != -1 )
-		SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalNothing[gbWorldSectorZ] );
-	else if ( GetMusicMode() == MUSIC_TACTICAL_ENEMYPRESENT && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalTensor[gbWorldSectorZ] != -1 )
-		SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalTensor[gbWorldSectorZ] );
-	else if ( GetMusicMode() == MUSIC_TACTICAL_BATTLE && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalBattle[gbWorldSectorZ] != -1 )
-		SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalBattle[gbWorldSectorZ] );
-	else if ( GetMusicMode() == MUSIC_TACTICAL_VICTORY && MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalVictory[gbWorldSectorZ] != -1 )
-		SetMusicModeID( GetMusicMode(), MusicSoundValues[ SECTOR( gWorldSectorX, gWorldSectorY ) ].SoundTacticalVictory[gbWorldSectorZ] );
-	else
-	#endif
-	SetMusicMode( GetMusicMode() );
 
 	//Unset the fact that we are saving a game
 	gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
 
-	UnPauseAfterSaveGame();
+	// Interactive saves retain their legacy post-save unpause behavior. A
+	// service checkpoint only undoes a pause that this invocation introduced.
+	if ( !dedicatedCampaign || fWePausedIt )
+		UnPauseAfterSaveGame();
 
 	#ifdef JA2BETAVERSION
 		InitShutDownMapTempFileTest( FALSE, "SaveMapTempFile", ubSaveGameID );
@@ -3781,7 +3820,8 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	#endif
 
 	//Check for enough free hard drive space
-	NextLoopCheckForEnoughFreeHardDriveSpace();
+	if (!dedicatedCampaign)
+		NextLoopCheckForEnoughFreeHardDriveSpace();
 
 	alreadySaving = false;
 
@@ -3833,14 +3873,16 @@ FAILED_TO_SAVE:
 #endif
 
 	//Put out an error message
-	ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, zSaveLoadText[SLG_SAVE_GAME_ERROR] );
+	if (!dedicatedCampaign)
+		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, zSaveLoadText[SLG_SAVE_GAME_ERROR] );
 
 	#ifdef JA2BETAVERSION
 		InitShutDownMapTempFileTest( FALSE, "SaveMapTempFile", ubSaveGameID );
 	#endif
 
 	//Check for enough free hard drive space
-	NextLoopCheckForEnoughFreeHardDriveSpace();
+	if (!dedicatedCampaign)
+		NextLoopCheckForEnoughFreeHardDriveSpace();
 
 #ifdef JA2BETAVERSION
 	if( fDisableDueToBattleRoster || fDisableMapInterfaceDueToBattle )
@@ -3856,6 +3898,44 @@ FAILED_TO_SAVE:
 	return( FALSE );
 }
 
+BOOLEAN SaveGame(int ubSaveGameID, CHAR16* pGameDesc)
+{
+	if (IsDedicatedCampaignPersistenceRequested()) return FALSE;
+	return SaveGameToPathImpl(ubSaveGameID, pGameDesc, nullptr,
+		LegacySaveInvocation::Interactive);
+}
+
+bool SaveDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
+{
+	try
+	{
+		const int legacySlot = DedicatedLegacySaveSlot(slot);
+		if (legacySlot < 0) return false;
+		CHAR16 description[] = L"Dedicated campaign checkpoint";
+		return SaveGameToPathImpl(legacySlot, description,
+			DedicatedCampaignLogicalScratch(slot),
+			LegacySaveInvocation::DedicatedCampaign) == TRUE;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
+{
+	try
+	{
+		if (DedicatedLegacySaveSlot(slot) < 0) return false;
+		return static_cast<bool>(PrepareRuntimeLoad(
+			GetGameContext(), DedicatedCampaignLogicalScratch(slot)));
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 
 
 UINT32 guiBrokenSaveGameVersion = 0;
@@ -3863,8 +3943,11 @@ extern int gEnemyPreservedTempFileVersion[256];
 extern int gCivPreservedTempFileVersion[256];
 
 
-BOOLEAN LoadSavedGame( int ubSavedGameID )
+static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
+	const char* logicalVfsPath, LegacySaveInvocation invocation)
 {
+	const bool dedicatedCampaign =
+		invocation == LegacySaveInvocation::DedicatedCampaign;
 	HWFILE	hFile;
 	SAVED_GAME_HEADER SaveGameHeader;
 	UINT32	uiNumBytesRead=0;
@@ -3881,19 +3964,37 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
 #endif
 
-	// Reject an invalid slot before dismantling the current tactical state.
-	if( ubSavedGameID < 0 )
-		return( FALSE );
-	if( ubSavedGameID >= SAVE__END_TURN_NUM )
+	if (dedicatedCampaign)
 	{
-		if( ubSavedGameID != SAVE__END_TURN_NUM )
+		if (!ExactDedicatedScratch(ubSavedGameID, logicalVfsPath))
+			return FALSE;
+	}
+	else
+	{
+		// Interactive loading retains the save-screen presence gate.
+		if( ubSavedGameID < 0 )
+			return( FALSE );
+		if( ubSavedGameID >= SAVE__END_TURN_NUM )
+		{
+			if( ubSavedGameID != SAVE__END_TURN_NUM )
+				return( FALSE );
+		}
+		else if( !gbSaveGameArray[ ubSavedGameID ] )
 			return( FALSE );
 	}
-	else if( !gbSaveGameArray[ ubSavedGameID ] )
-		return( FALSE );
 
-	CreateSavedGameFileNameFromNumber(
-		ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	if (dedicatedCampaign)
+	{
+		const int length = std::snprintf(zSaveGameName,
+			sizeof(zSaveGameName), "%s", logicalVfsPath);
+		if (length <= 0 || static_cast<std::size_t>(length) >= sizeof(zSaveGameName))
+			return FALSE;
+	}
+	else
+	{
+		CreateSavedGameFileNameFromNumber(
+			ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	}
 	preparedRuntimeLoad = PrepareRuntimeLoad(
 		GetGameContext(), zSaveGameName );
 	if ( !preparedRuntimeLoad )
@@ -3915,8 +4016,9 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 						", package " + preparedRuntimeLoad.packageId + ")") } );
 		}
 		catch ( ... ) {}
-		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-			L"This save is not a valid save for the active engine and package stack; see the log." );
+		if (!dedicatedCampaign)
+			ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+				L"This save is not a valid save for the active engine and package stack; see the log." );
 		return( FALSE );
 	}
 
@@ -5730,6 +5832,12 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		if( !LoadCurrentSectorsInformationFromTempItemsFile() )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("LoadCurrentSectorsInformationFromTempItemsFile failed" ) );
+			guiCurrentSaveGameVersion = tempVersion;
+			if (dedicatedCampaign)
+			{
+				gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
+				return FALSE;
+			}
 			InitExitGameDialogBecauseFileHackDetected();
 			return( TRUE );
 		}
@@ -5797,12 +5905,12 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	//AssertMsg( uiSizeOfGeneralInfo == 1024, String( "Saved General info is NOT 1024, it is %d.	DF 1.", uiSizeOfGeneralInfo ) );
 #endif
 
-	//if we succesfully LOADED! the game, mark this entry as the last saved game file
-	gGameSettings.bLastSavedGameSlot		= ubSavedGameID;
-
-	//Save the save game settings
-	SaveGameSettings();
-	SaveFeatureFlags();
+	if (!dedicatedCampaign)
+	{
+		gGameSettings.bLastSavedGameSlot = ubSavedGameID;
+		SaveGameSettings();
+		SaveFeatureFlags();
+	}
 
 	uiRelEndPerc += 1;
 	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Final Checks..." );
@@ -6014,7 +6122,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	//we must reset the values
 	HandlePlayerTogglingLightEffects( FALSE );
 
-	if(gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
+	if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
 		if(!LoadInventoryPoolQ(ubSavedGameID))
 			return(FALSE);
 	//dnl ch68 100913 // basic guess when reinforcement should arrive after load game as reinforcement globals are not saved
@@ -6071,6 +6179,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 							std::to_string( static_cast<int>( restored.error ) ) + ")" } );
 				}
 				catch ( ... ) {}
+				gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
+				return FALSE;
 			}
 		}
 	}
@@ -7337,6 +7447,29 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 	SetJa2TacticalWorldSector( loadedSectorX, loadedSectorY, loadedSectorZ );
 
 	return( TRUE );
+}
+
+BOOLEAN LoadSavedGame(int ubSavedGameID)
+{
+	if (IsDedicatedCampaignPersistenceRequested()) return FALSE;
+	return LoadSavedGameFromPathImpl(ubSavedGameID, nullptr,
+		LegacySaveInvocation::Interactive);
+}
+
+bool LoadDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
+{
+	try
+	{
+		const int legacySlot = DedicatedLegacySaveSlot(slot);
+		if (legacySlot < 0) return false;
+		return LoadSavedGameFromPathImpl(legacySlot,
+			DedicatedCampaignLogicalScratch(slot),
+			LegacySaveInvocation::DedicatedCampaign) == TRUE;
+	}
+	catch (...)
+	{
+		return false;
+	}
 }
 
 

@@ -1,4 +1,5 @@
 #include <vfs/Core/vfs.h>
+#include <vfs/Core/vfs_file_raii.h>
 #include <vfs/Core/vfs_init.h>
 
 #include <chrono>
@@ -6,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <list>
 #include <string>
 
@@ -65,6 +67,13 @@ void WriteNative(const std::filesystem::path& path, const std::string& bytes)
 	Check(static_cast<bool>(output), "native fixture writes completely");
 }
 
+std::string ReadNative(const std::filesystem::path& path)
+{
+	std::ifstream input(path, std::ios::binary);
+	return std::string(std::istreambuf_iterator<char>(input),
+		std::istreambuf_iterator<char>());
+}
+
 std::string ReadVirtual(const char* path)
 {
 	vfs::tReadableFile* file = getVFS()->getReadFile(vfs::Path(path));
@@ -81,15 +90,10 @@ std::string ReadVirtual(const char* path)
 void WriteVirtual(const char* path, const std::string& bytes)
 {
 	const vfs::Path logical(path);
-	if (!getVFS()->fileExists(logical))
-		Check(getVFS()->createNewFile(logical), "virtual file can be registered");
-	vfs::tWritableFile* file = getVFS()->getWriteFile(
-		logical, vfs::CVirtualFile::SF_FIRST_WRITABLE);
-	Check(file && file->openWrite(true, true),
-		"virtual fixture opens in the writable profile");
+	vfs::COpenWriteFile file(logical, true, true,
+		vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
 	const vfs::size_t written = bytes.empty() ? 0 : file->write(
 		reinterpret_cast<const vfs::Byte*>(bytes.data()), bytes.size());
-	file->close();
 	Check(written == bytes.size(), "virtual fixture writes completely");
 }
 
@@ -151,6 +155,7 @@ void RunIsolationFixture(const std::string& campaignName,
 
 	WriteNative(data / "data-only.txt", "data");
 	WriteNative(data / "setting.ini", "data-setting");
+	WriteNative(data / "DedicatedCheckpointA.sav", "read-only-checkpoint-name");
 	WriteNative(oldWritable / "old-only.txt", "old-user");
 	WriteNative(oldWritable / "setting.ini", "old-setting");
 	WriteNative(campaign / "setting.ini", "campaign-setting");
@@ -178,6 +183,9 @@ void RunIsolationFixture(const std::string& campaignName,
 	Check(ReadVirtual("data-only.txt") == "data" &&
 		ReadVirtual("setting.ini") == "campaign-setting",
 		"read-only Data remains visible below campaign-local settings");
+	Check(ReadVirtual("DedicatedCheckpointA.sav") ==
+		"read-only-checkpoint-name",
+		"a read-only layer can contain the fixed campaign scratch name");
 	Check(forbiddenOtherCampaignFile.empty() ||
 		!getVFS()->fileExists(vfs::Path(forbiddenOtherCampaignFile)),
 		"one campaign cannot observe a prior campaign profile");
@@ -185,6 +193,7 @@ void RunIsolationFixture(const std::string& campaignName,
 	WriteVirtual("root-write.txt", "root");
 	WriteVirtual("Temp/temp-write.bin", "temp");
 	WriteVirtual("SavedGames/save-write.sav", "save");
+	WriteVirtual("DedicatedCheckpointA.sav", "campaign-checkpoint");
 	Check(std::filesystem::exists(campaign / "root-write.txt") &&
 		std::filesystem::exists(campaign / "Temp" / "temp-write.bin") &&
 		std::filesystem::exists(
@@ -194,6 +203,11 @@ void RunIsolationFixture(const std::string& campaignName,
 		!std::filesystem::exists(
 			oldWritable / "SavedGames" / "save-write.sav"),
 		"root, Temp, and SavedGames writes land only in the campaign profile");
+	Check(ReadVirtual("DedicatedCheckpointA.sav") == "campaign-checkpoint" &&
+		std::filesystem::exists(campaign / "DedicatedCheckpointA.sav") &&
+		ReadNative(data / "DedicatedCheckpointA.sav") ==
+			"read-only-checkpoint-name",
+		"create-always semantics shadow a read-only scratch-name collision");
 
 	vfs_init::VfsConfig packageConfig;
 	AddDirectoryProfile(packageConfig, L"PACKAGE", package, false);

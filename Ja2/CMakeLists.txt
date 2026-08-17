@@ -9,6 +9,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/FeaturesScreen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CompiledGameplayBootstrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignFilesystem.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignSaveAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignStore.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedServerOptions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/GameInitOptionsScreen.cpp"

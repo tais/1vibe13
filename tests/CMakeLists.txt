@@ -113,6 +113,18 @@ target_compile_features(dedicated_campaign_filesystem_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_campaign_filesystem
   COMMAND dedicated_campaign_filesystem_tests)
 
+# The legacy save implementation is injected here. This proves that only the
+# fixed A/B scratch names can enter the exact backend-reserved staging file,
+# without linking the full game or requiring installed Data.
+add_executable(dedicated_campaign_save_adapter_tests
+  dedicated_campaign_save_adapter_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignSaveAdapter.cpp)
+target_include_directories(dedicated_campaign_save_adapter_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_campaign_save_adapter_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_campaign_save_adapter
+  COMMAND dedicated_campaign_save_adapter_tests)
+
 # A dedicated campaign replaces every configured global writable profile
 # before bfVFS scans it. Shared read-only Data/package layers remain visible,
 # while root, Temp, and SavedGames writes are confined to one campaign.

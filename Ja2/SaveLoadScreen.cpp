@@ -6,6 +6,7 @@
 	#include	"Render Dirty.h"
 	#include	"Text Input.h"
 	#include	"SaveLoadGame.h"
+	#include "DedicatedCampaignSaveBridge.h"
 	#include	"stdio.h"
 	#include	"WordWrap.h"
 	#include	"strategicmap.h"
@@ -2675,6 +2676,7 @@ void FailedLoadingGameCallBack( UINT8 bExitValue )
 
 BOOLEAN DoAutoSave( int ubSaveGameID, CHAR16 *pGameDesc )
 {
+	if (IsDedicatedCampaignPersistenceRequested()) return TRUE;
 	if( !SaveGame( ubSaveGameID, pGameDesc ) )
 	{
 		//Unset the fact that we are saving a game
@@ -2691,6 +2693,7 @@ BOOLEAN DoAutoSave( int ubSaveGameID, CHAR16 *pGameDesc )
 
 BOOLEAN DoQuickSave()
 {
+	if (IsDedicatedCampaignPersistenceRequested()) return FALSE;
 	gzGameDescTextField[0] = '\0';
 
 	if( !SaveGame( 0, gzGameDescTextField ) )
@@ -2709,6 +2712,8 @@ BOOLEAN DoQuickSave()
 
 BOOLEAN DoQuickLoad()
 {
+	if (IsDedicatedCampaignPersistenceRequested()) return FALSE;
+
 	//Build the save game array
 	InitSaveGameArray();
 

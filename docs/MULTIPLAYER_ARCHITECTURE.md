@@ -224,17 +224,31 @@ store commits matching state only when visibility is known; either uncertain
 outcome poisons further work, and an indeterminate publication also invalidates
 the in-memory state until process restart. The lifecycle must fail-stop.
 
-This backend is deliberately not wired to `SaveGame` or startup yet. The live
-adapter still needs to install the prepared campaign-isolated writable VFS
-profile (including `Temp/`, not merely `SavedGames/`), enforce the new-versus-
-resume emptiness policy, bind exact slot-6/slot-7 paths, disable
-legacy autosave and InventoryPoolQ sidecars, an installed-content digest, and
-a dedicated load entry point that treats package restore failure as terminal.
+The legacy save adapter now exposes only fixed A/B scratch names inside the
+campaign profile and maps them to the reserved legacy slot identities 6 and 7.
+It semantically preflights the closed runtime container, then truncates and
+copies it into the exact backend-reserved inactive staging file without
+replacing that file's native identity. Dedicated invocations suppress the
+InventoryPoolQ sidecar, legacy last-slot/settings writes, and all legacy
+autosave, quick-save, and quick-load entry points. Dedicated load
+bypasses only the interactive save-array presence gate; a Temp application or
+package restore failure is terminal. Cosmetic header/load-screen selection
+does not consume simulation RNG during a dedicated save. The interactive
+save/load paths retain their legacy filename derivation and save-screen
+presence checks.
+
+The adapter is deliberately not wired into dedicated startup yet. Startup
+still needs to acquire the lease before VFS initialization, install the
+prepared campaign-isolated writable profile (including `Temp/`, not merely
+`SavedGames/`), enforce the new-versus-resume profile policy, materialize and
+verify the active checkpoint before the VFS scan, and run periodic/final
+checkpoints only at committed main-thread frame boundaries. Installed-content
+identity and deterministic host RNG/reinforcement state also remain mandatory.
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must
-all succeed before its manifest is published. Until those conditions are met,
-co-op admission remains closed and no persistent-campaign compatibility claim
-is made.
+all succeed before its manifest is published. Until those lifecycle and
+determinism conditions are met, co-op admission remains closed and no
+persistent-campaign compatibility claim is made.
 
 ## Replication
 
