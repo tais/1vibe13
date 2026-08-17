@@ -840,6 +840,8 @@ file(READ "${SOURCE_ROOT}/Engine/Core/EngineHost.h"
   dedicated_determinism_engine_host_header)
 file(READ "${SOURCE_ROOT}/Ja2/RuntimeSaveState.cpp"
   dedicated_runtime_save_state_source)
+file(READ "${SOURCE_ROOT}/Ja2/RuntimeSaveState.h"
+  dedicated_runtime_save_state_header)
 file(READ "${SOURCE_ROOT}/tests/runtime_checkpoint_v2_tests.cpp"
   dedicated_runtime_checkpoint_tests)
 file(READ "${SOURCE_ROOT}/tests/runtime_random_checkpoint_tests.cpp"
@@ -947,6 +949,8 @@ strip_cxx_comments_and_literals(dedicated_determinism_engine_host_header
   dedicated_determinism_engine_host_code)
 strip_cxx_comments_and_literals(dedicated_runtime_save_state_source
   dedicated_runtime_save_state_code)
+strip_cxx_comments_and_literals(dedicated_runtime_save_state_header
+  dedicated_runtime_save_state_header_code)
 strip_cxx_comments_and_literals(dedicated_runtime_checkpoint_tests
   dedicated_runtime_checkpoint_test_code)
 strip_cxx_comments_and_literals(dedicated_runtime_random_tests
@@ -1261,7 +1265,9 @@ require_ordered_fragments(dedicated_campaign_save_impl_slice
   "invocation == LegacySaveInvocation::DedicatedCampaign"
   "ExactDedicatedScratch("
   "gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;"
-  "PrepareRuntimeSave( GetGameContext() )"
+  "PrepareRuntimeSave("
+  "RuntimeSavePolicy::DedicatedDeterministic"
+  "RuntimeSavePolicy::Interactive"
   "if (!preparedRuntimeSave)"
   "goto FAILED_TO_SAVE;"
   "SaveGameHeader.ubLoadScreenID = dedicatedCampaign"
@@ -1293,6 +1299,8 @@ require_ordered_fragments(dedicated_campaign_load_impl_slice
   "ExactDedicatedScratch(ubSavedGameID, logicalVfsPath)"
   "gbSaveGameArray[ ubSavedGameID ]"
   "PrepareRuntimeLoad("
+  "RuntimeSavePolicy::DedicatedDeterministic"
+  "RuntimeSavePolicy::Interactive"
   "TrashAllSoldiers( )"
   "LoadCurrentSectorsInformationFromTempItemsFile()"
   "if (dedicatedCampaign)"
@@ -1321,6 +1329,15 @@ foreach(dedicated_campaign_public_gate IN ITEMS
     "IsDedicatedCampaignPersistenceRequested()"
     "return FALSE;")
 endforeach()
+
+extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+  "bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept"
+  dedicated_campaign_validate_bridge_slice
+  "Cannot bound dedicated campaign validation bridge")
+require_ordered_fragments(dedicated_campaign_validate_bridge_slice
+  "Dedicated campaign semantic validation can fall back to interactive policy"
+  "DedicatedCampaignLogicalScratch(slot)"
+  "RuntimeSavePolicy::DedicatedDeterministic")
 
 foreach(dedicated_campaign_bridge_entry IN ITEMS
     "bool SaveDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept"
@@ -1675,9 +1692,8 @@ foreach(dedicated_package_random_contract IN ITEMS
 endforeach()
 
 foreach(dedicated_package_random_archive_contract IN ITEMS
-    "LegacyArchiveVersion = 3"
-    "ArchiveVersion = 4"
-    "LegacyArchiveVersion, ArchiveVersion"
+    "LegacyVersion, CurrentVersion"
+    "PersistenceHeader{ArchiveMagic, CurrentVersion}"
     "writer.writeU64(record.random.rootSeed);"
     "writer.writeU64(record.random.maximumStreams);"
     "reader.readU64(record.random.rootSeed)"
@@ -1800,6 +1816,8 @@ foreach(dedicated_package_probe_api_contract IN ITEMS
 endforeach()
 
 foreach(dedicated_package_archive_version_contract IN ITEMS
+    "static constexpr std::uint16_t LegacyVersion = 3;"
+    "static constexpr std::uint16_t CurrentVersion = 4;"
     "std::uint16_t storedVersion = 0;")
   string(FIND "${dedicated_package_save_archive_header_code}"
     "${dedicated_package_archive_version_contract}"
@@ -1829,8 +1847,8 @@ foreach(dedicated_package_save_policy_test_contract IN ITEMS
     "CallbackRandomAction::MismatchedMoveAssignThenDraw"
     "CallbackRandomAction::MoveConstructFromLiveWithoutDraw"
     "PackageSaveStateError::RandomConsumed"
-    "current.storedVersion == 4"
-    "legacy.storedVersion == 3")
+    "current.storedVersion == PackageSaveArchiveService::CurrentVersion"
+    "legacy.storedVersion == PackageSaveArchiveService::LegacyVersion")
   string(FIND "${dedicated_package_save_rng_policy_test_code}"
     "${dedicated_package_save_policy_test_contract}"
     dedicated_package_save_policy_test_contract_position)
@@ -1954,6 +1972,112 @@ foreach(dedicated_interactive_runtime_save_test_contract IN ITEMS
   if(dedicated_interactive_runtime_save_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Interactive in-frame runtime-save regression lost '${dedicated_interactive_runtime_save_test_contract}'")
+  endif()
+endforeach()
+
+# Dedicated campaign persistence is a distinct fail-closed policy. It requires
+# the process-global game RNG itself to be the healthy SimulationRandom exposed
+# through EngineServices; until that installation exists, both strict entry
+# points reject before storage/domain work. The wire contract is exactly CHKP
+# v2 + PGST v4 + GRNG v1, while interactive saves remain CHKP v1 compatible.
+foreach(dedicated_runtime_policy_header_contract IN ITEMS
+    "enum class RuntimeSavePolicy"
+    "Interactive"
+    "DedicatedDeterministic"
+    "CanonicalSimulationRandomRequired"
+    "SemanticPackagePreflightRequired"
+    "RuntimeSavePolicy policy_ = RuntimeSavePolicy::Interactive;"
+    "RuntimeSavePolicy policy = RuntimeSavePolicy::Interactive")
+  string(FIND "${dedicated_runtime_save_state_header_code}"
+    "${dedicated_runtime_policy_header_contract}"
+    dedicated_runtime_policy_header_contract_position)
+  if(dedicated_runtime_policy_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated runtime-save policy lost '${dedicated_runtime_policy_header_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "PreparedRuntimeSave PrepareRuntimeSave("
+  "RuntimeSaveCommitResult CommitRuntimeSave("
+  dedicated_strict_runtime_prepare_save_slice
+  "Cannot bound strict runtime-save preparation")
+require_ordered_fragments(dedicated_strict_runtime_prepare_save_slice
+  "Strict runtime-save preparation no longer gates RNG/boundary/packages"
+  "policy == RuntimeSavePolicy::DedicatedDeterministic"
+  "CanonicalSimulationRandom(context)"
+  "SimulationRandomUnhealthy"
+  "captureRuntimeCheckpoint()"
+  "PackageSaveRandomPolicy::RequireUnconsumed"
+  "SemanticPackagePreflightRequired"
+  "UnsupportedPackageRandomSchema"
+  "packageRandomHostSeed()"
+  "StrictRuntimeStillMatches(")
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeSaveCommitResult CommitRuntimeSave("
+  "PreparedRuntimeLoad PrepareRuntimeLoad("
+  dedicated_strict_runtime_commit_slice
+  "Cannot bound strict runtime-save commit")
+require_ordered_fragments(dedicated_strict_runtime_commit_slice
+  "Strict runtime-save commit lost exact CHKP/PGST/GRNG publication"
+  "StrictRuntimeStillMatches("
+  "runtimeCheckpoints().encode("
+  "packageSaveArchives().encode("
+  "RuntimeRandomCheckpointService"
+  "randomCheckpoints.encode("
+  "sections.reserve(strict ? 3 : 2)"
+  "RuntimeCheckpointSection"
+  "PackageStateSection"
+  "RuntimeRandomCheckpointSectionType"
+  "runtimeSaveContainers().seal(")
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "PreparedRuntimeLoad PrepareRuntimeLoad("
+  "PackageSaveStateLoadResult RestorePreparedRuntimeSave("
+  dedicated_strict_runtime_prepare_load_slice
+  "Cannot bound strict runtime-load preparation")
+require_ordered_fragments(dedicated_strict_runtime_prepare_load_slice
+  "Strict runtime-load gate/version/preflight ordering regressed"
+  "policy == RuntimeSavePolicy::DedicatedDeterministic"
+  "CanonicalSimulationRandom(context)"
+  "SimulationRandomUnhealthy"
+  "try"
+  "runtimeSaveContainers().inspect("
+  "container.sections.size() != 3"
+  "RuntimeCheckpointService::CurrentVersion"
+  "PackageSaveArchiveService::CurrentVersion"
+  "RuntimeRandomCheckpointVersion"
+  "PackageSaveRandomPolicy::RequireUnconsumed"
+  "SemanticPackagePreflightRequired"
+  "packageRestorePending_ = true;")
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "PackageSaveStateLoadResult RestorePreparedRuntimeSave("
+  "const char* RuntimeSaveContainerLoadErrorName("
+  dedicated_strict_runtime_restore_slice
+  "Cannot bound strict runtime restore")
+require_ordered_fragments(dedicated_strict_runtime_restore_slice
+  "Strict runtime restore lost package/boundary/simulation ordering"
+  "PackageSaveRandomPolicy::RequireUnconsumed"
+  "restoreRuntimeCheckpointBoundary("
+  "simulationRandom->restoreCheckpoint(")
+
+foreach(dedicated_runtime_closed_gate_test_contract IN ITEMS
+    "const PreparedRuntimeSave strictSave = PrepareRuntimeSave("
+    "const PreparedRuntimeLoad strictLoad = PrepareRuntimeLoad("
+    "RuntimeSavePolicy::DedicatedDeterministic"
+    "RuntimeSavePolicyError::"
+    "CanonicalSimulationRandomRequired"
+    "strictSaveDidNotWrite"
+    "interactiveCommit"
+    "interactiveLoad")
+  string(FIND "${dedicated_runtime_save_headless_test_code}"
+    "${dedicated_runtime_closed_gate_test_contract}"
+    dedicated_runtime_closed_gate_test_contract_position)
+  if(dedicated_runtime_closed_gate_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated runtime closed-gate regression lost '${dedicated_runtime_closed_gate_test_contract}'")
   endif()
 endforeach()
 
@@ -2214,7 +2338,12 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "GRNG v1"
     "package RNG callback policy"
     "interactive CHKP v1 metadata"
-    "not yet applied to the live game runtime"
+    "separate interactive and dedicated"
+    "Every fixed-slot dedicated bridge explicitly selects the strict"
+    "and publish exactly those"
+    "three sections. Strict load requires that same exact section set"
+    "LegacyGameRandomSource"
+    "closed gate rather than a persistent-campaign compatibility claim"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"

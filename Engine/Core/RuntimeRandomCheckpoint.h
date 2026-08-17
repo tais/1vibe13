@@ -90,7 +90,7 @@ struct RuntimeRandomCheckpointLoadResult
 class RuntimeRandomCheckpointService
 {
 public:
-	explicit RuntimeRandomCheckpointService(PersistenceService& persistence)
+	explicit RuntimeRandomCheckpointService(const PersistenceService& persistence)
 		: persistence_(persistence) {}
 
 	RuntimeRandomCheckpointSaveError save(const std::string& path,
@@ -111,7 +111,7 @@ public:
 		RuntimeRandomCheckpoint& checkpoint) const noexcept;
 
 private:
-	PersistenceService& persistence_;
+	const PersistenceService& persistence_;
 };
 
 #endif

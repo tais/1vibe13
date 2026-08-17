@@ -761,7 +761,8 @@ std::vector<std::uint8_t> EncodeLegacyArchive(
 	payload.writeU32(0);
 	std::vector<std::uint8_t> encoded;
 	Check(persistence.encodeEnvelope(
-		PersistenceHeader{PackageSaveArchiveMagic, 3}, payload.bytes(), encoded) ==
+		PersistenceHeader{PackageSaveArchiveMagic,
+			PackageSaveArchiveService::LegacyVersion}, payload.bytes(), encoded) ==
 		PersistenceSaveResult::Success,
 		"PGST v3 stored-version fixture encodes");
 	return encoded;
@@ -783,12 +784,13 @@ void TestArchiveReportsStoredVersion()
 	PackageSaveArchive decoded;
 	const PackageSaveArchiveLoadResult current =
 		archives.decode(encoded, compatibility, decoded);
-	Check(static_cast<bool>(current) && current.storedVersion == 4,
+	Check(static_cast<bool>(current) &&
+		current.storedVersion == PackageSaveArchiveService::CurrentVersion,
 		"successful PGST v4 decode reports stored version 4");
 	const PackageSaveArchiveLoadResult incompatible = archives.decode(
 		encoded, RuntimeCompatibilityFingerprint{1, 8, 9}, decoded);
 	Check(incompatible.error == PackageSaveArchiveLoadError::IncompatibleRuntime &&
-		incompatible.storedVersion == 4,
+		incompatible.storedVersion == PackageSaveArchiveService::CurrentVersion,
 		"semantic PGST rejection still reports its integrity-checked stored version");
 
 	const std::vector<std::uint8_t> encodedLegacy =
@@ -796,7 +798,8 @@ void TestArchiveReportsStoredVersion()
 	PackageSaveArchive decodedLegacy;
 	const PackageSaveArchiveLoadResult legacy =
 		archives.decode(encodedLegacy, compatibility, decodedLegacy);
-	Check(static_cast<bool>(legacy) && legacy.storedVersion == 3 &&
+	Check(static_cast<bool>(legacy) &&
+		legacy.storedVersion == PackageSaveArchiveService::LegacyVersion &&
 		decodedLegacy.state.engineRecords.front().random.schema ==
 			PackageRandomCheckpoint::LegacySchema,
 		"successful compatibility decode reports stored PGST version 3");

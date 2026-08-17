@@ -14,7 +14,6 @@
 namespace
 {
 constexpr std::uint32_t PackageSaveArchiveMagic = 0x54534750u;
-constexpr std::uint16_t LegacyPackageSaveArchiveVersion = 3;
 
 void Check(bool condition, const char* message)
 {
@@ -207,7 +206,7 @@ std::vector<std::uint8_t> EncodeLegacyV3Archive(
 	std::vector<std::uint8_t> encoded;
 	Check(persistence.encodeEnvelope(
 		PersistenceHeader{PackageSaveArchiveMagic,
-			LegacyPackageSaveArchiveVersion},
+			PackageSaveArchiveService::LegacyVersion},
 		payload.bytes(), encoded) == PersistenceSaveResult::Success,
 		"legacy archive fixture is wrapped in a valid integrity envelope");
 	return encoded;
@@ -229,7 +228,11 @@ void TestArchiveV4RoundTripAndV3Compatibility()
 		{"rules.current", "2.0", currentSource.checkpoint()});
 	std::vector<std::uint8_t> encoded{0xff};
 	Check(archives.encode(current, encoded) == PackageSaveArchiveSaveError::None &&
-		encoded.size() > 6 && encoded[4] == 4 && encoded[5] == 0,
+		encoded.size() > 6 &&
+		encoded[4] == static_cast<std::uint8_t>(
+			PackageSaveArchiveService::CurrentVersion) &&
+		encoded[5] == static_cast<std::uint8_t>(
+			PackageSaveArchiveService::CurrentVersion >> 8),
 		"new package archives explicitly encode PGST v4");
 	PackageSaveArchive decoded;
 	Check(archives.decode(encoded, compatibility, decoded) &&

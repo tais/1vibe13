@@ -3652,6 +3652,71 @@ int main( int, char** )
 	}
 
 	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), GetGameRandomSource(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready = context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath =
+			"SavedGames/RuntimeSavePolicyGate.sav";
+		const std::vector<std::uint8_t> domain = { 0x52, 0x53, 0x50, 0x01 };
+		storage.writeAll( savePath, domain );
+
+		const PreparedRuntimeSave strictSave = PrepareRuntimeSave(
+			context, RuntimeSavePolicy::DedicatedDeterministic );
+		const PreparedRuntimeLoad strictLoad = PrepareRuntimeLoad(
+			context, "SavedGames/RuntimeSavePolicyGateMissing.sav",
+			RuntimeSavePolicy::DedicatedDeterministic );
+		std::vector<std::uint8_t> afterStrictGate;
+		const bool strictSaveDidNotWrite =
+			storage.readAll( savePath, afterStrictGate ) &&
+			afterStrictGate == domain;
+
+		PreparedRuntimeSave interactiveSave = PrepareRuntimeSave(
+			context, RuntimeSavePolicy::Interactive );
+		const RuntimeSaveCommitResult interactiveCommit = CommitRuntimeSave(
+			context, savePath, std::move( interactiveSave ) );
+		const PreparedRuntimeLoad interactiveLoad = PrepareRuntimeLoad(
+			context, savePath, RuntimeSavePolicy::Interactive );
+
+		GAME_SETTINGS injectedSettings = {};
+		GAME_OPTIONS injectedOptions = {};
+		MemoryByteStorage injectedStorage;
+		SimulationRandom injectedRandom( 0x1234u );
+		EngineServices injectedServices{
+			ZeroTimeSource::instance(), injectedRandom, injectedStorage };
+		GameContext injectedContext( injectedSettings, injectedOptions,
+			GameCapabilities{}, injectedServices );
+		const PreparedRuntimeSave injectedStrictSave = PrepareRuntimeSave(
+			injectedContext, RuntimeSavePolicy::DedicatedDeterministic );
+		const PreparedRuntimeLoad injectedStrictLoad = PrepareRuntimeLoad(
+			injectedContext, "SavedGames/InjectedRuntimePolicyMissing.sav",
+			RuntimeSavePolicy::DedicatedDeterministic );
+		CHECK( ready && !strictSave &&
+		       strictSave.policy() ==
+		           RuntimeSavePolicy::DedicatedDeterministic &&
+		       strictSave.policyError == RuntimeSavePolicyError::
+		           CanonicalSimulationRandomRequired &&
+		       !strictLoad && strictLoad.policy() ==
+		           RuntimeSavePolicy::DedicatedDeterministic &&
+		       strictLoad.policyError == RuntimeSavePolicyError::
+		           CanonicalSimulationRandomRequired &&
+		       strictLoad.containerError ==
+		           RuntimeSaveContainerLoadError::InvalidOrUnsupported &&
+		       !injectedStrictSave && !injectedStrictLoad &&
+		       injectedStrictSave.policyError == RuntimeSavePolicyError::
+		           CanonicalSimulationRandomRequired &&
+		       injectedStrictLoad.policyError == RuntimeSavePolicyError::
+		           CanonicalSimulationRandomRequired &&
+		       strictSaveDidNotWrite && interactiveCommit && interactiveLoad,
+		       "dedicated runtime policy requires the canonical global SimulationRandom identity before I/O while interactive saves remain compatible" );
+	}
+
+	{
 		GAME_SETTINGS firstSettings = {};
 		GAME_OPTIONS firstOptions = {};
 		GAME_SETTINGS secondSettings = {};

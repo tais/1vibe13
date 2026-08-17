@@ -59,6 +59,9 @@ struct PackageSaveArchiveLoadResult
 class PackageSaveArchiveService
 {
 public:
+	static constexpr std::uint16_t LegacyVersion = 3;
+	static constexpr std::uint16_t CurrentVersion = 4;
+
 	explicit PackageSaveArchiveService(PersistenceService& persistence,
 		std::size_t maximumRecords = 4096,
 		std::size_t maximumPackageBytes = 4u * 1024u * 1024u,

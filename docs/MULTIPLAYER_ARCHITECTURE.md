@@ -279,10 +279,27 @@ callback ends. Restore stages the persisted package RNG before both
 validation and load, then republishes a pristine persisted copy, so callback
 inspection of the callback-bound package RNG is independent of destination
 history and interactive callback draws remain rollback-only. Existing
-synchronous UI saves still emit
-interactive CHKP v1 metadata because their screen handler runs inside an
-uncommitted application frame; they do not claim a restorable deterministic
-boundary. These value contracts are not yet applied to the live game runtime.
+synchronous UI saves still emit interactive CHKP v1 metadata because their
+screen handler runs inside an uncommitted application frame; they do not claim
+a restorable deterministic boundary.
+
+The runtime-save coordinator now has separate interactive and dedicated
+policies. Every fixed-slot dedicated bridge explicitly selects the strict
+policy. Strict saves require a healthy canonical `SimulationRandom`, a
+committed CHKP v2 boundary, PGST v4, and GRNG v1, and publish exactly those
+three sections. Strict load requires that same exact section set and rejects
+older metadata-only or seed-incomplete records before the legacy domain loader
+dismantles live state. Package-defined opaque save records also remain closed
+until their semantic validation can be staged before that destructive load;
+engine-owned package RNG records are structurally preflighted separately.
+
+The live game still exposes `LegacyGameRandomSource` as its canonical random
+service, so the strict policy deliberately fails at its first entry before any
+dedicated domain save or load is attempted. Installing `SimulationRandom`
+also requires a transaction guard spanning every legacy save/load exit and an
+exact, non-rewindable package-RNG transaction stamp. Until those prerequisites
+and the audited transient-state collector are installed, this coordinator is a
+closed gate rather than a persistent-campaign compatibility claim.
 
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must

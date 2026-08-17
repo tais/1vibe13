@@ -10,8 +10,6 @@
 namespace
 {
 constexpr std::uint32_t ArchiveMagic = 0x54534750u; // "PGST" on disk.
-constexpr std::uint16_t LegacyArchiveVersion = 3;
-constexpr std::uint16_t ArchiveVersion = 4;
 bool ValidRecordIdentity(const PackageSaveStateRecord& record)
 {
 	return IsValidEngineIdentifier(record.packageId) &&
@@ -176,7 +174,7 @@ PackageSaveArchiveSaveError PackageSaveArchiveService::encode(
 			}
 		}
 		return Translate(persistence_.encodeEnvelope(
-			PersistenceHeader{ArchiveMagic, ArchiveVersion}, writer.bytes(), encoded));
+			PersistenceHeader{ArchiveMagic, CurrentVersion}, writer.bytes(), encoded));
 	}
 	catch (...)
 	{
@@ -194,7 +192,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::load(const std::string& 
 	{
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.loadEnvelope(path, ArchiveMagic,
-			LegacyArchiveVersion, ArchiveVersion, header, payload);
+			LegacyVersion, CurrentVersion, header, payload);
 		if (loaded != PersistenceLoadResult::Success)
 			return {Translate(loaded), {}};
 		return decodePayload(payload, header.version, expectedCompatibility, archive);
@@ -215,7 +213,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decode(
 	{
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.decodeEnvelope(encoded,
-			ArchiveMagic, LegacyArchiveVersion, ArchiveVersion, header, payload);
+			ArchiveMagic, LegacyVersion, CurrentVersion, header, payload);
 		if (loaded != PersistenceLoadResult::Success)
 			return {Translate(loaded), {}};
 		return decodePayload(payload, header.version, expectedCompatibility, archive);
@@ -304,7 +302,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 			!reader.readU32(record.random.schema))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
 				decoded.compatibility, archiveVersion};
-		if (archiveVersion == ArchiveVersion)
+		if (archiveVersion == CurrentVersion)
 		{
 			if (!reader.readU64(record.random.rootSeed) ||
 				!reader.readU64(record.random.maximumStreams))
@@ -316,7 +314,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				decoded.compatibility, archiveVersion};
 		record.random.packageId = record.packageId;
 		const std::uint32_t expectedRandomSchema =
-			archiveVersion == LegacyArchiveVersion
+			archiveVersion == LegacyVersion
 				? PackageRandomCheckpoint::LegacySchema
 				: PackageRandomCheckpoint::CurrentSchema;
 		if (!ValidEngineRecordIdentity(record, expectedRandomSchema))
@@ -328,7 +326,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 		if (streamCount > maximumRandomStreamsPerPackage_)
 			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
 				decoded.compatibility, archiveVersion};
-		if (archiveVersion == ArchiveVersion &&
+		if (archiveVersion == CurrentVersion &&
 			(streamCount > record.random.maximumStreams ||
 			 record.random.maximumStreams != maximumRandomStreamsPerPackage_))
 			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
@@ -338,7 +336,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 			!AddEncodedStringBytes(totalBytes, record.packageVersion,
 				maximumTotalBytes_) ||
 			!AddBoundedBytes(totalBytes, sizeof(std::uint32_t) * 2u +
-				(archiveVersion == ArchiveVersion
+				(archiveVersion == CurrentVersion
 					? sizeof(std::uint64_t) * 2u : 0u),
 				maximumTotalBytes_))
 			return {PackageSaveArchiveLoadError::TotalTooLarge,

@@ -2757,7 +2757,10 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 	gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
 	// Capture framework state at this single paused-game boundary. It is sealed
 	// into the same file only after the domain serializer closes successfully.
-	preparedRuntimeSave = PrepareRuntimeSave( GetGameContext() );
+	preparedRuntimeSave = PrepareRuntimeSave(
+		GetGameContext(), dedicatedCampaign
+			? RuntimeSavePolicy::DedicatedDeterministic
+			: RuntimeSavePolicy::Interactive );
 	if (!preparedRuntimeSave)
 		goto FAILED_TO_SAVE;
 
@@ -3754,6 +3757,8 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 					"Could not seal runtime save " +
 						std::string( zSaveGameName ) + " (checkpoint " +
 						std::to_string( static_cast<int>( runtimeSave.checkpointError ) ) +
+						", policy " + std::to_string(
+							static_cast<int>( runtimeSave.policyError ) ) +
 						", capture " + std::to_string(
 							static_cast<int>( runtimeSave.packageCaptureError ) ) +
 						", archive " + std::to_string(
@@ -3928,7 +3933,8 @@ bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
 	{
 		if (DedicatedLegacySaveSlot(slot) < 0) return false;
 		return static_cast<bool>(PrepareRuntimeLoad(
-			GetGameContext(), DedicatedCampaignLogicalScratch(slot)));
+			GetGameContext(), DedicatedCampaignLogicalScratch(slot),
+			RuntimeSavePolicy::DedicatedDeterministic));
 	}
 	catch (...)
 	{
@@ -3996,7 +4002,9 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 			ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
 	}
 	preparedRuntimeLoad = PrepareRuntimeLoad(
-		GetGameContext(), zSaveGameName );
+		GetGameContext(), zSaveGameName, dedicatedCampaign
+			? RuntimeSavePolicy::DedicatedDeterministic
+			: RuntimeSavePolicy::Interactive );
 	if ( !preparedRuntimeLoad )
 	{
 		try
@@ -4010,6 +4018,8 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 						preparedRuntimeLoad.checkpointError ) +
 					", packages " + PackageSaveArchiveLoadErrorName(
 						preparedRuntimeLoad.packageArchiveError ) +
+					", policy " + std::to_string( static_cast<int>(
+						preparedRuntimeLoad.policyError ) ) +
 					", contract " + std::to_string( static_cast<int>(
 						preparedRuntimeLoad.packageContractError ) ) +
 					(preparedRuntimeLoad.packageId.empty() ? ")" :
