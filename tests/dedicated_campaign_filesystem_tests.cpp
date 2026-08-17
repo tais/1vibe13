@@ -335,11 +335,22 @@ void TestOpenAndLock()
 	Check(backend.isOpen() &&
 		std::filesystem::equivalent(backend.stateRoot(), root.path()) &&
 		backend.campaignDirectory().filename() == "campaign-shared_01" &&
+		backend.profileDirectory().filename() == "profile" &&
+		backend.profileDirectory().parent_path() ==
+			backend.campaignDirectory() &&
+		backend.profileDirectory() != backend.campaignDirectory() &&
+		std::filesystem::is_directory(backend.profileDirectory()) &&
+		backend.profileDirectoryState() ==
+			DedicatedCampaignProfileDirectoryState::Empty &&
 		backend.checkpointPath(DedicatedCampaignSlot::A).filename() ==
 			"checkpoint-a.sav" &&
 		backend.manifestPath(DedicatedCampaignSlot::B).filename() ==
 			"manifest-b.bin",
 		"backend exposes only fixed campaign-local slot paths");
+	WriteBytes(backend.profileDirectory() / "stale-runtime-state", {'x'});
+	Check(backend.profileDirectoryState() ==
+		DedicatedCampaignProfileDirectoryState::NonEmpty,
+		"new-campaign policy can reject a stale nonempty profile");
 	Check(std::filesystem::exists(root.path() / "process.lock"),
 		"root lock file is stable and visible");
 	FileIdentity initialLockIdentity;
@@ -377,6 +388,41 @@ void TestOpenAndLock()
 		DedicatedCampaignFilesystemError::None &&
 		reserved.campaignDirectory().filename() == "campaign-con",
 		"prefixed keys cannot become Windows device components");
+}
+
+void TestProfilePathIdentity()
+{
+	TemporaryRoot root;
+	FileCheckpointWriter writer;
+	DedicatedCampaignFilesystemBackend backend(writer);
+	Check(backend.open(root.path(), "profile_identity") ==
+		DedicatedCampaignFilesystemError::None,
+		"profile identity fixture opens");
+	const std::filesystem::path profile = backend.profileDirectory();
+	const std::filesystem::path moved =
+		backend.campaignDirectory() / "profile-held";
+	std::error_code error;
+	std::filesystem::rename(profile, moved, error);
+#ifdef _WIN32
+	Check(static_cast<bool>(error) &&
+		backend.profileDirectoryState() ==
+			DedicatedCampaignProfileDirectoryState::Empty,
+		"the retained Windows handle prevents profile replacement while open");
+#else
+	Check(!error, "the POSIX profile path can be displaced for the fixture");
+	const std::filesystem::path elsewhere = root.path() / "elsewhere";
+	std::filesystem::create_directory(elsewhere, error);
+	if (!error) std::filesystem::create_directory_symlink(
+		elsewhere, profile, error);
+	Check(!error && backend.profileDirectoryState() ==
+		DedicatedCampaignProfileDirectoryState::Failure,
+		"a post-open profile replacement cannot pass the held-directory check");
+#endif
+	backend.close();
+	DedicatedCampaignFilesystemBackend next(writer);
+	Check(next.open(root.path(), "next_owner") ==
+		DedicatedCampaignFilesystemError::None,
+		"profile handles close before the root lock is handed to the next owner");
 }
 
 void TestSha256PaddingBoundariesAndSizeCap()
@@ -631,6 +677,27 @@ void TestUnsafeManagedEntries()
 	}
 	{
 		TemporaryRoot root;
+		std::error_code error;
+		const std::filesystem::path campaign =
+			root.path() / "campaigns" / "campaign-unsafe_profile";
+		const std::filesystem::path elsewhere = root.path() / "elsewhere";
+		const std::filesystem::path profile = campaign / "profile";
+		std::filesystem::create_directories(campaign, error);
+		if (!error) std::filesystem::create_directory(elsewhere, error);
+		Check(!error && CreateManagedDirectoryIndirection(elsewhere, profile),
+			"campaign-profile indirection fixture is created");
+		FileCheckpointWriter writer;
+		DedicatedCampaignFilesystemBackend backend(writer);
+		Check(backend.open(root.path(), "unsafe_profile") ==
+			DedicatedCampaignFilesystemError::UnsafeManagedPath,
+			"the isolated writable profile never follows a symlink or junction");
+#ifdef _WIN32
+		Check(RemoveDirectoryW(profile.c_str()) != FALSE,
+			"profile junction fixture is removed without traversing its target");
+#endif
+	}
+	{
+		TemporaryRoot root;
 		FileCheckpointWriter writer;
 		DedicatedCampaignFilesystemBackend backend(writer);
 		Check(backend.open(root.path(), "linked") ==
@@ -677,6 +744,7 @@ int main(int argc, char** argv)
 		return RunLockChildMode(argv[1], std::filesystem::u8path(argv[2]));
 #endif
 	TestOpenAndLock();
+	TestProfilePathIdentity();
 	TestStoreRoundTripAndSha256();
 	TestInvalidNewerCheckpointSizeFallback();
 	TestSha256PaddingBoundariesAndSizeCap();

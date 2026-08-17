@@ -201,6 +201,19 @@ the same writable root. Campaign directory names use a
 `campaign-` prefix and lowercase key, avoiding case-only duplicates and Win32
 device-name components.
 
+Each campaign also owns a separately managed `profile/` child. Checkpoints,
+manifests, and their publication temporaries stay in the parent campaign
+directory and are never mounted into the legacy VFS catalogue. The bfVFS
+initializer has a writable-profile replacement seam which skips every
+configured `WRITE=true` profile before scanning it, retains the configured
+read-only Data layers, and installs exactly one supplied writable root. Focused
+tests prove that global user-profile files do not leak into the campaign,
+campaign root/`Temp`/`SavedGames` writes remain isolated, and later read-only
+package overlays stay below the campaign profile. A new campaign must reject a
+pre-existing nonempty `profile/`; resume may reuse it. Startup has not invoked
+this seam yet, and native opt-in diagnostic sinks outside bfVFS still need an
+explicit campaign-local log policy.
+
 Checkpoint probing is bounded to 256 MiB and hashes the closed file with
 streaming SHA-256. Manifest reads buffer at most 176 bytes plus an oversized
 sentinel. Manifest publication uses an exclusive same-directory temporary,
@@ -212,8 +225,9 @@ outcome poisons further work, and an indeterminate publication also invalidates
 the in-memory state until process restart. The lifecycle must fail-stop.
 
 This backend is deliberately not wired to `SaveGame` or startup yet. The live
-adapter still needs a campaign-isolated writable VFS profile (including
-`Temp/`, not merely `SavedGames/`), exact slot-6/slot-7 path binding, disabled
+adapter still needs to install the prepared campaign-isolated writable VFS
+profile (including `Temp/`, not merely `SavedGames/`), enforce the new-versus-
+resume emptiness policy, bind exact slot-6/slot-7 paths, disable
 legacy autosave and InventoryPoolQ sidecars, an installed-content digest, and
 a dedicated load entry point that treats package restore failure as terminal.
 Writing the inactive A/B slot means the runtime container itself need not gain

@@ -69,13 +69,27 @@ namespace vfs_init
 		void appendConfig(VfsConfig& conf);
 	};
 
+	// A service process can replace every configured writable profile before
+	// any of those roots are scanned. Read-only content profiles remain intact;
+	// there is exactly one caller-supplied writable namespace.
+	struct VFS_API WritableProfileOverride
+	{
+		vfs::String name;
+		vfs::Path root;
+	};
+
 	////////////////////////////////////////////////////////////////////////////
 
 	VFS_API bool initWriteProfile(vfs::CVirtualProfile &rProf);
 
 	VFS_API bool initVirtualFileSystem(vfs::Path const& vfs_ini);
 	VFS_API bool initVirtualFileSystem(std::list<vfs::Path> const& vfs_ini_list);
+	VFS_API bool initVirtualFileSystem(
+		std::list<vfs::Path> const& vfs_ini_list,
+		WritableProfileOverride const& writableProfile);
 	VFS_API bool initVirtualFileSystem(vfs::PropertyContainer& props);
+	VFS_API bool initVirtualFileSystem(vfs::PropertyContainer& props,
+		WritableProfileOverride const& writableProfile);
 	VFS_API bool initVirtualFileSystem(vfs_init::VfsConfig const& conf);
 	VFS_API bool initVirtualFileSystem(vfs_init::VfsConfig const& conf, bool replaceExisting);
 };

@@ -782,6 +782,12 @@ file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_store_tests.cpp"
   dedicated_campaign_store_tests)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_filesystem_tests.cpp"
   dedicated_campaign_filesystem_tests)
+file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_vfs_profile_tests.cpp"
+  dedicated_campaign_vfs_profile_tests)
+file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_init.h"
+  dedicated_campaign_vfs_init_header)
+file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/vfs_init.cpp"
+  dedicated_campaign_vfs_init_source)
 file(READ "${SOURCE_ROOT}/docs/MULTIPLAYER_ARCHITECTURE.md"
   dedicated_campaign_store_docs)
 strip_cxx_comments_and_literals(dedicated_campaign_store_header
@@ -796,6 +802,14 @@ strip_cxx_comments_and_literals(dedicated_campaign_filesystem_source
   dedicated_campaign_filesystem_code)
 strip_cxx_comments_and_literals(dedicated_campaign_filesystem_tests
   dedicated_campaign_filesystem_test_code)
+strip_cxx_comments_and_literals(dedicated_campaign_vfs_profile_tests
+  dedicated_campaign_vfs_profile_test_code)
+strip_cxx_comments(dedicated_campaign_vfs_profile_tests
+  dedicated_campaign_vfs_profile_test_contract_text)
+strip_cxx_comments_and_literals(dedicated_campaign_vfs_init_header
+  dedicated_campaign_vfs_init_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_vfs_init_source
+  dedicated_campaign_vfs_init_code)
 
 foreach(dedicated_campaign_store_header_contract IN ITEMS
     "DedicatedCampaignManifestWireSize = 176"
@@ -921,6 +935,10 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "## Durable campaign checkpoints"
     "176-byte little-endian manifest"
     "publishes that slot's manifest"
+    "separately managed `profile/` child"
+    "configured `WRITE=true` profile"
+    "global user-profile files do not leak"
+    "pre-existing nonempty `profile/`"
     "not wired to `SaveGame`"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"
@@ -936,6 +954,11 @@ foreach(dedicated_campaign_filesystem_contract IN ITEMS
     "DedicatedCampaignMaximumCheckpointBytes"
     "DedicatedCampaignCheckpointWriter"
     "DedicatedCampaignFilesystemBackend"
+    "DedicatedCampaignProfileDirectoryState"
+    "profileDirectory()"
+    "profileDirectoryState()"
+    "SameNativeDirectory("
+    "HeldDirectoryState("
     "acceptsIdentity("
     "OpenPrivateRootDirectory("
     "OpenOrCreateManagedDirectoryAt("
@@ -958,6 +981,7 @@ foreach(dedicated_campaign_filesystem_contract IN ITEMS
 endforeach()
 foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
     "TestOpenAndLock();"
+    "TestProfilePathIdentity();"
     "TestStoreRoundTripAndSha256();"
     "TestInvalidNewerCheckpointSizeFallback();"
     "TestSha256PaddingBoundariesAndSizeCap();"
@@ -967,7 +991,9 @@ foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
     "RunLockChildMode("
     "DedicatedCampaignMaximumCheckpointBytes + 1"
     "CreateManagedDirectoryIndirection("
-    "create_hard_link(")
+    "create_hard_link("
+    "DedicatedCampaignProfileDirectoryState::NonEmpty"
+    "DedicatedCampaignProfileDirectoryState::Failure")
   string(FIND "${dedicated_campaign_filesystem_test_code}"
     "${dedicated_campaign_filesystem_test_contract}"
     dedicated_campaign_filesystem_test_contract_position)
@@ -976,6 +1002,77 @@ foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
       "Dedicated campaign filesystem tests lost '${dedicated_campaign_filesystem_test_contract}'")
   endif()
 endforeach()
+
+extract_brace_bounded_slice(dedicated_campaign_filesystem_code
+  "~Impl() noexcept"
+  dedicated_campaign_filesystem_destructor_slice
+  "Cannot bound dedicated campaign filesystem teardown")
+require_ordered_fragments(dedicated_campaign_filesystem_destructor_slice
+  "Dedicated campaign Windows handles must close before releasing the root lock"
+  "CloseHandle(profileDirectoryHandle)"
+  "CloseHandle(campaignDirectoryHandle)"
+  "CloseHandle(campaignsDirectory)"
+  "CloseHandle(rootDirectory)"
+  "UnlockFileEx(lock"
+  "CloseHandle(lock)")
+require_ordered_fragments(dedicated_campaign_filesystem_destructor_slice
+  "Dedicated campaign POSIX handles must close before releasing the root lock"
+  "::close(profileDirectoryHandle)"
+  "::close(campaignDirectoryHandle)"
+  "::close(campaignsDirectory)"
+  "::close(rootDirectory)"
+  "::flock(lock, LOCK_UN)"
+  "::close(lock)")
+
+foreach(dedicated_campaign_vfs_contract IN ITEMS
+    "WritableProfileOverride"
+    "configuredWritable"
+    "if(writableProfile && configuredWritable)"
+    "profile->m_writable = true"
+    "initVirtualFileSystem(conf, writableProfile == NULL)")
+  string(FIND
+    "${dedicated_campaign_vfs_init_header_code}${dedicated_campaign_vfs_init_code}"
+    "${dedicated_campaign_vfs_contract}"
+    dedicated_campaign_vfs_contract_position)
+  if(dedicated_campaign_vfs_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign VFS override lost '${dedicated_campaign_vfs_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_campaign_vfs_test_contract IN ITEMS
+    "_DEDICATED_CAMPAIGN"
+    "OLD_USER"
+    "old-only.txt"
+    "data-only.txt"
+    "Temp/temp-write.bin"
+    "SavedGames/save-write.sav"
+    "package-only.txt"
+    "campaign-one"
+    "campaign-two")
+  string(FIND "${dedicated_campaign_vfs_profile_test_contract_text}"
+    "${dedicated_campaign_vfs_test_contract}"
+    dedicated_campaign_vfs_test_contract_position)
+  if(dedicated_campaign_vfs_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign VFS tests lost '${dedicated_campaign_vfs_test_contract}'")
+  endif()
+endforeach()
+
+string(FIND "${dedicated_test_build_source}"
+  "add_executable(dedicated_campaign_vfs_profile_tests"
+  dedicated_campaign_vfs_test_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_test(NAME dedicated_campaign_vfs_profile"
+  dedicated_campaign_vfs_ctest_position)
+string(FIND "${dedicated_ci_source}"
+  "dedicated_campaign_vfs_profile_tests"
+  dedicated_campaign_vfs_ci_position)
+if(dedicated_campaign_vfs_test_build_position EQUAL -1 OR
+   dedicated_campaign_vfs_ctest_position EQUAL -1 OR
+   dedicated_campaign_vfs_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated campaign VFS override lost CTest or ASan coverage")
+endif()
 
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedServerOptions.h"
   dedicated_options_header_source)

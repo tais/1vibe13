@@ -113,6 +113,16 @@ target_compile_features(dedicated_campaign_filesystem_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_campaign_filesystem
   COMMAND dedicated_campaign_filesystem_tests)
 
+# A dedicated campaign replaces every configured global writable profile
+# before bfVFS scans it. Shared read-only Data/package layers remain visible,
+# while root, Temp, and SavedGames writes are confined to one campaign.
+add_executable(dedicated_campaign_vfs_profile_tests
+  dedicated_campaign_vfs_profile_tests.cpp)
+target_link_libraries(dedicated_campaign_vfs_profile_tests PRIVATE bfVFS)
+target_compile_features(dedicated_campaign_vfs_profile_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_campaign_vfs_profile
+  COMMAND dedicated_campaign_vfs_profile_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

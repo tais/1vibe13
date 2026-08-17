@@ -116,14 +116,31 @@ bool vfs_init::initVirtualFileSystem(std::list<vfs::Path> const& vfs_ini_list)
 	}
 	return initVirtualFileSystem(oVFSProps);
 }
-bool vfs_init::initVirtualFileSystem(vfs::PropertyContainer& oVFSProps)
+
+bool vfs_init::initVirtualFileSystem(
+	std::list<vfs::Path> const& vfs_ini_list,
+	WritableProfileOverride const& writableProfile)
+{
+	vfs::PropertyContainer properties;
+	std::list<vfs::Path>::const_iterator iterator = vfs_ini_list.begin();
+	for(; iterator != vfs_ini_list.end(); ++iterator)
+	{
+		properties.initFromIniFile(*iterator);
+	}
+	return initVirtualFileSystem(properties, writableProfile);
+}
+
+namespace
+{
+bool BuildAndInitializeVirtualFileSystem(vfs::PropertyContainer& properties,
+	const vfs_init::WritableProfileOverride* writableProfile)
 {
 	VFS_LOG_INFO(L"Processing VFS configuration");
 	vfs_init::VfsConfig conf;
 
 	std::list<vfs::String> lProfiles, lLocSections;
 
-	oVFSProps.getStringListProperty(L"vfs_config",L"PROFILES",lProfiles,L"");
+	properties.getStringListProperty(L"vfs_config",L"PROFILES",lProfiles,L"");
 	if(lProfiles.empty())
 	{
 		VFS_LOG_ERROR(L"no profiles specified");
@@ -134,14 +151,22 @@ bool vfs_init::initVirtualFileSystem(vfs::PropertyContainer& oVFSProps)
 	for(; prof_cit != lProfiles.end(); ++prof_cit)
 	{
 		vfs::String sProfSection = vfs::String("PROFILE_") + vfs::String(*prof_cit);
+		const bool configuredWritable = properties.getBoolProperty(
+			sProfSection,L"WRITE",false);
+		// Do not even parse or scan the displaced writable roots. A dedicated
+		// process must not inherit settings or files from the global user profile.
+		if(writableProfile && configuredWritable)
+		{
+			continue;
+		}
 
 		vfs_init::Profile *prof = new vfs_init::Profile();
-		prof->m_name = oVFSProps.getStringProperty(sProfSection,L"NAME",L"");
-		prof->m_root = oVFSProps.getStringProperty(sProfSection,L"PROFILE_ROOT",L"");
-		prof->m_writable = oVFSProps.getBoolProperty(sProfSection,L"WRITE",false);
+		prof->m_name = properties.getStringProperty(sProfSection,L"NAME",L"");
+		prof->m_root = properties.getStringProperty(sProfSection,L"PROFILE_ROOT",L"");
+		prof->m_writable = configuredWritable;
 
 		lLocSections.clear();
-		oVFSProps.getStringListProperty(sProfSection,L"LOCATIONS",lLocSections,L"");
+		properties.getStringListProperty(sProfSection,L"LOCATIONS",lLocSections,L"");
 
 		std::list<vfs::String>::iterator loc_it = lLocSections.begin();
 		for(; loc_it != lLocSections.end(); ++loc_it)
@@ -149,17 +174,45 @@ bool vfs_init::initVirtualFileSystem(vfs::PropertyContainer& oVFSProps)
 			vfs::String sLocSection = vfs::String("LOC_") + vfs::String(*loc_it);
 	
 			vfs_init::Location *loc = new vfs_init::Location();
-			loc->m_path = oVFSProps.getStringProperty(sLocSection,L"PATH",L"");
-			loc->m_vfs_path = oVFSProps.getStringProperty(sLocSection,L"VFS_PATH",L"");
-			loc->m_mount_point = oVFSProps.getStringProperty(sLocSection,L"MOUNT_POINT",L"");
-			loc->m_type = oVFSProps.getStringProperty(sLocSection,L"TYPE",L"NOT_FOUND");
-			loc->m_optional = oVFSProps.getBoolProperty(sLocSection,L"OPTIONAL",false);
+			loc->m_path = properties.getStringProperty(sLocSection,L"PATH",L"");
+			loc->m_vfs_path = properties.getStringProperty(sLocSection,L"VFS_PATH",L"");
+			loc->m_mount_point = properties.getStringProperty(sLocSection,L"MOUNT_POINT",L"");
+			loc->m_type = properties.getStringProperty(sLocSection,L"TYPE",L"NOT_FOUND");
+			loc->m_optional = properties.getBoolProperty(sLocSection,L"OPTIONAL",false);
 
 			prof->addLocation(loc,true);
 		}
 		conf.addProfile(prof,true);
 	}
-	return initVirtualFileSystem(conf);
+	if(writableProfile)
+	{
+		if(writableProfile->name.empty() || writableProfile->root.empty())
+		{
+			VFS_LOG_ERROR(L"invalid writable-profile override");
+			return false;
+		}
+		vfs_init::Profile* profile = new vfs_init::Profile();
+		profile->m_name = writableProfile->name;
+		profile->m_root = writableProfile->root;
+		profile->m_writable = true;
+		conf.addProfile(profile,true);
+	}
+	// With a replacement, let profile-stack order choose the visible file. This
+	// keeps the writable profile above later read-only overlays without forcing
+	// insertion order to overwrite virtual-file ownership.
+	return initVirtualFileSystem(conf, writableProfile == NULL);
+}
+}
+
+bool vfs_init::initVirtualFileSystem(vfs::PropertyContainer& properties)
+{
+	return BuildAndInitializeVirtualFileSystem(properties, NULL);
+}
+
+bool vfs_init::initVirtualFileSystem(vfs::PropertyContainer& properties,
+	WritableProfileOverride const& writableProfile)
+{
+	return BuildAndInitializeVirtualFileSystem(properties, &writableProfile);
 }
 
 bool vfs_init::initWriteProfile(vfs::CVirtualProfile &rProf)

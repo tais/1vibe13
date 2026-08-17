@@ -13,6 +13,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -431,6 +432,41 @@ NativeDirectory OpenHeldDirectory(
 	}
 	return directory;
 }
+
+bool SameNativeDirectory(NativeDirectory left, NativeDirectory right) noexcept
+{
+	BY_HANDLE_FILE_INFORMATION leftInformation{};
+	BY_HANDLE_FILE_INFORMATION rightInformation{};
+	return left != InvalidNativeDirectory && right != InvalidNativeDirectory &&
+		GetFileInformationByHandle(left, &leftInformation) &&
+		GetFileInformationByHandle(right, &rightInformation) &&
+		leftInformation.dwVolumeSerialNumber ==
+			rightInformation.dwVolumeSerialNumber &&
+		leftInformation.nFileIndexHigh == rightInformation.nFileIndexHigh &&
+		leftInformation.nFileIndexLow == rightInformation.nFileIndexLow;
+}
+
+bool HeldDirectoryState(NativeDirectory held,
+	const std::filesystem::path& path, bool& empty) noexcept
+{
+	const NativeDirectory current = OpenHeldDirectory(path);
+	if (current == InvalidNativeDirectory) return false;
+	const bool same = SameNativeDirectory(held, current);
+	const bool closed = CloseHandle(current) != FALSE;
+	if (!same || !closed) return false;
+	try
+	{
+		std::error_code error;
+		const std::filesystem::directory_iterator iterator(path, error);
+		if (error) return false;
+		empty = iterator == std::filesystem::directory_iterator();
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
 #else
 using NativeFile = int;
 using NativeDirectory = int;
@@ -596,6 +632,61 @@ NativeDirectory OpenOrCreateManagedDirectoryAt(NativeDirectory parent,
 		return InvalidNativeDirectory;
 	}
 	return directory;
+}
+
+bool SameNativeDirectory(NativeDirectory left, NativeDirectory right) noexcept
+{
+	struct stat leftStatus{};
+	struct stat rightStatus{};
+	return left != InvalidNativeDirectory && right != InvalidNativeDirectory &&
+		::fstat(left, &leftStatus) == 0 &&
+		::fstat(right, &rightStatus) == 0 &&
+		S_ISDIR(leftStatus.st_mode) && S_ISDIR(rightStatus.st_mode) &&
+		leftStatus.st_dev == rightStatus.st_dev &&
+		leftStatus.st_ino == rightStatus.st_ino;
+}
+
+bool HeldDirectoryState(NativeDirectory held,
+	const std::filesystem::path& path, bool& empty) noexcept
+{
+	int flags = O_RDONLY;
+#ifdef O_CLOEXEC
+	flags |= O_CLOEXEC;
+#endif
+#ifdef O_DIRECTORY
+	flags |= O_DIRECTORY;
+#endif
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+	const NativeDirectory current = ::open(path.c_str(), flags);
+	if (current == InvalidNativeDirectory) return false;
+	const bool same = SameNativeDirectory(held, current);
+	const bool currentClosed = ::close(current) == 0;
+	if (!same || !currentClosed) return false;
+
+	const NativeDirectory view = ::openat(held, ".", flags);
+	if (view == InvalidNativeDirectory) return false;
+	DIR* directory = ::fdopendir(view);
+	if (!directory)
+	{
+		(void)::close(view);
+		return false;
+	}
+	empty = true;
+	errno = 0;
+	while (const dirent* entry = ::readdir(directory))
+	{
+		if (std::strcmp(entry->d_name, ".") != 0 &&
+			std::strcmp(entry->d_name, "..") != 0)
+		{
+			empty = false;
+			break;
+		}
+	}
+	const int readError = errno;
+	const bool closed = ::closedir(directory) == 0;
+	return readError == 0 && closed;
 }
 #endif
 
@@ -918,6 +1009,7 @@ struct DedicatedCampaignFilesystemBackend::Impl
 {
 	std::filesystem::path stateRoot;
 	std::filesystem::path campaignDirectory;
+	std::filesystem::path profileDirectory;
 	std::string campaignKey;
 	std::array<std::filesystem::path, 2> checkpointPaths;
 	std::array<std::filesystem::path, 2> manifestPaths;
@@ -928,40 +1020,46 @@ struct DedicatedCampaignFilesystemBackend::Impl
 	HANDLE rootDirectory = INVALID_HANDLE_VALUE;
 	HANDLE campaignsDirectory = INVALID_HANDLE_VALUE;
 	HANDLE campaignDirectoryHandle = INVALID_HANDLE_VALUE;
+	HANDLE profileDirectoryHandle = INVALID_HANDLE_VALUE;
 #else
 	int lock = -1;
 	int rootDirectory = -1;
 	int campaignsDirectory = -1;
 	int campaignDirectoryHandle = -1;
+	int profileDirectoryHandle = -1;
 #endif
 
 	~Impl() noexcept
 	{
 #ifdef _WIN32
-		if (lock != INVALID_HANDLE_VALUE)
-		{
-			OVERLAPPED overlapped{};
-			(void)UnlockFileEx(lock, 0, 1, 0, &overlapped);
-			(void)CloseHandle(lock);
-		}
+		if (profileDirectoryHandle != INVALID_HANDLE_VALUE)
+			(void)CloseHandle(profileDirectoryHandle);
 		if (campaignDirectoryHandle != INVALID_HANDLE_VALUE)
 			(void)CloseHandle(campaignDirectoryHandle);
 		if (campaignsDirectory != INVALID_HANDLE_VALUE)
 			(void)CloseHandle(campaignsDirectory);
 		if (rootDirectory != INVALID_HANDLE_VALUE)
 			(void)CloseHandle(rootDirectory);
-#else
-		if (lock >= 0)
+		if (lock != INVALID_HANDLE_VALUE)
 		{
-			(void)::flock(lock, LOCK_UN);
-			(void)::close(lock);
+			OVERLAPPED overlapped{};
+			(void)UnlockFileEx(lock, 0, 1, 0, &overlapped);
+			(void)CloseHandle(lock);
 		}
+#else
+		if (profileDirectoryHandle >= 0)
+			(void)::close(profileDirectoryHandle);
 		if (campaignDirectoryHandle >= 0)
 			(void)::close(campaignDirectoryHandle);
 		if (campaignsDirectory >= 0)
 			(void)::close(campaignsDirectory);
 		if (rootDirectory >= 0)
 			(void)::close(rootDirectory);
+		if (lock >= 0)
+		{
+			(void)::flock(lock, LOCK_UN);
+			(void)::close(lock);
+		}
 #endif
 	}
 };
@@ -1121,6 +1219,26 @@ DedicatedCampaignFilesystemError DedicatedCampaignFilesystemBackend::open(
 		opened->campaignDirectory = campaignsDirectory / campaignComponent;
 #endif
 
+#ifdef _WIN32
+		const ManagedDirectoryResult profile = PrepareManagedDirectory(
+			opened->campaignDirectory,
+			opened->campaignDirectory / "profile",
+			opened->profileDirectory,
+			opened->profileDirectoryHandle);
+		if (profile == ManagedDirectoryResult::Unsafe)
+			return DedicatedCampaignFilesystemError::UnsafeManagedPath;
+		if (profile != ManagedDirectoryResult::Success)
+			return DedicatedCampaignFilesystemError::DirectoryFailure;
+#else
+		opened->profileDirectoryHandle = OpenOrCreateManagedDirectoryAt(
+			opened->campaignDirectoryHandle, "profile", unsafeManagedDirectory);
+		if (opened->profileDirectoryHandle == InvalidNativeDirectory)
+			return unsafeManagedDirectory
+				? DedicatedCampaignFilesystemError::UnsafeManagedPath
+				: DedicatedCampaignFilesystemError::DirectoryFailure;
+		opened->profileDirectory = opened->campaignDirectory / "profile";
+#endif
+
 		opened->checkpointPaths = {
 			opened->campaignDirectory / "checkpoint-a.sav",
 			opened->campaignDirectory / "checkpoint-b.sav"};
@@ -1140,22 +1258,6 @@ DedicatedCampaignFilesystemError DedicatedCampaignFilesystemBackend::open(
 void DedicatedCampaignFilesystemBackend::close() noexcept
 {
 	if (!impl_) return;
-#ifdef _WIN32
-	if (impl_->lock != INVALID_HANDLE_VALUE)
-	{
-		OVERLAPPED overlapped{};
-		(void)UnlockFileEx(impl_->lock, 0, 1, 0, &overlapped);
-		(void)CloseHandle(impl_->lock);
-		impl_->lock = INVALID_HANDLE_VALUE;
-	}
-#else
-	if (impl_->lock >= 0)
-	{
-		(void)::flock(impl_->lock, LOCK_UN);
-		(void)::close(impl_->lock);
-		impl_->lock = -1;
-	}
-#endif
 	impl_->open = false;
 	impl_.reset();
 }
@@ -1175,6 +1277,24 @@ const std::filesystem::path&
 DedicatedCampaignFilesystemBackend::campaignDirectory() const noexcept
 {
 	return impl_ ? impl_->campaignDirectory : EmptyPath();
+}
+
+const std::filesystem::path&
+DedicatedCampaignFilesystemBackend::profileDirectory() const noexcept
+{
+	return impl_ ? impl_->profileDirectory : EmptyPath();
+}
+
+DedicatedCampaignProfileDirectoryState
+DedicatedCampaignFilesystemBackend::profileDirectoryState() const noexcept
+{
+	if (!isOpen()) return DedicatedCampaignProfileDirectoryState::Failure;
+	bool empty = false;
+	if (!HeldDirectoryState(impl_->profileDirectoryHandle,
+		impl_->profileDirectory, empty))
+		return DedicatedCampaignProfileDirectoryState::Failure;
+	return empty ? DedicatedCampaignProfileDirectoryState::Empty
+		: DedicatedCampaignProfileDirectoryState::NonEmpty;
 }
 
 const std::filesystem::path&

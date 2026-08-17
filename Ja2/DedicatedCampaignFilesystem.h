@@ -33,6 +33,13 @@ enum class DedicatedCampaignFilesystemError : std::uint8_t
 	LockFailure
 };
 
+enum class DedicatedCampaignProfileDirectoryState : std::uint8_t
+{
+	Empty,
+	NonEmpty,
+	Failure
+};
+
 // A checkpoint larger than the complete runtime-save envelope can reasonably
 // produce is rejected before hashing. The bound also prevents a local corrupt
 // file from turning resume into unbounded work.
@@ -73,6 +80,14 @@ public:
 
 	const std::filesystem::path& stateRoot() const noexcept;
 	const std::filesystem::path& campaignDirectory() const noexcept;
+	// Legacy JA2 writes must be mounted beneath this separately managed child.
+	// Store metadata and transient checkpoint publication files remain outside
+	// the VFS catalogue in campaignDirectory().
+	const std::filesystem::path& profileDirectory() const noexcept;
+	// Creation must accept only Empty; resume may accept NonEmpty. This keeps a
+	// failed/crashed earlier creation attempt from silently donating writable
+	// runtime state to a nominally new campaign.
+	DedicatedCampaignProfileDirectoryState profileDirectoryState() const noexcept;
 	const std::filesystem::path& checkpointPath(
 		DedicatedCampaignSlot slot) const noexcept;
 	const std::filesystem::path& manifestPath(
