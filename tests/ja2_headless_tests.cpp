@@ -45,6 +45,7 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -2456,6 +2457,63 @@ protected:
 		std::size_t) const override { return AssetReadResult::NotFound; }
 };
 
+class ControlledRemoveByteStorage final : public ByteStorage
+{
+public:
+	bool exists(const std::string& path) const override
+	{
+		++existsCalls;
+		return storage_.exists(path);
+	}
+	bool readAll(const std::string& path,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++readCalls;
+		return storage_.readAll(path, bytes);
+	}
+	ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t maximumBytes,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++readCalls;
+		return storage_.readAllBounded(path, maximumBytes, bytes);
+	}
+	bool writeAll(const std::string& path,
+		const std::vector<std::uint8_t>& bytes) override
+	{
+		++writeCalls;
+		return storage_.writeAll(path, bytes);
+	}
+	bool remove(const std::string& path) override
+	{
+		++removeCalls;
+		if (onRemove) onRemove();
+		return !refuseRemoval && storage_.remove(path);
+	}
+	void resetOperationCounts() noexcept
+	{
+		existsCalls = 0;
+		readCalls = 0;
+		writeCalls = 0;
+		removeCalls = 0;
+	}
+	bool noOperationCalls() const noexcept
+	{
+		return existsCalls == 0 && readCalls == 0 &&
+			writeCalls == 0 && removeCalls == 0;
+	}
+
+	bool refuseRemoval = false;
+	std::function<void()> onRemove;
+	mutable std::size_t existsCalls = 0;
+	mutable std::size_t readCalls = 0;
+	std::size_t writeCalls = 0;
+	std::size_t removeCalls = 0;
+
+private:
+	MemoryByteStorage storage_;
+};
+
 class TestLifecyclePackage final : public EnginePackage
 {
 public:
@@ -2568,6 +2626,7 @@ public:
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
+		livePackageRandom = &context.random;
 		AssetData asset;
 		if (context.services.assets.read("Data/Rules/weapons.bin", asset) ==
 			AssetReadResult::Success)
@@ -2667,6 +2726,7 @@ public:
 	RuntimeMessagePublishResult invalidPackagePublishResult;
 	std::string observedRandomPackageId;
 	PackageRandomResult packageRandomResult;
+	PackageRandomSource* livePackageRandom = nullptr;
 	std::string observedLocalizationPackageId;
 	LocalizationSetError localizationSetResult = LocalizationSetError::AllocationFailure;
 	LocalizationSetError invalidLocalizationSetResult = LocalizationSetError::AllocationFailure;
@@ -2999,9 +3059,911 @@ static std::vector<std::uint64_t> SubmitHeadlessTacticalTurn(
 	return sequences;
 }
 
-int main( int, char** )
+static int RunStrictRuntimeExecutionTests()
+{
+	static_assert(!std::is_copy_constructible<
+		RuntimeSaveExecutionGuard>::value &&
+		std::is_move_constructible<RuntimeSaveExecutionGuard>::value &&
+		!std::is_move_assignable<RuntimeSaveExecutionGuard>::value,
+		"runtime save execution has unique movable ownership");
+	static_assert(!std::is_copy_constructible<
+		RuntimeLoadExecutionGuard>::value &&
+		std::is_move_constructible<RuntimeLoadExecutionGuard>::value &&
+		!std::is_move_assignable<RuntimeLoadExecutionGuard>::value,
+		"runtime load execution has unique movable ownership");
+
+	CHECK(InstallGameSimulationRandom(0x123456789abcdef0ULL) ==
+		GameSimulationRandomInstallError::None,
+		"strict runtime test installs the canonical RNG before observation");
+	SimulationRandom* const simulation = GetGameSimulationRandomSource();
+	CHECK(simulation != nullptr &&
+		static_cast<RandomSource*>(simulation) == &GetGameRandomSource(),
+		"strict runtime test observes the exact installed RNG identity");
+	if (simulation == nullptr) return 1;
+
+	GAME_SETTINGS settings = {};
+	GAME_OPTIONS options = {};
+	MemoryByteStorage storage;
+	EngineServices services{
+		ZeroTimeSource::instance(), *simulation, storage};
+	GameContext context(settings, options, GameCapabilities{}, services);
+	const bool ready = context.beginInitialization() &&
+		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		context.markRunning();
+	CHECK(ready, "strict runtime test reaches a deterministic live runtime");
+
+	const std::string savePath =
+		"SavedGames/StrictRuntimeExecution.sav";
+	CHECK(storage.writeAll(savePath, {0x53, 0x52, 0x54, 0x01}),
+		"strict runtime test stages an opaque domain prefix");
+	RuntimeSaveExecutionGuard saveExecution = BeginRuntimeSaveExecution(
+		context, RuntimeSavePolicy::DedicatedDeterministic);
+	const bool saveBegan = static_cast<bool>(saveExecution);
+	PreparedRuntimeSave preparedSave = PrepareRuntimeSave(
+		context, saveExecution);
+	const RuntimeSaveCommitResult committed = CommitRuntimeSave(
+		context, savePath, std::move(preparedSave), saveExecution);
+	CHECK(saveBegan && committed && storage.exists(savePath),
+		"strict save execution seals and finalizes one guarded container");
+
+	RuntimeLoadExecutionGuard loadExecution = BeginRuntimeLoadExecution(
+		context, RuntimeSavePolicy::DedicatedDeterministic);
+	const bool loadBegan = static_cast<bool>(loadExecution);
+	PreparedRuntimeLoad preparedLoad = PrepareRuntimeLoad(
+		context, savePath, loadExecution);
+	const PackageSaveStateLoadResult restored = RestorePreparedRuntimeSave(
+		context, preparedLoad, loadExecution);
+	CHECK(loadBegan && preparedLoad && restored &&
+		!preparedLoad.restorePending(),
+		"strict load execution restores and finalizes the guarded target");
+
+	const std::string rejectedPath =
+		"SavedGames/StrictRuntimeExecutionRejected.sav";
+	CHECK(storage.writeAll(rejectedPath, {0x53, 0x52, 0x54, 0x02}),
+		"strict rejection test stages a second domain prefix");
+	RuntimeSaveExecutionGuard rejectedExecution = BeginRuntimeSaveExecution(
+		context, RuntimeSavePolicy::DedicatedDeterministic);
+	PreparedRuntimeSave rejectedPrepared = PrepareRuntimeSave(
+		context, rejectedExecution);
+	const SimulationRandomCheckpoint beforeDraw = simulation->checkpoint();
+	const std::uint64_t epochBeforeDraw = simulation->consumptionEpoch();
+	(void)simulation->nextRaw();
+	const bool drewAndRewound = simulation->restoreCheckpoint(beforeDraw) ==
+			SimulationRandomCheckpointError::None;
+	const RuntimeSaveCommitResult rejected = CommitRuntimeSave(
+		context, rejectedPath, std::move(rejectedPrepared),
+		rejectedExecution);
+	const auto rolledBack = rejectedExecution.rollback();
+	CHECK(drewAndRewound && !rejected && rolledBack &&
+		rejected.policyError ==
+			RuntimeSavePolicyError::SimulationRandomConsumed &&
+		!storage.exists(rejectedPath) &&
+		simulation->checkpoint() == beforeDraw &&
+		simulation->consumptionEpoch() > epochBeforeDraw,
+		"strict save rejects draw-and-rewind, removes bytes, and preserves epoch evidence");
+
+	{
+		TestLifecyclePackage randomPackage(
+			"rules.strict-package-random", PackageKind::Rules);
+		randomPackage.usePackageRandomOnConfigure = true;
+		GAME_SETTINGS packageSettings = {};
+		GAME_OPTIONS packageOptions = {};
+		ControlledRemoveByteStorage packageStorage;
+		EngineServices packageServices{
+			ZeroTimeSource::instance(), *simulation, packageStorage};
+		GameContext packageContext(packageSettings, packageOptions,
+			GameCapabilities{}, packageServices);
+		const bool packageReady =
+			packageContext.packages().registerPackage(randomPackage) ==
+				PackageRegistrationError::None &&
+			packageContext.packages().activate(
+				"rules.strict-package-random") ==
+				PackageActivationError::None &&
+			packageContext.beginInitialization() &&
+			packageContext.advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime) &&
+			packageContext.markRunning();
+
+		RuntimeSaveExecutionGuard unguardedPreparationExecution =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool unguardedPreparationBegan =
+			static_cast<bool>(unguardedPreparationExecution);
+		PreparedRuntimeSave unguardedPrepared = PrepareRuntimeSave(
+			packageContext, unguardedPreparationExecution);
+		const bool unguardedPreparedSuccessfully =
+			static_cast<bool>(unguardedPrepared);
+		packageStorage.resetOperationCounts();
+		const int callbacksBeforeUnguardedPrepareSave =
+			randomPackage.saveStateCalls + randomPackage.validateStateCalls +
+			randomPackage.loadStateCalls;
+		const PreparedRuntimeSave unguardedPrepareSave = PrepareRuntimeSave(
+			packageContext, RuntimeSavePolicy::DedicatedDeterministic);
+		const bool unguardedPrepareSaveUntouched =
+			packageStorage.noOperationCalls();
+		const bool unguardedPrepareSaveCallbackFree =
+			callbacksBeforeUnguardedPrepareSave ==
+				randomPackage.saveStateCalls +
+				randomPackage.validateStateCalls +
+				randomPackage.loadStateCalls;
+		const bool unguardedOwnerSurvivedPrepare =
+			static_cast<bool>(unguardedPreparationExecution);
+		const std::string unguardedPath =
+			"SavedGames/StrictUnguardedCommit.sav";
+		const std::vector<std::uint8_t> unguardedSentinel = {
+			0x55, 0x4e, 0x47, 0x01};
+		const bool unguardedSentinelStaged =
+			packageStorage.writeAll(unguardedPath, unguardedSentinel);
+		packageStorage.resetOperationCounts();
+		const int callbacksBeforeUnguardedCommit =
+			randomPackage.saveStateCalls + randomPackage.validateStateCalls +
+			randomPackage.loadStateCalls;
+		const RuntimeSaveCommitResult unguardedCommit = CommitRuntimeSave(
+			packageContext, unguardedPath, std::move(unguardedPrepared));
+		const bool unguardedOwnerRemained =
+			static_cast<bool>(unguardedPreparationExecution);
+		const RuntimeExecutionGuardResult unguardedPreparationRollback =
+			unguardedPreparationExecution.rollback();
+		const std::size_t unguardedExistsCalls = packageStorage.existsCalls;
+		const std::size_t unguardedReadCalls = packageStorage.readCalls;
+		const std::size_t unguardedWriteCalls = packageStorage.writeCalls;
+		const std::size_t unguardedRemoveCalls = packageStorage.removeCalls;
+		const bool unguardedCallbackFree =
+			callbacksBeforeUnguardedCommit == randomPackage.saveStateCalls +
+				randomPackage.validateStateCalls +
+				randomPackage.loadStateCalls;
+		std::vector<std::uint8_t> unguardedAfter;
+		const bool unguardedSentinelPreserved = packageStorage.readAll(
+			unguardedPath, unguardedAfter) &&
+			unguardedAfter == unguardedSentinel;
+		const bool unguardedSentinelCleaned =
+			packageStorage.remove(unguardedPath);
+		CHECK(packageReady && unguardedPreparationBegan &&
+			unguardedPreparedSuccessfully && !unguardedPrepareSave &&
+			unguardedPrepareSave.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			unguardedPrepareSave.packageRandomTransactionError ==
+				PackageRandomTransactionError::None &&
+			unguardedPrepareSaveUntouched &&
+			unguardedPrepareSaveCallbackFree &&
+			unguardedOwnerSurvivedPrepare && unguardedOwnerRemained &&
+			unguardedPreparationRollback &&
+			unguardedSentinelStaged && !unguardedCommit &&
+			unguardedCommit.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			unguardedCommit.packageRandomTransactionError ==
+				PackageRandomTransactionError::None &&
+			unguardedExistsCalls == 0 && unguardedReadCalls == 0 &&
+			unguardedWriteCalls == 0 && unguardedRemoveCalls == 0 &&
+			unguardedCallbackFree && unguardedSentinelPreserved &&
+			unguardedSentinelCleaned,
+			"unguarded strict save prepare/commit wrappers reject before callbacks, transaction interference, or existing-storage access");
+
+		GAME_SETTINGS foreignSettings = {};
+		GAME_OPTIONS foreignOptions = {};
+		ControlledRemoveByteStorage foreignStorage;
+		EngineServices foreignServices{
+			ZeroTimeSource::instance(), *simulation, foreignStorage};
+		GameContext foreignContext(foreignSettings, foreignOptions,
+			GameCapabilities{}, foreignServices);
+		const bool foreignReady = foreignContext.beginInitialization() &&
+			foreignContext.advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime) &&
+			foreignContext.markRunning();
+
+		packageStorage.resetOperationCounts();
+		RuntimeSaveExecutionGuard defaultPrepareSaveGuard;
+		const PreparedRuntimeSave defaultPrepareSave = PrepareRuntimeSave(
+			packageContext, defaultPrepareSaveGuard);
+		const bool defaultPrepareSaveUntouched =
+			packageStorage.noOperationCalls();
+		RuntimeSaveExecutionGuard foreignPrepareSaveGuard =
+			BeginRuntimeSaveExecution(foreignContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool foreignPrepareSaveBegan =
+			static_cast<bool>(foreignPrepareSaveGuard);
+		packageStorage.resetOperationCounts();
+		foreignStorage.resetOperationCounts();
+		const PreparedRuntimeSave wrongPrepareSave = PrepareRuntimeSave(
+			packageContext, foreignPrepareSaveGuard);
+		const bool foreignPrepareSaveRemained =
+			static_cast<bool>(foreignPrepareSaveGuard);
+		const bool wrongPrepareSaveUntouched =
+			packageStorage.noOperationCalls() &&
+			foreignStorage.noOperationCalls();
+		const RuntimeExecutionGuardResult foreignPrepareSaveRollback =
+			foreignPrepareSaveGuard.rollback();
+		CHECK(foreignReady && !defaultPrepareSave &&
+			defaultPrepareSave.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			defaultPrepareSaveUntouched && foreignPrepareSaveBegan &&
+			!wrongPrepareSave && wrongPrepareSave.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			wrongPrepareSaveUntouched && foreignPrepareSaveRemained &&
+			foreignPrepareSaveRollback,
+			"explicit strict save preparation rejects default and foreign guards without storage access or consuming foreign ownership");
+
+		const std::vector<std::uint8_t> guardMismatchSentinel = {
+			0x47, 0x55, 0x41, 0x01};
+		const std::string defaultCommitPath =
+			"SavedGames/StrictDefaultCommitGuard.sav";
+		RuntimeSaveExecutionGuard defaultCommitOwner =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool defaultCommitOwnerBegan =
+			static_cast<bool>(defaultCommitOwner);
+		PreparedRuntimeSave defaultCommitPrepared = PrepareRuntimeSave(
+			packageContext, defaultCommitOwner);
+		const bool defaultCommitPreparedSuccessfully =
+			static_cast<bool>(defaultCommitPrepared);
+		const bool defaultCommitSentinelStaged = packageStorage.writeAll(
+			defaultCommitPath, guardMismatchSentinel);
+		packageStorage.resetOperationCounts();
+		RuntimeSaveExecutionGuard defaultCommitGuard;
+		const RuntimeSaveCommitResult defaultCommit = CommitRuntimeSave(
+			packageContext, defaultCommitPath,
+			std::move(defaultCommitPrepared), defaultCommitGuard);
+		const bool defaultCommitUntouched =
+			packageStorage.noOperationCalls();
+		const bool defaultCommitOwnerRemained =
+			static_cast<bool>(defaultCommitOwner);
+		const RuntimeExecutionGuardResult defaultCommitOwnerRollback =
+			defaultCommitOwner.rollback();
+		std::vector<std::uint8_t> defaultCommitAfter;
+		const bool defaultCommitSentinelPreserved = packageStorage.readAll(
+			defaultCommitPath, defaultCommitAfter) &&
+			defaultCommitAfter == guardMismatchSentinel;
+		const bool defaultCommitSentinelCleaned =
+			packageStorage.remove(defaultCommitPath);
+
+		const std::string wrongCommitPath =
+			"SavedGames/StrictForeignCommitGuard.sav";
+		RuntimeSaveExecutionGuard wrongCommitOwner =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool wrongCommitOwnerBegan =
+			static_cast<bool>(wrongCommitOwner);
+		PreparedRuntimeSave wrongCommitPrepared = PrepareRuntimeSave(
+			packageContext, wrongCommitOwner);
+		const bool wrongCommitPreparedSuccessfully =
+			static_cast<bool>(wrongCommitPrepared);
+		RuntimeSaveExecutionGuard foreignCommitGuard =
+			BeginRuntimeSaveExecution(foreignContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool foreignCommitGuardBegan =
+			static_cast<bool>(foreignCommitGuard);
+		const bool wrongCommitSentinelStaged = packageStorage.writeAll(
+			wrongCommitPath, guardMismatchSentinel);
+		packageStorage.resetOperationCounts();
+		foreignStorage.resetOperationCounts();
+		const RuntimeSaveCommitResult wrongCommit = CommitRuntimeSave(
+			packageContext, wrongCommitPath, std::move(wrongCommitPrepared),
+			foreignCommitGuard);
+		const bool wrongCommitUntouched =
+			packageStorage.noOperationCalls() &&
+			foreignStorage.noOperationCalls();
+		const bool wrongCommitOwnerRemained =
+			static_cast<bool>(wrongCommitOwner);
+		const bool foreignCommitGuardRemained =
+			static_cast<bool>(foreignCommitGuard);
+		const RuntimeExecutionGuardResult wrongCommitOwnerRollback =
+			wrongCommitOwner.rollback();
+		const RuntimeExecutionGuardResult foreignCommitGuardRollback =
+			foreignCommitGuard.rollback();
+		std::vector<std::uint8_t> wrongCommitAfter;
+		const bool wrongCommitSentinelPreserved = packageStorage.readAll(
+			wrongCommitPath, wrongCommitAfter) &&
+			wrongCommitAfter == guardMismatchSentinel;
+		const bool wrongCommitSentinelCleaned =
+			packageStorage.remove(wrongCommitPath);
+		CHECK(defaultCommitOwnerBegan && defaultCommitPreparedSuccessfully &&
+			defaultCommitSentinelStaged && !defaultCommit &&
+			defaultCommit.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			defaultCommitUntouched && defaultCommitOwnerRemained &&
+			defaultCommitOwnerRollback && defaultCommitSentinelPreserved &&
+			defaultCommitSentinelCleaned && wrongCommitOwnerBegan &&
+			wrongCommitPreparedSuccessfully && foreignCommitGuardBegan &&
+			wrongCommitSentinelStaged && !wrongCommit &&
+			wrongCommit.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			wrongCommitUntouched && wrongCommitOwnerRemained &&
+			foreignCommitGuardRemained && wrongCommitOwnerRollback &&
+			foreignCommitGuardRollback && wrongCommitSentinelPreserved &&
+			wrongCommitSentinelCleaned,
+			"explicit strict commit rejects default and foreign guards without storage cleanup or consuming either valid owner");
+
+		const std::string prepareLoadMismatchPath =
+			"SavedGames/StrictPrepareLoadGuardMismatch.sav";
+		const bool prepareLoadSentinelStaged = packageStorage.writeAll(
+			prepareLoadMismatchPath, guardMismatchSentinel);
+		RuntimeLoadExecutionGuard unguardedPrepareLoadOwner =
+			BeginRuntimeLoadExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool unguardedPrepareLoadOwnerBegan =
+			static_cast<bool>(unguardedPrepareLoadOwner);
+		packageStorage.resetOperationCounts();
+		const int callbacksBeforeUnguardedPrepareLoad =
+			randomPackage.saveStateCalls + randomPackage.validateStateCalls +
+			randomPackage.loadStateCalls;
+		const PreparedRuntimeLoad unguardedPrepareLoad = PrepareRuntimeLoad(
+			packageContext, prepareLoadMismatchPath,
+			RuntimeSavePolicy::DedicatedDeterministic);
+		const bool unguardedPrepareLoadUntouched =
+			packageStorage.noOperationCalls();
+		const bool unguardedPrepareLoadCallbackFree =
+			callbacksBeforeUnguardedPrepareLoad ==
+				randomPackage.saveStateCalls +
+				randomPackage.validateStateCalls +
+				randomPackage.loadStateCalls;
+		const bool unguardedPrepareLoadOwnerRemained =
+			static_cast<bool>(unguardedPrepareLoadOwner);
+		const RuntimeExecutionGuardResult unguardedPrepareLoadRollback =
+			unguardedPrepareLoadOwner.rollback();
+		packageStorage.resetOperationCounts();
+		RuntimeLoadExecutionGuard defaultPrepareLoadGuard;
+		const PreparedRuntimeLoad defaultPrepareLoad = PrepareRuntimeLoad(
+			packageContext, prepareLoadMismatchPath,
+			defaultPrepareLoadGuard);
+		const bool defaultPrepareLoadUntouched =
+			packageStorage.noOperationCalls();
+		RuntimeLoadExecutionGuard foreignPrepareLoadGuard =
+			BeginRuntimeLoadExecution(foreignContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool foreignPrepareLoadBegan =
+			static_cast<bool>(foreignPrepareLoadGuard);
+		packageStorage.resetOperationCounts();
+		foreignStorage.resetOperationCounts();
+		const PreparedRuntimeLoad wrongPrepareLoad = PrepareRuntimeLoad(
+			packageContext, prepareLoadMismatchPath,
+			foreignPrepareLoadGuard);
+		const bool wrongPrepareLoadUntouched =
+			packageStorage.noOperationCalls() &&
+			foreignStorage.noOperationCalls();
+		const bool foreignPrepareLoadRemained =
+			static_cast<bool>(foreignPrepareLoadGuard);
+		const RuntimeExecutionGuardResult foreignPrepareLoadRollback =
+			foreignPrepareLoadGuard.rollback();
+		std::vector<std::uint8_t> prepareLoadAfter;
+		const bool prepareLoadSentinelPreserved = packageStorage.readAll(
+			prepareLoadMismatchPath, prepareLoadAfter) &&
+			prepareLoadAfter == guardMismatchSentinel;
+		const bool prepareLoadSentinelCleaned =
+			packageStorage.remove(prepareLoadMismatchPath);
+		CHECK(prepareLoadSentinelStaged && unguardedPrepareLoadOwnerBegan &&
+			!unguardedPrepareLoad && unguardedPrepareLoad.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			unguardedPrepareLoad.packageRandomTransactionError ==
+				PackageRandomTransactionError::None &&
+			unguardedPrepareLoadUntouched &&
+			unguardedPrepareLoadCallbackFree &&
+			unguardedPrepareLoadOwnerRemained &&
+			unguardedPrepareLoadRollback && !defaultPrepareLoad &&
+			defaultPrepareLoad.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			defaultPrepareLoadUntouched && foreignPrepareLoadBegan &&
+			!wrongPrepareLoad && wrongPrepareLoad.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			wrongPrepareLoadUntouched && foreignPrepareLoadRemained &&
+			foreignPrepareLoadRollback && prepareLoadSentinelPreserved &&
+			prepareLoadSentinelCleaned,
+			"unguarded and explicit strict load preparation reject before storage inspection without consuming active or foreign ownership");
+
+		const std::string restoreMismatchPath =
+			"SavedGames/StrictRestoreGuardMismatch.sav";
+		const bool restoreDomainStaged = packageStorage.writeAll(
+			restoreMismatchPath, {0x47, 0x55, 0x41, 0x02});
+		const SimulationRandomCheckpoint savedSimulationTarget =
+			simulation->checkpoint();
+		const PackageRandomCheckpoint savedPackageTarget =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->checkpoint()
+				: PackageRandomCheckpoint{};
+		RuntimeSaveExecutionGuard restoreContainerSaveGuard =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		PreparedRuntimeSave restoreContainerPrepared = PrepareRuntimeSave(
+			packageContext, restoreContainerSaveGuard);
+		const RuntimeSaveCommitResult restoreContainerCommitted =
+			CommitRuntimeSave(packageContext, restoreMismatchPath,
+				std::move(restoreContainerPrepared),
+				restoreContainerSaveGuard);
+
+		RuntimeLoadExecutionGuard defaultRestoreOwner =
+			BeginRuntimeLoadExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool defaultRestoreOwnerBegan =
+			static_cast<bool>(defaultRestoreOwner);
+		PreparedRuntimeLoad defaultRestorePrepared = PrepareRuntimeLoad(
+			packageContext, restoreMismatchPath, defaultRestoreOwner);
+		const bool defaultRestorePreparedSuccessfully =
+			static_cast<bool>(defaultRestorePrepared);
+		packageStorage.resetOperationCounts();
+		const int callbacksBeforeUnguardedRestore =
+			randomPackage.saveStateCalls + randomPackage.validateStateCalls +
+			randomPackage.loadStateCalls;
+		const PackageSaveStateLoadResult unguardedRestore =
+			RestorePreparedRuntimeSave(
+				packageContext, defaultRestorePrepared);
+		const RuntimeSavePolicyError unguardedRestorePolicyError =
+			defaultRestorePrepared.policyError;
+		const PackageRandomTransactionError
+			unguardedRestorePackageRandomError =
+				defaultRestorePrepared.packageRandomTransactionError;
+		const bool unguardedRestoreUntouched =
+			packageStorage.noOperationCalls();
+		const bool unguardedRestoreCallbackFree =
+			callbacksBeforeUnguardedRestore ==
+				randomPackage.saveStateCalls +
+				randomPackage.validateStateCalls +
+				randomPackage.loadStateCalls;
+		const bool unguardedRestorePending =
+			defaultRestorePrepared.restorePending();
+		const bool unguardedRestoreOwnerRemained =
+			static_cast<bool>(defaultRestoreOwner);
+		packageStorage.resetOperationCounts();
+		RuntimeLoadExecutionGuard defaultRestoreGuard;
+		const PackageSaveStateLoadResult defaultRestore =
+			RestorePreparedRuntimeSave(packageContext,
+				defaultRestorePrepared, defaultRestoreGuard);
+		const bool defaultRestoreUntouched =
+			packageStorage.noOperationCalls();
+		const bool defaultRestorePending =
+			defaultRestorePrepared.restorePending();
+		const bool defaultRestoreOwnerRemained =
+			static_cast<bool>(defaultRestoreOwner);
+		const RuntimeExecutionGuardResult defaultRestoreOwnerRollback =
+			defaultRestoreOwner.rollback();
+
+		RuntimeLoadExecutionGuard wrongRestoreOwner =
+			BeginRuntimeLoadExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool wrongRestoreOwnerBegan =
+			static_cast<bool>(wrongRestoreOwner);
+		PreparedRuntimeLoad wrongRestorePrepared = PrepareRuntimeLoad(
+			packageContext, restoreMismatchPath, wrongRestoreOwner);
+		const bool wrongRestorePreparedSuccessfully =
+			static_cast<bool>(wrongRestorePrepared);
+		RuntimeLoadExecutionGuard foreignRestoreGuard =
+			BeginRuntimeLoadExecution(foreignContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool foreignRestoreGuardBegan =
+			static_cast<bool>(foreignRestoreGuard);
+		packageStorage.resetOperationCounts();
+		foreignStorage.resetOperationCounts();
+		const PackageSaveStateLoadResult wrongRestore =
+			RestorePreparedRuntimeSave(packageContext,
+				wrongRestorePrepared, foreignRestoreGuard);
+		const bool wrongRestoreUntouched =
+			packageStorage.noOperationCalls() &&
+			foreignStorage.noOperationCalls();
+		const bool wrongRestorePending =
+			wrongRestorePrepared.restorePending();
+		const bool wrongRestoreOwnerRemained =
+			static_cast<bool>(wrongRestoreOwner);
+		const bool foreignRestoreGuardRemained =
+			static_cast<bool>(foreignRestoreGuard);
+		const RuntimeExecutionGuardResult wrongRestoreOwnerRollback =
+			wrongRestoreOwner.rollback();
+		const RuntimeExecutionGuardResult foreignRestoreGuardRollback =
+			foreignRestoreGuard.rollback();
+
+		(void)simulation->nextRaw();
+		const PackageRandomResult livePackageAdvanced =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->next(
+					"live-before-load", 1000000)
+				: PackageRandomResult{PackageRandomError::InvalidStream, 0};
+		const SimulationRandomCheckpoint advancedSimulationBaseline =
+			simulation->checkpoint();
+		const PackageRandomCheckpoint advancedPackageBaseline =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->checkpoint()
+				: PackageRandomCheckpoint{};
+		RuntimeLoadExecutionGuard targetRestoreGuard =
+			BeginRuntimeLoadExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool targetRestoreGuardBegan =
+			static_cast<bool>(targetRestoreGuard);
+		PreparedRuntimeLoad targetRestorePrepared = PrepareRuntimeLoad(
+			packageContext, restoreMismatchPath, targetRestoreGuard);
+		const bool targetRestorePreparedSuccessfully =
+			static_cast<bool>(targetRestorePrepared);
+		const PackageSaveStateLoadResult targetRestored =
+			RestorePreparedRuntimeSave(packageContext,
+				targetRestorePrepared, targetRestoreGuard);
+		const RuntimeExecutionGuardResult targetRestoreFinalized =
+			targetRestoreGuard.rollback();
+		const bool olderTargetsPublished =
+			simulation->checkpoint() == savedSimulationTarget &&
+			randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->checkpoint() ==
+				savedPackageTarget;
+		CHECK(livePackageAdvanced &&
+			advancedSimulationBaseline != savedSimulationTarget &&
+			!(advancedPackageBaseline == savedPackageTarget) &&
+			targetRestoreGuardBegan && targetRestorePreparedSuccessfully &&
+			targetRestored && !targetRestorePrepared.restorePending() &&
+			targetRestoreFinalized && olderTargetsPublished,
+			"strict load publishes exact older simulation and stateless-package RNG targets over newer live baselines");
+
+		(void)simulation->nextRaw();
+		const PackageRandomResult preLoadPackageAdvanced =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->next(
+					"pre-load-baseline", 1000000)
+				: PackageRandomResult{PackageRandomError::InvalidStream, 0};
+		const SimulationRandomCheckpoint preLoadSimulationBaseline =
+			simulation->checkpoint();
+		const std::uint64_t preLoadSimulationEpoch =
+			simulation->consumptionEpoch();
+		const PackageRandomCheckpoint preLoadPackageBaseline =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->checkpoint()
+				: PackageRandomCheckpoint{};
+		PackageRandomTransaction preLoadEpochProbe =
+			packageContext.packages().beginRandomTransaction();
+		const bool preLoadEpochProbeBegan =
+			static_cast<bool>(preLoadEpochProbe);
+		const std::uint64_t preLoadPackageEpoch =
+			preLoadEpochProbe.baseline().consumptionEpoch;
+		const PackageRandomTransactionResult preLoadEpochProbeRollback =
+			preLoadEpochProbe.rollback();
+		RuntimeLoadExecutionGuard consumedLoadGuard =
+			BeginRuntimeLoadExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool consumedLoadGuardBegan =
+			static_cast<bool>(consumedLoadGuard);
+		PreparedRuntimeLoad consumedLoadPrepared = PrepareRuntimeLoad(
+			packageContext, restoreMismatchPath, consumedLoadGuard);
+		const bool consumedLoadPreparedSuccessfully =
+			static_cast<bool>(consumedLoadPrepared);
+		(void)simulation->nextRaw();
+		const bool interveningSimulationRewound =
+			simulation->restoreCheckpoint(preLoadSimulationBaseline) ==
+				SimulationRandomCheckpointError::None;
+		const PackageRandomResult interveningPackageDraw =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->next(
+					"between-prepare-restore", 1000000)
+				: PackageRandomResult{PackageRandomError::InvalidStream, 0};
+		const bool interveningPackageRewound =
+			randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->restoreCheckpoint(
+				preLoadPackageBaseline) ==
+				PackageRandomCheckpointError::None;
+		const PackageSaveStateLoadResult consumedLoad =
+			RestorePreparedRuntimeSave(packageContext,
+				consumedLoadPrepared, consumedLoadGuard);
+		const RuntimeExecutionGuardResult consumedLoadRollback =
+			consumedLoadGuard.rollback();
+		PackageRandomTransaction postLoadEpochProbe =
+			packageContext.packages().beginRandomTransaction();
+		const bool postLoadEpochProbeBegan =
+			static_cast<bool>(postLoadEpochProbe);
+		const std::uint64_t postLoadPackageEpoch =
+			postLoadEpochProbe.baseline().consumptionEpoch;
+		const PackageRandomTransactionResult postLoadEpochProbeRollback =
+			postLoadEpochProbe.rollback();
+		CHECK(preLoadPackageAdvanced && preLoadEpochProbeBegan &&
+			preLoadEpochProbeRollback && consumedLoadGuardBegan &&
+			consumedLoadPreparedSuccessfully &&
+			interveningSimulationRewound && interveningPackageDraw &&
+			interveningPackageRewound && !consumedLoad &&
+			consumedLoadPrepared.policyError ==
+				RuntimeSavePolicyError::SimulationRandomConsumed &&
+			consumedLoadRollback &&
+			simulation->checkpoint() == preLoadSimulationBaseline &&
+			randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->checkpoint() ==
+				preLoadPackageBaseline &&
+			simulation->consumptionEpoch() > preLoadSimulationEpoch &&
+			postLoadEpochProbeBegan && postLoadEpochProbeRollback &&
+			postLoadPackageEpoch > preLoadPackageEpoch,
+			"strict load rejects consume-and-rewind between prepare and restore, rolls both RNGs to live baselines, and preserves epoch evidence");
+
+		const bool restoreMismatchCleaned =
+			packageStorage.remove(restoreMismatchPath);
+		CHECK(restoreDomainStaged && restoreContainerCommitted &&
+			defaultRestoreOwnerBegan && defaultRestorePreparedSuccessfully &&
+			!unguardedRestore && unguardedRestorePolicyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			unguardedRestorePackageRandomError ==
+				PackageRandomTransactionError::None &&
+			unguardedRestoreUntouched && unguardedRestoreCallbackFree &&
+			unguardedRestorePending && unguardedRestoreOwnerRemained &&
+			!defaultRestore && defaultRestorePrepared.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			defaultRestoreUntouched && defaultRestorePending &&
+			defaultRestoreOwnerRemained && defaultRestoreOwnerRollback &&
+			wrongRestoreOwnerBegan && wrongRestorePreparedSuccessfully &&
+			foreignRestoreGuardBegan && !wrongRestore &&
+			wrongRestorePrepared.policyError ==
+				RuntimeSavePolicyError::ExecutionGuardRequired &&
+			wrongRestoreUntouched && wrongRestorePending &&
+			wrongRestoreOwnerRemained && foreignRestoreGuardRemained &&
+			wrongRestoreOwnerRollback && foreignRestoreGuardRollback &&
+			restoreMismatchCleaned,
+			"unguarded and explicit strict restore reject default or foreign guards without storage access, pending consumption, or valid-owner rollback");
+
+		const std::string packagePath =
+			"SavedGames/StrictPackageRandomRejected.sav";
+		const bool packageDomainStaged = packageStorage.writeAll(
+			packagePath, {0x50, 0x52, 0x4e, 0x01});
+		RuntimeSaveExecutionGuard packageExecution =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool packageExecutionBegan =
+			static_cast<bool>(packageExecution);
+		PreparedRuntimeSave packagePrepared = PrepareRuntimeSave(
+			packageContext, packageExecution);
+		const bool packagePreparedSuccessfully =
+			static_cast<bool>(packagePrepared);
+		const PackageRandomCheckpoint packageBaseline =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->checkpoint()
+				: PackageRandomCheckpoint{};
+		const PackageRandomResult packageDraw =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->next(
+					"strict-draw", 1000000)
+				: PackageRandomResult{PackageRandomError::InvalidStream, 0};
+		const bool packageRewound = randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->restoreCheckpoint(
+				packageBaseline) == PackageRandomCheckpointError::None;
+		const RuntimeSaveCommitResult packageRejected = CommitRuntimeSave(
+			packageContext, packagePath, std::move(packagePrepared),
+			packageExecution);
+		(void)packageExecution.rollback();
+		PackageRandomTransaction packageProbe =
+			packageContext.packages().beginRandomTransaction();
+		const bool packageTransactionReleased =
+			static_cast<bool>(packageProbe);
+		(void)packageProbe.rollback();
+		CHECK(packageReady && packageDomainStaged &&
+			packageExecutionBegan && packagePreparedSuccessfully &&
+			packageDraw && packageRewound && !packageRejected &&
+			packageRejected.policyError == RuntimeSavePolicyError::
+				PackageRandomTransactionFailed &&
+			packageRejected.packageRandomTransactionError ==
+				PackageRandomTransactionError::RandomConsumed &&
+			!packageStorage.exists(packagePath) &&
+			randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->checkpoint() == packageBaseline &&
+			packageTransactionReleased,
+			"strict save rejects package draw-and-rewind, restores package state, and releases transaction ownership");
+
+		const std::string refusedRemovalPath =
+			"SavedGames/StrictRemovalRefused.sav";
+		const bool refusedDomainStaged = packageStorage.writeAll(
+			refusedRemovalPath, {0x50, 0x52, 0x4e, 0x02});
+		const SimulationRandomCheckpoint refusalSimulationBaseline =
+			simulation->checkpoint();
+		const std::uint64_t refusalSimulationEpoch =
+			simulation->consumptionEpoch();
+		PackageRandomTransaction refusalEpochProbeBefore =
+			packageContext.packages().beginRandomTransaction();
+		const bool refusalEpochProbeBeforeBegan =
+			static_cast<bool>(refusalEpochProbeBefore);
+		const std::uint64_t refusalPackageEpoch =
+			refusalEpochProbeBefore.baseline().consumptionEpoch;
+		const PackageRandomTransactionResult refusalEpochProbeBeforeRollback =
+			refusalEpochProbeBefore.rollback();
+		RuntimeSaveExecutionGuard refusalExecution =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool refusalExecutionBegan =
+			static_cast<bool>(refusalExecution);
+		PreparedRuntimeSave refusalPrepared = PrepareRuntimeSave(
+			packageContext, refusalExecution);
+		const bool refusalPreparedSuccessfully =
+			static_cast<bool>(refusalPrepared);
+		const PackageRandomCheckpoint refusalBaseline =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->checkpoint()
+				: PackageRandomCheckpoint{};
+		const PackageRandomResult refusalDraw =
+			randomPackage.livePackageRandom
+				? randomPackage.livePackageRandom->next(
+					"strict-removal", 1000000)
+				: PackageRandomResult{PackageRandomError::InvalidStream, 0};
+		const bool refusalRewound = randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->restoreCheckpoint(
+				refusalBaseline) == PackageRandomCheckpointError::None;
+		TestLifecyclePackage removalLatePackage(
+			"rules.strict-removal-late", PackageKind::Rules);
+		std::size_t removalCallbackCalls = 0;
+		bool removalCallbackSimulationDrew = false;
+		bool removalCallbackSimulationRewound = false;
+		bool removalCallbackPackageDrew = false;
+		bool removalCallbackPackageRewound = false;
+		PackageRandomTransactionError removalNestedTransactionError =
+			PackageRandomTransactionError::None;
+		PackageRegistrationError removalRegistrationError =
+			PackageRegistrationError::None;
+		bool removalDispatchBlocked = false;
+		packageStorage.onRemove = [&]
+		{
+			++removalCallbackCalls;
+			const SimulationRandomCheckpoint callbackSimulation =
+				simulation->checkpoint();
+			removalCallbackSimulationDrew =
+				static_cast<bool>(simulation->nextRaw());
+			removalCallbackSimulationRewound =
+				simulation->restoreCheckpoint(callbackSimulation) ==
+					SimulationRandomCheckpointError::None;
+			const PackageRandomCheckpoint callbackPackage =
+				randomPackage.livePackageRandom
+					? randomPackage.livePackageRandom->checkpoint()
+					: PackageRandomCheckpoint{};
+			const PackageRandomResult callbackPackageDraw =
+				randomPackage.livePackageRandom
+					? randomPackage.livePackageRandom->next(
+						"strict-removal", 1000000)
+					: PackageRandomResult{
+						PackageRandomError::InvalidStream, 0};
+			removalCallbackPackageDrew =
+				static_cast<bool>(callbackPackageDraw);
+			removalCallbackPackageRewound =
+				randomPackage.livePackageRandom &&
+				randomPackage.livePackageRandom->restoreCheckpoint(
+					callbackPackage) == PackageRandomCheckpointError::None;
+			PackageRandomTransaction nested =
+				packageContext.packages().beginRandomTransaction();
+			removalNestedTransactionError = nested.beginResult().error;
+			removalRegistrationError =
+				packageContext.packages().registerPackage(removalLatePackage);
+			const std::size_t simulationTicksBefore =
+				randomPackage.simulationTicks.size();
+			packageContext.packages().simulate(
+				SimulationTickContext{999, 1, 999});
+			removalDispatchBlocked =
+				randomPackage.simulationTicks.size() == simulationTicksBefore;
+		};
+		const std::size_t removalCallsBeforeRefusal =
+			packageStorage.removeCalls;
+		packageStorage.refuseRemoval = true;
+		const RuntimeSaveCommitResult removalRefused = CommitRuntimeSave(
+			packageContext, refusedRemovalPath, std::move(refusalPrepared),
+			refusalExecution);
+		const RuntimeExecutionGuardResult refusalRollback =
+			refusalExecution.rollback();
+		const bool removalAttemptedOnce = packageStorage.removeCalls ==
+			removalCallsBeforeRefusal + 1;
+		packageStorage.onRemove = {};
+		const bool refusalSimulationRestored =
+			simulation->checkpoint() == refusalSimulationBaseline;
+		const bool refusalPackageRestored =
+			randomPackage.livePackageRandom &&
+			randomPackage.livePackageRandom->checkpoint() == refusalBaseline;
+		const bool refusalSimulationEpochAdvanced =
+			simulation->consumptionEpoch() > refusalSimulationEpoch;
+		PackageRandomTransaction refusalEpochProbeAfter =
+			packageContext.packages().beginRandomTransaction();
+		const bool refusalEpochProbeAfterBegan =
+			static_cast<bool>(refusalEpochProbeAfter);
+		const std::uint64_t refusalPackageEpochAfter =
+			refusalEpochProbeAfter.baseline().consumptionEpoch;
+		const PackageRandomTransactionResult refusalEpochProbeAfterRollback =
+			refusalEpochProbeAfter.rollback();
+		RuntimeSaveExecutionGuard refusalNextExecution =
+			BeginRuntimeSaveExecution(packageContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const bool refusalNextExecutionBegan =
+			static_cast<bool>(refusalNextExecution);
+		const RuntimeExecutionGuardResult refusalNextExecutionRollback =
+			refusalNextExecution.rollback();
+		RuntimeSaveContainer retainedContainer;
+		const RuntimeSaveContainerLoadResult retainedSealed =
+			packageContext.runtimeSaveContainers().inspect(
+				refusedRemovalPath, retainedContainer);
+		packageStorage.refuseRemoval = false;
+		const bool retainedCleanup =
+			packageStorage.remove(refusedRemovalPath);
+		CHECK(refusedDomainStaged && refusalEpochProbeBeforeBegan &&
+			refusalEpochProbeBeforeRollback && refusalExecutionBegan &&
+			refusalPreparedSuccessfully && refusalDraw && refusalRewound &&
+			!removalRefused && removalRefused.policyError ==
+				RuntimeSavePolicyError::PackageRandomTransactionFailed &&
+			removalRefused.packageRandomTransactionError ==
+				PackageRandomTransactionError::RandomConsumed &&
+			removalRefused.containerError ==
+				RuntimeSaveContainerSaveError::StorageError &&
+			refusalRollback && removalAttemptedOnce &&
+			removalCallbackCalls == 1 &&
+			removalCallbackSimulationDrew &&
+			removalCallbackSimulationRewound &&
+			removalCallbackPackageDrew &&
+			removalCallbackPackageRewound &&
+			removalNestedTransactionError ==
+				PackageRandomTransactionError::TransactionAlreadyActive &&
+			removalRegistrationError ==
+				PackageRegistrationError::OperationInProgress &&
+			removalDispatchBlocked && refusalSimulationRestored &&
+			refusalPackageRestored && refusalSimulationEpochAdvanced &&
+			refusalEpochProbeAfterBegan &&
+			refusalPackageEpochAfter > refusalPackageEpoch &&
+			refusalEpochProbeAfterRollback && refusalNextExecutionBegan &&
+			refusalNextExecutionRollback && retainedSealed &&
+			retainedContainer.sections.size() == 3 &&
+			retainedCleanup,
+			"strict save removes exactly once before rollback, keeps both RNG domains and package dispatch guarded during the removal callback, restores checkpoints with epoch evidence, and preserves refusal diagnostics");
+	}
+
+	{
+		TestLifecyclePackage statefulPackage(
+			"rules.strict-stateful", PackageKind::Rules);
+		statefulPackage.setSaveStateSchema(1);
+		GAME_SETTINGS statefulSettings = {};
+		GAME_OPTIONS statefulOptions = {};
+		MemoryByteStorage statefulStorage;
+		EngineServices statefulServices{
+			ZeroTimeSource::instance(), *simulation, statefulStorage};
+		GameContext statefulContext(statefulSettings, statefulOptions,
+			GameCapabilities{}, statefulServices);
+		const bool statefulReady =
+			statefulContext.packages().registerPackage(statefulPackage) ==
+				PackageRegistrationError::None &&
+			statefulContext.packages().activate("rules.strict-stateful") ==
+				PackageActivationError::None &&
+			statefulContext.beginInitialization() &&
+			statefulContext.advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime) &&
+			statefulContext.markRunning();
+		const std::string statefulPath =
+			"SavedGames/StrictStatefulRejected.sav";
+		const std::vector<std::uint8_t> statefulDomain = {
+			0x53, 0x54, 0x41, 0x01};
+		const bool statefulDomainStaged =
+			statefulStorage.writeAll(statefulPath, statefulDomain);
+		const SimulationRandomCheckpoint statefulSimulationBaseline =
+			simulation->checkpoint();
+		const std::uint64_t statefulEpoch = simulation->consumptionEpoch();
+		RuntimeSaveExecutionGuard statefulExecution =
+			BeginRuntimeSaveExecution(statefulContext,
+				RuntimeSavePolicy::DedicatedDeterministic);
+		const RuntimeExecutionGuardResult statefulBegin =
+			statefulExecution.beginResult();
+		PreparedRuntimeSave statefulPrepared = PrepareRuntimeSave(
+			statefulContext, statefulExecution);
+		(void)statefulExecution.rollback();
+		std::vector<std::uint8_t> statefulAfter;
+		const bool statefulStorageUnchanged =
+			statefulStorage.readAll(statefulPath, statefulAfter) &&
+			statefulAfter == statefulDomain;
+		PackageRandomTransaction statefulProbe =
+			statefulContext.packages().beginRandomTransaction();
+		const bool statefulTransactionAvailable =
+			static_cast<bool>(statefulProbe);
+		(void)statefulProbe.rollback();
+		CHECK(statefulReady && statefulDomainStaged && !statefulBegin &&
+			statefulBegin.policyError == RuntimeSavePolicyError::
+				SemanticPackagePreflightRequired &&
+			statefulBegin.packageRandomTransactionError ==
+				PackageRandomTransactionError::None &&
+			!statefulPrepared && statefulPrepared.policyError ==
+				RuntimeSavePolicyError::SemanticPackagePreflightRequired &&
+			statefulPackage.saveStateCalls == 0 &&
+			statefulStorageUnchanged &&
+			simulation->checkpoint() == statefulSimulationBaseline &&
+			simulation->consumptionEpoch() == statefulEpoch &&
+			statefulTransactionAvailable,
+			"strict save rejects stateful packages before callbacks, storage, RNG mutation, or transaction ownership");
+	}
+
+	std::printf("\n%s  (%d failure%s)\n",
+		g_failures ? "STRICT RUNTIME TESTS FAILED" :
+			"STRICT RUNTIME TESTS PASSED",
+		g_failures, g_failures == 1 ? "" : "s");
+	return g_failures ? 1 : 0;
+}
+
+int main( int argc, char** argv )
 {
 	std::setvbuf(stdout, nullptr, _IONBF, 0);
+	if (argc == 2 && std::strcmp(
+		argv[1], "--strict-runtime-execution") == 0)
+		return RunStrictRuntimeExecutionTests();
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
 
 	// Run headless: no window server / audio device required.
@@ -3666,22 +4628,38 @@ int main( int, char** )
 		const std::vector<std::uint8_t> domain = { 0x52, 0x53, 0x50, 0x01 };
 		storage.writeAll( savePath, domain );
 
+		RuntimeSaveExecutionGuard strictSaveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::DedicatedDeterministic );
 		const PreparedRuntimeSave strictSave = PrepareRuntimeSave(
-			context, RuntimeSavePolicy::DedicatedDeterministic );
+			context, strictSaveExecution );
+		(void)strictSaveExecution.rollback();
+		RuntimeLoadExecutionGuard strictLoadExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::DedicatedDeterministic );
 		const PreparedRuntimeLoad strictLoad = PrepareRuntimeLoad(
 			context, "SavedGames/RuntimeSavePolicyGateMissing.sav",
-			RuntimeSavePolicy::DedicatedDeterministic );
+			strictLoadExecution );
+		(void)strictLoadExecution.rollback();
 		std::vector<std::uint8_t> afterStrictGate;
 		const bool strictSaveDidNotWrite =
 			storage.readAll( savePath, afterStrictGate ) &&
 			afterStrictGate == domain;
 
+		RuntimeSaveExecutionGuard interactiveSaveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
 		PreparedRuntimeSave interactiveSave = PrepareRuntimeSave(
-			context, RuntimeSavePolicy::Interactive );
+			context, interactiveSaveExecution );
 		const RuntimeSaveCommitResult interactiveCommit = CommitRuntimeSave(
-			context, savePath, std::move( interactiveSave ) );
+			context, savePath, std::move( interactiveSave ),
+			interactiveSaveExecution );
+		RuntimeLoadExecutionGuard interactiveLoadExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad interactiveLoad = PrepareRuntimeLoad(
-			context, savePath, RuntimeSavePolicy::Interactive );
+			context, savePath, interactiveLoadExecution );
+		(void)interactiveLoadExecution.rollback();
 
 		GAME_SETTINGS injectedSettings = {};
 		GAME_OPTIONS injectedOptions = {};
@@ -3691,11 +4669,21 @@ int main( int, char** )
 			ZeroTimeSource::instance(), injectedRandom, injectedStorage };
 		GameContext injectedContext( injectedSettings, injectedOptions,
 			GameCapabilities{}, injectedServices );
+		RuntimeSaveExecutionGuard injectedStrictSaveExecution =
+			BeginRuntimeSaveExecution(
+				injectedContext,
+				RuntimeSavePolicy::DedicatedDeterministic );
 		const PreparedRuntimeSave injectedStrictSave = PrepareRuntimeSave(
-			injectedContext, RuntimeSavePolicy::DedicatedDeterministic );
+			injectedContext, injectedStrictSaveExecution );
+		(void)injectedStrictSaveExecution.rollback();
+		RuntimeLoadExecutionGuard injectedStrictLoadExecution =
+			BeginRuntimeLoadExecution(
+				injectedContext,
+				RuntimeSavePolicy::DedicatedDeterministic );
 		const PreparedRuntimeLoad injectedStrictLoad = PrepareRuntimeLoad(
 			injectedContext, "SavedGames/InjectedRuntimePolicyMissing.sav",
-			RuntimeSavePolicy::DedicatedDeterministic );
+			injectedStrictLoadExecution );
+		(void)injectedStrictLoadExecution.rollback();
 		CHECK( ready && !strictSave &&
 		       strictSave.policy() ==
 		           RuntimeSavePolicy::DedicatedDeterministic &&
@@ -3739,10 +4727,14 @@ int main( int, char** )
 		const std::string savePath = "SavedGames/SaveGame01.sav";
 		const std::vector<std::uint8_t> domain = { 0x4a, 0x41, 0x32, 0x01 };
 		storage.writeAll( savePath, domain );
+		RuntimeSaveExecutionGuard interactiveSaveExecution =
+			BeginRuntimeSaveExecution(
+				first, RuntimeSavePolicy::Interactive );
 		PreparedRuntimeSave prepared;
 		const FrameRunResult interactiveSaveFrame = first.frameDriver().runFrame(
 			[&] {
-				prepared = PrepareRuntimeSave( first );
+				prepared = PrepareRuntimeSave(
+					first, interactiveSaveExecution );
 				return FramePlan{ false, FramePresentMode::Paced };
 			}, [] {} );
 		std::vector<std::uint8_t> domainAfterCapture;
@@ -3750,7 +4742,8 @@ int main( int, char** )
 			storage.readAll( savePath, domainAfterCapture ) &&
 			domainAfterCapture == domain;
 		const RuntimeSaveCommitResult committed =
-			CommitRuntimeSave( first, savePath, std::move( prepared ) );
+			CommitRuntimeSave( first, savePath, std::move( prepared ),
+				interactiveSaveExecution );
 		RuntimeSaveContainer inspected;
 		const RuntimeSaveContainerLoadResult containerLoaded =
 			first.runtimeSaveContainers().inspect( savePath, inspected );
@@ -3764,20 +4757,36 @@ int main( int, char** )
 					checkpoint->payload,
 					first.runtime().compatibilityFingerprint(),
 					interactiveCheckpoint );
+		RuntimeLoadExecutionGuard compatibleExecution =
+			BeginRuntimeLoadExecution(
+				first, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad compatible =
-			PrepareRuntimeLoad( first, savePath );
+			PrepareRuntimeLoad( first, savePath, compatibleExecution );
+		(void)compatibleExecution.rollback();
+		RuntimeLoadExecutionGuard incompatibleExecution =
+			BeginRuntimeLoadExecution(
+				second, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad incompatible =
-			PrepareRuntimeLoad( second, savePath );
+			PrepareRuntimeLoad( second, savePath, incompatibleExecution );
+		(void)incompatibleExecution.rollback();
 		std::vector<std::uint8_t> corrupted;
 		storage.readAll( savePath, corrupted );
 		if ( !corrupted.empty() ) corrupted.front() ^= 0xffu;
 		storage.writeAll( savePath, corrupted );
+		RuntimeLoadExecutionGuard invalidExecution =
+			BeginRuntimeLoadExecution(
+				first, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad invalid =
-			PrepareRuntimeLoad( first, savePath );
+			PrepareRuntimeLoad( first, savePath, invalidExecution );
+		(void)invalidExecution.rollback();
 		const std::string plainPath = "SavedGames/SaveGamePlain.sav";
 		storage.writeAll( plainPath, domain );
+		RuntimeLoadExecutionGuard plainExecution =
+			BeginRuntimeLoadExecution(
+				first, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad plain =
-			PrepareRuntimeLoad( first, plainPath );
+			PrepareRuntimeLoad( first, plainPath, plainExecution );
+		(void)plainExecution.rollback();
 		CHECK( firstReady && secondReady && interactiveSaveFrame.sequence == 1 &&
 		       captureDidNotWrite && committed &&
 		       containerLoaded && inspected.domainBytes == domain.size() &&
@@ -3827,10 +4836,20 @@ int main( int, char** )
 		const std::string savePath = "SavedGames/SaveGame02.sav";
 		const std::vector<std::uint8_t> domain = { 7, 8, 9 };
 		storage.writeAll( savePath, domain );
-		PreparedRuntimeSave captured = PrepareRuntimeSave( context );
+		RuntimeSaveExecutionGuard saveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeSave captured = PrepareRuntimeSave(
+			context, saveExecution );
 		const RuntimeSaveCommitResult written =
-			CommitRuntimeSave( context, savePath, std::move( captured ) );
-		PreparedRuntimeLoad ready = PrepareRuntimeLoad( context, savePath );
+			CommitRuntimeSave( context, savePath, std::move( captured ),
+				saveExecution );
+		RuntimeLoadExecutionGuard readyExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeLoad ready = PrepareRuntimeLoad(
+			context, savePath, readyExecution );
+		(void)readyExecution.rollback();
 		PackageSaveArchive wrongSchema = ready.packages;
 		wrongSchema.state.records[0].schemaVersion = 6;
 		std::vector<std::uint8_t> checkpointBytes;
@@ -3846,8 +4865,13 @@ int main( int, char** )
 			context.runtimeSaveContainers().seal( wrongPath, {
 				{ 0x504b4843u, checkpointBytes },
 				{ 0x54534750u, packageBytes } } );
+		RuntimeLoadExecutionGuard contractMismatchExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
 		const PreparedRuntimeLoad contractMismatch =
-			PrepareRuntimeLoad( context, wrongPath );
+			PrepareRuntimeLoad(
+				context, wrongPath, contractMismatchExecution );
+		(void)contractMismatchExecution.rollback();
 		CHECK( registered && activated && initializing && advanced && running && written &&
 		       ready && ready.packages.state.records.size() == 1 &&
 		       ready.packages.state.records[0].payload ==
@@ -3884,16 +4908,25 @@ int main( int, char** )
 		storage.writeAll( savePath, domain );
 		const std::vector<std::uint8_t> capturedPayload =
 			stagedPackage.saveStatePayload;
-		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		RuntimeSaveExecutionGuard saveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave(
+			context, saveExecution );
 		std::vector<std::uint8_t> domainAfterPrepare;
 		const bool prepareDidNotWrite =
 			storage.readAll( savePath, domainAfterPrepare ) &&
 			domainAfterPrepare == domain;
 		stagedPackage.saveStatePayload = { 9, 8, 7, 6 };
 		const RuntimeSaveCommitResult committed =
-			CommitRuntimeSave( context, savePath, std::move( prepared ) );
+			CommitRuntimeSave( context, savePath, std::move( prepared ),
+				saveExecution );
 		stagedPackage.saveStatePayload = capturedPayload;
-		PreparedRuntimeLoad stagedLoad = PrepareRuntimeLoad( context, savePath );
+		RuntimeLoadExecutionGuard stagedLoadExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeLoad stagedLoad = PrepareRuntimeLoad(
+			context, savePath, stagedLoadExecution );
 		const bool stagedPayloadCaptured = stagedLoad &&
 			stagedLoad.packages.state.records.size() == 1 &&
 			stagedLoad.packages.state.records[0].payload == capturedPayload;
@@ -3902,11 +4935,17 @@ int main( int, char** )
 		if ( !corruptedBytes.empty() ) corruptedBytes.back() ^= 0x80u;
 		storage.writeAll( savePath, corruptedBytes );
 		const PackageSaveStateLoadResult restored =
-			RestorePreparedRuntimeSave( context, stagedLoad );
+			RestorePreparedRuntimeSave(
+				context, stagedLoad, stagedLoadExecution );
 		const PackageSaveStateLoadResult restoredAgain =
-			RestorePreparedRuntimeSave( context, stagedLoad );
-		const PreparedRuntimeLoad corrupted =
-			PrepareRuntimeLoad( context, savePath );
+			RestorePreparedRuntimeSave(
+				context, stagedLoad, stagedLoadExecution );
+		RuntimeLoadExecutionGuard corruptedExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
+		const PreparedRuntimeLoad corrupted = PrepareRuntimeLoad(
+			context, savePath, corruptedExecution );
+		(void)corruptedExecution.rollback();
 		CHECK( ready && prepareDidNotWrite && committed &&
 		       stagedPackage.saveStateCalls == 1 &&
 		       stagedPayloadCaptured,
@@ -3925,10 +4964,16 @@ int main( int, char** )
 		stagedPackage.saveStateSucceeds = false;
 		const std::string failedPath = "SavedGames/SaveGameFailed.sav";
 		storage.writeAll( failedPath, domain );
-		PreparedRuntimeSave failedPreparation = PrepareRuntimeSave( context );
+		RuntimeSaveExecutionGuard failedSaveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeSave failedPreparation = PrepareRuntimeSave(
+			context, failedSaveExecution );
 		const RuntimeSaveCommitResult failedCommit =
 			CommitRuntimeSave(
-				context, failedPath, std::move( failedPreparation ) );
+				context, failedPath, std::move( failedPreparation ),
+				failedSaveExecution );
+		(void)failedSaveExecution.rollback();
 		CHECK( !failedCommit &&
 		       failedCommit.packageCaptureError ==
 		           PackageSaveStateError::CallbackFailed &&
@@ -3956,11 +5001,20 @@ int main( int, char** )
 			context.markRunning();
 		const std::string savePath = "SavedGames/SaveGame03.sav";
 		storage.writeAll( savePath, { 4, 2 } );
-		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		RuntimeSaveExecutionGuard saveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave(
+			context, saveExecution );
 		const RuntimeSaveCommitResult written =
-			CommitRuntimeSave( context, savePath, std::move( prepared ) );
-		const PreparedRuntimeLoad inspected =
-			PrepareRuntimeLoad( context, savePath );
+			CommitRuntimeSave( context, savePath, std::move( prepared ),
+				saveExecution );
+		RuntimeLoadExecutionGuard loadExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
+		const PreparedRuntimeLoad inspected = PrepareRuntimeLoad(
+			context, savePath, loadExecution );
+		(void)loadExecution.rollback();
 		CHECK( ready && written && inspected &&
 		       inspected.packages.state.records.empty() &&
 		       inspected.packages.state.engineRecords.size() == 1 &&
@@ -3982,11 +5036,20 @@ int main( int, char** )
 			context.markRunning();
 		const std::string savePath = "SavedGames/SaveGame04.sav";
 		storage.writeAll( savePath, { 1, 2, 3 } );
-		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		RuntimeSaveExecutionGuard saveExecution =
+			BeginRuntimeSaveExecution(
+				context, RuntimeSavePolicy::Interactive );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave(
+			context, saveExecution );
 		const RuntimeSaveCommitResult written =
-			CommitRuntimeSave( context, savePath, std::move( prepared ) );
-		const PreparedRuntimeLoad inspected =
-			PrepareRuntimeLoad( context, savePath );
+			CommitRuntimeSave( context, savePath, std::move( prepared ),
+				saveExecution );
+		RuntimeLoadExecutionGuard loadExecution =
+			BeginRuntimeLoadExecution(
+				context, RuntimeSavePolicy::Interactive );
+		const PreparedRuntimeLoad inspected = PrepareRuntimeLoad(
+			context, savePath, loadExecution );
+		(void)loadExecution.rollback();
 		CHECK( ready && written && inspected &&
 		       inspected.packages.state.records.empty() &&
 		       inspected.packages.state.engineRecords.empty(),

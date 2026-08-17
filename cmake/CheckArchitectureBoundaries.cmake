@@ -846,6 +846,8 @@ file(READ "${SOURCE_ROOT}/Engine/Core/PackageSaveArchive.h"
   dedicated_package_save_archive_header)
 file(READ "${SOURCE_ROOT}/Engine/Core/EngineHost.h"
   dedicated_determinism_engine_host_header)
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.h"
+  dedicated_determinism_game_context_header)
 file(READ "${SOURCE_ROOT}/Ja2/RuntimeSaveState.cpp"
   dedicated_runtime_save_state_source)
 file(READ "${SOURCE_ROOT}/Ja2/RuntimeSaveState.h"
@@ -874,6 +876,8 @@ file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/vfs_init.cpp"
   dedicated_campaign_vfs_init_source)
 file(READ "${SOURCE_ROOT}/docs/MULTIPLAYER_ARCHITECTURE.md"
   dedicated_campaign_store_docs)
+file(READ "${SOURCE_ROOT}/CMakeLists.txt"
+  dedicated_runtime_root_build)
 strip_cxx_comments_and_literals(dedicated_campaign_store_header
   dedicated_campaign_store_header_code)
 strip_cxx_comments_and_literals(dedicated_campaign_store_source
@@ -981,6 +985,8 @@ strip_cxx_comments_and_literals(dedicated_runtime_save_headless_tests
   dedicated_runtime_save_headless_test_code)
 strip_cxx_comments_and_literals(dedicated_determinism_sdk_consumer
   dedicated_determinism_sdk_consumer_code)
+strip_cxx_comments_and_literals(dedicated_determinism_game_context_header
+  dedicated_determinism_game_context_header_code)
 string(REGEX REPLACE "#[^\r\n]*" ""
   dedicated_determinism_core_build_code
   "${dedicated_determinism_core_build_source}")
@@ -1336,10 +1342,12 @@ require_ordered_fragments(dedicated_campaign_save_impl_slice
   "Dedicated campaign save lost preflight/path/sidecar ordering"
   "invocation == LegacySaveInvocation::DedicatedCampaign"
   "ExactDedicatedScratch("
-  "gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;"
-  "PrepareRuntimeSave("
+  "BeginRuntimeSaveExecution("
   "RuntimeSavePolicy::DedicatedDeterministic"
   "RuntimeSavePolicy::Interactive"
+  "alreadySaving = true;"
+  "gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;"
+  "PrepareRuntimeSave("
   "if (!preparedRuntimeSave)"
   "goto FAILED_TO_SAVE;"
   "SaveGameHeader.ubLoadScreenID = dedicatedCampaign"
@@ -1351,9 +1359,17 @@ require_ordered_fragments(dedicated_campaign_save_impl_slice
   "if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)"
   "SaveInventoryPoolQ(ubSaveGameID)"
   "CommitRuntimeSave("
+  "runtimeSaveExecution"
+  "fSaveFileCreated = FALSE;"
   "if (!dedicatedCampaign)"
   "SaveGameSettings()"
-  "SaveFeatureFlags()")
+  "SaveFeatureFlags()"
+  "FAILED_TO_SAVE:"
+  "if ( hFile )"
+  "FileClose( hFile )"
+  "remove( zSaveGameName )"
+  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME"
+  "runtimeSaveExecution.rollback()")
 
 set(dedicated_campaign_load_impl_marker
   "static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,\n\tconst char* logicalVfsPath, LegacySaveInvocation invocation)")
@@ -1370,14 +1386,20 @@ require_ordered_fragments(dedicated_campaign_load_impl_slice
   "invocation == LegacySaveInvocation::DedicatedCampaign"
   "ExactDedicatedScratch(ubSavedGameID, logicalVfsPath)"
   "gbSaveGameArray[ ubSavedGameID ]"
-  "PrepareRuntimeLoad("
+  "BeginRuntimeLoadExecution("
   "RuntimeSavePolicy::DedicatedDeterministic"
   "RuntimeSavePolicy::Interactive"
+  "auto failRuntimeLoad"
+  "if (hFile)"
+  "FileClose(hFile)"
+  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME"
+  "runtimeLoadExecution.rollback()"
+  "PrepareRuntimeLoad("
   "TrashAllSoldiers( )"
   "LoadCurrentSectorsInformationFromTempItemsFile()"
   "if (dedicatedCampaign)"
-  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;"
-  "return FALSE;"
+  "return failRuntimeLoad();"
+  "runtimeLoadExecution.rollback()"
   "InitExitGameDialogBecauseFileHackDetected()"
   "if (!dedicatedCampaign)"
   "SaveGameSettings()"
@@ -1386,8 +1408,7 @@ require_ordered_fragments(dedicated_campaign_load_impl_slice
   "LoadInventoryPoolQ(ubSavedGameID)"
   "RestorePreparedRuntimeSave("
   "if ( !restored )"
-  "gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;"
-  "return FALSE;")
+  "return failRuntimeLoad();")
 
 foreach(dedicated_campaign_public_gate IN ITEMS
     "BOOLEAN SaveGame(int ubSaveGameID, CHAR16* pGameDesc)"
@@ -1408,8 +1429,11 @@ extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
   "Cannot bound dedicated campaign validation bridge")
 require_ordered_fragments(dedicated_campaign_validate_bridge_slice
   "Dedicated campaign semantic validation can fall back to interactive policy"
+  "BeginRuntimeLoadExecution("
+  "RuntimeSavePolicy::DedicatedDeterministic"
+  "PrepareRuntimeLoad("
   "DedicatedCampaignLogicalScratch(slot)"
-  "RuntimeSavePolicy::DedicatedDeterministic")
+  "runtimeLoadExecution.rollback()")
 
 foreach(dedicated_campaign_bridge_entry IN ITEMS
     "bool SaveDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept"
@@ -2158,7 +2182,9 @@ require_ordered_fragments(dedicated_interactive_runtime_save_commit_slice
 
 foreach(dedicated_interactive_runtime_save_test_contract IN ITEMS
     "interactiveSaveFrame = first.frameDriver().runFrame("
-    "prepared = PrepareRuntimeSave( first );"
+    "interactiveSaveExecution"
+    "prepared = PrepareRuntimeSave("
+    "first, interactiveSaveExecution"
     "interactiveCheckpointLoaded.storedVersion =="
     "RuntimeCheckpointService::LegacyVersion"
     "!interactiveCheckpointLoaded.hasDeterministicBoundary")
@@ -2171,17 +2197,26 @@ foreach(dedicated_interactive_runtime_save_test_contract IN ITEMS
   endif()
 endforeach()
 
-# Dedicated campaign persistence is a distinct fail-closed policy. It requires
-# the process-global game RNG itself to be the healthy SimulationRandom exposed
-# through EngineServices; until that installation exists, both strict entry
-# points reject before storage/domain work. The wire contract is exactly CHKP
-# v2 + PGST v4 + GRNG v1, while interactive saves remain CHKP v1 compatible.
+# Dedicated campaign persistence is a distinct fail-closed policy. A move-only
+# execution guard owns both non-rewindable RNG domains across every legacy
+# serializer/loader exit. The wire contract remains CHKP v2 + PGST v4 + GRNG
+# v1, while interactive saves retain CHKP v1 compatibility.
 foreach(dedicated_runtime_policy_header_contract IN ITEMS
     "enum class RuntimeSavePolicy"
     "Interactive"
     "DedicatedDeterministic"
     "CanonicalSimulationRandomRequired"
     "SemanticPackagePreflightRequired"
+    "ExecutionGuardRequired"
+    "SimulationRandomConsumed"
+    "PackageRandomTransactionFailed"
+    "struct RuntimeExecutionGuardResult"
+    "class RuntimeSaveExecutionGuard"
+    "class RuntimeLoadExecutionGuard"
+    "RuntimeSaveExecutionGuard(const RuntimeSaveExecutionGuard&) = delete;"
+    "RuntimeLoadExecutionGuard(const RuntimeLoadExecutionGuard&) = delete;"
+    "RuntimeExecutionGuardResult rollback() noexcept;"
+    "PackageRandomTransaction packageTransaction_;"
     "RuntimeSavePolicy policy_ = RuntimeSavePolicy::Interactive;"
     "RuntimeSavePolicy policy = RuntimeSavePolicy::Interactive")
   string(FIND "${dedicated_runtime_save_state_header_code}"
@@ -2193,30 +2228,99 @@ foreach(dedicated_runtime_policy_header_contract IN ITEMS
   endif()
 endforeach()
 
+foreach(dedicated_runtime_guard_forwarder IN ITEMS
+    "beginPackageRandomTransaction() noexcept"
+    "hasActiveStatefulPackageSaveState() const noexcept")
+  string(FIND "${dedicated_determinism_engine_host_header}"
+    "${dedicated_runtime_guard_forwarder}"
+    dedicated_runtime_guard_host_position)
+  string(FIND "${dedicated_determinism_game_context_header_code}"
+    "${dedicated_runtime_guard_forwarder}"
+    dedicated_runtime_guard_context_position)
+  if(dedicated_runtime_guard_host_position EQUAL -1 OR
+     dedicated_runtime_guard_context_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime RNG transaction lost host/context forwarder '${dedicated_runtime_guard_forwarder}'")
+  endif()
+endforeach()
+
 extract_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeSaveExecutionGuard BeginRuntimeSaveExecution("
+  "RuntimeLoadExecutionGuard BeginRuntimeLoadExecution("
+  dedicated_strict_runtime_begin_save_slice
+  "Cannot bound strict runtime-save guard begin")
+require_ordered_fragments(dedicated_strict_runtime_begin_save_slice
+  "Strict runtime-save guard lost canonical/stateful/epoch/transaction ordering"
+  "policy == RuntimeSavePolicy::Interactive"
+  "CanonicalSimulationRandom(context)"
+  "simulationRandom_->healthy()"
+  "context.hasActiveStatefulPackageSaveState()"
+  "simulationRandom_->checkpoint()"
+  "simulationRandom_->consumptionEpoch()"
+  "context.beginPackageRandomTransaction()"
+  "guard.packageTransaction_ = std::move(packages)"
+  "guard.armed_ = true"
+  "guard.verifyUnchanged()")
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeLoadExecutionGuard BeginRuntimeLoadExecution("
   "PreparedRuntimeSave PrepareRuntimeSave("
-  "RuntimeSaveCommitResult CommitRuntimeSave("
+  dedicated_strict_runtime_begin_load_slice
+  "Cannot bound strict runtime-load guard begin")
+require_ordered_fragments(dedicated_strict_runtime_begin_load_slice
+  "Strict runtime-load guard lost canonical/stateful/epoch/transaction ordering"
+  "policy == RuntimeSavePolicy::Interactive"
+  "CanonicalSimulationRandom(context)"
+  "simulationRandom_->healthy()"
+  "context.hasActiveStatefulPackageSaveState()"
+  "simulationRandom_->checkpoint()"
+  "simulationRandom_->consumptionEpoch()"
+  "context.beginPackageRandomTransaction()"
+  "guard.packageTransaction_ = std::move(packages)"
+  "guard.armed_ = true"
+  "guard.verifyBaseline()")
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "PreparedRuntimeSave PrepareRuntimeSave(\n\tGameContext& context, RuntimeSaveExecutionGuard& guard) noexcept"
+  "RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,\n\tconst std::string& savePath, PreparedRuntimeSave prepared,\n\tRuntimeSaveExecutionGuard& guard) noexcept"
   dedicated_strict_runtime_prepare_save_slice
   "Cannot bound strict runtime-save preparation")
 require_ordered_fragments(dedicated_strict_runtime_prepare_save_slice
-  "Strict runtime-save preparation no longer gates RNG/boundary/packages"
+  "Strict runtime-save preparation lost guarded boundary/package capture ordering"
+  "guard.context_ != &context"
+  "guard.finished_"
+  "if (!guard.beginResult_)"
+  "if (policy == RuntimeSavePolicy::DedicatedDeterministic && !guard.armed_)"
+  "auto rollbackPrepared"
+  "guard.rollback()"
   "policy == RuntimeSavePolicy::DedicatedDeterministic"
-  "CanonicalSimulationRandom(context)"
-  "SimulationRandomUnhealthy"
   "captureRuntimeCheckpoint()"
+  "context.capturePackageSaveState("
   "PackageSaveRandomPolicy::RequireUnconsumed"
+  "guard.verifyUnchanged()"
+  "prepared.packageState.engineRecords !="
+  "guard.packageTransaction_.baseline().engineRecords"
   "SemanticPackagePreflightRequired"
   "UnsupportedPackageRandomSchema"
   "packageRandomHostSeed()"
-  "StrictRuntimeStillMatches(")
+  "StrictRuntimeStillMatches("
+  "guard.verifyUnchanged()")
 
 extract_bounded_slice(dedicated_runtime_save_state_code
-  "RuntimeSaveCommitResult CommitRuntimeSave("
-  "PreparedRuntimeLoad PrepareRuntimeLoad("
+  "RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,\n\tconst std::string& savePath, PreparedRuntimeSave prepared,\n\tRuntimeSaveExecutionGuard& guard) noexcept"
+  "PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,\n\tconst std::string& savePath, RuntimeLoadExecutionGuard& guard) noexcept"
   dedicated_strict_runtime_commit_slice
   "Cannot bound strict runtime-save commit")
 require_ordered_fragments(dedicated_strict_runtime_commit_slice
-  "Strict runtime-save commit lost exact CHKP/PGST/GRNG publication"
+  "Strict runtime-save commit lost seal/recheck/transaction publication ordering"
+  "guard.context_ != &context"
+  "guard.policy_ != prepared.policy_"
+  "guard.finished_"
+  "if (!guard.beginResult_)"
+  "if (!guard)"
+  "auto rollbackResult"
+  "RemoveIncompleteSave(context, savePath)"
+  "guard.rollback()"
   "StrictRuntimeStillMatches("
   "runtimeCheckpoints().encode("
   "packageSaveArchives().encode("
@@ -2226,42 +2330,193 @@ require_ordered_fragments(dedicated_strict_runtime_commit_slice
   "RuntimeCheckpointSection"
   "PackageStateSection"
   "RuntimeRandomCheckpointSectionType"
-  "runtimeSaveContainers().seal(")
+  "runtimeSaveContainers().seal("
+  "StrictRuntimeStillMatches("
+  "guard.commitUnchanged()")
 
 extract_bounded_slice(dedicated_runtime_save_state_code
-  "PreparedRuntimeLoad PrepareRuntimeLoad("
-  "PackageSaveStateLoadResult RestorePreparedRuntimeSave("
+  "PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,\n\tconst std::string& savePath, RuntimeLoadExecutionGuard& guard) noexcept"
+  "PackageSaveStateLoadResult RestorePreparedRuntimeSave(\n\tGameContext& context, PreparedRuntimeLoad& prepared,\n\tRuntimeLoadExecutionGuard& guard) noexcept"
   dedicated_strict_runtime_prepare_load_slice
   "Cannot bound strict runtime-load preparation")
 require_ordered_fragments(dedicated_strict_runtime_prepare_load_slice
   "Strict runtime-load gate/version/preflight ordering regressed"
-  "policy == RuntimeSavePolicy::DedicatedDeterministic"
-  "CanonicalSimulationRandom(context)"
-  "SimulationRandomUnhealthy"
-  "try"
+  "guard.context_ != &context"
+  "guard.finished_"
+  "if (!guard.beginResult_)"
+  "if (policy == RuntimeSavePolicy::DedicatedDeterministic && !guard.armed_)"
+  "auto rollbackPrepared"
+  "guard.rollback()"
   "runtimeSaveContainers().inspect("
   "container.sections.size() != 3"
   "RuntimeCheckpointService::CurrentVersion"
   "PackageSaveArchiveService::CurrentVersion"
+  "UsesCurrentPackageRandomSchema("
+  "prepared.packages.state.records.empty()"
   "RuntimeRandomCheckpointVersion"
   "PackageSaveRandomPolicy::RequireUnconsumed"
-  "SemanticPackagePreflightRequired"
+  "CanonicalSimulationRandom(context)"
+  "validateRuntimeCheckpointBoundary("
+  "guard.verifyBaseline()"
   "packageRestorePending_ = true;")
 
 extract_bounded_slice(dedicated_runtime_save_state_code
-  "PackageSaveStateLoadResult RestorePreparedRuntimeSave("
-  "const char* RuntimeSaveContainerLoadErrorName("
+  "PackageSaveStateLoadResult RestorePreparedRuntimeSave(\n\tGameContext& context, PreparedRuntimeLoad& prepared,\n\tRuntimeLoadExecutionGuard& guard) noexcept"
+  "PreparedRuntimeSave PrepareRuntimeSave(\n\tGameContext& context, RuntimeSavePolicy policy) noexcept"
   dedicated_strict_runtime_restore_slice
   "Cannot bound strict runtime restore")
 require_ordered_fragments(dedicated_strict_runtime_restore_slice
-  "Strict runtime restore lost package/boundary/simulation ordering"
+  "Strict runtime restore lost package/boundary/simulation/transaction ordering"
+  "if (!prepared.packageRestorePending_)"
+  "guard.context_ != &context"
+  "guard.policy_ != prepared.policy_"
+  "guard.finished_"
+  "if (!guard.beginResult_)"
+  "if (!guard)"
+  "packageRestorePending_ = false"
+  "guard.rollback()"
+  "guard.verifyBaseline()"
+  "CanonicalSimulationRandom(context)"
+  "prepared.packages.state.records.empty()"
+  "validateRuntimeCheckpointBoundary("
   "PackageSaveRandomPolicy::RequireUnconsumed"
+  "guard.verifyBaseline()"
   "restoreRuntimeCheckpointBoundary("
-  "simulationRandom->restoreCheckpoint(")
+  "simulationRandom->restoreCheckpoint("
+  "simulationRandom->consumptionEpoch() != guard.simulationEpoch_"
+  "simulationRandom->checkpoint() =="
+  "guard.commitTarget(")
+
+# A failed final commit must leave the owning guard armed so its caller can
+# remove any staged container while callbacks are still transaction-gated,
+# then perform the one centralized rollback. The commit helpers themselves may
+# disarm only on success.
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeExecutionGuardResult\nRuntimeSaveExecutionGuard::commitUnchanged() noexcept"
+  dedicated_runtime_save_guard_commit_slice
+  "Cannot bound runtime-save guard commit")
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeExecutionGuardResult RuntimeLoadExecutionGuard::commitTarget(\n\tconst std::vector<PackageEngineSaveStateRecord>& target) noexcept"
+  dedicated_runtime_load_guard_commit_slice
+  "Cannot bound runtime-load guard commit")
+foreach(dedicated_runtime_guard_commit_slice IN ITEMS
+    dedicated_runtime_save_guard_commit_slice
+    dedicated_runtime_load_guard_commit_slice)
+  string(FIND "${${dedicated_runtime_guard_commit_slice}}"
+    "rollback()" dedicated_runtime_guard_commit_rollback_position)
+  if(NOT dedicated_runtime_guard_commit_rollback_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime RNG guard commit regained internal rollback before caller cleanup")
+  endif()
+endforeach()
+
+# Compatibility overloads may retain the historical interactive route, but a
+# strict call without a caller-owned execution guard is an observational
+# preflight rejection. It must return before beginning a package transaction,
+# invoking package callbacks, or touching the save container.
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "PreparedRuntimeSave PrepareRuntimeSave(\n\tGameContext& context, RuntimeSavePolicy policy) noexcept"
+  dedicated_unguarded_runtime_prepare_save_slice
+  "Cannot bound unguarded runtime-save preparation")
+require_ordered_fragments(dedicated_unguarded_runtime_prepare_save_slice
+  "Unguarded strict save preparation can acquire runtime ownership"
+  "policy == RuntimeSavePolicy::DedicatedDeterministic"
+  "UnguardedStrictExecutionError(context)"
+  "return prepared;"
+  "BeginRuntimeSaveExecution(context, policy)"
+  "PrepareRuntimeSave(context, guard)")
+
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,\n\tconst std::string& savePath, PreparedRuntimeSave prepared) noexcept"
+  dedicated_unguarded_runtime_commit_slice
+  "Cannot bound unguarded runtime-save commit")
+require_ordered_fragments(dedicated_unguarded_runtime_commit_slice
+  "Unguarded strict save commit can touch storage or acquire ownership"
+  "prepared.policy_ == RuntimeSavePolicy::DedicatedDeterministic"
+  "UnguardedStrictExecutionError(context)"
+  "return result;"
+  "BeginRuntimeSaveExecution(context, prepared.policy_)"
+  "CommitRuntimeSave("
+  "std::move(prepared), guard")
+
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,\n\tconst std::string& savePath, RuntimeSavePolicy policy) noexcept"
+  dedicated_unguarded_runtime_prepare_load_slice
+  "Cannot bound unguarded runtime-load preparation")
+require_ordered_fragments(dedicated_unguarded_runtime_prepare_load_slice
+  "Unguarded strict load preparation can inspect storage or acquire ownership"
+  "policy == RuntimeSavePolicy::DedicatedDeterministic"
+  "UnguardedStrictExecutionError(context)"
+  "return prepared;"
+  "BeginRuntimeLoadExecution(mutableContext, policy)"
+  "PrepareRuntimeLoad(context, savePath, guard)")
+
+extract_brace_bounded_slice(dedicated_runtime_save_state_code
+  "PackageSaveStateLoadResult RestorePreparedRuntimeSave(\n\tGameContext& context, PreparedRuntimeLoad& prepared) noexcept"
+  dedicated_unguarded_runtime_restore_slice
+  "Cannot bound unguarded prepared-runtime restore")
+require_ordered_fragments(dedicated_unguarded_runtime_restore_slice
+  "Unguarded strict restore can consume pending state or acquire ownership"
+  "if (!prepared.packageRestorePending_)"
+  "prepared.policy_ == RuntimeSavePolicy::DedicatedDeterministic"
+  "UnguardedStrictExecutionError(context)"
+  "return {PackageSaveStateError::EngineStateMismatch"
+  "BeginRuntimeLoadExecution(context, prepared.policy_)"
+  "RestorePreparedRuntimeSave(context, prepared, guard)")
+
+foreach(dedicated_unguarded_runtime_slice IN ITEMS
+    dedicated_unguarded_runtime_prepare_save_slice
+    dedicated_unguarded_runtime_commit_slice
+    dedicated_unguarded_runtime_prepare_load_slice
+    dedicated_unguarded_runtime_restore_slice)
+  foreach(dedicated_unguarded_runtime_forbidden IN ITEMS
+      "runtimeSaveContainers()"
+      "capturePackageSaveState("
+      "restorePackageSaveState("
+      "RemoveIncompleteSave("
+      "packageTransaction_"
+      ".rollback()")
+    string(FIND "${${dedicated_unguarded_runtime_slice}}"
+      "${dedicated_unguarded_runtime_forbidden}"
+      dedicated_unguarded_runtime_forbidden_position)
+    if(NOT dedicated_unguarded_runtime_forbidden_position EQUAL -1)
+      message(FATAL_ERROR
+        "Unguarded strict wrapper regained '${dedicated_unguarded_runtime_forbidden}'")
+    endif()
+  endforeach()
+endforeach()
+
+extract_bounded_slice(dedicated_runtime_save_state_header_code
+  "struct PreparedRuntimeSave\n{"
+  "struct RuntimeSaveCommitResult\n{"
+  dedicated_runtime_prepared_save_header_slice
+  "Cannot bound prepared runtime-save value")
+extract_bounded_slice(dedicated_runtime_save_state_header_code
+  "struct PreparedRuntimeLoad\n{"
+  "RuntimeSaveExecutionGuard BeginRuntimeSaveExecution(GameContext& context,"
+  dedicated_runtime_prepared_load_header_slice
+  "Cannot bound prepared runtime-load value")
+foreach(dedicated_runtime_prepared_forbidden IN ITEMS
+    "packageTransaction_"
+    "simulationEpoch_"
+    "context_"
+    "armed_"
+    "finished_")
+  string(FIND
+    "${dedicated_runtime_prepared_save_header_slice}${dedicated_runtime_prepared_load_header_slice}"
+    "${dedicated_runtime_prepared_forbidden}"
+    dedicated_runtime_prepared_forbidden_position)
+  if(NOT dedicated_runtime_prepared_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Prepared runtime values regained live guard ownership '${dedicated_runtime_prepared_forbidden}'")
+  endif()
+endforeach()
 
 foreach(dedicated_runtime_closed_gate_test_contract IN ITEMS
-    "const PreparedRuntimeSave strictSave = PrepareRuntimeSave("
-    "const PreparedRuntimeLoad strictLoad = PrepareRuntimeLoad("
+    "RuntimeSaveExecutionGuard strictSaveExecution"
+    "RuntimeLoadExecutionGuard strictLoadExecution"
+    "BeginRuntimeSaveExecution("
+    "BeginRuntimeLoadExecution("
     "RuntimeSavePolicy::DedicatedDeterministic"
     "RuntimeSavePolicyError::"
     "CanonicalSimulationRandomRequired"
@@ -2274,6 +2529,56 @@ foreach(dedicated_runtime_closed_gate_test_contract IN ITEMS
   if(dedicated_runtime_closed_gate_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Dedicated runtime closed-gate regression lost '${dedicated_runtime_closed_gate_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_execution_test_contract IN ITEMS
+    "RunStrictRuntimeExecutionTests()"
+    "InstallGameSimulationRandom(0x123456789abcdef0ULL)"
+    "!std::is_move_assignable<RuntimeSaveExecutionGuard>::value"
+    "!std::is_move_assignable<RuntimeLoadExecutionGuard>::value"
+    "PackageRandomTransactionFailed"
+    "PackageRandomTransactionError::RandomConsumed"
+    "SemanticPackagePreflightRequired"
+    "ControlledRemoveByteStorage"
+    "RuntimeSaveContainerSaveError::StorageError"
+    "statefulPackage.saveStateCalls == 0"
+    "unguardedPrepareSaveUntouched"
+    "unguardedRemoveCalls == 0"
+    "defaultCommitUntouched"
+    "wrongCommitUntouched"
+    "unguardedRestorePending"
+    "wrongRestorePending"
+    "advancedSimulationBaseline != savedSimulationTarget"
+    "olderTargetsPublished"
+    "interveningSimulationRewound"
+    "postLoadPackageEpoch > preLoadPackageEpoch"
+    "removalAttemptedOnce"
+    "removalCallbackSimulationDrew"
+    "removalCallbackPackageDrew"
+    "PackageRandomTransactionError::TransactionAlreadyActive"
+    "removalDispatchBlocked"
+    "refusalPackageEpochAfter > refusalPackageEpoch"
+    "refusalNextExecutionBegan")
+  string(FIND "${dedicated_runtime_save_headless_test_code}"
+    "${dedicated_runtime_execution_test_contract}"
+    dedicated_runtime_execution_test_contract_position)
+  if(dedicated_runtime_execution_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strict runtime execution tests lost '${dedicated_runtime_execution_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_execution_raw_contract IN ITEMS
+    "--strict-runtime-execution"
+    "ja2_headless_strict_runtime_execution")
+  string(FIND
+    "${dedicated_runtime_save_headless_tests}${dedicated_runtime_root_build}"
+    "${dedicated_runtime_execution_raw_contract}"
+    dedicated_runtime_execution_raw_contract_position)
+  if(dedicated_runtime_execution_raw_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strict runtime fresh-process registration lost '${dedicated_runtime_execution_raw_contract}'")
   endif()
 endforeach()
 
@@ -2634,9 +2939,11 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "and publish exactly those"
     "three sections. Strict load requires that same exact section set"
     "LegacyGameRandomSource"
-    "package-RNG transaction now exists"
-    "save/load execution guard to own it"
-    "closed gate rather than a persistent-campaign compatibility claim"
+    "package-RNG transaction and its save/load execution guards now"
+    "Every later false exit closes the file"
+    "any dedicated load failure after that"
+    "boundary is fatal"
+    "this coordinator remains a closed gate"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"

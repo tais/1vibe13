@@ -1499,6 +1499,14 @@ PGST v3 remains load-only compatibility and relies on the configured host seed
 for any stream absent from that older archive. The legacy
 `EngineServices::random` remains intact.
 
+Host-side persistence coordinators can use
+`EngineHost::beginPackageRandomTransaction()` to freeze package lifecycle and
+runtime dispatch around an exact RNG save/load boundary, and
+`hasActiveStatefulPackageSaveState()` to reject package callback state before a
+destructive preflight. The transaction is move-only; callers must explicitly
+commit an unchanged/target state or roll it back, and its consumption epoch is
+process-local rather than part of PGST.
+
 Packages may override `EnginePackage::simulate` for fixed-step work that should
 not depend on rendering cadence. The host publishes the configured step and
 maximum catch-up count, executes only that bounded number after a hitch, and

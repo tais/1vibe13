@@ -685,6 +685,11 @@ int main()
 			std::vector<std::uint8_t>({1, 2, 3}) ||
 		!host.validatePackageSaveState(capturedExternalState.snapshot) ||
 		!host.restorePackageSaveState(capturedExternalState.snapshot)) return 14;
+	PackageRandomTransaction externalRandomTransaction =
+		host.beginPackageRandomTransaction();
+	if (!host.hasActiveStatefulPackageSaveState() ||
+		!externalRandomTransaction || !externalRandomTransaction.rollback())
+		return 66;
 	const TacticalCommandSubmissionResult commandRequest =
 		package.commandBinding()
 			? package.commandBinding().client.submit(

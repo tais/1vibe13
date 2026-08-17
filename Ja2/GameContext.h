@@ -127,6 +127,14 @@ public:
 	{
 		return runtime_.restorePackageSaveState(snapshot, randomPolicy);
 	}
+	PackageRandomTransaction beginPackageRandomTransaction() noexcept
+	{
+		return runtime_.beginPackageRandomTransaction();
+	}
+	bool hasActiveStatefulPackageSaveState() const noexcept
+	{
+		return runtime_.hasActiveStatefulPackageSaveState();
+	}
 	PackageSaveArchiveService& packageSaveArchives()
 	{
 		return runtime_.packageSaveArchives();

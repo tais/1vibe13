@@ -313,6 +313,26 @@ dismantles live state. Package-defined opaque save records also remain closed
 until their semantic validation can be staged before that destructive load;
 engine-owned package RNG records are structurally preflighted separately.
 
+Move-only runtime execution guards now own the canonical simulation checkpoint,
+its non-rewindable consumption epoch, and the package RNG transaction across
+the complete legacy serializer or loader. The save guard is armed before the
+legacy save mutates pause/UI state, seals CHKP + PGST + GRNG, and commits the
+unchanged package transaction only as the final publication check; a failed
+final check closes and removes the sealed file while the transaction is still
+armed, then rolls both RNG domains back. Strict compatibility overloads without
+a caller-owned guard reject before storage, callbacks, or transaction
+acquisition. The load guard is armed and preflights all three sections before
+`TrashAllSoldiers`, then publishes package RNG state,
+the frame/tick boundary, and the simulation stream in that order before its
+final exact-target transaction commit. Every later false exit closes the file,
+clears the loading flag, and explicitly rolls both RNG domains back. Those RNG
+rollbacks do not claim to reconstruct tactical or strategic objects already
+dismantled by the legacy loader, so any dedicated load failure after that
+boundary is fatal to the attempted session rather than retryable in process.
+Validation-only loads explicitly roll their guard back and never leave package
+dispatch frozen. Interactive save/load guards remain inert and preserve the
+legacy CHKP v1 behavior.
+
 The process-global game RNG now has a one-shot installation seam: before either
 typed or generic accessor observes the default source, a caller may install the
 actual `SimulationRandom` object with the immutable campaign seed. Both
@@ -321,11 +341,12 @@ repeat installation fails and there is no reset. Production startup does not
 call this seam yet, so the live game still exposes `LegacyGameRandomSource` as
 its canonical random service and the strict policy deliberately fails at its
 first entry before any dedicated domain save or load is attempted. The exact,
-non-rewindable package-RNG transaction now exists, but opening the gate still
-requires a save/load execution guard to own it across every legacy exit. Until
-that guard and the audited transient-state collector are installed, this
-coordinator remains a
-closed gate rather than a persistent-campaign compatibility claim.
+non-rewindable package-RNG transaction and its save/load execution guards now
+exist, but opening the production gate still requires startup to install the
+manifest-bound campaign RNG and the audited transient-state eligibility
+collector to prove a cold-resumable checkpoint. Until those pieces are wired,
+this coordinator remains a closed gate rather than a persistent-campaign
+compatibility claim.
 
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must

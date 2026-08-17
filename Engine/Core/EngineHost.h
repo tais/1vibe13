@@ -312,6 +312,14 @@ public:
 	{
 		return packages_.restoreSaveState(snapshot, randomPolicy);
 	}
+	PackageRandomTransaction beginPackageRandomTransaction() noexcept
+	{
+		return packages_.beginRandomTransaction();
+	}
+	bool hasActiveStatefulPackageSaveState() const noexcept
+	{
+		return packages_.hasActiveStatefulSaveState();
+	}
 	std::uint64_t packageRandomHostSeed() const noexcept
 	{
 		return packages_.packageRandomHostSeed();
