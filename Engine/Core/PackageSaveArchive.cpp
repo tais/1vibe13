@@ -10,7 +10,8 @@
 namespace
 {
 constexpr std::uint32_t ArchiveMagic = 0x54534750u; // "PGST" on disk.
-constexpr std::uint16_t ArchiveVersion = 3;
+constexpr std::uint16_t LegacyArchiveVersion = 3;
+constexpr std::uint16_t ArchiveVersion = 4;
 bool ValidRecordIdentity(const PackageSaveStateRecord& record)
 {
 	return IsValidEngineIdentifier(record.packageId) &&
@@ -19,12 +20,13 @@ bool ValidRecordIdentity(const PackageSaveStateRecord& record)
 		record.schemaVersion != 0;
 }
 
-bool ValidEngineRecordIdentity(const PackageEngineSaveStateRecord& record)
+bool ValidEngineRecordIdentity(const PackageEngineSaveStateRecord& record,
+	std::uint32_t expectedRandomSchema)
 {
 	return IsValidEngineIdentifier(record.packageId) &&
 		!record.packageVersion.empty() &&
 		record.packageVersion.size() <= MaximumEngineVersionBytes &&
-		record.random.schema == PackageRandomCheckpoint::CurrentSchema &&
+		record.random.schema == expectedRandomSchema &&
 		record.random.packageId == record.packageId;
 }
 
@@ -132,18 +134,22 @@ PackageSaveArchiveSaveError PackageSaveArchiveService::encode(
 		uniqueEnginePackages.reserve(archive.state.engineRecords.size());
 		for (const PackageEngineSaveStateRecord& record : archive.state.engineRecords)
 		{
-			if (!ValidEngineRecordIdentity(record) ||
+			if (!ValidEngineRecordIdentity(record,
+					PackageRandomCheckpoint::CurrentSchema) ||
 				!uniqueEnginePackages.insert(record.packageId).second)
 				return PackageSaveArchiveSaveError::InvalidArchive;
 			if (record.random.streams.size() > maximumRandomStreamsPerPackage_ ||
 				record.random.streams.size() >
-					std::numeric_limits<std::uint32_t>::max())
+					std::numeric_limits<std::uint32_t>::max() ||
+				record.random.streams.size() > record.random.maximumStreams ||
+				record.random.maximumStreams != maximumRandomStreamsPerPackage_)
 				return PackageSaveArchiveSaveError::TooManyRandomStreams;
 			if (!AddEncodedStringBytes(totalBytes, record.packageId,
 					maximumTotalBytes_) ||
 				!AddEncodedStringBytes(totalBytes, record.packageVersion,
 					maximumTotalBytes_) ||
-				!AddBoundedBytes(totalBytes, sizeof(std::uint32_t) * 2u,
+				!AddBoundedBytes(totalBytes,
+					sizeof(std::uint32_t) * 2u + sizeof(std::uint64_t) * 2u,
 					maximumTotalBytes_))
 				return PackageSaveArchiveSaveError::TotalTooLarge;
 			std::unordered_set<std::string> uniqueStreams;
@@ -151,6 +157,8 @@ PackageSaveArchiveSaveError PackageSaveArchiveService::encode(
 			writer.writeString(record.packageId);
 			writer.writeString(record.packageVersion);
 			writer.writeU32(record.random.schema);
+			writer.writeU64(record.random.rootSeed);
+			writer.writeU64(record.random.maximumStreams);
 			writer.writeU32(static_cast<std::uint32_t>(record.random.streams.size()));
 			for (const PackageRandomStreamCheckpoint& stream : record.random.streams)
 			{
@@ -186,10 +194,10 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::load(const std::string& 
 		PersistenceHeader header{};
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.loadEnvelope(path, ArchiveMagic,
-			ArchiveVersion, ArchiveVersion, header, payload);
+			LegacyArchiveVersion, ArchiveVersion, header, payload);
 		if (loaded != PersistenceLoadResult::Success)
 			return {Translate(loaded), {}};
-		return decodePayload(payload, expectedCompatibility, archive);
+		return decodePayload(payload, header.version, expectedCompatibility, archive);
 	}
 	catch (...)
 	{
@@ -207,10 +215,10 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decode(
 		PersistenceHeader header{};
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.decodeEnvelope(encoded,
-			ArchiveMagic, ArchiveVersion, ArchiveVersion, header, payload);
+			ArchiveMagic, LegacyArchiveVersion, ArchiveVersion, header, payload);
 		if (loaded != PersistenceLoadResult::Success)
 			return {Translate(loaded), {}};
-		return decodePayload(payload, expectedCompatibility, archive);
+		return decodePayload(payload, header.version, expectedCompatibility, archive);
 	}
 	catch (...)
 	{
@@ -220,6 +228,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decode(
 
 PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 	const std::vector<std::uint8_t>& payload,
+	std::uint16_t archiveVersion,
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	PackageSaveArchive& archive) const
 {
@@ -286,12 +295,25 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				record.packageId, MaximumEngineIdentifierBytes) ||
 			!reader.readStringBounded(
 				record.packageVersion, MaximumEngineVersionBytes) ||
-			!reader.readU32(record.random.schema) ||
-			!reader.readU32(streamCount))
+			!reader.readU32(record.random.schema))
+			return {PackageSaveArchiveLoadError::MalformedPayload,
+				decoded.compatibility};
+		if (archiveVersion == ArchiveVersion)
+		{
+			if (!reader.readU64(record.random.rootSeed) ||
+				!reader.readU64(record.random.maximumStreams))
+				return {PackageSaveArchiveLoadError::MalformedPayload,
+					decoded.compatibility};
+		}
+		if (!reader.readU32(streamCount))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
 				decoded.compatibility};
 		record.random.packageId = record.packageId;
-		if (!ValidEngineRecordIdentity(record))
+		const std::uint32_t expectedRandomSchema =
+			archiveVersion == LegacyArchiveVersion
+				? PackageRandomCheckpoint::LegacySchema
+				: PackageRandomCheckpoint::CurrentSchema;
+		if (!ValidEngineRecordIdentity(record, expectedRandomSchema))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
 				decoded.compatibility};
 		if (!uniqueEnginePackages.insert(record.packageId).second)
@@ -300,11 +322,18 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 		if (streamCount > maximumRandomStreamsPerPackage_)
 			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
 				decoded.compatibility};
+		if (archiveVersion == ArchiveVersion &&
+			(streamCount > record.random.maximumStreams ||
+			 record.random.maximumStreams != maximumRandomStreamsPerPackage_))
+			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
+				decoded.compatibility};
 		if (!AddEncodedStringBytes(totalBytes, record.packageId,
 				maximumTotalBytes_) ||
 			!AddEncodedStringBytes(totalBytes, record.packageVersion,
 				maximumTotalBytes_) ||
-			!AddBoundedBytes(totalBytes, sizeof(std::uint32_t) * 2u,
+			!AddBoundedBytes(totalBytes, sizeof(std::uint32_t) * 2u +
+				(archiveVersion == ArchiveVersion
+					? sizeof(std::uint64_t) * 2u : 0u),
 				maximumTotalBytes_))
 			return {PackageSaveArchiveLoadError::TotalTooLarge,
 				decoded.compatibility};

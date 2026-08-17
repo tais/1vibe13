@@ -51,16 +51,24 @@ struct PackageRandomStreamCheckpoint
 
 struct PackageRandomCheckpoint
 {
-	static constexpr std::uint32_t CurrentSchema = 1;
+	// Schema 1 contains only already-created stream state. It remains accepted
+	// for interactive PGST v3 saves, but cannot reproduce streams first created
+	// after restore without an external host seed. Schema 2 closes that gap by
+	// carrying the package-local root seed and stream configuration.
+	static constexpr std::uint32_t LegacySchema = 1;
+	static constexpr std::uint32_t CurrentSchema = 2;
 
 	std::uint32_t schema = CurrentSchema;
 	std::string packageId;
+	std::uint64_t rootSeed = 0;
+	std::uint64_t maximumStreams = 0;
 	std::vector<PackageRandomStreamCheckpoint> streams;
 
 	bool operator==(const PackageRandomCheckpoint& other) const
 	{
 		return schema == other.schema && packageId == other.packageId &&
-			streams == other.streams;
+			rootSeed == other.rootSeed &&
+			maximumStreams == other.maximumStreams && streams == other.streams;
 	}
 };
 
@@ -69,6 +77,7 @@ enum class PackageRandomCheckpointError
 	None,
 	InvalidSchema,
 	PackageMismatch,
+	StreamLimitMismatch,
 	TooManyStreams,
 	InvalidStream,
 	DuplicateStream,
@@ -87,6 +96,9 @@ public:
 		  maximumStreams_(maximumStreams) {}
 
 	const std::string& packageId() const { return packageId_; }
+	// Package-local root derived from the host seed and package identity. Strict
+	// resume preflight can compare this to schema 2 before allowing adoption.
+	std::uint64_t rootSeed() const { return packageSeed_; }
 	std::size_t maximumStreams() const { return maximumStreams_; }
 	std::size_t streamCount() const { return streams_.size(); }
 	std::uint64_t valuesGenerated() const
@@ -161,6 +173,8 @@ public:
 	{
 		PackageRandomCheckpoint result;
 		result.packageId = packageId_;
+		result.rootSeed = packageSeed_;
+		result.maximumStreams = static_cast<std::uint64_t>(maximumStreams_);
 		result.streams.reserve(streams_.size());
 		for (const auto& stream : streams_)
 			result.streams.push_back(PackageRandomStreamCheckpoint{
@@ -174,11 +188,19 @@ public:
 	PackageRandomCheckpointError validateCheckpoint(
 		const PackageRandomCheckpoint& checkpoint) const noexcept
 	{
-		if (checkpoint.schema != PackageRandomCheckpoint::CurrentSchema)
+		if (checkpoint.schema != PackageRandomCheckpoint::LegacySchema &&
+			checkpoint.schema != PackageRandomCheckpoint::CurrentSchema)
 			return PackageRandomCheckpointError::InvalidSchema;
 		if (checkpoint.packageId != packageId_ ||
 			!IsValidEngineIdentifier(checkpoint.packageId))
 			return PackageRandomCheckpointError::PackageMismatch;
+		if (checkpoint.schema == PackageRandomCheckpoint::LegacySchema &&
+			(checkpoint.rootSeed != 0 || checkpoint.maximumStreams != 0))
+			return PackageRandomCheckpointError::InvalidSchema;
+		if (checkpoint.schema == PackageRandomCheckpoint::CurrentSchema &&
+			checkpoint.maximumStreams !=
+				static_cast<std::uint64_t>(maximumStreams_))
+			return PackageRandomCheckpointError::StreamLimitMismatch;
 		if (checkpoint.streams.size() > maximumStreams_)
 			return PackageRandomCheckpointError::TooManyStreams;
 		for (std::size_t index = 0; index < checkpoint.streams.size(); ++index)
@@ -197,6 +219,8 @@ public:
 	{
 		const PackageRandomCheckpointError validation = validateCheckpoint(checkpoint);
 		if (validation != PackageRandomCheckpointError::None) return validation;
+		const bool restoreRootSeed =
+			checkpoint.schema == PackageRandomCheckpoint::CurrentSchema;
 		bool reusable = true;
 		for (const PackageRandomStreamCheckpoint& stream : checkpoint.streams)
 			if (streams_.find(stream.id) == streams_.end()) { reusable = false; break; }
@@ -216,6 +240,7 @@ public:
 					++stream;
 				}
 			}
+			if (restoreRootSeed) packageSeed_ = checkpoint.rootSeed;
 			return PackageRandomCheckpointError::None;
 		}
 		try
@@ -226,6 +251,7 @@ public:
 				restored.emplace(stream.id,
 					StreamState{stream.state, stream.valuesGenerated});
 			streams_.swap(restored);
+			if (restoreRootSeed) packageSeed_ = checkpoint.rootSeed;
 			return PackageRandomCheckpointError::None;
 		}
 		catch (...)
@@ -271,6 +297,14 @@ private:
 
 	void swapRuntimeState(PackageRandomSource& other) noexcept
 	{
+		// Runtime state can only move between staging values for the same
+		// package and resource contract. Failing closed avoids associating a
+		// stream history with the wrong package or an incompatible stream cap.
+		if (packageId_ != other.packageId_ ||
+			maximumStreams_ != other.maximumStreams_)
+			return;
+		using std::swap;
+		swap(packageSeed_, other.packageSeed_);
 		streams_.swap(other.streams_);
 	}
 

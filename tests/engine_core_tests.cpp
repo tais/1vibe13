@@ -860,11 +860,11 @@ int main()
 	const PackageRandomResult expectedSecondLoot = packageRandom.next("loot", 1000);
 	const PackageRandomCheckpoint advancedRandomCheckpoint = packageRandom.checkpoint();
 	PackageRandomCheckpoint duplicateRandomCheckpoint = randomCheckpoint;
-	duplicateRandomCheckpoint.streams.push_back(
-		duplicateRandomCheckpoint.streams.front());
+	duplicateRandomCheckpoint.streams[1] =
+		duplicateRandomCheckpoint.streams.front();
 	PackageRandomCheckpoint invalidRandomCheckpoint = randomCheckpoint;
 	invalidRandomCheckpoint.schema = 99;
-	PackageRandomSource duplicateCheckpointTarget("rules.ballistics", 0, 3);
+	PackageRandomSource duplicateCheckpointTarget("rules.ballistics", 0, 2);
 	check(packageRandom.restoreCheckpoint(randomCheckpoint) ==
 			PackageRandomCheckpointError::None &&
 		packageRandom.next("combat", 1000).value == expectedThirdCombat.value &&
@@ -879,6 +879,7 @@ int main()
 	PackageRandomSource exhaustedRandom("rules.exhausted", 0, 1);
 	const PackageRandomCheckpoint exhaustedCheckpoint{
 		PackageRandomCheckpoint::CurrentSchema, "rules.exhausted",
+		0, 1,
 		{{"stream", 42, std::numeric_limits<std::uint64_t>::max()}}};
 	check(exhaustedRandom.restoreCheckpoint(exhaustedCheckpoint) ==
 			PackageRandomCheckpointError::None &&
@@ -3212,7 +3213,7 @@ int main()
 	savedPackageArchive.state.engineRecords.push_back(PackageEngineSaveStateRecord{
 		"rules.fingerprint", "2.0",
 		PackageRandomCheckpoint{PackageRandomCheckpoint::CurrentSchema,
-			"rules.fingerprint", {{"combat", 123, 7}}}});
+			"rules.fingerprint", 0, 64, {{"combat", 123, 7}}}});
 	check(packageArchives.save("package-state", savedPackageArchive) ==
 			PackageSaveArchiveSaveError::None,
 		"package save archive writes ordered bounded state through persistence envelopes");
@@ -3243,9 +3244,9 @@ int main()
 		loadedPackageArchive.state.engineRecords.size() == 1 &&
 		loadedPackageArchive.state.engineRecords[0].random.streams.size() == 1 &&
 		loadedPackageArchive.state.engineRecords[0].random.streams[0].state == 123 &&
-		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 3 &&
+		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 4 &&
 		encodedPackageArchive[5] == 0,
-		"package save archive v3 round-trips opaque and engine-owned state");
+		"package save archive v4 round-trips opaque and complete engine-owned state");
 	PackageSaveArchive tightLoadOutput{firstFingerprint,
 		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
 	const PackageSaveArchiveLoadResult tightLoad = tightPackageArchives.load(

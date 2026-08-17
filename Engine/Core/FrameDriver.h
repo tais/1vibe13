@@ -31,6 +31,50 @@ struct FrameRunResult
 	RuntimeMessageDispatchResult messages;
 };
 
+// Value-only frame identity at a committed runtime boundary. The monotonic
+// time anchor is process-local and deliberately absent: cold resume establishes
+// a new anchor instead of comparing a saved clock reading with a new process.
+// Defaults are intentionally malformed and cannot authorize a restore.
+struct FrameDriverBoundaryState
+{
+	std::uint64_t completedFrames = 0;
+	std::uint64_t nextFrameSequence = 0;
+	bool sequenceExhausted = false;
+
+	bool operator==(const FrameDriverBoundaryState& other) const noexcept
+	{
+		return completedFrames == other.completedFrames &&
+			nextFrameSequence == other.nextFrameSequence &&
+			sequenceExhausted == other.sequenceExhausted;
+	}
+
+	bool operator!=(const FrameDriverBoundaryState& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
+enum class FrameDriverBoundaryStateError : std::uint8_t
+{
+	None,
+	OperationInProgress,
+	InvalidNextFrameSequence,
+	InvalidSequenceExhaustion,
+	CompletedFramesExceedAttempts
+};
+
+struct FrameDriverBoundaryStateCaptureResult
+{
+	FrameDriverBoundaryStateError error =
+		FrameDriverBoundaryStateError::InvalidNextFrameSequence;
+	FrameDriverBoundaryState state;
+
+	explicit operator bool() const noexcept
+	{
+		return error == FrameDriverBoundaryStateError::None;
+	}
+};
+
 // Game-agnostic orchestration for one application frame. The application owns
 // update/render policy and post-presentation bookkeeping; the engine owns their
 // ordering, presentation, timing, and monotonically increasing frame identity.
@@ -104,6 +148,55 @@ public:
 
 	std::uint64_t completedFrames() const { return completedFrames_; }
 	std::uint64_t nextFrameSequence() const { return nextFrameSequence_; }
+
+	FrameDriverBoundaryStateCaptureResult captureBoundaryState() const noexcept
+	{
+		if (runningFrame_)
+			return {FrameDriverBoundaryStateError::OperationInProgress, {}};
+		return {FrameDriverBoundaryStateError::None,
+			FrameDriverBoundaryState{
+				completedFrames_, nextFrameSequence_, frameSequenceExhausted_}};
+	}
+
+	// Validation is separate from restore so a coordinator can preflight a
+	// complete save container before changing any live state.
+	FrameDriverBoundaryStateError validateBoundaryState(
+		const FrameDriverBoundaryState& state) const noexcept
+	{
+		if (runningFrame_)
+			return FrameDriverBoundaryStateError::OperationInProgress;
+		if (state.nextFrameSequence == 0)
+			return FrameDriverBoundaryStateError::InvalidNextFrameSequence;
+		if (state.sequenceExhausted && state.nextFrameSequence !=
+			std::numeric_limits<std::uint64_t>::max())
+			return FrameDriverBoundaryStateError::InvalidSequenceExhaustion;
+		const std::uint64_t attemptedFrames = state.sequenceExhausted
+			? std::numeric_limits<std::uint64_t>::max()
+			: state.nextFrameSequence - 1;
+		if (state.completedFrames > attemptedFrames)
+			return FrameDriverBoundaryStateError::CompletedFramesExceedAttempts;
+		return FrameDriverBoundaryStateError::None;
+	}
+
+	FrameDriverBoundaryStateError restoreBoundaryState(
+		const FrameDriverBoundaryState& state) noexcept
+	{
+		const FrameDriverBoundaryStateError validation =
+			validateBoundaryState(state);
+		if (validation != FrameDriverBoundaryStateError::None)
+			return validation;
+
+		// Every check precedes the first write. The saved monotonic timestamp is
+		// intentionally not part of this contract: the first cold-resume frame
+		// establishes an anchor and therefore advances by zero elapsed time.
+		completedFrames_ = state.completedFrames;
+		nextFrameSequence_ = state.nextFrameSequence;
+		frameSequenceExhausted_ = state.sequenceExhausted;
+		previousSimulationStartedAt_ = 0;
+		hasAdvancedSimulation_ = false;
+		return FrameDriverBoundaryStateError::None;
+	}
+
 	void resetFrameSequence()
 	{
 		if (runningFrame_) return;

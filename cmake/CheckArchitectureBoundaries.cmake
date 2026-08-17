@@ -810,6 +810,20 @@ file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.cpp"
   dedicated_checkpoint_eligibility_source)
 file(READ "${SOURCE_ROOT}/tests/dedicated_checkpoint_eligibility_tests.cpp"
   dedicated_checkpoint_eligibility_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/FrameDriver.h"
+  dedicated_runtime_boundary_frame_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/SimulationTick.h"
+  dedicated_runtime_boundary_tick_header)
+file(READ "${SOURCE_ROOT}/tests/runtime_boundary_state_tests.cpp"
+  dedicated_runtime_boundary_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/PackageRandomSource.h"
+  dedicated_package_random_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/PackageSaveArchive.cpp"
+  dedicated_package_random_archive_source)
+file(READ "${SOURCE_ROOT}/Engine/Core/PackageApi.h"
+  dedicated_package_random_api_header)
+file(READ "${SOURCE_ROOT}/tests/package_random_root_state_tests.cpp"
+  dedicated_package_random_tests)
 file(READ "${SOURCE_ROOT}/Engine/Core/CMakeLists.txt"
   dedicated_determinism_core_build_source)
 file(READ "${SOURCE_ROOT}/tests/sdk_consumer/main.cpp"
@@ -877,6 +891,20 @@ strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_source
   dedicated_checkpoint_eligibility_code)
 strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_tests
   dedicated_checkpoint_eligibility_test_code)
+strip_cxx_comments_and_literals(dedicated_runtime_boundary_frame_header
+  dedicated_runtime_boundary_frame_code)
+strip_cxx_comments_and_literals(dedicated_runtime_boundary_tick_header
+  dedicated_runtime_boundary_tick_code)
+strip_cxx_comments_and_literals(dedicated_runtime_boundary_tests
+  dedicated_runtime_boundary_test_code)
+strip_cxx_comments_and_literals(dedicated_package_random_header
+  dedicated_package_random_header_code)
+strip_cxx_comments_and_literals(dedicated_package_random_archive_source
+  dedicated_package_random_archive_code)
+strip_cxx_comments_and_literals(dedicated_package_random_api_header
+  dedicated_package_random_api_code)
+strip_cxx_comments_and_literals(dedicated_package_random_tests
+  dedicated_package_random_test_code)
 strip_cxx_comments_and_literals(dedicated_determinism_sdk_consumer
   dedicated_determinism_sdk_consumer_code)
 string(REGEX REPLACE "#[^\r\n]*" ""
@@ -1505,6 +1533,145 @@ foreach(dedicated_checkpoint_eligibility_test_contract IN ITEMS
   endif()
 endforeach()
 
+# A cold campaign resume must restore the runtime's committed identities, not
+# merely publish decoded counters. The monotonic clock anchor and registered
+# sinks remain process wiring; every deterministic counter/config field is a
+# fail-closed value contract with transactional validation.
+foreach(dedicated_runtime_frame_contract IN ITEMS
+    "struct FrameDriverBoundaryState"
+    "std::uint64_t completedFrames = 0;"
+    "std::uint64_t nextFrameSequence = 0;"
+    "bool sequenceExhausted = false;"
+    "FrameDriverBoundaryStateCaptureResult captureBoundaryState() const noexcept"
+    "FrameDriverBoundaryStateError validateBoundaryState("
+    "FrameDriverBoundaryStateError restoreBoundaryState("
+    "state.nextFrameSequence == 0"
+    "state.completedFrames > attemptedFrames"
+    "previousSimulationStartedAt_ = 0;"
+    "hasAdvancedSimulation_ = false;")
+  string(FIND "${dedicated_runtime_boundary_frame_code}"
+    "${dedicated_runtime_frame_contract}"
+    dedicated_runtime_frame_contract_position)
+  if(dedicated_runtime_frame_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated frame boundary lost '${dedicated_runtime_frame_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_tick_contract IN ITEMS
+    "struct SimulationTickBoundaryState"
+    "std::uint64_t stepMicroseconds = 0;"
+    "std::uint64_t maxCatchUpTicks = 0;"
+    "std::uint64_t completedTickSequence = 0;"
+    "std::uint64_t simulatedTimeMicroseconds = 0;"
+    "std::uint64_t accumulatedMicroseconds = 0;"
+    "SimulationTickBoundaryStateCaptureResult captureBoundaryState() const noexcept"
+    "SimulationTickBoundaryStateError validateBoundaryState("
+    "SimulationTickBoundaryStateError restoreBoundaryState("
+    "state.accumulatedMicroseconds >= state.stepMicroseconds"
+    "state.simulatedTimeMicroseconds != saturatingMultiply("
+    "tickSequence_ = state.completedTickSequence;"
+    "accumulator_ = state.accumulatedMicroseconds;")
+  string(FIND "${dedicated_runtime_boundary_tick_code}"
+    "${dedicated_runtime_tick_contract}"
+    dedicated_runtime_tick_contract_position)
+  if(dedicated_runtime_tick_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated tick boundary lost '${dedicated_runtime_tick_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_boundary_test_contract IN ITEMS
+    "TestValueContractsAndFailClosedDefaults();"
+    "TestTickRoundTripAndFixedStepContinuation();"
+    "TestTickMalformedAndIncompatibleStatesAreTransactional();"
+    "TestTickExhaustionAndInProgressRefusal();"
+    "TestFrameIdentityRoundTripAndMalformedStates();"
+    "TestFrameColdResumeResetsOnlyMonotonicAnchor();"
+    "TestFrameExhaustionAndInProgressRefusal();"
+    "TickState{10, 2, 6, 60, 5, false}"
+    "FrameState{1, 3, false}"
+    "elapsedSincePreviousFrameMicroseconds == 0")
+  string(FIND "${dedicated_runtime_boundary_test_code}"
+    "${dedicated_runtime_boundary_test_contract}"
+    dedicated_runtime_boundary_test_contract_position)
+  if(dedicated_runtime_boundary_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated runtime boundary tests lost '${dedicated_runtime_boundary_test_contract}'")
+  endif()
+endforeach()
+
+# PGST v4 carries the package-local derivation root and resource contract so a
+# stream created for the first time after resume cannot depend on a new process
+# seed. PGST v3 remains an explicit incomplete interactive compatibility path.
+foreach(dedicated_package_random_contract IN ITEMS
+    "LegacySchema = 1"
+    "CurrentSchema = 2"
+    "std::uint64_t rootSeed = 0;"
+    "std::uint64_t maximumStreams = 0;"
+    "std::uint64_t rootSeed() const"
+    "PackageRandomCheckpointError::StreamLimitMismatch"
+    "checkpoint.schema == PackageRandomCheckpoint::LegacySchema"
+    "checkpoint.rootSeed != 0 || checkpoint.maximumStreams != 0"
+    "packageSeed_ = checkpoint.rootSeed;"
+    "swap(packageSeed_, other.packageSeed_);")
+  string(FIND "${dedicated_package_random_header_code}"
+    "${dedicated_package_random_contract}"
+    dedicated_package_random_contract_position)
+  if(dedicated_package_random_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG root-state contract lost '${dedicated_package_random_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_random_archive_contract IN ITEMS
+    "LegacyArchiveVersion = 3"
+    "ArchiveVersion = 4"
+    "LegacyArchiveVersion, ArchiveVersion"
+    "writer.writeU64(record.random.rootSeed);"
+    "writer.writeU64(record.random.maximumStreams);"
+    "reader.readU64(record.random.rootSeed)"
+    "reader.readU64(record.random.maximumStreams)"
+    "record.random.maximumStreams != maximumRandomStreamsPerPackage_")
+  string(FIND "${dedicated_package_random_archive_code}"
+    "${dedicated_package_random_archive_contract}"
+    dedicated_package_random_archive_contract_position)
+  if(dedicated_package_random_archive_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "PGST root-state archive lost '${dedicated_package_random_archive_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_package_random_api_contract IN ITEMS
+    "record.random.schema == PackageRandomCheckpoint::CurrentSchema"
+    "sizeof(std::uint64_t) * 2u : 0u")
+  string(FIND "${dedicated_package_random_api_code}"
+    "${dedicated_package_random_api_contract}"
+    dedicated_package_random_api_contract_position)
+  if(dedicated_package_random_api_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG metadata accounting lost '${dedicated_package_random_api_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_random_test_contract IN ITEMS
+    "TestCurrentCheckpointAdoptsRootBeforeCreatingANewStream();"
+    "TestValidationFailuresAreTransactional();"
+    "TestRestoreAllocationAndReusablePaths();"
+    "TestLegacyCheckpointRetainsExternalRoot();"
+    "TestArchiveV4RoundTripAndV3Compatibility();"
+    "0x1020304050607080ULL"
+    "0xfedcba9876543210ULL"
+    "EncodeLegacyV3Archive("
+    "nonCanonicalLegacy.rootSeed = 1;")
+  string(FIND "${dedicated_package_random_test_code}"
+    "${dedicated_package_random_test_contract}"
+    dedicated_package_random_test_contract_position)
+  if(dedicated_package_random_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG root-state tests lost '${dedicated_package_random_test_contract}'")
+  endif()
+endforeach()
+
 string(FIND "${dedicated_determinism_core_build_code}"
   "set(engine_core_public_headers" dedicated_determinism_public_start)
 string(FIND "${dedicated_determinism_core_build_code}"
@@ -1568,7 +1735,7 @@ require_ordered_fragments(dedicated_simulation_random_test_build_slice
 
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(dedicated_checkpoint_eligibility_tests"
-  "add_executable(engine_core_tests"
+  "add_executable(runtime_boundary_state_tests"
   dedicated_checkpoint_eligibility_test_build_slice
   "Cannot bound the checkpoint-eligibility test target")
 require_ordered_fragments(dedicated_checkpoint_eligibility_test_build_slice
@@ -1582,6 +1749,32 @@ require_ordered_fragments(dedicated_checkpoint_eligibility_test_build_slice
   "add_test(NAME dedicated_checkpoint_eligibility"
   "COMMAND dedicated_checkpoint_eligibility_tests)")
 
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(runtime_boundary_state_tests"
+  "add_executable(package_random_root_state_tests"
+  dedicated_runtime_boundary_test_build_slice
+  "Cannot bound the runtime-boundary test target")
+require_ordered_fragments(dedicated_runtime_boundary_test_build_slice
+  "Runtime-boundary test lost active Engine Core/CTest wiring"
+  "add_executable(runtime_boundary_state_tests"
+  "runtime_boundary_state_tests.cpp"
+  "target_link_libraries(runtime_boundary_state_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(runtime_boundary_state_tests PRIVATE cxx_std_17)"
+  "add_test(NAME runtime_boundary_state COMMAND runtime_boundary_state_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(package_random_root_state_tests"
+  "add_executable(engine_core_tests"
+  dedicated_package_random_test_build_slice
+  "Cannot bound the package-RNG root-state test target")
+require_ordered_fragments(dedicated_package_random_test_build_slice
+  "Package-RNG root-state test lost active Engine Core/CTest wiring"
+  "add_executable(package_random_root_state_tests"
+  "package_random_root_state_tests.cpp"
+  "target_link_libraries(package_random_root_state_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(package_random_root_state_tests PRIVATE cxx_std_17)"
+  "add_test(NAME package_random_root_state COMMAND package_random_root_state_tests)")
+
 extract_bounded_slice(dedicated_determinism_ci_code
   "- name: Build dedicated campaign store contract"
   "- name: Build full-engine co-op ingress contract"
@@ -1591,7 +1784,9 @@ require_ordered_fragments(dedicated_determinism_ci_slice
   "Dedicated determinism tests left the active campaign ASan build step"
   "run: cmake --build build --target"
   "simulation_random_tests"
-  "dedicated_checkpoint_eligibility_tests")
+  "dedicated_checkpoint_eligibility_tests"
+  "runtime_boundary_state_tests"
+  "package_random_root_state_tests")
 
 foreach(dedicated_determinism_sdk_contract IN ITEMS
     "#include <Engine/Core/DedicatedCheckpointEligibility.h>"
@@ -1624,6 +1819,10 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "canonical 40-byte"
     "cold strategic"
     "does not claim mid-battle resume"
+    "next frame identity"
+    "PGST v4"
+    "PGST v3"
+    "not yet applied to the live game runtime"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"

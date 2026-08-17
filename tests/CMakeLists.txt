@@ -153,6 +153,17 @@ target_compile_features(dedicated_checkpoint_eligibility_tests
 add_test(NAME dedicated_checkpoint_eligibility
   COMMAND dedicated_checkpoint_eligibility_tests)
 
+add_executable(runtime_boundary_state_tests runtime_boundary_state_tests.cpp)
+target_link_libraries(runtime_boundary_state_tests PRIVATE JA2::EngineCore)
+target_compile_features(runtime_boundary_state_tests PRIVATE cxx_std_17)
+add_test(NAME runtime_boundary_state COMMAND runtime_boundary_state_tests)
+
+add_executable(package_random_root_state_tests
+  package_random_root_state_tests.cpp)
+target_link_libraries(package_random_root_state_tests PRIVATE JA2::EngineCore)
+target_compile_features(package_random_root_state_tests PRIVATE cxx_std_17)
+add_test(NAME package_random_root_state COMMAND package_random_root_state_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

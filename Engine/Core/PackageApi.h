@@ -1242,7 +1242,9 @@ private:
 	{
 		if (!addSaveStateStringBytes(total, record.packageId, maximum) ||
 			!addSaveStateStringBytes(total, record.packageVersion, maximum) ||
-			!addSaveStateBytes(total, sizeof(std::uint32_t) * 2u, maximum))
+			!addSaveStateBytes(total, sizeof(std::uint32_t) * 2u +
+				(record.random.schema == PackageRandomCheckpoint::CurrentSchema
+					? sizeof(std::uint64_t) * 2u : 0u), maximum))
 			return false;
 		for (const PackageRandomStreamCheckpoint& stream : record.random.streams)
 			if (!addSaveStateStringBytes(total, stream.id, maximum) ||

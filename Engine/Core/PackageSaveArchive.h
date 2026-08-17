@@ -87,6 +87,7 @@ public:
 
 private:
 	PackageSaveArchiveLoadResult decodePayload(const std::vector<std::uint8_t>& payload,
+		std::uint16_t archiveVersion,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
 		PackageSaveArchive& archive) const;
 

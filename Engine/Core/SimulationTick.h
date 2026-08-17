@@ -41,6 +41,58 @@ struct SimulationTickDispatchResult
 	bool operationInProgress = false;
 };
 
+// Value-only deterministic scheduler state for a committed runtime boundary.
+// Configuration is repeated so a cold-resume host cannot accidentally restore
+// a stream under different fixed-step semantics. Defaults are intentionally
+// malformed and therefore cannot authorize a restore.
+struct SimulationTickBoundaryState
+{
+	std::uint64_t stepMicroseconds = 0;
+	std::uint64_t maxCatchUpTicks = 0;
+	std::uint64_t completedTickSequence = 0;
+	std::uint64_t simulatedTimeMicroseconds = 0;
+	std::uint64_t accumulatedMicroseconds = 0;
+	bool sequenceExhausted = false;
+
+	bool operator==(const SimulationTickBoundaryState& other) const noexcept
+	{
+		return stepMicroseconds == other.stepMicroseconds &&
+			maxCatchUpTicks == other.maxCatchUpTicks &&
+			completedTickSequence == other.completedTickSequence &&
+			simulatedTimeMicroseconds == other.simulatedTimeMicroseconds &&
+			accumulatedMicroseconds == other.accumulatedMicroseconds &&
+			sequenceExhausted == other.sequenceExhausted;
+	}
+
+	bool operator!=(const SimulationTickBoundaryState& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
+enum class SimulationTickBoundaryStateError : std::uint8_t
+{
+	None,
+	OperationInProgress,
+	InvalidConfiguration,
+	IncompatibleConfiguration,
+	InvalidAccumulator,
+	InvalidSequenceExhaustion,
+	InvalidSimulatedTime
+};
+
+struct SimulationTickBoundaryStateCaptureResult
+{
+	SimulationTickBoundaryStateError error =
+		SimulationTickBoundaryStateError::InvalidConfiguration;
+	SimulationTickBoundaryState state;
+
+	explicit operator bool() const noexcept
+	{
+		return error == SimulationTickBoundaryStateError::None;
+	}
+};
+
 // Bounded fixed-step scheduler driven by monotonic frame elapsed time. Long
 // frames execute at most maxCatchUpTicks and explicitly report discarded work,
 // preventing a hitch from becoming an unbounded spiral of catch-up updates.
@@ -150,6 +202,58 @@ public:
 	std::uint64_t completedTickSequence() const { return tickSequence_; }
 	std::size_t sinkCount() const { return sinks_.size(); }
 
+	SimulationTickBoundaryStateCaptureResult captureBoundaryState() const noexcept
+	{
+		if (dispatching_)
+			return {SimulationTickBoundaryStateError::OperationInProgress, {}};
+		return {SimulationTickBoundaryStateError::None,
+			SimulationTickBoundaryState{
+				stepMicroseconds_, static_cast<std::uint64_t>(maxCatchUpTicks_),
+				tickSequence_, simulatedTime_, accumulator_,
+				tickSequence_ == std::numeric_limits<std::uint64_t>::max()}};
+	}
+
+	// Validation is exposed separately so a load coordinator can reject every
+	// runtime section before changing any domain state. Redundant time and
+	// exhaustion fields are checked rather than trusted.
+	SimulationTickBoundaryStateError validateBoundaryState(
+		const SimulationTickBoundaryState& state) const noexcept
+	{
+		if (dispatching_)
+			return SimulationTickBoundaryStateError::OperationInProgress;
+		if (state.stepMicroseconds == 0)
+			return SimulationTickBoundaryStateError::InvalidConfiguration;
+		if (state.stepMicroseconds != stepMicroseconds_ ||
+			state.maxCatchUpTicks != static_cast<std::uint64_t>(maxCatchUpTicks_))
+			return SimulationTickBoundaryStateError::IncompatibleConfiguration;
+		if (state.accumulatedMicroseconds >= state.stepMicroseconds)
+			return SimulationTickBoundaryStateError::InvalidAccumulator;
+		if (state.sequenceExhausted !=
+			(state.completedTickSequence ==
+				std::numeric_limits<std::uint64_t>::max()))
+			return SimulationTickBoundaryStateError::InvalidSequenceExhaustion;
+		if (state.simulatedTimeMicroseconds != saturatingMultiply(
+			state.completedTickSequence, state.stepMicroseconds))
+			return SimulationTickBoundaryStateError::InvalidSimulatedTime;
+		return SimulationTickBoundaryStateError::None;
+	}
+
+	SimulationTickBoundaryStateError restoreBoundaryState(
+		const SimulationTickBoundaryState& state) noexcept
+	{
+		const SimulationTickBoundaryStateError validation =
+			validateBoundaryState(state);
+		if (validation != SimulationTickBoundaryStateError::None)
+			return validation;
+
+		// Every check above precedes the first write, making rejection
+		// transactional even when several fields are malformed.
+		tickSequence_ = state.completedTickSequence;
+		simulatedTime_ = state.simulatedTimeMicroseconds;
+		accumulator_ = state.accumulatedMicroseconds;
+		return SimulationTickBoundaryStateError::None;
+	}
+
 	void reset()
 	{
 		if (dispatching_) return;
@@ -181,6 +285,14 @@ private:
 	{
 		return right > std::numeric_limits<std::uint64_t>::max() - left
 			? std::numeric_limits<std::uint64_t>::max() : left + right;
+	}
+
+	static std::uint64_t saturatingMultiply(
+		std::uint64_t left, std::uint64_t right)
+	{
+		return left != 0 &&
+			right > std::numeric_limits<std::uint64_t>::max() / left
+			? std::numeric_limits<std::uint64_t>::max() : left * right;
 	}
 
 	std::uint64_t stepMicroseconds_;

@@ -254,8 +254,17 @@ checkpoint: no tactical world, combat, projectiles, active or queued dialogue
 effects, pending dialogue trigger timers, realtime AI, temporary schedules,
 reinforcement transients, MiniEvents, or unrestricted Lua randomness. The
 first persistent-campaign milestone therefore rolls an interrupted tactical
-battle back to the preceding strategic checkpoint; it does not claim
-mid-battle resume.
+battle back to the preceding strategic checkpoint; it
+does not claim mid-battle resume.
+
+The same boundary now captures runtime boundary state. It transactionally
+validates the next frame identity, completed frame count, fixed-tick sequence,
+simulated time, remainder, and scheduler configuration. Cold restore establishes
+a new process-local monotonic clock anchor. Package RNG records now use PGST v4 to
+carry each package's derived root seed and stream limit, so streams created for
+the first time after resume remain deterministic; interactive PGST v3 saves
+still restore their existing streams under the externally configured seed.
+These value contracts are not yet applied to the live game runtime.
 
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must
