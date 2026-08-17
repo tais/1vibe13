@@ -774,8 +774,14 @@ file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.h"
   dedicated_campaign_store_header)
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.cpp"
   dedicated_campaign_store_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignFilesystem.h"
+  dedicated_campaign_filesystem_header)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignFilesystem.cpp"
+  dedicated_campaign_filesystem_source)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_store_tests.cpp"
   dedicated_campaign_store_tests)
+file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_filesystem_tests.cpp"
+  dedicated_campaign_filesystem_tests)
 file(READ "${SOURCE_ROOT}/docs/MULTIPLAYER_ARCHITECTURE.md"
   dedicated_campaign_store_docs)
 strip_cxx_comments_and_literals(dedicated_campaign_store_header
@@ -784,6 +790,12 @@ strip_cxx_comments_and_literals(dedicated_campaign_store_source
   dedicated_campaign_store_code)
 strip_cxx_comments_and_literals(dedicated_campaign_store_tests
   dedicated_campaign_store_test_code)
+strip_cxx_comments_and_literals(dedicated_campaign_filesystem_header
+  dedicated_campaign_filesystem_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_filesystem_source
+  dedicated_campaign_filesystem_code)
+strip_cxx_comments_and_literals(dedicated_campaign_filesystem_tests
+  dedicated_campaign_filesystem_test_code)
 
 foreach(dedicated_campaign_store_header_contract IN ITEMS
     "DedicatedCampaignManifestWireSize = 176"
@@ -791,12 +803,17 @@ foreach(dedicated_campaign_store_header_contract IN ITEMS
     "DedicatedCampaignContentManifestSha256"
     "DedicatedCampaignCheckpointSha256"
     "DedicatedCampaignManifestRead"
+    "acceptsIdentity("
+    "ManifestPublishResult"
+    "PublishedDurabilityUnknown"
+    "PublicationStateUnknown"
     "readManifest("
     "writeCheckpoint("
     "syncCheckpoint("
     "probeCheckpoint("
     "publishManifest("
     "AlreadyOpen"
+    "BackendIdentityMismatch"
     "AlreadyExists"
     "UnsupportedManifestFormat"
     "SplitBrain"
@@ -817,7 +834,7 @@ foreach(dedicated_campaign_store_forbidden_dependency IN ITEMS
     "SDL_"
     "vfs::")
   string(FIND
-    "${dedicated_campaign_store_header_code}${dedicated_campaign_store_code}"
+    "${dedicated_campaign_store_header_code}${dedicated_campaign_store_code}${dedicated_campaign_filesystem_header_code}${dedicated_campaign_filesystem_code}"
     "${dedicated_campaign_store_forbidden_dependency}"
     dedicated_campaign_store_forbidden_dependency_position)
   if(NOT dedicated_campaign_store_forbidden_dependency_position EQUAL -1)
@@ -850,6 +867,9 @@ foreach(dedicated_campaign_store_test_contract IN ITEMS
     "TestCreateAndCheckpoint();"
     "TestResume();"
     "DedicatedCampaignStoreError::AlreadyExists"
+    "DedicatedCampaignStoreError::BackendIdentityMismatch"
+    "DedicatedCampaignStoreError::PublicationDurabilityUnknown"
+    "DedicatedCampaignStoreError::PublicationStateUnknown"
     "DedicatedCampaignStoreError::UnsupportedManifestFormat"
     "DedicatedCampaignStoreError::SplitBrain"
     "DedicatedCampaignStoreError::GenerationExhausted")
@@ -873,10 +893,26 @@ string(FIND "${dedicated_test_build_source}"
 string(FIND "${dedicated_ci_source}"
   "--target dedicated_campaign_store_tests"
   dedicated_campaign_store_ci_position)
+string(FIND "${dedicated_ja2_build_source}"
+  "DedicatedCampaignFilesystem.cpp"
+  dedicated_campaign_filesystem_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_executable(dedicated_campaign_filesystem_tests"
+  dedicated_campaign_filesystem_test_build_position)
+string(FIND "${dedicated_test_build_source}"
+  "add_test(NAME dedicated_campaign_filesystem"
+  dedicated_campaign_filesystem_ctest_position)
+string(FIND "${dedicated_ci_source}"
+  "dedicated_campaign_filesystem_tests"
+  dedicated_campaign_filesystem_ci_position)
 if(dedicated_campaign_store_build_position EQUAL -1 OR
    dedicated_campaign_store_test_build_position EQUAL -1 OR
    dedicated_campaign_store_ctest_position EQUAL -1 OR
-   dedicated_campaign_store_ci_position EQUAL -1)
+   dedicated_campaign_store_ci_position EQUAL -1 OR
+   dedicated_campaign_filesystem_build_position EQUAL -1 OR
+   dedicated_campaign_filesystem_test_build_position EQUAL -1 OR
+   dedicated_campaign_filesystem_ctest_position EQUAL -1 OR
+   dedicated_campaign_filesystem_ci_position EQUAL -1)
   message(FATAL_ERROR
     "Dedicated campaign store lost production, CTest, or ASan coverage")
 endif()
@@ -893,6 +929,74 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
   if(dedicated_campaign_store_doc_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Dedicated campaign documentation lost '${dedicated_campaign_store_doc_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_campaign_filesystem_contract IN ITEMS
+    "DedicatedCampaignMaximumCheckpointBytes"
+    "DedicatedCampaignCheckpointWriter"
+    "DedicatedCampaignFilesystemBackend"
+    "acceptsIdentity("
+    "OpenPrivateRootDirectory("
+    "OpenOrCreateManagedDirectoryAt("
+    "OpenHeldDirectory("
+    "LOCK_EX | LOCK_NB"
+    "LockFileEx("
+    "AT_SYMLINK_NOFOLLOW"
+    "FILE_FLAG_OPEN_REPARSE_POINT"
+    "renameat("
+    "MOVEFILE_WRITE_THROUGH"
+    "PublishedDurabilityUnknown")
+  string(FIND
+    "${dedicated_campaign_filesystem_header_code}${dedicated_campaign_filesystem_code}"
+    "${dedicated_campaign_filesystem_contract}"
+    dedicated_campaign_filesystem_contract_position)
+  if(dedicated_campaign_filesystem_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign filesystem lost '${dedicated_campaign_filesystem_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_campaign_filesystem_test_contract IN ITEMS
+    "TestOpenAndLock();"
+    "TestStoreRoundTripAndSha256();"
+    "TestInvalidNewerCheckpointSizeFallback();"
+    "TestSha256PaddingBoundariesAndSizeCap();"
+    "TestFailuresAndBoundedReads();"
+    "TestUnsafeManagedEntries();"
+    "RunChild("
+    "RunLockChildMode("
+    "DedicatedCampaignMaximumCheckpointBytes + 1"
+    "CreateManagedDirectoryIndirection("
+    "create_hard_link(")
+  string(FIND "${dedicated_campaign_filesystem_test_code}"
+    "${dedicated_campaign_filesystem_test_contract}"
+    dedicated_campaign_filesystem_test_contract_position)
+  if(dedicated_campaign_filesystem_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign filesystem tests lost '${dedicated_campaign_filesystem_test_contract}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedServerOptions.h"
+  dedicated_options_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedServerOptions.cpp"
+  dedicated_options_implementation_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_server_options_tests.cpp"
+  dedicated_options_test_source)
+foreach(dedicated_state_directory_contract IN ITEMS
+    "stateDirectory"
+    "InvalidStateDirectory"
+    "CoopStateDirectoryRequired"
+    "--dedicated-state-dir"
+    "std::filesystem::u8path"
+    "options.campaignId = LowerAscii(options.campaignId)")
+  string(FIND
+    "${dedicated_options_header_source}${dedicated_options_implementation_source}${dedicated_options_test_source}"
+    "${dedicated_state_directory_contract}"
+    dedicated_state_directory_contract_position)
+  if(dedicated_state_directory_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated state-directory CLI lost '${dedicated_state_directory_contract}'")
   endif()
 endforeach()
 

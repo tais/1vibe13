@@ -23,6 +23,7 @@ struct DedicatedServerOptions
 	DedicatedServerMode mode = DedicatedServerMode::Pvp;
 	DedicatedCampaignAction campaignAction = DedicatedCampaignAction::None;
 	std::string campaignId;
+	std::string stateDirectory;
 	std::uint32_t checkpointSeconds = 300;
 };
 
@@ -34,12 +35,14 @@ enum class DedicatedServerOptionError : std::uint8_t
 	InvalidMode,
 	InvalidCampaignAction,
 	InvalidCampaignId,
+	InvalidStateDirectory,
 	InvalidCheckpointInterval,
 	UnknownDedicatedOption,
 	DedicatedOptionWithoutDedicated,
 	PvpCampaignOption,
 	CoopCampaignRequired,
-	CoopCampaignActionRequired
+	CoopCampaignActionRequired,
+	CoopStateDirectoryRequired
 };
 
 struct DedicatedServerOptionParseResult

@@ -7,6 +7,12 @@
 
 namespace
 {
+#ifdef _WIN32
+constexpr const char* StateRoot = "C:\\ja2-dedicated-state";
+#else
+constexpr const char* StateRoot = "/tmp/ja2-dedicated-state";
+#endif
+
 void Check(bool condition, const char* message)
 {
 	if (!condition)
@@ -42,20 +48,23 @@ int main()
 	{
 		const auto parsed = Parse({"JA2", "--dedicated",
 			"--dedicated-mode=COOP", "--campaign", "shared_01",
-			"--campaign-action", "resume", "--checkpoint-seconds=600"});
+			"--campaign-action", "resume", "--checkpoint-seconds=600",
+			"--dedicated-state-dir", StateRoot});
 		Check(parsed && parsed.options.mode == DedicatedServerMode::Coop &&
 			parsed.options.campaignId == "shared_01" &&
 			parsed.options.campaignAction == DedicatedCampaignAction::Resume &&
+			parsed.options.stateDirectory == StateRoot &&
 			parsed.options.checkpointSeconds == 600,
 			"co-op resume options parse in split and equals forms");
 	}
 	{
 		const auto parsed = Parse({"JA2", "--dedicated",
-			"--dedicated-mode", "coop", "--campaign", "alpha-1",
-			"--campaign-action", "new"});
+			"--dedicated-mode", "coop", "--campaign", "Alpha-1",
+			"--campaign-action", "new", "--dedicated-state-dir", StateRoot});
 		Check(parsed &&
-			parsed.options.campaignAction == DedicatedCampaignAction::Create,
-			"new co-op campaign is explicit");
+			parsed.options.campaignAction == DedicatedCampaignAction::Create &&
+			parsed.options.campaignId == "alpha-1",
+			"new co-op campaign is explicit and its id is lowercase canonical");
 	}
 
 	Check(Parse({"JA2", "--dedicated-mode=coop"}).error ==
@@ -65,12 +74,52 @@ int main()
 		DedicatedServerOptionError::CoopCampaignRequired,
 		"co-op requires a campaign id");
 	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
-		"--campaign=one"}).error ==
+		"--campaign=one", "--dedicated-state-dir", StateRoot}).error ==
 		DedicatedServerOptionError::CoopCampaignActionRequired,
 		"co-op requires an explicit new/resume decision");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new"}).error ==
+		DedicatedServerOptionError::CoopStateDirectoryRequired,
+		"co-op requires an explicit isolated state root");
 	Check(Parse({"JA2", "--dedicated", "--campaign=one"}).error ==
 		DedicatedServerOptionError::PvpCampaignOption,
 		"PvP cannot silently acquire campaign state");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::PvpCampaignOption,
+		"PvP cannot silently acquire the campaign state root");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir=relative/state"}).error ==
+		DedicatedServerOptionError::InvalidStateDirectory,
+		"the persistent state root must be absolute");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir", StateRoot,
+		"--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::DuplicateOption,
+		"duplicate state roots are rejected");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir"}).error ==
+		DedicatedServerOptionError::MissingValue,
+		"a state-root option requires its path");
+	Check(Parse({"JA2", "--dedicated-state-dir", StateRoot}).error ==
+		DedicatedServerOptionError::DedicatedOptionWithoutDedicated,
+		"a state root cannot enable dedicated mode implicitly");
+	std::string oversizedStateRoot = StateRoot;
+	oversizedStateRoot.append(4097, 'x');
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir", oversizedStateRoot.c_str()}).error ==
+		DedicatedServerOptionError::InvalidStateDirectory,
+		"state roots have a bounded encoded length");
+	std::string controlStateRoot = StateRoot;
+	controlStateRoot.push_back('\n');
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=new",
+		"--dedicated-state-dir", controlStateRoot.c_str()}).error ==
+		DedicatedServerOptionError::InvalidStateDirectory,
+		"state roots reject control characters");
 	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=nope"}).error ==
 		DedicatedServerOptionError::InvalidMode,
 		"unknown modes fail closed");
@@ -206,10 +255,12 @@ int main()
 	installed.enabled = true;
 	installed.mode = DedicatedServerMode::Coop;
 	installed.campaignId = "installed";
+	installed.stateDirectory = StateRoot;
 	InstallDedicatedServerOptions(installed);
 	Check(GetDedicatedServerOptions().enabled &&
 		GetDedicatedServerOptions().mode == DedicatedServerMode::Coop &&
-		GetDedicatedServerOptions().campaignId == "installed",
+		GetDedicatedServerOptions().campaignId == "installed" &&
+		GetDedicatedServerOptions().stateDirectory == StateRoot,
 		"validated options are installed for later lifecycle seams");
 
 	std::puts("dedicated server option tests passed");

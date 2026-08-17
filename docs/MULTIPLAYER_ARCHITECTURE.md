@@ -138,8 +138,9 @@ The full-engine process now has an explicit startup contract:
 - `JA2 --dedicated` and `JA2 --dedicated --dedicated-mode=pvp` select the
   transitional PvP host. Only legacy deathmatch and team-deathmatch settings
   are accepted; legacy `GAME_TYPE=2` is rejected.
-- `--dedicated-mode=coop` requires a bounded campaign identifier and an
-  explicit `--campaign-action=new|resume`. The options are parsed so the
+- `--dedicated-mode=coop` requires a bounded campaign identifier, an explicit
+  `--campaign-action=new|resume`, and an absolute `--dedicated-state-dir`.
+  Campaign identifiers are lowercase-canonical. The options are parsed so the
   durable lifecycle can attach to a stable interface, but startup currently
   exits before SDL initialization because campaign authority and replication
   are not installed.
@@ -187,11 +188,37 @@ I/O failure. Co-op creation and resume reject an absent installed-content
 digest. The checksum protects the manifest from accidental corruption; it is
 not an authentication mechanism.
 
-This store is deliberately not wired to `SaveGame` or startup yet. The
-production adapter still needs an isolated state root and process-lifetime
-lock, atomic publication of the runtime save container itself, an exact
-installed-content digest, a dedicated load entry point, and either disabled or
-transactionally bound InventoryPoolQ sidecars. Until those conditions are met,
+The native filesystem backend now turns an operator-created absolute state
+root into one retained process lease and fixed campaign-local paths. The root
+must live on a local filesystem beneath trusted, stable ancestors; its leaf may
+not be a symlink or reparse point. On POSIX, the backend verifies current-user
+ownership and private permissions; managed directories are opened relative to
+retained directory descriptors, forced to mode `0700`, and synced when created.
+On Windows, the service operator must provision an equivalently private ACL;
+the backend rejects reparse points and retains no-delete-share directory
+handles. A stable `process.lock` is never removed, so two workers cannot share
+the same writable root. Campaign directory names use a
+`campaign-` prefix and lowercase key, avoiding case-only duplicates and Win32
+device-name components.
+
+Checkpoint probing is bounded to 256 MiB and hashes the closed file with
+streaming SHA-256. Manifest reads buffer at most 176 bytes plus an oversized
+sentinel. Manifest publication uses an exclusive same-directory temporary,
+file flush, atomic replacement, and POSIX parent-directory sync. The publish
+contract distinguishes not-published, durably published, known-visible with
+unknown durability, and an indeterminate old-versus-new publication state. The
+store commits matching state only when visibility is known; either uncertain
+outcome poisons further work, and an indeterminate publication also invalidates
+the in-memory state until process restart. The lifecycle must fail-stop.
+
+This backend is deliberately not wired to `SaveGame` or startup yet. The live
+adapter still needs a campaign-isolated writable VFS profile (including
+`Temp/`, not merely `SavedGames/`), exact slot-6/slot-7 path binding, disabled
+legacy autosave and InventoryPoolQ sidecars, an installed-content digest, and
+a dedicated load entry point that treats package restore failure as terminal.
+Writing the inactive A/B slot means the runtime container itself need not gain
+a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must
+all succeed before its manifest is published. Until those conditions are met,
 co-op admission remains closed and no persistent-campaign compatibility claim
 is made.
 

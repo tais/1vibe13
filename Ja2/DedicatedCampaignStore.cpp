@@ -333,9 +333,13 @@ DedicatedCampaignStore::DedicatedCampaignStore(
 DedicatedCampaignStoreError DedicatedCampaignStore::create(
 	const DedicatedCampaignIdentity& identity) noexcept
 {
+	if (publicationStateUnknown_)
+		return DedicatedCampaignStoreError::PublicationStateUnknown;
 	if (open_) return DedicatedCampaignStoreError::AlreadyOpen;
 	const DedicatedCampaignStoreError identityError = ValidateIdentity(identity);
 	if (identityError != DedicatedCampaignStoreError::None) return identityError;
+	if (!backend_.acceptsIdentity(identity))
+		return DedicatedCampaignStoreError::BackendIdentityMismatch;
 
 	try
 	{
@@ -374,10 +378,14 @@ DedicatedCampaignStoreError DedicatedCampaignStore::create(
 DedicatedCampaignStoreError DedicatedCampaignStore::resume(
 	const DedicatedCampaignIdentity& expectedIdentity) noexcept
 {
+	if (publicationStateUnknown_)
+		return DedicatedCampaignStoreError::PublicationStateUnknown;
 	if (open_) return DedicatedCampaignStoreError::AlreadyOpen;
 	const DedicatedCampaignStoreError identityError =
 		ValidateIdentity(expectedIdentity);
 	if (identityError != DedicatedCampaignStoreError::None) return identityError;
+	if (!backend_.acceptsIdentity(expectedIdentity))
+		return DedicatedCampaignStoreError::BackendIdentityMismatch;
 
 	try
 	{
@@ -472,7 +480,11 @@ DedicatedCampaignStoreError DedicatedCampaignStore::resume(
 DedicatedCampaignStoreError DedicatedCampaignStore::checkpoint(
 	std::uint64_t worldMinutes) noexcept
 {
+	if (publicationStateUnknown_)
+		return DedicatedCampaignStoreError::PublicationStateUnknown;
 	if (!open_) return DedicatedCampaignStoreError::NotOpen;
+	if (publicationDurabilityUnknown_)
+		return DedicatedCampaignStoreError::PublicationDurabilityUnknown;
 	if (state_.generation == std::numeric_limits<std::uint64_t>::max())
 		return DedicatedCampaignStoreError::GenerationExhausted;
 
@@ -508,10 +520,27 @@ DedicatedCampaignStoreError DedicatedCampaignStore::checkpoint(
 		DedicatedCampaignManifestBytes encoded{};
 		if (!EncodeDedicatedCampaignManifest(manifest, encoded))
 			return DedicatedCampaignStoreError::BackendFailure;
-		if (!backend_.publishManifest(nextState.activeSlot, encoded))
+		const DedicatedCampaignStoreBackend::ManifestPublishResult published =
+			backend_.publishManifest(nextState.activeSlot, encoded);
+		if (published ==
+			DedicatedCampaignStoreBackend::ManifestPublishResult::NotPublished)
 			return DedicatedCampaignStoreError::BackendFailure;
+		if (published == DedicatedCampaignStoreBackend::ManifestPublishResult::
+			PublicationStateUnknown)
+		{
+			publicationStateUnknown_ = true;
+			open_ = false;
+			state_ = {};
+			return DedicatedCampaignStoreError::PublicationStateUnknown;
+		}
 
 		state_ = std::move(nextState);
+		if (published == DedicatedCampaignStoreBackend::ManifestPublishResult::
+			PublishedDurabilityUnknown)
+		{
+			publicationDurabilityUnknown_ = true;
+			return DedicatedCampaignStoreError::PublicationDurabilityUnknown;
+		}
 		return DedicatedCampaignStoreError::None;
 	}
 	catch (...)

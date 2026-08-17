@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cstring>
+#include <filesystem>
 #include <string_view>
 
 namespace
@@ -10,6 +11,7 @@ namespace
 constexpr std::uint32_t MinimumCheckpointSeconds = 30;
 constexpr std::uint32_t MaximumCheckpointSeconds = 24u * 60u * 60u;
 constexpr std::size_t MaximumCampaignIdBytes = 48;
+constexpr std::size_t MaximumStateDirectoryBytes = 4096;
 DedicatedServerOptions ActiveOptions;
 
 std::string LowerAscii(std::string_view value)
@@ -52,6 +54,24 @@ bool ValidCampaignId(std::string_view value)
 	});
 }
 
+bool ValidStateDirectory(std::string_view value)
+{
+	if (value.empty() || value.size() > MaximumStateDirectoryBytes)
+		return false;
+	if (std::any_of(value.begin(), value.end(), [](unsigned char character) {
+		return character < 0x20u || character == 0x7fu;
+	}))
+		return false;
+	try
+	{
+		return std::filesystem::u8path(value.begin(), value.end()).is_absolute();
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 bool HasReservedDedicatedPrefix(std::string_view argument)
 {
 	const std::string lowered = LowerAscii(argument);
@@ -75,6 +95,7 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 	bool sawCampaign = false;
 	bool sawAction = false;
 	bool sawCheckpoint = false;
+	bool sawStateDirectory = false;
 	bool sawDedicated = false;
 	bool sawDedicatedOption = false;
 
@@ -163,6 +184,24 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				continue;
 			}
 
+			if (readValue("--dedicated-state-dir"))
+			{
+				sawDedicatedOption = true;
+				if (sawStateDirectory)
+					return Failure(options,
+						DedicatedServerOptionError::DuplicateOption, argument);
+				sawStateDirectory = true;
+				if (value.empty())
+					return Failure(options,
+						DedicatedServerOptionError::MissingValue, argument);
+				if (!ValidStateDirectory(value))
+					return Failure(options,
+						DedicatedServerOptionError::InvalidStateDirectory,
+						argument);
+				options.stateDirectory.assign(value);
+				continue;
+			}
+
 			if (readValue("--checkpoint-seconds"))
 			{
 				sawDedicatedOption = true;
@@ -197,7 +236,7 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				DedicatedServerOptionError::DedicatedOptionWithoutDedicated, {});
 		if (!options.enabled) return {options, DedicatedServerOptionError::None, {}};
 		if (options.mode == DedicatedServerMode::Pvp &&
-			(sawCampaign || sawAction || sawCheckpoint))
+			(sawCampaign || sawAction || sawCheckpoint || sawStateDirectory))
 			return Failure(options,
 				DedicatedServerOptionError::PvpCampaignOption, {});
 		if (options.mode == DedicatedServerMode::Coop && !sawCampaign)
@@ -206,6 +245,10 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 		if (options.mode == DedicatedServerMode::Coop && !sawAction)
 			return Failure(options,
 				DedicatedServerOptionError::CoopCampaignActionRequired, {});
+		if (options.mode == DedicatedServerMode::Coop && !sawStateDirectory)
+			return Failure(options,
+				DedicatedServerOptionError::CoopStateDirectoryRequired, {});
+		options.campaignId = LowerAscii(options.campaignId);
 		return {options, DedicatedServerOptionError::None, {}};
 	}
 	catch (...)
@@ -293,12 +336,14 @@ const char* DedicatedServerOptionErrorName(
 		case DedicatedServerOptionError::InvalidMode: return "invalid dedicated mode";
 		case DedicatedServerOptionError::InvalidCampaignAction: return "invalid campaign action";
 		case DedicatedServerOptionError::InvalidCampaignId: return "invalid campaign id";
+		case DedicatedServerOptionError::InvalidStateDirectory: return "invalid dedicated state directory";
 		case DedicatedServerOptionError::InvalidCheckpointInterval: return "invalid checkpoint interval";
 		case DedicatedServerOptionError::UnknownDedicatedOption: return "unknown dedicated option";
 		case DedicatedServerOptionError::DedicatedOptionWithoutDedicated: return "dedicated option requires --dedicated";
 		case DedicatedServerOptionError::PvpCampaignOption: return "campaign options require co-op mode";
 		case DedicatedServerOptionError::CoopCampaignRequired: return "co-op mode requires --campaign";
 		case DedicatedServerOptionError::CoopCampaignActionRequired: return "co-op mode requires --campaign-action";
+		case DedicatedServerOptionError::CoopStateDirectoryRequired: return "co-op mode requires --dedicated-state-dir";
 	}
 	return "unknown dedicated option error";
 }

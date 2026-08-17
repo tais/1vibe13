@@ -154,6 +154,12 @@ const char* SlotName(DedicatedCampaignSlot slot)
 class MemoryBackend final : public DedicatedCampaignStoreBackend
 {
 public:
+	bool acceptsIdentity(
+		const DedicatedCampaignIdentity&) const noexcept override
+	{
+		return acceptsIdentityValue;
+	}
+
 	DedicatedCampaignBackendResult readManifest(
 		DedicatedCampaignSlot slot, DedicatedCampaignManifestRead& manifest) override
 	{
@@ -188,17 +194,20 @@ public:
 		return syncSucceeds;
 	}
 
-	bool publishManifest(DedicatedCampaignSlot slot,
+	ManifestPublishResult publishManifest(DedicatedCampaignSlot slot,
 		const DedicatedCampaignManifestBytes& bytes) override
 	{
 		events.push_back(std::string("publish-") + SlotName(slot));
 		if (throwPublish) throw std::runtime_error("publish");
-		if (!publishSucceeds) return false;
+		if (publishResult == ManifestPublishResult::NotPublished)
+			return publishResult;
+		if (publishResult == ManifestPublishResult::PublicationStateUnknown)
+			return publishResult;
 		const std::size_t index = SlotIndex(slot);
 		manifestRead[index].bytes = bytes;
 		manifestRead[index].size = bytes.size();
 		manifestResult[index] = DedicatedCampaignBackendResult::Present;
-		return true;
+		return publishResult;
 	}
 
 	void setManifest(DedicatedCampaignSlot slot,
@@ -231,7 +240,9 @@ public:
 	std::array<bool, 2> throwProbe{};
 	bool writeSucceeds = true;
 	bool syncSucceeds = true;
-	bool publishSucceeds = true;
+	bool acceptsIdentityValue = true;
+	ManifestPublishResult publishResult =
+		ManifestPublishResult::PublishedDurable;
 	bool throwWrite = false;
 	bool throwSync = false;
 	bool throwPublish = false;
@@ -516,6 +527,15 @@ void TestCreateAndCheckpoint()
 	const DedicatedCampaignIdentity identity = Identity();
 	{
 		MemoryBackend backend;
+		backend.acceptsIdentityValue = false;
+		DedicatedCampaignStore store(backend);
+		Check(store.create(identity) ==
+			DedicatedCampaignStoreError::BackendIdentityMismatch &&
+			store.state() == nullptr && backend.events.empty(),
+			"create rejects an identity not owned by the selected backend");
+	}
+	{
+		MemoryBackend backend;
 		DedicatedCampaignStore store(backend);
 		DedicatedCampaignIdentity missingContent = identity;
 		missingContent.contentManifestSha256.fill(0);
@@ -696,13 +716,49 @@ void TestCreateAndCheckpoint()
 		DedicatedCampaignStore fresh(failing);
 		PrepareFreshStore(failing, fresh);
 		const DedicatedCampaignStoreState before = *fresh.state();
-		failing.publishSucceeds = false;
+		failing.publishResult =
+			DedicatedCampaignStoreBackend::ManifestPublishResult::NotPublished;
 		Check(fresh.checkpoint(9) == DedicatedCampaignStoreError::BackendFailure &&
 			failing.events == std::vector<std::string>(
 				{"write-A", "sync-A", "probe-A", "publish-A"}),
 			"durable manifest publication remains the last backend stage");
 		CheckStateUnchanged(fresh, before,
 			"publication failure leaves active state unchanged");
+	}
+	{
+		MemoryBackend uncertain;
+		DedicatedCampaignStore fresh(uncertain);
+		PrepareFreshStore(uncertain, fresh);
+		uncertain.publishResult = DedicatedCampaignStoreBackend::
+			ManifestPublishResult::PublishedDurabilityUnknown;
+		Check(fresh.checkpoint(9) ==
+				DedicatedCampaignStoreError::PublicationDurabilityUnknown &&
+			fresh.state() && fresh.state()->generation == 1 &&
+			fresh.state()->activeSlot == DedicatedCampaignSlot::A,
+			"post-publication sync uncertainty commits matching visible state");
+		uncertain.events.clear();
+		Check(fresh.checkpoint(10) ==
+				DedicatedCampaignStoreError::PublicationDurabilityUnknown &&
+				uncertain.events.empty(),
+			"post-publication uncertainty poisons later checkpoint writes");
+	}
+	{
+		MemoryBackend ambiguous;
+		DedicatedCampaignStore fresh(ambiguous);
+		PrepareFreshStore(ambiguous, fresh);
+		ambiguous.publishResult = DedicatedCampaignStoreBackend::
+			ManifestPublishResult::PublicationStateUnknown;
+		Check(fresh.checkpoint(9) ==
+				DedicatedCampaignStoreError::PublicationStateUnknown &&
+			fresh.state() == nullptr,
+			"ambiguous publication invalidates the in-memory campaign state");
+		ambiguous.events.clear();
+		Check(fresh.checkpoint(10) ==
+				DedicatedCampaignStoreError::PublicationStateUnknown &&
+			fresh.resume(Identity()) ==
+				DedicatedCampaignStoreError::PublicationStateUnknown &&
+			ambiguous.events.empty(),
+			"ambiguous publication requires a new store after process restart");
 	}
 	for (std::size_t throwStage = 0; throwStage < 4; ++throwStage)
 	{

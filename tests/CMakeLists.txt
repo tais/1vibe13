@@ -100,6 +100,19 @@ target_include_directories(dedicated_campaign_store_tests PRIVATE
 target_compile_features(dedicated_campaign_store_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_campaign_store COMMAND dedicated_campaign_store_tests)
 
+# Exercise the production native state-root adapter with real files, a retained
+# process lock, streaming SHA-256, bounded reads, and same-directory manifest
+# publication. It still injects checkpoint bytes and never calls SaveGame.
+add_executable(dedicated_campaign_filesystem_tests
+  dedicated_campaign_filesystem_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignFilesystem.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignStore.cpp)
+target_include_directories(dedicated_campaign_filesystem_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_campaign_filesystem_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_campaign_filesystem
+  COMMAND dedicated_campaign_filesystem_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

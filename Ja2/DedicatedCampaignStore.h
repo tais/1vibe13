@@ -110,18 +110,32 @@ class DedicatedCampaignStoreBackend
 public:
 	virtual ~DedicatedCampaignStoreBackend() = default;
 
+	// A persistent backend may bind itself to a canonical campaign directory
+	// before the store is opened. The store refuses an identity that the backend
+	// does not own, preventing directory key Y from publishing manifest X.
+	virtual bool acceptsIdentity(
+		const DedicatedCampaignIdentity& identity) const noexcept = 0;
+
 	virtual DedicatedCampaignBackendResult readManifest(
 		DedicatedCampaignSlot slot, DedicatedCampaignManifestRead& manifest) = 0;
 	virtual bool writeCheckpoint(DedicatedCampaignSlot slot) = 0;
 	virtual DedicatedCampaignBackendResult probeCheckpoint(
 		DedicatedCampaignSlot slot, DedicatedCampaignCheckpointProbe& probe) = 0;
 	virtual bool syncCheckpoint(DedicatedCampaignSlot slot) = 0;
-	// This is the commit point. Implementations must complete every fallible
-	// temporary-write, file-sync, rename, and directory-sync step before
-	// returning true, and must never return false or throw after publication has
-	// become durable/visible. That keeps durable and in-memory active slots in
-	// lockstep.
-	virtual bool publishManifest(DedicatedCampaignSlot slot,
+	enum class ManifestPublishResult : std::uint8_t
+	{
+		NotPublished,
+		PublishedDurable,
+		PublishedDurabilityUnknown,
+		PublicationStateUnknown
+	};
+
+	// This is the commit point. A backend must distinguish failure before the
+	// atomic replace, a known-visible manifest whose durability is uncertain,
+	// and an outcome where it cannot establish whether old or new is visible.
+	// The store commits matching state only for known-visible outcomes. An
+	// unknown publication state invalidates the store until process restart.
+	virtual ManifestPublishResult publishManifest(DedicatedCampaignSlot slot,
 		const DedicatedCampaignManifestBytes& bytes) = 0;
 };
 
@@ -129,6 +143,7 @@ enum class DedicatedCampaignStoreError : std::uint8_t
 {
 	None,
 	InvalidIdentity,
+	BackendIdentityMismatch,
 	MissingContentManifestSha256,
 	AlreadyOpen,
 	AlreadyExists,
@@ -139,6 +154,8 @@ enum class DedicatedCampaignStoreError : std::uint8_t
 	SplitBrain,
 	NotOpen,
 	GenerationExhausted,
+	PublicationDurabilityUnknown,
+	PublicationStateUnknown,
 	BackendFailure
 };
 
@@ -173,6 +190,8 @@ public:
 private:
 	DedicatedCampaignStoreBackend& backend_;
 	bool open_ = false;
+	bool publicationDurabilityUnknown_ = false;
+	bool publicationStateUnknown_ = false;
 	DedicatedCampaignStoreState state_;
 };
 
