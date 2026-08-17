@@ -18,9 +18,11 @@
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EngineServiceContracts.h>
+#include <Engine/Core/DedicatedCheckpointEligibility.h>
 #include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/ServiceCatalog.h>
+#include <Engine/Core/SimulationRandom.h>
 
 #include <array>
 #include <cstddef>
@@ -191,6 +193,56 @@ inline constexpr EngineServiceContract<ExternalTypedService>
 
 int main()
 {
+	SimulationRandom installedRandom(42);
+	const SimulationRandomResult installedRandomDraw =
+		installedRandom.tryNext(1000);
+	SimulationRandomCheckpointBytes installedRandomBytes{};
+	SimulationRandomCheckpoint installedRandomCheckpoint;
+	if (!installedRandomDraw || installedRandomDraw.value >= 1000 ||
+		!EncodeSimulationRandomCheckpoint(
+			installedRandom.checkpoint(), installedRandomBytes) ||
+		DecodeSimulationRandomCheckpoint(installedRandomBytes.data(),
+			installedRandomBytes.size(), installedRandomCheckpoint) !=
+			SimulationRandomCheckpointDecodeError::None ||
+		installedRandom.restoreCheckpoint(installedRandomCheckpoint) !=
+			SimulationRandomCheckpointError::None)
+		return 64;
+
+	DedicatedCheckpointEligibilitySnapshot installedCheckpointPolicy;
+	installedCheckpointPolicy.resumeMode = DedicatedCheckpointResumeMode::Cold;
+	installedCheckpointPolicy.commandQueue =
+		DedicatedCheckpointDrainState::Drained;
+	installedCheckpointPolicy.networkQueue =
+		DedicatedCheckpointDrainState::Drained;
+	installedCheckpointPolicy.packageQueue =
+		DedicatedCheckpointDrainState::Drained;
+	installedCheckpointPolicy.dialogueQueue =
+		DedicatedCheckpointDrainState::Drained;
+	installedCheckpointPolicy.simulation = DedicatedCheckpointRunState::Paused;
+	installedCheckpointPolicy.frameBoundary =
+		DedicatedCheckpointFrameBoundary::Committed;
+	installedCheckpointPolicy.tacticalWorldLoaded = false;
+	installedCheckpointPolicy.worldItemsLoaded = false;
+	installedCheckpointPolicy.combatActive = false;
+	installedCheckpointPolicy.autoResolveActive = false;
+	installedCheckpointPolicy.meanwhileActive = false;
+	installedCheckpointPolicy.projectileActive = false;
+	installedCheckpointPolicy.explosionActive = false;
+	installedCheckpointPolicy.dialogueActive = false;
+	installedCheckpointPolicy.realtimeAiActive = false;
+	installedCheckpointPolicy.customizableCallbackPending = false;
+	installedCheckpointPolicy.reinforcementTurnCounter = 0;
+	installedCheckpointPolicy.enemyReinforcementTurn = 0;
+	installedCheckpointPolicy.enemyReinforcementsArrived = 0;
+	installedCheckpointPolicy.militiaReinforcementTurn = 0;
+	installedCheckpointPolicy.militiaReinforcementsArrived = 0;
+	installedCheckpointPolicy.temporarySchedulesPresent = false;
+	installedCheckpointPolicy.miniEventsEnabled = false;
+	installedCheckpointPolicy.unrestrictedLuaRandomnessEnabled = false;
+	if (EvaluateDedicatedCheckpointEligibility(installedCheckpointPolicy) !=
+		DedicatedCheckpointEligibilityReason::None)
+		return 65;
+
 	EngineHost<> legacyBraceHost({});
 	EngineRuntime<> legacyBraceRuntime({});
 	if (legacyBraceHost.serviceCatalog().size() != 14 ||

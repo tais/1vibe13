@@ -244,6 +244,19 @@ prepared campaign-isolated writable profile (including `Temp/`, not merely
 verify the active checkpoint before the VFS scan, and run periodic/final
 checkpoints only at committed main-thread frame boundaries. Installed-content
 identity and deterministic host RNG/reinforcement state also remain mandatory.
+
+The deterministic foundation is now explicit but still unwired. The engine
+core provides a fixed PCG32 simulation stream with a canonical 40-byte
+little-endian checkpoint, campaign-seed binding, exact replay, unbiased bounded
+draws, and fail-closed sequence exhaustion. A separate data-free eligibility
+policy permits only a paused, committed, queue-drained, cold strategic
+checkpoint: no tactical world, combat, projectiles, active or queued dialogue
+effects, pending dialogue trigger timers, realtime AI, temporary schedules,
+reinforcement transients, MiniEvents, or unrestricted Lua randomness. The
+first persistent-campaign milestone therefore rolls an interrupted tactical
+battle back to the preceding strategic checkpoint; it does not claim
+mid-battle resume.
+
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must
 all succeed before its manifest is published. Until those lifecycle and

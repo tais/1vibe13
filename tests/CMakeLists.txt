@@ -135,6 +135,24 @@ target_compile_features(dedicated_campaign_vfs_profile_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_campaign_vfs_profile
   COMMAND dedicated_campaign_vfs_profile_tests)
 
+# Portable authoritative randomness and the cold strategic checkpoint barrier
+# are data-free engine contracts. They stay independently executable so a
+# dedicated campaign cannot silently regain platform RNG or tactical-state
+# persistence before the live lifecycle is wired.
+add_executable(simulation_random_tests simulation_random_tests.cpp)
+target_link_libraries(simulation_random_tests PRIVATE JA2::EngineCore)
+target_compile_features(simulation_random_tests PRIVATE cxx_std_17)
+add_test(NAME simulation_random COMMAND simulation_random_tests)
+
+add_executable(dedicated_checkpoint_eligibility_tests
+  dedicated_checkpoint_eligibility_tests.cpp)
+target_link_libraries(dedicated_checkpoint_eligibility_tests
+  PRIVATE JA2::EngineCore)
+target_compile_features(dedicated_checkpoint_eligibility_tests
+  PRIVATE cxx_std_17)
+add_test(NAME dedicated_checkpoint_eligibility
+  COMMAND dedicated_checkpoint_eligibility_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

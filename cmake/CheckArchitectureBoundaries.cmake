@@ -798,6 +798,22 @@ file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_filesystem_tests.cpp"
   dedicated_campaign_filesystem_tests)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_save_adapter_tests.cpp"
   dedicated_campaign_save_adapter_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/SimulationRandom.h"
+  dedicated_simulation_random_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/SimulationRandom.cpp"
+  dedicated_simulation_random_source)
+file(READ "${SOURCE_ROOT}/tests/simulation_random_tests.cpp"
+  dedicated_simulation_random_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.h"
+  dedicated_checkpoint_eligibility_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.cpp"
+  dedicated_checkpoint_eligibility_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_checkpoint_eligibility_tests.cpp"
+  dedicated_checkpoint_eligibility_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/CMakeLists.txt"
+  dedicated_determinism_core_build_source)
+file(READ "${SOURCE_ROOT}/tests/sdk_consumer/main.cpp"
+  dedicated_determinism_sdk_consumer)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_vfs_profile_tests.cpp"
   dedicated_campaign_vfs_profile_tests)
 file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_init.h"
@@ -849,6 +865,29 @@ strip_cxx_comments_and_literals(dedicated_campaign_handle_ui_source
   dedicated_campaign_handle_ui_code)
 strip_cxx_comments_and_literals(dedicated_campaign_save_adapter_tests
   dedicated_campaign_save_adapter_test_code)
+strip_cxx_comments_and_literals(dedicated_simulation_random_header
+  dedicated_simulation_random_header_code)
+strip_cxx_comments_and_literals(dedicated_simulation_random_source
+  dedicated_simulation_random_code)
+strip_cxx_comments_and_literals(dedicated_simulation_random_tests
+  dedicated_simulation_random_test_code)
+strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_header
+  dedicated_checkpoint_eligibility_header_code)
+strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_source
+  dedicated_checkpoint_eligibility_code)
+strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_tests
+  dedicated_checkpoint_eligibility_test_code)
+strip_cxx_comments_and_literals(dedicated_determinism_sdk_consumer
+  dedicated_determinism_sdk_consumer_code)
+string(REGEX REPLACE "#[^\r\n]*" ""
+  dedicated_determinism_core_build_code
+  "${dedicated_determinism_core_build_source}")
+string(REGEX REPLACE "#[^\r\n]*" ""
+  dedicated_determinism_test_build_code
+  "${dedicated_test_build_source}")
+string(REGEX REPLACE "#[^\r\n]*" ""
+  dedicated_determinism_ci_code
+  "${dedicated_ci_source}")
 strip_cxx_comments_and_literals(dedicated_campaign_vfs_profile_tests
   dedicated_campaign_vfs_profile_test_code)
 strip_cxx_comments(dedicated_campaign_vfs_profile_tests
@@ -1288,6 +1327,288 @@ if(dedicated_campaign_save_adapter_build_position EQUAL -1 OR
     "Dedicated campaign save adapter lost production, CTest, or ASan coverage")
 endif()
 
+# Persistent campaigns use one explicitly versioned simulation stream. Its
+# algorithm, stream selector, wire bytes, rejection mapping, and exhaustion
+# behavior are cross-platform save contracts rather than implementation detail.
+foreach(dedicated_simulation_random_contract IN ITEMS
+    "SimulationRandomPcg32Algorithm = 1"
+    "SimulationRandomPcg32StreamSelector = 54"
+    "SimulationRandomCheckpointWireSize = 40"
+    "class SimulationRandom final : public RandomSource"
+    "SimulationRandomResult nextRaw() noexcept"
+    "SimulationRandomResult tryNext(std::uint32_t upperBound) noexcept"
+    "SimulationRandomError health() const noexcept"
+    "SimulationRandomCheckpoint checkpoint() const noexcept"
+    "validateCheckpoint("
+    "restoreCheckpoint(")
+  string(FIND "${dedicated_simulation_random_header_code}"
+    "${dedicated_simulation_random_contract}"
+    dedicated_simulation_random_contract_position)
+  if(dedicated_simulation_random_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated simulation RNG lost '${dedicated_simulation_random_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_simulation_random_source_contract IN ITEMS
+    "Pcg32Multiplier = 6364136223846793005ULL"
+    "if (upperBound <= 1) return {SimulationRandomError::None, 0};"
+    "static_cast<std::uint32_t>(0u - upperBound) % upperBound"
+    "rawValuesGenerated_ = nextGenerated;"
+    "health_ = SimulationRandomError::SequenceExhausted"
+    "WriteU32(encoded, 0, checkpoint.schema)"
+    "WriteU64(encoded, 32, checkpoint.rawValuesGenerated)"
+    "size != SimulationRandomCheckpointWireSize"
+    "checkpoint = decoded;")
+  string(FIND "${dedicated_simulation_random_code}"
+    "${dedicated_simulation_random_source_contract}"
+    dedicated_simulation_random_source_contract_position)
+  if(dedicated_simulation_random_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated simulation RNG implementation lost '${dedicated_simulation_random_source_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_simulation_random_forbidden IN ITEMS
+    "std::mt19937"
+    "random_device"
+    "uniform_int_distribution"
+    "std::shuffle"
+    "rand(")
+  string(FIND
+    "${dedicated_simulation_random_header_code}${dedicated_simulation_random_code}"
+    "${dedicated_simulation_random_forbidden}"
+    dedicated_simulation_random_forbidden_position)
+  if(NOT dedicated_simulation_random_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated simulation RNG regained platform-dependent '${dedicated_simulation_random_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_simulation_random_test_contract IN ITEMS
+    "TestPcg32GoldenVector();"
+    "TestSeedAndBoundSemantics();"
+    "TestBoundedGoldenVector();"
+    "TestCheckpointReplayAndValidation();"
+    "TestWireCodec();"
+    "TestCounterExhaustion();"
+    "0xa15c02b7u"
+    "0x7b47f409u"
+    "0x812fff6du"
+    "0x0730f84eec16daf0ULL"
+    "SimulationRandomCheckpointWireSize == 40"
+    "SimulationRandomError::SequenceExhausted")
+  string(FIND "${dedicated_simulation_random_test_code}"
+    "${dedicated_simulation_random_test_contract}"
+    dedicated_simulation_random_test_contract_position)
+  if(dedicated_simulation_random_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated simulation RNG tests lost '${dedicated_simulation_random_test_contract}'")
+  endif()
+endforeach()
+
+# The first persistence milestone permits only a cold, strategic, committed
+# boundary. Every declaration is explicit and malformed enum values fail before
+# operational checks so an uninitialized adapter cannot be treated as safe.
+foreach(dedicated_checkpoint_eligibility_contract IN ITEMS
+    "struct DedicatedCheckpointEligibilitySnapshot"
+    "DedicatedCheckpointResumeMode::Unspecified"
+    "DedicatedCheckpointDrainState::Unspecified"
+    "DedicatedCheckpointRunState::Unspecified"
+    "DedicatedCheckpointFrameBoundary::Unspecified"
+    "dialogueQueue"
+    "bool tacticalWorldLoaded = true;"
+    "bool worldItemsLoaded = true;"
+    "bool combatActive = true;"
+    "bool autoResolveActive = true;"
+    "bool meanwhileActive = true;"
+    "bool projectileActive = true;"
+    "bool explosionActive = true;"
+    "bool dialogueActive = true;"
+    "bool realtimeAiActive = true;"
+    "bool customizableCallbackPending = true;"
+    "std::uint32_t reinforcementTurnCounter = 1;"
+    "std::uint32_t enemyReinforcementTurn = 1;"
+    "std::uint32_t enemyReinforcementsArrived = 1;"
+    "std::uint32_t militiaReinforcementTurn = 1;"
+    "std::uint32_t militiaReinforcementsArrived = 1;"
+    "bool temporarySchedulesPresent = true;"
+    "bool miniEventsEnabled = true;"
+    "bool unrestrictedLuaRandomnessEnabled = true;"
+    "EvaluateDedicatedCheckpointEligibility("
+    "DedicatedCheckpointEligibilityReasonName(")
+  string(FIND "${dedicated_checkpoint_eligibility_header_code}"
+    "${dedicated_checkpoint_eligibility_contract}"
+    dedicated_checkpoint_eligibility_contract_position)
+  if(dedicated_checkpoint_eligibility_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated checkpoint eligibility lost '${dedicated_checkpoint_eligibility_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_checkpoint_eligibility_source_contract IN ITEMS
+    "if (!Known(snapshot.resumeMode)) return Reason::InvalidResumeMode;"
+    "if (!Known(snapshot.frameBoundary)) return Reason::InvalidFrameBoundaryState;"
+    "DedicatedCheckpointResumeMode::Warm"
+    "Reason::TacticalWorldLoaded"
+    "Reason::DialogueQueueNotDrained"
+    "Reason::CommandQueueNotDrained"
+    "Reason::SimulationNotPaused"
+    "Reason::NotAtCommittedFrameBoundary"
+    "Reason::MilitiaReinforcementsArrivedNonzero"
+    "Reason::UnrestrictedLuaRandomnessEnabled"
+    "return Reason::None;")
+  string(FIND "${dedicated_checkpoint_eligibility_code}"
+    "${dedicated_checkpoint_eligibility_source_contract}"
+    dedicated_checkpoint_eligibility_source_contract_position)
+  if(dedicated_checkpoint_eligibility_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated checkpoint eligibility implementation lost '${dedicated_checkpoint_eligibility_source_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_checkpoint_eligibility_forbidden IN ITEMS
+    "SDL_"
+    "GetGameContext("
+    "SaveGame("
+    "LoadSavedGame("
+    "vfs::"
+    "Random(")
+  string(FIND
+    "${dedicated_checkpoint_eligibility_header_code}${dedicated_checkpoint_eligibility_code}"
+    "${dedicated_checkpoint_eligibility_forbidden}"
+    dedicated_checkpoint_eligibility_forbidden_position)
+  if(NOT dedicated_checkpoint_eligibility_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated checkpoint eligibility regained live dependency '${dedicated_checkpoint_eligibility_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_checkpoint_eligibility_test_contract IN ITEMS
+    "TestAllClearAndDefaults();"
+    "TestEveryUnobservedHazardDefaultsUnsafe();"
+    "TestOneConditionAtATime();"
+    "TestInvalidAndContradictoryDeclarations();"
+    "TestPrecedence();"
+    "TestGoldenReasonNames();"
+    "Reason::WarmResumeRequested"
+    "Reason::DialogueQueueNotDrained"
+    "defaults.unrestrictedLuaRandomnessEnabled"
+    "EvaluateDedicatedCheckpointEligibility(partial)"
+    "Reason::UnrestrictedLuaRandomnessEnabled")
+  string(FIND "${dedicated_checkpoint_eligibility_test_code}"
+    "${dedicated_checkpoint_eligibility_test_contract}"
+    dedicated_checkpoint_eligibility_test_contract_position)
+  if(dedicated_checkpoint_eligibility_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated checkpoint eligibility tests lost '${dedicated_checkpoint_eligibility_test_contract}'")
+  endif()
+endforeach()
+
+string(FIND "${dedicated_determinism_core_build_code}"
+  "set(engine_core_public_headers" dedicated_determinism_public_start)
+string(FIND "${dedicated_determinism_core_build_code}"
+  "add_library(ja2_engine_core STATIC" dedicated_determinism_public_end)
+if(dedicated_determinism_public_start EQUAL -1 OR
+   dedicated_determinism_public_end EQUAL -1 OR
+   NOT dedicated_determinism_public_start LESS dedicated_determinism_public_end)
+  message(FATAL_ERROR "Cannot bound deterministic Engine Core public headers")
+endif()
+math(EXPR dedicated_determinism_public_length
+  "${dedicated_determinism_public_end} - ${dedicated_determinism_public_start}")
+string(SUBSTRING "${dedicated_determinism_core_build_code}"
+  ${dedicated_determinism_public_start} ${dedicated_determinism_public_length}
+  dedicated_determinism_public_slice)
+string(FIND "${dedicated_determinism_core_build_code}"
+  "add_library(JA2::EngineCore ALIAS" dedicated_determinism_source_end)
+if(dedicated_determinism_source_end EQUAL -1 OR
+   NOT dedicated_determinism_public_end LESS dedicated_determinism_source_end)
+  message(FATAL_ERROR "Cannot bound deterministic Engine Core sources")
+endif()
+math(EXPR dedicated_determinism_source_length
+  "${dedicated_determinism_source_end} - ${dedicated_determinism_public_end}")
+string(SUBSTRING "${dedicated_determinism_core_build_code}"
+  ${dedicated_determinism_public_end} ${dedicated_determinism_source_length}
+  dedicated_determinism_source_slice)
+foreach(dedicated_determinism_public_contract IN ITEMS
+    "DedicatedCheckpointEligibility.h"
+    "SimulationRandom.h")
+  string(FIND "${dedicated_determinism_public_slice}"
+    "${dedicated_determinism_public_contract}"
+    dedicated_determinism_public_contract_position)
+  if(dedicated_determinism_public_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Installed Engine Core lost '${dedicated_determinism_public_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_determinism_source_contract IN ITEMS
+    "DedicatedCheckpointEligibility.cpp"
+    "SimulationRandom.cpp")
+  string(FIND "${dedicated_determinism_source_slice}"
+    "${dedicated_determinism_source_contract}"
+    dedicated_determinism_source_contract_position)
+  if(dedicated_determinism_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine Core target lost '${dedicated_determinism_source_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(simulation_random_tests"
+  "add_executable(dedicated_checkpoint_eligibility_tests"
+  dedicated_simulation_random_test_build_slice
+  "Cannot bound the simulation RNG test target")
+require_ordered_fragments(dedicated_simulation_random_test_build_slice
+  "Simulation RNG test lost active Engine Core/CTest wiring"
+  "add_executable(simulation_random_tests"
+  "simulation_random_tests.cpp"
+  "target_link_libraries(simulation_random_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(simulation_random_tests PRIVATE cxx_std_17)"
+  "add_test(NAME simulation_random COMMAND simulation_random_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(dedicated_checkpoint_eligibility_tests"
+  "add_executable(engine_core_tests"
+  dedicated_checkpoint_eligibility_test_build_slice
+  "Cannot bound the checkpoint-eligibility test target")
+require_ordered_fragments(dedicated_checkpoint_eligibility_test_build_slice
+  "Checkpoint-eligibility test lost active Engine Core/CTest wiring"
+  "add_executable(dedicated_checkpoint_eligibility_tests"
+  "dedicated_checkpoint_eligibility_tests.cpp"
+  "target_link_libraries(dedicated_checkpoint_eligibility_tests"
+  "PRIVATE JA2::EngineCore"
+  "target_compile_features(dedicated_checkpoint_eligibility_tests"
+  "PRIVATE cxx_std_17"
+  "add_test(NAME dedicated_checkpoint_eligibility"
+  "COMMAND dedicated_checkpoint_eligibility_tests)")
+
+extract_bounded_slice(dedicated_determinism_ci_code
+  "- name: Build dedicated campaign store contract"
+  "- name: Build full-engine co-op ingress contract"
+  dedicated_determinism_ci_slice
+  "Cannot bound dedicated determinism ASan build step")
+require_ordered_fragments(dedicated_determinism_ci_slice
+  "Dedicated determinism tests left the active campaign ASan build step"
+  "run: cmake --build build --target"
+  "simulation_random_tests"
+  "dedicated_checkpoint_eligibility_tests")
+
+foreach(dedicated_determinism_sdk_contract IN ITEMS
+    "#include <Engine/Core/DedicatedCheckpointEligibility.h>"
+    "#include <Engine/Core/SimulationRandom.h>"
+    "SimulationRandom installedRandom(42);"
+    "EncodeSimulationRandomCheckpoint("
+    "DecodeSimulationRandomCheckpoint("
+    "EvaluateDedicatedCheckpointEligibility(installedCheckpointPolicy)")
+  string(FIND "${dedicated_determinism_sdk_consumer_code}"
+    "${dedicated_determinism_sdk_contract}"
+    dedicated_determinism_sdk_contract_position)
+  if(dedicated_determinism_sdk_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Installed SDK consumer lost '${dedicated_determinism_sdk_contract}'")
+  endif()
+endforeach()
+
 foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "## Durable campaign checkpoints"
     "176-byte little-endian manifest"
@@ -1300,6 +1621,9 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "slot identities 6 and 7"
     "quick-load entry points"
     "not wired into dedicated startup"
+    "canonical 40-byte"
+    "cold strategic"
+    "does not claim mid-battle resume"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
   string(FIND "${dedicated_campaign_store_docs}"

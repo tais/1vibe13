@@ -12,6 +12,7 @@ set(engine_core_public_headers
   CommandStream.h
   CommandProcessor.h
   ContentApi.h
+  DedicatedCheckpointEligibility.h
   DeterministicCommandQueue.h
   DefinitionCatalog.h
   EngineHost.h
@@ -69,6 +70,7 @@ set(engine_core_public_headers
   RuntimeUpdate.h
   ResourceHandleSet.h
   ServiceCatalog.h
+  SimulationRandom.h
   SimulationTick.h
   StateController.h
   StateRegistry.h
@@ -86,6 +88,7 @@ set(engine_core_public_headers
 add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
+  DedicatedCheckpointEligibility.cpp
   Identifier.cpp
   LocalizationDocument.cpp
   PackageContentLoader.cpp
@@ -100,6 +103,7 @@ add_library(ja2_engine_core STATIC
   RuntimeReportJson.cpp
   RuntimeReportService.cpp
   RuntimeSaveContainer.cpp
+  SimulationRandom.cpp
   SubsystemRuntime.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
