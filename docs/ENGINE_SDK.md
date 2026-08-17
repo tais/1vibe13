@@ -1492,9 +1492,11 @@ For new deterministic package logic, use `PackageBootstrapContext::random` and
 a stable portable stream name such as `combat` or `loot`. Streams are isolated
 by package and name, use unbiased bounded values, and expose sorted usage
 snapshots for replay diagnostics. Versioned checkpoints include the generator
-state and draw counter for every stream; package save archive v3 captures them
-without changing a package's opaque callback schema. The host seed and
-per-package stream limit are composition settings; the legacy
+state and draw counter for every stream. PGST v4 also records each package's
+schema-2 root seed and stream limit without changing the package's opaque
+callback schema, so streams first created after restore remain reproducible.
+PGST v3 remains load-only compatibility and relies on the configured host seed
+for any stream absent from that older archive. The legacy
 `EngineServices::random` remains intact.
 
 Packages may override `EnginePackage::simulate` for fixed-step work that should

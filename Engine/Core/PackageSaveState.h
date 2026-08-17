@@ -50,6 +50,19 @@ struct PackageSaveStateSnapshot
 	}
 };
 
+// Interactive saves preserve the established behavior: package callback RNG
+// draws are rolled back with the capture/load transaction. Deterministic
+// dedicated saves additionally reject successful PackageRandomSource::next()
+// draws made on the synchronous callback thread, including through retained
+// or directly copy/move-derived values. Read-only checkpoint inspection
+// remains allowed; other random services require their own coordinator-level
+// guard.
+enum class PackageSaveRandomPolicy
+{
+	AllowAndRollback,
+	RequireUnconsumed
+};
+
 enum class PackageSaveStateError
 {
 	None,
@@ -64,7 +77,8 @@ enum class PackageSaveStateError
 	ValidationFailed,
 	CallbackFailed,
 	AllocationFailure,
-	EngineStateMismatch
+	EngineStateMismatch,
+	RandomConsumed
 };
 
 struct PackageSaveStateCaptureResult

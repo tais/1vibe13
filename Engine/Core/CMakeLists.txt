@@ -62,6 +62,7 @@ set(engine_core_public_headers
   RuntimeFaultJournal.h
   RuntimeFingerprint.h
   RuntimeMessageBus.h
+  RuntimeRandomCheckpoint.h
   RuntimeReport.h
   RuntimeReportJson.h
   RuntimeReportService.h
@@ -99,6 +100,7 @@ add_library(ja2_engine_core STATIC
   RuntimeCapabilities.cpp
   RuntimeCheckpoint.cpp
   RuntimeFingerprint.cpp
+  RuntimeRandomCheckpoint.cpp
   RuntimeReport.cpp
   RuntimeReportJson.cpp
   RuntimeReportService.cpp

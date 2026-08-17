@@ -164,6 +164,23 @@ target_link_libraries(package_random_root_state_tests PRIVATE JA2::EngineCore)
 target_compile_features(package_random_root_state_tests PRIVATE cxx_std_17)
 add_test(NAME package_random_root_state COMMAND package_random_root_state_tests)
 
+add_executable(runtime_checkpoint_v2_tests runtime_checkpoint_v2_tests.cpp)
+target_link_libraries(runtime_checkpoint_v2_tests PRIVATE JA2::EngineCore)
+target_compile_features(runtime_checkpoint_v2_tests PRIVATE cxx_std_17)
+add_test(NAME runtime_checkpoint_v2 COMMAND runtime_checkpoint_v2_tests)
+
+add_executable(runtime_random_checkpoint_tests
+  runtime_random_checkpoint_tests.cpp)
+target_link_libraries(runtime_random_checkpoint_tests PRIVATE JA2::EngineCore)
+target_compile_features(runtime_random_checkpoint_tests PRIVATE cxx_std_17)
+add_test(NAME runtime_random_checkpoint COMMAND runtime_random_checkpoint_tests)
+
+add_executable(package_save_rng_policy_tests
+  package_save_rng_policy_tests.cpp)
+target_link_libraries(package_save_rng_policy_tests PRIVATE JA2::EngineCore)
+target_compile_features(package_save_rng_policy_tests PRIVATE cxx_std_17)
+add_test(NAME package_save_rng_policy COMMAND package_save_rng_policy_tests)
+
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
 # hiding behind the larger headless game harness.

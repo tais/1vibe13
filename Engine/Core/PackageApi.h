@@ -718,7 +718,9 @@ public:
 		return result;
 	}
 
-	PackageSaveStateCaptureResult captureSaveState() noexcept
+	PackageSaveStateCaptureResult captureSaveState(
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
 		if (operationInProgress_)
 			return {PackageSaveStateError::OperationInProgress, {}, {}};
@@ -758,8 +760,21 @@ public:
 				std::vector<std::uint8_t> payload;
 				PackageBootstrapContext context = contextFor(packageId);
 				bool saved = false;
-				try { saved = registered.package->saveState(context, payload); }
-				catch (...) {}
+				bool randomConsumed = false;
+				{
+					RandomConsumptionGuard randomConsumption(
+						registered.random, randomPolicy);
+					try { saved = registered.package->saveState(context, payload); }
+					catch (...) {}
+					randomConsumed = randomConsumption.consumed();
+				}
+				if (randomConsumed)
+				{
+					faults_.record(RuntimeFaultKind::SaveState, packageId,
+						"save-state-random", 1);
+					logError("Package save-state callback consumed randomness: ", packageId);
+					return {PackageSaveStateError::RandomConsumed, packageId, {}};
+				}
 				if (!saved)
 				{
 					faults_.record(RuntimeFaultKind::SaveState, packageId, "save-state", 1);
@@ -784,7 +799,9 @@ public:
 	}
 
 	PackageSaveStateLoadResult validateSaveState(
-		const PackageSaveStateSnapshot& snapshot) const noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) const noexcept
 	{
 		if (operationInProgress_)
 			return {PackageSaveStateError::OperationInProgress, {}, 0};
@@ -824,6 +841,10 @@ public:
 							? PackageSaveStateError::AllocationFailure
 							: PackageSaveStateError::EngineStateMismatch,
 						packageId, 0};
+				if (randomPolicy == PackageSaveRandomPolicy::RequireUnconsumed &&
+					record.random.schema == PackageRandomCheckpoint::CurrentSchema &&
+					!registered.random.matchesLiveRootAndConfiguration(record.random))
+					return {PackageSaveStateError::EngineStateMismatch, packageId, 0};
 				if (!addEngineSaveStateBytes(
 					totalBytes, record, maximumTotalSaveStateBytes_))
 					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
@@ -861,22 +882,25 @@ public:
 	}
 
 	PackageSaveStateLoadResult restoreSaveState(
-		const PackageSaveStateSnapshot& snapshot) noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
-		const PackageSaveStateLoadResult contract = validateSaveState(snapshot);
+		const PackageSaveStateLoadResult contract =
+			validateSaveState(snapshot, randomPolicy);
 		if (!contract) return contract;
 		OperationGuard operation(operationInProgress_);
 		try
 		{
 			std::vector<PackageRandomSource> originalRandom = copyRandomStates();
 			RandomStateGuard randomState(*this, originalRandom);
-			std::vector<PackageRandomSource> restoredRandom;
-			restoredRandom.reserve(originalRandom.size());
+			std::vector<PackageRandomSource> validationRandom;
+			validationRandom.reserve(originalRandom.size());
 			for (std::size_t index = 0; index < originalRandom.size(); ++index)
 			{
-				restoredRandom.push_back(originalRandom[index]);
+				validationRandom.push_back(originalRandom[index]);
 				const PackageRandomCheckpointError restored =
-					restoredRandom.back().restoreCheckpoint(
+					validationRandom.back().restoreCheckpoint(
 						snapshot.engineRecords[index].random);
 				if (restored != PackageRandomCheckpointError::None)
 					return {restored == PackageRandomCheckpointError::AllocationFailure
@@ -884,6 +908,13 @@ public:
 							: PackageSaveStateError::EngineStateMismatch,
 						active_[index], 0};
 			}
+			// Allocate every pristine staging copy before exposing saved RNG state
+			// to package code. Validation, load, and final publication each start
+			// from the exact persisted checkpoint, independent of destination
+			// history and of callback draws in an earlier phase.
+			std::vector<PackageRandomSource> loadRandom = validationRandom;
+			std::vector<PackageRandomSource> publishedRandom = validationRandom;
+			swapRandomStates(validationRandom);
 			std::size_t recordIndex = 0;
 			for (const std::string& packageId : active_)
 			{
@@ -892,12 +923,24 @@ public:
 				const PackageSaveStateRecord& record = snapshot.records[recordIndex++];
 				PackageBootstrapContext context = contextFor(packageId);
 				bool valid = false;
-				try
 				{
-					valid = registered.package->validateState(
-						context, record.schemaVersion, record.payload);
+					RandomConsumptionGuard randomConsumption(
+						registered.random, randomPolicy);
+					try
+					{
+						valid = registered.package->validateState(
+							context, record.schemaVersion, record.payload);
+					}
+					catch (...) {}
+					if (randomConsumption.consumed())
+					{
+						faults_.record(RuntimeFaultKind::LoadState, packageId,
+							"validate-state-random", 1);
+						logError("Package save-state validation consumed randomness: ",
+							packageId);
+						return {PackageSaveStateError::RandomConsumed, packageId, 0};
+					}
 				}
-				catch (...) {}
 				if (!valid)
 				{
 					faults_.record(RuntimeFaultKind::LoadState, packageId, "validate-state", 1);
@@ -906,6 +949,9 @@ public:
 				}
 			}
 
+			// Validation is observation-only from the RNG contract's perspective.
+			// Re-stage the pristine checkpoint before invoking load callbacks.
+			swapRandomStates(loadRandom);
 			recordIndex = 0;
 			std::size_t restored = 0;
 			for (const std::string& packageId : active_)
@@ -915,12 +961,25 @@ public:
 				const PackageSaveStateRecord& record = snapshot.records[recordIndex++];
 				PackageBootstrapContext context = contextFor(packageId);
 				bool loaded = false;
-				try
 				{
-					loaded = registered.package->loadState(
-						context, record.schemaVersion, record.payload);
+					RandomConsumptionGuard randomConsumption(
+						registered.random, randomPolicy);
+					try
+					{
+						loaded = registered.package->loadState(
+							context, record.schemaVersion, record.payload);
+					}
+					catch (...) {}
+					if (randomConsumption.consumed())
+					{
+						faults_.record(RuntimeFaultKind::LoadState, packageId,
+							"load-state-random", 1);
+						logError("Package load-state callback consumed randomness: ",
+							packageId);
+						return {PackageSaveStateError::RandomConsumed,
+							packageId, restored};
+					}
 				}
-				catch (...) {}
 				if (!loaded)
 				{
 					faults_.record(RuntimeFaultKind::LoadState, packageId, "load-state", 1);
@@ -929,7 +988,9 @@ public:
 				}
 				++restored;
 			}
-			swapRandomStates(restoredRandom);
+			// Package callbacks may consume RNG under the interactive policy, but
+			// those draws are never part of the published restored state.
+			swapRandomStates(publishedRandom);
 			randomState.release();
 			return {PackageSaveStateError::None, {}, restored,
 				snapshot.engineRecords.size()};
@@ -1170,6 +1231,14 @@ public:
 	{
 		return packagePersistence_.maximumPayloadBytes();
 	}
+	std::uint64_t packageRandomHostSeed() const noexcept
+	{
+		return packageRandomSeed_;
+	}
+	std::size_t packageRandomStreamLimit() const noexcept
+	{
+		return packageRandomStreamLimit_;
+	}
 	std::size_t maximumSaveStateRecords() const { return maximumSaveStateRecords_; }
 	std::size_t maximumPackageSaveStateBytes() const
 	{
@@ -1181,6 +1250,34 @@ public:
 	}
 
 private:
+	class RandomConsumptionGuard
+	{
+	public:
+		RandomConsumptionGuard(PackageRandomSource& random,
+			PackageSaveRandomPolicy policy)
+		{
+			if (policy != PackageSaveRandomPolicy::RequireUnconsumed) return;
+			probe_ = random.attachConsumptionProbe();
+			if (probe_) random_ = &random;
+			else attachFailed_ = true;
+		}
+		~RandomConsumptionGuard()
+		{
+			if (random_ != nullptr) random_->detachConsumptionProbe(probe_);
+		}
+		bool consumed() const noexcept
+		{
+			return attachFailed_ || (probe_ && probe_->consumed.load());
+		}
+		RandomConsumptionGuard(const RandomConsumptionGuard&) = delete;
+		RandomConsumptionGuard& operator=(const RandomConsumptionGuard&) = delete;
+
+	private:
+		PackageRandomSource* random_ = nullptr;
+		PackageRandomSource::ConsumptionProbeHandle probe_;
+		bool attachFailed_ = false;
+	};
+
 	class OperationGuard
 	{
 	public:
@@ -1584,8 +1681,8 @@ private:
 	AudioGroupService& audio_;
 	const RuntimeCapabilities* hostCapabilities_;
 	PackageTaskQueue& tasks_;
-	std::uint64_t packageRandomSeed_;
-	std::size_t packageRandomStreamLimit_;
+	const std::uint64_t packageRandomSeed_;
+	const std::size_t packageRandomStreamLimit_;
 	std::size_t maximumSaveStateRecords_;
 	std::size_t maximumPackageSaveStateBytes_;
 	std::size_t maximumTotalSaveStateBytes_;

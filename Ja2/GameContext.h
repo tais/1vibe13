@@ -107,19 +107,25 @@ public:
 		return runtime_.runtimeSession().shutdownPackages();
 	}
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
-	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
+	PackageSaveStateCaptureResult capturePackageSaveState(
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
-		return runtime_.capturePackageSaveState();
+		return runtime_.capturePackageSaveState(randomPolicy);
 	}
 	PackageSaveStateLoadResult validatePackageSaveState(
-		const PackageSaveStateSnapshot& snapshot) const noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) const noexcept
 	{
-		return runtime_.validatePackageSaveState(snapshot);
+		return runtime_.validatePackageSaveState(snapshot, randomPolicy);
 	}
 	PackageSaveStateLoadResult restorePackageSaveState(
-		const PackageSaveStateSnapshot& snapshot) noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
-		return runtime_.restorePackageSaveState(snapshot);
+		return runtime_.restorePackageSaveState(snapshot, randomPolicy);
 	}
 	PackageSaveArchiveService& packageSaveArchives()
 	{

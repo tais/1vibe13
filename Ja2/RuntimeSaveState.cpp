@@ -59,8 +59,13 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 	try
 	{
 		std::vector<std::uint8_t> checkpointBytes;
-		result.checkpointError = context.runtime().runtimeCheckpoints().encode(
-			prepared.checkpoint, checkpointBytes);
+		// Interactive saves are still initiated synchronously by the legacy
+		// screen handler from inside FrameDriver::runFrame. They retain CHKP v1
+		// metadata until the dedicated deterministic path schedules a checkpoint
+		// after the frame has committed.
+		result.checkpointError =
+			context.runtime().runtimeCheckpoints().encodeLegacyMetadata(
+				prepared.checkpoint, checkpointBytes);
 		if (result.checkpointError != RuntimeCheckpointSaveError::None)
 		{
 			RemoveIncompleteSave(context, savePath);

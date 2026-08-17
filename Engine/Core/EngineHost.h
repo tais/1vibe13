@@ -292,19 +292,29 @@ public:
 	RuntimeSession& runtimeSession() { return runtimeSession_; }
 	const RuntimeSession& runtimeSession() const { return runtimeSession_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
-	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
+	PackageSaveStateCaptureResult capturePackageSaveState(
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
-		return packages_.captureSaveState();
+		return packages_.captureSaveState(randomPolicy);
 	}
 	PackageSaveStateLoadResult validatePackageSaveState(
-		const PackageSaveStateSnapshot& snapshot) const noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) const noexcept
 	{
-		return packages_.validateSaveState(snapshot);
+		return packages_.validateSaveState(snapshot, randomPolicy);
 	}
 	PackageSaveStateLoadResult restorePackageSaveState(
-		const PackageSaveStateSnapshot& snapshot) noexcept
+		const PackageSaveStateSnapshot& snapshot,
+		PackageSaveRandomPolicy randomPolicy =
+			PackageSaveRandomPolicy::AllowAndRollback) noexcept
 	{
-		return packages_.restoreSaveState(snapshot);
+		return packages_.restoreSaveState(snapshot, randomPolicy);
+	}
+	std::uint64_t packageRandomHostSeed() const noexcept
+	{
+		return packages_.packageRandomHostSeed();
 	}
 	bool hasCapability(const std::string& capability) const
 	{
@@ -381,25 +391,171 @@ public:
 	{
 		return runtimeSaveContainers_;
 	}
+	RuntimeCheckpointCaptureResult captureRuntimeCheckpoint() const noexcept
+	{
+		const FrameDriverBoundaryStateCaptureResult frame =
+			frameDriver_.captureBoundaryState();
+		const SimulationTickBoundaryStateCaptureResult simulation =
+			simulationTicks_.captureBoundaryState();
+
+		RuntimeCheckpointCaptureResult result;
+		result.boundary.frameError = frame.error;
+		result.boundary.simulationTickError = simulation.error;
+		if (!frame)
+		{
+			result.boundary.error =
+				RuntimeCheckpointBoundaryError::FrameStateRejected;
+			return result;
+		}
+		if (!simulation)
+		{
+			result.boundary.error =
+				RuntimeCheckpointBoundaryError::SimulationTickStateRejected;
+			return result;
+		}
+
+		try
+		{
+			result.checkpoint.compatibility = compatibilityFingerprint();
+			result.checkpoint.completedFrames = frame.state.completedFrames;
+			result.checkpoint.completedSimulationTicks =
+				simulation.state.completedTickSequence;
+			result.checkpoint.frameBoundary = frame.state;
+			result.checkpoint.simulationTickBoundary = simulation.state;
+			const PackageCatalogSnapshot catalog = packages_.catalog();
+			result.checkpoint.activePackages.reserve(
+				catalog.activationOrder.size());
+			for (const std::string& packageId : catalog.activationOrder)
+			{
+				const PackageCatalogEntry* package = catalog.find(packageId);
+				result.checkpoint.activePackages.push_back(
+					RuntimeCheckpointPackage{packageId, package
+						? package->descriptor.content.version : std::string{}});
+			}
+			result.boundary.error = RuntimeCheckpointBoundaryError::None;
+			return result;
+		}
+		catch (...)
+		{
+			result.boundary.error =
+				RuntimeCheckpointBoundaryError::AllocationFailure;
+			return result;
+		}
+	}
 	RuntimeCheckpoint makeRuntimeCheckpoint() const
 	{
+		const RuntimeCheckpointCaptureResult captured =
+			captureRuntimeCheckpoint();
+		if (captured) return captured.checkpoint;
+
+		// Compatibility path for synchronous interactive saves that still run
+		// inside the legacy application frame. They may publish CHKP v1 metadata,
+		// but must not manufacture a committed CHKP v2 boundary.
 		RuntimeCheckpoint checkpoint;
 		checkpoint.compatibility = compatibilityFingerprint();
 		checkpoint.completedFrames = frameDriver_.completedFrames();
-		checkpoint.completedSimulationTicks = simulationTicks_.completedTickSequence();
+		checkpoint.completedSimulationTicks =
+			simulationTicks_.completedTickSequence();
 		const PackageCatalogSnapshot catalog = packages_.catalog();
 		checkpoint.activePackages.reserve(catalog.activationOrder.size());
 		for (const std::string& packageId : catalog.activationOrder)
 		{
 			const PackageCatalogEntry* package = catalog.find(packageId);
-			checkpoint.activePackages.push_back(RuntimeCheckpointPackage{
-				packageId, package ? package->descriptor.content.version : std::string{}});
+			checkpoint.activePackages.push_back(
+				RuntimeCheckpointPackage{packageId, package
+					? package->descriptor.content.version : std::string{}});
 		}
 		return checkpoint;
 	}
+	RuntimeCheckpointBoundaryResult validateRuntimeCheckpointBoundary(
+		const RuntimeCheckpoint& checkpoint) const noexcept
+	{
+		RuntimeCheckpointBoundaryResult result;
+		result.frameError = frameDriver_.validateBoundaryState(
+			checkpoint.frameBoundary);
+		result.simulationTickError = simulationTicks_.validateBoundaryState(
+			checkpoint.simulationTickBoundary);
+
+		if (checkpoint.frameBoundary == FrameDriverBoundaryState{} &&
+			checkpoint.simulationTickBoundary == SimulationTickBoundaryState{})
+			result.error =
+				RuntimeCheckpointBoundaryError::MissingDeterministicBoundary;
+		else if (result.frameError != FrameDriverBoundaryStateError::None)
+			result.error = RuntimeCheckpointBoundaryError::FrameStateRejected;
+		else if (result.simulationTickError !=
+			SimulationTickBoundaryStateError::None)
+			result.error =
+				RuntimeCheckpointBoundaryError::SimulationTickStateRejected;
+		else if (checkpoint.completedFrames !=
+			checkpoint.frameBoundary.completedFrames)
+			result.error =
+				RuntimeCheckpointBoundaryError::CompletedFrameMismatch;
+		else if (checkpoint.completedSimulationTicks !=
+			checkpoint.simulationTickBoundary.completedTickSequence)
+			result.error = RuntimeCheckpointBoundaryError::
+				CompletedSimulationTickMismatch;
+		else
+			result.error = RuntimeCheckpointBoundaryError::None;
+		return result;
+	}
+	RuntimeCheckpointBoundaryResult restoreRuntimeCheckpointBoundary(
+		const RuntimeCheckpoint& checkpoint) noexcept
+	{
+		RuntimeCheckpointBoundaryResult result =
+			validateRuntimeCheckpointBoundary(checkpoint);
+		if (!result) return result;
+
+		const FrameDriverBoundaryStateCaptureResult originalFrame =
+			frameDriver_.captureBoundaryState();
+		const SimulationTickBoundaryStateCaptureResult originalSimulation =
+			simulationTicks_.captureBoundaryState();
+		if (!originalFrame)
+		{
+			result.error = RuntimeCheckpointBoundaryError::FrameStateRejected;
+			result.frameError = originalFrame.error;
+			return result;
+		}
+		if (!originalSimulation)
+		{
+			result.error =
+				RuntimeCheckpointBoundaryError::SimulationTickStateRejected;
+			result.simulationTickError = originalSimulation.error;
+			return result;
+		}
+
+		result.simulationTickError = simulationTicks_.restoreBoundaryState(
+			checkpoint.simulationTickBoundary);
+		if (result.simulationTickError !=
+			SimulationTickBoundaryStateError::None)
+		{
+			result.error =
+				RuntimeCheckpointBoundaryError::SimulationTickStateRejected;
+			return result;
+		}
+		result.frameError = frameDriver_.restoreBoundaryState(
+			checkpoint.frameBoundary);
+		if (result.frameError != FrameDriverBoundaryStateError::None)
+		{
+			// A same-thread preflight makes this unreachable with the current
+			// component contracts. Retain rollback so future validation remains
+			// failure-atomic if the frame component gains another rejection path.
+			simulationTicks_.restoreBoundaryState(originalSimulation.state);
+			result.error = RuntimeCheckpointBoundaryError::FrameStateRejected;
+			return result;
+		}
+		result.error = RuntimeCheckpointBoundaryError::None;
+		return result;
+	}
 	RuntimeCheckpointSaveError saveRuntimeCheckpoint(const std::string& path) const noexcept
 	{
-		try { return runtimeCheckpoints_.save(path, makeRuntimeCheckpoint()); }
+		try
+		{
+			const RuntimeCheckpointCaptureResult captured =
+				captureRuntimeCheckpoint();
+			if (!captured)
+				return RuntimeCheckpointSaveError::InvalidCheckpoint;
+			return runtimeCheckpoints_.save(path, captured.checkpoint);
+		}
 		catch (...) { return RuntimeCheckpointSaveError::StorageError; }
 	}
 	RuntimeCheckpointLoadResult loadRuntimeCheckpoint(

@@ -824,10 +824,36 @@ file(READ "${SOURCE_ROOT}/Engine/Core/PackageApi.h"
   dedicated_package_random_api_header)
 file(READ "${SOURCE_ROOT}/tests/package_random_root_state_tests.cpp"
   dedicated_package_random_tests)
+file(READ "${SOURCE_ROOT}/Engine/Core/RuntimeCheckpoint.h"
+  dedicated_runtime_checkpoint_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/RuntimeCheckpoint.cpp"
+  dedicated_runtime_checkpoint_source)
+file(READ "${SOURCE_ROOT}/Engine/Core/RuntimeRandomCheckpoint.h"
+  dedicated_runtime_random_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/RuntimeRandomCheckpoint.cpp"
+  dedicated_runtime_random_source)
+file(READ "${SOURCE_ROOT}/Engine/Core/PackageSaveState.h"
+  dedicated_package_save_state_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/PackageSaveArchive.h"
+  dedicated_package_save_archive_header)
+file(READ "${SOURCE_ROOT}/Engine/Core/EngineHost.h"
+  dedicated_determinism_engine_host_header)
+file(READ "${SOURCE_ROOT}/Ja2/RuntimeSaveState.cpp"
+  dedicated_runtime_save_state_source)
+file(READ "${SOURCE_ROOT}/tests/runtime_checkpoint_v2_tests.cpp"
+  dedicated_runtime_checkpoint_tests)
+file(READ "${SOURCE_ROOT}/tests/runtime_random_checkpoint_tests.cpp"
+  dedicated_runtime_random_tests)
+file(READ "${SOURCE_ROOT}/tests/package_save_rng_policy_tests.cpp"
+  dedicated_package_save_rng_policy_tests)
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  dedicated_runtime_save_headless_tests)
 file(READ "${SOURCE_ROOT}/Engine/Core/CMakeLists.txt"
   dedicated_determinism_core_build_source)
 file(READ "${SOURCE_ROOT}/tests/sdk_consumer/main.cpp"
   dedicated_determinism_sdk_consumer)
+file(READ "${SOURCE_ROOT}/docs/ENGINE_SDK.md"
+  dedicated_determinism_sdk_docs)
 file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_vfs_profile_tests.cpp"
   dedicated_campaign_vfs_profile_tests)
 file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_init.h"
@@ -905,6 +931,30 @@ strip_cxx_comments_and_literals(dedicated_package_random_api_header
   dedicated_package_random_api_code)
 strip_cxx_comments_and_literals(dedicated_package_random_tests
   dedicated_package_random_test_code)
+strip_cxx_comments_and_literals(dedicated_runtime_checkpoint_header
+  dedicated_runtime_checkpoint_header_code)
+strip_cxx_comments_and_literals(dedicated_runtime_checkpoint_source
+  dedicated_runtime_checkpoint_code)
+strip_cxx_comments_and_literals(dedicated_runtime_random_header
+  dedicated_runtime_random_header_code)
+strip_cxx_comments_and_literals(dedicated_runtime_random_source
+  dedicated_runtime_random_code)
+strip_cxx_comments_and_literals(dedicated_package_save_state_header
+  dedicated_package_save_state_header_code)
+strip_cxx_comments_and_literals(dedicated_package_save_archive_header
+  dedicated_package_save_archive_header_code)
+strip_cxx_comments_and_literals(dedicated_determinism_engine_host_header
+  dedicated_determinism_engine_host_code)
+strip_cxx_comments_and_literals(dedicated_runtime_save_state_source
+  dedicated_runtime_save_state_code)
+strip_cxx_comments_and_literals(dedicated_runtime_checkpoint_tests
+  dedicated_runtime_checkpoint_test_code)
+strip_cxx_comments_and_literals(dedicated_runtime_random_tests
+  dedicated_runtime_random_test_code)
+strip_cxx_comments_and_literals(dedicated_package_save_rng_policy_tests
+  dedicated_package_save_rng_policy_test_code)
+strip_cxx_comments_and_literals(dedicated_runtime_save_headless_tests
+  dedicated_runtime_save_headless_test_code)
 strip_cxx_comments_and_literals(dedicated_determinism_sdk_consumer
   dedicated_determinism_sdk_consumer_code)
 string(REGEX REPLACE "#[^\r\n]*" ""
@@ -1653,6 +1703,20 @@ foreach(dedicated_package_random_api_contract IN ITEMS
   endif()
 endforeach()
 
+foreach(dedicated_package_random_sdk_doc_contract IN ITEMS
+    "PGST v4 also records each package's"
+    "schema-2 root seed and stream limit"
+    "PGST v3 remains load-only compatibility"
+    "streams first created after restore remain reproducible")
+  string(FIND "${dedicated_determinism_sdk_docs}"
+    "${dedicated_package_random_sdk_doc_contract}"
+    dedicated_package_random_sdk_doc_contract_position)
+  if(dedicated_package_random_sdk_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine SDK package RNG documentation lost '${dedicated_package_random_sdk_doc_contract}'")
+  endif()
+endforeach()
+
 foreach(dedicated_package_random_test_contract IN ITEMS
     "TestCurrentCheckpointAdoptsRootBeforeCreatingANewStream();"
     "TestValidationFailuresAreTransactional();"
@@ -1669,6 +1733,281 @@ foreach(dedicated_package_random_test_contract IN ITEMS
   if(dedicated_package_random_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Package RNG root-state tests lost '${dedicated_package_random_test_contract}'")
+  endif()
+endforeach()
+
+# Strict campaign checkpoints reject package callbacks that consume their live
+# RNG even if the callback rewinds it. Interactive capture/load keeps the
+# established rollback policy, while package identity/capacity remain bound.
+foreach(dedicated_package_save_policy_header_contract IN ITEMS
+    "enum class PackageSaveRandomPolicy"
+    "AllowAndRollback"
+    "RequireUnconsumed"
+    "RandomConsumed")
+  string(FIND "${dedicated_package_save_state_header_code}"
+    "${dedicated_package_save_policy_header_contract}"
+    dedicated_package_save_policy_header_contract_position)
+  if(dedicated_package_save_policy_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package save RNG policy lost '${dedicated_package_save_policy_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_probe_source_contract IN ITEMS
+    "const std::string packageId_;"
+    "const std::size_t maximumStreams_;"
+    "std::atomic<bool> active{true};"
+    "using ConsumptionProbeHandle = std::shared_ptr<ConsumptionProbe>;"
+    "consumptionProbe_(other.consumptionProbe_)"
+    "inline static thread_local ConsumptionProbeHandle callbackConsumptionProbe_;"
+    "markConsumptionProbe();"
+    "provenanceProbe->consumed.store(true);"
+    "callbackProbe->consumed.store(true);"
+    "inheritActiveConsumptionProbe(other);"
+    "if (packageId_ != other.packageId_ ||"
+    "PackageRandomSource(PackageRandomSource&& other)"
+    "streams_(other.streams_)")
+  string(FIND "${dedicated_package_random_header_code}"
+    "${dedicated_package_probe_source_contract}"
+    dedicated_package_probe_source_contract_position)
+  if(dedicated_package_probe_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG callback probe lost '${dedicated_package_probe_source_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_probe_api_contract IN ITEMS
+    "PackageSaveRandomPolicy::AllowAndRollback"
+    "class RandomConsumptionGuard"
+    "PackageSaveStateError::RandomConsumed"
+    "registered.random.matchesLiveRootAndConfiguration(record.random)"
+    "probe_ = random.attachConsumptionProbe();"
+    "std::vector<PackageRandomSource> loadRandom = validationRandom;"
+    "std::vector<PackageRandomSource> publishedRandom = validationRandom;"
+    "swapRandomStates(validationRandom);"
+    "swapRandomStates(loadRandom);"
+    "swapRandomStates(publishedRandom);"
+    "packageRandomHostSeed() const noexcept"
+    "const std::uint64_t packageRandomSeed_;"
+    "const std::size_t packageRandomStreamLimit_;")
+  string(FIND "${dedicated_package_random_api_code}"
+    "${dedicated_package_probe_api_contract}"
+    dedicated_package_probe_api_contract_position)
+  if(dedicated_package_probe_api_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package RNG strict callback gate lost '${dedicated_package_probe_api_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_archive_version_contract IN ITEMS
+    "std::uint16_t storedVersion = 0;")
+  string(FIND "${dedicated_package_save_archive_header_code}"
+    "${dedicated_package_archive_version_contract}"
+    dedicated_package_archive_version_contract_position)
+  if(dedicated_package_archive_version_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "PGST load result lost '${dedicated_package_archive_version_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_package_save_policy_test_contract IN ITEMS
+    "TestSaveCallbackPolicyAndStickyProbe();"
+    "TestValidateAndLoadCallbackPolicy();"
+    "TestRetainedSourcesCannotBypassStrictCallbacks();"
+    "TestRestoreCallbacksObservePersistedRandomState();"
+    "TestStrictLiveRootContract();"
+    "TestArchiveReportsStoredVersion();"
+    "CallbackRandomAction::DrawAndRestore"
+    "CallbackRandomAction::DrawFromCopy"
+    "CallbackRandomAction::DrawFromAssignedCopy"
+    "CallbackRandomAction::InspectCheckpointAndDrawFromCopy"
+    "CallbackRandomAction::MoveConstructFromLiveAndDraw"
+    "CallbackRandomAction::MoveAssignFromLiveAndDraw"
+    "CallbackRandomAction::RetainCopyWithoutDraw"
+    "CallbackRandomAction::DrawFromRetainedCopy"
+    "CallbackRandomAction::MismatchedCopyAssignWithoutDraw"
+    "CallbackRandomAction::MismatchedMoveAssignThenDraw"
+    "CallbackRandomAction::MoveConstructFromLiveWithoutDraw"
+    "PackageSaveStateError::RandomConsumed"
+    "current.storedVersion == 4"
+    "legacy.storedVersion == 3")
+  string(FIND "${dedicated_package_save_rng_policy_test_code}"
+    "${dedicated_package_save_policy_test_contract}"
+    dedicated_package_save_policy_test_contract_position)
+  if(dedicated_package_save_policy_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Package save RNG policy tests lost '${dedicated_package_save_policy_test_contract}'")
+  endif()
+endforeach()
+
+# CHKP v2 carries the exact restorable frame/tick boundary. CHKP v1 stays a
+# metadata-only compatibility record and must never synthesize missing state.
+foreach(dedicated_runtime_checkpoint_header_contract IN ITEMS
+    "FrameDriverBoundaryState frameBoundary;"
+    "SimulationTickBoundaryState simulationTickBoundary;"
+    "std::uint16_t storedVersion = 0;"
+    "bool hasDeterministicBoundary = false;"
+    "struct RuntimeCheckpointBoundaryResult"
+    "struct RuntimeCheckpointCaptureResult"
+    "LegacyVersion = 1"
+    "CurrentVersion = 2"
+    "encodeLegacyMetadata(")
+  string(FIND "${dedicated_runtime_checkpoint_header_code}"
+    "${dedicated_runtime_checkpoint_header_contract}"
+    dedicated_runtime_checkpoint_header_contract_position)
+  if(dedicated_runtime_checkpoint_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime checkpoint v2 header lost '${dedicated_runtime_checkpoint_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_checkpoint_source_contract IN ITEMS
+    "LegacyVersion, CurrentVersion"
+    "EncodeCheckpointPayload("
+    "ReadCanonicalBool(reader,"
+    "decoded.completedFrames != decoded.frameBoundary.completedFrames"
+    "decoded.completedSimulationTicks !="
+    "writer.writeU64(checkpoint.frameBoundary.nextFrameSequence);"
+    "checkpoint.simulationTickBoundary.accumulatedMicroseconds);"
+    "header.version,"
+    "reader.remaining() != 0"
+    "CurrentVersion, true, encoded"
+    "LegacyVersion, false, encoded")
+  string(FIND "${dedicated_runtime_checkpoint_code}"
+    "${dedicated_runtime_checkpoint_source_contract}"
+    dedicated_runtime_checkpoint_source_contract_position)
+  if(dedicated_runtime_checkpoint_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime checkpoint v2 codec lost '${dedicated_runtime_checkpoint_source_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_checkpoint_host_contract IN ITEMS
+    "RuntimeCheckpointCaptureResult captureRuntimeCheckpoint() const noexcept"
+    "RuntimeCheckpointBoundaryResult validateRuntimeCheckpointBoundary("
+    "RuntimeCheckpointBoundaryResult restoreRuntimeCheckpointBoundary("
+    "frameDriver_.captureBoundaryState()"
+    "simulationTicks_.captureBoundaryState()"
+    "RuntimeCheckpoint makeRuntimeCheckpoint() const"
+    "if (captured) return captured.checkpoint;"
+    "completedSimulationTicks =")
+  string(FIND "${dedicated_determinism_engine_host_code}"
+    "${dedicated_runtime_checkpoint_host_contract}"
+    dedicated_runtime_checkpoint_host_contract_position)
+  if(dedicated_runtime_checkpoint_host_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime checkpoint host seam lost '${dedicated_runtime_checkpoint_host_contract}'")
+  endif()
+endforeach()
+extract_bounded_slice(dedicated_determinism_engine_host_code
+  "RuntimeCheckpointBoundaryResult restoreRuntimeCheckpointBoundary("
+  "RuntimeCheckpointSaveError saveRuntimeCheckpoint("
+  dedicated_runtime_checkpoint_restore_slice
+  "Cannot bound runtime checkpoint host restore")
+require_ordered_fragments(dedicated_runtime_checkpoint_restore_slice
+  "Runtime checkpoint restore lost preflighted tick-then-frame ordering"
+  "validateRuntimeCheckpointBoundary(checkpoint)"
+  "simulationTicks_.restoreBoundaryState("
+  "frameDriver_.restoreBoundaryState(")
+
+foreach(dedicated_runtime_checkpoint_test_contract IN ITEMS
+    "TestV2RoundTripAndRedundantCounters();"
+    "TestV1FixtureRemainsMetadataOnly();"
+    "TestV2CanonicalWireRejectionIsTransactional();"
+    "TestHostCaptureValidationAndRestore();"
+    "result.storedVersion == RuntimeCheckpointService::LegacyVersion"
+    "!result.hasDeterministicBoundary"
+    "encodeLegacyMetadata("
+    "reencoded == fixture"
+    "interactiveResult.storedVersion == RuntimeCheckpointService::LegacyVersion"
+    "malformed[frameBoolean] = 2;"
+    "malformed[tickBoolean] = 0xff;")
+  string(FIND "${dedicated_runtime_checkpoint_test_code}"
+    "${dedicated_runtime_checkpoint_test_contract}"
+    dedicated_runtime_checkpoint_test_contract_position)
+  if(dedicated_runtime_checkpoint_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime checkpoint v2 tests lost '${dedicated_runtime_checkpoint_test_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_runtime_save_state_code
+  "RuntimeSaveCommitResult CommitRuntimeSave("
+  "PreparedRuntimeLoad PrepareRuntimeLoad("
+  dedicated_interactive_runtime_save_commit_slice
+  "Cannot bound interactive runtime-save commit")
+require_ordered_fragments(dedicated_interactive_runtime_save_commit_slice
+  "Interactive runtime saves no longer publish explicit CHKP v1 metadata"
+  "std::vector<std::uint8_t> checkpointBytes;"
+  "runtimeCheckpoints().encodeLegacyMetadata("
+  "RuntimeSaveSection{RuntimeCheckpointSection, std::move(checkpointBytes)}")
+
+foreach(dedicated_interactive_runtime_save_test_contract IN ITEMS
+    "interactiveSaveFrame = first.frameDriver().runFrame("
+    "prepared = PrepareRuntimeSave( first );"
+    "interactiveCheckpointLoaded.storedVersion =="
+    "RuntimeCheckpointService::LegacyVersion"
+    "!interactiveCheckpointLoaded.hasDeterministicBoundary")
+  string(FIND "${dedicated_runtime_save_headless_test_code}"
+    "${dedicated_interactive_runtime_save_test_contract}"
+    dedicated_interactive_runtime_save_test_contract_position)
+  if(dedicated_interactive_runtime_save_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Interactive in-frame runtime-save regression lost '${dedicated_interactive_runtime_save_test_contract}'")
+  endif()
+endforeach()
+
+# GRNG v1 is a separate integrity envelope containing the authoritative
+# simulation stream and the immutable package host root.
+foreach(dedicated_runtime_random_header_contract IN ITEMS
+    "RuntimeRandomCheckpointMagic = 0x474e5247u"
+    "RuntimeRandomCheckpointVersion = 1"
+    "RuntimeRandomCheckpointPayloadBytes = 68"
+    "SimulationRandomCheckpoint simulationRandom;"
+    "std::uint64_t packageRandomHostSeed = 0;"
+    "std::uint16_t storedVersion = 0;"
+    "class RuntimeRandomCheckpointService")
+  string(FIND "${dedicated_runtime_random_header_code}"
+    "${dedicated_runtime_random_header_contract}"
+    dedicated_runtime_random_header_contract_position)
+  if(dedicated_runtime_random_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime random checkpoint header lost '${dedicated_runtime_random_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_random_source_contract IN ITEMS
+    "payload.size() != RuntimeRandomCheckpointPayloadBytes"
+    "DecodeSimulationRandomCheckpoint("
+    "decoded.simulationRandom.campaignSeed != expectedCampaignSeed"
+    "decoded.packageRandomHostSeed != expectedPackageRandomHostSeed"
+    "checkpoint = decoded;"
+    "writer.bytes().size() != RuntimeRandomCheckpointPayloadBytes"
+    "persistence_.loadEnvelope(path,"
+    "persistence_.decodeEnvelope(encoded,")
+  string(FIND "${dedicated_runtime_random_code}"
+    "${dedicated_runtime_random_source_contract}"
+    dedicated_runtime_random_source_contract_position)
+  if(dedicated_runtime_random_source_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime random checkpoint codec lost '${dedicated_runtime_random_source_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_runtime_random_test_contract IN ITEMS
+    "TestCanonicalWireRoundTripAndStorage();"
+    "TestEncodeValidationIsTransactional();"
+    "TestEnvelopeFailuresAreTransactional();"
+    "TestSemanticRootFailuresAreTransactional();"
+    "RuntimeRandomCheckpointPayloadBytes == 68"
+    "SimulationCampaignSeedOffset"
+    "PackageHostSeedOffset")
+  string(FIND "${dedicated_runtime_random_test_code}"
+    "${dedicated_runtime_random_test_contract}"
+    dedicated_runtime_random_test_contract_position)
+  if(dedicated_runtime_random_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime random checkpoint tests lost '${dedicated_runtime_random_test_contract}'")
   endif()
 endforeach()
 
@@ -1699,7 +2038,8 @@ string(SUBSTRING "${dedicated_determinism_core_build_code}"
   dedicated_determinism_source_slice)
 foreach(dedicated_determinism_public_contract IN ITEMS
     "DedicatedCheckpointEligibility.h"
-    "SimulationRandom.h")
+    "SimulationRandom.h"
+    "RuntimeRandomCheckpoint.h")
   string(FIND "${dedicated_determinism_public_slice}"
     "${dedicated_determinism_public_contract}"
     dedicated_determinism_public_contract_position)
@@ -1710,7 +2050,8 @@ foreach(dedicated_determinism_public_contract IN ITEMS
 endforeach()
 foreach(dedicated_determinism_source_contract IN ITEMS
     "DedicatedCheckpointEligibility.cpp"
-    "SimulationRandom.cpp")
+    "SimulationRandom.cpp"
+    "RuntimeRandomCheckpoint.cpp")
   string(FIND "${dedicated_determinism_source_slice}"
     "${dedicated_determinism_source_contract}"
     dedicated_determinism_source_contract_position)
@@ -1764,7 +2105,7 @@ require_ordered_fragments(dedicated_runtime_boundary_test_build_slice
 
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(package_random_root_state_tests"
-  "add_executable(engine_core_tests"
+  "add_executable(runtime_checkpoint_v2_tests"
   dedicated_package_random_test_build_slice
   "Cannot bound the package-RNG root-state test target")
 require_ordered_fragments(dedicated_package_random_test_build_slice
@@ -1774,6 +2115,45 @@ require_ordered_fragments(dedicated_package_random_test_build_slice
   "target_link_libraries(package_random_root_state_tests PRIVATE JA2::EngineCore)"
   "target_compile_features(package_random_root_state_tests PRIVATE cxx_std_17)"
   "add_test(NAME package_random_root_state COMMAND package_random_root_state_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(runtime_checkpoint_v2_tests"
+  "add_executable(runtime_random_checkpoint_tests"
+  dedicated_runtime_checkpoint_v2_test_build_slice
+  "Cannot bound the runtime-checkpoint-v2 test target")
+require_ordered_fragments(dedicated_runtime_checkpoint_v2_test_build_slice
+  "Runtime-checkpoint-v2 test lost active Engine Core/CTest wiring"
+  "add_executable(runtime_checkpoint_v2_tests"
+  "runtime_checkpoint_v2_tests.cpp"
+  "target_link_libraries(runtime_checkpoint_v2_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(runtime_checkpoint_v2_tests PRIVATE cxx_std_17)"
+  "add_test(NAME runtime_checkpoint_v2 COMMAND runtime_checkpoint_v2_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(runtime_random_checkpoint_tests"
+  "add_executable(package_save_rng_policy_tests"
+  dedicated_runtime_random_test_build_slice
+  "Cannot bound the runtime-random-checkpoint test target")
+require_ordered_fragments(dedicated_runtime_random_test_build_slice
+  "Runtime-random-checkpoint test lost active Engine Core/CTest wiring"
+  "add_executable(runtime_random_checkpoint_tests"
+  "runtime_random_checkpoint_tests.cpp"
+  "target_link_libraries(runtime_random_checkpoint_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(runtime_random_checkpoint_tests PRIVATE cxx_std_17)"
+  "add_test(NAME runtime_random_checkpoint COMMAND runtime_random_checkpoint_tests)")
+
+extract_bounded_slice(dedicated_determinism_test_build_code
+  "add_executable(package_save_rng_policy_tests"
+  "add_executable(engine_core_tests"
+  dedicated_package_save_rng_policy_test_build_slice
+  "Cannot bound the package-save-RNG-policy test target")
+require_ordered_fragments(dedicated_package_save_rng_policy_test_build_slice
+  "Package-save-RNG-policy test lost active Engine Core/CTest wiring"
+  "add_executable(package_save_rng_policy_tests"
+  "package_save_rng_policy_tests.cpp"
+  "target_link_libraries(package_save_rng_policy_tests PRIVATE JA2::EngineCore)"
+  "target_compile_features(package_save_rng_policy_tests PRIVATE cxx_std_17)"
+  "add_test(NAME package_save_rng_policy COMMAND package_save_rng_policy_tests)")
 
 extract_bounded_slice(dedicated_determinism_ci_code
   "- name: Build dedicated campaign store contract"
@@ -1786,14 +2166,22 @@ require_ordered_fragments(dedicated_determinism_ci_slice
   "simulation_random_tests"
   "dedicated_checkpoint_eligibility_tests"
   "runtime_boundary_state_tests"
-  "package_random_root_state_tests")
+  "package_random_root_state_tests"
+  "runtime_checkpoint_v2_tests"
+  "runtime_random_checkpoint_tests"
+  "package_save_rng_policy_tests")
 
 foreach(dedicated_determinism_sdk_contract IN ITEMS
     "#include <Engine/Core/DedicatedCheckpointEligibility.h>"
+    "#include <Engine/Core/RuntimeRandomCheckpoint.h>"
     "#include <Engine/Core/SimulationRandom.h>"
     "SimulationRandom installedRandom(42);"
     "EncodeSimulationRandomCheckpoint("
     "DecodeSimulationRandomCheckpoint("
+    "host.captureRuntimeCheckpoint()"
+    "RuntimeRandomCheckpointService randomCheckpoints"
+    "host.packageRandomHostSeed()"
+    "checkpointLoaded.storedVersion"
     "EvaluateDedicatedCheckpointEligibility(installedCheckpointPolicy)")
   string(FIND "${dedicated_determinism_sdk_consumer_code}"
     "${dedicated_determinism_sdk_contract}"
@@ -1822,6 +2210,10 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "next frame identity"
     "PGST v4"
     "PGST v3"
+    "CHKP v2"
+    "GRNG v1"
+    "package RNG callback policy"
+    "interactive CHKP v1 metadata"
     "not yet applied to the live game runtime"
     "deterministic host RNG/reinforcement state"
     "co-op admission remains closed")
@@ -3401,6 +3793,7 @@ set(core_standard_headers
   initializer_list
   iterator
   limits
+  memory
   mutex
   new
   optional

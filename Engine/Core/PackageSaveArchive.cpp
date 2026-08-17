@@ -189,9 +189,9 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::load(const std::string& 
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	PackageSaveArchive& archive) const noexcept
 {
+	PersistenceHeader header{};
 	try
 	{
-		PersistenceHeader header{};
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.loadEnvelope(path, ArchiveMagic,
 			LegacyArchiveVersion, ArchiveVersion, header, payload);
@@ -201,7 +201,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::load(const std::string& 
 	}
 	catch (...)
 	{
-		return {PackageSaveArchiveLoadError::StorageError, {}};
+		return {PackageSaveArchiveLoadError::StorageError, {}, header.version};
 	}
 }
 
@@ -210,9 +210,9 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decode(
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	PackageSaveArchive& archive) const noexcept
 {
+	PersistenceHeader header{};
 	try
 	{
-		PersistenceHeader header{};
 		std::vector<std::uint8_t> payload;
 		const PersistenceLoadResult loaded = persistence_.decodeEnvelope(encoded,
 			ArchiveMagic, LegacyArchiveVersion, ArchiveVersion, header, payload);
@@ -222,7 +222,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decode(
 	}
 	catch (...)
 	{
-		return {PackageSaveArchiveLoadError::StorageError, {}};
+		return {PackageSaveArchiveLoadError::StorageError, {}, header.version};
 	}
 }
 
@@ -239,12 +239,13 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 		!reader.readU64(decoded.compatibility.high) ||
 		!reader.readU64(decoded.compatibility.low) ||
 		!reader.readU32(recordCount))
-		return {PackageSaveArchiveLoadError::MalformedPayload, {}};
+		return {PackageSaveArchiveLoadError::MalformedPayload, {}, archiveVersion};
 	if (decoded.compatibility != expectedCompatibility)
 		return {PackageSaveArchiveLoadError::IncompatibleRuntime,
-			decoded.compatibility};
+			decoded.compatibility, archiveVersion};
 	if (recordCount > maximumRecords_)
-		return {PackageSaveArchiveLoadError::TooManyRecords, decoded.compatibility};
+		return {PackageSaveArchiveLoadError::TooManyRecords,
+			decoded.compatibility, archiveVersion};
 
 	decoded.state.records.reserve(recordCount);
 	std::unordered_set<std::string> unique;
@@ -260,30 +261,35 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				record.packageVersion, MaximumEngineVersionBytes) ||
 			!reader.readU32(record.schemaVersion) ||
 			!reader.readU64(payloadBytes) || !ValidRecordIdentity(record))
-			return {PackageSaveArchiveLoadError::MalformedPayload, decoded.compatibility};
+			return {PackageSaveArchiveLoadError::MalformedPayload,
+				decoded.compatibility, archiveVersion};
 		if (!unique.insert(record.packageId).second)
-			return {PackageSaveArchiveLoadError::DuplicatePackage, decoded.compatibility};
+			return {PackageSaveArchiveLoadError::DuplicatePackage,
+				decoded.compatibility, archiveVersion};
 		if (payloadBytes > maximumPackageBytes_ ||
 			payloadBytes > std::numeric_limits<std::size_t>::max())
-			return {PackageSaveArchiveLoadError::PayloadTooLarge, decoded.compatibility};
+			return {PackageSaveArchiveLoadError::PayloadTooLarge,
+				decoded.compatibility, archiveVersion};
 		const std::size_t recordBytes = static_cast<std::size_t>(payloadBytes);
 		if (recordBytes > maximumTotalBytes_ - totalBytes)
-			return {PackageSaveArchiveLoadError::TotalTooLarge, decoded.compatibility};
+			return {PackageSaveArchiveLoadError::TotalTooLarge,
+				decoded.compatibility, archiveVersion};
 		if (!reader.readBytes(record.payload, recordBytes))
-			return {PackageSaveArchiveLoadError::MalformedPayload, decoded.compatibility};
+			return {PackageSaveArchiveLoadError::MalformedPayload,
+				decoded.compatibility, archiveVersion};
 		totalBytes += recordBytes;
 		decoded.state.records.push_back(std::move(record));
 	}
 	std::uint32_t engineRecordCount = 0;
 	if (!reader.readU32(engineRecordCount))
 		return {PackageSaveArchiveLoadError::MalformedPayload,
-			decoded.compatibility};
+			decoded.compatibility, archiveVersion};
 	if (engineRecordCount > maximumRecords_)
 		return {PackageSaveArchiveLoadError::TooManyRecords,
-			decoded.compatibility};
+			decoded.compatibility, archiveVersion};
 	if (!AddBoundedBytes(totalBytes, sizeof(std::uint32_t), maximumTotalBytes_))
 		return {PackageSaveArchiveLoadError::TotalTooLarge,
-			decoded.compatibility};
+			decoded.compatibility, archiveVersion};
 	decoded.state.engineRecords.reserve(engineRecordCount);
 	std::unordered_set<std::string> uniqueEnginePackages;
 	uniqueEnginePackages.reserve(engineRecordCount);
@@ -297,17 +303,17 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				record.packageVersion, MaximumEngineVersionBytes) ||
 			!reader.readU32(record.random.schema))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		if (archiveVersion == ArchiveVersion)
 		{
 			if (!reader.readU64(record.random.rootSeed) ||
 				!reader.readU64(record.random.maximumStreams))
 				return {PackageSaveArchiveLoadError::MalformedPayload,
-					decoded.compatibility};
+					decoded.compatibility, archiveVersion};
 		}
 		if (!reader.readU32(streamCount))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		record.random.packageId = record.packageId;
 		const std::uint32_t expectedRandomSchema =
 			archiveVersion == LegacyArchiveVersion
@@ -315,18 +321,18 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				: PackageRandomCheckpoint::CurrentSchema;
 		if (!ValidEngineRecordIdentity(record, expectedRandomSchema))
 			return {PackageSaveArchiveLoadError::MalformedPayload,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		if (!uniqueEnginePackages.insert(record.packageId).second)
 			return {PackageSaveArchiveLoadError::DuplicatePackage,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		if (streamCount > maximumRandomStreamsPerPackage_)
 			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		if (archiveVersion == ArchiveVersion &&
 			(streamCount > record.random.maximumStreams ||
 			 record.random.maximumStreams != maximumRandomStreamsPerPackage_))
 			return {PackageSaveArchiveLoadError::TooManyRandomStreams,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		if (!AddEncodedStringBytes(totalBytes, record.packageId,
 				maximumTotalBytes_) ||
 			!AddEncodedStringBytes(totalBytes, record.packageVersion,
@@ -336,7 +342,7 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 					? sizeof(std::uint64_t) * 2u : 0u),
 				maximumTotalBytes_))
 			return {PackageSaveArchiveLoadError::TotalTooLarge,
-				decoded.compatibility};
+				decoded.compatibility, archiveVersion};
 		record.random.streams.reserve(streamCount);
 		std::unordered_set<std::string> uniqueStreams;
 		uniqueStreams.reserve(streamCount);
@@ -350,22 +356,24 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::decodePayload(
 				!reader.readU64(stream.valuesGenerated) ||
 				!IsValidEngineIdentifier(stream.id))
 				return {PackageSaveArchiveLoadError::MalformedPayload,
-					decoded.compatibility};
+					decoded.compatibility, archiveVersion};
 			if (!uniqueStreams.insert(stream.id).second)
 				return {PackageSaveArchiveLoadError::DuplicateRandomStream,
-					decoded.compatibility};
+					decoded.compatibility, archiveVersion};
 			if (!AddEncodedStringBytes(totalBytes, stream.id,
 					maximumTotalBytes_) ||
 				!AddBoundedBytes(totalBytes, sizeof(std::uint64_t) * 2u,
 					maximumTotalBytes_))
 				return {PackageSaveArchiveLoadError::TotalTooLarge,
-					decoded.compatibility};
+					decoded.compatibility, archiveVersion};
 			record.random.streams.push_back(std::move(stream));
 		}
 		decoded.state.engineRecords.push_back(std::move(record));
 	}
 	if (reader.remaining() != 0)
-		return {PackageSaveArchiveLoadError::MalformedPayload, decoded.compatibility};
+		return {PackageSaveArchiveLoadError::MalformedPayload,
+			decoded.compatibility, archiveVersion};
 	archive = std::move(decoded);
-	return {PackageSaveArchiveLoadError::None, archive.compatibility};
+	return {PackageSaveArchiveLoadError::None,
+		archive.compatibility, archiveVersion};
 }

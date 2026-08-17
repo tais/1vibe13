@@ -264,7 +264,25 @@ a new process-local monotonic clock anchor. Package RNG records now use PGST v4 
 carry each package's derived root seed and stream limit, so streams created for
 the first time after resume remain deterministic; interactive PGST v3 saves
 still restore their existing streams under the externally configured seed.
-These value contracts are not yet applied to the live game runtime.
+CHKP v2 carries the full restorable frame and simulation-tick boundary, while
+CHKP v1 remains an explicitly metadata-only compatibility record. GRNG v1 is a
+separate checksummed 68-byte record binding the simulation stream to the
+runtime fingerprint, campaign seed, and immutable package-host root. A strict
+package RNG callback policy rejects successful `PackageRandomSource::next()`
+draws made on the synchronous package save, validation, or load callback
+thread, including draws through pre-existing retained or directly
+copy/move-derived values and draws followed by a stream rewind. Read-only
+checkpoint inspection remains allowed; unrelated random services require
+their own guards. The
+lifetime-safe provenance and callback-scope probes become inert when the
+callback ends. Restore stages the persisted package RNG before both
+validation and load, then republishes a pristine persisted copy, so callback
+inspection of the callback-bound package RNG is independent of destination
+history and interactive callback draws remain rollback-only. Existing
+synchronous UI saves still emit
+interactive CHKP v1 metadata because their screen handler runs inside an
+uncommitted application frame; they do not claim a restorable deterministic
+boundary. These value contracts are not yet applied to the live game runtime.
 
 Writing the inactive A/B slot means the runtime container itself need not gain
 a new `ByteStorage` atomic-write API: close, sync, semantic probe, and hash must

@@ -21,6 +21,7 @@
 #include <Engine/Core/DedicatedCheckpointEligibility.h>
 #include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RenderSurfaceAccess.h>
+#include <Engine/Core/RuntimeRandomCheckpoint.h>
 #include <Engine/Core/ServiceCatalog.h>
 #include <Engine/Core/SimulationRandom.h>
 
@@ -605,6 +606,23 @@ int main()
 	const RuntimeCompatibilityFingerprint fingerprint = host.compatibilityFingerprint();
 	if (fingerprint.hex().size() != 40 ||
 		fingerprint != host.diagnostics().compatibility) return 8;
+	const RuntimeCheckpointCaptureResult capturedCheckpoint =
+		host.captureRuntimeCheckpoint();
+	if (!capturedCheckpoint ||
+		capturedCheckpoint.checkpoint.frameBoundary.nextFrameSequence != 1 ||
+		capturedCheckpoint.checkpoint.simulationTickBoundary.stepMicroseconds == 0)
+		return 66;
+	RuntimeRandomCheckpointService randomCheckpoints(host.persistence());
+	const RuntimeRandomCheckpoint savedRandomRoots{
+		fingerprint, installedRandom.checkpoint(), host.packageRandomHostSeed()};
+	std::vector<std::uint8_t> encodedRandomRoots;
+	RuntimeRandomCheckpoint loadedRandomRoots;
+	if (randomCheckpoints.encode(savedRandomRoots, encodedRandomRoots) !=
+			RuntimeRandomCheckpointSaveError::None ||
+		!randomCheckpoints.decode(encodedRandomRoots, fingerprint,
+			installedRandom.campaignSeed(), host.packageRandomHostSeed(),
+			loadedRandomRoots) || loadedRandomRoots != savedRandomRoots)
+		return 67;
 	const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
 	const PackageResourceUsage* packageResources = resources.find("external.rules");
 	if (!packageResources || !packageResources->active ||
@@ -612,7 +630,11 @@ int main()
 	if (host.saveRuntimeCheckpoint("external.checkpoint") !=
 		RuntimeCheckpointSaveError::None) return 10;
 	RuntimeCheckpoint checkpoint;
-	if (!host.loadRuntimeCheckpoint("external.checkpoint", checkpoint) ||
+	const RuntimeCheckpointLoadResult checkpointLoaded =
+		host.loadRuntimeCheckpoint("external.checkpoint", checkpoint);
+	if (!checkpointLoaded ||
+		checkpointLoaded.storedVersion != RuntimeCheckpointService::CurrentVersion ||
+		!checkpointLoaded.hasDeterministicBoundary ||
 		checkpoint.activePackages.size() != 1 ||
 		checkpoint.activePackages[0].id != "external.rules") return 11;
 	const PackageSaveArchive externalPackageState{fingerprint,

@@ -3674,7 +3674,12 @@ int main( int, char** )
 		const std::string savePath = "SavedGames/SaveGame01.sav";
 		const std::vector<std::uint8_t> domain = { 0x4a, 0x41, 0x32, 0x01 };
 		storage.writeAll( savePath, domain );
-		PreparedRuntimeSave prepared = PrepareRuntimeSave( first );
+		PreparedRuntimeSave prepared;
+		const FrameRunResult interactiveSaveFrame = first.frameDriver().runFrame(
+			[&] {
+				prepared = PrepareRuntimeSave( first );
+				return FramePlan{ false, FramePresentMode::Paced };
+			}, [] {} );
 		std::vector<std::uint8_t> domainAfterCapture;
 		const bool captureDidNotWrite =
 			storage.readAll( savePath, domainAfterCapture ) &&
@@ -3684,6 +3689,16 @@ int main( int, char** )
 		RuntimeSaveContainer inspected;
 		const RuntimeSaveContainerLoadResult containerLoaded =
 			first.runtimeSaveContainers().inspect( savePath, inspected );
+		RuntimeCheckpoint interactiveCheckpoint;
+		RuntimeCheckpointLoadResult interactiveCheckpointLoaded{
+			RuntimeCheckpointLoadError::InvalidOrUnsupported, {} };
+		if ( const RuntimeSaveSection* checkpoint =
+				inspected.find( 0x504b4843u ) )
+			interactiveCheckpointLoaded =
+				first.runtime().runtimeCheckpoints().decode(
+					checkpoint->payload,
+					first.runtime().compatibilityFingerprint(),
+					interactiveCheckpoint );
 		const PreparedRuntimeLoad compatible =
 			PrepareRuntimeLoad( first, savePath );
 		const PreparedRuntimeLoad incompatible =
@@ -3698,9 +3713,14 @@ int main( int, char** )
 		storage.writeAll( plainPath, domain );
 		const PreparedRuntimeLoad plain =
 			PrepareRuntimeLoad( first, plainPath );
-		CHECK( firstReady && secondReady && captureDidNotWrite && committed &&
+		CHECK( firstReady && secondReady && interactiveSaveFrame.sequence == 1 &&
+		       captureDidNotWrite && committed &&
 		       containerLoaded && inspected.domainBytes == domain.size() &&
 		       inspected.sections.size() == 2 &&
+		       interactiveCheckpointLoaded &&
+		       interactiveCheckpointLoaded.storedVersion ==
+		           RuntimeCheckpointService::LegacyVersion &&
+		       !interactiveCheckpointLoaded.hasDeterministicBoundary &&
 		       compatible.domainBytes == domain.size() && compatible &&
 		       compatible.checkpoint.compatibility ==
 		           first.runtime().compatibilityFingerprint() &&
@@ -3750,7 +3770,7 @@ int main( int, char** )
 		wrongSchema.state.records[0].schemaVersion = 6;
 		std::vector<std::uint8_t> checkpointBytes;
 		const RuntimeCheckpointSaveError checkpointEncoded =
-			context.runtime().runtimeCheckpoints().encode(
+			context.runtime().runtimeCheckpoints().encodeLegacyMetadata(
 				ready.checkpoint, checkpointBytes );
 		std::vector<std::uint8_t> packageBytes;
 		const PackageSaveArchiveSaveError packageEncoded =

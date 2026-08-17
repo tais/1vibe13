@@ -3181,7 +3181,9 @@ int main()
 	PersistenceService checkpointPersistence(checkpointStorage, 4096);
 	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
 	const RuntimeCheckpoint savedCheckpoint{
-		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
+		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}},
+		FrameDriverBoundaryState{17, 18, false},
+		SimulationTickBoundaryState{16667, 4, 23, 383341, 0, false}};
 	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
 			RuntimeCheckpointSaveError::None,
 		"runtime checkpoint service writes a bounded integrity-checked manifest");

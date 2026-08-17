@@ -50,6 +50,8 @@ struct PackageSaveArchiveLoadResult
 {
 	PackageSaveArchiveLoadError error = PackageSaveArchiveLoadError::None;
 	RuntimeCompatibilityFingerprint storedCompatibility;
+	// Zero means no supported, integrity-checked PGST envelope was decoded.
+	std::uint16_t storedVersion = 0;
 
 	explicit operator bool() const { return error == PackageSaveArchiveLoadError::None; }
 };

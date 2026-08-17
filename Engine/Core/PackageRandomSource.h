@@ -2,9 +2,11 @@
 #define ENGINE_CORE_PACKAGE_RANDOM_SOURCE_H
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -94,12 +96,44 @@ public:
 		std::size_t maximumStreams = 64)
 		: packageId_(std::move(packageId)), packageSeed_(derive(hostSeed, packageId_)),
 		  maximumStreams_(maximumStreams) {}
+	PackageRandomSource(const PackageRandomSource& other)
+		: packageId_(other.packageId_), packageSeed_(other.packageSeed_),
+		  maximumStreams_(other.maximumStreams_), streams_(other.streams_),
+		  consumptionProbe_(other.consumptionProbe_) {}
+	// Moving must not hollow out a registry-bound live source while a callback
+	// probe is attached. Treat construction from an rvalue as a value copy; the
+	// source remains rollback-compatible, and the new value shares any active
+	// callback probe so drawing from a moved live-derived value cannot evade it.
+	PackageRandomSource(PackageRandomSource&& other)
+		: packageId_(other.packageId_), packageSeed_(other.packageSeed_),
+		  maximumStreams_(other.maximumStreams_), streams_(other.streams_),
+		  consumptionProbe_(other.consumptionProbe_) {}
+	PackageRandomSource& operator=(const PackageRandomSource& other)
+	{
+		return assignRuntimeState(other);
+	}
+	PackageRandomSource& operator=(PackageRandomSource&& other)
+	{
+		// A registry callback can move-assign from its live source into another
+		// value. Keep the source intact and treat that operation as a value copy,
+		// including propagation of an active callback probe.
+		return assignRuntimeState(other);
+	}
 
 	const std::string& packageId() const { return packageId_; }
 	// Package-local root derived from the host seed and package identity. Strict
 	// resume preflight can compare this to schema 2 before allowing adoption.
 	std::uint64_t rootSeed() const { return packageSeed_; }
 	std::size_t maximumStreams() const { return maximumStreams_; }
+	bool matchesLiveRootAndConfiguration(
+		const PackageRandomCheckpoint& checkpoint) const noexcept
+	{
+		return checkpoint.schema == PackageRandomCheckpoint::CurrentSchema &&
+			checkpoint.packageId == packageId_ &&
+			checkpoint.rootSeed == packageSeed_ &&
+			checkpoint.maximumStreams ==
+				static_cast<std::uint64_t>(maximumStreams_);
+	}
 	std::size_t streamCount() const { return streams_.size(); }
 	std::uint64_t valuesGenerated() const
 	{
@@ -153,6 +187,7 @@ public:
 		}
 		while (value < threshold);
 		++stream->valuesGenerated;
+		markConsumptionProbe();
 		return PackageRandomResult{PackageRandomError::None, value % upperBound};
 	}
 
@@ -263,6 +298,13 @@ public:
 private:
 	friend class PackageRegistry;
 
+	struct ConsumptionProbe
+	{
+		std::atomic<bool> active{true};
+		std::atomic<bool> consumed{false};
+	};
+	using ConsumptionProbeHandle = std::shared_ptr<ConsumptionProbe>;
+
 	struct StreamState
 	{
 		std::uint64_t state;
@@ -295,6 +337,72 @@ private:
 		return value ^ (value >> 31);
 	}
 
+	ConsumptionProbeHandle attachConsumptionProbe()
+	{
+		if (hasActiveConsumptionProbe(consumptionProbe_) ||
+			hasActiveConsumptionProbe(callbackConsumptionProbe_))
+			return {};
+		ConsumptionProbeHandle probe = std::make_shared<ConsumptionProbe>();
+		consumptionProbe_ = probe;
+		callbackConsumptionProbe_ = probe;
+		return probe;
+	}
+
+	void detachConsumptionProbe(const ConsumptionProbeHandle& probe) noexcept
+	{
+		if (!probe) return;
+		probe->active.store(false);
+		if (consumptionProbe_ == probe) consumptionProbe_.reset();
+		if (callbackConsumptionProbe_ == probe)
+			callbackConsumptionProbe_.reset();
+	}
+
+	void markConsumptionProbe() noexcept
+	{
+		const ConsumptionProbeHandle provenanceProbe = consumptionProbe_;
+		if (hasActiveConsumptionProbe(provenanceProbe))
+			provenanceProbe->consumed.store(true);
+		// A package may retain an RNG value before the callback, or retain it in
+		// validation and draw during load after its provenance token is inactive.
+		// Every successful PackageRandomSource draw on the synchronous callback
+		// thread must also mark the currently active registry scope.
+		const ConsumptionProbeHandle callbackProbe = callbackConsumptionProbe_;
+		if (callbackProbe != provenanceProbe &&
+			hasActiveConsumptionProbe(callbackProbe))
+			callbackProbe->consumed.store(true);
+	}
+
+	static bool hasActiveConsumptionProbe(
+		const ConsumptionProbeHandle& probe) noexcept
+	{
+		return probe && probe->active.load();
+	}
+
+	void inheritActiveConsumptionProbe(
+		const PackageRandomSource& other) noexcept
+	{
+		// Assignment into the live source must retain its callback scope. A clean
+		// destination assigned from a live-derived source instead joins that
+		// source's scope. Inactive handles are harmless and may be replaced.
+		if (hasActiveConsumptionProbe(consumptionProbe_)) return;
+		if (hasActiveConsumptionProbe(other.consumptionProbe_))
+			consumptionProbe_ = other.consumptionProbe_;
+	}
+
+	PackageRandomSource& assignRuntimeState(const PackageRandomSource& other)
+	{
+		if (this == &other) return *this;
+		// Assignment updates runtime state only. Package identity and capacity
+		// belong to the destination binding; mismatch is a fail-closed no-op.
+		if (packageId_ != other.packageId_ ||
+			maximumStreams_ != other.maximumStreams_)
+			return *this;
+		PackageRandomSource replacement(other);
+		swapRuntimeState(replacement);
+		inheritActiveConsumptionProbe(other);
+		return *this;
+	}
+
 	void swapRuntimeState(PackageRandomSource& other) noexcept
 	{
 		// Runtime state can only move between staging values for the same
@@ -308,10 +416,15 @@ private:
 		streams_.swap(other.streams_);
 	}
 
-	std::string packageId_;
+	const std::string packageId_;
 	std::uint64_t packageSeed_;
-	std::size_t maximumStreams_;
+	const std::size_t maximumStreams_;
 	std::unordered_map<std::string, StreamState> streams_;
+	// A callback-scope token follows live-derived values through copy and move.
+	// Detaching marks the shared token inactive, so retained copies can safely
+	// outlive the registry guard without retaining a dangling stack pointer.
+	ConsumptionProbeHandle consumptionProbe_;
+	inline static thread_local ConsumptionProbeHandle callbackConsumptionProbe_;
 };
 
 #endif
