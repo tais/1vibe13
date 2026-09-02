@@ -148,7 +148,7 @@ public:
 		totalBytes_ += size;
 		while (size)
 		{
-			const std::size_t copied = std::min(
+			const std::size_t copied = (std::min)(
 				size, HashBlockBytes - bufferedBytes_);
 			std::memcpy(buffer_.data() + bufferedBytes_, bytes, copied);
 			bufferedBytes_ += copied;
@@ -357,8 +357,8 @@ enum class PrivateFileRemoveResult
 #ifdef _WIN32
 using NativeFile = HANDLE;
 using NativeDirectory = HANDLE;
-constexpr NativeFile InvalidNativeFile = INVALID_HANDLE_VALUE;
-constexpr NativeDirectory InvalidNativeDirectory = INVALID_HANDLE_VALUE;
+const NativeFile InvalidNativeFile = INVALID_HANDLE_VALUE;
+const NativeDirectory InvalidNativeDirectory = INVALID_HANDLE_VALUE;
 
 struct NativeFileIdentity
 {

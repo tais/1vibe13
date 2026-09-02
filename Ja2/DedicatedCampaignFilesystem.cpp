@@ -215,7 +215,7 @@ public:
 		totalBytes_ += size;
 		while (size)
 		{
-			const std::size_t copied = std::min(
+			const std::size_t copied = (std::min)(
 				size, Sha256BlockBytes - bufferedBytes_);
 			std::memcpy(buffer_.data() + bufferedBytes_, bytes, copied);
 			bufferedBytes_ += copied;
@@ -354,8 +354,8 @@ bool SameNativeFileIdentity(const NativeFileIdentity& left,
 #ifdef _WIN32
 using NativeFile = HANDLE;
 using NativeDirectory = HANDLE;
-constexpr NativeFile InvalidNativeFile = INVALID_HANDLE_VALUE;
-constexpr NativeDirectory InvalidNativeDirectory = INVALID_HANDLE_VALUE;
+const NativeFile InvalidNativeFile = INVALID_HANDLE_VALUE;
+const NativeDirectory InvalidNativeDirectory = INVALID_HANDLE_VALUE;
 
 bool MissingFileError(DWORD error) noexcept
 {
