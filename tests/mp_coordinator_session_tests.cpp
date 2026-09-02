@@ -23,7 +23,8 @@ int ja2server_test_main(int argc, char** argv);
 bool ja2server_test_dashboard_bind_resolves(const char* host);
 const char* ja2server_test_dashboard_html();
 const char* ja2server_test_phase();
-void ja2server_test_request_reset();
+unsigned int ja2server_test_request_reset();
+bool ja2server_test_reset_complete(unsigned int generation);
 std::size_t ja2server_test_transport_count();
 int ja2server_test_clamp_max_mercs(int value);
 std::size_t ja2server_test_explosive_ledger_count();
@@ -478,8 +479,10 @@ int main(int argc, char** argv)
 		g_active = { &orphan };
 		CHECK(StartClient(orphan, 0, port), "pre-admission reset peer connection initiated");
 		CHECK(PumpUntil([&] { return orphan.accepted; }), "pre-admission reset peer connected");
-		ja2server_test_request_reset();
-		CHECK(PumpUntil([&] { return orphan.closed; }),
+		const unsigned int resetGeneration = ja2server_test_request_reset();
+		CHECK(PumpUntil([&] {
+			return ja2server_test_reset_complete(resetGeneration) && orphan.closed;
+		}),
 		      "manual reset disconnects a pre-admission transport");
 		orphan.Stop();
 		g_active.clear(); g_logs[0] = nullptr;
@@ -566,16 +569,20 @@ int main(int argc, char** argv)
 			Join(replacement, "Replacement", MPVERSION, 0);
 			CHECK(PumpUntil([&] { return !replacement.settings.empty() && replacement.admin == 1; }),
 			      "replacement is admitted into the fresh lobby");
-			ja2server_test_request_reset();
-			CHECK(PumpUntil([&] { return replacement.closed; }),
+			const unsigned int resetGeneration = ja2server_test_request_reset();
+			CHECK(PumpUntil([&] {
+				return ja2server_test_reset_complete(resetGeneration) && replacement.closed;
+			}),
 			      "replacement cleanup reset closes its transport");
 			replacement.Stop();
 			g_active.clear(); g_logs[0] = nullptr;
 		}
 		else
 		{
-			ja2server_test_request_reset();
-			std::this_thread::sleep_for(std::chrono::milliseconds(30));
+			const unsigned int resetGeneration = ja2server_test_request_reset();
+			CHECK(PumpUntil([&] {
+				return ja2server_test_reset_complete(resetGeneration);
+			}), "barrier cleanup reset completes before the next session");
 		}
 	};
 	runBarrierDisconnect(0);

@@ -611,7 +611,10 @@ void TestCapacityTimeoutAndDisconnect()
 		LoopbackServer server;
 		CHECK(server.start(), "timeout server starts");
 		FullEngineCoopClientBootstrapTransport transport;
-		CHECK(ConnectAndAwaitHello(server, transport, 30),
+		// The configured deadline covers asynchronous address resolution and TCP
+		// connection as well as the silent handshake. Leave enough headroom for a
+		// loaded CI runner to connect before testing the latter timeout.
+		CHECK(ConnectAndAwaitHello(server, transport, 500),
 			"timeout client reaches hello wait within deadline");
 		CHECK(WaitForFailure(server, transport,
 			FullEngineCoopClientBootstrapTransportResult::Timeout),

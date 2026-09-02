@@ -829,27 +829,33 @@ void SdlNetPeerState::PumpSockets()
 				continue;
 		unsigned char tmp[8192];
 		size_t readThisPass = 0;
+		bool readFailed = false;
 		for ( ;; )
 		{
 			// Cap bytes drained from one socket per pass so a fast/slow-loris peer
 			// can't monopolize the pump and starve the others (head-of-line).
 			if ( readThisPass >= READ_CAP_PER_PASS )
 				break;
-			int n = NET_ReadFromStreamSocket( c->sock, tmp, (int)sizeof( tmp ) );
+			const size_t readRemaining = READ_CAP_PER_PASS - readThisPass;
+			const int readSize = (int)( readRemaining < sizeof( tmp ) ? readRemaining : sizeof( tmp ) );
+			int n = NET_ReadFromStreamSocket( c->sock, tmp, readSize );
 			if ( n > 0 )
 			{
 				c->lastRecvMs = SDL_GetTicks();   // any traffic = peer alive
 				c->in.insert( c->in.end(), tmp, tmp + n );
 				readThisPass += (size_t)n;
-				if ( n < (int)sizeof( tmp ) )
-					break;
+				// A short nonblocking stream read is not an end-of-data marker.
+				// SDL3_net may expose one small socket fragment per call even when
+				// more bytes are already queued (notably on macOS). Keep draining
+				// until the API reports no data or this peer reaches its fair-share
+				// cap; otherwise one application Poll() processes only one fragment.
+				continue;
 			}
 			else if ( n == 0 )
 				break;
 			else
 			{
-				Synthesize( SDLNET_CONNECTION_LOST, c->addr );
-				CloseConn( c, false, 0 );
+				readFailed = true;
 				break;
 			}
 		}
@@ -862,6 +868,16 @@ void SdlNetPeerState::PumpSockets()
 		}
 		if ( c->open )
 			ParseFrames( c );
+		// EOF may arrive in the same pump as the peer's final complete control
+		// frame. Let buffered FT_BYE/FT_FULL (and preceding messages) win before
+		// classifying the close as an ungraceful loss. ParseFrames can close the
+		// connection or request callback-safe teardown, in which case no extra
+		// loss event belongs on the queue.
+		if ( c->open && readFailed && !shutdownPending && !detachPending )
+		{
+			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
+			CloseConn( c, false, 0 );
+		}
 	}
 	if ( shutdownPending )
 		return;

@@ -31,6 +31,9 @@
 #include <map>
 #include <vector>
 #include <deque>
+#ifdef JA2SERVER_LOOPBACK_TEST
+#include <atomic>
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
@@ -2287,7 +2290,19 @@ static void OnSignal(int) { g_run = 0; }
 static volatile sig_atomic_t g_reset = 0;
 static void OnReset(int) { g_reset = 1; }
 #ifdef JA2SERVER_LOOPBACK_TEST
-void ja2server_test_request_reset() { g_reset = 1; }
+// Tests request resets from a different thread. Keep that path off the
+// signal-safe flag (which is not a C++ inter-thread synchronization primitive)
+// and expose a generation acknowledgement for deterministic session barriers.
+static std::atomic<unsigned int> g_testResetRequested(0);
+static std::atomic<unsigned int> g_testResetCompleted(0);
+unsigned int ja2server_test_request_reset()
+{
+	return g_testResetRequested.fetch_add(1, std::memory_order_acq_rel) + 1;
+}
+bool ja2server_test_reset_complete(unsigned int generation)
+{
+	return g_testResetCompleted.load(std::memory_order_acquire) >= generation;
+}
 size_t ja2server_test_transport_count()
 {
 	return g_transportPeers.size() + g_closedBeforeIncoming.size();
@@ -2726,6 +2741,13 @@ static bool ResolveBind(const char* host, NET_Address** result)
 	*result = NULL;
 	if (!host || !*host || !strcmp(host, "0.0.0.0") || !strcmp(host, "::") || !strcmp(host, "*"))
 		return true;
+	// Host names and numeric addresses cannot contain ASCII whitespace or
+	// controls. Reject them synchronously: some platform resolvers do not honor
+	// their nominal wait bound for such malformed input, which would stall the
+	// coordinator pump and let otherwise healthy peers time out.
+	for (const unsigned char* p = reinterpret_cast<const unsigned char*>(host);
+	     *p; ++p)
+		if (*p <= 0x20 || *p == 0x7f) return false;
 	NET_Address* a = NET_ResolveHostname(host);
 	if (!a) return false;
 	if (NET_WaitUntilResolved(a, 5000) != NET_SUCCESS) { NET_UnrefAddress(a); return false; }
@@ -2929,13 +2951,26 @@ int main(int argc, char** argv)
 			g_server->Release(p);
 			p = g_server->Poll();
 		}
-		if (g_reset)
+#ifdef JA2SERVER_LOOPBACK_TEST
+		const unsigned int testResetGeneration =
+			g_testResetRequested.load(std::memory_order_acquire);
+		const bool testResetPending = testResetGeneration !=
+			g_testResetCompleted.load(std::memory_order_acquire);
+#endif
+		if (g_reset
+#ifdef JA2SERVER_LOOPBACK_TEST
+		    || testResetPending
+#endif
+		)
 		{
 			g_reset = 0;
 			printf("[ja2server] SIGHUP -- kicking all clients and resetting\n"); fflush(stdout);
 			DisconnectAllTransports();
 			ResetGameState();
 			memset(g_knownName, 0, sizeof(g_knownName));   // manual reset = fresh session
+#ifdef JA2SERVER_LOOPBACK_TEST
+			g_testResetCompleted.store(testResetGeneration, std::memory_order_release);
+#endif
 		}
 		TickInterruptWatchdog();   // force-release a wedged interrupt (stale watchdog)
 		HttpTick();   // serve at most one slice of dashboard work per tick

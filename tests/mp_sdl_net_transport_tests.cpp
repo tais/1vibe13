@@ -1063,11 +1063,31 @@ int main( int, char** )
 
 	// Reliable/TCP RPC frames cannot be silently discarded when a peer exceeds
 	// its work budget: that would leave the two simulations on different event
-	// streams. Four fast 300KiB RPCs exceed the 1MiB burst; the first three fit,
-	// while the fourth must close the peer instead of disappearing.
+	// streams. Use an isolated server with a negligible refill rate so scheduler
+	// pauses cannot replenish the 1MiB burst between the four 300KiB frames. The
+	// first three fit, while the fourth must close the peer instead of disappearing.
 	{
+		SdlNetPeer* budgetServer = CreateSdlNetPeer();
+		SdlNetInboundMessageBudget budget;
+		budget.sustainedBytesPerSecond = 1;
+		budget.burstBytes = DefaultSdlNetInboundMessageBurstBytes;
+		CHECK( budgetServer->SetInboundMessageBudget( budget ),
+		       "reliable RPC budget test fixes its refill rate" );
+		const unsigned short mainPort = g_port;
+		bool budgetServerStarted = false;
+		for ( unsigned int attempt = 0; attempt < 128 && !budgetServerStarted; ++attempt )
+		{
+			g_port = (unsigned short)( 40000 + ( seed + 257 + attempt ) % 20000 );
+			budgetServerStarted = budgetServer->Start(
+				1, SdlNetEndpoint( g_port, "127.0.0.1" ) );
+		}
+		CHECK( budgetServerStarted, "isolated reliable RPC budget server starts" );
+		budgetServer->SetTimeout( 120000 );
+		REGISTER_SDLNET_MESSAGE( budgetServer, srvPING );
+		PeerLog budgetLog{ budgetServer };
 		RawConn raw;
-		CHECK( ConnectRaw( L_srv, raw ), "raw RPC-budget client connected" );
+		CHECK( budgetServerStarted && ConnectRaw( budgetLog, raw ),
+		       "raw RPC-budget client connected" );
 		if ( raw.sock )
 		{
 			const std::string rpcName = "srvPING";
@@ -1082,17 +1102,20 @@ int main( int, char** )
 			for ( int expected = 1; expected <= 3; ++expected )
 			{
 				firstThree = SendRaw( raw, frame ) && firstThree;
-				firstThree = PumpUntil( { &L_srv }, [&] { return g_capSrv.count == expected; } ) && firstThree;
+				firstThree = PumpUntil( { &budgetLog }, [&] { return g_capSrv.count == expected; } ) && firstThree;
 			}
 			CHECK( firstThree, "first three in-budget reliable RPCs dispatch" );
-			size_t beforeLoss = L_srv.ids.size();
+			size_t beforeLoss = budgetLog.ids.size();
 			CHECK( SendRaw( raw, frame ), "over-budget reliable RPC queued" );
-			CHECK( PumpUntil( { &L_srv }, [&] { return LostSince( L_srv, beforeLoss, raw.onServer ); } ),
+			CHECK( PumpUntil( { &budgetLog }, [&] { return LostSince( budgetLog, beforeLoss, raw.onServer ); } ),
 			       "over-budget reliable RPC disconnects instead of silently dropping state" );
 			CHECK( g_capSrv.count == 3,
 			       "only in-budget RPCs are dispatched before disconnect" );
 			NET_DestroyStreamSocket( raw.sock );
 		}
+		budgetServer->Shutdown( 0 );
+		DestroySdlNetPeer( budgetServer );
+		g_port = mainPort;
 	}
 
 	// Shutdown requested by a callback is deferred until the active parser and
