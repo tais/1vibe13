@@ -4997,6 +4997,8 @@ static int RunLegacyEmbeddedHostLoopbackTests()
 
 		const std::array<std::uint8_t,
 			ja2::mp::LegacyReadyPayloadBytes> contributorReady = { 0, 1, 0 };
+		const std::size_t hostReadyBeforeContributors = host.ready.size();
+		const std::size_t remoteReadyBeforeContributors = remote.ready.size();
 		CHECK( loadedContributor.peer && placedContributor.peer &&
 		       loadedContributor.peer->SendMessage(
 			       "sendREADY", contributorReady.data(), contributorReady.size(),
@@ -5007,8 +5009,18 @@ static int RunLegacyEmbeddedHostLoopbackTests()
 		       FlushLegacyHostIngress(
 			       loadedContributor, server, incoming, clients ) &&
 		       FlushLegacyHostIngress(
-			       placedContributor, server, incoming, clients ),
+			       placedContributor, server, incoming, clients ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.ready.size() ==
+					              hostReadyBeforeContributors + 2 &&
+				              remote.ready.size() ==
+					              remoteReadyBeforeContributors + 2;
+			       } ),
 		       "both barrier contributors ready before the load vote" );
+		// A sender's ingress-barrier ACK is ordered only on that sender's
+		// connection.  Wait for the two relays on the independent host and remote
+		// connections before taking the baseline used by the READY dedup checks.
 		const std::size_t hostReadyBefore = host.ready.size();
 		const std::size_t remoteReadyBefore = remote.ready.size();
 
