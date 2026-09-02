@@ -307,6 +307,34 @@ int main( int, char** )
 {
 	SDL_Init( 0 );
 
+	// SDL_GetTicks is the deadline source used by both this transport and
+	// SDL3_net. Guard the dependency pin against an Apple regression that paired
+	// a nanosecond counter with the Mach raw-counter frequency and made time run
+	// roughly 41.67x too fast. A deliberately broad ratio tolerates scheduler
+	// noise while still rejecting that unit mismatch by an order of magnitude.
+	const auto steadyTickOuterStart = std::chrono::steady_clock::now();
+	const Uint64 sdlTickStart = SDL_GetTicks();
+	const auto steadyTickInnerStart = std::chrono::steady_clock::now();
+	SDL_Delay( 100 );
+	const auto steadyTickInnerEnd = std::chrono::steady_clock::now();
+	const Uint64 sdlTickEnd = SDL_GetTicks();
+	const auto steadyTickOuterEnd = std::chrono::steady_clock::now();
+	const auto steadyTickMinimum =
+		std::chrono::duration_cast<std::chrono::microseconds>(
+			steadyTickInnerEnd - steadyTickInnerStart).count();
+	const auto steadyTickMaximum =
+		std::chrono::duration_cast<std::chrono::microseconds>(
+			steadyTickOuterEnd - steadyTickOuterStart).count();
+	const Uint64 sdlTickElapsedMicroseconds = sdlTickEnd >= sdlTickStart
+		? (sdlTickEnd - sdlTickStart) * 1000u
+		: 0;
+	CHECK( steadyTickMinimum >= 50000 &&
+	       sdlTickElapsedMicroseconds >=
+		       static_cast<Uint64>( steadyTickMinimum / 4 ) &&
+	       sdlTickElapsedMicroseconds <=
+		       static_cast<Uint64>( steadyTickMaximum * 4 ),
+	       "SDL ticks track steady-clock milliseconds on this platform" );
+
 	// ---------- 1. handshake: accept + connect events ----------
 	SdlNetPeer* srv = CreateSdlNetPeer();
 	// A fixed port makes concurrent CI jobs and an immediately repeated test run

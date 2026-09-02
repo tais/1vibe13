@@ -490,8 +490,9 @@ bool SyncFilePath(NativeDirectory,
 bool SyncDirectory(NativeDirectory,
 	const std::filesystem::path&) noexcept
 {
-	// MoveFileExW(MOVEFILE_WRITE_THROUGH) below is the strongest portable
-	// same-volume publication primitive available to this Windows adapter.
+	// Windows exposes no portable directory-fsync equivalent here. Staging
+	// files are flushed before publication, and checkpoint targets are flushed
+	// again before their manifests become authoritative.
 	return true;
 }
 
@@ -902,8 +903,20 @@ bool ReplaceCheckpointFile(NativeDirectory directory,
 #ifdef _WIN32
 	(void)directory;
 	(void)directoryPath;
+	// ReplaceFileW is specifically able to replace an existing path while a
+	// reader that shared delete access keeps an immutable handle to the old
+	// bytes. MoveFileExW cannot provide that contract on Windows. ReplaceFileW
+	// requires the target to exist, so use the no-replace move only for a slot's
+	// first publication. Any other replacement failure stays fail-closed: the
+	// caller will not publish a manifest for these checkpoint bytes.
+	if (ReplaceFileW(target.c_str(), staging.c_str(), nullptr, 0,
+			nullptr, nullptr) != FALSE)
+		return true;
+	const DWORD error = GetLastError();
+	if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+		return false;
 	return MoveFileExW(staging.c_str(), target.c_str(),
-		MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE;
+		MOVEFILE_WRITE_THROUGH) != FALSE;
 #else
 	if (::renameat(directory, staging.filename().c_str(),
 		directory, target.filename().c_str()) != 0)

@@ -112,7 +112,11 @@ if(NOT TARGET SDL3::SDL3)
     # compatible stable releases. PINNED to a current main snapshot for
     # reproducibility (a moving 'main' silently broke our linux builds once);
     # bump deliberately. GIT_SHALLOW must be FALSE to fetch a bare commit SHA.
-    GIT_TAG 9b230dfb36d21f6c0133ecadcb4860ebefe6b1a2  # libsdl-org/SDL main snapshot
+    # This revision includes libsdl-org/SDL@e575093c's Apple timer-frequency
+    # correction. Earlier main snapshots paired a nanosecond performance
+    # counter with the Mach raw-counter frequency, making SDL_GetTicks() run
+    # roughly 41.67x too fast on affected Apple Silicon machines.
+    GIT_TAG e575093c83002b22ff31bf781da69ef937df1fd8  # libsdl-org/SDL main snapshot
     GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(SDL3)

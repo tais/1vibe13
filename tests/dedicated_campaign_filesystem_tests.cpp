@@ -635,6 +635,17 @@ void TestImmutableCheckpointReaderAndBounds()
 		store.state() && store.state()->activeSlot == DedicatedCampaignSlot::A &&
 		store.state()->generation == 3,
 		"a later generation atomically replaces the reader's slot path");
+	DedicatedCampaignCheckpointReader replacementReader;
+	std::vector<std::uint8_t> replacementBytes(913);
+	Check(store.state() &&
+		backend.openCheckpointReader(*store.state(), replacementReader) &&
+		replacementReader.generation() == 3 &&
+		replacementReader.size() == replacementBytes.size() &&
+		replacementReader.readExact(0, replacementBytes.data(),
+			replacementBytes.size()) &&
+		std::all_of(replacementBytes.begin(), replacementBytes.end(),
+			[](std::uint8_t byte) { return byte == 0x73u; }),
+		"the replaced slot path opens the complete new generation");
 	std::array<std::uint8_t, 64> originalAfterReplacement{};
 	Check(reader.readExact(12345, originalAfterReplacement.data(),
 			originalAfterReplacement.size()) &&

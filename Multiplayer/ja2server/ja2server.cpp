@@ -160,22 +160,17 @@ static const Uint64  INTERRUPT_STALE_MS   = 30000;   // force-release an interru
 static std::vector<unsigned char> g_interruptPayload;
 
 // A monotonic timer should never move backwards, but virtualized runners and a
-// reset SDL tick epoch can still expose a lower sample. Do not let unsigned
-// subtraction turn that rollback into an immediate watchdog expiry or reject a
-// still-valid paused-attack continuation.
-static Uint64 InterruptElapsedMilliseconds(Uint64 now, Uint64& grantedMs)
+// reset SDL tick epoch can still expose a lower sample. Treat that sample as no
+// elapsed time without rewriting the grant timestamp: a subsequent recovery to
+// the original epoch must not look like one enormous forward jump.
+static Uint64 InterruptElapsedMilliseconds(Uint64 now, Uint64 grantedMs)
 {
-	if (now < grantedMs)
-	{
-		grantedMs = now;
-		return 0;
-	}
-	return now - grantedMs;
+	return now >= grantedMs ? now - grantedMs : 0;
 }
 
 #ifdef JA2SERVER_LOOPBACK_TEST
 std::uint64_t ja2server_test_interrupt_elapsed_milliseconds(
-	std::uint64_t now, std::uint64_t& grantedMs)
+	std::uint64_t now, std::uint64_t grantedMs)
 {
 	return InterruptElapsedMilliseconds(now, grantedMs);
 }
