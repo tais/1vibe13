@@ -68,3 +68,11 @@ jobs:
         run: |
           python3 tools/check_release_workflow.py
           python3 -m unittest tools/test_check_release_workflow.py
+
+      - name: Validate AddressSanitizer CTest build coverage
+        # The ASan job invokes the complete registered CTest suite after
+        # intentionally split target-only builds. Keep every compiled CTest
+        # command in that build closure while ignoring configure/script tests.
+        run: |
+          python3 tools/check_asan_ctest_coverage.py
+          python3 -m unittest tools/test_check_asan_ctest_coverage.py
