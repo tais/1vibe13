@@ -1365,6 +1365,62 @@ void TestTacticalOutboundHighWaterFailsClosed()
 	listener.stop(0);
 }
 
+void TestTemporaryOutboundHighWaterRetainsConnection()
+{
+	SequentialTokenSource tokens;
+	RejectingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	FullEngineCoopAdmissionListener listener(ingress);
+	const AuthorityConfiguration authority = Authority(0x4454);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success,
+		"temporary-output admission session starts");
+	std::vector<std::uint8_t> chunk(MaximumCoopCampaignSyncWireSize, 0x5a);
+	const std::size_t frameBytes = 6 +
+		std::strlen(CoopCampaignSyncChunkMessageName) + chunk.size();
+	FullEngineCoopAdmissionListenerConfiguration configuration =
+		ListenerConfiguration(authority);
+	configuration.maximumPendingWriteBytesPerConnection = frameBytes * 2;
+	CHECK(StartListenerOnLoopback(listener, configuration),
+		"temporary-output listener starts");
+	LiveClient client;
+	CHECK(StartClient(client, configuration.endpoint.port),
+		"temporary-output client connects");
+	CHECK(PumpManyUntil(listener, {&client}, [&] {
+		return client.events.connected && client.hello.count == 1 &&
+			client.campaignBootstrap.count == 1;
+	}), "temporary-output client receives hello");
+	AdmissionResponse peer;
+	CHECK(AdmitAndAcknowledge(listener, client, authority, {&client}, peer),
+		"temporary-output client authenticates");
+	TransportPeer originalTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+		peer.peerIdentity, originalTransport),
+		"temporary-output identity has an authenticated transport");
+
+	// Stop pumping the receiver and fill the real SDL/kernel write path. Every
+	// frame fits the configured bound by itself; refusal can therefore only be
+	// temporary queue pressure, not an impossible message shape.
+	bool backpressured = false;
+	for (unsigned attempt = 0; attempt < 4096 && !backpressured; ++attempt)
+	{
+		backpressured = !listener.sendToPeer(peer.peerIdentity,
+			CoopCampaignSyncChunkMessageName, chunk.data(), chunk.size());
+	}
+	CHECK(backpressured,
+		"an unpumped receiver reaches temporary outbound backpressure");
+	TransportPeer retainedTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+			peer.peerIdentity, retainedTransport) &&
+		retainedTransport == originalTransport &&
+		listener.authenticatedPeerCount() == 1 &&
+		ingress.boundPeerCount() == 1,
+		"temporary outbound backpressure retains authenticated authority");
+
+	listener.stop(0);
+	DestroyClient(client);
+}
+
 void TestHelloPrecedesPresendRequest()
 {
 	SequentialTokenSource tokens;
@@ -1678,6 +1734,7 @@ int main()
 	TestCampaignQueueSaturationFailsClosed();
 	TestAuthenticatedTacticalQueueAndTargetedDelivery();
 	TestTacticalQueueSaturationFailsClosed();
+	TestTemporaryOutboundHighWaterRetainsConnection();
 	TestTacticalOutboundHighWaterFailsClosed();
 	TestHelloPrecedesPresendRequest();
 	TestReconnectDisplacesLiveTransport();

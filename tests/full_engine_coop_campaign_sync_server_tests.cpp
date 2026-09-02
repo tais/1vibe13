@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -335,25 +336,28 @@ void TestConfigurationAndPeerReconciliation()
 {
 	FullEngineCoopCampaignSyncServerConfiguration invalidConfiguration;
 	invalidConfiguration.maximumTransferId = 0;
-	Fixture invalid(3, invalidConfiguration);
-	CHECK(invalid.server.beginSession(1) ==
+	const auto invalid = std::make_unique<Fixture>(3, invalidConfiguration);
+	CHECK(invalid->server.beginSession(1) ==
 		FullEngineCoopCampaignSyncServerResult::InvalidConfiguration,
 		"zero transfer-id ceiling is invalid");
 
 	MemoryCheckpointSource unavailable;
 	unavailable.metadataAvailable = false;
 	RecordingWireSink unavailableSink;
-	FullEngineCoopCampaignSyncServer unavailableServer(
-		unavailable, unavailableSink);
-	CHECK(unavailableServer.beginSession(1) ==
+	const auto unavailableServer =
+		std::make_unique<FullEngineCoopCampaignSyncServer>(
+			unavailable, unavailableSink);
+	CHECK(unavailableServer->beginSession(1) ==
 		FullEngineCoopCampaignSyncServerResult::SourceUnavailable,
 		"missing checkpoint metadata fails begin");
 
 	MemoryCheckpointSource malformed;
 	malformed.metadataValue.checkpointGeneration = 0;
 	RecordingWireSink malformedSink;
-	FullEngineCoopCampaignSyncServer malformedServer(malformed, malformedSink);
-	CHECK(malformedServer.beginSession(1) ==
+	const auto malformedServer =
+		std::make_unique<FullEngineCoopCampaignSyncServer>(
+			malformed, malformedSink);
+	CHECK(malformedServer->beginSession(1) ==
 		FullEngineCoopCampaignSyncServerResult::InvalidCheckpoint,
 		"invalid source descriptor fails begin");
 

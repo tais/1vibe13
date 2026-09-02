@@ -11,6 +11,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,11 @@ static_assert(MaximumFullEngineCoopClientInboundWireSize ==
 	MaximumCoopTacticalWireSize);
 static_assert(MaximumFullEngineCoopClientInboundWireSize >
 	MaximumCoopCampaignSyncWireSize);
+static_assert(sizeof(FullEngineCoopClientTransport) <= 1024,
+	"the heap-backed inbound FIFO must not consume the Windows thread stack");
+static_assert(std::is_nothrow_default_constructible<
+	FullEngineCoopClientTransport>::value,
+	"allocating the bounded FIFO must leave transport construction noexcept");
 
 #define CHECK(condition, message) do { \
 	if (!(condition)) { \

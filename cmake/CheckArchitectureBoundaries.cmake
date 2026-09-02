@@ -7811,8 +7811,9 @@ require_ordered_fragments(dedicated_live_listener_send_slice
   "const std::size_t frameBytes = 6 + std::strlen(messageName) + size"
   "transport_->PendingWriteBytes(recipient, pending)"
   "pending > maximumPendingWriteBytesPerConnection_"
-  "frameBytes > maximumPendingWriteBytesPerConnection_ - pending"
+  "frameBytes > maximumPendingWriteBytesPerConnection_"
   "closeConnection(recipient, false)"
+  "if (frameBytes > maximumPendingWriteBytesPerConnection_ - pending)\n\t\treturn false;"
   "transport_->SendMessage("
   "messageName, bytes, size, recipient, false)"
   "closeConnection(recipient, false)")
@@ -11318,7 +11319,8 @@ foreach(dedicated_live_client_transport_bound IN ITEMS
     "DefaultFullEngineCoopClientPendingWriteBytes ="
     "256u * 1024u"
     "MaximumFullEngineCoopClientTimeoutMilliseconds ="
-    "600000")
+    "600000"
+    "std::unique_ptr<InboundMessage[]> inbound_")
   string(FIND "${dedicated_live_client_transport_header_code}"
     "${dedicated_live_client_transport_bound}"
     dedicated_live_client_transport_bound_position)
@@ -11517,8 +11519,10 @@ require_ordered_fragments(dedicated_live_client_transport_queue_slice
   "message.sender == ja2::mp::AnyConnection"
   "validInbound(kind, message.size)"
   "message.data == nullptr"
+  "if (!inbound_)"
+  "FullEngineCoopClientTransportFailure::TransportFailure"
   "inboundCount_ >= maximumQueuedInboundMessages_"
-  "inboundCount_ >= inbound_.size()"
+  "inboundCount_ >= MaximumFullEngineCoopClientInboundMessages"
   "queued.kind = kind"
   "queued.sender = message.sender"
   "queued.size = message.size"

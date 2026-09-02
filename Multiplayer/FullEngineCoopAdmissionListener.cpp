@@ -409,11 +409,17 @@ bool FullEngineCoopAdmissionListener::sendToPeer(
 	const std::size_t frameBytes = 6 + std::strlen(messageName) + size;
 	if (!transport_->PendingWriteBytes(recipient, pending) ||
 		pending > maximumPendingWriteBytesPerConnection_ ||
-		frameBytes > maximumPendingWriteBytesPerConnection_ - pending)
+		frameBytes > maximumPendingWriteBytesPerConnection_)
 	{
 		closeConnection(recipient, false);
 		return false;
 	}
+	// The protocol coordinators retain and retry a frame when this boundary
+	// reports backpressure. A healthy socket whose SDL write queue is merely
+	// slow must therefore remain authenticated; only an impossible frame, an
+	// already-breached bound, or an actual transport write failure is terminal.
+	if (frameBytes > maximumPendingWriteBytesPerConnection_ - pending)
+		return false;
 	if (transport_->SendMessage(
 		messageName, bytes, size, recipient, false)) return true;
 	closeConnection(recipient, false);

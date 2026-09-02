@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <thread>
 
 namespace CoopSession
@@ -211,8 +212,10 @@ private:
 	ja2::mp::net::SdlNetPeer* transport_ = nullptr;
 	ja2::mp::ConnectionId server_;
 	ja2::mp::ConnectionId pendingAccepted_;
-	std::array<InboundMessage,
-		MaximumFullEngineCoopClientInboundMessages> inbound_{};
+	// Keep the bounded callback FIFO off the caller's stack. Its full payload
+	// capacity is almost 1 MiB, which exceeds the default Windows thread stack
+	// once an adapter is combined with ordinary connection state.
+	std::unique_ptr<InboundMessage[]> inbound_;
 	std::thread::id mainThread_;
 	std::size_t inboundHead_ = 0;
 	std::size_t inboundCount_ = 0;

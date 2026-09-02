@@ -20,7 +20,9 @@ bool SameName(const char* left, const char* right) noexcept
 }
 
 FullEngineCoopClientTransport::FullEngineCoopClientTransport() noexcept
-	: mainThread_(std::this_thread::get_id())
+	: inbound_(new (std::nothrow)
+		InboundMessage[MaximumFullEngineCoopClientInboundMessages]),
+	  mainThread_(std::this_thread::get_id())
 {
 }
 
@@ -67,6 +69,8 @@ FullEngineCoopClientTransport::connectInternal(
 		return FullEngineCoopClientTransportConnectResult::LifecycleBusy;
 	if (!validConfiguration(configuration))
 		return FullEngineCoopClientTransportConnectResult::InvalidConfiguration;
+	if (!inbound_)
+		return FullEngineCoopClientTransportConnectResult::TransportUnavailable;
 	if (client.beginConnection() != FullEngineCoopClientResult::Success)
 		return FullEngineCoopClientTransportConnectResult::ClientRejected;
 
@@ -400,8 +404,13 @@ void FullEngineCoopClientTransport::queueInbound(
 			FullEngineCoopClientTransportFailure::InboundMessageTooLarge);
 		return;
 	}
+	if (!inbound_)
+	{
+		failTransport(FullEngineCoopClientTransportFailure::TransportFailure);
+		return;
+	}
 	if (inboundCount_ >= maximumQueuedInboundMessages_ ||
-		inboundCount_ >= inbound_.size())
+		inboundCount_ >= MaximumFullEngineCoopClientInboundMessages)
 	{
 		failTransport(
 			FullEngineCoopClientTransportFailure::InboundCapacityReached);
@@ -409,7 +418,8 @@ void FullEngineCoopClientTransport::queueInbound(
 	}
 
 	const std::size_t insertion =
-		(inboundHead_ + inboundCount_) % inbound_.size();
+		(inboundHead_ + inboundCount_) %
+			MaximumFullEngineCoopClientInboundMessages;
 	InboundMessage& queued = inbound_[insertion];
 	queued = InboundMessage{};
 	queued.kind = kind;
@@ -482,11 +492,17 @@ void FullEngineCoopClientTransport::handleEvent(
 
 void FullEngineCoopClientTransport::deliverInbound() noexcept
 {
+	if (!inbound_)
+	{
+		failTransport(FullEngineCoopClientTransportFailure::TransportFailure);
+		return;
+	}
 	while (!closePending_ && inboundCount_ != 0)
 	{
 		InboundMessage message = inbound_[inboundHead_];
 		inbound_[inboundHead_] = InboundMessage{};
-		inboundHead_ = (inboundHead_ + 1) % inbound_.size();
+		inboundHead_ = (inboundHead_ + 1) %
+			MaximumFullEngineCoopClientInboundMessages;
 		--inboundCount_;
 		if (inboundCount_ == 0) inboundHead_ = 0;
 		if (message.sender != server_)
@@ -566,7 +582,12 @@ FullEngineCoopClientResult FullEngineCoopClientTransport::deliver(
 
 void FullEngineCoopClientTransport::clearInbound() noexcept
 {
-	inbound_ = {};
+	if (inbound_)
+	{
+		for (std::size_t index = 0;
+			index < MaximumFullEngineCoopClientInboundMessages; ++index)
+			inbound_[index] = InboundMessage{};
+	}
 	inboundHead_ = 0;
 	inboundCount_ = 0;
 }
@@ -700,7 +721,8 @@ bool FullEngineCoopClientTransport::validConfiguration(
 		configuration.timeoutMilliseconds <=
 			MaximumFullEngineCoopClientTimeoutMilliseconds &&
 		configuration.maximumQueuedInboundMessages != 0 &&
-		configuration.maximumQueuedInboundMessages <= inbound_.size() &&
+		configuration.maximumQueuedInboundMessages <=
+			MaximumFullEngineCoopClientInboundMessages &&
 		configuration.maximumPendingWriteBytes != 0 &&
 		configuration.maximumPendingWriteBytes <=
 			MaximumFullEngineCoopClientPendingWriteBytes;
