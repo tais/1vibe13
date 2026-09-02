@@ -1,4 +1,5 @@
 #include "TacticalActorDamageResolution.h"
+#include <limits>
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
 	#include "TacticalActorSkills.h"
@@ -1250,23 +1251,26 @@ BOOLEAN ModifyDoorStatus( INT32 sGridNo, BOOLEAN fOpen, BOOLEAN fPerceivedOpen )
 	//if there is an array
 	if( gpDoorStatus )
 	{
-		//Increment the number of doors
-		gubNumDoorStatus++;
-
-		//reallocate memory to hold the new door
-		gpDoorStatus = (DOOR_STATUS *) MemRealloc( gpDoorStatus, sizeof( DOOR_STATUS ) * gubNumDoorStatus );
-		if( gpDoorStatus == NULL )
+		if (gubNumDoorStatus == std::numeric_limits<UINT8>::max())
+			return FALSE;
+		const UINT8 newCount = static_cast<UINT8>(gubNumDoorStatus + 1);
+		// Commit pointer and count only after allocation succeeds. A failed
+		// realloc leaves the existing status table authoritative and reachable.
+		DOOR_STATUS* const resized = static_cast<DOOR_STATUS*>(
+			MemRealloc(gpDoorStatus, sizeof(DOOR_STATUS) * newCount));
+		if (resized == NULL)
 			return( FALSE );
-
+		gpDoorStatus = resized;
+		gubNumDoorStatus = newCount;
 	}
 	else
 	{
-		//Set the initial number of doors
-		gubNumDoorStatus = 1;
-
-		gpDoorStatus = (DOOR_STATUS *) MemAlloc( sizeof( DOOR_STATUS ) );
-		if( gpDoorStatus == NULL )
+		DOOR_STATUS* const allocated = static_cast<DOOR_STATUS*>(
+			MemAlloc(sizeof(DOOR_STATUS)));
+		if (allocated == NULL)
 			return( FALSE );
+		gpDoorStatus = allocated;
+		gubNumDoorStatus = 1;
 	}
 
 	gpDoorStatus[ gubNumDoorStatus-1 ].sGridNo = pBaseStructure->sGridNo;

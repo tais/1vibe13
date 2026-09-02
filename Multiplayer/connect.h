@@ -41,6 +41,14 @@ extern UINT8 netbTeam;
 extern UINT16 ubID_prefix;
 extern FLOAT cDamageMultiplier;
 
+// Client-side state for the coordinator's one-level serialized interrupt.
+// The tactical interrupt list itself is mutable engine state, so these latches
+// preserve the authenticated grant role/target across nested sighting attempts
+// and forced server releases.
+extern bool gMpSerializedInterruptActive;
+extern bool gMpLocalSerializedInterruptHolder;
+extern SoldierID gMpSerializedInterruptTarget;
+
 //OJW - 20081218
 extern UINT8 gRandomStartingEdge;
 extern UINT8 gRandomMercs;
@@ -67,6 +75,7 @@ extern UINT8 cMaxMercs;
 void lockui (bool unlock);
 
 void start_battle ( void );
+void mp_broadcast_force_start ( void );
 enum { ADMIN_CMD_AUTH = 1, ADMIN_CMD_START = 2 };
 void send_admin_cmd(UINT8 cmd, const char* password);
 extern bool gfIAmAdmin;
@@ -99,6 +108,9 @@ void send_path (  TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementA
 void send_stance ( TacticalActor *pSoldier, UINT8 ubDesiredStance );
 void send_dir ( TacticalActor *pSoldier, UINT16 usDesiredDirection );
 void send_fire( TacticalActor *pSoldier, INT32 sTargetGridNo );
+// Server-only causal marker for attacks (notably TOSSCURS throws) that begin
+// locally without the replicated BEGINFIRE animation RPC.
+void send_attack_start( TacticalActor *pSoldier );
 void send_hit(  EV_S_WEAPONHIT *SWeaponHit  );
 void send_bullet(  BULLET * pBullet, UINT16 usHandItem); 
 void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContractLength, BOOLEAN fCopyProfileItemsOver);
@@ -108,12 +120,18 @@ void send_gui_pos(TacticalActor *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos);
 void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection);
 
 void send_EndTurn( UINT8 ubNextTeam );
+// Embedded client/server share one process. Record send-time interrupt
+// provenance so the authority can distinguish a delayed pre-resume announcement
+// from a fresh host EndTurn without extending the legacy two-byte wire packet.
+void RecordLegacyEmbeddedHostEndTurnProvenance( UINT8 ubNextTeam );
 
 void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct );
 
 void send_stop (EV_S_STOP_MERC *SStopMerc);
 
-void send_interrupt(TacticalActor *pSoldier);
+void send_interrupt(
+	TacticalActor *pSoldier,
+	TacticalActor *pInterruptedSoldier = nullptr);
 void end_interrupt( BOOLEAN fMarkInterruptOccurred );
 
 // non-zero while the server arbiter has paused our turn for an enemy interrupt;
@@ -131,6 +149,13 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 void send_grenade_result (float xPos, float yPos, float zPos, INT32 sGridNo, SoldierID ubOwnerID, INT32 iRealObjectID, bool bIsDud);
 void send_plant_explosive ( SoldierID ubID,UINT16 usItem,UINT8 ubItemStatus,UINT16 usFlags, UINT32 sGridNo,UINT8 ubLevel, UINT32 uiWorldIndex);
 void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID);
+// Embedded host loopback registration proves a shared pre-placed bomb while it
+// is still live. The server later consumes the exact queued proof even if the
+// local engine has already removed the item before parsing its wire packet.
+bool RegisterLegacyEmbeddedHostSharedBombDetonation(
+	UINT32 uiWorldIndex, SoldierID ubID);
+bool RegisterLegacyEmbeddedHostSharedBombDisarm(
+	UINT32 sGridNo, UINT32 uiWorldIndex, SoldierID ubID);
 void send_spreadeffect ( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwner, BOOLEAN fSubsequent, INT8 bLevel, INT32 iSmokeEffectID );
 void send_newsmokeeffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwner, INT32 iSmokeEffectID);
 void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner );
@@ -259,6 +284,14 @@ inline SoldierID MPDecodeSoldierID( SoldierID ubID )
 inline bool IsOurSoldier (TacticalActor* pSoldier)
 {
 	return pSoldier->roster().team() == netbTeam || pSoldier->roster().team() == 0;
+}
+
+inline bool IsLocallyControlledMultiplayerActor(TacticalActor* actor)
+{
+	if (!actor) return false;
+	const int team = actor->roster().team();
+	return IsOurSoldier(actor) ||
+		(is_server && team > 0 && team < 6);
 }
 
 inline bool IsOurSoldier (UINT16 ubID)

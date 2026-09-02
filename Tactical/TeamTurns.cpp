@@ -15,6 +15,7 @@
 #include "TacticalActorModifiers.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalInterruptHost.h"
 	#include "Overhead.h"
 	#include "Animation Control.h"
 	#include "Points.h"
@@ -151,6 +152,17 @@ void ClearIntList( void )
 	memset( gubOutOfTurnOrder, 0, sizeof(gubOutOfTurnOrder) );   // UINT16[] -> byte size, not element count (was half-cleared)
 	gubOutOfTurnOrder[0] = END_OF_INTERRUPTS;
 	gubOutOfTurnPersons = 0;
+	NotifyJa2TacticalInterruptCleared();
+}
+
+static void RestoreSerializedInterruptBaseQueue()
+{
+	if (!gMpSerializedInterruptActive ||
+		gMpSerializedInterruptTarget == NOBODY) return;
+	ClearIntList();
+	gubOutOfTurnOrder[1] = gMpSerializedInterruptTarget.i;
+	gubOutOfTurnPersons = 1;
+	gubLastInterruptedGuy = gMpSerializedInterruptTarget;
 }
 
 BOOLEAN BloodcatsPresent( void )
@@ -945,6 +957,7 @@ void StartInterrupt( void )
 	//DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: %d is now on top of the interrupt queue", ubFirstInterrupter ) );
 
 	gTacticalStatus.fInterruptOccurred = TRUE;
+	NotifyJa2TacticalInterruptStarted();
 
 	for ( SoldierID id = 0; id < MAX_NUM_SOLDIERS; ++id )
 	{
@@ -1280,6 +1293,13 @@ void EndInterrupt(
 		!IsReplaySimulationCommandExecutionActive();
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndInterrupt");
+	// Network coordinators intentionally serialize one interrupt level. If the
+	// legacy engine discovered a nested third-team interrupt while this grant
+	// was active, discard only that nested mutation and restore the exact paused
+	// actor. This lets the current holder finish and release instead of sending
+	// an unsupported request and wedging its local INTERRUPT_QUEUED state.
+	if (is_networked && gMpSerializedInterruptActive)
+		RestoreSerializedInterruptBaseQueue();
 
 	for ( UINT16 cnt = gubOutOfTurnPersons; cnt > 0; cnt-- )
 	{
@@ -1357,7 +1377,8 @@ void EndInterrupt(
 			{
 				if (replicateInterrupt)
 					send_interrupt( npSoldier );
-				StartInterrupt();
+				else
+					StartInterrupt();
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s and AI", TeamNameStrings[npSoldier->roster().team()] );//tried to use pSoldier, but its not available. find another way to get correct team
 
 			}
@@ -1366,8 +1387,7 @@ void EndInterrupt(
 				//hayden
 				if (replicateInterrupt)
 					send_interrupt( npSoldier );
-
-				if ( nbTeam != 0 )
+				else if ( nbTeam != 0 )
 					intAI( npSoldier );
 				else
 					StartInterrupt();
@@ -1387,9 +1407,10 @@ void EndInterrupt(
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s", TeamNameStrings[npSoldier->roster().team()] );//this can be simplified if above comment is implemented
 				//ClearIntList();
 				//hayden//may need more work.
-				StartInterrupt();
 				if (replicateInterrupt)
 					send_interrupt( npSoldier ); //
+				else
+					StartInterrupt();
 			}
 		}
 	}
@@ -1446,7 +1467,7 @@ void EndInterrupt(
 		// the server" hang). Only the holder sends: the interrupted soldier is on
 		// another player's team here.
 		if ( replicateInterrupt && is_networked && is_client &&
-			pSoldier->roster().team() != gbPlayerNum )
+			gMpLocalSerializedInterruptHolder )
 		{
 			end_interrupt( fMarkInterruptOccurred );
 		}
@@ -1560,7 +1581,8 @@ void EndInterrupt(
 			}
 
 		}
-		else if (!is_networked || (pSoldier->roster().team() < 6))//hayden : is Ai or LAN ?
+		else if (!is_networked ||
+			(is_server && pSoldier->roster().team() < 6))
 		{
 			// this could be set to true for AI-vs-AI interrupts
 			gfHiddenInterrupt = FALSE;
@@ -2565,6 +2587,11 @@ void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT8 ubInt
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"DoneAddingToIntList");
 	if (fChange)
 	{
+		if (is_networked && gMpSerializedInterruptActive)
+		{
+			RestoreSerializedInterruptBaseQueue();
+			return;
+		}
 		VerifyOutOfTurnOrderArray();
 		if ( EveryoneInInterruptListOnSameTeam() )
 		{
@@ -2597,8 +2624,11 @@ void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT8 ubInt
 				//npSoldier is interruptor
 				//hayden
 
-				// INTERRUPT is calculated on the server
-				if ((nbTeam > 0) && (nbTeam <6 ) && is_server) //is for AI and are server
+				// Only the process that owns the interrupting actor authors the
+				// request. Every requester clears its speculative local queue and
+				// reconstructs it exclusively from the serialized grant, so a denied
+				// request cannot leave INTERRUPT_QUEUED latched forever.
+				if ((nbTeam > 0) && (nbTeam < 6) && is_server)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s is interrupt by AI", TeamNameStrings[pSoldier->roster().team()]);
 					
@@ -2606,62 +2636,22 @@ void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT8 ubInt
 					if (pSoldier->roster().team() == 0)
 						AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ nbTeam ] );
 
-					send_interrupt( npSoldier );
-					StartInterrupt();
+					send_interrupt( npSoldier, pSoldier );
+					ClearIntList();
 
 				}
-				// INTERRUPT is calculated on the server
-				else if(is_server && GetJa2TacticalCurrentTeam() == 1)//  against ai and are server
+				else if (nbTeam == 0)
 				{
-					//hayden
-					send_interrupt( npSoldier ); //
-					if(nbTeam !=0)
-						intAI(npSoldier);						
-					else 
-						StartInterrupt();//
-					
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"AI is interrupted by %s", TeamNameStrings[npSoldier->roster().team()]);
-				}
-				// INTERRUPT is calculated on the pure client
-				else if(GetJa2TacticalCurrentTeam() == 0)//its our turn (we are moving)
-				{																	
-#ifdef	INTERRUPT_MP_DEADLOCK_FIX
-					// Do nothing
-#else
-					if (cGameType == MP_TYPE_COOP)
-						ScreenMsg( FONT_MCOLOR_LTRED, MSG_INTERFACE, MPClientMessage[79]);
-#endif
+					if (!is_server)
+						mp_log_soldier(npSoldier,
+							"REQUESTING interrupt from the server");
+					send_interrupt( npSoldier, pSoldier );
+					ClearIntList();
 
-					send_interrupt( npSoldier );
-
-
-					TacticalActor* pMerc =
-						GetJa2SoldierRepository().resolve(
-							gusSelectedSoldier.i);
-					// TacticalActorRouteExecution::setOutOfActionPoints(*pMerc, true);
-					if (pMerc)
-					{
-						(void)TacticalActorRouteExecution::haltForSighting(*pMerc, true);
-					}
-					//pMerc->fTurningFromPronePosition = FALSE;// hmmm ??
-					FreezeInterfaceForEnemyTurn();
-					InitEnemyUIBar( 0, 0 );
-					fInterfacePanelDirty = DIRTYLEVEL2;
-					AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ nbTeam ] );
-					gTacticalStatus.fInterruptOccurred = TRUE;
-
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"You have interrupted %s", TeamNameStrings[npSoldier->roster().team()]);
-				}
-				// Coordinator MP: OUR merc (nbTeam==0) gets the interrupt during the
-				// opponent's turn. There is no is_server host to award it, so REQUEST it
-				// from the coordinator and WAIT -- do NOT take control locally. We act on
-				// the server's recieveINTERRUPT grant (it grants one at a time, so turn
-				// ownership can't diverge). Without this a pure client just ClearIntList'd
-				// and interrupts never fired over the standalone server.
-				else if ( is_networked && !is_server && nbTeam == 0 )
-				{
-					mp_log_soldier( npSoldier, "REQUESTING interrupt from the server" );
-					send_interrupt( npSoldier );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE,
+						L"%s is interrupted by %s",
+						TeamNameStrings[pSoldier->roster().team()],
+						TeamNameStrings[npSoldier->roster().team()]);
 				}
 				else
 				{

@@ -2,6 +2,7 @@
 #include "CoopTacticalAuthority.h"
 #include "CoopTacticalIntent.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -21,8 +22,14 @@ static_assert(noexcept(std::declval<TacticalIntentAuthority&>().authorize(
 	std::declval<const TransportPeer&>(), std::declval<const TacticalIntent&>())));
 static_assert(noexcept(std::declval<TacticalIntentAuthority&>().bindActor(
 	std::declval<const PeerIdentity&>(), TacticalEntityId{})));
+static_assert(noexcept(
+	std::declval<const TacticalIntentAuthority&>().canRetirePeerSequence(
+		std::declval<const PeerIdentity&>())));
+static_assert(noexcept(
+	std::declval<TacticalIntentAuthority&>().retirePeerSequence(
+		std::declval<const PeerIdentity&>())));
 static_assert(TacticalIntentHeaderWireSize == 72);
-static_assert(MaximumTacticalIntentWireSize == 79);
+static_assert(MaximumTacticalIntentWireSize == 80);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -97,6 +104,21 @@ AdmissionRequest Reconnect(
 	return request;
 }
 
+AdmissionResponse AdmitAndAck(AdmissionRegistry& admission,
+	const TransportPeer& sender, const AdmissionRequest& request)
+{
+	const AdmissionResponse response = admission.admit(sender, request);
+	if (!response.admitted()) return response;
+	AdmissionAck acknowledgement;
+	acknowledgement.sessionEpoch = request.sessionEpoch;
+	acknowledgement.peerIdentity = response.peerIdentity;
+	acknowledgement.reconnectToken = response.reconnectToken;
+	CHECK(admission.acknowledge(sender, acknowledgement) ==
+		AdmissionRejectReason::None,
+		"test admission binding ACK succeeds");
+	return response;
+}
+
 TacticalAuthorityContext Context(std::uint64_t epoch = 0x101)
 {
 	return TacticalAuthorityContext{epoch, 7, 20, 3};
@@ -142,6 +164,27 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 		return face->direction == std::get<FaceTacticalIntent>(right.payload).direction;
 	if (const auto* stance = std::get_if<StanceTacticalIntent>(&left.payload))
 		return stance->stance == std::get<StanceTacticalIntent>(right.payload).stance;
+	if (const auto* attack =
+		std::get_if<AimedFirearmAttackTacticalIntent>(&left.payload))
+	{
+		const auto& other =
+			std::get<AimedFirearmAttackTacticalIntent>(right.payload);
+		return attack->target == other.target &&
+			attack->aimTime == other.aimTime;
+	}
+	if (const auto* door =
+		std::get_if<DoorOpenCloseTacticalIntent>(&left.payload))
+	{
+		const auto& other =
+			std::get<DoorOpenCloseTacticalIntent>(right.payload);
+		return door->baseGrid == other.baseGrid &&
+			door->structureId == other.structureId &&
+			door->desiredOpen == other.desiredOpen;
+	}
+	if (const auto* pass =
+		std::get_if<PassInterruptTacticalIntent>(&left.payload))
+		return pass->interruptSerial ==
+			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
 	return true;
 }
 
@@ -172,10 +215,10 @@ void TestIntentCodec()
 	std::vector<std::uint8_t> bytes;
 	CHECK(EncodeTacticalIntent(intent, bytes) == TacticalIntentCodecResult::Success,
 		"canonical move intent encodes");
-	CHECK(bytes.size() == 79, "move intent is exact maximum wire size");
+	CHECK(bytes.size() == 79, "move intent has its exact wire size");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'I',
 		"intent magic is byte exact");
-	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"intent version, kind, and reserved byte are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 	{
@@ -225,7 +268,7 @@ void TestIntentCodec()
 	CHECK(DecodeTacticalIntent(malformed, decoded) == TacticalIntentCodecResult::Invalid,
 		"wrong intent magic is rejected");
 	malformed = bytes;
-	malformed[4] = 2;
+	malformed[4] = 4;
 	CHECK(DecodeTacticalIntent(malformed, decoded) ==
 		TacticalIntentCodecResult::UnsupportedVersion,
 		"unsupported intent version is explicit");
@@ -251,12 +294,18 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 5> payloads{{
+	const std::array<PayloadCase, 9> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
 		{StopTacticalIntent{}, 72},
-		{EndTurnTacticalIntent{}, 72}}};
+		{EndTurnTacticalIntent{}, 72},
+		{AimedFirearmAttackTacticalIntent{
+			TacticalEntityId{0x1234, 0x50607080}, 6}, 79},
+		{ReloadTacticalIntent{}, 72},
+		{DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79},
+		{PassInterruptTacticalIntent{
+			UINT64_C(0x0807060504030201)}, 80}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;
@@ -272,6 +321,72 @@ void TestIntentCodec()
 			TacticalIntentCodecResult::Success && SameIntent(candidate, output),
 			"every closed intent payload round trips");
 	}
+	TacticalIntent attackIntent = intent;
+	attackIntent.payload = AimedFirearmAttackTacticalIntent{
+		TacticalEntityId{0x1234, 0x50607080}, 6};
+	std::vector<std::uint8_t> attackBytes;
+	CHECK(EncodeTacticalIntent(attackIntent, attackBytes) ==
+			TacticalIntentCodecResult::Success && attackBytes.size() == 79 &&
+		attackBytes[6] == 6 && attackBytes[70] == 7 &&
+		attackBytes[72] == 0x34 && attackBytes[73] == 0x12 &&
+		attackBytes[74] == 0x80 && attackBytes[75] == 0x70 &&
+		attackBytes[76] == 0x60 && attackBytes[77] == 0x50 &&
+		attackBytes[78] == 6,
+		"aimed firearm target identity and aim are byte exact");
+	TacticalIntent reloadIntent = intent;
+	reloadIntent.payload = ReloadTacticalIntent{};
+	std::vector<std::uint8_t> reloadBytes;
+	CHECK(EncodeTacticalIntent(reloadIntent, reloadBytes) ==
+			TacticalIntentCodecResult::Success && reloadBytes.size() == 72 &&
+		reloadBytes[6] == 7 && reloadBytes[70] == 0 && reloadBytes[71] == 0,
+		"reload is a byte-exact zero-payload intent");
+	TacticalIntent doorIntent = intent;
+	doorIntent.payload = DoorOpenCloseTacticalIntent{
+		INT32_C(0x04030201), UINT16_C(0x0605), true};
+	std::vector<std::uint8_t> doorBytes;
+	CHECK(EncodeTacticalIntent(doorIntent, doorBytes) ==
+			TacticalIntentCodecResult::Success && doorBytes.size() == 79 &&
+		doorBytes[6] == 8 && doorBytes[70] == 7 &&
+		doorBytes[72] == 1 && doorBytes[73] == 2 &&
+		doorBytes[74] == 3 && doorBytes[75] == 4 &&
+		doorBytes[76] == 5 && doorBytes[77] == 6 &&
+		doorBytes[78] == 1,
+		"door logical grid, structure token, and desired state are byte exact");
+	std::vector<std::uint8_t> malformedDoor = doorBytes;
+	malformedDoor[78] = 2;
+	CHECK(DecodeTacticalIntent(malformedDoor, decoded) ==
+		TacticalIntentCodecResult::Invalid,
+		"noncanonical desired-door-state boolean is rejected");
+	TacticalIntent passIntent = intent;
+	passIntent.payload = PassInterruptTacticalIntent{
+		UINT64_C(0x0807060504030201)};
+	std::vector<std::uint8_t> passBytes;
+	CHECK(EncodeTacticalIntent(passIntent, passBytes) ==
+			TacticalIntentCodecResult::Success && passBytes.size() == 80 &&
+		passBytes[6] == 9 && passBytes[70] == 8 && passBytes[71] == 0 &&
+		passBytes[72] == 1 && passBytes[73] == 2 &&
+		passBytes[74] == 3 && passBytes[75] == 4 &&
+		passBytes[76] == 5 && passBytes[77] == 6 &&
+		passBytes[78] == 7 && passBytes[79] == 8,
+		"interrupt pass carries its exact serial in the bounded maximum frame");
+	for (std::size_t size = 0; size < passBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(passBytes.data(), size, output) !=
+				TacticalIntentCodecResult::Success &&
+			output.commandId == sentinel.commandId,
+			"every truncated maximum-size interrupt pass rejects transactionally");
+	}
+	std::vector<std::uint8_t> oversizedPass = passBytes;
+	oversizedPass.push_back(0);
+	CHECK(DecodeTacticalIntent(oversizedPass, decoded) ==
+		TacticalIntentCodecResult::Invalid,
+		"an interrupt pass beyond the global intent bound is rejected");
+	std::vector<std::uint8_t> zeroPass = passBytes;
+	std::fill(zeroPass.begin() + 72, zeroPass.end(), 0);
+	CHECK(DecodeTacticalIntent(zeroPass, decoded) ==
+		TacticalIntentCodecResult::Invalid,
+		"a zero interrupt serial is rejected");
 
 	std::vector<std::uint8_t> unchanged{0xaa, 0xbb};
 	TacticalIntent invalid = intent;
@@ -291,6 +406,27 @@ void TestIntentCodec()
 	invalid = intent;
 	invalid.payload = StanceTacticalIntent{static_cast<TacticalIntentStance>(9)};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid), "unknown stance is rejected");
+	invalid = intent;
+	invalid.payload = AimedFirearmAttackTacticalIntent{
+		TacticalEntityId{}, 1};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid),
+		"unresolved firearm target is rejected");
+	invalid = intent;
+	invalid.payload = AimedFirearmAttackTacticalIntent{
+		TacticalEntityId{2, 1},
+		static_cast<std::uint8_t>(MaximumTacticalFirearmAimTime + 1)};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid),
+		"out-of-range firearm aim is rejected");
+	invalid = intent;
+	invalid.payload = DoorOpenCloseTacticalIntent{-1, 1, true};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid),
+		"negative logical door grid is rejected");
+	invalid.payload = DoorOpenCloseTacticalIntent{100, 0, true};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid),
+		"zero door structure token is rejected");
+	invalid.payload = PassInterruptTacticalIntent{};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid),
+		"zero interrupt-pass serial is rejected");
 }
 
 void TestAuthorityConfigurationAndBindings()
@@ -381,8 +517,10 @@ void TestAuthorityAuthorization()
 	const TransportPeer senderA{5001};
 	const TransportPeer senderB{5002};
 	const TransportPeer senderC{5003};
-	const AdmissionResponse peerA = admission.admit(senderA, FirstJoin(configuration));
-	const AdmissionResponse peerB = admission.admit(senderB, FirstJoin(configuration));
+	const AdmissionResponse peerA = AdmitAndAck(
+		admission, senderA, FirstJoin(configuration));
+	const AdmissionResponse peerB = AdmitAndAck(
+		admission, senderB, FirstJoin(configuration));
 	CHECK(peerA.admitted() && peerB.admitted(), "two peers are admitted");
 
 	TacticalIntentAuthority authority(admission);
@@ -402,6 +540,8 @@ void TestAuthorityAuthorization()
 		"first owned command is authorized");
 	CHECK(result.peerIdentity == peerA.peerIdentity && result.commandId == 1,
 		"authorization returns server-resolved peer and command ID");
+	CHECK(result.commandConsumed && result.nextExpectedCommandId == 2,
+		"authorized command consumes exactly one admission-epoch ID");
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::DuplicateCommand,
 		"accepted command cannot be replayed");
@@ -412,55 +552,86 @@ void TestAuthorityAuthorization()
 
 	command.commandId = 2;
 	command.actor = actorB;
-	CheckReason(authority.authorize(senderA, command),
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::ActorNotOwned,
 		"peer cannot command another peer's actor");
+	CHECK(result.commandConsumed && result.nextExpectedCommandId == 3,
+		"terminal actor rejection consumes its exact expected ID");
+	result = authority.authorize(senderA, command);
+	CheckReason(result, TacticalIntentAuthorizationReason::DuplicateCommand,
+		"replaying a terminal rejection is duplicate before later ACL checks");
+	CHECK(!result.commandConsumed && result.nextExpectedCommandId == 3,
+		"duplicate rejection cannot consume the command twice");
 	command.actor = actorA;
 	command.claimedPeerIdentity = peerB.peerIdentity;
-	CheckReason(authority.authorize(senderA, command),
+	command.commandId = 3;
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::ClaimedIdentityMismatch,
 		"payload identity cannot spoof transport-bound peer");
+	CHECK(result.commandConsumed && result.nextExpectedCommandId == 4,
+		"terminal claimed-identity rejection consumes at most once");
 	command.claimedPeerIdentity = peerA.peerIdentity;
 	command.commandId = 0;
-	CheckReason(authority.authorize(senderA, command),
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::InvalidCommandId,
 		"zero command identifier is rejected explicitly");
-	command.commandId = 2;
+	CHECK(!result.commandConsumed && result.nextExpectedCommandId == 0,
+		"zero command identifier never consumes or exposes a false cursor");
+	command.commandId = 4;
 	command.payload = FaceTacticalIntent{8};
-	CheckReason(authority.authorize(senderA, command),
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::InvalidIntent,
 		"direct callers cannot bypass structural intent validation");
+	CHECK(!result.commandConsumed,
+		"structurally invalid intent does not consume the expected ID");
 	command.payload = StopTacticalIntent{};
 
 	command.worldGeneration = 8;
-	CheckReason(authority.authorize(senderA, command),
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::WrongGeneration,
 		"wrong world generation is rejected");
+	CHECK(result.commandConsumed && result.nextExpectedCommandId == 5,
+		"current-epoch wrong-generation command terminates ID four");
 	command.worldGeneration = 7;
+	command.commandId = 5;
 	command.baseRevision = 19;
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::StaleRevision,
 		"stale base revision is rejected");
+	command.commandId = 6;
 	command.baseRevision = 21;
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::FutureRevision,
 		"future base revision is rejected");
+	command.commandId = 7;
 	command.baseRevision = 20;
 	command.turnSerial = 2;
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::StaleTurn,
 		"stale turn serial is rejected");
+	command.commandId = 8;
 	command.turnSerial = 4;
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::FutureTurn,
 		"future turn serial is rejected");
+	command.commandId = 9;
 	command.turnSerial = 3;
-	CheckReason(authority.authorize(senderA, command),
+	result = authority.authorize(senderA, command);
+	CheckReason(result,
 		TacticalIntentAuthorizationReason::None,
-		"rejected attempts do not consume the command identifier");
+		"next unused ID authorizes after terminally consumed rejections");
+	CHECK(result.nextExpectedCommandId == 10,
+		"authority reports the exact cursor after mixed terminal outcomes");
 
 	TacticalIntent peerBCommand = Intent(peerB.peerIdentity, 1, actorB);
-	CheckReason(authority.authorize(senderA, peerBCommand),
+	TacticalIntent peerASpoof = peerBCommand;
+	peerASpoof.commandId = 10;
+	CheckReason(authority.authorize(senderA, peerASpoof),
 		TacticalIntentAuthorizationReason::ClaimedIdentityMismatch,
 		"sender A cannot submit peer B envelope");
 	CheckReason(authority.authorize(senderC, peerBCommand),
@@ -471,11 +642,11 @@ void TestAuthorityAuthorization()
 		"peer command sequences are independent");
 
 	admission.disconnect(senderA);
-	command.commandId = 3;
+	command.commandId = 11;
 	CheckReason(authority.authorize(senderA, command),
 		TacticalIntentAuthorizationReason::NotAdmitted,
 		"disconnect immediately removes command authority");
-	const AdmissionResponse rebound = admission.admit(
+	const AdmissionResponse rebound = AdmitAndAck(admission,
 		senderC, Reconnect(configuration, peerA));
 	CHECK(rebound.admitted() && rebound.peerIdentity == peerA.peerIdentity,
 		"credential reconnects peer on a new transport");
@@ -490,15 +661,32 @@ void TestAuthorityAuthorization()
 		TacticalAuthorityConfigurationResult::Success,
 		"generation barrier starts after reconnect");
 	TacticalIntent generationCommand = Intent(
-		peerA.peerIdentity, 4, actorA, TacticalAuthorityContext{0x101, 8, 1, 1});
+		peerA.peerIdentity, 12, actorA, TacticalAuthorityContext{0x101, 8, 1, 1});
 	CheckReason(authority.authorize(senderC, generationCommand),
 		TacticalIntentAuthorizationReason::ActorNotOwned,
 		"generation barrier requires fresh actor binding");
 	CHECK(authority.bindActor(peerA.peerIdentity, actorA) ==
 		TacticalActorBindingResult::Success, "actor rebinds in new generation");
+	generationCommand.commandId = 13;
 	CheckReason(authority.authorize(senderC, generationCommand),
 		TacticalIntentAuthorizationReason::None,
 		"command sequence remains session-monotonic across generation");
+	CHECK(authority.beginSession(TacticalAuthorityContext{}) ==
+		TacticalAuthorityConfigurationResult::InvalidContext &&
+		authority.beginSession(
+			TacticalAuthorityContext{0x101, 9, 1, 1}) ==
+			TacticalAuthorityConfigurationResult::Success,
+		"tactical context teardown and reactivation preserve admission ordering");
+	CHECK(authority.bindActor(peerA.peerIdentity, actorA) ==
+		TacticalActorBindingResult::Success,
+		"reactivated tactical context receives fresh actor ACL");
+	TacticalIntent reactivated = Intent(peerA.peerIdentity, 14, actorA,
+		TacticalAuthorityContext{0x101, 9, 1, 1});
+	result = authority.authorize(senderC, reactivated);
+	CheckReason(result, TacticalIntentAuthorizationReason::None,
+		"reactivated tactical world continues the epoch-wide command cursor");
+	CHECK(result.nextExpectedCommandId == 15,
+		"reactivated authority exposes its retained next command ID");
 }
 
 void TestAuthoritySessionResetAndPeerBound()
@@ -517,7 +705,8 @@ void TestAuthoritySessionResetAndPeerBound()
 	{
 		senders[index] = TransportPeer{
 			static_cast<std::uint64_t>(6000 + index)};
-		peers[index] = admission.admit(senders[index], FirstJoin(first));
+		peers[index] = AdmitAndAck(
+			admission, senders[index], FirstJoin(first));
 		CHECK(peers[index].admitted(), "fixed peer registry admits declared capacity");
 		const TacticalEntityId actor{static_cast<std::uint16_t>(index), 1};
 		CHECK(authority.bindActor(peers[index].peerIdentity, actor) ==
@@ -537,7 +726,8 @@ void TestAuthoritySessionResetAndPeerBound()
 	CHECK(authority.actorBindingCount() == 0,
 		"new session clears every prior actor binding");
 	const TransportPeer newSender{7000};
-	const AdmissionResponse newPeer = admission.admit(newSender, FirstJoin(second));
+	const AdmissionResponse newPeer = AdmitAndAck(
+		admission, newSender, FirstJoin(second));
 	CHECK(newPeer.admitted(), "new session issues a fresh peer identity");
 	const TacticalEntityId actor{20, 1};
 	CHECK(authority.bindActor(newPeer.peerIdentity, actor) ==
@@ -549,6 +739,95 @@ void TestAuthoritySessionResetAndPeerBound()
 		"new session resets command sequence to one");
 }
 
+void TestRetiredPeerSequenceCompactionAndChurn()
+{
+	SequentialTokenSource tokens;
+	AdmissionRegistry admission(&tokens);
+	const AuthorityConfiguration configuration = Configuration(0x251);
+	admission.beginSession(configuration);
+	const TacticalAuthorityContext context{0x251, 4, 5, 6};
+	TacticalIntentAuthority authority(admission);
+	CHECK(authority.beginSession(context) ==
+		TacticalAuthorityConfigurationResult::Success,
+		"retirement churn authority starts");
+
+	struct LiveSlot
+	{
+		TransportPeer transport;
+		AdmissionResponse admission;
+		std::uint64_t nextCommandId = 1;
+	};
+	std::array<LiveSlot, MaximumAuthorityPeers> live{};
+	for (std::size_t index = 0; index < live.size(); ++index)
+	{
+		live[index].transport = TransportPeer{UINT64_C(9000) + index};
+		live[index].admission = AdmitAndAck(admission,
+			live[index].transport, FirstJoin(configuration));
+		const TacticalEntityId actor{
+			static_cast<std::uint16_t>(100 + index), 1};
+		CHECK(live[index].admission.admitted() &&
+			authority.bindActor(live[index].admission.peerIdentity, actor) ==
+				TacticalActorBindingResult::Success,
+			"churn fixture admits and binds each initial peer");
+		const TacticalIntentAuthorizationResult authorized = authority.authorize(
+			live[index].transport, Intent(live[index].admission.peerIdentity,
+				live[index].nextCommandId, actor, context));
+		CHECK(authorized && authorized.nextExpectedCommandId == 2,
+			"every initial identity consumes an authority sequence slot");
+		++live[index].nextCommandId;
+	}
+	CHECK(authority.peerSequenceCount() == MaximumAuthorityPeers,
+		"authority sequence table reaches its fixed live-peer capacity");
+
+	for (std::size_t cycle = 0; cycle < 8; ++cycle)
+	{
+		const std::size_t victim = cycle % live.size();
+		const std::uint64_t requestId = UINT64_C(0x1000) + cycle;
+		const AdmissionSelfRetirementRegistryBegin begun =
+			admission.beginSelfRetirement(live[victim].transport,
+				configuration.sessionEpoch, requestId);
+		CHECK(begun.result ==
+				AdmissionSelfRetirementRegistryResult::Success &&
+			begun.peerIdentity == live[victim].admission.peerIdentity &&
+			admission.completeSelfRetirement(
+				begun.peerIdentity, requestId) ==
+					AdmissionSelfRetirementRegistryResult::Success,
+			"authenticated victim self-retires before sequence compaction");
+		CHECK(authority.canRetirePeerSequence(begun.peerIdentity) &&
+			authority.retirePeerSequence(begun.peerIdentity) &&
+			authority.peerSequenceCount() == MaximumAuthorityPeers - 1 &&
+			authority.retirePeerSequence(begun.peerIdentity) &&
+			authority.peerSequenceCount() == MaximumAuthorityPeers - 1,
+			"tombstone-gated assigned-peer ACL/sequence compaction is exact and idempotent");
+
+		live[victim] = LiveSlot{};
+		live[victim].transport = TransportPeer{UINT64_C(10000) + cycle};
+		live[victim].admission = AdmitAndAck(admission,
+			live[victim].transport, FirstJoin(configuration));
+		CHECK(live[victim].admission.admitted(),
+			"a distinct identity takes the freed live admission seat");
+
+		for (std::size_t index = 0; index < live.size(); ++index)
+		{
+			const TacticalEntityId actor{
+				static_cast<std::uint16_t>(100 + index), 1};
+			CHECK(authority.bindActor(live[index].admission.peerIdentity, actor) ==
+				TacticalActorBindingResult::Success,
+				"survivor and replacement ACLs rebuild after compaction");
+			const std::uint64_t expected = live[index].nextCommandId;
+			const TacticalIntentAuthorizationResult authorized = authority.authorize(
+				live[index].transport, Intent(live[index].admission.peerIdentity,
+					expected, actor, context));
+			CHECK(authorized && authorized.commandConsumed &&
+				authorized.nextExpectedCommandId == expected + 1,
+				"survivor cursor is unchanged and replacement starts fresh at one");
+			++live[index].nextCommandId;
+		}
+		CHECK(authority.peerSequenceCount() == MaximumAuthorityPeers,
+			"each replacement reuses exactly the freed authority slot");
+	}
+}
+
 void TestAdmissionEpochCannotOutrunAuthority()
 {
 	SequentialTokenSource tokens;
@@ -556,7 +835,8 @@ void TestAdmissionEpochCannotOutrunAuthority()
 	AuthorityConfiguration first = Configuration(0x301);
 	admission.beginSession(first);
 	const TransportPeer firstSender{8001};
-	const AdmissionResponse firstPeer = admission.admit(firstSender, FirstJoin(first));
+	const AdmissionResponse firstPeer = AdmitAndAck(
+		admission, firstSender, FirstJoin(first));
 	CHECK(firstPeer.admitted(), "first epoch peer is admitted");
 
 	TacticalIntentAuthority authority(admission);
@@ -570,7 +850,8 @@ void TestAdmissionEpochCannotOutrunAuthority()
 	AuthorityConfiguration second = Configuration(0x302);
 	admission.beginSession(second);
 	const TransportPeer secondSender{8002};
-	const AdmissionResponse secondPeer = admission.admit(secondSender, FirstJoin(second));
+	const AdmissionResponse secondPeer = AdmitAndAck(
+		admission, secondSender, FirstJoin(second));
 	CHECK(secondPeer.admitted(), "second epoch peer is admitted");
 	const TacticalEntityId actor{30, 1};
 	CHECK(authority.bindActor(secondPeer.peerIdentity, actor) ==
@@ -591,6 +872,7 @@ int main()
 	TestAuthorityConfigurationAndBindings();
 	TestAuthorityAuthorization();
 	TestAuthoritySessionResetAndPeerBound();
+	TestRetiredPeerSequenceCompactionAndChurn();
 	TestAdmissionEpochCannotOutrunAuthority();
 	if (failures != 0)
 	{

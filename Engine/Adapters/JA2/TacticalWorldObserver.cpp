@@ -43,6 +43,8 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 		return TacticalWorldObserverUpdateResult::InvalidSnapshot;
 	if (accepted.snapshot.actors().size() > limits_.maximumActors)
 		return TacticalWorldObserverUpdateResult::ActorCapacityReached;
+	if (accepted.snapshot.doors().size() > limits_.maximumDoors)
+		return TacticalWorldObserverUpdateResult::DoorCapacityReached;
 	const std::uint64_t previousSerial = hasPublication_
 		? publications_[activePublication_].serial
 		: 0;

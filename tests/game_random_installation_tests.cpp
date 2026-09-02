@@ -43,6 +43,13 @@ int TestLegacyObservation()
 	Check(&GetGameRandomSource() == &first &&
 		GetGameSimulationRandomSource() == nullptr,
 		"failed installation cannot replace the observed legacy source");
+	std::srand(0x1357);
+	const UINT32 expectedLegacy = static_cast<UINT32>(std::rand());
+	std::srand(0x1357);
+	Check(LegacyCompatibleRandomMaximum() ==
+		static_cast<UINT32>(RAND_MAX) &&
+		LegacyCompatibleRandom() == expectedLegacy,
+		"the compatibility bridge preserves the host C RNG when no campaign source is installed");
 	return 0;
 }
 
@@ -76,6 +83,13 @@ int TestInstalledSeed(std::uint64_t seed, std::uint64_t replacementSeed)
 	Check(expectedDraw && Random(0xf0000001u) == expectedDraw.value &&
 		installed->checkpoint() == expected.checkpoint(),
 		"the legacy Random entry point advances the installed simulation stream");
+	const SimulationRandomResult expectedLegacyCompatible =
+		expected.tryNext(CanonicalLegacyRandMaximum + 1u);
+	Check(expectedLegacyCompatible &&
+		LegacyCompatibleRandomMaximum() == CanonicalLegacyRandMaximum &&
+		LegacyCompatibleRandom() == expectedLegacyCompatible.value &&
+		installed->checkpoint() == expected.checkpoint(),
+		"the legacy-rand compatibility bridge uses one fixed canonical domain");
 
 	const SimulationRandomCheckpoint beforeReinstall = installed->checkpoint();
 	Check(InstallGameSimulationRandom(replacementSeed) ==

@@ -1824,8 +1824,18 @@ void HandleRisksForSoldierFacilityAssignment( TacticalActor *pSoldier, UINT8 ubF
 							}
 							else
 							{
-								std::mt19937 mt{ std::random_device{}() };
-								INT16 sItemId = riskDrugItems[std::uniform_int_distribution<int>(0, (int)riskDrugItems.size() - 1)(mt)];
+								INT16 sItemId;
+								if (GetGameSimulationRandomSource() != nullptr)
+								{
+									sItemId = riskDrugItems[Random(
+										static_cast<UINT32>(riskDrugItems.size()))];
+								}
+								else
+								{
+									std::mt19937 mt{ std::random_device{}() };
+									sItemId = riskDrugItems[std::uniform_int_distribution<int>(
+										0, (int)riskDrugItems.size() - 1)(mt)];
+								}
 
 								CreateItem(sItemId, Item[sItemId].usPortionSize, &gTempObject);
 

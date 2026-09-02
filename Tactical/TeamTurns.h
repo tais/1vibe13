@@ -7,6 +7,7 @@ class TacticalActor;
 
 extern UINT16 gubOutOfTurnPersons;
 extern UINT16 gubOutOfTurnOrder[MAXMERCS] ;
+extern SoldierID gubLastInterruptedGuy;
 extern BOOLEAN gfHiddenInterrupt;
 extern BOOLEAN gfHiddenTurnbased;
 
@@ -22,6 +23,9 @@ extern void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT
 
 void FreezeInterfaceForEnemyTurn( void );
 void ClearIntList( void );
+void EndInterrupt(
+	BOOLEAN fMarkInterruptOccurred,
+	BOOLEAN fReplicateInterrupt);
 
 BOOLEAN	SaveTeamTurnsToTheSaveGameFile( HWFILE hFile );
 

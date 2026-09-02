@@ -61,6 +61,48 @@ bool SameCommand(
 		left.expectedActionPointCost == right.expectedActionPointCost &&
 		left.expectedBreathPointCost == right.expectedBreathPointCost;
 }
+
+AuthoritativeDoorOpenCloseCommand AuthoritativeDoorFixture()
+{
+	AuthoritativeDoorOpenCloseCommand command{};
+	command.soldier = TacticalEntityId{2, 0x11111111u};
+	command.object = TacticalWorldObjectId{123, 0x1234};
+	command.operation = TacticalWorldObjectOperation::Close;
+	command.direction = 2;
+	command.source = SimulationCommandSource::NetworkPeer;
+	command.authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+	command.expectedWorldGeneration = 0x0102030405060708ull;
+	command.expectedTurnSerial = 0x1112131415161718ull;
+	command.expectedActorGrid = 120;
+	command.expectedActorLevel = 0;
+	command.expectedAnimationState = 6;
+	command.expectedActorStateFingerprint = 0x2122232425262728ull;
+	command.expectedObjectFingerprint = 0x3132333435363738ull;
+	command.expectedActionPointCost = 5;
+	command.expectedBreathPointCost = -6;
+	return command;
+}
+
+bool SameAuthoritativeDoorCommand(
+	const AuthoritativeDoorOpenCloseCommand& left,
+	const AuthoritativeDoorOpenCloseCommand& right)
+{
+	return left.soldier == right.soldier &&
+		left.object.grid == right.object.grid &&
+		left.object.structureId == right.object.structureId &&
+		left.operation == right.operation && left.direction == right.direction &&
+		left.source == right.source && left.authority == right.authority &&
+		left.expectedWorldGeneration == right.expectedWorldGeneration &&
+		left.expectedTurnSerial == right.expectedTurnSerial &&
+		left.expectedActorGrid == right.expectedActorGrid &&
+		left.expectedActorLevel == right.expectedActorLevel &&
+		left.expectedAnimationState == right.expectedAnimationState &&
+		left.expectedActorStateFingerprint ==
+			right.expectedActorStateFingerprint &&
+		left.expectedObjectFingerprint == right.expectedObjectFingerprint &&
+		left.expectedActionPointCost == right.expectedActionPointCost &&
+		left.expectedBreathPointCost == right.expectedBreathPointCost;
+}
 }
 
 int main()
@@ -163,7 +205,7 @@ int main()
 	Require(EncodeSimulationCommandJournal(records, 5, encoded),
 		"automatic interaction journal encoding succeeds");
 	const std::vector<std::uint8_t> expectedWire{
-		0x53, 0x4d, 0x43, 0x31, 0x01, 0x00,
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00,
 		0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x00, 0x00, 0x00,
 		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -311,6 +353,97 @@ int main()
 				decoded[0].command)),
 		"failed decoding preserves caller output");
 
+	const AuthoritativeDoorOpenCloseCommand authoritativeDoor =
+		AuthoritativeDoorFixture();
+	Require(IsStructurallyValidSimulationCommand(
+			SimulationCommand{authoritativeDoor}),
+		"authoritative door command requires exact public and private state");
+	std::vector<std::uint8_t> authoritativeDoorWire;
+	Require(EncodeSimulationCommandJournal(
+		{{17, 23, CommandJournalStatus::Applied,
+			SimulationCommand{authoritativeDoor}}},
+		5, authoritativeDoorWire),
+		"authoritative door command journal encoding succeeds");
+	const std::vector<std::uint8_t> expectedAuthoritativeDoorWire{
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00,
+		0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x21,
+		0x02, 0x00, 0x11, 0x11, 0x11, 0x11,
+		0x7b, 0x00, 0x00, 0x00, 0x34, 0x12,
+		0x01, 0x02, 0x01, 0x01,
+		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x78, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00,
+		0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21,
+		0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31,
+		0x05, 0x00, 0xfa, 0xff};
+	Require(authoritativeDoorWire == expectedAuthoritativeDoorWire &&
+		authoritativeDoorWire.size() == 95 &&
+		authoritativeDoorWire[35] == 33,
+		"tag 33 keeps its literal 60-byte pointer-free layout in journal v4");
+	std::vector<RecordedSimulationCommand> decodedAuthoritativeDoor;
+	std::uint64_t authoritativeDoorDropped = 0;
+	Require(DecodeSimulationCommandJournal(authoritativeDoorWire,
+			decodedAuthoritativeDoor, authoritativeDoorDropped) ==
+				SimulationCommandJournalDecodeResult::Success &&
+		decodedAuthoritativeDoor.size() == 1 &&
+		authoritativeDoorDropped == 5 &&
+		SameAuthoritativeDoorCommand(
+			std::get<AuthoritativeDoorOpenCloseCommand>(
+				decodedAuthoritativeDoor[0].command), authoritativeDoor),
+		"tag 33 round-trips every optimistic precondition exactly");
+
+	std::array<AuthoritativeDoorOpenCloseCommand, 10> invalidDoors{};
+	invalidDoors.fill(authoritativeDoor);
+	invalidDoors[0].operation = TacticalWorldObjectOperation::Unlock;
+	invalidDoors[1].direction = TacticalDirectionCount;
+	invalidDoors[2].source = SimulationCommandSource::System;
+	invalidDoors[3].authority = TacticalCommandAuthorityPolicy::Legacy;
+	invalidDoors[4].expectedWorldGeneration = 0;
+	invalidDoors[5].expectedTurnSerial = 0;
+	invalidDoors[6].expectedActorGrid = -1;
+	invalidDoors[7].expectedActorLevel = -1;
+	invalidDoors[8].expectedActorStateFingerprint =
+		TacticalWorldObjectNoExpectedFingerprint;
+	invalidDoors[9].expectedActionPointCost =
+		TacticalWorldObjectNoExpectedPointCost;
+	for (const AuthoritativeDoorOpenCloseCommand& invalidDoor : invalidDoors)
+		Require(!IsStructurallyValidSimulationCommand(
+				SimulationCommand{invalidDoor}),
+			"authoritative door command rejects every missing policy token");
+
+	std::vector<RecordedSimulationCommand> retainedDoor =
+		decodedAuthoritativeDoor;
+	std::uint64_t retainedDoorDropped = 71;
+	std::array<std::vector<std::uint8_t>, 7> malformedDoors{
+		authoritativeDoorWire, authoritativeDoorWire,
+		authoritativeDoorWire, authoritativeDoorWire,
+		authoritativeDoorWire, authoritativeDoorWire,
+		authoritativeDoorWire};
+	malformedDoors[0][48] = 2;
+	malformedDoors[1][49] = TacticalDirectionCount;
+	malformedDoors[2][50] =
+		static_cast<std::uint8_t>(SimulationCommandSource::System);
+	malformedDoors[3][51] =
+		static_cast<std::uint8_t>(TacticalCommandAuthorityPolicy::Legacy);
+	for (std::size_t offset = 52; offset < 60; ++offset)
+		malformedDoors[4][offset] = 0;
+	malformedDoors[5][72] = 0xff;
+	malformedDoors[6].pop_back();
+	for (const auto& wire : malformedDoors)
+		Require(DecodeSimulationCommandJournal(wire, retainedDoor,
+				retainedDoorDropped) ==
+					SimulationCommandJournalDecodeResult::Invalid,
+			"malformed tag-33 policy bytes fail transactionally");
+	Require(retainedDoorDropped == 71 && retainedDoor.size() == 1 &&
+		SameAuthoritativeDoorCommand(
+			std::get<AuthoritativeDoorOpenCloseCommand>(
+				retainedDoor[0].command), authoritativeDoor),
+		"failed tag-33 decoding preserves caller output");
+
 	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy> playback;
 	Require(playback.stageRecordedPlaybackBatch(
 			{{17, 23, SimulationCommand{path}}}),
@@ -346,6 +479,9 @@ int main()
 			CommandDisposition::Discard &&
 		reference.snapshot() == referenceState,
 		"the portable reference explicitly declines JA2 door policy");
+	Require(reference.execute(SimulationCommand{authoritativeDoor}, 2, 2) ==
+			CommandDisposition::Discard && reference.snapshot() == referenceState,
+		"the portable reference also declines authoritative native door policy");
 
 	return 0;
 }

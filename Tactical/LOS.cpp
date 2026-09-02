@@ -5041,20 +5041,20 @@ INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY
 					{
 					case SPREADPATTERNMETHOD_RECT:  //Rectangle Method. (Simple)
 						//Applying a new random number to each angle results in a rectangular spread pattern, rather than an oval one.
-						ddHorizAngle  = (double)rand() * 2 * xspread / RAND_MAX - xspread;
-						ddVerticAngle = (double)rand() * 2 * yspread / RAND_MAX - yspread;
+						ddHorizAngle  = (double)LegacyCompatibleRandom() * 2 * xspread / LegacyCompatibleRandomMaximum() - xspread;
+						ddVerticAngle = (double)LegacyCompatibleRandom() * 2 * yspread / LegacyCompatibleRandomMaximum() - yspread;
 						break;
 					case SPREADPATTERNMETHOD_DIAMOND:  //Diamond Method. (Kinda Simple)
 						//Angles are generated within a diamond shaped region.
 						//This is more natural than the rectangular pattern, but still not optimal.
 						//The first random number is in a range of 0 to (x+y).
-						d = (xspread+yspread) * (double)rand() / (double)RAND_MAX;
+						d = (xspread+yspread) * (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						//The second random number determines the percentage of that value to use on x.  The rest is spent on y.
-						r = (double)rand() / (double)RAND_MAX;
+						r = (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						ddHorizAngle = r*d;
 						ddVerticAngle = (1-r)*d;
 						//Positive and negative are then randomly determined.  Otherwise, everthing would always shoot to the high right (+,+).
-						n = rand()%4;
+						n = LegacyCompatibleRandom()%4;
 						if(n&1) ddHorizAngle *= -1;
 						if(n&2) ddVerticAngle *= -1;
 						break;
@@ -5066,7 +5066,7 @@ INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY
 						//(It only becomes noticable in simulations I do in an external program. In-game it looks fine.)
 						//
 						//First, get our random range of -pi to pi. This could be recalculated for every use, but doesn't need to be.
-						r=(double)rand()*2*PI/RAND_MAX - PI;
+						r=(double)LegacyCompatibleRandom()*2*PI/LegacyCompatibleRandomMaximum() - PI;
 						//Which axis is our major axis?
 						if( xspread > yspread )
 						{
@@ -5075,12 +5075,12 @@ INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY
 							//  where x = m * cos(r) and y = n * sin(r)
 							//  where m = major axis radius and n = minor axis radius and r = all values -pi <= r <= pi
 							//We use any random value between -pi and pi, but vary the radius to get points inside the ellipse as well.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * cos(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * sin(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * cos(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * sin(r);
 						}else{
 							//Reverse sine and cosine if our major axis is y.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * sin(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * cos(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * sin(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * cos(r);
 						}
 						break;
 					case -1:  //Optimal Method.  (Most realistic)
@@ -5570,20 +5570,20 @@ INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FL
 					{
 					case SPREADPATTERNMETHOD_RECT:  //Rectangle Method. (Simple)
 						//Applying a new random number to each angle results in a rectangular spread pattern, rather than an oval one.
-						ddHorizAngle  = (double)rand() * 2 * xspread / RAND_MAX - xspread;
-						ddVerticAngle = (double)rand() * 2 * yspread / RAND_MAX - yspread;
+						ddHorizAngle  = (double)LegacyCompatibleRandom() * 2 * xspread / LegacyCompatibleRandomMaximum() - xspread;
+						ddVerticAngle = (double)LegacyCompatibleRandom() * 2 * yspread / LegacyCompatibleRandomMaximum() - yspread;
 						break;
 					case SPREADPATTERNMETHOD_DIAMOND:  //Diamond Method. (Kinda Simple)
 						//Angles are generated within a diamond shaped region.
 						//This is more natural than the rectangular pattern, but still not optimal.
 						//The first random number is in a range of 0 to (x+y).
-						d = (xspread+yspread) * (double)rand() / (double)RAND_MAX;
+						d = (xspread+yspread) * (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						//The second random number determines the percentage of that value to use on x.  The rest is spent on y.
-						r = (double)rand() / (double)RAND_MAX;
+						r = (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						ddHorizAngle = r*d;
 						ddVerticAngle = (1-r)*d;
 						//Positive and negative are then randomly determined.  Otherwise, everthing would always shoot to the high right (+,+).
-						n = rand()%4;
+						n = LegacyCompatibleRandom()%4;
 						if(n&1) ddHorizAngle *= -1;
 						if(n&2) ddVerticAngle *= -1;
 						break;
@@ -5595,7 +5595,7 @@ INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FL
 						//(It only becomes noticable in simulations I do in an external program. In-game it looks fine.)
 						//
 						//First, get our random range of -pi to pi. This could be recalculated for every use, but doesn't need to be.
-						r=(double)rand()*2*PI/RAND_MAX - PI;
+						r=(double)LegacyCompatibleRandom()*2*PI/LegacyCompatibleRandomMaximum() - PI;
 						//Which axis is our major axis?
 						if( xspread > yspread )
 						{
@@ -5604,12 +5604,12 @@ INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FL
 							//  where x = m * cos(r) and y = n * sin(r)
 							//  where m = major axis radius and n = minor axis radius and r = all values -pi <= r <= pi
 							//We use any random value between -pi and pi, but vary the radius to get points inside the ellipse as well.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * cos(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * sin(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * cos(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * sin(r);
 						}else{
 							//Reverse sine and cosine if our major axis is y.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * sin(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * cos(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * sin(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * cos(r);
 						}
 						break;
 					case -1:  //Optimal Method.  (Most realistic)
@@ -6215,20 +6215,20 @@ INT8 FireBulletGivenTargetTrapOnly( TacticalActor* pThrower, OBJECTTYPE* pObj, I
 					{
 					case SPREADPATTERNMETHOD_RECT:  //Rectangle Method. (Simple)
 						//Applying a new random number to each angle results in a rectangular spread pattern, rather than an oval one.
-						ddHorizAngle  = (double)rand() * 2 * xspread / RAND_MAX - xspread;
-						ddVerticAngle = (double)rand() * 2 * yspread / RAND_MAX - yspread;
+						ddHorizAngle  = (double)LegacyCompatibleRandom() * 2 * xspread / LegacyCompatibleRandomMaximum() - xspread;
+						ddVerticAngle = (double)LegacyCompatibleRandom() * 2 * yspread / LegacyCompatibleRandomMaximum() - yspread;
 						break;
 					case SPREADPATTERNMETHOD_DIAMOND:  //Diamond Method. (Kinda Simple)
 						//Angles are generated within a diamond shaped region.
 						//This is more natural than the rectangular pattern, but still not optimal.
 						//The first random number is in a range of 0 to (x+y).
-						d = (xspread+yspread) * (double)rand() / (double)RAND_MAX;
+						d = (xspread+yspread) * (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						//The second random number determines the percentage of that value to use on x.  The rest is spent on y.
-						r = (double)rand() / (double)RAND_MAX;
+						r = (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						ddHorizAngle = r*d;
 						ddVerticAngle = (1-r)*d;
 						//Positive and negative are then randomly determined.  Otherwise, everthing would always shoot to the high right (+,+).
-						n = rand()%4;
+						n = LegacyCompatibleRandom()%4;
 						if(n&1) ddHorizAngle *= -1;
 						if(n&2) ddVerticAngle *= -1;
 						break;
@@ -6240,7 +6240,7 @@ INT8 FireBulletGivenTargetTrapOnly( TacticalActor* pThrower, OBJECTTYPE* pObj, I
 						//(It only becomes noticable in simulations I do in an external program. In-game it looks fine.)
 						//
 						//First, get our random range of -pi to pi. This could be recalculated for every use, but doesn't need to be.
-						r=(double)rand()*2*PI/RAND_MAX - PI;
+						r=(double)LegacyCompatibleRandom()*2*PI/LegacyCompatibleRandomMaximum() - PI;
 						//Which axis is our major axis?
 						if( xspread > yspread )
 						{
@@ -6249,12 +6249,12 @@ INT8 FireBulletGivenTargetTrapOnly( TacticalActor* pThrower, OBJECTTYPE* pObj, I
 							//  where x = m * cos(r) and y = n * sin(r)
 							//  where m = major axis radius and n = minor axis radius and r = all values -pi <= r <= pi
 							//We use any random value between -pi and pi, but vary the radius to get points inside the ellipse as well.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * cos(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * sin(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * cos(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * sin(r);
 						}else{
 							//Reverse sine and cosine if our major axis is y.
-							ddHorizAngle  = ( (double)rand()*xspread / RAND_MAX ) * sin(r);
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * cos(r);
+							ddHorizAngle  = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * sin(r);
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * cos(r);
 						}
 						break;
 					case -1:  //Optimal Method.  (Most realistic)
@@ -6765,20 +6765,20 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 					{
 					case SPREADPATTERNMETHOD_RECT:  //Rectangle Method. (Simple)
 													//Applying a new random number to each angle results in a rectangular spread pattern, rather than an oval one.
-						ddHorizAngle = (double)rand() * 2 * xspread / RAND_MAX - xspread;
-						ddVerticAngle = (double)rand() * 2 * yspread / RAND_MAX - yspread;
+						ddHorizAngle = (double)LegacyCompatibleRandom() * 2 * xspread / LegacyCompatibleRandomMaximum() - xspread;
+						ddVerticAngle = (double)LegacyCompatibleRandom() * 2 * yspread / LegacyCompatibleRandomMaximum() - yspread;
 						break;
 					case SPREADPATTERNMETHOD_DIAMOND:  //Diamond Method. (Kinda Simple)
 													   //Angles are generated within a diamond shaped region.
 													   //This is more natural than the rectangular pattern, but still not optimal.
 													   //The first random number is in a range of 0 to (x+y).
-						d = ( xspread + yspread ) * (double)rand() / (double)RAND_MAX;
+						d = ( xspread + yspread ) * (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						//The second random number determines the percentage of that value to use on x.  The rest is spent on y.
-						r = (double)rand() / (double)RAND_MAX;
+						r = (double)LegacyCompatibleRandom() / (double)LegacyCompatibleRandomMaximum();
 						ddHorizAngle = r*d;
 						ddVerticAngle = ( 1 - r )*d;
 						//Positive and negative are then randomly determined.  Otherwise, everthing would always shoot to the high right (+,+).
-						n = rand() % 4;
+						n = LegacyCompatibleRandom() % 4;
 						if ( n & 1 ) ddHorizAngle *= -1;
 						if ( n & 2 ) ddVerticAngle *= -1;
 						break;
@@ -6790,7 +6790,7 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 													   //(It only becomes noticable in simulations I do in an external program. In-game it looks fine.)
 													   //
 													   //First, get our random range of -pi to pi. This could be recalculated for every use, but doesn't need to be.
-						r = (double)rand() * 2 * PI / RAND_MAX - PI;
+						r = (double)LegacyCompatibleRandom() * 2 * PI / LegacyCompatibleRandomMaximum() - PI;
 						//Which axis is our major axis?
 						if ( xspread > yspread )
 						{
@@ -6799,13 +6799,13 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 							//  where x = m * cos(r) and y = n * sin(r)
 							//  where m = major axis radius and n = minor axis radius and r = all values -pi <= r <= pi
 							//We use any random value between -pi and pi, but vary the radius to get points inside the ellipse as well.
-							ddHorizAngle = ( (double)rand()*xspread / RAND_MAX ) * cos( r );
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * sin( r );
+							ddHorizAngle = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * cos( r );
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * sin( r );
 						}
 						else {
 							//Reverse sine and cosine if our major axis is y.
-							ddHorizAngle = ( (double)rand()*xspread / RAND_MAX ) * sin( r );
-							ddVerticAngle = ( (double)rand()*yspread / RAND_MAX ) * cos( r );
+							ddHorizAngle = ( (double)LegacyCompatibleRandom()*xspread / LegacyCompatibleRandomMaximum() ) * sin( r );
+							ddVerticAngle = ( (double)LegacyCompatibleRandom()*yspread / LegacyCompatibleRandomMaximum() ) * cos( r );
 						}
 						break;
 					case -1:  //Optimal Method.  (Most realistic)

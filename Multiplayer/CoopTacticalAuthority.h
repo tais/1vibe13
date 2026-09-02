@@ -57,6 +57,11 @@ struct TacticalIntentAuthorizationResult
 		TacticalIntentAuthorizationReason::NotConfigured;
 	PeerIdentity peerIdentity{};
 	std::uint64_t commandId = 0;
+	// The admission-epoch-wide cursor after this decision. Zero is exhausted.
+	std::uint64_t nextExpectedCommandId = 0;
+	// True exactly once for a structurally valid, current-admission-epoch ID
+	// equal to the prior cursor, including later context/ACL rejections.
+	bool commandConsumed = false;
 
 	explicit operator bool() const noexcept
 	{
@@ -79,6 +84,9 @@ class TacticalIntentAuthority
 {
 public:
 	explicit TacticalIntentAuthority(AdmissionRegistry& admission) noexcept;
+	// This is the only sequence reset. Tactical world/generation transitions and
+	// transport reconnects deliberately preserve admission-epoch ordering.
+	void resetAdmissionEpoch(std::uint64_t sessionEpoch) noexcept;
 
 	TacticalAuthorityConfigurationResult beginSession(
 		TacticalAuthorityContext context) noexcept;
@@ -103,6 +111,16 @@ public:
 	TacticalIntentAuthorizationResult authorize(
 		const TransportPeer& sender,
 		const TacticalIntent& intent) noexcept;
+	// A completed authenticated retirement may free the fixed admission-epoch
+	// sequence slot and that peer's actor ACLs atomically. The preflight/mutation
+	// split lets the coordinator prove this cannot fail after its replication
+	// compaction has committed; all survivor bindings/cursors remain unchanged.
+	bool canRetirePeerSequence(const PeerIdentity& peer) const noexcept;
+	bool retirePeerSequence(const PeerIdentity& peer) noexcept;
+	std::size_t peerSequenceCount() const noexcept
+	{
+		return peerSequenceCount_;
+	}
 
 private:
 	struct ActorBinding
@@ -119,6 +137,8 @@ private:
 	};
 
 	const ActorBinding* findActor(TacticalEntityId actor) const noexcept;
+	const PeerSequence* findPeerSequence(
+		const PeerIdentity& peer) const noexcept;
 	PeerSequence* findPeerSequence(const PeerIdentity& peer) noexcept;
 	PeerSequence* findOrCreatePeerSequence(const PeerIdentity& peer) noexcept;
 	bool peerOwnsActor(
@@ -127,6 +147,7 @@ private:
 	void clearSequences() noexcept;
 
 	AdmissionRegistry& admission_;
+	std::uint64_t sequenceEpoch_ = 0;
 	TacticalAuthorityContext context_;
 	bool configured_ = false;
 	std::array<ActorBinding, MaximumAuthoritativeActors> actorBindings_{};

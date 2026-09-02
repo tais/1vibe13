@@ -9,6 +9,10 @@ namespace
 constexpr std::uint8_t WireMagic[4] = {'J', '2', 'C', 'A'};
 constexpr std::uint8_t RequestMessageKind = 1;
 constexpr std::uint8_t ResponseMessageKind = 2;
+constexpr std::uint8_t AckMessageKind = 3;
+constexpr std::uint8_t CredentialAbandonMessageKind = 4;
+constexpr std::uint8_t SelfRetirementRequestMessageKind = 5;
+constexpr std::uint8_t SelfRetirementResultMessageKind = 6;
 
 void WriteU16(std::uint8_t*& output, std::uint16_t value)
 {
@@ -238,6 +242,219 @@ DecodeResult DecodeAdmissionResponse(
 	return DecodeResult::Ok;
 }
 
+bool EncodeAdmissionAck(
+	const AdmissionAck& acknowledgement, AdmissionAckBytes& bytes) noexcept
+{
+	if (acknowledgement.protocolVersion != CurrentProtocolVersion ||
+		acknowledgement.sessionEpoch == 0 ||
+		IsZero(acknowledgement.peerIdentity) ||
+		IsZero(acknowledgement.reconnectToken))
+		return false;
+	AdmissionAckBytes encoded{};
+	std::uint8_t* output = encoded.data();
+	std::copy(WireMagic, WireMagic + 4, output);
+	output += 4;
+	WriteU16(output, acknowledgement.protocolVersion);
+	*output++ = AckMessageKind;
+	*output++ = 0;
+	WriteU64(output, acknowledgement.sessionEpoch);
+	WriteBytes(output, acknowledgement.peerIdentity);
+	WriteBytes(output, acknowledgement.reconnectToken);
+	bytes = encoded;
+	return true;
+}
+
+DecodeResult DecodeAdmissionAck(
+	const std::uint8_t* bytes, std::size_t size,
+	AdmissionAck& acknowledgement) noexcept
+{
+	if (size != AdmissionAckWireSize || bytes == nullptr)
+		return DecodeResult::WrongSize;
+	if (!HasMagic(bytes)) return DecodeResult::WrongMagic;
+	if (bytes[6] != AckMessageKind) return DecodeResult::WrongMessageKind;
+	if (bytes[7] != 0) return DecodeResult::NonZeroReserved;
+
+	AdmissionAck decoded;
+	const std::uint8_t* input = bytes + 4;
+	decoded.protocolVersion = ReadU16(input);
+	input += 2;
+	decoded.sessionEpoch = ReadU64(input);
+	ReadBytes(input, decoded.peerIdentity);
+	ReadBytes(input, decoded.reconnectToken);
+	if (decoded.protocolVersion != CurrentProtocolVersion)
+		return DecodeResult::UnsupportedProtocol;
+	if (decoded.sessionEpoch == 0 || IsZero(decoded.peerIdentity) ||
+		IsZero(decoded.reconnectToken))
+		return DecodeResult::InvalidSemanticValue;
+	acknowledgement = decoded;
+	return DecodeResult::Ok;
+}
+
+bool EncodeAdmissionCredentialAbandon(
+	const AdmissionCredentialAbandon& abandonment,
+	AdmissionCredentialAbandonBytes& bytes) noexcept
+{
+	if (abandonment.protocolVersion != CurrentProtocolVersion ||
+		abandonment.sessionEpoch == 0 ||
+		abandonment.runtimeFingerprint.schema == 0 ||
+		IsZero(abandonment.contentManifestSha256) ||
+		IsZero(abandonment.peerIdentity) ||
+		IsZero(abandonment.reconnectToken))
+		return false;
+	AdmissionCredentialAbandonBytes encoded{};
+	std::uint8_t* output = encoded.data();
+	std::copy(WireMagic, WireMagic + 4, output);
+	output += 4;
+	WriteU16(output, abandonment.protocolVersion);
+	*output++ = CredentialAbandonMessageKind;
+	*output++ = 0;
+	WriteU64(output, abandonment.sessionEpoch);
+	WriteU32(output, abandonment.runtimeFingerprint.schema);
+	WriteU64(output, abandonment.runtimeFingerprint.high);
+	WriteU64(output, abandonment.runtimeFingerprint.low);
+	WriteBytes(output, abandonment.contentManifestSha256);
+	WriteBytes(output, abandonment.peerIdentity);
+	WriteBytes(output, abandonment.reconnectToken);
+	bytes = encoded;
+	return true;
+}
+
+DecodeResult DecodeAdmissionCredentialAbandon(
+	const std::uint8_t* bytes, std::size_t size,
+	AdmissionCredentialAbandon& abandonment) noexcept
+{
+	if (size != AdmissionCredentialAbandonWireSize || bytes == nullptr)
+		return DecodeResult::WrongSize;
+	if (!HasMagic(bytes)) return DecodeResult::WrongMagic;
+	if (bytes[6] != CredentialAbandonMessageKind)
+		return DecodeResult::WrongMessageKind;
+	if (bytes[7] != 0) return DecodeResult::NonZeroReserved;
+
+	AdmissionCredentialAbandon decoded;
+	const std::uint8_t* input = bytes + 4;
+	decoded.protocolVersion = ReadU16(input);
+	input += 2;
+	decoded.sessionEpoch = ReadU64(input);
+	decoded.runtimeFingerprint.schema = ReadU32(input);
+	decoded.runtimeFingerprint.high = ReadU64(input);
+	decoded.runtimeFingerprint.low = ReadU64(input);
+	ReadBytes(input, decoded.contentManifestSha256);
+	ReadBytes(input, decoded.peerIdentity);
+	ReadBytes(input, decoded.reconnectToken);
+	if (decoded.protocolVersion != CurrentProtocolVersion)
+		return DecodeResult::UnsupportedProtocol;
+	if (decoded.sessionEpoch == 0 ||
+		decoded.runtimeFingerprint.schema == 0 ||
+		IsZero(decoded.contentManifestSha256) ||
+		IsZero(decoded.peerIdentity) || IsZero(decoded.reconnectToken))
+		return DecodeResult::InvalidSemanticValue;
+	abandonment = decoded;
+	return DecodeResult::Ok;
+}
+
+bool EncodeAdmissionSelfRetirementRequest(
+	const AdmissionSelfRetirementRequest& request,
+	AdmissionSelfRetirementRequestBytes& bytes) noexcept
+{
+	if (request.protocolVersion != CurrentProtocolVersion ||
+		request.sessionEpoch == 0 || request.requestId == 0)
+		return false;
+	AdmissionSelfRetirementRequestBytes encoded{};
+	std::uint8_t* output = encoded.data();
+	std::copy(WireMagic, WireMagic + 4, output);
+	output += 4;
+	WriteU16(output, request.protocolVersion);
+	*output++ = SelfRetirementRequestMessageKind;
+	*output++ = 0;
+	WriteU64(output, request.sessionEpoch);
+	WriteU64(output, request.requestId);
+	bytes = encoded;
+	return true;
+}
+
+DecodeResult DecodeAdmissionSelfRetirementRequest(
+	const std::uint8_t* bytes, std::size_t size,
+	AdmissionSelfRetirementRequest& request) noexcept
+{
+	if (size != AdmissionSelfRetirementRequestWireSize || bytes == nullptr)
+		return DecodeResult::WrongSize;
+	if (!HasMagic(bytes)) return DecodeResult::WrongMagic;
+	if (bytes[6] != SelfRetirementRequestMessageKind)
+		return DecodeResult::WrongMessageKind;
+	if (bytes[7] != 0) return DecodeResult::NonZeroReserved;
+
+	AdmissionSelfRetirementRequest decoded;
+	const std::uint8_t* input = bytes + 4;
+	decoded.protocolVersion = ReadU16(input);
+	input += 2;
+	decoded.sessionEpoch = ReadU64(input);
+	decoded.requestId = ReadU64(input);
+	if (decoded.protocolVersion != CurrentProtocolVersion)
+		return DecodeResult::UnsupportedProtocol;
+	if (decoded.sessionEpoch == 0 || decoded.requestId == 0)
+		return DecodeResult::InvalidSemanticValue;
+	request = decoded;
+	return DecodeResult::Ok;
+}
+
+bool EncodeAdmissionSelfRetirementResult(
+	const AdmissionSelfRetirementResult& result,
+	AdmissionSelfRetirementResultBytes& bytes) noexcept
+{
+	if (result.protocolVersion != CurrentProtocolVersion ||
+		result.sessionEpoch == 0 || result.requestId == 0 ||
+		IsZero(result.peerIdentity) ||
+		!IsKnownAdmissionSelfRetirementResultCode(result.result))
+		return false;
+	AdmissionSelfRetirementResultBytes encoded{};
+	std::uint8_t* output = encoded.data();
+	std::copy(WireMagic, WireMagic + 4, output);
+	output += 4;
+	WriteU16(output, result.protocolVersion);
+	*output++ = SelfRetirementResultMessageKind;
+	*output++ = 0;
+	WriteU64(output, result.sessionEpoch);
+	WriteU64(output, result.requestId);
+	WriteBytes(output, result.peerIdentity);
+	WriteU16(output, static_cast<std::uint16_t>(result.result));
+	for (unsigned index = 0; index < 6; ++index) *output++ = 0;
+	bytes = encoded;
+	return true;
+}
+
+DecodeResult DecodeAdmissionSelfRetirementResult(
+	const std::uint8_t* bytes, std::size_t size,
+	AdmissionSelfRetirementResult& result) noexcept
+{
+	if (size != AdmissionSelfRetirementResultWireSize || bytes == nullptr)
+		return DecodeResult::WrongSize;
+	if (!HasMagic(bytes)) return DecodeResult::WrongMagic;
+	if (bytes[6] != SelfRetirementResultMessageKind)
+		return DecodeResult::WrongMessageKind;
+	if (bytes[7] != 0 ||
+		!std::all_of(bytes + 42, bytes + 48,
+			[](std::uint8_t value) { return value == 0; }))
+		return DecodeResult::NonZeroReserved;
+
+	AdmissionSelfRetirementResult decoded;
+	const std::uint8_t* input = bytes + 4;
+	decoded.protocolVersion = ReadU16(input);
+	input += 2;
+	decoded.sessionEpoch = ReadU64(input);
+	decoded.requestId = ReadU64(input);
+	ReadBytes(input, decoded.peerIdentity);
+	decoded.result = static_cast<AdmissionSelfRetirementResultCode>(
+		ReadU16(input));
+	if (decoded.protocolVersion != CurrentProtocolVersion)
+		return DecodeResult::UnsupportedProtocol;
+	if (decoded.sessionEpoch == 0 || decoded.requestId == 0 ||
+		IsZero(decoded.peerIdentity) ||
+		!IsKnownAdmissionSelfRetirementResultCode(decoded.result))
+		return DecodeResult::InvalidSemanticValue;
+	result = decoded;
+	return DecodeResult::Ok;
+}
+
 bool IsKnownAdmissionRejectReason(AdmissionRejectReason reason) noexcept
 {
 	switch (reason)
@@ -258,6 +475,20 @@ bool IsKnownAdmissionRejectReason(AdmissionRejectReason reason) noexcept
 		case AdmissionRejectReason::CapacityReached:
 		case AdmissionRejectReason::TokenSourceUnavailable:
 		case AdmissionRejectReason::TokenIssuanceFailed:
+		case AdmissionRejectReason::CredentialRetired:
+		case AdmissionRejectReason::CredentialRetirementPending:
+			return true;
+	}
+	return false;
+}
+
+bool IsKnownAdmissionSelfRetirementResultCode(
+	AdmissionSelfRetirementResultCode result) noexcept
+{
+	switch (result)
+	{
+		case AdmissionSelfRetirementResultCode::CredentialRetired:
+		case AdmissionSelfRetirementResultCode::TombstoneCapacityReached:
 			return true;
 	}
 	return false;

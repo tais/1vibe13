@@ -12,6 +12,7 @@ constexpr std::uint32_t MinimumCheckpointSeconds = 30;
 constexpr std::uint32_t MaximumCheckpointSeconds = 24u * 60u * 60u;
 constexpr std::size_t MaximumCampaignIdBytes = 48;
 constexpr std::size_t MaximumStateDirectoryBytes = 4096;
+constexpr std::size_t MaximumCoopBindAddressBytes = 255;
 DedicatedServerOptions ActiveOptions;
 
 std::string LowerAscii(std::string_view value)
@@ -72,6 +73,15 @@ bool ValidStateDirectory(std::string_view value)
 	}
 }
 
+bool ValidCoopBindAddress(std::string_view value)
+{
+	if (value.empty() || value.size() > MaximumCoopBindAddressBytes)
+		return false;
+	return std::all_of(value.begin(), value.end(), [](unsigned char character) {
+		return character > 0x20u && character < 0x7fu;
+	});
+}
+
 bool HasReservedDedicatedPrefix(std::string_view argument)
 {
 	const std::string lowered = LowerAscii(argument);
@@ -97,6 +107,8 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 	bool sawCampaignSeed = false;
 	bool sawCheckpoint = false;
 	bool sawStateDirectory = false;
+	bool sawCoopBindAddress = false;
+	bool sawCoopPort = false;
 	bool sawDedicated = false;
 	bool sawDedicatedOption = false;
 
@@ -248,6 +260,48 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				continue;
 			}
 
+			if (readValue("--dedicated-coop-bind"))
+			{
+				sawDedicatedOption = true;
+				if (sawCoopBindAddress)
+					return Failure(options,
+						DedicatedServerOptionError::DuplicateOption, argument);
+				sawCoopBindAddress = true;
+				if (value.empty())
+					return Failure(options,
+						DedicatedServerOptionError::MissingValue, argument);
+				if (!ValidCoopBindAddress(value))
+					return Failure(options,
+						DedicatedServerOptionError::InvalidCoopBindAddress,
+						argument);
+				options.coopBindAddress.assign(value);
+				continue;
+			}
+
+			if (readValue("--dedicated-coop-port"))
+			{
+				sawDedicatedOption = true;
+				if (sawCoopPort)
+					return Failure(options,
+						DedicatedServerOptionError::DuplicateOption, argument);
+				sawCoopPort = true;
+				if (value.empty())
+					return Failure(options,
+						DedicatedServerOptionError::MissingValue, argument);
+				std::uint32_t port = 0;
+				const char* first = value.data();
+				const char* last = value.data() + value.size();
+				const auto parsed = std::from_chars(first, last, port);
+				if (parsed.ec != std::errc{} || parsed.ptr != last ||
+					port == 0 || port > 65535u)
+				{
+					return Failure(options,
+						DedicatedServerOptionError::InvalidCoopPort, argument);
+				}
+				options.coopPort = static_cast<std::uint16_t>(port);
+				continue;
+			}
+
 			if (HasReservedDedicatedPrefix(argument))
 				return Failure(options,
 					DedicatedServerOptionError::UnknownDedicatedOption, argument);
@@ -262,6 +316,10 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 				sawStateDirectory))
 			return Failure(options,
 				DedicatedServerOptionError::PvpCampaignOption, {});
+		if (options.mode == DedicatedServerMode::Pvp &&
+			(sawCoopBindAddress || sawCoopPort))
+			return Failure(options,
+				DedicatedServerOptionError::PvpCoopNetworkOption, {});
 		if (options.mode == DedicatedServerMode::Coop && !sawCampaign)
 			return Failure(options,
 				DedicatedServerOptionError::CoopCampaignRequired, {});
@@ -380,6 +438,9 @@ const char* DedicatedServerOptionErrorName(
 		case DedicatedServerOptionError::CoopStateDirectoryRequired: return "co-op mode requires --dedicated-state-dir";
 		case DedicatedServerOptionError::CoopCreateSeedRequired: return "new co-op campaign requires --campaign-seed";
 		case DedicatedServerOptionError::CoopResumeSeedForbidden: return "resumed co-op campaign forbids --campaign-seed";
+		case DedicatedServerOptionError::InvalidCoopBindAddress: return "invalid dedicated co-op bind address";
+		case DedicatedServerOptionError::InvalidCoopPort: return "invalid dedicated co-op port";
+		case DedicatedServerOptionError::PvpCoopNetworkOption: return "dedicated co-op network options require co-op mode";
 	}
 	return "unknown dedicated option error";
 }

@@ -7,7 +7,10 @@
 
 namespace
 {
-constexpr std::size_t Ja2TacticalMaximumEvents = TOTAL_SOLDIERS * 3 + 2;
+constexpr std::size_t Ja2TacticalMaximumDoors =
+	TacticalWorldSnapshot::DefaultMaximumDoors;
+constexpr std::size_t Ja2TacticalMaximumEvents =
+	TOTAL_SOLDIERS * 4 + Ja2TacticalMaximumDoors * 2 + 2;
 
 void IncrementSaturated(std::uint64_t& value) noexcept
 {
@@ -44,7 +47,8 @@ class Ja2TacticalWorldObserverHost
 public:
 	Ja2TacticalWorldObserverHost() noexcept
 		: observer_(GetJa2TacticalWorldAdapter(), TacticalWorldObserverLimits{
-			TOTAL_SOLDIERS, Ja2TacticalMaximumEvents})
+			TOTAL_SOLDIERS, Ja2TacticalMaximumEvents,
+			Ja2TacticalMaximumDoors})
 	{
 	}
 

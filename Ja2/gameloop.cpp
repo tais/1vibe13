@@ -1,5 +1,6 @@
 #include "CampaignApplicationPolicy.h"
 #include "TacticalActorVisibility.h"
+	#include <cstdio>
 	#include "sgp.h"
 	#include "gameloop.h"
 	#include "Screens.h"
@@ -19,7 +20,10 @@
 	#include "Interface.h"
 	#include "GameSettings.h"
 	#include "GameContext.h"
-	#include "TacticalCommandHost.h"
+	#include "DedicatedCoopRuntime.h"
+	#include "FullEngineCoopClientRuntime.h"
+#include "TacticalCommandHost.h"
+#include "TacticalInterruptHost.h"
 	#include "TacticalWorldObserverHost.h"
 	#include <Engine/Core/StateTransition.h>
 	#include "Interface Control.h"
@@ -678,18 +682,72 @@ static void CompleteGameFrame()
 	}
 
 	DrainJa2TacticalCommandsAtSafeFrame(GetGameContext());
+	if (IsDedicatedCoopProcess())
+		(void)PollJa2TacticalInterruptRelease();
 	UpdateJa2TacticalWorldObserverAtSafeFrame(GetGameContext().runtimeMessages());
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop done");
 }
 
+static FramePlan PrepareFullEngineCoopClientFrame()
+{
+	// Campaign load is an identity/compatibility input for this process, not a
+	// local authority transition. Discard its restored MAP/GAME screen request
+	// without running legacy screen teardown or any generic frame hook which can
+	// mutate that cold campaign (world-item resizing is one such hook).
+	RequestScreenTransition(NO_PENDING_SCREEN);
+	if (GetCurrentScreen() != INIT_SCREEN)
+		(void)RecordScreenTransition(INIT_SCREEN);
+	const UINT32 requested = HandleRegisteredScreen(INIT_SCREEN);
+	if (requested != INIT_SCREEN)
+	{
+		RequestScreenTransition(NO_PENDING_SCREEN);
+		(void)RecordScreenTransition(INIT_SCREEN);
+	}
+	return FramePlan{};
+}
+
 void GameLoop(void)
 {
+	if (IsFullEngineCoopClientProcess())
+	{
+		// The cold checkpoint is compatibility/load input only. A passive client
+		// must not run PumpJA2Clock, package messages, runtime updates, fixed
+		// simulation ticks, or any tactical command/observer host against it.
+		// Keep the worldless INIT shell responsive and present it directly, then
+		// advance only the isolated client transport at this completed UI boundary.
+		const FramePlan plan = PrepareFullEngineCoopClientFrame();
+		if (plan.present)
+			GetGameContext().services().frames.present(
+				plan.presentationMode);
+		++guiGameCycleCounter;
+
+		FullEngineCoopClientRuntime& runtime =
+			GetFullEngineCoopClientRuntime();
+		runtime.pumpAfterCommittedFrame();
+		if (runtime.failed())
+		{
+			std::fprintf(stderr,
+				"[co-op client] runtime failed: %s\n",
+				FullEngineCoopClientRuntimeErrorName(runtime.error()));
+			gfProgramIsRunning = FALSE;
+		}
+		return;
+	}
+
 	BeginJa2TacticalCommandFrame(GetGameContext());
+	// Co-op intents are admitted only after the previous committed frame. Drain
+	// that bounded prefix before any legacy timer, AI, or UI work can invalidate
+	// the live policy which authorized it. The completed-frame drain remains the
+	// normal package path and should find this co-op prefix empty.
+	if (IsDedicatedCoopProcess())
+		DrainJa2TacticalCommandsAtSafeFrame(GetGameContext());
 	// The legacy timer counters and soldier animation timers share game state
 	// with this frame. Advance them here so no worker can mutate those objects
 	// while tactical/UI code is consuming them.
 	PumpJA2Clock();
 	GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame);
+	if (IsDedicatedCoopProcess())
+		GetDedicatedCoopRuntime().pumpAfterCommittedFrame(GetGameContext());
 }
 
 void SetCurrentScreen( UINT32 uiNewScreen )

@@ -191,6 +191,9 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 void HandleSoldierLeavingSectorByThemSelf( TacticalActor *pSoldier );
 
 BOOLEAN CheckAndHandleUnloadingOfCurrentWorld();
+// Dedicated co-op post-victory return. Bypasses only the ordinary live-player
+// occupancy refusal and otherwise uses the exact native cold-unload path.
+BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn();
 
 // number of SAM sites under player control
 INT32 GetNumberOfSAMSitesUnderPlayerControl( void );

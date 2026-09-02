@@ -464,7 +464,7 @@ private:
 	}
 
 	void commandProcessed(
-		const SimulationCommand&,
+		const SimulationCommand& command,
 		std::uint64_t tick,
 		std::uint64_t sequence,
 		CommandDisposition disposition) noexcept override
@@ -473,14 +473,25 @@ private:
 		for (std::size_t index = 0; index < trackedCount_; ++index)
 		{
 			if (tracked_[index].sequence != sequence) continue;
+			const ReloadWeaponCommand* const reload =
+				std::get_if<ReloadWeaponCommand>(&command);
+			const bool gameplayRejected =
+				disposition == CommandDisposition::Discard &&
+				(std::holds_alternative<AimedFirearmAttackCommand>(command) ||
+				 (reload && reload->source ==
+					SimulationCommandSource::NetworkPeer));
 			finishTracked(
 				index, tick,
 				disposition == CommandDisposition::Applied
 					? TacticalCommandTerminalStatus::Applied
-					: TacticalCommandTerminalStatus::Discarded,
+					: (gameplayRejected
+						? TacticalCommandTerminalStatus::Rejected
+						: TacticalCommandTerminalStatus::Discarded),
 				disposition == CommandDisposition::Applied
 					? TacticalCommandTerminalReason::None
-					: TacticalCommandTerminalReason::AuthoritativeDiscard);
+					: (gameplayRejected
+						? TacticalCommandTerminalReason::InvalidDomain
+						: TacticalCommandTerminalReason::AuthoritativeDiscard));
 			return;
 		}
 	}

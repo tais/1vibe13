@@ -11,10 +11,19 @@ bool SameSector(const TacticalSectorSnapshot& left, const TacticalSectorSnapshot
 		left.loaded == right.loaded;
 }
 
+bool SameDimensions(const TacticalWorldDimensions& left,
+	const TacticalWorldDimensions& right)
+{
+	return left.columns == right.columns && left.rows == right.rows;
+}
+
 bool SameTurn(const TacticalTurnSnapshot& left, const TacticalTurnSnapshot& right)
 {
 	return left.turnBased == right.turnBased && left.inCombat == right.inCombat &&
-		left.activeTeam == right.activeTeam && left.serial == right.serial;
+		left.activeTeam == right.activeTeam && left.serial == right.serial &&
+		left.interruptPhase == right.interruptPhase &&
+		left.interruptSerial == right.interruptSerial &&
+		left.commandsBlocked == right.commandsBlocked;
 }
 
 bool Present(const TacticalActorSnapshot& actor)
@@ -37,7 +46,85 @@ bool SameVitals(const TacticalActorSnapshot& left, const TacticalActorSnapshot& 
 {
 	return left.actionPoints == right.actionPoints && left.life == right.life &&
 		left.maximumLife == right.maximumLife && left.breath == right.breath &&
-		left.maximumBreath == right.maximumBreath;
+		left.maximumBreath == right.maximumBreath &&
+		left.hostileToPlayerTeam == right.hostileToPlayerTeam &&
+		left.interruptActionEligible == right.interruptActionEligible;
+}
+
+bool SameLoadout(const TacticalActorSnapshot& left,
+	const TacticalActorSnapshot& right)
+{
+	return left.loadout == right.loadout;
+}
+
+bool SameDoor(const TacticalDoorSnapshot& left,
+	const TacticalDoorSnapshot& right)
+{
+	return left.baseGrid == right.baseGrid &&
+		left.structureId == right.structureId && left.open == right.open;
+}
+
+template <typename Visitor>
+bool VisitActorPairs(const TacticalWorldSnapshot& previous,
+	const TacticalWorldSnapshot& current, Visitor&& visit)
+{
+	const std::vector<TacticalActorSnapshot>& oldActors = previous.actors();
+	const std::vector<TacticalActorSnapshot>& newActors = current.actors();
+	std::size_t oldIndex = 0;
+	std::size_t newIndex = 0;
+	while (oldIndex < oldActors.size() || newIndex < newActors.size())
+	{
+		if (newIndex == newActors.size() ||
+			(oldIndex < oldActors.size() && oldActors[oldIndex].id < newActors[newIndex].id))
+		{
+			if (!visit(&oldActors[oldIndex], nullptr)) return false;
+			++oldIndex;
+			continue;
+		}
+		if (oldIndex == oldActors.size() || newActors[newIndex].id < oldActors[oldIndex].id)
+		{
+			if (!visit(nullptr, &newActors[newIndex])) return false;
+			++newIndex;
+			continue;
+		}
+
+		const TacticalActorSnapshot& oldActor = oldActors[oldIndex++];
+		const TacticalActorSnapshot& newActor = newActors[newIndex++];
+		if (!visit(&oldActor, &newActor)) return false;
+	}
+	return true;
+}
+
+template <typename Visitor>
+bool VisitDoorPairs(const TacticalWorldSnapshot& previous,
+	const TacticalWorldSnapshot& current, Visitor&& visit)
+{
+	const std::vector<TacticalDoorSnapshot>& oldDoors = previous.doors();
+	const std::vector<TacticalDoorSnapshot>& newDoors = current.doors();
+	std::size_t oldIndex = 0;
+	std::size_t newIndex = 0;
+	while (oldIndex < oldDoors.size() || newIndex < newDoors.size())
+	{
+		if (newIndex == newDoors.size() ||
+			(oldIndex < oldDoors.size() &&
+			 oldDoors[oldIndex].baseGrid < newDoors[newIndex].baseGrid))
+		{
+			if (!visit(&oldDoors[oldIndex], nullptr)) return false;
+			++oldIndex;
+			continue;
+		}
+		if (oldIndex == oldDoors.size() ||
+			newDoors[newIndex].baseGrid < oldDoors[oldIndex].baseGrid)
+		{
+			if (!visit(nullptr, &newDoors[newIndex])) return false;
+			++newIndex;
+			continue;
+		}
+		const TacticalDoorSnapshot& oldDoor = oldDoors[oldIndex++];
+		const TacticalDoorSnapshot& newDoor = newDoors[newIndex++];
+		if (!visit(&oldDoor, &newDoor)) return false;
+	}
+	return true;
 }
 
 template <typename Visitor>
@@ -54,65 +141,115 @@ bool VisitEvents(const TacticalWorldSnapshot& previous,
 		!visit(TacticalTurnChangedEvent{previous.turn(), current.turn()}))
 		return false;
 
-	const std::vector<TacticalActorSnapshot>& oldActors = previous.actors();
-	const std::vector<TacticalActorSnapshot>& newActors = current.actors();
-	std::size_t oldIndex = 0;
-	std::size_t newIndex = 0;
-	while (oldIndex < oldActors.size() || newIndex < newActors.size())
-	{
-		if (newIndex == newActors.size() ||
-			(oldIndex < oldActors.size() && oldActors[oldIndex].id < newActors[newIndex].id))
-		{
-			if (Present(oldActors[oldIndex]) &&
-				!visit(TacticalActorLeftEvent{oldActors[oldIndex].id}))
-				return false;
-			++oldIndex;
-			continue;
-		}
-		if (oldIndex == oldActors.size() || newActors[newIndex].id < oldActors[oldIndex].id)
-		{
-			if (Present(newActors[newIndex]) &&
-				!visit(TacticalActorEnteredEvent{newActors[newIndex]}))
-				return false;
-			++newIndex;
-			continue;
-		}
+	// The co-op wire canonical form is category-major and then identity-major.
+	// Keep each pass allocation-free; DiffTacticalWorldSnapshots still performs
+	// one complete counting traversal before reserving and one publishing
+	// traversal after capacity is proven.
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			const bool wasPresent = oldActor != nullptr && Present(*oldActor);
+			const bool isPresent = newActor != nullptr && Present(*newActor);
+			return !isPresent || wasPresent ||
+				visit(TacticalActorEnteredEvent{*newActor});
+		}))
+		return false;
 
-		const TacticalActorSnapshot& oldActor = oldActors[oldIndex++];
-		const TacticalActorSnapshot& newActor = newActors[newIndex++];
-		const bool wasPresent = Present(oldActor);
-		const bool isPresent = Present(newActor);
-		if (wasPresent != isPresent)
-		{
-			if (!(isPresent
-				? visit(TacticalActorEnteredEvent{newActor})
-				: visit(TacticalActorLeftEvent{oldActor.id})))
-				return false;
-			continue;
-		}
-		if (!isPresent) continue;
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			const bool wasPresent = oldActor != nullptr && Present(*oldActor);
+			const bool isPresent = newActor != nullptr && Present(*newActor);
+			return !wasPresent || isPresent ||
+				visit(TacticalActorLeftEvent{oldActor->id});
+		}))
+		return false;
 
-		if (!SamePosition(oldActor, newActor) &&
-			!visit(TacticalActorMovedEvent{
-				oldActor.id, oldActor.grid, newActor.grid,
-				oldActor.level, newActor.level,
-				oldActor.direction, newActor.direction}))
-			return false;
-		if (!SameStance(oldActor, newActor) &&
-			!visit(TacticalActorStanceChangedEvent{
-				oldActor.id, oldActor.stance, newActor.stance,
-				oldActor.animation, newActor.animation}))
-			return false;
-		if (!SameVitals(oldActor, newActor) &&
-			!visit(TacticalActorVitalsChangedEvent{
-				oldActor.id,
-				oldActor.actionPoints, newActor.actionPoints,
-				oldActor.life, newActor.life,
-				oldActor.maximumLife, newActor.maximumLife,
-				oldActor.breath, newActor.breath,
-				oldActor.maximumBreath, newActor.maximumBreath}))
-			return false;
-	}
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			if (oldActor == nullptr || newActor == nullptr ||
+				!Present(*oldActor) || !Present(*newActor) ||
+				SamePosition(*oldActor, *newActor))
+				return true;
+			return visit(TacticalActorMovedEvent{
+				oldActor->id, oldActor->grid, newActor->grid,
+				oldActor->level, newActor->level,
+				oldActor->direction, newActor->direction});
+		}))
+		return false;
+
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			if (oldActor == nullptr || newActor == nullptr ||
+				!Present(*oldActor) || !Present(*newActor) ||
+				SameStance(*oldActor, *newActor))
+				return true;
+			return visit(TacticalActorStanceChangedEvent{
+				oldActor->id, oldActor->stance, newActor->stance,
+				oldActor->animation, newActor->animation});
+		}))
+		return false;
+
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			if (oldActor == nullptr || newActor == nullptr ||
+				!Present(*oldActor) || !Present(*newActor) ||
+				SameVitals(*oldActor, *newActor))
+				return true;
+			return visit(TacticalActorVitalsChangedEvent{
+				oldActor->id,
+				oldActor->actionPoints, newActor->actionPoints,
+				oldActor->life, newActor->life,
+				oldActor->maximumLife, newActor->maximumLife,
+				oldActor->breath, newActor->breath,
+				oldActor->maximumBreath, newActor->maximumBreath,
+				oldActor->hostileToPlayerTeam,
+				newActor->hostileToPlayerTeam,
+				oldActor->interruptActionEligible,
+				newActor->interruptActionEligible});
+		}))
+		return false;
+
+	if (!VisitActorPairs(previous, current,
+		[&](const TacticalActorSnapshot* oldActor,
+			const TacticalActorSnapshot* newActor) {
+			if (oldActor == nullptr || newActor == nullptr ||
+				!Present(*oldActor) || !Present(*newActor) ||
+				SameLoadout(*oldActor, *newActor))
+				return true;
+			return visit(TacticalActorLoadoutChangedEvent{
+				oldActor->id, oldActor->loadout, newActor->loadout});
+		}))
+		return false;
+
+	if (!VisitDoorPairs(previous, current,
+		[&](const TacticalDoorSnapshot* oldDoor,
+			const TacticalDoorSnapshot* newDoor) {
+			return oldDoor != nullptr || newDoor == nullptr ||
+				visit(TacticalDoorEnteredEvent{*newDoor});
+		}))
+		return false;
+
+	if (!VisitDoorPairs(previous, current,
+		[&](const TacticalDoorSnapshot* oldDoor,
+			const TacticalDoorSnapshot* newDoor) {
+			return oldDoor == nullptr || newDoor != nullptr ||
+				visit(TacticalDoorLeftEvent{oldDoor->baseGrid});
+		}))
+		return false;
+
+	if (!VisitDoorPairs(previous, current,
+		[&](const TacticalDoorSnapshot* oldDoor,
+			const TacticalDoorSnapshot* newDoor) {
+			return oldDoor == nullptr || newDoor == nullptr ||
+				SameDoor(*oldDoor, *newDoor) ||
+				visit(TacticalDoorChangedEvent{*oldDoor, *newDoor});
+		}))
+		return false;
+
 	return true;
 }
 }
@@ -124,6 +261,10 @@ TacticalWorldDiffResult DiffTacticalWorldSnapshots(
 	TacticalWorldDelta& output) noexcept
 {
 	if (previous.epoch() == 0 || current.epoch() == 0)
+		return TacticalWorldDiffResult::InvalidSnapshot;
+	if (!previous.dimensions().valid() || !current.dimensions().valid() ||
+		(previous.epoch() == current.epoch() &&
+			!SameDimensions(previous.dimensions(), current.dimensions())))
 		return TacticalWorldDiffResult::InvalidSnapshot;
 
 	std::size_t eventCount = 0;

@@ -49,12 +49,16 @@ int main()
 		const auto parsed = Parse({"JA2", "--dedicated",
 			"--dedicated-mode=COOP", "--campaign", "shared_01",
 			"--campaign-action", "resume", "--checkpoint-seconds=600",
+			"--dedicated-coop-bind", "127.0.0.1",
+			"--dedicated-coop-port=60123",
 			"--dedicated-state-dir", StateRoot});
 		Check(parsed && parsed.options.mode == DedicatedServerMode::Coop &&
 			parsed.options.campaignId == "shared_01" &&
 			parsed.options.campaignAction == DedicatedCampaignAction::Resume &&
 			parsed.options.stateDirectory == StateRoot &&
-			parsed.options.checkpointSeconds == 600,
+			parsed.options.checkpointSeconds == 600 &&
+			parsed.options.coopBindAddress == "127.0.0.1" &&
+			parsed.options.coopPort == 60123,
 			"co-op resume options parse in split and equals forms");
 	}
 	{
@@ -65,7 +69,9 @@ int main()
 		Check(parsed &&
 			parsed.options.campaignAction == DedicatedCampaignAction::Create &&
 			parsed.options.campaignId == "alpha-1" &&
-			parsed.options.campaignSeed == 0,
+			parsed.options.campaignSeed == 0 &&
+			parsed.options.coopBindAddress == "0.0.0.0" &&
+			parsed.options.coopPort == 60005,
 			"new co-op campaign has an explicit seed and lowercase canonical id");
 	}
 	{
@@ -112,6 +118,13 @@ int main()
 	Check(Parse({"JA2", "--dedicated", "--campaign-seed=1"}).error ==
 		DedicatedServerOptionError::PvpCampaignOption,
 		"PvP cannot acquire a campaign random root");
+	Check(Parse({"JA2", "--dedicated",
+		"--dedicated-coop-port=60006"}).error ==
+		DedicatedServerOptionError::PvpCoopNetworkOption,
+		"PvP cannot silently acquire the isolated co-op listener endpoint");
+	Check(Parse({"JA2", "--dedicated-coop-bind=127.0.0.1"}).error ==
+		DedicatedServerOptionError::DedicatedOptionWithoutDedicated,
+		"co-op listener binding cannot enable dedicated mode implicitly");
 	Check(Parse({"JA2", "--campaign-seed=1"}).error ==
 		DedicatedServerOptionError::DedicatedOptionWithoutDedicated,
 		"a campaign seed cannot enable dedicated mode implicitly");
@@ -189,6 +202,51 @@ int main()
 		"--checkpoint-seconds=86401"}).error ==
 		DedicatedServerOptionError::InvalidCheckpointInterval,
 		"checkpoint interval has an upper bound");
+	for (const char* invalidPort : {"0", "65536", "-1", "+1", "60x"})
+	{
+		std::string option = "--dedicated-coop-port=";
+		option += invalidPort;
+		Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+			"--campaign=one", "--campaign-action=resume",
+			"--dedicated-state-dir", StateRoot, option.c_str()}).error ==
+			DedicatedServerOptionError::InvalidCoopPort,
+			"co-op listener ports accept only the exact uint16 domain");
+	}
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=resume",
+		"--dedicated-state-dir", StateRoot,
+		"--dedicated-coop-bind=bad host"}).error ==
+		DedicatedServerOptionError::InvalidCoopBindAddress,
+		"co-op listener binding rejects whitespace and controls");
+	std::string oversizedBindAddress(256, 'a');
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=resume",
+		"--dedicated-state-dir", StateRoot,
+		"--dedicated-coop-bind", oversizedBindAddress.c_str()}).error ==
+		DedicatedServerOptionError::InvalidCoopBindAddress,
+		"co-op listener binding fits the transport endpoint exactly");
+	{
+		const auto parsed = Parse({"JA2", "--dedicated",
+			"--dedicated-mode=coop", "--campaign=one",
+			"--campaign-action=resume", "--dedicated-state-dir", StateRoot,
+			"--dedicated-coop-bind=::", "--dedicated-coop-port=65535"});
+		Check(parsed && parsed.options.coopBindAddress == "::" &&
+			parsed.options.coopPort == 65535,
+			"co-op listener accepts IPv6 wildcard and maximum port");
+	}
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=resume",
+		"--dedicated-state-dir", StateRoot,
+		"--dedicated-coop-port=60005", "--dedicated-coop-port=60006"}).error ==
+		DedicatedServerOptionError::DuplicateOption,
+		"duplicate co-op listener ports are rejected");
+	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
+		"--campaign=one", "--campaign-action=resume",
+		"--dedicated-state-dir", StateRoot,
+		"--dedicated-coop-bind=127.0.0.1",
+		"--dedicated-coop-bind=::1"}).error ==
+		DedicatedServerOptionError::DuplicateOption,
+		"duplicate co-op listener bind addresses are rejected");
 	Check(Parse({"JA2", "--dedicated", "--dedicated-mode=coop",
 		"--campaign=one", "--campaign=two", "--campaign-action=new"}).error ==
 		DedicatedServerOptionError::DuplicateOption,
@@ -305,13 +363,17 @@ int main()
 	installed.campaignId = "installed";
 	installed.campaignSeed = UINT64_C(0x1020304050607080);
 	installed.stateDirectory = StateRoot;
+	installed.coopBindAddress = "::1";
+	installed.coopPort = 61234;
 	InstallDedicatedServerOptions(installed);
 	Check(GetDedicatedServerOptions().enabled &&
 		GetDedicatedServerOptions().mode == DedicatedServerMode::Coop &&
 		GetDedicatedServerOptions().campaignId == "installed" &&
 		GetDedicatedServerOptions().campaignSeed ==
 			UINT64_C(0x1020304050607080) &&
-		GetDedicatedServerOptions().stateDirectory == StateRoot,
+		GetDedicatedServerOptions().stateDirectory == StateRoot &&
+		GetDedicatedServerOptions().coopBindAddress == "::1" &&
+		GetDedicatedServerOptions().coopPort == 61234,
 		"validated options are installed for later lifecycle seams");
 
 	std::puts("dedicated server option tests passed");

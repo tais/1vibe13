@@ -1,4 +1,5 @@
 #include "lua_state.h"
+#include "gameplay_lua_policy.h"
 #include <DEBUG.H>
 #include "sgp_logger.h"
 
@@ -26,6 +27,8 @@ void LuaState::init(bool init_libs)
 		if(init_libs)
 		{
 			luaL_openlibs(_L);
+			SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(_L),
+				"Could not configure gameplay Lua standard libraries");
 		}
 		_registry._L = _L;
 	}

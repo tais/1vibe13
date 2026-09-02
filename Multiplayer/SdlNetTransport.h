@@ -10,6 +10,22 @@
 
 namespace ja2::mp::net
 {
+inline constexpr std::size_t DefaultSdlNetInboundMessageRateBytesPerSecond =
+	256u * 1024u;
+inline constexpr std::size_t DefaultSdlNetInboundMessageBurstBytes =
+	1u * 1024u * 1024u;
+inline constexpr std::size_t MaximumSdlNetInboundMessageRateBytesPerSecond =
+	32u * 1024u * 1024u;
+inline constexpr std::size_t MaximumSdlNetInboundMessageBurstBytes =
+	4u * 1024u * 1024u;
+
+struct SdlNetInboundMessageBudget
+{
+	std::size_t sustainedBytesPerSecond =
+		DefaultSdlNetInboundMessageRateBytesPerSecond;
+	std::size_t burstBytes = DefaultSdlNetInboundMessageBurstBytes;
+};
+
 // Values identify transport-local events while the legacy arena protocol is
 // migrated. They are not part of the framed message wire.
 enum SdlNetEventCode : std::uint8_t
@@ -50,6 +66,8 @@ struct SdlNetMessage
 };
 
 using SdlNetMessageHandler = void (*)(SdlNetMessage* message);
+using SdlNetContextMessageHandler = void (*)(
+	SdlNetMessage* message, void* context);
 
 struct SdlNetFileInfo
 {
@@ -142,8 +160,26 @@ public:
 	void Release(SdlNetEvent* event);
 
 	bool RegisterMessage(const char* name, SdlNetMessageHandler handler);
+	// Contextual registrations let an isolated protocol adapter retain its own
+	// state without process-global callback trampolines. Registering the same
+	// name still replaces the previous handler, exactly like the legacy overload.
+	bool RegisterMessage(const char* name,
+		SdlNetContextMessageHandler handler, void* context);
 	bool SendMessage(const char* name, const void* data, std::size_t size,
 		ConnectionId connection, bool broadcast);
+	// Non-blocking byte-level backpressure for application protocols. The
+	// output is replaced only for a live connection and a successful query.
+	bool PendingWriteBytes(
+		ConnectionId connection, std::size_t& bytes) noexcept;
+	// The strict default protects generic/legacy peers. A bounded protocol with
+	// larger legitimate streams may opt in before Start(); live reconfiguration
+	// is rejected so every connection begins with one immutable budget.
+	bool SetInboundMessageBudget(
+		const SdlNetInboundMessageBudget& budget) noexcept;
+	// A public listener can keep capacity for an in-process loopback authority.
+	// Remote sockets cannot consume this portion of the total connection cap.
+	bool SetReservedIncomingLoopbackConnections(
+		std::uint16_t count) noexcept;
 
 	void SetMaximumIncomingConnections(std::uint16_t maximum);
 	void SetTimeout(unsigned milliseconds);

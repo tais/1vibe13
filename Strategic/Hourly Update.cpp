@@ -453,7 +453,23 @@ void HourlyLarryUpdate()
 										else
 										{
 											std::vector<INT16> shuffledRiskDrugItems = riskDrugItems;
-											std::shuffle(shuffledRiskDrugItems.begin(), shuffledRiskDrugItems.end(), std::mt19937{ std::random_device{}() });
+											if (GetGameSimulationRandomSource() != nullptr)
+											{
+												for (std::size_t remaining =
+													shuffledRiskDrugItems.size(); remaining > 1;
+													--remaining)
+												{
+													std::swap(shuffledRiskDrugItems[remaining - 1],
+														shuffledRiskDrugItems[Random(
+															static_cast<UINT32>(remaining))]);
+												}
+											}
+											else
+											{
+												std::shuffle(shuffledRiskDrugItems.begin(),
+													shuffledRiskDrugItems.end(),
+													std::mt19937{ std::random_device{}() });
+											}
 											for (INT16 sItemId : shuffledRiskDrugItems)
 											{
 												if (sItemId < MAXITEMS && Item[sItemId].usItemClass & (IC_KIT | IC_MISC) && GetCurrentBalance() >= Item[sItemId].usPrice)

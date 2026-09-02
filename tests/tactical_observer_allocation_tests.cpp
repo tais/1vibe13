@@ -77,11 +77,14 @@ void check(bool condition, const char* message)
 class ReusableTacticalWorldService final : public TacticalWorldService
 {
 public:
-	explicit ReusableTacticalWorldService(std::size_t actorCount)
-		: maximumActors_(actorCount)
+	explicit ReusableTacticalWorldService(
+		std::size_t actorCount, std::size_t doorCount = 0)
+		: maximumActors_(actorCount), maximumDoors_(doorCount)
 	{
 		actorScratch_.reserve(actorCount);
 		actors_.reserve(actorCount);
+		doorScratch_.reserve(doorCount);
+		doors_.reserve(doorCount);
 		for (std::size_t slot = 0; slot < actorCount; ++slot)
 		{
 			actors_.push_back(TacticalActorSnapshot{
@@ -93,6 +96,10 @@ public:
 				TacticalStance::Standing, 20, 80, 80, 90, 90,
 				true, true});
 		}
+		for (std::size_t index = 0; index < doorCount; ++index)
+			doors_.push_back(TacticalDoorSnapshot{
+				static_cast<std::int32_t>(500 + index),
+				static_cast<std::uint16_t>(index + 1), false});
 	}
 
 	void advance() noexcept
@@ -131,15 +138,22 @@ public:
 		try
 		{
 			actorScratch_.clear();
+			doorScratch_.clear();
 			for (const TacticalActorSnapshot& actor : actors_)
 				actorScratch_.push_back(actor);
+			for (const TacticalDoorSnapshot& door : doors_)
+				doorScratch_.push_back(door);
 			const TacticalSnapshotCreateError result =
 				TacticalWorldSnapshot::createReusableOrdered(
 					epoch_,
+					TacticalWorldDimensions{160, 160},
 					TacticalSectorSnapshot{1, 1, 0, true},
 					TacticalTurnSnapshot{true, true, 0, frame_},
-					actorScratch_, output, maximumActors_);
+					actorScratch_, doorScratch_, output,
+					maximumActors_, maximumDoors_);
 			if (result == TacticalSnapshotCreateError::TooManyActors)
+				return TacticalWorldCaptureResult::CapacityReached;
+			if (result == TacticalSnapshotCreateError::TooManyDoors)
 				return TacticalWorldCaptureResult::CapacityReached;
 			return result == TacticalSnapshotCreateError::None
 				? TacticalWorldCaptureResult::Success
@@ -153,10 +167,13 @@ public:
 
 private:
 	std::size_t maximumActors_;
+	std::size_t maximumDoors_;
 	std::uint64_t epoch_ = 77;
 	std::uint64_t frame_ = 1;
 	std::vector<TacticalActorSnapshot> actors_;
 	std::vector<TacticalActorSnapshot> actorScratch_;
+	std::vector<TacticalDoorSnapshot> doors_;
+	std::vector<TacticalDoorSnapshot> doorScratch_;
 	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Success;
 };
 
@@ -406,6 +423,14 @@ int main()
 		allocation_probe::count.load(std::memory_order_relaxed);
 	check(resetLoop && postResetAllocations == 0,
 		"world baselines and nonzero identity resets retain warmed observer buffers");
+
+	ReusableTacticalWorldService doorSource(1, 1);
+	TacticalWorldObserver doorLimited(
+		doorSource, TacticalWorldObserverLimits{1, 5, 0});
+	check(doorLimited.update() ==
+		TacticalWorldObserverUpdateResult::DoorCapacityReached &&
+		!doorLimited.latest(),
+		"observer door capacity fails closed without publishing a partial baseline");
 
 	return failures == 0 ? 0 : 1;
 }

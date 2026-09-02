@@ -41,6 +41,8 @@ private:
 class RecordingExecutionSink final : public TacticalIntentExecutionSink
 {
 public:
+	bool ready() const noexcept override { return readyForExecution; }
+
 	TacticalIntentExecutionDisposition execute(
 		const AuthorizedTacticalIntent& intent) noexcept override
 	{
@@ -51,6 +53,7 @@ public:
 
 	std::array<AuthorizedTacticalIntent, 16> received{};
 	std::size_t count = 0;
+	bool readyForExecution = true;
 	TacticalIntentExecutionDisposition nextDisposition =
 		TacticalIntentExecutionDisposition::Applied;
 };
@@ -118,6 +121,20 @@ AdmissionResponse DecodeResponse(const AdmissionIngressResult& result)
 		result.responseBytes.size(), response) == DecodeResult::Ok,
 		"admission ingress response is an exact decodable frame");
 	return response;
+}
+
+void Acknowledge(FullEngineCoopIngress& ingress,
+	const TransportPeer& sender, const AdmissionResponse& admitted)
+{
+	AdmissionAck acknowledgement;
+	acknowledgement.sessionEpoch = admitted.sessionEpoch;
+	acknowledgement.peerIdentity = admitted.peerIdentity;
+	acknowledgement.reconnectToken = admitted.reconnectToken;
+	AdmissionAckBytes bytes{};
+	CHECK(EncodeAdmissionAck(acknowledgement, bytes),
+		"test admission ACK encodes");
+	CHECK(ingress.handleAdmissionAck(sender, bytes.data(), bytes.size()).acknowledged(),
+		"test admission binding ACK succeeds");
 }
 
 TacticalIntent Intent(
@@ -212,6 +229,125 @@ void TestLifecycleFailsClosed()
 		"inactive ingress never decodes or executes tactical input");
 }
 
+void TestAdmissionAndTacticalSessionsAreIndependent()
+{
+	SequentialTokenSource tokens;
+	RecordingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	const AuthorityConfiguration admission = Authority(0x701);
+	const TacticalAuthorityContext tactical{0x701, 4, 9, 2};
+
+	CHECK(ingress.beginTacticalSession(tactical) ==
+		FullEngineCoopStartResult::AdmissionSessionInactive,
+		"tactical authority cannot precede admission");
+	CHECK(ingress.beginAdmissionSession(admission) ==
+		FullEngineCoopStartResult::Success,
+		"complete admission starts without a tactical world");
+	CHECK(ingress.admissionActive() && !ingress.tacticalActive() &&
+		!ingress.active(),
+		"admission-only phase does not report tactical ingress active");
+
+	const TransportPeer sender{6051};
+	const AdmissionRequestBytes request = RequestBytes(FirstJoin(admission));
+	const AdmissionResponse peer = DecodeResponse(ingress.handleAdmission(
+		sender, request.data(), request.size()));
+	CHECK(peer.admitted() && ingress.admittedPeerCount() == 1,
+		"peer admission is available before tactical initialization");
+	Acknowledge(ingress, sender, peer);
+	CHECK(ingress.bindActorForTransport(sender, TacticalEntityId{3, 1}) ==
+		TacticalActorBindingResult::NotConfigured,
+		"admission alone grants no actor authority");
+
+	TacticalAuthorityContext wrongEpoch = tactical;
+	wrongEpoch.sessionEpoch = 0x702;
+	CHECK(ingress.beginTacticalSession(wrongEpoch) ==
+		FullEngineCoopStartResult::SessionEpochMismatch &&
+		ingress.admissionActive() && ingress.admittedPeerCount() == 1,
+		"failed tactical activation preserves the live admission session");
+	CHECK(ingress.beginTacticalSession(tactical) ==
+		FullEngineCoopStartResult::Success && ingress.active(),
+		"matching tactical context activates the admitted epoch");
+	CHECK(ingress.bindActorForTransport(sender, TacticalEntityId{3, 1}) ==
+		TacticalActorBindingResult::Success,
+		"pre-tactical admitted transport can receive an actor binding later");
+
+	ingress.endTacticalSession();
+	CHECK(ingress.admissionActive() && !ingress.tacticalActive() &&
+		ingress.admittedPeerCount() == 1 && ingress.actorBindingCount() == 0,
+		"ending tactical authority retains admission but clears tactical state");
+	const AdmissionResponse retry = DecodeResponse(ingress.handleAdmission(
+		sender, request.data(), request.size()));
+	CHECK(retry.admitted() && retry.peerIdentity == peer.peerIdentity,
+		"admission retry remains stable while tactical authority is stopped");
+
+	CHECK(ingress.beginAdmissionSession(Authority(0x703)) ==
+		FullEngineCoopStartResult::Success &&
+		ingress.admittedPeerCount() == 0 && !ingress.tacticalActive(),
+		"a new admission epoch clears all prior credentials and tactical state");
+}
+
+void TestAuthenticatedPeerResolution()
+{
+	SequentialTokenSource tokens;
+	RecordingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	const AuthorityConfiguration configuration = Authority(0x711);
+	CHECK(ingress.beginAdmissionSession(configuration) ==
+		FullEngineCoopStartResult::Success,
+		"peer resolution admission session starts without tactical state");
+
+	const TransportPeer firstTransport{6071};
+	const AdmissionRequestBytes firstJoin =
+		RequestBytes(FirstJoin(configuration));
+	const AdmissionResponse credential = DecodeResponse(
+		ingress.handleAdmission(firstTransport,
+			firstJoin.data(), firstJoin.size()));
+	PeerIdentity unchanged{};
+	unchanged.fill(0xee);
+	PeerIdentity resolved = unchanged;
+	CHECK(!ingress.resolveAuthenticatedPeer(firstTransport,
+		configuration.sessionEpoch, resolved) && resolved == unchanged,
+		"accepted but unacknowledged transport does not resolve and preserves output");
+
+	Acknowledge(ingress, firstTransport, credential);
+	resolved = unchanged;
+	CHECK(!ingress.resolveAuthenticatedPeer(firstTransport,
+		configuration.sessionEpoch + 1, resolved) && resolved == unchanged,
+		"authenticated transport cannot resolve across an epoch mismatch");
+	CHECK(ingress.resolveAuthenticatedPeer(firstTransport,
+		configuration.sessionEpoch, resolved) &&
+		resolved == credential.peerIdentity,
+		"ACK-confirmed transport resolves to the server-issued identity");
+
+	ingress.disconnect(firstTransport);
+	resolved = unchanged;
+	CHECK(!ingress.resolveAuthenticatedPeer(firstTransport,
+		configuration.sessionEpoch, resolved) && resolved == unchanged,
+		"disconnect immediately invalidates transport-derived resolution");
+
+	const TransportPeer replacementTransport{6072};
+	const AdmissionRequestBytes reconnect = RequestBytes(
+		Reconnect(configuration, credential));
+	const AdmissionResponse reconnected = DecodeResponse(
+		ingress.handleAdmission(replacementTransport,
+			reconnect.data(), reconnect.size()));
+	resolved = unchanged;
+	CHECK(reconnected.admitted() &&
+		!ingress.resolveAuthenticatedPeer(replacementTransport,
+			configuration.sessionEpoch, resolved) && resolved == unchanged,
+		"reconnect requires a fresh ACK before its replacement transport resolves");
+	Acknowledge(ingress, replacementTransport, reconnected);
+	CHECK(ingress.resolveAuthenticatedPeer(replacementTransport,
+		configuration.sessionEpoch, resolved) &&
+		resolved == credential.peerIdentity,
+		"freshly ACKed reconnect resolves the retained identity");
+	ingress.clearTransportBindings();
+	resolved = unchanged;
+	CHECK(!ingress.resolveAuthenticatedPeer(replacementTransport,
+		configuration.sessionEpoch, resolved) && resolved == unchanged,
+		"clearing transport bindings invalidates resolution transactionally");
+}
+
 void TestAdmissionDecodeAndExactResponses()
 {
 	SequentialTokenSource tokens;
@@ -265,6 +401,45 @@ void TestAdmissionDecodeAndExactResponses()
 		"valid sender-derived admission returns one issued credential");
 }
 
+void TestNoExecutionAuthorityPath()
+{
+	SequentialTokenSource tokens;
+	RecordingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	const FullEngineCoopSessionConfiguration configuration = Session(0x501);
+	CHECK(ingress.beginSession(configuration) ==
+		FullEngineCoopStartResult::Success,
+		"no-execution authority fixture starts");
+	const TransportPeer sender{6151};
+	const AdmissionRequestBytes request =
+		RequestBytes(FirstJoin(configuration.admission));
+	const AdmissionResponse peer = DecodeResponse(ingress.handleAdmission(
+		sender, request.data(), request.size()));
+	Acknowledge(ingress, sender, peer);
+	const TacticalEntityId actor{9, 1};
+	CHECK(ingress.bindActorForTransport(sender, actor) ==
+		TacticalActorBindingResult::Success,
+		"no-execution peer receives its actor ACL");
+	const std::vector<std::uint8_t> bytes =
+		IntentBytes(Intent(peer, 1, actor));
+	sink.readyForExecution = false;
+	const TacticalIntentIngressResult rejected = ingress.rejectTacticalIntent(
+		sender, bytes.data(), bytes.size());
+	CHECK(rejected.decodeResult == TacticalIntentCodecResult::Success &&
+		rejected.authorization.reason == TacticalIntentAuthorizationReason::None &&
+		rejected.authorization.commandConsumed &&
+		rejected.authorization.nextExpectedCommandId == 2 &&
+		!rejected.executionAttempted && sink.count == 0,
+		"no-execution path consumes exact expected ID without calling an unready sink");
+	const TacticalIntentIngressResult duplicate = ingress.rejectTacticalIntent(
+		sender, bytes.data(), bytes.size());
+	CHECK(duplicate.authorization.reason ==
+		TacticalIntentAuthorizationReason::DuplicateCommand &&
+		!duplicate.authorization.commandConsumed &&
+		duplicate.authorization.nextExpectedCommandId == 2 && sink.count == 0,
+		"no-execution replay cannot consume or execute twice");
+}
+
 void TestIntentRoutingAndLifecycle()
 {
 	SequentialTokenSource tokens;
@@ -283,6 +458,8 @@ void TestIntentRoutingAndLifecycle()
 		senderA, firstJoin.data(), firstJoin.size()));
 	const AdmissionResponse peerB = DecodeResponse(ingress.handleAdmission(
 		senderB, firstJoin.data(), firstJoin.size()));
+	Acknowledge(ingress, senderA, peerA);
+	Acknowledge(ingress, senderB, peerB);
 	CHECK(peerA.admitted() && peerB.admitted() &&
 		peerA.peerIdentity != peerB.peerIdentity,
 		"two transports receive distinct admitted identities");
@@ -306,6 +483,18 @@ void TestIntentRoutingAndLifecycle()
 	CHECK(truncated.decodeResult == TacticalIntentCodecResult::Invalid &&
 		!truncated.executionAttempted && sink.count == 0,
 		"truncated tactical bytes never reach authority or execution");
+	sink.readyForExecution = false;
+	const TacticalIntentIngressResult backpressured =
+		ingress.handleTacticalIntent(
+			senderA, commandA1Bytes.data(), commandA1Bytes.size());
+	CHECK(!ingress.tacticalExecutionReady() &&
+		backpressured.decodeResult == TacticalIntentCodecResult::Success &&
+		!backpressured.authorization.commandConsumed &&
+		!backpressured.executionAttempted && sink.count == 0,
+		"execution backpressure never lets authority consume the command ID");
+	sink.readyForExecution = true;
+	CHECK(ingress.tacticalExecutionReady(),
+		"execution readiness recovers without restarting tactical authority");
 
 	TacticalIntent spoof = Intent(peerB, 1, actorB);
 	const std::vector<std::uint8_t> spoofBytes = IntentBytes(spoof);
@@ -313,9 +502,13 @@ void TestIntentRoutingAndLifecycle()
 		senderA, spoofBytes.data(), spoofBytes.size());
 	CHECK(spoofed.authorization.reason ==
 		TacticalIntentAuthorizationReason::ClaimedIdentityMismatch &&
+		spoofed.authorization.commandConsumed &&
+		spoofed.authorization.nextExpectedCommandId == 2 &&
 		!spoofed.executionAttempted && sink.count == 0,
-		"transport A cannot route an envelope claiming peer B");
+		"transport A cannot route an envelope claiming peer B and terminates that ID");
 
+	commandA1.commandId = 2;
+	commandA1Bytes = IntentBytes(commandA1);
 	sink.nextDisposition = TacticalIntentExecutionDisposition::Rejected;
 	const TacticalIntentIngressResult rejected = ingress.handleTacticalIntent(
 		senderA, commandA1Bytes.data(), commandA1Bytes.size());
@@ -323,10 +516,11 @@ void TestIntentRoutingAndLifecycle()
 		TacticalIntentAuthorizationReason::None &&
 		rejected.executionAttempted &&
 		rejected.execution == TacticalIntentExecutionDisposition::Rejected &&
+		rejected.authorization.nextExpectedCommandId == 3 &&
 		sink.count == 1,
 		"authorized command reaches the sink and reports gameplay rejection");
 	CHECK(sink.received[0].peerIdentity == peerA.peerIdentity &&
-		sink.received[0].commandId == 1 && sink.received[0].actor == actorA &&
+		sink.received[0].commandId == 2 && sink.received[0].actor == actorA &&
 		sink.received[0].context.sessionEpoch == 0x501 &&
 		std::holds_alternative<MoveTacticalIntent>(sink.received[0].payload),
 		"sink receives only resolved identity, authoritative context and payload");
@@ -351,7 +545,7 @@ void TestIntentRoutingAndLifecycle()
 		"independent peer command is sanitized and applied");
 
 	sink.nextDisposition = TacticalIntentExecutionDisposition::Retained;
-	TacticalIntent commandA2 = Intent(peerA, 2, actorA);
+	TacticalIntent commandA2 = Intent(peerA, 3, actorA);
 	commandA2.payload = StanceTacticalIntent{TacticalIntentStance::Crouched};
 	const std::vector<std::uint8_t> commandA2Bytes = IntentBytes(commandA2);
 	const TacticalIntentIngressResult retained = ingress.handleTacticalIntent(
@@ -361,7 +555,7 @@ void TestIntentRoutingAndLifecycle()
 		"bounded executor retention is surfaced as terminal acceptance");
 
 	ingress.disconnect(senderA);
-	TacticalIntent commandA3 = Intent(peerA, 3, actorA);
+	TacticalIntent commandA3 = Intent(peerA, 4, actorA);
 	commandA3.payload = StopTacticalIntent{};
 	const std::vector<std::uint8_t> commandA3Bytes = IntentBytes(commandA3);
 	const TacticalIntentIngressResult disconnected = ingress.handleTacticalIntent(
@@ -378,6 +572,7 @@ void TestIntentRoutingAndLifecycle()
 	CHECK(reconnected.admitted() &&
 		reconnected.peerIdentity == peerA.peerIdentity,
 		"credential reconnects the same peer on a new transport");
+	Acknowledge(ingress, senderC, reconnected);
 	sink.nextDisposition = TacticalIntentExecutionDisposition::Applied;
 	const TacticalIntentIngressResult afterReconnect =
 		ingress.handleTacticalIntent(
@@ -391,21 +586,25 @@ void TestIntentRoutingAndLifecycle()
 		"new tactical generation advances through ingress lifecycle");
 	CHECK(ingress.actorBindingCount() == 0,
 		"generation barrier clears every actor binding");
-	TacticalIntent commandA4 = Intent(peerA, 4, actorA,
+	TacticalIntent commandA4 = Intent(peerA, 5, actorA,
 		TacticalAuthorityContext{0x501, 8, 1, 1});
 	commandA4.payload = EndTurnTacticalIntent{};
 	const std::vector<std::uint8_t> commandA4Bytes = IntentBytes(commandA4);
 	const TacticalIntentIngressResult unbound = ingress.handleTacticalIntent(
 		senderC, commandA4Bytes.data(), commandA4Bytes.size());
 	CHECK(unbound.authorization.reason ==
-		TacticalIntentAuthorizationReason::ActorNotOwned && sink.count == 4,
-		"new generation rejects commands until server rebinds actors");
+		TacticalIntentAuthorizationReason::ActorNotOwned &&
+		unbound.authorization.commandConsumed &&
+		unbound.authorization.nextExpectedCommandId == 6 && sink.count == 4,
+		"new generation terminally rejects an ID until server rebinds actors");
 	CHECK(ingress.bindActorForTransport(senderC, actorA) ==
 		TacticalActorBindingResult::Success,
 		"reconnected transport receives a fresh generation binding");
+	commandA4.commandId = 6;
+	const std::vector<std::uint8_t> commandA5Bytes = IntentBytes(commandA4);
 	const TacticalIntentIngressResult generationAccepted =
 		ingress.handleTacticalIntent(
-			senderC, commandA4Bytes.data(), commandA4Bytes.size());
+			senderC, commandA5Bytes.data(), commandA5Bytes.size());
 	CHECK(generationAccepted.executionAttempted && sink.count == 5 &&
 		std::holds_alternative<EndTurnTacticalIntent>(sink.received[4].payload),
 		"generation rebind preserves the session-monotonic command sequence");
@@ -426,7 +625,10 @@ int main()
 	static_assert(std::is_nothrow_copy_assignable<TacticalIntentPayload>::value,
 		"authorized payload handoff must remain noexcept");
 	TestLifecycleFailsClosed();
+	TestAdmissionAndTacticalSessionsAreIndependent();
+	TestAuthenticatedPeerResolution();
 	TestAdmissionDecodeAndExactResponses();
+	TestNoExecutionAuthorityPath();
 	TestIntentRoutingAndLifecycle();
 	if (failures != 0)
 	{

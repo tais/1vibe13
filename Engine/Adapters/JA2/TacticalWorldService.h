@@ -7,7 +7,7 @@
 #include <Engine/Core/ServiceCatalog.h>
 
 inline constexpr const char* TacticalWorldServiceId = "ja2.tactical-world";
-inline constexpr EngineServiceVersion TacticalWorldServiceVersion{1, 0};
+inline constexpr EngineServiceVersion TacticalWorldServiceVersion{2, 0};
 
 enum class TacticalWorldCaptureResult
 {

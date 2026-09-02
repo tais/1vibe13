@@ -25,6 +25,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <csignal>
+#include <array>
+#include <bitset>
 #include <string>
 #include <map>
 #include <vector>
@@ -34,6 +36,7 @@
 #include <SDL3_net/SDL_net.h>
 
 #include "SdlNetTransport.h"
+#include "LegacyServerIngress.h"
 
 #include "CoordinatorProtocol.h"
 
@@ -87,6 +90,34 @@ static bool          g_guiPlacedBy[4] = { false };
 static bool          g_placementUnlocked = false; // coordinator emitted stage 2
 static bool          g_tacticalEntered = false;   // coordinator emitted stage 4
 
+// The legacy multiplayer wire maps each standalone player team onto exactly seven
+// SoldierIDs (120..126, 127..133, 134..140, 141..147).  The coordinator has no
+// tactical repository, so keep the minimum deterministic ownership registry needed
+// to bind HIRE/DISMISS and every advertised MAX_MERCS value to that wire capacity.
+static const int COORDINATOR_MERC_SLOTS = 7;
+static const int COORDINATOR_FIRST_LAN_ACTOR = 120;
+static const int COORDINATOR_PROFILE_COUNT = 255;
+static bool  g_hiredActors[4][COORDINATOR_MERC_SLOTS] = { { false } };
+static bool  g_knownActors[4][COORDINATOR_MERC_SLOTS] = { { false } };
+static int   g_hiredActorCount[4] = { 0 };
+static LegacyExplosiveLedger g_explosiveLedger;
+static LegacySharedExplosiveClaims g_sharedExplosiveClaims;
+
+struct CoordinatorAttackContinuation
+{
+	ConnectionId sender;
+	UINT16 actor = UINT16_MAX;
+	Uint64 expiresMs = 0;
+	UINT16 remainingFireEvents = 128;
+	UINT32 remainingBulletFrames = 32768;
+	UINT16 remainingGrenadeFrames = 256;
+	bool frozenAtInterrupt = false;
+};
+static std::array<CoordinatorAttackContinuation,
+	COORDINATOR_INT_WIRE_ORDER_ENTRIES>
+	g_attackContinuations{};
+static const Uint64 ATTACK_CONTINUATION_MS = 10000;
+
 static ConnectionId g_adminAddr;
 static bool          g_hasAdmin = false;
 static char          g_adminPassword[64] = {0};
@@ -105,6 +136,9 @@ static UINT8 g_currentTeam = 0;             // 6..9 while in combat, 0 otherwise
 // Server-arbitrated interrupts: at most ONE interrupt may be active at a time, so two
 // clients can never both hold control ("both act" is impossible by construction).
 static bool  g_interruptActive  = false;
+static bool  g_interruptedStopConsumed = false;
+static std::bitset<COORDINATOR_INT_WIRE_ORDER_ENTRIES>
+	g_interruptHolderActors;
 static UINT8 g_preInterruptTeam = 0;        // whose turn to resume when the interrupt releases
 static bool  g_pendingEndTurn   = false;    // an end-turn raced an active interrupt -> apply it on release
 static bool  g_gameOver    = false;
@@ -190,6 +224,50 @@ static int CountConnected()
 	for (int x = 0; x < 4; x++) if (g_clients[x].address) n++;
 	return n;
 }
+static int ClampMaxMercs(int value)
+{
+	return value < 1 ? 1 : (value > COORDINATOR_MERC_SLOTS ? COORDINATOR_MERC_SLOTS : value);
+}
+static UINT16 HiredActorId(int slot, int actorSlot)
+{
+	return (UINT16)(COORDINATOR_FIRST_LAN_ACTOR + slot * COORDINATOR_MERC_SLOTS + actorSlot);
+}
+static void ResetHiredActorsForSlot(int slot)
+{
+	if (slot < 0 || slot >= 4) return;
+	memset(g_hiredActors[slot], 0, sizeof(g_hiredActors[slot]));
+	g_hiredActorCount[slot] = 0;
+}
+static void ResetHiredActors()
+{
+	memset(g_hiredActors, 0, sizeof(g_hiredActors));
+	memset(g_knownActors, 0, sizeof(g_knownActors));
+	memset(g_hiredActorCount, 0, sizeof(g_hiredActorCount));
+}
+static bool ReserveHiredActor(int slot, UINT8 profile)
+{
+	if (slot < 0 || slot >= 4 || profile >= COORDINATOR_PROFILE_COUNT ||
+	    g_hiredActorCount[slot] >= g_maxMercs) return false;
+	for (int actorSlot = 0; actorSlot < COORDINATOR_MERC_SLOTS; ++actorSlot)
+	{
+		if (g_hiredActors[slot][actorSlot]) continue;
+		g_hiredActors[slot][actorSlot] = true;
+		g_knownActors[slot][actorSlot] = true;
+		++g_hiredActorCount[slot];
+		return true;
+	}
+	return false;
+}
+static bool ReleaseHiredActor(int slot, UINT16 actorId)
+{
+	if (slot < 0 || slot >= 4) return false;
+	const int actorSlot = (int)actorId - (int)HiredActorId(slot, 0);
+	if (actorSlot < 0 || actorSlot >= COORDINATOR_MERC_SLOTS ||
+	    !g_hiredActors[slot][actorSlot]) return false;
+	g_hiredActors[slot][actorSlot] = false;
+	if (g_hiredActorCount[slot] > 0) --g_hiredActorCount[slot];
+	return true;
+}
 static void TrackTransport(const ConnectionId& address)
 {
 	for (std::vector<ConnectionId>::iterator it = g_closedBeforeIncoming.begin();
@@ -211,6 +289,7 @@ static bool ForgetTransport(const ConnectionId& address)
 	}
 	return false;
 }
+static void HandleDisconnect(ConnectionId who); // application state must precede a server close
 static void CloseTransport(const ConnectionId& address)
 {
 	// Server-initiated closes do not synthesize a local disconnect packet in the
@@ -225,6 +304,10 @@ static void CloseTransport(const ConnectionId& address)
 			if (*it == address) { known = true; break; }
 		if (!known) g_closedBeforeIncoming.push_back(address);
 	}
+	// SDL3_net does not synthesize a local disconnect notification for an
+	// application-initiated close. Retire an admitted slot now, before closing the
+	// socket, so a rejected duplicate request cannot leave a ghost roster/admin slot.
+	HandleDisconnect(address);
 	g_server->CloseConnection(address, true);
 }
 static void DisconnectAllTransports()
@@ -262,26 +345,250 @@ static void ResetClientSelections()
 // ============================================================================
 //  Broadcast helpers
 // ============================================================================
-static inline void RelayExcept(const char* recvName, SdlNetMessage* p)
-{
-	if (SlotOf(p->sender) < 0) return;
-	// broadcast=true + sender addr -> everyone EXCEPT the sender
-	g_server->SendMessage(recvName, (const char*)p->data, p->size, p->sender, true);
-}
 static inline void RelayExceptBytes(const char* recvName, const char* data, int bytes,
 	ConnectionId except)
 {
-	g_server->SendMessage(recvName, data, (std::size_t)bytes, except, true);
+	for (int slot = 0; slot < 4; ++slot)
+	{
+		const ConnectionId recipient = g_clients[slot].address;
+		if (!recipient || recipient == except) continue;
+		g_server->SendMessage(recvName, data, (std::size_t)bytes, recipient, false);
+	}
+}
+static inline void RelayExcept(const char* recvName, SdlNetMessage* p)
+{
+	if (SlotOf(p->sender) < 0) return;
+	RelayExceptBytes(recvName, (const char*)p->data, (int)p->size, p->sender);
 }
 static inline void BroadcastAll(const char* recvName, const char* data, int bytes)
 {
-	// broadcast=true + AnyConnection -> everyone
-	g_server->SendMessage(recvName, data, (std::size_t)bytes, AnyConnection, true);
+	for (int slot = 0; slot < 4; ++slot)
+	{
+		const ConnectionId recipient = g_clients[slot].address;
+		if (!recipient) continue;
+		g_server->SendMessage(recvName, data, (std::size_t)bytes, recipient, false);
+	}
 }
 static inline void SendTo(const char* recvName, const char* data, int bytes, ConnectionId to)
 {
 	// broadcast=false + addr -> only that client
 	g_server->SendMessage(recvName, data, (std::size_t)bytes, to, false);
+}
+
+// The standalone coordinator deliberately has no tactical repository, but HIRE
+// gives it enough information to authenticate the fixed actor field carried by
+// the legacy command packets below.  Keep these layouts explicit here: pulling
+// in engine event headers would defeat the data-free coordinator boundary.
+static int HiredActorOwnerSlot(UINT16 actorId)
+{
+	const int relative = (int)actorId - COORDINATOR_FIRST_LAN_ACTOR;
+	if (relative < 0 || relative >= 4 * COORDINATOR_MERC_SLOTS) return -1;
+	const int slot = relative / COORDINATOR_MERC_SLOTS;
+	const int actorSlot = relative % COORDINATOR_MERC_SLOTS;
+	return g_hiredActors[slot][actorSlot] ? slot : -1;
+}
+
+static int KnownActorOwnerSlot(UINT16 actorId)
+{
+	const int relative = (int)actorId - COORDINATOR_FIRST_LAN_ACTOR;
+	if (relative < 0 || relative >= 4 * COORDINATOR_MERC_SLOTS) return -1;
+	const int slot = relative / COORDINATOR_MERC_SLOTS;
+	const int actorSlot = relative % COORDINATOR_MERC_SLOTS;
+	return g_knownActors[slot][actorSlot] ? slot : -1;
+}
+
+static bool ReadWireActor(
+	const SdlNetMessage* p, std::size_t actorOffset, UINT16& actorId)
+{
+	if (!p || !p->data || actorOffset + sizeof(UINT16) > p->size) return false;
+	const unsigned char* const bytes =
+		reinterpret_cast<const unsigned char*>(p->data) + actorOffset;
+	actorId = static_cast<UINT16>(bytes[0] |
+		(static_cast<UINT16>(bytes[1]) << 8));
+	return true;
+}
+
+static void BeginAttackContinuation(ConnectionId sender, UINT16 actor)
+{
+	const int slot = SlotOf(sender);
+	if (slot < 0 || actor >= COORDINATOR_INT_WIRE_ORDER_ENTRIES) return;
+	CoordinatorAttackContinuation& continuation =
+		g_attackContinuations[actor];
+	continuation.sender = sender;
+	continuation.actor = actor;
+	continuation.expiresMs = SDL_GetTicks() + ATTACK_CONTINUATION_MS;
+	continuation.remainingFireEvents = 128;
+	continuation.remainingBulletFrames = 32768;
+	continuation.remainingGrenadeFrames = 256;
+	continuation.frozenAtInterrupt = g_interruptActive &&
+		sender != g_interruptHolder && !g_interruptedStopConsumed &&
+		g_interruptPayload.size() >= MpInterruptWire::kHeaderBytes &&
+		MpInterruptWire::Get16(g_interruptPayload.data(), 6) == actor;
+}
+
+static CoordinatorAttackContinuation* FindAttackContinuation(
+	ConnectionId sender, UINT16 actor)
+{
+	const int slot = SlotOf(sender);
+	if (slot < 0 || actor >= COORDINATOR_INT_WIRE_ORDER_ENTRIES)
+		return NULL;
+	CoordinatorAttackContinuation& continuation =
+		g_attackContinuations[actor];
+	if (continuation.sender != sender || continuation.actor != actor ||
+		SDL_GetTicks() > continuation.expiresMs)
+	{
+		continuation = CoordinatorAttackContinuation{};
+		return NULL;
+	}
+	return &continuation;
+}
+
+static void ClearAttackContinuationsForSender(ConnectionId sender)
+{
+	for (CoordinatorAttackContinuation& continuation :
+		g_attackContinuations)
+		if (continuation.sender == sender)
+			continuation = CoordinatorAttackContinuation{};
+}
+
+static bool ContinueAttackFireEvent(ConnectionId sender, UINT16 actor)
+{
+	CoordinatorAttackContinuation* continuation =
+		FindAttackContinuation(sender, actor);
+	if (!continuation || !continuation->frozenAtInterrupt ||
+		!g_interruptActive ||
+		g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+		MpInterruptWire::Get16(g_interruptPayload.data(), 6) != actor ||
+		continuation->remainingFireEvents == 0) return false;
+	--continuation->remainingFireEvents;
+	continuation->expiresMs = SDL_GetTicks() + ATTACK_CONTINUATION_MS;
+	return true;
+}
+
+static void ObserveImmediateAttackFireEvent(
+	ConnectionId sender, UINT16 actor)
+{
+	CoordinatorAttackContinuation* continuation =
+		FindAttackContinuation(sender, actor);
+	if (continuation)
+		continuation->expiresMs = SDL_GetTicks() + ATTACK_CONTINUATION_MS;
+}
+
+static bool ContinueAttackBullet(ConnectionId sender, UINT16 actor)
+{
+	CoordinatorAttackContinuation* continuation =
+		FindAttackContinuation(sender, actor);
+	if (!continuation || !continuation->frozenAtInterrupt ||
+		!g_interruptActive ||
+		g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+		MpInterruptWire::Get16(g_interruptPayload.data(), 6) != actor ||
+		continuation->remainingBulletFrames == 0) return false;
+	--continuation->remainingBulletFrames;
+	continuation->expiresMs = SDL_GetTicks() + ATTACK_CONTINUATION_MS;
+	return true;
+}
+
+static bool ContinueAttackGrenade(ConnectionId sender, UINT16 actor)
+{
+	CoordinatorAttackContinuation* continuation =
+		FindAttackContinuation(sender, actor);
+	if (!continuation || !continuation->frozenAtInterrupt ||
+		!g_interruptActive ||
+		g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+		MpInterruptWire::Get16(g_interruptPayload.data(), 6) != actor ||
+		continuation->remainingGrenadeFrames == 0) return false;
+	--continuation->remainingGrenadeFrames;
+	continuation->expiresMs = SDL_GetTicks() + ATTACK_CONTINUATION_MS;
+	return true;
+}
+
+static bool TacticalSenderEligible(const SdlNetMessage* p)
+{
+	const int slot = p ? SlotOf(p->sender) : -1;
+	return slot >= 0 && g_tacticalEntered &&
+		!g_teamWiped[TeamOfSlot(slot)];
+}
+
+static bool ImmediateTacticalSender(const SdlNetMessage* p)
+{
+	const int slot = p ? SlotOf(p->sender) : -1;
+	if (!TacticalSenderEligible(p)) return false;
+	// In realtime every active participant may act. During turn-based combat,
+	// only the current team may originate actions, except that an active
+	// interrupt temporarily transfers control to its authenticated holder.
+	if (!g_inCombat) return true;
+	if (g_interruptActive) return p->sender == g_interruptHolder;
+	return g_currentTeam == TeamOfSlot(slot);
+}
+
+static bool ImmediateTacticalActor(const SdlNetMessage* p, UINT16 actor)
+{
+	const int slot = p ? SlotOf(p->sender) : -1;
+	if (!TacticalSenderEligible(p) || HiredActorOwnerSlot(actor) != slot)
+		return false;
+	if (!g_inCombat) return true;
+	if (g_interruptActive)
+	{
+		if (p->sender == g_interruptHolder)
+			return actor < COORDINATOR_INT_WIRE_ORDER_ENTRIES &&
+				g_interruptHolderActors.test(actor);
+		return !g_interruptedStopConsumed &&
+			SDL_GetTicks() - g_interruptGrantedMs <=
+				ATTACK_CONTINUATION_MS &&
+			g_interruptPayload.size() >= MpInterruptWire::kHeaderBytes &&
+			MpInterruptWire::Get16(g_interruptPayload.data(), 6) == actor;
+	}
+	return g_currentTeam == TeamOfSlot(slot);
+}
+
+static bool ActiveInterruptHolderActor(const SdlNetMessage* p, UINT16 actor)
+{
+	return TacticalSenderEligible(p) && g_interruptActive &&
+		p->sender == g_interruptHolder &&
+		actor < COORDINATOR_INT_WIRE_ORDER_ENTRIES &&
+		g_interruptHolderActors.test(actor) &&
+		HiredActorOwnerSlot(actor) == SlotOf(p->sender);
+}
+
+static bool SenderOwnsHiredActorExact(
+	SdlNetMessage* p, std::size_t expectedBytes, std::size_t actorOffset,
+	bool allowWipedSender = false)
+{
+	const int slot = p ? SlotOf(p->sender) : -1;
+	if (slot < 0 || p->size != expectedBytes ||
+	    actorOffset + sizeof(UINT16) > expectedBytes ||
+	    (!allowWipedSender && g_teamWiped[TeamOfSlot(slot)])) return false;
+	UINT16 actorId = 0;
+	return ReadWireActor(p, actorOffset, actorId) &&
+	       HiredActorOwnerSlot(actorId) == slot;
+}
+
+static void RelayExactOwnedActor(
+	const char* recvName, SdlNetMessage* p,
+	std::size_t expectedBytes, std::size_t actorOffset)
+{
+	if (!SenderOwnsHiredActorExact(p, expectedBytes, actorOffset)) return;
+	UINT16 actor = 0;
+	if (!ReadWireActor(p, actorOffset, actor) ||
+		!ImmediateTacticalActor(p, actor)) return;
+	RelayExceptBytes(recvName, (const char*)p->data, (int)p->size, p->sender);
+}
+
+static void sendguiPOS(SdlNetMessage* p)
+{
+	if (!g_battleStarted || g_tacticalEntered ||
+	    !SenderOwnsHiredActorExact(p, 10, 0)) return;
+	RelayExceptBytes("recieveguiPOS", (const char*)p->data, (int)p->size, p->sender);
+}
+
+static void sendguiDIR(SdlNetMessage* p)
+{
+	if (!g_battleStarted || g_tacticalEntered ||
+	    !SenderOwnsHiredActorExact(p, 4, 0)) return;
+	UINT16 direction = 0;
+	memcpy(&direction, p->data + 2, sizeof(direction));
+	if (direction >= 8) return;
+	RelayExceptBytes("recieveguiDIR", (const char*)p->data, (int)p->size, p->sender);
 }
 
 // PR-1 (H14): central short-frame guard. Handlers that (Struct*)cast p->data and
@@ -296,43 +603,403 @@ static inline void SendTo(const char* recvName, const char* data, int bytes, Con
 #define RELAY_EXC(FN, RECV) static void FN(SdlNetMessage* p) { RelayExcept(RECV, p); }
 #define RELAY_ALL(FN, RECV) static void FN(SdlNetMessage* p) { \
 	if (SlotOf(p->sender) < 0) return; \
-	g_server->SendMessage(RECV, (const char*)p->data, p->size, AnyConnection, true); }
+	BroadcastAll(RECV, (const char*)p->data, (int)p->size); }
+#define RELAY_OWNED(FN, RECV, BYTES, ACTOR_OFFSET) \
+	static void FN(SdlNetMessage* p) { \
+		RelayExactOwnedActor(RECV, p, BYTES, ACTOR_OFFSET); }
 
-RELAY_EXC(sendPATH,             "recievePATH")
+RELAY_OWNED(sendPATH,           "recievePATH",              76, 0)
 RELAY_EXC(sendDOWNLOADSTATUS,   "recieveDOWNLOADSTATUS")
-RELAY_EXC(sendSTANCE,           "recieveSTANCE")
-RELAY_EXC(sendDIR,              "recieveDIR")
-RELAY_EXC(sendFIRE,             "recieveFIRE")
+RELAY_OWNED(sendSTANCE,         "recieveSTANCE",            12, 4)
+RELAY_OWNED(sendDIR,            "recieveDIR",                8, 4)
 // sendHIT is NOT a pure relay -- it tallies hits for the scoreboard (coordinator fn below)
-RELAY_EXC(sendHIRE,             "recieveHIRE")
-RELAY_EXC(sendDISMISS,          "recieveDISMISS")
-RELAY_EXC(sendguiPOS,           "recieveguiPOS")
-RELAY_EXC(sendguiDIR,           "recieveguiDIR")
 // sendEndTurn is NOT a pure relay -- it is the turn authority (coordinator fn below)
-RELAY_EXC(sendAI,               "recieveAI")
-RELAY_EXC(sendSTOP,             "recieveSTOP")
 // sendINTERRUPT / endINTERRUPT are relays, but logged so the turn/interrupt
 // interleave is visible in the server narration (coordinator fns below).
 // sendGUI is NOT a pure relay -- it is the merc-placement barrier (coordinator fn below)
-RELAY_EXC(sendBULLET,           "recieveBULLET")
-RELAY_EXC(sendGRENADE,          "recieveGRENADE")
-RELAY_EXC(sendGRENADERESULT,    "recieveGRENADERESULT")
-RELAY_EXC(sendPLANTEXPLOSIVE,   "recievePLANTEXPLOSIVE")
-RELAY_EXC(sendDETONATEEXPLOSIVE,"recieveDETONATEEXPLOSIVE")
-RELAY_EXC(sendDISARMEXPLOSIVE,  "recieveDISARMEXPLOSIVE")
-RELAY_EXC(sendSPREADEFFECT,     "recieveSPREADEFFECT")
-RELAY_EXC(sendNEWSMOKEEFFECT,   "recieveNEWSMOKEEFFECT")
-RELAY_EXC(sendEXPLOSIONDAMAGE,  "recieveEXPLOSIONDAMAGE")
-RELAY_EXC(sendSTATE,            "recieveSTATE")
+// Projectile/explosive handlers below have distinct immediate/result authority.
+RELAY_OWNED(sendSTATE,          "recieveSTATE",             20, 8)
 // sendDEATH / sendhitSTRUCT / sendhitWINDOW / sendMISS are NOT pure relays -- they
 // tally kills/deaths/hits/misses for the scoreboard (coordinator fns below)
-RELAY_EXC(updatenetworksoldier, "UpdateSoldierFromNetwork")
-RELAY_EXC(sendFIREW,            "recieve_fireweapon")
-RELAY_EXC(sendDOOR,             "recieve_door")
+RELAY_OWNED(updatenetworksoldier,"UpdateSoldierFromNetwork", 16, 4)
+RELAY_OWNED(sendDOOR,           "recieve_door",             12, 0)
 // sendWIPE is NOT a pure relay -- it drives the deathmatch win check (coordinator fn below)
-RELAY_EXC(sendHEAL,             "recieve_heal")
+// sendHEAL has alliance-aware patient authority (coordinator fn below).
 
-RELAY_ALL(sendCHATMSG,          "recieveCHATMSG")
+static void sendFIRE(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p, 12, 8)) return;
+	UINT16 actor = 0;
+	if (!ReadWireActor(p, 8, actor) || !ImmediateTacticalActor(p, actor)) return;
+	BeginAttackContinuation(p->sender, actor);
+	RelayExceptBytes("recieveFIRE", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendATTACKSTART(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p, sizeof(UINT16), 0)) return;
+	UINT16 actor = 0;
+	if (!ReadWireActor(p, 0, actor) || !ImmediateTacticalActor(p, actor)) return;
+	BeginAttackContinuation(p->sender, actor);
+}
+
+static void sendFIREW(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p, 12, 8)) return;
+	UINT16 actor = 0;
+	if (!ReadWireActor(p, 8, actor)) return;
+	if (ImmediateTacticalActor(p, actor))
+		ObserveImmediateAttackFireEvent(p->sender, actor);
+	else if (!ContinueAttackFireEvent(p->sender, actor))
+		return;
+	RelayExceptBytes("recieve_fireweapon", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendCHATMSG(SdlNetMessage* p)
+{
+	static const std::size_t CHAT_BYTES = 1026;
+	const int slot = p ? SlotOf(p->sender) : -1;
+	if (slot < 0 || p->size != CHAT_BYTES || p->data[1] > 1) return;
+	unsigned char authored[CHAT_BYTES];
+	memcpy(authored, p->data, sizeof(authored));
+	authored[0] = (unsigned char)(slot + 1);
+	// Fixed-width UTF-16LE text must always terminate inside the frame.
+	authored[CHAT_BYTES - 2] = 0;
+	authored[CHAT_BYTES - 1] = 0;
+	BroadcastAll("recieveCHATMSG", (const char*)authored, sizeof(authored));
+}
+
+static bool ReadWireUint32(
+	const SdlNetMessage* p, std::size_t offset, UINT32& value)
+{
+	if (!p || !p->data || offset + sizeof(UINT32) > p->size) return false;
+	const unsigned char* const bytes =
+		reinterpret_cast<const unsigned char*>(p->data) + offset;
+	value = static_cast<UINT32>(bytes[0]) |
+		(static_cast<UINT32>(bytes[1]) << 8) |
+		(static_cast<UINT32>(bytes[2]) << 16) |
+		(static_cast<UINT32>(bytes[3]) << 24);
+	return true;
+}
+
+static void PutWireUint32(unsigned char* bytes, std::size_t offset, UINT32 value)
+{
+	bytes[offset] = static_cast<unsigned char>(value & 0xffu);
+	bytes[offset + 1] = static_cast<unsigned char>((value >> 8) & 0xffu);
+	bytes[offset + 2] = static_cast<unsigned char>((value >> 16) & 0xffu);
+	bytes[offset + 3] = static_cast<unsigned char>(value >> 24);
+}
+
+static bool ConsumeInterruptedStop(
+	SdlNetMessage* p, UINT16 actor)
+{
+	if (!g_interruptActive || g_interruptedStopConsumed ||
+		g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+		MpInterruptWire::Get16(g_interruptPayload.data(), 6) != actor ||
+		HiredActorOwnerSlot(actor) != SlotOf(p->sender))
+		return false;
+	g_interruptedStopConsumed = true;
+	return true;
+}
+
+static void sendSTOP(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p, 16, 8) || p->data[15] != 1 ||
+		p->data[14] >= 8) return;
+	UINT16 actor = 0;
+	UINT32 grid = 0;
+	INT16 worldX = 0;
+	INT16 worldY = 0;
+	if (!ReadWireActor(p, 8, actor) || !ReadWireUint32(p, 4, grid) ||
+		grid >= 4000000u) return;
+	memcpy(&worldX, p->data + 10, sizeof(worldX));
+	memcpy(&worldY, p->data + 12, sizeof(worldY));
+	if (worldX < 0 || worldY < 0) return;
+	if (!(g_interruptActive
+			? ActiveInterruptHolderActor(p, actor)
+			: ImmediateTacticalActor(p, actor)) &&
+		!ConsumeInterruptedStop(p, actor))
+		return;
+	RelayExceptBytes("recieveSTOP", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendBULLET(SdlNetMessage* p)
+{
+	if (!p || p->size != LegacyBulletPayloadBytes) return;
+	UINT16 firer = 0;
+	if (!ReadWireActor(p, LegacyBulletFirerOffset, firer)) return;
+	const int slot = SlotOf(p->sender);
+	// NOBODY is the canonical firer for traps and other actorless projectiles.
+	// The transport sender still has to be an active tactical participant.
+	if (firer == COORDINATOR_INT_WIRE_ORDER_ENTRIES)
+	{
+		if (!ImmediateTacticalSender(p)) return;
+	}
+	else
+	{
+		if (slot < 0 || HiredActorOwnerSlot(firer) != slot) return;
+		const bool immediate = ImmediateTacticalActor(p, firer);
+		if (!immediate && !ContinueAttackBullet(p->sender, firer))
+			return;
+		if (immediate)
+			ObserveImmediateAttackFireEvent(p->sender, firer);
+	}
+	RelayExceptBytes("recieveBULLET", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendGRENADE(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(
+			p, LegacyGrenadePayloadBytes, LegacyGrenadeActorOffset)) return;
+	UINT16 owner = 0;
+	if (!ReadWireActor(p, LegacyGrenadeActorOffset, owner)) return;
+	const bool immediate = ImmediateTacticalActor(p, owner);
+	if (!immediate && !ContinueAttackGrenade(p->sender, owner)) return;
+	if (immediate) ObserveImmediateAttackFireEvent(p->sender, owner);
+	static const UINT8 THROW_TARGET_MERC_CATCH_WIRE = 2;
+	std::array<unsigned char, LegacyGrenadePayloadBytes> authored = {};
+	memcpy(authored.data(), p->data, authored.size());
+	const UINT8 action = authored[LegacyGrenadeActionCodeOffset];
+	if (action > THROW_TARGET_MERC_CATCH_WIRE) return;
+	if (action == THROW_TARGET_MERC_CATCH_WIRE)
+	{
+		UINT32 rawTarget = 0;
+		if (!ReadWireUint32(
+				p, LegacyGrenadeActionDataOffset, rawTarget) ||
+			rawTarget > UINT16_MAX) return;
+		const int senderSlot = SlotOf(p->sender);
+		UINT16 target = static_cast<UINT16>(rawTarget);
+		if (HiredActorOwnerSlot(target) != senderSlot)
+		{
+			// Older MP v3.2 clients used their process-local team-0 index here.
+			// Canonicalize only the sender's seven-slot window and only if that
+			// exact slot is currently hired.
+			if (rawTarget >= static_cast<UINT32>(COORDINATOR_MERC_SLOTS)) return;
+			target = HiredActorId(senderSlot, static_cast<int>(rawTarget));
+			if (HiredActorOwnerSlot(target) != senderSlot) return;
+		}
+		PutWireUint32(authored.data(), LegacyGrenadeActionDataOffset, target);
+	}
+	RelayExceptBytes("recieveGRENADE", (const char*)authored.data(),
+		(int)authored.size(), p->sender);
+}
+
+static void RelayDelayedExactOwnedActor(
+	const char* recvName, SdlNetMessage* p,
+	std::size_t expectedBytes, std::size_t actorOffset)
+{
+	if (!g_tacticalEntered || !SenderOwnsHiredActorExact(
+			p, expectedBytes, actorOffset, true)) return;
+	RelayExceptBytes(recvName, (const char*)p->data, (int)p->size, p->sender);
+}
+
+static void sendGRENADERESULT(SdlNetMessage* p)
+{
+	RelayDelayedExactOwnedActor("recieveGRENADERESULT", p,
+		LegacyGrenadeResultPayloadBytes, LegacyGrenadeResultActorOffset);
+}
+
+static void sendPLANTEXPLOSIVE(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p,
+			LegacyPlantExplosivePayloadBytes,
+			LegacyPlantExplosiveActorOffset)) return;
+	const int slot = SlotOf(p->sender);
+	UINT16 actor = 0;
+	UINT16 item = 0;
+	UINT32 grid = 0;
+	UINT32 worldIndex = 0;
+	if (slot < 0 || !ReadWireActor(
+			p, LegacyPlantExplosiveActorOffset, actor) ||
+		!ImmediateTacticalActor(p, actor) ||
+		!ReadWireActor(p, LegacyPlantExplosiveItemOffset, item) ||
+		!ReadWireUint32(p, LegacyPlantExplosiveGridOffset, grid) ||
+		!ReadWireUint32(
+			p, LegacyPlantExplosiveWorldIndexOffset, worldIndex)) return;
+	const UINT8 status = p->data[LegacyPlantExplosiveStatusOffset];
+	const UINT8 level = p->data[LegacyPlantExplosiveLevelOffset];
+	const UINT8 detonator = p->data[LegacyPlantExplosiveDetonatorOffset];
+	// The data-free coordinator cannot inspect the loaded map or item table, but
+	// it can enforce the engine's stable protocol bounds before recording a key.
+	if (grid >= 4000000u || item == 0 || item >= 16001u ||
+		worldIndex >= LegacySharedExplosiveWorldIndexLimit ||
+		status > 100 || level > 1 ||
+	    detonator < 1 || detonator > 4) return;
+	LegacyExplosiveRecord record;
+	record.key = LegacyExplosiveKey{
+		static_cast<UINT8>(TeamOfSlot(slot)), worldIndex};
+	record.planterConnection = p->sender;
+	record.planterSlot = static_cast<std::size_t>(slot);
+	record.planterActor = actor;
+	record.grid = grid;
+	record.level = level;
+	record.item = item;
+	if (g_explosiveLedger.insert(record) !=
+		LegacyExplosiveInsertDisposition::Inserted) return;
+	RelayExceptBytes("recievePLANTEXPLOSIVE", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendDETONATEEXPLOSIVE(SdlNetMessage* p)
+{
+	// Detonation is a delayed consequence, not a new tactical action. A timed,
+	// switch, or chain-triggered bomb can legitimately fire after its planter's
+	// turn or team ended; the authenticated actor plus one-shot ledger key is the
+	// causal authority here.
+	if (!g_tacticalEntered || !SenderOwnsHiredActorExact(p,
+			LegacyDetonateExplosivePayloadBytes,
+			LegacyDetonateExplosiveActorOffset, true)) return;
+	const UINT8 originTeam = p->data[LegacyDetonateExplosiveTeamOffset];
+	UINT32 worldIndex = 0;
+	if (!ReadWireUint32(
+			p, LegacyDetonateExplosiveWorldIndexOffset, worldIndex)) return;
+	if (originTeam == 0)
+	{
+		const int slot = SlotOf(p->sender);
+		if (slot < 0 || worldIndex >= LegacySharedExplosiveWorldIndexLimit ||
+			g_sharedExplosiveClaims.claim(
+				worldIndex, static_cast<std::size_t>(slot)) !=
+				LegacySharedExplosiveClaimDisposition::Claimed) return;
+		RelayExceptBytes("recieveDETONATEEXPLOSIVE", (const char*)p->data,
+			(int)p->size, p->sender);
+		return;
+	}
+	if (originTeam < 6 || originTeam > 9) return;
+	const LegacyExplosiveKey key{originTeam, worldIndex};
+	if (!g_explosiveLedger.lookup(key) ||
+	    !g_explosiveLedger.consume(key)) return;
+	RelayExceptBytes("recieveDETONATEEXPLOSIVE", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendDISARMEXPLOSIVE(SdlNetMessage* p)
+{
+	if (!SenderOwnsHiredActorExact(p,
+			LegacyDisarmExplosivePayloadBytes,
+			LegacyDisarmExplosiveActorOffset)) return;
+	const UINT8 originTeam = p->data[LegacyDisarmExplosiveTeamOffset];
+	UINT32 worldIndex = 0;
+	UINT32 grid = 0;
+	UINT16 actor = 0;
+	if (!ReadWireActor(p, LegacyDisarmExplosiveActorOffset, actor) ||
+		!ImmediateTacticalActor(p, actor) ||
+		!ReadWireUint32(
+			p, LegacyDisarmExplosiveWorldIndexOffset, worldIndex) ||
+		!ReadWireUint32(p, LegacyDisarmExplosiveGridOffset, grid) ||
+		grid >= 4000000u) return;
+	if (originTeam == 0)
+	{
+		const int slot = SlotOf(p->sender);
+		if (slot < 0 || worldIndex >= LegacySharedExplosiveWorldIndexLimit ||
+			g_sharedExplosiveClaims.claim(
+				worldIndex, static_cast<std::size_t>(slot)) !=
+				LegacySharedExplosiveClaimDisposition::Claimed) return;
+		RelayExceptBytes("recieveDISARMEXPLOSIVE", (const char*)p->data,
+			(int)p->size, p->sender);
+		return;
+	}
+	if (originTeam < 6 || originTeam > 9) return;
+	const LegacyExplosiveKey key{originTeam, worldIndex};
+	const LegacyExplosiveRecord* const tracked =
+		g_explosiveLedger.lookup(key);
+	if (!tracked || tracked->grid != grid ||
+	    !g_explosiveLedger.consume(key)) return;
+	RelayExceptBytes("recieveDISARMEXPLOSIVE", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+static void sendSPREADEFFECT(SdlNetMessage* p)
+{
+	RelayDelayedExactOwnedActor("recieveSPREADEFFECT", p,
+		LegacySpreadEffectPayloadBytes, LegacySpreadEffectActorOffset);
+}
+
+static void sendNEWSMOKEEFFECT(SdlNetMessage* p)
+{
+	RelayDelayedExactOwnedActor("recieveNEWSMOKEEFFECT", p,
+		LegacySpreadEffectPayloadBytes, LegacySpreadEffectActorOffset);
+}
+
+static void sendEXPLOSIONDAMAGE(SdlNetMessage* p)
+{
+	// Damage is victim-authoritative: bind the victim to the sender, but allow
+	// an already-produced result to arrive after that team is marked wiped.
+	RelayDelayedExactOwnedActor("recieveEXPLOSIONDAMAGE", p,
+		LegacyExplosionDamagePayloadBytes,
+		LegacyExplosionDamageVictimOffset);
+}
+
+static void sendHEAL(SdlNetMessage* p)
+{
+	const int senderSlot = p ? SlotOf(p->sender) : -1;
+	if (senderSlot < 0 || !g_tacticalEntered ||
+	    p->size != sizeof(UINT16) + 2 ||
+	    g_teamWiped[TeamOfSlot(senderSlot)]) return;
+	UINT16 patient = 0;
+	if (!ReadWireActor(p, 0, patient)) return;
+	const int patientSlot = HiredActorOwnerSlot(patient);
+	if (patientSlot < 0 || g_teamWiped[TeamOfSlot(patientSlot)]) return;
+	const bool allied = patientSlot == senderSlot ||
+		(g_gameType == MP_TYPE_TEAMDEATMATCH &&
+		 g_client_teams[patientSlot] == g_client_teams[senderSlot]);
+	if (!allied) return;
+	const INT8 life = static_cast<INT8>(p->data[2]);
+	const INT8 bleeding = static_cast<INT8>(p->data[3]);
+	if (life <= 0 || life > 100 || bleeding < 0 || bleeding > 100) return;
+	RelayExceptBytes("recieve_heal", (const char*)p->data,
+		(int)p->size, p->sender);
+}
+
+// HIRE is a seven-byte packed legacy frame:
+//   profile:u8, selected-alliance:i32, copy-items:u8, tactical-team:i8.
+// The owner creates its local merc before sending, while every remote peer creates
+// the copy in the first free slot of the canonical LAN team. Reserving the same
+// first-free slot here therefore gives the data-free coordinator a deterministic
+// actor ID for later Dismiss authorization.
+static void sendHIRE(SdlNetMessage* p)
+{
+	static const std::size_t HIRE_BYTES = 7;
+	static const std::size_t ALLIANCE_OFFSET = 1;
+	static const std::size_t COPY_ITEMS_OFFSET = 5;
+	static const std::size_t TACTICAL_TEAM_OFFSET = 6;
+	const int slot = SlotOf(p->sender);
+	if (slot < 0 || p->size != HIRE_BYTES || !g_allowlaptop || g_battleStarted ||
+	    g_client_ready[slot] || p->data[0] >= COORDINATOR_PROFILE_COUNT ||
+	    p->data[COPY_ITEMS_OFFSET] > 1) return;
+	if (!ReserveHiredActor(slot, p->data[0])) return;
+
+	unsigned char authored[HIRE_BYTES];
+	memcpy(authored, p->data, sizeof(authored));
+	const int alliance = g_client_teams[slot];
+	memcpy(authored + ALLIANCE_OFFSET, &alliance, sizeof(alliance));
+	authored[TACTICAL_TEAM_OFFSET] = TeamOfSlot(slot);
+	RelayExceptBytes("recieveHIRE", (const char*)authored, sizeof(authored), p->sender);
+}
+
+// Dismiss is the raw u16 SoldierID. Only an exact, currently tracked ID in the
+// sender's seven-ID team window can be released, and only while that sender may
+// still edit its hiring roster.
+static void sendDISMISS(SdlNetMessage* p)
+{
+	const int slot = SlotOf(p->sender);
+	if (slot < 0 || p->size != sizeof(UINT16) || !g_allowlaptop || g_battleStarted ||
+	    g_client_ready[slot]) return;
+	UINT16 actorId = 0;
+	memcpy(&actorId, p->data, sizeof(actorId));
+	if (!ReleaseHiredActor(slot, actorId)) return;
+	RelayExceptBytes("recieveDISMISS", (const char*)&actorId, sizeof(actorId), p->sender);
+}
+
+// The pure coordinator owns no engine/AI state. AI creation is therefore never a
+// legitimate standalone-client action; accepting it would let any player create an
+// arbitrary engine-side actor on every peer.
+static void sendAI(SdlNetMessage*)
+{
+}
 
 // ============================================================================
 //  Coordinator handlers
@@ -413,61 +1080,77 @@ static void requestFILE_TRANSFER_SETTINGS(SdlNetMessage* p)
 
 static void requestSETTINGS(SdlNetMessage* p)
 {
-	if (g_allowlaptop) { // can_joingame() == !allowlaptop : reject late joins
+	if (p->size != sizeof(client_info)) return;
+	client_info ci;
+	memcpy(&ci, p->data, sizeof(ci));
+	ci.client_name[29] = 0;
+	ci.client_version[29] = 0;
+
+	const int registeredSlot = SlotOf(p->sender);
+	const bool alreadyRegistered = registeredSlot >= 0;
+	if (strcmp(ci.client_version, MPVERSION) != 0)
+	{
+		printf("[ja2server] REJECT '%s': version '%s' != '%s'\n",
+		       ci.client_name, ci.client_version, MPVERSION); fflush(stdout);
+		CloseTransport(p->sender);
+		return;
+	}
+	if (ci.team < 0 || ci.team > 3)
+	{
+		printf("[ja2server] REJECT '%s': invalid initial team %d\n",
+		       ci.client_name, ci.team); fflush(stdout);
+		CloseTransport(p->sender);
+		return;
+	}
+	if (alreadyRegistered && strcmp(g_client_names[registeredSlot], ci.client_name) != 0)
+	{
+		printf("[ja2server] REJECT duplicate SETTINGS identity change for player #%d\n",
+		       registeredSlot + 1); fflush(stdout);
+		CloseTransport(p->sender);
+		return;
+	}
+	if (!alreadyRegistered && g_allowlaptop) { // can_joingame() == !allowlaptop
 		printf("[ja2server] rejecting join -- game already locked\n"); fflush(stdout);
 		CloseTransport(p->sender);
 		return;
 	}
-	NEED(p, client_info);   // H14: short-frame over-read guard
-	client_info* ci = (client_info*)p->data;
-	ci->client_name[29] = 0;
-	ci->client_version[29] = 0;
 
-	if (strcmp(ci->client_version, MPVERSION) != 0)
-	{
-		printf("[ja2server] REJECT '%s': version '%s' != '%s'\n",
-		       ci->client_name, ci->client_version, MPVERSION); fflush(stdout);
-		CloseTransport(p->sender);
-		return;
-	}
-	if (ci->team < 0 || ci->team > 3)
-	{
-		printf("[ja2server] REJECT '%s': invalid initial team %d\n",
-		       ci->client_name, ci->team); fflush(stdout);
-		CloseTransport(p->sender);
-		return;
-	}
-
-	int slot = SlotOf(p->sender);                 // already in roster (re-send)?
+	int slot = registeredSlot;
 	bool welcomeBack = false;
 	if (slot < 0) {
 		// "Welcome back": re-seat a reconnecting player into the slot their NAME held
 		// last time, if it's free -- keeps their player number / team / spawn edge
 		// stable across a rematch instead of shuffling them.
 		for (int i = 0; i < 4; i++)
-			if (g_knownName[i][0] && strcmp(g_knownName[i], ci->client_name) == 0
+			if (g_knownName[i][0] && strcmp(g_knownName[i], ci.client_name) == 0
 			    && !g_clients[i].address) { slot = i; welcomeBack = true; break; }
 	}
 	if (slot < 0) slot = FindEmptySlot();
 	if (slot < 0) { CloseTransport(p->sender); return; }
 
-	g_clients[slot].address   = p->sender;
-	g_clients[slot].cl_number = slot + 1;
+	if (!alreadyRegistered)
+	{
+		ResetHiredActorsForSlot(slot);
+		g_clients[slot].address   = p->sender;
+		g_clients[slot].cl_number = slot + 1;
+		strncpy(g_client_names[slot], ci.client_name, 29);
+		g_client_names[slot][29] = 0;
+		g_client_teams[slot] = ci.team;
+		// remember name->slot, and drop any stale duplicate of this name in another slot
+		for (int i = 0; i < 4; i++)
+			if (i != slot && strcmp(g_knownName[i], ci.client_name) == 0) g_knownName[i][0] = 0;
+		strncpy(g_knownName[slot], ci.client_name, 29); g_knownName[slot][29] = 0;
+		g_connectedCount = CountConnected();
+		printf("[ja2server] %s '%s' -> player #%d  (%d connected)\n",
+		       welcomeBack ? "WELCOME BACK" : "client", ci.client_name, slot + 1,
+		       g_connectedCount); fflush(stdout);
+	}
 	int cl_num = slot + 1;
-	strncpy(g_client_names[slot], ci->client_name, 29);
-	g_client_teams[slot] = ci->team;
-	// remember name->slot, and drop any stale duplicate of this name in another slot
-	for (int i = 0; i < 4; i++)
-		if (i != slot && strcmp(g_knownName[i], ci->client_name) == 0) g_knownName[i][0] = 0;
-	strncpy(g_knownName[slot], ci->client_name, 29); g_knownName[slot][29] = 0;
-	g_connectedCount = CountConnected();
-	printf("[ja2server] %s '%s' -> player #%d  (%d connected)\n",
-	       welcomeBack ? "WELCOME BACK" : "client", ci->client_name, cl_num, g_connectedCount); fflush(stdout);
 
 	// Admin model: with no loopback host, the FIRST client to connect is admin
 	// (if no password is configured). With a password, admin is claimed via
 	// adminCmd(ADMIN_CMD_AUTH).
-	if (!g_hasAdmin && g_adminPassword[0] == 0)
+	if (!alreadyRegistered && !g_hasAdmin && g_adminPassword[0] == 0)
 	{
 		g_adminAddr = p->sender;
 		g_hasAdmin = true;
@@ -494,12 +1177,12 @@ static void requestSETTINGS(SdlNetMessage* p)
 	lan.soubBobbyRayQuantity = 3;
 	lan.maxMercs          = (UINT8)g_maxMercs;
 	lan.client_num        = (UINT8)cl_num;
-	strncpy(lan.client_name, ci->client_name, 29);
+	strncpy(lan.client_name, g_client_names[slot], 29);
 	memcpy(lan.client_names, g_client_names, sizeof(char) * 4 * 30);
 	memcpy(lan.client_edges, g_client_edges, sizeof(int) * 5);
 	memcpy(lan.client_teams, g_client_teams, sizeof(int) * 4);
 	strncpy(lan.server_name, g_serverName, 29);
-	lan.team              = ci->team;
+	lan.team              = g_client_teams[slot];
 	memcpy(lan.kitBag, g_kitBag, sizeof(char) * 100);
 	lan.reportHiredMerc   = (UINT8)g_reportHiredMerc;
 	lan.startingSectorEdge = (UINT8)g_client_edges[cl_num - 1];
@@ -514,9 +1197,20 @@ static void requestSETTINGS(SdlNetMessage* p)
 		for (int i = 0; i < MAX_PREGENERATED_NUMS; i++) { s = s * 1103515245u + 12345u; lan.random_table[i] = s; }
 	}
 
-	BroadcastAll("recieveSETTINGS", (const char*)&lan, sizeof(lan));
-	VLOG("[ja2server] settings broadcast (sector A?=%d,%d type=%d)\n",
-	       g_sectorX, g_sectorY, g_gameType); fflush(stdout);
+	if (alreadyRegistered)
+	{
+		// A reliable transport can still deliver a delayed/retried admission request
+		// after the lobby locks. Re-send only that participant's canonical settings;
+		// never close it or consume a second slot.
+		SendTo("recieveSETTINGS", (const char*)&lan, sizeof(lan), p->sender);
+		VLOG("[ja2server] duplicate SETTINGS replayed to player #%d\n", cl_num); fflush(stdout);
+	}
+	else
+	{
+		BroadcastAll("recieveSETTINGS", (const char*)&lan, sizeof(lan));
+		VLOG("[ja2server] settings broadcast (sector A?=%d,%d type=%d)\n",
+		       g_sectorX, g_sectorY, g_gameType); fflush(stdout);
+	}
 }
 
 static void sendREADY(SdlNetMessage* p)
@@ -684,20 +1378,31 @@ static void sendDEATH(SdlNetMessage* p)
 	if (slot < 0 || !g_tacticalEntered) return;
 	death_struct* d = (death_struct*)p->data;
 	UINT8 victim = (UINT8)(slot + 1);
-	UINT8 attacker = d->attacker_team;
-	if (d->soldier_team != victim || attacker < 1 || attacker > 4 ||
-	    !g_clients[attacker - 1].address) return;
+	if (d->soldier_team != victim ||
+	    HiredActorOwnerSlot(d->soldier_id) != slot) return;
+	// A lethal result remains valid if its attacker disconnected before the
+	// victim's reliable DEATH arrived. Keep session-stable actor provenance for
+	// that delayed case; canonical NOBODY is environmental and earns no kill.
+	int attackerSlot = -1;
+	if (d->attacker_id != COORDINATOR_INT_WIRE_ORDER_ENTRIES)
+	{
+		attackerSlot = KnownActorOwnerSlot(d->attacker_id);
+		if (attackerSlot < 0) return;
+	}
 	death_struct authored = *d;
 	authored.soldier_team = victim;
+	authored.attacker_team = attackerSlot >= 0
+		? static_cast<UINT8>(attackerSlot + 1) : 0;
 	g_scoreboard[victim - 1].deaths++;
-	g_scoreboard[attacker - 1].kills++;
-	VLOG("[ja2server] death: player %d killed by player %d\n", victim, attacker); fflush(stdout);
+	if (attackerSlot >= 0) g_scoreboard[attackerSlot].kills++;
+	VLOG("[ja2server] death: player %d killed by player %d\n",
+	     victim, attackerSlot + 1); fflush(stdout);
 	RelayExceptBytes("recieveDEATH", (const char*)&authored, sizeof(authored), p->sender);
 }
 
 // A death is reported by the client that owns the dying soldier, so sendDEATH
-// derives the victim from the admitted sender and accepts only an occupied
-// attacker slot. A shot is reported by the client simulating its own bullet, so
+// derives the victim from the admitted sender and the attacker from session-stable
+// hired-actor provenance. A shot is reported by the client simulating its own bullet, so
 // the sender is the attacker for hit/miss scoring. A bullet hitting a structure,
 // window, or nothing is a miss; accuracy = hits/(hits+misses).
 static void TallyShot(SdlNetMessage* p, bool hit)
@@ -711,10 +1416,34 @@ static void TallyShot(SdlNetMessage* p, bool hit)
 	     s + 1, hit ? "HIT " : "miss", h, shots, shots ? (100.0 * h / shots) : 0.0);
 	fflush(stdout);
 }
-static void sendHIT(SdlNetMessage* p)       { TallyShot(p, true);  RelayExcept("recieveHIT",       p); }
-static void sendMISS(SdlNetMessage* p)      { TallyShot(p, false); RelayExcept("recieveMISS",      p); }
-static void sendhitSTRUCT(SdlNetMessage* p) { TallyShot(p, false); RelayExcept("recievehitSTRUCT", p); }
-static void sendhitWINDOW(SdlNetMessage* p) { TallyShot(p, false); RelayExcept("recievehitWINDOW", p); }
+static void RelayAuthoredShot(
+	const char* recvName, SdlNetMessage* p, bool hit,
+	std::size_t expectedBytes, std::size_t attackerOffset)
+{
+	// Shot outcomes may arrive after the firing team has been marked wiped.  The
+	// hired-actor registry is stable throughout tactical play, so retain those
+	// delayed results while still binding the claimed attacker to the sender.
+	if (!g_tacticalEntered || !SenderOwnsHiredActorExact(
+			p, expectedBytes, attackerOffset, true)) return;
+	TallyShot(p, hit);
+	RelayExceptBytes(recvName, (const char*)p->data, (int)p->size, p->sender);
+}
+static void sendHIT(SdlNetMessage* p)
+{
+	RelayAuthoredShot("recieveHIT", p, true, 32, 10);
+}
+static void sendMISS(SdlNetMessage* p)
+{
+	RelayAuthoredShot("recieveMISS", p, false, 8, 4);
+}
+static void sendhitSTRUCT(SdlNetMessage* p)
+{
+	RelayAuthoredShot("recievehitSTRUCT", p, false, 24, 18);
+}
+static void sendhitWINDOW(SdlNetMessage* p)
+{
+	RelayAuthoredShot("recievehitWINDOW", p, false, 16, 12);
+}
 
 // Declare the deathmatch winner when only one team is left in play (wiped out OR
 // disconnected). Over the FIXED team space {6+slot : occupied && !wiped} -- NOT
@@ -758,6 +1487,7 @@ static void sendWIPE(SdlNetMessage* p)
 		return;
 	}
 	if (team >= 6 && team < 16) g_teamWiped[team] = true;
+	ClearAttackContinuationsForSender(p->sender);
 	if (g_rtTeamVoted[team]) { g_rtTeamVoted[team] = false; if (g_rtVotes > 0) --g_rtVotes; }
 	sc_struct authored = { team };
 	RelayExceptBytes("recieve_wipe", (const char*)&authored, sizeof(authored), p->sender);
@@ -831,9 +1561,12 @@ static bool MaybeFinishRealtime()
 	g_inCombat = false;
 	g_currentTeam = 0;
 	g_interruptActive = false;
+	g_interruptedStopConsumed = false;
+	g_interruptHolderActors.reset();
 	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
 	g_interruptQueue.clear();
+	g_attackContinuations.fill(CoordinatorAttackContinuation{});
 	real_struct authored = { 0 };
 	BroadcastAll("gotoRT", (const char*)&authored, sizeof(authored));
 	VLOG("[ja2server] <<< realtime (combat ended)\n"); fflush(stdout);
@@ -855,6 +1588,26 @@ static UINT8 NextActiveTeam(UINT8 cur)
 	// none of the OTHERS are active -- if cur itself still is, it keeps the turn
 	return TeamActive(cur) ? cur : 0;
 }
+
+// A grant contains the complete pre-interrupt mixed order. StartInterrupt consumes
+// the holder's side from that order, so replaying the grant as a release can
+// restart the same interrupt on clients. Build the minimal evolved release that
+// the production end_interrupt sender would emit: the original interrupted
+// actor is both header and final order entry, and Interrupted becomes NOBODY.
+static bool BuildForcedInterruptRelease(
+	std::array<unsigned char, 12>& release) noexcept
+{
+	if (g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+		g_preInterruptTeam < 6 || g_preInterruptTeam > 9) return false;
+	const UINT16 interrupted = MpInterruptWire::Get16(
+		g_interruptPayload.data(), 6);
+	if (HiredActorOwnerSlot(interrupted) < 0) return false;
+	const UINT16 order[2] = { 255, interrupted };
+	return MpInterruptWire::Encode(
+		release.data(), release.size(), interrupted, g_preInterruptTeam,
+		1, 0, MpInterruptWire::kSoldierSlots, order) == release.size();
+}
+
 // Announce whose turn it is. Stamped tsnetbTeam=6 so every client treats it as the
 // authority (client recieveEndTurn gate: is_server || sender_bTeam==6). Sent to ALL,
 // including the team that now has the turn; that client maps team==netbTeam -> "my turn".
@@ -865,15 +1618,18 @@ static void BroadcastTurn(UINT8 team)
 	// queued request across this boundary: its tactical premise is now stale.
 	if (g_interruptActive && !g_interruptPayload.empty())
 	{
-		std::vector<unsigned char> resume = g_interruptPayload;
-		if (g_preInterruptTeam >= 6 && resume.size() > 2)
-			resume[2] = g_preInterruptTeam;
-		g_server->SendMessage("resume_turn", resume.data(), resume.size(), AnyConnection, true);
+		std::array<unsigned char, 12> resume = {};
+		if (BuildForcedInterruptRelease(resume))
+			BroadcastAll("resume_turn", (const char*)resume.data(),
+				(int)resume.size());
 		VLOG("[ja2server]   <<< interrupt cancelled for turn handoff\n"); fflush(stdout);
 	}
 	g_currentTeam = team;
+	g_attackContinuations.fill(CoordinatorAttackContinuation{});
 	// turn boundary: no interrupt (active OR queued) should outlive a turn handoff
 	g_interruptActive = false;
+	g_interruptedStopConsumed = false;
+	g_interruptHolderActors.reset();
 	g_pendingEndTurn  = false;   // a new turn started -> any deferred end-turn is moot
 	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
@@ -913,13 +1669,41 @@ static void BroadcastTurn(UINT8 team)
 // the others pause. `from` becomes the holder so a disconnect can force-release it.
 static void GrantInterrupt(ConnectionId from, const unsigned char* payload, std::size_t bytes)
 {
+	const UINT16 interrupted = bytes >= MpInterruptWire::kHeaderBytes
+		? MpInterruptWire::Get16(payload, 6)
+		: UINT16_MAX;
+	const Uint64 now = SDL_GetTicks();
+	for (CoordinatorAttackContinuation& continuation :
+		g_attackContinuations)
+	{
+		if (continuation.actor != interrupted || now > continuation.expiresMs)
+			continuation = CoordinatorAttackContinuation{};
+		else
+		{
+			continuation.frozenAtInterrupt = true;
+			continuation.expiresMs = now + ATTACK_CONTINUATION_MS;
+		}
+	}
+	g_interruptedStopConsumed = false;
+	g_interruptHolderActors.reset();
+	if (bytes >= MpInterruptWire::kHeaderBytes)
+	{
+		const UINT16 persons = MpInterruptWire::Get16(payload, 3);
+		for (std::size_t index = 2; index <= persons; ++index)
+		{
+			const UINT16 actor = MpInterruptWire::Get16(
+				payload, MpInterruptWire::kHeaderBytes + 2u * index);
+			if (actor < COORDINATOR_INT_WIRE_ORDER_ENTRIES)
+				g_interruptHolderActors.set(actor);
+		}
+	}
 	g_interruptActive    = true;
 	g_interruptHolder    = from;
 	g_interruptGrantedMs = SDL_GetTicks();
 	g_preInterruptTeam   = g_currentTeam;
 	g_interruptPayload.assign(payload, payload + bytes);
 	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
-	g_server->SendMessage("recieveINTERRUPT", payload, bytes, AnyConnection, true);
+	BroadcastAll("recieveINTERRUPT", (const char*)payload, (int)bytes);
 }
 
 // Release the active interrupt and resume the paused turn. The resume target is taken
@@ -931,6 +1715,8 @@ static void GrantInterrupt(ConnectionId from, const unsigned char* payload, std:
 static void ReleaseInterrupt(const unsigned char* payload, std::size_t bytes)
 {
 	g_interruptActive = false;
+	g_interruptedStopConsumed = false;
+	g_interruptHolderActors.reset();
 	g_interruptHolder = ConnectionId();
 	g_interruptPayload.clear();
 
@@ -938,7 +1724,7 @@ static void ReleaseInterrupt(const unsigned char* payload, std::size_t bytes)
 	if (g_preInterruptTeam >= 6 && bytes > 2)
 		buf[2] = (unsigned char)g_preInterruptTeam;   // author resume target from server state
 	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
-	g_server->SendMessage("resume_turn", buf.data(), bytes, AnyConnection, true);
+	BroadcastAll("resume_turn", (const char*)buf.data(), (int)bytes);
 
 	// chain: grant the oldest queued concurrent interrupt instead of dropping it (H24).
 	while (!g_interruptQueue.empty())
@@ -947,6 +1733,28 @@ static void ReleaseInterrupt(const unsigned char* payload, std::size_t bytes)
 		g_interruptQueue.pop_front();
 		int nslot = SlotOf(next.from);
 		if (nslot < 0 || g_teamWiped[6 + nslot]) continue;   // requester left OR its team was wiped -- skip
+		const int currentSlot = g_currentTeam >= 6 && g_currentTeam <= 9
+			? static_cast<int>(g_currentTeam - 6) : -1;
+		const int targetSlot = next.payload.size() >= MpInterruptWire::kHeaderBytes
+			? HiredActorOwnerSlot(MpInterruptWire::Get16(
+				next.payload.data(), 6)) : -1;
+		if (targetSlot != currentSlot)
+			continue;
+		// Requests behind this grant stay meaningful only when they target the
+		// original current authority. Prune stale nested premises before the
+		// next release.
+		for (std::deque<PendingInterrupt>::iterator queued =
+				g_interruptQueue.begin(); queued != g_interruptQueue.end(); )
+		{
+			const int queuedTarget = queued->payload.size() >=
+					MpInterruptWire::kHeaderBytes
+				? HiredActorOwnerSlot(MpInterruptWire::Get16(
+					queued->payload.data(), 6)) : -1;
+			if (queuedTarget != currentSlot)
+				queued = g_interruptQueue.erase(queued);
+			else
+				++queued;
+		}
 		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
 		GrantInterrupt(next.from, next.payload.data(), next.payload.size());
 		return;
@@ -962,28 +1770,33 @@ static void ReleaseInterrupt(const unsigned char* payload, std::size_t bytes)
 		VLOG("[ja2server]   (applying end-turn deferred during the interrupt)\n"); fflush(stdout);
 		BroadcastTurn(NextActiveTeam(g_currentTeam));
 	}
+	else
+	{
+		g_attackContinuations.fill(CoordinatorAttackContinuation{});
+	}
 }
 
-// Force-release the active interrupt when its holder can no longer release it (dropped,
-// or the stale-interrupt watchdog tripped). Resume with the exact grant bytes the holder
-// originally sent -- same out-of-turn order the clients already saw -- and let
-// ReleaseInterrupt re-author the resume team from g_preInterruptTeam.
+// Force-release the active interrupt when its holder can no longer release it
+// (dropped or stale). Synthesize the evolved minimal release; replaying the
+// original mixed-order grant would restart the interrupted side on clients.
 static void ForceReleaseInterrupt()
 {
 	if (!g_interruptActive) return;
-	std::vector<unsigned char> grant = g_interruptPayload;   // copy: ReleaseInterrupt clears the source
-	if (grant.empty())
+	std::array<unsigned char, 12> release = {};
+	if (!BuildForcedInterruptRelease(release))
 	{
 		// Never no-op a force-release: with no stored payload we can't author a wire resume,
 		// so clear the grant and resume the paused team by number so the turn can't wedge.
 		// (sendINTERRUPT now rejects short frames, so this is defense-in-depth.)
 		g_interruptActive = false;
+		g_interruptedStopConsumed = false;
+		g_interruptHolderActors.reset();
 		g_interruptHolder = ConnectionId();
 		g_interruptQueue.clear();
 		if (g_preInterruptTeam >= 6) BroadcastTurn(g_preInterruptTeam);
 		return;
 	}
-	ReleaseInterrupt(grant.data(), grant.size());
+	ReleaseInterrupt(release.data(), release.size());
 }
 
 // Per-tick watchdog: an interrupt grant whose holder never sends endINTERRUPT (wedged
@@ -1005,12 +1818,110 @@ static bool ValidInterruptWire(const SdlNetMessage* p, bool release)
 	return MpInterruptWire::Validate(data, bytes, release);
 }
 
+static bool SenderOwnsInterruptWireActors(
+	const SdlNetMessage* p, bool release)
+{
+	const int slot = p ? SlotOf(p->sender) : -1;
+	if (slot < 0 || !ValidInterruptWire(p, release)) return false;
+	const unsigned char* const data =
+		reinterpret_cast<const unsigned char*>(p->data);
+	const UINT16 actor = MpInterruptWire::Get16(data, 0);
+	const int actorSlot = HiredActorOwnerSlot(actor);
+	if (actorSlot < 0 || (!release && actorSlot != slot)) return false;
+	const UINT16 persons = MpInterruptWire::Get16(data, 3);
+	// Production JA2 keeps END_OF_INTERRUPTS (255) at order[0], followed by
+	// the mixed-team interrupted/out-of-turn queue. Only the header/final actor
+	// belongs to the requester; intermediate actors merely need to be known.
+	if (MpInterruptWire::Get16(
+			data, MpInterruptWire::kHeaderBytes) != 255) return false;
+	for (std::size_t index = 1; index <= persons; ++index)
+	{
+		const UINT16 ordered = MpInterruptWire::Get16(
+			data, MpInterruptWire::kHeaderBytes + 2u * index);
+		if (HiredActorOwnerSlot(ordered) < 0) return false;
+	}
+	if (MpInterruptWire::Get16(data,
+			MpInterruptWire::kHeaderBytes + 2u * persons) != actor)
+		return false;
+	if (release)
+	{
+		// StartInterrupt removes the holder's side from the out-of-turn list.
+		// The real release therefore names the original interrupted actor in
+		// its header/final order entry. Authenticate the transport against the
+		// stored holder and bind that actor to the active grant instead of
+		// incorrectly requiring the header actor to belong to the sender.
+		if (!g_interruptActive || p->sender != g_interruptHolder ||
+			g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+			actor != MpInterruptWire::Get16(
+				g_interruptPayload.data(), 6) ||
+			data[2] != g_preInterruptTeam ||
+			MpInterruptWire::Get16(data, 6) !=
+				MpInterruptWire::kSoldierSlots) return false;
+
+		// EndInterrupt evolves the original mixed queue by popping the
+		// holder's suffix. The release must therefore be the exact remaining
+		// prefix through the original interrupted actor. Binding every order
+		// entry prevents a holder from injecting unrelated known actors into
+		// resume_turn.
+		if (persons != 1) return false;
+		for (std::size_t index = 0; index <= persons; ++index)
+			if (MpInterruptWire::Get16(data,
+					MpInterruptWire::kHeaderBytes + 2u * index) !=
+				MpInterruptWire::Get16(g_interruptPayload.data(),
+					MpInterruptWire::kHeaderBytes + 2u * index))
+				return false;
+	}
+	else
+	{
+		const UINT16 interrupted = MpInterruptWire::Get16(data, 6);
+		const int interruptedSlot = HiredActorOwnerSlot(interrupted);
+		if (interruptedSlot < 0 || interruptedSlot == slot) return false;
+		// Bind the client-computed duel to the authority that is actually
+		// paused. Without this, any admitted off-turn player can name an
+		// unrelated hostile actor and seize control. Fresh and simultaneous
+		// requests target the server-authoritative current team.
+		const int currentSlot = g_currentTeam >= 6 && g_currentTeam <= 9
+			? static_cast<int>(g_currentTeam - 6) : -1;
+		// Two clients can compute an interrupt against the same current-team
+		// actor before either sees the first grant. Keep that simultaneous
+		// request valid. Genuine nested interrupts need a holder stack; the
+		// one-level coordinator deliberately rejects them instead of resuming
+		// the wrong authority.
+		if (currentSlot < 0 || interruptedSlot != currentSlot) return false;
+		if (g_interruptActive &&
+			(g_interruptPayload.size() < MpInterruptWire::kHeaderBytes ||
+			 interrupted != MpInterruptWire::Get16(
+				 g_interruptPayload.data(), 6))) return false;
+		if (g_gameType == MP_TYPE_TEAMDEATMATCH &&
+		    g_client_teams[interruptedSlot] == g_client_teams[slot])
+			return false;
+
+		// A fresh one-level queue is [END, interrupted, holder...]. The
+		// one-level coordinator deliberately rejects nested mixed-team suffixes
+		// because it has no holder stack with which to resume them safely.
+		if (persons < 2 || MpInterruptWire::Get16(data,
+				MpInterruptWire::kHeaderBytes + 2u) != interrupted)
+			return false;
+		bool seen[MpInterruptWire::kSoldierSlots] = { false };
+		seen[interrupted] = true;
+		for (std::size_t index = 2; index <= persons; ++index)
+		{
+			const UINT16 ordered = MpInterruptWire::Get16(data,
+				MpInterruptWire::kHeaderBytes + 2u * index);
+			if (seen[ordered] || HiredActorOwnerSlot(ordered) != slot)
+				return false;
+			seen[ordered] = true;
+		}
+	}
+	return true;
+}
+
 static void sendINTERRUPT(SdlNetMessage* p)
 {
 	size_t bytes = (size_t)p->size;
 	// Require the exact portable SerializeINT shape. This rejects short frames,
 	// over-sized queued vectors, invalid order counts, and trailing garbage.
-	if (!ValidInterruptWire(p, false))
+	if (!SenderOwnsInterruptWireActors(p, false))
 	{
 		VLOG("[ja2server] sendINTERRUPT dropped -- malformed frame (%zu bytes)\n", bytes); fflush(stdout);
 		return;
@@ -1067,8 +1978,8 @@ static void sendINTERRUPT(SdlNetMessage* p)
 static void endINTERRUPT(SdlNetMessage* p)
 {
 	int slot = SlotOf(p->sender);
-	if (slot < 0 || !ValidInterruptWire(p, true) || !TeamActive(TeamOfSlot(slot)) ||
-	    ((const unsigned char*)p->data)[2] != TeamOfSlot(slot))
+	if (slot < 0 || !SenderOwnsInterruptWireActors(p, true) ||
+	    !TeamActive(TeamOfSlot(slot)))
 		return;
 	if (!g_interruptActive)
 	{
@@ -1112,7 +2023,7 @@ static void startCOMBAT(SdlNetMessage* p)
 // team whose turn it actually is may advance it; hand the turn to the next active team.
 static void sendEndTurn(SdlNetMessage* p)
 {
-	NEED(p, turn_struct);   // H14: short-frame over-read guard
+	if (!p || p->size != sizeof(turn_struct)) return;
 	turn_struct* ts = (turn_struct*)p->data;
 	int slot = SlotOf(p->sender);
 	UINT8 senderTeam = TeamOfSlot(slot);
@@ -1154,12 +2065,17 @@ static void ResetGameState()
 	g_inCombat     = false;
 	g_currentTeam  = 0;
 	g_interruptActive = false;
+	g_interruptedStopConsumed = false;
+	g_interruptHolderActors.reset();
 	g_interruptHolder = ConnectionId();
 	g_interruptQueue.clear();
 	g_pendingEndTurn = false;
 	g_gameOver     = false;
 	memset(g_teamWiped, 0, sizeof(g_teamWiped));
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
+	g_explosiveLedger.clear();
+	g_sharedExplosiveClaims.clear();
+	g_attackContinuations.fill(CoordinatorAttackContinuation{});
 	g_numReady     = 0;
 	g_guiLoaded    = 0;
 	g_guiPlaced    = 0;
@@ -1170,6 +2086,7 @@ static void ResetGameState()
 	memset(g_client_ready, 0, sizeof(g_client_ready));
 	memset(g_guiLoadedBy, 0, sizeof(g_guiLoadedBy));
 	memset(g_guiPlacedBy, 0, sizeof(g_guiPlacedBy));
+	ResetHiredActors();
 	ResetClientSelections();
 	g_hasAdmin     = false;
 	g_adminAddr    = ConnectionId();
@@ -1194,6 +2111,8 @@ static void HandleDisconnect(ConnectionId who)
 	UINT8 currentTeam   = g_currentTeam;
 
 	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
+	ResetHiredActorsForSlot(slot);
+	ClearAttackContinuationsForSender(who);
 	g_clients[slot].address = NoConnection;
 	g_clients[slot].cl_number = 0;
 	g_client_names[slot][0] = 0;
@@ -1311,6 +2230,7 @@ static void RegisterHandlers()
 	REGISTER_SDLNET_MESSAGE(g_server, sendSTANCE);
 	REGISTER_SDLNET_MESSAGE(g_server, sendDIR);
 	REGISTER_SDLNET_MESSAGE(g_server, sendFIRE);
+	REGISTER_SDLNET_MESSAGE(g_server, sendATTACKSTART);
 	REGISTER_SDLNET_MESSAGE(g_server, sendHIT);
 	REGISTER_SDLNET_MESSAGE(g_server, sendHIRE);
 	REGISTER_SDLNET_MESSAGE(g_server, sendDISMISS);
@@ -1371,6 +2291,15 @@ void ja2server_test_request_reset() { g_reset = 1; }
 size_t ja2server_test_transport_count()
 {
 	return g_transportPeers.size() + g_closedBeforeIncoming.size();
+}
+int ja2server_test_clamp_max_mercs(int value) { return ClampMaxMercs(value); }
+size_t ja2server_test_explosive_ledger_count()
+{
+	return g_explosiveLedger.size();
+}
+size_t ja2server_test_shared_explosive_claim_count()
+{
+	return g_sharedExplosiveClaims.size();
 }
 #endif
 
@@ -1436,6 +2365,7 @@ static void ApplyIni()
 	switch (IniInt("STARTING_TIME", 1)) { case 0: g_startingTime=7.00f; break; case 2: g_startingTime=2.00f; break; default: g_startingTime=13.00f; }
 	if (g_maxClients < 1) g_maxClients = 1;
 	if (g_maxClients > 4) g_maxClients = 4;
+	g_maxMercs = ClampMaxMercs(g_maxMercs);
 }
 
 // ============================================================================
@@ -1550,7 +2480,7 @@ static void ApplyConfigKV(const std::string& k, const std::string& v)
 	else if (k == "damage")      { float x = (float)atof(v.c_str()); g_damageMultiplier = x < 0.1f ? 0.1f : (x > 2.0f ? 2.0f : x); }
 	else if (k == "cash")        { long x = atol(v.c_str()); g_startingCash = (int)(x < 0 ? 0 : (x > 999999999L ? 999999999L : x)); }
 	else if (k == "time")        { float x = (float)atof(v.c_str()); g_startingTime = x < 0.0f ? 0.0f : (x > 23.99f ? 23.99f : x); }
-	else if (k == "maxMercs")    { int x = atoi(v.c_str()); g_maxMercs = x < 1 ? 1 : (x > 18 ? 18 : x); }
+	else if (k == "maxMercs")    { g_maxMercs = ClampMaxMercs(atoi(v.c_str())); }
 	else if (k == "sameMerc")    { g_sameMercAllowed = atoi(v.c_str()) ? 1 : 0; }
 	else if (k == "logLevel")    { int x = atoi(v.c_str()); g_logLevel = x < 0 ? 0 : (x > 2 ? 2 : x); }
 }
@@ -1620,7 +2550,7 @@ button.sec{background:#2c313c;color:var(--txt)}button.danger{background:#7a3a32;
 <label>Damage multiplier<input name=damage type=number step=0.1 min=0.1 max=2></label>
 <label>Starting cash<input name=cash type=number min=0 max=999999999></label>
 <label>Starting time (0-23.99)<input name=time type=number step=0.5 min=0 max=23.99></label>
-<label>Max mercs / player<input name=maxMercs type=number min=1 max=18></label>
+<label>Max mercs / player<input name=maxMercs type=number min=1 max=7></label>
 <label>Same merc allowed<select name=sameMerc><option value=1>Yes</option><option value=0>No</option></select></label>
 <label>Log level (live)<select name=logLevel><option value=0>Normal</option><option value=1>Verbose</option><option value=2>Debug</option></select></label>
 <div class=row><button type=submit>Apply runtime settings</button><span class=msg id=saved></span></div>

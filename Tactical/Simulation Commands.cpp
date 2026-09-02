@@ -10,10 +10,12 @@
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorInteractions.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorTraversal.h"
+#include "TacticalActorWeaponHandling.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
@@ -43,6 +45,7 @@
 #include "Soldier macros.h"
 #include "Squads.h"
 #include "TacticalEntityHost.h"
+#include "TacticalInterruptHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TeamTurns.h"
 #include "Vehicles.h"
@@ -51,6 +54,7 @@
 #include "opplist.h"
 #include "soldier tile.h"
 #include "structure.h"
+#include "worlddef.h"
 #include "worldman.h"
 #include "ai.h"
 
@@ -134,11 +138,37 @@ namespace
 		SimulationCommandExecutionContext previous_;
 	};
 
-	bool HasEndTurnExecutionContext() noexcept
+	bool HasNetworkPeerTacticalExecutionContext() noexcept
 	{
-		return IsJa2TacticalWorldLoaded() &&
-			IsJa2TacticalTurnBasedCombat() &&
-			GetJa2TacticalCurrentTeam() < MAXTEAMS;
+		if (!IsJa2TacticalWorldLoaded() || gbPlayerNum >= MAXTEAMS)
+			return false;
+		if (!IsJa2TacticalCombatActive()) return true;
+		return IsJa2TacticalTurnBased() &&
+			GetJa2TacticalCurrentTeam() == gbPlayerNum &&
+			GetJa2PendingTacticalCombatActions() == 0 &&
+			CaptureJa2TacticalInterruptProjection().phase !=
+				Ja2TacticalInterruptPhase::Resolving;
+	}
+
+	bool HasEndTurnExecutionContext(
+		const EndTurnCommand& command) noexcept
+	{
+		if (!IsJa2TacticalWorldLoaded() ||
+			!IsJa2TacticalTurnBasedCombat() ||
+			GetJa2TacticalCurrentTeam() >= MAXTEAMS)
+			return false;
+		if (command.authority !=
+			TacticalCommandAuthorityPolicy::DedicatedCoop)
+			return true;
+		if ((command.source != SimulationCommandSource::NetworkPeer &&
+			 command.source != SimulationCommandSource::Replay) ||
+			!HasNetworkPeerTacticalExecutionContext() ||
+			CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active ||
+			gbPlayerNum >= MAXTEAMS - 1)
+			return false;
+		return command.nextTeam ==
+			static_cast<std::uint8_t>(gbPlayerNum + 1);
 	}
 
 	TacticalActor* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
@@ -147,6 +177,178 @@ namespace
 		TacticalActor* soldier = ResolveJa2TacticalEntity(actor);
 		if (!soldier || !soldier->roster().inSector()) return nullptr;
 		return soldier;
+	}
+
+	TacticalActor* ResolveCoopAuthorizedLegacyCommandActor(
+		TacticalEntityId actor,
+		SimulationCommandSource source,
+		TacticalCommandAuthorityPolicy authority) noexcept
+	{
+		TacticalActor* const soldier = ResolveLiveCommandActor(actor);
+		if (!soldier || authority !=
+			TacticalCommandAuthorityPolicy::DedicatedCoop)
+			return soldier;
+		if ((source != SimulationCommandSource::NetworkPeer &&
+			 source != SimulationCommandSource::Replay) ||
+			!HasNetworkPeerTacticalExecutionContext() ||
+			(CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(actor)) ||
+			OK_CONTROLLABLE_MERC(soldier) == FALSE ||
+			soldier->assignment().current() >= ON_DUTY ||
+			(soldier->status().flags() &
+				(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) != 0)
+			return nullptr;
+		return soldier;
+	}
+
+	bool ResolveAimedFirearmAttack(
+		const AimedFirearmAttackCommand& command,
+		TacticalActor*& soldier,
+		TacticalActor*& target) noexcept
+	{
+		soldier = nullptr;
+		target = nullptr;
+		if (!IsSimulationSynchronizationSource(command.source) ||
+			command.aimTime > TacticalMaximumAimedFirearmAimTime ||
+			command.soldier == command.target ||
+			!IsJa2TacticalWorldLoaded())
+			return false;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum ||
+			 GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Resolving))
+			return false;
+
+		TacticalActor* const resolvedSoldier =
+			ResolveLiveCommandActor(command.soldier);
+		TacticalActor* const resolvedTarget =
+			ResolveLiveCommandActor(command.target);
+		if (!resolvedSoldier || !resolvedTarget ||
+			(CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			OK_CONTROLLABLE_MERC(resolvedSoldier) == FALSE ||
+			resolvedSoldier->roster().team() != gbPlayerNum ||
+			OK_ENEMY_MERC(resolvedTarget) == FALSE ||
+			resolvedTarget->position().gridNo() !=
+				command.expectedTargetGrid ||
+			resolvedTarget->position().level() !=
+				command.expectedTargetLevel)
+			return false;
+		const SoldierID targetId = resolvedTarget->identity().id();
+		if (resolvedSoldier->awareness().opponentKnowledge()[targetId] !=
+				SEEN_CURRENTLY &&
+			gbPublicOpplist[resolvedSoldier->roster().team()][targetId] !=
+				SEEN_CURRENTLY)
+			return false;
+
+		if (resolvedSoldier->attackSelection().hand() != HANDPOS ||
+			resolvedSoldier->fireControl().burstCounter() != 0 ||
+			resolvedSoldier->fireControl().autofireShots() != 0 ||
+			resolvedSoldier->fireControl().reloading())
+			return false;
+		const OBJECTTYPE& hand = resolvedSoldier->inventory()[HANDPOS];
+		if (!hand.exists() || hand.usItem != command.expectedHandItem ||
+			command.expectedHandItem >= MAXITEMS ||
+			Item[command.expectedHandItem].usItemClass != IC_GUN ||
+			Weapon[Item[command.expectedHandItem].ubClassIndex].NoSemiAuto ||
+			HandItemWorks(resolvedSoldier, HANDPOS) == FALSE ||
+			EnoughAmmo(resolvedSoldier, FALSE, HANDPOS) == FALSE ||
+			command.aimTime > AllowedAimingLevels(
+				resolvedSoldier, command.expectedTargetGrid))
+			return false;
+		const INT16 actionPointCost = CalcTotalAPsToAttack(
+			resolvedSoldier, command.expectedTargetGrid, TRUE,
+			static_cast<INT16>(command.aimTime));
+		if (actionPointCost < 0 ||
+			EnoughPoints(resolvedSoldier, actionPointCost, 0, FALSE) == FALSE)
+			return false;
+
+		soldier = resolvedSoldier;
+		target = resolvedTarget;
+		return true;
+	}
+
+	bool ResolveAuthoritativeReload(
+		const ReloadWeaponCommand& command,
+		TacticalActor*& soldier) noexcept
+	{
+		soldier = nullptr;
+		if (command.authority !=
+				TacticalCommandAuthorityPolicy::DedicatedCoop ||
+			!command.reloadEvenIfNotEmpty)
+			return false;
+
+		TacticalActor* const resolved =
+			ResolveCoopAuthorizedLegacyCommandActor(
+				command.soldier, command.source, command.authority);
+		if (!resolved ||
+			resolved->roster().team() != gbPlayerNum ||
+			resolved->attackSelection().hand() != HANDPOS ||
+			resolved->fireControl().burstCounter() != 0 ||
+			resolved->fireControl().autofireShots() != 0 ||
+			resolved->fireControl().reloading())
+			return false;
+
+		const std::uint16_t animation =
+			resolved->animationPlayback().state();
+		if (animation >= NUMANIMATIONSTATES ||
+			(gAnimControl[animation].uiFlags & ANIM_FIRE) != 0)
+			return false;
+		const std::int8_t weaponMode =
+			resolved->attackSelection().weaponMode();
+		// This first co-op reload slice deliberately excludes attached weapon
+		// modes. AutoReload's native primary/dual-hand policy remains intact.
+		if (weaponMode < WM_NORMAL || weaponMode > WM_AUTOFIRE)
+			return false;
+
+		OBJECTTYPE& hand = resolved->inventory()[HANDPOS];
+		if (!hand.exists() || hand.usItem >= MAXITEMS)
+			return false;
+		OBJECTTYPE* const usedWeapon =
+			TacticalActorEquipment::usedWeapon(*resolved, &hand);
+		if (!usedWeapon || !usedWeapon->exists() ||
+			usedWeapon->usItem >= MAXITEMS ||
+			(*usedWeapon)[0]->data.objectStatus < USABLE ||
+			(Item[usedWeapon->usItem].usItemClass != IC_GUN &&
+			 Item[usedWeapon->usItem].usItemClass != IC_LAUNCHER))
+			return false;
+
+		const bool primaryNeedsChamber =
+			(*usedWeapon)[0]->data.gun.ubGunShotsLeft != 0 &&
+			((*usedWeapon)[0]->data.gun.ubGunState &
+				GS_CARTRIDGE_IN_CHAMBER) == 0;
+		const OBJECTTYPE& secondHand = resolved->inventory()[SECONDHANDPOS];
+		const bool secondNeedsChamber =
+			TacticalActorWeaponHandling::isValidSecondHandShot(*resolved) &&
+			secondHand.exists() && secondHand.usItem < MAXITEMS &&
+			secondHand[0]->data.gun.ubGunShotsLeft != 0 &&
+			(secondHand[0]->data.gun.ubGunState &
+				GS_CARTRIDGE_IN_CHAMBER) == 0;
+		INT8 ammoSlot = NO_SLOT;
+		if (!primaryNeedsChamber && !secondNeedsChamber)
+			ammoSlot = FindAmmoToReload(resolved, HANDPOS, NO_SLOT);
+		if (!primaryNeedsChamber && !secondNeedsChamber &&
+			(ammoSlot == NO_SLOT || ammoSlot < 0 ||
+			 static_cast<std::size_t>(ammoSlot) >=
+				 resolved->inventory().size()))
+			return false;
+		if (ammoSlot != NO_SLOT && ammoSlot != HANDPOS)
+		{
+			const OBJECTTYPE& ammunition = resolved->inventory()[ammoSlot];
+			if (!ammunition.exists() || ammunition.usItem >= MAXITEMS)
+				return false;
+		}
+
+		const INT16 actionPointCost =
+			GetAPsToAutoReload(resolved, command.reloadEvenIfNotEmpty);
+		if (actionPointCost < 0 ||
+			EnoughPoints(resolved, actionPointCost, 0, FALSE) == FALSE)
+			return false;
+		soldier = resolved;
+		return true;
 	}
 
 	TacticalActor* ResolveWeaponConfigurationActor(
@@ -664,6 +866,143 @@ namespace
 
 	bool IsWorldObjectOperationCurrent(
 		const STRUCTURE& structure,
+		TacticalWorldObjectOperation operation) noexcept;
+
+	bool IsAuthoritativeDoorActorEligible(
+		TacticalActor& soldier) noexcept
+	{
+		if (OK_CONTROLLABLE_MERC((&soldier)) == FALSE ||
+			soldier.roster().team() != gbPlayerNum ||
+			soldier.assignment().current() >= ON_DUTY ||
+			(soldier.status().flags() &
+				(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER |
+				 SOLDIER_PCUNDERAICONTROL)) != 0 ||
+			gTacticalStatus.fAutoBandageMode ||
+			soldier.position().level() != FIRST_LEVEL ||
+			soldier.collapseState().tactical() ||
+			soldier.movement().stealthMode() ||
+			soldier.movement().waitingForAction() ||
+			soldier.fireControl().reloading() ||
+			soldier.fireControl().burstCounter() != 0 ||
+			soldier.fireControl().autofireShots() != 0 ||
+			soldier.pendingAction().action() != NO_PENDING_ACTION ||
+			soldier.runtime().worldObject.active() ||
+			soldier.animationIntent().hasPendingAnimation() ||
+			soldier.animationIntent().hasSecondaryPendingAnimation() ||
+			!CanBeginWorldObjectInteraction(soldier))
+			return false;
+		const UINT16 animation = soldier.animationPlayback().state();
+		return animation < NUMANIMATIONSTATES &&
+			(gAnimControl[animation].uiFlags &
+				(ANIM_MOVING | ANIM_SPECIALMOVE | ANIM_FIRE)) == 0;
+	}
+
+	bool ResolveAuthoritativeDoorOpenClose(
+		const AuthoritativeDoorOpenCloseCommand& command,
+		TacticalActor*& soldier,
+		STRUCTURE*& structure,
+		INT16& actionPointCost,
+		INT16& breathPointCost) noexcept
+	{
+		soldier = nullptr;
+		structure = nullptr;
+		actionPointCost = 0;
+		breathPointCost = 0;
+		if (!IsStructurallyValidAuthoritativeDoorOpenCloseCommand(command) ||
+			is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext())
+			return false;
+		const Ja2TacticalTurnIdentity identity =
+			GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration !=
+				command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return false;
+
+		TacticalActor* const resolvedSoldier =
+			ResolveLiveCommandActor(command.soldier);
+		if (!resolvedSoldier ||
+			(CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			!IsAuthoritativeDoorActorEligible(*resolvedSoldier) ||
+			resolvedSoldier->position().gridNo() != command.expectedActorGrid ||
+			resolvedSoldier->position().level() != command.expectedActorLevel ||
+			resolvedSoldier->animationPlayback().state() !=
+				command.expectedAnimationState ||
+			CaptureWorldObjectActorStateFingerprint(*resolvedSoldier) !=
+				command.expectedActorStateFingerprint)
+			return false;
+
+		STRUCTURE* const resolvedStructure =
+			ResolveLiveWorldObject(command.object);
+		if (!resolvedStructure ||
+			FindBaseStructure(resolvedStructure) != resolvedStructure ||
+			resolvedStructure->sGridNo != command.object.grid ||
+			(resolvedStructure->fFlags & STRUCTURE_BASE_TILE) == 0 ||
+			(resolvedStructure->fFlags & STRUCTURE_ANYDOOR) == 0 ||
+			(resolvedStructure->fFlags & STRUCTURE_SWITCH) != 0 ||
+			resolvedStructure->sCubeOffset != STRUCTURE_ON_GROUND ||
+			!resolvedStructure->pDBStructureRef ||
+			!resolvedStructure->pDBStructureRef->pDBStructure ||
+			resolvedStructure->pDBStructureRef->pDBStructure->bPartnerDelta ==
+				NO_PARTNER_STRUCTURE ||
+			!FindLevelNodeBasedOnStructure(
+				command.object.grid, resolvedStructure) ||
+			(FindLevelNodeBasedOnStructure(
+				command.object.grid, resolvedStructure)->uiFlags &
+				LEVELNODE_ANIMATION) != 0 ||
+			!IsWorldObjectOperationCurrent(
+				*resolvedStructure, command.operation) ||
+			CaptureWorldObjectFingerprint(*resolvedStructure) !=
+				command.expectedObjectFingerprint)
+			return false;
+		if (const DOOR_STATUS* status =
+			GetDoorStatus(command.object.grid))
+		{
+			const bool open =
+				(resolvedStructure->fFlags & STRUCTURE_OPEN) != 0;
+			if ((status->ubFlags & (DOOR_BUSY | DOOR_HAS_TIN_CAN)) != 0 ||
+				((status->ubFlags & DOOR_OPEN) != 0) != open)
+				return false;
+		}
+		if (const DOOR* door =
+			FindDoorInfoAtGridNo(command.object.grid))
+		{
+			if (door->fLocked || door->ubTrapID != NO_TRAP ||
+				door->ubTrapLevel != 0)
+				return false;
+		}
+		if (!IsJa2TacticalDoorVisibleToPlayerTeam(command.object.grid))
+			return false;
+		UINT8 direction = 0;
+		if (FindAdjacentGridEx(
+				resolvedSoldier, command.object.grid, &direction,
+				nullptr, FALSE, TRUE) !=
+				resolvedSoldier->position().gridNo() ||
+			direction != command.direction)
+			return false;
+
+		const INT16 currentActionPointCost =
+			GetAPsToOpenDoor(resolvedSoldier);
+		const INT16 currentBreathPointCost =
+			APBPConstants[BP_OPEN_DOOR];
+		if (currentActionPointCost != command.expectedActionPointCost ||
+			currentBreathPointCost != command.expectedBreathPointCost ||
+			!EnoughPoints(resolvedSoldier, currentActionPointCost,
+				currentBreathPointCost, FALSE))
+			return false;
+
+		soldier = resolvedSoldier;
+		structure = resolvedStructure;
+		actionPointCost = currentActionPointCost;
+		breathPointCost = currentBreathPointCost;
+		return true;
+	}
+
+	bool IsWorldObjectOperationCurrent(
+		const STRUCTURE& structure,
 		TacticalWorldObjectOperation operation) noexcept
 	{
 		const bool open = (structure.fFlags & STRUCTURE_OPEN) != 0;
@@ -958,10 +1297,32 @@ namespace
 			using Command = typename std::decay<decltype(value)>::type;
 			if constexpr (std::is_same<Command, EndTurnCommand>::value)
 			{
-				if (value.nextTeam >= MAXTEAMS || !HasEndTurnExecutionContext())
+				if (value.nextTeam >= MAXTEAMS ||
+					!HasEndTurnExecutionContext(value))
 					return CommandDisposition::Discard;
 				EndTurn(value.nextTeam);
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, PassInterruptCommand>::value)
+			{
+				switch (PassJa2TacticalInterruptActor(
+					value.expectedWorldGeneration,
+					value.expectedInterruptSerial,
+					value.soldier))
+				{
+					case Ja2TacticalInterruptPassResult::Applied:
+					case Ja2TacticalInterruptPassResult::AppliedAndReleased:
+						return CommandDisposition::Applied;
+					case Ja2TacticalInterruptPassResult::InvalidWorld:
+					case Ja2TacticalInterruptPassResult::NotActive:
+					case Ja2TacticalInterruptPassResult::SerialMismatch:
+					case Ja2TacticalInterruptPassResult::ActorUnavailable:
+					case Ja2TacticalInterruptPassResult::ActorIneligible:
+					case Ja2TacticalInterruptPassResult::AlreadyPassed:
+						return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Discard;
 			}
 			else if constexpr (
 				std::is_same<Command, SynchronizeTurnCommand>::value)
@@ -1066,7 +1427,9 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
-				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
+				if (TacticalActor* soldier =
+					ResolveCoopAuthorizedLegacyCommandActor(
+						value.soldier, value.source, value.authority))
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 					{
@@ -1132,6 +1495,36 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AimedFirearmAttackCommand>::value)
+			{
+				TacticalActor* soldier = nullptr;
+				TacticalActor* target = nullptr;
+				if (!ResolveAimedFirearmAttack(value, soldier, target))
+					return CommandDisposition::Discard;
+				(void)target;
+				const INT8 previousAimTime = soldier->aiPlanning().aimTime();
+				const INT8 previousShownAimTime =
+					soldier->aiPlanning().shownAimTime();
+				soldier->aiPlanning().aimTime() =
+					static_cast<INT8>(value.aimTime);
+				soldier->aiPlanning().shownAimTime() =
+					static_cast<INT8>(value.aimTime);
+				const INT32 result =
+					HandleItemFromWeaponConfigurationCommand(
+						soldier, value.expectedTargetGrid,
+						value.expectedTargetLevel,
+						static_cast<UINT16>(value.expectedHandItem),
+						value.source, TacticalEventPolicy::LocalOnly);
+				if (result != ITEM_HANDLE_OK)
+				{
+					soldier->aiPlanning().aimTime() = previousAimTime;
+					soldier->aiPlanning().shownAimTime() =
+						previousShownAimTime;
+					return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
@@ -1149,7 +1542,9 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 			{
-				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier =
+					ResolveCoopAuthorizedLegacyCommandActor(
+						value.soldier, value.source, value.authority);
 				if (!soldier ||
 					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
@@ -1168,7 +1563,9 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 			{
-				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
+				if (TacticalActor* soldier =
+					ResolveCoopAuthorizedLegacyCommandActor(
+						value.soldier, value.source, value.authority))
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 						(void)TacticalActorOrientation::setDesiredDirection(*soldier, value.direction);
@@ -1222,7 +1619,9 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, StopMovementCommand>::value)
 			{
-				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier =
+					ResolveCoopAuthorizedLegacyCommandActor(
+						value.soldier, value.source, value.authority);
 				if (!soldier) return CommandDisposition::Discard;
 				soldier->movement().clearDelay();
 				soldier->pathing().finalDestinationGrid() = soldier->position().gridNo();
@@ -1295,7 +1694,15 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ReloadWeaponCommand>::value)
 			{
-				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = nullptr;
+				if (value.authority ==
+					TacticalCommandAuthorityPolicy::DedicatedCoop)
+				{
+					if (!ResolveAuthoritativeReload(value, soldier))
+						return CommandDisposition::Discard;
+				}
+				else
+					soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inventory()[HANDPOS].exists())
 					return CommandDisposition::Discard;
 				return AutoReload(soldier, value.reloadEvenIfNotEmpty)
@@ -1362,6 +1769,53 @@ namespace
 				return started
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command,
+					AuthoritativeDoorOpenCloseCommand>::value)
+			{
+				TacticalActor* soldier = nullptr;
+				STRUCTURE* structure = nullptr;
+				INT16 actionPointCost = 0;
+				INT16 breathPointCost = 0;
+				if (!ResolveAuthoritativeDoorOpenClose(
+						value, soldier, structure, actionPointCost,
+						breathPointCost))
+					return CommandDisposition::Discard;
+				(void)structure;
+				STRUCTURE* resultingBase = nullptr;
+				const bool desiredOpen = value.operation ==
+					TacticalWorldObjectOperation::Open;
+				// Stealth actors are rejected above, so the explicit-grid noise
+				// calculation consumes no RNG. Compute it before the partner swap,
+				// but defer every observable noise side effect until the mutation
+				// and its point cost have both committed.
+				const UINT8 doorNoise =
+					DoorOpeningNoise(soldier, value.object.grid);
+				const ImmediateDoorOpenCloseResult changed =
+					TryHandleDoorOpenCloseImmediately(
+						*soldier, value.object.grid,
+						value.object.structureId, desiredOpen,
+						resultingBase);
+				if (changed != ImmediateDoorOpenCloseResult::Applied ||
+					!resultingBase)
+					return CommandDisposition::Discard;
+
+				DeductPoints(
+					soldier, actionPointCost, breathPointCost);
+				OurNoise(
+					soldier->identity().id(), value.object.grid,
+					soldier->position().level(),
+					GetMapElement(soldier->position().gridNo()).ubTerrainID,
+					doorNoise, NOISE_CREAKING);
+				HandleSight(
+					soldier,
+					SIGHT_LOOK | SIGHT_RADIO | SIGHT_INTERRUPT);
+				InitOpplistForDoorOpening();
+				gubInterruptProvoker = soldier->identity().id();
+				AllTeamsLookForAll(TRUE);
+				HandleSystemNewAISituation(soldier, TRUE);
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (
 				std::is_same<Command,
@@ -1935,6 +2389,109 @@ bool BindJa2SimulationCommandExecutor(GameContext& game) noexcept
 		ApplicationSimulationCommandExecutor());
 }
 
+bool PrepareAimedFirearmAttackCommand(
+	TacticalEntityId actor,
+	TacticalEntityId target,
+	std::uint8_t aimTime,
+	AimedFirearmAttackCommand& output) noexcept
+{
+	if (!actor.valid() || !target.valid() || actor == target ||
+		aimTime > TacticalMaximumAimedFirearmAimTime)
+		return false;
+	TacticalActor* const liveTarget = ResolveLiveCommandActor(target);
+	TacticalActor* const liveActor = ResolveLiveCommandActor(actor);
+	if (!liveActor || !liveTarget) return false;
+
+	AimedFirearmAttackCommand prepared{
+		actor,
+		target,
+		liveTarget->position().gridNo(),
+		liveTarget->position().level(),
+		aimTime,
+		liveActor->inventory()[HANDPOS].usItem,
+		SimulationCommandSource::NetworkPeer};
+	TacticalActor* checkedActor = nullptr;
+	TacticalActor* checkedTarget = nullptr;
+	if (!ResolveAimedFirearmAttack(
+			prepared, checkedActor, checkedTarget) ||
+		checkedActor != liveActor || checkedTarget != liveTarget)
+		return false;
+	output = prepared;
+	return true;
+}
+
+bool PrepareReloadWeaponCommand(
+	TacticalEntityId actor,
+	ReloadWeaponCommand& output) noexcept
+{
+	if (!actor.valid()) return false;
+	ReloadWeaponCommand prepared{
+		actor, true, SimulationCommandSource::NetworkPeer,
+		TacticalCommandAuthorityPolicy::DedicatedCoop};
+	TacticalActor* checkedActor = nullptr;
+	if (!ResolveAuthoritativeReload(prepared, checkedActor) ||
+		checkedActor == nullptr)
+		return false;
+	output = prepared;
+	return true;
+}
+
+bool PrepareAuthoritativeDoorOpenCloseCommand(
+	TacticalEntityId actor,
+	TacticalWorldObjectId object,
+	bool desiredOpen,
+	AuthoritativeDoorOpenCloseCommand& output) noexcept
+{
+	if (!actor.valid() || object.grid < 0 || object.structureId == 0)
+		return false;
+	TacticalActor* const liveActor = ResolveLiveCommandActor(actor);
+	STRUCTURE* const liveStructure = ResolveLiveWorldObject(object);
+	const Ja2TacticalTurnIdentity identity =
+		GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!liveActor || !liveStructure || !identity) return false;
+	UINT8 direction = 0;
+	if (FindAdjacentGridEx(
+			liveActor, object.grid, &direction, nullptr, FALSE, TRUE) !=
+			liveActor->position().gridNo())
+		return false;
+
+	AuthoritativeDoorOpenCloseCommand prepared;
+	prepared.soldier = actor;
+	prepared.object = object;
+	prepared.operation = desiredOpen
+		? TacticalWorldObjectOperation::Open
+		: TacticalWorldObjectOperation::Close;
+	prepared.direction = direction;
+	prepared.source = SimulationCommandSource::NetworkPeer;
+	prepared.authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedActorGrid = liveActor->position().gridNo();
+	prepared.expectedActorLevel = liveActor->position().level();
+	prepared.expectedAnimationState =
+		liveActor->animationPlayback().state();
+	prepared.expectedActorStateFingerprint =
+		CaptureWorldObjectActorStateFingerprint(*liveActor);
+	prepared.expectedObjectFingerprint =
+		CaptureWorldObjectFingerprint(*liveStructure);
+	prepared.expectedActionPointCost = GetAPsToOpenDoor(liveActor);
+	prepared.expectedBreathPointCost = APBPConstants[BP_OPEN_DOOR];
+
+	TacticalActor* checkedActor = nullptr;
+	STRUCTURE* checkedStructure = nullptr;
+	INT16 checkedActionPoints = 0;
+	INT16 checkedBreathPoints = 0;
+	if (!ResolveAuthoritativeDoorOpenClose(
+			prepared, checkedActor, checkedStructure,
+			checkedActionPoints, checkedBreathPoints) ||
+		checkedActor != liveActor || checkedStructure != liveStructure ||
+		checkedActionPoints != prepared.expectedActionPointCost ||
+		checkedBreathPoints != prepared.expectedBreathPointCost)
+		return false;
+	output = prepared;
+	return true;
+}
+
 SimulationCommandDomainError ValidateSimulationCommandDomain(
 	const SimulationCommand& command) noexcept
 {
@@ -1944,6 +2501,21 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidSimulationCommandSource(value.source))
 			return SimulationCommandDomainError::InvalidSource;
+		if constexpr (
+			std::is_same<Command, EndTurnCommand>::value ||
+			std::is_same<Command, ChangeStanceCommand>::value ||
+			std::is_same<Command, MoveToGridCommand>::value ||
+			std::is_same<Command, SetFacingCommand>::value ||
+			std::is_same<Command, StopMovementCommand>::value ||
+			std::is_same<Command, ReloadWeaponCommand>::value ||
+			std::is_same<Command,
+				AuthoritativeDoorOpenCloseCommand>::value ||
+			std::is_same<Command, PassInterruptCommand>::value)
+		{
+			if (!IsValidTacticalCommandAuthorityPolicyForSource(
+					value.authority, value.source))
+				return SimulationCommandDomainError::InvalidSource;
+		}
 		if constexpr (
 			std::is_same<Command, EndTurnCommand>::value ||
 			std::is_same<Command, SynchronizeTurnCommand>::value)
@@ -2069,6 +2641,39 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			if (!value.soldier.valid() || value.soldier.slot >= TOTAL_SOLDIERS)
 				return SimulationCommandDomainError::InvalidActor;
 			if constexpr (
+				std::is_same<Command, PassInterruptCommand>::value)
+			{
+				return IsStructurallyValidPassInterruptCommand(value)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidInterruptPrecondition;
+			}
+			else if constexpr (
+				std::is_same<Command,
+					AuthoritativeDoorOpenCloseCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeDoorOpenCloseCommand(
+						value))
+					return SimulationCommandDomainError::
+						InvalidWorldObjectPrecondition;
+				if (value.object.grid < 0 || value.object.grid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidObjectGrid;
+				if (value.expectedActorGrid < 0 ||
+					value.expectedActorGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (value.expectedActorLevel != FIRST_LEVEL)
+					return SimulationCommandDomainError::InvalidActorLevel;
+				if (value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::
+						InvalidWorldObjectPrecondition;
+				if (!IsValidTacticalDirection(value.direction))
+					return SimulationCommandDomainError::InvalidDirection;
+				if (value.operation != TacticalWorldObjectOperation::Open &&
+					value.operation != TacticalWorldObjectOperation::Close)
+					return SimulationCommandDomainError::
+						InvalidWorldObjectOperation;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
 				std::is_same<Command,
 					SystemWorldObjectInteractionCommand>::value)
 			{
@@ -2113,7 +2718,9 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			{
 				if (!IsValidTacticalEventPolicy(value.eventPolicy))
 					return SimulationCommandDomainError::InvalidEventPolicy;
-				if (value.source == SimulationCommandSource::NetworkPeer &&
+				if ((value.source == SimulationCommandSource::NetworkPeer ||
+					 value.authority ==
+						 TacticalCommandAuthorityPolicy::DedicatedCoop) &&
 					value.eventPolicy != TacticalEventPolicy::LocalOnly)
 					return SimulationCommandDomainError::InvalidEventPolicy;
 				return value.stance == ANIM_STAND ||
@@ -2132,9 +2739,33 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (value.targetCubeLevel < 0 ||
 					value.targetCubeLevel > PROFILE_Z_SIZE)
 					return SimulationCommandDomainError::InvalidTargetCubeLevel;
-				return SimulationCommandDomainError::None;
-			}
-			else if constexpr (
+			return SimulationCommandDomainError::None;
+		}
+		else if constexpr (
+			std::is_same<Command, AimedFirearmAttackCommand>::value)
+		{
+			if (!value.soldier.valid() ||
+				value.soldier.slot >= TOTAL_SOLDIERS)
+				return SimulationCommandDomainError::InvalidActor;
+			if (!value.target.valid() || value.target == value.soldier ||
+				value.target.slot >= TOTAL_SOLDIERS)
+				return SimulationCommandDomainError::InvalidTargetActor;
+			if (value.expectedTargetGrid < 0 ||
+				value.expectedTargetGrid >= WORLD_MAX)
+				return SimulationCommandDomainError::InvalidTargetGrid;
+			if (value.expectedTargetLevel != FIRST_LEVEL &&
+				value.expectedTargetLevel != SECOND_LEVEL)
+				return SimulationCommandDomainError::InvalidTargetLevel;
+			if (value.aimTime > TacticalMaximumAimedFirearmAimTime)
+				return SimulationCommandDomainError::InvalidAimTime;
+			if (value.expectedHandItem == 0 ||
+				value.expectedHandItem >= MAXITEMS)
+				return SimulationCommandDomainError::InvalidAttackingWeapon;
+			if (!IsSimulationSynchronizationSource(value.source))
+				return SimulationCommandDomainError::InvalidSource;
+			return SimulationCommandDomainError::None;
+		}
+		else if constexpr (
 				std::is_same<Command, BeginSelectedFireWeaponCommand>::value)
 			{
 				if (!IsSimulationSystemSource(value.source))
@@ -2205,7 +2836,9 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			{
 				if (!IsValidTacticalEventPolicy(value.eventPolicy))
 					return SimulationCommandDomainError::InvalidEventPolicy;
-				if (value.source == SimulationCommandSource::NetworkPeer &&
+				if ((value.source == SimulationCommandSource::NetworkPeer ||
+					 value.authority ==
+						 TacticalCommandAuthorityPolicy::DedicatedCoop) &&
 					value.eventPolicy != TacticalEventPolicy::LocalOnly)
 					return SimulationCommandDomainError::InvalidEventPolicy;
 				return IsValidTacticalDirection(value.direction)
@@ -2232,6 +2865,10 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (value.positionX < 0 || value.positionY < 0 ||
 					value.positionX >= WORLD_COORD_COLS ||
 					value.positionY >= WORLD_COORD_ROWS)
+					return SimulationCommandDomainError::
+						InvalidReplicatedPosition;
+				if (GETWORLDINDEXFROMWORLDCOORDS(
+						value.positionY, value.positionX) != value.reportedGrid)
 					return SimulationCommandDomainError::
 						InvalidReplicatedPosition;
 				return IsValidTacticalDirection(value.direction)

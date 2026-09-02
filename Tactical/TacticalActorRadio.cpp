@@ -29,6 +29,7 @@
 #include "Text.h"
 #include "Town Militia.h"
 #include "Weapons.h"
+#include "connect.h"
 #include "message.h"
 #include "random.h"
 #include "strategicmap.h"
@@ -185,7 +186,11 @@ bool TacticalActorRadio::canOrderAnyArtilleryStrike(
 	TacticalActor& actor,
 	std::uint32_t* sectorId)
 {
-	if (sectorId == nullptr || !gSkillTraitValues.fROAllowArtillery)
+	// Legacy multiplayer has no authoritative protocol for delayed artillery
+	// waves. Creating them locally would diverge every peer, so keep the action
+	// unavailable until those shells/effects have a replicated action identity.
+	if (is_networked || sectorId == nullptr ||
+		!gSkillTraitValues.fROAllowArtillery)
 		return false;
 
 	if (actor.deployment().sectorZ())
@@ -241,7 +246,7 @@ bool TacticalActorRadio::orderArtilleryStrike(
 {
 	auto* const self = &actor;
 
-	if (sectorId > UINT8_MAX ||
+	if (is_networked || sectorId > UINT8_MAX ||
 		(team != OUR_TEAM &&
 		 team != ENEMY_TEAM &&
 		 team != MILITIA_TEAM) ||

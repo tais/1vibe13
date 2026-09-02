@@ -34,6 +34,7 @@
 #include "TacticalActorSkills.h"
 #include "TacticalActorTurncoats.h"
 #include "TacticalWorldAdapter.h"
+#include "DedicatedServerOptions.h"
 #include <string.h>
 #include <random>
 #include <array>
@@ -165,6 +166,7 @@
 #include "TacticalActorPredicates.h"
 #include "TacticalActorQuoteFlags.h"
 #include "TacticalActorStateFlags.h"
+
 #include "Grid Direction.h"
 #include "Soldier Background Types.h"
 #include "Soldier Profile Constants.h"
@@ -178,6 +180,16 @@
 #include "End Game.h"
 // anv: for playable Speck
 	#include "mercs.h"
+
+
+namespace
+{
+bool DedicatedCoopProcessConfigured() noexcept
+{
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop;
+}
+}
 
 
 // OJW - 20090419
@@ -7771,13 +7783,13 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                     SetMusicMode( MUSIC_TACTICAL_VICTORY );
 
                     // OJW - 20081222 - dont auto-bandage if networked
-                    if (!is_networked)
+                    if (!is_networked && !DedicatedCoopProcessConfigured())
                         ShouldBeginAutoBandage( );
                 }
                 else if ( lastMercTalkedAboutKilling->status().flags() & SOLDIER_MONSTER )
                 {
                     // OJW - 20081222 - dont auto-bandage if networked
-                    if (!is_networked)
+                    if (!is_networked && !DedicatedCoopProcessConfigured())
                         ShouldBeginAutoBandage( );
                 }
 
@@ -7825,7 +7837,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 				#endif
                 SetMusicMode( MUSIC_TACTICAL_NOTHING );
                 // OJW - 20081222 - dont auto bandage if networked
-                if (!is_networked)
+                if (!is_networked && !DedicatedCoopProcessConfigured())
                     ShouldBeginAutoBandage();
             }
 
@@ -11140,9 +11152,23 @@ static void EscapeTimerCallback()
     bool escaped = false;
     // Look for an escape direction for remaining mercs
     std::array<WorldDirections, 4> possibleEscapeDirections{ NORTH, EAST, SOUTH, WEST };
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(possibleEscapeDirections.begin(), possibleEscapeDirections.end(), g);
+    if (GetGameSimulationRandomSource() != nullptr)
+    {
+        for (std::size_t remaining = possibleEscapeDirections.size();
+             remaining > 1; --remaining)
+        {
+            std::swap(possibleEscapeDirections[remaining - 1],
+                      possibleEscapeDirections[Random(
+                          static_cast<UINT32>(remaining))]);
+        }
+    }
+    else
+    {
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(possibleEscapeDirections.begin(),
+                     possibleEscapeDirections.end(), g);
+    }
 
     for (const auto direction : possibleEscapeDirections)
     {

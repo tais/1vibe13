@@ -15,6 +15,7 @@
 #include "UndergroundInit.h"
 
 #include "connect.h"
+#include "gameplay_lua_policy.h"
 
 using namespace std;
 
@@ -33,6 +34,8 @@ LuaMines::LuaMines()
 {
 	m_L = luaL_newstate();
 	luaL_openlibs(m_L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(m_L),
+		"Could not configure gameplay Lua standard libraries");
 }
 
 

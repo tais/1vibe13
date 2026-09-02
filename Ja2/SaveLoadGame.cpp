@@ -1,5 +1,6 @@
 #include "types.h"
 #include "TacticalActorAiBehavior.h"
+#include "faces.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorEmploymentTypes.h"
@@ -533,7 +534,7 @@ BOOLEAN		LoadOppListInfoFromSavedGame( HWFILE hFile );
 BOOLEAN		SaveOppListInfoToSavedGame( HWFILE hFile );
 
 BOOLEAN		LoadGeneralInfo( HWFILE hFile );
-BOOLEAN		SaveGeneralInfo( HWFILE hFile );
+BOOLEAN		SaveGeneralInfo( HWFILE hFile, UINT32 uiResumeScreen );
 BOOLEAN		SavePreRandomNumbersToSaveGameFile( HWFILE hFile );
 BOOLEAN		LoadPreRandomNumbersFromSaveGameFile( HWFILE hFile );
 
@@ -2668,6 +2669,8 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 {
 	const bool dedicatedCampaign =
 		invocation == LegacySaveInvocation::DedicatedCampaign;
+	const UINT32 uiResumeScreen = dedicatedCampaign
+		? MAP_SCREEN : guiPreviousOptionScreen;
 	UINT32	uiNumBytesWritten=0;
 	HWFILE	hFile=0;
 	SAVED_GAME_HEADER SaveGameHeader;
@@ -2802,7 +2805,12 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 	SaveGameHeader.iCurrentBalance = LaptopSaveInfo.iCurrentBalance;
 
 
-	SaveGameHeader.uiCurrentScreen = guiPreviousOptionScreen;
+	// Interactive saves are launched through the options/save UI, whose
+	// previous-screen global identifies the resume destination. A service
+	// checkpoint is taken directly between committed frames and therefore has
+	// no such UI provenance. The cold-resume eligibility contract admits only
+	// the strategic boundary, so persist that destination explicitly.
+	SaveGameHeader.uiCurrentScreen = uiResumeScreen;
 
 	SaveGameHeader.fAlternateSector = GetSectorFlagStatus( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, SF_USE_ALTERNATE_MAP );
 
@@ -3347,7 +3355,7 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 
 
 
-	if( !SaveGeneralInfo( hFile ) )
+	if( !SaveGeneralInfo( hFile, uiResumeScreen ) )
 	{
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR, L"ERROR general info");
 		goto FAILED_TO_SAVE;
@@ -4059,6 +4067,12 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 		return FALSE;
 	};
 	if (!runtimeLoadExecution) return failRuntimeLoad();
+	// Dedicated cold-load reconstruction allocates soldier and static NPC faces
+	// while the runtime transaction requires the canonical simulation stream to
+	// remain untouched. Face timing is presentation-only, so derive it from the
+	// loaded profiles for this synchronous scope. Interactive loads retain the
+	// established randomized timing.
+	ScopedSavedGameFaceReconstruction faceReconstruction(dedicatedCampaign);
 	preparedRuntimeLoad = PrepareRuntimeLoad(
 		gameContext, zSaveGameName, runtimeLoadExecution );
 	if ( !preparedRuntimeLoad )
@@ -5092,7 +5106,9 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 
 	if( guiCurrentSaveGameVersion	>= 31 )
 	{
-		if( !LoadStrategicAI( hFile ) )
+		if( !LoadStrategicAI( hFile, dedicatedCampaign
+			? StrategicAILoadPolicy::DedicatedExactRestore
+			: StrategicAILoadPolicy::InteractiveRepair ) )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("LoadStrategicAI failed" ) );
 			return failRuntimeLoad();
@@ -7973,7 +7989,7 @@ void LoadGameFilePosition( INT32 iPos, STR pMsg )
 
 
 
-BOOLEAN SaveGeneralInfo( HWFILE hFile )
+BOOLEAN SaveGeneralInfo( HWFILE hFile, UINT32 uiResumeScreen )
 {
 	UINT32	uiNumBytesWritten;
 
@@ -7982,7 +7998,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 
 	sGeneralInfo.ubMusicMode = GetMusicMode();
 	sGeneralInfo.uiCurrentUniqueSoldierId = NextJa2TacticalEntityIncarnation();
-	sGeneralInfo.uiCurrentScreen = guiPreviousOptionScreen;
+	sGeneralInfo.uiCurrentScreen = uiResumeScreen;
 
 	sGeneralInfo.usSelectedSoldier = gusSelectedSoldier;
 	sGeneralInfo.sRenderCenterX = gsRenderCenterX;

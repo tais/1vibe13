@@ -9,7 +9,7 @@
 
 using RecordedSimulationCommand = CommandJournalRecord<SimulationCommand>;
 
-inline constexpr std::uint16_t SimulationCommandJournalWireVersion = 1;
+inline constexpr std::uint16_t SimulationCommandJournalWireVersion = 4;
 
 enum class SimulationCommandJournalDecodeResult
 {

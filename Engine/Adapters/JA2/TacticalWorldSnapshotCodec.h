@@ -7,21 +7,25 @@
 
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
-// Version 1 is an explicitly little-endian, field-by-field tactical baseline.
-// It is independent from legacy multiplayer structs and JA2 save bytes.
-inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 1;
-inline constexpr std::size_t EncodedTacticalWorldSnapshotHeaderBytes = 35;
-inline constexpr std::size_t EncodedTacticalActorSnapshotBytes = 30;
+// Version 7 adds canonical interrupt phase/serial and actor eligibility.
+inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 7;
+inline constexpr std::size_t EncodedTacticalWorldSnapshotHeaderBytes = 53;
+inline constexpr std::size_t EncodedTacticalHandItemSnapshotBytes = 12;
+inline constexpr std::size_t EncodedTacticalActorSnapshotBytes = 92;
+inline constexpr std::size_t EncodedTacticalDoorSnapshotBytes = 7;
 inline constexpr std::size_t MaximumEncodedTacticalWorldSnapshotBytes =
 	EncodedTacticalWorldSnapshotHeaderBytes +
 	TacticalWorldSnapshot::DefaultMaximumActors *
-		EncodedTacticalActorSnapshotBytes;
+		EncodedTacticalActorSnapshotBytes +
+	TacticalWorldSnapshot::DefaultMaximumDoors *
+		EncodedTacticalDoorSnapshotBytes;
 
 enum class TacticalWorldSnapshotEncodeResult
 {
 	Success,
 	Invalid,
 	TooManyActors,
+	TooManyDoors,
 	AllocationFailure
 };
 
@@ -31,6 +35,7 @@ enum class TacticalWorldSnapshotDecodeResult
 	Invalid,
 	UnsupportedVersion,
 	TooManyActors,
+	TooManyDoors,
 	AllocationFailure
 };
 
@@ -41,12 +46,16 @@ TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(
 	const TacticalWorldSnapshot& snapshot,
 	std::vector<std::uint8_t>& bytes,
 	std::size_t maximumActors =
-		TacticalWorldSnapshot::DefaultMaximumActors) noexcept;
+		TacticalWorldSnapshot::DefaultMaximumActors,
+	std::size_t maximumDoors =
+		TacticalWorldSnapshot::DefaultMaximumDoors) noexcept;
 
 TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 	const std::vector<std::uint8_t>& bytes,
 	TacticalWorldSnapshot& snapshot,
 	std::size_t maximumActors =
-		TacticalWorldSnapshot::DefaultMaximumActors) noexcept;
+		TacticalWorldSnapshot::DefaultMaximumActors,
+	std::size_t maximumDoors =
+		TacticalWorldSnapshot::DefaultMaximumDoors) noexcept;
 
 #endif

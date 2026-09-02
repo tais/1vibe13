@@ -1562,7 +1562,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 			// (bTeam==1 && is_server) branch (&& binds tighter than ||). So a remote-originated
 			// blast on our own soldier (IsOurSoldier && fFromRemoteClient) fell into this branch
 			// and re-applied + re-broadcast the damage instead of just replaying the wire numbers.
-			if (!fFromRemoteClient && (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server)))
+			if (!fFromRemoteClient &&
+				IsLocallyControlledMultiplayerActor(pSoldier))
 			{
 				// let this function proceed, we will send damage towards the end
 			}
@@ -1922,7 +1923,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 
 	if (is_networked && is_client)
 	{
-		if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
+		if (!fFromRemoteClient &&
+			IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			// if it gets here then we can let the other clients know our merc took damage
 			send_explosivedamage( ubPerson, ubOwner, sBombGridNo, sNewWoundAmt, sBreathAmt, uiDist, usItem, sSubsequent );
@@ -1951,7 +1953,8 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 	if (is_networked && is_client)
 	{
 		// only the owner of a merc may send damage (as this takes into account equipped gas mask)
-		if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
+		if (!fFromRemoteClient &&
+			IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			// allow this function to proceed, we will send it later, when we are sure we take damage this turn and from this function call
 		}
@@ -2191,7 +2194,8 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 			// if it gets here we are supposed to send it.
 			// let all the other clients know that our merc got gassed
 			// and align them with our random number generator
-			if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
+			if (!fFromRemoteClient &&
+				IsLocallyControlledMultiplayerActor(pSoldier))
 			{
 				send_gasdamage( pSoldier, pExplosive->uiIndex, sSubsequent, fRecompileMovementCosts, sWoundAmt, sBreathAmt, ubOwner );
 			}
@@ -2979,7 +2983,7 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pAttacker != NULL)
 		{
-			if (IsOurSoldier(pAttacker) || (pAttacker->roster().team() == 1 && is_server))
+			if (IsLocallyControlledMultiplayerActor(pAttacker))
 			{
 				// dont send SpreadEffect if it was just called from NewSmokeEffect - as now we sync that seperately
 				if (!fNewSmokeEffect)
@@ -3766,7 +3770,10 @@ void AddBombToQueue( UINT32 uiWorldBombIndex, UINT32 uiTimeStamp, BOOLEAN fFromR
 	}
 
 	// 20091002 - OJW - MP Explosives
-	if (is_networked && is_client)
+	// A detonation received from the network is already the authoritative relay.
+	// Never feed it back into the outbound producer path, even when the triggering
+	// soldier or bomb owner happens to be locally controlled on this process.
+	if (is_networked && is_client && !fFromRemoteClient)
 	{
 		/*if (gWorldBombs[uiWorldBombIndex].bIsFromRemotePlayer && !fFromRemoteClient)
 		{
@@ -3799,13 +3806,13 @@ void AddBombToQueue( UINT32 uiWorldBombIndex, UINT32 uiTimeStamp, BOOLEAN fFromR
 			TacticalActor* bombOwner =
 				GetJa2SoldierRepository().resolve(soldierID.i);
 
-			if ((triggeringSoldier && IsOurSoldier(triggeringSoldier)) ||
-				(bombOwner && IsOurSoldier(bombOwner)))
+			if (IsLocallyControlledMultiplayerActor(triggeringSoldier) ||
+				IsLocallyControlledMultiplayerActor(bombOwner))
 			{
 				// we set off the bomb (could be failed disarm) or we own it, tell the other clients we are setting it off
 				send_detonate_explosive(iWorldIndex, gubPersonToSetOffExplosions);
 			}
-			else if (gWorldBombs[uiWorldBombIndex].bIsFromRemotePlayer && !fFromRemoteClient)
+			else if (gWorldBombs[uiWorldBombIndex].bIsFromRemotePlayer)
 			{
 				return; // dont explode bombs which arent originating from our client unless we were told to
 			}

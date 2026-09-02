@@ -27,6 +27,17 @@ static_assert(noexcept(EncodeAdmissionRequest(
 	std::declval<const AdmissionRequest&>(), std::declval<AdmissionRequestBytes&>())));
 static_assert(noexcept(EncodeAdmissionResponse(
 	std::declval<const AdmissionResponse&>(), std::declval<AdmissionResponseBytes&>())));
+static_assert(noexcept(EncodeAdmissionAck(
+	std::declval<const AdmissionAck&>(), std::declval<AdmissionAckBytes&>())));
+static_assert(noexcept(EncodeAdmissionCredentialAbandon(
+	std::declval<const AdmissionCredentialAbandon&>(),
+	std::declval<AdmissionCredentialAbandonBytes&>())));
+static_assert(noexcept(EncodeAdmissionSelfRetirementRequest(
+	std::declval<const AdmissionSelfRetirementRequest&>(),
+	std::declval<AdmissionSelfRetirementRequestBytes&>())));
+static_assert(noexcept(EncodeAdmissionSelfRetirementResult(
+	std::declval<const AdmissionSelfRetirementResult&>(),
+	std::declval<AdmissionSelfRetirementResultBytes&>())));
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -121,6 +132,30 @@ AdmissionRequest ReconnectRequest(
 	return request;
 }
 
+AdmissionAck AckFor(const AuthorityConfiguration& configuration,
+	const AdmissionResponse& accepted)
+{
+	AdmissionAck acknowledgement;
+	acknowledgement.sessionEpoch = configuration.sessionEpoch;
+	acknowledgement.peerIdentity = accepted.peerIdentity;
+	acknowledgement.reconnectToken = accepted.reconnectToken;
+	return acknowledgement;
+}
+
+AdmissionCredentialAbandon AbandonFor(
+	const AuthorityConfiguration& configuration,
+	const AdmissionResponse& credential)
+{
+	AdmissionCredentialAbandon abandonment;
+	abandonment.sessionEpoch = configuration.sessionEpoch;
+	abandonment.runtimeFingerprint = configuration.runtimeFingerprint;
+	abandonment.contentManifestSha256 =
+		configuration.contentManifestSha256;
+	abandonment.peerIdentity = credential.peerIdentity;
+	abandonment.reconnectToken = credential.reconnectToken;
+	return abandonment;
+}
+
 void CheckReason(
 	const AdmissionResponse& response, AdmissionRejectReason expected, const char* message)
 {
@@ -145,7 +180,7 @@ void TestRequestCodec()
 	CHECK(bytes.size() == 116, "request wire size is exactly 116 bytes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'A',
 		"request magic is byte exact");
-	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 7 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"request version, kind, and reserved bytes are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[8 + index] == index + 1, "request epoch is little endian");
@@ -198,7 +233,7 @@ void TestRequestCodec()
 	CHECK(DecodeAdmissionRequest(malformed.data(), malformed.size(), decoded) ==
 		DecodeResult::NonZeroReserved, "nonzero request reserved byte is explicit");
 	malformed = bytes;
-	malformed[4] = 2;
+	malformed[4] = static_cast<std::uint8_t>(CurrentProtocolVersion + 1);
 	CHECK(DecodeAdmissionRequest(malformed.data(), malformed.size(), decoded) ==
 		DecodeResult::UnsupportedProtocol, "unsupported request version is explicit");
 
@@ -264,7 +299,7 @@ void TestResponseCodec()
 	CHECK(bytes.size() == 68, "response wire size is exactly 68 bytes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'A',
 		"response magic is byte exact");
-	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 2 && bytes[7] == 0,
+	CHECK(bytes[4] == 7 && bytes[5] == 0 && bytes[6] == 2 && bytes[7] == 0,
 		"response version, kind, and reserved bytes are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[8 + index] == index + 1, "response epoch is little endian");
@@ -309,19 +344,21 @@ void TestResponseCodec()
 			DecodeResult::NonZeroReserved, "every response reserved byte is canonical");
 	}
 	malformed = bytes;
-	malformed[4] = 2;
+	malformed[4] = static_cast<std::uint8_t>(CurrentProtocolVersion + 1);
 	CHECK(DecodeAdmissionResponse(malformed.data(), malformed.size(), decoded) ==
 		DecodeResult::UnsupportedProtocol, "unsupported response version is explicit");
 
 	for (std::uint32_t raw = 0; raw <= UINT16_MAX; ++raw)
 	{
 		const bool expectedKnown = raw <=
-			static_cast<std::uint16_t>(AdmissionRejectReason::TokenIssuanceFailed);
+			static_cast<std::uint16_t>(
+				AdmissionRejectReason::CredentialRetirementPending);
 		CHECK(IsKnownAdmissionRejectReason(static_cast<AdmissionRejectReason>(raw)) ==
 			expectedKnown, "reject reason domain is exhaustive");
 	}
 	for (std::uint16_t raw = 0;
-		raw <= static_cast<std::uint16_t>(AdmissionRejectReason::TokenIssuanceFailed); ++raw)
+		raw <= static_cast<std::uint16_t>(
+			AdmissionRejectReason::CredentialRetirementPending); ++raw)
 	{
 		AdmissionResponse enumerated;
 		enumerated.sessionEpoch = 7;
@@ -337,7 +374,7 @@ void TestResponseCodec()
 			"reject reason numeric value is stable");
 	}
 	malformed = bytes;
-	malformed[64] = 16;
+	malformed[64] = 18;
 	CHECK(DecodeAdmissionResponse(malformed.data(), malformed.size(), decoded) ==
 		DecodeResult::InvalidRejectReason, "undefined reject reason is rejected");
 	malformed = bytes;
@@ -361,7 +398,7 @@ void TestResponseCodec()
 	CHECK(!EncodeAdmissionResponse(invalidAccepted, malformed),
 		"encoder refuses acceptance without token");
 	AdmissionResponse invalidReason;
-	invalidReason.rejectReason = static_cast<AdmissionRejectReason>(16);
+	invalidReason.rejectReason = static_cast<AdmissionRejectReason>(18);
 	CHECK(!EncodeAdmissionResponse(invalidReason, malformed),
 		"encoder refuses undefined rejection reason");
 	AdmissionResponse invalidVersion;
@@ -379,6 +416,237 @@ void TestResponseCodec()
 	CHECK(DecodeAdmissionResponse(malformed.data(), malformed.size(), decoded) ==
 		DecodeResult::InvalidSemanticValue,
 		"decoder refuses accepted response with zero epoch");
+}
+
+void TestAckCodec()
+{
+	AdmissionAck acknowledgement;
+	acknowledgement.sessionEpoch = UINT64_C(0x0807060504030201);
+	acknowledgement.peerIdentity = Identity(0x20);
+	acknowledgement.reconnectToken = Token(0x40);
+	AdmissionAckBytes bytes{};
+	CHECK(EncodeAdmissionAck(acknowledgement, bytes),
+		"canonical admission ACK encodes");
+	CHECK(bytes.size() == 64, "admission ACK wire size is exactly 64 bytes");
+	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
+		bytes[3] == 'A' && bytes[4] == 7 && bytes[5] == 0 &&
+		bytes[6] == 3 && bytes[7] == 0,
+		"admission ACK magic, version, kind and reserved bytes are exact");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(bytes[8 + index] == index + 1,
+			"admission ACK epoch is little endian");
+	for (std::size_t index = 0; index < 16; ++index)
+		CHECK(bytes[16 + index] == index + 0x20,
+			"admission ACK identity occupies its exact range");
+	for (std::size_t index = 0; index < 32; ++index)
+		CHECK(bytes[32 + index] == index + 0x40,
+			"admission ACK token occupies its exact range");
+
+	AdmissionAck decoded;
+	CHECK(DecodeAdmissionAck(bytes.data(), bytes.size(), decoded) ==
+		DecodeResult::Ok &&
+		decoded.sessionEpoch == acknowledgement.sessionEpoch &&
+		decoded.peerIdentity == acknowledgement.peerIdentity &&
+		decoded.reconnectToken == acknowledgement.reconnectToken,
+		"admission ACK round trips every credential field");
+	for (std::size_t size = 0; size < bytes.size(); ++size)
+		CHECK(DecodeAdmissionAck(bytes.data(), size, decoded) ==
+			DecodeResult::WrongSize,
+			"every truncated admission ACK is rejected");
+	AdmissionAckBytes malformed = bytes;
+	malformed[6] = 1;
+	CHECK(DecodeAdmissionAck(malformed.data(), malformed.size(), decoded) ==
+		DecodeResult::WrongMessageKind,
+		"admission ACK rejects a request message kind");
+	malformed = bytes;
+	malformed[7] = 1;
+	CHECK(DecodeAdmissionAck(malformed.data(), malformed.size(), decoded) ==
+		DecodeResult::NonZeroReserved,
+		"admission ACK reserved byte is canonical");
+	malformed = bytes;
+	malformed[4] = static_cast<std::uint8_t>(CurrentProtocolVersion + 1);
+	CHECK(DecodeAdmissionAck(malformed.data(), malformed.size(), decoded) ==
+		DecodeResult::UnsupportedProtocol,
+		"admission ACK protocol mismatch is explicit");
+	AdmissionAck invalid = acknowledgement;
+	invalid.reconnectToken.fill(0);
+	AdmissionAckBytes unchanged = bytes;
+	CHECK(!EncodeAdmissionAck(invalid, unchanged) && unchanged == bytes,
+		"invalid admission ACK encoding is transactional");
+	malformed = bytes;
+	for (std::size_t index = 32; index < malformed.size(); ++index)
+		malformed[index] = 0;
+	CHECK(DecodeAdmissionAck(malformed.data(), malformed.size(), decoded) ==
+		DecodeResult::InvalidSemanticValue,
+		"admission ACK requires a nonzero bearer token");
+}
+
+void TestCredentialAbandonCodec()
+{
+	const AuthorityConfiguration configuration = CompleteConfiguration();
+	AdmissionResponse credential;
+	credential.sessionEpoch = configuration.sessionEpoch;
+	credential.peerIdentity = Identity(0x20);
+	credential.reconnectToken = Token(0x40);
+	const AdmissionCredentialAbandon abandonment =
+		AbandonFor(configuration, credential);
+	AdmissionCredentialAbandonBytes bytes{};
+	CHECK(EncodeAdmissionCredentialAbandon(abandonment, bytes),
+		"canonical credential abandonment encodes");
+	CHECK(bytes.size() == AdmissionCredentialAbandonWireSize &&
+		bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
+		bytes[3] == 'A' && bytes[4] == 7 && bytes[5] == 0 &&
+		bytes[6] == 4 && bytes[7] == 0,
+		"credential abandonment has exact fixed width, magic, and kind");
+	AdmissionCredentialAbandon decoded;
+	CHECK(DecodeAdmissionCredentialAbandon(
+		bytes.data(), bytes.size(), decoded) == DecodeResult::Ok &&
+		decoded.sessionEpoch == abandonment.sessionEpoch &&
+		decoded.runtimeFingerprint == abandonment.runtimeFingerprint &&
+		decoded.contentManifestSha256 ==
+			abandonment.contentManifestSha256 &&
+		decoded.peerIdentity == abandonment.peerIdentity &&
+		decoded.reconnectToken == abandonment.reconnectToken,
+		"credential abandonment round trips every offered field");
+	for (std::size_t size = 0; size < bytes.size(); ++size)
+		CHECK(DecodeAdmissionCredentialAbandon(
+			bytes.data(), size, decoded) == DecodeResult::WrongSize,
+			"every truncated credential abandonment is rejected");
+	AdmissionCredentialAbandonBytes malformed = bytes;
+	malformed[6] = 1;
+	CHECK(DecodeAdmissionCredentialAbandon(
+		malformed.data(), malformed.size(), decoded) ==
+			DecodeResult::WrongMessageKind,
+		"credential abandonment cannot alias a first-join request");
+	malformed = bytes;
+	malformed[7] = 1;
+	CHECK(DecodeAdmissionCredentialAbandon(
+		malformed.data(), malformed.size(), decoded) ==
+			DecodeResult::NonZeroReserved,
+		"credential abandonment rejects noncanonical reserved bytes");
+	AdmissionCredentialAbandon invalid = abandonment;
+	invalid.reconnectToken.fill(0);
+	AdmissionCredentialAbandonBytes unchanged = bytes;
+	CHECK(!EncodeAdmissionCredentialAbandon(invalid, unchanged) &&
+		unchanged == bytes,
+		"credential abandonment requires a complete stale credential");
+}
+
+void TestSelfRetirementCodecs()
+{
+	AdmissionSelfRetirementRequest request;
+	request.sessionEpoch = UINT64_C(0x0807060504030201);
+	request.requestId = UINT64_C(0x1817161514131211);
+	AdmissionSelfRetirementRequestBytes requestBytes{};
+	CHECK(EncodeAdmissionSelfRetirementRequest(request, requestBytes),
+		"self-retirement request encodes");
+	CHECK(requestBytes.size() == 24 && requestBytes[0] == 'J' &&
+		requestBytes[1] == '2' && requestBytes[2] == 'C' &&
+		requestBytes[3] == 'A' && requestBytes[4] == 7 &&
+		requestBytes[5] == 0 && requestBytes[6] == 5 &&
+		requestBytes[7] == 0,
+		"self-retirement request has exact fixed header and no victim field");
+	for (std::size_t index = 0; index < 8; ++index)
+	{
+		CHECK(requestBytes[8 + index] == index + 1,
+			"self-retirement epoch is little endian");
+		CHECK(requestBytes[16 + index] == index + 0x11,
+			"self-retirement request ID is little endian");
+	}
+	AdmissionSelfRetirementRequest decodedRequest;
+	CHECK(DecodeAdmissionSelfRetirementRequest(requestBytes.data(),
+		requestBytes.size(), decodedRequest) == DecodeResult::Ok &&
+		decodedRequest.sessionEpoch == request.sessionEpoch &&
+		decodedRequest.requestId == request.requestId,
+		"self-retirement request round trips exactly");
+	for (std::size_t size = 0; size < requestBytes.size(); ++size)
+		CHECK(DecodeAdmissionSelfRetirementRequest(requestBytes.data(), size,
+			decodedRequest) == DecodeResult::WrongSize,
+			"every truncated self-retirement request is rejected");
+	AdmissionSelfRetirementRequestBytes malformedRequest = requestBytes;
+	malformedRequest[6] = 6;
+	CHECK(DecodeAdmissionSelfRetirementRequest(malformedRequest.data(),
+		malformedRequest.size(), decodedRequest) ==
+		DecodeResult::WrongMessageKind,
+		"self-retirement request kind cannot alias its result");
+	malformedRequest = requestBytes;
+	malformedRequest[7] = 1;
+	CHECK(DecodeAdmissionSelfRetirementRequest(malformedRequest.data(),
+		malformedRequest.size(), decodedRequest) ==
+		DecodeResult::NonZeroReserved,
+		"self-retirement request reserved byte is canonical");
+	malformedRequest = requestBytes;
+	malformedRequest[4] = static_cast<std::uint8_t>(
+		CurrentProtocolVersion + 1);
+	CHECK(DecodeAdmissionSelfRetirementRequest(malformedRequest.data(),
+		malformedRequest.size(), decodedRequest) ==
+		DecodeResult::UnsupportedProtocol,
+		"self-retirement request version mismatch is explicit");
+	AdmissionSelfRetirementRequest invalidRequest = request;
+	invalidRequest.requestId = 0;
+	AdmissionSelfRetirementRequestBytes unchangedRequest = requestBytes;
+	CHECK(!EncodeAdmissionSelfRetirementRequest(
+		invalidRequest, unchangedRequest) && unchangedRequest == requestBytes,
+		"invalid self-retirement request encoding is transactional");
+
+	AdmissionSelfRetirementResult result;
+	result.sessionEpoch = request.sessionEpoch;
+	result.requestId = request.requestId;
+	result.peerIdentity = Identity(0x20);
+	result.result = AdmissionSelfRetirementResultCode::CredentialRetired;
+	AdmissionSelfRetirementResultBytes resultBytes{};
+	CHECK(EncodeAdmissionSelfRetirementResult(result, resultBytes),
+		"self-retirement result encodes");
+	CHECK(resultBytes.size() == 48 && resultBytes[0] == 'J' &&
+		resultBytes[1] == '2' && resultBytes[2] == 'C' &&
+		resultBytes[3] == 'A' && resultBytes[4] == 7 &&
+		resultBytes[5] == 0 && resultBytes[6] == 6 &&
+		resultBytes[7] == 0,
+		"self-retirement result has exact fixed header");
+	for (std::size_t index = 0; index < 16; ++index)
+		CHECK(resultBytes[24 + index] == index + 0x20,
+			"server-resolved retirement identity occupies its exact range");
+	CHECK(resultBytes[40] == 1 && resultBytes[41] == 0,
+		"CredentialRetired has stable little-endian result code");
+	for (std::size_t index = 42; index < resultBytes.size(); ++index)
+		CHECK(resultBytes[index] == 0,
+			"self-retirement result trailing reserved bytes are zero");
+	AdmissionSelfRetirementResult decodedResult;
+	CHECK(DecodeAdmissionSelfRetirementResult(resultBytes.data(),
+		resultBytes.size(), decodedResult) == DecodeResult::Ok &&
+		decodedResult.sessionEpoch == result.sessionEpoch &&
+		decodedResult.requestId == result.requestId &&
+		decodedResult.peerIdentity == result.peerIdentity &&
+		decodedResult.result == result.result,
+		"self-retirement result round trips every server-owned field");
+	for (std::size_t size = 0; size < resultBytes.size(); ++size)
+		CHECK(DecodeAdmissionSelfRetirementResult(resultBytes.data(), size,
+			decodedResult) == DecodeResult::WrongSize,
+			"every truncated self-retirement result is rejected");
+	AdmissionSelfRetirementResultBytes malformedResult = resultBytes;
+	malformedResult[42] = 1;
+	CHECK(DecodeAdmissionSelfRetirementResult(malformedResult.data(),
+		malformedResult.size(), decodedResult) ==
+		DecodeResult::NonZeroReserved,
+		"self-retirement result reserved range is canonical");
+	malformedResult = resultBytes;
+	malformedResult[40] = 3;
+	CHECK(DecodeAdmissionSelfRetirementResult(malformedResult.data(),
+		malformedResult.size(), decodedResult) ==
+		DecodeResult::InvalidSemanticValue,
+		"unknown self-retirement result code is rejected");
+	for (std::uint32_t raw = 0; raw <= UINT16_MAX; ++raw)
+	{
+		const bool known = raw == 1 || raw == 2;
+		CHECK(IsKnownAdmissionSelfRetirementResultCode(
+			static_cast<AdmissionSelfRetirementResultCode>(raw)) == known,
+			"self-retirement result code domain is exhaustive");
+	}
+	AdmissionSelfRetirementResult refused = result;
+	refused.result =
+		AdmissionSelfRetirementResultCode::TombstoneCapacityReached;
+	CHECK(EncodeAdmissionSelfRetirementResult(refused, resultBytes),
+		"bounded tombstone refusal uses the same fixed result shape");
 }
 
 void TestHexParsers()
@@ -513,34 +781,60 @@ void TestAdmissionLifecycleAndIntentGate()
 		"idempotent retry does not issue or consume another seat");
 
 	PeerIdentity resolved = Identity(200);
+	CHECK(!registry.resolvePeerForIntent(
+		firstTransport, configuration.sessionEpoch, resolved) &&
+		!registry.authorizesIntent(firstTransport, configuration.sessionEpoch),
+		"pending credential cannot authorize intent before explicit ACK");
+	AdmissionAck wrongAck = AckFor(configuration, accepted);
+	wrongAck.reconnectToken[0] ^= 1;
+	CHECK(registry.acknowledge(firstTransport, wrongAck) ==
+		AdmissionRejectReason::InvalidReconnectToken &&
+		registry.acknowledge(secondTransport, AckFor(configuration, accepted)) ==
+			AdmissionRejectReason::InvalidPeerBinding,
+		"ACK validation binds both bearer and current transport");
+	CHECK(registry.acknowledge(firstTransport,
+		AckFor(configuration, accepted)) == AdmissionRejectReason::None,
+		"valid ACK atomically promotes the pending credential");
 	CHECK(registry.resolvePeerForIntent(
 		firstTransport, configuration.sessionEpoch, resolved) &&
 		resolved == accepted.peerIdentity,
-		"intent gate resolves only the server-bound peer identity");
-	CHECK(registry.authorizesIntent(firstTransport, configuration.sessionEpoch),
-		"bound sender and epoch authorize intent");
+		"ACK-promoted intent gate resolves the server-bound identity");
 	CHECK(!registry.authorizesIntent(firstTransport, configuration.sessionEpoch + 1) &&
 		!registry.authorizesIntent(secondTransport, configuration.sessionEpoch),
 		"wrong epoch and unbound sender fail intent authorization");
 
 	AdmissionRequest reconnect = ReconnectRequest(configuration, accepted);
-	const AdmissionResponse rebound = registry.admit(secondTransport, reconnect);
-	CHECK(rebound.admitted(), "valid reconnect credential is admitted on new sender");
+	const AdmissionRegistryResult rebound =
+		registry.admitWithEffects(secondTransport, reconnect);
+	CHECK(rebound.response.admitted() && rebound.displaced() &&
+		rebound.displacedTransport == firstTransport,
+		"valid reconnect reports the process-local displaced sender");
 	CHECK(!registry.authorizesIntent(firstTransport, configuration.sessionEpoch) &&
+		!registry.authorizesIntent(secondTransport, configuration.sessionEpoch),
+		"reconnect atomically invalidates old sender but awaits binding ACK");
+	CHECK(registry.acknowledge(secondTransport,
+		AckFor(configuration, rebound.response)) == AdmissionRejectReason::None &&
 		registry.authorizesIntent(secondTransport, configuration.sessionEpoch),
-		"reconnect atomically invalidates old sender and binds new sender");
+		"reconnect ACK promotes only the replacement transport");
 
 	registry.disconnect(secondTransport);
 	CHECK(!registry.authorizesIntent(secondTransport, configuration.sessionEpoch) &&
 		registry.peerCount() == 1 && registry.boundPeerCount() == 0,
 		"disconnect revokes transport authority but retains reconnect identity");
-	CHECK(registry.admit(firstTransport, reconnect).admitted(),
-		"retained credential reconnects within the same epoch");
+	const AdmissionResponse wrapperReconnect = registry.admit(firstTransport, reconnect);
+	CHECK(wrapperReconnect.admitted() &&
+		!registry.authorizesIntent(firstTransport, configuration.sessionEpoch),
+		"source-compatible admit wrapper returns wire response and preserves pending binding semantics");
+	CHECK(registry.acknowledge(firstTransport,
+		AckFor(configuration, wrapperReconnect)) == AdmissionRejectReason::None,
+		"wrapper-created reconnect binding is ACK-promoted normally");
 	registry.clearTransportBindings();
 	CHECK(!registry.authorizesIntent(firstTransport, configuration.sessionEpoch) &&
 		registry.peerCount() == 1,
 		"clearing bindings revokes transports without erasing credentials");
-	CHECK(registry.admit(secondTransport, reconnect).admitted(),
+	const AdmissionResponse afterClear = registry.admit(secondTransport, reconnect);
+	CHECK(afterClear.admitted() && registry.acknowledge(secondTransport,
+		AckFor(configuration, afterClear)) == AdmissionRejectReason::None,
 		"credential remains usable after clearing transport bindings");
 
 	AuthorityConfiguration nextSession = configuration;
@@ -554,6 +848,152 @@ void TestAdmissionLifecycleAndIntentGate()
 	CheckReason(registry.admit(secondTransport, oldReconnect),
 		AdmissionRejectReason::UnknownPeer,
 		"old credential cannot cross a session boundary");
+}
+
+void TestAuthenticatedSelfRetirementLifecycle()
+{
+	const AuthorityConfiguration configuration = CompleteConfiguration(1);
+	const AdmissionRequest firstJoin = FirstJoinRequest(configuration);
+	const TransportPeer firstTransport{5101};
+	const TransportPeer reconnectTransport{5102};
+	const TransportPeer replacementTransport{5103};
+	ScriptedTokenSource source;
+	source.script.push_back(MakeCredential(1, 64));
+	source.script.push_back(MakeCredential(33, 96));
+	AdmissionRegistry registry(&source);
+	registry.beginSession(configuration);
+	const AdmissionResponse admitted = registry.admit(firstTransport, firstJoin);
+	CHECK(admitted.admitted() && registry.acknowledge(firstTransport,
+		AckFor(configuration, admitted)) == AdmissionRejectReason::None,
+		"retirement fixture ACK-authenticates one exact transport");
+
+	const AdmissionSelfRetirementRegistryBegin unauthenticated =
+		registry.beginSelfRetirement(
+			reconnectTransport, configuration.sessionEpoch, 7);
+	CHECK(unauthenticated.result ==
+		AdmissionSelfRetirementRegistryResult::NotAuthenticated &&
+		IsZero(unauthenticated.peerIdentity),
+		"an unbound transport cannot select or retire another identity");
+	const AdmissionSelfRetirementRegistryBegin begun =
+		registry.beginSelfRetirement(
+			firstTransport, configuration.sessionEpoch, 7);
+	CHECK(begun.result == AdmissionSelfRetirementRegistryResult::Success &&
+		begun.peerIdentity == admitted.peerIdentity &&
+		registry.pendingSelfRetirementCount() == 1,
+		"server resolves and reserves the authenticated sender's own retirement");
+	PeerIdentity resolved{};
+	CHECK(!registry.resolvePeerForIntent(firstTransport,
+		configuration.sessionEpoch, resolved) &&
+		registry.resolveAuthenticatedPeer(firstTransport,
+			configuration.sessionEpoch, resolved) &&
+		resolved == admitted.peerIdentity,
+		"Pending immediately closes gameplay while preserving transport identity");
+	CHECK(registry.beginSelfRetirement(firstTransport,
+		configuration.sessionEpoch, 7).result ==
+		AdmissionSelfRetirementRegistryResult::AlreadyPending &&
+		registry.beginSelfRetirement(firstTransport,
+			configuration.sessionEpoch, 8).result ==
+			AdmissionSelfRetirementRegistryResult::ConflictingRequest,
+		"exact pending request is idempotent and conflicting request fails closed");
+
+	registry.disconnect(firstTransport);
+	const AdmissionResponse pendingReconnect = registry.admit(
+		reconnectTransport, ReconnectRequest(configuration, admitted));
+	CheckReason(pendingReconnect,
+		AdmissionRejectReason::CredentialRetirementPending,
+		"reconnect while Pending never regains gameplay authority");
+	CHECK(registry.peerCount() == 1 &&
+		registry.pendingSelfRetirementCount() == 1,
+		"Pending reconnect neither releases nor duplicates the reserved seat");
+
+	CHECK(registry.completeSelfRetirement(admitted.peerIdentity, 7) ==
+		AdmissionSelfRetirementRegistryResult::Success &&
+		registry.peerCount() == 0 && registry.retiredCredentialCount() == 1 &&
+		registry.pendingSelfRetirementCount() == 0 &&
+		registry.credentialRetired(admitted.peerIdentity),
+		"tombstone commits before the active seat is released");
+	CHECK(registry.completeSelfRetirement(admitted.peerIdentity, 7) ==
+		AdmissionSelfRetirementRegistryResult::AlreadyCompleted &&
+		registry.retiredCredentialCount() == 1,
+		"exact completion is idempotent and never duplicates a tombstone");
+	CheckReason(registry.admit(reconnectTransport,
+		ReconnectRequest(configuration, admitted)),
+		AdmissionRejectReason::CredentialRetired,
+		"old bearer deterministically observes committed retirement");
+	AdmissionRequest wrongToken = ReconnectRequest(configuration, admitted);
+	wrongToken.reconnectToken[0] ^= 1;
+	CheckReason(registry.admit(reconnectTransport, wrongToken),
+		AdmissionRejectReason::InvalidReconnectToken,
+		"tombstone remains bearer-authenticated and reveals nothing to a wrong token");
+
+	const AdmissionResponse replacement =
+		registry.admit(replacementTransport, firstJoin);
+	CHECK(replacement.admitted() &&
+		replacement.peerIdentity != admitted.peerIdentity &&
+		registry.peerCount() == 1,
+		"a distinct newly launched client can immediately take the freed seat");
+	AuthorityConfiguration nextEpoch = configuration;
+	++nextEpoch.sessionEpoch;
+	registry.beginSession(nextEpoch);
+	CHECK(registry.retiredCredentialCount() == 0 &&
+		!registry.credentialRetired(admitted.peerIdentity),
+		"retirement tombstones are same-epoch state");
+}
+
+void TestSelfRetirementTombstoneCapacityPreflight()
+{
+	const AuthorityConfiguration configuration = CompleteConfiguration(1);
+	const AdmissionRequest firstJoin = FirstJoinRequest(configuration);
+	ScriptedTokenSource source;
+	for (std::size_t index = 0;
+		index <= MaximumRetiredAdmissionCredentials; ++index)
+	{
+		Credential credential;
+		credential.identity[0] = static_cast<std::uint8_t>(index + 1);
+		credential.identity[1] = static_cast<std::uint8_t>((index + 1) >> 8);
+		credential.token[0] = static_cast<std::uint8_t>(index + 17);
+		credential.token[1] = static_cast<std::uint8_t>((index + 17) >> 8);
+		source.script.push_back(credential);
+	}
+	AdmissionRegistry registry(&source);
+	registry.beginSession(configuration);
+	for (std::size_t index = 0;
+		index < MaximumRetiredAdmissionCredentials; ++index)
+	{
+		const TransportPeer transport{
+			static_cast<std::uint64_t>(6000 + index)};
+		const AdmissionResponse admitted = registry.admit(transport, firstJoin);
+		CHECK(admitted.admitted() && registry.acknowledge(transport,
+			AckFor(configuration, admitted)) == AdmissionRejectReason::None,
+			"bounded tombstone fixture admits and ACKs each replacement seat");
+		const std::uint64_t requestId = index + 1;
+		const AdmissionSelfRetirementRegistryBegin begun =
+			registry.beginSelfRetirement(
+				transport, configuration.sessionEpoch, requestId);
+		CHECK(begun.result ==
+			AdmissionSelfRetirementRegistryResult::Success &&
+			registry.completeSelfRetirement(
+				admitted.peerIdentity, requestId) ==
+				AdmissionSelfRetirementRegistryResult::Success,
+			"every reserved tombstone through the fixed boundary commits");
+	}
+	CHECK(registry.retiredCredentialCount() ==
+		MaximumRetiredAdmissionCredentials && registry.peerCount() == 0,
+		"same-epoch tombstone history reaches its exact bounded capacity");
+	const TransportPeer finalTransport{7000};
+	const AdmissionResponse finalPeer = registry.admit(finalTransport, firstJoin);
+	CHECK(finalPeer.admitted() && registry.acknowledge(finalTransport,
+		AckFor(configuration, finalPeer)) == AdmissionRejectReason::None,
+		"a live seat may still be admitted at full tombstone capacity");
+	const AdmissionSelfRetirementRegistryBegin refused =
+		registry.beginSelfRetirement(
+			finalTransport, configuration.sessionEpoch, 999);
+	CHECK(refused.result == AdmissionSelfRetirementRegistryResult::
+		TombstoneCapacityReached &&
+		registry.pendingSelfRetirementCount() == 0 &&
+		registry.peerCount() == 1 &&
+		registry.authorizesIntent(finalTransport, configuration.sessionEpoch),
+		"capacity is atomically preflighted before gameplay authority closes");
 }
 
 void TestReconnectRejectionsAndCapacity()
@@ -571,6 +1011,11 @@ void TestReconnectRejectionsAndCapacity()
 	const AdmissionResponse peerA = registry.admit(transportA, firstJoin);
 	const AdmissionResponse peerB = registry.admit(transportB, firstJoin);
 	CHECK(peerA.admitted() && peerB.admitted(), "capacity seats are admitted");
+	CHECK(registry.acknowledge(transportA, AckFor(configuration, peerA)) ==
+		AdmissionRejectReason::None &&
+		registry.acknowledge(transportB, AckFor(configuration, peerB)) ==
+			AdmissionRejectReason::None,
+		"capacity peers ACK before receiving intent authority");
 
 	AdmissionRequest unknown = ReconnectRequest(configuration, peerA);
 	unknown.peerIdentity = Identity(200);
@@ -587,11 +1032,68 @@ void TestReconnectRejectionsAndCapacity()
 	CHECK(registry.authorizesIntent(transportA, configuration.sessionEpoch) &&
 		registry.authorizesIntent(transportB, configuration.sessionEpoch),
 		"failed conflict leaves both existing bindings intact");
+	CheckReason(registry.abandonUnknownCredential(
+		transportC, AbandonFor(configuration, peerA)).response,
+		AdmissionRejectReason::InvalidPeerBinding,
+		"explicit abandonment can never replace a still-known identity");
+	AdmissionResponse unknownCredential;
+	unknownCredential.sessionEpoch = configuration.sessionEpoch;
+	unknownCredential.peerIdentity = Identity(200);
+	unknownCredential.reconnectToken = Token(220);
+	CheckReason(registry.abandonUnknownCredential(
+		transportC, AbandonFor(configuration, unknownCredential)).response,
+		AdmissionRejectReason::CapacityReached,
+		"credential abandonment preserves the fixed peer capacity");
+	CheckReason(registry.abandonUnknownCredential(
+		transportB, AbandonFor(configuration, unknownCredential)).response,
+		AdmissionRejectReason::TransportAlreadyBound,
+		"bound transport cannot use abandonment to acquire another identity");
 	CheckReason(registry.admit(transportC, firstJoin), AdmissionRejectReason::CapacityReached,
 		"issued identity capacity is bounded");
 	registry.disconnect(transportA);
 	CheckReason(registry.admit(transportC, firstJoin), AdmissionRejectReason::CapacityReached,
 		"disconnect does not free reconnect identity capacity");
+}
+
+void TestPendingAdmissionReclamation()
+{
+	const AuthorityConfiguration configuration = CompleteConfiguration(1);
+	const AdmissionRequest firstJoin = FirstJoinRequest(configuration);
+	ScriptedTokenSource source;
+	source.script.push_back(MakeCredential(1, 64));
+	source.script.push_back(MakeCredential(1, 64));
+	source.script.push_back(MakeCredential(17, 96));
+	AdmissionRegistry registry(&source);
+	registry.beginSession(configuration);
+	const TransportPeer firstTransport{1201};
+	const AdmissionResponse lostResponse = registry.admit(firstTransport, firstJoin);
+	CHECK(lostResponse.admitted() && registry.peerCount() == 1 &&
+		!registry.authorizesIntent(firstTransport, configuration.sessionEpoch),
+		"new seat remains pending when its acceptance is not ACKed");
+	registry.disconnect(firstTransport);
+	CHECK(registry.peerCount() == 0 && registry.boundPeerCount() == 0,
+		"disconnect reclaims an unacknowledged lost-response seat");
+
+	const TransportPeer secondTransport{1202};
+	const AdmissionRequest staleReconnect =
+		ReconnectRequest(configuration, lostResponse);
+	CheckReason(registry.admit(secondTransport, staleReconnect),
+		AdmissionRejectReason::UnknownPeer,
+		"lost-ACK client receives explicit UnknownPeer before reset");
+	const AdmissionRegistryResult reset = registry.abandonUnknownCredential(
+		secondTransport, AbandonFor(configuration, lostResponse));
+	const AdmissionResponse replacement = reset.response;
+	CHECK(replacement.admitted() &&
+		replacement.peerIdentity != lostResponse.peerIdentity &&
+		replacement.reconnectToken != lostResponse.reconnectToken &&
+		source.calls == 3,
+		"explicit abandonment rejects stale bearer reuse and issues fresh credentials");
+	CHECK(registry.acknowledge(secondTransport,
+		AckFor(configuration, replacement)) == AdmissionRejectReason::None,
+		"replacement credential becomes durable only after ACK");
+	registry.disconnect(secondTransport);
+	CHECK(registry.peerCount() == 1 && registry.boundPeerCount() == 0,
+		"disconnect retains an ACK-promoted reconnect credential");
 }
 
 void TestCredentialIssuanceUniqueness()
@@ -657,10 +1159,16 @@ int main()
 {
 	TestRequestCodec();
 	TestResponseCodec();
+	TestAckCodec();
+	TestCredentialAbandonCodec();
+	TestSelfRetirementCodecs();
 	TestHexParsers();
 	TestFailClosedAdmission();
 	TestAdmissionLifecycleAndIntentGate();
+	TestAuthenticatedSelfRetirementLifecycle();
+	TestSelfRetirementTombstoneCapacityPreflight();
 	TestReconnectRejectionsAndCapacity();
+	TestPendingAdmissionReclamation();
 	TestCredentialIssuanceUniqueness();
 	TestMaximumCapacityBoundary();
 

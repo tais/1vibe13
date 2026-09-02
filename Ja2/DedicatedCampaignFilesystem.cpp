@@ -9,6 +9,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -18,6 +19,12 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if defined(__linux__)
+#include <sys/syscall.h>
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE (1 << 0)
+#endif
+#endif
 #include <unistd.h>
 #endif
 
@@ -70,7 +77,8 @@ std::string CanonicalCampaignKey(const std::string& campaignId)
 }
 
 #ifdef _WIN32
-HANDLE OpenHeldDirectory(const std::filesystem::path& path) noexcept;
+HANDLE OpenHeldDirectory(
+	const std::filesystem::path& path, bool shareDelete = false) noexcept;
 
 enum class ManagedDirectoryResult
 {
@@ -83,7 +91,8 @@ ManagedDirectoryResult PrepareManagedDirectory(
 	const std::filesystem::path& parent,
 	const std::filesystem::path& child,
 	std::filesystem::path& canonicalChild,
-	HANDLE& heldChild) noexcept
+	HANDLE& heldChild,
+	bool shareDelete = false) noexcept
 {
 	heldChild = INVALID_HANDLE_VALUE;
 	try
@@ -113,7 +122,7 @@ ManagedDirectoryResult PrepareManagedDirectory(
 		if (std::filesystem::is_symlink(after) ||
 			!std::filesystem::is_directory(after))
 			return ManagedDirectoryResult::Unsafe;
-		heldChild = OpenHeldDirectory(child);
+		heldChild = OpenHeldDirectory(child, shareDelete);
 		if (heldChild == INVALID_HANDLE_VALUE)
 			return ManagedDirectoryResult::Unsafe;
 
@@ -330,6 +339,18 @@ private:
 	std::size_t bufferedBytes_ = 0;
 };
 
+struct NativeFileIdentity
+{
+	std::uint64_t first = 0;
+	std::uint64_t second = 0;
+};
+
+bool SameNativeFileIdentity(const NativeFileIdentity& left,
+	const NativeFileIdentity& right) noexcept
+{
+	return left.first == right.first && left.second == right.second;
+}
+
 #ifdef _WIN32
 using NativeFile = HANDLE;
 using NativeDirectory = HANDLE;
@@ -362,12 +383,67 @@ bool NativeFileSize(NativeFile file, std::uint64_t& size) noexcept
 	return true;
 }
 
+bool CaptureNativeFileIdentity(NativeFile file,
+	NativeFileIdentity& identity) noexcept
+{
+	FILE_ATTRIBUTE_TAG_INFO attributes{};
+	BY_HANDLE_FILE_INFORMATION information{};
+	if (GetFileType(file) != FILE_TYPE_DISK ||
+		!GetFileInformationByHandleEx(file, FileAttributeTagInfo,
+			&attributes, sizeof(attributes)) ||
+		!GetFileInformationByHandle(file, &information) ||
+		information.nNumberOfLinks != 1 ||
+		(attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+		(attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+		return false;
+	identity.first = information.dwVolumeSerialNumber;
+	identity.second =
+		(static_cast<std::uint64_t>(information.nFileIndexHigh) << 32) |
+		information.nFileIndexLow;
+	return true;
+}
+
+bool MatchesNativeFileIdentity(NativeFile file,
+	const NativeFileIdentity& expected) noexcept
+{
+	FILE_ATTRIBUTE_TAG_INFO attributes{};
+	BY_HANDLE_FILE_INFORMATION information{};
+	if (GetFileType(file) != FILE_TYPE_DISK ||
+		!GetFileInformationByHandleEx(file, FileAttributeTagInfo,
+			&attributes, sizeof(attributes)) ||
+		!GetFileInformationByHandle(file, &information) ||
+		information.nNumberOfLinks > 1 ||
+		(attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+		(attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+		return false;
+	NativeFileIdentity current;
+	current.first = information.dwVolumeSerialNumber;
+	current.second =
+		(static_cast<std::uint64_t>(information.nFileIndexHigh) << 32) |
+		information.nFileIndexLow;
+	return SameNativeFileIdentity(current, expected);
+}
+
 NativeFile OpenReadOnly(NativeDirectory,
 	const std::filesystem::path& path) noexcept
 {
 	return CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
 		nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL |
 		FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+}
+
+NativeFile OpenCheckpointReadOnly(NativeDirectory,
+	const std::filesystem::path& path) noexcept
+{
+	// The held campaign-directory handle does not share delete access, so this
+	// fixed child path cannot be redirected through a replaced parent. The file
+	// itself does share delete access so a later atomic checkpoint publication
+	// can replace the slot while this handle continues to name the old bytes.
+	// Omitting FILE_SHARE_WRITE prevents a concurrently writable handle from
+	// being introduced while this validated reader exists.
+	return CreateFileW(path.c_str(), GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
 }
 
 bool ReadNative(NativeFile file, std::uint8_t* bytes,
@@ -385,6 +461,18 @@ bool ReadNative(NativeFile file, std::uint8_t* bytes,
 		offset += read;
 	}
 	return true;
+}
+
+bool ReadNativeAt(NativeFile file, std::uint64_t fileOffset,
+	std::uint8_t* bytes, std::size_t size) noexcept
+{
+	LARGE_INTEGER position{};
+	if (fileOffset > static_cast<std::uint64_t>(
+			(std::numeric_limits<LONGLONG>::max)()))
+		return false;
+	position.QuadPart = static_cast<LONGLONG>(fileOffset);
+	if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN)) return false;
+	return ReadNative(file, bytes, size);
 }
 
 bool SyncFilePath(NativeDirectory,
@@ -413,11 +501,12 @@ std::uint64_t ProcessId() noexcept
 }
 
 NativeDirectory OpenHeldDirectory(
-	const std::filesystem::path& path) noexcept
+	const std::filesystem::path& path, bool shareDelete) noexcept
 {
 	NativeDirectory directory = CreateFileW(path.c_str(),
 		FILE_LIST_DIRECTORY | READ_CONTROL,
-		FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+		FILE_SHARE_READ | FILE_SHARE_WRITE |
+			(shareDelete ? FILE_SHARE_DELETE : 0), nullptr, OPEN_EXISTING,
 		FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
 	if (directory == InvalidNativeDirectory) return InvalidNativeDirectory;
 	FILE_ATTRIBUTE_TAG_INFO attributes{};
@@ -493,6 +582,31 @@ bool NativeFileSize(NativeFile file, std::uint64_t& size) noexcept
 	return true;
 }
 
+bool CaptureNativeFileIdentity(NativeFile file,
+	NativeFileIdentity& identity) noexcept
+{
+	struct stat status{};
+	if (::fstat(file, &status) != 0 || !S_ISREG(status.st_mode) ||
+		status.st_nlink != 1)
+		return false;
+	identity.first = static_cast<std::uint64_t>(status.st_dev);
+	identity.second = static_cast<std::uint64_t>(status.st_ino);
+	return true;
+}
+
+bool MatchesNativeFileIdentity(NativeFile file,
+	const NativeFileIdentity& expected) noexcept
+{
+	struct stat status{};
+	if (::fstat(file, &status) != 0 || !S_ISREG(status.st_mode) ||
+		status.st_nlink > 1)
+		return false;
+	NativeFileIdentity current;
+	current.first = static_cast<std::uint64_t>(status.st_dev);
+	current.second = static_cast<std::uint64_t>(status.st_ino);
+	return SameNativeFileIdentity(current, expected);
+}
+
 NativeFile OpenReadOnly(NativeDirectory directory,
 	const std::filesystem::path& path) noexcept
 {
@@ -504,6 +618,16 @@ NativeFile OpenReadOnly(NativeDirectory directory,
 	flags |= O_NOFOLLOW;
 #endif
 	return ::openat(directory, path.filename().c_str(), flags);
+}
+
+NativeFile OpenCheckpointReadOnly(NativeDirectory directory,
+	const std::filesystem::path& path) noexcept
+{
+	// The state root is same-UID private and the process lease serializes the
+	// trusted publisher. That publisher only atomically replaces slot entries;
+	// it never rewrites an active file in place. Arbitrary same-UID mutation is
+	// outside this filesystem lease's threat model.
+	return OpenReadOnly(directory, path);
 }
 
 NativeFile OpenReadWrite(NativeDirectory directory,
@@ -529,6 +653,28 @@ bool ReadNative(NativeFile file, std::uint8_t* bytes,
 		if (read < 0 && errno == EINTR) continue;
 		if (read <= 0) return false;
 		offset += static_cast<std::size_t>(read);
+	}
+	return true;
+}
+
+bool ReadNativeAt(NativeFile file, std::uint64_t fileOffset,
+	std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (fileOffset > static_cast<std::uint64_t>(
+			(std::numeric_limits<off_t>::max)()))
+		return false;
+	std::size_t copied = 0;
+	while (copied < size)
+	{
+		const std::uint64_t nextOffset = fileOffset + copied;
+		if (nextOffset > static_cast<std::uint64_t>(
+				(std::numeric_limits<off_t>::max)()))
+			return false;
+		const ssize_t read = ::pread(file, bytes + copied, size - copied,
+			static_cast<off_t>(nextOffset));
+		if (read < 0 && errno == EINTR) continue;
+		if (read <= 0) return false;
+		copied += static_cast<std::size_t>(read);
 	}
 	return true;
 }
@@ -1005,6 +1151,101 @@ DedicatedCampaignStoreBackend::ManifestPublishResult WriteManifestAtomically(
 }
 }
 
+struct DedicatedCampaignCheckpointReader::Impl
+{
+	NativeFile file = InvalidNativeFile;
+	NativeFileIdentity identity;
+	DedicatedCampaignSlot slot = DedicatedCampaignSlot::A;
+	std::uint64_t generation = 0;
+	std::uint64_t worldMinutes = 0;
+	std::uint64_t size = 0;
+	DedicatedCampaignCheckpointSha256 checkpointSha256{};
+	std::array<std::uint8_t,
+		DedicatedCampaignCheckpointMaximumReadBytes> scratch{};
+
+	~Impl() noexcept
+	{
+#ifdef _WIN32
+		if (file != InvalidNativeFile) (void)CloseHandle(file);
+#else
+		if (file != InvalidNativeFile) (void)::close(file);
+#endif
+	}
+};
+
+DedicatedCampaignCheckpointReader::DedicatedCampaignCheckpointReader() noexcept =
+	default;
+
+DedicatedCampaignCheckpointReader::~DedicatedCampaignCheckpointReader() noexcept =
+	default;
+
+DedicatedCampaignCheckpointReader::DedicatedCampaignCheckpointReader(
+	DedicatedCampaignCheckpointReader&&) noexcept = default;
+
+DedicatedCampaignCheckpointReader&
+DedicatedCampaignCheckpointReader::operator=(
+	DedicatedCampaignCheckpointReader&&) noexcept = default;
+
+bool DedicatedCampaignCheckpointReader::isOpen() const noexcept
+{
+	return impl_ && impl_->file != InvalidNativeFile;
+}
+
+DedicatedCampaignSlot DedicatedCampaignCheckpointReader::slot() const noexcept
+{
+	return isOpen() ? impl_->slot : DedicatedCampaignSlot::A;
+}
+
+std::uint64_t DedicatedCampaignCheckpointReader::generation() const noexcept
+{
+	return isOpen() ? impl_->generation : 0;
+}
+
+std::uint64_t DedicatedCampaignCheckpointReader::worldMinutes() const noexcept
+{
+	return isOpen() ? impl_->worldMinutes : 0;
+}
+
+std::uint64_t DedicatedCampaignCheckpointReader::size() const noexcept
+{
+	return isOpen() ? impl_->size : 0;
+}
+
+const DedicatedCampaignCheckpointSha256&
+DedicatedCampaignCheckpointReader::checkpointSha256() const noexcept
+{
+	static const DedicatedCampaignCheckpointSha256 empty{};
+	return isOpen() ? impl_->checkpointSha256 : empty;
+}
+
+bool DedicatedCampaignCheckpointReader::readExact(std::uint64_t offset,
+	std::uint8_t* bytes, std::size_t requestedSize) noexcept
+{
+	if (!isOpen() ||
+		requestedSize > DedicatedCampaignCheckpointMaximumReadBytes ||
+		(requestedSize != 0 && bytes == nullptr) || offset > impl_->size ||
+		static_cast<std::uint64_t>(requestedSize) > impl_->size - offset)
+		return false;
+
+	const auto currentHandleMatches = [this]() noexcept {
+		std::uint64_t currentSize = 0;
+		return MatchesNativeFileIdentity(impl_->file, impl_->identity) &&
+			NativeFileSize(impl_->file, currentSize) &&
+			currentSize == impl_->size;
+	};
+	if (!currentHandleMatches()) return false;
+	if (requestedSize == 0) return true;
+	if (!ReadNativeAt(impl_->file, offset, impl_->scratch.data(),
+			requestedSize))
+		return false;
+	// A truncation or identity anomaly after the native read must fail before
+	// even one caller byte is changed. Atomic path replacement is still valid:
+	// an unlinked held file keeps the same identity and may have link count zero.
+	if (!currentHandleMatches()) return false;
+	std::memcpy(bytes, impl_->scratch.data(), requestedSize);
+	return true;
+}
+
 struct DedicatedCampaignFilesystemBackend::Impl
 {
 	std::filesystem::path stateRoot;
@@ -1227,7 +1468,7 @@ DedicatedCampaignFilesystemError DedicatedCampaignFilesystemBackend::open(
 			opened->campaignDirectory,
 			opened->campaignDirectory / "profile",
 			opened->profileDirectory,
-			opened->profileDirectoryHandle);
+			opened->profileDirectoryHandle, true);
 		if (profile == ManagedDirectoryResult::Unsafe)
 			return DedicatedCampaignFilesystemError::UnsafeManagedPath;
 		if (profile != ManagedDirectoryResult::Success)
@@ -1300,6 +1541,194 @@ DedicatedCampaignFilesystemBackend::profileDirectoryState() const noexcept
 		: DedicatedCampaignProfileDirectoryState::NonEmpty;
 }
 
+DedicatedCampaignProfileRecoveryResult
+DedicatedCampaignFilesystemBackend::recoverProfileForNewCampaign() noexcept
+{
+	if (!isOpen() || writer_ != nullptr)
+		return DedicatedCampaignProfileRecoveryResult::Failure;
+	try
+	{
+		DedicatedCampaignManifestRead firstManifest;
+		DedicatedCampaignManifestRead secondManifest;
+		const DedicatedCampaignBackendResult first =
+			readManifest(DedicatedCampaignSlot::A, firstManifest);
+		const DedicatedCampaignBackendResult second =
+			readManifest(DedicatedCampaignSlot::B, secondManifest);
+		if (first == DedicatedCampaignBackendResult::Present ||
+			second == DedicatedCampaignBackendResult::Present)
+			return DedicatedCampaignProfileRecoveryResult::CommittedStatePresent;
+		if (first != DedicatedCampaignBackendResult::Missing ||
+			second != DedicatedCampaignBackendResult::Missing ||
+			firstManifest.size != 0 || secondManifest.size != 0)
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+
+		bool empty = false;
+		if (!HeldDirectoryState(impl_->profileDirectoryHandle,
+			impl_->profileDirectory, empty))
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		if (empty) return DedicatedCampaignProfileRecoveryResult::Ready;
+
+#ifdef _WIN32
+		const NativeDirectory oldProfile = impl_->profileDirectoryHandle;
+		if (oldProfile == InvalidNativeDirectory)
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		std::filesystem::path orphan;
+		for (unsigned attempt = 0; attempt < 256; ++attempt)
+		{
+			bool profileEmpty = false;
+			if (!HeldDirectoryState(oldProfile, impl_->profileDirectory,
+					profileEmpty) || profileEmpty)
+				return DedicatedCampaignProfileRecoveryResult::Failure;
+			const std::uint64_t sequence = TemporarySequence.fetch_add(
+				1, std::memory_order_relaxed);
+			orphan = impl_->campaignDirectory /
+				("profile.orphan." + std::to_string(ProcessId()) + "." +
+					std::to_string(sequence));
+			if (MoveFileExW(impl_->profileDirectory.c_str(), orphan.c_str(),
+				MOVEFILE_WRITE_THROUGH)) break;
+			const DWORD moveError = GetLastError();
+			orphan.clear();
+			if (moveError != ERROR_ALREADY_EXISTS &&
+				moveError != ERROR_FILE_EXISTS)
+				return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		if (orphan.empty())
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		const NativeDirectory archived = OpenHeldDirectory(orphan, true);
+		if (archived == InvalidNativeDirectory ||
+			!SameNativeDirectory(oldProfile, archived))
+		{
+			if (archived != InvalidNativeDirectory) (void)CloseHandle(archived);
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		std::filesystem::path preparedProfile;
+		NativeDirectory freshProfile = InvalidNativeDirectory;
+		const ManagedDirectoryResult profile = PrepareManagedDirectory(
+			impl_->campaignDirectory, impl_->profileDirectory,
+			preparedProfile, freshProfile, true);
+		bool freshEmpty = false;
+		const bool freshValid = profile == ManagedDirectoryResult::Success &&
+			preparedProfile == impl_->profileDirectory &&
+			!SameNativeDirectory(oldProfile, freshProfile) &&
+			HeldDirectoryState(freshProfile,
+				impl_->profileDirectory, freshEmpty) && freshEmpty;
+		const bool archiveClosed = CloseHandle(archived) != FALSE;
+		const bool oldClosed = CloseHandle(oldProfile) != FALSE;
+		if (!freshValid || !archiveClosed || !oldClosed)
+		{
+			if (freshProfile != InvalidNativeDirectory)
+				(void)CloseHandle(freshProfile);
+			impl_->profileDirectoryHandle = InvalidNativeDirectory;
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		impl_->profileDirectoryHandle = freshProfile;
+#else
+		if (impl_->profileDirectoryHandle == InvalidNativeDirectory)
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		std::string orphanName;
+		for (unsigned attempt = 0; attempt < 256; ++attempt)
+		{
+			bool profileEmpty = false;
+			if (!HeldDirectoryState(impl_->profileDirectoryHandle,
+					impl_->profileDirectory, profileEmpty) || profileEmpty)
+				return DedicatedCampaignProfileRecoveryResult::Failure;
+			const std::uint64_t sequence = TemporarySequence.fetch_add(
+				1, std::memory_order_relaxed);
+			orphanName = "profile.orphan." + std::to_string(ProcessId()) +
+				"." + std::to_string(sequence);
+			int renamed = -1;
+#if defined(__APPLE__)
+			renamed = ::renameatx_np(impl_->campaignDirectoryHandle, "profile",
+				impl_->campaignDirectoryHandle, orphanName.c_str(), RENAME_EXCL);
+#elif defined(__linux__) && defined(SYS_renameat2)
+			renamed = static_cast<int>(::syscall(SYS_renameat2,
+				impl_->campaignDirectoryHandle, "profile",
+				impl_->campaignDirectoryHandle, orphanName.c_str(),
+				RENAME_NOREPLACE));
+			if (renamed != 0 && (errno == ENOSYS || errno == EINVAL
+#ifdef EOPNOTSUPP
+				|| errno == EOPNOTSUPP
+#endif
+				))
+			{
+				if (::mkdirat(impl_->campaignDirectoryHandle,
+						orphanName.c_str(), S_IRWXU) == 0)
+				{
+					renamed = ::renameat(impl_->campaignDirectoryHandle,
+						"profile", impl_->campaignDirectoryHandle,
+						orphanName.c_str());
+					if (renamed != 0)
+					{
+						const int renameError = errno;
+						(void)::unlinkat(impl_->campaignDirectoryHandle,
+							orphanName.c_str(), AT_REMOVEDIR);
+						errno = renameError;
+					}
+				}
+			}
+#else
+			if (::mkdirat(impl_->campaignDirectoryHandle, orphanName.c_str(),
+					S_IRWXU) == 0)
+			{
+				renamed = ::renameat(impl_->campaignDirectoryHandle, "profile",
+					impl_->campaignDirectoryHandle, orphanName.c_str());
+				if (renamed != 0)
+				{
+					const int renameError = errno;
+					(void)::unlinkat(impl_->campaignDirectoryHandle,
+						orphanName.c_str(), AT_REMOVEDIR);
+					errno = renameError;
+				}
+			}
+#endif
+			if (renamed == 0) break;
+			if (errno != EEXIST)
+				return DedicatedCampaignProfileRecoveryResult::Failure;
+			orphanName.clear();
+		}
+		if (orphanName.empty())
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		const NativeDirectory oldProfile = impl_->profileDirectoryHandle;
+		impl_->profileDirectoryHandle = InvalidNativeDirectory;
+		bool archivedEmpty = true;
+		const std::filesystem::path orphan =
+			impl_->campaignDirectory / orphanName;
+		if (!HeldDirectoryState(oldProfile, orphan, archivedEmpty) || archivedEmpty)
+		{
+			(void)::close(oldProfile);
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		if (!SyncDirectory(impl_->campaignDirectoryHandle,
+			impl_->campaignDirectory))
+		{
+			(void)::close(oldProfile);
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		bool unsafeManagedDirectory = false;
+		const NativeDirectory freshProfile = OpenOrCreateManagedDirectoryAt(
+			impl_->campaignDirectoryHandle, "profile", unsafeManagedDirectory);
+		bool freshEmpty = false;
+		const bool freshValid = freshProfile != InvalidNativeDirectory &&
+			!SameNativeDirectory(oldProfile, freshProfile) &&
+			HeldDirectoryState(freshProfile, impl_->profileDirectory, freshEmpty) &&
+			freshEmpty;
+		const bool oldClosed = ::close(oldProfile) == 0;
+		if (!freshValid || !oldClosed)
+		{
+			if (freshProfile != InvalidNativeDirectory)
+				(void)::close(freshProfile);
+			return DedicatedCampaignProfileRecoveryResult::Failure;
+		}
+		impl_->profileDirectoryHandle = freshProfile;
+#endif
+		return DedicatedCampaignProfileRecoveryResult::Ready;
+	}
+	catch (...)
+	{
+		return DedicatedCampaignProfileRecoveryResult::Failure;
+	}
+}
+
 const std::filesystem::path&
 DedicatedCampaignFilesystemBackend::checkpointPath(
 	DedicatedCampaignSlot slot) const noexcept
@@ -1314,6 +1743,73 @@ DedicatedCampaignFilesystemBackend::manifestPath(
 {
 	return impl_ && KnownSlot(slot)
 		? impl_->manifestPaths[SlotIndex(slot)] : EmptyPath();
+}
+
+bool DedicatedCampaignFilesystemBackend::openCheckpointReader(
+	const DedicatedCampaignStoreState& expectedState,
+	DedicatedCampaignCheckpointReader& reader) noexcept
+{
+	if (!isOpen() || !expectedState.hasCheckpoint ||
+		!KnownSlot(expectedState.activeSlot) || expectedState.generation == 0 ||
+		expectedState.checkpointSize == 0 ||
+		expectedState.checkpointSize > DedicatedCampaignMaximumCheckpointBytes ||
+		std::all_of(expectedState.checkpointSha256.begin(),
+			expectedState.checkpointSha256.end(),
+			[](std::uint8_t value) { return value == 0; }))
+		return false;
+
+	try
+	{
+		std::unique_ptr<DedicatedCampaignCheckpointReader::Impl> opened(
+			new DedicatedCampaignCheckpointReader::Impl);
+		opened->file = OpenCheckpointReadOnly(
+			impl_->campaignDirectoryHandle,
+			impl_->checkpointPaths[SlotIndex(expectedState.activeSlot)]);
+		if (opened->file == InvalidNativeFile) return false;
+
+		std::uint64_t openedSize = 0;
+		if (!CaptureNativeFileIdentity(opened->file, opened->identity) ||
+			!NativeFileSize(opened->file, openedSize) ||
+			openedSize != expectedState.checkpointSize)
+			return false;
+
+		Sha256 hasher;
+		std::uint64_t remaining = openedSize;
+		while (remaining)
+		{
+			const std::size_t chunk = static_cast<std::size_t>(
+				std::min<std::uint64_t>(remaining, opened->scratch.size()));
+			if (!ReadNative(opened->file, opened->scratch.data(), chunk))
+				return false;
+			hasher.update(opened->scratch.data(), chunk);
+			remaining -= chunk;
+		}
+		std::uint64_t confirmedSize = 0;
+		if (!MatchesNativeFileIdentity(opened->file, opened->identity) ||
+			!NativeFileSize(opened->file, confirmedSize) ||
+			confirmedSize != expectedState.checkpointSize ||
+			hasher.finish() != expectedState.checkpointSha256)
+			return false;
+
+		opened->slot = expectedState.activeSlot;
+		opened->generation = expectedState.generation;
+		opened->worldMinutes = expectedState.worldMinutes;
+		opened->size = expectedState.checkpointSize;
+		opened->checkpointSha256 = expectedState.checkpointSha256;
+		// Publish only after complete validation. Replacing an existing output is
+		// deliberately the final, non-throwing operation.
+		reader.impl_ = std::move(opened);
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+bool DedicatedCampaignFilesystemBackend::checkpointWriterBound() const noexcept
+{
+	return writer_ != nullptr;
 }
 
 bool DedicatedCampaignFilesystemBackend::bindCheckpointWriter(

@@ -35,7 +35,19 @@ TacticalActorSnapshot FirstActor()
 	actor.breath = -6;
 	actor.maximumBreath = 7;
 	actor.active = true;
-	actor.inSector = false;
+	actor.inSector = true;
+	actor.hostileToPlayerTeam = true;
+	actor.interruptActionEligible = true;
+	actor.loadout.helmet = TacticalHandItemSnapshot{
+		0x8182u, 1, 88, 0, 0, 0, false, false};
+	actor.loadout.vest = TacticalHandItemSnapshot{
+		0x8384u, 1, 77, 0, 0, 0, false, false};
+	actor.loadout.legs = TacticalHandItemSnapshot{
+		0x8586u, 1, 66, 0, 0, 0, false, false};
+	actor.loadout.primaryHand = TacticalHandItemSnapshot{
+		0x9192u, 3, -20, 0xa1a2u, 0x0304u, -30, true, true};
+	actor.loadout.secondaryHand = TacticalHandItemSnapshot{
+		0xb1b2u, 2, 70, 0, 0, 0, false, false};
 	return actor;
 }
 
@@ -57,6 +69,8 @@ TacticalActorSnapshot SecondActor()
 	actor.maximumBreath = 12;
 	actor.active = false;
 	actor.inSector = true;
+	actor.loadout.primaryHand = TacticalHandItemSnapshot{
+		0xc1c2u, 1, 100, 0, 0, 0, true, false};
 	return actor;
 }
 
@@ -72,11 +86,18 @@ TacticalWorldSnapshot MakeSnapshot(std::uint64_t epoch)
 	turn.inCombat = true;
 	turn.activeTeam = 6;
 	turn.serial = 0x0102030405060708ull;
+	turn.commandsBlocked = true;
+	turn.interruptPhase = TacticalInterruptPhase::Active;
+	turn.interruptSerial = UINT64_C(0x1112131415161718);
 	std::vector<TacticalActorSnapshot> actors{
 		SecondActor(), FirstActor()};
+	std::vector<TacticalDoorSnapshot> doors{
+		TacticalDoorSnapshot{400, 0x8182u, true},
+		TacticalDoorSnapshot{300, 0x7374u, false}};
 	TacticalWorldSnapshot snapshot;
 	Check(TacticalWorldSnapshot::create(
-			epoch, sector, turn, std::move(actors), snapshot) ==
+			epoch, TacticalWorldDimensions{320, 240}, sector, turn,
+			std::move(actors), std::move(doors), snapshot) ==
 			TacticalSnapshotCreateError::None,
 		"snapshot fixture is valid");
 	return snapshot;
@@ -94,7 +115,10 @@ bool SameActor(
 		left.maximumLife == right.maximumLife &&
 		left.breath == right.breath &&
 		left.maximumBreath == right.maximumBreath &&
-		left.active == right.active && left.inSector == right.inSector;
+		left.active == right.active && left.inSector == right.inSector &&
+		left.hostileToPlayerTeam == right.hostileToPlayerTeam &&
+		left.interruptActionEligible == right.interruptActionEligible &&
+		left.loadout == right.loadout;
 }
 
 bool SameSnapshot(
@@ -102,6 +126,8 @@ bool SameSnapshot(
 	const TacticalWorldSnapshot& right)
 {
 	if (left.epoch() != right.epoch() ||
+		left.dimensions().columns != right.dimensions().columns ||
+		left.dimensions().rows != right.dimensions().rows ||
 		left.sector().x != right.sector().x ||
 		left.sector().y != right.sector().y ||
 		left.sector().z != right.sector().z ||
@@ -110,10 +136,20 @@ bool SameSnapshot(
 		left.turn().inCombat != right.turn().inCombat ||
 		left.turn().activeTeam != right.turn().activeTeam ||
 		left.turn().serial != right.turn().serial ||
-		left.actors().size() != right.actors().size())
+		left.turn().interruptPhase != right.turn().interruptPhase ||
+		left.turn().interruptSerial != right.turn().interruptSerial ||
+		left.turn().commandsBlocked != right.turn().commandsBlocked ||
+		left.actors().size() != right.actors().size() ||
+		left.doors().size() != right.doors().size())
 		return false;
 	for (std::size_t index = 0; index < left.actors().size(); ++index)
 		if (!SameActor(left.actors()[index], right.actors()[index]))
+			return false;
+	for (std::size_t index = 0; index < left.doors().size(); ++index)
+		if (left.doors()[index].baseGrid != right.doors()[index].baseGrid ||
+			left.doors()[index].structureId !=
+				right.doors()[index].structureId ||
+			left.doors()[index].open != right.doors()[index].open)
 			return false;
 	return true;
 }
@@ -121,11 +157,31 @@ bool SameSnapshot(
 
 int main()
 {
-	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 35,
+	const TacticalHandItemSnapshot emptyHand;
+	const TacticalHandItemSnapshot weaponHand{
+		1, 2, -3, 4, 0, -5, true, true};
+	TacticalHandItemSnapshot changedWeaponHand = weaponHand;
+	changedWeaponHand.chambered = false;
+	TacticalHandItemSnapshot invalidEmptyHand;
+	invalidEmptyHand.quantity = 1;
+	TacticalHandItemSnapshot invalidOrdinaryHand{
+		1, 1, 50, 2, 0, 100, false, false};
+	Check(emptyHand.valid() && weaponHand.valid() &&
+		weaponHand == weaponHand && weaponHand != changedWeaponHand &&
+		!invalidEmptyHand.valid() && !invalidOrdinaryHand.valid() &&
+		TacticalActorLoadoutSnapshot{
+			emptyHand, emptyHand, emptyHand, weaponHand, emptyHand}.valid(),
+		"hand-item and actor-loadout values enforce their canonical form");
+
+	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 53,
 		"snapshot header size is a wire contract");
-	static_assert(EncodedTacticalActorSnapshotBytes == 30,
+	static_assert(EncodedTacticalHandItemSnapshotBytes == 12,
+		"hand-item size is a wire contract");
+	static_assert(EncodedTacticalActorSnapshotBytes == 92,
 		"actor size is a wire contract");
-	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 122915,
+	static_assert(EncodedTacticalDoorSnapshotBytes == 7,
+		"door size is a wire contract");
+	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 384053,
 		"maximum encoded baseline size is bounded");
 
 	const TacticalWorldSnapshot original =
@@ -135,23 +191,40 @@ int main()
 		TacticalWorldSnapshotEncodeResult::Success,
 		"valid baseline encodes");
 	const std::vector<std::uint8_t> golden{
-		0x54, 0x57, 0x53, 0x31, 0x01, 0x00,
+		0x54, 0x57, 0x53, 0x31, 0x07, 0x00,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x40, 0x01, 0xf0, 0x00,
 		0x09, 0x00, 0xfe, 0xff, 0xff, 0x01,
 		0x01, 0x01, 0x06,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+		0x02, 0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x01,
+		0x02, 0x00, 0x00, 0x00,
 		0x02, 0x00, 0x00, 0x00,
 		0x03, 0x00, 0x24, 0x23, 0x22, 0x21, 0x06, 0x32, 0x31,
 		0xfe, 0xff, 0xff, 0xff, 0xff, 0x07, 0x42, 0x41, 0x02,
 		0xfd, 0xff, 0x04, 0x00, 0x05, 0x00, 0xfa, 0xff, 0x07, 0x00,
-		0x01, 0x00,
+		0x01, 0x01, 0x01, 0x01,
+		0x82, 0x81, 0x01, 0x58, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x84, 0x83, 0x01, 0x4d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x86, 0x85, 0x01, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x92, 0x91, 0x03, 0xec, 0xff, 0xa2, 0xa1, 0x04, 0x03, 0xe2, 0xff, 0x03,
+		0xb2, 0xb1, 0x02, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x09, 0x00, 0x54, 0x53, 0x52, 0x51, 0x07, 0x62, 0x61,
 		0x04, 0x03, 0x02, 0x01, 0x01, 0x02, 0x72, 0x71, 0x03,
 		0x08, 0x00, 0x09, 0x00, 0x0a, 0x00, 0x0b, 0x00, 0x0c, 0x00,
-		0x00, 0x01};
-	Check(encoded == golden, "version 1 baseline bytes match the golden fixture");
+		0x00, 0x01, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0xc2, 0xc1, 0x01, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x2c, 0x01, 0x00, 0x00, 0x74, 0x73, 0x00,
+		0x90, 0x01, 0x00, 0x00, 0x82, 0x81, 0x01};
+	Check(encoded == golden, "version 7 baseline bytes match the golden fixture");
 	Check(encoded.size() == EncodedTacticalWorldSnapshotHeaderBytes +
-		2 * EncodedTacticalActorSnapshotBytes,
+		2 * EncodedTacticalActorSnapshotBytes +
+		2 * EncodedTacticalDoorSnapshotBytes,
 		"encoded size is exact");
 
 	TacticalWorldSnapshot decoded;
@@ -172,6 +245,12 @@ int main()
 		"caller actor ceiling is enforced on encode");
 	Check(retained == std::vector<std::uint8_t>({0xaa, 0xbb}),
 		"ceiling rejection preserves previous bytes");
+	Check(EncodeTacticalWorldSnapshot(original, retained,
+		TacticalWorldSnapshot::DefaultMaximumActors, 1) ==
+		TacticalWorldSnapshotEncodeResult::TooManyDoors,
+		"caller door ceiling is enforced on encode");
+	Check(retained == std::vector<std::uint8_t>({0xaa, 0xbb}),
+		"door ceiling rejection preserves previous bytes");
 
 	const TacticalWorldSnapshot retainedSnapshot = MakeSnapshot(99);
 	for (std::size_t length = 0; length < encoded.size(); ++length)
@@ -203,32 +282,111 @@ int main()
 	changed[10] = changed[11] = changed[12] = changed[13] = 0;
 	RejectsInvalid(changed, "zero epoch is rejected");
 	changed = encoded;
-	changed[19] = 2;
+	changed[14] = changed[15] = changed[16] = changed[17] = 0;
+	RejectsInvalid(changed, "zero world dimensions are rejected");
+	changed = encoded;
+	changed[23] = 2;
 	RejectsInvalid(changed, "noncanonical sector boolean is rejected");
 	changed = encoded;
-	changed[20] = 2;
+	changed[24] = 2;
 	RejectsInvalid(changed, "noncanonical turn boolean is rejected");
 	changed = encoded;
-	changed[37] = changed[38] = changed[39] = changed[40] = 0;
+	changed[35] = 3;
+	RejectsInvalid(changed, "unknown interrupt phase is rejected");
+	changed = encoded;
+	for (std::size_t index = 36; index < 44; ++index) changed[index] = 0;
+	RejectsInvalid(changed, "active interrupt requires a nonzero serial");
+	changed = encoded;
+	changed[35] = 0;
+	RejectsInvalid(changed,
+		"actor interrupt eligibility requires an active interrupt phase");
+	changed = encoded;
+	changed[44] = 2;
+	RejectsInvalid(changed,
+		"noncanonical commands-blocked boolean is rejected");
+	changed = encoded;
+	changed[55] = changed[56] = changed[57] = changed[58] = 0;
 	RejectsInvalid(changed, "invalid actor incarnation is rejected");
 	changed = encoded;
-	changed[52] = 4;
+	changed[70] = 4;
 	RejectsInvalid(changed, "unknown stance is rejected");
 	changed = encoded;
-	changed[65] = changed[35];
-	changed[66] = changed[36];
-	changed[67] = changed[37];
-	changed[68] = changed[38];
-	changed[69] = changed[39];
-	changed[70] = changed[40];
+	changed[145] = changed[53];
+	changed[146] = changed[54];
+	changed[147] = changed[55];
+	changed[148] = changed[56];
+	changed[149] = changed[57];
+	changed[150] = changed[58];
 	RejectsInvalid(changed, "duplicate actor identity is rejected");
+	changed = encoded;
+	changed[83] = 2;
+	RejectsInvalid(changed, "noncanonical hostility bit is rejected");
+	changed = encoded;
+	changed[95] = 0x04;
+	RejectsInvalid(changed, "unknown equipment flags are rejected");
+	changed = encoded;
+	changed[132] = 0;
+	RejectsInvalid(changed,
+		"ammunition fields require canonical ammunition state");
+	changed = encoded;
+	changed[123] = 0;
+	RejectsInvalid(changed, "occupied hand items require a quantity");
+	changed = encoded;
+	changed[227] = 1;
+	RejectsInvalid(changed, "empty hand items require all-zero state");
+	changed = encoded;
+	changed[241] = changed[242] = 0;
+	RejectsInvalid(changed, "zero door structure identity is rejected");
+	changed = encoded;
+	changed[244] = changed[237];
+	changed[245] = changed[238];
+	changed[246] = changed[239];
+	changed[247] = changed[240];
+	RejectsInvalid(changed, "duplicate door base grid is rejected");
+	changed = encoded;
+	changed[243] = 2;
+	RejectsInvalid(changed, "noncanonical door open bit is rejected");
 	changed = encoded;
 	changed.push_back(0);
 	RejectsInvalid(changed, "trailing bytes are rejected");
 
 	changed = encoded;
-	changed[4] = 2;
+	changed[4] = 1;
 	TacticalWorldSnapshot output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+		"dimensionless version 1 is rejected instead of guessed");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"version-1 rejection preserves previous snapshot");
+
+	changed = encoded;
+	changed[4] = 3;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+		"pre-command-gate version 3 is rejected instead of inferred");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"version-3 rejection preserves previous snapshot");
+	changed = encoded;
+	changed[4] = 4;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+		"pre-loadout version 4 is rejected instead of inventing equipment");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"version-4 rejection preserves previous snapshot");
+	changed = encoded;
+	changed[4] = 5;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+		"two-hand baseline version 5 is rejected instead of inventing armour");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"version-5 rejection preserves previous snapshot");
+
+	changed = encoded;
+	changed[4] = 8;
+	output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(changed, output) ==
 		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
 		"unknown baseline version has a distinct result");
@@ -242,19 +400,38 @@ int main()
 	Check(SameSnapshot(output, retainedSnapshot),
 		"decode ceiling rejection preserves previous snapshot");
 
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(encoded, output,
+		TacticalWorldSnapshot::DefaultMaximumActors, 1) ==
+		TacticalWorldSnapshotDecodeResult::TooManyDoors,
+		"caller door ceiling is enforced on decode");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"door decode ceiling rejection preserves previous snapshot");
+
 	std::vector<TacticalActorSnapshot> maximumActors;
 	maximumActors.reserve(TacticalWorldSnapshot::DefaultMaximumActors);
 	for (std::size_t index = 0;
 		index < TacticalWorldSnapshot::DefaultMaximumActors; ++index)
 	{
 		TacticalActorSnapshot actor = FirstActor();
+		actor.interruptActionEligible = false;
 		actor.id = TacticalEntityId{
 			static_cast<std::uint16_t>(index), 1};
 		maximumActors.push_back(actor);
 	}
+	std::vector<TacticalDoorSnapshot> maximumDoors;
+	maximumDoors.reserve(TacticalWorldSnapshot::DefaultMaximumDoors);
+	for (std::size_t index = 0;
+		index < TacticalWorldSnapshot::DefaultMaximumDoors; ++index)
+	{
+		maximumDoors.push_back(TacticalDoorSnapshot{
+			static_cast<std::int32_t>(index),
+			static_cast<std::uint16_t>(index + 1), (index & 1u) != 0});
+	}
 	TacticalWorldSnapshot maximumSnapshot;
-	Check(TacticalWorldSnapshot::create(1, {}, {},
-		std::move(maximumActors), maximumSnapshot) ==
+	Check(TacticalWorldSnapshot::create(1,
+		TacticalWorldDimensions{160, 160}, {}, {},
+		std::move(maximumActors), std::move(maximumDoors), maximumSnapshot) ==
 		TacticalSnapshotCreateError::None,
 		"the fixed actor ceiling is representable");
 	std::vector<std::uint8_t> maximumBytes;
@@ -268,7 +445,9 @@ int main()
 		TacticalWorldSnapshotDecodeResult::Success,
 		"a maximum-size baseline decodes");
 	Check(maximumDecoded.actors().size() ==
-		TacticalWorldSnapshot::DefaultMaximumActors,
+		TacticalWorldSnapshot::DefaultMaximumActors &&
+		maximumDecoded.doors().size() ==
+			TacticalWorldSnapshot::DefaultMaximumDoors,
 		"maximum-size decode retains every actor");
 
 	std::vector<TacticalActorSnapshot> excessiveActors;
@@ -277,12 +456,14 @@ int main()
 		index <= TacticalWorldSnapshot::DefaultMaximumActors; ++index)
 	{
 		TacticalActorSnapshot actor = FirstActor();
+		actor.interruptActionEligible = false;
 		actor.id = TacticalEntityId{
 			static_cast<std::uint16_t>(index), 1};
 		excessiveActors.push_back(actor);
 	}
 	TacticalWorldSnapshot excessiveSnapshot;
-	Check(TacticalWorldSnapshot::create(1, {}, {},
+	Check(TacticalWorldSnapshot::create(1,
+		TacticalWorldDimensions{160, 160}, {}, {},
 		std::move(excessiveActors), excessiveSnapshot,
 		TacticalWorldSnapshot::DefaultMaximumActors + 1) ==
 		TacticalSnapshotCreateError::None,

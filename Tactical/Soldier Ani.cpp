@@ -1189,7 +1189,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// OJW - 20091002 - Explosives
 					if (is_networked && is_client)
 					{
-						if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
+						if (IsLocallyControlledMultiplayerActor(pSoldier))
 						{
 							send_grenade( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,	pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, pSoldier->targeting().gridNo(), pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, iRealObjectID, true);
 						}
@@ -3999,12 +3999,10 @@ BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse )
 	if ( pSoldier->vitals().health() == 0 && !( pSoldier->status().flags() & SOLDIER_DEAD )	)
 	{
 		// Haydent/send death info
-		if (is_networked)
-		{			
-			if(pSoldier->roster().team()==0)
-				send_death(pSoldier);
-			else if(pSoldier->roster().team() <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))
-				send_death(pSoldier);						
+		if (is_networked &&
+			IsLocallyControlledMultiplayerActor(pSoldier))
+		{
+			send_death(pSoldier);
 		}
 
 		// anv: enemy taunts after kill
@@ -4669,11 +4667,10 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( TacticalActor *pSoldier )
 		// pSoldier->bBeingAttackedCount++;
 
 		// OJW - Send bleeding death
-		if (is_networked)
+		if (is_networked &&
+			IsLocallyControlledMultiplayerActor(pSoldier))
 		{
-			if(pSoldier->roster().team()==0) send_death(pSoldier);
-			else if(pSoldier->roster().team() <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))send_death(pSoldier);
-			else if (pSoldier->roster().team() < 6 && (is_server)) send_death(pSoldier);
+			send_death(pSoldier);
 		}
 
 		// Flugente: cows only have one death animation. If we're not in the proper aniamtion, enforce it, otherwise the corpse isn't created

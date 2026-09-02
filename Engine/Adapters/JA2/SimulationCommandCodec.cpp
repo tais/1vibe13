@@ -45,7 +45,10 @@ enum class CommandTag : std::uint8_t
 	BulkReloadWeapons = 28,
 	ApplyWeaponConfiguration = 29,
 	SystemWorldObjectInteraction = 30,
-	SynchronizeActorVitals = 31
+	SynchronizeActorVitals = 31,
+	AimedFirearmAttack = 32,
+	AuthoritativeDoorOpenClose = 33,
+	PassInterrupt = 34
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -71,6 +74,12 @@ bool IsValidSource(std::uint8_t value)
 {
 	return IsValidSimulationCommandSource(
 		static_cast<SimulationCommandSource>(value));
+}
+
+bool IsValidAuthorityPolicy(std::uint8_t value)
+{
+	return IsValidTacticalCommandAuthorityPolicy(
+		static_cast<TacticalCommandAuthorityPolicy>(value));
 }
 
 bool IsValidStatus(std::uint8_t value)
@@ -182,6 +191,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::EndTurn));
 			writer.writeU8(value.nextTeam);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 		{
@@ -191,6 +201,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(value.stance);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.eventPolicy));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
 		{
@@ -217,6 +228,57 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.attackingWeapon);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
+		else if constexpr (
+			std::is_same<Command, AimedFirearmAttackCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::AimedFirearmAttack));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeI32(value.expectedTargetGrid);
+			writer.writeI8(value.expectedTargetLevel);
+			writer.writeU8(value.aimTime);
+			writer.writeU32(value.expectedHandItem);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command,
+				AuthoritativeDoorOpenCloseCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(
+				CommandTag::AuthoritativeDoorOpenClose));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.object.grid);
+			writer.writeU16(value.object.structureId);
+			writer.writeU8(static_cast<std::uint8_t>(value.operation));
+			writer.writeU8(value.direction);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.expectedObjectFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			WriteI16(writer, value.expectedBreathPointCost);
+		}
+		else if constexpr (
+			std::is_same<Command, PassInterruptCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::PassInterrupt));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedInterruptSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
 		else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 		{
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::MoveToGrid));
@@ -230,6 +292,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.origin));
 			writer.writeU8(static_cast<std::uint8_t>(value.pendingAction));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 		{
@@ -239,6 +302,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(value.direction);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.eventPolicy));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (std::is_same<Command, SetStealthModeCommand>::value)
 		{
@@ -254,6 +318,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (std::is_same<Command, CancelDragCommand>::value)
 		{
@@ -284,6 +349,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(value.reloadEvenIfNotEmpty ? 1u : 0u);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
 		else if constexpr (
 			std::is_same<Command, BulkReloadWeaponsCommand>::value)
@@ -601,6 +667,16 @@ bool ReadSource(BinaryReader& reader, SimulationCommandSource& source)
 	return true;
 }
 
+bool ReadAuthorityPolicy(
+	BinaryReader& reader,
+	TacticalCommandAuthorityPolicy& policy)
+{
+	std::uint8_t value = 0;
+	if (!reader.readU8(value) || !IsValidAuthorityPolicy(value)) return false;
+	policy = static_cast<TacticalCommandAuthorityPolicy>(value);
+	return true;
+}
+
 bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 {
 	std::uint8_t rawTag = 0;
@@ -610,7 +686,9 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 		case CommandTag::EndTurn:
 		{
 			EndTurnCommand value{};
-			if (!reader.readU8(value.nextTeam) || !ReadSource(reader, value.source))
+			if (!reader.readU8(value.nextTeam) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
 				return false;
 			command = value;
 			return true;
@@ -625,7 +703,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!reader.readU8(value.stance) ||
 				!ReadSource(reader, value.source) ||
 				!reader.readU8(eventPolicy) ||
-				!IsValidEventPolicy(eventPolicy))
+				!IsValidEventPolicy(eventPolicy) ||
+				!ReadAuthorityPolicy(reader, value.authority))
 				return false;
 			value.eventPolicy =
 				static_cast<TacticalEventPolicy>(eventPolicy);
@@ -662,6 +741,70 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			command = value;
 			return true;
 		}
+		case CommandTag::AimedFirearmAttack:
+		{
+			AimedFirearmAttackCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!reader.readI32(value.expectedTargetGrid) ||
+				!reader.readI8(value.expectedTargetLevel) ||
+				!reader.readU8(value.aimTime) ||
+				!reader.readU32(value.expectedHandItem) ||
+				!ReadSource(reader, value.source) ||
+				!IsStructurallyValidSimulationCommand(
+					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeDoorOpenClose:
+		{
+			AuthoritativeDoorOpenCloseCommand value{};
+			std::uint8_t operation = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readI32(value.object.grid) ||
+				!reader.readU16(value.object.structureId) ||
+				!reader.readU8(operation) ||
+				!IsValidWorldObjectOperation(operation) ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.expectedObjectFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadI16(reader, value.expectedBreathPointCost))
+				return false;
+			value.operation =
+				static_cast<TacticalWorldObjectOperation>(operation);
+			if (!IsStructurallyValidSimulationCommand(
+					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::PassInterrupt:
+		{
+			PassInterruptCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedInterruptSerial) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidPassInterruptCommand(value))
+				return false;
+			command = value;
+			return true;
+		}
 		case CommandTag::MoveToGrid:
 		{
 			MoveToGridCommand value{};
@@ -677,7 +820,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!ReadSource(reader, value.source) ||
 				!reader.readU8(origin) || !IsValidMoveOrigin(origin) ||
 				!reader.readU8(pendingAction) ||
-				!IsValidPendingActionPolicy(pendingAction)) return false;
+				!IsValidPendingActionPolicy(pendingAction) ||
+				!ReadAuthorityPolicy(reader, value.authority)) return false;
 			value.reverse = (flags & MoveReverseFlag) != 0;
 			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
 			value.origin = static_cast<TacticalMoveOrigin>(origin);
@@ -697,7 +841,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!IsValidTacticalDirection(value.direction) ||
 				!ReadSource(reader, value.source) ||
 				!reader.readU8(eventPolicy) ||
-				!IsValidEventPolicy(eventPolicy)) return false;
+				!IsValidEventPolicy(eventPolicy) ||
+				!ReadAuthorityPolicy(reader, value.authority)) return false;
 			value.eventPolicy =
 				static_cast<TacticalEventPolicy>(eventPolicy);
 			command = value;
@@ -720,7 +865,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			StopMovementCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
-				!value.soldier.valid() || !ReadSource(reader, value.source))
+				!value.soldier.valid() || !ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
 				return false;
 			command = value;
 			return true;
@@ -765,7 +911,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!value.soldier.valid() ||
 				!reader.readU8(reloadEvenIfNotEmpty) ||
 				reloadEvenIfNotEmpty > 1 ||
-				!ReadSource(reader, value.source)) return false;
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority)) return false;
 			value.reloadEvenIfNotEmpty = reloadEvenIfNotEmpty != 0;
 			command = value;
 			return true;
@@ -1285,7 +1432,8 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 		std::uint8_t status = 0;
 		if (!reader.readU64(record.tick) || !reader.readU64(record.sequence) ||
 			!reader.readU8(status) || !IsValidStatus(status) ||
-			!ReadCommand(reader, record.command))
+			!ReadCommand(reader, record.command) ||
+			!IsStructurallyValidSimulationCommand(record.command))
 			return SimulationCommandJournalDecodeResult::Invalid;
 		record.status = static_cast<CommandJournalStatus>(status);
 		decoded.push_back(std::move(record));

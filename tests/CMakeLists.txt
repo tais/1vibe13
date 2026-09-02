@@ -5,6 +5,271 @@ add_executable(mp_sdl_net_transport_tests
 target_link_libraries(mp_sdl_net_transport_tests PRIVATE SdlNetTransport)
 add_test(NAME mp_sdl_net_transport COMMAND mp_sdl_net_transport_tests)
 
+# The embedded legacy host remains engine-coupled, but its untrusted admission
+# and fixed-payload primitives are isolated and data-free. This regression pins
+# duplicate/full-slot safety, exact lengths, transfer-set parsing, and indices.
+add_executable(legacy_server_ingress_tests
+  legacy_server_ingress_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/LegacyServerIngress.cpp)
+target_include_directories(legacy_server_ingress_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(legacy_server_ingress_tests PRIVATE cxx_std_17)
+add_test(NAME legacy_server_ingress COMMAND legacy_server_ingress_tests)
+
+# The hello/challenge is shared by the isolated client and listener without
+# importing SDL or listener lifecycle state into either protocol test.
+add_executable(coop_handshake_protocol_tests
+  coop_handshake_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_handshake_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_handshake_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_handshake_protocol COMMAND coop_handshake_protocol_tests)
+
+# Campaign checkpoint synchronization is a data-free canonical wire contract.
+# It binds every frame to one seed/campaign/checkpoint identity and keeps each
+# chunk below the isolated co-op transport ceiling.
+add_executable(coop_campaign_sync_protocol_tests
+  coop_campaign_sync_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_sync_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_sync_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_sync_protocol
+  COMMAND coop_campaign_sync_protocol_tests)
+
+# The one-shot pre-RNG client handshake repeats the server's immutable
+# campaign identity in a fixed-width, data-free descriptor.
+add_executable(coop_campaign_bootstrap_protocol_tests
+  coop_campaign_bootstrap_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_bootstrap_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_bootstrap_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_bootstrap_protocol
+  COMMAND coop_campaign_bootstrap_protocol_tests)
+
+# The passive client publishes a checkpoint only after exact ordered staging,
+# full-hash verification, atomic scratch publication, and successful cold load.
+add_executable(full_engine_coop_campaign_sync_client_tests
+  full_engine_coop_campaign_sync_client_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_campaign_sync_client_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_campaign_sync_client_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_campaign_sync_client
+  COMMAND full_engine_coop_campaign_sync_client_tests)
+
+# The authoritative host streams one immutable cold checkpoint through a
+# bounded three-chunk window and only marks a transport ready after the client
+# reports that the verified checkpoint was atomically published and loaded.
+add_executable(full_engine_coop_campaign_sync_server_tests
+  full_engine_coop_campaign_sync_server_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncServer.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_campaign_sync_server_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_campaign_sync_server_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_campaign_sync_server
+  COMMAND full_engine_coop_campaign_sync_server_tests)
+
+# Exercise the two independent campaign-sync coordinators against each other:
+# metadata, the three-chunk window, cumulative controls, exact staging, commit,
+# and final readiness must agree without a socket or installed game data.
+add_executable(full_engine_coop_campaign_sync_loopback_tests
+  full_engine_coop_campaign_sync_loopback_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncServer.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_campaign_sync_loopback_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_campaign_sync_loopback_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_campaign_sync_loopback
+  COMMAND full_engine_coop_campaign_sync_loopback_tests)
+
+# Run the complete bootstrap/admission/checkpoint-transfer handshake over the
+# production SDL3_net adapters. A reconnect must receive a fresh transfer and
+# re-commit before the authoritative server promotes that transport to Ready.
+add_executable(full_engine_coop_socket_e2e_tests
+  full_engine_coop_socket_e2e_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncServer.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientBootstrapTransport.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopSnapshotReplica.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopTacticalServer.cpp)
+target_include_directories(full_engine_coop_socket_e2e_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_socket_e2e_tests PRIVATE
+  JA2::RuntimeAdapter SdlNetTransport)
+target_compile_features(full_engine_coop_socket_e2e_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_socket_e2e
+  COMMAND full_engine_coop_socket_e2e_tests)
+
+# Installed JA2 data cannot be distributed with the source tree or public CI.
+# Operators may explicitly supply both paths to certify two independent full
+# game processes against their local, unmodified installation. Empty defaults
+# keep this test completely absent from ordinary configure/build/test runs.
+set(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE "" CACHE FILEPATH
+  "Absolute full-engine JA2 executable for the opt-in co-op process smoke")
+set(JA2_COOP_INSTALLED_SMOKE_DATA_ROOT "" CACHE PATH
+  "Absolute installed JA2 data root for the opt-in co-op process smoke")
+if(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE OR
+   JA2_COOP_INSTALLED_SMOKE_DATA_ROOT)
+  if(NOT JA2_COOP_INSTALLED_SMOKE_EXECUTABLE OR
+     NOT JA2_COOP_INSTALLED_SMOKE_DATA_ROOT)
+    message(FATAL_ERROR
+      "JA2 co-op installed smoke requires both "
+      "JA2_COOP_INSTALLED_SMOKE_EXECUTABLE and "
+      "JA2_COOP_INSTALLED_SMOKE_DATA_ROOT")
+  endif()
+  if(NOT UNIX)
+    message(FATAL_ERROR
+      "JA2 co-op installed smoke currently requires POSIX SIGTERM semantics")
+  endif()
+  if(NOT IS_ABSOLUTE "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}" OR
+     NOT EXISTS "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}" OR
+     IS_DIRECTORY "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}")
+    message(FATAL_ERROR
+      "JA2_COOP_INSTALLED_SMOKE_EXECUTABLE must be an absolute existing file")
+  endif()
+  if(NOT IS_ABSOLUTE "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}" OR
+     NOT IS_DIRECTORY "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}" OR
+     NOT EXISTS "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}/Ja2.ini" OR
+     NOT IS_DIRECTORY "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}/Data")
+    message(FATAL_ERROR
+      "JA2_COOP_INSTALLED_SMOKE_DATA_ROOT must be an absolute installed root "
+      "containing Ja2.ini and Data")
+  endif()
+  find_package(Python3 3.8 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME full_engine_coop_installed_process_smoke
+    COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/full_engine_coop_installed_process_smoke.py"
+      --executable "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}"
+      --installed-data-root "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}")
+  set_tests_properties(full_engine_coop_installed_process_smoke PROPERTIES
+    LABELS "installed-data;multiplayer"
+    RUN_SERIAL TRUE
+    TIMEOUT 900)
+endif()
+
+# A tactical world freezes a canonical peer roster and distributes its sorted
+# controllable actors deterministically. Reconnect cannot transfer authority,
+# while every selected peer receives one actor before any peer receives two.
+add_executable(coop_actor_assignment_policy_tests
+  coop_actor_assignment_policy_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopActorAssignmentPolicy.cpp)
+target_include_directories(coop_actor_assignment_policy_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(coop_actor_assignment_policy_tests PRIVATE cxx_std_17)
+add_test(NAME coop_actor_assignment_policy
+  COMMAND coop_actor_assignment_policy_tests)
+
+# A fresh persistent co-op campaign preflights one complete, affordable A.I.M.
+# roster before any legacy hire mutation. Selection is allocation-free,
+# content-order independent, and either covers all four authority seats or
+# publishes no partial roster.
+add_executable(dedicated_coop_mission_bootstrap_tests
+  dedicated_coop_mission_bootstrap_tests.cpp)
+target_include_directories(dedicated_coop_mission_bootstrap_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_coop_mission_bootstrap_tests PRIVATE
+  cxx_std_17)
+add_test(NAME dedicated_coop_mission_bootstrap
+  COMMAND dedicated_coop_mission_bootstrap_tests)
+
+# The passive client's worldless control model selects only server-assigned
+# actors from the committed replica and emits typed intents without mutating
+# game state or depending on tactical UI globals.
+add_executable(full_engine_coop_client_controller_tests
+  full_engine_coop_client_controller_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp)
+target_include_directories(full_engine_coop_client_controller_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_client_controller_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_controller_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_controller
+  COMMAND full_engine_coop_client_controller_tests)
+
+# The passive client projects authority-published world dimensions and actor
+# grids into a bounded, worldless tactical view without loading or simulating a
+# local JA2 sector.
+add_executable(full_engine_coop_client_tactical_presentation_tests
+  full_engine_coop_client_tactical_presentation_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientTacticalPresentation.cpp)
+target_include_directories(
+  full_engine_coop_client_tactical_presentation_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_tactical_presentation_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_tactical_presentation
+  COMMAND full_engine_coop_client_tactical_presentation_tests)
+
+# The INIT-screen renderer consumes only the immutable worldless projection.
+# A fake padded video surface pins its bounds and pixel behavior without
+# importing the full JA2 application into this focused test.
+add_executable(full_engine_coop_client_tactical_plot_renderer_tests
+  full_engine_coop_client_tactical_plot_renderer_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientTacticalPlotRenderer.cpp)
+target_include_directories(
+  full_engine_coop_client_tactical_plot_renderer_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Ja2
+  ${CMAKE_SOURCE_DIR}/sgp
+  ${CMAKE_SOURCE_DIR}/ext/VFS/include)
+target_compile_features(
+  full_engine_coop_client_tactical_plot_renderer_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_tactical_plot_renderer
+  COMMAND full_engine_coop_client_tactical_plot_renderer_tests)
+
+# The passive client applies the closed tactical delta vocabulary into a
+# transactional shadow snapshot. Previous-value mismatches and generation
+# resets fail without mutating the last committed view.
+add_executable(full_engine_coop_snapshot_replica_tests
+  full_engine_coop_snapshot_replica_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopSnapshotReplica.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_snapshot_replica_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_snapshot_replica_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_snapshot_replica_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_snapshot_replica
+  COMMAND full_engine_coop_snapshot_replica_tests)
+
 # Fixed-width co-op admission codecs and sender/epoch binding are independent
 # from SDL, the game engine, and installed Data.
 add_executable(coop_session_protocol_tests
@@ -19,8 +284,8 @@ add_test(NAME coop_session_protocol COMMAND coop_session_protocol_tests)
 
 # The first authoritative co-op command boundary is deliberately independent
 # from the game and transport implementations. It pins the exact intent bytes,
-# sender-bound admission, command order, tactical context, and actor ACL before
-# a future full-engine adapter is permitted to execute anything.
+# sender-bound admission, command order, tactical context, and actor ACL used by
+# the separately tested live JA2 execution adapter.
 add_executable(coop_tactical_authority_tests
   coop_tactical_authority_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
@@ -33,6 +298,37 @@ target_include_directories(coop_tactical_authority_tests PRIVATE
   ${CMAKE_SOURCE_DIR}/Multiplayer)
 target_compile_features(coop_tactical_authority_tests PRIVATE cxx_std_17)
 add_test(NAME coop_tactical_authority COMMAND coop_tactical_authority_tests)
+
+# Canonical tactical replication envelopes and the bounded server-side
+# baseline/delta/receipt state machine remain data-free. They are wired into
+# production Multiplayer now; live JA2 execution and the passive client remain
+# separate outer integration boundaries.
+add_executable(coop_tactical_protocol_tests
+  coop_tactical_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+)
+target_include_directories(coop_tactical_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(coop_tactical_protocol_tests PRIVATE JA2::RuntimeAdapter)
+target_compile_features(coop_tactical_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_tactical_protocol COMMAND coop_tactical_protocol_tests)
+
+add_executable(full_engine_coop_server_session_tests
+  full_engine_coop_server_session_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
+)
+target_include_directories(full_engine_coop_server_session_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_server_session_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_server_session_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_server_session
+  COMMAND full_engine_coop_server_session_tests)
 
 # Compose admission, sender-derived intent authority, and an injected execution
 # sink at the boundary intended for JA2 --dedicated. This remains data-free and
@@ -51,12 +347,181 @@ target_include_directories(full_engine_coop_ingress_tests PRIVATE
 target_compile_features(full_engine_coop_ingress_tests PRIVATE cxx_std_17)
 add_test(NAME full_engine_coop_ingress COMMAND full_engine_coop_ingress_tests)
 
+# Exercise the isolated full-engine admission/tactical listener over production
+# SDL3_net. The target deliberately links no legacy arena server/client code.
+add_executable(full_engine_coop_admission_listener_tests
+  full_engine_coop_admission_listener_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
+)
+target_include_directories(full_engine_coop_admission_listener_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_admission_listener_tests PRIVATE
+  SdlNetTransport)
+target_compile_features(full_engine_coop_admission_listener_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_admission_listener
+  COMMAND full_engine_coop_admission_listener_tests)
+
+# Exercise the complete isolated tactical transport coordinator over the real
+# SDL3_net loopback: ACK-gated baselines, at-most-once intents, host-owned
+# receipts, ordered deltas, bounded backpressure, reconnect, and world drain.
+add_executable(full_engine_coop_tactical_server_tests
+  full_engine_coop_tactical_server_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopTacticalServer.cpp)
+target_include_directories(full_engine_coop_tactical_server_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_tactical_server_tests PRIVATE
+  JA2::RuntimeAdapter SdlNetTransport)
+target_compile_features(full_engine_coop_tactical_server_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_tactical_server
+  COMMAND full_engine_coop_tactical_server_tests)
+
+# The passive client state machine is transport-injected and data-free. It can
+# mutate a replica only through a committed-boundary callback and never starts
+# the legacy multiplayer client or a local authoritative simulation.
+add_executable(full_engine_coop_client_tests
+  full_engine_coop_client_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp)
+target_include_directories(full_engine_coop_client_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_client_tests PRIVATE JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client COMMAND full_engine_coop_client_tests)
+
+# The concrete client wire owns one outbound-only SDL3_net peer and feeds the
+# passive core only after the transport pump has unwound. Real loopback tests
+# pin namespace isolation, FIFO delivery, bounded writes, and fail-closed
+# teardown without registering any legacy arena/file-transfer handler.
+add_executable(full_engine_coop_client_transport_tests
+  full_engine_coop_client_transport_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp)
+target_include_directories(full_engine_coop_client_transport_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_client_transport_tests PRIVATE
+  JA2::RuntimeAdapter SdlNetTransport)
+target_compile_features(full_engine_coop_client_transport_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_transport
+  COMMAND full_engine_coop_client_transport_tests)
+
+# The one-shot outbound preflight obtains the immutable campaign seed and
+# identity after SDL initialization but before any RNG/GameContext observation.
+add_executable(full_engine_coop_client_bootstrap_transport_tests
+  full_engine_coop_client_bootstrap_transport_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientBootstrapTransport.cpp)
+target_include_directories(
+  full_engine_coop_client_bootstrap_transport_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_client_bootstrap_transport_tests PRIVATE
+  SdlNetTransport)
+target_compile_features(
+  full_engine_coop_client_bootstrap_transport_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_bootstrap_transport
+  COMMAND full_engine_coop_client_bootstrap_transport_tests)
+
+# The passive-client role is selected before RNG/GameContext construction and
+# has a disjoint, fail-closed command-line namespace from dedicated authority.
+add_executable(full_engine_coop_client_options_tests
+  full_engine_coop_client_options_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientOptions.cpp)
+target_include_directories(full_engine_coop_client_options_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_client_options_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_options
+  COMMAND full_engine_coop_client_options_tests)
+
+# The application composition keeps socket/core teardown ahead of VFS lease
+# release, exposes a replica only after both campaign Ready and tactical Active,
+# and bounds reconnects to the retained credential and immutable epoch.
+add_executable(full_engine_coop_client_runtime_tests
+  full_engine_coop_client_runtime_tests.cpp)
+target_include_directories(full_engine_coop_client_runtime_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_client_runtime_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_runtime
+  COMMAND full_engine_coop_client_runtime_tests)
+
+# The JA2 execution bridge is tested against injected live state and command
+# services. The legacy actor projection lives in a separate production TU, so
+# this focused contract needs neither installed Data nor game globals.
+add_executable(dedicated_coop_tactical_host_tests
+  dedicated_coop_tactical_host_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCoopTacticalHost.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp)
+target_include_directories(dedicated_coop_tactical_host_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_link_libraries(dedicated_coop_tactical_host_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(dedicated_coop_tactical_host_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_coop_tactical_host
+  COMMAND dedicated_coop_tactical_host_tests)
+
+# Production admission credentials and session epochs must come directly from
+# the host operating system's cryptographic random source.
+add_executable(os_admission_token_source_tests
+  os_admission_token_source_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/OsAdmissionTokenSource.cpp
+)
+target_include_directories(os_admission_token_source_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(os_admission_token_source_tests PRIVATE cxx_std_17)
+if(WIN32)
+  target_link_libraries(os_admission_token_source_tests PRIVATE bcrypt)
+endif()
+add_test(NAME os_admission_token_source
+  COMMAND os_admission_token_source_tests)
+
 # Drive the real standalone coordinator pump over loopback with two lightweight
 # clients. The server translation unit is unchanged except for its test-only
 # entry-point name; no game data or engine target is linked.
 find_package(Threads REQUIRED)
 add_library(mp_coordinator_server_for_tests OBJECT
-  ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server/ja2server.cpp)
+  ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server/ja2server.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/LegacyServerIngress.cpp)
 target_compile_definitions(mp_coordinator_server_for_tests PRIVATE
   main=ja2server_test_main
   JA2SERVER_LOOPBACK_TEST=1)
@@ -80,8 +545,10 @@ add_test(NAME mp_coordinator_coop_rejection
   COMMAND mp_coordinator_session_tests --coop-only)
 
 # The full-engine dedicated process has one explicit launch contract. PvP
-# retains the transitional arena route; co-op campaign creation/resume is
-# parsed now but admission remains fail-closed until authority is installed.
+# retains the transitional arena route; co-op options drive persistent
+# strategic create/resume and the separately tested authoritative server path.
+# The socket/passive JA2 client remains a worldless technical preview rather
+# than a generally playable co-op client.
 add_executable(dedicated_server_options_tests
   dedicated_server_options_tests.cpp
   ${CMAKE_SOURCE_DIR}/Ja2/DedicatedServerOptions.cpp)
@@ -124,6 +591,50 @@ target_include_directories(dedicated_campaign_save_adapter_tests PRIVATE
 target_compile_features(dedicated_campaign_save_adapter_tests PRIVATE cxx_std_17)
 add_test(NAME dedicated_campaign_save_adapter
   COMMAND dedicated_campaign_save_adapter_tests)
+
+# Compose the early campaign lease/profile preparation with late identity open,
+# resume materialization, and live A/B SaveGame checkpoint publication.
+add_executable(dedicated_campaign_boot_tests
+  dedicated_campaign_boot_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignBoot.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignFilesystem.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignSaveAdapter.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignStore.cpp)
+target_include_directories(dedicated_campaign_boot_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(dedicated_campaign_boot_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_campaign_boot
+  COMMAND dedicated_campaign_boot_tests)
+
+# The passive client owns a private leased profile and publishes each fully
+# received checkpoint into alternating fixed slots only after exact hashing,
+# strict validation, and a successful cold load.
+add_executable(full_engine_coop_client_campaign_scratch_tests
+  full_engine_coop_client_campaign_scratch_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientCampaignScratch.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignFilesystem.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignSaveAdapter.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedCampaignStore.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_campaign_scratch_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_client_campaign_scratch_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_campaign_scratch
+  COMMAND full_engine_coop_client_campaign_scratch_tests)
+
+# Pin the canonical effective read-only VFS namespace digest independently of
+# installed game data and of the writable per-campaign profile.
+add_executable(dedicated_content_manifest_tests
+  dedicated_content_manifest_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedContentManifest.cpp)
+target_link_libraries(dedicated_content_manifest_tests PRIVATE
+  JA2::EngineCore bfVFS)
+target_compile_features(dedicated_content_manifest_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_content_manifest
+  COMMAND dedicated_content_manifest_tests)
 
 # A dedicated campaign replaces every configured global writable profile
 # before bfVFS scans it. Shared read-only Data/package layers remain visible,
@@ -205,6 +716,22 @@ target_link_libraries(package_random_transaction_tests PRIVATE JA2::EngineCore)
 target_compile_features(package_random_transaction_tests PRIVATE cxx_std_17)
 add_test(NAME package_random_transaction
   COMMAND package_random_transaction_tests)
+
+# Gameplay Lua states delegate to Lua's stock RNG ordinarily, but switch to the
+# process-owned campaign stream and make legacy reseeding a deterministic
+# compatibility no-op in dedicated co-op.
+add_executable(gameplay_lua_policy_tests
+  gameplay_lua_policy_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedServerOptions.cpp
+  ${CMAKE_SOURCE_DIR}/lua/gameplay_lua_policy.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/Random.cpp)
+target_link_libraries(gameplay_lua_policy_tests PRIVATE
+  JA2::EngineCore SDL3::SDL3 Threads::Threads lua)
+target_compile_features(gameplay_lua_policy_tests PRIVATE cxx_std_17)
+add_test(NAME gameplay_lua_policy_ordinary
+  COMMAND gameplay_lua_policy_tests --ordinary)
+add_test(NAME gameplay_lua_policy_dedicated_coop
+  COMMAND gameplay_lua_policy_tests --dedicated-coop)
 
 # This executable deliberately links only the campaign/platform-independent
 # target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
@@ -1185,6 +1712,7 @@ option(BUILD_JA2SERVER "Build the standalone ja2server MP coordinator" OFF)
 if(BUILD_JA2SERVER)
   add_executable(ja2server
     ${CMAKE_SOURCE_DIR}/Multiplayer/ja2server/ja2server.cpp
+    ${CMAKE_SOURCE_DIR}/Multiplayer/LegacyServerIngress.cpp
   )
   target_link_libraries(ja2server PRIVATE SdlNetTransport)
   if(APPLE)

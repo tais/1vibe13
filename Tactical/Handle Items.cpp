@@ -1060,7 +1060,8 @@ static INT32 HandleItemInternal(
 
 				//Kaiden: Had to change the minimum value to 10 instead of 1,
 				//Rounding down resulted in division by zero and caused a crash.
-				UINT32 diceSides = RAND_MAX / ( max(10,pSoldier->statistics().marksmanship()) / 10) ;
+				UINT32 diceSides = LegacyCompatibleRandomMaximum() /
+					( max(10,pSoldier->statistics().marksmanship()) / 10) ;
 
 				DOUBLE avgAPadded;
 				// SANDRO - Slightly changed this formula to make the auto weapons trait little more needed if new traits activated - 
@@ -2402,6 +2403,13 @@ static INT32 HandleItemInternal(
 				//pSoldier->animationActivity().turningCostWaived() = TRUE;
 				//pSoldier->animationActivity().stanceCostWaived() = TRUE;
 
+				// Direct throws intentionally do not relay BEGINFIRE: a receiver
+				// would execute its own throw animation and duplicate the later
+				// recieveGRENADE physical object.  Give only the coordinator a
+				// reliable causal marker before the local throw begins instead.
+				if ( is_server ||
+					( is_client && pSoldier->identity().id() < 20 ) )
+					send_attack_start( pSoldier );
 				FireWeapon( pSoldier, sTargetGridNo );
 			}
 			else

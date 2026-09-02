@@ -580,6 +580,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   # can seal the default source.
   add_test(NAME ja2_headless_strict_runtime_execution
     COMMAND ja2_headless_tests --strict-runtime-execution)
+  # Exercise the real engine-coupled legacy server.cpp admission and relay
+  # callbacks through production loopback framing without installed game data.
+  add_test(NAME legacy_embedded_host_loopback
+    COMMAND ja2_headless_tests --legacy-host-loopback)
+  set_tests_properties(legacy_embedded_host_loopback PROPERTIES
+    SKIP_RETURN_CODE 77
+    TIMEOUT 30)
   # CI's sanitizer slice builds this target directly before running the full
   # registered test set, so keep focused compile guards in that build closure.
   add_dependencies(ja2_headless_tests tactical_actor_header_tests)

@@ -20,6 +20,14 @@ TacticalIntentAuthority::TacticalIntentAuthority(
 {
 }
 
+void TacticalIntentAuthority::resetAdmissionEpoch(
+	std::uint64_t sessionEpoch) noexcept
+{
+	if (sequenceEpoch_ == sessionEpoch) return;
+	sequenceEpoch_ = sessionEpoch;
+	clearSequences();
+}
+
 TacticalAuthorityConfigurationResult TacticalIntentAuthority::beginSession(
 	TacticalAuthorityContext context) noexcept
 {
@@ -28,7 +36,6 @@ TacticalAuthorityConfigurationResult TacticalIntentAuthority::beginSession(
 		configured_ = false;
 		context_ = {};
 		clearActorBindings();
-		clearSequences();
 		return TacticalAuthorityConfigurationResult::InvalidContext;
 	}
 	const AuthorityConfiguration& admissionConfiguration =
@@ -39,13 +46,12 @@ TacticalAuthorityConfigurationResult TacticalIntentAuthority::beginSession(
 		configured_ = false;
 		context_ = {};
 		clearActorBindings();
-		clearSequences();
 		return TacticalAuthorityConfigurationResult::AdmissionUnavailable;
 	}
+	resetAdmissionEpoch(context.sessionEpoch);
 	context_ = context;
 	configured_ = true;
 	clearActorBindings();
-	clearSequences();
 	return TacticalAuthorityConfigurationResult::Success;
 }
 
@@ -149,16 +155,6 @@ TacticalIntentAuthorizationResult TacticalIntentAuthority::authorize(
 		return result;
 	}
 	result.peerIdentity = resolvedPeer;
-	if (intent.sessionEpoch != context_.sessionEpoch)
-	{
-		result.reason = TacticalIntentAuthorizationReason::WrongSessionEpoch;
-		return result;
-	}
-	if (intent.claimedPeerIdentity != resolvedPeer)
-	{
-		result.reason = TacticalIntentAuthorizationReason::ClaimedIdentityMismatch;
-		return result;
-	}
 	if (intent.commandId == 0)
 	{
 		result.reason = TacticalIntentAuthorizationReason::InvalidCommandId;
@@ -167,6 +163,51 @@ TacticalIntentAuthorizationResult TacticalIntentAuthority::authorize(
 	if (!IsStructurallyValidTacticalIntent(intent))
 	{
 		result.reason = TacticalIntentAuthorizationReason::InvalidIntent;
+		return result;
+	}
+	PeerSequence* sequence = findOrCreatePeerSequence(resolvedPeer);
+	if (sequence == nullptr)
+	{
+		result.reason = TacticalIntentAuthorizationReason::PeerCapacityReached;
+		return result;
+	}
+	result.nextExpectedCommandId = sequence->exhausted
+		? 0 : sequence->nextCommandId;
+	if (sequence->exhausted)
+	{
+		result.reason = TacticalIntentAuthorizationReason::SequenceExhausted;
+		return result;
+	}
+	if (intent.commandId < sequence->nextCommandId)
+	{
+		result.reason = TacticalIntentAuthorizationReason::DuplicateCommand;
+		return result;
+	}
+	if (intent.commandId > sequence->nextCommandId)
+	{
+		result.reason = TacticalIntentAuthorizationReason::OutOfOrderCommand;
+		return result;
+	}
+	result.commandConsumed = true;
+	if (sequence->nextCommandId == std::numeric_limits<std::uint64_t>::max())
+	{
+		sequence->exhausted = true;
+		result.nextExpectedCommandId = 0;
+	}
+	else
+	{
+		++sequence->nextCommandId;
+		result.nextExpectedCommandId = sequence->nextCommandId;
+	}
+
+	if (intent.sessionEpoch != context_.sessionEpoch)
+	{
+		result.reason = TacticalIntentAuthorizationReason::WrongSessionEpoch;
+		return result;
+	}
+	if (intent.claimedPeerIdentity != resolvedPeer)
+	{
+		result.reason = TacticalIntentAuthorizationReason::ClaimedIdentityMismatch;
 		return result;
 	}
 	if (intent.worldGeneration != context_.worldGeneration)
@@ -200,34 +241,41 @@ TacticalIntentAuthorizationResult TacticalIntentAuthority::authorize(
 		return result;
 	}
 
-	PeerSequence* sequence = findOrCreatePeerSequence(resolvedPeer);
-	if (sequence == nullptr)
-	{
-		result.reason = TacticalIntentAuthorizationReason::PeerCapacityReached;
-		return result;
-	}
-	if (sequence->exhausted)
-	{
-		result.reason = TacticalIntentAuthorizationReason::SequenceExhausted;
-		return result;
-	}
-	if (intent.commandId < sequence->nextCommandId)
-	{
-		result.reason = TacticalIntentAuthorizationReason::DuplicateCommand;
-		return result;
-	}
-	if (intent.commandId > sequence->nextCommandId)
-	{
-		result.reason = TacticalIntentAuthorizationReason::OutOfOrderCommand;
-		return result;
-	}
-
-	if (sequence->nextCommandId == std::numeric_limits<std::uint64_t>::max())
-		sequence->exhausted = true;
-	else
-		++sequence->nextCommandId;
 	result.reason = TacticalIntentAuthorizationReason::None;
 	return result;
+}
+
+bool TacticalIntentAuthority::canRetirePeerSequence(
+	const PeerIdentity& peer) const noexcept
+{
+	return !IsZero(peer) && admission_.credentialRetired(peer);
+}
+
+bool TacticalIntentAuthority::retirePeerSequence(
+	const PeerIdentity& peer) noexcept
+{
+	if (!canRetirePeerSequence(peer)) return false;
+	std::size_t actorOutput = 0;
+	for (std::size_t index = 0; index < actorBindingCount_; ++index)
+	{
+		if (actorBindings_[index].peer == peer) continue;
+		if (actorOutput != index)
+			actorBindings_[actorOutput] = actorBindings_[index];
+		++actorOutput;
+	}
+	for (std::size_t index = actorOutput; index < actorBindingCount_; ++index)
+		actorBindings_[index] = ActorBinding{};
+	actorBindingCount_ = actorOutput;
+	for (std::size_t index = 0; index < peerSequenceCount_; ++index)
+	{
+		if (peerSequences_[index].peer != peer) continue;
+		std::move(peerSequences_.begin() + index + 1,
+			peerSequences_.begin() + peerSequenceCount_,
+			peerSequences_.begin() + index);
+		peerSequences_[--peerSequenceCount_] = PeerSequence{};
+		break;
+	}
+	return true;
 }
 
 const TacticalIntentAuthority::ActorBinding*
@@ -238,12 +286,20 @@ TacticalIntentAuthority::findActor(TacticalEntityId actor) const noexcept
 	return nullptr;
 }
 
-TacticalIntentAuthority::PeerSequence*
-TacticalIntentAuthority::findPeerSequence(const PeerIdentity& peer) noexcept
+const TacticalIntentAuthority::PeerSequence*
+TacticalIntentAuthority::findPeerSequence(
+	const PeerIdentity& peer) const noexcept
 {
 	for (std::size_t index = 0; index < peerSequenceCount_; ++index)
 		if (peerSequences_[index].peer == peer) return &peerSequences_[index];
 	return nullptr;
+}
+
+TacticalIntentAuthority::PeerSequence*
+TacticalIntentAuthority::findPeerSequence(const PeerIdentity& peer) noexcept
+{
+	return const_cast<PeerSequence*>(
+		static_cast<const TacticalIntentAuthority&>(*this).findPeerSequence(peer));
 }
 
 TacticalIntentAuthority::PeerSequence*

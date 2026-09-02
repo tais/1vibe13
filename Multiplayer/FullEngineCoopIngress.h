@@ -15,7 +15,8 @@ enum class FullEngineCoopStartResult
 	AuthorityDisabled,
 	ConfigurationIncomplete,
 	InvalidTacticalContext,
-	SessionEpochMismatch
+	SessionEpochMismatch,
+	AdmissionSessionInactive
 };
 
 struct FullEngineCoopSessionConfiguration
@@ -50,6 +51,9 @@ class TacticalIntentExecutionSink
 {
 public:
 	virtual ~TacticalIntentExecutionSink() = default;
+	// Called before the authority consumes an at-most-once command identifier.
+	// False applies bounded backpressure and guarantees execute() is not called.
+	virtual bool ready() const noexcept { return true; }
 	virtual TacticalIntentExecutionDisposition execute(
 		const AuthorizedTacticalIntent& intent) noexcept = 0;
 };
@@ -57,9 +61,33 @@ public:
 struct AdmissionIngressResult
 {
 	DecodeResult decodeResult = DecodeResult::WrongSize;
+	AdmissionRequest request;
+	AdmissionResponse response;
+	AdmissionResponseBytes responseBytes{};
+	// Process-local transport effect; never encoded in responseBytes.
+	TransportPeer displacedTransport;
+	bool responseReady = false;
+};
+
+struct AdmissionCredentialAbandonIngressResult
+{
+	DecodeResult decodeResult = DecodeResult::WrongSize;
+	AdmissionCredentialAbandon abandonment;
 	AdmissionResponse response;
 	AdmissionResponseBytes responseBytes{};
 	bool responseReady = false;
+};
+
+struct AdmissionAckIngressResult
+{
+	DecodeResult decodeResult = DecodeResult::WrongSize;
+	AdmissionRejectReason rejectReason = AdmissionRejectReason::MalformedRequest;
+
+	bool acknowledged() const noexcept
+	{
+		return decodeResult == DecodeResult::Ok &&
+			rejectReason == AdmissionRejectReason::None;
+	}
 };
 
 struct TacticalIntentIngressResult
@@ -82,29 +110,78 @@ public:
 		AdmissionTokenSource& tokenSource,
 		TacticalIntentExecutionSink& executionSink) noexcept;
 
-	// Every call first closes the previous session. Failure therefore leaves the
-	// ingress inactive and empty; success starts a new epoch with no prior
-	// credentials, transport bindings, actor bindings, or command sequences.
+	// Admission starts before any campaign world is exposed. Every call closes
+	// the previous admission and tactical sessions, so credentials and bindings
+	// can never cross an epoch boundary.
+	FullEngineCoopStartResult beginAdmissionSession(
+		const AuthorityConfiguration& configuration) noexcept;
+	// Tactical authority may be enabled only after admission is live for the same
+	// epoch. A failed tactical start leaves admission available for a corrected
+	// retry and clears actor bindings, while admission-epoch command ordering is
+	// preserved across tactical world/generation transitions.
+	FullEngineCoopStartResult beginTacticalSession(
+		const TacticalAuthorityContext& context) noexcept;
+	void endTacticalSession() noexcept;
+
+	// Compatibility wrapper for callers that already have both configurations.
+	// Its historical atomic semantics remain: any failure leaves all ingress
+	// inactive and empty.
 	FullEngineCoopStartResult beginSession(
 		const FullEngineCoopSessionConfiguration& configuration) noexcept;
 	void endSession() noexcept;
-	bool active() const noexcept { return active_; }
+	bool admissionActive() const noexcept { return admissionActive_; }
+	bool tacticalActive() const noexcept { return tacticalActive_; }
+	bool active() const noexcept { return tacticalActive(); }
 
 	AdmissionIngressResult handleAdmission(
 		const TransportPeer& sender,
 		const std::uint8_t* bytes,
 		std::size_t size) noexcept;
+	AdmissionAckIngressResult handleAdmissionAck(
+		const TransportPeer& sender,
+		const std::uint8_t* bytes,
+		std::size_t size) noexcept;
+	AdmissionCredentialAbandonIngressResult handleCredentialAbandon(
+		const TransportPeer& sender,
+		const std::uint8_t* bytes,
+		std::size_t size) noexcept;
+	AdmissionSelfRetirementRegistryBegin beginSelfRetirement(
+		const TransportPeer& sender,
+		std::uint64_t sessionEpoch,
+		std::uint64_t requestId) noexcept;
+	AdmissionSelfRetirementRegistryResult completeSelfRetirement(
+		const PeerIdentity& peer,
+		std::uint64_t requestId) noexcept;
+	// Resolves only a live, ACK-confirmed transport binding for the supplied
+	// admission epoch. The output is left unchanged on failure.
+	bool resolveAuthenticatedPeer(
+		const TransportPeer& sender,
+		std::uint64_t sessionEpoch,
+		PeerIdentity& identity) const noexcept;
+	bool tacticalExecutionReady() const noexcept;
 	TacticalIntentIngressResult handleTacticalIntent(
+		const TransportPeer& sender,
+		const std::uint8_t* bytes,
+		std::size_t size) noexcept;
+	// Decodes and applies the same admission/at-most-once authority decision but
+	// never calls the execution sink and intentionally bypasses sink readiness.
+	// The caller must retain a terminal receipt for every consumed command.
+	TacticalIntentIngressResult rejectTacticalIntent(
 		const TransportPeer& sender,
 		const std::uint8_t* bytes,
 		std::size_t size) noexcept;
 
 	void disconnect(const TransportPeer& sender) noexcept;
+	void clearTransportBindings() noexcept;
 	TacticalActorBindingResult bindActorForTransport(
 		const TransportPeer& sender,
 		TacticalEntityId actor) noexcept;
 	bool unbindActor(TacticalEntityId actor) noexcept;
 	void clearActorBindings() noexcept;
+	bool canRetireTacticalAuthorityPeer(
+		const PeerIdentity& peer) const noexcept;
+	bool retireTacticalAuthorityPeer(
+		const PeerIdentity& peer) noexcept;
 
 	TacticalAuthorityConfigurationResult beginGeneration(
 		std::uint64_t generation,
@@ -130,6 +207,18 @@ public:
 	{
 		return admission_.boundPeerCount();
 	}
+	std::size_t retiredCredentialCount() const noexcept
+	{
+		return admission_.retiredCredentialCount();
+	}
+	bool credentialRetired(const PeerIdentity& peer) const noexcept
+	{
+		return admission_.credentialRetired(peer);
+	}
+	std::size_t pendingSelfRetirementCount() const noexcept
+	{
+		return admission_.pendingSelfRetirementCount();
+	}
 	std::size_t actorBindingCount() const noexcept
 	{
 		return authority_.actorBindingCount();
@@ -139,7 +228,8 @@ private:
 	AdmissionRegistry admission_;
 	TacticalIntentAuthority authority_;
 	TacticalIntentExecutionSink& executionSink_;
-	bool active_ = false;
+	bool admissionActive_ = false;
+	bool tacticalActive_ = false;
 };
 }
 

@@ -81,8 +81,11 @@ const size_t MAX_CONN_IN       = 4u * 1024u * 1024u;
 
 // Per-connection token bucket: cap inbound message dispatch so a flooding peer
 // can't amplify through the relay handlers. Tokens are bytes; refilled per ms.
-const double TOKEN_RATE_PER_MS = 256.0 * 1024.0 / 1000.0;   // ~256 KB/s sustained
-const double TOKEN_BUCKET_MAX  = 1024.0 * 1024.0;           // 1MB burst
+static_assert(DefaultSdlNetInboundMessageRateBytesPerSecond <=
+	MaximumSdlNetInboundMessageRateBytesPerSecond);
+static_assert(DefaultSdlNetInboundMessageBurstBytes <=
+	MaximumSdlNetInboundMessageBurstBytes);
+static_assert(MaximumSdlNetInboundMessageBurstBytes <= MAX_CONN_IN);
 
 int g_netInitRefs = 0;
 
@@ -117,6 +120,23 @@ void PutU32( std::vector<unsigned char>& v, unsigned int x )
 unsigned short GetU16( const unsigned char* p ) { return (unsigned short)( p[0] | ( p[1] << 8 ) ); }
 unsigned int   GetU32( const unsigned char* p ) { return (unsigned int)p[0] | ( (unsigned int)p[1] << 8 ) | ( (unsigned int)p[2] << 16 ) | ( (unsigned int)p[3] << 24 ); }
 
+bool IsLoopbackSocket(NET_StreamSocket* socket)
+{
+	NET_Address* address = socket ? NET_GetStreamSocketAddress(socket) : nullptr;
+	if (!address) return false;
+	// NET_GetAddressBytes returns protocol-specific sockaddr storage, not a raw
+	// 4/16-byte IP address. SDL_net's numeric host string is the portable API.
+	const char* const text = NET_GetAddressString(address);
+	const bool loopback = text &&
+		(std::strcmp(text, "::1") == 0 ||
+		 std::strcmp(text, "0:0:0:0:0:0:0:1") == 0 ||
+		 std::strncmp(text, "127.", 4) == 0 ||
+		 std::strncmp(text, "::ffff:127.", 11) == 0 ||
+		 std::strncmp(text, "0:0:0:0:0:ffff:127.", 19) == 0);
+	NET_UnrefAddress(address);
+	return loopback;
+}
+
 struct Conn
 {
 	NET_StreamSocket* sock = nullptr;
@@ -125,11 +145,17 @@ struct Conn
 	size_t inOff = 0;       // parse cursor into 'in' (avoids erase()+copy per frame)
 	bool open = true;       // false => teardown deferred to the step-4 sweep
 	bool sentBye = false;
+	bool loopback = false;
+	// A server must observe its connection lifecycle event before an eager peer
+	// can invoke a named-message or file callback. Outbound client connections
+	// retain their existing accepted/message timing.
+	bool incomingEventReturned = true;
 	Uint64 lastRecvMs = 0;  // SDL_GetTicks() of the last bytes read from this peer
 	Uint64 lastPingMs = 0;  // SDL_GetTicks() of the last keepalive we emitted
 	unsigned int drainMs = 0;   // how long the sweep may linger this socket draining writes
 	// per-conn inbound token bucket (M18): bytes, refilled over time
-	double tokens = TOKEN_BUCKET_MAX;
+	double tokens =
+		static_cast<double>(DefaultSdlNetInboundMessageBurstBytes);
 	Uint64 lastRefillMs = 0;
 };
 
@@ -211,6 +237,13 @@ static void ClearReceivers( SdlNetFileTransferState* fs )
 
 struct SdlNetPeerState
 {
+	struct MessageRegistration
+	{
+		SdlNetMessageHandler handler = nullptr;
+		SdlNetContextMessageHandler contextHandler = nullptr;
+		void* context = nullptr;
+	};
+
 	bool started = false;
 	bool netRef = false;
 	unsigned short maxIncoming = 0;
@@ -225,7 +258,7 @@ struct SdlNetPeerState
 	std::vector<Conn*> conns;
 	std::vector<Lingering> lingering;   // closed sockets draining their write buffer (non-blocking)
 	std::deque<SdlNetEvent*> q;
-	std::map<std::string, void ( * )( SdlNetMessage* )> handlers;
+	std::map<std::string, MessageRegistration> handlers;
 	SdlNetFileTransfer* flt = nullptr;
 	// Opaque process-local identifiers never expose peer IP/port as authority.
 	std::uint64_t nextConnectionId = 1;
@@ -235,6 +268,11 @@ struct SdlNetPeerState
 	unsigned int pendingShutdownBlockDuration = 0;
 	SdlNetFileTransfer* detachPending = nullptr; // cleanup after borrowed frame data expires
 	SdlNetPeer* self = nullptr;
+	std::size_t inboundMessageRateBytesPerSecond =
+		DefaultSdlNetInboundMessageRateBytesPerSecond;
+	std::size_t inboundMessageBurstBytes =
+		DefaultSdlNetInboundMessageBurstBytes;
+	std::uint16_t reservedIncomingLoopbackConnections = 0;
 	// Dead-peer detection. 0 == disabled. A peer that has not sent any bytes for
 	// timeoutMs is declared lost.
 	unsigned int timeoutMs = 0;
@@ -378,9 +416,10 @@ void SdlNetPeerState::DispatchMessage( Conn* c, const unsigned char* body, unsig
 	Uint64 nowMs = SDL_GetTicks();
 	if ( c->lastRefillMs == 0 )
 		c->lastRefillMs = nowMs;
-	c->tokens += (double)( nowMs - c->lastRefillMs ) * TOKEN_RATE_PER_MS;
-	if ( c->tokens > TOKEN_BUCKET_MAX )
-		c->tokens = TOKEN_BUCKET_MAX;
+	c->tokens += static_cast<double>(nowMs - c->lastRefillMs) *
+		static_cast<double>(inboundMessageRateBytesPerSecond) / 1000.0;
+	if (c->tokens > static_cast<double>(inboundMessageBurstBytes))
+		c->tokens = static_cast<double>(inboundMessageBurstBytes);
 	c->lastRefillMs = nowMs;
 	double cost = (double)( len + 5 );   // frame body + header overhead
 	if ( c->tokens < cost )
@@ -391,7 +430,7 @@ void SdlNetPeerState::DispatchMessage( Conn* c, const unsigned char* body, unsig
 	}
 	c->tokens -= cost;
 
-	std::map<std::string, void ( * )( SdlNetMessage* )>::iterator it = handlers.find( name );
+	std::map<std::string, MessageRegistration>::iterator it = handlers.find( name );
 	if ( it == handlers.end() )
 		return;   // unknown legacy message name: ignore
 
@@ -405,7 +444,13 @@ void SdlNetPeerState::DispatchMessage( Conn* c, const unsigned char* body, unsig
 	params.data = buf.data();
 	params.size = payloadLen;
 	params.sender = c->addr;
-	it->second( &params );
+	// Copy before invoking: the callback may replace its own registration or
+	// request peer shutdown, both of which can invalidate the map entry.
+	const MessageRegistration registration = it->second;
+	if ( registration.handler )
+		registration.handler( &params );
+	else if ( registration.contextHandler )
+		registration.contextHandler( &params, registration.context );
 }
 
 bool SdlNetPeerState::HandleFileFrame( Conn* c, const unsigned char* body, unsigned int len )
@@ -709,6 +754,7 @@ void SdlNetPeerState::PumpSockets()
 			Conn* c = new Conn();
 			c->sock = connecting;
 			c->addr = serverAddr;
+			c->tokens = static_cast<double>(inboundMessageBurstBytes);
 			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
 			connecting = nullptr;
@@ -738,9 +784,21 @@ void SdlNetPeerState::PumpSockets()
 			}
 			if ( !s )
 				break;   // no pending client
+			const bool loopback = IsLoopbackSocket(s);
 			unsigned int live = 0;
-			for ( Conn* c : conns ) if ( c->open ) ++live;
-			if ( live >= maxIncoming )
+			unsigned int liveNonLoopback = 0;
+			for (Conn* c : conns)
+			{
+				if (!c->open) continue;
+				++live;
+				if (!c->loopback) ++liveNonLoopback;
+			}
+			const unsigned int nonLoopbackLimit =
+				maxIncoming > reservedIncomingLoopbackConnections
+					? maxIncoming - reservedIncomingLoopbackConnections
+					: 0;
+			if (live >= maxIncoming ||
+				(!loopback && liveNonLoopback >= nonLoopbackLimit))
 			{
 				// refuse: tell them why, then drop -- without blocking the game loop.
 				std::vector<unsigned char> f;
@@ -753,6 +811,9 @@ void SdlNetPeerState::PumpSockets()
 			Conn* c = new Conn();
 			c->sock = s;
 			c->addr = MakeConnectionId();
+			c->loopback = loopback;
+			c->incomingEventReturned = false;
+			c->tokens = static_cast<double>(inboundMessageBurstBytes);
 			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
 			Synthesize( SDLNET_NEW_INCOMING_CONNECTION, c->addr );
@@ -764,8 +825,8 @@ void SdlNetPeerState::PumpSockets()
 	for ( size_t i = 0; i < conns.size() && !shutdownPending && !detachPending; ++i )
 	{
 		Conn* c = conns[i];
-		if ( !c->open || !c->sock )
-			continue;
+			if ( !c->open || !c->sock || !c->incomingEventReturned )
+				continue;
 		unsigned char tmp[8192];
 		size_t readThisPass = 0;
 		for ( ;; )
@@ -857,6 +918,9 @@ bool SdlNetPeer::Start(
 {
 	if ( state_->started )
 		return true;
+	if (endpoint.port != 0 &&
+		state_->reservedIncomingLoopbackConnections > maxConnections)
+		return false;
 	if ( !NetRef() )
 		return false;
 	state_->netRef = true;
@@ -1033,6 +1097,13 @@ SdlNetEvent* SdlNetPeer::Poll()
 		return nullptr;
 	SdlNetEvent* p = state_->q.front();
 	state_->q.pop_front();
+	if (p->size != 0 && p->data &&
+		p->data[0] == SDLNET_NEW_INCOMING_CONNECTION)
+	{
+		Conn* connection = state_->Find(p->connection);
+		if (connection)
+			connection->incomingEventReturned = true;
+	}
 	return p;
 }
 
@@ -1049,7 +1120,21 @@ bool SdlNetPeer::RegisterMessage(
 {
 	if (!name || !handler)
 		return false;
-	state_->handlers[name] = handler;
+	SdlNetPeerState::MessageRegistration registration;
+	registration.handler = handler;
+	state_->handlers[name] = registration;
+	return true;
+}
+
+bool SdlNetPeer::RegisterMessage(const char* name,
+	SdlNetContextMessageHandler handler, void* context)
+{
+	if (!name || !handler)
+		return false;
+	SdlNetPeerState::MessageRegistration registration;
+	registration.contextHandler = handler;
+	registration.context = context;
+	state_->handlers[name] = registration;
 	return true;
 }
 
@@ -1089,6 +1174,48 @@ bool SdlNetPeer::SendMessage(const char* name, const void* data,
 		sentAny |= state_->SendFrame( c, FT_MESSAGE, body.data(), (unsigned int)body.size() );
 	}
 	return sentAny;
+}
+
+bool SdlNetPeer::PendingWriteBytes(
+	ConnectionId connection, std::size_t& bytes) noexcept
+{
+	if (!state_ || !state_->started) return false;
+	Conn* const peer = state_->Find(connection);
+	if (!peer || !peer->sock) return false;
+	const int pending = NET_GetStreamSocketPendingWrites(peer->sock);
+	if (pending < 0)
+	{
+		if (peer->open)
+			state_->Synthesize(SDLNET_CONNECTION_LOST, peer->addr);
+		peer->open = false;
+		peer->sentBye = true;
+		return false;
+	}
+	bytes = static_cast<std::size_t>(pending);
+	return true;
+}
+
+bool SdlNetPeer::SetInboundMessageBudget(
+	const SdlNetInboundMessageBudget& budget) noexcept
+{
+	if (!state_ || state_->started || budget.sustainedBytesPerSecond == 0 ||
+		budget.sustainedBytesPerSecond >
+			MaximumSdlNetInboundMessageRateBytesPerSecond ||
+		budget.burstBytes == 0 ||
+		budget.burstBytes > MaximumSdlNetInboundMessageBurstBytes)
+		return false;
+	state_->inboundMessageRateBytesPerSecond =
+		budget.sustainedBytesPerSecond;
+	state_->inboundMessageBurstBytes = budget.burstBytes;
+	return true;
+}
+
+bool SdlNetPeer::SetReservedIncomingLoopbackConnections(
+	std::uint16_t count) noexcept
+{
+	if (!state_ || state_->started) return false;
+	state_->reservedIncomingLoopbackConnections = count;
+	return true;
 }
 
 void SdlNetPeer::SetMaximumIncomingConnections(std::uint16_t numberAllowed)

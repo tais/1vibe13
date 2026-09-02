@@ -7,8 +7,10 @@
 #include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 
 #include "Animation Control.h"
+#include "Item Types.h"
 #include "SoldierRepository.h"
 #include "TacticalActor.h"
+#include "Soldier macros.h"
 #include "Strategic Movement.h"
 #include "StrategicSquadHost.h"
 #include "VehiclePassengerHost.h"
@@ -62,10 +64,56 @@ TacticalStance LegacyStance(const TacticalActor& soldier) noexcept
 	}
 }
 
-TacticalActorSnapshot LegacyState(
+std::optional<TacticalHandItemSnapshot> LegacyEquipmentSlotState(
+	const OBJECTTYPE& object) noexcept
+{
+	const bool emptyItem = object.usItem == NOTHING;
+	const bool emptyStack = object.ubNumberOfObjects == 0;
+	if (emptyItem || emptyStack)
+	{
+		if (emptyItem && emptyStack) return TacticalHandItemSnapshot{};
+		return std::nullopt;
+	}
+	if (object.usItem >= MAXITEMS || object.objectStack.empty())
+		return std::nullopt;
+
+	const StackedObjectData& first = object.objectStack.front();
+	TacticalHandItemSnapshot state;
+	state.item = object.usItem;
+	state.quantity = object.ubNumberOfObjects;
+	state.condition = first.data.objectStatus;
+	if ((Item[object.usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) != 0)
+	{
+		const ObjectDataStructs::OBJECT_GUN& gun = first.data.gun;
+		if (gun.usGunAmmoItem != NOTHING && gun.usGunAmmoItem >= MAXITEMS)
+			return std::nullopt;
+		state.ammunitionItem = gun.usGunAmmoItem;
+		state.ammunitionCount = gun.ubGunShotsLeft;
+		state.ammunitionCondition = gun.bGunAmmoStatus;
+		state.ammunitionState = true;
+		state.chambered =
+			(gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) != 0;
+	}
+	return state;
+}
+
+std::optional<TacticalActorSnapshot> LegacyState(
 	const TacticalActor& soldier) noexcept
 {
-	return TacticalActorSnapshot{
+	const std::optional<TacticalHandItemSnapshot> helmet =
+		LegacyEquipmentSlotState(soldier.inventory()[HELMETPOS]);
+	const std::optional<TacticalHandItemSnapshot> vest =
+		LegacyEquipmentSlotState(soldier.inventory()[VESTPOS]);
+	const std::optional<TacticalHandItemSnapshot> legs =
+		LegacyEquipmentSlotState(soldier.inventory()[LEGPOS]);
+	const std::optional<TacticalHandItemSnapshot> primaryHand =
+		LegacyEquipmentSlotState(soldier.inventory()[HANDPOS]);
+	const std::optional<TacticalHandItemSnapshot> secondaryHand =
+		LegacyEquipmentSlotState(soldier.inventory()[SECONDHANDPOS]);
+	if (!helmet || !vest || !legs || !primaryHand || !secondaryHand)
+		return std::nullopt;
+
+	TacticalActorSnapshot state{
 		LegacyIdentity(soldier),
 		static_cast<std::uint8_t>(soldier.roster().team()),
 		static_cast<std::uint16_t>(soldier.identity().profile()),
@@ -80,7 +128,11 @@ TacticalActorSnapshot LegacyState(
 		soldier.vitals().breath(),
 		soldier.vitals().maximumBreath(),
 		soldier.roster().active() != FALSE,
-		soldier.roster().inSector() != FALSE};
+		soldier.roster().inSector() != FALSE,
+		OK_ENEMY_MERC((&soldier)) != FALSE};
+	state.loadout = TacticalActorLoadoutSnapshot{
+		*helmet, *vest, *legs, *primaryHand, *secondaryHand};
+	return state;
 }
 
 void RebindRosterAfterRecordSwap(
@@ -163,8 +215,10 @@ bool AdoptJa2TacticalEntity(TacticalActor& soldier) noexcept
 		!GetJa2SoldierRepository().contains(entity.slot, soldier) ||
 		!soldier.roster().active())
 		return false;
+	const std::optional<TacticalActorSnapshot> state = LegacyState(soldier);
+	if (!state) return false;
 	if (!BoundDirectory()->activate(entity)) return false;
-	if (BoundDirectory()->publishState(LegacyState(soldier))) return true;
+	if (BoundDirectory()->publishState(*state)) return true;
 	(void)BoundDirectory()->release(entity);
 	return false;
 }
@@ -186,7 +240,8 @@ bool SynchronizeJa2TacticalEntityState(
 		!soldier.roster().active() ||
 		!BoundDirectory()->contains(entity))
 		return false;
-	return BoundDirectory()->publishState(LegacyState(soldier));
+	const std::optional<TacticalActorSnapshot> state = LegacyState(soldier);
+	return state && BoundDirectory()->publishState(*state);
 }
 
 bool SynchronizeJa2TacticalEntityStates() noexcept

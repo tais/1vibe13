@@ -34,6 +34,7 @@
 #define SDL_MAIN_HANDLED   // this file owns main(), not SDL
 #include <SDL3/SDL.h>
 #include "TacticalWorldAdapter.h"
+#include "TacticalInterruptHost.h"
 
 #include <algorithm>
 #include <array>
@@ -133,10 +134,13 @@
 #include "CampaignNpcPolicy.h"
 #include "CampaignProgressPolicy.h"
 #include "CampaignStrategicContentPolicy.h"
+#include "DedicatedServerOptions.h"
+#include "DedicatedCoopTacticalHost.h"
 #include "GameContext.h"
 #include "GameVersion.h"
 #include "gameloop.h"
 #include "SaveLoadGame.h"
+#include "faces.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
@@ -149,8 +153,10 @@
 #include "Simulation Commands.h"
 #include "Squads.h"
 #include "StrategicGroupHost.h"
+#include "Strategic AI.h"
 #include "StrategicSquadHost.h"
 #include "TacticalCommandHost.h"
+#include "TeamTurns.h"
 #include "TacticalDoorUiAdapter.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInventoryUiLegacy.h"
@@ -162,6 +168,8 @@
 #include "Merc Contract.h"
 #include "Militia Control.h"
 #include "PreBattle Interface.h"
+#include "Queen Command.h"
+#include "Reinforcement.h"
 #include "Game Clock.h"
 #include "Game Events.h"
 #include "GameSettings.h"
@@ -186,7 +194,9 @@
 #include "Soldier Palette.h"
 #include "Soldier Profile.h"
 #include "Interface.h"
+#include "Handle Doors.h"
 #include "Handle Items.h"
+#include "Keys.h"
 #include "Store Inventory.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
@@ -240,13 +250,24 @@
 #include "World Tile Map.h"
 #include "worlddef.h"
 #include "worldman.h"
+#include "structure.h"
+#include "Structure Internals.h"
+#include "TileDat.h"
 #include "PATHAI.H"
 #include "lighting.h"
 #include "connect.h"
+#include "fresh_header.h"
+#include "InterruptWire.h"
+#include "LegacyServerIngress.h"
+#include "network.h"
+#include "SoldierRepository.h"
+#include "SdlNetTransport.h"
 #include "Overhead.h"
+#include "opplist.h"
 #include "soldier tile.h"
 #include "ai.h"
 #include "Vehicles.h"
+#include "Explosion Control.h"
 #include "World Items.h"
 #include "Strategic Movement.h"
 #include "strategicmap.h"
@@ -295,6 +316,8 @@ static BOOLEAN gInjectedFastForwardKeyDown = FALSE;
 
 extern VIDEO_OVERLAY gVideoOverlays[];
 extern UINT32 guiNumVideoOverlays;
+extern UINT32 guiArrived;
+extern UINT32 guiMilitiaArrived;
 
 static_assert(RPC65 == 65 && DYNAMO == 66 && SHANK == 67,
 	"semantic campaign profiles must not shift the legacy profile layout");
@@ -3045,7 +3068,7 @@ static std::vector<std::uint64_t> SubmitHeadlessTacticalTurn(
 			SimulationCommandSource::System}}));
 	sequences.push_back(runtime.submitCommand(
 		1, SimulationCommand{SynchronizeActorStopCommand{
-			opponent, 390, 20, 30, 6, true,
+			opponent, GETWORLDINDEXFROMWORLDCOORDS( 30, 20 ), 20, 30, 6, true,
 			SimulationCommandSource::NetworkPeer}}));
 	sequences.push_back(runtime.submitCommand(
 		2, SimulationCommand{SetStealthModeCommand{
@@ -3081,12 +3104,44 @@ static int RunStrictRuntimeExecutionTests()
 		"strict runtime test observes the exact installed RNG identity");
 	if (simulation == nullptr) return 1;
 
+	{
+		GAME_SETTINGS externalSettings = {};
+		GAME_OPTIONS externalOptions = {};
+		MemoryByteStorage externalStorage;
+		EngineServices externalServices{
+			ZeroTimeSource::instance(), *simulation, externalStorage};
+		GameContext externalContext(
+			externalSettings, externalOptions, GameCapabilities{},
+			externalServices);
+		TestLifecyclePackage externalCampaign(
+			"fixture.external-coop-campaign", PackageKind::Campaign);
+		const bool externalActive =
+			externalContext.packages().registerPackage(externalCampaign) ==
+				PackageRegistrationError::None &&
+			externalContext.packages().activate(
+				"fixture.external-coop-campaign") ==
+				PackageActivationError::None;
+		DedicatedCoopTacticalJa2LiveState tacticalState(externalContext);
+		CHECK(externalActive &&
+		       externalContext.packages().activeCampaign() ==
+		           "fixture.external-coop-campaign" &&
+		       tacticalState.campaignPackageActive(
+		           "fixture.external-coop-campaign") &&
+		       !tacticalState.campaignPackageActive(
+		           GetCompiledCampaignPackage().descriptor().content.id),
+		       "dedicated co-op tactical state accepts the selected external campaign package identity");
+	}
+
 	GAME_SETTINGS settings = {};
 	GAME_OPTIONS options = {};
 	MemoryByteStorage storage;
 	EngineServices services{
 		ZeroTimeSource::instance(), *simulation, storage};
-	GameContext context(settings, options, GameCapabilities{}, services);
+	GameContext context(settings, options, GameCapabilities{}, services,
+		NullPackageEventSink::instance(), simulation->campaignSeed());
+	CHECK(context.runtime().packageRandomHostSeed() ==
+		simulation->campaignSeed(),
+		"strict runtime binds the package RNG root to the campaign seed");
 	const bool ready = context.beginInitialization() &&
 		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
 		context.markRunning();
@@ -3951,10 +4006,3763 @@ static int RunStrictRuntimeExecutionTests()
 			"strict save rejects stateful packages before callbacks, storage, RNG mutation, or transaction ownership");
 	}
 
+	{
+		const std::filesystem::path fixtureRoot =
+			std::filesystem::temp_directory_path() /
+			("ja2-face-reconstruction-rng-" + std::to_string(
+				static_cast<unsigned long long>(
+					std::chrono::steady_clock::now().time_since_epoch().count())));
+		const std::filesystem::path facesRoot = fixtureRoot / "FACES";
+		std::error_code fixtureError;
+		const bool fixtureDirectoryReady =
+			std::filesystem::create_directories(facesRoot, fixtureError) &&
+			!fixtureError;
+		const bool memoryReady = InitializeMemoryManager() != FALSE;
+
+		const std::string profileName = "strict-face-reconstruction";
+		vfs_init::VfsConfig vfsConfig;
+		vfs_init::Profile* profile = new vfs_init::Profile();
+		profile->m_name = vfs::String(profileName.c_str());
+		profile->m_root = vfs::Path(fixtureRoot.generic_u8string());
+		profile->m_writable = true;
+		vfsConfig.addProfile(profile, true);
+		const bool vfsReady = fixtureDirectoryReady && memoryReady &&
+			vfs_init::initVirtualFileSystem(vfsConfig);
+		const bool fileManagerReady = vfsReady && InitializeFileManager(nullptr);
+		const bool videoObjectsReady =
+			fileManagerReady && InitializeVideoObjectManager();
+
+		std::array<SGPPaletteEntry, 256> palette{};
+		palette[1].peRed = 64;
+		palette[1].peGreen = 96;
+		palette[1].peBlue = 128;
+		const std::array<INT8, 1> pixel = { 1 };
+		CHAR8 faceAssetPath[] = "FACES\\01.sti";
+		const bool faceAssetReady = videoObjectsReady && TryWriteSTIFile(
+			pixel.data(), palette.data(), 1, 1,
+			faceAssetPath,
+			CONVERT_ETRLE_COMPRESS, 0) != FALSE;
+
+		constexpr UINT8 TestProfile = 0;
+		const MERCPROFILESTRUCT savedProfile = gMercProfiles[TestProfile];
+		const BOOLEAN savedCamouflageFaces =
+			gGameExternalOptions.fShowCamouflageFaces;
+		gGameExternalOptions.fShowCamouflageFaces = FALSE;
+		gMercProfiles[TestProfile].Type = PROFILETYPE_AIM;
+		gMercProfiles[TestProfile].ubFaceIndex = 1;
+		gMercProfiles[TestProfile].uiBlinkFrequency = 3000;
+		gMercProfiles[TestProfile].uiExpressionFrequency = 2000;
+
+		TacticalActor soldier;
+		soldier.identity().id() = SoldierID{ 0 };
+		soldier.identity().profile() = TestProfile;
+		soldier.roster().team() = OUR_TEAM;
+		soldier.roster().active() = TRUE;
+		soldier.renderBindings().faceIndex() = -1;
+
+		INT32 scopedFace = -1;
+		bool scopedFaceAllocated = false;
+		bool scopedRandomUntouched = false;
+		if (faceAssetReady)
+		{
+			const SimulationRandomCheckpoint scopedCheckpoint =
+				simulation->checkpoint();
+			const std::uint64_t scopedEpoch = simulation->consumptionEpoch();
+			{
+				ScopedSavedGameFaceReconstruction reconstruction(true);
+				scopedFace = InitSoldierFace(&soldier);
+			}
+			scopedFaceAllocated =
+				scopedFace >= 0 && gFacesData[scopedFace].fAllocated &&
+				gFacesData[scopedFace].uiBlinkFrequency == 3000 &&
+				gFacesData[scopedFace].uiExpressionFrequency == 2000 &&
+				gFacesData[scopedFace].uiEyeDelay == 50;
+			scopedRandomUntouched =
+				simulation->checkpoint() == scopedCheckpoint &&
+				simulation->consumptionEpoch() == scopedEpoch;
+		}
+		if (scopedFace >= 0)
+		{
+			DeleteFace(scopedFace);
+			soldier.renderBindings().faceIndex() = -1;
+		}
+
+		INT32 ordinaryFace = -1;
+		bool ordinaryFaceAllocated = false;
+		bool ordinaryRandomAdvanced = false;
+		if (faceAssetReady)
+		{
+			const SimulationRandomCheckpoint ordinaryCheckpoint =
+				simulation->checkpoint();
+			const std::uint64_t ordinaryEpoch = simulation->consumptionEpoch();
+			ordinaryFace = InitSoldierFace(&soldier);
+			ordinaryFaceAllocated =
+				ordinaryFace >= 0 && gFacesData[ordinaryFace].fAllocated;
+			ordinaryRandomAdvanced =
+				simulation->checkpoint() != ordinaryCheckpoint &&
+				simulation->consumptionEpoch() >= ordinaryEpoch + 3;
+		}
+		if (ordinaryFace >= 0)
+		{
+			DeleteFace(ordinaryFace);
+			soldier.renderBindings().faceIndex() = -1;
+		}
+
+		gMercProfiles[TestProfile] = savedProfile;
+		gGameExternalOptions.fShowCamouflageFaces = savedCamouflageFaces;
+		if (videoObjectsReady) ShutdownVideoObjectManager();
+		if (fileManagerReady) ShutdownFileManager();
+		if (vfsReady)
+			getVFS()->getProfileStack()->removeProfile(
+				vfs::String(profileName.c_str()));
+		if (memoryReady) ShutdownMemoryManager();
+		std::filesystem::remove_all(fixtureRoot, fixtureError);
+
+		CHECK(faceAssetReady && scopedFaceAllocated && scopedRandomUntouched &&
+			ordinaryFaceAllocated && ordinaryRandomAdvanced,
+			"dedicated face reconstruction allocates profile-base presentation timing without consuming canonical RNG while ordinary face creation retains all three legacy draws");
+	}
+
 	std::printf("\n%s  (%d failure%s)\n",
 		g_failures ? "STRICT RUNTIME TESTS FAILED" :
 			"STRICT RUNTIME TESTS PASSED",
 		g_failures, g_failures == 1 ? "" : "s");
+	return g_failures ? 1 : 0;
+}
+
+using ja2::mp::AnyConnection;
+using ja2::mp::ConnectionId;
+using ja2::mp::InvalidLegacyAdmissionSlot;
+using ja2::mp::LegacyAdmissionRegistry;
+using ja2::mp::net::CreateSdlNetPeer;
+using ja2::mp::net::DestroySdlNetPeer;
+using ja2::mp::net::SDLNET_CONNECTION_ACCEPTED;
+using ja2::mp::net::SDLNET_CONNECTION_ATTEMPT_FAILED;
+using ja2::mp::net::SDLNET_CONNECTION_LOST;
+using ja2::mp::net::SDLNET_DISCONNECTION_NOTIFICATION;
+using ja2::mp::net::SDLNET_NEW_INCOMING_CONNECTION;
+using ja2::mp::net::SDLNET_NO_FREE_INCOMING_CONNECTIONS;
+using ja2::mp::net::SdlNetEndpoint;
+using ja2::mp::net::SdlNetEvent;
+using ja2::mp::net::SdlNetMessage;
+using ja2::mp::net::SdlNetPeer;
+
+extern SdlNetPeer* server;
+extern LegacyAdmissionRegistry gLegacyClientAdmission;
+extern std::array<bool, ja2::mp::LegacyArenaClientCapacity>
+	gLegacyTeamWiped;
+extern UINT8 gSyncGameDirectory;
+extern UINT8 gMaxClients;
+extern UINT8 gMaxMercs;
+extern UINT8 gGameType;
+void requestSETTINGS( SdlNetMessage* message );
+void claimEmbeddedHost( SdlNetMessage* message );
+void sendREADY( SdlNetMessage* message );
+void sendGUI( SdlNetMessage* message );
+void sendHIRE( SdlNetMessage* message );
+void sendDISMISS( SdlNetMessage* message );
+void sendEndTurn( SdlNetMessage* message );
+void sendPATH( SdlNetMessage* message );
+void sendSTANCE( SdlNetMessage* message );
+void sendFIRE( SdlNetMessage* message );
+void sendATTACKSTART( SdlNetMessage* message );
+void sendSTOP( SdlNetMessage* message );
+void sendFIREW( SdlNetMessage* message );
+void sendBULLET( SdlNetMessage* message );
+void sendINTERRUPT( SdlNetMessage* message );
+void endINTERRUPT( SdlNetMessage* message );
+void recieveINTERRUPT( SdlNetMessage* message );
+void resume_turn( SdlNetMessage* message );
+void sendGRENADE( SdlNetMessage* message );
+void sendPLANTEXPLOSIVE( SdlNetMessage* message );
+void sendDETONATEEXPLOSIVE( SdlNetMessage* message );
+void sendDISARMEXPLOSIVE( SdlNetMessage* message );
+void recieveDETONATEEXPLOSIVE( SdlNetMessage* message );
+void recieveDISARMEXPLOSIVE( SdlNetMessage* message );
+void sendWIPE( SdlNetMessage* message );
+void sendHEAL( SdlNetMessage* message );
+void sendDEATH( SdlNetMessage* message );
+void startCOMBAT( SdlNetMessage* message );
+void HandleDisconnect( ConnectionId sender );
+
+struct LegacyHostLoopbackClient
+{
+	SdlNetPeer* peer = nullptr;
+	ConnectionId hostConnection;
+	ConnectionId serverConnection;
+	bool accepted = false;
+	bool closed = false;
+	int malformedSettings = 0;
+	int malformedReady = 0;
+	int malformedGui = 0;
+	int malformedHire = 0;
+	int malformedDismiss = 0;
+	int malformedTurn = 0;
+	int malformedPath = 0;
+	int malformedStance = 0;
+	int malformedFire = 0;
+	int malformedStop = 0;
+	int malformedFireWeapon = 0;
+	int malformedBullet = 0;
+	int malformedInterrupt = 0;
+	int malformedResume = 0;
+	int malformedGrenade = 0;
+	int malformedPlant = 0;
+	int malformedDetonation = 0;
+	int malformedDisarm = 0;
+	int malformedWipe = 0;
+	int malformedHeal = 0;
+	int malformedDeath = 0;
+	unsigned int barrierAcks = 0;
+	std::vector<settings_struct> settings;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyReadyPayloadBytes>> ready;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyReadyPayloadBytes>> gui;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyHirePayloadBytes>> hires;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyDismissPayloadBytes>> dismissals;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyTurnPayloadBytes>> turns;
+	std::vector<char> causalEvents;
+	std::size_t paths = 0;
+	std::size_t stances = 0;
+	std::size_t fires = 0;
+	std::vector<EV_S_STOP_MERC> stops;
+	std::size_t fireWeapons = 0;
+	std::size_t bullets = 0;
+	std::vector<std::vector<std::uint8_t>> interrupts;
+	std::vector<std::vector<std::uint8_t>> resumes;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyGrenadePayloadBytes>> grenades;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyPlantExplosivePayloadBytes>> plants;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyDetonateExplosivePayloadBytes>> detonations;
+	std::vector<std::array<std::uint8_t,
+		ja2::mp::LegacyDisarmExplosivePayloadBytes>> disarms;
+	std::vector<std::array<std::uint8_t, sizeof( sc_struct )>> wipes;
+	std::vector<std::array<std::uint8_t, sizeof( heal )>> heals;
+	std::vector<death_struct> deaths;
+};
+
+static void CaptureLegacyHostSettings( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( settings_struct ) )
+	{
+		if ( client ) ++client->malformedSettings;
+		return;
+	}
+	settings_struct settings = {};
+	std::memcpy( &settings, message->data, sizeof( settings ) );
+	client->settings.push_back( settings );
+}
+
+static void CaptureLegacyHostReady( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyReadyPayloadBytes )
+	{
+		if ( client ) ++client->malformedReady;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyReadyPayloadBytes> ready = {};
+	std::memcpy( ready.data(), message->data, ready.size() );
+	client->ready.push_back( ready );
+}
+
+static void CaptureLegacyHostGui( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyReadyPayloadBytes )
+	{
+		if ( client ) ++client->malformedGui;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyReadyPayloadBytes> gui = {};
+	std::memcpy( gui.data(), message->data, gui.size() );
+	client->gui.push_back( gui );
+}
+
+static std::size_t CountLegacyHostGuiStage(
+	const LegacyHostLoopbackClient& client, std::uint8_t stage )
+{
+	return static_cast<std::size_t>( std::count_if(
+		client.gui.begin(), client.gui.end(), [stage]( const auto& update ) {
+			return update[1] == 1 && update[2] == stage;
+		} ) );
+}
+
+static void CaptureLegacyHostHire( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyHirePayloadBytes )
+	{
+		if ( client ) ++client->malformedHire;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyHirePayloadBytes> hire = {};
+	std::memcpy( hire.data(), message->data, hire.size() );
+	client->hires.push_back( hire );
+}
+
+static void CaptureLegacyHostDismiss( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyDismissPayloadBytes )
+	{
+		if ( client ) ++client->malformedDismiss;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyDismissPayloadBytes> dismissal = {};
+	std::memcpy( dismissal.data(), message->data, dismissal.size() );
+	client->dismissals.push_back( dismissal );
+}
+
+static void CaptureLegacyHostTurn( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyTurnPayloadBytes )
+	{
+		if ( client ) ++client->malformedTurn;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyTurnPayloadBytes> turn = {};
+	std::memcpy( turn.data(), message->data, turn.size() );
+	client->turns.push_back( turn );
+	client->causalEvents.push_back( 'T' );
+}
+
+static void CaptureLegacyHostStop( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( EV_S_STOP_MERC ) )
+	{
+		if ( client ) ++client->malformedStop;
+		return;
+	}
+	EV_S_STOP_MERC stop = {};
+	std::memcpy( &stop, message->data, sizeof( stop ) );
+	client->stops.push_back( stop );
+}
+
+static void CaptureLegacyHostPath( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != sizeof( EV_S_SENDPATHTONETWORK ) )
+	{
+		if ( client ) ++client->malformedPath;
+		return;
+	}
+	++client->paths;
+}
+
+static void CaptureLegacyHostStance( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( EV_S_CHANGESTANCE ) )
+	{
+		if ( client ) ++client->malformedStance;
+		return;
+	}
+	++client->stances;
+}
+
+static void CaptureLegacyHostFire( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != sizeof( EV_S_BEGINFIREWEAPON ) )
+	{
+		if ( client ) ++client->malformedFire;
+		return;
+	}
+	++client->fires;
+}
+
+static void CaptureLegacyHostFireWeapon(
+	SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( EV_S_FIREWEAPON ) )
+	{
+		if ( client ) ++client->malformedFireWeapon;
+		return;
+	}
+	++client->fireWeapons;
+}
+
+static void CaptureLegacyHostBullet( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyBulletPayloadBytes )
+	{
+		if ( client ) ++client->malformedBullet;
+		return;
+	}
+	++client->bullets;
+}
+
+static void CaptureLegacyHostInterrupt(
+	SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || !MpInterruptWire::Validate(
+			message->data, message->size, false ) )
+	{
+		if ( client ) ++client->malformedInterrupt;
+		return;
+	}
+	client->interrupts.emplace_back(
+		message->data, message->data + message->size );
+	client->causalEvents.push_back( 'I' );
+}
+
+static void CaptureLegacyHostResume( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || !MpInterruptWire::Validate(
+			message->data, message->size, true ) )
+	{
+		if ( client ) ++client->malformedResume;
+		return;
+	}
+	client->resumes.emplace_back(
+		message->data, message->data + message->size );
+	client->causalEvents.push_back( 'R' );
+}
+
+static void CaptureLegacyHostGrenade( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyGrenadePayloadBytes )
+	{
+		if ( client ) ++client->malformedGrenade;
+		return;
+	}
+	std::array<std::uint8_t, ja2::mp::LegacyGrenadePayloadBytes> grenade = {};
+	std::memcpy( grenade.data(), message->data, grenade.size() );
+	client->grenades.push_back( grenade );
+}
+
+static void CaptureLegacyHostPlant( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyPlantExplosivePayloadBytes )
+	{
+		if ( client ) ++client->malformedPlant;
+		return;
+	}
+	std::array<std::uint8_t,
+		ja2::mp::LegacyPlantExplosivePayloadBytes> plant = {};
+	std::memcpy( plant.data(), message->data, plant.size() );
+	client->plants.push_back( plant );
+}
+
+static void CaptureLegacyHostDetonation(
+	SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyDetonateExplosivePayloadBytes )
+	{
+		if ( client ) ++client->malformedDetonation;
+		return;
+	}
+	std::array<std::uint8_t,
+		ja2::mp::LegacyDetonateExplosivePayloadBytes> detonation = {};
+	std::memcpy( detonation.data(), message->data, detonation.size() );
+	client->detonations.push_back( detonation );
+}
+
+static void CaptureLegacyHostDisarm( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message ||
+	     message->size != ja2::mp::LegacyDisarmExplosivePayloadBytes )
+	{
+		if ( client ) ++client->malformedDisarm;
+		return;
+	}
+	std::array<std::uint8_t,
+		ja2::mp::LegacyDisarmExplosivePayloadBytes> disarm = {};
+	std::memcpy( disarm.data(), message->data, disarm.size() );
+	client->disarms.push_back( disarm );
+}
+
+static void CaptureLegacyHostWipe( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( sc_struct ) )
+	{
+		if ( client ) ++client->malformedWipe;
+		return;
+	}
+	std::array<std::uint8_t, sizeof( sc_struct )> wipe = {};
+	std::memcpy( wipe.data(), message->data, wipe.size() );
+	client->wipes.push_back( wipe );
+}
+
+static void CaptureLegacyHostHeal( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( heal ) )
+	{
+		if ( client ) ++client->malformedHeal;
+		return;
+	}
+	std::array<std::uint8_t, sizeof( heal )> healing = {};
+	std::memcpy( healing.data(), message->data, healing.size() );
+	client->heals.push_back( healing );
+}
+
+static void CaptureLegacyHostDeath( SdlNetMessage* message, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( !client || !message || message->size != sizeof( death_struct ) )
+	{
+		if ( client ) ++client->malformedDeath;
+		return;
+	}
+	death_struct death = {};
+	std::memcpy( &death, message->data, sizeof( death ) );
+	client->deaths.push_back( death );
+}
+
+static void CaptureLegacyHostBarrier( SdlNetMessage* message, void* context )
+{
+	if ( context ) ++*static_cast<unsigned int*>( context );
+	if ( server && message )
+		server->SendMessage(
+			"legacy.headless.barrier.ack", nullptr, 0,
+			message->sender, false );
+}
+
+static void CaptureLegacyHostBarrierAck( SdlNetMessage*, void* context )
+{
+	LegacyHostLoopbackClient* client =
+		static_cast<LegacyHostLoopbackClient*>( context );
+	if ( client ) ++client->barrierAcks;
+}
+
+static void PumpLegacyHostPeer(
+	SdlNetPeer* host, std::vector<ConnectionId>& incoming )
+{
+	for ( SdlNetEvent* event = host ? host->Poll() : nullptr;
+	      event; event = host->Poll() )
+	{
+		if ( event->size != 0 && event->data &&
+		     event->data[0] == SDLNET_NEW_INCOMING_CONNECTION )
+			incoming.push_back( event->connection );
+		host->Release( event );
+	}
+}
+
+static void PumpLegacyHostClient( LegacyHostLoopbackClient& client )
+{
+	for ( SdlNetEvent* event = client.peer ? client.peer->Poll() : nullptr;
+	      event; event = client.peer->Poll() )
+	{
+		const std::uint8_t code =
+			event->size != 0 && event->data ? event->data[0] : 0;
+		if ( code == SDLNET_CONNECTION_ACCEPTED )
+		{
+			client.accepted = true;
+			client.serverConnection = event->connection;
+		}
+		if ( code == SDLNET_DISCONNECTION_NOTIFICATION ||
+		     code == SDLNET_CONNECTION_LOST ||
+		     code == SDLNET_CONNECTION_ATTEMPT_FAILED ||
+		     code == SDLNET_NO_FREE_INCOMING_CONNECTIONS )
+			client.closed = true;
+		client.peer->Release( event );
+	}
+}
+
+template <typename Predicate>
+static bool PumpLegacyHostUntil(
+	SdlNetPeer* host, std::vector<ConnectionId>& incoming,
+	const std::vector<LegacyHostLoopbackClient*>& clients,
+	Predicate predicate, unsigned int timeoutMilliseconds = 5000 )
+{
+	const Uint64 start = SDL_GetTicks();
+	for ( ;; )
+	{
+		PumpLegacyHostPeer( host, incoming );
+		for ( LegacyHostLoopbackClient* client : clients )
+			if ( client ) PumpLegacyHostClient( *client );
+		if ( predicate() ) return true;
+		if ( SDL_GetTicks() - start >= timeoutMilliseconds ) return false;
+		SDL_Delay( 2 );
+	}
+}
+
+static bool StartLegacyHostClient(
+	LegacyHostLoopbackClient& client, unsigned short port,
+	SdlNetPeer* host, std::vector<ConnectionId>& incoming,
+	const std::vector<LegacyHostLoopbackClient*>& clients )
+{
+	const std::size_t incomingBefore = incoming.size();
+	client.peer = CreateSdlNetPeer();
+	SdlNetEndpoint localEndpoint;
+	if ( !client.peer || !client.peer->Start( 1, localEndpoint ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveSETTINGS", CaptureLegacyHostSettings, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveREADY", CaptureLegacyHostReady, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveGUI", CaptureLegacyHostGui, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveHIRE", CaptureLegacyHostHire, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieveDISMISS", CaptureLegacyHostDismiss, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveEndTurn", CaptureLegacyHostTurn, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recievePATH", CaptureLegacyHostPath, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveSTANCE", CaptureLegacyHostStance, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveFIRE", CaptureLegacyHostFire, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveSTOP", CaptureLegacyHostStop, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieve_fireweapon", CaptureLegacyHostFireWeapon, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveBULLET", CaptureLegacyHostBullet, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveINTERRUPT", CaptureLegacyHostInterrupt, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "resume_turn", CaptureLegacyHostResume, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieveGRENADE", CaptureLegacyHostGrenade, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recievePLANTEXPLOSIVE", CaptureLegacyHostPlant, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieveDETONATEEXPLOSIVE",
+			     CaptureLegacyHostDetonation, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieveDISARMEXPLOSIVE", CaptureLegacyHostDisarm, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieve_wipe", CaptureLegacyHostWipe, &client ) ||
+		     !client.peer->RegisterMessage(
+			     "recieve_heal", CaptureLegacyHostHeal, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "recieveDEATH", CaptureLegacyHostDeath, &client ) ||
+	     !client.peer->RegisterMessage(
+		     "legacy.headless.barrier.ack",
+		     CaptureLegacyHostBarrierAck, &client ) ||
+	     !client.peer->Connect( "127.0.0.1", port ) )
+		return false;
+	const bool connected = PumpLegacyHostUntil(
+		host, incoming, clients, [&] {
+			return client.accepted && incoming.size() > incomingBefore;
+		} );
+	if ( connected ) client.hostConnection = incoming[incomingBefore];
+	return connected;
+}
+
+static client_info LegacyHostClientInfo( const char* name )
+{
+	client_info info = {};
+	std::strncpy( info.client_name, name, sizeof( info.client_name ) - 1 );
+	std::strncpy(
+		info.client_version, MPVERSION, sizeof( info.client_version ) - 1 );
+	info.team = 0;
+	info.cl_edge = 0;
+	return info;
+}
+
+static bool FlushLegacyHostIngress(
+	LegacyHostLoopbackClient& sender,
+	SdlNetPeer* host, std::vector<ConnectionId>& incoming,
+	const std::vector<LegacyHostLoopbackClient*>& clients )
+{
+	const unsigned int before = sender.barrierAcks;
+	if ( !sender.peer->SendMessage(
+		     "legacy.headless.barrier", nullptr, 0, AnyConnection, true ) )
+		return false;
+	return PumpLegacyHostUntil(
+		host, incoming, clients,
+		[&] { return sender.barrierAcks > before; } );
+}
+
+static void StopLegacyHostClient( LegacyHostLoopbackClient& client )
+{
+	if ( !client.peer ) return;
+	client.peer->Shutdown( 0 );
+	DestroySdlNetPeer( client.peer );
+	client.peer = nullptr;
+}
+
+static int RunLegacyEmbeddedHostLoopbackTests()
+{
+	std::printf(
+		"== ja2_headless_tests: authenticated embedded legacy host ==\n" );
+	if ( !SDL_Init( 0 ) )
+	{
+		std::printf( "FAIL SDL_Init: %s\n", SDL_GetError() );
+		return 1;
+	}
+
+	allowlaptop = false;
+	gfDedicatedServer = FALSE;
+	// This focused mode intentionally skips the data/XML boot performed by the
+	// full harness.  Give the embedded ingress the same loaded item-domain bound
+	// a real host has before exercising explosive validation.
+	gMAXITEMS_READ = MAXITEMS;
+	gSyncGameDirectory = 0;
+	gMaxClients = 4;
+	gMaxMercs = 6;
+	gGameType = MP_TYPE_DEATHMATCH;
+	gRandomStartingEdge = 0;
+	gRandomMercs = 0;
+	SetJa2TacticalCombatMode( false );
+	SetJa2TacticalCurrentTeam( 0 );
+	ResetJa2TacticalTeamPopulations();
+	std::memset( client_names, 0, sizeof( client_names ) );
+	std::memset( client_teams, 0, sizeof( client_teams ) );
+	std::memset( client_edges, 0, sizeof( client_edges ) );
+	std::memset( cServerName, 0, sizeof( cServerName ) );
+	gTacticalStatus.Team[0].bFirstID = SoldierID{ 0 };
+	gTacticalStatus.Team[0].bLastID = SoldierID{ 19 };
+	gTacticalStatus.Team[1].bFirstID = SoldierID{ 20 };
+	gTacticalStatus.Team[1].bLastID = SoldierID{ 39 };
+	gTacticalStatus.Team[2].bFirstID = SoldierID{ 40 };
+	gTacticalStatus.Team[2].bLastID = SoldierID{ 59 };
+	gTacticalStatus.Team[6].bFirstID = SoldierID{ 120 };
+	gTacticalStatus.Team[6].bLastID = SoldierID{ 126 };
+	gTacticalStatus.Team[7].bFirstID = SoldierID{ 127 };
+	gTacticalStatus.Team[7].bLastID = SoldierID{ 133 };
+	std::strncpy(
+		cServerName, "Authenticated headless legacy host",
+		sizeof( cServerName ) - 1 );
+	gLegacyClientAdmission.clear();
+	ja2::mp::ResetLegacyEmbeddedHostClaim();
+
+	std::array<std::uint8_t,
+		ja2::mp::LegacyEmbeddedHostClaimBytes> hostClaim = {};
+	const bool prepared = ja2::mp::PrepareLegacyEmbeddedHostClaim();
+	const bool copied = prepared && ja2::mp::CopyLegacyEmbeddedHostClaim(
+		hostClaim.data(), hostClaim.size() );
+	CHECK( copied,
+	       "embedded host prepares and copies a fresh process-local claim" );
+
+	server = CreateSdlNetPeer();
+	if ( !server )
+	{
+		CHECK( false, "embedded legacy host transport is allocated" );
+		ja2::mp::ResetLegacyEmbeddedHostClaim();
+		SDL_Quit();
+		return 1;
+	}
+	CHECK( server->SetReservedIncomingLoopbackConnections( 1 ),
+	       "legacy listener reserves one transport slot for loopback authority" );
+	unsigned short port = 0;
+	const Uint64 seed = static_cast<Uint64>(
+		std::chrono::steady_clock::now().time_since_epoch().count() );
+	bool started = false;
+	for ( unsigned int attempt = 0; attempt < 128 && !started; ++attempt )
+	{
+		port = static_cast<unsigned short>(
+			40000 + ( seed + attempt ) % 20000 );
+		started = server->Start( 4, SdlNetEndpoint( port, "127.0.0.1" ) );
+	}
+	if ( !started )
+	{
+		std::printf( "SKIP loopback listener denied by execution sandbox\n" );
+		DestroySdlNetPeer( server );
+		server = nullptr;
+		ja2::mp::ResetLegacyEmbeddedHostClaim();
+		SDL_Quit();
+		return 77;
+	}
+	CHECK( !server->SetReservedIncomingLoopbackConnections( 1 ),
+	       "live listener cannot mutate its reserved loopback capacity" );
+	server->SetMaximumIncomingConnections( 4 );
+	unsigned int barriers = 0;
+	CHECK( server->RegisterMessage(
+		       "claimEmbeddedHost", claimEmbeddedHost ) &&
+	       server->RegisterMessage( "requestSETTINGS", requestSETTINGS ) &&
+	       server->RegisterMessage( "sendREADY", sendREADY ) &&
+		       server->RegisterMessage( "sendGUI", sendGUI ) &&
+		       server->RegisterMessage( "sendHIRE", sendHIRE ) &&
+	       server->RegisterMessage( "sendDISMISS", sendDISMISS ) &&
+	       server->RegisterMessage( "sendEndTurn", sendEndTurn ) &&
+	       server->RegisterMessage( "sendPATH", sendPATH ) &&
+	       server->RegisterMessage( "sendSTANCE", sendSTANCE ) &&
+	       server->RegisterMessage( "sendFIRE", sendFIRE ) &&
+	       server->RegisterMessage( "sendATTACKSTART", sendATTACKSTART ) &&
+	       server->RegisterMessage( "sendSTOP", sendSTOP ) &&
+	       server->RegisterMessage( "sendFIREW", sendFIREW ) &&
+	       server->RegisterMessage( "sendBULLET", sendBULLET ) &&
+	       server->RegisterMessage( "sendINTERRUPT", sendINTERRUPT ) &&
+		       server->RegisterMessage( "endINTERRUPT", endINTERRUPT ) &&
+		       server->RegisterMessage( "sendGRENADE", sendGRENADE ) &&
+		       server->RegisterMessage(
+			       "sendPLANTEXPLOSIVE", sendPLANTEXPLOSIVE ) &&
+		       server->RegisterMessage(
+			       "sendDETONATEEXPLOSIVE", sendDETONATEEXPLOSIVE ) &&
+		       server->RegisterMessage(
+			       "sendDISARMEXPLOSIVE", sendDISARMEXPLOSIVE ) &&
+		       server->RegisterMessage( "sendWIPE", sendWIPE ) &&
+		       server->RegisterMessage( "sendHEAL", sendHEAL ) &&
+		       server->RegisterMessage( "sendDEATH", sendDEATH ) &&
+		       server->RegisterMessage( "startCOMBAT", startCOMBAT ) &&
+	       server->RegisterMessage(
+		       "legacy.headless.barrier", CaptureLegacyHostBarrier, &barriers ),
+	       "real host-claim, admission, READY, and GUI callbacks register" );
+
+	LegacyHostLoopbackClient remote;
+	LegacyHostLoopbackClient host;
+	LegacyHostLoopbackClient loadedContributor;
+	LegacyHostLoopbackClient placedContributor;
+	LegacyHostLoopbackClient conflictingClaim;
+	LegacyHostLoopbackClient badClaim;
+	std::vector<ConnectionId> incoming;
+	std::vector<LegacyHostLoopbackClient*> clients = { &remote };
+	CHECK( StartLegacyHostClient(
+		remote, port, server, incoming, clients ),
+		"remote transport reaches the listener before the embedded host" );
+	client_info remoteInfo = LegacyHostClientInfo( "Early Remote" );
+	remoteInfo.team = 3;
+	if ( remote.accepted )
+	{
+		CHECK( remote.peer->SendMessage(
+			       "requestSETTINGS", &remoteInfo, sizeof( remoteInfo ),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote-first SETTINGS is processed before host connection" );
+		CHECK( !remote.closed && remote.settings.empty() &&
+		       gLegacyClientAdmission.find( remote.hostConnection ) ==
+		           InvalidLegacyAdmissionSlot,
+		       "remote-first admission remains live and deferred on the same socket" );
+	}
+
+	clients.push_back( &host );
+	CHECK( StartLegacyHostClient( host, port, server, incoming, clients ),
+	       "embedded host loopback connects behind the deferred remote" );
+	const client_info hostInfo = LegacyHostClientInfo( "Embedded Host" );
+	if ( host.accepted && copied )
+	{
+		CHECK( host.peer->SendMessage(
+			       "claimEmbeddedHost", hostClaim.data(), hostClaim.size(),
+			       host.serverConnection, false ) &&
+		       host.peer->SendMessage(
+			       "claimEmbeddedHost", hostClaim.data(), hostClaim.size(),
+			       host.serverConnection, false ) &&
+		       host.peer->SendMessage(
+			       "requestSETTINGS", &hostInfo, sizeof( hostInfo ),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.settings.size() >= 2 &&
+				              !remote.settings.empty();
+			       } ),
+		       "host claim is idempotent and host admission drains remote SETTINGS" );
+		CHECK( !host.closed && !remote.closed &&
+		       gLegacyClientAdmission.find( host.hostConnection ) == 0 &&
+		       gLegacyClientAdmission.find( remote.hostConnection ) == 1 &&
+		       !host.settings.empty() && !remote.settings.empty() &&
+		       host.settings.front().client_num == 1 &&
+		       std::strcmp(
+			       host.settings.front().client_name, "Embedded Host" ) == 0 &&
+		       remote.settings.back().client_num == 2 &&
+		       std::strcmp(
+			       remote.settings.back().client_name, "Early Remote" ) == 0,
+		       "claimed host owns slot 1 and the same deferred remote owns slot 2" );
+	}
+
+	if ( gLegacyClientAdmission.find( host.hostConnection ) == 0 &&
+	     gLegacyClientAdmission.find( remote.hostConnection ) == 1 )
+	{
+		const std::size_t hostSettingsBeforeDuplicate = host.settings.size();
+		const std::size_t remoteSettingsBeforeDuplicate = remote.settings.size();
+		CHECK( remote.peer->SendMessage(
+			       "requestSETTINGS", &remoteInfo, sizeof( remoteInfo ),
+			       AnyConnection, true ) &&
+		       host.peer->SendMessage(
+			       "requestSETTINGS", &hostInfo, sizeof( hostInfo ),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "duplicate admitted SETTINGS requests reach the real server" );
+		CHECK( host.settings.size() == hostSettingsBeforeDuplicate &&
+		       remote.settings.size() == remoteSettingsBeforeDuplicate,
+		       "duplicate SETTINGS neither reallocates nor republishes a player" );
+
+		clients.push_back( &loadedContributor );
+		CHECK( StartLegacyHostClient(
+			       loadedContributor, port, server, incoming, clients ),
+		       "loaded-contributor transport joins before the laptop phase" );
+		client_info loadedContributorInfo =
+			LegacyHostClientInfo( "Loaded Contributor" );
+		loadedContributorInfo.team = 1;
+		if ( loadedContributor.accepted )
+		{
+			CHECK( loadedContributor.peer->SendMessage(
+				       "requestSETTINGS", &loadedContributorInfo,
+				       sizeof( loadedContributorInfo ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return gLegacyClientAdmission.find(
+						       loadedContributor.hostConnection ) == 2;
+				       } ) &&
+			       FlushLegacyHostIngress(
+				       loadedContributor, server, incoming, clients ),
+			       "loaded contributor is admitted in the third player slot" );
+		}
+
+		clients.push_back( &placedContributor );
+		CHECK( StartLegacyHostClient(
+			       placedContributor, port, server, incoming, clients ),
+		       "placed-contributor transport fills the fourth player slot" );
+		client_info placedContributorInfo =
+			LegacyHostClientInfo( "Placed Contributor" );
+		placedContributorInfo.team = 2;
+		if ( placedContributor.accepted )
+		{
+			CHECK( placedContributor.peer->SendMessage(
+				       "requestSETTINGS", &placedContributorInfo,
+				       sizeof( placedContributorInfo ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return gLegacyClientAdmission.find(
+						       placedContributor.hostConnection ) == 3;
+				       } ) &&
+			       FlushLegacyHostIngress(
+				       placedContributor, server, incoming, clients ),
+			       "placed contributor is admitted in the fourth player slot" );
+		}
+		CHECK( gLegacyClientAdmission.find(
+			       loadedContributor.hostConnection ) == 2 &&
+		       gLegacyClientAdmission.find(
+			       placedContributor.hostConnection ) == 3,
+		       "both barrier contributors are authoritative participants" );
+
+		const std::size_t hostReadyBeforeLaptop = host.ready.size();
+		const std::size_t remoteReadyBeforeLaptop = remote.ready.size();
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> hostLaptop = { 98, 1, 36 };
+		CHECK( host.peer->SendMessage(
+			       "sendREADY", hostLaptop.data(), hostLaptop.size(),
+			       AnyConnection, true ) &&
+		       host.peer->SendMessage(
+			       "sendREADY", hostLaptop.data(), hostLaptop.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return remote.ready.size() ==
+				              remoteReadyBeforeLaptop + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "duplicate host laptop-unlock READY packets traverse ingress" );
+		CHECK( host.ready.size() == hostReadyBeforeLaptop &&
+		       remote.ready.size() == remoteReadyBeforeLaptop + 1 &&
+		       remote.ready.back()[0] == 1 && remote.ready.back()[1] == 1 &&
+		       remote.ready.back()[2] == 36,
+		       "host laptop-unlock READY is canonicalized and emitted once" );
+
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> contributorReady = { 0, 1, 0 };
+		CHECK( loadedContributor.peer && placedContributor.peer &&
+		       loadedContributor.peer->SendMessage(
+			       "sendREADY", contributorReady.data(), contributorReady.size(),
+			       AnyConnection, true ) &&
+		       placedContributor.peer->SendMessage(
+			       "sendREADY", contributorReady.data(), contributorReady.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress(
+			       loadedContributor, server, incoming, clients ) &&
+		       FlushLegacyHostIngress(
+			       placedContributor, server, incoming, clients ),
+		       "both barrier contributors ready before the load vote" );
+		const std::size_t hostReadyBefore = host.ready.size();
+		const std::size_t remoteReadyBefore = remote.ready.size();
+
+		const std::size_t hostHireBefore = host.hires.size();
+		std::array<std::uint8_t, ja2::mp::LegacyHirePayloadBytes> hire = {};
+		hire[0] = 42;
+		const int forgedAlliance = -123456;
+		std::memcpy(
+			hire.data() + ja2::mp::LegacyHireAllianceOffset,
+			&forgedAlliance, sizeof( forgedAlliance ) );
+		hire[ja2::mp::LegacyHireCopyItemsOffset] = 1;
+		hire[ja2::mp::LegacyHireTacticalTeamOffset] = 99;
+		CHECK( remote.peer->SendMessage(
+			       "sendHIRE", hire.data(), hire.size(), AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients,
+			       [&] { return host.hires.size() == hostHireBefore + 1; } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote hire reaches the real server authority boundary" );
+		int canonicalAlliance = -1;
+		if ( host.hires.size() == hostHireBefore + 1 )
+			std::memcpy(
+				&canonicalAlliance,
+				host.hires.back().data() +
+					ja2::mp::LegacyHireAllianceOffset,
+				sizeof( canonicalAlliance ) );
+			CHECK( host.hires.size() == hostHireBefore + 1 &&
+			       canonicalAlliance == remoteInfo.team &&
+			       host.hires.back()[ja2::mp::LegacyHireCopyItemsOffset] == 1 &&
+			       host.hires.back()[ja2::mp::LegacyHireTacticalTeamOffset] == 7,
+			       "remote hire preserves the boolean request but uses server-owned alliance and tactical team" );
+
+			auto invalidHire = hire;
+		invalidHire[ja2::mp::LegacyHireCopyItemsOffset] = 2;
+		CHECK( remote.peer->SendMessage(
+			       "sendHIRE", invalidHire.data(), invalidHire.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "invalid hire copy-items flag reaches the real ingress" );
+		CHECK( host.hires.size() == hostHireBefore + 1,
+		       "non-boolean hire copy-items flag is rejected without a relay" );
+
+			Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+			soldiers.initializeSlots();
+			TacticalActor& localActor = soldiers.record( 0 );
+			localActor.identity().id() = SoldierID{ 0 };
+			localActor.roster().team() = 0;
+			localActor.roster().active() = TRUE;
+			localActor.roster().inSector() = TRUE;
+			localActor.vitals().health() = 50;
+			localActor.vitals().maximumHealth() = 100;
+			localActor.vitals().bleeding() = 10;
+			TacticalActor& secondLocalActor = soldiers.record( 1 );
+			secondLocalActor.identity().id() = SoldierID{ 1 };
+			secondLocalActor.roster().team() = 0;
+			secondLocalActor.roster().active() = TRUE;
+			secondLocalActor.roster().inSector() = TRUE;
+			secondLocalActor.vitals().health() = 50;
+			secondLocalActor.vitals().maximumHealth() = 100;
+		constexpr std::uint16_t foreignActorId = 120;
+		constexpr std::uint16_t secondForeignActorId = 121;
+		constexpr std::uint16_t remoteActorId = 127;
+		constexpr std::uint16_t aiActorId = 20;
+		TacticalActor& aiActor = soldiers.record( aiActorId );
+			aiActor.identity().id() = SoldierID{ aiActorId };
+			aiActor.roster().team() = 1;
+			aiActor.roster().active() = TRUE;
+			aiActor.roster().inSector() = TRUE;
+			aiActor.vitals().health() = 50;
+			aiActor.vitals().maximumHealth() = 100;
+			const bool actorControlWasServer = is_server;
+			is_server = true;
+			CHECK( IsLocallyControlledMultiplayerActor( &aiActor ),
+			       "embedded host owns enemy-team explosive producers" );
+			aiActor.roster().team() = 5;
+			CHECK( IsLocallyControlledMultiplayerActor( &aiActor ),
+			       "embedded host owns every engine AI explosive producer team" );
+			is_server = false;
+			CHECK( !IsLocallyControlledMultiplayerActor( &aiActor ),
+			       "pure clients do not duplicate engine AI explosive producers" );
+			aiActor.roster().team() = 1;
+			is_server = actorControlWasServer;
+		TacticalActor& foreignActor = soldiers.record( foreignActorId );
+			foreignActor.identity().id() = SoldierID{ foreignActorId };
+			foreignActor.roster().team() = 6;
+			foreignActor.roster().active() = TRUE;
+			foreignActor.roster().inSector() = TRUE;
+			foreignActor.vitals().health() = 50;
+			foreignActor.vitals().maximumHealth() = 100;
+			TacticalActor& remoteActor = soldiers.record( remoteActorId );
+			remoteActor.identity().id() = SoldierID{ remoteActorId };
+			remoteActor.roster().team() = 7;
+			remoteActor.roster().active() = TRUE;
+			remoteActor.roster().inSector() = TRUE;
+			remoteActor.vitals().health() = 50;
+			remoteActor.vitals().maximumHealth() = 100;
+			remoteActor.vitals().bleeding() = 10;
+			TacticalActor& secondRemoteActor = soldiers.record( remoteActorId + 1 );
+			secondRemoteActor.identity().id() = SoldierID{ remoteActorId + 1 };
+			secondRemoteActor.roster().team() = 7;
+			secondRemoteActor.roster().active() = TRUE;
+			secondRemoteActor.roster().inSector() = TRUE;
+			secondRemoteActor.vitals().health() = 0;
+			secondRemoteActor.vitals().maximumHealth() = 100;
+			(void)SetJa2TacticalTeamPopulation( 1, 1, TRUE );
+			(void)SetJa2TacticalTeamPopulation( 7, 1, TRUE );
+
+			// Exercise the production co-op receiver, not only the capture-only
+			// transport fixtures: an AI-held grant must pause the remote player and
+			// its authored release must restore that player's local team/latch.
+			const bool receiverWasClient = is_client;
+			const bool receiverWasServer = is_server;
+			const bool receiverWasNetworked = is_networked;
+			const UINT8 receiverGameType = cGameType;
+			const UINT8 receiverNetTeam = netbTeam;
+			const UINT16 receiverPrefix = ubID_prefix;
+			const int receiverCurrentTeam = GetJa2TacticalCurrentTeam();
+			const std::uint16_t receiverGrantOrder[3] = {
+				255, remoteActorId, aiActorId };
+			std::array<std::uint8_t, 14> receiverGrant = {};
+			const std::uint16_t receiverReleaseOrder[2] = {
+				255, remoteActorId };
+			std::array<std::uint8_t, 12> receiverRelease = {};
+			CHECK( MpInterruptWire::Encode(
+				       receiverGrant.data(), receiverGrant.size(), aiActorId, 1,
+				       2, 0, remoteActorId, receiverGrantOrder ) ==
+			       receiverGrant.size() &&
+			       MpInterruptWire::Encode(
+				       receiverRelease.data(), receiverRelease.size(),
+				       remoteActorId, 7, 1, 0,
+				       MpInterruptWire::kSoldierSlots,
+				       receiverReleaseOrder ) == receiverRelease.size(),
+			       "production co-op receiver fixtures are encoded" );
+			is_client = true;
+			is_server = false;
+			is_networked = true;
+			cGameType = MP_TYPE_COOP;
+			netbTeam = 7;
+			ubID_prefix = 127;
+			SetJa2TacticalCurrentTeam( 0 );
+			SdlNetMessage receiverGrantMessage = {
+				receiverGrant.data(), receiverGrant.size(), ConnectionId{} };
+			recieveINTERRUPT( &receiverGrantMessage );
+			CHECK( gMpSerializedInterruptActive &&
+			       !gMpLocalSerializedInterruptHolder &&
+			       gMpSerializedInterruptTarget == SoldierID{ 0 } &&
+			       GetJa2TacticalCurrentTeam() == 1 &&
+			       gMpEnemyInterruptTeam == 1,
+			       "co-op AI grant pauses its remote target through the real receiver" );
+			SdlNetMessage receiverReleaseMessage = {
+				receiverRelease.data(), receiverRelease.size(), ConnectionId{} };
+			resume_turn( &receiverReleaseMessage );
+			CHECK( !gMpSerializedInterruptActive &&
+			       GetJa2TacticalCurrentTeam() == 0 &&
+			       gMpEnemyInterruptTeam == 0,
+			       "co-op AI release restores its remote target through the real receiver" );
+			is_client = receiverWasClient;
+			is_server = receiverWasServer;
+			is_networked = receiverWasNetworked;
+			cGameType = receiverGameType;
+			netbTeam = receiverNetTeam;
+			ubID_prefix = receiverPrefix;
+			SetJa2TacticalCurrentTeam( receiverCurrentTeam );
+
+			const std::array<std::uint8_t, sizeof( sc_struct )>
+				prematureCombat = { 7 };
+			CHECK( remote.peer->SendMessage(
+				       "startCOMBAT", prematureCombat.data(),
+				       prematureCombat.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "pre-placement combat request reaches the authority boundary" );
+			CHECK( !IsJa2TacticalCombatActive(),
+			       "pre-placement client cannot open tactical combat" );
+
+		const std::size_t hostDismissBefore = host.dismissals.size();
+		std::array<std::uint8_t, ja2::mp::LegacyDismissPayloadBytes>
+			foreignDismiss = {};
+		std::memcpy(
+			foreignDismiss.data(), &foreignActorId, sizeof( foreignActorId ) );
+		CHECK( remote.peer->SendMessage(
+			       "sendDISMISS", foreignDismiss.data(), foreignDismiss.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "foreign-actor dismiss reaches the real ingress" );
+		CHECK( host.dismissals.size() == hostDismissBefore,
+		       "remote cannot relay a dismiss for another tactical team" );
+
+		std::array<std::uint8_t, ja2::mp::LegacyDismissPayloadBytes>
+			ownedDismiss = {};
+		std::memcpy(
+			ownedDismiss.data(), &remoteActorId, sizeof( remoteActorId ) );
+		CHECK( remote.peer->SendMessage(
+			       "sendDISMISS", ownedDismiss.data(), ownedDismiss.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.dismissals.size() == hostDismissBefore + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "sender-owned actor dismiss traverses the production relay" );
+		CHECK( host.dismissals.size() == hostDismissBefore + 1 &&
+		       host.dismissals.back() == ownedDismiss,
+		       "remote-owned actor relay is preserved byte-for-byte" );
+		CHECK( remote.peer->SendMessage(
+			       "sendDISMISS", ownedDismiss.data(), ownedDismiss.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "duplicate dismissal reaches the production ingress" );
+			CHECK( host.dismissals.size() == hostDismissBefore + 1,
+			       "an already released actor cannot free another hire slot" );
+
+			const std::size_t remoteHiresBeforeHostHire = remote.hires.size();
+			auto hostHire = hire;
+			hostHire[0] = 90;
+			CHECK( host.peer->SendMessage(
+				       "sendHIRE", hostHire.data(), hostHire.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.hires.size() ==
+						       remoteHiresBeforeHostHire + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "embedded player hire reaches the tracked host roster" );
+			CHECK( remote.hires.size() == remoteHiresBeforeHostHire + 1 &&
+			       remote.hires.back()[ja2::mp::LegacyHireTacticalTeamOffset] == 6,
+			       "embedded player hire uses its server-authored tactical team" );
+			auto secondHostHire = hire;
+			secondHostHire[0] = 91;
+			CHECK( host.peer->SendMessage(
+				       "sendHIRE", secondHostHire.data(), secondHostHire.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.hires.size() ==
+					              remoteHiresBeforeHostHire + 2;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "embedded player reserves a second exact actor for interrupt authorization" );
+			CHECK( remote.hires.back()[ja2::mp::LegacyHireTacticalTeamOffset] == 6,
+			       "second embedded hire remains in the host wire-team range" );
+
+		const std::size_t hostHiresBeforeCap = host.hires.size();
+		bool cappedHireBatchDelivered = true;
+		for ( std::uint8_t index = 0; index < gMaxMercs; ++index )
+		{
+			auto cappedHire = hire;
+			cappedHire[0] = static_cast<std::uint8_t>( 50 + index );
+			cappedHireBatchDelivered = cappedHireBatchDelivered &&
+				remote.peer->SendMessage(
+					"sendHIRE", cappedHire.data(), cappedHire.size(),
+					AnyConnection, true ) &&
+				PumpLegacyHostUntil(
+					server, incoming, clients, [&] {
+						return host.hires.size() ==
+							hostHiresBeforeCap + index + 1;
+					} );
+		}
+		CHECK( cappedHireBatchDelivered &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "configured maximum number of replacement hires is admitted" );
+		CHECK( host.hires.size() == hostHiresBeforeCap + gMaxMercs,
+		       "server tracks the configured per-player mercenary cap" );
+		auto overflowHire = hire;
+		overflowHire[0] = 80;
+		CHECK( remote.peer->SendMessage(
+			       "sendHIRE", overflowHire.data(), overflowHire.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "over-cap hire reaches the production ingress" );
+		CHECK( host.hires.size() == hostHiresBeforeCap + gMaxMercs,
+		       "over-cap hire is rejected without a relay" );
+
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> forgedHostReady = { 99, 1, 1 };
+		CHECK( remote.peer->SendMessage(
+			       "sendREADY", forgedHostReady.data(), forgedHostReady.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote host-stage READY reaches the authority boundary" );
+		CHECK( host.ready.size() == hostReadyBefore &&
+		       remote.ready.size() == remoteReadyBefore,
+		       "remote cannot forge a host-stage READY" );
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> remoteReady = { 88, 1, 0 };
+		CHECK( remote.peer->SendMessage(
+			       "sendREADY", remoteReady.data(), remoteReady.size(),
+			       AnyConnection, true ) &&
+		       remote.peer->SendMessage(
+			       "sendREADY", remoteReady.data(), remoteReady.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.ready.size() == hostReadyBefore + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "duplicate remote READY packets traverse the real ingress" );
+		CHECK( host.ready.size() == hostReadyBefore + 1 &&
+		       host.ready.back()[0] == 2 && host.ready.back()[1] == 1 &&
+		       host.ready.back()[2] == 0,
+		       "duplicate READY is emitted once with canonical remote identity" );
+
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> remoteRetract = { 77, 0, 0 };
+		CHECK( remote.peer->SendMessage(
+			       "sendREADY", remoteRetract.data(), remoteRetract.size(),
+			       AnyConnection, true ) &&
+		       remote.peer->SendMessage(
+			       "sendREADY", remoteRetract.data(), remoteRetract.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.ready.size() == hostReadyBefore + 2;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote READY status change and duplicate are processed" );
+		CHECK( host.ready.size() == hostReadyBefore + 2 &&
+		       host.ready.back()[0] == 2 && host.ready.back()[1] == 0,
+		       "READY status change emits once and its duplicate is suppressed" );
+		CHECK( remote.peer->SendMessage(
+			       "sendREADY", remoteReady.data(), remoteReady.size(),
+			       AnyConnection, true ) &&
+		       remote.peer->SendMessage(
+			       "sendREADY", remoteReady.data(), remoteReady.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return host.ready.size() == hostReadyBefore + 3;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote re-readies before the host load barrier" );
+		CHECK( host.ready.size() == hostReadyBefore + 3 &&
+		       host.ready.back()[0] == 2 && host.ready.back()[1] == 1,
+		       "re-ready emits once and restores the participant barrier" );
+
+		CHECK( host.peer->SendMessage(
+			       "sendREADY", forgedHostReady.data(), forgedHostReady.size(),
+			       AnyConnection, true ) &&
+		       host.peer->SendMessage(
+			       "sendREADY", forgedHostReady.data(), forgedHostReady.size(),
+			       AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return remote.ready.size() == remoteReadyBefore + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "duplicate host READY packets traverse the claimed connection" );
+		CHECK( remote.ready.size() == remoteReadyBefore + 1 &&
+		       remote.ready.back()[0] == 1 && remote.ready.back()[1] == 1 &&
+		       remote.ready.back()[2] == 1,
+		       "host READY is canonicalized and emitted exactly once" );
+
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> loaded = { 0, 1, 1 };
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> hostPlacement = { 0, 1, 2 };
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> placed = { 0, 1, 3 };
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> hostPlacementDone = { 0, 1, 4 };
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> canonicalPlacement = { 1, 1, 2 };
+		const std::array<std::uint8_t,
+			ja2::mp::LegacyReadyPayloadBytes> canonicalPlacementDone = { 1, 1, 4 };
+		const std::size_t hostStage2Before =
+			CountLegacyHostGuiStage( host, 2 );
+		const std::size_t remoteStage2Before =
+			CountLegacyHostGuiStage( remote, 2 );
+		const std::size_t placedStage2Before =
+			CountLegacyHostGuiStage( placedContributor, 2 );
+		CHECK( hostStage2Before == 0 && remoteStage2Before == 0 &&
+		       placedStage2Before == 0,
+		       "placement remains locked before any participant finishes loading" );
+
+		CHECK( loadedContributor.peer &&
+		       loadedContributor.peer->SendMessage(
+			       "sendGUI", loaded.data(), loaded.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress(
+			       loadedContributor, server, incoming, clients ),
+		       "departing loader contributes before disconnecting" );
+		const ConnectionId loadedContributorConnection =
+			loadedContributor.hostConnection;
+		StopLegacyHostClient( loadedContributor );
+		HandleDisconnect( loadedContributorConnection );
+		CHECK( gLegacyClientAdmission.find( loadedContributorConnection ) ==
+		           InvalidLegacyAdmissionSlot &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "departing loader is removed from authoritative membership" );
+		CHECK( CountLegacyHostGuiStage( host, 2 ) == hostStage2Before &&
+		       CountLegacyHostGuiStage( remote, 2 ) == remoteStage2Before &&
+		       CountLegacyHostGuiStage( placedContributor, 2 ) ==
+		           placedStage2Before,
+		       "a loaded contributor disconnect does not prematurely unlock placement" );
+
+		CHECK( remote.peer->SendMessage(
+			       "sendGUI", hostPlacement.data(), hostPlacement.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote host-stage GUI reaches the authority boundary" );
+		CHECK( CountLegacyHostGuiStage( host, 2 ) == hostStage2Before &&
+		       CountLegacyHostGuiStage( remote, 2 ) == remoteStage2Before,
+		       "remote cannot forge the host placement-unlock GUI" );
+
+		CHECK( host.peer->SendMessage(
+			       "sendGUI", loaded.data(), loaded.size(), AnyConnection, true ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ) &&
+		       placedContributor.peer &&
+		       placedContributor.peer->SendMessage(
+			       "sendGUI", loaded.data(), loaded.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress(
+			       placedContributor, server, incoming, clients ),
+		       "remaining host and placement contributor finish loading" );
+		CHECK( CountLegacyHostGuiStage( host, 2 ) == hostStage2Before &&
+		       CountLegacyHostGuiStage( remote, 2 ) == remoteStage2Before &&
+		       CountLegacyHostGuiStage( placedContributor, 2 ) ==
+		           placedStage2Before,
+		       "the reduced load barrier waits for its final participant" );
+
+		CHECK( remote.peer->SendMessage(
+			       "sendGUI", loaded.data(), loaded.size(), AnyConnection, true ) &&
+		       remote.peer->SendMessage(
+			       "sendGUI", loaded.data(), loaded.size(), AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return CountLegacyHostGuiStage( host, 2 ) ==
+				                  hostStage2Before + 1 &&
+				              CountLegacyHostGuiStage( remote, 2 ) ==
+				                  remoteStage2Before + 1 &&
+				              CountLegacyHostGuiStage( placedContributor, 2 ) ==
+				                  placedStage2Before + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "last post-disconnect loader completes the server-owned barrier" );
+		CHECK( CountLegacyHostGuiStage( host, 2 ) == hostStage2Before + 1 &&
+		       CountLegacyHostGuiStage( remote, 2 ) == remoteStage2Before + 1 &&
+		       CountLegacyHostGuiStage( placedContributor, 2 ) ==
+		           placedStage2Before + 1 &&
+		       host.gui.back() == canonicalPlacement &&
+		       remote.gui.back() == canonicalPlacement &&
+		       placedContributor.gui.back() == canonicalPlacement,
+		       "stage 2 is server-authored exactly once for every survivor" );
+
+		CHECK( host.peer->SendMessage(
+			       "sendGUI", hostPlacement.data(), hostPlacement.size(),
+			       AnyConnection, true ) &&
+		       host.peer->SendMessage(
+			       "sendGUI", hostPlacement.data(), hostPlacement.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "stale host placement-unlock packets traverse ingress" );
+		CHECK( CountLegacyHostGuiStage( host, 2 ) == hostStage2Before + 1 &&
+		       CountLegacyHostGuiStage( remote, 2 ) == remoteStage2Before + 1 &&
+		       CountLegacyHostGuiStage( placedContributor, 2 ) ==
+		           placedStage2Before + 1,
+		       "duplicate loader and stale host packets cannot repeat stage 2" );
+
+		const std::size_t hostStage4Before =
+			CountLegacyHostGuiStage( host, 4 );
+		const std::size_t remoteStage4Before =
+			CountLegacyHostGuiStage( remote, 4 );
+		CHECK( hostStage4Before == 0 && remoteStage4Before == 0,
+		       "placement completion has not been issued before placement votes" );
+		CHECK( placedContributor.peer &&
+		       placedContributor.peer->SendMessage(
+			       "sendGUI", placed.data(), placed.size(), AnyConnection, true ) &&
+		       FlushLegacyHostIngress(
+			       placedContributor, server, incoming, clients ),
+		       "departing placement participant contributes before disconnecting" );
+		const ConnectionId placedContributorConnection =
+			placedContributor.hostConnection;
+		StopLegacyHostClient( placedContributor );
+		HandleDisconnect( placedContributorConnection );
+		CHECK( gLegacyClientAdmission.find( placedContributorConnection ) ==
+		           InvalidLegacyAdmissionSlot &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "departing placement participant is removed from membership" );
+		CHECK( CountLegacyHostGuiStage( host, 4 ) == hostStage4Before &&
+		       CountLegacyHostGuiStage( remote, 4 ) == remoteStage4Before,
+		       "a placed contributor disconnect does not prematurely finish placement" );
+
+		CHECK( remote.peer->SendMessage(
+			       "sendGUI", hostPlacementDone.data(), hostPlacementDone.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "remote placement-complete packet reaches the authority boundary" );
+		CHECK( CountLegacyHostGuiStage( host, 4 ) == hostStage4Before &&
+		       CountLegacyHostGuiStage( remote, 4 ) == remoteStage4Before,
+		       "remote cannot forge the host placement-complete GUI" );
+
+		CHECK( host.peer->SendMessage(
+			       "sendGUI", placed.data(), placed.size(), AnyConnection, true ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "remaining host contributes its placement state" );
+		CHECK( CountLegacyHostGuiStage( host, 4 ) == hostStage4Before &&
+		       CountLegacyHostGuiStage( remote, 4 ) == remoteStage4Before,
+		       "the reduced placement barrier waits for its final participant" );
+
+		CHECK( remote.peer->SendMessage(
+			       "sendGUI", placed.data(), placed.size(), AnyConnection, true ) &&
+		       remote.peer->SendMessage(
+			       "sendGUI", placed.data(), placed.size(), AnyConnection, true ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients, [&] {
+				       return CountLegacyHostGuiStage( host, 4 ) ==
+				                  hostStage4Before + 1 &&
+				              CountLegacyHostGuiStage( remote, 4 ) ==
+				                  remoteStage4Before + 1;
+			       } ) &&
+		       FlushLegacyHostIngress( remote, server, incoming, clients ),
+		       "last post-disconnect placement update completes the server-owned barrier" );
+		CHECK( CountLegacyHostGuiStage( host, 4 ) == hostStage4Before + 1 &&
+		       CountLegacyHostGuiStage( remote, 4 ) == remoteStage4Before + 1 &&
+		       host.gui.back() == canonicalPlacementDone &&
+		       remote.gui.back() == canonicalPlacementDone,
+		       "stage 4 is server-authored exactly once for every survivor" );
+
+		CHECK( host.peer->SendMessage(
+			       "sendGUI", hostPlacementDone.data(), hostPlacementDone.size(),
+			       AnyConnection, true ) &&
+		       host.peer->SendMessage(
+			       "sendGUI", hostPlacementDone.data(), hostPlacementDone.size(),
+			       AnyConnection, true ) &&
+		       FlushLegacyHostIngress( host, server, incoming, clients ),
+		       "stale host placement-complete packets traverse ingress" );
+		CHECK( CountLegacyHostGuiStage( host, 4 ) == hostStage4Before + 1 &&
+		       CountLegacyHostGuiStage( remote, 4 ) == remoteStage4Before + 1,
+		       "duplicate placement and stale host packets cannot repeat stage 4" );
+
+			SetJa2TacticalCombatMode( true );
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::size_t hostTurnsBefore = host.turns.size();
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> forgedTurn = { 7, 6 };
+			CHECK( remote.peer->SendMessage(
+				       "sendEndTurn", forgedTurn.data(), forgedTurn.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "remote arbitrary-next-team request reaches turn authority" );
+			CHECK( host.turns.size() == hostTurnsBefore,
+			       "remote cannot skip or rewind the tactical turn sequence" );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> validTurn = { 7, 8 };
+			CHECK( remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.turns.size() == hostTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "current remote team can request its immediate successor" );
+			CHECK( host.turns.size() == hostTurnsBefore + 1 &&
+			       host.turns.back() == validTurn,
+			       "server relays only the canonical next-team transition" );
+			const ConnectionId unrelatedBystander{
+				std::numeric_limits<std::uint64_t>::max() - 1 };
+			CHECK( gLegacyClientAdmission.admitAt(
+				       unrelatedBystander, 2 ).slot == 2 &&
+			       gLegacyClientAdmission.find( unrelatedBystander ) == 2,
+			       "an unrelated bystander occupies a free authoritative slot" );
+			HandleDisconnect( unrelatedBystander );
+			CHECK( gLegacyClientAdmission.find( unrelatedBystander ) ==
+			           InvalidLegacyAdmissionSlot,
+			       "unrelated bystander disconnect retires only its own slot" );
+			CHECK( remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "duplicate in-flight end-turn follows an unrelated disconnect" );
+			CHECK( host.turns.size() == hostTurnsBefore + 1,
+			       "unrelated disconnect cannot release another sender's turn latch" );
+			const std::size_t hostDismissalsAfterLoad = host.dismissals.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendDISMISS", ownedDismiss.data(), ownedDismiss.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "post-load dismiss reaches ingress" );
+			CHECK( host.dismissals.size() == hostDismissalsAfterLoad,
+			       "player cannot discard tracked authority after hiring closes" );
+			SetJa2TacticalCurrentTeam( 8 );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostTurnAnnouncement = { 6, 8 };
+			const std::size_t remoteTurnsAfterAdvance = remote.turns.size();
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostTurnAnnouncement.data(),
+				       hostTurnAnnouncement.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() ==
+						       remoteTurnsAfterAdvance + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "embedded host announces the completed turn transition" );
+			SetJa2TacticalCurrentTeam( 7 );
+
+			EV_S_STOP_MERC remoteStop = {};
+			remoteStop.usSoldierID = SoldierID{ remoteActorId };
+			remoteStop.fset = TRUE;
+			const std::size_t hostStopsBefore = host.stops.size();
+			SetJa2TacticalCurrentTeam( 8 );
+			CHECK( remote.peer->SendMessage(
+				       "sendSTOP", &remoteStop, sizeof( remoteStop ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "off-turn immediate command reaches embedded authority" );
+			CHECK( host.stops.size() == hostStopsBefore,
+			       "off-turn player cannot author an immediate tactical command" );
+			SetJa2TacticalCurrentTeam( 7 );
+			CHECK( remote.peer->SendMessage(
+				       "sendSTOP", &remoteStop, sizeof( remoteStop ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.stops.size() == hostStopsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "current player retains immediate tactical authority" );
+
+			const std::uint16_t remoteInterruptOrder[3] = {
+				255, foreignActorId, remoteActorId };
+			std::array<std::uint8_t, 14> remoteInterrupt = {};
+			CHECK( MpInterruptWire::Encode(
+				       remoteInterrupt.data(), remoteInterrupt.size(),
+				       remoteActorId, 7, 2, 0, foreignActorId,
+				       remoteInterruptOrder ) == remoteInterrupt.size(),
+			       "production-shaped embedded interrupt request is encoded" );
+			const std::uint16_t hostResumeOrder[2] = {
+				255, foreignActorId };
+			std::array<std::uint8_t, 12> hostResume = {};
+			CHECK( MpInterruptWire::Encode(
+				       hostResume.data(), hostResume.size(), foreignActorId,
+				       6, 1, 0, MpInterruptWire::kSoldierSlots,
+				       hostResumeOrder ) == hostResume.size(),
+			       "production-shaped evolved embedded release is encoded" );
+			SetJa2TacticalCurrentTeam( 0 );
+			const std::size_t remoteResumesBefore = remote.resumes.size();
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", hostResume.data(), hostResume.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "release without an active grant reaches embedded authority" );
+			CHECK( remote.resumes.size() == remoteResumesBefore,
+			       "release without an active grant is rejected" );
+
+			// A weapon action spans several reliable RPCs.  Once FIRE has been
+			// accepted for the current actor, an interrupt grant arriving from a
+			// different connection must not invalidate that actor's already-started
+			// FIREW/BULLET continuation. One STOP for the exact actor stored in
+			// the grant may publish its authoritative final movement position.
+			EV_S_BEGINFIREWEAPON hostFire = {};
+			hostFire.usSoldierID = SoldierID{ foreignActorId };
+			EV_S_FIREWEAPON hostFireWeapon = {};
+			hostFireWeapon.usSoldierID = SoldierID{ foreignActorId };
+			EV_S_STOP_MERC hostPlayerStop = {};
+			hostPlayerStop.usSoldierID = SoldierID{ foreignActorId };
+			hostPlayerStop.fset = TRUE;
+			EV_S_STOP_MERC wrongActorHostStop = {};
+			wrongActorHostStop.usSoldierID = SoldierID{ aiActorId };
+			wrongActorHostStop.fset = TRUE;
+			std::array<std::uint8_t,
+				ja2::mp::LegacyBulletPayloadBytes> hostBullet = {};
+			std::memcpy(
+				hostBullet.data() + ja2::mp::LegacyBulletFirerOffset,
+				&foreignActorId, sizeof( foreignActorId ) );
+			const std::uint16_t missingTargetOrder[2] = {
+				255, remoteActorId };
+			std::array<std::uint8_t, 12> missingTargetRequest = {};
+			CHECK( MpInterruptWire::Encode(
+				       missingTargetRequest.data(), missingTargetRequest.size(),
+				       remoteActorId, 7, 1, 0, foreignActorId,
+				       missingTargetOrder ) == missingTargetRequest.size(),
+			       "missing-paused-actor interrupt fixture is encoded" );
+			const std::size_t hostInterruptsBefore = host.interrupts.size();
+			const std::size_t remoteInterruptsBefore = remote.interrupts.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", missingTargetRequest.data(),
+				       missingTargetRequest.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "missing-paused-actor interrupt reaches embedded authority" );
+			CHECK( host.interrupts.size() == hostInterruptsBefore &&
+			       remote.interrupts.size() == remoteInterruptsBefore,
+			       "interrupt queue must contain its claimed paused actor" );
+			const std::size_t remoteFiresBeforeInterrupt = remote.fires;
+			CHECK( host.peer->SendMessage(
+				       "sendFIRE", &hostFire, sizeof( hostFire ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.fires ==
+					              remoteFiresBeforeInterrupt + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "current embedded actor's FIRE is accepted immediately before interrupt arbitration" );
+			const SoldierID hostAttackStart{ foreignActorId };
+			CHECK( host.peer->SendMessage(
+				       "sendATTACKSTART", &hostAttackStart,
+				       sizeof( hostAttackStart ), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "direct-throw attack marker reaches embedded authority" );
+			CHECK( remote.fires == remoteFiresBeforeInterrupt + 1,
+			       "direct-throw marker opens continuation without relaying a FIRE animation" );
+
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteInterrupt.data(),
+				       remoteInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.interrupts.size() ==
+						       hostInterruptsBefore + 1 &&
+						       remote.interrupts.size() ==
+						       remoteInterruptsBefore + 1;
+				       } ),
+			       "remote requester and paused host both receive one grant" );
+			EV_S_SENDPATHTONETWORK hostPreStopPath = {};
+			hostPreStopPath.usSoldierID = SoldierID{ foreignActorId };
+			EV_S_CHANGESTANCE hostPreStopStance = {};
+			hostPreStopStance.usSoldierID = SoldierID{ foreignActorId };
+			const std::size_t remotePathsBeforeStop = remote.paths;
+			const std::size_t remoteStancesBeforeStop = remote.stances;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &hostPreStopPath, sizeof( hostPreStopPath ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendSTANCE", &hostPreStopStance,
+				       sizeof( hostPreStopStance ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths == remotePathsBeforeStop + 1 &&
+					              remote.stances == remoteStancesBeforeStop + 1;
+			       } ),
+			       "exact paused actor drains ordinary reliable commands queued before its first STOP" );
+			const std::size_t remoteFireWeaponsBefore = remote.fireWeapons;
+			const std::size_t remoteBulletsBefore = remote.bullets;
+			const std::size_t remoteGrenadesBeforeContinuation =
+				remote.grenades.size();
+			const std::size_t remoteStopsBeforeContinuation = remote.stops.size();
+			std::array<std::uint8_t,
+				ja2::mp::LegacyGrenadePayloadBytes> continuedCatchGrenade = {};
+			std::memcpy(
+				continuedCatchGrenade.data() +
+					ja2::mp::LegacyGrenadeActorOffset,
+				&foreignActorId, sizeof( foreignActorId ) );
+			continuedCatchGrenade[ja2::mp::LegacyGrenadeActionCodeOffset] =
+				THROW_TARGET_MERC_CATCH;
+			const std::uint32_t continuedCatchTarget = secondForeignActorId;
+			std::memcpy(
+				continuedCatchGrenade.data() +
+					ja2::mp::LegacyGrenadeActionDataOffset,
+				&continuedCatchTarget, sizeof( continuedCatchTarget ) );
+			CHECK( host.peer->SendMessage(
+				       "sendSTOP", &hostPlayerStop, sizeof( hostPlayerStop ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendSTOP", &hostPlayerStop, sizeof( hostPlayerStop ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendSTOP", &wrongActorHostStop,
+				       sizeof( wrongActorHostStop ), AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendFIREW", &hostFireWeapon, sizeof( hostFireWeapon ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendBULLET", hostBullet.data(), hostBullet.size(),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendBULLET", hostBullet.data(), hostBullet.size(),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendFIREW", &hostFireWeapon, sizeof( hostFireWeapon ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendGRENADE", continuedCatchGrenade.data(),
+				       continuedCatchGrenade.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.fireWeapons ==
+						              remoteFireWeaponsBefore + 2 &&
+					              remote.bullets == remoteBulletsBefore + 2 &&
+					              remote.grenades.size() ==
+						              remoteGrenadesBeforeContinuation + 1 &&
+					              remote.stops.size() ==
+						              remoteStopsBeforeContinuation + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "accepted embedded attack keeps bounded multi-frame FIREW/BULLET/GRENADE continuation and one stored-target STOP across a foreign interrupt grant" );
+			CHECK( remote.fireWeapons == remoteFireWeaponsBefore + 2 &&
+			       remote.bullets == remoteBulletsBefore + 2 &&
+			       remote.grenades.size() ==
+			           remoteGrenadesBeforeContinuation + 1 &&
+			       remote.stops.size() == remoteStopsBeforeContinuation + 1 &&
+			       remote.stops.back().usSoldierID ==
+			           SoldierID{ foreignActorId } &&
+			       remote.malformedFireWeapon == 0 &&
+			       remote.malformedBullet == 0 &&
+			       remote.malformedGrenade == 0,
+			       "embedded burst frames and passive owned catch target survive STOP while duplicate/wrong STOP are rejected" );
+			const std::size_t remotePathsAfterStop = remote.paths;
+			const std::size_t remoteStancesAfterStop = remote.stances;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &hostPreStopPath, sizeof( hostPreStopPath ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendSTANCE", &hostPreStopStance,
+				       sizeof( hostPreStopStance ), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "post-STOP ordinary paused-actor commands reach embedded ingress" );
+			CHECK( remote.paths == remotePathsAfterStop &&
+			       remote.stances == remoteStancesAfterStop,
+			       "the exact STOP closes the paused actor's ordinary causal drain" );
+
+			secondRemoteActor.vitals().health() = 50;
+			EV_S_SENDPATHTONETWORK listedHolderPath = {};
+			listedHolderPath.usSoldierID = SoldierID{ remoteActorId };
+			EV_S_SENDPATHTONETWORK unlistedHolderPath = {};
+			unlistedHolderPath.usSoldierID = SoldierID{ remoteActorId + 1 };
+			EV_S_BEGINFIREWEAPON listedHolderFire = {};
+			listedHolderFire.usSoldierID = SoldierID{ remoteActorId };
+			EV_S_BEGINFIREWEAPON unlistedHolderFire = {};
+			unlistedHolderFire.usSoldierID = SoldierID{ remoteActorId + 1 };
+			std::array<std::uint8_t,
+				ja2::mp::LegacyPlantExplosivePayloadBytes> listedHolderPlant = {};
+			std::array<std::uint8_t,
+				ja2::mp::LegacyPlantExplosivePayloadBytes> unlistedHolderPlant = {};
+			auto initializeHolderPlant = []( auto& plantWire,
+				std::uint16_t actor, std::uint32_t grid,
+				std::uint32_t worldIndex ) {
+				const std::uint16_t item = 1;
+				std::memcpy( plantWire.data() +
+					ja2::mp::LegacyPlantExplosiveGridOffset,
+					&grid, sizeof( grid ) );
+				std::memcpy( plantWire.data() +
+					ja2::mp::LegacyPlantExplosiveActorOffset,
+					&actor, sizeof( actor ) );
+				std::memcpy( plantWire.data() +
+					ja2::mp::LegacyPlantExplosiveItemOffset,
+					&item, sizeof( item ) );
+				plantWire[ja2::mp::LegacyPlantExplosiveStatusOffset] = 99;
+				std::memcpy( plantWire.data() +
+					ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+					&worldIndex, sizeof( worldIndex ) );
+				plantWire[ja2::mp::LegacyPlantExplosiveLevelOffset] = 0;
+				plantWire[ja2::mp::LegacyPlantExplosiveDetonatorOffset] =
+					BOMB_TIMED;
+			};
+			initializeHolderPlant(
+				listedHolderPlant, remoteActorId, 701, 701 );
+			initializeHolderPlant(
+				unlistedHolderPlant, remoteActorId + 1, 702, 702 );
+			const std::size_t hostPathsBeforeHolderActors = host.paths;
+			const std::size_t hostFiresBeforeHolderActors = host.fires;
+			const std::size_t hostPlantsBeforeHolderActors = host.plants.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendPATH", &listedHolderPath, sizeof( listedHolderPath ),
+				       AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendFIRE", &listedHolderFire, sizeof( listedHolderFire ),
+				       AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", listedHolderPlant.data(),
+				       listedHolderPlant.size(), AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendPATH", &unlistedHolderPath,
+				       sizeof( unlistedHolderPath ), AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendFIRE", &unlistedHolderFire,
+				       sizeof( unlistedHolderFire ), AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", unlistedHolderPlant.data(),
+				       unlistedHolderPlant.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.paths == hostPathsBeforeHolderActors + 1 &&
+					              host.fires == hostFiresBeforeHolderActors + 1 &&
+					              host.plants.size() ==
+						              hostPlantsBeforeHolderActors + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "grant-suffix actor PATH/FIRE/PLANT commands traverse embedded authority" );
+			CHECK( host.paths == hostPathsBeforeHolderActors + 1 &&
+			       host.fires == hostFiresBeforeHolderActors + 1 &&
+			       host.plants.size() == hostPlantsBeforeHolderActors + 1,
+			       "same-owner actor omitted from the grant suffix has no temporary authority" );
+			secondRemoteActor.vitals().health() = 0;
+			const std::uint16_t retargetedAiOrder[3] = {
+				255, secondForeignActorId, aiActorId };
+			std::array<std::uint8_t, 14> retargetedAiInterrupt = {};
+			CHECK( MpInterruptWire::Encode(
+				       retargetedAiInterrupt.data(),
+				       retargetedAiInterrupt.size(), aiActorId, 1, 2, 0,
+				       secondForeignActorId, retargetedAiOrder ) ==
+			       retargetedAiInterrupt.size(),
+			       "same-team different-actor queued interrupt fixture is encoded" );
+			CHECK( host.peer->SendMessage(
+				       "sendINTERRUPT", retargetedAiInterrupt.data(),
+				       retargetedAiInterrupt.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "embedded AI retarget request reaches the active arbiter" );
+			CHECK( host.interrupts.size() == hostInterruptsBefore + 1 &&
+			       remote.interrupts.size() == remoteInterruptsBefore + 1,
+			       "queued request cannot change the exact paused actor" );
+			const std::uint16_t queuedAiOrder[3] = {
+				255, foreignActorId, aiActorId };
+			std::array<std::uint8_t, 14> queuedAiInterrupt = {};
+			CHECK( MpInterruptWire::Encode(
+				       queuedAiInterrupt.data(), queuedAiInterrupt.size(),
+				       aiActorId, 1, 2, 0, foreignActorId,
+				       queuedAiOrder ) == queuedAiInterrupt.size() &&
+			       host.peer->SendMessage(
+				       "sendINTERRUPT", queuedAiInterrupt.data(),
+				       queuedAiInterrupt.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "same-target embedded AI request queues behind the active holder" );
+			const std::size_t hostStopsDuringInterrupt = host.stops.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendSTOP", &remoteStop, sizeof( remoteStop ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.stops.size() ==
+						       hostStopsDuringInterrupt + 1;
+				       } ),
+			       "authenticated interrupt holder gains temporary command authority" );
+			const std::size_t remoteStopsDuringInterrupt = remote.stops.size();
+			CHECK( host.peer->SendMessage(
+				       "sendSTOP", &hostPlayerStop, sizeof( hostPlayerStop ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "paused pre-interrupt authority command reaches ingress" );
+			CHECK( remote.stops.size() == remoteStopsDuringInterrupt,
+			       "paused authority cannot act during another holder's interrupt" );
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", hostResume.data(), hostResume.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "non-holder release reaches embedded authority" );
+			CHECK( remote.resumes.size() == remoteResumesBefore,
+			       "non-holder cannot release another player's interrupt" );
+			const std::size_t hostResumesBefore = host.resumes.size();
+			const std::size_t hostPathsBeforeRelease = host.paths;
+			EV_S_SENDPATHTONETWORK remotePostReleasePath = {};
+			remotePostReleasePath.usSoldierID = SoldierID{ remoteActorId };
+			localActor.vitals().health() = 0;
+			// Model the host loopback having applied the grant: until resume_turn is
+			// dispatched locally, CurrentTeam still names the yielding holder.
+			SetJa2TacticalCurrentTeam( 7 );
+			CHECK( remote.peer->SendMessage(
+				       "endINTERRUPT", hostResume.data(), hostResume.size(),
+				       AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendPATH", &remotePostReleasePath,
+				       sizeof( remotePostReleasePath ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.resumes.size() == hostResumesBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "holder's evolved release and immediate post-release PATH reach embedded ingress in order" );
+			CHECK( host.paths == hostPathsBeforeRelease &&
+			       host.malformedPath == 0,
+			       "embedded release revokes holder authority before loopback resume, rejecting the immediately following PATH" );
+			CHECK( remote.resumes.size() == remoteResumesBefore + 1,
+			       "normal release is acknowledged to the live holder too" );
+			CHECK( host.interrupts.size() == hostInterruptsBefore + 1 &&
+			       remote.interrupts.size() == remoteInterruptsBefore + 1,
+			       "queued grant is discarded when its exact paused actor dies" );
+			localActor.vitals().health() = 50;
+			SetJa2TacticalCurrentTeam( 0 );
+			EV_S_SENDPATHTONETWORK resumedHostPath = {};
+			resumedHostPath.usSoldierID = SoldierID{ foreignActorId };
+			const std::size_t remotePathsAfterResume = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &resumedHostPath, sizeof( resumedHostPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths == remotePathsAfterResume + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "loopback-applied resume restores immediate authority to the paused side" );
+			CHECK( host.resumes.back()[2] == 6 &&
+			       MpInterruptWire::Get16(
+				       host.resumes.back().data(), 0 ) == foreignActorId,
+			       "embedded release is server-bound to the original paused actor" );
+			CHECK( remote.peer->SendMessage(
+				       "endINTERRUPT", hostResume.data(), hostResume.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "replayed interrupt release reaches embedded authority" );
+			CHECK( host.resumes.size() == hostResumesBefore + 1,
+			       "an interrupt release is consumed exactly once" );
+
+			const std::uint16_t hostPlayerInterruptOrder[3] = {
+				255, remoteActorId, foreignActorId };
+			std::array<std::uint8_t, 14> hostPlayerInterrupt = {};
+			const std::uint16_t remoteResumeOrder[2] = {
+				255, remoteActorId };
+			std::array<std::uint8_t, 12> remoteResume = {};
+			CHECK( MpInterruptWire::Encode(
+				       hostPlayerInterrupt.data(), hostPlayerInterrupt.size(),
+				       foreignActorId, 6, 2, 0, remoteActorId,
+				       hostPlayerInterruptOrder ) == hostPlayerInterrupt.size() &&
+			       MpInterruptWire::Encode(
+				       remoteResume.data(), remoteResume.size(), remoteActorId,
+				       7, 1, 0, MpInterruptWire::kSoldierSlots,
+				       remoteResumeOrder ) == remoteResume.size(),
+			       "host-player interrupt and evolved remote resume are encoded" );
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::size_t remoteInterruptsBeforeHostPlayer =
+				remote.interrupts.size();
+			CHECK( host.peer->SendMessage(
+				       "sendINTERRUPT", hostPlayerInterrupt.data(),
+				       hostPlayerInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+						       remoteInterruptsBeforeHostPlayer + 1;
+				       } ),
+			       "embedded host player can request an interrupt against a remote turn" );
+			const std::size_t remoteResumesBeforeHostPlayer =
+				remote.resumes.size();
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", remoteResume.data(), remoteResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+						       remoteResumesBeforeHostPlayer + 1;
+			       } ),
+			       "embedded host player releases its serialized grant" );
+			const std::size_t hostPathsAfterHostPlayerResume = host.paths;
+			CHECK( remote.peer->SendMessage(
+				       "sendPATH", &remotePostReleasePath,
+				       sizeof( remotePostReleasePath ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.paths ==
+					              hostPathsAfterHostPlayerResume + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "resumed remote side clears the loopback release fence before the next grant" );
+
+			const std::uint16_t hostAiInterruptOrder[3] = {
+				255, foreignActorId, aiActorId };
+			std::array<std::uint8_t, 14> hostAiInterrupt = {};
+			CHECK( MpInterruptWire::Encode(
+				       hostAiInterrupt.data(), hostAiInterrupt.size(), aiActorId,
+				       1, 2, 0, foreignActorId, hostAiInterruptOrder ) ==
+			       hostAiInterrupt.size(),
+			       "host-AI interrupt against the host player is encoded" );
+			SetJa2TacticalCurrentTeam( 0 );
+			const std::size_t remoteInterruptsBeforeHostAi =
+				remote.interrupts.size();
+			const std::size_t remoteFiresBeforeHostAiOverlap = remote.fires;
+			CHECK( host.peer->SendMessage(
+				       "sendFIRE", &hostFire, sizeof( hostFire ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.fires ==
+					              remoteFiresBeforeHostAiOverlap + 1;
+				       } ),
+			       "host player starts an attack before its same-connection AI interrupt" );
+			CHECK( host.peer->SendMessage(
+				       "sendINTERRUPT", hostAiInterrupt.data(),
+				       hostAiInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+				       return remote.interrupts.size() ==
+					       remoteInterruptsBeforeHostAi + 1;
+				       } ),
+			       "host-owned AI acquires a host-player interrupt" );
+			EV_S_BEGINFIREWEAPON hostAiFire = {};
+			hostAiFire.usSoldierID = SoldierID{ aiActorId };
+			const std::size_t remoteBulletsBeforeHostAiOverlap = remote.bullets;
+			CHECK( host.peer->SendMessage(
+				       "sendFIRE", &hostAiFire, sizeof( hostAiFire ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendBULLET", hostBullet.data(), hostBullet.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.fires ==
+						              remoteFiresBeforeHostAiOverlap + 2 &&
+					              remote.bullets ==
+						              remoteBulletsBeforeHostAiOverlap + 1;
+				       } ),
+			       "AI-holder attack cannot overwrite the paused host player's actor-keyed continuation" );
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", hostResume.data(), hostResume.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "host-owned AI releases its host-player interrupt" );
+			const std::size_t remotePathsAfterHostAiResume = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &resumedHostPath, sizeof( resumedHostPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths ==
+					              remotePathsAfterHostAiResume + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "resumed host side clears the AI-release fence before remote tactical actions" );
+
+			const std::uint16_t remoteAgainstAiOrder[3] = {
+				255, aiActorId, remoteActorId };
+			const std::uint16_t queuedHostAgainstAiOrder[3] = {
+				255, aiActorId, foreignActorId };
+			const std::uint16_t aiResumeOrder[2] = { 255, aiActorId };
+			std::array<std::uint8_t, 14> remoteAgainstAi = {};
+			std::array<std::uint8_t, 14> queuedHostAgainstAi = {};
+			std::array<std::uint8_t, 12> aiResume = {};
+			CHECK( MpInterruptWire::Encode(
+				       remoteAgainstAi.data(), remoteAgainstAi.size(),
+				       remoteActorId, 7, 2, 0, aiActorId,
+				       remoteAgainstAiOrder ) == remoteAgainstAi.size() &&
+			       MpInterruptWire::Encode(
+				       queuedHostAgainstAi.data(), queuedHostAgainstAi.size(),
+				       foreignActorId, 6, 2, 0, aiActorId,
+				       queuedHostAgainstAiOrder ) == queuedHostAgainstAi.size() &&
+			       MpInterruptWire::Encode(
+				       aiResume.data(), aiResume.size(), aiActorId, 1, 1, 0,
+				       MpInterruptWire::kSoldierSlots, aiResumeOrder ) ==
+				       aiResume.size(),
+			       "AI-team deferred EndTurn chain fixtures are encoded" );
+			SetJa2TacticalCurrentTeam( 1 );
+			const std::size_t remoteAiEventsBefore = remote.causalEvents.size();
+			const std::size_t remoteAiInterruptsBefore = remote.interrupts.size();
+			const std::size_t remoteAiResumesBefore = remote.resumes.size();
+			const std::size_t remoteAiTurnsBefore = remote.turns.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstAi.data(),
+				       remoteAgainstAi.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+					              remoteAiInterruptsBefore + 1;
+				       } ),
+			       "remote grant pauses an embedded AI team" );
+			// The next GameLoop advances locally and records its exact send-time
+			// provenance while the server-side grant is already active; client
+			// grant processing may then overwrite CurrentTeam before server ingress.
+			RecordLegacyEmbeddedHostEndTurnProvenance( 2 );
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostAiTurnAnnouncement = { 6, 2 };
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostAiTurnAnnouncement.data(),
+				       hostAiTurnAnnouncement.size(), AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendINTERRUPT", queuedHostAgainstAi.data(),
+				       queuedHostAgainstAi.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "host AI EndTurn and same-target queued grant reach active authority" );
+			CHECK( remote.turns.size() == remoteAiTurnsBefore,
+			       "deferred AI EndTurn cannot overtake its active or queued grant" );
+			CHECK( remote.peer->SendMessage(
+				       "endINTERRUPT", aiResume.data(), aiResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+					                  remoteAiResumesBefore + 1 &&
+					              remote.interrupts.size() ==
+					                  remoteAiInterruptsBefore + 2;
+				       } ),
+			       "first release resumes before granting the queued same-target AI interrupt" );
+			CHECK( remote.turns.size() == remoteAiTurnsBefore,
+			       "queued grant retains the exact deferred AI EndTurn" );
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", aiResume.data(), aiResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+					                  remoteAiResumesBefore + 2 &&
+					              remote.turns.size() == remoteAiTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "final queued release resumes AI team before applying its deferred EndTurn" );
+			const std::array<char, 5> expectedAiCausalOrder = {
+				'I', 'R', 'I', 'R', 'T' };
+			CHECK( remote.causalEvents.size() == remoteAiEventsBefore +
+			           expectedAiCausalOrder.size() &&
+			       std::equal(
+				       expectedAiCausalOrder.begin(), expectedAiCausalOrder.end(),
+				       remote.causalEvents.begin() + remoteAiEventsBefore ) &&
+			       remote.turns.back() == hostAiTurnAnnouncement,
+			       "AI-team chain preserves grant/resume packet order and canonical host announcement" );
+			const std::uint16_t nextAiActorId =
+				gTacticalStatus.Team[2].bFirstID.i;
+			TacticalActor& nextAiActor = soldiers.record( nextAiActorId );
+			nextAiActor.identity().id() = SoldierID{ nextAiActorId };
+			nextAiActor.roster().team() = 2;
+			nextAiActor.roster().active() = TRUE;
+			nextAiActor.roster().inSector() = TRUE;
+			nextAiActor.vitals().health() = 50;
+			nextAiActor.vitals().maximumHealth() = 100;
+			SetJa2TacticalCurrentTeam( 2 );
+			EV_S_SENDPATHTONETWORK nextAiPath = {};
+			nextAiPath.usSoldierID = SoldierID{ nextAiActorId };
+			const std::size_t remotePathsBeforeDeferredSuccessor = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &nextAiPath, sizeof( nextAiPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths ==
+					              remotePathsBeforeDeferredSuccessor + 1;
+			       } ),
+			       "deferred successor fence grants the authored next AI team" );
+
+			// Cross-connection release may reach the server before the paused
+			// remote's reliable pre-grant EndTurn. The resume fence is its causal
+			// authority until the loopback host consumes resume_turn.
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::size_t hostRemoteReleaseEventsBefore =
+				host.causalEvents.size();
+			const std::size_t hostRemoteReleaseInterruptsBefore =
+				host.interrupts.size();
+			const std::size_t hostRemoteReleaseResumesBefore =
+				host.resumes.size();
+			const std::size_t hostRemoteReleaseTurnsBefore = host.turns.size();
+			CHECK( host.peer->SendMessage(
+				       "sendINTERRUPT", hostPlayerInterrupt.data(),
+				       hostPlayerInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.interrupts.size() ==
+					              hostRemoteReleaseInterruptsBefore + 1;
+				       } ),
+			       "host grant pauses the remote team for release-first EndTurn ordering" );
+			SetJa2TacticalCurrentTeam( 0 );
+			CHECK( host.peer->SendMessage(
+				       "endINTERRUPT", remoteResume.data(), remoteResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.resumes.size() ==
+					              hostRemoteReleaseResumesBefore + 1;
+				       } ) &&
+			       remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.turns.size() ==
+					              hostRemoteReleaseTurnsBefore + 1;
+				       } ),
+			       "resume-fenced remote EndTurn remains valid when release parses first" );
+			const std::array<char, 3> expectedRemoteReleaseOrder = {
+				'I', 'R', 'T' };
+			CHECK( host.causalEvents.size() == hostRemoteReleaseEventsBefore + 3 &&
+			       std::equal(
+				       expectedRemoteReleaseOrder.begin(),
+				       expectedRemoteReleaseOrder.end(),
+				       host.causalEvents.begin() + hostRemoteReleaseEventsBefore ),
+			       "remote release-first order is grant, resume, then canonical EndTurn" );
+			SetJa2TacticalCurrentTeam( 8 );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostTeamEightAnnouncement = { 6, 8 };
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostTeamEightAnnouncement.data(),
+				       hostTeamEightAnnouncement.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "host completes the release-first remote turn handoff" );
+
+			// Symmetric host case: the exact send-time record is retained while
+			// the zero-action remote holder releases first. The later host packet
+			// must follow resume and replay to the loopback host as well as peers.
+			SetJa2TacticalCurrentTeam( 1 );
+			const std::size_t remoteHostReleaseEventsBefore =
+				remote.causalEvents.size();
+			const std::size_t remoteHostReleaseInterruptsBefore =
+				remote.interrupts.size();
+			const std::size_t remoteHostReleaseResumesBefore =
+				remote.resumes.size();
+			const std::size_t remoteHostReleaseTurnsBefore = remote.turns.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstAi.data(),
+				       remoteAgainstAi.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+					              remoteHostReleaseInterruptsBefore + 1;
+				       } ),
+			       "remote grant pauses AI team for host release-first ordering" );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 2 );
+			SetJa2TacticalCurrentTeam( 7 );
+			CHECK( remote.peer->SendMessage(
+				       "endINTERRUPT", aiResume.data(), aiResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+					              remoteHostReleaseResumesBefore + 1;
+				       } ) &&
+			       host.peer->SendMessage(
+				       "sendEndTurn", hostAiTurnAnnouncement.data(),
+				       hostAiTurnAnnouncement.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() ==
+					              remoteHostReleaseTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "send-time host EndTurn provenance survives release-first ordering" );
+			const std::array<char, 3> expectedHostReleaseOrder = {
+				'I', 'R', 'T' };
+			CHECK( remote.causalEvents.size() ==
+			           remoteHostReleaseEventsBefore + 3 &&
+			       std::equal(
+				       expectedHostReleaseOrder.begin(), expectedHostReleaseOrder.end(),
+				       remote.causalEvents.begin() + remoteHostReleaseEventsBefore ) &&
+			       remote.turns.back() == hostAiTurnAnnouncement,
+			       "host release-first order is grant, resume, then replayed EndTurn" );
+			SetJa2TacticalCurrentTeam( 2 );
+			const std::size_t remotePathsBeforeHostReleaseSuccessor = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &nextAiPath, sizeof( nextAiPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths ==
+					              remotePathsBeforeHostReleaseSuccessor + 1;
+				       } ),
+			       "host release-first replay retargets authority to its authored successor" );
+
+			// A released-team fence can still exist when the next GameLoop has
+			// selected and queued its host EndTurn. The send-time provenance is an
+			// explicit boundary: neither the stale team nor the future team may act
+			// before that reliable transition reaches the server.
+			SetJa2TacticalCurrentTeam( 1 );
+			const std::size_t remoteFenceRaceInterruptsBefore =
+				remote.interrupts.size();
+			const std::size_t remoteFenceRaceResumesBefore =
+				remote.resumes.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstAi.data(),
+				       remoteAgainstAi.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+					              remoteFenceRaceInterruptsBefore + 1;
+				       } ) &&
+			       remote.peer->SendMessage(
+				       "endINTERRUPT", aiResume.data(), aiResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+					              remoteFenceRaceResumesBefore + 1;
+				       } ),
+			       "AI interrupt release establishes the old-team resume fence" );
+			SetJa2TacticalCurrentTeam( 2 );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 2 );
+			const std::size_t remoteStaleInterruptsBefore = remote.interrupts.size();
+			const std::size_t hostStaleInterruptsBefore = host.interrupts.size();
+			const std::size_t remoteBoundaryPathsBefore = remote.paths;
+			EV_S_SENDPATHTONETWORK oldAiPath = {};
+			oldAiPath.usSoldierID = SoldierID{ aiActorId };
+			const std::uint16_t remoteAgainstNextAiOrder[3] = {
+				255, nextAiActorId, remoteActorId };
+			std::array<std::uint8_t, 14> remoteAgainstNextAi = {};
+			CHECK( MpInterruptWire::Encode(
+				       remoteAgainstNextAi.data(), remoteAgainstNextAi.size(),
+				       remoteActorId, 7, 2, 0, nextAiActorId,
+				       remoteAgainstNextAiOrder ) == remoteAgainstNextAi.size(),
+			       "future-team boundary interrupt fixture is encoded" );
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &oldAiPath, sizeof( oldAiPath ),
+				       AnyConnection, true ) &&
+			       host.peer->SendMessage(
+				       "sendPATH", &nextAiPath, sizeof( nextAiPath ),
+				       AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstAi.data(),
+				       remoteAgainstAi.size(), AnyConnection, true ) &&
+			       remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstNextAi.data(),
+				       remoteAgainstNextAi.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ) &&
+			       remote.interrupts.size() == remoteStaleInterruptsBefore &&
+			       host.interrupts.size() == hostStaleInterruptsBefore &&
+			       remote.paths == remoteBoundaryPathsBefore,
+			       "pending host EndTurn rejects stale/future PATH and interrupt authority" );
+			const std::size_t remoteFenceRaceTurnsBefore = remote.turns.size();
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostAiTurnAnnouncement.data(),
+				       hostAiTurnAnnouncement.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() ==
+					              remoteFenceRaceTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "host next-team announcement remains relayable after the stale interrupt is rejected" );
+			SetJa2TacticalCurrentTeam( 2 );
+			const std::size_t remotePathsAfterBoundary = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &nextAiPath, sizeof( nextAiPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths == remotePathsAfterBoundary + 1;
+				       } ),
+			       "exact host EndTurn consumption releases future-team authority" );
+
+			// An active-grant host announcement of the team being paused is not a
+			// rollback event. If it reaches the server after a zero-action release,
+			// peers still need it, but the loopback host must not apply it twice.
+			SetJa2TacticalCurrentTeam( 1 );
+			const std::size_t remoteArrivalInterruptsBefore =
+				remote.interrupts.size();
+			const std::size_t remoteArrivalResumesBefore = remote.resumes.size();
+			const std::size_t remoteArrivalTurnsBefore = remote.turns.size();
+			const std::size_t hostArrivalTurnsBefore = host.turns.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstAi.data(),
+				       remoteAgainstAi.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+					              remoteArrivalInterruptsBefore + 1;
+					       } ),
+			       "remote grant establishes the exact AI pause for a pending host announcement" );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 1 );
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostAiArrivalAnnouncement = { 6, 1 };
+			CHECK( remote.peer->SendMessage(
+				       "endINTERRUPT", aiResume.data(), aiResume.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.resumes.size() ==
+					              remoteArrivalResumesBefore + 1;
+				       } ),
+			       "release arms the still-queued exact host EndTurn boundary" );
+			constexpr std::uint16_t secondAiActorId = 21;
+			TacticalActor& secondAiActor = soldiers.record( secondAiActorId );
+			secondAiActor.identity().id() = SoldierID{ secondAiActorId };
+			secondAiActor.roster().team() = 1;
+			secondAiActor.roster().active() = TRUE;
+			secondAiActor.roster().inSector() = TRUE;
+			secondAiActor.vitals().health() = 50;
+			secondAiActor.vitals().maximumHealth() = 100;
+			const std::uint16_t remoteAgainstSecondAiOrder[3] = {
+				255, secondAiActorId, remoteActorId };
+			std::array<std::uint8_t, 14> remoteAgainstSecondAi = {};
+			CHECK( MpInterruptWire::Encode(
+				       remoteAgainstSecondAi.data(), remoteAgainstSecondAi.size(),
+				       remoteActorId, 7, 2, 0, secondAiActorId,
+				       remoteAgainstSecondAiOrder ) == remoteAgainstSecondAi.size(),
+			       "same-team different-target boundary interrupt fixture is encoded" );
+			const std::size_t remoteBoundaryInterruptsBefore =
+				remote.interrupts.size();
+			const std::size_t hostBoundaryInterruptsBefore = host.interrupts.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", remoteAgainstSecondAi.data(),
+				       remoteAgainstSecondAi.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ) &&
+			       remote.interrupts.size() == remoteBoundaryInterruptsBefore &&
+			       host.interrupts.size() == hostBoundaryInterruptsBefore,
+			       "queued host boundary blocks a second interrupt on the same paused team" );
+			CHECK(
+			       host.peer->SendMessage(
+				       "sendEndTurn", hostAiArrivalAnnouncement.data(),
+				       hostAiArrivalAnnouncement.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() ==
+					              remoteArrivalTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ) &&
+			       host.turns.size() == hostArrivalTurnsBefore,
+			       "release-first arrival announcement relays to peers without replaying on the host" );
+			SetJa2TacticalCurrentTeam( 1 );
+			const std::size_t remotePathsAfterArrivalBoundary = remote.paths;
+			CHECK( host.peer->SendMessage(
+				       "sendPATH", &oldAiPath, sizeof( oldAiPath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.paths ==
+					              remotePathsAfterArrivalBoundary + 1;
+				       } ),
+			       "arrival boundary consumption restores the announced AI authority" );
+			secondAiActor.roster().active() = FALSE;
+			nextAiActor.roster().active() = FALSE;
+
+			// A future remote team cannot EndTurn past a locally selected host turn
+			// whose reliable announcement is still behind it in the ingress queue.
+			SetJa2TacticalCurrentTeam( 7 );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 7 );
+			const std::size_t hostTurnsBeforePendingRemoteEnd = host.turns.size();
+			const std::size_t remoteTurnsBeforePendingRemoteEnd = remote.turns.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ) &&
+			       host.turns.size() == hostTurnsBeforePendingRemoteEnd,
+			       "pending host turn boundary rejects an overtaking remote EndTurn" );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostTeamSevenAnnouncement = { 6, 7 };
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostTeamSevenAnnouncement.data(),
+				       hostTeamSevenAnnouncement.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() ==
+					              remoteTurnsBeforePendingRemoteEnd + 1;
+				       } ) &&
+			       remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.turns.size() ==
+					              hostTurnsBeforePendingRemoteEnd + 1;
+				       } ),
+			       "remote EndTurn becomes valid only after the exact host boundary" );
+			SetJa2TacticalCurrentTeam( 8 );
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostBoundaryTeamEight = { 6, 8 };
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostBoundaryTeamEight.data(),
+				       hostBoundaryTeamEight.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "host completes the boundary-ordered remote handoff" );
+			SetJa2TacticalCurrentTeam( 7 );
+			std::array<std::uint8_t,
+				ja2::mp::LegacyBulletPayloadBytes> actorlessHostBullet = {};
+			const std::uint16_t actorlessHostFirer = NOBODY.i;
+			std::memcpy(
+				actorlessHostBullet.data() + ja2::mp::LegacyBulletFirerOffset,
+				&actorlessHostFirer, sizeof( actorlessHostFirer ) );
+			const std::size_t remoteBulletsBeforeActorless = remote.bullets;
+			CHECK( host.peer->SendMessage(
+				       "sendBULLET", actorlessHostBullet.data(),
+				       actorlessHostBullet.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.bullets ==
+					              remoteBulletsBeforeActorless + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "authenticated embedded host relays an actorless trap bullet during a remote player's turn" );
+
+			const std::size_t hostGrenadesBefore = host.grenades.size();
+			std::array<std::uint8_t,
+				ja2::mp::LegacyGrenadePayloadBytes> grenade = {};
+			std::memcpy(
+				grenade.data() + ja2::mp::LegacyGrenadeActorOffset,
+				&remoteActorId, sizeof( remoteActorId ) );
+			grenade[ja2::mp::LegacyGrenadeActionCodeOffset] =
+				THROW_TARGET_MERC_CATCH;
+			const std::uint32_t legacyLocalCatchTarget = 0;
+			std::memcpy(
+				grenade.data() + ja2::mp::LegacyGrenadeActionDataOffset,
+				&legacyLocalCatchTarget, sizeof( legacyLocalCatchTarget ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendGRENADE", grenade.data(), grenade.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.grenades.size() == hostGrenadesBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "legacy local grenade-catch target reaches ingress" );
+			std::uint32_t canonicalCatchTarget = 0;
+			if ( host.grenades.size() == hostGrenadesBefore + 1 )
+				std::memcpy(
+					&canonicalCatchTarget,
+					host.grenades.back().data() +
+						ja2::mp::LegacyGrenadeActionDataOffset,
+					sizeof( canonicalCatchTarget ) );
+			CHECK( canonicalCatchTarget == remoteActorId,
+			       "server canonicalizes catch target to the sender-owned wire actor" );
+			auto foreignCatch = grenade;
+			const std::uint32_t foreignCatchTarget = foreignActorId;
+			std::memcpy(
+				foreignCatch.data() + ja2::mp::LegacyGrenadeActionDataOffset,
+				&foreignCatchTarget, sizeof( foreignCatchTarget ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendGRENADE", foreignCatch.data(), foreignCatch.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "foreign grenade-catch target reaches ingress" );
+			CHECK( host.grenades.size() == hostGrenadesBefore + 1,
+			       "remote cannot nominate another player's catch target" );
+
+			const std::size_t hostPlantsBefore = host.plants.size();
+			std::array<std::uint8_t,
+				ja2::mp::LegacyPlantExplosivePayloadBytes> plant = {};
+			const std::uint32_t bombGrid = 123;
+			const std::uint16_t bombItem = 1;
+			const std::uint32_t bombWorldIndex = 73;
+			std::memcpy( plant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&bombGrid, sizeof( bombGrid ) );
+			std::memcpy( plant.data() +
+				ja2::mp::LegacyPlantExplosiveActorOffset,
+				&remoteActorId, sizeof( remoteActorId ) );
+			std::memcpy( plant.data() +
+				ja2::mp::LegacyPlantExplosiveItemOffset,
+				&bombItem, sizeof( bombItem ) );
+			plant[ja2::mp::LegacyPlantExplosiveStatusOffset] = 99;
+			std::memcpy( plant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&bombWorldIndex, sizeof( bombWorldIndex ) );
+			plant[ja2::mp::LegacyPlantExplosiveLevelOffset] = 0;
+			plant[ja2::mp::LegacyPlantExplosiveDetonatorOffset] = BOMB_TIMED;
+			auto invalidPlant = plant;
+			const std::uint16_t zeroBombItem = 0;
+			std::memcpy( invalidPlant.data() +
+				ja2::mp::LegacyPlantExplosiveItemOffset,
+				&zeroBombItem, sizeof( zeroBombItem ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", invalidPlant.data(),
+				       invalidPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "zero-item planted explosive reaches ingress" );
+			CHECK( host.plants.size() == hostPlantsBefore,
+			       "zero-item planted explosive cannot reserve or relay a bomb key" );
+			const std::uint16_t unloadedBombItem =
+				static_cast<std::uint16_t>( gMAXITEMS_READ );
+			std::memcpy( invalidPlant.data() +
+				ja2::mp::LegacyPlantExplosiveItemOffset,
+				&unloadedBombItem, sizeof( unloadedBombItem ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", invalidPlant.data(),
+				       invalidPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "unloaded-item planted explosive reaches ingress" );
+			CHECK( host.plants.size() == hostPlantsBefore,
+			       "unloaded-item planted explosive cannot reserve or relay a bomb key" );
+			auto oversizedPlant = plant;
+			const std::uint32_t sharedIndexLimit =
+				ja2::mp::LegacySharedExplosiveWorldIndexLimit;
+			std::memcpy( oversizedPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&sharedIndexLimit, sizeof( sharedIndexLimit ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", oversizedPlant.data(),
+				       oversizedPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress(
+				       remote, server, incoming, clients ),
+			       "shared-index-limit PLANT reaches embedded ingress" );
+			const std::uint32_t maximumWireIndex = UINT32_MAX;
+			std::memcpy( oversizedPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&maximumWireIndex, sizeof( maximumWireIndex ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", oversizedPlant.data(),
+				       oversizedPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress(
+				       remote, server, incoming, clients ) &&
+			       host.plants.size() == hostPlantsBefore,
+			       "oversized PLANT indices reject without reserving ledger state" );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", plant.data(), plant.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.plants.size() == hostPlantsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "authenticated planted explosive enters the bounded namespace ledger" );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", plant.data(), plant.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "duplicate planted-explosive key reaches ingress" );
+			CHECK( host.plants.size() == hostPlantsBefore + 1,
+			       "duplicate planted-explosive key cannot create a second remote bomb" );
+
+			const std::size_t hostDetonationsBefore = host.detonations.size();
+			std::array<std::uint8_t,
+				ja2::mp::LegacyDetonateExplosivePayloadBytes> detonation = {};
+			std::memcpy( detonation.data() +
+				ja2::mp::LegacyDetonateExplosiveActorOffset,
+				&remoteActorId, sizeof( remoteActorId ) );
+			std::memcpy( detonation.data() +
+				ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+				&bombWorldIndex, sizeof( bombWorldIndex ) );
+			detonation[ja2::mp::LegacyDetonateExplosiveTeamOffset] = 8;
+			CHECK( remote.peer->SendMessage(
+				       "sendDETONATEEXPLOSIVE", detonation.data(),
+				       detonation.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "cross-team bomb namespace forgery reaches ingress" );
+			CHECK( host.detonations.size() == hostDetonationsBefore,
+			       "unknown team/index composite cannot detonate another namespace" );
+			detonation[ja2::mp::LegacyDetonateExplosiveTeamOffset] = 7;
+			CHECK( remote.peer->SendMessage(
+				       "sendDETONATEEXPLOSIVE", detonation.data(),
+				       detonation.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.detonations.size() ==
+					              hostDetonationsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "tracked team/index composite detonates exactly its planted bomb" );
+			CHECK( remote.peer->SendMessage(
+				       "sendDETONATEEXPLOSIVE", detonation.data(),
+				       detonation.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "replayed detonation reaches ingress" );
+			CHECK( host.detonations.size() == hostDetonationsBefore + 1,
+			       "consumed explosive key rejects a duplicate detonation" );
+
+			auto disarmPlant = plant;
+			const std::uint32_t disarmGrid = 124;
+			const std::uint32_t disarmWorldIndex = 74;
+			std::memcpy( disarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&disarmGrid, sizeof( disarmGrid ) );
+			std::memcpy( disarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&disarmWorldIndex, sizeof( disarmWorldIndex ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", disarmPlant.data(),
+				       disarmPlant.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.plants.size() == hostPlantsBefore + 2;
+				       } ),
+			       "second planted explosive creates an independent ledger key" );
+			std::array<std::uint8_t,
+				ja2::mp::LegacyDisarmExplosivePayloadBytes> disarm = {};
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+				&disarmWorldIndex, sizeof( disarmWorldIndex ) );
+			disarm[ja2::mp::LegacyDisarmExplosiveTeamOffset] = 7;
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveActorOffset,
+				&remoteActorId, sizeof( remoteActorId ) );
+			const std::uint32_t forgedGrid = disarmGrid + 1;
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveGridOffset,
+				&forgedGrid, sizeof( forgedGrid ) );
+			const std::size_t hostDisarmsBefore = host.disarms.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendDISARMEXPLOSIVE", disarm.data(), disarm.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "wrong-grid disarm claim reaches ingress" );
+			CHECK( host.disarms.size() == hostDisarmsBefore,
+			       "disarm must match the authenticated plant grid" );
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveActorOffset,
+				&foreignActorId, sizeof( foreignActorId ) );
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveGridOffset,
+				&disarmGrid, sizeof( disarmGrid ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendDISARMEXPLOSIVE", disarm.data(), disarm.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "foreign-actor disarm claim reaches ingress" );
+			CHECK( host.disarms.size() == hostDisarmsBefore,
+			       "sender cannot disarm with another participant's actor" );
+			const std::size_t remoteDisarmsBefore = remote.disarms.size();
+			std::memcpy( disarm.data() +
+				ja2::mp::LegacyDisarmExplosiveActorOffset,
+				&foreignActorId, sizeof( foreignActorId ) );
+			CHECK( host.peer->SendMessage(
+				       "sendDISARMEXPLOSIVE", disarm.data(), disarm.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "off-turn authenticated host disarm reaches ingress" );
+			CHECK( remote.disarms.size() == remoteDisarmsBefore,
+			       "authenticated host cannot use a player actor off-turn" );
+			SetJa2TacticalCurrentTeam( 0 );
+			CHECK( host.peer->SendMessage(
+				       "sendDISARMEXPLOSIVE", disarm.data(), disarm.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.disarms.size() == remoteDisarmsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "authenticated host actor disarms a tracked remote bomb" );
+			CHECK( remote.disarms.size() == remoteDisarmsBefore + 1,
+			       "bomb ownership and disarming-actor ownership remain distinct" );
+			SetJa2TacticalCurrentTeam( 7 );
+
+			// The embedded host owns player team 0 and every engine AI team. A
+			// different host-owned actor may therefore trigger or disarm a locally
+			// planted bomb. The actor remains the action authority, but the outbound
+			// team/index key must stay in the original planter's namespace.
+			constexpr std::uint32_t crossOwnerDetonationGrid = 126;
+			constexpr std::uint32_t crossOwnerDetonationWorldIndex = 176;
+			constexpr std::uint32_t crossOwnerDisarmGrid = 127;
+			constexpr std::uint32_t crossOwnerDisarmWorldIndex = 177;
+			constexpr std::uint32_t localOriginDisarmGrid = 128;
+			constexpr std::uint32_t localOriginDisarmWorldIndex = 178;
+			auto crossOwnerDetonationPlant = plant;
+			std::memcpy( crossOwnerDetonationPlant.data() +
+				ja2::mp::LegacyPlantExplosiveActorOffset,
+				&aiActorId, sizeof( aiActorId ) );
+			std::memcpy( crossOwnerDetonationPlant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&crossOwnerDetonationGrid,
+				sizeof( crossOwnerDetonationGrid ) );
+			std::memcpy( crossOwnerDetonationPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&crossOwnerDetonationWorldIndex,
+				sizeof( crossOwnerDetonationWorldIndex ) );
+			auto crossOwnerDisarmPlant = crossOwnerDetonationPlant;
+			std::memcpy( crossOwnerDisarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&crossOwnerDisarmGrid, sizeof( crossOwnerDisarmGrid ) );
+			std::memcpy( crossOwnerDisarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&crossOwnerDisarmWorldIndex,
+				sizeof( crossOwnerDisarmWorldIndex ) );
+			auto localOriginDisarmPlant = crossOwnerDisarmPlant;
+			std::memcpy( localOriginDisarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveActorOffset,
+				&foreignActorId, sizeof( foreignActorId ) );
+			std::memcpy( localOriginDisarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&localOriginDisarmGrid, sizeof( localOriginDisarmGrid ) );
+			std::memcpy( localOriginDisarmPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&localOriginDisarmWorldIndex,
+				sizeof( localOriginDisarmWorldIndex ) );
+			const std::size_t remotePlantsBeforeCrossOwner =
+				remote.plants.size();
+			SetJa2TacticalCurrentTeam( 1 );
+			CHECK( host.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", crossOwnerDetonationPlant.data(),
+				       crossOwnerDetonationPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress(
+				       host, server, incoming, clients ),
+			       "host AI plants the cross-owner detonation fixture" );
+			CHECK( host.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", crossOwnerDisarmPlant.data(),
+				       crossOwnerDisarmPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress(
+				       host, server, incoming, clients ),
+			       "host AI plants the cross-owner disarm fixture" );
+			SetJa2TacticalCurrentTeam( 0 );
+			CHECK( host.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", localOriginDisarmPlant.data(),
+				       localOriginDisarmPlant.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress(
+				       host, server, incoming, clients ),
+			       "host player plants the local-origin disarm fixture" );
+			CHECK( remote.plants.size() == remotePlantsBeforeCrossOwner + 3,
+			       "AI and player bombs enter their authoritative origin namespaces" );
+
+			const INT32 localDetonationBomb = AddBombToWorld(
+				static_cast<INT32>( crossOwnerDetonationWorldIndex ) );
+			const INT32 localDisarmBomb = AddBombToWorld(
+				static_cast<INT32>( crossOwnerDisarmWorldIndex ) );
+			const INT32 localOriginDisarmBomb = AddBombToWorld(
+				static_cast<INT32>( localOriginDisarmWorldIndex ) );
+			CHECK( localDetonationBomb >= 0 && localDisarmBomb >= 0 &&
+			       localOriginDisarmBomb >= 0,
+			       "cross-owner production bombs allocate local lookup records" );
+			if ( localDetonationBomb >= 0 && localDisarmBomb >= 0 &&
+			     localOriginDisarmBomb >= 0 )
+			{
+				gWorldBombs[localDetonationBomb].ubMPTeamIndex = 1;
+				gWorldBombs[localDetonationBomb].bIsFromRemotePlayer = false;
+				gWorldBombs[localDisarmBomb].ubMPTeamIndex = 1;
+				gWorldBombs[localDisarmBomb].bIsFromRemotePlayer = false;
+				gWorldBombs[localOriginDisarmBomb].ubMPTeamIndex = 0;
+				gWorldBombs[localOriginDisarmBomb].bIsFromRemotePlayer = false;
+				// AddBombToWorld initializes map-authored/shared sentinel metadata.
+				// This fixture models an ordinary locally planted team-0 bomb.
+				gWorldBombs[localOriginDisarmBomb].iMPWorldItemIndex = 0;
+
+				extern SdlNetPeer* client;
+				SdlNetPeer* const previousProductionClient = client;
+				const bool previousIsClient = is_client;
+				const bool previousIsServer = is_server;
+				const UINT8 previousNetTeam = netbTeam;
+				const UINT16 previousIdPrefix = ubID_prefix;
+				client = host.peer;
+				is_client = true;
+				is_server = true;
+				netbTeam = 6;
+				ubID_prefix = 120;
+				const std::size_t remoteDetonationsBeforeCrossOwner =
+					remote.detonations.size();
+				const std::size_t remoteDisarmsBeforeCrossOwner =
+					remote.disarms.size();
+				SetJa2TacticalCurrentTeam( 0 );
+				send_detonate_explosive(
+					crossOwnerDetonationWorldIndex,
+					SoldierID{ 0 } );
+				CHECK( FlushLegacyHostIngress(
+					       host, server, incoming, clients ),
+				       "player-triggered AI bomb reaches production ingress" );
+				send_disarm_explosive(
+					crossOwnerDisarmGrid, crossOwnerDisarmWorldIndex,
+					SoldierID{ 0 } );
+				CHECK( FlushLegacyHostIngress(
+					       host, server, incoming, clients ),
+				       "player-disarmed AI bomb reaches production ingress" );
+				SetJa2TacticalCurrentTeam( 1 );
+				send_disarm_explosive(
+					localOriginDisarmGrid, localOriginDisarmWorldIndex,
+					SoldierID{ aiActorId } );
+				CHECK( FlushLegacyHostIngress(
+					       host, server, incoming, clients ),
+				       "AI-disarmed player bomb reaches production ingress" );
+
+				std::uint32_t relayedDetonationIndex = 0;
+				std::uint32_t relayedPlayerDisarmIndex = 0;
+				std::uint32_t relayedAiDisarmIndex = 0;
+				std::uint8_t relayedPlayerDisarmTeam = 0;
+				std::uint8_t relayedAiDisarmTeam = 0;
+				if ( remote.detonations.size() ==
+					remoteDetonationsBeforeCrossOwner + 1 )
+				{
+					std::memcpy( &relayedDetonationIndex,
+						remote.detonations.back().data() +
+							ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+						sizeof( relayedDetonationIndex ) );
+				}
+				if ( remote.disarms.size() >=
+					remoteDisarmsBeforeCrossOwner + 1 )
+				{
+					const auto& relayedPlayerDisarm =
+						remote.disarms[remoteDisarmsBeforeCrossOwner];
+					std::memcpy( &relayedPlayerDisarmIndex,
+						relayedPlayerDisarm.data() +
+							ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+						sizeof( relayedPlayerDisarmIndex ) );
+					relayedPlayerDisarmTeam = relayedPlayerDisarm[
+						ja2::mp::LegacyDisarmExplosiveTeamOffset];
+				}
+				if ( remote.disarms.size() >=
+					remoteDisarmsBeforeCrossOwner + 2 )
+				{
+					const auto& relayedAiDisarm =
+						remote.disarms[remoteDisarmsBeforeCrossOwner + 1];
+					std::memcpy( &relayedAiDisarmIndex,
+						relayedAiDisarm.data() +
+							ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+						sizeof( relayedAiDisarmIndex ) );
+					relayedAiDisarmTeam = relayedAiDisarm[
+						ja2::mp::LegacyDisarmExplosiveTeamOffset];
+				}
+				CHECK( remote.detonations.size() ==
+					       remoteDetonationsBeforeCrossOwner + 1 &&
+				       remote.detonations.back()[
+					       ja2::mp::LegacyDetonateExplosiveTeamOffset] == 1 &&
+				       relayedDetonationIndex ==
+					       crossOwnerDetonationWorldIndex,
+				       "cross-owner detonation retains the AI planter namespace" );
+				CHECK( remote.disarms.size() ==
+					       remoteDisarmsBeforeCrossOwner + 2,
+				       "both cross-owner disarms pass immediate authority" );
+				CHECK( relayedPlayerDisarmTeam == 1 &&
+				       relayedPlayerDisarmIndex == crossOwnerDisarmWorldIndex,
+				       "player disarm retains the AI planter's bomb namespace" );
+				CHECK( relayedAiDisarmTeam == 6,
+				       "stored local-player origin maps to its network bomb namespace" );
+				CHECK( relayedAiDisarmIndex == localOriginDisarmWorldIndex,
+				       "AI disarm retains the player planter's bomb index" );
+
+				client = previousProductionClient;
+				is_client = previousIsClient;
+				is_server = previousIsServer;
+				netbTeam = previousNetTeam;
+				ubID_prefix = previousIdPrefix;
+			}
+			if ( localDetonationBomb >= 0 )
+				gWorldBombs[localDetonationBomb].fExists = FALSE;
+			if ( localDisarmBomb >= 0 )
+				gWorldBombs[localDisarmBomb].fExists = FALSE;
+			if ( localOriginDisarmBomb >= 0 )
+				gWorldBombs[localOriginDisarmBomb].fExists = FALSE;
+			SetJa2TacticalCurrentTeam( 7 );
+
+			// Pre-placed map bombs have no PLANT packet. Every peer resolves the
+			// same map item index under origin team zero, while the authority keeps
+			// a permanent session claim across DET/DISARM to close replay races.
+			const bool sharedBombWasNetworked = is_networked;
+			is_networked = false;
+			auto AddSharedMapBomb = [&]( std::uint32_t grid,
+				INT32& bombIndex ) -> INT32 {
+				OBJECTTYPE object;
+				if ( !CreateItem( bombItem, 99, &object ) ||
+				     !object.exists() || object[0] == NULL )
+					return -1;
+				object.fFlags |= OBJECT_ARMED_BOMB;
+				object[0]->data.misc.bDetonatorType = BOMB_TIMED;
+				const INT32 itemIndex = AddItemToWorld(
+					static_cast<INT32>( grid ), &object, 0,
+					WORLD_ITEM_ARMED_BOMB, 0, VISIBLE, NOBODY );
+				bombIndex = -1;
+				for ( UINT32 index = 0;
+				      itemIndex >= 0 && index < guiNumWorldBombs; ++index )
+				{
+					if ( gWorldBombs[index].fExists &&
+					     gWorldBombs[index].iItemIndex == itemIndex )
+					{
+						bombIndex = static_cast<INT32>( index );
+						break;
+					}
+				}
+				return itemIndex;
+			};
+			INT32 sharedDetBomb = -1;
+			INT32 sharedDisarmBomb = -1;
+			INT32 sharedAuthBomb = -1;
+			INT32 sharedHostBomb = -1;
+			INT32 sharedReceiverBomb = -1;
+			INT32 sharedReconnectStaleBomb = -1;
+			INT32 sharedReconnectFreshBomb = -1;
+			const std::uint32_t sharedDetGrid = 130;
+			const std::uint32_t sharedDisarmGrid = 131;
+			const std::uint32_t sharedAuthGrid = 132;
+			const std::uint32_t sharedHostGrid = 133;
+			const std::uint32_t sharedReceiverGrid = 134;
+			const std::uint32_t sharedReconnectStaleGrid = 135;
+			const std::uint32_t sharedReconnectFreshGrid = 136;
+			const INT32 sharedDetItem =
+				AddSharedMapBomb( sharedDetGrid, sharedDetBomb );
+			const INT32 sharedDisarmItem =
+				AddSharedMapBomb( sharedDisarmGrid, sharedDisarmBomb );
+			const INT32 sharedAuthItem =
+				AddSharedMapBomb( sharedAuthGrid, sharedAuthBomb );
+			const INT32 sharedHostItem =
+				AddSharedMapBomb( sharedHostGrid, sharedHostBomb );
+			const INT32 sharedReceiverItem =
+				AddSharedMapBomb( sharedReceiverGrid, sharedReceiverBomb );
+			const INT32 sharedReconnectStaleItem = AddSharedMapBomb(
+				sharedReconnectStaleGrid, sharedReconnectStaleBomb );
+			const INT32 sharedReconnectFreshItem = AddSharedMapBomb(
+				sharedReconnectFreshGrid, sharedReconnectFreshBomb );
+			is_networked = sharedBombWasNetworked;
+			const bool sharedBombsCreated = sharedDetItem >= 0 &&
+				sharedDisarmItem >= 0 && sharedAuthItem >= 0 &&
+				sharedHostItem >= 0 && sharedReceiverItem >= 0 &&
+				sharedReconnectStaleItem >= 0 && sharedReconnectFreshItem >= 0 &&
+				sharedDetBomb >= 0 && sharedDisarmBomb >= 0 &&
+				sharedAuthBomb >= 0 && sharedHostBomb >= 0 &&
+				sharedReceiverBomb >= 0 && sharedReconnectStaleBomb >= 0 &&
+				sharedReconnectFreshBomb >= 0;
+			CHECK( sharedBombsCreated,
+			       "pre-placed shared bomb fixtures allocate live world records" );
+			if ( sharedBombsCreated )
+			{
+				CHECK( gWorldBombs[sharedDetBomb].iMPWorldItemIndex == -1 &&
+				       gWorldBombs[sharedDetBomb].ubMPTeamIndex == 0 &&
+				       !gWorldBombs[sharedDetBomb].bIsFromRemotePlayer,
+				       "new or reused bomb slots reset to the exact shared namespace" );
+
+				std::array<std::uint8_t,
+					ja2::mp::LegacyDetonateExplosivePayloadBytes> sharedDet = {};
+				std::memcpy( sharedDet.data() +
+					ja2::mp::LegacyDetonateExplosiveActorOffset,
+					&remoteActorId, sizeof( remoteActorId ) );
+				const std::uint32_t sharedDetWireIndex =
+					static_cast<std::uint32_t>( sharedDetItem );
+				std::memcpy( sharedDet.data() +
+					ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+					&sharedDetWireIndex, sizeof( sharedDetWireIndex ) );
+				sharedDet[ja2::mp::LegacyDetonateExplosiveTeamOffset] = 0;
+				const std::size_t hostSharedDetBefore = host.detonations.size();
+				CHECK( remote.peer->SendMessage(
+					       "sendDETONATEEXPLOSIVE", sharedDet.data(),
+					       sharedDet.size(), AnyConnection, true ) &&
+				       PumpLegacyHostUntil(
+					       server, incoming, clients, [&] {
+						       return host.detonations.size() ==
+						              hostSharedDetBefore + 1;
+					       } ),
+				       "remote can claim one live pre-placed map bomb" );
+				CHECK( remote.peer->SendMessage(
+					       "sendDETONATEEXPLOSIVE", sharedDet.data(),
+					       sharedDet.size(), AnyConnection, true ) &&
+				       FlushLegacyHostIngress(
+					       remote, server, incoming, clients ) &&
+				       host.detonations.size() == hostSharedDetBefore + 1,
+				       "shared detonation claim is a permanent replay tombstone" );
+
+				std::array<std::uint8_t,
+					ja2::mp::LegacyDisarmExplosivePayloadBytes> sharedDisarm = {};
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveActorOffset,
+					&remoteActorId, sizeof( remoteActorId ) );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+					&sharedDetWireIndex, sizeof( sharedDetWireIndex ) );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveGridOffset,
+					&sharedDetGrid, sizeof( sharedDetGrid ) );
+				sharedDisarm[ja2::mp::LegacyDisarmExplosiveTeamOffset] = 0;
+				const std::size_t hostSharedDisarmBefore = host.disarms.size();
+				CHECK( remote.peer->SendMessage(
+					       "sendDISARMEXPLOSIVE", sharedDisarm.data(),
+					       sharedDisarm.size(), AnyConnection, true ) &&
+				       FlushLegacyHostIngress(
+					       remote, server, incoming, clients ) &&
+				       host.disarms.size() == hostSharedDisarmBefore,
+				       "shared DET-to-DISARM cross-operation replay is rejected" );
+
+				const std::uint32_t sharedDisarmWireIndex =
+					static_cast<std::uint32_t>( sharedDisarmItem );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+					&sharedDisarmWireIndex, sizeof( sharedDisarmWireIndex ) );
+				const std::uint32_t wrongSharedGrid = sharedDisarmGrid + 1;
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveGridOffset,
+					&wrongSharedGrid, sizeof( wrongSharedGrid ) );
+				CHECK( remote.peer->SendMessage(
+					       "sendDISARMEXPLOSIVE", sharedDisarm.data(),
+					       sharedDisarm.size(), AnyConnection, true ) &&
+				       FlushLegacyHostIngress(
+					       remote, server, incoming, clients ) &&
+				       host.disarms.size() == hostSharedDisarmBefore,
+				       "wrong-grid shared disarm does not reserve a tombstone" );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveGridOffset,
+					&sharedDisarmGrid, sizeof( sharedDisarmGrid ) );
+				CHECK( remote.peer->SendMessage(
+					       "sendDISARMEXPLOSIVE", sharedDisarm.data(),
+					       sharedDisarm.size(), AnyConnection, true ) &&
+				       PumpLegacyHostUntil(
+					       server, incoming, clients, [&] {
+						       return host.disarms.size() ==
+						              hostSharedDisarmBefore + 1;
+					       } ),
+				       "valid shared disarm succeeds after a rejected wrong-grid claim" );
+				std::memcpy( sharedDet.data() +
+					ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+					&sharedDisarmWireIndex, sizeof( sharedDisarmWireIndex ) );
+				CHECK( remote.peer->SendMessage(
+					       "sendDETONATEEXPLOSIVE", sharedDet.data(),
+					       sharedDet.size(), AnyConnection, true ) &&
+				       FlushLegacyHostIngress(
+					       remote, server, incoming, clients ) &&
+				       host.detonations.size() == hostSharedDetBefore + 1,
+				       "shared DISARM-to-DET cross-operation replay is rejected" );
+
+				const std::uint32_t sharedAuthWireIndex =
+					static_cast<std::uint32_t>( sharedAuthItem );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveWorldIndexOffset,
+					&sharedAuthWireIndex, sizeof( sharedAuthWireIndex ) );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveGridOffset,
+					&sharedAuthGrid, sizeof( sharedAuthGrid ) );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveActorOffset,
+					&foreignActorId, sizeof( foreignActorId ) );
+				CHECK( remote.peer->SendMessage(
+					       "sendDISARMEXPLOSIVE", sharedDisarm.data(),
+					       sharedDisarm.size(), AnyConnection, true ) &&
+				       FlushLegacyHostIngress(
+					       remote, server, incoming, clients ) &&
+				       host.disarms.size() == hostSharedDisarmBefore + 1,
+				       "foreign actor cannot poison a shared bomb claim" );
+				std::memcpy( sharedDisarm.data() +
+					ja2::mp::LegacyDisarmExplosiveActorOffset,
+					&remoteActorId, sizeof( remoteActorId ) );
+				CHECK( remote.peer->SendMessage(
+					       "sendDISARMEXPLOSIVE", sharedDisarm.data(),
+					       sharedDisarm.size(), AnyConnection, true ) &&
+				       PumpLegacyHostUntil(
+					       server, incoming, clients, [&] {
+						       return host.disarms.size() ==
+						              hostSharedDisarmBefore + 2;
+					       } ),
+				       "valid actor succeeds after an unauthorized shared claim" );
+
+				// Production disarm queues the loopback packet and then the engine
+				// removes its world item. The send-time proof must survive that race.
+				extern SdlNetPeer* client;
+				SdlNetPeer* const sharedPreviousClient = client;
+				const bool sharedPreviousIsClient = is_client;
+				const bool sharedPreviousIsServer = is_server;
+				const bool sharedPreviousNetworked = is_networked;
+				const UINT8 sharedPreviousNetTeam = netbTeam;
+				const UINT16 sharedPreviousPrefix = ubID_prefix;
+				client = host.peer;
+				is_client = true;
+				is_server = true;
+				is_networked = true;
+				netbTeam = 6;
+				ubID_prefix = 120;
+				SetJa2TacticalCurrentTeam( 0 );
+				const std::size_t remoteSharedHostDisarmBefore =
+					remote.disarms.size();
+				send_disarm_explosive(
+					sharedHostGrid, static_cast<UINT32>( sharedHostItem ),
+					SoldierID{ 0 } );
+				RemoveItemFromWorld( sharedHostItem );
+				CHECK( PumpLegacyHostUntil(
+					       server, incoming, clients, [&] {
+						       return remote.disarms.size() ==
+						              remoteSharedHostDisarmBefore + 1;
+					       } ) &&
+				       remote.disarms.back()[
+					       ja2::mp::LegacyDisarmExplosiveTeamOffset] == 0,
+				       "embedded host shared disarm survives local removal before server pump" );
+
+				// The receiver must resolve origin zero by the local map index and
+				// exact sentinel. A missing key must not queue work or perturb RNG.
+				std::array<std::uint8_t,
+					ja2::mp::LegacyDetonateExplosivePayloadBytes> receiverDet = {};
+				const std::uint32_t receiverWireIndex =
+					static_cast<std::uint32_t>( sharedReceiverItem );
+				const std::uint32_t receiverMissingIndex =
+					ja2::mp::LegacySharedExplosiveWorldIndexLimit - 1;
+				const std::uint32_t receiverRandomIndex = 73;
+				std::memcpy( receiverDet.data() +
+					ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+					&receiverMissingIndex, sizeof( receiverMissingIndex ) );
+				receiverDet[ja2::mp::LegacyDetonateExplosiveTeamOffset] = 0;
+				std::memcpy( receiverDet.data() +
+					ja2::mp::LegacyDetonateExplosiveActorOffset,
+					&remoteActorId, sizeof( remoteActorId ) );
+				std::memcpy( receiverDet.data() + 7,
+					&receiverRandomIndex, sizeof( receiverRandomIndex ) );
+				const UINT8 receiverQueueBefore = gubElementsOnExplosionQueue;
+				const BOOLEAN receiverQueueActiveBefore = gfExplosionQueueActive;
+				const auto receiverUiFlagsBefore = gTacticalStatus.uiFlags;
+				const auto receiverOverrideBefore = guiPendingOverrideEvent;
+				guiPreRandomIndex = 11;
+				SdlNetMessage receiverDetMessage = {
+					receiverDet.data(), receiverDet.size(), ConnectionId{} };
+				recieveDETONATEEXPLOSIVE( &receiverDetMessage );
+				CHECK( gubElementsOnExplosionQueue == receiverQueueBefore &&
+				       guiPreRandomIndex == 11,
+				       "missing shared receiver key leaves queue and RNG untouched" );
+				std::memcpy( receiverDet.data() +
+					ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+					&receiverWireIndex, sizeof( receiverWireIndex ) );
+				recieveDETONATEEXPLOSIVE( &receiverDetMessage );
+				CHECK( gubElementsOnExplosionQueue == receiverQueueBefore + 1 &&
+				       guiPreRandomIndex == receiverRandomIndex,
+				       "shared receiver queues the exact local map bomb after validation" );
+				gubElementsOnExplosionQueue = receiverQueueBefore;
+				gfExplosionQueueActive = receiverQueueActiveBefore;
+				gTacticalStatus.uiFlags = receiverUiFlagsBefore;
+				guiPendingOverrideEvent = receiverOverrideBefore;
+
+				client = sharedPreviousClient;
+				is_client = sharedPreviousIsClient;
+				is_server = sharedPreviousIsServer;
+				is_networked = sharedPreviousNetworked;
+				netbTeam = sharedPreviousNetTeam;
+				ubID_prefix = sharedPreviousPrefix;
+				SetJa2TacticalCurrentTeam( 7 );
+			}
+			for ( const INT32 itemIndex : { sharedDetItem, sharedDisarmItem,
+			       sharedAuthItem, sharedHostItem, sharedReceiverItem } )
+			{
+				if ( itemIndex >= 0 &&
+				     static_cast<std::size_t>( itemIndex ) < gWorldItems.size() &&
+				     gWorldItems[itemIndex].fExists )
+					RemoveItemFromWorld( itemIndex );
+			}
+
+			auto delayedTimedPlant = plant;
+			const std::uint32_t delayedTimedGrid = 125;
+			const std::uint32_t delayedTimedWorldIndex = 75;
+			std::memcpy( delayedTimedPlant.data() +
+				ja2::mp::LegacyPlantExplosiveGridOffset,
+				&delayedTimedGrid, sizeof( delayedTimedGrid ) );
+			std::memcpy( delayedTimedPlant.data() +
+				ja2::mp::LegacyPlantExplosiveWorldIndexOffset,
+				&delayedTimedWorldIndex, sizeof( delayedTimedWorldIndex ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendPLANTEXPLOSIVE", delayedTimedPlant.data(),
+				       delayedTimedPlant.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.plants.size() == hostPlantsBefore + 3;
+				       } ),
+			       "timed explosive is tracked before its planter becomes incapacitated" );
+
+			const std::size_t hostHealsBefore = host.heals.size();
+			heal healing = {};
+			healing.ubID = SoldierID{ remoteActorId };
+			healing.bLife = 60;
+			healing.bBleeding = 5;
+			CHECK( remote.peer->SendMessage(
+				       "sendHEAL", &healing, sizeof( healing ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.heals.size() == hostHealsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "plausible sender-owned heal result reaches ingress" );
+			CHECK( host.heals.size() == hostHealsBefore + 1,
+			       "server accepts a bounded monotonic heal for an authorized patient" );
+			healing.ubID = SoldierID{ foreignActorId };
+			CHECK( remote.peer->SendMessage(
+				       "sendHEAL", &healing, sizeof( healing ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "foreign-patient heal reaches ingress" );
+			CHECK( host.heals.size() == hostHealsBefore + 1,
+			       "deathmatch peer cannot author another player's health" );
+			gGameType = MP_TYPE_COOP;
+			CHECK( remote.peer->SendMessage(
+				       "sendHEAL", &healing, sizeof( healing ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.heals.size() == hostHealsBefore + 2;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "co-op peer heal for another player reaches ingress" );
+			CHECK( host.heals.size() == hostHealsBefore + 2,
+			       "co-op preserves authorized cross-player treatment" );
+			localActor.vitals().maximumHealth() = 55;
+			CHECK( remote.peer->SendMessage(
+				       "sendHEAL", &healing, sizeof( healing ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "over-maximum heal reaches ingress" );
+			CHECK( host.heals.size() == hostHealsBefore + 2,
+			       "peer cannot raise a patient above maximum health" );
+			localActor.vitals().maximumHealth() = 100;
+
+			death_struct aiDeath = {};
+			aiDeath.soldier_id = SoldierID{ aiActorId };
+			aiDeath.attacker_id = NOBODY;
+			aiDeath.soldier_team = 99;
+			aiDeath.attacker_team = 99;
+			const std::size_t hostDeathsBefore = host.deaths.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendDEATH", &aiDeath, sizeof( aiDeath ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "remote environmental AI death reaches embedded authority" );
+			CHECK( host.deaths.size() == hostDeathsBefore,
+			       "current player cannot corpse arbitrary AI without causal provenance" );
+			aiDeath.attacker_id = SoldierID{ foreignActorId };
+			CHECK( remote.peer->SendMessage(
+				       "sendDEATH", &aiDeath, sizeof( aiDeath ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "foreign-attacker AI death reaches embedded authority" );
+			CHECK( host.deaths.size() == hostDeathsBefore,
+			       "remote cannot claim another authority's attacker for an AI death" );
+			aiDeath.attacker_id = SoldierID{ remoteActorId };
+			CHECK( remote.peer->SendMessage(
+				       "sendDEATH", &aiDeath, sizeof( aiDeath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.deaths.size() == hostDeathsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "sender-owned attacker can report a delayed AI death" );
+			CHECK( host.deaths.back().soldier_team == 5 &&
+			       host.deaths.back().attacker_team == 2,
+			       "AI death score identities are derived from actor provenance" );
+			const std::size_t remoteDeathsBefore = remote.deaths.size();
+			aiDeath.attacker_id = NOBODY;
+			CHECK( host.peer->SendMessage(
+				       "sendDEATH", &aiDeath, sizeof( aiDeath ),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.deaths.size() == remoteDeathsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "embedded AI host can author an environmental AI death" );
+			CHECK( remote.deaths.back().soldier_team == 5 &&
+			       remote.deaths.back().attacker_team == 0,
+			       "environmental AI death is canonicalized without a forged kill" );
+			gGameType = MP_TYPE_DEATHMATCH;
+
+			const std::size_t hostWipesBefore = host.wipes.size();
+			const std::array<std::uint8_t, sizeof( sc_struct )> wipe = { 7 };
+			CHECK( remote.peer->SendMessage(
+				       "sendWIPE", wipe.data(), wipe.size(), AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "alive-team wipe claim reaches ingress" );
+			CHECK( host.wipes.size() == hostWipesBefore,
+			       "team with a conscious in-sector merc cannot forge a wipe" );
+			remoteActor.vitals().health() = OKLIFE - 1;
+			CHECK( remote.peer->SendMessage(
+				       "sendWIPE", wipe.data(), wipe.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.wipes.size() == hostWipesBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "incapacitated tracked team can report its real wipe" );
+			CHECK( host.wipes.size() == hostWipesBefore + 1 &&
+			       host.wipes.back() == wipe,
+			       "server accepts exactly one proved team wipe" );
+			auto delayedTimedDetonation = detonation;
+			const std::size_t hostDelayedTimedDetonationsBefore =
+				host.detonations.size();
+			std::memcpy( delayedTimedDetonation.data() +
+				ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+				&delayedTimedWorldIndex, sizeof( delayedTimedWorldIndex ) );
+			CHECK( remote.peer->SendMessage(
+				       "sendDETONATEEXPLOSIVE", delayedTimedDetonation.data(),
+				       delayedTimedDetonation.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.detonations.size() ==
+					              hostDelayedTimedDetonationsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress(
+				       remote, server, incoming, clients ),
+			       "tracked timed detonation survives planter incapacity and team wipe" );
+			CHECK( host.detonations.size() ==
+			       hostDelayedTimedDetonationsBefore + 1,
+			       "delayed timed bomb consumes its authenticated ledger key" );
+			const std::size_t hostTurnsBeforeWipedEndTurn = host.turns.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendEndTurn", validTurn.data(), validTurn.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "wiped remote end-turn request reaches ingress" );
+			CHECK( host.turns.size() == hostTurnsBeforeWipedEndTurn,
+			       "wiped remote cannot retain tactical turn authority" );
+			healing.ubID = SoldierID{ remoteActorId };
+			healing.bLife = OKLIFE + 5;
+			CHECK( remote.peer->SendMessage(
+				       "sendHEAL", &healing, sizeof( healing ),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "wiped-player resurrection attempt reaches ingress" );
+			CHECK( host.heals.size() == hostHealsBefore + 2,
+			       "a finalized wipe cannot be reversed by a legacy heal result" );
+			CHECK( remote.peer->SendMessage(
+				       "sendGRENADE", grenade.data(), grenade.size(),
+				       AnyConnection, true ) &&
+			       FlushLegacyHostIngress( remote, server, incoming, clients ),
+			       "wiped-player tactical action reaches ingress" );
+			CHECK( host.grenades.size() == hostGrenadesBefore + 1,
+			       "wiped player cannot retain immediate actor authority" );
+
+			const std::size_t remoteWipesBefore = remote.wipes.size();
+			const std::array<std::uint8_t, sizeof( sc_struct )> hostWipe = { 6 };
+			SetJa2TacticalCurrentTeam( 0 );
+			const std::size_t remoteInterruptsBeforeHostWipe =
+				remote.interrupts.size();
+			const std::size_t remoteResumesBeforeHostWipe =
+				remote.resumes.size();
+			CHECK( host.peer->SendMessage(
+				       "sendINTERRUPT", hostAiInterrupt.data(),
+				       hostAiInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.interrupts.size() ==
+					              remoteInterruptsBeforeHostWipe + 1;
+				       } ),
+			       "host wipe fixture starts with its player turn interrupted" );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 7 );
+			localActor.vitals().health() = OKLIFE - 1;
+			secondLocalActor.vitals().health() = 0;
+			CHECK( host.peer->SendMessage(
+				       "sendWIPE", hostWipe.data(), hostWipe.size(),
+				       AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.wipes.size() == remoteWipesBefore + 1 &&
+					              remote.resumes.size() ==
+						              remoteResumesBeforeHostWipe + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "incapacitated embedded-player team can report its wipe" );
+			const std::size_t remoteTurnsBefore = remote.turns.size();
+			const std::array<std::uint8_t,
+				ja2::mp::LegacyTurnPayloadBytes> hostCoordinatorTurn = { 6, 7 };
+			SetJa2TacticalCurrentTeam( 7 );
+			RecordLegacyEmbeddedHostEndTurnProvenance( 7 );
+			CHECK( host.peer->SendMessage(
+				       "sendEndTurn", hostCoordinatorTurn.data(),
+				       hostCoordinatorTurn.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return remote.turns.size() == remoteTurnsBefore + 1;
+				       } ) &&
+			       FlushLegacyHostIngress( host, server, incoming, clients ),
+			       "wiped embedded player continues announcing coordinator turns" );
+			CHECK( remote.turns.size() == remoteTurnsBefore + 1 &&
+			       remote.turns.back() == hostCoordinatorTurn,
+			       "host coordinator authority survives its participant wipe" );
+
+			// Restore only the test fixture's live actors so disconnect recovery
+			// can exercise a real active grant at the end of this isolated session.
+			gLegacyTeamWiped[0] = false;
+			gLegacyTeamWiped[1] = false;
+			localActor.vitals().health() = 50;
+			secondLocalActor.vitals().health() = 50;
+			remoteActor.vitals().health() = 50;
+			SetJa2TacticalCurrentTeam( 7 );
+			const std::size_t hostPathsBeforePostWipeFence = host.paths;
+			CHECK( remote.peer->SendMessage(
+				       "sendPATH", &remotePostReleasePath,
+				       sizeof( remotePostReleasePath ), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.paths ==
+					              hostPathsBeforePostWipeFence + 1;
+				       } ),
+			       "fresh post-wipe host transition releases its successor fence" );
+			SetJa2TacticalCurrentTeam( 0 );
+
+			// A host-local shared-bomb proof belongs to the exact reliable loopback
+			// stream on which its packet was queued. Simulate loss of that stream after
+			// registration but before ingress: reconnect must retire the undeliverable
+			// FIFO head without erasing the bomb's permanent replay tombstone.
+			if ( sharedReconnectStaleItem >= 0 && sharedReconnectFreshItem >= 0 &&
+			     sharedReconnectStaleBomb >= 0 && sharedReconnectFreshBomb >= 0 )
+			{
+				const SoldierID reconnectHostActor{ aiActorId };
+				CHECK( RegisterLegacyEmbeddedHostSharedBombDetonation(
+					       static_cast<UINT32>( sharedReconnectStaleItem ),
+					       reconnectHostActor ),
+				       "embedded host registers a shared-bomb proof before loopback loss" );
+				const ConnectionId disconnectedHostConnection = host.hostConnection;
+				StopLegacyHostClient( host );
+				HandleDisconnect( disconnectedHostConnection );
+				CHECK( gLegacyClientAdmission.find( disconnectedHostConnection ) ==
+				           InvalidLegacyAdmissionSlot,
+				       "embedded host disconnect retires its exact admitted connection" );
+				host.accepted = false;
+				host.closed = false;
+				host.hostConnection = ConnectionId{};
+				host.serverConnection = ConnectionId{};
+				const std::size_t hostSettingsBeforeReconnect = host.settings.size();
+				CHECK( StartLegacyHostClient(
+					       host, port, server, incoming, clients ),
+				       "embedded host establishes a replacement loopback transport" );
+				if ( host.accepted && copied )
+				{
+					CHECK( host.peer->SendMessage(
+						       "claimEmbeddedHost", hostClaim.data(), hostClaim.size(),
+						       host.serverConnection, false ) &&
+					       host.peer->SendMessage(
+						       "requestSETTINGS", &hostInfo, sizeof( hostInfo ),
+						       AnyConnection, true ) &&
+					       PumpLegacyHostUntil(
+						       server, incoming, clients, [&] {
+							       return gLegacyClientAdmission.find(
+								              host.hostConnection ) == 0 &&
+							              host.settings.size() >
+							                  hostSettingsBeforeReconnect;
+						       } ),
+					       "replacement loopback reclaims embedded-host admission" );
+
+					std::array<std::uint8_t,
+						ja2::mp::LegacyDetonateExplosivePayloadBytes>
+						staleReconnectDetonation = {};
+					const std::uint32_t staleReconnectWorldIndex =
+						static_cast<std::uint32_t>( sharedReconnectStaleItem );
+					std::memcpy( staleReconnectDetonation.data() +
+						ja2::mp::LegacyDetonateExplosiveActorOffset,
+						&remoteActorId, sizeof( remoteActorId ) );
+					std::memcpy( staleReconnectDetonation.data() +
+						ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+						&staleReconnectWorldIndex,
+						sizeof( staleReconnectWorldIndex ) );
+					staleReconnectDetonation[
+						ja2::mp::LegacyDetonateExplosiveTeamOffset] = 0;
+					const std::size_t hostDetonationsBeforeStaleReplay =
+						host.detonations.size();
+					CHECK( remote.peer->SendMessage(
+						       "sendDETONATEEXPLOSIVE",
+						       staleReconnectDetonation.data(),
+						       staleReconnectDetonation.size(), AnyConnection, true ) &&
+					       FlushLegacyHostIngress(
+						       remote, server, incoming, clients ) &&
+					       host.detonations.size() ==
+						       hostDetonationsBeforeStaleReplay,
+					       "host disconnect preserves the old shared-bomb replay tombstone" );
+
+					const std::uint32_t freshReconnectWorldIndex =
+						static_cast<std::uint32_t>( sharedReconnectFreshItem );
+					CHECK( RegisterLegacyEmbeddedHostSharedBombDetonation(
+						       freshReconnectWorldIndex, reconnectHostActor ),
+					       "reconnected host registers a different live shared bomb" );
+					auto freshReconnectDetonation = staleReconnectDetonation;
+					std::memcpy( freshReconnectDetonation.data() +
+						ja2::mp::LegacyDetonateExplosiveActorOffset,
+						&aiActorId, sizeof( aiActorId ) );
+					std::memcpy( freshReconnectDetonation.data() +
+						ja2::mp::LegacyDetonateExplosiveWorldIndexOffset,
+						&freshReconnectWorldIndex,
+						sizeof( freshReconnectWorldIndex ) );
+					const std::size_t remoteDetonationsBeforeReconnect =
+						remote.detonations.size();
+					CHECK( host.peer->SendMessage(
+						       "sendDETONATEEXPLOSIVE",
+						       freshReconnectDetonation.data(),
+						       freshReconnectDetonation.size(), AnyConnection, true ) &&
+					       PumpLegacyHostUntil(
+						       server, incoming, clients, [&] {
+							       return remote.detonations.size() ==
+							              remoteDetonationsBeforeReconnect + 1;
+						       } ) &&
+					       FlushLegacyHostIngress(
+						       host, server, incoming, clients ),
+					       "stale disconnected-host proof cannot block a fresh host action" );
+				}
+				for ( const INT32 itemIndex : { sharedReconnectStaleItem,
+				       sharedReconnectFreshItem } )
+				{
+					if ( itemIndex >= 0 &&
+					     static_cast<std::size_t>( itemIndex ) < gWorldItems.size() &&
+					     gWorldItems[itemIndex].fExists )
+						RemoveItemFromWorld( itemIndex );
+				}
+			}
+
+			const std::uint16_t disconnectInterruptOrder[3] = {
+				255, foreignActorId, remoteActorId };
+			std::array<std::uint8_t, 14> disconnectInterrupt = {};
+			CHECK( MpInterruptWire::Encode(
+				       disconnectInterrupt.data(), disconnectInterrupt.size(),
+				       remoteActorId, 7, 2, 0, foreignActorId,
+				       disconnectInterruptOrder ) == disconnectInterrupt.size(),
+			       "disconnect-recovery interrupt fixture is encoded" );
+			const std::size_t hostInterruptsBeforeDisconnect =
+				host.interrupts.size();
+			CHECK( remote.peer->SendMessage(
+				       "sendINTERRUPT", disconnectInterrupt.data(),
+				       disconnectInterrupt.size(), AnyConnection, true ) &&
+			       PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.interrupts.size() ==
+						       hostInterruptsBeforeDisconnect + 1;
+				       } ),
+			       "remote holder receives an active grant before disconnect" );
+			const std::size_t hostResumesBeforeDisconnect = host.resumes.size();
+			HandleDisconnect( remote.hostConnection );
+			CHECK( PumpLegacyHostUntil(
+				       server, incoming, clients, [&] {
+					       return host.resumes.size() ==
+						       hostResumesBeforeDisconnect + 1;
+				       } ),
+			       "holder disconnect force-releases the paused authority" );
+			CHECK( gLegacyClientAdmission.find( remote.hostConnection ) ==
+			           InvalidLegacyAdmissionSlot &&
+			       host.resumes.back().size() == 12 &&
+			       host.resumes.back()[2] == 6 &&
+			       MpInterruptWire::Get16(
+				       host.resumes.back().data(), 0 ) == foreignActorId,
+			       "disconnect recovery retires the holder and emits an evolved release" );
+		}
+
+	clients.push_back( &conflictingClaim );
+	CHECK( StartLegacyHostClient(
+		       conflictingClaim, port, server, incoming, clients ),
+	       "additional transport connects for claimed-owner conflict" );
+	if ( conflictingClaim.accepted && copied )
+	{
+		CHECK( conflictingClaim.peer->SendMessage(
+			       "claimEmbeddedHost", hostClaim.data(), hostClaim.size(),
+			       conflictingClaim.serverConnection, false ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients,
+			       [&] { return conflictingClaim.closed; } ),
+		       "correct capability cannot move an established host to another sender" );
+		CHECK( gLegacyClientAdmission.find(
+			       conflictingClaim.hostConnection ) ==
+		           InvalidLegacyAdmissionSlot &&
+		       gLegacyClientAdmission.find( host.hostConnection ) == 0,
+		       "owner-conflict claim neither registers nor displaces the host" );
+	}
+	StopLegacyHostClient( conflictingClaim );
+
+	clients.push_back( &badClaim );
+	CHECK( StartLegacyHostClient( badClaim, port, server, incoming, clients ),
+	       "additional transport connects for forged host-claim rejection" );
+	if ( badClaim.accepted && copied )
+	{
+		auto forgedClaim = hostClaim;
+		forgedClaim[0] ^= 0xffu;
+		CHECK( badClaim.peer->SendMessage(
+			       "claimEmbeddedHost", forgedClaim.data(), forgedClaim.size(),
+			       badClaim.serverConnection, false ) &&
+		       PumpLegacyHostUntil(
+			       server, incoming, clients,
+			       [&] { return badClaim.closed; } ),
+		       "incorrect embedded-host capability closes only its sender" );
+		CHECK( gLegacyClientAdmission.find( badClaim.hostConnection ) ==
+		           InvalidLegacyAdmissionSlot &&
+		       gLegacyClientAdmission.find( host.hostConnection ) == 0,
+		       "forged claim neither registers nor displaces the real host" );
+	}
+
+	CHECK( remote.malformedSettings == 0 && host.malformedSettings == 0 &&
+	       loadedContributor.malformedSettings == 0 &&
+	       placedContributor.malformedSettings == 0 &&
+	       conflictingClaim.malformedSettings == 0 &&
+	       badClaim.malformedSettings == 0 && remote.malformedReady == 0 &&
+	       host.malformedReady == 0 && loadedContributor.malformedReady == 0 &&
+	       placedContributor.malformedReady == 0 &&
+	       conflictingClaim.malformedReady == 0 &&
+	       badClaim.malformedReady == 0 && remote.malformedGui == 0 &&
+	       host.malformedGui == 0 && loadedContributor.malformedGui == 0 &&
+	       placedContributor.malformedGui == 0 &&
+	       conflictingClaim.malformedGui == 0 &&
+	       badClaim.malformedGui == 0 && remote.malformedHire == 0 &&
+	       host.malformedHire == 0 && loadedContributor.malformedHire == 0 &&
+	       placedContributor.malformedHire == 0 &&
+	       conflictingClaim.malformedHire == 0 &&
+	       badClaim.malformedHire == 0 && remote.malformedDismiss == 0 &&
+	       host.malformedDismiss == 0 &&
+	       loadedContributor.malformedDismiss == 0 &&
+	       placedContributor.malformedDismiss == 0 &&
+		       conflictingClaim.malformedDismiss == 0 &&
+		       badClaim.malformedDismiss == 0 && remote.malformedTurn == 0 &&
+		       host.malformedTurn == 0 && loadedContributor.malformedTurn == 0 &&
+	       placedContributor.malformedTurn == 0 &&
+	       remote.malformedStop == 0 && host.malformedStop == 0 &&
+	       remote.malformedInterrupt == 0 && host.malformedInterrupt == 0 &&
+	       remote.malformedResume == 0 && host.malformedResume == 0 &&
+	       remote.malformedGrenade == 0 &&
+	       host.malformedGrenade == 0 && remote.malformedPlant == 0 &&
+	       host.malformedPlant == 0 && remote.malformedDetonation == 0 &&
+	       host.malformedDetonation == 0 && remote.malformedDisarm == 0 &&
+	       host.malformedDisarm == 0 && remote.malformedWipe == 0 &&
+		       host.malformedWipe == 0 && remote.malformedHeal == 0 &&
+		       host.malformedHeal == 0 && remote.malformedDeath == 0 &&
+		       host.malformedDeath == 0,
+	       "authenticated host flow emits only exact legacy payloads" );
+	StopLegacyHostClient( badClaim );
+	StopLegacyHostClient( conflictingClaim );
+	StopLegacyHostClient( placedContributor );
+	StopLegacyHostClient( loadedContributor );
+	StopLegacyHostClient( host );
+	StopLegacyHostClient( remote );
+	server->Shutdown( 0 );
+	DestroySdlNetPeer( server );
+	server = nullptr;
+	gLegacyClientAdmission.clear();
+	ja2::mp::ResetLegacyEmbeddedHostClaim();
+	GetJa2SoldierRepository().initializeSlots();
+	SDL_Quit();
+
+	std::printf( "\n%s  (%d failure%s)\n",
+		g_failures ? "AUTHENTICATED LEGACY HOST TESTS FAILED" :
+			"AUTHENTICATED LEGACY HOST TESTS PASSED",
+		g_failures, g_failures == 1 ? "" : "s" );
 	return g_failures ? 1 : 0;
 }
 
@@ -3964,7 +7772,56 @@ int main( int argc, char** argv )
 	if (argc == 2 && std::strcmp(
 		argv[1], "--strict-runtime-execution") == 0)
 		return RunStrictRuntimeExecutionTests();
+	if (argc == 2 && std::strcmp(
+		argv[1], "--legacy-host-loopback") == 0)
+		return RunLegacyEmbeddedHostLoopbackTests();
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
+
+	{
+		constexpr StrategicAILoadPlan dedicatedCurrent =
+			PlanStrategicAILoad(
+				StrategicAILoadPolicy::DedicatedExactRestore,
+				CurrentStrategicAISaveVersion );
+		constexpr StrategicAILoadPlan dedicatedStale =
+			PlanStrategicAILoad(
+				StrategicAILoadPolicy::DedicatedExactRestore,
+				static_cast<UINT8>(CurrentStrategicAISaveVersion - 1) );
+		constexpr StrategicAILoadPlan interactive =
+			PlanStrategicAILoad(
+				StrategicAILoadPolicy::InteractiveRepair, 1 );
+		static_assert(
+			dedicatedCurrent.accepted &&
+			!dedicatedCurrent.applyCompatibilityMigrations &&
+			!dedicatedCurrent.rebuildMovementCosts &&
+			!dedicatedCurrent.rebuildAirspace &&
+			!dedicatedCurrent.evolveQueenPriorities &&
+			!dedicatedCurrent.repollAndRepairGroups &&
+			!dedicatedCurrent.validateRepairs );
+		static_assert(
+			!dedicatedStale.accepted && interactive.accepted &&
+			interactive.applyCompatibilityMigrations &&
+			interactive.rebuildMovementCosts &&
+			interactive.rebuildAirspace &&
+			interactive.evolveQueenPriorities &&
+			interactive.repollAndRepairGroups &&
+			interactive.validateRepairs );
+		CHECK(
+			dedicatedCurrent.accepted && !dedicatedStale.accepted &&
+			!dedicatedCurrent.applyCompatibilityMigrations &&
+			!dedicatedCurrent.rebuildMovementCosts &&
+			!dedicatedCurrent.rebuildAirspace &&
+			!dedicatedCurrent.evolveQueenPriorities &&
+			!dedicatedCurrent.repollAndRepairGroups &&
+			!dedicatedCurrent.validateRepairs &&
+			interactive.accepted &&
+			interactive.applyCompatibilityMigrations &&
+			interactive.rebuildMovementCosts &&
+			interactive.rebuildAirspace &&
+			interactive.evolveQueenPriorities &&
+			interactive.repollAndRepairGroups &&
+			interactive.validateRepairs,
+			"dedicated strategic-AI load accepts only current exact state and suppresses legacy repair gameplay" );
+	}
 
 	// Run headless: no window server / audio device required.
 	SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
@@ -5538,7 +9395,8 @@ int main( int argc, char** argv )
 		expected.actors[0] = TacticalSimulationActorState{
 			player, 220, 10, 10, ANIM_CROUCH, 2, true, true };
 		expected.actors[1] = TacticalSimulationActorState{
-			opponent, 390, 20, 30, ANIM_STAND, 6, false, true };
+			opponent, GETWORLDINDEXFROMWORLDCOORDS( 30, 20 ), 20, 30,
+			ANIM_STAND, 6, false, true };
 		expected.shots.push_back( TacticalSimulationShot{
 			player, 390, FIRST_LEVEL, 0, HANDPOS, 17,
 			TacticalSimulationFireKind::CapturedSelection,
@@ -5645,6 +9503,24 @@ int main( int argc, char** argv )
 		const SimulationCommand validMove{ MoveToGridCommand{
 			actor, 100, WALKING, false, false,
 			SimulationCommandSource::LocalPlayer } };
+		const TacticalEntityId firearmTarget{ 1, 99 };
+		const INT16 replicatedStopX = 20;
+		const INT16 replicatedStopY = 30;
+		const INT32 replicatedStopGrid = GETWORLDINDEXFROMWORLDCOORDS(
+			replicatedStopY, replicatedStopX );
+		const SynchronizeActorStopCommand validReplicatedStop{
+			actor, replicatedStopGrid, replicatedStopX, replicatedStopY,
+			EAST, true, SimulationCommandSource::NetworkPeer };
+		auto mismatchedReplicatedStop = validReplicatedStop;
+		++mismatchedReplicatedStop.reportedGrid;
+		CHECK(
+			ValidateSimulationCommandDomain(
+				SimulationCommand{ validReplicatedStop } ) ==
+					SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{ mismatchedReplicatedStop } ) ==
+					SimulationCommandDomainError::InvalidReplicatedPosition,
+			"replicated STOP requires coherent grid and world coordinates" );
 		CHECK(
 			ValidateSimulationCommandDomain( validMove ) ==
 				SimulationCommandDomainError::None &&
@@ -5694,6 +9570,27 @@ int main( int argc, char** argv )
 					actor, 100, FIRST_LEVEL, 0, HANDPOS, 1,
 					SimulationCommandSource::LocalPlayer } } ) ==
 				SimulationCommandDomainError::InvalidSource &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				AimedFirearmAttackCommand{
+					actor, firearmTarget, 100, FIRST_LEVEL, 4, 1,
+					SimulationCommandSource::NetworkPeer } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				AimedFirearmAttackCommand{
+					actor, firearmTarget, 100, FIRST_LEVEL, 4, 1,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidSource &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				AimedFirearmAttackCommand{
+					actor, actor, 100, FIRST_LEVEL, 4, 1,
+					SimulationCommandSource::NetworkPeer } } ) ==
+				SimulationCommandDomainError::InvalidTargetActor &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				AimedFirearmAttackCommand{
+					actor, firearmTarget, 100, FIRST_LEVEL,
+					TacticalMaximumAimedFirearmAimTime + 1, 1,
+					SimulationCommandSource::NetworkPeer } } ) ==
+				SimulationCommandDomainError::InvalidAimTime &&
 			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
 				actor, WORLD_MAX, WALKING, false, false,
 				SimulationCommandSource::System } } ) ==
@@ -5736,6 +9633,21 @@ int main( int argc, char** argv )
 				ReloadWeaponCommand{
 					actor, false, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ReloadWeaponCommand{
+					actor, true, SimulationCommandSource::NetworkPeer,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ReloadWeaponCommand{
+					actor, true, SimulationCommandSource::System,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } ) ==
+				SimulationCommandDomainError::InvalidSource &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ReloadWeaponCommand{
+					actor, true, SimulationCommandSource::NetworkPeer,
+					static_cast<TacticalCommandAuthorityPolicy>( 0xff ) } } ) ==
+				SimulationCommandDomainError::InvalidSource &&
 			ValidateSimulationCommandDomain( SimulationCommand{
 				SetWeaponReadyCommand{
 					actor, 3, true, false,
@@ -7331,7 +11243,11 @@ int main( int argc, char** argv )
 		const TacticalEntityId commandHostActorId =
 			GetJa2TacticalEntityId( commandHostActor );
 		const TacticalCommandSubmissionResult staleRequest =
-			tacticalCommands.service->submit( packageId, staleMove );
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ AimedFirearmAttackCommand{
+					commandHostActorId, TacticalEntityId{ 1, 0xfedcba98u },
+					100, FIRST_LEVEL, 1, 1,
+					SimulationCommandSource::NetworkPeer } } );
 		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterValidation =
@@ -7364,9 +11280,729 @@ int main( int argc, char** argv )
 		       commandHostAfterValidation.lastProcessing.scheduled == 1 &&
 		       commandHostAfterValidation.lastProcessing.discarded == 1 &&
 		       staleRecord && staleRecord->status == CommandJournalStatus::Discarded &&
-		       std::get<MoveToGridCommand>( staleRecord->command ).soldier == staleActor &&
+		       std::holds_alternative<AimedFirearmAttackCommand>(
+		           staleRecord->command ) &&
 		       compiledContext.commands().empty(),
-		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
+		       "safe-frame command host journals a stale aimed-attack identity as discarded" );
+
+		const TacticalWorldSession::Snapshot
+			executionRevalidationWorldBefore = CaptureJa2TacticalWorld();
+		const TacticalWorldSession::Snapshot::Interrupt
+			executionRevalidationInterruptBefore =
+				CaptureJa2TacticalInterruptState();
+		const TacticalActor executionRevalidationActorBefore = commandHostActor;
+		const auto executionRevalidationItemBefore = Item[1];
+		const auto executionRevalidationWeaponBefore = Weapon[1];
+		const auto executionRevalidationManualReloadModifierBefore =
+			gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL];
+		const auto executionRevalidationTraitSystemBefore =
+			gGameOptions.fNewTraitSystem;
+		const UINT8 executionRevalidationPlayerTeamBefore = gbPlayerNum;
+		const bool executionRevalidationClientBefore = is_client;
+		const bool executionRevalidationServerBefore = is_server;
+		const bool executionRevalidationNetworkBefore = is_networked;
+		const UINT16 executionRevalidationOutOfTurnBefore =
+			gubOutOfTurnPersons;
+		const BOOLEAN executionRevalidationReinforcementsBefore =
+			gGameExternalOptions.gfAllowReinforcements;
+		const SoldierID executionRevalidationFirstPlayerBefore =
+			gTacticalStatus.Team[OUR_TEAM].bFirstID;
+		const SoldierID executionRevalidationLastPlayerBefore =
+			gTacticalStatus.Team[OUR_TEAM].bLastID;
+		gbPlayerNum = OUR_TEAM;
+		is_client = true;
+		is_server = false;
+		is_networked = false;
+		gubOutOfTurnPersons = 0;
+		gGameExternalOptions.gfAllowReinforcements = FALSE;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID = SoldierID{ 0 };
+		gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{ 0 };
+		commandHostActor.vitals().health() = OKLIFE;
+		commandHostActor.roster().team() = ENEMY_TEAM;
+		commandHostActor.position().direction() = NORTH;
+		commandHostActor.pathing().desiredDirection() = NORTH;
+		commandHostActor.animationPlayback().state() = STANDING;
+		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0 );
+		SetJa2PendingInterrupt( DISABLED_INTERRUPT );
+		const std::uint64_t legacyReplicaTick =
+			compiledContext.runtime().simulationTicks().completedTickSequence();
+		const std::uint64_t legacyReplicaFaceSequence =
+			compiledContext.submitCommand(
+				legacyReplicaTick,
+				SimulationCommand{ SetFacingCommand{
+					commandHostActorId, SOUTH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly } } );
+		const std::uint64_t legacyReplicaStanceSequence =
+			compiledContext.submitCommand(
+				legacyReplicaTick,
+				SimulationCommand{ ChangeStanceCommand{
+					commandHostActorId, ANIM_CROUCH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly } } );
+		const CommandProcessingResult legacyReplicaCompatibility =
+			ExecuteSimulationCommandsThrough( legacyReplicaTick, 2 );
+		commandHostActor.vitals().health() = OKLIFE;
+		commandHostActor.roster().team() = OUR_TEAM;
+		commandHostActor.assignment().current() = FIRST_SQUAD;
+		commandHostActor.status().flags() &=
+			~(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER);
+		commandHostActor.position().gridNo() = 77;
+		commandHostActor.position().direction() = NORTH;
+		commandHostActor.pathing().desiredDirection() = NORTH;
+		commandHostActor.pathing().finalDestinationGrid() = 99;
+		commandHostActor.movement().mode() = WALKING;
+		commandHostActor.movement().setReverse( false );
+		commandHostActor.movement().delayCounter() = TRUE;
+		commandHostActor.pendingAction().action() = 7;
+		commandHostActor.animationPlayback().state() = STANDING;
+		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
+		Item[1].usItemClass = IC_GUN;
+		Item[1].ubClassIndex = 1;
+		Weapon[1].ubWeaponType = GUN_PISTOL;
+		Weapon[1].APsToReloadManually = 1;
+		gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL] = 1.0f;
+		gGameOptions.fNewTraitSystem = FALSE;
+		OBJECTTYPE& executionRevalidationHand =
+			commandHostActor.inventory()[HANDPOS];
+		DeleteObj( &executionRevalidationHand );
+		executionRevalidationHand.usItem = 1;
+		executionRevalidationHand.ubNumberOfObjects = 1;
+		executionRevalidationHand[0]->data.gun.bGunStatus = 100;
+		executionRevalidationHand[0]->data.gun.ubGunShotsLeft = 5;
+		executionRevalidationHand[0]->data.gun.ubGunState = 0;
+		commandHostActor.attackSelection().selectWeapon( HANDPOS, 1 );
+		commandHostActor.attackSelection().weaponMode() = WM_NORMAL;
+		commandHostActor.actionPoints().current() = 100;
+		SetJa2PendingInterrupt( UNTRIGGERED_INTERRUPT );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult untriggeredInterruptFacing =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ SetFacingCommand{
+					commandHostActorId, SOUTH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const bool untriggeredInterruptApplied =
+			commandHostActor.pathing().desiredDirection() == SOUTH;
+		commandHostActor.position().direction() = NORTH;
+		commandHostActor.pathing().desiredDirection() = NORTH;
+		SetJa2PendingInterrupt( MOVEMENT_INTERRUPT );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult resolvingInterruptFacing =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ SetFacingCommand{
+					commandHostActorId, SOUTH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const bool resolvingInterruptPreservedActor =
+			commandHostActor.pathing().desiredDirection() == NORTH;
+		SetJa2PendingInterrupt( DISABLED_INTERRUPT );
+		CHECK( untriggeredInterruptFacing.status ==
+		           SimulationCommandDispatchStatus::Applied &&
+		       untriggeredInterruptApplied &&
+		       resolvingInterruptFacing.status ==
+		           SimulationCommandDispatchStatus::Discarded &&
+		       resolvingInterruptPreservedActor,
+		       "dedicated retained execution accepts an untriggered interrupt sentinel but rejects a resolving native interrupt" );
+		gubOutOfTurnPersons = 1;
+		commandHostActor.turnState().moved() = FALSE;
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection queuedPassGrant =
+			CaptureJa2TacticalInterruptProjection();
+		const TacticalWorldSession::Snapshot queuedPassWorld =
+			CaptureJa2TacticalWorld();
+		std::uint64_t staleQueuedInterruptPassRequestId = 0;
+		bool staleQueuedInterruptPassTranslated = false;
+		{
+			class AcceptingReceiptSink final
+				: public DedicatedCoopTacticalReceiptSink
+			{
+			public:
+				bool publish(
+					const CoopSession::CoopTacticalIntentReceipt& value)
+					noexcept override
+				{
+					receipt = value;
+					++count;
+					return true;
+				}
+
+				CoopSession::CoopTacticalIntentReceipt receipt{};
+				std::size_t count = 0;
+			};
+
+			const BOOLEAN dedicatedServerBeforePass = gfDedicatedServer;
+			const DedicatedServerOptions dedicatedOptionsBeforePass =
+				GetDedicatedServerOptions();
+			DedicatedServerOptions dedicatedCoopOptions =
+				dedicatedOptionsBeforePass;
+			dedicatedCoopOptions.enabled = true;
+			dedicatedCoopOptions.mode = DedicatedServerMode::Coop;
+			InstallDedicatedServerOptions( dedicatedCoopOptions );
+			gfDedicatedServer = TRUE;
+
+			DedicatedCoopTacticalJa2LiveState passLiveState( compiledContext );
+			AcceptingReceiptSink passReceipts;
+			DedicatedCoopTacticalHost passHost(
+				passLiveState, *tacticalCommands.service, passReceipts,
+				packageId, 1 );
+			CoopSession::AuthorizedTacticalIntent passIntent;
+			passIntent.peerIdentity.fill( 0x5a );
+			passIntent.commandId = 77;
+			passIntent.context = CoopSession::TacticalAuthorityContext{
+				91, queuedPassWorld.worldGeneration, 20,
+				queuedPassWorld.turnSerial };
+			passIntent.actor = commandHostActorId;
+			passIntent.payload = CoopSession::PassInterruptTacticalIntent{
+				queuedPassGrant.serial };
+			const CoopSession::TacticalIntentExecutionDisposition passDisposition =
+				passHost.execute( passIntent );
+			TacticalCommandInboxSnapshot queuedPassInbox;
+			const TacticalCommandSnapshotError queuedPassSnapshot =
+				tacticalCommands.service->snapshot( queuedPassInbox );
+			const PassInterruptCommand* translatedPass =
+				queuedPassSnapshot == TacticalCommandSnapshotError::None &&
+				queuedPassInbox.pending.size() == 1
+					? std::get_if<PassInterruptCommand>(
+						&queuedPassInbox.pending[0].command )
+					: nullptr;
+			if ( translatedPass )
+				staleQueuedInterruptPassRequestId =
+					queuedPassInbox.pending[0].requestId;
+			staleQueuedInterruptPassTranslated =
+				passDisposition ==
+					CoopSession::TacticalIntentExecutionDisposition::Retained &&
+				translatedPass && translatedPass->soldier == commandHostActorId &&
+				translatedPass->expectedWorldGeneration ==
+					queuedPassWorld.worldGeneration &&
+				translatedPass->expectedInterruptSerial == queuedPassGrant.serial &&
+				translatedPass->source == SimulationCommandSource::NetworkPeer &&
+				translatedPass->authority ==
+					TacticalCommandAuthorityPolicy::DedicatedCoop &&
+				passReceipts.count == 1 &&
+				passReceipts.receipt.status ==
+					CoopSession::CoopTacticalIntentReceiptStatus::Queued;
+
+			InstallDedicatedServerOptions( dedicatedOptionsBeforePass );
+			gfDedicatedServer = dedicatedServerBeforePass;
+		}
+		// The accepted command retains the grant it was translated against. Replace
+		// that grant before the command host drains so an old pass can neither vote
+		// in nor release the new interrupt.
+		NotifyJa2TacticalInterruptCleared();
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection replacementPassGrant =
+			CaptureJa2TacticalInterruptProjection();
+		beginCommandTestFrame();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics stalePassDiagnostics =
+			GetJa2TacticalCommandHostDiagnostics();
+		const Ja2TacticalInterruptProjection afterStaleQueuedPass =
+			CaptureJa2TacticalInterruptProjection();
+		CHECK( staleQueuedInterruptPassTranslated &&
+		       staleQueuedInterruptPassRequestId != 0 &&
+		       queuedPassGrant.phase == Ja2TacticalInterruptPhase::Active &&
+		       queuedPassGrant.serial != 0 &&
+		       replacementPassGrant.phase == Ja2TacticalInterruptPhase::Active &&
+		       replacementPassGrant.serial == queuedPassGrant.serial + 1 &&
+		       stalePassDiagnostics.lastProcessing.status ==
+		           CommandProcessStatus::Completed &&
+		       stalePassDiagnostics.lastProcessing.scheduled == 1 &&
+		       stalePassDiagnostics.lastProcessing.discarded == 1 &&
+		       afterStaleQueuedPass.phase == Ja2TacticalInterruptPhase::Active &&
+		       afterStaleQueuedPass.serial == replacementPassGrant.serial &&
+		       gubOutOfTurnPersons == 1 &&
+		       GetJa2TacticalCurrentTeam() == OUR_TEAM &&
+		       IsJa2TacticalInterruptActorEligible( commandHostActorId ),
+		       "a queued translated interrupt pass revalidates its grant and cannot vote in or release a replacement interrupt" );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult eligibleInterruptFacing =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ SetFacingCommand{
+					commandHostActorId, SOUTH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		commandHostActor.turnState().moved() = TRUE;
+		commandHostActor.pathing().desiredDirection() = NORTH;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult ineligibleInterruptFacing =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ SetFacingCommand{
+					commandHostActorId, SOUTH,
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult activeInterruptEndTurn =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ EndTurnCommand{
+					ENEMY_TEAM, SimulationCommandSource::NetworkPeer,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		NotifyJa2TacticalInterruptCleared();
+		ResetJa2TacticalInterruptForNewWorld();
+		gubOutOfTurnPersons = 0;
+		commandHostActor.turnState().moved() = FALSE;
+		CHECK( eligibleInterruptFacing.status ==
+		           SimulationCommandDispatchStatus::Applied &&
+		       ineligibleInterruptFacing.status ==
+		           SimulationCommandDispatchStatus::Discarded &&
+		       commandHostActor.pathing().desiredDirection() == NORTH &&
+		       activeInterruptEndTurn.status ==
+		           SimulationCommandDispatchStatus::Discarded &&
+		       GetJa2TacticalCurrentTeam() == OUR_TEAM,
+		       "active interrupts revalidate exact native actor eligibility and reject the ordinary whole-team EndTurn command" );
+
+		const TacticalActor interruptSecondActorBefore =
+			soldierRepository.record( 1 );
+		const TacticalActor interruptPausedActorBefore =
+			soldierRepository.record( 2 );
+		const TacticalEntityId interruptSecondIdentityBefore =
+			GetJa2TacticalEntityId( 1 );
+		const TacticalEntityId interruptPausedIdentityBefore =
+			GetJa2TacticalEntityId( 2 );
+		const SoldierID interruptPlayerFirstBefore =
+			gTacticalStatus.Team[OUR_TEAM].bFirstID;
+		const SoldierID interruptPlayerLastBefore =
+			gTacticalStatus.Team[OUR_TEAM].bLastID;
+		const SoldierID interruptEnemyFirstBefore =
+			gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
+		const SoldierID interruptEnemyLastBefore =
+			gTacticalStatus.Team[ENEMY_TEAM].bLastID;
+		const UINT16 interruptQueueCountBefore = gubOutOfTurnPersons;
+		std::array<UINT16, MAXMERCS> interruptQueueBefore{};
+		std::copy(
+			std::begin( gubOutOfTurnOrder ),
+			std::end( gubOutOfTurnOrder ),
+			interruptQueueBefore.begin() );
+		const SoldierID lastInterruptedBefore = gubLastInterruptedGuy;
+		const bool interruptNetworkBefore = is_networked;
+		const bool interruptServerBefore = is_server;
+		const bool interruptClientBefore = is_client;
+		const bool serializedInterruptBefore = gMpSerializedInterruptActive;
+		const BOOLEAN hiddenInterruptBefore = gfHiddenInterrupt;
+		const BOOLEAN autoFastForwardBefore =
+			gGameSettings.fOptions[TOPTION_AUTO_FAST_FORWARD_MODE];
+		if ( interruptSecondIdentityBefore.valid() )
+			(void)ReleaseJa2TacticalEntity( soldierRepository.record( 1 ) );
+		if ( interruptPausedIdentityBefore.valid() )
+			(void)ReleaseJa2TacticalEntity( soldierRepository.record( 2 ) );
+		TacticalActor interruptSecondFixture;
+		interruptSecondFixture.identity().id() = SoldierID{ 1 };
+		interruptSecondFixture.identity().incarnation() = 0x12345679u;
+		interruptSecondFixture.roster().active() = TRUE;
+		interruptSecondFixture.roster().inSector() = TRUE;
+		interruptSecondFixture.roster().team() = OUR_TEAM;
+		interruptSecondFixture.roster().side() = OUR_TEAM;
+		interruptSecondFixture.vitals().health() = OKLIFE;
+		interruptSecondFixture.assignment().current() = FIRST_SQUAD;
+		interruptSecondFixture.turnState().moved() = FALSE;
+		interruptSecondFixture.turnState().movedBeforeInterrupt() = FALSE;
+		interruptSecondFixture.actionPoints().current() = 20;
+		interruptSecondFixture.turnState().interruptStartActionPoints() = 19;
+		TacticalActor interruptPausedFixture;
+		interruptPausedFixture.identity().id() = SoldierID{ 2 };
+		interruptPausedFixture.identity().incarnation() = 0x1234567au;
+		interruptPausedFixture.roster().active() = TRUE;
+		interruptPausedFixture.roster().inSector() = TRUE;
+		interruptPausedFixture.roster().team() = ENEMY_TEAM;
+		interruptPausedFixture.roster().side() = ENEMY_TEAM;
+		interruptPausedFixture.vitals().health() = OKLIFE;
+		interruptPausedFixture.assignment().current() = FIRST_SQUAD;
+		interruptPausedFixture.turnState().moved() = TRUE;
+		interruptPausedFixture.turnState().movedBeforeInterrupt() = FALSE;
+		TacticalActor* const interruptSecondActor =
+			soldierRepository.replace( 1, interruptSecondFixture );
+		TacticalActor* const interruptPausedActor =
+			soldierRepository.replace( 2, interruptPausedFixture );
+		const bool interruptActorsInstalled = interruptSecondActor &&
+			interruptPausedActor &&
+			AdoptJa2TacticalEntity( *interruptSecondActor ) &&
+			AdoptJa2TacticalEntity( *interruptPausedActor );
+		commandHostActor.turnState().moved() = FALSE;
+		commandHostActor.turnState().movedBeforeInterrupt() = FALSE;
+		commandHostActor.actionPoints().current() = 20;
+		commandHostActor.turnState().interruptStartActionPoints() = 19;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID = SoldierID{ 0 };
+		gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{ 1 };
+		gTacticalStatus.Team[ENEMY_TEAM].bFirstID = SoldierID{ 2 };
+		gTacticalStatus.Team[ENEMY_TEAM].bLastID = SoldierID{ 2 };
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0 );
+		SetJa2PendingInterrupt( DISABLED_INTERRUPT );
+		std::fill(
+			std::begin( gubOutOfTurnOrder ),
+			std::end( gubOutOfTurnOrder ), 0 );
+		gubOutOfTurnOrder[0] = 255;
+		gubOutOfTurnOrder[1] = 2;
+		gubOutOfTurnPersons = 1;
+		gubLastInterruptedGuy = SoldierID{ 2 };
+		is_networked = true;
+		is_server = false;
+		is_client = false;
+		gMpSerializedInterruptActive = false;
+		gfHiddenInterrupt = FALSE;
+		gGameSettings.fOptions[TOPTION_AUTO_FAST_FORWARD_MODE] = FALSE;
+		ResetJa2TacticalInterruptForNewWorld();
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection coordinatedInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		const TacticalEntityId interruptFirstIdentity = commandHostActorId;
+		const TacticalEntityId interruptSecondIdentity =
+			interruptSecondActor
+				? GetJa2TacticalEntityId( *interruptSecondActor )
+				: TacticalEntityId{};
+		const bool bothInterruptActorsEligible =
+			IsJa2TacticalInterruptActorEligible( interruptFirstIdentity ) &&
+			IsJa2TacticalInterruptActorEligible( interruptSecondIdentity );
+		const Ja2TacticalInterruptPassResult staleInterruptPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				coordinatedInterrupt.serial + 1,
+				interruptFirstIdentity );
+		const Ja2TacticalInterruptPassResult staleActorInterruptPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				coordinatedInterrupt.serial,
+				TacticalEntityId{
+					interruptFirstIdentity.slot,
+					interruptFirstIdentity.incarnation + 1 } );
+		const Ja2TacticalInterruptPassResult firstInterruptPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				coordinatedInterrupt.serial,
+				interruptFirstIdentity );
+		const bool firstPassRetainedGrant =
+			CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active &&
+			gubOutOfTurnPersons == 1 &&
+			!IsJa2TacticalInterruptActorEligible( interruptFirstIdentity ) &&
+			IsJa2TacticalInterruptActorEligible( interruptSecondIdentity );
+		const Ja2TacticalInterruptPassResult duplicateInterruptPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				coordinatedInterrupt.serial,
+				interruptFirstIdentity );
+		const bool duplicatePassRetainedGrant =
+			CaptureJa2TacticalInterruptProjection().phase ==
+				Ja2TacticalInterruptPhase::Active &&
+			gubOutOfTurnPersons == 1;
+		const Ja2TacticalInterruptPassResult finalInterruptPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				coordinatedInterrupt.serial,
+				interruptSecondIdentity );
+		const Ja2TacticalInterruptProjection completedInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		const bool completedInterruptQueueCleared =
+			gubOutOfTurnPersons == 0 &&
+			GetJa2TacticalCurrentTeam() == ENEMY_TEAM;
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0 );
+		commandHostActor.turnState().moved() = FALSE;
+		interruptSecondActor->turnState().moved() = FALSE;
+		interruptSecondActor->vitals().health() = OKLIFE;
+		gubOutOfTurnOrder[0] = 255;
+		gubOutOfTurnOrder[1] = 2;
+		gubOutOfTurnPersons = 1;
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection removalPollInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		const Ja2TacticalInterruptPassResult removalPollFirstPass =
+			PassJa2TacticalInterruptActor(
+				CaptureJa2TacticalWorld().worldGeneration,
+				removalPollInterrupt.serial,
+				interruptFirstIdentity );
+		interruptSecondActor->vitals().health() = 0;
+		const bool removalPollReleased = PollJa2TacticalInterruptRelease();
+		const Ja2TacticalInterruptProjection removalPollCompleted =
+			CaptureJa2TacticalInterruptProjection();
+		const bool removalPollQueueCleared =
+			gubOutOfTurnPersons == 0 &&
+			GetJa2TacticalCurrentTeam() == ENEMY_TEAM;
+		ResetJa2TacticalInterruptForNewWorld();
+		gGameSettings.fOptions[TOPTION_AUTO_FAST_FORWARD_MODE] =
+			autoFastForwardBefore;
+		gfHiddenInterrupt = hiddenInterruptBefore;
+		is_client = interruptClientBefore;
+		is_server = interruptServerBefore;
+		is_networked = interruptNetworkBefore;
+		gMpSerializedInterruptActive = serializedInterruptBefore;
+		gubLastInterruptedGuy = lastInterruptedBefore;
+		gubOutOfTurnPersons = interruptQueueCountBefore;
+		std::copy(
+			interruptQueueBefore.begin(), interruptQueueBefore.end(),
+			std::begin( gubOutOfTurnOrder ) );
+		gTacticalStatus.Team[OUR_TEAM].bFirstID = interruptPlayerFirstBefore;
+		gTacticalStatus.Team[OUR_TEAM].bLastID = interruptPlayerLastBefore;
+		gTacticalStatus.Team[ENEMY_TEAM].bFirstID = interruptEnemyFirstBefore;
+		gTacticalStatus.Team[ENEMY_TEAM].bLastID = interruptEnemyLastBefore;
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0 );
+		if ( interruptSecondActor )
+			(void)ReleaseJa2TacticalEntity( *interruptSecondActor );
+		if ( interruptPausedActor )
+			(void)ReleaseJa2TacticalEntity( *interruptPausedActor );
+		TacticalActor* const restoredInterruptSecond =
+			soldierRepository.replace( 1, interruptSecondActorBefore );
+		TacticalActor* const restoredInterruptPaused =
+			soldierRepository.replace( 2, interruptPausedActorBefore );
+		if ( interruptSecondIdentityBefore.valid() && restoredInterruptSecond )
+			(void)AdoptJa2TacticalEntity( *restoredInterruptSecond );
+		if ( interruptPausedIdentityBefore.valid() && restoredInterruptPaused )
+			(void)AdoptJa2TacticalEntity( *restoredInterruptPaused );
+		CHECK( interruptActorsInstalled &&
+		       coordinatedInterrupt.phase ==
+		           Ja2TacticalInterruptPhase::Active &&
+		       coordinatedInterrupt.serial == 1 &&
+		       bothInterruptActorsEligible &&
+		       staleInterruptPass ==
+		           Ja2TacticalInterruptPassResult::SerialMismatch &&
+		       staleActorInterruptPass ==
+		           Ja2TacticalInterruptPassResult::ActorUnavailable &&
+		       firstInterruptPass == Ja2TacticalInterruptPassResult::Applied &&
+		       firstPassRetainedGrant &&
+		       duplicateInterruptPass ==
+		           Ja2TacticalInterruptPassResult::AlreadyPassed &&
+		       duplicatePassRetainedGrant &&
+		       finalInterruptPass ==
+		           Ja2TacticalInterruptPassResult::AppliedAndReleased &&
+		       completedInterrupt.phase == Ja2TacticalInterruptPhase::None &&
+		       completedInterrupt.serial == 1 &&
+		       completedInterruptQueueCleared &&
+		       removalPollInterrupt.phase ==
+		           Ja2TacticalInterruptPhase::Active &&
+		       removalPollInterrupt.serial == 2 &&
+		       removalPollFirstPass ==
+		           Ja2TacticalInterruptPassResult::Applied &&
+		       removalPollReleased &&
+		       removalPollCompleted.phase ==
+		           Ja2TacticalInterruptPhase::None &&
+		       removalPollCompleted.serial == 2 &&
+		       removalPollQueueCleared,
+		       "two exact interrupt actors vote independently; stale, duplicate, and reused-incarnation passes fail closed before the final vote performs one native release" );
+		const std::uint64_t legacyReloadControlSequence =
+			compiledContext.submitCommand(
+				legacyReplicaTick,
+				SimulationCommand{ ReloadWeaponCommand{
+					commandHostActorId, true,
+					SimulationCommandSource::System } } );
+		const CommandProcessingResult legacyReloadControl =
+			ExecuteSimulationCommandsThrough( legacyReplicaTick, 1 );
+		const bool legacyReloadControlMutated =
+			(executionRevalidationHand[0]->data.gun.ubGunState &
+				GS_CARTRIDGE_IN_CHAMBER) != 0;
+		executionRevalidationHand[0]->data.gun.ubGunState = 0;
+		commandHostActor.actionPoints().current() = 100;
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 1 );
+		SetJa2PendingInterrupt( DISABLED_INTERRUPT );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult pendingEndTurnDiscarded =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{ EndTurnCommand{
+					ENEMY_TEAM, SimulationCommandSource::NetworkPeer,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0 );
+		SetJa2PendingInterrupt( DISABLED_INTERRUPT );
+		const std::uint64_t executionRevalidationTick =
+			compiledContext.runtime().simulationTicks().completedTickSequence();
+		const std::uint64_t appliedEndTurnSequence =
+			compiledContext.submitCommand(
+				executionRevalidationTick,
+				SimulationCommand{ EndTurnCommand{
+					ENEMY_TEAM, SimulationCommandSource::NetworkPeer,
+					TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const std::uint64_t staleMoveSequence = compiledContext.submitCommand(
+			executionRevalidationTick,
+			SimulationCommand{ MoveToGridCommand{
+				commandHostActorId, 100, RUNNING, true, true,
+				SimulationCommandSource::NetworkPeer,
+				TacticalMoveOrigin::TeamAwareUi,
+				TacticalPendingActionPolicy::Clear,
+				TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const std::uint64_t staleFaceSequence = compiledContext.submitCommand(
+			executionRevalidationTick,
+			SimulationCommand{ SetFacingCommand{
+				commandHostActorId, SOUTH,
+				SimulationCommandSource::NetworkPeer,
+				TacticalEventPolicy::LocalOnly,
+				TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const std::uint64_t staleStanceSequence = compiledContext.submitCommand(
+			executionRevalidationTick,
+			SimulationCommand{ ChangeStanceCommand{
+				commandHostActorId, ANIM_CROUCH,
+				SimulationCommandSource::NetworkPeer,
+				TacticalEventPolicy::LocalOnly,
+				TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const std::uint64_t staleStopSequence = compiledContext.submitCommand(
+			executionRevalidationTick,
+			SimulationCommand{ StopMovementCommand{
+				commandHostActorId,
+				SimulationCommandSource::NetworkPeer,
+				TacticalCommandAuthorityPolicy::DedicatedCoop } } );
+		const SimulationCommand staleReloadCommand{ ReloadWeaponCommand{
+			commandHostActorId, true,
+			SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop } };
+		const std::uint64_t staleReloadSequence =
+			compiledContext.submitCommand(
+				executionRevalidationTick, staleReloadCommand );
+		const CommandProcessingResult executionRevalidation =
+			ExecuteSimulationCommandsThrough( executionRevalidationTick, 6 );
+		const SimulationCommand replayedStaleReload =
+			SimulationCommandPlaybackPolicy::executionCommand(
+				staleReloadCommand );
+		const std::uint64_t replayedStaleReloadSequence =
+			compiledContext.submitCommand(
+				executionRevalidationTick, replayedStaleReload );
+		const CommandProcessingResult replayedReloadRevalidation =
+			ExecuteSimulationCommandsThrough( executionRevalidationTick, 1 );
+		const std::vector<RecordedSimulationCommand>
+			executionRevalidationJournal =
+				compiledContext.commandJournal().snapshot();
+		const auto executionRecord = [&]( std::uint64_t sequence ) {
+			return std::find_if(
+				executionRevalidationJournal.begin(),
+				executionRevalidationJournal.end(),
+				[sequence]( const RecordedSimulationCommand& record ) {
+					return record.sequence == sequence;
+				} );
+		};
+		const auto appliedEndTurnRecord =
+			executionRecord( appliedEndTurnSequence );
+		const auto legacyReplicaFaceRecord =
+			executionRecord( legacyReplicaFaceSequence );
+		const auto legacyReplicaStanceRecord =
+			executionRecord( legacyReplicaStanceSequence );
+		const auto legacyReloadControlRecord =
+			executionRecord( legacyReloadControlSequence );
+		const auto staleMoveRecord = executionRecord( staleMoveSequence );
+		const auto staleFaceRecord = executionRecord( staleFaceSequence );
+		const auto staleStanceRecord = executionRecord( staleStanceSequence );
+		const auto staleStopRecord = executionRecord( staleStopSequence );
+		const auto staleReloadRecord = executionRecord( staleReloadSequence );
+		const auto replayedStaleReloadRecord =
+			executionRecord( replayedStaleReloadSequence );
+		const bool executionContextChangedBeforeLegacyCommands =
+			GetJa2TacticalCurrentTeam() == ENEMY_TEAM;
+		const bool dedicatedCoopActorUnchanged =
+			commandHostActor.movement().mode() == WALKING &&
+			!commandHostActor.movement().reversing() &&
+			commandHostActor.movement().delayed() &&
+			commandHostActor.pendingAction().action() == 7 &&
+			commandHostActor.pathing().desiredDirection() == NORTH &&
+			commandHostActor.pathing().finalDestinationGrid() == 99 &&
+			commandHostActor.animationPlayback().state() == STANDING &&
+			commandHostActor.animationIntent().desiredHeight() == ANIM_STAND &&
+			commandHostActor.actionPoints().current() == 100 &&
+			(executionRevalidationHand[0]->data.gun.ubGunState &
+				GS_CARTRIDGE_IN_CHAMBER) == 0;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID =
+			executionRevalidationFirstPlayerBefore;
+		gTacticalStatus.Team[OUR_TEAM].bLastID =
+			executionRevalidationLastPlayerBefore;
+		gGameExternalOptions.gfAllowReinforcements =
+			executionRevalidationReinforcementsBefore;
+		gubOutOfTurnPersons = executionRevalidationOutOfTurnBefore;
+		is_networked = executionRevalidationNetworkBefore;
+		is_server = executionRevalidationServerBefore;
+		is_client = executionRevalidationClientBefore;
+		gbPlayerNum = executionRevalidationPlayerTeamBefore;
+		Item[1] = executionRevalidationItemBefore;
+		Weapon[1] = executionRevalidationWeaponBefore;
+		gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL] =
+			executionRevalidationManualReloadModifierBefore;
+		gGameOptions.fNewTraitSystem =
+			executionRevalidationTraitSystemBefore;
+		(void)soldierRepository.replace( 0, executionRevalidationActorBefore );
+		(void)SynchronizeJa2TacticalEntityState( commandHostActor );
+		RestoreJa2TacticalWorldSession( executionRevalidationWorldBefore );
+		RestoreJa2TacticalInterruptState(
+			executionRevalidationInterruptBefore );
+		CHECK(
+			legacyReplicaCompatibility.status ==
+				CommandProcessStatus::Completed &&
+			legacyReplicaCompatibility.applied == 2 &&
+			legacyReplicaCompatibility.discarded == 0 &&
+			legacyReplicaFaceRecord != executionRevalidationJournal.end() &&
+			legacyReplicaFaceRecord->status == CommandJournalStatus::Applied &&
+			legacyReplicaStanceRecord != executionRevalidationJournal.end() &&
+			legacyReplicaStanceRecord->status == CommandJournalStatus::Applied &&
+			legacyReloadControl.status == CommandProcessStatus::Completed &&
+			legacyReloadControl.applied == 1 &&
+			legacyReloadControlMutated &&
+			legacyReloadControlRecord != executionRevalidationJournal.end() &&
+			legacyReloadControlRecord->status == CommandJournalStatus::Applied &&
+			pendingEndTurnDiscarded.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			executionRevalidation.status == CommandProcessStatus::Completed &&
+			executionRevalidation.applied == 1 &&
+			executionRevalidation.discarded == 5 &&
+			replayedReloadRevalidation.status ==
+				CommandProcessStatus::Completed &&
+			replayedReloadRevalidation.applied == 0 &&
+			replayedReloadRevalidation.discarded == 1 &&
+			executionContextChangedBeforeLegacyCommands &&
+			dedicatedCoopActorUnchanged &&
+			appliedEndTurnRecord != executionRevalidationJournal.end() &&
+			appliedEndTurnRecord->status == CommandJournalStatus::Applied &&
+			staleMoveRecord != executionRevalidationJournal.end() &&
+			staleMoveRecord->status == CommandJournalStatus::Discarded &&
+			staleFaceRecord != executionRevalidationJournal.end() &&
+			staleFaceRecord->status == CommandJournalStatus::Discarded &&
+			staleStanceRecord != executionRevalidationJournal.end() &&
+			staleStanceRecord->status == CommandJournalStatus::Discarded &&
+			staleStopRecord != executionRevalidationJournal.end() &&
+			staleStopRecord->status == CommandJournalStatus::Discarded &&
+			staleReloadRecord != executionRevalidationJournal.end() &&
+			staleReloadRecord->status == CommandJournalStatus::Discarded &&
+			std::get<ReloadWeaponCommand>( staleReloadRecord->command ).authority ==
+				TacticalCommandAuthorityPolicy::DedicatedCoop &&
+			replayedStaleReloadRecord !=
+				executionRevalidationJournal.end() &&
+			replayedStaleReloadRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::get<ReloadWeaponCommand>(
+				replayedStaleReloadRecord->command ).source ==
+				SimulationCommandSource::Replay &&
+			std::get<ReloadWeaponCommand>(
+				replayedStaleReloadRecord->command ).authority ==
+				TacticalCommandAuthorityPolicy::DedicatedCoop &&
+			compiledContext.commands().empty(),
+			"legacy remote-team NetworkPeer stance/facing and reload behavior remain intact, while dedicated co-op commands revalidate after EndTurn and a discarded reload remains strict under Replay" );
+
+		const TacticalCommandSubmissionResult localReloadWithoutWeapon =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ReloadWeaponCommand{
+					commandHostActorId, true,
+					SimulationCommandSource::System } } );
+		beginCommandTestFrame();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics localReloadFrame =
+			GetJa2TacticalCommandHostDiagnostics();
+		const std::vector<RecordedSimulationCommand> journalAfterLocalReload =
+			compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* localReloadRecord =
+			!journalAfterLocalReload.empty()
+				? &journalAfterLocalReload.back() : nullptr;
+		CHECK( localReloadWithoutWeapon &&
+		       localReloadFrame.lastDrain.accepted == 1 &&
+		       localReloadFrame.lastProcessing.scheduled == 1 &&
+		       localReloadFrame.lastProcessing.discarded == 1 &&
+		       localReloadRecord &&
+		       localReloadRecord->status == CommandJournalStatus::Discarded &&
+		       std::holds_alternative<ReloadWeaponCommand>(
+		           localReloadRecord->command ) &&
+		       std::get<ReloadWeaponCommand>(
+		           localReloadRecord->command ).source ==
+		           SimulationCommandSource::System,
+		       "discarded local reload remains an authoritative discard" );
 
 		TacticalActor detachedCommandActor;
 		detachedCommandActor.identity().id() = commandHostActor.identity().id();
@@ -7527,6 +12163,465 @@ int main( int argc, char** argv )
 		}
 		const bool traversalWorldReady =
 			GetWorldTileMapSize() != 0 && gubWorldMovementCosts;
+		extern DOOR_STATUS* gpDoorStatus;
+		extern UINT8 gubNumDoorStatus;
+		DOOR_STATUS* const retainedDoorStatusArray = gpDoorStatus;
+		const UINT8 retainedDoorStatusCount = gubNumDoorStatus;
+		gpDoorStatus = nullptr;
+		gubNumDoorStatus = 0;
+		const UINT8 retainedDoorNoise =
+			commandHostActor.audio().doorOpeningNoise();
+		const TacticalWorldSession::Snapshot retainedDoorWorldSession =
+			CaptureJa2TacticalWorld();
+		auto exerciseImmediateDoor = [&commandHostActor](
+			INT32 doorGrid, bool breakPartner) {
+			if (TileIsOutOfBounds(doorGrid) ||
+				gpWorldLevelData[doorGrid].pStructureHead != nullptr ||
+				gpWorldLevelData[doorGrid].pStructHead != nullptr)
+				return false;
+			DB_STRUCTURE definitions[2]{};
+			DB_STRUCTURE_REF references[2]{};
+			DB_STRUCTURE_TILE tiles[2]{};
+			DB_STRUCTURE_TILE* tileReferences[2][1] = {
+				{&tiles[0]}, {&tiles[1]}};
+			for (std::size_t index = 0; index < 2; ++index)
+			{
+				definitions[index].ubHitPoints = 100;
+				definitions[index].ubNumberOfTiles = 1;
+				definitions[index].fFlags =
+					STRUCTURE_OPENABLE | STRUCTURE_DOOR;
+				definitions[index].ubWallOrientation = NO_ORIENTATION;
+				definitions[index].bPartnerDelta = index == 0 ? 1 : -1;
+				references[index].pDBStructure = &definitions[index];
+				references[index].ppTile = tileReferences[index];
+			}
+			definitions[1].fFlags |= STRUCTURE_OPEN;
+			LEVELNODE node{};
+			node.usIndex = static_cast<UINT16>(gOpenDoorList[0]);
+			node.pNext = gpWorldLevelData[doorGrid].pStructHead;
+			gpWorldLevelData[doorGrid].pStructHead = &node;
+			const UINT8 retainedExtFlags =
+				gpWorldLevelData[doorGrid].ubExtFlags[0];
+			const bool installed =
+				AddStructureToWorld(doorGrid, 0, &references[0], &node) != FALSE;
+			STRUCTURE* initialBase = installed ? node.pStructureData : nullptr;
+			const UINT16 structureId =
+				initialBase ? initialBase->usStructureID : 0;
+			if (breakPartner) references[1].ppTile = nullptr;
+			commandHostActor.audio().recordDoorOpeningNoise(37);
+			const INT16 retainedActionPoints =
+				commandHostActor.actionPoints().current();
+			const INT8 retainedBreath = commandHostActor.vitals().breath();
+			STRUCTURE* resultingBase = nullptr;
+			const ImmediateDoorOpenCloseResult result =
+				installed
+					? TryHandleDoorOpenCloseImmediately(
+						commandHostActor, doorGrid, structureId, true,
+						resultingBase)
+					: ImmediateDoorOpenCloseResult::Rejected;
+			DOOR_STATUS* const status = GetDoorStatus(doorGrid);
+			const bool success = breakPartner
+				? result == ImmediateDoorOpenCloseResult::IntegrityFailure &&
+					resultingBase == nullptr &&
+					!IsJa2TacticalWorldIntegrityValid() &&
+					node.usIndex == static_cast<UINT16>(gOpenDoorList[0]) &&
+					commandHostActor.actionPoints().current() ==
+						retainedActionPoints &&
+					commandHostActor.vitals().breath() == retainedBreath &&
+					commandHostActor.audio().doorOpeningNoise() == 37
+				: result == ImmediateDoorOpenCloseResult::Applied &&
+					resultingBase &&
+					(resultingBase->fFlags & STRUCTURE_OPEN) != 0 &&
+					status && (status->ubFlags & DOOR_OPEN) != 0 &&
+					node.pStructureData == resultingBase &&
+					node.usIndex == static_cast<UINT16>(gClosedDoorList[0]) &&
+					IsJa2TacticalWorldIntegrityValid() &&
+					commandHostActor.audio().doorOpeningNoise() == 37;
+			if (resultingBase)
+				(void)DeleteStructureFromWorld(resultingBase);
+			node.pStructureData = nullptr;
+			gpWorldLevelData[doorGrid].pStructHead = node.pNext;
+			gpWorldLevelData[doorGrid].ubExtFlags[0] = retainedExtFlags;
+			TrashDoorStatusArray();
+			return success;
+		};
+		struct QueuedAuthoritativeDoorFixture
+		{
+			DB_STRUCTURE definitions[2]{};
+			DB_STRUCTURE_REF references[2]{};
+			DB_STRUCTURE_TILE tiles[2]{};
+			DB_STRUCTURE_TILE* tileReferences[2][1]{};
+			LEVELNODE node{};
+			INT32 grid = NOWHERE;
+			UINT8 retainedExtFlags = 0;
+			UINT16 structureId = 0;
+			bool installed = false;
+
+			bool install(INT32 doorGrid) noexcept
+			{
+				if (TileIsOutOfBounds(doorGrid)) return false;
+				MAP_ELEMENT& mapElement = GetMapElement(doorGrid);
+				if (mapElement.pStructureHead || mapElement.pStructHead)
+					return false;
+				grid = doorGrid;
+				for (std::size_t index = 0; index < 2; ++index)
+				{
+					definitions[index].ubHitPoints = 100;
+					definitions[index].ubNumberOfTiles = 1;
+					definitions[index].fFlags =
+						STRUCTURE_OPENABLE | STRUCTURE_DOOR;
+					definitions[index].ubWallOrientation = NO_ORIENTATION;
+					definitions[index].bPartnerDelta = index == 0 ? 1 : -1;
+					tileReferences[index][0] = &tiles[index];
+					references[index].pDBStructure = &definitions[index];
+					references[index].ppTile = tileReferences[index];
+				}
+				definitions[1].fFlags |= STRUCTURE_OPEN;
+				node.usIndex = static_cast<UINT16>(gOpenDoorList[0]);
+				node.pNext = mapElement.pStructHead;
+				mapElement.pStructHead = &node;
+				retainedExtFlags = mapElement.ubExtFlags[0];
+				installed =
+					AddStructureToWorld(grid, 0, &references[0], &node) != FALSE;
+				STRUCTURE* const base = installed ? node.pStructureData : nullptr;
+				structureId = base ? base->usStructureID : 0;
+				return installed && structureId != 0;
+			}
+
+			void breakOpenPartner() noexcept
+			{
+				references[1].ppTile = nullptr;
+			}
+
+			bool remainsClosed() const noexcept
+			{
+				return installed && node.pStructureData &&
+					FindBaseStructure(node.pStructureData) == node.pStructureData &&
+					(node.pStructureData->fFlags & STRUCTURE_OPEN) == 0 &&
+					node.usIndex == static_cast<UINT16>(gOpenDoorList[0]);
+			}
+
+			void remove() noexcept
+			{
+				STRUCTURE* const current =
+					!TileIsOutOfBounds(grid) && structureId != 0
+						? FindStructureByID(grid, structureId)
+						: nullptr;
+				if (current && current == node.pStructureData)
+					(void)DeleteStructureFromWorld(current);
+				if (!TileIsOutOfBounds(grid))
+				{
+					MAP_ELEMENT& mapElement = GetMapElement(grid);
+					mapElement.pStructHead = node.pNext;
+					mapElement.ubExtFlags[0] = retainedExtFlags;
+				}
+				node.pStructureData = nullptr;
+				installed = false;
+			}
+		};
+		const INT32 immediateDoorGrid =
+			( WORLD_ROWS / 3 ) * WORLD_COLS + WORLD_COLS / 3;
+		const bool immediateDoorSuccessOrdered =
+			traversalWorldReady && IsJa2TacticalWorldLoaded() &&
+			exerciseImmediateDoor(immediateDoorGrid, false);
+		const bool immediateDoorFailureAtomic =
+			immediateDoorSuccessOrdered &&
+			exerciseImmediateDoor(immediateDoorGrid + 1, true);
+		NotifyJa2TacticalWorldLoaded(retainedDoorWorldSession.worldGeneration);
+		RestoreJa2TacticalWorldSession(retainedDoorWorldSession);
+		const bool immediateDoorIntegrityReset =
+			IsJa2TacticalWorldIntegrityValid();
+
+		const UINT8 queuedDoorPlayerTeamBefore = gbPlayerNum;
+		const bool queuedDoorClientBefore = is_client;
+		const bool queuedDoorServerBefore = is_server;
+		const bool queuedDoorNetworkBefore = is_networked;
+		const BOOLEAN queuedDoorAutoBandageBefore =
+			gTacticalStatus.fAutoBandageMode;
+		const SoldierID queuedDoorFirstPlayerBefore =
+			gTacticalStatus.Team[OUR_TEAM].bFirstID;
+		const SoldierID queuedDoorLastPlayerBefore =
+			gTacticalStatus.Team[OUR_TEAM].bLastID;
+		gbPlayerNum = OUR_TEAM;
+		is_client = false;
+		is_server = false;
+		is_networked = false;
+		gTacticalStatus.fAutoBandageMode = FALSE;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID = commandHostActor.identity().id();
+		gTacticalStatus.Team[OUR_TEAM].bLastID = commandHostActor.identity().id();
+		const UINT8 queuedDoorSightRangeBefore =
+			gGameExternalOptions.ubStraightSightRange;
+		const std::vector<UINT8> queuedDoorBrightnessBefore(
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod),
+			std::end(gGameExternalOptions.ubBrightnessVisionMod));
+		gGameExternalOptions.ubStraightSightRange = 13;
+		std::fill(
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod),
+			std::end(gGameExternalOptions.ubBrightnessVisionMod), 100);
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+		SetJa2PendingInterrupt(DISABLED_INTERRUPT);
+		TacticalActorVisibility::initializeRanges();
+		auto configureQueuedDoorActor = [&commandHostActor](INT32 grid) {
+			commandHostActor.roster().active() = TRUE;
+			commandHostActor.roster().inSector() = TRUE;
+			commandHostActor.roster().team() = OUR_TEAM;
+			commandHostActor.assignment().current() = FIRST_SQUAD;
+			commandHostActor.status().flags() &=
+				~(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER |
+					SOLDIER_PCUNDERAICONTROL);
+			commandHostActor.position().gridNo() = grid;
+			commandHostActor.position().level() = FIRST_LEVEL;
+			commandHostActor.position().direction() = EAST;
+			commandHostActor.pathing().desiredDirection() = EAST;
+			commandHostActor.animationPlayback().state() = STANDING;
+			commandHostActor.animationIntent().clearPendingAnimations();
+			commandHostActor.collapseState().tactical() = FALSE;
+			commandHostActor.movement().setStealth(false);
+			commandHostActor.movement().clearWaitAction();
+			commandHostActor.fireControl().reloading() = FALSE;
+			commandHostActor.fireControl().burstCounter() = 0;
+			commandHostActor.fireControl().autofireShots() = 0;
+			commandHostActor.pendingAction().clearAction();
+			commandHostActor.runtime().worldObject.reset();
+			commandHostActor.actionPoints().current() = 100;
+			commandHostActor.vitals().health() = OKLIFE;
+			commandHostActor.vitals().breath() = 100;
+			commandHostActor.audio().recordDoorOpeningNoise(37);
+		};
+		auto queuedDoorNoiseUnchanged = [](
+			const std::array<UINT8, MAXTEAMS>& volumes,
+			const std::array<INT32, MAXTEAMS>& grids,
+			const std::array<INT8, MAXTEAMS>& levels) {
+			return std::equal(volumes.begin(), volumes.end(),
+				std::begin(gubPublicNoiseVolume)) &&
+				std::equal(grids.begin(), grids.end(),
+					std::begin(gsPublicNoiseGridNo)) &&
+				std::equal(levels.begin(), levels.end(),
+					std::begin(gbPublicNoiseLevel));
+		};
+		auto exerciseQueuedRoleFlip = [&](INT32 doorGrid, bool clientRole) {
+			QueuedAuthoritativeDoorFixture fixture;
+			const bool installed = fixture.install(doorGrid);
+			configureQueuedDoorActor(doorGrid);
+			UINT8 adjacentDirection = 0;
+			const bool adjacent = installed &&
+				FindAdjacentGridEx(
+					&commandHostActor, doorGrid, &adjacentDirection,
+					nullptr, FALSE, TRUE) ==
+					commandHostActor.position().gridNo();
+			CHECK(adjacent,
+				"queued authoritative role fixture resolves native adjacency");
+			CHECK(IsJa2TacticalDoorVisibleToPlayerTeam(doorGrid),
+				"queued authoritative role fixture projects its adjacent door");
+			CHECK(commandHostActor.vitals().health() >= OKLIFE &&
+				commandHostActor.roster().active() &&
+				commandHostActor.roster().inSector() &&
+				commandHostActor.roster().team() == gbPlayerNum &&
+				commandHostActor.assignment().current() < ON_DUTY &&
+				commandHostActor.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 0,
+				"queued authoritative role fixture has one controllable actor");
+			CHECK(IsJa2TacticalWorldLoaded() &&
+				IsJa2TacticalWorldIntegrityValid() &&
+				GetJa2TacticalWorldAdapter().liveTurnIdentity(),
+				"queued authoritative role fixture has a valid live world identity");
+			AuthoritativeDoorOpenCloseCommand command{};
+			const bool prepared = installed &&
+				PrepareAuthoritativeDoorOpenCloseCommand(
+					commandHostActorId,
+					TacticalWorldObjectId{doorGrid, fixture.structureId},
+					true, command);
+			CHECK(installed,
+				"queued authoritative role fixture installs its native door");
+			CHECK(prepared,
+				"queued authoritative role fixture prepares before the legacy role flip");
+			const INT16 actionPointsBefore =
+				commandHostActor.actionPoints().current();
+			const INT8 breathBefore = commandHostActor.vitals().breath();
+			const std::array<UINT8, MAXTEAMS> noiseVolumesBefore = [] {
+				std::array<UINT8, MAXTEAMS> result{};
+				std::copy(std::begin(gubPublicNoiseVolume),
+					std::end(gubPublicNoiseVolume), result.begin());
+				return result;
+			}();
+			const std::array<INT32, MAXTEAMS> noiseGridsBefore = [] {
+				std::array<INT32, MAXTEAMS> result{};
+				std::copy(std::begin(gsPublicNoiseGridNo),
+					std::end(gsPublicNoiseGridNo), result.begin());
+				return result;
+			}();
+			const std::array<INT8, MAXTEAMS> noiseLevelsBefore = [] {
+				std::array<INT8, MAXTEAMS> result{};
+				std::copy(std::begin(gbPublicNoiseLevel),
+					std::end(gbPublicNoiseLevel), result.begin());
+				return result;
+			}();
+			beginCommandTestFrame();
+			const std::uint64_t tick =
+				compiledContext.runtime().simulationTicks().completedTickSequence();
+			const std::uint64_t sequence = prepared
+				? compiledContext.submitCommand(
+					tick, SimulationCommand{command})
+				: 0;
+			is_client = clientRole;
+			is_server = !clientRole;
+			const CommandProcessingResult processing = prepared
+				? ExecuteSimulationCommandsThrough(tick, 1)
+				: CommandProcessingResult{};
+			is_client = false;
+			is_server = false;
+			const std::vector<RecordedSimulationCommand> journal =
+				compiledContext.commandJournal().snapshot();
+			const auto record = std::find_if(
+				journal.begin(), journal.end(),
+				[sequence](const RecordedSimulationCommand& value) {
+					return value.sequence == sequence;
+				});
+			const bool rejectedWithoutEffects = prepared && sequence != 0 &&
+				processing.status == CommandProcessStatus::Completed &&
+				processing.applied == 0 && processing.discarded == 1 &&
+				record != journal.end() &&
+				record->status == CommandJournalStatus::Discarded &&
+				fixture.remainsClosed() && GetDoorStatus(doorGrid) == nullptr &&
+				commandHostActor.actionPoints().current() == actionPointsBefore &&
+				commandHostActor.vitals().breath() == breathBefore &&
+				commandHostActor.audio().doorOpeningNoise() == 37 &&
+				queuedDoorNoiseUnchanged(
+					noiseVolumesBefore, noiseGridsBefore, noiseLevelsBefore);
+			fixture.remove();
+			TrashDoorStatusArray();
+			return rejectedWithoutEffects;
+		};
+		const bool queuedDoorClientRoleRejected =
+			exerciseQueuedRoleFlip(immediateDoorGrid + 2, true);
+		const bool queuedDoorServerRoleRejected =
+			queuedDoorClientRoleRejected &&
+			exerciseQueuedRoleFlip(immediateDoorGrid + 3, false);
+
+		bool queuedDoorIntegrityFailStop = false;
+		if (queuedDoorServerRoleRejected)
+		{
+			QueuedAuthoritativeDoorFixture failingDoor;
+			QueuedAuthoritativeDoorFixture followingDoor;
+			const INT32 actorGrid = immediateDoorGrid + WORLD_COLS + 8;
+			const INT32 failingGrid =
+				NewGridNo(actorGrid, DirectionInc(NORTH));
+			const INT32 followingGrid =
+				NewGridNo(actorGrid, DirectionInc(EAST));
+			const bool installed = failingDoor.install(failingGrid) &&
+				followingDoor.install(followingGrid);
+			configureQueuedDoorActor(actorGrid);
+			AuthoritativeDoorOpenCloseCommand failingCommand{};
+			AuthoritativeDoorOpenCloseCommand followingCommand{};
+			const bool prepared = installed &&
+				PrepareAuthoritativeDoorOpenCloseCommand(
+					commandHostActorId,
+					TacticalWorldObjectId{
+						failingGrid, failingDoor.structureId},
+					true, failingCommand) &&
+				PrepareAuthoritativeDoorOpenCloseCommand(
+					commandHostActorId,
+					TacticalWorldObjectId{
+						followingGrid, followingDoor.structureId},
+					true, followingCommand);
+			CHECK(installed,
+				"queued authoritative integrity fixture installs both native doors");
+			CHECK(prepared,
+				"queued authoritative integrity fixture prepares both commands before corruption");
+			const INT16 actionPointsBefore =
+				commandHostActor.actionPoints().current();
+			const INT8 breathBefore = commandHostActor.vitals().breath();
+			const std::array<UINT8, MAXTEAMS> noiseVolumesBefore = [] {
+				std::array<UINT8, MAXTEAMS> result{};
+				std::copy(std::begin(gubPublicNoiseVolume),
+					std::end(gubPublicNoiseVolume), result.begin());
+				return result;
+			}();
+			const std::array<INT32, MAXTEAMS> noiseGridsBefore = [] {
+				std::array<INT32, MAXTEAMS> result{};
+				std::copy(std::begin(gsPublicNoiseGridNo),
+					std::end(gsPublicNoiseGridNo), result.begin());
+				return result;
+			}();
+			const std::array<INT8, MAXTEAMS> noiseLevelsBefore = [] {
+				std::array<INT8, MAXTEAMS> result{};
+				std::copy(std::begin(gbPublicNoiseLevel),
+					std::end(gbPublicNoiseLevel), result.begin());
+				return result;
+			}();
+			failingDoor.breakOpenPartner();
+			beginCommandTestFrame();
+			const std::uint64_t tick =
+				compiledContext.runtime().simulationTicks().completedTickSequence();
+			const std::uint64_t failingSequence = prepared
+				? compiledContext.submitCommand(
+					tick, SimulationCommand{failingCommand})
+				: 0;
+			const std::uint64_t followingSequence = prepared
+				? compiledContext.submitCommand(
+					tick, SimulationCommand{followingCommand})
+				: 0;
+			const CommandProcessingResult processing = prepared
+				? ExecuteSimulationCommandsThrough(tick, 2)
+				: CommandProcessingResult{};
+			const std::vector<RecordedSimulationCommand> journal =
+				compiledContext.commandJournal().snapshot();
+			const auto failingRecord = std::find_if(
+				journal.begin(), journal.end(),
+				[failingSequence](const RecordedSimulationCommand& value) {
+					return value.sequence == failingSequence;
+				});
+			const auto followingRecord = std::find_if(
+				journal.begin(), journal.end(),
+				[followingSequence](const RecordedSimulationCommand& value) {
+					return value.sequence == followingSequence;
+				});
+			queuedDoorIntegrityFailStop = prepared &&
+				failingSequence != 0 && followingSequence != 0 &&
+				processing.status == CommandProcessStatus::Completed &&
+				processing.applied == 0 && processing.discarded == 2 &&
+				failingRecord != journal.end() &&
+				failingRecord->status == CommandJournalStatus::Discarded &&
+				followingRecord != journal.end() &&
+				followingRecord->status == CommandJournalStatus::Discarded &&
+				!IsJa2TacticalWorldIntegrityValid() &&
+				followingDoor.remainsClosed() &&
+				GetDoorStatus(followingGrid) == nullptr &&
+				commandHostActor.actionPoints().current() == actionPointsBefore &&
+				commandHostActor.vitals().breath() == breathBefore &&
+				commandHostActor.audio().doorOpeningNoise() == 37 &&
+				queuedDoorNoiseUnchanged(
+					noiseVolumesBefore, noiseGridsBefore, noiseLevelsBefore);
+			failingDoor.remove();
+			followingDoor.remove();
+			TrashDoorStatusArray();
+		}
+		NotifyJa2TacticalWorldLoaded(retainedDoorWorldSession.worldGeneration);
+		RestoreJa2TacticalWorldSession(retainedDoorWorldSession);
+		const bool queuedDoorIntegrityReset =
+			IsJa2TacticalWorldIntegrityValid();
+		CHECK(queuedDoorClientRoleRejected,
+			"queued authoritative doors reject a client-only legacy role before mutation");
+		CHECK(queuedDoorServerRoleRejected,
+			"queued authoritative doors reject a server-only legacy role before mutation");
+		CHECK(queuedDoorIntegrityFailStop && queuedDoorIntegrityReset,
+			"a failed authoritative door swap fail-stops later queued doors until world reload");
+		gTacticalStatus.Team[OUR_TEAM].bFirstID = queuedDoorFirstPlayerBefore;
+		gTacticalStatus.Team[OUR_TEAM].bLastID = queuedDoorLastPlayerBefore;
+		gTacticalStatus.fAutoBandageMode = queuedDoorAutoBandageBefore;
+		gGameExternalOptions.ubStraightSightRange = queuedDoorSightRangeBefore;
+		std::copy(
+			queuedDoorBrightnessBefore.begin(),
+			queuedDoorBrightnessBefore.end(),
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod));
+		TacticalActorVisibility::initializeRanges();
+		is_networked = queuedDoorNetworkBefore;
+		is_server = queuedDoorServerBefore;
+		is_client = queuedDoorClientBefore;
+		gbPlayerNum = queuedDoorPlayerTeamBefore;
+		commandHostActor.audio().recordDoorOpeningNoise(retainedDoorNoise);
+		gpDoorStatus = retainedDoorStatusArray;
+		gubNumDoorStatus = retainedDoorStatusCount;
 		commandHostActor.position().gridNo() =
 			( WORLD_ROWS / 2 ) * WORLD_COLS + WORLD_COLS / 2;
 		commandHostActor.position().level() = FIRST_LEVEL;
@@ -8153,6 +13248,13 @@ int main( int argc, char** argv )
 		}
 
 		CHECK( liveAiTraversalContinuationOwned &&
+		       immediateDoorSuccessOrdered &&
+		       immediateDoorFailureAtomic &&
+		       immediateDoorIntegrityReset &&
+		       queuedDoorClientRoleRejected &&
+		       queuedDoorServerRoleRejected &&
+		       queuedDoorIntegrityFailStop &&
+		       queuedDoorIntegrityReset &&
 		       livePathTraversalOrdered &&
 		       pendingReplaySuppressesAsyncPathProducer &&
 		       pendingReplaySuppressesAutomaticDoorProducer &&
@@ -8167,7 +13269,7 @@ int main( int argc, char** argv )
 		       doorMenuRejectedChangedWorld &&
 		       doorMenuPartialFailureCleanup &&
 		       traversalActorRestored,
-		       "production traversal, automatic-door commands, and door UI reject stale identity while partial presentation failure restores ownership" );
+		       "production traversal, automatic-door commands, synchronous authoritative doors, and door UI preserve exact ordering and stale-identity safety" );
 
 		const INT8 previousConfigurationWeaponMode =
 			commandHostActor.attackSelection().weaponMode();
@@ -9088,10 +14190,20 @@ int main( int argc, char** argv )
 		const auto inactiveOwnerResult = findCommandResult( inactiveOwner.requestId );
 		const auto unavailableContextResult = findCommandResult( unloadedContext.requestId );
 		const auto staleCommandResult = findCommandResult( staleRequest.requestId );
+		const auto staleQueuedInterruptPassResult =
+			findCommandResult( staleQueuedInterruptPassRequestId );
+		const auto localReloadResult =
+			findCommandResult( localReloadWithoutWeapon.requestId );
 		const auto immediateMoveDrainedResult =
 			findCommandResult( immediateMoveDrainedTracked.requestId );
 		const auto retainedCancellationResult =
 			findCommandResult( retainedForTeardown.requestId );
+		CHECK( staleQueuedInterruptPassResult != commandResults.end() &&
+		       staleQueuedInterruptPassResult->status ==
+		           TacticalCommandTerminalStatus::Discarded &&
+		       staleQueuedInterruptPassResult->reason ==
+		           TacticalCommandTerminalReason::AuthoritativeDiscard,
+		       "a stale queued interrupt pass reports authoritative discard after leaving the replacement grant untouched" );
 		CHECK( commandResultSinkRegistered == RuntimeMessageSinkRegistrationError::None &&
 		       commandReceiptDispatch.messages == commandResultSink.messages.size() &&
 		       commandResultsDecoded &&
@@ -9111,8 +14223,14 @@ int main( int argc, char** argv )
 		           TacticalCommandTerminalReason::UnavailableContext &&
 		       staleCommandResult != commandResults.end() && staleRecord &&
 		       staleCommandResult->authoritativeSequence == staleRecord->sequence &&
-		       staleCommandResult->status == TacticalCommandTerminalStatus::Discarded &&
+		       staleCommandResult->status ==
+		           TacticalCommandTerminalStatus::Rejected &&
 		       staleCommandResult->reason ==
+		           TacticalCommandTerminalReason::InvalidDomain &&
+		       localReloadResult != commandResults.end() &&
+		       localReloadResult->status ==
+		           TacticalCommandTerminalStatus::Discarded &&
+		       localReloadResult->reason ==
 		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
 		       immediateMoveDrainedResult != commandResults.end() &&
 		       immediateMoveDrainedResult->status ==
@@ -9124,7 +14242,7 @@ int main( int argc, char** argv )
 		           TacticalCommandTerminalStatus::Cancelled &&
 		       retainedCancellationResult->reason ==
 		           TacticalCommandTerminalReason::PackageTeardown,
-		       "production command receipts report rejection, authoritative discard, and teardown cancellation" );
+		       "production command receipts report gameplay rejection, authoritative discard, and teardown cancellation" );
 		CHECK( liveRuntimeMessages.removeSink( commandResultSink ) ==
 		           RuntimeMessageSinkRegistrationError::None,
 		       "production command receipt test removes its non-owning runtime sink" );
@@ -9346,14 +14464,27 @@ int main( int argc, char** argv )
 			GetJa2TacticalEntityId( 0 );
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
+		const bool projectionWorldAllocatedHere =
+			GetWorldTileMapSize() == 0 &&
+			AllocateWorldTileMap(
+				static_cast<std::uint32_t>( WORLD_MAX ) );
+		const bool projectionWorldReady = GetWorldTileMapSize() != 0;
 		const UINT32 previousTacticalProjectionFlags =
 			CaptureJa2TacticalStatusFlags();
 		const UINT8 previousTacticalProjectionTeam = GetJa2TacticalCurrentTeam();
+		const UINT8 worldCapturePlayerTeam = gbPlayerNum;
+		const INT8 previousWorldActorPublicKnowledge =
+			worldCapturePlayerTeam < MAXTEAMS
+				? gbPublicOpplist[worldCapturePlayerTeam][0]
+				: NOT_HEARD_OR_SEEN;
+		if ( worldCapturePlayerTeam < MAXTEAMS )
+			gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
 		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		worldActor.identity().incarnation() = 701;
 		worldActor.roster().active() = TRUE;
 		worldActor.roster().inSector() = TRUE;
 		worldActor.roster().team() = 1;
+		worldActor.roster().side() = ENEMY_TEAM;
 		worldActor.identity().profile() = 12;
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
@@ -9364,6 +14495,11 @@ int main( int argc, char** argv )
 		worldActor.vitals().maximumHealth() = 80;
 		worldActor.vitals().breath() = 64;
 		worldActor.vitals().maximumBreath() = 90;
+		worldActor.inventory()[HELMETPOS].initialize();
+		worldActor.inventory()[VESTPOS].initialize();
+		worldActor.inventory()[LEGPOS].initialize();
+		worldActor.inventory()[HANDPOS].initialize();
+		worldActor.inventory()[SECONDHANDPOS].initialize();
 		const bool worldActorAdopted = AdoptJa2TacticalEntity( worldActor );
 		const TacticalEntityId worldActorIdentity =
 			GetJa2TacticalEntityId( worldActor );
@@ -9378,6 +14514,222 @@ int main( int argc, char** argv )
 		       adoptedWorldActorState->life == 76 &&
 		       adoptedWorldActorState->stance == TacticalStance::Standing,
 		       "legacy pool actors publish liveness and public state through the runtime-owned directory" );
+
+		const INVTYPE previousPrimaryFixtureItem = Item[1];
+		const INVTYPE previousSecondaryFixtureItem = Item[2];
+		const INVTYPE previousHelmetFixtureItem = Item[5];
+		const INVTYPE previousVestFixtureItem = Item[6];
+		const INVTYPE previousLegsFixtureItem = Item[7];
+		OBJECTTYPE& helmet = worldActor.inventory()[HELMETPOS];
+		OBJECTTYPE& vest = worldActor.inventory()[VESTPOS];
+		OBJECTTYPE& legs = worldActor.inventory()[LEGPOS];
+		OBJECTTYPE& primaryHand = worldActor.inventory()[HANDPOS];
+		OBJECTTYPE& secondaryHand = worldActor.inventory()[SECONDHANDPOS];
+		const bool emptyEquipmentCaptured = adoptedWorldActorState &&
+			adoptedWorldActorState->loadout.helmet ==
+				TacticalHandItemSnapshot{} &&
+			adoptedWorldActorState->loadout.vest ==
+				TacticalHandItemSnapshot{} &&
+			adoptedWorldActorState->loadout.legs ==
+				TacticalHandItemSnapshot{} &&
+			adoptedWorldActorState->loadout.primaryHand ==
+				TacticalHandItemSnapshot{} &&
+			adoptedWorldActorState->loadout.secondaryHand ==
+				TacticalHandItemSnapshot{};
+
+		Item[5].usItemClass = IC_ARMOUR;
+		helmet.usItem = 5;
+		helmet.ubNumberOfObjects = 1;
+		helmet.objectStack.front().data.objectStatus = 91;
+		Item[6].usItemClass = IC_ARMOUR;
+		vest.usItem = 6;
+		vest.ubNumberOfObjects = 1;
+		vest.objectStack.front().data.objectStatus = 82;
+		Item[7].usItemClass = IC_ARMOUR;
+		legs.usItem = 7;
+		legs.ubNumberOfObjects = 1;
+		legs.objectStack.front().data.objectStatus = 73;
+		Item[1].usItemClass = IC_KIT;
+		primaryHand.usItem = 1;
+		primaryHand.ubNumberOfObjects = 2;
+		primaryHand.objectStack.resize(2);
+		primaryHand.objectStack.front().data.gun.bGunStatus = 83;
+		primaryHand.objectStack.front().data.gun.usGunAmmoItem = MAXITEMS;
+		primaryHand.objectStack.front().data.gun.ubGunShotsLeft = 19;
+		primaryHand.objectStack.front().data.gun.bGunAmmoStatus = -41;
+		primaryHand.objectStack.front().data.gun.ubGunState =
+			GS_CARTRIDGE_IN_CHAMBER;
+		const bool genericHandSynchronized =
+			SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* genericHandState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool genericHandCaptured = genericHandState &&
+			genericHandState->loadout.helmet.item == 5 &&
+			genericHandState->loadout.helmet.quantity == 1 &&
+			genericHandState->loadout.helmet.condition == 91 &&
+			!genericHandState->loadout.helmet.ammunitionState &&
+			genericHandState->loadout.vest.item == 6 &&
+			genericHandState->loadout.vest.condition == 82 &&
+			genericHandState->loadout.legs.item == 7 &&
+			genericHandState->loadout.legs.condition == 73 &&
+			genericHandState->loadout.primaryHand.item == 1 &&
+			genericHandState->loadout.primaryHand.quantity == 2 &&
+			genericHandState->loadout.primaryHand.condition == 83 &&
+			!genericHandState->loadout.primaryHand.ammunitionState &&
+			genericHandState->loadout.primaryHand.ammunitionItem == 0 &&
+			genericHandState->loadout.primaryHand.ammunitionCount == 0 &&
+			genericHandState->loadout.primaryHand.ammunitionCondition == 0 &&
+			!genericHandState->loadout.primaryHand.chambered;
+
+		Item[1].usItemClass = IC_GUN;
+		primaryHand.objectStack.front().data.gun.bGunStatus = 74;
+		primaryHand.objectStack.front().data.gun.usGunAmmoItem = 3;
+		primaryHand.objectStack.front().data.gun.ubGunShotsLeft = 11;
+		primaryHand.objectStack.front().data.gun.bGunAmmoStatus = -27;
+		primaryHand.objectStack.front().data.gun.ubGunState = 0;
+		const bool gunHandSynchronized =
+			SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* gunHandState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const TacticalHandItemSnapshot unchamberedGun = gunHandState
+			? gunHandState->loadout.primaryHand
+			: TacticalHandItemSnapshot{};
+		const bool gunHandCaptured = gunHandState &&
+			unchamberedGun.item == 1 && unchamberedGun.quantity == 2 &&
+			unchamberedGun.condition == 74 &&
+			unchamberedGun.ammunitionState &&
+			unchamberedGun.ammunitionItem == 3 &&
+			unchamberedGun.ammunitionCount == 11 &&
+			unchamberedGun.ammunitionCondition == -27 &&
+			!unchamberedGun.chambered;
+
+		primaryHand.objectStack.front().data.gun.ubGunState =
+			GS_CARTRIDGE_IN_CHAMBER;
+		const bool chamberTransitionSynchronized =
+			SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* chamberedGunState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		TacticalHandItemSnapshot expectedChamberedGun = unchamberedGun;
+		expectedChamberedGun.chambered = true;
+		const bool chamberOnlyTransitionCaptured = chamberedGunState &&
+			chamberedGunState->loadout.primaryHand == expectedChamberedGun;
+
+		Item[2].usItemClass = IC_LAUNCHER;
+		secondaryHand.usItem = 2;
+		secondaryHand.ubNumberOfObjects = 1;
+		secondaryHand.objectStack.front().data.gun.bGunStatus = 61;
+		secondaryHand.objectStack.front().data.gun.usGunAmmoItem = 4;
+		secondaryHand.objectStack.front().data.gun.ubGunShotsLeft = 1;
+		secondaryHand.objectStack.front().data.gun.bGunAmmoStatus = 92;
+		secondaryHand.objectStack.front().data.gun.ubGunState =
+			GS_CARTRIDGE_IN_CHAMBER;
+		const bool launcherHandSynchronized =
+			SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* launcherHandState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool launcherHandCaptured = launcherHandState &&
+			launcherHandState->loadout.secondaryHand.item == 2 &&
+			launcherHandState->loadout.secondaryHand.quantity == 1 &&
+			launcherHandState->loadout.secondaryHand.condition == 61 &&
+			launcherHandState->loadout.secondaryHand.ammunitionState &&
+			launcherHandState->loadout.secondaryHand.ammunitionItem == 4 &&
+			launcherHandState->loadout.secondaryHand.ammunitionCount == 1 &&
+			launcherHandState->loadout.secondaryHand.ammunitionCondition == 92 &&
+			launcherHandState->loadout.secondaryHand.chambered;
+		const TacticalActorLoadoutSnapshot lastValidLoadout = launcherHandState
+			? launcherHandState->loadout
+			: TacticalActorLoadoutSnapshot{};
+
+		primaryHand.usItem = MAXITEMS;
+		const bool malformedItemRejected =
+			!SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* afterMalformedItem =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool malformedItemPreservedState = afterMalformedItem &&
+			afterMalformedItem->loadout == lastValidLoadout;
+		primaryHand.usItem = 1;
+
+		primaryHand.objectStack.front().data.gun.usGunAmmoItem = MAXITEMS;
+		const bool malformedAmmunitionRejected =
+			!SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* afterMalformedAmmunition =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool malformedAmmunitionPreservedState =
+			afterMalformedAmmunition &&
+			afterMalformedAmmunition->loadout == lastValidLoadout;
+		primaryHand.objectStack.front().data.gun.usGunAmmoItem = 3;
+
+		helmet.objectStack.clear();
+		const bool malformedArmourRejected =
+			!SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* afterMalformedArmour =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool malformedArmourPreservedState = afterMalformedArmour &&
+			afterMalformedArmour->loadout == lastValidLoadout;
+		helmet.initialize();
+		helmet.usItem = 5;
+		helmet.ubNumberOfObjects = 1;
+		helmet.objectStack.front().data.objectStatus = 91;
+
+		primaryHand.objectStack.clear();
+		const bool missingFirstObjectRejected =
+			!SynchronizeJa2TacticalEntityState(worldActor);
+		const TacticalActorSnapshot* afterMissingFirstObject =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool missingFirstObjectPreservedState = afterMissingFirstObject &&
+			afterMissingFirstObject->loadout == lastValidLoadout;
+		primaryHand.initialize();
+		primaryHand.usItem = 1;
+		const bool noncanonicalEmptyRejected =
+			!SynchronizeJa2TacticalEntityState(worldActor);
+
+		helmet.initialize();
+		vest.initialize();
+		legs.initialize();
+		primaryHand.initialize();
+		secondaryHand.initialize();
+		Item[1] = previousPrimaryFixtureItem;
+		Item[2] = previousSecondaryFixtureItem;
+		Item[5] = previousHelmetFixtureItem;
+		Item[6] = previousVestFixtureItem;
+		Item[7] = previousLegsFixtureItem;
+		const bool directoryHandsResynchronized =
+			SynchronizeJa2TacticalEntityStates();
+		const TacticalActorSnapshot* restoredHandState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				worldActorIdentity);
+		const bool restoredEmptyEquipmentCaptured = restoredHandState &&
+			restoredHandState->loadout.helmet ==
+				TacticalHandItemSnapshot{} &&
+			restoredHandState->loadout.vest ==
+				TacticalHandItemSnapshot{} &&
+			restoredHandState->loadout.legs ==
+				TacticalHandItemSnapshot{} &&
+			restoredHandState->loadout.primaryHand ==
+				TacticalHandItemSnapshot{} &&
+			restoredHandState->loadout.secondaryHand ==
+				TacticalHandItemSnapshot{};
+		CHECK(emptyEquipmentCaptured && genericHandSynchronized &&
+		       genericHandCaptured && gunHandSynchronized && gunHandCaptured &&
+		       chamberTransitionSynchronized && chamberOnlyTransitionCaptured &&
+		       launcherHandSynchronized && launcherHandCaptured &&
+		       malformedItemRejected && malformedItemPreservedState &&
+		       malformedAmmunitionRejected &&
+		       malformedAmmunitionPreservedState &&
+		       malformedArmourRejected && malformedArmourPreservedState &&
+		       missingFirstObjectRejected &&
+		       missingFirstObjectPreservedState &&
+		       noncanonicalEmptyRejected && directoryHandsResynchronized &&
+		       restoredEmptyEquipmentCaptured,
+		       "live tactical actor combat-equipment capture publishes canonical armour, hand, gun, launcher, jam, and chamber states while malformed slot storage fails closed" );
 		Ja2TacticalEntityReference liveCallbackActor;
 		const bool callbackActorCaptured =
 			liveCallbackActor.capture( worldActorIdentity ) &&
@@ -10039,23 +15391,39 @@ int main( int argc, char** argv )
 		CHECK( CaptureJa2TacticalWorld().turnSerial == 12 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
 		       "team-turn publication advances identity without disturbing sector projections" );
-		NotifyJa2TacticalWorldLoaded( 78 );
-		CHECK( CaptureJa2TacticalWorld().loaded &&
+		guiTurnCnt = 11;
+		guiReinforceTurn = 12;
+		guiArrived = 13;
+		guiMilitiaReinforceTurn = 14;
+		guiMilitiaArrived = 15;
+		const std::uint64_t committedWorldGeneration =
+			CommitJa2TacticalWorldLoad();
+		CHECK( committedWorldGeneration == 78 &&
+		       CaptureJa2TacticalWorld().loaded &&
 		       CaptureJa2TacticalWorld().worldGeneration == 78 &&
 		       CaptureJa2TacticalWorld().turnSerial == 1 &&
 		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 0 &&
 		       CaptureJa2TacticalInterruptState() ==
 		           restoredProjectionState.interrupt &&
 		       GetJa2PendingTacticalCombatActions() == 0 &&
-		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
-		       "world lifecycle publication resets turn identity and pending work without splitting coordinates" );
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1 &&
+		       guiTurnCnt == 0 && guiReinforceTurn == 0 && guiArrived == 0 &&
+		       guiMilitiaReinforceTurn == 0 && guiMilitiaArrived == 0,
+		       "world lifecycle publication resets turn identity, pending work, and unsaved reinforcement transients" );
+		guiTurnCnt = 21;
+		guiReinforceTurn = 22;
+		guiArrived = 23;
+		guiMilitiaReinforceTurn = 24;
+		guiMilitiaArrived = 25;
 		NotifyJa2TacticalWorldUnloaded();
 		CHECK( !CaptureJa2TacticalWorld().loaded &&
 		       CaptureJa2TacticalWorld().turnSerial == 0 &&
 		       CaptureJa2TacticalInterruptState() ==
 		           restoredProjectionState.interrupt &&
-		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
-		       "world unload retires identity while retaining the selected-sector projection" );
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1 &&
+		       guiTurnCnt == 0 && guiReinforceTurn == 0 && guiArrived == 0 &&
+		       guiMilitiaReinforceTurn == 0 && guiMilitiaArrived == 0,
+		       "world unload retires identity and unsaved reinforcement transients while retaining the selected-sector projection" );
 
 		RestoreJa2TacticalWorldSession( previousWorldSession );
 		RestoreJa2TacticalTurnState(
@@ -10105,7 +15473,8 @@ int main( int argc, char** argv )
 			tacticalWorld.service->capture( liveWorld );
 		const TacticalActorSnapshot* liveActor =
 			liveWorld.find( TacticalEntityId{ 0, 701 } );
-		CHECK( liveCapture == TacticalWorldCaptureResult::Success &&
+		CHECK( projectionWorldReady &&
+		       liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
 		       liveWorld.turn().serial == 2 && liveWorld.turn().turnBased &&
 		       liveWorld.turn().inCombat && liveWorld.turn().activeTeam == 1 &&
@@ -10120,6 +15489,334 @@ int main( int argc, char** argv )
 		       liveWorld.actors().capacity() == liveActorCapacity &&
 		       liveActorCapacity >= TOTAL_SOLDIERS,
 		       "live tactical capture reuses bounded actor storage without shrinking" );
+
+		const TacticalWorldSession::Snapshot commandGateStateBefore =
+			CaptureJa2TacticalWorld();
+		ResetJa2TacticalCombatActions();
+		SetJa2PendingInterrupt( 0 );
+		TacticalWorldSnapshot commandGateIdleWorld;
+		const TacticalWorldCaptureResult commandGateIdleCapture =
+			tacticalWorld.service->capture( commandGateIdleWorld );
+		const bool beganCommandGateAction = BeginJa2TacticalCombatAction();
+		TacticalWorldSnapshot commandGateActionWorld;
+		const TacticalWorldCaptureResult commandGateActionCapture =
+			tacticalWorld.service->capture( commandGateActionWorld );
+		const bool completedCommandGateAction =
+			CompleteJa2TacticalCombatAction();
+		SetJa2PendingInterrupt( UNTRIGGERED_INTERRUPT );
+		TacticalWorldSnapshot commandGateUntriggeredWorld;
+		const TacticalWorldCaptureResult commandGateUntriggeredCapture =
+			tacticalWorld.service->capture( commandGateUntriggeredWorld );
+		SetJa2PendingInterrupt( MOVEMENT_INTERRUPT );
+		TacticalWorldSnapshot commandGateInterruptWorld;
+		const TacticalWorldCaptureResult commandGateInterruptCapture =
+			tacticalWorld.service->capture( commandGateInterruptWorld );
+		SetJa2PendingInterrupt( 0 );
+		TacticalWorldSnapshot commandGateRecoveredWorld;
+		const TacticalWorldCaptureResult commandGateRecoveredCapture =
+			tacticalWorld.service->capture( commandGateRecoveredWorld );
+		RestoreJa2TacticalWorldSession( commandGateStateBefore );
+		CHECK( commandGateIdleCapture == TacticalWorldCaptureResult::Success &&
+		       !commandGateIdleWorld.turn().commandsBlocked &&
+		       beganCommandGateAction &&
+		       commandGateActionCapture == TacticalWorldCaptureResult::Success &&
+		       commandGateActionWorld.turn().commandsBlocked &&
+		       completedCommandGateAction &&
+		       commandGateUntriggeredCapture ==
+		           TacticalWorldCaptureResult::Success &&
+		       !commandGateUntriggeredWorld.turn().commandsBlocked &&
+		       commandGateUntriggeredWorld.turn().interruptPhase ==
+		           TacticalInterruptPhase::None &&
+		       commandGateInterruptCapture == TacticalWorldCaptureResult::Success &&
+		       commandGateInterruptWorld.turn().commandsBlocked &&
+		       commandGateInterruptWorld.turn().interruptPhase ==
+		           TacticalInterruptPhase::Resolving &&
+		       commandGateRecoveredCapture == TacticalWorldCaptureResult::Success &&
+		       !commandGateRecoveredWorld.turn().commandsBlocked &&
+		       commandGateIdleWorld.turn().serial ==
+		           commandGateActionWorld.turn().serial &&
+		       commandGateActionWorld.turn().serial ==
+		           commandGateUntriggeredWorld.turn().serial &&
+		       commandGateUntriggeredWorld.turn().serial ==
+		           commandGateInterruptWorld.turn().serial &&
+		       commandGateInterruptWorld.turn().serial ==
+		           commandGateRecoveredWorld.turn().serial,
+		       "live tactical capture derives the public command gate independently from pending actions and interrupts without advancing turn identity" );
+
+		const TacticalWorldSession::Snapshot interruptHostWorldBefore =
+			CaptureJa2TacticalWorld();
+		const UINT16 interruptHostOutOfTurnBefore = gubOutOfTurnPersons;
+		ResetJa2TacticalInterruptForNewWorld();
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, ENEMY_TEAM, 0 );
+		gubOutOfTurnPersons = 1;
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection aiInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		const bool aiInterruptReleased = PollJa2TacticalInterruptRelease();
+		const bool aiInterruptQueuePreserved = gubOutOfTurnPersons == 1;
+		NotifyJa2TacticalInterruptCleared();
+		const Ja2TacticalInterruptProjection retainedInterruptSerial =
+			CaptureJa2TacticalInterruptProjection();
+		NotifyJa2TacticalInterruptStarted();
+		const Ja2TacticalInterruptProjection resumedInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		NotifyJa2TacticalInterruptCleared();
+		ResetJa2TacticalInterruptForNewWorld();
+		const Ja2TacticalInterruptProjection resetInterrupt =
+			CaptureJa2TacticalInterruptProjection();
+		gubOutOfTurnPersons = interruptHostOutOfTurnBefore;
+		RestoreJa2TacticalWorldSession( interruptHostWorldBefore );
+		CHECK( aiInterrupt.phase == Ja2TacticalInterruptPhase::Active &&
+		       aiInterrupt.serial == 1 && !aiInterruptReleased &&
+		       aiInterruptQueuePreserved &&
+		       retainedInterruptSerial.phase ==
+		           Ja2TacticalInterruptPhase::None &&
+		       retainedInterruptSerial.serial == 1 &&
+		       resumedInterrupt.phase == Ja2TacticalInterruptPhase::Active &&
+		       resumedInterrupt.serial == 2 &&
+		       resetInterrupt.phase == Ja2TacticalInterruptPhase::None &&
+		       resetInterrupt.serial == 0,
+		       "interrupt coordinator retains a world-local serial across clear/resume and never auto-releases native AI interrupts" );
+
+		gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_THIS_TURN;
+		TacticalWorldSnapshot hiddenHostileWorld;
+		const TacticalWorldCaptureResult hiddenHostileCapture =
+			tacticalWorld.service->capture( hiddenHostileWorld );
+		TacticalWorldDelta visibilityLostDelta;
+		const TacticalWorldDiffResult visibilityLostDiff =
+			DiffTacticalWorldSnapshots(
+				liveWorld, hiddenHostileWorld, 1, visibilityLostDelta );
+
+		worldActor.roster().team() = MILITIA_TEAM;
+		worldActor.roster().side() = worldCapturePlayerTeam;
+		TacticalWorldSnapshot hiddenMilitiaWorld;
+		const TacticalWorldCaptureResult hiddenMilitiaCapture =
+			tacticalWorld.service->capture( hiddenMilitiaWorld );
+		gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
+		TacticalWorldSnapshot visibleMilitiaWorld;
+		const TacticalWorldCaptureResult visibleMilitiaCapture =
+			tacticalWorld.service->capture( visibleMilitiaWorld );
+
+		worldActor.roster().team() = CIV_TEAM;
+		worldActor.roster().side() = CIV_TEAM;
+		worldActor.aiBehavior().neutral() = TRUE;
+		gbPublicOpplist[worldCapturePlayerTeam][0] = NOT_HEARD_OR_SEEN;
+		TacticalWorldSnapshot hiddenNeutralWorld;
+		const TacticalWorldCaptureResult hiddenNeutralCapture =
+			tacticalWorld.service->capture( hiddenNeutralWorld );
+		gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
+		TacticalWorldSnapshot visibleNeutralWorld;
+		const TacticalWorldCaptureResult visibleNeutralCapture =
+			tacticalWorld.service->capture( visibleNeutralWorld );
+
+		worldActor.roster().team() = worldCapturePlayerTeam;
+		worldActor.roster().side() = worldCapturePlayerTeam;
+		worldActor.aiBehavior().neutral() = FALSE;
+		gbPublicOpplist[worldCapturePlayerTeam][0] = NOT_HEARD_OR_SEEN;
+		TacticalWorldSnapshot playerTeamWorld;
+		const TacticalWorldCaptureResult playerTeamCapture =
+			tacticalWorld.service->capture( playerTeamWorld );
+
+		const SoldierID doorProjectionFirstPlayerBefore =
+			gTacticalStatus.Team[worldCapturePlayerTeam].bFirstID;
+		const SoldierID doorProjectionLastPlayerBefore =
+			gTacticalStatus.Team[worldCapturePlayerTeam].bLastID;
+		const INT32 doorProjectionActorGridBefore =
+			worldActor.position().gridNo();
+		const INT8 doorProjectionActorLevelBefore =
+			worldActor.position().level();
+		const UINT8 doorProjectionActorDirectionBefore =
+			worldActor.position().direction();
+		const UINT8 doorProjectionActorDesiredDirectionBefore =
+			worldActor.pathing().desiredDirection();
+		const INT16 doorProjectionActorHealthBefore =
+			worldActor.vitals().health();
+		const UINT8 doorProjectionSightRangeBefore =
+			gGameExternalOptions.ubStraightSightRange;
+		const std::vector<UINT8> doorProjectionBrightnessBefore(
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod),
+			std::end(gGameExternalOptions.ubBrightnessVisionMod));
+		gTacticalStatus.Team[worldCapturePlayerTeam].bFirstID =
+			worldActor.identity().id();
+		gTacticalStatus.Team[worldCapturePlayerTeam].bLastID =
+			worldActor.identity().id();
+		worldActor.position().level() = FIRST_LEVEL;
+		worldActor.position().direction() = EAST;
+		worldActor.pathing().desiredDirection() = EAST;
+		worldActor.vitals().health() = 76;
+		gGameExternalOptions.ubStraightSightRange = 13;
+		std::fill(
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod),
+			std::end(gGameExternalOptions.ubBrightnessVisionMod), 100);
+		TacticalActorVisibility::initializeRanges();
+		const INT32 projectedDoorGrid = NewGridNo(
+			worldActor.position().gridNo(), DirectionInc(EAST));
+		QueuedAuthoritativeDoorFixture projectedDoorFixture;
+		const bool projectedDoorInstalled =
+			projectedDoorFixture.install(projectedDoorGrid);
+		TacticalWorldSnapshot visibleDoorWorld;
+		const TacticalWorldCaptureResult visibleDoorCapture =
+			projectedDoorInstalled
+				? tacticalWorld.service->capture(visibleDoorWorld)
+				: TacticalWorldCaptureResult::AdapterFailure;
+		const TacticalDoorSnapshot* visibleProjectedDoor =
+			visibleDoorWorld.findDoor(projectedDoorGrid);
+		worldActor.vitals().health() = OKLIFE - 1;
+		TacticalWorldSnapshot hiddenDoorWorld;
+		const TacticalWorldCaptureResult hiddenDoorCapture =
+			projectedDoorInstalled
+				? tacticalWorld.service->capture(hiddenDoorWorld)
+				: TacticalWorldCaptureResult::AdapterFailure;
+		TacticalWorldDelta doorVisibilityLostDelta;
+		const TacticalWorldDiffResult doorVisibilityLostDiff =
+			DiffTacticalWorldSnapshots(
+				visibleDoorWorld, hiddenDoorWorld, 8,
+				doorVisibilityLostDelta);
+		const auto projectedDoorLeft = std::find_if(
+			doorVisibilityLostDelta.events.begin(),
+			doorVisibilityLostDelta.events.end(),
+			[projectedDoorGrid](const TacticalWorldEvent& event) {
+				const TacticalDoorLeftEvent* const left =
+					std::get_if<TacticalDoorLeftEvent>(&event);
+				return left && left->baseGrid == projectedDoorGrid;
+			});
+		worldActor.vitals().health() = 76;
+		TacticalWorldSnapshot reacquiredDoorWorld;
+		const TacticalWorldCaptureResult reacquiredDoorCapture =
+			projectedDoorInstalled
+				? tacticalWorld.service->capture(reacquiredDoorWorld)
+				: TacticalWorldCaptureResult::AdapterFailure;
+		TacticalWorldDelta doorVisibilityReacquiredDelta;
+		const TacticalWorldDiffResult doorVisibilityReacquiredDiff =
+			DiffTacticalWorldSnapshots(
+				hiddenDoorWorld, reacquiredDoorWorld, 8,
+				doorVisibilityReacquiredDelta);
+		const auto projectedDoorEntered = std::find_if(
+			doorVisibilityReacquiredDelta.events.begin(),
+			doorVisibilityReacquiredDelta.events.end(),
+			[projectedDoorGrid](const TacticalWorldEvent& event) {
+				const TacticalDoorEnteredEvent* const entered =
+					std::get_if<TacticalDoorEnteredEvent>(&event);
+				return entered &&
+					entered->door.baseGrid == projectedDoorGrid;
+			});
+		const TacticalDoorEnteredEvent* const exactProjectedDoorEntered =
+			projectedDoorEntered != doorVisibilityReacquiredDelta.events.end()
+				? std::get_if<TacticalDoorEnteredEvent>(&*projectedDoorEntered)
+				: nullptr;
+		CHECK(projectedDoorInstalled &&
+		       visibleDoorCapture == TacticalWorldCaptureResult::Success &&
+		       visibleProjectedDoor &&
+		       visibleProjectedDoor->baseGrid == projectedDoorGrid &&
+		       visibleProjectedDoor->structureId ==
+		           projectedDoorFixture.structureId &&
+		       !visibleProjectedDoor->open &&
+		       hiddenDoorCapture == TacticalWorldCaptureResult::Success &&
+		       !hiddenDoorWorld.findDoor(projectedDoorGrid) &&
+		       doorVisibilityLostDiff == TacticalWorldDiffResult::Success &&
+		       projectedDoorLeft != doorVisibilityLostDelta.events.end() &&
+		       reacquiredDoorCapture == TacticalWorldCaptureResult::Success &&
+		       doorVisibilityReacquiredDiff ==
+		           TacticalWorldDiffResult::Success &&
+		       exactProjectedDoorEntered &&
+		       exactProjectedDoorEntered->door.baseGrid == projectedDoorGrid &&
+		       exactProjectedDoorEntered->door.structureId ==
+		           projectedDoorFixture.structureId &&
+		       !exactProjectedDoorEntered->door.open,
+		       "live tactical door projection emits exact enter/left transitions as player sight is lost and reacquired" );
+		projectedDoorFixture.remove();
+		worldActor.position().gridNo() = doorProjectionActorGridBefore;
+		worldActor.position().level() = doorProjectionActorLevelBefore;
+		worldActor.position().direction() = doorProjectionActorDirectionBefore;
+		worldActor.pathing().desiredDirection() =
+			doorProjectionActorDesiredDirectionBefore;
+		worldActor.vitals().health() = doorProjectionActorHealthBefore;
+		gTacticalStatus.Team[worldCapturePlayerTeam].bFirstID =
+			doorProjectionFirstPlayerBefore;
+		gTacticalStatus.Team[worldCapturePlayerTeam].bLastID =
+			doorProjectionLastPlayerBefore;
+		gGameExternalOptions.ubStraightSightRange =
+			doorProjectionSightRangeBefore;
+		std::copy(
+			doorProjectionBrightnessBefore.begin(),
+			doorProjectionBrightnessBefore.end(),
+			std::begin(gGameExternalOptions.ubBrightnessVisionMod));
+		TacticalActorVisibility::initializeRanges();
+
+		worldActor.roster().team() = ENEMY_TEAM;
+		worldActor.roster().side() = ENEMY_TEAM;
+		gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
+		TacticalWorldSnapshot reacquiredHostileWorld;
+		const TacticalWorldCaptureResult reacquiredHostileCapture =
+			tacticalWorld.service->capture( reacquiredHostileWorld );
+		TacticalWorldDelta visibilityReacquiredDelta;
+		const TacticalWorldDiffResult visibilityReacquiredDiff =
+			DiffTacticalWorldSnapshots(
+				hiddenHostileWorld, reacquiredHostileWorld, 1,
+				visibilityReacquiredDelta );
+
+		TacticalWorldSnapshot invalidMappingOutput = reacquiredHostileWorld;
+		gbPlayerNum = MAXTEAMS;
+		const TacticalWorldCaptureResult invalidPlayerTeamCapture =
+			tacticalWorld.service->capture( invalidMappingOutput );
+		gbPlayerNum = worldCapturePlayerTeam;
+		worldActor.identity().id() = SoldierID{
+			static_cast<UINT16>( TOTAL_SOLDIERS ) };
+		const TacticalWorldCaptureResult invalidIdentityCapture =
+			tacticalWorld.service->capture( invalidMappingOutput );
+		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
+		worldActor.roster().team() = MAXTEAMS;
+		const TacticalWorldCaptureResult invalidActorTeamCapture =
+			tacticalWorld.service->capture( invalidMappingOutput );
+		worldActor.roster().team() = ENEMY_TEAM;
+		const TacticalWorldCaptureResult restoredVisibilityCapture =
+			tacticalWorld.service->capture( reacquiredHostileWorld );
+
+		const TacticalActorSnapshot* visibleMilitia =
+			visibleMilitiaWorld.find( worldActorIdentity );
+		const TacticalActorSnapshot* visibleNeutral =
+			visibleNeutralWorld.find( worldActorIdentity );
+		const TacticalActorSnapshot* visiblePlayerActor =
+			playerTeamWorld.find( worldActorIdentity );
+		const TacticalActorSnapshot* visibleHostile =
+			reacquiredHostileWorld.find( worldActorIdentity );
+		CHECK( hiddenHostileCapture == TacticalWorldCaptureResult::Success &&
+		       !hiddenHostileWorld.find( worldActorIdentity ) &&
+		       visibilityLostDiff == TacticalWorldDiffResult::Success &&
+		       visibilityLostDelta.events.size() == 1 &&
+		       std::holds_alternative<TacticalActorLeftEvent>(
+		           visibilityLostDelta.events[0] ) &&
+		       std::get<TacticalActorLeftEvent>( visibilityLostDelta.events[0] ).actor ==
+		           worldActorIdentity &&
+		       hiddenMilitiaCapture == TacticalWorldCaptureResult::Success &&
+		       !hiddenMilitiaWorld.find( worldActorIdentity ) &&
+		       visibleMilitiaCapture == TacticalWorldCaptureResult::Success &&
+		       visibleMilitia && visibleMilitia->team == MILITIA_TEAM &&
+		       !visibleMilitia->hostileToPlayerTeam &&
+		       hiddenNeutralCapture == TacticalWorldCaptureResult::Success &&
+		       !hiddenNeutralWorld.find( worldActorIdentity ) &&
+		       visibleNeutralCapture == TacticalWorldCaptureResult::Success &&
+		       visibleNeutral && visibleNeutral->team == CIV_TEAM &&
+		       !visibleNeutral->hostileToPlayerTeam &&
+		       playerTeamCapture == TacticalWorldCaptureResult::Success &&
+		       visiblePlayerActor &&
+		       visiblePlayerActor->team == worldCapturePlayerTeam &&
+		       !visiblePlayerActor->hostileToPlayerTeam &&
+		       reacquiredHostileCapture == TacticalWorldCaptureResult::Success &&
+		       visibleHostile && visibleHostile->hostileToPlayerTeam &&
+		       visibilityReacquiredDiff == TacticalWorldDiffResult::Success &&
+		       visibilityReacquiredDelta.events.size() == 1 &&
+		       std::holds_alternative<TacticalActorEnteredEvent>(
+		           visibilityReacquiredDelta.events[0] ) &&
+		       std::get<TacticalActorEnteredEvent>(
+		           visibilityReacquiredDelta.events[0] ).actor.id == worldActorIdentity &&
+		       invalidPlayerTeamCapture == TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidIdentityCapture == TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidActorTeamCapture == TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidMappingOutput.find( worldActorIdentity ) &&
+		       restoredVisibilityCapture == TacticalWorldCaptureResult::Success,
+		       "live tactical projection hides every non-player team by public knowledge, emits leave/enter on visibility transitions, retains player actors, and rejects malformed mappings transactionally" );
 
 		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
 			compiledContext.capturePackageSaveState();
@@ -10477,11 +16174,15 @@ int main( int argc, char** argv )
 		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( worldActor );
+		gbPublicOpplist[worldCapturePlayerTeam][0] =
+			previousWorldActorPublicKnowledge;
 		TacticalActor* const restoredWorldActor =
 			soldierRepository.replace( 0, previousWorldActor );
 		if ( previousWorldEntity.valid() && restoredWorldActor )
 			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
 		RestoreJa2TacticalWorldSession( previousWorldSession );
+		if ( projectionWorldAllocatedHere )
+			ReleaseWorldTileMap();
 
 		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );
 		HeadlessRuntimeMessageSink tacticalDeltaSink;
@@ -13243,6 +18944,7 @@ int main( int argc, char** argv )
 			gGameOptions.ubInventorySystem;
 		const auto previousTraitSystem =
 			gGameOptions.fNewTraitSystem;
+		const bool previousRadioNetworked = is_networked;
 
 		radioActor.identity().profile() = 0;
 		radioActor.roster().team() = OUR_TEAM;
@@ -13312,6 +19014,15 @@ int main( int argc, char** argv )
 			!TacticalActorRadio::canOrderAnyArtilleryStrike(
 				radioActor,
 				nullptr);
+		is_networked = true;
+		std::uint32_t networkedArtillerySector = 0;
+		const bool networkedArtilleryIsRejected =
+			!TacticalActorRadio::canOrderAnyArtilleryStrike(
+				radioActor, &networkedArtillerySector) &&
+			!TacticalActorRadio::orderArtilleryStrike(
+				radioActor, 0, 0, OUR_TEAM) &&
+			!ArtilleryStrike(1, NOBODY, 0, 0);
+		is_networked = previousRadioNetworked;
 
 		gSkillTraitValues.usVOMortarCountDivisor =
 			previousMortarCountDivisor;
@@ -13335,8 +19046,9 @@ int main( int argc, char** argv )
 		CHECK( lostRadioClearsEveryMode,
 		       "tactical actor radio clears every stale operating mode after equipment is lost" );
 		CHECK( malformedArtilleryConfigurationIsRejected &&
-		       nullRadioOutputsAreRejected,
-		       "tactical actor artillery rejects zero divisors and null result storage" );
+		       nullRadioOutputsAreRejected &&
+		       networkedArtilleryIsRejected,
+		       "tactical actor artillery rejects malformed inputs and unsupported multiplayer strikes" );
 
 		TacticalActor spotterActor;
 		spotterActor.vitals().health() = OKLIFE;
@@ -13662,11 +19374,19 @@ int main( int argc, char** argv )
 		const auto previousWeapon = Weapon[1];
 		const auto previousAlternativeHolding =
 			gGameExternalOptions.ubAllowAlternativeWeaponHolding;
+		const auto previousManualReloadModifier =
+			gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL];
+		const auto previousTraitSystem = gGameOptions.fNewTraitSystem;
 
 		Item[1].usItemClass = IC_GUN;
+		Item[1].ubClassIndex = 1;
 		Item[1].usItemFlag &= ~ITEM_twohanded;
 		Weapon[1].ubShotsPerBurst = 3;
 		Weapon[1].bAutofireShotsPerFiveAP = 0;
+		Weapon[1].ubWeaponType = GUN_PISTOL;
+		Weapon[1].APsToReloadManually = 7;
+		gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL] = 1.0f;
+		gGameOptions.fNewTraitSystem = FALSE;
 
 		OBJECTTYPE& hand = weaponActor.inventory()[HANDPOS];
 		OBJECTTYPE& secondHand =
@@ -13675,8 +19395,12 @@ int main( int argc, char** argv )
 		hand.ubNumberOfObjects = 1;
 		secondHand.usItem = 1;
 		secondHand.ubNumberOfObjects = 1;
+		hand[0]->data.gun.bGunStatus = 100;
+		hand[0]->data.gun.ubGunShotsLeft = 5;
+		hand[0]->data.gun.ubGunState = GS_CARTRIDGE_IN_CHAMBER;
 		secondHand[0]->data.gun.bGunStatus = 100;
 		secondHand[0]->data.gun.ubGunShotsLeft = 5;
+		secondHand[0]->data.gun.ubGunState = 0;
 
 		const bool dualShotIsAccepted =
 			TacticalActorWeaponHandling::isValidSecondHandShot(
@@ -13690,6 +19414,27 @@ int main( int argc, char** argv )
 			TacticalActorWeaponHandling::isValidSecondHandShot(
 				weaponActor);
 		weaponActor.fireControl().burstCounter() = 0;
+		const UINT8 primaryStateBeforeReloadProbe =
+			hand[0]->data.gun.ubGunState;
+		const UINT8 secondStateBeforeReloadProbe =
+			secondHand[0]->data.gun.ubGunState;
+		const bool secondHandManualChamberIsAffordable =
+			GetAPsToAutoReload(&weaponActor, true) == 7 &&
+			hand[0]->data.gun.ubGunState == primaryStateBeforeReloadProbe &&
+			secondHand[0]->data.gun.ubGunState ==
+				secondStateBeforeReloadProbe;
+		hand[0]->data.gun.ubGunState = 0;
+		secondHand[0]->data.gun.ubGunState = GS_CARTRIDGE_IN_CHAMBER;
+		const UINT8 primaryManualStateBeforeReloadProbe =
+			hand[0]->data.gun.ubGunState;
+		const UINT8 secondManualStateBeforeReloadProbe =
+			secondHand[0]->data.gun.ubGunState;
+		const bool primaryManualChamberIsAffordable =
+			GetAPsToAutoReload(&weaponActor, true) == 7 &&
+			hand[0]->data.gun.ubGunState ==
+				primaryManualStateBeforeReloadProbe &&
+			secondHand[0]->data.gun.ubGunState ==
+				secondManualStateBeforeReloadProbe;
 
 		DeleteObj(&secondHand);
 		weaponActor.animationPlayback().state() = STANDING;
@@ -13753,9 +19498,14 @@ int main( int argc, char** argv )
 		Weapon[1] = previousWeapon;
 		gGameExternalOptions.ubAllowAlternativeWeaponHolding =
 			previousAlternativeHolding;
+		gItemSettings.fAPtoReloadManuallyModifierGun[GUN_PISTOL] =
+			previousManualReloadModifier;
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
 
 		CHECK( dualShotIsAccepted &&
 		       matchingDualBurstIsAccepted &&
+		       primaryManualChamberIsAffordable &&
+		       secondHandManualChamberIsAffordable &&
 		       pistolFastShotIsAccepted &&
 		       hipShotIsAccepted &&
 		       malformedItemsAreRejected &&

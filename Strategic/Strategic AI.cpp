@@ -39,8 +39,6 @@
 
 #include "GameInitOptionsScreen.h"
 
-#define SAI_VERSION		29
-
 /*
 STRATEGIC AI -- UNDERLYING PHILOSOPHY
 The most fundamental part of the strategic AI which takes from reality and gives to gameplay is the manner
@@ -198,7 +196,7 @@ BOOLEAN gfQueenAIAwake					= FALSE;	//This flag turns on/off the strategic decis
 INT32		giReinforcementPool			= 0;	//How many troops the queen has in reserve in noman's land.	These guys are spawned as needed in P3.
 INT32	giReinforcementPoints		= 0;	//the entire army's capacity to provide reinforcements.
 INT32		giRequestPoints					= 0;	//the entire army's need for reinforcements.
-UINT8	gubSAIVersion						= SAI_VERSION;	//Used for adding new features to be saved.
+UINT8	gubSAIVersion						= CurrentStrategicAISaveVersion;	//Used for adding new features to be saved.
 UINT8		gubQueenPriorityPhase		= 0;	//Defines how far into defence the queen is -- abstractly related to defcon index ranging from 0-10.
 
 BOOLEAN		gfUnlimitedTroops	= FALSE;
@@ -1172,7 +1170,7 @@ void InitStrategicAI()
 	giReinforcementPool			= 0;
 	giReinforcementPoints		= 0;
 	giRequestPoints					= 0;
-	gubSAIVersion						= SAI_VERSION;
+	gubSAIVersion						= CurrentStrategicAISaveVersion;
 	gubQueenPriorityPhase		= 0;
 	gfFirstBattleMeanwhileScenePending = FALSE;
 	gfMassFortificationOrdered = FALSE;
@@ -3765,7 +3763,7 @@ BOOLEAN SaveStrategicAI( HWFILE hFile )
 	return TRUE;
 }
 
-BOOLEAN LoadStrategicAI( HWFILE hFile )
+BOOLEAN LoadStrategicAI( HWFILE hFile, StrategicAILoadPolicy policy )
 {
 	GROUP *pGroup, *next;
 	GARRISON_GROUP gTempGarrisonGroup;
@@ -3818,6 +3816,14 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 		return FALSE;
 	FileRead( hFile, &ubSAIVersion,						1, &uiNumBytesRead );
 	if( uiNumBytesRead != 1 )
+		return FALSE;
+	const StrategicAILoadPlan loadPlan =
+		PlanStrategicAILoad( policy, ubSAIVersion );
+	// Persistent service checkpoints are produced and consumed by one exact
+	// engine build.  Legacy SAI migrations repair old interactive saves by
+	// changing campaign state, so a dedicated cold load rejects such a payload
+	// before reaching any compatibility or post-load repair pass.
+	if( !loadPlan.accepted )
 		return FALSE;
 	FileRead( hFile, &gubQueenPriorityPhase,	1, &uiNumBytesRead );
 	if( uiNumBytesRead != 1 )
@@ -3890,7 +3896,7 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 			return FALSE;
 	}
 
-	gubSAIVersion = SAI_VERSION;
+	gubSAIVersion = CurrentStrategicAISaveVersion;
 	//Load the garrison information!
 	if( gGarrisonGroup )
 	{
@@ -3954,11 +3960,14 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 		}
 
 	#ifdef JA2BETAVERSION
-		InitStrategicMovementCosts();
+		if( loadPlan.rebuildMovementCosts )
+			InitStrategicMovementCosts();
 	#endif
 
  Ensure_RepairedGarrisonGroup( &gGarrisonGroup, &giGarrisonArraySize );	/* added NULL fix, 2007-03-03, Sgt. Kolja */
 
+	if( loadPlan.applyCompatibilityMigrations )
+	{
 	if( ubSAIVersion < 6 )
 	{ //Reinitialize the costs since they have changed.
 
@@ -4282,40 +4291,50 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 	{
 		InitStrategicMovementCosts();
 	}
+	}
 
-	//KM : Aug 11, 1999 -- Patch fix:	Blindly update the airspace control.	There is a bug somewhere
-	//		that is failing to keep this information up to date, and I failed to find it.	At least this
-	//		will patch saves.
-	UpdateAirspaceControl( );
-
-	EvolveQueenPriorityPhase( TRUE );
-
-	//Count and correct the floating groups
-	pGroup = gpGroupList;
-	while( pGroup )
+	if( loadPlan.rebuildAirspace )
 	{
-		next = pGroup->next; //store the next node as pGroup could be deleted!
-		if ( pGroup->usGroupTeam != OUR_TEAM )
+		//KM : Aug 11, 1999 -- Patch fix: Blindly update the airspace
+		//control. Interactive loads retain this historical repair. Dedicated
+		//checkpoints restore the already-serialized map and arrival state.
+		UpdateAirspaceControl( );
+	}
+
+	if( loadPlan.evolveQueenPriorities )
+		EvolveQueenPriorityPhase( TRUE );
+
+	if( loadPlan.repollAndRepairGroups )
+	{
+		// Count and correct floating groups. Repolling is gameplay processing:
+		// it can resolve arrivals, replace waypoints, delete a group, and reach
+		// randomized ReassignAIGroup. It must never run during exact restore.
+		pGroup = gpGroupList;
+		while( pGroup )
 		{
-			if( !pGroup->fBetweenSectors )
+			next = pGroup->next; //store the next node as pGroup could be deleted!
+			if ( pGroup->usGroupTeam != OUR_TEAM )
 			{
-				if( pGroup->ubSectorX != gWorldSectorX ||
-						pGroup->ubSectorY != gWorldSectorY ||
-						gbWorldSectorZ )
+				if( !pGroup->fBetweenSectors )
 				{
-					UINT8 groupid = pGroup->ubGroupID;
+					if( pGroup->ubSectorX != gWorldSectorX ||
+							pGroup->ubSectorY != gWorldSectorY ||
+							gbWorldSectorZ )
+					{
+						UINT8 groupid = pGroup->ubGroupID;
 
-					RepollSAIGroup( pGroup );
+						RepollSAIGroup( pGroup );
 
-					// it is possible that the group gets destroyed inbetween, so recheck on that
-					pGroup = GetGroup( groupid );
+						// it is possible that the group gets destroyed inbetween, so recheck on that
+						pGroup = GetGroup( groupid );
 
-					if ( pGroup )
-						ValidateGroup( pGroup );
+						if ( pGroup )
+							ValidateGroup( pGroup );
+					}
 				}
 			}
+			pGroup = next; //advance the node
 		}
-		pGroup = next; //advance the node
 	}
 
 	#ifdef JA2BETAVERSION
@@ -4327,13 +4346,16 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 	#endif
 
 	//Update the version number to the most current.
-	gubSAIVersion = SAI_VERSION;
+	gubSAIVersion = CurrentStrategicAISaveVersion;
 
-	ValidateWeights( 28 );
-	ValidatePendingGroups();
-	#ifdef JA2BETAVERSION
-		ValidatePlayersAreInOneGroupOnly();
-	#endif
+	if( loadPlan.validateRepairs )
+	{
+		ValidateWeights( 28 );
+		ValidatePendingGroups();
+		#ifdef JA2BETAVERSION
+			ValidatePlayersAreInOneGroupOnly();
+		#endif
+	}
 
 	return TRUE;
 }

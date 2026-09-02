@@ -13,6 +13,7 @@ foreach(retired_multiplayer_path IN ITEMS
       "Retired multiplayer transport path returned: ${retired_multiplayer_path}")
   endif()
 endforeach()
+
 file(GLOB_RECURSE native_multiplayer_sources
   "${SOURCE_ROOT}/Multiplayer/*.h"
   "${SOURCE_ROOT}/Multiplayer/*.cpp")
@@ -379,8 +380,9 @@ endfunction()
 # launch contract. PvP still uses the transitional self-client flow, but that
 # flow must visit MP_CONNECT_SCREEN so NetworkAutoStart()/start_server(), the
 # transitional self-client, and canonical settings precede InitNewGame().
-# Co-op is parsed yet remains fail-closed until authoritative campaign
-# execution and replication are installed.
+# Co-op now acquires its campaign lease and installs its deterministic random
+# source before platform/VFS startup, then opens the exact campaign identity
+# after content bootstrap. Tactical replication remains separately gated.
 file(READ "${SOURCE_ROOT}/sgp/sgp.cpp" dedicated_main_source)
 file(READ "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp" dedicated_menu_source)
 file(READ "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp" dedicated_host_source)
@@ -407,17 +409,30 @@ extract_brace_bounded_slice(dedicated_main_code "${dedicated_main_marker}"
 require_ordered_fragments(dedicated_main_slice
   "Dedicated launch/shutdown order changed"
   "ParseDedicatedServerOptions(argc, argv)"
-  "InstallDedicatedServerOptions(dedicated.options)"
-  "dedicated.options.mode == DedicatedServerMode::Coop"
   "return 2;"
+  "InstallDedicatedServerOptions(dedicated.options)"
+  "ParseFullEngineCoopClientOptions(argc, argv)"
+  "InstallFullEngineCoopClientOptions(coopClient.options)"
   "gfDedicatedServer = TRUE;"
+  "dedicated.options.mode == DedicatedServerMode::Coop"
   "std::signal(SIGINT, RequestProcessTermination)"
   "std::signal(SIGTERM, RequestProcessTermination)"
+  "GetDedicatedCoopRuntime().prepareEarly()"
+  "SDL_Init(SDL_INIT_VIDEO)"
+  "GetFullEngineCoopClientRuntime().prepareEarly("
+  "InitializeRandom();"
+  "InitializeStandardGamingPlatform()"
   "while (gfProgramIsRunning && !s_TerminationRequested)"
   "gfProgramIsRunning = FALSE;"
+  "if (gfDedicatedServerProcessFailed)"
+  "runtime.stopAdmissionTransport();"
+  "runtime.shutdownAtCommittedBoundary(GetGameContext())"
   "client_disconnect();"
   "server_disconnect();"
-  "return gfDedicatedServerProcessFailed ? 2 : 0;")
+  "const int exitStatus = gfDedicatedServerProcessFailed ||"
+  "GetFullEngineCoopClientRuntime().failed()) ? 2 : 0;"
+  "SGPExit();"
+  "return exitStatus;")
 
 set(dedicated_signal_marker
   "static void RequestProcessTermination(int) noexcept")
@@ -738,7 +753,8 @@ require_ordered_fragments(dedicated_server_start_slice
   "!IsSupportedDedicatedPvpHostSettings(rawSettings))"
   "const UINT16 serverPort = (UINT16)rawSettings.serverPort;"
   "const UINT8 maxClients = (UINT8)rawSettings.maximumPlayers;"
-  "bool b = server->Start(gMaxClients, sd);"
+  "bool b = server->SetReservedIncomingLoopbackConnections(1) &&"
+  "server->Start(gMaxClients, sd);"
   "if (b)"
   "else"
   "DestroySdlNetPeer(server);"
@@ -769,7 +785,8 @@ endif()
 # Dedicated persistence keeps the crash-safe A/B store independent from the
 # legacy serializer. The fixed-slot adapter may bridge the two only through a
 # campaign-isolated VFS scratch file and the exact backend-reserved inactive
-# staging file; startup remains closed until lifecycle and determinism land.
+# staging file. The live boot/runtime integration below keeps acquisition,
+# identity open, materialization, checkpointing, and teardown fail closed.
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.h"
   dedicated_campaign_store_header)
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignStore.cpp"
@@ -786,6 +803,14 @@ file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignSaveBridge.h"
   dedicated_campaign_save_bridge_header)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   dedicated_campaign_save_load_game_source)
+file(READ "${SOURCE_ROOT}/Tactical/faces.h"
+  dedicated_campaign_face_reconstruction_header_source)
+file(READ "${SOURCE_ROOT}/Tactical/Faces.cpp"
+  dedicated_campaign_face_reconstruction_source)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic AI.h"
+  dedicated_campaign_strategic_ai_header_source)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic AI.cpp"
+  dedicated_campaign_strategic_ai_source)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadScreen.cpp"
   dedicated_campaign_save_load_screen_source)
 file(READ "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
@@ -812,6 +837,12 @@ file(READ "${SOURCE_ROOT}/sgp/Random.cpp"
   dedicated_game_random_source)
 file(READ "${SOURCE_ROOT}/tests/game_random_installation_tests.cpp"
   dedicated_game_random_installation_tests)
+file(READ "${SOURCE_ROOT}/lua/gameplay_lua_policy.h"
+  dedicated_gameplay_lua_policy_header)
+file(READ "${SOURCE_ROOT}/lua/gameplay_lua_policy.cpp"
+  dedicated_gameplay_lua_policy_source)
+file(READ "${SOURCE_ROOT}/tests/gameplay_lua_policy_tests.cpp"
+  dedicated_gameplay_lua_policy_tests)
 file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.h"
   dedicated_checkpoint_eligibility_header)
 file(READ "${SOURCE_ROOT}/Engine/Core/DedicatedCheckpointEligibility.cpp"
@@ -913,6 +944,14 @@ strip_cxx_comments_and_literals(dedicated_campaign_save_bridge_header
   dedicated_campaign_save_bridge_code)
 strip_cxx_comments_and_literals(dedicated_campaign_save_load_game_source
   dedicated_campaign_save_load_game_code)
+strip_cxx_comments_and_literals(dedicated_campaign_face_reconstruction_header_source
+  dedicated_campaign_face_reconstruction_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_face_reconstruction_source
+  dedicated_campaign_face_reconstruction_code)
+strip_cxx_comments_and_literals(dedicated_campaign_strategic_ai_header_source
+  dedicated_campaign_strategic_ai_header_code)
+strip_cxx_comments_and_literals(dedicated_campaign_strategic_ai_source
+  dedicated_campaign_strategic_ai_code)
 strip_cxx_comments_and_literals(dedicated_campaign_save_load_screen_source
   dedicated_campaign_save_load_screen_code)
 strip_cxx_comments_and_literals(dedicated_campaign_hourly_update_source
@@ -935,6 +974,10 @@ strip_cxx_comments_and_literals(dedicated_game_random_source
   dedicated_game_random_code)
 strip_cxx_comments_and_literals(dedicated_game_random_installation_tests
   dedicated_game_random_installation_test_code)
+strip_cxx_comments_and_literals(dedicated_gameplay_lua_policy_source
+  dedicated_gameplay_lua_policy_code)
+strip_cxx_comments_and_literals(dedicated_gameplay_lua_policy_tests
+  dedicated_gameplay_lua_policy_test_code)
 strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_header
   dedicated_checkpoint_eligibility_header_code)
 strip_cxx_comments_and_literals(dedicated_checkpoint_eligibility_source
@@ -2582,6 +2625,118 @@ foreach(dedicated_runtime_execution_raw_contract IN ITEMS
   endif()
 endforeach()
 
+# Dedicated cold restore is an exact deterministic load, not an interactive
+# repair pass. Face reconstruction owns presentation timing for the complete
+# legacy load without consuming the canonical stream; ordinary face creation
+# retains its three established draws. Strategic AI accepts only current save
+# v29 and skips every migration/repair gameplay branch.
+foreach(dedicated_runtime_face_scope_contract IN ITEMS
+    "class ScopedSavedGameFaceReconstruction final"
+    "explicit ScopedSavedGameFaceReconstruction(bool enabled) noexcept"
+    "~ScopedSavedGameFaceReconstruction() noexcept"
+    "ScopedSavedGameFaceReconstruction("
+    "const ScopedSavedGameFaceReconstruction&) = delete")
+  string(FIND "${dedicated_campaign_face_reconstruction_header_code}"
+    "${dedicated_runtime_face_scope_contract}"
+    dedicated_runtime_face_scope_contract_position)
+  if(dedicated_runtime_face_scope_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated face-reconstruction scope lost '${dedicated_runtime_face_scope_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_runtime_face_rng_contract IN ITEMS
+    "thread_local UINT32 gSavedGameFaceReconstructionDepth = 0"
+    "return gSavedGameFaceReconstructionDepth != 0"
+    "if (enabled_) ++gSavedGameFaceReconstructionDepth"
+    "if (enabled_) --gSavedGameFaceReconstructionDepth"
+    "if ( !ReconstructingSavedGameFaces() )"
+    "Random( 2000 )"
+    "pFace->uiEyeDelay"
+    "Random( 30 )")
+  string(FIND "${dedicated_campaign_face_reconstruction_code}"
+    "${dedicated_runtime_face_rng_contract}"
+    dedicated_runtime_face_rng_contract_position)
+  if(dedicated_runtime_face_rng_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated face-reconstruction RNG boundary lost '${dedicated_runtime_face_rng_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_campaign_save_load_game_code
+  "static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,\n\tconst char* logicalVfsPath, LegacySaveInvocation invocation)"
+  dedicated_runtime_full_load_slice
+  "Cannot bound dedicated full legacy-load scope")
+require_ordered_fragments(dedicated_runtime_full_load_slice
+  "Dedicated full load lost exact face/strategic-AI policy scope"
+  "const bool dedicatedCampaign ="
+  "BeginRuntimeLoadExecution(gameContext, dedicatedCampaign"
+  "ScopedSavedGameFaceReconstruction faceReconstruction(dedicatedCampaign)"
+  "PrepareRuntimeLoad("
+  "LoadStrategicAI( hFile, dedicatedCampaign"
+  "StrategicAILoadPolicy::DedicatedExactRestore"
+  "StrategicAILoadPolicy::InteractiveRepair")
+
+foreach(dedicated_runtime_strategic_ai_policy_contract IN ITEMS
+    "CurrentStrategicAISaveVersion = 29"
+    "enum class StrategicAILoadPolicy"
+    "InteractiveRepair"
+    "DedicatedExactRestore"
+    "storedVersion == CurrentStrategicAISaveVersion"
+    "return {current, false, false, false, false, false, false}"
+    "return {true, true, true, true, true, true, true}")
+  string(FIND "${dedicated_campaign_strategic_ai_header_code}"
+    "${dedicated_runtime_strategic_ai_policy_contract}"
+    dedicated_runtime_strategic_ai_policy_contract_position)
+  if(dedicated_runtime_strategic_ai_policy_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated strategic-AI exact-restore policy lost '${dedicated_runtime_strategic_ai_policy_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_runtime_strategic_ai_load_contract IN ITEMS
+    "PlanStrategicAILoad( policy, ubSAIVersion )"
+    "if( !loadPlan.accepted )"
+    "if( loadPlan.applyCompatibilityMigrations )"
+    "if( loadPlan.rebuildAirspace )"
+    "if( loadPlan.evolveQueenPriorities )"
+    "if( loadPlan.repollAndRepairGroups )"
+    "if( loadPlan.validateRepairs )")
+  string(FIND "${dedicated_campaign_strategic_ai_code}"
+    "${dedicated_runtime_strategic_ai_load_contract}"
+    dedicated_runtime_strategic_ai_load_contract_position)
+  if(dedicated_runtime_strategic_ai_load_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic-AI load regained unconditional repair gameplay '${dedicated_runtime_strategic_ai_load_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_runtime_cold_load_test_contract IN ITEMS
+    "ScopedSavedGameFaceReconstruction reconstruction(true)"
+    "simulation->consumptionEpoch() == scopedEpoch"
+    "simulation->consumptionEpoch() >= ordinaryEpoch + 3"
+    "StrategicAILoadPolicy::DedicatedExactRestore"
+    "CurrentStrategicAISaveVersion - 1"
+    "!dedicatedCurrent.applyCompatibilityMigrations"
+    "!dedicatedCurrent.repollAndRepairGroups"
+    "interactive.validateRepairs")
+  string(FIND "${dedicated_runtime_save_headless_test_code}"
+    "${dedicated_runtime_cold_load_test_contract}"
+    dedicated_runtime_cold_load_test_contract_position)
+  if(dedicated_runtime_cold_load_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated cold-load regression lost '${dedicated_runtime_cold_load_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_runtime_cold_load_diagnostic IN ITEMS
+    "dedicated face reconstruction allocates profile-base presentation timing without consuming canonical RNG while ordinary face creation retains all three legacy draws"
+    "dedicated strategic-AI load accepts only current exact state and suppresses legacy repair gameplay")
+  string(FIND "${dedicated_runtime_save_headless_tests}"
+    "${dedicated_runtime_cold_load_diagnostic}"
+    dedicated_runtime_cold_load_diagnostic_position)
+  if(dedicated_runtime_cold_load_diagnostic_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated cold-load diagnostic lost '${dedicated_runtime_cold_load_diagnostic}'")
+  endif()
+endforeach()
+
 # GRNG v1 is a separate integrity envelope containing the authoritative
 # simulation stream and the immutable package host root.
 foreach(dedicated_runtime_random_header_contract IN ITEMS
@@ -2767,6 +2922,93 @@ foreach(dedicated_game_random_test_contract IN ITEMS
   endif()
 endforeach()
 
+# Installed data scripts use Lua's stock `math.randomseed(os.time())` bootstrap
+# shape. Dedicated co-op accepts that shape only as a deterministic compatibility
+# no-op over the already-installed campaign RNG; ordinary and PvP modes continue
+# to delegate to Lua's original function.
+string(FIND "${dedicated_gameplay_lua_policy_header}"
+  "deterministic compatibility no-op"
+  dedicated_gameplay_lua_randomseed_header_position)
+if(dedicated_gameplay_lua_randomseed_header_position EQUAL -1)
+  message(FATAL_ERROR
+    "Gameplay Lua policy header lost the dedicated randomseed compatibility contract")
+endif()
+
+extract_brace_bounded_slice(dedicated_gameplay_lua_policy_code
+  "int CanonicalMathRandomSeed(lua_State* state)"
+  dedicated_gameplay_lua_randomseed_slice
+  "Cannot bound gameplay Lua randomseed policy")
+require_ordered_fragments(dedicated_gameplay_lua_randomseed_slice
+  "Dedicated gameplay Lua randomseed lost stock-shape validation, immutable-seed result, or ordinary delegation"
+  "if (!DedicatedCoopLuaRandomPolicyActive())"
+  "CallOriginalMathFunction(state, OriginalRandomSeedField)"
+  "if (!lua_isnone(state, 1))"
+  "luaL_checkinteger(state, 1)"
+  "luaL_optinteger(state, 2, 0)"
+  "SimulationRandom* source = GetGameSimulationRandomSource()"
+  "if (source == nullptr)"
+  "const std::uint64_t campaignSeed = source->campaignSeed()"
+  "static_cast<std::uint32_t>(campaignSeed)"
+  "static_cast<std::uint32_t>(campaignSeed >> 32u)"
+  "return 2")
+string(REGEX MATCHALL "CallOriginalMathFunction[ 	\r\n]*[(]"
+  dedicated_gameplay_lua_randomseed_original_calls
+  "${dedicated_gameplay_lua_randomseed_slice}")
+list(LENGTH dedicated_gameplay_lua_randomseed_original_calls
+  dedicated_gameplay_lua_randomseed_original_call_count)
+if(NOT dedicated_gameplay_lua_randomseed_original_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "Gameplay Lua randomseed must delegate exactly once, only through the ordinary/PvP branch")
+endif()
+foreach(dedicated_gameplay_lua_randomseed_forbidden IN ITEMS
+    "Random("
+    "tryNext("
+    ".restore("
+    "InstallGameSimulationRandom(")
+  string(FIND "${dedicated_gameplay_lua_randomseed_slice}"
+    "${dedicated_gameplay_lua_randomseed_forbidden}"
+    dedicated_gameplay_lua_randomseed_forbidden_position)
+  if(NOT dedicated_gameplay_lua_randomseed_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated gameplay Lua randomseed regained campaign-stream mutation '${dedicated_gameplay_lua_randomseed_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_gameplay_lua_randomseed_test_contract IN ITEMS
+    "TestOrdinaryDelegation()"
+    "ordinary dispatch preserves Lua's original randomseed results"
+    "TestDedicatedCoopPolicy()"
+    "math.randomseed(os.time())"
+    "installed randomseed(os.time()) calls are deterministic no-ops"
+    "legacy reseeding does not perturb the campaign stream"
+    "const SimulationRandomCheckpoint beforeInvalidSeed"
+    "pcall(math.randomseed, 'seed')"
+    "pcall(math.randomseed, 1, {})"
+    "installed->checkpoint() == beforeInvalidSeed"
+    "co-op validates seed arguments without mutating the stream")
+  string(FIND "${dedicated_gameplay_lua_policy_tests}"
+    "${dedicated_gameplay_lua_randomseed_test_contract}"
+    dedicated_gameplay_lua_randomseed_test_contract_position)
+  if(dedicated_gameplay_lua_randomseed_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Gameplay Lua randomseed regression lost '${dedicated_gameplay_lua_randomseed_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_gameplay_lua_randomseed_build_contract IN ITEMS
+    "add_executable(gameplay_lua_policy_tests"
+    "gameplay_lua_policy_tests.cpp"
+    "lua/gameplay_lua_policy.cpp"
+    "add_test(NAME gameplay_lua_policy_ordinary"
+    "add_test(NAME gameplay_lua_policy_dedicated_coop")
+  string(FIND "${dedicated_test_build_source}"
+    "${dedicated_gameplay_lua_randomseed_build_contract}"
+    dedicated_gameplay_lua_randomseed_build_contract_position)
+  if(dedicated_gameplay_lua_randomseed_build_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Gameplay Lua randomseed test wiring lost '${dedicated_gameplay_lua_randomseed_build_contract}'")
+  endif()
+endforeach()
+
 extract_bounded_slice(dedicated_determinism_test_build_code
   "add_executable(dedicated_checkpoint_eligibility_tests"
   "add_executable(runtime_boundary_state_tests"
@@ -2909,17 +3151,17 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "184-byte little-endian manifest"
     "--campaign-seed"
     "checksummed version-1"
-    "bind that checkpoint writer exactly once"
+    "checkpoint writer once"
     "one-shot installation seam"
     "publishes that slot's manifest"
     "separately managed `profile/` child"
     "configured `WRITE=true` profile"
     "global user-profile files do not leak"
-    "pre-existing nonempty `profile/`"
+    "safely quarantinable"
     "fixed A/B scratch names"
     "slot identities 6 and 7"
     "quick-load entry points"
-    "not wired into dedicated startup"
+    "wired through `DedicatedCampaignBoot`"
     "canonical 40-byte"
     "cold strategic"
     "does not claim mid-battle resume"
@@ -2938,14 +3180,15 @@ foreach(dedicated_campaign_store_doc_contract IN ITEMS
     "Every fixed-slot dedicated bridge explicitly selects the strict"
     "and publish exactly those"
     "three sections. Strict load requires that same exact section set"
-    "LegacyGameRandomSource"
-    "package-RNG transaction and its save/load execution guards now"
+    "Interactive and legacy PvP keep"
+    "Move-only runtime execution guards now own"
     "Every later false exit closes the file"
     "any dedicated load failure after that"
     "boundary is fatal"
-    "this coordinator remains a closed gate"
-    "deterministic host RNG/reinforcement state"
-    "co-op admission remains closed")
+    "Dedicated co-op installs it"
+    "generic injected manifest collector remains strict"
+    "Admission is open only"
+    "Exact tactical receipt, baseline")
   string(FIND "${dedicated_campaign_store_docs}"
     "${dedicated_campaign_store_doc_contract}"
     dedicated_campaign_store_doc_contract_position)
@@ -3032,6 +3275,10 @@ require_ordered_fragments(dedicated_campaign_writer_use_slice
   "writer_->writeCheckpoint(slot, staging)")
 
 extract_brace_bounded_slice(dedicated_campaign_filesystem_code
+  "struct DedicatedCampaignFilesystemBackend::Impl"
+  dedicated_campaign_filesystem_backend_impl_slice
+  "Cannot bound dedicated campaign filesystem backend implementation")
+extract_brace_bounded_slice(dedicated_campaign_filesystem_backend_impl_slice
   "~Impl() noexcept"
   dedicated_campaign_filesystem_destructor_slice
   "Cannot bound dedicated campaign filesystem teardown")
@@ -3103,6 +3350,9483 @@ if(dedicated_campaign_vfs_test_build_position EQUAL -1 OR
     "Dedicated campaign VFS override lost CTest or ASan coverage")
 endif()
 
+# The live dedicated co-op composition is deliberately split into an early
+# lease/profile preparation phase and a late identity-checked campaign open.
+# Pin those phase boundaries, the manifest algorithm, and the application
+# ordering here so a superficially compiling refactor cannot reopen startup
+# races or mount mutable bytes as installed content.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignBoot.h"
+  dedicated_live_boot_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCampaignBoot.cpp"
+  dedicated_live_boot_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_campaign_boot_tests.cpp"
+  dedicated_live_boot_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedContentManifest.h"
+  dedicated_live_content_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedContentManifest.cpp"
+  dedicated_live_content_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_content_manifest_tests.cpp"
+  dedicated_live_content_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp"
+  dedicated_live_runtime_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.h"
+  dedicated_live_runtime_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopMissionBootstrap.cpp"
+  dedicated_live_mission_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopMissionPolicy.h"
+  dedicated_live_mission_policy_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_coop_mission_bootstrap_tests.cpp"
+  dedicated_live_mission_test_source)
+file(READ "${SOURCE_ROOT}/Strategic/strategicmap.h"
+  dedicated_live_strategic_map_header_source)
+file(READ "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  dedicated_live_strategic_map_source)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  dedicated_live_overhead_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientRuntime.h"
+  dedicated_live_client_runtime_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientRuntime.cpp"
+  dedicated_live_client_runtime_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClient.h"
+  dedicated_live_client_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClient.cpp"
+  dedicated_live_client_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopSessionProtocol.h"
+  dedicated_live_session_protocol_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientCampaignScratch.h"
+  dedicated_live_client_scratch_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientCampaignScratch.cpp"
+  dedicated_live_client_scratch_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_campaign_scratch_tests.cpp"
+  dedicated_live_client_scratch_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientController.cpp"
+  dedicated_live_client_controller_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientController.h"
+  dedicated_live_client_controller_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp"
+  dedicated_live_client_screen_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.h"
+  dedicated_live_client_screen_header_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_controller_tests.cpp"
+  dedicated_live_client_controller_test_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_runtime_tests.cpp"
+  dedicated_live_client_runtime_test_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_socket_e2e_tests.cpp"
+  dedicated_live_socket_e2e_test_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_installed_process_smoke.py"
+  dedicated_live_installed_process_smoke_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignBootstrapProtocol.h"
+  dedicated_live_campaign_bootstrap_protocol_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopActorAssignmentPolicy.h"
+  dedicated_live_assignment_policy_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopActorAssignmentPolicy.cpp"
+  dedicated_live_assignment_policy_source)
+file(READ "${SOURCE_ROOT}/tests/coop_actor_assignment_policy_tests.cpp"
+  dedicated_live_assignment_policy_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/Init.cpp"
+  dedicated_live_init_source)
+file(READ "${SOURCE_ROOT}/Ja2/jascreens.cpp"
+  dedicated_live_jascreens_source)
+file(READ "${SOURCE_ROOT}/Ja2/GameSettings.cpp"
+  dedicated_live_game_settings_source)
+file(READ "${SOURCE_ROOT}/Ja2/GameInitOptionsScreen.h"
+  dedicated_live_game_init_options_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/gameloop.cpp"
+  dedicated_live_gameloop_source)
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.cpp"
+  dedicated_live_game_context_source)
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.h"
+  dedicated_live_game_context_header_source)
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  dedicated_live_headless_test_source)
+
+strip_cxx_comments_and_literals(dedicated_live_boot_header_source
+  dedicated_live_boot_header_code)
+strip_cxx_comments_and_literals(dedicated_live_boot_source
+  dedicated_live_boot_code)
+strip_cxx_comments_and_literals(dedicated_live_boot_test_source
+  dedicated_live_boot_test_code)
+strip_cxx_comments_and_literals(dedicated_live_content_header_source
+  dedicated_live_content_header_code)
+strip_cxx_comments_and_literals(dedicated_live_content_source
+  dedicated_live_content_code)
+strip_cxx_comments_and_literals(dedicated_live_content_test_source
+  dedicated_live_content_test_code)
+strip_cxx_comments_and_literals(dedicated_live_runtime_source
+  dedicated_live_runtime_code)
+strip_cxx_comments_and_literals(dedicated_live_runtime_header_source
+  dedicated_live_runtime_header_code)
+strip_cxx_comments_and_literals(dedicated_live_mission_source
+  dedicated_live_mission_code)
+strip_cxx_comments_and_literals(dedicated_live_mission_policy_source
+  dedicated_live_mission_policy_code)
+strip_cxx_comments_and_literals(dedicated_live_mission_test_source
+  dedicated_live_mission_test_code)
+strip_cxx_comments_and_literals(dedicated_live_strategic_map_header_source
+  dedicated_live_strategic_map_header_code)
+strip_cxx_comments_and_literals(dedicated_live_strategic_map_source
+  dedicated_live_strategic_map_code)
+strip_cxx_comments_and_literals(dedicated_live_overhead_source
+  dedicated_live_overhead_code)
+strip_cxx_comments_and_literals(dedicated_live_client_runtime_header_source
+  dedicated_live_client_runtime_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_runtime_source
+  dedicated_live_client_runtime_code)
+strip_cxx_comments_and_literals(dedicated_live_client_header_source
+  dedicated_live_client_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_source
+  dedicated_live_client_code)
+strip_cxx_comments_and_literals(dedicated_live_session_protocol_header_source
+  dedicated_live_session_protocol_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_scratch_header_source
+  dedicated_live_client_scratch_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_scratch_source
+  dedicated_live_client_scratch_code)
+strip_cxx_comments_and_literals(dedicated_live_client_scratch_test_source
+  dedicated_live_client_scratch_test_code)
+strip_cxx_comments_and_literals(dedicated_live_client_controller_source
+  dedicated_live_client_controller_code)
+strip_cxx_comments_and_literals(dedicated_live_client_controller_header_source
+  dedicated_live_client_controller_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_screen_source
+  dedicated_live_client_screen_code)
+strip_cxx_comments_and_literals(dedicated_live_client_screen_header_source
+  dedicated_live_client_screen_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_controller_test_source
+  dedicated_live_client_controller_test_code)
+strip_cxx_comments_and_literals(dedicated_live_client_runtime_test_source
+  dedicated_live_client_runtime_test_code)
+strip_cxx_comments_and_literals(dedicated_live_socket_e2e_test_source
+  dedicated_live_socket_e2e_test_code)
+strip_cxx_comments_and_literals(dedicated_live_campaign_bootstrap_protocol_header_source
+  dedicated_live_campaign_bootstrap_protocol_header_code)
+strip_cxx_comments_and_literals(dedicated_live_assignment_policy_header_source
+  dedicated_live_assignment_policy_header_code)
+strip_cxx_comments_and_literals(dedicated_live_assignment_policy_source
+  dedicated_live_assignment_policy_code)
+strip_cxx_comments_and_literals(dedicated_live_assignment_policy_test_source
+  dedicated_live_assignment_policy_test_code)
+strip_cxx_comments_and_literals(dedicated_live_init_source
+  dedicated_live_init_code)
+strip_cxx_comments_and_literals(dedicated_live_jascreens_source
+  dedicated_live_jascreens_code)
+strip_cxx_comments_and_literals(dedicated_live_game_settings_source
+  dedicated_live_game_settings_code)
+strip_cxx_comments_and_literals(dedicated_live_game_init_options_header_source
+  dedicated_live_game_init_options_header_code)
+strip_cxx_comments_and_literals(dedicated_live_gameloop_source
+  dedicated_live_gameloop_code)
+strip_cxx_comments_and_literals(dedicated_live_game_context_source
+  dedicated_live_game_context_code)
+strip_cxx_comments_and_literals(dedicated_live_game_context_header_source
+  dedicated_live_game_context_header_code)
+strip_cxx_comments_and_literals(dedicated_live_headless_test_source
+  dedicated_live_headless_test_code)
+
+# Installed game data is intentionally absent from source and public CI. Keep
+# the independent-process certification opt-in, POSIX-only, isolated from the
+# installed tree, and absent from the default test graph unless both absolute
+# cache paths are explicitly supplied.
+extract_bounded_slice(dedicated_test_build_source
+  "set(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE \"\" CACHE FILEPATH"
+  "# A tactical world freezes a canonical peer roster"
+  dedicated_live_installed_smoke_cmake_slice
+  "Cannot bound opt-in installed-data process-smoke registration")
+require_ordered_fragments(dedicated_live_installed_smoke_cmake_slice
+  "Installed-data process smoke lost its explicit disabled-by-default registration"
+  "set(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE \"\" CACHE FILEPATH"
+  "set(JA2_COOP_INSTALLED_SMOKE_DATA_ROOT \"\" CACHE PATH"
+  "if(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE OR"
+  "if(NOT JA2_COOP_INSTALLED_SMOKE_EXECUTABLE OR"
+  "requires both"
+  "if(NOT UNIX)"
+  "requires POSIX SIGTERM semantics"
+  [=[IS_ABSOLUTE "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}"]=]
+  [=[IS_ABSOLUTE "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}"]=]
+  "find_package(Python3 3.8 REQUIRED COMPONENTS Interpreter)"
+  "add_test(NAME full_engine_coop_installed_process_smoke"
+  "full_engine_coop_installed_process_smoke.py"
+  [=[--executable "${JA2_COOP_INSTALLED_SMOKE_EXECUTABLE}"]=]
+  [=[--installed-data-root "${JA2_COOP_INSTALLED_SMOKE_DATA_ROOT}"]=]
+  "RUN_SERIAL TRUE"
+  "TIMEOUT 900")
+
+foreach(dedicated_live_installed_smoke_script_contract IN ITEMS
+    "READY_MARKER = \"[co-op client] campaign synchronized and ready\""
+    "CREDENTIAL_FILE = \"client-reconnect-credential.bin\""
+    "CREDENTIAL_SIZE = 224"
+    "os.name != \"posix\""
+    "start_new_session=True"
+    "os.killpg(managed.process.pid, requested_signal)"
+    "tempfile.mkdtemp(prefix=\"ja2-coop-installed-smoke-\")"
+    "os.chmod(temporary_root, 0o700)"
+    "listener.bind((\"127.0.0.1\", 0))"
+    "--dedicated-coop-bind=127.0.0.1"
+    "--campaign-action={action}"
+    "--coop-server=127.0.0.1"
+    "protected_before = fingerprint_installed_inputs("
+    "protected_after = fingerprint_installed_inputs("
+    "installed game-data inputs changed during smoke"
+    "supervisor.cleanup()"
+    "shutil.rmtree(temporary_root)")
+  string(FIND "${dedicated_live_installed_process_smoke_source}"
+    "${dedicated_live_installed_smoke_script_contract}"
+    dedicated_live_installed_smoke_script_contract_position)
+  if(dedicated_live_installed_smoke_script_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Installed-data process smoke lost '${dedicated_live_installed_smoke_script_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_live_installed_process_smoke_source
+  "def run_smoke(arguments: argparse.Namespace"
+  "def main() -> int:"
+  dedicated_live_installed_smoke_lifecycle_slice
+  "Cannot bound installed-data process-smoke lifecycle")
+require_ordered_fragments(dedicated_live_installed_smoke_lifecycle_slice
+  "Installed-data process smoke lost create/Ready/exact-reconnect/checkpoint/resume order"
+  "server_command(executable, server_state, first_port, \"new\")"
+  "co-op campaign created; admission listening"
+  "client_command(executable, client_state, first_port)"
+  "wait_for_marker(first_client, READY_MARKER"
+  "credential_path, first_credential = credential_record(client_state)"
+  "supervisor.stop(first_client, expected_exit=0"
+  "client_command(executable, client_state, first_port)"
+  "wait_for_marker("
+  "reconnect_client, READY_MARKER"
+  "second_credential_path, second_credential = credential_record(client_state)"
+  "second_credential_path != credential_path"
+  "second_credential != first_credential"
+  "supervisor.stop(reconnect_client, expected_exit=0"
+  "supervisor.stop(server, expected_exit=0"
+  "second_port = free_loopback_port()"
+  "server_command(executable, server_state, second_port, \"resume\")"
+  "co-op campaign resumed; admission listening"
+  "supervisor.stop(resumed_server, expected_exit=0")
+
+require_ordered_fragments(dedicated_live_client_runtime_source
+  "Stable client Ready marker lost its false-to-true lifecycle edge"
+  "const bool wasCampaignReady = impl_->lifecycle.campaignReady()"
+  "impl_->lifecycle.markCampaignReady("
+  "if (!wasCampaignReady && impl_->lifecycle.campaignReady())"
+  "std::printf(\"[co-op client] campaign synchronized and ready\\n\")"
+  "std::fflush(stdout)")
+
+set(dedicated_live_boot_prepare_marker
+  "DedicatedCampaignBootResult DedicatedCampaignBoot::prepare(\n\tconst DedicatedServerOptions& options) noexcept")
+extract_brace_bounded_slice(dedicated_live_boot_code
+  "${dedicated_live_boot_prepare_marker}" dedicated_live_boot_prepare_slice
+  "Cannot bound dedicated campaign early preparation")
+require_ordered_fragments(dedicated_live_boot_prepare_slice
+  "Dedicated campaign preparation/open ordering changed"
+  "backend_->open("
+  "backend_->checkpointWriterBound()"
+  "backend_->profileDirectoryState()"
+  "options.campaignAction == DedicatedCampaignAction::Create"
+  "backend_->recoverProfileForNewCampaign()"
+  "DedicatedCampaignProfileRecoveryResult::CommittedStatePresent"
+  "DedicatedCampaignProfileRecoveryResult::Ready"
+  "store_.reset(new DedicatedCampaignStore(*backend_))"
+  "store_->inspectCampaignSeedForResume("
+  "new DedicatedCampaignSaveAdapter(backend_->profileDirectory())"
+  "saveAdapter_->prepareLogicalScratchFiles()"
+  "backend_->bindCheckpointWriter(*saveAdapter_)"
+  "campaignSeed_ = immutableSeed"
+  "retainLeaseUntilClose_ = true"
+  "return {}")
+
+set(dedicated_live_boot_open_marker
+  "DedicatedCampaignBootResult DedicatedCampaignBoot::openCampaign(\n\tconst DedicatedCampaignRuntimeFingerprint& runtimeFingerprint,\n\tconst DedicatedCampaignContentManifestSha256&\n\t\tcontentManifestSha256) noexcept")
+extract_brace_bounded_slice(dedicated_live_boot_code
+  "${dedicated_live_boot_open_marker}" dedicated_live_boot_open_slice
+  "Cannot bound dedicated campaign late open")
+require_ordered_fragments(dedicated_live_boot_open_slice
+  "Dedicated campaign identity/open/materialization ordering changed"
+  "store_->inspectCampaignSeedForResume("
+  "reinspectedSeed != campaignSeed_"
+  "identity.runtimeFingerprint = runtimeFingerprint"
+  "identity.contentManifestSha256 = contentManifestSha256"
+  "identity.campaignSeed = campaignSeed_"
+  "store_->resume(identity) : store_->create(identity)"
+  "SameIdentity(openedState->identity, identity)"
+  "resume && !saveAdapter_->materializeCheckpoint("
+  "backend_->checkpointPath(openedState->activeSlot)"
+  "state_ = resume ? DedicatedCampaignBootState::OpenResume"
+  "entry_ = resume ? DedicatedCampaignBootEntry::ResumeCheckpoint")
+
+set(dedicated_live_boot_poison_marker
+  "DedicatedCampaignBootResult DedicatedCampaignBoot::poison(\n\tDedicatedCampaignBootError error,\n\tDedicatedCampaignFilesystemError filesystemError,\n\tDedicatedCampaignStoreError storeError) noexcept")
+extract_brace_bounded_slice(dedicated_live_boot_code
+  "${dedicated_live_boot_poison_marker}" dedicated_live_boot_poison_slice
+  "Cannot bound dedicated campaign poison path")
+require_ordered_fragments(dedicated_live_boot_poison_slice
+  "Post-prepare campaign poison no longer retains its mounted lease"
+  "store_.reset()"
+  "if (!retainLeaseUntilClose_)"
+  "backend_->close()"
+  "saveAdapter_.reset()"
+  "state_ = DedicatedCampaignBootState::Poisoned")
+
+set(dedicated_live_boot_close_marker
+  "void DedicatedCampaignBoot::close() noexcept")
+extract_brace_bounded_slice(dedicated_live_boot_code
+  "${dedicated_live_boot_close_marker}" dedicated_live_boot_close_slice
+  "Cannot bound dedicated campaign close")
+require_ordered_fragments(dedicated_live_boot_close_slice
+  "Dedicated campaign explicit close ordering changed"
+  "store_.reset()"
+  "backend_->close()"
+  "retainLeaseUntilClose_ = false"
+  "saveAdapter_.reset()"
+  "state_ = DedicatedCampaignBootState::Closed")
+
+foreach(dedicated_live_boot_header_contract IN ITEMS
+    "CreateProfileNotEmpty"
+    "CreateProfileRecoveryFailed"
+    "ScratchPreparationFailed"
+    "CheckpointMaterializationFailed"
+    "bool retainLeaseUntilClose_ = false")
+  string(FIND "${dedicated_live_boot_header_code}"
+    "${dedicated_live_boot_header_contract}"
+    dedicated_live_boot_header_contract_position)
+  if(dedicated_live_boot_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign boot contract lost '${dedicated_live_boot_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_profile_recovery_api_contract IN ITEMS
+    "enum class DedicatedCampaignProfileRecoveryResult"
+    "Ready"
+    "CommittedStatePresent"
+    "recoverProfileForNewCampaign() noexcept"
+    "checkpointWriterBound() const noexcept")
+  string(FIND "${dedicated_campaign_filesystem_header_code}"
+    "${dedicated_live_profile_recovery_api_contract}"
+    dedicated_live_profile_recovery_api_contract_position)
+  if(dedicated_live_profile_recovery_api_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated profile recovery API lost '${dedicated_live_profile_recovery_api_contract}'")
+  endif()
+endforeach()
+
+# A retry of an explicitly new campaign may recover only when both committed
+# manifests are strictly Missing. The old nonempty profile is renamed to a
+# unique sibling and a distinct private empty profile is installed; no content
+# tree is recursively deleted and no existing orphan is replaced.
+set(dedicated_live_profile_recovery_marker
+  "DedicatedCampaignFilesystemBackend::recoverProfileForNewCampaign() noexcept")
+extract_brace_bounded_slice(dedicated_campaign_filesystem_code
+  "${dedicated_live_profile_recovery_marker}"
+  dedicated_live_profile_recovery_slice
+  "Cannot bound dedicated new-campaign profile recovery")
+require_ordered_fragments(dedicated_live_profile_recovery_slice
+  "New-campaign recovery no longer refuses committed or unreadable manifests"
+  "readManifest(DedicatedCampaignSlot::A, firstManifest)"
+  "readManifest(DedicatedCampaignSlot::B, secondManifest)"
+  "first == DedicatedCampaignBackendResult::Present"
+  "DedicatedCampaignProfileRecoveryResult::CommittedStatePresent"
+  "first != DedicatedCampaignBackendResult::Missing"
+  "second != DedicatedCampaignBackendResult::Missing"
+  "firstManifest.size != 0"
+  "secondManifest.size != 0"
+  "HeldDirectoryState(impl_->profileDirectoryHandle"
+  "if (empty) return DedicatedCampaignProfileRecoveryResult::Ready")
+foreach(dedicated_live_profile_recovery_contract IN ITEMS
+    "!HeldDirectoryState(oldProfile, impl_->profileDirectory,"
+    "profileEmpty) || profileEmpty"
+    "TemporarySequence.fetch_add("
+    "MoveFileExW("
+    "MOVEFILE_WRITE_THROUGH"
+    "OpenHeldDirectory(orphan, true)"
+    "SameNativeDirectory(oldProfile, archived)"
+    "PrepareManagedDirectory("
+    "renameatx_np("
+    "RENAME_EXCL"
+    "SYS_renameat2"
+    "RENAME_NOREPLACE"
+    "mkdirat("
+    "renameat("
+    "unlinkat("
+    "AT_REMOVEDIR"
+    "SyncDirectory("
+    "OpenOrCreateManagedDirectoryAt("
+    "!SameNativeDirectory(oldProfile, freshProfile)"
+    "impl_->profileDirectoryHandle = freshProfile")
+  string(FIND "${dedicated_live_profile_recovery_slice}"
+    "${dedicated_live_profile_recovery_contract}"
+    dedicated_live_profile_recovery_contract_position)
+  if(dedicated_live_profile_recovery_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated profile recovery lost '${dedicated_live_profile_recovery_contract}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_campaign_filesystem_source}"
+  "profile.orphan." dedicated_live_profile_orphan_literal_position)
+if(dedicated_live_profile_orphan_literal_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated profile recovery lost its unique orphan namespace")
+endif()
+foreach(dedicated_live_profile_recovery_forbidden IN ITEMS
+    "remove_all"
+    "std::filesystem::remove"
+    "DeleteFileW"
+    "SHFileOperation"
+    "MOVEFILE_REPLACE_EXISTING")
+  string(FIND "${dedicated_live_profile_recovery_slice}"
+    "${dedicated_live_profile_recovery_forbidden}"
+    dedicated_live_profile_recovery_forbidden_position)
+  if(NOT dedicated_live_profile_recovery_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated profile recovery regained destructive/replacing '${dedicated_live_profile_recovery_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_boot_test_contract IN ITEMS
+    "TestCreateAndCheckpointLifecycle()"
+    "TestResumeMaterializationAndNonEmptyProfile()"
+    "TestCorruptNewerFallsBackAndCorruptOnlyFails()"
+    "TestProfileAndLinkedScratchRejections()"
+    "TestSeedAndIdentityRechecks()"
+    "TestMaterializationAndBindingFailures()"
+    "TestLifecycleOrderingAndCheckpointFailure()")
+  string(FIND "${dedicated_live_boot_test_code}"
+    "${dedicated_live_boot_test_contract}"
+    dedicated_live_boot_test_contract_position)
+  if(dedicated_live_boot_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign boot tests lost '${dedicated_live_boot_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_boot_test_prose IN ITEMS
+    "both fixed scratch entries exist before late open"
+    "late resume materializes the validated active checkpoint"
+    "new retries quarantine an uncommitted profile without deleting it"
+    "new never rotates a profile when any committed manifest exists"
+    "post-mount checkpoint failure retains the campaign lease"
+    "explicit close releases a poisoned campaign lease")
+  string(FIND "${dedicated_live_boot_test_source}"
+    "${dedicated_live_boot_test_prose}"
+    dedicated_live_boot_test_prose_position)
+  if(dedicated_live_boot_test_prose_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated campaign boot regression lost '${dedicated_live_boot_test_prose}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_content_header_contract IN ITEMS
+    "WritableShadow"
+    "bool writable"
+    "ComputeDedicatedContentManifest("
+    "ComputeDedicatedContentManifestFromVfs(")
+  string(FIND "${dedicated_live_content_header_code}"
+    "${dedicated_live_content_header_contract}"
+    dedicated_live_content_header_contract_position)
+  if(dedicated_live_content_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated content manifest API lost '${dedicated_live_content_header_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_content_compute_marker
+  "DedicatedContentManifestError ComputeDedicatedContentManifest(\n\tconst std::vector<DedicatedContentManifestOccurrence>& occurrences,\n\tDedicatedContentManifestSha256& digest) noexcept")
+extract_brace_bounded_slice(dedicated_live_content_code
+  "${dedicated_live_content_compute_marker}"
+  dedicated_live_content_compute_slice
+  "Cannot bound dedicated content manifest algorithm")
+require_ordered_fragments(dedicated_live_content_compute_slice
+  "Dedicated content manifest writable-shadow algorithm changed"
+  "std::map<std::string, SelectedOccurrence> selected"
+  "std::map<std::pair<std::uint32_t, std::string>, std::string>"
+  "spellingsByLayer"
+  "std::set<std::pair<std::uint32_t, std::string>> pathsByLayer"
+  "std::set<std::string> writablePaths"
+  "NormalizeAssetPath(occurrence.logicalPath, normalized)"
+  "spellingsByLayer.emplace("
+  "std::make_pair(occurrence.layer, normalized), spelling)"
+  "spellingResult.first->second != spelling"
+  "DedicatedContentManifestError::CaseAmbiguity"
+  "if (occurrence.writable)"
+  "writablePaths.emplace(std::move(normalized))"
+  "continue"
+  "!pathsByLayer.emplace(occurrence.layer, normalized).second"
+  "DedicatedContentManifestError::DuplicatePath"
+  "selected.find(normalized)"
+  "occurrence.layer < found->second.layer"
+  "for (const std::string& writablePath : writablePaths)"
+  "selected.find(writablePath) != selected.end()"
+  "DedicatedContentManifestError::WritableShadow"
+  "for (const auto& entry : selected)"
+  "HashSelectedFile(")
+
+set(dedicated_live_content_vfs_marker
+  "DedicatedContentManifestError ComputeDedicatedContentManifestFromVfs(\n\tvfs::CVirtualFileSystem& fileSystem,\n\tDedicatedContentManifestSha256& digest) noexcept")
+extract_brace_bounded_slice(dedicated_live_content_code
+  "${dedicated_live_content_vfs_marker}" dedicated_live_content_vfs_slice
+  "Cannot bound dedicated VFS content-manifest adapter")
+require_ordered_fragments(dedicated_live_content_vfs_slice
+  "Dedicated VFS manifest enumeration changed"
+  "std::size_t encounteredOccurrences = 0"
+  "std::uint64_t encounteredPathBytes = 0"
+  "fileSystem.getProfileStack()"
+  "current->files("
+  "encounteredOccurrences >="
+  "DedicatedContentManifestMaximumOccurrences"
+  "++encounteredOccurrences"
+  "base->getPath().to_string()"
+  "NormalizeAssetPath(logicalPath, normalized)"
+  "CanonicalSpelling(logicalPath, spelling)"
+  "encounteredPathBytes >"
+  "DedicatedContentManifestMaximumTotalPathBytes -"
+  "logicalPath.size()"
+  "encounteredPathBytes += logicalPath.size()"
+  "UnderExclusiveVirtualLocation(fileSystem, base->getPath())"
+  "continue"
+  "current->cWritable"
+  "readOnlyLayer, true, logicalPath, nullptr"
+  "continue"
+  "base->implementsWritable()"
+  "vfs::tReadableFile::cast(base)"
+  "new VfsReader(*readable)"
+  "readOnlyLayer, false, logicalPath, reader.get()"
+  "readers.push_back(std::move(reader))"
+  "++readOnlyLayer"
+  "ComputeDedicatedContentManifest(occurrences, digest)")
+
+set(dedicated_live_content_exclusive_marker
+  "bool UnderExclusiveVirtualLocation(vfs::CVirtualFileSystem& fileSystem,\n\tconst vfs::Path& filePath) noexcept")
+extract_brace_bounded_slice(dedicated_live_content_code
+  "${dedicated_live_content_exclusive_marker}"
+  dedicated_live_content_exclusive_slice
+  "Cannot bound dedicated VFS exclusive-runtime-namespace filter")
+require_ordered_fragments(dedicated_live_content_exclusive_slice
+  "Dedicated VFS exclusive-runtime-namespace ancestry changed"
+  "filePath.splitLast(directory, leaf)"
+  "while (true)"
+  "fileSystem.getVirtualLocation(directory, false)"
+  "location != nullptr && location->getIsExclusive()"
+  "return true"
+  "directory.empty()"
+  "return false"
+  "directory.splitLast(parent, leaf)"
+  "directory = parent")
+
+foreach(dedicated_live_content_test_contract IN ITEMS
+    "TestCanonicalAlgorithmAndGoldenDigest()"
+    "TestFailClosedInputsAndStreams()"
+    "TestRealVfsReadOnlyOverlay()"
+    "TestRealVfsWritableShadowFailsClosed()"
+    "TestRealVfsExclusiveRuntimeNamespacesAreNotContent()")
+  string(FIND "${dedicated_live_content_test_code}"
+    "${dedicated_live_content_test_contract}"
+    dedicated_live_content_test_contract_position)
+  if(dedicated_live_content_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated content manifest tests lost '${dedicated_live_content_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_content_test_prose IN ITEMS
+    "case-only spellings across layers are normalized overlays"
+    "case-only overlay selection is input-order independent"
+    "GUN11.STI"
+    "Gun11.sti"
+    "writable profile bytes are completely excluded"
+    "production VFS enumeration rejects a writable content shadow"
+    "exclusive runtime namespaces cannot manufacture content shadows"
+    "exclusive visual caches and checkpoint-covered Temp sidecars are "
+    "absent from installed-content identity")
+  string(FIND "${dedicated_live_content_test_source}"
+    "${dedicated_live_content_test_prose}"
+    dedicated_live_content_test_prose_position)
+  if(dedicated_live_content_test_prose_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated content manifest regression lost '${dedicated_live_content_test_prose}'")
+  endif()
+endforeach()
+
+# The starter mission is a restartable durable transaction: classification
+# distinguishes an untouched campaign, the exact pre-launch checkpoint, and a
+# progressed cold campaign. Hiring must publish the same canonical arrival
+# minute into both actor and event state before admission can expose it.
+extract_brace_bounded_slice(dedicated_live_mission_policy_code
+  "ClassifyDedicatedCoopStarterCampaign(\n\tconst DedicatedCoopStarterCampaignEvidence& evidence) noexcept"
+  dedicated_live_mission_classification_slice
+  "Cannot bound dedicated co-op starter campaign classification")
+require_ordered_fragments(dedicated_live_mission_classification_slice
+  "Dedicated co-op starter campaign classification changed"
+  "!evidence.noWorldSector || !evidence.tacticalWorldUnloaded"
+  "evidence.gameJustStarted || evidence.initialWorldTime"
+  "DedicatedCoopStarterCampaignState::UntouchedInitial"
+  "evidence.validPreparedMercs == DedicatedCoopStarterRosterSize"
+  "evidence.matchedPreparedEvents == DedicatedCoopStarterRosterSize"
+  "DedicatedCoopStarterCampaignState::PreparedInitial"
+  "evidence.activePlayerMercs != 0"
+  "evidence.validEstablishedMercs != 0"
+  "DedicatedCoopStarterCampaignState::EstablishedCold")
+
+extract_brace_bounded_slice(dedicated_live_mission_policy_code
+  "SelectDedicatedCoopEstablishedSector(\n\tconst DedicatedCoopEstablishedSectorCandidate* candidates,\n\tstd::size_t candidateCount) noexcept"
+  dedicated_live_established_sector_policy_slice
+  "Cannot bound established-campaign sector policy")
+require_ordered_fragments(dedicated_live_established_sector_policy_slice
+  "Established co-op entry lost hostile-only save-owned eligibility or canonical selection"
+  "candidateCount > MaximumDedicatedCoopEstablishedSectorCandidates"
+  "!candidate.eligible || !candidate.hostile"
+  "candidate.x < 1 || candidate.x > 16"
+  "candidate.z < 0 || candidate.z > 3"
+  "const bool better = !found"
+  "candidate.z < selected.z"
+  "candidate.y < selected.y"
+  "candidate.x < selected.x"
+  "DedicatedCoopEstablishedSectorSelectionError::NoEligibleSector")
+
+extract_brace_bounded_slice(dedicated_live_mission_policy_code
+  "DedicatedCoopEstablishedActorRoleEligible(\n\tbool ordinarySquadAssignment,\n\tbool vehicleBody,\n\tbool driver,\n\tbool passenger) noexcept"
+  dedicated_live_established_actor_role_slice
+  "Cannot bound established co-op actor-role policy")
+require_ordered_fragments(dedicated_live_established_actor_role_slice
+  "Established co-op direct control regained a vehicle or non-squad role"
+  "ordinarySquadAssignment"
+  "!vehicleBody"
+  "!driver"
+  "!passenger")
+
+extract_brace_bounded_slice(dedicated_live_mission_policy_code
+  "DedicatedCoopPostCombatReturnReady(\n\tconst DedicatedCoopPostCombatReturnEvidence& evidence) noexcept"
+  dedicated_live_post_combat_readiness_slice
+  "Cannot bound dedicated co-op post-combat readiness policy")
+require_ordered_fragments(dedicated_live_post_combat_readiness_slice
+  "Dedicated post-combat return lost a required victory or quiescence fact"
+  "evidence.missionPlayable"
+  "evidence.hostileWorldArmed"
+  "evidence.worldLoaded"
+  "evidence.gameScreen"
+  "evidence.validWorldSector"
+  "evidence.lastBattleWon"
+  "!evidence.enemyInSector"
+  "!evidence.enemiesRemaining"
+  "!evidence.combatActive"
+  "!evidence.tacticalActionsPending"
+  "!evidence.interruptPending"
+  "!evidence.bulletsPending"
+  "!evidence.explosionsPending"
+  "!evidence.dialogueActive"
+  "!evidence.dialogueQueued"
+  "!evidence.triggerTimerPending"
+  "!evidence.autoResolveActive"
+  "!evidence.autoResolvePending"
+  "!evidence.meanwhileActive"
+  "!evidence.meanwhilePending"
+  "!evidence.tacticalTraversal"
+  "!evidence.autoBandageActive"
+  "!evidence.boxingActive"
+  "!evidence.saveLoadActive"
+  "!evidence.uiTransitionPending"
+  "!evidence.customTimerPending")
+string(FIND "${dedicated_live_post_combat_readiness_slice}"
+  "!evidence.temporarySchedulePending"
+  dedicated_live_post_combat_schedule_precondition_position)
+if(NOT dedicated_live_post_combat_schedule_precondition_position EQUAL -1)
+  message(FATAL_ERROR
+    "Post-combat pre-unload readiness must leave temporary-schedule retirement to native teardown")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_mission_policy_code
+  "EvaluateDedicatedCoopPostCombatReturnStep(\n\tbool gameplayEvidenceReady,\n\tbool freshLocalBoundary) noexcept"
+  dedicated_live_post_combat_step_slice
+  "Cannot bound dedicated post-combat return step policy")
+require_ordered_fragments(dedicated_live_post_combat_step_slice
+  "Post-combat return decision lost regression/fresh-boundary separation"
+  "!gameplayEvidenceReady"
+  "DedicatedCoopPostCombatReturnStep::ResumePlayable"
+  "freshLocalBoundary"
+  "DedicatedCoopPostCombatReturnStep::UnloadWorld"
+  "DedicatedCoopPostCombatReturnStep::WaitForFreshBoundary")
+
+extract_brace_bounded_slice(dedicated_live_mission_code
+  "bool HireStarter(\n\tstd::uint8_t profileId,\n\tstd::uint32_t totalCharge,\n\tstd::uint32_t arrivalMinute) noexcept"
+  dedicated_live_mission_hire_slice
+  "Cannot bound dedicated co-op starter hire adapter")
+require_ordered_fragments(dedicated_live_mission_hire_slice
+  "Dedicated co-op starter hire lost canonical arrival/publication ordering"
+  "hire.uiTimeTillMercArrives = arrivalMinute"
+  "HireMerc(&hire)"
+  "PROFILE_MISC_FLAG_ALREADY_USED_ITEMS"
+  "AddTransactionToPlayersBook(HIRED_MERC"
+  "AddHistoryToPlayersLog(HISTORY_HIRED_MERC_FROM_AIM")
+
+extract_brace_bounded_slice(dedicated_live_mission_code
+  "PrepareDedicatedCoopStarterMission() noexcept"
+  dedicated_live_mission_prepare_slice
+  "Cannot bound dedicated co-op starter preparation")
+require_ordered_fragments(dedicated_live_mission_prepare_slice
+  "Dedicated co-op starter preflight/hire/postcondition ordering changed"
+  "InspectDedicatedCoopStarterCampaign() !="
+  "DedicatedCoopStarterCampaignState::UntouchedInitial"
+  "SelectDedicatedCoopStarterRoster("
+  "ExpectedStarterArrivalMinute(arrivalMinute)"
+  "HireStarter("
+  "profileId, chargesByProfile[profileId], arrivalMinute"
+  "NumberOfMercsOnPlayerTeam() != DedicatedCoopStarterRosterSize"
+  "DedicatedCoopStarterCampaignState::PreparedInitial"
+  "result.error = DedicatedCoopMissionBootstrapError::None")
+
+extract_brace_bounded_slice(dedicated_live_mission_code
+  "LaunchDedicatedCoopEstablishedMission() noexcept"
+  dedicated_live_established_launch_slice
+  "Cannot bound established-campaign tactical entry adapter")
+require_ordered_fragments(dedicated_live_established_launch_slice
+  "Established co-op tactical entry lost live roster selection and ordinary strategic gates"
+  "IsDedicatedCoopStarterMissionMapReady()"
+  "EligibleEstablishedActor(*actor, id)"
+  "NumHostilesInSector("
+  "SelectDedicatedCoopEstablishedSector("
+  "ChangeSelectedMapSector(selected.x, selected.y, selected.z)"
+  "CanGoToTacticalInSector(selected.x, selected.y"
+  "SetCurrentWorldSector(selected.x, selected.y, selected.z)"
+  "CountDedicatedCoopControllableActors() == 0"
+  "DedicatedCoopMissionBootstrapError::None")
+
+extract_brace_bounded_slice(dedicated_live_mission_code
+  "bool EligibleEstablishedActor(\n\tTacticalActor& actor,\n\tSoldierID expectedId) noexcept"
+  dedicated_live_established_actor_adapter_slice
+  "Cannot bound established co-op actor adapter")
+require_ordered_fragments(dedicated_live_established_actor_adapter_slice
+  "Established co-op sector selection lost exact on-foot squad role filtering"
+  "actor.identity().id() == expectedId"
+  "actor.roster().active() != FALSE"
+  "actor.roster().team() == gbPlayerNum"
+  "actor.vitals().health() >= OKLIFE"
+  "DedicatedCoopEstablishedActorRoleEligible("
+  "assignment < ON_DUTY"
+  "flags & SOLDIER_VEHICLE"
+  "flags & SOLDIER_DRIVER"
+  "flags & SOLDIER_PASSENGER"
+  "!actor.deployment().isBetweenSectors()"
+  "SoldierAboardAirborneHeli"
+  "SF_ALREADY_VISITED")
+
+extract_brace_bounded_slice(dedicated_live_mission_code
+  "std::size_t CountDedicatedCoopControllableActors() noexcept"
+  dedicated_live_controllable_actor_count_slice
+  "Cannot bound dedicated co-op controllable-actor count")
+require_ordered_fragments(dedicated_live_controllable_actor_count_slice
+  "Dedicated co-op controllable count no longer shares the direct-control role policy"
+  "OK_CONTROLLABLE_MERC(actor)"
+  "DedicatedCoopEstablishedActorRoleEligible("
+  "actor->assignment().current() < ON_DUTY"
+  "flags & SOLDIER_VEHICLE"
+  "flags & SOLDIER_DRIVER"
+  "flags & SOLDIER_PASSENGER"
+  "++count")
+
+foreach(dedicated_live_mission_progression_test_contract IN ITEMS
+    "TestCampaignReadyGatherGate()"
+    "TestEstablishedSectorSelection()"
+    "TestEstablishedSectorSelectionFailsClosed()"
+    "TestEstablishedActorRolePolicy()"
+    "TestPostCombatReturnRequiresEveryQuiescenceFact()"
+    "DedicatedCoopPostCombatReturnReady(temporarySchedule)"
+    "EvaluateDedicatedCoopPostCombatReturnStep(false, false)"
+    "DedicatedCoopPostCombatReturnStep::ResumePlayable"
+    "EvaluateDedicatedCoopPostCombatReturnStep(true, false)"
+    "DedicatedCoopPostCombatReturnStep::WaitForFreshBoundary"
+    "EvaluateDedicatedCoopPostCombatReturnStep(true, true)"
+    "DedicatedCoopPostCombatReturnStep::UnloadWorld")
+  string(FIND "${dedicated_live_mission_test_code}"
+    "${dedicated_live_mission_progression_test_contract}"
+    dedicated_live_mission_progression_test_position)
+  if(dedicated_live_mission_progression_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op mission progression tests lost '${dedicated_live_mission_progression_test_contract}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_live_mission_test_source}"
+  "native tactical teardown may retire temporary schedules before the cold checkpoint"
+  dedicated_live_post_combat_schedule_test_prose_position)
+if(dedicated_live_post_combat_schedule_test_prose_position EQUAL -1)
+  message(FATAL_ERROR
+    "Post-combat policy test lost native temporary-schedule teardown coverage")
+endif()
+
+# The live evidence adapter samples every legacy queue/hazard explicitly. It
+# records temporary schedules for diagnostics, while the pure pre-unload gate
+# intentionally leaves their retirement to the native strategic teardown.
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopPostCombatReturnEvidence CapturePostCombatReturnEvidence(\n\tbool missionPlayable,\n\tbool hostileWorldArmed) noexcept"
+  dedicated_live_post_combat_evidence_slice
+  "Cannot bound live post-combat evidence capture")
+require_ordered_fragments(dedicated_live_post_combat_evidence_slice
+  "Live post-combat evidence lost an exact JA2 quiescence source"
+  "evidence.missionPlayable = missionPlayable"
+  "evidence.hostileWorldArmed = hostileWorldArmed"
+  "evidence.worldLoaded = IsJa2TacticalWorldLoaded()"
+  "evidence.gameScreen = GetCurrentScreen() == GAME_SCREEN"
+  "evidence.validWorldSector = gWorldSectorX >= 1"
+  "evidence.lastBattleWon = gTacticalStatus.fLastBattleWon != FALSE"
+  "evidence.enemyInSector = gTacticalStatus.fEnemyInSector != FALSE"
+  "evidence.enemiesRemaining = NumEnemyInSector() != 0"
+  "evidence.combatActive = IsJa2TacticalCombatActive()"
+  "GetJa2PendingTacticalCombatActions() != 0"
+  "CaptureJa2TacticalInterruptState().pending != 0"
+  "evidence.bulletsPending = guiNumBullets != 0"
+  "gfExplosionQueueActive != FALSE"
+  "evidence.dialogueActive = DialogueActive() != FALSE"
+  "evidence.dialogueQueued = !DialogueQueueIsEmpty()"
+  "evidence.triggerTimerPending = gfWaitingForTriggerTimer != FALSE"
+  "evidence.autoResolveActive = IsAutoResolveActive() != FALSE"
+  "evidence.autoResolvePending = gfAutomaticallyStartAutoResolve != FALSE"
+  "evidence.meanwhileActive = gfInMeanwhile != FALSE"
+  "evidence.meanwhilePending = gfMeanwhileTryingToStart != FALSE"
+  "evidence.tacticalTraversal = gfTacticalTraversal != FALSE"
+  "gTacticalStatus.fAutoBandageMode != FALSE"
+  "gTacticalStatus.fAutoBandagePending != FALSE"
+  "evidence.boxingActive = gTacticalStatus.bBoxingState != NOT_BOXING"
+  "gTacticalStatus.uiFlags & LOADING_SAVED_GAME"
+  "guiPendingOverrideEvent != I_DO_NOTHING"
+  "gfEnteringMapScreen != FALSE"
+  "evidence.customTimerPending = gpCustomizableTimerCallback != nullptr"
+  "evidence.temporarySchedulePending = HasTemporarySchedules()"
+  "return evidence")
+
+# Post-victory return uses one dedicated wrapper around the native cold-unload
+# implementation. Only the occupied-player refusal is bypassed; sector-temp
+# persistence, autoresolve guards, TrashWorld, and observer notification stay
+# shared with ordinary strategic transitions.
+foreach(dedicated_live_strategic_return_header_contract IN ITEMS
+    "BOOLEAN CheckAndHandleUnloadingOfCurrentWorld()"
+    "BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()")
+  string(FIND "${dedicated_live_strategic_map_header_code}"
+    "${dedicated_live_strategic_return_header_contract}"
+    dedicated_live_strategic_return_header_contract_position)
+  if(dedicated_live_strategic_return_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated strategic return API lost '${dedicated_live_strategic_return_header_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_strategic_map_code
+  "static BOOLEAN CheckAndHandleUnloadingOfCurrentWorldInternal(\n\tBOOLEAN allowOccupiedPlayerSector)"
+  dedicated_live_strategic_unload_internal_slice
+  "Cannot bound shared strategic cold-unload implementation")
+require_ordered_fragments(dedicated_live_strategic_unload_internal_slice
+  "Dedicated strategic return no longer reuses the full native cold-unload tail"
+  "!IsJa2TacticalWorldLoaded()"
+  "if ( is_client )"
+  "GetCurrentBattleSectorXYZ("
+  "GetCurrentScreen() == AUTORESOLVE_SCREEN"
+  "if (!allowOccupiedPlayerSector) return FALSE"
+  "HandlePotentialBringUpAutoresolveToFinishBattle("
+  "SaveCurrentSectorsInformationToTempItemFile( )"
+  "CheckForEndOfCombatMode( FALSE )"
+  "EndTacticalBattleForEnemy( )"
+  "DeleteAllAmbients( )"
+  "gfEnteringMapScreen = TRUE"
+  "HandleDefiniteUnloadingOfWorld( ABOUT_TO_TRASH_WORLD )"
+  "TrashWorld( )"
+  "gTacticalStatus.fEnemyInSector = FALSE"
+  "SetJa2TacticalCombatMode( false )"
+  "ClearJa2TacticalWorldSector()"
+  "NotifyJa2TacticalWorldUnloaded()"
+  "return TRUE")
+
+extract_brace_bounded_slice(dedicated_live_strategic_map_code
+  "BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()"
+  dedicated_live_strategic_return_wrapper_slice
+  "Cannot bound dedicated post-combat strategic unload wrapper")
+require_ordered_fragments(dedicated_live_strategic_return_wrapper_slice
+  "Dedicated strategic return wrapper lost its exact victory-only preconditions"
+  "GetDedicatedServerOptions()"
+  "!dedicated.enabled || dedicated.mode != DedicatedServerMode::Coop"
+  "GetCurrentScreen() != GAME_SCREEN"
+  "!IsJa2TacticalWorldLoaded()"
+  "gWorldSectorX < 1 || gWorldSectorX > 16"
+  "gbWorldSectorZ < 0"
+  "!gTacticalStatus.fLastBattleWon"
+  "gTacticalStatus.fEnemyInSector"
+  "IsJa2TacticalCombatActive()"
+  "NumEnemyInSector() != 0"
+  "gfTacticalTraversal"
+  "return FALSE"
+  "CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE)")
+
+# Every tactical-victory auto-bandage launch remains interactive-only. The
+# local helper derives dedicated co-op from the installed process options so
+# this legacy source does not depend on the runtime singleton.
+extract_brace_bounded_slice(dedicated_live_overhead_code
+  "bool DedicatedCoopProcessConfigured() noexcept"
+  dedicated_live_auto_bandage_process_slice
+  "Cannot bound dedicated co-op auto-bandage process policy")
+require_ordered_fragments(dedicated_live_auto_bandage_process_slice
+  "Dedicated co-op auto-bandage suppression lost its exact process policy"
+  "GetDedicatedServerOptions()"
+  "options.enabled"
+  "options.mode == DedicatedServerMode::Coop")
+string(REGEX MATCHALL
+  "!is_networked[ \t\r\n]*&&[ \t\r\n]*!DedicatedCoopProcessConfigured[(][)]"
+  dedicated_live_auto_bandage_suppression_matches
+  "${dedicated_live_overhead_code}")
+list(LENGTH dedicated_live_auto_bandage_suppression_matches
+  dedicated_live_auto_bandage_suppression_count)
+if(NOT dedicated_live_auto_bandage_suppression_count EQUAL 3)
+  message(FATAL_ERROR
+    "All three victory auto-bandage sites must suppress dedicated co-op")
+endif()
+
+# The late tactical composition owns a strict reverse-destruction chain. The
+# server dies before its listener/ingress, while the live-state bridge, host,
+# and receipt router remain valid through every possible terminal publication.
+set(dedicated_live_tactical_composition_marker "struct TacticalComposition")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_tactical_composition_marker}"
+  dedicated_live_tactical_composition_slice
+  "Cannot bound dedicated tactical composition")
+require_ordered_fragments(dedicated_live_tactical_composition_slice
+  "Dedicated tactical composition construction order changed"
+  "live(context)"
+  "host(live, GetJa2TacticalCommandService(), router"
+  "ingress(tokens, host)"
+  "listener(ingress)"
+  "server(ingress, listener)"
+  "router.bind(server)")
+require_ordered_fragments(dedicated_live_tactical_composition_slice
+  "Dedicated tactical composition lifetime order changed"
+  "TacticalReceiptRouter router"
+  "DedicatedCoopTacticalJa2LiveState live"
+  "DedicatedCoopTacticalHost host"
+  "CoopSession::FullEngineCoopIngress ingress"
+  "CoopSession::FullEngineCoopAdmissionListener listener"
+  "CoopSession::FullEngineCoopTacticalServer server")
+
+set(dedicated_live_runtime_fail_marker
+  "void fail(DedicatedCoopRuntimeError reason) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_fail_marker}" dedicated_live_runtime_fail_slice
+  "Cannot bound dedicated co-op fatal path")
+require_ordered_fragments(dedicated_live_runtime_fail_slice
+  "Dedicated co-op fatal path no longer closes tactical transport before exit"
+  "error = reason"
+  "fatal = true"
+  "if (tactical != nullptr)"
+  "tactical->listener.stop(0)"
+  "tactical->server.active()"
+  "!tactical->server.worldActive()"
+  "tactical->server.endEpoch()"
+  "gfDedicatedServerProcessFailed = TRUE"
+  "gfProgramIsRunning = FALSE")
+
+set(dedicated_live_runtime_destroy_tactical_marker
+  "bool destroyTacticalComposition() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_destroy_tactical_marker}"
+  dedicated_live_runtime_destroy_tactical_slice
+  "Cannot bound dedicated tactical composition teardown")
+require_ordered_fragments(dedicated_live_runtime_destroy_tactical_slice
+  "Dedicated tactical composition teardown/lifetime ordering changed"
+  "tactical->listener.stop(0)"
+  "tactical->server.active() && !tactical->server.worldActive()"
+  "tactical->server.endEpoch()"
+  "tacticalContext->runtimeMessages().removeSink(tactical->host)"
+  "RuntimeMessageSinkRegistrationError::DispatchInProgress"
+  "return false"
+  "tacticalSinkRegistered = false"
+  "tactical->router.unbind()"
+  "delete tactical"
+  "tactical = nullptr"
+  "tacticalContext = nullptr")
+
+set(dedicated_live_runtime_detach_tactical_marker
+  "bool detachTacticalComposition() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_detach_tactical_marker}"
+  dedicated_live_runtime_detach_tactical_slice
+  "Cannot bound dedicated tactical composition detach boundary")
+require_ordered_fragments(dedicated_live_runtime_detach_tactical_slice
+  "Dedicated tactical detach lost its dispatch-safe leak fallback"
+  "destroyTacticalComposition()"
+  "tactical->listener.stop(0)"
+  "tactical = nullptr"
+  "tacticalContext = nullptr"
+  "tacticalSinkRegistered = false"
+  "DedicatedCoopRuntimeError::TacticalCompositionFailed"
+  "return false")
+string(FIND "${dedicated_live_runtime_detach_tactical_slice}"
+  "delete tactical" dedicated_live_runtime_detach_delete_position)
+if(NOT dedicated_live_runtime_detach_delete_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dispatch-in-progress tactical detach must leak rather than destroy a live sink")
+endif()
+
+set(dedicated_live_runtime_command_drain_marker
+  "bool tacticalCommandsDrained() const noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_command_drain_marker}"
+  dedicated_live_runtime_command_drain_slice
+  "Cannot bound dedicated tactical host drain state")
+require_ordered_fragments(dedicated_live_runtime_command_drain_slice
+  "Dedicated checkpoint lost the unified local command/receipt drain check"
+  "tactical == nullptr"
+  "GetJa2TacticalCommandService().summary()"
+  "GetJa2TacticalCommandHostDiagnostics()"
+  "DedicatedCoopRetirementLocalDrainState"
+  "tactical->host.correlationCount()"
+  "tactical->host.pendingImmediateReceiptCount()"
+  "commandSummary.pending"
+  "diagnostics.pendingReceipts"
+  "diagnostics.pendingDeferredCancellations"
+  "diagnostics.trackedCommands"
+  ".drained()")
+
+set(dedicated_live_runtime_network_drain_marker
+  "bool tacticalNetworkDrained() const noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_network_drain_marker}"
+  dedicated_live_runtime_network_drain_slice
+  "Cannot bound dedicated tactical server drain state")
+require_ordered_fragments(dedicated_live_runtime_network_drain_slice
+  "Dedicated checkpoint lost tactical-server drain checks"
+  "tactical == nullptr"
+  "tactical->server.drained()")
+
+set(dedicated_live_runtime_admission_marker
+  "bool startAdmission() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_admission_marker}"
+  dedicated_live_runtime_admission_slice
+  "Cannot bound dedicated co-op admission startup")
+require_ordered_fragments(dedicated_live_runtime_admission_slice
+  "Dedicated co-op admission/server/listener startup ordering changed"
+  "if (tactical == nullptr)"
+  "tactical->listener.running()"
+  "if (!admissionConfigured)"
+  "tokens.issueSessionEpoch(epoch)"
+  "configuration.enabled = true"
+  "configuration.sessionEpoch = epoch"
+  "configuration.runtimeFingerprintSupplied = true"
+  "configuration.runtimeFingerprint = admissionFingerprint"
+  "configuration.contentManifestSupplied = true"
+  "configuration.contentManifestSha256 = contentManifest"
+  "configuration.maximumPeers = CoopSession::MaximumAuthorityPeers"
+  "tactical->ingress.beginAdmissionSession(configuration)"
+  "tactical->server.beginEpoch(epoch)"
+  "tactical->ingress.endSession()"
+  "sessionEpoch = epoch"
+  "admissionConfigured = true"
+  "options.coopPort"
+  "options.coopBindAddress.c_str()"
+  "configuration.maximumConnections ="
+  "tactical->listener.start(configuration)")
+foreach(dedicated_live_runtime_endpoint_contract IN ITEMS
+    "options.coopPort, options.coopBindAddress.c_str()"
+    "impl_->options.coopBindAddress.c_str()"
+    "static_cast<unsigned>(impl_->options.coopPort)")
+  string(FIND "${dedicated_live_runtime_source}"
+    "${dedicated_live_runtime_endpoint_contract}"
+    dedicated_live_runtime_endpoint_contract_position)
+  if(dedicated_live_runtime_endpoint_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op trusted-LAN endpoint lost '${dedicated_live_runtime_endpoint_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_runtime_checkpoint_marker
+  "bool checkpointNow(GameContext& context, bool required) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_checkpoint_marker}"
+  dedicated_live_runtime_checkpoint_slice
+  "Cannot bound dedicated co-op checkpoint boundary")
+require_ordered_fragments(dedicated_live_runtime_checkpoint_slice
+  "Dedicated co-op checkpoint no longer drains host/server before persistence"
+  "const bool restartListener = tactical != nullptr"
+  "tactical->listener.running()"
+  "CollectCheckpointEligibility(context, true"
+  "tacticalCommandsDrained(), true"
+  "if (preflight != DedicatedCheckpointEligibilityReason::None)"
+  "if (restartListener && !stopAdmissionAndReconcile(100))"
+  "CollectCheckpointEligibility(context, true"
+  "tacticalCommandsDrained(), tacticalNetworkDrained()"
+  "if (eligibility != DedicatedCheckpointEligibilityReason::None)"
+  "boot.checkpoint(GetWorldTotalMin())"
+  "supersedeCampaignCheckpoint()"
+  "lastCheckpoint = Clock::now()"
+  "nextCheckpointAttempt = lastCheckpoint + checkpointInterval"
+  "if (restartListener && !startAdmission()) return false")
+
+set(dedicated_live_runtime_controller_marker
+  "bool reconcileWorldParticipants() noexcept")
+
+foreach(dedicated_live_assignment_policy_contract IN ITEMS
+    "enum class CoopActorAssignmentPolicyResult"
+    "enum class CoopWorldParticipantPolicyResult"
+    "GrowCoopWorldParticipants("
+    "BuildCoopActorAssignments("
+    "MaximumCoopTacticalAssignments")
+  string(FIND
+    "${dedicated_live_assignment_policy_header_code}${dedicated_live_assignment_policy_code}"
+    "${dedicated_live_assignment_policy_contract}"
+    dedicated_live_assignment_policy_contract_position)
+  if(dedicated_live_assignment_policy_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op actor assignment policy lost '${dedicated_live_assignment_policy_contract}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_assignment_policy_code
+  "CoopWorldParticipantPolicyResult GrowCoopWorldParticipants(\n\tconst PeerIdentity* current,\n\tstd::size_t currentCount,\n\tconst PeerIdentity* ready,\n\tstd::size_t readyCount,\n\tbool freshBaselineBoundary,\n\tstd::array<PeerIdentity, MaximumCoopTacticalSessionPeers>& output,\n\tstd::size_t& outputCount) noexcept"
+  dedicated_live_participant_policy_slice
+  "Cannot bound grow-only co-op participant policy")
+require_ordered_fragments(dedicated_live_participant_policy_slice
+  "Co-op late-peer policy lost canonical union, fresh-baseline gate, or transactional publication"
+  "ValidPeers(current, currentCount)"
+  "ValidPeers(ready, readyCount)"
+  "while (currentIndex < currentCount || readyIndex < readyCount)"
+  "candidate = current[currentIndex++]"
+  "candidate = ready[readyIndex++]"
+  "CoopWorldParticipantPolicyResult::Unchanged"
+  "currentCount != 0 && !freshBaselineBoundary"
+  "CoopWorldParticipantPolicyResult::DeferredUntilFreshBaseline"
+  "output = staged"
+  "outputCount = stagedCount"
+  "CoopWorldParticipantPolicyResult::Published")
+extract_brace_bounded_slice(dedicated_live_assignment_policy_code
+  "CoopActorAssignmentPolicyResult BuildCoopActorAssignments(\n\tconst PeerIdentity* peers,\n\tstd::size_t peerCount,\n\tconst TacticalEntityId* actors,\n\tstd::size_t actorCount,\n\tstd::array<CoopTacticalActorAssignment,\n\t\tMaximumCoopTacticalAssignments>& output,\n\tstd::size_t& outputCount) noexcept"
+  dedicated_live_assignment_policy_slice
+  "Cannot bound deterministic co-op actor assignment policy")
+require_ordered_fragments(dedicated_live_assignment_policy_slice
+  "Co-op actor assignment lost validation, round-robin distribution, or transactional publication"
+  "ValidPeers(peers, peerCount)"
+  "actorCount > MaximumCoopTacticalAssignments"
+  "ValidActors(actors, actorCount)"
+  "staged[index].actor = actors[index]"
+  "staged[index].peerIdentity = peers[index % peerCount]"
+  "output = staged"
+  "outputCount = assignedCount")
+foreach(dedicated_live_assignment_policy_test_contract IN ITEMS
+    "TestBalancedCanonicalAssignment()"
+    "TestNoPeerProducesNoAcl()"
+    "TestInvalidInputsPreserveOutputs()"
+    "TestGrowOnlyWorldParticipants()"
+    "TestInitialParticipantsAndMalformedGrowth()")
+  string(FIND "${dedicated_live_assignment_policy_test_code}"
+    "${dedicated_live_assignment_policy_test_contract}"
+    dedicated_live_assignment_policy_test_contract_position)
+  if(dedicated_live_assignment_policy_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op actor assignment tests lost '${dedicated_live_assignment_policy_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_controller_marker}"
+  dedicated_live_runtime_controller_slice
+  "Cannot bound dedicated tactical participant selection")
+require_ordered_fragments(dedicated_live_runtime_controller_slice
+  "Dedicated tactical participant growth lost campaign readiness or fresh-baseline safety"
+  "if (tactical == nullptr) return true"
+  "tactical->listener.authenticatedPeers(peers)"
+  "tactical->server.campaignReadyPeers(ready)"
+  "eligible[eligibleCount++] = peers[index].peerIdentity"
+  "GrowCoopWorldParticipants("
+  "worldParticipants.data()"
+  "freshAssignmentBaselineBoundary()"
+  "DeferredUntilFreshBaseline:"
+  "worldParticipants = staged"
+  "worldParticipantCount = stagedCount"
+  "worldParticipantsSelected = stagedCount != 0")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool freshAssignmentBaselineBoundary() const noexcept"
+  dedicated_live_runtime_fresh_assignment_slice
+  "Cannot bound late-peer fresh-baseline preflight")
+require_ordered_fragments(dedicated_live_runtime_fresh_assignment_slice
+  "Late peers may join only after every command, receipt, and replication obligation drains"
+  "tactical == nullptr || !tacticalCommandsDrained()"
+  "tactical->server.drainState()"
+  "drain.inboundMessages == 0"
+  "drain.receiptObligationsCleared()"
+  "drain.peersAwaitingReplication == 0"
+  "drain.inFlightDeltas == 0")
+
+set(dedicated_live_runtime_stage_world_marker
+  "bool stageCurrentWorld(const TacticalWorldSnapshot& snapshot) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_stage_world_marker}"
+  dedicated_live_runtime_stage_world_slice
+  "Cannot bound dedicated tactical assignment/baseline staging")
+require_ordered_fragments(dedicated_live_runtime_stage_world_slice
+  "Dedicated tactical assignment cache or baseline staging changed"
+  "reconcileWorldParticipants()"
+  "collectControllableActors(actors, actorCount)"
+  "BuildCoopActorAssignments("
+  "worldParticipants.data(), worldParticipantCount"
+  "assignmentsChanged = !assignmentsPublished"
+  "assignmentCount != publishedAssignmentCount"
+  "publishedAssignments[index].actor != assignments[index].actor"
+  "publishedAssignments[index].peerIdentity !="
+  "assignments[index].peerIdentity"
+  "if (assignmentsChanged)"
+  "tactical->server.replaceAssignments("
+  "publishedAssignments = assignments"
+  "publishedAssignmentCount = assignmentCount"
+  "assignmentsPublished = true"
+  "tactical->server.peersNeedingBaseline(peersNeedingBaseline) == 0"
+  "tactical->server.stageBaselines(snapshot)")
+
+set(dedicated_live_runtime_prepare_marker
+  "bool DedicatedCoopRuntime::prepareEarly() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_prepare_marker}"
+  dedicated_live_runtime_prepare_slice
+  "Cannot bound dedicated co-op early runtime preparation")
+require_ordered_fragments(dedicated_live_runtime_prepare_slice
+  "Dedicated co-op early runtime preparation changed"
+  "GetDedicatedServerOptions()"
+  "DedicatedServerMode::Coop"
+  "boot.prepare(impl_->options)"
+  "InstallGameSimulationRandom(impl_->boot.campaignSeed())"
+  "impl_->options.campaignAction"
+  "DedicatedCampaignAction::Create"
+  "impl_->checkpointInterval ="
+  "impl_->prepared = true")
+
+set(dedicated_live_runtime_manifest_capture_marker
+  "bool DedicatedCoopRuntime::captureContentManifestAfterPackageMount() noexcept")
+string(FIND "${dedicated_live_runtime_header_code}"
+  "bool captureContentManifestAfterPackageMount() noexcept;"
+  dedicated_live_runtime_manifest_capture_api_position)
+if(dedicated_live_runtime_manifest_capture_api_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated co-op runtime lost its explicit post-package manifest API")
+endif()
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_manifest_capture_marker}"
+  dedicated_live_runtime_manifest_capture_slice
+  "Cannot bound dedicated co-op post-package content-manifest capture")
+require_ordered_fragments(dedicated_live_runtime_manifest_capture_slice
+  "Dedicated co-op content manifest is no longer captured and cached before legacy initialization"
+  "!impl_"
+  "!impl_->prepared"
+  "impl_->campaignOpen"
+  "impl_->fatal"
+  "impl_->contentManifestCaptured"
+  "getVFS()"
+  "ComputeDedicatedContentManifestFromVfs(*fileSystem, content)"
+  "manifestResult != DedicatedContentManifestError::None"
+  "DedicatedContentManifestErrorName(manifestResult)"
+  "DedicatedCoopRuntimeError::ContentManifestFailed"
+  "std::copy(content.begin(), content.end(), impl_->contentManifest.begin())"
+  "impl_->contentManifestCaptured = true"
+  "return true")
+
+set(dedicated_live_runtime_open_marker
+  "bool DedicatedCoopRuntime::openCampaignAfterBootstrap(\n\tGameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_open_marker}" dedicated_live_runtime_open_slice
+  "Cannot bound dedicated co-op late campaign open")
+require_ordered_fragments(dedicated_live_runtime_open_slice
+  "Dedicated co-op late campaign open ordering changed"
+  "!impl_->contentManifestCaptured"
+  "context.campaignSimulationEnabled()"
+  "context.runtime().compatibilityFingerprint()"
+  "impl_->boot.openCampaign("
+  "CampaignFingerprint(fingerprint), impl_->contentManifest"
+  "impl_->boot.entry()"
+  "impl_->admissionFingerprint = AdmissionFingerprint(fingerprint)"
+  "context.packages().activeCampaign()"
+  "new TacticalComposition("
+  "context.runtimeMessages().addSink(composition->host)"
+  "composition->router.unbind()"
+  "delete composition"
+  "impl_->tactical = composition"
+  "impl_->tacticalContext = &context"
+  "impl_->tacticalSinkRegistered = true"
+  "impl_->campaignOpen = true")
+foreach(dedicated_live_runtime_open_forbidden IN ITEMS
+    "getVFS()"
+    "ComputeDedicatedContentManifestFromVfs("
+    "DedicatedContentManifestSha256 content")
+  string(FIND "${dedicated_live_runtime_open_slice}"
+    "${dedicated_live_runtime_open_forbidden}"
+    dedicated_live_runtime_open_forbidden_position)
+  if(NOT dedicated_live_runtime_open_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated late campaign open recomputes installed content via '${dedicated_live_runtime_open_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_runtime_pump_marker
+  "void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_pump_marker}" dedicated_live_runtime_pump_slice
+  "Cannot bound dedicated co-op committed-frame pump")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Dedicated co-op campaign entry/tactical/checkpoint pump ordering changed"
+  "impl_->entryRequested && !impl_->campaignEntered"
+  "impl_->entry == DedicatedCoopCampaignEntry::Resume"
+  "impl_->boot.campaignState()"
+  "state->hasCheckpoint"
+  "LoadDedicatedCampaignGame(state->activeSlot)"
+  "guiScreenToGotoAfterLoadingSavedGame != MAP_SCREEN"
+  "SetPendingNewScreen(MAP_SCREEN)"
+  "impl_->checkpointNow(context, true)"
+  "impl_->campaignEntered = true"
+  "impl_->entryRequested = false"
+  "impl_->startAdmission()"
+  "impl_->pumpTactical(context)"
+  "impl_->checkpointNow(context, false)"
+  "IneligibleRetryDelay")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Dedicated co-op starter resume/checkpoint/admission/launch ordering changed"
+  "InspectDedicatedCoopStarterCampaign()"
+  "DedicatedCoopStarterCampaignState::UntouchedInitial"
+  "PrepareDedicatedCoopStarterMission()"
+  "DedicatedCoopStarterCampaignState::PreparedInitial"
+  "DedicatedCoopStarterCampaignState::EstablishedCold"
+  "impl_->entry != DedicatedCoopCampaignEntry::Resume"
+  "rosterCheckpointRequired && !impl_->checkpointNow(context, true)"
+  "StarterMissionState::WaitingForEstablishedCampaignReadyPeer"
+  "StarterMissionState::WaitingForCampaignReadyPeer"
+  "impl_->startAdmission()"
+  "impl_->startCampaignSync()"
+  "impl_->campaignReadyPeerCount()"
+  "impl_->starterPeerGatherDeadline = now + StarterPeerGatherGrace"
+  "DedicatedCoopStarterLaunchReady(readyPeers, graceElapsed"
+  "LaunchDedicatedCoopStarterMission()"
+  "StarterMissionState::WaitingForControllableActor"
+  "WaitingForEstablishedCampaignReadyPeer"
+  "LaunchDedicatedCoopEstablishedMission()"
+  "CountDedicatedCoopControllableActors()"
+  "StarterMissionState::Playable")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Established co-op peaceful/hostile campaign entry policy changed"
+  "StarterMissionState::WaitingForEstablishedCampaignReadyPeer"
+  "campaignReadyPeerCount()"
+  "IsDedicatedCoopStarterMissionMapReady()"
+  "LaunchDedicatedCoopEstablishedMission()"
+  "DedicatedCoopMissionBootstrapError::NoHostileEncounter"
+  "impl_->starterMission = StarterMissionState::StrategicIdle"
+  "launched != DedicatedCoopMissionBootstrapError::None"
+  "StarterMissionState::WaitingForControllableActor"
+  "impl_->minimumControllableActors = 1"
+  "impl_->postCombatReturnArmed = true")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Dedicated hostile-victory return lost immediate freeze/recheck/resume-or-unload ordering"
+  "impl_->starterMission == StarterMissionState::Playable"
+  "CapturePostCombatReturnEvidence(true"
+  "impl_->postCombatReturnArmed"
+  "DedicatedCoopPostCombatReturnReady(evidence)"
+  "impl_->starterMission = StarterMissionState::ReturningToStrategic"
+  "impl_->stopAdmissionForPostCombatReturn()"
+  "impl_->starterMission == StarterMissionState::ReturningToStrategic"
+  "CapturePostCombatReturnEvidence(true"
+  "const DedicatedCoopPostCombatReturnStep next"
+  "EvaluateDedicatedCoopPostCombatReturnStep("
+  "DedicatedCoopPostCombatReturnReady(rechecked)"
+  "impl_->freshAssignmentBaselineBoundary()"
+  "DedicatedCoopPostCombatReturnStep::ResumePlayable"
+  "impl_->starterMission = StarterMissionState::Playable"
+  "impl_->startAdmission()"
+  "DedicatedCoopPostCombatReturnStep::WaitForFreshBoundary"
+  "UnloadCurrentWorldForDedicatedCoopPostCombatReturn()"
+  "DedicatedCoopRuntimeError::MissionReturnFailed"
+  "impl_->holdAdmissionAfterWorldDrain = true"
+  "impl_->beginWorldDrain()")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Dedicated post-combat admission reopened before the required strategic checkpoint"
+  "StarterMissionState::WaitingForStrategicCheckpoint"
+  "IsDedicatedCoopStarterMissionMapReady()"
+  "impl_->checkpointNow(context, true)"
+  "impl_->startAdmission()"
+  "impl_->starterMission = StarterMissionState::StrategicIdle")
+
+set(dedicated_live_runtime_observed_world_marker
+  "bool updateObservedWorld(\n\t\tconst TacticalWorldPublicationView& publication) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_observed_world_marker}"
+  dedicated_live_runtime_observed_world_slice
+  "Cannot bound dedicated observed-world publication")
+require_ordered_fragments(dedicated_live_runtime_observed_world_slice
+  "Dedicated observer delta/context publication ordering changed"
+  "publication.status != TacticalWorldPublicationStatus::Delta"
+  "publication.delta == nullptr"
+  "tactical->server.publishDelta("
+  "*publication.delta, publication.serial, turnSerial)"
+  "observedRevision = publication.serial")
+
+set(dedicated_live_runtime_tactical_pump_marker
+  "bool pumpTactical(GameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_tactical_pump_marker}"
+  dedicated_live_runtime_tactical_pump_slice
+  "Cannot bound dedicated tactical committed-frame pump")
+require_ordered_fragments(dedicated_live_runtime_tactical_pump_slice
+  "Dedicated committed observer/listener/server/receipt flush ordering changed"
+  "GetJa2TacticalWorldObserverDiagnostics()"
+  "switch (observerDiagnostics.lastUpdate)"
+  "TacticalWorldObserverUpdateResult::SourceCapacityReached"
+  "TacticalWorldObserverUpdateResult::SerialExhausted"
+  "fail(DedicatedCoopRuntimeError::TacticalReplicationFailed)"
+  "return false"
+  "GetJa2TacticalWorldObserverService().latest()"
+  "updateObservedWorld(publication)"
+  "tactical->host.flushPendingReceipts()"
+  "tactical->listener.poll()"
+  "reconcileCampaignPeersAndGateTactical()"
+  "pumpCampaignInboundAndOutbound()"
+  "tactical->server.reconcilePeers()"
+  "stageCurrentWorld(*publication.snapshot)"
+  "tactical->server.pumpInbound(diagnostics.simulationTick)"
+  "tactical->host.flushPendingReceipts()"
+  "tactical->server.flushOutbound()")
+
+set(dedicated_live_runtime_begin_world_drain_marker
+  "bool beginWorldDrain() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_begin_world_drain_marker}"
+  dedicated_live_runtime_begin_world_drain_slice
+  "Cannot bound dedicated tactical world-drain start")
+require_ordered_fragments(dedicated_live_runtime_begin_world_drain_slice
+  "Dedicated tactical world drain no longer closes admission first"
+  "tactical->server.worldActive()"
+  "worldDraining = true"
+  "stopAdmissionAndReconcile(100)"
+  "tactical->server.discardInboundAfterTransportStop()")
+
+set(dedicated_live_runtime_stop_post_combat_marker
+  "bool stopAdmissionForPostCombatReturn() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_stop_post_combat_marker}"
+  dedicated_live_runtime_stop_post_combat_slice
+  "Cannot bound dedicated post-combat admission freeze")
+require_ordered_fragments(dedicated_live_runtime_stop_post_combat_slice
+  "Post-combat return no longer stops admission and retires queued ingress before unload"
+  "tactical == nullptr || !tactical->server.worldActive()"
+  "DedicatedCoopRuntimeError::MissionReturnFailed"
+  "stopAdmissionAndReconcile(100)"
+  "tactical->server.discardInboundAfterTransportStop()"
+  "FullEngineCoopTacticalServerResult::Success"
+  "return true"
+  "DedicatedCoopRuntimeError::TacticalSessionFailed")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool stopAdmissionAndReconcile(unsigned drainMilliseconds) noexcept"
+  dedicated_live_runtime_stop_and_reconcile_slice
+  "Cannot bound dedicated admission stop/reconciliation")
+require_ordered_fragments(dedicated_live_runtime_stop_and_reconcile_slice
+  "Admission stop no longer immediately retires campaign/tactical Ready authority"
+  "tactical->listener.stop(drainMilliseconds)"
+  "tactical->campaignSync->reconcilePeers(nullptr, 0)"
+  "tactical->server.setCampaignReadyPeers(nullptr, 0)"
+  "tactical->server.reconcilePeers()"
+  "FullEngineCoopTacticalServerResult::Success"
+  "return true")
+
+set(dedicated_live_runtime_finish_world_drain_marker
+  "bool tryFinishWorldDrain(GameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_finish_world_drain_marker}"
+  dedicated_live_runtime_finish_world_drain_slice
+  "Cannot bound dedicated tactical world-drain completion")
+require_ordered_fragments(dedicated_live_runtime_finish_world_drain_slice
+  "Dedicated tactical world drain/restart ordering changed"
+  "tactical->host.flushPendingReceipts()"
+  "GetJa2TacticalCommandService().summary()"
+  "GetJa2TacticalCommandHostDiagnostics()"
+  "context.runtimeMessages().queued() != 0"
+  "tactical->host.endWorld()"
+  "tactical->host.flushPendingReceipts()"
+  "tactical->server.flushOutbound()"
+  "tactical->server.drainState()"
+  "drain.inboundMessages != 0"
+  "!drain.receiptObligationsCleared()"
+  "tactical->server.endWorld()"
+  "tactical->server.takeTransportRestartRequired()"
+  "publishedAssignments = {}"
+  "publishedAssignmentCount = 0"
+  "assignmentsPublished = false"
+  "worldParticipants = {}"
+  "worldParticipantCount = 0"
+  "worldParticipantsSelected = false"
+  "worldDraining = false"
+  "postCombatReturnArmed = false"
+  "if (holdAdmissionAfterWorldDrain)"
+  "holdAdmissionAfterWorldDrain = false"
+  "starterMission = StarterMissionState::WaitingForStrategicCheckpoint"
+  "return true"
+  "startAdmission()")
+
+# Retirement uses a stricter global wire freeze but a deliberately local drain:
+# unrelated runtime-message publishers cannot starve an authenticated leave.
+extract_brace_bounded_slice(dedicated_live_runtime_header_code
+  "struct DedicatedCoopRetirementLocalDrainState"
+  dedicated_live_retirement_local_drain_shape_slice
+  "Cannot bound dedicated co-op retirement local-drain model")
+require_ordered_fragments(dedicated_live_retirement_local_drain_shape_slice
+  "Retirement local drain lost one of its already-authorized command obligations"
+  "hostCorrelations = 0"
+  "pendingImmediateReceipts = 0"
+  "commandInbox = 0"
+  "pendingHostReceipts = 0"
+  "pendingDeferredCancellations = 0"
+  "trackedCommands = 0"
+  "return hostCorrelations == 0"
+  "pendingImmediateReceipts == 0"
+  "commandInbox == 0"
+  "pendingHostReceipts == 0"
+  "pendingDeferredCancellations == 0"
+  "trackedCommands == 0")
+foreach(dedicated_live_retirement_local_drain_forbidden IN ITEMS
+    "RuntimeMessageBus"
+    "runtimeMessages"
+    "campaign"
+    "deltaAck"
+    "baselineAck")
+  string(FIND "${dedicated_live_retirement_local_drain_shape_slice}"
+    "${dedicated_live_retirement_local_drain_forbidden}"
+    dedicated_live_retirement_local_drain_forbidden_position)
+  if(NOT dedicated_live_retirement_local_drain_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Retirement local drain regained unrelated work '${dedicated_live_retirement_local_drain_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool tacticalCommandsDrained() const noexcept"
+  dedicated_live_retirement_local_drain_slice
+  "Cannot bound dedicated co-op retirement local-drain capture")
+require_ordered_fragments(dedicated_live_retirement_local_drain_slice
+  "Retirement local drain no longer derives all authorized command obligations"
+  "GetJa2TacticalCommandService().summary()"
+  "GetJa2TacticalCommandHostDiagnostics()"
+  "DedicatedCoopRetirementLocalDrainState"
+  "tactical->host.correlationCount()"
+  "tactical->host.pendingImmediateReceiptCount()"
+  "commandSummary.pending"
+  "diagnostics.pendingReceipts"
+  "diagnostics.pendingDeferredCancellations"
+  "diagnostics.trackedCommands"
+  ".drained()")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool captureSelfRetirementRequest() noexcept"
+  dedicated_live_retirement_capture_slice
+  "Cannot bound dedicated co-op self-retirement capture")
+require_ordered_fragments(dedicated_live_retirement_capture_slice
+  "Dedicated runtime no longer globally discards inbound work immediately after capture"
+  "tactical->listener.popSelfRetirement(captured)"
+  "tactical->server.discardInboundAfterSelfRetirementGate()"
+  "FullEngineCoopTacticalServerResult::Success"
+  "selfRetirement = captured"
+  "selfRetirementActive = true"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool finishSelfRetirementAtBoundary() noexcept"
+  dedicated_live_retirement_finish_slice
+  "Cannot bound dedicated co-op self-retirement completion")
+require_ordered_fragments(dedicated_live_retirement_finish_slice
+  "Dedicated retirement lost local drain, commit-before-result, or stopped-layer compaction ordering"
+  "!tacticalCommandsDrained()"
+  "commandState.pendingCommands != 0"
+  "AdmissionSelfRetirementResult result"
+  "AdmissionSelfRetirementResultCode::"
+  "CredentialRetired"
+  "EncodeAdmissionSelfRetirementResult(result, encoded)"
+  "tactical->ingress.completeSelfRetirement("
+  "AdmissionSelfRetirementRegistryResult::Success"
+  "AdmissionSelfRetirementRegistryResult::"
+  "AlreadyCompleted"
+  "tactical->listener.sendCommittedSelfRetirementResult("
+  "stopAdmissionAndReconcile(100)"
+  "tactical->server.retirePeer(selfRetirement.peerIdentity)"
+  "removeRetiredWorldParticipant(selfRetirement.peerIdentity)"
+  "selfRetirementActive = false"
+  "return startAdmission()")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool pumpTactical(GameContext& context) noexcept"
+  dedicated_live_retirement_pump_slice
+  "Cannot bound dedicated co-op tactical pump retirement ordering")
+require_ordered_fragments(dedicated_live_retirement_pump_slice
+  "Tactical pump no longer observes/publishes existing authority work before retirement capture"
+  "updateObservedWorld(publication)"
+  "tactical->host.flushPendingReceipts()"
+  "if (selfRetirementActive)"
+  "finishSelfRetirementAtBoundary()"
+  "tactical->listener.poll()"
+  "captureSelfRetirementRequest()"
+  "if (selfRetirementActive)"
+  "finishSelfRetirementAtBoundary()"
+  "reconcileCampaignPeersAndGateTactical()"
+  "tactical->server.pumpInbound(")
+
+set(dedicated_live_runtime_shutdown_marker
+  "bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(\n\tGameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_shutdown_marker}"
+  dedicated_live_runtime_shutdown_slice
+  "Cannot bound dedicated co-op final checkpoint")
+require_ordered_fragments(dedicated_live_runtime_shutdown_slice
+  "Dedicated co-op final checkpoint/campaign-sync/tactical teardown ordering changed"
+  "impl_->stopAdmissionAndReconcile(100)"
+  "impl_->tactical->server.active()"
+  "impl_->tactical->server.worldActive()"
+  "DedicatedCoopRuntimeError::CheckpointNotEligible"
+  "impl_->checkpointNow(context, true)"
+  "impl_->endCampaignSync()"
+  "DedicatedCoopRuntimeError::CampaignSyncFailed"
+  "impl_->tactical->server.endEpoch()"
+  "impl_->tactical->server.takeTransportRestartRequired()"
+  "impl_->admissionConfigured = false"
+  "impl_->sessionEpoch = 0"
+  "impl_->detachTacticalComposition()")
+
+set(dedicated_live_runtime_close_marker
+  "void DedicatedCoopRuntime::close() noexcept")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "${dedicated_live_runtime_close_marker}" dedicated_live_runtime_close_slice
+  "Cannot bound dedicated co-op runtime close")
+require_ordered_fragments(dedicated_live_runtime_close_slice
+  "Dedicated co-op runtime close ordering changed"
+  "impl_->detachTacticalComposition()"
+  "impl_->boot.close()"
+  "impl_->prepared = false"
+  "impl_->campaignOpen = false"
+  "impl_->campaignEntered = false"
+  "impl_->admissionConfigured = false"
+  "impl_->sessionEpoch = 0"
+  "impl_->worldDraining = false")
+
+# The full-engine co-op client is an isolated passive composition. Its small
+# lifecycle ledger makes the lease/network/snapshot/reconnect gates directly
+# testable without sockets or installed data; keep those gates in executable
+# code rather than relying on comments at the application boundary.
+foreach(dedicated_live_client_runtime_error_contract IN ITEMS
+    "RuntimeFingerprintFailed"
+    "LiveServerDescriptorMismatch"
+    "CampaignSyncFailed"
+    "TacticalBeforeCampaignReady"
+    "ReconnectLimitReached"
+    "ReconnectCredentialLoadFailed"
+    "ReconnectCredentialRestoreFailed"
+    "ReconnectCredentialStorageFailed")
+  string(FIND "${dedicated_live_client_runtime_header_code}"
+    "${dedicated_live_client_runtime_error_contract}"
+    dedicated_live_client_runtime_error_contract_position)
+  if(dedicated_live_client_runtime_error_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client runtime lost '${dedicated_live_client_runtime_error_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool markPrepared() noexcept" dedicated_live_client_mark_prepared_slice
+  "Cannot bound full-engine co-op client prepare lifecycle gate")
+require_ordered_fragments(dedicated_live_client_mark_prepared_slice
+  "Full-engine co-op client prepare lifecycle gate changed"
+  "failed()"
+  "prepared_"
+  "leaseClosed_"
+  "return false"
+  "prepared_ = true"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool markNetworkOpen() noexcept"
+  dedicated_live_client_mark_network_open_slice
+  "Cannot bound full-engine co-op client network lifecycle gate")
+require_ordered_fragments(dedicated_live_client_mark_network_open_slice
+  "Full-engine co-op client network lifecycle gate changed"
+  "failed()"
+  "!prepared_"
+  "networkOpen_"
+  "leaseClosed_"
+  "return false"
+  "networkOpen_ = true"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "void markCampaignReady(bool ready) noexcept"
+  dedicated_live_client_mark_campaign_ready_slice
+  "Cannot bound full-engine co-op client campaign-ready gate")
+require_ordered_fragments(dedicated_live_client_mark_campaign_ready_slice
+  "Full-engine co-op client campaign-ready gate changed"
+  "campaignReady_ = ready"
+  "!failed()"
+  "networkOpen_")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "void markTransportStopped() noexcept"
+  dedicated_live_client_mark_transport_stopped_slice
+  "Cannot bound full-engine co-op client transport-stop gate")
+require_ordered_fragments(dedicated_live_client_mark_transport_stopped_slice
+  "Full-engine co-op client transport stop must retain the profile lease"
+  "networkOpen_ = false"
+  "campaignReady_ = false")
+foreach(dedicated_live_client_transport_stop_forbidden IN ITEMS
+    "prepared_ = false"
+    "leaseClosed_ = true")
+  string(FIND "${dedicated_live_client_mark_transport_stopped_slice}"
+    "${dedicated_live_client_transport_stop_forbidden}"
+    dedicated_live_client_transport_stop_forbidden_position)
+  if(NOT dedicated_live_client_transport_stop_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Client transport stop must not perform lease teardown '${dedicated_live_client_transport_stop_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool markRetired() noexcept"
+  dedicated_live_client_mark_retired_slice
+  "Cannot bound live client retirement lifecycle gate")
+require_ordered_fragments(dedicated_live_client_mark_retired_slice
+  "Live client retirement must be clean, terminal, and transport-owned"
+  "failed()"
+  "retired_"
+  "!networkOpen_"
+  "return false"
+  "retired_ = true"
+  "campaignReady_ = false"
+  "return true")
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool markDurablyRetired() noexcept"
+  dedicated_live_client_mark_durably_retired_slice
+  "Cannot bound startup durable-retirement lifecycle gate")
+require_ordered_fragments(dedicated_live_client_mark_durably_retired_slice
+  "Durable retirement marker must terminate before network open"
+  "failed()"
+  "retired_"
+  "!prepared_"
+  "networkOpen_"
+  "leaseClosed_"
+  "return false"
+  "retired_ = true"
+  "campaignReady_ = false"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool markLeaseClosed() noexcept"
+  dedicated_live_client_mark_lease_closed_slice
+  "Cannot bound full-engine co-op client lease-close gate")
+require_ordered_fragments(dedicated_live_client_mark_lease_closed_slice
+  "Full-engine co-op client lease close ordering changed"
+  "if (networkOpen_) return false"
+  "prepared_ = false"
+  "campaignReady_ = false"
+  "leaseClosed_ = true"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "void fail(FullEngineCoopClientRuntimeError incoming) noexcept"
+  dedicated_live_client_lifecycle_fail_slice
+  "Cannot bound full-engine co-op client first-failure gate")
+require_ordered_fragments(dedicated_live_client_lifecycle_fail_slice
+  "Full-engine co-op client failure must remain first-wins and fail closed"
+  "error_ == FullEngineCoopClientRuntimeError::None"
+  "error_ = incoming"
+  "campaignReady_ = false")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool snapshotPublishable(bool tacticalReplicaReadable) const noexcept"
+  dedicated_live_client_snapshot_publishable_slice
+  "Cannot bound full-engine co-op client snapshot publication gate")
+require_ordered_fragments(dedicated_live_client_snapshot_publishable_slice
+  "Full-engine co-op client snapshot publication gate changed"
+  "campaignReady_"
+  "networkOpen_"
+  "tacticalReplicaReadable"
+  "!failed()")
+foreach(dedicated_live_client_resync_presentation_contract IN ITEMS
+    "client.state() =="
+    "FullEngineCoopClientState::Active ||"
+    "client.resyncPending()"
+    "output.resynchronizing = client.resyncPending()"
+    "view.resynchronizing"
+    "view.outstandingCommandId != 0")
+  string(FIND
+    "${dedicated_live_client_runtime_code}${dedicated_live_client_controller_code}"
+    "${dedicated_live_client_resync_presentation_contract}"
+    dedicated_live_client_resync_presentation_contract_position)
+  if(dedicated_live_client_resync_presentation_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Client resync retained-presentation/frozen-control contract lost '${dedicated_live_client_resync_presentation_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_header_code
+  "bool reconnectAllowed(bool sameDescriptorEpoch,\n\t\tbool credentialsRetained, unsigned attempts,\n\t\tunsigned maximumAttempts) const noexcept"
+  dedicated_live_client_reconnect_allowed_slice
+  "Cannot bound full-engine co-op client reconnect gate")
+require_ordered_fragments(dedicated_live_client_reconnect_allowed_slice
+  "Full-engine co-op client reconnect gate changed"
+  "if (!prepared_ || !networkOpen_ || campaignReady_ || retired_ || failed())"
+  "return false"
+  "if (credentialsRetained) return sameDescriptorEpoch"
+  "return maximumAttempts != 0 && attempts < maximumAttempts")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "struct Composition" dedicated_live_client_composition_slice
+  "Cannot bound full-engine co-op client composition")
+require_ordered_fragments(dedicated_live_client_composition_slice
+  "Full-engine co-op client composition lifetime order changed"
+  "campaignWire(transport)"
+  "campaign(owner.scratch, campaignWire)"
+  "replicaGate(owner, campaign, replica)"
+  "client(transport, replicaGate, &owner.scratch)"
+  "campaignSink(owner, client, campaign)"
+  "FullEngineCoopClientTransport transport"
+  "CampaignWire campaignWire"
+  "FullEngineCoopCampaignSyncClient campaign"
+  "FullEngineCoopSnapshotReplica replica"
+  "ReplicaGate replicaGate"
+  "FullEngineCoopClient client"
+  "CampaignSink campaignSink")
+
+# A production passive client may ACK a seat only after the exact bearer is
+# durably published. The record is private client campaign state outside the
+# mounted profile: canonical bootstrap + AdmissionAck + SHA-256, with an atomic
+# staging publication and exact idempotency. Restore is bounded to the verified
+# descriptor epoch and must happen before the live socket can send anything.
+foreach(dedicated_live_credential_client_header_contract IN ITEMS
+    "CredentialStorageFailure"
+    "std::uint64_t expectedSessionEpoch = 0"
+    "bool durableReconnectCredentialRequired = false"
+    "class FullEngineCoopReconnectCredentialStore"
+    "persistReconnectCredential("
+    "const AdmissionAck& credential"
+    "restoreReconnectCredential("
+    "FullEngineCoopReconnectCredentialStore* credentialStore_ = nullptr")
+  string(FIND "${dedicated_live_client_header_code}"
+    "${dedicated_live_credential_client_header_contract}"
+    dedicated_live_credential_client_header_contract_position)
+  if(dedicated_live_credential_client_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable reconnect client contract lost '${dedicated_live_credential_client_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_credential_scratch_header_contract IN ITEMS
+    "FullEngineCoopReconnectCredentialLoadResult"
+    "Loaded"
+    "Missing"
+    "Retired"
+    "StaleSession"
+    "CorruptRecord"
+    "BindingMismatch"
+    "UnsafeStorage"
+    "public FullEngineCoopReconnectCredentialStore"
+    "loadReconnectCredential("
+    "persistReconnectCredential("
+    "retireReconnectCredential("
+    "eraseStaleReconnectCredential() noexcept")
+  string(FIND "${dedicated_live_client_scratch_header_code}"
+    "${dedicated_live_credential_scratch_header_contract}"
+    dedicated_live_credential_scratch_header_contract_position)
+  if(dedicated_live_credential_scratch_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable reconnect scratch contract lost '${dedicated_live_credential_scratch_header_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_credential_record_contract IN ITEMS
+    "CoopCampaignBootstrapWireSize = 128"
+    "AdmissionAckWireSize = 64"
+    "ReconnectCredentialPayloadBytes ="
+    "CoopCampaignBootstrapWireSize + AdmissionAckWireSize"
+    "ReconnectCredentialRecordBytes ="
+    "ReconnectCredentialPayloadBytes + 32")
+  string(FIND
+    "${dedicated_live_campaign_bootstrap_protocol_header_code}\n${dedicated_live_session_protocol_header_code}\n${dedicated_live_client_scratch_code}"
+    "${dedicated_live_credential_record_contract}"
+    dedicated_live_credential_record_contract_position)
+  if(dedicated_live_credential_record_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "The canonical 224-byte reconnect record lost '${dedicated_live_credential_record_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_credential_file_name IN ITEMS
+    "client-reconnect-credential.bin"
+    "client-reconnect-credential.staging"
+    "client-reconnect-credential.retired")
+  string(FIND "${dedicated_live_client_scratch_source}"
+    "${dedicated_live_credential_file_name}"
+    dedicated_live_credential_file_name_position)
+  if(dedicated_live_credential_file_name_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable reconnect private file name lost '${dedicated_live_credential_file_name}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::configure(\n\tconst FullEngineCoopClientConfiguration& configuration) noexcept"
+  dedicated_live_credential_configure_slice
+  "Cannot bound durable reconnect client configuration")
+require_ordered_fragments(dedicated_live_credential_configure_slice
+  "Durable reconnect mode no longer requires an epoch pin and synchronous store"
+  "configuration.durableReconnectCredentialRequired"
+  "configuration.expectedSessionEpoch == 0"
+  "credentialStore_ == nullptr"
+  "FullEngineCoopClientResult::InvalidConfiguration"
+  "configuration_ = configuration"
+  "sessionEpoch_ = 0"
+  "clearCredentials()")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::restoreReconnectCredential(\n\tconst AdmissionAck& credential) noexcept"
+  dedicated_live_credential_restore_slice
+  "Cannot bound durable reconnect client restore")
+require_ordered_fragments(dedicated_live_credential_restore_slice
+  "Reconnect restore lost configured-disconnected, exact-epoch transactional publication"
+  "!configured_"
+  "state_ != FullEngineCoopClientState::Disconnected"
+  "hasReconnectCredential()"
+  "sessionEpoch_ != 0"
+  "credential.protocolVersion != configuration_.protocolVersion"
+  "credential.sessionEpoch == 0"
+  "credential.sessionEpoch != configuration_.expectedSessionEpoch"
+  "IsZero(credential.peerIdentity)"
+  "IsZero(credential.reconnectToken)"
+  "sessionEpoch_ = credential.sessionEpoch"
+  "peerIdentity_ = credential.peerIdentity"
+  "reconnectToken_ = credential.reconnectToken"
+  "FullEngineCoopClientResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::receiveServerHello(\n\tconst std::uint8_t* bytes, std::size_t size) noexcept"
+  dedicated_live_credential_hello_slice
+  "Cannot bound preflight-pinned live server hello")
+require_ordered_fragments(dedicated_live_credential_hello_slice
+  "Live epoch mismatch no longer fails before an admission request"
+  "DecodeCoopServerHello(bytes, size, hello)"
+  "hello.protocolVersion != configuration_.protocolVersion"
+  "hello.runtimeFingerprint != configuration_.runtimeFingerprint"
+  "hello.contentManifestSha256 !="
+  "configuration_.contentManifestSha256"
+  "hello.sessionEpoch != configuration_.expectedSessionEpoch"
+  "FullEngineCoopClientResult::CompatibilityMismatch"
+  "AdmissionRequest request"
+  "request.peerIdentity = peerIdentity_"
+  "request.reconnectToken = reconnectToken_"
+  "sendFrame(CoopAdmissionRequestMessageName")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::receiveAdmissionResponse(\n\tconst std::uint8_t* bytes, std::size_t size) noexcept"
+  dedicated_live_credential_admission_slice
+  "Cannot bound reconnect credential admission publication")
+require_ordered_fragments(dedicated_live_credential_admission_slice
+  "Admission no longer persists the exact bearer before ACK and memory adoption"
+  "AdmissionAck acknowledgement"
+  "EncodeAdmissionAck(acknowledgement, encoded)"
+  "credentialStoreCalling_ = true"
+  "credentialStore_->persistReconnectCredential("
+  "acknowledgement"
+  "credentialStoreCalling_ = false"
+  "FullEngineCoopClientResult::CredentialStorageFailure"
+  "configuration_.durableReconnectCredentialRequired"
+  "peerIdentity_ = response.peerIdentity"
+  "reconnectToken_ = response.reconnectToken"
+  "sendFrame(CoopAdmissionAckMessageName")
+
+foreach(dedicated_live_client_retirement_header_contract IN ITEMS
+    "Retiring"
+    "Retired"
+    "CredentialRetirementPending"
+    "SelfRetirementRejected"
+    "CredentialRetired"
+    "retireReconnectCredential("
+    "requestSelfRetirement() noexcept"
+    "selfRetirementPending() const noexcept"
+    "selfRetirementRequestId() const noexcept")
+  string(FIND "${dedicated_live_client_header_code}"
+    "${dedicated_live_client_retirement_header_contract}"
+    dedicated_live_client_retirement_header_contract_position)
+  if(dedicated_live_client_retirement_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine client retirement contract lost '${dedicated_live_client_retirement_header_contract}'")
+  endif()
+endforeach()
+
+require_ordered_fragments(dedicated_live_credential_admission_slice
+  "Reconnect no longer preserves/replays a same-process retirement intent after ACK"
+  "const bool retrySelfRetirement = reconnect"
+  "AdmissionRejectReason::CredentialRetirementPending"
+  "selfRetirementAwaitingOutcome_ = true"
+  "state_ = FullEngineCoopClientState::Disconnected"
+  "closeWire()"
+  "AdmissionRejectReason::CredentialRetired"
+  "return retireCredential()"
+  "sendFrame(CoopAdmissionAckMessageName"
+  "if (retrySelfRetirement)"
+  "AdmissionSelfRetirementRequest retirement"
+  "retirement.requestId = selfRetirementRequestId_"
+  "state_ = FullEngineCoopClientState::Retiring"
+  "sendFrame(CoopAdmissionSelfRetirementRequestMessageName")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClient::requestSelfRetirement() noexcept"
+  dedicated_live_client_retirement_request_slice
+  "Cannot bound client self-retirement request")
+require_ordered_fragments(dedicated_live_client_retirement_request_slice
+  "Client retirement request lost active-state/one-command gate or RAM-before-wire replay state"
+  "state_ != FullEngineCoopClientState::AwaitingBaseline"
+  "state_ != FullEngineCoopClientState::Active"
+  "!hasReconnectCredential()"
+  "outstandingCommandId_ != 0"
+  "selfRetirementAwaitingOutcome_"
+  "nextSelfRetirementRequestId_ == 0"
+  "AdmissionSelfRetirementRequest request"
+  "request.requestId = nextSelfRetirementRequestId_"
+  "EncodeAdmissionSelfRetirementRequest(request, encoded)"
+  "selfRetirementResumeState_ = state_"
+  "selfRetirementRequestId_ = request.requestId"
+  "selfRetirementAwaitingOutcome_ = true"
+  "nextSelfRetirementRequestId_ ="
+  "state_ = FullEngineCoopClientState::Retiring"
+  "sendFrame(CoopAdmissionSelfRetirementRequestMessageName")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClient::receiveSelfRetirementResult(\n\tconst std::uint8_t* bytes, std::size_t size) noexcept"
+  dedicated_live_client_retirement_result_slice
+  "Cannot bound client self-retirement result")
+require_ordered_fragments(dedicated_live_client_retirement_result_slice
+  "Client retirement result lost exact correlation and precommit-refusal recovery"
+  "state_ != FullEngineCoopClientState::Retiring"
+  "size != AdmissionSelfRetirementResultWireSize"
+  "DecodeAdmissionSelfRetirementResult(bytes, size, result)"
+  "result.protocolVersion != configuration_.protocolVersion"
+  "result.sessionEpoch != sessionEpoch_"
+  "result.requestId != selfRetirementRequestId_"
+  "result.peerIdentity != peerIdentity_"
+  "AdmissionSelfRetirementResultCode::"
+  "TombstoneCapacityReached"
+  "state_ = selfRetirementResumeState_"
+  "selfRetirementAwaitingOutcome_ = false"
+  "FullEngineCoopClientResult::SelfRetirementRejected"
+  "AdmissionSelfRetirementResultCode::CredentialRetired"
+  "return retireCredential()")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::retireCredential() noexcept"
+  dedicated_live_client_retire_credential_slice
+  "Cannot bound client durable retirement publication")
+require_ordered_fragments(dedicated_live_client_retire_credential_slice
+  "Client retirement no longer persists terminal evidence before credential clear and clean close"
+  "!hasReconnectCredential()"
+  "AdmissionAck credential"
+  "credential.peerIdentity = peerIdentity_"
+  "credential.reconnectToken = reconnectToken_"
+  "credentialStoreCalling_ = true"
+  "credentialStore_->retireReconnectCredential("
+  "credentialStoreCalling_ = false"
+  "if (!retired)"
+  "FullEngineCoopClientResult::CredentialStorageFailure"
+  "configuration_.durableReconnectCredentialRequired"
+  "clearCredentials()"
+  "clearReplicaState()"
+  "selfRetirementAwaitingOutcome_ = false"
+  "state_ = FullEngineCoopClientState::Retired"
+  "lastResult_ = FullEngineCoopClientResult::CredentialRetired"
+  "closeWire()"
+  "return lastResult_")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool EncodeReconnectCredentialRecord(\n\tconst CoopCampaignBootstrapDescriptor& bootstrap,\n\tconst AdmissionAck& credential,\n\tReconnectCredentialRecord& record) noexcept"
+  dedicated_live_credential_encode_record_slice
+  "Cannot bound reconnect credential record encoder")
+require_ordered_fragments(dedicated_live_credential_encode_record_slice
+  "Reconnect record encoding lost canonical bootstrap/ACK/SHA transactional publication"
+  "credential.protocolVersion != bootstrap.protocolVersion"
+  "credential.sessionEpoch != bootstrap.sessionEpoch"
+  "EncodeCoopCampaignBootstrap(bootstrap, bootstrapBytes)"
+  "EncodeAdmissionAck(credential, credentialBytes)"
+  "encoded.begin() + CoopCampaignBootstrapWireSize"
+  "hasher.update(encoded.data(), ReconnectCredentialPayloadBytes)"
+  "hasher.finish()"
+  "encoded.begin() + ReconnectCredentialPayloadBytes"
+  "record = encoded"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool DecodeReconnectCredentialRecord(\n\tconst ReconnectCredentialRecord& record,\n\tCoopCampaignBootstrapDescriptor& bootstrap,\n\tAdmissionAck& credential) noexcept"
+  dedicated_live_credential_decode_record_slice
+  "Cannot bound reconnect credential record decoder")
+require_ordered_fragments(dedicated_live_credential_decode_record_slice
+  "Reconnect record decoding lost SHA/canonical binding or transactional outputs"
+  "hasher.update(record.data(), ReconnectCredentialPayloadBytes)"
+  "hasher.finish()"
+  "std::equal(expected.begin(), expected.end()"
+  "DecodeCoopCampaignBootstrap(record.data()"
+  "CoopCampaignBootstrapWireSize"
+  "DecodeAdmissionAck("
+  "AdmissionAckWireSize"
+  "decodedCredential.protocolVersion != decodedBootstrap.protocolVersion"
+  "decodedCredential.sessionEpoch != decodedBootstrap.sessionEpoch"
+  "bootstrap = decodedBootstrap"
+  "credential = decodedCredential"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "FullEngineCoopClientCampaignScratch::loadReconnectCredential(\n\tAdmissionAck& credential) noexcept"
+  dedicated_live_credential_load_slice
+  "Cannot bound reconnect credential private load")
+require_ordered_fragments(dedicated_live_credential_load_slice
+  "Reconnect credential load lost active/retired exclusivity, unchanged-record validation, or binding classification"
+  "CredentialEntryState("
+  "ReconnectCredentialFileName"
+  "CredentialEntryState("
+  "RetiredReconnectCredentialFileName"
+  "PrivateFileEntryState::Unsafe"
+  "activeEntry == PrivateFileEntryState::Safe"
+  "retiredEntry == PrivateFileEntryState::Safe"
+  "impl_->failStopped = true"
+  "PrivateFileEntryState::Failure"
+  "activeEntry == PrivateFileEntryState::Missing"
+  "retiredEntry == PrivateFileEntryState::Missing"
+  "FullEngineCoopReconnectCredentialLoadResult::Missing"
+  "const bool terminal ="
+  "SafePrivateCredentialFile(file)"
+  "PathNamesIdentity("
+  "size != ReconnectCredentialRecordBytes"
+  "ReadNativeAt(file, 0, record.data(), record.size())"
+  "SameIdentity(identity, confirmedIdentity)"
+  "DecodeReconnectCredentialRecord("
+  "SameCoopCampaignBootstrapDescriptor("
+  "SameBootstrapExceptSessionEpoch(storedBootstrap, impl_->bootstrap)"
+  "if (terminal && (exactBootstrap || exactExceptEpoch))"
+  "credential = storedCredential"
+  "FullEngineCoopReconnectCredentialLoadResult::Retired"
+  "if (exactBootstrap)"
+  "credential = storedCredential"
+  "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+  "FullEngineCoopReconnectCredentialLoadResult::StaleSession"
+  "FullEngineCoopReconnectCredentialLoadResult::BindingMismatch")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool FullEngineCoopClientCampaignScratch::persistReconnectCredential(\n\tconst AdmissionAck& credential) noexcept"
+  dedicated_live_credential_persist_slice
+  "Cannot bound reconnect credential private publication")
+require_ordered_fragments(dedicated_live_credential_persist_slice
+  "Reconnect credential publication lost exact idempotency or private atomic staging"
+  "credential.protocolVersion != impl_->bootstrap.protocolVersion"
+  "credential.sessionEpoch != impl_->bootstrap.sessionEpoch"
+  "EncodeReconnectCredentialRecord("
+  "loadReconnectCredential(existing)"
+  "existing.peerIdentity == credential.peerIdentity"
+  "existing.reconnectToken == credential.reconnectToken"
+  "return true"
+  "FullEngineCoopReconnectCredentialLoadResult::Missing"
+  "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+  "RemovePrivateFile("
+  "ReconnectCredentialStagingFileName"
+  "CreateExclusivePrivateFile("
+  "SafePrivateCredentialFile(staging)"
+  "PathNamesIdentity("
+  "WriteNativeAt(staging, 0, record.data(), record.size())"
+  "TruncateNative(staging, record.size())"
+  "SyncNativeFile(staging)"
+  "CloseNativeFile(staging)"
+  "ReplacePrivateFile("
+  "ReconnectCredentialStagingFileName, ReconnectCredentialFileName"
+  "impl_->failStopped = true"
+  "return false"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool FullEngineCoopClientCampaignScratch::retireReconnectCredential(\n\tconst AdmissionAck& credential) noexcept"
+  dedicated_live_credential_retire_slice
+  "Cannot bound durable reconnect credential retirement")
+require_ordered_fragments(dedicated_live_credential_retire_slice
+  "Credential retirement lost exact idempotence, no-replace rename, or fail-stop evidence retention"
+  "loadReconnectCredential(stored)"
+  "stored.protocolVersion == credential.protocolVersion"
+  "stored.sessionEpoch == credential.sessionEpoch"
+  "stored.peerIdentity == credential.peerIdentity"
+  "stored.reconnectToken == credential.reconnectToken"
+  "FullEngineCoopReconnectCredentialLoadResult::Retired"
+  "return exactCredential"
+  "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+  "RetirePrivateFileNoReplace("
+  "ReconnectCredentialFileName"
+  "RetiredReconnectCredentialFileName"
+  "impl_->failStopped = true"
+  "return false"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool FullEngineCoopClientCampaignScratch::eraseStaleReconnectCredential()\n\tnoexcept"
+  dedicated_live_credential_erase_slice
+  "Cannot bound stale reconnect credential erasure")
+require_ordered_fragments(dedicated_live_credential_erase_slice
+  "Stale reconnect erasure lost late classification, private-path safety, or fail-stop handling"
+  "loadReconnectCredential(ignored) !="
+  "FullEngineCoopReconnectCredentialLoadResult::StaleSession"
+  "RemovePrivateFile("
+  "ReconnectCredentialFileName"
+  "PrivateFileRemoveResult::Removed"
+  "return true"
+  "PrivateFileRemoveResult::Unsafe"
+  "impl_->failStopped = true"
+  "return false")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "bool ProfileQuarantineName(const std::string& name) noexcept"
+  dedicated_live_client_profile_quarantine_name_slice
+  "Cannot bound passive-client profile quarantine naming")
+require_ordered_fragments(dedicated_live_client_profile_quarantine_name_slice
+  "Passive-client profile quarantine names are no longer strict private pid/sequence siblings"
+  "sizeof(ProfileQuarantinePrefix) - 1"
+  "name.compare(0, prefixBytes, ProfileQuarantinePrefix) != 0"
+  "const std::size_t separator = name.find("
+  "separator == std::string::npos"
+  "for (std::size_t index = prefixBytes; index < separator; ++index)"
+  "return false"
+  "for (std::size_t index = separator + 1; index < name.size(); ++index)"
+  "return false"
+  "return true")
+foreach(dedicated_live_client_profile_quarantine_literal IN ITEMS
+    "name.find('.', prefixBytes)"
+    "name[index] < '0' || name[index] > '9'")
+  string(FIND "${dedicated_live_client_scratch_source}"
+    "${dedicated_live_client_profile_quarantine_literal}"
+    dedicated_live_client_profile_quarantine_literal_position)
+  if(dedicated_live_client_profile_quarantine_literal_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive-client profile quarantine grammar lost '${dedicated_live_client_profile_quarantine_literal}'")
+  endif()
+endforeach()
+
+set(dedicated_live_client_campaign_scan_marker
+  "CampaignDirectoryScan ScanCampaignDirectory(\n\tconst std::filesystem::path& campaignDirectory,\n\tconst std::filesystem::path& profileDirectory) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "${dedicated_live_client_campaign_scan_marker}"
+  dedicated_live_client_campaign_scan_slice
+  "Cannot bound passive-client outer campaign directory scan")
+require_ordered_fragments(dedicated_live_client_campaign_scan_slice
+  "Passive-client campaign scan no longer accepts private quarantines only behind established identity"
+  "bool identityPresent = false"
+  "bool checkpointPresent = false"
+  "bool credentialStatePresent = false"
+  "bool profileQuarantinePresent = false"
+  "name == CampaignIdentityFileName"
+  "identityPresent = true"
+  "name == CheckpointAFileName || name == CheckpointBFileName"
+  "checkpointPresent = true"
+  "name == ReconnectCredentialFileName"
+  "name == RetiredReconnectCredentialFileName"
+  "name == ReconnectCredentialStagingFileName"
+  "credentialStatePresent = true"
+  "ProfileQuarantineName(name)"
+  "SafePrivateDirectoryPath(path)"
+  "profileQuarantinePresent = true"
+  "return CampaignDirectoryScan::Unsafe"
+  "if (identityPresent) return CampaignDirectoryScan::IdentityPresent"
+  "checkpointPresent || credentialStatePresent"
+  "profileQuarantinePresent"
+  "return CampaignDirectoryScan::Unsafe"
+  "return CampaignDirectoryScan::CleanWithoutIdentity")
+
+set(dedicated_live_client_scratch_prepare_marker
+  "FullEngineCoopClientCampaignScratchPrepareResult\nFullEngineCoopClientCampaignScratch::prepare(\n\tconst std::filesystem::path& absoluteStateRoot,\n\tconst CoopCampaignBootstrapDescriptor& bootstrap) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "${dedicated_live_client_scratch_prepare_marker}"
+  dedicated_live_client_scratch_prepare_slice
+  "Cannot bound passive-client campaign scratch preparation")
+require_ordered_fragments(dedicated_live_client_scratch_prepare_slice
+  "Passive-client scratch no longer validates outer identity before atomically replacing disposable VFS state"
+  "IsValidCoopCampaignBootstrapDescriptor(bootstrap)"
+  "ZeroDigest(bootstrap.campaignIdentitySha256)"
+  "prepared->backend.open("
+  "DerivedCampaignId(bootstrap.campaignIdentitySha256)"
+  "ScanCampaignDirectory("
+  "ValidateOrCreateIdentityFile("
+  "bootstrap.campaignIdentitySha256"
+  "IdentityFileResult::Mismatch"
+  "IdentityFileResult::Unsafe"
+  "identity != IdentityFileResult::Ready"
+  "RemovePrivateFile("
+  "ReconnectCredentialStagingFileName"
+  "prepared->backend.profileDirectoryState()"
+  "DedicatedCampaignProfileDirectoryState::Failure"
+  "DedicatedCampaignProfileDirectoryState::NonEmpty"
+  "prepared->backend.recoverProfileForNewCampaign()"
+  "DedicatedCampaignProfileRecoveryResult::CommittedStatePresent"
+  "reset != DedicatedCampaignProfileRecoveryResult::Ready"
+  "ProfileAllowlist(prepared->backend.profileDirectory(), false"
+  "!profileEmpty"
+  "new DedicatedCampaignSaveAdapter("
+  "prepared->adapter->prepareLogicalScratchFiles()"
+  "ProfileAllowlist(prepared->backend.profileDirectory(), true"
+  "prepared->bootstrap = bootstrap"
+  "impl_ = std::move(prepared)"
+  "FullEngineCoopClientCampaignScratchPrepareResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "FullEngineCoopClientCampaignScratch::begin(\n\tconst CoopCampaignSyncMetadata& metadata) noexcept"
+  dedicated_live_client_scratch_begin_slice
+  "Cannot bound full-engine co-op client scratch begin")
+require_ordered_fragments(dedicated_live_client_scratch_begin_slice
+  "Client scratch reconnect/rollback checkpoint gate changed"
+  "metadata.transfer.checkpointGeneration < impl_->activeGeneration"
+  "metadata.transfer.checkpointGeneration == impl_->activeGeneration"
+  "!SameCheckpointMetadata(metadata, impl_->activeMetadata)"
+  "AbortTransfer(*impl_)"
+  "OtherSlot(impl_->activeSlot)"
+  "OpenFreshStaging(*impl_, stagingSlot)"
+  "impl_->stagingMetadata = metadata"
+  "impl_->transferActive = true"
+  "return FullEngineCoopCampaignScratchBeginResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_client_scratch_code
+  "FullEngineCoopClientCampaignScratch::commitAndLoad(\n\tconst CoopCampaignSyncMetadata& metadata) noexcept"
+  dedicated_live_client_scratch_commit_slice
+  "Cannot bound full-engine co-op client scratch commit")
+require_ordered_fragments(dedicated_live_client_scratch_commit_slice
+  "Client scratch exact reconnect metadata publication changed"
+  "SameMetadata(metadata, impl_->stagingMetadata)"
+  "HashNativeFile("
+  "digest != metadata.transfer.checkpointSha256"
+  "ValidateDedicatedCampaignGame(impl_->stagingSlot)"
+  "LoadDedicatedCampaignGame(impl_->stagingSlot)"
+  "impl_->activeSlot = impl_->stagingSlot"
+  "impl_->activeGeneration = metadata.transfer.checkpointGeneration"
+  "impl_->activeMetadata = metadata"
+  "impl_->hasActive = true"
+  "ClearTransfer(*impl_)"
+  "return FullEngineCoopCampaignScratchCommitResult::Committed")
+
+set(dedicated_live_client_prepare_marker
+  "bool FullEngineCoopClientRuntime::prepareEarly(\n\tCancellationRequested cancellationRequested) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "${dedicated_live_client_prepare_marker}"
+  dedicated_live_client_prepare_slice
+  "Cannot bound full-engine co-op client early preparation")
+require_ordered_fragments(dedicated_live_client_prepare_slice
+  "Full-engine co-op client bootstrap/lease/random ordering changed"
+  "impl_->lifecycle.prepared()"
+  "IsFullEngineCoopClientProcess()"
+  "GetFullEngineCoopClientOptions()"
+  "FullEngineCoopClientBootstrapTransport bootstrap"
+  "FullEngineCoopClientBootstrapTransportConfiguration wire"
+  "bootstrap.connect(wire)"
+  "cancellationRequested()"
+  "bootstrap.stop()"
+  "bootstrap.poll()"
+  "FullEngineCoopClientBootstrapTransportState::Complete"
+  "bootstrap.descriptor(descriptor)"
+  "IsValidCoopCampaignBootstrapDescriptor(descriptor)"
+  "std::filesystem::u8path("
+  "!stateRoot.is_absolute()"
+  "impl_->scratch.prepare(stateRoot, descriptor)"
+  "InstallGameSimulationRandom(descriptor.campaignSeed)"
+  "impl_->descriptor = descriptor"
+  "impl_->lifecycle.markPrepared()"
+  "return true")
+foreach(dedicated_live_client_prepare_forbidden IN ITEMS
+    "std::make_unique<Impl::Composition>"
+    "impl_->startTransport()"
+    "getVFS()"
+    "compatibilityFingerprint()")
+  string(FIND "${dedicated_live_client_prepare_slice}"
+    "${dedicated_live_client_prepare_forbidden}"
+    dedicated_live_client_prepare_forbidden_position)
+  if(NOT dedicated_live_client_prepare_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Client early preparation crossed the post-package boundary with '${dedicated_live_client_prepare_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_client_manifest_capture_marker
+  "bool FullEngineCoopClientRuntime::captureContentManifestAfterPackageMount()\n\tnoexcept")
+string(FIND "${dedicated_live_client_runtime_header_code}"
+  "bool captureContentManifestAfterPackageMount() noexcept;"
+  dedicated_live_client_manifest_capture_api_position)
+if(dedicated_live_client_manifest_capture_api_position EQUAL -1)
+  message(FATAL_ERROR
+    "Full-engine co-op client runtime lost its explicit post-package manifest API")
+endif()
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "${dedicated_live_client_manifest_capture_marker}"
+  dedicated_live_client_manifest_capture_slice
+  "Cannot bound full-engine co-op client post-package content-manifest capture")
+require_ordered_fragments(dedicated_live_client_manifest_capture_slice
+  "Full-engine co-op client content manifest is no longer captured, verified, and cached before legacy initialization"
+  "impl_ == nullptr"
+  "!impl_->lifecycle.prepared()"
+  "impl_->lifecycle.networkOpen()"
+  "impl_->lifecycle.failed()"
+  "impl_->composition"
+  "impl_->contentManifestCaptured"
+  "getVFS()"
+  "ComputeDedicatedContentManifestFromVfs(*fileSystem, content)"
+  "manifestResult != DedicatedContentManifestError::None"
+  "DedicatedContentManifestErrorName(manifestResult)"
+  "FullEngineCoopClientRuntimeError::ContentManifestFailed"
+  "content != impl_->descriptor.contentManifestSha256"
+  "FullEngineCoopClientRuntimeError::CompatibilityMismatch"
+  "impl_->contentManifest = content"
+  "impl_->contentManifestCaptured = true"
+  "return true")
+
+set(dedicated_live_client_open_marker
+  "bool FullEngineCoopClientRuntime::openAfterPackageBootstrap(\n\tGameContext& context) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "${dedicated_live_client_open_marker}" dedicated_live_client_open_slice
+  "Cannot bound full-engine co-op client late composition open")
+require_ordered_fragments(dedicated_live_client_open_slice
+  "Full-engine co-op client content/fingerprint/network ordering changed"
+  "impl_->lifecycle.prepared()"
+  "!impl_->contentManifestCaptured"
+  "impl_->lifecycle.networkOpen()"
+  "context.runtime().compatibilityFingerprint()"
+  "fingerprint != impl_->descriptor.runtimeFingerprint"
+  "impl_->scratch.loadReconnectCredential(restoredCredential)"
+  "FullEngineCoopReconnectCredentialLoadResult::Retired"
+  "impl_->lifecycle.markDurablyRetired()"
+  "return true"
+  "FullEngineCoopReconnectCredentialLoadResult::StaleSession"
+  "impl_->scratch.eraseStaleReconnectCredential()"
+  "ReconnectCredentialLoadFailed"
+  "FullEngineCoopReconnectCredentialLoadResult::Missing"
+  "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+  "FullEngineCoopClientRuntimeError::ReconnectCredentialLoadFailed"
+  "std::make_unique<Impl::Composition>(*impl_)"
+  "client.protocolVersion = impl_->descriptor.protocolVersion"
+  "client.runtimeFingerprint = impl_->descriptor.runtimeFingerprint"
+  "client.contentManifestSha256 ="
+  "impl_->descriptor.contentManifestSha256"
+  "client.expectedSessionEpoch = impl_->descriptor.sessionEpoch"
+  "client.durableReconnectCredentialRequired = true"
+  "impl_->composition->client.configure(client)"
+  "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+  "impl_->composition->client.restoreReconnectCredential("
+  "restoredCredential"
+  "FullEngineCoopClientRuntimeError::ReconnectCredentialRestoreFailed"
+  "impl_->startTransport()"
+  "impl_->lifecycle.markNetworkOpen()"
+  "impl_->reconnectAttempts = 0"
+  "return true")
+foreach(dedicated_live_client_open_forbidden IN ITEMS
+    "getVFS()"
+    "ComputeDedicatedContentManifestFromVfs("
+    "DedicatedContentManifestSha256 content"
+    "content != impl_->descriptor.contentManifestSha256")
+  string(FIND "${dedicated_live_client_open_slice}"
+    "${dedicated_live_client_open_forbidden}"
+    dedicated_live_client_open_forbidden_position)
+  if(NOT dedicated_live_client_open_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client late open recomputes installed content via '${dedicated_live_client_open_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "class ReplicaGate final :\n\t\tpublic CoopSession::FullEngineCoopPassiveReplicaSink"
+  dedicated_live_client_replica_gate_slice
+  "Cannot bound full-engine co-op client passive replica gate")
+require_ordered_fragments(dedicated_live_client_replica_gate_slice
+  "Full-engine co-op tactical state no longer waits for campaign Ready"
+  "applyBaseline("
+  "campaign_.state() !="
+  "FullEngineCoopCampaignSyncClientState::Ready"
+  "TacticalBeforeCampaignReady"
+  "FullEngineCoopReplicaApplyResult::Rejected"
+  "replica_.applyBaseline(baseline)"
+  "applyDelta("
+  "campaign_.state() !="
+  "FullEngineCoopCampaignSyncClientState::Ready"
+  "TacticalBeforeCampaignReady"
+  "FullEngineCoopReplicaApplyResult::Rejected"
+  "replica_.applyDelta(delta)")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "class CampaignSink final :\n\t\tpublic CoopSession::FullEngineCoopClientCampaignSyncSink"
+  dedicated_live_client_campaign_sink_slice
+  "Cannot bound full-engine co-op client campaign sink")
+require_ordered_fragments(dedicated_live_client_campaign_sink_slice
+  "Full-engine co-op client same-poll campaign binding changed"
+  "receiveCampaignMetadata("
+  "ensureSession()"
+  "campaign_.receiveMetadata(bytes, size)"
+  "receiveCampaignChunk("
+  "ensureSession()"
+  "campaign_.receiveChunk(bytes, size)"
+  "receiveCampaignComplete("
+  "ensureSession()"
+  "campaign_.receiveComplete(bytes, size)"
+  "receiveCampaignReject("
+  "ensureSession()"
+  "campaign_.receiveReject(bytes, size)"
+  "bool ensureSession() noexcept"
+  "FullEngineCoopCampaignSyncClientState::Disconnected"
+  "FullEngineCoopClientState::AwaitingBaseline"
+  "FullEngineCoopClientState::Active"
+  "client_.hasReconnectCredential()"
+  "client_.sessionEpoch() != owner_.descriptor.sessionEpoch"
+  "campaign_.beginSession("
+  "owner_.descriptor, client_.peerIdentity()")
+
+set(dedicated_live_client_pump_marker
+  "void FullEngineCoopClientRuntime::pumpAfterCommittedFrame() noexcept")
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "${dedicated_live_client_pump_marker}" dedicated_live_client_pump_slice
+  "Cannot bound full-engine co-op client committed-boundary pump")
+require_ordered_fragments(dedicated_live_client_pump_slice
+  "Full-engine co-op client poll/sync/readiness/reconnect ordering changed"
+  "live.transport.poll()"
+  "impl_->pendingError"
+  "live.client.sessionEpoch() != impl_->descriptor.sessionEpoch"
+  "FullEngineCoopClientState::Failed"
+  "FullEngineCoopCampaignSyncClientState::Failed"
+  "FullEngineCoopCampaignSyncClientState::Rejected"
+  "if (impl_->lifecycle.failed())"
+  "stopTransport()"
+  "FullEngineCoopCampaignSyncClientState::Disconnected"
+  "FullEngineCoopClientState::AwaitingBaseline"
+  "FullEngineCoopClientState::Active"
+  "live.campaignSink.ensureSession()"
+  "live.campaign.hasPendingOutbound()"
+  "live.campaign.flushOutbound()"
+  "impl_->lifecycle.markCampaignReady(live.campaign.state() =="
+  "FullEngineCoopCampaignSyncClientState::Ready"
+  "live.transport.running()"
+  "impl_->retireCampaignConnection()"
+  "const bool credentialsRetained ="
+  "live.client.hasReconnectCredential()"
+  "const bool reconnectAllowed = impl_->lifecycle.reconnectAllowed("
+  "live.client.sessionEpoch() == impl_->descriptor.sessionEpoch"
+  "credentialsRetained, impl_->reconnectAttempts"
+  "MaximumReconnectAttempts"
+  "if (!reconnectAllowed)"
+  "FullEngineCoopClientRuntimeError::ReconnectLimitReached"
+  "stopTransport()"
+  "impl_->reconnectAttempts !="
+  "(std::numeric_limits<unsigned>::max)()"
+  "++impl_->reconnectAttempts"
+  "impl_->startTransport()")
+string(REGEX MATCHALL "[.]reconnectAllowed\\("
+  dedicated_live_client_pump_reconnect_gate_calls
+  "${dedicated_live_client_pump_slice}")
+list(LENGTH dedicated_live_client_pump_reconnect_gate_calls
+  dedicated_live_client_pump_reconnect_gate_call_count)
+if(NOT dedicated_live_client_pump_reconnect_gate_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "Full-engine co-op client pump must use exactly one reconnect policy gate")
+endif()
+require_ordered_fragments(dedicated_live_client_pump_slice
+  "Committed client pump no longer turns durable core retirement into clean stopped transport"
+  "live.client.state() =="
+  "FullEngineCoopClientState::Retired"
+  "impl_->lifecycle.markRetired()"
+  "stopTransport()"
+  "return")
+
+extract_brace_bounded_slice(dedicated_live_client_screen_header_code
+  "class FullEngineCoopClientRetirementConfirmation final"
+  dedicated_live_client_retirement_confirmation_slice
+  "Cannot bound passive client retirement confirmation ledger")
+require_ordered_fragments(dedicated_live_client_retirement_confirmation_slice
+  "Retirement UI lost physical-release two-step confirmation"
+  "FrameBudget = 180"
+  "bool pressLeave(std::uint64_t frame) noexcept"
+  "state_ == State::Armed"
+  "cancel()"
+  "return true"
+  "state_ == State::Idle"
+  "state_ = State::AwaitRelease"
+  "return false"
+  "void releaseLeave(std::uint64_t frame) noexcept"
+  "state_ == State::AwaitRelease"
+  "state_ = State::Armed"
+  "void advance(std::uint64_t frame) noexcept"
+  "frame > deadline_"
+  "cancel()")
+string(REGEX MATCHALL "while[ \t\r\n]*[(]DequeueEvent[(]&event[)][)]"
+  dedicated_live_client_screen_fifo_drains
+  "${dedicated_live_client_screen_code}")
+list(LENGTH dedicated_live_client_screen_fifo_drains
+  dedicated_live_client_screen_fifo_drain_count)
+if(NOT dedicated_live_client_screen_fifo_drain_count EQUAL 2)
+  message(FATAL_ERROR
+    "Passive co-op client must fully drain input in both waiting and presentation states")
+endif()
+foreach(dedicated_live_client_retirement_ui_test_contract IN ITEMS
+    "TestRetirementConfirmationRequiresReleaseAndSecondPress()"
+    "first leave down waits for a physical key release"
+    "queued or repeated leave downs cannot confirm retirement"
+    "only a later leave down confirms once"
+    "bounded frame expiry cancels an abandoned confirmation prompt"
+    "TestRetiredLifecycleStopsWithoutFailureOrReconnect()"
+    "durable retired marker terminates a restart before network open")
+  string(FIND "${dedicated_live_client_runtime_test_source}"
+    "${dedicated_live_client_retirement_ui_test_contract}"
+    dedicated_live_client_retirement_ui_test_contract_position)
+  if(dedicated_live_client_retirement_ui_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive client retirement lifecycle/UI regression lost '${dedicated_live_client_retirement_ui_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "void FullEngineCoopClientRuntime::stopTransport() noexcept"
+  dedicated_live_client_stop_transport_slice
+  "Cannot bound full-engine co-op client transport teardown")
+require_ordered_fragments(dedicated_live_client_stop_transport_slice
+  "Full-engine co-op client transport teardown ordering changed"
+  "live.transport.stop(LiveTransportDrainMilliseconds)"
+  "impl_->retireCampaignConnection()"
+  "impl_->composition.reset()"
+  "impl_->lifecycle.markTransportStopped()"
+  "impl_->reconnectScheduled = false")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "void FullEngineCoopClientRuntime::closeAfterVfs() noexcept"
+  dedicated_live_client_close_after_vfs_slice
+  "Cannot bound full-engine co-op client lease teardown")
+require_ordered_fragments(dedicated_live_client_close_after_vfs_slice
+  "Full-engine co-op client lease teardown ordering changed"
+  "if (impl_->composition) stopTransport()"
+  "impl_->scratch.close()"
+  "impl_->lifecycle.markLeaseClosed()")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "bool FullEngineCoopClientRuntime::campaignReady() const noexcept"
+  dedicated_live_client_campaign_ready_slice
+  "Cannot bound full-engine co-op client observable Ready state")
+require_ordered_fragments(dedicated_live_client_campaign_ready_slice
+  "Full-engine co-op client must expose Ready only after committed sync"
+  "impl_->lifecycle.campaignReady()"
+  "impl_->composition != nullptr"
+  "impl_->composition->campaign.state()"
+  "FullEngineCoopCampaignSyncClientState::Ready")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "FullEngineCoopClientRuntime::snapshotReplica() const noexcept"
+  dedicated_live_client_snapshot_replica_slice
+  "Cannot bound full-engine co-op client snapshot access")
+require_ordered_fragments(dedicated_live_client_snapshot_replica_slice
+  "Full-engine co-op client snapshot access lost Ready plus Active gating"
+  "impl_->composition != nullptr"
+  "impl_->lifecycle.snapshotPublishable("
+  "impl_->composition->client.state() =="
+  "FullEngineCoopClientState::Active"
+  "&impl_->composition->replica"
+  "nullptr")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "bool FullEngineCoopClientRuntime::presentationView(\n\tFullEngineCoopClientPresentationView& output) const noexcept"
+  dedicated_live_client_presentation_view_slice
+  "Cannot bound full-engine co-op client presentation view")
+require_ordered_fragments(dedicated_live_client_presentation_view_slice
+  "Full-engine co-op presentation must borrow only committed passive state"
+  "output = FullEngineCoopClientPresentationView{}"
+  "snapshotReplica()"
+  "replica == nullptr"
+  "!replica->hasSnapshot()"
+  "output.snapshot = &replica->snapshot()"
+  "client.assignedActorCount()"
+  "client.assignedActor(index)"
+  "client.outstandingCommandId()"
+  "client.acceptedState()"
+  "client.hasLastIntentReceipt()"
+  "client.lastIntentReceipt()"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "FullEngineCoopClientRuntime::sendIntent(\n\tTacticalEntityId actor,\n\tconst CoopSession::TacticalIntentPayload& payload) noexcept"
+  dedicated_live_client_send_intent_slice
+  "Cannot bound full-engine co-op client intent facade")
+require_ordered_fragments(dedicated_live_client_send_intent_slice
+  "Full-engine co-op intent facade lost Ready/Active replica gating"
+  "snapshotReplica() == nullptr"
+  "FullEngineCoopClientResult::InvalidState"
+  "impl_->composition->client.sendIntent(actor, payload)")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientIntentRequest FullEngineCoopClientController::request(\n\tconst FullEngineCoopClientControllerView& view,\n\tconst CoopSession::TacticalIntentPayload& payload) const noexcept"
+  dedicated_live_client_controller_request_slice
+  "Cannot bound worldless co-op client request construction")
+require_ordered_fragments(dedicated_live_client_controller_request_slice
+  "Worldless client controller must emit only selected assigned actor values"
+  "if (!actionsEnabled(view)) return {}"
+  "output.actor = selectedActor_"
+  "output.payload = payload"
+  "output.valid = true")
+
+# The worldless client offers one allocation-free direct movement calculation.
+# Arrow keys use the isometric row/column diagonals only outside modal input;
+# selection moves to Tab/]/[, numeric M remains available, and neither helper
+# nor screen predicts a committed replica position.
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientController::submitRelativeMove(\n\tconst FullEngineCoopClientControllerView& view,\n\tint deltaRow, int deltaColumn,\n\tstd::uint16_t movementMode) const noexcept"
+  dedicated_live_client_relative_move_slice
+  "Cannot bound passive client direct relative movement")
+require_ordered_fragments(dedicated_live_client_relative_move_slice
+  "Passive direct movement lost exact bounds or typed non-predictive request construction"
+  "!actionsEnabled(view)"
+  "deltaRow < -1 || deltaRow > 1"
+  "deltaColumn < -1 || deltaColumn > 1"
+  "deltaRow == 0 && deltaColumn == 0"
+  "view.snapshot->find(selectedActor_)"
+  "view.snapshot->dimensions()"
+  "!dimensions.valid()"
+  "!dimensions.contains(actor->grid)"
+  "currentRow = actor->grid / columns"
+  "currentColumn = actor->grid % columns"
+  "targetRow = currentRow + deltaRow"
+  "targetColumn = currentColumn + deltaColumn"
+  "targetRow < 0 || targetRow >= rows"
+  "targetColumn < 0"
+  "targetColumn >= columns"
+  "targetGrid = targetRow * columns + targetColumn"
+  "!dimensions.contains(targetGrid)"
+  "MoveTacticalIntent"
+  "targetGrid, movementMode, false")
+foreach(dedicated_live_client_relative_move_allocation IN ITEMS
+    "new "
+    "std::vector"
+    "std::string"
+    "push_back("
+    "reserve(")
+  string(FIND "${dedicated_live_client_relative_move_slice}"
+    "${dedicated_live_client_relative_move_allocation}"
+    dedicated_live_client_relative_move_allocation_position)
+  if(NOT dedicated_live_client_relative_move_allocation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive direct movement regained allocation '${dedicated_live_client_relative_move_allocation}'")
+  endif()
+endforeach()
+foreach(dedicated_live_client_direct_input_contract IN ITEMS
+    "case ']'"
+    "Controller.selectNext(view)"
+    "case '['"
+    "Controller.selectPrevious(view)"
+    "SubmitRelativeMove(presentation, view, -1, -1)"
+    "SubmitRelativeMove(presentation, view, 1, 1)"
+    "SubmitRelativeMove(presentation, view, 1, -1)"
+    "SubmitRelativeMove(presentation, view, -1, 1)"
+    "Controller.beginDestinationEntry(view)"
+    "Arrows move"
+    "[ prev actor, Tab/] next"
+    "M grid")
+  string(FIND "${dedicated_live_client_screen_source}"
+    "${dedicated_live_client_direct_input_contract}"
+    dedicated_live_client_direct_input_contract_position)
+  if(dedicated_live_client_direct_input_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive direct movement/selection UI lost '${dedicated_live_client_direct_input_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_client_relative_move_test_contract IN ITEMS
+    "TestRelativeMoveProducesEveryAdjacentPayload()"
+    "{-1, -1, 6, \"up-arrow delta maps to the isometric upper tile\"}"
+    "{1, 1, 18, \"down-arrow delta maps to the isometric lower tile\"}"
+    "{1, -1, 16, \"left-arrow delta maps to the isometric left tile\"}"
+    "{-1, 1, 8, \"right-arrow delta maps to the isometric right tile\"}"
+    "relative move requests never predict movement into the replica"
+    "TestRelativeMoveRejectsEdgesAndRowWrapping()"
+    "row-start movement cannot wrap to the previous row"
+    "row-end movement cannot wrap to the next row"
+    "TestRelativeMoveFailsClosedForInvalidState()"
+    "zero and out-of-range relative deltas are rejected"
+    "outstanding command lock rejects relative movement"
+    "another team's active turn rejects relative movement"
+    "a default snapshot with zero dimensions rejects relative movement"
+    "current grid outside dimensions rejects relative movement")
+  string(FIND "${dedicated_live_client_controller_test_source}"
+    "${dedicated_live_client_relative_move_test_contract}"
+    dedicated_live_client_relative_move_test_contract_position)
+  if(dedicated_live_client_relative_move_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive direct movement regression lost '${dedicated_live_client_relative_move_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleFullEngineCoopClientScreen() noexcept"
+  dedicated_live_client_screen_slice
+  "Cannot bound worldless co-op client screen")
+require_ordered_fragments(dedicated_live_client_screen_slice
+  "Worldless co-op screen must render only the passive presentation view"
+  "GetFullEngineCoopClientRuntime()"
+  "runtime.presentationView(presentation)"
+  "Controller.synchronize(FullEngineCoopClientControllerView{})"
+  "RenderWaiting(runtime)"
+  "ControllerView(presentation)"
+  "Controller.synchronize(view)"
+  "HandleInput(presentation, view, retirementEligible)"
+  "RenderPresentation(presentation, view)")
+require_ordered_fragments(dedicated_live_client_screen_source
+  "Worldless co-op screen must drain the full passive input queue"
+  "while (DequeueEvent(&event))"
+  "if (event.usEvent != KEY_DOWN) continue")
+foreach(dedicated_live_client_screen_forbidden IN ITEMS
+    "SetCurrentWorldSector("
+    "SetPendingNewScreen("
+    "GAME_SCREEN"
+    "MAP_SCREEN"
+    "PumpJA2Clock("
+    "TacticalActor*"
+    "TacticalActor &"
+    "GetJa2SoldierRepository("
+    "DequeueSpecificEvent("
+    "frameDriver().runFrame(")
+  string(FIND "${dedicated_live_client_screen_code}"
+    "${dedicated_live_client_screen_forbidden}"
+    dedicated_live_client_screen_forbidden_position)
+  if(NOT dedicated_live_client_screen_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Worldless co-op client screen regained authoritative dependency '${dedicated_live_client_screen_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_legacy_forbidden IN ITEMS
+    "client_connect("
+    "server_connect("
+    "client_packet("
+    "server_packet("
+    "is_networked"
+    "is_client"
+    "is_server"
+    "InitNewGame("
+    "PumpJA2Clock("
+    "frameDriver().runFrame")
+  string(FIND "${dedicated_live_client_runtime_code}"
+    "${dedicated_live_client_legacy_forbidden}"
+    dedicated_live_client_legacy_forbidden_position)
+  if(NOT dedicated_live_client_legacy_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive full-engine co-op client runtime regained legacy/authoritative call '${dedicated_live_client_legacy_forbidden}'")
+  endif()
+endforeach()
+
+# SDL must be initialized before any platform subsystem probes it, while the
+# deterministic campaign random source and profile lease must exist before VFS
+# startup. Explicit SGPExit keeps reverse teardown ahead of function statics.
+extract_brace_bounded_slice(dedicated_main_code
+  "static int ProcessFailureExitStatus() noexcept"
+  dedicated_live_process_failure_status_slice
+  "Cannot bound full-engine co-op client process failure status")
+require_ordered_fragments(dedicated_live_process_failure_status_slice
+  "Full-engine co-op client failures must produce a nonzero process status"
+  "gfDedicatedServer"
+  "IsFullEngineCoopClientProcess()"
+  "? 2 : 0")
+
+extract_brace_bounded_slice(dedicated_main_code
+  "static void CloseClientAfterStoppedPlatform() noexcept"
+  dedicated_live_close_client_after_platform_slice
+  "Cannot bound pre-platform full-engine co-op client cleanup")
+require_ordered_fragments(dedicated_live_close_client_after_platform_slice
+  "Pre-platform full-engine co-op client cleanup ordering changed"
+  "IsFullEngineCoopClientProcess()"
+  "GetFullEngineCoopClientRuntime()"
+  "runtime.stopTransport()"
+  "runtime.closeAfterVfs()")
+
+extract_brace_bounded_slice(dedicated_main_code
+  "static void ShutdownClientForFatalExit() noexcept"
+  dedicated_live_client_fatal_exit_slice
+  "Cannot bound fatal full-engine co-op client cleanup")
+require_ordered_fragments(dedicated_live_client_fatal_exit_slice
+  "Fatal full-engine co-op client cleanup ordering changed"
+  "IsFullEngineCoopClientProcess()"
+  "SGPExit()"
+  "CloseClientAfterStoppedPlatform()")
+
+require_ordered_fragments(dedicated_main_slice
+  "Dedicated SDL/random/platform ordering changed"
+  "InstallDedicatedServerOptions(dedicated.options)"
+  "SDL_SetHint(SDL_HINT_VIDEO_DRIVER"
+  "SDL_SetHint(SDL_HINT_RENDER_DRIVER"
+  "SDL_SetHint(SDL_HINT_AUDIO_DRIVER"
+  "GetDedicatedCoopRuntime().prepareEarly()"
+  "SDL_Init(SDL_INIT_VIDEO)"
+  "InitializeRandom()"
+  "InitializeStandardGamingPlatform()"
+  "SGPExit()"
+  "return exitStatus")
+
+set(dedicated_live_client_early_failure_marker
+  "if (IsFullEngineCoopClientProcess() &&\n\t\t!GetFullEngineCoopClientRuntime().prepareEarly(\n\t\t\tProcessTerminationRequested))")
+extract_brace_bounded_slice(dedicated_main_slice
+  "${dedicated_live_client_early_failure_marker}"
+  dedicated_live_client_early_failure_slice
+  "Cannot bound full-engine co-op client early-preparation rollback")
+require_ordered_fragments(dedicated_live_client_early_failure_slice
+  "Full-engine co-op client early-preparation rollback changed"
+  "FullEngineCoopClientRuntimeErrorName("
+  "GetFullEngineCoopClientRuntime().error()"
+  "GetFullEngineCoopClientRuntime().closeAfterVfs()"
+  "SDL_Quit()"
+  "return 2")
+
+extract_brace_bounded_slice(dedicated_main_slice
+  "if (!HandleJA2CDCheck())" dedicated_live_client_cd_failure_slice
+  "Cannot bound pre-platform CD-check cleanup")
+require_ordered_fragments(dedicated_live_client_cd_failure_slice
+  "Pre-platform CD-check failure must release the client lease and SDL"
+  "CloseClientAfterStoppedPlatform()"
+  "IsFullEngineCoopClientProcess()"
+  "SDL_Quit()"
+  "return ProcessFailureExitStatus()")
+
+extract_brace_bounded_slice(dedicated_main_slice
+  "if (!InitializeStandardGamingPlatform())"
+  dedicated_live_client_platform_failure_slice
+  "Cannot bound platform-startup failure cleanup")
+require_ordered_fragments(dedicated_live_client_platform_failure_slice
+  "Platform startup failure must release an unowned client lease"
+  "CloseClientAfterStoppedPlatform()"
+  "return ProcessFailureExitStatus()")
+foreach(dedicated_live_sdl_hint IN ITEMS
+    "SDL_SetHint(SDL_HINT_VIDEO_DRIVER, \"dummy\")"
+    "SDL_SetHint(SDL_HINT_RENDER_DRIVER, \"software\")"
+    "SDL_SetHint(SDL_HINT_AUDIO_DRIVER, \"dummy\")")
+  string(FIND "${dedicated_main_source}" "${dedicated_live_sdl_hint}"
+    dedicated_live_sdl_hint_position)
+  if(dedicated_live_sdl_hint_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated headless SDL configuration lost '${dedicated_live_sdl_hint}'")
+  endif()
+endforeach()
+
+set(dedicated_live_vfs_init_marker
+  "bool InitializeVirtualFileSystemBoundary()")
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_live_vfs_init_marker}" dedicated_live_vfs_init_slice
+  "Cannot bound dedicated VFS initialization boundary")
+require_ordered_fragments(dedicated_live_vfs_init_slice
+  "Dedicated campaign writable VFS override ordering changed"
+  "IsDedicatedCoopProcess()"
+  "GetDedicatedCoopRuntime().profileDirectory()"
+  "profile.empty()"
+  "vfs_init::WritableProfileOverride replacement"
+  "replacement.name ="
+  "replacement.root = vfs::String(profile.c_str())"
+  "vfs_init::initVirtualFileSystem("
+  "vfs_config_ini, replacement)"
+  "if (!initialized)"
+  "ShutdownVirtualFileSystemBoundary()"
+  "s_VfsIsInitialized = true")
+extract_brace_bounded_slice(dedicated_live_vfs_init_slice
+  "else if (IsFullEngineCoopClientProcess())"
+  dedicated_live_client_vfs_override_slice
+  "Cannot bound full-engine co-op client VFS override")
+require_ordered_fragments(dedicated_live_client_vfs_override_slice
+  "Full-engine co-op client VFS profile override ordering changed"
+  "GetFullEngineCoopClientRuntime().profileDirectory()"
+  "profile.empty()"
+  "vfs_init::WritableProfileOverride replacement"
+  "replacement.name ="
+  "replacement.root = vfs::String(profile.c_str())"
+  "vfs_init::initVirtualFileSystem("
+  "vfs_config_ini, replacement)")
+string(FIND "${dedicated_main_source}" "L\"_DEDICATED_CAMPAIGN\""
+  dedicated_live_vfs_name_position)
+if(dedicated_live_vfs_name_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated campaign VFS override lost its private profile name")
+endif()
+string(FIND "${dedicated_main_source}" "L\"_COOP_CLIENT_CAMPAIGN\""
+  dedicated_live_client_vfs_name_position)
+if(dedicated_live_client_vfs_name_position EQUAL -1)
+  message(FATAL_ERROR
+    "Full-engine co-op client VFS override lost its private profile name")
+endif()
+
+foreach(dedicated_live_subsystem_priority_contract IN ITEMS
+    "SubsystemDefinition{\"dedicated campaign lease\""
+    "}, 140}"
+    "SubsystemDefinition{\"SDL\""
+    "}, 125}"
+    "SubsystemDefinition{\"dedicated co-op admission transport\""
+    "}, 124}"
+    "SubsystemDefinition{\"virtual file system\""
+    "ShutdownVirtualFileSystemBoundary, 130}"
+    "SubsystemDefinition{\"dedicated co-op tactical composition\""
+    ".detachTacticalComposition()"
+    "}, 0}}")
+  string(FIND "${dedicated_main_source}"
+    "${dedicated_live_subsystem_priority_contract}"
+    dedicated_live_subsystem_priority_contract_position)
+  if(dedicated_live_subsystem_priority_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated subsystem lifetime priority lost '${dedicated_live_subsystem_priority_contract}'")
+  endif()
+endforeach()
+
+extract_bounded_slice(dedicated_main_source
+  "SubsystemDefinition{\"full-engine co-op client campaign lease\""
+  "SubsystemDefinition{\"SDL\""
+  dedicated_live_client_lease_subsystem_slice
+  "Cannot bound full-engine co-op client lease subsystem")
+require_ordered_fragments(dedicated_live_client_lease_subsystem_slice
+  "Full-engine co-op client lease must outlive VFS and reject an unprepared start"
+  "GetFullEngineCoopClientRuntime().prepared()"
+  "GetFullEngineCoopClientRuntime().closeAfterVfs()"
+  "}, 140}")
+
+set(dedicated_live_subsystem_runtime_marker
+  "SubsystemRuntime& GetStandardGamingPlatformRuntime()")
+
+set(dedicated_live_manifest_boundary_marker
+  "bool InitializeCoopContentManifestBoundary()")
+extract_brace_bounded_slice(dedicated_main_code
+  "bool InitializePackageBoundary()"
+  dedicated_live_package_boundary_slice
+  "Cannot bound data-package subsystem boundary")
+require_ordered_fragments(dedicated_live_package_boundary_slice
+  "Data-package subsystem boundary changed"
+  "InitializeStartupDataPackages(s_packageStartupOptions)"
+  "if (packageResult) return true"
+  "throw std::runtime_error(message)")
+string(FIND "${dedicated_live_package_boundary_slice}"
+  "captureContentManifestAfterPackageMount()"
+  dedicated_live_package_capture_position)
+if(NOT dedicated_live_package_capture_position EQUAL -1)
+  message(FATAL_ERROR
+    "Installed-content capture moved inside InitializePackageBoundary instead of its own rollback-safe subsystem")
+endif()
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_live_manifest_boundary_marker}"
+  dedicated_live_manifest_boundary_slice
+  "Cannot bound co-op installed-content manifest subsystem boundary")
+require_ordered_fragments(dedicated_live_manifest_boundary_slice
+  "Co-op installed-content manifest boundary lost its dedicated/client capture routing"
+  "IsDedicatedCoopProcess()"
+  "GetDedicatedCoopRuntime()"
+  "captureContentManifestAfterPackageMount()"
+  "IsFullEngineCoopClientProcess()"
+  "GetFullEngineCoopClientRuntime()"
+  "captureContentManifestAfterPackageMount()"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_live_subsystem_runtime_marker}"
+  dedicated_live_subsystem_runtime_slice
+  "Cannot bound standard gaming platform subsystem ownership")
+require_ordered_fragments(dedicated_live_subsystem_runtime_slice
+  "Installed-content capture must be a rollback-safe subsystem after packages and before legacy/game initialization"
+  "InitializePackageBoundary"
+  "ShutdownPackageBoundary, 10"
+  "InitializeCoopContentManifestBoundary"
+  "[] {}, 5"
+  "InitializeLegacyContentBoundary"
+  "InitializeGameBoundary")
+foreach(dedicated_live_manifest_subsystem_name IN ITEMS
+    "SubsystemDefinition{\"data packages\""
+    "SubsystemDefinition{\"co-op installed content manifest\""
+    "SubsystemDefinition{\"legacy content\""
+    "SubsystemDefinition{\"game\"")
+  string(FIND "${dedicated_main_source}"
+    "${dedicated_live_manifest_subsystem_name}"
+    dedicated_live_manifest_subsystem_name_position)
+  if(dedicated_live_manifest_subsystem_name_position EQUAL -1)
+    message(FATAL_ERROR
+      "SGP startup lost '${dedicated_live_manifest_subsystem_name}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_subsystem_runtime_slice
+  "Dedicated tactical composition must detach before GameContext teardown"
+  "InitializeGameBoundary"
+  "ShutdownGameBoundary, 0"
+  "GetDedicatedCoopRuntime()"
+  ".detachTacticalComposition()"
+  "0}}")
+require_ordered_fragments(dedicated_live_subsystem_runtime_slice
+  "Full-engine co-op client composition must detach before GameContext and lease teardown"
+  "GetFullEngineCoopClientRuntime().prepared()"
+  "GetFullEngineCoopClientRuntime().closeAfterVfs()"
+  "InitializeGameBoundary"
+  "ShutdownGameBoundary, 0"
+  "GetDedicatedCoopRuntime()"
+  "detachTacticalComposition()"
+  "GetFullEngineCoopClientRuntime().stopTransport()"
+  "0}}")
+foreach(dedicated_live_client_subsystem_priority IN ITEMS
+    "GetFullEngineCoopClientRuntime().closeAfterVfs()"
+    "}, 140}"
+    "ShutdownVirtualFileSystemBoundary, 130}"
+    "SDL_Quit(); }, 125}"
+    "GetFullEngineCoopClientRuntime().stopTransport()"
+    "}, 0}}")
+  string(FIND "${dedicated_live_subsystem_runtime_slice}"
+    "${dedicated_live_client_subsystem_priority}"
+    dedicated_live_client_subsystem_priority_position)
+  if(dedicated_live_client_subsystem_priority_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client subsystem lifetime lost '${dedicated_live_client_subsystem_priority}'")
+  endif()
+endforeach()
+
+string(FIND "${dedicated_live_runtime_source}"
+  "bool DedicatedCoopRuntime::detachTacticalComposition() noexcept"
+  dedicated_live_runtime_public_detach_position)
+string(FIND "${dedicated_live_runtime_source}"
+  "return !impl_ || impl_->detachTacticalComposition();"
+  dedicated_live_runtime_public_detach_forward_position)
+if(dedicated_live_runtime_public_detach_position EQUAL -1 OR
+   dedicated_live_runtime_public_detach_forward_position EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated co-op runtime lost its public pre-GameContext detach boundary")
+endif()
+
+set(dedicated_live_sgp_init_marker
+  "}\n\nBOOLEAN InitializeStandardGamingPlatform(void)")
+extract_brace_bounded_slice(dedicated_main_code
+  "${dedicated_live_sgp_init_marker}" dedicated_live_sgp_init_slice
+  "Cannot bound standard gaming platform startup")
+require_ordered_fragments(dedicated_live_sgp_init_slice
+  "Standard gaming platform exact-once startup/exit ordering changed"
+  "GetStandardGamingPlatformRuntime()"
+  "runtime.start()"
+  "if (!result)"
+  "if (!s_ExitHandlerRegistered)"
+  "atexit(SafeSGPExit)"
+  "runtime.stop()"
+  "s_ExitHandlerRegistered = true"
+  "return TRUE")
+
+set(dedicated_live_init_marker "UINT32 InitializeJA2(void)")
+extract_brace_bounded_slice(dedicated_live_init_code
+  "${dedicated_live_init_marker}" dedicated_live_init_slice
+  "Cannot bound JA2 initialization")
+require_ordered_fragments(dedicated_live_init_slice
+  "Dedicated JA2 package/open/running ordering changed"
+  "gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime)"
+  "GetDedicatedCoopRuntime().openCampaignAfterBootstrap(gameContext)"
+  "gfDedicatedServerProcessFailed = TRUE"
+  "gfProgramIsRunning = FALSE"
+  "initialization.markRunning()")
+require_ordered_fragments(dedicated_live_init_slice
+  "Full-engine co-op client post-package composition ordering changed"
+  "gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime)"
+  "GetDedicatedCoopRuntime().openCampaignAfterBootstrap(gameContext)"
+  "IsFullEngineCoopClientProcess()"
+  "GetFullEngineCoopClientRuntime().openAfterPackageBootstrap("
+  "gameContext"
+  "FullEngineCoopClientRuntimeErrorName("
+  "GetFullEngineCoopClientRuntime().error()"
+  "gfProgramIsRunning = FALSE"
+  "return ERROR_SCREEN"
+  "initialization.markRunning()")
+
+set(dedicated_live_init_screen_marker "UINT32 InitScreenHandle(void)")
+extract_brace_bounded_slice(dedicated_live_jascreens_code
+  "${dedicated_live_init_screen_marker}" dedicated_live_init_screen_slice
+  "Cannot bound dedicated initial-screen routing")
+extract_brace_bounded_slice(dedicated_live_init_screen_slice
+  "if ( ubCurrentScreen == 255 )"
+  dedicated_live_init_screen_initial_slice
+  "Cannot bound co-op initial INIT routing")
+require_ordered_fragments(dedicated_live_init_screen_initial_slice
+  "Passive full-engine co-op client can return INTRO before InitializeJA2 opens live transport"
+  "if (IsFullEngineCoopClientProcess())"
+  "ubCurrentScreen = 0"
+  "else if( g_lang == i18n::Lang::en )"
+  "gfDoneWithSplashScreen"
+  "return( INTRO_SCREEN )")
+extract_brace_bounded_slice(dedicated_live_init_screen_slice
+  "if ( ubCurrentScreen == 2 )"
+  dedicated_live_init_screen_stage_two_slice
+  "Cannot bound co-op stage-two INIT routing")
+require_ordered_fragments(dedicated_live_init_screen_stage_two_slice
+  "Co-op INIT stage two no longer bypasses the ordinary pending main-menu transition"
+  "if (!IsDedicatedCoopProcess() && !IsFullEngineCoopClientProcess())"
+  "InitMainMenu( )"
+  "ubCurrentScreen = 3"
+  "return( INIT_SCREEN )")
+string(REGEX MATCHALL "InitMainMenu[ \t\r\n]*\\("
+  dedicated_live_init_main_menu_calls
+  "${dedicated_live_init_screen_slice}")
+list(LENGTH dedicated_live_init_main_menu_calls
+  dedicated_live_init_main_menu_call_count)
+if(NOT dedicated_live_init_main_menu_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "InitScreenHandle must retain exactly one ordinary-shell InitMainMenu call")
+endif()
+require_ordered_fragments(dedicated_live_game_init_options_header_code
+  "Installed difficulty domain no longer has exact canonical values 1 through 4"
+  "DIF_LEVEL_EASY = 1"
+  "DIF_LEVEL_MEDIUM"
+  "DIF_LEVEL_HARD"
+  "DIF_LEVEL_INSANE"
+  "MAX_DIF_LEVEL")
+extract_brace_bounded_slice(dedicated_live_game_settings_code
+  "void InitGameOptions()"
+  dedicated_live_init_game_options_slice
+  "Cannot bound canonical game-options initialization")
+require_ordered_fragments(dedicated_live_init_game_options_slice
+  "Canonical game options no longer establish a valid installed-data difficulty"
+  "memset( &gGameOptions, 0, sizeof( GAME_OPTIONS ) )"
+  "gGameOptions.ubDifficultyLevel"
+  "DIF_LEVEL_MEDIUM")
+extract_brace_bounded_slice(dedicated_live_init_screen_slice
+  "if (runtime.entry() == DedicatedCoopCampaignEntry::Create)"
+  dedicated_live_init_screen_create_slice
+  "Cannot bound dedicated new-campaign INIT branch")
+require_ordered_fragments(dedicated_live_init_screen_create_slice
+  "Dedicated new campaign no longer establishes canonical game options before installed-data initialization"
+  "InitGameOptions()"
+  "InitNewGame(FALSE)"
+  "SetLaptopExitScreen(MAP_SCREEN)"
+  "SetPendingNewScreen(MAP_SCREEN)")
+string(REGEX MATCHALL "InitGameOptions[ \t\r\n]*\\("
+  dedicated_live_init_game_options_calls
+  "${dedicated_live_init_screen_slice}")
+list(LENGTH dedicated_live_init_game_options_calls
+  dedicated_live_init_game_options_call_count)
+if(NOT dedicated_live_init_game_options_call_count EQUAL 1)
+  message(FATAL_ERROR
+    "InitScreenHandle must initialize game options exactly once inside the dedicated new-campaign branch")
+endif()
+require_ordered_fragments(dedicated_live_init_screen_slice
+  "Dedicated create/resume screen routing changed"
+  "if ( ubCurrentScreen == 2 )"
+  "!IsDedicatedCoopProcess() && !IsFullEngineCoopClientProcess()"
+  "InitMainMenu( )"
+  "if ( ubCurrentScreen == 4 )"
+  "if (IsDedicatedCoopProcess())"
+  "gGameExternalOptions.fMiniEventsEnabled = FALSE"
+  "runtime.entry() == DedicatedCoopCampaignEntry::Create"
+  "InitGameOptions()"
+  "InitNewGame(FALSE)"
+  "SetLaptopExitScreen(MAP_SCREEN)"
+  "SetPendingNewScreen(MAP_SCREEN)"
+  "runtime.requestCampaignEntry()"
+  "ubCurrentScreen = 5"
+  "return INIT_SCREEN")
+extract_brace_bounded_slice(dedicated_live_init_screen_slice
+  "if ( ubCurrentScreen == 4 )"
+  dedicated_live_init_screen_stage_four_slice
+  "Cannot bound stage-four co-op initial-screen routing")
+extract_brace_bounded_slice(dedicated_live_init_screen_stage_four_slice
+  "if (IsFullEngineCoopClientProcess())"
+  dedicated_live_client_init_screen_slice
+  "Cannot bound full-engine co-op client initial-screen routing")
+require_ordered_fragments(dedicated_live_client_init_screen_slice
+  "Full-engine co-op client initial screen must remain passive"
+  "ubCurrentScreen = 5"
+  "return INIT_SCREEN")
+foreach(dedicated_live_client_init_forbidden IN ITEMS
+    "InitNewGame("
+    "SetLaptopExitScreen("
+    "SetPendingNewScreen("
+    "requestCampaignEntry(")
+  string(FIND "${dedicated_live_client_init_screen_slice}"
+    "${dedicated_live_client_init_forbidden}"
+    dedicated_live_client_init_forbidden_position)
+  if(NOT dedicated_live_client_init_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive full-engine co-op client initial screen regained '${dedicated_live_client_init_forbidden}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_init_screen_slice
+  "Full-engine co-op client routing must suppress the ordinary new-game path"
+  "if ( ubCurrentScreen == 4 )"
+  "if (IsFullEngineCoopClientProcess())"
+  "return INIT_SCREEN"
+  "InitNewGame( FALSE )"
+  "ubCurrentScreen == 5 && IsFullEngineCoopClientProcess()"
+  "HandleFullEngineCoopClientScreen()")
+
+set(dedicated_live_game_loop_marker "void GameLoop(void)")
+extract_brace_bounded_slice(dedicated_live_gameloop_code
+  "${dedicated_live_game_loop_marker}" dedicated_live_game_loop_slice
+  "Cannot bound the full-engine game loop")
+require_ordered_fragments(dedicated_live_game_loop_slice
+  "Dedicated pre-frame command drain or committed runtime pump ordering changed"
+  "BeginJa2TacticalCommandFrame(GetGameContext())"
+  "if (IsDedicatedCoopProcess())"
+  "DrainJa2TacticalCommandsAtSafeFrame(GetGameContext())"
+  "PumpJA2Clock()"
+  "GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame)"
+  "if (IsDedicatedCoopProcess())"
+  "GetDedicatedCoopRuntime().pumpAfterCommittedFrame(GetGameContext())")
+
+extract_brace_bounded_slice(dedicated_live_gameloop_code
+  "static FramePlan PrepareFullEngineCoopClientFrame()"
+  dedicated_live_client_prepare_frame_slice
+  "Cannot bound passive full-engine co-op client presentation frame")
+require_ordered_fragments(dedicated_live_client_prepare_frame_slice
+  "Passive client presentation frame must remain INIT-only"
+  "RequestScreenTransition(NO_PENDING_SCREEN)"
+  "GetCurrentScreen() != INIT_SCREEN"
+  "RecordScreenTransition(INIT_SCREEN)"
+  "HandleRegisteredScreen(INIT_SCREEN)"
+  "requested != INIT_SCREEN"
+  "RequestScreenTransition(NO_PENDING_SCREEN)"
+  "RecordScreenTransition(INIT_SCREEN)"
+  "return FramePlan{}")
+foreach(dedicated_live_client_prepare_frame_forbidden IN ITEMS
+    "PrepareGameFrame("
+    "MouseSystemHook("
+    "ResizeWorldItems("
+    "MusicPoll("
+    "RenderRain("
+    "CheckChatPartners("
+    "UpdateFireAmbient(")
+  string(FIND "${dedicated_live_client_prepare_frame_slice}"
+    "${dedicated_live_client_prepare_frame_forbidden}"
+    dedicated_live_client_prepare_frame_forbidden_position)
+  if(NOT dedicated_live_client_prepare_frame_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive client presentation frame regained legacy mutation '${dedicated_live_client_prepare_frame_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_game_loop_slice
+  "if (IsFullEngineCoopClientProcess())"
+  dedicated_live_client_passive_game_loop_slice
+  "Cannot bound passive full-engine co-op client game-loop branch")
+require_ordered_fragments(dedicated_live_client_passive_game_loop_slice
+  "Passive full-engine co-op client render/pump/failure ordering changed"
+  "const FramePlan plan = PrepareFullEngineCoopClientFrame()"
+  "if (plan.present)"
+  "GetGameContext().services().frames.present("
+  "plan.presentationMode"
+  "++guiGameCycleCounter"
+  "GetFullEngineCoopClientRuntime()"
+  "runtime.pumpAfterCommittedFrame()"
+  "if (runtime.failed())"
+  "FullEngineCoopClientRuntimeErrorName(runtime.error())"
+  "gfProgramIsRunning = FALSE"
+  "return")
+foreach(dedicated_live_client_frame_forbidden IN ITEMS
+    "PrepareGameFrame("
+    "BeginJa2TacticalCommandFrame("
+    "DrainJa2TacticalCommandsAtSafeFrame("
+    "UpdateJa2TacticalWorldObserverAtSafeFrame("
+    "PumpJA2Clock("
+    "frameDriver().runFrame("
+    "CompleteGameFrame("
+    "runtimeMessages("
+    "simulationTicks(")
+  string(FIND "${dedicated_live_client_passive_game_loop_slice}"
+    "${dedicated_live_client_frame_forbidden}"
+    dedicated_live_client_frame_forbidden_position)
+  if(NOT dedicated_live_client_frame_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive full-engine co-op client frame regained authoritative work '${dedicated_live_client_frame_forbidden}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_game_loop_slice
+  "Passive client branch must return before authoritative frame dispatch"
+  "if (IsFullEngineCoopClientProcess())"
+  "runtime.pumpAfterCommittedFrame()"
+  "return"
+  "BeginJa2TacticalCommandFrame(GetGameContext())"
+  "PumpJA2Clock()"
+  "GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame)")
+string(REGEX MATCHALL
+  "GetFullEngineCoopClientRuntime[(][)]"
+  dedicated_live_client_runtime_accesses_in_game_loop
+  "${dedicated_live_game_loop_slice}")
+list(LENGTH dedicated_live_client_runtime_accesses_in_game_loop
+  dedicated_live_client_runtime_access_count_in_game_loop)
+string(REGEX MATCHALL
+  "pumpAfterCommittedFrame[(][)]"
+  dedicated_live_client_pumps_in_game_loop
+  "${dedicated_live_game_loop_slice}")
+list(LENGTH dedicated_live_client_pumps_in_game_loop
+  dedicated_live_client_pump_count_in_game_loop)
+if(NOT dedicated_live_client_runtime_access_count_in_game_loop EQUAL 1 OR
+   NOT dedicated_live_client_pump_count_in_game_loop EQUAL 1)
+  message(FATAL_ERROR
+    "Full-engine co-op client runtime must have one isolated passive-frame pump")
+endif()
+
+set(dedicated_live_context_marker "GameContext& ComposeGameContext()")
+extract_brace_bounded_slice(dedicated_live_game_context_code
+  "${dedicated_live_context_marker}" dedicated_live_context_slice
+  "Cannot bound application GameContext composition")
+require_ordered_fragments(dedicated_live_context_slice
+  "GameContext no longer derives all campaign randomness from the installed source"
+  "RandomSource& gameRandom = GetGameRandomSource()"
+  "dynamic_cast<SimulationRandom*>(&gameRandom)"
+  "static GameContext context("
+  "EngineServices{GetPlatformTimeSource(), gameRandom"
+  "simulationRandom ? simulationRandom->campaignSeed() : 0"
+  "context.enableCampaignSimulation()")
+foreach(dedicated_live_campaign_simulation_contract IN ITEMS
+    "SimulationTickSinkRegistrationError enableCampaignSimulation()"
+    "runtime_.simulationTicks().addSinkBefore("
+    "campaignSimulation_, runtime_.packages()"
+    "campaignSimulationRegistered_ = true"
+    "bool campaignSimulationEnabled() const"
+    "return campaignSimulationRegistered_")
+  string(FIND "${dedicated_live_game_context_header_code}"
+    "${dedicated_live_campaign_simulation_contract}"
+    dedicated_live_campaign_simulation_contract_position)
+  if(dedicated_live_campaign_simulation_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign simulation registration lost '${dedicated_live_campaign_simulation_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_campaign_simulation_test_contract IN ITEMS
+    "!context.campaignSimulationEnabled()"
+    "compiledContext.campaignSimulationEnabled()")
+  string(FIND "${dedicated_live_headless_test_code}"
+    "${dedicated_live_campaign_simulation_test_contract}"
+    dedicated_live_campaign_simulation_test_contract_position)
+  if(dedicated_live_campaign_simulation_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign simulation registration test lost '${dedicated_live_campaign_simulation_test_contract}'")
+  endif()
+endforeach()
+
+# The production SDL3_net listener registers only the isolated handshake and
+# bounded tactical ingress names. Keep the data-free handshake/client and the
+# main-thread tactical server/JA2 host composition independently reviewable;
+# legacy arena RPC/self-connect/file-transfer calls remain outside this path.
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopHandshakeProtocol.h"
+  dedicated_live_handshake_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopHandshakeProtocol.cpp"
+  dedicated_live_handshake_source)
+file(READ "${SOURCE_ROOT}/tests/coop_handshake_protocol_tests.cpp"
+  dedicated_live_handshake_test_source)
+file(READ "${SOURCE_ROOT}/tests/coop_campaign_bootstrap_protocol_tests.cpp"
+  dedicated_live_campaign_bootstrap_protocol_test_source)
+file(READ "${SOURCE_ROOT}/tests/coop_campaign_sync_protocol_tests.cpp"
+  dedicated_live_campaign_sync_protocol_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopAdmissionListener.h"
+  dedicated_live_listener_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopAdmissionListener.cpp"
+  dedicated_live_listener_source)
+file(READ
+  "${SOURCE_ROOT}/tests/full_engine_coop_admission_listener_tests.cpp"
+  dedicated_live_listener_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopAdmission.h"
+  dedicated_live_admission_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopAdmission.cpp"
+  dedicated_live_admission_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopIngress.h"
+  dedicated_live_ingress_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopIngress.cpp"
+  dedicated_live_ingress_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/SdlNetTransport.h"
+  dedicated_live_transport_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/SdlNetTransport.cpp"
+  dedicated_live_transport_source)
+file(READ "${SOURCE_ROOT}/tests/mp_sdl_net_transport_tests.cpp"
+  dedicated_live_transport_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/OsAdmissionTokenSource.h"
+  dedicated_live_token_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/OsAdmissionTokenSource.cpp"
+  dedicated_live_token_source)
+file(READ "${SOURCE_ROOT}/tests/os_admission_token_source_tests.cpp"
+  dedicated_live_token_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalProtocol.h"
+  dedicated_live_tactical_protocol_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalProtocol.cpp"
+  dedicated_live_tactical_protocol_source)
+file(READ "${SOURCE_ROOT}/tests/coop_tactical_protocol_tests.cpp"
+  dedicated_live_tactical_protocol_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopServerSession.h"
+  dedicated_live_server_session_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopServerSession.cpp"
+  dedicated_live_server_session_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_server_session_tests.cpp"
+  dedicated_live_server_session_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopTacticalServer.h"
+  dedicated_live_tactical_server_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopTacticalServer.cpp"
+  dedicated_live_tactical_server_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_tactical_server_tests.cpp"
+  dedicated_live_tactical_server_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClient.h"
+  dedicated_live_client_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClient.cpp"
+  dedicated_live_client_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_tests.cpp"
+  dedicated_live_client_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClientTransport.h"
+  dedicated_live_client_transport_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopClientTransport.cpp"
+  dedicated_live_client_transport_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_transport_tests.cpp"
+  dedicated_live_client_transport_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTacticalHost.h"
+  dedicated_live_tactical_host_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTacticalHost.cpp"
+  dedicated_live_tactical_host_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTacticalJa2LiveState.cpp"
+  dedicated_live_tactical_ja2_state_source)
+file(READ "${SOURCE_ROOT}/Ja2/TacticalCommandHost.cpp"
+  dedicated_live_tactical_command_host_source)
+file(READ "${SOURCE_ROOT}/tests/dedicated_coop_tactical_host_tests.cpp"
+  dedicated_live_tactical_host_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopSessionProtocol.h"
+  dedicated_live_session_protocol_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopSessionProtocol.cpp"
+  dedicated_live_session_protocol_source)
+file(READ "${SOURCE_ROOT}/tests/coop_session_protocol_tests.cpp"
+  dedicated_live_session_protocol_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalIntent.h"
+  dedicated_live_intent_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalIntent.cpp"
+  dedicated_live_intent_source)
+file(READ "${SOURCE_ROOT}/tests/coop_tactical_authority_tests.cpp"
+  dedicated_live_intent_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalAuthority.h"
+  dedicated_live_tactical_authority_header_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopTacticalAuthority.cpp"
+  dedicated_live_tactical_authority_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSnapshot.h"
+  dedicated_live_snapshot_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h"
+  dedicated_live_snapshot_codec_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSnapshotCodec.cpp"
+  dedicated_live_snapshot_codec_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldDelta.h"
+  dedicated_live_delta_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldDeltaCodec.h"
+  dedicated_live_delta_codec_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldDeltaCodec.cpp"
+  dedicated_live_delta_codec_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldService.h"
+  dedicated_live_world_service_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldObserver.h"
+  dedicated_live_world_observer_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldObserver.cpp"
+  dedicated_live_world_observer_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldDelta.cpp"
+  dedicated_live_snapshot_delta_source)
+file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp"
+  dedicated_live_snapshot_adapter_source)
+file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp"
+  dedicated_live_tactical_entity_host_source)
+file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldObserverHost.cpp"
+  dedicated_live_tactical_world_observer_host_source)
+file(READ "${SOURCE_ROOT}/tests/tactical_world_snapshot_codec_tests.cpp"
+  dedicated_live_snapshot_codec_test_source)
+file(READ "${SOURCE_ROOT}/tests/tactical_observer_allocation_tests.cpp"
+  dedicated_live_world_observer_test_source)
+file(READ "${SOURCE_ROOT}/tests/ja2_runtime_adapter_tests.cpp"
+  dedicated_live_runtime_adapter_test_source)
+file(READ "${SOURCE_ROOT}/Multiplayer/FullEngineCoopSnapshotReplica.cpp"
+  dedicated_live_snapshot_replica_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_snapshot_replica_tests.cpp"
+  dedicated_live_snapshot_replica_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientTacticalPresentation.h"
+  dedicated_live_presentation_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientTacticalPresentation.cpp"
+  dedicated_live_presentation_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_tactical_presentation_tests.cpp"
+  dedicated_live_presentation_test_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientTacticalPlotRenderer.cpp"
+  dedicated_live_plot_renderer_source)
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_client_tactical_plot_renderer_tests.cpp"
+  dedicated_live_plot_renderer_test_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h"
+  dedicated_live_simulation_command_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.h"
+  dedicated_live_simulation_command_codec_header_source)
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.cpp"
+  dedicated_live_simulation_command_codec_source)
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  dedicated_live_simulation_command_source)
+file(READ "${SOURCE_ROOT}/Tactical/Handle Doors.cpp"
+  dedicated_live_handle_doors_source)
+file(READ "${SOURCE_ROOT}/tests/simulation_command_world_object_model_tests.cpp"
+  dedicated_live_world_object_model_test_source)
+file(READ "${SOURCE_ROOT}/README.md"
+  dedicated_live_readme_docs)
+file(READ "${SOURCE_ROOT}/docs/MULTIPLAYER_ARCHITECTURE.md"
+  dedicated_live_multiplayer_docs)
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  dedicated_live_engine_docs)
+file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
+  dedicated_live_campaign_runtime_docs)
+file(READ "${SOURCE_ROOT}/docs/SDL3_PORT.md"
+  dedicated_live_sdl_port_docs)
+
+strip_cxx_comments_and_literals(dedicated_live_handshake_header_source
+  dedicated_live_handshake_header_code)
+strip_cxx_comments_and_literals(dedicated_live_handshake_source
+  dedicated_live_handshake_code)
+strip_cxx_comments_and_literals(dedicated_live_handshake_test_source
+  dedicated_live_handshake_test_code)
+strip_cxx_comments_and_literals(dedicated_live_campaign_bootstrap_protocol_test_source
+  dedicated_live_campaign_bootstrap_protocol_test_code)
+strip_cxx_comments_and_literals(dedicated_live_campaign_sync_protocol_test_source
+  dedicated_live_campaign_sync_protocol_test_code)
+strip_cxx_comments_and_literals(dedicated_live_listener_header_source
+  dedicated_live_listener_header_code)
+strip_cxx_comments_and_literals(dedicated_live_listener_source
+  dedicated_live_listener_code)
+strip_cxx_comments_and_literals(dedicated_live_listener_test_source
+  dedicated_live_listener_test_code)
+strip_cxx_comments_and_literals(dedicated_live_admission_header_source
+  dedicated_live_admission_header_code)
+strip_cxx_comments_and_literals(dedicated_live_admission_source
+  dedicated_live_admission_code)
+strip_cxx_comments_and_literals(dedicated_live_ingress_header_source
+  dedicated_live_ingress_header_code)
+strip_cxx_comments_and_literals(dedicated_live_ingress_source
+  dedicated_live_ingress_code)
+strip_cxx_comments_and_literals(dedicated_live_transport_header_source
+  dedicated_live_transport_header_code)
+strip_cxx_comments_and_literals(dedicated_live_transport_source
+  dedicated_live_transport_code)
+strip_cxx_comments_and_literals(dedicated_live_transport_test_source
+  dedicated_live_transport_test_code)
+strip_cxx_comments_and_literals(dedicated_live_token_header_source
+  dedicated_live_token_header_code)
+strip_cxx_comments_and_literals(dedicated_live_token_source
+  dedicated_live_token_code)
+strip_cxx_comments_and_literals(dedicated_live_token_test_source
+  dedicated_live_token_test_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_protocol_header_source
+  dedicated_live_tactical_protocol_header_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_protocol_source
+  dedicated_live_tactical_protocol_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_protocol_test_source
+  dedicated_live_tactical_protocol_test_code)
+strip_cxx_comments_and_literals(dedicated_live_server_session_header_source
+  dedicated_live_server_session_header_code)
+strip_cxx_comments_and_literals(dedicated_live_server_session_source
+  dedicated_live_server_session_code)
+strip_cxx_comments_and_literals(dedicated_live_server_session_test_source
+  dedicated_live_server_session_test_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_server_header_source
+  dedicated_live_tactical_server_header_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_server_source
+  dedicated_live_tactical_server_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_server_test_source
+  dedicated_live_tactical_server_test_code)
+strip_cxx_comments_and_literals(dedicated_live_client_header_source
+  dedicated_live_client_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_source
+  dedicated_live_client_code)
+strip_cxx_comments_and_literals(dedicated_live_client_test_source
+  dedicated_live_client_test_code)
+strip_cxx_comments_and_literals(dedicated_live_client_transport_header_source
+  dedicated_live_client_transport_header_code)
+strip_cxx_comments_and_literals(dedicated_live_client_transport_source
+  dedicated_live_client_transport_code)
+strip_cxx_comments_and_literals(dedicated_live_client_transport_test_source
+  dedicated_live_client_transport_test_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_host_header_source
+  dedicated_live_tactical_host_header_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_host_source
+  dedicated_live_tactical_host_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_ja2_state_source
+  dedicated_live_tactical_ja2_state_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_command_host_source
+  dedicated_live_tactical_command_host_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_host_test_source
+  dedicated_live_tactical_host_test_code)
+strip_cxx_comments_and_literals(dedicated_live_session_protocol_header_source
+  dedicated_live_session_protocol_header_code)
+strip_cxx_comments_and_literals(dedicated_live_session_protocol_source
+  dedicated_live_session_protocol_code)
+strip_cxx_comments_and_literals(dedicated_live_session_protocol_test_source
+  dedicated_live_session_protocol_test_code)
+strip_cxx_comments_and_literals(dedicated_live_intent_header_source
+  dedicated_live_intent_header_code)
+strip_cxx_comments_and_literals(dedicated_live_intent_source
+  dedicated_live_intent_code)
+strip_cxx_comments_and_literals(dedicated_live_intent_test_source
+  dedicated_live_intent_test_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_authority_header_source
+  dedicated_live_tactical_authority_header_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_authority_source
+  dedicated_live_tactical_authority_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_header_source
+  dedicated_live_snapshot_header_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_codec_header_source
+  dedicated_live_snapshot_codec_header_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_codec_source
+  dedicated_live_snapshot_codec_code)
+strip_cxx_comments_and_literals(dedicated_live_delta_header_source
+  dedicated_live_delta_header_code)
+strip_cxx_comments_and_literals(dedicated_live_delta_codec_header_source
+  dedicated_live_delta_codec_header_code)
+strip_cxx_comments_and_literals(dedicated_live_delta_codec_source
+  dedicated_live_delta_codec_code)
+strip_cxx_comments_and_literals(dedicated_live_world_service_header_source
+  dedicated_live_world_service_header_code)
+strip_cxx_comments_and_literals(dedicated_live_world_observer_header_source
+  dedicated_live_world_observer_header_code)
+strip_cxx_comments_and_literals(dedicated_live_world_observer_source
+  dedicated_live_world_observer_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_delta_source
+  dedicated_live_snapshot_delta_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_adapter_source
+  dedicated_live_snapshot_adapter_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_entity_host_source
+  dedicated_live_tactical_entity_host_code)
+strip_cxx_comments_and_literals(dedicated_live_tactical_world_observer_host_source
+  dedicated_live_tactical_world_observer_host_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_codec_test_source
+  dedicated_live_snapshot_codec_test_code)
+strip_cxx_comments_and_literals(dedicated_live_world_observer_test_source
+  dedicated_live_world_observer_test_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_replica_source
+  dedicated_live_snapshot_replica_code)
+strip_cxx_comments_and_literals(dedicated_live_snapshot_replica_test_source
+  dedicated_live_snapshot_replica_test_code)
+strip_cxx_comments_and_literals(dedicated_live_presentation_header_source
+  dedicated_live_presentation_header_code)
+strip_cxx_comments_and_literals(dedicated_live_presentation_source
+  dedicated_live_presentation_code)
+strip_cxx_comments_and_literals(dedicated_live_presentation_test_source
+  dedicated_live_presentation_test_code)
+strip_cxx_comments_and_literals(dedicated_live_plot_renderer_source
+  dedicated_live_plot_renderer_code)
+strip_cxx_comments_and_literals(dedicated_live_plot_renderer_test_source
+  dedicated_live_plot_renderer_test_code)
+strip_cxx_comments_and_literals(dedicated_live_simulation_command_header_source
+  dedicated_live_simulation_command_header_code)
+strip_cxx_comments_and_literals(dedicated_live_simulation_command_codec_header_source
+  dedicated_live_simulation_command_codec_header_code)
+strip_cxx_comments_and_literals(dedicated_live_simulation_command_codec_source
+  dedicated_live_simulation_command_codec_code)
+strip_cxx_comments_and_literals(dedicated_live_simulation_command_source
+  dedicated_live_simulation_command_code)
+strip_cxx_comments_and_literals(dedicated_live_handle_doors_source
+  dedicated_live_handle_doors_code)
+strip_cxx_comments_and_literals(dedicated_live_world_object_model_test_source
+  dedicated_live_world_object_model_test_code)
+
+# Global co-op protocol v7 rejects mixed builds at admission. The fixed hello
+# keeps its wire-v1 layout; the tactical envelope is v3, intent is v3, snapshot
+# is v7, delta is v6, and the command journal is v4. The compact interrupt
+# projection therefore cannot be mistaken for any earlier peer.
+foreach(dedicated_live_global_protocol_v7_contract IN ITEMS
+    "CurrentProtocolVersion = 7"
+    "protocolVersion = CurrentProtocolVersion")
+  string(FIND "${dedicated_live_session_protocol_header_code}"
+    "${dedicated_live_global_protocol_v7_contract}"
+    dedicated_live_global_protocol_v7_contract_position)
+  if(dedicated_live_global_protocol_v7_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Global co-op protocol v7 contract lost '${dedicated_live_global_protocol_v7_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_global_protocol_v7_test_contract IN ITEMS
+    "requestBytes[4] == 7"
+    "resultBytes[4] == 7"
+    "DecodeResult::UnsupportedProtocol"
+    "unsupported.protocolVersion++")
+  string(FIND "${dedicated_live_session_protocol_test_code}"
+    "${dedicated_live_global_protocol_v7_test_contract}"
+    dedicated_live_global_protocol_v7_test_contract_position)
+  if(dedicated_live_global_protocol_v7_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Global co-op protocol v7 golden/rejection test lost '${dedicated_live_global_protocol_v7_test_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_handshake_test_source
+  "Global protocol-v7 server-hello golden changed"
+  "0x07, 0x00, 0x00, 0x00"
+  "pinned 72-byte wire image")
+require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
+  "Global protocol-v7 campaign-bootstrap golden changed"
+  "0x07, 0x00, 0x00, 0x00"
+  "UINT32_C(0x20ab954f)"
+  "descriptor checksum pins FNV-1a over bytes 0 through 111")
+require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
+  "Global protocol-v7 campaign-sync golden changed"
+  "bytes[6] == 7"
+  "campaign sync versions and kind are exact")
+require_ordered_fragments(dedicated_live_listener_test_source
+  "Global protocol-v7 admission-listener hello golden changed"
+  "0x07, 0x00, 0x00, 0x00"
+  "pinned 72-byte little-endian wire image")
+
+# The current protocol retains an exact self-only voluntary leave wire. The request must
+# never gain a peer/token selector; the server-resolved identity exists only in
+# the post-commit result. Both decoders publish their output transactionally.
+foreach(dedicated_live_retirement_wire_contract IN ITEMS
+    "AdmissionSelfRetirementRequestWireSize = 24"
+    "AdmissionSelfRetirementResultWireSize = 48"
+    "CredentialRetired = 16"
+    "CredentialRetirementPending = 17"
+    "CredentialRetired = 1"
+    "TombstoneCapacityReached = 2")
+  string(FIND "${dedicated_live_session_protocol_header_code}"
+    "${dedicated_live_retirement_wire_contract}"
+    dedicated_live_retirement_wire_contract_position)
+  if(dedicated_live_retirement_wire_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement wire lost '${dedicated_live_retirement_wire_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_session_protocol_header_code
+  "struct AdmissionSelfRetirementRequest"
+  dedicated_live_retirement_request_shape_slice
+  "Cannot bound self-retirement request shape")
+require_ordered_fragments(dedicated_live_retirement_request_shape_slice
+  "Self-retirement request no longer carries only version/epoch/request ID"
+  "protocolVersion = CurrentProtocolVersion"
+  "sessionEpoch = 0"
+  "requestId = 0")
+foreach(dedicated_live_retirement_request_forbidden IN ITEMS
+    "PeerIdentity"
+    "ReconnectToken"
+    "peerIdentity"
+    "reconnectToken")
+  string(FIND "${dedicated_live_retirement_request_shape_slice}"
+    "${dedicated_live_retirement_request_forbidden}"
+    dedicated_live_retirement_request_forbidden_position)
+  if(NOT dedicated_live_retirement_request_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement request regained selectable victim material '${dedicated_live_retirement_request_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_session_protocol_header_code
+  "struct AdmissionSelfRetirementResult"
+  dedicated_live_retirement_result_shape_slice
+  "Cannot bound self-retirement result shape")
+require_ordered_fragments(dedicated_live_retirement_result_shape_slice
+  "Self-retirement result lost server-owned correlation fields"
+  "protocolVersion = CurrentProtocolVersion"
+  "sessionEpoch = 0"
+  "requestId = 0"
+  "PeerIdentity peerIdentity"
+  "AdmissionSelfRetirementResultCode result")
+
+extract_brace_bounded_slice(dedicated_live_session_protocol_code
+  "bool EncodeAdmissionSelfRetirementRequest(\n\tconst AdmissionSelfRetirementRequest& request,\n\tAdmissionSelfRetirementRequestBytes& bytes) noexcept"
+  dedicated_live_retirement_request_encode_slice
+  "Cannot bound self-retirement request encoder")
+require_ordered_fragments(dedicated_live_retirement_request_encode_slice
+  "Self-retirement request encoder lost exact bounded canonical publication"
+  "request.protocolVersion != CurrentProtocolVersion"
+  "request.sessionEpoch == 0"
+  "request.requestId == 0"
+  "AdmissionSelfRetirementRequestBytes encoded"
+  "SelfRetirementRequestMessageKind"
+  "WriteU64(output, request.sessionEpoch)"
+  "WriteU64(output, request.requestId)"
+  "bytes = encoded"
+  "return true")
+extract_brace_bounded_slice(dedicated_live_session_protocol_code
+  "DecodeResult DecodeAdmissionSelfRetirementRequest(\n\tconst std::uint8_t* bytes, std::size_t size,\n\tAdmissionSelfRetirementRequest& request) noexcept"
+  dedicated_live_retirement_request_decode_slice
+  "Cannot bound self-retirement request decoder")
+require_ordered_fragments(dedicated_live_retirement_request_decode_slice
+  "Self-retirement request decoder lost exact validation or transactional output"
+  "size != AdmissionSelfRetirementRequestWireSize"
+  "SelfRetirementRequestMessageKind"
+  "bytes[7] != 0"
+  "AdmissionSelfRetirementRequest decoded"
+  "decoded.protocolVersion != CurrentProtocolVersion"
+  "decoded.sessionEpoch == 0"
+  "decoded.requestId == 0"
+  "request = decoded"
+  "return DecodeResult::Ok")
+extract_brace_bounded_slice(dedicated_live_session_protocol_code
+  "bool EncodeAdmissionSelfRetirementResult(\n\tconst AdmissionSelfRetirementResult& result,\n\tAdmissionSelfRetirementResultBytes& bytes) noexcept"
+  dedicated_live_retirement_result_encode_slice
+  "Cannot bound self-retirement result encoder")
+require_ordered_fragments(dedicated_live_retirement_result_encode_slice
+  "Self-retirement result encoder lost exact bounded canonical publication"
+  "result.protocolVersion != CurrentProtocolVersion"
+  "result.sessionEpoch == 0"
+  "result.requestId == 0"
+  "IsZero(result.peerIdentity)"
+  "AdmissionSelfRetirementResultBytes encoded"
+  "SelfRetirementResultMessageKind"
+  "WriteBytes(output, result.peerIdentity)"
+  "WriteU16(output, static_cast<std::uint16_t>(result.result))"
+  "index < 6"
+  "bytes = encoded"
+  "return true")
+extract_brace_bounded_slice(dedicated_live_session_protocol_code
+  "DecodeResult DecodeAdmissionSelfRetirementResult(\n\tconst std::uint8_t* bytes, std::size_t size,\n\tAdmissionSelfRetirementResult& result) noexcept"
+  dedicated_live_retirement_result_decode_slice
+  "Cannot bound self-retirement result decoder")
+require_ordered_fragments(dedicated_live_retirement_result_decode_slice
+  "Self-retirement result decoder lost exact validation or transactional output"
+  "size != AdmissionSelfRetirementResultWireSize"
+  "SelfRetirementResultMessageKind"
+  "bytes + 42, bytes + 48"
+  "AdmissionSelfRetirementResult decoded"
+  "ReadBytes(input, decoded.peerIdentity)"
+  "decoded.protocolVersion != CurrentProtocolVersion"
+  "decoded.requestId == 0"
+  "IsZero(decoded.peerIdentity)"
+  "result = decoded"
+  "return DecodeResult::Ok")
+foreach(dedicated_live_retirement_codec_test_contract IN ITEMS
+    "TestSelfRetirementCodecs()"
+    "requestBytes.size() == 24"
+    "resultBytes.size() == 48"
+    "no victim field"
+    "every truncated self-retirement request is rejected"
+    "invalid self-retirement request encoding is transactional"
+    "every truncated self-retirement result is rejected"
+    "self-retirement result trailing reserved bytes are zero")
+  string(FIND "${dedicated_live_session_protocol_test_source}"
+    "${dedicated_live_retirement_codec_test_contract}"
+    dedicated_live_retirement_codec_test_contract_position)
+  if(dedicated_live_retirement_codec_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement codec regression lost '${dedicated_live_retirement_codec_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_admission_message_name IN ITEMS
+    "coop.server.hello"
+    "coop.admission.request"
+    "coop.admission.response"
+    "coop.admission.ack"
+    "coop.admission.credential-abandon"
+    "coop.admission.self-retirement.request"
+    "coop.admission.self-retirement.result")
+  string(FIND "${dedicated_live_handshake_header_source}"
+    "${dedicated_live_admission_message_name}"
+    dedicated_live_admission_message_name_position)
+  if(dedicated_live_admission_message_name_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op admission wire lost '${dedicated_live_admission_message_name}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_handshake_contract IN ITEMS
+    "CoopServerHelloWireVersion = 1"
+    "CoopServerHelloWireSize = 72"
+    "struct CoopServerHello"
+    "EncodeCoopServerHello("
+    "DecodeCoopServerHello(")
+  string(FIND
+    "${dedicated_live_handshake_header_code}${dedicated_live_handshake_code}"
+    "${dedicated_live_handshake_contract}"
+    dedicated_live_handshake_contract_position)
+  if(dedicated_live_handshake_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Data-free co-op handshake lost '${dedicated_live_handshake_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_handshake_test_contract IN ITEMS
+    "TestExactServerHello()"
+    "TestFailClosedServerHello()")
+  string(FIND "${dedicated_live_handshake_test_code}"
+    "${dedicated_live_handshake_test_contract}"
+    dedicated_live_handshake_test_contract_position)
+  if(dedicated_live_handshake_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op handshake tests lost '${dedicated_live_handshake_test_contract}'")
+  endif()
+endforeach()
+
+# Voluntary retirement is an admission-registry state transition, never a
+# client-selected administrative operation. Pending closes gameplay; completion
+# publishes the exact bearer tombstone before stable removal of the live seat.
+foreach(dedicated_live_retirement_registry_contract IN ITEMS
+    "MaximumAuthorityPeers = 4"
+    "MaximumRetiredAdmissionCredentials = 64"
+    "AdmissionSelfRetirementRegistryResult"
+    "AlreadyPending"
+    "AlreadyCompleted"
+    "ConflictingRequest"
+    "TombstoneCapacityReached"
+    "std::uint64_t selfRetirementRequestId = 0"
+    "struct RetiredCredential"
+    "ReconnectToken token"
+    "std::uint64_t requestId = 0")
+  string(FIND "${dedicated_live_admission_header_code}"
+    "${dedicated_live_retirement_registry_contract}"
+    dedicated_live_retirement_registry_contract_position)
+  if(dedicated_live_retirement_registry_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement admission registry lost '${dedicated_live_retirement_registry_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_admission_code
+  "void AdmissionRegistry::beginSession(\n\tconst AuthorityConfiguration& configuration) noexcept"
+  dedicated_live_retirement_new_session_slice
+  "Cannot bound admission new-session reset")
+require_ordered_fragments(dedicated_live_retirement_new_session_slice
+  "New admission epoch no longer clears retired credential tombstones"
+  "peers_ = {}"
+  "peerCount_ = 0"
+  "retiredCredentials_ = {}"
+  "retiredCredentialCount_ = 0")
+
+extract_brace_bounded_slice(dedicated_live_admission_code
+  "AdmissionRegistryResult AdmissionRegistry::admitWithEffects(\n\tconst TransportPeer& sender, const AdmissionRequest& request) noexcept"
+  dedicated_live_retirement_admit_slice
+  "Cannot bound admission reconnect/tombstone handling")
+require_ordered_fragments(dedicated_live_retirement_admit_slice
+  "Retired reconnect lost authenticated pending/terminal classification"
+  "PeerRecord* peer = findPeer(request.peerIdentity)"
+  "findRetiredCredential(request.peerIdentity)"
+  "AdmissionRejectReason::UnknownPeer"
+  "ConstantTimeTokenEqual("
+  "retired->token, request.reconnectToken"
+  "AdmissionRejectReason::InvalidReconnectToken"
+  "AdmissionRejectReason::CredentialRetired"
+  "ConstantTimeTokenEqual(peer->token, request.reconnectToken)"
+  "peer->selfRetirementRequestId != 0"
+  "AdmissionRejectReason::CredentialRetirementPending")
+
+extract_brace_bounded_slice(dedicated_live_admission_code
+  "AdmissionRegistry::beginSelfRetirement(\n\tconst TransportPeer& sender,\n\tstd::uint64_t sessionEpoch,\n\tstd::uint64_t requestId) noexcept"
+  dedicated_live_retirement_begin_slice
+  "Cannot bound admission self-retirement begin")
+require_ordered_fragments(dedicated_live_retirement_begin_slice
+  "Self-retirement begin lost authenticated self-only capacity preflight"
+  "sessionEpoch != configuration_.sessionEpoch"
+  "requestId == 0"
+  "findBoundPeer(sender)"
+  "!peer->bindingAcknowledged"
+  "AdmissionSelfRetirementRegistryResult::NotAuthenticated"
+  "result.peerIdentity = peer->identity"
+  "peer->selfRetirementRequestId != 0"
+  "AdmissionSelfRetirementRegistryResult::AlreadyPending"
+  "AdmissionSelfRetirementRegistryResult::ConflictingRequest"
+  "retiredCredentialCount_ + pendingSelfRetirementCount()"
+  "retiredCredentials_.size()"
+  "TombstoneCapacityReached"
+  "peer->selfRetirementRequestId = requestId"
+  "AdmissionSelfRetirementRegistryResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_admission_code
+  "AdmissionRegistry::completeSelfRetirement(\n\tconst PeerIdentity& identity,\n\tstd::uint64_t requestId) noexcept"
+  dedicated_live_retirement_complete_slice
+  "Cannot bound admission self-retirement completion")
+require_ordered_fragments(dedicated_live_retirement_complete_slice
+  "Self-retirement completion no longer commits its tombstone before seat release"
+  "findPeer(identity)"
+  "findRetiredCredential(identity)"
+  "retired->requestId == requestId"
+  "AdmissionSelfRetirementRegistryResult::AlreadyCompleted"
+  "peer->selfRetirementRequestId != requestId"
+  "RetiredCredential tombstone"
+  "tombstone.identity = peer->identity"
+  "tombstone.token = peer->token"
+  "tombstone.requestId = requestId"
+  "retiredCredentials_[retiredCredentialCount_++] = tombstone"
+  "removePeer(peer)"
+  "AdmissionSelfRetirementRegistryResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_admission_code
+  "bool AdmissionRegistry::resolvePeerForIntent(const TransportPeer& sender,\n\tstd::uint64_t intentEpoch, PeerIdentity& identity) const noexcept"
+  dedicated_live_retirement_gameplay_resolver_slice
+  "Cannot bound pending-retirement gameplay resolver")
+require_ordered_fragments(dedicated_live_retirement_gameplay_resolver_slice
+  "Pending retirement no longer closes gameplay while retaining authentication"
+  "resolveAuthenticatedPeer(sender, intentEpoch, resolved)"
+  "findPeer(resolved)"
+  "peer->selfRetirementRequestId != 0"
+  "return false"
+  "identity = resolved"
+  "return true")
+
+foreach(dedicated_live_retirement_registry_test_contract IN ITEMS
+    "TestAuthenticatedSelfRetirementLifecycle()"
+    "an unbound transport cannot select or retire another identity"
+    "Pending immediately closes gameplay while preserving transport identity"
+    "tombstone commits before the active seat is released"
+    "tombstone remains bearer-authenticated and reveals nothing to a wrong token"
+    "a distinct newly launched client can immediately take the freed seat"
+    "TestSelfRetirementTombstoneCapacityPreflight()"
+    "capacity is atomically preflighted before gameplay authority closes")
+  string(FIND "${dedicated_live_session_protocol_test_source}"
+    "${dedicated_live_retirement_registry_test_contract}"
+    dedicated_live_retirement_registry_test_contract_position)
+  if(dedicated_live_retirement_registry_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement admission regression lost '${dedicated_live_retirement_registry_test_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_listener_start_marker
+  "FullEngineCoopAdmissionListener::start(\n\tconst FullEngineCoopAdmissionListenerConfiguration& configuration) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_start_marker}"
+  dedicated_live_listener_start_slice
+  "Cannot bound full-engine co-op listener startup")
+require_ordered_fragments(dedicated_live_listener_start_slice
+  "Full-engine co-op listener startup hardening changed"
+  "pollDepth_ != 0 || handlerDepth_ != 0"
+  "stop(0)"
+  "ingress_.admissionActive()"
+  "BootstrapMatchesAdmission(configuration.campaignBootstrap"
+  "EncodeCoopCampaignBootstrap("
+  "MaximumCoopAdmissionTransportConnections"
+  "MaximumCoopAdmissionTimeoutMilliseconds"
+  "MaximumCoopAdmissionHandshakeMilliseconds"
+  "MaximumCoopAdmissionRejectedMessages"
+  "MaximumCoopTacticalInboundMessages"
+  "MaximumCoopCampaignInboundMessages"
+  "configuration.maximumPendingWriteBytesPerConnection == 0"
+  "MaximumCoopTransportPendingWriteBytes"
+  "CreateSdlNetPeer()"
+  "RegisterMessage(CoopAdmissionRequestMessageName"
+  "RegisterMessage(CoopAdmissionAckMessageName"
+  "CoopAdmissionCredentialAbandonMessageName"
+  "CoopAdmissionSelfRetirementRequestMessageName"
+  "RegisterMessage(CoopTacticalIntentMessageName"
+  "RegisterMessage(CoopTacticalBaselineAckMessageName"
+  "RegisterMessage(CoopTacticalDeltaAckMessageName"
+  "RegisterMessage(CoopTacticalResyncRequestMessageName"
+  "RegisterMessage(CoopCampaignSyncAckMessageName"
+  "RegisterMessage(CoopCampaignSyncResultMessageName"
+  "RegisterMessage(CoopCampaignSyncResyncMessageName"
+  "transport_->Start("
+  "transport_->SetTimeout(configuration.timeoutMilliseconds)"
+  "handshakeTimeoutMilliseconds_ = configuration.handshakeTimeoutMilliseconds"
+  "maximumRejectedAdmissionMessages_ ="
+  "maximumQueuedTacticalMessages_ ="
+  "maximumQueuedCampaignMessages_ ="
+  "maximumPendingWriteBytesPerConnection_ ="
+  "campaignBootstrap_ = configuration.campaignBootstrap"
+  "campaignBootstrapBytes_ = campaignBootstrapBytes"
+  "running_ = true")
+foreach(dedicated_live_listener_registration IN ITEMS
+    "CoopAdmissionRequestMessageName"
+    "CoopAdmissionAckMessageName"
+    "CoopAdmissionCredentialAbandonMessageName"
+    "CoopAdmissionSelfRetirementRequestMessageName"
+    "CoopTacticalIntentMessageName"
+    "CoopTacticalBaselineAckMessageName"
+    "CoopTacticalDeltaAckMessageName"
+    "CoopTacticalResyncRequestMessageName"
+    "CoopCampaignSyncAckMessageName"
+    "CoopCampaignSyncResultMessageName"
+    "CoopCampaignSyncResyncMessageName")
+  string(REGEX MATCHALL
+    "RegisterMessage\\([ \t\r\n]*${dedicated_live_listener_registration}"
+    dedicated_live_listener_registration_matches
+    "${dedicated_live_listener_start_slice}")
+  list(LENGTH dedicated_live_listener_registration_matches
+    dedicated_live_listener_registration_count)
+  if(NOT dedicated_live_listener_registration_count EQUAL 1)
+    message(FATAL_ERROR
+      "Full-engine co-op listener must register '${dedicated_live_listener_registration}' exactly once")
+  endif()
+endforeach()
+string(REGEX MATCHALL "RegisterMessage\\(" dedicated_live_listener_handlers
+  "${dedicated_live_listener_start_slice}")
+list(LENGTH dedicated_live_listener_handlers
+  dedicated_live_listener_handler_count)
+if(NOT dedicated_live_listener_handler_count EQUAL 11)
+  message(FATAL_ERROR
+    "Full-engine co-op listener must register exactly eleven isolated handlers")
+endif()
+
+set(dedicated_live_listener_admission_marker
+  "void FullEngineCoopAdmissionListener::handleAdmissionMessage(\n\tja2::mp::net::SdlNetMessage& message) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_admission_marker}"
+  dedicated_live_listener_admission_slice
+  "Cannot bound full-engine co-op admission handler")
+require_ordered_fragments(dedicated_live_listener_admission_slice
+  "Full-engine co-op admission response/displacement ordering changed"
+  "selfRetirementInputFrozen_"
+  "closeConnection(message.sender, true)"
+  "ensureConnection(message.sender)"
+  "if (!state->helloSent)"
+  "sendHandshakePrelude(message.sender)"
+  "handshakeExpired(*state)"
+  "ingress_.handleAdmission("
+  "message.sender, message.data, message.size)"
+  "if (result.displacedTransport)"
+  "closeConnection(result.displacedTransport, true)"
+  "state = findConnection(message.sender)"
+  "const bool offerCredentialAbandon ="
+  "!state->authenticated && !state->credentialAbandonOfferUsed"
+  "result.response.rejectReason == AdmissionRejectReason::UnknownPeer"
+  "state->credentialAbandonOfferUsed = true"
+  "state->credentialAbandonOffered = true"
+  "transport_->SendMessage(CoopAdmissionResponseMessageName"
+  "message.sender, false"
+  "if (!result.response.admitted() && !offerCredentialAbandon)"
+  "rejectMessage(message.sender)")
+
+set(dedicated_live_listener_ack_marker
+  "void FullEngineCoopAdmissionListener::handleAdmissionAckMessage(\n\tja2::mp::net::SdlNetMessage& message) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_ack_marker}" dedicated_live_listener_ack_slice
+  "Cannot bound full-engine co-op admission ACK handler")
+require_ordered_fragments(dedicated_live_listener_ack_slice
+  "Full-engine co-op admission ACK sender binding changed"
+  "selfRetirementInputFrozen_"
+  "closeConnection(message.sender, true)"
+  "ensureConnection(message.sender)"
+  "sendHandshakePrelude(message.sender)"
+  "handshakeExpired(*state)"
+  "ingress_.handleAdmissionAck("
+  "message.sender, message.data, message.size)"
+  "ingress_.resolveAuthenticatedPeer("
+  "message.sender, epoch, resolved)"
+  "state->authenticated = true"
+  "state->authenticatedSessionEpoch = epoch"
+  "state->resolvedPeer = resolved")
+
+set(dedicated_live_listener_abandon_marker
+  "void FullEngineCoopAdmissionListener::handleCredentialAbandonMessage(\n\tja2::mp::net::SdlNetMessage& message) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_abandon_marker}"
+  dedicated_live_listener_abandon_slice
+  "Cannot bound full-engine co-op credential-abandon handler")
+require_ordered_fragments(dedicated_live_listener_abandon_slice
+  "Co-op lost-ACK recovery lost its one-shot transport-bound exact echo"
+  "selfRetirementInputFrozen_"
+  "closeConnection(message.sender, true)"
+  "findConnection(message.sender)"
+  "!state->credentialAbandonOffered || state->authenticated"
+  "handshakeExpired(*state)"
+  "const AdmissionCredentialAbandon expected ="
+  "state->credentialAbandonOffered = false"
+  "state->credentialAbandonment = {}"
+  "DecodeAdmissionCredentialAbandon("
+  "!SameAbandonment(decoded, expected)"
+  "ingress_.handleCredentialAbandon("
+  "message.sender, message.data, message.size)"
+  "transport_->SendMessage("
+  "CoopAdmissionResponseMessageName"
+  "if (!result.response.admitted()) rejectMessage(message.sender)")
+
+set(dedicated_live_listener_retirement_marker
+  "void FullEngineCoopAdmissionListener::handleSelfRetirementMessage(\n\tja2::mp::net::SdlNetMessage& message) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_retirement_marker}"
+  dedicated_live_listener_retirement_slice
+  "Cannot bound authenticated self-retirement listener handler")
+require_ordered_fragments(dedicated_live_listener_retirement_slice
+  "Self-retirement callback lost authenticated no-victim capture and global freeze"
+  "findConnection(message.sender)"
+  "connectionAuthenticates(*state, resolved)"
+  "DecodeAdmissionSelfRetirementRequest("
+  "request.sessionEpoch !="
+  "ingress_.admissionConfiguration().sessionEpoch"
+  "closeConnection(message.sender, true)"
+  "selfRetirementInputFrozen_"
+  "ingress_.beginSelfRetirement("
+  "message.sender, request.sessionEpoch, request.requestId"
+  "AdmissionSelfRetirementRegistryResult::"
+  "TombstoneCapacityReached"
+  "AdmissionSelfRetirementResultCode::"
+  "TombstoneCapacityReached"
+  "sendToPeer(begun.peerIdentity"
+  "if (!begun || begun.peerIdentity != resolved"
+  "captured.request = request"
+  "captured.peerIdentity = resolved"
+  "captured.transport = message.sender"
+  "selfRetirementInbound_ = captured"
+  "selfRetirementInboundOccupied_ = true"
+  "selfRetirementInputFrozen_ = true"
+  "state->selfRetirementReplyAuthorized = true"
+  "state->selfRetirementRequestId = request.requestId"
+  "state->selfRetirementPeer = resolved")
+
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "bool FullEngineCoopAdmissionListener::discardInboundForSelfRetirement()\n\tnoexcept"
+  dedicated_live_listener_retirement_discard_slice
+  "Cannot bound self-retirement global inbound discard")
+require_ordered_fragments(dedicated_live_listener_retirement_discard_slice
+  "Self-retirement gate no longer discards both bounded listener FIFOs"
+  "!running_ || !selfRetirementInputFrozen_"
+  "selfRetirementInboundOccupied_"
+  "inbound_ = {}"
+  "inboundHead_ = 0"
+  "inboundCount_ = 0"
+  "campaignInbound_ = {}"
+  "campaignInboundHead_ = 0"
+  "campaignInboundCount_ = 0"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "bool FullEngineCoopAdmissionListener::sendCommittedSelfRetirementResult(\n\tconst FullEngineCoopSelfRetirementInbound& request,\n\tconst AdmissionSelfRetirementResultBytes& bytes) noexcept"
+  dedicated_live_listener_retirement_send_slice
+  "Cannot bound committed self-retirement result send")
+require_ordered_fragments(dedicated_live_listener_retirement_send_slice
+  "Self-retirement result escaped post-tombstone exact-ticket gating"
+  "selfRetirementInputFrozen_"
+  "ingress_.credentialRetired(request.peerIdentity)"
+  "DecodeAdmissionSelfRetirementResult("
+  "AdmissionSelfRetirementResultCode::CredentialRetired"
+  "result.sessionEpoch != request.request.sessionEpoch"
+  "result.requestId != request.request.requestId"
+  "result.peerIdentity != request.peerIdentity"
+  "state->selfRetirementReplyAuthorized"
+  "state->selfRetirementRequestId != request.request.requestId"
+  "state->selfRetirementPeer != request.peerIdentity"
+  "state->selfRetirementReplyAuthorized = false"
+  "transport_->SendMessage("
+  "CoopAdmissionSelfRetirementResultMessageName")
+
+set(dedicated_live_listener_tactical_marker
+  "void FullEngineCoopAdmissionListener::handleTacticalMessage(\n\tja2::mp::net::SdlNetMessage& message,\n\tFullEngineCoopTacticalInboundKind kind) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_tactical_marker}"
+  dedicated_live_listener_tactical_slice
+  "Cannot bound full-engine co-op tactical callback")
+require_ordered_fragments(dedicated_live_listener_tactical_slice
+  "Full-engine co-op tactical callback no longer authenticates and bounds before copying"
+  "selfRetirementInputFrozen_"
+  "findConnection(message.sender)"
+  "connectionAuthenticates(*state, resolved)"
+  "validTacticalInboundSize(kind, message.size)"
+  "message.data == nullptr"
+  "queueTacticalMessage(*state, resolved, message, kind)"
+  "closeConnection(message.sender, true)")
+foreach(dedicated_live_listener_tactical_forbidden IN ITEMS
+    "handleTacticalIntent("
+    "ingress_.handleTacticalIntent"
+    "GetGameContext"
+    "GameContext"
+    "SaveGame("
+    "LoadDedicatedCampaignGame")
+  string(FIND "${dedicated_live_listener_tactical_slice}"
+    "${dedicated_live_listener_tactical_forbidden}"
+    dedicated_live_listener_tactical_forbidden_position)
+  if(NOT dedicated_live_listener_tactical_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical transport callback gained gameplay work '${dedicated_live_listener_tactical_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_listener_campaign_marker
+  "void FullEngineCoopAdmissionListener::handleCampaignMessage(\n\tja2::mp::net::SdlNetMessage& message,\n\tFullEngineCoopCampaignInboundKind kind) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_campaign_marker}"
+  dedicated_live_listener_campaign_slice
+  "Cannot bound full-engine co-op campaign callback")
+require_ordered_fragments(dedicated_live_listener_campaign_slice
+  "Full-engine co-op campaign callback no longer authenticates and bounds before copying"
+  "selfRetirementInputFrozen_"
+  "findConnection(message.sender)"
+  "connectionAuthenticates(*state, resolved)"
+  "validCampaignInboundSize(kind, message.size)"
+  "message.data == nullptr"
+  "queueCampaignMessage(*state, resolved, message, kind)"
+  "closeConnection(message.sender, true)")
+foreach(dedicated_live_listener_campaign_forbidden IN ITEMS
+    "DecodeCoopCampaign"
+    "LoadDedicatedCampaignGame"
+    "GetGameContext"
+    "GameContext")
+  string(FIND "${dedicated_live_listener_campaign_slice}"
+    "${dedicated_live_listener_campaign_forbidden}"
+    dedicated_live_listener_campaign_forbidden_position)
+  if(NOT dedicated_live_listener_campaign_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op campaign transport callback gained coordinator/gameplay work '${dedicated_live_listener_campaign_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_listener_authentication_marker
+  "bool FullEngineCoopAdmissionListener::connectionAuthenticates(\n\tconst ConnectionAdmissionState& state,\n\tPeerIdentity& peerIdentity) const noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_authentication_marker}"
+  dedicated_live_listener_authentication_slice
+  "Cannot bound co-op listener authenticated transport resolution")
+require_ordered_fragments(dedicated_live_listener_authentication_slice
+  "Co-op listener no longer resolves an ACK-confirmed transport identity"
+  "state.authenticated"
+  "state.authenticatedSessionEpoch == 0"
+  "IsZero(state.resolvedPeer)"
+  "ingress_.admissionConfiguration().sessionEpoch"
+  "ingress_.resolveAuthenticatedPeer(state.transport"
+  "resolved != state.resolvedPeer"
+  "peerIdentity = resolved")
+
+set(dedicated_live_listener_handshake_prelude_marker
+  "bool FullEngineCoopAdmissionListener::sendHandshakePrelude(\n\tconst TransportPeer& recipient) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_handshake_prelude_marker}"
+  dedicated_live_listener_handshake_prelude_slice
+  "Cannot bound co-op listener handshake prelude")
+require_ordered_fragments(dedicated_live_listener_handshake_prelude_slice
+  "Co-op listener no longer sends the exact hello/bootstrap prelude in order"
+  "ingress_.admissionActive()"
+  "transport_ == nullptr"
+  "BootstrapMatchesAdmission("
+  "campaignBootstrap_, ingress_.admissionConfiguration()"
+  "EncodeCoopServerHello("
+  "HelloFor(ingress_.admissionConfiguration()), bytes"
+  "transport_->SendMessage(CoopServerHelloMessageName"
+  "bytes.data(), bytes.size(), recipient, false"
+  "transport_->SendMessage(CoopCampaignBootstrapMessageName"
+  "campaignBootstrapBytes_.data(), campaignBootstrapBytes_.size()"
+  "recipient, false")
+
+set(dedicated_live_listener_outbound_validation_marker
+  "bool ValidOutboundMessage(\n\tconst char* name, std::size_t size) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_outbound_validation_marker}"
+  dedicated_live_listener_outbound_validation_slice
+  "Cannot bound co-op listener outbound tactical validation")
+require_ordered_fragments(dedicated_live_listener_outbound_validation_slice
+  "Co-op listener outbound namespace/bounds changed"
+  "CoopTacticalIntentReceiptMessageName"
+  "CoopTacticalIntentReceiptWireSize"
+  "CoopTacticalBaselineMessageName"
+  "CoopTacticalBaselineHeaderWireSize"
+  "MaximumCoopTacticalBaselineWireSize"
+  "CoopTacticalDeltaMessageName"
+  "CoopTacticalDeltaHeaderWireSize"
+  "MaximumCoopTacticalDeltaWireSize"
+  "CoopCampaignSyncMetadataMessageName"
+  "CoopCampaignSyncMetadataWireSize"
+  "CoopCampaignSyncChunkMessageName"
+  "CoopCampaignSyncChunkHeaderWireSize"
+  "MaximumCoopCampaignSyncWireSize"
+  "CoopCampaignSyncCompleteMessageName"
+  "CoopCampaignSyncCompleteWireSize"
+  "CoopCampaignSyncRejectMessageName"
+  "CoopCampaignSyncRejectWireSize"
+  "CoopAdmissionSelfRetirementResultMessageName"
+  "AdmissionSelfRetirementResultWireSize"
+  "return false")
+foreach(dedicated_live_listener_outbound_forbidden IN ITEMS
+    "CoopServerHelloMessageName"
+    "CoopAdmissionRequestMessageName"
+    "CoopAdmissionResponseMessageName"
+    "CoopAdmissionAckMessageName"
+    "CoopAdmissionCredentialAbandonMessageName"
+    "CoopTacticalIntentMessageName"
+    "CoopTacticalBaselineAckMessageName"
+    "CoopTacticalDeltaAckMessageName"
+    "CoopCampaignSyncAckMessageName"
+    "CoopCampaignSyncResultMessageName"
+    "CoopCampaignSyncResyncMessageName")
+  string(FIND "${dedicated_live_listener_outbound_validation_slice}"
+    "${dedicated_live_listener_outbound_forbidden}"
+    dedicated_live_listener_outbound_forbidden_position)
+  if(NOT dedicated_live_listener_outbound_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op listener outbound validator admitted '${dedicated_live_listener_outbound_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_listener_send_marker
+  "bool FullEngineCoopAdmissionListener::sendToPeer(\n\tconst PeerIdentity& peerIdentity,\n\tconst char* messageName,\n\tconst std::uint8_t* bytes,\n\tstd::size_t size) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_send_marker}" dedicated_live_listener_send_slice
+  "Cannot bound co-op listener targeted send")
+require_ordered_fragments(dedicated_live_listener_send_slice
+  "Co-op listener outbound path no longer validates and unicasts"
+  "ValidOutboundMessage(messageName, size)"
+  "authenticatedTransportForPeer(peerIdentity, recipient)"
+  "const std::size_t frameBytes = 6 + std::strlen(messageName) + size"
+  "transport_->PendingWriteBytes(recipient, pending)"
+  "pending > maximumPendingWriteBytesPerConnection_"
+  "frameBytes > maximumPendingWriteBytesPerConnection_ - pending"
+  "closeConnection(recipient, false)"
+  "transport_->SendMessage("
+  "messageName, bytes, size, recipient, false)"
+  "closeConnection(recipient, false)")
+
+foreach(dedicated_live_transport_backpressure_contract IN ITEMS
+    "MaximumCoopTransportPendingWriteBytes = 4u * 1024u * 1024u"
+    "DefaultCoopTransportPendingWriteBytes = 256u * 1024u"
+    "maximumPendingWriteBytesPerConnection ="
+    "DefaultCoopTransportPendingWriteBytes"
+    "maximumPendingWriteBytesPerConnection_ = 0")
+  string(FIND "${dedicated_live_listener_header_code}"
+    "${dedicated_live_transport_backpressure_contract}"
+    dedicated_live_transport_backpressure_contract_position)
+  if(dedicated_live_transport_backpressure_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op listener pending-write bound lost '${dedicated_live_transport_backpressure_contract}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_live_transport_header_code}"
+  "bool PendingWriteBytes("
+  dedicated_live_transport_pending_api_position)
+if(dedicated_live_transport_pending_api_position EQUAL -1)
+  message(FATAL_ERROR
+    "SDL3_net transport lost its pending-write query API")
+endif()
+set(dedicated_live_transport_pending_marker
+  "bool SdlNetPeer::PendingWriteBytes(\n\tConnectionId connection, std::size_t& bytes) noexcept")
+extract_brace_bounded_slice(dedicated_live_transport_code
+  "${dedicated_live_transport_pending_marker}"
+  dedicated_live_transport_pending_slice
+  "Cannot bound SDL3_net pending-write query")
+require_ordered_fragments(dedicated_live_transport_pending_slice
+  "SDL3_net pending-write query fail-closed behavior changed"
+  "state_->Find(connection)"
+  "NET_GetStreamSocketPendingWrites(peer->sock)"
+  "if (pending < 0)"
+  "state_->Synthesize(SDLNET_CONNECTION_LOST, peer->addr)"
+  "peer->open = false"
+  "peer->sentBye = true"
+  "bytes = static_cast<std::size_t>(pending)"
+  "return true")
+
+set(dedicated_live_listener_event_marker
+  "void FullEngineCoopAdmissionListener::handleEvent(\n\tconst ja2::mp::net::SdlNetEvent& event) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_event_marker}" dedicated_live_listener_event_slice
+  "Cannot bound full-engine co-op listener event handler")
+require_ordered_fragments(dedicated_live_listener_event_slice
+  "Full-engine co-op connection/disconnection handling changed"
+  "SDLNET_NEW_INCOMING_CONNECTION"
+  "selfRetirementInputFrozen_"
+  "closeConnection(event.connection, true)"
+  "ensureConnection(event.connection)"
+  "sendHandshakePrelude(event.connection)"
+  "SDLNET_DISCONNECTION_NOTIFICATION"
+  "SDLNET_CONNECTION_LOST"
+  "ingress_.disconnect(event.connection)"
+  "removeConnection(event.connection)")
+
+set(dedicated_live_listener_stop_marker
+  "void FullEngineCoopAdmissionListener::stopNow(\n\tunsigned drainMilliseconds) noexcept")
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "${dedicated_live_listener_stop_marker}" dedicated_live_listener_stop_slice
+  "Cannot bound full-engine co-op listener teardown")
+require_ordered_fragments(dedicated_live_listener_stop_slice
+  "Full-engine co-op listener no longer clears authority bindings before transport teardown"
+  "stopPending_ = false"
+  "connections_ = {}"
+  "clearInbound()"
+  "ingress_.clearTransportBindings()"
+  "transport_->Shutdown(drainMilliseconds)"
+  "DestroySdlNetPeer(transport_)"
+  "transport_ = nullptr")
+
+foreach(dedicated_live_listener_forbidden IN ITEMS
+    "REGISTER_STATIC_RPC"
+    "RegisterRPC"
+    "connect_client"
+    "client_connect"
+    "SendFile"
+    "ReceiveFile"
+    "FileTransfer"
+    "transfer_rules")
+  string(FIND
+    "${dedicated_live_listener_header_code}${dedicated_live_listener_code}"
+    "${dedicated_live_listener_forbidden}"
+    dedicated_live_listener_forbidden_position)
+  if(NOT dedicated_live_listener_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op listener regained legacy path '${dedicated_live_listener_forbidden}'")
+  endif()
+endforeach()
+foreach(dedicated_live_listener_test_contract IN ITEMS
+    "TestAdmissionOnlyListener()"
+    "TestLostAckCredentialAbandonRetry()"
+    "TestHelloPrecedesPresendRequest()"
+    "TestReconnectDisplacesLiveTransport()"
+    "TestTacticalOutboundHighWaterFailsClosed()"
+    "TestHandshakeDeadlineAndRejectionBudget()"
+    "TestStopDefersAcrossActiveHandler()")
+  string(FIND "${dedicated_live_listener_test_code}"
+    "${dedicated_live_listener_test_contract}"
+    dedicated_live_listener_test_contract_position)
+  if(dedicated_live_listener_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op listener tests lost '${dedicated_live_listener_test_contract}'")
+  endif()
+endforeach()
+
+# Admission credentials and session epochs are security-domain randomness.
+# They must come from the host OS CSPRNG and remain independent of deterministic
+# gameplay/package streams.
+set(dedicated_live_os_random_marker
+  "bool FillOsSecureRandomBytes(\n\tstd::uint8_t* destination, std::size_t size) noexcept")
+extract_brace_bounded_slice(dedicated_live_token_code
+  "${dedicated_live_os_random_marker}" dedicated_live_os_random_slice
+  "Cannot bound OS admission random source")
+require_ordered_fragments(dedicated_live_os_random_slice
+  "OS admission random source lost a supported CSPRNG path"
+  "BCryptGenRandom(nullptr"
+  "BCRYPT_USE_SYSTEM_PREFERRED_RNG"
+  "open("
+  "O_RDONLY | O_CLOEXEC"
+  "errno == EINTR"
+  "read(descriptor, destination + offset, bounded)"
+  "close(descriptor)"
+  "return true")
+string(FIND "${dedicated_live_token_source}" "\"/dev/urandom\""
+  dedicated_live_os_random_device_position)
+if(dedicated_live_os_random_device_position EQUAL -1)
+  message(FATAL_ERROR
+    "POSIX admission token source lost /dev/urandom")
+endif()
+foreach(dedicated_live_token_forbidden IN ITEMS
+    "GetGameRandomSource"
+    "SimulationRandom"
+    "std::mt19937"
+    "std::random_device"
+    "std::srand"
+    "std::rand(")
+  string(FIND "${dedicated_live_token_code}"
+    "${dedicated_live_token_forbidden}"
+    dedicated_live_token_forbidden_position)
+  if(NOT dedicated_live_token_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Admission credentials regained non-OS randomness '${dedicated_live_token_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_token_issue_marker
+  "bool OsAdmissionTokenSource::issue(\n\tPeerIdentity& identity, ReconnectToken& token) noexcept")
+extract_brace_bounded_slice(dedicated_live_token_code
+  "${dedicated_live_token_issue_marker}" dedicated_live_token_issue_slice
+  "Cannot bound OS admission credential issuance")
+require_ordered_fragments(dedicated_live_token_issue_slice
+  "OS admission credential issuance changed"
+  "attempt < NonzeroIssueAttempts"
+  "FillOsSecureRandomBytes(credential.data(), credential.size())"
+  "IsZero(candidateIdentity) || IsZero(candidateToken)"
+  "identity = candidateIdentity"
+  "token = candidateToken"
+  "return true")
+set(dedicated_live_epoch_issue_marker
+  "bool OsAdmissionTokenSource::issueSessionEpoch(\n\tstd::uint64_t& sessionEpoch) noexcept")
+extract_brace_bounded_slice(dedicated_live_token_code
+  "${dedicated_live_epoch_issue_marker}" dedicated_live_epoch_issue_slice
+  "Cannot bound OS admission session-epoch issuance")
+require_ordered_fragments(dedicated_live_epoch_issue_slice
+  "OS admission session-epoch issuance changed"
+  "attempt < NonzeroIssueAttempts"
+  "FillOsSecureRandomBytes("
+  "sizeof(candidate)"
+  "candidate == 0"
+  "sessionEpoch = candidate"
+  "return true")
+foreach(dedicated_live_token_test_contract IN ITEMS
+    "TestOsSecureBytes()"
+    "TestAdmissionCredentialsAndEpochs()")
+  string(FIND "${dedicated_live_token_test_code}"
+    "${dedicated_live_token_test_contract}"
+    dedicated_live_token_test_contract_position)
+  if(dedicated_live_token_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "OS admission token tests lost '${dedicated_live_token_test_contract}'")
+  endif()
+endforeach()
+
+# Tactical snapshot v7 carries authoritative geometry, canonical hostility,
+# a bounded five-slot combat-equipment loadout, the deliberately coarse
+# visible-door projection, a public busy bit, and compact interrupt
+# phase/serial/eligibility state. Preserve transactional decode/diff/replica
+# publication so the passive client never guesses private interrupt details.
+foreach(dedicated_live_snapshot_dimension_contract IN ITEMS
+    "struct TacticalWorldDimensions"
+    "MaximumColumns = 2000"
+    "MaximumRows = 2000"
+    "columns <= MaximumColumns && rows <= MaximumRows"
+    "static_cast<std::uint32_t>(columns) * rows"
+    "TacticalSnapshotCreateError::InvalidDimensions"
+    "const TacticalWorldDimensions& dimensions() const"
+    "TacticalWorldDimensions dimensions_")
+  string(FIND "${dedicated_live_snapshot_header_code}"
+    "${dedicated_live_snapshot_dimension_contract}"
+    dedicated_live_snapshot_dimension_contract_position)
+  if(dedicated_live_snapshot_dimension_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical snapshot dimension contract lost '${dedicated_live_snapshot_dimension_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_snapshot_v7_contract IN ITEMS
+    "TacticalWorldSnapshotWireVersion = 7"
+    "EncodedTacticalWorldSnapshotHeaderBytes = 53"
+    "EncodedTacticalHandItemSnapshotBytes = 12"
+    "EncodedTacticalActorSnapshotBytes = 92"
+    "EncodedTacticalDoorSnapshotBytes = 7"
+    "MaximumEncodedTacticalWorldSnapshotBytes =")
+  string(FIND "${dedicated_live_snapshot_codec_header_code}"
+    "${dedicated_live_snapshot_v7_contract}"
+    dedicated_live_snapshot_v7_contract_position)
+  if(dedicated_live_snapshot_v7_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical snapshot wire-v7 contract lost '${dedicated_live_snapshot_v7_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_interrupt_snapshot_contract IN ITEMS
+    "enum class TacticalInterruptPhase"
+    "None = 0"
+    "Resolving = 1"
+    "Active = 2"
+    "TacticalInterruptPhase interruptPhase"
+    "std::uint64_t interruptSerial = 0"
+    "bool interruptActionEligible = false"
+    "turn.interruptPhase != TacticalInterruptPhase::Active ||"
+    "turn.interruptSerial != 0"
+    "actor.team == turn.activeTeam")
+  string(FIND "${dedicated_live_snapshot_header_code}"
+    "${dedicated_live_interrupt_snapshot_contract}"
+    dedicated_live_interrupt_snapshot_contract_position)
+  if(dedicated_live_interrupt_snapshot_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Compact tactical interrupt snapshot contract lost '${dedicated_live_interrupt_snapshot_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_snapshot_header_code
+  "struct TacticalHandItemSnapshot"
+  dedicated_live_snapshot_hand_shape_slice
+  "Cannot bound public tactical hand-item snapshot")
+require_ordered_fragments(dedicated_live_snapshot_hand_shape_slice
+  "Tactical hand-item snapshot lost its bounded canonical combat state"
+  "std::uint16_t item = 0"
+  "std::uint8_t quantity = 0"
+  "std::int16_t condition = 0"
+  "std::uint16_t ammunitionItem = 0"
+  "std::uint16_t ammunitionCount = 0"
+  "std::int16_t ammunitionCondition = 0"
+  "bool ammunitionState = false"
+  "bool chambered = false"
+  "bool valid() const noexcept"
+  "if (item == 0)"
+  "quantity == 0 && condition == 0"
+  "ammunitionCondition == 0 && !ammunitionState && !chambered"
+  "if (quantity == 0) return false"
+  "return ammunitionState ||"
+  "ammunitionItem == 0 && ammunitionCount == 0"
+  "ammunitionCondition == 0 && !chambered")
+extract_brace_bounded_slice(dedicated_live_snapshot_header_code
+  "struct TacticalActorLoadoutSnapshot"
+  dedicated_live_snapshot_loadout_shape_slice
+  "Cannot bound public tactical actor-loadout snapshot")
+require_ordered_fragments(dedicated_live_snapshot_loadout_shape_slice
+  "Tactical actor loadout lost its exact five-slot combat-equipment projection"
+  "TacticalHandItemSnapshot helmet"
+  "TacticalHandItemSnapshot vest"
+  "TacticalHandItemSnapshot legs"
+  "TacticalHandItemSnapshot primaryHand"
+  "TacticalHandItemSnapshot secondaryHand"
+  "bool valid() const noexcept"
+  "helmet.valid() && vest.valid() && legs.valid()"
+  "primaryHand.valid() && secondaryHand.valid()")
+foreach(dedicated_live_snapshot_loadout_codec_contract IN ITEMS
+    "TacticalHandItemAmmunitionStateFlag = 1u << 0"
+    "TacticalHandItemChamberedFlag = 1u << 1"
+    "(flags & ~TacticalHandItemKnownFlags) != 0"
+    "return hand.valid()"
+    "WriteHandItem(writer, actor.loadout.helmet)"
+    "WriteHandItem(writer, actor.loadout.vest)"
+    "WriteHandItem(writer, actor.loadout.legs)"
+    "WriteHandItem(writer, actor.loadout.primaryHand)"
+    "WriteHandItem(writer, actor.loadout.secondaryHand)"
+    "ReadHandItem(reader, actor.loadout.helmet)"
+    "ReadHandItem(reader, actor.loadout.vest)"
+    "ReadHandItem(reader, actor.loadout.legs)"
+    "ReadHandItem(reader, actor.loadout.primaryHand)"
+    "ReadHandItem(reader, actor.loadout.secondaryHand)")
+  string(FIND "${dedicated_live_snapshot_codec_code}"
+    "${dedicated_live_snapshot_loadout_codec_contract}"
+    dedicated_live_snapshot_loadout_codec_contract_position)
+  if(dedicated_live_snapshot_loadout_codec_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical snapshot loadout codec lost '${dedicated_live_snapshot_loadout_codec_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_snapshot_header_code
+  "struct TacticalTurnSnapshot"
+  dedicated_live_snapshot_turn_shape_slice
+  "Cannot bound public tactical turn snapshot")
+require_ordered_fragments(dedicated_live_snapshot_turn_shape_slice
+  "Public tactical turn snapshot lost its appended canonical busy bit"
+  "bool turnBased = false"
+  "bool inCombat = false"
+  "std::uint8_t activeTeam = 0"
+  "std::uint64_t serial = 0"
+  "bool commandsBlocked = false")
+foreach(dedicated_live_snapshot_turn_private_field IN ITEMS
+    "pendingCombatActions"
+    "interruptPending"
+    "interruptType"
+    "interruptKind"
+    "interruptActor")
+  string(FIND "${dedicated_live_snapshot_turn_shape_slice}"
+    "${dedicated_live_snapshot_turn_private_field}"
+    dedicated_live_snapshot_turn_private_field_position)
+  if(NOT dedicated_live_snapshot_turn_private_field_position EQUAL -1)
+    message(FATAL_ERROR
+      "Public tactical turn snapshot exposed private busy detail '${dedicated_live_snapshot_turn_private_field}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_snapshot_turn_codec_variable IN ITEMS
+    dedicated_live_snapshot_codec_code
+    dedicated_live_delta_codec_code)
+  foreach(dedicated_live_snapshot_turn_codec_contract IN ITEMS
+      "WriteBool(writer, turn.turnBased)"
+      "WriteBool(writer, turn.inCombat)"
+      "writer.writeU8(turn.activeTeam)"
+      "writer.writeU64(turn.serial)"
+      "WriteBool(writer, turn.commandsBlocked)"
+      "ReadBool(reader, turn.commandsBlocked)")
+    string(FIND "${${dedicated_live_snapshot_turn_codec_variable}}"
+      "${dedicated_live_snapshot_turn_codec_contract}"
+      dedicated_live_snapshot_turn_codec_contract_position)
+    if(dedicated_live_snapshot_turn_codec_contract_position EQUAL -1)
+      message(FATAL_ERROR
+        "Tactical busy-bit codec lost '${dedicated_live_snapshot_turn_codec_contract}'")
+    endif()
+  endforeach()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_snapshot_header_code
+  "struct TacticalActorSnapshot"
+  dedicated_live_snapshot_actor_shape_slice
+  "Cannot bound tactical snapshot actor shape")
+require_ordered_fragments(dedicated_live_snapshot_actor_shape_slice
+  "Tactical snapshot actor lost authority-owned hostility or loadout state"
+  "TacticalEntityId id"
+  "bool active = false"
+  "bool inSector = false"
+  "bool hostileToPlayerTeam = false"
+  "TacticalActorLoadoutSnapshot loadout")
+extract_brace_bounded_slice(dedicated_live_snapshot_header_code
+  "struct TacticalDoorSnapshot"
+  dedicated_live_snapshot_door_shape_slice
+  "Cannot bound public tactical door shape")
+require_ordered_fragments(dedicated_live_snapshot_door_shape_slice
+  "Public tactical door state must remain exact and coarse"
+  "std::int32_t baseGrid = -1"
+  "std::uint16_t structureId = 0"
+  "bool open = false")
+foreach(dedicated_live_snapshot_door_private_field IN ITEMS
+    "lock" "Lock" "trap" "Trap" "key" "Key" "fingerprint"
+    "database" "perceived")
+  string(FIND "${dedicated_live_snapshot_door_shape_slice}"
+    "${dedicated_live_snapshot_door_private_field}"
+    dedicated_live_snapshot_door_private_field_position)
+  if(NOT dedicated_live_snapshot_door_private_field_position EQUAL -1)
+    message(FATAL_ERROR
+      "Public tactical door record exposed private state '${dedicated_live_snapshot_door_private_field}'")
+  endif()
+endforeach()
+
+set(dedicated_live_snapshot_encode_marker
+  "TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(\n\tconst TacticalWorldSnapshot& snapshot,\n\tstd::vector<std::uint8_t>& bytes,\n\tstd::size_t maximumActors) noexcept")
+string(REPLACE "maximumActors) noexcept"
+  "maximumActors,\n\tstd::size_t maximumDoors) noexcept"
+  dedicated_live_snapshot_encode_marker
+  "${dedicated_live_snapshot_encode_marker}")
+extract_brace_bounded_slice(dedicated_live_snapshot_codec_code
+  "${dedicated_live_snapshot_encode_marker}"
+  dedicated_live_snapshot_encode_slice
+  "Cannot bound tactical snapshot v7 encoder")
+require_ordered_fragments(dedicated_live_snapshot_encode_slice
+  "Tactical snapshot v7 encoding order changed"
+  "maximumDoors = EffectiveDoorMaximum(maximumDoors)"
+  "IsCanonical(snapshot)"
+  "snapshot.doors().size() > maximumDoors"
+  "TacticalWorldSnapshotEncodeResult::TooManyDoors"
+  "writer.writeU16(TacticalWorldSnapshotWireVersion)"
+  "writer.writeU64(snapshot.epoch())"
+  "WriteDimensions(writer, snapshot.dimensions())"
+  "WriteSector(writer, snapshot.sector())"
+  "WriteTurn(writer, snapshot.turn())"
+  "static_cast<std::uint32_t>(snapshot.actors().size())"
+  "static_cast<std::uint32_t>(snapshot.doors().size())"
+  "WriteActor(writer, actor)"
+  "WriteDoor(writer, door)"
+  "EncodedTacticalWorldSnapshotHeaderBytes"
+  "EncodedTacticalDoorSnapshotBytes"
+  "bytes = std::move(encoded)")
+
+set(dedicated_live_snapshot_decode_marker
+  "TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(\n\tconst std::vector<std::uint8_t>& bytes,\n\tTacticalWorldSnapshot& snapshot,\n\tstd::size_t maximumActors) noexcept")
+string(REPLACE "maximumActors) noexcept"
+  "maximumActors,\n\tstd::size_t maximumDoors) noexcept"
+  dedicated_live_snapshot_decode_marker
+  "${dedicated_live_snapshot_decode_marker}")
+extract_brace_bounded_slice(dedicated_live_snapshot_codec_code
+  "${dedicated_live_snapshot_decode_marker}"
+  dedicated_live_snapshot_decode_slice
+  "Cannot bound tactical snapshot v7 decoder")
+require_ordered_fragments(dedicated_live_snapshot_decode_slice
+  "Tactical snapshot v7 decoding lost fail-closed transactional order"
+  "maximumDoors = EffectiveDoorMaximum(maximumDoors)"
+  "reader.readU16(version)"
+  "version != TacticalWorldSnapshotWireVersion"
+  "TacticalWorldSnapshotDecodeResult::UnsupportedVersion"
+  "ReadDimensions(reader, dimensions)"
+  "reader.readU32(actorCount)"
+  "reader.readU32(doorCount)"
+  "actorCount > maximumActors"
+  "doorCount > maximumDoors"
+  "TacticalWorldSnapshotDecodeResult::TooManyDoors"
+  "ReadActor(reader, actor)"
+  "ReadDoor(reader, door)"
+  "TacticalWorldSnapshot::create("
+  "epoch, dimensions, sector, turn, std::move(actors),"
+  "std::move(doors), decoded, maximumActors, maximumDoors"
+  "snapshot = std::move(decoded)")
+
+set(dedicated_live_snapshot_capture_marker
+  "TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(\n\tTacticalWorldSnapshot& output) noexcept")
+extract_brace_bounded_slice(dedicated_live_snapshot_adapter_code
+  "${dedicated_live_snapshot_capture_marker}"
+  dedicated_live_snapshot_capture_slice
+  "Cannot bound live JA2 tactical snapshot capture")
+require_ordered_fragments(dedicated_live_snapshot_capture_slice
+  "JA2 tactical capture lost exact authoritative dimensions"
+  "guiWorldCols <= 0 || guiWorldRows <= 0"
+  "guiWorldCols > TacticalWorldDimensions::MaximumColumns"
+  "guiWorldRows > TacticalWorldDimensions::MaximumRows"
+  "TacticalWorldSnapshot::createReusableOrdered("
+  "state.worldGeneration"
+  "static_cast<std::uint16_t>(guiWorldCols)"
+  "static_cast<std::uint16_t>(guiWorldRows)"
+  "actorScratch_, doorScratch_, output"
+  "maximumActors_, maximumDoors_")
+require_ordered_fragments(dedicated_live_snapshot_capture_slice
+  "JA2 tactical capture lost the exact public busy predicate"
+  "state.turn.turnBased"
+  "state.turn.inCombat"
+  "state.turn.currentTeam"
+  "state.turnSerial"
+  "state.turn.turnBased && state.turn.inCombat &&"
+  "state.turn.pendingCombatActions != 0"
+  "interruptPhase == TacticalInterruptPhase::Resolving"
+  "projectedTurn.interruptPhase = interruptPhase"
+  "projectedTurn.interruptSerial = nativeInterrupt.serial"
+  "actorScratch_, doorScratch_, output")
+require_ordered_fragments(dedicated_live_snapshot_capture_slice
+  "JA2 tactical capture lost its player-retention/non-player public-visibility boundary"
+  "gbPlayerNum >= MAXTEAMS"
+  "SynchronizeJa2TacticalEntityStates()"
+  "directory.identity(static_cast<std::uint16_t>(slot))"
+  "entity.slot != slot || entity.slot >= TOTAL_SOLDIERS"
+  "actor->team >= MAXTEAMS"
+  "actor->team != gbPlayerNum"
+  "gbPublicOpplist[gbPlayerNum][entity.slot] != SEEN_CURRENTLY"
+  "continue"
+  "actorScratch_.size() >= maximumActors_"
+  "projected.interruptActionEligible ="
+  "IsJa2TacticalInterruptActorEligible(entity)"
+  "actorScratch_.push_back(projected)"
+  "gpWorldLevelData"
+  "doorScratch_.clear()"
+  "STRUCTURE_ANYDOOR"
+  "STRUCTURE_SWITCH"
+  "STRUCTURE_BASE_TILE"
+  "IsJa2TacticalDoorVisibleToPlayerTeam(grid)"
+  "doorScratch_.size() >= maximumDoors_"
+  "doorScratch_.push_back(TacticalDoorSnapshot"
+  "TacticalWorldSnapshot::createReusableOrdered("
+  "actorScratch_, doorScratch_, output"
+  "maximumActors_, maximumDoors_")
+
+extract_brace_bounded_slice(dedicated_live_tactical_entity_host_code
+  "std::optional<TacticalHandItemSnapshot> LegacyEquipmentSlotState(\n\tconst OBJECTTYPE& object) noexcept"
+  dedicated_live_snapshot_hand_capture_slice
+  "Cannot bound live tactical hand-item capture")
+require_ordered_fragments(dedicated_live_snapshot_hand_capture_slice
+  "Live tactical hand capture lost canonical empty/item/ammunition handling"
+  "object.usItem == NOTHING"
+  "object.ubNumberOfObjects == 0"
+  "object.usItem >= MAXITEMS || object.objectStack.empty()"
+  "const StackedObjectData& first = object.objectStack.front()"
+  "state.item = object.usItem"
+  "state.quantity = object.ubNumberOfObjects"
+  "state.condition = first.data.objectStatus"
+  "IC_GUN | IC_LAUNCHER"
+  "gun.usGunAmmoItem != NOTHING && gun.usGunAmmoItem >= MAXITEMS"
+  "state.ammunitionItem = gun.usGunAmmoItem"
+  "state.ammunitionCount = gun.ubGunShotsLeft"
+  "state.ammunitionCondition = gun.bGunAmmoStatus"
+  "state.ammunitionState = true"
+  "GS_CARTRIDGE_IN_CHAMBER")
+extract_brace_bounded_slice(dedicated_live_tactical_entity_host_code
+  "std::optional<TacticalActorSnapshot> LegacyState(\n\tconst TacticalActor& soldier) noexcept"
+  dedicated_live_snapshot_actor_capture_slice
+  "Cannot bound live tactical actor loadout capture")
+require_ordered_fragments(dedicated_live_snapshot_actor_capture_slice
+  "Live tactical actor capture lost five-slot fail-closed publication"
+  "LegacyEquipmentSlotState(soldier.inventory()[HELMETPOS])"
+  "LegacyEquipmentSlotState(soldier.inventory()[VESTPOS])"
+  "LegacyEquipmentSlotState(soldier.inventory()[LEGPOS])"
+  "LegacyEquipmentSlotState(soldier.inventory()[HANDPOS])"
+  "LegacyEquipmentSlotState(soldier.inventory()[SECONDHANDPOS])"
+  "if (!helmet || !vest || !legs || !primaryHand || !secondaryHand)"
+  "state.loadout = TacticalActorLoadoutSnapshot"
+  "*helmet, *vest, *legs, *primaryHand, *secondaryHand"
+  "return state")
+
+foreach(dedicated_live_snapshot_visibility_test_contract IN ITEMS
+    "gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_THIS_TURN"
+    "!hiddenHostileWorld.find( worldActorIdentity )"
+    "TacticalActorLeftEvent"
+    "hiddenMilitiaWorld"
+    "visibleMilitiaWorld"
+    "hiddenNeutralWorld"
+    "visibleNeutralWorld"
+    "visiblePlayerActor->team == worldCapturePlayerTeam"
+    "TacticalActorEnteredEvent"
+    "invalidPlayerTeamCapture == TacticalWorldCaptureResult::AdapterFailure"
+    "live tactical projection hides every non-player team by public knowledge, emits leave/enter on visibility transitions, retains player actors, and rejects malformed mappings transactionally")
+  string(FIND "${dedicated_live_headless_test_source}"
+    "${dedicated_live_snapshot_visibility_test_contract}"
+    dedicated_live_snapshot_visibility_test_contract_position)
+  if(dedicated_live_snapshot_visibility_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Live tactical visibility regression lost '${dedicated_live_snapshot_visibility_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_snapshot_busy_capture_test_contract IN ITEMS
+    "commandGateIdleWorld.turn().commandsBlocked"
+    "commandGateActionWorld.turn().commandsBlocked"
+    "commandGateInterruptWorld.turn().commandsBlocked"
+    "commandGateRecoveredWorld.turn().commandsBlocked"
+    "commandGateIdleWorld.turn().serial =="
+    "commandGateInterruptWorld.turn().serial =="
+    "live tactical capture derives the public command gate independently from pending actions and interrupts without advancing turn identity")
+  string(FIND "${dedicated_live_headless_test_source}"
+    "${dedicated_live_snapshot_busy_capture_test_contract}"
+    dedicated_live_snapshot_busy_capture_test_contract_position)
+  if(dedicated_live_snapshot_busy_capture_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Live tactical busy-gate capture regression lost '${dedicated_live_snapshot_busy_capture_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_snapshot_loadout_capture_test_contract IN ITEMS
+    "emptyEquipmentCaptured"
+    "genericHandCaptured"
+    "unchamberedGun.ammunitionCondition == -27"
+    "chamberOnlyTransitionCaptured"
+    "launcherHandCaptured"
+    "malformedItemPreservedState"
+    "malformedAmmunitionPreservedState"
+    "malformedArmourPreservedState"
+    "missingFirstObjectPreservedState"
+    "noncanonicalEmptyRejected"
+    "live tactical actor combat-equipment capture publishes canonical armour, hand, gun, launcher, jam, and chamber states while malformed slot storage fails closed")
+  string(FIND "${dedicated_live_headless_test_source}"
+    "${dedicated_live_snapshot_loadout_capture_test_contract}"
+    dedicated_live_snapshot_loadout_capture_test_contract_position)
+  if(dedicated_live_snapshot_loadout_capture_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Live tactical loadout regression lost '${dedicated_live_snapshot_loadout_capture_test_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_snapshot_diff_marker
+  "TacticalWorldDiffResult DiffTacticalWorldSnapshots(\n\tconst TacticalWorldSnapshot& previous,\n\tconst TacticalWorldSnapshot& current,\n\tstd::size_t maximumEvents,\n\tTacticalWorldDelta& output) noexcept")
+extract_brace_bounded_slice(dedicated_live_snapshot_delta_code
+  "${dedicated_live_snapshot_diff_marker}"
+  dedicated_live_snapshot_diff_slice
+  "Cannot bound tactical snapshot dimension-change policy")
+require_ordered_fragments(dedicated_live_snapshot_diff_slice
+  "Same-generation tactical dimensions may not drift through a delta"
+  "!previous.dimensions().valid() || !current.dimensions().valid()"
+  "previous.epoch() == current.epoch()"
+  "!SameDimensions(previous.dimensions(), current.dimensions())"
+  "TacticalWorldDiffResult::InvalidSnapshot"
+  "output.events.reserve(maximumEvents)"
+  "output.previousEpoch = previous.epoch()"
+  "output.currentEpoch = current.epoch()"
+  "output.events.clear()"
+  "output.events.push_back(std::move(event))"
+  "TacticalWorldDiffResult::Success")
+foreach(dedicated_live_snapshot_busy_diff_contract IN ITEMS
+    "left.serial == right.serial"
+    "left.commandsBlocked == right.commandsBlocked")
+  string(FIND "${dedicated_live_snapshot_delta_code}"
+    "${dedicated_live_snapshot_busy_diff_contract}"
+    dedicated_live_snapshot_busy_diff_contract_position)
+  if(dedicated_live_snapshot_busy_diff_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical busy-only diff lost '${dedicated_live_snapshot_busy_diff_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_snapshot_replica_baseline_marker
+  "FullEngineCoopSnapshotReplica::applyBaseline(\n\tconst CoopTacticalBaseline& baseline) noexcept")
+extract_brace_bounded_slice(dedicated_live_snapshot_replica_code
+  "${dedicated_live_snapshot_replica_baseline_marker}"
+  dedicated_live_snapshot_replica_baseline_slice
+  "Cannot bound passive snapshot baseline application")
+require_ordered_fragments(dedicated_live_snapshot_replica_baseline_slice
+  "Passive baseline application lost exact dimensions/doors or transactional publication"
+  "!baseline.snapshot.dimensions().valid()"
+  "ValidSnapshotActors(baseline.snapshot.actors(), false)"
+  "ValidSnapshotDoors(baseline.snapshot)"
+  "TacticalWorldSnapshot accepted"
+  "baseline.snapshot.dimensions()"
+  "std::move(actors), std::move(doors), accepted"
+  "MaximumCoopTacticalSnapshotActors"
+  "TacticalWorldSnapshot::DefaultMaximumDoors"
+  "snapshot_ = std::move(accepted)"
+  "state_ = baseline.state"
+  "hasSnapshot_ = true")
+foreach(dedicated_live_snapshot_busy_replica_contract IN ITEMS
+    "left.serial == right.serial"
+    "left.commandsBlocked == right.commandsBlocked")
+  string(FIND "${dedicated_live_snapshot_replica_code}"
+    "${dedicated_live_snapshot_busy_replica_contract}"
+    dedicated_live_snapshot_busy_replica_contract_position)
+  if(dedicated_live_snapshot_busy_replica_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive replica busy-only comparison lost '${dedicated_live_snapshot_busy_replica_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_snapshot_loadout_replica_contract IN ITEMS
+    "actor.loadout.valid()"
+    "std::get_if<TacticalActorLoadoutChangedEvent>(&event)"
+    "loadout->previous.valid()"
+    "loadout->current.valid()"
+    "actor->loadout != loadout->previous"
+    "actor->loadout = loadout->current")
+  string(FIND "${dedicated_live_snapshot_replica_code}"
+    "${dedicated_live_snapshot_loadout_replica_contract}"
+    dedicated_live_snapshot_loadout_replica_contract_position)
+  if(dedicated_live_snapshot_loadout_replica_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive replica loadout handling lost '${dedicated_live_snapshot_loadout_replica_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
+    "EncodedTacticalWorldSnapshotHeaderBytes == 53"
+    "EncodedTacticalHandItemSnapshotBytes == 12"
+    "EncodedTacticalActorSnapshotBytes == 92"
+    "EncodedTacticalDoorSnapshotBytes == 7"
+    "MaximumEncodedTacticalWorldSnapshotBytes == 384053"
+    "MakeSnapshot(0x1112131415161718ull)"
+    "version 7 baseline bytes match the golden fixture"
+    "noncanonical commands-blocked boolean is rejected"
+    "changed[44] = 2"
+    "unknown interrupt phase is rejected"
+    "active interrupt requires a nonzero serial"
+    "actor interrupt eligibility requires an active interrupt phase"
+    "noncanonical hostility bit is rejected"
+    "unknown equipment flags are rejected"
+    "ammunition fields require canonical ammunition state"
+    "occupied hand items require a quantity"
+    "empty hand items require all-zero state"
+    "zero door structure identity is rejected"
+    "duplicate door base grid is rejected"
+    "noncanonical door open bit is rejected"
+    "changed[4] = 1"
+    "changed[4] = 3"
+    "pre-command-gate version 3 is rejected instead of inferred"
+    "changed[4] = 4"
+    "pre-loadout version 4 is rejected instead of inventing equipment"
+    "TacticalWorldSnapshotDecodeResult::UnsupportedVersion"
+    "SameSnapshot(output, retainedSnapshot)"
+    "a maximum-size baseline reaches the exact byte ceiling")
+  string(FIND "${dedicated_live_snapshot_codec_test_source}"
+    "${dedicated_live_snapshot_v7_test_contract}"
+    dedicated_live_snapshot_v7_test_contract_position)
+  if(dedicated_live_snapshot_v7_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical snapshot v7 golden/transaction test lost '${dedicated_live_snapshot_v7_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_snapshot_runtime_test_contract IN ITEMS
+    "TacticalWorldDimensions{320, 240}"
+    "DiffTacticalWorldSnapshots(tacticalSnapshot, resizedSameWorld"
+    "TacticalWorldDiffResult::InvalidSnapshot"
+    "invalidLoadoutActors[0].loadout.primaryHand.quantity = 1"
+    "noncanonical actor loadouts cannot replace the last good snapshot")
+  string(FIND "${dedicated_live_runtime_adapter_test_source}"
+    "${dedicated_live_snapshot_runtime_test_contract}"
+    dedicated_live_snapshot_runtime_test_contract_position)
+  if(dedicated_live_snapshot_runtime_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical enlarged-map/dimension-change regression lost '${dedicated_live_snapshot_runtime_test_contract}'")
+  endif()
+endforeach()
+
+# Busy, loadout, door, and hostility replication are independently versioned
+# and bounded. The reusable SDK limits remain wider than the public co-op
+# envelope.
+foreach(dedicated_live_delta_v5_contract IN ITEMS
+    "TacticalWorldDeltaWireVersion = 6"
+    "TacticalWorldSnapshot::DefaultMaximumActors * 4"
+    "TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 2")
+  string(FIND "${dedicated_live_delta_codec_header_code}"
+    "${dedicated_live_delta_v5_contract}"
+    dedicated_live_delta_v5_contract_position)
+  if(dedicated_live_delta_v5_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical delta wire-v5 contract lost '${dedicated_live_delta_v5_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_delta_loadout_door_contract IN ITEMS
+    "bool previousHostileToPlayerTeam = false"
+    "bool currentHostileToPlayerTeam = false"
+    "struct TacticalActorLoadoutChangedEvent"
+    "TacticalActorLoadoutSnapshot previous"
+    "TacticalActorLoadoutSnapshot current"
+    "struct TacticalDoorEnteredEvent"
+    "struct TacticalDoorLeftEvent"
+    "struct TacticalDoorChangedEvent"
+    "TacticalActorLoadoutChangedEvent,"
+    "TacticalDoorEnteredEvent,"
+    "TacticalDoorLeftEvent,"
+    "TacticalDoorChangedEvent")
+  string(FIND "${dedicated_live_delta_header_code}"
+    "${dedicated_live_delta_loadout_door_contract}"
+    dedicated_live_delta_loadout_door_contract_position)
+  if(dedicated_live_delta_loadout_door_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical hostility/loadout/door delta model lost '${dedicated_live_delta_loadout_door_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_delta_codec_loadout_door_contract IN ITEMS
+    "ActorLoadoutChanged = 9"
+    "DoorEntered = 10"
+    "DoorLeft = 11"
+    "DoorChanged = 12"
+    "WriteBool(writer, actor.hostileToPlayerTeam)"
+    "ReadBool(reader, actor.hostileToPlayerTeam)"
+    "WriteBool(writer, value.previousHostileToPlayerTeam)"
+    "WriteBool(writer, value.currentHostileToPlayerTeam)"
+    "TacticalWorldEventTag::ActorLoadoutChanged"
+    "WriteLoadout(writer, value.previous)"
+    "WriteLoadout(writer, value.current)"
+    "ReadLoadout(reader, value.previous)"
+    "ReadLoadout(reader, value.current)"
+    "TacticalWorldEventTag::DoorEntered"
+    "TacticalWorldEventTag::DoorLeft"
+    "TacticalWorldEventTag::DoorChanged")
+  string(FIND "${dedicated_live_delta_codec_code}"
+    "${dedicated_live_delta_codec_loadout_door_contract}"
+    dedicated_live_delta_codec_loadout_door_contract_position)
+  if(dedicated_live_delta_codec_loadout_door_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical hostility/loadout/door delta codec lost '${dedicated_live_delta_codec_loadout_door_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_delta_loadout_diff_contract IN ITEMS
+    "bool SameLoadout("
+    "return left.loadout == right.loadout"
+    "SameLoadout(*oldActor, *newActor)"
+    "TacticalActorLoadoutChangedEvent"
+    "oldActor->id, oldActor->loadout, newActor->loadout")
+  string(FIND "${dedicated_live_snapshot_delta_code}"
+    "${dedicated_live_delta_loadout_diff_contract}"
+    dedicated_live_delta_loadout_diff_contract_position)
+  if(dedicated_live_delta_loadout_diff_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical loadout diff lost '${dedicated_live_delta_loadout_diff_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_snapshot_diff_slice
+  "Tactical diff lost canonical actor/door category publication"
+  "output.events.reserve(maximumEvents)"
+  "output.previousEpoch = previous.epoch()"
+  "output.currentEpoch = current.epoch()"
+  "output.events.clear()"
+  "VisitEvents(previous, current"
+  "output.events.push_back(std::move(event))")
+
+foreach(dedicated_live_world_service_v2_contract IN ITEMS
+    "TacticalWorldServiceVersion{2, 0}"
+    "TacticalWorldObserverServiceVersion{2, 0}"
+    "maximumDoors = TacticalWorldSnapshot::DefaultMaximumDoors"
+    "DoorCapacityReached = 12")
+  string(FIND
+    "${dedicated_live_world_service_header_code}${dedicated_live_world_observer_header_code}"
+    "${dedicated_live_world_service_v2_contract}"
+    dedicated_live_world_service_v2_contract_position)
+  if(dedicated_live_world_service_v2_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical-world service/observer v2 contract lost '${dedicated_live_world_service_v2_contract}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_world_observer_code
+  "TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept"
+  dedicated_live_world_observer_update_slice
+  "Cannot bound tactical-world observer update")
+require_ordered_fragments(dedicated_live_world_observer_update_slice
+  "Tactical observer must reject door overflow before publishing"
+  "source_.capture(accepted.snapshot)"
+  "accepted.snapshot.actors().size() > limits_.maximumActors"
+  "TacticalWorldObserverUpdateResult::ActorCapacityReached"
+  "accepted.snapshot.doors().size() > limits_.maximumDoors"
+  "TacticalWorldObserverUpdateResult::DoorCapacityReached"
+  "activePublication_ = scratchIndex"
+  "hasPublication_ = true")
+foreach(dedicated_live_world_observer_door_test_contract IN ITEMS
+    "TacticalWorldObserverLimits{1, 5, 0}"
+    "TacticalWorldObserverUpdateResult::DoorCapacityReached"
+    "!doorLimited.latest()"
+    "observer door capacity fails closed without publishing a partial baseline")
+  string(FIND "${dedicated_live_world_observer_test_source}"
+    "${dedicated_live_world_observer_door_test_contract}"
+    dedicated_live_world_observer_door_test_contract_position)
+  if(dedicated_live_world_observer_door_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical observer door-capacity regression lost '${dedicated_live_world_observer_door_test_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_runtime_tactical_pump_slice
+  "Dedicated runtime no longer fails closed on door-capacity overflow"
+  "TacticalWorldObserverUpdateResult::ActorCapacityReached"
+  "TacticalWorldObserverUpdateResult::DoorCapacityReached"
+  "TacticalWorldObserverUpdateResult::EventCapacityReached"
+  "fail(DedicatedCoopRuntimeError::TacticalReplicationFailed)")
+require_ordered_fragments(dedicated_live_tactical_world_observer_host_code
+  "JA2 tactical observer host lost the four actor-event categories in its capacity bound"
+  "Ja2TacticalMaximumEvents ="
+  "TOTAL_SOLDIERS * 4"
+  "Ja2TacticalMaximumDoors * 2 + 2")
+string(FIND "${dedicated_live_tactical_world_observer_host_code}"
+  "TOTAL_SOLDIERS * 3" dedicated_live_stale_observer_actor_category_bound_position)
+if(NOT dedicated_live_stale_observer_actor_category_bound_position EQUAL -1)
+  message(FATAL_ERROR
+    "JA2 tactical observer host still reserves only three actor-event categories")
+endif()
+
+foreach(dedicated_live_coop_door_bound_contract IN ITEMS
+    "CoopTacticalWireVersion = 3"
+    "MaximumCoopTacticalSnapshotActors = 256"
+    "MaximumCoopTacticalSnapshotDoors = 1024"
+    "MaximumCoopTacticalAssignedActors = 256"
+    "MaximumCoopTacticalSnapshotActors * 4"
+    "MaximumCoopTacticalSnapshotDoors * 2 + 2"
+    "MaximumCoopTacticalPayloadWireSize = 64u * 1024u"
+    "MaximumCoopTacticalBaselinePayloadWireSize ="
+    "MaximumCoopTacticalDeltaPayloadWireSize = 62034")
+  string(FIND "${dedicated_live_tactical_protocol_header_code}"
+    "${dedicated_live_coop_door_bound_contract}"
+    dedicated_live_coop_door_bound_contract_position)
+  if(dedicated_live_coop_door_bound_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical door/public ceiling lost '${dedicated_live_coop_door_bound_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_coop_door_bound_test_contract IN ITEMS
+    "MaximumCoopTacticalBaselinePayloadWireSize == 30773"
+    "MaximumCoopTacticalBaselineWireSize == 32385"
+    "MaximumCoopTacticalDeltaEvents == 3074"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 62034"
+    "MaximumCoopTacticalDeltaWireSize == 62106"
+    "exact 256-actor/1024-door baseline reaches the payload ceiling"
+    "TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()"
+    "category-aware maximum delta reaches exactly 61,504 bytes"
+    "maximum legal delta envelope stays below the 64-KiB transport ceiling")
+  string(FIND "${dedicated_live_tactical_protocol_test_source}"
+    "${dedicated_live_coop_door_bound_test_contract}"
+    dedicated_live_coop_door_bound_test_contract_position)
+  if(dedicated_live_coop_door_bound_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical exact door bound regression lost '${dedicated_live_coop_door_bound_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_delta_v6_test_contract IN ITEMS
+    "MaximumTacticalWorldDeltaEvents == 18434"
+    "decodedDelta.events.size() == 12"
+    "TacticalActorLoadoutChangedEvent"
+    "mixed actors remain category-major with loadout changes after vitals"
+    "TacticalDoorEnteredEvent"
+    "TacticalDoorLeftEvent"
+    "TacticalDoorChangedEvent"
+    "actor.hostileToPlayerTeam"
+    "vitals.currentHostileToPlayerTeam"
+    "loadout.current.primaryHand.ammunitionCondition == -80"
+    "rejectsReservedLoadoutFlags"
+    "rejectsInvalidEnteredLoadout"
+    "rejectsNoOpLoadout"
+    "busy-only change emits and round-trips one exact 43-byte turn event without advancing serial"
+    "tactical delta version 6 has a fixed little-endian golden representation"
+    "pre-loadout tactical delta version 3 is rejected"
+    "two-hand tactical delta version 4 is rejected"
+    "tactical delta codec rejects every truncated prefix"
+    "trailing tactical delta bytes are rejected without replacing prior state")
+  string(FIND "${dedicated_live_runtime_adapter_test_source}"
+    "${dedicated_live_delta_v6_test_contract}"
+    dedicated_live_delta_v6_test_contract_position)
+  if(dedicated_live_delta_v6_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical delta-v6 interrupt/loadout/door regression lost '${dedicated_live_delta_v6_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_busy_delta_test_contract IN ITEMS
+    "blockedDeltaBytes.size() == 26 + 43"
+    "previous.serial =="
+    "current.serial"
+    "tactical delta codec rejects malformed tags, hand flags/state, booleans, stances, and identities transactionally")
+  string(FIND "${dedicated_live_runtime_adapter_test_source}"
+    "${dedicated_live_busy_delta_test_contract}"
+    dedicated_live_busy_delta_test_contract_position)
+  if(dedicated_live_busy_delta_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical busy-only diff/codec regression lost '${dedicated_live_busy_delta_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_busy_envelope_test_contract IN ITEMS
+    "MaximumCoopTacticalBaselinePayloadWireSize == 30773"
+    "MaximumCoopTacticalBaselineWireSize == 32385"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 62034"
+    "MaximumCoopTacticalDeltaWireSize == 62106"
+    "decoded.snapshot.turn().commandsBlocked"
+    "co-op envelope round-trips busy and interrupt turn metadata")
+  string(FIND "${dedicated_live_tactical_protocol_test_source}"
+    "${dedicated_live_busy_envelope_test_contract}"
+    dedicated_live_busy_envelope_test_contract_position)
+  if(dedicated_live_busy_envelope_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical busy-gate envelope regression lost '${dedicated_live_busy_envelope_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_busy_replica_test_contract IN ITEMS
+    "TestCommandBusyOnlyDeltaIsTransactional()"
+    "busy-only delta applies without advancing the replicated turn serial"
+    "stale command-busy previous value rejects without rolling back replica state"
+    "exact busy-gate recovery commits at the same turn serial")
+  string(FIND "${dedicated_live_snapshot_replica_test_source}"
+    "${dedicated_live_busy_replica_test_contract}"
+    dedicated_live_busy_replica_test_contract_position)
+  if(dedicated_live_busy_replica_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive replica busy-gate regression lost '${dedicated_live_busy_replica_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_loadout_replica_test_contract IN ITEMS
+    "CombatLoadout(6, false, -31)"
+    "mismatched previous combat loadout is rejected"
+    "a redundant no-op loadout event is rejected"
+    "a noncanonical current combat loadout is rejected")
+  string(FIND "${dedicated_live_snapshot_replica_test_source}"
+    "${dedicated_live_loadout_replica_test_contract}"
+    dedicated_live_loadout_replica_test_contract_position)
+  if(dedicated_live_loadout_replica_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive replica loadout regression lost '${dedicated_live_loadout_replica_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "void FullEngineCoopClientController::synchronize(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_client_busy_synchronize_slice
+  "Cannot bound passive controller synchronization")
+require_ordered_fragments(dedicated_live_client_busy_synchronize_slice
+  "Passive controller synchronization lost busy/actor modal cancellation"
+  "assignedAndPresent(view, selectedActor_)"
+  "!actionsEnabled(view)"
+  "cancelDestinationEntry()"
+  "cancelAttackTargeting()"
+  "cancelDoorSelection()")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::actionsEnabled(\n\tconst FullEngineCoopClientControllerView& view) const noexcept"
+  dedicated_live_client_actions_enabled_slice
+  "Cannot bound passive controller action gate")
+require_ordered_fragments(dedicated_live_client_actions_enabled_slice
+  "Passive controller action gate lost replica busy and exact turn ownership checks"
+  "!ready(view) || view.resynchronizing ||"
+  "view.outstandingCommandId != 0"
+  "view.snapshot->find(selectedActor_)"
+  "actor == nullptr || !actor->active || !actor->inSector"
+  "actor->life <= 0"
+  "const TacticalTurnSnapshot& turn = view.snapshot->turn()"
+  "if (turn.commandsBlocked) return false"
+  "case TacticalInterruptPhase::None"
+  "turn.activeTeam == actor->team"
+  "case TacticalInterruptPhase::Resolving"
+  "case TacticalInterruptPhase::Active"
+  "actor->interruptActionEligible")
+foreach(dedicated_live_client_busy_test_contract IN ITEMS
+    "TestReplicatedCommandGateLocksAndRecovers()"
+    "replicated command-busy gate closes movement mode and blocks actions"
+    "cleared command-busy gate restores actions and attack targeting"
+    "replicated command-busy gate closes attack targeting"
+    "cleared command-busy gate restores door selection"
+    "replicated command-busy gate closes door selection"
+    "own-turn to other-team transition closes stale modal state")
+  string(FIND "${dedicated_live_client_controller_test_source}"
+    "${dedicated_live_client_busy_test_contract}"
+    dedicated_live_client_busy_test_contract_position)
+  if(dedicated_live_client_busy_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive controller busy-gate regression lost '${dedicated_live_client_busy_test_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_client_screen_source
+  "Passive screen lost explicit authoritative busy status"
+  "controllerView.outstandingCommandId != 0"
+  "TacticalInterruptPhase::Resolving"
+  "Server is resolving an interrupt"
+  "snapshot.turn().commandsBlocked"
+  "Server is resolving an action"
+  "TacticalInterruptPhase::Active"
+  "Interrupt active; selected merc may act. T passes selected merc."
+  "Controller.actionsEnabled(controllerView)")
+
+# The passive plot is a worldless projection of committed replica values. It
+# may draw the authority-sized diamond and friendly-team markers, but it may not
+# load terrain, inspect JA2 globals, or turn marker filtering into a security
+# claim. Model construction and renderer validation both publish atomically.
+set(dedicated_live_presentation_build_marker
+  "BuildFullEngineCoopClientTacticalPresentation(\n\tconst TacticalWorldSnapshot& snapshot,\n\tconst TacticalEntityId* assignedActors,\n\tstd::size_t assignedActorCount,\n\tTacticalEntityId selectedActor,\n\tFullEngineCoopClientTacticalPlotBounds bounds,\n\tFullEngineCoopClientTacticalPresentation& output) noexcept")
+extract_brace_bounded_slice(dedicated_live_presentation_code
+  "${dedicated_live_presentation_build_marker}"
+  dedicated_live_presentation_build_slice
+  "Cannot bound passive tactical presentation builder")
+require_ordered_fragments(dedicated_live_presentation_build_slice
+  "Passive tactical plot lost assignment validation, friendly filtering, or transactional publication"
+  "!snapshot.dimensions().valid()"
+  "FullEngineCoopClientTacticalPresentation accepted"
+  "accepted.dimensions = snapshot.dimensions()"
+  "!SpatiallyPresent(*actor, snapshot.dimensions())"
+  "accepted.friendlyTeam = actor->team"
+  "!SpatiallyPresent(actor, snapshot.dimensions())"
+  "continue"
+  "actor.team != accepted.friendlyTeam"
+  "actor.grid % snapshot.dimensions().columns"
+  "actor.grid / snapshot.dimensions().columns"
+  "Project(marker.column, marker.row, snapshot.dimensions(), bounds"
+  "output = accepted")
+
+set(dedicated_live_plot_renderer_marker
+  "bool RenderFullEngineCoopClientTacticalPlot(\n\tconst FullEngineCoopClientTacticalPresentation& presentation,\n\tstd::uint32_t destinationSurface) noexcept")
+extract_brace_bounded_slice(dedicated_live_plot_renderer_code
+  "${dedicated_live_plot_renderer_marker}"
+  dedicated_live_plot_renderer_slice
+  "Cannot bound passive tactical plot renderer")
+require_ordered_fragments(dedicated_live_plot_renderer_slice
+  "Passive tactical renderer lost validate-before-draw or pitch-aware surface ordering"
+  "!presentation.dimensions.valid()"
+  "marker.column >= presentation.dimensions.columns"
+  "marker.row >= presentation.dimensions.rows"
+  "ColorFillVideoSurfaceArea(destinationSurface"
+  "LockVideoSurface(destinationSurface, &pitch)"
+  "DrawLine(surface, pitch"
+  "DrawMarker(presentation, presentation.markers[index], surface, pitch)"
+  "UnLockVideoSurface(destinationSurface)"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void RenderPresentation(\n\tconst FullEngineCoopClientPresentationView& view,\n\tconst FullEngineCoopClientControllerView& controllerView) noexcept"
+  dedicated_live_client_render_presentation_slice
+  "Cannot bound passive tactical screen renderer")
+require_ordered_fragments(dedicated_live_client_render_presentation_slice
+  "Worldless client screen lost logical-plot integration or table fallback"
+  "const TacticalWorldSnapshot& snapshot = *view.snapshot"
+  "!snapshot.sector().loaded"
+  "FullEngineCoopClientTacticalPresentation plot"
+  "BuildFullEngineCoopClientTacticalPresentation(snapshot"
+  "Controller.selectedActor(), bounds, plot"
+  "RenderFullEngineCoopClientTacticalPlot("
+  "plot, FRAME_BUFFER"
+  "const auto& actors = snapshot.actors()"
+  "Controller.targetingAttack()"
+  "Controller.attackTarget()")
+
+foreach(dedicated_live_presentation_forbidden IN ITEMS
+    "SetCurrentWorldSector("
+    "GetGameContext("
+    "guiWorldCols"
+    "guiWorldRows"
+    "ResolveJa2TacticalEntity("
+    "GetJa2SoldierRepository("
+    "LoadDedicatedCampaignGame(")
+  string(FIND
+    "${dedicated_live_presentation_code}${dedicated_live_plot_renderer_code}"
+    "${dedicated_live_presentation_forbidden}"
+    dedicated_live_presentation_forbidden_position)
+  if(NOT dedicated_live_presentation_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive tactical presentation regained local-world dependency '${dedicated_live_presentation_forbidden}'")
+  endif()
+endforeach()
+foreach(dedicated_live_presentation_test_contract IN ITEMS
+    "TestExactDiamondAndFriendlyProjection()"
+    "TestEnlargedDimensionsAreNotGuessed()"
+    "TestRejectedInputIsTransactional()"
+    "TestNoAssignmentPublishesNoIntelligence()"
+    "TestTransientUnplacedNonassignedActorIsOmitted()")
+  string(FIND "${dedicated_live_presentation_test_code}"
+    "${dedicated_live_presentation_test_contract}"
+    dedicated_live_presentation_test_contract_position)
+  if(dedicated_live_presentation_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive tactical presentation regression lost '${dedicated_live_presentation_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_plot_renderer_test_contract IN ITEMS
+    "TestSmokeAndPaddedPitch()"
+    "TestMalformedModelsFailBeforeDrawing()"
+    "fillCalls == 1 && lockCalls == 1 && unlockCalls == 1"
+    "fillCalls == 0 && lockCalls == 0 && unlockCalls == 0")
+  string(FIND "${dedicated_live_plot_renderer_test_code}"
+    "${dedicated_live_plot_renderer_test_contract}"
+    dedicated_live_plot_renderer_test_contract_position)
+  if(dedicated_live_plot_renderer_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive tactical renderer smoke/validation test lost '${dedicated_live_plot_renderer_test_contract}'")
+  endif()
+endforeach()
+
+# Aimed fire is the sixth closed tactical intent. The passive client may name
+# one exact replicated opponent and a bounded aim level, but only the live JA2
+# authority resolves mutable target/weapon state, spends AP, and applies damage.
+# Keep the intent wire, durable command, local-only executor, controller, and
+# socket E2E tied together so a UI-only or codec-only implementation cannot pass.
+foreach(dedicated_live_aimed_intent_header_contract IN ITEMS
+    "TacticalIntentWireVersion = 3"
+    "TacticalIntentHeaderWireSize = 72"
+    "MaximumTacticalIntentPayloadWireSize = 8"
+    "MaximumTacticalIntentWireSize ="
+    "AimedFirearmAttack = 6"
+    "Reload = 7"
+    "DoorOpenClose = 8"
+    "PassInterrupt = 9"
+    "MaximumTacticalFirearmAimTime = 8"
+    "struct AimedFirearmAttackTacticalIntent"
+    "TacticalEntityId target"
+    "std::uint8_t aimTime = 0"
+    "AimedFirearmAttackTacticalIntent,")
+  string(FIND "${dedicated_live_intent_header_code}"
+    "${dedicated_live_aimed_intent_header_contract}"
+    dedicated_live_aimed_intent_header_contract_position)
+  if(dedicated_live_aimed_intent_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Aimed-fire intent vocabulary lost '${dedicated_live_aimed_intent_header_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "std::size_t PayloadSize(TacticalIntentKind kind) noexcept"
+  dedicated_live_aimed_intent_size_slice
+  "Cannot bound aimed-fire intent payload sizing")
+require_ordered_fragments(dedicated_live_aimed_intent_size_slice
+  "Aimed-fire intent lost its exact seven-byte payload"
+  "case TacticalIntentKind::AimedFirearmAttack: return 7"
+  "MaximumTacticalIntentPayloadWireSize + 1")
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept"
+  dedicated_live_aimed_intent_validation_slice
+  "Cannot bound tactical-intent structural validation")
+require_ordered_fragments(dedicated_live_aimed_intent_validation_slice
+  "Aimed-fire intent lost exact target/aim structural validation"
+  "AimedFirearmAttackTacticalIntent>::value"
+  "payload.target.valid()"
+  "payload.aimTime <= MaximumTacticalFirearmAimTime")
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "TacticalIntentCodecResult EncodeTacticalIntent(\n\tconst TacticalIntent& intent,\n\tstd::vector<std::uint8_t>& bytes) noexcept"
+  dedicated_live_aimed_intent_encode_slice
+  "Cannot bound tactical-intent encoder")
+require_ordered_fragments(dedicated_live_aimed_intent_encode_slice
+  "Aimed-fire intent encoding no longer carries exact target identity and aim"
+  "AimedFirearmAttackTacticalIntent>::value"
+  "WriteU16(encoded, payload.target.slot)"
+  "WriteU32(encoded, payload.target.incarnation)"
+  "encoded.push_back(payload.aimTime)"
+  "bytes = std::move(encoded)")
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "TacticalIntentCodecResult DecodeTacticalIntent(\n\tconst std::uint8_t* bytes,\n\tstd::size_t size,\n\tTacticalIntent& intent) noexcept"
+  dedicated_live_aimed_intent_decode_slice
+  "Cannot bound tactical-intent decoder")
+require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
+  "Aimed-fire intent decode lost exact bounded transactional publication"
+  "case TacticalIntentKind::AimedFirearmAttack"
+  "ReadU16(input, end, payload.target.slot)"
+  "ReadU32(input, end, payload.target.incarnation)"
+  "payload.aimTime = *input++"
+  "decoded.payload = payload"
+  "!IsStructurallyValidTacticalIntent(decoded)"
+  "intent = std::move(decoded)")
+
+foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
+    "const std::array<PayloadCase, 9> payloads"
+    "AimedFirearmAttackTacticalIntent{"
+    "attackBytes[6] == 6"
+    "attackBytes[70] == 7"
+    "attackBytes[78] == 6"
+    "unresolved firearm target is rejected"
+    "out-of-range firearm aim is rejected")
+  string(FIND "${dedicated_live_intent_test_source}"
+    "${dedicated_live_aimed_intent_test_contract}"
+    dedicated_live_aimed_intent_test_contract_position)
+  if(dedicated_live_aimed_intent_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Aimed-fire intent golden/validation test lost '${dedicated_live_aimed_intent_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_aimed_command_header_contract IN ITEMS
+    "TacticalMaximumAimedFirearmAimTime = 8"
+    "struct AimedFirearmAttackCommand"
+    "TacticalEntityId soldier"
+    "TacticalEntityId target"
+    "std::int32_t expectedTargetGrid"
+    "std::int8_t expectedTargetLevel"
+    "std::uint8_t aimTime"
+    "std::uint32_t expectedHandItem"
+    "SimulationCommandSource source"
+    "AimedFirearmAttackCommand>")
+  string(FIND "${dedicated_live_simulation_command_header_code}"
+    "${dedicated_live_aimed_command_header_contract}"
+    dedicated_live_aimed_command_header_contract_position)
+  if(dedicated_live_aimed_command_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Aimed-fire simulation command lost '${dedicated_live_aimed_command_header_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_aimed_command_codec_contract IN ITEMS
+    "AimedFirearmAttack = 32"
+    "CommandTag::AimedFirearmAttack"
+    "writer.writeU16(value.target.slot)"
+    "writer.writeU32(value.target.incarnation)"
+    "writer.writeI32(value.expectedTargetGrid)"
+    "writer.writeI8(value.expectedTargetLevel)"
+    "writer.writeU8(value.aimTime)"
+    "writer.writeU32(value.expectedHandItem)"
+    "case CommandTag::AimedFirearmAttack"
+    "reader.readU16(value.target.slot)"
+    "reader.readU32(value.target.incarnation)"
+    "reader.readI32(value.expectedTargetGrid)"
+    "reader.readI8(value.expectedTargetLevel)"
+    "reader.readU8(value.aimTime)"
+    "reader.readU32(value.expectedHandItem)"
+    "IsStructurallyValidSimulationCommand(")
+  string(FIND "${dedicated_live_simulation_command_codec_code}"
+    "${dedicated_live_aimed_command_codec_contract}"
+    dedicated_live_aimed_command_codec_contract_position)
+  if(dedicated_live_aimed_command_codec_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Aimed-fire command codec lost '${dedicated_live_aimed_command_codec_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool ResolveAimedFirearmAttack(\n\t\tconst AimedFirearmAttackCommand& command,\n\t\tTacticalActor*& soldier,\n\t\tTacticalActor*& target) noexcept"
+  dedicated_live_aimed_resolve_slice
+  "Cannot bound aimed-fire live-state resolver")
+require_ordered_fragments(dedicated_live_aimed_resolve_slice
+  "Aimed-fire authority lost live identity, turn, target, weapon, aim, or AP validation"
+  "IsSimulationSynchronizationSource(command.source)"
+  "command.aimTime > TacticalMaximumAimedFirearmAimTime"
+  "command.soldier == command.target"
+  "!IsJa2TacticalWorldLoaded()"
+  "IsJa2TacticalTurnBasedCombat()"
+  "GetJa2TacticalCurrentTeam() != gbPlayerNum"
+  "GetJa2PendingTacticalCombatActions() != 0"
+  "CaptureJa2TacticalInterruptProjection().phase =="
+  "Ja2TacticalInterruptPhase::Resolving"
+  "ResolveLiveCommandActor(command.soldier)"
+  "ResolveLiveCommandActor(command.target)"
+  "Ja2TacticalInterruptPhase::Active"
+  "IsJa2TacticalInterruptActorEligible(command.soldier)"
+  "OK_CONTROLLABLE_MERC(resolvedSoldier) == FALSE"
+  "resolvedSoldier->roster().team() != gbPlayerNum"
+  "OK_ENEMY_MERC(resolvedTarget) == FALSE"
+  "resolvedTarget->position().gridNo() !="
+  "command.expectedTargetGrid"
+  "resolvedTarget->position().level() !="
+  "command.expectedTargetLevel"
+  "SEEN_CURRENTLY"
+  "resolvedSoldier->attackSelection().hand() != HANDPOS"
+  "resolvedSoldier->fireControl().burstCounter() != 0"
+  "resolvedSoldier->fireControl().autofireShots() != 0"
+  "resolvedSoldier->fireControl().reloading()"
+  "const OBJECTTYPE& hand = resolvedSoldier->inventory()[HANDPOS]"
+  "hand.usItem != command.expectedHandItem"
+  "command.expectedHandItem >= MAXITEMS"
+  "Item[command.expectedHandItem].usItemClass != IC_GUN"
+  "NoSemiAuto"
+  "HandItemWorks(resolvedSoldier, HANDPOS) == FALSE"
+  "EnoughAmmo(resolvedSoldier, FALSE, HANDPOS) == FALSE"
+  "AllowedAimingLevels("
+  "CalcTotalAPsToAttack("
+  "EnoughPoints(resolvedSoldier, actionPointCost, 0, FALSE) == FALSE"
+  "soldier = resolvedSoldier"
+  "target = resolvedTarget"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)"
+  dedicated_live_simulation_execute_slice
+  "Cannot bound live simulation-command executor")
+require_ordered_fragments(dedicated_live_simulation_execute_slice
+  "Aimed-fire execution lost revalidation, rollback, or local-only fire policy"
+  "std::is_same<Command, AimedFirearmAttackCommand>::value"
+  "ResolveAimedFirearmAttack(value, soldier, target)"
+  "const INT8 previousAimTime"
+  "const INT8 previousShownAimTime"
+  "soldier->aiPlanning().aimTime() ="
+  "soldier->aiPlanning().shownAimTime() ="
+  "HandleItemFromWeaponConfigurationCommand("
+  "value.source, TacticalEventPolicy::LocalOnly"
+  "if (result != ITEM_HANDLE_OK)"
+  "soldier->aiPlanning().aimTime() = previousAimTime"
+  "soldier->aiPlanning().shownAimTime() ="
+  "previousShownAimTime"
+  "return CommandDisposition::Discard"
+  "return CommandDisposition::Applied")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool PrepareAimedFirearmAttackCommand(\n\tTacticalEntityId actor,\n\tTacticalEntityId target,\n\tstd::uint8_t aimTime,\n\tAimedFirearmAttackCommand& output) noexcept"
+  dedicated_live_aimed_prepare_slice
+  "Cannot bound aimed-fire command preparation")
+require_ordered_fragments(dedicated_live_aimed_prepare_slice
+  "Aimed-fire preparation lost exact capture, revalidation, or transactional output"
+  "!actor.valid() || !target.valid() || actor == target"
+  "aimTime > TacticalMaximumAimedFirearmAimTime"
+  "ResolveLiveCommandActor(target)"
+  "ResolveLiveCommandActor(actor)"
+  "AimedFirearmAttackCommand prepared"
+  "liveTarget->position().gridNo()"
+  "liveTarget->position().level()"
+  "liveActor->inventory()[HANDPOS].usItem"
+  "SimulationCommandSource::NetworkPeer"
+  "ResolveAimedFirearmAttack("
+  "checkedActor != liveActor || checkedTarget != liveTarget"
+  "output = prepared"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "bool DedicatedCoopTacticalHost::translate(\n\tconst AuthorizedTacticalIntent& intent,\n\tconst DedicatedCoopTacticalTurnState& turn,\n\tSimulationCommand& command,\n\tCoopTacticalIntentReceiptReason& reason) const noexcept"
+  dedicated_live_aimed_host_translate_slice
+  "Cannot bound dedicated tactical intent translation")
+require_ordered_fragments(dedicated_live_aimed_host_translate_slice
+  "Dedicated host lost aimed-fire legacy isolation and exact live preparation"
+  "AimedFirearmAttackTacticalIntent>::value"
+  "liveState_->legacyNetworkingActive()"
+  "CoopTacticalIntentReceiptReason::UnavailableContext"
+  "AimedFirearmAttackCommand prepared"
+  "liveState_->prepareAimedFirearmAttack("
+  "intent.actor, payload.target, payload.aimTime, prepared"
+  "CoopTacticalIntentReceiptReason::GameplayRejected"
+  "command = prepared")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::beginAttackTargeting(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_aimed_controller_begin_slice
+  "Cannot bound passive client aimed-fire targeting entry")
+require_ordered_fragments(dedicated_live_aimed_controller_begin_slice
+  "Passive aimed-fire targeting lost action gating or deterministic first target"
+  "actionsEnabled(view)"
+  "cancelDestinationEntry()"
+  "targetingAttack_ = true"
+  "attackTarget_ = TacticalEntityId{}"
+  "attackAimTime_ = 1"
+  "selectTargetRelative(view, true)"
+  "cancelAttackTargeting()")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::attackTargetCandidate(\n\tconst FullEngineCoopClientControllerView& view,\n\tTacticalEntityId target) const noexcept"
+  dedicated_live_aimed_controller_candidate_slice
+  "Cannot bound passive client aimed-fire target filtering")
+require_ordered_fragments(dedicated_live_aimed_controller_candidate_slice
+  "Passive aimed-fire target selection lost authority-owned hostility filtering"
+  "target == selectedActor_"
+  "view.snapshot->find(selectedActor_)"
+  "view.snapshot->find(target)"
+  "candidate->active"
+  "candidate->inSector"
+  "candidate->life > 0"
+  "candidate->hostileToPlayerTeam")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::adjustAttackAim(int delta) noexcept"
+  dedicated_live_aimed_controller_adjust_slice
+  "Cannot bound passive client aimed-fire aim adjustment")
+require_ordered_fragments(dedicated_live_aimed_controller_adjust_slice
+  "Passive aimed-fire aim selection lost the protocol bound"
+  "!targetingAttack_ || delta == 0"
+  "MaximumTacticalFirearmAimTime"
+  "attackAimTime_ = static_cast<std::uint8_t>(adjusted)")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientController::submitAimedFirearmAttack(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_aimed_controller_submit_slice
+  "Cannot bound passive client aimed-fire submission")
+require_ordered_fragments(dedicated_live_aimed_controller_submit_slice
+  "Passive aimed-fire submission lost exact immutable target/aim capture"
+  "!targetingAttack_ || !actionsEnabled(view)"
+  "!attackTargetCandidate(view, attackTarget_)"
+  "const TacticalEntityId target = attackTarget_"
+  "const std::uint8_t aimTime = attackAimTime_"
+  "cancelAttackTargeting()"
+  "AimedFirearmAttackTacticalIntent"
+  "target, aimTime")
+
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible) noexcept"
+  dedicated_live_client_input_slice
+  "Cannot bound passive co-op screen input")
+require_ordered_fragments(dedicated_live_client_input_slice
+  "Worldless screen lost aimed-fire target/aim/cancel/submit or reload controls"
+  "Controller.targetingAttack()"
+  "Controller.selectNextTarget(view)"
+  "Controller.selectPreviousTarget(view)"
+  "Controller.adjustAttackAim(-1)"
+  "Controller.adjustAttackAim(1)"
+  "Controller.cancelAttackTargeting()"
+  "Controller.submitAimedFirearmAttack(view)"
+  "Controller.toggleReverse()"
+  "Controller.beginDestinationEntry(view)"
+  "Controller.beginAttackTargeting(view)"
+  "Controller.reload(view)")
+foreach(dedicated_live_client_authority_mutation_forbidden IN ITEMS
+    "ResolveJa2TacticalEntity("
+    "SendBeginFireWeaponEvent("
+    "HandleItemFromWeaponConfigurationCommand("
+    "CalcTotalAPsToAttack("
+    "EnoughPoints("
+    "AutoReload(")
+  string(FIND
+    "${dedicated_live_client_controller_code}${dedicated_live_client_screen_code}"
+    "${dedicated_live_client_authority_mutation_forbidden}"
+    dedicated_live_client_authority_mutation_forbidden_position)
+  if(NOT dedicated_live_client_authority_mutation_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Worldless aimed-fire UI gained live authority '${dedicated_live_client_authority_mutation_forbidden}'")
+  endif()
+endforeach()
+foreach(dedicated_live_aimed_controller_test_contract IN ITEMS
+    "TestRemainingTypedActions()"
+    "beginAttackTargeting(view)"
+    "selectNextTarget(view)"
+    "selectPreviousTarget(view)"
+    "adjustAttackAim(1)"
+    "submitAimedFirearmAttack(view)"
+    "aimed->target == (TacticalEntityId{3, 1})"
+    "aimed->aimTime == 2"
+    "targeting never speculates damage into the passive replica")
+  string(FIND "${dedicated_live_client_controller_test_source}"
+    "${dedicated_live_aimed_controller_test_contract}"
+    dedicated_live_aimed_controller_test_contract_position)
+  if(dedicated_live_aimed_controller_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive aimed-fire controller regression lost '${dedicated_live_aimed_controller_test_contract}'")
+  endif()
+endforeach()
+
+# Six dedicated co-op translations intentionally reuse legacy command shapes.
+# Preserve an explicit authority policy independently from producer provenance:
+# legacy NetworkPeer replica commands retain their established behavior, while
+# co-op NetworkPeer/Replay commands repeat live authorization at execution.
+foreach(dedicated_live_authority_vocabulary_contract IN ITEMS
+    "enum class TacticalCommandAuthorityPolicy"
+    "Legacy"
+    "DedicatedCoop")
+  string(FIND "${dedicated_live_simulation_command_header_code}"
+    "${dedicated_live_authority_vocabulary_contract}"
+    dedicated_live_authority_vocabulary_contract_position)
+  if(dedicated_live_authority_vocabulary_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op command authority vocabulary lost '${dedicated_live_authority_vocabulary_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_header_code
+  "constexpr bool IsValidTacticalCommandAuthorityPolicyForSource(\n\tTacticalCommandAuthorityPolicy policy,\n\tSimulationCommandSource source) noexcept"
+  dedicated_live_authority_source_policy_slice
+  "Cannot bound tactical command authority/source policy")
+require_ordered_fragments(dedicated_live_authority_source_policy_slice
+  "Dedicated co-op authority is no longer restricted to network ingress and replay"
+  "IsValidTacticalCommandAuthorityPolicy(policy)"
+  "policy != TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "source == SimulationCommandSource::NetworkPeer"
+  "source == SimulationCommandSource::Replay")
+
+foreach(dedicated_live_authority_command_type IN ITEMS
+    EndTurnCommand
+    MoveToGridCommand
+    SetFacingCommand
+    ChangeStanceCommand
+    StopMovementCommand
+    ReloadWeaponCommand)
+  extract_brace_bounded_slice(dedicated_live_simulation_command_header_code
+    "struct ${dedicated_live_authority_command_type}"
+    dedicated_live_authority_command_slice
+    "Cannot bound ${dedicated_live_authority_command_type}")
+  require_ordered_fragments(dedicated_live_authority_command_slice
+    "${dedicated_live_authority_command_type} lost its source-compatible Legacy authority default"
+    "TacticalCommandAuthorityPolicy authority ="
+    "TacticalCommandAuthorityPolicy::Legacy")
+endforeach()
+string(REGEX MATCHALL
+  "TacticalCommandAuthorityPolicy[ \t\r\n]+authority[ \t\r\n]*=[ \t\r\n]*TacticalCommandAuthorityPolicy::Legacy"
+  dedicated_live_authority_default_fields
+  "${dedicated_live_simulation_command_header_code}")
+list(LENGTH dedicated_live_authority_default_fields
+  dedicated_live_authority_default_field_count)
+if(NOT dedicated_live_authority_default_field_count EQUAL 6)
+  message(FATAL_ERROR
+    "Exactly six reused tactical command shapes must default to Legacy authority")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_header_code
+  "inline bool IsStructurallyValidSimulationCommand(\n\tconst SimulationCommand& command) noexcept"
+  dedicated_live_authority_structural_validation_slice
+  "Cannot bound simulation-command structural validation")
+require_ordered_fragments(dedicated_live_authority_structural_validation_slice
+  "Simulation-command structural validation lost dedicated authority/source and local-event policy"
+  "std::is_same<Command, EndTurnCommand>::value"
+  "IsValidTacticalCommandAuthorityPolicyForSource("
+  "std::is_same<Command, MoveToGridCommand>::value"
+  "IsValidTacticalCommandAuthorityPolicyForSource("
+  "std::is_same<Command, ChangeStanceCommand>::value"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "TacticalEventPolicy::LocalOnly"
+  "IsValidTacticalCommandAuthorityPolicyForSource("
+  "std::is_same<Command, SetFacingCommand>::value"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "TacticalEventPolicy::LocalOnly"
+  "IsValidTacticalCommandAuthorityPolicyForSource("
+  "std::is_same<Command, StopMovementCommand>::value"
+  "std::is_same<Command, ReloadWeaponCommand>::value"
+  "IsValidTacticalCommandAuthorityPolicyForSource(")
+
+string(FIND "${dedicated_live_simulation_command_codec_header_code}"
+  "SimulationCommandJournalWireVersion = 4"
+  dedicated_live_authority_journal_version_position)
+if(dedicated_live_authority_journal_version_position EQUAL -1)
+  message(FATAL_ERROR
+    "Simulation-command journal must reject pre-interrupt wire v1/v2/v3")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_codec_code
+  "void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)"
+  dedicated_live_authority_command_write_slice
+  "Cannot bound simulation-command journal writer")
+string(REGEX MATCHALL
+  "writer\\.writeU8[ \t\r\n]*\\([ \t\r\n]*static_cast<std::uint8_t>[ \t\r\n]*\\([ \t\r\n]*value\\.authority[ \t\r\n]*\\)[ \t\r\n]*\\)"
+  dedicated_live_authority_write_calls
+  "${dedicated_live_authority_command_write_slice}")
+list(LENGTH dedicated_live_authority_write_calls
+  dedicated_live_authority_write_call_count)
+if(NOT dedicated_live_authority_write_call_count EQUAL 8)
+  message(FATAL_ERROR
+    "Simulation-command journal must encode every reused-command authority field")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_codec_code
+  "bool ReadCommand(BinaryReader& reader, SimulationCommand& command)"
+  dedicated_live_authority_command_read_slice
+  "Cannot bound simulation-command journal reader")
+string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
+  dedicated_live_authority_read_calls
+  "${dedicated_live_authority_command_read_slice}")
+list(LENGTH dedicated_live_authority_read_calls
+  dedicated_live_authority_read_call_count)
+if(NOT dedicated_live_authority_read_call_count EQUAL 8)
+  message(FATAL_ERROR
+    "Simulation-command journal must decode every reused-command authority field")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_codec_code
+  "SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(\n\tconst std::vector<std::uint8_t>& bytes,\n\tstd::vector<RecordedSimulationCommand>& records,\n\tstd::uint64_t& droppedCount)"
+  dedicated_live_authority_journal_decode_slice
+  "Cannot bound simulation-command journal decoder")
+require_ordered_fragments(dedicated_live_authority_journal_decode_slice
+  "Authority-bearing journal decode lost version rejection or transactional publication"
+  "header.version != SimulationCommandJournalWireVersion"
+  "SimulationCommandJournalDecodeResult::UnsupportedVersion"
+  "std::vector<RecordedSimulationCommand> decoded"
+  "ReadCommand(reader, record.command)"
+  "IsStructurallyValidSimulationCommand(record.command)"
+  "reader.remaining() != 0"
+  "records = std::move(decoded)"
+  "droppedCount = decodedDroppedCount")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool HasNetworkPeerTacticalExecutionContext() noexcept"
+  dedicated_live_authority_execution_context_slice
+  "Cannot bound dedicated co-op execution context")
+require_ordered_fragments(dedicated_live_authority_execution_context_slice
+  "Dedicated co-op execution context lost live world/player turn/drain validation"
+  "!IsJa2TacticalWorldLoaded()"
+  "gbPlayerNum >= MAXTEAMS"
+  "!IsJa2TacticalCombatActive()"
+  "IsJa2TacticalTurnBased()"
+  "GetJa2TacticalCurrentTeam() == gbPlayerNum"
+  "GetJa2PendingTacticalCombatActions() == 0"
+  "CaptureJa2TacticalInterruptProjection().phase !="
+  "Ja2TacticalInterruptPhase::Resolving")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool HasEndTurnExecutionContext(\n\t\tconst EndTurnCommand& command) noexcept"
+  dedicated_live_authority_end_turn_context_slice
+  "Cannot bound end-turn execution revalidation")
+require_ordered_fragments(dedicated_live_authority_end_turn_context_slice
+  "End-turn execution lost Legacy compatibility or exact dedicated next-team validation"
+  "command.authority !="
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "return true"
+  "command.source != SimulationCommandSource::NetworkPeer"
+  "command.source != SimulationCommandSource::Replay"
+  "!HasNetworkPeerTacticalExecutionContext()"
+  "gbPlayerNum >= MAXTEAMS - 1"
+  "command.nextTeam =="
+  "gbPlayerNum + 1")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "TacticalActor* ResolveCoopAuthorizedLegacyCommandActor(\n\t\tTacticalEntityId actor,\n\t\tSimulationCommandSource source,\n\t\tTacticalCommandAuthorityPolicy authority) noexcept"
+  dedicated_live_authority_actor_resolver_slice
+  "Cannot bound reused-command actor execution resolver")
+require_ordered_fragments(dedicated_live_authority_actor_resolver_slice
+  "Reused command resolver lost Legacy compatibility or strict co-op actor policy"
+  "ResolveLiveCommandActor(actor)"
+  "authority !="
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "return soldier"
+  "source != SimulationCommandSource::NetworkPeer"
+  "source != SimulationCommandSource::Replay"
+  "!HasNetworkPeerTacticalExecutionContext()"
+  "OK_CONTROLLABLE_MERC(soldier) == FALSE"
+  "soldier->assignment().current() >= ON_DUTY"
+  "SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER"
+  "return nullptr"
+  "return soldier")
+
+require_ordered_fragments(dedicated_live_simulation_execute_slice
+  "Dedicated co-op reused commands no longer share execution-time authorization"
+  "std::is_same<Command, EndTurnCommand>::value"
+  "HasEndTurnExecutionContext(value)"
+  "std::is_same<Command, ChangeStanceCommand>::value"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "std::is_same<Command, AimedFirearmAttackCommand>::value"
+  "ResolveAimedFirearmAttack(value, soldier, target)"
+  "std::is_same<Command, MoveToGridCommand>::value"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "std::is_same<Command, SetFacingCommand>::value"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "std::is_same<Command, StopMovementCommand>::value"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "std::is_same<Command, ReloadWeaponCommand>::value"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "ResolveAuthoritativeReload(value, soldier)"
+  "ResolveLiveCommandActor(value.soldier)")
+
+string(REGEX MATCHALL "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  dedicated_live_host_authority_markers
+  "${dedicated_live_aimed_host_translate_slice}")
+list(LENGTH dedicated_live_host_authority_markers
+  dedicated_live_host_authority_marker_count)
+if(NOT dedicated_live_host_authority_marker_count EQUAL 6)
+  message(FATAL_ERROR
+    "Dedicated host must mark every translated authority-bearing command")
+endif()
+require_ordered_fragments(dedicated_live_aimed_host_translate_slice
+  "Dedicated host lost authority policy across the six reused command shapes"
+  "MoveToGridCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "SetFacingCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "ChangeStanceCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "StopMovementCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "ReloadTacticalIntent"
+  "prepareReloadWeapon"
+  "EndTurnCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop")
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_test_code
+  "void TestTranslatesSupportedIntentVocabulary()"
+  dedicated_live_authority_host_test_slice
+  "Cannot bound dedicated host translation regression")
+require_ordered_fragments(dedicated_live_authority_host_test_slice
+  "Dedicated host regression no longer pins all six command authority policies"
+  "move->authority == TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "face->authority == TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "stance->authority == TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "stop->authority == TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "endTurn->authority == TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "reload->authority == TacticalCommandAuthorityPolicy::DedicatedCoop")
+
+require_ordered_fragments(dedicated_live_runtime_adapter_test_source
+  "Command replay no longer preserves dedicated authority independently from Replay provenance"
+  "SimulationCommand{EndTurnCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "SimulationCommand{ReloadWeaponCommand"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "saveCommandReplay(\"capture.replay\")"
+  "SimulationCommandSource::Replay"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "SimulationCommandSource::Replay"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "staged replay retains dedicated co-op authority and deterministic order while substituting only Replay execution provenance")
+
+require_ordered_fragments(dedicated_live_headless_test_code
+  "Execution-time authority regression lost Legacy compatibility, post-EndTurn rejection, or Replay strictness"
+  "legacyReplicaCompatibility.applied == 2"
+  "legacyReloadControl.applied == 1"
+  "pendingEndTurnDiscarded.status =="
+  "executionRevalidation.applied == 1"
+  "executionRevalidation.discarded == 5"
+  "dedicatedCoopActorUnchanged"
+  "staleMoveRecord->status == CommandJournalStatus::Discarded"
+  "staleFaceRecord->status == CommandJournalStatus::Discarded"
+  "staleStanceRecord->status == CommandJournalStatus::Discarded"
+  "staleStopRecord->status == CommandJournalStatus::Discarded"
+  "staleReloadRecord->status == CommandJournalStatus::Discarded"
+  "SimulationCommandSource::Replay"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop")
+string(FIND "${dedicated_live_headless_test_source}"
+  "legacy remote-team NetworkPeer stance/facing and reload behavior remain intact, while dedicated co-op commands revalidate after EndTurn and a discarded reload remains strict under Replay"
+  dedicated_live_authority_headless_diagnostic_position)
+if(dedicated_live_authority_headless_diagnostic_position EQUAL -1)
+  message(FATAL_ERROR
+    "Execution-time authority regression lost its Legacy/dedicated/Replay diagnostic")
+endif()
+
+# The passive UI's one-command lock is not a trust boundary. Enforce the same
+# causal reservation at the server before replication or gameplay, and keep
+# global authority-sequence exhaustion distinct from the non-consuming peer
+# inbox sentinel. Its consuming terminal receipt must flush and be retained by
+# the client before the unrecoverable connection closes.
+string(FIND "${dedicated_live_tactical_protocol_header_code}"
+  "AuthoritySequenceExhausted = 20"
+  dedicated_live_authority_exhaustion_reason_position)
+if(dedicated_live_authority_exhaustion_reason_position EQUAL -1)
+  message(FATAL_ERROR
+    "Co-op tactical receipt reason 20 must remain authority sequence exhaustion")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_tactical_protocol_code
+  "bool IsValidReceipt(const CoopTacticalIntentReceipt& receipt) noexcept"
+  dedicated_live_authority_exhaustion_receipt_validation_slice
+  "Cannot bound tactical receipt validation")
+require_ordered_fragments(
+  dedicated_live_authority_exhaustion_receipt_validation_slice
+  "Authority exhaustion lost its normal consuming post-command cursor shape"
+  "const std::uint64_t commandAfter"
+  "const bool reportsNonConsumingCursor"
+  "CoopTacticalIntentReceiptReason::InvalidCommandSequence"
+  "CoopTacticalIntentReceiptReason::InboxSequenceExhausted"
+  "!reportsNonConsumingCursor"
+  "receipt.nextExpectedCommandId != commandAfter")
+extract_bounded_slice(dedicated_live_authority_exhaustion_receipt_validation_slice
+  "const bool reportsNonConsumingCursor"
+  "if (!IsValidCoopTacticalStateIdentity(receipt.state)"
+  dedicated_live_non_consuming_receipt_reason_slice
+  "Cannot isolate non-consuming tactical receipt reasons")
+string(FIND "${dedicated_live_non_consuming_receipt_reason_slice}"
+  "AuthoritySequenceExhausted"
+  dedicated_live_authority_exhaustion_non_consuming_position)
+if(NOT dedicated_live_authority_exhaustion_non_consuming_position EQUAL -1)
+  message(FATAL_ERROR
+    "Authority sequence exhaustion must not become a non-consuming receipt")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_tactical_protocol_code
+  "bool IsKnownCoopTacticalIntentReceiptReason(\n\tCoopTacticalIntentReceiptReason reason) noexcept"
+  dedicated_live_known_receipt_reason_slice
+  "Cannot bound known tactical receipt reasons")
+string(FIND "${dedicated_live_known_receipt_reason_slice}"
+  "case CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted:"
+  dedicated_live_known_authority_exhaustion_position)
+if(dedicated_live_known_authority_exhaustion_position EQUAL -1)
+  message(FATAL_ERROR
+    "Authority sequence exhaustion is no longer in the closed receipt vocabulary")
+endif()
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "CoopTacticalIntentReceiptReason SubmissionReason(\n\tTacticalCommandSubmissionError error) noexcept"
+  dedicated_live_authority_exhaustion_submission_map_slice
+  "Cannot bound tactical command submission-result mapping")
+require_ordered_fragments(dedicated_live_authority_exhaustion_submission_map_slice
+  "Command submission exhaustion no longer maps to the consuming protocol reason"
+  "TacticalCommandSubmissionError::SequenceExhausted"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted")
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "bool DedicatedCoopTacticalHost::mapTerminalResult(\n\tconst TacticalCommandResult& result,\n\tconst Correlation& correlation,\n\tCoopTacticalIntentReceipt& receipt) const noexcept"
+  dedicated_live_authority_exhaustion_terminal_map_slice
+  "Cannot bound tactical command terminal-result mapping")
+require_ordered_fragments(dedicated_live_authority_exhaustion_terminal_map_slice
+  "Command terminal exhaustion no longer maps to the consuming protocol reason"
+  "TacticalCommandTerminalReason::SequenceExhausted"
+  "CoopTacticalIntentReceiptReason::"
+  "AuthoritySequenceExhausted"
+  "receipt = mapped"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "FullEngineCoopTacticalServer::processIntent(\n\tconst FullEngineCoopTacticalInboundMessage& message,\n\tstd::uint64_t simulationTick,\n\tFullEngineCoopTacticalServerPumpResult& diagnostics) noexcept"
+  dedicated_live_server_process_intent_slice
+  "Cannot bound tactical-server intent processing")
+require_ordered_fragments(dedicated_live_server_process_intent_slice
+  "Server one-outstanding boundary moved after replication, reservation, or gameplay"
+  "intent.commandId < peer->nextExpectedCommandId"
+  "replication_.replayReceipt"
+  "intent.commandId > peer->nextExpectedCommandId"
+  "if (peer->pendingCount != 0)"
+  "queueTransientRejection(*peer, intent.commandId"
+  "CoopTacticalIntentReceiptReason::InvalidCommandSequence"
+  "CoopTacticalPeerReplicationState replicationState"
+  "replication_.peerState(peer->identity, replicationState)"
+  "const bool caughtUp = peerCaughtUp(peer->identity)"
+  "addPending(*peer, intent.commandId"
+  "ingress_.handleTacticalIntent")
+require_ordered_fragments(dedicated_live_server_process_intent_slice
+  "Server authority exhaustion lost consuming cursor advance or flushable terminal receipt"
+  "const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0"
+  "const std::uint64_t expectedAfter"
+  "ingress_.rejectTacticalIntent"
+  "ingressResult.authorization.commandConsumed"
+  "ingressResult.authorization.nextExpectedCommandId != expectedAfter"
+  "peer->nextExpectedCommandId ="
+  "++diagnostics.intentsConsumed"
+  "if (policyReject)"
+  "nextAuthoritativeSequence_ == 0"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted"
+  "++diagnostics.inputsRejected")
+
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::receiveIntentReceipt(\n\tconst std::uint8_t* bytes, std::size_t size) noexcept"
+  dedicated_live_client_receive_receipt_slice
+  "Cannot bound passive-client receipt application")
+require_ordered_fragments(dedicated_live_client_receive_receipt_slice
+  "Client authority exhaustion lost transactional history/cursor retention before failure"
+  "DecodeCoopTacticalIntentReceipt("
+  "ReceiptCursorValid(receipt)"
+  "const bool matchesOutstanding"
+  "CursorAlreadyConsumed("
+  "acceptReceiptHistory(receipt, receiptBytes)"
+  "lastIntentReceipt_ = receipt"
+  "hasLastIntentReceipt_ = true"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted"
+  "nextExpectedCommandId_ = receipt.nextExpectedCommandId"
+  "fail(FullEngineCoopClientResult::SequenceExhausted)")
+extract_brace_bounded_slice(dedicated_live_client_code
+  "FullEngineCoopClientResult FullEngineCoopClient::fail(\n\tFullEngineCoopClientResult result) noexcept"
+  dedicated_live_client_fail_slice
+  "Cannot bound passive-client failure close")
+require_ordered_fragments(dedicated_live_client_fail_slice
+  "Passive-client terminal failure no longer clears active replica state and closes transport"
+  "clearReplicaState()"
+  "state_ = FullEngineCoopClientState::Failed"
+  "lastResult_ = result"
+  "closeWire()"
+  "return result")
+
+extract_brace_bounded_slice(dedicated_live_tactical_protocol_test_code
+  "void TestReceiptCodec()"
+  dedicated_live_authority_exhaustion_protocol_test_slice
+  "Cannot bound tactical receipt codec regression")
+require_ordered_fragments(dedicated_live_authority_exhaustion_protocol_test_slice
+  "Receipt codec regression lost consuming authority-exhaustion cursor coverage"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted"
+  "CoopTacticalCodecResult::Success"
+  "invalid.nextExpectedCommandId = 0"
+  "CoopTacticalCodecResult::Invalid")
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_test_code
+  "void TestSubmissionFailuresAndCorrelationCapacityFailClosed()"
+  dedicated_live_authority_exhaustion_host_submission_test_slice
+  "Cannot bound host submission-failure regression")
+require_ordered_fragments(
+  dedicated_live_authority_exhaustion_host_submission_test_slice
+  "Host regression lost submission sequence-exhaustion mapping"
+  "TacticalCommandSubmissionError::SequenceExhausted"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted")
+extract_brace_bounded_slice(dedicated_live_tactical_host_test_code
+  "void TestTerminalReasonMappings()"
+  dedicated_live_authority_exhaustion_host_terminal_test_slice
+  "Cannot bound host terminal-reason regression")
+require_ordered_fragments(dedicated_live_authority_exhaustion_host_terminal_test_slice
+  "Host regression lost terminal sequence-exhaustion mapping"
+  "TacticalCommandTerminalReason::SequenceExhausted"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted")
+
+extract_brace_bounded_slice(dedicated_live_tactical_server_test_code
+  "void TestCoordinatorEndToEnd()"
+  dedicated_live_one_outstanding_server_test_slice
+  "Cannot bound tactical-server causal-order regression")
+require_ordered_fragments(dedicated_live_one_outstanding_server_test_slice
+  "Tactical-server regression lost non-consuming pipeline rejection and exact retry"
+  "commandState.pendingCommands == 1"
+  "const FullEngineCoopTacticalServerPumpResult pipelineRejected"
+  "pipelineRejected.intentsConsumed == 0"
+  "execution.calls == 1"
+  "commandState.nextExpectedCommandId == 3"
+  "commandState.pendingCommands == 1"
+  "CoopTacticalIntentReceiptReason::InvalidCommandSequence"
+  "SendIntent(client, admitted.peerIdentity, 3, 21)"
+  "server.pumpInbound().intentsConsumed == 1"
+  "execution.calls == 2"
+  "commandState.pendingCommands == 0")
+
+extract_brace_bounded_slice(dedicated_live_tactical_server_test_code
+  "void TestAuthoritySequenceExhaustionFlushesTerminalReceipt()"
+  dedicated_live_authority_exhaustion_socket_test_slice
+  "Cannot bound authority-exhaustion socket regression")
+require_ordered_fragments(dedicated_live_authority_exhaustion_socket_test_slice
+  "Authority-exhaustion socket regression lost consuming cursor and pre-failure flush"
+  "configuration.maximumAuthoritativeSequence = 1"
+  "authoritativeSequence == 1"
+  "const FullEngineCoopTacticalServerPumpResult exhausted"
+  "exhausted.intentsConsumed == 1"
+  "exhausted.inputsRejected == 1"
+  "execution.calls == 1"
+  "server.active()"
+  "commandState.nextExpectedCommandId == 3"
+  "commandState.pendingCommands == 0"
+  "client.receipt.messages.size() == 2"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted")
+
+extract_brace_bounded_slice(dedicated_live_client_test_code
+  "void TestNonConsumingReceiptCursors()"
+  dedicated_live_authority_exhaustion_client_test_slice
+  "Cannot bound passive-client sequence cursor regression")
+require_ordered_fragments(dedicated_live_authority_exhaustion_client_test_slice
+  "Passive-client regression lost consuming authority-exhaustion retention and close"
+  "CoopTacticalIntentReceiptReason::InboxSequenceExhausted"
+  "FullEngineCoopClientResult::Success"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted"
+  "FullEngineCoopClientResult::SequenceExhausted"
+  "FullEngineCoopClientState::Failed"
+  "harness.client.nextExpectedCommandId() == 28"
+  "harness.client.outstandingCommandId() == 0"
+  "harness.client.hasLastIntentReceipt()"
+  "CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted"
+  "harness.wire.closeCalls == 1")
+
+foreach(dedicated_live_sequence_test_diagnostic IN ITEMS
+    "authority exhaustion is a normal consuming terminal rejection"
+    "authority exhaustion cannot report a non-consuming zero cursor")
+  string(FIND "${dedicated_live_tactical_protocol_test_source}"
+    "${dedicated_live_sequence_test_diagnostic}"
+    dedicated_live_sequence_test_diagnostic_position)
+  if(dedicated_live_sequence_test_diagnostic_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical receipt regression lost '${dedicated_live_sequence_test_diagnostic}'")
+  endif()
+endforeach()
+foreach(dedicated_live_server_sequence_test_diagnostic IN ITEMS
+    "pipelining rejection reports the unchanged authoritative cursor"
+    "retry after the prior terminal consumes once and leaves no obligation"
+    "authority exhaustion consumes the peer cursor and flushes before any "
+    "terminal authority exhaustion is distinct from inbox exhaustion")
+  string(FIND "${dedicated_live_tactical_server_test_source}"
+    "${dedicated_live_server_sequence_test_diagnostic}"
+    dedicated_live_server_sequence_test_diagnostic_position)
+  if(dedicated_live_server_sequence_test_diagnostic_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical server sequence regression lost '${dedicated_live_server_sequence_test_diagnostic}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_live_client_test_source}"
+  "consuming authority exhaustion is retained diagnostically and closes "
+  dedicated_live_client_authority_exhaustion_diagnostic_position)
+if(dedicated_live_client_authority_exhaustion_diagnostic_position EQUAL -1)
+  message(FATAL_ERROR
+    "Passive client sequence regression lost consuming exhaustion diagnostic")
+endif()
+
+# Reload remains the seventh closed tactical intent within the eight-intent
+# vocabulary. It carries no client-selected
+# inventory state: the main-thread authority prepares one canonical
+# ReloadWeaponCommand, repeats all mutable live checks at execution, and then
+# enters native AutoReload. Pin the codec, host seam, live resolver, passive UI,
+# focused tests, and real-socket result ordering as one production path.
+foreach(dedicated_live_reload_intent_header_contract IN ITEMS
+    "Reload = 7"
+    "struct ReloadTacticalIntent"
+    "ReloadTacticalIntent,")
+  string(FIND "${dedicated_live_intent_header_code}"
+    "${dedicated_live_reload_intent_header_contract}"
+    dedicated_live_reload_intent_header_contract_position)
+  if(dedicated_live_reload_intent_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Reload intent vocabulary lost '${dedicated_live_reload_intent_header_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "std::size_t PayloadSize(TacticalIntentKind kind) noexcept"
+  dedicated_live_reload_intent_size_slice
+  "Cannot bound reload intent payload sizing")
+require_ordered_fragments(dedicated_live_reload_intent_size_slice
+  "Reload intent is no longer an exact zero-payload value"
+  "case TacticalIntentKind::Reload: return 0"
+  "MaximumTacticalIntentPayloadWireSize + 1")
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept"
+  dedicated_live_reload_known_slice
+  "Cannot bound known tactical-intent kinds")
+require_ordered_fragments(dedicated_live_reload_known_slice
+  "Reload intent is no longer admitted by the closed kind vocabulary"
+  "case TacticalIntentKind::AimedFirearmAttack"
+  "case TacticalIntentKind::Reload"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_intent_code
+  "TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept"
+  dedicated_live_reload_kind_slice
+  "Cannot bound tactical-intent kind projection")
+require_ordered_fragments(dedicated_live_reload_kind_slice
+  "Reload payload no longer projects to exact kind seven"
+  "AimedFirearmAttackTacticalIntent>::value"
+  "return TacticalIntentKind::AimedFirearmAttack"
+  "return TacticalIntentKind::Reload")
+
+require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
+  "Reload intent decode lost zero-payload transactional publication"
+  "case TacticalIntentKind::Reload"
+  "decoded.payload = ReloadTacticalIntent{}"
+  "case TacticalIntentKind::AimedFirearmAttack"
+  "!IsStructurallyValidTacticalIntent(decoded)"
+  "intent = std::move(decoded)")
+
+foreach(dedicated_live_reload_intent_test_contract IN ITEMS
+    "{ReloadTacticalIntent{}, 72}"
+    "reloadIntent.payload = ReloadTacticalIntent{}"
+    "reloadBytes.size() == 72"
+    "reloadBytes[6] == 7"
+    "reloadBytes[70] == 0 && reloadBytes[71] == 0"
+    "reload is a byte-exact zero-payload intent")
+  string(FIND "${dedicated_live_intent_test_source}"
+    "${dedicated_live_reload_intent_test_contract}"
+    dedicated_live_reload_intent_test_contract_position)
+  if(dedicated_live_reload_intent_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Reload intent exact-wire regression lost '${dedicated_live_reload_intent_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_reload_host_seam_contract IN ITEMS
+    "prepareReloadWeapon("
+    "ReloadWeaponCommand& command")
+  string(FIND "${dedicated_live_tactical_host_header_code}"
+    "${dedicated_live_reload_host_seam_contract}"
+    dedicated_live_reload_host_seam_contract_position)
+  if(dedicated_live_reload_host_seam_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated reload live-state seam lost '${dedicated_live_reload_host_seam_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
+  "bool DedicatedCoopTacticalJa2LiveState::prepareReloadWeapon(\n\tTacticalEntityId actor,\n\tReloadWeaponCommand& command) const noexcept"
+  dedicated_live_reload_ja2_bridge_slice
+  "Cannot bound dedicated reload JA2 bridge")
+require_ordered_fragments(dedicated_live_reload_ja2_bridge_slice
+  "Dedicated reload JA2 bridge lost main-thread command preparation"
+  "onMainThread()"
+  "PrepareReloadWeaponCommand(actor, command)")
+
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "bool DedicatedCoopTacticalHost::translate(\n\tconst AuthorizedTacticalIntent& intent,\n\tconst DedicatedCoopTacticalTurnState& turn,\n\tSimulationCommand& command,\n\tCoopTacticalIntentReceiptReason& reason) const noexcept"
+  dedicated_live_reload_host_translate_slice
+  "Cannot bound dedicated reload intent translation")
+require_ordered_fragments(dedicated_live_reload_host_translate_slice
+  "Dedicated host lost exact reload preparation and terminal rejection"
+  "ReloadTacticalIntent>::value"
+  "ReloadWeaponCommand prepared"
+  "liveState_->prepareReloadWeapon(intent.actor, prepared)"
+  "CoopTacticalIntentReceiptReason::GameplayRejected"
+  "command = prepared")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool ResolveAuthoritativeReload(\n\t\tconst ReloadWeaponCommand& command,\n\t\tTacticalActor*& soldier) noexcept"
+  dedicated_live_reload_resolve_slice
+  "Cannot bound authoritative reload live-state resolver")
+require_ordered_fragments(dedicated_live_reload_resolve_slice
+  "Authoritative reload lost dedicated policy, common actor authorization, weapon, chamber, ammunition, or AP validation"
+  "command.authority !="
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "!command.reloadEvenIfNotEmpty"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "command.soldier, command.source, command.authority"
+  "!resolved"
+  "resolved->roster().team() != gbPlayerNum"
+  "resolved->attackSelection().hand() != HANDPOS"
+  "resolved->fireControl().burstCounter() != 0"
+  "resolved->fireControl().autofireShots() != 0"
+  "resolved->fireControl().reloading()"
+  "animation >= NUMANIMATIONSTATES"
+  "ANIM_FIRE"
+  "weaponMode < WM_NORMAL || weaponMode > WM_AUTOFIRE"
+  "TacticalActorEquipment::usedWeapon"
+  "objectStatus < USABLE"
+  "Item[usedWeapon->usItem].usItemClass != IC_GUN"
+  "Item[usedWeapon->usItem].usItemClass != IC_LAUNCHER"
+  "primaryNeedsChamber"
+  "secondNeedsChamber"
+  "FindAmmoToReload(resolved, HANDPOS, NO_SLOT)"
+  "const OBJECTTYPE& ammunition = resolved->inventory()[ammoSlot]"
+  "GetAPsToAutoReload(resolved, command.reloadEvenIfNotEmpty)"
+  "EnoughPoints(resolved, actionPointCost, 0, FALSE) == FALSE"
+  "soldier = resolved"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool PrepareReloadWeaponCommand(\n\tTacticalEntityId actor,\n\tReloadWeaponCommand& output) noexcept"
+  dedicated_live_reload_prepare_slice
+  "Cannot bound authoritative reload command preparation")
+require_ordered_fragments(dedicated_live_reload_prepare_slice
+  "Reload preparation lost canonical policy, repeated validation, or transactional output"
+  "!actor.valid()"
+  "ReloadWeaponCommand prepared"
+  "actor, true, SimulationCommandSource::NetworkPeer"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "ResolveAuthoritativeReload(prepared, checkedActor)"
+  "checkedActor == nullptr"
+  "output = prepared"
+  "return true")
+
+require_ordered_fragments(dedicated_live_simulation_execute_slice
+  "Reload execution lost dedicated live revalidation, Legacy compatibility, or native AutoReload disposition"
+  "std::is_same<Command, ReloadWeaponCommand>::value"
+  "value.authority =="
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "ResolveAuthoritativeReload(value, soldier)"
+  "ResolveLiveCommandActor(value.soldier)"
+  "AutoReload(soldier, value.reloadEvenIfNotEmpty)"
+  "CommandDisposition::Applied"
+  "CommandDisposition::Discard")
+
+extract_brace_bounded_slice(dedicated_live_tactical_command_host_code
+  "void commandProcessed(\n\t\tconst SimulationCommand& command,\n\t\tstd::uint64_t tick,\n\t\tstd::uint64_t sequence,\n\t\tCommandDisposition disposition) noexcept override"
+  dedicated_live_reload_result_mapping_slice
+  "Cannot bound tactical command terminal-result mapping")
+require_ordered_fragments(dedicated_live_reload_result_mapping_slice
+  "Network reload discard no longer becomes a terminal gameplay rejection"
+  "const ReloadWeaponCommand* const reload"
+  "std::get_if<ReloadWeaponCommand>(&command)"
+  "disposition == CommandDisposition::Discard"
+  "std::holds_alternative<AimedFirearmAttackCommand>(command)"
+  "reload->source =="
+  "SimulationCommandSource::NetworkPeer"
+  "TacticalCommandTerminalStatus::Rejected"
+  "TacticalCommandTerminalReason::InvalidDomain")
+
+require_ordered_fragments(dedicated_live_headless_test_code
+  "Local reload discard no longer preserves the non-network terminal contract"
+  "const TacticalCommandSubmissionResult localReloadWithoutWeapon"
+  "ReloadWeaponCommand"
+  "SimulationCommandSource::System"
+  "localReloadRecord->status =="
+  "CommandJournalStatus::Discarded"
+  "std::get<ReloadWeaponCommand>("
+  "SimulationCommandSource::System"
+  "const auto localReloadResult"
+  "localReloadWithoutWeapon.requestId"
+  "localReloadResult->status =="
+  "TacticalCommandTerminalStatus::Discarded"
+  "localReloadResult->reason =="
+  "TacticalCommandTerminalReason::AuthoritativeDiscard")
+
+require_ordered_fragments(dedicated_live_headless_test_code
+  "Native reload AP probing lost primary/off-hand manual-chamber coverage or became mutating"
+  "Weapon[1].APsToReloadManually = 7"
+  "secondHand[0]->data.gun.ubGunState = 0"
+  "const UINT8 primaryStateBeforeReloadProbe"
+  "const UINT8 secondStateBeforeReloadProbe"
+  "const bool secondHandManualChamberIsAffordable"
+  "GetAPsToAutoReload(&weaponActor, true) == 7"
+  "primaryStateBeforeReloadProbe"
+  "secondStateBeforeReloadProbe"
+  "hand[0]->data.gun.ubGunState = 0"
+  "secondHand[0]->data.gun.ubGunState = GS_CARTRIDGE_IN_CHAMBER"
+  "const UINT8 primaryManualStateBeforeReloadProbe"
+  "const UINT8 secondManualStateBeforeReloadProbe"
+  "const bool primaryManualChamberIsAffordable"
+  "GetAPsToAutoReload(&weaponActor, true) == 7"
+  "primaryManualStateBeforeReloadProbe"
+  "secondManualStateBeforeReloadProbe"
+  "primaryManualChamberIsAffordable"
+  "secondHandManualChamberIsAffordable")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientIntentRequest FullEngineCoopClientController::reload(\n\tconst FullEngineCoopClientControllerView& view) const noexcept"
+  dedicated_live_reload_controller_slice
+  "Cannot bound passive client reload request")
+require_ordered_fragments(dedicated_live_reload_controller_slice
+  "Passive reload no longer uses the selected actor and an empty payload"
+  "request(view, CoopSession::ReloadTacticalIntent{})")
+
+foreach(dedicated_live_reload_ui_contract IN ITEMS
+    "case 'r':"
+    "case 'R':"
+    "Controller.toggleReverse()"
+    "Controller.reload(view)"
+    "R reload")
+  string(FIND "${dedicated_live_client_screen_source}"
+    "${dedicated_live_reload_ui_contract}"
+    dedicated_live_reload_ui_contract_position)
+  if(dedicated_live_reload_ui_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive reload UI contract lost '${dedicated_live_reload_ui_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_reload_controller_test_contract IN ITEMS
+    "!controller.reload(outstanding)"
+    "controller.reload(view)"
+    "reload.actor == (TacticalEntityId{1, 1})"
+    "holds_alternative<CoopSession::ReloadTacticalIntent>"
+    "reload is a zero-payload selected-actor request without local mutation")
+  string(FIND "${dedicated_live_client_controller_test_source}"
+    "${dedicated_live_reload_controller_test_contract}"
+    dedicated_live_reload_controller_test_contract_position)
+  if(dedicated_live_reload_controller_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive reload controller regression lost '${dedicated_live_reload_controller_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_reload_host_test_contract IN ITEMS
+    "prepareReloadWeapon("
+    "host.execute(Intent(7, ReloadTacticalIntent{}))"
+    "commands.submissions[6].command"
+    "reload->reloadEvenIfNotEmpty"
+    "reload->source == SimulationCommandSource::NetworkPeer"
+    "reloadPreparationSucceeds = false"
+    "live selected-weapon, ammunition, and AP reload rejection is terminal")
+  string(FIND "${dedicated_live_tactical_host_test_source}"
+    "${dedicated_live_reload_host_test_contract}"
+    dedicated_live_reload_host_test_contract_position)
+  if(dedicated_live_reload_host_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated reload host regression lost '${dedicated_live_reload_host_test_contract}'")
+  endif()
+endforeach()
+
+# Door open/close is the eighth closed intent and the first bounded world-object
+# interaction. Public state is deliberately coarse; the authority enriches it
+# with private optimistic fingerprints and executes one synchronous native
+# mutation before any AP/BP, noise, sight, interrupt, or AI side effect.
+foreach(dedicated_live_door_intent_header_contract IN ITEMS
+    "TacticalIntentWireVersion = 3"
+    "TacticalIntentHeaderWireSize = 72"
+    "MaximumTacticalIntentPayloadWireSize = 8"
+    "MaximumTacticalIntentWireSize ="
+    "DoorOpenClose = 8"
+    "struct DoorOpenCloseTacticalIntent"
+    "std::int32_t baseGrid = -1"
+    "std::uint16_t structureId = 0"
+    "bool desiredOpen = false"
+    "DoorOpenCloseTacticalIntent,"
+    "PassInterruptTacticalIntent>")
+  string(FIND "${dedicated_live_intent_header_code}"
+    "${dedicated_live_door_intent_header_contract}"
+    dedicated_live_door_intent_header_contract_position)
+  if(dedicated_live_door_intent_header_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Door intent vocabulary lost '${dedicated_live_door_intent_header_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_reload_intent_size_slice
+  "Door intent lost its exact seven-byte payload"
+  "case TacticalIntentKind::AimedFirearmAttack: return 7"
+  "case TacticalIntentKind::DoorOpenClose: return 7"
+  "case TacticalIntentKind::Stop")
+require_ordered_fragments(dedicated_live_reload_known_slice
+  "Door intent is no longer admitted by the closed vocabulary"
+  "case TacticalIntentKind::Reload"
+  "case TacticalIntentKind::DoorOpenClose"
+  "return true")
+require_ordered_fragments(dedicated_live_aimed_intent_validation_slice
+  "Door intent lost exact public identity validation"
+  "DoorOpenCloseTacticalIntent>::value"
+  "payload.baseGrid >= 0"
+  "payload.structureId != 0")
+require_ordered_fragments(dedicated_live_aimed_intent_encode_slice
+  "Door intent encoding lost exact grid/token/state order"
+  "DoorOpenCloseTacticalIntent>::value"
+  "WriteI32(encoded, payload.baseGrid)"
+  "WriteU16(encoded, payload.structureId)"
+  "encoded.push_back(payload.desiredOpen ? 1u : 0u)"
+  "bytes = std::move(encoded)")
+require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
+  "Door intent decoding lost canonical boolean validation or transactional publication"
+  "case TacticalIntentKind::DoorOpenClose"
+  "DoorOpenCloseTacticalIntent payload"
+  "ReadI32(input, end, payload.baseGrid)"
+  "ReadU16(input, end, payload.structureId)"
+  "desiredOpen > 1"
+  "payload.desiredOpen = desiredOpen != 0"
+  "decoded.payload = payload"
+  "!IsStructurallyValidTacticalIntent(decoded)"
+  "intent = std::move(decoded)")
+foreach(dedicated_live_door_intent_test_contract IN ITEMS
+    "const std::array<PayloadCase, 9> payloads"
+    "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
+    "doorBytes.size() == 79"
+    "doorBytes[6] == 8"
+    "doorBytes[70] == 7"
+    "doorBytes[72] == 1 && doorBytes[73] == 2"
+    "doorBytes[76] == 5 && doorBytes[77] == 6"
+    "doorBytes[78] == 1"
+    "noncanonical desired-door-state boolean is rejected"
+    "negative logical door grid is rejected"
+    "zero door structure token is rejected")
+  string(FIND "${dedicated_live_intent_test_source}"
+    "${dedicated_live_door_intent_test_contract}"
+    dedicated_live_door_intent_test_contract_position)
+  if(dedicated_live_door_intent_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Door intent exact-wire regression lost '${dedicated_live_door_intent_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_door_command_shape_contract IN ITEMS
+    "struct AuthoritativeDoorOpenCloseCommand"
+    "TacticalEntityId soldier"
+    "TacticalWorldObjectId object"
+    "TacticalWorldObjectOperation operation ="
+    "std::uint8_t direction = TacticalDirectionCount"
+    "SimulationCommandSource source = SimulationCommandSource::NetworkPeer"
+    "TacticalCommandAuthorityPolicy::DedicatedCoop"
+    "std::uint64_t expectedWorldGeneration = 0"
+    "std::uint64_t expectedTurnSerial = 0"
+    "std::uint64_t expectedActorStateFingerprint ="
+    "std::uint64_t expectedObjectFingerprint ="
+    "std::int16_t expectedActionPointCost ="
+    "std::int16_t expectedBreathPointCost ="
+    "AuthoritativeDoorOpenCloseCommand>")
+  string(FIND "${dedicated_live_simulation_command_header_code}"
+    "${dedicated_live_door_command_shape_contract}"
+    dedicated_live_door_command_shape_contract_position)
+  if(dedicated_live_door_command_shape_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Authoritative door command lost '${dedicated_live_door_command_shape_contract}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_simulation_command_header_code
+  "constexpr bool IsStructurallyValidAuthoritativeDoorOpenCloseCommand(\n\tconst AuthoritativeDoorOpenCloseCommand& command) noexcept"
+  dedicated_live_door_command_validation_slice
+  "Cannot bound authoritative door command validation")
+require_ordered_fragments(dedicated_live_door_command_validation_slice
+  "Authoritative door command lost synchronous open/close and dedicated provenance bounds"
+  "command.soldier.valid()"
+  "command.object.grid >= 0"
+  "command.object.structureId != 0"
+  "TacticalWorldObjectOperation::Open"
+  "TacticalWorldObjectOperation::Close"
+  "IsValidTacticalDirection(command.direction)"
+  "SimulationCommandSource::NetworkPeer"
+  "SimulationCommandSource::Replay"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "command.expectedWorldGeneration != 0"
+  "command.expectedTurnSerial != 0"
+  "command.expectedActorStateFingerprint !="
+  "command.expectedObjectFingerprint !="
+  "command.expectedActionPointCost !="
+  "command.expectedBreathPointCost !=")
+
+foreach(dedicated_live_door_command_codec_contract IN ITEMS
+    "SimulationCommandJournalWireVersion = 4"
+    "AuthoritativeDoorOpenClose = 33"
+    "PassInterrupt = 34"
+    "CommandTag::AuthoritativeDoorOpenClose"
+    "CommandTag::PassInterrupt"
+    "writer.writeI32(value.object.grid)"
+    "writer.writeU16(value.object.structureId)"
+    "writer.writeU64(value.expectedWorldGeneration)"
+    "writer.writeU64(value.expectedTurnSerial)"
+    "writer.writeU64(value.expectedActorStateFingerprint)"
+    "writer.writeU64(value.expectedObjectFingerprint)"
+    "WriteI16(writer, value.expectedActionPointCost)"
+    "WriteI16(writer, value.expectedBreathPointCost)"
+    "case CommandTag::AuthoritativeDoorOpenClose"
+    "reader.readI32(value.object.grid)"
+    "reader.readU16(value.object.structureId)"
+    "IsStructurallyValidSimulationCommand(")
+  string(FIND
+    "${dedicated_live_simulation_command_codec_header_code}${dedicated_live_simulation_command_codec_code}"
+    "${dedicated_live_door_command_codec_contract}"
+    dedicated_live_door_command_codec_contract_position)
+  if(dedicated_live_door_command_codec_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Journal-v4 door command codec lost '${dedicated_live_door_command_codec_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_door_journal_test_contract IN ITEMS
+    "expectedAuthoritativeDoorWire"
+    "authoritativeDoorWire.size() == 95"
+    "authoritativeDoorWire[35] == 33"
+    "tag 33 keeps its literal 60-byte pointer-free layout in journal v4"
+    "tag 33 round-trips every optimistic precondition exactly"
+    "malformed tag-33 policy bytes fail transactionally"
+    "failed tag-33 decoding preserves caller output")
+  string(FIND "${dedicated_live_world_object_model_test_source}"
+    "${dedicated_live_door_journal_test_contract}"
+    dedicated_live_door_journal_test_contract_position)
+  if(dedicated_live_door_journal_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Journal-v4 authoritative-door regression lost '${dedicated_live_door_journal_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool IsAuthoritativeDoorActorEligible(\n\t\tTacticalActor& soldier) noexcept"
+  dedicated_live_door_actor_eligible_slice
+  "Cannot bound authoritative door actor eligibility")
+require_ordered_fragments(dedicated_live_door_actor_eligible_slice
+  "Door actor eligibility lost controllable/idle synchronous constraints"
+  "OK_CONTROLLABLE_MERC((&soldier)) == FALSE"
+  "soldier.roster().team() != gbPlayerNum"
+  "soldier.assignment().current() >= ON_DUTY"
+  "SOLDIER_VEHICLE"
+  "SOLDIER_DRIVER"
+  "SOLDIER_PASSENGER"
+  "gTacticalStatus.fAutoBandageMode"
+  "soldier.position().level() != FIRST_LEVEL"
+  "soldier.movement().stealthMode()"
+  "soldier.movement().waitingForAction()"
+  "soldier.pendingAction().action() != NO_PENDING_ACTION"
+  "soldier.runtime().worldObject.active()"
+  "soldier.animationIntent().hasPendingAnimation()"
+  "CanBeginWorldObjectInteraction(soldier)"
+  "ANIM_MOVING | ANIM_SPECIALMOVE | ANIM_FIRE")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool ResolveAuthoritativeDoorOpenClose(\n\t\tconst AuthoritativeDoorOpenCloseCommand& command,\n\t\tTacticalActor*& soldier,\n\t\tSTRUCTURE*& structure,\n\t\tINT16& actionPointCost,\n\t\tINT16& breathPointCost) noexcept"
+  dedicated_live_door_resolve_slice
+  "Cannot bound authoritative door live resolver")
+require_ordered_fragments(dedicated_live_door_resolve_slice
+  "Door authority lost live identity, visibility, adjacency, point, or ordinary-door validation"
+  "IsStructurallyValidAuthoritativeDoorOpenCloseCommand(command)"
+  "is_networked"
+  "HasNetworkPeerTacticalExecutionContext()"
+  "identity.worldGeneration !="
+  "command.expectedWorldGeneration"
+  "identity.serial != command.expectedTurnSerial"
+  "ResolveLiveCommandActor(command.soldier)"
+  "IsAuthoritativeDoorActorEligible(*resolvedSoldier)"
+  "CaptureWorldObjectActorStateFingerprint(*resolvedSoldier)"
+  "ResolveLiveWorldObject(command.object)"
+  "STRUCTURE_BASE_TILE"
+  "STRUCTURE_ANYDOOR"
+  "STRUCTURE_SWITCH"
+  "STRUCTURE_ON_GROUND"
+  "NO_PARTNER_STRUCTURE"
+  "LEVELNODE_ANIMATION"
+  "CaptureWorldObjectFingerprint(*resolvedStructure)"
+  "DOOR_BUSY | DOOR_HAS_TIN_CAN"
+  "door->fLocked"
+  "door->ubTrapID != NO_TRAP"
+  "door->ubTrapLevel != 0"
+  "IsJa2TacticalDoorVisibleToPlayerTeam(command.object.grid)"
+  "FindAdjacentGridEx("
+  "direction != command.direction"
+  "GetAPsToOpenDoor(resolvedSoldier)"
+  "APBPConstants[BP_OPEN_DOOR]"
+  "currentActionPointCost != command.expectedActionPointCost"
+  "currentBreathPointCost != command.expectedBreathPointCost"
+  "EnoughPoints(resolvedSoldier, currentActionPointCost"
+  "soldier = resolvedSoldier"
+  "structure = resolvedStructure"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool PrepareAuthoritativeDoorOpenCloseCommand(\n\tTacticalEntityId actor,\n\tTacticalWorldObjectId object,\n\tbool desiredOpen,\n\tAuthoritativeDoorOpenCloseCommand& output) noexcept"
+  dedicated_live_door_prepare_slice
+  "Cannot bound authoritative door preparation")
+require_ordered_fragments(dedicated_live_door_prepare_slice
+  "Door preparation lost exact optimistic capture, revalidation, or transactional output"
+  "!actor.valid() || object.grid < 0 || object.structureId == 0"
+  "ResolveLiveCommandActor(actor)"
+  "ResolveLiveWorldObject(object)"
+  "GetJa2TacticalWorldAdapter().liveTurnIdentity()"
+  "FindAdjacentGridEx("
+  "AuthoritativeDoorOpenCloseCommand prepared"
+  "TacticalWorldObjectOperation::Open"
+  "TacticalWorldObjectOperation::Close"
+  "SimulationCommandSource::NetworkPeer"
+  "TacticalCommandAuthorityPolicy::DedicatedCoop"
+  "prepared.expectedWorldGeneration = identity.worldGeneration"
+  "prepared.expectedTurnSerial = identity.serial"
+  "CaptureWorldObjectActorStateFingerprint(*liveActor)"
+  "CaptureWorldObjectFingerprint(*liveStructure)"
+  "GetAPsToOpenDoor(liveActor)"
+  "APBPConstants[BP_OPEN_DOOR]"
+  "ResolveAuthoritativeDoorOpenClose("
+  "checkedActor != liveActor || checkedStructure != liveStructure"
+  "output = prepared"
+  "return true")
+
+require_ordered_fragments(dedicated_live_simulation_execute_slice
+  "Door execution lost mutation-before-points/noise/perception ordering"
+  "AuthoritativeDoorOpenCloseCommand>::value"
+  "ResolveAuthoritativeDoorOpenClose("
+  "DoorOpeningNoise(soldier, value.object.grid)"
+  "TryHandleDoorOpenCloseImmediately("
+  "changed != ImmediateDoorOpenCloseResult::Applied"
+  "return CommandDisposition::Discard"
+  "DeductPoints("
+  "OurNoise("
+  "HandleSight("
+  "InitOpplistForDoorOpening()"
+  "gubInterruptProvoker = soldier->identity().id()"
+  "AllTeamsLookForAll(TRUE)"
+  "HandleSystemNewAISituation(soldier, TRUE)"
+  "return CommandDisposition::Applied")
+
+extract_brace_bounded_slice(dedicated_live_handle_doors_code
+  "ImmediateDoorOpenCloseResult TryHandleDoorOpenCloseImmediately(\n\tTacticalActor& actor,\n\tINT32 baseGrid,\n\tstd::uint16_t expectedStructureId,\n\tbool desiredOpen,\n\tSTRUCTURE*& resultingBase) noexcept"
+  dedicated_live_immediate_door_slice
+  "Cannot bound native synchronous door helper")
+require_ordered_fragments(dedicated_live_immediate_door_slice
+  "Native synchronous door helper lost preflight/swap/commit/maintenance ordering"
+  "resultingBase = nullptr"
+  "IsJa2TacticalWorldLoaded()"
+  "FindStructureByID(baseGrid, expectedStructureId)"
+  "FindBaseStructure(structure) != structure"
+  "STRUCTURE_BASE_TILE"
+  "STRUCTURE_ANYDOOR"
+  "STRUCTURE_SWITCH"
+  "STRUCTURE_ON_GROUND"
+  "NO_PARTNER_STRUCTURE"
+  "FindLevelNodeBasedOnStructure(baseGrid, structure)"
+  "LEVELNODE_ANIMATION"
+  "expectedGraphic"
+  "desiredGraphic"
+  "door->fLocked"
+  "door->ubTrapID != NO_TRAP"
+  "DOOR_BUSY | DOOR_HAS_TIN_CAN"
+  "ModifyDoorStatus("
+  "SwapStructureForPartner(baseGrid, structure)"
+  "MarkJa2TacticalWorldIntegrityFailure()"
+  "ImmediateDoorOpenCloseResult::IntegrityFailure"
+  "FindBaseStructure(swapped)"
+  "ModifyDoorStatus("
+  "node->usIndex = static_cast<UINT16>(desiredGraphic)"
+  "RecompileLocalMovementCosts(baseGrid)"
+  "DoPOWPathChecks()"
+  "TacticalActorEquipment::refreshFlashlights(actor)"
+  "resultingBase = base"
+  "ImmediateDoorOpenCloseResult::Applied")
+
+foreach(dedicated_live_door_host_seam_contract IN ITEMS
+    "prepareDoorOpenClose("
+    "AuthoritativeDoorOpenCloseCommand& command")
+  string(FIND "${dedicated_live_tactical_host_header_code}"
+    "${dedicated_live_door_host_seam_contract}"
+    dedicated_live_door_host_seam_contract_position)
+  if(dedicated_live_door_host_seam_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated door live-state seam lost '${dedicated_live_door_host_seam_contract}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
+  "bool DedicatedCoopTacticalJa2LiveState::prepareDoorOpenClose(\n\tTacticalEntityId actor,\n\tTacticalWorldObjectId object,\n\tbool desiredOpen,\n\tAuthoritativeDoorOpenCloseCommand& command) const noexcept"
+  dedicated_live_door_ja2_bridge_slice
+  "Cannot bound dedicated door JA2 bridge")
+require_ordered_fragments(dedicated_live_door_ja2_bridge_slice
+  "Dedicated door JA2 bridge lost main-thread authoritative preparation"
+  "onMainThread()"
+  "PrepareAuthoritativeDoorOpenCloseCommand("
+  "actor, object, desiredOpen, command")
+require_ordered_fragments(dedicated_live_reload_host_translate_slice
+  "Dedicated host lost door legacy isolation and exact preparation"
+  "DoorOpenCloseTacticalIntent>::value"
+  "liveState_->legacyNetworkingActive()"
+  "CoopTacticalIntentReceiptReason::UnavailableContext"
+  "AuthoritativeDoorOpenCloseCommand prepared"
+  "liveState_->prepareDoorOpenClose("
+  "payload.baseGrid, payload.structureId"
+  "payload.desiredOpen, prepared"
+  "CoopTacticalIntentReceiptReason::GameplayRejected"
+  "command = prepared")
+
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::beginDoorSelection(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_door_controller_begin_slice
+  "Cannot bound passive door-selection entry")
+require_ordered_fragments(dedicated_live_door_controller_begin_slice
+  "Passive door selection lost modal/action/world identity initialization"
+  "actionsEnabled(view)"
+  "cancelDestinationEntry()"
+  "cancelAttackTargeting()"
+  "cancelDoorSelection()"
+  "selectingDoor_ = true"
+  "doorActor_ = selectedActor_"
+  "doorWorldEpoch_ = view.snapshot->epoch()"
+  "selectDoorRelative(view, true)"
+  "cancelDoorSelection()")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::doorCandidate(\n\tconst FullEngineCoopClientControllerView& view,\n\tconst TacticalDoorSnapshot& door) const noexcept"
+  dedicated_live_door_controller_candidate_slice
+  "Cannot bound passive projected-door filtering")
+require_ordered_fragments(dedicated_live_door_controller_candidate_slice
+  "Passive door selection lost same-tile/cardinal adjacency filtering"
+  "view.snapshot->find(selectedActor_)"
+  "actor->level != 0"
+  "dimensions().contains(actor->grid)"
+  "dimensions().contains(door.baseGrid)"
+  "rowDistance + columnDistance <= 1")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientController::submitDoorOpenClose(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_door_controller_submit_slice
+  "Cannot bound passive door submission")
+require_ordered_fragments(dedicated_live_door_controller_submit_slice
+  "Passive door submission lost exact optimistic identity/inverse state and no-speculation boundary"
+  "!selectingDoor_ || !actionsEnabled(view)"
+  "!exactDoorSelectionCurrent(view)"
+  "DoorOpenCloseTacticalIntent payload"
+  "selectedDoorBaseGrid_"
+  "selectedDoorStructureId_"
+  "!selectedDoorOpen_"
+  "cancelDoorSelection()"
+  "return request(view, payload)")
+
+foreach(dedicated_live_door_ui_contract IN ITEMS
+    "Controller.selectingDoor()"
+    "Controller.selectNextDoor(view)"
+    "Controller.selectPreviousDoor(view)"
+    "Controller.cancelDoorSelection()"
+    "Controller.submitDoorOpenClose(view)"
+    "Controller.beginDoorSelection(view)"
+    "Door grid %d  structure %u"
+    "D door")
+  string(FIND "${dedicated_live_client_screen_source}"
+    "${dedicated_live_door_ui_contract}"
+    dedicated_live_door_ui_contract_position)
+  if(dedicated_live_door_ui_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive door UI contract lost '${dedicated_live_door_ui_contract}'")
+  endif()
+endforeach()
+require_ordered_fragments(dedicated_live_client_screen_source
+  "Door mode no longer remains modal ahead of ordinary commands/leave"
+  "const bool modal = Controller.targetingAttack() ||"
+  "Controller.enteringDestination() || Controller.selectingDoor()"
+  "if (modal) RetirementConfirmation.cancel()"
+  "if (leaveKey && !modal && retirementEligible)"
+  "if (Controller.selectingDoor())"
+  "case ESC:"
+  "Controller.cancelDoorSelection()"
+  "case ENTER:"
+  "Controller.submitDoorOpenClose(view)"
+  "continue"
+  "case 'd':"
+  "Controller.beginDoorSelection(view)")
+
+foreach(dedicated_live_door_controller_test_contract IN ITEMS
+    "TestDoorSelectionProducesExactInverseIntent()"
+    "door mode selects the first visible same-or-cardinal adjacent door"
+    "door mode cycles only coarse adjacent projected doors"
+    "door submit carries exact public identity and requests inverse state"
+    "door selection never speculates into the passive replica"
+    "TestDoorSelectionFailsClosedAcrossReplicaChanges()"
+    "partner ID and open-state change cancels stale door selection"
+    "world-generation epoch change cancels door selection"
+    "an outstanding command cancels door selection"
+    "changing selected actor cancels door selection")
+  string(FIND "${dedicated_live_client_controller_test_source}"
+    "${dedicated_live_door_controller_test_contract}"
+    dedicated_live_door_controller_test_contract_position)
+  if(dedicated_live_door_controller_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive door-controller regression lost '${dedicated_live_door_controller_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_door_host_test_contract IN ITEMS
+    "host.execute(Intent(8, DoorOpenCloseTacticalIntent"
+    "commands.submissionCount == 8"
+    "AuthoritativeDoorOpenCloseCommand"
+    "commands.submissions[7].command"
+    "door intent is resolved into one exact private authoritative command"
+    "door mutation fails closed while a legacy network role is active"
+    "stale, locked, trapped, non-adjacent, or unaffordable door is terminal")
+  string(FIND "${dedicated_live_tactical_host_test_source}"
+    "${dedicated_live_door_host_test_contract}"
+    dedicated_live_door_host_test_contract_position)
+  if(dedicated_live_door_host_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated authoritative-door host regression lost '${dedicated_live_door_host_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_native_door_test_contract IN ITEMS
+    "immediateDoorSuccessOrdered"
+    "immediateDoorFailureAtomic"
+    "ImmediateDoorOpenCloseResult::IntegrityFailure"
+    "queued authoritative doors reject a client-only legacy role before mutation"
+    "queued authoritative doors reject a server-only legacy role before mutation"
+    "a failed authoritative door swap fail-stops later queued doors until world reload"
+    "commandHostActor.actionPoints().current() == actionPointsBefore"
+    "queuedDoorNoiseUnchanged(")
+  string(FIND "${dedicated_live_headless_test_source}"
+    "${dedicated_live_native_door_test_contract}"
+    dedicated_live_native_door_test_contract_position)
+  if(dedicated_live_native_door_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Native synchronous-door regression lost '${dedicated_live_native_door_test_contract}'")
+  endif()
+endforeach()
+
+# The older client-core test name is retained for source compatibility. Its
+# generic send/receipt loop covers the first seven payloads; the eighth door
+# path is pinned above through exact codec, controller, host, and native tests.
+foreach(dedicated_live_client_seven_intent_contract IN ITEMS
+    "const std::vector<TacticalIntentPayload> payloads"
+    "MoveTacticalIntent{1200, 1, false}"
+    "FaceTacticalIntent{4}"
+    "StanceTacticalIntent{TacticalIntentStance::Crouched}"
+    "StopTacticalIntent{}"
+    "EndTurnTacticalIntent{}"
+    "AimedFirearmAttackTacticalIntent{TacticalEntityId{7, 3}, 4}"
+    "ReloadTacticalIntent{}"
+    "KindOf(intent.payload) == KindOf(payloads[index])")
+  string(FIND "${dedicated_live_client_test_code}"
+    "${dedicated_live_client_seven_intent_contract}"
+    dedicated_live_client_seven_intent_contract_position)
+  if(dedicated_live_client_seven_intent_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client lost first-seven generic send coverage: '${dedicated_live_client_seven_intent_contract}'")
+  endif()
+endforeach()
+
+# Tactical protocol/session code remains a pure bounded replication layer even
+# though the outer dedicated runtime now composes it with live JA2 authority.
+# Do not let application/transport dependencies leak into the codecs/session.
+foreach(dedicated_live_tactical_wire_contract IN ITEMS
+    "CoopTacticalIntentReceiptWireSize = 96"
+    "CoopTacticalBaselineHeaderWireSize = 76"
+    "CoopTacticalBaselineAckWireSize = 88"
+    "CoopTacticalDeltaHeaderWireSize = 72"
+    "CoopTacticalDeltaAckWireSize = 80"
+    "MaximumCoopTacticalSnapshotActors = 256"
+    "MaximumCoopTacticalAssignedActors = 256"
+    "MaximumCoopTacticalPayloadWireSize = 64u * 1024u")
+  string(FIND "${dedicated_live_tactical_protocol_header_code}"
+    "${dedicated_live_tactical_wire_contract}"
+    dedicated_live_tactical_wire_contract_position)
+  if(dedicated_live_tactical_wire_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical wire bound lost '${dedicated_live_tactical_wire_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_baseline_encode_marker
+  "CoopTacticalCodecResult EncodeCoopTacticalBaseline(\n\tconst CoopTacticalBaseline& baseline,\n\tstd::vector<std::uint8_t>& bytes) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_protocol_code
+  "${dedicated_live_baseline_encode_marker}"
+  dedicated_live_baseline_encode_slice
+  "Cannot bound co-op tactical baseline encoder")
+require_ordered_fragments(dedicated_live_baseline_encode_slice
+  "Co-op baseline lost its admission-epoch command cursor"
+  "CoopTacticalBaselineHeaderWireSize"
+  "WriteU64(output, baseline.baselineId)"
+  "WriteU64(output, baseline.nextExpectedCommandId)"
+  "CoopTacticalBaselineHeaderWireSize")
+
+set(dedicated_live_baseline_ack_encode_marker
+  "CoopTacticalCodecResult EncodeCoopTacticalBaselineAck(\n\tconst CoopTacticalBaselineAck& acknowledgement,\n\tCoopTacticalBaselineAckBytes& bytes) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_protocol_code
+  "${dedicated_live_baseline_ack_encode_marker}"
+  dedicated_live_baseline_ack_encode_slice
+  "Cannot bound co-op tactical baseline ACK encoder")
+require_ordered_fragments(dedicated_live_baseline_ack_encode_slice
+  "Co-op baseline ACK lost its exact command-cursor echo"
+  "WriteU64(output, acknowledgement.baselineId)"
+  "WriteU32(output, acknowledgement.payloadChecksum)"
+  "WriteU32(output, 0)"
+  "WriteU64(output, acknowledgement.nextExpectedCommandId)")
+foreach(dedicated_live_tactical_message_name IN ITEMS
+    "coop.tactical.intent"
+    "coop.tactical.receipt"
+    "coop.tactical.baseline"
+    "coop.tactical.baseline.ack"
+    "coop.tactical.delta"
+    "coop.tactical.delta.ack"
+    "coop.tactical.resync")
+  string(FIND "${dedicated_live_tactical_protocol_header_source}"
+    "${dedicated_live_tactical_message_name}"
+    dedicated_live_tactical_message_name_position)
+  if(dedicated_live_tactical_message_name_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical wire namespace lost '${dedicated_live_tactical_message_name}'")
+  endif()
+endforeach()
+foreach(dedicated_live_tactical_resync_wire_contract IN ITEMS
+    "CoopTacticalWireVersion = 3"
+    "CoopTacticalResyncRequestWireSize = 88"
+    "ResyncRequest = 6"
+    "using CoopTacticalResyncRequestBytes =")
+  string(FIND "${dedicated_live_tactical_protocol_header_code}"
+    "${dedicated_live_tactical_resync_wire_contract}"
+    dedicated_live_tactical_resync_wire_contract_position)
+  if(dedicated_live_tactical_resync_wire_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical resync wire contract lost '${dedicated_live_tactical_resync_wire_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_tactical_codec_contract IN ITEMS
+    "EncodeCoopTacticalIntentReceipt("
+    "DecodeCoopTacticalIntentReceipt("
+    "EncodeCoopTacticalBaseline("
+    "DecodeCoopTacticalBaseline("
+    "EncodeCoopTacticalBaselineAck("
+    "DecodeCoopTacticalBaselineAck("
+    "EncodeCoopTacticalDelta("
+    "DecodeCoopTacticalDelta("
+    "EncodeCoopTacticalDeltaAck("
+    "DecodeCoopTacticalDeltaAck("
+    "EncodeCoopTacticalResyncRequest("
+    "DecodeCoopTacticalResyncRequest(")
+  string(FIND "${dedicated_live_tactical_protocol_code}"
+    "${dedicated_live_tactical_codec_contract}"
+    dedicated_live_tactical_codec_contract_position)
+  if(dedicated_live_tactical_codec_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical protocol lost '${dedicated_live_tactical_codec_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_session_flush_marker
+  "FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(\n\tFullEngineCoopServerSessionWireSink& sink) noexcept")
+extract_brace_bounded_slice(dedicated_live_server_session_code
+  "${dedicated_live_session_flush_marker}" dedicated_live_session_flush_slice
+  "Cannot bound full-engine co-op server-session flush")
+require_ordered_fragments(dedicated_live_session_flush_slice
+  "Co-op server-session baseline/delta/receipt flush ordering changed"
+  "if (flushing_)"
+  "guard(flushing_)"
+  "CoopTacticalOutboundMessageKind::Baseline"
+  "CoopTacticalBaselineMessageName"
+  "peer.phase != CoopTacticalPeerPhase::Active"
+  "peer.inFlightDeltas <"
+  "CoopTacticalOutboundMessageKind::Delta"
+  "CoopTacticalDeltaMessageName"
+  "peer.lastSentRevision = delta->revision"
+  "receipt.revision > peer.lastSentRevision"
+  "CoopTacticalOutboundMessageKind::IntentReceipt"
+  "CoopTacticalIntentReceiptMessageName"
+  "receipt.pending = false")
+
+# The main-thread coordinator keeps actor ACLs behind the exact baseline ACK,
+# carries the admission-epoch cursor in every staged baseline, and forces an
+# explicit transport restart at each world boundary because v1 has no unload
+# frame.
+set(dedicated_live_server_bindings_marker
+  "FullEngineCoopTacticalServer::rebuildActorBindings() noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_bindings_marker}"
+  dedicated_live_server_bindings_slice
+  "Cannot bound co-op tactical server actor bindings")
+require_ordered_fragments(dedicated_live_server_bindings_slice
+  "Co-op actor ACL escaped baseline/delta ACK gating"
+  "ingress_.clearActorBindings()"
+  "replication_.worldActive()"
+  "replication_.assignment(index)"
+  "!peerCaughtUp(assignment->peerIdentity)"
+  "peer->connected"
+  "ingress_.bindActorForTransport(peer->transport, assignment->actor)")
+
+set(dedicated_live_server_assignments_marker
+  "FullEngineCoopTacticalServer::replaceAssignments(\n\tconst CoopTacticalActorAssignment* assignments,\n\tstd::size_t count) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_assignments_marker}"
+  dedicated_live_server_assignments_slice
+  "Cannot bound co-op tactical assignment replacement")
+require_ordered_fragments(dedicated_live_server_assignments_slice
+  "Co-op assignment changes no longer invalidate prior baseline ACKs"
+  "replication_.replaceAssignments(assignments, count)"
+  "replication_.peerPhase(peer.identity)"
+  "CoopTacticalPeerPhase::NeedsBaseline"
+  "CoopTacticalPeerPhase::ResyncRequired"
+  "replication_.disconnectPeer(peer.identity)"
+  "replication_.connectPeer(peer.identity)"
+  "rebuildActorBindings()")
+
+set(dedicated_live_server_stage_baseline_marker
+  "FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageBaseline(\n\tconst PeerIdentity& identity,\n\tconst TacticalWorldSnapshot& snapshot) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_stage_baseline_marker}"
+  dedicated_live_server_stage_baseline_slice
+  "Cannot bound co-op tactical baseline staging")
+require_ordered_fragments(dedicated_live_server_stage_baseline_slice
+  "Co-op server baseline no longer stages the authoritative command cursor"
+  "snapshot.copyTo(captured)"
+  "replication_.stageBaseline("
+  "identity, snapshot, peer->nextExpectedCommandId)"
+  "baselineSnapshotAvailable_ = true"
+  "rebuildActorBindings()")
+
+set(dedicated_live_server_baseline_ack_marker
+  "FullEngineCoopTacticalServer::processBaselineAck(\n\tconst FullEngineCoopTacticalInboundMessage& message,\n\tFullEngineCoopTacticalServerPumpResult& diagnostics) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_baseline_ack_marker}"
+  dedicated_live_server_baseline_ack_slice
+  "Cannot bound co-op tactical baseline ACK processing")
+require_ordered_fragments(dedicated_live_server_baseline_ack_slice
+  "Co-op baseline ACK no longer delegates authenticated current/late checkpoint validation"
+  "replication_.acknowledgeBaseline("
+  "rebuildActorBindings()"
+  "diagnostics.acknowledgementsAccepted")
+
+set(dedicated_live_session_resync_marker
+  "FullEngineCoopServerSessionResult FullEngineCoopServerSession::requestResync(\n\tconst PeerIdentity& identity, const std::uint8_t* bytes,\n\tstd::size_t size, bool* replicationReset) noexcept")
+extract_brace_bounded_slice(dedicated_live_server_session_code
+  "${dedicated_live_session_resync_marker}"
+  dedicated_live_session_resync_slice
+  "Cannot bound server-session tactical resync processing")
+require_ordered_fragments(dedicated_live_session_resync_slice
+  "Server-session resync lost authenticated checkpoint validation and replication-only reset"
+  "DecodeCoopTacticalResyncRequest(bytes, size, request)"
+  "request.requestId == peer->lastResyncRequestId"
+  "std::equal(bytes, bytes + size"
+  "peer->committedCheckpointValid"
+  "peer->phase != CoopTacticalPeerPhase::ResyncRequired"
+  "sameState(request.acceptedState, expected)"
+  "request.acceptedBaselineId != peer->committedBaselineId"
+  "request.lastAppliedDeltaId != peer->committedDeltaId"
+  "request.lastPayloadChecksum != peer->committedChecksum"
+  "requireResync(*peer)")
+foreach(dedicated_live_late_ack_checkpoint_contract IN ITEMS
+    "struct SentCheckpoint"
+    "std::uint64_t sendOrdinal = 0"
+    "sentCheckpoints{}"
+    "committedOrdinal"
+    "nextSentCheckpointOrdinal"
+    "recordSentCheckpoint(peer, SentCheckpoint"
+    "findSentBaseline(*peer, acknowledgement.baselineId)"
+    "findSentDelta(*peer, acknowledgement.deltaId)"
+    "peer->committedBaselineId = sentCheckpoint->baselineId"
+    "sentCheckpoint->sendOrdinal <= peer->committedOrdinal"
+    "sent->sendOrdinal <= peer->committedOrdinal"
+    "peer->sentCheckpoints = {}"
+    "peer.nextSentCheckpointOrdinal == 0")
+  string(FIND
+    "${dedicated_live_server_session_header_code}${dedicated_live_server_session_code}"
+    "${dedicated_live_late_ack_checkpoint_contract}"
+    dedicated_live_late_ack_checkpoint_contract_position)
+  if(dedicated_live_late_ack_checkpoint_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bounded late-ACK checkpoint ledger lost '${dedicated_live_late_ack_checkpoint_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_baseline_transient_supersession_contract IN ITEMS
+    "discardTransientThrough(identity,"
+    "discardTransientThrough(peer->identity,"
+    "discardTransientThrough(peer.identity,")
+  string(FIND "${dedicated_live_tactical_server_code}"
+    "${dedicated_live_baseline_transient_supersession_contract}"
+    dedicated_live_baseline_transient_supersession_contract_position)
+  if(dedicated_live_baseline_transient_supersession_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Fresh baseline transient supersession lost '${dedicated_live_baseline_transient_supersession_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_server_resync_marker
+  "FullEngineCoopTacticalServer::processResyncRequest(\n\tconst FullEngineCoopTacticalInboundMessage& message,\n\tFullEngineCoopTacticalServerPumpResult& diagnostics) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_resync_marker}"
+  dedicated_live_server_resync_slice
+  "Cannot bound tactical-server resync processing")
+require_ordered_fragments(dedicated_live_server_resync_slice
+  "Tactical-server resync lost transport authentication and immediate ACL revocation"
+  "mappingCurrent(message, peer)"
+  "request.nextExpectedCommandId == peer->nextExpectedCommandId"
+  "replication_.hasRetainedReceipt("
+  "CommandAfter(request.nextExpectedCommandId)"
+  "findPending(*peer, request.nextExpectedCommandId)"
+  "replication_.requestResync("
+  "discardTransientThrough(peer->identity"
+  "replication_.replayReceipt("
+  "diagnostics.resyncRequired = true"
+  "rebuildActorBindings()")
+foreach(dedicated_live_nonactive_intent_gate_contract IN ITEMS
+    "replicationPhase == CoopTacticalPeerPhase::NeedsBaseline"
+    "replicationPhase == CoopTacticalPeerPhase::ResyncRequired"
+    "replicationPhase == CoopTacticalPeerPhase::AwaitingBaselineAck"
+    "return FullEngineCoopTacticalServerResult::InputRejected"
+    "if (!canConsumeInbound(*peer))"
+    "return FullEngineCoopTacticalServerResult::ExecutionBackpressured")
+  string(FIND "${dedicated_live_tactical_server_code}"
+    "${dedicated_live_nonactive_intent_gate_contract}"
+    dedicated_live_nonactive_intent_gate_contract_position)
+  if(dedicated_live_nonactive_intent_gate_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Nonactive tactical intent/capacity gate lost '${dedicated_live_nonactive_intent_gate_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_retained_receipt_poison_guard IN ITEMS
+    "supplied.status == CoopTacticalIntentReceiptStatus::Rejected"
+    "CoopTacticalIntentReceiptReason::InvalidCommandSequence"
+    "CoopTacticalIntentReceiptReason::InboxSequenceExhausted"
+    "return FullEngineCoopTacticalServerResult::ReceiptRejected")
+  string(FIND "${dedicated_live_tactical_server_code}"
+    "${dedicated_live_retained_receipt_poison_guard}"
+    dedicated_live_retained_receipt_poison_guard_position)
+  if(dedicated_live_retained_receipt_poison_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "Retained receipt replay-poison guard lost '${dedicated_live_retained_receipt_poison_guard}'")
+  endif()
+endforeach()
+foreach(dedicated_live_baseline_restage_guard_contract IN ITEMS
+    "restagePeerAfterCursorAdvance("
+    "phase == CoopTacticalPeerPhase::AwaitingBaselineAck"
+    "return FullEngineCoopTacticalServerResult::Success")
+  string(FIND "${dedicated_live_tactical_server_code}"
+    "${dedicated_live_baseline_restage_guard_contract}"
+    dedicated_live_baseline_restage_guard_contract_position)
+  if(dedicated_live_baseline_restage_guard_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Sent baseline overwrite guard lost '${dedicated_live_baseline_restage_guard_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_reconnect_pending_baseline_guard IN ITEMS
+    "CoopTacticalPeerPhase::NeedsBaseline"
+    "peer->pendingCount != 0"
+    "FullEngineCoopTacticalServerResult::BaselineUnavailable"
+    "peers[published++] = needed[index]")
+  string(FIND "${dedicated_live_tactical_server_code}"
+    "${dedicated_live_reconnect_pending_baseline_guard}"
+    dedicated_live_reconnect_pending_baseline_guard_position)
+  if(dedicated_live_reconnect_pending_baseline_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "Reconnect pending-command baseline gate lost '${dedicated_live_reconnect_pending_baseline_guard}'")
+  endif()
+endforeach()
+foreach(dedicated_live_listener_resync_contract IN ITEMS
+    "CoopTacticalResyncRequestWireSize <="
+    "ResyncRequest = 4"
+    "CoopTacticalResyncRequestMessageName"
+    "HandleTacticalResyncRequestMessage"
+    "FullEngineCoopTacticalInboundKind::ResyncRequest"
+    "size == CoopTacticalResyncRequestWireSize")
+  string(FIND
+    "${dedicated_live_listener_header_code}${dedicated_live_listener_code}"
+    "${dedicated_live_listener_resync_contract}"
+    dedicated_live_listener_resync_contract_position)
+  if(dedicated_live_listener_resync_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Authenticated tactical resync listener contract lost '${dedicated_live_listener_resync_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_server_end_world_marker
+  "FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::endWorld()\n\tnoexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_end_world_marker}"
+  dedicated_live_server_end_world_slice
+  "Cannot bound co-op tactical world teardown")
+require_ordered_fragments(dedicated_live_server_end_world_slice
+  "Co-op tactical world teardown no longer drains before restart"
+  "deferredInboundOccupied_ || listener_.pendingInboundCount() != 0"
+  "flushOutboundInternal()"
+  "outboundPending()"
+  "ingress_.clearActorBindings()"
+  "ingress_.endTacticalSession()"
+  "replication_.endWorld()"
+  "transportRestartRequired_ = true")
+
+set(dedicated_live_server_discard_inbound_marker
+  "FullEngineCoopTacticalServer::discardInboundAfterTransportStop() noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "${dedicated_live_server_discard_inbound_marker}"
+  dedicated_live_server_discard_inbound_slice
+  "Cannot bound stopped-transport tactical inbound retirement")
+require_ordered_fragments(dedicated_live_server_discard_inbound_slice
+  "Stopped-transport inbound retirement lost its zero-authority preconditions"
+  "pumping_ || flushing_"
+  "!active_ || failed_"
+  "listener_.running()"
+  "listener_.authenticatedPeerCount() != 0"
+  "ingress_.boundPeerCount() != 0"
+  "replication_.connectedPeerCount() != 0"
+  "FullEngineCoopTacticalServerResult::InvalidContext"
+  "deferredInbound_ = FullEngineCoopTacticalInboundMessage{}"
+  "deferredInboundOccupied_ = false"
+  "while (listener_.popInbound(discarded))"
+  "return FullEngineCoopTacticalServerResult::Success")
+foreach(dedicated_live_server_discard_inbound_forbidden IN ITEMS
+    "handleTacticalIntent("
+    "rejectTacticalIntent("
+    "nextExpectedCommandId ="
+    "recordReceipt("
+    "processIntent(")
+  string(FIND "${dedicated_live_server_discard_inbound_slice}"
+    "${dedicated_live_server_discard_inbound_forbidden}"
+    dedicated_live_server_discard_inbound_forbidden_position)
+  if(NOT dedicated_live_server_discard_inbound_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Stopped-transport inbound retirement gained authority mutation '${dedicated_live_server_discard_inbound_forbidden}'")
+  endif()
+endforeach()
+
+# Once the listener has frozen retirement input, the tactical coordinator drops
+# all unconsumed wire work without running authority. Post-tombstone peer removal
+# is allowed only with every retained layer stopped and exactly reconcilable.
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "FullEngineCoopTacticalServer::discardInboundAfterSelfRetirementGate() noexcept"
+  dedicated_live_server_retirement_discard_slice
+  "Cannot bound self-retirement tactical inbound discard")
+require_ordered_fragments(dedicated_live_server_retirement_discard_slice
+  "Self-retirement tactical gate lost global-freeze preconditions or zero-authority discard"
+  "pumping_ || flushing_"
+  "!active_ || failed_"
+  "!listener_.running()"
+  "!listener_.selfRetirementInputFrozen()"
+  "ingress_.pendingSelfRetirementCount() == 0"
+  "deferredInbound_ = FullEngineCoopTacticalInboundMessage{}"
+  "deferredInboundOccupied_ = false"
+  "listener_.discardInboundForSelfRetirement()"
+  "return FullEngineCoopTacticalServerResult::Success")
+foreach(dedicated_live_server_retirement_discard_forbidden IN ITEMS
+    "handleTacticalIntent("
+    "processIntent("
+    "recordReceipt("
+    "nextExpectedCommandId =")
+  string(FIND "${dedicated_live_server_retirement_discard_slice}"
+    "${dedicated_live_server_retirement_discard_forbidden}"
+    dedicated_live_server_retirement_discard_forbidden_position)
+  if(NOT dedicated_live_server_retirement_discard_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Self-retirement inbound discard gained authority work '${dedicated_live_server_retirement_discard_forbidden}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_server_session_code
+  "FullEngineCoopServerSessionResult FullEngineCoopServerSession::retirePeer(\n\tconst PeerIdentity& identity) noexcept"
+  dedicated_live_replication_retire_peer_slice
+  "Cannot bound committed replication peer retirement")
+require_ordered_fragments(dedicated_live_replication_retire_peer_slice
+  "Replication retirement lost offline preflight and stable compaction"
+  "flushing_"
+  "!active_"
+  "peerIndex == peerCount_"
+  "retiring.connected"
+  "retiring.phase != CoopTacticalPeerPhase::Offline"
+  "!retiring.baselineBytes.empty()"
+  "retiring.inFlightDeltas != 0"
+  "assignmentOutput"
+  "assignments_[assignmentOutput] = assignments_[index]"
+  "assignmentCount_ = assignmentOutput"
+  "peers_[index - 1] = std::move(peers_[index])"
+  "peers_[--peerCount_] = PeerRecord{}"
+  "return FullEngineCoopServerSessionResult::Success")
+
+extract_brace_bounded_slice(dedicated_live_tactical_authority_code
+  "bool TacticalIntentAuthority::retirePeerSequence(\n\tconst PeerIdentity& peer) noexcept"
+  dedicated_live_authority_retire_peer_slice
+  "Cannot bound committed authority peer retirement")
+require_ordered_fragments(dedicated_live_authority_retire_peer_slice
+  "Authority retirement lost tombstone gate and stable ACL/sequence compaction"
+  "canRetirePeerSequence(peer)"
+  "actorBindings_[actorOutput] = actorBindings_[index]"
+  "actorBindingCount_ = actorOutput"
+  "std::move(peerSequences_.begin() + index + 1"
+  "peerSequences_[--peerSequenceCount_] = PeerSequence{}"
+  "return true")
+
+extract_brace_bounded_slice(dedicated_live_tactical_server_code
+  "FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::retirePeer(\n\tconst PeerIdentity& identity) noexcept"
+  dedicated_live_server_retire_peer_slice
+  "Cannot bound committed tactical peer retirement")
+require_ordered_fragments(dedicated_live_server_retire_peer_slice
+  "Tactical retirement lost tombstone, stopped-layer, or all-or-nothing compaction gates"
+  "ingress_.credentialRetired(identity)"
+  "ingress_.pendingSelfRetirementCount() != 0"
+  "listener_.running()"
+  "listener_.authenticatedPeerCount() != 0"
+  "ingress_.boundPeerCount() != 0"
+  "deferredInboundOccupied_"
+  "listener_.pendingInboundCount() != 0"
+  "listener_.pendingCampaignInboundCount() != 0"
+  "replication_.peerCount() != peerCount_"
+  "retained.connected"
+  "retained.pendingCount != 0"
+  "state.phase != CoopTacticalPeerPhase::Offline"
+  "state.inFlightDeltas != 0"
+  "transientReceiptCount_ != 0"
+  "ingress_.canRetireTacticalAuthorityPeer(identity)"
+  "replication_.retirePeer(identity)"
+  "ingress_.retireTacticalAuthorityPeer(identity)"
+  "campaignReadyPeerCount_ = readyOutput"
+  "peers_[index - 1] = std::move(peers_[index])"
+  "peers_[--peerCount_] = PeerRecord{}"
+  "return rebuildActorBindings()")
+
+foreach(dedicated_live_retirement_compaction_test_contract IN ITEMS
+    "TestCommittedPeerRetirementFreesCapacityExactly()"
+    "all four fixed replication records connect"
+    "stable compaction preserves every survivor cursor and receipt count exactly"
+    "a distinct fifth identity reuses the slot and receives a fresh baseline cursor"
+    "TestFullRosterRetirementCompactsAllPeerState()"
+    "compaction rejects until every survivor mapping is reconciled offline"
+    "retiree disappears while survivor cursor and receipt history remain exact"
+    "distinct fifth identity and retained survivor authenticate after restart")
+  string(FIND
+    "${dedicated_live_server_session_test_source}\n${dedicated_live_tactical_server_test_source}"
+    "${dedicated_live_retirement_compaction_test_contract}"
+    dedicated_live_retirement_compaction_test_contract_position)
+  if(dedicated_live_retirement_compaction_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Committed peer-retirement compaction regression lost '${dedicated_live_retirement_compaction_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_retirement_test_contract IN ITEMS
+    "TestVoluntarySelfRetirementAndReconnectReplay()"
+    "active client emits one bounded self-only retirement request"
+    "Retiring client cannot submit more gameplay intents"
+    "precommit capacity refusal restores play without retiring bearer"
+    "normal reconnect ACK precedes replay when server never captured leave"
+    "lost direct result converges through bearer-authenticated retirement"
+    "durable marker failure retains bearer evidence and fails closed"
+    "TestVoluntaryRetirementExactTransportLifecycle()"
+    "truthful post-commit result cleanly retires core and socket without failure")
+  string(FIND
+    "${dedicated_live_client_test_source}\n${dedicated_live_client_transport_test_source}"
+    "${dedicated_live_client_retirement_test_contract}"
+    dedicated_live_client_retirement_test_contract_position)
+  if(dedicated_live_client_retirement_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Client retirement/replay regression lost '${dedicated_live_client_retirement_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_retirement_storage_test_contract IN ITEMS
+    "TestDurableRetirementMarkerLifecycle()"
+    "client-reconnect-credential.retired"
+    "atomically renames the 0600 bearer to a fixed terminal marker"
+    "terminal marker is idempotent and can never be overwritten or erased as stale"
+    "durable retirement remains terminal across a server process epoch change"
+    "TestRetiredMarkerAdversarialStorage()"
+    "active plus retired evidence is ambiguous and fails closed without replacement"
+    "corrupt terminal evidence never degrades to Missing or first admission"
+    "exclusive rename failure retains the live bearer and fail-stops the process")
+  string(FIND "${dedicated_live_client_scratch_test_source}"
+    "${dedicated_live_retirement_storage_test_contract}"
+    dedicated_live_retirement_storage_test_contract_position)
+  if(dedicated_live_retirement_storage_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable client retirement storage regression lost '${dedicated_live_retirement_storage_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_retirement_socket_test_contract IN ITEMS
+    "admissionClient.requestSelfRetirement()"
+    "listener.selfRetirementInputFrozen()"
+    "tacticalServer.discardInboundAfterSelfRetirementGate()"
+    "!listener.sendCommittedSelfRetirementResult("
+    "ingress.completeSelfRetirement("
+    "listener.sendCommittedSelfRetirementResult("
+    "credentialStore.retired"
+    "credentialStore.retireCalls == 1"
+    "tacticalServer.retirePeer(firstIdentity)"
+    "retired identity is absent before the tactical world and epoch close")
+  string(FIND "${dedicated_live_socket_e2e_test_source}"
+    "${dedicated_live_retirement_socket_test_contract}"
+    dedicated_live_retirement_socket_test_contract_position)
+  if(dedicated_live_retirement_socket_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Real-socket self-retirement composition lost '${dedicated_live_retirement_socket_test_contract}'")
+  endif()
+endforeach()
+
+# The JA2-facing bridge is split: the host TU contains value-only translation,
+# bounded correlations, and RuntimeMessage handling; the separate live-state TU
+# is the sole owner of legacy tactical globals/pointer resolution.
+foreach(dedicated_live_tactical_host_contract IN ITEMS
+    "class DedicatedCoopTacticalLiveState"
+    "class DedicatedCoopTacticalJa2LiveState final"
+    "class DedicatedCoopTacticalHost final"
+    "public CoopSession::TacticalIntentExecutionSink"
+    "public RuntimeMessageSink"
+    "flushPendingReceipts() noexcept"
+    "bool endWorld() noexcept")
+  string(FIND "${dedicated_live_tactical_host_header_code}"
+    "${dedicated_live_tactical_host_contract}"
+    dedicated_live_tactical_host_contract_position)
+  if(dedicated_live_tactical_host_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated tactical host/live-state split lost '${dedicated_live_tactical_host_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_tactical_host_execute_marker
+  "DedicatedCoopTacticalHost::execute(\n\tconst AuthorizedTacticalIntent& intent) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "${dedicated_live_tactical_host_execute_marker}"
+  dedicated_live_tactical_host_execute_slice
+  "Cannot bound dedicated co-op tactical host execution")
+require_ordered_fragments(dedicated_live_tactical_host_execute_slice
+  "Dedicated co-op host command/correlation ordering changed"
+  "liveState_->onMainThread()"
+  "flushPendingReceiptsInternal()"
+  "emptyCorrelation()"
+  "ValidAuthorizedIntentMetadata(intent)"
+  "validateContextAndActor(intent, turn, reason)"
+  "translate(intent, turn, command, reason)"
+  "commands_->submit(campaignPackageId_, command)"
+  "obligation->requestId = submitted.requestId"
+  "obligation->queuedReceiptPending = true"
+  "flushPendingReceiptsInternal()")
+
+set(dedicated_live_tactical_host_message_marker
+  "void DedicatedCoopTacticalHost::receiveMessage(\n\tconst RuntimeMessage& message) noexcept")
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "${dedicated_live_tactical_host_message_marker}"
+  dedicated_live_tactical_host_message_slice
+  "Cannot bound dedicated co-op tactical RuntimeMessage sink")
+require_ordered_fragments(dedicated_live_tactical_host_message_slice
+  "Dedicated co-op host result retention changed"
+  "liveState_->onMainThread()"
+  "message.topic != TacticalCommandResultMessageTopic"
+  "message.source != TacticalCommandResultMessageSource"
+  "DecodeTacticalCommandResult(message.payload, result)"
+  "result.packageId != campaignPackageId_"
+  "findCorrelation(result.requestId)"
+  "mapTerminalResult(result, *correlation, terminal)"
+  "correlation->terminalReceipt = terminal"
+  "correlation->terminalReceiptPending = true")
+string(FIND "${dedicated_live_tactical_host_message_slice}"
+  "flushPendingReceiptsInternal()"
+  dedicated_live_tactical_host_message_flush_position)
+if(NOT dedicated_live_tactical_host_message_flush_position EQUAL -1)
+  message(FATAL_ERROR
+    "RuntimeMessage receipt handling must retain terminal state until the observer-first runtime flush")
+endif()
+
+foreach(dedicated_live_ja2_state_contract IN ITEMS
+    "std::this_thread::get_id() == mainThread_"
+    "options.mode == DedicatedServerMode::Coop"
+    "game_->packages().isActive(packageId)"
+    "return is_networked || is_client || is_server"
+    "CaptureJa2TacticalWorld()"
+    "ResolveJa2TacticalEntity(actorId)"
+    "GetJa2SoldierRepository()"
+    "GetJa2TacticalEntityId(")
+  string(FIND "${dedicated_live_tactical_ja2_state_code}"
+    "${dedicated_live_ja2_state_contract}"
+    dedicated_live_ja2_state_contract_position)
+  if(dedicated_live_ja2_state_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "JA2 tactical live-state bridge lost '${dedicated_live_ja2_state_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
+  "DedicatedCoopTacticalActorState InspectJa2Actor(\n\tTacticalEntityId actorId) noexcept"
+  dedicated_live_tactical_actor_acl_slice
+  "Cannot bound dedicated co-op live actor ACL adapter")
+require_ordered_fragments(dedicated_live_tactical_actor_acl_slice
+  "Dedicated tactical ACL no longer shares the established on-foot squad role policy"
+  "ResolveJa2TacticalEntity(actorId)"
+  "state.playerTeam = actor->roster().team() == gbPlayerNum"
+  "state.controllable = OK_CONTROLLABLE_MERC(actor) != FALSE"
+  "DedicatedCoopEstablishedActorRoleEligible("
+  "actor->assignment().current() < ON_DUTY"
+  "flags & SOLDIER_VEHICLE"
+  "flags & SOLDIER_DRIVER"
+  "flags & SOLDIER_PASSENGER")
+foreach(dedicated_live_host_legacy_forbidden IN ITEMS
+    "ResolveJa2TacticalEntity("
+    "CaptureJa2TacticalWorld("
+    "GetJa2SoldierRepository("
+    "GetJa2TacticalEntityId("
+    "gbPlayerNum"
+    "MercPtrs"
+    "MercSlots")
+  string(FIND "${dedicated_live_tactical_host_code}"
+    "${dedicated_live_host_legacy_forbidden}"
+    dedicated_live_host_legacy_forbidden_position)
+  if(NOT dedicated_live_host_legacy_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Value-only dedicated tactical host regained legacy state '${dedicated_live_host_legacy_forbidden}'")
+  endif()
+endforeach()
+
+# The production client core remains transport-injected and passive. Pin its
+# state/replica seams without blessing any not-yet-frozen socket adapter.
+foreach(dedicated_live_client_contract IN ITEMS
+    "enum class FullEngineCoopClientState"
+    "AwaitingBaseline"
+    "ResyncRequired"
+    "class FullEngineCoopClientWire"
+    "class FullEngineCoopPassiveReplicaSink"
+    "class FullEngineCoopClient"
+    "receiveServerHello("
+    "receiveBaseline("
+    "receiveDelta("
+    "receiveIntentReceipt("
+    "sendIntent(")
+  string(FIND
+    "${dedicated_live_client_header_code}${dedicated_live_client_code}"
+    "${dedicated_live_client_contract}"
+    dedicated_live_client_contract_position)
+  if(dedicated_live_client_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive full-engine co-op client core lost '${dedicated_live_client_contract}'")
+  endif()
+endforeach()
+
+# The socket adapter is now frozen as a narrow transport for the passive core.
+# SDL callbacks may only copy bounded frames; every client/replica transition
+# occurs after the complete Poll loop unwinds on the constructing thread.
+require_ordered_fragments(dedicated_live_transport_header_code
+  "Generic SDL inbound defaults or bounded protocol opt-in ceilings changed"
+  "DefaultSdlNetInboundMessageRateBytesPerSecond"
+  "256u * 1024u"
+  "DefaultSdlNetInboundMessageBurstBytes"
+  "1u * 1024u * 1024u"
+  "MaximumSdlNetInboundMessageRateBytesPerSecond"
+  "32u * 1024u * 1024u"
+  "MaximumSdlNetInboundMessageBurstBytes"
+  "4u * 1024u * 1024u"
+  "struct SdlNetInboundMessageBudget"
+  "sustainedBytesPerSecond ="
+  "DefaultSdlNetInboundMessageRateBytesPerSecond"
+  "burstBytes = DefaultSdlNetInboundMessageBurstBytes"
+  "bool SetInboundMessageBudget(")
+
+set(dedicated_live_transport_dispatch_marker
+  "void SdlNetPeerState::DispatchMessage( Conn* c, const unsigned char* body, unsigned int len )")
+extract_brace_bounded_slice(dedicated_live_transport_code
+  "${dedicated_live_transport_dispatch_marker}"
+  dedicated_live_transport_dispatch_slice
+  "Cannot bound generic SDL inbound token-bucket dispatch")
+require_ordered_fragments(dedicated_live_transport_dispatch_slice
+  "SDL inbound budget no longer charges every reliable frame and disconnects rather than dropping"
+  "SDL_GetTicks()"
+  "inboundMessageRateBytesPerSecond"
+  "inboundMessageBurstBytes"
+  "c->tokens < cost"
+  "Synthesize( SDLNET_CONNECTION_LOST, c->addr )"
+  "CloseConn( c, false, 0 )"
+  "return"
+  "c->tokens -= cost"
+  "handlers.find( name )")
+
+set(dedicated_live_transport_budget_marker
+  "bool SdlNetPeer::SetInboundMessageBudget(\n\tconst SdlNetInboundMessageBudget& budget) noexcept")
+extract_brace_bounded_slice(dedicated_live_transport_code
+  "${dedicated_live_transport_budget_marker}"
+  dedicated_live_transport_budget_slice
+  "Cannot bound SDL inbound budget configuration")
+require_ordered_fragments(dedicated_live_transport_budget_slice
+  "SDL inbound budget is no longer bounded and immutable after Start"
+  "!state_ || state_->started"
+  "budget.sustainedBytesPerSecond == 0"
+  "MaximumSdlNetInboundMessageRateBytesPerSecond"
+  "budget.burstBytes == 0"
+  "MaximumSdlNetInboundMessageBurstBytes"
+  "return false"
+  "state_->inboundMessageRateBytesPerSecond ="
+  "budget.sustainedBytesPerSecond"
+  "state_->inboundMessageBurstBytes = budget.burstBytes"
+  "return true")
+require_ordered_fragments(dedicated_live_transport_code
+  "SDL client/server connection creation must seed both token buckets from the configured burst"
+  "c->tokens = static_cast<double>(inboundMessageBurstBytes)"
+  "c->tokens = static_cast<double>(inboundMessageBurstBytes)")
+
+foreach(dedicated_live_client_transport_bound IN ITEMS
+    "MaximumFullEngineCoopClientInboundMessages = 16"
+    "MaximumFullEngineCoopClientInboundWireSize ="
+    "MaximumCoopTacticalWireSize > MaximumCoopCampaignSyncWireSize"
+    "? MaximumCoopTacticalWireSize"
+    ": MaximumCoopCampaignSyncWireSize"
+    "MaximumFullEngineCoopClientPendingWriteBytes ="
+    "4u * 1024u * 1024u"
+    "DefaultFullEngineCoopClientPendingWriteBytes ="
+    "256u * 1024u"
+    "MaximumFullEngineCoopClientTimeoutMilliseconds ="
+    "600000")
+  string(FIND "${dedicated_live_client_transport_header_code}"
+    "${dedicated_live_client_transport_bound}"
+    dedicated_live_client_transport_bound_position)
+  if(dedicated_live_client_transport_bound_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client transport bound lost '${dedicated_live_client_transport_bound}'")
+  endif()
+endforeach()
+
+require_ordered_fragments(dedicated_live_client_transport_header_code
+  "Full-engine campaign receive profile no longer remains bounded and sized for one 144 FPS window"
+  "FullEngineCoopCampaignInboundRateBytesPerSecond ="
+  "MaximumSdlNetInboundMessageRateBytesPerSecond"
+  "FullEngineCoopCampaignInboundBurstBytes ="
+  "MaximumSdlNetInboundMessageBurstBytes"
+  "static_assert(FullEngineCoopCampaignInboundRateBytesPerSecond >="
+  "MaximumCoopCampaignSyncWindowWireBytes * 144u")
+
+set(dedicated_live_client_transport_connect_internal_marker
+  "FullEngineCoopClientTransportConnectResult\nFullEngineCoopClientTransport::connectInternal(\n\tFullEngineCoopClient& client,\n\tFullEngineCoopClientCampaignSyncSink* campaignSink,\n\tconst FullEngineCoopClientTransportConfiguration& configuration) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_connect_internal_marker}"
+  dedicated_live_client_transport_connect_internal_slice
+  "Cannot bound full-engine co-op client transport connection")
+require_ordered_fragments(dedicated_live_client_transport_connect_internal_slice
+  "Campaign receive budget is no longer a pre-Start opt-in confined to clients with a campaign sink"
+  "registered = registerMessages()"
+  "registered && campaignSink != nullptr"
+  "SdlNetInboundMessageBudget campaignBudget"
+  "FullEngineCoopCampaignInboundRateBytesPerSecond"
+  "FullEngineCoopCampaignInboundBurstBytes"
+  "transport_->SetInboundMessageBudget(campaignBudget)"
+  "if (!registered)"
+  "transport_->Shutdown(0)"
+  "transport_->Start(1, ja2::mp::net::SdlNetEndpoint())")
+
+foreach(dedicated_live_transport_budget_test_contract IN ITEMS
+    "Four fast 300KiB RPCs exceed the 1MiB burst"
+    "first three in-budget reliable RPCs dispatch"
+    "over-budget reliable RPC disconnects instead of silently dropping state"
+    "zero inbound sustained budget is rejected before startup"
+    "inbound burst above the transport ceiling is rejected"
+    "bounded campaign inbound budget is accepted before startup"
+    "live inbound budget reconfiguration is rejected"
+    "expected <= 80"
+    "60u * 1024u"
+    "SDL_Delay(2)"
+    "opt-in peer sustains a bounded stream beyond its 4 MiB burst")
+  string(FIND "${dedicated_live_transport_test_source}"
+    "${dedicated_live_transport_budget_test_contract}"
+    dedicated_live_transport_budget_test_contract_position)
+  if(dedicated_live_transport_budget_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "SDL inbound budget regression lost '${dedicated_live_transport_budget_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_campaign_stream_e2e_contract IN ITEMS
+    "CoopCampaignSyncCanonicalChunkBytes * 192u + 37u"
+    "SDL_Delay(7)"
+    "serverWire.chunkMessages == 386"
+    "firstChunkMessages + campaignSink.chunkMessages == 386"
+    "serverWire.metadataMessages == 2"
+    "serverWire.completeMessages == 2"
+    "both real-socket transfers use the exact bounded campaign namespaces"
+    "canonical three-chunk window bounds every flush across both transfers")
+  string(FIND "${dedicated_live_socket_e2e_test_source}"
+    "${dedicated_live_campaign_stream_e2e_contract}"
+    dedicated_live_campaign_stream_e2e_contract_position)
+  if(dedicated_live_campaign_stream_e2e_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Installed-scale real-socket campaign stream regression lost '${dedicated_live_campaign_stream_e2e_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_client_transport_register_marker
+  "bool FullEngineCoopClientTransport::registerMessages() noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_register_marker}"
+  dedicated_live_client_transport_register_slice
+  "Cannot bound co-op client inbound namespace registration")
+foreach(dedicated_live_client_inbound_name IN ITEMS
+    "CoopServerHelloMessageName"
+    "CoopAdmissionResponseMessageName"
+    "CoopTacticalBaselineMessageName"
+    "CoopTacticalDeltaMessageName"
+    "CoopTacticalIntentReceiptMessageName"
+    "CoopAdmissionSelfRetirementResultMessageName"
+    "CoopCampaignSyncMetadataMessageName"
+    "CoopCampaignSyncChunkMessageName"
+    "CoopCampaignSyncCompleteMessageName"
+    "CoopCampaignSyncRejectMessageName")
+  string(REGEX MATCHALL
+    "RegisterMessage\\([ \t\r\n]*${dedicated_live_client_inbound_name}"
+    dedicated_live_client_inbound_matches
+    "${dedicated_live_client_transport_register_slice}")
+  list(LENGTH dedicated_live_client_inbound_matches
+    dedicated_live_client_inbound_count)
+  if(NOT dedicated_live_client_inbound_count EQUAL 1)
+    message(FATAL_ERROR
+      "Co-op client transport must register '${dedicated_live_client_inbound_name}' exactly once")
+  endif()
+endforeach()
+string(REGEX MATCHALL "RegisterMessage\\("
+  dedicated_live_client_inbound_handlers
+  "${dedicated_live_client_transport_register_slice}")
+list(LENGTH dedicated_live_client_inbound_handlers
+  dedicated_live_client_inbound_handler_count)
+if(NOT dedicated_live_client_inbound_handler_count EQUAL 10)
+  message(FATAL_ERROR
+    "Co-op client transport must register exactly ten inbound handlers")
+endif()
+
+set(dedicated_live_client_transport_outbound_marker
+  "bool FullEngineCoopClientTransport::validOutbound(\n\tconst char* messageName, std::size_t size) const noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_outbound_marker}"
+  dedicated_live_client_transport_outbound_slice
+  "Cannot bound co-op client outbound namespace")
+require_ordered_fragments(dedicated_live_client_transport_outbound_slice
+  "Co-op client outbound namespace/widths changed"
+  "CoopAdmissionRequestMessageName"
+  "AdmissionRequestWireSize"
+  "CoopAdmissionCredentialAbandonMessageName"
+  "AdmissionCredentialAbandonWireSize"
+  "CoopAdmissionAckMessageName"
+  "AdmissionAckWireSize"
+  "CoopAdmissionSelfRetirementRequestMessageName"
+  "AdmissionSelfRetirementRequestWireSize"
+  "CoopTacticalBaselineAckMessageName"
+  "CoopTacticalBaselineAckWireSize"
+  "CoopTacticalDeltaAckMessageName"
+  "CoopTacticalDeltaAckWireSize"
+  "CoopTacticalResyncRequestMessageName"
+  "CoopTacticalResyncRequestWireSize"
+  "CoopTacticalIntentMessageName"
+  "TacticalIntentHeaderWireSize"
+  "MaximumTacticalIntentWireSize"
+  "CoopCampaignSyncAckMessageName"
+  "CoopCampaignSyncAckWireSize"
+  "CoopCampaignSyncResultMessageName"
+  "CoopCampaignSyncResultWireSize"
+  "CoopCampaignSyncResyncMessageName"
+  "CoopCampaignSyncResyncWireSize"
+  "return false")
+string(REGEX MATCHALL "SameName\\(" dedicated_live_client_outbound_names
+  "${dedicated_live_client_transport_outbound_slice}")
+list(LENGTH dedicated_live_client_outbound_names
+  dedicated_live_client_outbound_name_count)
+if(NOT dedicated_live_client_outbound_name_count EQUAL 11)
+  message(FATAL_ERROR
+    "Co-op client transport must admit exactly eleven outbound namespaces")
+endif()
+
+set(dedicated_live_client_transport_callback_marker
+  "void FullEngineCoopClientTransport::QueueFromCallback(\n\tja2::mp::net::SdlNetMessage* message, void* context,\n\tInboundKind kind) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_callback_marker}"
+  dedicated_live_client_transport_callback_slice
+  "Cannot bound co-op client SDL callback")
+require_ordered_fragments(dedicated_live_client_transport_callback_slice
+  "Co-op client SDL callback no longer only queues bounded bytes"
+  "message == nullptr || context == nullptr"
+  "++adapter.handlerDepth_"
+  "adapter.queueInbound(*message, kind)"
+  "--adapter.handlerDepth_")
+foreach(dedicated_live_client_callback_forbidden IN ITEMS
+    "client_->"
+    "deliver("
+    "deliverInbound("
+    "receiveServerHello("
+    "receiveBaseline("
+    "receiveDelta("
+    "receiveIntentReceipt(")
+  string(FIND "${dedicated_live_client_transport_callback_slice}"
+    "${dedicated_live_client_callback_forbidden}"
+    dedicated_live_client_callback_forbidden_position)
+  if(NOT dedicated_live_client_callback_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op client SDL callback gained core work '${dedicated_live_client_callback_forbidden}'")
+  endif()
+endforeach()
+
+set(dedicated_live_client_transport_queue_marker
+  "void FullEngineCoopClientTransport::queueInbound(\n\tconst ja2::mp::net::SdlNetMessage& message,\n\tInboundKind kind) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_queue_marker}"
+  dedicated_live_client_transport_queue_slice
+  "Cannot bound co-op client bounded inbound copy")
+require_ordered_fragments(dedicated_live_client_transport_queue_slice
+  "Co-op client inbound copy/bounds changed"
+  "message.sender == ja2::mp::AnyConnection"
+  "validInbound(kind, message.size)"
+  "message.data == nullptr"
+  "inboundCount_ >= maximumQueuedInboundMessages_"
+  "inboundCount_ >= inbound_.size()"
+  "queued.kind = kind"
+  "queued.sender = message.sender"
+  "queued.size = message.size"
+  "std::memcpy(queued.bytes.data(), message.data, message.size)"
+  "++inboundCount_")
+
+set(dedicated_live_client_transport_inbound_validation_marker
+  "bool FullEngineCoopClientTransport::validInbound(\n\tInboundKind kind, std::size_t size) const noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_inbound_validation_marker}"
+  dedicated_live_client_transport_inbound_validation_slice
+  "Cannot bound co-op client per-domain inbound validation")
+require_ordered_fragments(dedicated_live_client_transport_inbound_validation_slice
+  "Co-op client tactical/campaign inbound ceilings changed"
+  "InboundKind::ServerHello"
+  "InboundKind::TacticalReceipt"
+  "MaximumCoopTacticalWireSize"
+  "InboundKind::CampaignMetadata"
+  "CoopCampaignSyncMetadataWireSize"
+  "InboundKind::CampaignChunk"
+  "CoopCampaignSyncChunkHeaderWireSize"
+  "MaximumCoopCampaignSyncWireSize"
+  "InboundKind::CampaignComplete"
+  "CoopCampaignSyncCompleteWireSize"
+  "InboundKind::CampaignReject"
+  "CoopCampaignSyncRejectWireSize"
+  "return false")
+
+set(dedicated_live_client_transport_poll_marker
+  "void FullEngineCoopClientTransport::poll() noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_poll_marker}"
+  dedicated_live_client_transport_poll_slice
+  "Cannot bound co-op client socket pump")
+require_ordered_fragments(dedicated_live_client_transport_poll_slice
+  "Co-op client core delivery moved inside SDL Poll callbacks"
+  "onMainThread()"
+  "++pollDepth_"
+  "transport_->Poll()"
+  "handleEvent(*event)"
+  "transport_->Release(event)"
+  "server_ = pendingAccepted_"
+  "client_->transportConnected()"
+  "if (!closePending_ && connected_) deliverInbound()"
+  "--pollDepth_"
+  "finishClose()")
+
+set(dedicated_live_client_transport_send_marker
+  "bool FullEngineCoopClientTransport::send(const char* messageName,\n\tconst std::uint8_t* bytes, std::size_t size) noexcept")
+extract_brace_bounded_slice(dedicated_live_client_transport_code
+  "${dedicated_live_client_transport_send_marker}"
+  dedicated_live_client_transport_send_slice
+  "Cannot bound co-op client outbound backpressure")
+require_ordered_fragments(dedicated_live_client_transport_send_slice
+  "Co-op client pending-write limit no longer fails before send"
+  "validOutbound(messageName, size)"
+  "transport_->PendingWriteBytes(server_, pending)"
+  "SdlMessageFrameOverhead + nameSize + size"
+  "pending > maximumPendingWriteBytes_"
+  "frameSize > maximumPendingWriteBytes_ - pending"
+  "FullEngineCoopClientTransportFailure::PendingWriteLimit"
+  "transport_->SendMessage("
+  "messageName, bytes, size, server_, false)")
+
+foreach(dedicated_live_no_legacy_pvp_call IN ITEMS
+    "NetworkAutoStart("
+    "connect_client("
+    "client_connect("
+    "client_packet("
+    "server_packet("
+    "RegisterRPC("
+    "SendFile("
+    "ReceiveFile(")
+  string(FIND
+    "${dedicated_live_runtime_code}${dedicated_live_listener_code}${dedicated_live_tactical_server_code}${dedicated_live_client_code}${dedicated_live_client_transport_code}${dedicated_live_tactical_host_code}"
+    "${dedicated_live_no_legacy_pvp_call}"
+    dedicated_live_no_legacy_pvp_call_position)
+  if(NOT dedicated_live_no_legacy_pvp_call_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op composition regained legacy PvP call '${dedicated_live_no_legacy_pvp_call}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_tactical_purity_forbidden IN ITEMS
+    "GetGameContext"
+    "GameContext&"
+    "SDL_"
+    "SdlNet"
+    "getVFS"
+    "vfs::"
+    "LoadDedicatedCampaignGame"
+    "SaveGame(")
+  string(FIND
+    "${dedicated_live_tactical_protocol_header_code}${dedicated_live_tactical_protocol_code}${dedicated_live_server_session_header_code}${dedicated_live_server_session_code}"
+    "${dedicated_live_tactical_purity_forbidden}"
+    dedicated_live_tactical_purity_forbidden_position)
+  if(NOT dedicated_live_tactical_purity_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Pure co-op tactical protocol/session gained live dependency '${dedicated_live_tactical_purity_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_handshake_purity_forbidden IN ITEMS
+    "SDL_"
+    "SdlNet"
+    "GetGameContext"
+    "GameContext&"
+    "getVFS"
+    "vfs::"
+    "LoadDedicatedCampaignGame"
+    "SaveGame(")
+  string(FIND
+    "${dedicated_live_handshake_header_code}${dedicated_live_handshake_code}${dedicated_live_client_header_code}${dedicated_live_client_code}"
+    "${dedicated_live_client_handshake_purity_forbidden}"
+    dedicated_live_client_handshake_purity_forbidden_position)
+  if(NOT dedicated_live_client_handshake_purity_forbidden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Data-free co-op handshake/client gained live dependency '${dedicated_live_client_handshake_purity_forbidden}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_tactical_protocol_test_contract IN ITEMS
+    "TestChecksum()"
+    "TestReceiptCodec()"
+    "TestBaselineCodec()"
+    "TestBaselineAckCodec()"
+    "TestDeltaCodec()"
+    "TestDeltaAckCodec()"
+    "TestExplicitPayloadCeilings()")
+  string(FIND "${dedicated_live_tactical_protocol_test_code}"
+    "${dedicated_live_tactical_protocol_test_contract}"
+    dedicated_live_tactical_protocol_test_contract_position)
+  if(dedicated_live_tactical_protocol_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op tactical protocol tests lost '${dedicated_live_tactical_protocol_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_server_session_test_contract IN ITEMS
+    "TestConfigurationLifecycleAndAssignments()"
+    "TestBaselineAckGatingAndCatchup()"
+    "TestDeltaRingForcesResync()"
+    "TestCumulativeDeltaAckAndReceiptOrdering()"
+    "TestReceiptReplayAndCapacity()"
+    "TestFlushReentrancyGuardAndSequenceExhaustion()"
+    "TestDeltaTurnIdentity()")
+  string(FIND "${dedicated_live_server_session_test_code}"
+    "${dedicated_live_server_session_test_contract}"
+    dedicated_live_server_session_test_contract_position)
+  if(dedicated_live_server_session_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op server-session tests lost '${dedicated_live_server_session_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_tactical_server_test_contract IN ITEMS
+    "TestCoordinatorEndToEnd()")
+  string(FIND "${dedicated_live_tactical_server_test_code}"
+    "${dedicated_live_tactical_server_test_contract}"
+    dedicated_live_tactical_server_test_contract_position)
+  if(dedicated_live_tactical_server_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op tactical server tests lost '${dedicated_live_tactical_server_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_tactical_server_test_prose IN ITEMS
+    "assignment stays outside ingress ACL before exact baseline ACK"
+    "committed delta is queued before its terminal receipt"
+    "transport restarts after the explicit world-unload signal"
+    "next-world baseline preserves admission-epoch cursor"
+    "stopped and reconciled transport retires deferred bytes without advancing authority cursor")
+  string(FIND "${dedicated_live_tactical_server_test_source}"
+    "${dedicated_live_tactical_server_test_prose}"
+    dedicated_live_tactical_server_test_prose_position)
+  if(dedicated_live_tactical_server_test_prose_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op tactical server regression lost '${dedicated_live_tactical_server_test_prose}'")
+  endif()
+endforeach()
+foreach(dedicated_live_tactical_host_test_contract IN ITEMS
+    "TestTranslatesSupportedIntentVocabulary()"
+    "TestRuntimeResultsRequireExactTopicPackageAndRequest()"
+    "TestReceiptBackpressureRetainsOrderAndWorldCancellation()"
+    "TestImmediateReceiptBackpressureAndThreadGate()"
+    "TestIngressSaturationDoesNotConsumeCommandId()"
+    "TestActorCollectionIsStrictAndTransactional()")
+  string(FIND "${dedicated_live_tactical_host_test_code}"
+    "${dedicated_live_tactical_host_test_contract}"
+    dedicated_live_tactical_host_test_contract_position)
+  if(dedicated_live_tactical_host_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op tactical host tests lost '${dedicated_live_tactical_host_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_client_test_contract IN ITEMS
+    "TestConfigurationAndHelloValidation()"
+    "TestAdmissionBaselineAndFiveIntents()"
+    "TestDeltaChainAndOlderReceipt()"
+    "TestReconnectEpochAndExhaustedCursor()"
+    "TestNonConsumingReceiptCursors()"
+    "TestExplicitCredentialAbandonRetry()"
+    "TestBaselineSupersedesOutstandingReceipt()"
+    "TestAdversarialFailures()")
+  string(FIND "${dedicated_live_client_test_code}"
+    "${dedicated_live_client_test_contract}"
+    dedicated_live_client_test_contract_position)
+  if(dedicated_live_client_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client tests lost '${dedicated_live_client_test_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_client_transport_test_contract IN ITEMS
+    "MaximumFullEngineCoopClientInboundWireSize == 62106"
+    "MaximumFullEngineCoopClientInboundWireSize =="
+    "MaximumCoopTacticalWireSize"
+    "MaximumFullEngineCoopClientInboundWireSize >"
+    "MaximumCoopCampaignSyncWireSize"
+    "TestLoopbackHandshakeFifoAndExactNamespaces()"
+    "TestPendingWriteFailurePreservesCoreFailure()"
+    "TestInboundCapacityAndSizeFailClosed()"
+    "TestConfigurationAndConnectionFailure()"
+    "TestLocalAndRemoteDisconnectLifecycle()")
+  string(FIND "${dedicated_live_client_transport_test_code}"
+    "${dedicated_live_client_transport_test_contract}"
+    dedicated_live_client_transport_test_contract_position)
+  if(dedicated_live_client_transport_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client transport tests lost '${dedicated_live_client_transport_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_runtime_test_contract IN ITEMS
+    "TestOrderedLifecycleAndSnapshotGate()"
+    "TestFailureIsFirstWinsAndFailClosed()"
+    "TestReconnectSafetyGate()")
+  string(FIND "${dedicated_live_client_runtime_test_code}"
+    "${dedicated_live_client_runtime_test_contract}"
+    dedicated_live_client_runtime_test_contract_position)
+  if(dedicated_live_client_runtime_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client runtime tests lost '${dedicated_live_client_runtime_test_contract}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_runtime_test_code
+  "void TestReconnectSafetyGate()"
+  dedicated_live_client_reconnect_safety_test_slice
+  "Cannot bound full-engine co-op reconnect safety regression")
+require_ordered_fragments(dedicated_live_client_reconnect_safety_test_slice
+  "Full-engine co-op reconnect safety regression changed"
+  "lifecycle.markPrepared()"
+  "lifecycle.markNetworkOpen()"
+  "lifecycle.reconnectAllowed(true, true, 0, 8)"
+  "lifecycle.reconnectAllowed(true, true, 8, 8)"
+  "(std::numeric_limits<unsigned>::max)(), 8)"
+  "!lifecycle.reconnectAllowed(false, true, 0, 8)"
+  "lifecycle.reconnectAllowed(false, false, 0, 8)"
+  "!lifecycle.reconnectAllowed(true, false, 8, 8)"
+  "lifecycle.markCampaignReady(true)"
+  "!lifecycle.reconnectAllowed(true, true, 0, 8)")
+
+foreach(dedicated_live_credential_client_test_contract IN ITEMS
+    "TestDurableCredentialOrderingRestoreAndEpochPin()"
+    "configuration.expectedSessionEpoch = 150"
+    "configuration.durableReconnectCredentialRequired = true"
+    "store.order < harness.wire.messages.back().order"
+    "restored.client.restoreReconnectCredential(credential)"
+    "request.peerIdentity == firstPeer"
+    "request.reconnectToken == firstToken"
+    "FullEngineCoopClientResult::CompatibilityMismatch"
+    "changedLiveEpoch.wire.messages.empty()"
+    "FullEngineCoopClientResult::CredentialStorageFailure"
+    "!harness.client.hasReconnectCredential()"
+    "CoopAdmissionCredentialAbandonMessageName"
+    "store.last.peerIdentity == newPeer"
+    "replacement.client.peerIdentity() == newPeer")
+  string(FIND "${dedicated_live_client_test_code}"
+    "${dedicated_live_credential_client_test_contract}"
+    dedicated_live_credential_client_test_contract_position)
+  if(dedicated_live_credential_client_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable reconnect client regression lost '${dedicated_live_credential_client_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_scratch_test_contract IN ITEMS
+    "TestPrepareLeaseRestartAndIdentity()"
+    "TestRestartAllowlistRejectsWritableAliases()"
+    "TestRestartResetsVfsOwnedDisposableProfile()"
+    "TestDurableReconnectCredentialLifecycle()"
+    "TestReconnectCredentialAdversarialStorage()"
+    "TestSequentialCommitAlternationAndAbort()"
+    "TestFailureClassificationAndFailStop()")
+  string(FIND "${dedicated_live_client_scratch_test_code}"
+    "${dedicated_live_client_scratch_test_contract}"
+    dedicated_live_client_scratch_test_contract_position)
+  if(dedicated_live_client_scratch_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Full-engine co-op client scratch tests lost '${dedicated_live_client_scratch_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_client_profile_restart_test_contract IN ITEMS
+    "VFS-owned restart fixture prepares with durable outer credentials"
+    "ordinary VFS cache, Temp, settings, and loaded scratch outputs exist"
+    "restart preserves outer reconnect evidence while atomically quarantining "
+    "all legitimate VFS-created profile outputs"
+    "a second ordinary process lifetime creates disposable VFS output"
+    "a prior private quarantine remains inert and does not block another "
+    "process restart")
+  string(FIND "${dedicated_live_client_scratch_test_source}"
+    "${dedicated_live_client_profile_restart_test_contract}"
+    dedicated_live_client_profile_restart_test_contract_position)
+  if(dedicated_live_client_profile_restart_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Passive-client disposable-profile restart regression lost '${dedicated_live_client_profile_restart_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_credential_scratch_test_contract IN ITEMS
+    "CoopCampaignBootstrapWireSize + AdmissionAckWireSize + 32"
+    "credentialPath.parent_path() != scratch.profileDirectory()"
+    "OwnerReadWriteOnlyFile(credentialPath)"
+    "ExactProfileAllowlist(scratch.profileDirectory())"
+    "ReadBytes(credentialPath) == firstRecord"
+    "FullEngineCoopReconnectCredentialLoadResult::Loaded"
+    "FullEngineCoopReconnectCredentialLoadResult::StaleSession"
+    "rolled.eraseStaleReconnectCredential()"
+    "FullEngineCoopReconnectCredentialLoadResult::CorruptRecord"
+    "FullEngineCoopReconnectCredentialLoadResult::BindingMismatch"
+    "FullEngineCoopReconnectCredentialLoadResult::UnsafeStorage"
+    "restarted.failStopped()")
+  string(FIND "${dedicated_live_client_scratch_test_code}"
+    "${dedicated_live_credential_scratch_test_contract}"
+    dedicated_live_credential_scratch_test_contract_position)
+  if(dedicated_live_credential_scratch_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Durable reconnect storage regression lost '${dedicated_live_credential_scratch_test_contract}'")
+  endif()
+endforeach()
+string(FIND "${dedicated_live_client_scratch_test_source}"
+  "client-reconnect-credential.staging"
+  dedicated_live_credential_staging_test_position)
+if(dedicated_live_credential_staging_test_position EQUAL -1)
+  message(FATAL_ERROR
+    "Durable reconnect storage regression lost its private staging filename")
+endif()
+
+foreach(dedicated_live_client_controller_test_contract IN ITEMS
+    "TestSelectionUsesOnlyAssignedPresentActors()"
+    "TestNumericMoveEntryProducesOneTypedRequest()"
+    "TestRelativeMoveProducesEveryAdjacentPayload()"
+    "TestRelativeMoveRejectsEdgesAndRowWrapping()"
+    "TestRelativeMoveFailsClosedForInvalidState()"
+    "TestInvalidAndOutstandingInputsFailClosed()"
+    "TestReplicatedCommandGateLocksAndRecovers()"
+    "TestRemainingTypedActions()")
+  string(FIND "${dedicated_live_client_controller_test_code}"
+    "${dedicated_live_client_controller_test_contract}"
+    dedicated_live_client_controller_test_contract_position)
+  if(dedicated_live_client_controller_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Worldless co-op client controller tests lost '${dedicated_live_client_controller_test_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_live_mission_test_contract IN ITEMS
+    "TestCanonicalCompleteSelection()"
+    "TestInputOrderDoesNotMatter()"
+    "TestFailClosedWithoutPartialRoster()"
+    "TestMalformedAndUnrepresentableInput()"
+    "TestColdStarterCampaignClassification()"
+    "TestCampaignReadyGatherGate()"
+    "TestCanonicalArrivalMinute()")
+  string(FIND "${dedicated_live_mission_test_code}"
+    "${dedicated_live_mission_test_contract}"
+    dedicated_live_mission_test_contract_position)
+  if(dedicated_live_mission_test_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op starter mission tests lost '${dedicated_live_mission_test_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_socket_e2e_marker
+  "void TestRealSocketCampaignSyncAndReconnect()")
+extract_brace_bounded_slice(dedicated_live_socket_e2e_test_code
+  "${dedicated_live_socket_e2e_marker}" dedicated_live_socket_e2e_slice
+  "Cannot bound full-engine co-op real-socket E2E regression")
+require_ordered_fragments(dedicated_live_socket_e2e_slice
+  "Full-engine co-op real-socket bootstrap/admission/sync/reconnect regression changed"
+  "ingress.beginAdmissionSession(authority)"
+  "StartListener(listener, listenerConfiguration)"
+  "campaignServer.beginSession(authority.sessionEpoch)"
+  "bootstrapTransport.connect(configuration)"
+  "PumpBootstrap(listener, bootstrapTransport)"
+  "SameCoopCampaignBootstrapDescriptor("
+  "observedBootstrap, expectedBootstrap)"
+  "ProcessCredentialStore credentialStore"
+  "FullEngineCoopClient firstAdmissionClient("
+  "firstClientTransport, firstReplica, &credentialStore)"
+  "firstAdmissionClient.configure("
+  "ClientConfiguration(observedBootstrap)"
+  "firstClientTransport.connect(firstAdmissionClient"
+  "PumpLiveUntil(listener, campaignServer, firstClientTransport,"
+  "FullEngineCoopCampaignSyncClientState::Ready"
+  "credentialStore.persistCalls == 1"
+  "credentialStore.credential.peerIdentity == firstIdentity"
+  "firstClientTransport.stop("
+  "firstCampaignClient.disconnect()"
+  "ReadyPeerCount(campaignServer, ready) == 0"
+  "FullEngineCoopClient admissionClient("
+  "clientTransport, replica, &credentialStore)"
+  "admissionClient.configure(ClientConfiguration(observedBootstrap))"
+  "admissionClient.restoreReconnectCredential("
+  "credentialStore.credential"
+  "clientTransport.connect("
+  "admissionClient, campaignSink, clientConfiguration)"
+  "PumpLiveUntil(listener, campaignServer, clientTransport,"
+  "FullEngineCoopCampaignSyncClientState::Ready"
+  "secondTransport != firstTransport"
+  "tokens.issueCount == 1"
+  "credentialStore.persistCalls == 2"
+  "credentialStore.credential.peerIdentity == firstIdentity"
+  "scratch.beginCalls == 1"
+  "scratch.commitCalls == 1"
+  "firstTransferId != scratch.committedTransferIds[0]"
+  "serverWire.metadataMessages == 2"
+  "serverWire.completeMessages == 2"
+  "statistics.maximumServerMessagesPerFlush =="
+  "MaximumCoopCampaignSyncChunkWindow"
+  "replica.baselineCalls == 0"
+  "replica.deltaCalls == 0"
+  "execution.calls == 0"
+  "diagnostics.campaignReady"
+  "FullEngineCoopTacticalServer tacticalServer("
+  "tacticalServer.beginWorld(TacticalWorldGeneration"
+  "tacticalServer.setCampaignReadyPeers(&firstIdentity, 1)"
+  "tacticalServer.replaceAssignments(&assignment, 1)"
+  "tacticalServer.stageBaseline(firstIdentity, tacticalSnapshot)"
+  "FullEngineCoopClientState::Active"
+  "admissionClient.sendIntent(TacticalActorId, move)"
+  "execution.calls == 1"
+  "tacticalServer.publishDelta(moveDelta, TacticalResultRevision"
+  "execution.publishApplied(4242)"
+  "replica.deltaCalls == 1"
+  "CoopTacticalIntentReceiptStatus::Applied"
+  "const AimedFirearmAttackTacticalIntent attack{TacticalTargetId, 3}"
+  "admissionClient.sendIntent(TacticalActorId, attack)"
+  "passiveTarget->life == 80"
+  "passiveActor->actionPoints == 20"
+  "CoopTacticalIntentReceiptStatus::Queued"
+  "std::get_if<AimedFirearmAttackTacticalIntent>("
+  "executedAttack->target == TacticalTargetId"
+  "executedAttack->aimTime == 3"
+  "const TacticalWorldDelta attackDelta = TacticalAttackDelta()"
+  "tacticalServer.publishDelta(attackDelta"
+  "TacticalAttackResultRevision"
+  "execution.publishApplied(4243)"
+  "CoopTacticalIntentReceiptStatus::Applied"
+  "passiveActor->actionPoints == 14"
+  "passiveTarget->life == 60"
+  "const ReloadTacticalIntent reload{}"
+  "admissionClient.sendIntent(TacticalActorId, reload)"
+  "admissionClient.outstandingCommandId() == 3"
+  "passiveActor->actionPoints == 14"
+  "execution.calls == 3"
+  "CoopTacticalIntentReceiptStatus::Queued"
+  "std::get_if<ReloadTacticalIntent>("
+  "execution.lastIntent.commandId == 3"
+  "execution.lastIntent.actor == TacticalActorId"
+  "commandState.nextExpectedCommandId == 4"
+  "commandState.pendingCommands == 1"
+  "const TacticalWorldDelta reloadDelta = TacticalReloadDelta()"
+  "TacticalReloadResultRevision"
+  "execution.publishApplied(4244)"
+  "CoopTacticalIntentReceiptStatus::Applied"
+  "passiveActor->actionPoints == 10"
+  "admissionClient.lastIntentReceipt().authoritativeSequence == 3"
+  "admissionClient.lastIntentReceipt().simulationTick == 4244"
+  "tacticalStatistics.totalIntentsConsumed == 3"
+  "admissionClient.requestSelfRetirement()"
+  "listener.selfRetirementInputFrozen()"
+  "tacticalServer.discardInboundAfterSelfRetirementGate()"
+  "ingress.completeSelfRetirement("
+  "listener.sendCommittedSelfRetirementResult("
+  "FullEngineCoopClientState::Retired"
+  "!clientTransport.running()"
+  "campaignClient.disconnect()"
+  "listener.stop(20)"
+  "tacticalServer.retirePeer(firstIdentity)"
+  "tacticalServer.endWorld()"
+  "tacticalServer.endEpoch()"
+  "campaignServer.endSession()"
+  "ingress.endSession()")
+
+# Public documentation must describe the same bounded technical slice as the
+# executable and tests: global protocol v6, authenticated self-retirement,
+# independently versioned snapshot/delta/intent/journal wires, bounded public
+# door projection and synchronous authority, worldless presentation, and the
+# established persistence/return/reconnect policies.
+foreach(dedicated_live_readme_contract IN ITEMS
+    "--dedicated-coop-bind"
+    "rollback-safe `co-op installed content manifest`"
+    "before `legacy content` and `game`"
+    "case-only spellings across layers"
+    "cached digest without"
+    "bypass the ordinary `InitMainMenu` transition"
+    "`profile.orphan.<pid>.<seq>`"
+    "bypasses `INTRO_SCREEN`"
+    "256 KiB/s sustained inbound rate"
+    "`SdlNetInboundMessageBudget`"
+    "only before `Start()`"
+    "32 MiB/s and 4 MiB"
+    "non-null campaign sink"
+    "11,796,517-byte"
+    "193 chunks per transfer"
+    "7 ms"
+    "installed strategic/Lua difficulty domain is 1..4"
+    "global co-op protocol-v7"
+    "Tactical snapshot wire v7"
+    "five-slot combat-equipment projection"
+    "five 12-byte combat-equipment records"
+    "allocation-free one-tile isometric"
+    "Up is row -1/column -1"
+    "Tab or `]` selects"
+    "`[` selects the previous"
+    "`M` retains numeric"
+    "`commandsBlocked`"
+    "compact interrupt phase/serial"
+    "Older layouts"
+    "authority-sized logical-grid diamond"
+    "public opponent knowledge"
+    "fresh-baseline boundary"
+    "exact-target aimed"
+    "nine bounded tactical"
+    "selected-actor reload"
+    "synchronous adjacent"
+    "`D` enters a modal door selector"
+    "`{baseGrid, structureId, desiredOpen}`"
+    "53-byte header"
+    "92-byte actor"
+    "7-byte door"
+    "384053-byte generic maximum"
+    "18434 generic"
+    "exact 43-byte turn event"
+    "doors, and 3074 delta events"
+    "30773/32385"
+    "62034/62106"
+    "Tactical intent wire v3"
+    "`ScopedSavedGameFaceReconstruction`"
+    "ordinary face creation retains its three legacy draws"
+    "`StrategicAILoadPolicy::DedicatedExactRestore`"
+    "current SAI save v29"
+    "stale SAI version is rejected"
+    "`JA2_COOP_INSTALLED_SMOKE_EXECUTABLE`"
+    "`JA2_COOP_INSTALLED_SMOKE_DATA_ROOT`"
+    "It is absent from the"
+    "default test graph"
+    "currently POSIX-only"
+    "free loopback port"
+    "private temporary server/client/run roots"
+    "credential to remain byte-identical"
+    "still-worldless server"
+    "fingerprinted before and after"
+    "not a full playthrough"
+    "or soak"
+    "`AutoReload`"
+    "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
+    "simulation-command journal wire v4"
+    "Default `Legacy` commands retain"
+    "synchronization-source resolver"
+    "one pending command per peer"
+    "non-consuming `InvalidCommandSequence`"
+    "`AuthoritySequenceExhausted` reason 20"
+    "exact cursor/history before failing and closing"
+    "before its admission ACK"
+    "224-byte canonical bootstrap"
+    "live hello must match the preflight epoch"
+    "same-epoch durable bearer may retry without an"
+    "retry counter saturates"
+    "eight-attempt startup limit"
+    "two-step control"
+    "complete input FIFO"
+    "24-byte request"
+    "48-byte truthful result"
+    "no peer or victim field"
+    "commits the credential tombstone"
+    "distinct fifth identity"
+    "client-reconnect-credential.retired"
+    "same-process reconnect ACK"
+    "combined-failure boundary"
+    "Same-epoch startup"
+    "cross-epoch terminality"
+    "new ACKs or intents cannot starve"
+    "regression restores"
+    "stable evidence waits"
+    "worldless in strategic idle"
+    "`TrashWorld`"
+    "required strategic checkpoint"
+    "temporary schedules"
+    "auto-bandage")
+  string(FIND "${dedicated_live_readme_docs}"
+    "${dedicated_live_readme_contract}"
+    dedicated_live_readme_contract_position)
+  if(dedicated_live_readme_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "README co-op contract lost '${dedicated_live_readme_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
+    "global authoritative co-op session protocol is version 7"
+    "capture failure unwinds the active"
+    "Case-only spellings across different"
+    "`CVirtualLocation::getIsExclusive()`"
+    "selects the smallest-layer normalized occurrence"
+    "cached digest rather than"
+    "bypass the ordinary `InitMainMenu` transition"
+    "`profile.orphan.<pid>.<seq>`"
+    "bypasses `INTRO_SCREEN`"
+    "may collapse raw same-container `Foo`/`foo`"
+    "256 KiB/s sustained inbound rate"
+    "`SdlNetInboundMessageBudget`"
+    "only before `Start()`"
+    "32 MiB/s and 4 MiB"
+    "non-null campaign sink"
+    "11,796,517-byte"
+    "193 chunks per transfer"
+    "7 ms"
+    "installed strategic/Lua difficulty domain is 1..4"
+    "snapshot is wire v7"
+    "delta is wire"
+    "v6, and the simulation-command journal is wire v4"
+    "bounded five-slot combat-equipment"
+    "five bounded 12-byte"
+    "allocation-free exact-grid calculation"
+    "Up applies row -1/column -1"
+    "Tab or `]` selects"
+    "`[` selects the previous"
+    "`M`"
+    "`commandsBlocked`"
+    "compact interrupt phase/serial"
+    "Tactical intent is wire v3"
+    "journal is wire v4"
+    "snapshot layouts are rejected"
+    "--dedicated-coop-bind"
+    "fresh-baseline boundary"
+    "fixed admission-seat roster"
+    "Disconnect never removes a world participant or transfers that actor"
+    "exact-target aimed"
+    "nine bounded intents"
+    "selected-actor reload"
+    "visible adjacent-door open/close"
+    "no lock, trap, key"
+    "`D` enters modal door"
+    "53-byte header"
+    "92-byte"
+    "7-byte door"
+    "`hostileToPlayerTeam`"
+    "384053 bytes"
+    "18434-event"
+    "exact 43-byte turn event"
+    "version 2.0"
+    "`DoorCapacityReached`"
+    "256 actors, 1024 doors, and 3074"
+    "30773/32385"
+    "62034/62106"
+    "72-byte header"
+    "80-byte maximum"
+    "`ScopedSavedGameFaceReconstruction`"
+    "ordinary face creation retains all three legacy draws"
+    "`StrategicAILoadPolicy::DedicatedExactRestore`"
+    "current SAI save version 29"
+    "stale SAI version fails the load"
+    "`JA2_COOP_INSTALLED_SMOKE_EXECUTABLE`"
+    "`JA2_COOP_INSTALLED_SMOKE_DATA_ROOT`"
+    "absent from the default CTest graph"
+    "POSIX-only"
+    "free loopback port"
+    "private temporary"
+    "stable Ready"
+    "credential byte-identical"
+    "still-worldless server"
+    "metadata fingerprint"
+    "not a complete"
+    "long-running soak"
+    "tags 33/34"
+    "exactly one `OurNoise`"
+    "post-swap integrity failure"
+    "`AutoReload`"
+    "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
+    "simulation-command journal"
+    "default `Legacy` policy"
+    "strict synchronization-source resolver"
+    "`math.randomseed` wrapper"
+    "deterministic compatibility no-op"
+    "low/high 32-bit pair"
+    "`math.randomseed(os.time())`"
+    "ordinary and legacy PvP continue"
+    "one-command causal lock"
+    "non-consuming `InvalidCommandSequence`"
+    "`AuthoritySequenceExhausted` is reason 20"
+    "transactionally accepts its receipt history"
+    "before sending the 64-byte ACK"
+    "outside the mounted profile/VFS, stores one 224-byte record"
+    "persisted before ACK and in-memory adoption"
+    "live hello is pinned to the preflight epoch"
+    "reconnect attempts are not capped"
+    "retry counter saturates"
+    "credential-less startup remains capped at eight"
+    "24-byte request"
+    "48-byte result"
+    "no selectable victim"
+    "globally freezes admission"
+    "credential tombstone"
+    "four seats compact to three"
+    "distinct fifth identity"
+    "client-reconnect-credential.retired"
+    "same-process reconnect"
+    "combined failure"
+    "Same-epoch"
+    "cross-epoch terminality"
+    "cannot starve the return"
+    "pure three-way decision"
+    "Regressed evidence restores `Playable` and same-epoch admission"
+    "without issuing a second identity"
+    "logical diamond"
+    "`SEEN_CURRENTLY`"
+    "`StrategicIdle`"
+    "`TrashWorld`"
+    "required cold strategic checkpoint"
+    "temporary-schedule retirement"
+    "auto-bandage")
+  string(FIND "${dedicated_live_multiplayer_docs}"
+    "${dedicated_live_multiplayer_doc_contract}"
+    dedicated_live_multiplayer_doc_contract_position)
+  if(dedicated_live_multiplayer_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Multiplayer architecture co-op contract lost '${dedicated_live_multiplayer_doc_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_engine_doc_contract IN ITEMS
+    "global co-op protocol v7"
+    "`InitializeCoopContentManifestBoundary`"
+    "before legacy cache writes"
+    "case-only spellings across different read-only layers"
+    "cached digest without VFS recomputation"
+    "without re-enumerating the VFS"
+    "bypass the ordinary `InitMainMenu` transition"
+    "`profile.orphan.<pid>.<seq>`"
+    "bypasses `INTRO_SCREEN`"
+    "256 KiB/s sustained inbound rate"
+    "`SdlNetInboundMessageBudget`"
+    "only before `Start()`"
+    "32 MiB/s and 4 MiB"
+    "non-null campaign sink"
+    "11,796,517-byte"
+    "193 chunks per transfer"
+    "7 ms"
+    "installed strategic/Lua difficulty domain is 1..4"
+    "Tactical snapshot wire v7"
+    "Delta wire v6"
+    "five 12-byte combat-equipment records"
+    "allocation-free"
+    "row/column deltas -1/-1, +1/+1, +1/-1, and"
+    "Tab or `]` selects"
+    "`[` selects the"
+    "`M` retains numeric-grid entry"
+    "`commandsBlocked`"
+    "compact interrupt phase/serial"
+    "older snapshot"
+    "--dedicated-coop-bind"
+    "fresh assignment"
+    "exact-target aimed"
+    "nine tactical intents"
+    "selected-actor reload"
+    "visible adjacent-door open/close"
+    "`D` opens a modal"
+    "53/92/7 bytes"
+    "384053-byte"
+    "18434 generic events"
+    "same-serial interrupt-phase"
+    "256 actors, 1024 doors, and 3074"
+    "30773/32385"
+    "62034/62106"
+    "Intent wire v3"
+    "`ScopedSavedGameFaceReconstruction`"
+    "ordinary face creation retains all three legacy"
+    "`StrategicAILoadPolicy::DedicatedExactRestore`"
+    "current SAI save v29"
+    "stale"
+    "`JA2_COOP_INSTALLED_SMOKE_EXECUTABLE`"
+    "`JA2_COOP_INSTALLED_SMOKE_DATA_ROOT`"
+    "absent from default CTest"
+    "On POSIX"
+    "free loopback port"
+    "private temporary roots"
+    "byte-identical 224-byte credential"
+    "clean worldless"
+    "fingerprints installed inputs"
+    "full playthrough and soak remain open"
+    "`DoorCapacityReached` is 12"
+    "journal-v4 tags 33/34"
+    "exactly one"
+    "`OurNoise`"
+    "Integrity failure"
+    "`AutoReload`"
+    "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
+    "Simulation-command journal wire v4"
+    "Default `Legacy` commands retain"
+    "strict synchronization-source"
+    "one pending command per peer"
+    "non-consuming `InvalidCommandSequence`"
+    "`AuthoritySequenceExhausted` reason 20"
+    "retains its exact history/cursor before failing and closing"
+    "private 224-byte canonical bootstrap"
+    "synchronously before ACK"
+    "preflight-epoch-pinned before any admission request"
+    "durable same-epoch bearer may retry without an"
+    "saturating unsigned"
+    "credential-less startup remains limited to eight"
+    "24-byte"
+    "48-byte result"
+    "no selectable victim"
+    "globally"
+    "retired tombstone"
+    "four seats"
+    "distinct fifth identity"
+    "client-reconnect-credential.retired"
+    "same-process disconnect"
+    "combined-failure boundary"
+    "Same-epoch remains fail-closed"
+    "cross-epoch terminality"
+    "intent traffic cannot starve return"
+    "pure three-way recheck"
+    "same-epoch admission if evidence regresses"
+    "without a second issuance"
+    "logical isometric diamond"
+    "`SEEN_CURRENTLY`"
+    "`StrategicIdle`"
+    "`TrashWorld`"
+    "required cold checkpoint"
+    "temporary schedules"
+    "auto-bandage")
+  string(FIND "${dedicated_live_engine_docs}"
+    "${dedicated_live_engine_doc_contract}"
+    dedicated_live_engine_doc_contract_position)
+  if(dedicated_live_engine_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine architecture co-op contract lost '${dedicated_live_engine_doc_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
+    "global co-op protocol-v7"
+    "rollback-safe `co-op installed content manifest`"
+    "validates and counts all"
+    "smallest-layer normalized read-only overlay"
+    "without VFS recomputation"
+    "bypass the ordinary `InitMainMenu` transition"
+    "`profile.orphan.<pid>.<seq>`"
+    "bypasses `INTRO_SCREEN`"
+    "256 KiB/s sustained inbound rate"
+    "`SdlNetInboundMessageBudget`"
+    "only before `Start()`"
+    "32 MiB/s and 4 MiB"
+    "non-null campaign sink"
+    "11,796,517-byte"
+    "193 chunks per transfer"
+    "7 ms"
+    "installed strategic/Lua difficulty domain is 1..4"
+    "Snapshot wire v7"
+    "Delta wire v6"
+    "five bounded 12-byte"
+    "allocation-free exact-grid request"
+    "Up is row -1/column -1"
+    "Tab or `]` selects"
+    "`[` the previous"
+    "`M` retains numeric-grid entry"
+    "`commandsBlocked`"
+    "compact interrupt phase/serial"
+    "details stay private"
+    "Older layouts"
+    "--dedicated-coop-bind"
+    "fresh-baseline boundary"
+    "aimed single-shot firearm"
+    "nine JA2 command"
+    "selected-actor reload"
+    "visible-door open/close"
+    "modal `D` door selection"
+    "53-byte header"
+    "92-byte actor"
+    "7-byte public door"
+    "384053 bytes"
+    "18434 generic events"
+    "exact 43-byte event"
+    "1024 doors, 3074 events"
+    "30773/32385"
+    "62034/62106"
+    "Intent wire v3"
+    "`ScopedSavedGameFaceReconstruction`"
+    "ordinary face creation retains all three legacy draws"
+    "`StrategicAILoadPolicy::DedicatedExactRestore`"
+    "current SAI save v29"
+    "stale SAI version is rejected"
+    "`JA2_COOP_INSTALLED_SMOKE_EXECUTABLE`"
+    "`JA2_COOP_INSTALLED_SMOKE_DATA_ROOT`"
+    "absent by default"
+    "currently POSIX-only"
+    "free loopback port"
+    "private temporary roots"
+    "byte-identical"
+    "clean worldless final checkpoint"
+    "fingerprints installed inputs before/after"
+    "not a complete"
+    "or soak"
+    "`DoorCapacityReached` is 12"
+    "journal-v4 door/pass command tags are 33/34"
+    "exactly one `OurNoise`"
+    "Integrity failure"
+    "`AutoReload`"
+    "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
+    "simulation-command journal wire v4"
+    "Default `Legacy` commands"
+    "synchronization-source resolver"
+    "one pending command per peer"
+    "non-consuming `InvalidCommandSequence`"
+    "`AuthoritySequenceExhausted` reason 20"
+    "records the exact receipt history/cursor before failing and closing"
+    "private 224-byte"
+    "private atomic staging before admission ACK"
+    "live epoch mismatch closes before any admission request"
+    "bearer retries without an attempt cap"
+    "unsigned counter saturates"
+    "Credential-less startup keeps"
+    "24-byte"
+    "48-byte result"
+    "no client-provided victim"
+    "globally freezes admission"
+    "credential tombstone"
+    "Four-seat coverage"
+    "distinct fifth"
+    "client-reconnect-credential.retired"
+    "same-process reconnect ACK"
+    "combined-failure window"
+    "Same-epoch remains fail-closed"
+    "cross-epoch terminality"
+    "ACK and intent traffic cannot starve return"
+    "pure recheck restores"
+    "same-epoch admission when evidence regresses"
+    "second identity issuance"
+    "logical diamond"
+    "`SEEN_CURRENTLY`"
+    "`StrategicIdle`"
+    "`TrashWorld`"
+    "required cold strategic checkpoint"
+    "temporary schedules"
+    "auto-bandage")
+  string(FIND "${dedicated_live_campaign_runtime_docs}"
+    "${dedicated_live_campaign_runtime_doc_contract}"
+    dedicated_live_campaign_runtime_doc_contract_position)
+  if(dedicated_live_campaign_runtime_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign runtime co-op contract lost '${dedicated_live_campaign_runtime_doc_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
+    "global co-op protocol v7"
+    "rollback-safe post-package/pre-legacy"
+    "validates and counts every VFS"
+    "case-only"
+    "without VFS recomputation"
+    "bypass the ordinary `InitMainMenu` transition"
+    "`profile.orphan.<pid>.<seq>`"
+    "bypasses `INTRO_SCREEN`"
+    "256 KiB/s sustained inbound rate"
+    "`SdlNetInboundMessageBudget`"
+    "only before `Start()`"
+    "32 MiB/s and 4 MiB"
+    "non-null campaign sink"
+    "11,796,517-byte"
+    "193 chunks per transfer"
+    "7 ms"
+    "installed strategic/Lua difficulty domain is 1..4"
+    "Tactical snapshot wire v7"
+    "Delta wire v6"
+    "five 12-byte combat-equipment records"
+    "allocation-free direct arrows"
+    "Up -1/-1, Down +1/+1, Left +1/-1, and Right -1/+1"
+    "Tab or `]` selects"
+    "`[` the previous"
+    "`M` retains numeric-"
+    "`commandsBlocked`"
+    "compact interrupt phase/serial"
+    "interrupt-action eligibility"
+    "Older"
+    "--dedicated-coop-bind"
+    "fresh-baseline-gated actor assignment"
+    "aimed single-shot firearm"
+    "nine-intent authoritative server"
+    "selected-actor reload"
+    "synchronous visible-door open/close"
+    "modal `D` visible-door selection"
+    "53/92/7 bytes"
+    "384053 bytes"
+    "18434 generic events"
+    "exact 43-byte event"
+    "256 actors, 1024 doors"
+    "3074 events"
+    "30773/32385"
+    "62034/62106"
+    "Intent wire v3"
+    "`ScopedSavedGameFaceReconstruction`"
+    "ordinary face creation retains all three legacy"
+    "`StrategicAILoadPolicy::DedicatedExactRestore`"
+    "current SAI save"
+    "v29"
+    "rejects stale versions"
+    "`JA2_COOP_INSTALLED_SMOKE_EXECUTABLE`"
+    "`JA2_COOP_INSTALLED_SMOKE_DATA_ROOT`"
+    "absent from default"
+    "POSIX-only serial"
+    "free loopback port"
+    "private temporary roots"
+    "byte-identical 224-byte"
+    "clean worldless final checkpoint"
+    "fingerprints"
+    "full installed-data"
+    "long-running soak"
+    "`DoorCapacityReached` is 12"
+    "tags are 33/34"
+    "exactly one `OurNoise`"
+    "Integrity failure"
+    "`AutoReload`"
+    "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
+    "simulation-command journal wire v4"
+    "Default `Legacy`"
+    "strict synchronization-source resolver"
+    "one pending command per peer"
+    "non-consuming `InvalidCommandSequence`"
+    "`AuthoritySequenceExhausted` reason 20"
+    "receipt history/cursor before failing and closing"
+    "private atomic 224-byte canonical"
+    "restored before connect and persisted before ACK"
+    "live epoch mismatch precedes any request"
+    "retained durable same-epoch bearer retries without an attempt cap"
+    "saturating unsigned retry"
+    "credential-less startup retains the eight-attempt bound"
+    "24-byte authenticated self-retirement"
+    "48-byte result"
+    "no client-selected peer or victim"
+    "globally freezes listener input"
+    "retired-credential tombstone"
+    "Four-to-five churn"
+    "client-reconnect-credential.retired"
+    "same-process reconnect ACK"
+    "marker storage fails before rename"
+    "Same-epoch remains fail-closed"
+    "cross-epoch terminality"
+    "ACK or intent traffic can starve"
+    "pure recheck reopens `Playable`"
+    "second identity issuance"
+    "logical diamond"
+    "`SEEN_CURRENTLY`"
+    "`StrategicIdle`"
+    "`TrashWorld`"
+    "required strategic checkpoint"
+    "temporary schedules"
+    "auto-bandage")
+  string(FIND "${dedicated_live_sdl_port_docs}"
+    "${dedicated_live_sdl_port_doc_contract}"
+    dedicated_live_sdl_port_doc_contract_position)
+  if(dedicated_live_sdl_port_doc_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "SDL3 port co-op status lost '${dedicated_live_sdl_port_doc_contract}'")
+  endif()
+endforeach()
+
+set(dedicated_live_all_coop_docs
+  "${dedicated_live_readme_docs}\n${dedicated_live_multiplayer_docs}\n${dedicated_live_engine_docs}\n${dedicated_live_campaign_runtime_docs}\n${dedicated_live_sdl_port_docs}")
+foreach(dedicated_live_stale_doc_claim IN ITEMS
+    "global co-op protocol-v2"
+    "global co-op protocol v2"
+    "session protocol is version 2"
+    "global co-op protocol-v3"
+    "global co-op protocol v3"
+    "session protocol is version 3"
+    "global co-op protocol-v4"
+    "global co-op protocol v4"
+    "session protocol is version 4"
+    "snapshot wire v2"
+    "snapshot is wire v2"
+    "snapshot is wire version 2"
+    "snapshot wire v3"
+    "snapshot is wire v3"
+    "snapshot is wire version 3"
+    "Snapshot wire v3"
+    "Tactical snapshot wire v3"
+    "snapshot wire v4"
+    "snapshot is wire v4"
+    "snapshot wire is version 4"
+    "Snapshot wire v4"
+    "Tactical snapshot wire v4"
+    "delta wire v2"
+    "Delta wire v2"
+    "delta v2"
+    "delta wire v3"
+    "Delta wire v3"
+    "delta is wire v3"
+    "44/31/7"
+    "31-byte actor"
+    "134188"
+    "14338 generic events"
+    "2818 events"
+    "15148/16760"
+    "28992/29064"
+    "43-byte header"
+    "43/31/7"
+    "134187"
+    "15147/16759"
+    "28990/29062"
+    "no installed-game-data two-process smoke"
+    "no installed-data two-process smoke"
+    "no installed-data independently launched"
+    "simulation-command journal wire v2"
+    "Simulation-command journal wire v2"
+    "seven bounded tactical"
+    "seven bounded intents"
+    "seven tactical intents"
+    "seven JA2 command"
+    "seven-intent authoritative"
+    "seven-intent path"
+    "five-intent"
+    "six-intent"
+    "six bounded intents"
+    "execution of six bounded tactical"
+    "six tactical intents"
+    "six JA2 command intents"
+    "Add reconnect after restart"
+    "listener is currently fixed to"
+    "fixed `0.0.0.0:60005`"
+    "without starter-mission mutation"
+    "no JA2 tactical-map renderer"
+    "co-op admission remains closed"
+    "not wired into dedicated startup")
+  string(FIND "${dedicated_live_all_coop_docs}"
+    "${dedicated_live_stale_doc_claim}"
+    dedicated_live_stale_doc_claim_position)
+  if(NOT dedicated_live_stale_doc_claim_position EQUAL -1)
+    message(FATAL_ERROR
+      "Co-op documentation regained stale claim '${dedicated_live_stale_doc_claim}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_socket_e2e_test_code
+  "int main()" dedicated_live_socket_e2e_main_slice
+  "Cannot bound full-engine co-op real-socket E2E entry point")
+require_ordered_fragments(dedicated_live_socket_e2e_main_slice
+  "Full-engine co-op real-socket E2E lost SDL transport lifetime"
+  "SDL_Init(0)"
+  "TestRealSocketCampaignSyncAndReconnect()"
+  "SDL_Quit()"
+  "return 1"
+  "return 0")
+
+extract_bounded_slice(dedicated_test_build_source
+  "add_executable(full_engine_coop_socket_e2e_tests"
+  "add_executable(coop_actor_assignment_policy_tests"
+  dedicated_live_socket_e2e_build_slice
+  "Cannot bound full-engine co-op real-socket E2E build target")
+require_ordered_fragments(dedicated_live_socket_e2e_build_slice
+  "Full-engine co-op real-socket E2E dependency/CTest wiring changed"
+  "full_engine_coop_socket_e2e_tests.cpp"
+  "CoopAdmission.cpp"
+  "CoopCampaignBootstrapProtocol.cpp"
+  "CoopCampaignSyncProtocol.cpp"
+  "CoopHandshakeProtocol.cpp"
+  "CoopSessionProtocol.cpp"
+  "CoopTacticalAuthority.cpp"
+  "CoopTacticalIntent.cpp"
+  "CoopTacticalProtocol.cpp"
+  "FullEngineCoopAdmissionListener.cpp"
+  "FullEngineCoopCampaignSyncClient.cpp"
+  "FullEngineCoopCampaignSyncServer.cpp"
+  "FullEngineCoopClient.cpp"
+  "FullEngineCoopClientBootstrapTransport.cpp"
+  "FullEngineCoopClientTransport.cpp"
+  "FullEngineCoopIngress.cpp"
+  "FullEngineCoopServerSession.cpp"
+  "FullEngineCoopSnapshotReplica.cpp"
+  "FullEngineCoopTacticalServer.cpp"
+  "target_link_libraries(full_engine_coop_socket_e2e_tests PRIVATE"
+  "JA2::RuntimeAdapter SdlNetTransport)"
+  "add_test(NAME full_engine_coop_socket_e2e"
+  "COMMAND full_engine_coop_socket_e2e_tests)")
+
+# Keep every live source and its focused regression executable in production,
+# CTest, and the mandatory CI build inventory.
+foreach(dedicated_live_ja2_build_contract IN ITEMS
+    "DedicatedCampaignBoot.cpp"
+    "DedicatedContentManifest.cpp"
+    "DedicatedCoopMissionBootstrap.cpp"
+    "DedicatedCoopRuntime.cpp"
+    "DedicatedCoopTacticalHost.cpp"
+    "DedicatedCoopTacticalJa2LiveState.cpp"
+    "FullEngineCoopClientController.cpp"
+    "FullEngineCoopClientRuntime.cpp"
+    "FullEngineCoopClientScreen.cpp"
+    "FullEngineCoopClientTacticalPlotRenderer.cpp"
+    "FullEngineCoopClientTacticalPresentation.cpp")
+  string(FIND "${dedicated_ja2_build_source}"
+    "${dedicated_live_ja2_build_contract}"
+    dedicated_live_ja2_build_contract_position)
+  if(dedicated_live_ja2_build_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "JA2 production build lost '${dedicated_live_ja2_build_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_multiplayer_build_contract IN ITEMS
+    "CoopActorAssignmentPolicy.cpp"
+    "CoopHandshakeProtocol.cpp"
+    "CoopTacticalProtocol.cpp"
+    "FullEngineCoopAdmissionListener.cpp"
+    "FullEngineCoopClient.cpp"
+    "FullEngineCoopClientTransport.cpp"
+    "FullEngineCoopIngress.cpp"
+    "FullEngineCoopServerSession.cpp"
+    "FullEngineCoopTacticalServer.cpp"
+    "OsAdmissionTokenSource.cpp"
+    "target_link_libraries(Multiplayer PRIVATE SdlNetTransport)"
+    "target_link_libraries(Multiplayer PRIVATE bcrypt)")
+  string(FIND "${native_multiplayer_build_contents}"
+    "${dedicated_live_multiplayer_build_contract}"
+    dedicated_live_multiplayer_build_contract_position)
+  if(dedicated_live_multiplayer_build_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Multiplayer production build lost '${dedicated_live_multiplayer_build_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_test_build_contract IN ITEMS
+    "add_executable(coop_actor_assignment_policy_tests"
+    "add_test(NAME coop_actor_assignment_policy"
+    "add_executable(dedicated_coop_mission_bootstrap_tests"
+    "add_test(NAME dedicated_coop_mission_bootstrap"
+    "add_executable(dedicated_campaign_boot_tests"
+    "add_test(NAME dedicated_campaign_boot"
+    "add_executable(dedicated_content_manifest_tests"
+    "add_test(NAME dedicated_content_manifest"
+    "add_executable(os_admission_token_source_tests"
+    "add_test(NAME os_admission_token_source"
+    "add_executable(full_engine_coop_admission_listener_tests"
+    "add_test(NAME full_engine_coop_admission_listener"
+    "add_executable(coop_handshake_protocol_tests"
+    "add_test(NAME coop_handshake_protocol"
+    "add_executable(coop_tactical_protocol_tests"
+    "add_test(NAME coop_tactical_protocol"
+    "add_executable(full_engine_coop_server_session_tests"
+    "add_test(NAME full_engine_coop_server_session"
+    "add_executable(full_engine_coop_tactical_server_tests"
+    "add_test(NAME full_engine_coop_tactical_server"
+    "add_executable(full_engine_coop_client_tests"
+    "add_test(NAME full_engine_coop_client"
+    "add_executable(full_engine_coop_client_transport_tests"
+    "add_test(NAME full_engine_coop_client_transport"
+    "add_executable(full_engine_coop_client_runtime_tests"
+    "add_test(NAME full_engine_coop_client_runtime"
+    "add_executable(full_engine_coop_client_campaign_scratch_tests"
+    "add_test(NAME full_engine_coop_client_campaign_scratch"
+    "add_executable(full_engine_coop_client_controller_tests"
+    "add_test(NAME full_engine_coop_client_controller"
+    "add_executable(full_engine_coop_client_tactical_presentation_tests"
+    "add_test(NAME full_engine_coop_client_tactical_presentation"
+    "add_executable(full_engine_coop_client_tactical_plot_renderer_tests"
+    "add_test(NAME full_engine_coop_client_tactical_plot_renderer"
+    "add_executable(full_engine_coop_socket_e2e_tests"
+    "add_test(NAME full_engine_coop_socket_e2e"
+    "add_executable(dedicated_coop_tactical_host_tests"
+    "add_test(NAME dedicated_coop_tactical_host"
+    "target_link_libraries(os_admission_token_source_tests PRIVATE bcrypt)")
+  string(FIND "${dedicated_test_build_source}"
+    "${dedicated_live_test_build_contract}"
+    dedicated_live_test_build_contract_position)
+  if(dedicated_live_test_build_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op focused tests lost '${dedicated_live_test_build_contract}'")
+  endif()
+endforeach()
+foreach(dedicated_live_ci_contract IN ITEMS
+    "coop_actor_assignment_policy_tests"
+    "dedicated_coop_mission_bootstrap_tests"
+    "ja2_headless_tests"
+    "dedicated_campaign_boot_tests"
+    "dedicated_content_manifest_tests"
+    "os_admission_token_source_tests"
+    "coop_handshake_protocol_tests"
+    "full_engine_coop_admission_listener_tests"
+    "coop_tactical_protocol_tests"
+    "full_engine_coop_server_session_tests"
+    "full_engine_coop_tactical_server_tests"
+    "full_engine_coop_client_tests"
+    "full_engine_coop_client_transport_tests"
+    "full_engine_coop_client_runtime_tests"
+    "full_engine_coop_client_campaign_scratch_tests"
+    "full_engine_coop_client_controller_tests"
+    "full_engine_coop_client_tactical_presentation_tests"
+    "full_engine_coop_client_tactical_plot_renderer_tests"
+    "full_engine_coop_socket_e2e_tests"
+    "dedicated_coop_tactical_host_tests")
+  string(FIND "${dedicated_ci_source}" "${dedicated_live_ci_contract}"
+    dedicated_live_ci_contract_position)
+  if(dedicated_live_ci_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op CI inventory lost '${dedicated_live_ci_contract}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedServerOptions.h"
   dedicated_options_header_source)
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedServerOptions.cpp"
@@ -3143,6 +12867,28 @@ foreach(dedicated_campaign_seed_option_contract IN ITEMS
   if(dedicated_campaign_seed_option_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Dedicated campaign-seed CLI lost '${dedicated_campaign_seed_option_contract}'")
+  endif()
+endforeach()
+
+foreach(dedicated_coop_endpoint_option_contract IN ITEMS
+    "coopBindAddress = \"0.0.0.0\""
+    "coopPort = 60005"
+    "InvalidCoopBindAddress"
+    "InvalidCoopPort"
+    "PvpCoopNetworkOption"
+    "--dedicated-coop-bind"
+    "--dedicated-coop-port"
+    "MaximumCoopBindAddressBytes = 255"
+    "port == 0 || port > 65535u"
+    "options.coopPort = static_cast<std::uint16_t>(port)"
+    "duplicate co-op listener bind addresses are rejected")
+  string(FIND
+    "${dedicated_options_header_source}${dedicated_options_implementation_source}${dedicated_options_test_source}"
+    "${dedicated_coop_endpoint_option_contract}"
+    dedicated_coop_endpoint_option_contract_position)
+  if(dedicated_coop_endpoint_option_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dedicated co-op endpoint CLI lost '${dedicated_coop_endpoint_option_contract}'")
   endif()
 endforeach()
 
@@ -6923,7 +16669,7 @@ require_ordered_fragments(runtime_campaign_strategic_ai_scenario_save_executable
   "gGameUBOptions.fDeadMerc = sGeneralInfo.sfDeadMerc;")
 require_ordered_fragments(runtime_campaign_strategic_ai_scenario_save_executable
   "Scenario origin must be serialized and restored before the common JA25 state"
-  "if( !SaveGeneralInfo( hFile ) )"
+  "if( !SaveGeneralInfo( hFile, uiResumeScreen ) )"
   "if( !SaveJa25SaveInfoToSaveGame( hFile ) )"
   "if( !LoadGeneralInfo( hFile ) )"
   "if ( !LoadJa25SaveInfoFromSavedGame( hFile ) )")
@@ -19137,7 +28883,7 @@ string(SUBSTRING "${multiplayer_heal_client_executable}"
   ${multiplayer_receive_heal_start} ${multiplayer_receive_heal_length}
   multiplayer_receive_heal_slice)
 foreach(required_multiplayer_send_heal_marker IN ITEMS
-    "data.ubID=pSoldier->identity().id()"
+    "data.ubID=MPEncodeSoldierID(pSoldier->identity().id())"
     "data.bLife=pSoldier->vitals().health()"
     "data.bBleeding=pSoldier->vitals().bleeding()"
     "sizeof(heal)")
@@ -27176,10 +36922,16 @@ endforeach()
 # second actor-state path beside command execution.
 file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp"
   tactical_world_adapter_contents)
+strip_cxx_comments_and_literals(tactical_world_adapter_contents
+  tactical_world_adapter_code)
+extract_brace_bounded_slice(tactical_world_adapter_code
+  "TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(\n\tTacticalWorldSnapshot& output) noexcept"
+  tactical_world_adapter_capture_slice
+  "Cannot bound TacticalWorldAdapter authoritative capture")
 string(REGEX MATCH
   "(^|[^A-Za-z0-9_])(MercPtrs|TacticalActor|gAnimControl)([^A-Za-z0-9_]|$)"
   direct_tactical_world_actor_projection
-  "${tactical_world_adapter_contents}")
+  "${tactical_world_adapter_capture_slice}")
 if(direct_tactical_world_actor_projection)
   message(FATAL_ERROR
     "TacticalWorldAdapter reads legacy actor storage directly; publish state through TacticalEntityHost")
@@ -27187,7 +36939,7 @@ endif()
 foreach(required_actor_state_fragment IN ITEMS
     "SynchronizeJa2TacticalEntityStates"
     "directory.state(entity)")
-  string(FIND "${tactical_world_adapter_contents}"
+  string(FIND "${tactical_world_adapter_capture_slice}"
     "${required_actor_state_fragment}" required_actor_state_position)
   if(required_actor_state_position EQUAL -1)
     message(FATAL_ERROR
@@ -27195,11 +36947,36 @@ foreach(required_actor_state_fragment IN ITEMS
   endif()
 endforeach()
 
+# Door visibility is a live JA2 LOS query, not actor-state projection. Keep its
+# legacy TacticalActor read isolated to this helper while capture continues to
+# consume actor snapshots exclusively through TacticalEntityHost.
+extract_brace_bounded_slice(tactical_world_adapter_code
+  "bool IsJa2TacticalDoorVisibleToPlayerTeam(\n\tstd::int32_t baseGrid) noexcept"
+  tactical_world_adapter_door_visibility_slice
+  "Cannot bound authoritative public-door visibility query")
+require_ordered_fragments(tactical_world_adapter_door_visibility_slice
+  "Public-door visibility lost loaded-world/player-team/LOS validation"
+  "IsJa2TacticalWorldLoaded()"
+  "gbPlayerNum >= MAXTEAMS"
+  "TileIsOutOfBounds(baseGrid)"
+  "gTacticalStatus.Team[gbPlayerNum].bFirstID"
+  "gTacticalStatus.Team[gbPlayerNum].bLastID"
+  "GetJa2SoldierRepository().resolve(id.i)"
+  "soldier->vitals().health() < OKLIFE"
+  "soldier->roster().active()"
+  "soldier->roster().inSector()"
+  "SoldierTo3DLocationLineOfSightTest("
+  "soldier, baseGrid"
+  "for (INT8 direction : Directions)"
+  "NewGridNo("
+  "SoldierTo3DLocationLineOfSightTest(")
+
 file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp"
   tactical_entity_host_contents)
 foreach(required_actor_projection_fragment IN ITEMS
-    "TacticalActorSnapshot LegacyState"
-    "publishState(LegacyState(soldier))"
+    "std::optional<TacticalActorSnapshot> LegacyState"
+    "const std::optional<TacticalActorSnapshot> state = LegacyState(soldier)"
+    "BoundDirectory()->publishState(*state)"
     "TacticalEntityRoster& ActiveActorRoster()"
     "TacticalEntityRoster& AwayActorRoster()"
     "RebindRosterAfterRecordSwap(ActiveActorRoster())"

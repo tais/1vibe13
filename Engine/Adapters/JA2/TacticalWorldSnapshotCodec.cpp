@@ -9,11 +9,21 @@
 namespace
 {
 constexpr std::uint32_t TacticalWorldSnapshotMagic = 0x31535754u; // "TWS1"
+constexpr std::uint8_t TacticalHandItemAmmunitionStateFlag = 1u << 0;
+constexpr std::uint8_t TacticalHandItemChamberedFlag = 1u << 1;
+constexpr std::uint8_t TacticalHandItemKnownFlags =
+	TacticalHandItemAmmunitionStateFlag | TacticalHandItemChamberedFlag;
 
-std::size_t EffectiveMaximum(std::size_t requested)
+std::size_t EffectiveActorMaximum(std::size_t requested)
 {
 	return std::min(
 		requested, TacticalWorldSnapshot::DefaultMaximumActors);
+}
+
+std::size_t EffectiveDoorMaximum(std::size_t requested)
+{
+	return std::min(
+		requested, TacticalWorldSnapshot::DefaultMaximumDoors);
 }
 
 bool IsValidStance(TacticalStance stance)
@@ -27,6 +37,20 @@ bool IsValidStance(TacticalStance stance)
 			return true;
 	}
 	return false;
+}
+
+void WriteDimensions(BinaryWriter& writer,
+	const TacticalWorldDimensions& dimensions)
+{
+	writer.writeU16(dimensions.columns);
+	writer.writeU16(dimensions.rows);
+}
+
+bool ReadDimensions(BinaryReader& reader,
+	TacticalWorldDimensions& dimensions)
+{
+	return reader.readU16(dimensions.columns) &&
+		reader.readU16(dimensions.rows) && dimensions.valid();
 }
 
 void WriteI16(BinaryWriter& writer, std::int16_t value)
@@ -58,6 +82,38 @@ bool ReadBool(BinaryReader& reader, bool& value)
 	return true;
 }
 
+void WriteHandItem(BinaryWriter& writer,
+	const TacticalHandItemSnapshot& hand)
+{
+	writer.writeU16(hand.item);
+	writer.writeU8(hand.quantity);
+	WriteI16(writer, hand.condition);
+	writer.writeU16(hand.ammunitionItem);
+	writer.writeU16(hand.ammunitionCount);
+	WriteI16(writer, hand.ammunitionCondition);
+	std::uint8_t flags = 0;
+	if (hand.ammunitionState)
+		flags |= TacticalHandItemAmmunitionStateFlag;
+	if (hand.chambered) flags |= TacticalHandItemChamberedFlag;
+	writer.writeU8(flags);
+}
+
+bool ReadHandItem(BinaryReader& reader, TacticalHandItemSnapshot& hand)
+{
+	std::uint8_t flags = 0;
+	if (!reader.readU16(hand.item) || !reader.readU8(hand.quantity) ||
+		!ReadI16(reader, hand.condition) ||
+		!reader.readU16(hand.ammunitionItem) ||
+		!reader.readU16(hand.ammunitionCount) ||
+		!ReadI16(reader, hand.ammunitionCondition) ||
+		!reader.readU8(flags) || (flags & ~TacticalHandItemKnownFlags) != 0)
+		return false;
+	hand.ammunitionState =
+		(flags & TacticalHandItemAmmunitionStateFlag) != 0;
+	hand.chambered = (flags & TacticalHandItemChamberedFlag) != 0;
+	return hand.valid();
+}
+
 void WriteSector(BinaryWriter& writer, const TacticalSectorSnapshot& sector)
 {
 	WriteI16(writer, sector.x);
@@ -78,13 +134,22 @@ void WriteTurn(BinaryWriter& writer, const TacticalTurnSnapshot& turn)
 	WriteBool(writer, turn.inCombat);
 	writer.writeU8(turn.activeTeam);
 	writer.writeU64(turn.serial);
+	writer.writeU8(static_cast<std::uint8_t>(turn.interruptPhase));
+	writer.writeU64(turn.interruptSerial);
+	WriteBool(writer, turn.commandsBlocked);
 }
 
 bool ReadTurn(BinaryReader& reader, TacticalTurnSnapshot& turn)
 {
-	return ReadBool(reader, turn.turnBased) &&
+	if (!(ReadBool(reader, turn.turnBased) &&
 		ReadBool(reader, turn.inCombat) && reader.readU8(turn.activeTeam) &&
-		reader.readU64(turn.serial);
+		reader.readU64(turn.serial))) return false;
+	std::uint8_t phase = 0;
+	if (!reader.readU8(phase) ||
+		phase > static_cast<std::uint8_t>(TacticalInterruptPhase::Active) ||
+		!reader.readU64(turn.interruptSerial)) return false;
+	turn.interruptPhase = static_cast<TacticalInterruptPhase>(phase);
+	return ReadBool(reader, turn.commandsBlocked);
 }
 
 void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
@@ -105,6 +170,13 @@ void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	WriteI16(writer, actor.maximumBreath);
 	WriteBool(writer, actor.active);
 	WriteBool(writer, actor.inSector);
+	WriteBool(writer, actor.hostileToPlayerTeam);
+	WriteBool(writer, actor.interruptActionEligible);
+	WriteHandItem(writer, actor.loadout.helmet);
+	WriteHandItem(writer, actor.loadout.vest);
+	WriteHandItem(writer, actor.loadout.legs);
+	WriteHandItem(writer, actor.loadout.primaryHand);
+	WriteHandItem(writer, actor.loadout.secondaryHand);
 }
 
 bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
@@ -119,22 +191,58 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		stance > static_cast<std::uint8_t>(TacticalStance::Prone))
 		return false;
 	actor.stance = static_cast<TacticalStance>(stance);
-	return ReadI16(reader, actor.actionPoints) &&
-		ReadI16(reader, actor.life) && ReadI16(reader, actor.maximumLife) &&
-		ReadI16(reader, actor.breath) &&
-		ReadI16(reader, actor.maximumBreath) &&
-		ReadBool(reader, actor.active) && ReadBool(reader, actor.inSector);
+	if (!ReadI16(reader, actor.actionPoints) ||
+		!ReadI16(reader, actor.life) || !ReadI16(reader, actor.maximumLife) ||
+		!ReadI16(reader, actor.breath) ||
+		!ReadI16(reader, actor.maximumBreath) ||
+		!ReadBool(reader, actor.active) || !ReadBool(reader, actor.inSector) ||
+		!ReadBool(reader, actor.hostileToPlayerTeam) ||
+		!ReadBool(reader, actor.interruptActionEligible))
+		return false;
+	return ReadHandItem(reader, actor.loadout.helmet) &&
+		ReadHandItem(reader, actor.loadout.vest) &&
+		ReadHandItem(reader, actor.loadout.legs) &&
+		ReadHandItem(reader, actor.loadout.primaryHand) &&
+		ReadHandItem(reader, actor.loadout.secondaryHand);
+}
+
+void WriteDoor(BinaryWriter& writer, const TacticalDoorSnapshot& door)
+{
+	writer.writeI32(door.baseGrid);
+	writer.writeU16(door.structureId);
+	WriteBool(writer, door.open);
+}
+
+bool ReadDoor(BinaryReader& reader, TacticalDoorSnapshot& door)
+{
+	return reader.readI32(door.baseGrid) &&
+		reader.readU16(door.structureId) && door.structureId != 0 &&
+		ReadBool(reader, door.open);
 }
 
 bool IsCanonical(const TacticalWorldSnapshot& snapshot)
 {
-	if (snapshot.epoch() == 0) return false;
+	if (snapshot.epoch() == 0 || !snapshot.dimensions().valid() ||
+		!IsValidTacticalInterruptState(snapshot.turn())) return false;
 	const std::vector<TacticalActorSnapshot>& actors = snapshot.actors();
 	for (std::size_t index = 0; index < actors.size(); ++index)
 	{
 		const TacticalActorSnapshot& actor = actors[index];
-		if (!actor.id.valid() || !IsValidStance(actor.stance)) return false;
+		if (!actor.id.valid() || !IsValidStance(actor.stance) ||
+			!actor.loadout.valid() ||
+			!IsValidTacticalInterruptEligibility(actor, snapshot.turn())) return false;
 		if (index != 0 && !(actors[index - 1].id < actor.id)) return false;
+	}
+	const std::vector<TacticalDoorSnapshot>& doors = snapshot.doors();
+	for (std::size_t index = 0; index < doors.size(); ++index)
+	{
+		const TacticalDoorSnapshot& door = doors[index];
+		if (!snapshot.dimensions().contains(door.baseGrid) ||
+			door.structureId == 0)
+			return false;
+		if (index != 0 &&
+			doors[index - 1].baseGrid >= door.baseGrid)
+			return false;
 	}
 	return true;
 }
@@ -143,13 +251,17 @@ bool IsCanonical(const TacticalWorldSnapshot& snapshot)
 TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(
 	const TacticalWorldSnapshot& snapshot,
 	std::vector<std::uint8_t>& bytes,
-	std::size_t maximumActors) noexcept
+	std::size_t maximumActors,
+	std::size_t maximumDoors) noexcept
 {
-	maximumActors = EffectiveMaximum(maximumActors);
+	maximumActors = EffectiveActorMaximum(maximumActors);
+	maximumDoors = EffectiveDoorMaximum(maximumDoors);
 	if (!IsCanonical(snapshot))
 		return TacticalWorldSnapshotEncodeResult::Invalid;
 	if (snapshot.actors().size() > maximumActors)
 		return TacticalWorldSnapshotEncodeResult::TooManyActors;
+	if (snapshot.doors().size() > maximumDoors)
+		return TacticalWorldSnapshotEncodeResult::TooManyDoors;
 
 	try
 	{
@@ -157,16 +269,22 @@ TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(
 		writer.writeU32(TacticalWorldSnapshotMagic);
 		writer.writeU16(TacticalWorldSnapshotWireVersion);
 		writer.writeU64(snapshot.epoch());
+		WriteDimensions(writer, snapshot.dimensions());
 		WriteSector(writer, snapshot.sector());
 		WriteTurn(writer, snapshot.turn());
 		writer.writeU32(
 			static_cast<std::uint32_t>(snapshot.actors().size()));
+		writer.writeU32(
+			static_cast<std::uint32_t>(snapshot.doors().size()));
 		for (const TacticalActorSnapshot& actor : snapshot.actors())
 			WriteActor(writer, actor);
+		for (const TacticalDoorSnapshot& door : snapshot.doors())
+			WriteDoor(writer, door);
 		std::vector<std::uint8_t> encoded = writer.take();
 		const std::size_t expectedBytes =
 			EncodedTacticalWorldSnapshotHeaderBytes +
-			snapshot.actors().size() * EncodedTacticalActorSnapshotBytes;
+			snapshot.actors().size() * EncodedTacticalActorSnapshotBytes +
+			snapshot.doors().size() * EncodedTacticalDoorSnapshotBytes;
 		if (encoded.size() != expectedBytes)
 			return TacticalWorldSnapshotEncodeResult::Invalid;
 		bytes = std::move(encoded);
@@ -181,9 +299,11 @@ TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(
 TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 	const std::vector<std::uint8_t>& bytes,
 	TacticalWorldSnapshot& snapshot,
-	std::size_t maximumActors) noexcept
+	std::size_t maximumActors,
+	std::size_t maximumDoors) noexcept
 {
-	maximumActors = EffectiveMaximum(maximumActors);
+	maximumActors = EffectiveActorMaximum(maximumActors);
+	maximumDoors = EffectiveDoorMaximum(maximumDoors);
 	if (bytes.size() < EncodedTacticalWorldSnapshotHeaderBytes ||
 		bytes.size() > MaximumEncodedTacticalWorldSnapshotBytes)
 		return TacticalWorldSnapshotDecodeResult::Invalid;
@@ -194,24 +314,31 @@ TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 		std::uint32_t magic = 0;
 		std::uint16_t version = 0;
 		std::uint64_t epoch = 0;
+		TacticalWorldDimensions dimensions;
 		TacticalSectorSnapshot sector;
 		TacticalTurnSnapshot turn;
 		std::uint32_t actorCount = 0;
+		std::uint32_t doorCount = 0;
 		if (!reader.readU32(magic) || magic != TacticalWorldSnapshotMagic ||
 			!reader.readU16(version))
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 		if (version != TacticalWorldSnapshotWireVersion)
 			return TacticalWorldSnapshotDecodeResult::UnsupportedVersion;
 		if (!reader.readU64(epoch) || epoch == 0 ||
+			!ReadDimensions(reader, dimensions) ||
 			!ReadSector(reader, sector) || !ReadTurn(reader, turn) ||
-			!reader.readU32(actorCount))
+			!reader.readU32(actorCount) || !reader.readU32(doorCount))
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 		if (actorCount > maximumActors)
 			return TacticalWorldSnapshotDecodeResult::TooManyActors;
+		if (doorCount > maximumDoors)
+			return TacticalWorldSnapshotDecodeResult::TooManyDoors;
 		const std::size_t expectedBytes =
 			EncodedTacticalWorldSnapshotHeaderBytes +
 			static_cast<std::size_t>(actorCount) *
-				EncodedTacticalActorSnapshotBytes;
+				EncodedTacticalActorSnapshotBytes +
+			static_cast<std::size_t>(doorCount) *
+				EncodedTacticalDoorSnapshotBytes;
 		if (bytes.size() != expectedBytes)
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 
@@ -225,12 +352,25 @@ TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 				return TacticalWorldSnapshotDecodeResult::Invalid;
 			actors.push_back(actor);
 		}
+		std::vector<TacticalDoorSnapshot> doors;
+		doors.reserve(doorCount);
+		for (std::uint32_t index = 0; index < doorCount; ++index)
+		{
+			TacticalDoorSnapshot door;
+			if (!ReadDoor(reader, door) ||
+				!dimensions.contains(door.baseGrid) ||
+				(index != 0 &&
+					doors.back().baseGrid >= door.baseGrid))
+				return TacticalWorldSnapshotDecodeResult::Invalid;
+			doors.push_back(door);
+		}
 		if (reader.remaining() != 0)
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 
 		TacticalWorldSnapshot decoded;
 		if (TacticalWorldSnapshot::create(
-				epoch, sector, turn, std::move(actors), decoded, maximumActors) !=
+				epoch, dimensions, sector, turn, std::move(actors),
+				std::move(doors), decoded, maximumActors, maximumDoors) !=
 			TacticalSnapshotCreateError::None)
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 		snapshot = std::move(decoded);

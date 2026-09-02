@@ -88,6 +88,28 @@ extern SoldierID		gusSMCurrentMerc;
 extern BOOLEAN		gfRerenderInterfaceFromHelpText;
 extern BOOLEAN		gfInItemPickupMenu;
 
+namespace
+{
+thread_local UINT32 gSavedGameFaceReconstructionDepth = 0;
+
+bool ReconstructingSavedGameFaces() noexcept
+{
+	return gSavedGameFaceReconstructionDepth != 0;
+}
+}
+
+ScopedSavedGameFaceReconstruction::ScopedSavedGameFaceReconstruction(
+	bool enabled) noexcept
+	: enabled_(enabled)
+{
+	if (enabled_) ++gSavedGameFaceReconstructionDepth;
+}
+
+ScopedSavedGameFaceReconstruction::~ScopedSavedGameFaceReconstruction() noexcept
+{
+	if (enabled_) --gSavedGameFaceReconstructionDepth;
+}
+
 BOOLEAN FaceRestoreSavedBackgroundRect( INT32 iFaceIndex, INT16 sDestLeft, INT16 sDestTop, INT16 sSrcLeft, INT16 sSrcTop, INT16 sWidth, INT16 sHeight );
 void SetupFinalTalkingDelay( FACETYPE *pFace );
 
@@ -156,13 +178,16 @@ INT32	InitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiInitFlags
 	uiBlinkFrequency			= gMercProfiles[ usMercProfileID ].uiBlinkFrequency;
 	uiExpressionFrequency	= gMercProfiles[ usMercProfileID ].uiExpressionFrequency;
 
-	if ( Random( 2 ) )
+	if ( !ReconstructingSavedGameFaces() )
 	{
-		uiBlinkFrequency		+= Random( 2000 );
-	}
-	else
-	{
-		uiBlinkFrequency		-= Random( 2000 );
+		if ( Random( 2 ) )
+		{
+			uiBlinkFrequency		+= Random( 2000 );
+		}
+		else
+		{
+			uiBlinkFrequency		-= Random( 2000 );
+		}
 	}
 
 	return( InternalInitFace( usMercProfileID, ubSoldierID, uiInitFlags, gMercProfiles[ usMercProfileID ].ubFaceIndex, uiBlinkFrequency, uiExpressionFrequency ) );
@@ -479,7 +504,11 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 	pFace->iVideoOverlay	= -1;
 	//pFace->uiEyeDelay			=	gMercProfiles[ usMercProfileID ].uiEyeDelay;
 	//pFace->uiMouthDelay		= gMercProfiles[ usMercProfileID ].uiMouthDelay;
-	pFace->uiEyeDelay			=	50 + Random( 30 );
+	pFace->uiEyeDelay			=	50;
+	if ( !ReconstructingSavedGameFaces() )
+	{
+		pFace->uiEyeDelay		+= Random( 30 );
+	}
 	pFace->uiMouthDelay		= 120;
 	pFace->ubCharacterNum = usMercProfileID;
 

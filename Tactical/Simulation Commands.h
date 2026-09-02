@@ -33,6 +33,7 @@ enum class SimulationCommandDomainError
 	InvalidTargetGrid,
 	InvalidTargetLevel,
 	InvalidTargetCubeLevel,
+	InvalidAimTime,
 	InvalidActorGrid,
 	InvalidActorLevel,
 	InvalidReportedGrid,
@@ -62,6 +63,7 @@ enum class SimulationCommandDomainError
 	InvalidBulkReloadMode,
 	InvalidBulkReloadSquad,
 	InvalidBulkReloadRoster,
+	InvalidInterruptPrecondition,
 	InvalidWeaponConfigurationResult,
 	InvalidWeaponConfigurationCause,
 	InvalidWeaponConfigurationPostApplyPolicy,
@@ -72,6 +74,31 @@ enum class SimulationCommandDomainError
 // execution entry point. Live actor/context checks remain executor policy.
 SimulationCommandDomainError ValidateSimulationCommandDomain(
 	const SimulationCommand& command) noexcept;
+
+// Main-thread server seam for one exact hostile target. Success captures the
+// current target position and hand item into a NetworkPeer command; failure
+// leaves output unchanged. The executor repeats every live precondition.
+bool PrepareAimedFirearmAttackCommand(
+	TacticalEntityId actor,
+	TacticalEntityId target,
+	std::uint8_t aimTime,
+	AimedFirearmAttackCommand& output) noexcept;
+
+// Main-thread server seam for the native selected-actor reload action. The
+// client chooses neither an inventory slot nor ammunition: JA2 resolves both
+// under the same live checks at preparation and retained-command execution.
+bool PrepareReloadWeaponCommand(
+	TacticalEntityId actor,
+	ReloadWeaponCommand& output) noexcept;
+
+// Main-thread server seam for an exact currently projected door. The public
+// identity is combined with private live fingerprints/costs; both preparation
+// and retained execution repeat the complete native eligibility predicate.
+bool PrepareAuthoritativeDoorOpenCloseCommand(
+	TacticalEntityId actor,
+	TacticalWorldObjectId object,
+	bool desiredOpen,
+	AuthoritativeDoorOpenCloseCommand& output) noexcept;
 
 enum class SimulationCommandDispatchStatus
 {

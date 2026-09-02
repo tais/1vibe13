@@ -18,6 +18,7 @@
 #include <string.h>
 #include <cstdio>
 #include <csignal>
+#include <filesystem>
 #include <stdexcept>
 #include <Engine/Core/SubsystemRuntime.h>
 #ifdef _WIN32
@@ -39,7 +40,11 @@
 #include "Utilities.h"
 #include "structure.h"
 #include "GameSettings.h"
+#include "GameContext.h"
+#include "DedicatedCoopRuntime.h"
 #include "DedicatedServerOptions.h"
+#include "FullEngineCoopClientOptions.h"
+#include "FullEngineCoopClientRuntime.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
 #include "video.h"
@@ -76,9 +81,42 @@ static vfs::Path	s_CodePage;
 
 static vfs::FileLogger *vfslog = NULL;
 
+extern BOOLEAN gfDedicatedServer;
+extern BOOLEAN gfDedicatedServerProcessFailed;
+
 static void RequestProcessTermination(int) noexcept
 {
 	s_TerminationRequested = 1;
+}
+
+static bool ProcessTerminationRequested() noexcept
+{
+	return s_TerminationRequested != 0;
+}
+
+static int ProcessFailureExitStatus() noexcept
+{
+	return gfDedicatedServer || IsFullEngineCoopClientProcess() ? 2 : 0;
+}
+
+static void CloseClientAfterStoppedPlatform() noexcept
+{
+	if (!IsFullEngineCoopClientProcess()) return;
+	FullEngineCoopClientRuntime& runtime =
+		GetFullEngineCoopClientRuntime();
+	runtime.stopTransport();
+	runtime.closeAfterVfs();
+}
+
+static void ShutdownClientForFatalExit() noexcept
+{
+	if (!IsFullEngineCoopClientProcess()) return;
+	// If SubsystemRuntime acquired the lease, SGPExit orders composition,
+	// GameContext, VFS, then lease teardown. If startup failed before that
+	// handoff, the explicit close below releases the still-early lease.
+	try { SGPExit(); }
+	catch (...) {}
+	CloseClientAfterStoppedPlatform();
 }
 
 int		iWindowedMode;
@@ -90,7 +128,8 @@ static void SHOWEXCEPTION(sgp::Exception& ex)
 	}
 	catch(sgp::Exception &ex2) {
 		SGP_ERROR(ex2.what());
-		exit(0);
+		ShutdownClientForFatalExit();
+		exit(ProcessFailureExitStatus());
 	}
 }
 
@@ -101,31 +140,37 @@ static void SHOWEXCEPTION(vfs::Exception& ex)
 	}
 	catch(vfs::Exception &ex2) {
 		SGP_ERROR(ex2.what());
-		exit(0);
+		ShutdownClientForFatalExit();
+		exit(ProcessFailureExitStatus());
 	}
 }
 
 #define HANDLE_FATAL_ERROR \
 	catch(sgp::Exception &ex){ \
 		SGP_ERROR(ex.what()); \
+		ShutdownClientForFatalExit(); \
 		FatalError((const STR8)ex.what()); \
-		exit(0); } \
+		exit(ProcessFailureExitStatus()); } \
 	catch(vfs::Exception &ex){ \
 		SGP_ERROR(ex.what()); \
+		ShutdownClientForFatalExit(); \
 		FatalError((const STR8)ex.getExceptionString().utf8().c_str()); \
-		exit(0); } \
+		exit(ProcessFailureExitStatus()); } \
 	catch(std::exception &ex){ \
 		SGP_ERROR(ex.what()); \
+		ShutdownClientForFatalExit(); \
 		FatalError((const STR8)ex.what()); \
-		exit(0); } \
+		exit(ProcessFailureExitStatus()); } \
 	catch(const char* msg){ \
 		SGP_ERROR(msg); \
+		ShutdownClientForFatalExit(); \
 		FatalError((const STR8)msg); \
-		exit(0); } \
+		exit(ProcessFailureExitStatus()); } \
 	catch(...){ \
 		SGP_ERROR("Caught undefined exception"); \
+		ShutdownClientForFatalExit(); \
 		FatalError("Caught undefined exception"); \
-		exit(0); }
+		exit(ProcessFailureExitStatus()); }
 
 
 extern UINT32		MemDebugCounter;
@@ -423,7 +468,34 @@ bool InitializeVirtualFileSystemBoundary()
 {
 	try
 	{
-		if (!vfs_init::initVirtualFileSystem(vfs_config_ini))
+		bool initialized = false;
+		if (IsDedicatedCoopProcess())
+		{
+			const std::filesystem::path& profile =
+				GetDedicatedCoopRuntime().profileDirectory();
+			if (profile.empty()) return false;
+			vfs_init::WritableProfileOverride replacement;
+			replacement.name = L"_DEDICATED_CAMPAIGN";
+			replacement.root = vfs::String(profile.c_str());
+			initialized = vfs_init::initVirtualFileSystem(
+				vfs_config_ini, replacement);
+		}
+		else if (IsFullEngineCoopClientProcess())
+		{
+			const std::filesystem::path& profile =
+				GetFullEngineCoopClientRuntime().profileDirectory();
+			if (profile.empty()) return false;
+			vfs_init::WritableProfileOverride replacement;
+			replacement.name = L"_COOP_CLIENT_CAMPAIGN";
+			replacement.root = vfs::String(profile.c_str());
+			initialized = vfs_init::initVirtualFileSystem(
+				vfs_config_ini, replacement);
+		}
+		else
+		{
+			initialized = vfs_init::initVirtualFileSystem(vfs_config_ini);
+		}
+		if (!initialized)
 		{
 			ShutdownVirtualFileSystemBoundary();
 			return false;
@@ -464,6 +536,40 @@ bool InitializePackageBoundary()
 	throw std::runtime_error(message);
 }
 
+void ConfigureLegacyExclusiveVirtualLocations()
+{
+	getVFS()->getVirtualLocation(vfs::Path("Temp"), true)->
+		setIsExclusive(true);
+	getVFS()->getVirtualLocation(vfs::Path("ShadeTables"), true)->
+		setIsExclusive(true);
+	getVFS()->getVirtualLocation(
+		vfs::Path(pMessageStrings[MSG_SAVEDIRECTORY] + 3), true)->
+		setIsExclusive(true);
+	getVFS()->getVirtualLocation(
+		vfs::Path(pMessageStrings[MSG_MPSAVEDIRECTORY] + 3), true)->
+		setIsExclusive(true);
+}
+
+bool InitializeCoopContentManifestBoundary()
+{
+	// Package profiles are complete, but legacy game initialization has not yet
+	// had a chance to create visual caches in the private writable profile. Keep
+	// this as a separate transactional subsystem: if capture fails, the already
+	// active package boundary is still guaranteed to participate in rollback.
+	// Configure the legacy runtime namespaces first: a resumed profile may
+	// already contain their checkpointed cache/sidecar files, and bfVFS makes
+	// installed bytes below these exclusive locations semantically unreachable.
+	if (IsDedicatedCoopProcess() || IsFullEngineCoopClientProcess())
+		ConfigureLegacyExclusiveVirtualLocations();
+	if (IsDedicatedCoopProcess())
+		return GetDedicatedCoopRuntime().
+			captureContentManifestAfterPackageMount();
+	if (IsFullEngineCoopClientProcess())
+		return GetFullEngineCoopClientRuntime().
+			captureContentManifestAfterPackageMount();
+	return true;
+}
+
 void ShutdownPackageBoundary()
 {
 	const PackageHostShutdownResult result = ShutdownStartupDataPackages();
@@ -478,12 +584,7 @@ void ShutdownPackageBoundary()
 
 bool InitializeLegacyContentBoundary()
 {
-	getVFS()->getVirtualLocation(vfs::Path("Temp"),true)->setIsExclusive(true);
-	getVFS()->getVirtualLocation(vfs::Path("ShadeTables"),true)->setIsExclusive(true);
-	getVFS()->getVirtualLocation(
-		vfs::Path(pMessageStrings[MSG_SAVEDIRECTORY]+3),true)->setIsExclusive(true);
-	getVFS()->getVirtualLocation(
-		vfs::Path(pMessageStrings[MSG_MPSAVEDIRECTORY]+3),true)->setIsExclusive(true);
+	ConfigureLegacyExclusiveVirtualLocations();
 
 	if(!sp_force_load_jsd_xml_file.empty())
 	{
@@ -558,6 +659,24 @@ void ShutdownGameBoundary()
 SubsystemRuntime& GetStandardGamingPlatformRuntime()
 {
 	static SubsystemRuntime runtime({
+		SubsystemDefinition{"dedicated campaign lease",
+			[] {
+				return !IsDedicatedCoopProcess() ||
+					GetDedicatedCoopRuntime().prepared();
+			},
+			[] {
+				if (IsDedicatedCoopProcess())
+					GetDedicatedCoopRuntime().close();
+			}, 140},
+		SubsystemDefinition{"full-engine co-op client campaign lease",
+			[] {
+				return !IsFullEngineCoopClientProcess() ||
+					GetFullEngineCoopClientRuntime().prepared();
+			},
+			[] {
+				if (IsFullEngineCoopClientProcess())
+					GetFullEngineCoopClientRuntime().closeAfterVfs();
+			}, 140},
 		SubsystemDefinition{"SDL",
 			[] {
 				if (SDL_WasInit(SDL_INIT_VIDEO)) return true;
@@ -566,6 +685,12 @@ SubsystemRuntime& GetStandardGamingPlatformRuntime()
 				return false;
 			},
 			[] { SDL_Quit(); }, 125},
+		SubsystemDefinition{"dedicated co-op admission transport",
+			[] { return true; },
+			[] {
+				if (IsDedicatedCoopProcess())
+					GetDedicatedCoopRuntime().stopAdmissionTransport();
+			}, 124},
 		SubsystemDefinition{"debug",
 			[] {
 				if (!InitializeDebugManager()) return false;
@@ -608,10 +733,13 @@ SubsystemRuntime& GetStandardGamingPlatformRuntime()
 		SubsystemDefinition{"virtual file system",
 			InitializeVirtualFileSystemBoundary,
 			ShutdownVirtualFileSystemBoundary, 130},
-		SubsystemDefinition{"data packages",
-			InitializePackageBoundary,
-			ShutdownPackageBoundary, 10},
-		SubsystemDefinition{"legacy content",
+			SubsystemDefinition{"data packages",
+				InitializePackageBoundary,
+				ShutdownPackageBoundary, 10},
+			SubsystemDefinition{"co-op installed content manifest",
+				InitializeCoopContentManifestBoundary,
+				[] {}, 5},
+			SubsystemDefinition{"legacy content",
 			InitializeLegacyContentBoundary,
 			[] {}, 55},
 		SubsystemDefinition{"clock",
@@ -631,23 +759,42 @@ SubsystemRuntime& GetStandardGamingPlatformRuntime()
 			[] { ShutdownMusicLists(); }, 20},
 		SubsystemDefinition{"game",
 			InitializeGameBoundary,
-			ShutdownGameBoundary, 0}});
+			ShutdownGameBoundary, 0},
+		// Equal-order boundaries stop in reverse initialization order.  This
+		// no-op startup entry is deliberately last so a registered tactical
+		// RuntimeMessageBus sink is detached while GameContext is still alive,
+		// including exit()-driven fatal teardown that bypasses main's tail.
+		SubsystemDefinition{"dedicated co-op tactical composition",
+			[] { return true; },
+			[] {
+				if (IsDedicatedCoopProcess())
+					(void)GetDedicatedCoopRuntime()
+						.detachTacticalComposition();
+			}, 0},
+		// This entry is later than game at the same order, so it detaches the
+		// client socket, synchronizer, and passive replica before GameContext.
+		// SDL and the private VFS profile remain alive until their own boundaries.
+		SubsystemDefinition{"full-engine co-op client composition",
+			[] { return true; },
+			[] {
+				if (IsFullEngineCoopClientProcess())
+					GetFullEngineCoopClientRuntime().stopTransport();
+			}, 0}});
 	return runtime;
 }
 }
 
 BOOLEAN InitializeStandardGamingPlatform(void)
 {
-	if (!s_ExitHandlerRegistered)
-	{
-		if (atexit(SafeSGPExit) != 0) return FALSE;
-		s_ExitHandlerRegistered = true;
-	}
+	// Construct the runtime before startup. SafeSGPExit is registered only after
+	// startup has constructed every subsystem-owned function static, so reverse
+	// atexit ordering stops the live runtime before any of those destructors.
+	SubsystemRuntime& runtime = GetStandardGamingPlatformRuntime();
 
 	// Second, read in settings
 	GetRuntimeSettings( );
 	const SubsystemStartResult result =
-		GetStandardGamingPlatformRuntime().start();
+		runtime.start();
 	if (result.callbackException)
 	{
 		if (result.rollback.callbackFailures != 0)
@@ -669,6 +816,15 @@ BOOLEAN InitializeStandardGamingPlatform(void)
 			name, result.started, result.rollback.stopped,
 			result.rollback.callbackFailures);
 		return FALSE;
+	}
+	if (!s_ExitHandlerRegistered)
+	{
+		if (atexit(SafeSGPExit) != 0)
+		{
+			(void)runtime.stop();
+			return FALSE;
+		}
+		s_ExitHandlerRegistered = true;
 	}
 	return TRUE;
 }
@@ -1106,7 +1262,11 @@ void ShutdownWithErrorBox(const CHAR8 *pcMessage)
 	strncpy(gzErrorMsg, pcMessage, 255);
 	gzErrorMsg[255]='\0';
 	gfIgnoreMessages=TRUE;
-
+	if (gfDedicatedServer)
+	{
+		gfDedicatedServerProcessFailed = TRUE;
+		exit(2);
+	}
 	exit(0);
 }
 
@@ -1343,20 +1503,26 @@ int main(int argc, char** argv)
 		return 2;
 	}
 	InstallDedicatedServerOptions(dedicated.options);
+	const FullEngineCoopClientOptionParseResult coopClient =
+		ParseFullEngineCoopClientOptions(argc, argv);
+	if (!coopClient)
+	{
+		std::fprintf(stderr, "[co-op client] invalid options: %s%s%s\n",
+			FullEngineCoopClientOptionErrorName(coopClient.error),
+			coopClient.argument.empty() ? "" : " near ",
+			coopClient.argument.c_str());
+		return 2;
+	}
+	InstallFullEngineCoopClientOptions(coopClient.options);
 	if (dedicated.options.enabled)
 	{
-		if (dedicated.options.mode == DedicatedServerMode::Coop)
-		{
-			std::fprintf(stderr,
-				"[dedicated] co-op admission remains closed: authoritative "
-				"campaign execution and replication are not installed yet\n");
-			return 2;
-		}
 		gfDedicatedServer = TRUE;
 		SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
 		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 		SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
-		std::printf("[dedicated] full-engine PvP host mode\n");
+		std::printf("[dedicated] full-engine %s host mode\n",
+			dedicated.options.mode == DedicatedServerMode::Coop
+				? "persistent co-op" : "PvP");
 		std::fflush(stdout);
 	}
 
@@ -1421,9 +1587,33 @@ int main(int argc, char** argv)
 	std::signal(SIGINT, RequestProcessTermination);
 	std::signal(SIGTERM, RequestProcessTermination);
 
+	if (IsDedicatedCoopProcess() &&
+		!GetDedicatedCoopRuntime().prepareEarly())
+	{
+		std::fprintf(stderr,
+			"[dedicated] co-op campaign preparation failed: %s\n",
+			DedicatedCoopRuntimeErrorName(
+				GetDedicatedCoopRuntime().error()));
+		GetDedicatedCoopRuntime().close();
+		return 2;
+	}
+
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+		if (IsDedicatedCoopProcess()) GetDedicatedCoopRuntime().close();
 		return 1;
+	}
+	if (IsFullEngineCoopClientProcess() &&
+		!GetFullEngineCoopClientRuntime().prepareEarly(
+			ProcessTerminationRequested))
+	{
+		std::fprintf(stderr,
+			"[co-op client] campaign bootstrap failed: %s\n",
+			FullEngineCoopClientRuntimeErrorName(
+				GetFullEngineCoopClientRuntime().error()));
+		GetFullEngineCoopClientRuntime().closeAfterVfs();
+		SDL_Quit();
+		return 2;
 	}
 
 	FastDebugMsg("Initializing Random");
@@ -1433,10 +1623,19 @@ int main(int argc, char** argv)
 	gzCommandLine[99] = '\0';
 	ProcessJa2CommandLineBeforeInitialization((CHAR8*)cmdline.c_str());
 
-	if (!HandleJA2CDCheck()) return 0;
+	if (!HandleJA2CDCheck())
+	{
+		CloseClientAfterStoppedPlatform();
+		if (IsFullEngineCoopClientProcess()) SDL_Quit();
+		return ProcessFailureExitStatus();
+	}
 
 	try {
-		if (!InitializeStandardGamingPlatform()) return 0;
+		if (!InitializeStandardGamingPlatform())
+		{
+			CloseClientAfterStoppedPlatform();
+			return ProcessFailureExitStatus();
+		}
 	}
 	HANDLE_FATAL_ERROR
 
@@ -1519,7 +1718,26 @@ int main(int argc, char** argv)
 	}
 
 	gfProgramIsRunning = FALSE;
-	if (is_networked)
+	if (IsDedicatedCoopProcess())
+	{
+		DedicatedCoopRuntime& runtime = GetDedicatedCoopRuntime();
+		// An exception may leave legacy globals partially mutated even though
+		// FrameDriver correctly unwinds its in-frame marker.  Preserve the last
+		// known-good checkpoint on every failed process and only finalize after a
+		// cleanly completed loop.
+		if (gfDedicatedServerProcessFailed)
+			runtime.stopAdmissionTransport();
+		else if (runtime.campaignEntered() &&
+			!runtime.shutdownAtCommittedBoundary(GetGameContext()))
+		{
+			std::fprintf(stderr,
+				"[dedicated] final co-op checkpoint failed: %s\n",
+				DedicatedCoopRuntimeErrorName(
+					GetDedicatedCoopRuntime().error()));
+			gfDedicatedServerProcessFailed = TRUE;
+		}
+	}
+	else if (is_networked)
 	{
 		// Keep the listener and local transitional host client alive until the
 		// frame loop has stopped, then close both before game/VFS teardown.
@@ -1528,6 +1746,12 @@ int main(int argc, char** argv)
 	}
 
 	FastDebugMsg("Exiting Game");
-	// SGPExit() runs via atexit() registered in InitializeStandardGamingPlatform.
-	return gfDedicatedServerProcessFailed ? 2 : 0;
+	const int exitStatus = gfDedicatedServerProcessFailed ||
+		(IsFullEngineCoopClientProcess() &&
+			GetFullEngineCoopClientRuntime().failed()) ? 2 : 0;
+	// Normal return performs deterministic teardown while every function-local
+	// static is still alive. The registered atexit fallback is exact-once and
+	// remains for fatal exit() paths.
+	SGPExit();
+	return exitStatus;
 }

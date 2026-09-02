@@ -5,6 +5,7 @@
 #include "GameSettings.h"
 #include "GameCapabilities.h"
 #include "SoldierRepository.h"
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
@@ -20,9 +21,11 @@ class GameContext
 public:
 	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {},
 	            EngineServices services = EngineServices::defaults(),
-	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
+	            PackageEventSink& packageEvents = NullPackageEventSink::instance(),
+	            std::uint64_t packageRandomSeed = 0)
 		: settings_(settings), options_(options), capabilities_(capabilities),
-		  runtime_(makeRuntimeOptions(capabilities), services, packageEvents),
+		  runtime_(makeRuntimeOptions(capabilities, packageRandomSeed), services,
+		           packageEvents),
 		  campaignSimulation_(runtime_.campaignClockScheduler())
 	{
 	}
@@ -234,10 +237,12 @@ private:
 		if (capabilities.isEditor()) result.add(GameCapability::ApplicationMapEditor);
 		return result;
 	}
-	static EngineHostOptions makeRuntimeOptions(GameCapabilities capabilities)
+	static EngineHostOptions makeRuntimeOptions(GameCapabilities capabilities,
+		std::uint64_t packageRandomSeed)
 	{
 		EngineHostOptions options;
 		options.hostCapabilities = makeHostCapabilities(capabilities);
+		options.packageRandomSeed = packageRandomSeed;
 		return options;
 	}
 

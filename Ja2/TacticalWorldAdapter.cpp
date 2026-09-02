@@ -2,8 +2,24 @@
 
 #include <cstdint>
 #include <limits>
+#include "Grid Direction.h"
+#include "Isometric Utils.h"
+#include "LOS.h"
 #include "Overhead.h"
+#include "opplist.h"
+#include "Reinforcement.h"
+#include "Soldier macros.h"
+#include "SoldierRepository.h"
+#include "Structure Internals.h"
+#include "TacticalActor.h"
 #include "TacticalEntityHost.h"
+#include "TacticalInterruptHost.h"
+#include "structure.h"
+#include "worlddef.h"
+
+static_assert(WORLD_COLS_MAX == TacticalWorldDimensions::MaximumColumns &&
+	WORLD_ROWS_MAX == TacticalWorldDimensions::MaximumRows,
+	"replicated tactical dimensions must match JA2's enlarged-map ceiling");
 
 namespace
 {
@@ -15,6 +31,25 @@ struct TacticalWorldCompatibilityProjection
 };
 
 TacticalWorldCompatibilityProjection tacticalWorldProjection;
+
+bool ProjectInterruptPhase(
+	Ja2TacticalInterruptPhase source,
+	TacticalInterruptPhase& destination) noexcept
+{
+	switch (source)
+	{
+		case Ja2TacticalInterruptPhase::None:
+			destination = TacticalInterruptPhase::None;
+			return true;
+		case Ja2TacticalInterruptPhase::Resolving:
+			destination = TacticalInterruptPhase::Resolving;
+			return true;
+		case Ja2TacticalInterruptPhase::Active:
+			destination = TacticalInterruptPhase::Active;
+			return true;
+	}
+	return false;
+}
 }
 
 // Exact legacy coordinate names remain cheap lvalue reads, but their public
@@ -38,6 +73,7 @@ void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
 
 void Ja2TacticalWorldAdapter::onWorldLoaded(std::uint64_t worldGeneration) noexcept
 {
+	integrityValid_ = true;
 	TacticalWorldSession::Snapshot state = session_->snapshot();
 	state.loaded = worldGeneration != 0;
 	state.worldGeneration = worldGeneration;
@@ -48,6 +84,7 @@ void Ja2TacticalWorldAdapter::onWorldLoaded(std::uint64_t worldGeneration) noexc
 
 void Ja2TacticalWorldAdapter::onWorldUnloaded() noexcept
 {
+	integrityValid_ = true;
 	session_->unload();
 }
 
@@ -87,15 +124,26 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 	const TacticalWorldSession::Snapshot state = session_->snapshot();
 	if (!state.loaded || state.worldGeneration == 0)
 		return TacticalWorldCaptureResult::Unavailable;
+	if (!integrityValid_)
+		return TacticalWorldCaptureResult::AdapterFailure;
+	const Ja2TacticalInterruptProjection nativeInterrupt =
+		CaptureJa2TacticalInterruptProjection();
+	TacticalInterruptPhase interruptPhase = TacticalInterruptPhase::None;
+	if (!ProjectInterruptPhase(nativeInterrupt.phase, interruptPhase))
+		return TacticalWorldCaptureResult::AdapterFailure;
 
 	try
 	{
+		if (guiWorldCols <= 0 || guiWorldRows <= 0 ||
+			guiWorldCols > TacticalWorldDimensions::MaximumColumns ||
+			guiWorldRows > TacticalWorldDimensions::MaximumRows)
+			return TacticalWorldCaptureResult::AdapterFailure;
+		if (gbPlayerNum >= MAXTEAMS)
+			return TacticalWorldCaptureResult::AdapterFailure;
 		if (!SynchronizeJa2TacticalEntityStates())
 			return TacticalWorldCaptureResult::AdapterFailure;
 		const TacticalEntityDirectory& directory =
 			GetJa2TacticalEntityDirectory();
-		if (directory.activeCount() > maximumActors_)
-			return TacticalWorldCaptureResult::CapacityReached;
 		const std::size_t availableSlots =
 			directory.maximumSlots() < TOTAL_SOLDIERS
 				? directory.maximumSlots()
@@ -110,23 +158,77 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 			const TacticalEntityId entity =
 				directory.identity(static_cast<std::uint16_t>(slot));
 			if (!entity.valid()) continue;
+			if (entity.slot != slot || entity.slot >= TOTAL_SOLDIERS)
+				return TacticalWorldCaptureResult::AdapterFailure;
 			const TacticalActorSnapshot* actor = directory.state(entity);
-			if (!actor) return TacticalWorldCaptureResult::AdapterFailure;
-			actorScratch_.push_back(*actor);
+			if (!actor || actor->id != entity || actor->team >= MAXTEAMS)
+				return TacticalWorldCaptureResult::AdapterFailure;
+			if (actor->team != gbPlayerNum &&
+				gbPublicOpplist[gbPlayerNum][entity.slot] != SEEN_CURRENTLY)
+				continue;
+			if (actorScratch_.size() >= maximumActors_)
+				return TacticalWorldCaptureResult::CapacityReached;
+			TacticalActorSnapshot projected = *actor;
+			projected.interruptActionEligible =
+				IsJa2TacticalInterruptActorEligible(entity);
+			actorScratch_.push_back(projected);
 		}
 
+		if (!gpWorldLevelData)
+			return TacticalWorldCaptureResult::AdapterFailure;
+		doorScratch_.clear();
+		doorScratch_.reserve(maximumDoors_);
+		for (INT32 grid = 0; grid < WORLD_MAX; ++grid)
+		{
+			for (STRUCTURE* structure =
+					GetMapElement(grid).pStructureHead;
+				 structure != nullptr; structure = structure->pNext)
+			{
+				if ((structure->fFlags & STRUCTURE_ANYDOOR) == 0 ||
+					(structure->fFlags & STRUCTURE_SWITCH) != 0 ||
+					(structure->fFlags & STRUCTURE_BASE_TILE) == 0 ||
+					structure->sGridNo != grid ||
+					structure->sCubeOffset != STRUCTURE_ON_GROUND ||
+					structure->usStructureID == 0 ||
+					FindBaseStructure(structure) != structure)
+					continue;
+				if (!IsJa2TacticalDoorVisibleToPlayerTeam(grid)) continue;
+				if (!doorScratch_.empty() &&
+					doorScratch_.back().baseGrid == grid)
+					return TacticalWorldCaptureResult::AdapterFailure;
+				if (doorScratch_.size() >= maximumDoors_)
+					return TacticalWorldCaptureResult::CapacityReached;
+				doorScratch_.push_back(TacticalDoorSnapshot{
+					grid, structure->usStructureID,
+					(structure->fFlags & STRUCTURE_OPEN) != 0});
+			}
+		}
+
+		TacticalTurnSnapshot projectedTurn;
+		projectedTurn.turnBased = state.turn.turnBased;
+		projectedTurn.inCombat = state.turn.inCombat;
+		projectedTurn.activeTeam = state.turn.currentTeam;
+		projectedTurn.serial = state.turnSerial;
+		projectedTurn.commandsBlocked =
+			(state.turn.turnBased && state.turn.inCombat &&
+			 state.turn.pendingCombatActions != 0) ||
+			interruptPhase == TacticalInterruptPhase::Resolving;
+		projectedTurn.interruptPhase = interruptPhase;
+		projectedTurn.interruptSerial = nativeInterrupt.serial;
 		const TacticalSnapshotCreateError result =
 			TacticalWorldSnapshot::createReusableOrdered(
 				state.worldGeneration,
+				TacticalWorldDimensions{
+					static_cast<std::uint16_t>(guiWorldCols),
+					static_cast<std::uint16_t>(guiWorldRows)},
 				TacticalSectorSnapshot{
 					state.sector.x, state.sector.y, state.sector.z, state.loaded},
-				TacticalTurnSnapshot{
-				state.turn.turnBased,
-				state.turn.inCombat,
-				state.turn.currentTeam,
-					state.turnSerial},
-			actorScratch_, output, maximumActors_);
+				projectedTurn,
+				actorScratch_, doorScratch_, output,
+				maximumActors_, maximumDoors_);
 		if (result == TacticalSnapshotCreateError::TooManyActors)
+			return TacticalWorldCaptureResult::CapacityReached;
+		if (result == TacticalSnapshotCreateError::TooManyDoors)
 			return TacticalWorldCaptureResult::CapacityReached;
 		if (result != TacticalSnapshotCreateError::None)
 			return TacticalWorldCaptureResult::AdapterFailure;
@@ -175,6 +277,50 @@ CaptureJa2TacticalTeamPopulation(std::size_t team) noexcept
 bool IsJa2TacticalWorldLoaded() noexcept
 {
 	return CaptureJa2TacticalWorld().loaded;
+}
+
+bool IsJa2TacticalDoorVisibleToPlayerTeam(
+	std::int32_t baseGrid) noexcept
+{
+	if (!IsJa2TacticalWorldLoaded() || gbPlayerNum >= MAXTEAMS ||
+		TileIsOutOfBounds(baseGrid))
+		return false;
+	static constexpr INT8 Directions[NUM_WORLD_DIRECTIONS] = {
+		NORTH, SOUTH, EAST, WEST,
+		NORTHEAST, NORTHWEST, SOUTHEAST, SOUTHWEST};
+	for (SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
+		id <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++id)
+	{
+		TacticalActor* const soldier =
+			GetJa2SoldierRepository().resolve(id.i);
+		if (!soldier || soldier->vitals().health() < OKLIFE ||
+			!soldier->roster().active() || !soldier->roster().inSector() ||
+			TileIsOutOfBounds(soldier->position().gridNo()))
+			continue;
+		if (SoldierTo3DLocationLineOfSightTest(
+				soldier, baseGrid, 0, 0, TRUE, CALC_FROM_ALL_DIRS))
+			return true;
+		for (INT8 direction : Directions)
+		{
+			const INT32 adjacent = NewGridNo(
+				baseGrid, DirectionInc(direction));
+			if (SoldierTo3DLocationLineOfSightTest(
+					soldier, adjacent, 0, 0, TRUE,
+					CALC_FROM_ALL_DIRS))
+				return true;
+		}
+	}
+	return false;
+}
+
+void MarkJa2TacticalWorldIntegrityFailure() noexcept
+{
+	GetJa2TacticalWorldAdapter().markIntegrityFailure();
+}
+
+bool IsJa2TacticalWorldIntegrityValid() noexcept
+{
+	return GetJa2TacticalWorldAdapter().integrityValid();
 }
 
 std::uint32_t CaptureJa2TacticalStatusFlags() noexcept
@@ -226,6 +372,7 @@ void ClearJa2TacticalWorldSector() noexcept
 
 std::uint64_t CommitJa2TacticalWorldLoad() noexcept
 {
+	ResetTacticalReinforcementState();
 	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
 	const std::uint64_t generation = session.commitLoad();
 	SynchronizeLegacyWorldMirrors(session);
@@ -412,6 +559,9 @@ bool RemoveJa2TacticalTeamMember(
 
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept
 {
+	const TacticalWorldSession::Snapshot before = CaptureJa2TacticalWorld();
+	if (!before.loaded || before.worldGeneration != worldGeneration)
+		ResetJa2TacticalInterruptForNewWorld();
 	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
 	adapter.onWorldLoaded(worldGeneration);
 	SynchronizeLegacyWorldMirrors(adapter.session());
@@ -419,8 +569,10 @@ void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept
 
 void NotifyJa2TacticalWorldUnloaded() noexcept
 {
+	NotifyJa2TacticalInterruptCleared();
 	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
 	adapter.onWorldUnloaded();
+	ResetTacticalReinforcementState();
 	SynchronizeLegacyWorldMirrors(adapter.session());
 }
 

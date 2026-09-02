@@ -7,6 +7,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
+#include "DedicatedServerOptions.h"
 
 #include "builddefines.h"
 
@@ -6424,7 +6425,8 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 }
 
 
-BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
+static BOOLEAN CheckAndHandleUnloadingOfCurrentWorldInternal(
+	BOOLEAN allowOccupiedPlayerSector)
 {
 	INT16 sBattleSectorX, sBattleSectorY, sBattleSectorZ;
 
@@ -6477,7 +6479,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 					 pSoldier->deployment().sectorY() == gWorldSectorY &&
 					 pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 				{
-					return FALSE;
+					if (!allowOccupiedPlayerSector) return FALSE;
 				}
 			}
 		}
@@ -6565,6 +6567,32 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	NotifyJa2TacticalWorldUnloaded();
 
 	return TRUE;
+}
+
+BOOLEAN CheckAndHandleUnloadingOfCurrentWorld()
+{
+	return CheckAndHandleUnloadingOfCurrentWorldInternal(FALSE);
+}
+
+BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()
+{
+	// This entry point is deliberately narrower than the ordinary strategic
+	// unload.  It may bypass only the live-player occupancy guard, and only for
+	// a process-local, already-committed co-op victory.  The shared implementation
+	// still performs every native sector-save, TrashWorld, flag-clear, and
+	// tactical-world notification step.
+	const DedicatedServerOptions& dedicated = GetDedicatedServerOptions();
+	if (!dedicated.enabled || dedicated.mode != DedicatedServerMode::Coop ||
+		GetCurrentScreen() != GAME_SCREEN ||
+		!IsJa2TacticalWorldLoaded() || gWorldSectorX < 1 || gWorldSectorX > 16 ||
+		gWorldSectorY < 1 || gWorldSectorY > 16 || gbWorldSectorZ < 0 ||
+		gbWorldSectorZ > 3 || !gTacticalStatus.fLastBattleWon ||
+		gTacticalStatus.fEnemyInSector || IsJa2TacticalCombatActive() ||
+		NumEnemyInSector() != 0 || gfTacticalTraversal)
+	{
+		return FALSE;
+	}
+	return CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE);
 }
 
 

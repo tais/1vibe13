@@ -1,6 +1,8 @@
 #ifndef __REINFORCEMENT_H__
 #define __REINFORCEMENT_H__
 
+struct GROUP;
+
 //For Autoresolve (mostly)
 void GetNumberOfEnemiesInFiveSectors( INT16 sSectorX, INT16 sSectorY, UINT16 *pubNumAdmins, UINT16 *pubNumTroops, UINT16 *pubNumElites, UINT16 *pubNumRobots, UINT16 *pubNumTanks, UINT16 *pubNumJeeps );
 void ActivateTurncoatsForAutoResolve( INT16 sSectorX, INT16 sSectorY );
@@ -13,5 +15,10 @@ UINT16 NumEnemiesInFiveSectors( INT16 sMapX, INT16 sMapY );
 UINT8 DoReinforcementAsPendingNonPlayer( INT16 sMapX, INT16 sMapY, UINT8 usTeam );
 void AddPossiblePendingMilitiaToBattle();
 GROUP* GetNonPlayerGroupInSectorForReinforcement( INT16 sMapX, INT16 sMapY, UINT8 usTeam );
+
+// Reinforcement delays/backlogs are tactical-session transients and are not
+// serialized. Reset them whenever a tactical world begins or ends so a cold
+// campaign resume and the uninterrupted host share the same next-battle state.
+void ResetTacticalReinforcementState() noexcept;
 
 #endif

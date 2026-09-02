@@ -2,6 +2,8 @@
 #include <string.h>
 #include <iostream>
 #include "Lua Interpreter.h"
+#include "gameplay_lua_policy.h"
+#include "DEBUG.H"
 #include "MemMan.h"
 
 lua_State *L;
@@ -179,6 +181,8 @@ void InitializeLua( )
 {
 	L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	// Create the accessor metatable
 //	CreateLuaType( L, ACCESSOR_TABLE, LuaAccessors);

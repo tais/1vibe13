@@ -156,11 +156,14 @@ CommandDisposition MemoryTacticalSimulation::execute(
 		}
 		else if constexpr (
 			std::is_same<Command,
-				SystemWorldObjectInteractionCommand>::value)
+				SystemWorldObjectInteractionCommand>::value ||
+			std::is_same<Command,
+				AuthoritativeDoorOpenCloseCommand>::value ||
+			std::is_same<Command, PassInterruptCommand>::value)
 		{
-			// Structure identity, door locks, route continuations and animation
-			// completion are JA2 adapter mechanics. The portable reference must
-			// fail closed instead of inventing a second door model.
+			// Structure identity, door locks, route continuations and native
+			// interrupt lifecycle are JA2 adapter mechanics. The portable
+			// reference must fail closed instead of inventing a second model.
 			return CommandDisposition::Discard;
 		}
 		else

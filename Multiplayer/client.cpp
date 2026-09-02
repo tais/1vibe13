@@ -79,14 +79,19 @@
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
 #include "InterruptWire.h"
+#include "LegacyServerIngress.h"
+#include <array>
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
+#include "TacticalActorPendingActionTypes.h"
 
 #include "SdlNetTransport.h"
 #include <assert.h>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <stdlib.h>
 #include "Music Control.h"
 #include "Map Edgepoints.h"
@@ -185,11 +190,96 @@ static TacticalActor* SafeMerc(UINT16 i)
 		: NULL;
 }
 
+static TacticalActor* SafeMercInSector(UINT16 i)
+{
+	TacticalActor* soldier = SafeMerc(i);
+	return ( soldier && soldier->roster().inSector() )
+		? soldier
+		: NULL;
+}
+
 // gAnimControl[] / TacticalActorAnimationTransitions::initializeAnimation() are indexed by animation state;
 // any wire value >= NUMANIMATIONSTATES is an OOB read / invalid anim init.
 static BOOLEAN IsValidAnimState(UINT16 s)
 {
 	return s < NUMANIMATIONSTATES;
+}
+
+static bool IsValidLegacyGridNo(INT32 gridNo)
+{
+	return gridNo >= 0 && gridNo < WORLD_MAX;
+}
+
+static bool IsValidLegacyWorldLevel(INT32 level)
+{
+	return level >= FIRST_LEVEL && level <= SECOND_LEVEL;
+}
+
+static bool IsValidLegacyItem(UINT16 item)
+{
+	return item > 0 && item < MAXITEMS && item < gMAXITEMS_READ;
+}
+
+static bool IsValidLegacyExplosiveItem(UINT16 item)
+{
+	return IsValidLegacyItem(item) && Item[item].ubClassIndex <= MAXITEMS;
+}
+
+static bool IsLegacySmokeExplosiveType(UINT8 type)
+{
+	switch ( type )
+	{
+		case EXPLOSV_MUSTGAS:
+		case EXPLOSV_BURNABLEGAS:
+		case EXPLOSV_TEARGAS:
+		case EXPLOSV_SMOKE:
+		case EXPLOSV_CREATUREGAS:
+		case EXPLOSV_SIGNAL_SMOKE:
+		case EXPLOSV_SMOKE_DEBRIS:
+		case EXPLOSV_SMOKE_FIRERETARDANT:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static bool IsFiniteLegacyWorldPosition(FLOAT worldX, FLOAT worldY, FLOAT worldZ)
+{
+	return std::isfinite(worldX) && std::isfinite(worldY) &&
+		std::isfinite(worldZ) && worldX >= 0.0f && worldY >= 0.0f &&
+		WORLD_COORD_COLS > 0 && WORLD_COORD_ROWS > 0 &&
+		worldX < static_cast<FLOAT>(WORLD_COORD_COLS) &&
+		worldY < static_cast<FLOAT>(WORLD_COORD_ROWS) &&
+		worldZ >= static_cast<FLOAT>(std::numeric_limits<INT16>::min()) &&
+		worldZ <= static_cast<FLOAT>(std::numeric_limits<INT16>::max());
+}
+
+static bool IsFiniteLegacyPhysicsForce(FLOAT force)
+{
+	return std::isfinite(force) &&
+		force >= static_cast<FLOAT>(std::numeric_limits<INT16>::min()) &&
+		force <= static_cast<FLOAT>(std::numeric_limits<INT16>::max());
+}
+
+static bool IsValidLegacyFixedWorldPosition(INT64 fixedX, INT64 fixedY,
+	INT64 fixedZ)
+{
+	if ( fixedX < 0 || fixedY < 0 )
+		return false;
+	const INT64 worldX = fixedX / FIXEDPT_FRACTIONAL_RESOLUTION;
+	const INT64 worldY = fixedY / FIXEDPT_FRACTIONAL_RESOLUTION;
+	const INT64 worldZ = fixedZ / FIXEDPT_FRACTIONAL_RESOLUTION;
+	return worldX >= 0 && worldY >= 0 && worldX < WORLD_COORD_COLS &&
+		worldY < WORLD_COORD_ROWS &&
+		worldZ >= std::numeric_limits<INT16>::min() &&
+		worldZ <= std::numeric_limits<INT16>::max();
+}
+
+static bool IsValidLegacyFixedIncrement(INT64 increment)
+{
+	const INT64 whole = increment / FIXEDPT_FRACTIONAL_RESOLUTION;
+	return whole >= std::numeric_limits<INT16>::min() &&
+		whole <= std::numeric_limits<INT16>::max();
 }
 // --------------------------------------------------------------------------
 
@@ -395,6 +485,21 @@ player_stats gMPPlayerStats[5];
 // the interrupting team (0 = not interrupted); AddTopMessage forces any green bar
 // to the enemy-interrupt bar while it is non-zero. Cleared on resume_turn / new turn.
 int gMpEnemyInterruptTeam = 0;
+bool gMpSerializedInterruptActive = false;
+bool gMpLocalSerializedInterruptHolder = false;
+SoldierID gMpSerializedInterruptTarget = NOBODY;
+static bool gMpSerializedInterruptReleaseRequested = false;
+static SoldierID gMpSerializedInterruptTargetWire = NOBODY;
+
+static void ClearSerializedInterruptClientState()
+{
+	gMpSerializedInterruptActive = false;
+	gMpLocalSerializedInterruptHolder = false;
+	gMpSerializedInterruptTarget = NOBODY;
+	gMpSerializedInterruptReleaseRequested = false;
+	gMpSerializedInterruptTargetWire = NOBODY;
+	gMpEnemyInterruptTeam = 0;
+}
 
 // OJW - 20090503 - get rid of compile error
 #pragma pack (1)
@@ -610,6 +715,92 @@ typedef struct
 	UINT32		uiDist;
 	UINT32		uiPreRandomIndex;
 } explosiondamage_struct;
+
+static_assert(sizeof(send_hire_struct) == LegacyHirePayloadBytes,
+	"legacy hire wire size changed");
+static_assert(sizeof(send_dismiss_struct) == LegacyDismissPayloadBytes,
+	"legacy dismiss wire size changed");
+static_assert(sizeof(gui_pos) == LegacyGuiPositionPayloadBytes,
+	"legacy GUI-position wire size changed");
+static_assert(sizeof(gui_dir) == LegacyGuiDirectionPayloadBytes,
+	"legacy GUI-direction wire size changed");
+static_assert(sizeof(turn_struct) == LegacyTurnPayloadBytes,
+	"legacy turn wire size changed");
+static_assert(sizeof(ready_struct) == LegacyReadyPayloadBytes,
+	"legacy ready wire size changed");
+static_assert(BULLET_WIRE_BYTES == LegacyBulletPayloadBytes,
+	"legacy bullet wire size changed");
+static_assert(sizeof(physics_object) == LegacyGrenadePayloadBytes,
+	"legacy grenade wire size changed");
+static_assert(sizeof(grenade_result) == LegacyGrenadeResultPayloadBytes,
+	"legacy grenade-result wire size changed");
+static_assert(sizeof(explosive_obj) == LegacyPlantExplosivePayloadBytes,
+	"legacy planted-explosive wire size changed");
+static_assert(sizeof(detonate_struct) == LegacyDetonateExplosivePayloadBytes,
+	"legacy detonation wire size changed");
+static_assert(sizeof(disarm_struct) == LegacyDisarmExplosivePayloadBytes,
+	"legacy disarm wire size changed");
+static_assert(sizeof(spreadeffect_struct) == LegacySpreadEffectPayloadBytes,
+	"legacy spread-effect wire size changed");
+static_assert(sizeof(explosiondamage_struct) ==
+	LegacyExplosionDamagePayloadBytes,
+	"legacy explosion-damage wire size changed");
+static_assert(offsetof(send_hire_struct, team) == LegacyHireAllianceOffset &&
+	offsetof(send_hire_struct, fCopyProfileItemsOver) ==
+		LegacyHireCopyItemsOffset &&
+	offsetof(send_hire_struct, bTeam) == LegacyHireTacticalTeamOffset,
+	"legacy hire authority offsets changed");
+static_assert(offsetof(send_dismiss_struct, ubProfileID) ==
+	LegacyDismissActorOffset, "legacy dismiss actor offset changed");
+static_assert(offsetof(gui_pos, usSoldierID) == LegacyGuiActorOffset &&
+	offsetof(gui_dir, usSoldierID) == LegacyGuiActorOffset &&
+	offsetof(gui_dir, usNewDirection) == LegacyGuiDirectionOffset,
+	"legacy GUI authority offsets changed");
+static_assert(offsetof(physics_object, ubID) == LegacyGrenadeActorOffset &&
+	offsetof(physics_object, ubActionCode) ==
+		LegacyGrenadeActionCodeOffset &&
+	offsetof(physics_object, uiActionData) ==
+		LegacyGrenadeActionDataOffset,
+	"legacy grenade actor offset changed");
+static_assert(offsetof(grenade_result, ubOwnerID) ==
+	LegacyGrenadeResultActorOffset,
+	"legacy grenade-result actor offset changed");
+static_assert(offsetof(explosive_obj, sGridNo) ==
+	LegacyPlantExplosiveGridOffset &&
+	offsetof(explosive_obj, ubID) == LegacyPlantExplosiveActorOffset &&
+	offsetof(explosive_obj, usItem) == LegacyPlantExplosiveItemOffset &&
+	offsetof(explosive_obj, ubItemStatus) ==
+		LegacyPlantExplosiveStatusOffset &&
+	offsetof(explosive_obj, uiWorldIndex) ==
+		LegacyPlantExplosiveWorldIndexOffset &&
+	offsetof(explosive_obj, ubLevel) == LegacyPlantExplosiveLevelOffset &&
+	offsetof(explosive_obj, bDetonatorType) ==
+		LegacyPlantExplosiveDetonatorOffset,
+	"legacy planted-explosive actor offset changed");
+static_assert(offsetof(detonate_struct, ubID) ==
+		LegacyDetonateExplosiveActorOffset &&
+	offsetof(detonate_struct, uiWorldItemIndex) ==
+		LegacyDetonateExplosiveWorldIndexOffset &&
+	offsetof(detonate_struct, ubMPTeamIndex) ==
+		LegacyDetonateExplosiveTeamOffset,
+	"legacy detonation actor offset changed");
+static_assert(offsetof(disarm_struct, uiWorldItemIndex) ==
+		LegacyDisarmExplosiveWorldIndexOffset &&
+	offsetof(disarm_struct, ubMPTeamIndex) ==
+		LegacyDisarmExplosiveTeamOffset &&
+	offsetof(disarm_struct, ubID) == LegacyDisarmExplosiveActorOffset &&
+	offsetof(disarm_struct, sGridNo) == LegacyDisarmExplosiveGridOffset,
+	"legacy disarm actor offset changed");
+static_assert(offsetof(spreadeffect_struct, ubOwner) ==
+	LegacySpreadEffectActorOffset,
+	"legacy spread-effect actor offset changed");
+static_assert(offsetof(explosiondamage_struct, ubSoldierID) ==
+	LegacyExplosionDamageVictimOffset,
+	"legacy explosion-damage victim offset changed");
+static_assert(sizeof(kickR) == LegacyKickPayloadBytes,
+	"legacy kick wire size changed");
+static_assert(sizeof(chat_msg) == LegacyChatPayloadBytes,
+	"legacy chat wire size changed");
 
 // ---------------------------------------------------------------------------
 // PORTABLE WIRE FORMAT helpers (H15/H16/H17/L6)
@@ -945,12 +1136,17 @@ static bool DeserializeAI( SOLDIERCREATE_STRUCT& s, ai_wire_slot* slots, const v
 
 bullets_table bTable[MAXTEAMS][NUM_BULLET_SLOTS];	// rows=global teams, cols=sender bullet slot (audit [40]/[48])
 
-// L1 - grenade pre-random sync: each side keeps a monotonic counter. The sender
-// stamps every grenade event; the receiver only adopts the event's
-// guiPreRandomIndex when its sequence is newer than the last one applied, so a
-// dropped/duplicated/reordered event can no longer drift the shared RNG cursor.
-static UINT32 guiGrenadeEventSeqOut = 0;       // next seq to stamp on outgoing grenade events
-static UINT32 guiLastGrenadeEventSeqIn = 0;    // highest seq adopted from incoming grenade events
+// L1 - grenade pre-random sync: the outgoing sequence is process-local, while
+// each remote peer has its own counter. Track receive watermarks by canonical
+// tactical team so a high sequence from one peer cannot suppress another.
+static UINT32 guiGrenadeEventSeqOut = 0;
+static std::array<UINT32, MAXTEAMS> guiLastGrenadeEventSeqInByTeam{};
+
+static void ResetLegacyGrenadeSequenceState()
+{
+	guiGrenadeEventSeqOut = 0;
+	guiLastGrenadeEventSeqInByTeam.fill(0);
+}
 
 char client_names[4][30];
 
@@ -1286,6 +1482,7 @@ void send_stance ( TacticalActor *pSoldier, UINT8 ubDesiredStance )
 	if(pSoldier->identity().id() < 120)
 	{
 		EV_S_CHANGESTANCE			SChangeStance;
+		memset(&SChangeStance, 0, sizeof(SChangeStance));
 
 		SChangeStance.ubNewStance   = ubDesiredStance;
 		//SChangeStance.usSoldierID  = pSoldier->identity().id();
@@ -1407,6 +1604,17 @@ void send_fire( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	}
 }
 
+void send_attack_start( TacticalActor *pSoldier )
+{
+	if ( pSoldier == NULL || pSoldier->identity().id() >= 120 )
+		return;
+	SoldierID actor = pSoldier->identity().id();
+	if ( actor < 20 )
+		actor = SoldierID{ static_cast<std::uint16_t>( actor.i + ubID_prefix ) };
+	client->SendMessage(
+		"sendATTACKSTART", &actor, sizeof( actor ), AnyConnection, true );
+}
+
 void recieveFIRE(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_BEGINFIREWEAPON);
@@ -1455,21 +1663,37 @@ void recieveHIT(SdlNetMessage *rpcParameters)
 	SoldierID usSoldierID;
 	SoldierID ubAttackerID;
 
-	if((SWeaponHit->usSoldierID >= ubID_prefix) && (SWeaponHit->usSoldierID < (ubID_prefix+6))) // within our netbTeam range...
-		usSoldierID = (SWeaponHit->usSoldierID - ubID_prefix);
-	else
-		usSoldierID = SWeaponHit->usSoldierID;
+	usSoldierID = MPDecodeSoldierID(SWeaponHit->usSoldierID);
+	ubAttackerID = MPDecodeSoldierID(SWeaponHit->ubAttackerID);
 
-	if((SWeaponHit->ubAttackerID >= ubID_prefix) && (SWeaponHit->ubAttackerID < (ubID_prefix+6)))
-		ubAttackerID = (SWeaponHit->ubAttackerID - ubID_prefix);
-	else
-		ubAttackerID = SWeaponHit->ubAttackerID;
-
-	// H11: WeaponHit derefs the victim unconditionally (sGridNo -> gpWorldLevelData[]).
-	// The victim may not exist on this client yet (spawn-order race) or be a bad wire
-	// id -- drop the frame if it doesn't resolve to a live merc.
-	if ( SafeMerc( usSoldierID.i ) == NULL )
+	// WeaponHit indexes item/weapon data, direction tables and the victim's world
+	// tile, and dereferences any non-NOBODY attacker. Reject malformed wire data
+	// before any of those operations.
+	if ( !IsValidLegacyItem(SWeaponHit->usWeaponIndex) ||
+		Item[SWeaponHit->usWeaponIndex].ubClassIndex > MAXITEMS ||
+		SWeaponHit->sDamage < 0 || SWeaponHit->sBreathLoss < 0 ||
+		SWeaponHit->sRange < 0 ||
+		SWeaponHit->usDirection >= NUM_WORLD_DIRECTIONS ||
+		SWeaponHit->ubLocation > AIM_SHOT_GLAND ||
+		(SWeaponHit->fHit != FALSE && SWeaponHit->fHit != TRUE) ||
+		(SWeaponHit->fStopped != FALSE && SWeaponHit->fStopped != TRUE) ||
+		!IsFiniteLegacyWorldPosition(
+			static_cast<FLOAT>(SWeaponHit->sXPos),
+			static_cast<FLOAT>(SWeaponHit->sYPos),
+			static_cast<FLOAT>(SWeaponHit->sZPos)) )
+	{
 		return;
+	}
+
+	if ( SafeMercInSector(usSoldierID.i) == NULL )
+		return;
+	TacticalActor* pAttacker = NULL;
+	if ( ubAttackerID != NOBODY )
+	{
+		pAttacker = SafeMercInSector(ubAttackerID.i);
+		if ( pAttacker == NULL )
+			return;
+	}
 
 	WeaponHit( usSoldierID, SWeaponHit->usWeaponIndex, SWeaponHit->sDamage, SWeaponHit->sBreathLoss, SWeaponHit->usDirection, SWeaponHit->sXPos, SWeaponHit->sYPos, SWeaponHit->sZPos, SWeaponHit->sRange, ubAttackerID, SWeaponHit->fHit, SWeaponHit->ubSpecial, SWeaponHit->ubLocation );
 
@@ -1478,18 +1702,17 @@ void recieveHIT(SdlNetMessage *rpcParameters)
 		// bTable rows are written keyed by the FIRER's team with the raw wire id
 		// (recieveBULLET); key the read the same way, bounded. The old code keyed
 		// by the untranslated VICTIM -- wrong row.
-		TacticalActor *pFirer =
-			SWeaponHit->ubAttackerID != NOBODY
-				? ResolveMerc(SWeaponHit->ubAttackerID.i)
-				: NULL;
-		if ( pFirer != NULL && pFirer->roster().team() >= 0 && pFirer->roster().team() < 11
+		TacticalActor *pFirer = pAttacker;
+		if ( pFirer != NULL && pFirer->roster().team() >= 0 && pFirer->roster().team() < MAXTEAMS
 			&& SWeaponHit->iBullet >= 0 && SWeaponHit->iBullet < NUM_BULLET_SLOTS )
 		{
-		INT8 bTeam=pFirer->roster().team();
-		INT32 iBullet = bTable[bTeam][SWeaponHit->iBullet].local_id;
-				
-		StopBullet( iBullet );
-		RemoveBullet(iBullet);
+			INT8 bTeam=pFirer->roster().team();
+			INT32 iBullet = bTable[bTeam][SWeaponHit->iBullet].local_id;
+			if ( iBullet >= 0 && iBullet < NUM_BULLET_SLOTS )
+			{
+				StopBullet( iBullet );
+				RemoveBullet(iBullet);
+			}
 		}
 
 		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"removed bullet" );	
@@ -1558,6 +1781,27 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 	client->SendMessage("sendHIRE", (const char*)&sHireMerc, sizeof(send_hire_struct), AnyConnection, true);
 }
 
+static void RemoveLegacyReplicatedSoldier(TacticalActor* soldier)
+{
+	if (!soldier || !soldier->roster().active()) return;
+	const UINT8 profile = soldier->identity().profile();
+	const SoldierID actorId = soldier->identity().id();
+	if (!TacticalRemoveSoldier(actorId) || profile >= NUM_PROFILES) return;
+	for (int candidate = 0; candidate < TOTAL_SOLDIERS; ++candidate)
+	{
+		TacticalActor* const remaining = SafeMerc(candidate);
+		if (remaining && remaining->roster().active() &&
+			remaining->identity().profile() == profile) return;
+	}
+	// recieveHIRE applies these multiplayer-only availability markers. Restore
+	// them when the last replicated copy leaves so a later honest hire is not
+	// rejected forever by stale client profile state.
+	if (!cSameMercAllowed &&
+		gMercProfiles[profile].bMercStatus == MERC_WORKING_ELSEWHERE)
+		gMercProfiles[profile].bMercStatus = MERC_OK;
+	gMercProfiles[profile].ubMiscFlags &= ~PROFILE_MISC_FLAG_RECRUITED;
+}
+
 void recieveDISMISS(SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, send_dismiss_struct);
@@ -1575,7 +1819,7 @@ void recieveDISMISS(SdlNetMessage *rpcParameters)
 		return;
 	}
 
-	TacticalRemoveSoldier( pSoldier->identity().id() );
+	RemoveLegacyReplicatedSoldier(pSoldier);
 }
 
 void recieveHIRE(SdlNetMessage *rpcParameters)
@@ -1716,14 +1960,19 @@ void recieveguiPOS(SdlNetMessage *rpcParameters)
 		return;
 	}
 
-	INT32 sNewGridNo;
+	// Do not project attacker-controlled floating-point values into an integer
+	// grid before the checked placement boundary has rejected NaN, infinity and
+	// coordinates outside the loaded world.
+	if ( !TacticalActorWorldPlacement::setPosition(
+		*pSoldier, gnPOS->dNewXPos, gnPOS->dNewYPos) )
+	{
+		return;
+	}
 
-	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(gnPOS->dNewXPos, gnPOS->dNewYPos );
-	pSoldier->deployment().strategicInsertionData()=sNewGridNo;
+	pSoldier->deployment().strategicInsertionData() =
+		pSoldier->position().gridNo();
 	pSoldier->deployment().strategicInsertionCode()=INSERTION_CODE_GRIDNO;
 	pSoldier->deployment().insertionGrid() = pSoldier->deployment().strategicInsertionData();
-
-	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, gnPOS->dNewXPos, gnPOS->dNewYPos );
 }
 
 void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection)
@@ -1778,7 +2027,9 @@ void send_EndTurn( UINT8 ubNextTeam )
 	tStruct.tsnetbTeam = netbTeam;
 	tStruct.tsubNextTeam = ubNextTeam;
 	
-	client->SendMessage("sendEndTurn", (const char*)&tStruct, sizeof(turn_struct), AnyConnection, true);
+	if (client->SendMessage("sendEndTurn", (const char*)&tStruct,
+			sizeof(turn_struct), AnyConnection, true) && is_server)
+		RecordLegacyEmbeddedHostEndTurnProvenance(ubNextTeam);
 }
 
 void recieveEndTurn(SdlNetMessage *rpcParameters)
@@ -1790,10 +2041,6 @@ void recieveEndTurn(SdlNetMessage *rpcParameters)
 	sender_bTeam=tStruct->tsnetbTeam;
 	ubTeam=tStruct->tsubNextTeam;
 
-	// a fresh turn boundary means any enemy interrupt against us is done -> let the
-	// banner go green again (safety net in case a resume_turn was missed/reordered).
-	gMpEnemyInterruptTeam = 0;
-
 	if(is_server)
 		Sawarded=false;
 	
@@ -1804,6 +2051,8 @@ void recieveEndTurn(SdlNetMessage *rpcParameters)
 		// M7: ubTeam drives EndTurn()/BeginTeamTurn() (current team -> Team[]) -- bound it.
 		if(ubTeam>=MAXTEAMS)
 			return;
+		if (gMpSerializedInterruptActive) ClearIntList();
+		ClearSerializedInterruptClientState();
 		const SimulationCommandDispatchResult turn =
 			TryDispatchNetworkTurnCommand(
 				ubTeam,
@@ -1842,6 +2091,7 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct )
 	// {usItem,ubNumberOfObjects,fFlags}. No std::vector/std::list/pointers cross the wire.
 	uint8_t wire[AI_WIRE_MAX_BYTES];
 	int wireBytes = SerializeAI( wire, sizeof(wire), pCreateStruct );
+	if (wireBytes != static_cast<int>(LegacyAiPayloadBytes)) return;
 	client->SendMessage("sendAI", (const char*)wire, wireBytes, AnyConnection, true);
 }
 
@@ -2170,6 +2420,10 @@ void allowlaptop_callback ( UINT8 ubResult )
 		info.client_num = CLIENT_NUM;
 		info.ready_stage=36;
 		info.status=1;
+		// The server opens the laptop/hiring phase on this READY. Preserve TCP
+		// ordering so the random HIRE messages cannot arrive while that phase is
+		// still closed.
+		client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 
 		if (gRandomMercs)
 			HireRandomMercs();
@@ -2190,8 +2444,6 @@ void allowlaptop_callback ( UINT8 ubResult )
 			extern BOOLEAN gfDedicatedServer;
 			cMaxClients = iPlayersConnected - ( gfDedicatedServer ? 1 : 0 );
 		}
-
-		client->SendMessage("sendREADY", (const char*)&info, sizeof(ready_struct), AnyConnection, true);
 	}
 }
 
@@ -2488,7 +2740,7 @@ void DropOffItemsInSector( UINT8 ubOrderNum )
 
 void send_stop (EV_S_STOP_MERC *SStopMerc) // used to stop a merc when he spots new enemies...
 {
-	EV_S_STOP_MERC stop_struct;
+	EV_S_STOP_MERC stop_struct{};
 	if(SStopMerc->usSoldierID < 120)
 	{
 		if(SStopMerc->usSoldierID < 20)
@@ -2580,8 +2832,19 @@ void mp_log_sighting( TacticalActor* pSighter, TacticalActor* pSeen, int range )
 	mp_log_event( buf );
 }
 
-void send_interrupt (TacticalActor *pSoldier)
+void send_interrupt (
+	TacticalActor *pSoldier,
+	TacticalActor *pInterruptedSoldier)
 {
+	if (pSoldier == NULL) return;
+	if (pInterruptedSoldier == NULL)
+	{
+		// Resume/nested interrupt paths do not carry the original function
+		// argument, but the interrupt list records the actor that most recently
+		// lost control. A UI selection is not authoritative here.
+		pInterruptedSoldier = ResolveMerc(gubLastInterruptedGuy.i);
+	}
+	if (pInterruptedSoldier == NULL) return;
 	INT_STRUCT INT = {};
 
 	INT.ubID = pSoldier->identity().id();
@@ -2590,7 +2853,11 @@ void send_interrupt (TacticalActor *pSoldier)
 	INT.gubOutOfTurnPersons = gubOutOfTurnPersons;
 	INT.fMarkInterruptOccurred = FALSE;
 	
-	INT.Interrupted = gusSelectedSoldier + ubID_prefix;
+	// The caller that resolved the interrupt knows the actor whose action was
+	// interrupted. The selected soldier is only a UI cursor and can still name
+	// one of our own mercs while a remote team owns the turn.
+	INT.Interrupted = MPEncodeSoldierID(
+		pInterruptedSoldier->identity().id());
 
 	if(INT.bTeam==0)
 	{
@@ -2606,9 +2873,6 @@ void send_interrupt (TacticalActor *pSoldier)
 		}
 	}
 	
-	if(INT.bTeam !=netbTeam)
-		SetJa2TacticalCurrentTeam( INT.bTeam );
-
 	// PORTABLE WIRE FORMAT (L6): serialize the fixed-width header + only the consumed
 	// (gubOutOfTurnPersons+1) order entries instead of memcpy'ing the whole MAXMERCS array.
 	uint8_t wire[INT_WIRE_MAX_BYTES];
@@ -2617,174 +2881,124 @@ void send_interrupt (TacticalActor *pSoldier)
 }
 
 #ifdef INTERRUPT_MP_DEADLOCK_FIX
+	static void PauseForRemoteInterruptGrant(
+		const INT_STRUCT& interrupt, TacticalActor& interruptedActor)
+	{
+		// Every non-holder, including co-op targets and spectators, must obey the
+		// serialized grant. Otherwise that client can keep acting locally while
+		// the authority rejects its packets, leaving UI and simulation ownership
+		// visibly divergent.
+		if (interrupt.bTeam <= 0 || interrupt.bTeam > 9) return;
+		for (SoldierID id = 0; id < MAX_NUM_SOLDIERS; ++id)
+		{
+			TacticalActor* actor = SafeMerc(id.i);
+			if (actor && actor->roster().active())
+				actor->turnState().captureMoved(actor->turnState().moved());
+		}
+
+		// Stop all moving LAN copies when the grant lands. Halting only one actor
+		// leaves another remote mover cycling its walk animation and footsteps
+		// throughout the interrupt.
+		for (SoldierID id = 0; id < TOTAL_SOLDIERS; ++id)
+		{
+			TacticalActor* actor = SafeMerc(id.i);
+			if (actor && actor->roster().active() && actor->roster().inSector() &&
+				actor->roster().team() >= LAN_TEAM_ONE &&
+				actor->position().gridNo() >= 0 &&
+				actor->position().gridNo() < WORLD_MAX &&
+				(gAnimControl[actor->animationPlayback().state()].uiFlags &
+				 ANIM_MOVING))
+			{
+				(void)TacticalActorRouteExecution::stopAt(
+					*actor, actor->position().gridNo(),
+					actor->position().direction());
+			}
+		}
+
+		(void)TacticalActorRouteExecution::haltForSighting(
+			interruptedActor, true);
+		FreezeInterfaceForEnemyTurn();
+		SetJa2TacticalCurrentTeam(interrupt.bTeam);
+		InitEnemyUIBar(0, 0);
+		gMpEnemyInterruptTeam = interrupt.bTeam;
+		AddTopMessage(COMPUTER_INTERRUPT_MESSAGE,
+			TeamTurnString[interrupt.bTeam]);
+		fInterfacePanelDirty = DIRTYLEVEL2;
+		gTacticalStatus.fInterruptOccurred = TRUE;
+		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE,
+			L"Interrupt with %s awarded to %s.",
+			TeamNameStrings[interruptedActor.roster().team()],
+			TeamNameStrings[interrupt.bTeam]);
+	}
+
 	void recieveINTERRUPT (SdlNetMessage *rpcParameters)
 	{
-		// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload into a
-		// local struct (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
+		// Deserialize the coordinator-authored grant and resolve its exact paused
+		// actor before changing any local tactical state.
 		INT_STRUCT _intWire;
 		if ( !DeserializeINT( _intWire, rpcParameters->data, rpcParameters->size ) )
 			return;
 		INT_STRUCT* INT = &_intWire;
-		if (cGameType == MP_TYPE_COOP)
+		const UINT8 holderWireTeam = static_cast<UINT8>(INT->bTeam);
+		if (holderWireTeam == 0 || holderWireTeam > 9 ||
+			gMpSerializedInterruptActive) return;
+		const SoldierID interruptedWire = INT->Interrupted;
+		const SoldierID interruptedLocal =
+			MPDecodeSoldierID(interruptedWire);
+		TacticalActor* const pOpponent = SafeMerc(interruptedLocal.i);
+		if (!pOpponent) return;
+
+		const bool localPlayerHolder = holderWireTeam == netbTeam;
+		const bool hostAiHolder =
+			is_server && holderWireTeam > 0 && holderWireTeam < 6;
+		gMpSerializedInterruptActive = true;
+	gMpLocalSerializedInterruptHolder =
+			localPlayerHolder || hostAiHolder;
+	gMpSerializedInterruptReleaseRequested = false;
+	gMpSerializedInterruptTargetWire = interruptedWire;
+		gMpSerializedInterruptTarget = interruptedLocal;
+
+		if (!gMpLocalSerializedInterruptHolder)
 		{
-			// C1: INT->Interrupted is a wire SoldierID -- clamp before resolution.
-			TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
-			if ( pOpponent == NULL )
-				return;
+			PauseForRemoteInterruptGrant(*INT, *pOpponent);
+			return;
+		}
 
-			if( INT->bTeam == netbTeam || is_server)//its for us or we are server and its for AI which we control
-			{
-				if(INT->bTeam == netbTeam)
-				{
-					//for me
-					INT->bTeam=0;
-					INT->ubID=INT->ubID - ubID_prefix;
-					AddTopMessage( PLAYER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
-				}
-				else
-				{
-					//for ai
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"starting ai" );
-					AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
-				}
-
-				for(int i=0; i <= INT->gubOutOfTurnPersons; i++)//this loop translates soldier id's from what they are in someone else's game to what they are locally
-				{
-					if((INT->gubOutOfTurnOrder[i] >= ubID_prefix) && (INT->gubOutOfTurnOrder[i] < (ubID_prefix+6)))
-					{
-						INT->gubOutOfTurnOrder[i]=INT->gubOutOfTurnOrder[i]-ubID_prefix;
-					}
-				}
-				memcpy(gubOutOfTurnOrder,INT->gubOutOfTurnOrder, sizeof(UINT16) * MAXMERCS);
-				gubOutOfTurnPersons = INT->gubOutOfTurnPersons;
-
-				if(INT->bTeam==netbTeam)//for us
-					AddTopMessage( PLAYER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
-
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Recieved interrupt between %s and %s.", TeamNameStrings[pOpponent->roster().team()], TeamNameStrings[INT->bTeam] );
-
-				 //start interrupt turn //real interrupt code
-				TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
-				if ( pSoldier == NULL )
-					return;
-				ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
-				StartInterrupt();
-			}
-			// It is our team
-			else if(INT->bTeam == 0)
-			{
-				//it for us ! :)
-				if(INT->gubOutOfTurnPersons==0)//indicates finished interrupt maybe can just call end interrupt
-				{
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"old int finish" );
-				}
-				else //start our interrupt turn
-				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->roster().team()] );//was MPClientMessage[37], can be reconnected if text updated and translated
-
-					TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
-					if ( pSoldier == NULL )
-						return;
-					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
-					StartInterrupt();
-				}
-			}
+		if (localPlayerHolder)
+		{
+			INT->bTeam = 0;
+			INT->ubID = MPDecodeSoldierID(INT->ubID);
+			AddTopMessage(PLAYER_INTERRUPT_MESSAGE, TeamTurnString[0]);
 		}
 		else
 		{
-			// INT already deserialized at the top of recieveINTERRUPT (L6).
-			// C1: clamp wire SoldierID before repository resolution.
-			TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
-			if ( pOpponent == NULL )
-				return;
-
-			// MP: an interrupt freezes the action, so no remote LAN copy should still be
-			// mid-stride. The halt below only stops one merc (INT->ubID); any OTHER moving
-			// copy -- e.g. the mover we just interrupted, still cycling walk frames 703/704
-			// in place on the interrupter's screen -- replays footsteps forever (endless
-			// walking sound). Stop every moving LAN copy the instant the grant lands.
-			for ( SoldierID _sid = 0; _sid < TOTAL_SOLDIERS; ++_sid )
-			{
-				TacticalActor* _s = SafeMerc(_sid.i);
-				if ( _s && _s->roster().active() && _s->roster().inSector() && _s->roster().team() >= LAN_TEAM_ONE
-					&& _s->position().gridNo() >= 0 && _s->position().gridNo() < WORLD_MAX
-					&& ( gAnimControl[ _s->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
-				{
-					(void)TacticalActorRouteExecution::stopAt(*_s, _s->position().gridNo(), _s->position().direction() );
-				}
-			}
-
-			if(INT->bTeam==netbTeam)//for us
-			{
-				INT->bTeam=0;
-				INT->ubID=INT->ubID - ubID_prefix;
-
-				for(int i=0; i <= INT->gubOutOfTurnPersons; i++)//this loop translates soldier id's from what they are in someone else's game to what they are locally
-				{
-					if((INT->gubOutOfTurnOrder[i] >= ubID_prefix) && (INT->gubOutOfTurnOrder[i] < (ubID_prefix+6)))
-					{
-						INT->gubOutOfTurnOrder[i]=INT->gubOutOfTurnOrder[i]-ubID_prefix;
-					}
-				}
-				memcpy(gubOutOfTurnOrder,INT->gubOutOfTurnOrder, sizeof(UINT16) * MAXMERCS);
-				gubOutOfTurnPersons = INT->gubOutOfTurnPersons;
-
-				AddTopMessage( PLAYER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to %s.", TeamNameStrings[pOpponent->roster().team()], TeamNameStrings[INT->bTeam] );
-			}
-
-			// WANNE - MP: This seems to cause the HANG on AI interrupt where we have to press ALT + E on the server!
-			if(	INT->bTeam != 0)//not for our team - hayden
-			{
-				// M1: bTeam (wire INT8) latches gMpEnemyInterruptTeam and indexes the 10-row
-				// TeamTurnString[]/TeamNameStrings[] banner tables -- drop out-of-range teams.
-				if ( INT->bTeam < 0 || INT->bTeam > 9 )
-					return;
-				//stop moving merc who was interrupted and init UI bar
-				TacticalActor* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
-				if ( pMerc == NULL )
-					return;
-				(void)TacticalActorRouteExecution::haltForSighting(*pMerc, true);
-				FreezeInterfaceForEnemyTurn();
-				// HARD-obey the arbiter: hand turn ownership to the interrupting team so
-				// the engine's real not-your-turn lock engages (the cosmetic freeze alone
-				// let us keep acting -> "both sides act"). EndInterrupt restores it on resume.
-				SetJa2TacticalCurrentTeam( INT->bTeam );
-				InitEnemyUIBar( 0, 0 );
-				// Flip the top banner off green "PLAYER'S TURN": the freeze + current-team
-				// hand-over already block input (clock cursor), but InitEnemyUIBar only sets
-				// the progress counters -- the banner stayed PLAYER_TURN_MESSAGE, so the GUI
-				// lied that we could still act. Latch the interrupting team so AddTopMessage
-				// keeps overriding any late green re-assert (StartPlayerTeamTurn / the
-				// per-frame timer) for the whole interrupt -- a one-shot set here loses the
-				// race on the first interrupt of a turn. Cleared on resume_turn / new turn.
-				gMpEnemyInterruptTeam = INT->bTeam;
-				AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
-				fInterfacePanelDirty = DIRTYLEVEL2;
-				gTacticalStatus.fInterruptOccurred = TRUE;
-
-				//this needed to add details of who's interrupt it is - hayden
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt with %s awarded to %s.", TeamNameStrings[pOpponent->roster().team()], TeamNameStrings[INT->bTeam] );//was MPClientMessage[17], can be reconnected if text updated and translated
-			}
-			else
-			{
-				//it for us ! :)
-				if(INT->gubOutOfTurnPersons==0)//indicates finished interrupt maybe can just call end interrupt
-				{
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"old int finish" );
-				}
-				else //start our interrupt turn
-				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->roster().team()] );//was MPClientMessage[37], can be reconnected if text updated and translated
-
-					TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
-					if ( pSoldier == NULL )
-						return;
-					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
-					StartInterrupt();
-				}
-			}
+			AddTopMessage(COMPUTER_INTERRUPT_MESSAGE,
+				TeamTurnString[holderWireTeam]);
 		}
+		for (int i = 0; i <= INT->gubOutOfTurnPersons; ++i)
+		{
+			if (INT->gubOutOfTurnOrder[i] >= ubID_prefix &&
+				INT->gubOutOfTurnOrder[i] < ubID_prefix + 7)
+				INT->gubOutOfTurnOrder[i] -= ubID_prefix;
+		}
+		memcpy(gubOutOfTurnOrder, INT->gubOutOfTurnOrder,
+			sizeof(UINT16) * MAXMERCS);
+		gubOutOfTurnPersons = INT->gubOutOfTurnPersons;
+		gubLastInterruptedGuy = interruptedLocal;
+		TacticalActor* const pSoldier = SafeMerc(INT->ubID.i);
+		if (!pSoldier)
+		{
+			ClearSerializedInterruptClientState();
+			ClearIntList();
+			return;
+		}
+		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE,
+			L"Received interrupt between %s and %s.",
+			TeamNameStrings[pOpponent->roster().team()],
+			TeamNameStrings[holderWireTeam]);
+		ManSeesMan(pSoldier, pOpponent, pOpponent->position().gridNo(),
+			pOpponent->position().level(), 2, 1);
+		StartInterrupt();
 	}
 #else
 
@@ -2796,7 +3010,8 @@ void send_interrupt (TacticalActor *pSoldier)
 			return;
 		INT_STRUCT* INT = &_intWire;
 		// C1: clamp wire SoldierID before repository resolution.
-		TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
+			TacticalActor* pOpponent = SafeMerc(
+				MPDecodeSoldierID(INT->Interrupted).i);
 		if ( pOpponent == NULL )
 			return;
 
@@ -2807,7 +3022,7 @@ void send_interrupt (TacticalActor *pSoldier)
 
 			for(int i=0; i <= INT->gubOutOfTurnPersons; i++)//this loop translates soldier id's from what they are in someone else's game to what they are locally
 			{
-				if((INT->gubOutOfTurnOrder[i] >= ubID_prefix) && (INT->gubOutOfTurnOrder[i] < (ubID_prefix+6)))
+					if((INT->gubOutOfTurnOrder[i] >= ubID_prefix) && (INT->gubOutOfTurnOrder[i] < (ubID_prefix+7)))
 				{
 					INT->gubOutOfTurnOrder[i]=INT->gubOutOfTurnOrder[i]-ubID_prefix;
 				}
@@ -2869,6 +3084,12 @@ void intAI (TacticalActor *pSoldier )
 
 void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 {
+	// Only the client that applied StartInterrupt for the authenticated grant
+	// may author its release. The guard also makes repeated engine completion
+	// callbacks idempotent while the reliable server ACK is in flight.
+	if (!gMpSerializedInterruptActive ||
+		!gMpLocalSerializedInterruptHolder ||
+		gMpSerializedInterruptReleaseRequested) return;
 	// C1: gubOutOfTurnOrder[] is populated from wire interrupt data; clamp the index
 	// soldier before building the release packet.
 	if ( gubOutOfTurnPersons >= MAXMERCS )
@@ -2903,47 +3124,75 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 	// PORTABLE WIRE FORMAT (L6): serialize header + consumed order entries only.
 	uint8_t wire[INT_WIRE_MAX_BYTES];
 	int wireBytes = SerializeINT( wire, sizeof(wire), INT );
-	client->SendMessage("endINTERRUPT", (const char*)wire, wireBytes, AnyConnection, true);
+	if (wireBytes > 0 && client->SendMessage(
+			"endINTERRUPT", (const char*)wire, wireBytes,
+			AnyConnection, true))
+		gMpSerializedInterruptReleaseRequested = true;
 }
 
 void resume_turn(SdlNetMessage *rpcParameters)
 {
-	// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload
-	// (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
+	// A release is the exact evolved one-level queue [END, paused actor]. Bind it
+	// to the active grant so a delayed release cannot unwind a later grant.
+	if (!rpcParameters || !MpInterruptWire::Validate(
+			rpcParameters->data, rpcParameters->size, true) ||
+		rpcParameters->size != 12 ||
+		MpInterruptWire::Get16(rpcParameters->data, 3) != 1 ||
+		MpInterruptWire::Get16(rpcParameters->data, 6) !=
+			MpInterruptWire::kSoldierSlots ||
+		!gMpSerializedInterruptActive ||
+		MpInterruptWire::Get16(rpcParameters->data, 0) !=
+			gMpSerializedInterruptTargetWire.i)
+		return;
 	INT_STRUCT _intWire;
 	if ( !DeserializeINT( _intWire, rpcParameters->data, rpcParameters->size ) )
 		return;
 	INT_STRUCT* INT = &_intWire;
+	if (INT->bTeam <= 0 || INT->bTeam > 9) return;
+	if (is_server) Sawarded = false;
 
-	// arbiter says the interrupt is over -> stop forcing the enemy-interrupt bar.
-	// Cleared before EndInterrupt below so its InitPlayerUIBar(2) can restore green.
-	gMpEnemyInterruptTeam = 0;
-
-	if(is_server)
-		Sawarded=false;
-	
-	if(INT->bTeam==netbTeam || (INT->bTeam==1 && is_server))//may need working //its for us or we are the server and its for the AI
+	const bool localHolderCompleted =
+		gMpLocalSerializedInterruptHolder &&
+		gMpSerializedInterruptReleaseRequested;
+	const bool localOwnsPausedTeam = INT->bTeam == netbTeam ||
+		(is_server && INT->bTeam > 0 && INT->bTeam <= 6);
+	if (!localHolderCompleted &&
+		(gMpLocalSerializedInterruptHolder || localOwnsPausedTeam))
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Resumed turn after interrupt of %s", TeamNameStrings[INT->bTeam] );//was MPClientMessage[18], can be reconnected if text updated and translated
-
-		for(int i=0; i <= INT->gubOutOfTurnPersons; i++)
+		for (int i = 0; i <= INT->gubOutOfTurnPersons; ++i)
 		{
-			if((INT->gubOutOfTurnOrder[i] >= ubID_prefix) && (INT->gubOutOfTurnOrder[i] < (ubID_prefix+6)))
-			{
-				INT->gubOutOfTurnOrder[i]=INT->gubOutOfTurnOrder[i]-ubID_prefix;
-			}
+			if (INT->gubOutOfTurnOrder[i] >= ubID_prefix &&
+				INT->gubOutOfTurnOrder[i] < ubID_prefix + 7)
+				INT->gubOutOfTurnOrder[i] -= ubID_prefix;
 		}
-
-		memcpy(gubOutOfTurnOrder,INT->gubOutOfTurnOrder, sizeof(UINT16) * MAXMERCS);
+		memcpy(gubOutOfTurnOrder, INT->gubOutOfTurnOrder,
+			sizeof(UINT16) * MAXMERCS);
 		gubOutOfTurnPersons = INT->gubOutOfTurnPersons;
-		EndInterrupt( INT->fMarkInterruptOccurred );
+		gubLastInterruptedGuy = MPDecodeSoldierID(INT->ubID);
+		gMpEnemyInterruptTeam = 0;
+		EndInterrupt(INT->fMarkInterruptOccurred, FALSE);
 	}
-	// WANNE - MP: This happens, when client 1 (=server) has done its interrupt and now it is enemies turn!
-	else if(INT->bTeam==1)
+	else if (!localHolderCompleted)
 	{
-		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"im not server but ai just got back its turn after being interrupted..." );
-		AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ 1 ] );
+		// A third-party observer never entered StartInterrupt, but it did adopt
+		// the holder's current team and UI lock. Restore the server-authored
+		// paused authority explicitly on every release.
+		ClearIntList();
+		const UINT8 localResumeTeam =
+			INT->bTeam == netbTeam ? 0 : static_cast<UINT8>(INT->bTeam);
+		SetJa2TacticalCurrentTeam(localResumeTeam);
+		FreezeInterfaceForEnemyTurn();
+		InitEnemyUIBar(0, 0);
+		AddTopMessage(COMPUTER_TURN_MESSAGE,
+			TeamTurnString[INT->bTeam]);
+		fInterfacePanelDirty = DIRTYLEVEL2;
+		gTacticalStatus.fInterruptOccurred =
+			INT->fMarkInterruptOccurred;
 	}
+	ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE,
+		L"Resumed turn after interrupt of %s",
+		TeamNameStrings[INT->bTeam]);
+	ClearSerializedInterruptClientState();
 }
 
 void grid_display ( void ) //print mouse coordinates, helpfull for crate placement.
@@ -3098,14 +3347,14 @@ void requestSETID(SdlNetMessage *rpcParameters)
 
 void requestSETTINGS(void)
 {
-	client_info cl_name;
-	strcpy(cl_name.client_name , cClientName);
+	client_info cl_name{};
+	sgp_strlcpy(cl_name.client_name, cClientName);
 	cl_name.team = TEAM;
 	cl_name.cl_edge = cStartingSectorEdge;
 
 	// OJW - 20090507
 	// send client version to server
-	strcpy(cl_name.client_version,MPVERSION);
+	sgp_strlcpy(cl_name.client_version, MPVERSION);
 	client->SendMessage("requestSETTINGS", (const char*)&cl_name, sizeof(client_info), AnyConnection, true);
 }
 
@@ -3746,12 +3995,21 @@ void recieveMAPCHANGE( SdlNetMessage *rpcParameters )
 // 20091002 - OJW - Explosives
 void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yPos, float zPos, float xForce, float yForce, float zForce, UINT32 sTargetGridNo, SoldierID ubOwner, UINT8 ubActionCode, UINT32 uiActionData, INT32 iRealObjectID, bool bIsThrownGrenade)
 {
-	ubOwner = MPEncodeSoldierID(ubOwner); // translate our soldier to the "network" version
-
+	if (ubActionCode > THROW_TARGET_MERC_CATCH)
+		return;
+	if (ubActionCode == THROW_TARGET_MERC_CATCH)
+	{
+		if (uiActionData >= TOTAL_SOLDIERS)
+			return;
+		uiActionData = MPEncodeSoldierID(
+			SoldierID{static_cast<std::uint16_t>(uiActionData)}).i;
+	}
+	// Ownership is checked against the process-local roster.  Encoding first turns
+	// our 0..19 slots into 120+ wire IDs, so normal player throws would never send.
 	TacticalActor* pSoldier = ResolveMerc(ubOwner.i);
 	if (pSoldier != NULL)
 	{
-		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
+		if (IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			physics_object gren;
 			gren.dForceX = xForce;
@@ -3763,7 +4021,7 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 			gren.dLifeSpan = dLifeLength;
 			gren.ubActionCode = ubActionCode;
 			gren.uiActionData = uiActionData;
-			gren.ubID = ubOwner;
+			gren.ubID = MPEncodeSoldierID(ubOwner);
 			gren.usItem = pGameObj->usItem;
 			gren.sTargetGridNo = sTargetGridNo;
 			gren.RealObjectID = iRealObjectID;
@@ -3808,24 +4066,50 @@ void recieveGRENADE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, physics_object);	// short-frame guard (M8/H13)
 	physics_object* gren = (physics_object*)rpcParameters->data;
+	const UINT8 isThrown = *(reinterpret_cast<const UINT8*>(
+		rpcParameters->data) + offsetof(physics_object, IsThrownGrenade));
+	if ( isThrown > 1 || !IsValidLegacyItem(gren->usItem) ||
+		gren->sTargetGridNo >= static_cast<UINT32>(WORLD_MAX) ||
+		gren->ubActionCode > THROW_TARGET_MERC_CATCH ||
+		(gren->ubActionCode == THROW_TARGET_MERC_CATCH &&
+			gren->uiActionData >= TOTAL_SOLDIERS) ||
+		!std::isfinite(gren->dLifeSpan) ||
+		!IsFiniteLegacyWorldPosition(gren->dX, gren->dY, gren->dZ) ||
+		!IsFiniteLegacyPhysicsForce(gren->dForceX) ||
+		!IsFiniteLegacyPhysicsForce(gren->dForceY) ||
+		!IsFiniteLegacyPhysicsForce(gren->dForceZ) )
+	{
+		return;
+	}
 
 	gren->ubID = MPDecodeSoldierID(gren->ubID);
+	if (gren->ubActionCode == THROW_TARGET_MERC_CATCH)
+	{
+		const SoldierID catchTarget = MPDecodeSoldierID(
+			SoldierID{static_cast<std::uint16_t>(gren->uiActionData)});
+		if (!SafeMercInSector(catchTarget.i))
+			return;
+		gren->uiActionData = catchTarget.i;
+	}
 
-	TacticalActor* pThrower = ResolveMerc(gren->ubID.i);
+	TacticalActor* pThrower = SafeMercInSector(gren->ubID.i);
 	if (pThrower != NULL)
 	{
+		const INT8 throwerTeam = pThrower->roster().team();
+		if ( throwerTeam < 0 || throwerTeam >= MAXTEAMS )
+			return;
+
 		// L1 - only adopt the sender's pre-random cursor for an in-order, not-yet-seen
-		// event. A dropped event never advances guiLastGrenadeEventSeqIn, so a later
-		// event still applies; a duplicate/stale event is ignored instead of silently
-		// rewinding/advancing guiPreRandomIndex out of step with the RNG we consumed.
-		if ( gren->uiGrenadeEventSeq > guiLastGrenadeEventSeqIn )
-		{
-			guiLastGrenadeEventSeqIn = gren->uiGrenadeEventSeq;
-			guiPreRandomIndex = gren->uiPreRandomIndex;
-		}
+		// event from this canonical team. A dropped event never advances that team's
+		// watermark, while another peer's independent counter cannot suppress it.
+		UINT32& lastSequence = guiLastGrenadeEventSeqInByTeam[throwerTeam];
+		if ( gren->uiGrenadeEventSeq <= lastSequence )
+			return;
+		lastSequence = gren->uiGrenadeEventSeq;
+		guiPreRandomIndex = gren->uiPreRandomIndex;
 
 		// grenade wasnt thrown by one of our guys, so we should do it on the client
-		if (!IsOurSoldier(pThrower) && (pThrower->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pThrower))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -3839,10 +4123,6 @@ void recieveGRENADE (SdlNetMessage *rpcParameters)
 			// instead of the old CreateItem(usItem,99,...) that always reconstructed
 			// item defaults (the "fires the wrong round count"/phantom-item root).
 			// The full periodic per-soldier inventory-delta sync is a follow-up.
-			// M8: usItem indexes Item[] inside CreateItems -- drop out-of-range items.
-			if ( gren->usItem == 0 || gren->usItem >= MAXITEMS )
-				return;
-
 			// A second item transaction cannot safely replace animation state that
 			// is still in use. Reject it before mutating inventory or physics state.
 			SoldierPendingItemComponent& pendingItem = pThrower->pendingItem();
@@ -3925,19 +4205,18 @@ void recieveGRENADE (SdlNetMessage *rpcParameters)
 // we send a grenade result out to the clients as it may have been a fizzer
 void send_grenade_result (float xPos, float yPos, float zPos, INT32 sGridNo, SoldierID ubOwnerID, INT32 iRealObjectID, bool bIsDud)
 {
-	ubOwnerID = MPEncodeSoldierID(ubOwnerID); // translate our soldier to the "network" version
-
+	// Resolve before converting the local actor slot to its canonical wire ID.
 	TacticalActor* pSoldier = ResolveMerc(ubOwnerID.i);
 	if (pSoldier != NULL)
 	{
-		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
+		if (IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			grenade_result gres;
 			gres.dX = xPos;
 			gres.dY = yPos;
 			gres.dZ = zPos;
 			gres.sGridNo = sGridNo;
-			gres.ubOwnerID = ubOwnerID;
+			gres.ubOwnerID = MPEncodeSoldierID(ubOwnerID);
 			gres.RealObjectID = iRealObjectID;
 			gres.bWasDud = bIsDud;
 			gres.uiPreRandomIndex = guiPreRandomIndex;
@@ -3958,6 +4237,14 @@ void recieveGRENADERESULT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, grenade_result);   // short-frame over-read guard (sibling handlers have it)
 	grenade_result* gres = (grenade_result*)rpcParameters->data;
+	const UINT8 wasDud = *(reinterpret_cast<const UINT8*>(
+		rpcParameters->data) + offsetof(grenade_result, bWasDud));
+	if ( wasDud > 1 || !IsValidLegacyGridNo(gres->sGridNo) ||
+		gres->RealObjectID < 0 || gres->RealObjectID >= NUM_OBJECT_SLOTS ||
+		!IsFiniteLegacyWorldPosition(gres->dX, gres->dY, gres->dZ) )
+	{
+		return;
+	}
 
 	gres->ubOwnerID = MPDecodeSoldierID(gres->ubOwnerID);
 
@@ -3965,7 +4252,7 @@ void recieveGRENADERESULT (SdlNetMessage *rpcParameters)
 	if (pThrower != NULL)
 	{
 		// grenade wasnt thrown by one of our guys, so we should do it on the client
-		if (!IsOurSoldier(pThrower) && (pThrower->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pThrower))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -3979,7 +4266,10 @@ void recieveGRENADERESULT (SdlNetMessage *rpcParameters)
 			// loop through and find the local object we assigned for the remote grenade
 			for( usCnt=0; usCnt<NUM_OBJECT_SLOTS; usCnt++ )
 			{
-				if (ObjectSlots[ usCnt ].mpTeam == pThrower->roster().team() && ObjectSlots[ usCnt ].mpRealObjectID == gres->RealObjectID)
+				if ( ObjectSlots[usCnt].fAllocated &&
+					ObjectSlots[usCnt].mpIsFromRemoteClient &&
+					ObjectSlots[usCnt].mpTeam == pThrower->roster().team() &&
+					ObjectSlots[usCnt].mpRealObjectID == gres->RealObjectID )
 				{
 					bFound = true;
 					break;
@@ -4022,8 +4312,64 @@ void recieveGRENADERESULT (SdlNetMessage *rpcParameters)
 	}
 }
 
+static bool IsLegacySharedMapBomb(const WORLDBOMB& bomb)
+{
+	return bomb.iMPWorldItemIndex == -1 && bomb.ubMPTeamIndex == 0 &&
+		!bomb.bIsFromRemotePlayer;
+}
+
+static bool ResolveLiveLegacyWorldBomb(
+	UINT32 worldBombIndex, INT32& localItemIndex)
+{
+	if (worldBombIndex >= guiNumWorldBombs ||
+		!gWorldBombs[worldBombIndex].fExists)
+	{
+		return false;
+	}
+	localItemIndex = gWorldBombs[worldBombIndex].iItemIndex;
+	if (localItemIndex < 0 ||
+		static_cast<std::size_t>(localItemIndex) >= gWorldItems.size())
+	{
+		return false;
+	}
+	const WORLDITEM& item = gWorldItems[localItemIndex];
+	return item.fExists && (item.usFlags & WORLD_ITEM_ARMED_BOMB) != 0 &&
+		item.object.exists() && item.object[0] != NULL &&
+		IsValidLegacyGridNo(item.sGridNo) &&
+		IsValidLegacyWorldLevel(item.ubLevel);
+}
+
+static bool LegacyWorldBombMatchesWireKey(
+	const WORLDBOMB& bomb, UINT8 originTeam, UINT32 worldItemIndex)
+{
+	if (IsLegacySharedMapBomb(bomb))
+	{
+		return originTeam == 0 && bomb.iItemIndex >= 0 &&
+			static_cast<UINT32>(bomb.iItemIndex) == worldItemIndex;
+	}
+	if (originTeam == 0) return false;
+	if (bomb.bIsFromRemotePlayer)
+	{
+		return bomb.ubMPTeamIndex == originTeam &&
+			bomb.iMPWorldItemIndex >= 0 &&
+			static_cast<UINT32>(bomb.iMPWorldItemIndex) == worldItemIndex;
+	}
+	const UINT8 localOriginTeam = bomb.ubMPTeamIndex == 0
+		? netbTeam : bomb.ubMPTeamIndex;
+	return localOriginTeam == originTeam && bomb.iItemIndex >= 0 &&
+		static_cast<UINT32>(bomb.iItemIndex) == worldItemIndex;
+}
+
 void send_plant_explosive (SoldierID ubID,UINT16 usItem,UINT8 ubItemStatus,UINT16 usFlags, UINT32 sGridNo,UINT8 ubLevel, UINT32 uiWorldItemIndex)
 {
+	if (uiWorldItemIndex >= gWorldItems.size() ||
+		uiWorldItemIndex >= LegacySharedExplosiveWorldIndexLimit ||
+		!gWorldItems[uiWorldItemIndex].fExists ||
+		!gWorldItems[uiWorldItemIndex].object.exists() ||
+		gWorldItems[uiWorldItemIndex].object[0] == NULL)
+	{
+		return;
+	}
 	explosive_obj exp;
 
 	exp.sGridNo = sGridNo;
@@ -4052,14 +4398,23 @@ void recievePLANTEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, explosive_obj);
 	explosive_obj* exp = (explosive_obj*)rpcParameters->data;
+	if ( !IsValidLegacyItem(exp->usItem) ||
+		exp->sGridNo >= static_cast<UINT32>(WORLD_MAX) ||
+		exp->uiWorldIndex >= LegacySharedExplosiveWorldIndexLimit ||
+		!IsValidLegacyWorldLevel(exp->ubLevel) ||
+		exp->bDetonatorType < BOMB_TIMED ||
+		exp->bDetonatorType > BOMB_SWITCH )
+	{
+		return;
+	}
 
 	exp->ubID = MPDecodeSoldierID( exp->ubID );
 
-	TacticalActor* pSoldier = ResolveMerc(exp->ubID.i);
+	TacticalActor* pSoldier = SafeMercInSector(exp->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// explosive wasnt planted on our client, so we should do it on the client
-		if (!IsOurSoldier(pSoldier) && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4068,10 +4423,18 @@ void recievePLANTEXPLOSIVE (SdlNetMessage *rpcParameters)
 #endif
 
 			// this is a bit of a hack until we do the inventory sync
-			OBJECTTYPE* newObj = new OBJECTTYPE();
-			CreateItem( exp->usItem, exp->ubItemStatus, newObj );
+			OBJECTTYPE newObj;
+			if ( !CreateItem(exp->usItem, exp->ubItemStatus, &newObj) )
+				return;
 			INT32 iNewItemIndex;
-			OBJECTTYPE* pObj = AddItemToPoolAndGetIndex( exp->sGridNo, newObj, VISIBLE, exp->ubLevel, exp->usFlags,0, exp->ubID,&iNewItemIndex);
+			OBJECTTYPE* pObj = AddItemToPoolAndGetIndex( exp->sGridNo,
+				&newObj, VISIBLE, exp->ubLevel, exp->usFlags, 0,
+				exp->ubID, &iNewItemIndex );
+			if ( pObj == NULL || (*pObj)[0] == NULL || iNewItemIndex < 0 ||
+				static_cast<std::size_t>(iNewItemIndex) >= gWorldItems.size() )
+			{
+				return;
+			}
 			// need to save Item Type metadata agaist the world item
 			(*pObj)[0]->data.misc.ubBombOwner = exp->ubID + 2; // this is a hack the designers put into the game, storing the side as well (which isnt relevant in MP, but still have to do it)
 			(*pObj)[0]->data.misc.usBombItem = exp->usItem;
@@ -4103,6 +4466,11 @@ void recievePLANTEXPLOSIVE (SdlNetMessage *rpcParameters)
 
 			if (!bFound)
 			{
+				// Do not leave an unlinked replicated PLANT behind with the
+				// pre-placed-map sentinel. That would let a later origin-zero claim
+				// reinterpret a player-authored bomb as shared map state.
+				RemoveItemFromPool(
+					exp->sGridNo, iNewItemIndex, exp->ubLevel);
 #ifdef JA2BETAVERSION
 				// this is a local failure really and will probably NEVER happen
 				char tmpMsg1[128];
@@ -4126,20 +4494,41 @@ void recievePLANTEXPLOSIVE (SdlNetMessage *rpcParameters)
 
 void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 {
-	ubID = MPEncodeSoldierID(ubID);
-
+	// Resolve the local actor before translating its ID. Team-0 mercs live at
+	// local slots 0..19; resolving the encoded 120+ wire slot drops every normal
+	// player detonation before it can be sent.
 	TacticalActor* pSoldier = ResolveMerc(ubID.i);
+	// Timed, switch, and chain detonations can have no triggering actor. Attribute
+	// those packets to the bomb's real owner so legacy receivers (which require an
+	// actor to identify the originating team) can still materialize the event.
+	if (!pSoldier && ubID == NOBODY &&
+		uiWorldIndex < gWorldItems.size() &&
+		gWorldItems[uiWorldIndex].fExists)
+	{
+		SoldierID owner = gWorldItems[uiWorldIndex].soldierID;
+		if (owner == NOBODY && gWorldItems[uiWorldIndex].object.exists() &&
+			gWorldItems[uiWorldIndex].object[0] != NULL)
+		{
+			const int encodedOwner = static_cast<int>(
+				gWorldItems[uiWorldIndex].object[0]->data.misc.ubBombOwner) - 2;
+			if (encodedOwner >= 0 && encodedOwner < TOTAL_SOLDIERS)
+				owner = SoldierID{static_cast<UINT16>(encodedOwner)};
+		}
+		pSoldier = ResolveMerc(owner.i);
+		if (pSoldier) ubID = owner;
+	}
 	if (pSoldier != NULL)
 	{
 		// explosive detonated on this client, notify the other clients
-		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
+		if (IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			// find the appropriate world bomb for the world item
 			INT32 uiBombIndex = -1;
 			UINT32 uiCount;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
-				if (gWorldBombs[uiCount].iItemIndex == uiWorldIndex)
+				if (gWorldBombs[uiCount].fExists &&
+					gWorldBombs[uiCount].iItemIndex == uiWorldIndex)
 				{
 					uiBombIndex = uiCount;
 					break;
@@ -4149,20 +4538,38 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 			if (uiBombIndex > -1)
 			{
 				detonate_struct det;
-				det.ubID = ubID;
-										
-				if ( gWorldBombs[ uiBombIndex ].bIsFromRemotePlayer ) 
+				det.ubID = MPEncodeSoldierID(ubID);
+				const bool sharedMapBomb =
+					IsLegacySharedMapBomb(gWorldBombs[uiBombIndex]);
+				if (sharedMapBomb &&
+					uiWorldIndex >= LegacySharedExplosiveWorldIndexLimit)
+				{
+					return;
+				}
+				const UINT8 storedOriginTeam =
+					gWorldBombs[uiBombIndex].ubMPTeamIndex;
+				// The server ledger is namespaced by the planter, not by whoever
+				// happened to trigger the bomb.  The embedded host controls player
+				// team 0 and AI teams 1..5, so those can be different local actors.
+				det.ubMPTeamIndex = sharedMapBomb ? 0 :
+					(storedOriginTeam == 0 ? netbTeam : storedOriginTeam);
+
+				if (sharedMapBomb)
+				{
+					// Map-authored bombs have no PLANT packet or creator-local
+					// namespace. Their map item index is shared by all peers.
+					det.uiWorldItemIndex = uiWorldIndex;
+				}
+				else if ( gWorldBombs[ uiBombIndex ].bIsFromRemotePlayer )
 				{
 					// it is possible for players from other teams to set off a bomb that does not belong to them if they fail disarming it
 					// but we must send the ID for the world item of the bomb that all the other clients recognise
-					det.ubMPTeamIndex = gWorldBombs[ uiBombIndex ].ubMPTeamIndex;
 					det.uiWorldItemIndex = gWorldBombs[ uiBombIndex ].iMPWorldItemIndex;
 				}
 				else
 				{
 					// it is a bomb that originated on our client
 					det.uiWorldItemIndex = uiWorldIndex;
-					det.ubMPTeamIndex = pSoldier->roster().team();
 				}
 				det.uiPreRandomIndex = guiPreRandomIndex;
 
@@ -4173,7 +4580,14 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 				gfMPDebugOutputRandoms = true;
 #endif
 
-				client->SendMessage("sendDETONATEEXPLOSIVE", (const char*)&det, sizeof(detonate_struct), AnyConnection, true);
+				const bool queued = client->SendMessage(
+					"sendDETONATEEXPLOSIVE", (const char*)&det,
+					sizeof(detonate_struct), AnyConnection, true);
+				if (queued && is_server && sharedMapBomb)
+				{
+					(void)RegisterLegacyEmbeddedHostSharedBombDetonation(
+						uiWorldIndex, det.ubID);
+				}
 			}
 			else
 			{
@@ -4190,14 +4604,22 @@ void recieveDETONATEEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, detonate_struct);
 	detonate_struct* det = (detonate_struct*)rpcParameters->data;
+	if ( det->ubMPTeamIndex >= MAXTEAMS ||
+		(det->ubMPTeamIndex == 0 &&
+		 det->uiWorldItemIndex >= LegacySharedExplosiveWorldIndexLimit) )
+		return;
 
 	det->ubID = MPDecodeSoldierID(det->ubID);
 
+	// A timed, switch, or chain detonation may arrive after its attributed
+	// planter has died, fallen unconscious, or left the sector. The authenticated
+	// server ledger already proved the bomb key; retain the actor only for stable
+	// origin-team/echo classification instead of requiring live tactical action.
 	TacticalActor* pSoldier = ResolveMerc(det->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// if explosive detonation didnt originate from this client then its need to be performed here
-		if (pSoldier->roster().team() != netbTeam && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4206,21 +4628,23 @@ void recieveDETONATEEXPLOSIVE (SdlNetMessage *rpcParameters)
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			guiPreRandomIndex = det->uiPreRandomIndex; // syncronise random number generator
-
 			UINT32 uiCount;
-			UINT32 ubWorldIndexToCheck = -1;
 			bool bFound = false;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
-				// we could be recieving a message that a player from another team has detonated our bomb (while disarming), in this case we would check the local ids
-				// otherwise we check MPCreatorID's like normal
-				ubWorldIndexToCheck = (det->ubMPTeamIndex == netbTeam ? gWorldBombs[ uiCount ].iItemIndex : gWorldBombs[ uiCount ].iMPWorldItemIndex);
-				if ( gWorldBombs[ uiCount ].fExists == TRUE && 
-					 ubWorldIndexToCheck == det->uiWorldItemIndex &&
-					 (gWorldBombs[ uiCount ].ubMPTeamIndex == det->ubMPTeamIndex || det->ubMPTeamIndex == netbTeam) )
+				if (gWorldBombs[uiCount].fExists == TRUE &&
+					LegacyWorldBombMatchesWireKey(gWorldBombs[uiCount],
+						det->ubMPTeamIndex, det->uiWorldItemIndex))
 				{
+					INT32 localItemIndex = -1;
+					if (!ResolveLiveLegacyWorldBomb(uiCount, localItemIndex))
+					{
+						return;
+					}
 					bFound = true;
+					// Synchronize only after an authenticated relay resolves to a
+					// live bomb. A forged/missing key must not perturb local RNG.
+					guiPreRandomIndex = det->uiPreRandomIndex;
 					AddBombToQueue(uiCount, guiBaseJA2Clock, TRUE); // blow up now :)
 					break;
 				}
@@ -4241,20 +4665,21 @@ void recieveDETONATEEXPLOSIVE (SdlNetMessage *rpcParameters)
 
 void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 {
-	ubID = MPEncodeSoldierID(ubID);
-
+	// Keep the local ID for lookup; encode only the packet field after the actor
+	// has been resolved (see send_detonate_explosive above).
 	TacticalActor* pSoldier = ResolveMerc(ubID.i);
 	if (pSoldier != NULL)
 	{
 		// explosive disarmed on this client, notify the other clients
-		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
+		if (IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			// find the appropriate world bomb for the world item
 			INT32 uiBombIndex = -1;
 			UINT32 uiCount;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
-				if (gWorldBombs[uiCount].iItemIndex == uiWorldItem)
+				if (gWorldBombs[uiCount].fExists &&
+					gWorldBombs[uiCount].iItemIndex == uiWorldItem)
 				{
 					uiBombIndex = uiCount;
 					break;
@@ -4264,17 +4689,32 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 			if (uiBombIndex > -1)
 			{
 				disarm_struct disarm;
-				disarm.ubID = ubID;
-				if ( gWorldBombs[ uiBombIndex ].bIsFromRemotePlayer )
+				disarm.ubID = MPEncodeSoldierID(ubID);
+				const bool sharedMapBomb =
+					IsLegacySharedMapBomb(gWorldBombs[uiBombIndex]);
+				if (sharedMapBomb &&
+					uiWorldItem >= LegacySharedExplosiveWorldIndexLimit)
+				{
+					return;
+				}
+				const UINT8 storedOriginTeam =
+					gWorldBombs[uiBombIndex].ubMPTeamIndex;
+				// Disarming authority belongs to the acting actor, while the bomb
+				// namespace remains the original planter's namespace.
+				disarm.ubMPTeamIndex = sharedMapBomb ? 0 :
+					(storedOriginTeam == 0 ? netbTeam : storedOriginTeam);
+				if (sharedMapBomb)
+				{
+					disarm.uiWorldItemIndex = uiWorldItem;
+				}
+				else if ( gWorldBombs[ uiBombIndex ].bIsFromRemotePlayer )
 				{
 					// it is possible for players from other teams to defuse a bomb in the world
 					// but we must send the ID for the world item of the bomb that all the other clients recognise
-					disarm.ubMPTeamIndex = gWorldBombs[ uiBombIndex ].ubMPTeamIndex;
 					disarm.uiWorldItemIndex = gWorldBombs[ uiBombIndex ].iMPWorldItemIndex;
 				}
 				else
 				{
-					disarm.ubMPTeamIndex = pSoldier->roster().team();
 					disarm.uiWorldItemIndex = uiWorldItem;
 				}
 				disarm.sGridNo = sGridNo;
@@ -4287,7 +4727,14 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 				gfMPDebugOutputRandoms = true;
 	#endif
 
-				client->SendMessage("sendDISARMEXPLOSIVE", (const char*)&disarm, sizeof(disarm_struct), AnyConnection, true);
+				const bool queued = client->SendMessage(
+					"sendDISARMEXPLOSIVE", (const char*)&disarm,
+					sizeof(disarm_struct), AnyConnection, true);
+				if (queued && is_server && sharedMapBomb)
+				{
+					(void)RegisterLegacyEmbeddedHostSharedBombDisarm(
+						sGridNo, uiWorldItem, disarm.ubID);
+				}
 			}
 			else
 			{
@@ -4304,14 +4751,21 @@ void recieveDISARMEXPLOSIVE (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, disarm_struct);
 	disarm_struct* disarm = (disarm_struct*)rpcParameters->data;
+	if ( disarm->ubMPTeamIndex >= MAXTEAMS ||
+		disarm->sGridNo >= static_cast<UINT32>(WORLD_MAX) ||
+		(disarm->ubMPTeamIndex == 0 &&
+		 disarm->uiWorldItemIndex >= LegacySharedExplosiveWorldIndexLimit) )
+	{
+		return;
+	}
 
 	disarm->ubID = MPDecodeSoldierID(disarm->ubID);
 
-	TacticalActor* pSoldier = ResolveMerc(disarm->ubID.i);
+	TacticalActor* pSoldier = SafeMercInSector(disarm->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// if explosive disarm didnt originate from this client then its need to be performed here
-		if (pSoldier->roster().team() != netbTeam && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4320,26 +4774,29 @@ void recieveDISARMEXPLOSIVE (SdlNetMessage *rpcParameters)
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			guiPreRandomIndex = disarm->uiPreRandomIndex; // syncronise random number generator
-
 			UINT32 uiCount;
-			UINT32 ubWorldIndexToCheck = -1;
 			bool bFound = false;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
-				ubWorldIndexToCheck = (disarm->ubMPTeamIndex == netbTeam ? gWorldBombs[ uiCount ].iItemIndex : gWorldBombs[ uiCount ].iMPWorldItemIndex);
-				if ( gWorldBombs[ uiCount ].fExists == TRUE && 
-					 disarm->uiWorldItemIndex == ubWorldIndexToCheck &&
-					 (gWorldBombs[ uiCount ].ubMPTeamIndex == disarm->ubMPTeamIndex || disarm->ubMPTeamIndex == netbTeam) )
+				if ( gWorldBombs[ uiCount ].fExists == TRUE &&
+					 LegacyWorldBombMatchesWireKey(gWorldBombs[uiCount],
+						disarm->ubMPTeamIndex, disarm->uiWorldItemIndex) )
 				{
+					INT32 localItemIndex = -1;
+					if (!ResolveLiveLegacyWorldBomb(uiCount, localItemIndex) ||
+						gWorldItems[localItemIndex].sGridNo !=
+							static_cast<INT32>(disarm->sGridNo))
+					{
+						return;
+					}
 					bFound = true;
+					// A missing/wrong-grid claim must not alter deterministic RNG.
+					guiPreRandomIndex = disarm->uiPreRandomIndex;
 					// print out a screen message if it was our bomb
 					if (disarm->ubMPTeamIndex == netbTeam)
 					{
 						TacticalActor * pBombOwner = ResolveMerc(
-							gWorldItems[
-								gWorldBombs[uiCount].iItemIndex
-							].soldierID.i);
+							gWorldItems[localItemIndex].soldierID.i);
 						if (pBombOwner != NULL)
 						{
 							ScreenMsg( FONT_LTBLUE , MSG_MPSYSTEM , MPClientMessage[71], pBombOwner->identity().name(), pSoldier->identity().name());
@@ -4347,8 +4804,10 @@ void recieveDISARMEXPLOSIVE (SdlNetMessage *rpcParameters)
 					}
 
 					// removing from the item pool will remove world item and world bomb
-					UINT8 ubLevel = gWorldItems[ gWorldBombs[ uiCount ].iItemIndex ].ubLevel;
-					RemoveItemFromPool( disarm->sGridNo , gWorldBombs[ uiCount ].iItemIndex, ubLevel );
+					UINT8 ubLevel = gWorldItems[localItemIndex].ubLevel;
+					if ( !IsValidLegacyWorldLevel(ubLevel) )
+						return;
+					RemoveItemFromPool( disarm->sGridNo, localItemIndex, ubLevel );
 					break;
 				}
 			}
@@ -4392,6 +4851,27 @@ void recieveSPREADEFFECT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
 	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->data;
+	if ( !IsValidLegacyGridNo(sef->sGridNo) ||
+		!IsValidLegacyWorldLevel(sef->bLevel) ||
+		!IsValidLegacyExplosiveItem(sef->usItem) ||
+		sef->fSubsequent > REDO_SPREAD_EFFECT ||
+		sef->iSmokeEffectID < -1 ||
+		sef->iSmokeEffectID >= NUM_SMOKE_EFFECT_SLOTS ||
+		sef->ubRadius > Explosive[Item[sef->usItem].ubClassIndex].ubRadius )
+	{
+		return;
+	}
+
+	const bool addsSmoke =
+		sef->fSubsequent != ERASE_SPREAD_EFFECT &&
+		sef->fSubsequent != REDO_SPREAD_EFFECT;
+	if ( addsSmoke && sef->iSmokeEffectID < 0 &&
+		IsLegacySmokeExplosiveType(
+			Explosive[Item[sef->usItem].ubClassIndex].ubType) )
+	{
+		// AddSmokeEffectToTile indexes gSmokeEffectData with this value.
+		return;
+	}
 
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
 
@@ -4400,7 +4880,7 @@ void recieveSPREADEFFECT (SdlNetMessage *rpcParameters)
 	{
 
 		// spread effect didnt originate from us
-		if (!IsOurSoldier(pSoldier) && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4415,7 +4895,7 @@ void recieveSPREADEFFECT (SdlNetMessage *rpcParameters)
 			{
 				UINT32 uiCount;
 				bool bFound = false;
-				for(uiCount=0; uiCount < guiNumSmokeEffects; uiCount++)
+				for(uiCount=0; uiCount < guiNumSmokeEffects && uiCount < NUM_SMOKE_EFFECT_SLOTS; uiCount++)
 				{
 					if ( gSmokeEffectData[ uiCount ].fAllocated == TRUE && gSmokeEffectData[ uiCount ].iMPTeamIndex == pSoldier->roster().team() && gSmokeEffectData[ uiCount ].iMPSmokeEffectID == sef->iSmokeEffectID)
 					{
@@ -4455,7 +4935,7 @@ void recieveSPREADEFFECT (SdlNetMessage *rpcParameters)
 void send_newsmokeeffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwner, INT32 iSmokeEffectID)
 {
 	// i'm reusing this struct, the parameters are essentially the same
-	spreadeffect_struct sef;
+	spreadeffect_struct sef{};
 
 	sef.sGridNo = sGridNo;
 	sef.usItem = usItem;
@@ -4477,6 +4957,16 @@ void recieveNEWSMOKEEFFECT (SdlNetMessage *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
 	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->data;
+	if ( !IsValidLegacyGridNo(sef->sGridNo) ||
+		!IsValidLegacyWorldLevel(sef->bLevel) ||
+		!IsValidLegacyExplosiveItem(sef->usItem) ||
+		sef->iSmokeEffectID < 0 ||
+		sef->iSmokeEffectID >= NUM_SMOKE_EFFECT_SLOTS ||
+		!IsLegacySmokeExplosiveType(
+			Explosive[Item[sef->usItem].ubClassIndex].ubType) )
+	{
+		return;
+	}
 
 	// translate any of our soldier ids back to the correct local copy
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
@@ -4485,7 +4975,7 @@ void recieveNEWSMOKEEFFECT (SdlNetMessage *rpcParameters)
 	if (pSoldier != NULL)
 	{
 		// new smoke effect didnt originate from us
-		if (!IsOurSoldier(pSoldier) && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4497,7 +4987,12 @@ void recieveNEWSMOKEEFFECT (SdlNetMessage *rpcParameters)
 
 			// start new smoke effect
 			INT32 iNewSmokeIndex = NewSmokeEffect( sef->sGridNo, sef->usItem, sef->bLevel, sef->ubOwner, TRUE );
-			
+			if ( iNewSmokeIndex < 0 ||
+				iNewSmokeIndex >= NUM_SMOKE_EFFECT_SLOTS )
+			{
+				return;
+			}
+
 			// attach remote id to local smoke effect
 			gSmokeEffectData[iNewSmokeIndex].iMPTeamIndex = pSoldier->roster().team();
 			gSmokeEffectData[iNewSmokeIndex].iMPSmokeEffectID = sef->iSmokeEffectID;
@@ -4516,7 +5011,7 @@ void recieveNEWSMOKEEFFECT (SdlNetMessage *rpcParameters)
 
 void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner )
 {
-	explosiondamage_struct exp;
+	explosiondamage_struct exp{};
 	exp.ubDamageFunc = 1;
 	exp.ubSoldierID = MPEncodeSoldierID(pSoldier->identity().id());
 	exp.usExplosiveClassID = usExplosiveClassID;
@@ -4538,7 +5033,7 @@ void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 
 
 void send_explosivedamage( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent )
 {
-	explosiondamage_struct exp;
+	explosiondamage_struct exp{};
 	exp.ubDamageFunc = 2;
 	exp.ubSoldierID = MPEncodeSoldierID(ubPerson);
 	exp.usItem = usItem;
@@ -4564,20 +5059,36 @@ void recieveEXPLOSIONDAMAGE (SdlNetMessage *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, explosiondamage_struct);	// short-frame guard (H5/H13)
 	explosiondamage_struct* exp = (explosiondamage_struct*)rpcParameters->data;
 
-	// H5: usItem indexes Item[]/Explosive[] (compounding OOB read) -- bound it.
-	if ( exp->usItem == 0 || exp->usItem >= MAXITEMS )
+	if ( exp->ubDamageFunc != 1 && exp->ubDamageFunc != 2 )
 		return;
+	if ( exp->sSubsequent < 0 ||
+		exp->sSubsequent > REDO_SPREAD_EFFECT ||
+		exp->sWoundAmt < 0 || exp->sBreathAmt < 0 )
+	{
+		return;
+	}
+	// Gas packets carry the already-resolved Explosive[] class; blast packets
+	// carry the item. Validate only the discriminator-specific index.
+	if ( exp->ubDamageFunc == 1 && exp->usExplosiveClassID > MAXITEMS )
+		return;
+	if ( exp->ubDamageFunc == 2 &&
+		( !IsValidLegacyExplosiveItem(exp->usItem) ||
+			!IsValidLegacyGridNo(exp->sBombGridNo) ||
+			exp->uiDist >
+				Explosive[Item[exp->usItem].ubClassIndex].ubRadius ) )
+	{
+		return;
+	}
 
 	exp->ubSoldierID = MPDecodeSoldierID(exp->ubSoldierID);
 	exp->ubAttackerID = MPDecodeSoldierID(exp->ubAttackerID);
 
 
-	TacticalActor* pSoldier = ResolveMerc(exp->ubSoldierID.i);
+	TacticalActor* pSoldier = SafeMercInSector(exp->ubSoldierID.i);
 	if (pSoldier != NULL)
 	{
-
 		// damage isnt for our merc (or we wouldve handled it locally) or it is for an AI but we are NOT the server
-		if (!IsOurSoldier(pSoldier) && (pSoldier->roster().team() != 1 || !is_server))
+		if (!IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
@@ -4594,7 +5105,7 @@ void recieveEXPLOSIONDAMAGE (SdlNetMessage *rpcParameters)
 
 				// can use DishOutGasDamage() as it is dependant on the local state of the gas cloud which is not always in sync
 				// but we have the definite results of damage on a merc, so :
-				TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_STAND, exp->sWoundAmt, exp->sBreathAmt, Explosive[Item[exp->usItem].ubClassIndex].ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
+				TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_STAND, exp->sWoundAmt, exp->sBreathAmt, Explosive[exp->usExplosiveClassID].ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
 			}
 			else if (exp->ubDamageFunc == 2)
 			{
@@ -4656,6 +5167,21 @@ void recieveBULLET(SdlNetMessage *rpcParameters)
 	bullet_wire b;
 	if ( !DeserializeBullet( b, rpcParameters->data, rpcParameters->size ) )
 		return;
+	const INT64 maxWorldDistance =
+		static_cast<INT64>(WORLD_COORD_COLS) + WORLD_COORD_ROWS;
+	if ( !IsValidLegacyItem(b.usHandItem) ||
+		!IsValidLegacyGridNo(b.sTargetGridNo) || b.iImpact < 0 ||
+		b.iImpact > std::numeric_limits<UINT8>::max() ||
+		b.iRange <= 0 || b.iRange > maxWorldDistance ||
+		b.iDistanceLimit < 0 || b.iDistanceLimit > maxWorldDistance ||
+		!std::isfinite(b.ddHorizAngle) ||
+		!IsValidLegacyFixedWorldPosition(b.qCurrX, b.qCurrY, b.qCurrZ) ||
+		!IsValidLegacyFixedIncrement(b.qIncrX) ||
+		!IsValidLegacyFixedIncrement(b.qIncrY) ||
+		!IsValidLegacyFixedIncrement(b.qIncrZ) )
+	{
+		return;
+	}
 
 	INT32 net_iBullet=b.iBullet;
 	if ( net_iBullet < 0 || net_iBullet >= NUM_BULLET_SLOTS )
@@ -4668,7 +5194,7 @@ void recieveBULLET(SdlNetMessage *rpcParameters)
 	INT8 bTeam = OUR_TEAM;
 	if ( firerID != NOBODY )
 	{
-		pFirer = ResolveMerc(firerID.i);
+		pFirer = SafeMercInSector(firerID.i);
 		if ( !pFirer )
 			return;
 		bTeam=pFirer->roster().team();
@@ -4729,9 +5255,17 @@ void recieveBULLET(SdlNetMessage *rpcParameters)
 
 void send_changestate (EV_S_CHANGESTATE * SChangeState)
 {
-	EV_S_CHANGESTATE	new_state;
-
-	memcpy( &new_state , SChangeState, sizeof( EV_S_CHANGESTATE ));
+	EV_S_CHANGESTATE new_state;
+	memset(&new_state, 0, sizeof(new_state));
+	new_state.usTargetGridNo = SChangeState->usTargetGridNo;
+	new_state.uiUniqueId = SChangeState->uiUniqueId;
+	new_state.usSoldierID = SChangeState->usSoldierID;
+	new_state.usNewState = SChangeState->usNewState;
+	new_state.sXPos = SChangeState->sXPos;
+	new_state.sYPos = SChangeState->sYPos;
+	new_state.usStartingAniCode = SChangeState->usStartingAniCode;
+	new_state.fForce = SChangeState->fForce;
+	new_state.usNewDirection = SChangeState->usNewDirection;
 
 	if(new_state.usSoldierID < 20)
 		new_state.usSoldierID = new_state.usSoldierID+ubID_prefix;
@@ -4944,11 +5478,7 @@ void recieveDEATH (SdlNetMessage *rpcParameters)
 		return;	// MP wire guard: unknown victim id (mp_audit_findings.json)
 	}
 
-	SoldierID ubAttackerID;
-	if((nDeath->attacker_id >= ubID_prefix) && (nDeath->attacker_id < (ubID_prefix+6)))
-		ubAttackerID = (nDeath->attacker_id - ubID_prefix);
-	else
-		ubAttackerID = nDeath->attacker_id;
+	SoldierID ubAttackerID = MPDecodeSoldierID(nDeath->attacker_id);
 
 	TacticalActor * pAttacker =
 		ResolveMerc(ubAttackerID.i);
@@ -5040,7 +5570,17 @@ void recieveDEATH (SdlNetMessage *rpcParameters)
 void send_hitstruct(EV_S_STRUCTUREHIT	*	SStructureHit)
 {
 	EV_S_STRUCTUREHIT struct_hit;
-	memcpy( &struct_hit , SStructureHit, sizeof( EV_S_STRUCTUREHIT ));
+	memset(&struct_hit, 0, sizeof(struct_hit));
+	struct_hit.iImpact = SStructureHit->iImpact;
+	struct_hit.iBullet = SStructureHit->iBullet;
+	struct_hit.sXPos = SStructureHit->sXPos;
+	struct_hit.sYPos = SStructureHit->sYPos;
+	struct_hit.sZPos = SStructureHit->sZPos;
+	struct_hit.usWeaponIndex = SStructureHit->usWeaponIndex;
+	struct_hit.bWeaponStatus = SStructureHit->bWeaponStatus;
+	struct_hit.ubAttackerID = SStructureHit->ubAttackerID;
+	struct_hit.usStructureID = SStructureHit->usStructureID;
+	struct_hit.fStopped = SStructureHit->fStopped;
 	if(SStructureHit->ubAttackerID <20)struct_hit.ubAttackerID = SStructureHit->ubAttackerID+ubID_prefix;
 			
 	client->SendMessage("sendhitSTRUCT", (const char*)&struct_hit, sizeof(EV_S_STRUCTUREHIT), AnyConnection, true);
@@ -5049,7 +5589,13 @@ void send_hitstruct(EV_S_STRUCTUREHIT	*	SStructureHit)
 void send_hitwindow(EV_S_WINDOWHIT * SWindowHit)
 {
 	EV_S_WINDOWHIT window_hit;
-	memcpy( &window_hit , SWindowHit, sizeof( EV_S_WINDOWHIT ));
+	memset(&window_hit, 0, sizeof(window_hit));
+	window_hit.sGridNo = SWindowHit->sGridNo;
+	window_hit.iBullet = SWindowHit->iBullet;
+	window_hit.usStructureID = SWindowHit->usStructureID;
+	window_hit.fBlowWindowSouth = SWindowHit->fBlowWindowSouth;
+	window_hit.fLargeForce = SWindowHit->fLargeForce;
+	window_hit.ubAttackerID = SWindowHit->ubAttackerID;
 	
 	if(SWindowHit->ubAttackerID <20)
 		window_hit.ubAttackerID = SWindowHit->ubAttackerID+ubID_prefix;
@@ -5060,7 +5606,9 @@ void send_hitwindow(EV_S_WINDOWHIT * SWindowHit)
 void send_miss(EV_S_MISS * SMiss)
 {
 	EV_S_MISS shot_miss;
-	memcpy( &shot_miss , SMiss, sizeof( EV_S_MISS ));
+	memset(&shot_miss, 0, sizeof(shot_miss));
+	shot_miss.iBullet = SMiss->iBullet;
+	shot_miss.ubAttackerID = SMiss->ubAttackerID;
 	
 	if(SMiss->ubAttackerID <20)
 		shot_miss.ubAttackerID = SMiss->ubAttackerID+ubID_prefix;
@@ -5230,7 +5778,7 @@ void UpdateSoldierToNetwork ( TacticalActor *pSoldier )
 		{
 			pSoldier->replication().recordUpdate(time);
 
-			EV_S_UPDATENETWORKSOLDIER SUpdateNetworkSoldier;
+			EV_S_UPDATENETWORKSOLDIER SUpdateNetworkSoldier{};
 
 			SUpdateNetworkSoldier.usSoldierID=pSoldier->identity().id();
 			
@@ -5252,7 +5800,10 @@ void UpdateSoldierToNetwork ( TacticalActor *pSoldier )
 				SUpdateNetworkSoldier.usTactialTurnLimitMax = gTacticalStatus.usTactialTurnLimitMax;
 			}
 			else
+			{
 				SUpdateNetworkSoldier.usTactialTurnLimitCounter = 9999;
+				SUpdateNetworkSoldier.usTactialTurnLimitMax = 0;
+			}
 			
 			client->SendMessage("updatenetworksoldier", (const char*)&SUpdateNetworkSoldier, sizeof(EV_S_UPDATENETWORKSOLDIER), AnyConnection, true);
 		}
@@ -5436,7 +5987,7 @@ void turn_callback (UINT8 ubResult)
 
 void send_fireweapon (EV_S_FIREWEAPON  *SFireWeapon)
 {
-	EV_S_FIREWEAPON sFire;
+	EV_S_FIREWEAPON sFire{};
 
 	if(SFireWeapon->usSoldierID < 20)
 		sFire.usSoldierID = (SFireWeapon->usSoldierID)+ubID_prefix;
@@ -5472,8 +6023,8 @@ void send_door ( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
 {
 	if((is_server && pSoldier->identity().id()<120) || (!is_server && is_client && pSoldier->identity().id()<20) || (!is_server && !is_client) )
 	{
-		doors sDoor;
-		sDoor.ubID=pSoldier->identity().id();
+		doors sDoor{};
+		sDoor.ubID=MPEncodeSoldierID(pSoldier->identity().id());
 		sDoor.sGridNo=sGridNo;
 		sDoor.fNoAnimations=fNoAnimations;
 		
@@ -5534,15 +6085,17 @@ void recieveCHATMSG(SdlNetMessage* rpcParameters)
 // recieveDISCONNECT - Handle disconnection
 void recieveDISCONNECT(SdlNetMessage* rpcParameters)
 {
-	// H10: payload is a single client-number byte; require it before reading.
-	if ( rpcParameters->size < 1 )
+	if (!rpcParameters || rpcParameters->size != sizeof(int))
 		return;
 	// for starters - we shouldnt get a message for ourselves :)
-	int cl_num = (int) *rpcParameters->data; // cl_num starts at 1
+	int cl_num = 0;
+	memcpy(&cl_num, rpcParameters->data, sizeof(cl_num));
 	// H10: cl_num indexes client_names[4]/client_ready[4]/client_teams[4] as [cl_num-1]
 	// and Team[cl_num+5]; an out-of-range wire byte is an OOB write/read. (1..4.)
 	if ( cl_num < 1 || cl_num > 4 )
 		return;
+	const UINT8 disconnectedTeam = static_cast<UINT8>(cl_num + 5);
+	guiLastGrenadeEventSeqInByTeam[disconnectedTeam] = 0;
 
 	wchar_t szPlayerName[30];
 	memset(szPlayerName,0,30*sizeof(wchar_t));
@@ -5551,8 +6104,36 @@ void recieveDISCONNECT(SdlNetMessage* rpcParameters)
 
 	// clear our records from this client
 	memset(client_names[cl_num-1], 0, sizeof(client_names[cl_num-1]));
+	if (!is_game_started && client_ready[cl_num-1] != 0 && numready > 0)
+		--numready;
 	memset(&client_ready[cl_num-1],0,sizeof(int));
 	memset(&client_teams[cl_num-1],0,sizeof(int));
+	int connectedParticipants = 0;
+	for (int slot = 0; slot < 4; ++slot)
+		if (client_names[slot][0] != '\0') ++connectedParticipants;
+	extern BOOLEAN gfDedicatedServer;
+	if (is_server && gfDedicatedServer && connectedParticipants > 0)
+		--connectedParticipants;
+	cMaxClients = static_cast<UINT8>(connectedParticipants);
+
+	// Hires are replicated as soon as the laptop phase opens. A peer can leave
+	// before the tactical screen exists, so screen-specific combat cleanup alone
+	// leaves its already-created squad behind as unowned ghosts. Remove replicas
+	// in every non-tactical phase; a sender never receives its own disconnect,
+	// and the explicit team check protects the local team-0 remapping as well.
+	if ( disconnectedTeam != netbTeam &&
+		(!is_game_started || GetCurrentScreen() != GAME_SCREEN) )
+	{
+		for ( SoldierID actorId = gTacticalStatus.Team[disconnectedTeam].bFirstID;
+		      actorId <= gTacticalStatus.Team[disconnectedTeam].bLastID;
+		      ++actorId )
+		{
+			TacticalActor* actor = SafeMerc(actorId.i);
+			if ( actor && actor->roster().active() &&
+				actor->roster().team() == disconnectedTeam )
+				RemoveLegacyReplicatedSoldier(actor);
+		}
+	}
 
 	if (GetCurrentScreen() == MAP_SCREEN && !(IsJa2TacticalCombatActive()))
 	{
@@ -5566,7 +6147,7 @@ void recieveDISCONNECT(SdlNetMessage* rpcParameters)
 		// in tactical screen and in combat
 		// kill the dead clients mercs out of the game
 
-		UINT8 iNetbTeam = (cl_num)+5;
+		UINT8 iNetbTeam = disconnectedTeam;
 		UINT16 iubID_prefix = gTacticalStatus.Team[ iNetbTeam ].bFirstID;//over here now
 
 		// kill any alive soldiers for the disconnected team
@@ -5703,6 +6284,8 @@ void sendRT(void)
 
 void gotoRT(SdlNetMessage *rpcParameters)
 {
+	if (gMpSerializedInterruptActive) ClearIntList();
+	ClearSerializedInterruptClientState();
 	getReal=true;//MAY NOT BE NEEDED ANY MORE
 
 	gTacticalStatus.bConsNumTurnsNotSeen = 0;
@@ -5750,17 +6333,9 @@ void teamwiped ( void )
 
 	client->SendMessage("sendWIPE", (const char*)&data, sizeof(sc_struct), AnyConnection, true);
 
-	if (is_server)
-	{
-		// end the co-op game if all player teams have wiped
-		if (cGameType==MP_TYPE_COOP)
-		{
-			iTeamsWiped++;
-
-			if (iTeamsWiped >= cMaxClients)
-				game_over();
-		}
-	}
+	// The authenticated server echoes recieve_wipe to every participant,
+	// including the embedded loopback host. Score/turn effects are applied only
+	// from that authored notification, never optimistically here.
 }
 
 void recieve_wipe (SdlNetMessage *rpcParameters)
@@ -5787,8 +6362,8 @@ void recieve_wipe (SdlNetMessage *rpcParameters)
 
 void send_heal (TacticalActor *pSoldier )
 {
-	heal data;
-	data.ubID=pSoldier->identity().id();
+	heal data{};
+	data.ubID=MPEncodeSoldierID(pSoldier->identity().id());
 	data.bLife=pSoldier->vitals().health();
 	data.bBleeding=pSoldier->vitals().bleeding();
 
@@ -5882,6 +6457,8 @@ void recieveGAMEOVER(SdlNetMessage *rpcParameters)
 		return;
 	player_stats* data= (player_stats*)rpcParameters->data;
 	memcpy(gMPPlayerStats,data,sizeof(player_stats)*5);
+	if (gMpSerializedInterruptActive) ClearIntList();
+	ClearSerializedInterruptClientState();
 
 	// fire the score screen
 	StartScoreScreen();
@@ -5895,6 +6472,8 @@ void connect_client ( void )
 {
 	if(!is_client)
 	{
+		ClearIntList();
+		ClearSerializedInterruptClientState();
 		ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, MPClientMessage[0] );
 			
 		client = CreateSdlNetPeer();
@@ -5969,6 +6548,7 @@ void connect_client ( void )
 	//reconnect/connect
 	if( !is_connected && !is_connecting)
 	{
+		ResetLegacyGrenadeSequenceState();
 		gTacticalStatus.uiFlags&= (~SHOW_ALL_MERCS );
 
 		memset( &readyteamreg , 0 , sizeof (int) * 10);
@@ -6142,6 +6722,24 @@ void client_packet ( void )
 					is_connected=true;
 					is_connecting=false;
 
+					if (is_server)
+					{
+						std::array<std::uint8_t,
+							LegacyEmbeddedHostClaimBytes> hostClaim{};
+						if (!CopyLegacyEmbeddedHostClaim(
+								hostClaim.data(), hostClaim.size()) ||
+							!client->SendMessage("claimEmbeddedHost",
+								hostClaim.data(), hostClaim.size(),
+								p->connection, false))
+						{
+							ScreenMsg(FONT_BEIGE, MSG_MPSYSTEM,
+								L"Could not authenticate the embedded host loopback");
+							client->CloseConnection(p->connection, true);
+							is_connected = false;
+							break;
+						}
+					}
+
 					// WANNE: FILE TRANSFER: Send all the data that is needed for the file transfer to the client,
 					// before the actual file transfer begins
 					requestFILE_TRANSFER_SETTINGS();
@@ -6192,8 +6790,11 @@ unsigned char GetPacketIdentifier(SdlNetEvent *p)
 
 void client_disconnect (void)
 {
+	if (gMpSerializedInterruptActive) ClearIntList();
+	ClearSerializedInterruptClientState();
 	if(is_client)
 	{
+		ResetLegacyGrenadeSequenceState();
 		client->DetachFileTransfer(fltClient);
 
 		client->Shutdown(300);

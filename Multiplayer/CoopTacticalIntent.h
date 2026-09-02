@@ -12,9 +12,9 @@
 
 namespace CoopSession
 {
-inline constexpr std::uint16_t TacticalIntentWireVersion = 1;
+inline constexpr std::uint16_t TacticalIntentWireVersion = 3;
 inline constexpr std::size_t TacticalIntentHeaderWireSize = 72;
-inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 7;
+inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 8;
 inline constexpr std::size_t MaximumTacticalIntentWireSize =
 	TacticalIntentHeaderWireSize + MaximumTacticalIntentPayloadWireSize;
 
@@ -24,7 +24,11 @@ enum class TacticalIntentKind : std::uint8_t
 	Face = 2,
 	Stance = 3,
 	Stop = 4,
-	EndTurn = 5
+	EndTurn = 5,
+	AimedFirearmAttack = 6,
+	Reload = 7,
+	DoorOpenClose = 8,
+	PassInterrupt = 9
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -53,13 +57,41 @@ struct StanceTacticalIntent
 
 struct StopTacticalIntent {};
 struct EndTurnTacticalIntent {};
+struct ReloadTacticalIntent {};
+
+struct PassInterruptTacticalIntent
+{
+	std::uint64_t interruptSerial = 0;
+};
+
+struct DoorOpenCloseTacticalIntent
+{
+	std::int32_t baseGrid = -1;
+	std::uint16_t structureId = 0;
+	bool desiredOpen = false;
+};
+
+inline constexpr std::uint8_t MaximumTacticalFirearmAimTime = 8;
+
+// The client names an exact replicated target, never a locally interpreted
+// grid or mutable weapon. The authority resolves the target's live position
+// and captures the actor's exact hand item before admitting the command.
+struct AimedFirearmAttackTacticalIntent
+{
+	TacticalEntityId target;
+	std::uint8_t aimTime = 0;
+};
 
 using TacticalIntentPayload = std::variant<
 	MoveTacticalIntent,
 	FaceTacticalIntent,
 	StanceTacticalIntent,
 	StopTacticalIntent,
-	EndTurnTacticalIntent>;
+	EndTurnTacticalIntent,
+	AimedFirearmAttackTacticalIntent,
+	ReloadTacticalIntent,
+	DoorOpenCloseTacticalIntent,
+	PassInterruptTacticalIntent>;
 
 struct TacticalIntent
 {

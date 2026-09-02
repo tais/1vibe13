@@ -5165,7 +5165,7 @@ BOOLEAN UseLauncher( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	// OJW - 20091002 - Explosives
 	if (is_networked && is_client)
 	{
-		if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
+		if (IsLocallyControlledMultiplayerActor(pSoldier))
 		{
 			send_grenade( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,	pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, sTargetGridNo, pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, iID, false);
 		}
@@ -12427,6 +12427,12 @@ extern BOOLEAN	IsRoofPresentAtGridNo( INT32 sGridNo );
 // Flugente: fire item from A to B (intended for mortarshells and launchable grenades)
 BOOLEAN ArtilleryStrike( UINT16 usItem, SoldierID ubOwnerID, UINT32 usStartingGridNo, UINT32 usTargetMapPos )
 {
+	// Delayed artillery waves do not have a legacy multiplayer action ID or
+	// replay/continuation protocol. Refuse the low-level path as a final guard so
+	// scripted and chain-triggered callers cannot create peer-local shells.
+	if (is_networked)
+		return FALSE;
+
 	FLOAT				dForce, dDegrees;
 	INT16				sDestX, sDestY, sSrcX, sSrcY;
 	vector_3			vForce, vDirNormal;	

@@ -8,6 +8,8 @@
 #include "GameSettings.h"
 #include "../Engine/Core/RandomSource.h"
 
+#include <cstdlib>
+
 class SimulationRandom;
 
 //IMPORTANT: Changing this define will invalidate the JA2 save.	If this is necessary, please ifdef your own value.
@@ -38,6 +40,25 @@ enum class GameSimulationRandomInstallError : std::uint8_t
 GameSimulationRandomInstallError InstallGameSimulationRandom(
 	std::uint64_t campaignSeed) noexcept;
 SimulationRandom* GetGameSimulationRandomSource() noexcept;
+
+// A small number of authoritative legacy algorithms were written directly in
+// terms of C rand(). Keep their ordinary-game behavior byte-for-byte, while a
+// process with an installed campaign stream uses one fixed cross-platform
+// RAND_MAX-compatible domain instead.
+constexpr UINT32 CanonicalLegacyRandMaximum = 0x7fffffffu;
+
+inline UINT32 LegacyCompatibleRandomMaximum() noexcept
+{
+	return GetGameSimulationRandomSource() != nullptr ?
+		CanonicalLegacyRandMaximum : static_cast<UINT32>(RAND_MAX);
+}
+
+inline UINT32 LegacyCompatibleRandom()
+{
+	if (GetGameSimulationRandomSource() != nullptr)
+		return GetGameRandomSource().next(CanonicalLegacyRandMaximum + 1u);
+	return static_cast<UINT32>(std::rand());
+}
 
 extern GAME_EXTERNAL_OPTIONS gGameExternalOptions;
 

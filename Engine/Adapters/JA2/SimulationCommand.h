@@ -36,10 +36,44 @@ constexpr bool IsValidSimulationCommandSource(
 	return false;
 }
 
+// NetworkPeer is also the established provenance for legacy replica updates.
+// Only commands translated by the dedicated co-op authority opt into strict
+// live execution-time authorization. This policy survives Replay source
+// substitution while ordinary legacy multiplayer keeps its prior semantics.
+enum class TacticalCommandAuthorityPolicy : std::uint8_t
+{
+	Legacy,
+	DedicatedCoop
+};
+
+constexpr bool IsValidTacticalCommandAuthorityPolicy(
+	TacticalCommandAuthorityPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case TacticalCommandAuthorityPolicy::Legacy:
+		case TacticalCommandAuthorityPolicy::DedicatedCoop:
+			return true;
+	}
+	return false;
+}
+
+constexpr bool IsValidTacticalCommandAuthorityPolicyForSource(
+	TacticalCommandAuthorityPolicy policy,
+	SimulationCommandSource source) noexcept
+{
+	return IsValidTacticalCommandAuthorityPolicy(policy) &&
+		(policy != TacticalCommandAuthorityPolicy::DedicatedCoop ||
+		 source == SimulationCommandSource::NetworkPeer ||
+		 source == SimulationCommandSource::Replay);
+}
+
 struct EndTurnCommand
 {
 	std::uint8_t nextTeam;
 	SimulationCommandSource source;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 // Whether the JA2 compatibility executor should use the established
@@ -71,6 +105,8 @@ struct ChangeStanceCommand
 	std::uint8_t stance;
 	SimulationCommandSource source;
 	TacticalEventPolicy eventPolicy = TacticalEventPolicy::Replicated;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 struct BeginFireWeaponCommand
@@ -93,6 +129,23 @@ struct BeginSelectedFireWeaponCommand
 	std::int8_t targetCubeLevel;
 	std::uint8_t attackingHand;
 	std::uint32_t attackingWeapon;
+	SimulationCommandSource source;
+};
+
+inline constexpr std::uint8_t TacticalMaximumAimedFirearmAimTime = 8;
+
+// A server-authorized single-shot attack captures every identity and mutable
+// lookup needed to reject drift at execution time. The JA2 compatibility
+// executor still revalidates the live target, hand item, ammunition, aim/AP
+// budget, and turn before it commits a local-only fire event.
+struct AimedFirearmAttackCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::int32_t expectedTargetGrid;
+	std::int8_t expectedTargetLevel;
+	std::uint8_t aimTime;
+	std::uint32_t expectedHandItem;
 	SimulationCommandSource source;
 };
 
@@ -151,6 +204,8 @@ struct MoveToGridCommand
 	TacticalMoveOrigin origin = TacticalMoveOrigin::PlayerUi;
 	TacticalPendingActionPolicy pendingAction =
 		TacticalPendingActionPolicy::Clear;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 struct SetFacingCommand
@@ -159,6 +214,8 @@ struct SetFacingCommand
 	std::uint8_t direction;
 	SimulationCommandSource source;
 	TacticalEventPolicy eventPolicy = TacticalEventPolicy::Replicated;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 inline constexpr std::uint8_t TacticalDirectionCount = 8;
@@ -179,6 +236,8 @@ struct StopMovementCommand
 {
 	TacticalEntityId soldier;
 	SimulationCommandSource source;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 struct CancelDragCommand
@@ -209,6 +268,8 @@ struct ReloadWeaponCommand
 	TacticalEntityId soldier;
 	bool reloadEvenIfNotEmpty;
 	SimulationCommandSource source;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::Legacy;
 };
 
 // The configurable player-team storage contains at most 254 mercenary and
@@ -970,6 +1031,96 @@ constexpr bool IsStructurallyValidSystemWorldObjectInteractionCommand(
 	return false;
 }
 
+// Dedicated co-op's first door slice is intentionally synchronous: the
+// retained command carries exact public identity plus private actor/object
+// fingerprints, costs, world generation, and turn serial. It never requests
+// pathfinding, lock/key/trap work, animation, or client-side audio.
+struct AuthoritativeDoorOpenCloseCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldObjectId object;
+	TacticalWorldObjectOperation operation =
+		TacticalWorldObjectOperation::Open;
+	std::uint8_t direction = TacticalDirectionCount;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::DedicatedCoop;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState =
+		TacticalWorldObjectNoExpectedAnimation;
+	std::uint64_t expectedActorStateFingerprint =
+		TacticalWorldObjectNoExpectedFingerprint;
+	std::uint64_t expectedObjectFingerprint =
+		TacticalWorldObjectNoExpectedFingerprint;
+	std::int16_t expectedActionPointCost =
+		TacticalWorldObjectNoExpectedPointCost;
+	std::int16_t expectedBreathPointCost =
+		TacticalWorldObjectNoExpectedPointCost;
+};
+
+static_assert(
+	std::is_trivially_copyable<AuthoritativeDoorOpenCloseCommand>::value,
+	"authoritative door commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidAuthoritativeDoorOpenCloseCommand(
+	const AuthoritativeDoorOpenCloseCommand& command) noexcept
+{
+	return command.soldier.valid() && command.object.grid >= 0 &&
+		command.object.structureId != 0 &&
+		(command.operation == TacticalWorldObjectOperation::Open ||
+		 command.operation == TacticalWorldObjectOperation::Close) &&
+		IsValidTacticalDirection(command.direction) &&
+		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		command.expectedWorldGeneration != 0 &&
+		command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 &&
+		(command.expectedActorLevel == 0 ||
+		 command.expectedActorLevel == 1) &&
+		command.expectedAnimationState !=
+			TacticalWorldObjectNoExpectedAnimation &&
+		command.expectedActorStateFingerprint !=
+			TacticalWorldObjectNoExpectedFingerprint &&
+		command.expectedObjectFingerprint !=
+			TacticalWorldObjectNoExpectedFingerprint &&
+		command.expectedActionPointCost !=
+			TacticalWorldObjectNoExpectedPointCost &&
+		command.expectedBreathPointCost !=
+			TacticalWorldObjectNoExpectedPointCost;
+}
+
+// A co-op pass is an exact actor vote within one authoritative interrupt
+// generation. It does not mutate JA2's native moved flag; the compatibility
+// executor records the vote and performs one native EndInterrupt only after
+// every still-eligible actor has passed.
+struct PassInterruptCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedInterruptSerial = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<PassInterruptCommand>::value,
+	"interrupt pass commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidPassInterruptCommand(
+	const PassInterruptCommand& command) noexcept
+{
+	return command.soldier.valid() &&
+		command.expectedWorldGeneration != 0 &&
+		command.expectedInterruptSerial != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // Door completion can outlive the executor scope. Newly produced local/System
 // work may cross the established peer boundary; replay and peer-originated work
 // perform the same local animation without reflection.
@@ -1214,7 +1365,10 @@ using SimulationCommand = std::variant<
 	BulkReloadWeaponsCommand,
 	ApplyWeaponConfigurationCommand,
 	SystemWorldObjectInteractionCommand,
-	SynchronizeActorVitalsCommand>;
+	SynchronizeActorVitalsCommand,
+	AimedFirearmAttackCommand,
+	AuthoritativeDoorOpenCloseCommand,
+	PassInterruptCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1249,7 +1403,9 @@ inline bool IsStructurallyValidSimulationCommand(
 			if constexpr (
 				std::is_same<Command, SynchronizeTurnCommand>::value)
 				return IsSimulationSynchronizationSource(value.source);
-			return true;
+			else
+				return IsValidTacticalCommandAuthorityPolicyForSource(
+					value.authority, value.source);
 		}
 		else if constexpr (
 			std::is_same<Command, BulkReloadWeaponsCommand>::value)
@@ -1347,6 +1503,29 @@ inline bool IsStructurallyValidSimulationCommand(
 			return value.soldier.valid() &&
 				IsStructurallyValidSystemWorldObjectInteractionCommand(value);
 		}
+		else if constexpr (
+			std::is_same<Command, AimedFirearmAttackCommand>::value)
+		{
+			return value.soldier.valid() && value.target.valid() &&
+				value.target != value.soldier &&
+				value.expectedTargetGrid >= 0 &&
+				value.expectedTargetLevel >= 0 &&
+				value.expectedTargetLevel <= 1 &&
+				value.aimTime <= TacticalMaximumAimedFirearmAimTime &&
+				value.expectedHandItem != 0 &&
+				IsSimulationSynchronizationSource(value.source);
+		}
+		else if constexpr (
+			std::is_same<Command,
+				AuthoritativeDoorOpenCloseCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeDoorOpenCloseCommand(value);
+		}
+		else if constexpr (
+			std::is_same<Command, PassInterruptCommand>::value)
+		{
+			return IsStructurallyValidPassInterruptCommand(value);
+		}
 		else
 		{
 			if (!value.soldier.valid()) return false;
@@ -1370,16 +1549,33 @@ inline bool IsStructurallyValidSimulationCommand(
 				return IsSimulationSynchronizationSource(value.source);
 			if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 				return IsValidTacticalMoveOrigin(value.origin) &&
-					IsValidTacticalPendingActionPolicy(value.pendingAction);
+					IsValidTacticalPendingActionPolicy(value.pendingAction) &&
+					IsValidTacticalCommandAuthorityPolicyForSource(
+						value.authority, value.source);
 			if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 				return IsValidTacticalEventPolicy(value.eventPolicy) &&
 					(value.source != SimulationCommandSource::NetworkPeer ||
-						value.eventPolicy == TacticalEventPolicy::LocalOnly);
+						value.eventPolicy == TacticalEventPolicy::LocalOnly) &&
+					(value.authority !=
+							TacticalCommandAuthorityPolicy::DedicatedCoop ||
+					 value.eventPolicy == TacticalEventPolicy::LocalOnly) &&
+					IsValidTacticalCommandAuthorityPolicyForSource(
+						value.authority, value.source);
 			if constexpr (std::is_same<Command, SetFacingCommand>::value)
 				return IsValidTacticalDirection(value.direction) &&
 					IsValidTacticalEventPolicy(value.eventPolicy) &&
 					(value.source != SimulationCommandSource::NetworkPeer ||
-						value.eventPolicy == TacticalEventPolicy::LocalOnly);
+						value.eventPolicy == TacticalEventPolicy::LocalOnly) &&
+					(value.authority !=
+							TacticalCommandAuthorityPolicy::DedicatedCoop ||
+					 value.eventPolicy == TacticalEventPolicy::LocalOnly) &&
+					IsValidTacticalCommandAuthorityPolicyForSource(
+						value.authority, value.source);
+			if constexpr (
+				std::is_same<Command, StopMovementCommand>::value ||
+				std::is_same<Command, ReloadWeaponCommand>::value)
+				return IsValidTacticalCommandAuthorityPolicyForSource(
+					value.authority, value.source);
 			if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)

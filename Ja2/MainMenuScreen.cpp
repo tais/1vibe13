@@ -23,6 +23,7 @@
 #include "JA2 Splash.h"
 #include "GameVersion.h"
 #include "GameContext.h"
+#include "DedicatedCoopRuntime.h"
 #include "connect.h"
 #include "strategic.h"
 #include "Strategic Movement.h"
@@ -111,7 +112,7 @@ static void FailDedicatedMainMenuStartup(const char* reason) noexcept
 UINT32	MainMenuScreenHandle( )
 {
 	extern BOOLEAN gfDedicatedServer;
-	if ( gfDedicatedServer )
+	if ( gfDedicatedServer && !IsDedicatedCoopProcess() )
 	{
 		// headless host: pick Multiplayer exactly like the 'm' hotkey, once the
 		// splash (4s) and fade have certainly finished

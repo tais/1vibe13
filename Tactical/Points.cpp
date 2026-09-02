@@ -3060,7 +3060,7 @@ INT16 GetAPsToReloadGunWithAmmo( TacticalActor *pSoldier, OBJECTTYPE * pGun, OBJ
 
 INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 {
-	OBJECTTYPE *	pObj;
+	OBJECTTYPE *	pObj, *pObj2;
 	INT8					bSlot, bSlot2, bExcludeSlot;
 	INT16					bAPCost = 0, bAPCost2 = 0;;
 
@@ -3100,6 +3100,48 @@ INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 		////////////////////////////////////////////////////////////////////////////////////////////////////////
 	}
 //</SB>
+	// AutoReload gives a second-hand manual chamber priority over magazine
+	// replacement when the primary weapon does not need chambering. Mirror that
+	// branch here before bSlot can remain NO_SLOT and before callers use this as
+	// a non-mutating affordability check.
+	if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
+	{
+		pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
+		if ((*pObj2)[0]->data.gun.ubGunShotsLeft &&
+			!((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER))
+		{
+			INT16 sModifiedReloadAP =
+				Weapon[Item[pObj2->usItem].ubClassIndex].APsToReloadManually;
+			if ( Item[pObj2->usItem].usItemClass == IC_GUN )
+				sModifiedReloadAP *=
+					gItemSettings.fAPtoReloadManuallyModifierGun[
+						Weapon[pObj2->usItem].ubWeaponType];
+			else if ( Item[pObj2->usItem].usItemClass == IC_LAUNCHER )
+				sModifiedReloadAP *=
+					gItemSettings.fAPtoReloadManuallyModifierLauncher;
+
+			if ( gGameOptions.fNewTraitSystem )
+			{
+				if ((Weapon[Item[pObj2->usItem].ubClassIndex].ubWeaponType ==
+						GUN_SN_RIFLE ||
+					 Weapon[Item[pObj2->usItem].ubClassIndex].ubWeaponType ==
+						GUN_RIFLE) &&
+					HAS_SKILL_TRAIT(pSoldier, SNIPER_NT))
+					return static_cast<INT16>(sModifiedReloadAP *
+						(100 - gSkillTraitValues.ubSNChamberRoundAPsReduction *
+							NUM_SKILL_TRAITS(pSoldier, SNIPER_NT)) /
+						100.0f + 0.5f);
+				if (Weapon[Item[pObj2->usItem].ubClassIndex].ubWeaponType ==
+						GUN_SHOTGUN &&
+					HAS_SKILL_TRAIT(pSoldier, RANGER_NT))
+					return static_cast<INT16>(sModifiedReloadAP *
+						(100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction *
+							NUM_SKILL_TRAITS(pSoldier, RANGER_NT)) /
+						100.0f + 0.5f);
+			}
+			return sModifiedReloadAP;
+		}
+	}
 
 	if (Item[pObj->usItem].usItemClass == IC_GUN || Item[pObj->usItem].usItemClass == IC_LAUNCHER)
 	{

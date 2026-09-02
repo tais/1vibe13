@@ -69,6 +69,33 @@ struct TacticalActorVitalsChangedEvent
 	std::int16_t currentBreath;
 	std::int16_t previousMaximumBreath;
 	std::int16_t currentMaximumBreath;
+	bool previousHostileToPlayerTeam = false;
+	bool currentHostileToPlayerTeam = false;
+	bool previousInterruptActionEligible = false;
+	bool currentInterruptActionEligible = false;
+};
+
+struct TacticalActorLoadoutChangedEvent
+{
+	TacticalEntityId actor;
+	TacticalActorLoadoutSnapshot previous;
+	TacticalActorLoadoutSnapshot current;
+};
+
+struct TacticalDoorEnteredEvent
+{
+	TacticalDoorSnapshot door;
+};
+
+struct TacticalDoorLeftEvent
+{
+	std::int32_t baseGrid = -1;
+};
+
+struct TacticalDoorChangedEvent
+{
+	TacticalDoorSnapshot previous;
+	TacticalDoorSnapshot current;
 };
 
 using TacticalWorldEvent = std::variant<
@@ -79,7 +106,11 @@ using TacticalWorldEvent = std::variant<
 	TacticalActorLeftEvent,
 	TacticalActorMovedEvent,
 	TacticalActorStanceChangedEvent,
-	TacticalActorVitalsChangedEvent>;
+	TacticalActorVitalsChangedEvent,
+	TacticalActorLoadoutChangedEvent,
+	TacticalDoorEnteredEvent,
+	TacticalDoorLeftEvent,
+	TacticalDoorChangedEvent>;
 
 struct TacticalWorldDelta
 {

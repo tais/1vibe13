@@ -11,6 +11,25 @@
 
 class TacticalActor;
 
+// Dedicated save reconstruction may allocate presentation-only faces while the
+// canonical simulation RNG is protected by a runtime-load transaction. Keep
+// that policy explicit and scoped to the synchronous load operation; ordinary
+// face creation retains its legacy randomized timing.
+class ScopedSavedGameFaceReconstruction final
+{
+public:
+	explicit ScopedSavedGameFaceReconstruction(bool enabled) noexcept;
+	~ScopedSavedGameFaceReconstruction() noexcept;
+
+	ScopedSavedGameFaceReconstruction(
+		const ScopedSavedGameFaceReconstruction&) = delete;
+	ScopedSavedGameFaceReconstruction& operator=(
+		const ScopedSavedGameFaceReconstruction&) = delete;
+
+private:
+	bool enabled_;
+};
+
 // Defines
 #define		NUM_FACE_SLOTS NUM_PROFILES
 

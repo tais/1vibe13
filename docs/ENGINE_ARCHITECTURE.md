@@ -1519,14 +1519,299 @@ the engine must not contain SDL types in its public domain model.
 - Full-engine multiplayer hosting now routes both GUI and headless PvP hosts
   through `MP_CONNECT_SCREEN`, establishing the listener, transitional
   self-client, and canonical settings before `InitNewGame()`. The dedicated
-  command line distinguishes `pvp` from
-  `coop`, accepts explicit campaign create/resume inputs, and rejects co-op
-  before engine initialization until its authority, replication, and durable
-  campaign store are installed; it never aliases that request to legacy
-  `GAME_TYPE=2`. This removes the presentation-only campaign selector formerly
-  used to choose an intro route. The raw-selector inventory is now 103 sites
-  across 28 files: 98 live-context calls, four cached-campaign comparisons,
-  and one active-package capability leaf.
+  command line distinguishes `pvp` from `coop` and never aliases co-op to
+  legacy `GAME_TYPE=2`. Co-op startup acquires its campaign lease, precreates
+  fixed empty save-scratch entries, installs its private writable profile and
+  manifest-bound simulation RNG before VFS discovery. SGP then starts
+  `InitializePackageBoundary`, a distinct rollback-safe
+  `InitializeCoopContentManifestBoundary`, `InitializeLegacyContentBoundary`,
+  and `InitializeGameBoundary` in that exact order. The manifest boundary
+  captures and caches installed-content identity after package mounting and
+  before legacy cache writes; a failure unwinds the active package subsystem.
+  It validates and counts every occurrence before omitting explicit exclusive
+  VFS ancestors, accepts case-only spellings across different read-only layers
+  as normalized overlays selected by the smallest layer, and rejects
+  same-layer ambiguity/duplicates or any remaining writable shadow. Late open
+  consumes the cached digest without VFS recomputation, binds the runtime
+  fingerprint, and opens the A/B store. Resume materializes the selected
+  checkpoint into the precreated scratch entry only after that identity/open
+  succeeds and before the legacy save load begins. Both co-op modes
+  bypass the ordinary `InitMainMenu` transition during INIT: the dedicated process reaches
+  its stage-four campaign-entry request and the passive client reaches its
+  worldless screen before a pending main-menu transition can commit. The
+  dedicated new-campaign branch alone runs `InitGameOptions()` immediately
+  before `InitNewGame(FALSE)` because the installed strategic/Lua difficulty domain is 1..4 and a bypassed settings screen otherwise leaves zero; resume retains checkpointed options. The live listener
+  admits and transport-binds permissionless peers on the configurable
+  `--dedicated-coop-bind`/`--dedicated-coop-port` endpoint, defaulting to
+  `0.0.0.0:60005`; OS-CSPRNG session epochs and bearer credentials do not turn
+  the plaintext transport into user authentication. Periodic and final strategic
+  checkpoints stop the listener and require the command host and tactical
+  server to drain before saving. The late tactical composition registers a
+  value-only execution host on the runtime message bus, keeps legacy live-state
+  inspection in a separate adapter, gates actor ACLs on exact baseline ACKs,
+  publishes committed observer deltas before terminal receipts, and restarts
+  transport across world generations. SGP's final equal-priority subsystem
+  entry detaches the runtime-message sink before the game entry destroys
+  `GameContext`; an exceptional `DispatchInProgress` result stops transport and
+  intentionally leaks the still-live composition rather than freeing an active
+  callback target. The authoritative server path uses global co-op protocol v7
+  and is wired through campaign sync and nine tactical intents: move, face,
+  stance, stop, end turn, exact-target aimed single-shot firearm attack, and
+  selected-actor reload, plus synchronous visible adjacent-door open/close and
+  exact-serial interrupt pass.
+  Reload is a zero-payload client request; the main-thread
+  bridge prepares an exact `ReloadWeaponCommand`, and the executor revalidates
+  live weapon, ammunition/chamber, action points, and native `AutoReload` policy.
+  The attack executor revalidates live identity, target position, turn/interrupt,
+  visibility, hand weapon/ammunition, aim, and action-point state and commits a
+  local-only fire event. The six reused legacy shapes—end turn, move, face,
+  stance, stop, and reload—carry
+  `TacticalCommandAuthorityPolicy::DedicatedCoop`; only `NetworkPeer` or
+  `Replay` may carry it. Simulation-command journal wire v4 preserves the
+  policy when playback substitutes Replay provenance. Their execution repeats
+  live-world and controllable on-foot actor validation plus, in combat, the
+  player-turn/no-pending-action gate. Resolving interrupts block input; active
+  player interrupts permit actions only by eligible actors, reject ordinary end
+  turn, and bind each pass vote to the actor incarnation and interrupt serial.
+  The final eligible vote resumes native flow, while AI interrupts remain under
+  native AI control. Outside that phase, end turn rechecks its exact next team
+  and reload repeats its stricter weapon/ammunition/chamber/AP
+  resolver. Default `Legacy` commands retain established replica and system
+  semantics, while aimed fire remains on its strict synchronization-source
+  resolver. The server also enforces one pending command per peer before
+  replication, reservation, or gameplay. Exact-next pipelining receives a
+  non-consuming `InvalidCommandSequence` and can retry after the earlier
+  terminal result without cursor drift. By contrast,
+  `AuthoritySequenceExhausted` reason 20 consumes the peer cursor; the server
+  remains live long enough to flush that terminal receipt, and the client
+  retains its exact history/cursor before failing and closing.
+
+  Protocol v3 also adds authenticated voluntary self-retirement. Its 24-byte
+  request carries only version, epoch, and request ID, so the transport binding
+  resolves the caller's own identity and there is no selectable victim. The
+  admission registry preflights one of 64 same-epoch tombstone slots, then marks
+  the peer Pending and closes gameplay authority while retaining transport
+  authentication. The listener freezes admission, tactical, and campaign input
+  globally and discards both inbound FIFOs; the runtime waits only for locally
+  authorized command correlations, inbox entries, receipts, cancellations, and
+  tracked commands to drain. It copies the bearer into the retired tombstone and
+  releases the seat before a truthful best-effort 48-byte result can be sent.
+  Exact pending/complete replay is idempotent, an authenticated reconnect
+  distinguishes `CredentialRetirementPending` from `CredentialRetired`, and a
+  wrong token still reveals only `InvalidReconnectToken`.
+
+  Admission then stops and reconciles all network mappings to Offline before
+  stable compaction removes only the retiree's replication, command, ACL,
+  authority-sequence, campaign Ready, and world-participant records. Surviving
+  cursors, receipt history, and replication state remain exact; assignments are
+  republished behind fresh baselines. Full-roster coverage proves four seats
+  compact to three and a distinct fifth identity takes the freed slot with
+  command cursor one. Ordinary disconnect still preserves ownership, while
+  operator eviction and transfer remain unimplemented.
+
+  The exact untouched initial
+  campaign receives the four cheapest eligible healthy A.I.M. profiles by
+  charge/profile ID as normal seven-day hires, then a durable roster/arrival-
+  event checkpoint before the ordinary first-arrival machinery launches the
+  configured hostile encounter for four campaign-ready peers or, after a
+  bounded gather grace, at least one; all four actors must become controllable
+  within two minutes. An initial-state resume either accepts
+  the exact prepared in-transit roster/event shape without rehiring or applies
+  the same one-time bootstrap to an exact empty checkpoint. A cold non-initial
+  strategic checkpoint with at least one valid live on-foot squad mercenary
+  resumes byte-preserved at entry, then starts admission/campaign sync without
+  starter mutation. It enters the canonical hostile sector occupied by such an
+  actor after a peer becomes campaign-ready; peaceful-only established campaigns
+  remain connected and worldless in `StrategicIdle`. Vehicle bodies, drivers,
+  passengers, vehicle-duty assignments, and other non-squad duties are excluded
+  consistently from sector selection, controllable-actor counting, and the live
+  tactical ACL. Ambiguous or partial initial shapes fail closed.
+
+  An automatically entered hostile world arms one process-local post-combat
+  return; a possibly stale serialized victory flag is never sufficient alone.
+  The first committed trigger requires exact victory plus drained combat actions, interrupts,
+  projectiles/explosions, dialogue/trigger work, autoresolve/meanwhile/traversal,
+  auto-bandage, boxing, save/load, and UI/custom timers. It immediately stops
+  admission, reconciles both Ready sets away, and discards inbound work so ACK or
+  intent traffic cannot starve return. A pure three-way recheck restores
+  `Playable` plus same-epoch admission if evidence regresses, waits if stable
+  evidence lacks the fresh assignment/receipt/replication boundary, and calls the
+  dedicated strategic unload wrapper only when both are true. That wrapper bypasses only the occupied-player guard while reusing the
+  normal sector-temp/`HandleDefiniteUnloadingOfWorld`/`TrashWorld`/world-
+  notification tail. Native teardown owns tactical-only temporary schedules;
+  the required cold checkpoint verifies that none survive. Admission remains
+  held through command-host/server world drain and the deferred `MAP_SCREEN`
+  transition. That checkpoint then supersedes campaign sync before admission
+  reopens in the same epoch. Dedicated co-op victory paths also suppress
+  interactive auto-bandage prompts.
+
+  The passive client is also composed into normal `JA2`. After SDL but before
+  random, `GameContext`, and VFS initialization, it obtains the one-shot server
+  descriptor, leases private scratch/profile storage, and installs the exact
+  campaign seed. After exact outer campaign-identity validation, restart
+  atomically quarantines every nonempty disposable client VFS profile to a
+  strict private `profile.orphan.<pid>.<seq>` sibling, requires a freshly empty
+  replacement, and recreates only its two scratch files. `Temp`, `ShadeTables`,
+  settings, and prior load output are disposable; reconnect/retired evidence
+  remains in the held parent, and old quarantine siblings are legal only with
+  the identity record. Its separate post-package, pre-legacy manifest subsystem
+  captures, descriptor-verifies, and caches installed-content identity; late
+  composition open reuses that digest and verifies the runtime fingerprint
+  without re-enumerating the VFS. The passive client bypasses `INTRO_SCREEN`
+  and enters INIT state zero directly, so its INIT-only frame policy cannot loop
+  before `InitializeJA2` opens live transport. It then loads a private 224-byte canonical bootstrap +
+  `AdmissionAck` + SHA-256 reconnect record outside the mounted profile: an exact
+  same-epoch bearer is restored before connect, an epoch-only stale record is
+  erased, and corruption/unsafe storage/non-epoch binding mismatch fails closed.
+  Atomic private staging publishes accepted credentials synchronously before ACK;
+  the live hello is preflight-epoch-pinned before any admission request. An
+  already admitted durable same-epoch bearer may retry without an
+  attempt cap through intentional admission blackout, with a saturating unsigned
+  counter. Never-admitted credential-less startup remains limited to eight
+  attempts, and epoch mismatch fails closed.
+
+  The worldless UI exposes retirement only through a two-step `L` gesture:
+  key-down, physical release, then a later second key-down inside a bounded
+  window. Repeats cannot confirm, other commands/mode changes cancel, and both
+  screen states drain their complete input FIFO. The client publishes the
+  request ID in RAM before sending and, after a same-process disconnect, sends
+  its normal reconnect ACK before replaying that exact leave request rather
+  than resuming gameplay. A lost direct result converges through the
+  bearer-authenticated Pending/Retired admission reasons.
+
+  After committed success, the core atomically renames the exact private
+  224-byte bearer to `client-reconnect-credential.retired` before it clears the
+  credential, enters clean `Retired`, or closes the socket. The no-replace
+  marker is idempotent and terminal at startup before network composition, even
+  across epoch changes; corrupt, unsafe, or simultaneous active/retired evidence
+  fails closed. The explicit narrow combined-failure boundary is earlier: if
+  the server commits, marker storage fails before rename so the active `.bin`
+  remains, and the server independently rolls epoch before convergence, late
+  verified startup may classify that record `StaleSession`, erase it, and fresh-
+  admit. Same-epoch remains fail-closed, and cross-epoch terminality begins only
+  when `.retired` publishes.
+
+  It then
+  connects the real SDL3_net adapter, hash-verifies and
+  atomically commits the transferred checkpoint, cold-loads it, and gates all
+  tactical publication on campaign Ready. Dedicated cold loading holds
+  `ScopedSavedGameFaceReconstruction` over the complete synchronous load, so
+  reconstructed soldier/static-NPC faces use profile presentation timing and
+  consume no canonical RNG; ordinary face creation retains all three legacy
+  draws. Strategic AI uses `StrategicAILoadPolicy::DedicatedExactRestore`:
+  current SAI save v29 bypasses compatibility and repair gameplay, and a stale
+  version is rejected. Interactive loads retain their repair policy. The
+  generic SdlNet peer keeps a
+  256 KiB/s sustained inbound rate and a 1 MiB burst;
+  `SdlNetInboundMessageBudget` is settable only before `Start()` and capped at
+  32 MiB/s and 4 MiB. Only a full-engine client with a non-null campaign sink
+  selects that maximum profile, while bootstrap/core-only/legacy peers retain
+  strict defaults. Its static bound covers one campaign window at 144 FPS, and
+  the production E2E transfers an exact 11,796,517-byte checkpoint twice,
+  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v7 supplies
+  exact dimensions, canonical hostility, the visible-door projection, the
+  public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
+  interrupt-action eligibility, and five bounded 12-byte combat-equipment
+  records: primary hand, secondary hand, helmet, vest, and legs. Each record
+  captures only the first object's item ID, stack count, and condition. For an
+  ammunition-bearing hand object it also captures loaded-ammunition item/count,
+  signed ammunition condition (including a negative jam state), and chambered
+  state; those fields stay canonical zero for ordinary equipment. The adapter
+  exposes no native interrupt list or hidden interrupter. Delta wire v6 carries
+  hostility, interrupt eligibility, door changes, actor-loadout changes after
+  vitals and before doors, and same-serial interrupt-phase changes, while
+  older snapshot layouts are rejected rather than inferred. Its separate passive game-
+  loop branch skips JA2 clocks, frame simulation, package dispatch, messages,
+  commands, observer, and AI. `INIT_SCREEN` renders a worldless committed
+  sector/turn view with an exact-dimension logical isometric diamond, friendly
+  actor markers, and an actor table fallback. Authority capture retains every
+  player-team actor but includes a non-player actor only for exact player-team
+  public `SEEN_CURRENTLY` knowledge; loss/reacquisition produces actor-left/
+  actor-entered deltas. Outside modals, Up/Down/Left/Right submit allocation-free
+  exact-grid isometric moves with row/column deltas -1/-1, +1/+1, +1/-1, and
+  -1/+1 respectively. Both grids are dimension-bounded and the replica is not
+  predicted. Tab or `]` selects the next assigned actor, `[` selects the
+  previous, and `M` retains numeric-grid entry. The controls produce all nine
+  typed intents, including bounded opposing-actor/aim selection and selected-
+  actor reload without speculative AP spend or damage; `T` ends an ordinary
+  turn or passes the selected actor's active interrupt. `commandsBlocked`
+  disables every input action and closes move/fire/door modals. `D` opens a modal projected-
+  door selector; Up/Down/Tab cycle, Enter sends the exact inverse open state,
+  and Esc cancels without local mutation. A campaign-ready late peer joins the active grow-only
+  participant set only after command, receipt, and replication obligations drain;
+  fresh assignment baselines must be ACKed before its ACL opens, while disconnect
+  preserves ownership. A real-socket end-to-end test destroys/recreates the
+  client composition, restores the same identity without a second issuance, and
+  reaches Move, aimed fire, reload, and exact-serial interrupt pass, committed movement/AP/damage delta
+  application, and their Applied receipts. It then proves commit-before-result,
+  durable bearer retirement before clean socket stop, and removal of that peer
+  from tactical state before world and epoch teardown.
+  Snapshot records are exactly 53/92/7 bytes for header/actor/door, including
+  five 12-byte combat-equipment records per actor, with a 384053-byte generic
+  ceiling; delta v6 permits 18434 generic events and its same-serial interrupt-phase
+  turn event is
+  exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 3074 events,
+  with baseline payload/envelope 30773/32385 and delta payload/envelope
+  62034/62106 under 64 KiB.
+  Intent wire v3 is bounded at 72+8=80 bytes, inner tactical wire is v3,
+  both tactical-world services are 2.0, observer `DoorCapacityReached` is 12,
+  and pointer-free door/pass commands use journal-v4 tags 33/34.
+
+  Tactical wire v3 retains same-connection replica recovery. The client keeps the
+  last committed view immutable and disables input while sending an
+  authenticated exact 88-byte self-only request for a delta-sequence gap,
+  payload-checksum mismatch, state mismatch, replica rejection, invalid
+  envelope, or baseline rejection. The server validates the last committed
+  checkpoint across rotated replacement-baseline retries and retains the
+  peer's admission, socket, identity, assignment, authoritative command cursor,
+  pending commands, and receipt history. Its bounded connection-scoped proof
+  ledger records only baselines and deltas successfully sent to transport.
+  Exact late ACKs may advance committed recovery evidence without changing the
+  current phase or staged send; monotonic send ordinals prevent equal-revision
+  regression. A newly accepted resync request purges prior sent proofs after
+  validating its committed checkpoint. Only the normal baseline ACK restores
+  live replication; input remains frozen while a consumed outstanding command
+  is causally incomplete. Exact cursor reconciliation clears only a command
+  proven unconsumed by an unchanged cursor. Otherwise its lock survives
+  baseline ACK until retained Queued and terminal receipts replay in that
+  tactical world. A newer-world baseline adopts its authoritative cursor and
+  retires the obsolete lock, leaving any late old-world receipt idempotent. A
+  reconnect baseline waits behind a retained pending command, while same-
+  connection resync remains baseline-eligible with that lock intact. Three
+  failed replacement-baseline attempts close that connection. Reconnect remains
+  necessary for transport recovery, but is no longer the only tactical-state
+  recovery boundary. Focused and real-socket tests validate the implemented
+  path.
+
+  The native door authority revalidates visibility, cardinal adjacency, AP/BP,
+  exact world/turn and actor/object fingerprints, and rejects stealth, lock/trap,
+  busy/tin-can, animation, pending, and legacy-network states. It computes pure
+  explicit-grid noise, preflights door status/graphic, swaps and verifies the
+  partner, commits status plus `LEVELNODE`, recompiles movement, runs POW and
+  flashlight maintenance, and returns before any AP/BP deduction or exactly one
+  `OurNoise` plus sight/opponent-list/interrupt/AI update. Integrity failure
+  latches the world with no points or noise and fails replication closed.
+
+  This is a functional technical slice, not a full JA2 tactical client: the JA2
+  terrain/static-world renderer remains absent. The five-slot combat-equipment
+  projection is not the future authorized, chunked full 55-slot inventory
+  domain: reserve
+  ammunition, remaining equipment-stack objects, attachments/LBE, other items,
+  general structures, door lock/key/trap/
+  asynchronous interaction, per-peer visibility, broader-combat replication,
+  general strategic mission/session control, and public
+  authentication/TLS remain open. The opt-in installed-data independent-process
+  smoke is absent from default CTest and registers only when both absolute cache
+  paths `JA2_COOP_INSTALLED_SMOKE_EXECUTABLE` and
+  `JA2_COOP_INSTALLED_SMOKE_DATA_ROOT` are configured. On POSIX it uses
+  a free loopback port and private temporary roots to prove create/Ready, independent
+  same-root reconnect with a byte-identical 224-byte credential, clean worldless
+  final checkpoint, and resume. It fingerprints installed inputs and cleans
+  process groups and temporary state; a full playthrough and soak remain open.
+  This removes the presentation-only campaign selector
+  formerly used to choose an intro route. The raw-selector inventory is now 103
+  sites across 28 files: 98 live-context calls, four cached-campaign
+  comparisons, and one active-package capability leaf.
 - Civilian tactical dialogue now selects through the value-only
   `CampaignCivilianQuotePolicy`. Every host emits both quote catalogues and
   dedicated civilian-group ranges. Arulco retains its surrender completion,

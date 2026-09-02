@@ -126,6 +126,7 @@ public:
 
 extern std::vector<WORLDITEM> gWorldItems;//dnl ch75 261013
 extern UINT32				guiNumWorldItems;
+UINT32 GetNumUsedWorldItems(void);
 
 INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 usFlags, INT8 bRenderZHeightAboveLevel, INT8 bVisible, SoldierID soldierID );
 void RemoveItemFromWorld( INT32 iItemIndex );

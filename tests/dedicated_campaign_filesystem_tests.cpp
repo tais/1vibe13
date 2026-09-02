@@ -1,5 +1,6 @@
 #include "Ja2/DedicatedCampaignFilesystem.h"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <type_traits>
 #include <vector>
 
 #ifdef _WIN32
@@ -23,6 +25,19 @@
 namespace
 {
 std::filesystem::path ExecutablePath;
+
+static_assert(!std::is_copy_constructible<
+	DedicatedCampaignCheckpointReader>::value,
+	"checkpoint readers must not duplicate native handle ownership");
+static_assert(!std::is_copy_assignable<
+	DedicatedCampaignCheckpointReader>::value,
+	"checkpoint readers must not duplicate native handle ownership");
+static_assert(std::is_nothrow_move_constructible<
+	DedicatedCampaignCheckpointReader>::value,
+	"checkpoint readers must transfer ownership without failure");
+static_assert(std::is_nothrow_move_assignable<
+	DedicatedCampaignCheckpointReader>::value,
+	"checkpoint readers must transfer ownership without failure");
 
 struct FileIdentity
 {
@@ -538,6 +553,229 @@ void TestStoreRoundTripAndSha256()
 		"resume falls back to the older valid pair when newer bytes mismatch");
 }
 
+void TestImmutableCheckpointReaderAndBounds()
+{
+	TemporaryRoot root;
+	FileCheckpointWriter writer;
+	writer.bytes.resize(100000);
+	for (std::size_t index = 0; index < writer.bytes.size(); ++index)
+		writer.bytes[index] = static_cast<std::uint8_t>(index * 37u + 11u);
+	const std::vector<std::uint8_t> firstBytes = writer.bytes;
+	DedicatedCampaignFilesystemBackend backend(writer);
+	Check(backend.open(root.path(), "checkpoint_reader") ==
+		DedicatedCampaignFilesystemError::None,
+		"checkpoint reader fixture opens");
+	DedicatedCampaignStore store(backend);
+	Check(store.create(Identity("checkpoint_reader")) ==
+			DedicatedCampaignStoreError::None &&
+		store.checkpoint(111) == DedicatedCampaignStoreError::None &&
+		store.state() != nullptr,
+		"checkpoint reader fixture publishes its first generation");
+	const DedicatedCampaignStoreState firstState = *store.state();
+
+	DedicatedCampaignCheckpointReader reader;
+	Check(backend.openCheckpointReader(firstState, reader) && reader.isOpen() &&
+		reader.slot() == DedicatedCampaignSlot::A &&
+		reader.generation() == 1 && reader.worldMinutes() == 111 &&
+		reader.size() == firstBytes.size() &&
+		reader.checkpointSha256() == firstState.checkpointSha256,
+		"a reader publishes only after exact metadata and SHA validation");
+
+	std::array<std::uint8_t, 31> middle{};
+	Check(reader.readExact(4093, middle.data(), middle.size()) &&
+		std::equal(middle.begin(), middle.end(), firstBytes.begin() + 4093),
+		"checkpoint reads support exact unaligned random offsets");
+	std::array<std::uint8_t, 17> tail{};
+	Check(reader.readExact(firstBytes.size() - tail.size(), tail.data(),
+			tail.size()) &&
+		std::equal(tail.begin(), tail.end(),
+			firstBytes.end() - static_cast<std::ptrdiff_t>(tail.size())) &&
+		reader.readExact(firstBytes.size(), nullptr, 0),
+		"checkpoint reads support the final bytes and canonical zero-byte EOF");
+
+	std::array<std::uint8_t, 8> preserved{};
+	preserved.fill(0xa5u);
+	const std::array<std::uint8_t, 8> sentinel = preserved;
+	Check(!reader.readExact(firstBytes.size(), preserved.data(), 1) &&
+		preserved == sentinel &&
+		!reader.readExact(firstBytes.size() + 1, preserved.data(), 0) &&
+		preserved == sentinel &&
+		!reader.readExact(0, nullptr, 1) && preserved == sentinel,
+		"EOF, overflow, and null-output failures preserve caller bytes");
+	std::vector<std::uint8_t> oversized(
+		DedicatedCampaignCheckpointMaximumReadBytes + 1, 0x6cu);
+	Check(!reader.readExact(0, oversized.data(), oversized.size()) &&
+		std::all_of(oversized.begin(), oversized.end(),
+			[](std::uint8_t byte) { return byte == 0x6cu; }),
+		"one read cannot exceed its fixed non-allocating scratch bound");
+
+	DedicatedCampaignStoreState wrongDigest = firstState;
+	wrongDigest.checkpointSha256[0] ^= 0xffu;
+	Check(!backend.openCheckpointReader(wrongDigest, reader) &&
+		reader.generation() == firstState.generation &&
+		reader.checkpointSha256() == firstState.checkpointSha256 &&
+		reader.readExact(4093, middle.data(), middle.size()) &&
+		std::equal(middle.begin(), middle.end(), firstBytes.begin() + 4093),
+		"a failed open preserves an already-published reader and handle");
+	DedicatedCampaignCheckpointReader unopened;
+	DedicatedCampaignStoreState invalidState = firstState;
+	invalidState.checkpointSize = DedicatedCampaignMaximumCheckpointBytes + 1;
+	Check(!backend.openCheckpointReader(invalidState, unopened) &&
+		!unopened.isOpen() && unopened.generation() == 0 &&
+		unopened.size() == 0,
+		"invalid expected state cannot publish an output reader");
+
+	writer.bytes.assign(777, 0x42u);
+	Check(store.checkpoint(222) == DedicatedCampaignStoreError::None,
+		"a second generation publishes beside the held first reader");
+	writer.bytes.assign(913, 0x73u);
+	Check(store.checkpoint(333) == DedicatedCampaignStoreError::None &&
+		store.state() && store.state()->activeSlot == DedicatedCampaignSlot::A &&
+		store.state()->generation == 3,
+		"a later generation atomically replaces the reader's slot path");
+	std::array<std::uint8_t, 64> originalAfterReplacement{};
+	Check(reader.readExact(12345, originalAfterReplacement.data(),
+			originalAfterReplacement.size()) &&
+		std::equal(originalAfterReplacement.begin(),
+			originalAfterReplacement.end(), firstBytes.begin() + 12345) &&
+		reader.generation() == 1 && reader.worldMinutes() == 111,
+		"slot replacement cannot retarget a held reader or its metadata");
+
+	backend.close();
+	originalAfterReplacement.fill(0);
+	Check(reader.readExact(12345, originalAfterReplacement.data(),
+			originalAfterReplacement.size()) &&
+		std::equal(originalAfterReplacement.begin(),
+			originalAfterReplacement.end(), firstBytes.begin() + 12345),
+		"a validated native checkpoint handle outlives backend close");
+	FileCheckpointWriter successorWriter;
+	DedicatedCampaignFilesystemBackend successor(successorWriter);
+	Check(successor.open(root.path(), "successor") ==
+		DedicatedCampaignFilesystemError::None,
+		"a live reader does not retain the writable process lease");
+	DedicatedCampaignCheckpointReader moved(std::move(reader));
+	Check(!reader.isOpen() && moved.isOpen() &&
+		moved.readExact(4093, middle.data(), middle.size()) &&
+		std::equal(middle.begin(), middle.end(), firstBytes.begin() + 4093),
+		"move construction transfers the one native handle exactly once");
+}
+
+void TestCheckpointReaderRejectsChangedAndUnsafeFiles()
+{
+	{
+		TemporaryRoot root;
+		FileCheckpointWriter writer;
+		writer.bytes = {'o', 'r', 'i', 'g', 'i', 'n', 'a', 'l'};
+		DedicatedCampaignFilesystemBackend backend(writer);
+		Check(backend.open(root.path(), "reader_changed") ==
+				DedicatedCampaignFilesystemError::None,
+			"changed checkpoint reader fixture opens");
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity("reader_changed")) ==
+				DedicatedCampaignStoreError::None &&
+			store.checkpoint(1) == DedicatedCampaignStoreError::None,
+			"changed checkpoint reader fixture publishes");
+		const DedicatedCampaignStoreState expected = *store.state();
+		WriteBytes(backend.checkpointPath(expected.activeSlot),
+			{'m', 'u', 't', 'a', 't', 'e', 'd', '!'});
+		DedicatedCampaignCheckpointReader reader;
+		Check(!backend.openCheckpointReader(expected, reader) &&
+			!reader.isOpen(),
+			"same-size bytes changed after commit fail exact digest validation");
+	}
+	{
+		TemporaryRoot root;
+		FileCheckpointWriter writer;
+		writer.bytes = {'l', 'i', 'n', 'k'};
+		DedicatedCampaignFilesystemBackend backend(writer);
+		Check(backend.open(root.path(), "reader_link") ==
+				DedicatedCampaignFilesystemError::None,
+			"linked checkpoint reader fixture opens");
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity("reader_link")) ==
+				DedicatedCampaignStoreError::None &&
+			store.checkpoint(1) == DedicatedCampaignStoreError::None,
+			"linked checkpoint reader fixture publishes");
+		const DedicatedCampaignStoreState expected = *store.state();
+		const std::filesystem::path checkpoint =
+			backend.checkpointPath(expected.activeSlot);
+		const std::filesystem::path outside = root.path() / "outside.sav";
+		WriteBytes(outside, writer.bytes);
+		std::error_code error;
+		std::filesystem::remove(checkpoint, error);
+		if (!error)
+			std::filesystem::create_hard_link(outside, checkpoint, error);
+		Check(!error, "hard-linked reader fixture is installed");
+		DedicatedCampaignCheckpointReader reader;
+		Check(!backend.openCheckpointReader(expected, reader) &&
+			!reader.isOpen(),
+			"a matching hard-linked checkpoint is rejected before hashing");
+	}
+#ifndef _WIN32
+	{
+		TemporaryRoot root;
+		FileCheckpointWriter writer;
+		writer.bytes = {'s', 'y', 'm'};
+		DedicatedCampaignFilesystemBackend backend(writer);
+		Check(backend.open(root.path(), "reader_symlink") ==
+				DedicatedCampaignFilesystemError::None,
+			"symlink checkpoint reader fixture opens");
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity("reader_symlink")) ==
+				DedicatedCampaignStoreError::None &&
+			store.checkpoint(1) == DedicatedCampaignStoreError::None,
+			"symlink checkpoint reader fixture publishes");
+		const DedicatedCampaignStoreState expected = *store.state();
+		const std::filesystem::path checkpoint =
+			backend.checkpointPath(expected.activeSlot);
+		const std::filesystem::path outside = root.path() / "outside.sav";
+		WriteBytes(outside, writer.bytes);
+		std::error_code error;
+		std::filesystem::remove(checkpoint, error);
+		if (!error) std::filesystem::create_symlink(outside, checkpoint, error);
+		Check(!error, "symlink reader fixture is installed");
+		DedicatedCampaignCheckpointReader reader;
+		Check(!backend.openCheckpointReader(expected, reader) &&
+			!reader.isOpen(),
+			"a matching symlink checkpoint is never followed");
+	}
+#endif
+	{
+		TemporaryRoot root;
+		FileCheckpointWriter writer;
+		writer.bytes.assign(128, 0x35u);
+		DedicatedCampaignFilesystemBackend backend(writer);
+		Check(backend.open(root.path(), "reader_truncate") ==
+				DedicatedCampaignFilesystemError::None,
+			"truncated checkpoint reader fixture opens");
+		DedicatedCampaignStore store(backend);
+		Check(store.create(Identity("reader_truncate")) ==
+				DedicatedCampaignStoreError::None &&
+			store.checkpoint(1) == DedicatedCampaignStoreError::None,
+			"truncated checkpoint reader fixture publishes");
+		DedicatedCampaignCheckpointReader reader;
+		Check(backend.openCheckpointReader(*store.state(), reader),
+			"truncated checkpoint reader is initially validated");
+		std::error_code error;
+		std::filesystem::resize_file(
+			backend.checkpointPath(store.state()->activeSlot), 64, error);
+		std::array<std::uint8_t, 16> output{};
+		output.fill(0xc7u);
+		const std::array<std::uint8_t, 16> before = output;
+#ifdef _WIN32
+		Check(static_cast<bool>(error) &&
+			reader.readExact(0, output.data(), output.size()) &&
+			std::all_of(output.begin(), output.end(),
+				[](std::uint8_t byte) { return byte == 0x35u; }),
+			"Windows sharing denies in-place truncation while preserving reads");
+#else
+		Check(!error && !reader.readExact(0, output.data(), output.size()) &&
+			output == before,
+			"a held file truncated in place fails before copying caller bytes");
+#endif
+	}
+}
+
 void TestLateCheckpointWriterBinding()
 {
 	TemporaryRoot root;
@@ -771,6 +1009,8 @@ int main(int argc, char** argv)
 	TestOpenAndLock();
 	TestProfilePathIdentity();
 	TestStoreRoundTripAndSha256();
+	TestImmutableCheckpointReaderAndBounds();
+	TestCheckpointReaderRejectsChangedAndUnsafeFiles();
 	TestLateCheckpointWriterBinding();
 	TestInvalidNewerCheckpointSizeFallback();
 	TestSha256PaddingBoundariesAndSizeCap();

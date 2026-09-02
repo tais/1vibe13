@@ -4877,6 +4877,21 @@ BOOLEAN AddTopMessage( UINT8 ubType, STR16 pzString )
 
 void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 {
+	// Network callbacks can arrive before the tactical interface exists or
+	// after it has been torn down. Preserve AddTopMessage's logical combat-UI
+	// fields, but defer tactical-only asset loading until both registries and the
+	// destination surface are live. Keeping fCreated false lets the normal top-
+	// message loop retry after interface initialization.
+	HVSURFACE topMessageSurface = nullptr;
+	if ( !VideoObjectsInitialized() ||
+		!GetVideoSurface( &topMessageSurface, uiSurface ) ||
+		!topMessageSurface )
+	{
+		gTopMessage.fCreated = FALSE;
+		gfTopMessageDirty = FALSE;
+		return;
+	}
+
 	UINT32			uiBAR, uiPLAYERBAR = 0, uiINTBAR = 0;
 	VOBJECT_DESC	VObjectDesc;
 	INT16			sX, sY;

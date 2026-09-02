@@ -90,8 +90,12 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Move: return 7;
 		case TacticalIntentKind::Face: return 1;
 		case TacticalIntentKind::Stance: return 1;
+		case TacticalIntentKind::AimedFirearmAttack: return 7;
+		case TacticalIntentKind::DoorOpenClose: return 7;
+		case TacticalIntentKind::PassInterrupt: return 8;
 		case TacticalIntentKind::Stop:
-		case TacticalIntentKind::EndTurn: return 0;
+		case TacticalIntentKind::EndTurn:
+		case TacticalIntentKind::Reload: return 0;
 	}
 	return MaximumTacticalIntentPayloadWireSize + 1;
 }
@@ -106,6 +110,10 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Stance:
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
+		case TacticalIntentKind::AimedFirearmAttack:
+		case TacticalIntentKind::Reload:
+		case TacticalIntentKind::DoorOpenClose:
+		case TacticalIntentKind::PassInterrupt:
 			return true;
 	}
 	return false;
@@ -137,7 +145,17 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::Stance;
 		if constexpr (std::is_same<Payload, StopTacticalIntent>::value)
 			return TacticalIntentKind::Stop;
-		return TacticalIntentKind::EndTurn;
+		if constexpr (std::is_same<Payload, EndTurnTacticalIntent>::value)
+			return TacticalIntentKind::EndTurn;
+		if constexpr (std::is_same<Payload,
+			AimedFirearmAttackTacticalIntent>::value)
+			return TacticalIntentKind::AimedFirearmAttack;
+		if constexpr (std::is_same<Payload, ReloadTacticalIntent>::value)
+			return TacticalIntentKind::Reload;
+		if constexpr (std::is_same<Payload,
+			DoorOpenCloseTacticalIntent>::value)
+			return TacticalIntentKind::DoorOpenClose;
+		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
 
@@ -158,6 +176,16 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 			return payload.direction < 8;
 		if constexpr (std::is_same<Payload, StanceTacticalIntent>::value)
 			return IsKnownTacticalIntentStance(payload.stance);
+		if constexpr (std::is_same<Payload,
+			AimedFirearmAttackTacticalIntent>::value)
+			return payload.target.valid() &&
+				payload.aimTime <= MaximumTacticalFirearmAimTime;
+		if constexpr (std::is_same<Payload,
+			DoorOpenCloseTacticalIntent>::value)
+			return payload.baseGrid >= 0 && payload.structureId != 0;
+		if constexpr (std::is_same<Payload,
+			PassInterruptTacticalIntent>::value)
+			return payload.interruptSerial != 0;
 		return true;
 	}, intent.payload);
 }
@@ -206,6 +234,23 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 				encoded.push_back(payload.direction);
 			else if constexpr (std::is_same<Payload, StanceTacticalIntent>::value)
 				encoded.push_back(static_cast<std::uint8_t>(payload.stance));
+			else if constexpr (std::is_same<Payload,
+				AimedFirearmAttackTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.target.slot);
+				WriteU32(encoded, payload.target.incarnation);
+				encoded.push_back(payload.aimTime);
+			}
+			else if constexpr (std::is_same<Payload,
+				DoorOpenCloseTacticalIntent>::value)
+			{
+				WriteI32(encoded, payload.baseGrid);
+				WriteU16(encoded, payload.structureId);
+				encoded.push_back(payload.desiredOpen ? 1u : 0u);
+			}
+			else if constexpr (std::is_same<Payload,
+				PassInterruptTacticalIntent>::value)
+				WriteU64(encoded, payload.interruptSerial);
 		}, intent.payload);
 
 		if (encoded.size() != TacticalIntentHeaderWireSize + payloadSize)
@@ -286,6 +331,40 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 		case TacticalIntentKind::EndTurn:
 			decoded.payload = EndTurnTacticalIntent{};
 			break;
+		case TacticalIntentKind::Reload:
+			decoded.payload = ReloadTacticalIntent{};
+			break;
+		case TacticalIntentKind::AimedFirearmAttack:
+		{
+			AimedFirearmAttackTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation) ||
+				input == end)
+				return TacticalIntentCodecResult::Invalid;
+			payload.aimTime = *input++;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::DoorOpenClose:
+		{
+			DoorOpenCloseTacticalIntent payload;
+			if (!ReadI32(input, end, payload.baseGrid) ||
+				!ReadU16(input, end, payload.structureId) || input == end)
+				return TacticalIntentCodecResult::Invalid;
+			const std::uint8_t desiredOpen = *input++;
+			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
+			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::PassInterrupt:
+		{
+			PassInterruptTacticalIntent payload;
+			if (!ReadU64(input, end, payload.interruptSerial))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
 	}
 
 	if (input != end || !IsStructurallyValidTacticalIntent(decoded))

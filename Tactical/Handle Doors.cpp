@@ -1,6 +1,7 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
+#include <cstddef>
 #include "TacticalActorRouteExecution.h"
 	#include <wchar.h>
 	#include "SoldierRepository.h"
@@ -23,6 +24,7 @@
 	#include "Keys.h"
 	#include "message.h"
 	#include "Text.h"
+	#include "TileDat.h"
 	#include "random.h"
 	#include "SkillCheck.h"
 	#include "Dialogue Control.h"
@@ -93,6 +95,120 @@ void HandleDoorChangeFromGridNo( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN
 	// Flugente: we have to redo flashlights
 	if ( pSoldier )
 		TacticalActorEquipment::refreshFlashlights(*pSoldier);
+}
+
+ImmediateDoorOpenCloseResult TryHandleDoorOpenCloseImmediately(
+	TacticalActor& actor,
+	INT32 baseGrid,
+	std::uint16_t expectedStructureId,
+	bool desiredOpen,
+	STRUCTURE*& resultingBase) noexcept
+{
+	resultingBase = nullptr;
+	if (!IsJa2TacticalWorldLoaded() || TileIsOutOfBounds(baseGrid) ||
+		expectedStructureId == 0)
+		return ImmediateDoorOpenCloseResult::Rejected;
+	STRUCTURE* const structure =
+		FindStructureByID(baseGrid, expectedStructureId);
+	if (!structure || FindBaseStructure(structure) != structure ||
+		structure->sGridNo != baseGrid ||
+		(structure->fFlags & STRUCTURE_BASE_TILE) == 0 ||
+		(structure->fFlags & STRUCTURE_ANYDOOR) == 0 ||
+		(structure->fFlags & STRUCTURE_SWITCH) != 0 ||
+		structure->sCubeOffset != STRUCTURE_ON_GROUND ||
+		((structure->fFlags & STRUCTURE_OPEN) != 0) == desiredOpen ||
+		!structure->pDBStructureRef ||
+		!structure->pDBStructureRef->pDBStructure ||
+		structure->pDBStructureRef->pDBStructure->bPartnerDelta ==
+			NO_PARTNER_STRUCTURE)
+		return ImmediateDoorOpenCloseResult::Rejected;
+	LEVELNODE* const node =
+		FindLevelNodeBasedOnStructure(baseGrid, structure);
+	if (!node || (node->uiFlags & LEVELNODE_ANIMATION) != 0)
+		return ImmediateDoorOpenCloseResult::Rejected;
+	INT16 expectedGraphic = -1;
+	INT16 desiredGraphic = -1;
+	for (std::size_t index = 0; index < 20 &&
+		gOpenDoorList[index] != -1 && gClosedDoorList[index] != -1;
+		++index)
+	{
+		const INT16 current = desiredOpen
+			? gOpenDoorList[index]
+			: gClosedDoorList[index];
+		if (node->usIndex != static_cast<UINT16>(current)) continue;
+		expectedGraphic = current;
+		desiredGraphic = desiredOpen
+			? gClosedDoorList[index]
+			: gOpenDoorList[index];
+		break;
+	}
+	if (expectedGraphic < 0 || desiredGraphic < 0)
+		return ImmediateDoorOpenCloseResult::Rejected;
+	if (const DOOR* door = FindDoorInfoAtGridNo(baseGrid))
+	{
+		if (door->fLocked || door->ubTrapID != NO_TRAP ||
+			door->ubTrapLevel != 0)
+			return ImmediateDoorOpenCloseResult::Rejected;
+	}
+	DOOR_STATUS* status = GetDoorStatus(baseGrid);
+	const bool currentlyOpen = !desiredOpen;
+	if (status)
+	{
+		if ((status->ubFlags & (DOOR_BUSY | DOOR_HAS_TIN_CAN)) != 0 ||
+			((status->ubFlags & DOOR_OPEN) != 0) != currentlyOpen)
+			return ImmediateDoorOpenCloseResult::Rejected;
+	}
+	else
+	{
+		if (!ModifyDoorStatus(
+				baseGrid, currentlyOpen ? TRUE : FALSE,
+				DONTSETDOORSTATUS))
+			return ImmediateDoorOpenCloseResult::Rejected;
+		status = GetDoorStatus(baseGrid);
+		if (!status) return ImmediateDoorOpenCloseResult::Rejected;
+	}
+
+	STRUCTURE* const swapped = SwapStructureForPartner(baseGrid, structure);
+	if (!swapped)
+	{
+		MarkJa2TacticalWorldIntegrityFailure();
+		return ImmediateDoorOpenCloseResult::IntegrityFailure;
+	}
+	STRUCTURE* const base = FindBaseStructure(swapped);
+	if (!base || base != swapped || base->sGridNo != baseGrid ||
+		(base->fFlags & STRUCTURE_ANYDOOR) == 0 ||
+		((base->fFlags & STRUCTURE_OPEN) != 0) != desiredOpen)
+	{
+		MarkJa2TacticalWorldIntegrityFailure();
+		return ImmediateDoorOpenCloseResult::IntegrityFailure;
+	}
+	if (node->usIndex != static_cast<UINT16>(expectedGraphic) ||
+		FindLevelNodeBasedOnStructure(baseGrid, base) != node ||
+		!ModifyDoorStatus(
+			baseGrid, desiredOpen ? TRUE : FALSE,
+			DONTSETDOORSTATUS))
+	{
+		MarkJa2TacticalWorldIntegrityFailure();
+		return ImmediateDoorOpenCloseResult::IntegrityFailure;
+	}
+	status = GetDoorStatus(baseGrid);
+	if (!status || ((status->ubFlags & DOOR_OPEN) != 0) != desiredOpen)
+	{
+		MarkJa2TacticalWorldIntegrityFailure();
+		return ImmediateDoorOpenCloseResult::IntegrityFailure;
+	}
+	node->usIndex = static_cast<UINT16>(desiredGraphic);
+	RecompileLocalMovementCosts(baseGrid);
+	if (desiredOpen &&
+		((gWorldSectorX == gModSettings.ubInitialPOWSectorX &&
+		  gWorldSectorY == gModSettings.ubInitialPOWSectorY) ||
+		 (gWorldSectorX == gModSettings.ubTixaPrisonSectorX &&
+		  gWorldSectorY == gModSettings.ubTixaPrisonSectorY)) &&
+		gbWorldSectorZ == 0)
+		DoPOWPathChecks();
+	TacticalActorEquipment::refreshFlashlights(actor);
+	resultingBase = base;
+	return ImmediateDoorOpenCloseResult::Applied;
 }
 
 UINT16 GetAnimStateForInteraction( TacticalActor *pSoldier, BOOLEAN fDoor, UINT16 usAnimState )
@@ -1131,7 +1247,7 @@ BOOLEAN HandleDoorsOpenClose( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 	if (pSoldier && pSoldier->audio().hasDoorOpeningNoise())
 	{
 		//shadooow: noise handling moved here so we can work with the modified door-opening noise
-		OurNoise(pSoldier->identity().id(), pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING);
+		OurNoise(pSoldier->identity().id(), sGridNo, pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING);
 	}
 
 	if ( !(pStructure->fFlags & STRUCTURE_OPEN) )

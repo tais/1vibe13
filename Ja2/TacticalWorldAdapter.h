@@ -27,8 +27,10 @@ class Ja2TacticalWorldAdapter final : public TacticalWorldService
 {
 public:
 	explicit Ja2TacticalWorldAdapter(
-		std::size_t maximumActors = TacticalWorldSnapshot::DefaultMaximumActors)
-		: session_(&ownedSession_), maximumActors_(maximumActors) {}
+		std::size_t maximumActors = TacticalWorldSnapshot::DefaultMaximumActors,
+		std::size_t maximumDoors = TacticalWorldSnapshot::DefaultMaximumDoors)
+		: session_(&ownedSession_), maximumActors_(maximumActors),
+		  maximumDoors_(maximumDoors) {}
 
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override;
 	void bindSession(TacticalWorldSession& session) noexcept
@@ -50,12 +52,17 @@ public:
 	// Defensive main-thread view used by the production observer before a
 	// retained delta retry, including lifecycle paths that only changed globals.
 	Ja2TacticalTurnIdentity liveTurnIdentity() noexcept;
+	void markIntegrityFailure() noexcept { integrityValid_ = false; }
+	bool integrityValid() const noexcept { return integrityValid_; }
 
 private:
 	TacticalWorldSession ownedSession_;
 	TacticalWorldSession* session_;
 	std::size_t maximumActors_;
+	std::size_t maximumDoors_;
 	std::vector<TacticalActorSnapshot> actorScratch_;
+	std::vector<TacticalDoorSnapshot> doorScratch_;
+	bool integrityValid_ = true;
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
@@ -68,6 +75,10 @@ CaptureJa2TacticalInterruptState() noexcept;
 const TacticalWorldSession::Snapshot::TeamPopulation*
 CaptureJa2TacticalTeamPopulation(std::size_t team) noexcept;
 bool IsJa2TacticalWorldLoaded() noexcept;
+bool IsJa2TacticalDoorVisibleToPlayerTeam(
+	std::int32_t baseGrid) noexcept;
+void MarkJa2TacticalWorldIntegrityFailure() noexcept;
+bool IsJa2TacticalWorldIntegrityValid() noexcept;
 inline bool IsJa2TacticalTurnBased() noexcept
 {
 	return CaptureJa2TacticalTurn().turnBased;

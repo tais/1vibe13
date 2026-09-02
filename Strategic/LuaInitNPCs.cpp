@@ -79,6 +79,7 @@ extern "C" {
 
 #include "lua_state.h"
 #include "lua_function.h"
+#include "gameplay_lua_policy.h"
 
 
 #include "BriefingRoom_Data.h"
@@ -2428,6 +2429,8 @@ BOOLEAN LuaCheckFact ( UINT16 usFact, UINT8 ubProfileID , UINT32 Init )
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	lua_register(L, "CheckForMissingHospitalSupplies", l_CheckForMissingHospitalSupplies);
 	lua_register(L, "CheckForKingpinsMoneyMissing", l_FunctionCheckForKingpinsMoneyMissing);
@@ -2477,6 +2480,8 @@ BOOLEAN LuaCheckForKingpinsMoneyMissing( BOOLEAN fFirstCheck, UINT8 Init)
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	//init function
 	lua_register(L, "CheckFact", l_CheckFact);
@@ -2527,6 +2532,8 @@ BOOLEAN LuaHandleDelayedItemsArrival( UINT32 uiReason, UINT8 Init)
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	//init function
 	lua_register(L, "CheckFact", l_CheckFact);
@@ -2578,6 +2585,8 @@ BOOLEAN LuaHandleQuestCodeOnSectorEntry( INT16 sSectorX, INT16 sSectorY, INT8 bS
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	//init function
 	lua_register(L, "CheckFact", l_CheckFact);
@@ -2923,6 +2932,8 @@ BOOLEAN LuaHandleNPCDoAction(UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuo
 
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	//init function
 	lua_register(L, "CheckFact", l_CheckFact);
@@ -7702,6 +7713,8 @@ BOOLEAN LetLuaHandleNPCSystemEvent( UINT32 uiEvent, UINT8 Init)
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
+	SGP_THROW_IFFALSE(ConfigureLuaStandardLibrariesForGame(L),
+		"Could not configure gameplay Lua standard libraries");
 
 	//init function
 	lua_register(L, "CheckFact", l_CheckFact);

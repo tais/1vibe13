@@ -80,6 +80,12 @@ struct Captured
 static Captured g_capSrv, g_capA, g_capB;
 static SdlNetPeer* g_relayPeer = nullptr;
 
+struct ContextCapture
+{
+	int marker = 0;
+	Captured captured;
+};
+
 static void Capture( Captured& c, SdlNetMessage* p )
 {
 	c.count++;
@@ -96,6 +102,11 @@ static void srvPING( SdlNetMessage* p )
 }
 static void clPONG_A( SdlNetMessage* p ) { Capture( g_capA, p ); }
 static void clPONG_B( SdlNetMessage* p ) { Capture( g_capB, p ); }
+static void ContextHandler( SdlNetMessage* p, void* context )
+{
+	ContextCapture* capture = static_cast<ContextCapture*>( context );
+	if ( capture ) Capture( capture->captured, p );
+}
 
 // ---- file transfer capture ---------------------------------------------------
 struct FtCap : public SdlNetFileReceiver
@@ -320,6 +331,10 @@ int main( int, char** )
 	srv->SetTimeout( 120000 );
 	REGISTER_SDLNET_MESSAGE( srv, srvPING );
 	g_relayPeer = srv;
+	ContextCapture connectionOrder;
+	CHECK(srv->RegisterMessage(
+		"connection.order", ContextHandler, &connectionOrder),
+		"connection-order handler registers" );
 
 	SdlNetPeer* clA = CreateSdlNetPeer();
 	SdlNetEndpoint sd0;
@@ -328,9 +343,33 @@ int main( int, char** )
 	CHECK( clA->Connect( "127.0.0.1", g_port ), "client A connect initiated" );
 
 	PeerLog L_srv{ srv }, L_A{ clA };
-	const bool handshakeComplete = PumpUntil( { &L_srv, &L_A }, [&] {
-		return L_srv.Got( SDLNET_NEW_INCOMING_CONNECTION ) && L_A.Got( SDLNET_CONNECTION_ACCEPTED );
+	const bool clientAccepted = PumpUntil( { &L_A }, [&] {
+		return L_A.Got( SDLNET_CONNECTION_ACCEPTED );
 	} );
+	CHECK(clientAccepted, "client observes accepted transport before server poll" );
+	const unsigned char eagerPayload = 0x4a;
+	CHECK(clientAccepted && clA->SendMessage(
+		"connection.order", &eagerPayload, sizeof(eagerPayload),
+		AnyConnection, true),
+		"eager client can queue its first RPC before server lifecycle handling" );
+
+	SdlNetEvent* firstServerEvent = srv->Poll();
+	const bool incomingFirst = firstServerEvent && firstServerEvent->size != 0 &&
+		firstServerEvent->data[0] == SDLNET_NEW_INCOMING_CONNECTION;
+	CHECK(incomingFirst,
+		"server returns incoming-connection event before eager message callback" );
+	CHECK(connectionOrder.captured.count == 0,
+		"eager first RPC remains gated until connection event is observed" );
+	if (firstServerEvent)
+	{
+		L_srv.ids.push_back(firstServerEvent->data[0]);
+		L_srv.addrs.push_back(firstServerEvent->connection);
+		srv->Release(firstServerEvent);
+	}
+	CHECK(PumpUntil({ &L_srv, &L_A }, [&] {
+		return connectionOrder.captured.count == 1;
+	}), "eager first RPC dispatches after lifecycle handling" );
+	const bool handshakeComplete = incomingFirst && clientAccepted;
 	CHECK( handshakeComplete, "handshake events on both sides" );
 	if ( !handshakeComplete )
 	{
@@ -371,6 +410,21 @@ int main( int, char** )
 	       "message rejects body at the full-frame cap" );
 	CHECK( !clA->SendMessage("srvPING", &pay, 0xffffffffu, AnyConnection, true),
 	       "message rejects oversized byte length" );
+
+	ContextCapture contextual;
+	contextual.marker = 0x4a32;
+	CHECK( srv->RegisterMessage("coop.test.context", ContextHandler, &contextual),
+	       "contextual message handler registers without process-global state" );
+	CHECK( clA->SendMessage("coop.test.context", &pay, sizeof( pay ), AnyConnection, true),
+	       "contextual test message sends" );
+	CHECK( PumpUntil( { &L_srv, &L_A }, [&] {
+		return contextual.captured.count == 1;
+	} ), "contextual message handler receives its bound instance" );
+	CHECK( contextual.marker == 0x4a32 &&
+	       contextual.captured.size == sizeof( pay ) &&
+	       contextual.captured.sender == aOnSrv &&
+	       BytesEqual( contextual.captured.bytes, &pay, sizeof( pay ) ),
+	       "contextual registration preserves payload and sender behavior" );
 
 	// relay went back out broadcast-except-sender; A must NOT get its own echo
 	SDL_Delay( 100 );
@@ -541,7 +595,12 @@ int main( int, char** )
 	CHECK( clD->Connect( "127.0.0.1", g_port ), "client D connect initiated" );
 	PeerLog L_D{ clD };
 	size_t beforeDOnSrv = L_srv.ids.size();
-	CHECK( PumpUntil( { &L_srv, &L_A, &L_D }, [&] { return L_D.Got( SDLNET_CONNECTION_ACCEPTED ); } ),
+	CHECK( PumpUntil( { &L_srv, &L_A, &L_D }, [&] {
+		if (!L_D.Got(SDLNET_CONNECTION_ACCEPTED)) return false;
+		for (size_t i = beforeDOnSrv; i < L_srv.ids.size(); ++i)
+			if (L_srv.ids[i] == SDLNET_NEW_INCOMING_CONNECTION) return true;
+		return false;
+	} ),
 	       "client D connected for sender-binding test" );
 	ConnectionId serverOnD;
 	for ( size_t i = 0; i < L_D.ids.size(); ++i )
@@ -1065,6 +1124,134 @@ int main( int, char** )
 
 	srv->Shutdown( 0 );
 	DestroySdlNetPeer( srv );
+
+	// A listener may reserve its final slot for the embedded authority. With a
+	// non-loopback allowance of zero, successful acceptance proves that the
+	// production address classifier recognizes the real loopback socket.
+	const auto ExerciseReservedLoopback = [&](const char* host,
+		unsigned int portSalt, bool required) {
+		SdlNetPeer* reservedServer = CreateSdlNetPeer();
+		CHECK(reservedServer->SetReservedIncomingLoopbackConnections(1),
+		       "loopback reservation configures before listener startup" );
+		bool reservedStarted = false;
+		unsigned short reservedPort = 0;
+		for (unsigned int attempt = 0;
+			attempt < 128 && !reservedStarted; ++attempt)
+		{
+			reservedPort = static_cast<unsigned short>(
+				40000 + (seed + portSalt + attempt) % 20000);
+			reservedStarted = reservedServer->Start(
+				1, SdlNetEndpoint(reservedPort, host));
+		}
+		if (required)
+			CHECK(reservedStarted,
+			       "reserved IPv4 loopback listener binds" );
+		if (!reservedStarted)
+		{
+			printf("skip reserved loopback address unavailable: %s\n", host);
+			DestroySdlNetPeer(reservedServer);
+			return;
+		}
+		CHECK(!reservedServer->SetReservedIncomingLoopbackConnections(1),
+		       "live loopback reservation reconfiguration is rejected" );
+
+		SdlNetPeer* reservedClient = CreateSdlNetPeer();
+		CHECK(reservedClient->Start(1, SdlNetEndpoint()),
+		       "reserved-loopback client starts" );
+		CHECK(reservedClient->Connect(host, reservedPort),
+		       "reserved-loopback client connection starts" );
+		PeerLog reservedServerLog{ reservedServer };
+		PeerLog reservedClientLog{ reservedClient };
+		CHECK(PumpUntil({ &reservedServerLog, &reservedClientLog }, [&] {
+			return reservedServerLog.Got(SDLNET_NEW_INCOMING_CONNECTION) &&
+				reservedClientLog.Got(SDLNET_CONNECTION_ACCEPTED);
+		}), "reserved capacity accepts its real loopback connection" );
+
+		reservedClient->Shutdown(0);
+		DestroySdlNetPeer(reservedClient);
+		reservedServer->Shutdown(0);
+		DestroySdlNetPeer(reservedServer);
+	};
+	ExerciseReservedLoopback("127.0.0.1", 512, true);
+	ExerciseReservedLoopback("::1", 768, false);
+	{
+		SdlNetPeer* invalidReservation = CreateSdlNetPeer();
+		CHECK(invalidReservation->SetReservedIncomingLoopbackConnections(1),
+		       "oversized loopback reservation configures before capacity is known" );
+		CHECK(!invalidReservation->Start(
+			0, SdlNetEndpoint(g_port, "127.0.0.1")),
+		       "listener rejects a reservation larger than total capacity" );
+		DestroySdlNetPeer(invalidReservation);
+	}
+
+	// Campaign-sized streams opt in explicitly, before startup, and remain
+	// bounded by transport-wide ceilings. This real socket sends well over the
+	// strict generic 1 MiB burst without weakening the default flood regression.
+	{
+		SdlNetPeer* streamServer = CreateSdlNetPeer();
+		SdlNetInboundMessageBudget invalidBudget;
+		invalidBudget.sustainedBytesPerSecond = 0;
+		CHECK(!streamServer->SetInboundMessageBudget(invalidBudget),
+		       "zero inbound sustained budget is rejected before startup" );
+		invalidBudget = SdlNetInboundMessageBudget();
+		invalidBudget.burstBytes =
+			MaximumSdlNetInboundMessageBurstBytes + 1u;
+		CHECK(!streamServer->SetInboundMessageBudget(invalidBudget),
+		       "inbound burst above the transport ceiling is rejected" );
+
+		SdlNetInboundMessageBudget campaignBudget;
+		campaignBudget.sustainedBytesPerSecond =
+			MaximumSdlNetInboundMessageRateBytesPerSecond;
+		campaignBudget.burstBytes = MaximumSdlNetInboundMessageBurstBytes;
+		CHECK(streamServer->SetInboundMessageBudget(campaignBudget),
+		       "bounded campaign inbound budget is accepted before startup" );
+
+		bool streamStarted = false;
+		for ( unsigned int attempt = 0; attempt < 128 && !streamStarted; ++attempt )
+		{
+			g_port = (unsigned short)( 40000 + ( seed + 256 + attempt ) % 20000 );
+			streamStarted = streamServer->Start(
+				1, SdlNetEndpoint(g_port, "127.0.0.1"));
+		}
+		CHECK(streamStarted, "campaign-budget server binds listener" );
+		CHECK(!streamServer->SetInboundMessageBudget(campaignBudget),
+		       "live inbound budget reconfiguration is rejected" );
+
+		ContextCapture streamCapture;
+		CHECK(streamServer->RegisterMessage(
+			"campaign.stream", ContextHandler, &streamCapture),
+		       "campaign stream handler registers" );
+		PeerLog streamLog{ streamServer };
+		RawConn raw;
+		CHECK(streamStarted && ConnectRaw(streamLog, raw),
+		       "campaign-budget raw client connects" );
+		if (raw.sock)
+		{
+			const std::string rpcName = "campaign.stream";
+			std::vector<unsigned char> body;
+			body.reserve(1 + rpcName.size() + 60u * 1024u);
+			body.push_back((unsigned char)rpcName.size());
+			body.insert(body.end(), rpcName.begin(), rpcName.end());
+			body.resize(1 + rpcName.size() + 60u * 1024u, 0x4c);
+			const std::vector<unsigned char> frame = WireFrame(1, body);
+			bool streamed = true;
+			for (int expected = 1; expected <= 80; ++expected)
+			{
+				streamed = SendRaw(raw, frame) && streamed;
+				streamed = PumpUntil({ &streamLog }, [&] {
+					return streamCapture.captured.count == expected;
+				}) && streamed;
+				// Keep the stream just inside the configured 32 MiB/s sustained
+				// rate while carrying more than the entire 4 MiB burst.
+				SDL_Delay(2);
+			}
+			CHECK(streamed && streamCapture.captured.count == 80,
+			       "opt-in peer sustains a bounded stream beyond its 4 MiB burst" );
+			NET_DestroyStreamSocket(raw.sock);
+		}
+		streamServer->Shutdown(0);
+		DestroySdlNetPeer(streamServer);
+	}
 	{
 		SdlNetPeer* invalidBind = CreateSdlNetPeer();
 		SdlNetEndpoint invalidSocket( g_port, "not a valid bind address" );

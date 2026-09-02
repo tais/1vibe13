@@ -28,6 +28,7 @@
 #include <Engine/Adapters/Legacy/PlatformRenderCommands.h>
 #include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
+#include <Engine/Core/SimulationRandom.h>
 #include "random.h"
 
 namespace
@@ -44,18 +45,22 @@ GameContext& ComposeGameContext()
 	// The command host receives lifecycle events from this context, so construct
 	// its application owner first and destroy it after the runtime registry.
 	PackageEventSink& packageEvents = GetJa2TacticalCommandPackageEventSink();
+	RandomSource& gameRandom = GetGameRandomSource();
+	SimulationRandom* const simulationRandom =
+		dynamic_cast<SimulationRandom*>(&gameRandom);
 	static GameContext context(
 		gGameSettings,
 		gGameOptions,
 		GetCompiledGameCapabilities(),
-		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
+		EngineServices{GetPlatformTimeSource(), gameRandom,
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
 		               GetPlatformFramePresenter(), GetPlatformAssetSource(),
 		               GetPlatformFrameInvalidator(),
 		               GetPlatformRenderSurfaceAccess(),
 		               GetPlatformRenderCommands()},
-		packageEvents);
+		packageEvents,
+		simulationRandom ? simulationRandom->campaignSeed() : 0);
 	// Publish the stable composition address before binding adapters. A binding
 	// may query the context recursively; subsequent hot-path lookups should not
 	// repeat the complete static-registration chain below.

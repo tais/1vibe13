@@ -28,6 +28,7 @@
 #include "Cursor Control.h"
 #include "GameVersion.h"
 #include "Game Clock.h"
+#include "GameSettings.h"
 #include "gamescreen.h"
 #include "english.h"
 #include "random.h"
@@ -36,6 +37,10 @@
 #include "Text.h"
 #include "INIReader.h"
 #include "SoldierRepository.h"
+#include "DedicatedCoopRuntime.h"
+#include "FullEngineCoopClientScreen.h"
+#include "FullEngineCoopClientRuntime.h"
+#include "laptop.h"
 
 #include "sgp_logger.h"
 #include <language.hpp>
@@ -322,19 +327,31 @@ UINT32 InitScreenHandle(void)
 
 	if ( ubCurrentScreen == 255 )
 	{
-	if( g_lang == i18n::Lang::en ) {
-		if( gfDoneWithSplashScreen )
+		// The passive full-engine client deliberately rejects every transition out
+		// of INIT_SCREEN. Starting it through the ordinary splash would therefore
+		// form a permanent INIT -> INTRO -> INIT loop before InitializeJA2 can open
+		// the live co-op composition. It has no local campaign presentation to hide
+		// behind the splash, so enter the initialization state machine directly.
+		if (IsFullEngineCoopClientProcess())
 		{
 			ubCurrentScreen = 0;
 		}
+		else if( g_lang == i18n::Lang::en )
+		{
+			if( gfDoneWithSplashScreen )
+			{
+				ubCurrentScreen = 0;
+			}
+			else
+			{
+				SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
+				return( INTRO_SCREEN );
+			}
+		}
 		else
 		{
-			SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
-			return( INTRO_SCREEN );
+			ubCurrentScreen = 0;
 		}
-	} else {
-		ubCurrentScreen = 0;
-	}
 	}
 
 	if ( ubCurrentScreen == 0 )
@@ -425,7 +442,14 @@ UINT32 InitScreenHandle(void)
 
 	if ( ubCurrentScreen == 2 )
 	{
-		InitMainMenu( );
+		// The ordinary shell owns the main-menu transition. Full-engine co-op
+		// processes instead continue through the INIT state machine: the host
+		// must request its prepared campaign entry, and the passive client must
+		// remain on its worldless presentation screen. Queuing MAINMENU_SCREEN
+		// here would commit on the next frame before either co-op branch below
+		// can run.
+		if (!IsDedicatedCoopProcess() && !IsFullEngineCoopClientProcess())
+			InitMainMenu( );
 		ubCurrentScreen = 3;
 		return( INIT_SCREEN );
 	}
@@ -441,7 +465,55 @@ UINT32 InitScreenHandle(void)
 	if ( ubCurrentScreen == 4 )
 	{
 		SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
+		if (IsDedicatedCoopProcess())
+		{
+			DedicatedCoopRuntime& runtime = GetDedicatedCoopRuntime();
+			// MiniEvents owns a Lua continuation that is not part of the cold
+			// campaign checkpoint.  Keep the invariant on both new and resumed
+			// campaigns regardless of the operator's external configuration.
+			gGameExternalOptions.fMiniEventsEnabled = FALSE;
+			if (runtime.entry() == DedicatedCoopCampaignEntry::Create)
+			{
+				// The interactive new-game screen normally establishes this
+				// complete value before campaign initialization. Dedicated co-op
+				// bypasses that screen, so install the same canonical defaults
+				// explicitly; leaving the zero-initialized difficulty would make
+				// installed strategic/Lua initialization index outside 1..4.
+				InitGameOptions();
+				if (!InitNewGame(FALSE))
+				{
+					extern BOOLEAN gfDedicatedServerProcessFailed;
+					gfDedicatedServerProcessFailed = TRUE;
+					gfProgramIsRunning = FALSE;
+					return ERROR_SCREEN;
+				}
+				SetLaptopExitScreen(MAP_SCREEN);
+				SetPendingNewScreen(MAP_SCREEN);
+			}
+			if (!runtime.requestCampaignEntry())
+			{
+				extern BOOLEAN gfDedicatedServerProcessFailed;
+				gfDedicatedServerProcessFailed = TRUE;
+				gfProgramIsRunning = FALSE;
+				return ERROR_SCREEN;
+			}
+			ubCurrentScreen = 5;
+			return INIT_SCREEN;
+		}
+		if (IsFullEngineCoopClientProcess())
+		{
+			// The checkpoint loader validates/cold-loads the server artifact, but
+			// this process never creates or advances an authoritative local game.
+			// Stay in the shell; the committed FullEngineCoopSnapshotReplica is
+			// the only tactical presentation state composed by this client.
+			ubCurrentScreen = 5;
+			return INIT_SCREEN;
+		}
 		InitNewGame( FALSE );
+	}
+	if (ubCurrentScreen == 5 && IsFullEngineCoopClientProcess())
+	{
+		HandleFullEngineCoopClientScreen();
 	}
 	return( INIT_SCREEN );
 }

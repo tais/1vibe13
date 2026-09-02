@@ -105,6 +105,7 @@ extern UINT8 gubBestToMakeSightingSize;
 INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ubCaller);
 void HandleSight(TacticalActor *pSoldier, UINT8 ubSightFlags);
 void AllTeamsLookForAll(UINT8 ubAllowInterrupts);
+extern SoldierID gubInterruptProvoker;
 void GloballyDecideWhoSeesWho(void);
 UINT16 GetClosestMerc( UINT16 usSoldierIndex );
 void ManLooksForOtherTeams(TacticalActor *pSoldier);
@@ -133,6 +134,7 @@ void DebugSoldierPage4( );
 
 UINT8 MovementNoise( TacticalActor *pSoldier );
 UINT8 DoorOpeningNoise( TacticalActor *pSoldier );
+UINT8 DoorOpeningNoise( TacticalActor *pSoldier, INT32 sDoorGridNo );
 void MakeNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
 void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
 

@@ -210,7 +210,7 @@ INT32 NewSmokeEffect( INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwn
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pSoldier != NULL)
 		{
-			if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
+			if (IsLocallyControlledMultiplayerActor(pSoldier))
 			{
 				// let all the other clients know we are spawning this effect
 				// and align them with our random number generator
@@ -355,7 +355,7 @@ INT32 NewSmokeEffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwne
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pSoldier != NULL)
 		{
-			if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
+			if (IsLocallyControlledMultiplayerActor(pSoldier))
 			{
 				// let all the other clients know we are spawning this effect
 				// and align them with our random number generator

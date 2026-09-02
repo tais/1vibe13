@@ -26,6 +26,8 @@ struct DedicatedServerOptions
 	std::uint64_t campaignSeed = 0;
 	std::string stateDirectory;
 	std::uint32_t checkpointSeconds = 300;
+	std::string coopBindAddress = "0.0.0.0";
+	std::uint16_t coopPort = 60005;
 };
 
 enum class DedicatedServerOptionError : std::uint8_t
@@ -46,7 +48,10 @@ enum class DedicatedServerOptionError : std::uint8_t
 	CoopCampaignActionRequired,
 	CoopStateDirectoryRequired,
 	CoopCreateSeedRequired,
-	CoopResumeSeedForbidden
+	CoopResumeSeedForbidden,
+	InvalidCoopBindAddress,
+	InvalidCoopPort,
+	PvpCoopNetworkOption
 };
 
 struct DedicatedServerOptionParseResult

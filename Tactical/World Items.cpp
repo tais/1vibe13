@@ -395,6 +395,13 @@ INT32 AddBombToWorld( INT32 iItemIndex )
 	//Add the new world item to the table.
 	gWorldBombs[ iBombIndex ].fExists										= TRUE;
 	gWorldBombs[ iBombIndex ].iItemIndex								= iItemIndex;
+	// A newly allocated/reused slot represents a pre-placed shared map bomb
+	// until a local or replicated PLANT path assigns an origin namespace. Reset
+	// every multiplayer field here so stale metadata from a freed slot cannot
+	// make a map bomb look player-authored or remote-authored.
+	gWorldBombs[ iBombIndex ].iMPWorldItemIndex						= -1;
+	gWorldBombs[ iBombIndex ].ubMPTeamIndex							= 0;
+	gWorldBombs[ iBombIndex ].bIsFromRemotePlayer					= false;
 
 	return ( iBombIndex );
 }
@@ -690,7 +697,7 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 				if (pSoldier != NULL)
 				{
 					// if soldier is on our team, or is AI and we are the server
-					if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
+					if (IsLocallyControlledMultiplayerActor(pSoldier))
 					{
 						// this is a local bomb, so init it that way
 						gWorldBombs[iReturn].iMPWorldItemIndex = 0;

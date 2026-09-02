@@ -8,7 +8,40 @@ void InitStrategicAI();
 void KillStrategicAI();
 
 BOOLEAN SaveStrategicAI( HWFILE hFile );
-BOOLEAN LoadStrategicAI( HWFILE hFile );
+
+inline constexpr UINT8 CurrentStrategicAISaveVersion = 29;
+
+enum class StrategicAILoadPolicy : UINT8
+{
+	InteractiveRepair,
+	DedicatedExactRestore
+};
+
+struct StrategicAILoadPlan
+{
+	bool accepted;
+	bool applyCompatibilityMigrations;
+	bool rebuildMovementCosts;
+	bool rebuildAirspace;
+	bool evolveQueenPriorities;
+	bool repollAndRepairGroups;
+	bool validateRepairs;
+};
+
+constexpr StrategicAILoadPlan PlanStrategicAILoad(
+	StrategicAILoadPolicy policy, UINT8 storedVersion) noexcept
+{
+	if (policy == StrategicAILoadPolicy::DedicatedExactRestore)
+	{
+		const bool current = storedVersion == CurrentStrategicAISaveVersion;
+		return {current, false, false, false, false, false, false};
+	}
+	return {true, true, true, true, true, true, true};
+}
+
+BOOLEAN LoadStrategicAI(
+	HWFILE hFile,
+	StrategicAILoadPolicy policy = StrategicAILoadPolicy::InteractiveRepair );
 
 //NPC ACTION TRIGGERS SPECIAL CASE AI
 enum

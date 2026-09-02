@@ -63,14 +63,28 @@ TacticalWorldDelta CodecFixture()
 			TacticalSectorSnapshot{
 				-1, 258, std::numeric_limits<std::int8_t>::max(), true}},
 		TacticalTurnChangedEvent{
-			TacticalTurnSnapshot{false, true, 0x7fu, 0x2122232425262728ull},
-			TacticalTurnSnapshot{true, false, 0xffu, 0x3132333435363738ull}},
+			TacticalTurnSnapshot{
+				false, true, 0x7fu, 0x2122232425262728ull, false},
+			TacticalTurnSnapshot{
+				true, false, 0xffu, 0x3132333435363738ull, true}},
 		TacticalActorEnteredEvent{TacticalActorSnapshot{
 			TacticalEntityId{0x1234u, 0x89abcdefu}, 0xfeu, 0x4567u,
 			std::numeric_limits<std::int32_t>::min(), -127, 0xffu, 0xbeefu,
 			TacticalStance::Prone, std::numeric_limits<std::int16_t>::min(),
 			-1, std::numeric_limits<std::int16_t>::max(), -12345, 23456,
-			true, true}},
+			true, true, true, false,
+			TacticalActorLoadoutSnapshot{
+				TacticalHandItemSnapshot{
+					0x0102u, 1, 91, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x0304u, 1, 82, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x0506u, 1, 73, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x1112u, 2, -100, 0x2122u, 0x3132u, -90,
+					true, true},
+				TacticalHandItemSnapshot{
+					0x4142u, 1, 75, 0, 0, 0, false, false}}}},
 		TacticalActorLeftEvent{TacticalEntityId{0, 1}},
 		TacticalActorMovedEvent{
 			TacticalEntityId{1, 2},
@@ -85,7 +99,30 @@ TacticalWorldDelta CodecFixture()
 			TacticalEntityId{3, 4},
 			std::numeric_limits<std::int16_t>::min(),
 			std::numeric_limits<std::int16_t>::max(),
-			-1, 0, 1, 2, -300, 400, -500, 600}};
+			-1, 0, 1, 2, -300, 400, -500, 600, false, true},
+		TacticalActorLoadoutChangedEvent{
+			TacticalEntityId{4, 5},
+			TacticalActorLoadoutSnapshot{
+				{}, {}, {},
+				TacticalHandItemSnapshot{
+					0x5152u, 1, 60, 0, 0, 0, false, false}, {}},
+			TacticalActorLoadoutSnapshot{
+				TacticalHandItemSnapshot{
+					0x1113u, 1, 89, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x1114u, 1, 79, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x1115u, 1, 69, 0, 0, 0, false, false},
+				TacticalHandItemSnapshot{
+					0x5152u, 1, 59, 0x6162u, 7, -80, true, false},
+				TacticalHandItemSnapshot{
+					0x7172u, 3, 40, 0, 0, 0, false, false}}},
+		TacticalDoorEnteredEvent{TacticalDoorSnapshot{
+			std::numeric_limits<std::int32_t>::max(), 0x1234u, true}},
+		TacticalDoorLeftEvent{0},
+		TacticalDoorChangedEvent{
+			TacticalDoorSnapshot{123, 0x2345u, false},
+			TacticalDoorSnapshot{123, 0x3456u, true}}};
 	return delta;
 }
 
@@ -318,6 +355,8 @@ SimulationCommand MakeTurnCommand(
 
 int main()
 {
+	static_assert(MaximumTacticalWorldDeltaEvents == 18434,
+		"four actor categories and two door categories define the wire bound");
 	EngineRuntime<> legacyBraceRuntime({});
 	check(legacyBraceRuntime.serviceCatalog().size() == 14 &&
 		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
@@ -396,8 +435,14 @@ int main()
 				TacticalEntityId{8, 8008},
 				SimulationCommandSource::System}},
 			4, 9) == CommandDisposition::Discard &&
+		tacticalExecutor.execute(
+			SimulationCommand{PassInterruptCommand{
+				simulatedPlayer, 1, 1,
+				SimulationCommandSource::NetworkPeer,
+				TacticalCommandAuthorityPolicy::DedicatedCoop}},
+			4, 10) == CommandDisposition::Discard &&
 		tacticalSimulation.snapshot() == acceptedTacticalState,
-		"bounded shots and stale actors discard without partial state changes");
+		"bounded shots, stale actors, and native-only interrupt passes discard without partial model state changes");
 	tacticalSimulation.clearShots();
 	check(
 		tacticalSimulation.snapshot().shots.empty() &&
@@ -1867,7 +1912,8 @@ int main()
 		TacticalActorSnapshot{firstIncarnation, 1, 12, 219, 0, 2, 17,
 			TacticalStance::Crouched, 70, 78, 80, 55, 90, true, true}};
 	check(TacticalWorldSnapshot::create(
-			44, TacticalSectorSnapshot{9, 1, 0, true},
+			44, TacticalWorldDimensions{160, 160},
+			TacticalSectorSnapshot{9, 1, 0, true},
 			TacticalTurnSnapshot{true, true, 0, 8},
 			unorderedActors, tacticalSnapshot) == TacticalSnapshotCreateError::None &&
 		tacticalSnapshot.epoch() == 44 && tacticalSnapshot.actors().size() == 3 &&
@@ -1880,15 +1926,33 @@ int main()
 	std::vector<TacticalActorSnapshot> duplicateActors{
 		unorderedActors[0], unorderedActors[0]};
 	check(TacticalWorldSnapshot::create(
-			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			45, TacticalWorldDimensions{160, 160},
+			TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
 			duplicateActors, tacticalSnapshot) == TacticalSnapshotCreateError::DuplicateEntity &&
 		tacticalSnapshot.epoch() == acceptedEpoch,
 		"invalid tactical captures cannot partially replace the last good snapshot");
+	check(TacticalWorldSnapshot::create(
+			45, TacticalWorldDimensions{}, TacticalSectorSnapshot{},
+			TacticalTurnSnapshot{}, {}, tacticalSnapshot) ==
+				TacticalSnapshotCreateError::InvalidDimensions &&
+		tacticalSnapshot.epoch() == acceptedEpoch &&
+		tacticalSnapshot.dimensions().columns == 160,
+		"dimensionless tactical captures reject transactionally");
+	std::vector<TacticalActorSnapshot> invalidLoadoutActors =
+		tacticalSnapshot.actors();
+	invalidLoadoutActors[0].loadout.primaryHand.quantity = 1;
+	check(TacticalWorldSnapshot::create(
+			45, TacticalWorldDimensions{160, 160}, TacticalSectorSnapshot{},
+			TacticalTurnSnapshot{}, std::move(invalidLoadoutActors),
+			tacticalSnapshot) == TacticalSnapshotCreateError::InvalidEntity &&
+		tacticalSnapshot.epoch() == acceptedEpoch,
+		"noncanonical actor loadouts cannot replace the last good snapshot");
 	std::vector<TacticalActorSnapshot> orderedScratch = tacticalSnapshot.actors();
 	const TacticalActorSnapshot* orderedScratchStorage = orderedScratch.data();
 	TacticalWorldSnapshot orderedSnapshot;
 	check(TacticalWorldSnapshot::createReusableOrdered(
-			44, tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+			44, tacticalSnapshot.dimensions(), tacticalSnapshot.sector(),
+			tacticalSnapshot.turn(),
 			orderedScratch, orderedSnapshot, 3) == TacticalSnapshotCreateError::None &&
 		orderedScratch.empty() && orderedSnapshot.actors().data() == orderedScratchStorage &&
 		orderedSnapshot.find(firstIncarnation) != nullptr,
@@ -1896,7 +1960,8 @@ int main()
 	std::vector<TacticalActorSnapshot> descendingScratch = orderedSnapshot.actors();
 	std::reverse(descendingScratch.begin(), descendingScratch.end());
 	check(TacticalWorldSnapshot::createReusableOrdered(
-			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			45, TacticalWorldDimensions{160, 160},
+			TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
 			descendingScratch, orderedSnapshot, 3) ==
 				TacticalSnapshotCreateError::UnorderedEntity &&
 		orderedSnapshot.epoch() == 44 && !descendingScratch.empty(),
@@ -1904,7 +1969,8 @@ int main()
 	std::vector<TacticalActorSnapshot> orderedDuplicates = orderedSnapshot.actors();
 	orderedDuplicates[1] = orderedDuplicates[0];
 	check(TacticalWorldSnapshot::createReusableOrdered(
-			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			45, TacticalWorldDimensions{160, 160},
+			TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
 			orderedDuplicates, orderedSnapshot, 3) ==
 				TacticalSnapshotCreateError::DuplicateEntity &&
 		orderedSnapshot.epoch() == 44 && !orderedDuplicates.empty(),
@@ -1926,7 +1992,7 @@ int main()
 	check(memoryWorld.capture(capturedWorld) == TacticalWorldCaptureResult::Unavailable &&
 		capturedWorld.epoch() == tacticalSnapshot.epoch() &&
 		!tacticalServices.resolve<TacticalWorldService>(
-			TacticalWorldServiceId, EngineServiceVersion{2, 0}),
+			TacticalWorldServiceId, EngineServiceVersion{1, 0}),
 		"unavailable and incompatible tactical services preserve the last good capture");
 	std::vector<TacticalActorSnapshot> changedActors = tacticalSnapshot.actors();
 	changedActors.erase(changedActors.begin());
@@ -1940,26 +2006,110 @@ int main()
 		TacticalStance::Standing, 80, 90, 90, 70, 80, true, true});
 	TacticalWorldSnapshot changedWorld;
 	check(TacticalWorldSnapshot::create(
-			44, tacticalSnapshot.sector(), TacticalTurnSnapshot{true, true, 1, 9},
+			44, tacticalSnapshot.dimensions(), tacticalSnapshot.sector(),
+			TacticalTurnSnapshot{true, true, 1, 9},
 			changedActors, changedWorld) == TacticalSnapshotCreateError::None,
 		"changed tactical fixture remains a valid immutable snapshot");
 	TacticalWorldDelta worldDelta;
 	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 6, worldDelta) ==
 			TacticalWorldDiffResult::Success && worldDelta.events.size() == 6 &&
 		std::holds_alternative<TacticalTurnChangedEvent>(worldDelta.events[0]) &&
-		std::holds_alternative<TacticalActorLeftEvent>(worldDelta.events[1]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(worldDelta.events[2]) &&
-		std::holds_alternative<TacticalActorStanceChangedEvent>(worldDelta.events[3]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(worldDelta.events[4]) &&
-		std::holds_alternative<TacticalActorEnteredEvent>(worldDelta.events[5]),
-		"tactical world diffs emit bounded deterministic turn and actor events");
+		std::holds_alternative<TacticalActorEnteredEvent>(worldDelta.events[1]) &&
+		std::holds_alternative<TacticalActorLeftEvent>(worldDelta.events[2]) &&
+		std::holds_alternative<TacticalActorMovedEvent>(worldDelta.events[3]) &&
+		std::holds_alternative<TacticalActorStanceChangedEvent>(worldDelta.events[4]) &&
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(worldDelta.events[5]),
+		"tactical world diffs emit bounded category-major then identity-major events");
+	TacticalWorldSnapshot resizedSameWorld;
+	check(TacticalWorldSnapshot::create(
+			44, TacticalWorldDimensions{320, 240},
+			tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+			tacticalSnapshot.actors(), resizedSameWorld) ==
+				TacticalSnapshotCreateError::None &&
+		DiffTacticalWorldSnapshots(tacticalSnapshot, resizedSameWorld, 6,
+			worldDelta) == TacticalWorldDiffResult::InvalidSnapshot &&
+		worldDelta.events.size() == 6,
+		"same-generation dimension changes require a fresh world baseline");
+	TacticalTurnSnapshot blockedTurn = tacticalSnapshot.turn();
+	blockedTurn.commandsBlocked = true;
+	TacticalWorldSnapshot blockedWorld;
+	check(TacticalWorldSnapshot::create(
+			tacticalSnapshot.epoch(), tacticalSnapshot.dimensions(),
+			tacticalSnapshot.sector(), blockedTurn,
+			tacticalSnapshot.actors(), blockedWorld) ==
+				TacticalSnapshotCreateError::None,
+		"command-busy-only tactical fixture remains valid");
+	TacticalWorldDelta blockedDelta;
+	std::vector<std::uint8_t> blockedDeltaBytes;
+	TacticalWorldDelta decodedBlockedDelta;
+	check(DiffTacticalWorldSnapshots(
+			tacticalSnapshot, blockedWorld, 1, blockedDelta) ==
+				TacticalWorldDiffResult::Success &&
+		blockedDelta.events.size() == 1 &&
+		std::holds_alternative<TacticalTurnChangedEvent>(
+			blockedDelta.events[0]) &&
+		!std::get<TacticalTurnChangedEvent>(blockedDelta.events[0]).
+			previous.commandsBlocked &&
+		std::get<TacticalTurnChangedEvent>(blockedDelta.events[0]).
+			current.commandsBlocked &&
+		std::get<TacticalTurnChangedEvent>(blockedDelta.events[0]).
+			previous.serial ==
+			std::get<TacticalTurnChangedEvent>(blockedDelta.events[0]).
+				current.serial &&
+		EncodeTacticalWorldDelta(blockedDelta, blockedDeltaBytes) ==
+			TacticalWorldDeltaEncodeResult::Success &&
+		blockedDeltaBytes.size() == 26 + 43 &&
+		DecodeTacticalWorldDelta(blockedDeltaBytes, decodedBlockedDelta) ==
+			TacticalWorldDeltaDecodeResult::Success &&
+		std::get<TacticalTurnChangedEvent>(
+			decodedBlockedDelta.events[0]).current.commandsBlocked,
+		"busy-only change emits and round-trips one exact 43-byte turn event without advancing serial");
+
+	std::vector<TacticalActorSnapshot> mixedActors = tacticalSnapshot.actors();
+	mixedActors[0].life -= 1;
+	mixedActors[0].loadout.primaryHand = TacticalHandItemSnapshot{
+		10, 1, 90, 20, 4, -80, true, true};
+	mixedActors[1].grid += 1;
+	mixedActors[1].loadout.secondaryHand = TacticalHandItemSnapshot{
+		30, 2, 70, 0, 0, 0, false, false};
+	TacticalWorldSnapshot mixedWorld;
+	check(TacticalWorldSnapshot::create(
+			44, tacticalSnapshot.dimensions(), tacticalSnapshot.sector(),
+			tacticalSnapshot.turn(),
+			mixedActors, mixedWorld) == TacticalSnapshotCreateError::None,
+		"mixed-category tactical fixture remains valid");
+	TacticalWorldDelta mixedDelta;
+	check(DiffTacticalWorldSnapshots(
+			tacticalSnapshot, mixedWorld, 4, mixedDelta) ==
+			TacticalWorldDiffResult::Success && mixedDelta.events.size() == 4 &&
+		std::holds_alternative<TacticalActorMovedEvent>(mixedDelta.events[0]) &&
+		std::get<TacticalActorMovedEvent>(mixedDelta.events[0]).actor ==
+			mixedActors[1].id &&
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(
+			mixedDelta.events[1]) &&
+		std::get<TacticalActorVitalsChangedEvent>(mixedDelta.events[1]).actor ==
+			mixedActors[0].id &&
+		std::holds_alternative<TacticalActorLoadoutChangedEvent>(
+			mixedDelta.events[2]) &&
+		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).actor ==
+			mixedActors[0].id &&
+		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).previous ==
+			tacticalSnapshot.actors()[0].loadout &&
+		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).current ==
+			mixedActors[0].loadout &&
+		std::holds_alternative<TacticalActorLoadoutChangedEvent>(
+			mixedDelta.events[3]) &&
+		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[3]).actor ==
+			mixedActors[1].id,
+		"mixed actors remain category-major with loadout changes after vitals");
 	TacticalWorldDelta undersizedDelta;
 	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 5, undersizedDelta) ==
 			TacticalWorldDiffResult::CapacityReached && undersizedDelta.events.empty(),
 		"tactical world diff capacity failure cannot publish a partial event stream");
 	TacticalWorldSnapshot reloadedWorld;
 	TacticalWorldSnapshot::create(
-		45, tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+		45, tacticalSnapshot.dimensions(), tacticalSnapshot.sector(),
+		tacticalSnapshot.turn(),
 		tacticalSnapshot.actors(), reloadedWorld);
 	check(DiffTacticalWorldSnapshots(tacticalSnapshot, reloadedWorld, 1, worldDelta) ==
 			TacticalWorldDiffResult::Success && worldDelta.events.size() == 1 &&
@@ -1976,7 +2126,7 @@ int main()
 		DecodeTacticalWorldDelta(encodedDelta, decodedDelta);
 	const bool decodedEventTypes =
 		deltaDecodeResult == TacticalWorldDeltaDecodeResult::Success &&
-		decodedDelta.events.size() == 8 &&
+		decodedDelta.events.size() == 12 &&
 		std::holds_alternative<TacticalWorldResetEvent>(decodedDelta.events[0]) &&
 		std::holds_alternative<TacticalSectorChangedEvent>(decodedDelta.events[1]) &&
 		std::holds_alternative<TacticalTurnChangedEvent>(decodedDelta.events[2]) &&
@@ -1984,7 +2134,11 @@ int main()
 		std::holds_alternative<TacticalActorLeftEvent>(decodedDelta.events[4]) &&
 		std::holds_alternative<TacticalActorMovedEvent>(decodedDelta.events[5]) &&
 		std::holds_alternative<TacticalActorStanceChangedEvent>(decodedDelta.events[6]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(decodedDelta.events[7]);
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(decodedDelta.events[7]) &&
+		std::holds_alternative<TacticalActorLoadoutChangedEvent>(decodedDelta.events[8]) &&
+		std::holds_alternative<TacticalDoorEnteredEvent>(decodedDelta.events[9]) &&
+		std::holds_alternative<TacticalDoorLeftEvent>(decodedDelta.events[10]) &&
+		std::holds_alternative<TacticalDoorChangedEvent>(decodedDelta.events[11]);
 	bool decodedEventFields = false;
 	if (decodedEventTypes)
 	{
@@ -1993,6 +2147,12 @@ int main()
 		const auto& actor = std::get<TacticalActorEnteredEvent>(decodedDelta.events[3]).actor;
 		const auto& moved = std::get<TacticalActorMovedEvent>(decodedDelta.events[5]);
 		const auto& vitals = std::get<TacticalActorVitalsChangedEvent>(decodedDelta.events[7]);
+		const auto& loadout =
+			std::get<TacticalActorLoadoutChangedEvent>(decodedDelta.events[8]);
+		const auto& enteredDoor =
+			std::get<TacticalDoorEnteredEvent>(decodedDelta.events[9]).door;
+		const auto& changedDoor =
+			std::get<TacticalDoorChangedEvent>(decodedDelta.events[11]);
 		decodedEventFields =
 			decodedDelta.previousEpoch == codecFixture.previousEpoch &&
 			decodedDelta.currentEpoch == codecFixture.currentEpoch &&
@@ -2000,20 +2160,54 @@ int main()
 			sector.previous.y == std::numeric_limits<std::int16_t>::max() &&
 			sector.previous.z == std::numeric_limits<std::int8_t>::min() &&
 			!sector.previous.loaded && sector.current.loaded &&
-			!turn.previous.turnBased && turn.previous.inCombat &&
-			turn.current.turnBased && !turn.current.inCombat &&
-			turn.current.serial == 0x3132333435363738ull &&
+				!turn.previous.turnBased && turn.previous.inCombat &&
+				turn.current.turnBased && !turn.current.inCombat &&
+				turn.current.serial == 0x3132333435363738ull &&
+				!turn.previous.commandsBlocked &&
+				turn.current.commandsBlocked &&
 			actor.id == TacticalEntityId{0x1234u, 0x89abcdefu} &&
 			actor.grid == std::numeric_limits<std::int32_t>::min() &&
 			actor.level == -127 && actor.stance == TacticalStance::Prone &&
 			actor.actionPoints == std::numeric_limits<std::int16_t>::min() &&
 			actor.maximumLife == std::numeric_limits<std::int16_t>::max() &&
 			actor.breath == -12345 && actor.maximumBreath == 23456 &&
+			actor.loadout.helmet.item == 0x0102u &&
+			actor.loadout.vest.item == 0x0304u &&
+			actor.loadout.legs.item == 0x0506u &&
+			actor.loadout.primaryHand == TacticalHandItemSnapshot{
+				0x1112u, 2, -100, 0x2122u, 0x3132u, -90, true, true} &&
+			actor.loadout.secondaryHand == TacticalHandItemSnapshot{
+				0x4142u, 1, 75, 0, 0, 0, false, false} &&
 			moved.previousLevel == std::numeric_limits<std::int8_t>::min() &&
 			moved.currentGrid == std::numeric_limits<std::int32_t>::max() &&
 			vitals.previousActionPoints == std::numeric_limits<std::int16_t>::min() &&
 			vitals.currentActionPoints == std::numeric_limits<std::int16_t>::max() &&
-			vitals.previousBreath == -300 && vitals.currentMaximumBreath == 600;
+			actor.hostileToPlayerTeam &&
+			vitals.previousBreath == -300 && vitals.currentMaximumBreath == 600 &&
+			!vitals.previousHostileToPlayerTeam &&
+			vitals.currentHostileToPlayerTeam &&
+			loadout.actor == TacticalEntityId{4, 5} &&
+			loadout.previous.helmet.item == 0 &&
+			loadout.current.helmet.item == 0x1113u &&
+			loadout.current.vest.item == 0x1114u &&
+			loadout.current.legs.item == 0x1115u &&
+			loadout.previous.primaryHand.condition == 60 &&
+			!loadout.previous.primaryHand.ammunitionState &&
+			loadout.current.primaryHand.condition == 59 &&
+			loadout.current.primaryHand.ammunitionItem == 0x6162u &&
+			loadout.current.primaryHand.ammunitionCount == 7 &&
+			loadout.current.primaryHand.ammunitionCondition == -80 &&
+			loadout.current.primaryHand.ammunitionState &&
+			!loadout.current.primaryHand.chambered &&
+			loadout.current.secondaryHand.item == 0x7172u &&
+			enteredDoor.baseGrid == std::numeric_limits<std::int32_t>::max() &&
+			enteredDoor.structureId == 0x1234u && enteredDoor.open &&
+			std::get<TacticalDoorLeftEvent>(decodedDelta.events[10]).baseGrid == 0 &&
+			changedDoor.previous.baseGrid == 123 &&
+			changedDoor.previous.structureId == 0x2345u &&
+			!changedDoor.previous.open &&
+			changedDoor.current.structureId == 0x3456u &&
+			changedDoor.current.open;
 	}
 	std::vector<std::uint8_t> reencodedDelta;
 	check(decodedEventFields &&
@@ -2029,7 +2223,7 @@ int main()
 		resetDelta.previousEpoch, resetDelta.currentEpoch});
 	std::vector<std::uint8_t> resetBytes;
 	const std::vector<std::uint8_t> expectedResetBytes{
-		0x54, 0x57, 0x44, 0x31, 0x01, 0x00,
+		0x54, 0x57, 0x44, 0x31, 0x06, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x01, 0x00, 0x00, 0x00, 0x01,
@@ -2038,7 +2232,7 @@ int main()
 	check(EncodeTacticalWorldDelta(resetDelta, resetBytes) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		resetBytes == expectedResetBytes,
-		"tactical delta version 1 has a fixed little-endian golden representation");
+		"tactical delta version 6 has a fixed little-endian golden representation");
 
 	bool rejectedEveryTruncation = true;
 	for (std::size_t length = 0; length < encodedDelta.size(); ++length)
@@ -2074,6 +2268,21 @@ int main()
 	malformed[4] = 2;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
+		"pre-command-gate tactical delta version 2 is rejected");
+	malformed = encodedDelta;
+	malformed[4] = 3;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
+		"pre-loadout tactical delta version 3 is rejected");
+	malformed = encodedDelta;
+	malformed[4] = 4;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
+		"two-hand tactical delta version 4 is rejected");
+	malformed = encodedDelta;
+	malformed[4] = 7;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"tactical delta codec distinguishes unsupported format versions");
 	malformed = encodedDelta;
 	malformed[0] ^= 0xffu;
@@ -2101,6 +2310,13 @@ int main()
 	malformed[32] = 2;
 	const bool rejectsBoolean = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
+	malformed = EncodeSingleCodecEvent(TacticalTurnChangedEvent{
+		TacticalTurnSnapshot{true, true, 0, 1, false},
+		TacticalTurnSnapshot{true, true, 0, 1, true}});
+	malformed[47] = 2;
+	const bool rejectsCommandBlockedBoolean =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
 	malformed = EncodeSingleCodecEvent(TacticalActorEnteredEvent{
 		TacticalActorSnapshot{TacticalEntityId{8, 9}, 0, 0, -1, 0, 0, 0,
 			TacticalStance::Standing, 0, 1, 1, 2, 2, true, true}});
@@ -2119,9 +2335,38 @@ int main()
 	malformed[28] = 0xffu;
 	const bool rejectsInvalidEntity = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
-	check(usesFixedStanceCodes && rejectsUnknownTag && rejectsBoolean && rejectsActorStance &&
-		rejectsChangedStance && rejectsInvalidEntity,
-		"tactical delta codec rejects malformed tags, booleans, stances, and identities");
+	const auto fixtureLoadout =
+		std::get<TacticalActorLoadoutChangedEvent>(codecFixture.events[8]);
+	malformed = EncodeSingleCodecEvent(fixtureLoadout);
+	const bool packsHandFlags =
+		malformed.size() == 26 + EncodedTacticalActorLoadoutChangedEventBytes &&
+		malformed[44] == 0 && malformed[56] == 0 &&
+		malformed[68] == 0 && malformed[80] == 0 &&
+		malformed[92] == 0 && malformed[104] == 0 &&
+		malformed[116] == 0 && malformed[128] == 0 &&
+		malformed[140] == 1 && malformed[152] == 0;
+	malformed[104] = 0x04u;
+	const bool rejectsReservedLoadoutFlags =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
+	malformed = EncodeSingleCodecEvent(fixtureLoadout);
+	malformed[140] = 0;
+	const bool rejectsUnmarkedAmmunitionState =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
+	malformed = EncodeSingleCodecEvent(fixtureLoadout);
+	malformed[80] = 0x02u;
+	const bool rejectsChamberWithoutAmmunitionState =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
+	check(usesFixedStanceCodes && rejectsUnknownTag && rejectsBoolean &&
+		rejectsCommandBlockedBoolean && rejectsActorStance &&
+		rejectsChangedStance && rejectsInvalidEntity && packsHandFlags &&
+		rejectsReservedLoadoutFlags && rejectsUnmarkedAmmunitionState &&
+		rejectsChamberWithoutAmmunitionState &&
+		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888 &&
+		unchangedDelta.events.size() == 1,
+		"tactical delta codec rejects malformed tags, hand flags/state, booleans, stances, and identities transactionally");
 
 	std::vector<std::uint8_t> unchangedBytes{0xaa, 0x55};
 	TacticalWorldDelta invalidDelta = codecFixture;
@@ -2136,7 +2381,24 @@ int main()
 	const bool rejectsInvalidActor =
 		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
 			TacticalWorldDeltaEncodeResult::Invalid;
+	invalidDelta = codecFixture;
+	auto invalidEntered =
+		std::get<TacticalActorEnteredEvent>(invalidDelta.events[3]);
+	invalidEntered.actor.loadout.primaryHand.quantity = 0;
+	invalidDelta.events[3] = invalidEntered;
+	const bool rejectsInvalidEnteredLoadout =
+		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
+			TacticalWorldDeltaEncodeResult::Invalid;
+	invalidDelta = codecFixture;
+	auto unchangedLoadout =
+		std::get<TacticalActorLoadoutChangedEvent>(invalidDelta.events[8]);
+	unchangedLoadout.current = unchangedLoadout.previous;
+	invalidDelta.events[8] = unchangedLoadout;
+	const bool rejectsNoOpLoadout =
+		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
+			TacticalWorldDeltaEncodeResult::Invalid;
 	check(rejectsInvalidEncode && rejectsInvalidActor &&
+		rejectsInvalidEnteredLoadout && rejectsNoOpLoadout &&
 		unchangedBytes == std::vector<std::uint8_t>({0xaa, 0x55}) &&
 		EncodeTacticalWorldDelta(codecFixture, unchangedBytes, 7) ==
 			TacticalWorldDeltaEncodeResult::TooManyEvents &&
@@ -2150,7 +2412,7 @@ int main()
 	RecordingRuntimeMessageSink tacticalMessageSink;
 	TacticalWorldDeltaPublisher tacticalPublisher(
 		tacticalMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+		TacticalWorldDeltaPublishLimits{codecFixture.events.size(), encodedDelta.size()});
 	const TacticalWorldDeltaPublishResult tacticalPublished =
 		tacticalPublisher.publish(codecFixture);
 	const RuntimeMessageDispatchResult tacticalDispatch =
@@ -2166,7 +2428,8 @@ int main()
 	check(tacticalPublished && tacticalPublished.sequence == 1 &&
 		tacticalPublished.payloadBytes == encodedDelta.size() &&
 		tacticalDispatch.messages == 1 && tacticalDispatch.delivered == 1 &&
-		deliveredPayloadDecodes && deliveredDelta.events.size() == 8 &&
+		deliveredPayloadDecodes &&
+		deliveredDelta.events.size() == codecFixture.events.size() &&
 		tacticalMessageSink.messages[0].topic == TacticalWorldDeltaMessageTopic &&
 		tacticalMessageSink.messages[0].source == TacticalWorldDeltaMessageSource &&
 		tacticalMessageSink.messages[0].payload == encodedDelta,
@@ -2179,7 +2442,7 @@ int main()
 		"fixture.blocker", "fixture.host", {9}});
 	TacticalWorldDeltaPublisher preparedDeltaPublisher(
 		preparedDeltaMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+		TacticalWorldDeltaPublishLimits{codecFixture.events.size(), encodedDelta.size()});
 	PreparedTacticalWorldDeltaMessage preparedDelta;
 	const TacticalWorldDeltaPublishError deltaPrepared =
 		preparedDeltaPublisher.prepare(codecFixture, preparedDelta);
@@ -2206,7 +2469,8 @@ int main()
 		preparedDeltaPressure.error == TacticalWorldDeltaPublishError::QueueFull &&
 		preparedDeltaRetained && preparedDeltaPublished &&
 		preparedDeltaPublished.sequence == 2 && preparedDelta.request.payload.empty() &&
-		preparedDeltaDecoded && deliveredPreparedDelta.events.size() == 8,
+		preparedDeltaDecoded &&
+		deliveredPreparedDelta.events.size() == codecFixture.events.size(),
 		"prepared tactical deltas encode once and retain exact bytes across bus pressure");
 	PreparedTacticalWorldDeltaMessage retainedPreparedDelta;
 	retainedPreparedDelta.request.payload = {7};
@@ -2214,7 +2478,8 @@ int main()
 	retainedPreparedDelta.payloadBytes = 1;
 	TacticalWorldDeltaPublisher tinyPreparedDeltaPublisher(
 		preparedDeltaMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() - 1});
+		TacticalWorldDeltaPublishLimits{
+			codecFixture.events.size(), encodedDelta.size() - 1});
 	check(tinyPreparedDeltaPublisher.prepare(codecFixture, retainedPreparedDelta) ==
 			TacticalWorldDeltaPublishError::PayloadTooLarge &&
 		retainedPreparedDelta.request.payload == std::vector<std::uint8_t>({7}) &&
@@ -2228,12 +2493,12 @@ int main()
 		directBatch.requests[0].topic == TacticalWorldDeltaMessageTopic &&
 		directBatch.requests[0].source == TacticalWorldDeltaMessageSource &&
 		directBatch.requests[0].payload == encodedDelta,
-		"deltas within the bus limit retain their exact version-1 topic and bytes");
+		"deltas within the bus limit retain their exact version-4 topic and bytes");
 	RuntimeMessageBus noChunkMessages(1, encodedDelta.size());
 	TacticalWorldDeltaPublisher noChunkPublisher(
 		noChunkMessages,
 		TacticalWorldDeltaPublishLimits{
-			8, encodedDelta.size(), encodedDelta.size() + 1, 0});
+			codecFixture.events.size(), encodedDelta.size(), encodedDelta.size() + 1, 0});
 	PreparedTacticalWorldDeltaBatch noChunkBatch;
 	const TacticalWorldDeltaPublishError noChunkPrepared =
 		noChunkPublisher.prepareBatch(codecFixture, 91, noChunkBatch);
@@ -2252,12 +2517,13 @@ int main()
 	constexpr std::size_t ChunkPayloadLimit = TacticalWorldDeltaChunkHeaderBytes + 8;
 	RuntimeMessageBus chunkMessages(2, ChunkPayloadLimit);
 	ReassemblingTacticalDeltaSink chunkSink(
-		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+		TacticalWorldDeltaReassemblyLimits{
+			encodedDelta.size(), 128, codecFixture.events.size()});
 	chunkMessages.addSink(chunkSink);
 	TacticalWorldDeltaPublisher chunkPublisher(
 		chunkMessages,
 		TacticalWorldDeltaPublishLimits{
-			8, ChunkPayloadLimit, encodedDelta.size(), 128});
+			codecFixture.events.size(), ChunkPayloadLimit, encodedDelta.size(), 128});
 	PreparedTacticalWorldDeltaBatch chunkBatch;
 	const TacticalWorldDeltaPublishError chunkPrepared =
 		chunkPublisher.prepareBatch(codecFixture, 100, chunkBatch);
@@ -2291,7 +2557,8 @@ int main()
 		firstChunkPass.messagesPublished == 2 && cursorAfterPressure == 2 &&
 		chunkRetryValid && chunkBatch.complete() &&
 		chunkSink.results.size() == preparedChunkCount && chunkResultsOrdered &&
-		chunkSink.completed == 1 && chunkSink.delta.events.size() == 8 &&
+		chunkSink.completed == 1 &&
+		chunkSink.delta.events.size() == codecFixture.events.size() &&
 		chunkSink.delta.previousEpoch == codecFixture.previousEpoch &&
 		chunkSink.delta.currentEpoch == codecFixture.currentEpoch,
 		"chunk publication resumes its retained cursor without duplicates across frames");
@@ -2342,7 +2609,8 @@ int main()
 	retainedReassembly.previousEpoch = 777;
 	retainedReassembly.currentEpoch = 888;
 	TacticalWorldDeltaReassembler supersedingReassembler(
-		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+		TacticalWorldDeltaReassemblyLimits{
+			encodedDelta.size(), 128, codecFixture.events.size()});
 	const TacticalWorldDeltaReassemblyResult firstTransferAccepted =
 		supersedingReassembler.accept(
 			chunkMessage(transferA.payloads[0]), retainedReassembly);
@@ -2387,7 +2655,8 @@ int main()
 		"a new index-zero transfer supersedes abandoned world data while duplicates and foreign continuations fail");
 
 	TacticalWorldDeltaReassembler directBoundaryReassembler(
-		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+		TacticalWorldDeltaReassemblyLimits{
+			encodedDelta.size(), 128, codecFixture.events.size()});
 	TacticalWorldDelta directBoundaryOutput;
 	directBoundaryOutput.previousEpoch = 777;
 	const TacticalWorldDeltaReassemblyResult directPrefixAccepted =
@@ -2442,7 +2711,8 @@ int main()
 	std::vector<std::uint8_t> excessiveCountChunk = transferA.payloads[0];
 	WriteTestU32(excessiveCountChunk, 18, 129);
 	TacticalWorldDeltaReassembler malformedReassembler(
-		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+		TacticalWorldDeltaReassemblyLimits{
+			encodedDelta.size(), 128, codecFixture.events.size()});
 	const bool rejectsMalformedEnvelopes =
 		malformedReassembler.accept(
 			chunkMessage(unsupportedChunk), retainedReassembly) ==
@@ -2479,7 +2749,8 @@ int main()
 	std::vector<std::vector<std::uint8_t>> corruptTransfer = transferA.payloads;
 	corruptTransfer.back().back() ^= 0x80u;
 	TacticalWorldDeltaReassembler integrityReassembler(
-		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+		TacticalWorldDeltaReassemblyLimits{
+			encodedDelta.size(), 128, codecFixture.events.size()});
 	retainedReassembly.previousEpoch = 777;
 	retainedReassembly.currentEpoch = 888;
 	retainedReassembly.events.clear();
@@ -2560,7 +2831,8 @@ int main()
 	const TacticalWorldDeltaPublishResult eventLimitedPublication =
 		validationPublisher.publish(codecFixture);
 	TacticalWorldDeltaPublisher validationSuccessPublisher(
-		validationMessages, TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+		validationMessages,
+		TacticalWorldDeltaPublishLimits{codecFixture.events.size(), encodedDelta.size()});
 	const TacticalWorldDeltaPublishResult afterValidationFailures =
 		validationSuccessPublisher.publish(codecFixture);
 	check(invalidPublication.error == TacticalWorldDeltaPublishError::InvalidDelta &&
@@ -2573,7 +2845,8 @@ int main()
 	RuntimeMessageBus busPayloadMessages(2, encodedDelta.size() - 1);
 	TacticalWorldDeltaPublisher busPayloadPublisher(
 		busPayloadMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() + 100});
+		TacticalWorldDeltaPublishLimits{
+			codecFixture.events.size(), encodedDelta.size() + 100});
 	const TacticalWorldDeltaPublishResult busPayloadRejected =
 		busPayloadPublisher.publish(codecFixture);
 	const TacticalWorldDeltaPublishResult smallerPayloadAccepted =
@@ -2581,12 +2854,14 @@ int main()
 	RuntimeMessageBus callerPayloadMessages(2, encodedDelta.size());
 	TacticalWorldDeltaPublisher callerPayloadPublisher(
 		callerPayloadMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() - 1});
+		TacticalWorldDeltaPublishLimits{
+			codecFixture.events.size(), encodedDelta.size() - 1});
 	const TacticalWorldDeltaPublishResult callerPayloadRejected =
 		callerPayloadPublisher.publish(codecFixture);
 	TacticalWorldDeltaPublisher callerPayloadSuccessPublisher(
 		callerPayloadMessages,
-		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+		TacticalWorldDeltaPublishLimits{
+			codecFixture.events.size(), encodedDelta.size()});
 	const TacticalWorldDeltaPublishResult afterCallerPayloadFailure =
 		callerPayloadSuccessPublisher.publish(codecFixture);
 	check(busPayloadPublisher.maximumPayloadBytes() == encodedDelta.size() - 1 &&
@@ -2638,7 +2913,7 @@ int main()
 	const auto resolvedObserver = tacticalServices.resolve(TacticalWorldObserverServiceContract);
 	check(resolvedObserver && resolvedObserver.service->latest().serial == 1 &&
 		!tacticalServices.resolve<TacticalWorldObserverService>(
-			TacticalWorldObserverServiceId, EngineServiceVersion{2, 0}),
+			TacticalWorldObserverServiceId, EngineServiceVersion{1, 0}),
 		"packages resolve only compatible tactical observer service versions");
 
 	memoryWorld.publish(changedWorld);
@@ -2649,11 +2924,11 @@ int main()
 		publication.serial == 2 && publication.snapshot->find(TacticalEntityId{9, 1}) &&
 		publication.delta->events.size() == 6 &&
 		std::holds_alternative<TacticalTurnChangedEvent>(publication.delta->events[0]) &&
-		std::holds_alternative<TacticalActorLeftEvent>(publication.delta->events[1]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(publication.delta->events[2]) &&
-		std::holds_alternative<TacticalActorStanceChangedEvent>(publication.delta->events[3]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[4]) &&
-		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[5]),
+		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[1]) &&
+		std::holds_alternative<TacticalActorLeftEvent>(publication.delta->events[2]) &&
+		std::holds_alternative<TacticalActorMovedEvent>(publication.delta->events[3]) &&
+		std::holds_alternative<TacticalActorStanceChangedEvent>(publication.delta->events[4]) &&
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[5]),
 		"observer publications retain deterministic delta category and entity order");
 	const TacticalWorldSnapshot* changedPublicationSnapshot = publication.snapshot;
 	const TacticalWorldDelta* changedPublicationDelta = publication.delta;
@@ -2677,7 +2952,8 @@ int main()
 		"observer serials restart only after the old publication becomes unavailable");
 	TacticalWorldSnapshot replacedWorld;
 	check(TacticalWorldSnapshot::create(
-			46, reloadedWorld.sector(), reloadedWorld.turn(),
+			46, reloadedWorld.dimensions(), reloadedWorld.sector(),
+			reloadedWorld.turn(),
 			reloadedWorld.actors(), replacedWorld) == TacticalSnapshotCreateError::None,
 		"direct epoch replacement fixture remains valid");
 	memoryWorld.publish(replacedWorld);
@@ -2693,7 +2969,8 @@ int main()
 		TacticalStance::Standing, 80, 80, 80, 80, 80, true, true});
 	TacticalWorldSnapshot excessiveWorld;
 	check(TacticalWorldSnapshot::create(
-			45, reloadedWorld.sector(), reloadedWorld.turn(), excessiveActors,
+			45, reloadedWorld.dimensions(), reloadedWorld.sector(),
+			reloadedWorld.turn(), excessiveActors,
 			excessiveWorld) == TacticalSnapshotCreateError::None,
 		"observer actor-capacity fixture is a valid tactical snapshot");
 	memoryWorld.publish(excessiveWorld);
@@ -2774,7 +3051,9 @@ int main()
 				TacticalPendingActionPolicy::Preserve}}},
 		RecordedSimulationCommand{
 			21, 45, CommandJournalStatus::Blocked,
-			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}},
+			SimulationCommand{EndTurnCommand{
+				2, SimulationCommandSource::NetworkPeer,
+				TacticalCommandAuthorityPolicy::DedicatedCoop}}},
 		RecordedSimulationCommand{
 			22, 46, CommandJournalStatus::Applied,
 			SimulationCommand{SetFacingCommand{
@@ -2799,7 +3078,8 @@ int main()
 		RecordedSimulationCommand{
 			27, 51, CommandJournalStatus::Queued,
 			SimulationCommand{ReloadWeaponCommand{
-				reusedSlot, false, SimulationCommandSource::Replay}}},
+				reusedSlot, true, SimulationCommandSource::NetworkPeer,
+				TacticalCommandAuthorityPolicy::DedicatedCoop}}},
 		RecordedSimulationCommand{
 			28, 52, CommandJournalStatus::Applied,
 			SimulationCommand{TraverseObstacleCommand{
@@ -2900,7 +3180,18 @@ int main()
 				TacticalWorldObjectNoExpectedPathValue,
 				TacticalDirectionCount, 1, 2,
 				TacticalWorldObjectNoExpectedPointCost,
-				TacticalWorldObjectNoExpectedPointCost}}}};
+				TacticalWorldObjectNoExpectedPointCost}}},
+		RecordedSimulationCommand{
+			46, 70, CommandJournalStatus::Queued,
+			SimulationCommand{AimedFirearmAttackCommand{
+				firstIncarnation, reusedSlot, 7200, 1, 5, 1234,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			47, 71, CommandJournalStatus::Applied,
+			SimulationCommand{PassInterruptCommand{
+				reusedSlot, 0x1122334455667788ull, 0x8877665544332211ull,
+				SimulationCommandSource::Replay,
+				TacticalCommandAuthorityPolicy::DedicatedCoop}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2912,7 +3203,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 29)
+		decoded.size() == 31)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2966,6 +3257,10 @@ int main()
 		const auto& automaticWorldObject =
 			std::get<SystemWorldObjectInteractionCommand>(
 				decoded[28].command);
+		const auto& aimedFirearmAttack =
+			std::get<AimedFirearmAttackCommand>(decoded[29].command);
+		const auto& interruptPass =
+			std::get<PassInterruptCommand>(decoded[30].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2983,8 +3278,10 @@ int main()
 			move.source == SimulationCommandSource::Replay &&
 			move.origin == TacticalMoveOrigin::TeamAwareUi &&
 			move.pendingAction == TacticalPendingActionPolicy::Preserve &&
-			decoded[4].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
-			turn.source == SimulationCommandSource::NetworkPeer &&
+				decoded[4].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
+				turn.source == SimulationCommandSource::NetworkPeer &&
+				turn.authority ==
+					TacticalCommandAuthorityPolicy::DedicatedCoop &&
 			facing.soldier == firstIncarnation && facing.direction == 7 &&
 			facing.source == SimulationCommandSource::LocalPlayer &&
 			facing.eventPolicy == TacticalEventPolicy::LocalOnly &&
@@ -2997,8 +3294,10 @@ int main()
 			scopeMode.soldier == firstIncarnation &&
 			scopeMode.targetGrid == 3456 &&
 			scopeMode.source == SimulationCommandSource::NetworkPeer &&
-			reload.soldier == reusedSlot && !reload.reloadEvenIfNotEmpty &&
-			reload.source == SimulationCommandSource::Replay &&
+			reload.soldier == reusedSlot && reload.reloadEvenIfNotEmpty &&
+			reload.source == SimulationCommandSource::NetworkPeer &&
+			reload.authority ==
+				TacticalCommandAuthorityPolicy::DedicatedCoop &&
 			traversal.soldier == firstIncarnation &&
 			traversal.kind == TacticalTraversalKind::JumpWindow &&
 			traversal.source == SimulationCommandSource::LocalPlayer &&
@@ -3103,10 +3402,46 @@ int main()
 			selectedFire.targetCubeLevel == 3 &&
 			selectedFire.attackingHand == 1 &&
 			selectedFire.attackingWeapon == 4321 &&
-			selectedFire.source == SimulationCommandSource::System;
+			selectedFire.source == SimulationCommandSource::System &&
+			aimedFirearmAttack.soldier == firstIncarnation &&
+			aimedFirearmAttack.target == reusedSlot &&
+			aimedFirearmAttack.expectedTargetGrid == 7200 &&
+			aimedFirearmAttack.expectedTargetLevel == 1 &&
+			aimedFirearmAttack.aimTime == 5 &&
+			aimedFirearmAttack.expectedHandItem == 1234 &&
+			aimedFirearmAttack.source ==
+				SimulationCommandSource::NetworkPeer &&
+			interruptPass.soldier == reusedSlot &&
+			interruptPass.expectedWorldGeneration ==
+				0x1122334455667788ull &&
+			interruptPass.expectedInterruptSerial ==
+				0x8877665544332211ull &&
+			interruptPass.source == SimulationCommandSource::Replay &&
+			interruptPass.authority ==
+				TacticalCommandAuthorityPolicy::DedicatedCoop;
 	}
 	check(decodedFields,
 		"current commands preserve player intent and multiplayer reconciliation snapshots");
+	const std::array<std::uint8_t, 8> interruptSerialEncoding{
+		0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
+	const auto interruptSerialPosition = std::search(
+		encoded.begin(), encoded.end(),
+		interruptSerialEncoding.begin(), interruptSerialEncoding.end());
+	std::vector<std::uint8_t> invalidEncodedInterruptPass = encoded;
+	if (interruptSerialPosition != encoded.end())
+	{
+		const std::size_t offset = static_cast<std::size_t>(
+			std::distance(encoded.begin(), interruptSerialPosition));
+		std::fill_n(
+			invalidEncodedInterruptPass.begin() + offset,
+			interruptSerialEncoding.size(), 0);
+	}
+	check(
+		interruptSerialPosition != encoded.end() &&
+		RejectsJournalWithoutPublishing(
+			invalidEncodedInterruptPass,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"journal decode transactionally rejects an interrupt pass with a zero grant serial");
 
 	std::vector<RecordedSimulationCommand> invalidSynchronization = recorded;
 	std::get<SynchronizeActorPathCommand>(
@@ -3144,6 +3479,27 @@ int main()
 			std::vector<std::uint8_t>{0xa5, 0x5a},
 		"selected System fire rejects player/network provenance");
 	invalidSystemAction = recorded;
+	std::get<AimedFirearmAttackCommand>(
+		invalidSystemAction[29].command).source =
+			SimulationCommandSource::System;
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSystemAction, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"aimed firearm command rejects non-network/replay provenance");
+	invalidSystemAction = recorded;
+	std::get<PassInterruptCommand>(
+		invalidSystemAction[30].command).expectedInterruptSerial = 0;
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSystemAction, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"interrupt pass rejects a missing authoritative grant serial");
+	invalidSystemAction = recorded;
 	std::get<SetFacingCommand>(
 		invalidSystemAction[5].command).eventPolicy =
 			static_cast<TacticalEventPolicy>(0xffu);
@@ -3158,14 +3514,25 @@ int main()
 	auto& invalidNetworkPolicy = std::get<ChangeStanceCommand>(
 		invalidSystemAction[0].command);
 	invalidNetworkPolicy.source = SimulationCommandSource::NetworkPeer;
-	invalidNetworkPolicy.eventPolicy = TacticalEventPolicy::Replicated;
+		invalidNetworkPolicy.eventPolicy = TacticalEventPolicy::Replicated;
 	check(
 		!EncodeSimulationCommandJournal(
 			invalidSystemAction, 0,
 			preservedSynchronizationEncoding) &&
 		preservedSynchronizationEncoding ==
 			std::vector<std::uint8_t>{0xa5, 0x5a},
-		"received stance/facing commands cannot echo outbound replication");
+			"received stance/facing commands cannot echo outbound replication");
+		invalidSystemAction = recorded;
+		auto& invalidAuthoritySource = std::get<EndTurnCommand>(
+			invalidSystemAction[4].command);
+		invalidAuthoritySource.source = SimulationCommandSource::System;
+		check(
+			!EncodeSimulationCommandJournal(
+				invalidSystemAction, 0,
+				preservedSynchronizationEncoding) &&
+			preservedSynchronizationEncoding ==
+				std::vector<std::uint8_t>{0xa5, 0x5a},
+			"dedicated co-op authority cannot be attached to local/System provenance");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
@@ -3287,21 +3654,22 @@ int main()
 		"JA2 command codec rejects trailing data without publishing partial output");
 
 	std::vector<std::uint8_t> unsupportedVersion = encoded;
-	unsupportedVersion[4] = 2;
+	unsupportedVersion[4] = 1;
 	check(RejectsJournalWithoutPublishing(
 		unsupportedVersion,
 		SimulationCommandJournalDecodeResult::UnsupportedVersion),
-		"command journals reject unsupported future wire versions");
+		"the unpublished v3 authority layout rejects ambiguous v1 journals");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
 	std::vector<std::uint8_t> malformedStance;
 	const bool encodedStanceFixture =
 		EncodeSimulationCommandJournal(oneStance, 0, malformedStance) &&
-		malformedStance.size() == 45;
+		malformedStance.size() == 46;
 	std::vector<std::uint8_t> invalidStatus = malformedStance;
 	std::vector<std::uint8_t> invalidTag = malformedStance;
 	std::vector<std::uint8_t> invalidSourceBytes = malformedStance;
 	std::vector<std::uint8_t> invalidEventPolicyBytes = malformedStance;
+	std::vector<std::uint8_t> invalidAuthorityBytes = malformedStance;
 	std::vector<std::uint8_t> truncatedStance = malformedStance;
 	if (encodedStanceFixture)
 	{
@@ -3313,6 +3681,7 @@ int main()
 		invalidTag[35] = 0xff;
 		invalidSourceBytes[43] = 0xff;
 		invalidEventPolicyBytes[44] = 0xff;
+		invalidAuthorityBytes[45] = 0xff;
 		truncatedStance.pop_back();
 	}
 	check(encodedStanceFixture &&
@@ -3328,14 +3697,17 @@ int main()
 			invalidEventPolicyBytes,
 			SimulationCommandJournalDecodeResult::Invalid) &&
 		RejectsJournalWithoutPublishing(
+			invalidAuthorityBytes,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
 			truncatedStance, SimulationCommandJournalDecodeResult::Invalid),
-		"the current command format rejects malformed record identity, status, tag, source, policy, and length");
+		"the current command format rejects malformed record identity, status, tag, source, event/authority policy, and length");
 
 	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
 	std::vector<std::uint8_t> malformedMove;
 	const bool encodedMoveFixture =
 		EncodeSimulationCommandJournal(oneMove, 0, malformedMove) &&
-		malformedMove.size() == 52;
+		malformedMove.size() == 53;
 	check(encodedMoveFixture,
 		"the current move fixture encodes all stable value fields");
 	if (encodedMoveFixture)
@@ -3347,19 +3719,25 @@ int main()
 		"move decoding rejects unknown packed flags transactionally");
 	std::vector<std::uint8_t> malformedMoveOrigin;
 	std::vector<std::uint8_t> malformedPendingAction;
+	std::vector<std::uint8_t> malformedMoveAuthority;
 	if (encodedMoveFixture)
 	{
 		EncodeSimulationCommandJournal(oneMove, 0, malformedMoveOrigin);
 		malformedPendingAction = malformedMoveOrigin;
+		malformedMoveAuthority = malformedMoveOrigin;
 		malformedMoveOrigin[50] = 0xff;
 		malformedPendingAction[51] = 0xff;
+		malformedMoveAuthority[52] = 0xff;
 	}
 	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
 		malformedMoveOrigin, SimulationCommandJournalDecodeResult::Invalid),
 		"move decoding rejects unknown movement origins transactionally");
 	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
-		malformedPendingAction, SimulationCommandJournalDecodeResult::Invalid),
+			malformedPendingAction, SimulationCommandJournalDecodeResult::Invalid),
 		"move decoding rejects unknown pending-action policy transactionally");
+	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
+			malformedMoveAuthority, SimulationCommandJournalDecodeResult::Invalid),
+		"move decoding rejects unknown authority policy transactionally");
 
 	std::vector<RecordedSimulationCommand> oneFacing{recorded[5]};
 	std::vector<RecordedSimulationCommand> oneStealth{recorded[6]};
@@ -3368,7 +3746,7 @@ int main()
 	const bool encodedNewCommands =
 		EncodeSimulationCommandJournal(oneFacing, 0, malformedFacing) &&
 		EncodeSimulationCommandJournal(oneStealth, 0, malformedStealth) &&
-		malformedFacing.size() == 45 && malformedStealth.size() == 44;
+		malformedFacing.size() == 46 && malformedStealth.size() == 44;
 	if (encodedNewCommands)
 	{
 		malformedFacing[42] = TacticalDirectionCount;
@@ -3383,16 +3761,23 @@ int main()
 
 	std::vector<RecordedSimulationCommand> oneReload{recorded[10]};
 	std::vector<std::uint8_t> malformedReload;
+	std::vector<std::uint8_t> malformedReloadAuthority;
 	const bool encodedWeaponControlCommands =
 		EncodeSimulationCommandJournal(oneReload, 0, malformedReload) &&
-		malformedReload.size() == 44;
+		malformedReload.size() == 45;
 	if (encodedWeaponControlCommands)
 	{
+		malformedReloadAuthority = malformedReload;
 		malformedReload[42] = 2;
+		malformedReloadAuthority[44] = 0xff;
 	}
-	check(encodedWeaponControlCommands && RejectsJournalWithoutPublishing(
-		malformedReload, SimulationCommandJournalDecodeResult::Invalid),
-		"reload decoding rejects malformed booleans transactionally");
+	check(encodedWeaponControlCommands &&
+		RejectsJournalWithoutPublishing(
+			malformedReload, SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedReloadAuthority,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"reload decoding rejects malformed booleans and authority policy transactionally");
 
 	std::vector<RecordedSimulationCommand> oneWeaponReady{recorded[21]};
 	std::vector<std::uint8_t> malformedWeaponReadyDirection;
@@ -3646,38 +4031,58 @@ int main()
 		12, SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{5, 501}, 1, SimulationCommandSource::LocalPlayer}});
 	captureRuntime.submitCommand(
-		11, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}});
+		11, SimulationCommand{EndTurnCommand{
+			2, SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop}});
+	captureRuntime.submitCommand(
+		13, SimulationCommand{ReloadWeaponCommand{
+			TacticalEntityId{5, 501}, true,
+			SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop}});
 	check(captureRuntime.saveCommandReplay("capture.replay") ==
 		CommandReplaySaveResult::Success,
 		"JA2 runtime persists its bounded command journal as a durable replay");
 	SimulationCommandReplay replay;
 	EngineRuntime<> playbackRuntime(replayServices);
 	check(playbackRuntime.loadCommandReplay("capture.replay", replay) ==
-		CommandReplayLoadResult::Success && replay.records.size() == 2 &&
+		CommandReplayLoadResult::Success && replay.records.size() == 3 &&
 		replay.droppedCount == 0,
 		"JA2 runtime loads a complete integrity-checked replay capture");
 	check(playbackRuntime.stageCommandReplay(replay) ==
 		CommandReplayStageResult::Success,
 		"JA2 runtime transactionally stages a complete replay");
-	const auto replayed = playbackRuntime.commands().drainThrough(12);
+	const auto replayed = playbackRuntime.commands().drainThrough(13);
 	const auto playbackJournal =
 		playbackRuntime.commandJournal().snapshot();
-	check(replayed.size() == 2 && replayed[0].tick == 11 &&
+	check(replayed.size() == 3 && replayed[0].tick == 11 &&
 		replayed[0].sequence == 1 && replayed[1].tick == 12 &&
-		replayed[1].sequence == 0 &&
+		replayed[1].sequence == 0 && replayed[2].tick == 13 &&
+		replayed[2].sequence == 2 &&
 		std::get<EndTurnCommand>(replayed[0].command).nextTeam == 2 &&
 		std::get<EndTurnCommand>(replayed[0].command).source ==
 			SimulationCommandSource::Replay &&
+		std::get<EndTurnCommand>(replayed[0].command).authority ==
+			TacticalCommandAuthorityPolicy::DedicatedCoop &&
 		std::get<ChangeStanceCommand>(replayed[1].command).soldier ==
 			TacticalEntityId{5, 501} &&
 		std::get<ChangeStanceCommand>(replayed[1].command).source ==
 			SimulationCommandSource::Replay &&
-		playbackJournal.size() == 2 &&
+		std::get<ReloadWeaponCommand>(replayed[2].command).source ==
+			SimulationCommandSource::Replay &&
+		std::get<ReloadWeaponCommand>(replayed[2].command).authority ==
+			TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		playbackJournal.size() == 3 &&
 		std::get<ChangeStanceCommand>(playbackJournal[0].command).source ==
 			SimulationCommandSource::LocalPlayer &&
 		std::get<EndTurnCommand>(playbackJournal[1].command).source ==
-			SimulationCommandSource::NetworkPeer,
-		"staged replay retains deterministic order and captured journal provenance while execution is Replay-originated");
+			SimulationCommandSource::NetworkPeer &&
+		std::get<EndTurnCommand>(playbackJournal[1].command).authority ==
+			TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		std::get<ReloadWeaponCommand>(playbackJournal[2].command).source ==
+			SimulationCommandSource::NetworkPeer &&
+		std::get<ReloadWeaponCommand>(playbackJournal[2].command).authority ==
+			TacticalCommandAuthorityPolicy::DedicatedCoop,
+		"staged replay retains dedicated co-op authority and deterministic order while substituting only Replay execution provenance");
 	check(playbackRuntime.stageCommandReplay(replay) ==
 		CommandReplayStageResult::SequenceConflict &&
 		playbackRuntime.commands().empty(),

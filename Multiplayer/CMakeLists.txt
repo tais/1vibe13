@@ -20,10 +20,26 @@ target_link_libraries(SdlNetTransport PUBLIC SDL3_net::SDL3_net SDL3::SDL3)
 add_library(Multiplayer STATIC
   "client.cpp"
   "CoopAdmission.cpp"
+  "CoopActorAssignmentPolicy.cpp"
+  "CoopCampaignBootstrapProtocol.cpp"
+  "CoopCampaignSyncProtocol.cpp"
+  "CoopHandshakeProtocol.cpp"
   "CoopSessionProtocol.cpp"
   "CoopTacticalAuthority.cpp"
   "CoopTacticalIntent.cpp"
+  "CoopTacticalProtocol.cpp"
+  "FullEngineCoopAdmissionListener.cpp"
+  "FullEngineCoopCampaignSyncClient.cpp"
+  "FullEngineCoopCampaignSyncServer.cpp"
+  "FullEngineCoopClient.cpp"
+  "FullEngineCoopClientBootstrapTransport.cpp"
+  "FullEngineCoopClientTransport.cpp"
   "FullEngineCoopIngress.cpp"
+  "FullEngineCoopServerSession.cpp"
+  "FullEngineCoopSnapshotReplica.cpp"
+  "FullEngineCoopTacticalServer.cpp"
+  "LegacyServerIngress.cpp"
+  "OsAdmissionTokenSource.cpp"
   "server.cpp"
   "transfer_rules.cpp"
 )
@@ -34,3 +50,6 @@ target_include_directories(Multiplayer PUBLIC
 )
 
 target_link_libraries(Multiplayer PRIVATE SdlNetTransport)
+if(WIN32)
+  target_link_libraries(Multiplayer PRIVATE bcrypt)
+endif()

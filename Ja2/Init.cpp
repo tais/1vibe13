@@ -32,6 +32,8 @@
 #include "Summary Info.h"
 #include "GameSettings.h"
 #include "GameContext.h"
+#include "DedicatedCoopRuntime.h"
+#include "FullEngineCoopClientRuntime.h"
 #include "CampaignApplicationPolicy.h"
 #include "RuntimeReportHost.h"
 #include "TacticalWorldAdapter.h"
@@ -1612,6 +1614,29 @@ UINT32 InitializeJA2(void)
 	{
 		if (runtimeStart.packages.callbackException)
 			std::rethrow_exception(runtimeStart.packages.callbackException);
+		return ERROR_SCREEN;
+	}
+	if (IsDedicatedCoopProcess() &&
+		!GetDedicatedCoopRuntime().openCampaignAfterBootstrap(gameContext))
+	{
+		extern BOOLEAN gfDedicatedServerProcessFailed;
+		std::fprintf(stderr,
+			"[dedicated] co-op campaign open failed: %s\n",
+			DedicatedCoopRuntimeErrorName(
+				GetDedicatedCoopRuntime().error()));
+		gfDedicatedServerProcessFailed = TRUE;
+		gfProgramIsRunning = FALSE;
+		return ERROR_SCREEN;
+	}
+	if (IsFullEngineCoopClientProcess() &&
+		!GetFullEngineCoopClientRuntime().openAfterPackageBootstrap(
+			gameContext))
+	{
+		std::fprintf(stderr,
+			"[co-op client] runtime composition failed: %s\n",
+			FullEngineCoopClientRuntimeErrorName(
+				GetFullEngineCoopClientRuntime().error()));
+		gfProgramIsRunning = FALSE;
 		return ERROR_SCREEN;
 	}
 	if (!initialization.markRunning())

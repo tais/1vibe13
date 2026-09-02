@@ -9,12 +9,15 @@
 
 inline constexpr const char* TacticalWorldObserverServiceId =
 	"ja2.tactical-world-observer";
-inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{1, 0};
+inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{2, 0};
 
 struct TacticalWorldObserverLimits
 {
 	std::size_t maximumActors = TacticalWorldSnapshot::DefaultMaximumActors;
-	std::size_t maximumEvents = TacticalWorldSnapshot::DefaultMaximumActors * 3 + 2;
+	std::size_t maximumEvents = TacticalWorldSnapshot::DefaultMaximumActors * 4 +
+		TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 2;
+	// Appended to retain the established two-field aggregate initialization.
+	std::size_t maximumDoors = TacticalWorldSnapshot::DefaultMaximumDoors;
 };
 
 enum class TacticalWorldObserverUpdateResult
@@ -30,7 +33,8 @@ enum class TacticalWorldObserverUpdateResult
 	EventCapacityReached = 8,
 	AllocationFailure = 9,
 	SerialExhausted = 10,
-	Unchanged = 11
+	Unchanged = 11,
+	DoorCapacityReached = 12
 };
 
 static_assert(static_cast<int>(TacticalWorldObserverUpdateResult::PublishedBaseline) == 0 &&
@@ -43,7 +47,9 @@ static_assert(static_cast<int>(TacticalWorldObserverUpdateResult::PublishedBasel
 	static_cast<int>(TacticalWorldObserverUpdateResult::ActorCapacityReached) == 7 &&
 	static_cast<int>(TacticalWorldObserverUpdateResult::EventCapacityReached) == 8 &&
 	static_cast<int>(TacticalWorldObserverUpdateResult::AllocationFailure) == 9 &&
-	static_cast<int>(TacticalWorldObserverUpdateResult::SerialExhausted) == 10,
+	static_cast<int>(TacticalWorldObserverUpdateResult::SerialExhausted) == 10 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::Unchanged) == 11 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::DoorCapacityReached) == 12,
 	"tactical observer SDK result values are a stable compatibility contract");
 
 enum class TacticalWorldPublicationStatus
