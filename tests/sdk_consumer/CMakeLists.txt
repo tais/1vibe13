@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(ja2_engine_sdk_consumer LANGUAGES CXX)
 
-find_package(JA2Engine 0.1 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
+find_package(JA2Engine 0.2 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
 
 if(NOT JA2Engine_RuntimeAdapter_FOUND OR NOT JA2Engine_EngineCore_FOUND OR
     NOT TARGET JA2::RuntimeAdapter OR NOT TARGET JA2::EngineCore)

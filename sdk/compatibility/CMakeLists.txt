@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 project(ja2_engine_sdk_compatibility_probe LANGUAGES CXX)
 
-set(JA2_ENGINE_REQUIRED_COMPATIBILITY_LINE "0.1" CACHE STRING
+set(JA2_ENGINE_REQUIRED_COMPATIBILITY_LINE "0.2" CACHE STRING
   "JA2Engine pre-1.0 source-compatibility line to verify")
 
-find_package(JA2Engine 0.1 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
+find_package(JA2Engine 0.2 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
 
 if(NOT TARGET JA2::EngineCore OR NOT TARGET JA2::RuntimeAdapter)
   message(FATAL_ERROR "The installed JA2Engine SDK is missing a public target")
@@ -15,7 +15,7 @@ if(NOT "${JA2Engine_COMPATIBILITY_LINE}" STREQUAL
     "Installed JA2Engine line ${JA2Engine_COMPATIBILITY_LINE} does not satisfy ${JA2_ENGINE_REQUIRED_COMPATIBILITY_LINE}")
 endif()
 if(NOT "${JA2Engine_STABILITY}" STREQUAL "experimental")
-  message(FATAL_ERROR "The 0.1 compatibility probe expects an experimental SDK")
+  message(FATAL_ERROR "The 0.2 compatibility probe expects an experimental SDK")
 endif()
 if(NOT "${JA2Engine_SOURCE_COMPATIBILITY}" STREQUAL
       "same-0.x-minor-line" OR

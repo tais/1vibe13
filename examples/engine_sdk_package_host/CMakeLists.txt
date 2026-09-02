@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(ja2_engine_sdk_package_host_example LANGUAGES CXX)
 
-find_package(JA2Engine 0.1 CONFIG REQUIRED)
+find_package(JA2Engine 0.2 CONFIG REQUIRED)
 
 add_executable(ja2_engine_sdk_package_host_example main.cpp)
 target_link_libraries(ja2_engine_sdk_package_host_example

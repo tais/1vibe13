@@ -145,7 +145,7 @@ write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineConfigVersion.cmake
   VERSION ${JA2_ENGINE_SDK_VERSION}
   # Pre-1.0 minor versions may make breaking source changes.  SameMajorVersion
-  # would incorrectly let a future 0.2 SDK satisfy a 0.1 request.
+  # would incorrectly let a future 0.3 SDK satisfy a 0.2 request.
   COMPATIBILITY SameMinorVersion)
 
 configure_file(

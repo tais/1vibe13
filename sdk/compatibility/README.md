@@ -1,7 +1,7 @@
 # JA2Engine compatibility kit
 
 This installed source project is the executable baseline for the experimental
-JA2Engine `0.1.x` line. It checks the machine-readable manifest, imports both
+JA2Engine `0.2.x` line. It checks the machine-readable manifest, imports both
 public CMake targets, compiles representative Core and JA2 adapter contracts,
 and runs without game data or platform libraries.
 

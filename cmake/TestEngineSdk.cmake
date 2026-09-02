@@ -98,7 +98,7 @@ function(runInstalledSdkProject projectLabel projectSource projectBuild runTarge
     "-DJA2_SDK_FORBIDDEN_SOURCE_DIR=${MAIN_SOURCE_DIR}"
     "-DJA2_SDK_FORBIDDEN_BUILD_DIR=${MAIN_BUILD_DIR}"
     "-DJA2_SDK_EXPECTED_INSTALL_PREFIX=${installPrefix}"
-    "-DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.1"
+    "-DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.2"
     "-DJA2Engine_DIR=${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine")
   if(GENERATOR_PLATFORM)
     list(APPEND configureArguments -A "${GENERATOR_PLATFORM}")
@@ -168,7 +168,7 @@ runInstalledSdkProject(
   "${SDK_TEST_ROOT}/example-build"
   run_ja2_engine_sdk_package_host_example)
 runInstalledSdkProject(
-  "Installed JA2Engine 0.1 compatibility kit"
+  "Installed JA2Engine 0.2 compatibility kit"
   "${installedSdkCompatibilitySource}"
   "${SDK_TEST_ROOT}/compatibility-build"
   run_ja2_engine_sdk_compatibility_probe)

@@ -1,7 +1,7 @@
 # JA2Engine is versioned independently from game releases.  Keep this file
 # dependency-free so package metadata, install rules, and release automation all
 # consume one value.
-set(JA2_ENGINE_SDK_VERSION "0.1.0" CACHE STRING
+set(JA2_ENGINE_SDK_VERSION "0.2.0" CACHE STRING
   "JA2 Engine SDK version (numeric major.minor.patch)")
 
 if(NOT JA2_ENGINE_SDK_VERSION MATCHES
