@@ -419,10 +419,12 @@ void TestProfilePathIdentity()
 	std::error_code error;
 	std::filesystem::rename(profile, moved, error);
 #ifdef _WIN32
-	Check(static_cast<bool>(error) &&
-		backend.profileDirectoryState() ==
-			DedicatedCampaignProfileDirectoryState::Empty,
-		"the retained Windows handle prevents profile replacement while open");
+	Check(!error,
+		"the share-delete profile handle permits a recovery-style rename");
+	if (!error) std::filesystem::create_directory(profile, error);
+	Check(!error && backend.profileDirectoryState() ==
+			DedicatedCampaignProfileDirectoryState::Failure,
+		"a replacement Windows directory cannot pass the held identity check");
 #else
 	Check(!error, "the POSIX profile path can be displaced for the fixture");
 	const std::filesystem::path elsewhere = root.path() / "elsewhere";
