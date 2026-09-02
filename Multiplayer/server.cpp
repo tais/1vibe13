@@ -43,6 +43,12 @@
 #include "Debug Control.h"
 #include "MPXmlTeams.hpp"
 
+// Win32 aliases its window-procedure API to SendMessageA/SendMessageW with a
+// macro. This translation unit uses SdlNetPeer::SendMessage exclusively.
+#ifdef SendMessage
+#undef SendMessage
+#endif
+
 using namespace ja2::mp;
 using namespace ja2::mp::net;
 

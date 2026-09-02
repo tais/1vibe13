@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+// Win32's window-procedure API uses a function-like SendMessage macro. This
+// transport owns that identifier as a C++ member and never calls the Win32 API.
+#ifdef SendMessage
+#undef SendMessage
+#endif
+
 namespace ja2::mp::net
 {
 inline constexpr std::size_t DefaultSdlNetInboundMessageRateBytesPerSecond =
