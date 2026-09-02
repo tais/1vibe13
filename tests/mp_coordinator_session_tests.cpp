@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <csignal>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -29,6 +30,8 @@ std::size_t ja2server_test_transport_count();
 int ja2server_test_clamp_max_mercs(int value);
 std::size_t ja2server_test_explosive_ledger_count();
 std::size_t ja2server_test_shared_explosive_claim_count();
+std::uint64_t ja2server_test_interrupt_elapsed_milliseconds(
+	std::uint64_t now, std::uint64_t& grantedMs);
 
 static int g_failures = 0;
 #define CHECK(c, m) do { if (!(c)) { ++g_failures; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, m); } else std::printf("ok   %s\n", m); } while (0)
@@ -389,6 +392,19 @@ static bool EncodeInterruptReleaseWire(
 
 int main(int argc, char** argv)
 {
+	std::uint64_t interruptGrantMs = 1000;
+	CHECK(ja2server_test_interrupt_elapsed_milliseconds(
+	          999, interruptGrantMs) == 0 &&
+	      interruptGrantMs == 999 &&
+	      ja2server_test_interrupt_elapsed_milliseconds(
+	          10999, interruptGrantMs) == 10000 &&
+	      ja2server_test_interrupt_elapsed_milliseconds(
+	          11000, interruptGrantMs) == 10001 &&
+	      ja2server_test_interrupt_elapsed_milliseconds(
+	          30998, interruptGrantMs) == 29999 &&
+	      ja2server_test_interrupt_elapsed_milliseconds(
+	          30999, interruptGrantMs) == 30000,
+	      "interrupt timing rebases clock rollback and preserves exact duration boundaries");
 	CHECK(ja2server_test_clamp_max_mercs(0) == 1 &&
 	      ja2server_test_clamp_max_mercs(1) == 1 &&
 	      ja2server_test_clamp_max_mercs(7) == 7 &&

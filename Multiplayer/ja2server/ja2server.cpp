@@ -25,6 +25,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <csignal>
+#include <cstdint>
 #include <array>
 #include <bitset>
 #include <string>
@@ -157,6 +158,28 @@ static const Uint64  INTERRUPT_STALE_MS   = 30000;   // force-release an interru
 // The exact wire bytes of the active grant, kept so a force-release (holder dropped or
 // stale watchdog) can resume with the real out-of-turn order instead of a fabricated one.
 static std::vector<unsigned char> g_interruptPayload;
+
+// A monotonic timer should never move backwards, but virtualized runners and a
+// reset SDL tick epoch can still expose a lower sample. Do not let unsigned
+// subtraction turn that rollback into an immediate watchdog expiry or reject a
+// still-valid paused-attack continuation.
+static Uint64 InterruptElapsedMilliseconds(Uint64 now, Uint64& grantedMs)
+{
+	if (now < grantedMs)
+	{
+		grantedMs = now;
+		return 0;
+	}
+	return now - grantedMs;
+}
+
+#ifdef JA2SERVER_LOOPBACK_TEST
+std::uint64_t ja2server_test_interrupt_elapsed_milliseconds(
+	std::uint64_t now, std::uint64_t& grantedMs)
+{
+	return InterruptElapsedMilliseconds(now, grantedMs);
+}
+#endif
 
 // Concurrent interrupts must CHAIN, not drop: a second sighting client that requests
 // an interrupt while one is active already paused locally and is waiting for a grant.
@@ -536,7 +559,8 @@ static bool ImmediateTacticalActor(const SdlNetMessage* p, UINT16 actor)
 			return actor < COORDINATOR_INT_WIRE_ORDER_ENTRIES &&
 				g_interruptHolderActors.test(actor);
 		return !g_interruptedStopConsumed &&
-			SDL_GetTicks() - g_interruptGrantedMs <=
+			InterruptElapsedMilliseconds(
+				SDL_GetTicks(), g_interruptGrantedMs) <=
 				ATTACK_CONTINUATION_MS &&
 			g_interruptPayload.size() >= MpInterruptWire::kHeaderBytes &&
 			MpInterruptWire::Get16(g_interruptPayload.data(), 6) == actor;
@@ -1808,7 +1832,8 @@ static void ForceReleaseInterrupt()
 static void TickInterruptWatchdog()
 {
 	if (!g_interruptActive || !g_inCombat) return;
-	if (SDL_GetTicks() - g_interruptGrantedMs < INTERRUPT_STALE_MS) return;
+	if (InterruptElapsedMilliseconds(SDL_GetTicks(), g_interruptGrantedMs) <
+		INTERRUPT_STALE_MS) return;
 	printf("[ja2server] interrupt held >%llums with no release -- force-releasing (stale)\n",
 	       (unsigned long long)INTERRUPT_STALE_MS); fflush(stdout);
 	ForceReleaseInterrupt();
