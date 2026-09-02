@@ -11356,7 +11356,11 @@ require_ordered_fragments(dedicated_live_client_transport_connect_internal_slice
   "transport_->Start(1, ja2::mp::net::SdlNetEndpoint())")
 
 foreach(dedicated_live_transport_budget_test_contract IN ITEMS
-    "Four fast 300KiB RPCs exceed the 1MiB burst"
+    "Use an isolated server with a negligible refill rate"
+    "budget.sustainedBytesPerSecond = 1"
+    "budget.burstBytes = DefaultSdlNetInboundMessageBurstBytes"
+    "reliable RPC budget test fixes its refill rate"
+    "isolated reliable RPC budget server starts"
     "first three in-budget reliable RPCs dispatch"
     "over-budget reliable RPC disconnects instead of silently dropping state"
     "zero inbound sustained budget is rejected before startup"
