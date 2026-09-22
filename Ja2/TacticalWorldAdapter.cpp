@@ -4,6 +4,7 @@
 #include <limits>
 #include "Grid Direction.h"
 #include "Isometric Utils.h"
+#include "lighting.h"
 #include "LOS.h"
 #include "Overhead.h"
 #include "opplist.h"
@@ -20,6 +21,10 @@
 static_assert(WORLD_COLS_MAX == TacticalWorldDimensions::MaximumColumns &&
 	WORLD_ROWS_MAX == TacticalWorldDimensions::MaximumRows,
 	"replicated tactical dimensions must match JA2's enlarged-map ceiling");
+
+static_assert(SHADE_MAX == TacticalWorldLightingSnapshot::Brightest &&
+	SHADE_MIN == TacticalWorldLightingSnapshot::Darkest,
+	"replicated ambient-light bounds must match JA2's renderer");
 
 namespace
 {
@@ -230,7 +235,8 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				projectedSector,
 				projectedTurn,
 				actorScratch_, doorScratch_, output,
-				maximumActors_, maximumDoors_);
+				maximumActors_, maximumDoors_,
+				TacticalWorldLightingSnapshot{LightGetAmbient()});
 		if (result == TacticalSnapshotCreateError::TooManyActors)
 			return TacticalWorldCaptureResult::CapacityReached;
 		if (result == TacticalSnapshotCreateError::TooManyDoors)

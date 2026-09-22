@@ -26,8 +26,11 @@ game archive.
 The `0.3.0` line adds canonical actor renderer inputs, UTF-16 names, portrait
 descriptors, and world lighting. It replaces field-specific actor delta events
 with one complete current actor record, deliberately superseding the source-
-incompatible `0.2.x` snapshot/event surface. Native render activation and capture
-of these new fields remain separate work; default snapshots carry absent poses.
+incompatible `0.2.x` snapshot/event surface. The native observer captures these
+fields without allocating faces, loading assets, or consuming simulation RNG.
+Offscreen actors retain canonical absent poses; client renderer activation
+remains separate work. Portrait selection follows native profile aliases and
+applied camouflage, while world capture retains shared-team visibility filtering.
 Reconfiguring a build with the previous default `JA2_ENGINE_SDK_VERSION=0.2.0`
 upgrades that cache entry to `0.3.0`. Explicit `0.3.x` patch overrides remain
 supported; other compatibility lines are rejected so the package metadata cannot
