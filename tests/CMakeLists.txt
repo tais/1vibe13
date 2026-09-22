@@ -1,3 +1,24 @@
+# Invoke the actual assertion handler before renderer/VFS initialization. Only
+# outgoing UI/save/stacktrace effects are instrumented; process options and the
+# fatal exception path are production code.
+add_executable(dedicated_coop_assertion_tests
+  dedicated_coop_assertion_tests.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/DEBUG.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/sgp_logger.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedServerOptions.cpp)
+target_include_directories(dedicated_coop_assertion_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_definitions(dedicated_coop_assertion_tests PRIVATE
+  JA2TESTVERSION)
+target_link_libraries(dedicated_coop_assertion_tests PRIVATE
+  bfVFS SDL3::SDL3)
+target_compile_features(dedicated_coop_assertion_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_coop_assertion COMMAND dedicated_coop_assertion_tests)
+add_test(NAME assertion_disabled_coop_options
+  COMMAND dedicated_coop_assertion_tests disabled)
+add_test(NAME assertion_legacy_dedicated_pvp
+  COMMAND dedicated_coop_assertion_tests pvp)
+
 # Loopback and raw-wire tests link the production SDL3_net transport target.
 add_executable(mp_sdl_net_transport_tests
   mp_sdl_net_transport_tests.cpp
