@@ -120,12 +120,23 @@ void WriteSector(BinaryWriter& writer, const TacticalSectorSnapshot& sector)
 	WriteI16(writer, sector.y);
 	writer.writeI8(sector.z);
 	WriteBool(writer, sector.loaded);
+	writer.writeBytes(
+		reinterpret_cast<const std::uint8_t*>(sector.mapAssetKey.bytes.data()),
+		sector.mapAssetKey.bytes.size());
 }
 
 bool ReadSector(BinaryReader& reader, TacticalSectorSnapshot& sector)
 {
-	return ReadI16(reader, sector.x) && ReadI16(reader, sector.y) &&
-		reader.readI8(sector.z) && ReadBool(reader, sector.loaded);
+	if (!ReadI16(reader, sector.x) || !ReadI16(reader, sector.y) ||
+		!reader.readI8(sector.z) || !ReadBool(reader, sector.loaded))
+		return false;
+	for (char& byte : sector.mapAssetKey.bytes)
+	{
+		std::uint8_t encoded = 0;
+		if (!reader.readU8(encoded)) return false;
+		byte = static_cast<char>(encoded);
+	}
+	return IsValidTacticalSectorSnapshot(sector);
 }
 
 void WriteTurn(BinaryWriter& writer, const TacticalTurnSnapshot& turn)
@@ -223,6 +234,7 @@ bool ReadDoor(BinaryReader& reader, TacticalDoorSnapshot& door)
 bool IsCanonical(const TacticalWorldSnapshot& snapshot)
 {
 	if (snapshot.epoch() == 0 || !snapshot.dimensions().valid() ||
+		!IsValidTacticalSectorSnapshot(snapshot.sector()) ||
 		!IsValidTacticalInterruptState(snapshot.turn())) return false;
 	const std::vector<TacticalActorSnapshot>& actors = snapshot.actors();
 	for (std::size_t index = 0; index < actors.size(); ++index)

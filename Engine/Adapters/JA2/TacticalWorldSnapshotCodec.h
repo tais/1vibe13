@@ -7,9 +7,12 @@
 
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
-// Version 7 adds canonical interrupt phase/serial and actor eligibility.
-inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 7;
-inline constexpr std::size_t EncodedTacticalWorldSnapshotHeaderBytes = 53;
+// Version 8 carries the authority's exact canonical tactical map asset key.
+inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 8;
+inline constexpr std::size_t EncodedTacticalSectorSnapshotBytes =
+	6 + TacticalMapAssetKeyStorageBytes;
+inline constexpr std::size_t EncodedTacticalWorldSnapshotHeaderBytes =
+	53 + TacticalMapAssetKeyStorageBytes;
 inline constexpr std::size_t EncodedTacticalHandItemSnapshotBytes = 12;
 inline constexpr std::size_t EncodedTacticalActorSnapshotBytes = 92;
 inline constexpr std::size_t EncodedTacticalDoorSnapshotBytes = 7;

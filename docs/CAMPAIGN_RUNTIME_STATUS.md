@@ -440,7 +440,7 @@ not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v7 execution of nine JA2 command
+  tactical observer, and global co-op protocol-v8 execution of nine JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a
@@ -475,7 +475,7 @@ result. Global `AuthoritySequenceExhausted` reason 20 instead consumes the peer
 cursor: the server stays active to flush its terminal receipt, then the client
 records the exact receipt history/cursor before failing and closing.
 
-Global co-op protocol-v7 retains voluntary self-retirement with exact 24-byte
+Global co-op protocol-v8 retains voluntary self-retirement with exact 24-byte
 request and 48-byte result shapes. The request carries version, epoch, and
 request ID only; the authenticated transport resolves its own identity, so
 there is no client-provided victim. Begin atomically reserves bounded same-epoch
@@ -616,14 +616,14 @@ command modals until committed state clears it, without predicting AP spend,
 inventory/world mutation, or damage. Campaign-ready late peers enter the grow-only active
 participant set only at a drained fresh-baseline boundary, and their actor ACLs
 remain closed until baseline ACK; disconnect preserves ownership. The
-Snapshot wire v7 uses an exact 53-byte header, 92-byte actor (including five
+Snapshot wire v8 uses an exact 313-byte header, 92-byte actor (including five
 12-byte combat-equipment records), and 7-byte public door records; its generic
-bound is 384053 bytes. Delta wire v6 permits 18434 generic events, orders
+bound is 384313 bytes. Delta wire v7 permits 18434 generic events, orders
 actor-loadout
 changes after vitals and before door events, and encodes a same-serial interrupt
 phase change as one exact 43-byte event. Co-op tactical wire v3 narrows this to 256 actors,
-1024 doors, 3074 events, 30773/32385-byte baseline payload/envelope, and
-62034/62106-byte delta payload/envelope beneath 64 KiB. Intent wire v3 is a
+1024 doors, 3074 events, 31033/32645-byte baseline payload/envelope, and
+62554/62626-byte delta payload/envelope beneath 64 KiB. Intent wire v3 is a
 72-byte header plus at most 8
 payload bytes (80 total), both tactical-world services are 2.0,
 `DoorCapacityReached` is 12; journal-v4 door/pass command tags are 33/34. The native
