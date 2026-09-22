@@ -783,6 +783,16 @@ struct DedicatedCoopRuntime::Impl
 
 	bool checkpointNow(GameContext& context, bool required) noexcept
 	{
+		// Cold checkpoint supersession currently requires disconnecting every
+		// client and reloading its campaign. An optional timer must not interrupt
+		// admission, campaign input or an outstanding receipt. Defer it while any
+		// transport is attached, including peers still joining or syncing.
+		// Required shutdown/victory checkpoints retain their explicit drain path.
+		if (!required && tactical != nullptr && tactical->listener.hasConnections())
+		{
+			lastEligibility = DedicatedCheckpointEligibilityReason::NetworkQueueNotDrained;
+			return false;
+		}
 		const bool restartListener = tactical != nullptr &&
 			tactical->listener.running();
 		// First evaluate every non-network hazard while admission remains live.
