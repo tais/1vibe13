@@ -51,7 +51,8 @@ inline constexpr std::size_t MaximumCoopTacticalBaselinePayloadWireSize =
 	EncodedTacticalWorldSnapshotHeaderBytes +
 	MaximumCoopTacticalSnapshotActors * EncodedTacticalActorSnapshotBytes +
 	MaximumCoopTacticalSnapshotDoors * EncodedTacticalDoorSnapshotBytes;
-inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 62034;
+// The category-aware bound includes both 260-byte keys in a sector event.
+inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 62554;
 inline constexpr std::size_t MaximumCoopTacticalBaselineWireSize =
 	CoopTacticalBaselineHeaderWireSize +
 	MaximumCoopTacticalAssignedActors * 6 +

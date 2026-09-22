@@ -19,6 +19,23 @@ add_test(NAME assertion_disabled_coop_options
 add_test(NAME assertion_legacy_dedicated_pvp
   COMMAND dedicated_coop_assertion_tests pvp)
 
+# Native checked scheduling uses the actual bound queue and dispatcher guard.
+# Only legacy notification sinks are observed by the fixture; no callback or
+# scheduling implementation is replaced.
+add_executable(native_campaign_event_scheduling_tests
+  native_campaign_event_scheduling_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Strategic/CampaignEventScheduling.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/CampaignEventAdapter.cpp)
+target_include_directories(native_campaign_event_scheduling_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_definitions(native_campaign_event_scheduling_tests PRIVATE
+  JA2TESTVERSION FORCE_ASSERTS_ON)
+target_link_libraries(native_campaign_event_scheduling_tests PRIVATE
+  JA2::RuntimeAdapter SDL3::SDL3)
+target_compile_features(native_campaign_event_scheduling_tests PRIVATE cxx_std_17)
+add_test(NAME native_campaign_event_scheduling
+  COMMAND native_campaign_event_scheduling_tests)
+
 # Loopback and raw-wire tests link the production SDL3_net transport target.
 add_executable(mp_sdl_net_transport_tests
   mp_sdl_net_transport_tests.cpp
@@ -73,6 +90,42 @@ target_include_directories(coop_campaign_bootstrap_protocol_tests PRIVATE
 target_compile_features(coop_campaign_bootstrap_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_campaign_bootstrap_protocol
   COMMAND coop_campaign_bootstrap_protocol_tests)
+
+# Campaign observations and serialized command authorities are standalone
+# contracts. Native gameplay callbacks and client input stay outside these tests.
+add_executable(coop_campaign_status_tests
+  coop_campaign_status_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_status_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
+
+add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
+target_include_directories(coop_campaign_groups_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
+
+add_executable(coop_campaign_time_tests
+  coop_campaign_time_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_time_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_time_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_time COMMAND coop_campaign_time_tests)
+
+add_executable(coop_campaign_action_tests
+  coop_campaign_action_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_action_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
 
 # The passive client publishes a checkpoint only after exact ordered staging,
 # full-hash verification, atomic scratch publication, and successful cold load.
@@ -1118,6 +1171,14 @@ add_executable(campaign_aim_site_policy_tests
 target_include_directories(campaign_aim_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
+
+# Shared A.I.M. willingness decisions preserve relationship/refusal precedence
+# without laptop UI, and reject absent profile IDs before native reads.
+add_executable(campaign_aim_willingness_policy_tests
+  campaign_aim_willingness_policy_tests.cpp)
+target_include_directories(campaign_aim_willingness_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_aim_willingness_policy COMMAND campaign_aim_willingness_policy_tests)
 
 # Email catalogs, insurance/shipment notices, tactical death notices, and
 # M.E.R.C. level-up IDs are selected at runtime. The same data-free target pins

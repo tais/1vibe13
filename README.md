@@ -196,7 +196,9 @@ retry counter saturates instead of wrapping. A never-admitted credential-less
 client retains the eight-attempt startup limit, and an epoch mismatch fails
 closed.
 
-Global co-op protocol v7 also provides explicit voluntary self-retirement.
+Global co-op protocol v8 requires exact canonical map asset identity in tactical
+snapshots and sector deltas, including alternate maps at unchanged coordinates.
+It also provides explicit voluntary self-retirement.
 `L` is deliberately a two-step control: the first key-down must be followed by
 a physical release and a later second key-down within the bounded prompt, while
 the passive screen continues to drain its complete input FIFO. The exact
@@ -277,7 +279,7 @@ saved faces use profile-derived presentation timing without consuming the
 canonical RNG, while ordinary face creation retains its three legacy draws.
 Strategic AI uses `StrategicAILoadPolicy::DedicatedExactRestore`;
 current SAI save v29 restores without compatibility or repair gameplay, and
-a stale SAI version is rejected. Tactical snapshot wire v7 carries the
+a stale SAI version is rejected. Tactical snapshot wire v8 carries the
 authority's exact
 dimensions, canonical actor hostility, a bounded visible-door projection, the
 public `commandsBlocked` bit, compact interrupt phase/serial, per-actor
@@ -343,14 +345,14 @@ status, graphic, and movement-cost mutation succeeds. A post-swap integrity
 failure latches the tactical world and stops replication without charging
 points or publishing noise.
 
-The nested wire bounds are explicit: snapshot v7 uses a 53-byte header,
+The nested wire bounds are explicit: snapshot v8 uses a 313-byte header,
 92-byte actor (including five 12-byte combat-equipment records), and 7-byte door
-record for a 384053-byte generic maximum. Delta wire v6 permits 18434 generic
+record for a 384313-byte generic maximum. Delta wire v7 permits 18434 generic
 events and adds the actor-loadout category after actor vitals and before door events. A
 same-turn-serial phase change is one exact 43-byte turn event. The
 co-op envelope uses inner tactical wire v3, caps a world at 256 actors, 1024
 doors, and 3074 delta events, and bounds the baseline payload/envelope at
-30773/32385 bytes and delta payload/envelope at 62034/62106 bytes under the
+31033/32645 bytes and delta payload/envelope at 62554/62626 bytes under the
 public 64 KiB ceiling. Tactical intent wire v3 has
 an exact 72-byte header, 8-byte maximum payload, and 80-byte maximum record.
 
@@ -447,7 +449,7 @@ Strategic mission/session control is limited, and there is no TLS or public-host
 authorization. The opt-in process smoke certifies lifecycle, Ready, same-epoch
 credential continuity, final checkpoint, and resume against one local installed
 data set; it is not a full playthrough, broad interoperability matrix, or soak.
-Use matching global co-op protocol-v7 builds and installed data on a trusted
+Use matching global co-op protocol-v8 builds and installed data on a trusted
 LAN/VPN only. In particular, the current mission entry accepts only an
 exact untouched initial campaign (including an empty cold resume) or an exact
 prepared-initial resume with the complete four-mercenary in-transit roster and
