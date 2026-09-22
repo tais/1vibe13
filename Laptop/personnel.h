@@ -76,7 +76,8 @@ void AddCharacterToFiredList( TacticalActor *pSoldier );
 // get the total amt of money on this guy
 INT32 GetFundsOnMerc( TacticalActor *pSoldier );
 
-BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList( UINT8 ubProfile );
+BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList(
+	UINT8 ubProfile, bool refreshPresentation = true );
 
 void AssignPersonnelSkillTraitHelpText(UINT8 ubTraitNumber,
 	BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 (&apStr)[5000]);

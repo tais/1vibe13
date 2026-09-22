@@ -20945,8 +20945,8 @@ if(NOT runtime_campaign_mercenary_arrival_snapshot_read_count EQUAL 6)
 endif()
 
 extract_bounded_slice(runtime_campaign_merc_hiring_code
-  "INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)"
-  "void MercArrivesCallback("
+  "static INT8 HireMercImpl( MERC_HIRE_STRUCT *pHireMerc,"
+  "INT8 HireMerc( MERC_HIRE_STRUCT* pHireMerc )"
   runtime_campaign_mercenary_hire_slice
   "Cannot isolate initial mercenary hiring")
 string(REGEX MATCHALL "(^|[\r\n])[ \t]*#[^\r\n]*"
@@ -20989,6 +20989,70 @@ list(LENGTH runtime_campaign_mercenary_hire_snapshot_reads
 if(NOT runtime_campaign_mercenary_hire_snapshot_read_count EQUAL 1)
   message(FATAL_ERROR
     "Each initial HireMerc route must acquire exactly one fresh UB snapshot")
+endif()
+
+# Checked AIM creation shares the native hire implementation while retaining
+# explicit no-equipment preflight and a mutation boundary before construction.
+require_ordered_fragments(runtime_campaign_mercenary_hire_slice
+  "Checked AIM hire lost constructor/checked-event/personnel ordering"
+  "if (checkedResult) checkedResult->mutationMayHaveStarted = true"
+  "TacticalCreateSoldier( &MercCreateStruct, &iNewIndex )"
+  "GetJa2TacticalEntityId(*pSoldier)"
+  "ResolveJa2TacticalEntity(checkedResult->actor)"
+  "AddStrategicEventChecked("
+  "CampaignAimHireError::EventSchedulingFailed"
+  "RemoveNewlyHiredMercFromPersonnelDepartedList("
+  "checkedResult == nullptr")
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "INT8 HireMerc( MERC_HIRE_STRUCT* pHireMerc )"
+  "CampaignAimHireError ReadCampaignAimHireArrival("
+  checked_aim_legacy_wrapper "Cannot isolate legacy hiring wrapper")
+require_ordered_fragments(checked_aim_legacy_wrapper
+  "Legacy hire stopped sharing the native implementation"
+  "return HireMercImpl(pHireMerc, nullptr)")
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "CampaignAimHireError ReadCampaignAimHireArrival("
+  "CampaignAimHireError PrepareCampaignAimHire("
+  checked_aim_arrival "Cannot isolate checked AIM arrival context")
+require_ordered_fragments(checked_aim_arrival
+  "Checked AIM common arrival lost worldless/safe-time/output guards"
+  "GameLifecycle::Running" "usesUnfinishedBusinessRules()"
+  "DidGameJustStart()" "IsJa2TacticalWorldLoaded()"
+  "is_networked || is_client || is_server"
+  "gsMercArriveSectorX < 1" "gsMercArriveSectorY > 16"
+  "clock.day !=" "arrival <= now"
+  "std::numeric_limits<std::uint32_t>::max() / NUM_SEC_IN_MIN"
+  "arrivalOut =")
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "CampaignAimHireError PrepareCampaignAimHire("
+  "bool ValidateCampaignAimHire("
+  checked_aim_preflight "Cannot isolate checked AIM preflight")
+require_ordered_fragments(checked_aim_preflight
+  "Checked AIM preflight lost wide-profile, no-gear, duplicate or output barriers"
+  "request.profile >= NUM_PROFILES"
+  "request.contractDays != 1" "request.contractDays != 7" "request.contractDays != 14"
+  "request.copyProfileEquipment) return Error::UnsupportedEquipment"
+  "ReadCampaignAimHireArrival(arrival)" "gMercProfiles[profileId]"
+  "!IsMercHireable(profileId)" "profile.ubBodyType > REGFEMALE"
+  "slot < repository.capacity()" "return Error::DuplicateProfile"
+  "return Error::InvalidTeam" "CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS"
+  "CODE_MAXIMUM_NUMBER_OF_PLAYER_VEHICLES" "CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS"
+  "actor->roster().team() != OUR_TEAM" "!freeSlot || mercs >= teamSlots"
+  "std::numeric_limits<std::int32_t>::max()" "planOut =")
+extract_bounded_slice(runtime_campaign_merc_hiring_code
+  "CampaignAimHireResult HireAimMercChecked("
+  "void MercArrivesCallback("
+  checked_aim_apply "Cannot isolate checked AIM apply")
+require_ordered_fragments(checked_aim_apply
+  "Checked AIM apply lost revalidation, failure or postcondition barrier"
+  "PrepareCampaignAimHire(request, plan)"
+  "if (result.error != CampaignAimHireError::None) return result"
+  "try" "HireMercImpl(&hire, &result)" "ValidateCampaignAimHire(plan, result)"
+  "CampaignAimHireError::PostconditionFailed" "CampaignAimHireError::None"
+  "catch (...)" "CampaignAimHireError::NativeFailure")
+if(checked_aim_preflight MATCHES "TacticalCreateSoldier|ScreenMsg|AddStrategicEvent" OR
+   checked_aim_apply MATCHES "AddTransactionToPlayersBook|AddHistoryToPlayersLog|ScreenMsg")
+  message(FATAL_ERROR "Checked AIM prerequisite gained premature accounting/presentation effects")
 endif()
 
 extract_bounded_slice(runtime_campaign_merc_hiring_code
