@@ -35,6 +35,7 @@
 	#include "english.h"
 	#include "GameSettings.h"
 	#include "CampaignAimSitePolicy.h"
+	#include "CampaignAimWillingnessPolicy.h"
 	#include "GameContext.h"
 	#include "random.h"
 	#include "Strategic Status.h"
@@ -2723,210 +2724,70 @@ UINT8 WillMercAcceptCall()
 
 BOOLEAN CanMercBeHired()
 {
-	UINT8	bMercID;
-	BOOLEAN fRetVal = FALSE;
-	BOOLEAN	fBuddyOnTeam=FALSE;
-	
 	StopMercTalking();
-
-	// if the merc recently came back with poor morale, and hasn't gotten over it yet
-	if (gMercProfiles[ gbCurrentSoldier ].ubDaysOfMoraleHangover > 0)
+	static_assert(NUMBER_HATED_MERCS_ONTEAM == CampaignAimAllRelations);
+	const auto& profile = gMercProfiles[gbCurrentSoldier];
+	CampaignAimWillingnessInput input;
+	input.moraleHangover = profile.ubDaysOfMoraleHangover > 0;
+	if (!input.moraleHangover)
 	{
-		// then he refuses with a lame excuse.	Buddy or no buddy.
-		WaitForMercToFinishTalkingOrUserToClick();
-		InitVideoFaceTalking( gbCurrentSoldier, QUOTE_LAME_REFUSAL );
-		return( FALSE );
-	}
-
-
-	// loop through the list of people the merc hates
-	for ( UINT8 i = 0; i< NUMBER_HATED_MERCS_ONTEAM; ++i )
-	{
-		//see if someone the merc hates is on the team
-		if( i< NUMBER_HATED_MERCS_ONTEAM - 1 )
+		input.learnedHateCount = profile.bLearnToHateCount;
+		input.learnedLikeCount = profile.bLearnToLikeCount;
+		const auto aliveOnTeam = [](std::uint32_t id) {
+			return !IsMercDead(static_cast<UINT8>(id)) &&
+				IsMercOnTeam(static_cast<UINT8>(id), FALSE, FALSE);
+		};
+		for (std::size_t i = 0; i < CampaignAimAllRelations; ++i)
 		{
-			bMercID = gMercProfiles[ gbCurrentSoldier ].bHated[i];
+			const bool learned = i == CampaignAimOrdinaryRelations;
+			const auto hated = learned ? profile.bLearnToHate : profile.bHated[i];
+			const auto buddy = learned ? profile.bLearnToLike : profile.bBuddy[i];
+			input.hatedAliveOnTeam[i] = (!learned || input.learnedHateCount <= 0) &&
+				ReadCampaignAimRelationPresence(hated, NUM_PROFILES, aliveOnTeam);
+			input.buddiesAliveOnTeam[i] = (!learned || input.learnedLikeCount <= 0) &&
+				ReadCampaignAimRelationPresence(buddy, NUM_PROFILES, aliveOnTeam);
+			if (!learned) input.hatedToleranceHours[i] = profile.bHatedTime[i];
 		}
-		else
+		// Native morale/relationship decisions return before these checks. Keep
+		// that ordering, including the tolerated-hatred acceptance branch.
+		if (DecideCampaignAimWillingness(input).reason == CampaignAimWillingnessReason::Willing &&
+			FirstCampaignAimBuddy(input) == CampaignAimNoRelation)
 		{
-			bMercID = gMercProfiles[ gbCurrentSoldier ].bLearnToHate;
-
-			// ignore learn to hate, if he's not a foe yet
-			if( gMercProfiles[ gbCurrentSoldier ].bLearnToHateCount > 0 )
-				continue;
-		}
-
-		if( bMercID < 0 )
-			continue;
-
-		//if the hated merc is dead
-		if( IsMercDead( bMercID ) )
-		{
-			//ignore the merc
-			continue;
-		}
-
-		if( IsMercOnTeam( bMercID, FALSE, FALSE ) )
-		{
-			//if the merc hates someone on the team, see if a buddy is on the team
-			for ( UINT8 j = 0; j< NUMBER_HATED_MERCS_ONTEAM; ++j )
-			{
-				//if a buddy is on the team, the merc will join
-				if( j < NUMBER_HATED_MERCS_ONTEAM - 1 )
-				{
-					bMercID = gMercProfiles[ gbCurrentSoldier ].bBuddy[j];
-				}
-				else
-				{
-					bMercID = gMercProfiles[ gbCurrentSoldier ].bLearnToLike;
-
-					// ignore learn to like, if he's not a buddy yet
-					if( gMercProfiles[ gbCurrentSoldier ].bLearnToLikeCount > 0 )
-						continue;
-				}
-
-				if( bMercID < 0 )
-					continue;
-
-				if( IsMercOnTeam( bMercID, FALSE, FALSE ) && !IsMercDead( bMercID ) )
-				{
-					if ( j == 0 )
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_BUDDY_1_ON_TEAM);
-					}
-					else if(j == 1 )
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_BUDDY_2_ON_TEAM);
-					}
-					else if(j == 2 )
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_BUDDY_3_ON_TEAM);
-					}
-					else if(j == 3 )
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_BUDDY_4_ON_TEAM);
-					}
-					else if(j == 4 )
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_BUDDY_5_ON_TEAM);
-					}
-					else
-					{
-						InitVideoFaceTalking(gbCurrentSoldier, QUOTE_JOINING_CAUSE_LEARNED_TO_LIKE_BUDDY_ON_TEAM);
-					}
-
-					return(TRUE);
-				}
-			}
-
-			// the merc doesnt like anybody on the team
-			//if merc doesnt like first hated merc
-			if( i == 0)
-			{
-				if( gMercProfiles[ gbCurrentSoldier ].bHatedTime[ i ] < 24 )
-				{
-					WaitForMercToFinishTalkingOrUserToClick();
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_1_ON_TEAM );
-					fRetVal = FALSE;
-				}
-				else
-				{
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
-					fRetVal = TRUE;
-				}
-			}
-			else if( i == 1)
-			{
-				if( gMercProfiles[ gbCurrentSoldier ].bHatedTime[ i ] < 24 )
-				{
-					WaitForMercToFinishTalkingOrUserToClick();
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_2_ON_TEAM );
-					fRetVal = FALSE;
-				}
-				else
-				{
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE );
-//					DelayMercSpeech( gbCurrentSoldier, QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE, 750, TRUE, FALSE );
-					fRetVal = TRUE;
-				}
-			}
-			else if( i == 2)
-			{
-				if( gMercProfiles[ gbCurrentSoldier ].bHatedTime[ i ] < 24 )
-				{
-					WaitForMercToFinishTalkingOrUserToClick();
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_3_ON_TEAM );
-					fRetVal = FALSE;
-				}
-				else
-				{
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_3_ON_TEAM_LONGTIMETOHATE );
-					fRetVal = TRUE;
-				}
-			}
-			else if( i == 3)
-			{
-				if( gMercProfiles[ gbCurrentSoldier ].bHatedTime[ i ] < 24 )
-				{
-					WaitForMercToFinishTalkingOrUserToClick();
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_4_ON_TEAM );
-					fRetVal = FALSE;
-				}
-				else
-				{
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_4_ON_TEAM_LONGTIMETOHATE );
-					fRetVal = TRUE;
-				}
-			}
-			else if( i == 4)
-			{
-				if( gMercProfiles[ gbCurrentSoldier ].bHatedTime[ i ] < 24 )
-				{
-					WaitForMercToFinishTalkingOrUserToClick();
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_5_ON_TEAM );
-					fRetVal = FALSE;
-				}
-				else
-				{
-					InitVideoFaceTalking(gbCurrentSoldier, QUOTE_HATED_5_ON_TEAM_LONGTIMETOHATE );
-					fRetVal = TRUE;
-				}
-			}
-			else
-			{
-				WaitForMercToFinishTalkingOrUserToClick();
-				InitVideoFaceTalking(gbCurrentSoldier, QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM);
-				fRetVal = FALSE;
-			}
-
-			return( fRetVal );
+			input.deathRateTooHigh = MercThinksDeathRateTooHigh(gbCurrentSoldier);
+			if (!input.deathRateTooHigh)
+				input.reputationTooBad = MercThinksBadReputationTooHigh(gbCurrentSoldier);
 		}
 	}
+	const auto decision = DecideCampaignAimWillingness(input);
+	using Reason = CampaignAimWillingnessReason;
+	if (decision.reason == Reason::Willing) return TRUE;
 
-	//Is a buddy working on the team
-	fBuddyOnTeam = DoesMercHaveABuddyOnTheTeam( gbCurrentSoldier );
-
-	//If the merc doesnt have a buddy on the team
-	if( !fBuddyOnTeam )
+	static constexpr UINT16 buddyQuotes[CampaignAimAllRelations] = {
+		QUOTE_JOINING_CAUSE_BUDDY_1_ON_TEAM, QUOTE_JOINING_CAUSE_BUDDY_2_ON_TEAM,
+		QUOTE_JOINING_CAUSE_BUDDY_3_ON_TEAM, QUOTE_JOINING_CAUSE_BUDDY_4_ON_TEAM,
+		QUOTE_JOINING_CAUSE_BUDDY_5_ON_TEAM, QUOTE_JOINING_CAUSE_LEARNED_TO_LIKE_BUDDY_ON_TEAM};
+	static constexpr UINT16 hatedQuotes[CampaignAimOrdinaryRelations] = {
+		QUOTE_HATED_1_ON_TEAM, QUOTE_HATED_2_ON_TEAM, QUOTE_HATED_3_ON_TEAM,
+		QUOTE_HATED_4_ON_TEAM, QUOTE_HATED_5_ON_TEAM};
+	static constexpr UINT16 toleratedQuotes[CampaignAimOrdinaryRelations] = {
+		QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE, QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE,
+		QUOTE_HATED_3_ON_TEAM_LONGTIMETOHATE, QUOTE_HATED_4_ON_TEAM_LONGTIMETOHATE,
+		QUOTE_HATED_5_ON_TEAM_LONGTIMETOHATE};
+	UINT16 quote = QUOTE_LAME_REFUSAL;
+	switch (decision.reason)
 	{
-		// Check the players Death rate
-		if( MercThinksDeathRateTooHigh( gbCurrentSoldier ) )
-		{
-			WaitForMercToFinishTalkingOrUserToClick();
-			InitVideoFaceTalking( gbCurrentSoldier, QUOTE_DEATH_RATE_REFUSAL );
-			return( FALSE );
-		}
-
-		// Check the players Reputation
-		if( MercThinksBadReputationTooHigh( gbCurrentSoldier ) )
-		{
-			WaitForMercToFinishTalkingOrUserToClick();
-			InitVideoFaceTalking( gbCurrentSoldier, QUOTE_REPUTATION_REFUSAL );
-			return( FALSE );
-		}
+		case Reason::BuddyOverride: quote = buddyQuotes[decision.relation]; break;
+		case Reason::ToleratedHatred: quote = toleratedQuotes[decision.relation]; break;
+		case Reason::HatedMerc: quote = hatedQuotes[decision.relation]; break;
+		case Reason::LearnedHatred: quote = QUOTE_LEARNED_TO_HATE_MERC_ON_TEAM; break;
+		case Reason::DeathRate: quote = QUOTE_DEATH_RATE_REFUSAL; break;
+		case Reason::Reputation: quote = QUOTE_REPUTATION_REFUSAL; break;
+		case Reason::MoraleHangover: break;
+		case Reason::Willing: return TRUE;
 	}
-
-	return(TRUE);
+	if (decision.waitForDismissal()) WaitForMercToFinishTalkingOrUserToClick();
+	InitVideoFaceTalking(gbCurrentSoldier, quote);
+	return decision.accepted() ? TRUE : FALSE;
 }
 
 
