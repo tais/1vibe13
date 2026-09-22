@@ -126,6 +126,12 @@ foreach(test_fragment IN ITEMS
     "Reused JA2Engine cache advances to 0.3.0"
     "Upgraded SDK metadata install failed"
     "Installed JA2Engine rejects the previous 0.2 compatibility line"
+    "find_package(JA2Engine 0.2 CONFIG QUIET"
+    "NO_DEFAULT_PATH"
+    "if(JA2Engine_FOUND OR"
+    "NOT JA2Engine_CONSIDERED_CONFIGS STREQUAL"
+    "NOT JA2Engine_CONSIDERED_VERSIONS STREQUAL"
+    "Expected rejection of the exact installed 0.3.0 package"
     "JA2Engine preserves a 0.3 patch override"
     "JA2Engine rejects overrides outside the 0.3 compatibility line")
   require_sdk_fragment(cmake/TestEngineSdk.cmake "${test_fragment}")

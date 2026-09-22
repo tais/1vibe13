@@ -222,21 +222,29 @@ runInstalledSdkProject(
 
 # Source-breaking snapshot/event changes advance the minor SDK line. A
 # downstream 0.2 request must not silently import the current 0.3 package.
+# Verify the package-selection result, not CMake's version-specific wording.
+# The exact considered path/version prevents a missing package from passing.
 set(previousSdkSource "${SDK_TEST_ROOT}/previous-minor-source")
 file(MAKE_DIRECTORY "${previousSdkSource}")
 file(WRITE "${previousSdkSource}/CMakeLists.txt"
   "cmake_minimum_required(VERSION 3.21)\n"
   "project(PreviousSdkContract NONE)\n"
-  "find_package(JA2Engine 0.2 CONFIG REQUIRED)\n")
+  "find_package(JA2Engine 0.2 CONFIG QUIET\n"
+  "  PATHS [==[${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine]==]\n"
+  "  NO_DEFAULT_PATH)\n"
+  "if(JA2Engine_FOUND OR\n"
+  "   NOT JA2Engine_CONSIDERED_CONFIGS STREQUAL\n"
+  "     [==[${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine/JA2EngineConfig.cmake]==] OR\n"
+  "   NOT JA2Engine_CONSIDERED_VERSIONS STREQUAL \"0.3.0\")\n"
+  "  message(FATAL_ERROR \"Expected rejection of the exact installed 0.3.0 package: found=\${JA2Engine_FOUND}; configs=\${JA2Engine_CONSIDERED_CONFIGS}; versions=\${JA2Engine_CONSIDERED_VERSIONS}\")\n"
+  "endif()\n")
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -S "${previousSdkSource}"
     -B "${SDK_TEST_ROOT}/previous-minor-build"
-    "-DJA2Engine_DIR=${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine"
   RESULT_VARIABLE previousSdkResult
   OUTPUT_VARIABLE previousSdkOutput
   ERROR_VARIABLE previousSdkError)
-if(previousSdkResult EQUAL 0 OR
-   NOT "${previousSdkOutput}${previousSdkError}" MATCHES "not compatible")
+if(NOT previousSdkResult EQUAL 0)
   message(FATAL_ERROR
     "Installed SDK must reject the previous 0.2 source contract:\n${previousSdkOutput}\n${previousSdkError}")
 endif()
