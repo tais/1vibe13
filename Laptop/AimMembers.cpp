@@ -35,7 +35,7 @@
 	#include "english.h"
 	#include "GameSettings.h"
 	#include "CampaignAimSitePolicy.h"
-	#include "CampaignAimWillingnessPolicy.h"
+	#include "CampaignAimWillingness.h"
 	#include "GameContext.h"
 	#include "random.h"
 	#include "Strategic Status.h"
@@ -2726,39 +2726,8 @@ BOOLEAN CanMercBeHired()
 {
 	StopMercTalking();
 	static_assert(NUMBER_HATED_MERCS_ONTEAM == CampaignAimAllRelations);
-	const auto& profile = gMercProfiles[gbCurrentSoldier];
-	CampaignAimWillingnessInput input;
-	input.moraleHangover = profile.ubDaysOfMoraleHangover > 0;
-	if (!input.moraleHangover)
-	{
-		input.learnedHateCount = profile.bLearnToHateCount;
-		input.learnedLikeCount = profile.bLearnToLikeCount;
-		const auto aliveOnTeam = [](std::uint32_t id) {
-			return !IsMercDead(static_cast<UINT8>(id)) &&
-				IsMercOnTeam(static_cast<UINT8>(id), FALSE, FALSE);
-		};
-		for (std::size_t i = 0; i < CampaignAimAllRelations; ++i)
-		{
-			const bool learned = i == CampaignAimOrdinaryRelations;
-			const auto hated = learned ? profile.bLearnToHate : profile.bHated[i];
-			const auto buddy = learned ? profile.bLearnToLike : profile.bBuddy[i];
-			input.hatedAliveOnTeam[i] = (!learned || input.learnedHateCount <= 0) &&
-				ReadCampaignAimRelationPresence(hated, NUM_PROFILES, aliveOnTeam);
-			input.buddiesAliveOnTeam[i] = (!learned || input.learnedLikeCount <= 0) &&
-				ReadCampaignAimRelationPresence(buddy, NUM_PROFILES, aliveOnTeam);
-			if (!learned) input.hatedToleranceHours[i] = profile.bHatedTime[i];
-		}
-		// Native morale/relationship decisions return before these checks. Keep
-		// that ordering, including the tolerated-hatred acceptance branch.
-		if (DecideCampaignAimWillingness(input).reason == CampaignAimWillingnessReason::Willing &&
-			FirstCampaignAimBuddy(input) == CampaignAimNoRelation)
-		{
-			input.deathRateTooHigh = MercThinksDeathRateTooHigh(gbCurrentSoldier);
-			if (!input.deathRateTooHigh)
-				input.reputationTooBad = MercThinksBadReputationTooHigh(gbCurrentSoldier);
-		}
-	}
-	const auto decision = DecideCampaignAimWillingness(input);
+	CampaignAimWillingnessDecision decision;
+	if (!ReadCampaignAimWillingness(gbCurrentSoldier, decision)) return FALSE;
 	using Reason = CampaignAimWillingnessReason;
 	if (decision.reason == Reason::Willing) return TRUE;
 
