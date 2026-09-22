@@ -587,6 +587,11 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   target_link_libraries(native_campaign_aim_hire_tests PRIVATE ${campaign_aim_hire_native_libraries})
   add_test(NAME native_campaign_aim_hire COMMAND native_campaign_aim_hire_tests)
   add_dependencies(ja2_headless_tests native_campaign_aim_hire_tests)
+  add_executable(native_campaign_aim_arrival_tests tests/native_campaign_aim_arrival_tests.cpp)
+  target_compile_definitions(native_campaign_aim_arrival_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_campaign_aim_arrival_tests PRIVATE ${campaign_aim_hire_native_libraries})
+  add_test(NAME native_campaign_aim_arrival COMMAND native_campaign_aim_arrival_tests)
+  add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)
   # SimulationRandom installation is process-lifetime state. Run the strict
   # checkpoint coordinator in a fresh process before any legacy RNG accessor
   # can seal the default source.
