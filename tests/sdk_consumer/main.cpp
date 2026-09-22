@@ -78,7 +78,8 @@ bool MakeExternalSnapshot(
 	return TacticalWorldSnapshot::create(
 		epoch,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		TacticalSectorSnapshot{9, 1, 0, true,
+			TacticalMapAssetKey{{'A', '9', '.', 'D', 'A', 'T'}}},
 		TacticalTurnSnapshot{true, true, 0, 12},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None;
 }
@@ -108,7 +109,7 @@ class ExternalChunkedDeltaSink final : public RuntimeMessageSink
 {
 public:
 	ExternalChunkedDeltaSink()
-		: reassembler(TacticalWorldDeltaReassemblyLimits{4096, 128, 3}) {}
+		: reassembler(TacticalWorldDeltaReassemblyLimits{4096, 128, 1}) {}
 
 	void receiveMessage(const RuntimeMessage& message) override
 	{
@@ -851,13 +852,13 @@ int main()
 		{currentActor, previousEarlierActor}, current)) return 17;
 
 	TacticalWorldDelta delta;
-	if (DiffTacticalWorldSnapshots(previous, current, 3, delta) !=
+	if (DiffTacticalWorldSnapshots(previous, current, 1, delta) !=
 		TacticalWorldDiffResult::Success ||
 		delta.previousEpoch != 41 || delta.currentEpoch != 41 ||
-		delta.events.size() != 3 ||
-		!std::holds_alternative<TacticalActorMovedEvent>(delta.events[0]) ||
-		!std::holds_alternative<TacticalActorStanceChangedEvent>(delta.events[1]) ||
-		!std::holds_alternative<TacticalActorVitalsChangedEvent>(delta.events[2])) return 18;
+		delta.events.size() != 1 ||
+		!std::holds_alternative<TacticalActorUpdatedEvent>(delta.events[0]) ||
+		std::get<TacticalActorUpdatedEvent>(delta.events[0]).actor !=
+			currentActor) return 18;
 
 	std::vector<std::uint8_t> encodedDelta;
 	TacticalWorldDelta decodedDelta;
@@ -866,12 +867,12 @@ int main()
 		DecodeTacticalWorldDelta(encodedDelta, decodedDelta) !=
 		TacticalWorldDeltaDecodeResult::Success ||
 		decodedDelta.events.size() != delta.events.size() ||
-		std::get<TacticalActorMovedEvent>(decodedDelta.events[0]).currentGrid != 1211 ||
-		std::get<TacticalActorVitalsChangedEvent>(decodedDelta.events[2]).currentLife != 79)
+		std::get<TacticalActorUpdatedEvent>(decodedDelta.events[0]).actor.grid != 1211 ||
+		std::get<TacticalActorUpdatedEvent>(decodedDelta.events[0]).actor.life != 79)
 		return 19;
 
 	MemoryTacticalWorldService tacticalSource;
-	TacticalWorldObserver observer(tacticalSource, TacticalWorldObserverLimits{2, 3});
+	TacticalWorldObserver observer(tacticalSource, TacticalWorldObserverLimits{2, 1});
 	tacticalSource.publish(previous);
 	if (observer.update() != TacticalWorldObserverUpdateResult::PublishedBaseline)
 		return 20;
@@ -885,7 +886,7 @@ int main()
 		return 22;
 	const TacticalWorldPublicationView publication = observer.latest();
 	if (!publication || publication.status != TacticalWorldPublicationStatus::Delta ||
-		publication.serial != 2 || publication.delta->events.size() != 3)
+		publication.serial != 2 || publication.delta->events.size() != 1)
 		return 23;
 
 	RuntimeMessageBus messages(2, 4096);
@@ -893,7 +894,7 @@ int main()
 	if (messages.addSink(sink) != RuntimeMessageSinkRegistrationError::None)
 		return 24;
 	TacticalWorldDeltaPublisher publisher(
-		messages, TacticalWorldDeltaPublishLimits{3, 4096});
+		messages, TacticalWorldDeltaPublishLimits{1, 4096});
 	PreparedTacticalWorldDeltaMessage preparedPublication;
 	if (publisher.prepare(*publication.delta, preparedPublication) !=
 		TacticalWorldDeltaPublishError::None) return 25;
@@ -907,7 +908,7 @@ int main()
 		sink.topic != TacticalWorldDeltaMessageTopic ||
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
-		sink.delta.events.size() != 3) return 26;
+		sink.delta.events.size() != 1) return 26;
 
 	RuntimeMessageBus chunkMessages(
 		2, TacticalWorldDeltaChunkHeaderBytes + 8);
@@ -917,7 +918,7 @@ int main()
 	TacticalWorldDeltaPublisher chunkPublisher(
 		chunkMessages,
 		TacticalWorldDeltaPublishLimits{
-			3, TacticalWorldDeltaChunkHeaderBytes + 8, 4096, 128});
+			1, TacticalWorldDeltaChunkHeaderBytes + 8, 4096, 128});
 	PreparedTacticalWorldDeltaBatch chunkBatch;
 	if (chunkPublisher.prepareBatch(*publication.delta, 1, chunkBatch) !=
 			TacticalWorldDeltaPublishError::None || !chunkBatch.chunked)

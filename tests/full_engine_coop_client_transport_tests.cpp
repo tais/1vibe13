@@ -23,10 +23,10 @@ namespace
 {
 int failures = 0;
 
-static_assert(MaximumFullEngineCoopClientInboundWireSize == 62626);
-static_assert(MaximumFullEngineCoopClientInboundWireSize ==
-	MaximumCoopTacticalWireSize);
+static_assert(MaximumFullEngineCoopClientInboundWireSize == 61584);
 static_assert(MaximumFullEngineCoopClientInboundWireSize >
+	MaximumCoopTacticalWireSize);
+static_assert(MaximumFullEngineCoopClientInboundWireSize ==
 	MaximumCoopCampaignSyncWireSize);
 static_assert(sizeof(FullEngineCoopClientTransport) <= 1024,
 	"the heap-backed inbound FIFO must not consume the Windows thread stack");
@@ -191,8 +191,10 @@ std::vector<std::uint8_t> DeltaBytes(std::uint64_t epoch,
 	envelope.baseRevision = baseRevision;
 	envelope.delta.previousEpoch = generation;
 	envelope.delta.currentEpoch = generation;
-	envelope.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 1001, 1002, 0, 0, 2, 3});
+	TacticalActorSnapshot actor = Actor(1);
+	actor.grid = 1002;
+	actor.direction = 3;
+	envelope.delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	std::vector<std::uint8_t> bytes;
 	CHECK(EncodeCoopTacticalDelta(envelope, bytes) ==
 		CoopTacticalCodecResult::Success,

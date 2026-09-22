@@ -26,6 +26,12 @@ struct TacticalTurnChangedEvent
 	TacticalTurnSnapshot current;
 };
 
+struct TacticalLightingChangedEvent
+{
+	TacticalWorldLightingSnapshot previous;
+	TacticalWorldLightingSnapshot current;
+};
+
 struct TacticalActorEnteredEvent
 {
 	TacticalActorSnapshot actor;
@@ -36,50 +42,13 @@ struct TacticalActorLeftEvent
 	TacticalEntityId actor;
 };
 
-struct TacticalActorMovedEvent
+// One current full record coalesces every persistent-actor field change. The
+// delta's exact base revision identifies the predecessor, avoiding four
+// redundant previous-value copies and keeping renderer-rich worst cases under
+// the co-op transport ceiling.
+struct TacticalActorUpdatedEvent
 {
-	TacticalEntityId actor;
-	std::int32_t previousGrid;
-	std::int32_t currentGrid;
-	std::int8_t previousLevel;
-	std::int8_t currentLevel;
-	std::uint8_t previousDirection;
-	std::uint8_t currentDirection;
-};
-
-struct TacticalActorStanceChangedEvent
-{
-	TacticalEntityId actor;
-	TacticalStance previous;
-	TacticalStance current;
-	std::uint16_t previousAnimation;
-	std::uint16_t currentAnimation;
-};
-
-struct TacticalActorVitalsChangedEvent
-{
-	TacticalEntityId actor;
-	std::int16_t previousActionPoints;
-	std::int16_t currentActionPoints;
-	std::int16_t previousLife;
-	std::int16_t currentLife;
-	std::int16_t previousMaximumLife;
-	std::int16_t currentMaximumLife;
-	std::int16_t previousBreath;
-	std::int16_t currentBreath;
-	std::int16_t previousMaximumBreath;
-	std::int16_t currentMaximumBreath;
-	bool previousHostileToPlayerTeam = false;
-	bool currentHostileToPlayerTeam = false;
-	bool previousInterruptActionEligible = false;
-	bool currentInterruptActionEligible = false;
-};
-
-struct TacticalActorLoadoutChangedEvent
-{
-	TacticalEntityId actor;
-	TacticalActorLoadoutSnapshot previous;
-	TacticalActorLoadoutSnapshot current;
+	TacticalActorSnapshot actor;
 };
 
 struct TacticalDoorEnteredEvent
@@ -102,12 +71,10 @@ using TacticalWorldEvent = std::variant<
 	TacticalWorldResetEvent,
 	TacticalSectorChangedEvent,
 	TacticalTurnChangedEvent,
+	TacticalLightingChangedEvent,
 	TacticalActorEnteredEvent,
 	TacticalActorLeftEvent,
-	TacticalActorMovedEvent,
-	TacticalActorStanceChangedEvent,
-	TacticalActorVitalsChangedEvent,
-	TacticalActorLoadoutChangedEvent,
+	TacticalActorUpdatedEvent,
 	TacticalDoorEnteredEvent,
 	TacticalDoorLeftEvent,
 	TacticalDoorChangedEvent>;

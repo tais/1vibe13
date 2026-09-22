@@ -175,10 +175,10 @@ std::vector<std::uint8_t> DeltaBytes(std::uint64_t sessionEpoch,
 	envelope.baseRevision = baseRevision;
 	envelope.delta.previousEpoch = generation;
 	envelope.delta.currentEpoch = generation;
-	envelope.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 1001,
-		static_cast<std::int32_t>(1001 + revision),
-		0, 0, 2, 3});
+	TacticalActorSnapshot actor = Actor(1);
+	actor.grid = static_cast<std::int32_t>(1001 + revision);
+	actor.direction = 3;
+	envelope.delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	std::vector<std::uint8_t> bytes;
 	CHECK(EncodeCoopTacticalDelta(envelope, bytes) ==
 		CoopTacticalCodecResult::Success, "client delta fixture encodes");

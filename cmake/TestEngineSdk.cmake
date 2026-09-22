@@ -98,7 +98,7 @@ function(runInstalledSdkProject projectLabel projectSource projectBuild runTarge
     "-DJA2_SDK_FORBIDDEN_SOURCE_DIR=${MAIN_SOURCE_DIR}"
     "-DJA2_SDK_FORBIDDEN_BUILD_DIR=${MAIN_BUILD_DIR}"
     "-DJA2_SDK_EXPECTED_INSTALL_PREFIX=${installPrefix}"
-    "-DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.2"
+    "-DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.3"
     "-DJA2Engine_DIR=${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine")
   if(GENERATOR_PLATFORM)
     list(APPEND configureArguments -A "${GENERATOR_PLATFORM}")
@@ -133,6 +133,7 @@ function(runInstalledSdkProject projectLabel projectSource projectBuild runTarge
       "-DCMAKE_CXX_FLAGS=${sanitizerFlags}"
       "-DCMAKE_EXE_LINKER_FLAGS=${sanitizerFlags}")
   endif()
+  list(APPEND configureArguments ${ARGN})
 
   execute_process(
     COMMAND "${CMAKE_COMMAND}" ${configureArguments}
@@ -157,6 +158,52 @@ function(runInstalledSdkProject projectLabel projectSource projectBuild runTarge
   message(STATUS "${projectLabel} passed")
 endfunction()
 
+# Exercise an ordinary source upgrade with a real reused cache. Install the
+# regenerated version metadata alongside the actual SDK headers/libraries, then
+# compile and run all external consumers below against that installed package.
+# This project uses the consumer compiler/toolchain so the generated package
+# version also retains CMake's architecture check.
+set(cacheUpgradeSource "${SDK_TEST_ROOT}/cache-upgrade-source")
+set(cacheUpgradeBuild "${SDK_TEST_ROOT}/cache-upgrade-build")
+file(MAKE_DIRECTORY "${cacheUpgradeSource}")
+file(WRITE "${cacheUpgradeSource}/CMakeLists.txt"
+  "cmake_minimum_required(VERSION 3.21)\n"
+  "project(SdkCacheUpgrade LANGUAGES CXX)\n"
+  "set(JA2_ENGINE_SDK_VERSION 0.2.0 CACHE STRING \"Previous SDK default\")\n"
+  "if(NOT JA2_ENGINE_SDK_VERSION STREQUAL \"0.2.0\")\n"
+  "  message(FATAL_ERROR \"Expected the original 0.2.0 cache\")\n"
+  "endif()\n"
+  "add_custom_target(sdk_cache_fixture_ready)\n")
+runInstalledSdkProject("Original JA2Engine 0.2.0 cache"
+  "${cacheUpgradeSource}" "${cacheUpgradeBuild}" sdk_cache_fixture_ready)
+file(WRITE "${cacheUpgradeSource}/CMakeLists.txt"
+  "cmake_minimum_required(VERSION 3.21)\n"
+  "project(SdkCacheUpgrade LANGUAGES CXX)\n"
+  "include([==[${MAIN_SOURCE_DIR}/cmake/JA2EngineVersion.cmake]==])\n"
+  "if(NOT JA2_ENGINE_SDK_VERSION STREQUAL EXPECTED_SDK_VERSION OR\n"
+  "   NOT JA2_ENGINE_SDK_COMPATIBILITY_LINE STREQUAL \"0.3\")\n"
+  "  message(FATAL_ERROR \"SDK cache upgrade or patch override failed\")\n"
+  "endif()\n"
+  "include(CMakePackageConfigHelpers)\n"
+  "write_basic_package_version_file(JA2EngineConfigVersion.cmake\n"
+  "  VERSION \"\${JA2_ENGINE_SDK_VERSION}\" COMPATIBILITY SameMinorVersion)\n"
+  "install(FILES \"\${CMAKE_CURRENT_BINARY_DIR}/JA2EngineConfigVersion.cmake\"\n"
+  "  DESTINATION [==[${SDK_INSTALL_LIBDIR}/cmake/JA2Engine]==])\n"
+  "add_custom_target(sdk_cache_fixture_ready)\n")
+runInstalledSdkProject("Reused JA2Engine cache advances to 0.3.0"
+  "${cacheUpgradeSource}" "${cacheUpgradeBuild}" sdk_cache_fixture_ready
+  -DEXPECTED_SDK_VERSION=0.3.0)
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" --install "${cacheUpgradeBuild}"
+    --prefix "${installPrefix}" --config "${CONFIGURATION}"
+  RESULT_VARIABLE cacheUpgradeInstallResult
+  OUTPUT_VARIABLE cacheUpgradeInstallOutput
+  ERROR_VARIABLE cacheUpgradeInstallError)
+if(NOT cacheUpgradeInstallResult EQUAL 0)
+  message(FATAL_ERROR
+    "Upgraded SDK metadata install failed:\n${cacheUpgradeInstallOutput}\n${cacheUpgradeInstallError}")
+endif()
+
 runInstalledSdkProject(
   "External JA2Engine SDK consumer"
   "${consumerSource}"
@@ -168,7 +215,52 @@ runInstalledSdkProject(
   "${SDK_TEST_ROOT}/example-build"
   run_ja2_engine_sdk_package_host_example)
 runInstalledSdkProject(
-  "Installed JA2Engine 0.2 compatibility kit"
+  "Installed JA2Engine 0.3 compatibility kit"
   "${installedSdkCompatibilitySource}"
   "${SDK_TEST_ROOT}/compatibility-build"
   run_ja2_engine_sdk_compatibility_probe)
+
+# Source-breaking snapshot/event changes advance the minor SDK line. A
+# downstream 0.2 request must not silently import the current 0.3 package.
+set(previousSdkSource "${SDK_TEST_ROOT}/previous-minor-source")
+file(MAKE_DIRECTORY "${previousSdkSource}")
+file(WRITE "${previousSdkSource}/CMakeLists.txt"
+  "cmake_minimum_required(VERSION 3.21)\n"
+  "project(PreviousSdkContract NONE)\n"
+  "find_package(JA2Engine 0.2 CONFIG REQUIRED)\n")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -S "${previousSdkSource}"
+    -B "${SDK_TEST_ROOT}/previous-minor-build"
+    "-DJA2Engine_DIR=${installPrefix}/${SDK_INSTALL_LIBDIR}/cmake/JA2Engine"
+  RESULT_VARIABLE previousSdkResult
+  OUTPUT_VARIABLE previousSdkOutput
+  ERROR_VARIABLE previousSdkError)
+if(previousSdkResult EQUAL 0 OR
+   NOT "${previousSdkOutput}${previousSdkError}" MATCHES "not compatible")
+  message(FATAL_ERROR
+    "Installed SDK must reject the previous 0.2 source contract:\n${previousSdkOutput}\n${previousSdkError}")
+endif()
+message(STATUS "Installed JA2Engine rejects the previous 0.2 compatibility line")
+
+# A release may override the patch version, but cannot label this source API as
+# an older or future compatibility line. Keep these configurations isolated from
+# both the installed package above and the user's main build cache.
+runInstalledSdkProject("JA2Engine preserves a 0.3 patch override"
+  "${cacheUpgradeSource}" "${cacheUpgradeBuild}" sdk_cache_fixture_ready
+  -DJA2_ENGINE_SDK_VERSION=0.3.7 -DEXPECTED_SDK_VERSION=0.3.7)
+foreach(unsupportedSdkVersion IN ITEMS 0.2.1 0.4.0 1.0.0)
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -S "${cacheUpgradeSource}"
+      -B "${cacheUpgradeBuild}"
+      "-DJA2_ENGINE_SDK_VERSION=${unsupportedSdkVersion}"
+    RESULT_VARIABLE unsupportedSdkResult
+    OUTPUT_VARIABLE unsupportedSdkOutput
+    ERROR_VARIABLE unsupportedSdkError)
+  if(unsupportedSdkResult EQUAL 0 OR
+     NOT "${unsupportedSdkOutput}${unsupportedSdkError}" MATCHES
+       "must use the current 0.3 compatibility line")
+    message(FATAL_ERROR
+      "SDK override ${unsupportedSdkVersion} must reject the wrong compatibility line:\n${unsupportedSdkOutput}\n${unsupportedSdkError}")
+  endif()
+endforeach()
+message(STATUS "JA2Engine rejects overrides outside the 0.3 compatibility line")

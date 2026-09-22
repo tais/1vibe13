@@ -149,6 +149,34 @@ struct TacticalTurnSnapshot
 	std::uint64_t interruptSerial = 0;
 };
 
+// Natural world shade applied by the authority. JA2's lighting domain is
+// inverted (1 is brightest, 15 is darkest); zero is never a valid scene
+// ambient and remains useful for rejecting uninitialized wire data.
+struct TacticalWorldLightingSnapshot
+{
+	static constexpr std::uint8_t Brightest = 1;
+	static constexpr std::uint8_t Darkest = 15;
+	static constexpr std::uint8_t Default = 4;
+
+	std::uint8_t ambientLightLevel = Default;
+
+	bool valid() const noexcept
+	{
+		return ambientLightLevel >= Brightest &&
+			ambientLightLevel <= Darkest;
+	}
+
+	bool operator==(const TacticalWorldLightingSnapshot& other) const noexcept
+	{
+		return ambientLightLevel == other.ambientLightLevel;
+	}
+
+	bool operator!=(const TacticalWorldLightingSnapshot& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
 // Exact logical tile extent of one loaded tactical world. These dimensions are
 // authority data: passive clients must not consult their cold local JA2 world
 // globals to interpret replicated grid numbers. JA2's supported enlarged-map
@@ -246,6 +274,190 @@ struct TacticalActorLoadoutSnapshot
 	}
 };
 
+// Pointer-free renderer inputs. Fixed-point world coordinates avoid copying
+// ABI-dependent FLOAT bytes while retaining sub-tile motion. Palette IDs are
+// represented by indices into the installed, manifest-covered replacement
+// table; presence bits keep index 255 available and make absent fields
+// canonical. The animation-height flag preserves the renderer's exact `> 0`
+// branch without transporting an otherwise unused float.
+inline constexpr std::int32_t TacticalWorldCoordinateScale = 256;
+inline constexpr std::int32_t TacticalWorldCellSize = 10;
+inline constexpr std::uint8_t TacticalActorBodyTypeCount = 29;
+inline constexpr std::uint16_t TacticalAnimationStateCount = 370;
+inline constexpr std::uint16_t TacticalAnimationSurfaceCount = 496;
+inline constexpr std::uint16_t TacticalAnimationSurfaceAbsent = 32000;
+inline constexpr std::size_t TacticalActorDisplayNameCodeUnits = 10;
+
+enum TacticalActorPresentationFlag : std::uint8_t
+{
+	TacticalActorRenderPosePresent = 1u << 0,
+	TacticalActorPositiveAnimationHeight = 1u << 1,
+	TacticalActorHeadPalettePresent = 1u << 2,
+	TacticalActorPantsPalettePresent = 1u << 3,
+	TacticalActorVestPalettePresent = 1u << 4,
+	TacticalActorSkinPalettePresent = 1u << 5,
+	TacticalActorMultiTileNonZ = 1u << 6,
+	TacticalActorMultiTileZ = 1u << 7
+};
+
+enum class TacticalPortraitFamily : std::uint8_t
+{
+	Absent = 0,
+	Faces = 1,
+	ImpFaces = 2
+};
+
+enum class TacticalPortraitCamouflage : std::uint8_t
+{
+	None = 0,
+	Wood = 1,
+	Urban = 2,
+	Desert = 3,
+	Snow = 4
+};
+
+// Authority-selected manifest-bound asset descriptor, never a live face handle.
+struct TacticalPortraitSnapshot
+{
+	TacticalPortraitFamily family = TacticalPortraitFamily::Absent;
+	std::uint8_t faceIndex = 0;
+	TacticalPortraitCamouflage camouflage = TacticalPortraitCamouflage::None;
+
+	bool operator==(const TacticalPortraitSnapshot& other) const noexcept
+	{
+		return family == other.family && faceIndex == other.faceIndex &&
+			camouflage == other.camouflage;
+	}
+	bool operator!=(const TacticalPortraitSnapshot& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
+inline bool IsCanonicalTacticalPortrait(const TacticalPortraitSnapshot& portrait) noexcept
+{
+	if (static_cast<std::uint8_t>(portrait.family) >
+		static_cast<std::uint8_t>(TacticalPortraitFamily::ImpFaces) ||
+		static_cast<std::uint8_t>(portrait.camouflage) >
+		static_cast<std::uint8_t>(TacticalPortraitCamouflage::Snow)) return false;
+	return portrait.family != TacticalPortraitFamily::Absent ||
+		(portrait.faceIndex == 0 && portrait.camouflage == TacticalPortraitCamouflage::None);
+}
+
+struct TacticalActorPresentationSnapshot
+{
+	std::uint8_t bodyType = 0;
+	std::uint8_t flags = 0;
+	std::int8_t animationDirection = 0;
+	std::int32_t worldXQ8 = 0;
+	std::int32_t worldYQ8 = 0;
+	std::int16_t heightAdjustment = 0;
+	std::uint16_t animationSurface = TacticalAnimationSurfaceAbsent;
+	std::uint16_t animationFrame = 0;
+	std::uint8_t headPaletteIndex = 0;
+	std::uint8_t pantsPaletteIndex = 0;
+	std::uint8_t vestPaletteIndex = 0;
+	std::uint8_t skinPaletteIndex = 0;
+	std::array<std::uint16_t, TacticalActorDisplayNameCodeUnits>
+		displayNameUtf16{};
+	TacticalPortraitSnapshot portrait;
+
+	bool operator==(
+		const TacticalActorPresentationSnapshot& other) const noexcept
+	{
+		return bodyType == other.bodyType && flags == other.flags &&
+			animationDirection == other.animationDirection &&
+			worldXQ8 == other.worldXQ8 && worldYQ8 == other.worldYQ8 &&
+			heightAdjustment == other.heightAdjustment &&
+			animationSurface == other.animationSurface &&
+			animationFrame == other.animationFrame &&
+			headPaletteIndex == other.headPaletteIndex &&
+			pantsPaletteIndex == other.pantsPaletteIndex &&
+			vestPaletteIndex == other.vestPaletteIndex &&
+			skinPaletteIndex == other.skinPaletteIndex &&
+			displayNameUtf16 == other.displayNameUtf16 && portrait == other.portrait;
+	}
+
+	bool operator!=(
+		const TacticalActorPresentationSnapshot& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
+inline bool IsCanonicalTacticalDisplayName(
+	const std::array<std::uint16_t,
+		TacticalActorDisplayNameCodeUnits>& name) noexcept
+{
+	bool terminated = false;
+	for (std::size_t index = 0; index < name.size(); ++index)
+	{
+		const std::uint16_t codeUnit = name[index];
+		if (terminated)
+		{
+			if (codeUnit != 0) return false;
+			continue;
+		}
+		if (codeUnit == 0)
+		{
+			terminated = true;
+			continue;
+		}
+		if (codeUnit >= 0xd800u && codeUnit <= 0xdbffu)
+		{
+			if (++index >= name.size()) return false;
+			const std::uint16_t low = name[index];
+			if (low < 0xdc00u || low > 0xdfffu) return false;
+			continue;
+		}
+		if (codeUnit >= 0xdc00u && codeUnit <= 0xdfffu) return false;
+	}
+	return terminated;
+}
+
+inline bool IsCanonicalTacticalActorPresentation(
+	const TacticalActorPresentationSnapshot& presentation) noexcept
+{
+	if (presentation.bodyType >= TacticalActorBodyTypeCount ||
+		!IsCanonicalTacticalDisplayName(presentation.displayNameUtf16) ||
+		!IsCanonicalTacticalPortrait(presentation.portrait))
+		return false;
+
+	const auto flag = [&](TacticalActorPresentationFlag value) noexcept {
+		return (presentation.flags & static_cast<std::uint8_t>(value)) != 0;
+	};
+	if (!flag(TacticalActorHeadPalettePresent) &&
+		presentation.headPaletteIndex != 0)
+		return false;
+	if (!flag(TacticalActorPantsPalettePresent) &&
+		presentation.pantsPaletteIndex != 0)
+		return false;
+	if (!flag(TacticalActorVestPalettePresent) &&
+		presentation.vestPaletteIndex != 0)
+		return false;
+	if (!flag(TacticalActorSkinPalettePresent) &&
+		presentation.skinPaletteIndex != 0)
+		return false;
+
+	if (!flag(TacticalActorRenderPosePresent))
+	{
+		return presentation.animationDirection == 0 &&
+			presentation.worldXQ8 == 0 &&
+			presentation.worldYQ8 == 0 &&
+			presentation.heightAdjustment == 0 &&
+			presentation.animationSurface == TacticalAnimationSurfaceAbsent &&
+			presentation.animationFrame == 0 &&
+			!flag(TacticalActorPositiveAnimationHeight) &&
+			!flag(TacticalActorMultiTileNonZ) &&
+			!flag(TacticalActorMultiTileZ);
+	}
+
+	return presentation.animationDirection >= 0 &&
+		presentation.animationDirection < 8 &&
+		presentation.worldXQ8 >= 0 && presentation.worldYQ8 >= 0 &&
+		presentation.animationSurface < TacticalAnimationSurfaceCount;
+}
+
 // Pointer-free view of one TacticalActor. Numeric team/profile/animation values
 // remain adapter data so Core and package code never depend on legacy headers.
 struct TacticalActorSnapshot
@@ -270,7 +482,67 @@ struct TacticalActorSnapshot
 	bool hostileToPlayerTeam = false;
 	bool interruptActionEligible = false;
 	TacticalActorLoadoutSnapshot loadout;
+	TacticalActorPresentationSnapshot presentation;
+
+	bool operator==(const TacticalActorSnapshot& other) const noexcept
+	{
+		return id == other.id && team == other.team &&
+			profile == other.profile && grid == other.grid &&
+			level == other.level && direction == other.direction &&
+			animation == other.animation && stance == other.stance &&
+			actionPoints == other.actionPoints && life == other.life &&
+			maximumLife == other.maximumLife && breath == other.breath &&
+			maximumBreath == other.maximumBreath && active == other.active &&
+			inSector == other.inSector &&
+			hostileToPlayerTeam == other.hostileToPlayerTeam &&
+			interruptActionEligible == other.interruptActionEligible &&
+			loadout == other.loadout && presentation == other.presentation;
+	}
+
+	bool operator!=(const TacticalActorSnapshot& other) const noexcept
+	{
+		return !(*this == other);
+	}
 };
+
+inline bool IsValidTacticalActorPresentation(
+	const TacticalActorSnapshot& actor,
+	const TacticalWorldDimensions& dimensions) noexcept
+{
+	const TacticalActorPresentationSnapshot& presentation = actor.presentation;
+	if (!IsCanonicalTacticalActorPresentation(presentation) ||
+		actor.animation >= TacticalAnimationStateCount)
+		return false;
+	if ((presentation.flags & TacticalActorRenderPosePresent) == 0)
+		return true;
+	if (!actor.active || !actor.inSector ||
+		!dimensions.contains(actor.grid) || actor.level < 0 || actor.level > 1 ||
+		actor.direction >= 8)
+		return false;
+	const std::int64_t maximumX = static_cast<std::int64_t>(dimensions.columns) *
+		TacticalWorldCellSize * TacticalWorldCoordinateScale;
+	const std::int64_t maximumY = static_cast<std::int64_t>(dimensions.rows) *
+		TacticalWorldCellSize * TacticalWorldCoordinateScale;
+	if (presentation.worldXQ8 >= maximumX ||
+		presentation.worldYQ8 >= maximumY)
+		return false;
+	// JA2 locomotion advances the logical grid to the next path tile before the
+	// sub-tile render position has crossed that tile boundary. Permit that one
+	// cardinal/diagonal step while rejecting unrelated render coordinates.
+	const std::int32_t encodedCellSize =
+		TacticalWorldCellSize * TacticalWorldCoordinateScale;
+	const std::int32_t logicalColumn = actor.grid % dimensions.columns;
+	const std::int32_t logicalRow = actor.grid / dimensions.columns;
+	const std::int32_t renderColumn =
+		presentation.worldXQ8 / encodedCellSize;
+	const std::int32_t renderRow =
+		presentation.worldYQ8 / encodedCellSize;
+	const std::int32_t columnDistance = logicalColumn > renderColumn
+		? logicalColumn - renderColumn : renderColumn - logicalColumn;
+	const std::int32_t rowDistance = logicalRow > renderRow
+		? logicalRow - renderRow : renderRow - logicalRow;
+	return columnDistance <= 1 && rowDistance <= 1;
+}
 
 inline bool IsValidTacticalInterruptPhase(TacticalInterruptPhase phase) noexcept
 {
@@ -316,6 +588,7 @@ enum class TacticalSnapshotCreateError
 	InvalidDimensions,
 	InvalidSector,
 	InvalidTurn,
+	InvalidLighting,
 	TooManyActors,
 	InvalidEntity,
 	DuplicateEntity,
@@ -344,7 +617,8 @@ public:
 		std::vector<TacticalDoorSnapshot> doors,
 		TacticalWorldSnapshot& output,
 		std::size_t maximumActors = DefaultMaximumActors,
-		std::size_t maximumDoors = DefaultMaximumDoors)
+		std::size_t maximumDoors = DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
@@ -353,10 +627,13 @@ public:
 			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
+		if (!lighting.valid())
+			return TacticalSnapshotCreateError::InvalidLighting;
 		if (actors.size() > maximumActors) return TacticalSnapshotCreateError::TooManyActors;
 		if (doors.size() > maximumDoors) return TacticalSnapshotCreateError::TooManyDoors;
 		for (const TacticalActorSnapshot& actor : actors)
 			if (!actor.id.valid() || !actor.loadout.valid() ||
+				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;
 		for (const TacticalDoorSnapshot& door : doors)
@@ -368,7 +645,7 @@ public:
 				return left.id < right.id;
 			});
 		for (std::size_t index = 1; index < actors.size(); ++index)
-			if (actors[index - 1].id == actors[index].id)
+			if (actors[index - 1].id.slot == actors[index].id.slot)
 				return TacticalSnapshotCreateError::DuplicateEntity;
 		std::sort(doors.begin(), doors.end(),
 			[](const TacticalDoorSnapshot& left, const TacticalDoorSnapshot& right) {
@@ -383,6 +660,7 @@ public:
 		accepted.dimensions_ = dimensions;
 		accepted.sector_ = sector;
 		accepted.turn_ = turn;
+		accepted.lighting_ = lighting;
 		accepted.actors_ = std::move(actors);
 		accepted.doors_ = std::move(doors);
 		output = std::move(accepted);
@@ -396,10 +674,11 @@ public:
 		TacticalTurnSnapshot turn,
 		std::vector<TacticalActorSnapshot> actors,
 		TacticalWorldSnapshot& output,
-		std::size_t maximumActors = DefaultMaximumActors)
+		std::size_t maximumActors = DefaultMaximumActors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		return create(epoch, dimensions, sector, turn, std::move(actors), {},
-			output, maximumActors, DefaultMaximumDoors);
+			output, maximumActors, DefaultMaximumDoors, lighting);
 	}
 
 	// Capture adapters can retain their collection scratch and let the output
@@ -416,7 +695,8 @@ public:
 		std::vector<TacticalDoorSnapshot>& doorScratch,
 		TacticalWorldSnapshot& output,
 		std::size_t maximumActors = DefaultMaximumActors,
-		std::size_t maximumDoors = DefaultMaximumDoors)
+		std::size_t maximumDoors = DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
@@ -425,12 +705,15 @@ public:
 			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
+		if (!lighting.valid())
+			return TacticalSnapshotCreateError::InvalidLighting;
 		if (actorScratch.size() > maximumActors)
 			return TacticalSnapshotCreateError::TooManyActors;
 		if (doorScratch.size() > maximumDoors)
 			return TacticalSnapshotCreateError::TooManyDoors;
 		for (const TacticalActorSnapshot& actor : actorScratch)
 			if (!actor.id.valid() || !actor.loadout.valid() ||
+				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;
 		for (const TacticalDoorSnapshot& door : doorScratch)
@@ -442,7 +725,7 @@ public:
 				return left.id < right.id;
 			});
 		for (std::size_t index = 1; index < actorScratch.size(); ++index)
-			if (actorScratch[index - 1].id == actorScratch[index].id)
+			if (actorScratch[index - 1].id.slot == actorScratch[index].id.slot)
 				return TacticalSnapshotCreateError::DuplicateEntity;
 		std::sort(doorScratch.begin(), doorScratch.end(),
 			[](const TacticalDoorSnapshot& left, const TacticalDoorSnapshot& right) {
@@ -468,6 +751,7 @@ public:
 		output.dimensions_ = dimensions;
 		output.sector_ = sector;
 		output.turn_ = turn;
+		output.lighting_ = lighting;
 		return TacticalSnapshotCreateError::None;
 	}
 
@@ -478,11 +762,12 @@ public:
 		TacticalTurnSnapshot turn,
 		std::vector<TacticalActorSnapshot>& actorScratch,
 		TacticalWorldSnapshot& output,
-		std::size_t maximumActors = DefaultMaximumActors)
+		std::size_t maximumActors = DefaultMaximumActors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		std::vector<TacticalDoorSnapshot> doors;
 		return createReusable(epoch, dimensions, sector, turn, actorScratch,
-			doors, output, maximumActors, DefaultMaximumDoors);
+			doors, output, maximumActors, DefaultMaximumDoors, lighting);
 	}
 
 	// JA2's live slot scan already produces strict TacticalEntityId order. This
@@ -499,7 +784,8 @@ public:
 		std::vector<TacticalDoorSnapshot>& doorScratch,
 		TacticalWorldSnapshot& output,
 		std::size_t maximumActors = DefaultMaximumActors,
-		std::size_t maximumDoors = DefaultMaximumDoors)
+		std::size_t maximumDoors = DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
@@ -508,6 +794,8 @@ public:
 			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
+		if (!lighting.valid())
+			return TacticalSnapshotCreateError::InvalidLighting;
 		if (actorScratch.size() > maximumActors)
 			return TacticalSnapshotCreateError::TooManyActors;
 		if (doorScratch.size() > maximumDoors)
@@ -516,11 +804,12 @@ public:
 		{
 			const TacticalActorSnapshot& actor = actorScratch[index];
 			if (!actor.id.valid() || !actor.loadout.valid() ||
+				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;
 			if (index == 0) continue;
 			const TacticalEntityId previous = actorScratch[index - 1].id;
-			if (previous == actor.id)
+			if (previous.slot == actor.id.slot)
 				return TacticalSnapshotCreateError::DuplicateEntity;
 			if (!(previous < actor.id))
 				return TacticalSnapshotCreateError::UnorderedEntity;
@@ -551,6 +840,7 @@ public:
 		output.dimensions_ = dimensions;
 		output.sector_ = sector;
 		output.turn_ = turn;
+		output.lighting_ = lighting;
 		return TacticalSnapshotCreateError::None;
 	}
 
@@ -561,11 +851,13 @@ public:
 		TacticalTurnSnapshot turn,
 		std::vector<TacticalActorSnapshot>& actorScratch,
 		TacticalWorldSnapshot& output,
-		std::size_t maximumActors = DefaultMaximumActors)
+		std::size_t maximumActors = DefaultMaximumActors,
+		TacticalWorldLightingSnapshot lighting = {})
 	{
 		std::vector<TacticalDoorSnapshot> doors;
 		return createReusableOrdered(epoch, dimensions, sector, turn,
-			actorScratch, doors, output, maximumActors, DefaultMaximumDoors);
+			actorScratch, doors, output, maximumActors, DefaultMaximumDoors,
+			lighting);
 	}
 
 	// Copy into caller-owned reusable storage without exposing mutable snapshot
@@ -591,6 +883,7 @@ public:
 			output.dimensions_ = dimensions_;
 			output.sector_ = sector_;
 			output.turn_ = turn_;
+			output.lighting_ = lighting_;
 			return true;
 		}
 		catch (...)
@@ -603,6 +896,7 @@ public:
 	const TacticalWorldDimensions& dimensions() const { return dimensions_; }
 	const TacticalSectorSnapshot& sector() const { return sector_; }
 	const TacticalTurnSnapshot& turn() const { return turn_; }
+	const TacticalWorldLightingSnapshot& lighting() const { return lighting_; }
 	const std::vector<TacticalActorSnapshot>& actors() const { return actors_; }
 	const std::vector<TacticalDoorSnapshot>& doors() const { return doors_; }
 
@@ -632,6 +926,7 @@ private:
 	TacticalWorldDimensions dimensions_;
 	TacticalSectorSnapshot sector_;
 	TacticalTurnSnapshot turn_;
+	TacticalWorldLightingSnapshot lighting_;
 	std::vector<TacticalActorSnapshot> actors_;
 	std::vector<TacticalDoorSnapshot> doors_;
 };

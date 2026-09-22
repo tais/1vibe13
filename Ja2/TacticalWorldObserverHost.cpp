@@ -10,7 +10,7 @@ namespace
 constexpr std::size_t Ja2TacticalMaximumDoors =
 	TacticalWorldSnapshot::DefaultMaximumDoors;
 constexpr std::size_t Ja2TacticalMaximumEvents =
-	TOTAL_SOLDIERS * 4 + Ja2TacticalMaximumDoors * 2 + 2;
+	TOTAL_SOLDIERS * 2 + Ja2TacticalMaximumDoors * 2 + 3;
 
 void IncrementSaturated(std::uint64_t& value) noexcept
 {

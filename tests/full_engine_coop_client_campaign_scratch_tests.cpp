@@ -651,6 +651,210 @@ void TestDurableReconnectCredentialLifecycle()
 	}
 }
 
+
+// Fixed protocol-8 record, independently produced from the documented durable
+// layout and SHA-256. These are synthetic test identities, never live bearers.
+std::vector<std::uint8_t> LegacyReconnectRecord()
+{
+	const char* hex =
+		"4a3243420100010008000000887766554433221111223344556677882021"
+		"22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+		"04030201807060504030201001f0e0d0c0b0a09080818283848586878889"
+		"8a8b8c8d8e8f909192939495969798999a9b9c9d9e9fcdc9c1c200000000"
+		"00000000000000004a324341080003008877665544332211212223242526"
+		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
+		"75767778797a7b7c7d7e7f806aa4611cf279b05a77423ee6d43930033d29"
+		"72f8e6b8beb774d64112c39bffb8";
+	std::vector<std::uint8_t> result;
+	const auto nibble = [](char value) {
+		return value <= '9' ? value - '0' : value - 'a' + 10;
+	};
+	for (std::size_t index = 0; hex[index] != '\0'; index += 2)
+		result.push_back(static_cast<std::uint8_t>(
+			(nibble(hex[index]) << 4) | nibble(hex[index + 1])));
+	return result;
+}
+
+bool SameCredential(const AdmissionAck& left, const AdmissionAck& right)
+{
+	return left.protocolVersion == right.protocolVersion &&
+		left.sessionEpoch == right.sessionEpoch &&
+		left.peerIdentity == right.peerIdentity &&
+		left.reconnectToken == right.reconnectToken;
+}
+
+void TestLegacyReconnectCredentialMigration()
+{
+	static_assert(CurrentProtocolVersion == 9,
+		"review the explicit protocol-8 migration policy for the next protocol");
+	const auto original = LegacyReconnectRecord();
+	CHECK(original.size() == 224, "protocol-8 golden record has its fixed durable size");
+	CoopCampaignBootstrapDescriptor decoded = Bootstrap(0x61);
+	const auto decodedSentinel = decoded;
+	AdmissionAck ack = Credential(decoded, 0x62);
+	const auto ackSentinel = ack;
+	CHECK(DecodeCoopCampaignBootstrap(original.data(), 128, decoded) ==
+			CoopCampaignBootstrapDecodeResult::UnsupportedProtocol &&
+		SameCoopCampaignBootstrapDescriptor(decoded, decodedSentinel) &&
+		DecodeAdmissionAck(original.data() + 128, 64, ack) ==
+			DecodeResult::UnsupportedProtocol && SameCredential(ack, ackSentinel),
+		"persistence migration never weakens live protocol rejection or mutates decoder outputs");
+
+	for (unsigned binding = 0; binding < 8; ++binding)
+	{
+		TemporaryStateRoot root;
+		auto live = Bootstrap();
+		if (binding != 1) ++live.sessionEpoch;
+		if (binding == 2) ++live.campaignSeed;
+		if (binding == 3) ++live.campaignIdentitySha256[0];
+		if (binding == 4) ++live.runtimeFingerprint.schema;
+		if (binding == 5) ++live.runtimeFingerprint.high;
+		if (binding == 6) ++live.runtimeFingerprint.low;
+		if (binding == 7) ++live.contentManifestSha256[0];
+		FullEngineCoopClientCampaignScratch scratch;
+		const auto currentCredential = Credential(live, 0x71);
+		CHECK(scratch.prepare(root.path(), live) ==
+				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+			scratch.persistReconnectCredential(currentCredential),
+			"migration fixture creates a safe current campaign credential path");
+		const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+		CHECK(WriteBytes(path, original), "install immutable legacy fixture bytes");
+		AdmissionAck untouched = currentCredential;
+		const auto expected = binding == 0 ?
+			FullEngineCoopReconnectCredentialLoadResult::StaleSession :
+			FullEngineCoopReconnectCredentialLoadResult::BindingMismatch;
+		CHECK(scratch.loadReconnectCredential(untouched) == expected &&
+			SameCredential(untouched, currentCredential) && ReadBytes(path) == original &&
+			!scratch.persistReconnectCredential(currentCredential) &&
+			ReadBytes(path) == original,
+			"only exact campaign binding plus a different epoch may classify legacy bytes stale; load and rejected replacement preserve evidence and output");
+		if (binding == 0)
+		{
+			CHECK(scratch.eraseStaleReconnectCredential() &&
+				scratch.loadReconnectCredential(untouched) ==
+					FullEngineCoopReconnectCredentialLoadResult::Missing &&
+				scratch.persistReconnectCredential(currentCredential) &&
+				scratch.loadReconnectCredential(untouched) ==
+					FullEngineCoopReconnectCredentialLoadResult::Loaded &&
+				SameCredential(untouched, currentCredential) && ReadBytes(path) != original,
+				"explicit late verified stale erasure allows a fresh current bearer, never an old bearer relabelled current");
+		}
+		else CHECK(!scratch.eraseStaleReconnectCredential() && ReadBytes(path) == original,
+			"binding mismatch cannot erase the old record through stale migration");
+	}
+
+	TemporaryStateRoot root;
+	auto live = Bootstrap();
+	++live.sessionEpoch;
+	FullEngineCoopClientCampaignScratch scratch;
+	CHECK(scratch.prepare(root.path(), live) ==
+			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+		scratch.persistReconnectCredential(Credential(live, 0x73)),
+		"retired legacy fixture creates a safe record");
+	const auto campaign = CampaignDirectory(root.path());
+	const auto active = campaign / "client-reconnect-credential.bin";
+	const auto retired = campaign / "client-reconnect-credential.retired";
+	CHECK(WriteBytes(active, original), "retired fixture uses exact legacy record");
+	std::filesystem::rename(active, retired);
+	AdmissionAck retiredCredential;
+	auto expectedRetired = Credential(Bootstrap(), 0x21);
+	expectedRetired.protocolVersion = 8;
+	CHECK(scratch.loadReconnectCredential(retiredCredential) ==
+			FullEngineCoopReconnectCredentialLoadResult::Retired &&
+		SameCredential(retiredCredential, expectedRetired) &&
+		!scratch.eraseStaleReconnectCredential() &&
+		!scratch.persistReconnectCredential(Credential(live, 0x74)) &&
+		!std::filesystem::exists(active) && ReadBytes(retired) == original,
+		"legacy retirement remains terminal and preserves its exact original protocol, epoch, identity and bearer bytes");
+}
+
+void TestLegacyReconnectCredentialMalformedRecords()
+{
+	struct Patch { std::size_t offset; std::size_t count; std::uint8_t value; };
+	struct Fixture
+	{
+		const char* name;
+		std::array<Patch, 2> patches;
+		std::uint32_t repairedFnv;
+		const char* sha256;
+	};
+	// Independent precomputed hashes keep each inner malformed record protected
+	// by a valid outer SHA; an outer checksum failure cannot mask parser gaps.
+	const Fixture fixtures[] = {
+		{"mismatched embedded protocol", {{{132, 1, 9}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "331c5ffa97863dd820813b8c33543c943441a7960a7bac4b490a32ea0fd6c791"},
+		{"mismatched embedded epoch", {{{136, 1, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "8df9d031b2fe0b2a4b395048f531bb497922fb2b81593f5247c985a4507b4f4d"},
+		{"original bootstrap checksum corruption", {{{112, 1, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "427f41727cf5b06d0d969baaffc377a52ae7e92a996906b2684c22b644cfb6d9"},
+		{"bootstrap reserved byte", {{{116, 1, 1}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "95c79766633602b0ebc7681a59fb2c77b14bc8face2af5ba46dad1dcdf045f34"},
+		{"ACK reserved byte", {{{135, 1, 1}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "0d3c9a9695943b2c5e35ffa198a3bb2e9ac3bccb557c9e29255a52aa1260140f"},
+		{"ACK wrong message kind", {{{134, 1, 2}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "a4e38bbfe01e68eab1bf6e78f09baa0213cb12c93a6c4cf665148dd03d00c235"},
+		{"zero bootstrap and ACK epochs", {{{12, 8, 0}, {136, 8, 0}}},
+			UINT32_C(0x3ebec3d5), "6af6634c860a3589dfb799ecec57ff7b806b74b9b5e0709af4eed6e05a632367"},
+		{"zero campaign identity", {{{28, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x7722f50d), "54b3e4a99cf31e5722aac30506dd2cff8fb4f79b3a7a79a42b0ce05003629de0"},
+		{"zero runtime schema", {{{60, 4, 0}, {0, 0, 0}}},
+			UINT32_C(0x21a904e9), "867ed0bc830da030a0f9820d227ffcf7cecc95693353e6dce160182eedfdf9cf"},
+		{"zero content identity", {{{80, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x5ea9ab6d), "6bf93288bff6d171a0ec671a79167f55d60627ba9e67de2f9d302f83e3e9992d"},
+		{"zero peer identity", {{{144, 16, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "11fb0484140dedda042211a38fd2f5d9b94ed89a11282c91f7a9906ed48f20d2"},
+		{"zero reconnect token", {{{160, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "02c0478a04937ac87458423178c50b578978c9e1644527eaa34392647a575eeb"},
+		{"future protocol is not an implicit migration", {{{8, 1, 10}, {132, 1, 10}}},
+			UINT32_C(0xa13b41bf), "217aefd591eee97c6ab1895547d191237695abc477165a7d13ebf909d70d8097"},
+		{"older unreviewed protocol remains rejected", {{{8, 1, 7}, {132, 1, 7}}},
+			UINT32_C(0x80543166), "ecef3cea235fa0c4cdd7ea77dc1c1798d2a7575a2dee22cb2be67c52c002cb58"},
+	};
+	for (const auto& fixture : fixtures)
+	{
+		TemporaryStateRoot root;
+		auto live = Bootstrap();
+		++live.sessionEpoch;
+		FullEngineCoopClientCampaignScratch scratch;
+		const auto sentinel = Credential(live, 0x76);
+		CHECK(scratch.prepare(root.path(), live) ==
+				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+			scratch.persistReconnectCredential(sentinel), "malformed migration fixture prepares");
+		auto bytes = LegacyReconnectRecord();
+		for (const auto& patch : fixture.patches)
+			std::fill_n(bytes.begin() + patch.offset, patch.count, patch.value);
+		if (fixture.repairedFnv != 0)
+			for (unsigned index = 0; index < 4; ++index)
+				bytes[112 + index] = static_cast<std::uint8_t>(fixture.repairedFnv >> (8 * index));
+		const auto digest = Digest(fixture.sha256);
+		std::copy(digest.begin(), digest.end(), bytes.begin() + 192);
+		const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+		CHECK(WriteBytes(path, bytes), "malformed fixture retains safe storage permissions");
+		AdmissionAck untouched = sentinel;
+		CHECK(scratch.loadReconnectCredential(untouched) ==
+				FullEngineCoopReconnectCredentialLoadResult::CorruptRecord &&
+			SameCredential(untouched, sentinel) && ReadBytes(path) == bytes &&
+			!scratch.eraseStaleReconnectCredential(), fixture.name);
+	}
+	TemporaryStateRoot root;
+	auto live = Bootstrap();
+	++live.sessionEpoch;
+	FullEngineCoopClientCampaignScratch scratch;
+	const auto sentinel = Credential(live, 0x77);
+	CHECK(scratch.prepare(root.path(), live) ==
+			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+		scratch.persistReconnectCredential(sentinel), "legacy outer checksum fixture prepares");
+	auto bytes = LegacyReconnectRecord();
+	bytes.back() ^= 1;
+	const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+	CHECK(WriteBytes(path, bytes), "install damaged legacy outer checksum");
+	AdmissionAck untouched = sentinel;
+	CHECK(scratch.loadReconnectCredential(untouched) ==
+			FullEngineCoopReconnectCredentialLoadResult::CorruptRecord &&
+		SameCredential(untouched, sentinel) && ReadBytes(path) == bytes,
+		"legacy parsing requires original outer SHA and never modifies output or damaged evidence");
+}
+
 void TestDurableRetirementMarkerLifecycle()
 {
 	TemporaryStateRoot root;
@@ -1195,6 +1399,8 @@ int main()
 	TestRestartAllowlistRejectsWritableAliases();
 	TestRestartResetsVfsOwnedDisposableProfile();
 	TestDurableReconnectCredentialLifecycle();
+	TestLegacyReconnectCredentialMigration();
+	TestLegacyReconnectCredentialMalformedRecords();
 	TestDurableRetirementMarkerLifecycle();
 	TestReconnectCredentialAdversarialStorage();
 	TestRetiredMarkerAdversarialStorage();

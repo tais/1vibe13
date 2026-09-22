@@ -84,7 +84,7 @@ TacticalActorLoadoutSnapshot TacticalReloadedCombatLoadout()
 	return TacticalCombatLoadout(21, 15, 94, true);
 }
 
-TacticalWorldSnapshot TacticalSnapshot()
+TacticalActorSnapshot TacticalInitialActor()
 {
 	TacticalActorSnapshot actor;
 	actor.id = TacticalActorId;
@@ -102,20 +102,43 @@ TacticalWorldSnapshot TacticalSnapshot()
 	actor.active = true;
 	actor.inSector = true;
 	actor.loadout = TacticalInitialCombatLoadout();
-	std::vector<TacticalActorSnapshot> actors;
-	actors.push_back(actor);
-	TacticalActorSnapshot target = actor;
+	return actor;
+}
+
+TacticalActorSnapshot TacticalInitialTarget()
+{
+	TacticalActorSnapshot target = TacticalInitialActor();
 	target.id = TacticalTargetId;
 	target.team = 1;
 	target.profile = 20;
 	target.grid = 1102;
 	target.direction = 6;
 	target.loadout = {};
+	return target;
+}
+
+TacticalActorSnapshot TacticalPostReloadActor()
+{
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	actor.actionPoints = 10;
+	actor.loadout = TacticalReloadedCombatLoadout();
+	return actor;
+}
+
+TacticalWorldSnapshot TacticalSnapshot()
+{
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	std::vector<TacticalActorSnapshot> actors;
+	actors.push_back(actor);
+	TacticalActorSnapshot target = TacticalInitialTarget();
 	actors.push_back(target);
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		TacticalSectorSnapshot{9, 2, 0, true,
+			TacticalMapAssetKey{{'A', '9', '.', 'D', 'A', 'T'}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E tactical baseline fixture is canonical");
@@ -127,9 +150,10 @@ TacticalWorldDelta TacticalMoveDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorMovedEvent{
-		TacticalActorId, TacticalInitialGrid, TacticalDestinationGrid,
-		0, 0, 2, 3});
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -138,13 +162,15 @@ TacticalWorldDelta TacticalAttackDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId, 20, 14, 80, 80, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalTargetId, 20, 20, 80, 60, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalActorId, TacticalInitialCombatLoadout(),
-		TacticalFiredCombatLoadout()});
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	actor.actionPoints = 14;
+	actor.loadout = TacticalFiredCombatLoadout();
+	TacticalActorSnapshot target = TacticalInitialTarget();
+	target.life = 60;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
+	delta.events.push_back(TacticalActorUpdatedEvent{target});
 	return delta;
 }
 
@@ -153,11 +179,8 @@ TacticalWorldDelta TacticalReloadDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId, 14, 10, 80, 80, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalActorId, TacticalFiredCombatLoadout(),
-		TacticalReloadedCombatLoadout()});
+	delta.events.push_back(TacticalActorUpdatedEvent{
+		TacticalPostReloadActor()});
 	return delta;
 }
 
@@ -166,9 +189,10 @@ TacticalWorldDelta TacticalResyncTriggerDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalActorId, TacticalStance::Standing,
-		TacticalStance::Crouched, 0, 1});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Crouched;
+	actor.animation = 1;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -177,9 +201,10 @@ TacticalWorldDelta TacticalPendingResyncTriggerDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalActorId, TacticalStance::Crouched,
-		TacticalStance::Prone, 1, 2});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Prone;
+	actor.animation = 2;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -210,15 +235,11 @@ TacticalWorldDelta TacticalInterruptDelta(bool active)
 		TacticalTurn(active ? TacticalInterruptPhase::Active
 			: TacticalInterruptPhase::None,
 			TacticalInterruptSerial)});
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId,
-		10, 10,
-		80, 80,
-		90, 90,
-		75, 75,
-		100, 100,
-		false, false,
-		!active, active});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Prone;
+	actor.animation = 2;
+	actor.interruptActionEligible = active;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -226,39 +247,17 @@ TacticalWorldSnapshot TacticalResyncSnapshot(
 	TacticalStance stance = TacticalStance::Crouched,
 	std::uint16_t animation = 1)
 {
-	TacticalActorSnapshot actor;
-	actor.id = TacticalActorId;
-	actor.team = 0;
-	actor.profile = 1;
-	actor.grid = TacticalDestinationGrid;
-	actor.level = 0;
-	actor.direction = 3;
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
 	actor.animation = animation;
 	actor.stance = stance;
-	actor.actionPoints = 10;
-	actor.life = 80;
-	actor.maximumLife = 90;
-	actor.breath = 75;
-	actor.maximumBreath = 100;
-	actor.active = true;
-	actor.inSector = true;
-	actor.loadout = TacticalReloadedCombatLoadout();
-	TacticalActorSnapshot target = actor;
-	target.id = TacticalTargetId;
-	target.team = 1;
-	target.profile = 20;
-	target.grid = 1102;
-	target.direction = 6;
-	target.animation = 0;
-	target.stance = TacticalStance::Standing;
-	target.actionPoints = 20;
+	TacticalActorSnapshot target = TacticalInitialTarget();
 	target.life = 60;
-	target.loadout = {};
 	std::vector<TacticalActorSnapshot> actors{actor, target};
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		TacticalSectorSnapshot{9, 2, 0, true,
+			TacticalMapAssetKey{{'A', '9', '.', 'D', 'A', 'T'}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E resync baseline fixture is canonical");

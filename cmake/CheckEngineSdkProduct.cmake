@@ -36,7 +36,10 @@ foreach(install_dir_consumer IN ITEMS
 endforeach()
 
 foreach(version_fragment IN ITEMS
-    "JA2_ENGINE_SDK_VERSION \"0.2.0\""
+    "JA2_ENGINE_SDK_VERSION \"0.3.0\""
+    "JA2_ENGINE_SDK_VERSION STREQUAL \"0.2.0\""
+    "JA2_ENGINE_SDK_COMPATIBILITY_LINE STREQUAL \"0.3\""
+    "must use the current 0.3 compatibility line"
     "JA2_ENGINE_SDK_COMPATIBILITY_LINE"
     "JA2_ENGINE_SDK_STABILITY \"experimental\""
     "same-0.x-minor-line"
@@ -91,7 +94,7 @@ foreach(verifier_fragment IN ITEMS
     sdk/compatibility/VerifyManifest.cmake "${verifier_fragment}")
 endforeach()
 foreach(kit_fragment IN ITEMS
-    "find_package(JA2Engine 0.2 CONFIG REQUIRED COMPONENTS RuntimeAdapter)"
+    "find_package(JA2Engine 0.3 CONFIG REQUIRED COMPONENTS RuntimeAdapter)"
     "JA2Engine_COMPATIBILITY_MANIFEST"
     "JA2Engine_SOURCE_COMPATIBILITY"
     "JA2Engine_BINARY_COMPATIBILITY"
@@ -99,7 +102,7 @@ foreach(kit_fragment IN ITEMS
   require_sdk_fragment(sdk/compatibility/CMakeLists.txt "${kit_fragment}")
 endforeach()
 foreach(example_fragment IN ITEMS
-    "find_package(JA2Engine 0.2 CONFIG REQUIRED)"
+    "find_package(JA2Engine 0.3 CONFIG REQUIRED)"
     "JA2::EngineCore"
     "run_ja2_engine_sdk_package_host_example")
   require_sdk_fragment(
@@ -118,7 +121,13 @@ foreach(test_fragment IN ITEMS
     "SDK_INSTALL_DATADIR"
     "SDK_TEST_ROOT must be a dedicated child of MAIN_BUILD_DIR"
     "Installed JA2Engine public package-host example"
-    "Installed JA2Engine 0.2 compatibility kit")
+    "Installed JA2Engine 0.3 compatibility kit"
+    "Original JA2Engine 0.2.0 cache"
+    "Reused JA2Engine cache advances to 0.3.0"
+    "Upgraded SDK metadata install failed"
+    "Installed JA2Engine rejects the previous 0.2 compatibility line"
+    "JA2Engine preserves a 0.3 patch override"
+    "JA2Engine rejects overrides outside the 0.3 compatibility line")
   require_sdk_fragment(cmake/TestEngineSdk.cmake "${test_fragment}")
 endforeach()
 

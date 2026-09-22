@@ -1,9 +1,11 @@
 #include "CoopTacticalProtocol.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -22,11 +24,14 @@ static_assert(CoopTacticalBaselineAckWireSize == 88);
 static_assert(CoopTacticalDeltaHeaderWireSize == 72);
 static_assert(CoopTacticalDeltaAckWireSize == 80);
 static_assert(CoopTacticalResyncRequestWireSize == 88);
-static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 31033);
-static_assert(MaximumCoopTacticalBaselineWireSize == 32645);
-static_assert(MaximumCoopTacticalDeltaEvents == 3074);
-static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 62554);
-static_assert(MaximumCoopTacticalDeltaWireSize == 62626);
+static_assert(CoopTacticalWireVersion == 4);
+static_assert(TacticalWorldSnapshotWireVersion == 9);
+static_assert(TacticalWorldDeltaWireVersion == 8);
+static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 42298);
+static_assert(MaximumCoopTacticalBaselineWireSize == 43910);
+static_assert(MaximumCoopTacticalDeltaEvents == 2563);
+static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 50781);
+static_assert(MaximumCoopTacticalDeltaWireSize == 50853);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -78,6 +83,16 @@ TacticalActorSnapshot Actor()
 	return actor;
 }
 
+template <std::size_t Size>
+TacticalSectorSnapshot LoadedSector(std::int16_t x, std::int16_t y,
+	std::int8_t z, const char (&mapAssetKey)[Size])
+{
+	TacticalSectorSnapshot sector{x, y, z, true};
+	CHECK(AssignTacticalMapAssetKey(sector.mapAssetKey, mapAssetKey),
+		"loaded tactical-sector fixture has a valid map identity");
+	return sector;
+}
+
 TacticalWorldSnapshot Snapshot(const CoopTacticalStateIdentity& state)
 {
 	TacticalWorldSnapshot snapshot;
@@ -86,7 +101,7 @@ TacticalWorldSnapshot Snapshot(const CoopTacticalStateIdentity& state)
 		TacticalDoorSnapshot{1235, 71, false}};
 	CHECK(TacticalWorldSnapshot::create(
 		state.worldGeneration, TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		LoadedSector(9, 2, 0, "A9.DAT"),
 		TacticalTurnSnapshot{true, true, 0, state.turnSerial, true},
 		std::move(actors), std::move(doors), snapshot) ==
 			TacticalSnapshotCreateError::None,
@@ -99,8 +114,10 @@ TacticalWorldDelta Delta(std::uint64_t generation)
 	TacticalWorldDelta delta;
 	delta.previousEpoch = generation;
 	delta.currentEpoch = generation;
-	delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{5, 9}, 1234, 1240, 0, 0, 3, 4});
+	TacticalActorSnapshot actor = Actor();
+	actor.grid = 1240;
+	actor.direction = 4;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -159,7 +176,7 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::Success, "receipt encodes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'R', "receipt magic is exact");
-	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 8 &&
+	CHECK(bytes[4] == 4 && bytes[5] == 0 && bytes[6] == 9 &&
 		bytes[7] == 0 && bytes[8] == 3 && bytes[9] == 0,
 		"receipt wire/protocol versions and terminal fields are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -214,11 +231,23 @@ void TestReceiptCodec()
 	CHECK(DecodeCoopTacticalIntentReceipt(nullptr, bytes.size(), decoded) ==
 		CoopTacticalCodecResult::Invalid, "null receipt is rejected");
 	auto malformed = bytes;
-	malformed[4] = 4;
+	malformed[4] = 7;
 	CHECK(DecodeCoopTacticalIntentReceipt(
 		malformed.data(), malformed.size(), decoded) ==
 		CoopTacticalCodecResult::UnsupportedVersion,
 		"unsupported receipt version is explicit");
+	malformed = bytes;
+	malformed[4] = 3;
+	CHECK(DecodeCoopTacticalIntentReceipt(
+		malformed.data(), malformed.size(), decoded) ==
+		CoopTacticalCodecResult::UnsupportedVersion,
+		"pre-renderer-state tactical envelope version is rejected");
+	malformed = bytes;
+	malformed[4] = 3;
+	decoded = sentinel;
+	CHECK(DecodeCoopTacticalIntentReceipt(malformed.data(), malformed.size(), decoded) ==
+		CoopTacticalCodecResult::UnsupportedVersion && decoded.commandId == sentinel.commandId,
+		"pre-render tactical envelope version is rejected transactionally");
 	malformed = bytes;
 	malformed[8] = 0xff;
 	CHECK(DecodeCoopTacticalIntentReceipt(
@@ -335,6 +364,8 @@ void TestBaselineCodec()
 		decoded.snapshot.epoch() == baseline.snapshot.epoch() &&
 		decoded.snapshot.dimensions().columns == 160 &&
 		decoded.snapshot.dimensions().rows == 160 &&
+		std::string(decoded.snapshot.sector().mapAssetKey.c_str()) ==
+			"A9.DAT" &&
 		decoded.snapshot.turn().serial == baseline.snapshot.turn().serial &&
 		decoded.snapshot.turn().commandsBlocked &&
 		decoded.snapshot.actors().size() == 1 &&
@@ -374,14 +405,25 @@ void TestBaselineCodec()
 	malformed = bytes;
 	const std::size_t nestedSnapshot =
 		CoopTacticalBaselineHeaderWireSize + baseline.assignedActors.size() * 6;
-	malformed[nestedSnapshot + 4] = 1;
+	CHECK(bytes[nestedSnapshot + 4] == 9 && bytes[nestedSnapshot + 5] == 0,
+		"co-op baseline embeds exactly snapshot version 9");
+	malformed[nestedSnapshot + 4] = 8;
 	malformed[nestedSnapshot + 5] = 0;
 	WriteU32(malformed, 64, CoopTacticalPayloadChecksum(
 		malformed.data() + CoopTacticalBaselineHeaderWireSize,
 		malformed.size() - CoopTacticalBaselineHeaderWireSize));
 	CHECK(DecodeCoopTacticalBaseline(malformed, decoded) ==
 		CoopTacticalCodecResult::InvalidPayload,
-		"a checksummed unsupported inner snapshot fails closed");
+		"a checksummed pre-render inner snapshot fails closed");
+	malformed = bytes;
+	malformed[nestedSnapshot + EncodedTacticalWorldSnapshotHeaderBytes + 92] = TacticalActorBodyTypeCount;
+	WriteU32(malformed, 64, CoopTacticalPayloadChecksum(
+		malformed.data() + CoopTacticalBaselineHeaderWireSize,
+		malformed.size() - CoopTacticalBaselineHeaderWireSize));
+	decoded = sentinel;
+	CHECK(DecodeCoopTacticalBaseline(malformed, decoded) ==
+		CoopTacticalCodecResult::InvalidPayload && decoded.baselineId == sentinel.baselineId,
+		"checksummed invalid actor presentation reject transactionally inside the envelope");
 	malformed = bytes;
 	// Inner snapshot epoch starts at payload offset 6. Change it while repairing
 	// the checksum so the outer/inner generation equality is independently tested.
@@ -478,6 +520,9 @@ void TestDeltaCodec()
 		CoopTacticalCodecResult::Success, "delta encodes");
 	CHECK(bytes[8] == 4 && bytes[9] == 0,
 		"delta kind and reserve are exact");
+	CHECK(bytes[CoopTacticalDeltaHeaderWireSize + 4] == 8 &&
+		bytes[CoopTacticalDeltaHeaderWireSize + 5] == 0,
+		"co-op delta embeds exactly standalone delta version 8");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[48 + index] == index + 0x41,
 			"delta ID is little endian");
@@ -496,9 +541,9 @@ void TestDeltaCodec()
 		decoded.deltaId == delta.deltaId &&
 		decoded.baseRevision == delta.baseRevision &&
 		decoded.delta.events.size() == 1 &&
-		std::holds_alternative<TacticalActorMovedEvent>(
+		std::holds_alternative<TacticalActorUpdatedEvent>(
 			decoded.delta.events[0]) &&
-		std::get<TacticalActorMovedEvent>(decoded.delta.events[0]).currentGrid == 1240,
+		std::get<TacticalActorUpdatedEvent>(decoded.delta.events[0]).actor.grid == 1240,
 		"delta round trip preserves identity and event");
 
 	CoopTacticalDelta commandBlocked;
@@ -553,6 +598,15 @@ void TestDeltaCodec()
 	CHECK(DecodeCoopTacticalDelta(malformed, decoded) ==
 		CoopTacticalCodecResult::ChecksumMismatch,
 		"delta payload corruption fails integrity");
+	malformed = bytes;
+	malformed[CoopTacticalDeltaHeaderWireSize + 4] = 7;
+	WriteU32(malformed, 68, CoopTacticalPayloadChecksum(
+		malformed.data() + CoopTacticalDeltaHeaderWireSize,
+		malformed.size() - CoopTacticalDeltaHeaderWireSize));
+	decoded = sentinel;
+	CHECK(DecodeCoopTacticalDelta(malformed, decoded) ==
+		CoopTacticalCodecResult::InvalidPayload && decoded.deltaId == sentinel.deltaId,
+		"checksummed pre-render inner delta rejects transactionally");
 	malformed = bytes;
 	malformed[CoopTacticalDeltaHeaderWireSize + 6] ^= 1;
 	WriteU32(malformed, 68, CoopTacticalPayloadChecksum(
@@ -623,7 +677,7 @@ void TestResyncRequestCodec()
 		CoopTacticalCodecResult::Success,
 		"canonical tactical resync request encodes");
 	const CoopTacticalResyncRequestBytes golden{{
-		0x4a, 0x32, 0x43, 0x54, 0x03, 0x00, 0x08, 0x00,
+		0x4a, 0x32, 0x43, 0x54, 0x04, 0x00, 0x09, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
@@ -804,7 +858,7 @@ void TestExplicitPayloadCeilings()
 		"first event beyond delta ceiling is rejected");
 }
 
-void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
+void TestDisjointActorAndDoorSetsReachTheExactCategoryAwareDeltaBound()
 {
 	const CoopTacticalStateIdentity state = State(77, 19);
 	std::vector<TacticalActorSnapshot> previousActors;
@@ -839,6 +893,7 @@ void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
 		previous.loadout.secondaryHand = TacticalHandItemSnapshot{
 			30, 1, 80, 0, 0, 0, false, false};
 		TacticalActorSnapshot current = previous;
+		current.id.incarnation = 2;
 		current.grid++;
 		current.level = 1;
 		current.direction = 2;
@@ -881,33 +936,35 @@ void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
 	TacticalWorldSnapshot current;
 	CHECK(TacticalWorldSnapshot::create(state.worldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{1, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		LoadedSector(1, 1, 0, "A1.DAT"),
 		TacticalTurnSnapshot{true, true, 0, 18},
 		std::move(previousActors), std::move(previousDoors), previous,
 		MaximumCoopTacticalSnapshotActors,
-		MaximumCoopTacticalSnapshotDoors) == TacticalSnapshotCreateError::None,
-		"maximum previous disjoint-door snapshot is valid");
+		MaximumCoopTacticalSnapshotDoors,
+		TacticalWorldLightingSnapshot{4}) == TacticalSnapshotCreateError::None,
+		"maximum previous disjoint-set snapshot is valid");
 	CHECK(TacticalWorldSnapshot::create(state.worldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{2, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		LoadedSector(2, 1, 0, "A1_A.DAT"),
 		TacticalTurnSnapshot{true, true, 1, state.turnSerial},
 		std::move(currentActors), std::move(currentDoors), current,
 		MaximumCoopTacticalSnapshotActors,
-		MaximumCoopTacticalSnapshotDoors) == TacticalSnapshotCreateError::None,
-		"maximum current disjoint-door snapshot is valid");
+		MaximumCoopTacticalSnapshotDoors,
+		TacticalWorldLightingSnapshot{5}) == TacticalSnapshotCreateError::None,
+		"maximum current disjoint-set snapshot is valid");
 
 	TacticalWorldDelta inner;
 	CHECK(DiffTacticalWorldSnapshots(previous, current,
 		MaximumCoopTacticalDeltaEvents, inner) ==
 			TacticalWorldDiffResult::Success &&
 		inner.events.size() == MaximumCoopTacticalDeltaEvents,
-		"two individually valid disjoint door sets fit the exact event bound");
+		"two individually valid disjoint actor and door sets fit the exact event bound");
 	std::vector<std::uint8_t> innerBytes;
 	CHECK(EncodeTacticalWorldDelta(inner, innerBytes,
 		MaximumCoopTacticalDeltaEvents) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		innerBytes.size() == MaximumCoopTacticalDeltaPayloadWireSize,
-		"category-aware maximum delta reaches exactly 61,504 bytes");
+		"category-aware maximum delta reaches exactly 50,781 bytes");
 
 	CoopTacticalDelta envelope;
 	envelope.state = state;
@@ -925,9 +982,9 @@ void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
 		CoopTacticalCodecResult::Success &&
 		decoded.delta.events.size() == MaximumCoopTacticalDeltaEvents &&
 		std::holds_alternative<TacticalDoorEnteredEvent>(
-			decoded.delta.events[2 + 4 * MaximumCoopTacticalSnapshotActors]) &&
+			decoded.delta.events[3 + 2 * MaximumCoopTacticalSnapshotActors]) &&
 		std::holds_alternative<TacticalDoorLeftEvent>(
-			decoded.delta.events[2 + 4 * MaximumCoopTacticalSnapshotActors +
+			decoded.delta.events[3 + 2 * MaximumCoopTacticalSnapshotActors +
 				MaximumCoopTacticalSnapshotDoors]),
 		"maximum disjoint-set envelope round trips in canonical category order");
 }
@@ -943,7 +1000,7 @@ int main()
 	TestDeltaAckCodec();
 	TestResyncRequestCodec();
 	TestExplicitPayloadCeilings();
-	TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound();
+	TestDisjointActorAndDoorSetsReachTheExactCategoryAwareDeltaBound();
 	if (failures == 0)
 		std::printf("all coop tactical protocol tests passed\n");
 	return failures == 0 ? 0 : 1;
