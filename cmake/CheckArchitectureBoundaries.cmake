@@ -4437,6 +4437,9 @@ extract_brace_bounded_slice(dedicated_live_runtime_code
   "Cannot bound dedicated co-op checkpoint boundary")
 require_ordered_fragments(dedicated_live_runtime_checkpoint_slice
   "Dedicated co-op checkpoint no longer drains host/server before persistence"
+  "if (!required && tactical != nullptr && tactical->listener.hasConnections())"
+  "lastEligibility = DedicatedCheckpointEligibilityReason::NetworkQueueNotDrained"
+  "return false"
   "const bool restartListener = tactical != nullptr"
   "tactical->listener.running()"
   "CollectCheckpointEligibility(context, true"
@@ -7434,6 +7437,22 @@ foreach(dedicated_live_retirement_registry_test_contract IN ITEMS
   if(dedicated_live_retirement_registry_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Self-retirement admission regression lost '${dedicated_live_retirement_registry_test_contract}'")
+  endif()
+endforeach()
+
+# Optional cold checkpoints must account for joining/synchronizing transports,
+# not just ACK-confirmed identities. Required shutdown and victory checkpoint
+# calls remain separately ratcheted above and keep their full drain validation.
+extract_brace_bounded_slice(dedicated_live_listener_code
+  "bool FullEngineCoopAdmissionListener::hasConnections() const noexcept"
+  dedicated_live_listener_connections_slice "Cannot bound passive live admission connection query")
+require_ordered_fragments(dedicated_live_listener_connections_slice
+  "Optional checkpoint admission guard must include pre-authentication transports"
+  "const ConnectionAdmissionState& state : connections_" "if (state.transport) return true" "return false")
+foreach(dedicated_live_connections_forbidden IN ITEMS "authenticated" "connectionAuthenticates(" "closeConnection(" "stop(")
+  string(FIND "${dedicated_live_listener_connections_slice}" "${dedicated_live_connections_forbidden}" dedicated_live_connections_forbidden_at)
+  if(NOT dedicated_live_connections_forbidden_at EQUAL -1)
+    message(FATAL_ERROR "Passive checkpoint connection query gained '${dedicated_live_connections_forbidden}'")
   endif()
 endforeach()
 

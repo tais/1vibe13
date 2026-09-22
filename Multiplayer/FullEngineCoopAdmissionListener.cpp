@@ -238,6 +238,13 @@ void FullEngineCoopAdmissionListener::stop(
 	stopNow(drainMilliseconds);
 }
 
+bool FullEngineCoopAdmissionListener::hasConnections() const noexcept
+{
+	for (const ConnectionAdmissionState& state : connections_)
+		if (state.transport) return true;
+	return false;
+}
+
 std::size_t FullEngineCoopAdmissionListener::authenticatedPeerCount()
 	const noexcept
 {

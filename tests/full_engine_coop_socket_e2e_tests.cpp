@@ -654,13 +654,15 @@ public:
 	bool send(const char* messageName, const std::uint8_t* bytes,
 		std::size_t size) noexcept override
 	{
-		return transport_.send(messageName, bytes, size);
+		return !blocked && transport_.send(messageName, bytes, size);
 	}
 
 	void close() noexcept override
 	{
 		if (transport_.running()) transport_.close();
 	}
+
+	bool blocked = false;
 
 private:
 	FullEngineCoopClientTransport& transport_;
@@ -876,8 +878,33 @@ struct DriveStatistics
 	std::size_t iterations = 0;
 	std::size_t totalServerMessages = 0;
 	std::size_t maximumServerMessagesPerFlush = 0;
+	std::size_t malformedInboundMessages = 0;
+	FullEngineCoopCampaignSyncServerResult lastInboundResult =
+		FullEngineCoopCampaignSyncServerResult::Success;
 	bool failed = false;
 };
+
+bool DriveCampaignInbound(FullEngineCoopAdmissionListener& listener,
+	FullEngineCoopCampaignSyncServer& server,
+	DriveStatistics& statistics)
+{
+	FullEngineCoopCampaignInboundMessage message;
+	while (listener.popCampaignInbound(message))
+	{
+		statistics.lastInboundResult = server.handleInbound(
+			message.peerIdentity, message.transport,
+			CampaignInboundKind(message.kind), message.bytes.data(), message.size);
+		if (statistics.lastInboundResult ==
+			FullEngineCoopCampaignSyncServerResult::MalformedFrame)
+			++statistics.malformedInboundMessages;
+		if (IsFatalCoopCampaignSyncInboundResult(statistics.lastInboundResult))
+		{
+			statistics.failed = true;
+			return false;
+		}
+	}
+	return true;
+}
 
 bool DriveServer(FullEngineCoopAdmissionListener& listener,
 	FullEngineCoopCampaignSyncServer& server,
@@ -903,19 +930,7 @@ bool DriveServer(FullEngineCoopAdmissionListener& listener,
 		statistics.failed = true;
 		return false;
 	}
-
-	FullEngineCoopCampaignInboundMessage message;
-	while (listener.popCampaignInbound(message))
-	{
-		if (server.handleInbound(message.peerIdentity, message.transport,
-			CampaignInboundKind(message.kind), message.bytes.data(),
-			message.size) !=
-			FullEngineCoopCampaignSyncServerResult::Success)
-		{
-			statistics.failed = true;
-			return false;
-		}
-	}
+	if (!DriveCampaignInbound(listener, server, statistics)) return false;
 
 	const FullEngineCoopCampaignSyncFlushResult flushed =
 		server.flushOutbound();
@@ -1083,6 +1098,158 @@ std::size_t ReadyPeerCount(FullEngineCoopCampaignSyncServer& server,
 		MaximumFullEngineCoopCampaignSyncPeers>& peers) noexcept
 {
 	return server.readyPeers(peers);
+}
+
+struct SocketCampaignClient
+{
+	SocketCampaignClient(const MemoryCheckpointSource& source,
+		const CoopCampaignBootstrapDescriptor& bootstrap)
+		: wire(transport), scratch(source.bytes), campaign(scratch, wire),
+		  admission(transport, replica, &credentials),
+		  sink(bootstrap, admission, campaign)
+	{
+		replica.client = &admission;
+		CHECK(admission.configure(ClientConfiguration(bootstrap)) ==
+			FullEngineCoopClientResult::Success,
+			"malformed-control client configures from server bootstrap");
+	}
+
+	FullEngineCoopClientTransport transport;
+	ClientCampaignWire wire;
+	MemoryCampaignScratch scratch;
+	FullEngineCoopCampaignSyncClient campaign;
+	RecordingSnapshotReplica replica;
+	ProcessCredentialStore credentials;
+	FullEngineCoopClient admission;
+	CampaignClientSink sink;
+};
+
+void TestMalformedCampaignControlsDoNotStopOtherPeers()
+{
+	MemoryCheckpointSource source;
+	source.bytes.resize(37);
+	source.value.totalSize = source.bytes.size();
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	FullEngineCoopIngress ingress(tokens, execution);
+	FullEngineCoopAdmissionListener listener(ingress);
+	auto authority = Authority(source);
+	authority.maximumPeers = 2;
+	const auto bootstrap = Bootstrap(authority, source);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success, "malformed-control admission starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration;
+	configuration.campaignBootstrap = bootstrap;
+	CHECK(StartListener(listener, configuration), "malformed-control listener binds");
+	if (!listener.running()) return;
+	ListenerCampaignWire serverWire(listener);
+	FullEngineCoopCampaignSyncServer server(source, serverWire);
+	CHECK(server.beginSession(authority.sessionEpoch) ==
+		FullEngineCoopCampaignSyncServerResult::Success,
+		"malformed-control campaign starts");
+	FullEngineCoopClientTransportConfiguration clientConfiguration;
+	clientConfiguration.serverEndpoint = configuration.endpoint;
+	SocketCampaignClient first(source, bootstrap);
+	first.wire.blocked = true;
+	CHECK(first.transport.connect(first.admission, first.sink, clientConfiguration) ==
+		FullEngineCoopClientTransportConnectResult::Success,
+		"malformed-control client connects over production transport");
+	DriveStatistics statistics;
+	// Withhold this client's valid initial ACK while exercising the coordinator's
+	// rejection path. Admission and metadata still use the shipping handshake.
+	CHECK(PumpServerUntil(listener, server, statistics, [&] {
+		first.transport.poll();
+		return first.scratch.beginCalls == 1;
+	}), "authenticated client receives checkpoint metadata before malformed input");
+	if (first.scratch.beginCalls != 1) return;
+	const auto identity = first.admission.peerIdentity();
+	const auto transfer = first.campaign.metadata().transfer;
+	FullEngineCoopCampaignSyncPeerDiagnostics before;
+	CHECK(server.peerDiagnostics(identity, before) &&
+		before.phase == FullEngineCoopCampaignSyncPeerPhase::AwaitingInitialAck,
+		"malformed-control peer begins unready at its initial ACK boundary");
+	CoopCampaignSyncAckBytes ack;
+	CHECK(EncodeCoopCampaignSyncAck({transfer, identity, 0, 0}, ack) ==
+		CoopCampaignSyncCodecResult::Success, "canonical ACK fixture encodes");
+	CoopCampaignSyncResultBytes result;
+	CHECK(EncodeCoopCampaignSyncResult({transfer, identity,
+		CoopCampaignSyncResultStatus::Committed, CoopCampaignSyncFailureReason::None}, result) ==
+		CoopCampaignSyncCodecResult::Success, "canonical result fixture encodes");
+	CoopCampaignSyncResyncBytes resync;
+	CHECK(EncodeCoopCampaignSyncResync({transfer, identity, 0, 0,
+		CoopCampaignSyncFailureReason::SequenceMismatch}, resync) ==
+		CoopCampaignSyncCodecResult::Success, "canonical resync fixture encodes");
+
+	const auto rejectMalformed = [&](const char* name, auto bytes) {
+		bytes[9] = 1; // Reserved common-header byte: exact width, invalid contents.
+		const auto expected = statistics.malformedInboundMessages + 1;
+		CHECK(first.transport.send(name, bytes.data(), bytes.size()),
+			"authenticated client sends a correctly sized malformed campaign control");
+		const bool rejected = PumpServerUntil(listener, server, statistics, [&] {
+			first.transport.poll();
+			return statistics.malformedInboundMessages == expected;
+		});
+		CHECK(rejected && !statistics.failed && listener.running() && !server.terminal(),
+			"malformed campaign control is a peer rejection, not a session failure");
+		FullEngineCoopCampaignSyncPeerDiagnostics after;
+		CHECK(server.peerDiagnostics(identity, after) &&
+			after.transport == before.transport && after.transferId == before.transferId &&
+			after.phase == before.phase && after.acknowledgedOffset == before.acknowledgedOffset &&
+			after.highestSentOffset == before.highestSentOffset && after.nextSendOffset == before.nextSendOffset &&
+			after.inFlightChunks == before.inFlightChunks && after.pendingBytes == before.pendingBytes &&
+			!after.campaignReady && source.readCalls == 0 && execution.calls == 0,
+			"rejected bytes change neither transfer progress nor campaign/gameplay authority");
+		return rejected && !statistics.failed;
+	};
+	if (!rejectMalformed(CoopCampaignSyncAckMessageName, ack) ||
+		!rejectMalformed(CoopCampaignSyncResultMessageName, result) ||
+		!rejectMalformed(CoopCampaignSyncResyncMessageName, resync)) return;
+
+	SocketCampaignClient second(source, bootstrap);
+	CHECK(second.transport.connect(second.admission, second.sink, clientConfiguration) ==
+		FullEngineCoopClientTransportConnectResult::Success,
+		"second client can still join after malformed authenticated traffic");
+	std::array<PeerIdentity, MaximumFullEngineCoopCampaignSyncPeers> ready{};
+	CHECK(PumpLiveUntil(listener, server, second.transport, second.campaign, statistics, [&] {
+		first.transport.poll();
+		return ReadyPeerCount(server, ready) == 1 &&
+			second.campaign.state() == FullEngineCoopCampaignSyncClientState::Ready;
+	}), "unaffected peer commits its checkpoint while the malformed sender remains unready");
+	CHECK(ready[0] == second.admission.peerIdentity() && second.scratch.commitCalls == 1 &&
+		first.scratch.commitCalls == 0 && server.peerDiagnostics(identity, before) && !before.campaignReady,
+		"only the peer that completed valid synchronization receives campaign authority");
+	first.wire.blocked = false;
+	CHECK(PumpLiveUntil(listener, server, first.transport, first.campaign, statistics, [&] {
+		second.transport.poll();
+		return ReadyPeerCount(server, ready) == 2 &&
+			first.campaign.state() == FullEngineCoopCampaignSyncClientState::Ready;
+	}), "original sender can complete valid synchronization without replaying rejected controls");
+	CHECK(statistics.malformedInboundMessages == 3 && first.scratch.commitCalls == 1 &&
+		second.scratch.commitCalls == 1 && execution.calls == 0,
+		"both checkpoints commit exactly once with no gameplay triggered by rejected controls");
+
+	// Internal checkpoint loss must still stop the production inbound policy,
+	// even when the frame that happens to expose it is from an untrusted peer.
+	CHECK(first.transport.send(CoopCampaignSyncAckMessageName, ack.data(), ack.size()),
+		"fatal-source probe sends a canonical control");
+	const Uint64 probeStarted = SDL_GetTicks();
+	while (listener.pendingCampaignInboundCount() == 0 &&
+		SDL_GetTicks() - probeStarted < 10000)
+	{
+		first.transport.poll();
+		listener.poll();
+		SDL_Delay(1);
+	}
+	CHECK(listener.pendingCampaignInboundCount() == 1,
+		"fatal-source probe reaches the authenticated queue before source loss");
+	source.identityReady = false;
+	CHECK(!DriveCampaignInbound(listener, server, statistics) && statistics.failed && server.terminal() &&
+		statistics.lastInboundResult == FullEngineCoopCampaignSyncServerResult::SourceUnavailable &&
+		ReadyPeerCount(server, ready) == 0,
+		"checkpoint source failure remains fatal and revokes readiness for all peers");
+	first.transport.stop(0);
+	second.transport.stop(0);
+	listener.stop(0);
 }
 
 void TestRealSocketCampaignSyncAndReconnect()
@@ -1997,6 +2164,7 @@ void TestRealSocketCampaignSyncAndReconnect()
 int main()
 {
 	CHECK(SDL_Init(0), "SDL initializes for real SDL3_net co-op E2E");
+	TestMalformedCampaignControlsDoNotStopOtherPeers();
 	TestRealSocketCampaignSyncAndReconnect();
 	SDL_Quit();
 	if (failures != 0)
