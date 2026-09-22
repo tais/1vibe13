@@ -76,8 +76,12 @@ void Reject(const CampaignAimHireRequest& request, Error error)
 	const auto events = GetJa2CampaignEventQueue().size();
 	const auto balance = LaptopSaveInfo.iCurrentBalance;
 	const auto hired = LaptopSaveInfo.sLastHiredMerc;
-	CHECK(PrepareCampaignAimHire(request, output) == error && SamePlan(output, original),
+	const auto prepared = PrepareCampaignAimHire(request, output);
+	CHECK(prepared == error && SamePlan(output, original),
 		"preflight rejection is exact and preserves output");
+	// A failed negative preflight must not let a regression accidentally call
+	// the native constructor with a malformed/forbidden test request.
+	if (prepared != error) return;
 	const auto applied = HireAimMercChecked(request);
 	CHECK(!applied && applied.error == error && !applied.mutationMayHaveStarted &&
 		!applied.actor.valid() && applied.arrivalMinute == 0,
@@ -100,9 +104,15 @@ void TestPreflight()
 	// NO_PROFILE is 200, inside the physical profile array. Even content that
 	// marks that sentinel row as AIM must not turn it into a hireable profile.
 	const auto sentinelProfile = gMercProfiles[NO_PROFILE];
+	const auto sentinelType = gMercProfiles[NO_PROFILE].Type;
 	gMercProfiles[NO_PROFILE] = profile;
+	// The native profile copy operators intentionally do not copy Type.
+	gMercProfiles[NO_PROFILE].Type = PROFILETYPE_AIM;
+	CHECK(gMercProfiles[NO_PROFILE].Type == PROFILETYPE_AIM,
+		"sentinel regression presents otherwise hireable native AIM metadata");
 	Reject({NO_PROFILE, 7, false}, Error::InvalidProfile);
 	gMercProfiles[NO_PROFILE] = sentinelProfile;
+	gMercProfiles[NO_PROFILE].Type = sentinelType;
 	for (auto days : {0u, 2u, 6u, 8u, 13u, 15u, 0xffffffffu})
 		Reject({0, days, false}, Error::InvalidContract);
 
