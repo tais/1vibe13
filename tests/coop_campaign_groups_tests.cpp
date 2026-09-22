@@ -44,7 +44,7 @@ void Protocol()
 		case 1: bad.revision = 0; break;
 		case 2: bad.available = false; break;
 		case 3: bad.groupCount = 256; break;
-		case 4: bad.memberCount = 257; break;
+		case 4: bad.memberCount = 261; break;
 		case 5: bad.groups[0].id = {}; break;
 		case 6: bad.groups[1].id.slot = 2; break;
 		case 7: bad.groups[0].x = 0; break;
@@ -83,13 +83,30 @@ void Protocol()
 			else CHECK(SameCoopCampaignGroups(output, original), "every rejected single-bit mutation preserves output");
 		}
 	CoopCampaignGroups maximum; maximum.sessionEpoch = 1; maximum.revision = 1; maximum.available = true;
-	maximum.groupCount = 255; maximum.memberCount = 256;
+	maximum.groupCount = 255; maximum.memberCount = 260;
 	for (unsigned i = 0; i < 255; ++i)
 		maximum.groups[i] = {{static_cast<std::uint8_t>(i + 1), i + 1}, 1, 16, 3, false, false, 0, 0, 0, 0, 0, 0, 0,
-			static_cast<std::uint16_t>(i), static_cast<std::uint16_t>(i == 254 ? 2 : 1)};
-	for (unsigned i = 0; i < 256; ++i) maximum.members[i].actor = {static_cast<std::uint16_t>(i), i + 1};
-	CHECK(EncodeCoopCampaignGroups(maximum, bytes, size) && size == MaximumCoopCampaignGroupsWireSize && size == 12288 &&
-		DecodeCoopCampaignGroups(bytes.data(), size, decoded) && SameCoopCampaignGroups(maximum, decoded), "maximum native group/member populations fit fixed callback capacity");
+			static_cast<std::uint16_t>(i), static_cast<std::uint16_t>(i == 254 ? 6 : 1)};
+	for (unsigned i = 0; i < maximum.members.size(); ++i) maximum.members[i].actor = {static_cast<std::uint16_t>(i), i + 1};
+	CHECK(EncodeCoopCampaignGroups(maximum, bytes, size) && size == MaximumCoopCampaignGroupsWireSize && size == 12352 && size < 65536 &&
+		DecodeCoopCampaignGroups(bytes.data(), size, decoded) && SameCoopCampaignGroups(maximum, decoded),
+		"all 254 mercenaries and six vehicle actors fit with maximum native groups below transport capacity");
+	const auto fullBytes = bytes; const auto fullSize = size;
+	maximum.memberCount = 261; maximum.groups[254].memberCount = 7;
+	CHECK(!EncodeCoopCampaignGroups(maximum, bytes, size) && bytes == fullBytes && size == fullSize,
+		"261 members reject before reading beyond the native-sized array and preserve encoded output");
+	maximum.memberCount = 260; maximum.groups[254].memberCount = 6;
+	auto tooMany = bytes; tooMany[26] = 5; tooMany[27] = 1;
+	CHECK(!DecodeCoopCampaignGroups(tooMany.data(), size, decoded) && SameCoopCampaignGroups(maximum, decoded),
+		"a wire count of 261 cannot replace the complete 260-member observation");
+	std::array<std::uint8_t, MaximumCoopCampaignGroupsWireSize + CoopCampaignGroupMemberWireSize> extended{};
+	std::copy(tooMany.begin(), tooMany.end(), extended.begin());
+	extended[CoopCampaignGroupsHeaderSize + 254 * CoopCampaignGroupWireSize + 30] = 7;
+	extended[fullSize] = 4; extended[fullSize + 1] = 1; // actor slot 260
+	extended[fullSize + 4] = 5; extended[fullSize + 5] = 1; // incarnation 261
+	extended[fullSize + 8] = 128;
+	CHECK(!DecodeCoopCampaignGroups(extended.data(), extended.size(), decoded) && SameCoopCampaignGroups(maximum, decoded),
+		"a complete 261-record packet with coherent section counts still exceeds native capacity");
 	maximum = {}; maximum.sessionEpoch = 1; maximum.revision = 2;
 	CHECK(EncodeCoopCampaignGroups(maximum, bytes, size) && size == 32 && DecodeCoopCampaignGroups(bytes.data(), size, decoded) &&
 		!decoded.available && !decoded.groupCount && !decoded.memberCount, "unavailable explicitly clears every old record");

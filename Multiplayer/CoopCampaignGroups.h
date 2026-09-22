@@ -10,7 +10,9 @@ namespace CoopSession
 {
 inline constexpr const char* CoopCampaignGroupsMessageName = "coop.campaign.groups";
 inline constexpr std::size_t MaximumCoopCampaignGroups = 255;
-inline constexpr std::size_t MaximumCoopCampaignGroupMembers = 256;
+// Native player slots include up to 254 mercenaries and six vehicle actors;
+// vehicles also occupy PLAYERGROUP membership records.
+inline constexpr std::size_t MaximumCoopCampaignGroupMembers = 260;
 inline constexpr std::size_t CoopCampaignGroupsHeaderSize = 32;
 inline constexpr std::size_t CoopCampaignGroupWireSize = 32;
 inline constexpr std::size_t CoopCampaignGroupMemberWireSize = 16;
