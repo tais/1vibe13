@@ -61,7 +61,7 @@ TacticalWorldDelta CodecFixture()
 				std::numeric_limits<std::int16_t>::max(),
 				std::numeric_limits<std::int8_t>::min(), false},
 			TacticalSectorSnapshot{
-				-1, 258, std::numeric_limits<std::int8_t>::max(), true}},
+				-1, 258, std::numeric_limits<std::int8_t>::max(), true, TacticalMapAssetKey{{"A9.dat"}}}},
 		TacticalTurnChangedEvent{
 			TacticalTurnSnapshot{
 				false, true, 0x7fu, 0x2122232425262728ull, false},
@@ -1913,7 +1913,7 @@ int main()
 			TacticalStance::Crouched, 70, 78, 80, 55, 90, true, true}};
 	check(TacticalWorldSnapshot::create(
 			44, TacticalWorldDimensions{160, 160},
-			TacticalSectorSnapshot{9, 1, 0, true},
+			TacticalSectorSnapshot{9, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 			TacticalTurnSnapshot{true, true, 0, 8},
 			unorderedActors, tacticalSnapshot) == TacticalSnapshotCreateError::None &&
 		tacticalSnapshot.epoch() == 44 && tacticalSnapshot.actors().size() == 3 &&
@@ -2223,7 +2223,7 @@ int main()
 		resetDelta.previousEpoch, resetDelta.currentEpoch});
 	std::vector<std::uint8_t> resetBytes;
 	const std::vector<std::uint8_t> expectedResetBytes{
-		0x54, 0x57, 0x44, 0x31, 0x06, 0x00,
+		0x54, 0x57, 0x44, 0x31, 0x07, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x01, 0x00, 0x00, 0x00, 0x01,
@@ -2232,7 +2232,7 @@ int main()
 	check(EncodeTacticalWorldDelta(resetDelta, resetBytes) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		resetBytes == expectedResetBytes,
-		"tactical delta version 6 has a fixed little-endian golden representation");
+		"tactical delta version 7 has a fixed little-endian golden representation");
 
 	bool rejectedEveryTruncation = true;
 	for (std::size_t length = 0; length < encodedDelta.size(); ++length)
@@ -2280,7 +2280,7 @@ int main()
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"two-hand tactical delta version 4 is rejected");
 	malformed = encodedDelta;
-	malformed[4] = 7;
+	malformed[4] = 8;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"tactical delta codec distinguishes unsupported format versions");
@@ -2305,7 +2305,7 @@ int main()
 	const bool rejectsUnknownTag = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
 	malformed = EncodeSingleCodecEvent(TacticalSectorChangedEvent{
-		TacticalSectorSnapshot{1, 2, 0, true},
+		TacticalSectorSnapshot{1, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalSectorSnapshot{2, 3, 1, false}});
 	malformed[32] = 2;
 	const bool rejectsBoolean = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==

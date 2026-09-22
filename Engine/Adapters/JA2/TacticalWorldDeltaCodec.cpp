@@ -151,12 +151,23 @@ void WriteSector(BinaryWriter& writer, const TacticalSectorSnapshot& sector)
 	WriteI16(writer, sector.y);
 	writer.writeI8(sector.z);
 	WriteBool(writer, sector.loaded);
+	writer.writeBytes(
+		reinterpret_cast<const std::uint8_t*>(sector.mapAssetKey.bytes.data()),
+		sector.mapAssetKey.bytes.size());
 }
 
 bool ReadSector(BinaryReader& reader, TacticalSectorSnapshot& sector)
 {
-	return ReadI16(reader, sector.x) && ReadI16(reader, sector.y) &&
-		reader.readI8(sector.z) && ReadBool(reader, sector.loaded);
+	if (!ReadI16(reader, sector.x) || !ReadI16(reader, sector.y) ||
+		!reader.readI8(sector.z) || !ReadBool(reader, sector.loaded))
+		return false;
+	for (char& byte : sector.mapAssetKey.bytes)
+	{
+		std::uint8_t encoded = 0;
+		if (!reader.readU8(encoded)) return false;
+		byte = static_cast<char>(encoded);
+	}
+	return IsValidTacticalSectorSnapshot(sector);
 }
 
 void WriteTurn(BinaryWriter& writer, const TacticalTurnSnapshot& turn)
@@ -263,6 +274,8 @@ bool WriteEvent(BinaryWriter& writer, const TacticalWorldEvent& event)
 		}
 		else if constexpr (std::is_same<Event, TacticalSectorChangedEvent>::value)
 		{
+			if (!IsValidTacticalSectorSnapshot(value.previous) ||
+				!IsValidTacticalSectorSnapshot(value.current)) return false;
 			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::SectorChanged));
 			WriteSector(writer, value.previous);
 			WriteSector(writer, value.current);

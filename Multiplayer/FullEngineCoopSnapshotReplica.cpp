@@ -13,7 +13,7 @@ bool SameSector(const TacticalSectorSnapshot& left,
 	const TacticalSectorSnapshot& right) noexcept
 {
 	return left.x == right.x && left.y == right.y && left.z == right.z &&
-		left.loaded == right.loaded;
+		left.loaded == right.loaded && left.mapAssetKey == right.mapAssetKey;
 }
 
 bool SameTurn(const TacticalTurnSnapshot& left,
@@ -344,7 +344,8 @@ bool ApplyEvent(const TacticalWorldEvent& event,
 	if (const auto* changed =
 		std::get_if<TacticalSectorChangedEvent>(&event))
 	{
-		if (!SameSector(sector, changed->previous)) return false;
+		if (!SameSector(sector, changed->previous) ||
+			!IsValidTacticalSectorSnapshot(changed->current)) return false;
 		sector = changed->current;
 		return true;
 	}
@@ -490,6 +491,7 @@ FullEngineCoopSnapshotReplica::applyBaseline(
 {
 	if (!IsValidCoopTacticalStateIdentity(baseline.state) ||
 		baseline.baselineId == 0 || !baseline.snapshot.sector().loaded ||
+		!IsValidTacticalSectorSnapshot(baseline.snapshot.sector()) ||
 		!baseline.snapshot.dimensions().valid() ||
 		baseline.snapshot.epoch() != baseline.state.worldGeneration ||
 		baseline.snapshot.turn().serial != baseline.state.turnSerial ||

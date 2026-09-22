@@ -1,6 +1,9 @@
 #include <Multiplayer/FullEngineCoopSnapshotReplica.h>
+#include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
+#include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
 #include <cstdio>
+#include <cstring>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -52,7 +55,7 @@ TacticalActorLoadoutSnapshot CombatLoadout(std::uint16_t rounds = 7,
 
 bool InstallSnapshot(CoopTacticalBaseline& baseline,
 	std::vector<TacticalActorSnapshot> actors,
-	TacticalSectorSnapshot sector = TacticalSectorSnapshot{3, 4, 0, true},
+	TacticalSectorSnapshot sector = TacticalSectorSnapshot{3, 4, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 	std::vector<TacticalDoorSnapshot> doors = {})
 {
 	return TacticalWorldSnapshot::create(
@@ -130,7 +133,7 @@ void TestPresentProjectionAndFullDelta()
 
 	CoopTacticalDelta delta = DeltaFrom(baseline, 21, 31);
 	delta.delta.events.push_back(TacticalSectorChangedEvent{
-		baseline.snapshot.sector(), TacticalSectorSnapshot{4, 4, 0, true}});
+		baseline.snapshot.sector(), TacticalSectorSnapshot{4, 4, 0, true, TacticalMapAssetKey{{"A9.dat"}}}});
 	TacticalTurnSnapshot interruptTurn{true, true, 0, 31};
 	interruptTurn.interruptPhase = TacticalInterruptPhase::Active;
 	interruptTurn.interruptSerial = 9;
@@ -618,7 +621,7 @@ void TestDoorAndHostilityProjectionIsTransactional()
 	CoopTacticalBaseline baseline = Baseline();
 	CHECK(InstallSnapshot(baseline,
 		{Actor(1, 100), Actor(2, 200), Actor(3, -1, 1, true, false)},
-		TacticalSectorSnapshot{3, 4, 0, true},
+		TacticalSectorSnapshot{3, 4, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		{TacticalDoorSnapshot{100, 41, false},
 		 TacticalDoorSnapshot{101, 42, true}}),
 		"door replica baseline fixture creates");
@@ -692,10 +695,99 @@ void TestDoorAndHostilityProjectionIsTransactional()
 		replica.snapshot().findDoor(100)->structureId == 44,
 		"decreasing door event category order is rejected transactionally");
 }
+void TestExactMapIdentityAcrossBaselineAndDelta()
+{
+	CoopTacticalBaseline baseline = Baseline();
+	std::vector<std::uint8_t> bytes;
+	CHECK(EncodeTacticalWorldSnapshot(baseline.snapshot, bytes) ==
+		TacticalWorldSnapshotEncodeResult::Success &&
+		DecodeTacticalWorldSnapshot(bytes, baseline.snapshot) ==
+		TacticalWorldSnapshotDecodeResult::Success,
+		"baseline map identity survives the actual snapshot codec");
+	FullEngineCoopSnapshotReplica replica;
+	CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed,
+		"decoded map-aware baseline commits");
+	const TacticalSectorSnapshot previous = baseline.snapshot.sector();
+	TacticalSectorSnapshot current = previous;
+	current.mapAssetKey = TacticalMapAssetKey{{"A9_a.dat"}};
+	TacticalWorldSnapshot next;
+	CHECK(TacticalWorldSnapshot::create(baseline.snapshot.epoch(),
+		baseline.snapshot.dimensions(), current, baseline.snapshot.turn(),
+		baseline.snapshot.actors(), baseline.snapshot.doors(), next) ==
+		TacticalSnapshotCreateError::None,
+		"an alternate map at unchanged sector coordinates is a valid snapshot");
+	CoopTacticalDelta delta = DeltaFrom(baseline);
+	CHECK(DiffTacticalWorldSnapshots(baseline.snapshot, next, 10, delta.delta) ==
+		TacticalWorldDiffResult::Success && delta.delta.events.size() == 1 &&
+		std::holds_alternative<TacticalSectorChangedEvent>(delta.delta.events.front()),
+		"a map-key-only change emits exactly one sector event");
+	CHECK(EncodeTacticalWorldDelta(delta.delta, bytes) ==
+		TacticalWorldDeltaEncodeResult::Success && bytes.size() == 559 &&
+		bytes[4] == 7 && bytes[5] == 0 && bytes[26] == 2 &&
+		std::memcmp(bytes.data() + 33, "A9.dat", 7) == 0 &&
+		std::memcmp(bytes.data() + 299, "A9_a.dat", 9) == 0,
+		"delta version 7 places both exact 260-byte map keys at fixed wire offsets");
+	const auto encoded = bytes;
+	CHECK(DecodeTacticalWorldDelta(encoded, delta.delta) ==
+		TacticalWorldDeltaDecodeResult::Success &&
+		replica.applyDelta(delta) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().sector().mapAssetKey == current.mapAssetKey,
+		"decoded identity-only sector change commits the alternate map");
+
+	FullEngineCoopSnapshotReplica rejected;
+	CHECK(rejected.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed,
+		"prior-identity rejection fixture commits its baseline");
+	auto wrongPrevious = delta;
+	auto& wrongEvent = std::get<TacticalSectorChangedEvent>(wrongPrevious.delta.events[0]);
+	wrongEvent.previous.mapAssetKey = TacticalMapAssetKey{{"A9_b.dat"}};
+	CHECK(rejected.applyDelta(wrongPrevious) == FullEngineCoopReplicaApplyResult::Rejected &&
+		rejected.state().revision == baseline.state.revision &&
+		rejected.snapshot().sector().mapAssetKey == previous.mapAssetKey,
+		"equal coordinates cannot disguise a stale previous map identity");
+	wrongEvent.previous = previous;
+	wrongEvent.current.mapAssetKey = {};
+	CHECK(rejected.applyDelta(wrongPrevious) == FullEngineCoopReplicaApplyResult::Rejected &&
+		rejected.snapshot().sector().mapAssetKey == previous.mapAssetKey,
+		"direct replica application also rejects an absent loaded map key transactionally");
+	bytes = {0xaa};
+	CHECK(EncodeTacticalWorldDelta(wrongPrevious.delta, bytes) ==
+		TacticalWorldDeltaEncodeResult::Invalid && bytes == std::vector<std::uint8_t>{0xaa},
+		"delta publication cannot send a loaded sector without its map key");
+	for (const std::size_t offset : {std::size_t{33}, std::size_t{299}, std::size_t{558}})
+	{
+		auto malformed = encoded;
+		malformed[offset] = '/';
+		TacticalWorldDelta retained = delta.delta;
+		CHECK(DecodeTacticalWorldDelta(malformed, retained) ==
+			TacticalWorldDeltaDecodeResult::Invalid &&
+			std::get<TacticalSectorChangedEvent>(retained.events[0]).current.mapAssetKey == current.mapAssetKey,
+			"both delta map keys enforce canonical content and zero padding transactionally");
+	}
+	auto malformed = encoded;
+	malformed[4] = 6;
+	CHECK(DecodeTacticalWorldDelta(malformed, delta.delta) ==
+		TacticalWorldDeltaDecodeResult::UnsupportedVersion,
+		"pre-map-identity delta version 6 is rejected");
+	malformed = encoded;
+	malformed.pop_back();
+	CHECK(DecodeTacticalWorldDelta(malformed, delta.delta) ==
+		TacticalWorldDeltaDecodeResult::Invalid,
+		"truncating the final map key is rejected");
+
+	CoopTacticalBaseline missing = baseline;
+	TacticalSectorSnapshot noKey = previous;
+	noKey.mapAssetKey = {};
+	CHECK(InstallSnapshot(missing, baseline.snapshot.actors(), noKey),
+		"local missing-key compatibility fixture creates");
+	CHECK(rejected.applyBaseline(missing) == FullEngineCoopReplicaApplyResult::Rejected &&
+		rejected.snapshot().sector().mapAssetKey == previous.mapAssetKey,
+		"direct replica baselines require exact map identity");
+}
 }
 
 int main()
 {
+	TestExactMapIdentityAcrossBaselineAndDelta();
 	TestPresentProjectionAndFullDelta();
 	TestCommandBusyOnlyDeltaIsTransactional();
 	TestGenerationRequiresFreshBaseline();

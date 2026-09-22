@@ -23,7 +23,7 @@ namespace
 {
 int failures = 0;
 
-static_assert(MaximumFullEngineCoopClientInboundWireSize == 62106);
+static_assert(MaximumFullEngineCoopClientInboundWireSize == 62626);
 static_assert(MaximumFullEngineCoopClientInboundWireSize ==
 	MaximumCoopTacticalWireSize);
 static_assert(MaximumFullEngineCoopClientInboundWireSize >
@@ -150,7 +150,7 @@ TacticalWorldSnapshot Snapshot(std::uint64_t generation,
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(generation,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, turn},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"transport snapshot fixture is valid");

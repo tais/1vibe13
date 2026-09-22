@@ -184,7 +184,7 @@ TacticalWorldSnapshot Snapshot(
 	}
 	CHECK(TacticalWorldSnapshot::create(generation,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, turnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"coordinator snapshot fixture is valid");

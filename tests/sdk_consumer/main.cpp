@@ -78,7 +78,7 @@ bool MakeExternalSnapshot(
 	return TacticalWorldSnapshot::create(
 		epoch,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 1, 0, true},
+		TacticalSectorSnapshot{9, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, 12},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None;
 }
