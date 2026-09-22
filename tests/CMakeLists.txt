@@ -1098,6 +1098,14 @@ target_include_directories(campaign_aim_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
 
+# Shared A.I.M. willingness decisions preserve relationship/refusal precedence
+# without laptop UI, and reject absent profile IDs before native reads.
+add_executable(campaign_aim_willingness_policy_tests
+  campaign_aim_willingness_policy_tests.cpp)
+target_include_directories(campaign_aim_willingness_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_aim_willingness_policy COMMAND campaign_aim_willingness_policy_tests)
+
 # Email catalogs, insurance/shipment notices, tactical death notices, and
 # M.E.R.C. level-up IDs are selected at runtime. The same data-free target pins
 # the boundary checks used by Laptop's legacy containers, dropdowns, and
