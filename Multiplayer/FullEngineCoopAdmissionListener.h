@@ -146,6 +146,10 @@ public:
 	void poll() noexcept;
 	void stop(unsigned drainMilliseconds = 0) noexcept;
 	bool running() const noexcept { return running_; }
+	// Includes pending handshakes and campaign synchronization, not just peers
+	// whose admission ACK has committed. Optional checkpoints must preserve all
+	// of these live connections while a client is joining or playing.
+	bool hasConnections() const noexcept;
 
 	std::size_t authenticatedPeerCount() const noexcept;
 	std::size_t authenticatedPeers(

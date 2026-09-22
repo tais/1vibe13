@@ -74,7 +74,8 @@ TacticalWorldSnapshot Snapshot(bool loaded = true,
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(epoch,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, loaded},
+		TacticalSectorSnapshot{9, 2, 0, loaded,
+			loaded ? TacticalMapAssetKey{{"A9.dat"}} : TacticalMapAssetKey{}},
 		Turn(activeTeam, commandsBlocked, interruptPhase, interruptSerial),
 		std::move(actors), std::move(doors), snapshot) ==
 			TacticalSnapshotCreateError::None,
@@ -89,7 +90,8 @@ TacticalWorldSnapshot RelativeMoveSnapshot(TacticalActorSnapshot actor,
 	std::vector<TacticalActorSnapshot> actors{actor};
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(11, dimensions,
-		TacticalSectorSnapshot{9, 2, 0, loaded},
+		TacticalSectorSnapshot{9, 2, 0, loaded,
+			loaded ? TacticalMapAssetKey{{"A9.dat"}} : TacticalMapAssetKey{}},
 		Turn(activeTeam),
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"relative-move fixture snapshot is valid");
@@ -569,7 +571,7 @@ void TestAttackTargetingUsesCanonicalHostility()
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(11,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		Turn(0),
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"hostility targeting fixture is valid");

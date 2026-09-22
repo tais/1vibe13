@@ -579,6 +579,16 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+
+  # Exercise the shared native willingness reader against real profiles,
+  # soldier repositories and campaign reputation, without installed assets.
+  add_executable(native_campaign_aim_willingness_tests
+    tests/native_campaign_aim_willingness_tests.cpp)
+  target_compile_definitions(native_campaign_aim_willingness_tests PRIVATE ${debugFlags})
+  get_target_property(campaign_aim_native_libraries ja2_headless_tests LINK_LIBRARIES)
+  target_link_libraries(native_campaign_aim_willingness_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_aim_willingness COMMAND native_campaign_aim_willingness_tests)
+  add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
   # SimulationRandom installation is process-lifetime state. Run the strict
   # checkpoint coordinator in a fresh process before any legacy RNG accessor
   # can seal the default source.

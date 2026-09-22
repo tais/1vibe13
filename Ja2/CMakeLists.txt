@@ -1,4 +1,5 @@
 set(Ja2Src
+"${CMAKE_CURRENT_SOURCE_DIR}/CampaignAimWillingness.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/aniviewscreen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignClockAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignEventAdapter.cpp"
