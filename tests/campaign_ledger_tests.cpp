@@ -54,6 +54,19 @@ void* operator new(std::size_t size)
 }
 void operator delete(void* memory) noexcept { std::free(memory); }
 void operator delete(void* memory, std::size_t) noexcept { std::free(memory); }
+void* operator new(std::size_t size, const std::nothrow_t&) noexcept
+{
+	try { return ::operator new(size); } catch (...) { return nullptr; }
+}
+void operator delete(void* memory, const std::nothrow_t&) noexcept { ::operator delete(memory); }
+void* operator new[](std::size_t size) { return ::operator new(size); }
+void operator delete[](void* memory) noexcept { ::operator delete(memory); }
+void operator delete[](void* memory, std::size_t) noexcept { ::operator delete(memory); }
+void* operator new[](std::size_t size, const std::nothrow_t&) noexcept
+{
+	try { return ::operator new[](size); } catch (...) { return nullptr; }
+}
+void operator delete[](void* memory, const std::nothrow_t&) noexcept { ::operator delete[](memory); }
 
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE, gfDedicatedServer = TRUE;
@@ -114,6 +127,7 @@ struct Faults
 	bool failEffectAllocationAfterClose = false;
 	unsigned shortReadCall = 0, throwReadCall = 0, failWriteCall = 0;
 	std::optional<vfs::size_t> reportedSize;
+	vfs::size_t virtualTailBytes = 0;
 	unsigned reads = 0, writes = 0, writeOpens = 0;
 };
 
@@ -143,6 +157,16 @@ public:
 		if (faults_.reads == faults_.throwReadCall) throw std::runtime_error("read fault");
 		return vfs::CFile::read(value,
 			faults_.reads == faults_.shortReadCall && size ? size - 1 : size);
+	}
+	using vfs::CFile::setReadPosition;
+	void setReadPosition(vfs::offset_t offset, vfs::IBaseFile::ESeekDir direction) override
+	{
+		// Model a bounded large ledger's real header/final row without creating
+		// a multi-gigabyte file. Readiness never scans its historical middle.
+		if (faults_.reportedSize && faults_.virtualTailBytes && direction == vfs::IBaseFile::SD_BEGIN &&
+			offset == static_cast<vfs::offset_t>(*faults_.reportedSize - faults_.virtualTailBytes))
+			offset = static_cast<vfs::offset_t>(vfs::CFile::getSize() - faults_.virtualTailBytes);
+		vfs::CFile::setReadPosition(offset, direction);
 	}
 	vfs::size_t write(const vfs::Byte* value, vfs::size_t size) override
 	{
@@ -187,7 +211,7 @@ class Fixture
 {
 public:
 	Fixture(std::optional<Bytes> finance = {}, std::optional<Bytes> history = {},
-		Faults* financeFault = nullptr, Faults* historyFault = nullptr)
+		Faults* financeFault = nullptr, Faults* historyFault = nullptr, bool writable = true)
 	{
 		static unsigned serial = 0;
 		root = std::filesystem::temp_directory_path() / ("ja2-ledger-" +
@@ -196,7 +220,7 @@ public:
 		std::filesystem::create_directories(root / "TEMP");
 		if (finance) write("finances.dat", *finance);
 		if (history) write("History.dat", *history);
-		auto profile = new vfs::CVirtualProfile(L"_LEDGER_TEST", vfs::Path(root.c_str()), true);
+		auto profile = new vfs::CVirtualProfile(L"_LEDGER_TEST", vfs::Path(root.c_str()), writable);
 		getVFS()->getProfileStack()->pushProfile(profile);
 		auto tree = new FixtureTree(root);
 		CHECK(tree->init());
@@ -270,6 +294,7 @@ void Inspection()
 		CHECK(held != 0);
 		output = sentinel;
 		CHECK(InspectFinanceLedger(output) == Error::Busy && Same(output, sentinel) && FileGetPos(held) == 0);
+		CHECK(PrepareFinanceLedgerAppend(2, output) == Error::Busy && Same(output, sentinel) && FileGetPos(held) == 0);
 		const auto rejected = AddTransactionToPlayersBookChecked(HIRED_MERC, 7, 123, -1);
 		CHECK(rejected.error == Error::Busy && !rejected.mutationMayHaveStarted);
 		FileClose(held);
@@ -298,6 +323,9 @@ void Inspection()
 			CHECK((history ? InspectHistoryLedger(output) : InspectFinanceLedger(output)) == expected &&
 				Same(output, sentinel));
 			state.reads = 0;
+			CHECK((history ? PrepareHistoryLedgerAppend(1, output) : PrepareFinanceLedgerAppend(2, output)) == expected &&
+				Same(output, sentinel) && state.writeOpens == 0 && state.writes == 0);
+			state.reads = 0;
 			const auto rejected = history
 				? AddHistoryToPlayersLogChecked(HISTORY_HIRED_MERC_FROM_AIM, 7, 124, 1, 1)
 				: AddTransactionToPlayersBookChecked(HIRED_MERC, 7, 124, -100);
@@ -325,6 +353,72 @@ void Inspection()
 			output.balance == 500 && financeFault.reads == 6 && financeFault.writeOpens == 0);
 		CHECK(InspectHistoryLedger(output) == Error::None && output.recordCount == 1024 &&
 			historyFault.reads == 7 && historyFault.writeOpens == 0);
+	}
+	CHECK(LaptopSaveInfo.iCurrentBalance == 777);
+}
+
+void AppendReadiness()
+{
+	LaptopSaveInfo.iCurrentBalance = 777;
+	const CampaignLedgerSnapshot sentinel{State::Present, 1234, -4321};
+	const std::uint64_t maximumBytes = std::min<std::uint64_t>(UINT32_MAX,
+		static_cast<std::uint64_t>(std::numeric_limits<vfs::offset_t>::max()));
+	{
+		Fixture fixture;
+		auto output = sentinel;
+		CHECK(PrepareFinanceLedgerAppend(2, output) == Error::None && output.state == State::Missing &&
+			output.recordCount == 0 && output.balance == 777);
+		CHECK(PrepareHistoryLedgerAppend(1, output) == Error::None && output.state == State::Missing);
+		output = sentinel;
+		CHECK(PrepareFinanceLedgerAppend(0, output) == Error::InvalidRecord && Same(output, sentinel));
+		CHECK(PrepareHistoryLedgerAppend(0, output) == Error::InvalidRecord && Same(output, sentinel));
+		const auto financeRows = static_cast<std::uint32_t>((maximumBytes - 4) / 14);
+		CHECK(PrepareFinanceLedgerAppend(financeRows, output) == Error::None);
+		output = sentinel;
+		CHECK(PrepareFinanceLedgerAppend(financeRows + 1, output) == Error::FileTooLarge && Same(output, sentinel));
+		CHECK(PrepareFinanceLedgerAppend(UINT32_MAX, output) == Error::FileTooLarge && Same(output, sentinel));
+		CHECK(PrepareHistoryLedgerAppend(UINT32_MAX, output) == Error::FileTooLarge && Same(output, sentinel));
+		CHECK(!getVFS()->fileExists(vfs::Path(FINANCES_DATA_FILE)) && !getVFS()->fileExists(vfs::Path(HISTORY_DATA_FILE)) &&
+			!std::filesystem::exists(fixture.root / "TEMP/finances.dat") && !std::filesystem::exists(fixture.root / "TEMP/History.dat"));
+	}
+	{
+		Faults finance, history; finance.openWrite = history.openWrite = true;
+		const auto financeBytes = FinanceBytes(500), historyBytes = HistoryBytes();
+		Fixture fixture(financeBytes, historyBytes, &finance, &history);
+		auto output = sentinel;
+		CHECK(PrepareFinanceLedgerAppend(2, output) == Error::None && output.balance == 500 && output.recordCount == 1);
+		CHECK(PrepareHistoryLedgerAppend(1, output) == Error::None && output.recordCount == 1);
+		CHECK(finance.writeOpens == 0 && history.writeOpens == 0 && finance.writes == 0 && history.writes == 0 &&
+			fixture.read("finances.dat") == financeBytes && fixture.read("History.dat") == historyBytes);
+		// Success reserves nothing: an actual later append still opens/checks
+		// its writer and reports that failure with its mutation boundary.
+		const auto appended = AddTransactionToPlayersBookChecked(HIRED_MERC, 7, 123, -1);
+		CHECK(appended.error == Error::WriteFailed && appended.mutationMayHaveStarted && finance.writeOpens == 1);
+	}
+	for (const bool history : {false, true})
+	{
+		const std::uint64_t headerBytes = history ? 0 : 4, recordBytes = history ? 12 : 14;
+		Faults nearLimit;
+		nearLimit.reportedSize = static_cast<vfs::size_t>(headerBytes +
+			((maximumBytes - headerBytes) / recordBytes - 1) * recordBytes);
+		nearLimit.virtualTailBytes = static_cast<vfs::size_t>(recordBytes);
+		Fixture fixture(history ? std::optional<Bytes>{} : FinanceBytes(500),
+			history ? std::optional<Bytes>{HistoryBytes()} : std::optional<Bytes>{},
+			history ? nullptr : &nearLimit, history ? &nearLimit : nullptr);
+		auto output = sentinel;
+		CHECK((history ? PrepareHistoryLedgerAppend(1, output) : PrepareFinanceLedgerAppend(1, output)) == Error::None &&
+			output.recordCount == (*nearLimit.reportedSize - headerBytes) / recordBytes);
+		output = sentinel; nearLimit.reads = 0;
+		CHECK((history ? PrepareHistoryLedgerAppend(2, output) : PrepareFinanceLedgerAppend(2, output)) == Error::FileTooLarge &&
+			Same(output, sentinel) && nearLimit.reads == 0 && nearLimit.writeOpens == 0 && nearLimit.writes == 0);
+	}
+	for (const bool existing : {false, true})
+	{
+		Fixture fixture(existing ? std::optional<Bytes>{FinanceBytes(500)} : std::optional<Bytes>{},
+			existing ? std::optional<Bytes>{HistoryBytes()} : std::optional<Bytes>{}, nullptr, nullptr, false);
+		auto output = sentinel;
+		CHECK(PrepareFinanceLedgerAppend(2, output) == Error::NotWritable && Same(output, sentinel));
+		CHECK(PrepareHistoryLedgerAppend(1, output) == Error::NotWritable && Same(output, sentinel));
 	}
 	CHECK(LaptopSaveInfo.iCurrentBalance == 777);
 }
@@ -455,6 +549,10 @@ void OverlayProvenance()
 		CHECK(tree->init());
 		profile->addLocation(tree);
 		CHECK(getVFS()->addLocation(tree, profile));
+		const CampaignLedgerSnapshot sentinel{State::Present, 1234, -4321};
+		auto output = sentinel;
+		CHECK((history ? PrepareHistoryLedgerAppend(1, output) : PrepareFinanceLedgerAppend(2, output)) == Error::NotWritable &&
+			Same(output, sentinel) && !std::filesystem::exists(fixture.root / "TEMP" / name));
 		const auto result = history
 			? AddHistoryToPlayersLogChecked(HISTORY_HIRED_MERC_FROM_AIM, 7, 124, 1, 1)
 			: AddTransactionToPlayersBookChecked(HIRED_MERC, 7, 124, -100);
@@ -524,6 +622,7 @@ int main()
 	CHECK(InitializeMemoryManager());
 	CHECK(InitializeFileManager(nullptr));
 	Inspection();
+	AppendReadiness();
 	SuccessAndNoPresentation();
 	OpinionEffects();
 	FailureBoundaries();

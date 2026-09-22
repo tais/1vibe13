@@ -41,6 +41,16 @@ struct CampaignLedgerResult
 CampaignLedgerError InspectFinanceLedger(CampaignLedgerSnapshot& output) noexcept;
 CampaignLedgerError InspectHistoryLedger(CampaignLedgerSnapshot& output) noexcept;
 
+// Read-only readiness for a positive number of appends. Checks the complete
+// requested byte capacity and the observed file's writable-profile provenance,
+// without creating files, opening a writer or publishing native effects.
+// Failures preserve output. Success reserves nothing: callers must serialize
+// campaign mutations, and each actual append retains all of its own checks.
+CampaignLedgerError PrepareFinanceLedgerAppend(std::uint32_t recordCount,
+	CampaignLedgerSnapshot& output) noexcept;
+CampaignLedgerError PrepareHistoryLedgerAppend(std::uint32_t recordCount,
+	CampaignLedgerSnapshot& output) noexcept;
+
 // These entry points never assert, issue immediate screen notifications, refresh
 // laptop lists or attempt an error-screen save. Native accounting can enqueue
 // gameplay-bearing opinion events; their later dialogue lifecycle is unchanged.

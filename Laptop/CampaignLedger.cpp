@@ -62,14 +62,24 @@ struct Observation
 };
 
 Error Inspect(const char* path, bool finance, Observation& output,
-	bool reserveAppend = false) noexcept
+	std::uint32_t appendRecords = 0) noexcept
 {
 	try
 	{
+		const bool reserveAppend = appendRecords != 0;
+		const std::uint64_t appendBytes = static_cast<std::uint64_t>(appendRecords) *
+			(finance ? Record::FinanceRecordBytes : Record::HistoryRecordBytes);
+		if (appendBytes > MaximumLedgerBytes) return Error::FileTooLarge;
 		Observation observed;
 		observed.snapshot.balance = finance ? LaptopSaveInfo.iCurrentBalance : 0;
 		observed.file = getVFS()->getFile(vfs::Path(path));
-		if (!observed.file) { output = observed; return Error::None; }
+		if (!observed.file)
+		{
+			if (reserveAppend && finance &&
+				appendBytes > MaximumLedgerBytes - Record::FinanceHeaderBytes)
+				return Error::FileTooLarge;
+			output = observed; return Error::None;
+		}
 		if (AlreadyOpen(observed.file)) return Error::Busy;
 		const auto reader = vfs::tReadableFile::cast(observed.file);
 		if (!reader) return Error::Unreadable;
@@ -79,8 +89,6 @@ Error Inspect(const char* path, bool finance, Observation& output,
 		observed.bytes = reader->getSize();
 		if (observed.bytes > MaximumLedgerBytes)
 			return Error::FileTooLarge;
-		const vfs::size_t appendBytes = finance
-			? Record::FinanceRecordBytes : Record::HistoryRecordBytes;
 		if (reserveAppend && observed.bytes >
 			MaximumLedgerBytes - appendBytes)
 			return Error::FileTooLarge;
@@ -125,34 +133,50 @@ Error Inspect(const char* path, bool finance, Observation& output,
 	catch (...) { return Error::Unreadable; }
 }
 
-vfs::tWritableFile* OpenWriter(const char* path, const Observation& observed,
-	CampaignLedgerResult& result, LedgerFile& owned)
+Error CheckWritableFile(const char* path, const Observation& observed,
+	vfs::IBaseFile*& file)
 {
 	const vfs::Path logical(path);
 	if (!getVFS()->getProfileStack()->getWriteProfile())
-	{
-		result.error = Error::NotWritable;
-		return nullptr;
-	}
-	auto file = getVFS()->getFile(logical,
+		return Error::NotWritable;
+	file = getVFS()->getFile(logical,
 		vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
 	// Do not read a lower, read-only ledger then create a private file that
 	// silently discards its records. The observed ledger must own the writer.
 	if (file != observed.file)
-	{
-		result.error = Error::NotWritable;
-		return nullptr;
-	}
+		return Error::NotWritable;
 	if (file && AlreadyOpen(file))
-	{
-		result.error = Error::Busy;
-		return nullptr;
-	}
+		return Error::Busy;
 	if (file && !vfs::tWritableFile::cast(file))
+		return Error::NotWritable;
+	return Error::None;
+}
+
+Error PrepareAppend(const char* path, bool finance, std::uint32_t records,
+	CampaignLedgerSnapshot& output) noexcept
+{
+	if (!records) return Error::InvalidRecord;
+	Observation observed;
+	const Error inspected = Inspect(path, finance, observed, records);
+	if (inspected != Error::None) return inspected;
+	try
 	{
-		result.error = Error::NotWritable;
-		return nullptr;
+		vfs::IBaseFile* file = nullptr;
+		const Error writable = CheckWritableFile(path, observed, file);
+		if (writable != Error::None) return writable;
+		output = observed.snapshot;
+		return Error::None;
 	}
+	catch (...) { return Error::NotWritable; }
+}
+
+vfs::tWritableFile* OpenWriter(const char* path, const Observation& observed,
+	CampaignLedgerResult& result, LedgerFile& owned)
+{
+	vfs::IBaseFile* file = nullptr;
+	const Error writable = CheckWritableFile(path, observed, file);
+	if (writable != Error::None) { result.error = writable; return nullptr; }
+	const vfs::Path logical(path);
 	result.mutationMayHaveStarted = true;
 	if (!file)
 	{
@@ -179,7 +203,7 @@ CampaignLedgerResult AppendHistory(std::uint8_t code, std::uint8_t secondCode,
 		return result;
 	}
 	Observation observed;
-	result.error = Inspect(HISTORY_DATA_FILE, false, observed, true);
+	result.error = Inspect(HISTORY_DATA_FILE, false, observed, 1);
 	if (!result.succeeded()) return result;
 	try
 	{
@@ -243,13 +267,25 @@ CampaignLedgerError InspectHistoryLedger(CampaignLedgerSnapshot& output) noexcep
 	return error;
 }
 
+CampaignLedgerError PrepareFinanceLedgerAppend(std::uint32_t recordCount,
+	CampaignLedgerSnapshot& output) noexcept
+{
+	return PrepareAppend(FINANCES_DATA_FILE, true, recordCount, output);
+}
+
+CampaignLedgerError PrepareHistoryLedgerAppend(std::uint32_t recordCount,
+	CampaignLedgerSnapshot& output) noexcept
+{
+	return PrepareAppend(HISTORY_DATA_FILE, false, recordCount, output);
+}
+
 static CampaignLedgerResult AddFinanceTransaction(std::uint8_t code,
 	std::uint8_t secondCode, std::uint32_t date, std::int32_t amount,
 	bool showChangeNotification) noexcept
 {
 	CampaignLedgerResult result;
 	Observation observed;
-	result.error = Inspect(FINANCES_DATA_FILE, true, observed, true);
+	result.error = Inspect(FINANCES_DATA_FILE, true, observed, 1);
 	if (!result.succeeded()) return result;
 	if (!LaptopRecordPageModel::CanApplyBalanceChange(observed.snapshot.balance, amount))
 	{
