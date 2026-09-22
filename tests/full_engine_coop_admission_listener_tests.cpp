@@ -383,7 +383,7 @@ void TestServerHelloCodec()
 		"complete server hello encodes");
 	const CoopServerHelloBytes expected{{
 		0x4a, 0x32, 0x43, 0x48, 0x01, 0x00, 0x01, 0x00,
-		0x07, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x0d, 0x0c, 0x0b, 0x0a,
 		0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
@@ -422,6 +422,7 @@ void TestAdmissionOnlyListener()
 	FullEngineCoopAdmissionListener listener(ingress);
 	const AuthorityConfiguration authority =
 		Authority(0x5566778899aabbccull);
+	CHECK(!listener.hasConnections(), "new listener has no checkpoint-blocking connections");
 	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration =
 		ListenerConfiguration(authority);
 	listenerConfiguration.endpoint = SdlNetEndpoint(1, "127.0.0.1");
@@ -484,6 +485,7 @@ void TestAdmissionOnlyListener()
 	CHECK(listener.running() && ingress.admissionActive() &&
 		!ingress.tacticalActive(),
 		"listener stays admission-only after bind");
+	CHECK(!listener.hasConnections(), "bound idle listener permits optional checkpoint consideration");
 
 	LiveClient client;
 	CHECK(StartClient(client, listenerConfiguration.endpoint.port),
@@ -499,6 +501,8 @@ void TestAdmissionOnlyListener()
 		return client.events.connected && client.hello.count == 1 &&
 			client.campaignBootstrap.count == 1;
 	}), "accepted client receives one ordered server handshake prelude");
+	CHECK(listener.hasConnections() && listener.authenticatedPeerCount() == 0,
+		"pre-admission transport blocks optional checkpoint teardown before authentication");
 	CHECK(client.hello.bytes.size() == CoopServerHelloWireSize,
 		"live listener sends the exact fixed-width hello");
 	CoopServerHello liveHello;
@@ -566,6 +570,8 @@ void TestAdmissionOnlyListener()
 	CHECK(SendAck(client, firstCredential),
 		"client explicitly ACKs its issued credential");
 	(void)PumpManyUntil(listener, {&client}, [] { return false; }, 30);
+	CHECK(listener.hasConnections() && listener.authenticatedPeerCount() == 1,
+		"ACK-confirmed client remains a checkpoint-blocking connection");
 
 	std::array<std::uint8_t, TacticalIntentHeaderWireSize> fakeTactical{};
 	for (std::size_t index = 0; index < fakeTactical.size(); ++index)
@@ -592,6 +598,7 @@ void TestAdmissionOnlyListener()
 	CHECK(!listener.running() && ingress.boundPeerCount() == 0 &&
 		ingress.admittedPeerCount() == 1,
 		"listener stop clears bindings while retaining ACKed credentials");
+	CHECK(!listener.hasConnections(), "stopped listener clears every checkpoint-blocking connection");
 	const std::vector<std::uint8_t> firstBootstrapBytes =
 		client.campaignBootstrap.bytes;
 	DestroyClient(client);

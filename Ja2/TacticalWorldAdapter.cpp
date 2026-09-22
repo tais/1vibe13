@@ -204,6 +204,12 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 			}
 		}
 
+		TacticalSectorSnapshot projectedSector{
+			state.sector.x, state.sector.y, state.sector.z, state.loaded};
+		if (!AssignTacticalMapAssetKey(projectedSector.mapAssetKey,
+			gzLastLoadedFile, sizeof(gzLastLoadedFile)))
+			return TacticalWorldCaptureResult::AdapterFailure;
+
 		TacticalTurnSnapshot projectedTurn;
 		projectedTurn.turnBased = state.turn.turnBased;
 		projectedTurn.inCombat = state.turn.inCombat;
@@ -221,8 +227,7 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				TacticalWorldDimensions{
 					static_cast<std::uint16_t>(guiWorldCols),
 					static_cast<std::uint16_t>(guiWorldRows)},
-				TacticalSectorSnapshot{
-					state.sector.x, state.sector.y, state.sector.z, state.loaded},
+				projectedSector,
 				projectedTurn,
 				actorScratch_, doorScratch_, output,
 				maximumActors_, maximumDoors_);

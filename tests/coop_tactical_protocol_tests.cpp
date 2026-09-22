@@ -22,11 +22,11 @@ static_assert(CoopTacticalBaselineAckWireSize == 88);
 static_assert(CoopTacticalDeltaHeaderWireSize == 72);
 static_assert(CoopTacticalDeltaAckWireSize == 80);
 static_assert(CoopTacticalResyncRequestWireSize == 88);
-static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 30773);
-static_assert(MaximumCoopTacticalBaselineWireSize == 32385);
+static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 31033);
+static_assert(MaximumCoopTacticalBaselineWireSize == 32645);
 static_assert(MaximumCoopTacticalDeltaEvents == 3074);
-static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 62034);
-static_assert(MaximumCoopTacticalDeltaWireSize == 62106);
+static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 62554);
+static_assert(MaximumCoopTacticalDeltaWireSize == 62626);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -86,7 +86,7 @@ TacticalWorldSnapshot Snapshot(const CoopTacticalStateIdentity& state)
 		TacticalDoorSnapshot{1235, 71, false}};
 	CHECK(TacticalWorldSnapshot::create(
 		state.worldGeneration, TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, state.turnSerial, true},
 		std::move(actors), std::move(doors), snapshot) ==
 			TacticalSnapshotCreateError::None,
@@ -159,7 +159,7 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::Success, "receipt encodes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'R', "receipt magic is exact");
-	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 7 &&
+	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 8 &&
 		bytes[7] == 0 && bytes[8] == 3 && bytes[9] == 0,
 		"receipt wire/protocol versions and terminal fields are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -623,7 +623,7 @@ void TestResyncRequestCodec()
 		CoopTacticalCodecResult::Success,
 		"canonical tactical resync request encodes");
 	const CoopTacticalResyncRequestBytes golden{{
-		0x4a, 0x32, 0x43, 0x54, 0x03, 0x00, 0x07, 0x00,
+		0x4a, 0x32, 0x43, 0x54, 0x03, 0x00, 0x08, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
@@ -881,7 +881,7 @@ void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
 	TacticalWorldSnapshot current;
 	CHECK(TacticalWorldSnapshot::create(state.worldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{1, 1, 0, true},
+		TacticalSectorSnapshot{1, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, 18},
 		std::move(previousActors), std::move(previousDoors), previous,
 		MaximumCoopTacticalSnapshotActors,
@@ -889,7 +889,7 @@ void TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()
 		"maximum previous disjoint-door snapshot is valid");
 	CHECK(TacticalWorldSnapshot::create(state.worldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{2, 1, 0, true},
+		TacticalSectorSnapshot{2, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 1, state.turnSerial},
 		std::move(currentActors), std::move(currentDoors), current,
 		MaximumCoopTacticalSnapshotActors,

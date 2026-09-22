@@ -8,7 +8,7 @@ namespace
 bool SameSector(const TacticalSectorSnapshot& left, const TacticalSectorSnapshot& right)
 {
 	return left.x == right.x && left.y == right.y && left.z == right.z &&
-		left.loaded == right.loaded;
+		left.loaded == right.loaded && left.mapAssetKey == right.mapAssetKey;
 }
 
 bool SameDimensions(const TacticalWorldDimensions& left,
@@ -263,6 +263,8 @@ TacticalWorldDiffResult DiffTacticalWorldSnapshots(
 	if (previous.epoch() == 0 || current.epoch() == 0)
 		return TacticalWorldDiffResult::InvalidSnapshot;
 	if (!previous.dimensions().valid() || !current.dimensions().valid() ||
+		!IsValidTacticalSectorSnapshot(previous.sector()) ||
+		!IsValidTacticalSectorSnapshot(current.sector()) ||
 		(previous.epoch() == current.epoch() &&
 			!SameDimensions(previous.dimensions(), current.dimensions())))
 		return TacticalWorldDiffResult::InvalidSnapshot;

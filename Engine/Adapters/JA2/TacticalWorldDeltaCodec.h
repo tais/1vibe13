@@ -7,10 +7,10 @@
 
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 
-// Version 6 adds compact interrupt state. It is a
+// Version 7 carries exact map asset keys in both sector-change values. It is a
 // standalone little-endian transport
 // contract: no JA2 savegame or command replay bytes are read or written here.
-inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 6;
+inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 7;
 inline constexpr std::size_t EncodedTacticalActorLoadoutChangedEventBytes =
 	1 + 6 + 2 * 5 * 12;
 static_assert(EncodedTacticalActorLoadoutChangedEventBytes == 127,

@@ -180,7 +180,7 @@ void TestRequestCodec()
 	CHECK(bytes.size() == 116, "request wire size is exactly 116 bytes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'A',
 		"request magic is byte exact");
-	CHECK(bytes[4] == 7 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 8 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"request version, kind, and reserved bytes are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[8 + index] == index + 1, "request epoch is little endian");
@@ -299,7 +299,7 @@ void TestResponseCodec()
 	CHECK(bytes.size() == 68, "response wire size is exactly 68 bytes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'A',
 		"response magic is byte exact");
-	CHECK(bytes[4] == 7 && bytes[5] == 0 && bytes[6] == 2 && bytes[7] == 0,
+	CHECK(bytes[4] == 8 && bytes[5] == 0 && bytes[6] == 2 && bytes[7] == 0,
 		"response version, kind, and reserved bytes are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[8 + index] == index + 1, "response epoch is little endian");
@@ -429,7 +429,7 @@ void TestAckCodec()
 		"canonical admission ACK encodes");
 	CHECK(bytes.size() == 64, "admission ACK wire size is exactly 64 bytes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
-		bytes[3] == 'A' && bytes[4] == 7 && bytes[5] == 0 &&
+		bytes[3] == 'A' && bytes[4] == 8 && bytes[5] == 0 &&
 		bytes[6] == 3 && bytes[7] == 0,
 		"admission ACK magic, version, kind and reserved bytes are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -495,7 +495,7 @@ void TestCredentialAbandonCodec()
 		"canonical credential abandonment encodes");
 	CHECK(bytes.size() == AdmissionCredentialAbandonWireSize &&
 		bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
-		bytes[3] == 'A' && bytes[4] == 7 && bytes[5] == 0 &&
+		bytes[3] == 'A' && bytes[4] == 8 && bytes[5] == 0 &&
 		bytes[6] == 4 && bytes[7] == 0,
 		"credential abandonment has exact fixed width, magic, and kind");
 	AdmissionCredentialAbandon decoded;
@@ -542,7 +542,7 @@ void TestSelfRetirementCodecs()
 		"self-retirement request encodes");
 	CHECK(requestBytes.size() == 24 && requestBytes[0] == 'J' &&
 		requestBytes[1] == '2' && requestBytes[2] == 'C' &&
-		requestBytes[3] == 'A' && requestBytes[4] == 7 &&
+		requestBytes[3] == 'A' && requestBytes[4] == 8 &&
 		requestBytes[5] == 0 && requestBytes[6] == 5 &&
 		requestBytes[7] == 0,
 		"self-retirement request has exact fixed header and no victim field");
@@ -599,7 +599,7 @@ void TestSelfRetirementCodecs()
 		"self-retirement result encodes");
 	CHECK(resultBytes.size() == 48 && resultBytes[0] == 'J' &&
 		resultBytes[1] == '2' && resultBytes[2] == 'C' &&
-		resultBytes[3] == 'A' && resultBytes[4] == 7 &&
+		resultBytes[3] == 'A' && resultBytes[4] == 8 &&
 		resultBytes[5] == 0 && resultBytes[6] == 6 &&
 		resultBytes[7] == 0,
 		"self-retirement result has exact fixed header");
