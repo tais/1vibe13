@@ -520,23 +520,10 @@ struct DedicatedCoopRuntime::Impl
 			const CoopSession::FullEngineCoopCampaignSyncServerResult handled =
 				tactical->campaignSync->handleInbound(message.peerIdentity,
 					message.transport, kind, message.bytes.data(), message.size);
-			switch (handled)
+			if (CoopSession::IsFatalCoopCampaignSyncInboundResult(handled))
 			{
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::Success:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::InvalidPeer:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::StaleTransport:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::ClaimedIdentityMismatch:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::StaleTransfer:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::UnexpectedFrame:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::SequenceMismatch:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::IntegrityMismatch:
-				case CoopSession::FullEngineCoopCampaignSyncServerResult::ClientRejected:
-					// Untrusted stale, mismatched, or rejected input advances no server
-					// authority. The peer stays unready, which is the fail-closed result.
-					break;
-				default:
-					fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
-					return false;
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
 			}
 		}
 
