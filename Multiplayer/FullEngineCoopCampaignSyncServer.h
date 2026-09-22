@@ -127,6 +127,13 @@ enum class FullEngineCoopCampaignSyncServerResult : std::uint8_t
 	TerminalFailure
 };
 
+// Classify only results from handleInbound(): invalid peer input is rejected
+// without ending other peers' campaign sessions. Source, lifecycle, and internal
+// failures remain fatal, including unknown results. This is not the outbound
+// backpressure policy.
+bool IsFatalCoopCampaignSyncInboundResult(
+	FullEngineCoopCampaignSyncServerResult result) noexcept;
+
 enum class FullEngineCoopCampaignSyncPeerPhase : std::uint8_t
 {
 	Vacant,
