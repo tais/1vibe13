@@ -147,7 +147,7 @@ public:
 				TacticalWorldSnapshot::createReusableOrdered(
 					epoch_,
 					TacticalWorldDimensions{160, 160},
-					TacticalSectorSnapshot{1, 1, 0, true},
+					TacticalSectorSnapshot{1, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 					TacticalTurnSnapshot{true, true, 0, frame_},
 					actorScratch_, doorScratch_, output,
 					maximumActors_, maximumDoors_);

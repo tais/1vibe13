@@ -1,6 +1,8 @@
 #include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 #include <cstdio>
 #include <utility>
 #include <vector>
@@ -81,6 +83,7 @@ TacticalWorldSnapshot MakeSnapshot(std::uint64_t epoch)
 	sector.y = -2;
 	sector.z = -1;
 	sector.loaded = true;
+	sector.mapAssetKey = TacticalMapAssetKey{{"A9.dat"}};
 	TacticalTurnSnapshot turn;
 	turn.turnBased = true;
 	turn.inCombat = true;
@@ -132,6 +135,7 @@ bool SameSnapshot(
 		left.sector().y != right.sector().y ||
 		left.sector().z != right.sector().z ||
 		left.sector().loaded != right.sector().loaded ||
+		left.sector().mapAssetKey != right.sector().mapAssetKey ||
 		left.turn().turnBased != right.turn().turnBased ||
 		left.turn().inCombat != right.turn().inCombat ||
 		left.turn().activeTeam != right.turn().activeTeam ||
@@ -153,10 +157,84 @@ bool SameSnapshot(
 			return false;
 	return true;
 }
+void TestCanonicalMapIdentity()
+{
+	static_assert(TacticalMapAssetKeyStorageBytes == 260,
+		"map identity has a fixed native buffer bound");
+	TacticalMapAssetKey key;
+	Check(AssignTacticalMapAssetKey(key, "A9_a_B1.DAT"),
+		"canonical alternate and underground map basenames are retained exactly");
+	const TacticalMapAssetKey retained = key;
+	for (const char* invalid : {"", "a.txt", ".dat", "../A9.dat",
+		"Maps/A9.dat", "Maps\\A9.dat", "C:A9.dat", "A 9.dat", "A9.dat\n"})
+	{
+		Check(!AssignTacticalMapAssetKey(key, invalid,
+			std::char_traits<char>::length(invalid) + 1) && key == retained,
+			"noncanonical basenames fail transactionally");
+	}
+	Check(!AssignTacticalMapAssetKey(key, nullptr, 1) &&
+		!AssignTacticalMapAssetKey(key, "A9.dat", 6) && key == retained,
+		"null and unterminated bounded source buffers fail transactionally");
+	std::string maximum(255, 'a');
+	maximum += ".dat";
+	Check(AssignTacticalMapAssetKey(key, maximum.c_str(), maximum.size() + 1),
+		"the maximum 259-byte basename is accepted");
+	maximum.insert(maximum.begin(), 'a');
+	Check(!AssignTacticalMapAssetKey(key, maximum.c_str(), maximum.size() + 1),
+		"a basename beyond the native buffer bound is rejected");
+	key = retained;
+	key.bytes.back() = 'x';
+	Check(!IsValidTacticalMapAssetKey(key),
+		"nonzero data after the NUL terminator is rejected");
+	key = retained;
+	key.bytes[0] = static_cast<char>(0x80);
+	Check(!IsValidTacticalMapAssetKey(key), "non-ASCII asset names are rejected");
+
+	TacticalSectorSnapshot missing{9, 1, 0, true};
+	TacticalWorldSnapshot local;
+	Check(TacticalWorldSnapshot::create(1, {160, 160}, missing, {}, {}, local) ==
+		TacticalSnapshotCreateError::None,
+		"local compatibility snapshots may omit map identity before publication");
+	std::vector<std::uint8_t> bytes{0xaa};
+	Check(EncodeTacticalWorldSnapshot(local, bytes) ==
+		TacticalWorldSnapshotEncodeResult::Invalid && bytes == std::vector<std::uint8_t>{0xaa},
+		"a loaded sector cannot publish an absent map identity");
+	missing.loaded = false;
+	missing.mapAssetKey = retained;
+	Check(TacticalWorldSnapshot::create(2, {160, 160}, missing, {}, {}, local) ==
+		TacticalSnapshotCreateError::InvalidSector && local.epoch() == 1,
+		"unloaded sectors cannot retain a map key and failed creation is transactional");
+
+	const TacticalWorldSnapshot original = MakeSnapshot(77);
+	Check(EncodeTacticalWorldSnapshot(original, bytes) ==
+		TacticalWorldSnapshotEncodeResult::Success, "map rejection fixture encodes");
+	for (int mutation = 0; mutation < 5; ++mutation)
+	{
+		auto malformed = bytes;
+		if (mutation == 0) malformed[24] = '/';
+		if (mutation == 1) malformed[24 + 259] = 'x';
+		if (mutation == 2) std::fill(malformed.begin() + 24,
+			malformed.begin() + 284, 0);
+		if (mutation == 3) malformed[23] = 0;
+		if (mutation == 4) std::fill(malformed.begin() + 24,
+			malformed.begin() + 284, 'x');
+		TacticalWorldSnapshot output = original;
+		Check(DecodeTacticalWorldSnapshot(malformed, output) ==
+			TacticalWorldSnapshotDecodeResult::Invalid && SameSnapshot(output, original),
+			"wire map names reject paths, padding, missing keys, unloaded keys and missing termination transactionally");
+	}
+	auto oldVersion = bytes;
+	oldVersion[4] = 7;
+	TacticalWorldSnapshot output = original;
+	Check(DecodeTacticalWorldSnapshot(oldVersion, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion && SameSnapshot(output, original),
+		"snapshot version 7 cannot silently omit exact map identity");
+}
 }
 
 int main()
 {
+	TestCanonicalMapIdentity();
 	const TacticalHandItemSnapshot emptyHand;
 	const TacticalHandItemSnapshot weaponHand{
 		1, 2, -3, 4, 0, -5, true, true};
@@ -173,7 +251,7 @@ int main()
 			emptyHand, emptyHand, emptyHand, weaponHand, emptyHand}.valid(),
 		"hand-item and actor-loadout values enforce their canonical form");
 
-	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 53,
+	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 313,
 		"snapshot header size is a wire contract");
 	static_assert(EncodedTacticalHandItemSnapshotBytes == 12,
 		"hand-item size is a wire contract");
@@ -181,7 +259,7 @@ int main()
 		"actor size is a wire contract");
 	static_assert(EncodedTacticalDoorSnapshotBytes == 7,
 		"door size is a wire contract");
-	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 384053,
+	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 384313,
 		"maximum encoded baseline size is bounded");
 
 	const TacticalWorldSnapshot original =
@@ -190,8 +268,8 @@ int main()
 	Check(EncodeTacticalWorldSnapshot(original, encoded) ==
 		TacticalWorldSnapshotEncodeResult::Success,
 		"valid baseline encodes");
-	const std::vector<std::uint8_t> golden{
-		0x54, 0x57, 0x53, 0x31, 0x07, 0x00,
+	std::vector<std::uint8_t> golden{
+		0x54, 0x57, 0x53, 0x31, 0x08, 0x00,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x40, 0x01, 0xf0, 0x00,
 		0x09, 0x00, 0xfe, 0xff, 0xff, 0x01,
@@ -221,7 +299,12 @@ int main()
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x2c, 0x01, 0x00, 0x00, 0x74, 0x73, 0x00,
 		0x90, 0x01, 0x00, 0x00, 0x82, 0x81, 0x01};
-	Check(encoded == golden, "version 7 baseline bytes match the golden fixture");
+	// The fixed 260-byte, zero-padded basename follows the sector boolean.
+	golden.insert(golden.begin() + 24, 260, 0);
+	const char expectedKey[] = "A9.dat";
+	for (std::size_t index = 0; index < sizeof(expectedKey); ++index)
+		golden[24 + index] = static_cast<std::uint8_t>(expectedKey[index]);
+	Check(encoded == golden, "version 8 baseline bytes match the golden fixture");
 	Check(encoded.size() == EncodedTacticalWorldSnapshotHeaderBytes +
 		2 * EncodedTacticalActorSnapshotBytes +
 		2 * EncodedTacticalDoorSnapshotBytes,
@@ -288,63 +371,63 @@ int main()
 	changed[23] = 2;
 	RejectsInvalid(changed, "noncanonical sector boolean is rejected");
 	changed = encoded;
-	changed[24] = 2;
+	changed[284] = 2;
 	RejectsInvalid(changed, "noncanonical turn boolean is rejected");
 	changed = encoded;
-	changed[35] = 3;
+	changed[295] = 3;
 	RejectsInvalid(changed, "unknown interrupt phase is rejected");
 	changed = encoded;
-	for (std::size_t index = 36; index < 44; ++index) changed[index] = 0;
+	for (std::size_t index = 296; index < 304; ++index) changed[index] = 0;
 	RejectsInvalid(changed, "active interrupt requires a nonzero serial");
 	changed = encoded;
-	changed[35] = 0;
+	changed[295] = 0;
 	RejectsInvalid(changed,
 		"actor interrupt eligibility requires an active interrupt phase");
 	changed = encoded;
-	changed[44] = 2;
+	changed[304] = 2;
 	RejectsInvalid(changed,
 		"noncanonical commands-blocked boolean is rejected");
 	changed = encoded;
-	changed[55] = changed[56] = changed[57] = changed[58] = 0;
+	changed[315] = changed[316] = changed[317] = changed[318] = 0;
 	RejectsInvalid(changed, "invalid actor incarnation is rejected");
 	changed = encoded;
-	changed[70] = 4;
+	changed[330] = 4;
 	RejectsInvalid(changed, "unknown stance is rejected");
 	changed = encoded;
-	changed[145] = changed[53];
-	changed[146] = changed[54];
-	changed[147] = changed[55];
-	changed[148] = changed[56];
-	changed[149] = changed[57];
-	changed[150] = changed[58];
+	changed[405] = changed[313];
+	changed[406] = changed[314];
+	changed[407] = changed[315];
+	changed[408] = changed[316];
+	changed[409] = changed[317];
+	changed[410] = changed[318];
 	RejectsInvalid(changed, "duplicate actor identity is rejected");
 	changed = encoded;
-	changed[83] = 2;
+	changed[343] = 2;
 	RejectsInvalid(changed, "noncanonical hostility bit is rejected");
 	changed = encoded;
-	changed[95] = 0x04;
+	changed[355] = 0x04;
 	RejectsInvalid(changed, "unknown equipment flags are rejected");
 	changed = encoded;
-	changed[132] = 0;
+	changed[392] = 0;
 	RejectsInvalid(changed,
 		"ammunition fields require canonical ammunition state");
 	changed = encoded;
-	changed[123] = 0;
+	changed[383] = 0;
 	RejectsInvalid(changed, "occupied hand items require a quantity");
 	changed = encoded;
-	changed[227] = 1;
+	changed[487] = 1;
 	RejectsInvalid(changed, "empty hand items require all-zero state");
 	changed = encoded;
-	changed[241] = changed[242] = 0;
+	changed[501] = changed[502] = 0;
 	RejectsInvalid(changed, "zero door structure identity is rejected");
 	changed = encoded;
-	changed[244] = changed[237];
-	changed[245] = changed[238];
-	changed[246] = changed[239];
-	changed[247] = changed[240];
+	changed[504] = changed[497];
+	changed[505] = changed[498];
+	changed[506] = changed[499];
+	changed[507] = changed[500];
 	RejectsInvalid(changed, "duplicate door base grid is rejected");
 	changed = encoded;
-	changed[243] = 2;
+	changed[503] = 2;
 	RejectsInvalid(changed, "noncanonical door open bit is rejected");
 	changed = encoded;
 	changed.push_back(0);
@@ -385,7 +468,7 @@ int main()
 		"version-5 rejection preserves previous snapshot");
 
 	changed = encoded;
-	changed[4] = 8;
+	changed[4] = 9;
 	output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(changed, output) ==
 		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
@@ -407,6 +490,20 @@ int main()
 		"caller door ceiling is enforced on decode");
 	Check(SameSnapshot(output, retainedSnapshot),
 		"door decode ceiling rejection preserves previous snapshot");
+
+	for (const bool doors : {false, true})
+	{
+		changed = encoded;
+		const std::size_t countOffset = doors ? 309 : 305;
+		std::fill(changed.begin() + countOffset,
+			changed.begin() + countOffset + 4, 0xff);
+		output = retainedSnapshot;
+		Check(DecodeTacticalWorldSnapshot(changed, output) ==
+			(doors ? TacticalWorldSnapshotDecodeResult::TooManyDoors :
+			 TacticalWorldSnapshotDecodeResult::TooManyActors) &&
+			SameSnapshot(output, retainedSnapshot),
+			"UINT32_MAX counts after the widened sector reject before allocation and preserve state");
+	}
 
 	std::vector<TacticalActorSnapshot> maximumActors;
 	maximumActors.reserve(TacticalWorldSnapshot::DefaultMaximumActors);

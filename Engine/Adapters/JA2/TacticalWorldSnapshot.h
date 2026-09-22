@@ -2,6 +2,7 @@
 #define ENGINE_ADAPTERS_JA2_TACTICAL_WORLD_SNAPSHOT_H
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -18,13 +19,115 @@ enum class TacticalStance : std::uint8_t
 	Prone
 };
 
+// Exact basename passed to JA2's successful LoadWorld call. The fixed storage
+// matches gzLastLoadedFile and keeps snapshots/deltas allocation-free. The
+// value is an ASCII, NUL-terminated .dat basename: directory separators,
+// drive prefixes, controls, and non-canonical padding are rejected so a
+// passive client can never turn authority data into an arbitrary asset path.
+inline constexpr std::size_t TacticalMapAssetKeyStorageBytes = 260;
+inline constexpr std::size_t MaximumTacticalMapAssetKeyBytes =
+	TacticalMapAssetKeyStorageBytes - 1;
+
+struct TacticalMapAssetKey
+{
+	std::array<char, TacticalMapAssetKeyStorageBytes> bytes{};
+
+	bool empty() const noexcept
+	{
+		for (const char byte : bytes)
+			if (byte != '\0') return false;
+		return true;
+	}
+	const char* c_str() const noexcept { return bytes.data(); }
+
+	bool operator==(const TacticalMapAssetKey& other) const noexcept
+	{
+		return bytes == other.bytes;
+	}
+
+	bool operator!=(const TacticalMapAssetKey& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
+inline bool IsValidTacticalMapAssetKey(
+	const TacticalMapAssetKey& key) noexcept
+{
+	std::size_t length = 0;
+	while (length < key.bytes.size() && key.bytes[length] != '\0')
+	{
+		const unsigned char byte =
+			static_cast<unsigned char>(key.bytes[length]);
+		const bool alphaNumeric =
+			(byte >= 'A' && byte <= 'Z') ||
+			(byte >= 'a' && byte <= 'z') ||
+			(byte >= '0' && byte <= '9');
+		if (!alphaNumeric && byte != '_' && byte != '-' && byte != '.')
+			return false;
+		++length;
+	}
+	if (length == 0 || length > MaximumTacticalMapAssetKeyBytes ||
+		length == key.bytes.size())
+		return false;
+	for (std::size_t index = length; index < key.bytes.size(); ++index)
+		if (key.bytes[index] != '\0') return false;
+	if (length < 5) return false;
+	auto lowerAscii = [](char value) noexcept {
+		return value >= 'A' && value <= 'Z'
+			? static_cast<char>(value - 'A' + 'a')
+			: value;
+	};
+	return key.bytes[length - 4] == '.' &&
+		lowerAscii(key.bytes[length - 3]) == 'd' &&
+		lowerAscii(key.bytes[length - 2]) == 'a' &&
+		lowerAscii(key.bytes[length - 1]) == 't';
+}
+
+// Transactional bounded conversion for legacy fixed buffers and literals.
+// Failure leaves output untouched.
+inline bool AssignTacticalMapAssetKey(TacticalMapAssetKey& output,
+	const char* source, std::size_t availableBytes) noexcept
+{
+	if (source == nullptr || availableBytes == 0) return false;
+	TacticalMapAssetKey candidate;
+	std::size_t length = 0;
+	while (length < availableBytes &&
+		length < TacticalMapAssetKeyStorageBytes && source[length] != '\0')
+		++length;
+	if (length == availableBytes ||
+		length == TacticalMapAssetKeyStorageBytes)
+		return false;
+	for (std::size_t index = 0; index < length; ++index)
+		candidate.bytes[index] = source[index];
+	if (!IsValidTacticalMapAssetKey(candidate)) return false;
+	output = candidate;
+	return true;
+}
+
+template <std::size_t Size>
+inline bool AssignTacticalMapAssetKey(TacticalMapAssetKey& output,
+	const char (&source)[Size]) noexcept
+{
+	return AssignTacticalMapAssetKey(output, source, Size);
+}
+
 struct TacticalSectorSnapshot
 {
 	std::int16_t x = 0;
 	std::int16_t y = 0;
 	std::int8_t z = -1;
 	bool loaded = false;
+	TacticalMapAssetKey mapAssetKey;
 };
+
+inline bool IsValidTacticalSectorSnapshot(const TacticalSectorSnapshot& sector,
+	bool allowLoadedWithoutMapAssetKey = false) noexcept
+{
+	if (!sector.loaded) return sector.mapAssetKey.empty();
+	return IsValidTacticalMapAssetKey(sector.mapAssetKey) ||
+		(allowLoadedWithoutMapAssetKey && sector.mapAssetKey.empty());
+}
 
 enum class TacticalInterruptPhase : std::uint8_t
 {
@@ -211,6 +314,7 @@ enum class TacticalSnapshotCreateError
 	None,
 	InvalidEpoch,
 	InvalidDimensions,
+	InvalidSector,
 	InvalidTurn,
 	TooManyActors,
 	InvalidEntity,
@@ -245,6 +349,8 @@ public:
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
 			return TacticalSnapshotCreateError::InvalidDimensions;
+		if (!IsValidTacticalSectorSnapshot(sector, true))
+			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
 		if (actors.size() > maximumActors) return TacticalSnapshotCreateError::TooManyActors;
@@ -315,6 +421,8 @@ public:
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
 			return TacticalSnapshotCreateError::InvalidDimensions;
+		if (!IsValidTacticalSectorSnapshot(sector, true))
+			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
 		if (actorScratch.size() > maximumActors)
@@ -396,6 +504,8 @@ public:
 		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
 		if (!dimensions.valid())
 			return TacticalSnapshotCreateError::InvalidDimensions;
+		if (!IsValidTacticalSectorSnapshot(sector, true))
+			return TacticalSnapshotCreateError::InvalidSector;
 		if (!IsValidTacticalInterruptState(turn))
 			return TacticalSnapshotCreateError::InvalidTurn;
 		if (actorScratch.size() > maximumActors)

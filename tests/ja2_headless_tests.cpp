@@ -14476,6 +14476,11 @@ int main( int argc, char** argv )
 			GetJa2TacticalEntityId( 0 );
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
+		std::array<CHAR8, sizeof(gzLastLoadedFile)> previousLoadedMapFile{};
+		std::copy(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile),
+			previousLoadedMapFile.begin());
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "A9.DAT");
 		const bool projectionWorldAllocatedHere =
 			GetWorldTileMapSize() == 0 &&
 			AllocateWorldTileMap(
@@ -15488,6 +15493,7 @@ int main( int argc, char** argv )
 		CHECK( projectionWorldReady &&
 		       liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
+		       std::strcmp(liveWorld.sector().mapAssetKey.c_str(), "A9.DAT") == 0 &&
 		       liveWorld.turn().serial == 2 && liveWorld.turn().turnBased &&
 		       liveWorld.turn().inCombat && liveWorld.turn().activeTeam == 1 &&
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
@@ -15501,6 +15507,25 @@ int main( int argc, char** argv )
 		       liveWorld.actors().capacity() == liveActorCapacity &&
 		       liveActorCapacity >= TOTAL_SOLDIERS,
 		       "live tactical capture reuses bounded actor storage without shrinking" );
+
+		TacticalWorldSnapshot invalidMapIdentityOutput = liveWorld;
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), 'A');
+		const TacticalWorldCaptureResult unterminatedMapIdentityCapture =
+			tacticalWorld.service->capture(invalidMapIdentityOutput);
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "../A9.DAT");
+		const TacticalWorldCaptureResult unsafeMapIdentityCapture =
+			tacticalWorld.service->capture(invalidMapIdentityOutput);
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "A9.DAT");
+		CHECK( unterminatedMapIdentityCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       unsafeMapIdentityCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidMapIdentityOutput.epoch() == liveWorld.epoch() &&
+		       invalidMapIdentityOutput.sector().mapAssetKey ==
+		           liveWorld.sector().mapAssetKey,
+		       "live tactical capture requires a bounded path-safe exact loaded-map identity transactionally" );
 
 		const TacticalWorldSession::Snapshot commandGateStateBefore =
 			CaptureJa2TacticalWorld();
@@ -16193,6 +16218,8 @@ int main( int argc, char** argv )
 		if ( previousWorldEntity.valid() && restoredWorldActor )
 			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
 		RestoreJa2TacticalWorldSession( previousWorldSession );
+		std::copy(previousLoadedMapFile.begin(), previousLoadedMapFile.end(),
+			std::begin(gzLastLoadedFile));
 		if ( projectionWorldAllocatedHere )
 			ReleaseWorldTileMap();
 

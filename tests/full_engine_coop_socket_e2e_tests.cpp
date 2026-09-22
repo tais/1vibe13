@@ -115,7 +115,7 @@ TacticalWorldSnapshot TacticalSnapshot()
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E tactical baseline fixture is canonical");
@@ -258,7 +258,7 @@ TacticalWorldSnapshot TacticalResyncSnapshot(
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E resync baseline fixture is canonical");

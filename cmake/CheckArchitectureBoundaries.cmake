@@ -7092,50 +7092,50 @@ strip_cxx_comments_and_literals(dedicated_live_handle_doors_source
 strip_cxx_comments_and_literals(dedicated_live_world_object_model_test_source
   dedicated_live_world_object_model_test_code)
 
-# Global co-op protocol v7 rejects mixed builds at admission. The fixed hello
+# Global co-op protocol v8 rejects mixed builds at admission. The fixed hello
 # keeps its wire-v1 layout; the tactical envelope is v3, intent is v3, snapshot
-# is v7, delta is v6, and the command journal is v4. The compact interrupt
+# is v8, delta is v7, and the command journal is v4. The compact interrupt
 # projection therefore cannot be mistaken for any earlier peer.
-foreach(dedicated_live_global_protocol_v7_contract IN ITEMS
-    "CurrentProtocolVersion = 7"
+foreach(dedicated_live_global_protocol_v8_contract IN ITEMS
+    "CurrentProtocolVersion = 8"
     "protocolVersion = CurrentProtocolVersion")
   string(FIND "${dedicated_live_session_protocol_header_code}"
-    "${dedicated_live_global_protocol_v7_contract}"
-    dedicated_live_global_protocol_v7_contract_position)
-  if(dedicated_live_global_protocol_v7_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_v8_contract}"
+    dedicated_live_global_protocol_v8_contract_position)
+  if(dedicated_live_global_protocol_v8_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v7 contract lost '${dedicated_live_global_protocol_v7_contract}'")
+      "Global co-op protocol v8 contract lost '${dedicated_live_global_protocol_v8_contract}'")
   endif()
 endforeach()
-foreach(dedicated_live_global_protocol_v7_test_contract IN ITEMS
-    "requestBytes[4] == 7"
-    "resultBytes[4] == 7"
+foreach(dedicated_live_global_protocol_v8_test_contract IN ITEMS
+    "requestBytes[4] == 8"
+    "resultBytes[4] == 8"
     "DecodeResult::UnsupportedProtocol"
     "unsupported.protocolVersion++")
   string(FIND "${dedicated_live_session_protocol_test_code}"
-    "${dedicated_live_global_protocol_v7_test_contract}"
-    dedicated_live_global_protocol_v7_test_contract_position)
-  if(dedicated_live_global_protocol_v7_test_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_v8_test_contract}"
+    dedicated_live_global_protocol_v8_test_contract_position)
+  if(dedicated_live_global_protocol_v8_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v7 golden/rejection test lost '${dedicated_live_global_protocol_v7_test_contract}'")
+      "Global co-op protocol v8 golden/rejection test lost '${dedicated_live_global_protocol_v8_test_contract}'")
   endif()
 endforeach()
 require_ordered_fragments(dedicated_live_handshake_test_source
-  "Global protocol-v7 server-hello golden changed"
-  "0x07, 0x00, 0x00, 0x00"
+  "Global protocol-v8 server-hello golden changed"
+  "0x08, 0x00, 0x00, 0x00"
   "pinned 72-byte wire image")
 require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
-  "Global protocol-v7 campaign-bootstrap golden changed"
-  "0x07, 0x00, 0x00, 0x00"
-  "UINT32_C(0x20ab954f)"
+  "Global protocol-v8 campaign-bootstrap golden changed"
+  "0x08, 0x00, 0x00, 0x00"
+  "UINT32_C(0x540fd900)"
   "descriptor checksum pins FNV-1a over bytes 0 through 111")
 require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
-  "Global protocol-v7 campaign-sync golden changed"
-  "bytes[6] == 7"
+  "Global protocol-v8 campaign-sync golden changed"
+  "bytes[6] == 8"
   "campaign sync versions and kind are exact")
 require_ordered_fragments(dedicated_live_listener_test_source
-  "Global protocol-v7 admission-listener hello golden changed"
-  "0x07, 0x00, 0x00, 0x00"
+  "Global protocol-v8 admission-listener hello golden changed"
+  "0x08, 0x00, 0x00, 0x00"
   "pinned 72-byte little-endian wire image")
 
 # The current protocol retains an exact self-only voluntary leave wire. The request must
@@ -8020,7 +8020,7 @@ foreach(dedicated_live_token_test_contract IN ITEMS
   endif()
 endforeach()
 
-# Tactical snapshot v7 carries authoritative geometry, canonical hostility,
+# Tactical snapshot v8 carries authoritative geometry, canonical hostility,
 # a bounded five-slot combat-equipment loadout, the deliberately coarse
 # visible-door projection, a public busy bit, and compact interrupt
 # phase/serial/eligibility state. Preserve transactional decode/diff/replica
@@ -8042,19 +8042,22 @@ foreach(dedicated_live_snapshot_dimension_contract IN ITEMS
       "Tactical snapshot dimension contract lost '${dedicated_live_snapshot_dimension_contract}'")
   endif()
 endforeach()
-foreach(dedicated_live_snapshot_v7_contract IN ITEMS
-    "TacticalWorldSnapshotWireVersion = 7"
-    "EncodedTacticalWorldSnapshotHeaderBytes = 53"
+foreach(dedicated_live_snapshot_v8_contract IN ITEMS
+    "TacticalWorldSnapshotWireVersion = 8"
+    "EncodedTacticalSectorSnapshotBytes ="
+    "6 + TacticalMapAssetKeyStorageBytes"
+    "EncodedTacticalWorldSnapshotHeaderBytes ="
+    "53 + TacticalMapAssetKeyStorageBytes"
     "EncodedTacticalHandItemSnapshotBytes = 12"
     "EncodedTacticalActorSnapshotBytes = 92"
     "EncodedTacticalDoorSnapshotBytes = 7"
     "MaximumEncodedTacticalWorldSnapshotBytes =")
   string(FIND "${dedicated_live_snapshot_codec_header_code}"
-    "${dedicated_live_snapshot_v7_contract}"
-    dedicated_live_snapshot_v7_contract_position)
-  if(dedicated_live_snapshot_v7_contract_position EQUAL -1)
+    "${dedicated_live_snapshot_v8_contract}"
+    dedicated_live_snapshot_v8_contract_position)
+  if(dedicated_live_snapshot_v8_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical snapshot wire-v7 contract lost '${dedicated_live_snapshot_v7_contract}'")
+      "Tactical snapshot wire-v8 contract lost '${dedicated_live_snapshot_v8_contract}'")
   endif()
 endforeach()
 
@@ -8225,9 +8228,9 @@ string(REPLACE "maximumActors) noexcept"
 extract_brace_bounded_slice(dedicated_live_snapshot_codec_code
   "${dedicated_live_snapshot_encode_marker}"
   dedicated_live_snapshot_encode_slice
-  "Cannot bound tactical snapshot v7 encoder")
+  "Cannot bound tactical snapshot v8 encoder")
 require_ordered_fragments(dedicated_live_snapshot_encode_slice
-  "Tactical snapshot v7 encoding order changed"
+  "Tactical snapshot v8 encoding order changed"
   "maximumDoors = EffectiveDoorMaximum(maximumDoors)"
   "IsCanonical(snapshot)"
   "snapshot.doors().size() > maximumDoors"
@@ -8254,9 +8257,9 @@ string(REPLACE "maximumActors) noexcept"
 extract_brace_bounded_slice(dedicated_live_snapshot_codec_code
   "${dedicated_live_snapshot_decode_marker}"
   dedicated_live_snapshot_decode_slice
-  "Cannot bound tactical snapshot v7 decoder")
+  "Cannot bound tactical snapshot v8 decoder")
 require_ordered_fragments(dedicated_live_snapshot_decode_slice
-  "Tactical snapshot v7 decoding lost fail-closed transactional order"
+  "Tactical snapshot v8 decoding lost fail-closed transactional order"
   "maximumDoors = EffectiveDoorMaximum(maximumDoors)"
   "reader.readU16(version)"
   "version != TacticalWorldSnapshotWireVersion"
@@ -8498,16 +8501,16 @@ foreach(dedicated_live_snapshot_loadout_replica_contract IN ITEMS
   endif()
 endforeach()
 
-foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
-    "EncodedTacticalWorldSnapshotHeaderBytes == 53"
+foreach(dedicated_live_snapshot_v8_test_contract IN ITEMS
+    "EncodedTacticalWorldSnapshotHeaderBytes == 313"
     "EncodedTacticalHandItemSnapshotBytes == 12"
     "EncodedTacticalActorSnapshotBytes == 92"
     "EncodedTacticalDoorSnapshotBytes == 7"
-    "MaximumEncodedTacticalWorldSnapshotBytes == 384053"
+    "MaximumEncodedTacticalWorldSnapshotBytes == 384313"
     "MakeSnapshot(0x1112131415161718ull)"
-    "version 7 baseline bytes match the golden fixture"
+    "version 8 baseline bytes match the golden fixture"
     "noncanonical commands-blocked boolean is rejected"
-    "changed[44] = 2"
+    "changed[304] = 2"
     "unknown interrupt phase is rejected"
     "active interrupt requires a nonzero serial"
     "actor interrupt eligibility requires an active interrupt phase"
@@ -8528,11 +8531,11 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     "SameSnapshot(output, retainedSnapshot)"
     "a maximum-size baseline reaches the exact byte ceiling")
   string(FIND "${dedicated_live_snapshot_codec_test_source}"
-    "${dedicated_live_snapshot_v7_test_contract}"
-    dedicated_live_snapshot_v7_test_contract_position)
-  if(dedicated_live_snapshot_v7_test_contract_position EQUAL -1)
+    "${dedicated_live_snapshot_v8_test_contract}"
+    dedicated_live_snapshot_v8_test_contract_position)
+  if(dedicated_live_snapshot_v8_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical snapshot v7 golden/transaction test lost '${dedicated_live_snapshot_v7_test_contract}'")
+      "Tactical snapshot v8 golden/transaction test lost '${dedicated_live_snapshot_v8_test_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_snapshot_runtime_test_contract IN ITEMS
@@ -8554,7 +8557,7 @@ endforeach()
 # and bounded. The reusable SDK limits remain wider than the public co-op
 # envelope.
 foreach(dedicated_live_delta_v5_contract IN ITEMS
-    "TacticalWorldDeltaWireVersion = 6"
+    "TacticalWorldDeltaWireVersion = 7"
     "TacticalWorldSnapshot::DefaultMaximumActors * 4"
     "TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 2")
   string(FIND "${dedicated_live_delta_codec_header_code}"
@@ -8701,7 +8704,7 @@ foreach(dedicated_live_coop_door_bound_contract IN ITEMS
     "MaximumCoopTacticalSnapshotDoors * 2 + 2"
     "MaximumCoopTacticalPayloadWireSize = 64u * 1024u"
     "MaximumCoopTacticalBaselinePayloadWireSize ="
-    "MaximumCoopTacticalDeltaPayloadWireSize = 62034")
+    "MaximumCoopTacticalDeltaPayloadWireSize = 62554")
   string(FIND "${dedicated_live_tactical_protocol_header_code}"
     "${dedicated_live_coop_door_bound_contract}"
     dedicated_live_coop_door_bound_contract_position)
@@ -8711,11 +8714,11 @@ foreach(dedicated_live_coop_door_bound_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_coop_door_bound_test_contract IN ITEMS
-    "MaximumCoopTacticalBaselinePayloadWireSize == 30773"
-    "MaximumCoopTacticalBaselineWireSize == 32385"
+    "MaximumCoopTacticalBaselinePayloadWireSize == 31033"
+    "MaximumCoopTacticalBaselineWireSize == 32645"
     "MaximumCoopTacticalDeltaEvents == 3074"
-    "MaximumCoopTacticalDeltaPayloadWireSize == 62034"
-    "MaximumCoopTacticalDeltaWireSize == 62106"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 62554"
+    "MaximumCoopTacticalDeltaWireSize == 62626"
     "exact 256-actor/1024-door baseline reaches the payload ceiling"
     "TestDisjointDoorSetsReachTheExactCategoryAwareDeltaBound()"
     "category-aware maximum delta reaches exactly 61,504 bytes"
@@ -8729,7 +8732,7 @@ foreach(dedicated_live_coop_door_bound_test_contract IN ITEMS
   endif()
 endforeach()
 
-foreach(dedicated_live_delta_v6_test_contract IN ITEMS
+foreach(dedicated_live_delta_v7_test_contract IN ITEMS
     "MaximumTacticalWorldDeltaEvents == 18434"
     "decodedDelta.events.size() == 12"
     "TacticalActorLoadoutChangedEvent"
@@ -8744,17 +8747,17 @@ foreach(dedicated_live_delta_v6_test_contract IN ITEMS
     "rejectsInvalidEnteredLoadout"
     "rejectsNoOpLoadout"
     "busy-only change emits and round-trips one exact 43-byte turn event without advancing serial"
-    "tactical delta version 6 has a fixed little-endian golden representation"
+    "tactical delta version 7 has a fixed little-endian golden representation"
     "pre-loadout tactical delta version 3 is rejected"
     "two-hand tactical delta version 4 is rejected"
     "tactical delta codec rejects every truncated prefix"
     "trailing tactical delta bytes are rejected without replacing prior state")
   string(FIND "${dedicated_live_runtime_adapter_test_source}"
-    "${dedicated_live_delta_v6_test_contract}"
-    dedicated_live_delta_v6_test_contract_position)
-  if(dedicated_live_delta_v6_test_contract_position EQUAL -1)
+    "${dedicated_live_delta_v7_test_contract}"
+    dedicated_live_delta_v7_test_contract_position)
+  if(dedicated_live_delta_v7_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical delta-v6 interrupt/loadout/door regression lost '${dedicated_live_delta_v6_test_contract}'")
+      "Tactical delta-v7 map/interrupt/loadout/door regression lost '${dedicated_live_delta_v7_test_contract}'")
   endif()
 endforeach()
 
@@ -8772,10 +8775,10 @@ foreach(dedicated_live_busy_delta_test_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_busy_envelope_test_contract IN ITEMS
-    "MaximumCoopTacticalBaselinePayloadWireSize == 30773"
-    "MaximumCoopTacticalBaselineWireSize == 32385"
-    "MaximumCoopTacticalDeltaPayloadWireSize == 62034"
-    "MaximumCoopTacticalDeltaWireSize == 62106"
+    "MaximumCoopTacticalBaselinePayloadWireSize == 31033"
+    "MaximumCoopTacticalBaselineWireSize == 32645"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 62554"
+    "MaximumCoopTacticalDeltaWireSize == 62626"
     "decoded.snapshot.turn().commandsBlocked"
     "co-op envelope round-trips busy and interrupt turn metadata")
   string(FIND "${dedicated_live_tactical_protocol_test_source}"
@@ -11752,7 +11755,7 @@ foreach(dedicated_live_client_test_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_client_transport_test_contract IN ITEMS
-    "MaximumFullEngineCoopClientInboundWireSize == 62106"
+    "MaximumFullEngineCoopClientInboundWireSize == 62626"
     "MaximumFullEngineCoopClientInboundWireSize =="
     "MaximumCoopTacticalWireSize"
     "MaximumFullEngineCoopClientInboundWireSize >"
@@ -12036,7 +12039,7 @@ require_ordered_fragments(dedicated_live_socket_e2e_slice
   "ingress.endSession()")
 
 # Public documentation must describe the same bounded technical slice as the
-# executable and tests: global protocol v6, authenticated self-retirement,
+# executable and tests: global protocol v8, authenticated self-retirement,
 # independently versioned snapshot/delta/intent/journal wires, bounded public
 # door projection and synchronous authority, worldless presentation, and the
 # established persistence/return/reconnect policies.
@@ -12058,8 +12061,8 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "global co-op protocol-v7"
-    "Tactical snapshot wire v7"
+    "global co-op protocol-v8"
+    "Tactical snapshot wire v8"
     "five-slot combat-equipment projection"
     "five 12-byte combat-equipment records"
     "allocation-free one-tile isometric"
@@ -12079,15 +12082,15 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "synchronous adjacent"
     "`D` enters a modal door selector"
     "`{baseGrid, structureId, desiredOpen}`"
-    "53-byte header"
+    "313-byte header"
     "92-byte actor"
     "7-byte door"
-    "384053-byte generic maximum"
+    "384313-byte generic maximum"
     "18434 generic"
     "exact 43-byte turn event"
     "doors, and 3074 delta events"
-    "30773/32385"
-    "62034/62106"
+    "31033/32645"
+    "62554/62626"
     "Tactical intent wire v3"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains its three legacy draws"
@@ -12150,7 +12153,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
-    "global authoritative co-op session protocol is version 7"
+    "global authoritative co-op session protocol is version 8"
     "capture failure unwinds the active"
     "Case-only spellings across different"
     "`CVirtualLocation::getIsExclusive()`"
@@ -12169,9 +12172,9 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "snapshot is wire v7"
+    "snapshot is wire v8"
     "delta is wire"
-    "v6, and the simulation-command journal is wire v4"
+    "v7, and the simulation-command journal is wire v4"
     "bounded five-slot combat-equipment"
     "five bounded 12-byte"
     "allocation-free exact-grid calculation"
@@ -12194,18 +12197,18 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "visible adjacent-door open/close"
     "no lock, trap, key"
     "`D` enters modal door"
-    "53-byte header"
+    "313-byte header"
     "92-byte"
     "7-byte door"
     "`hostileToPlayerTeam`"
-    "384053 bytes"
+    "384313 bytes"
     "18434-event"
     "exact 43-byte turn event"
     "version 2.0"
     "`DoorCapacityReached`"
     "256 actors, 1024 doors, and 3074"
-    "30773/32385"
-    "62034/62106"
+    "31033/32645"
+    "62554/62626"
     "72-byte header"
     "80-byte maximum"
     "`ScopedSavedGameFaceReconstruction`"
@@ -12281,7 +12284,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_engine_doc_contract IN ITEMS
-    "global co-op protocol v7"
+    "global co-op protocol v8"
     "`InitializeCoopContentManifestBoundary`"
     "before legacy cache writes"
     "case-only spellings across different read-only layers"
@@ -12299,8 +12302,8 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "Tactical snapshot wire v7"
-    "Delta wire v6"
+    "Tactical snapshot wire v8"
+    "Delta wire v7"
     "five 12-byte combat-equipment records"
     "allocation-free"
     "row/column deltas -1/-1, +1/+1, +1/-1, and"
@@ -12317,13 +12320,13 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "selected-actor reload"
     "visible adjacent-door open/close"
     "`D` opens a modal"
-    "53/92/7 bytes"
-    "384053-byte"
+    "313/92/7 bytes"
+    "384313-byte"
     "18434 generic events"
     "same-serial interrupt-phase"
     "256 actors, 1024 doors, and 3074"
-    "30773/32385"
-    "62034/62106"
+    "31033/32645"
+    "62554/62626"
     "Intent wire v3"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
@@ -12392,7 +12395,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
-    "global co-op protocol-v7"
+    "global co-op protocol-v8"
     "rollback-safe `co-op installed content manifest`"
     "validates and counts all"
     "smallest-layer normalized read-only overlay"
@@ -12409,8 +12412,8 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "Snapshot wire v7"
-    "Delta wire v6"
+    "Snapshot wire v8"
+    "Delta wire v7"
     "five bounded 12-byte"
     "allocation-free exact-grid request"
     "Up is row -1/column -1"
@@ -12428,15 +12431,15 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "selected-actor reload"
     "visible-door open/close"
     "modal `D` door selection"
-    "53-byte header"
+    "313-byte header"
     "92-byte actor"
     "7-byte public door"
-    "384053 bytes"
+    "384313 bytes"
     "18434 generic events"
     "exact 43-byte event"
     "1024 doors, 3074 events"
-    "30773/32385"
-    "62034/62106"
+    "31033/32645"
+    "62554/62626"
     "Intent wire v3"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy draws"
@@ -12505,7 +12508,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
-    "global co-op protocol v7"
+    "global co-op protocol v8"
     "rollback-safe post-package/pre-legacy"
     "validates and counts every VFS"
     "case-only"
@@ -12522,8 +12525,8 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "Tactical snapshot wire v7"
-    "Delta wire v6"
+    "Tactical snapshot wire v8"
+    "Delta wire v7"
     "five 12-byte combat-equipment records"
     "allocation-free direct arrows"
     "Up -1/-1, Down +1/+1, Left +1/-1, and Right -1/+1"
@@ -12541,14 +12544,14 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "selected-actor reload"
     "synchronous visible-door open/close"
     "modal `D` visible-door selection"
-    "53/92/7 bytes"
-    "384053 bytes"
+    "313/92/7 bytes"
+    "384313 bytes"
     "18434 generic events"
     "exact 43-byte event"
     "256 actors, 1024 doors"
     "3074 events"
-    "30773/32385"
-    "62034/62106"
+    "31033/32645"
+    "62554/62626"
     "Intent wire v3"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
