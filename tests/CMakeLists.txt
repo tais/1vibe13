@@ -106,6 +106,15 @@ target_include_directories(coop_campaign_action_tests PRIVATE
 target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
 add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
 
+add_executable(coop_campaign_hire_tests
+  coop_campaign_hire_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_hire_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_hire_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_hire COMMAND coop_campaign_hire_tests)
+
 # The passive client publishes a checkpoint only after exact ordered staging,
 # full-hash verification, atomic scratch publication, and successful cold load.
 add_executable(full_engine_coop_campaign_sync_client_tests
