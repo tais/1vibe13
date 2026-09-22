@@ -2,6 +2,7 @@
 #define JA2_CAMPAIGN_SIMULATION_HOST_H
 
 #include <cstdint>
+#include <array>
 
 #include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include <Engine/Core/SimulationTick.h>
@@ -27,6 +28,15 @@ public:
 
 	void simulate(const SimulationTickContext& tick) override;
 
+	// Native co-op failures are irreversible. The generic tick dispatcher
+	// isolates sink exceptions, so the application must check this latch before
+	// running its screen/command/publication or checkpoint boundary. Resetting
+	// pacing or frame counters never permits retrying partially executed events.
+	bool failed() const noexcept { return failed_; }
+	const char* failureReason() const noexcept { return failureReason_.data(); }
+	std::uint64_t failureTickSequence() const noexcept { return failureTickSequence_; }
+	void throwIfFailed() const;
+
 	const CampaignSimulationDiagnostics& diagnostics() const noexcept
 	{
 		return diagnostics_;
@@ -35,6 +45,10 @@ public:
 private:
 	CampaignClockScheduler& scheduler_;
 	CampaignSimulationDiagnostics diagnostics_;
+	bool failed_ = false;
+	std::uint64_t failureTickSequence_ = 0;
+	std::array<char, 160> failureReason_{};
+	void fail(const SimulationTickContext& tick, const char* reason) noexcept;
 };
 
 #endif

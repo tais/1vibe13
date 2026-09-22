@@ -402,6 +402,9 @@ extern void RefreshBoxes( );
 
 static FramePlan PrepareGameFrame()
 {
+	// Tick sinks isolate exceptions. Abort this frame before screen, command or
+	// observer work if the authoritative native clock failed inside one.
+	GetGameContext().campaignSimulation().throwIfFailed();
 	//	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop");
 
 	InputAtom	InputEvent;
@@ -734,6 +737,9 @@ void GameLoop(void)
 		return;
 	}
 
+	// A later/manual loop attempt must not drain messages or native commands
+	// after a failed campaign tick, even if frame pacing was reset.
+	GetGameContext().campaignSimulation().throwIfFailed();
 	BeginJa2TacticalCommandFrame(GetGameContext());
 	// Co-op intents are admitted only after the previous committed frame. Drain
 	// that bounded prefix before any legacy timer, AI, or UI work can invalidate

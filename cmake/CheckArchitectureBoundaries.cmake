@@ -38179,5 +38179,67 @@ foreach(required_portable_font_doc_fragment IN ITEMS
   endif()
 endforeach()
 
+# Native campaign callbacks may mutate before throwing. Generic package tick
+# isolation cannot authorize retrying them or publishing the unfinished frame.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignSimulationHost.cpp" native_campaign_failure_source)
+file(READ "${SOURCE_ROOT}/Ja2/gameloop.cpp" native_campaign_failure_frame_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp" native_campaign_failure_runtime_source)
+file(READ "${SOURCE_ROOT}/tests/native_campaign_simulation_failure_tests.cpp" native_campaign_failure_tests)
+foreach(native_failure_contents IN ITEMS native_campaign_failure_source
+    native_campaign_failure_frame_source native_campaign_failure_runtime_source)
+  strip_cxx_comments(${native_failure_contents} ${native_failure_contents})
+endforeach()
+extract_brace_bounded_slice(native_campaign_failure_source
+  "void CampaignSimulationHost::simulate(const SimulationTickContext& tick)"
+  native_campaign_failure_tick "Cannot bound native campaign tick containment")
+require_ordered_fragments(native_campaign_failure_tick "Native campaign failure lost its irreversible process-scoped tick barrier"
+  "if (failed_) return;" "AdvanceClockFromFixedStep(" "catch (const std::exception&"
+  "IsDedicatedCoopProcess()" "fail(tick," "throw;" "catch (...)" "IsDedicatedCoopProcess()" "fail(tick," "throw;")
+extract_brace_bounded_slice(native_campaign_failure_source
+  "void CampaignSimulationHost::fail(const SimulationTickContext& tick, const char* reason) noexcept"
+  native_campaign_failure_latch "Cannot bound native campaign failure latch")
+require_ordered_fragments(native_campaign_failure_latch "Native campaign failure must latch before legacy pause cleanup"
+  "if (failed_) return;" "failed_ = true;" "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;" "InterruptTime();" "StopTimeCompression();" "PauseGame();")
+extract_brace_bounded_slice(native_campaign_failure_frame_source "static FramePlan PrepareGameFrame()"
+  native_campaign_failure_prepare "Cannot bound failed native frame preparation")
+require_ordered_fragments(native_campaign_failure_prepare "Native frame must reject failed campaign simulation before legacy screen work"
+  "GetGameContext().campaignSimulation().throwIfFailed();" "GetCurrentScreen()")
+extract_brace_bounded_slice(native_campaign_failure_frame_source "void GameLoop(void)"
+  native_campaign_failure_loop "Cannot bound failed native frame entry")
+require_ordered_fragments(native_campaign_failure_loop "Later native frames must reject failure before command or message dispatch"
+  "GetGameContext().campaignSimulation().throwIfFailed();" "BeginJa2TacticalCommandFrame(" "frameDriver().runFrame(")
+foreach(native_failure_boundary IN ITEMS
+    "bool startAdmission() noexcept"
+    "bool checkpointNow(GameContext& context, bool required) noexcept"
+    "void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept"
+    "bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(\n\tGameContext& context) noexcept")
+  extract_brace_bounded_slice(native_campaign_failure_runtime_source "${native_failure_boundary}"
+    native_failure_boundary_slice "Cannot bound campaign failure runtime barrier")
+  require_ordered_fragments(native_failure_boundary_slice "Native campaign failure lost admission/publication/checkpoint refusal"
+    "campaignSimulation().failed()" "DedicatedCoopRuntimeError::InvalidState" "return")
+endforeach()
+require_ordered_fragments(native_campaign_failure_tests "Native failure test must exercise real ordered events and irreversible frame/checkpoint refusal"
+  "scripts/Overhead.lua" "EVENT_CHANGELIGHTVAL" "EVENT_INTEL_PHOTOFACT_VERIFY" "EVENT_CHANGELIGHTVAL"
+  "native.throwIfFailed();" "frame.runFrame(" "native.throwIfFailed();"
+  "native.failureTickSequence() == 1" "broken.event->snapshot() == brokenSnapshot"
+  "frame.completedFrames() == 1" "ticks.reset(); frame.resetFrameSequence();"
+  "attempt < 32" "failedPump.pumpAfterCommittedFrame(game)" "failedCheckpoint.shutdownAtCommittedBoundary(game)")
+
+file(READ "${SOURCE_ROOT}/CMakeLists.txt" native_campaign_failure_build)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml" native_campaign_failure_ci)
+require_ordered_fragments(native_campaign_failure_build "Native campaign failure scopes must remain mandatory"
+  "add_executable(native_campaign_simulation_failure_tests"
+  "target_link_libraries(native_campaign_simulation_failure_tests PRIVATE \${campaign_aim_native_libraries})"
+  "add_test(NAME native_campaign_simulation_failure "
+  "add_test(NAME native_campaign_simulation_failure_single_player "
+  "add_test(NAME native_campaign_simulation_failure_pvp "
+  "add_dependencies(ja2_headless_tests native_campaign_simulation_failure_tests)")
+string(FIND "${native_campaign_failure_ci}"
+  "--target native_campaign_simulation_failure_tests" native_campaign_failure_ci_at)
+if(native_campaign_failure_ci_at EQUAL -1)
+  message(FATAL_ERROR "Native campaign failure fixture must retain ASan build coverage")
+endif()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

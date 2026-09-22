@@ -249,6 +249,9 @@ jobs:
             -DADDRESS_SANITIZER=ON \
             ${cache_args[@]+"${cache_args[@]}"}
 
+      - name: Build native campaign failure containment
+        run: cmake --build build --target native_campaign_simulation_failure_tests --parallel 2
+
       - name: Build checked native event scheduling
         run: cmake --build build --target native_campaign_event_scheduling_tests --parallel 2
 
