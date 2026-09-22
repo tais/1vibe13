@@ -24788,8 +24788,8 @@ endforeach()
 foreach(required_laptop_finance_safety_fragment IN ITEMS
     "gFinancePageResources"
     "ReadFinanceRecordExact"
-    "PersistFinanceTransaction"
-    "IsAppendableFile"
+    "CampaignLedgerDetail::AddFinanceTransactionForLaptop"
+    "CampaignLedgerRecord::FinanceFields"
     "CanApplyBalanceChange"
     "NormalizeZeroBasedPage"
     "gFinanceRecordPageCount"
@@ -24817,7 +24817,9 @@ foreach(required_laptop_history_safety_fragment IN ITEMS
     "BoundedIndex"
     "TextKey::HistoryTitle"
     "sgp_swprintf(pString, 512, L\"%s\", sString)"
-    "AppendHistoryToEndOfFile(const HistoryUnit&")
+    "AddHistoryToPlayersLogChecked"
+    "SetHistoryFactChecked"
+    "CampaignLedgerRecord::HistoryFields")
   string(FIND "${runtime_laptop_history_contents}"
     "${required_laptop_history_safety_fragment}"
     required_laptop_history_safety_position)
@@ -38156,6 +38158,59 @@ foreach(required_portable_font_doc_fragment IN ITEMS
       "SDL3 font completion record lost '${required_portable_font_doc_fragment}'")
   endif()
 endforeach()
+
+# Authoritative accounting has a local checked VFS boundary. Legacy laptop
+# wrappers retain notifications/assertion policy; callers must not regain them
+# by reaching the old noexcept FileMan helpers from checked entry points.
+file(READ "${SOURCE_ROOT}/Laptop/CampaignLedger.cpp" campaign_ledger_contents)
+strip_cxx_comments(campaign_ledger_contents campaign_ledger_code)
+foreach(forbidden_checked_ledger_call IN ITEMS
+    "Assert(" "AssertMsg(" "ScreenMsg(" "SaveGame(" "FileOpen("
+    "ReadLaptopFileExact(" "WriteLaptopFileExact(" "ClearFinanceList("
+    "ClearHistoryList(" "SetFinanceButtonStates(" "SetHistoryButtonStates(")
+  string(FIND "${campaign_ledger_code}" "${forbidden_checked_ledger_call}" checked_ledger_forbidden_position)
+  if(NOT checked_ledger_forbidden_position EQUAL -1)
+    message(FATAL_ERROR "Checked campaign ledger regained '${forbidden_checked_ledger_call}'")
+  endif()
+endforeach()
+foreach(required_checked_ledger_fragment IN ITEMS
+    "result.mutationMayHaveStarted = true"
+    "Error::EmptyFinanceFile"
+    "LaptopRecordPageModel::IsWellFormedFile"
+    "LaptopRecordPageModel::CanApplyBalanceChange"
+    "if (file != observed.file)"
+    "if (AlreadyOpen(observed.file))"
+    "reserveAppend && observed.bytes >"
+    "record.balanceToDate != observed.snapshot.balance"
+    "if (!file.close())"
+    "Error::NativeEffectsFailed"
+    "Record::FinanceFields(record, write)"
+    "Record::HistoryFields(record,"
+    "AddFinanceTransaction(code, secondCode, date, amount, false)"
+    "AddFinanceTransaction(code, secondCode, date, amount, true)")
+  string(FIND "${campaign_ledger_code}" "${required_checked_ledger_fragment}" checked_ledger_required_position)
+  if(checked_ledger_required_position EQUAL -1)
+    message(FATAL_ERROR "Checked campaign ledger lost '${required_checked_ledger_fragment}'")
+  endif()
+endforeach()
+string(FIND "${campaign_ledger_code}" "result.mutationMayHaveStarted = true" checked_ledger_mutation_position)
+string(FIND "${campaign_ledger_code}" "getVFS()->createNewFile(logical)" checked_ledger_create_position)
+string(FIND "${campaign_ledger_code}" "writer->openWrite(true, false)" checked_ledger_open_position)
+if(checked_ledger_create_position LESS checked_ledger_mutation_position OR
+   checked_ledger_open_position LESS checked_ledger_mutation_position)
+  message(FATAL_ERROR "Checked campaign ledger signals possible mutation after writable acquisition")
+endif()
+file(READ "${SOURCE_ROOT}/Tactical/DynamicDialogue.cpp" campaign_ledger_opinion_contents)
+string(FIND "${campaign_ledger_opinion_contents}"
+  "fShowChangeNotification && gGameExternalOptions.fDynamicOpinionsShowChange"
+  campaign_ledger_opinion_notification_position)
+string(FIND "${campaign_ledger_opinion_contents}"
+  "OPINIONEVENT_CONTRACTEXTENSION, TRUE, fShowChangeNotification"
+  campaign_ledger_opinion_event_position)
+if(campaign_ledger_opinion_notification_position EQUAL -1 OR
+   campaign_ledger_opinion_event_position EQUAL -1)
+  message(FATAL_ERROR "Checked campaign ledger must suppress notifications without suppressing opinion events")
+endif()
 
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

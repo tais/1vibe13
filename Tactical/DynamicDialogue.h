@@ -455,7 +455,7 @@ BOOLEAN LoadDynamicDialogue( HWFILE hwFile );
 
 
 //  modify usProfileA's opinion of usProfileB because of usEvent
-void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLEAN fStartDialogue = TRUE );
+void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLEAN fStartDialogue = TRUE, BOOLEAN fShowChangeNotification = TRUE );
 
 // get usProfileA's opinion of usProfileB on one of the last 4 days
 INT8 GetDynamicOpinionDay( UINT8 usProfileA, UINT8 usProfileB, UINT8 usDay );
@@ -472,7 +472,7 @@ void RolloverDynamicOpinions( UINT8 usProfileA );
 // check wether other people are friends with someone else we hate. All persons must be in Arulco
 void CheckForFriendsofHated( TacticalActor* pSoldier );
 
-void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile );
+void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile, BOOLEAN fShowChangeNotification = TRUE );
 
 // depending on what happened in the battle, our mercs might complain or celebrate
 void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon );
