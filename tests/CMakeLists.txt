@@ -53,6 +53,42 @@ target_compile_features(coop_campaign_bootstrap_protocol_tests PRIVATE cxx_std_1
 add_test(NAME coop_campaign_bootstrap_protocol
   COMMAND coop_campaign_bootstrap_protocol_tests)
 
+# Campaign observations and serialized command authorities are standalone
+# contracts. Native gameplay callbacks and client input stay outside these tests.
+add_executable(coop_campaign_status_tests
+  coop_campaign_status_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_status_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
+
+add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
+target_include_directories(coop_campaign_groups_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
+
+add_executable(coop_campaign_time_tests
+  coop_campaign_time_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_time_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_time_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_time COMMAND coop_campaign_time_tests)
+
+add_executable(coop_campaign_action_tests
+  coop_campaign_action_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_action_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
+
 # The passive client publishes a checkpoint only after exact ordered staging,
 # full-hash verification, atomic scratch publication, and successful cold load.
 add_executable(full_engine_coop_campaign_sync_client_tests
