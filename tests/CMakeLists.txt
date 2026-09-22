@@ -298,6 +298,34 @@ target_compile_features(
 add_test(NAME full_engine_coop_client_tactical_presentation
   COMMAND full_engine_coop_client_tactical_presentation_tests)
 
+# Parse an already-read authority-selected asset into immutable section spans.
+# This target links no native world loader, VFS, renderer, or SDL dependency.
+add_executable(full_engine_coop_client_presentation_map_tests
+  full_engine_coop_client_presentation_map_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+target_include_directories(full_engine_coop_client_presentation_map_tests
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_client_presentation_map_tests
+  PRIVATE cxx_std_17)
+set(JA2_PRESENTATION_MAP_TEST_ASSET "" CACHE FILEPATH
+  "Optional installed legacy map for complete-body presentation parser validation")
+if(JA2_PRESENTATION_MAP_TEST_ASSET)
+  if(NOT IS_ABSOLUTE "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
+     NOT EXISTS "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
+     IS_DIRECTORY "${JA2_PRESENTATION_MAP_TEST_ASSET}")
+    message(FATAL_ERROR
+      "JA2_PRESENTATION_MAP_TEST_ASSET must be an absolute existing map file")
+  endif()
+  add_test(NAME full_engine_coop_client_presentation_map
+    COMMAND full_engine_coop_client_presentation_map_tests
+      --installed-map "${JA2_PRESENTATION_MAP_TEST_ASSET}")
+  set_tests_properties(full_engine_coop_client_presentation_map PROPERTIES
+    LABELS "installed-data;multiplayer")
+else()
+  add_test(NAME full_engine_coop_client_presentation_map
+    COMMAND full_engine_coop_client_presentation_map_tests)
+endif()
+
 # The INIT-screen renderer consumes only the immutable worldless projection.
 # A fake padded video surface pins its bounds and pixel behavior without
 # importing the full JA2 application into this focused test.

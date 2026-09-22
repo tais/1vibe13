@@ -261,6 +261,9 @@ jobs:
       - name: Build full-engine co-op ingress contract
         run: cmake --build build --target coop_handshake_protocol_tests coop_campaign_bootstrap_protocol_tests coop_campaign_sync_protocol_tests coop_actor_assignment_policy_tests dedicated_coop_mission_bootstrap_tests coop_tactical_protocol_tests full_engine_coop_server_session_tests full_engine_coop_ingress_tests full_engine_coop_admission_listener_tests full_engine_coop_tactical_server_tests full_engine_coop_campaign_sync_client_tests full_engine_coop_campaign_sync_server_tests full_engine_coop_campaign_sync_loopback_tests full_engine_coop_socket_e2e_tests full_engine_coop_snapshot_replica_tests full_engine_coop_client_tests full_engine_coop_client_transport_tests full_engine_coop_client_bootstrap_transport_tests full_engine_coop_client_options_tests full_engine_coop_client_runtime_tests full_engine_coop_client_controller_tests full_engine_coop_client_tactical_presentation_tests full_engine_coop_client_tactical_plot_renderer_tests dedicated_coop_tactical_host_tests
 
+      - name: Build passive map parser contract
+        run: cmake --build build --target full_engine_coop_client_presentation_map_tests
+
       - name: Build campaign control contracts
         run: cmake --build build --target coop_campaign_status_tests coop_campaign_groups_tests coop_campaign_time_tests coop_campaign_action_tests coop_campaign_hire_tests
 

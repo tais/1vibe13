@@ -8872,6 +8872,37 @@ require_ordered_fragments(dedicated_live_client_screen_source
   "Interrupt active; selected merc may act. T passes selected merc."
   "Controller.actionsEnabled(controllerView)")
 
+# Passive map parsing admits bytes into immutable spans without importing the
+# native loader or renderer. Keep its dependency set independently buildable.
+foreach(passive_map_parser_file IN ITEMS
+    Ja2/FullEngineCoopClientPresentationMap.h
+    Ja2/FullEngineCoopClientPresentationMapPlan.h
+    Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+  file(READ "${SOURCE_ROOT}/${passive_map_parser_file}" passive_map_parser_source)
+  strip_cxx_comments(passive_map_parser_source passive_map_parser_without_comments)
+  string(REGEX MATCHALL [=[#[ 	]*include[ 	]*[<"][^>"]+[>"]]=]
+    passive_map_parser_includes "${passive_map_parser_without_comments}")
+  foreach(passive_map_parser_include IN LISTS passive_map_parser_includes)
+    string(REGEX REPLACE [=[^#[ 	]*include[ 	]*[<"]([^>"]+)[>"]$]=] [=[\1]=]
+      passive_map_parser_dependency "${passive_map_parser_include}")
+    if(NOT passive_map_parser_dependency MATCHES
+        [=[^(FullEngineCoopClientPresentationMap(Plan)?\.h|Engine/Adapters/JA2/TacticalWorldSnapshot\.h|algorithm|array|cmath|cstddef|cstdint|cstring|limits|type_traits|vector)$]=])
+      message(FATAL_ERROR
+        "Pure passive map parser gained dependency '${passive_map_parser_dependency}'")
+    endif()
+  endforeach()
+  strip_cxx_comments_and_literals(passive_map_parser_source passive_map_parser_code)
+  foreach(passive_map_parser_forbidden IN ITEMS
+      LoadWorld TrashWorld FileOpen FileRead gpWorldLevelData
+      gTacticalStatus AllocateWorldTileMap Random PreRandom)
+    if(passive_map_parser_code MATCHES
+        "(^|[^A-Za-z0-9_])${passive_map_parser_forbidden}([^A-Za-z0-9_]|$)")
+      message(FATAL_ERROR
+        "Pure passive map parser gained native state access '${passive_map_parser_forbidden}'")
+    endif()
+  endforeach()
+endforeach()
+
 # The passive plot is a worldless projection of committed replica values. It
 # may draw the authority-sized diamond and friendly-team markers, but it may not
 # load terrain, inspect JA2 globals, or turn marker filtering into a security
