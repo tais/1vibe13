@@ -1,3 +1,20 @@
+# Native checked scheduling uses the actual bound queue and dispatcher guard.
+# Only legacy notification sinks are observed by the fixture; no callback or
+# scheduling implementation is replaced.
+add_executable(native_campaign_event_scheduling_tests
+  native_campaign_event_scheduling_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Strategic/CampaignEventScheduling.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/CampaignEventAdapter.cpp)
+target_include_directories(native_campaign_event_scheduling_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_definitions(native_campaign_event_scheduling_tests PRIVATE
+  JA2TESTVERSION FORCE_ASSERTS_ON)
+target_link_libraries(native_campaign_event_scheduling_tests PRIVATE
+  JA2::RuntimeAdapter SDL3::SDL3)
+target_compile_features(native_campaign_event_scheduling_tests PRIVATE cxx_std_17)
+add_test(NAME native_campaign_event_scheduling
+  COMMAND native_campaign_event_scheduling_tests)
+
 # Loopback and raw-wire tests link the production SDL3_net transport target.
 add_executable(mp_sdl_net_transport_tests
   mp_sdl_net_transport_tests.cpp
