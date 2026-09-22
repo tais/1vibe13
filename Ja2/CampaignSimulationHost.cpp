@@ -1,6 +1,6 @@
 #include "CampaignSimulationHost.h"
 
-#include "types.h"
+#include "sgp.h"
 #include "Game Clock.h"
 #include "DedicatedCoopRuntime.h"
 
@@ -10,7 +10,6 @@
 #include <stdexcept>
 
 extern BOOLEAN gfDedicatedServerProcessFailed;
-extern BOOLEAN gfProgramIsRunning;
 
 namespace
 {

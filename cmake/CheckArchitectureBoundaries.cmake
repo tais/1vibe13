@@ -38189,6 +38189,15 @@ foreach(native_failure_contents IN ITEMS native_campaign_failure_source
     native_campaign_failure_frame_source native_campaign_failure_runtime_source)
   strip_cxx_comments(${native_failure_contents} ${native_failure_contents})
 endforeach()
+# The process flag has C linkage in sgp.h. An ad-hoc C++ declaration links on
+# macOS but fails in every Windows native fixture that pulls in this host.
+string(FIND "${native_campaign_failure_source}" "#include \"sgp.h\""
+  native_campaign_failure_process_header_at)
+if(native_campaign_failure_process_header_at EQUAL -1 OR
+    native_campaign_failure_source MATCHES "extern[ \t\r\n]+BOOLEAN[ \t\r\n]+gfProgramIsRunning")
+  message(FATAL_ERROR
+    "Native campaign failure must use sgp.h's canonical C-linkage process flag")
+endif()
 extract_brace_bounded_slice(native_campaign_failure_source
   "void CampaignSimulationHost::simulate(const SimulationTickContext& tick)"
   native_campaign_failure_tick "Cannot bound native campaign tick containment")
