@@ -489,7 +489,8 @@ CampaignAimHireError PrepareCampaignAimHire(
 	CampaignAimHirePlan& planOut) noexcept
 {
 	using Error = CampaignAimHireError;
-	if (request.profile >= NUM_PROFILES) return Error::InvalidProfile;
+	if (request.profile >= NUM_PROFILES || request.profile == NO_PROFILE)
+		return Error::InvalidProfile;
 	if (request.contractDays != 1 && request.contractDays != 7 &&
 		request.contractDays != 14) return Error::InvalidContract;
 	if (request.copyProfileEquipment) return Error::UnsupportedEquipment;

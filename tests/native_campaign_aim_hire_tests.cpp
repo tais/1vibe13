@@ -97,6 +97,12 @@ void TestPreflight()
 	const CampaignAimHireRequest request{0, 7, false};
 	auto& profile = gMercProfiles[0];
 	for (auto id : {255u, 256u, 0xffffffffu}) Reject({id, 7, false}, Error::InvalidProfile);
+	// NO_PROFILE is 200, inside the physical profile array. Even content that
+	// marks that sentinel row as AIM must not turn it into a hireable profile.
+	const auto sentinelProfile = gMercProfiles[NO_PROFILE];
+	gMercProfiles[NO_PROFILE] = profile;
+	Reject({NO_PROFILE, 7, false}, Error::InvalidProfile);
+	gMercProfiles[NO_PROFILE] = sentinelProfile;
 	for (auto days : {0u, 2u, 6u, 8u, 13u, 15u, 0xffffffffu})
 		Reject({0, days, false}, Error::InvalidContract);
 
