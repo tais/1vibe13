@@ -921,6 +921,24 @@ snapshots, exact slot reuse, world replacement, all 2,048 actor slots and a
 also built by the Linux ASan workflow. Connecting these plans to the ordinary
 JA2 actor renderer remains a later integration step.
 
+The optional `DedicatedCoopAttackState` retains one exact native shooter,
+world generation and authoritative execution sequence until its terminal
+outcome is acknowledged. Its bound native completion path uses that shooter,
+not the local UI-selected mercenary. Native ammunition accounting distinguishes
+a completed discharge from a chain stopped before firing, including a sighting
+cancellation. Stance or turning AP may already have been spent. Neither outcome
+claims a hit or kill. An invalid retained origin fails closed without falling
+back to the selected actor; a terminal record cannot be overwritten by another
+attack before acknowledgement.
+
+This seam is unbound by default. The integrated runtime must bind it, register
+accepted attacks, gate overlapping commands, retain terminal receipts until the
+native chain finishes and handle failures before enabling it. Those runtime
+and wire changes are outside this foundation. The real native sighting and
+attack-busy callbacks are tested with shooter 3 and independently selected
+actor 0; the fixture also covers sequence zero, stale world, wrong
+acknowledgements, duplicate releases and actual ammunition accounting.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time

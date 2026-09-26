@@ -1,3 +1,6 @@
+#include "DedicatedCoopAttack.h"
+#include "DedicatedServerOptions.h"
+#include "TacticalActorRouteExecution.h"
 // Regression for off-turn hit recovery stranding a remote player's shot.
 // Exercise the real hit-recovery READY transition. Animation pixels
 // are inert memory fixtures, while AP accounting, interrupt resolution and the
@@ -57,7 +60,8 @@ int failures = 0;
 int main(int argc, char** argv)
 {
     const bool pointsOnly = argc == 2 && std::strcmp(argv[1], "--points-only") == 0;
-    if (argc > 2 || (argc == 2 && !pointsOnly)) return 2;
+    const bool attackLifecycle = argc == 2 && std::strcmp(argv[1], "--attack-lifecycle") == 0;
+    if (argc > 2 || (argc == 2 && !pointsOnly && !attackLifecycle)) return 2;
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     CHECK(InstallGameSimulationRandom(20260922) == GameSimulationRandomInstallError::None,
         "native deterministic RNG installed");
@@ -136,6 +140,66 @@ int main(int argc, char** argv)
     CHECK(CreateItem(5, 100, &target.inventory()[HANDPOS]), "target carries a real native ordinary gun object");
     const INT16 readyCost = GetAPsToReadyWeapon(&target, READY_RIFLE_STAND);
     CHECK(readyCost > 0, "native ready-weapon rule computes a positive AP cost");
+
+    if (attackLifecycle)
+    {
+        using Outcome = DedicatedCoopAttackOutcome;
+        DedicatedServerOptions options; options.enabled = true; options.mode = DedicatedServerMode::Coop;
+        InstallDedicatedServerOptions(options);
+        CHECK(CreateItem(5, 100, &shooter.inventory()[HANDPOS]), "actual native shooter gun created");
+        shooter.inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft = 3;
+        shooter.targeting().targetId() = target.identity().id();
+        shooter.targeting().gridNo() = target.position().gridNo();
+        shooter.targeting().lastGridNo() = NOWHERE;
+        selected.targeting().lastGridNo() = 42;
+        const auto id = GetJa2TacticalEntityId(shooter);
+        DedicatedCoopAttackState state, other;
+        CHECK(BeginDedicatedCoopAttack(0, shooter) && !DedicatedCoopAttackPending(), "unbound seam leaves normal gameplay untracked");
+        CHECK(BindDedicatedCoopAttackState(state) && !BindDedicatedCoopAttackState(other), "only one owner can bind the native chain");
+        CHECK(BeginJa2TacticalCombatAction(), "unrelated native action owns its existing counter");
+        CHECK(!BeginDedicatedCoopAttack(0, shooter) && !DedicatedCoopAttackPending(), "remote attack cannot take ownership of an existing native chain");
+        CHECK(CompleteJa2TacticalCombatAction(), "fixture drains the unrelated action");
+        CHECK(BeginDedicatedCoopAttack(0, shooter) && DedicatedCoopAttackPending(), "sequence zero starts the exact native attack");
+        CHECK(!BeginDedicatedCoopAttack(1, selected), "another actor cannot overlap the native attack");
+        shooter.animationActivity().turningToShoot() = TRUE;
+        CHECK(TacticalActorRouteExecution::haltForSighting(shooter, true), "real native sighting cancels the pending fire turn");
+        CHECK(CaptureDedicatedCoopAttackOutcome(0, 1, id) == Outcome::Interrupted && !DedicatedCoopAttackPending(),
+            "native cancellation drains without manufacturing a shot");
+        CHECK(!shooter.animationActivity().turningToShoot() && shooter.inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft == 3,
+            "sighting cancellation leaves ammunition unchanged");
+        CHECK(shooter.targeting().lastGridNo() == target.position().gridNo() && selected.targeting().lastGridNo() == 42 && gusSelectedSoldier == SoldierID{0},
+            "ordinary completion belongs to actor 3 while selected actor 0 stays untouched");
+        CHECK(!ReleaseDedicatedCoopAttack(1, 1, id) && !ReleaseDedicatedCoopAttack(0, 2, id) &&
+            !ReleaseDedicatedCoopAttack(0, 1, TacticalEntityId{id.slot, id.incarnation + 1}), "foreign acknowledgements cannot retire a native outcome");
+        CHECK(!BeginDedicatedCoopAttack(1, shooter), "terminal outcome remains retained until its receipt is acknowledged");
+        UnbindDedicatedCoopAttackState(other);
+        CHECK(ReleaseDedicatedCoopAttack(0, 1, id), "exact native cancellation can be acknowledged once");
+        CHECK(BeginDedicatedCoopAttack(1, shooter) && BeginJa2TacticalCombatAction(), "next fresh native attack owns a real combat action");
+        DeductAmmo(&shooter, HANDPOS);
+        CHECK(shooter.inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft == 2, "native ammunition accounting consumes the actual round");
+        (void)ReduceAttackBusyCount();
+        CHECK(CaptureDedicatedCoopAttackOutcome(1, 1, id) == Outcome::Completed && !state.failure(),
+            "native action drain follows the actual shooter's ammunition use");
+        CHECK(ReleaseDedicatedCoopAttack(1, 1, id) && !ReleaseDedicatedCoopAttack(1, 1, id), "a terminal acknowledgement is consumed once");
+        CHECK(BeginDedicatedCoopAttack(2, shooter), "stale-actor control starts a third native chain");
+        ++shooter.identity().incarnation();
+        CHECK(BeginJa2TacticalCombatAction(), "stale-actor control reaches ordinary completion");
+        (void)ReduceAttackBusyCount();
+        CHECK(state.failure() && CaptureDedicatedCoopAttackOutcome(2, 1, id) == Outcome::Invalid &&
+            selected.targeting().lastGridNo() == 42 && !BeginDedicatedCoopAttack(3, selected),
+            "reused native actor slot fails closed without fallback or a second attack");
+        --shooter.identity().incarnation();
+        state.reset();
+        CHECK(BeginDedicatedCoopAttack(3, shooter), "fresh test context starts the stale-world control");
+        NotifyJa2TacticalWorldLoaded(2);
+        CHECK(BeginJa2TacticalCombatAction(), "stale-world control owns the completion callback");
+        (void)ReduceAttackBusyCount();
+        CHECK(state.failure() && CaptureDedicatedCoopAttackOutcome(3, 1, id) == Outcome::Invalid &&
+            selected.targeting().lastGridNo() == 42, "lost native origin fails closed without UI-selection fallback");
+        MemFree(gubWorldMovementCosts); gubWorldMovementCosts = nullptr; ReleaseWorldTileMap();
+        std::printf("Native attack lifecycle: %s\n", failures ? "FAIL" : "PASS");
+        return failures ? 1 : 0;
+    }
 
     // Control: selected/shooter mismatch alone does not strand AFTERSHOT when
     // no opposing actor currently has enough AP to receive an interrupt.
