@@ -718,6 +718,11 @@ struct DedicatedCoopRuntime::Impl
 
 	bool startAdmission() noexcept
 	{
+		if (GetGameContext().campaignSimulation().failed())
+		{
+			fail(DedicatedCoopRuntimeError::InvalidState);
+			return false;
+		}
 		if (tactical == nullptr)
 		{
 			fail(DedicatedCoopRuntimeError::TacticalCompositionFailed);
@@ -783,6 +788,11 @@ struct DedicatedCoopRuntime::Impl
 
 	bool checkpointNow(GameContext& context, bool required) noexcept
 	{
+		if (context.campaignSimulation().failed())
+		{
+			fail(DedicatedCoopRuntimeError::InvalidState);
+			return false;
+		}
 		// Cold checkpoint supersession currently requires disconnecting every
 		// client and reloading its campaign. An optional timer must not interrupt
 		// admission, campaign input or an outstanding receipt. Defer it while any
@@ -1499,6 +1509,11 @@ bool DedicatedCoopRuntime::requestCampaignEntry() noexcept
 
 void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept
 {
+	if (impl_ && context.campaignSimulation().failed())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
 	if (!impl_ || impl_->fatal || !impl_->campaignOpen) return;
 	if (impl_->entryRequested && !impl_->campaignEntered)
 	{
@@ -1749,6 +1764,11 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(
 	GameContext& context) noexcept
 {
+	if (impl_ && context.campaignSimulation().failed())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return false;
+	}
 	if (!impl_ || !impl_->campaignEntered || impl_->fatal) return !failed();
 	if (!impl_->stopAdmissionAndReconcile(100)) return false;
 	if (impl_->tactical != nullptr && impl_->tactical->server.active())
