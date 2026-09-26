@@ -608,6 +608,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
 
   # Real native event failures must stop co-op frames and preserve legacy scopes.
+  add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
+  target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_surrender COMMAND native_coop_surrender_tests)
+  add_test(NAME native_coop_surrender_stale COMMAND native_coop_surrender_tests --stale)
+  set_tests_properties(native_coop_surrender native_coop_surrender_stale PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_surrender_tests)
   add_executable(native_campaign_simulation_failure_tests tests/native_campaign_simulation_failure_tests.cpp)
   target_compile_definitions(native_campaign_simulation_failure_tests PRIVATE ${debugFlags})
   target_link_libraries(native_campaign_simulation_failure_tests PRIVATE ${campaign_aim_native_libraries})
