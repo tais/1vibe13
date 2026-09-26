@@ -15,6 +15,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignSaveAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignStore.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopRuntime.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopAttack.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopMissionBootstrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopSurrender.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTacticalHost.cpp"
