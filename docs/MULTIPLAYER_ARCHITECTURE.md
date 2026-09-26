@@ -921,6 +921,26 @@ snapshots, exact slot reuse, world replacement, all 2,048 actor slots and a
 also built by the Linux ASan workflow. Connecting these plans to the ordinary
 JA2 actor renderer remains a later integration step.
 
+The shared campaign contract also represents a pending native surrender offer.
+Its 96-byte status frame carries an opaque offer ID in bytes 86–93, with bytes
+94–95 reserved zero. An offer requires paused tactical state without time
+compression or an arrival decision. Clearing an offer advances the shared
+control revision, and the ledger rejects later resurrection of that ID within
+the same server epoch. Action values 7 and 8 answer decline/accept through the
+existing 56-byte request and 80-byte result. Both ready players may answer;
+leader-only time control remains separate. Authentication, readiness, observed
+control/group revisions and exact offer identity are still required. Competing
+answers serialize before native execution, and duplicates retain their original
+receipt after the decision clears.
+
+This is a contract foundation. The current application does not publish offers
+or bind their native continuation through this patch. It retains the parent
+protocol version; executable activation must bump the global live protocol and
+connect the native decision hold, request handler and explicit client
+confirmation together. Standalone tests cover the exact byte placement,
+reserved bytes, invalid clock/phase combinations, retired IDs, either player's
+permission, conflicting answers, stale requests and duplicate suppression.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time
