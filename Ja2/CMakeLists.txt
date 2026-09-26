@@ -22,6 +22,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientCampaignScratch.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientController.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientOptions.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientPresentationActorDirectory.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientRuntime.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientScreen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientTacticalPlotRenderer.cpp"

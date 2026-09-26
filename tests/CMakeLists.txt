@@ -347,6 +347,20 @@ else()
     COMMAND full_engine_coop_client_presentation_map_tests)
 endif()
 
+# Renderer-facing actor slots are an incarnation-aware projection of one
+# committed generation. Reconciliation is bounded and detaches every stale
+# proxy before publishing replacements into a presentation-owned repository.
+add_executable(full_engine_coop_client_presentation_actor_directory_tests
+  full_engine_coop_client_presentation_actor_directory_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationActorDirectory.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_actor_directory_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_actor_directory_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_actor_directory
+  COMMAND full_engine_coop_client_presentation_actor_directory_tests)
+
 # The INIT-screen renderer consumes only the immutable worldless projection.
 # A fake padded video surface pins its bounds and pixel behavior without
 # importing the full JA2 application into this focused test.
