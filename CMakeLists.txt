@@ -579,6 +579,10 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+  # Read native actor/lighting projection without initializing SDL, faces or
+  # installed assets; RNG installation needs its own fresh process.
+  add_test(NAME ja2_headless_authoritative_render_capture
+    COMMAND ja2_headless_tests --authoritative-render-capture)
 
   # Actual constructor/queue and native preflight coverage for checked AIM hires.
   add_executable(native_campaign_aim_hire_tests tests/native_campaign_aim_hire_tests.cpp)

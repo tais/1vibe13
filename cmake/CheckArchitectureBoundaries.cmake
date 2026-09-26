@@ -37299,6 +37299,99 @@ foreach(required_actor_projection_fragment IN ITEMS
   endif()
 endforeach()
 
+# Native renderer inputs are a read-only projection through the existing actor
+# directory. They must not create faces, consume RNG, or load render resources.
+extract_brace_bounded_slice(tactical_entity_host_contents
+  "bool LegacyPresentationState(const TacticalActor& soldier,\n\tTacticalActorPresentationSnapshot& presentation) noexcept"
+  native_render_capture_slice "Cannot bound native actor render capture")
+require_ordered_fragments(native_render_capture_slice
+  "Native render capture lost checked transactional projection"
+  "soldier.identity().bodyType() >= TOTALBODYTYPES"
+  "soldier.animationPlayback().state() >= NUMANIMATIONSTATES"
+  "!ValidPaletteReplacementTable()"
+  "TacticalActorPresentationSnapshot candidate"
+  "LegacyPortraitState(soldier)"
+  "EncodeDisplayName(soldier.identity().name(), candidate.displayNameUtf16)"
+  "EncodePaletteIndex(soldier.renderState().headPalette()"
+  "EncodePaletteIndex(soldier.renderState().pantsPalette()"
+  "EncodePaletteIndex(soldier.renderState().vestPalette()"
+  "EncodePaletteIndex(soldier.renderState().skinPalette()"
+  "soldier.roster().active() && soldier.roster().inSector()"
+  "soldier.position().gridNo() >= 0"
+  "!std::isfinite(soldier.position().animationHeightAdjustment())"
+  "candidate.flags |= TacticalActorRenderPosePresent"
+  "presentation = candidate")
+extract_brace_bounded_slice(tactical_entity_host_contents
+  "TacticalPortraitSnapshot LegacyPortraitState(const TacticalActor& soldier) noexcept"
+  native_portrait_capture_slice "Cannot bound native portrait projection")
+require_ordered_fragments(native_portrait_capture_slice
+  "Native portrait projection lost sentinel, profile alias or applied-camo semantics"
+  "profileId == NO_PROFILE || profileId >= NUM_PROFILES"
+  "gMercProfiles[profileId]"
+  "profile.Type == PROFILETYPE_IMP"
+  "profileId >= 151 && profileId <= 154"
+  "gGameExternalOptions.fShowCamouflageFaces"
+  "camo.snowApplied() > 0"
+  "camo.desertApplied() > 0"
+  "camo.urbanApplied() > 0"
+  "camo.jungleApplied() > 0")
+foreach(native_render_mutation IN ITEMS
+    "InitFace(" "SetCamoFace(" "Random(" "PreRandom("
+    "rebuildPalettes(" "LoadAnimationSurface(" "Create16BPPPalette(")
+  string(FIND "${native_render_capture_slice}${native_portrait_capture_slice}"
+    "${native_render_mutation}" native_render_mutation_position)
+  if(NOT native_render_mutation_position EQUAL -1)
+    message(FATAL_ERROR "Native render observation performs '${native_render_mutation}'")
+  endif()
+endforeach()
+foreach(native_render_contract IN ITEMS
+    "TOTALBODYTYPES == TacticalActorBodyTypeCount"
+    "NUMANIMATIONSTATES == TacticalAnimationStateCount"
+    "NUMANIMATIONSURFACETYPES == TacticalAnimationSurfaceCount"
+    "INVALID_ANIMATION_SURFACE == TacticalAnimationSurfaceAbsent"
+    "guiNumReplacements > 256u"
+    "guiNumReplacements != 0 && gpPalRep == nullptr"
+    "index < sizeof(PaletteRepID)"
+    "if (!PaletteIdTerminated(id)) return false"
+    "GetPaletteRepIndexFromID(id, &resolved)"
+    "input < SOLDIER_NAME_LENGTH && output + 1 < destination.size()"
+    "if (output + 2 >= destination.size()) break"
+    "if (!std::isfinite(coordinate) || coordinate < 0.0f) return false"
+    "std::numeric_limits<std::int32_t>::max()"
+    "if (!LegacyPresentationState(soldier, state.presentation))")
+  string(FIND "${tactical_entity_host_contents}" "${native_render_contract}"
+    native_render_contract_position)
+  if(native_render_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost '${native_render_contract}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp" native_render_world_contents)
+foreach(native_light_contract IN ITEMS
+    "SHADE_MAX == TacticalWorldLightingSnapshot::Brightest"
+    "SHADE_MIN == TacticalWorldLightingSnapshot::Darkest"
+    "TacticalWorldLightingSnapshot{LightGetAmbient()}")
+  string(FIND "${native_render_world_contents}" "${native_light_contract}"
+    native_light_contract_position)
+  if(native_light_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost '${native_light_contract}'")
+  endif()
+endforeach()
+foreach(native_render_test_contract IN ITEMS
+    "--authoritative-render-capture"
+    "unterminated actor palette IDs reject before native string lookup"
+    "display-name truncation does not split a supplementary pair"
+    "NO_PROFILE remains absent despite profile-table contents at its sentinel index"
+    "native dead roster actors removed from their grid retain canonical absent poses"
+    "hidden opponents do not leak names, portraits or pose through native capture"
+    "a native ambient-light change alone publishes exactly one lighting delta"
+    "native render capture consumes no simulation RNG and changes no live face/cache binding")
+  string(FIND "${headless_test_contents}" "${native_render_test_contract}"
+    native_render_test_contract_position)
+  if(native_render_test_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost regression '${native_render_test_contract}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
   ja2_application_build_contents)
 string(FIND "${ja2_application_build_contents}"

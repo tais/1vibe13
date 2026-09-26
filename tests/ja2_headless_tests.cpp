@@ -95,6 +95,7 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
+#include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
@@ -7778,9 +7779,327 @@ static int RunLegacyEmbeddedHostLoopbackTests()
 	return g_failures ? 1 : 0;
 }
 
+static int RunAuthoritativeRenderCaptureTests()
+{
+	CHECK(InstallGameSimulationRandom(0x72656e646572ULL) ==
+		GameSimulationRandomInstallError::None,
+		"native render fixture installs the authoritative RNG before observation");
+	SimulationRandom* const random = GetGameSimulationRandomSource();
+	if (!random) return 1;
+	const auto randomState = random->checkpoint();
+	const auto randomConsumption = random->consumptionEpoch();
+	Ja2SoldierRepository& repository = GetJa2SoldierRepository();
+	repository.initializeSlots();
+	ResetJa2TacticalEntityDirectory();
+	TacticalActor& actor = *repository.resolve(0);
+	actor.initialize();
+	actor.identity().id() = SoldierID{0};
+	actor.identity().incarnation() = 701;
+	actor.identity().bodyType() = REGMALE;
+	actor.identity().profile() = 21;
+	actor.roster().active() = TRUE;
+	actor.roster().inSector() = FALSE;
+	actor.roster().team() = OUR_TEAM;
+	actor.animationPlayback().state() = STANDING;
+	actor.vitals().health() = actor.vitals().maximumHealth() = 100;
+	actor.vitals().breath() = actor.vitals().maximumBreath() = 100;
+	actor.renderBindings().faceIndex() = -1;
+	for (const UINT8 slot : {HELMETPOS, VESTPOS, LEGPOS, HANDPOS, SECONDHANDPOS})
+		actor.inventory()[slot].initialize();
+	for (CHAR8* palette : {actor.renderState().headPalette(),
+		actor.renderState().pantsPalette(), actor.renderState().vestPalette(),
+		actor.renderState().skinPalette()})
+		std::fill(palette, palette + sizeof(PaletteRepID), '\0');
+	std::fill(std::begin(actor.identity().name()), std::end(actor.identity().name()), L'\0');
+	std::array<PaletteReplacementType, 256> palettes{};
+	for (std::size_t index = 0; index < palettes.size(); ++index)
+		std::snprintf(palettes[index].ID, sizeof(PaletteRepID), "P%03zu", index);
+	PaletteReplacementType* const previousPalettes = gpPalRep;
+	const UINT32 previousPaletteCount = guiNumReplacements;
+	gpPalRep = palettes.data();
+	guiNumReplacements = palettes.size();
+	gGameExternalOptions.fShowCamouflageFaces = TRUE;
+	gMercProfiles[21].Type = PROFILETYPE_AIM;
+	gMercProfiles[21].ubFaceIndex = 77;
+	gCamoFace[21] = {TRUE, TRUE, TRUE, TRUE};
+	CHECK(AdoptJa2TacticalEntity(actor), "native render fixture adopts an exact actor");
+	const TacticalEntityId identity = GetJa2TacticalEntityId(actor);
+	const auto captureActor = [&]() {
+		CHECK(SynchronizeJa2TacticalEntityState(actor), "native actor projection succeeds");
+		const auto* state = GetJa2TacticalEntityDirectory().state(identity);
+		return state ? *state : TacticalActorSnapshot{};
+	};
+	const auto rejectActor = [&](auto mutate, auto restore, const char* message) {
+		const TacticalActorSnapshot before = captureActor();
+		mutate();
+		const bool rejected = !SynchronizeJa2TacticalEntityState(actor);
+		const auto* retained = GetJa2TacticalEntityDirectory().state(identity);
+		CHECK(rejected && retained && *retained == before, message);
+		restore();
+		CHECK(SynchronizeJa2TacticalEntityState(actor), "native actor projection recovers after rejection");
+	};
+	CHECK(captureActor().presentation.flags == 0,
+		"empty palette IDs and an offscreen actor produce canonical absence");
+	std::strcpy(actor.renderState().headPalette(), "P000");
+	std::strcpy(actor.renderState().pantsPalette(), "P001");
+	std::strcpy(actor.renderState().vestPalette(), "P002");
+	std::strcpy(actor.renderState().skinPalette(), "P255");
+	auto projected = captureActor();
+	CHECK(projected.presentation.headPaletteIndex == 0 &&
+		projected.presentation.pantsPaletteIndex == 1 &&
+		projected.presentation.vestPaletteIndex == 2 &&
+		projected.presentation.skinPaletteIndex == 255 &&
+		projected.presentation.flags == (TacticalActorHeadPalettePresent |
+			TacticalActorPantsPalettePresent | TacticalActorVestPalettePresent |
+			TacticalActorSkinPalettePresent),
+		"native palette lookup preserves index zero presence and the complete byte domain");
+	rejectActor([&] { std::strcpy(actor.renderState().headPalette(), "UNKNOWN"); },
+		[&] { std::strcpy(actor.renderState().headPalette(), "P000"); },
+		"unknown palette IDs reject without replacing the committed actor");
+	rejectActor([&] { std::memset(actor.renderState().headPalette(), 'X', sizeof(PaletteRepID)); },
+		[&] { std::strcpy(actor.renderState().headPalette(), "P000"); },
+		"unterminated actor palette IDs reject before native string lookup");
+	rejectActor([&] { std::memset(palettes[255].ID, 'X', sizeof(PaletteRepID)); },
+		[&] { std::strcpy(palettes[255].ID, "P255"); },
+		"unterminated replacement-table IDs reject before native string lookup");
+	rejectActor([&] { guiNumReplacements = 257; }, [&] { guiNumReplacements = 256; },
+		"an oversized native palette table rejects before any out-of-bounds read");
+	rejectActor([&] { gpPalRep = nullptr; }, [&] { gpPalRep = palettes.data(); },
+		"a nonempty native palette table requires its storage");
+
+	const auto setName = [&](std::initializer_list<std::uint32_t> units) {
+		std::fill(std::begin(actor.identity().name()), std::end(actor.identity().name()), L'\0');
+		std::size_t index = 0;
+		for (const auto unit : units) actor.identity().name()[index++] = static_cast<CHAR16>(unit);
+	};
+	setName({'I', 'v', 'a', 'n', 0x0418, 0x4e2d});
+	CHECK(captureActor().presentation.displayNameUtf16 ==
+		(std::array<std::uint16_t, 10>{'I', 'v', 'a', 'n', 0x0418, 0x4e2d}),
+		"native display names preserve ASCII and non-Latin BMP characters");
+	if constexpr (sizeof(CHAR16) == 2) setName({0xd83d, 0xde80});
+	else setName({0x1f680});
+	CHECK(captureActor().presentation.displayNameUtf16 ==
+		(std::array<std::uint16_t, 10>{0xd83d, 0xde80}),
+		"native wide characters encode a canonical UTF-16 supplementary pair");
+	setName({0xd800, 'Q', 0xdc00});
+	CHECK(captureActor().presentation.displayNameUtf16 ==
+		(std::array<std::uint16_t, 10>{0xfffd, 'Q', 0xfffd}),
+		"isolated native surrogates become replacement characters without consuming adjacent text");
+	if constexpr (sizeof(CHAR16) > 2)
+	{
+		setName({0x110000, 0xffffffffu});
+		CHECK(captureActor().presentation.displayNameUtf16 ==
+			(std::array<std::uint16_t, 10>{0xfffd, 0xfffd}),
+			"invalid wide native scalars become canonical replacement characters");
+	}
+	std::fill(std::begin(actor.identity().name()), std::end(actor.identity().name()), L'Z');
+	CHECK(captureActor().presentation.displayNameUtf16 ==
+		(std::array<std::uint16_t, 10>{'Z','Z','Z','Z','Z','Z','Z','Z','Z',0}),
+		"a full unterminated native name is bounded and terminated on the wire");
+	if constexpr (sizeof(CHAR16) == 2) setName({'A','A','A','A','A','A','A','A',0xd83d,0xde80});
+	else setName({'A','A','A','A','A','A','A','A',0x1f680});
+	CHECK(captureActor().presentation.displayNameUtf16 ==
+		(std::array<std::uint16_t, 10>{'A','A','A','A','A','A','A','A',0,0}),
+		"display-name truncation does not split a supplementary pair");
+
+	using Family = TacticalPortraitFamily;
+	using Camo = TacticalPortraitCamouflage;
+	const auto portrait = [&](TacticalPortraitSnapshot expected, const char* message) {
+		CHECK(captureActor().presentation.portrait == expected, message);
+	};
+	portrait({Family::Faces, 77, Camo::None}, "native portrait uses profile face index without allocating a face");
+	gMercProfiles[21].Type = PROFILETYPE_IMP;
+	gMercProfiles[21].ubFaceIndex = 255;
+	portrait({Family::ImpFaces, 255, Camo::None}, "IMP family preserves the full native face-index range");
+	gMercProfiles[21].Type = PROFILETYPE_AIM;
+	gMercProfiles[21].ubFaceIndex = 154;
+	portrait({Family::Faces, 154, Camo::None}, "face index 154 alone does not trigger the profile alias");
+	for (const UINT8 profile : {151, 152, 153, 154})
+	{
+		actor.identity().profile() = profile;
+		gMercProfiles[profile].Type = PROFILETYPE_AIM;
+		gMercProfiles[profile].ubFaceIndex = 7;
+		portrait({Family::Faces, 151, Camo::None}, "native profiles 151-154 share small face 151");
+	}
+	gMercProfiles[154].Type = PROFILETYPE_IMP;
+	portrait({Family::ImpFaces, 151, Camo::None}, "profile alias retains the native IMP family choice");
+	actor.identity().profile() = NUM_PROFILES - 1;
+	gMercProfiles[NUM_PROFILES - 1].Type = PROFILETYPE_MERC;
+	gMercProfiles[NUM_PROFILES - 1].ubFaceIndex = 0;
+	portrait({Family::Faces, 0, Camo::None}, "last valid native profile and face zero are preserved");
+	actor.identity().profile() = NO_PROFILE;
+	gMercProfiles[NO_PROFILE].Type = PROFILETYPE_IMP;
+	gMercProfiles[NO_PROFILE].ubFaceIndex = 9;
+	portrait({}, "NO_PROFILE remains absent despite profile-table contents at its sentinel index");
+	actor.identity().profile() = NUM_PROFILES;
+	portrait({}, "out-of-range native profiles have no portrait and never index profile storage");
+	actor.identity().profile() = 21;
+	gMercProfiles[21].ubFaceIndex = 77;
+	actor.camouflage().jungleWorn() = actor.camouflage().urbanWorn() =
+		actor.camouflage().desertWorn() = actor.camouflage().snowWorn() = 100;
+	portrait({Family::Faces, 77, Camo::None}, "worn camo and stale face-cache flags do not paint portraits");
+	actor.camouflage().jungleApplied() = 100;
+	actor.camouflage().urbanApplied() = 50;
+	actor.camouflage().desertApplied() = 20;
+	actor.camouflage().snowApplied() = 1;
+	portrait({Family::Faces, 77, Camo::Snow}, "last positive applied camo wins regardless of percentage");
+	actor.camouflage().snowApplied() = 0;
+	portrait({Family::Faces, 77, Camo::Desert}, "desert applied camo follows snow");
+	actor.camouflage().desertApplied() = 0;
+	portrait({Family::Faces, 77, Camo::Urban}, "urban applied camo follows desert");
+	actor.camouflage().urbanApplied() = 0;
+	portrait({Family::Faces, 77, Camo::Wood}, "positive jungle applied camo selects wood");
+	gGameExternalOptions.fShowCamouflageFaces = FALSE;
+	portrait({Family::Faces, 77, Camo::None}, "authority option disables camouflaged faces");
+	gGameExternalOptions.fShowCamouflageFaces = TRUE;
+	actor.camouflage().jungleApplied() = -1;
+	portrait({Family::Faces, 77, Camo::None}, "nonpositive applied camo selects no portrait variant");
+
+	actor.roster().inSector() = TRUE;
+	actor.position().gridNo() = 2 * WORLD_COLS + 25;
+	actor.position().level() = 1;
+	actor.position().direction() = 3;
+	actor.position().worldX() = 255.25f;
+	actor.position().worldY() = 25.5f;
+	actor.position().heightAdjustment() = -12;
+	actor.position().animationHeightAdjustment() = 1.25f;
+	actor.movement().animationDirection() = 3;
+	actor.animationPlayback().surface() = 0;
+	actor.animationPlayback().frame() = 7;
+	actor.status().flags() |= SOLDIER_MULTITILE_NZ | SOLDIER_MULTITILE_Z;
+	projected = captureActor();
+	CHECK(projected.presentation.worldXQ8 == 255 * TacticalWorldCoordinateScale + 64 &&
+		projected.presentation.worldYQ8 == 25 * TacticalWorldCoordinateScale + 128 &&
+		projected.presentation.animationDirection == 3 && projected.presentation.animationSurface == 0 &&
+		projected.presentation.animationFrame == 7 && projected.presentation.heightAdjustment == -12 &&
+		(projected.presentation.flags & (TacticalActorRenderPosePresent |
+			TacticalActorPositiveAnimationHeight | TacticalActorMultiTileNonZ | TacticalActorMultiTileZ)) ==
+			(TacticalActorRenderPosePresent | TacticalActorPositiveAnimationHeight |
+				TacticalActorMultiTileNonZ | TacticalActorMultiTileZ),
+		"native pose captures fractional positions, frame, height, direction and multi-tile flags exactly");
+	actor.position().worldX() = 255.0f + 0.5f / TacticalWorldCoordinateScale;
+	CHECK(captureActor().presentation.worldXQ8 == 255 * TacticalWorldCoordinateScale + 1,
+		"native fixed-point conversion rounds positive half units consistently");
+	actor.position().worldX() = 255.25f;
+	for (const FLOAT invalid : {-1.0f, std::numeric_limits<FLOAT>::infinity(),
+		std::numeric_limits<FLOAT>::quiet_NaN(), std::numeric_limits<FLOAT>::max()})
+		rejectActor([&] { actor.position().worldX() = invalid; },
+			[&] { actor.position().worldX() = 255.25f; },
+			"nonfinite, negative and unrepresentable native coordinates reject transactionally");
+	rejectActor([&] { actor.position().animationHeightAdjustment() = std::numeric_limits<FLOAT>::quiet_NaN(); },
+		[&] { actor.position().animationHeightAdjustment() = 1.25f; }, "nonfinite native animation height rejects");
+	rejectActor([&] { actor.identity().bodyType() = TOTALBODYTYPES; },
+		[&] { actor.identity().bodyType() = REGMALE; }, "invalid native body type rejects");
+	rejectActor([&] { actor.animationPlayback().state() = NUMANIMATIONSTATES; },
+		[&] { actor.animationPlayback().state() = STANDING; }, "invalid native animation state rejects before control-table indexing");
+	rejectActor([&] { actor.animationPlayback().surface() = INVALID_ANIMATION_SURFACE; },
+		[&] { actor.animationPlayback().surface() = 0; }, "a present pose requires a native animation surface");
+	rejectActor([&] { actor.movement().animationDirection() = -1; },
+		[&] { actor.movement().animationDirection() = 3; }, "negative native animation direction rejects");
+	rejectActor([&] { actor.movement().animationDirection() = 8; },
+		[&] { actor.movement().animationDirection() = 3; }, "out-of-range native animation direction rejects");
+	rejectActor([&] { actor.position().direction() = 8; },
+		[&] { actor.position().direction() = 3; }, "out-of-range native facing rejects");
+	rejectActor([&] { actor.position().level() = 2; },
+		[&] { actor.position().level() = 1; }, "out-of-range native roof level rejects");
+	actor.vitals().health() = 0;
+	actor.position().gridNo() = NOWHERE;
+	actor.animationPlayback().surface() = INVALID_ANIMATION_SURFACE;
+	projected = captureActor();
+	CHECK(projected.active && projected.inSector && projected.life == 0 && projected.grid == NOWHERE &&
+		(projected.presentation.flags & TacticalActorRenderPosePresent) == 0 &&
+		projected.presentation.worldXQ8 == 0 && projected.presentation.animationFrame == 0 &&
+		projected.presentation.animationSurface == TacticalAnimationSurfaceAbsent &&
+		IsCanonicalTacticalActorPresentation(projected.presentation),
+		"native dead roster actors removed from their grid retain canonical absent poses");
+	actor.vitals().health() = 100;
+	actor.position().gridNo() = 2 * WORLD_COLS + 25;
+	actor.animationPlayback().surface() = 0;
+
+	CHECK(InitializeMemoryManager(), "native capture fixture initializes memory ownership");
+	CHECK(AllocateWorldTileMap(static_cast<std::uint32_t>(WORLD_MAX)),
+		"native capture fixture allocates real logical map storage without assets");
+	gbPlayerNum = OUR_TEAM;
+	std::strcpy(gzLastLoadedFile, "A9.DAT");
+	ResetJa2TacticalInterruptForNewWorld();
+	Ja2TacticalWorldAdapter adapter(TOTAL_SOLDIERS);
+	adapter.session().setSector({9, 1, 0});
+	adapter.onWorldLoaded(901);
+	ubAmbientLightLevel = 4;
+	TacticalWorldSnapshot world;
+	CHECK(adapter.capture(world) == TacticalWorldCaptureResult::Success && world.find(identity) &&
+		world.lighting().ambientLightLevel == 4, "actual native world adapter publishes actor render inputs and ambient light");
+	const auto unchanged = [&](const TacticalWorldSnapshot& before) {
+		std::vector<std::uint8_t> previousBytes, currentBytes;
+		return EncodeTacticalWorldSnapshot(before, previousBytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			EncodeTacticalWorldSnapshot(world, currentBytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			previousBytes == currentBytes;
+	};
+	for (const UINT8 invalid : {0, 16})
+	{
+		const auto before = world;
+		ubAmbientLightLevel = invalid;
+		CHECK(adapter.capture(world) == TacticalWorldCaptureResult::AdapterFailure && unchanged(before),
+			"invalid native ambient light cannot replace the accepted snapshot");
+	}
+	ubAmbientLightLevel = 4;
+	for (const FLOAT invalid : {0.0f, static_cast<FLOAT>(WORLD_COLS * 10)})
+	{
+		const auto before = world;
+		actor.position().worldX() = invalid;
+		CHECK(adapter.capture(world) == TacticalWorldCaptureResult::AdapterFailure && unchanged(before),
+			"native render positions outside logical-grid or world bounds reject the entire snapshot");
+	}
+	actor.position().worldX() = 255.25f;
+	actor.position().gridNo() += 1;
+	actor.animationPlayback().state() = WALKING;
+	CHECK(adapter.capture(world) == TacticalWorldCaptureResult::Success && world.find(identity) &&
+		world.find(identity)->presentation.worldXQ8 == 255 * TacticalWorldCoordinateScale + 64,
+		"native locomotion may advance its logical tile before the bounded render position follows");
+	actor.position().gridNo() -= 1;
+	actor.animationPlayback().state() = STANDING;
+	TacticalActor& hidden = *repository.resolve(1);
+	hidden = actor;
+	hidden.identity().id() = SoldierID{1};
+	hidden.identity().incarnation() = 702;
+	hidden.roster().team() = ENEMY_TEAM;
+	CHECK(AdoptJa2TacticalEntity(hidden), "visibility fixture adopts a distinct native actor");
+	gbPublicOpplist[OUR_TEAM][1] = NOT_HEARD_OR_SEEN;
+	CHECK(adapter.capture(world) == TacticalWorldCaptureResult::Success && world.actors().size() == 1,
+		"hidden opponents do not leak names, portraits or pose through native capture");
+	gbPublicOpplist[OUR_TEAM][1] = SEEN_CURRENTLY;
+	CHECK(adapter.capture(world) == TacticalWorldCaptureResult::Success && world.actors().size() == 2 &&
+		world.find(TacticalEntityId{1, 702}), "currently visible opponents expose their authoritative render inputs");
+	(void)ReleaseJa2TacticalEntity(hidden);
+	hidden.roster().active() = FALSE;
+	TacticalWorldObserver observer(adapter);
+	CHECK(observer.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"real native observer accepts the render-input baseline");
+	ubAmbientLightLevel = 8;
+	const auto lightUpdate = observer.update();
+	const auto publication = observer.latest();
+	CHECK(lightUpdate == TacticalWorldObserverUpdateResult::PublishedDelta && publication &&
+		publication.delta->events.size() == 1 &&
+		std::holds_alternative<TacticalLightingChangedEvent>(publication.delta->events.front()) &&
+		publication.snapshot->lighting().ambientLightLevel == 8,
+		"a native ambient-light change alone publishes exactly one lighting delta");
+	CHECK(random->checkpoint() == randomState && random->consumptionEpoch() == randomConsumption &&
+		actor.renderBindings().faceIndex() == -1 && gCamoFace[21].gCamoface &&
+		gCamoFace[21].gUrbanCamoface && gCamoFace[21].gDesertCamoface && gCamoFace[21].gSnowCamoface,
+		"native render capture consumes no simulation RNG and changes no live face/cache binding");
+	(void)ReleaseJa2TacticalEntity(actor);
+	gpPalRep = previousPalettes;
+	guiNumReplacements = previousPaletteCount;
+	std::printf("\n%s (%d failures)\n", g_failures ?
+		"AUTHORITATIVE RENDER CAPTURE TESTS FAILED" : "AUTHORITATIVE RENDER CAPTURE TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
 int main( int argc, char** argv )
 {
 	std::setvbuf(stdout, nullptr, _IONBF, 0);
+	if (argc == 2 && std::strcmp(argv[1], "--authoritative-render-capture") == 0)
+		return RunAuthoritativeRenderCaptureTests();
 	if (argc == 2 && std::strcmp(
 		argv[1], "--strict-runtime-execution") == 0)
 		return RunStrictRuntimeExecutionTests();
@@ -14498,6 +14817,11 @@ int main( int argc, char** argv )
 			gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
 		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		worldActor.identity().incarnation() = 701;
+		worldActor.identity().bodyType() = REGMALE;
+		std::fill(std::begin(worldActor.identity().name()), std::end(worldActor.identity().name()), L'\0');
+		for (CHAR8* palette : {worldActor.renderState().headPalette(), worldActor.renderState().pantsPalette(),
+			worldActor.renderState().vestPalette(), worldActor.renderState().skinPalette()})
+			std::fill(palette, palette + sizeof(PaletteRepID), '\0');
 		worldActor.roster().active() = TRUE;
 		worldActor.roster().inSector() = TRUE;
 		worldActor.roster().team() = 1;
@@ -14506,7 +14830,12 @@ int main( int argc, char** argv )
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
+		worldActor.position().worldX() = 255.0f;
+		worldActor.position().worldY() = 25.0f;
+		worldActor.movement().animationDirection() = 3;
 		worldActor.animationPlayback().state() = STANDING;
+		worldActor.animationPlayback().surface() = 0;
+		worldActor.animationPlayback().frame() = 0;
 		worldActor.actionPoints().current() = 72;
 		worldActor.vitals().health() = 76;
 		worldActor.vitals().maximumHealth() = 80;
@@ -15894,6 +16223,7 @@ int main( int argc, char** argv )
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration );
 		worldActor.position().gridNo() = 346;
+		worldActor.position().worldX() = 265.0f;
 		worldActor.vitals().health() = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
@@ -16009,6 +16339,7 @@ int main( int argc, char** argv )
 				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
 			worldActor.position().gridNo() = 347;
 			worldActor.position().worldX() = 275.0f;
+			worldActor.position().worldX() = 275.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -16121,6 +16452,7 @@ int main( int argc, char** argv )
 		RuntimeMessageBus saturatedChunkMessages(
 			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
 			worldActor.position().gridNo() = 348;
+			worldActor.position().worldX() = 285.0f;
 			worldActor.position().worldX() = 285.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();

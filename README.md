@@ -362,8 +362,10 @@ fixed-point world position, animation surface/frame/direction, body and palette
 selection, a terminated ten-code-unit UTF-16 name, and a bounded portrait asset
 descriptor. The header carries the authority's ambient light level. A snapshot
 rejects duplicate numeric actor slots even when their incarnations differ.
-This portable foundation does not activate a native renderer or capture those
-new fields from JA2; current native observations retain canonical absent poses.
+Native observation captures these fields from the authoritative actor directory
+and ambient-light state. Offscreen actors and dead roster actors removed from
+their grid retain canonical absent poses. Client renderer activation remains
+separate work.
 The public delta event change advances the experimental SDK to 0.3.
 The private client credential reader recognizes only the identical protocol-8
 storage layout for protocol-9 migration: it verifies the original checksums and
