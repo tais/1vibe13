@@ -920,6 +920,22 @@ renderer-free deferral, real refusal/AI completion, stale world and offer IDs,
 legacy/single-player exclusions, retained RNG and duplicate suppression. Native
 captivity and its later campaign persistence are not qualified by these tests.
 
+The bounded `FullEngineCoopClientPresentationActorDirectory` stages a plan from
+a committed snapshot for a future presentation-owned actor bank. It matches
+exact actor incarnations to local slots, detaches all retired mappings before
+attaching replacements, and refreshes surviving actors. Canonical dead actors
+whose native graphic has been removed release their mapping; posed dying
+actors remain present. All IDs still undergo duplicate and capacity validation.
+A plan can commit only against its live originating directory and unchanged
+state, and must not outlive that directory. The directory performs no native
+actor allocation, renderer mutation, gameplay execution or wire-format change.
+
+The standalone tests cover stale and foreign plans, rollback on malformed
+snapshots, exact slot reuse, world replacement, all 2,048 actor slots and a
+4,096-operation replacement, and shrinking the local capacity. The target is
+also built by the Linux ASan workflow. Connecting these plans to the ordinary
+JA2 actor renderer remains a later integration step.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time
