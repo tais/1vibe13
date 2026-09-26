@@ -960,7 +960,12 @@ bool SdlNetPeer::Start(
 				return false;
 			}
 		}
-		state_->listener = NET_CreateServer( bindAddr, port, 0 );
+		SDL_PropertiesID properties = 0;
+		if (!endpoint.reuseAddress) properties = SDL_CreateProperties();
+		if (endpoint.reuseAddress || (properties && SDL_SetBooleanProperty(
+				properties, NET_PROP_SERVER_REUSEADDR_BOOLEAN, false)))
+			state_->listener = NET_CreateServer(bindAddr, port, properties);
+		if (properties) SDL_DestroyProperties(properties);
 		if ( bindAddr )
 			NET_UnrefAddress( bindAddr );
 		if ( !state_->listener )
