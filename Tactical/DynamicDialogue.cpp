@@ -1126,7 +1126,7 @@ void SetfDynamicOpinionSpeechInProgress( BOOLEAN aVal )
 }
 
 
-void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLEAN fStartDialogue )
+void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLEAN fStartDialogue, BOOLEAN fShowChangeNotification )
 {
 	if ( usProfileA == NO_PROFILE || usProfileB == NO_PROFILE )
 		return;
@@ -1259,7 +1259,7 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 	if ( fSomethingChanged )
 	{
 		// if this option is turned on, a small message will show us how opinions have changed
-		if ( gGameExternalOptions.fDynamicOpinionsShowChange )
+		if ( fShowChangeNotification && gGameExternalOptions.fDynamicOpinionsShowChange )
 		{
 			ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, (STR16)(gDynamicOpinionEvent[usEvent].sOpinionModifier >= 0 ? L"%s: %s +%d" : L"%s: %s %d"), gMercProfiles[usProfileA].zNickname, gMercProfiles[usProfileB].zNickname, gDynamicOpinionEvent[usEvent].sOpinionModifier );
 		}
@@ -1762,7 +1762,7 @@ void CheckForFriendsofHated( TacticalActor* pSoldier )
 	}
 }
 
-void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
+void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile, BOOLEAN fShowChangeNotification )
 {
 	if ( usProfile == NO_PROFILE )
 		return;
@@ -1815,7 +1815,7 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 					if ( pSoldier->employment().endTime() < oldcontract )
 					{
 						// this guy got paid at a point where we had less time than he did! Favouritism!
-						AddOpinionEvent( pSoldier->identity().profile(), usProfile, OPINIONEVENT_CONTRACTEXTENSION );
+						AddOpinionEvent( pSoldier->identity().profile(), usProfile, OPINIONEVENT_CONTRACTEXTENSION, TRUE, fShowChangeNotification );
 					}
 				}
 			}

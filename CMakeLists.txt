@@ -629,6 +629,14 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(platform_legacy_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME platform_legacy COMMAND platform_legacy_tests)
+  # Ledger failures must exercise the real native state and private VFS, not a
+  # mirror of the persistence algorithm. Reuse the full native link closure.
+  add_executable(campaign_ledger_tests tests/campaign_ledger_tests.cpp)
+  target_compile_definitions(campaign_ledger_tests PRIVATE ${debugFlags})
+  get_target_property(campaign_ledger_native_libraries platform_legacy_tests LINK_LIBRARIES)
+  target_link_libraries(campaign_ledger_tests PRIVATE ${campaign_ledger_native_libraries})
+  add_test(NAME campaign_ledger COMMAND campaign_ledger_tests)
+
   # Both suites exercise fixed-name legacy VFS/profile fixtures. Keep only
   # those two mutually exclusive while allowing the remaining CTests to run
   # in parallel.
