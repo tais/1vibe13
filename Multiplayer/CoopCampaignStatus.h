@@ -38,6 +38,9 @@ struct CoopCampaignStatus
 	// not on ordinary clock ticks. An old resume must never undo a newer pause.
 	std::uint64_t timeControlRevision = 1;
 	CoopCampaignArrival arrival{};
+	// Runtime-scoped native offer identity. Zero means no decision. The server
+	// privately binds this ID to the exact world, turn and enemy incarnation.
+	std::uint64_t surrenderOffer = 0;
 };
 using CoopCampaignStatusBytes = std::array<std::uint8_t, CoopCampaignStatusWireSize>;
 
@@ -52,7 +55,9 @@ inline bool ValidCoopCampaignStatus(const CoopCampaignStatus& value) noexcept
 		(!value.compressionActive || (!value.gamePaused && value.compressionMode != 0)) &&
 		ValidCoopCampaignArrival(value.arrival) && (!value.arrival.decision ||
 			(value.gamePaused && !value.compressionActive &&
-			 (value.phase == CoopCampaignPhase::Starting || value.phase == CoopCampaignPhase::Strategic)));
+			 (value.phase == CoopCampaignPhase::Starting || value.phase == CoopCampaignPhase::Strategic))) &&
+		(!value.surrenderOffer || (value.phase == CoopCampaignPhase::Tactical &&
+			value.gamePaused && !value.compressionActive && !value.arrival.decision));
 }
 
 inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -61,7 +66,8 @@ inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCam
 		a.gamePaused == b.gamePaused && a.pauseLocked == b.pauseLocked &&
 		a.compressionActive == b.compressionActive && a.timeInterrupted == b.timeInterrupted &&
 		a.timeLeader == b.timeLeader && a.leadershipRevision == b.leadershipRevision &&
-		a.timeLeaderReady == b.timeLeaderReady && SameCoopCampaignArrival(a.arrival, b.arrival);
+		a.timeLeaderReady == b.timeLeaderReady && SameCoopCampaignArrival(a.arrival, b.arrival) &&
+		a.surrenderOffer == b.surrenderOffer;
 }
 
 inline bool SameCoopCampaignStatus(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -100,6 +106,7 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 		(arrival.nativeEnterSector ? 4 : 0) | (arrival.nativeRetreat ? 8 : 0) | (arrival.nativePlacement ? 16 : 0);
 	bytes[75] = arrival.x; bytes[76] = arrival.y; bytes[77] = arrival.z; bytes[78] = arrival.encounterCode;
 	put(80, arrival.pendingCount, 2); put(82, arrival.involvedMercs, 2); put(84, arrival.uninvolvedMercs, 2);
+	put(86, value.surrenderOffer, 8);
 	output = bytes;
 	return true;
 }
@@ -109,7 +116,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	if (!bytes || size != CoopCampaignStatusWireSize || bytes[0] != 'J' || bytes[1] != '2' ||
 		bytes[2] != 'C' || bytes[3] != 'T' || bytes[6] != 1 || bytes[7] || bytes[29] > 6 || (bytes[30] & ~31u) ||
 		(bytes[74] & ~31u) || bytes[79]) return false;
-	for (std::size_t i = 86; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
+	for (std::size_t i = 94; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -136,6 +143,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	arrival.x = bytes[75]; arrival.y = bytes[76]; arrival.z = bytes[77]; arrival.encounterCode = bytes[78];
 	arrival.pendingCount = static_cast<std::uint16_t>(get(80, 2));
 	arrival.involvedMercs = static_cast<std::uint16_t>(get(82, 2)); arrival.uninvolvedMercs = static_cast<std::uint16_t>(get(84, 2));
+	value.surrenderOffer = get(86, 8);
 	if (!ValidCoopCampaignStatus(value)) return false;
 	output = value;
 	return true;
@@ -151,10 +159,10 @@ public:
 	bool beginSession(std::uint64_t epoch) noexcept
 	{
 		if (!epoch || value_.sessionEpoch) return false;
-		value_ = {}; value_.sessionEpoch = epoch; lastArrivalDecision_ = 0;
+		value_ = {}; value_.sessionEpoch = epoch; lastArrivalDecision_ = lastSurrenderOffer_ = 0;
 		return true;
 	}
-	void clear() noexcept { value_ = {}; lastArrivalDecision_ = 0; }
+	void clear() noexcept { value_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = 0; }
 	const CoopCampaignStatus& value() const noexcept { return value_; }
 	bool consumeTimeControlRevision(std::uint64_t expected) noexcept
 	{
@@ -186,7 +194,8 @@ public:
 			++clock.timeControlRevision;
 		}
 		if (!ValidCoopCampaignStatus(clock) || (value_.revision && clock.worldSeconds < value_.worldSeconds) ||
-			!ValidCoopCampaignArrivalReplacement(value_.arrival, clock.arrival, lastArrivalDecision_)) return false;
+			!ValidCoopCampaignArrivalReplacement(value_.arrival, clock.arrival, lastArrivalDecision_) ||
+			(clock.surrenderOffer && clock.surrenderOffer != value_.surrenderOffer && clock.surrenderOffer <= lastSurrenderOffer_)) return false;
 		if (value_.revision && !SameCoopCampaignStatus(value_, clock))
 		{
 			if (value_.revision == std::numeric_limits<std::uint64_t>::max()) return false;
@@ -194,11 +203,13 @@ public:
 		}
 		value_ = clock;
 		lastArrivalDecision_ = std::max(lastArrivalDecision_, clock.arrival.decision);
+		lastSurrenderOffer_ = std::max(lastSurrenderOffer_, clock.surrenderOffer);
 		return true;
 	}
 private:
 	CoopCampaignStatus value_;
 	std::uint64_t lastArrivalDecision_ = 0;
+	std::uint64_t lastSurrenderOffer_ = 0;
 };
 }
 #endif

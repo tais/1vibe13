@@ -204,5 +204,39 @@ void TestArrivalLedger()
 	ledger.clear();
 	CHECK(ledger.beginSession(2) && ledger.observe(clock, ready, 1), "new server session owns a new decision lineage");
 }
+void TestSurrenderObservation()
+{
+	auto status = Sample(); status.surrenderOffer = 0x0807060504030201ull;
+	CoopCampaignStatusBytes bytes;
+	CoopCampaignStatus decoded;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[86] == 1 && bytes[93] == 8 && !bytes[94] && !bytes[95] &&
+		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+		"exact native offer ID roundtrips with no private speaker pointer");
+	for (unsigned at : {94u, 95u})
+	{
+		auto malformed = bytes; malformed[at] = 1; decoded = status;
+		CHECK(!DecodeCoopCampaignStatus(malformed.data(), malformed.size(), decoded) &&
+			SameCoopCampaignStatus(status, decoded), "surrender reserved bytes reject without replacing the observation");
+	}
+	for (unsigned fault = 0; fault != 4; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.phase = CoopCampaignPhase::Strategic;
+		if (fault == 1) bad.gamePaused = false;
+		if (fault == 2) { bad.compressionMode = 1; bad.compressionActive = true; }
+		if (fault == 3) bad.arrival = Battle();
+		auto unchanged = bytes;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes) && bytes == unchanged, "surrender must own a paused tactical hold exclusively");
+	}
+	CoopCampaignStatusLedger ledger; const PeerIdentity ready[] = {Peer(3)};
+	CHECK(ledger.beginSession(11) && ledger.observe(status, ready, 1), "offer observed in current server session");
+	const auto control = ledger.value().timeControlRevision;
+	status.surrenderOffer = 0;
+	CHECK(ledger.observe(status, ready, 1) && ledger.value().timeControlRevision > control, "answer advances shared control lineage");
+	status.surrenderOffer = 0x0807060504030201ull;
+	CHECK(!ledger.observe(status, ready, 1), "completed native offer cannot resurrect");
+	++status.surrenderOffer;
+	CHECK(ledger.observe(status, ready, 1), "next native offer has a new identity");
 }
-int main() { TestCodec(); TestLedger(); TestArrivalCodec(); TestArrivalLedger(); return failures ? 1 : 0; }
+}
+int main() { TestCodec(); TestSurrenderObservation(); TestLedger(); TestArrivalCodec(); TestArrivalLedger(); return failures ? 1 : 0; }
