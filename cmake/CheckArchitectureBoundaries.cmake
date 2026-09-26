@@ -13530,9 +13530,11 @@ foreach(direct_legacy_text_include_candidate IN LISTS
       "${direct_legacy_text_include_count} + 1")
   endif()
 endforeach()
-if(NOT direct_legacy_text_include_count EQUAL 241)
+# The native assertion fixture adds one test-only include for the legacy
+# MSG_VERSION/pMessageStrings boundary; production consumers remain unchanged.
+if(NOT direct_legacy_text_include_count EQUAL 242)
   message(FATAL_ERROR
-    "The linked export adapter must leave exactly 241 direct Text.h consumers, found ${direct_legacy_text_include_count}")
+    "The linked export adapter plus assertion fixture must leave exactly 242 direct Text.h consumers, found ${direct_legacy_text_include_count}")
 endif()
 
 file(READ "${SOURCE_ROOT}/tests/i18n_text_catalog_tests.cpp"
