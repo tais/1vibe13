@@ -116,7 +116,7 @@ void CheckCommonGolden(const std::uint8_t* bytes,
 {
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'S', "campaign sync magic is exact");
-	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 8 &&
+	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 9 &&
 		bytes[7] == 0 && bytes[8] == static_cast<std::uint8_t>(kind),
 		"campaign sync versions and kind are exact");
 	for (std::size_t index = 9; index < 16; ++index)

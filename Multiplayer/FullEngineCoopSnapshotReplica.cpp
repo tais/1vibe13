@@ -13,7 +13,8 @@ bool SameSector(const TacticalSectorSnapshot& left,
 	const TacticalSectorSnapshot& right) noexcept
 {
 	return left.x == right.x && left.y == right.y && left.z == right.z &&
-		left.loaded == right.loaded && left.mapAssetKey == right.mapAssetKey;
+		left.loaded == right.loaded &&
+		left.mapAssetKey == right.mapAssetKey;
 }
 
 bool SameTurn(const TacticalTurnSnapshot& left,
@@ -26,6 +27,12 @@ bool SameTurn(const TacticalTurnSnapshot& left,
 		left.interruptPhase == right.interruptPhase &&
 		left.interruptSerial == right.interruptSerial &&
 		left.commandsBlocked == right.commandsBlocked;
+}
+
+bool SameLighting(const TacticalWorldLightingSnapshot& left,
+	const TacticalWorldLightingSnapshot& right) noexcept
+{
+	return left == right;
 }
 
 bool Present(const TacticalActorSnapshot& actor) noexcept
@@ -50,11 +57,14 @@ bool ValidActor(const TacticalActorSnapshot& actor) noexcept
 {
 	return actor.id.valid() && ValidStance(actor.stance) &&
 		actor.loadout.valid() &&
+		actor.animation < TacticalAnimationStateCount &&
+		IsCanonicalTacticalActorPresentation(actor.presentation) &&
 		(!actor.inSector || actor.active);
 }
 
 bool ValidSnapshotActors(
 	const std::vector<TacticalActorSnapshot>& actors,
+	const TacticalWorldDimensions& dimensions,
 	bool requirePresent) noexcept
 {
 	if (actors.size() > MaximumCoopTacticalSnapshotActors) return false;
@@ -62,6 +72,7 @@ bool ValidSnapshotActors(
 	{
 		const TacticalActorSnapshot& actor = actors[index];
 		if (!ValidActor(actor) ||
+			!IsValidTacticalActorPresentation(actor, dimensions) ||
 			(requirePresent && !Present(actor)))
 			return false;
 		if (index == 0) continue;
@@ -122,17 +133,9 @@ const TacticalEntityId* EventActor(const TacticalWorldEvent& event) noexcept
 		return &entered->actor.id;
 	if (const auto* left = std::get_if<TacticalActorLeftEvent>(&event))
 		return &left->actor;
-	if (const auto* moved = std::get_if<TacticalActorMovedEvent>(&event))
-		return &moved->actor;
-	if (const auto* stance =
-		std::get_if<TacticalActorStanceChangedEvent>(&event))
-		return &stance->actor;
-	if (const auto* vitals =
-		std::get_if<TacticalActorVitalsChangedEvent>(&event))
-		return &vitals->actor;
-	if (const auto* loadout =
-		std::get_if<TacticalActorLoadoutChangedEvent>(&event))
-		return &loadout->actor;
+	if (const auto* updated =
+		std::get_if<TacticalActorUpdatedEvent>(&event))
+		return &updated->actor.id;
 	return nullptr;
 }
 
@@ -155,29 +158,9 @@ bool EventHasChange(const TacticalWorldEvent& event) noexcept
 	if (const auto* changed =
 		std::get_if<TacticalTurnChangedEvent>(&event))
 		return !SameTurn(changed->previous, changed->current);
-	if (const auto* moved =
-		std::get_if<TacticalActorMovedEvent>(&event))
-		return moved->previousGrid != moved->currentGrid ||
-			moved->previousLevel != moved->currentLevel ||
-			moved->previousDirection != moved->currentDirection;
-	if (const auto* stance =
-		std::get_if<TacticalActorStanceChangedEvent>(&event))
-		return stance->previous != stance->current ||
-			stance->previousAnimation != stance->currentAnimation;
-	if (const auto* vitals =
-		std::get_if<TacticalActorVitalsChangedEvent>(&event))
-		return vitals->previousActionPoints != vitals->currentActionPoints ||
-			vitals->previousLife != vitals->currentLife ||
-			vitals->previousMaximumLife != vitals->currentMaximumLife ||
-			vitals->previousBreath != vitals->currentBreath ||
-			vitals->previousMaximumBreath != vitals->currentMaximumBreath ||
-			vitals->previousHostileToPlayerTeam !=
-				vitals->currentHostileToPlayerTeam ||
-			vitals->previousInterruptActionEligible !=
-				vitals->currentInterruptActionEligible;
-	if (const auto* loadout =
-		std::get_if<TacticalActorLoadoutChangedEvent>(&event))
-		return loadout->previous != loadout->current;
+	if (const auto* changed =
+		std::get_if<TacticalLightingChangedEvent>(&event))
+		return !SameLighting(changed->previous, changed->current);
 	if (const auto* changed =
 		std::get_if<TacticalDoorChangedEvent>(&event))
 		return changed->previous.baseGrid == changed->current.baseGrid &&
@@ -211,7 +194,7 @@ bool ValidDeltaShape(const TacticalWorldDelta& delta,
 		{
 			// Sector and turn changes are singleton categories. Actor categories
 			// use strict identity order, matching the wire canonical form.
-			if (event.index() < 3 ||
+				if (event.index() < 4 ||
 				((actor == nullptr || previousActor == nullptr ||
 				  !(*previousActor < *actor)) &&
 				 (doorGrid == nullptr || previousDoorGrid == nullptr ||
@@ -227,22 +210,28 @@ bool ValidDeltaShape(const TacticalWorldDelta& delta,
 				return false;
 		}
 		else if (const auto* changed =
+			std::get_if<TacticalSectorChangedEvent>(&event))
+		{
+			if (!IsValidTacticalSectorSnapshot(changed->previous) ||
+				!IsValidTacticalSectorSnapshot(changed->current))
+				return false;
+		}
+		else if (const auto* changed =
 			std::get_if<TacticalTurnChangedEvent>(&event))
 		{
 			if (turnChange != nullptr) return false;
 			turnChange = changed;
 		}
-		else if (const auto* stance =
-			std::get_if<TacticalActorStanceChangedEvent>(&event))
+		else if (const auto* changed =
+			std::get_if<TacticalLightingChangedEvent>(&event))
 		{
-			if (!ValidStance(stance->previous) ||
-				!ValidStance(stance->current))
+			if (!changed->previous.valid() || !changed->current.valid())
 				return false;
 		}
-		else if (const auto* loadout =
-			std::get_if<TacticalActorLoadoutChangedEvent>(&event))
+		else if (const auto* updated =
+			std::get_if<TacticalActorUpdatedEvent>(&event))
 		{
-			if (!loadout->previous.valid() || !loadout->current.valid())
+			if (!ValidActor(updated->actor) || !Present(updated->actor))
 				return false;
 		}
 		else if (const auto* entered =
@@ -300,6 +289,7 @@ auto FindDoor(std::vector<TacticalDoorSnapshot>& doors,
 bool ApplyEvent(const TacticalWorldEvent& event,
 	TacticalSectorSnapshot& sector,
 	TacticalTurnSnapshot& turn,
+	TacticalWorldLightingSnapshot& lighting,
 	std::vector<TacticalActorSnapshot>& actors,
 	std::vector<TacticalDoorSnapshot>& doors,
 	std::array<TacticalEntityId,
@@ -344,8 +334,7 @@ bool ApplyEvent(const TacticalWorldEvent& event,
 	if (const auto* changed =
 		std::get_if<TacticalSectorChangedEvent>(&event))
 	{
-		if (!SameSector(sector, changed->previous) ||
-			!IsValidTacticalSectorSnapshot(changed->current)) return false;
+		if (!SameSector(sector, changed->previous)) return false;
 		sector = changed->current;
 		return true;
 	}
@@ -354,6 +343,13 @@ bool ApplyEvent(const TacticalWorldEvent& event,
 	{
 		if (!SameTurn(turn, changed->previous)) return false;
 		turn = changed->current;
+		return true;
+	}
+	if (const auto* changed =
+		std::get_if<TacticalLightingChangedEvent>(&event))
+	{
+		if (!SameLighting(lighting, changed->previous)) return false;
+		lighting = changed->current;
 		return true;
 	}
 	if (const auto* entered =
@@ -382,70 +378,15 @@ bool ApplyEvent(const TacticalWorldEvent& event,
 		actors.erase(actor);
 		return true;
 	}
-	if (const auto* moved = std::get_if<TacticalActorMovedEvent>(&event))
+	if (const auto* updated =
+		std::get_if<TacticalActorUpdatedEvent>(&event))
 	{
-		if (membershipAlreadyChanged(moved->actor)) return false;
-		auto actor = FindActor(actors, moved->actor);
-		if (actor == actors.end() || actor->id != moved->actor ||
-			!Present(*actor) || actor->grid != moved->previousGrid ||
-			actor->level != moved->previousLevel ||
-			actor->direction != moved->previousDirection)
+		if (membershipAlreadyChanged(updated->actor.id)) return false;
+		auto actor = FindActor(actors, updated->actor.id);
+		if (actor == actors.end() || actor->id != updated->actor.id ||
+			!Present(*actor) || *actor == updated->actor)
 			return false;
-		actor->grid = moved->currentGrid;
-		actor->level = moved->currentLevel;
-		actor->direction = moved->currentDirection;
-		return true;
-	}
-	if (const auto* stance =
-		std::get_if<TacticalActorStanceChangedEvent>(&event))
-	{
-		if (membershipAlreadyChanged(stance->actor)) return false;
-		auto actor = FindActor(actors, stance->actor);
-		if (actor == actors.end() || actor->id != stance->actor ||
-			!Present(*actor) || actor->stance != stance->previous ||
-			actor->animation != stance->previousAnimation)
-			return false;
-		actor->stance = stance->current;
-		actor->animation = stance->currentAnimation;
-		return true;
-	}
-	if (const auto* vitals =
-		std::get_if<TacticalActorVitalsChangedEvent>(&event))
-	{
-		if (membershipAlreadyChanged(vitals->actor)) return false;
-		auto actor = FindActor(actors, vitals->actor);
-		if (actor == actors.end() || actor->id != vitals->actor ||
-			!Present(*actor) ||
-			actor->actionPoints != vitals->previousActionPoints ||
-			actor->life != vitals->previousLife ||
-			actor->maximumLife != vitals->previousMaximumLife ||
-			actor->breath != vitals->previousBreath ||
-			actor->maximumBreath != vitals->previousMaximumBreath ||
-			actor->hostileToPlayerTeam !=
-				vitals->previousHostileToPlayerTeam ||
-			actor->interruptActionEligible !=
-				vitals->previousInterruptActionEligible)
-			return false;
-		actor->actionPoints = vitals->currentActionPoints;
-		actor->life = vitals->currentLife;
-		actor->maximumLife = vitals->currentMaximumLife;
-		actor->breath = vitals->currentBreath;
-		actor->maximumBreath = vitals->currentMaximumBreath;
-		actor->hostileToPlayerTeam =
-			vitals->currentHostileToPlayerTeam;
-		actor->interruptActionEligible =
-			vitals->currentInterruptActionEligible;
-		return true;
-	}
-	if (const auto* loadout =
-		std::get_if<TacticalActorLoadoutChangedEvent>(&event))
-	{
-		if (membershipAlreadyChanged(loadout->actor)) return false;
-		auto actor = FindActor(actors, loadout->actor);
-		if (actor == actors.end() || actor->id != loadout->actor ||
-			!Present(*actor) || actor->loadout != loadout->previous)
-			return false;
-		actor->loadout = loadout->current;
+		*actor = updated->actor;
 		return true;
 	}
 	if (const auto* entered =
@@ -493,9 +434,11 @@ FullEngineCoopSnapshotReplica::applyBaseline(
 		baseline.baselineId == 0 || !baseline.snapshot.sector().loaded ||
 		!IsValidTacticalSectorSnapshot(baseline.snapshot.sector()) ||
 		!baseline.snapshot.dimensions().valid() ||
+		!baseline.snapshot.lighting().valid() ||
 		baseline.snapshot.epoch() != baseline.state.worldGeneration ||
 		baseline.snapshot.turn().serial != baseline.state.turnSerial ||
-		!ValidSnapshotActors(baseline.snapshot.actors(), false) ||
+		!ValidSnapshotActors(baseline.snapshot.actors(),
+			baseline.snapshot.dimensions(), false) ||
 		!ValidSnapshotDoors(baseline.snapshot) ||
 		!ValidAssignedActors(baseline))
 		return FullEngineCoopReplicaApplyResult::Rejected;
@@ -514,7 +457,8 @@ FullEngineCoopSnapshotReplica::applyBaseline(
 			baseline.snapshot.turn(),
 			std::move(actors), std::move(doors), accepted,
 			MaximumCoopTacticalSnapshotActors,
-			TacticalWorldSnapshot::DefaultMaximumDoors) !=
+			TacticalWorldSnapshot::DefaultMaximumDoors,
+			baseline.snapshot.lighting()) !=
 			TacticalSnapshotCreateError::None)
 			return FullEngineCoopReplicaApplyResult::Rejected;
 		snapshot_ = std::move(accepted);
@@ -548,6 +492,7 @@ FullEngineCoopReplicaApplyResult FullEngineCoopSnapshotReplica::applyDelta(
 	{
 		TacticalSectorSnapshot sector = snapshot_.sector();
 		TacticalTurnSnapshot turn = snapshot_.turn();
+		TacticalWorldLightingSnapshot lighting = snapshot_.lighting();
 		std::vector<TacticalActorSnapshot> actors = snapshot_.actors();
 		std::vector<TacticalDoorSnapshot> doors = snapshot_.doors();
 		std::array<TacticalEntityId,
@@ -558,12 +503,14 @@ FullEngineCoopReplicaApplyResult FullEngineCoopSnapshotReplica::applyDelta(
 			doorMembershipChanged{};
 		std::size_t doorMembershipChangedCount = 0;
 		for (const TacticalWorldEvent& event : delta.delta.events)
-			if (!ApplyEvent(event, sector, turn, actors, doors,
+			if (!ApplyEvent(event, sector, turn, lighting, actors, doors,
 				membershipChanged, membershipChangedCount,
 				doorMembershipChanged, doorMembershipChangedCount))
 				return FullEngineCoopReplicaApplyResult::Rejected;
-		if (!sector.loaded || turn.serial != delta.state.turnSerial ||
-			!ValidSnapshotActors(actors, true) ||
+		if (!sector.loaded || !IsValidTacticalSectorSnapshot(sector) ||
+			!lighting.valid() ||
+			turn.serial != delta.state.turnSerial ||
+			!ValidSnapshotActors(actors, snapshot_.dimensions(), true) ||
 			doors.size() > TacticalWorldSnapshot::DefaultMaximumDoors)
 			return FullEngineCoopReplicaApplyResult::Rejected;
 
@@ -572,7 +519,7 @@ FullEngineCoopReplicaApplyResult FullEngineCoopSnapshotReplica::applyDelta(
 			snapshot_.dimensions(), sector, turn,
 			std::move(actors), std::move(doors), accepted,
 			MaximumCoopTacticalSnapshotActors,
-			TacticalWorldSnapshot::DefaultMaximumDoors) !=
+			TacticalWorldSnapshot::DefaultMaximumDoors, lighting) !=
 			TacticalSnapshotCreateError::None)
 			return FullEngineCoopReplicaApplyResult::Rejected;
 		snapshot_ = std::move(accepted);

@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <SDL3/SDL.h>
 
 #include "CoordinatorProtocol.h"
 #include "LegacyServerIngress.h"
@@ -32,6 +33,12 @@ std::size_t ja2server_test_explosive_ledger_count();
 std::size_t ja2server_test_shared_explosive_claim_count();
 std::uint64_t ja2server_test_interrupt_elapsed_milliseconds(
 	std::uint64_t now, std::uint64_t grantedMs);
+bool ja2server_test_address_in_use_error(const char* error);
+bool ja2server_test_start_listener(SdlNetPeer& peer, unsigned short maximumClients,
+	const char* host, unsigned short& port, unsigned int maximumAttempts,
+	unsigned int& attempts);
+unsigned short ja2server_test_listening_port();
+unsigned int ja2server_test_listener_bind_attempts();
 
 static int g_failures = 0;
 #define CHECK(c, m) do { if (!(c)) { ++g_failures; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, m); } else std::printf("ok   %s\n", m); } while (0)
@@ -392,6 +399,9 @@ static bool EncodeInterruptReleaseWire(
 
 int main(int argc, char** argv)
 {
+	CHECK(SdlNetEndpoint{}.reuseAddress &&
+		SdlNetEndpoint(60005, "127.0.0.1").reuseAddress,
+		"default and configured shipping endpoints retain address reuse");
 	CHECK(ja2server_test_interrupt_elapsed_milliseconds(
 	          999, 1000) == 0 &&
 	      ja2server_test_interrupt_elapsed_milliseconds(
@@ -442,7 +452,7 @@ int main(int argc, char** argv)
 		      "dashboard advertises the same seven-merc wire limit as admission settings");
 	}
 	const auto seed = (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count();
-	const unsigned short port = (unsigned short)(40000 + seed % 20000);
+	unsigned short port = (unsigned short)(40000 + seed % 20000);
 	const std::string base = (std::filesystem::temp_directory_path() /
 		("ja2-mp-coordinator-" + std::to_string(seed))).string();
 	const std::string coopIni = base + "-coop.ini";
@@ -461,6 +471,50 @@ int main(int argc, char** argv)
 		return g_failures ? 1 : 0;
 	}
 
+	// Keep a real listener on the first candidate until the coordinator has
+	// published another bound endpoint. This deterministically reproduces the
+	// CI collision and leaves no reserve-close-rebind race in the actual server.
+	SDL_Init(0);
+	SdlNetPeer occupied;
+	unsigned int occupiedAttempts = 0;
+	if (!ja2server_test_start_listener(occupied, 2, "127.0.0.1", port, 128,
+		occupiedAttempts))
+	{
+		const char* error = SDL_GetError();
+		const bool denied = error && std::strstr(error, "Operation not permitted");
+		std::printf("%s occupied-port fixture could not bind: %s\n",
+			denied ? "SKIP" : "FAIL", error ? error : "unknown error");
+		std::remove(coopIni.c_str());
+		return denied ? 77 : 1;
+	}
+	const unsigned short occupiedPort = port;
+	{
+		SdlNetPeer collision;
+		unsigned short candidate = occupiedPort;
+		unsigned int attempts = 0;
+		CHECK(!ja2server_test_start_listener(collision, 2, "127.0.0.1",
+			candidate, 1, attempts) && attempts == 1 && candidate == occupiedPort &&
+			ja2server_test_address_in_use_error(SDL_GetError()),
+			"occupied listener exhausts its exact bind limit with the native address-in-use error");
+		const std::string addressInUse = SDL_GetError();
+		CHECK(!ja2server_test_address_in_use_error(nullptr) &&
+			!ja2server_test_address_in_use_error("") &&
+			!ja2server_test_address_in_use_error("Failed to bind listen socket: unrelated failure") &&
+			!ja2server_test_address_in_use_error((addressInUse + " extra").c_str()) &&
+			!ja2server_test_address_in_use_error(("unrelated: " + addressInUse).c_str()),
+			"only the exact localized SDL bind-collision message is retryable");
+		SdlNetPeer invalidCapacity;
+		CHECK(invalidCapacity.SetReservedIncomingLoopbackConnections(2),
+			"non-bind startup failure fixture reserves more clients than allowed");
+		SDL_SetError("%s", addressInUse.c_str());
+		CHECK(!ja2server_test_start_listener(invalidCapacity, 1, "127.0.0.1",
+			candidate, 128, attempts) && attempts == 1 && candidate == occupiedPort,
+			"non-bind startup failure stops immediately despite stale address-in-use text");
+		CHECK(!ja2server_test_start_listener(collision, 2, "127.0.0.1",
+			candidate, 129, attempts) && attempts == 0,
+			"fixture refuses an unbounded bind-attempt request");
+	}
+
 	{
 		std::ofstream f(dmIni);
 		f << "SERVER_NAME = Coordinator E2E\nSERVER_BIND = 127.0.0.1\nSERVER_PORT = " << port
@@ -470,8 +524,12 @@ int main(int argc, char** argv)
 	std::atomic<int> serverResult(-999);
 	char* dmArgs[] = { serverName, iniFlag, const_cast<char*>(dmIni.c_str()) };
 	std::thread serverThread([&] { serverResult.store(ja2server_test_main(3, dmArgs)); });
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	if (serverResult.load() != -999)
+	const auto startupDeadline = std::chrono::steady_clock::now() +
+		std::chrono::seconds(10);
+	while (!ja2server_test_listening_port() && serverResult.load() == -999 &&
+		std::chrono::steady_clock::now() < startupDeadline)
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	if (!ja2server_test_listening_port() || serverResult.load() != -999)
 	{
 		if (serverResult.load() == 77)
 		{
@@ -481,10 +539,44 @@ int main(int argc, char** argv)
 			return 77;
 		}
 		CHECK(false, "coordinator listener started");
+		if (serverResult.load() == -999) std::raise(SIGTERM);
 		serverThread.join();
 		std::remove(coopIni.c_str()); std::remove(dmIni.c_str());
 		return 1;
 	}
+	port = ja2server_test_listening_port();
+	CHECK(port != occupiedPort && ja2server_test_listener_bind_attempts() >= 2 &&
+		ja2server_test_listener_bind_attempts() <= 128,
+		"coordinator skips the held listener and publishes its actual bounded endpoint");
+	{
+		SdlNetPeer probe;
+		const bool started = probe.Start(1, SdlNetEndpoint{}) &&
+			probe.Connect("127.0.0.1", occupiedPort);
+		bool incoming = false, accepted = false;
+		const auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::seconds(5);
+		while (started && !(incoming && accepted) &&
+			std::chrono::steady_clock::now() < deadline)
+		{
+			for (SdlNetEvent* event = occupied.Poll(); event; event = occupied.Poll())
+			{
+				incoming = incoming || (event->size &&
+					event->data[0] == SDLNET_NEW_INCOMING_CONNECTION);
+				occupied.Release(event);
+			}
+			for (SdlNetEvent* event = probe.Poll(); event; event = probe.Poll())
+			{
+				accepted = accepted || (event->size &&
+					event->data[0] == SDLNET_CONNECTION_ACCEPTED);
+				probe.Release(event);
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		}
+		CHECK(started && incoming && accepted,
+			"occupied listener remains independently usable beside the coordinator");
+		probe.Shutdown(0);
+	}
+	occupied.Shutdown(0);
 
 	// Manual reset owns every accepted transport, including a connection that has
 	// not sent requestSETTINGS and therefore has no roster slot yet.

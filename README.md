@@ -196,7 +196,7 @@ retry counter saturates instead of wrapping. A never-admitted credential-less
 client retains the eight-attempt startup limit, and an epoch mismatch fails
 closed.
 
-Global co-op protocol v8 requires exact canonical map asset identity in tactical
+Global co-op protocol v9 requires exact canonical map asset identity in tactical
 snapshots and sector deltas, including alternate maps at unchanged coordinates.
 It also provides explicit voluntary self-retirement.
 `L` is deliberately a two-step control: the first key-down must be followed by
@@ -279,7 +279,7 @@ saved faces use profile-derived presentation timing without consuming the
 canonical RNG, while ordinary face creation retains its three legacy draws.
 Strategic AI uses `StrategicAILoadPolicy::DedicatedExactRestore`;
 current SAI save v29 restores without compatibility or repair gameplay, and
-a stale SAI version is rejected. Tactical snapshot wire v8 carries the
+a stale SAI version is rejected. Tactical snapshot wire v9 carries the
 authority's exact
 dimensions, canonical actor hostility, a bounded visible-door projection, the
 public `commandsBlocked` bit, compact interrupt phase/serial, per-actor
@@ -345,16 +345,33 @@ status, graphic, and movement-cost mutation succeeds. A post-swap integrity
 failure latches the tactical world and stops replication without charging
 points or publishing noise.
 
-The nested wire bounds are explicit: snapshot v8 uses a 313-byte header,
-92-byte actor (including five 12-byte combat-equipment records), and 7-byte door
-record for a 384313-byte generic maximum. Delta wire v7 permits 18434 generic
-events and adds the actor-loadout category after actor vitals and before door events. A
+The nested wire bounds are explicit: snapshot v9 uses a 314-byte header,
+136-byte actor (including five 12-byte combat-equipment records), and 7-byte door
+record for a 564538-byte generic maximum. Delta wire v8 permits 10243 generic
+events. Each changed actor carries one complete current record before door events;
+ambient lighting is a separate singleton event. A
 same-turn-serial phase change is one exact 43-byte turn event. The
-co-op envelope uses inner tactical wire v3, caps a world at 256 actors, 1024
-doors, and 3074 delta events, and bounds the baseline payload/envelope at
-31033/32645 bytes and delta payload/envelope at 62554/62626 bytes under the
+co-op envelope uses inner tactical wire v4, caps a world at 256 actors, 1024
+doors, and 2563 delta events, and bounds the baseline payload/envelope at
+42298/43910 bytes and delta payload/envelope at 50781/50853 bytes under the
 public 64 KiB ceiling. Tactical intent wire v3 has
 an exact 72-byte header, 8-byte maximum payload, and 80-byte maximum record.
+
+The render-input contract adds a canonical 44-byte actor presentation record:
+fixed-point world position, animation surface/frame/direction, body and palette
+selection, a terminated ten-code-unit UTF-16 name, and a bounded portrait asset
+descriptor. The header carries the authority's ambient light level. A snapshot
+rejects duplicate numeric actor slots even when their incarnations differ.
+Native observation captures these fields from the authoritative actor directory
+and ambient-light state. Offscreen actors and dead roster actors removed from
+their grid retain canonical absent poses. Client renderer activation remains
+separate work.
+The public delta event change advances the experimental SDK to 0.3.
+The private client credential reader recognizes only the identical protocol-8
+storage layout for protocol-9 migration: it verifies the original checksums and
+campaign binding, retains retired records, and permits explicit stale-record
+erasure only across different session epochs. Live protocol-8 traffic still
+fails admission; future and other unreviewed record versions remain rejected.
 
 Same-connection tactical resynchronization is implemented. When a
 client detects a delta-sequence gap, payload-checksum mismatch, state mismatch,
@@ -449,7 +466,7 @@ Strategic mission/session control is limited, and there is no TLS or public-host
 authorization. The opt-in process smoke certifies lifecycle, Ready, same-epoch
 credential continuity, final checkpoint, and resume against one local installed
 data set; it is not a full playthrough, broad interoperability matrix, or soak.
-Use matching global co-op protocol-v8 builds and installed data on a trusted
+Use matching global co-op protocol-v9 builds and installed data on a trusted
 LAN/VPN only. In particular, the current mission entry accepts only an
 exact untouched initial campaign (including an empty cold resume) or an exact
 prepared-initial resume with the complete four-mercenary in-transit roster and

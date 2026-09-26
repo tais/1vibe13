@@ -8,7 +8,7 @@
 
 namespace CoopSession
 {
-constexpr std::uint16_t CurrentProtocolVersion = 8;
+constexpr std::uint16_t CurrentProtocolVersion = 9;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

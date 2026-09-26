@@ -34,6 +34,14 @@
 #include <deque>
 #ifdef JA2SERVER_LOOPBACK_TEST
 #include <atomic>
+#include <cerrno>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <windows.h>
+#endif
 #endif
 
 #include <SDL3/SDL.h>
@@ -2315,6 +2323,61 @@ static void OnReset(int) { g_reset = 1; }
 // and expose a generation acknowledgement for deterministic session barriers.
 static std::atomic<unsigned int> g_testResetRequested(0);
 static std::atomic<unsigned int> g_testResetCompleted(0);
+static std::atomic<unsigned short> g_testListeningPort(0);
+static std::atomic<unsigned int> g_testListenerBindAttempts(0);
+
+bool ja2server_test_address_in_use_error(const char* error)
+{
+	// Match the pinned SDL_net SetSocketError representation exactly, including
+	// the OS-localized text. Other bind, resolve, allocation and listen failures
+	// must fail the test immediately, rather than being hidden by another port.
+	const char prefix[] = "Failed to bind listen socket: ";
+	if (!error || std::strncmp(error, prefix, sizeof(prefix) - 1)) return false;
+	const char* detail = error + sizeof(prefix) - 1;
+#ifdef _WIN32
+	WCHAR message[256];
+	const DWORD length = FormatMessageW(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+		WSAEADDRINUSE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		message, static_cast<DWORD>(sizeof(message) / sizeof(message[0])), NULL);
+	if (!length) return false;
+	char* expected = SDL_iconv_string("UTF-8", "UTF-16LE",
+		reinterpret_cast<const char*>(message), (length + 1) * sizeof(WCHAR));
+	const bool matches = expected && !std::strcmp(detail, expected);
+	SDL_free(expected);
+	return matches;
+#else
+	return !std::strcmp(detail, std::strerror(EADDRINUSE));
+#endif
+}
+
+bool ja2server_test_start_listener(SdlNetPeer& peer, unsigned short maximumClients,
+	const char* host, unsigned short& port, unsigned int maximumAttempts,
+	unsigned int& attempts)
+{
+	attempts = 0;
+	if (!port || !maximumAttempts || maximumAttempts > 128) return false;
+	for (;;)
+	{
+		++attempts;
+		SDL_ClearError(); // a failure without its own error cannot reuse stale text
+		SdlNetEndpoint endpoint(port, host);
+		endpoint.reuseAddress = false;
+		if (peer.Start(maximumClients, endpoint)) return true;
+		if (!ja2server_test_address_in_use_error(SDL_GetError()) ||
+			attempts == maximumAttempts) return false;
+		port = port == 65535 ? 1 : static_cast<unsigned short>(port + 1);
+	}
+}
+
+unsigned short ja2server_test_listening_port()
+{
+	return g_testListeningPort.load(std::memory_order_acquire);
+}
+unsigned int ja2server_test_listener_bind_attempts()
+{
+	return g_testListenerBindAttempts.load(std::memory_order_acquire);
+}
 unsigned int ja2server_test_request_reset()
 {
 	return g_testResetRequested.fetch_add(1, std::memory_order_acq_rel) + 1;
@@ -2910,7 +2973,17 @@ int main(int argc, char** argv)
 	// real LAN play; loopback-by-default keeps the server off public interfaces unless
 	// the operator opts in.
 	SdlNetEndpoint sd((unsigned short)g_serverPort, g_serverBind);
+#ifdef JA2SERVER_LOOPBACK_TEST
+	unsigned int bindAttempts = 0;
+	const bool listenerStarted = ja2server_test_start_listener(
+		*g_server, static_cast<unsigned short>(g_maxClients), sd.host, sd.port,
+		128, bindAttempts);
+	g_testListenerBindAttempts.store(bindAttempts, std::memory_order_release);
+	g_serverPort = sd.port;
+	if (!listenerStarted)
+#else
 	if (!g_server->Start((unsigned short)g_maxClients, sd))
+#endif
 	{
 		const char* bindError = SDL_GetError();
 		bool sandboxDenied = bindError && strstr(bindError, "Operation not permitted");
@@ -2930,6 +3003,11 @@ int main(int argc, char** argv)
 	}
 	g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
 	RegisterHandlers();
+#ifdef JA2SERVER_LOOPBACK_TEST
+	// Publish only after the actual listener and handlers are ready. The test
+	// connects to this endpoint, never to a guessed or briefly reserved port.
+	g_testListeningPort.store(sd.port, std::memory_order_release);
+#endif
 
 	printf("========================================================\n");
 	printf(" ja2server  '%s'\n", g_serverName);

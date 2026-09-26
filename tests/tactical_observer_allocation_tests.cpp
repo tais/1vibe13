@@ -111,13 +111,9 @@ public:
 		actor.actionPoints = static_cast<std::int16_t>(20 + frame_ % 40);
 	}
 
-	void toggleStance() noexcept
+	void replaceFirstActor() noexcept
 	{
-		TacticalActorSnapshot& actor = actors_.front();
-		actor.stance = actor.stance == TacticalStance::Standing
-			? TacticalStance::Crouched
-			: TacticalStance::Standing;
-		++actor.animation;
+		++actors_.front().id.incarnation;
 	}
 
 	void fail(TacticalWorldCaptureResult result) noexcept
@@ -147,7 +143,8 @@ public:
 				TacticalWorldSnapshot::createReusableOrdered(
 					epoch_,
 					TacticalWorldDimensions{160, 160},
-					TacticalSectorSnapshot{1, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+					TacticalSectorSnapshot{1, 1, 0, true,
+						TacticalMapAssetKey{{'A', '1', '.', 'D', 'A', 'T'}}},
 					TacticalTurnSnapshot{true, true, 0, frame_},
 					actorScratch_, doorScratch_, output,
 					maximumActors_, maximumDoors_);
@@ -179,17 +176,16 @@ private:
 
 bool HasDeterministicSteadyStateEvents(const TacticalWorldPublicationView& publication)
 {
-	return publication && publication.delta->events.size() == 3 &&
+	return publication && publication.delta->events.size() == 2 &&
 		std::holds_alternative<TacticalTurnChangedEvent>(publication.delta->events[0]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(publication.delta->events[1]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[2]);
+		std::holds_alternative<TacticalActorUpdatedEvent>(publication.delta->events[1]);
 }
 }
 
 int main()
 {
 	constexpr std::size_t ActorCount = 16;
-	constexpr std::size_t EventLimit = 3;
+	constexpr std::size_t EventLimit = 2;
 	TacticalEntityRoster roster(ActorCount);
 	std::array<TacticalEntityId, ActorCount> rosterActors;
 	for (std::size_t slot = 0; slot < ActorCount; ++slot)
@@ -320,7 +316,7 @@ int main()
 	const TacticalActorSnapshot* lastGoodActors = lastGood.snapshot->actors().data();
 	const TacticalWorldEvent* lastGoodEvents = lastGood.delta->events.data();
 	source.advance();
-	source.toggleStance();
+	source.replaceFirstActor();
 	check(observer.update() == TacticalWorldObserverUpdateResult::EventCapacityReached,
 		"an over-capacity diff is rejected after reusable capture");
 	TacticalWorldPublicationView preserved = observer.latest();

@@ -1,5 +1,6 @@
 #include "TacticalEntityHost.h"
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <optional>
@@ -7,9 +8,15 @@
 #include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 
 #include "Animation Control.h"
+#include "Animation Data.h"
+#include "GameSettings.h"
 #include "Item Types.h"
+#include "Soldier Profile.h"
+#include "Soldier Profile Constants.h"
+#include "Soldier Palette.h"
 #include "SoldierRepository.h"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "Soldier macros.h"
 #include "Strategic Movement.h"
 #include "StrategicSquadHost.h"
@@ -17,6 +24,17 @@
 
 namespace
 {
+static_assert(TOTALBODYTYPES == TacticalActorBodyTypeCount,
+	"the tactical presentation wire body-type domain must match JA2");
+static_assert(NUMANIMATIONSTATES == TacticalAnimationStateCount,
+	"the tactical presentation wire animation-state domain must match JA2");
+static_assert(NUMANIMATIONSURFACETYPES == TacticalAnimationSurfaceCount,
+	"the tactical presentation wire surface domain must match JA2");
+static_assert(INVALID_ANIMATION_SURFACE == TacticalAnimationSurfaceAbsent,
+	"the tactical presentation wire absent-surface sentinel must match JA2");
+static_assert(NUM_WORLD_DIRECTIONS == 8,
+	"the tactical presentation wire animation-direction domain must match JA2");
+
 TacticalEntityDirectory& StandaloneDirectory() noexcept
 {
 	static TacticalEntityDirectory directory(
@@ -62,6 +80,198 @@ TacticalStance LegacyStance(const TacticalActor& soldier) noexcept
 		case ANIM_PRONE: return TacticalStance::Prone;
 		default: return TacticalStance::Unknown;
 	}
+}
+
+bool PaletteIdTerminated(const CHAR8* id) noexcept
+{
+	if (id == nullptr) return false;
+	for (std::size_t index = 0; index < sizeof(PaletteRepID); ++index)
+		if (id[index] == '\0') return true;
+	return false;
+}
+
+bool ValidPaletteReplacementTable() noexcept
+{
+	if (guiNumReplacements > 256u ||
+		(guiNumReplacements != 0 && gpPalRep == nullptr))
+		return false;
+	for (std::size_t index = 0; index < guiNumReplacements; ++index)
+		if (!PaletteIdTerminated(gpPalRep[index].ID)) return false;
+	return true;
+}
+
+bool EncodePaletteIndex(const PaletteRepID& id,
+	TacticalActorPresentationFlag presenceFlag,
+	std::uint8_t& flags,
+	std::uint8_t& index) noexcept
+{
+	if (!PaletteIdTerminated(id)) return false;
+	if (id[0] == '\0')
+	{
+		index = 0;
+		return true;
+	}
+	UINT8 resolved = 0;
+	if (!GetPaletteRepIndexFromID(id, &resolved)) return false;
+	index = resolved;
+	flags |= static_cast<std::uint8_t>(presenceFlag);
+	return true;
+}
+
+void EncodeDisplayName(const SoldierIdentityComponent::Name& source,
+	std::array<std::uint16_t,
+		TacticalActorDisplayNameCodeUnits>& destination) noexcept
+{
+	destination.fill(0);
+	std::size_t output = 0;
+	for (std::size_t input = 0;
+		input < SOLDIER_NAME_LENGTH && output + 1 < destination.size(); ++input)
+	{
+		if (source[input] == L'\0') break;
+		std::uint32_t scalar = 0xfffdu;
+		if constexpr (sizeof(CHAR16) == 2)
+		{
+			const std::uint16_t first =
+				static_cast<std::uint16_t>(source[input]);
+			if (first >= 0xd800u && first <= 0xdbffu &&
+				input + 1 < SOLDIER_NAME_LENGTH)
+			{
+				const std::uint16_t second =
+					static_cast<std::uint16_t>(source[input + 1]);
+				if (second >= 0xdc00u && second <= 0xdfffu)
+				{
+					scalar = 0x10000u +
+						((static_cast<std::uint32_t>(first) - 0xd800u) << 10) +
+						(static_cast<std::uint32_t>(second) - 0xdc00u);
+					++input;
+				}
+			}
+			else if (first < 0xd800u || first > 0xdfffu)
+			{
+				scalar = first;
+			}
+		}
+		else
+		{
+			const std::uint32_t candidate =
+				static_cast<std::uint32_t>(source[input]);
+			if (candidate <= 0x10ffffu &&
+				(candidate < 0xd800u || candidate > 0xdfffu))
+				scalar = candidate;
+		}
+
+		if (scalar <= 0xffffu)
+		{
+			destination[output++] = static_cast<std::uint16_t>(scalar);
+		}
+		else
+		{
+			if (output + 2 >= destination.size()) break;
+			scalar -= 0x10000u;
+			destination[output++] = static_cast<std::uint16_t>(
+				0xd800u + (scalar >> 10));
+			destination[output++] = static_cast<std::uint16_t>(
+				0xdc00u + (scalar & 0x3ffu));
+		}
+	}
+}
+
+bool EncodeWorldCoordinate(FLOAT coordinate,
+	std::int32_t& encoded) noexcept
+{
+	if (!std::isfinite(coordinate) || coordinate < 0.0f) return false;
+	const double scaled = std::round(
+		static_cast<double>(coordinate) * TacticalWorldCoordinateScale);
+	if (scaled < 0.0 ||
+		scaled > static_cast<double>(std::numeric_limits<std::int32_t>::max()))
+		return false;
+	encoded = static_cast<std::int32_t>(scaled);
+	return true;
+}
+
+TacticalPortraitSnapshot LegacyPortraitState(const TacticalActor& soldier) noexcept
+{
+	const auto profileId = soldier.identity().profile();
+	if (profileId == NO_PROFILE || profileId >= NUM_PROFILES) return {};
+	const MERCPROFILESTRUCT& profile = gMercProfiles[profileId];
+	TacticalPortraitSnapshot portrait;
+	portrait.family = profile.Type == PROFILETYPE_IMP
+		? TacticalPortraitFamily::ImpFaces : TacticalPortraitFamily::Faces;
+	// InternalInitFace's small-face alias is keyed by PROFILE, not face index.
+	portrait.faceIndex = profileId >= 151 && profileId <= 154
+		? 151 : profile.ubFaceIndex;
+	if (gGameExternalOptions.fShowCamouflageFaces)
+	{
+		// Mirror SetCamoFace's last-positive APPLIED-camo policy. Its legacy
+		// per-profile presentation cache can be stale after loading or wear-off,
+		// and headless authority need not allocate any face. Read current actor
+		// state directly: worn clothing does not paint the small portrait.
+		const auto& camo = soldier.camouflage();
+		if (camo.snowApplied() > 0) portrait.camouflage = TacticalPortraitCamouflage::Snow;
+		else if (camo.desertApplied() > 0) portrait.camouflage = TacticalPortraitCamouflage::Desert;
+		else if (camo.urbanApplied() > 0) portrait.camouflage = TacticalPortraitCamouflage::Urban;
+		else if (camo.jungleApplied() > 0) portrait.camouflage = TacticalPortraitCamouflage::Wood;
+	}
+	return portrait;
+}
+
+bool LegacyPresentationState(const TacticalActor& soldier,
+	TacticalActorPresentationSnapshot& presentation) noexcept
+{
+	if (soldier.identity().bodyType() >= TOTALBODYTYPES ||
+		soldier.animationPlayback().state() >= NUMANIMATIONSTATES ||
+		!ValidPaletteReplacementTable())
+		return false;
+
+	TacticalActorPresentationSnapshot candidate;
+	candidate.bodyType = soldier.identity().bodyType();
+	candidate.portrait = LegacyPortraitState(soldier);
+	EncodeDisplayName(soldier.identity().name(), candidate.displayNameUtf16);
+	if (!EncodePaletteIndex(soldier.renderState().headPalette(),
+			TacticalActorHeadPalettePresent, candidate.flags,
+			candidate.headPaletteIndex) ||
+		!EncodePaletteIndex(soldier.renderState().pantsPalette(),
+			TacticalActorPantsPalettePresent, candidate.flags,
+			candidate.pantsPaletteIndex) ||
+		!EncodePaletteIndex(soldier.renderState().vestPalette(),
+			TacticalActorVestPalettePresent, candidate.flags,
+			candidate.vestPaletteIndex) ||
+		!EncodePaletteIndex(soldier.renderState().skinPalette(),
+			TacticalActorSkinPalettePresent, candidate.flags,
+			candidate.skinPaletteIndex))
+		return false;
+
+	if (soldier.roster().active() && soldier.roster().inSector() &&
+		soldier.position().gridNo() >= 0)
+	{
+		if (soldier.position().level() < 0 || soldier.position().level() > 1 ||
+			soldier.position().direction() >= 8 ||
+			soldier.movement().animationDirection() < 0 ||
+			soldier.movement().animationDirection() >= NUM_WORLD_DIRECTIONS ||
+			soldier.animationPlayback().surface() >=
+				NUMANIMATIONSURFACETYPES ||
+			!std::isfinite(soldier.position().animationHeightAdjustment()) ||
+			!EncodeWorldCoordinate(
+				soldier.position().worldX(), candidate.worldXQ8) ||
+			!EncodeWorldCoordinate(
+				soldier.position().worldY(), candidate.worldYQ8))
+			return false;
+		candidate.flags |= TacticalActorRenderPosePresent;
+		candidate.animationDirection =
+			soldier.movement().animationDirection();
+		if (soldier.position().animationHeightAdjustment() > 0.0f)
+			candidate.flags |= TacticalActorPositiveAnimationHeight;
+		if ((soldier.status().flags() & SOLDIER_MULTITILE_NZ) != 0)
+			candidate.flags |= TacticalActorMultiTileNonZ;
+		if ((soldier.status().flags() & SOLDIER_MULTITILE_Z) != 0)
+			candidate.flags |= TacticalActorMultiTileZ;
+		candidate.heightAdjustment = soldier.position().heightAdjustment();
+		candidate.animationSurface = soldier.animationPlayback().surface();
+		candidate.animationFrame = soldier.animationPlayback().frame();
+	}
+
+	presentation = candidate;
+	return true;
 }
 
 std::optional<TacticalHandItemSnapshot> LegacyEquipmentSlotState(
@@ -132,6 +342,8 @@ std::optional<TacticalActorSnapshot> LegacyState(
 		OK_ENEMY_MERC((&soldier)) != FALSE};
 	state.loadout = TacticalActorLoadoutSnapshot{
 		*helmet, *vest, *legs, *primaryHand, *secondaryHand};
+	if (!LegacyPresentationState(soldier, state.presentation))
+		return std::nullopt;
 	return state;
 }
 

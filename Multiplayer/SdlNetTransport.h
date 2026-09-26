@@ -50,6 +50,9 @@ struct SdlNetEndpoint
 	SdlNetEndpoint(std::uint16_t endpointPort, const char* bindHost) noexcept;
 
 	std::uint16_t port = 0;
+	// SDL_net defaults to address reuse. Tests can disable it so Windows also
+	// rejects another listener on an occupied endpoint instead of sharing it.
+	bool reuseAddress = true;
 	char host[256]{};
 };
 
