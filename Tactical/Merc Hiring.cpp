@@ -38,6 +38,14 @@
 	#include "GameSettings.h"
 	#include "DynamicDialogue.h"// added by Flugente
 #include "GameContext.h"
+#include "CampaignAimHire.h"
+#include "CampaignClockAdapter.h"
+#include "CampaignEventAdapter.h"
+#include "CampaignEventScheduling.h"
+#include "Game Events.h"
+#include "TacticalEntityHost.h"
+#include "TacticalWorldAdapter.h"
+#include <limits>
 #include "CampaignMercenaryArrivalContent.h"
 #include "CampaignMercenaryPolicy.h"
 #include "connect.h"
@@ -107,7 +115,8 @@ INT16	gsInitialHeliRandomTimes[ NUM_INITIAL_GRIDNOS_FOR_HELI_CRASH ] =
 
 UINT32		GetInitialHeliGridNo( );
 UINT16	GetInitialHeliRandomTime();
-INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
+static INT8 HireMercImpl( MERC_HIRE_STRUCT *pHireMerc,
+	CampaignAimHireResult* checkedResult )
 {
 	const CampaignMercenaryPolicy mercenaryPolicy(
 		GetGameContext().capabilities());
@@ -154,8 +163,12 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	if(!cAllowMercEquipment && is_networked)
 		MercCreateStruct.fCopyProfileItemsOver=0;//hayden : server overide
 
+	// Construction can consume identity and mutate profile/record storage before
+	// returning null. The checked authority must fail-stop from this point.
+	if (checkedResult) checkedResult->mutationMayHaveStarted = true;
 	if ( !TacticalCreateSoldier( &MercCreateStruct, &iNewIndex ) )
 	{
+		if (checkedResult) checkedResult->error = CampaignAimHireError::CreationFailed;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "TacticalCreateSoldier in HireMerc():	Failed to Add Merc");
 		return( MERC_HIRE_FAILED );
 	}
@@ -227,6 +240,15 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	pMerc->bMercStatus = (UINT8)pHireMerc->iTotalContractLength;
 
 	pSoldier = GetJa2SoldierRepository().resolve(iNewIndex.i);
+	if (checkedResult)
+	{
+		checkedResult->actor = pSoldier ? GetJa2TacticalEntityId(*pSoldier) : TacticalEntityId{};
+		if (!checkedResult->actor.valid() || ResolveJa2TacticalEntity(checkedResult->actor) != pSoldier)
+		{
+			checkedResult->error = CampaignAimHireError::PostconditionFailed;
+			return MERC_HIRE_FAILED;
+		}
+	}
 
 	//Copy over insertion data....
 	pSoldier->deployment().strategicInsertionCode() = pHireMerc->ubInsertionCode;
@@ -322,7 +344,19 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		//if we are trying to hire a merc that should arrive later, put the merc in the queue
 		if( pHireMerc->uiTimeTillMercArrives	!= 0 )
 		{
-			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pHireMerc->uiTimeTillMercArrives,	pSoldier->identity().id() );
+			if (checkedResult)
+			{
+				const auto scheduled = AddStrategicEventChecked(
+					EVENT_DELAYED_HIRING_OF_MERC, pHireMerc->uiTimeTillMercArrives,
+					pSoldier->identity().id().i);
+				if (!scheduled)
+				{
+					checkedResult->error = CampaignAimHireError::EventSchedulingFailed;
+					return MERC_HIRE_FAILED;
+				}
+			}
+			else
+				AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pHireMerc->uiTimeTillMercArrives,	pSoldier->identity().id() );
 				
 			//specify that the merc is hired but hasnt arrived yet
 			pMerc->bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
@@ -390,7 +424,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	if ( mercenaryPolicy.setsStartDayForEveryHire() )
 		pSoldier->employment().startTime() = GetWorldDay( );
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
-	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->identity().profile() );
+	RemoveNewlyHiredMercFromPersonnelDepartedList(
+		pSoldier->identity().profile(), checkedResult == nullptr );
 
 	// Flugente: dynamic opinions
 	if (gGameExternalOptions.fDynamicOpinions)
@@ -403,6 +438,214 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	return( MERC_HIRE_OK );
 }
 
+
+INT8 HireMerc( MERC_HIRE_STRUCT* pHireMerc )
+{
+	return HireMercImpl(pHireMerc, nullptr);
+}
+
+CampaignAimHireError ReadCampaignAimHireArrival(
+	CampaignAimHireArrival& arrivalOut) noexcept
+{
+	using Error = CampaignAimHireError;
+	const auto& game = GetGameContext();
+	if (game.lifecycle() != GameLifecycle::Running ||
+		game.capabilities().isEditor() ||
+		CampaignMercenaryPolicy(game.capabilities()).usesUnfinishedBusinessRules() ||
+		DidGameJustStart() || IsJa2TacticalWorldLoaded() ||
+		is_networked || is_client || is_server ||
+		(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) ||
+		GetCurrentScreen() == AUTORESOLVE_SCREEN)
+		return Error::UnsupportedCampaignState;
+	if (gsMercArriveSectorX < 1 || gsMercArriveSectorX > 16 ||
+		gsMercArriveSectorY < 1 || gsMercArriveSectorY > 16)
+		return Error::InvalidLandingZone;
+
+	const auto& clock = CaptureJa2CampaignClock();
+	const std::uint64_t now = clock.totalSeconds / NUM_SEC_IN_MIN;
+	const std::uint64_t midnight = now - now % 1440;
+	const std::uint32_t hour = static_cast<std::uint32_t>((now % 1440) / 60);
+	// Legacy debug calendar overrides must not make the native arrival and
+	// contract calculations disagree with the canonical total-seconds clock.
+	if (clock.day != clock.totalSeconds / NUM_SEC_IN_DAY ||
+		clock.hour != hour || clock.minute != now % 60)
+		return Error::TimeOutOfRange;
+	std::uint64_t arrival = midnight;
+	if (hour > 13) arrival += 1440 + MERC_ARRIVE_TIME_SLOT_1;
+	else if (hour + MIN_FLIGHT_PREP_TIME <= 7) arrival += MERC_ARRIVE_TIME_SLOT_1;
+	else if (hour + MIN_FLIGHT_PREP_TIME <= 13) arrival += MERC_ARRIVE_TIME_SLOT_2;
+	else arrival += MERC_ARRIVE_TIME_SLOT_3;
+	if (arrival <= now ||
+		arrival > std::numeric_limits<std::uint32_t>::max() / NUM_SEC_IN_MIN)
+		return Error::TimeOutOfRange;
+	arrivalOut = {static_cast<std::uint8_t>(gsMercArriveSectorX),
+		static_cast<std::uint8_t>(gsMercArriveSectorY),
+		static_cast<std::uint32_t>(arrival)};
+	return Error::None;
+}
+
+CampaignAimHireError PrepareCampaignAimHire(
+	const CampaignAimHireRequest& request,
+	CampaignAimHirePlan& planOut) noexcept
+{
+	using Error = CampaignAimHireError;
+	if (request.profile >= NUM_PROFILES || request.profile == NO_PROFILE)
+		return Error::InvalidProfile;
+	if (request.contractDays != 1 && request.contractDays != 7 &&
+		request.contractDays != 14) return Error::InvalidContract;
+	if (request.copyProfileEquipment) return Error::UnsupportedEquipment;
+	CampaignAimHireArrival arrival;
+	const auto contextError = ReadCampaignAimHireArrival(arrival);
+	if (contextError != Error::None) return contextError;
+	const auto profileId = static_cast<std::uint8_t>(request.profile);
+	const auto& profile = gMercProfiles[profileId];
+	if (profile.Type != PROFILETYPE_AIM) return Error::InvalidProfile;
+	if ((profile.bMercStatus != 0 &&
+		profile.bMercStatus != MERC_ANNOYED_BUT_CAN_STILL_CONTACT) ||
+		!IsMercHireable(profileId)) return Error::Unavailable;
+	if (profile.ubBodyType > REGFEMALE || profile.bLife < OKLIFE ||
+		profile.bLifeMax > 100 || profile.bLife > profile.bLifeMax)
+		return Error::InvalidProfileState;
+
+	auto& repository = GetJa2SoldierRepository();
+	// A profile can already be active outside the player team's slot range,
+	// including a delayed-arrival actor. Never reuse its identity implicitly.
+	for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
+	{
+		const auto* actor = repository.resolve(slot);
+		if (actor && actor->roster().active() &&
+			actor->identity().profile() == profileId)
+			return Error::DuplicateProfile;
+	}
+	if (gbPlayerNum != OUR_TEAM) return Error::InvalidTeam;
+	const std::size_t first = gTacticalStatus.Team[OUR_TEAM].bFirstID.i;
+	const std::size_t last = gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+	if (first > last || last >= repository.capacity() || last >= TOTAL_SOLDIERS)
+		return Error::InvalidTeam;
+	const std::size_t teamSlots = last - first + 1;
+	const std::size_t vehicleReserve = gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles;
+	if (teamSlots > CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ||
+		vehicleReserve > CODE_MAXIMUM_NUMBER_OF_PLAYER_VEHICLES ||
+		(teamSlots > vehicleReserve &&
+		 teamSlots - vehicleReserve > CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS))
+		return Error::InvalidTeam;
+	if (gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles >= teamSlots)
+		return Error::CapacityReached;
+	std::size_t mercs = 0;
+	bool freeSlot = false;
+	for (std::size_t slot = first; slot <= last; ++slot)
+	{
+		const auto* actor = repository.resolve(slot);
+		if (!actor || !repository.contains(slot, *actor) ||
+			(actor->roster().active() && actor->roster().team() != OUR_TEAM))
+			return Error::InvalidTeam;
+		if (!actor->roster().active()) freeSlot = true;
+		else if (!(actor->status().flags() & SOLDIER_VEHICLE)) ++mercs;
+	}
+	if (!freeSlot || mercs >= teamSlots -
+		gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles)
+		return Error::CapacityReached;
+
+	const std::uint64_t now = GetWorldTotalMin();
+	const std::uint64_t contractEnd = now - now % 1440 +
+		(static_cast<std::uint64_t>(request.contractDays) + 1) * 1440 +
+		((arrival.arrivalMinute % 1440) / 60) * 60;
+	if (contractEnd > static_cast<std::uint64_t>(
+		std::numeric_limits<std::int32_t>::max())) return Error::TimeOutOfRange;
+	planOut = {request, arrival.landingX, arrival.landingY,
+		arrival.arrivalMinute, static_cast<std::uint32_t>(contractEnd)};
+	return Error::None;
+}
+
+namespace
+{
+bool ValidateCampaignAimHire(const CampaignAimHirePlan& plan,
+	const CampaignAimHireResult& result) noexcept
+{
+	const auto* actor = ResolveJa2TacticalEntity(result.actor);
+	if (!actor || GetJa2TacticalEntityId(*actor) != result.actor ||
+		!actor->roster().active() || actor->roster().team() != OUR_TEAM ||
+		actor->roster().inSector() || actor->identity().profile() != plan.request.profile ||
+		actor->identity().id().i < gTacticalStatus.Team[OUR_TEAM].bFirstID.i ||
+		actor->identity().id().i > gTacticalStatus.Team[OUR_TEAM].bLastID.i ||
+		actor->assignment().current() != IN_TRANSIT ||
+		actor->vitals().health() < OKLIFE ||
+		actor->employment().totalLength() != plan.request.contractDays ||
+		actor->employment().endTime() != plan.contractEndMinute ||
+		actor->employment().mercenaryType() != MERC_TYPE__AIM_MERC ||
+		actor->employment().lastContractType() !=
+			(plan.request.contractDays == 1 ? CONTRACT_EXTEND_1_DAY :
+			 plan.request.contractDays == 7 ? CONTRACT_EXTEND_1_WEEK : CONTRACT_EXTEND_2_WEEK) ||
+		actor->employment().medicalDeposit() != gMercProfiles[plan.request.profile].sMedicalDepositAmount ||
+		actor->employment().insuranceStartDay() != 0 ||
+		actor->employment().insuranceLengthDays() != 0 ||
+		actor->deployment().sectorX() != plan.landingX ||
+		actor->deployment().sectorY() != plan.landingY ||
+		actor->deployment().sectorZ() != 0 ||
+		actor->deployment().arrivalTime() != plan.arrivalMinute ||
+		!actor->deployment().usesLandingZoneForArrival() ||
+		actor->deployment().strategicInsertionCode() != INSERTION_CODE_ARRIVING_GAME ||
+		gMercProfiles[plan.request.profile].bMercStatus != MERC_HIRED_BUT_NOT_ARRIVED_YET ||
+		LaptopSaveInfo.sLastHiredMerc.iIdOfMerc != plan.request.profile ||
+		LaptopSaveInfo.sLastHiredMerc.uiArrivalTime != plan.arrivalMinute)
+		return false;
+	std::size_t profiles = 0;
+	auto& repository = GetJa2SoldierRepository();
+	for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
+	{
+		const auto* candidate = repository.resolve(slot);
+		if (candidate && candidate->roster().active() &&
+			candidate->identity().profile() == plan.request.profile) ++profiles;
+	}
+	if (profiles != 1 || !GetJa2CampaignEventQueue().validate()) return false;
+	std::size_t events = 0;
+	for (const auto* event = GetStrategicEventListHead(); event; event = event->next)
+	{
+		if (event->ubCallbackID != EVENT_DELAYED_HIRING_OF_MERC ||
+			event->uiParam != actor->identity().id().i) continue;
+		if (event->ubEventType != ONETIME_EVENT || event->ubFlags != 0 ||
+			event->uiTimeOffset != 0 ||
+			event->uiTimeStamp != plan.arrivalMinute * NUM_SEC_IN_MIN) return false;
+		++events;
+	}
+	return events == 1;
+}
+}
+
+CampaignAimHireResult HireAimMercChecked(
+	const CampaignAimHireRequest& request) noexcept
+{
+	CampaignAimHireResult result;
+	CampaignAimHirePlan plan;
+	result.error = PrepareCampaignAimHire(request, plan);
+	if (result.error != CampaignAimHireError::None) return result;
+	result.error = CampaignAimHireError::NativeFailure;
+	try
+	{
+		MERC_HIRE_STRUCT hire{};
+		hire.ubProfileID = static_cast<std::uint8_t>(request.profile);
+		hire.iTotalContractLength = static_cast<std::int16_t>(request.contractDays);
+		hire.fCopyProfileItemsOver = request.copyProfileEquipment;
+		hire.sSectorX = plan.landingX;
+		hire.sSectorY = plan.landingY;
+		hire.fUseLandingZoneForArrival = TRUE;
+		hire.ubInsertionCode = INSERTION_CODE_ARRIVING_GAME;
+		hire.uiTimeTillMercArrives = plan.arrivalMinute;
+		if (HireMercImpl(&hire, &result) != MERC_HIRE_OK) return result;
+		if (!ValidateCampaignAimHire(plan, result))
+		{
+			result.error = CampaignAimHireError::PostconditionFailed;
+			return result;
+		}
+		result.error = CampaignAimHireError::None;
+		result.arrivalMinute = plan.arrivalMinute;
+	}
+	catch (...)
+	{
+		result.error = CampaignAimHireError::NativeFailure;
+	}
+	return result;
+}
 
 void MercArrivesCallback( SoldierID ubSoldierID )
 {
