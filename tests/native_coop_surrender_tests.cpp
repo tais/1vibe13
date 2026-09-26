@@ -1,4 +1,5 @@
 #include "DedicatedCoopSurrender.h"
+#include "Animation Control.h"
 #include "DedicatedServerOptions.h"
 #include "GameContext.h"
 #include "TacticalActor.h"
