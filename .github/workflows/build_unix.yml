@@ -252,6 +252,9 @@ jobs:
       - name: Build native campaign failure containment
         run: cmake --build build --target native_campaign_simulation_failure_tests --parallel 2
 
+      - name: Build native off-turn hit-recovery regression
+        run: cmake --build build --target native_coop_remote_attack_completion_tests --parallel 2
+
       - name: Build dedicated assertion regression
         run: cmake --build build --target dedicated_coop_assertion_tests --parallel 2
 
