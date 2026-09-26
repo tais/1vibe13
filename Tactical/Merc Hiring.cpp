@@ -39,6 +39,12 @@
 	#include "DynamicDialogue.h"// added by Flugente
 #include "GameContext.h"
 #include "CampaignAimHire.h"
+#include "CampaignAimArrival.h"
+#include "StrategicGroupHost.h"
+#include "Strategic Movement.h"
+#include <array>
+#include "StrategicSquadHost.h"
+#include "Soldier Profile Constants.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
 #include "CampaignEventScheduling.h"
@@ -85,6 +91,7 @@ INT16 gsMercArriveSectorX = gGameExternalOptions.ubDefaultArrivalSectorX;
 INT16 gsMercArriveSectorY = gGameExternalOptions.ubDefaultArrivalSectorY;
 
 void CheckForValidArrivalSector( );
+static bool CheckForValidArrivalSectorImpl(bool presentNotice);
 
 void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType );
 
@@ -647,7 +654,8 @@ CampaignAimHireResult HireAimMercChecked(
 	return result;
 }
 
-void MercArrivesCallback( SoldierID ubSoldierID )
+static void MercArrivesCallbackImpl( SoldierID ubSoldierID,
+	CampaignAimArrivalResult* checkedResult = nullptr, std::uint32_t checkedContractEnd = 0 )
 {
 	const CampaignMercenaryPolicy mercenaryPolicy(
 		GetGameContext().capabilities());
@@ -676,7 +684,15 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 
 	// This will update ANY soldiers currently schedules to arrive too
-	CheckForValidArrivalSector( );
+	if (checkedResult)
+	{
+		if (!CheckForValidArrivalSectorImpl(false))
+		{
+			checkedResult->error = CampaignAimArrivalError::NoSafeLandingZone;
+			return;
+		}
+	}
+	else CheckForValidArrivalSector();
 
 	// stop time compression until player restarts it
 	StopTimeCompression();
@@ -713,7 +729,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		}
 	}
 	//shadooow: if all mercs were killed or captured and default arrival sector is Omerta, force helidrop arrival animation
-	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->deployment().usesLandingZoneForArrival() && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
+	if (!checkedResult && GetCurrentScreen() == MAP_SCREEN && pSoldier->deployment().usesLandingZoneForArrival() && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
 	{
 		bool force_helidrop = true;
@@ -737,7 +753,11 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 
 	// add the guy to a squad
-	AddCharacterToAnySquad( pSoldier );
+	if (!AddCharacterToAnySquad(pSoldier) && checkedResult)
+	{
+		checkedResult->error = CampaignAimArrivalError::SquadAssignmentFailed;
+		return;
+	}
 
 	// ATE: Make sure we use global.....
 	if ( pSoldier->deployment().usesLandingZoneForArrival() )
@@ -748,7 +768,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 
 	// Add merc to sector ( if it's the current one )
-	if ( gWorldSectorX == pSoldier->deployment().sectorX() && gWorldSectorY == pSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == gbWorldSectorZ )
+	if ( (!checkedResult || IsJa2TacticalWorldLoaded()) && gWorldSectorX == pSoldier->deployment().sectorX() && gWorldSectorY == pSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 	{
 		// OK, If this sector is currently loaded, and guy does not have CHOPPER insertion code....
 		// ( which means we are at beginning of game if so )
@@ -812,7 +832,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 
 	if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 	{
-		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, TacticalStr[ MERC_HAS_ARRIVED_STR ], pSoldier->GetName() );
+		if (!checkedResult)
+			ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, TacticalStr[ MERC_HAS_ARRIVED_STR ], pSoldier->GetName() );
 
 		// ATE: He's going to say something, now that they've arrived...
 		if ( gTacticalStatus.bMercArrivingQuoteBeingUsed == FALSE && !gfFirstHeliRun )
@@ -844,7 +865,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	pSoldier->employment().lastContractUpdateTime() = GetWorldTotalMin();
 
 	//set when the merc's contract is finished
-	pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
+	pSoldier->employment().endTime() = checkedResult ? checkedContractEnd :
+		GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 
 	// Do initial check for bad items
 	if ( pSoldier->roster().team() == gbPlayerNum )
@@ -857,7 +879,18 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 
 			if ( GetWorldMinutesInDay() < uiTimeOfPost )
 			{
-				AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, uiTimeOfPost , pSoldier->identity().profile() );
+				if (checkedResult)
+				{
+					const std::uint64_t minute = static_cast<std::uint64_t>(GetWorldDayInMinutes()) + uiTimeOfPost;
+					if (minute > std::numeric_limits<std::uint32_t>::max() / NUM_SEC_IN_MIN ||
+						!AddStrategicEventChecked(EVENT_MERC_COMPLAIN_EQUIPMENT,
+							static_cast<std::uint32_t>(minute), pSoldier->identity().profile()))
+					{
+						checkedResult->error = CampaignAimArrivalError::EventSchedulingFailed;
+						return;
+					}
+				}
+				else AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, uiTimeOfPost , pSoldier->identity().profile() );
 			}
 		}
 	}
@@ -875,6 +908,238 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	return;
 }
 
+
+void MercArrivesCallback(SoldierID soldier)
+{
+	MercArrivesCallbackImpl(soldier);
+}
+
+namespace
+{
+bool ExactPendingAimArrivalEvent(const CampaignAimArrivalRequest& request,
+	const TacticalActor& actor) noexcept
+{
+	if (!request.event || !GetJa2CampaignEventQueue().validate()) return false;
+	std::size_t targets = 0, matches = 0;
+	for (const STRATEGICEVENT* event = GetStrategicEventListHead(); event; event = event->next)
+	{
+		if (event->ubCallbackID != EVENT_DELAYED_HIRING_OF_MERC ||
+			static_cast<std::uint16_t>(event->uiParam) != actor.identity().id().i) continue;
+		++targets;
+		if (event->id == request.event && event->uiParam == actor.identity().id().i &&
+			event->ubEventType == ONETIME_EVENT && event->uiTimeOffset == 0 && event->ubFlags == 0 &&
+			actor.deployment().arrivalTime() <= std::numeric_limits<std::uint32_t>::max() / NUM_SEC_IN_MIN &&
+			event->uiTimeStamp == actor.deployment().arrivalTime() * NUM_SEC_IN_MIN &&
+			event->uiTimeStamp == GetWorldTotalSeconds()) ++matches;
+	}
+	return targets == 1 && matches == 1;
+}
+
+bool PendingAimArrivalHasNoNativeMembership(const TacticalActor& actor) noexcept
+{
+	const std::uint16_t slot = actor.identity().id().i;
+	for (std::size_t squad = 0; squad < kJa2StrategicSquadCount; ++squad)
+		for (std::size_t member = 0; member < kJa2StrategicSquadCapacity; ++member)
+		{
+			const auto identity = GetJa2StrategicSquadActor(squad, member);
+			if (identity.valid() && identity.slot == slot) return false;
+		}
+	std::size_t groups = 0;
+	for (const GROUP* group = gpGroupList; group; group = group->next)
+	{
+		// IDs are uint8 and zero is reserved. This also bounds malformed cycles.
+		if (++groups > 255) return false;
+		// pPlayerList shares storage with the enemy group payload.
+		if (group->usGroupTeam != OUR_TEAM) continue;
+		std::size_t members = 0;
+		for (const PLAYERGROUP* member = group->pPlayerList; member; member = member->next)
+		{
+			if (++members > CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS) return false;
+			const auto identity = GetPlayerGroupMemberActor(member);
+			// A stale incarnation for the same reusable slot is contradictory too.
+			if (identity.slot == slot) return false;
+		}
+	}
+	return true;
+}
+
+CampaignAimArrivalError PrepareCheckedAimArrival(
+	const CampaignAimArrivalRequest& request, std::uint32_t& contractEnd) noexcept
+{
+	using Error = CampaignAimArrivalError;
+	const auto& game = GetGameContext();
+	if (game.lifecycle() != GameLifecycle::Running || game.capabilities().isEditor() ||
+		CampaignMercenaryPolicy(game.capabilities()).usesUnfinishedBusinessRules() ||
+		DidGameJustStart() || IsJa2TacticalWorldLoaded() || is_networked || is_client || is_server ||
+		(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) || GetCurrentScreen() == AUTORESOLVE_SCREEN)
+		return Error::UnsupportedCampaignState;
+	const auto* actor = ResolveJa2TacticalEntity(request.actor);
+	if (!actor || GetJa2TacticalEntityId(*actor) != request.actor ||
+		!actor->roster().active() || actor->roster().team() != OUR_TEAM || gbPlayerNum != OUR_TEAM)
+		return Error::InvalidActor;
+	const auto profileId = actor->identity().profile();
+	if (profileId >= NUM_PROFILES || profileId == NO_PROFILE) return Error::InvalidProfile;
+	if (profileId == JOHN_MERC) return Error::UnsupportedProfile;
+	const auto& profile = gMercProfiles[profileId];
+	if (profile.Type != PROFILETYPE_AIM) return Error::InvalidProfile;
+	auto& repository = GetJa2SoldierRepository();
+	const std::size_t first = gTacticalStatus.Team[OUR_TEAM].bFirstID.i;
+	const std::size_t last = gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+	if (first > last || last >= repository.capacity() || last >= TOTAL_SOLDIERS ||
+		actor->identity().id().i < first || actor->identity().id().i > last ||
+		gGameOptions.ubSquadSize == 0 || gGameOptions.ubSquadSize > NUMBER_OF_SOLDIERS_PER_SQUAD)
+		return Error::InvalidActor;
+	for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
+	{
+		const auto* other = repository.resolve(slot);
+		if (slot >= first && slot <= last && (!other || !repository.contains(slot, *other) ||
+			(other->roster().active() && other->roster().team() != OUR_TEAM)))
+			return Error::InvalidActor;
+		if (other && other != actor && other->roster().active() && other->identity().profile() == profileId)
+			return Error::InvalidActor;
+	}
+	const auto days = actor->employment().totalLength();
+	if (profile.bMercStatus != MERC_HIRED_BUT_NOT_ARRIVED_YET ||
+		actor->assignment().current() != IN_TRANSIT || actor->roster().inSector() ||
+		actor->deployment().isBetweenSectors() || actor->deployment().groupId() != 0 ||
+		(actor->status().flags() & (SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) ||
+		profile.ubBodyType > REGFEMALE || actor->identity().bodyType() != profile.ubBodyType ||
+		actor->vitals().health() < OKLIFE || actor->vitals().maximumHealth() > 100 ||
+		actor->vitals().health() > actor->vitals().maximumHealth() ||
+		(days != 1 && days != 7 && days != 14) ||
+		actor->employment().mercenaryType() != MERC_TYPE__AIM_MERC ||
+		actor->employment().lastContractType() !=
+			(days == 1 ? CONTRACT_EXTEND_1_DAY : days == 7 ? CONTRACT_EXTEND_1_WEEK : CONTRACT_EXTEND_2_WEEK) ||
+		actor->employment().medicalDeposit() != profile.sMedicalDepositAmount ||
+		actor->employment().insuranceStartDay() != 0 || actor->employment().insuranceLengthDays() != 0 ||
+		!actor->deployment().usesLandingZoneForArrival() ||
+		actor->deployment().strategicInsertionCode() != INSERTION_CODE_ARRIVING_GAME ||
+		actor->deployment().strategicInsertionData() != 0)
+		return Error::InvalidPendingState;
+	if (gsMercArriveSectorX < 1 || gsMercArriveSectorX > 16 ||
+		gsMercArriveSectorY < 1 || gsMercArriveSectorY > 16 ||
+		actor->deployment().sectorX() != gsMercArriveSectorX ||
+		actor->deployment().sectorY() != gsMercArriveSectorY || actor->deployment().sectorZ() != 0)
+		return Error::InvalidLandingZone;
+	if (!ExactPendingAimArrivalEvent(request, *actor)) return Error::InvalidEvent;
+	const auto clock = CaptureJa2CampaignClock();
+	const std::uint64_t now = clock.totalSeconds / NUM_SEC_IN_MIN;
+	if (clock.day != clock.totalSeconds / NUM_SEC_IN_DAY ||
+		clock.hour != (now % 1440) / 60 || clock.minute != now % 60)
+		return Error::TimeOutOfRange;
+	const std::uint64_t end = now - now % 1440 + static_cast<std::uint64_t>(days) * 1440 +
+		((actor->deployment().arrivalTime() % 1440) / 60) * 60;
+	const auto priorEnd = actor->employment().endTime();
+	if (end > static_cast<std::uint64_t>(std::numeric_limits<std::int32_t>::max()) ||
+		priorEnd <= 0 || (static_cast<std::uint64_t>(priorEnd) != end &&
+		 static_cast<std::uint64_t>(priorEnd) != end + 1440) ||
+		(days == 14 ? actor->employment().timeCanSignElsewhere() != priorEnd :
+		 (actor->employment().timeCanSignElsewhere() < 0 ||
+		  static_cast<std::uint64_t>(actor->employment().timeCanSignElsewhere()) > now)))
+		return Error::TimeOutOfRange;
+	if (!PendingAimArrivalHasNoNativeMembership(*actor)) return Error::InvalidPendingState;
+	contractEnd = static_cast<std::uint32_t>(end);
+	return Error::None;
+}
+
+bool ValidateCheckedAimArrival(const CampaignAimArrivalRequest& request,
+	std::uint32_t expectedEnd, CampaignAimArrivalResult& result) noexcept
+{
+	const auto* actor = ResolveJa2TacticalEntity(request.actor);
+	if (!actor || actor->identity().profile() >= NUM_PROFILES || actor->identity().profile() == NO_PROFILE ||
+		gsMercArriveSectorX < 1 || gsMercArriveSectorX > 16 ||
+		gsMercArriveSectorY < 1 || gsMercArriveSectorY > 16 ||
+		IsJa2TacticalWorldLoaded() || !actor->roster().active() ||
+		actor->roster().team() != OUR_TEAM || actor->roster().inSector() ||
+		actor->deployment().isBetweenSectors() ||
+		actor->assignment().current() < 0 || actor->assignment().current() >= NUMBER_OF_SQUADS ||
+		actor->deployment().sectorX() != gsMercArriveSectorX ||
+		actor->deployment().sectorY() != gsMercArriveSectorY || actor->deployment().sectorZ() != 0 ||
+		actor->deployment().strategicInsertionCode() != INSERTION_CODE_CENTER ||
+		actor->employment().endTime() != expectedEnd ||
+		actor->employment().lastContractUpdateTime() != GetWorldTotalMin() ||
+		gMercProfiles[actor->identity().profile()].bMercStatus != actor->employment().totalLength() ||
+		!ExactPendingAimArrivalEvent(request, *actor)) return false;
+	const auto groupId = GetJa2StrategicGroupId(actor->deployment().groupId());
+	const GROUP* group = ResolveJa2StrategicGroup(groupId);
+	if (!group || group->usGroupTeam != OUR_TEAM || group->fVehicle || group->fBetweenSectors ||
+		group->ubGroupID != actor->deployment().groupId() ||
+		group->ubSectorX != gsMercArriveSectorX || group->ubSectorY != gsMercArriveSectorY || group->ubSectorZ != 0)
+		return false;
+	std::array<TacticalEntityId, CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS> members{};
+	std::size_t count = 0, matches = 0, squadMatches = 0;
+	for (const PLAYERGROUP* member = group->pPlayerList; member; member = member->next)
+	{
+		if (count == members.size()) return false;
+		const auto id = GetPlayerGroupMemberActor(member);
+		const auto* resolved = ResolvePlayerGroupMember(member);
+		if (!id.valid() || !resolved || !resolved->roster().active() || resolved->roster().team() != OUR_TEAM ||
+			member->ubProfileID != resolved->identity().profile() ||
+			resolved->assignment().current() != actor->assignment().current() ||
+			resolved->deployment().groupId() != group->ubGroupID || resolved->deployment().isBetweenSectors() ||
+			resolved->deployment().sectorX() != group->ubSectorX || resolved->deployment().sectorY() != group->ubSectorY ||
+			resolved->deployment().sectorZ() != 0) return false;
+		for (std::size_t previous = 0; previous < count; ++previous)
+			if (members[previous] == id) return false;
+		members[count++] = id;
+		if (id == request.actor) ++matches;
+	}
+	for (std::size_t squad = 0; squad < NUMBER_OF_SQUADS; ++squad)
+		for (std::size_t slot = 0; slot < NUMBER_OF_SOLDIERS_PER_SQUAD; ++slot)
+		{
+			const auto id = GetJa2StrategicSquadActor(squad, slot);
+			if (!id.valid() || id.slot != request.actor.slot) continue;
+			if (id != request.actor || squad != static_cast<std::size_t>(actor->assignment().current()))
+				return false;
+			++squadMatches;
+		}
+	if (matches != 1 || squadMatches != 1 || count != group->ubGroupSize ||
+		count != Ja2StrategicSquadSize(actor->assignment().current())) return false;
+	std::size_t observedGroups = 0, allMemberships = 0;
+	for (const GROUP* other = gpGroupList; other; other = other->next)
+	{
+		if (++observedGroups > 255) return false;
+		if (other->usGroupTeam != OUR_TEAM) continue;
+		std::size_t observedMembers = 0;
+		for (const PLAYERGROUP* member = other->pPlayerList; member; member = member->next)
+		{
+			if (++observedMembers > CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS) return false;
+			const auto id = GetPlayerGroupMemberActor(member);
+			if (id.slot != request.actor.slot) continue;
+			if (other != group || id != request.actor) return false;
+			++allMemberships;
+		}
+	}
+	if (allMemberships != 1) return false;
+	result.group = groupId;
+	result.landingX = static_cast<std::uint8_t>(gsMercArriveSectorX);
+	result.landingY = static_cast<std::uint8_t>(gsMercArriveSectorY);
+	result.contractEndMinute = expectedEnd;
+	return true;
+}
+}
+
+CampaignAimArrivalResult ArriveAimMercChecked(const CampaignAimArrivalRequest& request) noexcept
+{
+	CampaignAimArrivalResult result;
+	try
+	{
+		std::uint32_t end = 0;
+		result.error = PrepareCheckedAimArrival(request, end);
+		if (result.error != CampaignAimArrivalError::None) return result;
+		result.actor = request.actor;
+		result.mutationMayHaveStarted = true;
+		MercArrivesCallbackImpl(SoldierID{request.actor.slot}, &result, end);
+		if (result.error == CampaignAimArrivalError::None &&
+			!ValidateCheckedAimArrival(request, end, result))
+			result.error = CampaignAimArrivalError::PostconditionFailed;
+	}
+	catch (...)
+	{
+		result.error = CampaignAimArrivalError::NativeFailure;
+	}
+	return result;
+}
 
 BOOLEAN IsMercHireable( UINT8 ubMercID )
 {
@@ -1101,7 +1366,7 @@ INT16 StrategicPythSpacesAway(INT16 sOrigin, INT16 sDest)
 // is valid
 // if there are enemies present, it's invalid
 // if so, search around for nearest non-occupied sector.
-void CheckForValidArrivalSector( )
+static bool CheckForValidArrivalSectorImpl(bool presentNotice)
 {
 	INT16	sTop, sBottom;
 	INT16	sLeft, sRight;
@@ -1120,10 +1385,11 @@ void CheckForValidArrivalSector( )
 	// Check if valid...
 	if ( !StrategicMap[ sSectorGridNo ].fEnemyControlled )
 	{
-		return;
+		return true;
 	}
 
-	GetShortSectorString( gsMercArriveSectorX ,gsMercArriveSectorY, zShortTownIDString1 );
+	if (presentNotice)
+		GetShortSectorString( gsMercArriveSectorX ,gsMercArriveSectorY, zShortTownIDString1 );
 
 
 	// If here - we need to do a search!
@@ -1160,19 +1426,29 @@ void CheckForValidArrivalSector( )
 
 	if ( fFound )
 	{
+		if (!presentNotice && (gsMercArriveSectorX + sGoodX < 1 || gsMercArriveSectorX + sGoodX > 16 ||
+			gsMercArriveSectorY + sGoodY < 1 || gsMercArriveSectorY + sGoodY > 16)) return false;
 		gsMercArriveSectorX = gsMercArriveSectorX + sGoodX;
 		gsMercArriveSectorY = gsMercArriveSectorY + sGoodY;
 
 		UpdateAnyInTransitMercsWithGlobalArrivalSector( );
 
-		GetShortSectorString( gsMercArriveSectorX ,gsMercArriveSectorY, zShortTownIDString2 );
-
-//		swprintf( sString, L"Arrival of new recruits is being rerouted to sector %s, as scheduled drop-off point of sector %s is enemy occupied.", zShortTownIDString2, zShortTownIDString1 );
-		swprintf( sString, New113Message[MSG113_ARRIVINGREROUTED], zShortTownIDString2, zShortTownIDString1 );
-
-		DoScreenIndependantMessageBox(	sString, MSG_BOX_FLAG_OK, NULL );
+		if (presentNotice)
+		{
+			GetShortSectorString(gsMercArriveSectorX, gsMercArriveSectorY, zShortTownIDString2);
+			swprintf(sString, New113Message[MSG113_ARRIVINGREROUTED], zShortTownIDString2, zShortTownIDString1);
+			DoScreenIndependantMessageBox(sString, MSG_BOX_FLAG_OK, NULL);
+		}
+		else
+			fprintf(stderr, "[campaign] AIM arrival rerouted to %d,%d\n", gsMercArriveSectorX, gsMercArriveSectorY);
 
 	}
+	return fFound != FALSE;
+}
+
+void CheckForValidArrivalSector()
+{
+	(void)CheckForValidArrivalSectorImpl(true);
 }
 UINT32	GetInitialHeliGridNo( )
 {

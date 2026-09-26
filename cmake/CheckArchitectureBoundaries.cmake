@@ -21275,7 +21275,7 @@ require_ordered_fragments(checked_aim_preflight
   "std::numeric_limits<std::int32_t>::max()" "planOut =")
 extract_bounded_slice(runtime_campaign_merc_hiring_code
   "CampaignAimHireResult HireAimMercChecked("
-  "void MercArrivesCallback("
+  "static void MercArrivesCallbackImpl("
   checked_aim_apply "Cannot isolate checked AIM apply")
 require_ordered_fragments(checked_aim_apply
   "Checked AIM apply lost revalidation, failure or postcondition barrier"
@@ -21290,8 +21290,8 @@ if(checked_aim_preflight MATCHES "TacticalCreateSoldier|ScreenMsg|AddStrategicEv
 endif()
 
 extract_bounded_slice(runtime_campaign_merc_hiring_code
-  "void MercArrivesCallback("
-  "BOOLEAN IsMercHireable("
+  "static void MercArrivesCallbackImpl("
+  "void MercArrivesCallback(SoldierID soldier)"
   runtime_campaign_mercenary_arrives_slice
   "Cannot isolate the mercenary-arrival callback")
 if(runtime_campaign_mercenary_arrives_slice MATCHES
@@ -21301,7 +21301,7 @@ if(runtime_campaign_mercenary_arrives_slice MATCHES
 endif()
 require_ordered_fragments(runtime_campaign_mercenary_arrives_slice
   "Mercenary callback lost current/off-screen arrival probe and effect order"
-  "AddCharacterToAnySquad( pSoldier )"
+  "AddCharacterToAnySquad(pSoldier)"
   "pSoldier->deployment().usesLandingZoneForArrival()"
   "gWorldSectorX == pSoldier->deployment().sectorX()"
   "const bool isAtDefaultArrivalSector"
@@ -38605,3 +38605,79 @@ endif()
 
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")
+
+# Checked established AIM arrivals reuse the native callback while keeping the
+# dispatcher-owned event and exact actor binding explicit. Native mutation is
+# fail-stop; this does not authorize an alternate strategic clock/event path.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignAimArrival.h" checked_aim_arrival_header)
+file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp" checked_aim_arrival_source)
+file(READ "${SOURCE_ROOT}/tests/native_campaign_aim_arrival_tests.cpp" checked_aim_arrival_tests)
+foreach(contract IN ITEMS
+    "CampaignEventId event{}"
+    "TacticalEntityId actor{}"
+    "bool mutationMayHaveStarted = false"
+    "CampaignAimArrivalResult ArriveAimMercChecked("
+    "The event remains owned by the native dispatcher"
+    "Native contract, squad/group, dialogue/opinion and Lua effects are retained")
+  string(FIND "${checked_aim_arrival_header}" "${contract}" contract_position)
+  if(contract_position EQUAL -1)
+    message(FATAL_ERROR "Checked native AIM arrival header lost '${contract}'")
+  endif()
+endforeach()
+foreach(contract IN ITEMS
+    "static void MercArrivesCallbackImpl("
+    "MercArrivesCallbackImpl(soldier);"
+    "event->id == request.event && event->uiParam == actor.identity().id().i"
+    "return targets == 1 && matches == 1;"
+    "profileId >= NUM_PROFILES || profileId == NO_PROFILE"
+    "profileId == JOHN_MERC"
+    "PendingAimArrivalHasNoNativeMembership(*actor)"
+    "if (++groups > 255) return false;"
+    "result.mutationMayHaveStarted = true;"
+    "MercArrivesCallbackImpl(SoldierID{request.actor.slot}, &result, end);"
+    "if (!AddCharacterToAnySquad(pSoldier) && checkedResult)"
+    "if (!checkedResult && GetCurrentScreen() == MAP_SCREEN"
+    "(!checkedResult || IsJa2TacticalWorldLoaded())"
+    "CheckForValidArrivalSectorImpl(false)"
+    "AddStrategicEventChecked(EVENT_MERC_COMPLAIN_EQUIPMENT"
+    "if (id != request.actor || squad != static_cast<std::size_t>(actor->assignment().current()))"
+    "if (allMemberships != 1) return false;"
+    "result.error = CampaignAimArrivalError::NativeFailure;")
+  string(FIND "${checked_aim_arrival_source}" "${contract}" contract_position)
+  if(contract_position EQUAL -1)
+    message(FATAL_ERROR "Checked native AIM arrival lost '${contract}'")
+  endif()
+endforeach()
+string(FIND "${checked_aim_arrival_source}" "result.mutationMayHaveStarted = true;" checked_arrival_mutation_position)
+string(FIND "${checked_aim_arrival_source}" "MercArrivesCallbackImpl(SoldierID{request.actor.slot}, &result, end);" checked_arrival_native_position)
+if(checked_arrival_mutation_position GREATER checked_arrival_native_position)
+  message(FATAL_ERROR "Checked AIM arrival must mark possible mutation before the native callback")
+endif()
+foreach(contract IN ITEMS
+    "HireAimMercChecked({0, days, false})"
+    "WriteFixtureImage(root / \"FACES/01.sti\", 1)"
+    "WriteFixtureImage(root / \"ANIMS/S_MERC/S_WALK.STI\", 8)"
+    "SetJa2TacticalWorldSector(9, 1, 0)"
+    "AddCharacterToSquad(&other, squad)"
+    "native dialogue allocation exception retains already committed group and contract effects"
+    "Error::SquadAssignmentFailed"
+    "InjectNativeStaleSquad()"
+    "Error::PostconditionFailed"
+    "Error::NoSafeLandingZone"
+    "Error::UnsupportedProfile"
+    "hiddenMember.next = &hiddenMember"
+    "hidden.next = &hidden"
+    "AdditionalTacticalCharacterDialogue_CallsLua(actor, 0, 0, 0)")
+  string(FIND "${checked_aim_arrival_tests}" "${contract}" contract_position)
+  if(contract_position EQUAL -1)
+    message(FATAL_ERROR "Checked native AIM arrival tests lost '${contract}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/CMakeLists.txt" checked_aim_arrival_build)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml" checked_aim_arrival_ci)
+string(FIND "${checked_aim_arrival_build}" "add_executable(native_campaign_aim_arrival_tests" checked_arrival_target_position)
+string(FIND "${checked_aim_arrival_build}" "add_test(NAME native_campaign_aim_arrival" checked_arrival_ctest_position)
+string(FIND "${checked_aim_arrival_ci}" "native_campaign_aim_arrival_tests" checked_arrival_asan_position)
+if(checked_arrival_target_position EQUAL -1 OR checked_arrival_ctest_position EQUAL -1 OR checked_arrival_asan_position EQUAL -1)
+  message(FATAL_ERROR "Checked native AIM arrival must retain native CTest and ASan coverage")
+endif()
