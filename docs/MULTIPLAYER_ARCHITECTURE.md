@@ -905,6 +905,21 @@ Sector entry/exit, tactical-to-strategic transitions, autoresolve, and campaign
 load are generation barriers. Player input remains frozen until required peers
 acknowledge the new baseline.
 
+The optional `DedicatedCoopSurrenderState` retains a native enemy offer by exact
+actor incarnation, world and turn. A bound owner receives a pending decision in
+place of the local quote/message-box callback. Quote selection retains its
+native RNG draw; repeated presentation requests cannot reroll a held offer.
+There is no timeout answer. An explicit answer consumes the offer before the
+shared native continuation marks it offered and completes that speaker's AI
+action. Accepting also invokes the original capture sequence.
+
+This native boundary is unbound by default. Runtime ownership, simulation and
+checkpoint holds, authenticated network requests and client confirmation must
+be connected together before activating it in a dedicated session. Tests cover
+renderer-free deferral, real refusal/AI completion, stale world and offer IDs,
+legacy/single-player exclusions, retained RNG and duplicate suppression. Native
+captivity and its later campaign persistence are not qualified by these tests.
+
 The bounded `FullEngineCoopClientPresentationActorDirectory` stages a plan from
 a committed snapshot for a future presentation-owned actor bank. It matches
 exact actor incarnations to local slots, detaches all retired mappings before
