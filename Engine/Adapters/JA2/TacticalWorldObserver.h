@@ -9,7 +9,7 @@
 
 inline constexpr const char* TacticalWorldObserverServiceId =
 	"ja2.tactical-world-observer";
-inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{2, 0};
+inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{3, 0};
 
 struct TacticalWorldObserverLimits
 {

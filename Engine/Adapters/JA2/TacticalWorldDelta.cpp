@@ -8,7 +8,8 @@ namespace
 bool SameSector(const TacticalSectorSnapshot& left, const TacticalSectorSnapshot& right)
 {
 	return left.x == right.x && left.y == right.y && left.z == right.z &&
-		left.loaded == right.loaded && left.mapAssetKey == right.mapAssetKey;
+		left.loaded == right.loaded &&
+		left.mapAssetKey == right.mapAssetKey;
 }
 
 bool SameDimensions(const TacticalWorldDimensions& left,
@@ -26,35 +27,15 @@ bool SameTurn(const TacticalTurnSnapshot& left, const TacticalTurnSnapshot& righ
 		left.commandsBlocked == right.commandsBlocked;
 }
 
+bool SameLighting(const TacticalWorldLightingSnapshot& left,
+	const TacticalWorldLightingSnapshot& right)
+{
+	return left == right;
+}
+
 bool Present(const TacticalActorSnapshot& actor)
 {
 	return actor.active && actor.inSector;
-}
-
-bool SamePosition(const TacticalActorSnapshot& left, const TacticalActorSnapshot& right)
-{
-	return left.grid == right.grid && left.level == right.level &&
-		left.direction == right.direction;
-}
-
-bool SameStance(const TacticalActorSnapshot& left, const TacticalActorSnapshot& right)
-{
-	return left.stance == right.stance && left.animation == right.animation;
-}
-
-bool SameVitals(const TacticalActorSnapshot& left, const TacticalActorSnapshot& right)
-{
-	return left.actionPoints == right.actionPoints && left.life == right.life &&
-		left.maximumLife == right.maximumLife && left.breath == right.breath &&
-		left.maximumBreath == right.maximumBreath &&
-		left.hostileToPlayerTeam == right.hostileToPlayerTeam &&
-		left.interruptActionEligible == right.interruptActionEligible;
-}
-
-bool SameLoadout(const TacticalActorSnapshot& left,
-	const TacticalActorSnapshot& right)
-{
-	return left.loadout == right.loadout;
 }
 
 bool SameDoor(const TacticalDoorSnapshot& left,
@@ -140,6 +121,10 @@ bool VisitEvents(const TacticalWorldSnapshot& previous,
 	if (!SameTurn(previous.turn(), current.turn()) &&
 		!visit(TacticalTurnChangedEvent{previous.turn(), current.turn()}))
 		return false;
+	if (!SameLighting(previous.lighting(), current.lighting()) &&
+		!visit(TacticalLightingChangedEvent{
+			previous.lighting(), current.lighting()}))
+		return false;
 
 	// The co-op wire canonical form is category-major and then identity-major.
 	// Keep each pass allocation-free; DiffTacticalWorldSnapshots still performs
@@ -170,58 +155,9 @@ bool VisitEvents(const TacticalWorldSnapshot& previous,
 			const TacticalActorSnapshot* newActor) {
 			if (oldActor == nullptr || newActor == nullptr ||
 				!Present(*oldActor) || !Present(*newActor) ||
-				SamePosition(*oldActor, *newActor))
+				*oldActor == *newActor)
 				return true;
-			return visit(TacticalActorMovedEvent{
-				oldActor->id, oldActor->grid, newActor->grid,
-				oldActor->level, newActor->level,
-				oldActor->direction, newActor->direction});
-		}))
-		return false;
-
-	if (!VisitActorPairs(previous, current,
-		[&](const TacticalActorSnapshot* oldActor,
-			const TacticalActorSnapshot* newActor) {
-			if (oldActor == nullptr || newActor == nullptr ||
-				!Present(*oldActor) || !Present(*newActor) ||
-				SameStance(*oldActor, *newActor))
-				return true;
-			return visit(TacticalActorStanceChangedEvent{
-				oldActor->id, oldActor->stance, newActor->stance,
-				oldActor->animation, newActor->animation});
-		}))
-		return false;
-
-	if (!VisitActorPairs(previous, current,
-		[&](const TacticalActorSnapshot* oldActor,
-			const TacticalActorSnapshot* newActor) {
-			if (oldActor == nullptr || newActor == nullptr ||
-				!Present(*oldActor) || !Present(*newActor) ||
-				SameVitals(*oldActor, *newActor))
-				return true;
-			return visit(TacticalActorVitalsChangedEvent{
-				oldActor->id,
-				oldActor->actionPoints, newActor->actionPoints,
-				oldActor->life, newActor->life,
-				oldActor->maximumLife, newActor->maximumLife,
-				oldActor->breath, newActor->breath,
-				oldActor->maximumBreath, newActor->maximumBreath,
-				oldActor->hostileToPlayerTeam,
-				newActor->hostileToPlayerTeam,
-				oldActor->interruptActionEligible,
-				newActor->interruptActionEligible});
-		}))
-		return false;
-
-	if (!VisitActorPairs(previous, current,
-		[&](const TacticalActorSnapshot* oldActor,
-			const TacticalActorSnapshot* newActor) {
-			if (oldActor == nullptr || newActor == nullptr ||
-				!Present(*oldActor) || !Present(*newActor) ||
-				SameLoadout(*oldActor, *newActor))
-				return true;
-			return visit(TacticalActorLoadoutChangedEvent{
-				oldActor->id, oldActor->loadout, newActor->loadout});
+			return visit(TacticalActorUpdatedEvent{*newActor});
 		}))
 		return false;
 
@@ -265,6 +201,7 @@ TacticalWorldDiffResult DiffTacticalWorldSnapshots(
 	if (!previous.dimensions().valid() || !current.dimensions().valid() ||
 		!IsValidTacticalSectorSnapshot(previous.sector()) ||
 		!IsValidTacticalSectorSnapshot(current.sector()) ||
+		!previous.lighting().valid() || !current.lighting().valid() ||
 		(previous.epoch() == current.epoch() &&
 			!SameDimensions(previous.dimensions(), current.dimensions())))
 		return TacticalWorldDiffResult::InvalidSnapshot;

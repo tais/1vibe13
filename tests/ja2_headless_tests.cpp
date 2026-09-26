@@ -15907,13 +15907,11 @@ int main( int argc, char** argv )
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.status == TacticalWorldPublicationStatus::Delta &&
-		       observedPublication.delta->events.size() == 3 &&
+			       observedPublication.delta->events.size() == 2 &&
 		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           observedPublication.delta->events[0] ) &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           observedPublication.delta->events[1] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
-		           observedPublication.delta->events[2] ) &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           observedPublication.delta->events[1] ) &&
 		       observedActor && observedActor->grid == 346 && observedActor->life == 75 &&
 		       committedObservedActor &&
 		       committedObservedActor->grid == observedActor->grid &&
@@ -15951,19 +15949,17 @@ int main( int argc, char** argv )
 		       liveRuntimeMessages.queued() == 0 && deliveredLiveDeltaDecoded &&
 		       deliveredLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
 		       deliveredLiveMessage->source == TacticalWorldDeltaMessageSource &&
-		       deliveredLiveDelta.events.size() == 3 &&
+			       deliveredLiveDelta.events.size() == 2 &&
 		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           deliveredLiveDelta.events[0] ) &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           deliveredLiveDelta.events[1] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
-		           deliveredLiveDelta.events[2] ) &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           deliveredLiveDelta.events[1] ) &&
 		       std::get<TacticalTurnChangedEvent>(
 		           deliveredLiveDelta.events[0] ).current.serial == 3 &&
-		       std::get<TacticalActorMovedEvent>( deliveredLiveDelta.events[1] ).currentGrid ==
-		           346 &&
-		       std::get<TacticalActorVitalsChangedEvent>(
-		           deliveredLiveDelta.events[2] ).currentLife == 75,
+			       std::get<TacticalActorUpdatedEvent>( deliveredLiveDelta.events[1] ).actor.grid ==
+			           346 &&
+			       std::get<TacticalActorUpdatedEvent>(
+			           deliveredLiveDelta.events[1] ).actor.life == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
 		worldActor.identity().incarnation() = 0;
@@ -15977,7 +15973,7 @@ int main( int argc, char** argv )
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.snapshot == deltaPublicationStorage &&
 		       observedPublication.delta == deltaStorage &&
-		       observedPublication.delta->events.size() == 3 && observedActor &&
+			       observedPublication.delta->events.size() == 2 && observedActor &&
 		       observedActor->grid == 346 && observedActor->life == 75 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
@@ -16011,7 +16007,8 @@ int main( int argc, char** argv )
 		const RuntimeMessagePublishResult saturatedFiller =
 			saturatedTacticalMessages.publish(
 				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
-		worldActor.position().gridNo() = 347;
+			worldActor.position().gridNo() = 347;
+			worldActor.position().worldX() = 275.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -16096,10 +16093,10 @@ int main( int argc, char** argv )
 		       retriedLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
 		       retriedLiveMessage->source == TacticalWorldDeltaMessageSource &&
 		       retriedLiveDelta.events.size() == 1 &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           retriedLiveDelta.events[0] ) &&
-		       std::get<TacticalActorMovedEvent>(
-		           retriedLiveDelta.events[0] ).currentGrid == 347 &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           retriedLiveDelta.events[0] ) &&
+			       std::get<TacticalActorUpdatedEvent>(
+			           retriedLiveDelta.events[0] ).actor.grid == 347 &&
 		       liveTacticalDeltaSinkRemoved,
 		       "the retained tactical delta is delivered and decodes on the next frame" );
 
@@ -16123,7 +16120,8 @@ int main( int argc, char** argv )
 
 		RuntimeMessageBus saturatedChunkMessages(
 			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
-		worldActor.position().gridNo() = 348;
+			worldActor.position().gridNo() = 348;
+			worldActor.position().worldX() = 285.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
@@ -16230,8 +16228,15 @@ int main( int argc, char** argv )
 		TacticalWorldDelta headlessDelta;
 		headlessDelta.previousEpoch = 23;
 		headlessDelta.currentEpoch = 23;
-		headlessDelta.events.push_back( TacticalActorMovedEvent{
-			TacticalEntityId{ 0, 701 }, 344, 345, 0, 1, 2, 3 } );
+			TacticalActorSnapshot headlessActor;
+			headlessActor.id = TacticalEntityId{ 0, 701 };
+			headlessActor.grid = 345;
+			headlessActor.level = 1;
+			headlessActor.direction = 3;
+			headlessActor.active = true;
+			headlessActor.inSector = true;
+			headlessDelta.events.push_back(
+				TacticalActorUpdatedEvent{ headlessActor } );
 		const bool tacticalDeltaSinkAdded =
 			tacticalDeltaMessages.addSink( tacticalDeltaSink ) ==
 				RuntimeMessageSinkRegistrationError::None;
@@ -16250,7 +16255,7 @@ int main( int argc, char** argv )
 		       tacticalDeltaSink.messages[0].topic == TacticalWorldDeltaMessageTopic &&
 		       tacticalDeltaSink.messages[0].source == TacticalWorldDeltaMessageSource &&
 		       receivedHeadlessDelta.events.size() == 1 &&
-		       std::get<TacticalActorMovedEvent>( receivedHeadlessDelta.events[0] ).currentGrid == 345,
+			       std::get<TacticalActorUpdatedEvent>( receivedHeadlessDelta.events[0] ).actor.grid == 345,
 		       "headless package messaging delivers standalone encoded tactical deltas" );
 	}
 

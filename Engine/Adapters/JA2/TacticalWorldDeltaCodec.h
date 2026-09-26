@@ -6,22 +6,23 @@
 #include <vector>
 
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
+#include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
-// Version 7 carries exact map asset keys in both sector-change values. It is a
+// Version 8 coalesces current actor records with renderer inputs and adds
+// world lighting changes. It is a
 // standalone little-endian transport
 // contract: no JA2 savegame or command replay bytes are read or written here.
-inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 7;
-inline constexpr std::size_t EncodedTacticalActorLoadoutChangedEventBytes =
-	1 + 6 + 2 * 5 * 12;
-static_assert(EncodedTacticalActorLoadoutChangedEventBytes == 127,
-	"the five-slot loadout-change event is a fixed wire contract");
+inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 8;
+inline constexpr std::size_t EncodedTacticalActorFullEventBytes =
+	1 + EncodedTacticalActorSnapshotBytes;
+inline constexpr std::size_t EncodedTacticalLightingChangedEventBytes = 3;
 
-// A default snapshot can produce at most four changes per actor plus bounded
-// door, sector, and turn changes. This also prevents an untrusted event count
-// from driving an unbounded allocation during decode.
+// Disjoint old/new identity sets can produce one enter and one leave per actor
+// or door. Sector, turn, and lighting are singleton categories. This also
+// prevents an untrusted event count from driving an unbounded allocation.
 inline constexpr std::size_t MaximumTacticalWorldDeltaEvents =
-	TacticalWorldSnapshot::DefaultMaximumActors * 4 +
-	TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 2;
+	TacticalWorldSnapshot::DefaultMaximumActors * 2 +
+	TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 3;
 
 enum class TacticalWorldDeltaEncodeResult
 {

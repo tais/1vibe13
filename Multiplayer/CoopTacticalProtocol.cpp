@@ -175,27 +175,26 @@ TacticalEntityId ReadEntity(const std::uint8_t*& input) noexcept
 
 const TacticalEntityId* EventActor(const TacticalWorldEvent& event) noexcept
 {
-	switch (event.index())
-	{
-		case 3: return &std::get<TacticalActorEnteredEvent>(event).actor.id;
-		case 4: return &std::get<TacticalActorLeftEvent>(event).actor;
-		case 5: return &std::get<TacticalActorMovedEvent>(event).actor;
-		case 6: return &std::get<TacticalActorStanceChangedEvent>(event).actor;
-		case 7: return &std::get<TacticalActorVitalsChangedEvent>(event).actor;
-		case 8: return &std::get<TacticalActorLoadoutChangedEvent>(event).actor;
-		default: return nullptr;
-	}
+	if (const auto* entered =
+		std::get_if<TacticalActorEnteredEvent>(&event))
+		return &entered->actor.id;
+	if (const auto* left = std::get_if<TacticalActorLeftEvent>(&event))
+		return &left->actor;
+	if (const auto* updated =
+		std::get_if<TacticalActorUpdatedEvent>(&event))
+		return &updated->actor.id;
+	return nullptr;
 }
 
 const std::int32_t* EventDoorGrid(const TacticalWorldEvent& event) noexcept
 {
-	switch (event.index())
-	{
-		case 9: return &std::get<TacticalDoorEnteredEvent>(event).door.baseGrid;
-		case 10: return &std::get<TacticalDoorLeftEvent>(event).baseGrid;
-		case 11: return &std::get<TacticalDoorChangedEvent>(event).previous.baseGrid;
-		default: return nullptr;
-	}
+	if (const auto* entered = std::get_if<TacticalDoorEnteredEvent>(&event))
+		return &entered->door.baseGrid;
+	if (const auto* left = std::get_if<TacticalDoorLeftEvent>(&event))
+		return &left->baseGrid;
+	if (const auto* changed = std::get_if<TacticalDoorChangedEvent>(&event))
+		return &changed->previous.baseGrid;
+	return nullptr;
 }
 
 bool IsCanonicalDelta(
@@ -213,7 +212,7 @@ bool IsCanonicalDelta(
 		if (havePrevious && event.index() < previousKind) return false;
 		if (havePrevious && event.index() == previousKind)
 		{
-			if (event.index() < 3) return false;
+			if (event.index() < 4) return false;
 			const TacticalEntityId* actor = EventActor(event);
 			const std::int32_t* doorGrid = EventDoorGrid(event);
 			if ((actor == nullptr || previousActor == nullptr ||

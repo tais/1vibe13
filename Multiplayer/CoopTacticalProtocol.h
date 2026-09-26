@@ -28,7 +28,7 @@ inline constexpr char CoopTacticalDeltaAckMessageName[] =
 inline constexpr char CoopTacticalResyncRequestMessageName[] =
 	"coop.tactical.resync";
 
-inline constexpr std::uint16_t CoopTacticalWireVersion = 3;
+inline constexpr std::uint16_t CoopTacticalWireVersion = 4;
 inline constexpr std::size_t CoopTacticalCommonHeaderWireSize = 48;
 inline constexpr std::size_t CoopTacticalIntentReceiptWireSize = 96;
 inline constexpr std::size_t CoopTacticalBaselineHeaderWireSize = 76;
@@ -44,15 +44,15 @@ inline constexpr std::size_t MaximumCoopTacticalSnapshotActors = 256;
 inline constexpr std::size_t MaximumCoopTacticalSnapshotDoors = 1024;
 inline constexpr std::size_t MaximumCoopTacticalAssignedActors = 256;
 inline constexpr std::size_t MaximumCoopTacticalDeltaEvents =
-	MaximumCoopTacticalSnapshotActors * 4 +
-	MaximumCoopTacticalSnapshotDoors * 2 + 2;
+	MaximumCoopTacticalSnapshotActors * 2 +
+	MaximumCoopTacticalSnapshotDoors * 2 + 3;
 inline constexpr std::size_t MaximumCoopTacticalPayloadWireSize = 64u * 1024u;
 inline constexpr std::size_t MaximumCoopTacticalBaselinePayloadWireSize =
 	EncodedTacticalWorldSnapshotHeaderBytes +
 	MaximumCoopTacticalSnapshotActors * EncodedTacticalActorSnapshotBytes +
 	MaximumCoopTacticalSnapshotDoors * EncodedTacticalDoorSnapshotBytes;
-// The category-aware bound includes both 260-byte keys in a sector event.
-inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 62554;
+// Exact worst case: sector, turn, lighting and disjoint maximum actor/door sets.
+inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 50781;
 inline constexpr std::size_t MaximumCoopTacticalBaselineWireSize =
 	CoopTacticalBaselineHeaderWireSize +
 	MaximumCoopTacticalAssignedActors * 6 +

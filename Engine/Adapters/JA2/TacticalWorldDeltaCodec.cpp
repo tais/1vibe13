@@ -11,7 +11,8 @@
 namespace
 {
 constexpr std::uint32_t TacticalWorldDeltaMagic = 0x31445754u; // "TWD1"
-constexpr std::size_t MinimumEncodedEventBytes = 5; // tag + door base grid
+constexpr std::size_t MinimumEncodedEventBytes =
+	EncodedTacticalLightingChangedEventBytes; // tag + previous/current ambient
 constexpr std::uint8_t TacticalHandItemAmmunitionStateFlag = 1u << 0;
 constexpr std::uint8_t TacticalHandItemChamberedFlag = 1u << 1;
 constexpr std::uint8_t TacticalHandItemKnownFlags =
@@ -27,13 +28,11 @@ enum class TacticalWorldEventTag : std::uint8_t
 	TurnChanged = 3,
 	ActorEntered = 4,
 	ActorLeft = 5,
-	ActorMoved = 6,
-	ActorStanceChanged = 7,
-	ActorVitalsChanged = 8,
-	ActorLoadoutChanged = 9,
+	ActorUpdated = 6,
 	DoorEntered = 10,
 	DoorLeft = 11,
-	DoorChanged = 12
+	DoorChanged = 12,
+	LightingChanged = 13
 };
 
 std::size_t EffectiveMaximum(std::size_t requested)
@@ -193,9 +192,71 @@ bool ReadTurn(BinaryReader& reader, TacticalTurnSnapshot& turn)
 	return ReadBool(reader, turn.commandsBlocked);
 }
 
+void WriteLighting(BinaryWriter& writer,
+	const TacticalWorldLightingSnapshot& lighting)
+{
+	writer.writeU8(lighting.ambientLightLevel);
+}
+
+bool ReadLighting(BinaryReader& reader,
+	TacticalWorldLightingSnapshot& lighting)
+{
+	return reader.readU8(lighting.ambientLightLevel) && lighting.valid();
+}
+
+void WritePresentation(BinaryWriter& writer,
+	const TacticalActorPresentationSnapshot& presentation)
+{
+	writer.writeU8(presentation.bodyType);
+	writer.writeU8(presentation.flags);
+	writer.writeI8(presentation.animationDirection);
+	writer.writeI32(presentation.worldXQ8);
+	writer.writeI32(presentation.worldYQ8);
+	WriteI16(writer, presentation.heightAdjustment);
+	writer.writeU16(presentation.animationSurface);
+	writer.writeU16(presentation.animationFrame);
+	writer.writeU8(presentation.headPaletteIndex);
+	writer.writeU8(presentation.pantsPaletteIndex);
+	writer.writeU8(presentation.vestPaletteIndex);
+	writer.writeU8(presentation.skinPaletteIndex);
+	for (const std::uint16_t codeUnit : presentation.displayNameUtf16)
+		writer.writeU16(codeUnit);
+	writer.writeU8(static_cast<std::uint8_t>(presentation.portrait.family));
+	writer.writeU8(presentation.portrait.faceIndex);
+	writer.writeU8(static_cast<std::uint8_t>(presentation.portrait.camouflage));
+}
+
+bool ReadPresentation(BinaryReader& reader,
+	TacticalActorPresentationSnapshot& presentation)
+{
+	if (!reader.readU8(presentation.bodyType) ||
+		!reader.readU8(presentation.flags) ||
+		!reader.readI8(presentation.animationDirection) ||
+		!reader.readI32(presentation.worldXQ8) ||
+		!reader.readI32(presentation.worldYQ8) ||
+		!ReadI16(reader, presentation.heightAdjustment) ||
+		!reader.readU16(presentation.animationSurface) ||
+		!reader.readU16(presentation.animationFrame) ||
+		!reader.readU8(presentation.headPaletteIndex) ||
+		!reader.readU8(presentation.pantsPaletteIndex) ||
+		!reader.readU8(presentation.vestPaletteIndex) ||
+		!reader.readU8(presentation.skinPaletteIndex))
+		return false;
+	for (std::uint16_t& codeUnit : presentation.displayNameUtf16)
+		if (!reader.readU16(codeUnit)) return false;
+	std::uint8_t family = 0, camouflage = 0;
+	if (!reader.readU8(family) || !reader.readU8(presentation.portrait.faceIndex) ||
+		!reader.readU8(camouflage)) return false;
+	presentation.portrait.family = static_cast<TacticalPortraitFamily>(family);
+	presentation.portrait.camouflage = static_cast<TacticalPortraitCamouflage>(camouflage);
+	return IsCanonicalTacticalActorPresentation(presentation);
+}
+
 bool WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 {
-	if (!actor.id.valid() || !actor.loadout.valid()) return false;
+	if (!actor.id.valid() || !actor.loadout.valid() ||
+		actor.animation >= TacticalAnimationStateCount ||
+		!IsCanonicalTacticalActorPresentation(actor.presentation)) return false;
 	WriteEntity(writer, actor.id);
 	writer.writeU8(actor.team);
 	writer.writeU16(actor.profile);
@@ -214,6 +275,7 @@ bool WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	WriteBool(writer, actor.hostileToPlayerTeam);
 	WriteBool(writer, actor.interruptActionEligible);
 	WriteLoadout(writer, actor.loadout);
+	WritePresentation(writer, actor.presentation);
 	return true;
 }
 
@@ -243,7 +305,9 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		ReadBool(reader, actor.inSector) &&
 		ReadBool(reader, actor.hostileToPlayerTeam) &&
 		ReadBool(reader, actor.interruptActionEligible) &&
-		ReadLoadout(reader, actor.loadout);
+		ReadLoadout(reader, actor.loadout) &&
+		ReadPresentation(reader, actor.presentation) &&
+		actor.animation < TacticalAnimationStateCount;
 }
 
 void WriteDoor(BinaryWriter& writer, const TacticalDoorSnapshot& door)
@@ -275,7 +339,13 @@ bool WriteEvent(BinaryWriter& writer, const TacticalWorldEvent& event)
 		else if constexpr (std::is_same<Event, TacticalSectorChangedEvent>::value)
 		{
 			if (!IsValidTacticalSectorSnapshot(value.previous) ||
-				!IsValidTacticalSectorSnapshot(value.current)) return false;
+				!IsValidTacticalSectorSnapshot(value.current) ||
+				(value.previous.x == value.current.x &&
+				 value.previous.y == value.current.y &&
+				 value.previous.z == value.current.z &&
+				 value.previous.loaded == value.current.loaded &&
+				 value.previous.mapAssetKey == value.current.mapAssetKey))
+				return false;
 			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::SectorChanged));
 			WriteSector(writer, value.previous);
 			WriteSector(writer, value.current);
@@ -285,6 +355,16 @@ bool WriteEvent(BinaryWriter& writer, const TacticalWorldEvent& event)
 			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::TurnChanged));
 			WriteTurn(writer, value.previous);
 			WriteTurn(writer, value.current);
+		}
+		else if constexpr (std::is_same<Event, TacticalLightingChangedEvent>::value)
+		{
+			if (!value.previous.valid() || !value.current.valid() ||
+				value.previous == value.current)
+				return false;
+			writer.writeU8(static_cast<std::uint8_t>(
+				TacticalWorldEventTag::LightingChanged));
+			WriteLighting(writer, value.previous);
+			WriteLighting(writer, value.current);
 		}
 		else if constexpr (std::is_same<Event, TacticalActorEnteredEvent>::value)
 		{
@@ -299,59 +379,11 @@ bool WriteEvent(BinaryWriter& writer, const TacticalWorldEvent& event)
 			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::ActorLeft));
 			WriteEntity(writer, value.actor);
 		}
-		else if constexpr (std::is_same<Event, TacticalActorMovedEvent>::value)
+		else if constexpr (std::is_same<Event, TacticalActorUpdatedEvent>::value)
 		{
-			if (!value.actor.valid()) return false;
-			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::ActorMoved));
-			WriteEntity(writer, value.actor);
-			writer.writeI32(value.previousGrid);
-			writer.writeI32(value.currentGrid);
-			writer.writeI8(value.previousLevel);
-			writer.writeI8(value.currentLevel);
-			writer.writeU8(value.previousDirection);
-			writer.writeU8(value.currentDirection);
-		}
-		else if constexpr (std::is_same<Event, TacticalActorStanceChangedEvent>::value)
-		{
-			if (!value.actor.valid()) return false;
-			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::ActorStanceChanged));
-			WriteEntity(writer, value.actor);
-			if (!WriteStance(writer, value.previous) ||
-				!WriteStance(writer, value.current)) return false;
-			writer.writeU16(value.previousAnimation);
-			writer.writeU16(value.currentAnimation);
-		}
-		else if constexpr (std::is_same<Event, TacticalActorVitalsChangedEvent>::value)
-		{
-			if (!value.actor.valid()) return false;
-			writer.writeU8(static_cast<std::uint8_t>(TacticalWorldEventTag::ActorVitalsChanged));
-			WriteEntity(writer, value.actor);
-			WriteI16(writer, value.previousActionPoints);
-			WriteI16(writer, value.currentActionPoints);
-			WriteI16(writer, value.previousLife);
-			WriteI16(writer, value.currentLife);
-			WriteI16(writer, value.previousMaximumLife);
-			WriteI16(writer, value.currentMaximumLife);
-			WriteI16(writer, value.previousBreath);
-			WriteI16(writer, value.currentBreath);
-			WriteI16(writer, value.previousMaximumBreath);
-			WriteI16(writer, value.currentMaximumBreath);
-			WriteBool(writer, value.previousHostileToPlayerTeam);
-			WriteBool(writer, value.currentHostileToPlayerTeam);
-			WriteBool(writer, value.previousInterruptActionEligible);
-			WriteBool(writer, value.currentInterruptActionEligible);
-		}
-		else if constexpr (std::is_same<Event,
-			TacticalActorLoadoutChangedEvent>::value)
-		{
-			if (!value.actor.valid() || !value.previous.valid() ||
-				!value.current.valid() || value.previous == value.current)
-				return false;
 			writer.writeU8(static_cast<std::uint8_t>(
-				TacticalWorldEventTag::ActorLoadoutChanged));
-			WriteEntity(writer, value.actor);
-			WriteLoadout(writer, value.previous);
-			WriteLoadout(writer, value.current);
+				TacticalWorldEventTag::ActorUpdated));
+			if (!WriteActor(writer, value.actor)) return false;
 		}
 		else if constexpr (std::is_same<Event, TacticalDoorEnteredEvent>::value)
 		{
@@ -404,7 +436,13 @@ bool ReadEvent(BinaryReader& reader, TacticalWorldEvent& event)
 		case TacticalWorldEventTag::SectorChanged:
 		{
 			TacticalSectorChangedEvent value{};
-			if (!ReadSector(reader, value.previous) || !ReadSector(reader, value.current))
+			if (!ReadSector(reader, value.previous) ||
+				!ReadSector(reader, value.current) ||
+				(value.previous.x == value.current.x &&
+				 value.previous.y == value.current.y &&
+				 value.previous.z == value.current.z &&
+				 value.previous.loaded == value.current.loaded &&
+				 value.previous.mapAssetKey == value.current.mapAssetKey))
 				return false;
 			event = value;
 			return true;
@@ -413,6 +451,16 @@ bool ReadEvent(BinaryReader& reader, TacticalWorldEvent& event)
 		{
 			TacticalTurnChangedEvent value{};
 			if (!ReadTurn(reader, value.previous) || !ReadTurn(reader, value.current))
+				return false;
+			event = value;
+			return true;
+		}
+		case TacticalWorldEventTag::LightingChanged:
+		{
+			TacticalLightingChangedEvent value{};
+			if (!ReadLighting(reader, value.previous) ||
+				!ReadLighting(reader, value.current) ||
+				value.previous == value.current)
 				return false;
 			event = value;
 			return true;
@@ -431,59 +479,10 @@ bool ReadEvent(BinaryReader& reader, TacticalWorldEvent& event)
 			event = value;
 			return true;
 		}
-		case TacticalWorldEventTag::ActorMoved:
+		case TacticalWorldEventTag::ActorUpdated:
 		{
-			TacticalActorMovedEvent value{};
-			if (!ReadEntity(reader, value.actor) ||
-				!reader.readI32(value.previousGrid) ||
-				!reader.readI32(value.currentGrid) ||
-				!reader.readI8(value.previousLevel) ||
-				!reader.readI8(value.currentLevel) ||
-				!reader.readU8(value.previousDirection) ||
-				!reader.readU8(value.currentDirection)) return false;
-			event = value;
-			return true;
-		}
-		case TacticalWorldEventTag::ActorStanceChanged:
-		{
-			TacticalActorStanceChangedEvent value{};
-			if (!ReadEntity(reader, value.actor) ||
-				!ReadStance(reader, value.previous) ||
-				!ReadStance(reader, value.current) ||
-				!reader.readU16(value.previousAnimation) ||
-				!reader.readU16(value.currentAnimation)) return false;
-			event = value;
-			return true;
-		}
-		case TacticalWorldEventTag::ActorVitalsChanged:
-		{
-			TacticalActorVitalsChangedEvent value{};
-			if (!ReadEntity(reader, value.actor) ||
-				!ReadI16(reader, value.previousActionPoints) ||
-				!ReadI16(reader, value.currentActionPoints) ||
-				!ReadI16(reader, value.previousLife) ||
-				!ReadI16(reader, value.currentLife) ||
-				!ReadI16(reader, value.previousMaximumLife) ||
-				!ReadI16(reader, value.currentMaximumLife) ||
-				!ReadI16(reader, value.previousBreath) ||
-				!ReadI16(reader, value.currentBreath) ||
-				!ReadI16(reader, value.previousMaximumBreath) ||
-				!ReadI16(reader, value.currentMaximumBreath) ||
-				!ReadBool(reader, value.previousHostileToPlayerTeam) ||
-				!ReadBool(reader, value.currentHostileToPlayerTeam)) return false;
-			if (!ReadBool(reader, value.previousInterruptActionEligible) ||
-				!ReadBool(reader, value.currentInterruptActionEligible)) return false;
-			event = value;
-			return true;
-		}
-		case TacticalWorldEventTag::ActorLoadoutChanged:
-		{
-			TacticalActorLoadoutChangedEvent value{};
-			if (!ReadEntity(reader, value.actor) ||
-				!ReadLoadout(reader, value.previous) ||
-				!ReadLoadout(reader, value.current) ||
-				value.previous == value.current)
-				return false;
+			TacticalActorUpdatedEvent value{};
+			if (!ReadActor(reader, value.actor)) return false;
 			event = value;
 			return true;
 		}

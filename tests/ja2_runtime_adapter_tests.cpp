@@ -20,6 +20,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
+#include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
 #include <algorithm>
 #include <array>
@@ -47,11 +48,70 @@ void check(bool condition, const char* message)
 	std::printf("ok    %s\n", message);
 }
 
+template <std::size_t Size>
+TacticalSectorSnapshot LoadedSector(std::int16_t x, std::int16_t y,
+	std::int8_t z, const char (&mapAssetKey)[Size])
+{
+	TacticalSectorSnapshot sector{x, y, z, true};
+	check(AssignTacticalMapAssetKey(sector.mapAssetKey, mapAssetKey),
+		"loaded tactical-sector fixture has a valid map identity");
+	return sector;
+}
+
 TacticalWorldDelta CodecFixture()
 {
 	TacticalWorldDelta delta;
 	delta.previousEpoch = 0x0102030405060708ull;
 	delta.currentEpoch = 0x1112131415161718ull;
+	TacticalActorSnapshot entered;
+	entered.id = TacticalEntityId{0x1234u, 0x89abcdefu};
+	entered.team = 0xfeu;
+	entered.profile = 0x4567u;
+	entered.grid = std::numeric_limits<std::int32_t>::min();
+	entered.level = -127;
+	entered.direction = 0xffu;
+	entered.animation = TacticalAnimationStateCount - 1;
+	entered.stance = TacticalStance::Prone;
+	entered.actionPoints = std::numeric_limits<std::int16_t>::min();
+	entered.life = -1;
+	entered.maximumLife = std::numeric_limits<std::int16_t>::max();
+	entered.breath = -12345;
+	entered.maximumBreath = 23456;
+	entered.active = true;
+	entered.inSector = true;
+	entered.hostileToPlayerTeam = true;
+	entered.loadout = TacticalActorLoadoutSnapshot{
+		TacticalHandItemSnapshot{0x0102u, 1, 91, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{0x0304u, 1, 82, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{0x0506u, 1, 73, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{
+			0x1112u, 2, -100, 0x2122u, 0x3132u, -90, true, true},
+		TacticalHandItemSnapshot{0x4142u, 1, 75, 0, 0, 0, false, false}};
+
+	TacticalActorSnapshot updated;
+	updated.id = TacticalEntityId{4, 5};
+	updated.team = 0xfdu;
+	updated.profile = 0x7654u;
+	updated.grid = std::numeric_limits<std::int32_t>::max();
+	updated.level = std::numeric_limits<std::int8_t>::max();
+	updated.direction = 0xffu;
+	updated.animation = TacticalAnimationStateCount - 2;
+	updated.stance = TacticalStance::Prone;
+	updated.actionPoints = std::numeric_limits<std::int16_t>::max();
+	updated.life = 0;
+	updated.maximumLife = 2;
+	updated.breath = 400;
+	updated.maximumBreath = 600;
+	updated.active = true;
+	updated.inSector = true;
+	updated.hostileToPlayerTeam = true;
+	updated.loadout = TacticalActorLoadoutSnapshot{
+		TacticalHandItemSnapshot{0x1113u, 1, 89, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{0x1114u, 1, 79, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{0x1115u, 1, 69, 0, 0, 0, false, false},
+		TacticalHandItemSnapshot{
+			0x5152u, 1, 59, 0x6162u, 7, -80, true, false},
+		TacticalHandItemSnapshot{0x7172u, 3, 40, 0, 0, 0, false, false}};
 	delta.events = {
 		TacticalWorldResetEvent{
 			0x0102030405060708ull, 0x1112131415161718ull},
@@ -60,63 +120,20 @@ TacticalWorldDelta CodecFixture()
 				std::numeric_limits<std::int16_t>::min(),
 				std::numeric_limits<std::int16_t>::max(),
 				std::numeric_limits<std::int8_t>::min(), false},
-			TacticalSectorSnapshot{
-				-1, 258, std::numeric_limits<std::int8_t>::max(), true, TacticalMapAssetKey{{"A9.dat"}}}},
+			LoadedSector(
+				-1, 258, std::numeric_limits<std::int8_t>::max(),
+				"P3_B1_A.DAT")},
 		TacticalTurnChangedEvent{
 			TacticalTurnSnapshot{
 				false, true, 0x7fu, 0x2122232425262728ull, false},
 			TacticalTurnSnapshot{
 				true, false, 0xffu, 0x3132333435363738ull, true}},
-		TacticalActorEnteredEvent{TacticalActorSnapshot{
-			TacticalEntityId{0x1234u, 0x89abcdefu}, 0xfeu, 0x4567u,
-			std::numeric_limits<std::int32_t>::min(), -127, 0xffu, 0xbeefu,
-			TacticalStance::Prone, std::numeric_limits<std::int16_t>::min(),
-			-1, std::numeric_limits<std::int16_t>::max(), -12345, 23456,
-			true, true, true, false,
-			TacticalActorLoadoutSnapshot{
-				TacticalHandItemSnapshot{
-					0x0102u, 1, 91, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x0304u, 1, 82, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x0506u, 1, 73, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x1112u, 2, -100, 0x2122u, 0x3132u, -90,
-					true, true},
-				TacticalHandItemSnapshot{
-					0x4142u, 1, 75, 0, 0, 0, false, false}}}},
+		TacticalLightingChangedEvent{
+			TacticalWorldLightingSnapshot{1},
+			TacticalWorldLightingSnapshot{15}},
+		TacticalActorEnteredEvent{entered},
 		TacticalActorLeftEvent{TacticalEntityId{0, 1}},
-		TacticalActorMovedEvent{
-			TacticalEntityId{1, 2},
-			std::numeric_limits<std::int32_t>::min(),
-			std::numeric_limits<std::int32_t>::max(),
-			std::numeric_limits<std::int8_t>::min(),
-			std::numeric_limits<std::int8_t>::max(), 0, 0xffu},
-		TacticalActorStanceChangedEvent{
-			TacticalEntityId{2, 3}, TacticalStance::Unknown,
-			TacticalStance::Prone, 0, 0xffffu},
-		TacticalActorVitalsChangedEvent{
-			TacticalEntityId{3, 4},
-			std::numeric_limits<std::int16_t>::min(),
-			std::numeric_limits<std::int16_t>::max(),
-			-1, 0, 1, 2, -300, 400, -500, 600, false, true},
-		TacticalActorLoadoutChangedEvent{
-			TacticalEntityId{4, 5},
-			TacticalActorLoadoutSnapshot{
-				{}, {}, {},
-				TacticalHandItemSnapshot{
-					0x5152u, 1, 60, 0, 0, 0, false, false}, {}},
-			TacticalActorLoadoutSnapshot{
-				TacticalHandItemSnapshot{
-					0x1113u, 1, 89, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x1114u, 1, 79, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x1115u, 1, 69, 0, 0, 0, false, false},
-				TacticalHandItemSnapshot{
-					0x5152u, 1, 59, 0x6162u, 7, -80, true, false},
-				TacticalHandItemSnapshot{
-					0x7172u, 3, 40, 0, 0, 0, false, false}}},
+		TacticalActorUpdatedEvent{updated},
 		TacticalDoorEnteredEvent{TacticalDoorSnapshot{
 			std::numeric_limits<std::int32_t>::max(), 0x1234u, true}},
 		TacticalDoorLeftEvent{0},
@@ -136,6 +153,92 @@ std::vector<std::uint8_t> EncodeSingleCodecEvent(TacticalWorldEvent event)
 	if (EncodeTacticalWorldDelta(delta, bytes) !=
 		TacticalWorldDeltaEncodeResult::Success) bytes.clear();
 	return bytes;
+}
+
+void TestPortraitDeltaRecords()
+{
+	using Family = TacticalPortraitFamily;
+	using Camo = TacticalPortraitCamouflage;
+	TacticalActorSnapshot actor;
+	actor.id = {7, 1};
+	actor.grid = 0;
+	actor.stance = TacticalStance::Standing;
+	actor.active = actor.inSector = true;
+	actor.life = actor.maximumLife = 80;
+	for (const bool entered : {false, true})
+		for (const TacticalPortraitSnapshot portrait : {
+			TacticalPortraitSnapshot{},
+			TacticalPortraitSnapshot{Family::Faces, 0, Camo::None},
+			TacticalPortraitSnapshot{Family::Faces, 151, Camo::Wood},
+			TacticalPortraitSnapshot{Family::ImpFaces, 154, Camo::Urban},
+			TacticalPortraitSnapshot{Family::ImpFaces, 255, Camo::Desert},
+			TacticalPortraitSnapshot{Family::ImpFaces, 255, Camo::Snow}})
+		{
+			actor.presentation.portrait = portrait;
+			const auto event = entered ? TacticalWorldEvent{TacticalActorEnteredEvent{actor}}
+				: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
+			const auto bytes = EncodeSingleCodecEvent(event);
+			TacticalWorldDelta decoded;
+			check(bytes.size() == 163 &&
+				bytes[160] == static_cast<std::uint8_t>(portrait.family) &&
+				bytes[161] == portrait.faceIndex && bytes[162] == static_cast<std::uint8_t>(portrait.camouflage) &&
+				DecodeTacticalWorldDelta(bytes, decoded) == TacticalWorldDeltaDecodeResult::Success &&
+				decoded.events.size() == 1 && (entered
+					? std::get<TacticalActorEnteredEvent>(decoded.events[0]).actor == actor
+					: std::get<TacticalActorUpdatedEvent>(decoded.events[0]).actor == actor),
+				"entered and full-current updated records preserve the exact three portrait bytes after display name");
+			for (const TacticalPortraitSnapshot invalid : {
+				TacticalPortraitSnapshot{static_cast<Family>(3), 0, Camo::None},
+				TacticalPortraitSnapshot{Family::Faces, 0, static_cast<Camo>(5)},
+				TacticalPortraitSnapshot{Family::Absent, 1, Camo::None},
+				TacticalPortraitSnapshot{Family::Absent, 0, Camo::Snow}})
+			{
+				auto malformed = bytes;
+				malformed[160] = static_cast<std::uint8_t>(invalid.family);
+				malformed[161] = invalid.faceIndex;
+				malformed[162] = static_cast<std::uint8_t>(invalid.camouflage);
+				TacticalWorldDelta retained{99, 99, {TacticalActorLeftEvent{{8, 1}}}};
+				check(DecodeTacticalWorldDelta(malformed, retained) == TacticalWorldDeltaDecodeResult::Invalid &&
+					retained.previousEpoch == 99 && retained.currentEpoch == 99 && retained.events.size() == 1 &&
+					std::holds_alternative<TacticalActorLeftEvent>(retained.events[0]),
+					"invalid portrait enums or decorated absence cannot partially replace a decoded delta");
+				auto invalidActor = actor;
+				invalidActor.presentation.portrait = invalid;
+				TacticalWorldDelta invalidDelta{1, 1, {entered
+					? TacticalWorldEvent{TacticalActorEnteredEvent{invalidActor}}
+					: TacticalWorldEvent{TacticalActorUpdatedEvent{invalidActor}}}};
+				std::vector<std::uint8_t> retainedBytes{0xaa, 0xbb};
+				check(EncodeTacticalWorldDelta(invalidDelta, retainedBytes) == TacticalWorldDeltaEncodeResult::Invalid &&
+					retainedBytes == std::vector<std::uint8_t>({0xaa, 0xbb}),
+					"invalid portrait values cannot encode or replace retained delta bytes");
+			}
+		}
+
+	actor.presentation.portrait = {};
+	TacticalWorldSnapshot previous;
+	check(TacticalWorldSnapshot::create(1, {160, 160}, {}, {}, {actor}, previous) ==
+		TacticalSnapshotCreateError::None, "portrait-only diff predecessor creates");
+	for (const TacticalPortraitSnapshot portrait : {
+		TacticalPortraitSnapshot{Family::Faces, 21, Camo::None},
+		TacticalPortraitSnapshot{Family::ImpFaces, 21, Camo::None},
+		TacticalPortraitSnapshot{Family::ImpFaces, 255, Camo::None},
+		TacticalPortraitSnapshot{Family::ImpFaces, 255, Camo::Snow},
+		TacticalPortraitSnapshot{}})
+	{
+		actor.presentation.portrait = portrait;
+		TacticalWorldSnapshot current;
+		TacticalWorldDelta delta;
+		check(TacticalWorldSnapshot::create(1, {160, 160}, {}, {}, {actor}, current) ==
+			TacticalSnapshotCreateError::None &&
+			DiffTacticalWorldSnapshots(previous, current, 1, delta) == TacticalWorldDiffResult::Success &&
+			delta.events.size() == 1 && std::holds_alternative<TacticalActorUpdatedEvent>(delta.events[0]) &&
+			std::get<TacticalActorUpdatedEvent>(delta.events[0]).actor == actor,
+			"family-only, index-only, camouflage-only and absent transitions each emit one full-current actor update");
+		TacticalWorldDelta identical;
+		check(DiffTacticalWorldSnapshots(current, current, 1, identical) == TacticalWorldDiffResult::Success &&
+			identical.events.empty(), "unchanged portrait descriptor emits no duplicate actor update");
+		previous = std::move(current);
+	}
 }
 
 class RecordingRuntimeMessageSink final : public RuntimeMessageSink
@@ -355,8 +458,9 @@ SimulationCommand MakeTurnCommand(
 
 int main()
 {
-	static_assert(MaximumTacticalWorldDeltaEvents == 18434,
-		"four actor categories and two door categories define the wire bound");
+	TestPortraitDeltaRecords();
+	static_assert(MaximumTacticalWorldDeltaEvents == 10243,
+		"coalesced actor and door categories define the wire bound");
 	EngineRuntime<> legacyBraceRuntime({});
 	check(legacyBraceRuntime.serviceCatalog().size() == 14 &&
 		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
@@ -1904,8 +2008,9 @@ int main()
 		"null and disabled command services validate input but never retain work");
 
 	TacticalWorldSnapshot tacticalSnapshot;
+	const TacticalEntityId snapshotThird{8, 9002};
 	std::vector<TacticalActorSnapshot> unorderedActors{
-		TacticalActorSnapshot{reusedSlot, 1, 12, 220, 0, 3, 18,
+		TacticalActorSnapshot{snapshotThird, 1, 12, 220, 0, 3, 18,
 			TacticalStance::Crouched, 65, 77, 80, 54, 90, true, true},
 		TacticalActorSnapshot{TacticalEntityId{2, 51}, 0, 4, 100, 0, 1, 4,
 			TacticalStance::Standing, 90, 95, 95, 100, 100, true, true},
@@ -1913,13 +2018,13 @@ int main()
 			TacticalStance::Crouched, 70, 78, 80, 55, 90, true, true}};
 	check(TacticalWorldSnapshot::create(
 			44, TacticalWorldDimensions{160, 160},
-			TacticalSectorSnapshot{9, 1, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+			LoadedSector(9, 1, 0, "A9.DAT"),
 			TacticalTurnSnapshot{true, true, 0, 8},
 			unorderedActors, tacticalSnapshot) == TacticalSnapshotCreateError::None &&
 		tacticalSnapshot.epoch() == 44 && tacticalSnapshot.actors().size() == 3 &&
 		tacticalSnapshot.actors()[0].id == TacticalEntityId{2, 51} &&
 		tacticalSnapshot.actors()[1].id == firstIncarnation &&
-		tacticalSnapshot.find(reusedSlot) != nullptr &&
+		tacticalSnapshot.find(snapshotThird) != nullptr &&
 		tacticalSnapshot.find(TacticalEntityId{7, 9003}) == nullptr,
 		"tactical snapshots own pointer-free actors in deterministic identity order");
 	const std::uint64_t acceptedEpoch = tacticalSnapshot.epoch();
@@ -2011,15 +2116,34 @@ int main()
 			changedActors, changedWorld) == TacticalSnapshotCreateError::None,
 		"changed tactical fixture remains a valid immutable snapshot");
 	TacticalWorldDelta worldDelta;
-	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 6, worldDelta) ==
-			TacticalWorldDiffResult::Success && worldDelta.events.size() == 6 &&
+	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 4, worldDelta) ==
+			TacticalWorldDiffResult::Success && worldDelta.events.size() == 4 &&
 		std::holds_alternative<TacticalTurnChangedEvent>(worldDelta.events[0]) &&
 		std::holds_alternative<TacticalActorEnteredEvent>(worldDelta.events[1]) &&
 		std::holds_alternative<TacticalActorLeftEvent>(worldDelta.events[2]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(worldDelta.events[3]) &&
-		std::holds_alternative<TacticalActorStanceChangedEvent>(worldDelta.events[4]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(worldDelta.events[5]),
+		std::holds_alternative<TacticalActorUpdatedEvent>(worldDelta.events[3]) &&
+		std::get<TacticalActorUpdatedEvent>(worldDelta.events[3]).actor ==
+			changedActors[0],
 		"tactical world diffs emit bounded category-major then identity-major events");
+	TacticalSectorSnapshot alternateMapSector = tacticalSnapshot.sector();
+	check(AssignTacticalMapAssetKey(
+			alternateMapSector.mapAssetKey, "A9_A.DAT"),
+		"alternate-map identity fixture is valid");
+	TacticalWorldSnapshot alternateMapWorld;
+	TacticalWorldDelta mapIdentityDelta;
+	check(TacticalWorldSnapshot::create(
+			tacticalSnapshot.epoch(), tacticalSnapshot.dimensions(),
+			alternateMapSector, tacticalSnapshot.turn(),
+			tacticalSnapshot.actors(), alternateMapWorld) ==
+				TacticalSnapshotCreateError::None &&
+		DiffTacticalWorldSnapshots(tacticalSnapshot, alternateMapWorld, 1,
+			mapIdentityDelta) == TacticalWorldDiffResult::Success &&
+		mapIdentityDelta.events.size() == 1 &&
+		std::holds_alternative<TacticalSectorChangedEvent>(
+			mapIdentityDelta.events.front()) &&
+		std::get<TacticalSectorChangedEvent>(mapIdentityDelta.events.front()).
+			current.mapAssetKey == alternateMapSector.mapAssetKey,
+		"exact map identity changes emit a sector-change event even when coordinates are unchanged");
 	TacticalWorldSnapshot resizedSameWorld;
 	check(TacticalWorldSnapshot::create(
 			44, TacticalWorldDimensions{320, 240},
@@ -2028,7 +2152,7 @@ int main()
 				TacticalSnapshotCreateError::None &&
 		DiffTacticalWorldSnapshots(tacticalSnapshot, resizedSameWorld, 6,
 			worldDelta) == TacticalWorldDiffResult::InvalidSnapshot &&
-		worldDelta.events.size() == 6,
+		worldDelta.events.size() == 4,
 		"same-generation dimension changes require a fresh world baseline");
 	TacticalTurnSnapshot blockedTurn = tacticalSnapshot.turn();
 	blockedTurn.commandsBlocked = true;
@@ -2080,30 +2204,17 @@ int main()
 		"mixed-category tactical fixture remains valid");
 	TacticalWorldDelta mixedDelta;
 	check(DiffTacticalWorldSnapshots(
-			tacticalSnapshot, mixedWorld, 4, mixedDelta) ==
-			TacticalWorldDiffResult::Success && mixedDelta.events.size() == 4 &&
-		std::holds_alternative<TacticalActorMovedEvent>(mixedDelta.events[0]) &&
-		std::get<TacticalActorMovedEvent>(mixedDelta.events[0]).actor ==
-			mixedActors[1].id &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(
-			mixedDelta.events[1]) &&
-		std::get<TacticalActorVitalsChangedEvent>(mixedDelta.events[1]).actor ==
-			mixedActors[0].id &&
-		std::holds_alternative<TacticalActorLoadoutChangedEvent>(
-			mixedDelta.events[2]) &&
-		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).actor ==
-			mixedActors[0].id &&
-		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).previous ==
-			tacticalSnapshot.actors()[0].loadout &&
-		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[2]).current ==
-			mixedActors[0].loadout &&
-		std::holds_alternative<TacticalActorLoadoutChangedEvent>(
-			mixedDelta.events[3]) &&
-		std::get<TacticalActorLoadoutChangedEvent>(mixedDelta.events[3]).actor ==
-			mixedActors[1].id,
-		"mixed actors remain category-major with loadout changes after vitals");
+			tacticalSnapshot, mixedWorld, 2, mixedDelta) ==
+			TacticalWorldDiffResult::Success && mixedDelta.events.size() == 2 &&
+		std::holds_alternative<TacticalActorUpdatedEvent>(mixedDelta.events[0]) &&
+		std::get<TacticalActorUpdatedEvent>(mixedDelta.events[0]).actor ==
+			mixedActors[0] &&
+		std::holds_alternative<TacticalActorUpdatedEvent>(mixedDelta.events[1]) &&
+		std::get<TacticalActorUpdatedEvent>(mixedDelta.events[1]).actor ==
+			mixedActors[1],
+		"mixed actor changes coalesce into one identity-major update per actor");
 	TacticalWorldDelta undersizedDelta;
-	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 5, undersizedDelta) ==
+	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 3, undersizedDelta) ==
 			TacticalWorldDiffResult::CapacityReached && undersizedDelta.events.empty(),
 		"tactical world diff capacity failure cannot publish a partial event stream");
 	TacticalWorldSnapshot reloadedWorld;
@@ -2126,33 +2237,32 @@ int main()
 		DecodeTacticalWorldDelta(encodedDelta, decodedDelta);
 	const bool decodedEventTypes =
 		deltaDecodeResult == TacticalWorldDeltaDecodeResult::Success &&
-		decodedDelta.events.size() == 12 &&
+		decodedDelta.events.size() == 10 &&
 		std::holds_alternative<TacticalWorldResetEvent>(decodedDelta.events[0]) &&
 		std::holds_alternative<TacticalSectorChangedEvent>(decodedDelta.events[1]) &&
 		std::holds_alternative<TacticalTurnChangedEvent>(decodedDelta.events[2]) &&
-		std::holds_alternative<TacticalActorEnteredEvent>(decodedDelta.events[3]) &&
-		std::holds_alternative<TacticalActorLeftEvent>(decodedDelta.events[4]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(decodedDelta.events[5]) &&
-		std::holds_alternative<TacticalActorStanceChangedEvent>(decodedDelta.events[6]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(decodedDelta.events[7]) &&
-		std::holds_alternative<TacticalActorLoadoutChangedEvent>(decodedDelta.events[8]) &&
-		std::holds_alternative<TacticalDoorEnteredEvent>(decodedDelta.events[9]) &&
-		std::holds_alternative<TacticalDoorLeftEvent>(decodedDelta.events[10]) &&
-		std::holds_alternative<TacticalDoorChangedEvent>(decodedDelta.events[11]);
+		std::holds_alternative<TacticalLightingChangedEvent>(decodedDelta.events[3]) &&
+		std::holds_alternative<TacticalActorEnteredEvent>(decodedDelta.events[4]) &&
+		std::holds_alternative<TacticalActorLeftEvent>(decodedDelta.events[5]) &&
+		std::holds_alternative<TacticalActorUpdatedEvent>(decodedDelta.events[6]) &&
+		std::holds_alternative<TacticalDoorEnteredEvent>(decodedDelta.events[7]) &&
+		std::holds_alternative<TacticalDoorLeftEvent>(decodedDelta.events[8]) &&
+		std::holds_alternative<TacticalDoorChangedEvent>(decodedDelta.events[9]);
 	bool decodedEventFields = false;
 	if (decodedEventTypes)
 	{
 		const auto& sector = std::get<TacticalSectorChangedEvent>(decodedDelta.events[1]);
 		const auto& turn = std::get<TacticalTurnChangedEvent>(decodedDelta.events[2]);
-		const auto& actor = std::get<TacticalActorEnteredEvent>(decodedDelta.events[3]).actor;
-		const auto& moved = std::get<TacticalActorMovedEvent>(decodedDelta.events[5]);
-		const auto& vitals = std::get<TacticalActorVitalsChangedEvent>(decodedDelta.events[7]);
-		const auto& loadout =
-			std::get<TacticalActorLoadoutChangedEvent>(decodedDelta.events[8]);
+		const auto& lighting =
+			std::get<TacticalLightingChangedEvent>(decodedDelta.events[3]);
+		const auto& actor =
+			std::get<TacticalActorEnteredEvent>(decodedDelta.events[4]).actor;
+		const auto& updated =
+			std::get<TacticalActorUpdatedEvent>(decodedDelta.events[6]).actor;
 		const auto& enteredDoor =
-			std::get<TacticalDoorEnteredEvent>(decodedDelta.events[9]).door;
+			std::get<TacticalDoorEnteredEvent>(decodedDelta.events[7]).door;
 		const auto& changedDoor =
-			std::get<TacticalDoorChangedEvent>(decodedDelta.events[11]);
+			std::get<TacticalDoorChangedEvent>(decodedDelta.events[9]);
 		decodedEventFields =
 			decodedDelta.previousEpoch == codecFixture.previousEpoch &&
 			decodedDelta.currentEpoch == codecFixture.currentEpoch &&
@@ -2160,11 +2270,15 @@ int main()
 			sector.previous.y == std::numeric_limits<std::int16_t>::max() &&
 			sector.previous.z == std::numeric_limits<std::int8_t>::min() &&
 			!sector.previous.loaded && sector.current.loaded &&
+			std::string(sector.current.mapAssetKey.c_str()) ==
+				"P3_B1_A.DAT" &&
 				!turn.previous.turnBased && turn.previous.inCombat &&
 				turn.current.turnBased && !turn.current.inCombat &&
 				turn.current.serial == 0x3132333435363738ull &&
 				!turn.previous.commandsBlocked &&
 				turn.current.commandsBlocked &&
+			lighting.previous.ambientLightLevel == 1 &&
+			lighting.current.ambientLightLevel == 15 &&
 			actor.id == TacticalEntityId{0x1234u, 0x89abcdefu} &&
 			actor.grid == std::numeric_limits<std::int32_t>::min() &&
 			actor.level == -127 && actor.stance == TacticalStance::Prone &&
@@ -2178,31 +2292,26 @@ int main()
 				0x1112u, 2, -100, 0x2122u, 0x3132u, -90, true, true} &&
 			actor.loadout.secondaryHand == TacticalHandItemSnapshot{
 				0x4142u, 1, 75, 0, 0, 0, false, false} &&
-			moved.previousLevel == std::numeric_limits<std::int8_t>::min() &&
-			moved.currentGrid == std::numeric_limits<std::int32_t>::max() &&
-			vitals.previousActionPoints == std::numeric_limits<std::int16_t>::min() &&
-			vitals.currentActionPoints == std::numeric_limits<std::int16_t>::max() &&
 			actor.hostileToPlayerTeam &&
-			vitals.previousBreath == -300 && vitals.currentMaximumBreath == 600 &&
-			!vitals.previousHostileToPlayerTeam &&
-			vitals.currentHostileToPlayerTeam &&
-			loadout.actor == TacticalEntityId{4, 5} &&
-			loadout.previous.helmet.item == 0 &&
-			loadout.current.helmet.item == 0x1113u &&
-			loadout.current.vest.item == 0x1114u &&
-			loadout.current.legs.item == 0x1115u &&
-			loadout.previous.primaryHand.condition == 60 &&
-			!loadout.previous.primaryHand.ammunitionState &&
-			loadout.current.primaryHand.condition == 59 &&
-			loadout.current.primaryHand.ammunitionItem == 0x6162u &&
-			loadout.current.primaryHand.ammunitionCount == 7 &&
-			loadout.current.primaryHand.ammunitionCondition == -80 &&
-			loadout.current.primaryHand.ammunitionState &&
-			!loadout.current.primaryHand.chambered &&
-			loadout.current.secondaryHand.item == 0x7172u &&
+			updated.id == TacticalEntityId{4, 5} &&
+			updated.grid == std::numeric_limits<std::int32_t>::max() &&
+			updated.level == std::numeric_limits<std::int8_t>::max() &&
+			updated.actionPoints == std::numeric_limits<std::int16_t>::max() &&
+			updated.breath == 400 && updated.maximumBreath == 600 &&
+			updated.hostileToPlayerTeam &&
+			updated.loadout.helmet.item == 0x1113u &&
+			updated.loadout.vest.item == 0x1114u &&
+			updated.loadout.legs.item == 0x1115u &&
+			updated.loadout.primaryHand.condition == 59 &&
+			updated.loadout.primaryHand.ammunitionItem == 0x6162u &&
+			updated.loadout.primaryHand.ammunitionCount == 7 &&
+			updated.loadout.primaryHand.ammunitionCondition == -80 &&
+			updated.loadout.primaryHand.ammunitionState &&
+			!updated.loadout.primaryHand.chambered &&
+			updated.loadout.secondaryHand.item == 0x7172u &&
 			enteredDoor.baseGrid == std::numeric_limits<std::int32_t>::max() &&
 			enteredDoor.structureId == 0x1234u && enteredDoor.open &&
-			std::get<TacticalDoorLeftEvent>(decodedDelta.events[10]).baseGrid == 0 &&
+			std::get<TacticalDoorLeftEvent>(decodedDelta.events[8]).baseGrid == 0 &&
 			changedDoor.previous.baseGrid == 123 &&
 			changedDoor.previous.structureId == 0x2345u &&
 			!changedDoor.previous.open &&
@@ -2223,7 +2332,7 @@ int main()
 		resetDelta.previousEpoch, resetDelta.currentEpoch});
 	std::vector<std::uint8_t> resetBytes;
 	const std::vector<std::uint8_t> expectedResetBytes{
-		0x54, 0x57, 0x44, 0x31, 0x07, 0x00,
+		0x54, 0x57, 0x44, 0x31, 0x08, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x01, 0x00, 0x00, 0x00, 0x01,
@@ -2232,7 +2341,7 @@ int main()
 	check(EncodeTacticalWorldDelta(resetDelta, resetBytes) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		resetBytes == expectedResetBytes,
-		"tactical delta version 7 has a fixed little-endian golden representation");
+		"tactical delta version 8 has a fixed little-endian golden representation");
 
 	bool rejectedEveryTruncation = true;
 	for (std::size_t length = 0; length < encodedDelta.size(); ++length)
@@ -2265,6 +2374,11 @@ int main()
 		"trailing tactical delta bytes are rejected without replacing prior state");
 
 	malformed = encodedDelta;
+	malformed[4] = 7;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
+		"pre-renderer-state tactical delta version 7 is rejected");
+	malformed = encodedDelta;
 	malformed[4] = 2;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
@@ -2280,7 +2394,7 @@ int main()
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"two-hand tactical delta version 4 is rejected");
 	malformed = encodedDelta;
-	malformed[4] = 8;
+	malformed[4] = 12;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"tactical delta codec distinguishes unsupported format versions");
@@ -2305,11 +2419,27 @@ int main()
 	const bool rejectsUnknownTag = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
 	malformed = EncodeSingleCodecEvent(TacticalSectorChangedEvent{
-		TacticalSectorSnapshot{1, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		LoadedSector(1, 2, 0, "A1.DAT"),
 		TacticalSectorSnapshot{2, 3, 1, false}});
 	malformed[32] = 2;
 	const bool rejectsBoolean = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
+	malformed = EncodeSingleCodecEvent(TacticalSectorChangedEvent{
+		LoadedSector(1, 2, 0, "A1.DAT"),
+		TacticalSectorSnapshot{2, 3, 1, false}});
+	malformed[35] = '/';
+	const bool rejectsUnsafeMapIdentity =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
+	malformed = EncodeSingleCodecEvent(TacticalSectorChangedEvent{
+		LoadedSector(1, 2, 0, "A1.DAT"),
+		TacticalSectorSnapshot{2, 3, 1, false}});
+	std::copy(malformed.begin() + 27,
+		malformed.begin() + 27 + EncodedTacticalSectorSnapshotBytes,
+		malformed.begin() + 27 + EncodedTacticalSectorSnapshotBytes);
+	const bool rejectsNoOpMapIdentity =
+		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+			TacticalWorldDeltaDecodeResult::Invalid;
 	malformed = EncodeSingleCodecEvent(TacticalTurnChangedEvent{
 		TacticalTurnSnapshot{true, true, 0, 1, false},
 		TacticalTurnSnapshot{true, true, 0, 1, true}});
@@ -2323,11 +2453,11 @@ int main()
 	malformed[44] = 0xffu;
 	const bool rejectsActorStance = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
-	malformed = EncodeSingleCodecEvent(TacticalActorStanceChangedEvent{
-		TacticalEntityId{8, 9}, TacticalStance::Standing,
-		TacticalStance::Crouched, 1, 2});
-	const bool usesFixedStanceCodes = malformed[33] == 1 && malformed[34] == 2;
-	malformed[33] = 0xffu;
+	const auto fixtureUpdate =
+		std::get<TacticalActorUpdatedEvent>(codecFixture.events[6]);
+	malformed = EncodeSingleCodecEvent(fixtureUpdate);
+	const bool usesFixedStanceCodes = malformed[44] == 3;
+	malformed[44] = 0xffu;
 	const bool rejectsChangedStance = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
 	malformed = EncodeSingleCodecEvent(TacticalActorLeftEvent{TacticalEntityId{8, 9}});
@@ -2335,31 +2465,28 @@ int main()
 	malformed[28] = 0xffu;
 	const bool rejectsInvalidEntity = DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 		TacticalWorldDeltaDecodeResult::Invalid;
-	const auto fixtureLoadout =
-		std::get<TacticalActorLoadoutChangedEvent>(codecFixture.events[8]);
-	malformed = EncodeSingleCodecEvent(fixtureLoadout);
+	malformed = EncodeSingleCodecEvent(fixtureUpdate);
 	const bool packsHandFlags =
-		malformed.size() == 26 + EncodedTacticalActorLoadoutChangedEventBytes &&
-		malformed[44] == 0 && malformed[56] == 0 &&
-		malformed[68] == 0 && malformed[80] == 0 &&
-		malformed[92] == 0 && malformed[104] == 0 &&
-		malformed[116] == 0 && malformed[128] == 0 &&
-		malformed[140] == 1 && malformed[152] == 0;
-	malformed[104] = 0x04u;
+		malformed.size() == 26 + EncodedTacticalActorFullEventBytes &&
+		malformed[70] == 0 && malformed[82] == 0 &&
+		malformed[94] == 0 && malformed[106] == 1 &&
+		malformed[118] == 0;
+	malformed[70] = 0x04u;
 	const bool rejectsReservedLoadoutFlags =
 		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::Invalid;
-	malformed = EncodeSingleCodecEvent(fixtureLoadout);
-	malformed[140] = 0;
+	malformed = EncodeSingleCodecEvent(fixtureUpdate);
+	malformed[106] = 0;
 	const bool rejectsUnmarkedAmmunitionState =
 		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::Invalid;
-	malformed = EncodeSingleCodecEvent(fixtureLoadout);
-	malformed[80] = 0x02u;
+	malformed = EncodeSingleCodecEvent(fixtureUpdate);
+	malformed[70] = 0x02u;
 	const bool rejectsChamberWithoutAmmunitionState =
 		DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::Invalid;
 	check(usesFixedStanceCodes && rejectsUnknownTag && rejectsBoolean &&
+		rejectsUnsafeMapIdentity && rejectsNoOpMapIdentity &&
 		rejectsCommandBlockedBoolean && rejectsActorStance &&
 		rejectsChangedStance && rejectsInvalidEntity && packsHandFlags &&
 		rejectsReservedLoadoutFlags && rejectsUnmarkedAmmunitionState &&
@@ -2375,7 +2502,15 @@ int main()
 		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
 			TacticalWorldDeltaEncodeResult::Invalid;
 	invalidDelta = codecFixture;
-	invalidDelta.events[3] = TacticalActorEnteredEvent{TacticalActorSnapshot{
+	auto invalidSector =
+		std::get<TacticalSectorChangedEvent>(invalidDelta.events[1]);
+	invalidSector.current.mapAssetKey.bytes[0] = '/';
+	invalidDelta.events[1] = invalidSector;
+	const bool rejectsInvalidMapIdentity =
+		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
+			TacticalWorldDeltaEncodeResult::Invalid;
+	invalidDelta = codecFixture;
+	invalidDelta.events[4] = TacticalActorEnteredEvent{TacticalActorSnapshot{
 		TacticalEntityId{}, 0, 0, 0, 0, 0, 0, TacticalStance::Unknown,
 		0, 0, 0, 0, 0, true, true}};
 	const bool rejectsInvalidActor =
@@ -2383,22 +2518,22 @@ int main()
 			TacticalWorldDeltaEncodeResult::Invalid;
 	invalidDelta = codecFixture;
 	auto invalidEntered =
-		std::get<TacticalActorEnteredEvent>(invalidDelta.events[3]);
+		std::get<TacticalActorEnteredEvent>(invalidDelta.events[4]);
 	invalidEntered.actor.loadout.primaryHand.quantity = 0;
-	invalidDelta.events[3] = invalidEntered;
+	invalidDelta.events[4] = invalidEntered;
 	const bool rejectsInvalidEnteredLoadout =
 		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
 			TacticalWorldDeltaEncodeResult::Invalid;
 	invalidDelta = codecFixture;
-	auto unchangedLoadout =
-		std::get<TacticalActorLoadoutChangedEvent>(invalidDelta.events[8]);
-	unchangedLoadout.current = unchangedLoadout.previous;
-	invalidDelta.events[8] = unchangedLoadout;
-	const bool rejectsNoOpLoadout =
+	auto invalidUpdated =
+		std::get<TacticalActorUpdatedEvent>(invalidDelta.events[6]);
+	invalidUpdated.actor.loadout.primaryHand.quantity = 0;
+	invalidDelta.events[6] = invalidUpdated;
+	const bool rejectsInvalidUpdatedLoadout =
 		EncodeTacticalWorldDelta(invalidDelta, unchangedBytes) ==
 			TacticalWorldDeltaEncodeResult::Invalid;
-	check(rejectsInvalidEncode && rejectsInvalidActor &&
-		rejectsInvalidEnteredLoadout && rejectsNoOpLoadout &&
+	check(rejectsInvalidEncode && rejectsInvalidMapIdentity && rejectsInvalidActor &&
+		rejectsInvalidEnteredLoadout && rejectsInvalidUpdatedLoadout &&
 		unchangedBytes == std::vector<std::uint8_t>({0xaa, 0x55}) &&
 		EncodeTacticalWorldDelta(codecFixture, unchangedBytes, 7) ==
 			TacticalWorldDeltaEncodeResult::TooManyEvents &&
@@ -2922,13 +3057,11 @@ int main()
 	publication = observedWorld.latest();
 	check(publication && publication.status == TacticalWorldPublicationStatus::Delta &&
 		publication.serial == 2 && publication.snapshot->find(TacticalEntityId{9, 1}) &&
-		publication.delta->events.size() == 6 &&
+		publication.delta->events.size() == 4 &&
 		std::holds_alternative<TacticalTurnChangedEvent>(publication.delta->events[0]) &&
 		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[1]) &&
 		std::holds_alternative<TacticalActorLeftEvent>(publication.delta->events[2]) &&
-		std::holds_alternative<TacticalActorMovedEvent>(publication.delta->events[3]) &&
-		std::holds_alternative<TacticalActorStanceChangedEvent>(publication.delta->events[4]) &&
-		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[5]),
+		std::holds_alternative<TacticalActorUpdatedEvent>(publication.delta->events[3]),
 		"observer publications retain deterministic delta category and entity order");
 	const TacticalWorldSnapshot* changedPublicationSnapshot = publication.snapshot;
 	const TacticalWorldDelta* changedPublicationDelta = publication.delta;
@@ -2936,7 +3069,7 @@ int main()
 		"an unchanged successful capture is suppressed before observer publication");
 	publication = observedWorld.latest();
 	check(publication.serial == 2 && publication.snapshot == changedPublicationSnapshot &&
-		publication.delta == changedPublicationDelta && publication.delta->events.size() == 6,
+		publication.delta == changedPublicationDelta && publication.delta->events.size() == 4,
 		"unchanged capture preserves the last meaningful snapshot, delta, and serial");
 	memoryWorld.clear();
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
@@ -2983,7 +3116,7 @@ int main()
 	MemoryTacticalWorldService eventLimitedMemory;
 	eventLimitedMemory.publish(tacticalSnapshot);
 	TacticalWorldObserver eventLimitedWorld(
-		eventLimitedMemory, TacticalWorldObserverLimits{3, 5});
+		eventLimitedMemory, TacticalWorldObserverLimits{3, 3});
 	check(eventLimitedWorld.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
 		"an event-limited observer can establish its baseline");
 	eventLimitedMemory.publish(changedWorld);
