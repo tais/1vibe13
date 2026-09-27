@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "CampaignCivilianQuotePolicy.h"
+#include "DedicatedCoopSurrender.h"
 #include "GameContext.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -204,14 +205,20 @@ BOOLEAN GetCivQuoteText(UINT16 ubCivQuoteID, UINT16 ubEntryID, CHAR16 *zQuote )
 	return( TRUE );
 }
 
-void SurrenderMessageBoxCallBack( UINT8 ubExitValue )
+void CompleteCivSurrenderOffer(TacticalActor& speaker, bool surrender)
 {
-	if ( ubExitValue == MSG_BOX_RETURN_YES )
+	if (surrender)
 	{
 		AttemptToCapturePlayerSoldiers();
 	}
 	gTacticalStatus.fEnemyFlags |= ENEMY_OFFERED_SURRENDER;
-	ActionDone( gCivQuoteData.pCiv );
+	ActionDone( &speaker );
+}
+
+void SurrenderMessageBoxCallBack( UINT8 ubExitValue )
+{
+	if (gCivQuoteData.pCiv)
+		CompleteCivSurrenderOffer(*gCivQuoteData.pCiv, ubExitValue == MSG_BOX_RETURN_YES);
 }
 
 void ShutDownQuoteBox( BOOLEAN fForce )
@@ -935,6 +942,9 @@ void HandleCivQuote( )
 
 void StartCivQuote( TacticalActor *pCiv )
 {
+	// A repeated presentation request cannot reroll an already held offer.
+	if (pCiv && pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER &&
+		DedicatedCoopSurrenderPending() && DeferDedicatedCoopSurrender(*pCiv)) return;
 	UINT16 ubCivQuoteID;
 	UINT16	ubEntryID = 0;
 	INT16	sScreenX, sScreenY;
@@ -1030,10 +1040,14 @@ void StartCivQuote( TacticalActor *pCiv )
 
 	// Determine location...
 	// Get location of civ on screen.....
-	GetSoldierScreenPos( pCiv, &sScreenX, &sScreenY );
-
-	// begin quote
-	BeginCivQuote( pCiv, ubCivQuoteID, ubEntryID, sScreenX, sScreenY );
+	// Preserve native quote selection and its RNG consumption. Only the local
+	// presentation/callback is deferred to the authoritative shared decision.
+	if (pCiv->aiPlanning().action() != AI_ACTION_OFFER_SURRENDER ||
+		!DeferDedicatedCoopSurrender(*pCiv))
+	{
+		GetSoldierScreenPos( pCiv, &sScreenX, &sScreenY );
+		BeginCivQuote( pCiv, ubCivQuoteID, ubEntryID, sScreenX, sScreenY );
+	}
 
 	// Increment use
 	if ( ubCivQuoteID != CIV_QUOTE_HINT )

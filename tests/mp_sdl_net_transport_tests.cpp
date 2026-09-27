@@ -21,6 +21,16 @@ static int g_failures = 0;
 
 static unsigned short g_port = 0;
 
+static unsigned short ListenerTestPort(Uint64 seed, unsigned int salt,
+	unsigned int attempt)
+{
+	// Probe across the range: 128 adjacent candidates can all fall in a host's
+	// reserved port block. The coprime stride visits distinct ports while keeping
+	// the existing bounded retry count and binding the real production listener.
+	return static_cast<unsigned short>(40000 +
+		(seed % 20000 + salt + static_cast<Uint64>(attempt) * 997) % 20000);
+}
+
 static bool BytesEqual( const std::vector<unsigned char>& actual, const void* expected, size_t size )
 {
 	return actual.size() >= size && memcmp( actual.data(), expected, size ) == 0;
@@ -338,19 +348,21 @@ int main( int, char** )
 	// ---------- 1. handshake: accept + connect events ----------
 	SdlNetPeer* srv = CreateSdlNetPeer();
 	// A fixed port makes concurrent CI jobs and an immediately repeated test run
-	// contend with one another. Pick a high per-run starting point and probe a
-	// small range. Startup() is explicitly retry-safe after a bind failure.
+	// contend with one another. Pick a high per-run starting point and probe
+	// separated ports. Startup() is explicitly retry-safe after a bind failure.
 	const Uint64 seed = (Uint64)std::chrono::steady_clock::now().time_since_epoch().count();
 	bool serverStarted = false;
 	for ( unsigned int attempt = 0; attempt < 128 && !serverStarted; ++attempt )
 	{
-		g_port = (unsigned short)( 40000 + ( seed + attempt ) % 20000 );
+		g_port = ListenerTestPort(seed, 0, attempt);
 		SdlNetEndpoint sd( g_port, "127.0.0.1" );
 		serverStarted = srv->Start( 4, sd );
 	}
 	CHECK( serverStarted, "server Startup binds listener" );
 	if ( !serverStarted )
 	{
+		printf("IPv4 listener exhausted 128 candidate ports; last port=%u: %s\n",
+		       static_cast<unsigned>(g_port), SDL_GetError());
 		DestroySdlNetPeer( srv );
 		SDL_Quit();
 		return 1;
@@ -1105,10 +1117,13 @@ int main( int, char** )
 		bool budgetServerStarted = false;
 		for ( unsigned int attempt = 0; attempt < 128 && !budgetServerStarted; ++attempt )
 		{
-			g_port = (unsigned short)( 40000 + ( seed + 257 + attempt ) % 20000 );
+			g_port = ListenerTestPort(seed, 257, attempt);
 			budgetServerStarted = budgetServer->Start(
 				1, SdlNetEndpoint( g_port, "127.0.0.1" ) );
 		}
+		if (!budgetServerStarted)
+			printf("RPC budget listener exhausted candidate ports; last port=%u: %s\n",
+			       static_cast<unsigned>(g_port), SDL_GetError());
 		CHECK( budgetServerStarted, "isolated reliable RPC budget server starts" );
 		budgetServer->SetTimeout( 120000 );
 		REGISTER_SDLNET_MESSAGE( budgetServer, srvPING );
@@ -1189,8 +1204,7 @@ int main( int, char** )
 		for (unsigned int attempt = 0;
 			attempt < 128 && !reservedStarted; ++attempt)
 		{
-			reservedPort = static_cast<unsigned short>(
-				40000 + (seed + portSalt + attempt) % 20000);
+			reservedPort = ListenerTestPort(seed, portSalt, attempt);
 			reservedStarted = reservedServer->Start(
 				1, SdlNetEndpoint(reservedPort, host));
 		}
@@ -1199,7 +1213,8 @@ int main( int, char** )
 			       "reserved IPv4 loopback listener binds" );
 		if (!reservedStarted)
 		{
-			printf("skip reserved loopback address unavailable: %s\n", host);
+			printf("reserved loopback listener unavailable: host=%s; last port=%u: %s\n",
+			       host, static_cast<unsigned>(reservedPort), SDL_GetError());
 			DestroySdlNetPeer(reservedServer);
 			return;
 		}
@@ -1260,10 +1275,13 @@ int main( int, char** )
 		bool streamStarted = false;
 		for ( unsigned int attempt = 0; attempt < 128 && !streamStarted; ++attempt )
 		{
-			g_port = (unsigned short)( 40000 + ( seed + 256 + attempt ) % 20000 );
+			g_port = ListenerTestPort(seed, 256, attempt);
 			streamStarted = streamServer->Start(
 				1, SdlNetEndpoint(g_port, "127.0.0.1"));
 		}
+		if (!streamStarted)
+			printf("campaign budget listener exhausted candidate ports; last port=%u: %s\n",
+			       static_cast<unsigned>(g_port), SDL_GetError());
 		CHECK(streamStarted, "campaign-budget server binds listener" );
 		CHECK(!streamServer->SetInboundMessageBudget(campaignBudget),
 		       "live inbound budget reconfiguration is rejected" );

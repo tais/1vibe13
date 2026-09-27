@@ -250,7 +250,7 @@ jobs:
             ${cache_args[@]+"${cache_args[@]}"}
 
       - name: Build native campaign failure containment
-        run: cmake --build build --target native_campaign_simulation_failure_tests --parallel 2
+        run: cmake --build build --target native_campaign_simulation_failure_tests native_coop_surrender_tests --parallel 2
 
       - name: Build native off-turn hit-recovery regression
         run: cmake --build build --target native_coop_remote_attack_completion_tests --parallel 2

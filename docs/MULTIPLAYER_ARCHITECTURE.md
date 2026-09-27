@@ -905,6 +905,21 @@ Sector entry/exit, tactical-to-strategic transitions, autoresolve, and campaign
 load are generation barriers. Player input remains frozen until required peers
 acknowledge the new baseline.
 
+The optional `DedicatedCoopSurrenderState` retains a native enemy offer by exact
+actor incarnation, world and turn. A bound owner receives a pending decision in
+place of the local quote/message-box callback. Quote selection retains its
+native RNG draw; repeated presentation requests cannot reroll a held offer.
+There is no timeout answer. An explicit answer consumes the offer before the
+shared native continuation marks it offered and completes that speaker's AI
+action. Accepting also invokes the original capture sequence.
+
+This native boundary is unbound by default. Runtime ownership, simulation and
+checkpoint holds, authenticated network requests and client confirmation must
+be connected together before activating it in a dedicated session. Tests cover
+renderer-free deferral, real refusal/AI completion, stale world and offer IDs,
+legacy/single-player exclusions, retained RNG and duplicate suppression. Native
+captivity and its later campaign persistence are not qualified by these tests.
+
 The bounded `FullEngineCoopClientPresentationActorDirectory` stages a plan from
 a committed snapshot for a future presentation-owned actor bank. It matches
 exact actor incarnations to local slots, detaches all retired mappings before
@@ -920,6 +935,24 @@ snapshots, exact slot reuse, world replacement, all 2,048 actor slots and a
 4,096-operation replacement, and shrinking the local capacity. The target is
 also built by the Linux ASan workflow. Connecting these plans to the ordinary
 JA2 actor renderer remains a later integration step.
+
+The optional `DedicatedCoopAttackState` retains one exact native shooter,
+world generation and authoritative execution sequence until its terminal
+outcome is acknowledged. Its bound native completion path uses that shooter,
+not the local UI-selected mercenary. Native ammunition accounting distinguishes
+a completed discharge from a chain stopped before firing, including a sighting
+cancellation. Stance or turning AP may already have been spent. Neither outcome
+claims a hit or kill. An invalid retained origin fails closed without falling
+back to the selected actor; a terminal record cannot be overwritten by another
+attack before acknowledgement.
+
+This seam is unbound by default. The integrated runtime must bind it, register
+accepted attacks, gate overlapping commands, retain terminal receipts until the
+native chain finishes and handle failures before enabling it. Those runtime
+and wire changes are outside this foundation. The real native sighting and
+attack-busy callbacks are tested with shooter 3 and independently selected
+actor 0; the fixture also covers sequence zero, stale world, wrong
+acknowledgements, duplicate releases and actual ammunition accounting.
 
 The shared campaign contract also represents a pending native surrender offer.
 Its 96-byte status frame carries an opaque offer ID in bytes 86–93, with bytes
