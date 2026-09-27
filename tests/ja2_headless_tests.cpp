@@ -136,6 +136,8 @@
 #include "CampaignProgressPolicy.h"
 #include "CampaignStrategicContentPolicy.h"
 #include "DedicatedServerOptions.h"
+#include "Tactical Save.h"
+#include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "GameContext.h"
 #include "GameVersion.h"
@@ -8095,8 +8097,406 @@ static int RunAuthoritativeRenderCaptureTests()
 	return g_failures ? 1 : 0;
 }
 
+static int RunDedicatedCoopResumeClassifierTests()
+{
+	GameContext& context = GetGameContext();
+	const bool running = context.beginInitialization() &&
+		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		context.markRunning();
+	CHECK(running, "resume fixture starts the canonical campaign runtime");
+	if (!running) return 1;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	ResetJa2TacticalActorRosters();
+	gbPlayerNum = OUR_TEAM;
+	gTacticalStatus.Team[OUR_TEAM].bFirstID = SoldierID{0};
+	gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{1};
+	gTacticalStatus.fDidGameJustStart = FALSE;
+	gGameExternalOptions.iGameStartingTime = 90000;
+	InitializeJa2CampaignClock(120000);
+	NotifyJa2TacticalWorldUnloaded();
+	ClearJa2TacticalWorldSector();
+	GetJa2CampaignEventQueue().clear();
+	CHECK(SetSectorFlag(9, 1, 0, SF_ALREADY_VISITED),
+		"resume fixture records its actual previously visited sector");
+	TacticalActor& first = *soldiers.resolve(0);
+	TacticalActor& second = *soldiers.resolve(1);
+	for (TacticalActor* actor : {&first, &second})
+	{
+		const UINT16 slot = actor == &first ? 0 : 1;
+		actor->identity().id() = SoldierID{slot};
+		actor->identity().incarnation() = 100 + slot;
+		actor->identity().profile() = static_cast<UINT8>(slot);
+		actor->roster().active() = TRUE;
+		// Native TrashWorld retains this flag for player actors. Coldness is
+		// proved by the campaign world, not a historical per-actor flag.
+		actor->roster().inSector() = TRUE;
+		actor->roster().team() = OUR_TEAM;
+		actor->assignment().current() = FIRST_SQUAD;
+		actor->vitals().health() = 5;
+		actor->vitals().maximumHealth() = 90;
+		actor->deployment().sectorX() = 9;
+		actor->deployment().sectorY() = 1;
+		actor->deployment().sectorZ() = 0;
+		actor->deployment().groupId() = 7;
+		actor->deployment().betweenSectors() = FALSE;
+		CHECK(AdoptJa2TacticalEntity(*actor),
+			"resume actor adopts an exact native identity");
+	}
+	PLAYERGROUP firstMember{}, secondMember{};
+	firstMember.actor = GetJa2TacticalEntityId(first);
+	firstMember.ubProfileID = first.identity().profile();
+	firstMember.next = &secondMember;
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	secondMember.ubProfileID = second.identity().profile();
+	GROUP group{};
+	group.ubGroupID = 7;
+	group.usGroupTeam = OUR_TEAM;
+	group.ubGroupSize = 2;
+	group.ubSectorX = 9;
+	group.ubSectorY = 1;
+	group.pPlayerList = &firstMember;
+	gpGroupList = &group;
+	CHECK(AdoptJa2StrategicGroup(group),
+		"resume fixture adopts the exact native foot group");
+	using State = DedicatedCoopStarterCampaignState;
+	auto inspect = [&](State expected, const char* description) {
+		const auto clockBefore = CaptureJa2CampaignClock();
+		std::array<unsigned char, sizeof(GROUP)> groupBefore{};
+		std::memcpy(groupBefore.data(), &group, sizeof(group));
+		std::vector<CampaignEventSnapshot> eventsBefore, eventsAfter;
+		const bool capturedBefore = GetJa2CampaignEventQueue().capture(eventsBefore);
+		const auto nextEventBefore = GetJa2CampaignEventQueue().nextIdentity();
+		const auto groupIdentityBefore = GetJa2StrategicGroupId(7);
+		const auto firstIdentityBefore = GetJa2TacticalEntityId(first);
+		const auto secondIdentityBefore = GetJa2TacticalEntityId(second);
+		const auto pendingIdentityBefore = GetJa2TacticalEntityId(*soldiers.resolve(2));
+		std::array<unsigned char, sizeof(MERCPROFILESTRUCT)> pendingProfileBefore{};
+		std::memcpy(pendingProfileBefore.data(), &gMercProfiles[2], sizeof(MERCPROFILESTRUCT));
+		const auto actual = InspectDedicatedCoopStarterCampaign();
+		CHECK(actual == expected, description);
+		CHECK(capturedBefore && GetJa2CampaignEventQueue().capture(eventsAfter) &&
+			eventsBefore == eventsAfter &&
+			nextEventBefore == GetJa2CampaignEventQueue().nextIdentity() &&
+			clockBefore == CaptureJa2CampaignClock() &&
+			std::memcmp(groupBefore.data(), &group, sizeof(group)) == 0 &&
+			groupIdentityBefore == GetJa2StrategicGroupId(7) &&
+			firstIdentityBefore == GetJa2TacticalEntityId(first) &&
+			secondIdentityBefore == GetJa2TacticalEntityId(second) &&
+			pendingIdentityBefore == GetJa2TacticalEntityId(*soldiers.resolve(2)) &&
+			std::memcmp(pendingProfileBefore.data(), &gMercProfiles[2], sizeof(MERCPROFILESTRUCT)) == 0 &&
+			!IsJa2TacticalWorldLoaded() &&
+			gWorldSectorX == 0 && gWorldSectorY == 0 && gbWorldSectorZ == -1,
+			"inspection leaves native clock, events, group, identities and cold world unchanged");
+	};
+	inspect(State::EstablishedStrategicCold,
+		"living wounded squad resumes cold despite retained inSector flags");
+	gTacticalStatus.fDidGameJustStart = TRUE;
+	inspect(State::Ineligible, "wounded roster cannot reinterpret an ambiguous starter campaign");
+	gTacticalStatus.fDidGameJustStart = FALSE;
+	first.vitals().health() = second.vitals().health() = 90;
+	inspect(State::EstablishedCold, "healthy stationary squad keeps established launch eligibility");
+	second.vitals().health() = 0;
+	inspect(State::EstablishedCold, "healthy plus dead stationary roster retains historical resume eligibility");
+	second.assignment().current() = ASSIGNMENT_POW;
+	inspect(State::EstablishedCold, "healthy plus POW stationary roster retains historical resume eligibility");
+	second.assignment().current() = ON_DUTY;
+	inspect(State::EstablishedCold, "healthy plus non-squad stationary roster retains historical resume eligibility");
+	second.status().flags() |= SOLDIER_VEHICLE;
+	inspect(State::EstablishedCold, "healthy plus vehicle stationary roster retains historical resume eligibility");
+	second.status().flags() &= ~SOLDIER_VEHICLE;
+	second.assignment().current() = FIRST_SQUAD;
+	first.vitals().health() = 5;
+	inspect(State::Ineligible, "all-wounded plus dead does not acquire unsupported resume eligibility");
+	second.vitals().health() = 5;
+	group.ubGroupSize = 3;
+	inspect(State::Ineligible, "wounded resume rejects native group count mismatch");
+	group.ubGroupSize = 2;
+	secondMember.actor = firstMember.actor;
+	inspect(State::Ineligible, "wounded resume rejects duplicate native member identity");
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	++secondMember.actor.incarnation;
+	inspect(State::Ineligible, "wounded resume rejects stale native member incarnation");
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	secondMember.ubProfileID = firstMember.ubProfileID;
+	inspect(State::Ineligible, "wounded resume rejects persisted profile and exact member disagreement");
+	secondMember.ubProfileID = second.identity().profile();
+	CHECK(ReleaseJa2StrategicGroup(group), "resume fixture can retire the native group identity");
+	inspect(State::Ineligible, "wounded resume rejects a group outside the exact identity directory");
+	CHECK(AdoptJa2StrategicGroup(group), "resume fixture can readopt its native group");
+	group.fBetweenSectors = TRUE;
+	group.ubNextX = 9;
+	group.ubNextY = 2;
+	group.uiTraverseTime = 90;
+	group.uiArrivalTime = 2100;
+	first.deployment().betweenSectors() = second.deployment().betweenSectors() = TRUE;
+	first.vitals().health() = second.vitals().health() = 90;
+	STRATEGICEVENT* arrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_GROUP_ARRIVAL, group.uiArrivalTime * NUM_SEC_IN_MIN, group.ubGroupID);
+	CHECK(arrival != nullptr, "resume fixture schedules one native ordinary arrival");
+	if (!arrival) return 1;
+	inspect(State::EstablishedStrategicCold, "coherent traveling squad resumes strategically without arrival execution");
+	// One separately valid launchable squad must not automatically pull a
+	// different traveling cohort into its tactical sector on resume.
+	GROUP stationaryGroup{};
+	stationaryGroup.ubGroupID = 8;
+	stationaryGroup.usGroupTeam = OUR_TEAM;
+	stationaryGroup.ubGroupSize = 1;
+	stationaryGroup.ubSectorX = 8;
+	stationaryGroup.ubSectorY = 1;
+	stationaryGroup.pPlayerList = &secondMember;
+	group.next = &stationaryGroup;
+	group.ubGroupSize = 1;
+	firstMember.next = nullptr;
+	second.deployment().groupId() = 8;
+	second.deployment().sectorX() = 8;
+	second.deployment().betweenSectors() = FALSE;
+	second.assignment().current() = FIRST_SQUAD + 1;
+	CHECK(SetSectorFlag(8, 1, 0, SF_ALREADY_VISITED) &&
+		AdoptJa2StrategicGroup(stationaryGroup),
+		"mixed resume fixture has a distinct valid stationary squad and sector");
+	inspect(State::EstablishedStrategicCold,
+		"valid healthy stationary and traveling cohorts stay cold without cross-sector launch");
+	(void)ReleaseJa2StrategicGroup(stationaryGroup);
+	group.next = nullptr;
+	group.ubGroupSize = 2;
+	firstMember.next = &secondMember;
+	second.deployment().groupId() = 7;
+	second.deployment().sectorX() = 9;
+	second.assignment().current() = FIRST_SQUAD;
+	second.deployment().betweenSectors() = FALSE;
+	inspect(State::Ineligible, "healthy stationary actor cannot hide a contradictory traveler cohort");
+	second.deployment().betweenSectors() = TRUE;
+	arrival->ubEventType = QUEUED_EVENT;
+	inspect(State::Ineligible, "travel resume rejects a queued instead of ordinary arrival");
+	arrival->ubEventType = ONETIME_EVENT;
+	arrival->ubFlags = SEF_DELETION_PENDING;
+	inspect(State::Ineligible, "travel resume rejects an arrival pending deletion");
+	arrival->ubFlags = 0;
+	arrival->uiParam += 256;
+	inspect(State::Ineligible, "travel resume rejects a narrowed group ID alias");
+	arrival->uiParam = group.ubGroupID;
+	STRATEGICEVENT* duplicate = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_GROUP_ARRIVAL, arrival->uiTimeStamp, group.ubGroupID + 256);
+	CHECK(duplicate != nullptr, "resume fixture schedules contradictory alias arrival");
+	inspect(State::Ineligible, "travel resume counts a duplicate narrowed group ID alias");
+	GetJa2CampaignEventQueue().erase(duplicate);
+	STRATEGICEVENT* delayedHire = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, arrival->uiTimeStamp, first.identity().id().i);
+	CHECK(delayedHire != nullptr, "resume fixture schedules contradictory native hire event");
+	inspect(State::Ineligible, "travel resume rejects contradictory delayed actor hiring");
+	GetJa2CampaignEventQueue().erase(delayedHire);
+	group.uiArrivalTime = GetWorldTotalSeconds() / NUM_SEC_IN_MIN;
+	arrival->uiTimeStamp = GetWorldTotalSeconds();
+	inspect(State::EstablishedStrategicCold, "exactly due ordinary arrival can remain paused on resume");
+	--group.uiArrivalTime;
+	arrival->uiTimeStamp -= NUM_SEC_IN_MIN;
+	inspect(State::Ineligible, "travel resume rejects an overdue native arrival");
+	// Established hires are a distinct cohort from the initial four-merc
+	// starter proof. Use actual repository identities and native event nodes.
+	group.uiArrivalTime = 2100;
+	arrival->uiTimeStamp = group.uiArrivalTime * NUM_SEC_IN_MIN;
+	gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{2};
+	gsMercArriveSectorX = 9;
+	gsMercArriveSectorY = 1;
+	TacticalActor& pending = *soldiers.resolve(2);
+	pending.identity().id() = SoldierID{2};
+	pending.identity().incarnation() = 102;
+	pending.identity().profile() = 2;
+	pending.identity().bodyType() = REGMALE;
+	pending.roster().active() = TRUE;
+	pending.roster().inSector() = FALSE;
+	pending.roster().team() = OUR_TEAM;
+	pending.assignment().current() = IN_TRANSIT;
+	pending.vitals().health() = pending.vitals().maximumHealth() = 80;
+	pending.deployment().sectorX() = 9;
+	pending.deployment().sectorY() = 1;
+	pending.deployment().sectorZ() = 0;
+	pending.deployment().groupId() = 0;
+	pending.deployment().betweenSectors() = FALSE;
+	pending.deployment().setUseLandingZoneForArrival(true);
+	pending.deployment().strategicInsertionCode() = INSERTION_CODE_ARRIVING_GAME;
+	pending.deployment().strategicInsertionData() = 0;
+	pending.deployment().arrivalTime() = 2610;
+	pending.employment().mercenaryType() = MERC_TYPE__AIM_MERC;
+	pending.employment().totalLength() = 7;
+	pending.employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
+	pending.employment().endTime() = 14100;
+	pending.employment().timeCanSignElsewhere() = GetWorldTotalMin();
+	pending.employment().medicalDeposit() = 321;
+	pending.employment().insuranceStartDay() = pending.employment().insuranceLengthDays() = 0;
+	gMercProfiles[2].Type = PROFILETYPE_AIM;
+	gMercProfiles[2].bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
+	gMercProfiles[2].ubBodyType = REGMALE;
+	gMercProfiles[2].sMedicalDepositAmount = 321;
+	// No starter-only already-used-equipment flag or zero gear price is needed.
+	gMercProfiles[2].ubMiscFlags &= ~PROFILE_MISC_FLAG_ALREADY_USED_ITEMS;
+	gMercProfiles[2].usOptionalGearCost = 1234;
+	CHECK(AdoptJa2TacticalEntity(pending), "pending resume actor adopts its exact persisted native identity");
+	STRATEGICEVENT* pendingArrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, pending.deployment().arrivalTime() * NUM_SEC_IN_MIN, 2);
+	CHECK(pendingArrival != nullptr, "pending resume fixture schedules a real native delayed hire");
+	if (!pendingArrival) return 1;
+	inspect(State::EstablishedStrategicCold,
+		"validated traveling squad plus pending AIM hire resumes without advancing either arrival");
+	GetJa2CampaignEventQueue().erase(arrival);
+	group.fBetweenSectors = FALSE;
+	first.deployment().betweenSectors() = second.deployment().betweenSectors() = FALSE;
+	inspect(State::EstablishedStrategicCold,
+		"validated healthy stationary squad plus pending AIM hire resumes paused without tactical launch");
+	GROUP hiddenGroup{};
+	PLAYERGROUP hiddenMember{};
+	hiddenGroup.ubGroupID = 9;
+	hiddenGroup.usGroupTeam = OUR_TEAM;
+	hiddenGroup.ubGroupSize = 1;
+	hiddenGroup.ubSectorX = 9;
+	hiddenGroup.ubSectorY = 1;
+	hiddenGroup.pPlayerList = &hiddenMember;
+	hiddenMember.actor = GetJa2TacticalEntityId(pending);
+	hiddenMember.ubProfileID = pending.identity().profile();
+	group.next = &hiddenGroup;
+	CHECK(AdoptJa2StrategicGroup(hiddenGroup), "pending fixture adopts an otherwise unreferenced player group");
+	inspect(State::Ineligible, "pending groupId zero cannot hide a real member in another native player group");
+	++hiddenMember.actor.incarnation;
+	inspect(State::Ineligible, "pending resume rejects hidden group membership with a stale incarnation for its slot");
+	hiddenMember.actor = GetJa2TacticalEntityId(first);
+	hiddenMember.next = &hiddenMember;
+	inspect(State::Ineligible, "unreferenced player member-list cycle is bounded during pending cohort validation");
+	hiddenMember.next = nullptr;
+	hiddenGroup.pPlayerList = nullptr;
+	hiddenGroup.next = &hiddenGroup;
+	inspect(State::Ineligible, "unreferenced group-list cycle is bounded during pending cohort validation");
+	hiddenGroup.next = nullptr;
+	(void)ReleaseJa2StrategicGroup(hiddenGroup);
+	group.next = nullptr;
+	CHECK(AddJa2StrategicSquadActor(39, GetJa2TacticalEntityId(pending)) == 0,
+		"pending fixture inserts actual hidden strategic squad membership");
+	inspect(State::Ineligible, "pending IN_TRANSIT marker cannot hide membership in an unrelated native squad");
+	CHECK(RemoveJa2StrategicSquadActor(39, GetJa2TacticalEntityId(pending)),
+		"pending fixture removes hidden native squad membership");
+	inspect(State::EstablishedStrategicCold, "removing hidden memberships restores the unchanged valid pending cohort");
+	second.vitals().health() = 0;
+	inspect(State::Ineligible, "a pending hire prevents healthy stationary fallthrough hiding an unsupported dead cohort member");
+	second.vitals().health() = 90;
+	second.assignment().current() = ASSIGNMENT_POW;
+	inspect(State::Ineligible, "pending resume requires the ordinary roster's full native squad proof");
+	second.assignment().current() = FIRST_SQUAD;
+	for (int change = 0; change < 15; ++change)
+	{
+		switch (change)
+		{
+		case 0: pending.roster().inSector() = TRUE; break;
+		case 1: pending.deployment().betweenSectors() = TRUE; break;
+		case 2: pending.deployment().groupId() = 7; break;
+		case 3: pending.assignment().current() = ON_DUTY; break;
+		case 4: pending.identity().profile() = NO_PROFILE; break;
+		case 5: gMercProfiles[2].bMercStatus = 7; break;
+		case 6: gMercProfiles[2].Type = PROFILETYPE_MERC; break;
+		case 7: pending.employment().endTime() = -1; break;
+		case 8: pending.employment().lastContractType() = CONTRACT_EXTEND_1_DAY; break;
+		case 9: pending.employment().medicalDeposit() = 320; break;
+		case 10: pending.deployment().strategicInsertionCode() = INSERTION_CODE_CHOPPER; break;
+		case 11: pending.deployment().strategicInsertionData() = 1; break;
+		case 12: pending.deployment().sectorX() = 8; break;
+		case 13: pending.identity().bodyType() = REGFEMALE; break;
+		case 14: pending.employment().insuranceLengthDays() = 1; break;
+		}
+		inspect(State::Ineligible,
+			"pending native actor with invalid identity, status, contract or insertion cannot hide behind a healthy squad");
+		pending.roster().inSector() = FALSE;
+		pending.deployment().betweenSectors() = FALSE;
+		pending.deployment().groupId() = 0;
+		pending.assignment().current() = IN_TRANSIT;
+		pending.identity().profile() = 2;
+		gMercProfiles[2].bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
+		gMercProfiles[2].Type = PROFILETYPE_AIM;
+		pending.employment().endTime() = 14100;
+		pending.employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
+		pending.employment().medicalDeposit() = 321;
+		pending.deployment().strategicInsertionCode() = INSERTION_CODE_ARRIVING_GAME;
+		pending.deployment().strategicInsertionData() = 0;
+		pending.deployment().sectorX() = 9;
+		pending.identity().bodyType() = REGMALE;
+		pending.employment().insuranceLengthDays() = 0;
+	}
+	CHECK(ReleaseJa2TacticalEntity(pending), "pending fixture retires its exact native identity");
+	inspect(State::Ineligible, "an unpublished pending actor cannot be resumed using only its reused slot");
+	CHECK(AdoptJa2TacticalEntity(pending), "pending fixture readopts its exact identity");
+	TacticalActor& foreign = *soldiers.resolve(10);
+	foreign.roster().active() = TRUE;
+	foreign.roster().team() = ENEMY_TEAM;
+	foreign.identity().profile() = NO_PROFILE;
+	TacticalActor& otherGeneric = *soldiers.resolve(11);
+	otherGeneric.roster().active() = TRUE;
+	otherGeneric.roster().team() = ENEMY_TEAM;
+	otherGeneric.identity().profile() = NO_PROFILE;
+	inspect(State::EstablishedStrategicCold,
+		"two generic foreign actors do not turn the native NO_PROFILE sentinel into a duplicate real profile");
+	otherGeneric.roster().active() = FALSE;
+	foreign.identity().profile() = 2;
+	inspect(State::Ineligible, "a duplicate active pending profile outside player slots is rejected");
+	foreign.identity().profile() = first.identity().profile();
+	inspect(State::Ineligible, "pending resume also rejects duplicate ordinary roster profiles outside player slots");
+	foreign.roster().active() = FALSE;
+	for (int change = 0; change < 5; ++change)
+	{
+		switch (change)
+		{
+		case 0: pendingArrival->uiParam += 65536; break;
+		case 1: pendingArrival->ubEventType = QUEUED_EVENT; break;
+		case 2: pendingArrival->ubFlags = SEF_DELETION_PENDING; break;
+		case 3: pendingArrival->uiTimeOffset = 1; break;
+		case 4: ++pendingArrival->uiTimeStamp; break;
+		}
+		inspect(State::Ineligible, "pending resume rejects delayed event alias, type, deletion, offset or time mismatch");
+		pendingArrival->uiParam = 2;
+		pendingArrival->ubEventType = ONETIME_EVENT;
+		pendingArrival->ubFlags = 0;
+		pendingArrival->uiTimeOffset = 0;
+		pendingArrival->uiTimeStamp = pending.deployment().arrivalTime() * NUM_SEC_IN_MIN;
+	}
+	for (UINT32 parameter : {2u, 65538u, 9u})
+	{
+		STRATEGICEVENT* extra = AddAdvancedStrategicEvent(ONETIME_EVENT,
+			EVENT_DELAYED_HIRING_OF_MERC, pendingArrival->uiTimeStamp, parameter);
+		CHECK(extra != nullptr, "pending fixture adds a contradictory delayed hire node");
+		inspect(State::Ineligible, "pending cohort rejects duplicate, aliased duplicate and orphan delayed events");
+		GetJa2CampaignEventQueue().erase(extra);
+	}
+	first.roster().active() = second.roster().active() = FALSE;
+	inspect(State::Ineligible, "pending-only established campaign stays outside this bounded resume extension");
+	first.roster().active() = second.roster().active() = TRUE;
+	pending.deployment().arrivalTime() = GetWorldTotalMin();
+	pending.employment().endTime() = 13500;
+	pendingArrival->uiTimeStamp = GetWorldTotalSeconds();
+	inspect(State::EstablishedStrategicCold, "exactly due pending arrival remains paused without executing native hire callback");
+	--pending.deployment().arrivalTime();
+	pendingArrival->uiTimeStamp -= NUM_SEC_IN_MIN;
+	inspect(State::Ineligible, "an overdue pending hire is rejected at the native event boundary");
+	pending.deployment().arrivalTime() = 2610;
+	pending.employment().endTime() = 14100;
+	pendingArrival->uiTimeStamp = pending.deployment().arrivalTime() * NUM_SEC_IN_MIN;
+	GetJa2CampaignEventQueue().erase(pendingArrival);
+	inspect(State::Ineligible, "a missing delayed event prevents stationary pending-actor fallthrough");
+	pending.roster().active() = FALSE;
+	pendingArrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, 2610 * NUM_SEC_IN_MIN, 2);
+	CHECK(pendingArrival != nullptr, "orphan-only fixture keeps a real delayed hire event");
+	inspect(State::Ineligible, "orphan delayed event alone prevents healthy stationary fallthrough with no active pending actor");
+	GetJa2CampaignEventQueue().clear();
+	(void)ReleaseJa2StrategicGroup(group);
+	gpGroupList = nullptr;
+	std::printf("\n%s (%d failures)\n", g_failures ?
+		"DEDICATED CO-OP RESUME CLASSIFIER TESTS FAILED" :
+		"DEDICATED CO-OP RESUME CLASSIFIER TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
 int main( int argc, char** argv )
 {
+	if (argc == 2 && std::strcmp(argv[1], "--dedicated-coop-resume-classifier") == 0)
+		return RunDedicatedCoopResumeClassifierTests();
+
 	std::setvbuf(stdout, nullptr, _IONBF, 0);
 	if (argc == 2 && std::strcmp(argv[1], "--authoritative-render-capture") == 0)
 		return RunAuthoritativeRenderCaptureTests();

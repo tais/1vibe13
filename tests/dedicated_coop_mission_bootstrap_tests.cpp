@@ -178,13 +178,511 @@ void TestColdStarterCampaignClassification()
 	evidence.starterEnvironmentValid = false;
 	evidence.activePlayerMercs = 3;
 	evidence.validEstablishedMercs = 1;
+	evidence.validEstablishedRosterMercs = 3;
 	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
 		DedicatedCoopStarterCampaignState::EstablishedCold,
 		"a cold established campaign with a live player merc must resume");
 	evidence.validEstablishedMercs = 0;
 	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"a fully validated wounded roster resumes cold without tactical launch");
+	evidence.validEstablishedRosterMercs = 0;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
 		DedicatedCoopStarterCampaignState::Ineligible,
-		"a cold non-initial campaign without a valid merc must fail closed");
+		"a cold non-initial campaign without a valid supported roster must fail closed");
+}
+
+void TestEstablishedResumeRequiresCompleteCohort()
+{
+	DedicatedCoopStarterCampaignEvidence evidence;
+	evidence.noWorldSector = evidence.tacticalWorldUnloaded = true;
+	evidence.activePlayerMercs = evidence.validEstablishedRosterMercs = 4;
+	evidence.travelingEstablishedMercs = 4;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"a fully validated traveling cohort may resume without processing arrival events");
+	evidence.travelingEstablishedMercs = 2;
+	evidence.validEstablishedMercs = 2;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"healthy stationary mercs must not auto-launch while their cohort travels");
+	evidence.travelingEstablishedMercs = 0;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedCold,
+		"a completely stationary supported cohort retains ordinary tactical selection");
+	// Previous code deliberately admitted stationary mixed rosters through the
+	// one healthy launchable member. Do not make this bounded extension revoke
+	// that support just because another historical member is dead/POW/on duty.
+	evidence.validEstablishedRosterMercs = 1;
+	evidence.validEstablishedMercs = 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedCold,
+		"healthy plus dead, POW, or non-squad stationary roster retains prior resume eligibility");
+	evidence.unexpectedActivePlayerActors = 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedCold,
+		"a stationary vehicle record does not revoke an existing healthy foot actor's launch eligibility");
+	evidence.unexpectedActivePlayerActors = 0;
+	evidence.travelingEstablishedMercs = 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"an observed unvalidated traveler prevents falling through to legacy stationary launch");
+	evidence.travelingEstablishedMercs = 0;
+	evidence.validEstablishedMercs = 0;
+	evidence.validEstablishedRosterMercs = 3;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"wounded-only resume does not silently add support for mixed dead or duty rosters");
+	evidence.validEstablishedRosterMercs = 4;
+	evidence.validEstablishedMercs = 2;
+	evidence.travelingEstablishedMercs = 2;
+	const DedicatedCoopStarterCampaignEvidence valid = evidence;
+	for (std::size_t count : {0u, 3u, 5u})
+	{
+		evidence = valid;
+		evidence.validEstablishedRosterMercs = count;
+		Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+			DedicatedCoopStarterCampaignState::Ineligible,
+			"missing, extra, or empty roster accounting cannot hide behind a healthy merc");
+	}
+	evidence = valid;
+	evidence.travelingEstablishedMercs = 3;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"launchable and traveling counts must be disjoint subsets of the exact cohort");
+	evidence = valid;
+	evidence.validEstablishedMercs = 5;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"launchable actors cannot exceed the validated roster");
+	evidence = valid;
+	evidence.unexpectedActivePlayerActors = 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"an unexpected vehicle or foreign-team actor remains unsupported");
+	evidence = valid;
+	evidence.gameJustStarted = true;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"strategic roster evidence never repairs an ambiguous initial marker");
+	evidence = valid;
+	evidence.activePlayerMercs = evidence.validEstablishedRosterMercs =
+		MaximumDedicatedCoopEstablishedSectorCandidates + 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"established roster accounting is bounded by native capture capacity");
+}
+
+DedicatedCoopPendingAimHireEvidence PendingAimHireEvidence()
+{
+	DedicatedCoopPendingAimHireEvidence actor;
+	actor.exactIdentity = actor.activePlayer = actor.aimProfile =
+		actor.profileAwaitingArrival = actor.humanBody = actor.inTransit =
+		actor.usesLandingZone = actor.arrivingGameInsertion =
+		actor.contractTypeMatches = actor.medicalDepositMatches = actor.insuranceReset = true;
+	actor.life = actor.maximumLife = 80;
+	actor.contractDays = 7;
+	actor.contractEndMinute = 14100;
+	actor.timeCanSignElsewhere = 2000;
+	actor.x = actor.landingX = 9;
+	actor.y = actor.landingY = 1;
+	actor.z = 0;
+	actor.arrivalMinute = 2610;
+	actor.worldSeconds = 120000;
+	actor.arrivalEvents = actor.matchingArrivalEvents = 1;
+	return actor;
+}
+
+void TestPendingAimHirePolicy()
+{
+	const auto valid = PendingAimHireEvidence();
+	Check(DedicatedCoopPendingAimHireEligible(valid),
+		"an established native pending AIM hire retains its exact pre-arrival contract");
+	for (int days : {1, 7, 14})
+	{
+		for (bool overnight : {false, true})
+		{
+			auto actor = valid;
+			actor.contractDays = days;
+			actor.arrivalMinute = overnight ? 3330 : 2610;
+			actor.contractEndMinute = 1440 + (days + 1) * 1440 + (overnight ? 420 : 1140);
+			actor.timeCanSignElsewhere = days == 14 ? actor.contractEndMinute : 2000;
+			Check(DedicatedCoopPendingAimHireEligible(actor),
+				"one, seven and fourteen day pre-arrival contracts preserve same-day and overnight formulas");
+		}
+	}
+	for (bool DedicatedCoopPendingAimHireEvidence::* member : {
+		&DedicatedCoopPendingAimHireEvidence::exactIdentity,
+		&DedicatedCoopPendingAimHireEvidence::activePlayer,
+		&DedicatedCoopPendingAimHireEvidence::aimProfile,
+		&DedicatedCoopPendingAimHireEvidence::profileAwaitingArrival,
+		&DedicatedCoopPendingAimHireEvidence::humanBody,
+		&DedicatedCoopPendingAimHireEvidence::inTransit,
+		&DedicatedCoopPendingAimHireEvidence::usesLandingZone,
+		&DedicatedCoopPendingAimHireEvidence::arrivingGameInsertion,
+		&DedicatedCoopPendingAimHireEvidence::contractTypeMatches,
+		&DedicatedCoopPendingAimHireEvidence::medicalDepositMatches,
+		&DedicatedCoopPendingAimHireEvidence::insuranceReset})
+	{
+		auto actor = valid;
+		actor.*member = false;
+		Check(!DedicatedCoopPendingAimHireEligible(actor),
+			"pending resume requires every identity, employment, health and insertion fact");
+	}
+	for (bool DedicatedCoopPendingAimHireEvidence::* member : {
+		&DedicatedCoopPendingAimHireEvidence::unsupportedRole,
+		&DedicatedCoopPendingAimHireEvidence::inSector,
+		&DedicatedCoopPendingAimHireEvidence::betweenSectors})
+	{
+		auto actor = valid;
+		actor.*member = true;
+		Check(!DedicatedCoopPendingAimHireEligible(actor),
+			"pending arrivals cannot already have an unsupported tactical or traveling role");
+	}
+	for (int change = 0; change < 17; ++change)
+	{
+		auto actor = valid;
+		switch (change)
+		{
+		case 0: actor.life = 14; break;
+		case 1: actor.maximumLife = 79; break;
+		case 2: actor.maximumLife = 101; break;
+		case 3: actor.contractDays = -1; break;
+		case 4: actor.contractDays = 2; break;
+		case 5: actor.contractEndMinute = -1; break;
+		case 6: ++actor.contractEndMinute; break;
+		case 7: actor.timeCanSignElsewhere = -1; break;
+		case 8: ++actor.timeCanSignElsewhere; break;
+		case 9: actor.x = 0; break;
+		case 10: actor.landingY = 2; break;
+		case 11: actor.z = 1; break;
+		case 12: actor.groupSlot = 7; break;
+		case 13: actor.arrivalMinute = std::numeric_limits<std::uint32_t>::max() / 60u + 1; break;
+		case 14: actor.arrivalMinute = 0; break;
+		case 15: actor.arrivalEvents = 2; break;
+		case 16: actor.matchingArrivalEvents = 0; break;
+		}
+		Check(!DedicatedCoopPendingAimHireEligible(actor),
+			"invalid signed employment, coordinate, time or duplicate event evidence rejects pending resume");
+	}
+	auto actor = valid;
+	actor.worldSeconds = actor.arrivalMinute * 60;
+	Check(DedicatedCoopPendingAimHireEligible(actor),
+		"a precisely due pending hire can remain paused without executing its event");
+	++actor.worldSeconds;
+	Check(!DedicatedCoopPendingAimHireEligible(actor),
+		"overdue pending hires cannot be silently resumed past their native callback boundary");
+	actor = valid;
+	actor.contractDays = 14;
+	actor.contractEndMinute += 7 * 1440;
+	Check(!DedicatedCoopPendingAimHireEligible(actor),
+		"a fourteen day hire must preserve its native exclusive-contract endpoint");
+}
+
+void TestEstablishedPendingHireCohort()
+{
+	DedicatedCoopStarterCampaignEvidence evidence;
+	evidence.noWorldSector = evidence.tacticalWorldUnloaded = true;
+	evidence.activePlayerMercs = 3;
+	evidence.validEstablishedRosterMercs = evidence.validEstablishedMercs = 2;
+	evidence.observedPendingHireActors = evidence.validPendingAimHireActors =
+		evidence.delayedHiringEvents = 1;
+	evidence.pendingHireCohortConsistent = true;
+	const auto valid = evidence;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"fully validated stationary roster plus pending AIM hire resumes paused without tactical launch");
+	evidence.travelingEstablishedMercs = 2;
+	evidence.validEstablishedMercs = 0;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"fully validated traveling roster and pending AIM cohort share paused strategic resume");
+	for (int change = 0; change < 11; ++change)
+	{
+		evidence = valid;
+		switch (change)
+		{
+		case 0: evidence.pendingHireCohortConsistent = false; break;
+		case 1: evidence.validPendingAimHireActors = 0; break;
+		case 2: evidence.observedPendingHireActors = 2; break;
+		case 3: evidence.delayedHiringEvents = 0; break;
+		case 4: evidence.delayedHiringEvents = 2; break;
+		case 5: evidence.validEstablishedRosterMercs = 1; break;
+		case 6: evidence.unexpectedActivePlayerActors = 1; break;
+		case 7: evidence.gameJustStarted = true; break;
+		case 8: evidence.initialWorldTime = true; break;
+		case 9: evidence.travelingEstablishedMercs = 1; break;
+		case 10: evidence.activePlayerMercs = 1;
+			evidence.validEstablishedRosterMercs = evidence.validEstablishedMercs = 0; break;
+		}
+		Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+			DedicatedCoopStarterCampaignState::Ineligible,
+			"healthy stationary merc cannot hide incomplete, unsupported or ambiguous pending cohort");
+	}
+	evidence = valid;
+	evidence.observedPendingHireActors = evidence.validPendingAimHireActors = 0;
+	evidence.activePlayerMercs = 2;
+	Check(ClassifyDedicatedCoopStarterCampaign(evidence) ==
+		DedicatedCoopStarterCampaignState::Ineligible,
+		"an orphan delayed event alone blocks historical healthy stationary fallthrough");
+}
+
+void TestCompletedDeathPendingHireCohort()
+{
+	DedicatedCoopCompletedDeathEvidence dead;
+	dead.exactIdentity = dead.activePlayer = dead.realProfile = dead.profileDead =
+		dead.humanBody = dead.deathAssignment = dead.deathFlag = dead.deathUiComplete =
+		dead.noLiveMembership = dead.visitedSector = true;
+	dead.maximumLife = 90; dead.x = 9; dead.y = 1; dead.z = 0;
+	dead.contractEndMinute = 13740;
+	Check(DedicatedCoopCompletedDeathEligible(dead),
+		"completed native death retains an active employment record and its unexpired contract");
+	for (bool DedicatedCoopCompletedDeathEvidence::* member : {
+		&DedicatedCoopCompletedDeathEvidence::exactIdentity,
+		&DedicatedCoopCompletedDeathEvidence::activePlayer,
+		&DedicatedCoopCompletedDeathEvidence::realProfile,
+		&DedicatedCoopCompletedDeathEvidence::profileDead,
+		&DedicatedCoopCompletedDeathEvidence::humanBody,
+		&DedicatedCoopCompletedDeathEvidence::deathAssignment,
+		&DedicatedCoopCompletedDeathEvidence::deathFlag,
+		&DedicatedCoopCompletedDeathEvidence::deathUiComplete,
+		&DedicatedCoopCompletedDeathEvidence::noLiveMembership,
+		&DedicatedCoopCompletedDeathEvidence::visitedSector})
+	{
+		auto altered = dead; altered.*member = false;
+		Check(!DedicatedCoopCompletedDeathEligible(altered), "death requires every completed native lifecycle proof");
+	}
+	for (int change = 0; change < 14; ++change)
+	{
+		auto altered = dead;
+		switch (change)
+		{
+		case 0: altered.unsupportedRole = true; break;
+		case 1: altered.airborne = true; break;
+		case 2: altered.betweenSectors = true; break;
+		case 3: altered.life = 1; break;
+		case 4: altered.maximumLife = 0; break;
+		case 5: altered.breath = 1; break;
+		case 6: altered.maximumBreath = 1; break;
+		case 7: altered.contractEndMinute = -1; break;
+		case 8: altered.groupSlot = 1; break;
+		case 9: altered.x = 0; break;
+		case 10: altered.x = 17; break;
+		case 11: altered.y = 17; break;
+		case 12: altered.z = -1; break;
+		case 13: altered.z = 4; break;
+		}
+		Check(!DedicatedCoopCompletedDeathEligible(altered), "partial death and unsupported retained deployment reject");
+	}
+	DedicatedCoopStarterCampaignEvidence cohort;
+	cohort.noWorldSector = cohort.tacticalWorldUnloaded = cohort.pendingHireCohortConsistent = true;
+	cohort.activePlayerMercs = 3;
+	cohort.validEstablishedRosterMercs = cohort.validEstablishedMercs = 1;
+	cohort.validCompletedDeadMercs = 1;
+	cohort.observedPendingHireActors = cohort.validPendingAimHireActors = cohort.delayedHiringEvents = 1;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"one living ordinary merc, one completed death and a pending hire resume paused together");
+	const auto valid = cohort;
+	for (int change = 0; change < 10; ++change)
+	{
+		cohort = valid;
+		switch (change)
+		{
+		case 0: cohort.validCompletedDeadMercs = 0; break;
+		case 1: cohort.validCompletedDeadMercs = 2; break;
+		case 2: cohort.validCompletedDeadMercs = std::numeric_limits<std::size_t>::max(); break;
+		case 3: cohort.activePlayerMercs = 0; break;
+		case 4: cohort.validPendingAimHireActors = std::numeric_limits<std::size_t>::max(); break;
+		case 5: cohort.validEstablishedRosterMercs = cohort.validEstablishedMercs = 0;
+			cohort.validCompletedDeadMercs = 1; break;
+		case 6: cohort.travelingEstablishedMercs = 2; break;
+		case 7: cohort.pendingHireCohortConsistent = false; break;
+		case 8: cohort.delayedHiringEvents = 2; break;
+		case 9: cohort.observedPendingHireActors = 2; break;
+		}
+		Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::Ineligible,
+			"completed-death allowance cannot hide missing living members, bad pending events or overflow");
+	}
+	cohort = valid;
+	cohort.validEstablishedRosterMercs = cohort.validEstablishedMercs = 0;
+	cohort.validCompletedDeadMercs = 2;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"completed deaths and a paid pending arrival can resume paused without a living squad");
+	cohort.pendingHireCohortConsistent = false;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::Ineligible,
+		"absence of a living squad cannot bypass exact native death and pending-hire evidence");
+	cohort = valid;
+	cohort.activePlayerMercs = MaximumDedicatedCoopEstablishedSectorCandidates;
+	cohort.validCompletedDeadMercs = cohort.activePlayerMercs - 2;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::EstablishedStrategicCold,
+		"exact bounded roster capacity includes terminal retained records without adding their counts");
+	++cohort.activePlayerMercs; ++cohort.validCompletedDeadMercs;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == DedicatedCoopStarterCampaignState::Ineligible,
+		"retained death records cannot exceed the existing native roster bound");
+}
+
+void TestLivingWoundedRosterPolicy()
+{
+	DedicatedCoopEstablishedActorEvidence actor;
+	actor.exactIdentity = actor.activePlayer = actor.ordinarySquadAssignment =
+		actor.visitedSector = true;
+	actor.life = 5;
+	actor.maximumLife = 90;
+	actor.x = 9;
+	actor.y = 1;
+	actor.z = 0;
+	Check(DedicatedCoopEstablishedRosterActorEligible(actor),
+		"living wounded on-foot squad actors remain durable campaign members");
+	const auto valid = actor;
+	for (int life : {0, -1, 91})
+	{
+		actor = valid;
+		actor.life = life;
+		Check(!DedicatedCoopEstablishedRosterActorEligible(actor),
+			"dead or inconsistent vital state is not broadened into supported resume");
+	}
+	for (bool DedicatedCoopEstablishedActorEvidence::* member : {
+		&DedicatedCoopEstablishedActorEvidence::exactIdentity,
+		&DedicatedCoopEstablishedActorEvidence::activePlayer,
+		&DedicatedCoopEstablishedActorEvidence::ordinarySquadAssignment,
+		&DedicatedCoopEstablishedActorEvidence::visitedSector})
+	{
+		actor = valid;
+		actor.*member = false;
+		Check(!DedicatedCoopEstablishedRosterActorEligible(actor),
+			"wounded support does not remove identity, team, squad, or sector proof");
+	}
+	for (bool DedicatedCoopEstablishedActorEvidence::* member : {
+		&DedicatedCoopEstablishedActorEvidence::vehicleBody,
+		&DedicatedCoopEstablishedActorEvidence::driver,
+		&DedicatedCoopEstablishedActorEvidence::passenger,
+		&DedicatedCoopEstablishedActorEvidence::airborne})
+	{
+		actor = valid;
+		actor.*member = true;
+		Check(!DedicatedCoopEstablishedRosterActorEligible(actor),
+			"vehicle state remains outside cold on-foot resume");
+	}
+	actor = valid;
+	actor.x = 17;
+	Check(!DedicatedCoopEstablishedRosterActorEligible(actor),
+		"wounded actors still require an in-world strategic coordinate");
+}
+
+DedicatedCoopEstablishedGroupEvidence TravelingGroupEvidence()
+{
+	DedicatedCoopEstablishedGroupEvidence group;
+	group.identityValid = group.playerFootGroup = group.membersConsistent = true;
+	group.declaredMembers = group.observedMembers = 4;
+	group.actorMatches = 1;
+	group.x = 9;
+	group.y = 1;
+	group.z = 0;
+	group.nextX = 9;
+	group.nextY = 2;
+	group.betweenSectors = group.actorBetweenSectors = true;
+	group.traverseMinutes = 89;
+	group.arrivalMinutes = 2000;
+	group.worldSeconds = 115000;
+	group.arrivalEvents = group.matchingArrivalEvents = 1;
+	return group;
+}
+
+void TestEstablishedGroupTravelConsistency()
+{
+	const auto valid = TravelingGroupEvidence();
+	Check(DedicatedCoopEstablishedGroupConsistent(valid),
+		"an exact live foot group and one matching pending arrival may resume");
+	for (bool DedicatedCoopEstablishedGroupEvidence::* member : {
+		&DedicatedCoopEstablishedGroupEvidence::identityValid,
+		&DedicatedCoopEstablishedGroupEvidence::playerFootGroup,
+		&DedicatedCoopEstablishedGroupEvidence::membersConsistent,
+		&DedicatedCoopEstablishedGroupEvidence::actorBetweenSectors})
+	{
+		auto group = valid;
+		group.*member = false;
+		Check(!DedicatedCoopEstablishedGroupConsistent(group),
+			"stale group identity, foreign/vehicle group, member mismatch, or transit mismatch fails");
+	}
+	for (std::size_t count : {0u, 3u, 5u})
+	{
+		auto group = valid;
+		group.observedMembers = count;
+		Check(!DedicatedCoopEstablishedGroupConsistent(group),
+			"native group membership must match the exact declared size");
+	}
+	for (std::size_t count : {0u, 2u})
+	{
+		auto group = valid;
+		group.actorMatches = count;
+		Check(!DedicatedCoopEstablishedGroupConsistent(group),
+			"the actor must occur exactly once in its native group");
+		group = valid;
+		group.arrivalEvents = count;
+		Check(!DedicatedCoopEstablishedGroupConsistent(group),
+			"missing or duplicate arrival events cannot be silently repaired");
+	}
+	for (std::uint32_t arrival : {0u, 1000u,
+		std::numeric_limits<std::uint32_t>::max() / 60u + 1u})
+	{
+		auto group = valid;
+		group.arrivalMinutes = arrival;
+		Check(!DedicatedCoopEstablishedGroupConsistent(group),
+			"zero, overdue, or overflowing travel arrival time fails closed");
+	}
+	auto group = valid;
+	group.nextX = 10;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"a pending native next-sector movement must be orthogonally adjacent");
+	group = valid;
+	group.matchingArrivalEvents = 0;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"one malformed arrival is not equivalent to one valid arrival");
+	group = valid;
+	group.worldSeconds = group.arrivalMinutes * 60u;
+	Check(DedicatedCoopEstablishedGroupConsistent(group),
+		"an arrival due exactly at the paused boundary remains pending without being executed");
+	group = valid;
+	group.traverseMinutes = 0;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"travel requires a nonzero native traversal duration");
+	group = valid;
+	group.traverseMinutes = std::numeric_limits<std::uint32_t>::max();
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"the native impassable movement sentinel is not a valid travel duration");
+	group = valid;
+	group.z = 1;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"this extension does not authorize underground tactical traversal resumes");
+	group = valid;
+	group.delayedHiringEvents = 1;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"ordinary strategic travel cannot retain a contradictory initial hiring event");
+	group = valid;
+	group.betweenSectors = group.actorBetweenSectors = false;
+	Check(!DedicatedCoopEstablishedGroupConsistent(group),
+		"stationary actors cannot retain a pending group-arrival event");
+	group.arrivalEvents = group.matchingArrivalEvents = 0;
+	Check(DedicatedCoopEstablishedGroupConsistent(group),
+		"stationary groups may retain harmless historical travel fields without events");
+}
+
+void TestEstablishedArrivalEventIdentity()
+{
+	Check(DedicatedCoopEstablishedArrivalMatches(7, 7, 120000, 2000, true, 0, 0),
+		"exact one-time native arrival identity and minute-to-second conversion match");
+	Check(DedicatedCoopEstablishedArrivalTargetsGroup(263, 7) &&
+		!DedicatedCoopEstablishedArrivalMatches(263, 7, 120000, 2000, true, 0, 0),
+		"high parameter bits alias the native callback but cannot satisfy exact group identity");
+	Check(!DedicatedCoopEstablishedArrivalTargetsGroup(7, 0) &&
+		!DedicatedCoopEstablishedArrivalTargetsGroup(7, 263) &&
+		!DedicatedCoopEstablishedArrivalMatches(0, 0, 120000, 2000, true, 0, 0),
+		"group identity cannot be absent or outside the native one-byte domain");
+	Check(!DedicatedCoopEstablishedArrivalMatches(7, 7, 120001, 2000, true, 0, 0) &&
+		!DedicatedCoopEstablishedArrivalMatches(7, 7, 120000, 2000, false, 0, 0) &&
+		!DedicatedCoopEstablishedArrivalMatches(7, 7, 120000, 2000, true, 1, 0) &&
+		!DedicatedCoopEstablishedArrivalMatches(7, 7, 120000, 2000, true, 0, 2),
+		"wrong timestamp, queued/repeating event, delay, or pending-deletion flag fails exact arrival proof");
 }
 
 void TestCampaignReadyGatherGate()
@@ -395,6 +893,13 @@ int main()
 	TestFailClosedWithoutPartialRoster();
 	TestMalformedAndUnrepresentableInput();
 	TestColdStarterCampaignClassification();
+	TestEstablishedResumeRequiresCompleteCohort();
+	TestPendingAimHirePolicy();
+	TestEstablishedPendingHireCohort();
+	TestCompletedDeathPendingHireCohort();
+	TestLivingWoundedRosterPolicy();
+	TestEstablishedGroupTravelConsistency();
+	TestEstablishedArrivalEventIdentity();
 	TestCampaignReadyGatherGate();
 	TestEstablishedSectorSelection();
 	TestEstablishedSectorSelectionFailsClosed();

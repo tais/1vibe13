@@ -1,9 +1,14 @@
 #include "DedicatedCoopMissionBootstrap.h"
+#include "Soldier Profile Constants.h"
 
 #include "CampaignApplicationPolicy.h"
+#include "CampaignEventAdapter.h"
 #include "GameContext.h"
 #include "GameSettings.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalEntityHost.h"
+#include "StrategicGroupHost.h"
+#include "StrategicSquadHost.h"
 
 #include "AimFacialIndex.h"
 #include "Game Clock.h"
@@ -24,6 +29,7 @@
 #include "Soldier macros.h"
 #include "Tactical Save.h"
 #include "Assignments.h"
+#include "Strategic Movement.h"
 #include "aim.h"
 #include "finances.h"
 #include "history.h"
@@ -35,6 +41,7 @@
 #include "CoopAdmission.h"
 
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 
@@ -107,6 +114,281 @@ bool EligibleEstablishedActor(
 		x >= 1 && x <= 16 && y >= 1 && y <= 16 && z >= 0 && z <= 3 &&
 		GetSectorFlagStatus(x, y, static_cast<std::uint8_t>(z),
 			SF_ALREADY_VISITED) != FALSE;
+}
+
+bool ValidEstablishedRosterActor(
+	TacticalActor& actor, SoldierID expectedId) noexcept
+{
+	DedicatedCoopEstablishedActorEvidence evidence;
+	evidence.exactIdentity = actor.identity().id() == expectedId;
+	evidence.activePlayer = actor.roster().active() != FALSE &&
+		actor.roster().team() == gbPlayerNum;
+	const std::int8_t assignment = actor.assignment().current();
+	evidence.ordinarySquadAssignment = assignment >= 0 && assignment < ON_DUTY;
+	const std::uint32_t flags = actor.status().flags();
+	evidence.vehicleBody = (flags & SOLDIER_VEHICLE) != 0;
+	evidence.driver = (flags & SOLDIER_DRIVER) != 0;
+	evidence.passenger = (flags & SOLDIER_PASSENGER) != 0;
+	evidence.airborne = SoldierAboardAirborneHeli(&actor) != FALSE;
+	// TrashWorld leaves player inSector flags as historical actor state. The
+	// enclosing campaign classifier, not that flag, proves no world is loaded.
+	evidence.life = actor.vitals().health();
+	evidence.maximumLife = actor.vitals().maximumHealth();
+	evidence.x = actor.deployment().sectorX();
+	evidence.y = actor.deployment().sectorY();
+	evidence.z = actor.deployment().sectorZ();
+	if (evidence.x >= 1 && evidence.x <= 16 &&
+		evidence.y >= 1 && evidence.y <= 16 && evidence.z >= 0 && evidence.z <= 3)
+		evidence.visitedSector = GetSectorFlagStatus(evidence.x, evidence.y,
+			static_cast<std::uint8_t>(evidence.z), SF_ALREADY_VISITED) != FALSE;
+	return DedicatedCoopEstablishedRosterActorEligible(evidence);
+}
+
+bool ValidEstablishedRosterGroup(TacticalActor& actor) noexcept
+{
+	const std::uint8_t groupSlot = actor.deployment().groupId();
+	const StrategicGroupId identity = GetJa2StrategicGroupId(groupSlot);
+	GROUP* const group = ResolveJa2StrategicGroup(identity);
+	if (!group) return false;
+	DedicatedCoopEstablishedGroupEvidence evidence;
+	evidence.identityValid = identity.valid() && identity.slot == groupSlot &&
+		group->ubGroupID == groupSlot;
+	evidence.playerFootGroup = group->usGroupTeam == gbPlayerNum &&
+		group->fVehicle == FALSE;
+	// pPlayerList shares storage with pEnemyGroup. Never interpret that union
+	// until the exact live group has been proved to belong to the player team.
+	if (!evidence.identityValid || !evidence.playerFootGroup) return false;
+	evidence.declaredMembers = group->ubGroupSize;
+	evidence.x = group->ubSectorX;
+	evidence.y = group->ubSectorY;
+	evidence.z = static_cast<std::int8_t>(group->ubSectorZ);
+	evidence.nextX = group->ubNextX;
+	evidence.nextY = group->ubNextY;
+	evidence.betweenSectors = group->fBetweenSectors != FALSE;
+	evidence.actorBetweenSectors = actor.deployment().isBetweenSectors();
+	evidence.traverseMinutes = group->uiTraverseTime;
+	evidence.arrivalMinutes = group->uiArrivalTime;
+	evidence.worldSeconds = GetWorldTotalSeconds();
+	evidence.membersConsistent = true;
+	std::array<TacticalEntityId, MaximumDedicatedCoopEstablishedSectorCandidates>
+		members{};
+	for (const PLAYERGROUP* member = group->pPlayerList;
+		member != nullptr; member = member->next)
+	{
+		if (evidence.observedMembers == members.size()) return false;
+		const TacticalEntityId memberId = GetPlayerGroupMemberActor(member);
+		TacticalActor* const resolved = ResolvePlayerGroupMember(member);
+		if (!memberId.valid() || !resolved ||
+			std::find(members.begin(), members.begin() + evidence.observedMembers,
+				memberId) != members.begin() + evidence.observedMembers)
+			return false;
+		members[evidence.observedMembers++] = memberId;
+		if (resolved == &actor) ++evidence.actorMatches;
+		if (!ValidEstablishedRosterActor(*resolved, resolved->identity().id()) ||
+			resolved->identity().id() < gTacticalStatus.Team[gbPlayerNum].bFirstID ||
+			resolved->identity().id() > gTacticalStatus.Team[gbPlayerNum].bLastID ||
+			member->ubProfileID != resolved->identity().profile() ||
+			resolved->assignment().current() != actor.assignment().current() ||
+			resolved->deployment().groupId() != groupSlot ||
+			resolved->deployment().sectorX() != evidence.x ||
+			resolved->deployment().sectorY() != evidence.y ||
+			resolved->deployment().sectorZ() != evidence.z ||
+			resolved->deployment().isBetweenSectors() != evidence.betweenSectors)
+			evidence.membersConsistent = false;
+	}
+	for (const STRATEGICEVENT* event = GetStrategicEventListHead();
+		event != nullptr; event = event->next)
+	{
+		// The native callbacks narrow their parameters. Count aliases and all
+		// event types/flags, including pending deletion, as contradictions rather
+		// than letting a malformed second arrival evade the exact-match check.
+		if (event->ubCallbackID == EVENT_GROUP_ARRIVAL &&
+			DedicatedCoopEstablishedArrivalTargetsGroup(event->uiParam, groupSlot))
+		{
+			++evidence.arrivalEvents;
+			if (DedicatedCoopEstablishedArrivalMatches(event->uiParam, groupSlot,
+				event->uiTimeStamp, evidence.arrivalMinutes,
+				event->ubEventType == ONETIME_EVENT, event->uiTimeOffset,
+				event->ubFlags))
+				++evidence.matchingArrivalEvents;
+		}
+		if (event->ubCallbackID == EVENT_DELAYED_HIRING_OF_MERC &&
+			static_cast<std::uint16_t>(event->uiParam) == actor.identity().id().i)
+			++evidence.delayedHiringEvents;
+	}
+	return DedicatedCoopEstablishedGroupConsistent(evidence);
+}
+
+bool PendingAimHireHasNoNativeMembership(const TacticalActor& actor) noexcept
+{
+	const std::uint16_t slot = actor.identity().id().i;
+	for (std::size_t squad = 0; squad < kJa2StrategicSquadCount; ++squad)
+		for (std::size_t member = 0; member < kJa2StrategicSquadCapacity; ++member)
+		{
+			const auto identity = GetJa2StrategicSquadActor(squad, member);
+			if (identity.valid() && identity.slot == slot) return false;
+		}
+	std::size_t groups = 0;
+	for (const GROUP* group = gpGroupList; group; group = group->next)
+	{
+		// IDs are uint8 and zero is reserved. This also bounds malformed cycles.
+		if (++groups > 255) return false;
+		// pPlayerList shares storage with the enemy group payload.
+		if (group->usGroupTeam != OUR_TEAM) continue;
+		std::size_t members = 0;
+		for (const PLAYERGROUP* member = group->pPlayerList; member; member = member->next)
+		{
+			if (++members > MaximumDedicatedCoopEstablishedSectorCandidates) return false;
+			const auto identity = GetPlayerGroupMemberActor(member);
+			// A stale incarnation for the same reusable slot is contradictory too.
+			if (identity.slot == slot) return false;
+		}
+	}
+	return true;
+}
+
+bool ValidCompletedRosterDeath(TacticalActor& actor, std::size_t slot) noexcept
+{
+	DedicatedCoopCompletedDeathEvidence evidence;
+	const TacticalEntityId identity = GetJa2TacticalEntityId(actor);
+	evidence.exactIdentity = identity.valid() && ResolveJa2TacticalEntity(identity) == &actor &&
+		actor.identity().id().i == slot && GetJa2SoldierRepository().contains(slot, actor);
+	evidence.activePlayer = actor.roster().active() && actor.roster().team() == OUR_TEAM &&
+		slot >= gTacticalStatus.Team[OUR_TEAM].bFirstID.i &&
+		slot <= gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+	const auto profileId = actor.identity().profile();
+	evidence.realProfile = profileId < NUM_PROFILES && profileId != NO_PROFILE;
+	if (evidence.realProfile)
+	{
+		const auto& profile = gMercProfiles[profileId];
+		evidence.profileDead = profile.bMercStatus == MERC_IS_DEAD;
+		evidence.humanBody = actor.identity().bodyType() <= REGFEMALE &&
+			actor.identity().bodyType() == profile.ubBodyType;
+	}
+	evidence.deathAssignment = actor.assignment().current() == ASSIGNMENT_DEAD;
+	evidence.deathFlag = (actor.status().flags() & SOLDIER_DEAD) != 0;
+	evidence.deathUiComplete = !actor.uiPresentation().deadMercUiPending() &&
+		!actor.uiPresentation().panelClosingForDeath();
+	evidence.unsupportedRole = (actor.status().flags() &
+		(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) != 0;
+	evidence.airborne = SoldierAboardAirborneHeli(&actor) != FALSE;
+	evidence.betweenSectors = actor.deployment().isBetweenSectors();
+	evidence.life = actor.vitals().health(); evidence.maximumLife = actor.vitals().maximumHealth();
+	evidence.breath = actor.vitals().breath(); evidence.maximumBreath = actor.vitals().maximumBreath();
+	evidence.contractEndMinute = actor.employment().endTime();
+	evidence.groupSlot = actor.deployment().groupId();
+	evidence.x = actor.deployment().sectorX(); evidence.y = actor.deployment().sectorY();
+	evidence.z = actor.deployment().sectorZ();
+	if (evidence.x >= 1 && evidence.x <= 16 && evidence.y >= 1 && evidence.y <= 16 &&
+		evidence.z >= 0 && evidence.z <= 3)
+		evidence.visitedSector = GetSectorFlagStatus(evidence.x, evidence.y,
+			static_cast<std::uint8_t>(evidence.z), SF_ALREADY_VISITED) != FALSE;
+	// Historical sDeadMercs profile entries are intentional. Only exact or stale
+	// same-slot references in live squad/player-group membership are forbidden.
+	evidence.noLiveMembership = PendingAimHireHasNoNativeMembership(actor);
+	return DedicatedCoopCompletedDeathEligible(evidence);
+}
+
+void InspectEstablishedPendingAimHires(
+	DedicatedCoopStarterCampaignEvidence& campaign) noexcept
+{
+	auto& repository = GetJa2SoldierRepository();
+	const std::size_t first = gTacticalStatus.Team[OUR_TEAM].bFirstID.i;
+	const std::size_t last = gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+	std::array<std::size_t, NUM_PROFILES> activeProfiles{};
+	campaign.pendingHireCohortConsistent = true;
+	for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
+	{
+		auto* actor = repository.resolve(slot);
+		if (!actor || !actor->roster().active()) continue;
+		const std::uint8_t profileId = actor->identity().profile();
+		const bool realProfile = profileId < NUM_PROFILES && profileId != NO_PROFILE;
+		if (realProfile && ++activeProfiles[profileId] != 1)
+			campaign.pendingHireCohortConsistent = false;
+		const bool inPlayerSlots = slot >= first && slot <= last;
+		if (actor->roster().team() == OUR_TEAM && !inPlayerSlots)
+			campaign.pendingHireCohortConsistent = false;
+		// A contradictory death marker must not pass as a healthy ordinary actor.
+		// This tightens only the pending-hire cohort, not historical mixed resumes.
+		const bool playerDeath = (inPlayerSlots || actor->roster().team() == OUR_TEAM) &&
+			(actor->vitals().health() == 0 || (actor->status().flags() & SOLDIER_DEAD) != 0 ||
+			 actor->assignment().current() == ASSIGNMENT_DEAD ||
+			 actor->uiPresentation().deadMercUiPending() || actor->uiPresentation().panelClosingForDeath() ||
+			 (realProfile && gMercProfiles[profileId].bMercStatus == MERC_IS_DEAD));
+		if (playerDeath)
+		{
+			if (ValidCompletedRosterDeath(*actor, slot)) ++campaign.validCompletedDeadMercs;
+			else campaign.pendingHireCohortConsistent = false;
+		}
+		const bool profileAwaiting = realProfile &&
+			gMercProfiles[profileId].bMercStatus == MERC_HIRED_BUT_NOT_ARRIVED_YET;
+		if (!profileAwaiting &&
+			!((inPlayerSlots || actor->roster().team() == OUR_TEAM) &&
+			  actor->assignment().current() == IN_TRANSIT)) continue;
+		++campaign.observedPendingHireActors;
+		if (!PendingAimHireHasNoNativeMembership(*actor))
+			campaign.pendingHireCohortConsistent = false;
+		DedicatedCoopPendingAimHireEvidence evidence;
+		const TacticalEntityId identity = GetJa2TacticalEntityId(*actor);
+		evidence.exactIdentity = identity.valid() &&
+			ResolveJa2TacticalEntity(identity) == actor &&
+			actor->identity().id().i == slot && repository.contains(slot, *actor);
+		evidence.activePlayer = inPlayerSlots && actor->roster().team() == OUR_TEAM;
+		evidence.profileAwaitingArrival = profileAwaiting;
+		evidence.inTransit = actor->assignment().current() == IN_TRANSIT;
+		evidence.inSector = actor->roster().inSector() != FALSE;
+		evidence.betweenSectors = actor->deployment().isBetweenSectors();
+		evidence.unsupportedRole = (actor->status().flags() &
+			(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) != 0;
+		evidence.life = actor->vitals().health();
+		evidence.maximumLife = actor->vitals().maximumHealth();
+		evidence.contractDays = actor->employment().totalLength();
+		evidence.contractEndMinute = actor->employment().endTime();
+		evidence.timeCanSignElsewhere = actor->employment().timeCanSignElsewhere();
+		evidence.contractTypeMatches = actor->employment().mercenaryType() == MERC_TYPE__AIM_MERC &&
+			actor->employment().lastContractType() ==
+				(evidence.contractDays == 1 ? CONTRACT_EXTEND_1_DAY :
+				 evidence.contractDays == 7 ? CONTRACT_EXTEND_1_WEEK : CONTRACT_EXTEND_2_WEEK);
+		evidence.insuranceReset = actor->employment().insuranceStartDay() == 0 &&
+			actor->employment().insuranceLengthDays() == 0;
+		evidence.x = actor->deployment().sectorX();
+		evidence.y = actor->deployment().sectorY();
+		evidence.z = actor->deployment().sectorZ();
+		evidence.landingX = gsMercArriveSectorX;
+		evidence.landingY = gsMercArriveSectorY;
+		evidence.groupSlot = actor->deployment().groupId();
+		evidence.usesLandingZone = actor->deployment().usesLandingZoneForArrival();
+		evidence.arrivingGameInsertion = actor->deployment().strategicInsertionCode() ==
+			INSERTION_CODE_ARRIVING_GAME && actor->deployment().strategicInsertionData() == 0;
+		evidence.arrivalMinute = actor->deployment().arrivalTime();
+		evidence.worldSeconds = GetWorldTotalSeconds();
+		if (realProfile)
+		{
+			const auto& profile = gMercProfiles[profileId];
+			evidence.aimProfile = profile.Type == PROFILETYPE_AIM;
+			evidence.humanBody = profile.ubBodyType <= REGFEMALE &&
+				actor->identity().bodyType() == profile.ubBodyType;
+			evidence.medicalDepositMatches = actor->employment().medicalDeposit() ==
+				profile.sMedicalDepositAmount;
+		}
+		for (const STRATEGICEVENT* event = GetStrategicEventListHead();
+			event != nullptr; event = event->next)
+		{
+			if (event->ubCallbackID != EVENT_DELAYED_HIRING_OF_MERC ||
+				static_cast<std::uint16_t>(event->uiParam) != slot) continue;
+			++evidence.arrivalEvents;
+			if (event->uiParam == slot &&
+				evidence.arrivalMinute <= std::numeric_limits<std::uint32_t>::max() / NUM_SEC_IN_MIN &&
+				event->uiTimeStamp == evidence.arrivalMinute * NUM_SEC_IN_MIN &&
+				event->ubEventType == ONETIME_EVENT && event->uiTimeOffset == 0 && event->ubFlags == 0)
+				++evidence.matchingArrivalEvents;
+		}
+		if (DedicatedCoopPendingAimHireEligible(evidence))
+			++campaign.validPendingAimHireActors;
+	}
+	// The classifier compares the entire delayed-event count with this cohort.
+	// An orphan, including a narrowed alias or an event for a normal squad
+	// actor, therefore cannot be hidden by an otherwise healthy stationary merc.
 }
 
 bool CalculateHireCharge(
@@ -186,6 +468,19 @@ InspectDedicatedCoopStarterCampaign() noexcept
 {
 	try
 	{
+		auto& repository = GetJa2SoldierRepository();
+		if (gbPlayerNum != OUR_TEAM || !GetJa2CampaignEventQueue().validate())
+			return DedicatedCoopStarterCampaignState::Ineligible;
+		const std::size_t first = gTacticalStatus.Team[OUR_TEAM].bFirstID.i;
+		const std::size_t last = gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+		if (first > last || last >= repository.capacity() || last >= TOTAL_SOLDIERS)
+			return DedicatedCoopStarterCampaignState::Ineligible;
+		for (std::size_t slot = first; slot <= last; ++slot)
+		{
+			const auto* actor = repository.resolve(slot);
+			if (!actor || !repository.contains(slot, *actor))
+				return DedicatedCoopStarterCampaignState::Ineligible;
+		}
 		DedicatedCoopStarterCampaignEvidence evidence;
 		evidence.gameJustStarted =
 			gTacticalStatus.fDidGameJustStart != FALSE;
@@ -214,6 +509,8 @@ InspectDedicatedCoopStarterCampaign() noexcept
 		{
 			TacticalActor* const actor = GetJa2SoldierRepository().resolve(id);
 			if (actor == nullptr || actor->roster().active() == FALSE) continue;
+			if (actor->deployment().isBetweenSectors())
+				++evidence.travelingEstablishedMercs;
 			if (actor->roster().team() != gbPlayerNum ||
 				(actor->status().flags() & SOLDIER_VEHICLE) != 0)
 			{
@@ -223,6 +520,12 @@ InspectDedicatedCoopStarterCampaign() noexcept
 			if (EligibleEstablishedActor(*actor, id))
 			{
 				++evidence.validEstablishedMercs;
+			}
+			if (!evidence.gameJustStarted && !evidence.initialWorldTime &&
+				ValidEstablishedRosterActor(*actor, id) &&
+				ValidEstablishedRosterGroup(*actor))
+			{
+				++evidence.validEstablishedRosterMercs;
 			}
 			if (inspectedActors == DedicatedCoopStarterRosterSize) continue;
 			const std::uint8_t profileId = actor->identity().profile();
@@ -283,6 +586,8 @@ InspectDedicatedCoopStarterCampaign() noexcept
 		for (std::size_t index = 0; index < inspectedActors; ++index)
 			if (eventMatches[index] == 1)
 				++evidence.matchedPreparedEvents;
+		if (!evidence.gameJustStarted && !evidence.initialWorldTime)
+			InspectEstablishedPendingAimHires(evidence);
 
 		return ClassifyDedicatedCoopStarterCampaign(evidence);
 	}
@@ -305,6 +610,8 @@ const char* DedicatedCoopStarterCampaignStateName(
 			return "prepared-initial";
 		case DedicatedCoopStarterCampaignState::EstablishedCold:
 			return "established-cold";
+		case DedicatedCoopStarterCampaignState::EstablishedStrategicCold:
+			return "established-strategic-cold";
 	}
 	return "unknown";
 }

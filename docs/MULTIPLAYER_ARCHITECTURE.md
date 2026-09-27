@@ -1152,3 +1152,19 @@ Every milestone requires data-free model/codec tests plus a separate
 installed-data end-to-end certification for the behavior it claims. The current
 process smoke covers create/Ready/reconnect/checkpoint/resume only; building and
 packaging the server is not proof that a milestone is fully playable.
+
+### Cold resume with established campaign cohorts
+
+Resume can classify a completely validated traveling or wounded on-foot squad
+as strategic-only. An established paid A.I.M. hire requires its exact identity,
+canonical contract and insertion state, unique active profile, and exactly one
+matching delayed arrival event. Completed native deaths can replace ordinary
+roster members, even the last living member, while that paid arrival is pending.
+The classifier rejects orphan/aliased events, hidden squad or group membership,
+incomplete death cleanup, malformed contracts and unsupported POW/vehicle/duty
+cohorts. Inspection never executes an arrival or repairs save state.
+
+These campaigns resume with time stopped and no automatic tactical launch.
+Existing initial roster creation and stationary mixed-roster classification
+keep their prior behavior. Campaign actions and pending-arrival presentation
+are separate runtime integration work.

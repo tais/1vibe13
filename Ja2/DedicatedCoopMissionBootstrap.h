@@ -41,8 +41,19 @@ struct DedicatedCoopMissionPreparationResult
 // Observational classification used when opening a cold checkpoint. Prepared
 // means the complete seven-day A.I.M. roster is still in transit and every
 // actor has exactly one matching normal delayed-hiring event; established
-// means a non-initial, world-free campaign still has a live player merc. No
-// state is changed while classifying.
+// means a non-initial, world-free campaign retains its existing launchable
+// stationary merc. Mixed stationary rosters keep that historical support.
+// EstablishedStrategicCold separately permits a completely validated living
+// on-foot squad roster without automatic tactical launch while any member is
+// traveling or none is tactically eligible (for example, all are wounded below
+// OKLIFE). It also accepts that complete ordinary roster alongside established
+// pending A.I.M. hires, only with exact actor identities, canonical employment
+// and insertion state, unique active profiles and one exact delayed event per
+// pending actor. Exact completed native deaths can replace ordinary roster
+// members, including the last living squad member. Orphan events activate the
+// same strict validation. Pending-only, vehicle, duty and POW mixed cohorts
+// remain unsupported by this extension.
+// No state, group, event, or clock is changed while classifying.
 DedicatedCoopStarterCampaignState
 InspectDedicatedCoopStarterCampaign() noexcept;
 
