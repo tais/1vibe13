@@ -9284,7 +9284,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 (void)TacticalActorOrientation::changeStance(*pSoldier, ubNewStance );
 
                 pSoldier->animationActivity().suppressionStanceChange() = TRUE;
-                pSoldier->animationActivity().stanceCostWaived() = TRUE;
+                // The synchronous transition already charged the stance cost
+                // removed from sPointsLost above. A waiver here would leak
+                // into the next unrelated player or AI stance change.
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier

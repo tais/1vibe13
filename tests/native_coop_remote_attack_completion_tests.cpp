@@ -24,6 +24,8 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationState.h"
 #include "TacticalActorInterrupts.h"
+#include "TacticalActorOrientation.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInterruptHost.h"
 #include "TacticalWorldAdapter.h"
@@ -61,7 +63,8 @@ int main(int argc, char** argv)
 {
     const bool pointsOnly = argc == 2 && std::strcmp(argv[1], "--points-only") == 0;
     const bool attackLifecycle = argc == 2 && std::strcmp(argv[1], "--attack-lifecycle") == 0;
-    if (argc > 2 || (argc == 2 && !pointsOnly && !attackLifecycle)) return 2;
+    const bool suppressionStance = argc == 2 && std::strcmp(argv[1], "--suppression-stance") == 0;
+    if (argc > 2 || (argc == 2 && !pointsOnly && !attackLifecycle && !suppressionStance)) return 2;
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     CHECK(InstallGameSimulationRandom(20260922) == GameSimulationRandomInstallError::None,
         "native deterministic RNG installed");
@@ -140,6 +143,77 @@ int main(int argc, char** argv)
     CHECK(CreateItem(5, 100, &target.inventory()[HANDPOS]), "target carries a real native ordinary gun object");
     const INT16 readyCost = GetAPsToReadyWeapon(&target, READY_RIFLE_STAND);
     CHECK(readyCost > 0, "native ready-weapon rule computes a positive AP cost");
+
+    if (suppressionStance)
+    {
+        const AnimationSurfaceType retainedSurface = gAnimSurfaceDatabase[0];
+        ETRLEObject frames[8]{}; SGPVObject video{};
+        video.usNumberOfObjects = 8; video.pETRLEObject = frames;
+        gAnimSurfaceDatabase[0].hVideoObject = &video;
+        gAnimSurfaceDatabase[0].uiNumDirections = 8; gAnimSurfaceDatabase[0].uiNumFramesPerDir = 1;
+        gAnimSurfaceDatabase[0].bStructDataType = NO_STRUCT; gAnimSurfaceDatabase[0].bProfile = -1;
+        for (UINT16 animation : {UINT16(STANDING), UINT16(CROUCHING), UINT16(PRONE),
+            UINT16(KNEEL_DOWN), UINT16(KNEEL_UP), UINT16(PRONE_DOWN), UINT16(PRONE_UP)})
+        {
+            gubAnimSurfaceIndex[REGMALE][animation] = 0;
+            gubAnimSurfaceItemSubIndex[REGMALE][animation] = INVALID_ANIMATION;
+        }
+        APBPConstants[AP_CROUCH] = 6; APBPConstants[AP_PRONE] = 8;
+        APBPConstants[AP_SUPPRESSION_MOD] = 100;
+        APBPConstants[AP_MAX_SUPPRESSED] = 20;
+        APBPConstants[AP_MAX_TURN_SUPPRESSED] = 100;
+        APBPConstants[AP_LOST_PER_MORALE_DROP] = 0;
+        gGameExternalOptions.sSuppressionEffectiveness = 100;
+        gGameExternalOptions.usSuppressionEffectivenessPlayer = 100;
+        gGameExternalOptions.fNewSuppressionCode = FALSE;
+        gGameExternalOptions.ubMaxSuppressionShock = 0;
+        gGameExternalOptions.usSuppressionShockEffect = 0;
+        gGameExternalOptions.ubSuppressionToleranceMin = 0;
+        gGameExternalOptions.ubSuppressionToleranceMax = 20;
+        gGameExternalOptions.fFriendliesAffectTolerance = FALSE;
+        shooter.status().flags() |= SOLDIER_PC;
+        shooter.awareness().visibility() = -1;
+        for (auto& knowledge : shooter.awareness().opponentKnowledge()) knowledge = NOT_HEARD_OR_SEEN;
+        selected.targeting().targetId() = NOBODY;
+        CHECK(AddJa2ActiveTacticalActor(GetJa2TacticalEntityId(shooter)) >= 0,
+            "suppressed actor is in the real active roster");
+        for (const UINT16 initial : {UINT16(STANDING), UINT16(CROUCHING)})
+        {
+            shooter.animationPlayback().state() = initial;
+            shooter.animationActivity().clearInterruptibility();
+            shooter.actionPoints().current() = 100;
+            shooter.suppression().beginTurn();
+            shooter.suppression().points() = 8;
+            CHECK(BeginJa2TacticalCombatAction(), "real attack completion owns the suppression calculation");
+            (void)ReduceAttackBusyCount();
+            const bool crouching = initial == STANDING;
+            CHECK(shooter.animationPlayback().state() == (crouching ? KNEEL_DOWN : PRONE_DOWN),
+                "native suppression selects and starts its ordinary stance transition");
+            CHECK(shooter.actionPoints().current() == 80,
+                "native suppression includes the transition in its 20 AP penalty exactly once");
+            CHECK(GetJa2PendingTacticalCombatActions() == 1 && shooter.animationActivity().suppressionStanceChange(),
+                "suppression holds the native action until its animation finishes");
+            CHECK(TacticalActorAnimationTransitions::initializeAnimation(shooter, crouching ? CROUCHING : PRONE, 0, FALSE),
+                "native transition to stationary stance completes suppression");
+            CHECK(GetJa2PendingTacticalCombatActions() == 0 && !shooter.animationActivity().suppressionStanceChange(),
+                "ordinary animation completion releases the suppression action");
+            CHECK(!shooter.animationActivity().stanceCostWaived(),
+                "completed suppression cannot leave a waiver for a later player action");
+            const INT16 cost = crouching ? GetAPsCrouch(&shooter, TRUE * 2) : GetAPsProne(&shooter, TRUE * 2);
+            const INT16 before = shooter.actionPoints().current();
+            CHECK(TacticalActorOrientation::changeStance(shooter, crouching ? ANIM_STAND : ANIM_CROUCH),
+                "player-requested rise uses the native stance service");
+            CHECK(cost > 0 && shooter.actionPoints().current() == before - cost,
+                "later player stance change spends its complete native AP cost");
+            CHECK(shooter.animationPlayback().state() == (crouching ? KNEEL_UP : PRONE_UP),
+                "player action starts the actual rise animation");
+        }
+        shooter.animationCache().reset();
+        gAnimSurfaceDatabase[0] = retainedSurface;
+        MemFree(gubWorldMovementCosts); gubWorldMovementCosts = nullptr; ReleaseWorldTileMap();
+        std::printf("Native suppression stance cost: %s\n", failures ? "FAIL" : "PASS");
+        return failures ? 1 : 0;
+    }
 
     if (attackLifecycle)
     {
