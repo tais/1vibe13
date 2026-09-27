@@ -624,6 +624,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   target_link_libraries(native_sector_label_tests PRIVATE ${campaign_aim_native_libraries})
   add_test(NAME native_sector_label COMMAND native_sector_label_tests)
   add_dependencies(ja2_headless_tests native_sector_label_tests)
+
+  # A native window swap must not leave a projectile using freed structure data.
+  add_executable(native_bullet_window_tests tests/native_bullet_window_tests.cpp)
+  target_compile_definitions(native_bullet_window_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_bullet_window_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_bullet_window COMMAND native_bullet_window_tests)
+  add_dependencies(ja2_headless_tests native_bullet_window_tests)
   add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
   target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
   target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
