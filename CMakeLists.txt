@@ -629,7 +629,8 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_coop_remote_attack_completion_points COMMAND native_coop_remote_attack_completion_tests --points-only)
   add_test(NAME native_coop_attack_lifecycle COMMAND native_coop_remote_attack_completion_tests --attack-lifecycle)
   add_test(NAME native_coop_suppression_stance_cost COMMAND native_coop_remote_attack_completion_tests --suppression-stance)
-  set_tests_properties(native_coop_remote_attack_completion native_coop_remote_attack_completion_points native_coop_attack_lifecycle native_coop_suppression_stance_cost PROPERTIES TIMEOUT 30)
+  add_test(NAME native_coop_stance_command COMMAND native_coop_remote_attack_completion_tests --stance-command)
+  set_tests_properties(native_coop_remote_attack_completion native_coop_remote_attack_completion_points native_coop_attack_lifecycle native_coop_suppression_stance_cost native_coop_stance_command PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_coop_remote_attack_completion_tests)
   # SimulationRandom installation is process-lifetime state. Run the strict
   # checkpoint coordinator in a fresh process before any legacy RNG accessor

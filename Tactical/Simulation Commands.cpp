@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationState.h"
 #include "TacticalActorEvents.h"
 #include "TacticalActorPendingActionTypes.h"
 #include "TacticalActorStateFlags.h"
@@ -1433,6 +1434,22 @@ namespace
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 					{
+						if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						{
+							// Remote player input bypasses ChangeSoldierStance's UI
+							// preflight. Recheck the complete native cost here, before
+							// the first step of a possible prone-to-standing rise.
+							if (soldier->animationPlayback().state() >= NUMANIMATIONSTATES ||
+								soldier->animationActivity().nonInterruptible() ||
+								!TacticalActorMobility::isValidStance(*soldier, value.stance))
+								return CommandDisposition::Discard;
+							const INT16 cost = GetAPsToChangeStance(soldier, value.stance);
+							if (cost < 0 || !EnoughPoints(soldier, cost, 0, FALSE))
+								return CommandDisposition::Discard;
+							// An explicit player posture is not a continuation of a
+							// movement turn's already-paid prone transition.
+							soldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
+						}
 						// Some received and scripted actions deliberately bypass
 						// outbound replication while retaining the same local
 						// stance transition.
