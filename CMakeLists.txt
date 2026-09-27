@@ -579,6 +579,8 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+  add_test(NAME ja2_headless_dedicated_coop_resume_classifier
+    COMMAND ja2_headless_tests --dedicated-coop-resume-classifier)
   # Read native actor/lighting projection without initializing SDL, faces or
   # installed assets; RNG installation needs its own fresh process.
   add_test(NAME ja2_headless_authoritative_render_capture
@@ -608,6 +610,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
 
   # Real native event failures must stop co-op frames and preserve legacy scopes.
+  # Exact native death cleanup followed by read-only cold roster inspection.
+  add_executable(native_coop_pending_hire_death_tests tests/native_coop_pending_hire_death_tests.cpp)
+  target_compile_definitions(native_coop_pending_hire_death_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_pending_hire_death_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_pending_hire_death COMMAND native_coop_pending_hire_death_tests)
+  add_dependencies(ja2_headless_tests native_coop_pending_hire_death_tests)
+
   # The talking-face overlay has a 50-character sector label, not 60.
   add_executable(native_sector_label_tests tests/native_sector_label_tests.cpp)
   target_compile_definitions(native_sector_label_tests PRIVATE ${debugFlags})

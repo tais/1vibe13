@@ -1559,7 +1559,9 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		else if ((starterState !=
 					DedicatedCoopStarterCampaignState::PreparedInitial &&
 				starterState !=
-					DedicatedCoopStarterCampaignState::EstablishedCold) ||
+					DedicatedCoopStarterCampaignState::EstablishedCold &&
+				starterState !=
+					DedicatedCoopStarterCampaignState::EstablishedStrategicCold) ||
 			impl_->entry != DedicatedCoopCampaignEntry::Resume)
 		{
 			std::fprintf(stderr,
@@ -1576,10 +1578,21 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		{
 			return;
 		}
+		if (starterState ==
+			DedicatedCoopStarterCampaignState::EstablishedStrategicCold)
+		{
+			// A loaded checkpoint can retain an active compression rate. A
+			// traveling or wounded roster awaits an explicit time-leader request;
+			// reconnecting must not advance arrivals or other campaign events.
+			StopTimeCompression();
+			PauseGame();
+		}
 		impl_->starterMission = starterState ==
-			DedicatedCoopStarterCampaignState::EstablishedCold
-			? StarterMissionState::WaitingForEstablishedCampaignReadyPeer
-			: StarterMissionState::WaitingForCampaignReadyPeer;
+			DedicatedCoopStarterCampaignState::EstablishedStrategicCold
+			? StarterMissionState::StrategicIdle
+			: (starterState == DedicatedCoopStarterCampaignState::EstablishedCold
+				? StarterMissionState::WaitingForEstablishedCampaignReadyPeer
+				: StarterMissionState::WaitingForCampaignReadyPeer);
 		impl_->minimumControllableActors = 0;
 		impl_->starterPeerGatherDeadline = {};
 		impl_->campaignEntered = true;
