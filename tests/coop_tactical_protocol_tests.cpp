@@ -314,6 +314,58 @@ void TestReceiptCodec()
 		"a consumed maximum command may pair authority exhaustion with zero");
 }
 
+void TestNativeAttackInterruptionReceipt()
+{
+	CoopTacticalIntentReceipt value;
+	value.state = State(); value.peerIdentity = Identity(1);
+	value.commandId = 1; value.nextExpectedCommandId = 2;
+	value.status = CoopTacticalIntentReceiptStatus::Cancelled;
+	value.reason = CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
+	CoopTacticalIntentReceiptBytes bytes{};
+	CoopTacticalIntentReceipt decoded;
+	for (std::uint64_t sequence : {0ull, 9ull})
+	{
+		value.authoritativeSequence = sequence;
+		CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) == CoopTacticalCodecResult::Success &&
+			bytes[8] == 5 && bytes[9] == 21,
+			"native interruption encodes only as terminal cancellation with exact reason bytes");
+		CHECK(DecodeCoopTacticalIntentReceipt(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
+			decoded.status == value.status && decoded.reason == value.reason &&
+			decoded.authoritativeSequence == sequence && decoded.commandId == 1 && decoded.nextExpectedCommandId == 2,
+			"interrupted attack preserves its consumed cursor and native sequence, including sequence zero");
+	}
+	const auto canonical = bytes;
+	auto sentinel = value; sentinel.commandId = 97; sentinel.nextExpectedCommandId = 98;
+	CoopTacticalIntentReceiptBytes sentinelBytes{};
+	CHECK(EncodeCoopTacticalIntentReceipt(sentinel, sentinelBytes) == CoopTacticalCodecResult::Success,
+		"transactional receipt sentinel is valid");
+	const auto rejectsUnchanged = [&](const CoopTacticalIntentReceiptBytes& malformed) {
+		decoded = sentinel;
+		CHECK(DecodeCoopTacticalIntentReceipt(malformed.data(), malformed.size(), decoded) == CoopTacticalCodecResult::Invalid,
+			"illegal interruption status/reason is rejected on decode");
+		CoopTacticalIntentReceiptBytes retained{};
+		CHECK(EncodeCoopTacticalIntentReceipt(decoded, retained) == CoopTacticalCodecResult::Success && retained == sentinelBytes,
+			"failed interruption decode leaves the complete prior receipt unchanged");
+	};
+	for (unsigned status = 1; status != 5; ++status)
+	{
+		auto invalid = value; invalid.status = static_cast<CoopTacticalIntentReceiptStatus>(status);
+		// A zero execution sequence isolates Rejected's semantic constraint from
+		// its independent rule against claiming an executed nonzero sequence.
+		invalid.authoritativeSequence = 0;
+		CHECK(EncodeCoopTacticalIntentReceipt(invalid, bytes) == CoopTacticalCodecResult::Invalid && bytes == canonical,
+			"an interrupted native attack cannot encode as queued, applied, rejected or discarded");
+		auto malformed = canonical; malformed[8] = static_cast<std::uint8_t>(status);
+		std::fill(malformed.begin() + 80, malformed.begin() + 88, 0);
+		rejectsUnchanged(malformed);
+	}
+	auto invalid = value; invalid.reason = static_cast<CoopTacticalIntentReceiptReason>(22);
+	CHECK(EncodeCoopTacticalIntentReceipt(invalid, bytes) == CoopTacticalCodecResult::Invalid && bytes == canonical,
+		"next unknown receipt reason remains invalid without replacing encoded bytes");
+	auto malformed = canonical; malformed[9] = 22;
+	rejectsUnchanged(malformed);
+}
+
 void TestBaselineCodec()
 {
 	CoopTacticalBaseline baseline;
@@ -994,6 +1046,7 @@ int main()
 {
 	TestChecksum();
 	TestReceiptCodec();
+	TestNativeAttackInterruptionReceipt();
 	TestBaselineCodec();
 	TestBaselineAckCodec();
 	TestDeltaCodec();
