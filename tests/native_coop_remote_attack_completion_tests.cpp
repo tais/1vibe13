@@ -19,6 +19,7 @@
 #include "Soldier Profile Constants.h"
 #include "Soldier Ani.h"
 #include "SoldierRepository.h"
+#include "Simulation Commands.h"
 #include "Squads.h"
 #include "TacticalActor.h"
 #include "TacticalActorAnimationTransitions.h"
@@ -64,7 +65,8 @@ int main(int argc, char** argv)
     const bool pointsOnly = argc == 2 && std::strcmp(argv[1], "--points-only") == 0;
     const bool attackLifecycle = argc == 2 && std::strcmp(argv[1], "--attack-lifecycle") == 0;
     const bool suppressionStance = argc == 2 && std::strcmp(argv[1], "--suppression-stance") == 0;
-    if (argc > 2 || (argc == 2 && !pointsOnly && !attackLifecycle && !suppressionStance)) return 2;
+    const bool stanceCommand = argc == 2 && std::strcmp(argv[1], "--stance-command") == 0;
+    if (argc > 2 || (argc == 2 && !pointsOnly && !attackLifecycle && !suppressionStance && !stanceCommand)) return 2;
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     CHECK(InstallGameSimulationRandom(20260922) == GameSimulationRandomInstallError::None,
         "native deterministic RNG installed");
@@ -144,7 +146,7 @@ int main(int argc, char** argv)
     const INT16 readyCost = GetAPsToReadyWeapon(&target, READY_RIFLE_STAND);
     CHECK(readyCost > 0, "native ready-weapon rule computes a positive AP cost");
 
-    if (suppressionStance)
+    if (suppressionStance || stanceCommand)
     {
         const AnimationSurfaceType retainedSurface = gAnimSurfaceDatabase[0];
         ETRLEObject frames[8]{}; SGPVObject video{};
@@ -159,6 +161,68 @@ int main(int argc, char** argv)
             gubAnimSurfaceItemSubIndex[REGMALE][animation] = INVALID_ANIMATION;
         }
         APBPConstants[AP_CROUCH] = 6; APBPConstants[AP_PRONE] = 8;
+        if (stanceCommand)
+        {
+            CHECK(BindJa2SimulationCommandExecutor(game), "real native command executor binds");
+            shooter.status().flags() |= SOLDIER_PC;
+            target.awareness().opponentKnowledge()[shooter.identity().id()] = NOT_HEARD_OR_SEEN;
+            const auto id = GetJa2TacticalEntityId(shooter);
+            std::uint64_t frame = 0;
+            const auto dispatch = [&](UINT8 height, bool dedicated = true) {
+                BeginSimulationCommandFrameBudget(++frame, 1);
+                const auto result = TryDispatchSimulationCommandNow(SimulationCommand{ChangeStanceCommand{
+                    id, height, dedicated ? SimulationCommandSource::NetworkPeer : SimulationCommandSource::System,
+                    TacticalEventPolicy::LocalOnly, dedicated ? TacticalCommandAuthorityPolicy::DedicatedCoop :
+                        TacticalCommandAuthorityPolicy::Legacy}});
+                std::printf("Stance command: frame=%llu dedicated=%u height=%u status=%u animation=%u AP=%d\n",
+                    static_cast<unsigned long long>(frame), dedicated ? 1u : 0u, unsigned(height),
+                    unsigned(result.status), unsigned(shooter.animationPlayback().state()), int(shooter.actionPoints().current()));
+                return result;
+            };
+            const auto unchanged = [&](UINT16 animation, INT16 ap) {
+                return shooter.animationPlayback().state() == animation && shooter.actionPoints().current() == ap;
+            };
+            shooter.actionPoints().current() = 5;
+            CHECK(dispatch(ANIM_CROUCH).status == SimulationCommandDispatchStatus::Discarded && unchanged(STANDING, 5),
+                "server rejects a stance change the actor cannot afford before native mutation");
+            shooter.animationPlayback().state() = STANDING;
+            shooter.animationActivity().clearInterruptibility();
+            shooter.actionPoints().current() = 6;
+            CHECK(dispatch(ANIM_CROUCH).status == SimulationCommandDispatchStatus::Applied && unchanged(KNEEL_DOWN, 0),
+                "exact native stance cost is affordable and spent once");
+            CHECK(TacticalActorAnimationTransitions::initializeAnimation(shooter, CROUCHING, 0, FALSE),
+                "accepted crouch reaches its native stationary transition");
+            shooter.actionPoints().current() = 5;
+            CHECK(dispatch(ANIM_STAND).status == SimulationCommandDispatchStatus::Discarded && unchanged(CROUCHING, 5),
+                "server rechecks the new AP balance before a later stand request");
+            shooter.animationPlayback().state() = PRONE;
+            shooter.animationActivity().clearInterruptibility();
+            shooter.actionPoints().current() = 13;
+            CHECK(dispatch(ANIM_STAND).status == SimulationCommandDispatchStatus::Discarded && unchanged(PRONE, 13),
+                "multi-stage rise requires the complete native cost before its first transition");
+            shooter.animationPlayback().state() = PRONE;
+            shooter.animationActivity().clearInterruptibility();
+            shooter.animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_START_UP_FROM_MOVE;
+            shooter.actionPoints().current() = 8;
+            CHECK(dispatch(ANIM_CROUCH).status == SimulationCommandDispatchStatus::Applied && unchanged(PRONE_UP, 0) &&
+                shooter.animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_OFF,
+                "explicit player stance clears the native movement-turn exemption and charges AP");
+            shooter.animationPlayback().state() = STANDING;
+            shooter.actionPoints().current() = 100;
+            shooter.animationActivity().nonInterruptible() = TRUE;
+            CHECK(dispatch(ANIM_CROUCH).status == SimulationCommandDispatchStatus::Discarded && unchanged(STANDING, 100),
+                "a noninterruptible native animation cannot be acknowledged as a changed stance");
+            shooter.animationPlayback().state() = STANDING;
+            shooter.animationActivity().clearInterruptibility();
+            shooter.actionPoints().current() = 5;
+            CHECK(dispatch(ANIM_CROUCH, false).status == SimulationCommandDispatchStatus::Applied && unchanged(KNEEL_DOWN, -1),
+                "ordinary forced system stance retains its existing AP policy");
+            shooter.animationCache().reset();
+            gAnimSurfaceDatabase[0] = retainedSurface;
+            MemFree(gubWorldMovementCosts); gubWorldMovementCosts = nullptr; ReleaseWorldTileMap();
+            std::printf("Native server stance admission: %s\n", failures ? "FAIL" : "PASS");
+            return failures ? 1 : 0;
+        }
         APBPConstants[AP_SUPPRESSION_MOD] = 100;
         APBPConstants[AP_MAX_SUPPRESSED] = 20;
         APBPConstants[AP_MAX_TURN_SUPPRESSED] = 100;
