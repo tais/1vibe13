@@ -4404,7 +4404,14 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 
 	// anv: we need to rebuild ambient sounds now, as those added when loading tileset are removed
 	// in LoadStrategicEventsFromSavedGame
-	HandleNewSectorAmbience( gTilesets[ giCurrentTilesetID ].ubAmbientID );
+	// A cold strategic checkpoint has no tactical tileset (the ID is -1).
+	// Rebuild only the ambience belonging to a world actually loaded above.
+	if (IsJa2TacticalWorldLoaded())
+	{
+		if (giCurrentTilesetID < 0 || giCurrentTilesetID >= MAX_TILESETS)
+			return failRuntimeLoad();
+		HandleNewSectorAmbience(gTilesets[giCurrentTilesetID].ubAmbientID);
+	}
 
 	uiRelEndPerc += 0;
 	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Laptop Info" );
