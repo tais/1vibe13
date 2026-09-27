@@ -23,7 +23,7 @@ void Codec()
 		8,7,6,5,4,3,2,1, 9,0,0,0,0,0,0,0, 10,0,0,0,0,0,0,0, 11,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0, 3,10,1,0, 1,2,3,4}};
 	CHECK(EncodeCoopCampaignActionRequest(request, bytes) && bytes == expected, "exact little-endian travel vector; no claimed peer identity");
-	for (unsigned action = 1; action <= 6; ++action)
+	for (unsigned action = 1; action <= 8; ++action)
 	{
 		request = Travel(); request.action = static_cast<CoopCampaignAction>(action);
 		if (action != 1) { request.group = {}; request.destinationX = request.destinationY = 0; request.decision = 0x0807060504030201ull; }
@@ -281,5 +281,37 @@ void TransportAndFailure()
 		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Failed && !f.authority.deliveries()[0].result.nativeDetail,
 		"unexpected callback status cannot claim a successful or unconsumed action");
 }
+void SurrenderSerialization()
+{
+	Fixture f;
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical; clock.surrenderOffer = 8;
+	CHECK(f.status.observe(clock, f.identities, 2), "native tactical surrender hold publishes");
+	auto request = f.arrival(CoopCampaignAction::DeclineSurrender); request.decision = 8;
+	for (unsigned peer = 0; peer != 2; ++peer)
+		CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[peer], true, true, false) ==
+			CoopCampaignActionOutcome::Applied, "either ready player can answer without strategic or time-leader authority");
+	CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[1], false, true, false) ==
+		CoopCampaignActionOutcome::NotReady, "tactical dialog still requires campaign readiness");
+	CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[1], true, false, false) ==
+		CoopCampaignActionOutcome::Unauthorized, "authorization remains distinct from readiness");
+	unsigned executed = 0;
+	auto apply = [&](const auto&) { ++executed; return CoopCampaignActionNativeResult{CoopCampaignActionOutcome::Applied, 0}; };
+	CHECK(f.authority.submit(request, f.peers[1], true, true, false, f.status, f.groups, apply) && executed == 1,
+		"nonleader answer consumes the shared barrier before one native call");
+	auto competing = request; competing.action = CoopCampaignAction::AcceptSurrender;
+	CHECK(f.authority.submit(competing, f.peers[0], true, true, false, f.status, f.groups, apply) && executed == 1 &&
+		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale,
+		"simultaneous conflicting answer cannot run the continuation twice");
+	clock = f.status.value(); clock.surrenderOffer = 0;
+	CHECK(f.status.observe(clock, f.identities, 2), "native completion clears the offer before the next request");
+	CHECK(f.authority.submit(request, f.peers[1], false, false, false, f.status, f.groups, apply) && executed == 1 &&
+		f.authority.deliveries()[1].result.outcome == CoopCampaignActionOutcome::Applied,
+		"duplicate after completion/resync returns the historical outcome without replay");
+	f.authority.delivered(0); ++competing.requestId; competing.controlRevision = f.status.value().timeControlRevision;
+	CHECK(f.authority.submit(competing, f.peers[0], true, true, false, f.status, f.groups, apply) && executed == 1 &&
+		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale,
+		"fresh request ID cannot answer an offer that another peer consumed");
 }
-int main() { Codec(); PolicyAndState(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+
+}
+int main() { Codec(); SurrenderSerialization(); PolicyAndState(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
