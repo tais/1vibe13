@@ -17,6 +17,7 @@
 #include "Strategic Mines.h"
 #include "types.h"
 #include <stdio.h>
+#include <cwchar>
 #include "jascreens.h"
 #include "worlddef.h"
 #include "TacticalActor.h"
@@ -3395,28 +3396,30 @@ void UpdateMercInSector( TacticalActor *pSoldier, INT16 sSectorX, INT16 sSectorY
 }
 
 // Get sector ID string makes a string like 'A9 - OMERTA', or just J11 if no town....
-void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *zString, BOOLEAN fDetailed )
+void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *zString, std::size_t capacity, BOOLEAN fDetailed )
 {
+	if (!zString || capacity == 0) return;
+	zString[0] = L'\0';
+	if (sSectorX < 1 || sSectorX > 16 || sSectorY < 1 || sSectorY > 16 ||
+		bSectorZ < 0 || bSectorZ > 3) return;
+	const auto append = [&](const CHAR16* text) {
+		if (!text) return;
+		const std::size_t used = std::wcslen(zString);
+		if (used < capacity - 1)
+			std::wcsncat(zString, text, capacity - used - 1);
+	};
 	SECTORINFO *pSector = NULL;
 	UNDERGROUND_SECTORINFO *pUnderground;
 	INT8		bTownNameID;
 	UINT8 ubSectorID = 0;
 	UINT8 ubLandType = 0;
 
-	if ( sSectorX <= 0 || sSectorY <= 0 || bSectorZ < 0 )
-	{
-		//sgp_swprintf( zString, 60, L"%s", pErrorStrings[0] );
-	}
-	else if ( bSectorZ != 0 ) // UNDERGROUND SECTORS
+	if ( bSectorZ != 0 ) // UNDERGROUND SECTORS
 	{
 		pUnderground = FindUnderGroundSector( sSectorX, sSectorY, bSectorZ );
 
 
-		// TODO: the code is riddled with (potential) buffer overruns
-		// this totally needs to be fixed sometime
-		// anyway, only trying to not create another one here
-		// found calls to this function with buffers as small as 50 elements
-		g_luaUnderground.GetSectorName( sSectorX, sSectorY, bSectorZ, pUnderground, zString, 50, fDetailed );
+		g_luaUnderground.GetSectorName( sSectorX, sSectorY, bSectorZ, pUnderground, zString, capacity, fDetailed );
 
 	}
 	else // SECTORS ABOVE GROUND
@@ -3428,20 +3431,15 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 		AssertLT( ubSectorID, 256 );
 		pSector = &SectorInfo[ubSectorID];
 		ubLandType = pSector->ubTraversability[4];
-		sgp_swprintf( zString, 60, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
+		sgp_swprintf( zString, capacity, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
 
 		////////////////////////////////////
 		// Read and verify XML sector names
 		BOOLEAN fSectorHasXMLNames = TRUE;
-		CHAR16 zUnexplored[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zDetailedUnexplored[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zExplored[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zDetailedExplored[MAX_SECTOR_NAME_LENGTH];
-
-		wcscpy( zUnexplored, gzSectorNames[ubSectorID][0] );
-		wcscpy( zDetailedUnexplored, gzSectorNames[ubSectorID][1] );
-		wcscpy( zExplored, gzSectorNames[ubSectorID][2] );
-		wcscpy( zDetailedExplored, gzSectorNames[ubSectorID][3] );
+		const CHAR16* zUnexplored = gzSectorNames[ubSectorID][0];
+		const CHAR16* zDetailedUnexplored = gzSectorNames[ubSectorID][1];
+		const CHAR16* zExplored = gzSectorNames[ubSectorID][2];
+		const CHAR16* zDetailedExplored = gzSectorNames[ubSectorID][3];
 
 		if ( zUnexplored[0] == 0 || zDetailedUnexplored[0] == 0 || zExplored[0] == 0 || zDetailedExplored[0] == 0 )
 		{
@@ -3475,22 +3473,22 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 			{
 				if ( fDetailed )
 				{
-					wcscat( zString, zDetailedExplored );
+					append( zDetailedExplored );
 				}
 				else
 				{
-					wcscat( zString, zExplored );
+					append( zExplored );
 				}
 			}
 			else
 			{
 				if ( fDetailed )
 				{
-					wcscat( zString, zDetailedUnexplored );
+					append( zDetailedUnexplored );
 				}
 				else
 				{
-					wcscat( zString, zUnexplored );
+					append( zUnexplored );
 				}
 			}
 		}
@@ -3505,30 +3503,30 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 				{
 				case SEC_D2: //Chitzena SAM
 					if ( !fSamSiteFound[SAM_SITE_ONE] )
-						wcscat( zString, pLandTypeStrings[TROPICS] );
+						append( pLandTypeStrings[TROPICS] );
 					else if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[TROPICS_SAM_SITE] );
+						append( pLandTypeStrings[TROPICS_SAM_SITE] );
 					else
-						wcscat( zString, pLandTypeStrings[SAM_SITE] );
+						append( pLandTypeStrings[SAM_SITE] );
 					break;
 				case SEC_D15: //Drassen SAM
 					if ( !fSamSiteFound[SAM_SITE_TWO] )
-						wcscat( zString, pLandTypeStrings[SPARSE] );
+						append( pLandTypeStrings[SPARSE] );
 					else if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[SPARSE_SAM_SITE] );
+						append( pLandTypeStrings[SPARSE_SAM_SITE] );
 					else
-						wcscat( zString, pLandTypeStrings[SAM_SITE] );
+						append( pLandTypeStrings[SAM_SITE] );
 					break;
 				case SEC_I8: //Cambria SAM
 					if ( !fSamSiteFound[SAM_SITE_THREE] )
-						wcscat( zString, pLandTypeStrings[SAND] );
+						append( pLandTypeStrings[SAND] );
 					else if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[SAND_SAM_SITE] );
+						append( pLandTypeStrings[SAND_SAM_SITE] );
 					else
-						wcscat( zString, pLandTypeStrings[SAM_SITE] );
+						append( pLandTypeStrings[SAM_SITE] );
 					break;
 				default:
-					wcscat( zString, pLandTypeStrings[ubLandType] );
+					append( pLandTypeStrings[ubLandType] );
 					break;
 				}
 			}
@@ -3538,54 +3536,54 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 				{
 				case SEC_B13:
 					if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[DRASSEN_AIRPORT_SITE] );
+						append( pLandTypeStrings[DRASSEN_AIRPORT_SITE] );
 					else
-						wcscat( zString, pTownNames[DRASSEN] );
+						append( pTownNames[DRASSEN] );
 					break;
 				case SEC_F8:
 					if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[CAMBRIA_HOSPITAL_SITE] );
+						append( pLandTypeStrings[CAMBRIA_HOSPITAL_SITE] );
 					else
-						wcscat( zString, pTownNames[CAMBRIA] );
+						append( pTownNames[CAMBRIA] );
 					break;
 				case SEC_J9: //Tixa
 					//if( !fFoundTixa )
 					if ( gfHiddenTown[TIXA] == FALSE )
-						wcscat( zString, pLandTypeStrings[SAND] );
+						append( pLandTypeStrings[SAND] );
 					else
-						wcscat( zString, pTownNames[TIXA] );
+						append( pTownNames[TIXA] );
 					break;
 				case SEC_K4: //Orta
 					//if( !fFoundOrta )
 					if ( gfHiddenTown[ORTA] == FALSE )
-						wcscat( zString, pLandTypeStrings[SWAMP] );
+						append( pLandTypeStrings[SWAMP] );
 					else
-						wcscat( zString, pTownNames[ORTA] );
+						append( pTownNames[ORTA] );
 					break;
 				case SEC_N3:
 					if ( fDetailed )
-						wcscat( zString, pLandTypeStrings[MEDUNA_AIRPORT_SITE] );
+						append( pLandTypeStrings[MEDUNA_AIRPORT_SITE] );
 					else
-						wcscat( zString, pTownNames[MEDUNA] );
+						append( pTownNames[MEDUNA] );
 					break;
 				default:
 					if ( ubSectorID == SEC_N4 && fSamSiteFound[SAM_SITE_FOUR] )
 					{	//Meduna's SAM site
 						if ( fDetailed )
-							wcscat( zString, pLandTypeStrings[MEDUNA_SAM_SITE] );
+							append( pLandTypeStrings[MEDUNA_SAM_SITE] );
 						else
-							wcscat( zString, pLandTypeStrings[SAM_SITE] );
+							append( pLandTypeStrings[SAM_SITE] );
 					}
 					else
 					{	//All other towns that are known since beginning of the game.
-						wcscat( zString, pTownNames[bTownNameID] );
+						append( pTownNames[bTownNameID] );
 						if ( fDetailed )
 						{
 							/*
 							UINT8 ubMineIndex = GetMineIndexForSector( sSectorX, sSectorY );
 							if ( gMineStatus[ubMineIndex].sSectorX == sSectorX && gMineStatus[ubMineIndex].sSectorY == sSectorY )
 							{
-							sgp_swprintf( zString, 60, L" %s", MineralsName[gMineStatus[ubMineIndex].ubMineType].sType );
+							sgp_swprintf( zString, capacity, L" %s", MineralsName[gMineStatus[ubMineIndex].ubMineType].sType );
 							}
 							*/
 							switch ( ubSectorID )
@@ -3596,8 +3594,8 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 							case SEC_H3:
 							case SEC_H8:
 							case SEC_I14:
-								wcscat( zString, L" " ); //space
-								wcscat( zString, pwMineStrings[0] ); //then "Mine"
+								append( L" " ); //space
+								append( pwMineStrings[0] ); //then "Mine"
 								break;
 							}
 						}
