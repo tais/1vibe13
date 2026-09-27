@@ -10,12 +10,39 @@
 namespace CoopSession
 {
 inline constexpr const char* CoopCampaignStatusMessageName = "coop.campaign.status";
-inline constexpr std::size_t CoopCampaignStatusWireSize = 96;
+inline constexpr std::size_t CoopCampaignStatusWireSize = 112;
 inline constexpr std::size_t MaximumCampaignStatusReadyPeers = 4;
 enum class CoopCampaignPhase : std::uint8_t
 {
 	Starting = 1, Strategic = 2, Tactical = 3, Transition = 4
 };
+
+enum class CoopCampaignBattleNoticeKind : std::uint8_t
+{
+	None = 0, Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4
+};
+struct CoopCampaignBattleNotice
+{
+	std::uint64_t id = 0;
+	CoopCampaignBattleNoticeKind kind = CoopCampaignBattleNoticeKind::None;
+	std::uint8_t x = 0, y = 0, z = 0;
+};
+inline bool ValidCoopCampaignBattleNotice(const CoopCampaignBattleNotice& value) noexcept
+{
+	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z;
+	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::Surrendered &&
+		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3;
+}
+inline bool SameCoopCampaignBattleNotice(const CoopCampaignBattleNotice& a, const CoopCampaignBattleNotice& b) noexcept
+{
+	return a.id == b.id && a.kind == b.kind && a.x == b.x && a.y == b.y && a.z == b.z;
+}
+inline bool ValidCoopCampaignBattleNoticeReplacement(const CoopCampaignBattleNotice& previous,
+	const CoopCampaignBattleNotice& next, std::uint64_t lastId) noexcept
+{
+	return ValidCoopCampaignBattleNotice(next) && (!next.id ||
+		(next.id == previous.id ? SameCoopCampaignBattleNotice(previous, next) : next.id > lastId));
+}
 
 // Observations, not clock commands. A remembered compression mode does not
 // prove that native time is advancing: combat/events can stop the scheduler.
@@ -41,6 +68,7 @@ struct CoopCampaignStatus
 	// Runtime-scoped native offer identity. Zero means no decision. The server
 	// privately binds this ID to the exact world, turn and enemy incarnation.
 	std::uint64_t surrenderOffer = 0;
+	CoopCampaignBattleNotice battleNotice{};
 };
 using CoopCampaignStatusBytes = std::array<std::uint8_t, CoopCampaignStatusWireSize>;
 
@@ -57,7 +85,10 @@ inline bool ValidCoopCampaignStatus(const CoopCampaignStatus& value) noexcept
 			(value.gamePaused && !value.compressionActive &&
 			 (value.phase == CoopCampaignPhase::Starting || value.phase == CoopCampaignPhase::Strategic))) &&
 		(!value.surrenderOffer || (value.phase == CoopCampaignPhase::Tactical &&
-			value.gamePaused && !value.compressionActive && !value.arrival.decision));
+			value.gamePaused && !value.compressionActive && !value.arrival.decision)) &&
+		ValidCoopCampaignBattleNotice(value.battleNotice) && (!value.battleNotice.id ||
+			(value.phase == CoopCampaignPhase::Tactical && value.gamePaused && !value.compressionActive &&
+			 !value.arrival.decision && !value.surrenderOffer));
 }
 
 inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -67,7 +98,7 @@ inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCam
 		a.compressionActive == b.compressionActive && a.timeInterrupted == b.timeInterrupted &&
 		a.timeLeader == b.timeLeader && a.leadershipRevision == b.leadershipRevision &&
 		a.timeLeaderReady == b.timeLeaderReady && SameCoopCampaignArrival(a.arrival, b.arrival) &&
-		a.surrenderOffer == b.surrenderOffer;
+		a.surrenderOffer == b.surrenderOffer && SameCoopCampaignBattleNotice(a.battleNotice, b.battleNotice);
 }
 
 inline bool SameCoopCampaignStatus(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -107,6 +138,9 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 	bytes[75] = arrival.x; bytes[76] = arrival.y; bytes[77] = arrival.z; bytes[78] = arrival.encounterCode;
 	put(80, arrival.pendingCount, 2); put(82, arrival.involvedMercs, 2); put(84, arrival.uninvolvedMercs, 2);
 	put(86, value.surrenderOffer, 8);
+	put(96, value.battleNotice.id, 8);
+	bytes[104] = static_cast<std::uint8_t>(value.battleNotice.kind);
+	bytes[105] = value.battleNotice.x; bytes[106] = value.battleNotice.y; bytes[107] = value.battleNotice.z;
 	output = bytes;
 	return true;
 }
@@ -116,7 +150,8 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	if (!bytes || size != CoopCampaignStatusWireSize || bytes[0] != 'J' || bytes[1] != '2' ||
 		bytes[2] != 'C' || bytes[3] != 'T' || bytes[6] != 1 || bytes[7] || bytes[29] > 6 || (bytes[30] & ~31u) ||
 		(bytes[74] & ~31u) || bytes[79]) return false;
-	for (std::size_t i = 94; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
+	if (bytes[94] || bytes[95]) return false;
+	for (std::size_t i = 108; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -144,6 +179,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	arrival.pendingCount = static_cast<std::uint16_t>(get(80, 2));
 	arrival.involvedMercs = static_cast<std::uint16_t>(get(82, 2)); arrival.uninvolvedMercs = static_cast<std::uint16_t>(get(84, 2));
 	value.surrenderOffer = get(86, 8);
+	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107]};
 	if (!ValidCoopCampaignStatus(value)) return false;
 	output = value;
 	return true;
@@ -159,10 +195,10 @@ public:
 	bool beginSession(std::uint64_t epoch) noexcept
 	{
 		if (!epoch || value_.sessionEpoch) return false;
-		value_ = {}; value_.sessionEpoch = epoch; lastArrivalDecision_ = lastSurrenderOffer_ = 0;
+		value_ = {}; value_.sessionEpoch = epoch; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = 0;
 		return true;
 	}
-	void clear() noexcept { value_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = 0; }
+	void clear() noexcept { value_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = 0; }
 	const CoopCampaignStatus& value() const noexcept { return value_; }
 	bool consumeTimeControlRevision(std::uint64_t expected) noexcept
 	{
@@ -195,7 +231,8 @@ public:
 		}
 		if (!ValidCoopCampaignStatus(clock) || (value_.revision && clock.worldSeconds < value_.worldSeconds) ||
 			!ValidCoopCampaignArrivalReplacement(value_.arrival, clock.arrival, lastArrivalDecision_) ||
-			(clock.surrenderOffer && clock.surrenderOffer != value_.surrenderOffer && clock.surrenderOffer <= lastSurrenderOffer_)) return false;
+			(clock.surrenderOffer && clock.surrenderOffer != value_.surrenderOffer && clock.surrenderOffer <= lastSurrenderOffer_) ||
+			!ValidCoopCampaignBattleNoticeReplacement(value_.battleNotice, clock.battleNotice, lastBattleNotice_)) return false;
 		if (value_.revision && !SameCoopCampaignStatus(value_, clock))
 		{
 			if (value_.revision == std::numeric_limits<std::uint64_t>::max()) return false;
@@ -204,12 +241,14 @@ public:
 		value_ = clock;
 		lastArrivalDecision_ = std::max(lastArrivalDecision_, clock.arrival.decision);
 		lastSurrenderOffer_ = std::max(lastSurrenderOffer_, clock.surrenderOffer);
+		lastBattleNotice_ = std::max(lastBattleNotice_, clock.battleNotice.id);
 		return true;
 	}
 private:
 	CoopCampaignStatus value_;
 	std::uint64_t lastArrivalDecision_ = 0;
 	std::uint64_t lastSurrenderOffer_ = 0;
+	std::uint64_t lastBattleNotice_ = 0;
 };
 }
 #endif

@@ -26,7 +26,7 @@ void TestCodec()
 		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
 		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
 		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};
-	CHECK(bytes == expected, "exact 96-byte little endian wire layout, canonical empty arrival tail");
+	CHECK(bytes == expected, "exact 112-byte little endian wire layout, canonical empty arrival tail");
 	CoopCampaignStatus out;
 	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out),
 		"status roundtrips exactly");
@@ -204,6 +204,68 @@ void TestArrivalLedger()
 	ledger.clear();
 	CHECK(ledger.beginSession(2) && ledger.observe(clock, ready, 1), "new server session owns a new decision lineage");
 }
+void TestBattleNoticeObservation()
+{
+	auto status = Sample();
+	status.battleNotice = {0x0807060504030201ull, CoopCampaignBattleNoticeKind::Defeated, 9, 1, 0};
+	CoopCampaignStatusBytes bytes;
+	CoopCampaignStatus decoded;
+	for (unsigned kind = 1; kind <= 4; ++kind)
+	{
+		status.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(kind);
+		CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[96] == 1 && bytes[103] == 8 && bytes[104] == kind &&
+			bytes[105] == 9 && bytes[106] == 1 && !bytes[107] &&
+			DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"each native battle outcome roundtrips its exact opaque ID and public sector");
+	}
+	for (const unsigned at : {94u, 95u, 108u, 109u, 110u, 111u})
+	{
+		auto bad = bytes; bad[at] = 1; decoded = status;
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"all reserved notice bytes reject corruption without replacing the committed observation");
+	}
+	for (unsigned fault = 0; fault != 13; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.battleNotice.id = 0;
+		if (fault == 1) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::None;
+		if (fault == 2) bad.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(5);
+		if (fault == 3) bad.battleNotice.x = 0;
+		if (fault == 4) bad.battleNotice.x = 17;
+		if (fault == 5) bad.battleNotice.y = 0;
+		if (fault == 6) bad.battleNotice.y = 17;
+		if (fault == 7) bad.battleNotice.z = 4;
+		if (fault == 8) bad.phase = CoopCampaignPhase::Transition;
+		if (fault == 9) bad.gamePaused = false;
+		if (fault == 10) { bad.compressionActive = true; bad.compressionMode = 1; }
+		if (fault == 11) bad.arrival = Battle();
+		if (fault == 12) bad.surrenderOffer = 1;
+		const auto saved = bytes;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes) && bytes == saved, "battle notice exclusively owns a valid paused tactical hold");
+	}
+	CoopCampaignStatusLedger ledger; const PeerIdentity peers[] = {Peer(3), Peer(8)};
+	CHECK(ledger.beginSession(11) && ledger.observe(status, peers, 2), "native battle notice published to ready players");
+	const auto saved = ledger.value();
+	CHECK(ledger.observe(status, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "repeated notice does not churn revisions");
+	for (unsigned fault = 0; fault != 4; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated;
+		if (fault == 1) ++bad.battleNotice.x;
+		if (fault == 2) ++bad.battleNotice.y;
+		if (fault == 3) ++bad.battleNotice.z;
+		CHECK(!ledger.observe(bad, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "same notice cannot change outcome or sector");
+	}
+	const auto notice = status.battleNotice; status.battleNotice = {}; status.phase = CoopCampaignPhase::Transition;
+	CHECK(ledger.observe(status, peers, 2) && ledger.value().timeControlRevision > saved.timeControlRevision,
+		"acknowledgement clears the public notice and invalidates requests while transition remains paused");
+	status.phase = CoopCampaignPhase::Tactical; status.battleNotice = notice;
+	CHECK(!ledger.observe(status, peers, 2), "retired notice cannot resurrect under newer revisions");
+	++status.battleNotice.id;
+	CHECK(ledger.observe(status, peers, 2), "later native notice has a fresh identity");
+	ledger.clear(); CHECK(ledger.beginSession(12) && ledger.observe(status, peers, 2), "explicit new session resets notice lineage");
+}
+
 void TestSurrenderObservation()
 {
 	auto status = Sample(); status.surrenderOffer = 0x0807060504030201ull;
@@ -239,4 +301,4 @@ void TestSurrenderObservation()
 	CHECK(ledger.observe(status, ready, 1), "next native offer has a new identity");
 }
 }
-int main() { TestCodec(); TestSurrenderObservation(); TestLedger(); TestArrivalCodec(); TestArrivalLedger(); return failures ? 1 : 0; }
+int main() { TestBattleNoticeObservation();  TestCodec(); TestSurrenderObservation(); TestLedger(); TestArrivalCodec(); TestArrivalLedger(); return failures ? 1 : 0; }
