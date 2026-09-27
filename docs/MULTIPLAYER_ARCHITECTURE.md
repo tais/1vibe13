@@ -1152,3 +1152,14 @@ Every milestone requires data-free model/codec tests plus a separate
 installed-data end-to-end certification for the behavior it claims. The current
 process smoke covers create/Ready/reconnect/checkpoint/resume only; building and
 packaging the server is not proof that a milestone is fully playable.
+
+### Post-battle strategic checkpoint boundary
+
+After native world and transport drainage, admission stays closed until the
+strategic map has finished its native exit work and a required cold checkpoint
+commits. A talking face or queued death dialogue may outlive tactical unload;
+ordinary map frames can finish it within a two-minute wall-clock deadline. The
+runtime keeps campaign time paused and never clears dialogue to authorize a save.
+The same deadline bounds a missing map transition. Other checkpoint hazards
+still fail, and the save path rechecks full eligibility before committing and
+reopening admission.

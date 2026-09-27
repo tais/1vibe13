@@ -1,4 +1,5 @@
 #include "Ja2/DedicatedCoopMissionPolicy.h"
+#include "Ja2/DedicatedCoopPostCombatCheckpointPolicy.h"
 
 #include <array>
 #include <cstdint>
@@ -363,6 +364,29 @@ void TestPostCombatReturnRequiresEveryQuiescenceFact()
 		"unarmed or non-mission world drains must retain the generic restart path");
 }
 
+void TestPostCombatCheckpointWaitsForNativeDialogue()
+{
+	using Reason = DedicatedCheckpointEligibilityReason;
+	using Step = DedicatedCoopPostCombatCheckpointStep;
+	// Native loss can unload the world before screen exit completes, then leave
+	// a talking face followed by a queued death reaction on the ready map.
+	Check(EvaluateDedicatedCoopPostCombatCheckpointStep(false, Reason::None, false) == Step::WaitForNativeExit &&
+		EvaluateDedicatedCoopPostCombatCheckpointStep(true, Reason::DialogueActive, false) == Step::WaitForNativeExit &&
+		EvaluateDedicatedCoopPostCombatCheckpointStep(true, Reason::DialogueQueueNotDrained, false) == Step::WaitForNativeExit &&
+		EvaluateDedicatedCoopPostCombatCheckpointStep(true, Reason::None, false) == Step::Commit,
+		"post-loss exit waits for native screen and dialogue completion before committing");
+	for (unsigned raw = 0; raw <= std::numeric_limits<std::uint8_t>::max(); ++raw)
+	{
+		const auto reason = static_cast<Reason>(raw);
+		if (reason != Reason::None && reason != Reason::DialogueActive && reason != Reason::DialogueQueueNotDrained)
+			Check(EvaluateDedicatedCoopPostCombatCheckpointStep(true, reason, false) == Step::Reject,
+				"other checkpoint hazards and unknown eligibility reasons cannot authorize or defer the required save");
+		Check(EvaluateDedicatedCoopPostCombatCheckpointStep(false, reason, true) == Step::TimedOut &&
+			EvaluateDedicatedCoopPostCombatCheckpointStep(true, reason, true) == Step::TimedOut,
+			"the same deadline bounds missing map transitions and dialogue cleanup without reopening admission");
+	}
+}
+
 void TestEstablishedSectorSelectionFailsClosed()
 {
 	Check(SelectDedicatedCoopEstablishedSector(nullptr, 1).error ==
@@ -400,6 +424,7 @@ int main()
 	TestEstablishedSectorSelectionFailsClosed();
 	TestEstablishedActorRolePolicy();
 	TestPostCombatReturnRequiresEveryQuiescenceFact();
+	TestPostCombatCheckpointWaitsForNativeDialogue();
 	TestCanonicalArrivalMinute();
 	if (failures != 0)
 	{
