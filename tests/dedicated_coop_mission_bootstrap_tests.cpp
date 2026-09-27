@@ -428,6 +428,94 @@ void TestEstablishedPendingHireCohort()
 		"an orphan delayed event alone blocks historical healthy stationary fallthrough");
 }
 
+void TestCapturedPrisonerCohort()
+{
+	DedicatedCoopCapturedPrisonerEvidence prisoner;
+	prisoner.exactIdentity = prisoner.activePlayer = prisoner.realProfile = true;
+	prisoner.profileHired = prisoner.humanBody = prisoner.prisonerAssignment = true;
+	prisoner.nativeCapture = prisoner.exactInsertion = prisoner.noLiveMembership = true;
+	prisoner.neutral = prisoner.deathUiComplete = prisoner.inventoryEmpty = true;
+	prisoner.life = 40; prisoner.maximumLife = 80; prisoner.contractEndMinute = 11940;
+	prisoner.x = prisoner.prisonX = 13; prisoner.y = prisoner.prisonY = 9; prisoner.z = 0;
+	Check(DedicatedCoopCapturedPrisonerEligible(prisoner), "completed first native capture is recognized");
+	for (bool DedicatedCoopCapturedPrisonerEvidence::* member : {
+		&DedicatedCoopCapturedPrisonerEvidence::exactIdentity,
+		&DedicatedCoopCapturedPrisonerEvidence::activePlayer,
+		&DedicatedCoopCapturedPrisonerEvidence::realProfile,
+		&DedicatedCoopCapturedPrisonerEvidence::profileHired,
+		&DedicatedCoopCapturedPrisonerEvidence::humanBody,
+		&DedicatedCoopCapturedPrisonerEvidence::prisonerAssignment,
+		&DedicatedCoopCapturedPrisonerEvidence::nativeCapture,
+		&DedicatedCoopCapturedPrisonerEvidence::exactInsertion,
+		&DedicatedCoopCapturedPrisonerEvidence::noLiveMembership,
+		&DedicatedCoopCapturedPrisonerEvidence::neutral,
+		&DedicatedCoopCapturedPrisonerEvidence::deathUiComplete,
+		&DedicatedCoopCapturedPrisonerEvidence::inventoryEmpty})
+	{
+		auto bad = prisoner; bad.*member = false;
+		Check(!DedicatedCoopCapturedPrisonerEligible(bad), "partial or contradictory capture proof rejects");
+	}
+	for (int change = 0; change < 15; ++change)
+	{
+		auto bad = prisoner;
+		switch (change)
+		{
+		case 0: bad.unsupportedRole = true; break;
+		case 1: bad.airborne = true; break;
+		case 2: bad.betweenSectors = true; break;
+		case 3: bad.inSector = true; break;
+		case 4: bad.deathFlag = true; break;
+		case 5: bad.life = 0; break;
+		case 6: bad.life = 81; break;
+		case 7: bad.maximumLife = 101; break;
+		case 8: bad.bleeding = 1; break;
+		case 9: bad.contractEndMinute = -1; break;
+		case 10: bad.groupSlot = 1; break;
+		case 11: bad.x = 14; break;
+		case 12: bad.y = 0; break;
+		case 13: bad.z = 1; break;
+		case 14: bad.x = bad.prisonX = 17; break;
+		}
+		Check(!DedicatedCoopCapturedPrisonerEligible(bad), "unsafe prisoner deployment or native lifecycle rejects");
+	}
+	DedicatedCoopStarterCampaignEvidence cohort;
+	cohort.noWorldSector = cohort.tacticalWorldUnloaded = cohort.pendingHireCohortConsistent = true;
+	cohort.activePlayerMercs = 4; cohort.validCompletedDeadMercs = 1;
+	cohort.observedPrisonerActors = cohort.validCapturedPrisoners = 2;
+	cohort.observedPendingHireActors = cohort.validPendingAimHireActors = cohort.delayedHiringEvents = 1;
+	using State = DedicatedCoopStarterCampaignState;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == State::EstablishedStrategicCold,
+		"dead defenders, native prisoners and a paid pending hire resume without tactical launch");
+	const auto valid = cohort;
+	for (int change = 0; change < 9; ++change)
+	{
+		cohort = valid;
+		switch (change)
+		{
+		case 0: --cohort.validCapturedPrisoners; break;
+		case 1: ++cohort.observedPrisonerActors; break;
+		case 2: cohort.validCapturedPrisoners = std::numeric_limits<std::size_t>::max(); break;
+		case 3: cohort.validCompletedDeadMercs = std::numeric_limits<std::size_t>::max(); break;
+		case 4: --cohort.activePlayerMercs; break;
+		case 5: ++cohort.validEstablishedRosterMercs; break;
+		case 6: cohort.pendingHireCohortConsistent = false; break;
+		case 7: ++cohort.delayedHiringEvents; break;
+		case 8: ++cohort.travelingEstablishedMercs; break;
+		}
+		Check(ClassifyDedicatedCoopStarterCampaign(cohort) == State::Ineligible,
+			"prisoner count mismatch, overlap, underflow, orphan event and unsafe mixed cohort reject");
+	}
+	cohort = valid;
+	--cohort.activePlayerMercs;
+	cohort.observedPendingHireActors = cohort.validPendingAimHireActors = cohort.delayedHiringEvents = 0;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == State::EstablishedStrategicCold,
+		"native prison cohort can resume paused without an unrelated new hire");
+	cohort.validEstablishedMercs = cohort.validEstablishedRosterMercs = 1; ++cohort.activePlayerMercs;
+	cohort.pendingHireCohortConsistent = false;
+	Check(ClassifyDedicatedCoopStarterCampaign(cohort) == State::EstablishedCold,
+		"historical stationary mixed-roster classification is unchanged when no pending hire exists");
+}
+
 void TestCompletedDeathPendingHireCohort()
 {
 	DedicatedCoopCompletedDeathEvidence dead;
@@ -921,6 +1009,7 @@ int main()
 	TestPendingAimHirePolicy();
 	TestEstablishedPendingHireCohort();
 	TestCompletedDeathPendingHireCohort();
+	TestCapturedPrisonerCohort();
 	TestLivingWoundedRosterPolicy();
 	TestEstablishedGroupTravelConsistency();
 	TestEstablishedArrivalEventIdentity();

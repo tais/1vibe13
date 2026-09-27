@@ -1179,3 +1179,19 @@ These campaigns resume with time stopped and no automatic tactical launch.
 Existing initial roster creation and stationary mixed-roster classification
 keep their prior behavior. Campaign actions and pending-arrival presentation
 are separate runtime integration work.
+
+### Cold resume after the first native capture
+
+A completed first capture can resume as a paused strategic campaign, including
+its retained native deaths and separately paid pending arrivals. The adapter
+requires the first rescue quest, native capture flags and count, exact unique
+prison insertion positions, human active identities, completed squad/group
+removal, neutral prisoners and an empty confiscated inventory. It rejects
+contradictory death/UI markers, changed prison placement, aliased membership,
+orphan arrival events and incomplete capture sequences. Inspection does not
+run capture or quest callbacks, advance time, heal, relocate or equip actors.
+
+This adds no general support for later prisons, interrogation or partially
+rescued prisoner cohorts. Existing stationary mixed-roster classification is
+preserved when no pending hire needs stricter validation. Installed battle
+return and capture checkpoint restoration still require separate qualification.
