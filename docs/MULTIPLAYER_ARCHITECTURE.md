@@ -974,7 +974,6 @@ confirmation together. Standalone tests cover the exact byte placement,
 reserved bytes, invalid clock/phase combinations, retired IDs, either player's
 permission, conflicting answers, stale requests and duplicate suppression.
 
-
 The shared battle-notice contract extends the campaign status to 112 bytes.
 Bytes 96–103 hold its native notice ID, byte 104 its distinct defeat/creature/
 capture/surrender kind, and bytes 105–107 its public sector. Bytes 94–95 and
@@ -990,6 +989,16 @@ Live activation must bump the global protocol, publish the native notice, wire
 explicit client acknowledgement, queue its receipt before closing transport,
 and complete native unloading only at a later drained committed boundary.
 An Applied acknowledgement does not claim that unloading or saving succeeded.
+
+The receipt contract reserves `NativeAttackInterrupted` (21) for `Cancelled`
+after a native attack finishes without a discharge. Stance or turning may
+already have consumed AP, so this reason is invalid with `Rejected`, `Applied`,
+`Queued` or `Discarded`. The terminal receipt preserves the consumed command
+cursor and exact authoritative sequence, including sequence zero. Malformed
+combinations and unknown reasons reject without replacing a prior receipt.
+This portable contract does not publish the new outcome or change live protocol
+versions. Activation must bump the global protocol and connect the native
+completion record, retained receipt delivery and client feedback together.
 
 ## Campaign policy
 
