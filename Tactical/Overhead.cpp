@@ -1,3 +1,4 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorLocomotion.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorBattleSounds.h"
@@ -9678,13 +9679,14 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     // no attackers that happened due to actions from other soldiers or turns, shots against dead bodies, etc.
 
     pSoldier = NULL;
+    const bool exactCoopOwner = ResolveDedicatedCoopAttackOwner(pSoldier);
 
-    if (GetJa2TacticalCurrentTeam() == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
+    if (!exactCoopOwner && GetJa2TacticalCurrentTeam() == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
     {
         pSoldier =
             GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
     }
-    else
+    else if (!exactCoopOwner)
     {
         for ( SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
                 id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID;
@@ -9702,7 +9704,7 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     // If we still haven't figured out who last acted, it could be that the team number changed during the attack.  Unfortunately this
     // can happen during a switch from real-time.   For now we will assume the last actor was a PC, but a real "Who started this?" pointer
     // would work quite well.   If only I could close all the holes that the UI opens so that one routine could handle everything.
-    if (!pSoldier && gusSelectedSoldier < TOTAL_SOLDIERS)
+    if (!exactCoopOwner && !pSoldier && gusSelectedSoldier < TOTAL_SOLDIERS)
     {
         if (is_networked)
         {
@@ -9723,6 +9725,7 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     //if (!pSoldier)
 
     ubID = pSoldier->identity().id();
+    TacticalActor* const completedAttacker = pSoldier;
 
     DebugAttackBusy( String( "Ending action for %d\n", ubID ) );
     // Get the intended target info
@@ -10037,6 +10040,8 @@ static TacticalActor *InternalReduceAttackBusyCount( )
             pSoldier->combatResult().advanceAttackerHistory(retainCurrent);
         }
     }
+
+    if (exactCoopOwner) CompleteDedicatedCoopAttack(*completedAttacker);
 
     CheckForEndOfBattle( FALSE );
 

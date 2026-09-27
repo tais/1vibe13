@@ -1,3 +1,4 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorMobility.h"
@@ -2860,6 +2861,8 @@ void DeductAmmo( TacticalActor *pSoldier, OBJECTTYPE* pObj )
 					(*pObjUsed)[0]->data.gun.ubGunShotsLeft--;
 				}	
 			}
+
+			RecordDedicatedCoopAttackAmmunitionUse(*pSoldier, pObj->usItem);
 
 			// Flugente: campaign stats - ammo. explosive consumption is handled elsewhere
 			if ( pSoldier->roster().team() == OUR_TEAM )
