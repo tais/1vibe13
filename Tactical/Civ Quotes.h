@@ -11,6 +11,9 @@ extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 
 class TacticalActor;
 
+// Shared native continuation for the local dialog and an authenticated co-op answer.
+void CompleteCivSurrenderOffer(TacticalActor& speaker, bool surrender);
+
 #define			CIV_TYPE_NA									0	
 #define			CIV_TYPE_ADULT							1
 #define			CIV_TYPE_KID								2	

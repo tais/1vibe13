@@ -16,6 +16,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCampaignStore.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopRuntime.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopMissionBootstrap.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopSurrender.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTacticalHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTacticalJa2LiveState.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedServerOptions.cpp"
