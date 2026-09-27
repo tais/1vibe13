@@ -3,6 +3,7 @@
 #include "DedicatedContentManifest.h"
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedCoopMissionBootstrap.h"
+#include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "CampaignPackage.h"
 #include "GameContext.h"
@@ -68,6 +69,7 @@ using Clock = std::chrono::steady_clock;
 constexpr auto IneligibleRetryDelay = std::chrono::seconds(5);
 constexpr auto StarterPeerGatherGrace = std::chrono::seconds(10);
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
+constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
 
 static_assert(CoopSession::MaximumAuthorityPeers ==
 	DedicatedCoopStarterRosterSize,
@@ -1098,6 +1100,7 @@ struct DedicatedCoopRuntime::Impl
 		if (holdAdmissionAfterWorldDrain)
 		{
 			holdAdmissionAfterWorldDrain = false;
+			postCombatCheckpointDeadline = Clock::now() + PostCombatCheckpointTimeout;
 			starterMission = StarterMissionState::WaitingForStrategicCheckpoint;
 			return true;
 		}
@@ -1327,6 +1330,7 @@ struct DedicatedCoopRuntime::Impl
 	Clock::time_point nextCheckpointAttempt{};
 	Clock::time_point starterPeerGatherDeadline{};
 	Clock::time_point starterActorArrivalDeadline{};
+	Clock::time_point postCombatCheckpointDeadline{};
 	std::uint64_t sessionEpoch = 0;
 	std::uint64_t observedWorldGeneration = 0;
 	std::uint64_t observedRevision = 0;
@@ -1760,9 +1764,41 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	if (impl_->starterMission ==
 		StarterMissionState::WaitingForStrategicCheckpoint)
 	{
-		if (!IsDedicatedCoopStarterMissionMapReady()) return;
+		// Native dialogue completion may undo its own temporary pause. Campaign
+		// time remains stopped until a ready time leader explicitly resumes it.
+		StopTimeCompression();
+		PauseGame();
+		const bool mapReady = IsDedicatedCoopStarterMissionMapReady();
+		const auto eligibility = EvaluateDedicatedCheckpointEligibility(
+			CollectCheckpointEligibility(context, true,
+				impl_->tacticalCommandsDrained(), impl_->tacticalNetworkDrained()));
+		const auto step = EvaluateDedicatedCoopPostCombatCheckpointStep(
+			mapReady, eligibility, now >= impl_->postCombatCheckpointDeadline);
+		if (step == DedicatedCoopPostCombatCheckpointStep::WaitForNativeExit)
+		{
+			if (mapReady && impl_->lastEligibility != eligibility)
+			{
+				std::printf("[dedicated] post-combat checkpoint waiting for native exit: %s\n",
+					DedicatedCheckpointEligibilityReasonName(eligibility));
+				std::fflush(stdout);
+			}
+			impl_->lastEligibility = eligibility;
+			return;
+		}
+		if (step != DedicatedCoopPostCombatCheckpointStep::Commit)
+		{
+			impl_->lastEligibility = eligibility;
+			std::fprintf(stderr, "[dedicated] %s: %s\n",
+				step == DedicatedCoopPostCombatCheckpointStep::TimedOut
+					? "mission.return-checkpoint-timeout" : "mission.return-checkpoint",
+				mapReady ? DedicatedCheckpointEligibilityReasonName(eligibility)
+					: "native strategic screen exit did not complete");
+			impl_->fail(DedicatedCoopRuntimeError::CheckpointNotEligible);
+			return;
+		}
 		if (!impl_->checkpointNow(context, true)) return;
 		if (!impl_->startAdmission()) return;
+		impl_->postCombatCheckpointDeadline = {};
 		impl_->starterMission = StarterMissionState::StrategicIdle;
 		std::printf(
 			"[dedicated] post-combat strategic checkpoint committed; admission reopened\n");
