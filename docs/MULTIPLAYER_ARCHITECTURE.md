@@ -954,6 +954,18 @@ attack-busy callbacks are tested with shooter 3 and independently selected
 actor 0; the fixture also covers sequence zero, stale world, wrong
 acknowledgements, duplicate releases and actual ammunition accounting.
 
+The optional native battle-notice continuation captures defeat, defeat by
+creatures, unconscious capture and surrender as distinct outcomes at the real
+native timer callbacks. It retains the exact world, turn and sector; only an
+explicit acknowledgement may call the ordinary native world unload. Stale or
+conflicting notices cannot replace the hold, and a consumed continuation that
+fails or refuses unload latches failure rather than replaying partial effects.
+The binding is inert by default. Live activation must expose the shared notice,
+serialize either ready player's acknowledgement, hold native frames and saves,
+and prove post-defeat/capture unloading and persistence with installed assets.
+The data-free native tests exercise the actual timer callbacks and native unload
+refusal; they do not claim successful installed sector-save/unload qualification.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time
