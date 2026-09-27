@@ -2929,8 +2929,10 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 	INT8* pbPublOL = &(gbPublicOpplist[ubTeam][ubID]);
 
 	// if new opplist is more up-to-date, or we are just wiping it for some reason
-	if ((gubKnowledgeValue[*pbPublOL - OLDEST_HEARD_VALUE][bNewOpplist - OLDEST_HEARD_VALUE] > 0) ||
-		(bNewOpplist == NOT_HEARD_OR_SEEN))
+	// Turn decay can leave an expired value just outside the comparison table.
+	// Forget it before considering any comparison with that old value.
+	if ((bNewOpplist == NOT_HEARD_OR_SEEN) ||
+		(gubKnowledgeValue[*pbPublOL - OLDEST_HEARD_VALUE][bNewOpplist - OLDEST_HEARD_VALUE] > 0))
 	{
 		// if this team is becoming aware of a soldier it wasn't previously aware of
 		if ((bNewOpplist != NOT_HEARD_OR_SEEN) && (*pbPublOL == NOT_HEARD_OR_SEEN))
