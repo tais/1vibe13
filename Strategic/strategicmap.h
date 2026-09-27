@@ -2,6 +2,7 @@
 #define __STRATMAP_H
 // this file is for manipulation of the strategic map structure
 #include "types.h"
+#include <cstddef>
 #include "FileMan.h"
 
 #include "mapscreen.h"
@@ -117,7 +118,16 @@ void GetShortSectorString( INT16 sMapX,INT16 sMapY, CHAR16 *sString );
 void GetLoadedSectorString( CHAR16 *pString );
 
 // This will get an ID string like A9- OMERTA...
-void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ , CHAR16 *zString, BOOLEAN fDetailed );
+// Pointer callers must state their writable capacity; array callers retain
+// the ordinary API and infer the exact extent, including the terminator.
+void GetSectorIDString(INT16 x, INT16 y, INT8 z, CHAR16* text,
+    std::size_t capacity, BOOLEAN detailed);
+template <std::size_t N>
+inline void GetSectorIDString(INT16 x, INT16 y, INT8 z,
+    CHAR16 (&text)[N], BOOLEAN detailed)
+{
+    GetSectorIDString(x, y, z, text, N, detailed);
+}
 
 void GetMapFileName(INT16 sMapX, INT16 sMapY, INT8 bSectorZ,
 	CHAR8 *bString, size_t stringCapacity,
