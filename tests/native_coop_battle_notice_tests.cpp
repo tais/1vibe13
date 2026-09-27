@@ -4,6 +4,8 @@
 #include "GameSettings.h"
 #include "Game Clock.h"
 #include "Overhead.h"
+#include "strategicmap.h"
+#include "strategic.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
@@ -36,8 +38,9 @@ int main(int argc, char** argv)
 	const bool stale = argc == 2 && std::strcmp(argv[1], "--stale") == 0;
 	const bool staleAfter = argc == 2 && std::strcmp(argv[1], "--stale-after-ack") == 0;
 	const bool capture = argc == 2 && std::strcmp(argv[1], "--capture") == 0;
+	const bool lateLoss = argc == 2 && std::strcmp(argv[1], "--late-sector-loss") == 0;
 	const bool creatures = argc == 2 && std::strcmp(argv[1], "--creatures") == 0;
-	if (argc > 2 || (argc == 2 && !stale && !staleAfter && !capture && !creatures)) return 2;
+	if (argc > 2 || (argc == 2 && !stale && !staleAfter && !capture && !creatures && !lateLoss)) return 2;
 	using Kind = DedicatedCoopBattleNoticeKind;
 	using Result = DedicatedCoopBattleNoticeResult;
 	CHECK(InstallGameSimulationRandom(20260927) == GameSimulationRandomInstallError::None, "native RNG installed");
@@ -67,6 +70,7 @@ int main(int argc, char** argv)
 	CHECK(!DeferDedicatedCoopBattleNotice(Kind::Defeated) && !state.pending(), "legacy networking cannot enter the native hold");
 	is_networked = false;
 	if (creatures) CHECK(SetTacticalTeamPopulation(CREATURE_TEAM, 1, TRUE), "native creature population set");
+	CHECK(!DeferDedicatedCoopBattleSectorLoss(9, 1, 0), "unrelated strategic loss cannot create a tactical outcome");
 	const auto randomBefore = GetGameSimulationRandomSource()->checkpoint();
 	if (capture) { gfSurrendered = TRUE; CaptureTimerCallback(); }
 	else DeathTimerCallback();
@@ -93,6 +97,19 @@ int main(int argc, char** argv)
 		if (!state.pending()) return 1;
 		notice = *state.pending();
 	}
+	CHECK(!DeferDedicatedCoopBattleSectorLoss(8, 1, 0) && !DeferDedicatedCoopBattleSectorLoss(9, 1, 1),
+		"unrelated sector and underground notifications are not swallowed by a held outcome");
+	StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 1)].fEnemyControlled = TRUE;
+	const auto initialId = notice.id;
+	CHECK(DeferDedicatedCoopBattleSectorLoss(9, 1, 0) && state.pending()->sectorControlLost &&
+		state.pending()->id > initialId && state.pending()->kind == notice.kind && !state.failure(),
+		"committed contested town loss is included without replacing the native capture or defeat outcome");
+	notice = *state.pending();
+	CHECK(DeferDedicatedCoopBattleSectorLoss(9, 1, 0) && state.pending()->id == notice.id &&
+		AcknowledgeDedicatedCoopBattleNotice(initialId) == Result::StaleNotice,
+		"duplicate sector loss is stable and the original acknowledgement cannot skip new information");
+	CHECK(!CheckAndHandleUnloadingOfCurrentWorld() && IsJa2TacticalWorldLoaded() && state.pending(),
+		"ordinary native unload cannot bypass the unacknowledged shared notice in the same frame");
 	CHECK(CompleteDedicatedCoopBattleNotice(notice.id) == Result::NotPending && state.pending() && !state.acknowledged(),
 		"native continuation cannot run without an explicit acknowledgement");
 	if (stale)
@@ -108,11 +125,19 @@ int main(int argc, char** argv)
 		CHECK(AcknowledgeDedicatedCoopBattleNotice(notice.id) == Result::Applied && state.pending() && state.acknowledged() &&
 			IsJa2TacticalWorldLoaded() && DedicatedCoopBattleNoticePending(),
 			"acknowledgement keeps the native world held until receipt delivery and a later committed boundary");
+		CHECK(!CheckAndHandleUnloadingOfCurrentWorld() && IsJa2TacticalWorldLoaded(),
+			"ordinary native unload cannot bypass receipt delivery after acknowledgement");
 		CHECK(AcknowledgeDedicatedCoopBattleNotice(notice.id) == Result::NotPending && state.acknowledged(),
 			"duplicate acknowledgement cannot restart or complete native unloading");
 		CHECK(CompleteDedicatedCoopBattleNotice(notice.id + 1) == Result::StaleNotice && state.pending(),
 			"foreign completion cannot consume the acknowledged native context");
-		if (staleAfter)
+		if (lateLoss)
+		{
+			CHECK(DeferDedicatedCoopBattleSectorLoss(9, 1, 0) && state.failure() &&
+				CompleteDedicatedCoopBattleNotice(notice.id) == Result::Failed && IsJa2TacticalWorldLoaded(),
+				"a native sector notification after acknowledgement cannot change or silently complete the notice");
+		}
+		else if (staleAfter)
 		{
 			NotifyJa2TacticalWorldLoaded(42);
 			CHECK(CompleteDedicatedCoopBattleNotice(notice.id) == Result::Failed && state.failure() && IsJa2TacticalWorldLoaded(),

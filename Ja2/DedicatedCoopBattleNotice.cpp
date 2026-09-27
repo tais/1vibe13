@@ -5,6 +5,7 @@
 #include "Game Clock.h"
 #include "Overhead.h"
 #include "strategicmap.h"
+#include "strategic.h"
 #include "connect.h"
 #include <cstdio>
 #include <limits>
@@ -62,6 +63,25 @@ bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind kind) noexcept
 	std::printf("[dedicated] native battle notice pending: id=%llu; kind=%u; world=%llu; turn=%llu; awaiting a player acknowledgement\n",
 		static_cast<unsigned long long>(bound->notice_.id), unsigned(kind),
 		static_cast<unsigned long long>(world.worldGeneration), static_cast<unsigned long long>(world.turnSerial));
+	std::fflush(stdout);
+	return true;
+}
+
+bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept
+{
+	if (!bound || !IsDedicatedCoopProcess() || is_networked || is_client || is_server ||
+		!bound->notice_.id || z != 0 || !(bound->notice_.sector == (TacticalWorldSession::Sector{x, y, z}))) return false;
+	if (bound->failure_) return true;
+	if (bound->acknowledged_ || !SameContext(bound->notice_) ||
+		!StrategicMap[CALCULATE_STRATEGIC_INDEX(x, y)].fEnemyControlled)
+	{ bound->failure_ = "native sector loss changed after battle notice acknowledgement"; return true; }
+	if (bound->notice_.sectorControlLost) return true;
+	if (bound->nextId_ == std::numeric_limits<std::uint64_t>::max())
+	{ bound->failure_ = "native battle notice IDs exhausted"; return true; }
+	bound->notice_.id = bound->nextId_++;
+	bound->notice_.sectorControlLost = true;
+	std::printf("[dedicated] native battle notice includes lost sector: id=%llu; sector=%d,%d,%d\n",
+		static_cast<unsigned long long>(bound->notice_.id), int(x), int(y), int(z));
 	std::fflush(stdout);
 	return true;
 }

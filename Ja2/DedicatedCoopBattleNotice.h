@@ -13,6 +13,7 @@ struct DedicatedCoopBattleNotice
 	std::uint64_t id = 0, worldGeneration = 0, turnSerial = 0;
 	TacticalWorldSession::Sector sector{};
 	DedicatedCoopBattleNoticeKind kind = DedicatedCoopBattleNoticeKind::Defeated;
+	bool sectorControlLost = false;
 };
 enum class DedicatedCoopBattleNoticeResult : std::uint8_t
 {
@@ -37,6 +38,7 @@ public:
 	void reset() noexcept { notice_ = {}; acknowledged_ = false; failure_ = nullptr; }
 private:
 	friend bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind) noexcept;
+	friend bool DeferDedicatedCoopBattleSectorLoss(std::int16_t, std::int16_t, std::int8_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult CompleteDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	DedicatedCoopBattleNotice notice_{};
@@ -51,6 +53,10 @@ bool DedicatedCoopBattleNoticePending() noexcept;
 // Only the native loss/capture timer callbacks produce these notices. True
 // consumes their local presentation path, including a latched failure.
 bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind) noexcept;
+// Attach the contested-town control notification to this exact native outcome.
+// A new identity invalidates any acknowledgement prepared before this addition.
+// Unrelated sector notifications retain their ordinary presentation path.
+bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept;
 // Caller has authenticated and serialized an explicit shared acknowledgement.
 // Applied records that acknowledgement; it does not unload the world.
 DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;

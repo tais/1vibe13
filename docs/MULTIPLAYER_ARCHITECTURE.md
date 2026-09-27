@@ -960,6 +960,12 @@ native timer callbacks. It retains the exact world, turn and sector; only an
 explicit acknowledgement may call the ordinary native world unload. Stale or
 conflicting notices cannot replace the hold, and a consumed continuation that
 fails or refuses unload latches failure rather than replaying partial effects.
+The native unload entry also refuses ordinary timer/frame attempts while the
+notice is held, including after acknowledgement but before explicit completion.
+A contested town-loss notification for that exact surface sector is attached
+to the outcome only after native control changes. It receives a fresh notice
+identity, so an acknowledgement prepared before the extra information is stale.
+Unrelated sectors and mine/SAM income notices retain their original path.
 The binding is inert by default. Live activation must expose the shared notice,
 serialize either ready player's acknowledgement, hold native frames and saves,
 and prove post-defeat/capture unloading and persistence with installed assets.

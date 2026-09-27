@@ -1,4 +1,5 @@
 #include "Map Screen Interface.h"
+#include "DedicatedCoopBattleNotice.h"
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignMapScreenPolicy.h"
 #include "GameContext.h"
@@ -6552,6 +6553,7 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 		{
 			HandleDisplayingOfPlayerLostDialogue( );
 		}
+		if (DeferDedicatedCoopBattleSectorLoss(sSectorX, sSectorY, bSectorZ)) return TRUE;
 		// put up the message informing the player of the event
 		DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 		return( TRUE );
