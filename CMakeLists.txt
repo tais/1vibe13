@@ -617,6 +617,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_coop_pending_hire_death COMMAND native_coop_pending_hire_death_tests)
   add_test(NAME native_coop_pending_hire_capture COMMAND native_coop_pending_hire_death_tests --capture)
   add_dependencies(ja2_headless_tests native_coop_pending_hire_death_tests)
+
+  # The talking-face overlay has a 50-character sector label, not 60.
+  add_executable(native_sector_label_tests tests/native_sector_label_tests.cpp)
+  target_compile_definitions(native_sector_label_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_sector_label_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_sector_label COMMAND native_sector_label_tests)
+  add_dependencies(ja2_headless_tests native_sector_label_tests)
   add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
   target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
   target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
