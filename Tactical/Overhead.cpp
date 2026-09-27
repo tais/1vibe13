@@ -1,4 +1,5 @@
 #include "DedicatedCoopAttack.h"
+#include "DedicatedCoopBattleNotice.h"
 #include "TacticalActorLocomotion.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorBattleSounds.h"
@@ -10413,6 +10414,9 @@ void HandleEndDemoInCreatureLevel( )
 
 void DeathTimerCallback( )
 {
+    const bool creatures = GetTacticalTeamMenInSector(CREATURE_TEAM) > GetTacticalTeamMenInSector(ENEMY_TEAM);
+    if (DeferDedicatedCoopBattleNotice(creatures ? DedicatedCoopBattleNoticeKind::DefeatedByCreatures :
+            DedicatedCoopBattleNoticeKind::Defeated)) return;
     if (GetTacticalTeamMenInSector( CREATURE_TEAM ) > GetTacticalTeamMenInSector( ENEMY_TEAM ) )
     {
         DoMessageBox( MSG_BOX_BASIC_STYLE, LargeTacticalStr[ LARGESTR_NOONE_LEFT_CAPABLE_OF_BATTLE_AGAINST_CREATURES_STR ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, EndBattleWithUnconsciousGuysCallback, NULL );
@@ -10425,6 +10429,12 @@ void DeathTimerCallback( )
 
 void CaptureTimerCallback( )
 {
+    if (DeferDedicatedCoopBattleNotice(gfSurrendered ? DedicatedCoopBattleNoticeKind::Surrendered :
+            DedicatedCoopBattleNoticeKind::Captured))
+    {
+        gfSurrendered = FALSE;
+        return;
+    }
     if( gfSurrendered )
     {
         DoMessageBox( MSG_BOX_BASIC_STYLE, LargeTacticalStr[ 3 ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, EndBattleWithUnconsciousGuysCallback, NULL );

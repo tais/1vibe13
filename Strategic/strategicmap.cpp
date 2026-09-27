@@ -12,6 +12,7 @@
 #include "builddefines.h"
 
 #include "strategicmap.h"
+#include "DedicatedCoopBattleNotice.h"
 #include "strategic.h"
 #include "Strategic Mines.h"
 #include "types.h"
@@ -6428,6 +6429,10 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 static BOOLEAN CheckAndHandleUnloadingOfCurrentWorldInternal(
 	BOOLEAN allowOccupiedPlayerSector)
 {
+	// A timer or the remainder of the current native frame must not bypass the
+	// shared acknowledgement. CompleteDedicatedCoopBattleNotice consumes the
+	// hold only after receipt delivery and ingress drain, then calls this path.
+	if (DedicatedCoopBattleNoticePending()) return FALSE;
 	INT16 sBattleSectorX, sBattleSectorY, sBattleSectorZ;
 
 	//Don't bother checking this if we don't have a world loaded.
