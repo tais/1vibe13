@@ -1775,11 +1775,12 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (step != DedicatedCoopPostCombatCheckpointStep::Commit)
 		{
 			impl_->lastEligibility = eligibility;
-			impl_->fail(DedicatedCoopRuntimeError::CheckpointNotEligible,
+			std::fprintf(stderr, "[dedicated] %s: %s\n",
 				step == DedicatedCoopPostCombatCheckpointStep::TimedOut
 					? "mission.return-checkpoint-timeout" : "mission.return-checkpoint",
 				mapReady ? DedicatedCheckpointEligibilityReasonName(eligibility)
 					: "native strategic screen exit did not complete");
+			impl_->fail(DedicatedCoopRuntimeError::CheckpointNotEligible);
 			return;
 		}
 		if (!impl_->checkpointNow(context, true)) return;
