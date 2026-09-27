@@ -1062,8 +1062,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 		{
 			// wilderness SAM site
 			GetSectorIDString( sSectorX, sSectorY, 0, sStringB, TRUE );
-			void (*tempFptr)(INT16 , INT16 , INT8	, CHAR16 *, BOOLEAN) = GetSectorIDString;
-			swprintf( sString, pMilitiaConfirmStrings[ 10 ], sStringB, tempFptr, iMinLoyaltyToTrain );
+			swprintf( sString, pMilitiaConfirmStrings[ 10 ], sStringB );
 		}
 		else
 		{

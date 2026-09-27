@@ -608,6 +608,12 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
 
   # Real native event failures must stop co-op frames and preserve legacy scopes.
+  # The talking-face overlay has a 50-character sector label, not 60.
+  add_executable(native_sector_label_tests tests/native_sector_label_tests.cpp)
+  target_compile_definitions(native_sector_label_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_sector_label_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_sector_label COMMAND native_sector_label_tests)
+  add_dependencies(ja2_headless_tests native_sector_label_tests)
   add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
   target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
   target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
