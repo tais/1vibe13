@@ -27,9 +27,12 @@ inline void BlitMultiZStripRun(
 	UINT16 startColumns,
 	UINT16 startIndex,
 	const INT8* depthChanges,
+	UINT16 depthChangeCount,
 	UINT32 initialLineParity,
 	Core core)
 {
+	// Animated frames may extend past the finite profile, including native
+	// zero-change profiles. Keep the last depth after the recorded transitions.
 	const UINT8* source = sourcePixels;
 	for (INT32 row = 0; row < topSkip; ++row)
 	{
@@ -103,8 +106,8 @@ transparent_run:
 					{
 						runLength -= stripColumns;
 						stripColumns = kStripWidth;
-						const INT8 change =
-							depthChanges[stripIndex++];
+						const INT8 change = stripIndex < depthChangeCount
+							? depthChanges[stripIndex++] : 0;
 						if (change < 0)
 							stripDepth -= stripDepthDelta;
 						else if (change > 0)
@@ -145,8 +148,8 @@ opaque_run:
 					if (--stripColumns == 0)
 					{
 						stripColumns = kStripWidth;
-						const INT8 change =
-							depthChanges[stripIndex++];
+						const INT8 change = stripIndex < depthChangeCount
+							? depthChanges[stripIndex++] : 0;
 						if (change < 0)
 							stripDepth -= stripDepthDelta;
 						else if (change > 0)
@@ -249,7 +252,7 @@ BOOLEAN BlitMultiZStrip(
 	}
 	const ZStripInfo* const profile =
 		source->ppZStripInfo[depthProfileFrame];
-	if (!profile || !profile->pbZChange)
+	if (!profile || (profile->ubNumberOfZChanges != 0 && !profile->pbZChange))
 	{
 		DebugMsg(
 			TOPIC_VIDEOOBJECT, DBG_LEVEL_0,
@@ -289,7 +292,8 @@ BOOLEAN BlitMultiZStrip(
 		startIndex = static_cast<UINT16>(
 			1 + ((leftSkip - profile->ubFirstZStripWidth) /
 				kStripWidth));
-		for (UINT16 index = 0; index < startIndex; ++index)
+		for (UINT16 index = 0;
+			index < startIndex && index < profile->ubNumberOfZChanges; ++index)
 		{
 			const INT8 change = profile->pbZChange[index];
 			if (change < 0)
@@ -340,6 +344,7 @@ BOOLEAN BlitMultiZStrip(
 		startColumns,
 		startIndex,
 		profile->pbZChange,
+		profile->ubNumberOfZChanges,
 		lineParity,
 		[&](
 			const UINT8* sourcePixel,

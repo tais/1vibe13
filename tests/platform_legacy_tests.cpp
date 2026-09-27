@@ -5321,6 +5321,86 @@ int main()
 			alphaObscuredStrictEqualSkipped,
 			"multi-Z backend preserves strip transitions, wall equality, palette deltas, and alpha-obscured comparison");
 
+		// Animation frames can extend past their finite Z-change profile. Exercise
+		// both opaque and transparent tails, and clips starting beyond the table.
+		constexpr unsigned tailWidth = 65, tailHeight = 2;
+		std::vector<UINT8> tailPixels{tailWidth};
+		tailPixels.insert(tailPixels.end(), tailWidth, 1);
+		tailPixels.push_back(0);
+		tailPixels.push_back(0x80 | 45);
+		tailPixels.push_back(20);
+		tailPixels.insert(tailPixels.end(), 20, 1);
+		tailPixels.push_back(0);
+		auto tailAlpha = tailPixels;
+		std::fill(tailAlpha.begin() + 1, tailAlpha.begin() + 1 + tailWidth, 255);
+		std::fill(tailAlpha.begin() + tailWidth + 4, tailAlpha.end() - 1, 255);
+		ETRLEObject tailImage{0, static_cast<UINT32>(tailPixels.size()), 0, 0, tailHeight, tailWidth};
+		SGPVObject tailObject = stripObject;
+		tailObject.pETRLEObject = &tailImage;
+		tailObject.pPixData = tailPixels.data(); tailObject.uiSizePixData = tailPixels.size();
+		SGPVObject tailAlphaObject = tailObject; tailAlphaObject.pPixData = tailAlpha.data();
+		// An exact heap allocation makes an extra table lookup visible to ASan.
+		std::vector<INT8> oneChange(1, 1);
+		ZStripInfo tailProfile{0, 5, 1, oneChange.data()};
+		ZStripInfo* tailProfiles[]{&tailProfile}; tailObject.ppZStripInfo = tailProfiles;
+		std::vector<PIXEL> tailDestination(tailWidth * tailHeight);
+		std::vector<PIXEL> tailDepthStorage(tailWidth * tailHeight);
+		auto* tailDepth = reinterpret_cast<UINT16*>(tailDepthStorage.data());
+		const UINT32 tailPitch = tailWidth * sizeof(PIXEL);
+		for (unsigned count : {1u, 0u})
+		for (const auto left : {0, 45})
+		for (const auto top : {0, 1})
+		for (int mode = 0; mode < 7; ++mode)
+		{
+			tailProfile.ubNumberOfZChanges = count;
+			// Zero changes has no readable table. A missing nonempty table still
+			// rejects below, rather than silently inventing profile data.
+			tailProfile.pbZChange = count ? oneChange.data() : nullptr;
+			std::fill(tailDestination.begin(), tailDestination.end(), 0);
+			std::fill(tailDepthStorage.begin(), tailDepthStorage.end(), 0);
+			SGPRect tailClip{left, top, tailWidth, tailHeight};
+			bool drawn = false;
+			switch (mode)
+			{
+			case 0: case 1:
+				drawn = Blt8BPPDataTo16BPPBufferTransZIncClipProfile(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, mode == 1); break;
+			case 2:
+				drawn = Blt8BPPDataTo16BPPBufferTransZIncObscureClipProfile(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0); break;
+			case 3:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 4:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, &tailAlphaObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 5:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 6:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, &tailAlphaObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			}
+			bool exact = drawn;
+			for (unsigned row = 0; row < tailHeight; ++row)
+			for (unsigned column = 0; column < tailWidth; ++column)
+			{
+				const bool visible = row >= static_cast<unsigned>(top) && column >= static_cast<unsigned>(left) &&
+					(row == 0 || column >= 45);
+				const UINT16 expectedDepth = !visible ? 0 : 100 + (count && column >= 5 ? (mode < 3 ? 80 : 8) : 0);
+				const PIXEL expectedPixel = visible ? (mode < 3 ? stripSourcePalette[1] : commandPalette[1]) : 0;
+				const auto depthIndex = row * tailPitch / sizeof(UINT16) + column;
+				exact = exact && tailDepth[depthIndex] == expectedDepth &&
+					tailDestination[row * tailWidth + column] == expectedPixel;
+			}
+			Check(exact, "multi-Z finite profiles retain final depth across clipped opaque, transparent and alpha animation tails");
+		}
+		tailProfile.ubNumberOfZChanges = 1;
+		tailProfile.pbZChange = nullptr;
+		SGPRect tailClip{0, 0, tailWidth, tailHeight};
+		Check(!Blt8BPPDataTo16BPPBufferTransZIncClipProfile(tailDestination.data(), tailPitch, tailDepth,
+			100, &tailObject, 0, 0, 0, &tailClip, 0, FALSE), "multi-Z nonempty profiles require readable change data");
+
 		UINT8 maskEncodedPixels[] = {
 			4, 1, 1, 1, 1, 0,
 			4, 1, 1, 1, 1, 0};
