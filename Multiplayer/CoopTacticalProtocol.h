@@ -140,7 +140,10 @@ enum class CoopTacticalIntentReceiptReason : std::uint8_t
 	// The server or retained command service consumed this intent but could
 	// not allocate another global authoritative command sequence. This is
 	// distinct from the peer-inbox exhausted sentinel, which is non-consuming.
-	AuthoritySequenceExhausted = 20
+	AuthoritySequenceExhausted = 20,
+	// Native completion without a discharge may still have consumed stance or
+	// turning AP. It is a cancellation, never a pre-execution rejection or hit.
+	NativeAttackInterrupted = 21
 };
 
 struct CoopTacticalIntentReceipt

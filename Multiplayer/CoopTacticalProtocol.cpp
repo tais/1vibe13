@@ -134,15 +134,16 @@ bool IsValidReceipt(const CoopTacticalIntentReceipt& receipt) noexcept
 			return receipt.reason == CoopTacticalIntentReceiptReason::None;
 		case CoopTacticalIntentReceiptStatus::Rejected:
 			return receipt.authoritativeSequence == 0 &&
-				receipt.reason != CoopTacticalIntentReceiptReason::None;
+				receipt.reason != CoopTacticalIntentReceiptReason::None &&
+				receipt.reason != CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
 		case CoopTacticalIntentReceiptStatus::Applied:
 			return receipt.reason == CoopTacticalIntentReceiptReason::None;
 		case CoopTacticalIntentReceiptStatus::Discarded:
 			return receipt.reason ==
 				CoopTacticalIntentReceiptReason::AuthoritativeDiscard;
 		case CoopTacticalIntentReceiptStatus::Cancelled:
-			return receipt.reason ==
-				CoopTacticalIntentReceiptReason::SessionEnded;
+			return receipt.reason == CoopTacticalIntentReceiptReason::SessionEnded ||
+				receipt.reason == CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
 	}
 	return false;
 }
@@ -386,6 +387,7 @@ bool IsKnownCoopTacticalIntentReceiptReason(
 		case CoopTacticalIntentReceiptReason::AuthoritativeDiscard:
 		case CoopTacticalIntentReceiptReason::SessionEnded:
 		case CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted:
+		case CoopTacticalIntentReceiptReason::NativeAttackInterrupted:
 			return true;
 	}
 	return false;

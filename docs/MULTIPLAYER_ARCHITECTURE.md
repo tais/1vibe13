@@ -966,6 +966,36 @@ and prove post-defeat/capture unloading and persistence with installed assets.
 The data-free native tests exercise the actual timer callbacks and native unload
 refusal; they do not claim successful installed sector-save/unload qualification.
 
+The shared campaign contract also represents a pending native surrender offer.
+Its 96-byte status frame carries an opaque offer ID in bytes 86–93, with bytes
+94–95 reserved zero. An offer requires paused tactical state without time
+compression or an arrival decision. Clearing an offer advances the shared
+control revision, and the ledger rejects later resurrection of that ID within
+the same server epoch. Action values 7 and 8 answer decline/accept through the
+existing 56-byte request and 80-byte result. Both ready players may answer;
+leader-only time control remains separate. Authentication, readiness, observed
+control/group revisions and exact offer identity are still required. Competing
+answers serialize before native execution, and duplicates retain their original
+receipt after the decision clears.
+
+This is a contract foundation. The current application does not publish offers
+or bind their native continuation through this patch. It retains the parent
+protocol version; executable activation must bump the global live protocol and
+connect the native decision hold, request handler and explicit client
+confirmation together. Standalone tests cover the exact byte placement,
+reserved bytes, invalid clock/phase combinations, retired IDs, either player's
+permission, conflicting answers, stale requests and duplicate suppression.
+
+The receipt contract reserves `NativeAttackInterrupted` (21) for `Cancelled`
+after a native attack finishes without a discharge. Stance or turning may
+already have consumed AP, so this reason is invalid with `Rejected`, `Applied`,
+`Queued` or `Discarded`. The terminal receipt preserves the consumed command
+cursor and exact authoritative sequence, including sequence zero. Malformed
+combinations and unknown reasons reject without replacing a prior receipt.
+This portable contract does not publish the new outcome or change live protocol
+versions. Activation must bump the global protocol and connect the native
+completion record, retained receipt delivery and client feedback together.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time

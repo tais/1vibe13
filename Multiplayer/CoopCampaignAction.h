@@ -13,7 +13,8 @@ inline constexpr std::size_t CoopCampaignActionResultWireSize = 80;
 enum class CoopCampaignAction : std::uint8_t
 {
 	Travel = 1, AcknowledgeArrival = 2, StopArrival = 3,
-	EnterArrivalForced = 4, EnterArrivalSpread = 5, RetreatArrival = 6
+	EnterArrivalForced = 4, EnterArrivalSpread = 5, RetreatArrival = 6,
+	DeclineSurrender = 7, AcceptSurrender = 8
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -46,7 +47,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::RetreatArrival;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::AcceptSurrender;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -159,7 +160,12 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	if (!ValidCoopCampaignActionRequest(request) || !ValidCoopCampaignStatus(status) || !ValidCoopCampaignGroups(groups) ||
 		request.sessionEpoch != status.sessionEpoch || request.sessionEpoch != groups.sessionEpoch ||
 		request.controlRevision != status.timeControlRevision || request.groupsRevision != groups.revision) return Outcome::Stale;
-	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic) return Outcome::Unavailable;
+	if (request.action == CoopCampaignAction::DeclineSurrender || request.action == CoopCampaignAction::AcceptSurrender)
+	{
+		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
+		return request.decision == status.surrenderOffer ? Outcome::Applied : Outcome::Stale;
+	}
+	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;
 	if (request.action == CoopCampaignAction::Travel)
 	{
 		if (!groups.available || status.arrival.decision) return Outcome::Unavailable;
