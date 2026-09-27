@@ -974,6 +974,16 @@ confirmation together. Standalone tests cover the exact byte placement,
 reserved bytes, invalid clock/phase combinations, retired IDs, either player's
 permission, conflicting answers, stale requests and duplicate suppression.
 
+The receipt contract reserves `NativeAttackInterrupted` (21) for `Cancelled`
+after a native attack finishes without a discharge. Stance or turning may
+already have consumed AP, so this reason is invalid with `Rejected`, `Applied`,
+`Queued` or `Discarded`. The terminal receipt preserves the consumed command
+cursor and exact authoritative sequence, including sequence zero. Malformed
+combinations and unknown reasons reject without replacing a prior receipt.
+This portable contract does not publish the new outcome or change live protocol
+versions. Activation must bump the global protocol and connect the native
+completion record, retained receipt delivery and client feedback together.
+
 ## Campaign policy
 
 Legacy network mode currently suppresses strategic updates and time
