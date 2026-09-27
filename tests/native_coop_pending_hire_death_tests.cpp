@@ -12,6 +12,8 @@
 #include "Game Events.h"
 #include "Game Event Hook.h"
 #include "GameSettings.h"
+#include "GameInitOptionsScreen.h"
+#include "strategicmap.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalEntityHost.h"
 #include "StrategicGroupHost.h"
@@ -126,6 +128,12 @@ int main()
 	gGameExternalOptions.iGameStartingTime = 90000;
 	gGameOptions.ubSquadSize = 6; gGameOptions.fNewTraitSystem = FALSE;
 	gGameExternalOptions.fDynamicOpinions = FALSE;
+	// Native death refreshes morale and campaign progress. Initialize the
+	// difficulty divisor and a real important sector normally loaded from XML;
+	// x86 traps on zero division while ARM can silently produce zero.
+	gGameOptions.ubDifficultyLevel = DIF_LEVEL_EASY;
+	zDiffSetting[DIF_LEVEL_EASY].iNumKillsPerProgressPoint = 10;
+	NUMBER_OF_SAMS = 1; gpSamSectorX[0] = 2; gpSamSectorY[0] = 4;
 	RestoreJa2TacticalTurnState(0, OUR_TEAM, 0);
 	InitializeJa2CampaignClock(112200);
 	gsMercArriveSectorX = 9; gsMercArriveSectorY = 1;
