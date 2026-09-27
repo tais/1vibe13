@@ -23,7 +23,7 @@ void Codec()
 		8,7,6,5,4,3,2,1, 9,0,0,0,0,0,0,0, 10,0,0,0,0,0,0,0, 11,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0, 3,10,1,0, 1,2,3,4}};
 	CHECK(EncodeCoopCampaignActionRequest(request, bytes) && bytes == expected, "exact little-endian travel vector; no claimed peer identity");
-	for (unsigned action = 1; action <= 8; ++action)
+	for (unsigned action = 1; action <= 9; ++action)
 	{
 		request = Travel(); request.action = static_cast<CoopCampaignAction>(action);
 		if (action != 1) { request.group = {}; request.destinationX = request.destinationY = 0; request.decision = 0x0807060504030201ull; }
@@ -281,6 +281,42 @@ void TransportAndFailure()
 		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Failed && !f.authority.deliveries()[0].result.nativeDetail,
 		"unexpected callback status cannot claim a successful or unconsumed action");
 }
+void BattleNoticeSerialization()
+{
+	Fixture f;
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical;
+	clock.battleNotice = {8, CoopCampaignBattleNoticeKind::Defeated, 9, 1, 0};
+	CHECK(f.status.observe(clock, f.identities, 2), "native battle outcome holds tactical simulation");
+	auto request = f.arrival(CoopCampaignAction::AcknowledgeBattleNotice); request.decision = 8;
+	for (unsigned peer = 0; peer != 2; ++peer)
+		CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[peer], true, true, false) ==
+			CoopCampaignActionOutcome::Applied, "either ready player can acknowledge the battle without time leadership");
+	CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[1], false, true, false) ==
+		CoopCampaignActionOutcome::NotReady, "battle acknowledgement requires readiness");
+	CHECK(ValidateCoopCampaignActionRequest(request, f.status.value(), f.groups, f.identities[1], true, false, false) ==
+		CoopCampaignActionOutcome::Unauthorized, "battle acknowledgement requires campaign policy authorization");
+	unsigned executions = 0;
+	auto apply = [&](const auto&) { ++executions; return CoopCampaignActionNativeResult{CoopCampaignActionOutcome::Applied, 0}; };
+	CHECK(f.authority.submit(request, f.peers[1], true, true, false, f.status, f.groups, apply) && executions == 1,
+		"nonleader acknowledgement consumes one shared control revision before native mutation");
+	CHECK(f.authority.submit(request, f.peers[0], true, true, false, f.status, f.groups, apply) && executions == 1 &&
+		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale, "competing peer cannot acknowledge twice");
+	clock = f.status.value(); clock.battleNotice = {}; clock.phase = CoopCampaignPhase::Transition;
+	CHECK(f.status.observe(clock, f.identities, 2), "consumed notice leaves a paused transition");
+	CHECK(f.authority.submit(request, f.peers[1], false, false, false, f.status, f.groups, apply) && executions == 1 &&
+		f.authority.deliveries()[1].result.outcome == CoopCampaignActionOutcome::Applied,
+		"duplicate acknowledgement replays retained receipt without rerunning native continuation");
+	f.authority.delivered(0); ++request.requestId; request.controlRevision = f.status.value().timeControlRevision;
+	CHECK(f.authority.submit(request, f.peers[0], true, true, false, f.status, f.groups, apply) && executions == 1 &&
+		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Unavailable,
+		"fresh request cannot restart an acknowledged transition");
+	clock.phase = CoopCampaignPhase::Tactical;
+	CHECK(f.status.observe(clock, f.identities, 2), "new tactical context without any notice");
+	f.authority.delivered(0); ++request.requestId; request.controlRevision = f.status.value().timeControlRevision;
+	CHECK(f.authority.submit(request, f.peers[0], true, true, false, f.status, f.groups, apply) && executions == 1 &&
+		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale, "old notice cannot target a later battle");
+}
+
 void SurrenderSerialization()
 {
 	Fixture f;
@@ -314,4 +350,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { Codec(); SurrenderSerialization(); PolicyAndState(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
