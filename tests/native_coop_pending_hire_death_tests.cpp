@@ -32,6 +32,8 @@
 #include "Squads.h"
 #include "Strategic Movement.h"
 #include "Strategic Status.h"
+#include "Queen Command.h"
+#include "Quests.h"
 #include "Interface Panels.h"
 #include "Interface.h"
 #include "Overhead.h"
@@ -45,6 +47,7 @@
 #include "FileMan.h"
 #include "MemMan.h"
 #include "random.h"
+#include <Engine/Core/SimulationRandom.h>
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/Location/vfs_directory_tree.h>
 #include <array>
@@ -75,9 +78,22 @@ struct Files
 {
 	std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-pending-hire-death-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-	Files()
+	Files(bool capture)
 	{
 		std::filesystem::create_directories(root / "TEMP");
+		if (capture)
+		{
+			std::filesystem::create_directories(root / "scripts");
+			std::ofstream script(root / "scripts" / "Quests.lua");
+			script << "function InternalStartQuest(q,x,y,history)\n"
+				" if CheckQuest(q) == 0 then\n"
+				"  SetQuest(q,1)\n"
+				"  if history then SetHistoryFact(" << unsigned(HISTORY_QUEST_STARTED) <<
+				",q,GetWorldTotalMin(),x,y) end\n"
+				" else SetQuest(q,1) end\nend\n";
+			script.close();
+			CHECK(script.good(), "native first-capture Lua fixture written");
+		}
 		auto* profile = new vfs::CVirtualProfile(L"_PENDING_DEATH_TEST", vfs::Path(root.c_str()), true);
 		getVFS()->getProfileStack()->pushProfile(profile);
 		auto* tree = new vfs::CDirectoryTree(vfs::Path(""), vfs::Path(root.c_str()));
@@ -106,8 +122,10 @@ template<class T> std::array<unsigned char, sizeof(T)> Representation(const T& v
 }
 }
 
-int main()
+int main(int argc, char** argv)
 {
+	const bool capture = argc == 2 && std::strcmp(argv[1], "--capture") == 0;
+	if (argc > 2 || (argc == 2 && !capture)) return 2;
 	std::setbuf(stdout, nullptr);
 	DedicatedServerOptions options; options.enabled = true; options.mode = DedicatedServerMode::Coop;
 	InstallDedicatedServerOptions(options);
@@ -116,7 +134,7 @@ int main()
 	CHECK(game.beginInitialization() && game.advancePackagesTo(PackageBootstrapPhase::StartRuntime) && game.markRunning(),
 		"actual native campaign runtime starts");
 	CHECK(InitializeMemoryManager(), "native memory manager initialized");
-	Files files;
+	Files files(capture);
 	CHECK(InitializeFileManager(nullptr), "native file manager initialized");
 	if (failures) return 1;
 	auto& repository = GetJa2SoldierRepository(); repository.initializeSlots(); ResetJa2TacticalActorRosters();
@@ -290,32 +308,146 @@ int main()
 	inspect(State::Ineligible, "groupId zero cannot conceal a stale same-slot player group membership");
 	gpGroupList = hidden.next;
 	inspect(State::EstablishedStrategicCold, "removing contradictory metadata restores the unchanged valid cold campaign");
-	// A second real skull completion leaves no living squad member, but the
-	// already-paid delayed arrival still belongs to this exact cold campaign.
-	SetPendingNewScreen(MAINMENU_SCREEN);
-	alive.vitals().health() = 0;
-	alive.status().flags() |= SOLDIER_DEAD;
-	alive.uiPresentation().queueDeadMercUi();
-	FinishAnySkullPanelAnimations();
-	SetPendingNewScreen(NO_PENDING_SCREEN);
-	CHECK(alive.assignment().current() == ASSIGNMENT_DEAD && alive.deployment().groupId() == 0 &&
-		!alive.uiPresentation().deadMercUiPending() && !alive.uiPresentation().panelClosingForDeath() &&
-		gStrategicStatus.ubMercDeaths == deaths + 2 && unchangedPending(),
-		"last ordinary merc completes native death while paid Grunty and his exact event remain intact");
-	const auto allDeadHistory = files.bytes("History.dat");
-	CHECK(allDeadHistory.size() == 2 * CampaignLedgerRecord::HistoryRecordBytes &&
-		allDeadHistory.compare(0, history.size(), history) == 0,
-		"last native death appends one additional history record");
-	const auto allDeadActor = Representation(alive);
-	const auto allDeadProfile = Representation(gMercProfiles[21]);
-	for (unsigned attempt = 0; attempt < 4; ++attempt)
+	if (capture)
 	{
-		CHECK(InspectDedicatedCoopStarterCampaign() == State::EstablishedStrategicCold,
-			"completed dead roster plus exact paid pending hire resumes paused without a living squad");
-		CHECK(Representation(alive) == allDeadActor && Representation(gMercProfiles[21]) == allDeadProfile &&
-			unchangedPending() && files.bytes("History.dat") == allDeadHistory &&
-			gStrategicStatus.ubMercDeaths == deaths + 2 && !IsJa2TacticalWorldLoaded(),
-			"dead-only pending-hire inspection neither repairs gameplay nor repeats native death effects");
+		// The real capture performs assignment, squad removal, placement, healing
+		// and quest start. Only the installed quest script has a minimal fixture.
+		SetPendingNewScreen(MAINMENU_SCREEN);
+		SetJa2TacticalWorldSector(9, 1, 0);
+		gModSettings.ubInitialPOWSectorX = 13; gModSettings.ubInitialPOWSectorY = 9;
+		for (unsigned index = 0; index < 3; ++index)
+		{
+			gModSettings.iInitialPOWGridNo[index] = 1000 + index;
+			gModSettings.iInitialPOWItemGridNo[index] = 2000 + index;
+		}
+		gStrategicStatus.uiFlags &= ~(STRATEGIC_PLAYER_CAPTURED_FOR_RESCUE | STRATEGIC_PLAYER_CAPTURED_FOR_ESCAPE);
+		gubQuest[QUEST_HELD_IN_ALMA] = gubQuest[QUEST_HELD_IN_TIXA] = gubQuest[QUEST_INTERROGATION] = QUESTNOTSTARTED;
+		// A second independently identified native actor exercises distinct prison
+		// positions in one completed capture sequence.
+		gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{3};
+		auto& otherPrisoner = *repository.resolve(3);
+		otherPrisoner.identity().id() = SoldierID{3}; otherPrisoner.identity().incarnation() = 104;
+		otherPrisoner.identity().profile() = 22; otherPrisoner.identity().bodyType() = REGMALE;
+		otherPrisoner.roster().active() = TRUE; otherPrisoner.roster().team() = OUR_TEAM;
+		otherPrisoner.roster().inSector() = TRUE; otherPrisoner.deployment().setSector(9, 1, 0);
+		otherPrisoner.assignment().current() = FIRST_SQUAD;
+		otherPrisoner.vitals().health() = otherPrisoner.vitals().maximumHealth() = 80;
+		otherPrisoner.vitals().breath() = otherPrisoner.vitals().maximumBreath() = 100;
+		otherPrisoner.employment().mercenaryType() = MERC_TYPE__AIM_MERC;
+		otherPrisoner.employment().totalLength() = 7; otherPrisoner.employment().endTime() = 13740;
+		otherPrisoner.combatResult().currentAttacker() = NOBODY;
+		gMercProfiles[22].Type = PROFILETYPE_AIM; gMercProfiles[22].ubBodyType = REGMALE;
+		gMercProfiles[22].bLife = gMercProfiles[22].bLifeMax = 80; gMercProfiles[22].bMercStatus = 7;
+		CHECK(AdoptJa2TacticalEntity(otherPrisoner) && AddCharacterToSquad(&otherPrisoner, FIRST_SQUAD),
+			"second capture participant has a real independent identity and heap-owned native membership");
+		BeginCaptureSquence(); EnemyCapturesPlayerSoldier(&alive); EnemyCapturesPlayerSoldier(&otherPrisoner); EndCaptureSequence();
+		SetPendingNewScreen(NO_PENDING_SCREEN); NotifyJa2TacticalWorldUnloaded(); ClearJa2TacticalWorldSector();
+		UnLockPauseState(); PauseGame(); StopTimeCompression();
+		CHECK(alive.assignment().current() == ASSIGNMENT_POW && !alive.deployment().groupId() &&
+			!alive.roster().inSector() && alive.deployment().sectorX() == 13 && alive.deployment().sectorY() == 9 &&
+			alive.vitals().health() == 40 && alive.vitals().breath() == 50 &&
+			gStrategicStatus.ubNumCapturedForRescue == 2 && gubQuest[QUEST_HELD_IN_ALMA] == QUESTINPROGRESS &&
+			otherPrisoner.assignment().current() == ASSIGNMENT_POW &&
+			otherPrisoner.deployment().strategicInsertionData() == 1001 &&
+			alive.deployment().strategicInsertionData() == 1000,
+			"actual native capture removes live membership, places and heals the prisoner, and starts rescue");
+		const auto captureHistory = files.bytes("History.dat");
+		CHECK(captureHistory.size() == history.size() + CampaignLedgerRecord::HistoryRecordBytes &&
+			captureHistory.compare(0, history.size(), history) == 0 && unchangedPending(),
+			"native capture adds one quest history row and preserves the exact paid hire and ledgers");
+		const auto inspectPrisoner = [&](State expected) {
+			const auto actorBytes = Representation(alive); const auto profileBytes = Representation(gMercProfiles[21]);
+			const auto otherBytes = Representation(otherPrisoner); const auto otherProfile = Representation(gMercProfiles[22]);
+			const auto deadBytes = Representation(dead); const auto strategicBytes = Representation(gStrategicStatus);
+			const auto randomState = GetGameSimulationRandomSource()->checkpoint();
+			const auto questBytes = Representation(gubQuest);
+			CHECK(InspectDedicatedCoopStarterCampaign() == expected, "cold capture classifier recognizes only the exact supported native cohort");
+			CHECK(Representation(alive) == actorBytes && Representation(gMercProfiles[21]) == profileBytes &&
+				Representation(dead) == deadBytes && Representation(gStrategicStatus) == strategicBytes &&
+				Representation(otherPrisoner) == otherBytes && Representation(gMercProfiles[22]) == otherProfile &&
+				GetGameSimulationRandomSource()->checkpoint() == randomState && Representation(gubQuest) == questBytes && unchangedPending() &&
+				files.bytes("History.dat") == captureHistory && !IsJa2TacticalWorldLoaded(),
+				"capture inspection cannot replay capture, alter a prisoner, redraw RNG or touch pending arrival and history");
+		};
+		for (unsigned attempt = 0; attempt < 4; ++attempt) inspectPrisoner(State::EstablishedStrategicCold);
+		const auto prisoner = Representation(alive);
+		const auto flags = gStrategicStatus.uiFlags;
+		for (unsigned change = 0; change < 17; ++change)
+		{
+			switch (change)
+			{
+			case 0: alive.assignment().current() = FIRST_SQUAD; break;
+			case 1: alive.deployment().sectorX() = 12; break;
+			case 2: alive.deployment().strategicInsertionData() = 999; break;
+			case 3: alive.roster().inSector() = TRUE; break;
+			case 4: alive.aiBehavior().neutral() = FALSE; break;
+			case 5: alive.status().flags() |= SOLDIER_DEAD; break;
+			case 6: alive.uiPresentation().queueDeadMercUi(); break;
+			case 7: alive.identity().incarnation()++; break;
+			case 8: gStrategicStatus.ubNumCapturedForRescue = 3; break;
+			case 9: gStrategicStatus.uiFlags |= STRATEGIC_PLAYER_CAPTURED_FOR_ESCAPE; break;
+			case 10: gubQuest[QUEST_HELD_IN_ALMA] = QUESTNOTSTARTED; break;
+			case 11: gubQuest[QUEST_HELD_IN_TIXA] = QUESTINPROGRESS; break;
+			case 12: alive.vitals().bleeding() = 1; break;
+			case 13: alive.deployment().groupId() = 250; break;
+			case 14: gModSettings.iInitialPOWGridNo[1] = 1000; break;
+			case 15: gMercProfiles[21].ubMiscFlags |= PROFILE_MISC_FLAG_EPCACTIVE; break;
+			case 16: gMercProfiles[21].bMercStatus = MERC_IS_DEAD; break;
+			}
+			inspectPrisoner(State::Ineligible);
+			// Restore fields changed by this negative case, without cloning an actor.
+			alive.assignment().current() = ASSIGNMENT_POW; alive.deployment().sectorX() = 13;
+			alive.deployment().strategicInsertionData() = 1000; alive.roster().inSector() = FALSE;
+			alive.aiBehavior().neutral() = TRUE; alive.status().flags() &= ~SOLDIER_DEAD;
+			alive.uiPresentation().finishDeathUi(); alive.identity().incarnation() = 101;
+			gStrategicStatus.ubNumCapturedForRescue = 2; gStrategicStatus.uiFlags = flags;
+			gubQuest[QUEST_HELD_IN_ALMA] = QUESTINPROGRESS; gubQuest[QUEST_HELD_IN_TIXA] = QUESTNOTSTARTED;
+			alive.vitals().bleeding() = 0; alive.deployment().groupId() = 0;
+			gModSettings.iInitialPOWGridNo[1] = 1001;
+			gMercProfiles[21].ubMiscFlags &= ~PROFILE_MISC_FLAG_EPCACTIVE;
+			gMercProfiles[21].bMercStatus = 7;
+		}
+		CHECK(Representation(alive) == prisoner, "negative checks restore the actual native prisoner without reconstruction");
+		CHECK(AddJa2StrategicSquadActor(3, GetJa2TacticalEntityId(alive)) == 0, "insert contradictory prisoner squad membership");
+		inspectPrisoner(State::Ineligible);
+		CHECK(RemoveJa2StrategicSquadActor(3, GetJa2TacticalEntityId(alive)), "remove contradictory prisoner membership");
+		inspectPrisoner(State::EstablishedStrategicCold);
+		otherPrisoner.deployment().strategicInsertionData() = 1000;
+		inspectPrisoner(State::Ineligible);
+		otherPrisoner.deployment().strategicInsertionData() = 1001;
+		inspectPrisoner(State::EstablishedStrategicCold);
+		(void)ReleaseJa2TacticalEntity(otherPrisoner);
+		otherPrisoner.roster().active() = FALSE;
+	}
+	else
+	{
+		// A second real skull completion leaves no living squad member, but the
+		// already-paid delayed arrival still belongs to this exact cold campaign.
+		SetPendingNewScreen(MAINMENU_SCREEN);
+		alive.vitals().health() = 0;
+		alive.status().flags() |= SOLDIER_DEAD;
+		alive.uiPresentation().queueDeadMercUi();
+		FinishAnySkullPanelAnimations();
+		SetPendingNewScreen(NO_PENDING_SCREEN);
+		CHECK(alive.assignment().current() == ASSIGNMENT_DEAD && alive.deployment().groupId() == 0 &&
+			!alive.uiPresentation().deadMercUiPending() && !alive.uiPresentation().panelClosingForDeath() &&
+			gStrategicStatus.ubMercDeaths == deaths + 2 && unchangedPending(),
+			"last ordinary merc completes native death while paid Grunty and his exact event remain intact");
+		const auto allDeadHistory = files.bytes("History.dat");
+		CHECK(allDeadHistory.size() == 2 * CampaignLedgerRecord::HistoryRecordBytes &&
+			allDeadHistory.compare(0, history.size(), history) == 0,
+			"last native death appends one additional history record");
+		const auto allDeadActor = Representation(alive);
+		const auto allDeadProfile = Representation(gMercProfiles[21]);
+		for (unsigned attempt = 0; attempt < 4; ++attempt)
+		{
+			CHECK(InspectDedicatedCoopStarterCampaign() == State::EstablishedStrategicCold,
+				"completed dead roster plus exact paid pending hire resumes paused without a living squad");
+			CHECK(Representation(alive) == allDeadActor && Representation(gMercProfiles[21]) == allDeadProfile &&
+				unchangedPending() && files.bytes("History.dat") == allDeadHistory &&
+				gStrategicStatus.ubMercDeaths == deaths + 2 && !IsJa2TacticalWorldLoaded(),
+				"dead-only pending-hire inspection neither repairs gameplay nor repeats native death effects");
+		}
 	}
 	RemoveAllGroups(); ResetJa2StrategicSquadRosters();
 	queue.clear();

@@ -43,6 +43,8 @@ struct DedicatedCoopStarterCampaignEvidence
 	std::size_t validPendingAimHireActors = 0;
 	// Completed native deaths remain active roster records until dismissed.
 	std::size_t validCompletedDeadMercs = 0;
+	std::size_t observedPrisonerActors = 0;
+	std::size_t validCapturedPrisoners = 0;
 	bool pendingHireCohortConsistent = false;
 };
 
@@ -107,20 +109,25 @@ ClassifyDedicatedCoopStarterCampaign(
 		return DedicatedCoopStarterCampaignState::Ineligible;
 	}
 	if (evidence.observedPendingHireActors != 0 ||
-		evidence.delayedHiringEvents != 0)
+		evidence.delayedHiringEvents != 0 ||
+		(evidence.observedPrisonerActors != 0 &&
+		 (evidence.travelingEstablishedMercs != 0 || evidence.validEstablishedMercs == 0)))
 	{
 		if (!evidence.pendingHireCohortConsistent ||
 			evidence.activePlayerMercs > MaximumDedicatedCoopEstablishedSectorCandidates ||
 			evidence.unexpectedActivePlayerActors != 0 ||
-			evidence.observedPendingHireActors == 0 ||
+			(evidence.observedPendingHireActors == 0 && evidence.observedPrisonerActors == 0) ||
+			evidence.observedPrisonerActors != evidence.validCapturedPrisoners ||
 			evidence.validPendingAimHireActors != evidence.observedPendingHireActors ||
 			evidence.delayedHiringEvents != evidence.validPendingAimHireActors ||
 			evidence.validPendingAimHireActors >= evidence.activePlayerMercs ||
 			evidence.validCompletedDeadMercs >
 				evidence.activePlayerMercs - evidence.validPendingAimHireActors ||
+			evidence.validCapturedPrisoners > evidence.activePlayerMercs -
+				evidence.validPendingAimHireActors - evidence.validCompletedDeadMercs ||
 			evidence.validEstablishedRosterMercs !=
 				evidence.activePlayerMercs - evidence.validPendingAimHireActors -
-				evidence.validCompletedDeadMercs ||
+				evidence.validCompletedDeadMercs - evidence.validCapturedPrisoners ||
 			evidence.travelingEstablishedMercs > evidence.validEstablishedRosterMercs ||
 			evidence.validEstablishedMercs > evidence.validEstablishedRosterMercs -
 				evidence.travelingEstablishedMercs)
@@ -246,6 +253,39 @@ inline constexpr bool DedicatedCoopCompletedDeathEligible(
 		evidence.contractEndMinute >= 0 && evidence.groupSlot == 0 &&
 		evidence.x >= 1 && evidence.x <= 16 && evidence.y >= 1 && evidence.y <= 16 &&
 		evidence.z >= 0 && evidence.z <= 3;
+}
+
+// Only the completed first native capture is recognized here. Prisoner rescue,
+// later prisons and interrogation need their own lifecycle proof. Inspection
+// does not capture, relocate, equip or heal anyone.
+struct DedicatedCoopCapturedPrisonerEvidence
+{
+	bool exactIdentity = false, activePlayer = false, realProfile = false;
+	bool profileHired = false, humanBody = false, prisonerAssignment = false;
+	bool nativeCapture = false, exactInsertion = false, noLiveMembership = false;
+	bool neutral = false, deathUiComplete = false;
+	bool unsupportedRole = false, airborne = false, betweenSectors = false;
+	bool inSector = false, deathFlag = false, inventoryEmpty = false;
+	int life = 0, maximumLife = 0, bleeding = 0;
+	std::int32_t contractEndMinute = 0;
+	std::int16_t x = 0, y = 0, prisonX = 0, prisonY = 0;
+	std::int8_t z = -1;
+	std::uint16_t groupSlot = 0;
+};
+
+inline constexpr bool DedicatedCoopCapturedPrisonerEligible(
+	const DedicatedCoopCapturedPrisonerEvidence& evidence) noexcept
+{
+	return evidence.exactIdentity && evidence.activePlayer && evidence.realProfile &&
+		evidence.profileHired && evidence.humanBody && evidence.prisonerAssignment &&
+		evidence.nativeCapture && evidence.exactInsertion && evidence.noLiveMembership &&
+		evidence.neutral && evidence.deathUiComplete && evidence.inventoryEmpty &&
+		!evidence.unsupportedRole && !evidence.airborne && !evidence.betweenSectors &&
+		!evidence.inSector && !evidence.deathFlag && evidence.life > 0 &&
+		evidence.life <= evidence.maximumLife && evidence.maximumLife <= 100 &&
+		evidence.bleeding == 0 && evidence.contractEndMinute >= 0 && evidence.groupSlot == 0 &&
+		evidence.x >= 1 && evidence.x <= 16 && evidence.y >= 1 && evidence.y <= 16 &&
+		evidence.x == evidence.prisonX && evidence.y == evidence.prisonY && evidence.z == 0;
 }
 
 // Pointer-free evidence for one living on-foot squad member's native group.

@@ -2,6 +2,7 @@
 #include "Soldier Profile Constants.h"
 
 #include "CampaignApplicationPolicy.h"
+#include "CampaignQuestPolicy.h"
 #include "CampaignEventAdapter.h"
 #include "GameContext.h"
 #include "GameSettings.h"
@@ -21,6 +22,8 @@
 #include "Merc Hiring.h"
 #include "Overhead.h"
 #include "Queen Command.h"
+#include "Quests.h"
+#include "Strategic Status.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"
 #include "TacticalActor.h"
@@ -289,6 +292,65 @@ bool ValidCompletedRosterDeath(TacticalActor& actor, std::size_t slot) noexcept
 	return DedicatedCoopCompletedDeathEligible(evidence);
 }
 
+bool ValidCapturedPrisoner(TacticalActor& actor, std::size_t slot,
+	std::array<bool, 3>& occupiedPrisonSlots) noexcept
+{
+	DedicatedCoopCapturedPrisonerEvidence evidence;
+	const TacticalEntityId identity = GetJa2TacticalEntityId(actor);
+	evidence.exactIdentity = identity.valid() && ResolveJa2TacticalEntity(identity) == &actor &&
+		actor.identity().id().i == slot && GetJa2SoldierRepository().contains(slot, actor);
+	evidence.activePlayer = actor.roster().active() && actor.roster().team() == OUR_TEAM &&
+		slot >= gTacticalStatus.Team[OUR_TEAM].bFirstID.i && slot <= gTacticalStatus.Team[OUR_TEAM].bLastID.i;
+	const auto profileId = actor.identity().profile();
+	evidence.realProfile = profileId < NUM_PROFILES && profileId != NO_PROFILE;
+	if (evidence.realProfile)
+	{
+		const auto& profile = gMercProfiles[profileId];
+		evidence.profileHired = profile.bMercStatus >= 0 &&
+			(profile.ubMiscFlags & PROFILE_MISC_FLAG_EPCACTIVE) == 0;
+		evidence.humanBody = actor.identity().bodyType() <= REGFEMALE &&
+			actor.identity().bodyType() == profile.ubBodyType;
+	}
+	evidence.prisonerAssignment = actor.assignment().current() == ASSIGNMENT_POW;
+	evidence.nativeCapture = CampaignQuestPolicy(GetGameContext().capabilities()).supportsPrisonerOfWarQuests() &&
+		(gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_RESCUE) != 0 &&
+		(gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_ESCAPE) == 0 &&
+		gubQuest[QUEST_HELD_IN_ALMA] == QUESTINPROGRESS &&
+		gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED &&
+		gubQuest[QUEST_INTERROGATION] == QUESTNOTSTARTED &&
+		gStrategicStatus.ubNumCapturedForRescue >= 1 &&
+		gStrategicStatus.ubNumCapturedForRescue <= occupiedPrisonSlots.size();
+	std::size_t matches = 0, prisonSlot = 0;
+	if (actor.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO)
+		for (std::size_t index = 0; index < occupiedPrisonSlots.size(); ++index)
+			if (gModSettings.iInitialPOWGridNo[index] >= 0 &&
+				actor.deployment().strategicInsertionData() == gModSettings.iInitialPOWGridNo[index])
+			{ ++matches; prisonSlot = index; }
+	evidence.exactInsertion = matches == 1 && prisonSlot < gStrategicStatus.ubNumCapturedForRescue &&
+		!occupiedPrisonSlots[prisonSlot];
+	evidence.noLiveMembership = PendingAimHireHasNoNativeMembership(actor);
+	evidence.neutral = actor.aiBehavior().neutral() != FALSE;
+	evidence.deathUiComplete = !actor.uiPresentation().deadMercUiPending() && !actor.uiPresentation().panelClosingForDeath();
+	evidence.unsupportedRole = (actor.status().flags() &
+		(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_ROBOT | SOLDIER_PCUNDERAICONTROL)) != 0;
+	evidence.airborne = SoldierAboardAirborneHeli(&actor) != FALSE;
+	evidence.betweenSectors = actor.deployment().isBetweenSectors();
+	evidence.inSector = actor.roster().inSector() != FALSE;
+	evidence.deathFlag = (actor.status().flags() & SOLDIER_DEAD) != 0;
+	evidence.inventoryEmpty = true;
+	for (unsigned index = 0; index < actor.inventory().size(); ++index)
+		if (actor.inventory()[index].exists()) evidence.inventoryEmpty = false;
+	evidence.life = actor.vitals().health(); evidence.maximumLife = actor.vitals().maximumHealth();
+	evidence.bleeding = actor.vitals().bleeding();
+	evidence.contractEndMinute = actor.employment().endTime();
+	evidence.groupSlot = actor.deployment().groupId();
+	evidence.x = actor.deployment().sectorX(); evidence.y = actor.deployment().sectorY(); evidence.z = actor.deployment().sectorZ();
+	evidence.prisonX = gModSettings.ubInitialPOWSectorX; evidence.prisonY = gModSettings.ubInitialPOWSectorY;
+	if (!DedicatedCoopCapturedPrisonerEligible(evidence)) return false;
+	occupiedPrisonSlots[prisonSlot] = true;
+	return true;
+}
+
 void InspectEstablishedPendingAimHires(
 	DedicatedCoopStarterCampaignEvidence& campaign) noexcept
 {
@@ -296,6 +358,7 @@ void InspectEstablishedPendingAimHires(
 	const std::size_t first = gTacticalStatus.Team[OUR_TEAM].bFirstID.i;
 	const std::size_t last = gTacticalStatus.Team[OUR_TEAM].bLastID.i;
 	std::array<std::size_t, NUM_PROFILES> activeProfiles{};
+	std::array<bool, 3> occupiedPrisonSlots{};
 	campaign.pendingHireCohortConsistent = true;
 	for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
 	{
@@ -318,6 +381,12 @@ void InspectEstablishedPendingAimHires(
 		if (playerDeath)
 		{
 			if (ValidCompletedRosterDeath(*actor, slot)) ++campaign.validCompletedDeadMercs;
+			else campaign.pendingHireCohortConsistent = false;
+		}
+		if ((inPlayerSlots || actor->roster().team() == OUR_TEAM) && actor->assignment().current() == ASSIGNMENT_POW)
+		{
+			++campaign.observedPrisonerActors;
+			if (ValidCapturedPrisoner(*actor, slot, occupiedPrisonSlots)) ++campaign.validCapturedPrisoners;
 			else campaign.pendingHireCohortConsistent = false;
 		}
 		const bool profileAwaiting = realProfile &&
@@ -386,6 +455,9 @@ void InspectEstablishedPendingAimHires(
 		if (DedicatedCoopPendingAimHireEligible(evidence))
 			++campaign.validPendingAimHireActors;
 	}
+	if (campaign.observedPrisonerActors &&
+		campaign.observedPrisonerActors != gStrategicStatus.ubNumCapturedForRescue)
+		campaign.pendingHireCohortConsistent = false;
 	// The classifier compares the entire delayed-event count with this cohort.
 	// An orphan, including a narrowed alias or an event for a normal squad
 	// actor, therefore cannot be hidden by an otherwise healthy stationary merc.

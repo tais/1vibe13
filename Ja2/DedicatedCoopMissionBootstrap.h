@@ -51,8 +51,12 @@ struct DedicatedCoopMissionPreparationResult
 // and insertion state, unique active profiles and one exact delayed event per
 // pending actor. Exact completed native deaths can replace ordinary roster
 // members, including the last living squad member. Orphan events activate the
-// same strict validation. Pending-only, vehicle, duty and POW mixed cohorts
-// remain unsupported by this extension.
+// same strict validation. The completed first native capture may also retain
+// prisoners in the configured Alma prison with exact quest/count/position
+// evidence, no live membership and confiscated inventory. A prisoner-only
+// surviving roster can resume paused without an unrelated pending hire.
+// Pending-only, vehicle, duty, later capture and partially rescued prisoner
+// cohorts remain unsupported by this extension.
 // No state, group, event, or clock is changed while classifying.
 DedicatedCoopStarterCampaignState
 InspectDedicatedCoopStarterCampaign() noexcept;
