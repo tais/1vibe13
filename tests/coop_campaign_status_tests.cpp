@@ -218,12 +218,26 @@ void TestBattleNoticeObservation()
 			DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
 			"each native battle outcome roundtrips its exact opaque ID and public sector");
 	}
-	for (const unsigned at : {94u, 95u, 108u, 109u, 110u, 111u})
+	for (const unsigned at : {94u, 95u, 109u, 110u, 111u})
 	{
 		auto bad = bytes; bad[at] = 1; decoded = status;
 		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
 			"all reserved notice bytes reject corruption without replacing the committed observation");
 	}
+	status.battleNotice.sectorControlLost = true;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[108] == 1 &&
+		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+		"native contested town loss is visible alongside the exact battle outcome");
+	for (unsigned badFlag = 2; badFlag <= 255; ++badFlag)
+	{
+		auto bad = bytes; bad[108] = static_cast<std::uint8_t>(badFlag);
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"undefined sector loss flags cannot overwrite the committed public outcome");
+	}
+	{ auto bad = status; bad.battleNotice.z = 1;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes), "surface control notice cannot claim an underground sector"); }
+	{ auto empty = status; empty.battleNotice = {}; empty.battleNotice.sectorControlLost = true;
+		CHECK(!EncodeCoopCampaignStatus(empty, bytes), "empty notice cannot retain an unacknowledged sector loss"); }
 	for (unsigned fault = 0; fault != 13; ++fault)
 	{
 		auto bad = status;
@@ -247,13 +261,14 @@ void TestBattleNoticeObservation()
 	CHECK(ledger.beginSession(11) && ledger.observe(status, peers, 2), "native battle notice published to ready players");
 	const auto saved = ledger.value();
 	CHECK(ledger.observe(status, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "repeated notice does not churn revisions");
-	for (unsigned fault = 0; fault != 4; ++fault)
+	for (unsigned fault = 0; fault != 5; ++fault)
 	{
 		auto bad = status;
 		if (fault == 0) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated;
 		if (fault == 1) ++bad.battleNotice.x;
 		if (fault == 2) ++bad.battleNotice.y;
 		if (fault == 3) ++bad.battleNotice.z;
+		if (fault == 4) bad.battleNotice.sectorControlLost = false;
 		CHECK(!ledger.observe(bad, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "same notice cannot change outcome or sector");
 	}
 	const auto notice = status.battleNotice; status.battleNotice = {}; status.phase = CoopCampaignPhase::Transition;

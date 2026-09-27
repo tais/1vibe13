@@ -26,16 +26,17 @@ struct CoopCampaignBattleNotice
 	std::uint64_t id = 0;
 	CoopCampaignBattleNoticeKind kind = CoopCampaignBattleNoticeKind::None;
 	std::uint8_t x = 0, y = 0, z = 0;
+	bool sectorControlLost = false;
 };
 inline bool ValidCoopCampaignBattleNotice(const CoopCampaignBattleNotice& value) noexcept
 {
-	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z;
+	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z && !value.sectorControlLost;
 	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::Surrendered &&
-		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3;
+		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3 && (!value.sectorControlLost || value.z == 0);
 }
 inline bool SameCoopCampaignBattleNotice(const CoopCampaignBattleNotice& a, const CoopCampaignBattleNotice& b) noexcept
 {
-	return a.id == b.id && a.kind == b.kind && a.x == b.x && a.y == b.y && a.z == b.z;
+	return a.id == b.id && a.kind == b.kind && a.x == b.x && a.y == b.y && a.z == b.z && a.sectorControlLost == b.sectorControlLost;
 }
 inline bool ValidCoopCampaignBattleNoticeReplacement(const CoopCampaignBattleNotice& previous,
 	const CoopCampaignBattleNotice& next, std::uint64_t lastId) noexcept
@@ -141,6 +142,7 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 	put(96, value.battleNotice.id, 8);
 	bytes[104] = static_cast<std::uint8_t>(value.battleNotice.kind);
 	bytes[105] = value.battleNotice.x; bytes[106] = value.battleNotice.y; bytes[107] = value.battleNotice.z;
+	bytes[108] = value.battleNotice.sectorControlLost ? 1 : 0;
 	output = bytes;
 	return true;
 }
@@ -151,7 +153,8 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 		bytes[2] != 'C' || bytes[3] != 'T' || bytes[6] != 1 || bytes[7] || bytes[29] > 6 || (bytes[30] & ~31u) ||
 		(bytes[74] & ~31u) || bytes[79]) return false;
 	if (bytes[94] || bytes[95]) return false;
-	for (std::size_t i = 108; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
+	if (bytes[108] > 1) return false;
+	for (std::size_t i = 109; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -179,7 +182,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	arrival.pendingCount = static_cast<std::uint16_t>(get(80, 2));
 	arrival.involvedMercs = static_cast<std::uint16_t>(get(82, 2)); arrival.uninvolvedMercs = static_cast<std::uint16_t>(get(84, 2));
 	value.surrenderOffer = get(86, 8);
-	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107]};
+	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107], bytes[108] != 0};
 	if (!ValidCoopCampaignStatus(value)) return false;
 	output = value;
 	return true;

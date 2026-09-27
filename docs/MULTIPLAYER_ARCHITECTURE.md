@@ -976,10 +976,11 @@ permission, conflicting answers, stale requests and duplicate suppression.
 
 The shared battle-notice contract extends the campaign status to 112 bytes.
 Bytes 96–103 hold its native notice ID, byte 104 its distinct defeat/creature/
-capture/surrender kind, and bytes 105–107 its public sector. Bytes 94–95 and
-108–111 stay reserved zero. Only a paused tactical state may hold a notice,
-without a concurrent surrender offer or arrival decision. A notice's outcome
-and sector cannot change under the same ID, and retired IDs cannot reappear.
+capture/surrender kind, and bytes 105–107 its public sector. Byte 108 is the
+canonical boolean for a native contested-town control loss; only a surface
+notice may carry it. Bytes 94–95 and 109–111 stay reserved zero. Only a paused tactical state may hold a notice,
+without a concurrent surrender offer or arrival decision. A notice's outcome,
+sector and control-loss flag cannot change under the same ID, and retired IDs cannot reappear.
 Action 9 acknowledges the exact notice using the existing request/result
 layouts and shared control barrier. Either ready player may acknowledge;
 competing requests and retries cannot execute its continuation twice.
