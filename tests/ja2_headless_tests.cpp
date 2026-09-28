@@ -13374,6 +13374,22 @@ int main( int argc, char** argv )
 				? &journalAfterLiveAiWindowTraversal.back()
 				: nullptr;
 
+		// Native destination checks use the visible map bounds even in a
+		// logical-world fixture. Restore all render geometry after traversal.
+		const std::array<INT16*, 20> traversalGeometry = {
+			&gTopLeftWorldLimitX, &gTopLeftWorldLimitY,
+			&gTopRightWorldLimitX, &gTopRightWorldLimitY,
+			&gBottomLeftWorldLimitX, &gBottomLeftWorldLimitY,
+			&gBottomRightWorldLimitX, &gBottomRightWorldLimitY,
+			&gCenterWorldX, &gCenterWorldY,
+			&gsTLX, &gsTLY, &gsTRX, &gsTRY, &gsBLX, &gsBLY,
+			&gsBRX, &gsBRY, &gsCX, &gsCY};
+		std::array<INT16, 20> traversalGeometryBefore{};
+		for (std::size_t i = 0; i < traversalGeometry.size(); ++i)
+			traversalGeometryBefore[i] = *traversalGeometry[i];
+		const DOUBLE traversalScaleXBefore = gdScaleX;
+		const DOUBLE traversalScaleYBefore = gdScaleY;
+		InitRenderParams(0);
 		const UINT8 traversalPathDirection = EAST;
 		const INT32 traversalFenceGrid = NewGridNo(
 			commandHostActor.position().gridNo(),
@@ -13385,6 +13401,20 @@ int main( int argc, char** argv )
 			? gubWorldMovementCosts[ traversalFenceGrid ]
 				[ traversalPathDirection ][ FIRST_LEVEL ]
 			: 0;
+		// A movement cost alone is not a native jumpable fence. Retain an
+		// actual structure so success proves a HOPFENCE was scheduled.
+		STRUCTURE traversalFenceStructure{};
+		traversalFenceStructure.fFlags = STRUCTURE_BASE_TILE | STRUCTURE_FENCE;
+		traversalFenceStructure.sGridNo = traversalFenceGrid;
+		traversalFenceStructure.sBaseGridNo = traversalFenceGrid;
+		STRUCTURE* const traversalFenceHeadBefore = traversalWorldReady
+			? gpWorldLevelData[traversalFenceGrid].pStructureHead : nullptr;
+		if (traversalWorldReady)
+		{
+			traversalFenceStructure.pNext = traversalFenceHeadBefore;
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				&traversalFenceStructure;
+		}
 		SimulationCommandDispatchResult livePathTraversal;
 		const RecordedSimulationCommand* livePathTraversalRecord = nullptr;
 		std::vector<RecordedSimulationCommand>
@@ -13425,6 +13455,7 @@ int main( int argc, char** argv )
 			( commandHostActor.status().flags() &
 				SOLDIER_LOCKPENDINGACTIONCOUNTER ) != 0 &&
 			commandHostActor.animationIntent().continuationMode() == 2 &&
+			commandHostActor.animationIntent().pendingAnimation() == HOPFENCE &&
 			livePathTraversalRecord &&
 			livePathTraversalRecord->status ==
 				CommandJournalStatus::Applied &&
@@ -13438,6 +13469,10 @@ int main( int argc, char** argv )
 			std::get<TraverseObstacleCommand>(
 				livePathTraversalRecord->command ).expectedNextPathDirection ==
 					traversalPathDirection;
+		for (std::size_t i = 0; i < traversalGeometry.size(); ++i)
+			*traversalGeometry[i] = traversalGeometryBefore[i];
+		gdScaleX = traversalScaleXBefore;
+		gdScaleY = traversalScaleYBefore;
 		bool pendingReplaySuppressesAsyncPathProducer = false;
 		bool pendingReplayOwnsNoActionPointBranch = false;
 		if ( livePathTraversalRecord &&
@@ -13965,6 +14000,9 @@ int main( int argc, char** argv )
 			gubWorldMovementCosts[ traversalFenceGrid ]
 				[ traversalPathDirection ][ FIRST_LEVEL ] =
 					previousTraversalMovementCost;
+		if (traversalWorldReady)
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				traversalFenceHeadBefore;
 		const bool traversalActorRestored =
 			soldierRepository.replace( 0, previousTraversalActor ) ==
 				&commandHostActor;

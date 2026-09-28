@@ -1265,28 +1265,10 @@ namespace
 			return CommandDisposition::Applied;
 		}
 
-		const std::int32_t beyondFenceGrid = NewGridNo(
-			fenceGrid,
-			DirectionInc(command.expectedNextPathDirection));
-		if (TileIsOutOfBounds(beyondFenceGrid) ||
-			beyondFenceGrid == fenceGrid)
-			return CommandDisposition::Discard;
-
-		if (!HandleNextTile(
-				&soldier,
-				static_cast<INT8>(command.expectedNextPathDirection),
-				beyondFenceGrid,
-				command.expectedFinalDestination,
-				replicateContinuation))
-			return CommandDisposition::Applied;
-
-		++soldier.pathing().pathIndex();
-		soldier.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
-		(void)TacticalActorRouteExecution::settleIntoStationaryStance(
-			soldier);
-		(void)BeginTraversal(soldier, TacticalTraversalKind::JumpFence);
-		soldier.animationIntent().continueAfterStance(2);
-		return CommandDisposition::Applied;
+		return TacticalActorTraversal::beginPathFenceJump(
+			soldier, replicateContinuation != FALSE)
+			? CommandDisposition::Applied
+			: CommandDisposition::Discard;
 	}
 
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)

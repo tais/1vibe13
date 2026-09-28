@@ -31519,9 +31519,7 @@ foreach(required_traversal_executor IN ITEMS
     "TraversalExpectationMatches"
     "ExecutePathCompletionTraversal"
     "HaltGuyFromNewGridNoBecauseOfNoAPs"
-    "HandleNextTile"
-    "settleIntoStationaryStance"
-    "continueAfterStance(2)"
+    "TacticalActorTraversal::beginPathFenceJump"
     "CaptureTraversalStateFingerprint"
     "setRoofCompletionReplication"
     "IsReplaySimulationCommandExecutionActive"
@@ -31531,6 +31529,24 @@ foreach(required_traversal_executor IN ITEMS
   if(required_traversal_executor_index EQUAL -1)
     message(FATAL_ERROR
       "Traversal executor lost '${required_traversal_executor}'")
+  endif()
+endforeach()
+
+read_cxx_executable("${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp"
+  traversal_path_start_executable)
+foreach(required_path_start IN ITEMS
+    "TacticalActorTraversal::beginPathFenceJump"
+    "IsJumpableFencePresentAtGridNo"
+    "NewOKDestination"
+    "HandleNextTile"
+    "settleIntoStationaryStance"
+    "queueFenceJump"
+    "continueAfterStance(2)")
+  string(FIND "${traversal_path_start_executable}"
+    "${required_path_start}" required_path_start_index)
+  if(required_path_start_index EQUAL -1)
+    message(FATAL_ERROR
+      "Native path fence start lost '${required_path_start}'")
   endif()
 endforeach()
 
