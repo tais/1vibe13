@@ -1,3 +1,4 @@
+#include "move_diagnostic_capture.h"
 #include "Ja2/DedicatedCoopTacticalHost.h"
 
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -522,6 +523,41 @@ void TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart()
 		LastReceipt(exhaustedReceipts).reason ==
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"an unaffordable first step cannot later be reported as applied");
+}
+
+
+void TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation()
+{
+	for (bool enabled : {false, true})
+	{
+		FakeLiveState live;
+		live.turn.pendingCombatActions = 1;
+		FakeCommandService commands;
+		RecordingReceiptSink receipts;
+		DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+		MoveDiagnosticCapture trace(enabled);
+		CHECK(trace.valid(), "host diagnostic capture opens");
+		const auto result = host.execute(Intent(1, MoveTacticalIntent{1234, 17, false}));
+		const auto output = trace.finish();
+		CHECK(result == TacticalIntentExecutionDisposition::Rejected &&
+			LastReceipt(receipts).reason == CoopTacticalIntentReceiptReason::GameplayRejected &&
+			commands.submissionCount == 0 && live.movePreparationCalls == 0 &&
+			live.turn.pendingCombatActions == 1,
+			"context diagnostics preserve the original gate and do not prepare rejected native movement");
+		CHECK(enabled ? output.find("stage=admission-context reason=combat-action-or-interrupt-pending") != std::string::npos : output.empty(),
+			"host context trace is default off and identifies its original guard when enabled");
+	}
+	FakeLiveState live;
+	live.defaultActor.controllable = false;
+	FakeCommandService commands;
+	RecordingReceiptSink receipts;
+	DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+	MoveDiagnosticCapture trace(true);
+	const auto result = host.execute(Intent(1, MoveTacticalIntent{1234, 17, false}));
+	const auto output = trace.finish();
+	CHECK(result == TacticalIntentExecutionDisposition::Rejected && live.movePreparationCalls == 0 &&
+		output.find("reason=actor-not-controllable") != std::string::npos,
+		"controllability rejection is distinguished before native preflight");
 }
 
 void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
@@ -1152,6 +1188,7 @@ int main()
 {
 	TestTranslatesSupportedIntentVocabulary();
 	TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart();
+	TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation();
 	TestLiveActorAndTurnPolicyRejectsBeforeSubmission();
 	TestInterruptAuthorityAndPassTranslation();
 	TestSubmissionFailuresAndCorrelationCapacityFailClosed();

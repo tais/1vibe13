@@ -1,3 +1,4 @@
+#include <Engine/Adapters/JA2/TacticalMoveDiagnostic.h>
 /*
 	Filename		:		pathai.h
 	Author			:		Ray E. Bornert II
@@ -221,7 +222,8 @@ INT32 FindBestPath(TacticalActor *s , INT32 sDestination, INT8 ubLevel, INT16 us
 // and isolated output scratch. Restores actor/path policy on every exit; leaves
 // the native pathfinder's internal search generations free to advance normally.
 bool FindBestPathForMoveAdmission(TacticalActor& actor, INT32 destination,
-    INT8 level, INT16 movementMode, UINT8& firstDirection) noexcept;
+    INT8 level, INT16 movementMode, UINT8& firstDirection,
+	TacticalMoveFailure* failure = nullptr) noexcept;
 void GlobalReachableTest( INT32 sStartGridNo );
 void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 );
 void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID );

@@ -1,3 +1,4 @@
+#include "DedicatedCoopMoveDiagnostic.h"
 #include "DedicatedCoopTacticalHost.h"
 
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -184,6 +185,19 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 	DedicatedCoopTacticalTurnState& turn,
 	CoopTacticalIntentReceiptReason& reason) const noexcept
 {
+	const auto rejectContext = [&](TacticalMoveFailure failure) noexcept {
+		if (const auto* move = std::get_if<CoopSession::MoveTacticalIntent>(&intent.payload))
+		{
+			TacticalMoveDiagnostic diagnostic;
+			diagnostic.reason = failure; diagnostic.actorSlot = intent.actor.slot;
+			diagnostic.incarnation = intent.actor.incarnation; diagnostic.commandId = intent.commandId;
+			diagnostic.destination = move->destinationGrid; diagnostic.movementMode = move->movementMode;
+			diagnostic.reverse = move->reverse; diagnostic.pendingCombatActions = turn.pendingCombatActions;
+			diagnostic.interruptPhase = static_cast<std::uint8_t>(turn.interruptPhase);
+			TraceDedicatedCoopMoveRejection("admission-context", diagnostic);
+		}
+		return false;
+	};
 	if (liveState_ == nullptr || !liveState_->captureTurn(turn) ||
 		!turn.worldLoaded || turn.worldGeneration == 0 || turn.turnSerial == 0 ||
 		turn.worldGeneration != intent.context.worldGeneration ||
@@ -194,36 +208,36 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 			 turn.currentTeam >= Ja2TacticalTeamCount)))
 	{
 		reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-		return false;
+		return rejectContext(TacticalMoveFailure::ContextUnavailable);
 	}
 
 	DedicatedCoopTacticalActorState actor;
 	if (!liveState_->captureActor(intent.actor, actor))
 	{
 		reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-		return false;
+		return rejectContext(TacticalMoveFailure::ActorCapture);
 	}
 	if (!actor.exactIdentity || !actor.active || !actor.inSector)
 	{
 		reason = CoopTacticalIntentReceiptReason::ActorUnavailable;
-		return false;
+		return rejectContext(TacticalMoveFailure::ActorIdentity);
 	}
 	if (!actor.playerTeam)
 	{
 		reason = CoopTacticalIntentReceiptReason::WrongTeam;
-		return false;
+		return rejectContext(TacticalMoveFailure::WrongTeam);
 	}
 	if (!actor.controllable)
 	{
 		reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-		return false;
+		return rejectContext(TacticalMoveFailure::NotControllable);
 	}
 
 	if (turn.pendingCombatActions != 0 || turn.interruptPending ||
 		turn.interruptPhase == TacticalInterruptPhase::Resolving)
 	{
 		reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-		return false;
+		return rejectContext(TacticalMoveFailure::CombatOrInterruptPending);
 	}
 
 	switch (turn.interruptPhase)
@@ -234,13 +248,13 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 				 turn.currentTeam != turn.playerTeam))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-				return false;
+				return rejectContext(TacticalMoveFailure::WrongTurn);
 			}
 			break;
 		case TacticalInterruptPhase::Resolving:
 			// Rejected above together with the live pending-interrupt gate.
 			reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-			return false;
+			return rejectContext(TacticalMoveFailure::InterruptResolving);
 		case TacticalInterruptPhase::Active:
 			if (!turn.turnBased || !turn.inCombat ||
 				turn.interruptSerial == 0 ||
@@ -250,12 +264,12 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 					CoopSession::EndTurnTacticalIntent>(intent.payload))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-				return false;
+				return rejectContext(TacticalMoveFailure::InterruptEligibility);
 			}
 			break;
 		default:
 			reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-			return false;
+			return rejectContext(TacticalMoveFailure::InterruptPhase);
 	}
 	return true;
 }

@@ -1,3 +1,4 @@
+#include "DedicatedCoopMoveDiagnostic.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "DedicatedCoopMissionPolicy.h"
 
@@ -151,10 +152,26 @@ bool DedicatedCoopTacticalJa2LiveState::canBeginMoveToGrid(
 	std::uint16_t movementMode,
 	bool reverse) const noexcept
 {
-	if (!onMainThread()) return false;
+	TacticalMoveDiagnostic diagnostic;
+	diagnostic.actorSlot = actorId.slot; diagnostic.incarnation = actorId.incarnation;
+	diagnostic.destination = destinationGrid; diagnostic.movementMode = movementMode; diagnostic.reverse = reverse;
+	if (!onMainThread())
+	{
+		diagnostic.reason = TacticalMoveFailure::WrongThread;
+		TraceDedicatedCoopMoveRejection("admission", diagnostic);
+		return false;
+	}
 	TacticalActor* actor = ResolveJa2TacticalEntity(actorId);
-	return actor && TacticalActorRouteExecution::canBeginMoveToGrid(
-		*actor, destinationGrid, movementMode, reverse);
+	if (!actor)
+	{
+		diagnostic.reason = TacticalMoveFailure::ActorUnavailable;
+		TraceDedicatedCoopMoveRejection("admission", diagnostic);
+		return false;
+	}
+	const bool accepted = TacticalActorRouteExecution::canBeginMoveToGrid(
+		*actor, destinationGrid, movementMode, reverse, &diagnostic);
+	if (!accepted) TraceDedicatedCoopMoveRejection("admission", diagnostic);
+	return accepted;
 }
 
 bool DedicatedCoopTacticalJa2LiveState::prepareAimedFirearmAttack(

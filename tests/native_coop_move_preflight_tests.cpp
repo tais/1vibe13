@@ -1,3 +1,5 @@
+#include "move_diagnostic_capture.h"
+#include "TacticalActorRouteExecution.h"
 // Native pathfinding and MoveToGrid execution with inert animation pixels.
 // Reproduce the exhausted standing tile-wait seen in the closed co-op trace.
 #include "DedicatedCoopTacticalHost.h"
@@ -120,76 +122,79 @@ int main()
 			gfPlotPathToExitGrid, gfNPCCircularDistLimit, gfPlotPathEndDirection, guiPathingData,
 			std::vector<UINT32>(guiPathingData, guiPathingData + MAX_PATH_DATA_LENGTH));
 	};
-	auto rejected = [&](const char* message) {
+	auto rejected = [&](TacticalMoveFailure expected, const char* message) {
 		const auto before = state();
-		CHECK(!live.canBeginMoveToGrid(id, newDestination, WALKING, false) && state() == before, message);
+		TacticalMoveDiagnostic diagnostic;
+		CHECK(!TacticalActorRouteExecution::canBeginMoveToGrid(actor, newDestination, WALKING, false, &diagnostic) &&
+			diagnostic.reason == expected && state() == before, message);
 	};
 	actor.actionPoints().current() = 0;
-	rejected("unaffordable stopped route fails preflight without spending or clearing state");
+	rejected(TacticalMoveFailure::InsufficientPoints, "unaffordable stopped route fails preflight without spending or clearing state");
 	actor = stopped; actor.identity().bodyType() = TOTALBODYTYPES;
-	rejected("invalid native body type is rejected before animation/path indexing");
+	rejected(TacticalMoveFailure::LiveRouteContext, "invalid native body type is rejected before animation/path indexing");
 	actor = stopped; actor.position().level() = SECOND_LEVEL + 1;
-	rejected("invalid native level is rejected before tile-cost indexing");
+	rejected(TacticalMoveFailure::LiveRouteContext, "invalid native level is rejected before tile-cost indexing");
 	actor = stopped; actor.position().gridNo() = WORLD_MAX;
-	rejected("invalid native origin is rejected before pathfinding");
+	rejected(TacticalMoveFailure::LiveRouteContext, "invalid native origin is rejected before pathfinding");
 	actor = stopped; actor.vitals().health() = 0;
-	rejected("dead actor cannot begin a native route");
+	rejected(TacticalMoveFailure::Health, "dead actor cannot begin a native route");
 	actor = stopped; actor.animationPlayback().state() = WALKING;
-	rejected("live locomotion cannot be replaced using a delayed flag");
+	rejected(TacticalMoveFailure::NonIdlePose, "live locomotion cannot be replaced using a delayed flag");
 	actor = stopped; actor.pathing().pathIndex() = 29;
-	rejected("unconsumed route cannot be replaced even in standing animation");
+	rejected(TacticalMoveFailure::PathUnconsumed, "unconsumed route cannot be replaced even in standing animation");
 	actor = stopped; actor.movement().clearDelay();
-	rejected("unreached final destination without an ordinary tile wait stays rejected");
+	rejected(TacticalMoveFailure::RetainedRoute, "unreached final destination without an ordinary tile wait stays rejected");
 	actor = stopped; actor.animationPlayback().state() = HOPFENCE;
-	rejected("active HOPFENCE remains excluded despite ANIM_STATIONARY");
+	rejected(TacticalMoveFailure::AnimationActivity, "active HOPFENCE remains excluded despite ANIM_STATIONARY");
 	actor = stopped; actor.movement().clearDelay(); actor.pathing().finalDestinationGrid() = origin;
 	actor.animationPlayback().state() = COWERING;
-	rejected("cowering animation is not an ordinary idle boundary even on a completed route");
+	rejected(TacticalMoveFailure::NonIdlePose, "cowering animation is not an ordinary idle boundary even on a completed route");
 	actor.animationPlayback().state() = END_COWER;
-	rejected("stance transition is not an ordinary idle boundary even on a completed route");
+	rejected(TacticalMoveFailure::NonIdlePose, "stance transition is not an ordinary idle boundary even on a completed route");
 	actor = stopped; actor.status().flags() |= SOLDIER_COWERING;
-	rejected("retained cowering work cannot be cleared by replacement admission");
+	rejected(TacticalMoveFailure::ActionLockOrCowering, "retained cowering work cannot be cleared by replacement admission");
 	for (UINT16 animation : {UINT16(READY_RIFLE_STAND), UINT16(END_RIFLE_STAND),
 		UINT16(SHOOT_RIFLE_STAND), UINT16(CATCH_STANDING)})
 	{
 		actor = stopped; actor.animationPlayback().state() = animation;
-		rejected("raising, lowering, firing and catch animations are not steady ready poses");
+		rejected((animation == SHOOT_RIFLE_STAND || animation == CATCH_STANDING) ? TacticalMoveFailure::AnimationActivity : TacticalMoveFailure::NonIdlePose, "raising, lowering, firing and catch animations are not steady ready poses");
 	}
 	actor = stopped; actor.animationIntent().queueAnimation(HOPFENCE);
 	actor.animationActivity().turningUntilDone() = TRUE;
 	actor.animationIntent().continueAfterStance(2);
 	actor.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
-	rejected("pending standing HOPFENCE preserves its continuation and action lock");
+	rejected(TacticalMoveFailure::PendingAnimation, "pending standing HOPFENCE preserves its continuation and action lock");
 	actor = stopped; actor.animationIntent().queueDirection(EAST);
-	rejected("queued facing work is not an ordinary tile wait");
+	rejected(TacticalMoveFailure::PendingDirection, "queued facing work is not an ordinary tile wait");
 	actor = stopped; actor.pathing().desiredDirection() = EAST; actor.animationActivity().turningIncrement() = 1;
-	rejected("native facing work remains pending without an intent direction or movement turn flag");
+	rejected(TacticalMoveFailure::DirectionMismatch, "native facing work remains pending without an intent direction or movement turn flag");
 	actor = stopped; actor.pendingAction().begin(1);
-	rejected("pending native action cannot be cleared by replacement admission");
+	rejected(TacticalMoveFailure::PendingAction, "pending native action cannot be cleared by replacement admission");
 	actor = stopped; actor.schedule().beginDoorContinuation(origin + 1);
-	rejected("schedule door work cannot be replaced");
+	rejected(TacticalMoveFailure::ScheduleDoor, "schedule door work cannot be replaced");
 	actor = stopped; actor.animationActivity().turningToShoot() = TRUE;
-	rejected("attack work cannot be replaced");
+	rejected(TacticalMoveFailure::TurningToShoot, "attack work cannot be replaced");
 	actor = stopped; actor.movement().setContinuedPath(oldDestination);
-	rejected("native path continuation remains pending");
+	rejected(TacticalMoveFailure::ContinuedPath, "native path continuation remains pending");
 	actor = stopped; actor.movement().delayedFlags() = DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE;
-	rejected("escalated through-people wait cannot lend its old policy to a new destination");
+	rejected(TacticalMoveFailure::RetainedRoute, "escalated through-people wait cannot lend its old policy to a new destination");
 	actor = stopped; actor.movement().pauseMovement();
-	rejected("paused native movement is not an ordinary tile wait");
+	rejected(TacticalMoveFailure::MovementPaused, "paused native movement is not an ordinary tile wait");
 	actor = stopped;
 	const auto before = state();
 	UINT8 offThreadDirection = 255;
 	bool offThreadAccepted = true;
+	TacticalMoveFailure offThreadFailure = TacticalMoveFailure::None;
 	std::thread other([&] {
-		offThreadAccepted = FindBestPathForMoveAdmission(actor, newDestination, FIRST_LEVEL, WALKING, offThreadDirection);
+		offThreadAccepted = FindBestPathForMoveAdmission(actor, newDestination, FIRST_LEVEL, WALKING, offThreadDirection, &offThreadFailure);
 	});
 	other.join();
-	CHECK(!offThreadAccepted && offThreadDirection == 255 && state() == before,
+	CHECK(!offThreadAccepted && offThreadFailure == TacticalMoveFailure::ProbeWrongThread && offThreadDirection == 255 && state() == before,
 		"path admission refuses other threads without touching native globals or output");
 	CHECK(!live.canBeginMoveToGrid(id, origin, WALKING, false) && state() == before,
 		"same-tile request does not cancel the old route");
 	std::memset(gubWorldMovementCosts, TRAVELCOST_BLOCKED, static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2);
-	rejected("unreachable replacement preserves the old delayed route and path scratch");
+	rejected(TacticalMoveFailure::NoPath, "unreachable replacement preserves the old delayed route and path scratch");
 	std::memset(gubWorldMovementCosts, TRAVELCOST_FLAT, static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2);
 	for (bool alternate : {false, true})
 	{
@@ -200,10 +205,10 @@ int main()
 		CHECK(ready && state() == preserved,
 			"both native pathfinders isolate poisoned policy, output scratch and campaign RNG including monotonic work");
 		actor.actionPoints().current() = 0;
-		rejected("both native pathfinders preserve campaign RNG and poisoned globals on low-AP rejection");
+		rejected(TacticalMoveFailure::InsufficientPoints, "both native pathfinders preserve campaign RNG and poisoned globals on low-AP rejection");
 		actor = stopped;
 		std::memset(gubWorldMovementCosts, TRAVELCOST_BLOCKED, static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2);
-		rejected("both native pathfinders preserve campaign RNG and poisoned globals when no path exists");
+		rejected(TacticalMoveFailure::NoPath, "both native pathfinders preserve campaign RNG and poisoned globals when no path exists");
 		std::memset(gubWorldMovementCosts, TRAVELCOST_FLAT, static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2);
 	}
 	gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
@@ -231,6 +236,19 @@ int main()
 	gubGlobalPathFlags = 0; gubNPCAPBudget = 0; gubNPCDistLimit = 0;
 	gfEstimatePath = FALSE; gfPathAroundObstacles = TRUE; gfPlotPathToExitGrid = FALSE; gfNPCCircularDistLimit = FALSE;
 
+	for (bool enabled : {false, true})
+	{
+		actor = stopped; actor.animationIntent().queueDirection(EAST);
+		const auto beforeTrace = state();
+		MoveDiagnosticCapture trace(enabled);
+		CHECK(trace.valid(), "trace capture opens");
+		const bool accepted = live.canBeginMoveToGrid(id, newDestination, WALKING, false);
+		const auto output = trace.finish();
+		CHECK(!accepted && state() == beforeTrace, "opt-in admission trace preserves native rejection, route, actor and RNG");
+		CHECK(enabled ? output.find("stage=admission reason=pending-direction") != std::string::npos : output.empty(),
+			"admission diagnostics are explicit opt-in and name the actual guard");
+	}
+	actor = stopped;
 	ETRLEObject frames[8]{}; SGPVObject video{};
 	video.usNumberOfObjects = 8; video.pETRLEObject = frames;
 	const auto savedSurface = gAnimSurfaceDatabase[0];
@@ -250,8 +268,15 @@ int main()
 	actor.animationIntent().queueAnimation(HOPFENCE); actor.animationActivity().turningUntilDone() = TRUE;
 	actor.animationIntent().continueAfterStance(2); actor.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
 	const auto pendingRace = state();
-	CHECK(dispatch().status == SimulationCommandDispatchStatus::Discarded && state() == pendingRace,
-		"traversal beginning after admission is rejected by actual Move execution before any route/pending mutation");
+	{
+		MoveDiagnosticCapture trace(true);
+		const auto result = dispatch();
+		const auto output = trace.finish();
+		CHECK(result.status == SimulationCommandDispatchStatus::Discarded && state() == pendingRace,
+			"traversal beginning after admission is rejected by actual Move execution before any route/pending mutation");
+		CHECK(output.find("stage=execution-readiness reason=pending-animation") != std::string::npos,
+			"actual execution labels its own single revalidation failure");
+	}
 	actor = stopped;
 	auto& blocker = *repository.resolve(5);
 	blocker.position().gridNo() = newDestination; blocker.position().level() = FIRST_LEVEL;
@@ -263,6 +288,19 @@ int main()
 	CHECK(dispatch().status == SimulationCommandDispatchStatus::Discarded && state() == occupiedRace,
 		"target occupied after admission rejects execution without inheriting delayed ignore-person policy or losing old route");
 	GetMapElement(newDestination).pStructureHead = GetMapElement(newDestination).pStructureTail = nullptr;
+	actor = stopped;
+	gubNPCAPBudget = 1;
+	{
+		MoveDiagnosticCapture trace(true);
+		const auto result = dispatch();
+		const auto output = trace.finish();
+		CHECK(result.status == SimulationCommandDispatchStatus::Discarded &&
+			output.find("stage=execution-path-start reason=native-path-start-rejected") != std::string::npos &&
+			output.find("firstStep=1") != std::string::npos,
+			"actual legacy path start failure is distinct from successful fresh preflight");
+	}
+	gubNPCAPBudget = 0;
+	actor = stopped;
 	if (admitted)
 	{
 		const auto nativeDrawsBefore = campaignRandom->consumptionEpoch();

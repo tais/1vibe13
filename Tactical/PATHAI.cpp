@@ -4014,10 +4014,16 @@ ENDOFLOOP:
 }
 
 bool FindBestPathForMoveAdmission(TacticalActor& actor, INT32 destination,
-	INT8 level, INT16 movementMode, UINT8& firstDirection) noexcept
+	INT8 level, INT16 movementMode, UINT8& firstDirection, TacticalMoveFailure* failure) noexcept
 {
-	if (pathAiOwnerThread != std::this_thread::get_id() || moveAdmissionRandom ||
-		!guiPathingData || !pathQ || !trailTree) return false;
+	if (failure) *failure = TacticalMoveFailure::None;
+	const auto reject = [&](TacticalMoveFailure reason) noexcept {
+		if (failure) *failure = reason;
+		return false;
+	};
+	if (pathAiOwnerThread != std::this_thread::get_id()) return reject(TacticalMoveFailure::ProbeWrongThread);
+	if (moveAdmissionRandom) return reject(TacticalMoveFailure::ProbeReentry);
+	if (!guiPathingData || !pathQ || !trailTree) return reject(TacticalMoveFailure::ProbeStorage);
 	try
 	{
 		std::vector<UINT32> scratch(MAX_PATH_DATA_LENGTH);
@@ -4057,11 +4063,13 @@ bool FindBestPathForMoveAdmission(TacticalActor& actor, INT32 destination,
 			}
 		} scope(actor, scratch.data(), probeRandom);
 		const INT32 length = FindBestPath(&actor, destination, level, movementMode, NO_COPYROUTE, 0);
-		if (length <= 0 || scratch[0] >= NUM_WORLD_DIRECTIONS || !probeRandom.healthy()) return false;
+		if (length <= 0) return reject(TacticalMoveFailure::NoPath);
+		if (scratch[0] >= NUM_WORLD_DIRECTIONS) return reject(TacticalMoveFailure::ProbeDirection);
+		if (!probeRandom.healthy()) return reject(TacticalMoveFailure::ProbeRandom);
 		firstDirection = static_cast<UINT8>(scratch[0]);
 		return true;
 	}
-	catch (...) { return false; }
+	catch (...) { return reject(TacticalMoveFailure::ProbeException); }
 }
 
 void GlobalReachableTest( INT32 sStartGridNo )

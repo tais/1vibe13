@@ -8,6 +8,7 @@
 #include "TacticalActorStateFlags.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
+#include "DedicatedCoopMoveDiagnostic.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
@@ -1927,17 +1928,37 @@ namespace
 				TacticalActor* soldier =
 					ResolveCoopAuthorizedLegacyCommandActor(
 						value.soldier, value.source, value.authority);
-				if (!soldier ||
-					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
+				TacticalMoveDiagnostic diagnostic;
+				diagnostic.actorSlot = value.soldier.slot;
+				diagnostic.incarnation = value.soldier.incarnation;
+				diagnostic.destination = value.destinationGrid;
+				diagnostic.movementMode = value.movementMode;
+				diagnostic.reverse = value.reverse;
+				if (!soldier)
+				{
+					diagnostic.reason = TacticalMoveFailure::ActorUnavailable;
+					if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						TraceDedicatedCoopMoveRejection("execution-context", diagnostic);
 					return CommandDisposition::Discard;
+				}
+				if (!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
+				{
+					diagnostic.reason = TacticalMoveFailure::MovementMode;
+					if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						TraceDedicatedCoopMoveRejection("execution-context", diagnostic);
+					return CommandDisposition::Discard;
+				}
 
 				// Admission precedes the simulation frame. Recheck before replacing
 				// any route/pending state: a wait may have resumed or traversal/target
 				// occupancy may have changed since the intent entered the inbox.
 				if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
 					!TacticalActorRouteExecution::canBeginMoveToGrid(*soldier,
-						value.destinationGrid, value.movementMode, value.reverse))
+						value.destinationGrid, value.movementMode, value.reverse, &diagnostic))
+				{
+					TraceDedicatedCoopMoveRejection("execution-readiness", diagnostic);
 					return CommandDisposition::Discard;
+				}
 				// The legacy route entry rejects an index at its fixed capacity.
 				// Only after dedicated revalidation may a fully consumed buffer be
 				// released. Keep its delay intact for requestPath's normal cleanup.
@@ -1953,13 +1974,17 @@ namespace
 				soldier->movement().setReverse(value.reverse);
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
 					soldier->pendingAction().clearAction();
-				return TacticalActorRouteExecution::requestPath(*soldier,
+				const bool pathStarted = TacticalActorRouteExecution::requestPath(*soldier,
 					value.destinationGrid, value.movementMode,
 					static_cast<TacticalActorRouteExecution::PathOrigin>(
 						value.origin),
-					value.forceRestart)
-					? CommandDisposition::Applied
-					: CommandDisposition::Discard;
+					value.forceRestart);
+				if (!pathStarted && value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+				{
+					diagnostic.reason = TacticalMoveFailure::NativePathStart;
+					TraceDedicatedCoopMoveRejection("execution-path-start", diagnostic);
+				}
+				return pathStarted ? CommandDisposition::Applied : CommandDisposition::Discard;
 			}
 			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 			{
