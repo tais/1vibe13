@@ -706,10 +706,12 @@ public:
 		CoopTacticalOutboundMessageKind,
 		const char*, const std::uint8_t*, std::size_t) noexcept override
 	{
+		flushObserved = session_.pendingObservation().flushInProgress;
 		reentrantResult = session_.disconnectPeer(peer_);
 		return true;
 	}
 
+	bool flushObserved = false;
 	FullEngineCoopServerSessionResult reentrantResult =
 		FullEngineCoopServerSessionResult::Success;
 
@@ -736,7 +738,8 @@ void TestFlushReentrancyGuardAndSequenceExhaustion()
 		"reentrancy fixture stages its only baseline ID");
 	ReentrantSink sink(session, peer);
 	CHECK(session.flush(sink).messagesSent == 1 &&
-		sink.reentrantResult == FullEngineCoopServerSessionResult::Busy &&
+		sink.reentrantResult == FullEngineCoopServerSessionResult::Busy && sink.flushObserved &&
+		!session.pendingObservation().flushInProgress &&
 		session.peerPhase(peer) == CoopTacticalPeerPhase::AwaitingBaselineAck,
 		"wire callback cannot re-enter session mutation");
 	CHECK(session.stageBaseline(peer, Snapshot(31, 1), 0) ==
@@ -965,6 +968,10 @@ void TestInventoryPendingSurvivesSharedMessageBudget()
 	for (const auto& assignment : assignments)
 		CHECK(session.stageInventory(assignment.peerIdentity, assignment.actor, 1, true, slots) ==
 			FullEngineCoopServerSessionResult::Success, "budget fixture stages private state before baseline ACK");
+	for (unsigned sample = 0; sample < 2; ++sample)
+		CHECK(session.pendingObservation().pendingOwnerInventories == 3 &&
+			!session.pendingObservation().flushInProgress,
+			"repeated private observation preserves three staged replacements behind baseline ACKs");
 	RecordingSink sink;
 	for (std::size_t index = 0; index < 2; ++index)
 	{
@@ -985,6 +992,11 @@ void TestInventoryPendingSurvivesSharedMessageBudget()
 	sink.messages.clear();
 	CHECK(session.recordReceipt(Receipt(owner, 1, 71, 9, 10, 1)) == FullEngineCoopServerSessionResult::Success,
 		"budget fixture retains an owner terminal receipt");
+	CoopTacticalPeerReplicationState beforeReceipt;
+	CHECK(session.peerState(owner, beforeReceipt) && beforeReceipt.pendingReceipts == 1 &&
+		beforeReceipt.lastAcknowledgedRevision == 10 &&
+		session.pendingObservation().pendingOwnerInventories == 3,
+		"public ACK and retained terminal receipt do not erase pending private evidence");
 	const std::array<CoopTacticalOutboundMessageKind, 4> expected{{
 		CoopTacticalOutboundMessageKind::OwnerInventory,
 		CoopTacticalOutboundMessageKind::OwnerInventory,
@@ -997,6 +1009,9 @@ void TestInventoryPendingSurvivesSharedMessageBudget()
 			!flushed.backpressured && sink.messages.size() == index + 1 && sink.messages.back().kind == expected[index] &&
 			sink.messages.back().peer == (index < 3 ? owner : other),
 			"private, receipt, and next-peer budget exits preserve exact remaining backlog and owner order");
+		const std::array<std::size_t, 4> pending{{2, 1, 1, 0}};
+		CHECK(session.pendingObservation().pendingOwnerInventories == pending[index],
+			"raw count clears only the replacements actually sent, not dependent terminal receipts");
 	}
 	CHECK(session.publishDelta(EmptyDelta(9), 11, 1) == FullEngineCoopServerSessionResult::Success &&
 		session.stageInventory(owner, {1, 1}, 2, true, slots) == FullEngineCoopServerSessionResult::Success &&
@@ -1213,7 +1228,8 @@ void TestOwnerInventoryIsolationAndReplacement()
 		!session.hasInventoryRevision(owner, {1, 1}, 2),
 		"new private revision immediately revokes old token without a public delta");
 	sink.rejectNext = true;
-	CHECK(session.flush(sink).backpressured && !session.hasInventoryRevision(owner, {1, 1}, 3),
+	CHECK(session.flush(sink).backpressured && !session.hasInventoryRevision(owner, {1, 1}, 3) &&
+		session.pendingObservation().pendingOwnerInventories == 1,
 		"failed enqueue never grants a private swap token");
 	CHECK(session.flush(sink).messagesSent == 1 && session.hasInventoryRevision(owner, {1, 1}, 3),
 		"retry enqueues the exact latest private replacement once");

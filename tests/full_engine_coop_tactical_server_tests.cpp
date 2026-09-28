@@ -1,4 +1,5 @@
 #include "FullEngineCoopTacticalServer.h"
+#include <Ja2/DedicatedCheckpointRuntimeEvidence.h>
 
 #include <SDL3/SDL.h>
 
@@ -70,6 +71,7 @@ public:
 	{
 		++calls;
 		lastIntent = intent;
+		if (server != nullptr) pumpObserved = server->observation().pumpInProgress;
 		if (server != nullptr && mode != Mode::NoReceipt)
 		{
 			CoopTacticalIntentReceipt receipt;
@@ -112,6 +114,7 @@ public:
 	FullEngineCoopTacticalServer* server = nullptr;
 	Mode mode = Mode::RetainedQueued;
 	bool readyToExecute = true;
+	bool pumpObserved = false;
 	mutable std::size_t readyCalls = 0;
 	std::size_t blockReadyAtCall = 0;
 	std::size_t calls = 0;
@@ -1689,6 +1692,15 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 		server.setCampaignReadyPeers(peers.data(), peers.size()) == FullEngineCoopTacticalServerResult::Success &&
 		server.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopTacticalServerResult::Success,
 		"two owners enter one exact authoritative world");
+	DedicatedCampaignObservationDeliveries statusObservations{}, groupsObservations{}, economyObservations{}, quoteObservations{};
+	DedicatedCheckpointRuntimeEvidence::Campaign campaignObservation;
+	CaptureDedicatedCampaignObservationEvidence(server, listener,
+		statusObservations, 1, groupsObservations, 2, economyObservations, 3, quoteObservations, 4, campaignObservation);
+	CHECK(campaignObservation.observationDeliveriesObserved && campaignObservation.readyPeers == 2 &&
+		campaignObservation.readyPeersWithoutTransport == 0 && campaignObservation.pendingStatusObservations == 2 &&
+		campaignObservation.pendingGroupsObservations == 2 && campaignObservation.pendingEconomyObservations == 2 &&
+		campaignObservation.pendingQuotesObservations == 2,
+		"active real ready peers retain separate missing observation dependencies");
 	std::array<std::vector<CoopInventorySlotSummary>, 2> slots{{
 		{{0, 991, 3, 70, CoopInventorySlotSupport::OrdinarySwappable, CoopInventoryStatusKind::MedicalKitPoints, 170}},
 		{{0, 111, 2, 15, CoopInventorySlotSupport::OrdinarySwappable, CoopInventoryStatusKind::AmmoRounds, 21}}}};
@@ -1696,6 +1708,14 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 		CHECK(server.stageBaseline(peers[index], Snapshot(WorldGeneration, TurnSerial, 2)) == FullEngineCoopTacticalServerResult::Success &&
 			server.stageInventory(peers[index], assignments[index].actor, 1, true, slots[index]) == FullEngineCoopTacticalServerResult::Success,
 			"private full replacement can stage behind an exact pending public baseline");
+	for (unsigned sample = 0; sample < 2; ++sample)
+	{
+		const auto observed = server.observation();
+		CHECK(observed.drain.worldActive && !observed.drain.drained() &&
+			observed.privateReplication.pendingOwnerInventories == 2 &&
+			!observed.pumpInProgress && !observed.flushInProgress && !observed.privateReplication.flushInProgress,
+			"raw active-world evidence preserves pending private state without changing strategic drain policy");
+	}
 	const auto baselineFlush = server.flushOutbound();
 	CHECK(baselineFlush.messagesSent == 2 && baselineFlush.inventoryPending && !baselineFlush.backpressured &&
 		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
@@ -1728,6 +1748,8 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 1; }) &&
 		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Queued,
 		"ordinary stop request retains an actual command obligation without new inventory intent vocabulary");
+	CHECK(execution.pumpObserved && !server.observation().pumpInProgress,
+		"actual execution callback observes pump activity until the normal call unwinds");
 	CHECK(server.publishDelta(EmptyDelta(), InitialRevision + 1, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
 		server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
 		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
@@ -1753,10 +1775,17 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 		server.stageInventory(peers[0], ActorId, 2, true, slots[0]) == FullEngineCoopTacticalServerResult::Success &&
 		server.recordReceipt(terminal) == FullEngineCoopTacticalServerResult::Success,
 		"current private resources and terminal outcome both depend on the unsent second delta");
+	const auto retainedObservation = server.observation();
+	CHECK(retainedObservation.privateReplication.pendingOwnerInventories == 1 &&
+		retainedObservation.drain.pendingReplicationReceipts == 1 && retainedObservation.drain.inFlightDeltas == 2,
+		"raw evidence distinguishes private replacement, terminal receipt and public in-flight deltas");
 	const auto held = server.flushOutbound();
 	CHECK(held.inventoryPending && !held.backpressured && held.messagesSent == 0 &&
 		!server.hasInventoryRevision(peers[0], ActorId, 1) && !server.hasInventoryRevision(peers[0], ActorId, 2),
 		"unsent current state revokes old token and holds receipts without faking socket backpressure");
+	CHECK(server.observation().privateReplication.pendingOwnerInventories == 1 &&
+		server.observation().drain.pendingReplicationReceipts == 1 && execution.calls == 1,
+		"repeated observation cannot release the private-before-terminal dependency or replay gameplay");
 	CHECK(SendDeltaAck(clients[0], firstDelta, peers[0]) && QueueArrived(listener, clients[0]),
 		"the public ACK that can release private publication is queued inbound");
 	const auto recovered = server.pumpInbound(612);
@@ -1771,6 +1800,36 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Applied &&
 		DecodeLastReceipt(clients[0]).state.revision == InitialRevision + 2 && clients[1].inventory.messages.size() == 1,
 		"socket delivery is public delta, owner replacement, terminal receipt with no foreign inventory leak");
+	CHECK(server.observation().privateReplication.pendingOwnerInventories == 0 &&
+		server.observation().drain.pendingReplicationReceipts == 0 && !server.observation().drain.drained(),
+		"ordinary sends clear pending evidence while active world remains outside strategic drained policy");
+	// The records use transport identities from the real authenticated sends
+	// above; their meaning is enqueue revision, never remote application ACK.
+	for (std::size_t index = 0; index < peers.size(); ++index)
+	{
+		TransportPeer transport;
+		CHECK(listener.authenticatedTransportForPeer(peers[index], transport), "exact current transport observed");
+		statusObservations[index] = {peers[index], transport, 1};
+		groupsObservations[index] = {peers[index], transport, 2};
+		economyObservations[index] = {peers[index], transport, 3};
+		quoteObservations[index] = {peers[index], transport, 4};
+	}
+	groupsObservations[0].revision = 1;
+	quoteObservations[1].transport = TransportPeer{};
+	for (unsigned sample = 0; sample < 2; ++sample)
+	{
+		CaptureDedicatedCampaignObservationEvidence(server, listener,
+			statusObservations, 1, groupsObservations, 2, economyObservations, 3, quoteObservations, 4, campaignObservation);
+		CHECK(campaignObservation.pendingStatusObservations == 0 && campaignObservation.pendingGroupsObservations == 1 &&
+			campaignObservation.pendingEconomyObservations == 0 && campaignObservation.pendingQuotesObservations == 1 &&
+			groupsObservations[0].revision == 1 && !quoteObservations[1].transport && execution.calls == 1,
+			"production revision scan preserves stale-revision and changed-transport obligations separately");
+	}
+	listener.stop(0);
+	CaptureDedicatedCampaignObservationEvidence(server, listener,
+		statusObservations, 1, groupsObservations, 2, economyObservations, 3, quoteObservations, 4, campaignObservation);
+	CHECK(campaignObservation.readyPeers == 2 && campaignObservation.readyPeersWithoutTransport == 2,
+		"stored ready peers without a live transport are explicit rather than falsely delivered");
 	listener.stop(20);
 	for (auto& client : clients) DestroyClient(client);
 }

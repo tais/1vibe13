@@ -8,6 +8,7 @@
 #include <filesystem>
 
 class GameContext;
+struct DedicatedCheckpointRuntimeEvidence;
 enum class NativePreBattleDeployment : std::uint8_t;
 enum class DedicatedCoopArrivalEnterResult : std::uint8_t;
 enum class DedicatedCoopArrivalRetreatResult : std::uint8_t;
@@ -96,6 +97,11 @@ public:
 	bool detachTacticalComposition() noexcept;
 	void stopAdmissionTransport() noexcept;
 	void close() noexcept;
+
+	// Read-only, main-thread diagnostic. Call synchronously with the supplied
+	// context; success does not pause producers or authorize a checkpoint.
+	DedicatedCheckpointRuntimeEvidence captureCheckpointRuntimeEvidence(
+		const GameContext& context) const noexcept;
 
 	bool prepared() const noexcept;
 	bool campaignOpen() const noexcept;

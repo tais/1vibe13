@@ -131,6 +131,14 @@ struct CoopTacticalPeerReplicationState
 	std::size_t pendingReceipts = 0;
 };
 
+// Pending private replacements are distinct from public replication/receipt
+// cursors. Sent history is excluded; no flush or acknowledgement is performed.
+struct CoopTacticalSessionPendingObservation
+{
+	std::size_t pendingOwnerInventories = 0;
+	bool flushInProgress = false;
+};
+
 // Pure, bounded replication bookkeeping for the full-engine server. The
 // caller captures snapshots/deltas, applies assignment ACLs, handles intents,
 // and records terminal receipts at explicit committed-frame boundaries. This
@@ -170,6 +178,7 @@ public:
 		const PeerIdentity& peer) noexcept;
 	std::size_t peerCount() const noexcept { return peerCount_; }
 	std::size_t connectedPeerCount() const noexcept;
+	CoopTacticalSessionPendingObservation pendingObservation() const noexcept;
 	CoopTacticalPeerPhase peerPhase(const PeerIdentity& peer) const noexcept;
 	bool peerState(const PeerIdentity& peer,
 		CoopTacticalPeerReplicationState& output) const noexcept;
