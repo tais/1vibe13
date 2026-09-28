@@ -2016,7 +2016,9 @@ int main(int argc, char** argv)
 	CHECK(a.disconnects.back() == 2, "disconnect notice identifies slot 2");
 	CHECK(PumpUntil([&] { return a.gameovers == beforeGameover + 1; }),
 	      "coordinator, not a client, publishes last-standing game-over");
-	CHECK(ja2server_test_shared_explosive_claim_count() == 0,
+	// GAMEOVER is sent before the server clears the completed match. Its
+	// receipt is not an acknowledgement that ResetGameState has finished.
+	CHECK(PumpUntil([&] { return ja2server_test_shared_explosive_claim_count() == 0; }),
 	      "full game-state reset clears the shared map-bomb claim set");
 	b.Stop();
 	d.Stop(); g_logs[3] = nullptr;
