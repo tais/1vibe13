@@ -9,6 +9,16 @@
 #include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "PreBattle Interface.h"
+#include "PreBattlePreparation.h"
+#include "TacticalDeployment.h"
+#include "Soldier Add.h"
+#include "strategic.h"
+#include "TacticalWorldAdapter.h"
+#include "CampaignEventAdapter.h"
+#include "Game Events.h"
+#include <array>
+#include <limits>
+#include "Strategic AI.h"
 	#include "Button System.h"
 	#include "mousesystem.h"
 	#include "Map Screen Interface.h"
@@ -83,6 +93,9 @@ namespace
 Ja2StrategicGroupReference gPreBattleGroup;
 Ja2StrategicGroupReference gTacticalTraversalGroup;
 Ja2TacticalEntityReference gTacticalTraversalChosenSoldier;
+bool gHeadlessPreBattleActive = false;
+NativePreBattleActions gHeadlessPreBattleActions{};
+bool gHeadlessPreBattleEntering = false, gHeadlessPreBattleDeploymentApplied = false;
 }
 
 BOOLEAN SetPreBattleGroup( GROUP *pGroup )
@@ -109,6 +122,10 @@ BOOLEAN IsPreBattleGroup( const GROUP *pGroup )
 void ResetPreBattleGroup( void )
 {
 	gPreBattleGroup.reset();
+	// World entry clears the identity before native ambush placement. Leave the
+	// encounter/locator flags intact here; those are still needed by the loader.
+	gHeadlessPreBattleActive = false;
+	gHeadlessPreBattleActions = {};
 }
 
 BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup )
@@ -357,21 +374,900 @@ void ValidateAndCorrectInBattleCounters( GROUP *pLocGroup )
 
 FLOAT gAmbushRadiusModifier = 1.0f;
 
-void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
+namespace
 {
-	VOBJECT_DESC	VObjectDesc;
+// One native preparation path for both the local PBI and a worldless host.
+// Call once per encounter: this wakes mercs, consumes native RNG and records
+// ambush experience. Presentation must never replay it.
+void PrepareNativePreBattleParticipants(GROUP*& pBattleGroup,
+	BOOLEAN& fUsePluralVersion, BOOLEAN& fRetreatAnOption)
+{
 	UINT8 ubGroupID = 0;
 	UINT16 ubNumStationaryEnemies = 0;
 	UINT16 ubNumMobileEnemies = 0;
 	UINT16 ubNumMercs;
-	BOOLEAN fUsePluralVersion = FALSE;
 	INT8	bBestExpLevel = 0;
-	BOOLEAN fRetreatAnOption = TRUE;
-	SECTORINFO *pSector;
+	SECTORINFO *pSector = &SectorInfo[SECTOR(gubPBSectorX, gubPBSectorY)];
 	BOOLEAN fScoutPresent = FALSE;	// Added by SANDRO
 	BOOLEAN fAirDrop = FALSE;		// Added by Flugente
 	UINT16  usDeploymentLeadership = 0;
 
+	CheckForRobotAndIfItsControlled();
+
+	// wake everyone up
+	WakeUpAllMercsInSectorUnderAttack( );
+
+	//Count the number of players involved or not involved in this battle
+	guiNumUninvolved = 0;
+	guiNumInvolved = 0;
+	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
+	{
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
+		if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+		{
+			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
+			{
+				// involved
+				if( !ubGroupID )
+				{
+					//Record the first groupID.	If there are more than one group in this battle, we
+					//can detect it by comparing the first value with future values.	If we do, then
+					//we set a flag which determines whether to use the singular help text or plural version
+					//for the retreat button.
+					ubGroupID = pSoldier->deployment().groupId();
+					if( !pBattleGroup )
+					{
+						pBattleGroup = GetGroup( ubGroupID );
+						(void)SetPreBattleGroup(pBattleGroup);
+					}
+					//if( bBestExpLevel > pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
+					if( bBestExpLevel < pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
+						bBestExpLevel = pSoldier->statistics().experienceLevel();
+					if( pSoldier->deployment().previousSectorId() == 255 )
+					{ //Not able to retreat (calculate it for group)
+						GROUP *pTempGroup;
+						pTempGroup = GetGroup( ubGroupID );
+						// a groupless involved merc (doctor/repair/patient/train) has ubGroupID 0 -> GetGroup(0)==NULL;
+						// Assert only shows the error screen and RETURNS, so the deref below segfaults on ubSectorX
+						if ( pTempGroup )
+							CalculateGroupRetreatSector( pTempGroup );
+					}
+				}
+				else if( ubGroupID != pSoldier->deployment().groupId() )
+				{
+					fUsePluralVersion = TRUE;
+				}
+
+				++guiNumInvolved;
+
+				// SANDRO - added check if we have a scout in group, needed later
+				if( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && gSkillTraitValues.fSCPreventsTheEnemyToAmbushMercs )
+				{
+					fScoutPresent = TRUE;
+				}
+
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
+				{
+					fAirDrop = TRUE;
+				}
+
+				UINT16 deploymentleadership = EffectiveLeadership( pSoldier );
+				FLOAT ambushradiusmodifier = 10 * EffectiveExpLevel( pSoldier ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_AMBUSH_RADIUS );
+				if ( gGameOptions.fNewTraitSystem )
+				{
+					deploymentleadership += 50 * NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT );
+
+					ambushradiusmodifier += 50 * NUM_SKILL_TRAITS( pSoldier, SCOUTING_NT );
+				}
+				// bonus with old traits, so that the check can be won
+				else
+				{
+					deploymentleadership += 30;
+				}
+
+				usDeploymentLeadership = max( usDeploymentLeadership, deploymentleadership );
+
+				gAmbushRadiusModifier = max( gAmbushRadiusModifier, ambushradiusmodifier / 100 );
+
+				// Flugente: if a merc is inserted from concealed state, retreat is forbidden, as at least this merc will have to extract manually
+				if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
+					fRetreatAnOption = FALSE;
+			}
+			else
+			{
+				++guiNumUninvolved;
+			}
+		}
+	}
+
+	ubNumStationaryEnemies = NumStationaryEnemiesInSector( gubPBSectorX, gubPBSectorY );
+	ubNumMobileEnemies = NumMobileEnemiesInSector( gubPBSectorX, gubPBSectorY );
+	ubNumMercs = PlayerMercsInSector( gubPBSectorX, gubPBSectorY, gubPBSectorZ );
+
+	BOOLEAN fAmbushPrevented = FALSE;
+
+	if( gfPersistantPBI )
+	{
+		if( !pBattleGroup )
+		{
+			if ( gubSpecialEncounterCodeForEnemyHeli )
+			{
+				if ( GetEnemyEncounterCode() != ENEMY_INVASION_AIRDROP_CODE )
+					SetEnemyEncounterCode( ENEMY_INVASION_CODE);
+			}
+			else
+			{
+				//creature's attacking!
+				switch ( guCreatureAttackType )
+				{
+				case CREATURE_ATTACK_TYPE_BLOODCAT:
+					SetEnemyEncounterCode( BLOODCAT_ATTACK_CODE );
+					break;
+
+				case CREATURE_ATTACK_TYPE_ZOMBIE:
+					SetEnemyEncounterCode( ZOMBIE_ATTACK_CODE );
+					break;
+
+				case CREATURE_ATTACK_TYPE_BANDIT:
+					SetEnemyEncounterCode( BANDIT_ATTACK_CODE );
+					break;
+
+				default:
+					SetEnemyEncounterCode( CREATURE_ATTACK_CODE );
+					break;
+				}
+			}
+		}
+		else if ( pBattleGroup->usGroupTeam == OUR_TEAM )
+		{
+			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
+			{
+				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
+				TacticalActor* firstMember =
+					ResolvePlayerGroupMember(
+						pBattleGroup->pPlayerList );
+				if ( firstMember &&
+					( firstMember->featureFlags().secondaryFlags() &
+						SOLDIER_CONCEALINSERTION ) )
+				{
+					SetEnemyEncounterCode( CONCEALINSERTION_CODE );
+				}
+				else if( ubNumStationaryEnemies )
+				{
+					SetEnemyEncounterCode( ENTERING_ENEMY_SECTOR_CODE);
+				}
+				else
+				{
+					SetEnemyEncounterCode( ENEMY_ENCOUNTER_CODE );
+
+					GROUP* pGroup = gpGroupList;
+					BOOLEAN encounteredTransportGroup = FALSE;
+					while (pGroup)
+					{
+						if (pGroup->usGroupTeam == ENEMY_TEAM && pGroup->pEnemyGroup->ubIntention == TRANSPORT && pGroup->ubSectorX == pBattleGroup->ubSectorX && pGroup->ubSectorY == pBattleGroup->ubSectorY && pGroup->ubSectorZ == pBattleGroup->ubSectorZ)
+						{
+							encounteredTransportGroup = TRUE;
+							break;
+						}
+
+						pGroup = pGroup->next;
+					}
+					if (encounteredTransportGroup)
+					{
+						SetEnemyEncounterCode( TRANSPORT_INTERCEPT_CODE );
+					}
+					// Flugente: no ambushes on an airdrop
+					else if ( !fAirDrop )
+					{
+						//Don't consider ambushes until the player has reached 25% (normal) progress
+						if( gfHighPotentialForAmbush )
+						{
+							if( Chance( 90 ) )
+							{
+								// SANDRO - Scout prevents ambushes no matter what
+								if ( !fScoutPresent )
+								{
+									SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
+								}
+								else
+								{
+									fAmbushPrevented = TRUE;
+									if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
+										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
+								}
+							}
+						}
+						else if( gfAutoAmbush && ubNumMobileEnemies > ubNumMercs )
+						{
+							// SANDRO - Scout prevents ambushes no matter what
+							if ( !fScoutPresent )
+							{
+								SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
+							}
+							else
+							{
+								fAmbushPrevented = TRUE;
+								if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
+									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
+							}
+						}
+						// Madd:
+						// WANNE: Added an ja2_options.ini Property "ENABLE_CHANCE_OF_ENEMY_AMBUSHES_ON_INSANE_DIFFICULT"
+						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+						// SANDRO - changed this a lot, now on any difficulty, the enemy can ambush your squad
+						// based on difficulty level, number of mercs/enemies and other aspects
+						else if( gGameExternalOptions.fEnableChanceOfEnemyAmbushes )
+						{
+							INT32 iChance;
+							// Basic chance - progress level/2 minus highest merc exp level*2, and 10% on top
+							// no (UINT8) cast: this is intentionally allowed to go negative (floored to 1 below).
+							// The cast wrapped a negative base chance (experienced merc, low progress) to ~251 -> guaranteed ambush.
+							iChance = ((CurrentPlayerProgressPercentage() / 2 ) - bBestExpLevel*2 ) + 15;
+
+							if( pSector->uiFlags & SF_ENEMY_AMBUSH_LOCATION )
+								iChance += 20;
+
+							if( gfCantRetreatInPBI )
+								iChance += 20;
+
+							// adjust the chance for size of our squad
+							if( ubNumMercs == 1 ) // one person is almost invisible to an army group, so reduce the chance a lot
+								iChance -= 40;
+							else if ( ubNumMercs == 2 ) // 2 persons are still hardly detectable
+								iChance -= 25;
+							else if ( ubNumMercs <= 10 ) // 3 to 10 mercs
+								iChance -= (5 * (5 - ubNumMercs)); // -5% adjustment per merc (-10% to +25%)
+							else // more than 10 mercs
+								iChance += 30; // maximum of +30% per squad size
+
+							// the more enemies are there the lesser the chance to be ambushed
+							// (large groups of enemies can be seen from afar, so the chance is lesser)
+							if ((ubNumMobileEnemies + ubNumStationaryEnemies) <= 2 )
+								iChance += 20; // can make hunting retreated enemies easier
+							else if ((ubNumMobileEnemies + ubNumStationaryEnemies) <= 6 ) // smaller groups actually increase the chance
+								iChance += (3 * (6 - (ubNumMobileEnemies + ubNumStationaryEnemies))); // +3% adjustment per enemy
+							else
+								iChance -= (2 * ((ubNumMobileEnemies + ubNumStationaryEnemies) - 6)); // -2% adjustment per enemy beyond 6
+
+							// adjust the chance for difficulty setting
+							iChance = iChance + (zDiffSetting[gGameOptions.ubDifficultyLevel].iChanceOfEnemyAmbushes);
+
+							// adjust the chance for what we know about the sector
+							if( WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_NOTHING )
+								iChance += 20;
+							// HEADROCK HAM 5: Added new possible value...
+							else if( WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_THEYRE_THERE ||
+								WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_THEYRE_THERE_AND_WHERE_GOING )
+								iChance += 5;
+							//if( GetSectorFlagStatus( gubPBSectorX, gubPBSectorY, 0, SF_ALREADY_VISITED ) == TRUE )
+							//	iChance -= 10; // if we already visited this sector
+
+							// there is always a little chance
+							if( iChance <= 0 )
+								iChance = 1;
+
+							// externalized modifier
+							if( gGameExternalOptions.bChanceModifierEnemyAmbushes != 0 )
+								iChance = ((iChance * (100 + gGameExternalOptions.bChanceModifierEnemyAmbushes)) / 100);
+
+							if( (INT32)PreRandom( 100 ) < iChance )
+							{
+								if ( !fScoutPresent )
+								{
+									SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
+								}
+								else
+								{
+									fAmbushPrevented = TRUE;
+									if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
+										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
+								}
+							}
+						}
+					}
+
+					// Flugente: improved ambush: if a real squadleader is present, we may deploy our mercs instead of having them being dropped into combat randomly
+					if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE && usDeploymentLeadership > 120 )
+					{
+						SetEnemyEncounterCode( ENEMY_AMBUSH_DEPLOYMENT_CODE );
+					}
+					//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				}
+			}
+		}
+		else
+		{ //Are enemies invading a town, or just encountered the player.
+			if (pBattleGroup && pBattleGroup->usGroupTeam == ENEMY_TEAM && pBattleGroup->pEnemyGroup->ubIntention == TRANSPORT)
+				SetEnemyEncounterCode( TRANSPORT_INTERCEPT_CODE );
+			else if( GetTownIdForSector( gubPBSectorX, gubPBSectorY ) )
+				SetEnemyEncounterCode( ENEMY_INVASION_CODE );
+			//SAM sites not in towns will also be considered to be important
+			else if( pSector->uiFlags & SF_SAM_SITE )
+				SetEnemyEncounterCode( ENEMY_INVASION_CODE );
+			else
+				SetEnemyEncounterCode( ENEMY_ENCOUNTER_CODE );
+		}
+
+		// haxx
+		if ( pBattleGroup &&
+			pBattleGroup->usGroupTeam == OUR_TEAM )
+		{
+			TacticalActor* firstMember =
+				ResolvePlayerGroupMember(
+					pBattleGroup->pPlayerList );
+			if( firstMember &&
+				( firstMember->featureFlags().secondaryFlags() &
+					SOLDIER_CONCEALINSERTION ) )
+			{
+				//SetEnemyEncounterCode( CONCEALINSERTION_CODE );
+			}
+		}
+	}
+
+	gfHighPotentialForAmbush = FALSE;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// SANDRO - merc records - ambush experienced
+	if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE || GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE || fAmbushPrevented )
+	{
+		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
+		{
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
+			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+			{
+				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
+				{
+					if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE || GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
+						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
+					else if ( fAmbushPrevented && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) ) // Scouts actually get this as number of prevented ambushes
+						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
+				}
+			}
+		}
+	}
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+}
+
+struct PreBattleActionPresentation
+{
+	NativePreBattleActions actions{true, true, true, false};
+	STR16 help[3]{};
+};
+
+PreBattleActionPresentation PrepareNativePreBattleActions(const GROUP* battleGroup,
+	BOOLEAN fUsePluralVersion, BOOLEAN fRetreatAnOption)
+{
+	PreBattleActionPresentation result;
+	if (gfAutomaticallyStartAutoResolve)
+	{
+		result.actions.enterSector = false;
+		result.actions.retreat = false;
+	}
+	//Set up fast help for buttons depending on the state of the button, and disable buttons
+	//when necessary.
+	if( gfPersistantPBI )
+	{
+		if( GetEnemyEncounterCode() == ENTERING_ENEMY_SECTOR_CODE ||
+			GetEnemyEncounterCode() == ENTERING_BLOODCAT_LAIR_CODE )
+		{ //Don't allow autoresolve for player initiated invasion battle types
+			result.actions.autoResolve = false;
+			result.help[0] = gpStrategicString[ STR_PB_DISABLED_AUTORESOLVE_FASTHELP ];
+		}
+		else if( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE ||
+			GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE ||
+			GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
+		{
+			//Don't allow autoresolve for ambushes
+			result.actions.autoResolve = false;
+			result.help[0] = gzNonPersistantPBIText[ 3 ];
+		}
+		else if ( GetEnemyEncounterCode() == CONCEALINSERTION_CODE )
+		{
+			// Don't allow autoresolve
+			result.actions.autoResolve = false;
+			result.help[0] = gpStrategicString[STR_PB_DISABLED_AUTORESOLVE_FASTHELP];
+
+			// No retreat possible, we must go to tactical
+			fRetreatAnOption = FALSE;
+		}
+		else
+		{
+			result.help[0] = gpStrategicString[ STR_PB_AUTORESOLVE_FASTHELP ];
+		}
+		result.help[1] = gpStrategicString[ STR_PB_GOTOSECTOR_FASTHELP ];
+
+		if( gfAutomaticallyStartAutoResolve )
+		{
+			result.actions.enterSector = false;
+		}
+
+		if( gfCantRetreatInPBI )
+		{
+			gfCantRetreatInPBI = FALSE;
+			fRetreatAnOption = FALSE;
+		}
+
+		if( gfAutomaticallyStartAutoResolve || !fRetreatAnOption ||
+			GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE ||
+			GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE ||
+			GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE ||
+			GetEnemyEncounterCode() == CREATURE_ATTACK_CODE ||
+			GetEnemyEncounterCode() == BLOODCAT_ATTACK_CODE ||
+			GetEnemyEncounterCode() == ZOMBIE_ATTACK_CODE ||
+			GetEnemyEncounterCode() == BANDIT_ATTACK_CODE ||
+			is_client)
+		{
+			result.actions.retreat = false;
+			result.help[2] = gzNonPersistantPBIText[ 9 ];
+		}
+		else
+		{
+			if( !fUsePluralVersion )
+			{
+				result.help[2] = gpStrategicString[ STR_BP_RETREATSINGLE_FASTHELP ];
+			}
+			else
+			{
+				result.help[2] = gpStrategicString[ STR_BP_RETREATPLURAL_FASTHELP ];
+			}
+		}
+	}
+	else
+	{ //use the explicit encounter code to determine what get's disable and the associated help text that is used.
+
+		//First of all, the retreat button is always disabled seeing a battle is in progress.
+		result.actions.retreat = false;
+		result.help[2] = gzNonPersistantPBIText[ 0 ];
+		result.help[1] = gzNonPersistantPBIText[ 1 ];
+		switch( GetExplicitEnemyEncounterCode() )
+		{
+			case CREATURE_ATTACK_CODE:
+			case ENEMY_ENCOUNTER_CODE:
+			case TRANSPORT_INTERCEPT_CODE:
+			case ENEMY_INVASION_CODE:
+			case ENEMY_INVASION_AIRDROP_CODE:
+			case BLOODCAT_ATTACK_CODE:
+			case ZOMBIE_ATTACK_CODE:
+			case BANDIT_ATTACK_CODE:
+				result.help[0] = gzNonPersistantPBIText[ 2 ];
+				break;
+			case ENTERING_ENEMY_SECTOR_CODE:
+				result.actions.autoResolve = false;
+				result.help[0] = gzNonPersistantPBIText[ 3 ];
+				break;
+			case ENEMY_AMBUSH_CODE:
+			case ENEMY_AMBUSH_DEPLOYMENT_CODE:
+				result.actions.autoResolve = false;
+				result.help[0] = gzNonPersistantPBIText[ 4 ];
+				break;
+			case FIGHTING_CREATURES_CODE:
+				result.actions.autoResolve = false;
+				result.help[0] = gzNonPersistantPBIText[ 5 ];
+				break;
+			case HOSTILE_CIVILIANS_CODE:
+				result.actions.autoResolve = false;
+				result.help[0] = gzNonPersistantPBIText[ 6 ];
+				break;
+			case HOSTILE_BLOODCATS_CODE:
+			case BLOODCAT_AMBUSH_CODE:
+			case ENTERING_BLOODCAT_LAIR_CODE:
+				result.actions.autoResolve = false;
+				result.help[0] = gzNonPersistantPBIText[ 7 ];
+				break;
+			case CONCEALINSERTION_CODE:
+				// Don't allow autoresolve
+				result.actions.autoResolve = false;
+				result.help[0] = gpStrategicString[STR_PB_DISABLED_AUTORESOLVE_FASTHELP];
+
+				// No retreat possible, we must go to tactical
+				result.actions.retreat = false;
+				result.help[2] = gzNonPersistantPBIText[9];
+				break;
+		}
+	}
+
+	const CampaignMapScreenPolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if ( campaignPolicy.usesUnfinishedBusinessMapRules() &&
+		campaignPolicy.shouldDisableAutoResolve(
+			gGameUBOptions.AutoResolve != FALSE) )
+	{
+		result.actions.autoResolve = false;
+	}
+
+	result.actions.tacticalPlacement = NativePreBattleUsesTacticalPlacement(battleGroup);
+	return result;
+}
+
+void RecordNativePreBattleEnemyKnowledge()
+{
+	SECTORINFO* pSector = &SectorInfo[SECTOR(gubPBSectorX, gubPBSectorY)];
+	if( GetEnemyEncounterCode() == ENEMY_ENCOUNTER_CODE || GetEnemyEncounterCode() == TRANSPORT_INTERCEPT_CODE )
+	{ //we know how many enemies are here, so until we leave the sector, we will continue to display the value.
+		//the flag will get cleared when time advances after the fEnemyInSector flag is clear.
+
+		// ALWAYS use these 2 statements together, without setting the boolean, the flag will never be cleaned up!
+		pSector->uiFlags |= SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
+		gfResetAllPlayerKnowsEnemiesFlags = TRUE;
+	}
+}
+
+// Gameplay shared with the ordinary retreat button; no widget access or
+// synthetic battle outcome. True means militia still need native autoresolve.
+bool ApplyNativePreBattleRetreatGameplay()
+{
+	for (SoldierID i = gTacticalStatus.Team[gbPlayerNum].bFirstID; i <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++i)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (actor->roster().active() && actor->vitals().health() >= OKLIFE &&
+			PlayerMercInvolvedInThisCombat(actor) && actor->identity().profile() != NO_PROFILE)
+			++gMercProfiles[actor->identity().profile()].records.usBattlesRetreated;
+	}
+	RetreatAllInvolvedPlayerGroups();
+	HandleLoyaltyImplicationsOfMercRetreat(RETREAT_PBI, gubPBSectorX, gubPBSectorY, 0);
+	if (NumNonPlayerTeamMembersInSector(gubPBSectorX, gubPBSectorY, MILITIA_TEAM)) return true;
+	ResetMovementForNonPlayerGroupsInLocation(gubPBSectorX, gubPBSectorY);
+	return false;
+}
+}
+
+bool NativePreBattleUsesTacticalPlacement(const GROUP* battleGroup)
+{
+	return gfPersistantPBI && battleGroup &&
+		battleGroup->usGroupTeam == OUR_TEAM &&
+		GetEnemyEncounterCode() != ENEMY_AMBUSH_CODE &&
+		GetEnemyEncounterCode() != CREATURE_ATTACK_CODE &&
+		GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE &&
+		GetEnemyEncounterCode() != ENEMY_INVASION_AIRDROP_CODE &&
+		GetEnemyEncounterCode() != CONCEALINSERTION_CODE &&
+		GetEnemyEncounterCode() != BLOODCAT_ATTACK_CODE &&
+		GetEnemyEncounterCode() != ZOMBIE_ATTACK_CODE &&
+		GetEnemyEncounterCode() != BANDIT_ATTACK_CODE;
+}
+
+bool IsHeadlessPreBattleActive() noexcept { return gHeadlessPreBattleActive; }
+bool IsHeadlessPreBattleEntryInProgress() noexcept { return gHeadlessPreBattleEntering; }
+
+void ResetHeadlessPreBattle() noexcept
+{
+	if (!gHeadlessPreBattleActive) return;
+	ResetPreBattleGroup();
+	gfPersistantPBI = FALSE;
+	gfBlitBattleSectorLocator = FALSE;
+	gfCantRetreatInPBI = FALSE;
+}
+
+extern BOOLEAN gfProcessingGameEvents;
+extern BOOLEAN IsThereMilitiaInAdjacentSector(INT16, INT16);
+extern GARRISON_GROUP* gGarrisonGroup;
+extern INT32 giGarrisonArraySize;
+
+NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,
+	GROUP& dialogGroup, bool justRetreated, NativePreBattlePreparation& output)
+{
+	using Result = NativePreBattlePrepareResult;
+	if (gHeadlessPreBattleActive || gfPreBattleInterfaceActive || IsAutoResolveActive() ||
+		IsJa2TacticalWorldLoaded() || GetCurrentScreen() != MAP_SCREEN || GetPendingNewScreen() == MSG_BOX_SCREEN || gfProcessingGameEvents ||
+		gfTacticalTraversal || fDisableMapInterfaceDueToBattle || gfEnteringMapScreenToEnterPreBattleInterface ||
+		gfAutomaticallyStartAutoResolve || gfDelayAutoResolveStart || gfTransitionMapscreenToAutoResolve ||
+		ResolvePreBattleGroup()) return Result::InvalidContext;
+	const bool playerAttack = battleGroup.usGroupTeam == OUR_TEAM;
+	const bool enemyAttack = battleGroup.usGroupTeam == ENEMY_TEAM;
+	if (is_client || (!playerAttack && !enemyAttack) || dialogGroup.usGroupTeam != OUR_TEAM ||
+		battleGroup.fVehicle || dialogGroup.fVehicle || battleGroup.ubTransportationMask != FOOT ||
+		dialogGroup.ubTransportationMask != FOOT || battleGroup.fBetweenSectors || dialogGroup.fBetweenSectors ||
+		(playerAttack ? !battleGroup.pPlayerList : !battleGroup.pEnemyGroup) || !dialogGroup.pPlayerList ||
+		battleGroup.ubSectorZ || dialogGroup.ubSectorZ ||
+		battleGroup.ubSectorX < 1 || battleGroup.ubSectorX > 16 || battleGroup.ubSectorY < 1 || battleGroup.ubSectorY > 16 ||
+		dialogGroup.ubSectorX != battleGroup.ubSectorX || dialogGroup.ubSectorY != battleGroup.ubSectorY)
+		return Result::UnsupportedContext;
+	if (enemyAttack)
+	{
+		const auto& enemy = *battleGroup.pEnemyGroup;
+		const unsigned size = static_cast<unsigned>(enemy.ubNumAdmins) + enemy.ubNumTroops +
+			enemy.ubNumElites + enemy.ubNumTanks + enemy.ubNumJeeps + enemy.ubNumRobots;
+		if (!size || size != battleGroup.ubGroupSize) return Result::UnsupportedContext;
+	}
+	const bool bloodcats = GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENTERING_BLOODCAT_LAIR_CODE;
+	if (enemyAttack && bloodcats) return Result::UnsupportedContext;
+	unsigned speakers = 0;
+	for (const PLAYERGROUP* member = dialogGroup.pPlayerList; member; member = member->next)
+	{
+		const auto* actor = ResolvePlayerGroupMember(member);
+		if (!actor || actor->deployment().isBetweenSectors() || actor->deployment().sectorX() != battleGroup.ubSectorX ||
+			actor->deployment().sectorY() != battleGroup.ubSectorY || actor->deployment().sectorZ() ||
+			actor->assignment().current() >= ON_DUTY) return Result::UnsupportedContext;
+		if (actor->vitals().health() >= OKLIFE && !(actor->status().flags() & SOLDIER_VEHICLE) &&
+			!AM_A_ROBOT(actor) && !AM_AN_EPC(actor)) ++speakers;
+	}
+	// Unconscious/militia-only battles have their own native autoresolve branch.
+	if (!speakers) return Result::UnsupportedContext;
+	const auto& sector = SectorInfo[SECTOR(battleGroup.ubSectorX, battleGroup.ubSectorY)];
+	if (sector.ubAdminsInBattle || sector.ubTroopsInBattle || sector.ubElitesInBattle || sector.ubCreaturesInBattle ||
+		sector.ubTanksInBattle || sector.ubJeepsInBattle || sector.ubRobotsInBattle) return Result::InvalidContext;
+	if (sector.ubGarrisonID != NO_GARRISON && (!gGarrisonGroup || sector.ubGarrisonID >= giGarrisonArraySize))
+		return Result::InvalidContext;
+	// The caller bounded the list. Validate AI unions before native ambush and
+	// enemy-count routines inspect them (the friendly observation does not).
+	for (const GROUP* group = gpGroupList; group; group = group->next)
+	{
+		if (group->usGroupTeam == OUR_TEAM) continue;
+		if (!group->pEnemyGroup) return Result::InvalidContext;
+		const auto& enemy = *group->pEnemyGroup;
+		if (group->ubSectorX == battleGroup.ubSectorX && group->ubSectorY == battleGroup.ubSectorY &&
+			(enemy.ubAdminsInBattle || enemy.ubTroopsInBattle || enemy.ubElitesInBattle ||
+			 enemy.ubTanksInBattle || enemy.ubJeepsInBattle || enemy.ubRobotsInBattle)) return Result::InvalidContext;
+	}
+	// A new retreat sector can require a native assertion/dialog if isolated.
+	// Refuse that context before waking anyone or consuming an ambush roll.
+	bool retreatSectorExists = false;
+	for (unsigned direction = 0; direction < 4; ++direction)
+		if (sector.ubTraversability[direction] != GROUNDBARRIER && sector.ubTraversability[direction] != EDGEOFWORLD)
+			retreatSectorExists = true;
+	if (gTacticalStatus.Team[OUR_TEAM].bFirstID > gTacticalStatus.Team[OUR_TEAM].bLastID ||
+		static_cast<UINT16>(gTacticalStatus.Team[OUR_TEAM].bLastID) >= GetJa2SoldierRepository().capacity()) return Result::InvalidContext;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		const auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (!actor) return Result::InvalidContext;
+		if (!retreatSectorExists && actor->roster().active() && actor->vitals().health() &&
+			actor->deployment().sectorX() == battleGroup.ubSectorX && actor->deployment().sectorY() == battleGroup.ubSectorY &&
+			!actor->deployment().sectorZ() && actor->deployment().previousSectorId() == 255)
+			return Result::UnsupportedContext;
+	}
+	if (!bloodcats && gGameExternalOptions.gfAllowReinforcements &&
+		IsThereMilitiaInAdjacentSector(battleGroup.ubSectorX, battleGroup.ubSectorY))
+		return Result::ReinforcementDecisionRequired;
+	if (!SetPreBattleGroup(&battleGroup)) return Result::InvalidContext;
+
+	// From this point preparation is occupied even if a native operation throws.
+	// The runtime latches that failure; no retry may replay partial side effects.
+	gHeadlessPreBattleActive = true;
+	gfPersistantPBI = TRUE;
+	gfBlitBattleSectorLocator = TRUE;
+	gubPBSectorX = battleGroup.ubSectorX; gubPBSectorY = battleGroup.ubSectorY; gubPBSectorZ = battleGroup.ubSectorZ;
+	gAmbushRadiusModifier = 0.0f;
+	if (!bloodcats)
+	{
+		if (gGameExternalOptions.gfAllowReinforcements) gTacticalStatus.uiFlags &= ~WANT_MILITIA_REINFORCEMENTS;
+		ApplyNativePreBattleMorale(dialogGroup);
+		if (justRetreated) gfCantRetreatInPBI = TRUE;
+		// Preserve the normal native speaker draw, without queuing a GUI quote or
+		// taking its global pause lock. Bloodcat notification never takes this path.
+		(void)Random(speakers);
+		if (!CheckFact(FACT_FIRST_BATTLE_FOUGHT, 0)) SetFactTrue(FACT_FIRST_BATTLE_BEING_FOUGHT);
+	}
+	GROUP* preparedGroup = &battleGroup;
+	BOOLEAN plural = FALSE, retreat = TRUE;
+	PrepareNativePreBattleParticipants(preparedGroup, plural, retreat);
+	RecordNativePreBattleEnemyKnowledge();
+	NativePreBattlePreparation prepared;
+	prepared.actions = PrepareNativePreBattleActions(preparedGroup, plural, retreat).actions;
+	prepared.encounterCode = GetEnemyEncounterCode();
+	prepared.involvedMercs = guiNumInvolved; prepared.uninvolvedMercs = guiNumUninvolved;
+	prepared.ambushRadiusModifier = gAmbushRadiusModifier;
+	gHeadlessPreBattleActions = prepared.actions;
+	gubSpecialEncounterCodeForEnemyHeli = FALSE;
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	output = prepared;
+	return Result::Prepared;
+}
+
+bool ApplyHeadlessPreBattleDeployment()
+{
+	if (!gHeadlessPreBattleEntering || !gHeadlessPreBattleActive || gHeadlessPreBattleDeploymentApplied)
+		return false;
+	if (gHeadlessPreBattleActions.tacticalPlacement && !SpreadHeadlessPreBattleMercs()) return false;
+	gHeadlessPreBattleDeploymentApplied = true;
+	return true;
+}
+
+NativePreBattleEnterResult EnterHeadlessPreBattle(NativePreBattleDeployment deployment)
+{
+	using Result = NativePreBattleEnterResult;
+	if (!gHeadlessPreBattleActive || gHeadlessPreBattleEntering || !ResolvePreBattleGroup() ||
+		!gHeadlessPreBattleActions.enterSector || !gfPersistantPBI || !gfBlitBattleSectorLocator ||
+		gfPreBattleInterfaceActive || IsAutoResolveActive() || gfEnterTacticalPlacementGUI || gfTacticalPlacementGUIActive ||
+		IsJa2TacticalWorldLoaded() || GetCurrentScreen() != MAP_SCREEN || GetPendingNewScreen() == MSG_BOX_SCREEN || gfProcessingGameEvents ||
+		gfTacticalTraversal || (gTacticalStatus.uiFlags & LOADING_SAVED_GAME) || PauseStateLocked() ||
+		fDisableMapInterfaceDueToBattle || gfEnteringMapScreenToEnterPreBattleInterface ||
+		gfAutomaticallyStartAutoResolve || gfDelayAutoResolveStart || gfTransitionMapscreenToAutoResolve ||
+		// The legacy loader treats matching coordinates as an already loaded map.
+		(gWorldSectorX == gubPBSectorX && gWorldSectorY == gubPBSectorY && gbWorldSectorZ == gubPBSectorZ))
+		return Result::InvalidContext;
+	if (is_networked || gubPBSectorZ || gubPBSectorX < 1 || gubPBSectorX > 16 ||
+		gubPBSectorY < 1 || gubPBSectorY > 16 || deployment > NativePreBattleDeployment::Spread) return Result::UnsupportedContext;
+	if (gHeadlessPreBattleActions.tacticalPlacement && deployment != NativePreBattleDeployment::Spread)
+		return Result::DeploymentRequired;
+	if (!gHeadlessPreBattleActions.tacticalPlacement && deployment != NativePreBattleDeployment::Forced)
+		return Result::UnsupportedContext;
+	// The first entry boundary deliberately supports actors already assigned to
+	// on-foot squads. Vehicles, POW releases and assignment changes need their
+	// own native decisions; never silently exercise those UI-dependent branches.
+	unsigned involved = 0;
+	if (gTacticalStatus.Team[OUR_TEAM].bFirstID > gTacticalStatus.Team[OUR_TEAM].bLastID ||
+		static_cast<UINT16>(gTacticalStatus.Team[OUR_TEAM].bLastID) >= GetJa2SoldierRepository().capacity()) return Result::InvalidContext;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		const auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (!actor) return Result::InvalidContext;
+		// Pending hires already carry their landing coordinates, but native
+		// PlayerMercInvolvedInThisCombat excludes them until the flight arrives.
+		if (!actor->roster().active() || actor->deployment().isBetweenSectors() || actor->assignment().current() == IN_TRANSIT ||
+			!CurrentBattleSectorIs(actor->deployment().sectorX(), actor->deployment().sectorY(), actor->deployment().sectorZ())) continue;
+		if (!actor->vitals().health() || actor->assignment().current() >= ON_DUTY ||
+			(actor->status().flags() & (SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) ||
+			(actor->featureFlags().primaryFlags() & SOLDIER_AIRDROP) || AM_A_ROBOT(actor) || AM_AN_EPC(actor))
+			return Result::UnsupportedContext;
+		if (gHeadlessPreBattleActions.tacticalPlacement && GetEnemyEncounterCode() != ENEMY_AMBUSH_DEPLOYMENT_CODE &&
+			!(actor->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION))
+		{
+			const auto code = actor->deployment().strategicInsertionCode();
+			if (code > INSERTION_CODE_WEST &&
+				!((code == INSERTION_CODE_PRIMARY_EDGEINDEX || code == INSERTION_CODE_SECONDARY_EDGEINDEX) &&
+				 actor->deployment().strategicInsertionData() >= INSERTION_CODE_NORTH &&
+				 actor->deployment().strategicInsertionData() <= INSERTION_CODE_WEST)) return Result::UnsupportedContext;
+		}
+		++involved;
+	}
+	if (!involved || involved != guiNumInvolved) return Result::InvalidContext;
+	// Ask the native filename resolver without consuming its alternate-map flag
+	// or allowing its placeholder fallback. A missing real map is a safe reject.
+	CHAR8 filename[50];
+	const BOOLEAN alternateMap = gfUseAlternateMap;
+	GetMapFileName(gubPBSectorX, gubPBSectorY, gubPBSectorZ, filename, FALSE, TRUE);
+	gfUseAlternateMap = alternateMap;
+	if (!MapExists(reinterpret_cast<UINT8*>(filename))) return Result::MapUnavailable;
+	struct EntryScope
+	{
+		EntryScope() { gHeadlessPreBattleEntering = true; gHeadlessPreBattleDeploymentApplied = false; }
+		~EntryScope() { gHeadlessPreBattleEntering = false; }
+	} entering;
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	PutNonSquadMercsInBattleSectorOnSquads(TRUE);
+	ClearMovementForAllInvolvedPlayerGroups();
+	const auto x = gubPBSectorX, y = gubPBSectorY, z = gubPBSectorZ;
+	if (!SetCurrentWorldSector(x, y, z) || !gHeadlessPreBattleDeploymentApplied ||
+		!IsJa2TacticalWorldLoaded() || gWorldSectorX != x || gWorldSectorY != y || gbWorldSectorZ != z ||
+		IsHeadlessPreBattleActive() || gfPreBattleInterfaceActive || gfTacticalPlacementGUIActive || gfEnterTacticalPlacementGUI ||
+		GetPendingNewScreen() == MSG_BOX_SCREEN)
+		return Result::Failed;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		const auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (!actor || !actor->roster().active() || actor->deployment().isBetweenSectors() || actor->assignment().current() == IN_TRANSIT ||
+			actor->deployment().sectorX() != x || actor->deployment().sectorY() != y || actor->deployment().sectorZ() != z) continue;
+		if (!actor->roster().inSector() || TileIsOutOfBounds(actor->position().gridNo())) return Result::Failed;
+	}
+	// PrepareLoadedSector owns population/AI/unpause and clears the native group.
+	// Match the logical part of KillPreBattleInterface, without nonexistent UI.
+	gfPersistantPBI = FALSE;
+	SetTacticalInterfaceFlags(0);
+	return Result::Entered;
+}
+
+NativePreBattleRetreatResult RetreatHeadlessPreBattle()
+{
+	using Result = NativePreBattleRetreatResult;
+	if (!gHeadlessPreBattleActive || gHeadlessPreBattleEntering || !ResolvePreBattleGroup() ||
+		!gfPersistantPBI || !gfBlitBattleSectorLocator || gfPreBattleInterfaceActive || IsAutoResolveActive() ||
+		gfEnterTacticalPlacementGUI || gfTacticalPlacementGUIActive || IsJa2TacticalWorldLoaded() ||
+		GetCurrentScreen() != MAP_SCREEN || GetPendingNewScreen() == MSG_BOX_SCREEN || gfProcessingGameEvents ||
+		gfTacticalTraversal || (gTacticalStatus.uiFlags & LOADING_SAVED_GAME) || PauseStateLocked() || !GamePaused() ||
+		fDisableMapInterfaceDueToBattle || gfEnteringMapScreenToEnterPreBattleInterface ||
+		gfAutomaticallyStartAutoResolve || gfDelayAutoResolveStart || gfTransitionMapscreenToAutoResolve)
+		return Result::InvalidContext;
+	if (!gHeadlessPreBattleActions.retreat) return Result::NotPermitted;
+	if (is_networked || gbPlayerNum != OUR_TEAM || gubPBSectorZ ||
+		gubPBSectorX < 1 || gubPBSectorX > 16 || gubPBSectorY < 1 || gubPBSectorY > 16)
+		return Result::UnsupportedContext;
+	// The local button can hand this battle to autoresolve after retreating.
+	// Until that continuation exists on the host, do not abandon the militia.
+	if (NumNonPlayerTeamMembersInSector(gubPBSectorX, gubPBSectorY, MILITIA_TEAM))
+		return Result::AutoResolveRequired;
+	if (gTacticalStatus.Team[OUR_TEAM].bFirstID > gTacticalStatus.Team[OUR_TEAM].bLastID ||
+		static_cast<UINT16>(gTacticalStatus.Team[OUR_TEAM].bLastID) >= GetJa2SoldierRepository().capacity())
+		return Result::InvalidContext;
+	unsigned involved = 0;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		const auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (!actor) return Result::InvalidContext;
+		if (!actor->roster().active() || actor->deployment().isBetweenSectors() || actor->assignment().current() == IN_TRANSIT ||
+			!CurrentBattleSectorIs(actor->deployment().sectorX(), actor->deployment().sectorY(), actor->deployment().sectorZ())) continue;
+		if (!actor->vitals().health() || actor->roster().inSector() || actor->assignment().current() >= ON_DUTY ||
+			(actor->status().flags() & (SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) ||
+			(actor->featureFlags().primaryFlags() & SOLDIER_AIRDROP) || AM_A_ROBOT(actor) || AM_AN_EPC(actor))
+			return Result::UnsupportedContext;
+		auto* group = GetGroup(actor->deployment().groupId());
+		if (!group || !PlayerGroupInvolvedInThisCombat(group)) return Result::InvalidContext;
+		++involved;
+	}
+	if (!involved || involved != guiNumInvolved) return Result::InvalidContext;
+	struct Departure { GROUP* group = nullptr; UINT32 minutes = 0; UINT8 x = 0, y = 0; };
+	std::array<Departure, 256> departures{};
+	std::size_t count = 0;
+	const UINT32 seconds = GetWorldTotalSeconds(), now = GetWorldTotalMin();
+	auto& queue = GetJa2CampaignEventQueue();
+	if (!queue.validate()) return Result::InvalidContext;
+	// The outer owner has bounded the complete native graph and checked route
+	// ownership. Validate every retreat destination before any paths are freed.
+	for (GROUP* group = gpGroupList; group; group = group->next)
+	{
+		if (!PlayerGroupInvolvedInThisCombat(group)) continue;
+		if (count == departures.size() || group->fVehicle || group->ubTransportationMask != FOOT || !group->pPlayerList)
+			return Result::UnsupportedContext;
+		// Native retreat treats (16,16) as its "no previous sector" sentinel;
+		// never reach that recursive route-selection branch from an exact action.
+		if (group->ubPrevX < 1 || group->ubPrevX > 16 || group->ubPrevY < 1 || group->ubPrevY > 16 ||
+			(group->ubPrevX == 16 && group->ubPrevY == 16))
+			return Result::UnsupportedContext;
+		const int dx = static_cast<int>(group->ubPrevX) - group->ubSectorX;
+		const int dy = static_cast<int>(group->ubPrevY) - group->ubSectorY;
+		const unsigned direction = dx == 0 && dy == -1 ? NORTH_STRATEGIC_MOVE :
+			dx == 1 && dy == 0 ? EAST_STRATEGIC_MOVE : dx == 0 && dy == 1 ? SOUTH_STRATEGIC_MOVE :
+			dx == -1 && dy == 0 ? WEST_STRATEGIC_MOVE : 4;
+		if (direction == 4) return Result::UnsupportedContext;
+		const auto cost = GetSectorMvtTimeForGroupWithoutUiCache(SECTOR(group->ubSectorX, group->ubSectorY), direction, group);
+		if (cost < 0) return Result::UnsupportedContext;
+		const auto minutes = cost ? static_cast<UINT32>(cost) : 5u;
+		if (minutes > std::numeric_limits<UINT32>::max() / 60u - now) return Result::UnsupportedContext;
+		for (const auto* event = queue.head(); event; event = event->next)
+			if (event->parameter == group->ubGroupID &&
+				(event->callbackId == EVENT_GROUP_ARRIVAL || event->callbackId == EVENT_GROUP_ABOUT_TO_ARRIVE))
+				return Result::InvalidContext;
+		departures[count++] = {group, minutes, group->ubPrevX, group->ubPrevY};
+	}
+	if (!count) return Result::InvalidContext;
+
+	// Native event allocation or enemy response can fail after movement starts.
+	// Do not clear the prepared decision until all native postconditions hold.
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	if (ApplyNativePreBattleRetreatGameplay() || !queue.validate() || GetWorldTotalSeconds() != seconds ||
+		IsJa2TacticalWorldLoaded() || GetPendingNewScreen() == MSG_BOX_SCREEN ||
+		!gHeadlessPreBattleActive || GetCurrentScreen() != MAP_SCREEN) return Result::Failed;
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		const auto& departure = departures[i];
+		const auto* group = departure.group;
+		if (!group->fBetweenSectors || !(group->uiFlags & GROUPFLAG_JUST_RETREATED_FROM_BATTLE) || group->pWaypoints ||
+			group->ubNextX != departure.x || group->ubNextY != departure.y || group->uiTraverseTime != departure.minutes ||
+			group->uiArrivalTime != now + departure.minutes) return Result::Failed;
+		unsigned arrivals = 0, warnings = 0;
+		for (const auto* event = queue.head(); event; event = event->next)
+		{
+			if (event->parameter != group->ubGroupID) continue;
+			if (event->callbackId == EVENT_GROUP_ARRIVAL)
+			{
+				if (event->scheduledSeconds != group->uiArrivalTime * 60u) return Result::Failed;
+				++arrivals;
+			}
+			if (event->callbackId == EVENT_GROUP_ABOUT_TO_ARRIVE)
+			{
+				if (event->scheduledSeconds != (group->uiArrivalTime - 30u) * 60u) return Result::Failed;
+				++warnings;
+			}
+		}
+		if (arrivals != 1 || warnings != (departure.minutes > 30u ? 1u : 0u)) return Result::Failed;
+		for (const auto* member = group->pPlayerList; member; member = member->next)
+		{
+			const auto* actor = ResolvePlayerGroupMember(member);
+			if (!actor || !actor->deployment().isBetweenSectors() || actor->roster().inSector() || !actor->strategicPath().empty())
+				return Result::Failed;
+		}
+	}
+	ResetHeadlessPreBattle();
+	StopTimeCompression(); PauseGame();
+	return Result::Retreated;
+}
+
+void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
+{
+	if (IsHeadlessPreBattleActive()) return;
+	VOBJECT_DESC	VObjectDesc;
+	BOOLEAN fUsePluralVersion = FALSE;
+	BOOLEAN fRetreatAnOption = TRUE;
 	gAmbushRadiusModifier = 0.0f;
 
 	bListOffset = 0;
@@ -481,8 +1377,6 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		gubPBSectorY = (UINT8)SECTORY( gubSectorIDOfCreatureAttack );
 		gubPBSectorZ = 0;
 	}
-
-	pSector = &SectorInfo[ SECTOR( gubPBSectorX, gubPBSectorY ) ];
 
 	if( !gfPersistantPBI )
 	{
@@ -658,340 +1552,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	// ARM: this must now be set before any calls utilizing the GetCurrentBattleSectorXYZ() function
 	gfPreBattleInterfaceActive = TRUE;
 
-	CheckForRobotAndIfItsControlled();
-
-	// wake everyone up
-	WakeUpAllMercsInSectorUnderAttack( );
-
-	//Count the number of players involved or not involved in this battle
-	guiNumUninvolved = 0;
-	guiNumInvolved = 0;
-	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
-	{
-		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
-		{
-			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
-			{
-				// involved
-				if( !ubGroupID )
-				{
-					//Record the first groupID.	If there are more than one group in this battle, we
-					//can detect it by comparing the first value with future values.	If we do, then
-					//we set a flag which determines whether to use the singular help text or plural version
-					//for the retreat button.
-					ubGroupID = pSoldier->deployment().groupId();
-					if( !pBattleGroup )
-					{
-						pBattleGroup = GetGroup( ubGroupID );
-						(void)SetPreBattleGroup(pBattleGroup);
-					}
-					//if( bBestExpLevel > pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
-					if( bBestExpLevel < pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
-						bBestExpLevel = pSoldier->statistics().experienceLevel();
-					if( pSoldier->deployment().previousSectorId() == 255 )
-					{ //Not able to retreat (calculate it for group)
-						GROUP *pTempGroup;
-						pTempGroup = GetGroup( ubGroupID );
-						// a groupless involved merc (doctor/repair/patient/train) has ubGroupID 0 -> GetGroup(0)==NULL;
-						// Assert only shows the error screen and RETURNS, so the deref below segfaults on ubSectorX
-						if ( pTempGroup )
-							CalculateGroupRetreatSector( pTempGroup );
-					}
-				}
-				else if( ubGroupID != pSoldier->deployment().groupId() )
-				{
-					fUsePluralVersion = TRUE;
-				}
-
-				++guiNumInvolved;
-
-				// SANDRO - added check if we have a scout in group, needed later
-				if( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && gSkillTraitValues.fSCPreventsTheEnemyToAmbushMercs )
-				{
-					fScoutPresent = TRUE;
-				}
-
-				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
-				{
-					fAirDrop = TRUE;
-				}
-
-				UINT16 deploymentleadership = EffectiveLeadership( pSoldier );
-				FLOAT ambushradiusmodifier = 10 * EffectiveExpLevel( pSoldier ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_AMBUSH_RADIUS );
-				if ( gGameOptions.fNewTraitSystem )
-				{
-					deploymentleadership += 50 * NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT );
-
-					ambushradiusmodifier += 50 * NUM_SKILL_TRAITS( pSoldier, SCOUTING_NT );
-				}
-				// bonus with old traits, so that the check can be won
-				else
-				{
-					deploymentleadership += 30;
-				}
-
-				usDeploymentLeadership = max( usDeploymentLeadership, deploymentleadership );
-
-				gAmbushRadiusModifier = max( gAmbushRadiusModifier, ambushradiusmodifier / 100 );
-
-				// Flugente: if a merc is inserted from concealed state, retreat is forbidden, as at least this merc will have to extract manually
-				if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
-					fRetreatAnOption = FALSE;
-			}
-			else
-			{
-				++guiNumUninvolved;
-			}
-		}
-	}
-
-	ubNumStationaryEnemies = NumStationaryEnemiesInSector( gubPBSectorX, gubPBSectorY );
-	ubNumMobileEnemies = NumMobileEnemiesInSector( gubPBSectorX, gubPBSectorY );
-	ubNumMercs = PlayerMercsInSector( gubPBSectorX, gubPBSectorY, gubPBSectorZ );
-	
-	BOOLEAN fAmbushPrevented = FALSE;
-
-	if( gfPersistantPBI )
-	{
-		if( !pBattleGroup )
-		{
-			if ( gubSpecialEncounterCodeForEnemyHeli )
-			{
-				if ( GetEnemyEncounterCode() != ENEMY_INVASION_AIRDROP_CODE )
-					SetEnemyEncounterCode( ENEMY_INVASION_CODE);
-			}
-			else
-			{
-				//creature's attacking!
-				switch ( guCreatureAttackType )
-				{
-				case CREATURE_ATTACK_TYPE_BLOODCAT:	
-					SetEnemyEncounterCode( BLOODCAT_ATTACK_CODE );
-					break;
-
-				case CREATURE_ATTACK_TYPE_ZOMBIE:
-					SetEnemyEncounterCode( ZOMBIE_ATTACK_CODE );
-					break;
-
-				case CREATURE_ATTACK_TYPE_BANDIT:
-					SetEnemyEncounterCode( BANDIT_ATTACK_CODE );
-					break;
-
-				default:
-					SetEnemyEncounterCode( CREATURE_ATTACK_CODE );
-					break;
-				}
-			}
-		}
-		else if ( pBattleGroup->usGroupTeam == OUR_TEAM )
-		{
-			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
-			{
-				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
-				TacticalActor* firstMember =
-					ResolvePlayerGroupMember(
-						pBattleGroup->pPlayerList );
-				if ( firstMember &&
-					( firstMember->featureFlags().secondaryFlags() &
-						SOLDIER_CONCEALINSERTION ) )
-				{
-					SetEnemyEncounterCode( CONCEALINSERTION_CODE );
-				}
-				else if( ubNumStationaryEnemies )
-				{
-					SetEnemyEncounterCode( ENTERING_ENEMY_SECTOR_CODE);
-				}
-				else
-				{
-					SetEnemyEncounterCode( ENEMY_ENCOUNTER_CODE );
-
-					GROUP* pGroup = gpGroupList;
-					BOOLEAN encounteredTransportGroup = FALSE;
-					while (pGroup)
-					{
-						if (pGroup->usGroupTeam == ENEMY_TEAM && pGroup->pEnemyGroup->ubIntention == TRANSPORT && pGroup->ubSectorX == pBattleGroup->ubSectorX && pGroup->ubSectorY == pBattleGroup->ubSectorY && pGroup->ubSectorZ == pBattleGroup->ubSectorZ)
-						{
-							encounteredTransportGroup = TRUE;
-							break;
-						}
-
-						pGroup = pGroup->next;
-					}
-					if (encounteredTransportGroup)
-					{
-						SetEnemyEncounterCode( TRANSPORT_INTERCEPT_CODE );
-					}
-					// Flugente: no ambushes on an airdrop
-					else if ( !fAirDrop )
-					{
-						//Don't consider ambushes until the player has reached 25% (normal) progress
-						if( gfHighPotentialForAmbush )
-						{
-							if( Chance( 90 ) )
-							{
-								// SANDRO - Scout prevents ambushes no matter what
-								if ( !fScoutPresent )
-								{
-									SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
-								}
-								else 
-								{
-									fAmbushPrevented = TRUE;
-									if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
-										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
-								}
-							}
-						}
-						else if( gfAutoAmbush && ubNumMobileEnemies > ubNumMercs )
-						{
-							// SANDRO - Scout prevents ambushes no matter what
-							if ( !fScoutPresent )
-							{
-								SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
-							}
-							else 
-							{
-								fAmbushPrevented = TRUE;
-								if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
-									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
-							}
-						}
-						// Madd:  
-						// WANNE: Added an ja2_options.ini Property "ENABLE_CHANCE_OF_ENEMY_AMBUSHES_ON_INSANE_DIFFICULT"
-						//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-						// SANDRO - changed this a lot, now on any difficulty, the enemy can ambush your squad 
-						// based on difficulty level, number of mercs/enemies and other aspects
-						else if( gGameExternalOptions.fEnableChanceOfEnemyAmbushes )
-						{ 					
-							INT32 iChance;
-							// Basic chance - progress level/2 minus highest merc exp level*2, and 10% on top
-							// no (UINT8) cast: this is intentionally allowed to go negative (floored to 1 below).
-							// The cast wrapped a negative base chance (experienced merc, low progress) to ~251 -> guaranteed ambush.
-							iChance = ((CurrentPlayerProgressPercentage() / 2 ) - bBestExpLevel*2 ) + 15;
-
-							if( pSector->uiFlags & SF_ENEMY_AMBUSH_LOCATION )
-								iChance += 20;
-
-							if( gfCantRetreatInPBI )
-								iChance += 20;
-
-							// adjust the chance for size of our squad
-							if( ubNumMercs == 1 ) // one person is almost invisible to an army group, so reduce the chance a lot
-								iChance -= 40;
-							else if ( ubNumMercs == 2 ) // 2 persons are still hardly detectable
-								iChance -= 25;
-							else if ( ubNumMercs <= 10 ) // 3 to 10 mercs
-								iChance -= (5 * (5 - ubNumMercs)); // -5% adjustment per merc (-10% to +25%)
-							else // more than 10 mercs
-								iChance += 30; // maximum of +30% per squad size
-
-							// the more enemies are there the lesser the chance to be ambushed
-							// (large groups of enemies can be seen from afar, so the chance is lesser)
-							if ((ubNumMobileEnemies + ubNumStationaryEnemies) <= 2 )
-								iChance += 20; // can make hunting retreated enemies easier
-							else if ((ubNumMobileEnemies + ubNumStationaryEnemies) <= 6 ) // smaller groups actually increase the chance
-								iChance += (3 * (6 - (ubNumMobileEnemies + ubNumStationaryEnemies))); // +3% adjustment per enemy
-							else
-								iChance -= (2 * ((ubNumMobileEnemies + ubNumStationaryEnemies) - 6)); // -2% adjustment per enemy beyond 6
-
-							// adjust the chance for difficulty setting
-							iChance = iChance + (zDiffSetting[gGameOptions.ubDifficultyLevel].iChanceOfEnemyAmbushes);
-
-							// adjust the chance for what we know about the sector
-							if( WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_NOTHING )
-								iChance += 20;
-							// HEADROCK HAM 5: Added new possible value...
-							else if( WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_THEYRE_THERE ||
-								WhatPlayerKnowsAboutEnemiesInSector( gubPBSectorX, gubPBSectorY ) == KNOWS_THEYRE_THERE_AND_WHERE_GOING )
-								iChance += 5;
-							//if( GetSectorFlagStatus( gubPBSectorX, gubPBSectorY, 0, SF_ALREADY_VISITED ) == TRUE )
-							//	iChance -= 10; // if we already visited this sector
-
-							// there is always a little chance
-							if( iChance <= 0 )
-								iChance = 1;
-							
-							// externalized modifier
-							if( gGameExternalOptions.bChanceModifierEnemyAmbushes != 0 )
-								iChance = ((iChance * (100 + gGameExternalOptions.bChanceModifierEnemyAmbushes)) / 100);
-
-							if( (INT32)PreRandom( 100 ) < iChance )
-							{
-								if ( !fScoutPresent )
-								{
-									SetEnemyEncounterCode( ENEMY_AMBUSH_CODE );
-								}
-								else 
-								{
-									fAmbushPrevented = TRUE;
-									if ( gSkillTraitValues.fSCThrowMessageIfAmbushPrevented )
-										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ENEMY_AMBUSH_PREVENTED] );
-								}
-							}
-						}
-					}
-
-					// Flugente: improved ambush: if a real squadleader is present, we may deploy our mercs instead of having them being dropped into combat randomly
-					if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE && usDeploymentLeadership > 120 )
-					{
-						SetEnemyEncounterCode( ENEMY_AMBUSH_DEPLOYMENT_CODE );
-					}
-					//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-				}
-			}
-		}
-		else
-		{ //Are enemies invading a town, or just encountered the player.
-			if (pBattleGroup && pBattleGroup->usGroupTeam == ENEMY_TEAM && pBattleGroup->pEnemyGroup->ubIntention == TRANSPORT)
-				SetEnemyEncounterCode( TRANSPORT_INTERCEPT_CODE );
-			else if( GetTownIdForSector( gubPBSectorX, gubPBSectorY ) )
-				SetEnemyEncounterCode( ENEMY_INVASION_CODE );
-			//SAM sites not in towns will also be considered to be important
-			else if( pSector->uiFlags & SF_SAM_SITE )
-				SetEnemyEncounterCode( ENEMY_INVASION_CODE );
-			else
-				SetEnemyEncounterCode( ENEMY_ENCOUNTER_CODE );
-		}
-
-		// haxx
-		if ( pBattleGroup &&
-			pBattleGroup->usGroupTeam == OUR_TEAM )
-		{
-			TacticalActor* firstMember =
-				ResolvePlayerGroupMember(
-					pBattleGroup->pPlayerList );
-			if( firstMember &&
-				( firstMember->featureFlags().secondaryFlags() &
-					SOLDIER_CONCEALINSERTION ) )
-			{
-				//SetEnemyEncounterCode( CONCEALINSERTION_CODE );
-			}
-		}
-	}
-
-	gfHighPotentialForAmbush = FALSE;
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// SANDRO - merc records - ambush experienced
-	if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE || GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE || fAmbushPrevented )
-	{
-		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
-		{
-			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
-			{
-				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
-				{
-					if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE || GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
-						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
-					else if ( fAmbushPrevented && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) ) // Scouts actually get this as number of prevented ambushes
-						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
-				}
-			}
-		}
-	}
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	PrepareNativePreBattleParticipants(pBattleGroup, fUsePluralVersion, fRetreatAnOption);
 
 	if( gfAutomaticallyStartAutoResolve )
 	{
@@ -1023,138 +1584,14 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	}
 	HideButton( giMapContractButton );
 
-	if( GetEnemyEncounterCode() == ENEMY_ENCOUNTER_CODE || GetEnemyEncounterCode() == TRANSPORT_INTERCEPT_CODE )
-	{ //we know how many enemies are here, so until we leave the sector, we will continue to display the value.
-		//the flag will get cleared when time advances after the fEnemyInSector flag is clear.
+	RecordNativePreBattleEnemyKnowledge();
 
-		// ALWAYS use these 2 statements together, without setting the boolean, the flag will never be cleaned up!
-		pSector->uiFlags |= SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
-		gfResetAllPlayerKnowsEnemiesFlags = TRUE;
-	}
-
-	//Set up fast help for buttons depending on the state of the button, and disable buttons
-	//when necessary.
-	if( gfPersistantPBI )
-	{
-		if( GetEnemyEncounterCode() == ENTERING_ENEMY_SECTOR_CODE ||
-			GetEnemyEncounterCode() == ENTERING_BLOODCAT_LAIR_CODE )
-		{ //Don't allow autoresolve for player initiated invasion battle types
-			DisableButton( iPBButton[ 0 ] );
-			SetButtonFastHelpText( iPBButton[ 0 ], gpStrategicString[ STR_PB_DISABLED_AUTORESOLVE_FASTHELP ] );
-		}
-		else if( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE ||
-			GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE ||
-			GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
-		{
-			//Don't allow autoresolve for ambushes
-			DisableButton( iPBButton[ 0 ] );
-			SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 3 ] );
-		}
-		else if ( GetEnemyEncounterCode() == CONCEALINSERTION_CODE )
-		{
-			// Don't allow autoresolve
-			DisableButton( iPBButton[0] );
-			SetButtonFastHelpText( iPBButton[0], gpStrategicString[STR_PB_DISABLED_AUTORESOLVE_FASTHELP] );
-
-			// No retreat possible, we must go to tactical
-			fRetreatAnOption = FALSE;
-		}
-		else
-		{
-			SetButtonFastHelpText( iPBButton[ 0 ], gpStrategicString[ STR_PB_AUTORESOLVE_FASTHELP ] );
-		}
-		SetButtonFastHelpText( iPBButton[ 1 ], gpStrategicString[ STR_PB_GOTOSECTOR_FASTHELP ] );
-
-		if( gfAutomaticallyStartAutoResolve )
-		{
-			DisableButton( iPBButton[ 1 ] );
-		}
-
-		if( gfCantRetreatInPBI )
-		{
-			gfCantRetreatInPBI = FALSE;
-			fRetreatAnOption = FALSE;
-		}
-
-		if( gfAutomaticallyStartAutoResolve || !fRetreatAnOption ||
-			GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE ||
-			GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE ||
-			GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE ||
-			GetEnemyEncounterCode() == CREATURE_ATTACK_CODE ||
-			GetEnemyEncounterCode() == BLOODCAT_ATTACK_CODE ||
-			GetEnemyEncounterCode() == ZOMBIE_ATTACK_CODE ||
-			GetEnemyEncounterCode() == BANDIT_ATTACK_CODE ||
-			is_client)
-		{
-			DisableButton( iPBButton[ 2 ] );
-			SetButtonFastHelpText( iPBButton[ 2 ], gzNonPersistantPBIText[ 9 ] );
-		}
-		else
-		{
-			if( !fUsePluralVersion )
-			{
-				SetButtonFastHelpText( iPBButton[ 2 ], gpStrategicString[ STR_BP_RETREATSINGLE_FASTHELP ] );
-			}
-			else
-			{
-				SetButtonFastHelpText( iPBButton[ 2 ], gpStrategicString[ STR_BP_RETREATPLURAL_FASTHELP ] );
-			}
-		}
-	}
-	else
-	{ //use the explicit encounter code to determine what get's disable and the associated help text that is used.
-
-		//First of all, the retreat button is always disabled seeing a battle is in progress.
-		DisableButton( iPBButton[ 2 ] );
-		SetButtonFastHelpText( iPBButton[ 2 ], gzNonPersistantPBIText[ 0 ] );
-		SetButtonFastHelpText( iPBButton[ 1 ], gzNonPersistantPBIText[ 1 ] );
-		switch( GetExplicitEnemyEncounterCode() )
-		{
-			case CREATURE_ATTACK_CODE:
-			case ENEMY_ENCOUNTER_CODE:
-			case TRANSPORT_INTERCEPT_CODE:
-			case ENEMY_INVASION_CODE:
-			case ENEMY_INVASION_AIRDROP_CODE:
-			case BLOODCAT_ATTACK_CODE:
-			case ZOMBIE_ATTACK_CODE:
-			case BANDIT_ATTACK_CODE:
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 2 ] );
-				break;
-			case ENTERING_ENEMY_SECTOR_CODE:
-				DisableButton( iPBButton[ 0 ] );
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 3 ] );
-				break;
-			case ENEMY_AMBUSH_CODE:
-			case ENEMY_AMBUSH_DEPLOYMENT_CODE:
-				DisableButton( iPBButton[ 0 ] );
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 4 ] );
-				break;
-			case FIGHTING_CREATURES_CODE:
-				DisableButton( iPBButton[ 0 ] );
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 5 ] );
-				break;
-			case HOSTILE_CIVILIANS_CODE:
-				DisableButton( iPBButton[ 0 ] );
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 6 ] );
-				break;
-			case HOSTILE_BLOODCATS_CODE:
-			case BLOODCAT_AMBUSH_CODE:
-			case ENTERING_BLOODCAT_LAIR_CODE:
-				DisableButton( iPBButton[ 0 ] );
-				SetButtonFastHelpText( iPBButton[ 0 ], gzNonPersistantPBIText[ 7 ] );
-				break;
-			case CONCEALINSERTION_CODE:
-				// Don't allow autoresolve
-				DisableButton( iPBButton[0] );
-				SetButtonFastHelpText( iPBButton[0], gpStrategicString[STR_PB_DISABLED_AUTORESOLVE_FASTHELP] );
-
-				// No retreat possible, we must go to tactical
-				DisableButton( iPBButton[2] );
-				SetButtonFastHelpText( iPBButton[2], gzNonPersistantPBIText[9] );
-				break;
-		}
-	}
-
+	const auto actionPresentation = PrepareNativePreBattleActions(pBattleGroup, fUsePluralVersion, fRetreatAnOption);
+	if (!actionPresentation.actions.autoResolve) DisableButton(iPBButton[0]);
+	if (!actionPresentation.actions.enterSector) DisableButton(iPBButton[1]);
+	if (!actionPresentation.actions.retreat) DisableButton(iPBButton[2]);
+	for (unsigned i = 0; i < 3; ++i)
+		if (actionPresentation.help[i]) SetButtonFastHelpText(iPBButton[i], actionPresentation.help[i]);
 	//Disable the options button when the auto resolve	screen comes up
 	EnableDisAbleMapScreenOptionsButton( FALSE );
 
@@ -1168,14 +1605,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 #endif
 	SetMusicMode( MUSIC_TACTICAL_ENEMYPRESENT );
 
-	const CampaignMapScreenPolicy campaignPolicy(
-		GetGameContext().capabilities());
-	if ( campaignPolicy.usesUnfinishedBusinessMapRules() &&
-		campaignPolicy.shouldDisableAutoResolve(
-			gGameUBOptions.AutoResolve != FALSE) )
-	{
-		DisableButton( iPBButton[0] );
-	}
+
 	DoTransitionFromMapscreenToPreBattleInterface();
 
 	// clean up
@@ -1859,16 +2289,7 @@ void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason )
 			}
 
 			GROUP* battleGroup = ResolvePreBattleGroup();
-			if ( gfPersistantPBI && battleGroup &&
-				battleGroup->usGroupTeam == OUR_TEAM &&
-				GetEnemyEncounterCode() != ENEMY_AMBUSH_CODE &&
-				GetEnemyEncounterCode() != CREATURE_ATTACK_CODE &&
-				GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE &&
-				GetEnemyEncounterCode() != ENEMY_INVASION_AIRDROP_CODE &&
-				GetEnemyEncounterCode() != CONCEALINSERTION_CODE &&
-				GetEnemyEncounterCode() != BLOODCAT_ATTACK_CODE &&
-				GetEnemyEncounterCode() != ZOMBIE_ATTACK_CODE &&
-				GetEnemyEncounterCode() != BANDIT_ATTACK_CODE )
+			if ( NativePreBattleUsesTacticalPlacement(battleGroup) )
 			{
 				gfEnterTacticalPlacementGUI = TRUE;
 			}
@@ -1913,35 +2334,12 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 	{
 		if( reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 		{
-			/////////////////////////////////////////////////////////////////////////////////
-			// SANDRO - merc records - times retreated counter
-			for( SoldierID i = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; i <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++i )
-			{
-				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
-				{
-					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
-						gMercProfiles[ pSoldier->identity().profile() ].records.usBattlesRetreated++;
-				}
-			}
-			/////////////////////////////////////////////////////////////////////////////////
-
-			// get them outta here!
-			RetreatAllInvolvedPlayerGroups();
-
-			// NOTE: this code assumes you can never retreat while underground
-			HandleLoyaltyImplicationsOfMercRetreat( RETREAT_PBI, gubPBSectorX, gubPBSectorY, 0 );
-
-			if ( NumNonPlayerTeamMembersInSector( gubPBSectorX, gubPBSectorY, MILITIA_TEAM ) )
+			if ( ApplyNativePreBattleRetreatGameplay() )
 			{
 				//Mercs retreat, but enemies still need to fight the militia
 				gfEnterAutoResolveMode = TRUE;
 				return;
 			}
-
-			//Warp time by 5 minutes so that player can't just go back into the sector he left.
-			//WarpGameTime( 300, WARPTIME_NO_PROCESSING_OF_EVENTS );
-			ResetMovementForNonPlayerGroupsInLocation( gubPBSectorX, gubPBSectorY );
 
 			btn->uiFlags &= ~BUTTON_CLICKED_ON;
 			DrawButton( btn->IDNum );
@@ -2794,6 +3192,7 @@ void LogBattleResults( UINT8 ubVictoryCode)
 
 void HandlePreBattleInterfaceStates()
 {
+	if (IsHeadlessPreBattleActive()) return;
 	if( gfEnteringMapScreenToEnterPreBattleInterface && !gfEnteringMapScreen )
 	{
 		gfEnteringMapScreenToEnterPreBattleInterface = FALSE;

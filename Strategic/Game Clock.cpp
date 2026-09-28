@@ -1,6 +1,7 @@
 #include "sgp.h"
 #include "TacticalWorldAdapter.h"
 #include "CampaignClockAdapter.h"
+#include "DedicatedCoopArrival.h"
 #include "Game Clock.h"
 #include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include "Font.h"
@@ -560,6 +561,40 @@ void SetGameTimeCompressionLevel( UINT32 uiCompressionRate )
 }
 
 
+BOOLEAN TrySetWorldlessStrategicTimeCompression( UINT32 uiCompressionRate )
+{
+	if ( GetCurrentScreen() != MAP_SCREEN || IsJa2TacticalWorldLoaded() ||
+		( uiCompressionRate != TIME_COMPRESS_X0 &&
+		  ( uiCompressionRate < TIME_COMPRESS_5MINS || uiCompressionRate > TIME_COMPRESS_60MINS ) ) )
+		return FALSE;
+	// Pause is always safe here, including while a native event holds its lock.
+	// A denied resume leaves every clock field untouched and never opens a GUI.
+	if ( uiCompressionRate != TIME_COMPRESS_X0 &&
+		( gTacticalStatus.fDidGameJustStart || !AllowedToTimeCompress() ) )
+		return FALSE;
+	if ( uiCompressionRate == TIME_COMPRESS_X0 )
+	{
+		stopTimeCompressionNextHour = false;
+		giTimeCompressMode = TIME_COMPRESS_X0;
+		SetClockResolutionToCompressMode( TIME_COMPRESS_X0 );
+		PauseGame();
+		return TRUE;
+	}
+	UnPauseGame();
+	if ( GamePaused() ) return FALSE;
+	giTimeCompressMode = uiCompressionRate;
+	SetClockResolutionToCompressMode( giTimeCompressMode );
+	// Preserve the same first-compression cleanup as native StartTimeCompression.
+	if ( !HasTimeCompressOccured() )
+	{
+		SetFactTimeCompressHasOccured();
+		ClearTacticalStuffDueToTimeCompression();
+	}
+	// The regular fixed-step scheduler remains the only advancing clock. In
+	// particular, do not clear gfTimeInterrupt or process strategic events here.
+	return TRUE;
+}
+
 void SetClockResolutionToCompressMode( INT32 iCompressMode )
 {
 	guiGameSecondsPerRealSecond = giTimeCompressSpeeds[ iCompressMode ] * SECONDS_PER_COMPRESSION;
@@ -753,7 +788,7 @@ CampaignClockScheduleResult AdvanceClockFromFixedStep(
 		GetCurrentScreen() == MAP_SCREEN;
 #endif
 	const bool paused =
-		!supportedScreen || gfGamePaused || gfTimeInterruptPause ||
+		!supportedScreen || gfGamePaused || gfTimeInterruptPause || DedicatedCoopArrivalDecisionPending() ||
 		gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0 ||
 		ARE_IN_FADE_IN() || gfFadeOut ||
 		(IsJa2TacticalTurnBasedCombat());
@@ -786,7 +821,7 @@ CampaignClockScheduleResult AdvanceClockFromFixedStep(
 		// An event is allowed to stop compression during this strategic slice.
 		// Discard any impossible oversized remainder rather than applying time
 		// after the established interrupt boundary.
-		if (gfGamePaused || gfTimeInterruptPause ||
+		if (gfGamePaused || gfTimeInterruptPause || DedicatedCoopArrivalDecisionPending() ||
 			gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0)
 		{
 			scheduler.reset();

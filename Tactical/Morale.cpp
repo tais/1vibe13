@@ -1,5 +1,6 @@
 	#include <cstdlib>
 #include "TacticalActorModifiers.h"
+#include "PreBattlePreparation.h"
 	#include "SoldierRepository.h"
 	#include "Morale.h"
 	#include "Overhead.h"
@@ -701,7 +702,10 @@ void UpdateSoldierMorale( TacticalActor * pSoldier, INT8 bMoraleEvent )
 					gfSomeoneSaidMoraleQuote = TRUE;
 
 					// ATE: Amde it a DELAYED QUOTE - will be delayed by the dialogue Q until it's our turn...
-					DelayedTacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_WHINE );
+					// Headless pre-battle preparation retains the native morale and
+					// once-only quote flags, but cannot wait for a local tactical face.
+					if (!IsHeadlessPreBattleActive())
+						DelayedTacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_WHINE );
 					pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_MORAL);
 				}
 			}

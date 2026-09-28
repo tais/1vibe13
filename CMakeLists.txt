@@ -722,6 +722,35 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_coop_stance_command COMMAND native_coop_remote_attack_completion_tests --stance-command)
   set_tests_properties(native_coop_remote_attack_completion native_coop_remote_attack_completion_points native_coop_attack_lifecycle native_coop_suppression_stance_cost native_coop_stance_command PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_coop_remote_attack_completion_tests)
+  # Native worldless travel and arrival decisions use the ordinary campaign
+  # scheduler, encounter rules, placement, and retreat gameplay.
+  foreach(campaign_native_test IN ITEMS
+      native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit
+      native_coop_travel native_campaign_time_controls)
+    add_executable(${campaign_native_test}_tests tests/${campaign_native_test}_tests.cpp)
+    target_compile_definitions(${campaign_native_test}_tests PRIVATE ${debugFlags})
+    target_link_libraries(${campaign_native_test}_tests PRIVATE ${campaign_aim_native_libraries})
+    add_test(NAME ${campaign_native_test} COMMAND ${campaign_native_test}_tests)
+    set_tests_properties(${campaign_native_test} PROPERTIES TIMEOUT 30)
+    add_dependencies(ja2_headless_tests ${campaign_native_test}_tests)
+  endforeach()
+  foreach(campaign_fixture IN ITEMS native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit)
+    target_compile_definitions(${campaign_fixture}_tests PRIVATE
+      NATIVE_COOP_TRAVEL_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/coop_travel")
+  endforeach()
+  foreach(defensive_case IN ITEMS pending-hire invasion retreat)
+    string(REPLACE "-" "_" defensive_name "${defensive_case}")
+    add_test(NAME native_coop_defensive_arrival_${defensive_name}
+      COMMAND native_coop_defensive_arrival_tests --${defensive_case})
+    set_tests_properties(native_coop_defensive_arrival_${defensive_name} PROPERTIES TIMEOUT 30)
+  endforeach()
+  foreach(arrival_case IN ITEMS battle coordinate bloodcats nonfinal stale capacity multiple invalid ambush deployment scout retreat concealed reinforcements prepare-failure retreat-action retreat-failure retreat-warning-failure)
+    add_test(NAME native_coop_arrival_${arrival_case} COMMAND native_coop_arrival_tests --${arrival_case})
+    set_tests_properties(native_coop_arrival_${arrival_case} PROPERTIES TIMEOUT 30)
+  endforeach()
+  add_test(NAME native_campaign_aim_arrival_dispatch COMMAND native_campaign_aim_arrival_tests --dispatch)
+  set_tests_properties(native_campaign_aim_arrival_dispatch PROPERTIES TIMEOUT 30)
+
   # SimulationRandom installation is process-lifetime state. Run the strict
   # checkpoint coordinator in a fresh process before any legacy RNG accessor
   # can seal the default source.

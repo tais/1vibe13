@@ -6633,7 +6633,7 @@ void NotifyPlayerOfInvasionByEnemyForces( INT16 sSectorX, INT16 sSectorY, INT8 b
 }
 
 
-BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumber )
+static BOOLEAN CanCharacterMoveInStrategicInternal( TacticalActor *pSoldier, INT8 *pbErrorNumber, bool readOnly )
 {
 	INT16 sSector = 0;
 	BOOLEAN fProblemExists = FALSE;
@@ -6721,7 +6721,7 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 		// dead?
 		if ( pSoldier->vitals().health() <= 0 )
 		{
-			swprintf( gsCustomErrorString, pMapErrorString[ 35 ], pSoldier->identity().name() );
+			if (!readOnly) swprintf( gsCustomErrorString, pMapErrorString[ 35 ], pSoldier->identity().name() );
 			*pbErrorNumber = -99;	// customized error message!
 			return( FALSE );
 		}
@@ -6729,7 +6729,7 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 		// too injured?
 		if ( pSoldier->vitals().health() < OKLIFE )
 		{
-			swprintf( gsCustomErrorString, pMapErrorString[ 33 ], pSoldier->identity().name() );
+			if (!readOnly) swprintf( gsCustomErrorString, pMapErrorString[ 33 ], pSoldier->identity().name() );
 			*pbErrorNumber = -99;	// customized error message!
 			return( FALSE );
 		}
@@ -6784,6 +6784,16 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 		SoldierID	/*ubRoom,*/ cnt;
 		UINT16 usRoom;
 		TacticalActor * pSoldier2;
+		// A passive query must not read a null or unrelated world's room table,
+		// or silently waive this quest restriction when that context is absent.
+		if (readOnly && (!IsJa2TacticalWorldLoaded() || !gusWorldRoomInfo ||
+			pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY ||
+			pSoldier->deployment().sectorZ() != gbWorldSectorZ ||
+			pSoldier->position().gridNo() < 0 || pSoldier->position().gridNo() >= WORLD_MAX))
+		{
+			*pbErrorNumber = STRATEGIC_MOVE_REQUIRES_TACTICAL_CONTEXT;
+			return FALSE;
+		}
 
 		if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom >= 22 && usRoom <= 41 )
 		{
@@ -6813,10 +6823,10 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 
 	// if he's walking/driving, and so tired that he would just stop the group anyway in the next sector,
 	// or already asleep and can't be awakened
-	if ( PlayerSoldierTooTiredToTravel( pSoldier ) )
+	if ( readOnly ? PlayerSoldierTooTiredToTravelWithoutSideEffects(pSoldier) : PlayerSoldierTooTiredToTravel(pSoldier) )
 	{
 		// too tired
-		swprintf( gsCustomErrorString, pMapErrorString[ 43 ], pSoldier->identity().name() );
+		if (!readOnly) swprintf( gsCustomErrorString, pMapErrorString[ 43 ], pSoldier->identity().name() );
 		*pbErrorNumber = -99;	// customized error message!
 		return( FALSE );
 	}
@@ -6842,11 +6852,11 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 			// are they male or female
 			if( gMercProfiles[ pSoldier->identity().profile() ].bSex == MALE )
 			{
-				swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 6 ] );
+				if (!readOnly) swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 6 ] );
 			}
 			else
 			{
-				swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 7 ] );
+				if (!readOnly) swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 7 ] );
 			}
 
 			*pbErrorNumber = -99;	// customized error message!
@@ -6874,7 +6884,7 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 	if ( fProblemExists )
 	{
 		// inform user this specific merc cannot be moved out of the sector
-		swprintf( gsCustomErrorString, pMapErrorString[ 29 ], pSoldier->identity().name() );
+		if (!readOnly) swprintf( gsCustomErrorString, pMapErrorString[ 29 ], pSoldier->identity().name() );
 		*pbErrorNumber = -99;	// customized error message!
 		return( FALSE );
 	}
@@ -6883,6 +6893,18 @@ BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumbe
 	return( TRUE );
 }
 
+
+BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumber )
+{
+	return CanCharacterMoveInStrategicInternal(pSoldier, pbErrorNumber, false);
+}
+
+BOOLEAN CanCharacterMoveInStrategicWithoutSideEffects( TacticalActor *pSoldier, INT8 *pbErrorNumber )
+{
+	if (!pSoldier || !pSoldier->roster().active() || !pbErrorNumber) return FALSE;
+	*pbErrorNumber = 0;
+	return CanCharacterMoveInStrategicInternal(pSoldier, pbErrorNumber, true);
+}
 
 BOOLEAN CanEntireMovementGroupMercIsInMove( TacticalActor *pSoldier, INT8 *pbErrorNumber )
 {

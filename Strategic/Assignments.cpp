@@ -2609,6 +2609,12 @@ BOOLEAN CanCharacterSleep( TacticalActor *pSoldier, BOOLEAN fExplainWhyNot )
 	return( TRUE );
 }
 
+BOOLEAN CanCharacterBeAwakenedWithoutSideEffects( const TacticalActor *pSoldier )
+{
+	return pSoldier && pSoldier->vitals().maximumBreath() > BREATHMAX_ABSOLUTE_MINIMUM &&
+		!pSoldier->collapseState().fatigueCollapsed();
+}
+
 BOOLEAN CanCharacterBeAwakened( TacticalActor *pSoldier, BOOLEAN fExplainWhyNot )
 {
 	CHAR16 sString[ 128 ];
@@ -18319,7 +18325,7 @@ BOOLEAN AnyMercInGroupCantContinueMoving( GROUP *pGroup )
 	return( fGroupMustStop );
 }
 
-BOOLEAN PlayerSoldierTooTiredToTravel( TacticalActor *pSoldier )
+static BOOLEAN PlayerSoldierTooTiredToTravelInternal( TacticalActor *pSoldier, bool readOnly )
 {
 	Assert( pSoldier );
 
@@ -18336,7 +18342,8 @@ BOOLEAN PlayerSoldierTooTiredToTravel( TacticalActor *pSoldier )
 			}
 
 			// asleep, and can't be awakened?
-			if ( ( pSoldier->assignment().isAsleep() ) && !CanCharacterBeAwakened( pSoldier, FALSE ) )
+			if ( pSoldier->assignment().isAsleep() && !(readOnly
+				? CanCharacterBeAwakenedWithoutSideEffects(pSoldier) : CanCharacterBeAwakened(pSoldier, FALSE)) )
 			{
 				return( TRUE );
 			}
@@ -18344,6 +18351,16 @@ BOOLEAN PlayerSoldierTooTiredToTravel( TacticalActor *pSoldier )
 	}
 
 	return( FALSE );
+}
+
+BOOLEAN PlayerSoldierTooTiredToTravel( TacticalActor *pSoldier )
+{
+	return PlayerSoldierTooTiredToTravelInternal(pSoldier, false);
+}
+
+BOOLEAN PlayerSoldierTooTiredToTravelWithoutSideEffects( TacticalActor *pSoldier )
+{
+	return pSoldier && PlayerSoldierTooTiredToTravelInternal(pSoldier, true);
 }
 
 BOOLEAN AssignMercToAMovementGroup( TacticalActor *pSoldier )
