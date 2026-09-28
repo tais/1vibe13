@@ -98,6 +98,7 @@ extern void UpdateFastForwardMode(TacticalActor* pSoldier, INT8 bAction);
 extern UINT8 gubElementsOnExplosionQueue;
 
 extern BOOLEAN gfWaitingForTriggerTimer;
+extern BOOLEAN gfDedicatedServer;
 
 UINT8 gubAICounter;
 
@@ -729,22 +730,26 @@ void HandleSoldierAI( TacticalActor *pSoldier ) // FIXME - this function is name
 			DebugAI(String("Aborting AI deadlock for [%d] %s data %d", pSoldier->identity().id(), szAction[pSoldier->aiPlanning().action()], pSoldier->aiPlanning().actionData()));
 
 #ifdef JA2TESTVERSION
-			// display deadlock message
-			gfUIInDeadlock = TRUE;
-			DebugAI(  String("DEADLOCK soldier %d action %s ABC %d", pSoldier->identity().id().i, gzActionStr[pSoldier->aiPlanning().action()], GetJa2PendingTacticalCombatActions() ) );
-#else
-
-			// If we are in beta version, also report message!
-#ifdef JA2BETAVERSION
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"Aborting AI deadlock for %d. Please sent DEBUG.TXT file and SAVE.", pSoldier->identity().id().i );
-#endif
-			// just abort
-			EndAIDeadlock();
-			if ( !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
+			if (!gfDedicatedServer)
 			{
-				return;
+				// Interactive Debug builds keep the actor available for inspection.
+				gfUIInDeadlock = TRUE;
+				DebugAI( String("DEADLOCK soldier %d action %s ABC %d", pSoldier->identity().id().i, gzActionStr[pSoldier->aiPlanning().action()], GetJa2PendingTacticalCombatActions() ) );
 			}
+			else
 #endif
+			{
+				// A dedicated host has no local UI to release the Debug hold.
+				// Use the normal native cancellation and next-actor handoff.
+#ifdef JA2BETAVERSION
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"Aborting AI deadlock for %d. Please sent DEBUG.TXT file and SAVE.", pSoldier->identity().id().i );
+#endif
+				EndAIDeadlock();
+				if ( !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
+				{
+					return;
+				}
+			}
 		}
 	}
 
