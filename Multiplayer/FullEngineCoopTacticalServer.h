@@ -125,6 +125,16 @@ struct FullEngineCoopTacticalServerDrainState
 	}
 };
 
+// Raw observations, not a loaded-world checkpoint policy. Keep the existing
+// drain policy separate: it deliberately requires world/transport shutdown.
+struct FullEngineCoopTacticalServerObservation
+{
+	FullEngineCoopTacticalServerDrainState drain;
+	CoopTacticalSessionPendingObservation privateReplication;
+	bool pumpInProgress = false;
+	bool flushInProgress = false;
+};
+
 // Pure main-thread coordinator. While active it is the sole caller of tactical
 // intent entry points on ingress; this ownership keeps its fixed command cursor
 // mirror identical to the authority's admission-epoch-wide sequence table.
@@ -236,6 +246,7 @@ public:
 		const PeerIdentity& peer,
 		FullEngineCoopTacticalPeerCommandState& state) const noexcept;
 	FullEngineCoopTacticalServerDrainState drainState() const noexcept;
+	FullEngineCoopTacticalServerObservation observation() const noexcept;
 	bool drained() const noexcept { return drainState().drained(); }
 	const FullEngineCoopServerSession& replication() const noexcept
 	{

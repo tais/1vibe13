@@ -12,6 +12,7 @@
 #include "DedicatedCoopBattleNotice.h"
 #include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCoopRuntime.h"
+#include "DedicatedCheckpointRuntimeEvidence.h"
 
 #include "DedicatedContentManifest.h"
 #include "DedicatedCampaignSaveBridge.h"
@@ -1892,12 +1893,7 @@ struct DedicatedCoopRuntime::Impl
 	DedicatedCoopBattleNoticeState battleNotice;
 	DedicatedCoopMeanwhileState meanwhile;
 	std::uint64_t lastArrivalDecisionLogged = 0;
-	struct CampaignStatusDelivery
-	{
-		CoopSession::PeerIdentity peer{};
-		CoopSession::TransportPeer transport;
-		std::uint64_t revision = 0;
-	};
+	using CampaignStatusDelivery = DedicatedCampaignObservationDelivery;
 	CoopSession::CoopCampaignStatusLedger campaignStatusLedger;
 	CoopSession::CoopCampaignGroupsLedger campaignGroupsLedger;
 	const char* lastCampaignGroupsDiagnostic = nullptr;
@@ -1956,6 +1952,57 @@ struct DedicatedCoopRuntime::Impl
 	bool fatal = false;
 	StarterMissionState starterMission = StarterMissionState::Unprepared;
 };
+
+DedicatedCheckpointRuntimeEvidence
+DedicatedCoopRuntime::captureCheckpointRuntimeEvidence(
+	const GameContext& context) const noexcept
+{
+	DedicatedCheckpointRuntimeEvidence result;
+	result.frame.observed = true;
+	result.frame.frame = context.frameDriver().captureBoundaryState();
+	result.frame.tick = context.runtime().simulationTicks().captureBoundaryState();
+	result.frame.campaignSimulationFailed = context.campaignSimulation().failed();
+	result.packages.observed = true;
+	result.packages.messages = context.runtimeMessages().observation();
+	const TacticalCommandInboxSummary inbox = GetJa2TacticalCommandService().summary();
+	const Ja2TacticalCommandHostDiagnostics commands = GetJa2TacticalCommandHostDiagnostics();
+	result.localCommands.nativeObserved = true;
+	result.localCommands.commandInbox = inbox.pending;
+	result.localCommands.pendingHostReceipts = commands.pendingReceipts;
+	result.localCommands.pendingDeferredCancellations = commands.pendingDeferredCancellations;
+	result.localCommands.trackedCommands = commands.trackedCommands;
+	if (impl_ == nullptr) return result;
+	result.campaign.runtimeObserved = true;
+	result.campaign.selfRetirementActive = impl_->selfRetirementActive;
+	result.campaign.worldDraining = impl_->worldDraining;
+	result.campaign.postCombatReturnArmed = impl_->postCombatReturnArmed;
+	result.campaign.holdAdmissionAfterWorldDrain = impl_->holdAdmissionAfterWorldDrain;
+	result.campaign.runtimeFailed = impl_->fatal;
+	CaptureDedicatedCampaignResultEvidence(impl_->campaignTimeAuthority,
+		impl_->campaignActionAuthority, impl_->campaignHireAuthority, result.campaign);
+	if (impl_->tactical == nullptr) return result;
+	const TacticalComposition& tactical = *impl_->tactical;
+	result.localCommands.hostObserved = true;
+	result.localCommands.hostCorrelations = tactical.host.correlationCount();
+	result.localCommands.pendingImmediateReceipts = tactical.host.pendingImmediateReceiptCount();
+	result.tactical.observed = true;
+	result.tactical.contextMatchesComposition = impl_->tacticalContext == &context;
+	result.tactical.state = tactical.server.observation();
+	result.transport.observed = true;
+	result.transport.listener = tactical.listener.observation();
+	if (tactical.campaignSync != nullptr)
+	{
+		result.campaign.syncObserved = true;
+		result.campaign.sync = tactical.campaignSync->diagnostics();
+	}
+	CaptureDedicatedCampaignObservationEvidence(tactical.server, tactical.listener,
+		impl_->campaignStatusDeliveries, impl_->campaignStatusLedger.value().revision,
+		impl_->campaignGroupsDeliveries, impl_->campaignGroupsLedger.value().revision,
+		impl_->campaignEconomyDeliveries, impl_->campaignEconomyLedger.value().revision,
+		impl_->campaignQuotesDeliveries, impl_->campaignQuotesLedger.value().revision,
+		result.campaign);
+	return result;
+}
 
 DedicatedCoopRuntime::DedicatedCoopRuntime() noexcept
 	: impl_(new (std::nothrow) Impl())

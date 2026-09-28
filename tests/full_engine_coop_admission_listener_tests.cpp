@@ -28,6 +28,20 @@ int failures = 0;
 	} \
 } while (false)
 
+bool SameListenerObservation(
+	const FullEngineCoopAdmissionListenerObservation& left,
+	const FullEngineCoopAdmissionListenerObservation& right) noexcept
+{
+	return left.connections == right.connections &&
+		left.authenticatedPeers == right.authenticatedPeers &&
+		left.tacticalInbound == right.tacticalInbound && left.campaignInbound == right.campaignInbound &&
+		left.pollDepth == right.pollDepth && left.handlerDepth == right.handlerDepth &&
+		left.running == right.running && left.stopPending == right.stopPending &&
+		left.campaignRequestsEnabled == right.campaignRequestsEnabled &&
+		left.selfRetirementPending == right.selfRetirementPending &&
+		left.selfRetirementInputFrozen == right.selfRetirementInputFrozen;
+}
+
 class SequentialTokenSource final : public AdmissionTokenSource
 {
 public:
@@ -54,11 +68,20 @@ public:
 			identity[index] = static_cast<std::uint8_t>(0x20 + index);
 		for (std::size_t index = 0; index < token.size(); ++index)
 			token[index] = static_cast<std::uint8_t>(0x60 + index);
-		if (listener != nullptr) listener->stop(0);
+		if (listener != nullptr)
+		{
+			beforeStop = listener->observation();
+			listener->stop(0);
+			afterStop = listener->observation();
+			repeatedAfterStop = listener->observation();
+			observed = true;
+		}
 		return true;
 	}
 
 	FullEngineCoopAdmissionListener* listener = nullptr;
+	FullEngineCoopAdmissionListenerObservation beforeStop, afterStop, repeatedAfterStop;
+	bool observed = false;
 };
 
 class RejectingExecutionSink final : public TacticalIntentExecutionSink
@@ -951,6 +974,17 @@ void TestAuthenticatedCampaignQueueAndTargetedDelivery()
 		return listener.pendingCampaignInboundCount() == 3;
 	}) && listener.pendingInboundCount() == 0,
 		"campaign controls occupy only their independent bounded FIFO");
+	const auto campaignObservation = listener.observation();
+	CHECK(campaignObservation.running && campaignObservation.connections == 1 &&
+		campaignObservation.authenticatedPeers == 1 && campaignObservation.campaignInbound == 3 &&
+		campaignObservation.tacticalInbound == 0 && campaignObservation.pollDepth == 0 &&
+		campaignObservation.handlerDepth == 0 && !campaignObservation.stopPending &&
+		campaignObservation.campaignRequestsEnabled && !campaignObservation.selfRetirementPending &&
+		!campaignObservation.selfRetirementInputFrozen,
+		"stored observation exposes the live campaign FIFO without claiming an active callback");
+	for (unsigned capture = 0; capture < 3; ++capture)
+		CHECK(SameListenerObservation(campaignObservation, listener.observation()),
+			"repeated listener captures retain connections and every queued campaign message");
 	FullEngineCoopCampaignInboundMessage queued;
 	CHECK(listener.popCampaignInbound(queued) &&
 		queued.kind == FullEngineCoopCampaignInboundKind::Ack &&
@@ -1129,6 +1163,11 @@ void TestAuthenticatedCampaignQueueAndTargetedDelivery()
 			return listener.pendingInboundCount() == 1 &&
 				listener.pendingCampaignInboundCount() == 1;
 		}), "one transport can queue independent tactical and campaign work");
+	const auto mixedObservation = listener.observation();
+	CHECK(mixedObservation.connections == 1 && mixedObservation.authenticatedPeers == 1 &&
+		mixedObservation.tacticalInbound == 1 && mixedObservation.campaignInbound == 1 &&
+		SameListenerObservation(mixedObservation, listener.observation()),
+		"one observation reports both disjoint FIFO obligations without reconciling the connection");
 	client.peer->CloseConnection(client.events.server, true);
 	CHECK(PumpManyUntil(listener, {&client}, [&] {
 		return listener.authenticatedPeerCount() == 0;
@@ -1332,6 +1371,14 @@ void TestAuthenticatedTacticalQueueAndTargetedDelivery()
 		PumpManyUntil(listener, {&first, &second}, [&] {
 			return listener.pendingInboundCount() == 4;
 		}), "authenticated tactical resync is copied into the queue");
+	const auto tacticalObservation = listener.observation();
+	CHECK(tacticalObservation.running && tacticalObservation.connections == 2 &&
+		tacticalObservation.authenticatedPeers == 2 && tacticalObservation.tacticalInbound == 4 &&
+		tacticalObservation.campaignInbound == 0,
+		"stored observation distinguishes live tactical FIFO obligations from campaign work");
+	for (unsigned capture = 0; capture < 3; ++capture)
+		CHECK(SameListenerObservation(tacticalObservation, listener.observation()),
+			"repeated tactical captures leave exact FIFO delivery and peer attribution for explicit dequeue");
 
 	FullEngineCoopTacticalInboundMessage queued;
 	CHECK(listener.popInbound(queued) &&
@@ -1881,6 +1928,20 @@ void TestStopDefersAcrossActiveHandler()
 	CHECK(ingress.admittedPeerCount() == 0 &&
 		ingress.boundPeerCount() == 0,
 		"deferred stop reclaims the handler-created pending credential");
+	CHECK(tokens.observed && tokens.beforeStop.running && tokens.beforeStop.connections == 1 &&
+		tokens.beforeStop.pollDepth != 0 && tokens.beforeStop.handlerDepth != 0 &&
+		!tokens.beforeStop.stopPending && !tokens.afterStop.running &&
+		tokens.afterStop.connections == 1 && tokens.afterStop.stopPending &&
+		tokens.afterStop.pollDepth == tokens.beforeStop.pollDepth &&
+		tokens.afterStop.handlerDepth == tokens.beforeStop.handlerDepth &&
+		SameListenerObservation(tokens.afterStop, tokens.repeatedAfterStop),
+		"reentrant captures expose stopped admission with pending teardown before its live callback unwinds");
+	const auto stopped = listener.observation();
+	CHECK(!stopped.running && stopped.connections == 0 && stopped.authenticatedPeers == 0 &&
+		stopped.tacticalInbound == 0 && stopped.campaignInbound == 0 &&
+		stopped.pollDepth == 0 && stopped.handlerDepth == 0 && !stopped.stopPending &&
+		SameListenerObservation(stopped, listener.observation()),
+		"after explicit callback unwind, repeated captures retain the completed listener teardown");
 	DestroyClient(client);
 }
 }

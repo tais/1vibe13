@@ -264,6 +264,25 @@ void FullEngineCoopAdmissionListener::stop(
 	stopNow(drainMilliseconds);
 }
 
+FullEngineCoopAdmissionListenerObservation
+FullEngineCoopAdmissionListener::observation() const noexcept
+{
+	FullEngineCoopAdmissionListenerObservation result;
+	for (const ConnectionAdmissionState& state : connections_)
+		if (state.transport) ++result.connections;
+	result.authenticatedPeers = authenticatedPeerCount();
+	result.tacticalInbound = inboundCount_;
+	result.campaignInbound = campaignInboundCount_;
+	result.pollDepth = pollDepth_;
+	result.handlerDepth = handlerDepth_;
+	result.running = running_;
+	result.stopPending = stopPending_;
+	result.campaignRequestsEnabled = campaignRequestsEnabled_;
+	result.selfRetirementPending = selfRetirementInboundOccupied_;
+	result.selfRetirementInputFrozen = selfRetirementInputFrozen_;
+	return result;
+}
+
 bool FullEngineCoopAdmissionListener::hasConnections() const noexcept
 {
 	for (const ConnectionAdmissionState& state : connections_)
