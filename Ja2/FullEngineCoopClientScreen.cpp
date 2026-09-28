@@ -72,6 +72,7 @@ FullEngineCoopClientCampaignHireKey CampaignHireKey(UINT32 key) noexcept
 		case '1': return Key::OneDay;
 		case '2': return Key::SevenDays;
 		case '3': return Key::FourteenDays;
+		case 'g': case 'G': return Key::Equipment;
 		case ENTER: return Key::Confirm;
 		case ESC: return Key::Cancel;
 	}
@@ -551,14 +552,17 @@ void RenderCampaignHiring(const FullEngineCoopClientRuntime& runtime, const Coop
 	mprintf(24,338,L"1: one day   2: seven days   3: fourteen days");
 	if (selected->status == CoopSession::CoopCampaignAimQuoteStatus::Available)
 	{
-		const auto choice = CoopSession::CoopCampaignHireChoiceIndex(CampaignHireInput.days(),false);
-		mprintf(24,356,L"Salary: $%d   Medical deposit: $%d   Total: $%d",int(selected->salary[choice / 2]),int(selected->medicalDeposit),int(selected->total[choice]));
-		mprintf(24,374,L"Equipment not included. Arrival: day %u %02u:%02u at %lc%u",quotes->arrivalMinutes / 1440u,
+		const auto choice = CoopSession::CoopCampaignHireChoiceIndex(CampaignHireInput.days(),CampaignHireInput.buyGear());
+		mprintf(24,356,L"Salary: $%d   Medical deposit: $%d   Equipment: $%d   Total: $%d",int(selected->salary[choice / 2]),int(selected->medicalDeposit),
+			CampaignHireInput.buyGear() ? int(selected->gearCost) : 0,int(selected->total[choice]));
+		mprintf(24,374,L"%ls  Arrival: day %u %02u:%02u at %lc%u",
+			selected->gearAvailable ? (CampaignHireInput.buyGear() ? L"G: remove equipment." : L"G: add starting equipment.") : L"Starting equipment unavailable.", quotes->arrivalMinutes / 1440u,
 			(quotes->arrivalMinutes / 60u) % 24u,quotes->arrivalMinutes % 60u,static_cast<wint_t>(L'A' + quotes->landingY - 1),unsigned(quotes->landingX));
 		if (CampaignHireInput.armed())
 		{
 			SetFontForeground(FONT_MCOLOR_LTYELLOW);
-			mprintf(24,396,L"Hire %ls for $%d? Release Enter, then press Enter to confirm.",label.data(),int(selected->total[choice]));
+			mprintf(24,396,L"Hire %ls %ls for $%d? Release Enter, then press Enter to confirm.",label.data(),
+				CampaignHireInput.buyGear() ? L"with equipment" : L"without equipment",int(selected->total[choice]));
 			mprintf(24,414,L"Esc: cancel this confirmation");
 		}
 		else if (!pending && CampaignHireInput.canHire(status,*economy,*quotes)) mprintf(24,396,L"Enter: review and confirm this hire   Esc: close AIM");
@@ -1195,7 +1199,7 @@ void HandleFullEngineCoopClientInput() noexcept
 			const bool hireOwnsKey = hireWasOpen || CampaignHireInput.open();
 			if (hire)
 			{
-				LastSendResult = runtime.requestCampaignHire(hire->profile,hire->days,false);
+				LastSendResult = runtime.requestCampaignHire(hire->profile,hire->days,hire->buyGear);
 				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success; LastSendWorldGeneration = 0;
 			}
 			const auto action = CampaignActionInput.handle(CampaignActionKey(event.usParam),
@@ -1343,6 +1347,6 @@ bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaig
 	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
 	output.economyRevision = economy.revision; output.quoteRevision = quotes.revision; output.profile = CampaignHireInput.profile(); output.days = CampaignHireInput.days();
 	output.open = CampaignHireInput.open(); output.armed = CampaignHireInput.armed(); output.enabled = CampaignHireInput.enabled();
-	output.canHire = CampaignHireInput.canHire(status,economy,quotes);
+	output.canHire = CampaignHireInput.canHire(status,economy,quotes); output.buyGear = CampaignHireInput.buyGear();
 	return true;
 }

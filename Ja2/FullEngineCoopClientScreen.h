@@ -21,6 +21,7 @@ struct FullEngineCoopClientCampaignHireControls
 	std::uint64_t sessionEpoch = 0, controlRevision = 0, economyRevision = 0, quoteRevision = 0;
 	std::uint16_t profile = UINT16_MAX;
 	std::uint8_t days = 7;
+	bool buyGear = false;
 	bool open = false, armed = false, enabled = false, canHire = false;
 };
 bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaignHireControls& output) noexcept;
