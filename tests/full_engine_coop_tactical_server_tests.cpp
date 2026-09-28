@@ -262,6 +262,7 @@ struct Client
 	Capture admission;
 	Capture baseline;
 	Capture delta;
+	Capture inventory;
 	Capture receipt;
 	Capture retirement;
 	std::vector<std::string> order;
@@ -294,6 +295,8 @@ bool StartClient(Client& client, std::uint16_t port)
 	client.baseline.label = "baseline";
 	client.delta.order = &client.order;
 	client.delta.label = "delta";
+	client.inventory.order = &client.order;
+	client.inventory.label = "inventory";
 	client.receipt.order = &client.order;
 	client.receipt.label = "receipt";
 	client.peer = CreateSdlNetPeer();
@@ -307,6 +310,8 @@ bool StartClient(Client& client, std::uint16_t port)
 			CaptureMessage, &client.baseline) ||
 		!client.peer->RegisterMessage(CoopTacticalDeltaMessageName,
 			CaptureMessage, &client.delta) ||
+		!client.peer->RegisterMessage(CoopOwnerInventoryMessageName,
+			CaptureMessage, &client.inventory) ||
 		!client.peer->RegisterMessage(CoopTacticalIntentReceiptMessageName,
 			CaptureMessage, &client.receipt) ||
 		!client.peer->RegisterMessage(
@@ -1591,10 +1596,191 @@ void TestPeerLocalReceiptCapacityDoesNotStrandBaselineAck()
 	DestroyClient(clients[0]);
 	DestroyClient(clients[1]);
 }
+
+void TestPrivateBudgetHoldsTransientReceiptsAndWorldEnd()
+{
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	FullEngineCoopIngress ingress(tokens, execution);
+	const AuthorityConfiguration authority = Authority();
+	CHECK(ingress.beginAdmissionSession(authority) == FullEngineCoopStartResult::Success,
+		"private drain coordinator admission begins");
+	FullEngineCoopAdmissionListener listener(ingress);
+	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration;
+	listenerConfiguration.campaignBootstrap = Bootstrap(authority);
+	CHECK(StartListener(listener, listenerConfiguration), "private drain coordinator listener starts");
+	Client client;
+	AdmissionResponse admitted;
+	CHECK(StartClient(client, listenerConfiguration.endpoint.port) && Admit(listener, client, authority, admitted),
+		"private drain coordinator owner authenticates");
+	FullEngineCoopTacticalServerConfiguration configuration;
+	configuration.replication.maximumMessagesPerFlush = 1;
+	FullEngineCoopTacticalServer server(ingress, listener, configuration);
+	execution.server = &server;
+	std::array<CoopTacticalActorAssignment, 4> assignments{};
+	for (std::size_t index = 0; index < assignments.size(); ++index)
+		assignments[index] = {{static_cast<std::uint16_t>(index + 1), 1}, admitted.peerIdentity};
+	CHECK(server.beginEpoch(SessionEpoch) == FullEngineCoopTacticalServerResult::Success &&
+		server.beginWorld(WorldGeneration, InitialRevision, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.setCampaignReadyPeers(&admitted.peerIdentity, 1) == FullEngineCoopTacticalServerResult::Success &&
+		server.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopTacticalServerResult::Success &&
+		server.stageBaseline(admitted.peerIdentity, Snapshot(WorldGeneration, TurnSerial, 4)) == FullEngineCoopTacticalServerResult::Success &&
+		server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
+		WaitUntil(listener, {&client}, [&] { return client.baseline.messages.size() == 1; }),
+		"private drain coordinator sends one exact four-actor baseline");
+	CHECK(SendBaselineAck(client, DecodeLastBaseline(client), admitted.peerIdentity) && QueueArrived(listener, client) &&
+		server.pumpInbound(600).acknowledgementsAccepted == 1, "private drain coordinator baseline acknowledges");
+	const std::vector<CoopInventorySlotSummary> slots{
+		{0, 991, 1, 85, CoopInventorySlotSupport::OrdinarySwappable}};
+	for (const auto& assignment : assignments)
+		CHECK(server.stageInventory(admitted.peerIdentity, assignment.actor, 1, true, slots) == FullEngineCoopTacticalServerResult::Success,
+			"private drain coordinator stages all four owner summaries");
+	CHECK(server.endWorld() == FullEngineCoopTacticalServerResult::PendingReceipts && server.replication().worldActive(),
+		"one-message cap cannot let world teardown discard unsent private state without a retained command");
+	CHECK(SendIntent(client, admitted.peerIdentity, 2, InitialRevision) && QueueArrived(listener, client),
+		"out-of-sequence input queues one non-consuming transient rejection");
+	const auto pumped = server.pumpInbound(601);
+	FullEngineCoopTacticalPeerCommandState commandState;
+	CHECK(pumped.inboundConsumed == 1 && pumped.intentsConsumed == 0 && pumped.inventoryPending &&
+		!pumped.backpressured && execution.calls == 0 && server.drainState().transientReceipts == 1 &&
+		server.peerCommandState(admitted.peerIdentity, commandState) && commandState.nextExpectedCommandId == 1 &&
+		WaitUntil(listener, {&client}, [&] { return client.inventory.messages.size() == 3; }) && client.receipt.messages.empty(),
+		"two bounded flushes allow input progress but cannot emit a transient receipt ahead of remaining private state");
+	CHECK(server.endWorld() == FullEngineCoopTacticalServerResult::Success && !server.replication().worldActive() &&
+		WaitUntil(listener, {&client}, [&] { return client.inventory.messages.size() == 4 && client.receipt.messages.size() == 1; }),
+		"last private frame and held transient outcome enter reliable transport before world teardown succeeds");
+	CHECK(client.order.size() >= 2 && client.order[client.order.size() - 2] == "inventory" && client.order.back() == "receipt" &&
+		DecodeLastReceipt(client).commandId == 2 &&
+		DecodeLastReceipt(client).reason == CoopTacticalIntentReceiptReason::InvalidCommandSequence && execution.calls == 0,
+		"world drain preserves owner-frame-before-transient ordering without executing rejected gameplay");
+	listener.stop(20);
+	DestroyClient(client);
+}
+
+void TestOwnerInventoryAckDependencyAndReceiptOrder()
+{
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	FullEngineCoopIngress ingress(tokens, execution);
+	const AuthorityConfiguration authority = Authority();
+	CHECK(ingress.beginAdmissionSession(authority) == FullEngineCoopStartResult::Success,
+		"owner ACK fixture admission starts");
+	FullEngineCoopAdmissionListener listener(ingress);
+	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration;
+	listenerConfiguration.campaignBootstrap = Bootstrap(authority);
+	CHECK(StartListener(listener, listenerConfiguration), "owner ACK fixture opens real loopback listener");
+	std::array<Client, 2> clients;
+	std::array<AdmissionResponse, 2> admitted;
+	std::array<PeerIdentity, 2> peers;
+	for (std::size_t index = 0; index < clients.size(); ++index)
+	{
+		CHECK(StartClient(clients[index], listenerConfiguration.endpoint.port) &&
+			Admit(listener, clients[index], authority, admitted[index]), "both inventory owners authenticate");
+		peers[index] = admitted[index].peerIdentity;
+	}
+	FullEngineCoopTacticalServerConfiguration configuration;
+	configuration.replication.maximumInFlightDeltasPerPeer = 1;
+	FullEngineCoopTacticalServer server(ingress, listener, configuration);
+	execution.server = &server;
+	const std::array<CoopTacticalActorAssignment, 2> assignments{{
+		{ActorId, peers[0]}, {{2, 1}, peers[1]}}};
+	CHECK(server.beginEpoch(SessionEpoch) == FullEngineCoopTacticalServerResult::Success &&
+		server.beginWorld(WorldGeneration, InitialRevision, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.setCampaignReadyPeers(peers.data(), peers.size()) == FullEngineCoopTacticalServerResult::Success &&
+		server.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopTacticalServerResult::Success,
+		"two owners enter one exact authoritative world");
+	std::array<std::vector<CoopInventorySlotSummary>, 2> slots{{
+		{{0, 991, 3, 70, CoopInventorySlotSupport::OrdinarySwappable, CoopInventoryStatusKind::MedicalKitPoints, 170}},
+		{{0, 111, 2, 15, CoopInventorySlotSupport::OrdinarySwappable, CoopInventoryStatusKind::AmmoRounds, 21}}}};
+	for (std::size_t index = 0; index < peers.size(); ++index)
+		CHECK(server.stageBaseline(peers[index], Snapshot(WorldGeneration, TurnSerial, 2)) == FullEngineCoopTacticalServerResult::Success &&
+			server.stageInventory(peers[index], assignments[index].actor, 1, true, slots[index]) == FullEngineCoopTacticalServerResult::Success,
+			"private full replacement can stage behind an exact pending public baseline");
+	const auto baselineFlush = server.flushOutbound();
+	CHECK(baselineFlush.messagesSent == 2 && baselineFlush.inventoryPending && !baselineFlush.backpressured &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
+			return clients[0].baseline.messages.size() == 1 && clients[1].baseline.messages.size() == 1;
+		}) && clients[0].inventory.messages.empty() && clients[1].inventory.messages.empty(),
+		"private bytes never precede either recipient's baseline ACK over the socket");
+	for (std::size_t index = 0; index < peers.size(); ++index)
+		CHECK(SendBaselineAck(clients[index], DecodeLastBaseline(clients[index]), peers[index]) &&
+			QueueArrived(listener, clients[index]), "exact owner baseline ACK queues inbound");
+	CHECK(WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return listener.pendingInboundCount() == 2; }),
+		"both independently arriving baseline ACKs reach the listener before the bounded pump");
+	const auto admittedFlush = server.pumpInbound(610);
+	CHECK(admittedFlush.acknowledgementsAccepted == 2 && !admittedFlush.inventoryPending &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
+			return clients[0].inventory.messages.size() == 1 && clients[1].inventory.messages.size() == 1;
+		}), "baseline ACKs progress while private publication is logically pending");
+	for (std::size_t index = 0; index < peers.size(); ++index)
+	{
+		CoopOwnerInventorySnapshot received;
+		CHECK(clients[index].inventory.messages.size() == 1 &&
+			DecodeCoopOwnerInventorySnapshot(clients[index].inventory.messages[0].data(),
+				clients[index].inventory.messages[0].size(), received) == CoopInventoryCodecResult::Success &&
+			received.owner == peers[index] && received.actor == assignments[index].actor && received.slots == slots[index] &&
+			received.sessionEpoch == SessionEpoch && received.worldGeneration == WorldGeneration &&
+			received.baselineId == DecodeLastBaseline(clients[index]).baselineId,
+			"independent sockets receive only their owner's exact resources under authenticated public lineage");
+	}
+	CHECK(SendIntent(clients[0], peers[0], 1, InitialRevision) && QueueArrived(listener, clients[0]) &&
+		server.pumpInbound(611).intentsConsumed == 1 && execution.calls == 1 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 1; }) &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Queued,
+		"ordinary stop request retains an actual command obligation without new inventory intent vocabulary");
+	CHECK(server.publishDelta(EmptyDelta(), InitialRevision + 1, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
+			return clients[0].delta.messages.size() == 1 && clients[1].delta.messages.size() == 1;
+		}), "first public delta occupies both one-message in-flight windows");
+	if (clients[0].delta.messages.empty())
+	{
+		listener.stop(20);
+		for (auto& client : clients) DestroyClient(client);
+		return;
+	}
+	CoopTacticalDelta firstDelta;
+	CHECK(DecodeCoopTacticalDelta(clients[0].delta.messages[0], firstDelta) == CoopTacticalCodecResult::Success,
+		"first exact delta decodes for delayed ACK");
+	--slots[0][0].resourceTotal;
+	CoopTacticalIntentReceipt terminal;
+	terminal.peerIdentity = peers[0];
+	terminal.commandId = 1;
+	terminal.simulationTick = 912;
+	terminal.status = CoopTacticalIntentReceiptStatus::Applied;
+	terminal.reason = CoopTacticalIntentReceiptReason::None;
+	CHECK(server.publishDelta(EmptyDelta(), InitialRevision + 2, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.stageInventory(peers[0], ActorId, 2, true, slots[0]) == FullEngineCoopTacticalServerResult::Success &&
+		server.recordReceipt(terminal) == FullEngineCoopTacticalServerResult::Success,
+		"current private resources and terminal outcome both depend on the unsent second delta");
+	const auto held = server.flushOutbound();
+	CHECK(held.inventoryPending && !held.backpressured && held.messagesSent == 0 &&
+		!server.hasInventoryRevision(peers[0], ActorId, 1) && !server.hasInventoryRevision(peers[0], ActorId, 2),
+		"unsent current state revokes old token and holds receipts without faking socket backpressure");
+	CHECK(SendDeltaAck(clients[0], firstDelta, peers[0]) && QueueArrived(listener, clients[0]),
+		"the public ACK that can release private publication is queued inbound");
+	const auto recovered = server.pumpInbound(612);
+	CHECK(recovered.acknowledgementsAccepted == 1 && !recovered.inventoryPending && !recovered.backpressured &&
+		server.hasInventoryRevision(peers[0], ActorId, 2) && execution.calls == 1 &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
+			return clients[0].delta.messages.size() == 2 && clients[0].inventory.messages.size() == 2 &&
+				clients[0].receipt.messages.size() == 2;
+		}), "pending private state cannot strand the queued ACK or replay the retained gameplay request");
+	CHECK(clients[0].order.size() >= 3 && clients[0].order[clients[0].order.size() - 3] == "delta" &&
+		clients[0].order[clients[0].order.size() - 2] == "inventory" && clients[0].order.back() == "receipt" &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Applied &&
+		DecodeLastReceipt(clients[0]).state.revision == InitialRevision + 2 && clients[1].inventory.messages.size() == 1,
+		"socket delivery is public delta, owner replacement, terminal receipt with no foreign inventory leak");
+	listener.stop(20);
+	for (auto& client : clients) DestroyClient(client);
+}
+
 }
 
 int main()
 {
+	TestOwnerInventoryAckDependencyAndReceiptOrder();
+	TestPrivateBudgetHoldsTransientReceiptsAndWorldEnd();
 	TestRetirementBeforeCampaignReadyHasNoTacticalSlot();
 	TestFullRosterRetirementCompactsAllPeerState();
 	TestCoordinatorEndToEnd();

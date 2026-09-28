@@ -1,4 +1,5 @@
 #include "FullEngineCoopAdmissionListener.h"
+#include "CoopInventoryProtocol.h"
 #include "CoopCampaignStatus.h"
 #include "CoopCampaignGroups.h"
 
@@ -70,6 +71,8 @@ bool ValidOutboundMessage(
 	if (std::strcmp(name, CoopTacticalDeltaMessageName) == 0)
 		return size >= CoopTacticalDeltaHeaderWireSize &&
 			size <= MaximumCoopTacticalDeltaWireSize;
+	if (std::strcmp(name, CoopOwnerInventoryMessageName) == 0)
+		return size >= CoopOwnerInventoryHeaderWireSize && size <= MaximumCoopOwnerInventoryWireSize;
 	if (std::strcmp(name, CoopCampaignStatusMessageName) == 0)
 		return size == CoopCampaignStatusWireSize;
 	if (std::strcmp(name, CoopCampaignGroupsMessageName) == 0)

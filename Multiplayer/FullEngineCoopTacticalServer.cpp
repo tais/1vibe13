@@ -249,7 +249,7 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::endWorld()
 		flushOutboundInternal();
 	if (flushed.backpressured)
 		return FullEngineCoopTacticalServerResult::TransportBackpressured;
-	if (outboundPending())
+	if (flushed.inventoryPending || outboundPending())
 		return FullEngineCoopTacticalServerResult::PendingReceipts;
 	ingress_.clearActorBindings();
 	ingress_.endTacticalSession();
@@ -593,6 +593,38 @@ std::size_t FullEngineCoopTacticalServer::peersNeedingBaseline(
 		peers[published++] = needed[index];
 	}
 	return published;
+}
+
+FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageInventory(
+	const PeerIdentity& peer, TacticalEntityId actor,
+	std::uint64_t inventoryRevision, bool usesNewInventory,
+	const std::vector<CoopInventorySlotSummary>& slots) noexcept
+{
+	if (pumping_ || flushing_) return FullEngineCoopTacticalServerResult::Busy;
+	if (!active_ || failed_) return FullEngineCoopTacticalServerResult::NotActive;
+	return ResultForReplication(replication_.stageInventory(peer, actor,
+		inventoryRevision, usesNewInventory, slots));
+}
+
+bool FullEngineCoopTacticalServer::hasInventoryRevision(
+	const PeerIdentity& peer, TacticalEntityId actor, std::uint64_t inventoryRevision) const noexcept
+{
+	return active_ && !failed_ && replication_.hasInventoryRevision(peer, actor, inventoryRevision);
+}
+
+FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageInventory(
+	const PeerIdentity& peer, const CoopOwnerInventorySnapshot& inventory) noexcept
+{
+	if (pumping_ || flushing_) return FullEngineCoopTacticalServerResult::Busy;
+	if (!active_ || failed_) return FullEngineCoopTacticalServerResult::NotActive;
+	return ResultForReplication(replication_.stageInventory(peer, inventory));
+}
+
+bool FullEngineCoopTacticalServer::hasGroundItemRevision(
+	const PeerIdentity& peer, TacticalEntityId actor, std::uint64_t inventoryRevision,
+	TacticalWorldItemId item) const noexcept
+{
+	return active_ && !failed_ && replication_.hasGroundItemRevision(peer, actor, inventoryRevision, item);
 }
 
 FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::publishDelta(
@@ -1173,6 +1205,7 @@ FullEngineCoopTacticalServer::flushOutboundInternal() noexcept
 		replication_.flush(wireSink_);
 	result.replicationResult = flushed.result;
 	result.messagesSent = flushed.messagesSent;
+	result.inventoryPending = flushed.inventoryPending;
 	if (flushed.backpressured)
 	{
 		result.result = FullEngineCoopTacticalServerResult::TransportBackpressured;
@@ -1190,6 +1223,10 @@ FullEngineCoopTacticalServer::flushOutboundInternal() noexcept
 		return result;
 	}
 
+	// Do not let transient receipts bypass the private-state barrier either.
+	// Return Success (not socket pressure) so pumpInbound can consume the ACK
+	// that an owner summary may be waiting for before its public delta can send.
+	if (flushed.inventoryPending) return result;
 	std::size_t index = 0;
 	while (index < transientReceiptCount_)
 	{
@@ -1402,6 +1439,7 @@ FullEngineCoopTacticalServer::pumpInbound(
 	diagnostics.messagesSent += before.messagesSent;
 	diagnostics.replicationResult = before.replicationResult;
 	diagnostics.resyncRequired = before.resyncRequired;
+	diagnostics.inventoryPending = before.inventoryPending;
 	if (before.backpressured)
 	{
 		diagnostics.result = before.result;
@@ -1488,6 +1526,7 @@ FullEngineCoopTacticalServer::pumpInbound(
 	FullEngineCoopTacticalServerPumpResult after = flushOutboundInternal();
 	diagnostics.messagesSent += after.messagesSent;
 	diagnostics.replicationResult = after.replicationResult;
+	diagnostics.inventoryPending = after.inventoryPending;
 	diagnostics.resyncRequired =
 		diagnostics.resyncRequired || after.resyncRequired;
 	if (after.backpressured)

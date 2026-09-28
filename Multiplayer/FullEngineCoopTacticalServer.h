@@ -76,6 +76,7 @@ struct FullEngineCoopTacticalServerPumpResult
 	std::size_t duplicateReceiptsReplayed = 0;
 	std::size_t messagesSent = 0;
 	bool backpressured = false;
+	bool inventoryPending = false;
 	bool resyncRequired = false;
 	bool transportRestartRequired = false;
 };
@@ -180,6 +181,16 @@ public:
 		const TacticalWorldSnapshot& snapshot) noexcept;
 	FullEngineCoopTacticalServerResult stageBaselines(
 		const TacticalWorldSnapshot& snapshot) noexcept;
+	FullEngineCoopTacticalServerResult stageInventory(
+		const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, bool usesNewInventory,
+		const std::vector<CoopInventorySlotSummary>& slots) noexcept;
+	FullEngineCoopTacticalServerResult stageInventory(
+		const PeerIdentity& peer, const CoopOwnerInventorySnapshot& inventory) noexcept;
+	bool hasInventoryRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision) const noexcept;
+	bool hasGroundItemRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, TacticalWorldItemId item) const noexcept;
 	std::size_t peersNeedingBaseline(
 		std::array<PeerIdentity,
 			MaximumCoopTacticalSessionPeers>& peers) const noexcept;
