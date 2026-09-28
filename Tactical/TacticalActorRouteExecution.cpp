@@ -15,6 +15,8 @@
 #include "Handle UI.h"
 #include "Interface.h"
 #include "Isometric Utils.h"
+#include "GameSettings.h"
+#include "MovementDestinationPolicy.h"
 #include "Items.h"
 #include "Overhead.h"
 #include "PATHAI.H"
@@ -744,8 +746,28 @@ bool TacticalActorRouteExecution::canBeginMoveToGrid(
 	const bool completedLocomotion = pathSize != 0 &&
 		actor.pathing().finalDestinationGrid() == actor.position().gridNo() &&
 		(gAnimControl[animationState].uiFlags & ANIM_MOVING) != 0;
-	if (!idleStance && !completedLocomotion) return reject(TacticalMoveFailure::NonIdlePose);
 	const auto& movement = actor.movement();
+	// Overhead clears a completed route before retaining the movement pose.
+	// Its out-of-AP marker pauses that pose even when usable AP remain. Admit
+	// that exact policy boundary without settling the actor or charging the
+	// native run restart surcharge on the next route.
+	INT16 centerX = 0, centerY = 0;
+	ConvertGridNoToCenterCellXY(actor.position().gridNo(), &centerX, &centerY);
+	const bool retainedLocomotion = pathSize == 0 && movement.outOfActionPoints() &&
+		actor.pathing().finalDestinationGrid() == actor.position().gridNo() &&
+		actor.pathing().destinationGrid() == actor.position().gridNo() &&
+		actor.position().worldX() == centerX && actor.position().worldY() == centerY &&
+		actor.pathing().destinationX() == centerX && actor.pathing().destinationY() == centerY &&
+		!movement.delayedByNetwork() &&
+		(actor.status().flags() & SOLDIER_PAUSEANIMOVE) == 0 &&
+		(gAnimControl[animationState].uiFlags & ANIM_MOVING) != 0 &&
+		ShouldRetainMovementAnimationAtDestination(
+			IsJa2TacticalTurnBasedCombat() && (actor.status().flags() & SOLDIER_PC) &&
+			gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
+			!actor.collapseState().tactical() && !actor.collapseState().breathTriggered(),
+			animationState, gAnimControl[animationState]);
+	if (!idleStance && !completedLocomotion && !retainedLocomotion)
+		return reject(TacticalMoveFailure::NonIdlePose);
 	// A stopped, exhausted tile-wait route can retain a destination it never
 	// reached. Permit a new explicit route only from an ordinary idle stance;
 	// standing traversal preparations (notably HOPFENCE) were excluded above.

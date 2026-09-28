@@ -7,7 +7,10 @@
 #include "Animation Data.h"
 #include "GameContext.h"
 #include "GameSettings.h"
+#include "Isometric Utils.h"
+#include "Timer Control.h"
 #include "MemMan.h"
+#include "FileMan.h"
 #include "Overhead.h"
 #include "PATHAI.H"
 #include "Points.h"
@@ -37,7 +40,13 @@
 #include <tuple>
 #include <vector>
 #include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <vfs/Core/vfs.h>
+#include <vfs/Core/vfs_init.h>
 
+extern UINT8* gubGridNoMarkers;
 extern UINT16 gubAnimSurfaceIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
 extern UINT16 gubAnimSurfaceItemSubIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
 int iWindowedMode = 1;
@@ -52,6 +61,24 @@ int main()
 {
 	int failures = 0;
 #define CHECK(c, m) do { if (!(c)) { ++failures; std::fprintf(stderr, "FAIL %d: %s\n", __LINE__, m); } } while (0)
+	const auto fixtureRoot = std::filesystem::temp_directory_path() /
+		("ja2-native-retained-movement-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+	std::filesystem::create_directories(fixtureRoot / "scripts");
+	{
+		std::ofstream script(fixtureRoot / "scripts/Overhead.lua");
+		script << "function HandleAtNewGridNo() end\n";
+		CHECK(script.good(), "native arrival Lua callback fixture written");
+	}
+	CHECK(InitializeMemoryManager(), "native memory manager initialized");
+	vfs_init::VfsConfig vfsConfig;
+	auto* profile = new vfs_init::Profile();
+	profile->m_name = L"native-retained-movement";
+	profile->m_root = vfs::Path(fixtureRoot.generic_u8string()); profile->m_writable = false;
+	auto* location = new vfs_init::Location(); location->m_type = L"DIRECTORY";
+	profile->addLocation(location, true); vfsConfig.addProfile(profile, true);
+	CHECK(vfs_init::initVirtualFileSystem(vfsConfig, false) && InitializeFileManager(nullptr),
+		"native arrival callback VFS mounted");
+	if (failures) return 1;
 	CHECK(InstallGameSimulationRandom(20260928) == GameSimulationRandomInstallError::None, "native RNG installed");
 	auto& game = GetGameContext();
 	CHECK(game.beginInitialization() && game.advancePackagesTo(PackageBootstrapPhase::StartRuntime) && game.markRunning(),
@@ -110,7 +137,9 @@ int main()
 	auto state = [&] {
 		std::array<UINT16, MAX_PATH_LIST_SIZE> path{};
 		std::copy_n(actor.pathing().path(), path.size(), path.begin());
-		return std::make_tuple(actor.position().gridNo(), actor.actionPoints().current(), actor.vitals().breath(),
+		return std::make_tuple(actor.position().gridNo(), actor.position().worldX(), actor.position().worldY(),
+			actor.pathing().destinationGrid(), actor.pathing().destinationX(), actor.pathing().destinationY(),
+			actor.movement().outOfActionPoints(), actor.actionPoints().current(), actor.vitals().breath(),
 			actor.pathing().pathIndex(), actor.pathing().pathSize(), actor.pathing().finalDestinationGrid(), path,
 			actor.movement().delayCounter(), actor.movement().delayedFlags(), actor.movement().continuedPathValid(),
 			actor.animationPlayback().state(), actor.animationIntent().pendingAnimation(),
@@ -255,16 +284,17 @@ int main()
 	gAnimSurfaceDatabase[0].hVideoObject = &video;
 	gAnimSurfaceDatabase[0].uiNumDirections = 8; gAnimSurfaceDatabase[0].uiNumFramesPerDir = 1;
 	gAnimSurfaceDatabase[0].bStructDataType = NO_STRUCT; gAnimSurfaceDatabase[0].bProfile = -1;
-	for (UINT16 animation : {UINT16(STANDING), UINT16(WALKING)})
+	for (UINT16 animation : {UINT16(STANDING), UINT16(WALKING), UINT16(RUNNING)})
 	{ gubAnimSurfaceIndex[REGMALE][animation] = 0; gubAnimSurfaceItemSubIndex[REGMALE][animation] = INVALID_ANIMATION; }
 	CHECK(BindJa2SimulationCommandExecutor(game), "real native MoveToGrid executor binds");
 	std::uint64_t frame = 0;
-	auto dispatch = [&] {
+	auto dispatchTo = [&](INT32 destination, UINT16 mode) {
 		BeginSimulationCommandFrameBudget(++frame, 1);
 		return TryDispatchSimulationCommandNow(SimulationCommand{MoveToGridCommand{
-			id, newDestination, WALKING, false, false, SimulationCommandSource::NetworkPeer,
+			id, destination, mode, false, false, SimulationCommandSource::NetworkPeer,
 			TacticalMoveOrigin::TeamAwareUi, TacticalPendingActionPolicy::Clear, TacticalCommandAuthorityPolicy::DedicatedCoop}});
 	};
+	auto dispatch = [&] { return dispatchTo(newDestination, WALKING); };
 	actor.animationIntent().queueAnimation(HOPFENCE); actor.animationActivity().turningUntilDone() = TRUE;
 	actor.animationIntent().continueAfterStance(2); actor.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
 	const auto pendingRace = state();
@@ -323,8 +353,109 @@ int main()
 		actor.pathing().finalDestinationGrid() == newDestination && actor.position().gridNo() == origin &&
 		actor.actionPoints().current() == 82,
 		"actual dedicated move preserves native ready-to-walking transition without claiming arrival");
+
+	gubGridNoMarkers = static_cast<UINT8*>(MemAlloc(WORLD_MAX));
+	CHECK(gubGridNoMarkers != nullptr, "native arrival sight markers allocated");
+	if (!gubGridNoMarkers) return 1;
+	std::memset(gubGridNoMarkers, 0, WORLD_MAX);
+	// Drive the real Overhead final-destination branch: arrival cancels the
+	// route before the option deliberately retains locomotion and pauses it.
+	// Pixel frames are inert; native arrival, policy, admission and dispatch run.
+	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+	gGameExternalOptions.fNoStandingAnimAdjustInCombat = TRUE;
+	APBPConstants[AP_START_RUN_COST] = 7;
+	CHECK(AddJa2ActiveTacticalActor(id) >= 0, "arrival actor enters real overhead roster");
+	for (UINT16 retainedAnimation : {UINT16(WALKING), UINT16(RUNNING)})
+	{
+		actor.animationCache().reset(); actor = stopped;
+		actor.movement().clearDelay();
+		actor.animationPlayback().state() = retainedAnimation;
+		actor.animationPlayback().code() = 0;
+		actor.movement().mode() = retainedAnimation;
+		actor.pathing().pathIndex() = 0; actor.pathing().pathSize() = 1;
+		actor.pathing().path()[0] = NORTH;
+		actor.pathing().finalDestinationGrid() = origin;
+		INT16 centerX = 0, centerY = 0;
+		ConvertGridNoToCenterCellXY(origin, &centerX, &centerY);
+		actor.position().worldX() = actor.pathing().destinationX() = centerX;
+		actor.position().worldY() = actor.pathing().destinationY() = centerY;
+		actor.movement().markPastXDestination(); actor.movement().markPastYDestination();
+		actor.renderBindings().faceIndex() = -1;
+		actor.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 0);
+		gusAnimInst[retainedAnimation][0] = 1;
+		giTimerCounters[TOVERHEAD] = 0;
+		CHECK(ExecuteOverhead(), "real native overhead arrival runs");
+		CHECK(actor.animationPlayback().state() == retainedAnimation &&
+			actor.pathing().pathIndex() == 0 && actor.pathing().pathSize() == 0 &&
+			actor.pathing().finalDestinationGrid() == origin && actor.movement().outOfActionPoints() &&
+			actor.position().worldX() == centerX && actor.position().worldY() == centerY &&
+			!actor.animationIntent().hasPendingAnimation() && actor.actionPoints().current() == 82,
+			"native arrival retains paused locomotion at tile center after clearing its route");
+		const TacticalActor retained = actor;
+		for (bool alternate : {false, true})
+		{
+			gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = alternate;
+			const auto preserved = state();
+			CHECK(live.canBeginMoveToGrid(id, newDestination, retainedAnimation, false) && state() == preserved,
+				"both native pathfinders admit actual retained zero-route arrival without mutation");
+		}
+		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
+		actor.movement().setOutOfActionPoints(false);
+		rejected(TacticalMoveFailure::NonIdlePose, "zero-route locomotion without native pause marker remains active");
+		actor = retained; actor.pathing().finalDestinationGrid() = oldDestination;
+		rejected(TacticalMoveFailure::NonIdlePose, "unreached zero-route destination is not retained arrival");
+		actor = retained; actor.position().worldX() += 0.25f;
+		rejected(TacticalMoveFailure::NonIdlePose, "subtile locomotion cannot be mistaken for centered arrival");
+		actor = retained; actor.pathing().destinationGrid() = oldDestination;
+		rejected(TacticalMoveFailure::NonIdlePose, "inconsistent next tile is not completed arrival");
+		actor = retained; actor.pathing().destinationY() += 1;
+		rejected(TacticalMoveFailure::NonIdlePose, "inconsistent destination center is not completed arrival");
+		actor = retained; actor.pathing().pathSize() = 1;
+		rejected(TacticalMoveFailure::PathUnconsumed, "paused partial route remains excluded");
+		actor = retained; actor.animationIntent().queueAnimation(HOPFENCE);
+		rejected(TacticalMoveFailure::PendingAnimation, "retained arrival cannot replace pending fence traversal");
+		actor = retained; actor.animationPlayback().state() = HOPFENCE;
+		rejected(TacticalMoveFailure::AnimationActivity, "active traversal cannot reuse retained arrival marker");
+		actor = retained; actor.animationPlayback().state() = SWATTING;
+		rejected(TacticalMoveFailure::NonIdlePose, "crouched movement excluded by native retention policy stays rejected");
+		actor = retained; actor.movement().setNetworkDelayed(true);
+		rejected(TacticalMoveFailure::NonIdlePose, "network-delayed locomotion is not the native retained boundary");
+		actor = retained; actor.status().flags() |= SOLDIER_PAUSEANIMOVE;
+		rejected(TacticalMoveFailure::NonIdlePose, "animation-move pause flag cannot reuse retained arrival marker");
+		actor = retained; actor.status().flags() &= ~SOLDIER_PC;
+		rejected(TacticalMoveFailure::NonIdlePose, "native retention is limited to player merc policy");
+		actor = retained; gGameExternalOptions.fNoStandingAnimAdjustInCombat = FALSE;
+		rejected(TacticalMoveFailure::NonIdlePose, "disabled retention policy cannot admit zero-route locomotion");
+		gGameExternalOptions.fNoStandingAnimAdjustInCombat = TRUE;
+		RestoreJa2TacticalTurnState(ACTIVE | TURNBASED, OUR_TEAM, 0);
+		rejected(TacticalMoveFailure::NonIdlePose, "realtime zero-route locomotion cannot use combat retention policy");
+		RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+		actor = retained; actor.actionPoints().current() = 0;
+		rejected(TacticalMoveFailure::InsufficientPoints, "retained arrival still requires native first-step AP");
+		actor = retained;
+		if (retainedAnimation == RUNNING)
+		{
+			const INT32 nextGrid = NewGridNo(origin, DirectionInc(NORTH));
+			const INT16 retainedCost = ActionPointCost(&actor, nextGrid, NORTH, RUNNING);
+			actor.animationPlayback().state() = STANDING;
+			const INT16 restartedCost = ActionPointCost(&actor, nextGrid, NORTH, RUNNING);
+			CHECK(restartedCost == retainedCost + GetAPsStartRun(&actor) && restartedCost > retainedCost,
+				"native cost proves forcing standing would add the run restart surcharge");
+			actor = retained;
+		}
+		CHECK(dispatchTo(newDestination, retainedAnimation).status == SimulationCommandDispatchStatus::Applied &&
+			actor.animationPlayback().state() == retainedAnimation && !actor.movement().outOfActionPoints() &&
+			actor.pathing().pathIndex() < actor.pathing().pathSize() &&
+			actor.pathing().finalDestinationGrid() == newDestination && actor.actionPoints().current() == 82,
+			"fresh dedicated route resumes retained locomotion without a run restart AP charge");
+		actor.animationCache().reset(); actor = retained;
+	}
+	CHECK(RemoveJa2ActiveTacticalActor(id), "arrival actor leaves overhead roster");
+	MemFree(gubGridNoMarkers); gubGridNoMarkers = nullptr;
 	actor.animationCache().reset(); gAnimSurfaceDatabase[0] = savedSurface;
 	ShutDownPathAI(); MemFree(gubWorldMovementCosts); gubWorldMovementCosts = nullptr; ReleaseWorldTileMap();
+	ShutdownFileManager(); vfs::CVirtualFileSystem::shutdownVFS();
+	std::filesystem::remove_all(fixtureRoot);
 	std::printf("native co-op move preflight: %d failures\n", failures);
 	return failures ? 1 : 0;
 }
