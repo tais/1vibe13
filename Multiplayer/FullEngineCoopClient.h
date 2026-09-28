@@ -2,6 +2,11 @@
 #define MULTIPLAYER_FULL_ENGINE_COOP_CLIENT_H
 
 #include "CoopSessionProtocol.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignGroups.h"
+#include "CoopCampaignTime.h"
+#include "CoopCampaignAction.h"
+#include "CoopCampaignHire.h"
 #include "CoopTacticalIntent.h"
 #include "CoopTacticalProtocol.h"
 
@@ -145,6 +150,40 @@ public:
 		const std::uint8_t* bytes, std::size_t size) noexcept;
 	FullEngineCoopClientResult receiveDelta(
 		const std::uint8_t* bytes, std::size_t size) noexcept;
+	FullEngineCoopClientResult receiveCampaignStatus(
+		const std::uint8_t* bytes, std::size_t size) noexcept;
+	const CoopCampaignStatus* campaignStatus() const noexcept;
+	FullEngineCoopClientResult receiveCampaignGroups(const std::uint8_t* bytes, std::size_t size) noexcept;
+	const CoopCampaignGroups* campaignGroups() const noexcept;
+	FullEngineCoopClientResult receiveCampaignEconomy(const std::uint8_t* bytes, std::size_t size) noexcept;
+	FullEngineCoopClientResult receiveCampaignAimQuotes(const std::uint8_t* bytes, std::size_t size) noexcept;
+	const CoopCampaignEconomy* campaignEconomy() const noexcept;
+	// Old offers are hidden while the newer economy replacement is waiting for
+	// its matching quotes in the ordered inbound stream.
+	const CoopCampaignAimQuotes* campaignAimQuotes() const noexcept;
+	FullEngineCoopClientResult requestCampaignHire(std::uint16_t profile, std::uint8_t days, bool buyGear) noexcept;
+	FullEngineCoopClientResult receiveCampaignHireResult(const std::uint8_t* bytes, std::size_t size) noexcept;
+	bool campaignHirePending() const noexcept { return pendingCampaignHire_.requestId != 0; }
+	const CoopCampaignHireResult* lastCampaignHireResult() const noexcept
+	{
+		return campaignStatus() && !campaignHirePending() && lastCampaignHireResult_.request.requestId ? &lastCampaignHireResult_ : nullptr;
+	}
+	FullEngineCoopClientResult requestCampaignTime(CoopCampaignTimeAction action) noexcept;
+	FullEngineCoopClientResult receiveCampaignTimeResult(const std::uint8_t* bytes, std::size_t size) noexcept;
+	bool campaignTimePending() const noexcept { return pendingCampaignTime_.requestId != 0; }
+	const CoopCampaignTimeResult* campaignTimeResult() const noexcept
+	{
+		return campaignStatus() && lastCampaignTimeResult_.request.requestId ? &lastCampaignTimeResult_ : nullptr;
+	}
+	// Selection-only request: this core supplies current session/revisions and
+	// a fresh sequence. It never retries unknown actions after reconnect.
+	FullEngineCoopClientResult requestCampaignAction(const CoopCampaignActionRequest& selection) noexcept;
+	FullEngineCoopClientResult receiveCampaignActionResult(const std::uint8_t* bytes, std::size_t size) noexcept;
+	bool campaignActionPending() const noexcept { return pendingCampaignAction_.requestId != 0; }
+	const CoopCampaignActionResult* lastCampaignActionResult() const noexcept
+	{
+		return campaignStatus() && lastCampaignActionResult_.request.requestId ? &lastCampaignActionResult_ : nullptr;
+	}
 	FullEngineCoopClientResult receiveIntentReceipt(
 		const std::uint8_t* bytes, std::size_t size) noexcept;
 	FullEngineCoopClientResult receiveSelfRetirementResult(
@@ -249,11 +288,30 @@ private:
 	void clearReceiptHistory() noexcept;
 	void clearReplicaState() noexcept;
 	void clearConnectionState() noexcept;
+	bool canReceiveCampaignResult() const noexcept;
 
 	FullEngineCoopClientWire& wire_;
 	FullEngineCoopPassiveReplicaSink& replica_;
 	FullEngineCoopReconnectCredentialStore* credentialStore_ = nullptr;
 	FullEngineCoopClientConfiguration configuration_;
+	CoopCampaignStatus campaignStatus_;
+	std::uint64_t lastArrivalDecision_ = 0;
+	std::uint64_t lastSurrenderOffer_ = 0;
+	std::uint64_t lastBattleNotice_ = 0;
+	std::uint64_t lastMeanwhile_ = 0;
+	CoopCampaignGroups campaignGroups_;
+	CoopCampaignEconomy campaignEconomy_;
+	CoopCampaignAimQuotes campaignAimQuotes_;
+	CoopCampaignHireRequest pendingCampaignHire_;
+	CoopCampaignHireResult lastCampaignHireResult_;
+	std::int32_t pendingCampaignHireQuotedTotal_ = 0;
+	std::uint64_t nextCampaignHireRequestId_ = 1;
+	CoopCampaignActionRequest pendingCampaignAction_;
+	CoopCampaignActionResult lastCampaignActionResult_;
+	std::uint64_t nextCampaignActionRequestId_ = 1;
+	CoopCampaignTimeRequest pendingCampaignTime_;
+	CoopCampaignTimeResult lastCampaignTimeResult_;
+	std::uint64_t nextCampaignTimeRequestId_ = 1;
 	FullEngineCoopClientState state_ =
 		FullEngineCoopClientState::Disconnected;
 	FullEngineCoopClientResult lastResult_ =
