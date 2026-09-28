@@ -1,6 +1,9 @@
 #include "CoopCampaignActionAuthority.h"
 #include "CoopCampaignTime.h"
+#include <Ja2/FullEngineCoopClientMeanwhileInput.h>
+#include <Ja2/FullEngineCoopClientCampaignActionInput.h>
 #include <cstdio>
+#include <cwchar>
 
 using namespace CoopSession;
 namespace
@@ -26,8 +29,8 @@ void Observation()
 	{
 		s.meanwhile.scene = static_cast<CoopCampaignMeanwhileScene>(scene);
 		CHECK(EncodeCoopCampaignStatus(s, bytes) && DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) &&
-			SameCoopCampaignStatus(s, decoded),
-			"every native scene has a bounded explicit wire tag");
+			SameCoopCampaignStatus(s, decoded) && std::wcscmp(FullEngineCoopClientMeanwhileTitle(s.meanwhile.scene), L"Campaign scene"),
+			"every native scene has a bounded explicit wire tag and player-facing title");
 	}
 	for (unsigned at : {109u,110u,111u,121u,122u,123u,124u,125u,126u,127u})
 	{
@@ -96,5 +99,33 @@ void Serialization()
 	CHECK(authority.submit(request,peers[0],true,true,true,ledger,groups,apply) && executions == 1 &&
 		authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale, "consumed native ID cannot be skipped again with fresh request lineage");
 }
+void Input()
+{
+	using Key = FullEngineCoopClientMeanwhileInput::Key;
+	auto s = Status(); auto g = Groups(); FullEngineCoopClientMeanwhileInput input;
+	auto key = [&](Key k, bool down = true, bool up = false) { return input.handle(k,down,up,&s,&g,true,false); };
+	CHECK(!key(Key::Confirm) && !key(Key::Skip) && input.armed() == 10 && !key(Key::Confirm),
+		"Skip requires a separately pressed Enter; held confirmation cannot approve a later selection");
+	(void)key(Key::Confirm,false,true); const auto answer = key(Key::Confirm);
+	CHECK(answer && answer->action == CoopCampaignAction::SkipMeanwhile && answer->decision == s.meanwhile.id &&
+		!answer->sessionEpoch && !answer->requestId && !key(Key::Confirm), "presentation submits only the explicit scene; core binds identity and lineage");
+	for (unsigned fault = 0; fault != 9; ++fault)
+	{
+		auto changed = s; auto groups = g; FullEngineCoopClientMeanwhileInput held;
+		(void)held.handle(Key::Skip,true,false,&changed,&groups,true,false);
+		if (fault == 0) ++changed.timeControlRevision;
+		if (fault == 1) ++groups.revision;
+		if (fault == 2) ++changed.meanwhile.id;
+		if (fault == 3) ++changed.sessionEpoch;
+		if (fault == 4) changed.meanwhile = {};
+		if (fault == 5) held.reset();
+		if (fault == 6) (void)held.handle(Key::Cancel,true,false,&changed,&groups,true,false);
+		CHECK(!held.handle(Key::Confirm,true,false,&changed,&groups,fault != 7,fault == 8) && !held.armed(),
+			"stale scene/control/groups, reconnect, cancellation and outstanding requests discard armed skips");
+	}
+	FullEngineCoopClientCampaignActionInput travel;
+	CHECK(!travel.handle(FullEngineCoopClientCampaignActionKey::EnterBattle,true,false,&s,&g,true,false),
+		"ordinary campaign input stays disabled behind the scene");
 }
-int main() { Observation(); Serialization(); return failures ? 1 : 0; }
+}
+int main() { Observation(); Serialization(); Input(); return failures ? 1 : 0; }
