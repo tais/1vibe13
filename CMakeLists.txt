@@ -609,6 +609,14 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_campaign_aim_willingness COMMAND native_campaign_aim_willingness_tests)
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
 
+  # Actual playlist restoration must not consume the campaign random stream.
+  add_executable(native_music_random_tests tests/native_music_random_tests.cpp)
+  target_compile_definitions(native_music_random_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_music_random_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_music_random COMMAND native_music_random_tests)
+  set_tests_properties(native_music_random PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_music_random_tests)
+
   # Read-only native campaign groups, employment, funds and AIM offers.
   foreach(campaign_observation IN ITEMS native_campaign_groups native_campaign_economy)
     add_executable(${campaign_observation}_tests tests/${campaign_observation}_tests.cpp)

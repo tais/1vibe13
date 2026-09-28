@@ -52,6 +52,10 @@ typedef struct {
 extern BOOLEAN	InitializeSoundManager(void);
 extern void		ShutdownSoundManager(void);
 
+// Cosmetic audio randomness; independent of gameplay RNG and save state.
+// Returns [0, upperBound), or zero for bounds zero/one. No audio device needed.
+UINT32 SoundRandomRange(UINT32 upperBound);
+
 // Configuration functions
 extern BOOLEAN	SoundSetMemoryLimit(UINT32 uiLimit);
 extern BOOLEAN	SoundSetCacheThreshhold(UINT32 uiThreshold);
