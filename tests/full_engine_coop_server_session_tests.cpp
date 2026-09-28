@@ -941,10 +941,370 @@ void TestEqualRevisionLateBaselineAckCannotRegressLineage()
 			FullEngineCoopServerSessionResult::UnexpectedAcknowledgement,
 		"B2 rejection validates precisely against late-committed B1");
 }
+
+void TestInventoryPendingSurvivesSharedMessageBudget()
+{
+	FullEngineCoopServerSessionConfiguration configuration;
+	configuration.maximumMessagesPerFlush = 1;
+	FullEngineCoopServerSession session(configuration);
+	const auto owner = Identity(1), other = Identity(40);
+	const std::array<CoopTacticalActorAssignment, 3> assignments{{
+		{{1, 1}, owner}, {{2, 1}, owner}, {{3, 1}, other}}};
+	CHECK(session.beginSession(71) == FullEngineCoopServerSessionResult::Success &&
+		session.beginWorld(9, 10, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(owner) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(other) == FullEngineCoopServerSessionResult::Success &&
+		session.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopServerSessionResult::Success,
+		"one-message private barrier fixture starts two owners");
+	const auto snapshot = Snapshot(9, 1, 3);
+	const std::vector<CoopInventorySlotSummary> slots{
+		{0, 991, 1, 85, CoopInventorySlotSupport::OrdinarySwappable}};
+	for (const auto& peer : {owner, other})
+		CHECK(session.stageBaseline(peer, snapshot, 1) == FullEngineCoopServerSessionResult::Success,
+			"budget fixture stages each public baseline");
+	for (const auto& assignment : assignments)
+		CHECK(session.stageInventory(assignment.peerIdentity, assignment.actor, 1, true, slots) ==
+			FullEngineCoopServerSessionResult::Success, "budget fixture stages private state before baseline ACK");
+	RecordingSink sink;
+	for (std::size_t index = 0; index < 2; ++index)
+	{
+		const auto flushed = session.flush(sink);
+		CHECK(flushed.messagesSent == 1 && flushed.inventoryPending && !flushed.backpressured &&
+			sink.messages.size() == index + 1 && sink.messages.back().kind == CoopTacticalOutboundMessageKind::Baseline,
+			"baseline budget exit preserves private backlog even on an unvisited peer");
+	}
+	const auto waiting = session.flush(sink);
+	CHECK(waiting.messagesSent == 0 && waiting.inventoryPending && !waiting.backpressured,
+		"private state behind baseline ACK remains a logical dependency, not socket pressure");
+	for (const auto& message : sink.messages)
+	{
+		const auto ack = BaselineAckBytes(DecodeBaseline(message), message.peer);
+		CHECK(session.acknowledgeBaseline(message.peer, ack.data(), ack.size()) == FullEngineCoopServerSessionResult::Success,
+			"budget fixture acknowledges each exact baseline");
+	}
+	sink.messages.clear();
+	CHECK(session.recordReceipt(Receipt(owner, 1, 71, 9, 10, 1)) == FullEngineCoopServerSessionResult::Success,
+		"budget fixture retains an owner terminal receipt");
+	const std::array<CoopTacticalOutboundMessageKind, 4> expected{{
+		CoopTacticalOutboundMessageKind::OwnerInventory,
+		CoopTacticalOutboundMessageKind::OwnerInventory,
+		CoopTacticalOutboundMessageKind::IntentReceipt,
+		CoopTacticalOutboundMessageKind::OwnerInventory}};
+	for (std::size_t index = 0; index < expected.size(); ++index)
+	{
+		const auto flushed = session.flush(sink);
+		CHECK(flushed.messagesSent == 1 && flushed.inventoryPending == (index + 1 < expected.size()) &&
+			!flushed.backpressured && sink.messages.size() == index + 1 && sink.messages.back().kind == expected[index] &&
+			sink.messages.back().peer == (index < 3 ? owner : other),
+			"private, receipt, and next-peer budget exits preserve exact remaining backlog and owner order");
+	}
+	CHECK(session.publishDelta(EmptyDelta(9), 11, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.stageInventory(owner, {1, 1}, 2, true, slots) == FullEngineCoopServerSessionResult::Success &&
+		session.stageInventory(other, {3, 1}, 2, true, slots) == FullEngineCoopServerSessionResult::Success,
+		"new private revisions depend on one shared public delta");
+	sink.messages.clear();
+	for (std::size_t index = 0; index < 4; ++index)
+	{
+		const auto flushed = session.flush(sink);
+		CHECK(flushed.messagesSent == 1 && flushed.inventoryPending == (index != 3) && !flushed.backpressured &&
+			sink.messages.size() == index + 1 && sink.messages.back().kind == (index % 2 == 0
+				? CoopTacticalOutboundMessageKind::Delta : CoopTacticalOutboundMessageKind::OwnerInventory),
+			"public delta budget exits retain the private barrier until the last exact owner frame sends");
+	}
+	CHECK(!session.flush(sink).inventoryPending, "quiescent private barrier clears without requiring extra publication");
+}
+
+void TestGroundInventoryIdentityAndRevision()
+{
+	FullEngineCoopServerSession session;
+	const auto owner = Identity(1), other = Identity(40);
+	const TacticalEntityId actor{1, 1};
+	const CoopTacticalActorAssignment assignment{actor, owner};
+	CHECK(session.beginSession(71) == FullEngineCoopServerSessionResult::Success &&
+		session.beginWorld(9, 10, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(owner) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(other) == FullEngineCoopServerSessionResult::Success &&
+		session.replaceAssignments(&assignment, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.stageBaseline(owner, Snapshot(9, 1), 1) == FullEngineCoopServerSessionResult::Success,
+		"ground fixture stages exact owner baseline");
+	RecordingSink sink;
+	CHECK(session.flush(sink).messagesSent == 1, "ground baseline publishes");
+	const auto baseline = DecodeBaseline(sink.messages.back());
+	const auto ack = BaselineAckBytes(baseline, owner);
+	CHECK(session.acknowledgeBaseline(owner, ack.data(), ack.size()) == FullEngineCoopServerSessionResult::Success,
+		"ground owner baseline acknowledged");
+	CoopOwnerInventorySnapshot captured;
+	captured.sessionEpoch = 999;
+	captured.baselineId = 888;
+	captured.owner = other; // Untrusted capture stamps are replaced by the session.
+	captured.actor = actor;
+	captured.worldGeneration = 9;
+	captured.inventoryRevision = 1;
+	captured.usesNewInventory = true;
+	captured.slots = {{0, 0, 0, 0, CoopInventorySlotSupport::Empty}};
+	captured.groundGrid = 1001;
+	captured.groundLevel = 0;
+	captured.groundItems = {{{19, 3}, {0, 45, 2, 93, CoopInventorySlotSupport::OrdinarySwappable,
+		CoopInventoryStatusKind::MedicalKitPoints, 170}}};
+	captured.nearbyLoot = {{1002, 0, false}, {1163, 0, true}};
+	const auto item = captured.groundItems[0].id;
+	CHECK(session.stageInventory(other, captured) == FullEngineCoopServerSessionResult::InvalidAssignment &&
+		session.stageInventory(owner, captured) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasGroundItemRevision(owner, actor, 1, item),
+		"captured ground inventory is owner-only and does not authorize before enqueue");
+	sink.messages.clear();
+	sink.rejectNext = true;
+	CHECK(session.flush(sink).backpressured && !session.hasGroundItemRevision(owner, actor, 1, item) &&
+		session.flush(sink).messagesSent == 1 && session.hasGroundItemRevision(owner, actor, 1, item) &&
+		!session.hasGroundItemRevision(other, actor, 1, item) &&
+		!session.hasGroundItemRevision(owner, actor, 1, {19, 4}) &&
+		!session.hasGroundItemRevision(owner, actor, 1, {20, 3}),
+		"only exact successfully sent owner item incarnation grants pickup token");
+	CoopOwnerInventorySnapshot decoded;
+	CHECK(sink.messages.size() == 1 && sink.messages[0].peer == owner &&
+		DecodeCoopOwnerInventorySnapshot(sink.messages[0].bytes.data(), sink.messages[0].bytes.size(), decoded) ==
+			CoopInventoryCodecResult::Success && decoded.sessionEpoch == 71 && decoded.owner == owner &&
+		decoded.baselineId == baseline.baselineId && decoded.groundItems == captured.groundItems &&
+		decoded.groundGrid == captured.groundGrid && decoded.groundLevel == captured.groundLevel &&
+		decoded.nearbyLoot == captured.nearbyLoot,
+		"session stamps its own lineage while preserving exact native ground listing");
+	for (unsigned mutation = 0; mutation < 6; ++mutation)
+	{
+		auto conflict = captured;
+		if (mutation == 0) ++conflict.groundGrid;
+		else if (mutation == 1) conflict.groundLevel = 1;
+		else if (mutation == 2) ++conflict.groundItems[0].id.incarnation;
+		else if (mutation == 3) --conflict.groundItems[0].summary.resourceTotal;
+		else if (mutation == 4) ++conflict.nearbyLoot[0].grid;
+		else conflict.nearbyLoot[1].hasMedicalKit = false;
+		CHECK(session.stageInventory(owner, conflict) == FullEngineCoopServerSessionResult::InvalidContext &&
+			session.hasGroundItemRevision(owner, actor, 1, item),
+			"same-revision ground mutation rejects without changing sent authority");
+	}
+	for (unsigned mutation = 0; mutation < 4; ++mutation)
+	{
+		auto invalid = captured;
+		++invalid.inventoryRevision;
+		if (mutation == 0) invalid.nearbyLoot.back().grid = 160 * 160;
+		else if (mutation == 1) invalid.nearbyLoot.back().grid = 1001 + 13 * 160;
+		else if (mutation == 2) invalid.nearbyLoot[0].grid = 1014;
+		else invalid.groundGrid = 160 * 160;
+		CHECK(session.stageInventory(owner, invalid) == FullEngineCoopServerSessionResult::InvalidContext &&
+			session.hasGroundItemRevision(owner, actor, 1, item),
+			"out-of-world origin/markers or radius13 never enter owner stream or revoke valid proof");
+	}
+	auto wrongWorld = captured;
+	wrongWorld.worldGeneration = 10;
+	CHECK(session.stageInventory(owner, wrongWorld) == FullEngineCoopServerSessionResult::StaleContext,
+		"native capture cannot cross world generation");
+	captured.inventoryRevision = 2;
+	captured.groundItems[0].id.incarnation = 4;
+	CHECK(session.stageInventory(owner, captured) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasGroundItemRevision(owner, actor, 1, item) &&
+		!session.hasGroundItemRevision(owner, actor, 2, captured.groundItems[0].id),
+		"ground slot reuse revokes old and unsent new incarnations immediately");
+	sink.messages.clear();
+	CHECK(session.recordReceipt(Receipt(owner, 1, 71, 9, 10, 1)) == FullEngineCoopServerSessionResult::Success &&
+		session.flush(sink).messagesSent == 2 &&
+		sink.messages[0].kind == CoopTacticalOutboundMessageKind::OwnerInventory &&
+		sink.messages[1].kind == CoopTacticalOutboundMessageKind::IntentReceipt &&
+		session.hasGroundItemRevision(owner, actor, 2, captured.groundItems[0].id),
+		"ground+carried replacement publishes before terminal pickup outcome");
+	captured.inventoryRevision = 3;
+	captured.groundItems.clear();
+	CHECK(session.stageInventory(owner, captured) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasGroundItemRevision(owner, actor, 2, {19, 4}) &&
+		!session.hasGroundItemRevision(owner, actor, 3, {19, 4}) &&
+		session.disconnectPeer(owner) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasGroundItemRevision(owner, actor, 3, item),
+		"nearby markers never grant pickup identity; ground removal and disconnect revoke prior tokens");
+}
+
+void TestOwnerInventoryIsolationAndReplacement()
+{
+	FullEngineCoopServerSession session;
+	const auto owner = Identity(1), other = Identity(40);
+	CHECK(session.beginSession(71) == FullEngineCoopServerSessionResult::Success &&
+		session.beginWorld(9, 10, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(owner) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(other) == FullEngineCoopServerSessionResult::Success,
+		"private session fixture starts two authenticated owners");
+	std::array<CoopTacticalActorAssignment, 5> assignments{};
+	for (std::size_t index = 0; index < assignments.size(); ++index)
+		assignments[index] = {{static_cast<std::uint16_t>(index + 1), 1}, index == 4 ? other : owner};
+	CHECK(session.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopServerSessionResult::Success,
+		"private session fixture assigns four actors to A and one to B");
+	const auto snapshot = Snapshot(9, 1, 5);
+	RecordingSink sink;
+	auto baseline = [&](const PeerIdentity& peer) {
+		CHECK(session.stageBaseline(peer, snapshot, 1) == FullEngineCoopServerSessionResult::Success,
+			"fresh private baseline stages");
+		sink.messages.clear();
+		CHECK(session.flush(sink).messagesSent == 1, "fresh public baseline sends alone");
+		if (sink.messages.empty()) return std::uint64_t(0);
+		const auto value = DecodeBaseline(sink.messages.back());
+		const auto ack = BaselineAckBytes(value, peer);
+		CHECK(session.acknowledgeBaseline(peer, ack.data(), ack.size()) == FullEngineCoopServerSessionResult::Success,
+			"fresh private baseline acknowledges");
+		sink.messages.clear();
+		return value.baselineId;
+	};
+	const auto firstBaseline = baseline(owner);
+	(void)baseline(other);
+	const std::vector<CoopInventorySlotSummary> privateSlots = {
+		{0, 991, 3, 85, CoopInventorySlotSupport::OrdinarySwappable,
+			CoopInventoryStatusKind::MedicalKitPoints, 230},
+		{1, 992, 3, 61, CoopInventorySlotSupport::UnsupportedComplex}};
+	const std::vector<CoopInventorySlotSummary> otherSlots = {
+		{0, 111, 1, -1, CoopInventorySlotSupport::OrdinarySwappable,
+			CoopInventoryStatusKind::AmmoRounds, 65535}};
+	for (std::uint16_t slot = 1; slot <= 4; ++slot)
+		CHECK(session.stageInventory(owner, {slot, 1}, 1, true, privateSlots) == FullEngineCoopServerSessionResult::Success,
+			"owner summary stages independently of public revision");
+	CHECK(session.stageInventory(owner, {5, 1}, 1, true, privateSlots) == FullEngineCoopServerSessionResult::InvalidAssignment &&
+		session.stageInventory(other, {5, 1}, 1, false, otherSlots) == FullEngineCoopServerSessionResult::Success,
+		"foreign owner cannot stage another actor's private state");
+	CHECK(session.recordReceipt(Receipt(owner, 1, 71, 9, 10, 1)) == FullEngineCoopServerSessionResult::Success,
+		"terminal receipt waits behind private replacement barrier");
+	const auto firstFlush = session.flush(sink);
+	CHECK(firstFlush.messagesSent == 3 && firstFlush.inventoryPending && !firstFlush.backpressured && sink.messages.size() == 3 &&
+		session.hasInventoryRevision(owner, {1, 1}, 1) && !session.hasInventoryRevision(owner, {3, 1}, 1) &&
+		session.hasInventoryRevision(other, {5, 1}, 1),
+		"two-per-peer private budget retains later A actors without starving B");
+	for (const auto& sent : sink.messages)
+	{
+		CoopOwnerInventorySnapshot decoded;
+		CHECK(sent.kind == CoopTacticalOutboundMessageKind::OwnerInventory &&
+			DecodeCoopOwnerInventorySnapshot(sent.bytes.data(), sent.bytes.size(), decoded) == CoopInventoryCodecResult::Success &&
+			decoded.owner == sent.peer && (sent.peer == owner ? decoded.slots == privateSlots : decoded.slots == otherSlots),
+			"each private frame contains only its exact recipient's distinct items, semantic kinds and exact resource totals");
+	}
+	CHECK(session.stageInventory(owner, {1, 1}, 2, true, privateSlots) == FullEngineCoopServerSessionResult::Success,
+		"changing an early actor does not rewind fairness cursor");
+	sink.messages.clear();
+	CHECK(session.flush(sink).messagesSent == 2 && sink.messages.size() == 2 &&
+		session.hasInventoryRevision(owner, {3, 1}, 1) && session.hasInventoryRevision(owner, {4, 1}, 1) &&
+		!session.hasInventoryRevision(owner, {1, 1}, 1) && !session.hasInventoryRevision(owner, {1, 1}, 2),
+		"later actors send before refreshed early actor; receipt remains retained");
+	sink.messages.clear();
+	CHECK(session.flush(sink).messagesSent == 2 && sink.messages.size() == 2 &&
+		sink.messages[0].kind == CoopTacticalOutboundMessageKind::OwnerInventory &&
+		sink.messages[1].kind == CoopTacticalOutboundMessageKind::IntentReceipt &&
+		session.hasInventoryRevision(owner, {1, 1}, 2),
+		"terminal receipt releases only after every pending owner summary enters reliable transport");
+	sink.messages.clear();
+	CHECK(session.stageInventory(owner, {1, 1}, 2, true, privateSlots) == FullEngineCoopServerSessionResult::Success &&
+		session.flush(sink).messagesSent == 0,
+		"unchanged revision/content never resends");
+	auto changedSlots = privateSlots;
+	--changedSlots[0].resourceTotal;
+	auto changedKind = privateSlots;
+	changedKind[0].statusKind = CoopInventoryStatusKind::ToolKitPoints;
+	auto changedFirst = privateSlots;
+	--changedFirst[0].firstCondition;
+	CHECK(session.stageInventory(owner, {1, 1}, 2, true, changedSlots) == FullEngineCoopServerSessionResult::InvalidContext &&
+		session.stageInventory(owner, {1, 1}, 2, true, changedKind) == FullEngineCoopServerSessionResult::InvalidContext &&
+		session.stageInventory(owner, {1, 1}, 2, true, changedFirst) == FullEngineCoopServerSessionResult::InvalidContext &&
+		session.stageInventory(owner, {1, 1}, 2, false, privateSlots) == FullEngineCoopServerSessionResult::InvalidContext &&
+		session.stageInventory(owner, {1, 1}, 1, true, privateSlots) == FullEngineCoopServerSessionResult::StaleContext &&
+		session.hasInventoryRevision(owner, {1, 1}, 2),
+		"same-revision total-only/kind-only/status/mode conflicts and backward revisions preserve staged truth");
+	CHECK(session.stageInventory(owner, {1, 1}, 3, true, changedSlots) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(owner, {1, 1}, 2),
+		"new private revision immediately revokes old token without a public delta");
+	sink.rejectNext = true;
+	CHECK(session.flush(sink).backpressured && !session.hasInventoryRevision(owner, {1, 1}, 3),
+		"failed enqueue never grants a private swap token");
+	CHECK(session.flush(sink).messagesSent == 1 && session.hasInventoryRevision(owner, {1, 1}, 3),
+		"retry enqueues the exact latest private replacement once");
+	CoopOwnerInventorySnapshot resourceReplacement;
+	CHECK(sink.messages.size() == 1 && sink.messages[0].peer == owner &&
+		DecodeCoopOwnerInventorySnapshot(sink.messages[0].bytes.data(), sink.messages[0].bytes.size(),
+			resourceReplacement) == CoopInventoryCodecResult::Success &&
+		resourceReplacement.inventoryRevision == 3 && resourceReplacement.slots == changedSlots &&
+		resourceReplacement.slots[0].firstCondition == privateSlots[0].firstCondition,
+		"new-revision total-only replacement reaches only its owner with exact metrics and unchanged first status");
+	CHECK(session.stageInventory(owner, {1, 1}, 4, true, privateSlots) == FullEngineCoopServerSessionResult::Success &&
+		session.disconnectPeer(owner) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(owner, {1, 1}, 3), "disconnect clears pending and sent private state");
+	sink.messages.clear();
+	CHECK(session.flush(sink).messagesSent == 0, "disconnected private bytes cannot flush to another peer");
+	CHECK(session.connectPeer(owner) == FullEngineCoopServerSessionResult::Success, "private owner reconnects");
+	CHECK(baseline(owner) != firstBaseline, "reconnect requires a new private baseline identity");
+	CHECK(session.stageInventory(owner, {1, 1}, 4, true, privateSlots) == FullEngineCoopServerSessionResult::Success &&
+		session.flush(sink).messagesSent == 1 && session.hasInventoryRevision(owner, {1, 1}, 4),
+		"fresh baseline resends unchanged native inventory revision");
+	CoopOwnerInventorySnapshot reconnectedResources;
+	CHECK(sink.messages.size() == 1 && sink.messages[0].peer == owner &&
+		DecodeCoopOwnerInventorySnapshot(sink.messages[0].bytes.data(), sink.messages[0].bytes.size(),
+			reconnectedResources) == CoopInventoryCodecResult::Success &&
+		reconnectedResources.slots == privateSlots && reconnectedResources.baselineId != firstBaseline,
+		"reconnect restores exact current typed resources under the fresh baseline without old pending totals");
+	CHECK(session.stageInventory(owner, {1, 1}, 5, true, privateSlots) == FullEngineCoopServerSessionResult::Success,
+		"reassignment fixture retains a pending old-owner frame");
+	assignments[0].peerIdentity = other;
+	CHECK(session.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(owner, {1, 1}, 4), "assignment replacement revokes every old private token");
+	sink.messages.clear();
+	CHECK(session.flush(sink).messagesSent == 0, "reassignment drops old pending private bytes behind fresh-baseline gate");
+	session.endWorld();
+	CHECK(!session.hasInventoryRevision(other, {5, 1}, 1), "world end clears owner state");
+}
+
+void TestOwnerInventoryResyncRevokesPendingAndSentState()
+{
+	FullEngineCoopServerSession session;
+	RecordingSink sink;
+	const auto peer = Identity(1);
+	const CoopTacticalActorAssignment assignment{{1, 1}, peer};
+	CHECK(session.beginSession(71) == FullEngineCoopServerSessionResult::Success &&
+		session.beginWorld(9, 10, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(peer) == FullEngineCoopServerSessionResult::Success &&
+		session.replaceAssignments(&assignment, 1) == FullEngineCoopServerSessionResult::Success,
+		"private resync fixture begins exact owner scope");
+	const auto snapshot = Snapshot(9, 1);
+	const auto baseline = MakePeerLive(session, sink, peer, snapshot);
+	const std::vector<CoopInventorySlotSummary> slots{
+		{0, 991, 1, 70, CoopInventorySlotSupport::OrdinarySwappable}};
+	CHECK(session.stageInventory(peer, assignment.actor, 1, true, slots) == FullEngineCoopServerSessionResult::Success &&
+		session.flush(sink).messagesSent == 1 && session.hasInventoryRevision(peer, assignment.actor, 1),
+		"private resync fixture has one successfully sent inventory token");
+	CHECK(session.stageInventory(peer, assignment.actor, 2, true, slots) == FullEngineCoopServerSessionResult::Success,
+		"private resync fixture also has an unsent replacement");
+	const auto request = ResyncBytes(baseline.state, 1, baseline.baselineId, 0, baseline.payloadChecksum,
+		CoopTacticalResyncReason::ReplicaRejected);
+	CHECK(session.requestResync(peer, request.data(), request.size()) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(peer, assignment.actor, 1) && !session.hasInventoryRevision(peer, assignment.actor, 2),
+		"authenticated public resync revokes both sent and pending private tokens");
+	sink.messages.clear();
+	const auto cleared = session.flush(sink);
+	CHECK(cleared.messagesSent == 0 && !cleared.inventoryPending && !cleared.backpressured,
+		"resync discards private bytes from the old baseline instead of blocking its replacement");
+	const auto replacement = MakePeerLive(session, sink, peer, snapshot);
+	CHECK(replacement.baselineId != baseline.baselineId &&
+		session.stageInventory(peer, assignment.actor, 2, true, slots) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(peer, assignment.actor, 2) && session.flush(sink).messagesSent == 1 &&
+		session.hasInventoryRevision(peer, assignment.actor, 2),
+		"unchanged native revision must publish again under the newly acknowledged baseline");
+	CoopOwnerInventorySnapshot received;
+	CHECK(!sink.messages.empty() && DecodeCoopOwnerInventorySnapshot(sink.messages.back().bytes.data(),
+		sink.messages.back().bytes.size(), received) == CoopInventoryCodecResult::Success &&
+		received.baselineId == replacement.baselineId && received.inventoryRevision == 2,
+		"recovery wire frame is bound to the replacement baseline rather than the retained old bytes");
+	session.endSession();
+	CHECK(!session.hasInventoryRevision(peer, assignment.actor, 2) && !session.flush(sink).inventoryPending,
+		"session retirement clears every private token and pending publication barrier");
+}
+
 }
 
 int main()
 {
+	TestOwnerInventoryResyncRevokesPendingAndSentState();
+	TestInventoryPendingSurvivesSharedMessageBudget();
+	TestGroundInventoryIdentityAndRevision();
+	TestOwnerInventoryIsolationAndReplacement();
+
 	TestConfigurationLifecycleAndAssignments();
 	TestBaselineAckGatingAndCatchup();
 	TestDeltaRingForcesResync();

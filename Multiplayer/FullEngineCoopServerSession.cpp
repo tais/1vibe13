@@ -56,6 +56,8 @@ const char* CoopTacticalOutboundMessageName(
 			return CoopTacticalBaselineMessageName;
 		case CoopTacticalOutboundMessageKind::Delta:
 			return CoopTacticalDeltaMessageName;
+		case CoopTacticalOutboundMessageKind::OwnerInventory:
+			return CoopOwnerInventoryMessageName;
 	}
 	return "";
 }
@@ -111,6 +113,7 @@ void FullEngineCoopServerSession::endSession() noexcept
 	worldActive_ = false;
 	sessionEpoch_ = 0;
 	worldGeneration_ = 0;
+	worldDimensions_ = {};
 	revision_ = 0;
 	turnSerial_ = 0;
 	nextBaselineId_ = 1;
@@ -119,6 +122,7 @@ void FullEngineCoopServerSession::endSession() noexcept
 	peerCount_ = 0;
 	assignments_ = {};
 	assignmentCount_ = 0;
+	inventories_ = {};
 	deltas_ = {};
 	deltaHead_ = 0;
 	deltaCount_ = 0;
@@ -137,6 +141,7 @@ FullEngineCoopServerSessionResult FullEngineCoopServerSession::beginWorld(
 		return FullEngineCoopServerSessionResult::StaleContext;
 
 	worldGeneration_ = worldGeneration;
+	worldDimensions_ = {};
 	revision_ = revision;
 	turnSerial_ = turnSerial;
 	worldActive_ = true;
@@ -169,6 +174,7 @@ void FullEngineCoopServerSession::endWorld() noexcept
 	if (flushing_) return;
 	worldActive_ = false;
 	worldGeneration_ = 0;
+	worldDimensions_ = {};
 	revision_ = 0;
 	turnSerial_ = 0;
 	assignments_ = {};
@@ -450,6 +456,8 @@ void FullEngineCoopServerSession::resetPeerReplication(
 	PeerRecord& peer,
 	CoopTacticalPeerPhase phase) noexcept
 {
+	clearPeerInventories(peer.identity);
+	peer.nextInventorySlot = 0;
 	peer.phase = phase;
 	peer.baselineId = 0;
 	peer.baselineRevision = 0;
@@ -504,7 +512,9 @@ FullEngineCoopServerSessionResult FullEngineCoopServerSession::stageBaseline(
 	if (peer->phase == CoopTacticalPeerPhase::AwaitingBaselineAck)
 		return FullEngineCoopServerSessionResult::UnexpectedAcknowledgement;
 	if (snapshot.epoch() != worldGeneration_ ||
-		snapshot.turn().serial != turnSerial_)
+		snapshot.turn().serial != turnSerial_ ||
+		(worldDimensions_.valid() && (worldDimensions_.columns != snapshot.dimensions().columns ||
+			worldDimensions_.rows != snapshot.dimensions().rows)))
 		return FullEngineCoopServerSessionResult::InvalidContext;
 
 	CoopTacticalBaseline baseline;
@@ -535,7 +545,9 @@ FullEngineCoopServerSessionResult FullEngineCoopServerSession::stageBaseline(
 	if (encodedResult != CoopTacticalCodecResult::Success)
 		return FullEngineCoopServerSessionResult::CodecFailure;
 
+	worldDimensions_ = snapshot.dimensions();
 	peer->phase = CoopTacticalPeerPhase::AwaitingBaselineAck;
+	clearPeerInventories(identity);
 	peer->baselineId = nextBaselineId_;
 	peer->baselineRevision = revision_;
 	peer->baselineTurnSerial = turnSerial_;
@@ -549,6 +561,123 @@ FullEngineCoopServerSessionResult FullEngineCoopServerSession::stageBaseline(
 	peer->inFlightDeltas = 0;
 	nextBaselineId_ = nextBaselineId(nextBaselineId_);
 	return FullEngineCoopServerSessionResult::Success;
+}
+
+bool FullEngineCoopServerSession::ownsInventoryActor(
+	const PeerIdentity& peer, TacticalEntityId actor) const noexcept
+{
+	if (!actor.valid() || actor.slot >= inventories_.size()) return false;
+	for (std::size_t index = 0; index < assignmentCount_; ++index)
+		if (assignments_[index].actor == actor)
+			return assignments_[index].peerIdentity == peer;
+	return false;
+}
+
+void FullEngineCoopServerSession::clearPeerInventories(const PeerIdentity& peer) noexcept
+{
+	for (auto& inventory : inventories_)
+		if (inventory.snapshot.owner == peer) inventory = InventoryRecord{};
+}
+
+FullEngineCoopServerSessionResult FullEngineCoopServerSession::stageInventory(
+	const PeerIdentity& identity, TacticalEntityId actor,
+	std::uint64_t inventoryRevision, bool usesNewInventory,
+	const std::vector<CoopInventorySlotSummary>& slots) noexcept
+{
+	try
+	{
+		CoopOwnerInventorySnapshot captured;
+		captured.actor = actor;
+		captured.inventoryRevision = inventoryRevision;
+		captured.usesNewInventory = usesNewInventory;
+		captured.slots = slots;
+		return stageInventory(identity, captured);
+	}
+	catch (...) { return FullEngineCoopServerSessionResult::AllocationFailure; }
+}
+
+FullEngineCoopServerSessionResult FullEngineCoopServerSession::stageInventory(
+	const PeerIdentity& identity, const CoopOwnerInventorySnapshot& captured) noexcept
+{
+	const auto actor = captured.actor;
+	const auto inventoryRevision = captured.inventoryRevision;
+	if (flushing_) return FullEngineCoopServerSessionResult::Busy;
+	if (!active_) return FullEngineCoopServerSessionResult::NotActive;
+	if (!worldActive_) return FullEngineCoopServerSessionResult::NoWorld;
+	const PeerRecord* peer = findPeer(identity);
+	if (!peer || !peer->connected) return FullEngineCoopServerSessionResult::InvalidPeer;
+	if (!ownsInventoryActor(identity, actor)) return FullEngineCoopServerSessionResult::InvalidAssignment;
+	if (peer->baselineId == 0 ||
+		(peer->phase != CoopTacticalPeerPhase::Active &&
+		 peer->phase != CoopTacticalPeerPhase::AwaitingBaselineAck))
+		return FullEngineCoopServerSessionResult::InvalidContext;
+	if (captured.worldGeneration != 0 && captured.worldGeneration != worldGeneration_)
+		return FullEngineCoopServerSessionResult::StaleContext;
+	if (inventoryRevision == 0 || !IsValidCoopInventorySlots(captured.slots) ||
+		!IsValidCoopNearbyLootGeometry(captured, worldDimensions_.columns, worldDimensions_.rows))
+		return FullEngineCoopServerSessionResult::InvalidContext;
+	InventoryRecord& current = inventories_[actor.slot];
+	if (current.snapshot.actor == actor && current.snapshot.owner == identity &&
+		current.snapshot.baselineId == peer->baselineId)
+	{
+		if (inventoryRevision < current.snapshot.inventoryRevision)
+			return FullEngineCoopServerSessionResult::StaleContext;
+		if (inventoryRevision == current.snapshot.inventoryRevision)
+			return current.snapshot.slots == captured.slots &&
+				current.snapshot.usesNewInventory == captured.usesNewInventory &&
+				current.snapshot.groundGrid == captured.groundGrid &&
+				current.snapshot.groundLevel == captured.groundLevel &&
+				current.snapshot.groundItemsTruncated == captured.groundItemsTruncated &&
+				current.snapshot.groundItems == captured.groundItems &&
+				current.snapshot.nearbyLoot == captured.nearbyLoot &&
+				current.snapshot.nearbyLootTruncated == captured.nearbyLootTruncated
+				? FullEngineCoopServerSessionResult::Success
+				: FullEngineCoopServerSessionResult::InvalidContext;
+	}
+	try
+	{
+		InventoryRecord staged;
+		staged.snapshot = captured;
+		staged.snapshot.sessionEpoch = sessionEpoch_;
+		staged.snapshot.worldGeneration = worldGeneration_;
+		staged.snapshot.baselineId = peer->baselineId;
+		staged.snapshot.inventoryRevision = inventoryRevision;
+		staged.snapshot.owner = identity;
+		staged.snapshot.actor = actor;
+		const auto encoded = EncodeCoopOwnerInventorySnapshot(staged.snapshot, staged.bytes);
+		if (encoded != CoopInventoryCodecResult::Success)
+			return encoded == CoopInventoryCodecResult::AllocationFailure
+				? FullEngineCoopServerSessionResult::AllocationFailure
+				: FullEngineCoopServerSessionResult::CodecFailure;
+		staged.publicRevision = revision_;
+		staged.pending = true;
+		current = std::move(staged);
+		return FullEngineCoopServerSessionResult::Success;
+	}
+	catch (...) { return FullEngineCoopServerSessionResult::AllocationFailure; }
+}
+
+bool FullEngineCoopServerSession::hasInventoryRevision(
+	const PeerIdentity& identity, TacticalEntityId actor,
+	std::uint64_t inventoryRevision) const noexcept
+{
+	if (!active_ || !worldActive_ || inventoryRevision == 0 || !ownsInventoryActor(identity, actor)) return false;
+	const PeerRecord* peer = findPeer(identity);
+	if (!peer || !peer->connected || peer->phase != CoopTacticalPeerPhase::Active) return false;
+	const auto& inventory = inventories_[actor.slot];
+	return inventory.sent && !inventory.pending && inventory.snapshot.actor == actor &&
+		inventory.snapshot.owner == identity && inventory.snapshot.sessionEpoch == sessionEpoch_ &&
+		inventory.snapshot.worldGeneration == worldGeneration_ && inventory.snapshot.baselineId == peer->baselineId &&
+		inventory.snapshot.inventoryRevision == inventoryRevision;
+}
+
+bool FullEngineCoopServerSession::hasGroundItemRevision(
+	const PeerIdentity& identity, TacticalEntityId actor,
+	std::uint64_t inventoryRevision, TacticalWorldItemId item) const noexcept
+{
+	if (!item.valid() || !hasInventoryRevision(identity, actor, inventoryRevision)) return false;
+	const auto& ground = inventories_[actor.slot].snapshot.groundItems;
+	return std::any_of(ground.begin(), ground.end(), [item](const auto& entry) { return entry.id == item; });
 }
 
 bool FullEngineCoopServerSession::sameState(
@@ -1056,20 +1185,30 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 	FullEngineCoopServerSessionWireSink& sink) noexcept
 {
 	FullEngineCoopServerSessionFlushResult result;
+	const auto finish = [this, &result]() noexcept {
+		// Every exit must report the whole private backlog, including peers not
+		// visited before a shared message budget is exhausted and summaries
+		// waiting for their baseline ACK. The coordinator uses this logical
+		// barrier to hold transient receipts and world teardown, without blocking
+		// the inbound ACKs that can release publication.
+		result.inventoryPending = std::any_of(inventories_.begin(), inventories_.end(),
+			[](const InventoryRecord& inventory) noexcept { return inventory.pending; });
+		return result;
+	};
 	if (!active_)
 	{
 		result.result = FullEngineCoopServerSessionResult::NotActive;
-		return result;
+		return finish();
 	}
 	if (!worldActive_)
 	{
 		result.result = FullEngineCoopServerSessionResult::NoWorld;
-		return result;
+		return finish();
 	}
 	if (flushing_)
 	{
 		result.result = FullEngineCoopServerSessionResult::Busy;
-		return result;
+		return finish();
 	}
 	struct FlushGuard
 	{
@@ -1086,7 +1225,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 		PeerRecord& peer = peers_[peerIndex];
 		if (!peer.connected) continue;
 		if (result.messagesSent >= configuration_.maximumMessagesPerFlush)
-			return result;
+			return finish();
 
 		if (peer.phase == CoopTacticalPeerPhase::AwaitingBaselineAck &&
 			!peer.baselineSent)
@@ -1095,7 +1234,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 			{
 				result.result =
 					FullEngineCoopServerSessionResult::SequenceExhausted;
-				return result;
+				return finish();
 			}
 			if (peer.sentCheckpointCount == peer.sentCheckpoints.size() &&
 				(!peer.committedCheckpointValid ||
@@ -1108,7 +1247,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 					peer.baselineBytes.data(), peer.baselineBytes.size()))
 			{
 				result.backpressured = true;
-				return result;
+				return finish();
 			}
 			peer.baselineSent = true;
 			recordSentCheckpoint(peer, SentCheckpoint{0, true, peer.baselineId, 0,
@@ -1123,7 +1262,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 		{
 			if (result.messagesSent >=
 				configuration_.maximumMessagesPerFlush)
-				return result;
+				return finish();
 			if (peer.nextDeltaToSend == 0 ||
 				peer.nextDeltaToSend == nextDeltaId_)
 				break;
@@ -1139,7 +1278,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 			{
 				result.result =
 					FullEngineCoopServerSessionResult::SequenceExhausted;
-				return result;
+				return finish();
 			}
 			if (peer.sentCheckpointCount == peer.sentCheckpoints.size() &&
 				(!peer.committedCheckpointValid ||
@@ -1152,7 +1291,7 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 					delta->bytes.data(), delta->bytes.size()))
 			{
 				result.backpressured = true;
-				return result;
+				return finish();
 			}
 			peer.nextDeltaToSend = nextDeltaId(delta->id);
 			recordSentCheckpoint(peer, SentCheckpoint{0, false, peer.baselineId,
@@ -1161,6 +1300,50 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 			peer.lastSentRevision = delta->revision;
 			++peer.inFlightDeltas;
 			++result.messagesSent;
+		}
+
+		// A private full replacement is emitted only to its current owner, after
+		// its public frame has entered the same reliable ordered queue. A newer
+		// unsent private revision immediately invalidates an older swap token.
+		std::size_t inventoryMessages = 0;
+		const std::size_t firstInventorySlot = peer.nextInventorySlot;
+		for (std::size_t offset = 0; offset < inventories_.size() &&
+			inventoryMessages < MaximumCoopInventoryMessagesPerPeerPerFlush; ++offset)
+		{
+			const std::size_t slot = (firstInventorySlot + offset) % inventories_.size();
+			auto& inventory = inventories_[slot];
+			if (inventory.snapshot.owner != peer.identity || !inventory.pending) continue;
+			if (inventory.snapshot.baselineId != peer.baselineId ||
+				!ownsInventoryActor(peer.identity, inventory.snapshot.actor))
+			{
+				inventory = InventoryRecord{};
+				continue;
+			}
+			if (inventory.publicRevision > peer.lastSentRevision) continue;
+			if (result.messagesSent >= configuration_.maximumMessagesPerFlush) return finish();
+			if (!sink.send(peer.identity, CoopTacticalOutboundMessageKind::OwnerInventory,
+				CoopOwnerInventoryMessageName, inventory.bytes.data(), inventory.bytes.size()))
+			{
+				result.backpressured = true;
+				return finish();
+			}
+			inventory.pending = false;
+			inventory.sent = true;
+			peer.nextInventorySlot = (slot + 1) % inventories_.size();
+			++inventoryMessages;
+			++result.messagesSent;
+		}
+
+		const bool privateStatePending = std::any_of(inventories_.begin(), inventories_.end(),
+			[&peer](const InventoryRecord& inventory) noexcept {
+				return inventory.snapshot.owner == peer.identity && inventory.pending;
+			});
+		if (privateStatePending)
+		{
+			// Do not unlock a retained command before every current private
+			// summary has entered this peer's reliable queue. Fair bounded sends
+			// above let the remaining actors catch up without consuming receipts.
+			continue;
 		}
 
 		// An outcome naming revision N is never emitted before every delta through
@@ -1173,20 +1356,20 @@ FullEngineCoopServerSessionFlushResult FullEngineCoopServerSession::flush(
 				continue;
 			if (result.messagesSent >=
 				configuration_.maximumMessagesPerFlush)
-				return result;
+				return finish();
 			if (!sink.send(peer.identity,
 					CoopTacticalOutboundMessageKind::IntentReceipt,
 					CoopTacticalIntentReceiptMessageName,
 					receipt.bytes.data(), receipt.bytes.size()))
 			{
 				result.backpressured = true;
-				return result;
+				return finish();
 			}
 			receipt.pending = false;
 			++result.messagesSent;
 		}
 	}
-	return result;
+	return finish();
 }
 
 std::size_t FullEngineCoopServerSession::peersNeedingBaseline(

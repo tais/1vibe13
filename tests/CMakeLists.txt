@@ -462,6 +462,7 @@ add_executable(full_engine_coop_server_session_tests
   full_engine_coop_server_session_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
 )
 target_include_directories(full_engine_coop_server_session_tests PRIVATE
@@ -527,6 +528,7 @@ add_executable(full_engine_coop_tactical_server_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
