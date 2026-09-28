@@ -4690,7 +4690,7 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "impl_->campaignEntered = true"
   "impl_->entryRequested = false"
   "impl_->startAdmission()"
-  "impl_->pumpTactical(context)"
+  "impl_->pumpTactical(context, *this)"
   "impl_->checkpointNow(context, false)"
   "IneligibleRetryDelay")
 require_ordered_fragments(dedicated_live_runtime_pump_slice
@@ -4772,7 +4772,7 @@ require_ordered_fragments(dedicated_live_runtime_observed_world_slice
   "observedRevision = publication.serial")
 
 set(dedicated_live_runtime_tactical_pump_marker
-  "bool pumpTactical(GameContext& context) noexcept")
+  "bool pumpTactical(GameContext& context, DedicatedCoopRuntime& runtime) noexcept")
 extract_brace_bounded_slice(dedicated_live_runtime_code
   "${dedicated_live_runtime_tactical_pump_marker}"
   dedicated_live_runtime_tactical_pump_slice
@@ -4790,7 +4790,7 @@ require_ordered_fragments(dedicated_live_runtime_tactical_pump_slice
   "tactical->host.flushPendingReceipts()"
   "tactical->listener.poll()"
   "reconcileCampaignPeersAndGateTactical()"
-  "pumpCampaignInboundAndOutbound()"
+  "pumpCampaignInboundAndOutbound(runtime)"
   "tactical->server.reconcilePeers()"
   "stageCurrentWorld(*publication.snapshot)"
   "tactical->server.pumpInbound(diagnostics.simulationTick)"
@@ -4962,7 +4962,7 @@ require_ordered_fragments(dedicated_live_retirement_finish_slice
   "return startAdmission()")
 
 extract_brace_bounded_slice(dedicated_live_runtime_code
-  "bool pumpTactical(GameContext& context) noexcept"
+  "bool pumpTactical(GameContext& context, DedicatedCoopRuntime& runtime) noexcept"
   dedicated_live_retirement_pump_slice
   "Cannot bound dedicated co-op tactical pump retirement ordering")
 require_ordered_fragments(dedicated_live_retirement_pump_slice
@@ -39217,3 +39217,200 @@ require_ordered_fragments(checked_aim_arrival_build "Checked native AIM dispatch
   "add_executable(native_campaign_aim_arrival_tests"
   "add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)"
   "add_test(NAME native_campaign_aim_arrival_dispatch")
+
+
+# Campaign execution belongs to the committed native runtime, after transport
+# callbacks unwind and before terminal results expose its updated observations.
+require_ordered_fragments(dedicated_live_runtime_code "Runtime must prevent checkpoints from losing unserialized arrival decisions"
+  "snapshot.dialogueQueue =" "!DedicatedCoopArrivalDecisionPending()")
+require_ordered_fragments(dedicated_live_runtime_code "Pending arrival must keep peers serviced without falling through to automatic mission entry"
+  "impl_->arrivalDecisions.front()" "if (!impl_->pumpTactical(context, *this)) return;"
+  "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;" "const Clock::time_point now = Clock::now();"
+  "LaunchDedicatedCoopEstablishedMission()")
+require_ordered_fragments(dedicated_live_runtime_code "Runtime must prepare pending battles without silently selecting a result"
+  "PrepareDedicatedCoopArrivalBattle(decision->id, preparation)" "DedicatedCoopArrivalPrepareResult::Failed"
+  "impl_->fail(DedicatedCoopRuntimeError::InvalidState)" "DedicatedCoopArrivalPrepareResult::Prepared"
+  "if (!impl_->pumpTactical(context, *this)) return;" "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopArrivalEnterResult DedicatedCoopRuntime::enterArrivalBattle(std::uint64_t decision,\n\tNativePreBattleDeployment deployment) noexcept"
+  coop_battle_entry_runtime "Cannot bound committed runtime battle entry")
+require_ordered_fragments(coop_battle_entry_runtime "Battle entry must gate prior world drain and rejoin ordinary fresh-baseline/victory handling"
+  "StarterMissionState::StrategicIdle" "impl_->worldDraining" "server.worldActive()"
+  "EnterDedicatedCoopArrivalBattle(decision, deployment)" "impl_->fail(DedicatedCoopRuntimeError::MissionLaunchFailed" "result != Result::Entered"
+  "StarterMissionState::WaitingForControllableActor" "impl_->minimumControllableActors = 1"
+  "impl_->postCombatReturnArmed = true")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopArrivalRetreatResult DedicatedCoopRuntime::retreatArrivalBattle(std::uint64_t decision) noexcept"
+  coop_battle_retreat_runtime "Cannot bound committed runtime retreat")
+require_ordered_fragments(coop_battle_retreat_runtime "Runtime retreat must stay in the established strategic phase and latch native failure"
+  "StarterMissionState::StrategicIdle" "impl_->worldDraining" "server.worldActive()"
+  "RetreatFromDedicatedCoopArrivalBattle(decision)" "Result::Failed" "impl_->fail(" "return result")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool publishCampaignStatus() noexcept" dedicated_live_campaign_status_publish
+  "Cannot bound committed server campaign observation")
+require_ordered_fragments(dedicated_live_campaign_status_publish
+  "Campaign status lost native read / ledger / authenticated delivery ordering"
+  "campaignReadyPeers(ready)" "GetWorldTotalSeconds()" "GamePaused()"
+  "PauseStateLocked()" "IsTimeBeingCompressed()" "gfTimeInterrupt"
+  "arrivalDecisions.captureObservation(captured.arrival)" "campaignStatusLedger.observe(" "EncodeCoopCampaignStatus("
+  "authenticatedTransportForPeer(" "listener.sendToPeer("
+  "*found = {ready[index], transport, campaignStatusLedger.value().revision}")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool worldlessStrategicTimeControl() const noexcept" campaign_time_phase_guard
+  "Cannot bound native strategic clock phase guard")
+require_ordered_fragments(campaign_time_phase_guard "Campaign time must exclude bootstrap and tactical worlds"
+  "StarterMissionState::StrategicIdle" "!worldDraining" "!tactical->server.worldActive()" "IsDedicatedCoopStarterMissionMapReady()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool campaignTimePeerReady(const CoopSession::PeerIdentity& peer) const noexcept" campaign_time_ready_guard
+  "Cannot bound campaign time readiness guard")
+require_ordered_fragments(campaign_time_ready_guard "Time input must respect pre-poll and current readiness"
+  "tactical->server.campaignReadyPeers(gated)" "tactical->campaignSync->readyPeers(current)"
+  "std::find(gated.begin()" "&&" "std::find(current.begin()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "void handleCampaignTimeRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept" campaign_time_apply
+  "Cannot bound campaign time request execution")
+require_ordered_fragments(campaign_time_apply "Time execution must bind current transport, readiness and native guard"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignTimeRequest("
+  "campaignTimeAuthority.submit(" "campaignTimePeerReady(" "worldlessStrategicTimeControl()" "TrySetWorldlessStrategicTimeCompression(mode)")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "void pauseStrategicTimeWithoutLeader() noexcept" campaign_time_offline_pause
+  "Cannot bound offline leader strategic safety pause")
+require_ordered_fragments(campaign_time_offline_pause "Leader loss must pause strategic time without resuming on reconnect"
+  "!worldlessStrategicTimeControl()" "campaignStatusLedger.value().timeLeader" "!campaignTimePeerReady(leader)"
+  "TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0)")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool handleCampaignActionRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message,\n\t\tDedicatedCoopRuntime& runtime) noexcept"
+  campaign_action_runtime_request "Cannot bound committed campaign action execution")
+require_ordered_fragments(campaign_action_runtime_request "Action execution lost fresh transport/readiness, shared authority or immediate recapture"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignActionRequest("
+  "campaignActionAuthority.submit(" "campaignTimePeerReady(message.peerIdentity), true, worldlessStrategicTimeControl()"
+  "campaignStatusLedger, campaignGroupsLedger.value()" "applyCampaignAction(accepted, runtime)"
+  "campaignActionAuthority.failed()" "publishCampaignStatus() && publishCampaignGroups()")
+extract_brace_bounded_slice(dedicated_live_runtime_code "CoopSession::CoopCampaignActionNativeResult applyCampaignAction(\n\t\tconst CoopSession::CoopCampaignActionRequest& request, DedicatedCoopRuntime& runtime) noexcept"
+  campaign_action_native_boundary "Cannot bound shared action native adapter")
+require_ordered_fragments(campaign_action_native_boundary "Campaign action execution bypassed established native gameplay adapters"
+  "!worldlessStrategicTimeControl() || selfRetirementActive"
+  "StartDedicatedCoopTravel(request.group, request.destinationX, request.destinationY)"
+  "ReplyToDedicatedCoopArrival(request.decision" "runtime.enterArrivalBattle(request.decision"
+  "NativePreBattleDeployment::Forced : NativePreBattleDeployment::Spread" "runtime.retreatArrivalBattle(request.decision)")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaignActionResults() noexcept"
+  campaign_action_runtime_results "Cannot bound action result publication")
+require_ordered_fragments(campaign_action_runtime_results "Action receipts must follow both exact current observations on the authenticated ready transport"
+  "authenticatedTransportForPeer(" "current != delivery.peer.transport" "campaignTimePeerReady(delivery.peer.identity)"
+  "sent(campaignStatusDeliveries, campaignStatusLedger.value().revision)"
+  "sent(campaignGroupsDeliveries, campaignGroupsLedger.value().revision)"
+  "EncodeCoopCampaignActionResult(" "listener.sendToPeer(" "campaignActionAuthority.delivered(i)")
+
+
+require_ordered_fragments(dedicated_live_runtime_tactical_pump_slice
+  "Campaign execution must consume one authenticated FIFO with fresh observations and pause again after a readiness change"
+  "tactical->listener.poll()" "reconcileCampaignPeersAndGateTactical()"
+  "pauseStrategicTimeWithoutLeader()" "publishCampaignStatus()" "publishCampaignGroups()"
+  "publishCampaignEconomyAndQuotes()" "reconcileCampaignTimePeers()"
+  "reconcileCampaignActionPeers()" "reconcileCampaignHirePeers()"
+  "pumpCampaignInboundAndOutbound(runtime)" "pauseStrategicTimeWithoutLeader()"
+  "publishCampaignStatus()" "publishCampaignGroups()" "publishCampaignEconomyAndQuotes()"
+  "flushCampaignTimeResults()" "flushCampaignActionResults()" "flushCampaignHireResults()"
+  "tactical->server.reconcilePeers()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool pumpCampaignInboundAndOutbound(DedicatedCoopRuntime& runtime) noexcept"
+  campaign_runtime_fifo "Cannot bound the native campaign FIFO")
+require_ordered_fragments(campaign_runtime_fifo
+  "Campaign mutations must be dispatched explicitly and never become sync requests"
+  "popCampaignInbound(message)" "FullEngineCoopCampaignInboundKind::HireRequest"
+  "handleCampaignHireRequest(message)" "FullEngineCoopCampaignInboundKind::ActionRequest"
+  "handleCampaignActionRequest(message, runtime)" "FullEngineCoopCampaignInboundKind::TimeRequest"
+  "handleCampaignTimeRequest(message)" "publishCampaignStatus()" "publishCampaignGroups()"
+  "publishCampaignEconomyAndQuotes()" "switch (message.kind)"
+  "FullEngineCoopCampaignInboundKind::Ack" "FullEngineCoopCampaignInboundKind::Result"
+  "FullEngineCoopCampaignInboundKind::Resync" "default:"
+  "fail(DedicatedCoopRuntimeError::CampaignSyncFailed)" "return false"
+  "tactical->campaignSync->handleInbound(" "IsFatalCoopCampaignSyncInboundResult(handled)")
+require_ordered_fragments(dedicated_live_runtime_code
+  "Native coordinator must opt into campaign requests only with its complete handlers and fresh per-epoch ledgers"
+  "campaignStatusLedger.clear()" "campaignTimeAuthority.clear()"
+  "campaignActionAuthority.clear()" "campaignHireAuthority.clear()"
+  "campaignStatusLedger.beginSession(epoch)" "campaignGroupsLedger.beginSession(epoch)"
+  "campaignEconomyLedger.beginSession(epoch)" "campaignQuotesLedger.beginSession(epoch)"
+  "configuration.enableCampaignRequests = true")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool handleCampaignHireRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept"
+  campaign_runtime_hire "Cannot bound native shared hiring")
+require_ordered_fragments(campaign_runtime_hire
+  "Paid hiring must bind the current transport and readiness, serialize against current offers, then recapture all changed state"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignHireRequest("
+  "campaignHireAuthority.submit(" "campaignTimePeerReady(message.peerIdentity)"
+  "worldlessStrategicTimeControl() && !selfRetirementActive" "campaignStatusLedger"
+  "campaignEconomyLedger.value()" "campaignQuotesLedger.value()" "HireDedicatedCoopAimMerc("
+  "hired.mutationMayHaveStarted" "campaignHireAuthority.failed()" "fail(DedicatedCoopRuntimeError::InvalidState)"
+  "publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes()")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool publishCampaignEconomyAndQuotes() noexcept"
+  campaign_runtime_economy "Cannot bound native campaign economic observation")
+require_ordered_fragments(campaign_runtime_economy
+  "Offers must derive from and follow the exact economy replacement"
+  "CaptureDedicatedCoopCampaignEconomy(economy)" "campaignEconomyLedger.observe(economy)"
+  "CaptureDedicatedCoopCampaignAimQuotes(campaignEconomyLedger.value(), quotes)"
+  "quotes.economyRevision = campaignEconomyLedger.value().revision" "campaignQuotesLedger.observe(quotes)"
+  "queueCampaignEconomicObservation(CoopSession::CoopCampaignEconomyMessageName"
+  "queueCampaignEconomicObservation(CoopSession::CoopCampaignAimQuotesMessageName"
+  "&campaignEconomyDeliveries, campaignEconomyLedger.value().revision")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool queueCampaignEconomicObservation(const char* message, const std::uint8_t* bytes,\n\t\tstd::size_t size, std::uint64_t revision, DeliveryList& deliveries,\n\t\tconst DeliveryList* prerequisite = nullptr, std::uint64_t prerequisiteRevision = 0) noexcept"
+  campaign_runtime_economic_delivery "Cannot bound ordered campaign economic delivery")
+require_ordered_fragments(campaign_runtime_economic_delivery
+  "Backpressured offers cannot overtake their economy, and only queued sends advance a transport's cursor"
+  "authenticatedTransportForPeer(" "if (prerequisite && !std::any_of("
+  "sent.peer == ready[i] && sent.transport == transport && sent.revision == prerequisiteRevision"
+  "listener.sendToPeer(ready[i], message, bytes, size)" "*found = {ready[i], transport, revision}")
+foreach(campaign_receipt_domain IN ITEMS Time Action Hire)
+  extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaign${campaign_receipt_domain}Results() noexcept"
+    campaign_runtime_receipt "Cannot bound a campaign receipt publication path")
+  require_ordered_fragments(campaign_runtime_receipt
+    "A terminal campaign receipt must follow its current economic observations on the same authenticated transport"
+    "authenticatedTransportForPeer(" "current != delivery.peer.transport"
+    "campaignEconomicObservationsDelivered(delivery.peer.identity, current)"
+    "EncodeCoopCampaign${campaign_receipt_domain}Result(" "listener.sendToPeer("
+    "campaign${campaign_receipt_domain}Authority.delivered(i)")
+endforeach()
+foreach(campaign_read_only IN ITEMS dedicated_live_campaign_status_publish campaign_runtime_economy)
+  foreach(campaign_mutation IN ITEMS "WarpGameTime(" "PauseGame(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression(" "HireDedicatedCoopAimMerc(" "StartDedicatedCoopTravel(")
+    string(FIND "${${campaign_read_only}}" "${campaign_mutation}" campaign_mutation_at)
+    if(NOT campaign_mutation_at EQUAL -1)
+      message(FATAL_ERROR "Read-only campaign observation gained '${campaign_mutation}'")
+    endif()
+  endforeach()
+endforeach()
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Acknowledged scenes must wait for receipts and a committed native boundary before consequences run"
+  "if (!impl_->pumpTactical(context, *this)) return;" "impl_->meanwhile.acknowledged()"
+  "impl_->campaignActionAuthority.deliveries()" "if (delivery.pending) return;"
+  "impl_->freshAssignmentBaselineBoundary()" "CompleteDedicatedCoopMeanwhile(notice->id)")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Battle outcome completion must not unload a world inside the shared FIFO handler"
+  "impl_->battleNotice.acknowledged()" "impl_->campaignActionAuthority.deliveries()"
+  "if (delivery.pending) return;" "impl_->freshAssignmentBaselineBoundary()"
+  "impl_->stopAdmissionForPostCombatReturn()" "CompleteDedicatedCoopBattleNotice(notice->id)"
+  "impl_->beginWorldDrain()" "impl_->tryFinishWorldDrain(context)")
+foreach(campaign_unload IN ITEMS "CompleteDedicatedCoopMeanwhile(" "CompleteDedicatedCoopBattleNotice(")
+  string(FIND "${campaign_action_native_boundary}" "${campaign_unload}" campaign_inline_unload)
+  if(NOT campaign_inline_unload EQUAL -1)
+    message(FATAL_ERROR "Shared FIFO action gained native completion '${campaign_unload}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Ja2/gameloop.cpp" campaign_runtime_frame_source)
+extract_brace_bounded_slice(campaign_runtime_frame_source "static FramePlan PrepareGameFrame()"
+  campaign_runtime_frame "Cannot bound native decision frame hold")
+require_ordered_fragments(campaign_runtime_frame
+  "Shared decisions must hold native frame work while completed-frame networking remains available"
+  "campaignSimulation().throwIfFailed()" "DedicatedCoopSurrenderPending()"
+  "DedicatedCoopBattleNoticePending()" "DedicatedCoopMeanwhilePending()" "return FramePlan{};" "GetCurrentScreen()")
+
+# A headless campaign has no player to dismiss first-visit help. Keep this
+# before all modal/help-preference handling without changing save-owned bits.
+file(READ "${SOURCE_ROOT}/Ja2/HelpScreen.cpp" campaign_runtime_help_code)
+extract_brace_bounded_slice(campaign_runtime_help_code
+  "BOOLEAN ShouldTheHelpScreenComeUp( UINT8 ubScreenID, BOOLEAN fForceHelpScreenToComeUp )"
+  campaign_runtime_help "Cannot bound dedicated help-screen admission")
+require_ordered_fragments(campaign_runtime_help
+  "Dedicated hosts must reject local help before forced or saved first-visit help"
+  "if( gfDedicatedServer )" "return( FALSE );" "if( fForceHelpScreenToComeUp )")

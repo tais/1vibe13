@@ -8,6 +8,9 @@
 #include <filesystem>
 
 class GameContext;
+enum class NativePreBattleDeployment : std::uint8_t;
+enum class DedicatedCoopArrivalEnterResult : std::uint8_t;
+enum class DedicatedCoopArrivalRetreatResult : std::uint8_t;
 
 enum class DedicatedCoopRuntimeError : std::uint8_t
 {
@@ -84,6 +87,11 @@ public:
 	bool openCampaignAfterBootstrap(GameContext& context) noexcept;
 	bool requestCampaignEntry() noexcept;
 	void pumpAfterCommittedFrame(GameContext& context) noexcept;
+	// Internal committed-frame actions. The caller validates the shared player's
+	// explicit decision separately; time leadership grants no entry right.
+	DedicatedCoopArrivalEnterResult enterArrivalBattle(std::uint64_t decision,
+		NativePreBattleDeployment deployment) noexcept;
+	DedicatedCoopArrivalRetreatResult retreatArrivalBattle(std::uint64_t decision) noexcept;
 	bool shutdownAtCommittedBoundary(GameContext& context) noexcept;
 	bool detachTacticalComposition() noexcept;
 	void stopAdmissionTransport() noexcept;
