@@ -210,6 +210,24 @@ public:
 	bool prepared() const noexcept;
 	bool networkOpen() const noexcept;
 	bool campaignReady() const noexcept;
+	// Copied friendly-group observation, independent of tactical geometry.
+	// True means a current message exists; inspect output.available separately.
+	bool campaignGroups(CoopSession::CoopCampaignGroups& output) const noexcept;
+	bool campaignEconomy(CoopSession::CoopCampaignEconomy& output) const noexcept;
+	bool campaignAimQuotes(CoopSession::CoopCampaignAimQuotes& output) const noexcept;
+	// Display label from the synchronized passive checkpoint; never offer,
+	// price or hiring authority. Empty/invalid labels use a caller fallback.
+	bool campaignProfileNickname(std::uint16_t profile, std::array<wchar_t,32>& output) const noexcept;
+	CoopSession::FullEngineCoopClientResult requestCampaignHire(std::uint16_t profile, std::uint8_t days, bool buyGear) noexcept;
+	bool campaignHireFeedback(CoopSession::CoopCampaignHireResult& output, bool& pending) const noexcept;
+	// Copied server observation, independent of tactical geometry/baseline.
+	// Never exposes the paused local checkpoint's clock as live campaign time.
+	bool campaignStatus(CoopSession::CoopCampaignStatus& output,
+		bool& localTimeLeader) const noexcept;
+	CoopSession::FullEngineCoopClientResult requestCampaignTime(CoopSession::CoopCampaignTimeAction action) noexcept;
+	bool campaignTimeFeedback(CoopSession::CoopCampaignTimeResult& output, bool& pending) const noexcept;
+	CoopSession::FullEngineCoopClientResult requestCampaignAction(const CoopSession::CoopCampaignActionRequest& request) noexcept;
+	bool campaignActionFeedback(CoopSession::CoopCampaignActionResult& output, bool& pending) const noexcept;
 	bool retired() const noexcept;
 	bool selfRetirementPending() const noexcept;
 	bool failed() const noexcept;

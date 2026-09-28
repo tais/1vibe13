@@ -1,4 +1,5 @@
 #include "CoopCampaignTimeAuthority.h"
+#include <Ja2/FullEngineCoopClientCampaignTimeInput.h>
 #include <cstdio>
 using namespace CoopSession;
 namespace
@@ -9,8 +10,7 @@ PeerIdentity Identity(unsigned n) { PeerIdentity p{}; p[0] = static_cast<std::ui
 void Codec()
 {
 	CoopCampaignTimeRequest r{0x0102030405060708ull, 9, 10, CoopCampaignTimeAction::ThirtyMinutes};
-	CoopCampaignTimeRequestBytes bytes{}, expected{{'J','2','T','Q',
-		static_cast<std::uint8_t>(CurrentProtocolVersion),static_cast<std::uint8_t>(CurrentProtocolVersion >> 8),3,0,
+	CoopCampaignTimeRequestBytes bytes{}, expected{{'J','2','T','Q',19,0,3,0,
 		8,7,6,5,4,3,2,1, 9,0,0,0,0,0,0,0, 10,0,0,0,0,0,0,0}};
 	CHECK(EncodeCoopCampaignTimeRequest(r, bytes) && bytes == expected, "exact 32-byte request vector, no claimed peer identity");
 	for (unsigned action = 1; action <= 4; ++action)
@@ -128,6 +128,22 @@ void Authority()
 	CHECK(!authority.reconcile(duplicated, 2) && authority.deliveries()[0].pending &&
 		SameCoopCampaignTimeRequest(retained.request, authority.deliveries()[0].result.request), "invalid peer reconciliation cannot erase a queued outcome");
 }
+void Input()
+{
+	FullEngineCoopClientCampaignTimeInput input;
+	CHECK(!input.handle('1', true, false, false) && !input.handle('1', true, false, true), "held while disabled cannot become a resume");
+	CHECK(!input.handle('1', false, true, true), "release does not resume");
+	CHECK(input.handle('1', true, false, true) == CoopCampaignTimeAction::FiveMinutes &&
+		!input.handle('1', true, false, true) && !input.handle('1', false, false, true), "one down, no held/repeat retry");
+	CHECK(input.handle('2', true, false, true) == CoopCampaignTimeAction::ThirtyMinutes &&
+		input.handle('3', true, false, true) == CoopCampaignTimeAction::SixtyMinutes &&
+		input.handle('P', true, false, true) == CoopCampaignTimeAction::Pause &&
+		!input.handle('4', true, false, true), "exact UI action mapping");
+	input.reset();
+	CHECK(!input.handle('P', false, false, true) && input.handle('P', true, false, true) == CoopCampaignTimeAction::Pause,
+		"changing input owners clears lost-release latches but never synthesizes a new press");
+}
+
 void ArrivalHold()
 {
 	CoopCampaignStatusLedger ledger;
@@ -161,4 +177,4 @@ void ArrivalHold()
 	CHECK(authority.submit(fresh, peers[0], true, true, ledger, apply) && executions == 1, "only a fresh authorized time request can resume after resolution");
 }
 }
-int main() { Codec(); Authority(); ArrivalHold(); return failures ? 1 : 0; }
+int main() { Codec(); Authority(); Input(); ArrivalHold(); return failures ? 1 : 0; }
