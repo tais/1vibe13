@@ -505,6 +505,7 @@ FullEngineCoopClientResult FullEngineCoopClient::receiveBaseline(
 			CoopTacticalResyncReason::BaselineRejected, true);
 
 	acceptedState_ = baseline.state;
+	ownerInventories_ = {};
 	hasAcceptedState_ = true;
 	assignedActorCount_ = baseline.assignedActors.size();
 	for (std::size_t index = 0; index < assignedActorCount_; ++index)
@@ -520,6 +521,7 @@ FullEngineCoopClientResult FullEngineCoopClient::receiveBaseline(
 	}
 	lastDeltaId_ = 0;
 	acceptedBaselineId_ = baseline.baselineId;
+	acceptedDimensions_ = baseline.snapshot.dimensions();
 	lastPayloadChecksum_ = baseline.payloadChecksum;
 
 	CoopTacticalBaselineAck acknowledgement;
@@ -544,6 +546,63 @@ FullEngineCoopClientResult FullEngineCoopClient::receiveBaseline(
 	resyncAttempts_ = 0;
 	lastResult_ = FullEngineCoopClientResult::Success;
 	return lastResult_;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveOwnerInventory(
+	const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_)
+		return FullEngineCoopClientResult::InvalidState;
+	if (state_ != FullEngineCoopClientState::Active &&
+		state_ != FullEngineCoopClientState::AwaitingBaseline &&
+		state_ != FullEngineCoopClientState::ResyncRequired &&
+		state_ != FullEngineCoopClientState::Retiring)
+		return FullEngineCoopClientResult::InvalidState;
+	if (size > configuration_.maximumInboundWireBytes)
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	CoopOwnerInventorySnapshot incoming;
+	const auto decoded = DecodeCoopOwnerInventorySnapshot(bytes, size, incoming);
+	if (decoded != CoopInventoryCodecResult::Success)
+		return fail(decoded == CoopInventoryCodecResult::AllocationFailure
+			? FullEngineCoopClientResult::AllocationFailure : FullEngineCoopClientResult::InvalidMessage);
+	if (incoming.owner != peerIdentity_ || incoming.sessionEpoch != sessionEpoch_)
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	// In-flight reliable frames can precede the replacement baseline or the
+	// retirement result. They cannot resurrect a private view behind that gate.
+	if (state_ == FullEngineCoopClientState::AwaitingBaseline || resyncPending() ||
+		(state_ == FullEngineCoopClientState::Retiring && !hasAcceptedState_))
+		return FullEngineCoopClientResult::Success;
+	if (!hasAcceptedState_ || incoming.worldGeneration > acceptedState_.worldGeneration ||
+		(incoming.worldGeneration == acceptedState_.worldGeneration && incoming.baselineId > acceptedBaselineId_))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (incoming.worldGeneration < acceptedState_.worldGeneration || incoming.baselineId < acceptedBaselineId_)
+		return FullEngineCoopClientResult::Success;
+	if (!isActorAssigned(incoming.actor)) return fail(FullEngineCoopClientResult::ActorNotAssigned);
+	if (!IsValidCoopNearbyLootGeometry(incoming, acceptedDimensions_.columns, acceptedDimensions_.rows))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	auto& current = ownerInventories_[incoming.actor.slot];
+	if (current.actor == incoming.actor && current.baselineId == incoming.baselineId)
+	{
+		if (incoming.inventoryRevision < current.inventoryRevision)
+			return FullEngineCoopClientResult::Success;
+		if (incoming.inventoryRevision == current.inventoryRevision)
+			return incoming == current ? FullEngineCoopClientResult::Success
+				: fail(FullEngineCoopClientResult::InvalidMessage);
+	}
+	current = std::move(incoming);
+	lastResult_ = FullEngineCoopClientResult::Success;
+	return lastResult_;
+}
+
+const CoopOwnerInventorySnapshot* FullEngineCoopClient::ownerInventory(TacticalEntityId actor) const noexcept
+{
+	if (state_ != FullEngineCoopClientState::Active || !hasAcceptedState_ ||
+		!actor.valid() || actor.slot >= ownerInventories_.size() || !isActorAssigned(actor)) return nullptr;
+	const auto& inventory = ownerInventories_[actor.slot];
+	return inventory.actor == actor && inventory.owner == peerIdentity_ &&
+		inventory.sessionEpoch == sessionEpoch_ && inventory.worldGeneration == acceptedState_.worldGeneration &&
+		inventory.baselineId == acceptedBaselineId_ && inventory.inventoryRevision != 0
+		? &inventory : nullptr;
 }
 
 FullEngineCoopClientResult FullEngineCoopClient::receiveDelta(
@@ -852,6 +911,7 @@ bool FullEngineCoopClient::resyncPending() const noexcept
 FullEngineCoopClientResult FullEngineCoopClient::requestResync(
 	CoopTacticalResyncReason reason, bool retry) noexcept
 {
+	ownerInventories_ = {};
 	if (!hasAcceptedState_ || acceptedBaselineId_ == 0 ||
 		!IsKnownCoopTacticalResyncReason(reason))
 		return fail(FullEngineCoopClientResult::InvalidMessage);
@@ -1003,6 +1063,7 @@ void FullEngineCoopClient::clearReceiptHistory() noexcept
 
 void FullEngineCoopClient::clearReplicaState() noexcept
 {
+	ownerInventories_ = {};
 	acceptedState_ = CoopTacticalStateIdentity{};
 	hasAcceptedState_ = false;
 	assignedActors_ = {};
@@ -1011,6 +1072,7 @@ void FullEngineCoopClient::clearReplicaState() noexcept
 	outstandingNextExpectedCommandId_ = 0;
 	lastDeltaId_ = 0;
 	acceptedBaselineId_ = 0;
+	acceptedDimensions_ = {};
 	lastPayloadChecksum_ = 0;
 	resyncAttempts_ = 0;
 }

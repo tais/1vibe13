@@ -7,6 +7,7 @@
 #include "CoopCampaignTime.h"
 #include "CoopCampaignAction.h"
 #include "CoopCampaignHire.h"
+#include "CoopInventoryProtocol.h"
 #include "CoopTacticalIntent.h"
 #include "CoopTacticalProtocol.h"
 
@@ -150,6 +151,8 @@ public:
 		const std::uint8_t* bytes, std::size_t size) noexcept;
 	FullEngineCoopClientResult receiveDelta(
 		const std::uint8_t* bytes, std::size_t size) noexcept;
+	FullEngineCoopClientResult receiveOwnerInventory(
+		const std::uint8_t* bytes, std::size_t size) noexcept;
 	FullEngineCoopClientResult receiveCampaignStatus(
 		const std::uint8_t* bytes, std::size_t size) noexcept;
 	const CoopCampaignStatus* campaignStatus() const noexcept;
@@ -254,6 +257,10 @@ public:
 			? assignedActors_[index] : TacticalEntityId{};
 	}
 	bool isActorAssigned(TacticalEntityId actor) const noexcept;
+	// Borrowed until the next received frame/reset. No inventory is exposed
+	// outside an active, exact-owner baseline. Contains bounded inventory and
+	// nearby ground-item summaries only; it never drives local simulation.
+	const CoopOwnerInventorySnapshot* ownerInventory(TacticalEntityId actor) const noexcept;
 	bool hasLastIntentReceipt() const noexcept
 	{
 		return hasLastIntentReceipt_;
@@ -323,6 +330,8 @@ private:
 	CoopTacticalStateIdentity acceptedState_{};
 	std::array<TacticalEntityId,
 		MaximumCoopTacticalAssignedActors> assignedActors_{};
+	std::array<CoopOwnerInventorySnapshot,
+		MaximumCoopTacticalAssignedActors> ownerInventories_{};
 	std::array<ReceiptHistoryEntry,
 		MaximumFullEngineCoopClientReceiptHistory> receiptHistory_{};
 	std::size_t assignedActorCount_ = 0;
@@ -334,6 +343,7 @@ private:
 	std::uint64_t outstandingNextExpectedCommandId_ = 0;
 	std::uint64_t lastDeltaId_ = 0;
 	std::uint64_t acceptedBaselineId_ = 0;
+	TacticalWorldDimensions acceptedDimensions_{};
 	std::uint32_t lastPayloadChecksum_ = 0;
 	std::uint64_t nextResyncRequestId_ = 1;
 	unsigned resyncAttempts_ = 0;

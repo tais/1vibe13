@@ -25,6 +25,8 @@ static_assert(MaximumCoopTacticalWireSize <=
 static_assert(MaximumCoopCampaignSyncWireSize <=
 	MaximumFullEngineCoopClientInboundWireSize,
 	"the client callback FIFO must retain every campaign-sync frame");
+static_assert(MaximumCoopOwnerInventoryWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain every private inventory summary");
 static_assert(CoopCampaignStatusWireSize <= MaximumFullEngineCoopClientInboundWireSize,
 	"the client callback FIFO must retain the live campaign status");
 static_assert(MaximumCoopCampaignGroupsWireSize <= MaximumFullEngineCoopClientInboundWireSize,
@@ -161,6 +163,7 @@ private:
 		TacticalBaseline,
 		TacticalDelta,
 		TacticalReceipt,
+		OwnerInventory,
 		CampaignStatus,
 		CampaignGroups,
 		CampaignTimeResult,
@@ -193,6 +196,8 @@ private:
 	static void HandleTacticalDelta(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleTacticalReceipt(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleOwnerInventory(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleCampaignStatus(
 		ja2::mp::net::SdlNetMessage* message, void* context);

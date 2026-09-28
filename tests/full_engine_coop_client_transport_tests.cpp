@@ -1381,6 +1381,90 @@ void TestCampaignStatusWireDelivery()
 }
 }
 
+namespace
+{
+void TestOwnerInventoryWireDelivery(bool malformedWidth)
+{
+	LoopbackServer server;
+	CHECK(StartServer(server), "private inventory loopback server starts");
+	FullEngineCoopClientTransport transport;
+	RecordingReplica replica;
+	FullEngineCoopClient client(transport, replica);
+	CHECK(ConnectClient(server, transport, client, TransportConfiguration(server.port)),
+		"private inventory client connects on the production socket transport");
+	const auto hello = HelloBytes(ClientConfiguration(), 700);
+	CHECK(Send(server, CoopServerHelloMessageName, hello.data(), hello.size()) &&
+		PumpUntil(server, transport, [&] { return client.state() == FullEngineCoopClientState::Admission; }),
+		"private inventory connection receives compatible hello");
+	const auto peer = Identity(0x20);
+	const auto admission = ResponseBytes(700, peer, Token(0x40));
+	CHECK(Send(server, CoopAdmissionResponseMessageName, admission.data(), admission.size()) &&
+		PumpUntil(server, transport, [&] { return server.count(CoopAdmissionAckMessageName) == 1; }),
+		"private inventory scope comes from acknowledged admission");
+	const auto baseline = BaselineBytes(700, 11, 2, 3, 5);
+	CHECK(Send(server, CoopTacticalBaselineMessageName, baseline.data(), baseline.size()) &&
+		PumpUntil(server, transport, [&] { return server.count(CoopTacticalBaselineAckMessageName) == 1; }),
+		"private inventory is sent only after the exact public baseline ACK");
+	CoopOwnerInventorySnapshot inventory;
+	inventory.sessionEpoch = 700;
+	inventory.worldGeneration = 11;
+	inventory.baselineId = 1;
+	inventory.inventoryRevision = 1;
+	inventory.owner = peer;
+	inventory.actor = {1, 1};
+	inventory.slots = {{0, 91, 2, 95, CoopInventorySlotSupport::OrdinarySwappable,
+		CoopInventoryStatusKind::MedicalKitPoints, 100}};
+	std::vector<std::uint8_t> bytes;
+	CHECK(EncodeCoopOwnerInventorySnapshot(inventory, bytes) == CoopInventoryCodecResult::Success &&
+		Send(server, CoopOwnerInventoryMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.ownerInventory(inventory.actor) != nullptr; }),
+		"owner replacement crosses registered bounded callback FIFO");
+	CHECK(client.ownerInventory(inventory.actor) && *client.ownerInventory(inventory.actor) == inventory &&
+		replica.baselineCalls == 1 && replica.deltaCalls == 0 &&
+		server.count(CoopTacticalBaselineAckMessageName) == 1 && server.count(CoopTacticalDeltaAckMessageName) == 0,
+		"private cache preserves exact typed resources without public simulation or a private ACK");
+	CHECK(client.sendIntent(inventory.actor, StopTacticalIntent{}) == FullEngineCoopClientResult::Success &&
+		PumpUntil(server, transport, [&] { return server.count(CoopTacticalIntentMessageName) == 1; }),
+		"fixture has an exact outstanding command whose receipt must follow private state");
+	++inventory.inventoryRevision;
+	inventory.slots[0].resourceTotal = 95;
+	CHECK(EncodeCoopOwnerInventorySnapshot(inventory, bytes) == CoopInventoryCodecResult::Success,
+		"new private resource replacement encodes");
+	CoopTacticalIntentReceipt receipt;
+	receipt.state = client.acceptedState();
+	receipt.peerIdentity = peer;
+	receipt.commandId = 5;
+	receipt.nextExpectedCommandId = 6;
+	receipt.status = CoopTacticalIntentReceiptStatus::Applied;
+	receipt.reason = CoopTacticalIntentReceiptReason::None;
+	CoopTacticalIntentReceiptBytes receiptBytes{};
+	CHECK(EncodeCoopTacticalIntentReceipt(receipt, receiptBytes) == CoopTacticalCodecResult::Success &&
+		Send(server, CoopOwnerInventoryMessageName, bytes.data(), bytes.size()) &&
+		Send(server, CoopTacticalIntentReceiptMessageName, receiptBytes.data(), receiptBytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.outstandingCommandId() == 0; }),
+		"ordered private replacement and terminal receipt share the production receive FIFO");
+	CHECK(client.ownerInventory(inventory.actor) && *client.ownerInventory(inventory.actor) == inventory &&
+		client.hasLastIntentReceipt() && client.lastIntentReceipt().commandId == 5 &&
+		replica.baselineCalls == 1 && replica.deltaCalls == 0,
+		"terminal receipt unlocks only after preceding owner replacement was delivered");
+	if (malformedWidth)
+		bytes.resize(CoopOwnerInventoryHeaderWireSize - 1);
+	else
+	{
+		inventory.owner = Identity(0x21);
+		CHECK(EncodeCoopOwnerInventorySnapshot(inventory, bytes) == CoopInventoryCodecResult::Success,
+			"foreign owner fixture is structurally valid");
+	}
+	CHECK(Send(server, CoopOwnerInventoryMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return !transport.running(); }) &&
+		!client.ownerInventory(inventory.actor),
+		"malformed-width or foreign-owner private socket frame closes and clears previously visible inventory");
+	CHECK(server.count(CoopTacticalIntentMessageName) == 1,
+		"private payload rejection never replays an outstanding or completed intent");
+	StopServer(server);
+}
+}
+
 int main()
 {
 	CHECK(SDL_Init(0), "SDL initializes for production loopback transport");
@@ -1393,6 +1477,8 @@ int main()
 	TestCampaignActionWireWidthsFailClosed();
 	TestCampaignActionWireWidthsFailClosed(true);
 	TestCampaignStatusWireDelivery();
+	TestOwnerInventoryWireDelivery(false);
+	TestOwnerInventoryWireDelivery(true);
 	TestLoopbackHandshakeFifoAndExactNamespaces();
 	TestCampaignBridgeFifoAndExactNamespaces();
 	TestVoluntaryRetirementExactTransportLifecycle();
