@@ -21,6 +21,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignGroups.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignEconomy.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignAimQuotes.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopAimHire.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopSurrender.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTacticalHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTacticalJa2LiveState.cpp"
