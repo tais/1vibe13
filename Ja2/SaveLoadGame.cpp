@@ -2772,6 +2772,9 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 	if (!preparedRuntimeSave)
 		goto FAILED_TO_SAVE;
 	preparedRuntimeSave.reinforcementState = CaptureTacticalReinforcementState();
+	preparedRuntimeSave.scheduleState.emplace();
+	if (!CaptureTacticalScheduleState(*preparedRuntimeSave.scheduleState))
+		goto FAILED_TO_SAVE;
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -5864,8 +5867,9 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 	//Update the mercs in the sector with the new soldier info
 	UpdateMercsInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 
-	//ReconnectSchedules();
-	PostSchedules();
+	if (!RestoreTacticalSchedulesAfterLoad(preparedRuntimeLoad.scheduleState
+		? &*preparedRuntimeLoad.scheduleState : nullptr))
+		return failRuntimeLoad();
 
 
 	uiRelEndPerc += 1;

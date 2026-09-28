@@ -1,4 +1,6 @@
 #include "TacticalActorWorldPlacement.h"
+#include "TacticalScheduleSaveState.h"
+#include "CampaignEventAdapter.h"
 	#include "FileMan.h"
 #include "SoldierRepository.h"
 #include "Soldier Profile Constants.h"
@@ -52,6 +54,124 @@ BOOLEAN ScheduleHasMorningNonSleepEntries( SCHEDULENODE *pSchedule );
 SCHEDULENODE *gpScheduleList = NULL;
 UINT8				gubScheduleID = 0;
 void ReverseSchedules();
+
+static_assert(MAX_SCHEDULE_ACTIONS == 4 && NUM_SCHEDULE_ACTIONS == 11 &&
+	SCHEDULE_FLAGS_NPC_SLEEPING == 0x0400,
+	"Review the portable native schedule extension schema");
+
+namespace
+{
+bool ScheduleSaveAssociationsMatch(const TacticalScheduleSaveState& state) noexcept
+{
+	if (!ValidateTacticalScheduleSaveState(state)) return false;
+	std::array<const TacticalScheduleSaveNode*, 256> schedules{};
+	const auto& actors = GetJa2SoldierRepository();
+	for (const auto& node : state.nodes)
+	{
+		schedules[node.id] = &node;
+		if (node.actorSlot == TacticalScheduleSaveNoActor) continue;
+		const TacticalActor* actor = actors.resolve(node.actorSlot);
+		// Inactive slots are omitted by SaveSoldierStructure; they cannot be
+		// restored as bound actor identities. Away active actors remain valid.
+		if (!actor || !actor->roster().active() || actor->identity().id().i != node.actorSlot ||
+			actor->identity().incarnation() != node.actorIncarnation ||
+			actor->schedule().id() != node.id) return false;
+	}
+	for (std::size_t slot = 0; slot < actors.capacity(); ++slot)
+	{
+		const TacticalActor* actor = actors.resolve(slot);
+		if (!actor || !actor->roster().active() || !actor->schedule().assigned()) continue;
+		const auto* node = schedules[actor->schedule().id()];
+		if (!node || node->actorSlot != slot ||
+			node->actorIncarnation != actor->identity().incarnation()) return false;
+	}
+	const auto& events = GetJa2CampaignEventQueue();
+	if (!events.validate()) return false;
+	for (const auto* event = events.head(); event; event = event->next)
+		if (event->callbackId == EVENT_PROCESS_TACTICAL_SCHEDULE &&
+			(event->parameter > 255 || !schedules[event->parameter])) return false;
+	return true;
+}
+
+void FreeScheduleSaveList(SCHEDULENODE* head) noexcept
+{
+	while (head)
+	{
+		auto* next = head->next;
+		MemFree(head);
+		head = next;
+	}
+}
+}
+
+bool CaptureTacticalScheduleState(TacticalScheduleSaveState& output) noexcept
+{
+	try
+	{
+		TacticalScheduleSaveState state;
+		state.allocationCounter = gubScheduleID;
+		for (const SCHEDULENODE* native = gpScheduleList; native; native = native->next)
+		{
+			// A cycle or an overlong list cannot overrun the portable ID domain.
+			if (state.nodes.size() == TacticalScheduleSaveMaximumNodes) return false;
+			TacticalScheduleSaveNode node;
+			node.id = native->ubScheduleID; node.flags = native->usFlags;
+			if (native->ubSoldierID != NOBODY)
+			{
+				const auto* actor = GetJa2SoldierRepository().resolve(native->ubSoldierID.i);
+				if (!actor) return false;
+				node.actorSlot = native->ubSoldierID.i;
+				node.actorIncarnation = actor->identity().incarnation();
+			}
+			for (std::size_t i = 0; i < node.action.size(); ++i)
+			{
+				node.time[i] = native->usTime[i]; node.data1[i] = native->usData1[i];
+				node.data2[i] = native->usData2[i]; node.action[i] = native->ubAction[i];
+			}
+			state.nodes.push_back(node);
+		}
+		if (!ScheduleSaveAssociationsMatch(state)) return false;
+		output = std::move(state);
+		return true;
+	}
+	catch (...) { return false; }
+}
+
+bool RestoreTacticalSchedulesAfterLoad(const TacticalScheduleSaveState* state) noexcept
+{
+	if (!state)
+	{
+		// Retain the exact legacy reconstruction, including its RNG/event effects.
+		PostSchedules();
+		return true;
+	}
+	if (!ScheduleSaveAssociationsMatch(*state)) return false;
+	SCHEDULENODE* head = nullptr;
+	SCHEDULENODE** tail = &head;
+	for (const auto& node : state->nodes)
+	{
+		auto* native = static_cast<SCHEDULENODE*>(MemAlloc(sizeof(SCHEDULENODE)));
+		if (!native) { FreeScheduleSaveList(head); return false; }
+		std::memset(native, 0, sizeof(*native));
+		native->ubScheduleID = node.id; native->usFlags = node.flags;
+		native->ubSoldierID = node.actorSlot == TacticalScheduleSaveNoActor
+			? NOBODY : SoldierID{node.actorSlot};
+		for (std::size_t i = 0; i < node.action.size(); ++i)
+		{
+			native->usTime[i] = node.time[i]; native->usData1[i] = node.data1[i];
+			native->usData2[i] = node.data2[i]; native->ubAction[i] = node.action[i];
+		}
+		*tail = native;
+		tail = &native->next;
+	}
+	// Every allocation and relationship check succeeded. Actor schedule fields
+	// and the already restored event queue are intentionally untouched.
+	DestroyAllSchedulesWithoutDestroyingEvents();
+	gpScheduleList = head;
+	gubScheduleID = state->allocationCounter;
+	return true;
+}
+
 
 void PrepareScheduleForAutoProcessing( SCHEDULENODE *pSchedule, UINT32 uiStartTime, UINT32 uiEndTime );
 

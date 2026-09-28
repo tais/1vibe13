@@ -49,6 +49,37 @@ unknown sections remain unsupported by that policy. This state preservation
 does not enable active tactical dedicated checkpoints: their eligibility and
 host/client resume restrictions remain in force.
 
+### Native schedule extension
+
+New native game saves contain optional application section `SCHD`. Version 1
+stores the complete ordered schedule list, including temporary defaults and
+unbound authored schedules, plus the exact allocation counter. All integers
+are little-endian. Its 8-byte header contains a `uint32` version (`1`), a
+`uint16` node count (at most 255), a `uint8` allocation counter, and a zero
+reserved byte. Each 53-byte node contains the schedule ID (`uint8`), flags
+(`uint16`), actor slot (`uint16`, `0xffff` means unbound), actor incarnation
+(`uint32`, zero only for unbound nodes), four times (`uint16` each), two arrays
+of four action parameters (`uint32` each), and four actions (`uint8` each).
+
+Preflight rejects unsupported versions, incorrect lengths, invalid fields,
+duplicate IDs, and duplicate bound actor slots before domain mutation. After
+native actors and strategic events load, restoration validates each bound
+actor's saved identity and schedule ID, every active actor's schedule binding,
+and each queued tactical schedule event's referenced ID. Out-of-sector actors
+remain valid bindings. The replacement list is fully allocated before the old
+list is changed, and the loaded event queue is preserved.
+
+A present section replaces final `PostSchedules` reconstruction, consuming no
+random numbers and posting no duplicate events. A missing section retains the
+exact historical reconstruction and its RNG draws. The legacy domain stream
+is unchanged. This is a state preservation prerequisite; active tactical
+dedicated checkpoint eligibility remains unchanged.
+
+The native schedule test uses a real disk container with an opaque domain
+prefix and production schedule, event, and RNG state. It checks restoration,
+malformed payload rejection, and the legacy reconstruction negative control;
+it does not qualify a full installed `SaveGame`/`LoadSavedGame` round trip.
+
 ## Trailer
 
 All integers are little-endian. The trailer contains:

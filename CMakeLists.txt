@@ -688,6 +688,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   set_tests_properties(native_coop_aim_hire_transaction PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_coop_aim_hire_transaction_tests)
 
+  add_executable(native_schedule_save_tests tests/native_schedule_save_tests.cpp)
+  target_compile_definitions(native_schedule_save_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_schedule_save_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_schedule_save COMMAND native_schedule_save_tests)
+  set_tests_properties(native_schedule_save PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_schedule_save_tests)
+
   # Real native event failures must stop co-op frames and preserve legacy scopes.
   # Exact native death cleanup followed by read-only cold roster inspection.
   add_executable(native_coop_meanwhile_tests tests/native_coop_meanwhile_tests.cpp)

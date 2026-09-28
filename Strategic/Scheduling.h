@@ -136,6 +136,12 @@ void PostNextSchedule( TacticalActor *pSoldier );
 //we then need to post the events and process schedules for the time that we have been gone.
 void PostSchedules();
 
+struct TacticalScheduleSaveState;
+// Optional runtime extension: exact list/actor/event associations, no reposting.
+bool CaptureTacticalScheduleState(TacticalScheduleSaveState& state) noexcept;
+bool RestoreTacticalSchedulesAfterLoad(const TacticalScheduleSaveState* state) noexcept;
+
+
 //Sorts the schedule in chronological order.	Returns TRUE if any sorting took place.
 BOOLEAN SortSchedule( SCHEDULENODE *pSchedule );
 //Adds a schedule to the list.	COPIES THE DATA OVER (ALLOCATES NEW NODE!)

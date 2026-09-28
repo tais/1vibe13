@@ -830,7 +830,8 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 		}
 
 		std::vector<RuntimeSaveSection> sections;
-		sections.reserve((strict ? 3 : 2) + (prepared.reinforcementState ? 1 : 0));
+		sections.reserve((strict ? 3 : 2) + (prepared.reinforcementState ? 1 : 0) +
+			(prepared.scheduleState ? 1 : 0));
 		sections.push_back(
 			RuntimeSaveSection{RuntimeCheckpointSection, std::move(checkpointBytes)});
 		sections.push_back(
@@ -843,6 +844,16 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 			const auto bytes = EncodeTacticalReinforcementSaveState(*prepared.reinforcementState);
 			sections.push_back(RuntimeSaveSection{TacticalReinforcementSaveSection,
 				std::vector<std::uint8_t>(bytes.begin(), bytes.end())});
+		}
+		if (prepared.scheduleState)
+		{
+			std::vector<std::uint8_t> bytes;
+			if (!EncodeTacticalScheduleSaveState(*prepared.scheduleState, bytes))
+			{
+				result.containerError = RuntimeSaveContainerSaveError::InvalidRequest;
+				return rollbackResult();
+			}
+			sections.push_back(RuntimeSaveSection{TacticalScheduleSaveSection, std::move(bytes)});
 		}
 		result.containerError =
 			context.runtimeSaveContainers().seal(savePath, sections);
@@ -933,8 +944,19 @@ PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,
 			}
 			prepared.reinforcementState = state;
 		}
+		const RuntimeSaveSection* schedules = container.find(TacticalScheduleSaveSection);
+		if (schedules)
+		{
+			TacticalScheduleSaveState state;
+			if (!DecodeTacticalScheduleSaveState(schedules->payload, state))
+			{
+				prepared.containerError = RuntimeSaveContainerLoadError::MalformedContainer;
+				return rollbackPrepared();
+			}
+			prepared.scheduleState = std::move(state);
+		}
 		if (policy == RuntimeSavePolicy::DedicatedDeterministic &&
-			container.sections.size() != (reinforcement ? 4u : 3u))
+			container.sections.size() != 3u + (reinforcement ? 1u : 0u) + (schedules ? 1u : 0u))
 		{
 			prepared.containerError =
 				RuntimeSaveContainerLoadError::MalformedContainer;
