@@ -1,3 +1,4 @@
+#include "TacticalActorMedicalSession.h"
 #include "Animation Data.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorLighting.h"
@@ -1004,6 +1005,139 @@ namespace
 		return actor;
 	}
 
+	std::uint64_t CaptureFirstAidKitStateFingerprint(const TacticalActor& medic) noexcept
+	{
+		if (medic.inventory().size() <= HANDPOS) return 0;
+		const OBJECTTYPE& kit = medic.inventory()[HANDPOS];
+		const std::uint64_t fingerprint = CaptureOrdinaryInventoryObject(kit);
+		return fingerprint != 0 && kit.exists() && Item[kit.usItem].usItemClass == IC_MEDKIT &&
+			kit[0]->data.objectStatus > 0 ? fingerprint : 0;
+	}
+
+	bool FirstAidPoseReady(const TacticalActor& actor) noexcept
+	{
+		const UINT16 animation = actor.animationPlayback().state();
+		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
+		// Only ordinary idle poses may start or receive this medical service.
+		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+			return false;
+		const auto& intent = actor.animationIntent();
+		const auto& activity = actor.animationActivity();
+		const auto& movement = actor.movement();
+		const auto& path = actor.pathing();
+		return !intent.hasPendingAnimation() && !intent.hasSecondaryPendingAnimation() &&
+			!intent.hasPendingStance() && !intent.hasPendingDirection() &&
+			!intent.continuesAfterStance() && !intent.stopPendingNextTile() &&
+			!intent.turningFromUi() &&
+			(!intent.hasDesiredHeight() || intent.desiredHeight() == gAnimControl[animation].ubEndHeight) &&
+			!activity.nonInterruptible() && !activity.realtimeNonInterruptible() &&
+			!activity.turningUntilDone() && !activity.turningFromProneMode() &&
+			!activity.turningToShoot() && !activity.turningToFall() && !activity.tryingToFall() &&
+			!activity.paused() && !activity.gettingHit() && !activity.holdAttackerUntilDone() &&
+			!activity.suppressionStanceChange() &&
+			!actor.pendingAction().active() && !actor.runtime().worldObject.active() &&
+			!actor.runtime().pendingAction.delayedDamage &&
+			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
+			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
+			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			!movement.waitingForAction() && !movement.turnActive() &&
+			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+			path.desiredDirection() == actor.position().direction() &&
+			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
+			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
+			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
+			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			!actor.service().hasPartner() && !actor.service().hasProviders() &&
+			!actor.vitals().isUndergoingSurgery();
+	}
+
+	bool ResolveFirstAidActionTile(TacticalActor& medic, const TacticalActor& patient,
+		std::uint8_t& direction) noexcept
+	{
+		const INT32 actorGrid = medic.position().gridNo();
+		const INT32 targetGrid = patient.position().gridNo();
+		const INT8 level = medic.position().level();
+		if (!gubWorldMovementCosts || TileIsOutOfBounds(actorGrid) || TileIsOutOfBounds(targetGrid) ||
+			level < FIRST_LEVEL || level > SECOND_LEVEL || patient.position().level() != level ||
+			CardinalSpacesAway(actorGrid, targetGrid) != 1) return false;
+		// FindAdjacentGridEx returns the medic's current cardinal action tile
+		// after this same native travel-cost check. Calling its general search
+		// can PlotPath through earlier candidates, mutating path scratch/RNG.
+		// Adjacent-only aid needs neither an approach route nor those searches.
+		for (const UINT8 fromPatient : {NORTH, EAST, SOUTH, WEST})
+		{
+			if (NewGridNo(targetGrid, DirectionInc(fromPatient)) != actorGrid) continue;
+			if (DoorTravelCost(&medic, actorGrid,
+				gubWorldMovementCosts[actorGrid][fromPatient][level], FALSE, nullptr) >= TRAVELCOST_BLOCKED)
+				return false;
+			direction = GetDirectionFromGridNo(targetGrid, &medic);
+			return direction < NUM_WORLD_DIRECTIONS;
+		}
+		return false;
+	}
+
+	bool ResolveBeginFirstAid(const BeginFirstAidCommand& command,
+		TacticalActor*& medic, TacticalActor*& patient) noexcept
+	{
+		medic = nullptr;
+		patient = nullptr;
+		if (!IsStructurallyValidBeginFirstAidCommand(command) ||
+			is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext())
+			return false;
+		const Ja2TacticalTurnIdentity identity =
+			GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return false;
+		TacticalActor* const resolvedMedic = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		TacticalActor* const resolvedPatient = ResolveLiveCommandActor(command.target);
+		if (!resolvedMedic || !resolvedPatient ||
+			// Native first-aid animation surfaces exist only for merc body types.
+			// MedicalSession associates the service even when surface loading
+			// fails, so unsupported bodies must never enter that mutating path.
+			resolvedMedic->identity().bodyType() > REGFEMALE ||
+			resolvedMedic->inventory().size() <= HANDPOS ||
+			TileIsOutOfBounds(command.expectedActorGrid) ||
+			TileIsOutOfBounds(command.expectedTargetGrid) ||
+			!gubWorldMovementCosts ||
+			resolvedMedic->roster().team() != gbPlayerNum ||
+			resolvedPatient->roster().team() != gbPlayerNum ||
+			!resolvedPatient->roster().active() ||
+			resolvedPatient->vitals().health() <= 0 ||
+			(resolvedPatient->vitals().bleeding() <= 0 &&
+			 resolvedPatient->vitals().health() >= OKLIFE) ||
+			resolvedPatient->assignment().current() >= ON_DUTY ||
+			(resolvedPatient->status().flags() &
+				(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) != 0 ||
+			!FirstAidPoseReady(*resolvedMedic) || !FirstAidPoseReady(*resolvedPatient) ||
+			resolvedMedic->position().gridNo() != command.expectedActorGrid ||
+			resolvedPatient->position().gridNo() != command.expectedTargetGrid ||
+			resolvedMedic->position().level() != command.expectedLevel ||
+			resolvedPatient->position().level() != command.expectedLevel ||
+			resolvedMedic->animationPlayback().state() != command.expectedAnimationState ||
+			resolvedPatient->animationPlayback().state() != command.expectedTargetAnimationState ||
+			resolvedMedic->inventory()[HANDPOS].usItem != command.expectedHandItem ||
+			CaptureFirstAidKitStateFingerprint(*resolvedMedic) != command.expectedKitStateFingerprint ||
+			TacticalActorMedicalSession::wouldPerformSurgery(*resolvedMedic, *resolvedPatient) ||
+			WhoIsThere2(command.expectedTargetGrid, command.expectedLevel) !=
+				resolvedPatient->identity().id())
+			return false;
+		UINT8 direction = 0;
+		if (!ResolveFirstAidActionTile(*resolvedMedic, *resolvedPatient, direction) ||
+			direction != command.direction)
+			return false;
+		const INT16 cost = TacticalActorMedicalSession::beginActionPointCost(*resolvedMedic);
+		if (cost != command.expectedActionPointCost ||
+			!EnoughPoints(resolvedMedic, cost, APBPConstants[BP_START_FIRST_AID], FALSE))
+			return false;
+		medic = resolvedMedic;
+		patient = resolvedPatient;
+		return true;
+	}
+
 	// Retained window completion and fence continuation can clear or rewrite
 	// route, pending-action, animation-intent, schedule, and movement state.
 	// Capture every such scalar plus the complete fixed route so changed
@@ -1853,6 +1987,54 @@ namespace
 					return CommandDisposition::Discard;
 				}
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+			{
+				TacticalActor* medic = nullptr;
+				TacticalActor* patient = nullptr;
+				if (!ResolveBeginFirstAid(value, medic, patient))
+					return CommandDisposition::Discard;
+				try
+				{
+					if (!TacticalActorMedicalSession::beginFirstAid(
+							*medic, patient->position().gridNo(), value.direction))
+						return CommandDisposition::Discard;
+					if (ResolveJa2TacticalEntity(value.soldier) != medic ||
+						ResolveJa2TacticalEntity(value.target) != patient)
+						throw std::runtime_error("authoritative first aid binding changed");
+					const auto hasLoadedSurface = [](const TacticalActor& actor) noexcept {
+						const UINT16 surface = actor.animationPlayback().surface();
+						return surface < NUMANIMATIONSURFACETYPES &&
+							gAnimSurfaceDatabase[surface].hVideoObject != nullptr;
+					};
+					const UINT16 requestedAid = value.expectedAnimationState == PRONE &&
+						value.expectedTargetAnimationState == PRONE ? START_AID_PRN : START_AID;
+					const UINT16 startedAnimation = medic->animationPlayback().state();
+					const bool pendingAidStance = requestedAid == START_AID &&
+						medic->animationIntent().pendingAnimation() == requestedAid &&
+						((value.expectedAnimationState == STANDING && startedAnimation == KNEEL_DOWN) ||
+						 (value.expectedAnimationState == PRONE && startedAnimation == PRONE_UP));
+					// An invalid aid mapping can leave the old idle surface loaded
+					// while legacy startup still associates a service. Prove actual
+					// aid entry or its exact native stance continuation before Applied.
+					if (medic->service().partner() != patient->identity().id() ||
+						!patient->service().hasProviders() ||
+						medic->targeting().gridNo() != value.expectedTargetGrid ||
+						(startedAnimation != requestedAid && !pendingAidStance) ||
+						!IsAnimationValidForBodyType(medic, requestedAid) ||
+						!hasLoadedSurface(*medic) || !hasLoadedSurface(*patient))
+						throw std::runtime_error("authoritative first aid startup failed");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					// Native startup can charge AP or associate services before
+					// allocating animation/dialogue/drug data. A throwing command
+					// is retained by the generic processor; poison this world before
+					// it can retry, publish a misleading receipt, or save partial aid.
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
 			}
 			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 			{
@@ -2802,6 +2984,46 @@ bool PrepareAimedFirearmAttackCommand(
 	return true;
 }
 
+bool PrepareBeginFirstAidCommand(TacticalEntityId actor,
+	TacticalEntityId target, BeginFirstAidCommand& output) noexcept
+{
+	if (!actor.valid() || !target.valid() || actor == target) return false;
+	TacticalActor* const medic = ResolveLiveCommandActor(actor);
+	TacticalActor* const patient = ResolveLiveCommandActor(target);
+	const Ja2TacticalTurnIdentity identity =
+		GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!medic || !patient || !identity ||
+		medic->identity().bodyType() > REGFEMALE ||
+		medic->inventory().size() <= HANDPOS || !gubWorldMovementCosts ||
+		TileIsOutOfBounds(medic->position().gridNo()) ||
+		TileIsOutOfBounds(patient->position().gridNo()) ||
+		medic->position().level() < FIRST_LEVEL ||
+		medic->position().level() > SECOND_LEVEL ||
+		patient->position().level() != medic->position().level() ||
+		!FirstAidPoseReady(*medic) || !FirstAidPoseReady(*patient)) return false;
+	BeginFirstAidCommand prepared;
+	prepared.soldier = actor;
+	prepared.target = target;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedActorGrid = medic->position().gridNo();
+	prepared.expectedTargetGrid = patient->position().gridNo();
+	prepared.expectedLevel = medic->position().level();
+	prepared.expectedAnimationState = medic->animationPlayback().state();
+	prepared.expectedTargetAnimationState = patient->animationPlayback().state();
+	prepared.expectedHandItem = medic->inventory()[HANDPOS].usItem;
+	prepared.expectedKitStateFingerprint = CaptureFirstAidKitStateFingerprint(*medic);
+	if (prepared.expectedKitStateFingerprint == 0) return false;
+	prepared.expectedActionPointCost = TacticalActorMedicalSession::beginActionPointCost(*medic);
+	if (!ResolveFirstAidActionTile(*medic, *patient, prepared.direction))
+		return false;
+	TacticalActor* checkedMedic = nullptr;
+	TacticalActor* checkedPatient = nullptr;
+	if (!ResolveBeginFirstAid(prepared, checkedMedic, checkedPatient)) return false;
+	output = prepared;
+	return true;
+}
+
 std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8_t slot) noexcept
 {
 	const TacticalActor* const live = ResolveJa2TacticalEntity(actor);
@@ -2936,7 +3158,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command,
 				AuthoritativeDoorOpenCloseCommand>::value ||
 			std::is_same<Command, PassInterruptCommand>::value ||
-			std::is_same<Command, SwapInventorySlotsCommand>::value)
+			std::is_same<Command, SwapInventorySlotsCommand>::value ||
+			std::is_same<Command, BeginFirstAidCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -3072,6 +3295,22 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				return IsStructurallyValidPassInterruptCommand(value)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidInterruptPrecondition;
+			}
+			else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+			{
+				if (!IsStructurallyValidBeginFirstAidCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES ||
+					value.expectedTargetAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidFirstAidPrecondition;
+				if (value.target.slot >= TOTAL_SOLDIERS)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (TileIsOutOfBounds(value.expectedActorGrid))
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (TileIsOutOfBounds(value.expectedTargetGrid))
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.expectedHandItem >= MAXITEMS)
+					return SimulationCommandDomainError::InvalidAttackingWeapon;
+				return SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 			{

@@ -2,6 +2,7 @@
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Core/CommandStream.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -591,6 +592,95 @@ int main()
 	Require(reference.execute(SimulationCommand{swap}, 4, 4) == CommandDisposition::Discard &&
 		reference.snapshot() == referenceState, "portable simulation declines native inventory/equipment policy");
 
+
+	BeginFirstAidCommand firstAid;
+	firstAid.soldier = {2, 0x11223344};
+	firstAid.target = {3, 0x55667788};
+	firstAid.expectedWorldGeneration = 9;
+	firstAid.expectedTurnSerial = 11;
+	firstAid.expectedActorGrid = 120;
+	firstAid.expectedTargetGrid = 121;
+	firstAid.expectedLevel = 0;
+	firstAid.direction = 2;
+	firstAid.expectedAnimationState = 6;
+	firstAid.expectedTargetAnimationState = 7;
+	firstAid.expectedHandItem = 201;
+	firstAid.expectedKitStateFingerprint = 0x0102030405060708ull;
+	firstAid.expectedActionPointCost = 5;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{firstAid}),
+		"first aid requires explicit native authority and exact prepared preconditions");
+	const std::vector<RecordedSimulationCommand> firstAidRecords{
+		{13, 17, CommandJournalStatus::Applied, SimulationCommand{firstAid}}};
+	std::vector<std::uint8_t> firstAidWire;
+	Require(EncodeSimulationCommandJournal(firstAidRecords, 0, firstAidWire),
+		"prepared first aid journal encodes");
+	const std::vector<std::uint8_t> expectedFirstAidPayload{
+		35, 2,0, 0x44,0x33,0x22,0x11, 3,0, 0x88,0x77,0x66,0x55,
+		9,0,0,0,0,0,0,0, 11,0,0,0,0,0,0,0,
+		120,0,0,0, 121,0,0,0, 0,2, 6,0, 7,0, 201,0,
+		8,7,6,5,4,3,2,1, 5,0, 1,1};
+	Require(firstAidWire.size()==35+expectedFirstAidPayload.size() &&
+		std::equal(expectedFirstAidPayload.begin(),expectedFirstAidPayload.end(),firstAidWire.begin()+35),
+		"native journal-v4 tag35 has exact identity, world, pose, kit, cost and provenance bytes without claiming swap tag36");
+	std::vector<RecordedSimulationCommand> decodedFirstAid;
+	std::uint64_t firstAidDropped = 0;
+	Require(DecodeSimulationCommandJournal(firstAidWire, decodedFirstAid,
+		firstAidDropped) == SimulationCommandJournalDecodeResult::Success &&
+		decodedFirstAid.size() == 1 &&
+		std::holds_alternative<BeginFirstAidCommand>(decodedFirstAid[0].command),
+		"prepared first aid journal decodes its append-only tag");
+	std::vector<std::uint8_t> firstAidReencoded;
+	Require(EncodeSimulationCommandJournal(decodedFirstAid, firstAidDropped,
+		firstAidReencoded) && firstAidReencoded == firstAidWire,
+		"prepared first aid round trip retains every identity, kit, pose and budget field");
+	std::array<BeginFirstAidCommand, 10> invalidFirstAid;
+	invalidFirstAid.fill(firstAid);
+	invalidFirstAid[0].target = firstAid.soldier;
+	invalidFirstAid[1].expectedWorldGeneration = 0;
+	invalidFirstAid[2].expectedTurnSerial = 0;
+	invalidFirstAid[3].expectedActorGrid = firstAid.expectedTargetGrid;
+	invalidFirstAid[4].expectedLevel = 2;
+	invalidFirstAid[5].direction = 8;
+	invalidFirstAid[6].expectedKitStateFingerprint = 0;
+	invalidFirstAid[7].expectedActionPointCost = -1;
+	invalidFirstAid[8].source = SimulationCommandSource::LocalPlayer;
+	invalidFirstAid[9].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidFirstAid)
+	{
+		auto unchanged=firstAidWire;
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}) &&
+			!EncodeSimulationCommandJournal({{13,17,CommandJournalStatus::Applied,SimulationCommand{invalid}}},0,unchanged) &&
+			unchanged==firstAidWire,
+			"malformed or unprepared medical authority cannot replace retained journal bytes");
+	}
+	for (std::size_t length = 0; length < firstAidWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(firstAidWire.begin(),
+			firstAidWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedFirstAid,
+			firstAidDropped) != SimulationCommandJournalDecodeResult::Success &&
+			decodedFirstAid.size() == 1 && firstAidDropped == 0,
+			"truncated medical journal rejects transactionally");
+	}
+	for (unsigned malformed=0; malformed<4; ++malformed)
+	{
+		auto bad=firstAidWire;
+		switch(malformed) {
+		case 0: bad.push_back(0); break;
+		case 1: bad[35]=255; break;
+		case 2: bad[bad.size()-2]=0; break;
+		case 3: bad.back()=0; break;
+		}
+		Require(DecodeSimulationCommandJournal(bad,decodedFirstAid,firstAidDropped)!=SimulationCommandJournalDecodeResult::Success &&
+			decodedFirstAid.size()==1 && firstAidDropped==0,
+			"surplus bytes, unknown tag and non-authoritative provenance reject transactionally");
+		std::vector<std::uint8_t> retained;
+		Require(EncodeSimulationCommandJournal(decodedFirstAid,firstAidDropped,retained) && retained==firstAidWire,
+			"failed medical decode preserves every previously decoded command field");
+	}
+	Require(reference.execute(SimulationCommand{firstAid}, 3, 3) ==
+		CommandDisposition::Discard && reference.snapshot() == referenceState,
+		"portable simulation does not invent native first-aid effects");
 
 	return 0;
 }

@@ -9718,7 +9718,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 9)
+if(NOT dedicated_live_authority_write_call_count EQUAL 10)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -9732,7 +9732,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 9)
+if(NOT dedicated_live_authority_read_call_count EQUAL 10)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -10302,6 +10302,122 @@ require_ordered_fragments(dedicated_live_simulation_execute_slice
   "AutoReload(soldier, value.reloadEvenIfNotEmpty)"
   "CommandDisposition::Applied"
   "CommandDisposition::Discard")
+
+# Native first-aid startup may mutate AP/services before an allocation throws.
+# The generic processor retains throwing commands, so the exact native entry
+# must poison the world before rethrowing and every later attempt must reject
+# that poisoned world before resolving either actor or invoking native aid.
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool ResolveBeginFirstAid(const BeginFirstAidCommand& command,\n\t\tTacticalActor*& medic, TacticalActor*& patient) noexcept"
+  dedicated_live_first_aid_resolve_slice
+  "Cannot bound authoritative first-aid live-state resolver")
+require_ordered_fragments(dedicated_live_first_aid_resolve_slice
+  "Authoritative first-aid retry lost fail-closed world-integrity validation"
+  "medic = nullptr"
+  "patient = nullptr"
+  "!IsStructurallyValidBeginFirstAidCommand(command)"
+  "!IsJa2TacticalWorldIntegrityValid()"
+  "!HasNetworkPeerTacticalExecutionContext()"
+  "return false"
+  "ResolveCoopAuthorizedLegacyCommandActor("
+  "ResolveLiveCommandActor(command.target)"
+  "medic = resolvedMedic"
+  "patient = resolvedPatient"
+  "return true")
+extract_brace_bounded_slice(dedicated_live_simulation_execute_slice
+  "else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)"
+  dedicated_live_first_aid_execute_slice
+  "Cannot bound authoritative first-aid execution branch")
+require_ordered_fragments(dedicated_live_first_aid_execute_slice
+  "Native first-aid execution lost preflight-before-mutation or fail-stop exception ordering"
+  "if (!ResolveBeginFirstAid(value, medic, patient))"
+  "return CommandDisposition::Discard"
+  "try"
+  "TacticalActorMedicalSession::beginFirstAid("
+  "*medic, patient->position().gridNo(), value.direction)"
+  "catch (...)"
+  "MarkJa2TacticalWorldIntegrityFailure()"
+  "throw;")
+extract_brace_bounded_slice(dedicated_live_first_aid_execute_slice
+  "try"
+  dedicated_live_first_aid_native_try_slice
+  "Cannot bound native first-aid mutation inside its exception boundary")
+require_ordered_fragments(dedicated_live_first_aid_native_try_slice
+  "Native first-aid mutation escaped its exception boundary or acknowledges missing treatment startup"
+  "if (!TacticalActorMedicalSession::beginFirstAid("
+  "*medic, patient->position().gridNo(), value.direction))"
+  "return CommandDisposition::Discard"
+  "ResolveJa2TacticalEntity(value.soldier) != medic"
+  "ResolveJa2TacticalEntity(value.target) != patient"
+  "throw std::runtime_error("
+  "const auto hasLoadedSurface = [](const TacticalActor& actor) noexcept"
+  "const UINT16 surface = actor.animationPlayback().surface()"
+  "surface < NUMANIMATIONSURFACETYPES"
+  "gAnimSurfaceDatabase[surface].hVideoObject != nullptr"
+  "const UINT16 startedAnimation = medic->animationPlayback().state()"
+  "medic->service().partner() != patient->identity().id()"
+  "!patient->service().hasProviders()"
+  "medic->targeting().gridNo() != value.expectedTargetGrid"
+  "startedAnimation != requestedAid && !pendingAidStance"
+  "!IsAnimationValidForBodyType(medic, requestedAid)"
+  "!hasLoadedSurface(*medic) || !hasLoadedSurface(*patient)"
+  "throw std::runtime_error("
+  "return CommandDisposition::Applied")
+string(REGEX MATCHALL "TacticalActorMedicalSession::beginFirstAid[ \t\r\n]*\\("
+  dedicated_live_first_aid_native_invocations
+  "${dedicated_live_first_aid_execute_slice}")
+list(LENGTH dedicated_live_first_aid_native_invocations
+  dedicated_live_first_aid_native_invocation_count)
+if(NOT dedicated_live_first_aid_native_invocation_count EQUAL 1)
+  message(FATAL_ERROR
+    "Authoritative first aid must invoke native startup exactly once inside its exception boundary")
+endif()
+extract_brace_bounded_slice(dedicated_live_first_aid_execute_slice
+  "catch (...)"
+  dedicated_live_first_aid_native_catch_slice
+  "Cannot bound native first-aid fail-stop exception handler")
+string(REGEX REPLACE "[ \t\r\n]" ""
+  dedicated_live_first_aid_native_catch_compact
+  "${dedicated_live_first_aid_native_catch_slice}")
+if(NOT dedicated_live_first_aid_native_catch_compact STREQUAL
+    "catch(...){MarkJa2TacticalWorldIntegrityFailure();throw;}")
+  message(FATAL_ERROR
+    "Native first-aid exceptions must invalidate the world and rethrow unchanged, without retry, rollback, or a success receipt")
+endif()
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool FirstAidPoseReady(const TacticalActor& actor) noexcept"
+  native_first_aid_pose_slice "Cannot bound native medical pose preflight")
+require_ordered_fragments(native_first_aid_pose_slice
+  "Native medical startup must exclude active traversal and pending native work"
+  "animation != STANDING && animation != CROUCHING && animation != PRONE"
+  "return false" "!intent.hasPendingAnimation()" "!intent.hasPendingStance()"
+  "!activity.turningToShoot()" "!actor.pendingAction().active()"
+  "!actor.schedule().assigned()" "!movement.continuedPathValid()"
+  "path.desiredDirection() == actor.position().direction()"
+  "path.pathIndex() == path.pathSize()" "!actor.service().hasPartner()")
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool ResolveFirstAidActionTile(TacticalActor& medic, const TacticalActor& patient,\n\t\tstd::uint8_t& direction) noexcept"
+  native_first_aid_tile_slice "Cannot bound adjacent-only native medical action tile")
+require_ordered_fragments(native_first_aid_tile_slice
+  "Adjacent medical admission lost exact native cardinal/door-cost checks"
+  "TileIsOutOfBounds(actorGrid)" "TileIsOutOfBounds(targetGrid)"
+  "patient.position().level() != level" "CardinalSpacesAway(actorGrid, targetGrid) != 1"
+  "NORTH, EAST, SOUTH, WEST" "NewGridNo(targetGrid, DirectionInc(fromPatient)) != actorGrid"
+  "DoorTravelCost(&medic, actorGrid," "gubWorldMovementCosts[actorGrid][fromPatient][level]"
+  "TRAVELCOST_BLOCKED" "GetDirectionFromGridNo(targetGrid, &medic)")
+foreach(forbidden_first_aid_search IN ITEMS "FindAdjacentGridEx(" "PlotPath(" "FindBestPath(")
+  string(FIND "${native_first_aid_tile_slice}" "${forbidden_first_aid_search}" native_first_aid_search_position)
+  if(NOT native_first_aid_search_position EQUAL -1)
+    message(FATAL_ERROR "Adjacent-only medical preflight regained general path search")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "std::uint64_t CaptureFirstAidKitStateFingerprint(const TacticalActor& medic) noexcept"
+  native_first_aid_kit_slice "Cannot bound complete ordinary medical kit fingerprint")
+require_ordered_fragments(native_first_aid_kit_slice
+  "Medical command must reuse complete ordinary carried-object proof"
+  "CaptureOrdinaryInventoryObject(kit)" "Item[kit.usItem].usItemClass == IC_MEDKIT"
+  "kit[0]->data.objectStatus > 0")
 
 extract_brace_bounded_slice(dedicated_live_tactical_command_host_code
   "void commandProcessed(\n\t\tconst SimulationCommand& command,\n\t\tstd::uint64_t tick,\n\t\tstd::uint64_t sequence,\n\t\tCommandDisposition disposition) noexcept override"

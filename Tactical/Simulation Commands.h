@@ -65,6 +65,7 @@ enum class SimulationCommandDomainError
 	InvalidBulkReloadRoster,
 	InvalidInterruptPrecondition,
 	InvalidInventorySwapPrecondition,
+	InvalidFirstAidPrecondition,
 	InvalidWeaponConfigurationResult,
 	InvalidWeaponConfigurationCause,
 	InvalidWeaponConfigurationPostApplyPolicy,
@@ -98,6 +99,13 @@ bool PrepareSwapInventorySlotsCommand(
 	std::uint8_t sourceSlot,
 	std::uint8_t destinationSlot,
 	SwapInventorySlotsCommand& output) noexcept;
+
+// Read-only server preparation for adjacent ordinary first aid. The retained
+// executor rechecks exact identities, poses, kit state, world/turn and cost.
+// Success starts the native medical service; it does not finish treatment.
+bool PrepareBeginFirstAidCommand(
+	TacticalEntityId actor, TacticalEntityId target,
+	BeginFirstAidCommand& output) noexcept;
 
 // Read-only supported-object fingerprint, independent of turn/idle/AP gates.
 // Zero means unsupported; this is a stale-state proof, not an item identity.
