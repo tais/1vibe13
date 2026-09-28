@@ -21277,7 +21277,7 @@ if(NOT runtime_campaign_mercenary_hire_snapshot_read_count EQUAL 1)
 endif()
 
 # Checked AIM creation shares the native hire implementation while retaining
-# explicit no-equipment preflight and a mutation boundary before construction.
+# checked equipment preflight and a mutation boundary before construction.
 require_ordered_fragments(runtime_campaign_mercenary_hire_slice
   "Checked AIM hire lost constructor/checked-event/personnel ordering"
   "if (checkedResult) checkedResult->mutationMayHaveStarted = true"
@@ -21313,10 +21313,10 @@ extract_bounded_slice(runtime_campaign_merc_hiring_code
   "bool ValidateCampaignAimHire("
   checked_aim_preflight "Cannot isolate checked AIM preflight")
 require_ordered_fragments(checked_aim_preflight
-  "Checked AIM preflight lost wide-profile, no-gear, duplicate or output barriers"
+  "Checked AIM preflight lost wide-profile, equipment, duplicate or output barriers"
   "request.profile >= NUM_PROFILES"
   "request.contractDays != 1" "request.contractDays != 7" "request.contractDays != 14"
-  "request.copyProfileEquipment) return Error::UnsupportedEquipment"
+  "request.copyProfileEquipment &&" "!CanCopyProfileItemsChecked(request.profile)"
   "ReadCampaignAimHireArrival(arrival)" "gMercProfiles[profileId]"
   "!IsMercHireable(profileId)" "profile.ubBodyType > REGFEMALE"
   "slot < repository.capacity()" "return Error::DuplicateProfile"

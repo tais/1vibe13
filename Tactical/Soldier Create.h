@@ -542,6 +542,13 @@ void RandomizeNewSoldierStats( SOLDIERCREATE_STRUCT *pCreateStruct );
 //Kris:
 //Modified return type from BOOLEAN to TacticalActor*
 TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID );
+// Read-only native distribution preflight. Quotes cannot reorder or consume the
+// live profile. Checked construction rejects any uncreated/unplaced remainder;
+// its caller must treat a failure after construction begins as potentially mutating.
+bool CanCopyProfileItemsChecked(UINT32 profileId) noexcept;
+TacticalActor* TacticalCreateSoldierWithCheckedProfileItems(
+	SOLDIERCREATE_STRUCT* create, SoldierID* id);
+
 
 //Randomly generated enemies used by strategic AI.
 TacticalActor* TacticalCreateAdministrator();

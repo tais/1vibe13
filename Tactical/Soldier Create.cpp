@@ -61,6 +61,9 @@
 #include "GameInitOptionsScreen.h"
 #include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
+#include <algorithm>
+#include <memory>
+#include <array>
 #include "Ja25_Tactical.h"
 
 
@@ -494,7 +497,9 @@ void OLD_SOLDIERCREATE_STRUCT_101::CopyNewInventoryToOld() {
 void InitSoldierStruct( TacticalActor *pSoldier );
 BOOLEAN TacticalCopySoldierFromProfile( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
 BOOLEAN TacticalCopySoldierFromCreateStruct( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
-void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
+static bool CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct,
+	MERCPROFILESTRUCT* checkedEquipment = nullptr );
+extern void DistributeInitialGear(MERCPROFILESTRUCT *pProfile);
 UINT8 GetLocationModifier( UINT8 ubSoldierClass );
 void ReduceHighExpLevels( INT8 *pbExpLevel );
 
@@ -581,8 +586,110 @@ void DecideToAssignSniperOrders( SOLDIERCREATE_STRUCT * pp )
 // This causes an issue if someone enters a sector from an adjacent sector - they should be affected by their point of origin, not the current sector
 // For this reason, we add a little helper variable that stores such a sector.
 INT16 gsStrategicDiseaseOriginSector = -1;
-TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID )
+namespace
 {
+// Distribution uses the native placement rules on a private profile. Never let
+// a quote consume/reorder live gear, normalize malformed quantities, or silently
+// discard items that do not fit the selected inventory system.
+std::unique_ptr<MERCPROFILESTRUCT> PrepareCheckedProfileEquipment(UINT32 profileId)
+{
+	if (profileId >= NUM_PROFILES || profileId == NO_PROFILE) return {};
+	const auto& source = gMercProfiles[profileId];
+	if (source.inv.size() != NUM_INV_SLOTS || source.bInvStatus.size() != NUM_INV_SLOTS ||
+		source.bInvNumber.size() != NUM_INV_SLOTS) return {};
+	bool nonempty = false;
+	std::size_t maximumItemSize = 0;
+	for (std::size_t slot = 0; slot < NUM_INV_SLOTS; ++slot)
+	{
+		const auto item = source.inv[slot];
+		if (item == NOTHING) continue;
+		if (item < 0 || item >= MAXITEMS || static_cast<UINT32>(item) >= gMAXITEMS_READ ||
+			source.bInvStatus[slot] < 1 || source.bInvStatus[slot] > 100 ||
+			source.bInvNumber[slot] < 1 || source.bInvNumber[slot] > UINT8_MAX ||
+			!Item[item].usItemClass || Item[item].randomitem ||
+			Item[item].ubClassIndex >= MAXITEMS) return {};
+		if (UsingNewInventorySystem())
+		{
+			if (Item[item].ItemSize == gGameExternalOptions.guiOIVSizeNumber ||
+				Item[item].ItemSize > gGameExternalOptions.guiMaxItemSize) return {};
+		}
+		else if (Item[item].usItemClass == IC_LBEGEAR) return {};
+		maximumItemSize = std::max(maximumItemSize, static_cast<std::size_t>(Item[item].ItemSize));
+		nonempty = true;
+	}
+	if (!nonempty) return {};
+	if (UsingNewInventorySystem())
+	{
+		// The native sorter directly indexes the active/default LBE and pocket
+		// tables. Missing catalog metadata is a rejection, never an OOB preview.
+		if (gGameExternalOptions.guiMaxItemSize > UINT16_MAX || LBEPocketType.size() < 2 ||
+			LBEPocketType[1].ItemCapacityPerSize.size() <= maximumItemSize ||
+			BIGPOCKFINAL < BIGPOCKSTART || BIGPOCKFINAL > NUM_INV_SLOTS ||
+			MEDPOCKSTART < BIGPOCKSTART || MEDPOCKFINAL < MEDPOCKSTART || MEDPOCKFINAL > NUM_INV_SLOTS ||
+			SMALLPOCKFINAL < SMALLPOCKSTART || SMALLPOCKFINAL > NUM_INV_SLOTS) return {};
+		const auto validLbe = [&](std::size_t index) {
+			if (index >= LoadBearingEquipment.size()) return false;
+			const auto& pockets = LoadBearingEquipment[index].lbePocketIndex;
+			if (pockets.size() < 12) return false;
+			for (const auto pocket : pockets)
+				if (pocket >= LBEPocketType.size() ||
+					LBEPocketType[pocket].ItemCapacityPerSize.size() <= maximumItemSize) return false;
+			return true;
+		};
+		for (std::size_t slot = BIGPOCKSTART; slot < NUM_INV_SLOTS; ++slot)
+			if (!validLbe(Item[icDefault[slot]].ubClassIndex)) return {};
+		for (auto item : source.inv)
+			if (item != NOTHING && Item[item].usItemClass == IC_LBEGEAR &&
+				!validLbe(Item[item].ubClassIndex)) return {};
+	}
+	auto prepared = std::make_unique<MERCPROFILESTRUCT>(source);
+	DistributeInitialGear(prepared.get());
+	// Match quantities per item and condition, including split/merged stacks.
+	// All vectors are bounded by NUM_INV_SLOTS, so no catalog-sized stack frame.
+	std::array<unsigned, NUM_INV_SLOTS> remaining{};
+	for (std::size_t slot = 0; slot < NUM_INV_SLOTS; ++slot)
+	{
+		if (prepared->inv[slot] == NOTHING) continue;
+		if (prepared->bInvNumber[slot] < 1 || prepared->bInvNumber[slot] > UINT8_MAX)
+			return {};
+		remaining[slot] = static_cast<unsigned>(prepared->bInvNumber[slot]);
+	}
+	for (std::size_t before = 0; before < NUM_INV_SLOTS; ++before)
+	{
+		if (source.inv[before] == NOTHING) continue;
+		unsigned needed = static_cast<unsigned>(source.bInvNumber[before]);
+		for (std::size_t after = 0; after < NUM_INV_SLOTS && needed; ++after)
+		{
+			if (source.inv[before] != prepared->inv[after] ||
+				source.bInvStatus[before] != prepared->bInvStatus[after]) continue;
+			const unsigned take = std::min(needed, remaining[after]);
+			needed -= take; remaining[after] -= take;
+		}
+		if (needed) return {};
+	}
+	for (auto count : remaining) if (count) return {};
+	return prepared;
+}
+}
+
+bool CanCopyProfileItemsChecked(UINT32 profileId) noexcept
+{
+	try { return PrepareCheckedProfileEquipment(profileId) != nullptr; }
+	catch (...) { return false; }
+}
+
+static TacticalActor* TacticalCreateSoldierImpl(SOLDIERCREATE_STRUCT* pCreateStruct,
+	SoldierID* pubID, bool checkedProfileEquipment)
+{
+	std::unique_ptr<MERCPROFILESTRUCT> checkedEquipment;
+	if (checkedProfileEquipment)
+	{
+		if (!pCreateStruct || !pubID || !pCreateStruct->fPlayerMerc ||
+			!pCreateStruct->fCopyProfileItemsOver || is_networked) return nullptr;
+		*pubID = NOBODY;
+		checkedEquipment = PrepareCheckedProfileEquipment(pCreateStruct->ubProfile);
+		if (!checkedEquipment) return nullptr;
+	}
 	TacticalActor Soldier;
 	TacticalActor *pTeamSoldier;
 	TacticalActor *pLiveSoldier = NULL;
@@ -757,7 +864,7 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 		// Copy the items over for the soldier, only if we have a valid profile id!
 		if ( pCreateStruct->ubProfile != NO_PROFILE && (gMercProfiles[pCreateStruct->ubProfile].Type != PROFILETYPE_RPC || GetTheStateOfDepartedMerc(pCreateStruct->ubProfile) == -1))
 		{
-			CopyProfileItems( &Soldier, pCreateStruct );
+			if (!CopyProfileItems(&Soldier, pCreateStruct, checkedEquipment.get())) return nullptr;
 			//CHRISL: make sure nails gets his jacket no matter what
 			if(pCreateStruct->ubProfile == 34 && pCreateStruct->fCopyProfileItemsOver == FALSE)
 			{
@@ -1277,6 +1384,18 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 		return pSoldier;
 	}
 }
+
+TacticalActor* TacticalCreateSoldier(SOLDIERCREATE_STRUCT* create, SoldierID* id)
+{
+	return TacticalCreateSoldierImpl(create, id, false);
+}
+
+TacticalActor* TacticalCreateSoldierWithCheckedProfileItems(
+	SOLDIERCREATE_STRUCT* create, SoldierID* id)
+{
+	return TacticalCreateSoldierImpl(create, id, true);
+}
+
 
 
 BOOLEAN TacticalCopySoldierFromProfile( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
@@ -4160,7 +4279,8 @@ void QuickCreateProfileMerc( INT8 bTeam, UINT8 ubProfileID )
 // CHRISL: External function call to resort profile inventory
 extern void DistributeInitialGear(MERCPROFILESTRUCT *pProfile);
 
-void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
+static bool CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct,
+	MERCPROFILESTRUCT* checkedEquipment )
 {
 	const CampaignMercenaryPolicy mercenaryPolicy(
 		GetGameContext().capabilities());
@@ -4169,7 +4289,7 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 	BOOLEAN success;
     BOOLEAN fRet;
 
-	pProfile = &(gMercProfiles[pCreateStruct->ubProfile]);
+	pProfile = checkedEquipment ? checkedEquipment : &(gMercProfiles[pCreateStruct->ubProfile]);
 
 	// Copy over inv if we want to
 	if ( pCreateStruct->fCopyProfileItemsOver || pSoldier->roster().team() != OUR_TEAM )
@@ -4179,7 +4299,7 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 			// do some special coding to put stuff in the profile in better-looking
 			// spots
 			// CHRISL: Resort profile items to use LBE pockets properly
-			DistributeInitialGear(pProfile);
+			if (!checkedEquipment) DistributeInitialGear(pProfile);
 			//place all items that are NOT attachments
 			UINT32 invsize = pProfile->inv.size();
 			for ( cnt = 0; cnt < pProfile->inv.size(); ++cnt )
@@ -4188,6 +4308,11 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 					continue;
 				}
 				fRet = CreateItems( pProfile->inv[ cnt ], pProfile->bInvStatus[ cnt ], pProfile->bInvNumber[ cnt ], &gTempObject );
+				if (checkedEquipment && (!fRet || !gTempObject.exists() ||
+					gTempObject.usItem != pProfile->inv[cnt] ||
+					gTempObject.ubNumberOfObjects != pProfile->bInvNumber[cnt] ||
+					gTempObject.objectStack.size() != static_cast<std::size_t>(pProfile->bInvNumber[cnt])))
+					return false;
 				//CHRISL: Place items by slots chosen in profile if using new inventory system
 				if(fRet)
 				{
@@ -4199,8 +4324,10 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 					}
 					if (success == FALSE && pSoldier->inventory()[cnt].exists() == false) {
 						pSoldier->inventory()[cnt] = gTempObject;
+						if (checkedEquipment) gTempObject.initialize();
 					}
 				}
+				if (checkedEquipment && gTempObject.exists()) return false;
 			}
 
 			//done placing all non attachments, now place all attachments on objects!
@@ -4213,6 +4340,11 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 					continue;
 				}
 				fRet = CreateItems( pProfile->inv[ cnt ], pProfile->bInvStatus[ cnt ], pProfile->bInvNumber[ cnt ], &gTempObject );
+				if (checkedEquipment && (!fRet || !gTempObject.exists() ||
+					gTempObject.usItem != pProfile->inv[cnt] ||
+					gTempObject.ubNumberOfObjects != pProfile->bInvNumber[cnt] ||
+					gTempObject.objectStack.size() != static_cast<std::size_t>(pProfile->bInvNumber[cnt])))
+					return false;
 				// try to find the appropriate item to attach to!
 				if(fRet)
 				{
@@ -4248,9 +4380,11 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 						}
 						if (success == FALSE && pSoldier->inventory()[cnt].exists() == false) {
 							pSoldier->inventory()[cnt] = gTempObject;
+							if (checkedEquipment) gTempObject.initialize();
 						}
 					}
 				}
+				if (checkedEquipment && gTempObject.exists()) return false;
 			}
 		}
 		else
@@ -4334,6 +4468,7 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 			}
 		}
 	}
+	return true;
 }
 
 //SPECIAL!	Certain events in the game can cause profiled NPCs to become enemies.	The two cases are
