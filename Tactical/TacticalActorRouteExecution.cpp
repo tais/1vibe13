@@ -758,11 +758,20 @@ bool TacticalActorRouteExecution::requestPath(
 	bool forceRestart,
 	bool replicate)
 {
+	// Overhead deliberately reaches the end sentinel of a full route before
+	// requesting its next segment. ContinueMovement copies a fresh route before
+	// indexing it; the consumed old buffer is not a step to dereference.
+	const bool exhaustedContinuation = origin == PathOrigin::ContinueMovement &&
+		!actor.collapseState().tactical() &&
+		(actor.status().flags() & SOLDIER_COWERING) == 0 &&
+		!TacticalActorConditions::isCowering(actor) &&
+		actor.pathing().pathIndex() == MAX_PATH_LIST_SIZE &&
+		actor.pathing().pathSize() == MAX_PATH_LIST_SIZE;
 	if (!hasLiveRouteContext(actor) ||
 		TileIsOutOfBounds(destinationGrid) ||
 		movementAnimation >= NUMANIMATIONSTATES ||
 		!isValidPathOrigin(origin) ||
-		actor.pathing().pathIndex() >= MAX_PATH_LIST_SIZE ||
+		(actor.pathing().pathIndex() >= MAX_PATH_LIST_SIZE && !exhaustedContinuation) ||
 		actor.pathing().pathSize() > MAX_PATH_LIST_SIZE)
 	{
 		return false;
