@@ -30,6 +30,25 @@ Unknown unique section types are accepted as a forward-extension point.
 Missing required sections, duplicate section types, type zero, malformed
 lengths, and trailing bytes are rejected.
 
+### Native reinforcement extension
+
+New native game saves also contain `RINF`, an optional application section
+whose version-1 payload is exactly 24 bytes: six little-endian `uint32` values
+for version (`1`), tactical turn counter, enemy reinforcement deadline, enemy
+arrival backlog, militia reinforcement deadline, and militia arrival backlog.
+It is captured before the domain writer runs and validated during preflight.
+After sector reconstruction, native loading restores all five gameplay values
+without drawing random numbers. A present section with an unsupported version
+or incorrect length rejects the load before domain mutation.
+
+Existing containers without `RINF` retain their historical reinforcement
+deadline estimates and conditional RNG draws. The domain prefix and save-game
+version are unchanged. Strict dedicated saves accept this known extension in
+addition to their required `CHKP`, `PGST`, and random-checkpoint sections; other
+unknown sections remain unsupported by that policy. This state preservation
+does not enable active tactical dedicated checkpoints: their eligibility and
+host/client resume restrictions remain in force.
+
 ## Trailer
 
 All integers are little-endian. The trailer contains:

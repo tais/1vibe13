@@ -830,7 +830,7 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 		}
 
 		std::vector<RuntimeSaveSection> sections;
-		sections.reserve(strict ? 3 : 2);
+		sections.reserve((strict ? 3 : 2) + (prepared.reinforcementState ? 1 : 0));
 		sections.push_back(
 			RuntimeSaveSection{RuntimeCheckpointSection, std::move(checkpointBytes)});
 		sections.push_back(
@@ -838,6 +838,12 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 		if (strict)
 			sections.push_back(RuntimeSaveSection{
 				RuntimeRandomCheckpointSectionType, std::move(randomBytes)});
+		if (prepared.reinforcementState)
+		{
+			const auto bytes = EncodeTacticalReinforcementSaveState(*prepared.reinforcementState);
+			sections.push_back(RuntimeSaveSection{TacticalReinforcementSaveSection,
+				std::vector<std::uint8_t>(bytes.begin(), bytes.end())});
+		}
 		result.containerError =
 			context.runtimeSaveContainers().seal(savePath, sections);
 		if (result.containerError != RuntimeSaveContainerSaveError::None)
@@ -915,8 +921,20 @@ PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,
 		prepared.containerError = loaded.error;
 		if (!loaded) return rollbackPrepared();
 		prepared.domainBytes = container.domainBytes;
+		const RuntimeSaveSection* reinforcement =
+			container.find(TacticalReinforcementSaveSection);
+		if (reinforcement)
+		{
+			TacticalReinforcementSaveState state;
+			if (!DecodeTacticalReinforcementSaveState(reinforcement->payload, state))
+			{
+				prepared.containerError = RuntimeSaveContainerLoadError::MalformedContainer;
+				return rollbackPrepared();
+			}
+			prepared.reinforcementState = state;
+		}
 		if (policy == RuntimeSavePolicy::DedicatedDeterministic &&
-			container.sections.size() != 3)
+			container.sections.size() != (reinforcement ? 4u : 3u))
 		{
 			prepared.containerError =
 				RuntimeSaveContainerLoadError::MalformedContainer;

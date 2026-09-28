@@ -21,6 +21,31 @@ UINT8 gubReinforcementMinEnemyStaticGroupSize = 12;
 UINT32 guiMilitiaReinforceTurn = 0, guiMilitiaArrived = 0;//dnl ch68 090913
 extern UINT32 guiArrived;
 
+TacticalReinforcementSaveState CaptureTacticalReinforcementState() noexcept
+{
+	return {guiTurnCnt, guiReinforceTurn, guiArrived,
+		guiMilitiaReinforceTurn, guiMilitiaArrived};
+}
+
+void RestoreTacticalReinforcementStateAfterLoad(
+	const TacticalReinforcementSaveState* saved) noexcept
+{
+	if (saved)
+	{
+		guiTurnCnt = saved->turnCounter;
+		guiReinforceTurn = saved->enemyTurn;
+		guiArrived = saved->enemyArrived;
+		guiMilitiaReinforceTurn = saved->militiaTurn;
+		guiMilitiaArrived = saved->militiaArrived;
+		return;
+	}
+	// Saves predating RINF keep the exact historical conditional draws.
+	if(guiReinforceTurn)
+		guiReinforceTurn = guiTurnCnt + gGameExternalOptions.sMinDelayEnemyReinforcements/2 + Random(gGameExternalOptions.sRndDelayEnemyReinforcements+1);
+	if(guiMilitiaReinforceTurn)
+		guiMilitiaReinforceTurn = guiTurnCnt + gGameExternalOptions.sMinDelayMilitiaReinforcements/2 + Random(gGameExternalOptions.sRndDelayMilitiaReinforcements+1);
+}
+
 void ResetTacticalReinforcementState() noexcept
 {
 	guiTurnCnt = 0;
