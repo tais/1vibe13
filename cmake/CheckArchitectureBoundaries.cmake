@@ -7533,12 +7533,16 @@ require_ordered_fragments(dedicated_live_listener_start_slice
   "RegisterMessage(CoopCampaignSyncAckMessageName"
   "RegisterMessage(CoopCampaignSyncResultMessageName"
   "RegisterMessage(CoopCampaignSyncResyncMessageName"
+  "RegisterMessage(CoopCampaignTimeRequestMessageName"
+  "RegisterMessage(CoopCampaignActionRequestMessageName"
+  "RegisterMessage(CoopCampaignHireRequestMessageName"
   "transport_->Start("
   "transport_->SetTimeout(configuration.timeoutMilliseconds)"
   "handshakeTimeoutMilliseconds_ = configuration.handshakeTimeoutMilliseconds"
   "maximumRejectedAdmissionMessages_ ="
   "maximumQueuedTacticalMessages_ ="
   "maximumQueuedCampaignMessages_ ="
+  "campaignRequestsEnabled_ = configuration.enableCampaignRequests"
   "maximumPendingWriteBytesPerConnection_ ="
   "campaignBootstrap_ = configuration.campaignBootstrap"
   "campaignBootstrapBytes_ = campaignBootstrapBytes"
@@ -7554,7 +7558,10 @@ foreach(dedicated_live_listener_registration IN ITEMS
     "CoopTacticalResyncRequestMessageName"
     "CoopCampaignSyncAckMessageName"
     "CoopCampaignSyncResultMessageName"
-    "CoopCampaignSyncResyncMessageName")
+    "CoopCampaignSyncResyncMessageName"
+    "CoopCampaignTimeRequestMessageName"
+    "CoopCampaignActionRequestMessageName"
+    "CoopCampaignHireRequestMessageName")
   string(REGEX MATCHALL
     "RegisterMessage\\([ \t\r\n]*${dedicated_live_listener_registration}"
     dedicated_live_listener_registration_matches
@@ -7570,9 +7577,9 @@ string(REGEX MATCHALL "RegisterMessage\\(" dedicated_live_listener_handlers
   "${dedicated_live_listener_start_slice}")
 list(LENGTH dedicated_live_listener_handlers
   dedicated_live_listener_handler_count)
-if(NOT dedicated_live_listener_handler_count EQUAL 11)
+if(NOT dedicated_live_listener_handler_count EQUAL 14)
   message(FATAL_ERROR
-    "Full-engine co-op listener must register exactly eleven isolated handlers")
+    "Full-engine co-op listener must register exactly fourteen isolated handlers")
 endif()
 
 set(dedicated_live_listener_admission_marker
@@ -7760,6 +7767,8 @@ require_ordered_fragments(dedicated_live_listener_campaign_slice
   "findConnection(message.sender)"
   "connectionAuthenticates(*state, resolved)"
   "validCampaignInboundSize(kind, message.size)"
+  "!campaignRequestsEnabled_"
+  "kind >= FullEngineCoopCampaignInboundKind::TimeRequest"
   "message.data == nullptr"
   "queueCampaignMessage(*state, resolved, message, kind)"
   "closeConnection(message.sender, true)")
@@ -7829,6 +7838,23 @@ require_ordered_fragments(dedicated_live_listener_outbound_validation_slice
   "CoopTacticalDeltaMessageName"
   "CoopTacticalDeltaHeaderWireSize"
   "MaximumCoopTacticalDeltaWireSize"
+  "CoopCampaignStatusMessageName"
+  "CoopCampaignStatusWireSize"
+  "CoopCampaignGroupsMessageName"
+  "CoopCampaignGroupsHeaderSize"
+  "MaximumCoopCampaignGroupsWireSize"
+  "CoopCampaignTimeResultMessageName"
+  "CoopCampaignTimeResultWireSize"
+  "CoopCampaignActionResultMessageName"
+  "CoopCampaignActionResultWireSize"
+  "CoopCampaignEconomyMessageName"
+  "CoopCampaignEconomyHeaderSize"
+  "MaximumCoopCampaignEconomyWireSize"
+  "CoopCampaignAimQuotesMessageName"
+  "CoopCampaignAimQuotesHeaderSize"
+  "MaximumCoopCampaignAimQuotesWireSize"
+  "CoopCampaignHireResultMessageName"
+  "CoopCampaignHireResultWireSize"
   "CoopCampaignSyncMetadataMessageName"
   "CoopCampaignSyncMetadataWireSize"
   "CoopCampaignSyncChunkMessageName"
@@ -7852,7 +7878,10 @@ foreach(dedicated_live_listener_outbound_forbidden IN ITEMS
     "CoopTacticalDeltaAckMessageName"
     "CoopCampaignSyncAckMessageName"
     "CoopCampaignSyncResultMessageName"
-    "CoopCampaignSyncResyncMessageName")
+    "CoopCampaignSyncResyncMessageName"
+    "CoopCampaignTimeRequestMessageName"
+    "CoopCampaignActionRequestMessageName"
+    "CoopCampaignHireRequestMessageName")
   string(FIND "${dedicated_live_listener_outbound_validation_slice}"
     "${dedicated_live_listener_outbound_forbidden}"
     dedicated_live_listener_outbound_forbidden_position)

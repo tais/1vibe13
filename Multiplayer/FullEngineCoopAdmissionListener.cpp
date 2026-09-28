@@ -1,4 +1,6 @@
 #include "FullEngineCoopAdmissionListener.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignGroups.h"
 
 #include <SDL3/SDL.h>
 
@@ -68,6 +70,20 @@ bool ValidOutboundMessage(
 	if (std::strcmp(name, CoopTacticalDeltaMessageName) == 0)
 		return size >= CoopTacticalDeltaHeaderWireSize &&
 			size <= MaximumCoopTacticalDeltaWireSize;
+	if (std::strcmp(name, CoopCampaignStatusMessageName) == 0)
+		return size == CoopCampaignStatusWireSize;
+	if (std::strcmp(name, CoopCampaignGroupsMessageName) == 0)
+		return size >= CoopCampaignGroupsHeaderSize && size <= MaximumCoopCampaignGroupsWireSize;
+	if (std::strcmp(name, CoopCampaignTimeResultMessageName) == 0)
+		return size == CoopCampaignTimeResultWireSize;
+	if (std::strcmp(name, CoopCampaignActionResultMessageName) == 0)
+		return size == CoopCampaignActionResultWireSize;
+	if (std::strcmp(name, CoopCampaignEconomyMessageName) == 0)
+		return size >= CoopCampaignEconomyHeaderSize && size <= MaximumCoopCampaignEconomyWireSize;
+	if (std::strcmp(name, CoopCampaignAimQuotesMessageName) == 0)
+		return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
+	if (std::strcmp(name, CoopCampaignHireResultMessageName) == 0)
+		return size == CoopCampaignHireResultWireSize;
 	if (std::strcmp(name, CoopCampaignSyncMetadataMessageName) == 0)
 		return size == CoopCampaignSyncMetadataWireSize;
 	if (std::strcmp(name, CoopCampaignSyncChunkMessageName) == 0)
@@ -173,7 +189,13 @@ FullEngineCoopAdmissionListener::start(
 			this) ||
 		!transport_->RegisterMessage(CoopCampaignSyncResyncMessageName,
 			&FullEngineCoopAdmissionListener::HandleCampaignResyncMessage,
-			this))
+			this) ||
+		!transport_->RegisterMessage(CoopCampaignTimeRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignTimeRequestMessage, this) ||
+		!transport_->RegisterMessage(CoopCampaignActionRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignActionRequestMessage, this) ||
+		!transport_->RegisterMessage(CoopCampaignHireRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignHireRequestMessage, this))
 	{
 		ja2::mp::net::DestroySdlNetPeer(transport_);
 		transport_ = nullptr;
@@ -196,6 +218,7 @@ FullEngineCoopAdmissionListener::start(
 		configuration.maximumQueuedTacticalMessages;
 	maximumQueuedCampaignMessages_ =
 		configuration.maximumQueuedCampaignMessages;
+	campaignRequestsEnabled_ = configuration.enableCampaignRequests;
 	maximumPendingWriteBytesPerConnection_ =
 		configuration.maximumPendingWriteBytesPerConnection;
 	campaignBootstrap_ = configuration.campaignBootstrap;
@@ -827,6 +850,36 @@ void FullEngineCoopAdmissionListener::handleTacticalMessage(
 	}
 }
 
+void FullEngineCoopAdmissionListener::HandleCampaignTimeRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::TimeRequest);
+	listener.finishHandler();
+}
+
+void FullEngineCoopAdmissionListener::HandleCampaignActionRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::ActionRequest);
+	listener.finishHandler();
+}
+
+void FullEngineCoopAdmissionListener::HandleCampaignHireRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::HireRequest);
+	listener.finishHandler();
+}
+
 void FullEngineCoopAdmissionListener::handleCampaignMessage(
 	ja2::mp::net::SdlNetMessage& message,
 	FullEngineCoopCampaignInboundKind kind) noexcept
@@ -837,6 +890,8 @@ void FullEngineCoopAdmissionListener::handleCampaignMessage(
 	PeerIdentity resolved{};
 	if (state == nullptr || !connectionAuthenticates(*state, resolved) ||
 		!validCampaignInboundSize(kind, message.size) ||
+		(!campaignRequestsEnabled_ &&
+			kind >= FullEngineCoopCampaignInboundKind::TimeRequest) ||
 		message.data == nullptr ||
 		!queueCampaignMessage(*state, resolved, message, kind))
 	{
@@ -1007,6 +1062,12 @@ bool FullEngineCoopAdmissionListener::validCampaignInboundSize(
 			return size == CoopCampaignSyncResultWireSize;
 		case FullEngineCoopCampaignInboundKind::Resync:
 			return size == CoopCampaignSyncResyncWireSize;
+		case FullEngineCoopCampaignInboundKind::TimeRequest:
+			return size == CoopCampaignTimeRequestWireSize;
+		case FullEngineCoopCampaignInboundKind::ActionRequest:
+			return size == CoopCampaignActionRequestWireSize;
+		case FullEngineCoopCampaignInboundKind::HireRequest:
+			return size == CoopCampaignHireRequestWireSize;
 	}
 	return false;
 }
@@ -1148,6 +1209,7 @@ void FullEngineCoopAdmissionListener::stopNow(
 	campaignBootstrapBytes_ = {};
 	maximumQueuedTacticalMessages_ = 0;
 	maximumQueuedCampaignMessages_ = 0;
+	campaignRequestsEnabled_ = false;
 	if (transport_ == nullptr) return;
 	ingress_.clearTransportBindings();
 	transport_->Shutdown(drainMilliseconds);
