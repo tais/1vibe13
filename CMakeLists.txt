@@ -812,6 +812,19 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_coop_stance_command COMMAND native_coop_remote_attack_completion_tests --stance-command)
   set_tests_properties(native_coop_remote_attack_completion native_coop_remote_attack_completion_points native_coop_attack_lifecycle native_coop_suppression_stance_cost native_coop_stance_command PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_coop_remote_attack_completion_tests)
+  add_executable(authoritative_first_aid_tests tests/authoritative_first_aid_tests.cpp)
+  target_compile_definitions(authoritative_first_aid_tests PRIVATE ${debugFlags})
+  target_link_libraries(authoritative_first_aid_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME authoritative_first_aid_allocation_failure COMMAND authoritative_first_aid_tests)
+  foreach(first_aid_case IN ITEMS missing-animation missing-mapping missing-prone-mapping standing-missing-mapping standing-start prone-start native-success prone-recipient prone-pair)
+    string(REPLACE "-" "_" first_aid_name ${first_aid_case})
+    add_test(NAME authoritative_first_aid_${first_aid_name}
+      COMMAND authoritative_first_aid_tests --${first_aid_case})
+    set_tests_properties(authoritative_first_aid_${first_aid_name} PROPERTIES TIMEOUT 30)
+  endforeach()
+  set_tests_properties(authoritative_first_aid_allocation_failure PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests authoritative_first_aid_tests)
+
   # Native worldless travel and arrival decisions use the ordinary campaign
   # scheduler, encounter rules, placement, and retreat gameplay.
   foreach(campaign_native_test IN ITEMS

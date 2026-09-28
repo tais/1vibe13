@@ -149,6 +149,47 @@ struct AimedFirearmAttackCommand
 	SimulationCommandSource source;
 };
 
+// Server-prepared, adjacent first aid. The patient identity and both poses
+// remain exact across queueing; no grid-only approach or surgery is implied.
+// Kit fingerprints are private authority expectations, never client input.
+struct BeginFirstAidCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int32_t expectedTargetGrid = -1;
+	std::int8_t expectedLevel = -1;
+	std::uint8_t direction = 8;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint16_t expectedTargetAnimationState = UINT16_MAX;
+	std::uint16_t expectedHandItem = 0;
+	std::uint64_t expectedKitStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<BeginFirstAidCommand>::value,
+	"first-aid commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidBeginFirstAidCommand(
+	const BeginFirstAidCommand& command) noexcept
+{
+	return command.soldier.valid() && command.target.valid() &&
+		command.soldier != command.target && command.expectedWorldGeneration != 0 &&
+		command.expectedTurnSerial != 0 && command.expectedActorGrid >= 0 &&
+		command.expectedTargetGrid >= 0 && command.expectedActorGrid != command.expectedTargetGrid &&
+		(command.expectedLevel == 0 || command.expectedLevel == 1) &&
+		command.direction < 8 && command.expectedAnimationState != UINT16_MAX &&
+		command.expectedTargetAnimationState != UINT16_MAX && command.expectedHandItem != 0 &&
+		command.expectedKitStateFingerprint != 0 && command.expectedActionPointCost >= 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // Preserve the legacy fFromUI modes as explicit replay/network vocabulary.
 // Values are intentionally identical to TacticalActorRouteExecution's
 // established 0/1/2/3 ingress policy.
@@ -1412,6 +1453,7 @@ using SimulationCommand = std::variant<
 	SystemWorldObjectInteractionCommand,
 	SynchronizeActorVitalsCommand,
 	AimedFirearmAttackCommand,
+	BeginFirstAidCommand,
 	AuthoritativeDoorOpenCloseCommand,
 	PassInterruptCommand,
 	SwapInventorySlotsCommand>;
@@ -1566,6 +1608,10 @@ inline bool IsStructurallyValidSimulationCommand(
 				AuthoritativeDoorOpenCloseCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeDoorOpenCloseCommand(value);
+		}
+		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+		{
+			return IsStructurallyValidBeginFirstAidCommand(value);
 		}
 		else if constexpr (
 			std::is_same<Command, PassInterruptCommand>::value)
