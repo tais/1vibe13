@@ -1580,8 +1580,725 @@ void TestAdversarialFailures()
 }
 }
 
+namespace
+{
+CoopCampaignStatus CampaignStatus(std::uint64_t epoch, PeerIdentity leader)
+{
+	CoopCampaignStatus s;
+	s.sessionEpoch = epoch; s.revision = 10; s.worldSeconds = 111600;
+	s.phase = CoopCampaignPhase::Tactical; s.timeLeader = leader;
+	s.leadershipRevision = 1; s.timeLeaderReady = true; s.readyPeers = 2;
+	return s;
+}
+FullEngineCoopClientResult DeliverStatus(Harness& harness, const CoopCampaignStatus& status)
+{
+	CoopCampaignStatusBytes bytes;
+	CHECK(EncodeCoopCampaignStatus(status, bytes), "client campaign fixture encodes");
+	return harness.client.receiveCampaignStatus(bytes.data(), bytes.size());
+}
+CoopCampaignGroups CampaignGroups(std::uint64_t epoch)
+{
+	CoopCampaignGroups value; value.sessionEpoch = epoch; value.revision = 10; value.available = true;
+	value.groupCount = 1; value.memberCount = 1;
+	value.groups[0].id = {2, 12}; value.groups[0].x = 9; value.groups[0].y = 1; value.groups[0].memberCount = 1;
+	value.members[0] = {{0, 1}, 238, 0}; return value;
+}
+FullEngineCoopClientResult DeliverGroups(Harness& harness, const CoopCampaignGroups& value)
+{
+	CoopCampaignGroupsBytes bytes; std::size_t size = 0;
+	CHECK(EncodeCoopCampaignGroups(value, bytes, size), "client group fixture encodes");
+	return harness.client.receiveCampaignGroups(bytes.data(), size);
+}
+CoopCampaignEconomy CampaignEconomy(std::uint64_t epoch)
+{
+	CoopCampaignEconomy value; value.sessionEpoch = epoch; value.revision = 10; value.available = true;
+	value.balance = 10000; value.mercenaryCount = value.rosterCount = 1; value.mercenaryLimit = 32;
+	value.roster[0].actor = {0,1}; value.roster[0].profile = 238; value.roster[0].x = 9; value.roster[0].y = 1;
+	return value;
+}
+CoopCampaignAimQuotes CampaignQuotes(std::uint64_t epoch)
+{
+	CoopCampaignAimQuotes value; value.sessionEpoch = epoch; value.revision = 10; value.economyRevision = 10; value.available = true;
+	value.arrivalMinutes = 1900; value.landingX = 9; value.landingY = 1; value.quoteCount = 1;
+	auto& q = value.quotes[0]; q.profile = 0; q.status = CoopCampaignAimQuoteStatus::Available; q.gearAvailable = true;
+	q.salary = {100,600,1100}; q.medicalDeposit = 300; q.gearCost = 50; q.total = {400,450,900,950,1400,1450};
+	return value;
+}
+FullEngineCoopClientResult DeliverEconomy(Harness& harness, const CoopCampaignEconomy& value)
+{
+	CoopCampaignEconomyBytes bytes; std::size_t size = 0;
+	CHECK(EncodeCoopCampaignEconomy(value, bytes, size), "client economy fixture encodes");
+	return harness.client.receiveCampaignEconomy(bytes.data(), size);
+}
+FullEngineCoopClientResult DeliverQuotes(Harness& harness, const CoopCampaignAimQuotes& value)
+{
+	CoopCampaignAimQuotesBytes bytes; std::size_t size = 0;
+	CHECK(EncodeCoopCampaignAimQuotes(value, bytes, size), "client quote fixture encodes");
+	return harness.client.receiveCampaignAimQuotes(bytes.data(), size);
+}
+CoopCampaignHireRequest LastHireRequest(const Harness& harness)
+{
+	CoopCampaignHireRequest request; const auto& wire = harness.wire.messages.back().bytes;
+	CHECK(DecodeCoopCampaignHireRequest(wire.data(),wire.size(),request), "core hire request decodes"); return request;
+}
+FullEngineCoopClientResult DeliverHireResult(Harness& harness, const CoopCampaignHireResult& result)
+{
+	CoopCampaignHireResultBytes bytes; CHECK(EncodeCoopCampaignHireResult(result,bytes), "client hire receipt fixture encodes");
+	return harness.client.receiveCampaignHireResult(bytes.data(),bytes.size());
+}
+void TestCampaignReceiptsDuringRetirement()
+{
+	using R = FullEngineCoopClientResult;
+	for (unsigned kind = 0; kind < 3; ++kind)
+	{
+		Harness h; const auto peer = Identity(10);
+		ReachBaseline(h, Configuration(), 902, peer, Token(30));
+		auto status = CampaignStatus(902, peer); status.phase = CoopCampaignPhase::Strategic;
+		auto groups = CampaignGroups(902); auto economy = CampaignEconomy(902); auto quotes = CampaignQuotes(902);
+		CHECK(DeliverStatus(h, status) == R::Success && DeliverGroups(h, groups) == R::Success &&
+			DeliverEconomy(h, economy) == R::Success && DeliverQuotes(h, quotes) == R::Success,
+			"retirement receipt fixture has coherent campaign observations");
+		std::vector<std::uint8_t> receipt, unrelated;
+		const auto deliver = [&](const std::vector<std::uint8_t>& bytes) {
+			return kind == 0 ? h.client.receiveCampaignTimeResult(bytes.data(), bytes.size()) :
+				kind == 1 ? h.client.receiveCampaignActionResult(bytes.data(), bytes.size()) :
+				h.client.receiveCampaignHireResult(bytes.data(), bytes.size());
+		};
+		if (kind == 0)
+		{
+			CHECK(h.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == R::Success, "time receipt fixture submits");
+			const auto& sent = h.wire.messages.back().bytes; CoopCampaignTimeRequest request;
+			CHECK(DecodeCoopCampaignTimeRequest(sent.data(), sent.size(), request), "time fixture request decodes");
+			++status.revision; ++status.timeControlRevision;
+			CHECK(DeliverStatus(h, status) == R::Success, "time commit observed");
+			CoopCampaignTimeResult result{request, status.timeControlRevision, CoopCampaignTimeOutcome::Applied};
+			CoopCampaignTimeResultBytes bytes;
+			CHECK(EncodeCoopCampaignTimeResult(result, bytes), "time receipt encodes"); receipt.assign(bytes.begin(), bytes.end());
+			++result.request.requestId;
+			CHECK(EncodeCoopCampaignTimeResult(result, bytes), "unrelated time receipt encodes"); unrelated.assign(bytes.begin(), bytes.end());
+		}
+		else if (kind == 1)
+		{
+			CoopCampaignActionRequest request; request.group = groups.groups[0].id; request.destinationX = 10; request.destinationY = 1;
+			CHECK(h.client.requestCampaignAction(request) == R::Success, "action receipt fixture submits");
+			const auto& sent = h.wire.messages.back().bytes;
+			CHECK(DecodeCoopCampaignActionRequest(sent.data(), sent.size(), request), "action fixture request decodes");
+			++status.revision; ++status.timeControlRevision;
+			CHECK(DeliverStatus(h, status) == R::Success, "action commit observed");
+			CoopCampaignActionResult result{request, status.timeControlRevision, groups.revision, CoopCampaignActionOutcome::Applied, 0};
+			CoopCampaignActionResultBytes bytes;
+			CHECK(EncodeCoopCampaignActionResult(result, bytes), "action receipt encodes"); receipt.assign(bytes.begin(), bytes.end());
+			++result.request.requestId;
+			CHECK(EncodeCoopCampaignActionResult(result, bytes), "unrelated action receipt encodes"); unrelated.assign(bytes.begin(), bytes.end());
+		}
+		else
+		{
+			CHECK(h.client.requestCampaignHire(0, 7, true) == R::Success, "hire receipt fixture submits");
+			CoopCampaignHireResult result; result.request = LastHireRequest(h);
+			++status.revision; ++status.timeControlRevision; ++economy.revision; ++quotes.revision; quotes.economyRevision = economy.revision;
+			economy.balance -= 950; economy.rosterCount = economy.mercenaryCount = 2;
+			economy.roster[1] = economy.roster[0]; economy.roster[1].actor = {5, 7}; economy.roster[1].profile = 0;
+			CHECK(DeliverStatus(h, status) == R::Success && DeliverEconomy(h, economy) == R::Success &&
+				DeliverQuotes(h, quotes) == R::Success, "hire commit observed");
+			result.controlRevision = status.timeControlRevision; result.economyRevision = economy.revision; result.quoteRevision = quotes.revision;
+			result.actor = {5, 7}; result.chargedTotal = 950; result.nativeAttempted = true; result.outcome = CoopCampaignHireOutcome::Applied;
+			CoopCampaignHireResultBytes bytes;
+			CHECK(EncodeCoopCampaignHireResult(result, bytes), "hire receipt encodes"); receipt.assign(bytes.begin(), bytes.end());
+			++result.request.requestId;
+			CHECK(EncodeCoopCampaignHireResult(result, bytes), "unrelated hire receipt encodes"); unrelated.assign(bytes.begin(), bytes.end());
+		}
+		CHECK(deliver(receipt) == R::Success && h.client.requestSelfRetirement() == R::Success,
+			"settled campaign request permits explicit retirement");
+		const auto sent = h.wire.messages.size();
+		CHECK(deliver(receipt) == R::Success && h.client.state() == FullEngineCoopClientState::Retiring &&
+			!h.client.campaignStatus() && !h.client.campaignGroups() && !h.client.campaignEconomy() &&
+			!h.client.campaignAimQuotes() && !h.client.campaignTimeResult() && !h.client.lastCampaignActionResult() &&
+			!h.client.lastCampaignHireResult() && h.wire.messages.size() == sent,
+			"exact queued campaign receipt cannot interrupt retirement, expose controls or replay an action");
+		CHECK(deliver(unrelated) == R::InvalidMessage && h.client.state() == FullEngineCoopClientState::Failed,
+			"retirement still rejects an unrequested receipt instead of treating all results as duplicates");
+	}
+}
+
+void TestCampaignMeanwhileLifecycle()
+{
+	const auto peer = Identity(20), leader = Identity(10);
+	auto status = CampaignStatus(902, leader);
+	status.phase = CoopCampaignPhase::Strategic; status.pauseLocked = true;
+	status.meanwhile = {8, CoopCampaignMeanwhileScene::FirstBattle};
+	Harness client; ReachBaseline(client, Configuration(), 902, peer, Token(30));
+	CHECK(DeliverStatus(client, status) == FullEngineCoopClientResult::Success &&
+		DeliverGroups(client, CampaignGroups(902)) == FullEngineCoopClientResult::Success &&
+		!client.replica.baselineCalls, "ready nonleader observes a scene without tactical ownership");
+	CoopCampaignActionRequest request; request.action = CoopCampaignAction::SkipMeanwhile; request.decision = 8;
+	CHECK(client.client.requestCampaignAction(request) == FullEngineCoopClientResult::Success && client.client.campaignActionPending(),
+		"nonleader submits an explicit native scene skip");
+	const auto& wire = client.wire.messages.back().bytes;
+	CHECK(DecodeCoopCampaignActionRequest(wire.data(), wire.size(), request) && request.decision == 8 && request.action == CoopCampaignAction::SkipMeanwhile,
+		"wire binds the exact displayed scene notice");
+	const auto original = status; status.meanwhile = {}; status.phase = CoopCampaignPhase::Transition; ++status.revision; ++status.timeControlRevision;
+	CHECK(DeliverStatus(client, status) == FullEngineCoopClientResult::Success && client.client.campaignActionPending(),
+		"clearing a notice alone cannot invent the acknowledgement receipt");
+	CoopCampaignActionResult receipt{request, status.timeControlRevision, 10, CoopCampaignActionOutcome::Applied, 0};
+	CoopCampaignActionResultBytes bytes;
+	CHECK(EncodeCoopCampaignActionResult(receipt, bytes) && client.client.receiveCampaignActionResult(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success &&
+		!client.client.campaignActionPending(), "exact acknowledgement receipt settles before native consequences run");
+	for (unsigned fault = 0; fault != 3; ++fault)
+	{
+		Harness bad; ReachBaseline(bad, Configuration(), 902, peer, Token(30));
+		CHECK(DeliverStatus(bad, original) == FullEngineCoopClientResult::Success, "native notice rejection fixture admitted");
+		auto changed = original; ++changed.revision; ++changed.timeControlRevision;
+		if (fault == 0) changed.meanwhile.scene = CoopCampaignMeanwhileScene::Flowers;
+		if (fault == 1) --changed.meanwhile.id;
+		if (fault == 2)
+		{
+			changed.meanwhile = {};
+			CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::Success, "consumed scene notice fixture");
+			changed.meanwhile = original.meanwhile; ++changed.revision; ++changed.timeControlRevision;
+		}
+		CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::InvalidMessage && !bad.client.campaignStatus(),
+			"retargeted or resurrected native notice fails closed on the passive client");
+	}
+	client.client.transportDisconnected();
+	CHECK(!client.client.campaignStatus(), "transport loss hides the notice and cannot skip automatically on reconnect");
+}
+
+void TestCampaignBattleNoticeLifecycle()
+{
+	const auto peer = Identity(20), leader = Identity(10);
+	auto status = CampaignStatus(902, leader);
+	status.battleNotice = {8, CoopCampaignBattleNoticeKind::Captured, 9, 1, 0};
+	Harness client; ReachBaseline(client, Configuration(), 902, peer, Token(30));
+	CHECK(DeliverStatus(client, status) == FullEngineCoopClientResult::Success &&
+		DeliverGroups(client, CampaignGroups(902)) == FullEngineCoopClientResult::Success &&
+		!client.replica.baselineCalls, "ready nonleader observes capture without requiring tactical ownership");
+	CoopCampaignActionRequest request; request.action = CoopCampaignAction::AcknowledgeBattleNotice; request.decision = 8;
+	CHECK(client.client.requestCampaignAction(request) == FullEngineCoopClientResult::Success && client.client.campaignActionPending(),
+		"nonleader submits an explicit native outcome acknowledgement");
+	const auto& wire = client.wire.messages.back().bytes;
+	CHECK(DecodeCoopCampaignActionRequest(wire.data(), wire.size(), request) && request.decision == 8 && request.action == CoopCampaignAction::AcknowledgeBattleNotice,
+		"wire binds the exact displayed battle notice");
+	const auto original = status; status.battleNotice = {}; status.phase = CoopCampaignPhase::Transition; ++status.revision; ++status.timeControlRevision;
+	CHECK(DeliverStatus(client, status) == FullEngineCoopClientResult::Success && client.client.campaignActionPending(),
+		"clearing a notice alone cannot invent the acknowledgement receipt");
+	CoopCampaignActionResult receipt{request, status.timeControlRevision, 10, CoopCampaignActionOutcome::Applied, 0};
+	CoopCampaignActionResultBytes bytes;
+	CHECK(EncodeCoopCampaignActionResult(receipt, bytes) && client.client.receiveCampaignActionResult(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success &&
+		!client.client.campaignActionPending(), "exact acknowledgement receipt settles before native unload and transport close");
+	for (unsigned fault = 0; fault != 6; ++fault)
+	{
+		Harness bad; ReachBaseline(bad, Configuration(), 902, peer, Token(30));
+		CHECK(DeliverStatus(bad, original) == FullEngineCoopClientResult::Success, "native notice rejection fixture admitted");
+		auto changed = original; ++changed.revision; ++changed.timeControlRevision;
+		if (fault == 0) changed.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated;
+		if (fault == 1) ++changed.battleNotice.x;
+		if (fault == 2) ++changed.battleNotice.y;
+		if (fault == 3) ++changed.battleNotice.z;
+		if (fault == 4) --changed.battleNotice.id;
+		if (fault == 5)
+		{
+			changed.battleNotice = {};
+			CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::Success, "consumed battle notice fixture");
+			changed.battleNotice = original.battleNotice; ++changed.revision; ++changed.timeControlRevision;
+		}
+		CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::InvalidMessage && !bad.client.campaignStatus(),
+			"retargeted or resurrected native notice fails closed on the passive client");
+	}
+	client.client.transportDisconnected();
+	CHECK(!client.client.campaignStatus(), "transport loss hides the notice and cannot acknowledge on reconnect");
+}
+
+void TestCampaignEconomyLifecycle()
+{
+	Harness harness; auto economy = CampaignEconomy(902); auto quotes = CampaignQuotes(902);
+	CHECK(DeliverEconomy(harness,economy) == FullEngineCoopClientResult::InvalidState && DeliverQuotes(harness,quotes) == FullEngineCoopClientResult::InvalidState &&
+		!harness.client.campaignEconomy() && !harness.client.campaignAimQuotes(), "economy and quotes unavailable before admission");
+	ReachBaseline(harness,Configuration(),902,Identity(20),Token(30));
+	CHECK(DeliverEconomy(harness,economy) == FullEngineCoopClientResult::Success && !harness.client.campaignAimQuotes() &&
+		DeliverQuotes(harness,quotes) == FullEngineCoopClientResult::Success && SameCoopCampaignEconomy(*harness.client.campaignEconomy(),economy) &&
+		SameCoopCampaignAimQuotes(*harness.client.campaignAimQuotes(),quotes) && !harness.replica.baselineCalls, "ordered economic observations require no local tactical world");
+	Activate(harness,902);
+	CHECK(harness.client.campaignAimQuotes() && DeliverQuotes(harness,quotes) == FullEngineCoopClientResult::Success, "baseline preserves quotes and exact repeat is harmless");
+	auto badDelta = DeltaBytes(902,11,9,10,3,1);
+	CHECK(harness.client.receiveDelta(badDelta.data(),badDelta.size()) == FullEngineCoopClientResult::ResyncRequired &&
+		harness.client.campaignAimQuotes(), "same-connection tactical resync preserves independent campaign observations");
+	++economy.revision; economy.balance -= 100;
+	CHECK(DeliverEconomy(harness,economy) == FullEngineCoopClientResult::Success && !harness.client.campaignAimQuotes(), "new economy hides old offers until coherent quote replacement");
+	++quotes.revision; quotes.economyRevision = economy.revision;
+	CHECK(DeliverQuotes(harness,quotes) == FullEngineCoopClientResult::Success && harness.client.campaignAimQuotes(), "matching offer binding restores copied current choices");
+	economy = {}; economy.sessionEpoch = 902; economy.revision = 12;
+	quotes = {}; quotes.sessionEpoch = 902; quotes.revision = 12; quotes.economyRevision = 12;
+	CHECK(DeliverEconomy(harness,economy) == FullEngineCoopClientResult::Success && DeliverQuotes(harness,quotes) == FullEngineCoopClientResult::Success &&
+		!harness.client.campaignEconomy()->rosterCount && !harness.client.campaignEconomy()->roster[0].actor.valid() &&
+		!harness.client.campaignAimQuotes()->quoteCount && !harness.client.campaignAimQuotes()->quotes[0].salary[0], "unavailable replacements erase old roster and quote payloads");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignEconomy() && !harness.client.campaignAimQuotes(), "transport loss erases session economy");
+	ReachBaseline(harness,Configuration(),902,Identity(20),Token(30),false);
+	CHECK(!harness.client.campaignEconomy() && !harness.client.campaignAimQuotes(), "replacement connection cannot borrow old offers");
+	for (unsigned fault = 0; fault < 9; ++fault)
+	{
+		Harness bad; ReachBaseline(bad,Configuration(),902,Identity(20),Token(30)); auto e = CampaignEconomy(902); auto q = CampaignQuotes(902);
+		CHECK(DeliverEconomy(bad,e) == FullEngineCoopClientResult::Success && DeliverQuotes(bad,q) == FullEngineCoopClientResult::Success, "invalid economic observation fixture");
+		FullEngineCoopClientResult result;
+		if (fault < 4)
+		{
+			if (fault == 0) --e.revision; if (fault == 1) ++e.sessionEpoch; if (fault == 2) --e.balance;
+			if (fault == 3) ++e.roster[0].actor.incarnation;
+			result = DeliverEconomy(bad,e);
+		}
+		else
+		{
+			if (fault == 4) --q.revision; if (fault == 5) ++q.sessionEpoch; if (fault == 6) ++q.economyRevision;
+			if (fault == 7) --q.economyRevision; if (fault == 8) q.quotes[0].willingnessReason = 2;
+			result = DeliverQuotes(bad,q);
+		}
+		CHECK(result == FullEngineCoopClientResult::InvalidMessage && !bad.client.campaignEconomy() && !bad.client.campaignAimQuotes() &&
+			bad.client.state() == FullEngineCoopClientState::Failed, "wrong epoch, regressed stamps, mixed quote binding or same-revision mutation closes authenticated client");
+	}
+}
+void TestCampaignHireControls()
+{
+	using R = FullEngineCoopClientResult; using O = CoopCampaignHireOutcome;
+	Harness harness; const auto peer = Identity(20), leader = Identity(10);
+	CHECK(harness.client.requestCampaignHire(0,7,true) == R::InvalidState, "hire requires admission and copied observations");
+	ReachBaseline(harness,Configuration(),902,peer,Token(30));
+	auto status = CampaignStatus(902,leader); status.phase = CoopCampaignPhase::Strategic;
+	auto economy = CampaignEconomy(902); auto quotes = CampaignQuotes(902); auto groups = CampaignGroups(902);
+	CHECK(DeliverStatus(harness,status) == R::Success && DeliverGroups(harness,groups) == R::Success && DeliverEconomy(harness,economy) == R::Success &&
+		harness.client.requestCampaignHire(0,7,true) == R::InvalidState && DeliverQuotes(harness,quotes) == R::Success, "hire needs coherent economy and quotes");
+	CHECK(harness.client.requestCampaignHire(255,7,true) == R::InvalidIntent && harness.client.requestCampaignHire(0,2,true) == R::InvalidIntent,
+		"unsupported profile and contract never emit a request");
+	CoopCampaignActionRequest travel; travel.group = {2,12}; travel.destinationX = 10; travel.destinationY = 1;
+	CoopCampaignHireResult previous;
+	for (unsigned code = 1; code <= 10; ++code)
+	{
+		CHECK(harness.client.requestCampaignHire(0,7,true) == R::Success && harness.client.campaignHirePending() && !harness.client.lastCampaignHireResult(),
+			"ready nonleader may submit shared hire without tactical baseline");
+		auto request = LastHireRequest(harness);
+		CHECK(request.requestId == code && request.sessionEpoch == 902 && request.controlRevision == status.timeControlRevision &&
+			request.economyRevision == economy.revision && request.quoteRevision == quotes.revision && request.profile == 0 && request.days == 7 && request.buyGear,
+			"core binds exact current snapshots and local monotonic sequence");
+		const auto sent = harness.wire.messages.size();
+		CHECK(harness.client.requestCampaignHire(0,7,true) == R::IntentOutstanding && harness.client.requestCampaignAction(travel) == R::IntentOutstanding &&
+			harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == R::IntentOutstanding && harness.client.requestSelfRetirement() == R::InvalidState &&
+			harness.wire.messages.size() == sent, "one pending mutation covers hiring, travel, time and voluntary retirement");
+		if (previous.request.requestId) CHECK(DeliverHireResult(harness,previous) == R::Success && harness.client.campaignHirePending(),
+			"historical duplicate cannot clear a newer pending hire or depend on old actor still being hired");
+		CoopCampaignHireResult result; result.request = request; result.controlRevision = ++status.timeControlRevision;
+		++status.revision; result.economyRevision = economy.revision; result.quoteRevision = quotes.revision; result.outcome = static_cast<O>(code);
+		result.nativeAttempted = code == 1 || code == 9;
+		if (code == 1)
+		{
+			result.actor = {5,7}; result.chargedTotal = 950;
+			economy.rosterCount = economy.mercenaryCount = 2; economy.roster[1] = economy.roster[0];
+			economy.roster[1].actor = result.actor; economy.roster[1].profile = 0; economy.roster[1].pendingHire = true;
+			economy.roster[1].arrivalMinutes = 1900; economy.balance -= result.chargedTotal;
+		}
+		++economy.revision; ++quotes.revision; quotes.economyRevision = economy.revision;
+		CHECK(DeliverStatus(harness,status) == R::Success && DeliverEconomy(harness,economy) == R::Success && DeliverQuotes(harness,quotes) == R::Success &&
+			harness.client.campaignHirePending() && DeliverHireResult(harness,result) == R::Success && !harness.client.campaignHirePending() &&
+			harness.client.lastCampaignHireResult()->outcome == result.outcome && DeliverHireResult(harness,result) == R::Success,
+			"terminal result follows observations, verifies native actor/debit, and unlocks once");
+		previous = result;
+		if (code == 1)
+		{
+			economy.rosterCount = economy.mercenaryCount = 1; ++economy.revision; ++quotes.revision; quotes.economyRevision = economy.revision;
+			CHECK(DeliverEconomy(harness,economy) == R::Success && DeliverQuotes(harness,quotes) == R::Success, "later native roster may remove previously hired actor");
+		}
+	}
+	CHECK(harness.client.requestCampaignHire(0,7,true) == R::Success, "unresolved hire before transport loss");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignHirePending() && !harness.client.lastCampaignHireResult() && !harness.client.campaignAimQuotes(), "disconnect drops unknown hire outcome without replay");
+	ReachBaseline(harness,Configuration(),902,peer,Token(30),false); const auto sent = harness.wire.messages.size();
+	CHECK(DeliverStatus(harness,status) == R::Success && DeliverEconomy(harness,economy) == R::Success && DeliverQuotes(harness,quotes) == R::Success &&
+		harness.wire.messages.size() == sent, "reconnect observations do not automatically retry a hire");
+	harness.wire.failNextSend = true;
+	CHECK(harness.client.requestCampaignHire(0,7,true) == R::WireFailure && !harness.client.campaignHirePending() && !harness.client.campaignEconomy(), "failed hire write closes and clears economic authority");
+	for (bool time : {false,true})
+	{
+		Harness h; ReachBaseline(h,Configuration(),902,leader,Token(30));
+		CHECK(DeliverStatus(h,status) == R::Success && DeliverGroups(h,groups) == R::Success && DeliverEconomy(h,economy) == R::Success && DeliverQuotes(h,quotes) == R::Success,
+			"reverse pending mutation fixture");
+		CHECK((time ? h.client.requestCampaignTime(CoopCampaignTimeAction::Pause) : h.client.requestCampaignAction(travel)) == R::Success &&
+			h.client.requestCampaignHire(0,7,true) == R::IntentOutstanding, "pending time/travel also blocks hiring");
+	}
+}
+void TestCampaignHireReceiptRejections()
+{
+	using R = FullEngineCoopClientResult; using O = CoopCampaignHireOutcome;
+	for (unsigned fault = 0; fault < 17; ++fault)
+	{
+		Harness h; ReachBaseline(h,Configuration(),902,Identity(20),Token(30));
+		auto status = CampaignStatus(902,Identity(10)); status.phase = CoopCampaignPhase::Strategic;
+		auto e = CampaignEconomy(902); auto q = CampaignQuotes(902);
+		CHECK(DeliverStatus(h,status) == R::Success && DeliverEconomy(h,e) == R::Success && DeliverQuotes(h,q) == R::Success &&
+			h.client.requestCampaignHire(0,7,true) == R::Success, "receipt rejection fixture has exact pending hire");
+		CoopCampaignHireResult result; result.request = LastHireRequest(h); result.controlRevision = status.timeControlRevision + 2;
+		result.economyRevision = e.revision; result.quoteRevision = q.revision; result.outcome = O::Applied;
+		result.nativeAttempted = true; result.actor = {5,7}; result.chargedTotal = 950;
+		status.timeControlRevision += 2; ++status.revision; ++e.revision; e.rosterCount = e.mercenaryCount = 2;
+		e.roster[1] = e.roster[0]; e.roster[1].actor = result.actor; e.roster[1].profile = 0;
+		if (fault == 0) ++result.request.sessionEpoch; if (fault == 1) ++result.request.requestId;
+		if (fault == 2) ++result.request.controlRevision; if (fault == 3) ++result.request.profile;
+		if (fault == 4) result.request.days = 14; if (fault == 5) result.request.buyGear = false;
+		if (fault == 6) ++result.controlRevision; if (fault == 7) result.economyRevision = e.revision + 1;
+		if (fault == 8) result.quoteRevision = q.revision + 2;
+		if (fault == 9) ++result.actor.incarnation; if (fault == 10) ++e.roster[1].profile;
+		if (fault == 11) result.chargedTotal--; if (fault == 12) e.rosterCount = e.mercenaryCount = 1;
+		if (fault == 13) { result.outcome = O::Failed; result.actor = {}; result.chargedTotal = 0; }
+		++q.revision; q.economyRevision = e.revision;
+		CHECK(DeliverStatus(h,status) == R::Success && DeliverEconomy(h,e) == R::Success, "receipt rejection fixture observes completed economic mutation");
+		if (fault != 16) CHECK(DeliverQuotes(h,q) == R::Success, "receipt rejection fixture receives coherent current quotes");
+		CoopCampaignHireResultBytes bytes; CHECK(EncodeCoopCampaignHireResult(result,bytes), "wrong semantic receipt remains structurally valid");
+		if (fault == 14) bytes[94] = 1;
+		CHECK(h.client.receiveCampaignHireResult(bytes.data(),bytes.size() - (fault == 15 ? 1 : 0)) == (fault == 13 ? R::InvalidState : R::InvalidMessage) &&
+			h.client.state() == FullEngineCoopClientState::Failed && !h.client.campaignHirePending() && !h.client.lastCampaignHireResult() && !h.client.campaignEconomy(),
+			"wrong echo/stamps/actor/profile/debit, missing observations, malformed or failed receipt closes and clears client");
+	}
+}
+void TestCampaignGroupsLifecycle()
+{
+	Harness harness; auto groups = CampaignGroups(902);
+	CHECK(DeliverGroups(harness, groups) == FullEngineCoopClientResult::InvalidState && !harness.client.campaignGroups(), "no squad data before admission");
+	ReachBaseline(harness, Configuration(), 902, Identity(10), Token(30));
+	CHECK(DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success && harness.client.campaignGroups() &&
+		SameCoopCampaignGroups(*harness.client.campaignGroups(), groups) && harness.replica.baselineCalls == 0,
+		"strategic groups require no local tactical world or baseline");
+	Activate(harness, 902);
+	CHECK(harness.client.campaignGroups() && DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success, "baseline preserves independent groups and exact replay is idempotent");
+	auto badDelta = DeltaBytes(902, 11, 9, 10, 3, 1);
+	CHECK(harness.client.receiveDelta(badDelta.data(), badDelta.size()) == FullEngineCoopClientResult::ResyncRequired &&
+		harness.client.campaignGroups(), "tactical resync preserves campaign observations");
+	groups = {}; groups.sessionEpoch = 902; groups.revision = 11;
+	CHECK(DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success && !harness.client.campaignGroups()->available &&
+		!harness.client.campaignGroups()->memberCount, "unavailable replacement clears stale members during transition");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignGroups(), "transport loss clears groups");
+	ReachBaseline(harness, Configuration(), 902, Identity(10), Token(30), false);
+	CHECK(!harness.client.campaignGroups(), "reconnect cannot borrow old group data");
+	groups = CampaignGroups(902);
+	CHECK(DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success, "fresh transport accepts its first observation");
+	CHECK(harness.client.requestSelfRetirement() == FullEngineCoopClientResult::Success && !harness.client.campaignGroups(), "retirement hides groups");
+	CHECK(DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success && !harness.client.campaignGroups(), "already queued group observation does not disrupt leave");
+	for (unsigned fault = 0; fault < 4; ++fault)
+	{
+		Harness rejected; ReachBaseline(rejected, Configuration(), 902, Identity(10), Token(30));
+		auto first = CampaignGroups(902);
+		CHECK(DeliverGroups(rejected, first) == FullEngineCoopClientResult::Success, "rejection fixture populated");
+		if (fault == 0) --first.revision;
+		if (fault == 1) ++first.members[0].actor.incarnation;
+		if (fault == 2) ++first.sessionEpoch;
+		if (fault == 3) { first.available = false; first.groupCount = first.memberCount = 0; }
+		CHECK(DeliverGroups(rejected, first) == FullEngineCoopClientResult::InvalidMessage && !rejected.client.campaignGroups(),
+			"regression, wrong epoch and contradictory same-revision observations fail closed");
+	}
+}
+void TestCampaignStatusLifecycle()
+{
+	const auto peer = Identity(10); const auto token = Token(30);
+	auto status = CampaignStatus(902, peer);
+	Harness harness;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::InvalidState &&
+		!harness.client.campaignStatus(), "no campaign data before admission");
+	ReachBaseline(harness, Configuration(), 902, peer, token);
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+		harness.client.campaignStatus() && SameCoopCampaignStatus(*harness.client.campaignStatus(), status) &&
+		harness.replica.baselineCalls == 0, "live campaign status does not require tactical map/baseline");
+	Activate(harness, 902);
+	CHECK(harness.client.campaignStatus() && SameCoopCampaignStatus(*harness.client.campaignStatus(), status),
+		"tactical baseline commits without erasing independent campaign clock");
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success,
+		"identical revision is an idempotent replay");
+	++status.revision; ++status.worldSeconds;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success, "newer clock observation accepted");
+	const auto badDelta = DeltaBytes(902, 11, 9, 10, 3, 1);
+	CHECK(harness.client.receiveDelta(badDelta.data(), badDelta.size()) == FullEngineCoopClientResult::ResyncRequired &&
+		harness.client.campaignStatus(), "tactical resync does not invalidate current campaign session");
+	++status.revision;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success, "campaign observation continues during tactical resync");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignStatus(), "disconnect immediately removes stale clock and role");
+	ReachBaseline(harness, Configuration(), 902, peer, token, false);
+	CHECK(!harness.client.campaignStatus(), "reconnected client cannot borrow previous transport observation");
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success, "fresh status received on reconnected transport");
+	CHECK(harness.client.requestSelfRetirement() == FullEngineCoopClientResult::Success &&
+		!harness.client.campaignStatus(), "voluntary leave hides live role immediately");
+	++status.revision;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success && !harness.client.campaignStatus(),
+		"already queued status cannot disrupt or expose authority while retiring");
+}
+void TestCampaignTimeControls()
+{
+	const auto peer = Identity(10); const auto token = Token(30);
+	Harness harness;
+	CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::InvalidState,
+		"no time control before admission");
+	ReachBaseline(harness, Configuration(), 902, peer, token);
+	auto status = CampaignStatus(902, peer);
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+		harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::InvalidState,
+		"tactical state cannot pause native tactical play");
+	status.phase = CoopCampaignPhase::Strategic; ++status.revision; ++status.timeControlRevision;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success, "strategic control state arrives");
+	for (unsigned code = 1; code <= 6; ++code)
+	{
+		CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::ThirtyMinutes) == FullEngineCoopClientResult::Success &&
+			harness.client.campaignTimePending() && !harness.client.campaignTimeResult() &&
+			harness.wire.messages.back().name == CoopCampaignTimeRequestMessageName,
+			"leader can request strategic time without any tactical baseline");
+		CoopCampaignTimeRequest request;
+		const auto& wire = harness.wire.messages.back().bytes;
+		CHECK(DecodeCoopCampaignTimeRequest(wire.data(), wire.size(), request) && request.requestId == code &&
+			request.controlRevision == status.timeControlRevision && request.sessionEpoch == 902,
+			"request binds fresh observed control revision and monotone local id");
+		const auto sent = harness.wire.messages.size();
+		CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::IntentOutstanding &&
+			harness.client.requestSelfRetirement() == FullEngineCoopClientResult::InvalidState && harness.wire.messages.size() == sent,
+			"outstanding result serializes UI and voluntary leave");
+		++status.revision; ++status.timeControlRevision; ++status.worldSeconds;
+		CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success && harness.client.campaignTimePending(),
+			"clock observation alone never fabricates a successful command");
+		CoopCampaignTimeResult result{request, status.timeControlRevision, static_cast<CoopCampaignTimeOutcome>(code)};
+		CoopCampaignTimeResultBytes bytes;
+		CHECK(EncodeCoopCampaignTimeResult(result, bytes) && harness.client.receiveCampaignTimeResult(bytes.data(), bytes.size()) ==
+			FullEngineCoopClientResult::Success && !harness.client.campaignTimePending() &&
+			harness.client.campaignTimeResult()->outcome == result.outcome &&
+			harness.client.receiveCampaignTimeResult(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success,
+			"all terminal outcomes unlock exactly once and duplicate matches are harmless");
+	}
+	CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::FiveMinutes) == FullEngineCoopClientResult::Success,
+		"disconnect fixture has outstanding resume");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignTimePending() && !harness.client.campaignTimeResult(), "disconnect clears outcome and pending resume");
+	ReachBaseline(harness, Configuration(), 902, peer, token, false);
+	const auto sent = harness.wire.messages.size();
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success && harness.wire.messages.size() == sent,
+		"fresh reconnect status does not replay unknown resume");
+	harness.wire.failNextSend = true;
+	CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::WireFailure &&
+		!harness.client.campaignTimePending() && !harness.client.campaignStatus(), "send failure closes and clears time state");
+	Harness follower; ReachBaseline(follower, Configuration(), 902, Identity(20), token);
+	CHECK(DeliverStatus(follower, status) == FullEngineCoopClientResult::Success &&
+		follower.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::InvalidState,
+		"follower cannot emit a time request");
+	for (unsigned fault = 0; fault < 7; ++fault)
+	{
+		Harness bad; ReachBaseline(bad, Configuration(), 902, peer, token);
+		CHECK(DeliverStatus(bad, status) == FullEngineCoopClientResult::Success &&
+			bad.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::Success, "malformed result fixture");
+		CoopCampaignTimeRequest request;
+		const auto& wire = bad.wire.messages.back().bytes;
+		CHECK(DecodeCoopCampaignTimeRequest(wire.data(), wire.size(), request), "fault fixture request decoded");
+		auto next = status; ++next.revision; next.timeControlRevision += 2;
+		CHECK(DeliverStatus(bad, next) == FullEngineCoopClientResult::Success, "fault fixture clock delivered first");
+		CoopCampaignTimeResult result{request, next.timeControlRevision, CoopCampaignTimeOutcome::Applied};
+		if (fault == 0) ++result.request.sessionEpoch;
+		if (fault == 1) ++result.request.requestId;
+		if (fault == 2) ++result.request.controlRevision;
+		if (fault == 3) result.request.action = CoopCampaignTimeAction::FiveMinutes;
+		if (fault == 4) ++result.controlRevision;
+		CoopCampaignTimeResultBytes bytes; CHECK(EncodeCoopCampaignTimeResult(result, bytes), "bad-but-structural receipt encoded");
+		if (fault == 5) bytes[7] = 0;
+		CHECK(bad.client.receiveCampaignTimeResult(bytes.data(), bytes.size() - (fault == 6 ? 1 : 0)) == FullEngineCoopClientResult::InvalidMessage &&
+			!bad.client.campaignTimePending() && !bad.client.campaignTimeResult(), "unmatched, future or malformed result fails closed");
+	}
+}
+
+void TestCampaignActionControls()
+{
+	const auto peer = Identity(20), leader = Identity(10); const auto token = Token(30);
+	CoopCampaignActionRequest selection;
+	selection.group = {2, 12}; selection.destinationX = 10; selection.destinationY = 1;
+	// The public API accepts a selection, never caller-assigned sequencing or authority.
+	selection.sessionEpoch = selection.controlRevision = selection.groupsRevision = selection.requestId = 999;
+	Harness harness;
+	CHECK(harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::InvalidState,
+		"shared actions require admission and fresh copied campaign observations");
+	ReachBaseline(harness, Configuration(), 902, peer, token);
+	auto status = CampaignStatus(902, leader); status.phase = CoopCampaignPhase::Strategic;
+	auto groups = CampaignGroups(902);
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+		harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::InvalidState &&
+		DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success, "shared action needs both observations");
+	CHECK(harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::InvalidState,
+		"shared campaign permission does not grant the follower time control");
+	for (unsigned code = 1; code <= 7; ++code)
+	{
+		CHECK(harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::Success &&
+			harness.client.campaignActionPending() && !harness.client.lastCampaignActionResult() &&
+			harness.wire.messages.back().name == CoopCampaignActionRequestMessageName,
+			"ready nonleader submits shared action without a tactical baseline");
+		CoopCampaignActionRequest request;
+		const auto& wire = harness.wire.messages.back().bytes;
+		CHECK(DecodeCoopCampaignActionRequest(wire.data(), wire.size(), request) && request.requestId == code &&
+			request.controlRevision == status.timeControlRevision && request.groupsRevision == groups.revision &&
+			request.sessionEpoch == 902 && request.group == selection.group && request.destinationX == 10,
+			"core binds observed campaign revisions and its own monotone sequence");
+		const auto sent = harness.wire.messages.size();
+		CHECK(harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::IntentOutstanding &&
+			harness.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::IntentOutstanding &&
+			harness.client.requestSelfRetirement() == FullEngineCoopClientResult::InvalidState && harness.wire.messages.size() == sent,
+			"pending shared action serializes controls and voluntary leave");
+		++status.revision; ++status.timeControlRevision; ++groups.revision;
+		CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+			DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success && harness.client.campaignActionPending(),
+			"new committed observations never fabricate an action receipt");
+		CoopCampaignActionResult result{request, status.timeControlRevision, groups.revision,
+			static_cast<CoopCampaignActionOutcome>(code), 0};
+		CoopCampaignActionResultBytes bytes;
+		CHECK(EncodeCoopCampaignActionResult(result, bytes) &&
+			harness.client.receiveCampaignActionResult(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success &&
+			!harness.client.campaignActionPending() && harness.client.lastCampaignActionResult()->outcome == result.outcome &&
+			harness.client.receiveCampaignActionResult(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success,
+			"all nonfatal receipts unlock once and exact retransmissions are harmless");
+	}
+	CHECK(harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::Success,
+		"disconnect fixture has an unresolved campaign action");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.campaignActionPending() && !harness.client.lastCampaignActionResult(),
+		"disconnect clears both pending action and stale result");
+	ReachBaseline(harness, Configuration(), 902, peer, token, false);
+	const auto sent = harness.wire.messages.size();
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+		DeliverGroups(harness, groups) == FullEngineCoopClientResult::Success && harness.wire.messages.size() == sent,
+		"replacement connection never replays an action whose outcome was lost");
+	harness.wire.failNextSend = true;
+	CHECK(harness.client.requestCampaignAction(selection) == FullEngineCoopClientResult::WireFailure &&
+		!harness.client.campaignActionPending() && !harness.client.campaignStatus(), "send failure clears campaign authority");
+	Harness time; ReachBaseline(time, Configuration(), 902, leader, token);
+	CHECK(DeliverStatus(time, status) == FullEngineCoopClientResult::Success && DeliverGroups(time, groups) == FullEngineCoopClientResult::Success &&
+		time.client.requestCampaignTime(CoopCampaignTimeAction::Pause) == FullEngineCoopClientResult::Success &&
+		time.client.requestCampaignAction(selection) == FullEngineCoopClientResult::IntentOutstanding,
+		"pending time control also serializes shared actions");
+	for (unsigned fault = 0; fault < 10; ++fault)
+	{
+		Harness bad; ReachBaseline(bad, Configuration(), 902, peer, token);
+		CHECK(DeliverStatus(bad, status) == FullEngineCoopClientResult::Success && DeliverGroups(bad, groups) == FullEngineCoopClientResult::Success &&
+			bad.client.requestCampaignAction(selection) == FullEngineCoopClientResult::Success, "action rejection fixture ready");
+		CoopCampaignActionRequest request;
+		const auto& wire = bad.wire.messages.back().bytes;
+		CHECK(DecodeCoopCampaignActionRequest(wire.data(), wire.size(), request), "action rejection fixture decoded");
+		auto next = status; ++next.revision; next.timeControlRevision += 2;
+		auto nextGroups = groups; ++nextGroups.revision;
+		CHECK(DeliverStatus(bad, next) == FullEngineCoopClientResult::Success && DeliverGroups(bad, nextGroups) == FullEngineCoopClientResult::Success,
+			"receipt follows committed observations");
+		CoopCampaignActionResult result{request, next.timeControlRevision, nextGroups.revision, CoopCampaignActionOutcome::Applied, 0};
+		if (fault == 0) ++result.request.sessionEpoch;
+		if (fault == 1) ++result.request.requestId;
+		if (fault == 2) ++result.request.controlRevision;
+		if (fault == 3) ++result.request.groupsRevision;
+		if (fault == 4) ++result.request.group.incarnation;
+		if (fault == 5) ++result.controlRevision;
+		if (fault == 6) ++result.groupsRevision;
+		if (fault == 9) result.outcome = CoopCampaignActionOutcome::Failed;
+		CoopCampaignActionResultBytes bytes; CHECK(EncodeCoopCampaignActionResult(result, bytes), "structural wrong action receipt encodes");
+		if (fault == 7) bytes[74] = 1;
+		CHECK(bad.client.receiveCampaignActionResult(bytes.data(), bytes.size() - (fault == 8 ? 1 : 0)) ==
+			(fault == 9 ? FullEngineCoopClientResult::InvalidState : FullEngineCoopClientResult::InvalidMessage) &&
+			!bad.client.campaignActionPending() && !bad.client.lastCampaignActionResult() && !bad.client.campaignStatus(),
+			"foreign, conflicting, future, malformed and native-failed receipts close and clear the client");
+	}
+}
+
+void TestCampaignStatusRejections()
+{
+	const auto peer = Identity(10); const auto token = Token(30);
+	for (unsigned kind = 0; kind < 9; ++kind)
+	{
+		Harness harness; ReachBaseline(harness, Configuration(), 902, peer, token);
+		auto status = CampaignStatus(902, peer);
+		CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success, "rejection fixture initially synchronized");
+		switch (kind)
+		{
+			case 0: ++status.sessionEpoch; break;
+			case 1: --status.revision; break;
+			case 2: ++status.revision; --status.worldSeconds; break;
+			case 3: ++status.worldSeconds; break;
+			case 4: status.timeLeader = Identity(20); ++status.revision; break;
+			case 5: status.timeLeaderReady = false; ++status.revision; break;
+			case 6: status.timeLeader = {}; status.leadershipRevision = 0;
+				status.timeLeaderReady = false; ++status.revision; break;
+			case 7: status.timeLeader = Identity(20); status.timeLeaderReady = false;
+				status.readyPeers = 0; ++status.leadershipRevision; ++status.revision; break;
+			case 8: status.phase = CoopCampaignPhase::Strategic; break;
+		}
+		CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::InvalidMessage &&
+			harness.client.state() == FullEngineCoopClientState::Failed && !harness.client.campaignStatus(),
+			"foreign, stale, conflicting, unavailable-self or zero-ready snapshot fails closed and clears status");
+	}
+	Harness harness; ReachBaseline(harness, Configuration(), 902, peer, token);
+	auto status = CampaignStatus(902, Identity(20));
+	status.timeLeaderReady = false; status.readyPeers = 1;
+	CHECK(DeliverStatus(harness, status) == FullEngineCoopClientResult::Success &&
+		!harness.client.campaignStatus()->timeLeaderReady, "nonleader observes retained offline leader");
+	CoopCampaignStatusBytes malformed{};
+	CHECK(harness.client.receiveCampaignStatus(malformed.data(), malformed.size()) ==
+		FullEngineCoopClientResult::InvalidMessage && !harness.client.campaignStatus(), "malformed record clears status");
+}
+
+void TestCampaignArrivalLifecycle()
+{
+	const auto peer = Identity(10), other = Identity(20); const auto token = Token(30);
+	auto status = CampaignStatus(902, peer); status.phase = CoopCampaignPhase::Strategic;
+	auto& arrival = status.arrival;
+	arrival.decision = 5; arrival.kind = CoopCampaignArrivalKind::Battle; arrival.stage = CoopCampaignArrivalStage::Prepared;
+	arrival.x = 10; arrival.y = 1; arrival.pendingCount = 1; arrival.involvedMercs = 2;
+	arrival.nativeEnterSector = arrival.nativePlacement = true;
+	Harness a, b;
+	ReachBaseline(a, Configuration(), 902, peer, token); ReachBaseline(b, Configuration(), 902, other, Token(40));
+	CHECK(DeliverStatus(a, status) == FullEngineCoopClientResult::Success && DeliverStatus(b, status) == FullEngineCoopClientResult::Success &&
+		SameCoopCampaignStatus(*a.client.campaignStatus(), *b.client.campaignStatus()) && !a.replica.baselineCalls && !b.replica.baselineCalls,
+		"two independent passive clients share a native battle notice before any tactical baseline");
+	CHECK(a.client.requestCampaignTime(CoopCampaignTimeAction::FiveMinutes) != FullEngineCoopClientResult::Success &&
+		b.client.requestCampaignTime(CoopCampaignTimeAction::FiveMinutes) != FullEngineCoopClientResult::Success &&
+		!a.client.campaignTimePending() && !b.client.campaignTimePending(), "neither leader nor other peer can bypass the arrival hold");
+	++status.revision; ++status.timeControlRevision; arrival.pendingCount = 2;
+	CHECK(DeliverStatus(a, status) == FullEngineCoopClientResult::Success && a.client.campaignStatus()->arrival.pendingCount == 2,
+		"front decision survives an update to the remaining queue count");
+	const auto active = status;
+	arrival = {}; ++status.revision; ++status.timeControlRevision;
+	CHECK(DeliverStatus(a, status) == FullEngineCoopClientResult::Success && !a.client.campaignStatus()->arrival.decision,
+		"explicit server resolution clears all displayed native choices");
+	a.client.transportDisconnected();
+	CHECK(!a.client.campaignStatus(), "disconnect hides both clock and arrival immediately");
+	ReachBaseline(a, Configuration(), 902, peer, token, false);
+	CHECK(!a.client.campaignStatus() && DeliverStatus(a, active) == FullEngineCoopClientResult::Success,
+		"replacement transport requires fresh authoritative observation and owns a fresh observation lineage");
+	for (unsigned fault = 0; fault < 5; ++fault)
+	{
+		Harness bad; ReachBaseline(bad, Configuration(), 902, peer, token);
+		CHECK(DeliverStatus(bad, active) == FullEngineCoopClientResult::Success, "arrival rejection fixture ready");
+		auto changed = active; ++changed.revision; ++changed.timeControlRevision;
+		if (fault == 0) --changed.arrival.decision;
+		if (fault == 1) ++changed.arrival.x;
+		if (fault == 2) { ++changed.arrival.pendingCount; changed.revision = active.revision; }
+		if (fault == 3) { changed.arrival = {}; changed.timeControlRevision = active.timeControlRevision; }
+		if (fault == 4)
+		{
+			changed.arrival = {};
+			CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::Success, "rejection fixture consumed arrival");
+			changed.arrival = active.arrival; ++changed.revision; ++changed.timeControlRevision;
+		}
+		CHECK(DeliverStatus(bad, changed) == FullEngineCoopClientResult::InvalidMessage && !bad.client.campaignStatus(),
+			"old, retargeted, conflicting, unchanged-control or resurrected decision fails closed without stale presentation");
+	}
+}
+}
+
 int main()
 {
+	TestCampaignReceiptsDuringRetirement();
+	TestCampaignMeanwhileLifecycle();
+	TestCampaignBattleNoticeLifecycle();
+	TestCampaignGroupsLifecycle();
+	TestCampaignEconomyLifecycle();
+	TestCampaignHireControls();
+	TestCampaignHireReceiptRejections();
+	TestCampaignStatusLifecycle();
+	TestCampaignArrivalLifecycle();
+	TestCampaignTimeControls();
+	TestCampaignActionControls();
+	TestCampaignStatusRejections();
 	TestConfigurationAndHelloValidation();
 	TestDurableCredentialOrderingRestoreAndEpochPin();
 	TestAdmissionBaselineAndFiveIntents();

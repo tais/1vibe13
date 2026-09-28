@@ -747,7 +747,7 @@ FullEngineCoopClient::requestSelfRetirement() noexcept
 	if ((state_ != FullEngineCoopClientState::AwaitingBaseline &&
 		 state_ != FullEngineCoopClientState::Active) ||
 		!hasReconnectCredential() || sessionEpoch_ == 0 ||
-		outstandingCommandId_ != 0 || selfRetirementAwaitingOutcome_ ||
+		outstandingCommandId_ != 0 || campaignTimePending() || campaignActionPending() || campaignHirePending() || selfRetirementAwaitingOutcome_ ||
 		nextSelfRetirementRequestId_ == 0)
 		return FullEngineCoopClientResult::InvalidState;
 
@@ -828,6 +828,12 @@ bool FullEngineCoopClient::isActorAssigned(
 FullEngineCoopClientResult FullEngineCoopClient::fail(
 	FullEngineCoopClientResult result) noexcept
 {
+	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
+	campaignGroups_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
+	pendingCampaignAction_ = {}; lastCampaignActionResult_ = {}; nextCampaignActionRequestId_ = 1;
+	pendingCampaignTime_ = {}; lastCampaignTimeResult_ = {};
 	clearReplicaState();
 	state_ = FullEngineCoopClientState::Failed;
 	lastResult_ = result;
@@ -939,6 +945,12 @@ void FullEngineCoopClient::closeWire() noexcept
 
 void FullEngineCoopClient::clearCredentials() noexcept
 {
+	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
+	campaignGroups_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
+	pendingCampaignAction_ = {}; lastCampaignActionResult_ = {}; nextCampaignActionRequestId_ = 1;
+	pendingCampaignTime_ = {}; lastCampaignTimeResult_ = {}; nextCampaignTimeRequestId_ = 1;
 	peerIdentity_.fill(0);
 	reconnectToken_.fill(0);
 	nextExpectedCommandId_ = 1;
@@ -1005,9 +1017,284 @@ void FullEngineCoopClient::clearReplicaState() noexcept
 
 void FullEngineCoopClient::clearConnectionState() noexcept
 {
+	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
+	campaignGroups_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
+	// A lost campaign, hire or time request has an unknown outcome. Observe fresh server state on
+	// reconnect; never replay a resume (unlike deliberate permanent retirement).
+	pendingCampaignAction_ = {}; lastCampaignActionResult_ = {}; nextCampaignActionRequestId_ = 1;
+	pendingCampaignTime_ = {}; lastCampaignTimeResult_ = {}; nextCampaignTimeRequestId_ = 1;
 	clearReplicaState();
 	nextResyncRequestId_ = 1;
 	credentialAbandonPending_ = false;
 	lastAdmissionRejectReason_ = AdmissionRejectReason::None;
+}
+
+const CoopCampaignStatus* FullEngineCoopClient::campaignStatus() const noexcept
+{
+	return campaignStatus_.sessionEpoch == sessionEpoch_ && campaignStatus_.revision &&
+		(state_ == FullEngineCoopClientState::AwaitingBaseline ||
+		 state_ == FullEngineCoopClientState::Active || state_ == FullEngineCoopClientState::ResyncRequired)
+		? &campaignStatus_ : nullptr;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignStatus(
+	const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_)
+		return FullEngineCoopClientResult::InvalidState;
+	if (state_ != FullEngineCoopClientState::AwaitingBaseline && state_ != FullEngineCoopClientState::Active &&
+		state_ != FullEngineCoopClientState::ResyncRequired && state_ != FullEngineCoopClientState::Retiring)
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignStatus candidate;
+	if (!DecodeCoopCampaignStatus(bytes, size, candidate) || candidate.sessionEpoch != sessionEpoch_ ||
+		(candidate.timeLeader == peerIdentity_ && !candidate.timeLeaderReady) ||
+		(candidate.readyPeers == 0) ||
+		!ValidCoopCampaignArrivalReplacement(campaignStatus_.arrival, candidate.arrival, lastArrivalDecision_) ||
+		(candidate.surrenderOffer && candidate.surrenderOffer != campaignStatus_.surrenderOffer &&
+		 candidate.surrenderOffer <= lastSurrenderOffer_) ||
+		!ValidCoopCampaignBattleNoticeReplacement(campaignStatus_.battleNotice, candidate.battleNotice, lastBattleNotice_) ||
+		!ValidCoopCampaignMeanwhileReplacement(campaignStatus_.meanwhile, candidate.meanwhile, lastMeanwhile_))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (campaignStatus_.revision &&
+		(candidate.revision < campaignStatus_.revision || candidate.worldSeconds < campaignStatus_.worldSeconds ||
+		 candidate.timeControlRevision < campaignStatus_.timeControlRevision ||
+		 (candidate.timeControlRevision == campaignStatus_.timeControlRevision && !SameCoopCampaignTimeState(candidate, campaignStatus_)) ||
+		 candidate.leadershipRevision < campaignStatus_.leadershipRevision ||
+		 (candidate.leadershipRevision == campaignStatus_.leadershipRevision && candidate.timeLeader != campaignStatus_.timeLeader) ||
+		 (candidate.revision == campaignStatus_.revision && !SameCoopCampaignStatus(candidate, campaignStatus_))))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	campaignStatus_ = candidate;
+	lastArrivalDecision_ = std::max(lastArrivalDecision_, candidate.arrival.decision);
+	lastSurrenderOffer_ = std::max(lastSurrenderOffer_, candidate.surrenderOffer);
+	lastBattleNotice_ = std::max(lastBattleNotice_, candidate.battleNotice.id);
+	lastMeanwhile_ = std::max(lastMeanwhile_, candidate.meanwhile.id);
+	return FullEngineCoopClientResult::Success;
+}
+
+const CoopCampaignGroups* FullEngineCoopClient::campaignGroups() const noexcept
+{
+	return campaignGroups_.sessionEpoch == sessionEpoch_ && campaignGroups_.revision &&
+		(state_ == FullEngineCoopClientState::AwaitingBaseline || state_ == FullEngineCoopClientState::Active ||
+		 state_ == FullEngineCoopClientState::ResyncRequired) ? &campaignGroups_ : nullptr;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignGroups(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ ||
+		(state_ != FullEngineCoopClientState::AwaitingBaseline && state_ != FullEngineCoopClientState::Active &&
+		 state_ != FullEngineCoopClientState::ResyncRequired && state_ != FullEngineCoopClientState::Retiring))
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignGroups candidate;
+	if (!DecodeCoopCampaignGroups(bytes, size, candidate) || candidate.sessionEpoch != sessionEpoch_ ||
+		(candidate.revision < campaignGroups_.revision) ||
+		(candidate.revision == campaignGroups_.revision && !SameCoopCampaignGroups(candidate, campaignGroups_)))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	campaignGroups_ = candidate;
+	return FullEngineCoopClientResult::Success;
+}
+
+const CoopCampaignEconomy* FullEngineCoopClient::campaignEconomy() const noexcept
+{
+	return campaignEconomy_.sessionEpoch == sessionEpoch_ && campaignEconomy_.revision &&
+		(state_ == FullEngineCoopClientState::AwaitingBaseline || state_ == FullEngineCoopClientState::Active ||
+		 state_ == FullEngineCoopClientState::ResyncRequired) ? &campaignEconomy_ : nullptr;
+}
+
+const CoopCampaignAimQuotes* FullEngineCoopClient::campaignAimQuotes() const noexcept
+{
+	return campaignEconomy() && campaignAimQuotes_.sessionEpoch == sessionEpoch_ && campaignAimQuotes_.revision &&
+		campaignAimQuotes_.economyRevision == campaignEconomy_.revision ? &campaignAimQuotes_ : nullptr;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignEconomy(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ ||
+		(state_ != FullEngineCoopClientState::AwaitingBaseline && state_ != FullEngineCoopClientState::Active &&
+		 state_ != FullEngineCoopClientState::ResyncRequired && state_ != FullEngineCoopClientState::Retiring))
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignEconomy candidate;
+	if (!DecodeCoopCampaignEconomy(bytes, size, candidate) || candidate.sessionEpoch != sessionEpoch_ ||
+		candidate.revision < campaignEconomy_.revision ||
+		(candidate.revision == campaignEconomy_.revision && !SameCoopCampaignEconomy(candidate, campaignEconomy_)))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	campaignEconomy_ = candidate;
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignAimQuotes(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ ||
+		(state_ != FullEngineCoopClientState::AwaitingBaseline && state_ != FullEngineCoopClientState::Active &&
+		 state_ != FullEngineCoopClientState::ResyncRequired && state_ != FullEngineCoopClientState::Retiring))
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignAimQuotes candidate;
+	if (!DecodeCoopCampaignAimQuotes(bytes, size, candidate) || candidate.sessionEpoch != sessionEpoch_ ||
+		campaignEconomy_.sessionEpoch != sessionEpoch_ || candidate.economyRevision != campaignEconomy_.revision ||
+		candidate.revision < campaignAimQuotes_.revision || candidate.economyRevision < campaignAimQuotes_.economyRevision ||
+		(candidate.revision == campaignAimQuotes_.revision && !SameCoopCampaignAimQuotes(candidate, campaignAimQuotes_)))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	campaignAimQuotes_ = candidate;
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::requestCampaignHire(std::uint16_t profile, std::uint8_t days, bool buyGear) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !campaignStatus())
+		return FullEngineCoopClientResult::InvalidState;
+	if (campaignTimePending() || campaignActionPending() || campaignHirePending()) return FullEngineCoopClientResult::IntentOutstanding;
+	if (!campaignEconomy() || !campaignAimQuotes()) return FullEngineCoopClientResult::InvalidState;
+	if (!nextCampaignHireRequestId_) return FullEngineCoopClientResult::SequenceExhausted;
+	CoopCampaignHireRequest request;
+	request.sessionEpoch = sessionEpoch_; request.controlRevision = campaignStatus_.timeControlRevision;
+	request.economyRevision = campaignEconomy_.revision; request.quoteRevision = campaignAimQuotes_.revision;
+	request.requestId = nextCampaignHireRequestId_; request.profile = profile; request.days = days; request.buyGear = buyGear;
+	if (!ValidCoopCampaignHireRequest(request)) return FullEngineCoopClientResult::InvalidIntent;
+	if (ValidateCoopCampaignHireRequest(request, campaignStatus_, campaignEconomy_, campaignAimQuotes_, true, true, true) !=
+		CoopCampaignHireOutcome::Applied) return FullEngineCoopClientResult::InvalidState;
+	const auto* quote = FindCoopCampaignAimQuote(campaignAimQuotes_, profile);
+	const auto quotedTotal = quote->total[CoopCampaignHireChoiceIndex(days, buyGear)];
+	CoopCampaignHireRequestBytes bytes;
+	if (!EncodeCoopCampaignHireRequest(request, bytes)) return FullEngineCoopClientResult::InvalidMessage;
+	if (!sendFrame(CoopCampaignHireRequestMessageName, bytes.data(), bytes.size()))
+		return fail(FullEngineCoopClientResult::WireFailure);
+	pendingCampaignHire_ = request; pendingCampaignHireQuotedTotal_ = quotedTotal;
+	// Keep the previous receipt internally: an exact historical retransmission
+	// cannot release this newer request or depend on an actor still being hired.
+	nextCampaignHireRequestId_ = request.requestId == UINT64_MAX ? 0 : request.requestId + 1;
+	return FullEngineCoopClientResult::Success;
+}
+
+// Leaving hides observations from the UI, but an exact terminal duplicate
+// may already be queued on this connection. Keep validating it against the
+// retained private context without exposing controls or replaying requests.
+bool FullEngineCoopClient::canReceiveCampaignResult() const noexcept
+{
+	return campaignStatus_.sessionEpoch == sessionEpoch_ && campaignStatus_.revision &&
+		(state_ == FullEngineCoopClientState::AwaitingBaseline || state_ == FullEngineCoopClientState::Active ||
+		 state_ == FullEngineCoopClientState::ResyncRequired || state_ == FullEngineCoopClientState::Retiring);
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignHireResult(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !canReceiveCampaignResult() ||
+		campaignEconomy_.sessionEpoch != sessionEpoch_ || !campaignEconomy_.revision)
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignHireResult result;
+	if (!DecodeCoopCampaignHireResult(bytes, size, result) || result.request.sessionEpoch != sessionEpoch_ ||
+		result.controlRevision > campaignStatus_.timeControlRevision || result.economyRevision > campaignEconomy_.revision ||
+		result.quoteRevision > campaignAimQuotes_.revision)
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (SameCoopCampaignHireRequest(result.request, lastCampaignHireResult_.request) &&
+		result.controlRevision == lastCampaignHireResult_.controlRevision && result.economyRevision == lastCampaignHireResult_.economyRevision &&
+		result.quoteRevision == lastCampaignHireResult_.quoteRevision && result.actor == lastCampaignHireResult_.actor &&
+		result.chargedTotal == lastCampaignHireResult_.chargedTotal && result.outcome == lastCampaignHireResult_.outcome &&
+		result.nativeDetail == lastCampaignHireResult_.nativeDetail && result.nativeAttempted == lastCampaignHireResult_.nativeAttempted)
+		return FullEngineCoopClientResult::Success;
+	if (!campaignAimQuotes() || !SameCoopCampaignHireRequest(result.request, pendingCampaignHire_))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (result.outcome == CoopCampaignHireOutcome::Failed)
+		return fail(FullEngineCoopClientResult::InvalidState);
+	if (result.outcome == CoopCampaignHireOutcome::Applied)
+	{
+		bool found = false;
+		if (campaignEconomy_.available && result.chargedTotal == pendingCampaignHireQuotedTotal_)
+			for (std::size_t i = 0; i < campaignEconomy_.rosterCount; ++i)
+				if (campaignEconomy_.roster[i].actor == result.actor && campaignEconomy_.roster[i].profile == result.request.profile &&
+					!campaignEconomy_.roster[i].vehicle) { found = true; break; }
+		if (!found) return fail(FullEngineCoopClientResult::InvalidMessage);
+	}
+	lastCampaignHireResult_ = result; pendingCampaignHire_ = {}; pendingCampaignHireQuotedTotal_ = 0;
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::requestCampaignTime(CoopCampaignTimeAction action) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !campaignStatus())
+		return FullEngineCoopClientResult::InvalidState;
+	if (campaignTimePending() || campaignActionPending() || campaignHirePending()) return FullEngineCoopClientResult::IntentOutstanding;
+	if (!ValidCoopCampaignTimeAction(action)) return FullEngineCoopClientResult::InvalidIntent;
+	if (!nextCampaignTimeRequestId_) return FullEngineCoopClientResult::SequenceExhausted;
+	CoopCampaignTimeRequest request{sessionEpoch_, campaignStatus_.timeControlRevision, nextCampaignTimeRequestId_, action};
+	if (ValidateCoopCampaignTimeRequest(request, campaignStatus_, peerIdentity_, true, true) != CoopCampaignTimeOutcome::Applied)
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignTimeRequestBytes bytes;
+	if (!EncodeCoopCampaignTimeRequest(request, bytes)) return FullEngineCoopClientResult::InvalidMessage;
+	if (!sendFrame(CoopCampaignTimeRequestMessageName, bytes.data(), bytes.size()))
+		return fail(FullEngineCoopClientResult::WireFailure);
+	pendingCampaignTime_ = request;
+	lastCampaignTimeResult_ = {};
+	nextCampaignTimeRequestId_ = request.requestId == UINT64_MAX ? 0 : request.requestId + 1;
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::requestCampaignAction(
+	const CoopCampaignActionRequest& selection) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !campaignStatus() || !campaignGroups())
+		return FullEngineCoopClientResult::InvalidState;
+	if (campaignActionPending() || campaignTimePending() || campaignHirePending()) return FullEngineCoopClientResult::IntentOutstanding;
+	if (!nextCampaignActionRequestId_) return FullEngineCoopClientResult::SequenceExhausted;
+	auto request = selection;
+	request.sessionEpoch = sessionEpoch_;
+	request.controlRevision = campaignStatus_.timeControlRevision;
+	request.groupsRevision = campaignGroups_.revision;
+	request.requestId = nextCampaignActionRequestId_;
+	if (!ValidCoopCampaignActionRequest(request)) return FullEngineCoopClientResult::InvalidIntent;
+	// Shared actions belong to every campaign-ready peer, independently of the
+	// retained leader's exclusive time-control privilege.
+	if (ValidateCoopCampaignActionRequest(request, campaignStatus_, campaignGroups_, true, true, true) !=
+		CoopCampaignActionOutcome::Applied) return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignActionRequestBytes bytes;
+	if (!EncodeCoopCampaignActionRequest(request, bytes)) return FullEngineCoopClientResult::InvalidMessage;
+	if (!sendFrame(CoopCampaignActionRequestMessageName, bytes.data(), bytes.size()))
+		return fail(FullEngineCoopClientResult::WireFailure);
+	pendingCampaignAction_ = request;
+	lastCampaignActionResult_ = {};
+	nextCampaignActionRequestId_ = request.requestId == UINT64_MAX ? 0 : request.requestId + 1;
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignActionResult(
+	const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !canReceiveCampaignResult() ||
+		campaignGroups_.sessionEpoch != sessionEpoch_ || !campaignGroups_.revision)
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignActionResult result;
+	if (!DecodeCoopCampaignActionResult(bytes, size, result) || result.request.sessionEpoch != sessionEpoch_ ||
+		result.controlRevision > campaignStatus_.timeControlRevision || result.groupsRevision > campaignGroups_.revision)
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (SameCoopCampaignActionRequest(result.request, lastCampaignActionResult_.request) &&
+		result.outcome == lastCampaignActionResult_.outcome && result.nativeDetail == lastCampaignActionResult_.nativeDetail &&
+		result.controlRevision == lastCampaignActionResult_.controlRevision && result.groupsRevision == lastCampaignActionResult_.groupsRevision)
+		return FullEngineCoopClientResult::Success;
+	if (!SameCoopCampaignActionRequest(result.request, pendingCampaignAction_))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	if (result.outcome == CoopCampaignActionOutcome::Failed)
+		return fail(FullEngineCoopClientResult::InvalidState);
+	lastCampaignActionResult_ = result;
+	pendingCampaignAction_ = {};
+	return FullEngineCoopClientResult::Success;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignTimeResult(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ || !canReceiveCampaignResult())
+		return FullEngineCoopClientResult::InvalidState;
+	CoopCampaignTimeResult result;
+	if (!DecodeCoopCampaignTimeResult(bytes, size, result) || result.request.sessionEpoch != sessionEpoch_ ||
+		result.controlRevision > campaignStatus_.timeControlRevision)
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	// Ordered duplicate terminal frames are harmless; conflicting outcomes are not.
+	if (SameCoopCampaignTimeRequest(result.request, lastCampaignTimeResult_.request) &&
+		result.outcome == lastCampaignTimeResult_.outcome && result.controlRevision == lastCampaignTimeResult_.controlRevision)
+		return FullEngineCoopClientResult::Success;
+	if (!SameCoopCampaignTimeRequest(result.request, pendingCampaignTime_))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	lastCampaignTimeResult_ = result;
+	pendingCampaignTime_ = {};
+	return FullEngineCoopClientResult::Success;
 }
 }
