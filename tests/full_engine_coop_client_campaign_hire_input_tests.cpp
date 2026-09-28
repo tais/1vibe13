@@ -41,12 +41,39 @@ void SelectionAndConfirmation()
 	CHECK(!f.press(Key::Confirm) && f.input.armed() && !f.key(Key::Confirm) && f.input.armed(), "first Enter arms and held repeats cannot confirm");
 	CHECK(!f.key(Key::Confirm,false,true) && f.input.armed(), "release only unlocks confirmation key");
 	const auto hire = f.key(Key::Confirm);
-	CHECK(hire && hire->profile == 0 && hire->days == 1 && !f.input.armed() && f.input.open(), "second released Enter returns selected terms only");
+	CHECK(hire && hire->profile == 0 && hire->days == 1 && !hire->buyGear && !f.input.armed() && f.input.open(), "second released Enter returns selected terms only");
 	CHECK(!f.key(Key::Confirm) && !f.input.armed(), "held confirmation cannot start another hire");
 	CHECK(!f.press(Key::Confirm) && f.input.armed() && !f.press(Key::Cancel) && !f.input.armed() && f.input.open(), "Esc cancels confirmation before closing panel");
 	CHECK(!f.press(Key::Cancel) && !f.input.open(), "second Esc closes panel");
 	f.open(); CHECK(!f.press(Key::Toggle) && !f.input.open(), "H closes panel");
 }
+void EquipmentSelection()
+{
+	Fixture f;
+	auto& offer = f.quotes.quotes[0];
+	offer.gearAvailable = true; offer.gearCost = 250; offer.total = {400,650,900,1150,1400,1650};
+	f.open(); CHECK(!f.input.buyGear(), "equipment starts unselected");
+	CHECK(!f.press(Key::Confirm) && f.input.armed(), "original no-gear terms can be reviewed");
+	CHECK(!f.press(Key::Equipment) && f.input.buyGear() && !f.input.armed(), "changing equipment cancels the old confirmation");
+	CHECK(!f.key(Key::Equipment) && f.input.buyGear(), "held gear key cannot oscillate the selection");
+	f.economy.balance = 1149;
+	CHECK(!f.input.canHire(f.status,f.economy,f.quotes) && !f.press(Key::Confirm) && !f.input.armed(),
+		"equipment price participates in the shared-balance guard");
+	f.economy.balance = 1150;
+	CHECK(!f.press(Key::Confirm) && f.input.armed(), "full equipment total requires fresh review");
+	const auto hire = f.press(Key::Confirm);
+	CHECK(hire && hire->profile == 0 && hire->days == 7 && hire->buyGear,
+		"released confirmation returns the explicitly reviewed equipment choice");
+	CHECK(!f.press(Key::Next) && !f.input.buyGear(), "another merc does not inherit a purchase choice");
+	CHECK(!f.press(Key::Equipment) && !f.input.buyGear(), "unavailable gear cannot be selected");
+	(void)f.press(Key::Previous); (void)f.press(Key::Equipment); (void)f.press(Key::Confirm);
+	CHECK(f.input.armed() && f.input.buyGear(), "equipment terms armed before offer withdrawal");
+	offer.gearAvailable = false; offer.gearCost = 0; offer.total = {400,0,900,0,1400,0}; ++f.quotes.revision;
+	f.input.synchronize(&f.status,&f.economy,&f.quotes,true,false);
+	CHECK(!f.input.armed() && !f.input.buyGear() && !f.key(Key::Confirm), "withdrawn equipment invalidates selection and held confirmation");
+	CHECK(!f.press(Key::Confirm) && f.input.armed(), "remaining no-gear offer must be reviewed separately");
+}
+
 void Invalidation()
 {
 	for (unsigned fault = 0; fault < 10; ++fault)
@@ -94,4 +121,4 @@ void ServerEligibility()
 	f.input.reset(); CHECK(!f.input.open() && f.input.profile() == FullEngineCoopClientCampaignHireInput::NoProfile, "new screen session resets local choices and latches");
 }
 }
-int main() { SelectionAndConfirmation(); Invalidation(); ServerEligibility(); return failures ? 1 : 0; }
+int main() { SelectionAndConfirmation(); EquipmentSelection(); Invalidation(); ServerEligibility(); return failures ? 1 : 0; }

@@ -6,12 +6,13 @@
 
 enum class FullEngineCoopClientCampaignHireKey : unsigned
 {
-	None, Toggle, Next, Previous, OneDay, SevenDays, FourteenDays, Confirm, Cancel, Count
+	None, Toggle, Next, Previous, OneDay, SevenDays, FourteenDays, Confirm, Cancel, Equipment, Count
 };
 struct FullEngineCoopClientCampaignHireSelection
 {
 	std::uint16_t profile = 0;
 	std::uint8_t days = 0;
+	bool buyGear = false;
 };
 
 // Local selection and confirmation only. No laptop handler, profile mutation,
@@ -34,7 +35,7 @@ public:
 		const auto control = strategic ? status->timeControlRevision : 0;
 		const auto economic = haveEconomy ? economy->revision : 0;
 		const auto quoted = haveQuotes ? quotes->revision : 0;
-		if (session != session_) { open_ = false; profile_ = NoProfile; days_ = 7; }
+		if (session != session_) { open_ = false; profile_ = NoProfile; days_ = 7; buyGear_ = false; }
 		if (!enabled || pending || session != session_ || control != control_ || economic != economyRevision_ || quoted != quoteRevision_)
 			armed_ = false;
 		session_ = session; control_ = control; economyRevision_ = economic; quoteRevision_ = quoted;
@@ -44,6 +45,8 @@ public:
 		{
 			if (!quotes->available || !quotes->quoteCount) profile_ = NoProfile;
 			else if (!selectedQuote(*quotes)) { profile_ = quotes->quotes[0].profile; armed_ = false; }
+			const auto* selected = selectedQuote(*quotes);
+			if (buyGear_ && (!selected || !selected->gearAvailable)) { buyGear_ = false; armed_ = false; }
 		}
 	}
 	std::optional<FullEngineCoopClientCampaignHireSelection> handle(Key key, bool down, bool up,
@@ -68,28 +71,35 @@ public:
 		{
 			const auto at = static_cast<std::size_t>(quote - quotes->quotes.data());
 			const auto next = key == Key::Next ? (at + 1) % quotes->quoteCount : (at + quotes->quoteCount - 1) % quotes->quoteCount;
-			profile_ = quotes->quotes[next].profile; armed_ = false; return {};
+			profile_ = quotes->quotes[next].profile; buyGear_ = false; armed_ = false; return {};
 		}
 		if (key == Key::OneDay || key == Key::SevenDays || key == Key::FourteenDays)
 		{
 			days_ = key == Key::OneDay ? 1 : key == Key::SevenDays ? 7 : 14; armed_ = false; return {};
 		}
+		if (key == Key::Equipment)
+		{
+			armed_ = false;
+			if (quote->gearAvailable) buyGear_ = !buyGear_;
+			return {};
+		}
 		if (key != Key::Confirm || !canHire(*status,*economy,*quotes)) return {};
 		if (!armed_) { armed_ = true; return {}; }
 		armed_ = false;
-		return FullEngineCoopClientCampaignHireSelection{profile_,days_};
+		return FullEngineCoopClientCampaignHireSelection{profile_,days_,buyGear_};
 	}
 	bool canHire(const CoopSession::CoopCampaignStatus& status, const CoopSession::CoopCampaignEconomy& economy,
 		const CoopSession::CoopCampaignAimQuotes& quotes) const noexcept
 	{
 		CoopSession::CoopCampaignHireRequest request;
 		request.sessionEpoch = session_; request.controlRevision = control_; request.economyRevision = economyRevision_;
-		request.quoteRevision = quoteRevision_; request.requestId = 1; request.profile = profile_; request.days = days_;
+		request.quoteRevision = quoteRevision_; request.requestId = 1; request.profile = profile_; request.days = days_; request.buyGear = buyGear_;
 		return enabled_ && CoopSession::ValidateCoopCampaignHireRequest(request,status,economy,quotes,true,true,true) == CoopSession::CoopCampaignHireOutcome::Applied;
 	}
 	const CoopSession::CoopCampaignAimQuote* selectedQuote(const CoopSession::CoopCampaignAimQuotes& quotes) const noexcept
 	{ return profile_ == NoProfile ? nullptr : CoopSession::FindCoopCampaignAimQuote(quotes,profile_); }
 	bool open() const noexcept { return open_; }
+	bool buyGear() const noexcept { return buyGear_; }
 	bool armed() const noexcept { return armed_; }
 	bool enabled() const noexcept { return enabled_; }
 	std::uint16_t profile() const noexcept { return profile_; }
@@ -99,7 +109,7 @@ private:
 	std::uint64_t session_ = 0, control_ = 0, economyRevision_ = 0, quoteRevision_ = 0;
 	std::uint16_t profile_ = NoProfile;
 	std::uint8_t days_ = 7;
-	bool open_ = false, armed_ = false, enabled_ = false;
+	bool open_ = false, armed_ = false, enabled_ = false, buyGear_ = false;
 };
 
 inline const wchar_t* FullEngineCoopClientCampaignHireOutcomeText(CoopSession::CoopCampaignHireOutcome outcome) noexcept
