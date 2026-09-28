@@ -937,7 +937,11 @@ bool FullEngineCoopClientRuntime::presentationView(
 	output.assignedActorCount = client.assignedActorCount();
 	for (std::size_t index = 0;
 		index < output.assignedActorCount; ++index)
+	{
 		output.assignedActors[index] = client.assignedActor(index);
+		output.ownerInventories[index] =
+			client.ownerInventory(output.assignedActors[index]);
+	}
 	output.outstandingCommandId = client.outstandingCommandId();
 	output.state = client.acceptedState();
 	output.resynchronizing = client.resyncPending();

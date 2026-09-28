@@ -1,6 +1,10 @@
 #include "FullEngineCoopClient.h"
 
 #include "CoopHandshakeProtocol.h"
+#include <Ja2/FullEngineCoopClientController.h>
+
+#include <array>
+#include <memory>
 
 #include <cstdint>
 #include <cstdio>
@@ -2326,6 +2330,124 @@ FullEngineCoopClientResult DeliverInventory(Harness& harness, const CoopOwnerInv
 	return harness.client.receiveOwnerInventory(bytes.data(), bytes.size());
 }
 
+void TestInventoryControllerUsesAuthenticatedCacheAndWire()
+{
+	const auto configuration = Configuration();
+	const auto peer = Identity(10);
+	const auto token = Token(30);
+	auto ownedHarness = std::make_unique<Harness>();
+	auto& harness = *ownedHarness;
+	ReachBaseline(harness, configuration, 901, peer, token);
+	Activate(harness, 901);
+	const auto publicSnapshot = Snapshot(11,3);
+	const auto publicActor = *publicSnapshot.find({1,1});
+	std::array<TacticalEntityId,MaximumCoopTacticalAssignedActors> actors{};
+	std::array<const CoopOwnerInventorySnapshot*,MaximumCoopTacticalAssignedActors> owners{};
+	FullEngineCoopClientControllerView view;
+	auto refresh = [&]()
+	{
+		actors.fill({}); owners.fill(nullptr);
+		for (std::size_t index=0; index<harness.client.assignedActorCount(); ++index)
+		{
+			actors[index]=harness.client.assignedActor(index);
+			owners[index]=harness.client.ownerInventory(actors[index]);
+		}
+		view={&publicSnapshot,actors.data(),harness.client.assignedActorCount(),
+			harness.client.outstandingCommandId(),harness.client.resyncPending(),owners.data()};
+	};
+	FullEngineCoopClientController controller;
+	refresh();
+	CHECK(!controller.openInventory(view), "no private publication means no local inventory fallback");
+	auto inventory = OwnerInventory(peer);
+	inventory.slots.clear();
+	for (std::uint16_t slot=0; slot<55; ++slot)
+		inventory.slots.push_back({slot,0,0,0,CoopInventorySlotSupport::Empty});
+	inventory.slots[14]={14,91,3,95,CoopInventorySlotSupport::OrdinarySwappable,
+		CoopInventoryStatusKind::MedicalKitPoints,210};
+	CHECK(DeliverInventory(harness,inventory)==FullEngineCoopClientResult::Success,
+		"authoritative private wire frame populates authenticated owner cache");
+	refresh();
+	CHECK(!view.inventoryFor({2,1}) && controller.openInventory(view) &&
+		controller.selectInventorySource(view,14), "only the published exact owner actor can supply a source");
+	const auto request=controller.inventorySwap(view,6);
+	CHECK(request && harness.client.sendIntent(request.actor,request.payload)==FullEngineCoopClientResult::Success,
+		"controller request enters the production client wire path");
+	TacticalIntent decoded;
+	CHECK(harness.wire.messages.back().name==CoopTacticalIntentMessageName &&
+		DecodeTacticalIntent(harness.wire.messages.back().bytes,decoded)==TacticalIntentCodecResult::Success &&
+		decoded.protocolVersion==5 && decoded.commandId==1 && decoded.claimedPeerIdentity==peer &&
+		decoded.sessionEpoch==901 && decoded.worldGeneration==11 && decoded.baseRevision==2 &&
+		decoded.turnSerial==3 && decoded.actor==inventory.actor &&
+		KindOf(decoded.payload)==TacticalIntentKind::SwapInventorySlots,
+		"actual kind-11 wire record carries authenticated peer and current public identity");
+	const auto* swap=std::get_if<SwapInventorySlotsTacticalIntent>(&decoded.payload);
+	CHECK(swap && swap->sourceSlot==14 && swap->destinationSlot==6 && swap->expectedInventoryRevision==1 &&
+		*harness.client.ownerInventory(inventory.actor)==inventory && *publicSnapshot.find({1,1})==publicActor,
+		"sending exact cached private revision does not predict item movement or AP");
+	refresh(); controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && controller.inventorySourceSlot()==65535 &&
+		!controller.actionsEnabled(view) && controller.inspectInventorySlot(view,14) &&
+		!controller.selectInventorySource(view,14), "pending production command permits inspection but cannot start another swap");
+	const auto queued=ReceiptBytes(harness.client.acceptedState(),peer,1,2,
+		CoopTacticalIntentReceiptStatus::Queued,CoopTacticalIntentReceiptReason::None);
+	CHECK(harness.client.receiveIntentReceipt(queued.data(),queued.size())==FullEngineCoopClientResult::Success,
+		"queued authoritative receipt preserves one-command lock");
+	auto replacement=inventory;
+	replacement.inventoryRevision=2;
+	std::swap(replacement.slots[14],replacement.slots[6]);
+	replacement.slots[14].slot=14; replacement.slots[6].slot=6;
+	const auto wireCount=harness.wire.messages.size();
+	CHECK(DeliverInventory(harness,replacement)==FullEngineCoopClientResult::Success &&
+		*harness.client.ownerInventory(inventory.actor)==replacement && harness.client.acceptedState().revision==2,
+		"private-only replacement installs authoritative equipment before terminal receipt with unchanged public revision");
+	refresh(); controller.synchronize(view);
+	CHECK(!controller.actionsEnabled(view) && controller.inventoryInspectedSlot()==65535 &&
+		controller.inspectInventorySlot(view,6) && !controller.inventorySwap(view,14),
+		"replacement clears prior item details but cannot release the pending command");
+	const auto terminal=ReceiptBytes(harness.client.acceptedState(),peer,1,2,
+		CoopTacticalIntentReceiptStatus::Applied,CoopTacticalIntentReceiptReason::None);
+	CHECK(harness.client.receiveIntentReceipt(terminal.data(),terminal.size())==FullEngineCoopClientResult::Success,
+		"terminal receipt accepts prior ordered private replacement");
+	refresh(); controller.synchronize(view);
+	CHECK(controller.actionsEnabled(view) && view.inventoryFor(inventory.actor)->inventoryRevision==2 &&
+		view.inventoryFor(inventory.actor)->slots[6].count==3 && controller.inventoryInspectedSlot()==6 &&
+		!controller.inventorySwap(view,14) && harness.wire.messages.size()==wireCount &&
+		harness.replica.baselineCalls==1 && harness.replica.deltaCalls==0,
+		"terminal unlock observes new private cache without local public mutation, private ACK or implicit retry");
+	CHECK(controller.selectInventorySource(view,6), "new explicit choice may use the committed replacement");
+	auto drift=replacement; ++drift.inventoryRevision; drift.slots[6].resourceTotal=205;
+	CHECK(DeliverInventory(harness,drift)==FullEngineCoopClientResult::Success,
+		"another native private-only change advances cache revision");
+	refresh();
+	CHECK(!controller.inventorySwap(view,14) && controller.inventorySourceSlot()==65535 &&
+		controller.selectInventorySource(view,6), "fresh cache revision revokes old choice before direct confirm");
+	const auto refreshed=controller.inventorySwap(view,14);
+	const auto* freshSwap=std::get_if<SwapInventorySlotsTacticalIntent>(&refreshed.payload);
+	CHECK(refreshed && freshSwap && freshSwap->expectedInventoryRevision==3,
+		"deliberate reselection carries the newly authoritative private revision");
+	CHECK(controller.selectInventorySource(view,6), "baseline replacement fixture retains a source");
+	Activate(harness,901,2,11,2,3,2);
+	drift.baselineId=2;
+	CHECK(DeliverInventory(harness,drift)==FullEngineCoopClientResult::Success,
+		"new baseline republishes numerically identical private revision");
+	refresh();
+	CHECK(!controller.inventorySwap(view,14) && !controller.inventoryOpen() && controller.inventorySourceSlot()==65535,
+		"new baseline cannot inherit a pending choice even when native revision is unchanged");
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,6), "new exact baseline permits explicit re-open");
+	CHECK(harness.client.receiveDelta(nullptr,0)==FullEngineCoopClientResult::ResyncRequired,
+		"invalid public delta revokes owner cache through production resynchronization");
+	refresh();
+	CHECK(!controller.inventorySwap(view,14) && !controller.inventoryOpen() && !view.inventoryFor(inventory.actor),
+		"resynchronizing client closes inventory and cannot reuse a borrowed old cache token");
+	Activate(harness,901,2,11,2,3,3); drift.baselineId=3;
+	CHECK(DeliverInventory(harness,drift)==FullEngineCoopClientResult::Success, "resync receives fresh private publication");
+	refresh();
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,6), "recovered baseline starts a deliberate source");
+	harness.client.transportDisconnected(); refresh();
+	CHECK(!controller.inventorySwap(view,14) && !controller.inventoryOpen() && !view.inventoryFor(inventory.actor),
+		"transport disconnect revokes pending inventory choice without speculative native mutation");
+}
+
 void TestPrivateOwnerInventory()
 {
 	const auto configuration = Configuration();
@@ -2491,6 +2613,7 @@ void TestPrivateInventoryMalformedPayloadsAndReassignment()
 
 int main()
 {
+	TestInventoryControllerUsesAuthenticatedCacheAndWire();
 	TestPrivateOwnerInventory();
 	TestPrivateOwnerInventoryRejectsForeignAndConflictingFrames();
 	TestPrivateInventoryMalformedPayloadsAndReassignment();

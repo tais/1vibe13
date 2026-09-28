@@ -302,6 +302,7 @@ add_test(NAME dedicated_coop_mission_bootstrap
 # game state or depending on tactical UI globals.
 add_executable(full_engine_coop_client_controller_tests
   full_engine_coop_client_controller_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp)
@@ -547,6 +548,7 @@ add_test(NAME full_engine_coop_tactical_server
 # the legacy multiplayer client or a local authoritative simulation.
 add_executable(full_engine_coop_client_tests
   full_engine_coop_client_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
