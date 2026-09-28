@@ -1566,6 +1566,24 @@ namespace
 					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
+				// Admission precedes the simulation frame. Recheck before replacing
+				// any route/pending state: a wait may have resumed or traversal/target
+				// occupancy may have changed since the intent entered the inbox.
+				if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					!TacticalActorRouteExecution::canBeginMoveToGrid(*soldier,
+						value.destinationGrid, value.movementMode, value.reverse))
+					return CommandDisposition::Discard;
+				// The legacy route entry rejects an index at its fixed capacity.
+				// Only after dedicated revalidation may a fully consumed buffer be
+				// released. Keep its delay intact for requestPath's normal cleanup.
+				if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					soldier->pathing().pathIndex() == MAX_PATH_LIST_SIZE &&
+					soldier->pathing().pathSize() == MAX_PATH_LIST_SIZE)
+				{
+					soldier->pathing().pathIndex() = 0;
+					soldier->pathing().pathSize() = 0;
+				}
+
 				soldier->movement().mode() = value.movementMode;
 				soldier->movement().setReverse(value.reverse);
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)

@@ -217,6 +217,11 @@ INT32 EstimatePlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute
 
 void ErasePath(char bEraseOldOne);
 INT32 FindBestPath(TacticalActor *s , INT32 sDestination, INT8 ubLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags );
+// Main-thread admission probe: uses ordinary path policy, a private skip-list RNG,
+// and isolated output scratch. Restores actor/path policy on every exit; leaves
+// the native pathfinder's internal search generations free to advance normally.
+bool FindBestPathForMoveAdmission(TacticalActor& actor, INT32 destination,
+    INT8 level, INT16 movementMode, UINT8& firstDirection) noexcept;
 void GlobalReachableTest( INT32 sStartGridNo );
 void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 );
 void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID );

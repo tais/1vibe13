@@ -15,6 +15,7 @@
 #include "Overhead.h"
 #include "Soldier macros.h"
 #include "TacticalActor.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorStateFlags.h"
 
 #include <limits>
@@ -142,6 +143,18 @@ bool DedicatedCoopTacticalJa2LiveState::captureActor(
 	if (!onMainThread()) return false;
 	state = InspectJa2Actor(actor);
 	return true;
+}
+
+bool DedicatedCoopTacticalJa2LiveState::canBeginMoveToGrid(
+	TacticalEntityId actorId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse) const noexcept
+{
+	if (!onMainThread()) return false;
+	TacticalActor* actor = ResolveJa2TacticalEntity(actorId);
+	return actor && TacticalActorRouteExecution::canBeginMoveToGrid(
+		*actor, destinationGrid, movementMode, reverse);
 }
 
 bool DedicatedCoopTacticalJa2LiveState::prepareAimedFirearmAttack(
