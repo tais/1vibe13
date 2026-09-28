@@ -11,6 +11,7 @@
 #include "Animation Data.h"
 #include "GameSettings.h"
 #include "Item Types.h"
+#include "Overhead.h"
 #include "Soldier Profile.h"
 #include "Soldier Profile Constants.h"
 #include "Soldier Palette.h"
@@ -307,6 +308,34 @@ std::optional<TacticalHandItemSnapshot> LegacyEquipmentSlotState(
 	return state;
 }
 
+TacticalMedicalServiceSnapshot LegacyMedicalServiceState(
+	const TacticalActor& soldier) noexcept
+{
+	TacticalMedicalServiceSnapshot state;
+	state.providing = soldier.service().hasPartner();
+	state.receivingCount = soldier.service().providerCount();
+	// Service activity may outlive its partner during a native transition.
+	// Keep that activity truthful even when no current patient can be named.
+	if (!state.providing || !soldier.roster().inSector() ||
+		soldier.roster().team() != gbPlayerNum)
+		return state;
+	const TacticalEntityId patientId = GetJa2TacticalEntityId(
+		static_cast<std::uint16_t>(soldier.service().partner()));
+	const TacticalActor* const patient = ResolveJa2TacticalEntity(patientId);
+	if (!patient || !patient->roster().inSector() ||
+		patient->roster().team() != gbPlayerNum ||
+		patient->position().level() != soldier.position().level() ||
+		!patient->deployment().isInSector(soldier.deployment().sectorX(),
+			soldier.deployment().sectorY(), soldier.deployment().sectorZ()))
+		return state;
+	// Player teammates are always in the shared player-team projection. Do not
+	// expose an otherwise hidden non-player patient through a visible medic.
+	// Native self-bandaging is representable even though the co-op start intent
+	// currently requires two distinct actors.
+	state.patient = patientId;
+	return state;
+}
+
 std::optional<TacticalActorSnapshot> LegacyState(
 	const TacticalActor& soldier) noexcept
 {
@@ -342,6 +371,23 @@ std::optional<TacticalActorSnapshot> LegacyState(
 		OK_ENEMY_MERC((&soldier)) != FALSE};
 	state.loadout = TacticalActorLoadoutSnapshot{
 		*helmet, *vest, *legs, *primaryHand, *secondaryHand};
+	state.bleeding = soldier.vitals().bleeding() > 0 ? soldier.vitals().bleeding() : 0;
+	state.medicalService = LegacyMedicalServiceState(soldier);
+	const OBJECTTYPE& hand = soldier.inventory()[HANDPOS];
+	if (hand.exists() && hand.usItem < MAXITEMS &&
+		Item[hand.usItem].usItemClass == IC_MEDKIT)
+	{
+		if (hand.objectStack.size() < hand.ubNumberOfObjects) return std::nullopt;
+		std::size_t remaining = hand.ubNumberOfObjects;
+		for (const StackedObjectData& kit : hand.objectStack)
+		{
+			if (remaining == 0) break;
+			--remaining;
+			if (kit.data.objectStatus > 100) return std::nullopt;
+			if (kit.data.objectStatus > 0)
+				state.handMedicalKitPoints += static_cast<std::uint16_t>(kit.data.objectStatus);
+		}
+	}
 	if (!LegacyPresentationState(soldier, state.presentation))
 		return std::nullopt;
 	return state;

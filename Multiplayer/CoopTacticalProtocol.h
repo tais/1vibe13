@@ -52,7 +52,7 @@ inline constexpr std::size_t MaximumCoopTacticalBaselinePayloadWireSize =
 	MaximumCoopTacticalSnapshotActors * EncodedTacticalActorSnapshotBytes +
 	MaximumCoopTacticalSnapshotDoors * EncodedTacticalDoorSnapshotBytes;
 // Exact worst case: sector, turn, lighting and disjoint maximum actor/door sets.
-inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 50781;
+inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 53853;
 inline constexpr std::size_t MaximumCoopTacticalBaselineWireSize =
 	CoopTacticalBaselineHeaderWireSize +
 	MaximumCoopTacticalAssignedActors * 6 +

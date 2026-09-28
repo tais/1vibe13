@@ -520,6 +520,34 @@ void TestWrongSizesAndCorruptPayloads()
 	}
 }
 
+void TestOldMedicalProtocolBootstrapRejected()
+{
+ for (const unsigned protocol : {19u, 20u})
+ {
+  LoopbackServer server;
+  CHECK(server.start(), "old-protocol bootstrap server starts");
+  FullEngineCoopClientBootstrapTransport transport;
+  CHECK(ConnectAndAwaitHello(server, transport), "old-protocol client connects");
+  const auto descriptor = Descriptor(725 + protocol);
+  auto oldHello = Hello(descriptor); oldHello.protocolVersion = protocol;
+  const auto hello = EncodeHello(oldHello);
+  auto bootstrap = EncodeBootstrap(descriptor);
+  bootstrap[8] = static_cast<std::uint8_t>(protocol); bootstrap[9] = 0;
+  std::uint32_t checksum = UINT32_C(2166136261);
+  for (std::size_t index = 0; index < 112; ++index)
+   checksum = (checksum ^ bootstrap[index]) * UINT32_C(16777619);
+  for (unsigned byte = 0; byte < 4; ++byte)
+   bootstrap[112 + byte] = static_cast<std::uint8_t>(checksum >> (8 * byte));
+  CHECK(server.send(CoopServerHelloMessageName, hello.data(), hello.size()) &&
+   server.send(CoopCampaignBootstrapMessageName, bootstrap.data(), bootstrap.size()),
+   "server sends internally matching old hello and checksummed descriptor");
+  CHECK(WaitForFailure(server, transport,
+   FullEngineCoopClientBootstrapTransportResult::BootstrapDecodeFailed) &&
+   DescriptorUnavailableAndPreserved(transport),
+   "protocol19/20 bootstrap fails without completing preflight or publishing a relabelled descriptor");
+ }
+}
+
 enum class RepeatedMismatch
 {
 	Protocol,
@@ -763,6 +791,7 @@ int main()
 {
 	CHECK(SDL_Init(0),
 		"SDL initializes before early bootstrap transport construction");
+	TestOldMedicalProtocolBootstrapRejected();
 	TestHappyPathZeroSeedAndOneShotClose();
 	TestExactNamespacesAndSeparatedDelivery();
 	TestOutOfOrderAndDuplicateFrames();

@@ -23,13 +23,13 @@ Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
 reinterpret or silently extend a legacy packet layout.
 
-The global authoritative co-op session protocol is version 20. The fixed server-
+The global authoritative co-op session protocol is version 21. The fixed server-
 hello container retains its independently bounded wire-v1 layout. The inner
-tactical envelope is wire v4. Tactical intent is wire v5, snapshot is wire v9, delta is wire
-v8, and the simulation-command journal is wire v4. Global v1–v19 peers fail
+tactical envelope is wire v4. Tactical intent is wire v5, snapshot is wire v12, delta is wire
+v11, and the simulation-command journal is wire v4. Global v1–v20 peers fail
 admission rather than discovering the mismatch after admission. All older
 snapshot layouts are rejected instead of inferring dimensions, hostility, door,
-loadout, interrupt state, or exact map identity. Snapshot v9 also carries one public `commandsBlocked`
+loadout, interrupt state, or exact map identity. Snapshot v12 also carries one public `commandsBlocked`
 bit, compact interrupt phase/serial, per-actor interrupt-action eligibility, and five
 bounded 12-byte combat-equipment records: primary hand, secondary hand, helmet,
 vest, and legs. Native interrupt lists and hidden interrupters remain private.
@@ -871,7 +871,7 @@ replacement-baseline attempts close the connection. Disconnect/reconnect
 remains transport recovery. Focused, integration, and real-socket tests validate
 the implemented path.
 
-The embedded tactical snapshot wire is version 9. Its 314-byte header, 136-byte
+The embedded tactical snapshot wire is version 12. Its 314-byte header, 148-byte
 actor record, and 7-byte door record carry exact dimensions, canonical actor
 `hostileToPlayerTeam`, interrupt-action eligibility, five bounded 12-byte combat-equipment records, and the
 visible-door `{baseGrid, structureId, open}` projection. The records cover
@@ -882,7 +882,7 @@ condition (including a negative jam state), and chambered state; those fields
 stay canonical zero for ordinary equipment. Decode and replica application are
 transactional; older layouts are rejected rather than having missing state
 inferred. The header carries canonical `commandsBlocked`, interrupt phase, and
-interrupt serial. Snapshot v9's generic ceiling is 564538 bytes. Delta wire v8 retains
+interrupt serial. Snapshot v12's generic ceiling is 613690 bytes. Delta wire v11 retains
 all public actor fields in one complete current update and carries a same-serial
 phase transition as one exact 43-byte turn event. Lighting is a singleton category;
 actor entered/left/updated categories precede door entered/left/changed events. It has a generic
@@ -892,8 +892,8 @@ version 3.0, and observer `DoorCapacityReached` is the stable value 12.
 
 The narrower co-op envelope uses inner tactical wire v4 and caps a publication
 at 256 actors, 1024 doors, and 2563 events. Its baseline payload/envelope bounds
-are 42298/43910 bytes and its category-aware delta payload/envelope bounds are
-50781/50853 bytes, all below the public 64 KiB ceiling. Intent wire v5 retains a
+are 45370/46982 bytes and its category-aware delta payload/envelope bounds are
+53853/53925 bytes, all below the public 64 KiB ceiling. Intent wire v5 retains a
 72-byte header, 12-byte maximum payload, and 84-byte maximum record. The command
 journal is wire v4; pointer-free authoritative door/pass commands use tags 33/34.
 

@@ -249,6 +249,12 @@ void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	WriteHandItem(writer, actor.loadout.primaryHand);
 	WriteHandItem(writer, actor.loadout.secondaryHand);
 	WritePresentation(writer, actor.presentation);
+	WriteI16(writer, actor.bleeding);
+	writer.writeU16(actor.handMedicalKitPoints);
+	WriteBool(writer, actor.medicalService.providing);
+	writer.writeU16(actor.medicalService.patient.slot);
+	writer.writeU32(actor.medicalService.patient.incarnation);
+	writer.writeU8(actor.medicalService.receivingCount);
 }
 
 bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
@@ -276,7 +282,13 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		ReadHandItem(reader, actor.loadout.legs) &&
 		ReadHandItem(reader, actor.loadout.primaryHand) &&
 		ReadHandItem(reader, actor.loadout.secondaryHand) &&
-		ReadPresentation(reader, actor.presentation);
+		ReadPresentation(reader, actor.presentation) &&
+		ReadI16(reader, actor.bleeding) && reader.readU16(actor.handMedicalKitPoints) &&
+		ReadBool(reader, actor.medicalService.providing) &&
+		reader.readU16(actor.medicalService.patient.slot) &&
+		reader.readU32(actor.medicalService.patient.incarnation) &&
+		reader.readU8(actor.medicalService.receivingCount) &&
+		actor.medicalStateValid();
 }
 
 void WriteDoor(BinaryWriter& writer, const TacticalDoorSnapshot& door)
@@ -304,7 +316,7 @@ bool IsCanonical(const TacticalWorldSnapshot& snapshot)
 	{
 		const TacticalActorSnapshot& actor = actors[index];
 		if (!actor.id.valid() || !IsValidStance(actor.stance) ||
-			!actor.loadout.valid() ||
+			!actor.loadout.valid() || !actor.medicalStateValid() ||
 			!IsValidTacticalActorPresentation(actor, snapshot.dimensions()) ||
 			!IsValidTacticalInterruptEligibility(actor, snapshot.turn())) return false;
 		if (index != 0 &&

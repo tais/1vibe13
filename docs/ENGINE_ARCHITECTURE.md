@@ -1554,7 +1554,7 @@ the engine must not contain SDL types in its public domain model.
   entry detaches the runtime-message sink before the game entry destroys
   `GameContext`; an exceptional `DispatchInProgress` result stops transport and
   intentionally leaks the still-live composition rather than freeing an active
-  callback target. The authoritative server path uses global co-op protocol v20
+  callback target. The authoritative server path uses global co-op protocol v21
   and is wired through campaign sync and ten tactical intents: move, face,
   stance, stop, end turn, exact-target aimed single-shot firearm attack, and
   selected-actor reload, plus synchronous visible adjacent-door open/close and
@@ -1708,7 +1708,7 @@ the engine must not contain SDL types in its public domain model.
   selects that maximum profile, while bootstrap/core-only/legacy peers retain
   strict defaults. Its static bound covers one campaign window at 144 FPS, and
   the production E2E transfers an exact 11,796,517-byte checkpoint twice,
-  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v9 supplies
+  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v12 supplies
   exact dimensions, canonical hostility, the visible-door projection, the
   public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
   interrupt-action eligibility, and five bounded 12-byte combat-equipment
@@ -1717,7 +1717,7 @@ the engine must not contain SDL types in its public domain model.
   ammunition-bearing hand object it also captures loaded-ammunition item/count,
   signed ammunition condition (including a negative jam state), and chambered
   state; those fields stay canonical zero for ordinary equipment. The adapter
-  exposes no native interrupt list or hidden interrupter. Delta wire v8 carries
+  exposes no native interrupt list or hidden interrupter. Delta wire v11 carries
   hostility, interrupt eligibility, and renderer inputs in complete current actor
   updates before doors, plus lighting and same-serial interrupt-phase changes, while
   older snapshot layouts are rejected rather than inferred. Its separate passive game-
@@ -1746,13 +1746,13 @@ the engine must not contain SDL types in its public domain model.
   application, and their Applied receipts. It then proves commit-before-result,
   durable bearer retirement before clean socket stop, and removal of that peer
   from tactical state before world and epoch teardown.
-  Snapshot records are exactly 314/136/7 bytes for header/actor/door, including
-  five 12-byte combat-equipment records per actor, with a 564538-byte generic
-  ceiling; delta v8 permits 10243 generic events and its same-serial interrupt-phase
+  Snapshot records are exactly 314/148/7 bytes for header/actor/door, including
+  five 12-byte combat-equipment records per actor, with a 613690-byte generic
+  ceiling; delta v11 permits 10243 generic events and its same-serial interrupt-phase
   turn event is
   exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 2563 events,
-  with baseline payload/envelope 42298/43910 and delta payload/envelope
-  50781/50853 under 64 KiB.
+  with baseline payload/envelope 45370/46982 and delta payload/envelope
+  53853/53925 under 64 KiB.
   Intent wire v5 is bounded at 72+12=84 bytes, inner tactical wire is v4,
   both tactical-world services are 3.0, observer `DoorCapacityReached` is 12,
   and pointer-free door/pass commands use journal-v4 tags 33/34.

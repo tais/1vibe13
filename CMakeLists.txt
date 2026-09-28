@@ -608,6 +608,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   set_tests_properties(native_coop_inventory_capture PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_coop_inventory_capture_tests)
 
+  add_executable(native_coop_medical_projection_tests tests/native_coop_medical_projection_tests.cpp)
+  target_compile_definitions(native_coop_medical_projection_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_medical_projection_tests PRIVATE ${campaign_aim_hire_native_libraries})
+  add_test(NAME native_coop_medical_projection COMMAND native_coop_medical_projection_tests)
+  set_tests_properties(native_coop_medical_projection PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_medical_projection_tests)
+
   add_executable(authoritative_inventory_swap_tests tests/authoritative_inventory_swap_tests.cpp)
   target_compile_definitions(authoritative_inventory_swap_tests PRIVATE ${debugFlags})
   target_link_libraries(authoritative_inventory_swap_tests PRIVATE ${campaign_aim_hire_native_libraries})

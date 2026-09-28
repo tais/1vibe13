@@ -254,7 +254,7 @@ bool ReadPresentation(BinaryReader& reader,
 
 bool WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 {
-	if (!actor.id.valid() || !actor.loadout.valid() ||
+	if (!actor.id.valid() || !actor.loadout.valid() || !actor.medicalStateValid() ||
 		actor.animation >= TacticalAnimationStateCount ||
 		!IsCanonicalTacticalActorPresentation(actor.presentation)) return false;
 	WriteEntity(writer, actor.id);
@@ -276,6 +276,12 @@ bool WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	WriteBool(writer, actor.interruptActionEligible);
 	WriteLoadout(writer, actor.loadout);
 	WritePresentation(writer, actor.presentation);
+	WriteI16(writer, actor.bleeding);
+	writer.writeU16(actor.handMedicalKitPoints);
+	WriteBool(writer, actor.medicalService.providing);
+	writer.writeU16(actor.medicalService.patient.slot);
+	writer.writeU32(actor.medicalService.patient.incarnation);
+	writer.writeU8(actor.medicalService.receivingCount);
 	return true;
 }
 
@@ -307,6 +313,12 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		ReadBool(reader, actor.interruptActionEligible) &&
 		ReadLoadout(reader, actor.loadout) &&
 		ReadPresentation(reader, actor.presentation) &&
+		ReadI16(reader, actor.bleeding) && reader.readU16(actor.handMedicalKitPoints) &&
+		ReadBool(reader, actor.medicalService.providing) &&
+		reader.readU16(actor.medicalService.patient.slot) &&
+		reader.readU32(actor.medicalService.patient.incarnation) &&
+		reader.readU8(actor.medicalService.receivingCount) &&
+		actor.medicalStateValid() &&
 		actor.animation < TacticalAnimationStateCount;
 }
 

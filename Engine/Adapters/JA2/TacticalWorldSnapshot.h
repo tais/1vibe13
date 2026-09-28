@@ -458,6 +458,33 @@ inline bool IsCanonicalTacticalActorPresentation(
 		presentation.animationSurface < TacticalAnimationSurfaceCount;
 }
 
+// Public outcome of native tactical medical service, not a treatment command
+// or a prediction. The patient identity may be withheld or unresolved while
+// providing remains true. A present identity may refer to self or an actor
+// omitted from a recipient's projection; consumers resolve exact incarnations.
+struct TacticalMedicalServiceSnapshot
+{
+	bool providing = false;
+	TacticalEntityId patient{};
+	std::uint8_t receivingCount = 0;
+
+	bool valid() const noexcept
+	{
+		return patient == TacticalEntityId{} || (providing && patient.valid());
+	}
+
+	bool operator==(const TacticalMedicalServiceSnapshot& other) const noexcept
+	{
+		return providing == other.providing && patient == other.patient &&
+			receivingCount == other.receivingCount;
+	}
+
+	bool operator!=(const TacticalMedicalServiceSnapshot& other) const noexcept
+	{
+		return !(*this == other);
+	}
+};
+
 // Pointer-free view of one TacticalActor. Numeric team/profile/animation values
 // remain adapter data so Core and package code never depend on legacy headers.
 struct TacticalActorSnapshot
@@ -483,6 +510,18 @@ struct TacticalActorSnapshot
 	bool interruptActionEligible = false;
 	TacticalActorLoadoutSnapshot loadout;
 	TacticalActorPresentationSnapshot presentation;
+	// Public medical outcome and the usable points in the equipped hand kit.
+	// Reserve inventory and private medical decision state remain on authority.
+	std::int16_t bleeding = 0;
+	std::uint16_t handMedicalKitPoints = 0;
+	TacticalMedicalServiceSnapshot medicalService;
+
+	bool medicalStateValid() const noexcept
+	{
+		return medicalService.valid() && bleeding >= 0 && bleeding <= 127 &&
+			(handMedicalKitPoints == 0 || (loadout.primaryHand.item != 0 &&
+			 !loadout.primaryHand.ammunitionState));
+	}
 
 	bool operator==(const TacticalActorSnapshot& other) const noexcept
 	{
@@ -496,7 +535,9 @@ struct TacticalActorSnapshot
 			inSector == other.inSector &&
 			hostileToPlayerTeam == other.hostileToPlayerTeam &&
 			interruptActionEligible == other.interruptActionEligible &&
-			loadout == other.loadout && presentation == other.presentation;
+			loadout == other.loadout && presentation == other.presentation &&
+			bleeding == other.bleeding && handMedicalKitPoints == other.handMedicalKitPoints &&
+			medicalService == other.medicalService;
 	}
 
 	bool operator!=(const TacticalActorSnapshot& other) const noexcept
@@ -632,7 +673,7 @@ public:
 		if (actors.size() > maximumActors) return TacticalSnapshotCreateError::TooManyActors;
 		if (doors.size() > maximumDoors) return TacticalSnapshotCreateError::TooManyDoors;
 		for (const TacticalActorSnapshot& actor : actors)
-			if (!actor.id.valid() || !actor.loadout.valid() ||
+			if (!actor.id.valid() || !actor.loadout.valid() || !actor.medicalStateValid() ||
 				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;
@@ -712,7 +753,7 @@ public:
 		if (doorScratch.size() > maximumDoors)
 			return TacticalSnapshotCreateError::TooManyDoors;
 		for (const TacticalActorSnapshot& actor : actorScratch)
-			if (!actor.id.valid() || !actor.loadout.valid() ||
+			if (!actor.id.valid() || !actor.loadout.valid() || !actor.medicalStateValid() ||
 				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;
@@ -803,7 +844,7 @@ public:
 		for (std::size_t index = 0; index < actorScratch.size(); ++index)
 		{
 			const TacticalActorSnapshot& actor = actorScratch[index];
-			if (!actor.id.valid() || !actor.loadout.valid() ||
+			if (!actor.id.valid() || !actor.loadout.valid() || !actor.medicalStateValid() ||
 				!IsValidTacticalActorPresentation(actor, dimensions) ||
 				!IsValidTacticalInterruptEligibility(actor, turn))
 				return TacticalSnapshotCreateError::InvalidEntity;

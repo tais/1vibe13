@@ -367,18 +367,23 @@ void TestAdmissionDecodeAndExactResponses()
 		IsZero(truncatedResponse.reconnectToken),
 		"truncated admission produces a complete sanitized malformed response");
 
-	AdmissionRequestBytes unsupported =
-		RequestBytes(FirstJoin(configuration.admission));
-	unsupported[4] = static_cast<std::uint8_t>(CurrentProtocolVersion + 1);
-	unsupported[5] = 0;
-	const AdmissionIngressResult unsupportedResult = ingress.handleAdmission(
-		TransportPeer{6101}, unsupported.data(), unsupported.size());
-	const AdmissionResponse unsupportedResponse = DecodeResponse(unsupportedResult);
-	CHECK(unsupportedResult.decodeResult == DecodeResult::UnsupportedProtocol &&
-		unsupportedResponse.rejectReason ==
-			AdmissionRejectReason::UnsupportedProtocol &&
-		IsZero(unsupportedResponse.peerIdentity),
-		"unsupported admission version receives its explicit rejection");
+	for (const unsigned protocol : {19u, 20u, unsigned(CurrentProtocolVersion + 1)})
+	{
+		AdmissionRequestBytes unsupported = RequestBytes(FirstJoin(configuration.admission));
+		unsupported[4] = static_cast<std::uint8_t>(protocol);
+		unsupported[5] = 0;
+		const AdmissionIngressResult result = ingress.handleAdmission(
+			TransportPeer{6101}, unsupported.data(), unsupported.size());
+		const AdmissionResponse response = DecodeResponse(result);
+		PeerIdentity identity{};
+		CHECK(result.decodeResult == DecodeResult::UnsupportedProtocol &&
+			response.rejectReason == AdmissionRejectReason::UnsupportedProtocol &&
+			IsZero(response.peerIdentity) && IsZero(response.reconnectToken) &&
+			ingress.admittedPeerCount() == 0 && ingress.boundPeerCount() == 0 &&
+			ingress.actorBindingCount() == 0 &&
+			!ingress.resolveAuthenticatedPeer(TransportPeer{6101}, configuration.admission.sessionEpoch, identity),
+			"unsupported admission version receives its explicit rejection without credentials or command authority");
+	}
 
 	AdmissionRequestBytes badMagic =
 		RequestBytes(FirstJoin(configuration.admission));

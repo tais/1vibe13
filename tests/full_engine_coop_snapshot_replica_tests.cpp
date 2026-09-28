@@ -360,6 +360,88 @@ void TestPortraitOnlyReplacementIsTransactional()
 		"replacement baseline discards prior portrait descriptors absent from the new state");
 }
 
+void TestMedicalServiceReplacementIsTransactional()
+{
+	CoopTacticalBaseline baseline = Baseline();
+	TacticalActorSnapshot actor = Actor(1, 100);
+	actor.medicalService = {true, {2, 1}, 0};
+	CHECK(InstallSnapshot(baseline, {actor, Actor(2, 200)}),
+		"medical service replica baseline creates");
+	FullEngineCoopSnapshotReplica replica;
+	CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService == actor.medicalService,
+		"medical service baseline installs authoritative provider and exact patient identity");
+	std::uint64_t deltaId = 0;
+	auto makeDelta = [&]() {
+		CoopTacticalDelta delta;
+		delta.state = replica.state();
+		delta.baseRevision = replica.state().revision;
+		++delta.state.revision;
+		delta.deltaId = ++deltaId;
+		delta.delta.previousEpoch = delta.delta.currentEpoch = baseline.state.worldGeneration;
+		return delta;
+	};
+	for (const TacticalMedicalServiceSnapshot service : {
+		TacticalMedicalServiceSnapshot{true, {2, 1}, 255},
+		TacticalMedicalServiceSnapshot{true, {}, 0},
+		TacticalMedicalServiceSnapshot{false, {}, 2},
+		TacticalMedicalServiceSnapshot{},
+		TacticalMedicalServiceSnapshot{true, {2, 1}, 0}})
+	{
+		auto delta = makeDelta();
+		actor.medicalService = service;
+		delta.delta.events = {TacticalActorUpdatedEvent{actor}};
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
+			replica.applyDelta(decoded) == FullEngineCoopReplicaApplyResult::Committed &&
+			*replica.snapshot().find(actor.id) == actor,
+			"medical-service-only wire deltas atomically replace provider, patient and receiving state including stop and clear");
+	}
+	const auto committedRevision = replica.state().revision;
+	auto invalid = makeDelta();
+	auto malformedActor = actor;
+	malformedActor.medicalService = {false, {2, 1}, 0};
+	invalid.delta.events = {TacticalActorUpdatedEvent{malformedActor}};
+	CHECK(replica.applyDelta(invalid) == FullEngineCoopReplicaApplyResult::Rejected &&
+		replica.state().revision == committedRevision && *replica.snapshot().find(actor.id) == actor,
+		"invalid service rejects without altering already committed treatment activity");
+	auto patientLeaves = makeDelta();
+	patientLeaves.delta.events = {TacticalActorLeftEvent{{2, 1}}};
+	CHECK(replica.applyDelta(patientLeaves) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService.patient == (TacticalEntityId{2, 1}) &&
+		replica.snapshot().find(actor.medicalService.patient) == nullptr,
+		"patient departure does not reject a valid transient provider state or invent a target");
+	auto patientReenters = makeDelta();
+	patientReenters.delta.events = {TacticalActorEnteredEvent{Actor(2, 200, 2)}};
+	CHECK(replica.applyDelta(patientReenters) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.medicalService.patient) == nullptr &&
+		replica.snapshot().find(TacticalEntityId{2, 2}) != nullptr,
+		"reused patient slots do not silently retarget medical service to a new incarnation");
+	auto providerReplacement = makeDelta();
+	providerReplacement.delta.events = {TacticalActorEnteredEvent{Actor(1, 100, 2)},
+		TacticalActorLeftEvent{actor.id}};
+	CHECK(replica.applyDelta(providerReplacement) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id) == nullptr &&
+		replica.snapshot().find(TacticalEntityId{1, 2})->medicalService == TacticalMedicalServiceSnapshot{},
+		"new provider incarnation never inherits the departed actor's medical service");
+	CoopTacticalBaseline replacement = Baseline(11, replica.state().revision + 1);
+	replacement.baselineId = 2;
+	actor.id = {1, 2};
+	actor.medicalService = {true, {2, 2}, 4};
+	CHECK(InstallSnapshot(replacement, {actor, Actor(2, 200, 2)}) &&
+		replica.applyBaseline(replacement) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService == actor.medicalService,
+		"new baseline installs only its current medical service outcome");
+	CoopTacticalBaseline cleared = Baseline(12, 1, 1);
+	cleared.baselineId = 3;
+	CHECK(replica.applyBaseline(cleared) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(TacticalEntityId{1, 1})->medicalService == TacticalMedicalServiceSnapshot{} &&
+		replica.snapshot().find(actor.id) == nullptr,
+		"fresh world baseline clears all prior medical service and incarnation state");
+}
+
 void TestCommandBusyOnlyDeltaIsTransactional()
 {
 	FullEngineCoopSnapshotReplica replica;
@@ -893,6 +975,7 @@ int main()
 	TestRenderInputsSurviveDiffCodecAndReplica();
 	TestLightingOnlyDeltaRoundTripIsTransactional();
 	TestPortraitOnlyReplacementIsTransactional();
+	TestMedicalServiceReplacementIsTransactional();
 	TestCommandBusyOnlyDeltaIsTransactional();
 	TestGenerationRequiresFreshBaseline();
 	TestBaselineValidationPreservesState();

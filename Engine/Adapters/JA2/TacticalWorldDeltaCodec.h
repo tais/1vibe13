@@ -8,11 +8,13 @@
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
-// Version 8 coalesces current actor records with renderer inputs and adds
-// world lighting changes. It is a
+// Version 11 carries authority medical-service outcomes in each
+// full-current actor update. It is a
 // standalone little-endian transport
 // contract: no JA2 savegame or command replay bytes are read or written here.
-inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 8;
+// Versions 9 and 10 are reserved intermediate medical formats and are rejected.
+// Version 11 appends the canonical medical fields to the released version-8 actor.
+inline constexpr std::uint16_t TacticalWorldDeltaWireVersion = 11;
 inline constexpr std::size_t EncodedTacticalActorFullEventBytes =
 	1 + EncodedTacticalActorSnapshotBytes;
 inline constexpr std::size_t EncodedTacticalLightingChangedEventBytes = 3;

@@ -25,13 +25,13 @@ static_assert(CoopTacticalDeltaHeaderWireSize == 72);
 static_assert(CoopTacticalDeltaAckWireSize == 80);
 static_assert(CoopTacticalResyncRequestWireSize == 88);
 static_assert(CoopTacticalWireVersion == 4);
-static_assert(TacticalWorldSnapshotWireVersion == 9);
-static_assert(TacticalWorldDeltaWireVersion == 8);
-static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 42298);
-static_assert(MaximumCoopTacticalBaselineWireSize == 43910);
+static_assert(TacticalWorldSnapshotWireVersion == 12);
+static_assert(TacticalWorldDeltaWireVersion == 11);
+static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 45370);
+static_assert(MaximumCoopTacticalBaselineWireSize == 46982);
 static_assert(MaximumCoopTacticalDeltaEvents == 2563);
-static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 50781);
-static_assert(MaximumCoopTacticalDeltaWireSize == 50853);
+static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 53853);
+static_assert(MaximumCoopTacticalDeltaWireSize == 53925);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -66,6 +66,7 @@ TacticalActorSnapshot Actor()
 	actor.life = 77;
 	actor.maximumLife = 88;
 	actor.breath = 66;
+	actor.bleeding = 23;
 	actor.maximumBreath = 99;
 	actor.active = true;
 	actor.inSector = true;
@@ -116,6 +117,7 @@ TacticalWorldDelta Delta(std::uint64_t generation)
 	delta.currentEpoch = generation;
 	TacticalActorSnapshot actor = Actor();
 	actor.grid = 1240;
+	actor.bleeding = 7;
 	actor.direction = 4;
 	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
@@ -176,7 +178,7 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::Success, "receipt encodes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'R', "receipt magic is exact");
-	CHECK(bytes[4] == 4 && bytes[5] == 0 && bytes[6] == 20 &&
+	CHECK(bytes[4] == 4 && bytes[5] == 0 && bytes[6] == 21 &&
 		bytes[7] == 0 && bytes[8] == 3 && bytes[9] == 0,
 		"receipt wire/protocol versions and terminal fields are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -457,8 +459,8 @@ void TestBaselineCodec()
 	malformed = bytes;
 	const std::size_t nestedSnapshot =
 		CoopTacticalBaselineHeaderWireSize + baseline.assignedActors.size() * 6;
-	CHECK(bytes[nestedSnapshot + 4] == 9 && bytes[nestedSnapshot + 5] == 0,
-		"co-op baseline embeds exactly snapshot version 9");
+	CHECK(bytes[nestedSnapshot + 4] == 12 && bytes[nestedSnapshot + 5] == 0,
+		"co-op baseline embeds exactly snapshot version 12");
 	malformed[nestedSnapshot + 4] = 8;
 	malformed[nestedSnapshot + 5] = 0;
 	WriteU32(malformed, 64, CoopTacticalPayloadChecksum(
@@ -572,9 +574,9 @@ void TestDeltaCodec()
 		CoopTacticalCodecResult::Success, "delta encodes");
 	CHECK(bytes[8] == 4 && bytes[9] == 0,
 		"delta kind and reserve are exact");
-	CHECK(bytes[CoopTacticalDeltaHeaderWireSize + 4] == 8 &&
+	CHECK(bytes[CoopTacticalDeltaHeaderWireSize + 4] == 11 &&
 		bytes[CoopTacticalDeltaHeaderWireSize + 5] == 0,
-		"co-op delta embeds exactly standalone delta version 8");
+		"co-op delta embeds exactly standalone delta version 11");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[48 + index] == index + 0x41,
 			"delta ID is little endian");
@@ -685,6 +687,148 @@ void TestDeltaCodec()
 		"failed delta encode is transactional");
 }
 
+void TestMedicalOnlyOutcomeDeltas()
+{
+	const auto state = State(42, 12);
+	TacticalActorSnapshot beforeActor = Actor();
+	beforeActor.loadout.primaryHand = TacticalHandItemSnapshot{17, 1, 90};
+	beforeActor.handMedicalKitPoints = 0x1234;
+	TacticalWorldSnapshot before;
+	CHECK(TacticalWorldSnapshot::create(state.worldGeneration, {160, 160},
+		{}, {true, true, 0, state.turnSerial}, {beforeActor}, {}, before) ==
+		TacticalSnapshotCreateError::None, "medical outcome predecessor is valid");
+	CoopTacticalBaseline baseline;
+	baseline.state = state;
+	baseline.baselineId = 1;
+	baseline.nextExpectedCommandId = 1;
+	baseline.snapshot = before;
+	std::vector<std::uint8_t> baselineBytes;
+	CoopTacticalBaseline decodedBaseline;
+	CHECK(EncodeCoopTacticalBaseline(baseline, baselineBytes) == CoopTacticalCodecResult::Success &&
+		DecodeCoopTacticalBaseline(baselineBytes, decodedBaseline) == CoopTacticalCodecResult::Success &&
+		decodedBaseline.snapshot.actors()[0] == beforeActor,
+		"co-op baseline preserves nonzero equipped medical points and bleeding exactly");
+	for (unsigned mutation = 0; mutation < 3; ++mutation)
+	{
+		TacticalActorSnapshot afterActor = beforeActor;
+		if (mutation != 1) afterActor.bleeding = 7;
+		if (mutation != 0) afterActor.handMedicalKitPoints = 0x1023;
+		TacticalWorldSnapshot after;
+		CHECK(TacticalWorldSnapshot::create(state.worldGeneration, {160, 160},
+			{}, before.turn(), {afterActor}, {}, after) == TacticalSnapshotCreateError::None,
+			"medical outcome successor is valid");
+		CoopTacticalDelta delta;
+		delta.state = state;
+		delta.deltaId = mutation + 1;
+		delta.baseRevision = 41;
+		CHECK(DiffTacticalWorldSnapshots(before, after, MaximumCoopTacticalDeltaEvents,
+			delta.delta) == TacticalWorldDiffResult::Success && delta.delta.events.size() == 1 &&
+			std::holds_alternative<TacticalActorUpdatedEvent>(delta.delta.events[0]),
+			"bleeding-only, kit-only, and combined medical changes each produce a full-current actor update");
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes, decoded) == CoopTacticalCodecResult::Success &&
+			decoded.delta.events.size() == 1 &&
+			std::get<TacticalActorUpdatedEvent>(decoded.delta.events[0]).actor == afterActor,
+			"co-op medical-only delta round trip retains the entire current actor outcome");
+		constexpr std::size_t actorOffset = CoopTacticalDeltaHeaderWireSize + 26 + 1;
+		CHECK(bytes.size() == actorOffset + EncodedTacticalActorSnapshotBytes &&
+			bytes[actorOffset + 136] == afterActor.bleeding && bytes[actorOffset + 137] == 0 &&
+			bytes[actorOffset + 138] == (afterActor.handMedicalKitPoints & 0xff) &&
+			bytes[actorOffset + 139] == (afterActor.handMedicalKitPoints >> 8),
+			"medical delta record appends the exact four little-endian bytes after presentation");
+		for (unsigned invalid = 0; invalid < 4; ++invalid)
+		{
+			auto malformed = bytes;
+			if (invalid == 0)
+				malformed[actorOffset + 136] = malformed[actorOffset + 137] = 0xff;
+			else if (invalid == 1)
+				malformed[actorOffset + 136] = 128;
+			else if (invalid == 2)
+				std::fill(malformed.begin() + actorOffset + 68,
+					malformed.begin() + actorOffset + 80, 0);
+			else
+				malformed[actorOffset + 79] = 1;
+			WriteU32(malformed, 68, CoopTacticalPayloadChecksum(
+				malformed.data() + CoopTacticalDeltaHeaderWireSize,
+				malformed.size() - CoopTacticalDeltaHeaderWireSize));
+			CoopTacticalDelta retained = decoded;
+			retained.deltaId = 99;
+			CHECK(DecodeCoopTacticalDelta(malformed, retained) ==
+				CoopTacticalCodecResult::InvalidPayload && retained.deltaId == 99 &&
+				std::get<TacticalActorUpdatedEvent>(retained.delta.events[0]).actor == afterActor,
+				"checksummed invalid bleeding or equipped-kit state rejects without altering the retained delta");
+		}
+	}
+}
+
+void TestMedicalServiceEnvelopes()
+{
+	const auto state = State(42, 12);
+	for (const TacticalMedicalServiceSnapshot service : {
+		TacticalMedicalServiceSnapshot{true, {31, 42}, 255},
+		TacticalMedicalServiceSnapshot{true, {}, 0},
+		TacticalMedicalServiceSnapshot{false, {}, 1}})
+	{
+		auto actor = Actor();
+		TacticalWorldSnapshot before;
+		CHECK(TacticalWorldSnapshot::create(state.worldGeneration, {160, 160}, {},
+			{true, true, 0, state.turnSerial}, {actor}, {}, before) == TacticalSnapshotCreateError::None,
+			"service envelope predecessor is valid");
+		actor.medicalService = service;
+		CoopTacticalBaseline baseline;
+		baseline.state = state;
+		baseline.baselineId = 1;
+		baseline.nextExpectedCommandId = 1;
+		CHECK(TacticalWorldSnapshot::create(state.worldGeneration, {160, 160}, {},
+			before.turn(), {actor}, {}, baseline.snapshot) == TacticalSnapshotCreateError::None,
+			"service may name an exact patient not present in this public baseline");
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalBaseline decodedBaseline;
+		CHECK(EncodeCoopTacticalBaseline(baseline, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalBaseline(bytes, decodedBaseline) == CoopTacticalCodecResult::Success &&
+			decodedBaseline.snapshot.actors()[0].medicalService == service,
+			"co-op baseline retains providing, optional patient identity and receiving count");
+		CoopTacticalDelta delta;
+		delta.state = state;
+		delta.deltaId = 1;
+		delta.baseRevision = 41;
+		CHECK(DiffTacticalWorldSnapshots(before, baseline.snapshot, MaximumCoopTacticalDeltaEvents,
+			delta.delta) == TacticalWorldDiffResult::Success && delta.delta.events.size() == 1,
+			"service-only native change produces one full-current actor update");
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes, decoded) == CoopTacticalCodecResult::Success &&
+			std::get<TacticalActorUpdatedEvent>(decoded.delta.events[0]).actor == actor,
+			"co-op service-only delta preserves the full actor outcome");
+		constexpr std::size_t serviceOffset = CoopTacticalDeltaHeaderWireSize + 26 + 1 + 140;
+		CHECK(bytes[serviceOffset] == (service.providing ? 1 : 0) &&
+			bytes[serviceOffset + 7] == service.receivingCount,
+			"medical service suffix is exactly eight bytes after existing outcome fields");
+		for (unsigned invalid = 0; invalid < 2; ++invalid)
+		{
+			auto malformed = bytes;
+			if (invalid == 0) malformed[serviceOffset] = 2;
+			else
+			{
+				malformed[serviceOffset] = 0;
+				malformed[serviceOffset + 1] = 31;
+				malformed[serviceOffset + 2] = 0;
+				WriteU32(malformed, serviceOffset + 3, 42);
+			}
+			WriteU32(malformed, 68, CoopTacticalPayloadChecksum(
+				malformed.data() + CoopTacticalDeltaHeaderWireSize,
+				malformed.size() - CoopTacticalDeltaHeaderWireSize));
+			CoopTacticalDelta retained = decoded;
+			retained.deltaId = 99;
+			CHECK(DecodeCoopTacticalDelta(malformed, retained) == CoopTacticalCodecResult::InvalidPayload &&
+				retained.deltaId == 99 && std::get<TacticalActorUpdatedEvent>(retained.delta.events[0]).actor == actor,
+				"checksummed malformed service flags or orphan patient reject without replacing retained actor state");
+		}
+	}
+}
+
 void TestDeltaAckCodec()
 {
 	CoopTacticalDeltaAck acknowledgement;
@@ -729,7 +873,7 @@ void TestResyncRequestCodec()
 		CoopTacticalCodecResult::Success,
 		"canonical tactical resync request encodes");
 	const CoopTacticalResyncRequestBytes golden{{
-		0x4a, 0x32, 0x43, 0x54, 0x04, 0x00, 0x14, 0x00,
+		0x4a, 0x32, 0x43, 0x54, 0x04, 0x00, 0x15, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
@@ -1016,7 +1160,7 @@ void TestDisjointActorAndDoorSetsReachTheExactCategoryAwareDeltaBound()
 		MaximumCoopTacticalDeltaEvents) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		innerBytes.size() == MaximumCoopTacticalDeltaPayloadWireSize,
-		"category-aware maximum delta reaches exactly 50,781 bytes");
+		"category-aware maximum delta reaches exactly 53,853 bytes");
 
 	CoopTacticalDelta envelope;
 	envelope.state = state;
@@ -1050,6 +1194,8 @@ int main()
 	TestBaselineCodec();
 	TestBaselineAckCodec();
 	TestDeltaCodec();
+	TestMedicalOnlyOutcomeDeltas();
+	TestMedicalServiceEnvelopes();
 	TestDeltaAckCodec();
 	TestResyncRequestCodec();
 	TestExplicitPayloadCeilings();

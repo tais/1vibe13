@@ -7,8 +7,10 @@
 
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
-// Version 9 adds canonical renderer inputs, names, portraits, and world lighting.
-inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 9;
+// Version 12 appends bounded authority medical-service outcomes after kit points.
+// Versions 10 and 11 are reserved intermediate medical formats and are rejected.
+// Version 12 appends the canonical medical fields to the released version-9 actor.
+inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 12;
 inline constexpr std::size_t EncodedTacticalMapAssetKeyBytes =
 	TacticalMapAssetKeyStorageBytes;
 inline constexpr std::size_t EncodedTacticalSectorSnapshotBytes =
@@ -16,8 +18,10 @@ inline constexpr std::size_t EncodedTacticalSectorSnapshotBytes =
 inline constexpr std::size_t EncodedTacticalWorldSnapshotHeaderBytes = 314;
 inline constexpr std::size_t EncodedTacticalHandItemSnapshotBytes = 12;
 inline constexpr std::size_t EncodedTacticalActorPresentationSnapshotBytes = 44;
+inline constexpr std::size_t EncodedTacticalMedicalServiceSnapshotBytes = 8;
 inline constexpr std::size_t EncodedTacticalActorSnapshotBytes =
-	92 + EncodedTacticalActorPresentationSnapshotBytes;
+	96 + EncodedTacticalActorPresentationSnapshotBytes +
+	EncodedTacticalMedicalServiceSnapshotBytes;
 inline constexpr std::size_t EncodedTacticalDoorSnapshotBytes = 7;
 inline constexpr std::size_t MaximumEncodedTacticalWorldSnapshotBytes =
 	EncodedTacticalWorldSnapshotHeaderBytes +

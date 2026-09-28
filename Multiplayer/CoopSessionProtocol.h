@@ -8,9 +8,10 @@
 
 namespace CoopSession
 {
-// Version 20 binds same-actor inventory intents to the authoritative owner stream.
+// Version 21 adds canonical medical observations and native adjacent first aid.
+// Publish this capability only with kind-10 authority and passive controller support.
 // Reject mismatched clients before transferring campaign state.
-constexpr std::uint16_t CurrentProtocolVersion = 20;
+constexpr std::uint16_t CurrentProtocolVersion = 21;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

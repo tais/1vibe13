@@ -398,7 +398,7 @@ will revive them:
   `--dedicated-coop-port` endpoint, defaulting to `0.0.0.0:60005`. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v20 and
+  authentication. The dedicated runtime uses global co-op protocol v21 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
   fresh-baseline-gated actor assignment, including grow-only late peers, nine-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent
@@ -491,7 +491,7 @@ will revive them:
   before any pending main-menu transition commits. Dedicated creation alone
   runs `InitGameOptions()` immediately before `InitNewGame(FALSE)` because the installed strategic/Lua difficulty domain is 1..4; resume leaves checkpointed options untouched. The client also owns a private atomic 224-byte canonical
   bootstrap + `AdmissionAck` + SHA-256 reconnect record outside the profile, the real socket adapter, the snapshot
-  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v9 supplies
+  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v12 supplies
   exact authority dimensions, canonical hostility, visible public door records,
   the public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
   interrupt-action eligibility, and five bounded 12-byte combat-equipment
@@ -547,12 +547,12 @@ will revive them:
   defaults. Its static bound covers one campaign window at 144 FPS. The
   production socket E2E transfers one exact 11,796,517-byte checkpoint twice,
   193 chunks per transfer, at 7 ms pacing.
-  Snapshot v9's exact header/actor/door sizes are 314/136/7 bytes; the actor
+  Snapshot v12's exact header/actor/door sizes are 314/148/7 bytes; the actor
   includes five 12-byte combat-equipment records and the generic bound is
-  564538 bytes. Delta wire v8 permits 10243 generic events, coalesces every changed actor into one current record before door events, and encodes a same-serial interrupt-phase turn
+  613690 bytes. Delta wire v11 permits 10243 generic events, coalesces every changed actor into one current record before door events, and encodes a same-serial interrupt-phase turn
   change as one exact 43-byte event. The inner co-op tactical envelope is wire v4
   and caps 256 actors, 1024 doors, and 2563 events, with baseline payload/
-  envelope 42298/43910 bytes and delta payload/envelope 50781/50853 bytes under
+  envelope 45370/46982 bytes and delta payload/envelope 53853/53925 bytes under
   64 KiB. Intent wire v5 is bounded at
   72+12=84 bytes; tactical-world service/observer are 3.0,
   `DoorCapacityReached` is 12, and journal-v4 authoritative door/pass tags are 33/34.

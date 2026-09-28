@@ -80,6 +80,7 @@ TacticalWorldDelta CodecFixture()
 	entered.active = true;
 	entered.inSector = true;
 	entered.hostileToPlayerTeam = true;
+	entered.bleeding = 127;
 	entered.loadout = TacticalActorLoadoutSnapshot{
 		TacticalHandItemSnapshot{0x0102u, 1, 91, 0, 0, 0, false, false},
 		TacticalHandItemSnapshot{0x0304u, 1, 82, 0, 0, 0, false, false},
@@ -105,6 +106,7 @@ TacticalWorldDelta CodecFixture()
 	updated.active = true;
 	updated.inSector = true;
 	updated.hostileToPlayerTeam = true;
+	updated.bleeding = 3;
 	updated.loadout = TacticalActorLoadoutSnapshot{
 		TacticalHandItemSnapshot{0x1113u, 1, 89, 0, 0, 0, false, false},
 		TacticalHandItemSnapshot{0x1114u, 1, 79, 0, 0, 0, false, false},
@@ -155,6 +157,174 @@ std::vector<std::uint8_t> EncodeSingleCodecEvent(TacticalWorldEvent event)
 	return bytes;
 }
 
+void TestMedicalDeltaRecords()
+{
+	static_assert(TacticalWorldDeltaWireVersion == 11);
+	static_assert(EncodedTacticalActorFullEventBytes == 149);
+	TacticalActorSnapshot actor;
+	actor.id = {7, 1};
+	actor.grid = 0;
+	actor.stance = TacticalStance::Standing;
+	actor.life = actor.maximumLife = 80;
+	actor.bleeding = 127;
+	actor.loadout.primaryHand = {17, 1, 90};
+	actor.handMedicalKitPoints = 0xffff;
+	for (bool entered : {false, true})
+	{
+		const TacticalWorldEvent event = entered
+			? TacticalWorldEvent{TacticalActorEnteredEvent{actor}}
+			: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
+		const auto bytes = EncodeSingleCodecEvent(event);
+		TacticalWorldDelta decoded;
+		const bool decodedOkay = DecodeTacticalWorldDelta(bytes, decoded) ==
+			TacticalWorldDeltaDecodeResult::Success && decoded.events.size() == 1;
+		check(decodedOkay && (entered
+			? std::get<TacticalActorEnteredEvent>(decoded.events[0]).actor == actor
+			: std::get<TacticalActorUpdatedEvent>(decoded.events[0]).actor == actor) &&
+			bytes.size() == 175 && bytes[163] == 127 && bytes[164] == 0 &&
+			bytes[165] == 0xff && bytes[166] == 0xff,
+			"entered and updated actors preserve bounded bleeding and full-range unsigned kit points in exact appended bytes");
+		for (unsigned mutation = 0; mutation < 4; ++mutation)
+		{
+			auto malformed = bytes;
+			TacticalActorSnapshot invalid = actor;
+			if (mutation == 0)
+			{
+				malformed[163] = malformed[164] = 0xff;
+				invalid.bleeding = -1;
+			}
+			else if (mutation == 1)
+			{
+				malformed[163] = 128;
+				invalid.bleeding = 128;
+			}
+			else if (mutation == 2)
+			{
+				std::fill(malformed.begin() + 95, malformed.begin() + 107, 0);
+				invalid.loadout.primaryHand = {};
+			}
+			else
+			{
+				malformed[106] = 1;
+				invalid.loadout.primaryHand.ammunitionState = true;
+			}
+			TacticalWorldDelta retained{99, 99, {TacticalActorLeftEvent{{8, 1}}}};
+			check(DecodeTacticalWorldDelta(malformed, retained) ==
+				TacticalWorldDeltaDecodeResult::Invalid && retained.previousEpoch == 99 &&
+				retained.events.size() == 1 &&
+				std::holds_alternative<TacticalActorLeftEvent>(retained.events[0]),
+				"invalid medical actor bytes reject transactionally in entered and updated records");
+			TacticalWorldDelta invalidDelta{1, 1, {entered
+				? TacticalWorldEvent{TacticalActorEnteredEvent{invalid}}
+				: TacticalWorldEvent{TacticalActorUpdatedEvent{invalid}}}};
+			std::vector<std::uint8_t> retainedBytes{0xaa, 0xbb};
+			check(EncodeTacticalWorldDelta(invalidDelta, retainedBytes) ==
+				TacticalWorldDeltaEncodeResult::Invalid &&
+				retainedBytes == std::vector<std::uint8_t>({0xaa, 0xbb}),
+				"invalid medical fields cannot encode or replace retained delta bytes");
+		}
+	}
+}
+
+void TestMedicalServiceDeltaRecords()
+{
+	TacticalActorSnapshot actor;
+	actor.id = {7, 1};
+	actor.grid = 0;
+	actor.stance = TacticalStance::Standing;
+	actor.active = actor.inSector = true;
+	actor.life = actor.maximumLife = 80;
+	constexpr std::size_t serviceOffset = 27 + 140;
+	for (const bool entered : {false, true})
+		for (const TacticalMedicalServiceSnapshot service : {
+			TacticalMedicalServiceSnapshot{},
+			TacticalMedicalServiceSnapshot{false, {}, 255},
+			TacticalMedicalServiceSnapshot{true, {}, 0},
+			TacticalMedicalServiceSnapshot{true, actor.id, 1},
+			TacticalMedicalServiceSnapshot{true, {0xfffe, 0xffffffff}, 255}})
+		{
+			actor.medicalService = service;
+			const auto event = entered ? TacticalWorldEvent{TacticalActorEnteredEvent{actor}}
+				: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
+			const auto bytes = EncodeSingleCodecEvent(event);
+			TacticalWorldDelta decoded;
+			check(bytes.size() == 175 && bytes[serviceOffset] == (service.providing ? 1 : 0) &&
+				bytes[serviceOffset + 1] == (service.patient.slot & 0xff) &&
+				bytes[serviceOffset + 2] == (service.patient.slot >> 8) &&
+				bytes[serviceOffset + 3] == (service.patient.incarnation & 0xff) &&
+				bytes[serviceOffset + 4] == ((service.patient.incarnation >> 8) & 0xff) &&
+				bytes[serviceOffset + 5] == ((service.patient.incarnation >> 16) & 0xff) &&
+				bytes[serviceOffset + 6] == (service.patient.incarnation >> 24) &&
+				bytes[serviceOffset + 7] == service.receivingCount &&
+				DecodeTacticalWorldDelta(bytes, decoded) == TacticalWorldDeltaDecodeResult::Success &&
+				decoded.events.size() == 1 && (entered
+					? std::get<TacticalActorEnteredEvent>(decoded.events[0]).actor == actor
+					: std::get<TacticalActorUpdatedEvent>(decoded.events[0]).actor == actor),
+				"entered and updated records preserve exact medical-service suffix including self and unresolved patient identities");
+			for (const TacticalMedicalServiceSnapshot invalid : {
+				TacticalMedicalServiceSnapshot{false, {1, 1}, 0},
+				TacticalMedicalServiceSnapshot{false, {0, 0}, 0},
+				TacticalMedicalServiceSnapshot{true, {1, 0}, 0},
+				TacticalMedicalServiceSnapshot{true, {0xffff, 1}, 255}})
+			{
+				auto malformed = bytes;
+				malformed[serviceOffset] = invalid.providing ? 1 : 0;
+				malformed[serviceOffset + 1] = invalid.patient.slot & 0xff;
+				malformed[serviceOffset + 2] = invalid.patient.slot >> 8;
+				for (unsigned byte = 0; byte < 4; ++byte)
+					malformed[serviceOffset + 3 + byte] = (invalid.patient.incarnation >> (byte * 8)) & 0xff;
+				malformed[serviceOffset + 7] = invalid.receivingCount;
+				TacticalWorldDelta retained{99, 99, {TacticalActorLeftEvent{{8, 1}}}};
+				check(DecodeTacticalWorldDelta(malformed, retained) == TacticalWorldDeltaDecodeResult::Invalid &&
+					retained.previousEpoch == 99 && retained.currentEpoch == 99 && retained.events.size() == 1 &&
+					std::get<TacticalActorLeftEvent>(retained.events[0]).actor == TacticalEntityId{8, 1},
+					"noncanonical medical service rejects entered and updated deltas transactionally");
+				auto invalidActor = actor;
+				invalidActor.medicalService = invalid;
+				TacticalWorldDelta invalidDelta{1, 1, {entered
+					? TacticalWorldEvent{TacticalActorEnteredEvent{invalidActor}}
+					: TacticalWorldEvent{TacticalActorUpdatedEvent{invalidActor}}}};
+				std::vector<std::uint8_t> retainedBytes{0xaa, 0xbb};
+				check(EncodeTacticalWorldDelta(invalidDelta, retainedBytes) == TacticalWorldDeltaEncodeResult::Invalid &&
+					retainedBytes == std::vector<std::uint8_t>({0xaa, 0xbb}),
+					"invalid medical service cannot encode or replace retained delta bytes");
+			}
+			auto malformed = bytes;
+			malformed[serviceOffset] = 2;
+			TacticalWorldDelta retained{99, 99, {TacticalActorLeftEvent{{8, 1}}}};
+			check(DecodeTacticalWorldDelta(malformed, retained) == TacticalWorldDeltaDecodeResult::Invalid &&
+				retained.previousEpoch == 99 && retained.events.size() == 1 &&
+				std::holds_alternative<TacticalActorLeftEvent>(retained.events[0]),
+				"noncanonical providing flag rejects without replacing existing delta state");
+		}
+	actor.medicalService = {};
+	TacticalWorldSnapshot previous;
+	check(TacticalWorldSnapshot::create(1, {160, 160}, {}, {}, {actor}, previous) ==
+		TacticalSnapshotCreateError::None, "medical-service-only diff predecessor creates");
+	for (const TacticalMedicalServiceSnapshot service : {
+		TacticalMedicalServiceSnapshot{true, {}, 0},
+		TacticalMedicalServiceSnapshot{true, {9, 1}, 0},
+		TacticalMedicalServiceSnapshot{true, {9, 2}, 0},
+		TacticalMedicalServiceSnapshot{true, {9, 2}, 3},
+		TacticalMedicalServiceSnapshot{false, {}, 3},
+		TacticalMedicalServiceSnapshot{}})
+	{
+		actor.medicalService = service;
+		TacticalWorldSnapshot current;
+		TacticalWorldDelta delta;
+		check(TacticalWorldSnapshot::create(1, {160, 160}, {}, {}, {actor}, current) ==
+			TacticalSnapshotCreateError::None &&
+			DiffTacticalWorldSnapshots(previous, current, 1, delta) == TacticalWorldDiffResult::Success &&
+			delta.events.size() == 1 && std::holds_alternative<TacticalActorUpdatedEvent>(delta.events[0]) &&
+			std::get<TacticalActorUpdatedEvent>(delta.events[0]).actor == actor,
+			"medical service start, patient, incarnation, count, stop and clear each emit a full-current actor update");
+		TacticalWorldDelta identical;
+		check(DiffTacticalWorldSnapshots(current, current, 1, identical) == TacticalWorldDiffResult::Success &&
+			identical.events.empty(), "unchanged medical service emits no duplicate actor update");
+		previous = std::move(current);
+	}
+}
+
 void TestPortraitDeltaRecords()
 {
 	using Family = TacticalPortraitFamily;
@@ -179,7 +349,7 @@ void TestPortraitDeltaRecords()
 				: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
 			const auto bytes = EncodeSingleCodecEvent(event);
 			TacticalWorldDelta decoded;
-			check(bytes.size() == 163 &&
+			check(bytes.size() == 175 &&
 				bytes[160] == static_cast<std::uint8_t>(portrait.family) &&
 				bytes[161] == portrait.faceIndex && bytes[162] == static_cast<std::uint8_t>(portrait.camouflage) &&
 				DecodeTacticalWorldDelta(bytes, decoded) == TacticalWorldDeltaDecodeResult::Success &&
@@ -458,6 +628,8 @@ SimulationCommand MakeTurnCommand(
 
 int main()
 {
+	TestMedicalDeltaRecords();
+	TestMedicalServiceDeltaRecords();
 	TestPortraitDeltaRecords();
 	static_assert(MaximumTacticalWorldDeltaEvents == 10243,
 		"coalesced actor and door categories define the wire bound");
@@ -2293,12 +2465,14 @@ int main()
 			actor.loadout.secondaryHand == TacticalHandItemSnapshot{
 				0x4142u, 1, 75, 0, 0, 0, false, false} &&
 			actor.hostileToPlayerTeam &&
+			actor.bleeding == 127 && actor.handMedicalKitPoints == 0 &&
 			updated.id == TacticalEntityId{4, 5} &&
 			updated.grid == std::numeric_limits<std::int32_t>::max() &&
 			updated.level == std::numeric_limits<std::int8_t>::max() &&
 			updated.actionPoints == std::numeric_limits<std::int16_t>::max() &&
 			updated.breath == 400 && updated.maximumBreath == 600 &&
 			updated.hostileToPlayerTeam &&
+			updated.bleeding == 3 && updated.handMedicalKitPoints == 0 &&
 			updated.loadout.helmet.item == 0x1113u &&
 			updated.loadout.vest.item == 0x1114u &&
 			updated.loadout.legs.item == 0x1115u &&
@@ -2332,7 +2506,7 @@ int main()
 		resetDelta.previousEpoch, resetDelta.currentEpoch});
 	std::vector<std::uint8_t> resetBytes;
 	const std::vector<std::uint8_t> expectedResetBytes{
-		0x54, 0x57, 0x44, 0x31, 0x08, 0x00,
+		0x54, 0x57, 0x44, 0x31, 0x0b, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x01, 0x00, 0x00, 0x00, 0x01,
@@ -2341,7 +2515,7 @@ int main()
 	check(EncodeTacticalWorldDelta(resetDelta, resetBytes) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		resetBytes == expectedResetBytes,
-		"tactical delta version 8 has a fixed little-endian golden representation");
+		"tactical delta version 11 has a fixed little-endian golden representation");
 
 	bool rejectedEveryTruncation = true;
 	for (std::size_t length = 0; length < encodedDelta.size(); ++length)
@@ -2398,6 +2572,24 @@ int main()
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
 			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
 		"tactical delta codec distinguishes unsupported format versions");
+	malformed = encodedDelta;
+	malformed[4] = 8;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
+		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
+		"pre-medical delta version 8 is rejected without inventing actor medical state");
+	malformed = encodedDelta;
+	malformed[4] = 9;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
+		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
+		"reserved intermediate delta version 9 is rejected transactionally");
+	malformed = encodedDelta;
+	malformed[4] = 10;
+	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
+		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
+		"reserved intermediate delta version 10 is rejected transactionally");
 	malformed = encodedDelta;
 	malformed[0] ^= 0xffu;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==

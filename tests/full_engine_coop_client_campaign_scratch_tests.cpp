@@ -709,6 +709,15 @@ std::vector<std::uint8_t> LegacyReconnectRecord(unsigned protocol = 14)
 		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
 		"75767778797a7b7c7d7e7f803dc1c9a140fba9bd0b7661458f53668eb891"
 		"ef35c43684ad3e13d19842456b0f";
+	if (protocol == 20) hex =
+		"4a3243420100010014000000887766554433221111223344556677882021"
+		"22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+		"04030201807060504030201001f0e0d0c0b0a09080818283848586878889"
+		"8a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa106a7d300000000"
+		"00000000000000004a324341140003008877665544332211212223242526"
+		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
+		"75767778797a7b7c7d7e7f80e68238843a81047823ae18224805722210bf"
+		"761989aa682e5234bc6d68a6a55a";
 	if (protocol == 8) hex =
 		"4a32434201000100080000008877665544332211112233445566778820212223"
 		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
@@ -745,7 +754,7 @@ bool SameCredential(const AdmissionAck& left, const AdmissionAck& right)
 
 void TestLegacyReconnectCredentialMigration(unsigned protocol)
 {
-	static_assert(CurrentProtocolVersion == 20,
+	static_assert(CurrentProtocolVersion == 21,
 		"review the explicit legacy credential migration policy for the next protocol");
 	const auto original = LegacyReconnectRecord(protocol);
 	CHECK(original.size() == 224, "legacy golden record has its fixed durable size");
@@ -865,8 +874,8 @@ void TestLegacyReconnectCredentialMalformedRecords()
 			UINT32_C(0x00000000), "cd8859bc4b0bfe89afd291b134d9b82d06dac9caf9e00d5ded458501a0c0670b"},
 		{"zero reconnect token", {{{160, 32, 0}, {0, 0, 0}}},
 			UINT32_C(0x00000000), "9251cd523164eb5e7a1387f3f604f2533b651e76de7b32333c925762a3eeef6e"},
-		{"future protocol is not an implicit migration", {{{8, 1, 21}, {132, 1, 21}}},
-			UINT32_C(0x3af3643c), "041e5e5ea64b14a260d1a0243eef1c27c71cc2083bb21c0673114c7075375b98"},
+		{"future protocol is not an implicit migration", {{{8, 1, 22}, {132, 1, 22}}},
+			UINT32_C(0x443f7943), "265340e88c389ab3d597b5b12c798fd583347be0389e4918488fe679eacc97ef"},
 		{"older unreviewed protocol remains rejected", {{{8, 1, 13}, {132, 1, 13}}},
 			UINT32_C(0xf4bd1834), "b64fb7c13fa341dc0b0ba77ccf3cf401c5bd94b286bbfd4a6a02813268e86351"},
 	};
@@ -1492,6 +1501,7 @@ int main()
 	TestLegacyReconnectCredentialMigration(17);
 	TestLegacyReconnectCredentialMigration(18);
 	TestLegacyReconnectCredentialMigration(19);
+	TestLegacyReconnectCredentialMigration(20);
 	TestLegacyReconnectCredentialMalformedRecords();
 	TestDurableRetirementMarkerLifecycle();
 	TestReconnectCredentialAdversarialStorage();

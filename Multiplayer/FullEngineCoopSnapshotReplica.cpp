@@ -56,7 +56,7 @@ bool ValidStance(TacticalStance stance) noexcept
 bool ValidActor(const TacticalActorSnapshot& actor) noexcept
 {
 	return actor.id.valid() && ValidStance(actor.stance) &&
-		actor.loadout.valid() &&
+		actor.loadout.valid() && actor.medicalStateValid() &&
 		actor.animation < TacticalAnimationStateCount &&
 		IsCanonicalTacticalActorPresentation(actor.presentation) &&
 		(!actor.inSector || actor.active);
