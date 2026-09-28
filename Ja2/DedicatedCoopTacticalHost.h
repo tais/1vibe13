@@ -1,6 +1,8 @@
 #ifndef JA2_DEDICATED_COOP_TACTICAL_HOST_H
 #define JA2_DEDICATED_COOP_TACTICAL_HOST_H
 
+#include "CoopInventoryAuthority.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -130,7 +132,12 @@ public:
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;
 
+	// Read native carried contents only on the committed-frame coordinator thread.
+	bool captureInventory(TacticalEntityId actor, std::uint64_t worldGeneration,
+		CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept;
+
 private:
+	mutable Ja2CoopInventoryAuthority inventoryAuthority_;
 	GameContext* game_ = nullptr;
 	std::thread::id mainThread_;
 };
