@@ -609,6 +609,16 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_campaign_aim_willingness COMMAND native_campaign_aim_willingness_tests)
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
 
+  # Read-only native campaign groups, employment, funds and AIM offers.
+  foreach(campaign_observation IN ITEMS native_campaign_groups native_campaign_economy)
+    add_executable(${campaign_observation}_tests tests/${campaign_observation}_tests.cpp)
+    target_compile_definitions(${campaign_observation}_tests PRIVATE ${debugFlags})
+    target_link_libraries(${campaign_observation}_tests PRIVATE ${campaign_aim_native_libraries})
+    add_test(NAME ${campaign_observation} COMMAND ${campaign_observation}_tests)
+    set_tests_properties(${campaign_observation} PROPERTIES TIMEOUT 30)
+    add_dependencies(ja2_headless_tests ${campaign_observation}_tests)
+  endforeach()
+
   # Real native event failures must stop co-op frames and preserve legacy scopes.
   # Exact native death cleanup followed by read-only cold roster inspection.
   add_executable(native_coop_pending_hire_death_tests tests/native_coop_pending_hire_death_tests.cpp)
