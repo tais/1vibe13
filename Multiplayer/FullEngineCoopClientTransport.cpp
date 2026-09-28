@@ -110,6 +110,11 @@ FullEngineCoopClientTransport::connectInternal(
 	try
 	{
 		registered = registerMessages();
+		if (registered)
+			// Cap the callback burst at physical storage. Keep a deliberately
+			// smaller configured queue as an independent fail-closed limit.
+			registered = transport_->SetMaximumMessageFramesPerPoll(
+				MaximumFullEngineCoopClientInboundMessages);
 		if (registered && campaignSink != nullptr)
 		{
 			ja2::mp::net::SdlNetInboundMessageBudget campaignBudget;
@@ -204,37 +209,42 @@ void FullEngineCoopClientTransport::poll() noexcept
 	++pollDepth_;
 	if (!closePending_ && transport_ != nullptr)
 	{
-		try
+		for (;;)
 		{
-			for (;;)
+			ja2::mp::net::SdlNetEvent* event = nullptr;
+			try
 			{
-				ja2::mp::net::SdlNetEvent* event = transport_->Poll();
-				if (event == nullptr) break;
-				handleEvent(*event);
-				transport_->Release(event);
+				event = transport_->Poll();
+				if (event != nullptr)
+				{
+					handleEvent(*event);
+					transport_->Release(event);
+				}
 			}
-		}
-		catch (...)
-		{
-			failTransport(
-				FullEngineCoopClientTransportFailure::TransportFailure);
-		}
-	}
+			catch (...)
+			{
+				failTransport(
+					FullEngineCoopClientTransportFailure::TransportFailure);
+			}
 
-	// The entire SDL pump is now off the stack. Only this section may mutate
-	// the core or invoke the passive replica boundary.
-	if (!closePending_ && pendingAccepted_)
-	{
-		server_ = pendingAccepted_;
-		pendingAccepted_ = ja2::mp::NoConnection;
-		connected_ = true;
-		if (client_ == nullptr ||
-			client_->transportConnected() !=
-				FullEngineCoopClientResult::Success)
-			failTransport(
-				FullEngineCoopClientTransportFailure::ClientRejected);
+			// This individual SDL pump and every synchronous message callback
+			// have unwound. Empty its bounded batch before another Poll() can
+			// dispatch a second batch while draining queued transport events.
+			if (!closePending_ && pendingAccepted_)
+			{
+				server_ = pendingAccepted_;
+				pendingAccepted_ = ja2::mp::NoConnection;
+				connected_ = true;
+				if (client_ == nullptr ||
+					client_->transportConnected() !=
+						FullEngineCoopClientResult::Success)
+					failTransport(
+						FullEngineCoopClientTransportFailure::ClientRejected);
+			}
+			if (!closePending_ && connected_) deliverInbound();
+			if (closePending_ || event == nullptr) break;
+		}
 	}
-	if (!closePending_ && connected_) deliverInbound();
 
 	--pollDepth_;
 	if (pollDepth_ == 0 && closePending_) finishClose();

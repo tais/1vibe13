@@ -185,6 +185,13 @@ public:
 	// is rejected so every connection begins with one immutable budget.
 	bool SetInboundMessageBudget(
 		const SdlNetInboundMessageBudget& budget) noexcept;
+	// Bounds synchronous named-message dispatch in one Poll() socket pump.
+	// Complete excess frames remain in the connection's bounded input buffer for
+	// a later Poll. This opt-in is intentionally single-connection-only so a
+	// peer-global batch cannot starve a later connection; zero is rejected and
+	// the default remains unlimited.
+	bool SetMaximumMessageFramesPerPoll(
+		std::size_t maximumFrames) noexcept;
 	// A public listener can keep capacity for an in-process loopback authority.
 	// Remote sockets cannot consume this portion of the total connection cap.
 	bool SetReservedIncomingLoopbackConnections(

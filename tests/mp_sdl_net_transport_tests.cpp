@@ -96,6 +96,11 @@ struct ContextCapture
 	Captured captured;
 };
 
+struct OrderedContextCapture
+{
+	std::vector<unsigned char> values;
+};
+
 static void Capture( Captured& c, SdlNetMessage* p )
 {
 	c.count++;
@@ -116,6 +121,14 @@ static void ContextHandler( SdlNetMessage* p, void* context )
 {
 	ContextCapture* capture = static_cast<ContextCapture*>( context );
 	if ( capture ) Capture( capture->captured, p );
+}
+
+static void OrderedContextHandler( SdlNetMessage* p, void* context )
+{
+	OrderedContextCapture* capture =
+		static_cast<OrderedContextCapture*>( context );
+	if ( capture && p && p->size == 1 )
+		capture->values.push_back( p->data[0] );
 }
 
 // ---- file transfer capture ---------------------------------------------------
@@ -1190,6 +1203,187 @@ int main( int, char** )
 
 	srv->Shutdown( 0 );
 	DestroySdlNetPeer( srv );
+
+	// A protocol adapter with a small callback FIFO can cap synchronous named
+	// frame dispatch without dropping reliable bytes. Excess complete frames
+	// remain in the bounded connection input and resume in exact wire order.
+	{
+		SdlNetPeer* batchServer = CreateSdlNetPeer();
+		CHECK(!batchServer->SetMaximumMessageFramesPerPoll(0),
+		       "zero per-poll message-frame cap is rejected" );
+		CHECK(batchServer->SetMaximumMessageFramesPerPoll(2),
+		       "bounded per-poll message-frame cap configures before startup" );
+		CHECK(!batchServer->Start(2, SdlNetEndpoint()),
+		       "peer-global message cap rejects multi-connection startup" );
+		bool batchStarted = false;
+		for ( unsigned int attempt = 0; attempt < 128 && !batchStarted; ++attempt )
+		{
+			g_port = (unsigned short)( 40000 + ( seed + 384 + attempt ) % 20000 );
+			batchStarted = batchServer->Start(
+				1, SdlNetEndpoint(g_port, "127.0.0.1"));
+		}
+		CHECK(batchStarted, "message-batch server binds listener" );
+		CHECK(!batchServer->SetMaximumMessageFramesPerPoll(3),
+		       "live message-frame cap reconfiguration is rejected" );
+		OrderedContextCapture batchCapture;
+		CHECK(batchServer->RegisterMessage(
+			"bounded.batch", OrderedContextHandler, &batchCapture),
+		       "bounded message-batch handler registers" );
+		PeerLog batchLog{ batchServer };
+		RawConn raw;
+		CHECK(batchStarted && ConnectRaw(batchLog, raw),
+		       "raw message-batch client connects" );
+		CHECK(!batchServer->Connect("127.0.0.1", g_port),
+		       "capped peer rejects a second concurrent connection" );
+		if ( raw.sock )
+		{
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 0; value < 5; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			const std::vector<unsigned char> bye = WireFrame(2, {});
+			stream.insert(stream.end(), bye.begin(), bye.end());
+			CHECK(SendRaw(raw, stream),
+			       "five ordered messages and BYE enter one socket write" );
+			Uint64 deadline = SDL_GetTicks() + 2000;
+			while (NET_GetStreamSocketPendingWrites(raw.sock) > 0 &&
+			       SDL_GetTicks() < deadline)
+				SDL_Delay(1);
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1 }),
+			       "first parser pump dispatches exactly its two-frame cap" );
+			event = batchServer->Poll();
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3 }),
+			       "second parser pump resumes retained frames in order" );
+			event = batchServer->Poll();
+			const bool byeDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3, 4 }),
+			       "final parser pump drains the retained tail without loss" );
+			CHECK(byeDeferred,
+			       "following BYE remains behind the delivered callback batch" );
+			event = batchServer->Poll();
+			const bool gotBye = event && event->size == 1 && event->data &&
+				event->data[0] == SDLNET_DISCONNECTION_NOTIFICATION;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotBye && batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3, 4 }),
+			       "deferred BYE is observed only after every prior callback" );
+			NET_DestroyStreamSocket(raw.sock);
+			raw.sock = nullptr;
+		}
+
+		RawConn eofRaw;
+		CHECK(batchStarted && ConnectRaw(batchLog, eofRaw),
+		       "raw message-plus-EOF client connects" );
+		if ( eofRaw.sock )
+		{
+			batchCapture.values.clear();
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 7; value < 10; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			CHECK(SendRaw(eofRaw, stream),
+			       "ordered messages enter the socket before EOF" );
+			(void)NET_WaitUntilStreamSocketDrained(eofRaw.sock, 2000);
+			NET_DestroyStreamSocket(eofRaw.sock);
+			eofRaw.sock = nullptr;
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			const bool firstEofDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(firstEofDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8 }),
+			       "socket EOF waits behind the first capped valid batch" );
+			event = batchServer->Poll();
+			const bool finalEofDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(finalEofDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8, 9 }),
+			       "socket EOF waits behind the retained valid tail" );
+			event = batchServer->Poll();
+			const bool gotLoss = event && event->size == 1 && event->data &&
+				event->data[0] == SDLNET_CONNECTION_LOST;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotLoss && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8, 9 }),
+			       "socket loss publishes only after every prior callback" );
+		}
+
+		RawConn malformedRaw;
+		CHECK(batchStarted && ConnectRaw(batchLog, malformedRaw),
+		       "raw message-plus-malformed client connects" );
+		if ( malformedRaw.sock )
+		{
+			batchCapture.values.clear();
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 11; value < 14; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			const std::vector<unsigned char> malformed = WireFrame(99, {});
+			stream.insert(stream.end(), malformed.begin(), malformed.end());
+			CHECK(SendRaw(malformedRaw, stream),
+			       "ordered messages enter the socket before a malformed frame" );
+			Uint64 deadline = SDL_GetTicks() + 2000;
+			while (NET_GetStreamSocketPendingWrites(malformedRaw.sock) > 0 &&
+			       SDL_GetTicks() < deadline)
+				SDL_Delay(1);
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			const bool firstMalformedDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(firstMalformedDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12 }),
+			       "malformed tail waits behind the first capped valid batch" );
+			event = batchServer->Poll();
+			const bool finalMalformedDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(finalMalformedDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12, 13 }),
+			       "malformed tail waits behind the retained valid message" );
+			event = batchServer->Poll();
+			const bool gotMalformedLoss = event && event->size == 1 &&
+				event->data && event->data[0] == SDLNET_CONNECTION_LOST;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotMalformedLoss && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12, 13 }),
+			       "malformed frame closes only after every prior callback" );
+			NET_DestroyStreamSocket(malformedRaw.sock);
+			malformedRaw.sock = nullptr;
+		}
+		batchServer->Shutdown(0);
+		DestroySdlNetPeer(batchServer);
+	}
 
 	// A listener may reserve its final slot for the embedded authority. With a
 	// non-loopback allowance of zero, successful acceptance proves that the

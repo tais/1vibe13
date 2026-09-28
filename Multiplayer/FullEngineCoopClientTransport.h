@@ -48,6 +48,9 @@ struct FullEngineCoopClientTransportConfiguration
 	// listener, so it cannot accept a self-connection or legacy arena traffic.
 	ja2::mp::net::SdlNetEndpoint serverEndpoint;
 	unsigned timeoutMilliseconds = 120000;
+	// May narrow the physical callback FIFO for constrained embeddings. The
+	// immutable SDL parser batch remains the hard 16-slot capacity, so a smaller
+	// configured queue retains explicit fail-closed overload semantics.
 	std::size_t maximumQueuedInboundMessages =
 		MaximumFullEngineCoopClientInboundMessages;
 	std::size_t maximumPendingWriteBytes =
