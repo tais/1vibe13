@@ -158,12 +158,20 @@
 
 extern INT16 DirIncrementer[8];
 
-bool TacticalActorLifecycle::create(TacticalActor& subject, UINT8 ubBodyType, SoldierID usSoldierID, UINT16 usState)
+bool TacticalActorLifecycle::create(TacticalActor& subject, UINT8 ubBodyType, SoldierID usSoldierID, UINT16 usState, bool preserveSavedIdle)
 {
 	if (ubBodyType >= TOTALBODYTYPES ||
 		usState >= NUMANIMATIONSTATES ||
 		static_cast<std::size_t>(usSoldierID.i) >=
 			GetJa2SoldierRepository().capacity())
+	{
+		return false;
+	}
+
+	if (preserveSavedIdle &&
+		(subject.identity().bodyType() != ubBodyType ||
+		 subject.identity().id() != usSoldierID ||
+		 subject.animationPlayback().state() != usState))
 	{
 		return false;
 	}
@@ -236,7 +244,13 @@ bool TacticalActorLifecycle::create(TacticalActor& subject, UINT8 ubBodyType, So
 			/// if we don't have a world loaded, and are in a bad anim, goto standing.
 			// bad anims are: HOPFENCE,
 			// CLIMBDOWNROOF, FALLFORWARD_ROOF,FALLOFF, CLIMBUPROOF
-			if ( !IsJa2TacticalWorldLoaded() &&
+			if (preserveSavedIdle &&
+				(usState == STANDING || usState == CROUCHING || usState == PRONE))
+			{
+				if (!TacticalActorAnimationTransitions::restoreSavedIdlePresentation(subject))
+					break;
+			}
+			else if ( !IsJa2TacticalWorldLoaded() &&
 				 (usState == HOPFENCE || usState == JUMPWINDOWS ||
 				 usState == CLIMBDOWNROOF ||
 

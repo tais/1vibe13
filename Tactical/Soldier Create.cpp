@@ -1341,7 +1341,7 @@ static TacticalActor* TacticalCreateSoldierImpl(SOLDIERCREATE_STRUCT* pCreateStr
 		// Alrighty then, we are set to create the merc, stuff after here can fail!
 		CHECKF( TacticalActorLifecycle::create(*pLiveSoldier,
 			Soldier.identity().bodyType(), Soldier.identity().id(),
-			pLiveSoldier->animationPlayback().state() ) != FALSE );
+			pLiveSoldier->animationPlayback().state(), true ) != FALSE );
 
 		*pubID = Soldier.identity().id();
 

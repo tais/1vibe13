@@ -378,6 +378,49 @@ void CheckForFreeupFromHit( TacticalActor *pSoldier, UINT32 uiOldAnimFlags, UINT
 
 
 // THIS IS CALLED FROM AN EVENT ( S_CHANGESTATE )!
+// Rebinding an ordinary saved idle pose is presentation reconstruction, not
+// an animation transition. The saved code points to the next instruction and
+// its countdown must survive until the first live frame after loading.
+bool TacticalActorAnimationTransitions::restoreSavedIdlePresentation(TacticalActor& subject)
+{
+	const UINT16 state = subject.animationPlayback().state();
+	if (!(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) ||
+		(state != STANDING && state != CROUCHING && state != PRONE) ||
+		subject.animationPlayback().code() >= MAX_FRAMES_PER_ANIM ||
+		subject.identity().bodyType() >= TOTALBODYTYPES ||
+		subject.identity().id().i >= MAX_NUM_SOLDIERS ||
+		subject.position().direction() >= NUM_WORLD_DIRECTIONS ||
+		subject.inventory().size() < NUM_INV_SLOTS)
+	{
+		return false;
+	}
+	for (const std::size_t slot : {HANDPOS, SECONDHANDPOS})
+	{
+		const OBJECTTYPE& object = subject.inventory()[slot];
+		if (object.usItem >= MAXITEMS ||
+			(object.exists() && object.objectStack.empty()))
+			return false;
+	}
+
+	// Resolve the current native assets before inspecting the saved frame.
+	// A failed reconstruction is returned to the actor-creation boundary;
+	// neither an invalid cursor nor frame is ever passed to the interpreter.
+	const UINT16 surface = LoadSoldierAnimationSurface(&subject, state);
+	if (surface >= NUMANIMATIONSURFACETYPES ||
+		gAnimSurfaceDatabase[surface].hVideoObject == nullptr ||
+		gAnimSurfaceDatabase[surface].hVideoObject->pETRLEObject == nullptr ||
+		subject.animationPlayback().frame() >=
+			gAnimSurfaceDatabase[surface].hVideoObject->usNumberOfObjects)
+	{
+		return false;
+	}
+	if (!SetSoldierAnimationSurface(&subject, state))
+		return false;
+	(void)TacticalActorAnimationFootprint::remove(subject, state);
+	(void)TacticalActorAnimationFootprint::addForSurface(subject, state, surface);
+	return TacticalActorAnimationGeometry::refreshBoundingBox(subject);
+}
+
 bool TacticalActorAnimationTransitions::initializeAnimation(TacticalActor& subject, UINT16 usNewState, UINT16 usStartingAniCode, bool fForce)
 {
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "EVENT_InitNewSoldierAnim" );
