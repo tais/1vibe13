@@ -145,6 +145,7 @@ struct Conn
 	size_t inOff = 0;       // parse cursor into 'in' (avoids erase()+copy per frame)
 	bool open = true;       // false => teardown deferred to the step-4 sweep
 	bool sentBye = false;
+	bool readFailurePending = false;
 	bool loopback = false;
 	// A server must observe its connection lifecycle event before an eager peer
 	// can invoke a named-message or file callback. Outbound client connections
@@ -272,6 +273,8 @@ struct SdlNetPeerState
 		DefaultSdlNetInboundMessageRateBytesPerSecond;
 	std::size_t inboundMessageBurstBytes =
 		DefaultSdlNetInboundMessageBurstBytes;
+	std::size_t maximumMessageFramesPerPoll = 0;
+	std::size_t messageFramesThisPoll = 0;
 	std::uint16_t reservedIncomingLoopbackConnections = 0;
 	// Dead-peer detection. 0 == disabled. A peer that has not sent any bytes for
 	// timeoutMs is declared lost.
@@ -619,12 +622,22 @@ void SdlNetPeerState::ParseFrames( Conn* c )
 	// The consumed prefix is compacted in one shot at the end.
 	for ( ;; )
 	{
+		// Yield before even inspecting the next header once this pump has
+		// published its configured callback batch. This leaves a following
+		// malformed/control frame behind the same ordering boundary instead of
+		// closing the connection before the adapter can consume valid callbacks.
+		if ( maximumMessageFramesPerPoll != 0 &&
+			messageFramesThisPoll >= maximumMessageFramesPerPoll )
+			break;
 		size_t avail = c->in.size() - c->inOff;
 		if ( !c->open || avail < 5 )
 			break;
 		const unsigned char* p = c->in.data() + c->inOff;
 		unsigned int bodyLen = GetU32( p );
 		unsigned char type = p[4];
+		if ( maximumMessageFramesPerPoll != 0 &&
+			messageFramesThisPoll != 0 && type != FT_MESSAGE )
+			break;
 		bool validHeader = false;
 		switch ( type )
 		{
@@ -656,6 +669,7 @@ void SdlNetPeerState::ParseFrames( Conn* c )
 		switch ( type )
 		{
 			case FT_MESSAGE:
+				++messageFramesThisPoll;
 				DispatchMessage( c, body, bodyLen );
 				break;
 			case FT_BYE:
@@ -707,7 +721,7 @@ void SdlNetPeerState::Liveness()
 	Uint64 now = SDL_GetTicks();
 	for ( Conn* c : conns )
 	{
-		if ( !c->open || !c->sock )
+		if ( !c->open || !c->sock || c->readFailurePending )
 			continue;
 		// keepalive so an idle-but-healthy peer keeps refreshing OUR lastRecvMs
 		if ( now - c->lastPingMs >= HEARTBEAT_INTERVAL_MS )
@@ -726,6 +740,7 @@ void SdlNetPeerState::Liveness()
 
 void SdlNetPeerState::PumpSockets()
 {
+	messageFramesThisPoll = 0;
 	// 1. client-side pending connect
 	if ( resolving )
 	{
@@ -751,14 +766,27 @@ void SdlNetPeerState::PumpSockets()
 		NET_Status st = NET_GetConnectionStatus( connecting );
 		if ( st == NET_SUCCESS )
 		{
-			Conn* c = new Conn();
-			c->sock = connecting;
-			c->addr = serverAddr;
-			c->tokens = static_cast<double>(inboundMessageBurstBytes);
-			c->lastRecvMs = SDL_GetTicks();
-			conns.push_back( c );
-			connecting = nullptr;
-			Synthesize( SDLNET_CONNECTION_ACCEPTED, c->addr );
+			// A capped peer promises one global callback batch for exactly one
+			// connection. An inbound socket can win while this asynchronous
+			// outbound connection is still resolving, so repeat the exclusivity
+			// check at commit rather than relying only on Connect().
+			if ( maximumMessageFramesPerPoll != 0 && !conns.empty() )
+			{
+				NET_DestroyStreamSocket( connecting );
+				connecting = nullptr;
+				Synthesize( SDLNET_CONNECTION_ATTEMPT_FAILED, serverAddr );
+			}
+			else
+			{
+				Conn* c = new Conn();
+				c->sock = connecting;
+				c->addr = serverAddr;
+				c->tokens = static_cast<double>(inboundMessageBurstBytes);
+				c->lastRecvMs = SDL_GetTicks();
+				conns.push_back( c );
+				connecting = nullptr;
+				Synthesize( SDLNET_CONNECTION_ACCEPTED, c->addr );
+			}
 		}
 		else if ( st == NET_FAILURE )
 		{
@@ -824,13 +852,16 @@ void SdlNetPeerState::PumpSockets()
 	//    closes via CloseConnection, which is now deferred to the step-4 sweep)
 	for ( size_t i = 0; i < conns.size() && !shutdownPending && !detachPending; ++i )
 	{
+		if ( maximumMessageFramesPerPoll != 0 &&
+			messageFramesThisPoll >= maximumMessageFramesPerPoll )
+			break;
 		Conn* c = conns[i];
 			if ( !c->open || !c->sock || !c->incomingEventReturned )
 				continue;
 		unsigned char tmp[8192];
 		size_t readThisPass = 0;
-		bool readFailed = false;
-		for ( ;; )
+		bool readFailed = c->readFailurePending;
+		for ( ; !readFailed; )
 		{
 			// Cap bytes drained from one socket per pass so a fast/slow-loris peer
 			// can't monopolize the pump and starve the others (head-of-line).
@@ -866,15 +897,30 @@ void SdlNetPeerState::PumpSockets()
 			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			CloseConn( c, false, 0 );
 		}
+		bool dispatchedMessage = false;
 		if ( c->open )
+		{
+			const std::size_t messagesBeforeParse = messageFramesThisPoll;
 			ParseFrames( c );
+			dispatchedMessage =
+				messageFramesThisPoll != messagesBeforeParse;
+			// EOF/error may accompany a final valid frame batch. Keep the socket
+			// identity alive until those callbacks have crossed the application
+			// ordering boundary; a later pump reports the retained failure after
+			// every complete message ahead of it has dispatched.
+			if ( readFailed && dispatchedMessage )
+				c->readFailurePending = true;
+		}
 		// EOF may arrive in the same pump as the peer's final complete control
 		// frame. Let buffered FT_BYE/FT_FULL (and preceding messages) win before
 		// classifying the close as an ungraceful loss. ParseFrames can close the
 		// connection or request callback-safe teardown, in which case no extra
 		// loss event belongs on the queue.
-		if ( c->open && readFailed && !shutdownPending && !detachPending )
+		if ( c->open && readFailed &&
+			!dispatchedMessage &&
+			!shutdownPending && !detachPending )
 		{
+			c->readFailurePending = false;
 			Synthesize( SDLNET_CONNECTION_LOST, c->addr );
 			CloseConn( c, false, 0 );
 		}
@@ -934,6 +980,8 @@ bool SdlNetPeer::Start(
 {
 	if ( state_->started )
 		return true;
+	if ( state_->maximumMessageFramesPerPoll != 0 && maxConnections != 1 )
+		return false;
 	if (endpoint.port != 0 &&
 		state_->reservedIncomingLoopbackConnections > maxConnections)
 		return false;
@@ -982,7 +1030,9 @@ bool SdlNetPeer::Start(
 
 bool SdlNetPeer::Connect(const char* host, std::uint16_t remotePort)
 {
-	if ( !state_->started || state_->connecting || state_->resolving )
+	if ( !state_->started || state_->connecting || state_->resolving ||
+		( state_->maximumMessageFramesPerPoll != 0 &&
+		  !state_->conns.empty() ) )
 		return false;
 	state_->resolving = NET_ResolveHostname( host );
 	state_->connectPort = remotePort;
@@ -1228,6 +1278,14 @@ bool SdlNetPeer::SetInboundMessageBudget(
 	state_->inboundMessageRateBytesPerSecond =
 		budget.sustainedBytesPerSecond;
 	state_->inboundMessageBurstBytes = budget.burstBytes;
+	return true;
+}
+
+bool SdlNetPeer::SetMaximumMessageFramesPerPoll(
+	std::size_t maximumFrames) noexcept
+{
+	if (!state_ || state_->started || maximumFrames == 0) return false;
+	state_->maximumMessageFramesPerPoll = maximumFrames;
 	return true;
 }
 

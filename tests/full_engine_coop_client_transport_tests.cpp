@@ -1,6 +1,7 @@
 #include "Multiplayer/FullEngineCoopClientTransport.h"
 
 #include "Multiplayer/CoopHandshakeProtocol.h"
+#include "Multiplayer/FullEngineCoopServerSession.h"
 
 #include <SDL3/SDL.h>
 
@@ -180,14 +181,15 @@ std::vector<std::uint8_t> BaselineBytes(std::uint64_t epoch,
 
 std::vector<std::uint8_t> DeltaBytes(std::uint64_t epoch,
 	std::uint64_t generation, std::uint64_t baseRevision,
-	std::uint64_t revision, std::uint64_t turn)
+	std::uint64_t revision, std::uint64_t turn,
+	std::uint64_t deltaId = 1)
 {
 	CoopTacticalDelta envelope;
 	envelope.state.sessionEpoch = epoch;
 	envelope.state.worldGeneration = generation;
 	envelope.state.revision = revision;
 	envelope.state.turnSerial = turn;
-	envelope.deltaId = 1;
+	envelope.deltaId = deltaId;
 	envelope.baseRevision = baseRevision;
 	envelope.delta.previousEpoch = generation;
 	envelope.delta.currentEpoch = generation;
@@ -337,7 +339,7 @@ public:
 		return FullEngineCoopReplicaApplyResult::Committed;
 	}
 
-	std::array<int, 8> order{};
+	std::array<int, MaximumCoopTacticalDeltaHistory + 2> order{};
 	std::size_t orderCount = 0;
 	unsigned baselineCalls = 0;
 	unsigned deltaCalls = 0;
@@ -439,6 +441,146 @@ bool ConnectClient(LoopbackServer& server,
 		return server.client && transport.connected() &&
 			client.state() == FullEngineCoopClientState::Hello;
 	});
+}
+
+void TestCallbackBatchConfigurationInvariant()
+{
+	FullEngineCoopClientTransportConfiguration configuration;
+	CHECK(configuration.maximumQueuedInboundMessages ==
+			MaximumFullEngineCoopClientInboundMessages &&
+		MaximumFullEngineCoopClientInboundMessages == 16,
+		"the immutable parser batch defaults to the fixed callback FIFO bound");
+
+	FullEngineCoopClientTransport transport;
+	RecordingReplica replica;
+	FullEngineCoopClient client(transport, replica);
+	configuration.serverEndpoint = SdlNetEndpoint(1, "127.0.0.1");
+	configuration.maximumQueuedInboundMessages =
+		MaximumFullEngineCoopClientInboundMessages + 1;
+	CHECK(transport.connect(client, configuration) ==
+			FullEngineCoopClientTransportConnectResult::InvalidConfiguration &&
+		!transport.running() &&
+		client.state() == FullEngineCoopClientState::Disconnected,
+		"configuration cannot expand the fixed callback-batch bound");
+}
+
+void TestMaximumInFlightDeltaWindowSurvivesBoundedCallbackBatches()
+{
+	LoopbackServer server;
+	CHECK(StartServer(server), "tactical-window server starts");
+	FullEngineCoopClientTransport transport;
+	RecordingReplica replica;
+	FullEngineCoopClient client(transport, replica);
+	CHECK(ConnectClient(server, transport, client,
+		TransportConfiguration(server.port)),
+		"tactical-window client connects");
+
+	const FullEngineCoopClientConfiguration core = ClientConfiguration();
+	const CoopServerHelloBytes hello = HelloBytes(core, 699);
+	CHECK(Send(server, CoopServerHelloMessageName,
+		hello.data(), hello.size()),
+		"tactical-window server sends hello");
+	CHECK(PumpUntil(server, transport, [&] {
+		return client.state() == FullEngineCoopClientState::Admission;
+	}), "tactical-window client reaches admission");
+
+	const AdmissionResponseBytes response =
+		ResponseBytes(699, Identity(0x18), Token(0x38));
+	CHECK(Send(server, CoopAdmissionResponseMessageName,
+		response.data(), response.size()),
+		"tactical-window server admits client");
+	CHECK(PumpUntil(server, transport, [&] {
+		return client.state() == FullEngineCoopClientState::AwaitingBaseline;
+	}), "tactical-window client awaits baseline");
+
+	const std::vector<std::uint8_t> baseline =
+		BaselineBytes(699, 10, 2, 3, 1);
+	CHECK(Send(server, CoopTacticalBaselineMessageName,
+		baseline.data(), baseline.size()),
+		"tactical-window server sends baseline");
+	CHECK(PumpUntil(server, transport, [&] {
+		return client.state() == FullEngineCoopClientState::Active &&
+			client.acceptedState().revision == 2;
+	}), "tactical-window baseline commits before the burst");
+
+	std::array<std::uint32_t, MaximumCoopTacticalDeltaHistory> checksums{};
+	bool queued = true;
+	for (std::size_t index = 0;
+		index < MaximumCoopTacticalDeltaHistory; ++index)
+	{
+		const std::uint64_t baseRevision = 2 + index;
+		const std::vector<std::uint8_t> delta = DeltaBytes(
+			699, 10, baseRevision, baseRevision + 1, 3, index + 1);
+		CoopTacticalDelta decoded;
+		CHECK(DecodeCoopTacticalDelta(delta, decoded) ==
+			CoopTacticalCodecResult::Success,
+			"queued delta exposes its exact payload checksum");
+		checksums[index] = decoded.payloadChecksum;
+		queued = queued && Send(server, CoopTacticalDeltaMessageName,
+			delta.data(), delta.size());
+	}
+	CHECK(queued,
+		"server queues one maximum legal in-flight delta window");
+
+	std::size_t pendingWrites = 1;
+	const Uint64 deadline = SDL_GetTicks() + 2000;
+	while (pendingWrites != 0 && SDL_GetTicks() < deadline)
+	{
+		PumpServer(server);
+		if (!server.peer->PendingWriteBytes(server.client, pendingWrites))
+			break;
+		if (pendingWrites != 0) SDL_Delay(1);
+	}
+	CHECK(pendingWrites == 0,
+		"complete tactical window reaches the loopback socket before one poll");
+	SDL_Delay(20);
+
+	// One parser pump may fill, but cannot exceed, the fixed callback FIFO.
+	// Core/replica delivery begins only after that parser has unwound.
+	transport.poll();
+	const unsigned firstBatchDeltas = replica.deltaCalls;
+	CHECK(transport.running() &&
+		transport.lastFailure() == FullEngineCoopClientTransportFailure::None,
+		"one capped parser pump does not fail the live transport");
+	CHECK(transport.pendingInboundCount() == 0,
+		"the callback FIFO drains after its parser pump unwinds");
+	CHECK(client.state() == FullEngineCoopClientState::Active,
+		"bounded callback delivery preserves the active client state");
+	CHECK(firstBatchDeltas != 0 && firstBatchDeltas <=
+			MaximumFullEngineCoopClientInboundMessages &&
+		client.acceptedState().revision == 2 + firstBatchDeltas,
+		"one no-event poll commits no more than one capped delta batch");
+	CHECK(replica.baselineCalls == 1,
+		"replica mutation begins only after the capped parser pump unwinds");
+
+	CHECK(PumpUntil(server, transport, [&] {
+		return client.acceptedState().revision ==
+			2 + MaximumCoopTacticalDeltaHistory;
+	}) && transport.running() &&
+		transport.lastFailure() == FullEngineCoopClientTransportFailure::None &&
+		replica.deltaCalls == MaximumCoopTacticalDeltaHistory,
+		"retained excess deltas drain in order across later bounded parser pumps");
+
+	CHECK(PumpUntil(server, transport, [&] {
+		return server.count(CoopTacticalDeltaAckMessageName) ==
+			MaximumCoopTacticalDeltaHistory;
+	}), "every retained delta produces its exact ordered acknowledgement");
+	const auto& acknowledgements = server.captures[4].messages;
+	for (std::size_t index = 0; index < acknowledgements.size(); ++index)
+	{
+		CoopTacticalDeltaAck ack;
+		const auto& bytes = acknowledgements[index];
+		CHECK(index < checksums.size() &&
+			DecodeCoopTacticalDeltaAck(bytes.data(), bytes.size(), ack) ==
+				CoopTacticalCodecResult::Success &&
+			ack.state.sessionEpoch == 699 && ack.state.worldGeneration == 10 &&
+			ack.state.revision == 3 + index && ack.state.turnSerial == 3 &&
+			ack.peerIdentity == Identity(0x18) && ack.deltaId == index + 1 &&
+			ack.payloadChecksum == checksums[index],
+			"acknowledgements retain each delta identity, state and payload checksum");
+	}
+	transport.stop();
+	StopServer(server);
 }
 
 void TestLoopbackHandshakeFifoAndExactNamespaces()
@@ -920,6 +1062,8 @@ void TestLocalAndRemoteDisconnectLifecycle()
 int main()
 {
 	CHECK(SDL_Init(0), "SDL initializes for production loopback transport");
+	TestCallbackBatchConfigurationInvariant();
+	TestMaximumInFlightDeltaWindowSurvivesBoundedCallbackBatches();
 	TestLoopbackHandshakeFifoAndExactNamespaces();
 	TestCampaignBridgeFifoAndExactNamespaces();
 	TestVoluntaryRetirementExactTransportLifecycle();
