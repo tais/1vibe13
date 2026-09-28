@@ -359,6 +359,48 @@ void FullEngineCoopClientTransport::HandleSelfRetirementResult(
 	QueueFromCallback(message, context, InboundKind::SelfRetirementResult);
 }
 
+void FullEngineCoopClientTransport::HandleCampaignGroups(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignGroups);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignStatus(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignStatus);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignTimeResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignTimeResult);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignActionResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignActionResult);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignEconomy(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignEconomy);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignAimQuotes(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignAimQuotes);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignHireResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignHireResult);
+}
+
 void FullEngineCoopClientTransport::HandleCampaignMetadata(
 	ja2::mp::net::SdlNetMessage* message, void* context)
 {
@@ -559,6 +601,20 @@ FullEngineCoopClientResult FullEngineCoopClientTransport::deliver(
 		case InboundKind::TacticalReceipt:
 			return client_->receiveIntentReceipt(
 				message.bytes.data(), message.size);
+		case InboundKind::CampaignStatus:
+			return client_->receiveCampaignStatus(message.bytes.data(), message.size);
+		case InboundKind::CampaignGroups:
+			return client_->receiveCampaignGroups(message.bytes.data(), message.size);
+		case InboundKind::CampaignTimeResult:
+			return client_->receiveCampaignTimeResult(message.bytes.data(), message.size);
+		case InboundKind::CampaignActionResult:
+			return client_->receiveCampaignActionResult(message.bytes.data(), message.size);
+		case InboundKind::CampaignEconomy:
+			return client_->receiveCampaignEconomy(message.bytes.data(), message.size);
+		case InboundKind::CampaignAimQuotes:
+			return client_->receiveCampaignAimQuotes(message.bytes.data(), message.size);
+		case InboundKind::CampaignHireResult:
+			return client_->receiveCampaignHireResult(message.bytes.data(), message.size);
 		case InboundKind::SelfRetirementResult:
 			return client_->receiveSelfRetirementResult(
 				message.bytes.data(), message.size);
@@ -670,6 +726,20 @@ bool FullEngineCoopClientTransport::registerMessages() noexcept
 				&FullEngineCoopClientTransport::HandleTacticalDelta, this) &&
 			transport_->RegisterMessage(CoopTacticalIntentReceiptMessageName,
 				&FullEngineCoopClientTransport::HandleTacticalReceipt, this) &&
+			transport_->RegisterMessage(CoopCampaignStatusMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignStatus, this) &&
+			transport_->RegisterMessage(CoopCampaignGroupsMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignGroups, this) &&
+			transport_->RegisterMessage(CoopCampaignTimeResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignTimeResult, this) &&
+			transport_->RegisterMessage(CoopCampaignActionResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignActionResult, this) &&
+			transport_->RegisterMessage(CoopCampaignEconomyMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignEconomy, this) &&
+			transport_->RegisterMessage(CoopCampaignAimQuotesMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignAimQuotes, this) &&
+			transport_->RegisterMessage(CoopCampaignHireResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignHireResult, this) &&
 			transport_->RegisterMessage(
 				CoopAdmissionSelfRetirementResultMessageName,
 				&FullEngineCoopClientTransport::HandleSelfRetirementResult,
@@ -706,6 +776,20 @@ bool FullEngineCoopClientTransport::validInbound(
 			return size <= MaximumCoopTacticalWireSize;
 		case InboundKind::SelfRetirementResult:
 			return size == AdmissionSelfRetirementResultWireSize;
+		case InboundKind::CampaignStatus:
+			return size == CoopCampaignStatusWireSize;
+		case InboundKind::CampaignGroups:
+			return size >= CoopCampaignGroupsHeaderSize && size <= MaximumCoopCampaignGroupsWireSize;
+		case InboundKind::CampaignTimeResult:
+			return size == CoopCampaignTimeResultWireSize;
+		case InboundKind::CampaignActionResult:
+			return size == CoopCampaignActionResultWireSize;
+		case InboundKind::CampaignEconomy:
+			return size >= CoopCampaignEconomyHeaderSize && size <= MaximumCoopCampaignEconomyWireSize;
+		case InboundKind::CampaignAimQuotes:
+			return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
+		case InboundKind::CampaignHireResult:
+			return size == CoopCampaignHireResultWireSize;
 		case InboundKind::CampaignMetadata:
 			return size == CoopCampaignSyncMetadataWireSize;
 		case InboundKind::CampaignChunk:
@@ -766,6 +850,12 @@ bool FullEngineCoopClientTransport::validOutbound(
 		return size == CoopCampaignSyncResultWireSize;
 	if (SameName(messageName, CoopCampaignSyncResyncMessageName))
 		return size == CoopCampaignSyncResyncWireSize;
+	if (SameName(messageName, CoopCampaignTimeRequestMessageName))
+		return size == CoopCampaignTimeRequestWireSize;
+	if (SameName(messageName, CoopCampaignActionRequestMessageName))
+		return size == CoopCampaignActionRequestWireSize;
+	if (SameName(messageName, CoopCampaignHireRequestMessageName))
+		return size == CoopCampaignHireRequestWireSize;
 	return false;
 }
 }
