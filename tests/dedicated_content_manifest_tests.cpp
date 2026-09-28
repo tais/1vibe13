@@ -453,8 +453,12 @@ void TestRealVfsExclusiveRuntimeNamespacesAreNotContent()
 	std::filesystem::create_directory(base);
 	std::filesystem::create_directory(writable);
 	WriteNative(base / "rules" / "content.xml", "authoritative-content");
+	WriteNative(base / "STRATEGIC DECISIONS.TXT", "installed-log");
+	WriteNative(base / "DEBUGMESSAGE.TXT", "installed-debug-log");
 	WriteNative(base / "ShadeTables" / "RGBDist.dat", "installed-cache");
 	WriteNative(base / "Temp" / "NpcQuote.tmp", "installed-template");
+	WriteNative(writable / "Strategic Decisions.txt", "campaign-log");
+	WriteNative(writable / "DebugMessage.txt", "campaign-debug-log");
 	WriteNative(writable / "ShadeTables" / "RGBDist.dat", "derived-cache");
 	WriteNative(writable / "Temp" / "NpcQuote.tmp", "campaign-sidecar");
 
@@ -469,14 +473,50 @@ void TestRealVfsExclusiveRuntimeNamespacesAreNotContent()
 	DedicatedContentManifestSha256 actual{};
 	Check(ComputeDedicatedContentManifestFromVfs(fileSystem, actual) ==
 			DedicatedContentManifestError::None,
-		"exclusive runtime namespaces cannot manufacture content shadows");
+		"exclusive runtime paths cannot manufacture content shadows");
 	MemoryReader rules(Bytes("authoritative-content"));
 	DedicatedContentManifestSha256 expected{};
 	Check(ComputeDedicatedContentManifest({
 			Occurrence(0, "rules/content.xml", rules)}, expected) ==
 			DedicatedContentManifestError::None && actual == expected,
-		"exclusive visual caches and checkpoint-covered Temp sidecars are "
-		"absent from installed-content identity");
+		"exact root-level diagnostics, visual caches, and checkpoint-covered "
+		"Temp sidecars are absent from installed-content identity");
+}
+
+void TestRealVfsExactRuntimeFileExclusionIsNarrow()
+{
+	TemporaryRoot temporary;
+	const std::filesystem::path base = temporary.path() / "base";
+	const std::filesystem::path writable = temporary.path() / "campaign";
+	std::filesystem::create_directory(base);
+	std::filesystem::create_directory(writable);
+	WriteNative(base / "Strategic Decisions.txt" / "child.txt",
+		"ordinary-child-content");
+	WriteNative(base / "DebugMessage.txt" / "child.txt",
+		"ordinary-debug-child-content");
+	WriteNative(base / "Temp", "ordinary-root-file");
+
+	vfs::CVirtualFileSystem& fileSystem = *getVFS();
+	MountDirectory(fileSystem, "BASE", base, false);
+	MountDirectory(fileSystem, "CAMPAIGN", writable, true);
+	fileSystem.getVirtualLocation(vfs::Path("Temp"), true)->
+		setIsExclusive(true);
+
+	DedicatedContentManifestSha256 actual{};
+	Check(ComputeDedicatedContentManifestFromVfs(fileSystem, actual) ==
+			DedicatedContentManifestError::None,
+		"exact runtime-file exclusion preserves similarly named content");
+	MemoryReader child(Bytes("ordinary-child-content"));
+	MemoryReader debugChild(Bytes("ordinary-debug-child-content"));
+	MemoryReader rootFile(Bytes("ordinary-root-file"));
+	DedicatedContentManifestSha256 expected{};
+	Check(ComputeDedicatedContentManifest({
+			Occurrence(0, "strategic decisions.txt/child.txt", child),
+			Occurrence(0, "debugmessage.txt/child.txt", debugChild),
+			Occurrence(0, "temp", rootFile)}, expected) ==
+			DedicatedContentManifestError::None && actual == expected,
+		"a named runtime file does not exclude descendants and an exclusive "
+		"directory marker does not exclude a same-named root file");
 }
 }
 
@@ -487,6 +527,7 @@ int main()
 	TestRealVfsReadOnlyOverlay();
 	TestRealVfsWritableShadowFailsClosed();
 	TestRealVfsExclusiveRuntimeNamespacesAreNotContent();
+	TestRealVfsExactRuntimeFileExclusionIsNarrow();
 	std::puts("dedicated content manifest tests passed");
 	return 0;
 }

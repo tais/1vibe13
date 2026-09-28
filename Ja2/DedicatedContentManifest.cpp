@@ -24,6 +24,8 @@ constexpr std::size_t Sha256BlockBytes = 64;
 constexpr std::size_t ReadBufferBytes = 64u * 1024u;
 constexpr char ManifestDomain[] =
 	"JA2.DEDICATED.INSTALLED-CONTENT-MANIFEST";
+constexpr char StrategicDecisionLogPath[] = "strategic decisions.txt";
+constexpr char DebugMessageLogPath[] = "debugmessage.txt";
 static_assert(DedicatedContentManifestMaximumPathBytes ==
 	MaximumLogicalAssetPathBytes,
 	"the manifest path bound must remain the Engine canonical path bound");
@@ -241,6 +243,16 @@ struct SelectedOccurrence
 	std::uint32_t layer = 0;
 	DedicatedContentManifestReader* reader = nullptr;
 };
+
+bool IsExactRuntimeOutputPath(const std::string& normalizedPath) noexcept
+{
+	// Legacy diagnostics create these root-level outputs, while classic Data.slf
+	// installations can contain historical same-named copies. They are runtime
+	// state, not installed gameplay content; keep every exception exact so a
+	// directory or child path with the same spelling remains ordinary content.
+	return normalizedPath == StrategicDecisionLogPath ||
+		normalizedPath == DebugMessageLogPath;
+}
 
 bool UnderExclusiveVirtualLocation(vfs::CVirtualFileSystem& fileSystem,
 	const vfs::Path& filePath) noexcept
@@ -559,7 +571,8 @@ DedicatedContentManifestError ComputeDedicatedContentManifestFromVfs(
 						logicalPath.size())
 					return DedicatedContentManifestError::TooManyPathBytes;
 				encounteredPathBytes += logicalPath.size();
-				if (UnderExclusiveVirtualLocation(fileSystem, base->getPath()))
+				if (IsExactRuntimeOutputPath(normalized) ||
+					UnderExclusiveVirtualLocation(fileSystem, base->getPath()))
 					continue;
 				if (current->cWritable)
 				{

@@ -3880,6 +3880,7 @@ require_ordered_fragments(dedicated_live_content_vfs_slice
   "DedicatedContentManifestMaximumTotalPathBytes -"
   "logicalPath.size()"
   "encounteredPathBytes += logicalPath.size()"
+  "IsExactRuntimeOutputPath(normalized)"
   "UnderExclusiveVirtualLocation(fileSystem, base->getPath())"
   "continue"
   "current->cWritable"
@@ -3911,12 +3912,22 @@ require_ordered_fragments(dedicated_live_content_exclusive_slice
   "directory.splitLast(parent, leaf)"
   "directory = parent")
 
+extract_brace_bounded_slice(dedicated_live_content_code
+  "bool IsExactRuntimeOutputPath(const std::string& normalizedPath) noexcept"
+  dedicated_live_content_exact_runtime_file_slice
+  "Cannot bound dedicated exact runtime-file exclusion")
+require_ordered_fragments(dedicated_live_content_exact_runtime_file_slice
+  "Dedicated exact runtime-file allowlist changed"
+  "normalizedPath == StrategicDecisionLogPath"
+  "normalizedPath == DebugMessageLogPath")
+
 foreach(dedicated_live_content_test_contract IN ITEMS
     "TestCanonicalAlgorithmAndGoldenDigest()"
     "TestFailClosedInputsAndStreams()"
     "TestRealVfsReadOnlyOverlay()"
     "TestRealVfsWritableShadowFailsClosed()"
-    "TestRealVfsExclusiveRuntimeNamespacesAreNotContent()")
+    "TestRealVfsExclusiveRuntimeNamespacesAreNotContent()"
+    "TestRealVfsExactRuntimeFileExclusionIsNarrow()")
   string(FIND "${dedicated_live_content_test_code}"
     "${dedicated_live_content_test_contract}"
     dedicated_live_content_test_contract_position)
@@ -3932,9 +3943,14 @@ foreach(dedicated_live_content_test_prose IN ITEMS
     "Gun11.sti"
     "writable profile bytes are completely excluded"
     "production VFS enumeration rejects a writable content shadow"
-    "exclusive runtime namespaces cannot manufacture content shadows"
-    "exclusive visual caches and checkpoint-covered Temp sidecars are "
-    "absent from installed-content identity")
+    "exclusive runtime paths cannot manufacture content shadows"
+    "exact root-level diagnostics, visual caches, and checkpoint-covered "
+    "Temp sidecars are absent from installed-content identity"
+    "DEBUGMESSAGE.TXT"
+    "DebugMessage.txt"
+    "debugmessage.txt/child.txt"
+    "a named runtime file does not exclude descendants and an exclusive "
+    "directory marker does not exclude a same-named root file")
   string(FIND "${dedicated_live_content_test_source}"
     "${dedicated_live_content_test_prose}"
     dedicated_live_content_test_prose_position)
