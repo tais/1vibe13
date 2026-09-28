@@ -91,6 +91,11 @@ bool PrepareReloadWeaponCommand(
 	TacticalEntityId actor,
 	ReloadWeaponCommand& output) noexcept;
 
+// Read-only supported-object fingerprint, independent of turn/idle/AP gates.
+// Zero means unsupported; this is a stale-state proof, not an item identity.
+std::uint64_t CaptureInventorySwapObjectState(
+	TacticalEntityId actor, std::uint8_t slot) noexcept;
+
 // Main-thread server seam for an exact currently projected door. The public
 // identity is combined with private live fingerprints/costs; both preparation
 // and retained execution repeat the complete native eligibility predicate.
