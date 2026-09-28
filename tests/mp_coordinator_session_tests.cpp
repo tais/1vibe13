@@ -938,8 +938,9 @@ int main(int argc, char** argv)
 	      "slot-4 hire reserves its canonical actor window for tactical authorization");
 	const std::array<unsigned char, 7> dSecondHire = HireWire(33);
 	SendRaw(d, "sendHIRE", dSecondHire.data(), dSecondHire.size());
-	CHECK(PumpUntil([&] { return a.hires.size() == 10; }) &&
-	      a.hires.back()[6] == 9,
+	// Drain Dave's broadcasts on both observers before sampling Bob's baseline.
+	CHECK(PumpUntil([&] { return a.hires.size() == 10 && b.hires.size() == 2; }) &&
+	      a.hires.back()[6] == 9 && b.hires.back()[6] == 9,
 	      "slot-4 reserves a second actor for exact paused-actor arbitration");
 	const std::size_t bHiresBeforeAlice = b.hires.size();
 	const std::array<unsigned char, 7> aHire = HireWire(31);

@@ -681,6 +681,16 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_opplist_decay_heard COMMAND native_opplist_decay_tests)
   add_test(NAME native_opplist_decay_seen COMMAND native_opplist_decay_tests --seen)
   add_dependencies(ja2_headless_tests native_opplist_decay_tests)
+
+  # Dedicated Debug servers must recover without a local AI inspection UI.
+  add_executable(native_ai_deadlock_tests tests/native_ai_deadlock_tests.cpp)
+  target_compile_definitions(native_ai_deadlock_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_ai_deadlock_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_ai_deadlock_dedicated COMMAND native_ai_deadlock_tests)
+  add_test(NAME native_ai_deadlock_interactive COMMAND native_ai_deadlock_tests --interactive)
+  set_tests_properties(native_ai_deadlock_dedicated native_ai_deadlock_interactive PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_ai_deadlock_tests)
+
   add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
   target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
   target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
