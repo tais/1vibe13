@@ -30,6 +30,7 @@ extern		BOOLEAN fMapScreenBottomDirty;
 extern		BOOLEAN fMapPanelDirty;
 extern		BOOLEAN	gfGamePaused;
 extern		BOOLEAN fShowMapInventoryPool;
+extern		BOOLEAN gfDedicatedServer;
 
 extern		BOOLEAN BltVSurfaceUsingDD( HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags, INT32 iDestX, INT32 iDestY, RECT *SrcRect );
 
@@ -398,6 +399,15 @@ void InitHelpScreenSystem()
 
 BOOLEAN ShouldTheHelpScreenComeUp( UINT8 ubScreenID, BOOLEAN fForceHelpScreenToComeUp )
 {
+	// A dedicated process has no local player or input owner.  In particular,
+	// the automatic first-visit tactical help otherwise becomes modal before
+	// StartHelicopterRun/HandleHeliDrop and strands every initial merc outside
+	// the sector forever.  Keep this an observational host policy: do not alter
+	// the save-owned help bits or the operator's ordinary GUI preference.
+	if( gfDedicatedServer )
+	{
+		return( FALSE );
+	}
 
 	//if the screen is being forsced to come up ( user pressed 'h' )
 	if( fForceHelpScreenToComeUp )
