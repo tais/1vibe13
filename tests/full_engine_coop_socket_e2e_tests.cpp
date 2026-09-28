@@ -857,19 +857,26 @@ bool PumpBootstrap(FullEngineCoopAdmissionListener& listener,
 	}
 }
 
-FullEngineCoopCampaignSyncInboundKind CampaignInboundKind(
-	FullEngineCoopCampaignInboundKind kind) noexcept
+bool CampaignInboundKind(FullEngineCoopCampaignInboundKind kind,
+	FullEngineCoopCampaignSyncInboundKind& output) noexcept
 {
 	switch (kind)
 	{
 		case FullEngineCoopCampaignInboundKind::Ack:
-			return FullEngineCoopCampaignSyncInboundKind::Ack;
+			output = FullEngineCoopCampaignSyncInboundKind::Ack;
+			return true;
 		case FullEngineCoopCampaignInboundKind::Result:
-			return FullEngineCoopCampaignSyncInboundKind::Result;
+			output = FullEngineCoopCampaignSyncInboundKind::Result;
+			return true;
 		case FullEngineCoopCampaignInboundKind::Resync:
-			return FullEngineCoopCampaignSyncInboundKind::Resync;
+			output = FullEngineCoopCampaignSyncInboundKind::Resync;
+			return true;
+		case FullEngineCoopCampaignInboundKind::TimeRequest:
+		case FullEngineCoopCampaignInboundKind::ActionRequest:
+		case FullEngineCoopCampaignInboundKind::HireRequest:
+			return false;
 	}
-	return FullEngineCoopCampaignSyncInboundKind::Resync;
+	return false;
 }
 
 struct DriveStatistics
@@ -890,9 +897,15 @@ bool DriveCampaignInbound(FullEngineCoopAdmissionListener& listener,
 	FullEngineCoopCampaignInboundMessage message;
 	while (listener.popCampaignInbound(message))
 	{
+		FullEngineCoopCampaignSyncInboundKind kind;
+		if (!CampaignInboundKind(message.kind, kind))
+		{
+			statistics.failed = true;
+			return false;
+		}
 		statistics.lastInboundResult = server.handleInbound(
 			message.peerIdentity, message.transport,
-			CampaignInboundKind(message.kind), message.bytes.data(), message.size);
+			kind, message.bytes.data(), message.size);
 		if (statistics.lastInboundResult ==
 			FullEngineCoopCampaignSyncServerResult::MalformedFrame)
 			++statistics.malformedInboundMessages;
