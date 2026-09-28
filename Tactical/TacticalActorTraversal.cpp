@@ -4,6 +4,8 @@
 #include "TacticalActorTraversal.h"
 
 #include "TacticalActorOrientation.h"
+#include "TacticalActorRouteExecution.h"
+#include "TacticalActorStateFlags.h"
 #include "Animation Control.h"
 #include "Dialogue Control.h"
 #include "Drugs And Alcohol.h"
@@ -12,6 +14,7 @@
 #include "Handle UI.h"
 #include "Isometric Utils.h"
 #include "Morale.h"
+#include "Overhead.h"
 #include "Points.h"
 #include "TacticalActor.h"
 #include "TacticalActorAnimationState.h"
@@ -99,6 +102,24 @@ bool traversalDirection(
 			: actor.position().direction();
 	return direction >= 0 &&
 		direction < NUM_WORLD_DIRECTIONS;
+}
+
+void queueFenceJump(
+	TacticalActor& actor,
+	std::int8_t direction,
+	std::int32_t beyondFence)
+{
+	actor.position().temporaryGrid() = beyondFence;
+	actor.animationActivity().turningCostWaived() = TRUE;
+	(void)TacticalActorOrientation::setDesiredDirection(
+		actor,
+		direction,
+		false,
+		actor.animationPlayback().state());
+	actor.animationActivity().turningUntilDone() = TRUE;
+	actor.animationActivity().turningFromProneMode() =
+		TURNING_FROM_PRONE_OFF;
+	actor.animationIntent().pendingAnimation() = HOPFENCE;
 }
 
 void cancelMedicalServices(TacticalActor& actor)
@@ -377,17 +398,55 @@ bool TacticalActorTraversal::beginFenceJump(
 		return false;
 	}
 
-	actor.position().temporaryGrid() = beyondFence;
-	actor.animationActivity().turningCostWaived() = TRUE;
-	(void)TacticalActorOrientation::setDesiredDirection(
-		actor,
-		direction,
-		false,
-		actor.animationPlayback().state());
-	actor.animationActivity().turningUntilDone() = TRUE;
-	actor.animationActivity().turningFromProneMode() =
-		TURNING_FROM_PRONE_OFF;
-	actor.animationIntent().pendingAnimation() = HOPFENCE;
+	queueFenceJump(actor, direction, beyondFence);
+	return true;
+}
+
+bool TacticalActorTraversal::beginPathFenceJump(
+	TacticalActor& actor,
+	bool replicate)
+{
+	if (!hasLiveTraversalContext(actor) ||
+		actor.pathing().pathSize() > MAX_PATH_LIST_SIZE ||
+		actor.pathing().pathIndex() + 1 >= actor.pathing().pathSize() ||
+		actor.animationPlayback().state() == HOPFENCE ||
+		actor.animationIntent().pendingAnimation() == HOPFENCE)
+		return false;
+
+	const auto direction = actor.pathing().path()[actor.pathing().pathIndex()];
+	const auto nextDirection =
+		actor.pathing().path()[actor.pathing().pathIndex() + 1];
+	// A route-owned jump crosses the selected cardinal fence in a straight
+	// line. The player jump search may choose a different nearby fence, which
+	// cannot satisfy this route's recorded landing and continuation.
+	if (direction >= NUM_WORLD_DIRECTIONS || direction % 2 != 0 ||
+		nextDirection != direction ||
+		IsJumpableFencePresentAtGridNo(actor.position().gridNo()))
+		return false;
+	std::int32_t fenceGrid = NOWHERE;
+	if (!resolveTraversalGrid(actor, direction, fenceGrid) ||
+		!IsJumpableFencePresentAtGridNo(fenceGrid))
+		return false;
+	const std::int32_t beyondFence =
+		NewGridNo(fenceGrid, DirectionInc(direction));
+	if (TileIsOutOfBounds(beyondFence) || beyondFence == fenceGrid ||
+		!NewOKDestination(&actor, beyondFence, FALSE, FIRST_LEVEL))
+		return false;
+
+	// Native tile handling owns occupied/reserved landing waits. Resolve the
+	// physical fence before that handler can reserve a tile or change pose,
+	// then queue this already prepared jump only if its landing is clear.
+	if (!HandleNextTile(
+			&actor, direction, beyondFence,
+			actor.pathing().finalDestinationGrid(),
+			replicate ? TRUE : FALSE))
+		return true;
+
+	++actor.pathing().pathIndex();
+	actor.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
+	(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
+	queueFenceJump(actor, direction, beyondFence);
+	actor.animationIntent().continueAfterStance(2);
 	return true;
 }
 
