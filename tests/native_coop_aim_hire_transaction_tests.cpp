@@ -24,6 +24,7 @@
 #include "Assignments.h"
 #include "LaptopSave.h"
 #include "CampaignStats.h"
+#include "Items.h"
 #include "finances.h"
 #include "history.h"
 #include "Dialogue Control.h"
@@ -244,6 +245,7 @@ struct Fixture
 		profile.sSalary = 100; profile.uiWeeklySalary = 600; profile.uiBiWeeklySalary = 1100;
 		profile.bMedicalDeposit = deposit; profile.sMedicalDepositAmount = deposit ? 300 : 321;
 		profile.usOptionalGearCost = 123; profile.ubMiscFlags &= ~PROFILE_MISC_FLAG_ALREADY_USED_ITEMS;
+		std::fill(profile.inv.begin(), profile.inv.end(), NOTHING);
 		profile.uiTotalCostToDate = 0; profile.ubDaysOfMoraleHangover = 0;
 		std::fill(std::begin(profile.bHated), std::end(profile.bHated), -1);
 		std::fill(std::begin(profile.bBuddy), std::end(profile.bBuddy), -1);
@@ -324,6 +326,47 @@ void SuccessfulHire(Fixture& fixture, bool deposit, std::uint8_t days)
 	CHECK(!CaptureDedicatedCoopCampaignEconomy(after) && after.balance == 10000 - total && after.rosterCount == 1 &&
 		after.roster[0].actor == result.actor && after.roster[0].pendingHire,
 		"committed economic observation includes the paid pending hire");
+}
+void SuccessfulEquipmentHire(Fixture& fixture)
+{
+	fixture.reset(true);
+	auto& profile = gMercProfiles[0];
+	profile.inv[HANDPOS] = 1; profile.bInvStatus[HANDPOS] = 80; profile.bInvNumber[HANDPOS] = 3;
+	gMAXITEMS_READ = 2; Item[1].usItemClass = IC_MEDKIT; Item[1].ubPerPocket = 1;
+	auto observed = Capture(7);
+	const auto& offer = observed.quotes.quotes[0];
+	CHECK(offer.gearAvailable && offer.gearCost == 123 && offer.total[3] == 1023,
+		"current native quote includes original equipment in the complete contract total");
+	observed.request.buyGear = true;
+	const auto date = GetWorldTotalMin();
+	const auto result = HireDedicatedCoopAimMerc(observed.request, observed.economy, observed.quotes);
+	auto* actor = OnlyActor();
+	CHECK(result.code == Code::Applied && result.chargedTotal == 1023 && actor && result.mutationMayHaveStarted,
+		"paid equipment hire completes through the real native constructor and ledgers");
+	unsigned objects = 0, points = 0;
+	if (actor)
+	{
+		for (std::size_t slot = 0; slot < actor->inventory().size(); ++slot)
+		{
+			const auto& object = actor->inventory()[slot];
+			if (!object.exists()) continue;
+			CHECK(object.usItem == 1, "native hire contains only the requested medical kit stack");
+			for (const auto& unit : object.objectStack) { ++objects; points += unit.data.objectStatus; }
+		}
+		Arrival(observed,*actor);
+	}
+	CHECK(objects == 3 && points == 240, "every purchased medical kit and its supply points reach the actor");
+	auto expected = Header(8977);
+	FinanceRow(expected,HIRED_MERC,date,-723,9277); FinanceRow(expected,MEDICAL_DEPOSIT,date,-300,8977);
+	CHECK(fixture.read("finances.dat") == expected && fixture.read("History.dat") == HistoryRow(date) &&
+		LaptopSaveInfo.iCurrentBalance == 8977 && profile.uiTotalCostToDate == 723 &&
+		profile.usOptionalGearCost == 0 && (profile.ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS),
+		"equipment is charged once with salary, deposit stays separate and gear is marked purchased after success");
+	const auto before = fixture.read("finances.dat");
+	const auto duplicate = HireDedicatedCoopAimMerc(observed.request,observed.economy,observed.quotes);
+	CHECK(duplicate.code == Code::EconomyChanged && !duplicate.mutationMayHaveStarted &&
+		fixture.read("finances.dat") == before && LaptopSaveInfo.iCurrentBalance == 8977,
+		"repeating the old paid request cannot charge or construct again");
 }
 void RejectUnchanged(Fixture& fixture, const Observed& observed, Code expected)
 {
@@ -430,7 +473,8 @@ int main()
 	{
 		Fixture fixture;
 		for (bool deposit : {false, true}) for (std::uint8_t days : {1, 7, 14}) SuccessfulHire(fixture, deposit, days);
-		PreflightFailures(fixture); PartialPaymentFailures(fixture); DuplicateReceipt(fixture);
+		SuccessfulEquipmentHire(fixture);
+	PreflightFailures(fixture); PartialPaymentFailures(fixture); DuplicateReceipt(fixture);
 		fixture.reset(true); const auto observed = Capture(7);
 		fixture.makeReadonly(); RejectUnchanged(fixture, observed, Code::QuotesUnavailable);
 		CHECK(!std::filesystem::exists(fixture.root / "TEMP/finances.dat") && !std::filesystem::exists(fixture.root / "TEMP/History.dat"),
