@@ -263,6 +263,51 @@ struct CycleScopeModeCommand
 	SimulationCommandSource source;
 };
 
+struct SwapInventorySlotsCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint8_t destinationSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::uint64_t destinationStateFingerprint = 0;
+	std::uint64_t handStateFingerprint = 0;
+	std::uint64_t offhandStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<SwapInventorySlotsCommand>::value,
+	"inventory swap commands must remain pointer-free values");
+
+constexpr bool IsSupportedInventorySwapSlot(std::uint8_t slot) noexcept
+{
+	return slot <= 6 || (slot >= 14 && slot < 55);
+}
+
+constexpr bool IsStructurallyValidSwapInventorySlotsCommand(
+	const SwapInventorySlotsCommand& command) noexcept
+{
+	return command.soldier.valid() && IsSupportedInventorySwapSlot(command.sourceSlot) &&
+		IsSupportedInventorySwapSlot(command.destinationSlot) &&
+		command.sourceSlot != command.destinationSlot && command.expectedWorldGeneration != 0 &&
+		command.expectedTurnSerial != 0 && command.expectedActorGrid >= 0 &&
+		(command.expectedActorLevel == 0 || command.expectedActorLevel == 1) &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.sourceStateFingerprint != 0 &&
+		command.destinationStateFingerprint != 0 && command.handStateFingerprint != 0 &&
+		command.offhandStateFingerprint != 0 && command.expectedActionPointCost >= 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 struct ReloadWeaponCommand
 {
 	TacticalEntityId soldier;
@@ -1368,7 +1413,8 @@ using SimulationCommand = std::variant<
 	SynchronizeActorVitalsCommand,
 	AimedFirearmAttackCommand,
 	AuthoritativeDoorOpenCloseCommand,
-	PassInterruptCommand>;
+	PassInterruptCommand,
+	SwapInventorySlotsCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1525,6 +1571,10 @@ inline bool IsStructurallyValidSimulationCommand(
 			std::is_same<Command, PassInterruptCommand>::value)
 		{
 			return IsStructurallyValidPassInterruptCommand(value);
+		}
+		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+		{
+			return IsStructurallyValidSwapInventorySlotsCommand(value);
 		}
 		else
 		{

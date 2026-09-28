@@ -64,6 +64,7 @@ enum class SimulationCommandDomainError
 	InvalidBulkReloadSquad,
 	InvalidBulkReloadRoster,
 	InvalidInterruptPrecondition,
+	InvalidInventorySwapPrecondition,
 	InvalidWeaponConfigurationResult,
 	InvalidWeaponConfigurationCause,
 	InvalidWeaponConfigurationPostApplyPolicy,
@@ -90,6 +91,13 @@ bool PrepareAimedFirearmAttackCommand(
 bool PrepareReloadWeaponCommand(
 	TacticalEntityId actor,
 	ReloadWeaponCommand& output) noexcept;
+
+// Read-only preflight captures exact actor/object proofs for a retained native swap.
+bool PrepareSwapInventorySlotsCommand(
+	TacticalEntityId actor,
+	std::uint8_t sourceSlot,
+	std::uint8_t destinationSlot,
+	SwapInventorySlotsCommand& output) noexcept;
 
 // Read-only supported-object fingerprint, independent of turn/idle/AP gates.
 // Zero means unsupported; this is a stale-state proof, not an item identity.

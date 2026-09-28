@@ -1,3 +1,6 @@
+#include "Animation Data.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationState.h"
 #include "TacticalActorEvents.h"
@@ -38,6 +41,7 @@
 #include "Interactive Tiles.h"
 #include "Isometric Utils.h"
 #include "Items.h"
+#include "Interface Panels.h"
 #include "Map Information.h"
 #include "Keys.h"
 #include "Overhead.h"
@@ -397,6 +401,17 @@ namespace
 			TacticalWeaponConfigurationPostApplyPolicy::
 				DirtyMercPanelCursorAndSight)
 			ManLooksForOtherTeams(&soldier);
+	}
+
+	// Composite-safe: the parent command already owns the execution boundary.
+	void ApplyResolvedEquipmentChange(TacticalActor& soldier,
+		const TacticalWeaponConfigurationResult& result,
+		TacticalWeaponConfigurationPostApplyPolicy policy, UINT32 slot,
+		UINT16 previousItem, UINT16 changedItem, bool refreshHand)
+	{
+		ApplyWeaponConfigurationResult(soldier, result);
+		ApplyWeaponConfigurationPresentation(soldier, policy);
+		CompleteEquipmentTacticalEffects(soldier, slot, previousItem, changedItem, refreshHand);
 	}
 
 	bool IsAttachedLauncherWeaponMode(std::int8_t weaponMode) noexcept
@@ -763,6 +778,230 @@ namespace
 			MixTraversalState(fingerprint, static_cast<std::uint8_t>(stack.attachments.size()));
 		}
 		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	bool InventorySwapPoseReady(const TacticalActor& actor) noexcept
+	{
+		const UINT16 animation = actor.animationPlayback().state();
+		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
+		// Only ordinary idle poses may enter an equipment continuation.
+		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+			return false;
+		const auto& intent = actor.animationIntent();
+		const auto& activity = actor.animationActivity();
+		const auto& movement = actor.movement();
+		const auto& path = actor.pathing();
+		return !intent.hasPendingAnimation() && !intent.hasSecondaryPendingAnimation() &&
+			!intent.hasPendingStance() && !intent.hasPendingDirection() &&
+			!intent.continuesAfterStance() && !intent.stopPendingNextTile() &&
+			!intent.turningFromUi() &&
+			(!intent.hasDesiredHeight() || intent.desiredHeight() == gAnimControl[animation].ubEndHeight) &&
+			!activity.nonInterruptible() && !activity.realtimeNonInterruptible() &&
+			!activity.turningUntilDone() && !activity.turningFromProneMode() &&
+			!activity.turningToShoot() && !activity.turningToFall() && !activity.tryingToFall() &&
+			!activity.paused() && !activity.gettingHit() && !activity.holdAttackerUntilDone() &&
+			!activity.suppressionStanceChange() &&
+			!actor.pendingAction().active() && !actor.runtime().worldObject.active() &&
+			!actor.runtime().pendingAction.delayedDamage &&
+			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
+			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
+			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			!movement.waitingForAction() && !movement.turnActive() &&
+			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
+			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
+			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
+			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			!actor.service().hasPartner() && !actor.service().hasProviders() &&
+			!actor.vitals().isUndergoingSurgery();
+	}
+
+	bool InventorySwapSlotAccessible(TacticalActor& actor, std::uint8_t slot,
+		const OBJECTTYPE& incoming) noexcept
+	{
+		if (!IsSupportedInventorySwapSlot(slot) || actor.inventory().size() != NUM_INV_SLOTS)
+			return false;
+		if (!UsingNewInventorySystem()) return oldInv[slot] != 0;
+		if (slot <= SECONDHANDPOS) return true;
+		if (icLBE[slot] < 0 || icPocket[slot] < 0 || icDefault[slot] <= 0) return false;
+		if (icLBE[slot] == BPACKPOCKPOS && IsJa2TacticalCombatActive() &&
+			(!actor.inventory().zipperFlag() ||
+			 gAnimControl[actor.animationPlayback().state()].ubEndHeight == ANIM_STAND))
+			return false;
+		const OBJECTTYPE& gear = actor.inventory()[icLBE[slot]];
+		const UINT16 gearItem = gear.exists() ? gear.usItem : icDefault[slot];
+		if (gearItem >= MAXITEMS || gearItem >= gMAXITEMS_READ ||
+			Item[gearItem].usItemClass != IC_LBEGEAR ||
+			Item[gearItem].ubClassIndex >= LoadBearingEquipment.size()) return false;
+		if (gear.exists())
+		{
+			if (gear.ubNumberOfObjects != 1 || gear.objectStack.size() != 1 ||
+				gear.objectStack.front().data.lbe.bLBE != 0 ||
+				gear.objectStack.front().data.bTrap != 0 ||
+				!HasOnlyEmptyAttachmentSlots(gear.objectStack.front())) return false;
+		}
+		const LBETYPE& definition = LoadBearingEquipment[Item[gearItem].ubClassIndex];
+		if (static_cast<std::size_t>(icPocket[slot]) >= definition.lbePocketIndex.size()) return false;
+		const UINT8 pocket = definition.lbePocketIndex[icPocket[slot]];
+		// No attachment-supplied or disabled pockets. Check bounds before native
+		// placement/capacity helpers index the data-driven vectors.
+		if (pocket == 0 || pocket >= LBEPocketType.size()) return false;
+		const auto& capacities = LBEPocketType[pocket].ItemCapacityPerSize;
+		const OBJECTTYPE* objects[] = {&incoming, &actor.inventory()[slot]};
+		for (const OBJECTTYPE* object : objects)
+			if (object->exists() &&
+				static_cast<std::size_t>(std::min<UINT32>(Item[object->usItem].ItemSize,
+					gGameExternalOptions.guiMaxItemSize)) >= capacities.size()) return false;
+		return true;
+	}
+
+	bool IsInventoryFaceSlot(std::uint8_t slot) noexcept
+	{
+		return slot == HEAD1POS || slot == HEAD2POS;
+	}
+
+	bool InventorySwapFacePairReady(const TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination) noexcept
+	{
+		if (!IsInventoryFaceSlot(source) && !IsInventoryFaceSlot(destination)) return true;
+		const auto projected = [&](std::uint8_t slot) -> const OBJECTTYPE& {
+			return actor.inventory()[source == slot ? destination : destination == slot ? source : slot];
+		};
+		const OBJECTTYPE& first = projected(HEAD1POS);
+		const OBJECTTYPE& second = projected(HEAD2POS);
+		for (const OBJECTTYPE* object : {&first, &second})
+			if (CaptureOrdinaryInventoryObject(*object) == 0 ||
+				(object->exists() && (object->ubNumberOfObjects != 1 || Item[object->usItem].usItemClass != IC_FACE)))
+				return false;
+		if (!first.exists() || !second.exists()) return true;
+		// Native CompatibleFaceItem walks a sentinel-terminated global table.
+		// Prove a sentinel lies within its real allocation before calling it.
+		bool bounded = false;
+		for (std::size_t index = 1; index <= MAXITEMS; ++index)
+			if (CompatibleFaceItems[index][0] == 0) { bounded = true; break; }
+		if (!bounded) return false;
+		return ((source != HEAD1POS && destination != HEAD1POS) || CompatibleFaceItem(first.usItem, second.usItem)) &&
+			((source != HEAD2POS && destination != HEAD2POS) || CompatibleFaceItem(second.usItem, first.usItem));
+	}
+
+	bool InventorySwapPlacementReady(TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination)
+	{
+		OBJECTTYPE& left = actor.inventory()[source];
+		OBJECTTYPE& right = actor.inventory()[destination];
+		if ((!left.exists() && !right.exists()) ||
+			!InventorySwapSlotAccessible(actor, source, right) ||
+			!InventorySwapSlotAccessible(actor, destination, left) ||
+			!InventorySwapFacePairReady(actor, source, destination)) return false;
+		if ((IsInventoryFaceSlot(source) || IsInventoryFaceSlot(destination)) &&
+			!TacticalActorLighting::canRefreshEquipmentPersonalLight(actor)) return false;
+		// Preserve HandleNailsVestFetish's read-only placement rule without its
+		// dialogue/UI side effects. Merging compound/blood is not a slot swap.
+		if (actor.identity().profile() == 34 && (source == VESTPOS || destination == VESTPOS))
+		{
+			const OBJECTTYPE& replacement = source == VESTPOS ? right : left;
+			if (!replacement.exists() || !ItemIsLeatherJacket(replacement.usItem)) return false;
+		}
+		const OBJECTTYPE& finalHand = source == HANDPOS ? right :
+			(destination == HANDPOS ? left : actor.inventory()[HANDPOS]);
+		const OBJECTTYPE& finalOffhand = source == SECONDHANDPOS ? right :
+			(destination == SECONDHANDPOS ? left : actor.inventory()[SECONDHANDPOS]);
+		if (finalHand.exists() && ItemIsTwoHanded(finalHand.usItem) && finalOffhand.exists()) return false;
+		const auto fits = [&](OBJECTTYPE& object, std::uint8_t slot) {
+			if (!object.exists()) return true;
+			if ((slot == HELMETPOS || slot == VESTPOS || slot == LEGPOS) &&
+				(Item[object.usItem].usItemClass != IC_ARMOUR || Item[object.usItem].ubClassIndex >= MAXITEMS ||
+				 Armour[Item[object.usItem].ubClassIndex].uiIndex != Item[object.usItem].ubClassIndex))
+				return false; // Bound the native armour lookup before placement.
+			const UINT8 capacity = ItemSlotLimit(&object, slot, &actor, FALSE);
+			return capacity != 0 && object.ubNumberOfObjects <= capacity &&
+				CanItemFitInPosition(&actor, &object, slot, FALSE);
+		};
+		return fits(left, destination) && fits(right, source);
+	}
+
+	bool InventorySwapCost(TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination, std::int16_t& cost)
+	{
+		std::int64_t total = 0;
+		if (UsingInventoryCostsAPSystem())
+		{
+			const std::int64_t modifier = 100 + TacticalActorModifiers::backgroundValue(actor, BG_INVENTORY);
+			if (modifier < 0) return false;
+			if (actor.inventory()[source].exists())
+				total += GetInvMovementCost(&actor.inventory()[source], source, destination) * modifier / 100;
+			if (actor.inventory()[destination].exists())
+				total += GetInvMovementCost(&actor.inventory()[destination], destination, source) * modifier / 100;
+		}
+		if (total < 0 || total > INT16_MAX || actor.actionPoints().current() < total) return false;
+		cost = static_cast<std::int16_t>(total);
+		return true;
+	}
+
+	std::uint64_t CaptureInventorySwapActorState(const TacticalActor& actor) noexcept
+	{
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		MixTraversalState(fingerprint, actor.actionPoints().current());
+		MixTraversalState(fingerprint, actor.vitals().health());
+		MixTraversalState(fingerprint, actor.vitals().breath());
+		MixTraversalState(fingerprint, actor.identity().bodyType());
+		MixTraversalState(fingerprint, actor.attackSelection().weaponMode());
+		MixTraversalState(fingerprint, actor.attackSelection().scopeMode());
+		MixTraversalState(fingerprint, actor.fireControl().barrelMode());
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(actor.fireControl().delaysGrenadeLauncherExplosion()));
+		MixTraversalState(fingerprint, actor.aiPlanning().shownAimTime());
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(actor.inventory().zipperFlag()));
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(UsingNewInventorySystem()));
+		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	std::uint64_t CaptureInventorySwapCommandActorState(const TacticalActor& actor,
+		std::uint8_t source, std::uint8_t destination) noexcept
+	{
+		std::uint64_t fingerprint = CaptureInventorySwapActorState(actor);
+		if (IsInventoryFaceSlot(source) || IsInventoryFaceSlot(destination))
+		{
+			for (std::uint8_t slot : {std::uint8_t(HEAD1POS), std::uint8_t(HEAD2POS)})
+			{
+				const auto object = CaptureOrdinaryInventoryObject(actor.inventory()[slot]);
+				if (object == 0) return 0;
+				MixTraversalState(fingerprint, object);
+			}
+		}
+		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	TacticalActor* ResolveInventorySwap(const SwapInventorySlotsCommand& command)
+	{
+		if (!IsStructurallyValidSwapInventorySlotsCommand(command) ||
+			is_networked || is_client || is_server || !IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext()) return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial) return nullptr;
+		TacticalActor* const actor = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		if (!actor || actor->identity().bodyType() > REGFEMALE ||
+			actor->inventory().size() != NUM_INV_SLOTS || !InventorySwapPoseReady(*actor) ||
+			actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
+			!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject ||
+			(gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
+			actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
+			actor->position().level() != command.expectedActorLevel ||
+			actor->animationPlayback().state() != command.expectedAnimationState ||
+			actor->position().direction() != command.expectedDirection ||
+			actor->pathing().desiredDirection() != command.expectedDirection ||
+			CaptureInventorySwapCommandActorState(*actor, command.sourceSlot, command.destinationSlot) !=
+				command.expectedActorStateFingerprint ||
+			CaptureOrdinaryInventoryObject(actor->inventory()[command.sourceSlot]) != command.sourceStateFingerprint ||
+			CaptureOrdinaryInventoryObject(actor->inventory()[command.destinationSlot]) != command.destinationStateFingerprint ||
+			CaptureOrdinaryInventoryObject(actor->inventory()[HANDPOS]) != command.handStateFingerprint ||
+			CaptureOrdinaryInventoryObject(actor->inventory()[SECONDHANDPOS]) != command.offhandStateFingerprint ||
+			!InventorySwapPlacementReady(*actor, command.sourceSlot, command.destinationSlot)) return nullptr;
+		std::int16_t cost = 0;
+		if (!InventorySwapCost(*actor, command.sourceSlot, command.destinationSlot, cost) ||
+			cost != command.expectedActionPointCost) return nullptr;
+		return actor;
 	}
 
 	// Retained window completion and fence continuation can clear or rewrite
@@ -1614,6 +1853,58 @@ namespace
 					return CommandDisposition::Discard;
 				}
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+			{
+				TacticalActor* const actor = ResolveInventorySwap(value);
+				if (!actor) return CommandDisposition::Discard;
+				const UINT16 leftItem = actor->inventory()[value.sourceSlot].usItem;
+				const UINT16 rightItem = actor->inventory()[value.destinationSlot].usItem;
+				try
+				{
+					// Native OBJECTTYPE copy-swap can allocate; once entered, neither
+					// a failed copy nor an equipment continuation is transactional.
+					SwapObjs(&actor->inventory()[value.sourceSlot], &actor->inventory()[value.destinationSlot]);
+					const auto complete = [&](std::uint8_t slot, UINT16 previousItem, UINT16 changedItem) {
+						TacticalWeaponConfigurationResult result{};
+						bool refreshHand = false;
+						(void)ResolveEquipmentTacticalWeaponConfiguration(
+							*actor, slot, previousItem, changedItem, result, refreshHand);
+						if (!IsValidTacticalWeaponConfigurationResult(result))
+							throw std::runtime_error("invalid inventory equipment continuation");
+						if (IsInventoryFaceSlot(slot))
+							ApplyWeaponConfigurationResult(*actor, result);
+						else
+							ApplyResolvedEquipmentChange(*actor, result,
+								TacticalWeaponConfigurationPostApplyPolicy::None,
+								slot, previousItem, changedItem, refreshHand);
+					};
+					complete(value.sourceSlot, leftItem, rightItem);
+					complete(value.destinationSlot, rightItem, leftItem);
+					if ((IsInventoryFaceSlot(value.sourceSlot) || IsInventoryFaceSlot(value.destinationSlot)) &&
+						!TacticalActorLighting::refreshEquipmentPersonalLight(*actor))
+						throw std::runtime_error("authoritative face equipment lighting failed after mutation");
+					// Even ordinary weapons contribute worn camouflage while held.
+					// Refresh the committed equipment's native derived state once;
+					// a failed palette continuation cannot certify this parent.
+					if (!ApplyEquipmentBonusesChecked(*actor))
+						throw std::runtime_error("authoritative inventory equipment bonuses failed after mutation");
+					// Match native inventory AP accounting (not DeductPoints, which
+					// would add movement/interrupt side effects to an inventory move).
+					actor->actionPoints().current() -= value.expectedActionPointCost;
+					const UINT16 surface = actor->animationPlayback().surface();
+					if (ResolveJa2TacticalEntity(value.soldier) != actor ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.sourceSlot]) != value.destinationStateFingerprint ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.destinationSlot]) != value.sourceStateFingerprint ||
+						surface >= NUMANIMATIONSURFACETYPES || !gAnimSurfaceDatabase[surface].hVideoObject)
+						throw std::runtime_error("authoritative inventory swap failed after mutation");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
 			}
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
@@ -2518,6 +2809,42 @@ std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8
 		? CaptureOrdinaryInventoryObject(live->inventory()[slot]) : 0;
 }
 
+bool PrepareSwapInventorySlotsCommand(TacticalEntityId actor,
+	std::uint8_t sourceSlot, std::uint8_t destinationSlot,
+	SwapInventorySlotsCommand& output) noexcept
+{
+	try
+	{
+		TacticalActor* const live = ResolveLiveCommandActor(actor);
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS ||
+			!IsSupportedInventorySwapSlot(sourceSlot) || !IsSupportedInventorySwapSlot(destinationSlot) ||
+			sourceSlot == destinationSlot) return false;
+		SwapInventorySlotsCommand prepared;
+		prepared.soldier = actor;
+		prepared.sourceSlot = sourceSlot;
+		prepared.destinationSlot = destinationSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = live->position().gridNo();
+		prepared.expectedActorLevel = live->position().level();
+		prepared.expectedAnimationState = live->animationPlayback().state();
+		prepared.expectedDirection = live->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapCommandActorState(*live, sourceSlot, destinationSlot);
+		prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[sourceSlot]);
+		prepared.destinationStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[destinationSlot]);
+		prepared.handStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[HANDPOS]);
+		prepared.offhandStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[SECONDHANDPOS]);
+		if (prepared.sourceStateFingerprint == 0 || prepared.destinationStateFingerprint == 0 ||
+			prepared.handStateFingerprint == 0 || prepared.offhandStateFingerprint == 0 ||
+			!InventorySwapCost(*live, sourceSlot, destinationSlot, prepared.expectedActionPointCost) ||
+			ResolveInventorySwap(prepared) != live) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...) { return false; } // Preparation has not mutated the actor or copied objects.
+}
+
 bool PrepareReloadWeaponCommand(
 	TacticalEntityId actor,
 	ReloadWeaponCommand& output) noexcept
@@ -2608,7 +2935,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, ReloadWeaponCommand>::value ||
 			std::is_same<Command,
 				AuthoritativeDoorOpenCloseCommand>::value ||
-			std::is_same<Command, PassInterruptCommand>::value)
+			std::is_same<Command, PassInterruptCommand>::value ||
+			std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -2744,6 +3072,14 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				return IsStructurallyValidPassInterruptCommand(value)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidInterruptPrecondition;
+			}
+			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+			{
+				if (!IsStructurallyValidSwapInventorySlotsCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidInventorySwapPrecondition;
+				return TileIsOutOfBounds(value.expectedActorGrid)
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (
 				std::is_same<Command,

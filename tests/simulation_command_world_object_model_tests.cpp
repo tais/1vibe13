@@ -483,5 +483,114 @@ int main()
 			CommandDisposition::Discard && reference.snapshot() == referenceState,
 		"the portable reference also declines authoritative native door policy");
 
+	SwapInventorySlotsCommand swap;
+	swap.soldier = {2, 0x11223344};
+	swap.sourceSlot = 14;
+	swap.destinationSlot = 5;
+	swap.expectedWorldGeneration = 0x0102030405060708ull;
+	swap.expectedTurnSerial = 0x1112131415161718ull;
+	swap.expectedActorGrid = 120;
+	swap.expectedActorLevel = 0;
+	swap.expectedAnimationState = 6;
+	swap.expectedDirection = 2;
+	swap.expectedActorStateFingerprint = 0x2122232425262728ull;
+	swap.sourceStateFingerprint = 0x3132333435363738ull;
+	swap.destinationStateFingerprint = 0x4142434445464748ull;
+	swap.handStateFingerprint = 0x5152535455565758ull;
+	swap.offhandStateFingerprint = 0x6162636465666768ull;
+	swap.expectedActionPointCost = 5;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{swap}),
+		"retained inventory swap requires every server-prepared proof");
+	std::vector<std::uint8_t> swapWire;
+	Require(EncodeSimulationCommandJournal({{13, 17, CommandJournalStatus::Applied,
+		SimulationCommand{swap}}}, 5, swapWire), "retained inventory swap encodes");
+	const std::vector<std::uint8_t> expectedSwapWire{
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00,
+		0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x24, 0x02, 0x00, 0x44, 0x33, 0x22, 0x11, 0x0e, 0x05,
+		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x78, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02,
+		0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21,
+		0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31,
+		0x48, 0x47, 0x46, 0x45, 0x44, 0x43, 0x42, 0x41,
+		0x58, 0x57, 0x56, 0x55, 0x54, 0x53, 0x52, 0x51,
+		0x68, 0x67, 0x66, 0x65, 0x64, 0x63, 0x62, 0x61,
+		0x05, 0x00, 0x01, 0x01};
+	Require(swapWire == expectedSwapWire && swapWire.size() == 112 && swapWire[35] == 36,
+		"append-only tag 36 has a literal 77-byte pointer-free little-endian layout in journal v4");
+	std::vector<RecordedSimulationCommand> decodedSwap;
+	std::uint64_t swapDropped = 0;
+	Require(DecodeSimulationCommandJournal(swapWire, decodedSwap, swapDropped) ==
+		SimulationCommandJournalDecodeResult::Success && decodedSwap.size() == 1 && swapDropped == 5,
+		"inventory swap journal decodes its new tag");
+	const auto& restoredSwap = std::get<SwapInventorySlotsCommand>(decodedSwap[0].command);
+	Require(restoredSwap.soldier == swap.soldier && restoredSwap.sourceSlot == swap.sourceSlot &&
+		restoredSwap.destinationSlot == swap.destinationSlot &&
+		restoredSwap.expectedWorldGeneration == swap.expectedWorldGeneration &&
+		restoredSwap.expectedTurnSerial == swap.expectedTurnSerial &&
+		restoredSwap.expectedActorGrid == swap.expectedActorGrid && restoredSwap.expectedActorLevel == swap.expectedActorLevel &&
+		restoredSwap.expectedAnimationState == swap.expectedAnimationState && restoredSwap.expectedDirection == swap.expectedDirection &&
+		restoredSwap.expectedActorStateFingerprint == swap.expectedActorStateFingerprint &&
+		restoredSwap.sourceStateFingerprint == swap.sourceStateFingerprint &&
+		restoredSwap.destinationStateFingerprint == swap.destinationStateFingerprint &&
+		restoredSwap.handStateFingerprint == swap.handStateFingerprint &&
+		restoredSwap.offhandStateFingerprint == swap.offhandStateFingerprint &&
+		restoredSwap.expectedActionPointCost == swap.expectedActionPointCost &&
+		restoredSwap.source == swap.source && restoredSwap.authority == swap.authority,
+		"tag 36 restores every exact actor, turn, pose, object and AP proof");
+	std::array<SwapInventorySlotsCommand, 18> invalidSwaps;
+	invalidSwaps.fill(swap);
+	invalidSwaps[0].soldier = {};
+	invalidSwaps[1].sourceSlot = 7;
+	invalidSwaps[2].destinationSlot = 55;
+	invalidSwaps[3].destinationSlot = swap.sourceSlot;
+	invalidSwaps[4].expectedWorldGeneration = 0;
+	invalidSwaps[5].expectedTurnSerial = 0;
+	invalidSwaps[6].expectedActorGrid = -1;
+	invalidSwaps[7].expectedActorLevel = 2;
+	invalidSwaps[8].expectedAnimationState = UINT16_MAX;
+	invalidSwaps[9].expectedDirection = 8;
+	invalidSwaps[10].expectedActorStateFingerprint = 0;
+	invalidSwaps[11].sourceStateFingerprint = 0;
+	invalidSwaps[12].destinationStateFingerprint = 0;
+	invalidSwaps[13].handStateFingerprint = 0;
+	invalidSwaps[14].offhandStateFingerprint = 0;
+	invalidSwaps[15].expectedActionPointCost = -1;
+	invalidSwaps[16].source = SimulationCommandSource::System;
+	invalidSwaps[17].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidSwaps)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"missing inventory authority or unsupported slot/proof rejects structurally");
+	for (std::size_t length = 0; length < swapWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(swapWire.begin(), swapWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedSwap, swapDropped) !=
+			SimulationCommandJournalDecodeResult::Success && decodedSwap.size() == 1 && swapDropped == 5,
+			"truncated tag 36 preserves the caller's previous decoded journal");
+	}
+	for (std::size_t offset : {std::size_t(42), std::size_t(64), std::size_t(67), std::size_t(110), std::size_t(111)})
+	{
+		auto malformed = swapWire;
+		malformed[offset] = 255;
+		Require(DecodeSimulationCommandJournal(malformed, decodedSwap, swapDropped) ==
+			SimulationCommandJournalDecodeResult::Invalid && decodedSwap.size() == 1 && swapDropped == 5,
+			"malformed native inventory policy bytes reject transactionally");
+	}
+	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy> swapPlayback;
+	Require(swapPlayback.stageRecordedPlaybackBatch({{13, 17, SimulationCommand{swap}}}),
+		"retained inventory command is journal-playback compatible");
+	const auto replayedSwap = swapPlayback.queue().drainThrough(13);
+	Require(replayedSwap.size() == 1 && std::get<SwapInventorySlotsCommand>(replayedSwap[0].command).source ==
+		SimulationCommandSource::Replay && IsStructurallyValidSimulationCommand(replayedSwap[0].command) &&
+		std::get<SwapInventorySlotsCommand>(swapPlayback.journal().snapshot()[0].command).source ==
+		SimulationCommandSource::NetworkPeer, "inventory playback changes execution provenance, not captured journal authority");
+	Require(reference.execute(SimulationCommand{swap}, 4, 4) == CommandDisposition::Discard &&
+		reference.snapshot() == referenceState, "portable simulation declines native inventory/equipment policy");
+
+
 	return 0;
 }

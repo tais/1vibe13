@@ -48,7 +48,8 @@ enum class CommandTag : std::uint8_t
 	SynchronizeActorVitals = 31,
 	AimedFirearmAttack = 32,
 	AuthoritativeDoorOpenClose = 33,
-	PassInterrupt = 34
+	PassInterrupt = 34,
+	SwapInventorySlots = 36
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -276,6 +277,28 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedInterruptSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::SwapInventorySlots));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.sourceSlot);
+			writer.writeU8(value.destinationSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
+			writer.writeU64(value.destinationStateFingerprint);
+			writer.writeU64(value.handStateFingerprint);
+			writer.writeU64(value.offhandStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -801,6 +824,30 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!ReadSource(reader, value.source) ||
 				!ReadAuthorityPolicy(reader, value.authority) ||
 				!IsStructurallyValidPassInterruptCommand(value))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SwapInventorySlots:
+		{
+			SwapInventorySlotsCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU8(value.sourceSlot) || !reader.readU8(value.destinationSlot) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU8(value.expectedDirection) ||
+				!reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.sourceStateFingerprint) ||
+				!reader.readU64(value.destinationStateFingerprint) ||
+				!reader.readU64(value.handStateFingerprint) ||
+				!reader.readU64(value.offhandStateFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) || !ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidSwapInventorySlotsCommand(value))
 				return false;
 			command = value;
 			return true;
