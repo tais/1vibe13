@@ -647,6 +647,14 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   set_tests_properties(native_battle_resolution PROPERTIES TIMEOUT 30)
   add_dependencies(ja2_headless_tests native_battle_resolution_tests)
 
+  # Read-only native evidence; this does not enable tactical checkpoint policy.
+  add_executable(native_tactical_checkpoint_readiness_tests tests/native_tactical_checkpoint_readiness_tests.cpp)
+  target_compile_definitions(native_tactical_checkpoint_readiness_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_tactical_checkpoint_readiness_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_tactical_checkpoint_readiness COMMAND native_tactical_checkpoint_readiness_tests)
+  set_tests_properties(native_tactical_checkpoint_readiness PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_tactical_checkpoint_readiness_tests)
+
   # Actual playlist restoration must not consume the campaign random stream.
   add_executable(native_music_random_tests tests/native_music_random_tests.cpp)
   target_compile_definitions(native_music_random_tests PRIVATE ${debugFlags})

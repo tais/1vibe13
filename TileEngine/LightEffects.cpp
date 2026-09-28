@@ -27,6 +27,14 @@ LIGHTEFFECT				gLightEffectData[ NUM_LIGHT_EFFECT_SLOTS ];
 UINT32						guiNumLightEffects = 0;
 
 
+UINT32 GetAllocatedLightEffectCount() noexcept
+{
+	UINT32 count = 0;
+	for (const auto& light : gLightEffectData)
+		if (light.fAllocated) ++count;
+	return count;
+}
+
 INT32 GetFreeLightEffect( void );
 void RecountLightEffects( void );
 
