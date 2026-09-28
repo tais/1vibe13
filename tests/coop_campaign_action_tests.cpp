@@ -23,7 +23,7 @@ void Codec()
 		8,7,6,5,4,3,2,1, 9,0,0,0,0,0,0,0, 10,0,0,0,0,0,0,0, 11,0,0,0,0,0,0,0,
 		0,0,0,0,0,0,0,0, 3,10,1,0, 1,2,3,4}};
 	CHECK(EncodeCoopCampaignActionRequest(request, bytes) && bytes == expected, "exact little-endian travel vector; no claimed peer identity");
-	for (unsigned action = 1; action <= 9; ++action)
+	for (unsigned action = 1; action <= 10; ++action)
 	{
 		request = Travel(); request.action = static_cast<CoopCampaignAction>(action);
 		if (action != 1) { request.group = {}; request.destinationX = request.destinationY = 0; request.decision = 0x0807060504030201ull; }

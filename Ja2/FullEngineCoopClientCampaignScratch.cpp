@@ -276,11 +276,11 @@ bool SameCampaignBindingAcrossSessions(
 	const CoopCampaignBootstrapDescriptor& left,
 	const CoopCampaignBootstrapDescriptor& right) noexcept
 {
-	// Protocol 8 and 9 use the same durable credential layout. This permits
+	// Protocols 8, 9 and 14 through 18 use the same durable credential layout. This permits
 	// retiring an unreachable old-session bearer after full campaign binding
 	// validation; it never admits an old protocol into a live session.
 	const bool compatibleProtocol = left.protocolVersion == right.protocolVersion ||
-		(left.protocolVersion == 8 && right.protocolVersion == 9);
+		((left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18) && right.protocolVersion == 19);
 	return compatibleProtocol &&
 		left.campaignSeed == right.campaignSeed &&
 		left.campaignIdentitySha256 == right.campaignIdentitySha256 &&
@@ -334,22 +334,22 @@ bool DecodeReconnectCredentialRecord(
 	ReconnectCredentialRecord canonical = record;
 	const std::uint16_t storedProtocol = static_cast<std::uint16_t>(record[8]) |
 		(static_cast<std::uint16_t>(record[9]) << 8);
-	const bool legacyProtocol = CurrentProtocolVersion == 9 && storedProtocol == 8;
+	const bool legacyProtocol = CurrentProtocolVersion == 19 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18);
 	if (legacyProtocol)
 	{
 		static_assert(CoopCampaignBootstrapWireVersion == 1 &&
 			CoopCampaignBootstrapWireSize == 128 && AdmissionAckWireSize == 64,
-			"review persisted protocol-8 credential migration after a layout change");
+			"review persisted protocol-8/9/14/15/16/17/18 credential migration after a layout change");
 		// UnsupportedProtocol is returned only after the original bootstrap's
 		// magic, schema, reserved bytes and FNV checksum have been verified. The
 		// outer SHA above protects the entire original record, including the ACK.
 		if (bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol ||
-			record[CoopCampaignBootstrapWireSize + 4] != 8 ||
+			record[CoopCampaignBootstrapWireSize + 4] != storedProtocol ||
 			record[CoopCampaignBootstrapWireSize + 5] != 0)
 			return false;
 		// Normalize only a private copy so the strict current codecs can check
 		// every semantic field. No old bytes or bearer are written or sent.
-		canonical[8] = canonical[CoopCampaignBootstrapWireSize + 4] = 9;
+		canonical[8] = canonical[CoopCampaignBootstrapWireSize + 4] = 19;
 		std::uint32_t checksum = UINT32_C(2166136261);
 		for (std::size_t index = 0; index < 112; ++index)
 		{

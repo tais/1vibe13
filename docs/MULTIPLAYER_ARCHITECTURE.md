@@ -23,16 +23,31 @@ Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
 reinterpret or silently extend a legacy packet layout.
 
-The global authoritative co-op session protocol is version 9. The fixed server-
+The global authoritative co-op session protocol is version 19. The fixed server-
 hello container retains its independently bounded wire-v1 layout. The inner
 tactical envelope is wire v4. Tactical intent is wire v3, snapshot is wire v9, delta is wire
-v8, and the simulation-command journal is wire v4. Global v1/v2/v3/v4/v5/v6/v7/v8 peers fail
+v8, and the simulation-command journal is wire v4. Global v1–v18 peers fail
 admission rather than discovering the mismatch after admission. All older
 snapshot layouts are rejected instead of inferring dimensions, hostility, door,
 loadout, interrupt state, or exact map identity. Snapshot v9 also carries one public `commandsBlocked`
 bit, compact interrupt phase/serial, per-actor interrupt-action eligibility, and five
 bounded 12-byte combat-equipment records: primary hand, secondary hand, helmet,
 vest, and legs. Native interrupt lists and hidden interrupters remain private.
+
+The shared campaign status has a canonical 128-byte layout. A held Meanwhile
+scene carries a runtime notice identity and one of 17 explicit scene tags. It
+requires a paused, locked clock and excludes arrival, surrender and battle
+notices. Either authorized ready peer may submit `SkipMeanwhile`; the server
+serializes that request through the shared control revision. Competing requests
+become stale, and retries return the retained receipt without repeating effects.
+Time controls and hiring remain blocked while the scene is held. This contract
+does not itself activate native scene handling or client controls.
+
+Durable reconnect records from protocols 8, 9 and 14–18 retain an explicit
+migration path to 19 only for retiring an unreachable old-session credential.
+Original SHA-256, bootstrap checksum, campaign, runtime and content bindings
+are checked before normalizing a private copy. Live admission still requires
+the current protocol, and the original record is never rewritten or sent.
 
 Every loaded wire sector carries the exact authority-selected map basename in a
 260-byte, NUL-terminated, zero-padded ASCII field. Alternate and underground names

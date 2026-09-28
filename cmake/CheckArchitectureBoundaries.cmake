@@ -5455,7 +5455,7 @@ extract_brace_bounded_slice(dedicated_live_client_scratch_code
 require_ordered_fragments(dedicated_live_credential_campaign_binding_slice
   "Persisted credential compatibility must keep the explicit version pair and exact campaign/runtime/content binding"
   "left.protocolVersion == right.protocolVersion"
-  "left.protocolVersion == 8 && right.protocolVersion == 9"
+  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18) && right.protocolVersion == 19"
   "compatibleProtocol &&"
   "left.campaignSeed == right.campaignSeed"
   "left.campaignIdentitySha256 == right.campaignIdentitySha256"
@@ -5473,9 +5473,9 @@ require_ordered_fragments(dedicated_live_credential_decode_record_slice
   "std::equal(expected.begin(), expected.end()"
   "DecodeCoopCampaignBootstrap(record.data()"
   "CoopCampaignBootstrapWireSize"
-  "CurrentProtocolVersion == 9 && storedProtocol == 8"
+  "CurrentProtocolVersion == 19 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18)"
   "bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol"
-  "record[CoopCampaignBootstrapWireSize + 4] != 8"
+  "record[CoopCampaignBootstrapWireSize + 4] != storedProtocol"
   "DecodeCoopCampaignBootstrap(canonical.data()"
   "DecodeAdmissionAck("
   "AdmissionAckWireSize"
@@ -5555,9 +5555,15 @@ require_ordered_fragments(dedicated_live_credential_persist_slice
   "return true")
 
 foreach(render_protocol_credential_regression IN ITEMS
-    "TestLegacyReconnectCredentialMigration()"
+    "TestLegacyReconnectCredentialMigration(8)"
+    "TestLegacyReconnectCredentialMigration(9)"
+    "TestLegacyReconnectCredentialMigration(14)"
+    "TestLegacyReconnectCredentialMigration(15)"
+    "TestLegacyReconnectCredentialMigration(16)"
+    "TestLegacyReconnectCredentialMigration(17)"
+    "TestLegacyReconnectCredentialMigration(18)"
     "TestLegacyReconnectCredentialMalformedRecords()"
-    "CurrentProtocolVersion == 9"
+    "CurrentProtocolVersion == 19"
     "persistence migration never weakens live protocol rejection or mutates decoder outputs"
     "only exact campaign binding plus a different epoch may classify legacy bytes stale"
     "legacy retirement remains terminal and preserves its exact original protocol"
@@ -5567,7 +5573,7 @@ foreach(render_protocol_credential_regression IN ITEMS
   string(FIND "${dedicated_live_client_scratch_test_source}"
     "${render_protocol_credential_regression}" render_protocol_credential_position)
   if(render_protocol_credential_position EQUAL -1)
-    message(FATAL_ERROR "Protocol8-to9 private credential migration lost '${render_protocol_credential_regression}'")
+    message(FATAL_ERROR "Explicit legacy-to19 private credential migration lost '${render_protocol_credential_regression}'")
   endif()
 endforeach()
 
@@ -7130,24 +7136,24 @@ strip_cxx_comments_and_literals(dedicated_live_handle_doors_source
 strip_cxx_comments_and_literals(dedicated_live_world_object_model_test_source
   dedicated_live_world_object_model_test_code)
 
-# Global co-op protocol v9 rejects mixed builds at admission. The fixed hello
+# Global co-op protocol v19 rejects mixed builds at admission. The fixed hello
 # keeps its wire-v1 layout; the tactical envelope is v4, intent is v3, snapshot
 # is v9, delta is v8, and the command journal is v4. The compact interrupt
 # projection therefore cannot be mistaken for any earlier peer.
 foreach(dedicated_live_global_protocol_v9_contract IN ITEMS
-    "CurrentProtocolVersion = 9"
+    "CurrentProtocolVersion = 19"
     "protocolVersion = CurrentProtocolVersion")
   string(FIND "${dedicated_live_session_protocol_header_code}"
     "${dedicated_live_global_protocol_v9_contract}"
     dedicated_live_global_protocol_v9_contract_position)
   if(dedicated_live_global_protocol_v9_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v9 contract lost '${dedicated_live_global_protocol_v9_contract}'")
+      "Global co-op protocol v19 contract lost '${dedicated_live_global_protocol_v9_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_global_protocol_v9_test_contract IN ITEMS
-    "requestBytes[4] == 9"
-    "resultBytes[4] == 9"
+    "requestBytes[4] == 19"
+    "resultBytes[4] == 19"
     "DecodeResult::UnsupportedProtocol"
     "unsupported.protocolVersion++")
   string(FIND "${dedicated_live_session_protocol_test_code}"
@@ -7155,25 +7161,25 @@ foreach(dedicated_live_global_protocol_v9_test_contract IN ITEMS
     dedicated_live_global_protocol_v9_test_contract_position)
   if(dedicated_live_global_protocol_v9_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v9 golden/rejection test lost '${dedicated_live_global_protocol_v9_test_contract}'")
+      "Global co-op protocol v19 golden/rejection test lost '${dedicated_live_global_protocol_v9_test_contract}'")
   endif()
 endforeach()
 require_ordered_fragments(dedicated_live_handshake_test_source
-  "Global protocol-v9 server-hello golden changed"
-  "0x09, 0x00, 0x00, 0x00"
+  "Global protocol-v19 server-hello golden changed"
+  "0x13, 0x00, 0x00, 0x00"
   "pinned 72-byte wire image")
 require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
-  "Global protocol-v9 campaign-bootstrap golden changed"
-  "0x09, 0x00, 0x00, 0x00"
-  "UINT32_C(0x3e2fe361)"
+  "Global protocol-v19 campaign-bootstrap golden changed"
+  "0x13, 0x00, 0x00, 0x00"
+  "UINT32_C(0x856f35bb)"
   "descriptor checksum pins FNV-1a over bytes 0 through 111")
 require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
-  "Global protocol-v9 campaign-sync golden changed"
-  "bytes[6] == 9"
+  "Global protocol-v19 campaign-sync golden changed"
+  "bytes[6] == 19"
   "campaign sync versions and kind are exact")
 require_ordered_fragments(dedicated_live_listener_test_source
-  "Global protocol-v9 admission-listener hello golden changed"
-  "0x09, 0x00, 0x00, 0x00"
+  "Global protocol-v19 admission-listener hello golden changed"
+  "0x13, 0x00, 0x00, 0x00"
   "pinned 72-byte little-endian wire image")
 
 # The current protocol retains an exact self-only voluntary leave wire. The request must
@@ -12249,7 +12255,7 @@ require_ordered_fragments(dedicated_live_socket_e2e_slice
   "ingress.endSession()")
 
 # Public documentation must describe the same bounded technical slice as the
-# executable and tests: global protocol v9, authenticated self-retirement,
+# executable and tests: global protocol v19, authenticated self-retirement,
 # independently versioned snapshot/delta/intent/journal wires, bounded public
 # door projection and synchronous authority, worldless presentation, and the
 # established persistence/return/reconnect policies.
@@ -12271,7 +12277,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "global co-op protocol-v9"
+    "global co-op protocol-v19"
     "Tactical snapshot wire v9"
     "five-slot combat-equipment projection"
     "five 12-byte combat-equipment records"
@@ -12363,7 +12369,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
-    "global authoritative co-op session protocol is version 9"
+    "global authoritative co-op session protocol is version 19"
     "capture failure unwinds the active"
     "Case-only spellings across different"
     "`CVirtualLocation::getIsExclusive()`"
@@ -12494,7 +12500,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_engine_doc_contract IN ITEMS
-    "global co-op protocol v9"
+    "global co-op protocol v19"
     "`InitializeCoopContentManifestBoundary`"
     "before legacy cache writes"
     "case-only spellings across different read-only layers"
@@ -12605,7 +12611,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
-    "global co-op protocol-v9"
+    "global co-op protocol-v19"
     "rollback-safe `co-op installed content manifest`"
     "validates and counts all"
     "smallest-layer normalized read-only overlay"
@@ -12718,7 +12724,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
-    "global co-op protocol v9"
+    "global co-op protocol v19"
     "rollback-safe post-package/pre-legacy"
     "validates and counts every VFS"
     "case-only"

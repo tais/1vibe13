@@ -26,7 +26,7 @@ void TestCodec()
 		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
 		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
 		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};
-	CHECK(bytes == expected, "exact 112-byte little endian wire layout, canonical empty arrival tail");
+	CHECK(bytes == expected, "exact 128-byte little endian wire layout, canonical empty arrival tail");
 	CoopCampaignStatus out;
 	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out),
 		"status roundtrips exactly");

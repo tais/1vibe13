@@ -286,6 +286,11 @@ void Eligibility()
 {
 	using O = CoopCampaignHireOutcome; Fixture f; auto r = f.request();
 	CHECK(f.validate(r) == O::Applied && f.status.value().timeLeader != f.peers[1].identity, "either ready player can hire independently of time leadership");
+	auto held = f.status.value();
+	held.meanwhile = {1, CoopCampaignMeanwhileScene::FirstBattle}; held.pauseLocked = true;
+	CHECK(ValidCoopCampaignStatus(held) &&
+		ValidateCoopCampaignHireRequest(r, held, f.economy, f.quotes, true, true, true) == O::Unavailable,
+		"a held native scene blocks an otherwise affordable and authorized hire");
 	CHECK(ValidateCoopCampaignHireRequest(r,f.status.value(),f.economy,f.quotes,false,true,true) == O::NotReady &&
 		ValidateCoopCampaignHireRequest(r,f.status.value(),f.economy,f.quotes,true,false,true) == O::Unauthorized &&
 		ValidateCoopCampaignHireRequest(r,f.status.value(),f.economy,f.quotes,true,true,false) == O::Unavailable, "readiness, authorization and native context are independent gates");

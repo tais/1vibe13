@@ -161,7 +161,7 @@ inline CoopCampaignHireOutcome ValidateCoopCampaignHireRequest(const CoopCampaig
 		request.sessionEpoch != quotes.sessionEpoch || request.controlRevision != status.timeControlRevision ||
 		request.economyRevision != economy.revision) return Outcome::Stale;
 	if (request.quoteRevision != quotes.revision || quotes.economyRevision != economy.revision) return Outcome::StaleQuote;
-	if (!worldlessStrategic || status.phase != CoopCampaignPhase::Strategic || status.arrival.decision || !economy.available || !quotes.available)
+	if (!worldlessStrategic || status.phase != CoopCampaignPhase::Strategic || status.arrival.decision || status.meanwhile.id || !economy.available || !quotes.available)
 		return Outcome::Unavailable;
 	for (std::size_t i = 0; i < economy.rosterCount; ++i) if (economy.roster[i].profile == request.profile) return Outcome::AlreadyHired;
 	const auto* quote = FindCoopCampaignAimQuote(quotes, request.profile);
