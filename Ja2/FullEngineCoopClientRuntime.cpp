@@ -4,6 +4,7 @@
 #include "FullEngineCoopClientCampaignScratch.h"
 #include "FullEngineCoopClientOptions.h"
 #include "GameContext.h"
+#include "Soldier Profile.h"
 #include "random.h"
 
 #include <Multiplayer/FullEngineCoopCampaignSyncClient.h>
@@ -760,6 +761,126 @@ bool FullEngineCoopClientRuntime::campaignReady() const noexcept
 		impl_->composition != nullptr &&
 		impl_->composition->campaign.state() == CoopSession::
 			FullEngineCoopCampaignSyncClientState::Ready;
+}
+
+bool FullEngineCoopClientRuntime::campaignGroups(CoopSession::CoopCampaignGroups& output) const noexcept
+{
+	output = {};
+	if (!campaignReady() || failed()) return false;
+	const auto* groups = impl_->composition->client.campaignGroups();
+	if (!groups) return false;
+	output = *groups;
+	return true;
+}
+
+bool FullEngineCoopClientRuntime::campaignEconomy(CoopSession::CoopCampaignEconomy& output) const noexcept
+{
+	output = {};
+	if (!campaignReady() || failed()) return false;
+	const auto* value = impl_->composition->client.campaignEconomy();
+	if (!value) return false;
+	output = *value; return true;
+}
+
+bool FullEngineCoopClientRuntime::campaignAimQuotes(CoopSession::CoopCampaignAimQuotes& output) const noexcept
+{
+	output = {};
+	if (!campaignReady() || failed()) return false;
+	const auto* value = impl_->composition->client.campaignAimQuotes();
+	if (!value) return false;
+	output = *value; return true;
+}
+
+bool FullEngineCoopClientRuntime::campaignProfileNickname(std::uint16_t profile, std::array<wchar_t,32>& output) const noexcept
+{
+	output = {};
+	if (!campaignReady() || failed() || profile >= NUM_PROFILES) return false;
+	const auto* quotes = impl_->composition->client.campaignAimQuotes();
+	if (!quotes || !CoopSession::FindCoopCampaignAimQuote(*quotes,profile)) return false;
+	const auto& source = gMercProfiles[profile].zNickname;
+	std::size_t count = 0;
+	for (; count < std::size(source) && source[count]; ++count)
+	{
+		const auto character = static_cast<std::uint32_t>(source[count]);
+		if (count + 1 >= output.size() || character < 32 || character == 127 || character > 0x10ffff ||
+			(character >= 0xd800 && character <= 0xdfff)) { output = {}; return false; }
+		output[count] = source[count];
+	}
+	if (!count || count == std::size(source)) { output = {}; return false; }
+	return true;
+}
+
+CoopSession::FullEngineCoopClientResult FullEngineCoopClientRuntime::requestCampaignHire(
+	std::uint16_t profile, std::uint8_t days, bool buyGear) noexcept
+{
+	if (!campaignReady() || failed() || selfRetirementPending() || retired())
+		return CoopSession::FullEngineCoopClientResult::InvalidState;
+	return impl_->composition->client.requestCampaignHire(profile, days, buyGear);
+}
+
+bool FullEngineCoopClientRuntime::campaignHireFeedback(CoopSession::CoopCampaignHireResult& output, bool& pending) const noexcept
+{
+	output = {}; pending = false;
+	if (!campaignReady() || failed() || selfRetirementPending() || retired()) return false;
+	const auto& client = impl_->composition->client;
+	pending = client.campaignHirePending();
+	const auto* result = client.lastCampaignHireResult();
+	if (!result) return false;
+	output = *result; return true;
+}
+
+bool FullEngineCoopClientRuntime::campaignStatus(CoopSession::CoopCampaignStatus& output,
+	bool& localTimeLeader) const noexcept
+{
+	output = {};
+	localTimeLeader = false;
+	if (!campaignReady() || failed()) return false;
+	const auto* status = impl_->composition->client.campaignStatus();
+	if (!status) return false;
+	output = *status;
+	localTimeLeader = status->timeLeaderReady &&
+		status->timeLeader == impl_->composition->client.peerIdentity();
+	return true;
+}
+
+CoopSession::FullEngineCoopClientResult FullEngineCoopClientRuntime::requestCampaignTime(CoopSession::CoopCampaignTimeAction action) noexcept
+{
+	if (!campaignReady() || failed() || selfRetirementPending() || retired())
+		return CoopSession::FullEngineCoopClientResult::InvalidState;
+	return impl_->composition->client.requestCampaignTime(action);
+}
+
+bool FullEngineCoopClientRuntime::campaignTimeFeedback(CoopSession::CoopCampaignTimeResult& output, bool& pending) const noexcept
+{
+	output = {}; pending = false;
+	if (!campaignReady() || failed() || selfRetirementPending() || retired()) return false;
+	const auto& client = impl_->composition->client;
+	pending = client.campaignTimePending();
+	const auto* result = client.campaignTimeResult();
+	if (!result) return false;
+	output = *result;
+	return true;
+}
+
+CoopSession::FullEngineCoopClientResult FullEngineCoopClientRuntime::requestCampaignAction(
+	const CoopSession::CoopCampaignActionRequest& request) noexcept
+{
+	if (!campaignReady() || failed() || selfRetirementPending() || retired())
+		return CoopSession::FullEngineCoopClientResult::InvalidState;
+	return impl_->composition->client.requestCampaignAction(request);
+}
+
+bool FullEngineCoopClientRuntime::campaignActionFeedback(CoopSession::CoopCampaignActionResult& output,
+	bool& pending) const noexcept
+{
+	output = {}; pending = false;
+	if (!campaignReady() || failed() || selfRetirementPending() || retired()) return false;
+	const auto& client = impl_->composition->client;
+	pending = client.campaignActionPending();
+	const auto* result = client.lastCampaignActionResult();
+	if (!result) return false;
+	output = *result;
+	return true;
 }
 
 bool FullEngineCoopClientRuntime::retired() const noexcept

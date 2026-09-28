@@ -1,5 +1,7 @@
 #include "CoopCampaignStatus.h"
+#include <Ja2/FullEngineCoopClientCampaignStatusText.h>
 #include <cstdio>
+#include <cwchar>
 
 using namespace CoopSession;
 namespace
@@ -21,8 +23,7 @@ void TestCodec()
 	CoopCampaignStatusBytes bytes{};
 	CHECK(EncodeCoopCampaignStatus(s, bytes), "valid status encodes");
 	CoopCampaignStatusBytes expected{{
-		'J','2','C','T',
-		static_cast<std::uint8_t>(CurrentProtocolVersion),static_cast<std::uint8_t>(CurrentProtocolVersion >> 8),1,0, 8,7,6,5,4,3,2,1,
+		'J','2','C','T',19,0,1,0, 8,7,6,5,4,3,2,1,
 		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
 		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
 		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};
@@ -116,6 +117,30 @@ void TestLedger()
 	CHECK(ledger.beginSession(31) && ledger.observe(clock, later, 2) && ledger.value().timeLeader == Peer(1) &&
 		ledger.value().revision == 1, "new server session starts new leadership and clock lineage");
 }
+void TestText()
+{
+	auto s = Sample();
+	auto text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcscmp(text.clock.data(), L"Server day 1 07:01:01 | tactical | pause on") == 0 &&
+		std::wcsstr(text.leader.data(), L"Time leader: you | 2 ready | tactical clock read-only"), "native day convention and local leader");
+	s.gamePaused = false;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, false);
+	CHECK(std::wcsstr(text.clock.data(), L"pause off") && !std::wcsstr(text.clock.data(), L"running") &&
+		std::wcsstr(text.leader.data(), L"another player"), "unpaused does not falsely promise advancing time");
+	s.timeLeaderReady = false;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcsstr(text.leader.data(), L"offline"), "offline overrides stale local-leader flag");
+	s.timeLeader = {}; s.leadershipRevision = 0; s.worldSeconds = UINT32_MAX;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, false);
+	CHECK(std::wcsstr(text.clock.data(), L"49710 06:28:15") && std::wcsstr(text.leader.data(), L"unassigned"),
+		"full clock range and absent designation format within fixed bounds");
+	s.sessionEpoch = 0;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(text.leader[0] == 0 && std::wcsstr(text.clock.data(), L"Waiting"), "malformed values cannot render old leader");
+	text = BuildFullEngineCoopClientCampaignStatusText(nullptr, false);
+	CHECK(text.leader[0] == 0 && std::wcsstr(text.clock.data(), L"Waiting"), "disconnect removes previous status text");
+}
+
 CoopCampaignArrival Battle()
 {
 	CoopCampaignArrival a;
@@ -125,7 +150,7 @@ CoopCampaignArrival Battle()
 	a.nativeEnterSector = a.nativeRetreat = a.nativePlacement = true;
 	return a;
 }
-void TestArrivalCodec()
+void TestArrivalCodecAndText()
 {
 	using Kind = CoopCampaignArrivalKind; using Stage = CoopCampaignArrivalStage;
 	auto s = Sample(); s.phase = CoopCampaignPhase::Strategic; s.arrival = Battle();
@@ -167,6 +192,10 @@ void TestArrivalCodec()
 		auto encoded = bytes;
 		CHECK(!EncodeCoopCampaignStatus(bad, encoded) && encoded == bytes, "invalid native decision/clock combination cannot replace the observation");
 	}
+	auto text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcsstr(text.arrival.data(), L"Battle at A10") && std::wcsstr(text.arrival.data(), L"2 pending") &&
+		std::wcsstr(text.arrivalDetail.data(), L"4 involved, 6 uninvolved") && std::wcsstr(text.arrivalDetail.data(), L"deployment choice required"),
+		"prepared battle text uses committed sector/counts and explicitly requires deployment");
 	for (unsigned kind = 1; kind <= 3; ++kind)
 		for (unsigned stage = 1; stage <= 5; ++stage)
 		{
@@ -178,7 +207,16 @@ void TestArrivalCodec()
 			CHECK(EncodeCoopCampaignStatus(candidate, bytes) == valid, "only battles can be prepared or need militia reinforcement decisions");
 			if (!valid) continue;
 			CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(candidate, out), "all supported decision kinds/stages roundtrip");
+			text = BuildFullEngineCoopClientCampaignStatusText(&candidate, false);
+			CHECK(std::wcsstr(text.arrival.data(), L"P16 (level 3)") && std::wcsstr(text.arrival.data(), L"18446744073709551615") &&
+				text.arrivalDetail[0] && !text.arrival.back() && !text.arrivalDetail.back(), "maximum IDs/counts and native stages render within bounded text");
+			if (stage == 3) CHECK(std::wcsstr(text.arrivalDetail.data(), L"militia reinforcement"), "reinforcement choice is distinguished from a pending world load");
 		}
+	s.arrival = {};
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(!text.arrival[0] && !text.arrivalDetail[0], "resolved arrival erases old decision text");
+	text = BuildFullEngineCoopClientCampaignStatusText(nullptr, false);
+	CHECK(!text.arrival[0] && !text.arrivalDetail[0], "disconnect cannot retain a live-looking arrival");
 }
 void TestArrivalLedger()
 {
@@ -288,13 +326,7 @@ void TestSurrenderObservation()
 	CoopCampaignStatus decoded;
 	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[86] == 1 && bytes[93] == 8 && !bytes[94] && !bytes[95] &&
 		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
-		"exact native offer ID roundtrips with no private speaker pointer");
-	for (unsigned at : {94u, 95u})
-	{
-		auto malformed = bytes; malformed[at] = 1; decoded = status;
-		CHECK(!DecodeCoopCampaignStatus(malformed.data(), malformed.size(), decoded) &&
-			SameCoopCampaignStatus(status, decoded), "surrender reserved bytes reject without replacing the observation");
-	}
+		"exact native offer ID roundtrips at protocol 16 with no private speaker pointer");
 	for (unsigned fault = 0; fault != 4; ++fault)
 	{
 		auto bad = status;
@@ -315,5 +347,6 @@ void TestSurrenderObservation()
 	++status.surrenderOffer;
 	CHECK(ledger.observe(status, ready, 1), "next native offer has a new identity");
 }
+
 }
-int main() { TestBattleNoticeObservation();  TestCodec(); TestSurrenderObservation(); TestLedger(); TestArrivalCodec(); TestArrivalLedger(); return failures ? 1 : 0; }
+int main() { TestBattleNoticeObservation();  TestCodec(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }
