@@ -1359,6 +1359,7 @@ struct FullEngineCoopClientCampaignScratch::Impl
 	NativeFileIdentity stagingIdentity{};
 	CoopCampaignSyncMetadata stagingMetadata{};
 	CoopCampaignSyncMetadata activeMetadata{};
+	PassiveCampaignView activeView;
 	DedicatedCampaignSlot stagingSlot = DedicatedCampaignSlot::A;
 	std::uint64_t written = 0;
 	DedicatedCampaignSlot activeSlot = DedicatedCampaignSlot::A;
@@ -1954,19 +1955,24 @@ FullEngineCoopClientCampaignScratch::commitAndLoad(
 			impl_->backend.checkpointPath(impl_->stagingSlot),
 			metadata.transfer.totalSize, metadata.transfer.checkpointSha256))
 		return FullEngineCoopCampaignScratchCommitResult::StorageFailure;
-	if (!ValidateDedicatedCampaignGame(impl_->stagingSlot))
+	PassiveCampaignView view;
+	if (PreparePassiveDedicatedCampaignCheckpoint(impl_->stagingSlot, metadata.worldMinutes, view) !=
+		PassiveCampaignPreparationResult::Ready)
 		return FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch;
-	if (!LoadDedicatedCampaignGame(impl_->stagingSlot))
-	{
-		impl_->failStopped = true;
-		return FullEngineCoopCampaignScratchCommitResult::LoadFailed;
-	}
+	// The owned view and file identity publish together only after side-effect-free
+	// preparation. No authority loader, native world teardown or RNG restore runs.
+	impl_->activeView = std::move(view);
 	impl_->activeSlot = impl_->stagingSlot;
 	impl_->activeGeneration = metadata.transfer.checkpointGeneration;
 	impl_->activeMetadata = metadata;
 	impl_->hasActive = true;
 	ClearTransfer(*impl_);
 	return FullEngineCoopCampaignScratchCommitResult::Committed;
+}
+
+const PassiveCampaignView* FullEngineCoopClientCampaignScratch::activeView() const noexcept
+{
+	return impl_ && impl_->hasActive ? &impl_->activeView : nullptr;
 }
 
 void FullEngineCoopClientCampaignScratch::abort() noexcept

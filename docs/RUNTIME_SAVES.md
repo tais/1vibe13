@@ -79,6 +79,39 @@ The native schedule test uses a real disk container with an opaque domain
 prefix and production schedule, event, and RNG state. It checks restoration,
 malformed payload rejection, and the legacy reconstruction negative control;
 it does not qualify a full installed `SaveGame`/`LoadSavedGame` round trip.
+### Passive campaign display projection
+
+New dedicated saves contain `PCVW`, an owned passive-client projection. Version 1
+uses little-endian integers: a 20-byte header contains version (u32), world kind
+(u8: strategic 1 or tactical 2), sector X/Y/Z (u8 each), map rows/columns (u16
+each), world minutes (u32), profile count (u16), and reserved zero (u16).
+Each 130-byte profile record contains its ID (u16) and 32 Unicode scalar values
+(u32 each), terminated and padded with zeros. At most 255 strictly ordered,
+unique IDs below 255 are accepted. Nonempty names must fit a 32-unit UTF-16
+display buffer including the terminator; malformed scalars and control values
+below 32 or equal to 127 are rejected. Strategic descriptors have zero sector
+and dimensions; tactical descriptors use X/Y 1–16, Z 0–3 and dimensions 1–2000.
+The maximum payload is 33,170 bytes.
+
+Passive clients require this section, exact transferred world minutes, and the
+existing strict runtime/package compatibility preflight. They publish the
+owned projection only after the preflight transaction rolls back cleanly.
+They never load the authority domain, restore its RNG/frame state, or create
+and then unload a native tactical world. AIM labels use the owned catalog;
+live roster, portrait, rendering, campaign and inventory data remain supplied
+by their existing authoritative snapshots.
+
+Native host loading still accepts older containers without `PCVW`. Before
+admitting peers, an already supported cold strategic resume with a missing
+projection goes through the existing eligibility checks and atomic checkpoint
+publication to produce a new generation. A failed refresh retains the previous
+durable generation. Present malformed projections reject during preflight.
+Runtime fingerprints are unchanged. Same-protocol older clients reject PCVW
+at the strict unknown-section check before authority loading; newer clients
+reject checkpoints without PCVW. They may connect before this late compatibility
+rejection. A session protocol bump in another feature does not distinguish two
+builds sharing that protocol. This descriptor does not enable tactical
+checkpoint eligibility or active battle resume.
 
 ## Trailer
 

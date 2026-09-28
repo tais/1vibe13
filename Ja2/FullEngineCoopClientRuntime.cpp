@@ -4,7 +4,6 @@
 #include "FullEngineCoopClientCampaignScratch.h"
 #include "FullEngineCoopClientOptions.h"
 #include "GameContext.h"
-#include "Soldier Profile.h"
 #include "random.h"
 
 #include <Multiplayer/FullEngineCoopCampaignSyncClient.h>
@@ -794,20 +793,11 @@ bool FullEngineCoopClientRuntime::campaignAimQuotes(CoopSession::CoopCampaignAim
 bool FullEngineCoopClientRuntime::campaignProfileNickname(std::uint16_t profile, std::array<wchar_t,32>& output) const noexcept
 {
 	output = {};
-	if (!campaignReady() || failed() || profile >= NUM_PROFILES) return false;
+	if (!campaignReady() || failed()) return false;
 	const auto* quotes = impl_->composition->client.campaignAimQuotes();
 	if (!quotes || !CoopSession::FindCoopCampaignAimQuote(*quotes,profile)) return false;
-	const auto& source = gMercProfiles[profile].zNickname;
-	std::size_t count = 0;
-	for (; count < std::size(source) && source[count]; ++count)
-	{
-		const auto character = static_cast<std::uint32_t>(source[count]);
-		if (count + 1 >= output.size() || character < 32 || character == 127 || character > 0x10ffff ||
-			(character >= 0xd800 && character <= 0xdfff)) { output = {}; return false; }
-		output[count] = source[count];
-	}
-	if (!count || count == std::size(source)) { output = {}; return false; }
-	return true;
+	const auto* view = impl_->scratch.activeView();
+	return view && PassiveCampaignNickname(*view, profile, output);
 }
 
 CoopSession::FullEngineCoopClientResult FullEngineCoopClientRuntime::requestCampaignHire(

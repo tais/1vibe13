@@ -2224,10 +2224,25 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (starterState == DedicatedCoopStarterCampaignState::EstablishedCold ||
 			starterState == DedicatedCoopStarterCampaignState::EstablishedStrategicCold)
 			impl_->arrivalDecisions.enableEstablishedAimArrivals();
-		// The complete roster and its pending arrival events become durable before
-		// admission or campaign transfer can expose this campaign to any peer. An
-		// exact prepared resume already is that artifact and is left byte-for-byte
-		// unchanged here.
+		if (!rosterCheckpointRequired)
+		{
+			const auto* stored = impl_->boot.campaignState();
+			PassiveCampaignView view;
+			const auto prepared = stored && stored->hasCheckpoint
+				? PreparePassiveDedicatedCampaignCheckpoint(stored->activeSlot, GetWorldTotalMin(), view)
+				: PassiveCampaignPreparationResult::InvalidCheckpoint;
+			if (prepared == PassiveCampaignPreparationResult::MissingView)
+				rosterCheckpointRequired = true;
+			else if (prepared != PassiveCampaignPreparationResult::Ready)
+			{
+				impl_->fail(DedicatedCoopRuntimeError::CampaignEntryFailed);
+				return;
+			}
+		}
+		// Publish prepared roster changes or a missing passive projection before
+		// admission. checkpointNow rechecks the unchanged strategic eligibility
+		// policy and atomically publishes a new generation; failure retains the
+		// previous committed file. Exact resumes already containing PCVW stay intact.
 		if (rosterCheckpointRequired && !impl_->checkpointNow(context, true))
 		{
 			return;
