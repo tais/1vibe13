@@ -9713,7 +9713,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 8)
+if(NOT dedicated_live_authority_write_call_count EQUAL 9)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -9727,7 +9727,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 8)
+if(NOT dedicated_live_authority_read_call_count EQUAL 9)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()

@@ -488,6 +488,8 @@ INT16 GetStealthBonus( OBJECTTYPE * pObj );
 INT16 GetBasicStealthBonus( OBJECTTYPE * pObj );
 
 void ApplyEquipmentBonuses(TacticalActor * pSoldier);
+// Reports failed native palette continuation; failure can follow mutation.
+[[nodiscard]] bool ApplyEquipmentBonusesChecked(TacticalActor& soldier);
 
 INT16 GetGearAimBonus( TacticalActor * pSoldier, INT32 iRange, INT16 ubAimTime);
 INT16 GetGearToHitBonus( TacticalActor * pSoldier );

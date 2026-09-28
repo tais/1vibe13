@@ -12951,7 +12951,14 @@ INT16 GetWornSnowCamo( TacticalActor * pSoldier )
 
 void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 {
-	if ( pSoldier == NULL) return;
+	if ( pSoldier != NULL )
+		(void)ApplyEquipmentBonusesChecked(*pSoldier);
+}
+
+bool ApplyEquipmentBonusesChecked(TacticalActor& soldier)
+{
+	TacticalActor* const pSoldier = &soldier;
+	bool complete = true;
 
 	INT16 newCamo = GetWornCamo ( pSoldier );
 	INT16 oldCamo = pSoldier->camouflage().jungleWorn();
@@ -12981,13 +12988,13 @@ void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
+			complete = TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	else if ( (newCamo < oldCamo || newUrbanCamo < oldUrbanCamo || newDesertCamo < oldDesertCamo || newSnowCamo < oldSnowCamo )&& pSoldier->roster().team() == OUR_TEAM )
 	{
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
+			complete = TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	// WANNE: Madd, I commented this, because this leads to IRAs INVISIBLE BUG!
 	// We should only call the CreateSoldierPalettes if oldCamo != newCamo. See above!
@@ -13007,6 +13014,7 @@ void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 	*/
 
 	fInterfacePanelDirty = DIRTYLEVEL2;
+	return complete;
 }
 
 UINT16 GetFirstExplosiveOfType(UINT16 expType)
