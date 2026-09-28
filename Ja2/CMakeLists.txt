@@ -34,6 +34,8 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedServerOptions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientCampaignScratch.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientController.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientPresentationInventory.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientPresentationInventoryNative.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientOptions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientPresentationActorDirectory.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FullEngineCoopClientRuntime.cpp"

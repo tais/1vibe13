@@ -705,3 +705,15 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventorySwap(
 	inventorySourceRevision_ = 0;
 	return result;
 }
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::clickInventorySlot(
+	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
+{
+	(void)inspectInventorySlot(view, slot);
+	if (inventorySourceSlot_ == 0xffff || inventorySourceSlot_ == slot)
+	{
+		(void)selectInventorySource(view, slot);
+		return {};
+	}
+	return inventorySwap(view, slot);
+}
