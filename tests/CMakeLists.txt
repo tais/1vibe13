@@ -93,6 +93,14 @@ add_test(NAME coop_campaign_bootstrap_protocol
 
 # Campaign observations and serialized command authorities are standalone
 # contracts. Native gameplay callbacks and client input stay outside these tests.
+add_executable(coop_campaign_meanwhile_tests
+  coop_campaign_meanwhile_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_meanwhile_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer ${CMAKE_SOURCE_DIR})
+target_compile_features(coop_campaign_meanwhile_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_meanwhile COMMAND coop_campaign_meanwhile_tests)
+
 add_executable(coop_campaign_status_tests
   coop_campaign_status_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)

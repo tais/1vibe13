@@ -1554,7 +1554,7 @@ the engine must not contain SDL types in its public domain model.
   entry detaches the runtime-message sink before the game entry destroys
   `GameContext`; an exceptional `DispatchInProgress` result stops transport and
   intentionally leaks the still-live composition rather than freeing an active
-  callback target. The authoritative server path uses global co-op protocol v9
+  callback target. The authoritative server path uses global co-op protocol v19
   and is wired through campaign sync and nine tactical intents: move, face,
   stance, stop, end turn, exact-target aimed single-shot firearm attack, and
   selected-actor reload, plus synchronous visible adjacent-door open/close and

@@ -398,7 +398,7 @@ will revive them:
   `--dedicated-coop-port` endpoint, defaulting to `0.0.0.0:60005`. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v9 and
+  authentication. The dedicated runtime uses global co-op protocol v19 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
   fresh-baseline-gated actor assignment, including grow-only late peers, nine-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent

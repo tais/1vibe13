@@ -8,7 +8,9 @@
 
 namespace CoopSession
 {
-constexpr std::uint16_t CurrentProtocolVersion = 9;
+// Version 19 adds an explicit shared Skip for held native Meanwhile scenes.
+// Reject mismatched clients before transferring campaign state.
+constexpr std::uint16_t CurrentProtocolVersion = 19;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

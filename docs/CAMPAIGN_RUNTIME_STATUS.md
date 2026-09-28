@@ -440,7 +440,7 @@ not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v9 execution of nine JA2 command
+  tactical observer, and global co-op protocol-v19 execution of nine JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a
@@ -475,7 +475,7 @@ result. Global `AuthoritySequenceExhausted` reason 20 instead consumes the peer
 cursor: the server stays active to flush its terminal receipt, then the client
 records the exact receipt history/cursor before failing and closing.
 
-Global co-op protocol-v9 retains voluntary self-retirement with exact 24-byte
+Global co-op protocol-v19 retains voluntary self-retirement with exact 24-byte
 request and 48-byte result shapes. The request carries version, epoch, and
 request ID only; the authenticated transport resolves its own identity, so
 there is no client-provided victim. Begin atomically reserves bounded same-epoch
