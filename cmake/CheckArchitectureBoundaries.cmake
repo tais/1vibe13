@@ -11695,6 +11695,13 @@ foreach(dedicated_live_client_inbound_name IN ITEMS
     "CoopTacticalBaselineMessageName"
     "CoopTacticalDeltaMessageName"
     "CoopTacticalIntentReceiptMessageName"
+    "CoopCampaignStatusMessageName"
+    "CoopCampaignGroupsMessageName"
+    "CoopCampaignTimeResultMessageName"
+    "CoopCampaignActionResultMessageName"
+    "CoopCampaignEconomyMessageName"
+    "CoopCampaignAimQuotesMessageName"
+    "CoopCampaignHireResultMessageName"
     "CoopAdmissionSelfRetirementResultMessageName"
     "CoopCampaignSyncMetadataMessageName"
     "CoopCampaignSyncChunkMessageName"
@@ -11716,9 +11723,9 @@ string(REGEX MATCHALL "RegisterMessage\\("
   "${dedicated_live_client_transport_register_slice}")
 list(LENGTH dedicated_live_client_inbound_handlers
   dedicated_live_client_inbound_handler_count)
-if(NOT dedicated_live_client_inbound_handler_count EQUAL 10)
+if(NOT dedicated_live_client_inbound_handler_count EQUAL 17)
   message(FATAL_ERROR
-    "Co-op client transport must register exactly ten inbound handlers")
+    "Co-op client transport must register exactly seventeen inbound handlers")
 endif()
 
 set(dedicated_live_client_transport_outbound_marker
@@ -11752,14 +11759,20 @@ require_ordered_fragments(dedicated_live_client_transport_outbound_slice
   "CoopCampaignSyncResultWireSize"
   "CoopCampaignSyncResyncMessageName"
   "CoopCampaignSyncResyncWireSize"
+  "CoopCampaignTimeRequestMessageName"
+  "CoopCampaignTimeRequestWireSize"
+  "CoopCampaignActionRequestMessageName"
+  "CoopCampaignActionRequestWireSize"
+  "CoopCampaignHireRequestMessageName"
+  "CoopCampaignHireRequestWireSize"
   "return false")
 string(REGEX MATCHALL "SameName\\(" dedicated_live_client_outbound_names
   "${dedicated_live_client_transport_outbound_slice}")
 list(LENGTH dedicated_live_client_outbound_names
   dedicated_live_client_outbound_name_count)
-if(NOT dedicated_live_client_outbound_name_count EQUAL 11)
+if(NOT dedicated_live_client_outbound_name_count EQUAL 14)
   message(FATAL_ERROR
-    "Co-op client transport must admit exactly eleven outbound namespaces")
+    "Co-op client transport must admit exactly fourteen outbound namespaces")
 endif()
 
 set(dedicated_live_client_transport_callback_marker
@@ -11823,6 +11836,23 @@ require_ordered_fragments(dedicated_live_client_transport_inbound_validation_sli
   "InboundKind::ServerHello"
   "InboundKind::TacticalReceipt"
   "MaximumCoopTacticalWireSize"
+  "InboundKind::CampaignStatus"
+  "CoopCampaignStatusWireSize"
+  "InboundKind::CampaignGroups"
+  "CoopCampaignGroupsHeaderSize"
+  "MaximumCoopCampaignGroupsWireSize"
+  "InboundKind::CampaignTimeResult"
+  "CoopCampaignTimeResultWireSize"
+  "InboundKind::CampaignActionResult"
+  "CoopCampaignActionResultWireSize"
+  "InboundKind::CampaignEconomy"
+  "CoopCampaignEconomyHeaderSize"
+  "MaximumCoopCampaignEconomyWireSize"
+  "InboundKind::CampaignAimQuotes"
+  "CoopCampaignAimQuotesHeaderSize"
+  "MaximumCoopCampaignAimQuotesWireSize"
+  "InboundKind::CampaignHireResult"
+  "CoopCampaignHireResultWireSize"
   "InboundKind::CampaignMetadata"
   "CoopCampaignSyncMetadataWireSize"
   "InboundKind::CampaignChunk"
