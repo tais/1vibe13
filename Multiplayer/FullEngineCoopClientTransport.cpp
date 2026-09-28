@@ -276,13 +276,6 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 		return false;
 	}
 
-	std::size_t pending = 0;
-	if (!transport_->PendingWriteBytes(server_, pending))
-	{
-		failTransport(
-			FullEngineCoopClientTransportFailure::TransportFailure);
-		return false;
-	}
 	const std::size_t nameSize = std::strlen(messageName);
 	if (nameSize > maximumPendingWriteBytes_ ||
 		size > maximumPendingWriteBytes_ - nameSize ||
@@ -295,6 +288,16 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 	}
 	const std::size_t frameSize =
 		SdlMessageFrameOverhead + nameSize + size;
+	std::size_t pending = 0;
+	if (!transport_->PendingWriteBytes(server_, pending))
+	{
+		// The endpoint and outbound frame were validated above. At this point
+		// a missing socket or a failed socket query means the connection died,
+		// even if its queued disconnect event has not reached poll() yet.
+		failTransport(
+			FullEngineCoopClientTransportFailure::ConnectionLost);
+		return false;
+	}
 	if (pending > maximumPendingWriteBytes_ ||
 		frameSize > maximumPendingWriteBytes_ - pending)
 	{
@@ -302,9 +305,21 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 			FullEngineCoopClientTransportFailure::PendingWriteLimit);
 		return false;
 	}
-	if (!transport_->SendMessage(
-		messageName, bytes, size, server_, false))
+	try
 	{
+		if (!transport_->SendMessage(
+			messageName, bytes, size, server_, false))
+		{
+			failTransport(
+				FullEngineCoopClientTransportFailure::ConnectionLost);
+			return false;
+		}
+	}
+	catch (...)
+	{
+		// Allocation/implementation failures are not evidence of socket loss.
+		// Preserve fail-closed behavior instead of terminating this noexcept API
+		// or silently treating a local failure as a reconnectable connection.
 		failTransport(
 			FullEngineCoopClientTransportFailure::TransportFailure);
 		return false;
@@ -357,6 +372,12 @@ void FullEngineCoopClientTransport::HandleSelfRetirementResult(
 	ja2::mp::net::SdlNetMessage* message, void* context)
 {
 	QueueFromCallback(message, context, InboundKind::SelfRetirementResult);
+}
+
+void FullEngineCoopClientTransport::HandleOwnerInventory(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::OwnerInventory);
 }
 
 void FullEngineCoopClientTransport::HandleCampaignGroups(
@@ -601,6 +622,8 @@ FullEngineCoopClientResult FullEngineCoopClientTransport::deliver(
 		case InboundKind::TacticalReceipt:
 			return client_->receiveIntentReceipt(
 				message.bytes.data(), message.size);
+		case InboundKind::OwnerInventory:
+			return client_->receiveOwnerInventory(message.bytes.data(), message.size);
 		case InboundKind::CampaignStatus:
 			return client_->receiveCampaignStatus(message.bytes.data(), message.size);
 		case InboundKind::CampaignGroups:
@@ -680,8 +703,18 @@ void FullEngineCoopClientTransport::finishClose() noexcept
 {
 	if (!closePending_ || pollDepth_ != 0 || handlerDepth_ != 0) return;
 	FullEngineCoopClient* const client = client_;
-	const bool notifyClient = notifyClientOnClose_ &&
-		!preserveClientStateOnClose_;
+	// The passive core reports any failed bool send as WireFailure and closes
+	// its wire. When a validated socket operation detected a lost connection,
+	// that close must not suppress the deferred disconnect notification. Only
+	// normalize this exact failure after every callback/core transition unwinds;
+	// malformed messages, queue limits, storage failures and retirement remain
+	// governed by their existing fail-closed/explicit-close state transitions.
+	const bool lostDuringSend = client != nullptr &&
+		lastFailure_ == FullEngineCoopClientTransportFailure::ConnectionLost &&
+		client->state() == FullEngineCoopClientState::Failed &&
+		client->lastResult() == FullEngineCoopClientResult::WireFailure;
+	const bool notifyClient = lostDuringSend ||
+		(notifyClientOnClose_ && !preserveClientStateOnClose_);
 	const unsigned drainMilliseconds = pendingDrainMilliseconds_;
 
 	running_ = false;
@@ -726,6 +759,8 @@ bool FullEngineCoopClientTransport::registerMessages() noexcept
 				&FullEngineCoopClientTransport::HandleTacticalDelta, this) &&
 			transport_->RegisterMessage(CoopTacticalIntentReceiptMessageName,
 				&FullEngineCoopClientTransport::HandleTacticalReceipt, this) &&
+			transport_->RegisterMessage(CoopOwnerInventoryMessageName,
+				&FullEngineCoopClientTransport::HandleOwnerInventory, this) &&
 			transport_->RegisterMessage(CoopCampaignStatusMessageName,
 				&FullEngineCoopClientTransport::HandleCampaignStatus, this) &&
 			transport_->RegisterMessage(CoopCampaignGroupsMessageName,
@@ -776,6 +811,8 @@ bool FullEngineCoopClientTransport::validInbound(
 			return size <= MaximumCoopTacticalWireSize;
 		case InboundKind::SelfRetirementResult:
 			return size == AdmissionSelfRetirementResultWireSize;
+		case InboundKind::OwnerInventory:
+			return size >= CoopOwnerInventoryHeaderWireSize && size <= MaximumCoopOwnerInventoryWireSize;
 		case InboundKind::CampaignStatus:
 			return size == CoopCampaignStatusWireSize;
 		case InboundKind::CampaignGroups:

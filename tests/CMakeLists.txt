@@ -206,6 +206,7 @@ add_executable(full_engine_coop_socket_e2e_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncClient.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncServer.cpp
@@ -548,6 +549,7 @@ add_executable(full_engine_coop_client_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp)
 target_include_directories(full_engine_coop_client_tests PRIVATE
   ${CMAKE_SOURCE_DIR}
@@ -566,6 +568,7 @@ add_executable(full_engine_coop_client_transport_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp)
 target_include_directories(full_engine_coop_client_transport_tests PRIVATE
@@ -577,6 +580,31 @@ target_compile_features(full_engine_coop_client_transport_tests PRIVATE
   cxx_std_17)
 add_test(NAME full_engine_coop_client_transport
   COMMAND full_engine_coop_client_transport_tests)
+
+# Deterministic ACK-write loss exercises the real adapter and passive core
+# while substituting only the opaque socket peer at link time. Do not link
+# SdlNetTransport here: no production hooks or OS disconnect timing are used.
+add_executable(full_engine_coop_client_transport_ack_failure_tests
+  full_engine_coop_client_transport_ack_failure_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp)
+target_include_directories(full_engine_coop_client_transport_ack_failure_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_client_transport_ack_failure_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_transport_ack_failure_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_transport_ack_failure
+  COMMAND full_engine_coop_client_transport_ack_failure_tests)
+# Existing explicit CI builds of the real transport suite also exercise
+# deterministic ACK-write failures without a second workflow target list.
+add_dependencies(full_engine_coop_client_transport_tests
+  full_engine_coop_client_transport_ack_failure_tests)
 
 # The one-shot outbound preflight obtains the immutable campaign seed and
 # identity after SDL initialization but before any RNG/GameContext observation.

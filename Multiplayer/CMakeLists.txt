@@ -24,6 +24,7 @@ add_library(Multiplayer STATIC
   "CoopCampaignBootstrapProtocol.cpp"
   "CoopCampaignSyncProtocol.cpp"
   "CoopHandshakeProtocol.cpp"
+  "CoopInventoryProtocol.cpp"
   "CoopSessionProtocol.cpp"
   "CoopTacticalAuthority.cpp"
   "CoopTacticalIntent.cpp"

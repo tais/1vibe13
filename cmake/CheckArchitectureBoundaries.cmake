@@ -11735,6 +11735,7 @@ foreach(dedicated_live_client_inbound_name IN ITEMS
     "CoopTacticalBaselineMessageName"
     "CoopTacticalDeltaMessageName"
     "CoopTacticalIntentReceiptMessageName"
+    "CoopOwnerInventoryMessageName"
     "CoopCampaignStatusMessageName"
     "CoopCampaignGroupsMessageName"
     "CoopCampaignTimeResultMessageName"
@@ -11763,9 +11764,9 @@ string(REGEX MATCHALL "RegisterMessage\\("
   "${dedicated_live_client_transport_register_slice}")
 list(LENGTH dedicated_live_client_inbound_handlers
   dedicated_live_client_inbound_handler_count)
-if(NOT dedicated_live_client_inbound_handler_count EQUAL 17)
+if(NOT dedicated_live_client_inbound_handler_count EQUAL 18)
   message(FATAL_ERROR
-    "Co-op client transport must register exactly seventeen inbound handlers")
+    "Co-op client transport must register exactly eighteen inbound handlers")
 endif()
 
 set(dedicated_live_client_transport_outbound_marker
@@ -11876,6 +11877,9 @@ require_ordered_fragments(dedicated_live_client_transport_inbound_validation_sli
   "InboundKind::ServerHello"
   "InboundKind::TacticalReceipt"
   "MaximumCoopTacticalWireSize"
+  "InboundKind::OwnerInventory"
+  "CoopOwnerInventoryHeaderWireSize"
+  "MaximumCoopOwnerInventoryWireSize"
   "InboundKind::CampaignStatus"
   "CoopCampaignStatusWireSize"
   "InboundKind::CampaignGroups"
@@ -11930,15 +11934,23 @@ extract_brace_bounded_slice(dedicated_live_client_transport_code
   dedicated_live_client_transport_send_slice
   "Cannot bound co-op client outbound backpressure")
 require_ordered_fragments(dedicated_live_client_transport_send_slice
-  "Co-op client pending-write limit no longer fails before send"
+  "Co-op client frame/queue bounds or socket-loss failure classification changed"
   "validOutbound(messageName, size)"
-  "transport_->PendingWriteBytes(server_, pending)"
+  "nameSize > maximumPendingWriteBytes_"
+  "size > maximumPendingWriteBytes_ - nameSize"
+  "maximumPendingWriteBytes_ - nameSize - size"
+  "FullEngineCoopClientTransportFailure::PendingWriteLimit"
   "SdlMessageFrameOverhead + nameSize + size"
+  "transport_->PendingWriteBytes(server_, pending)"
+  "FullEngineCoopClientTransportFailure::ConnectionLost"
   "pending > maximumPendingWriteBytes_"
   "frameSize > maximumPendingWriteBytes_ - pending"
   "FullEngineCoopClientTransportFailure::PendingWriteLimit"
   "transport_->SendMessage("
-  "messageName, bytes, size, server_, false)")
+  "messageName, bytes, size, server_, false)"
+  "FullEngineCoopClientTransportFailure::ConnectionLost"
+  "catch (...)"
+  "FullEngineCoopClientTransportFailure::TransportFailure")
 
 foreach(dedicated_live_no_legacy_pvp_call IN ITEMS
     "NetworkAutoStart("

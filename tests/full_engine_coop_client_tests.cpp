@@ -2285,8 +2285,200 @@ void TestCampaignArrivalLifecycle()
 }
 }
 
+namespace
+{
+CoopOwnerInventorySnapshot OwnerInventory(const PeerIdentity& peer, std::uint64_t baseline = 1)
+{
+	CoopOwnerInventorySnapshot snapshot;
+	snapshot.sessionEpoch = 901;
+	snapshot.worldGeneration = 11;
+	snapshot.baselineId = baseline;
+	snapshot.inventoryRevision = 1;
+	snapshot.owner = peer;
+	snapshot.actor = {1, 1};
+	snapshot.usesNewInventory = true;
+	snapshot.slots = {{0, 0, 0, 0, CoopInventorySlotSupport::Empty},
+		{1, 91, 3, 95, CoopInventorySlotSupport::OrdinarySwappable,
+			CoopInventoryStatusKind::MedicalKitPoints, 210}};
+	return snapshot;
+}
+
+FullEngineCoopClientResult DeliverInventory(Harness& harness, const CoopOwnerInventorySnapshot& snapshot)
+{
+	std::vector<std::uint8_t> bytes;
+	CHECK(EncodeCoopOwnerInventorySnapshot(snapshot, bytes) == CoopInventoryCodecResult::Success,
+		"private client fixture encodes");
+	return harness.client.receiveOwnerInventory(bytes.data(), bytes.size());
+}
+
+void TestPrivateOwnerInventory()
+{
+	const auto configuration = Configuration();
+	const auto peer = Identity(10);
+	const auto token = Token(30);
+	Harness harness;
+	ReachBaseline(harness, configuration, 901, peer, token);
+	auto snapshot = OwnerInventory(peer);
+	snapshot.groundGrid = 1001;
+	snapshot.groundLevel = 0;
+	snapshot.groundItems = {{{19, 3}, {0, 45, 2, 93, CoopInventorySlotSupport::OrdinarySwappable,
+		CoopInventoryStatusKind::MedicalKitPoints, 170}}};
+	snapshot.nearbyLoot = {{1002, 0, false}, {1163, 0, true}};
+	CHECK(DeliverInventory(harness, snapshot) == FullEngineCoopClientResult::Success &&
+		!harness.client.ownerInventory(snapshot.actor), "pre-baseline private frames cannot activate an inventory view");
+	Activate(harness, 901);
+	const auto wireCount = harness.wire.messages.size();
+	CHECK(DeliverInventory(harness, snapshot) == FullEngineCoopClientResult::Success &&
+		harness.client.ownerInventory(snapshot.actor) && *harness.client.ownerInventory(snapshot.actor) == snapshot &&
+		harness.replica.baselineCalls == 1 && harness.replica.deltaCalls == 0 && harness.wire.messages.size() == wireCount,
+		"private full replacement neither enters public replica nor emits a new ACK protocol");
+	auto newer = snapshot;
+	newer.inventoryRevision = 2;
+	newer.slots[1].resourceTotal = 205;
+	newer.nearbyLoot[1].hasMedicalKit = false;
+	CHECK(DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success &&
+		harness.client.ownerInventory(snapshot.actor) && *harness.client.ownerInventory(snapshot.actor) == newer &&
+		harness.client.ownerInventory(snapshot.actor)->slots[1].firstCondition == snapshot.slots[1].firstCondition &&
+		harness.client.acceptedState().revision == 2,
+		"total-only private replacement copies exact typed metrics without changing first status or public revision");
+	CHECK(DeliverInventory(harness, snapshot) == FullEngineCoopClientResult::Success &&
+		DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success &&
+		*harness.client.ownerInventory(snapshot.actor) == newer,
+		"old and identical private frames are harmless idempotent input");
+	Activate(harness, 901, 1, 11, 2, 3, 2);
+	CHECK(!harness.client.ownerInventory(snapshot.actor) &&
+		DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success &&
+		!harness.client.ownerInventory(snapshot.actor), "replacement baseline clears private cache and ignores late old-baseline state");
+	newer.baselineId = 2;
+	CHECK(DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success &&
+		harness.client.ownerInventory(newer.actor) && *harness.client.ownerInventory(newer.actor) == newer,
+		"same native inventory revision repopulates exact typed resources only under new baseline identity");
+	CHECK(harness.client.receiveDelta(nullptr, 0) == FullEngineCoopClientResult::ResyncRequired &&
+		!harness.client.ownerInventory(newer.actor) && DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success &&
+		!harness.client.ownerInventory(newer.actor), "resync clears owner view and in-flight frames cannot resurrect it");
+	Activate(harness, 901, 1, 11, 2, 3, 3);
+	newer.baselineId = 3;
+	CHECK(DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success, "private resync snapshot commits");
+	CHECK(harness.client.requestSelfRetirement() == FullEngineCoopClientResult::Success &&
+		!harness.client.ownerInventory(newer.actor), "retiring client hides private controls");
+	newer.inventoryRevision = 3;
+	newer.slots[1].resourceTotal = 190;
+	CHECK(DeliverInventory(harness, newer) == FullEngineCoopClientResult::Success,
+		"in-flight private replacement may be retained invisibly while retirement is pending");
+	const auto rejected = RetirementResultBytes(901, harness.client.selfRetirementRequestId(), peer,
+		AdmissionSelfRetirementResultCode::TombstoneCapacityReached);
+	CHECK(harness.client.receiveSelfRetirementResult(rejected.data(), rejected.size()) == FullEngineCoopClientResult::SelfRetirementRejected &&
+		harness.client.ownerInventory(newer.actor) && *harness.client.ownerInventory(newer.actor) == newer,
+		"rejected retirement restores exact latest private metrics without requiring a never-scheduled resend");
+	harness.client.transportDisconnected();
+	CHECK(!harness.client.ownerInventory(newer.actor), "disconnect immediately removes private owner state");
+	ReachBaseline(harness, configuration, 901, peer, token, false);
+	Activate(harness, 901, 1, 11, 2, 3, 4);
+	CHECK(!harness.client.ownerInventory(newer.actor), "reconnect does not retain prior private data");
+}
+
+void TestPrivateOwnerInventoryRejectsForeignAndConflictingFrames()
+{
+	for (unsigned scenario = 0; scenario < 16; ++scenario)
+	{
+		Harness harness;
+		const auto peer = Identity(10);
+		ReachBaseline(harness, Configuration(), 901, peer, Token(30));
+		Activate(harness, 901);
+		auto original = OwnerInventory(peer);
+		original.groundGrid = 1001;
+		original.groundLevel = 0;
+		original.groundItems = {{{19, 3}, {0, 45, 2, 93, CoopInventorySlotSupport::OrdinarySwappable,
+			CoopInventoryStatusKind::MedicalKitPoints, 170}}};
+		original.nearbyLoot = {{1002, 0, false}, {1163, 0, true}};
+		CHECK(DeliverInventory(harness, original) == FullEngineCoopClientResult::Success, "private adversarial fixture commits");
+		auto invalid = original;
+		switch (scenario)
+		{
+			case 0: invalid.owner = Identity(11); break;
+			case 1: ++invalid.sessionEpoch; break;
+			case 2: ++invalid.worldGeneration; break;
+			case 3: ++invalid.baselineId; break;
+			case 4: ++invalid.actor.incarnation; break;
+			case 5: invalid.usesNewInventory = false; break;
+			case 6: --invalid.slots[1].resourceTotal; break;
+			case 7: invalid.slots[1].statusKind = CoopInventoryStatusKind::ToolKitPoints; break;
+			case 8: ++invalid.groundGrid; break;
+			case 9: invalid.groundLevel = 1;
+				for (auto& marker : invalid.nearbyLoot) marker.level = 1;
+				break;
+			case 10: ++invalid.groundItems[0].id.incarnation; break;
+			case 11: --invalid.groundItems[0].summary.resourceTotal; break;
+			case 12: invalid.nearbyLoot[1].hasMedicalKit = false; break;
+			case 13: ++invalid.nearbyLoot[0].grid; break;
+			case 14: ++invalid.inventoryRevision; invalid.nearbyLoot.back().grid = 160 * 160; break;
+			case 15: ++invalid.inventoryRevision; invalid.nearbyLoot[0].grid = 1014; break;
+		}
+		CHECK(DeliverInventory(harness, invalid) != FullEngineCoopClientResult::Success &&
+			harness.client.state() == FullEngineCoopClientState::Failed && !harness.client.ownerInventory(original.actor),
+			"foreign/future/exact-actor mismatch or same-revision changed mode/typed metrics fails closed and clears owner state");
+	}
+}
+
+void TestPrivateInventoryMalformedPayloadsAndReassignment()
+{
+	for (unsigned fault = 0; fault < 5; ++fault)
+	{
+		Harness harness;
+		const auto peer = Identity(10);
+		ReachBaseline(harness, Configuration(), 901, peer, Token(30));
+		Activate(harness, 901);
+		auto inventory = OwnerInventory(peer);
+		inventory.slots.resize(MaximumCoopInventorySlots);
+		for (std::size_t index = 2; index < inventory.slots.size(); ++index)
+			inventory.slots[index].slot = static_cast<std::uint16_t>(index);
+		CHECK(DeliverInventory(harness, inventory) == FullEngineCoopClientResult::Success &&
+			harness.client.ownerInventory(inventory.actor)->slots.size() == MaximumCoopInventorySlots,
+			"maximum bounded slot replacement is retained without public simulation");
+		std::vector<std::uint8_t> bytes;
+		CHECK(EncodeCoopOwnerInventorySnapshot(inventory, bytes) == CoopInventoryCodecResult::Success,
+			"maximum private fixture encodes");
+		if (fault == 0) bytes.pop_back();
+		if (fault == 1) bytes.push_back(0);
+		if (fault == 2) bytes.front() ^= 0xffu;
+		if (fault == 3) bytes.resize(MaximumCoopTacticalWireSize + 1);
+		CHECK(harness.client.receiveOwnerInventory(fault == 4 ? nullptr : bytes.data(), bytes.size()) ==
+			FullEngineCoopClientResult::InvalidMessage &&
+			harness.client.state() == FullEngineCoopClientState::Failed &&
+			!harness.client.ownerInventory(inventory.actor),
+			"truncated, trailing, invalid, over-budget and null private frames fail closed and clear cache");
+		CHECK(harness.replica.baselineCalls == 1 && harness.replica.deltaCalls == 0,
+			"private payload validation never applies client-local tactical state");
+	}
+	Harness harness;
+	const auto peer = Identity(10);
+	ReachBaseline(harness, Configuration(), 901, peer, Token(30));
+	Activate(harness, 901);
+	auto inventory = OwnerInventory(peer);
+	CHECK(DeliverInventory(harness, inventory) == FullEngineCoopClientResult::Success,
+		"reassignment private fixture commits");
+	CoopTacticalBaseline baseline;
+	auto bytes = BaselineBytes(901, 11, 3, 3, 2, 1);
+	CHECK(DecodeCoopTacticalBaseline(bytes.data(), bytes.size(), baseline) == CoopTacticalCodecResult::Success,
+		"reassignment baseline decodes");
+	baseline.assignedActors = {{2, 1}};
+	baseline.payloadChecksum = 0;
+	CHECK(EncodeCoopTacticalBaseline(baseline, bytes) == CoopTacticalCodecResult::Success &&
+		harness.client.receiveBaseline(bytes.data(), bytes.size()) == FullEngineCoopClientResult::Success &&
+		!harness.client.ownerInventory(inventory.actor),
+		"replacement ownership clears a formerly owned actor even while its public actor remains present");
+	inventory.baselineId = 2;
+	CHECK(DeliverInventory(harness, inventory) == FullEngineCoopClientResult::ActorNotAssigned &&
+		harness.client.state() == FullEngineCoopClientState::Failed,
+		"public visibility never authorizes a private inventory replacement");
+}
+}
+
 int main()
 {
+	TestPrivateOwnerInventory();
+	TestPrivateOwnerInventoryRejectsForeignAndConflictingFrames();
+	TestPrivateInventoryMalformedPayloadsAndReassignment();
 	TestCampaignReceiptsDuringRetirement();
 	TestCampaignMeanwhileLifecycle();
 	TestCampaignBattleNoticeLifecycle();
