@@ -84,6 +84,9 @@ int main()
 	CHECK(tree->init(), "private native VFS initialized"); profile->addLocation(tree);
 	CHECK(getVFS()->addLocation(tree, profile) && InitializeFileManager(nullptr), "private native file service mounted");
 	if (failures) return 1;
+	// Damage uses AP divisors even when finishing incapacitated enemies.
+	// Read native defaults from the private VFS, as ordinary startup does.
+	LoadGameAPBPConstants();
 	auto& repository = GetJa2SoldierRepository(); repository.initializeSlots(); ResetJa2TacticalActorRosters();
 	gbPlayerNum = OUR_TEAM;
 	for (auto& team : gTacticalStatus.Team) { team.bFirstID = SoldierID{3}; team.bLastID = SoldierID{3}; }
