@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -1155,7 +1156,11 @@ void TestMalformedCampaignControlsDoNotStopOtherPeers()
 	CHECK(StartListener(listener, configuration), "malformed-control listener binds");
 	if (!listener.running()) return;
 	ListenerCampaignWire serverWire(listener);
-	FullEngineCoopCampaignSyncServer server(source, serverWire);
+	// The coordinator retains bounded checkpoint windows for every peer. Keep
+	// this large fixture on the heap, as in the dedicated runtime, so the socket
+	// callbacks also fit platforms with a small default thread stack.
+	auto serverStorage = std::make_unique<FullEngineCoopCampaignSyncServer>(source, serverWire);
+	auto& server = *serverStorage;
 	CHECK(server.beginSession(authority.sessionEpoch) ==
 		FullEngineCoopCampaignSyncServerResult::Success,
 		"malformed-control campaign starts");
@@ -1297,8 +1302,9 @@ void TestRealSocketCampaignSyncAndReconnect()
 	FullEngineCoopCampaignSyncServerConfiguration serverConfiguration;
 	serverConfiguration.maximumMessagesPerFlush =
 		MaximumCoopCampaignSyncChunkWindow;
-	FullEngineCoopCampaignSyncServer campaignServer(
+	auto campaignServerStorage = std::make_unique<FullEngineCoopCampaignSyncServer>(
 		source, serverWire, serverConfiguration);
+	auto& campaignServer = *campaignServerStorage;
 	CHECK(campaignServer.beginSession(authority.sessionEpoch) ==
 		FullEngineCoopCampaignSyncServerResult::Success,
 		"campaign server begins on the admission epoch");
