@@ -414,6 +414,16 @@ void PreflightFailures(Fixture& fixture)
 	RejectUnchanged(fixture, observed, Code::InsufficientFunds);
 	fixture.reset(false); observed = Capture(7); observed.request.buyGear = true;
 	RejectUnchanged(fixture, observed, Code::QuoteUnavailable);
+	fixture.reset(true);
+	auto& profile = gMercProfiles[0];
+	profile.inv[BIGPOCK1POS] = 2; profile.bInvStatus[BIGPOCK1POS] = 100; profile.bInvNumber[BIGPOCK1POS] = 3;
+	gMAXITEMS_READ = 3; Item[2].usItemClass = IC_AMMO; Item[2].ubPerPocket = 3; Item[2].ubClassIndex = 0;
+	const auto capacity = Magazine[0].ubMagSize; Magazine[0].ubMagSize = 0;
+	observed = Capture(7);
+	CHECK(!observed.quotes.quotes[0].gearAvailable, "an undefined native magazine cannot be offered as paid equipment");
+	observed.request.buyGear = true;
+	RejectUnchanged(fixture, observed, Code::QuoteUnavailable);
+	Magazine[0].ubMagSize = capacity;
 }
 void PartialPaymentFailures(Fixture& fixture)
 {
