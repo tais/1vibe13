@@ -448,6 +448,15 @@ target_link_libraries(coop_tactical_protocol_tests PRIVATE JA2::RuntimeAdapter)
 target_compile_features(coop_tactical_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_tactical_protocol COMMAND coop_tactical_protocol_tests)
 
+add_executable(coop_inventory_protocol_tests
+  coop_inventory_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_inventory_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_inventory_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_inventory_protocol COMMAND coop_inventory_protocol_tests)
+
 add_executable(full_engine_coop_server_session_tests
   full_engine_coop_server_session_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp

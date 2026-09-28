@@ -276,6 +276,9 @@ jobs:
       - name: Build campaign control contracts
         run: cmake --build build --target campaign_event_batch_tests coop_campaign_status_tests coop_campaign_groups_tests coop_campaign_time_tests coop_campaign_action_tests coop_campaign_hire_tests coop_campaign_meanwhile_tests full_engine_coop_client_campaign_action_input_tests full_engine_coop_client_campaign_hire_input_tests
 
+      - name: Build owner inventory codec contract
+        run: cmake --build build --target coop_inventory_protocol_tests
+
       - name: Build selected linked-catalog export adapter test
         run: cmake --build build --target selected_catalog_export_tests
 
