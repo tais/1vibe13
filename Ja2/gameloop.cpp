@@ -21,6 +21,9 @@
 	#include "GameSettings.h"
 	#include "GameContext.h"
 	#include "DedicatedCoopRuntime.h"
+	#include "DedicatedCoopSurrender.h"
+	#include "DedicatedCoopBattleNotice.h"
+	#include "DedicatedCoopMeanwhile.h"
 	#include "FullEngineCoopClientRuntime.h"
 #include "TacticalCommandHost.h"
 #include "TacticalInterruptHost.h"
@@ -405,6 +408,9 @@ static FramePlan PrepareGameFrame()
 	// Tick sinks isolate exceptions. Abort this frame before screen, command or
 	// observer work if the authoritative native clock failed inside one.
 	GetGameContext().campaignSimulation().throwIfFailed();
+	// Native gameplay waits for the explicit shared answer. The completed-frame
+	// observer and dedicated transport pump still run, including reconnects.
+	if (DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return FramePlan{};
 	//	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop");
 
 	InputAtom	InputEvent;

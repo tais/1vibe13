@@ -1,3 +1,16 @@
+#include "DedicatedCoopArrival.h"
+#include "DedicatedCoopTravel.h"
+#include "DedicatedCoopAimHire.h"
+#include "DedicatedCoopCampaignEconomy.h"
+#include "DedicatedCoopCampaignAimQuotes.h"
+#include "DedicatedCoopCampaignGroups.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignTimeAuthority.h"
+#include "CoopCampaignActionAuthority.h"
+#include "CoopCampaignHireAuthority.h"
+#include "DedicatedCoopSurrender.h"
+#include "DedicatedCoopBattleNotice.h"
+#include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCoopRuntime.h"
 
 #include "DedicatedContentManifest.h"
@@ -167,7 +180,9 @@ DedicatedCheckpointEligibilitySnapshot CollectCheckpointEligibility(
 		? DedicatedCheckpointDrainState::Drained
 		: DedicatedCheckpointDrainState::Pending;
 	snapshot.dialogueQueue =
-		DialogueQueueIsEmpty() && !gfWaitingForTriggerTimer
+		DialogueQueueIsEmpty() && !gfWaitingForTriggerTimer &&
+		!DedicatedCoopArrivalDecisionPending() && !DedicatedCoopSurrenderPending() &&
+		!DedicatedCoopBattleNoticePending() && !DedicatedCoopMeanwhilePending()
 		? DedicatedCheckpointDrainState::Drained
 		: DedicatedCheckpointDrainState::Pending;
 
@@ -490,7 +505,531 @@ struct DedicatedCoopRuntime::Impl
 		return true;
 	}
 
-	bool pumpCampaignInboundAndOutbound() noexcept
+	bool publishCampaignStatus() noexcept
+	{
+		static_assert(CoopSession::MaximumCampaignStatusReadyPeers == CoopSession::MaximumAuthorityPeers);
+		// Read only at this committed main-thread boundary. No clock/event/GUI
+		// mutation and no tactical ownership is inferred from time leadership.
+		std::array<CoopSession::PeerIdentity, CoopSession::MaximumAuthorityPeers> ready{};
+		const std::size_t count = tactical->server.campaignReadyPeers(ready);
+		CoopSession::CoopCampaignStatus captured;
+		captured.worldSeconds = GetWorldTotalSeconds();
+		if (giTimeCompressMode < -1 || giTimeCompressMode > 5)
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		captured.compressionMode = static_cast<std::int8_t>(giTimeCompressMode);
+		captured.gamePaused = GamePaused() != FALSE;
+		captured.pauseLocked = PauseStateLocked() != FALSE;
+		captured.compressionActive = IsTimeBeingCompressed() != FALSE;
+		captured.timeInterrupted = gfTimeInterrupt != FALSE;
+		captured.phase = starterMission == StarterMissionState::StrategicIdle
+			? CoopSession::CoopCampaignPhase::Strategic
+			: starterMission == StarterMissionState::Playable
+				? CoopSession::CoopCampaignPhase::Tactical
+				: (worldDraining || starterMission == StarterMissionState::ReturningToStrategic ||
+				   starterMission == StarterMissionState::WaitingForStrategicCheckpoint)
+					? CoopSession::CoopCampaignPhase::Transition : CoopSession::CoopCampaignPhase::Starting;
+		if (const auto* offer = surrenderDecision.pending()) captured.surrenderOffer = offer->id;
+		if (const auto* notice = battleNotice.pending())
+		{
+			if (battleNotice.acknowledged()) captured.phase = CoopSession::CoopCampaignPhase::Transition;
+			else captured.battleNotice = {notice->id, static_cast<CoopSession::CoopCampaignBattleNoticeKind>(notice->kind),
+				static_cast<std::uint8_t>(notice->sector.x), static_cast<std::uint8_t>(notice->sector.y), static_cast<std::uint8_t>(notice->sector.z), notice->sectorControlLost};
+		}
+		if (const auto* notice = meanwhile.pending())
+		{
+			static_assert(NUM_MEANWHILES == 17 && END_OF_PLAYERS_FIRST_BATTLE == 0 && BALIME_LIBERATED == 16,
+				"review the native Meanwhile to co-op scene mapping");
+			if (meanwhile.acknowledged()) captured.phase = CoopSession::CoopCampaignPhase::Transition;
+			else captured.meanwhile = {notice->id, static_cast<CoopSession::CoopCampaignMeanwhileScene>(notice->scene + 1)};
+		}
+		if (!arrivalDecisions.captureObservation(captured.arrival) || !campaignStatusLedger.observe(captured, ready.data(), count))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		CoopSession::CoopCampaignStatusBytes bytes;
+		if (!CoopSession::EncodeCoopCampaignStatus(campaignStatusLedger.value(), bytes))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		for (auto& delivery : campaignStatusDeliveries)
+			if (std::find(ready.begin(), ready.begin() + count, delivery.peer) == ready.begin() + count)
+				delivery = {};
+		for (std::size_t index = 0; index < count; ++index)
+		{
+			CoopSession::TransportPeer transport;
+			if (!tactical->listener.authenticatedTransportForPeer(ready[index], transport)) continue;
+			auto found = std::find_if(campaignStatusDeliveries.begin(), campaignStatusDeliveries.end(),
+				[&](const CampaignStatusDelivery& delivery) { return delivery.peer == ready[index]; });
+			if (found == campaignStatusDeliveries.end())
+				found = std::find_if(campaignStatusDeliveries.begin(), campaignStatusDeliveries.end(),
+					[](const CampaignStatusDelivery& delivery) { return CoopSession::IsZero(delivery.peer); });
+			if (found == campaignStatusDeliveries.end())
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (found->peer == ready[index] && found->transport == transport &&
+				found->revision == campaignStatusLedger.value().revision) continue;
+			// The tiny full replacement coalesces under backpressure. Failed sends
+			// never advance a delivery cursor; a new transport must receive it anew.
+			if (tactical->listener.sendToPeer(ready[index], CoopSession::CoopCampaignStatusMessageName,
+				bytes.data(), bytes.size()))
+				*found = {ready[index], transport, campaignStatusLedger.value().revision};
+		}
+		return true;
+	}
+
+	bool publishCampaignGroups() noexcept
+	{
+		CoopSession::CoopCampaignGroups captured;
+		const char* diagnostic = nullptr;
+		if (!worldDraining && (starterMission == StarterMissionState::Playable || starterMission == StarterMissionState::StrategicIdle))
+			diagnostic = CaptureDedicatedCoopCampaignGroups(captured);
+		if (diagnostic)
+		{
+			// Read-only group observation must not crash the campaign or show a
+			// truncated roster. Log once per changed fault and publish unavailable.
+			captured = {};
+			if (!lastCampaignGroupsDiagnostic || std::strcmp(lastCampaignGroupsDiagnostic, diagnostic) != 0)
+				std::fprintf(stderr, "[dedicated] campaign groups unavailable: %s\n", diagnostic);
+		}
+		lastCampaignGroupsDiagnostic = diagnostic;
+		if (!campaignGroupsLedger.observe(captured))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		std::array<CoopSession::PeerIdentity, CoopSession::MaximumAuthorityPeers> ready{};
+		const std::size_t count = tactical->server.campaignReadyPeers(ready);
+		for (auto& delivery : campaignGroupsDeliveries)
+			if (std::find(ready.begin(), ready.begin() + count, delivery.peer) == ready.begin() + count) delivery = {};
+		CoopSession::CoopCampaignGroupsBytes bytes;
+		std::size_t size = 0;
+		if (!CoopSession::EncodeCoopCampaignGroups(campaignGroupsLedger.value(), bytes, size))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		for (std::size_t index = 0; index < count; ++index)
+		{
+			CoopSession::TransportPeer transport;
+			if (!tactical->listener.authenticatedTransportForPeer(ready[index], transport)) continue;
+			auto found = std::find_if(campaignGroupsDeliveries.begin(), campaignGroupsDeliveries.end(),
+				[&](const CampaignStatusDelivery& delivery) { return delivery.peer == ready[index]; });
+			if (found == campaignGroupsDeliveries.end())
+				found = std::find_if(campaignGroupsDeliveries.begin(), campaignGroupsDeliveries.end(),
+					[](const CampaignStatusDelivery& delivery) { return CoopSession::IsZero(delivery.peer); });
+			if (found == campaignGroupsDeliveries.end())
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (found->peer == ready[index] && found->transport == transport && found->revision == campaignGroupsLedger.value().revision) continue;
+			// Latest full replacement coalesces under backpressure. A reconnect
+			// gets a fresh copy even if no group moved since its previous transport.
+			if (tactical->listener.sendToPeer(ready[index], CoopSession::CoopCampaignGroupsMessageName, bytes.data(), size))
+				*found = {ready[index], transport, campaignGroupsLedger.value().revision};
+		}
+		return true;
+	}
+
+	template<class DeliveryList>
+	bool queueCampaignEconomicObservation(const char* message, const std::uint8_t* bytes,
+		std::size_t size, std::uint64_t revision, DeliveryList& deliveries,
+		const DeliveryList* prerequisite = nullptr, std::uint64_t prerequisiteRevision = 0) noexcept
+	{
+		std::array<CoopSession::PeerIdentity, CoopSession::MaximumAuthorityPeers> ready{};
+		const auto count = tactical->server.campaignReadyPeers(ready);
+		for (auto& delivery : deliveries)
+			if (std::find(ready.begin(), ready.begin() + count, delivery.peer) == ready.begin() + count) delivery = {};
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			CoopSession::TransportPeer transport;
+			if (!tactical->listener.authenticatedTransportForPeer(ready[i], transport)) continue;
+			if (prerequisite && !std::any_of(prerequisite->begin(), prerequisite->end(), [&](const auto& sent) {
+				return sent.peer == ready[i] && sent.transport == transport && sent.revision == prerequisiteRevision;
+			})) continue;
+			auto found = std::find_if(deliveries.begin(), deliveries.end(), [&](const auto& sent) { return sent.peer == ready[i]; });
+			if (found == deliveries.end()) found = std::find_if(deliveries.begin(), deliveries.end(),
+				[](const auto& sent) { return CoopSession::IsZero(sent.peer); });
+			if (found == deliveries.end())
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (found->peer == ready[i] && found->transport == transport && found->revision == revision) continue;
+			if (tactical->listener.sendToPeer(ready[i], message, bytes, size)) *found = {ready[i], transport, revision};
+		}
+		return true;
+	}
+
+	bool publishCampaignEconomyAndQuotes() noexcept
+	{
+		CoopSession::CoopCampaignEconomy economy;
+		const char* diagnostic = nullptr;
+		if (!worldDraining && (starterMission == StarterMissionState::Playable || starterMission == StarterMissionState::StrategicIdle))
+			diagnostic = CaptureDedicatedCoopCampaignEconomy(economy);
+		if (diagnostic)
+		{
+			economy = {};
+			if (!lastCampaignEconomyDiagnostic || std::strcmp(lastCampaignEconomyDiagnostic, diagnostic) != 0)
+				std::fprintf(stderr, "[dedicated] campaign economy unavailable: %s\n", diagnostic);
+		}
+		lastCampaignEconomyDiagnostic = diagnostic;
+		if (!campaignEconomyLedger.observe(economy))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		CoopSession::CoopCampaignAimQuotes quotes;
+		diagnostic = nullptr;
+		if (campaignEconomyLedger.value().available && worldlessStrategicTimeControl() && !campaignStatusLedger.value().arrival.decision)
+			diagnostic = CaptureDedicatedCoopCampaignAimQuotes(campaignEconomyLedger.value(), quotes);
+		if (diagnostic)
+		{
+			quotes = {};
+			if (!lastCampaignQuotesDiagnostic || std::strcmp(lastCampaignQuotesDiagnostic, diagnostic) != 0)
+				std::fprintf(stderr, "[dedicated] AIM quotes unavailable: %s\n", diagnostic);
+		}
+		lastCampaignQuotesDiagnostic = diagnostic;
+		quotes.economyRevision = campaignEconomyLedger.value().revision;
+		if (!campaignQuotesLedger.observe(quotes))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		CoopSession::CoopCampaignEconomyBytes economyBytes;
+		CoopSession::CoopCampaignAimQuotesBytes quoteBytes;
+		std::size_t economySize = 0, quoteSize = 0;
+		if (!CoopSession::EncodeCoopCampaignEconomy(campaignEconomyLedger.value(), economyBytes, economySize) ||
+			!CoopSession::EncodeCoopCampaignAimQuotes(campaignQuotesLedger.value(), quoteBytes, quoteSize))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		// Quotes bind to an exact economy. Backpressure must never queue them
+		// ahead of the balance/roster replacement they reference.
+		return queueCampaignEconomicObservation(CoopSession::CoopCampaignEconomyMessageName,
+			economyBytes.data(), economySize, campaignEconomyLedger.value().revision, campaignEconomyDeliveries) &&
+			queueCampaignEconomicObservation(CoopSession::CoopCampaignAimQuotesMessageName,
+				quoteBytes.data(), quoteSize, campaignQuotesLedger.value().revision, campaignQuotesDeliveries,
+				&campaignEconomyDeliveries, campaignEconomyLedger.value().revision);
+	}
+
+	bool campaignEconomicObservationsDelivered(const CoopSession::PeerIdentity& peer,
+		CoopSession::TransportPeer transport) const noexcept
+	{
+		const auto sent = [&](const auto& deliveries, std::uint64_t revision) {
+			return std::any_of(deliveries.begin(), deliveries.end(), [&](const auto& delivery) {
+				return delivery.peer == peer && delivery.transport == transport && delivery.revision == revision;
+			});
+		};
+		return sent(campaignEconomyDeliveries, campaignEconomyLedger.value().revision) &&
+			sent(campaignQuotesDeliveries, campaignQuotesLedger.value().revision);
+	}
+
+	bool worldlessStrategicTimeControl() const noexcept
+	{
+		return starterMission == StarterMissionState::StrategicIdle && !worldDraining &&
+			!tactical->server.worldActive() && IsDedicatedCoopStarterMissionMapReady();
+	}
+
+	bool campaignTimePeerReady(const CoopSession::PeerIdentity& peer) const noexcept
+	{
+		std::array<CoopSession::PeerIdentity, CoopSession::MaximumAuthorityPeers> gated{}, current{};
+		const auto gatedCount = tactical->server.campaignReadyPeers(gated);
+		const auto currentCount = tactical->campaignSync->readyPeers(current);
+		return std::find(gated.begin(), gated.begin() + gatedCount, peer) != gated.begin() + gatedCount &&
+			std::find(current.begin(), current.begin() + currentCount, peer) != current.begin() + currentCount;
+	}
+
+	void pauseStrategicTimeWithoutLeader() noexcept
+	{
+		if (!worldlessStrategicTimeControl()) return;
+		const auto& leader = campaignStatusLedger.value().timeLeader;
+		if (CoopSession::IsZero(leader) || !campaignTimePeerReady(leader))
+			(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);
+	}
+
+	bool reconcileCampaignTimePeers() noexcept
+	{
+		std::array<CoopSession::FullEngineCoopAuthenticatedPeer, CoopSession::MaximumAuthorityPeers> authenticated{};
+		std::array<CoopSession::CoopCampaignTimeAuthority::Peer, CoopSession::MaximumAuthorityPeers> peers{};
+		const auto count = tactical->listener.authenticatedPeers(authenticated);
+		for (std::size_t i = 0; i < count; ++i)
+			peers[i] = {authenticated[i].peerIdentity, authenticated[i].transport};
+		if (!campaignTimeAuthority.reconcile(peers.data(), count))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+			return false;
+		}
+		return true;
+	}
+
+	void handleCampaignTimeRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept
+	{
+		CoopSession::TransportPeer current;
+		CoopSession::CoopCampaignTimeRequest request;
+		if (!tactical->listener.authenticatedTransportForPeer(message.peerIdentity, current) || current != message.transport ||
+			!CoopSession::DecodeCoopCampaignTimeRequest(message.bytes.data(), message.size, request)) return;
+		(void)campaignTimeAuthority.submit(request, {message.peerIdentity, current},
+			campaignTimePeerReady(message.peerIdentity), worldlessStrategicTimeControl(), campaignStatusLedger,
+			[](CoopSession::CoopCampaignTimeAction action) {
+				static_assert(static_cast<UINT32>(CoopSession::CoopCampaignTimeAction::FiveMinutes) == TIME_COMPRESS_5MINS &&
+					static_cast<UINT32>(CoopSession::CoopCampaignTimeAction::ThirtyMinutes) == TIME_COMPRESS_30MINS &&
+					static_cast<UINT32>(CoopSession::CoopCampaignTimeAction::SixtyMinutes) == TIME_COMPRESS_60MINS);
+				const UINT32 mode = action == CoopSession::CoopCampaignTimeAction::Pause ? TIME_COMPRESS_X0 : static_cast<UINT32>(action);
+				return TrySetWorldlessStrategicTimeCompression(mode) != FALSE;
+			});
+	}
+
+	bool flushCampaignTimeResults() noexcept
+	{
+		const auto& deliveries = campaignTimeAuthority.deliveries();
+		for (std::size_t i = 0; i < deliveries.size(); ++i)
+		{
+			const auto& delivery = deliveries[i];
+			if (!delivery.pending) continue;
+			CoopSession::TransportPeer current;
+			if (!tactical->listener.authenticatedTransportForPeer(delivery.peer.identity, current) || current != delivery.peer.transport) continue;
+			// Publish the post-command clock before its terminal result. A queued
+			// status send is sufficient on this ordered reliable transport.
+			const auto status = std::find_if(campaignStatusDeliveries.begin(), campaignStatusDeliveries.end(),
+				[&](const CampaignStatusDelivery& sent) { return sent.peer == delivery.peer.identity &&
+					sent.transport == current && sent.revision == campaignStatusLedger.value().revision; });
+			if (status == campaignStatusDeliveries.end() || !campaignEconomicObservationsDelivered(delivery.peer.identity, current)) continue;
+			CoopSession::CoopCampaignTimeResultBytes bytes;
+			if (!CoopSession::EncodeCoopCampaignTimeResult(delivery.result, bytes))
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (tactical->listener.sendToPeer(delivery.peer.identity, CoopSession::CoopCampaignTimeResultMessageName, bytes.data(), bytes.size()))
+				campaignTimeAuthority.delivered(i);
+		}
+		return true;
+	}
+
+	bool reconcileCampaignActionPeers() noexcept
+	{
+		std::array<CoopSession::FullEngineCoopAuthenticatedPeer, CoopSession::MaximumAuthorityPeers> authenticated{};
+		std::array<CoopSession::CoopCampaignActionAuthority::Peer, CoopSession::MaximumAuthorityPeers> peers{};
+		const auto count = tactical->listener.authenticatedPeers(authenticated);
+		for (std::size_t i = 0; i < count; ++i) peers[i] = {authenticated[i].peerIdentity, authenticated[i].transport};
+		if (campaignActionAuthority.reconcile(peers.data(), count)) return true;
+		fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+		return false;
+	}
+
+	CoopSession::CoopCampaignActionNativeResult applyCampaignAction(
+		const CoopSession::CoopCampaignActionRequest& request, DedicatedCoopRuntime& runtime) noexcept
+	{
+		using Action = CoopSession::CoopCampaignAction;
+		using Outcome = CoopSession::CoopCampaignActionOutcome;
+		if (request.action == Action::SkipMeanwhile)
+		{
+			if (selfRetirementActive) return {Outcome::NativeRejected, 0};
+			const auto result = AcknowledgeDedicatedCoopMeanwhile(request.decision);
+			using Code = DedicatedCoopMeanwhileResult;
+			return {result == Code::Applied ? Outcome::Applied : result == Code::Failed ? Outcome::Failed : Outcome::NativeRejected,
+				static_cast<std::uint16_t>(result)};
+		}
+		if (request.action == Action::AcknowledgeBattleNotice)
+		{
+			if (selfRetirementActive) return {Outcome::NativeRejected, 0};
+			const auto result = AcknowledgeDedicatedCoopBattleNotice(request.decision);
+			using Code = DedicatedCoopBattleNoticeResult;
+			return {result == Code::Applied ? Outcome::Applied : result == Code::Failed ? Outcome::Failed : Outcome::NativeRejected,
+				static_cast<std::uint16_t>(result)};
+		}
+		if (request.action == Action::DeclineSurrender || request.action == Action::AcceptSurrender)
+		{
+			if (selfRetirementActive) return {Outcome::NativeRejected, 0};
+			const auto result = ReplyToDedicatedCoopSurrender(request.decision,
+				request.action == Action::AcceptSurrender ? DedicatedCoopSurrenderReply::Surrender : DedicatedCoopSurrenderReply::ContinueFighting);
+			using Code = DedicatedCoopSurrenderResult;
+			return {result == Code::Applied ? Outcome::Applied : result == Code::Failed ? Outcome::Failed : Outcome::NativeRejected,
+				static_cast<std::uint16_t>(result)};
+		}
+		if (!worldlessStrategicTimeControl() || selfRetirementActive) return {Outcome::NativeRejected, 0};
+		switch (request.action)
+		{
+			case Action::Travel:
+			{
+				const auto result = StartDedicatedCoopTravel(request.group, request.destinationX, request.destinationY);
+				using Code = DedicatedCoopTravelStartCode;
+				return {result.code == Code::Started ? Outcome::Applied :
+					result.code == Code::AdjacentSectorRequired ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result.code)};
+			}
+			case Action::AcknowledgeArrival:
+			case Action::StopArrival:
+			{
+				const auto result = ReplyToDedicatedCoopArrival(request.decision,
+					request.action == Action::AcknowledgeArrival ? DedicatedCoopArrivalReply::Acknowledge : DedicatedCoopArrivalReply::Stop);
+				using Code = DedicatedCoopArrivalReplyResult;
+				return {result == Code::Applied ? Outcome::Applied :
+					result == Code::UnsupportedDecision ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
+			case Action::EnterArrivalForced:
+			case Action::EnterArrivalSpread:
+			{
+				const auto result = runtime.enterArrivalBattle(request.decision,
+					request.action == Action::EnterArrivalForced ? NativePreBattleDeployment::Forced : NativePreBattleDeployment::Spread);
+				using Code = DedicatedCoopArrivalEnterResult;
+				return {result == Code::Entered ? Outcome::Applied : result == Code::Failed ? Outcome::Failed :
+					result == Code::UnsupportedDecision ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
+			case Action::RetreatArrival:
+			{
+				const auto result = runtime.retreatArrivalBattle(request.decision);
+				using Code = DedicatedCoopArrivalRetreatResult;
+				return {result == Code::Retreated ? Outcome::Applied : result == Code::Failed ? Outcome::Failed :
+					(result == Code::UnsupportedDecision || result == Code::AutoResolveRequired) ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
+		}
+		return {Outcome::Failed, 0};
+	}
+
+	bool handleCampaignActionRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message,
+		DedicatedCoopRuntime& runtime) noexcept
+	{
+		CoopSession::TransportPeer current;
+		CoopSession::CoopCampaignActionRequest request;
+		if (!tactical->listener.authenticatedTransportForPeer(message.peerIdentity, current) || current != message.transport ||
+			!CoopSession::DecodeCoopCampaignActionRequest(message.bytes.data(), message.size, request)) return true;
+		// Either admitted player may request a shared campaign action. Readiness,
+		// exact observed state and native legality remain independent requirements.
+		(void)campaignActionAuthority.submit(request, {message.peerIdentity, current},
+			campaignTimePeerReady(message.peerIdentity), true, worldlessStrategicTimeControl(),
+			campaignStatusLedger, campaignGroupsLedger.value(),
+			[&](const CoopSession::CoopCampaignActionRequest& accepted) { return applyCampaignAction(accepted, runtime); });
+		if (fatal) return false;
+		if (campaignActionAuthority.failed())
+		{
+			fail(DedicatedCoopRuntimeError::InvalidState);
+			return false;
+		}
+		// Recapture before another peer's queued request can validate against the
+		// old group/arrival state, and before the receipt can release client input.
+		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes();
+	}
+
+	bool flushCampaignActionResults() noexcept
+	{
+		const auto& deliveries = campaignActionAuthority.deliveries();
+		for (std::size_t i = 0; i < deliveries.size(); ++i)
+		{
+			const auto& delivery = deliveries[i];
+			if (!delivery.pending) continue;
+			CoopSession::TransportPeer current;
+			if (!tactical->listener.authenticatedTransportForPeer(delivery.peer.identity, current) || current != delivery.peer.transport ||
+				!campaignTimePeerReady(delivery.peer.identity)) continue;
+			const auto sent = [&](const auto& observations, std::uint64_t revision) {
+				return std::any_of(observations.begin(), observations.end(), [&](const CampaignStatusDelivery& value) {
+					return value.peer == delivery.peer.identity && value.transport == current && value.revision == revision;
+				});
+			};
+			if (!sent(campaignStatusDeliveries, campaignStatusLedger.value().revision) ||
+				!sent(campaignGroupsDeliveries, campaignGroupsLedger.value().revision) ||
+				!campaignEconomicObservationsDelivered(delivery.peer.identity, current)) continue;
+			CoopSession::CoopCampaignActionResultBytes bytes;
+			if (!CoopSession::EncodeCoopCampaignActionResult(delivery.result, bytes))
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (tactical->listener.sendToPeer(delivery.peer.identity, CoopSession::CoopCampaignActionResultMessageName, bytes.data(), bytes.size()))
+				campaignActionAuthority.delivered(i);
+		}
+		return true;
+	}
+
+	bool reconcileCampaignHirePeers() noexcept
+	{
+		std::array<CoopSession::FullEngineCoopAuthenticatedPeer, CoopSession::MaximumAuthorityPeers> authenticated{};
+		std::array<CoopSession::CoopCampaignHireAuthority::Peer, CoopSession::MaximumAuthorityPeers> peers{};
+		const auto count = tactical->listener.authenticatedPeers(authenticated);
+		for (std::size_t i = 0; i < count; ++i) peers[i] = {authenticated[i].peerIdentity, authenticated[i].transport};
+		if (campaignHireAuthority.reconcile(peers.data(), count)) return true;
+		fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+		return false;
+	}
+
+	bool handleCampaignHireRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept
+	{
+		CoopSession::TransportPeer current;
+		CoopSession::CoopCampaignHireRequest request;
+		if (!tactical->listener.authenticatedTransportForPeer(message.peerIdentity, current) || current != message.transport ||
+			!CoopSession::DecodeCoopCampaignHireRequest(message.bytes.data(), message.size, request)) return true;
+		(void)campaignHireAuthority.submit(request, {message.peerIdentity, current}, campaignTimePeerReady(message.peerIdentity),
+			true, worldlessStrategicTimeControl() && !selfRetirementActive, campaignStatusLedger,
+			campaignEconomyLedger.value(), campaignQuotesLedger.value(), [&](const auto& accepted) {
+				using Outcome = CoopSession::CoopCampaignHireOutcome;
+				const auto hired = HireDedicatedCoopAimMerc(accepted, campaignEconomyLedger.value(), campaignQuotesLedger.value());
+				CoopSession::CoopCampaignHireNativeResult result;
+				result.nativeDetail = static_cast<std::uint16_t>((static_cast<unsigned>(hired.code) << 8) | hired.nativeDetail);
+				if (hired.code == DedicatedCoopAimHireCode::Applied)
+				{
+					result.outcome = Outcome::Applied; result.actor = hired.actor; result.chargedTotal = hired.chargedTotal;
+				}
+				else
+				{
+					result.outcome = hired.mutationMayHaveStarted || hired.code == DedicatedCoopAimHireCode::NativeFailure
+						? Outcome::Failed : Outcome::NativeRejected;
+					std::fprintf(stderr, "[dedicated] AIM hire rejected: stage=%u detail=%u mutation=%u\n",
+						static_cast<unsigned>(hired.code), hired.nativeDetail, hired.mutationMayHaveStarted ? 1 : 0);
+				}
+				return result;
+			});
+		if (campaignHireAuthority.failed())
+		{
+			fail(DedicatedCoopRuntimeError::InvalidState);
+			return false;
+		}
+		// A second queued player request sees the new roster, balance, offers and
+		// shared control barrier. Every receipt waits for those observations.
+		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes();
+	}
+
+	bool flushCampaignHireResults() noexcept
+	{
+		const auto& deliveries = campaignHireAuthority.deliveries();
+		for (std::size_t i = 0; i < deliveries.size(); ++i)
+		{
+			const auto& delivery = deliveries[i];
+			if (!delivery.pending) continue;
+			CoopSession::TransportPeer current;
+			if (!tactical->listener.authenticatedTransportForPeer(delivery.peer.identity, current) || current != delivery.peer.transport ||
+				!campaignTimePeerReady(delivery.peer.identity) || !campaignEconomicObservationsDelivered(delivery.peer.identity, current)) continue;
+			const auto sent = [&](const auto& observations, std::uint64_t revision) {
+				return std::any_of(observations.begin(), observations.end(), [&](const auto& value) {
+					return value.peer == delivery.peer.identity && value.transport == current && value.revision == revision;
+				});
+			};
+			if (!sent(campaignStatusDeliveries, campaignStatusLedger.value().revision) ||
+				!sent(campaignGroupsDeliveries, campaignGroupsLedger.value().revision)) continue;
+			CoopSession::CoopCampaignHireResultBytes bytes;
+			if (!CoopSession::EncodeCoopCampaignHireResult(delivery.result, bytes))
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed);
+				return false;
+			}
+			if (tactical->listener.sendToPeer(delivery.peer.identity, CoopSession::CoopCampaignHireResultMessageName, bytes.data(), bytes.size()))
+				campaignHireAuthority.delivered(i);
+		}
+		return true;
+	}
+
+	bool pumpCampaignInboundAndOutbound(DedicatedCoopRuntime& runtime) noexcept
 	{
 		if (tactical == nullptr || tactical->campaignSync == nullptr)
 		{
@@ -500,6 +1039,22 @@ struct DedicatedCoopRuntime::Impl
 		CoopSession::FullEngineCoopCampaignInboundMessage message;
 		while (tactical->listener.popCampaignInbound(message))
 		{
+			if (message.kind == CoopSession::FullEngineCoopCampaignInboundKind::HireRequest)
+			{
+				if (!handleCampaignHireRequest(message)) return false;
+				continue;
+			}
+			if (message.kind == CoopSession::FullEngineCoopCampaignInboundKind::ActionRequest)
+			{
+				if (!handleCampaignActionRequest(message, runtime)) return false;
+				continue;
+			}
+			if (message.kind == CoopSession::FullEngineCoopCampaignInboundKind::TimeRequest)
+			{
+				handleCampaignTimeRequest(message);
+				if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes()) return false;
+				continue;
+			}
 			CoopSession::FullEngineCoopCampaignSyncInboundKind kind;
 			switch (message.kind)
 			{
@@ -761,10 +1316,25 @@ struct DedicatedCoopRuntime::Impl
 				return false;
 			}
 			sessionEpoch = epoch;
+			campaignStatusLedger.clear();
+			campaignStatusDeliveries = {};
+			campaignGroupsLedger.clear();
+			campaignGroupsDeliveries = {};
+			lastCampaignGroupsDiagnostic = nullptr;
+			campaignTimeAuthority.clear();
+			campaignActionAuthority.clear();
+			campaignHireAuthority.clear();
+			campaignEconomyLedger.clear(); campaignQuotesLedger.clear();
+			campaignEconomyDeliveries = {}; campaignQuotesDeliveries = {};
+			lastCampaignEconomyDiagnostic = lastCampaignQuotesDiagnostic = nullptr;
+			if (!campaignStatusLedger.beginSession(epoch)) return false;
+			if (!campaignGroupsLedger.beginSession(epoch)) return false;
+			if (!campaignEconomyLedger.beginSession(epoch) || !campaignQuotesLedger.beginSession(epoch)) return false;
 			admissionConfigured = true;
 		}
 
 		CoopSession::FullEngineCoopAdmissionListenerConfiguration configuration;
+		configuration.enableCampaignRequests = true;
 		configuration.endpoint = ja2::mp::net::SdlNetEndpoint(
 			options.coopPort, options.coopBindAddress.c_str());
 		configuration.maximumConnections =
@@ -1162,7 +1732,7 @@ struct DedicatedCoopRuntime::Impl
 		return true;
 	}
 
-	bool pumpTactical(GameContext& context) noexcept
+	bool pumpTactical(GameContext& context, DedicatedCoopRuntime& runtime) noexcept
 	{
 		if (tactical == nullptr || !admissionConfigured) return true;
 		const Ja2TacticalWorldObserverDiagnostics observerDiagnostics =
@@ -1210,8 +1780,16 @@ struct DedicatedCoopRuntime::Impl
 		if (!captureSelfRetirementRequest()) return false;
 		if (selfRetirementActive)
 			return finishSelfRetirementAtBoundary();
-		if (!reconcileCampaignPeersAndGateTactical() ||
-			!pumpCampaignInboundAndOutbound())
+		if (!reconcileCampaignPeersAndGateTactical()) return false;
+		pauseStrategicTimeWithoutLeader();
+		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() || !reconcileCampaignTimePeers() ||
+			!reconcileCampaignActionPeers() || !reconcileCampaignHirePeers() || !pumpCampaignInboundAndOutbound(runtime))
+			return false;
+		// A resync in this FIFO can remove readiness too. Never auto-resume on
+		// reconnect or overwrite a native event pause on a later frame.
+		pauseStrategicTimeWithoutLeader();
+		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() ||
+			!flushCampaignTimeResults() || !flushCampaignActionResults() || !flushCampaignHireResults())
 			return false;
 		const CoopSession::FullEngineCoopTacticalServerResult reconciled =
 			tactical->server.reconcilePeers();
@@ -1309,6 +1887,30 @@ struct DedicatedCoopRuntime::Impl
 	}
 
 	DedicatedCampaignBoot boot;
+	DedicatedCoopArrivalState arrivalDecisions;
+	DedicatedCoopSurrenderState surrenderDecision;
+	DedicatedCoopBattleNoticeState battleNotice;
+	DedicatedCoopMeanwhileState meanwhile;
+	std::uint64_t lastArrivalDecisionLogged = 0;
+	struct CampaignStatusDelivery
+	{
+		CoopSession::PeerIdentity peer{};
+		CoopSession::TransportPeer transport;
+		std::uint64_t revision = 0;
+	};
+	CoopSession::CoopCampaignStatusLedger campaignStatusLedger;
+	CoopSession::CoopCampaignGroupsLedger campaignGroupsLedger;
+	const char* lastCampaignGroupsDiagnostic = nullptr;
+	std::array<CampaignStatusDelivery, CoopSession::MaximumAuthorityPeers> campaignGroupsDeliveries{};
+	CoopSession::CoopCampaignTimeAuthority campaignTimeAuthority;
+	CoopSession::CoopCampaignActionAuthority campaignActionAuthority;
+	CoopSession::CoopCampaignHireAuthority campaignHireAuthority;
+	CoopSession::CoopCampaignEconomyLedger campaignEconomyLedger;
+	CoopSession::CoopCampaignAimQuotesLedger campaignQuotesLedger;
+	const char* lastCampaignEconomyDiagnostic = nullptr;
+	const char* lastCampaignQuotesDiagnostic = nullptr;
+	std::array<CampaignStatusDelivery, CoopSession::MaximumAuthorityPeers> campaignEconomyDeliveries{}, campaignQuotesDeliveries{};
+	std::array<CampaignStatusDelivery, CoopSession::MaximumAuthorityPeers> campaignStatusDeliveries{};
 	CoopSession::OsAdmissionTokenSource tokens;
 	TacticalComposition* tactical = nullptr;
 	GameContext* tacticalContext = nullptr;
@@ -1570,6 +2172,11 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			impl_->fail(DedicatedCoopRuntimeError::MissionPrepareFailed);
 			return;
 		}
+		// Established ownership must not depend on DidGameJustStart,
+		// which can change while the initial helicopter's events are still pending.
+		if (starterState == DedicatedCoopStarterCampaignState::EstablishedCold ||
+			starterState == DedicatedCoopStarterCampaignState::EstablishedStrategicCold)
+			impl_->arrivalDecisions.enableEstablishedAimArrivals();
 		// The complete roster and its pending arrival events become durable before
 		// admission or campaign transfer can expose this campaign to any peer. An
 		// exact prepared resume already is that artifact and is left byte-for-byte
@@ -1595,6 +2202,11 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 				: StarterMissionState::WaitingForCampaignReadyPeer);
 		impl_->minimumControllableActors = 0;
 		impl_->starterPeerGatherDeadline = {};
+		if (!BindDedicatedCoopArrivalState(impl_->arrivalDecisions) || !BindDedicatedCoopSurrenderState(impl_->surrenderDecision) || !BindDedicatedCoopBattleNoticeState(impl_->battleNotice) || !BindDedicatedCoopMeanwhileState(impl_->meanwhile))
+		{
+			impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+			return;
+		}
 		impl_->campaignEntered = true;
 		impl_->entryRequested = false;
 		impl_->lastCheckpoint = Clock::now();
@@ -1617,7 +2229,89 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	}
 
 	if (!impl_->campaignEntered) return;
-	if (!impl_->pumpTactical(context)) return;
+	if (const char* failure = impl_->meanwhile.failure())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
+	if (const char* failure = impl_->battleNotice.failure())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
+	if (const char* failure = impl_->surrenderDecision.failure())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
+	if (const char* failure = impl_->arrivalDecisions.failure())
+	{
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
+	if (const auto* decision = impl_->arrivalDecisions.front())
+	{
+		StopTimeCompression(); PauseGame();
+		if (decision->id != impl_->lastArrivalDecisionLogged)
+		{
+			if (decision->kind == DedicatedCoopArrivalKind::Battle)
+			{
+				NativePreBattlePreparation preparation;
+				const auto result = PrepareDedicatedCoopArrivalBattle(decision->id, preparation);
+				if (result == DedicatedCoopArrivalPrepareResult::Failed)
+				{
+					impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+					return;
+				}
+				if (result == DedicatedCoopArrivalPrepareResult::Prepared)
+					std::printf("[dedicated] native pre-battle prepared: id=%llu; encounter=%u; involved=%u; auto=%u; enter=%u; retreat=%u; placement=%u; awaiting decision\n",
+						static_cast<unsigned long long>(decision->id), preparation.encounterCode, preparation.involvedMercs,
+						preparation.actions.autoResolve, preparation.actions.enterSector, preparation.actions.retreat, preparation.actions.tacticalPlacement);
+				else
+					std::printf("[dedicated] native pre-battle remains pending: id=%llu; reason=%s\n", static_cast<unsigned long long>(decision->id),
+						result == DedicatedCoopArrivalPrepareResult::ReinforcementDecisionRequired ? "militia reinforcement decision required" : "native context not supported or changed");
+			}
+			const char* kind = decision->kind == DedicatedCoopArrivalKind::WildernessNpc ? "wilderness-npc" :
+				decision->kind == DedicatedCoopArrivalKind::CoordinateAttack ? "coordinate-attack" : "battle";
+			std::printf("[dedicated] campaign arrival decision pending: id=%llu; kind=%s; group=%u:%u; sector=%u,%u,%u; time=%u; campaign paused; awaiting an explicit player decision\n",
+				static_cast<unsigned long long>(decision->id), kind, decision->group.slot, decision->group.incarnation,
+				decision->x, decision->y, decision->z, decision->worldSeconds);
+			std::fflush(stdout);
+			impl_->lastArrivalDecisionLogged = decision->id;
+		}
+	}
+	if (!impl_->pumpTactical(context, *this)) return;
+	if (impl_->meanwhile.acknowledged())
+	{
+		for (const auto& delivery : impl_->campaignActionAuthority.deliveries())
+			if (delivery.pending) return;
+		if (!impl_->freshAssignmentBaselineBoundary()) return;
+		const auto* notice = impl_->meanwhile.pending();
+		if (!notice || CompleteDedicatedCoopMeanwhile(notice->id) != DedicatedCoopMeanwhileResult::Applied)
+			impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+		return;
+	}
+	// Keep transport/observations alive, but an arrival hold must also stop the
+	// bootstrap's automatic established-sector launch and checkpoint transitions.
+	if (impl_->battleNotice.acknowledged())
+	{
+		// Queue every retained campaign receipt before closing transport. Native
+		// unloading must not invalidate the publication captured by pumpTactical.
+		for (const auto& delivery : impl_->campaignActionAuthority.deliveries())
+			if (delivery.pending) return;
+		if (!impl_->freshAssignmentBaselineBoundary()) return;
+		const auto* notice = impl_->battleNotice.pending();
+		if (!notice || !impl_->stopAdmissionForPostCombatReturn()) return;
+		if (CompleteDedicatedCoopBattleNotice(notice->id) != DedicatedCoopBattleNoticeResult::Applied)
+		{
+			impl_->fail(DedicatedCoopRuntimeError::MissionReturnFailed);
+			return;
+		}
+		if (!impl_->beginWorldDrain()) return;
+		(void)impl_->tryFinishWorldDrain(context);
+		return;
+	}
+	if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;
 	const Clock::time_point now = Clock::now();
 	if (impl_->starterMission ==
 		StarterMissionState::WaitingForCampaignReadyPeer)
@@ -1668,9 +2362,8 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			LaunchDedicatedCoopEstablishedMission();
 		if (launched == DedicatedCoopMissionBootstrapError::NoHostileEncounter)
 		{
-			// There is no strategic intent/sector-exit protocol yet. Keep a
-			// peaceful established campaign cold and connected instead of trapping
-			// it in an unfinishable tactical world.
+			// Keep a peaceful established campaign cold and connected so shared
+			// travel actions can select the next encounter.
 			impl_->starterMission = StarterMissionState::StrategicIdle;
 			std::printf(
 				"[dedicated] established campaign remains worldless; no hostile occupied sector\n");
@@ -1701,6 +2394,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			actors >= impl_->minimumControllableActors)
 		{
 			impl_->starterMission = StarterMissionState::Playable;
+			impl_->arrivalDecisions.enableEstablishedAimArrivals();
 			std::printf(
 				"[dedicated] co-op tactical encounter playable with %zu actors\n",
 				actors);
@@ -1810,6 +2504,44 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		impl_->nextCheckpointAttempt = now + IneligibleRetryDelay;
 }
 
+DedicatedCoopArrivalEnterResult DedicatedCoopRuntime::enterArrivalBattle(std::uint64_t decision,
+	NativePreBattleDeployment deployment) noexcept
+{
+	using Result = DedicatedCoopArrivalEnterResult;
+	if (!impl_ || impl_->error != DedicatedCoopRuntimeError::None || !impl_->campaignEntered ||
+		impl_->starterMission != StarterMissionState::StrategicIdle || impl_->worldDraining ||
+		!impl_->tactical || impl_->tactical->server.worldActive() || impl_->selfRetirementActive)
+		return Result::NativeContextUnavailable;
+	const auto result = EnterDedicatedCoopArrivalBattle(decision, deployment);
+	if (result == Result::Failed)
+		impl_->fail(DedicatedCoopRuntimeError::MissionLaunchFailed);
+	if (result != Result::Entered) return result;
+	// Reuse fresh world observation, assignment/baseline admission and native
+	// victory/drain handling. Do not leave a loaded encounter marked strategic.
+	impl_->starterMission = StarterMissionState::WaitingForControllableActor;
+	// Wounded/unconscious native participants remain present but need not all
+	// become controllable before their healthy squadmates can play.
+	impl_->minimumControllableActors = 1;
+	impl_->postCombatReturnArmed = true;
+	impl_->starterActorArrivalDeadline = Clock::now() + StarterActorArrivalTimeout;
+	return Result::Entered;
+}
+
+DedicatedCoopArrivalRetreatResult DedicatedCoopRuntime::retreatArrivalBattle(std::uint64_t decision) noexcept
+{
+	using Result = DedicatedCoopArrivalRetreatResult;
+	if (!impl_ || impl_->error != DedicatedCoopRuntimeError::None || !impl_->campaignEntered ||
+		impl_->starterMission != StarterMissionState::StrategicIdle || impl_->worldDraining ||
+		!impl_->tactical || impl_->tactical->server.worldActive() || impl_->selfRetirementActive)
+		return Result::NativeContextUnavailable;
+	const auto result = RetreatFromDedicatedCoopArrivalBattle(decision);
+	if (result == Result::Failed)
+		impl_->fail(DedicatedCoopRuntimeError::InvalidState);
+	// Remain strategic and paused. Native movement events own the return trip;
+	// only a later explicit time request may advance it.
+	return result;
+}
+
 bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(
 	GameContext& context) noexcept
 {
@@ -1867,6 +2599,15 @@ void DedicatedCoopRuntime::stopAdmissionTransport() noexcept
 void DedicatedCoopRuntime::close() noexcept
 {
 	if (!impl_) return;
+	UnbindDedicatedCoopArrivalState(impl_->arrivalDecisions);
+	UnbindDedicatedCoopSurrenderState(impl_->surrenderDecision);
+	UnbindDedicatedCoopBattleNoticeState(impl_->battleNotice);
+	UnbindDedicatedCoopMeanwhileState(impl_->meanwhile);
+	impl_->arrivalDecisions.reset();
+	impl_->surrenderDecision.reset();
+	impl_->battleNotice.reset();
+	impl_->meanwhile.reset();
+	impl_->lastArrivalDecisionLogged = 0;
 	(void)impl_->detachTacticalComposition();
 	impl_->boot.close();
 	impl_->prepared = false;
