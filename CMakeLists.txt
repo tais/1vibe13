@@ -680,6 +680,26 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     add_dependencies(ja2_headless_tests ${campaign_observation}_tests)
   endforeach()
 
+  # Instrument only this native fixture's transition object: array bounds
+  # detects an exhausted cursor reading adjacent fields inside TacticalActor.
+  add_executable(native_animation_route_cursor_tests
+    tests/native_animation_route_cursor_tests.cpp Tactical/TacticalActorAnimationTransitions.cpp)
+  target_compile_definitions(native_animation_route_cursor_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_animation_route_cursor_tests PRIVATE ${campaign_aim_native_libraries})
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      set(native_animation_bounds_sanitizer array-bounds)
+    else()
+      set(native_animation_bounds_sanitizer bounds)
+    endif()
+    target_compile_options(native_animation_route_cursor_tests PRIVATE
+      -fsanitize=${native_animation_bounds_sanitizer} -fno-sanitize-recover=${native_animation_bounds_sanitizer})
+    target_link_options(native_animation_route_cursor_tests PRIVATE -fsanitize=${native_animation_bounds_sanitizer})
+  endif()
+  add_test(NAME native_animation_route_cursor COMMAND native_animation_route_cursor_tests)
+  set_tests_properties(native_animation_route_cursor PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_animation_route_cursor_tests)
+
   # Compose checked actor/event creation with exact native payment and history.
   add_executable(native_coop_aim_hire_transaction_tests tests/native_coop_aim_hire_transaction_tests.cpp)
   target_compile_definitions(native_coop_aim_hire_transaction_tests PRIVATE ${debugFlags})
