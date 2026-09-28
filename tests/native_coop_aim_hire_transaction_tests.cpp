@@ -25,6 +25,7 @@
 #include "LaptopSave.h"
 #include "CampaignStats.h"
 #include "Items.h"
+#include "Weapons.h"
 #include "finances.h"
 #include "history.h"
 #include "Dialogue Control.h"
@@ -327,12 +328,20 @@ void SuccessfulHire(Fixture& fixture, bool deposit, std::uint8_t days)
 		after.roster[0].actor == result.actor && after.roster[0].pendingHire,
 		"committed economic observation includes the paid pending hire");
 }
-void SuccessfulEquipmentHire(Fixture& fixture)
+void SuccessfulEquipmentHire(Fixture& fixture, bool ammunition)
 {
 	fixture.reset(true);
 	auto& profile = gMercProfiles[0];
 	profile.inv[HANDPOS] = 1; profile.bInvStatus[HANDPOS] = 80; profile.bInvNumber[HANDPOS] = 3;
 	gMAXITEMS_READ = 2; Item[1].usItemClass = IC_MEDKIT; Item[1].ubPerPocket = 1;
+	if (ammunition)
+	{
+		// Native CreateItem interprets an ammo profile's status as a full
+		// magazine, not object condition; the ObjectData fields share storage.
+		profile.inv[BIGPOCK1POS] = 2; profile.bInvStatus[BIGPOCK1POS] = 100; profile.bInvNumber[BIGPOCK1POS] = 3;
+		gMAXITEMS_READ = 3; Item[2].usItemClass = IC_AMMO; Item[2].ubPerPocket = 3; Item[2].ubClassIndex = 0;
+		Magazine[0].ubMagSize = 15;
+	}
 	auto observed = Capture(7);
 	const auto& offer = observed.quotes.quotes[0];
 	CHECK(offer.gearAvailable && offer.gearCost == 123 && offer.total[3] == 1023,
@@ -343,19 +352,29 @@ void SuccessfulEquipmentHire(Fixture& fixture)
 	auto* actor = OnlyActor();
 	CHECK(result.code == Code::Applied && result.chargedTotal == 1023 && actor && result.mutationMayHaveStarted,
 		"paid equipment hire completes through the real native constructor and ledgers");
-	unsigned objects = 0, points = 0;
+	unsigned objects = 0, points = 0, magazines = 0, rounds = 0;
 	if (actor)
 	{
 		for (std::size_t slot = 0; slot < actor->inventory().size(); ++slot)
 		{
 			const auto& object = actor->inventory()[slot];
 			if (!object.exists()) continue;
-			CHECK(object.usItem == 1, "native hire contains only the requested medical kit stack");
-			for (const auto& unit : object.objectStack) { ++objects; points += unit.data.objectStatus; }
+			CHECK(object.usItem == 1 || (ammunition && object.usItem == 2), "native hire contains only the requested equipment");
+			for (const auto& unit : object.objectStack)
+			{
+				if (object.usItem == 1) { ++objects; points += unit.data.objectStatus; }
+				else if (object.usItem == 2)
+				{
+					++magazines; rounds += unit.data.ubShotsLeft;
+					CHECK(unit.data.ubShotsLeft == 15, "each purchased magazine retains full native ammunition");
+				}
+			}
 		}
 		Arrival(observed,*actor);
 	}
 	CHECK(objects == 3 && points == 240, "every purchased medical kit and its supply points reach the actor");
+	CHECK(magazines == (ammunition ? 3u : 0u) && rounds == (ammunition ? 45u : 0u),
+		"paid native equipment preserves all magazine stacks and rounds separately from medical supply condition");
 	auto expected = Header(8977);
 	FinanceRow(expected,HIRED_MERC,date,-723,9277); FinanceRow(expected,MEDICAL_DEPOSIT,date,-300,8977);
 	CHECK(fixture.read("finances.dat") == expected && fixture.read("History.dat") == HistoryRow(date) &&
@@ -473,7 +492,7 @@ int main()
 	{
 		Fixture fixture;
 		for (bool deposit : {false, true}) for (std::uint8_t days : {1, 7, 14}) SuccessfulHire(fixture, deposit, days);
-		SuccessfulEquipmentHire(fixture);
+		SuccessfulEquipmentHire(fixture, false); SuccessfulEquipmentHire(fixture, true);
 	PreflightFailures(fixture); PartialPaymentFailures(fixture); DuplicateReceipt(fixture);
 		fixture.reset(true); const auto observed = Capture(7);
 		fixture.makeReadonly(); RejectUnchanged(fixture, observed, Code::QuotesUnavailable);
