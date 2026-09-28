@@ -140,7 +140,7 @@ bool IsValidCoopGroundItems(const CoopOwnerInventorySnapshot& snapshot) noexcept
 	for (std::size_t index = 0; index < snapshot.groundItems.size(); ++index)
 	{
 		const auto& item = snapshot.groundItems[index];
-		if (!item.id.valid() || (index != 0 && !(snapshot.groundItems[index - 1].id < item.id)) ||
+		if (!item.id.valid() || (index != 0 && snapshot.groundItems[index - 1].id.slot >= item.id.slot) ||
 			!IsValidSlot(item.summary, index) ||
 			item.summary.support != CoopInventorySlotSupport::OrdinarySwappable ||
 			item.summary.statusKind == CoopInventoryStatusKind::Unknown) return false;

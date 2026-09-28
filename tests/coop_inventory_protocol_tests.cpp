@@ -172,7 +172,7 @@ void TestGroundItems()
 		CHECK(DecodeCoopOwnerInventorySnapshot(bytes.data(), size, decoded) != CoopInventoryCodecResult::Success &&
 			decoded == original, "every truncated ground frame preserves prior complete snapshot");
 	}
-	for (unsigned mutation = 0; mutation < 15; ++mutation)
+	for (unsigned mutation = 0; mutation < 16; ++mutation)
 	{
 		auto bad = original;
 		switch (mutation)
@@ -194,12 +194,29 @@ void TestGroundItems()
 			case 13: bad.groundItems.push_back(bad.groundItems[0]); bad.groundItems[1].summary.slot = 1;
 				--bad.groundItems[1].id.slot; break;
 			case 14: bad.groundItems.resize(MaximumCoopGroundItems + 1); break;
+			case 15: bad.groundItems.push_back(bad.groundItems[0]); bad.groundItems[1].summary.slot = 1;
+				++bad.groundItems[1].id.incarnation; break;
 		}
 		auto output = bytes;
 		CHECK(!IsValidCoopGroundItems(bad) &&
 			EncodeCoopOwnerInventorySnapshot(bad, output) == CoopInventoryCodecResult::Invalid && output == bytes,
 			"invalid ground scope, identity, typed summary, order and capacity reject transactionally");
 	}
+	auto distinctSlots = original;
+	distinctSlots.groundItems.push_back(distinctSlots.groundItems[0]);
+	distinctSlots.groundItems[1].summary.slot = 1;
+	++distinctSlots.groundItems[1].id.slot;
+	++distinctSlots.groundItems[1].id.incarnation;
+	std::vector<std::uint8_t> duplicateSlotBytes;
+	CHECK(EncodeCoopOwnerInventorySnapshot(distinctSlots, duplicateSlotBytes) == CoopInventoryCodecResult::Success,
+		"two distinct native ground slots encode before the alias mutation");
+	const auto groundOffset = CoopOwnerInventoryHeaderWireSize + original.slots.size() * CoopInventorySlotWireSize;
+	for (std::size_t byte = 0; byte < 4; ++byte)
+		duplicateSlotBytes[groundOffset + CoopGroundItemWireSize + byte] = duplicateSlotBytes[groundOffset + byte];
+	decoded = original;
+	CHECK(DecodeCoopOwnerInventorySnapshot(duplicateSlotBytes.data(), duplicateSlotBytes.size(), decoded) ==
+		CoopInventoryCodecResult::Invalid && decoded == original,
+		"two incarnations of one native ground slot cannot coexist in a replacement snapshot");
 	for (unsigned mutation = 0; mutation < 8; ++mutation)
 	{
 		auto bad = bytes;

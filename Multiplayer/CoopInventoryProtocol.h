@@ -100,6 +100,7 @@ struct CoopOwnerInventorySnapshot
 	std::vector<CoopInventorySlotSummary> slots;
 	// Visible, neutral, supported whole stacks on this actor's exact tile/floor.
 	// Native item incarnations prevent selecting a replacement at a reused slot.
+	// Sorted by native slot; two incarnations of one slot cannot coexist.
 	std::int32_t groundGrid = -1;
 	std::int8_t groundLevel = -1;
 	bool groundItemsTruncated = false;
