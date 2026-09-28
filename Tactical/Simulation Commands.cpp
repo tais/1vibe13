@@ -1959,6 +1959,13 @@ namespace
 					TraceDedicatedCoopMoveRejection("execution-readiness", diagnostic);
 					return CommandDisposition::Discard;
 				}
+				// Revalidation accepts zero-route locomotion only at the native
+				// retained arrival boundary. Seed the new first tile while preserving
+				// the old movement pose for native run-start AP accounting.
+				const bool restartRetainedLocomotion =
+					value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					soldier->pathing().pathSize() == 0 &&
+					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_MOVING) != 0;
 				// The legacy route entry rejects an index at its fixed capacity.
 				// Only after dedicated revalidation may a fully consumed buffer be
 				// released. Keep its delay intact for requestPath's normal cleanup.
@@ -1978,7 +1985,7 @@ namespace
 					value.destinationGrid, value.movementMode,
 					static_cast<TacticalActorRouteExecution::PathOrigin>(
 						value.origin),
-					value.forceRestart);
+					value.forceRestart || restartRetainedLocomotion);
 				if (!pathStarted && value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
 				{
 					diagnostic.reason = TacticalMoveFailure::NativePathStart;

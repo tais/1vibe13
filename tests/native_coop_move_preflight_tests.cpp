@@ -20,6 +20,7 @@
 #include "Simulation Commands.h"
 #include "TacticalActor.h"
 #include "TacticalActorMovementState.h"
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorStateFlags.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInterruptHost.h"
@@ -377,8 +378,8 @@ int main()
 		actor.pathing().finalDestinationGrid() = origin;
 		INT16 centerX = 0, centerY = 0;
 		ConvertGridNoToCenterCellXY(origin, &centerX, &centerY);
-		actor.position().worldX() = actor.pathing().destinationX() = centerX;
-		actor.position().worldY() = actor.pathing().destinationY() = centerY;
+		actor.position().setWorldCoordinates(centerX, centerY);
+		actor.pathing().destinationX() = centerX; actor.pathing().destinationY() = centerY;
 		actor.movement().markPastXDestination(); actor.movement().markPastYDestination();
 		actor.renderBindings().faceIndex() = -1;
 		actor.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 0);
@@ -443,11 +444,48 @@ int main()
 				"native cost proves forcing standing would add the run restart surcharge");
 			actor = retained;
 		}
-		CHECK(dispatchTo(newDestination, retainedAnimation).status == SimulationCommandDispatchStatus::Applied &&
-			actor.animationPlayback().state() == retainedAnimation && !actor.movement().outOfActionPoints() &&
-			actor.pathing().pathIndex() < actor.pathing().pathSize() &&
-			actor.pathing().finalDestinationGrid() == newDestination && actor.actionPoints().current() == 82,
-			"fresh dedicated route resumes retained locomotion without a run restart AP charge");
+		for (bool alternate : {false, true})
+		{
+			gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = alternate;
+			actor.animationCache().reset(); actor = retained;
+			actor.position().direction() = WEST; actor.pathing().desiredDirection() = WEST;
+			actor.movement().animationDirection() = WEST;
+			for (INT32 destination : {origin - 1, origin - 2})
+			{
+				INT16 targetX = 0, targetY = 0;
+				ConvertGridNoToCenterCellXY(destination, &targetX, &targetY);
+				const INT16 beforeAP = actor.actionPoints().current();
+				const INT16 stepCost = ActionPointCost(&actor, destination, WEST, retainedAnimation);
+				CHECK(stepCost == 4, "retained native step excludes the seven-AP run restart surcharge");
+				CHECK(dispatchTo(destination, retainedAnimation).status == SimulationCommandDispatchStatus::Applied &&
+					actor.animationPlayback().state() == retainedAnimation && !actor.movement().outOfActionPoints() &&
+					actor.pathing().pathIndex() == 0 && actor.pathing().pathSize() == 1 &&
+					actor.pathing().destinationGrid() == destination && actor.pathing().finalDestinationGrid() == destination &&
+					actor.pathing().destinationX() == targetX && actor.pathing().destinationY() == targetY &&
+					actor.actionPoints().current() == beforeAP - stepCost,
+					"retained route restart initializes the first native tile and charges its exact AP once");
+				for (unsigned tick = 0; tick < 64; ++tick)
+				{
+					// Pixel frames are inert; only scheduling is advanced by the fixture.
+					// Overhead owns locomotion, grid updates, route cursor and arrival.
+					actor.animationPlayback().code() = 0;
+					actor.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 0);
+					giTimerCounters[TOVERHEAD] = 0;
+					CHECK(ExecuteOverhead(), "native retained replan movement tick runs");
+					if (actor.movement().outOfActionPoints() || actor.animationPlayback().state() == STANDING ||
+						(actor.pathing().pathSize() != 0 && actor.pathing().pathIndex() == actor.pathing().pathSize())) break;
+				}
+				CHECK(actor.position().gridNo() == destination && actor.position().worldX() == targetX && actor.position().worldY() == targetY &&
+					actor.pathing().destinationGrid() == destination && actor.pathing().finalDestinationGrid() == destination &&
+					actor.pathing().pathIndex() == 0 && actor.pathing().pathSize() == 0 && actor.movement().outOfActionPoints() &&
+					actor.animationPlayback().state() == retainedAnimation,
+					"consecutive native retained route reaches exact next tile center and native arrival boundary");
+				CHECK(actor.actionPoints().current() == beforeAP - stepCost,
+					"actual retained arrival preserves the one native step debit without a run restart charge");
+			}
+			CHECK(TacticalActorWorldPlacement::removeFromGrid(actor), "consecutive arrival fixture releases native world placement");
+		}
+		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
 		actor.animationCache().reset(); actor = retained;
 	}
 	CHECK(RemoveJa2ActiveTacticalActor(id), "arrival actor leaves overhead roster");
