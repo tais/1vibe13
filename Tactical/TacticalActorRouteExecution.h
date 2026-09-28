@@ -21,6 +21,11 @@ namespace TacticalActorRouteExecution
 		TacticalActor& actor,
 		bool stopped,
 		bool replicate = true);
+	// Dedicated co-op admission and immediate execution revalidation. This
+	// checks a fresh ordinary route without changing actor, path policy or RNG.
+	[[nodiscard]] bool canBeginMoveToGrid(
+		TacticalActor& actor, std::int32_t destinationGrid,
+		std::uint16_t movementMode, bool reverse) noexcept;
 	[[nodiscard]] bool requestPath(
 		TacticalActor& actor,
 		std::int32_t destinationGrid,

@@ -287,6 +287,14 @@ bool DedicatedCoopTacticalHost::translate(
 				translated = false;
 				return;
 			}
+			if (!liveState_->canBeginMoveToGrid(
+					intent.actor, payload.destinationGrid, payload.movementMode,
+					payload.reverse))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
 			command = MoveToGridCommand{
 				intent.actor, payload.destinationGrid, payload.movementMode,
 				payload.reverse, false, SimulationCommandSource::NetworkPeer,

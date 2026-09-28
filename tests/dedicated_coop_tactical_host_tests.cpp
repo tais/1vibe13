@@ -86,6 +86,23 @@ public:
 		output = defaultActor;
 		return true;
 	}
+	bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept override
+	{
+		++movePreparationCalls;
+		lastMoveActor = actor;
+		lastMoveDestination = destinationGrid;
+		lastMoveMode = movementMode;
+		lastMoveReverse = reverse;
+		if (moveRouteActive || moveSpecialAnimationActive ||
+			!moveFirstStepAffordable ||
+			!movePreparationSucceeds)
+			return false;
+		return true;
+	}
 	bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,
@@ -158,6 +175,15 @@ public:
 	bool turnCaptureSucceeds = true;
 	bool actorCaptureSucceeds = true;
 	bool collectionSucceeds = true;
+	bool movePreparationSucceeds = true;
+	bool moveRouteActive = false;
+	bool moveSpecialAnimationActive = false;
+	bool moveFirstStepAffordable = true;
+	mutable std::size_t movePreparationCalls = 0;
+	mutable TacticalEntityId lastMoveActor{};
+	mutable std::int32_t lastMoveDestination = -1;
+	mutable std::uint16_t lastMoveMode = 0;
+	mutable bool lastMoveReverse = false;
 	bool attackPreparationSucceeds = true;
 	bool reloadPreparationSucceeds = true;
 	bool doorPreparationSucceeds = true;
@@ -439,6 +465,63 @@ void TestTranslatesSupportedIntentVocabulary()
 		CHECK(receipts.receipts[index].peerIdentity == Peer(0x20),
 			"receipt uses the ingress-resolved peer identity");
 	}
+}
+
+void TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart()
+{
+	FakeLiveState live;
+	FakeCommandService commands;
+	RecordingReceiptSink receipts;
+	DedicatedCoopTacticalHost host(
+		live, commands, receipts, CampaignPackageId, 8);
+
+	CHECK(host.execute(Intent(1,
+		MoveTacticalIntent{1234, 17, false})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"an idle actor's first discrete move is retained");
+	live.moveRouteActive = true;
+	CHECK(host.execute(Intent(2,
+		MoveTacticalIntent{1393, 17, false})) ==
+		TacticalIntentExecutionDisposition::Rejected,
+		"a second discrete move cannot replace a live actor route");
+	CHECK(commands.submissionCount == 1 &&
+		live.movePreparationCalls == 2 &&
+		live.lastMoveDestination == 1393,
+		"active-route rejection occurs before a second command submission");
+	CHECK(LastReceipt(receipts).status ==
+		CoopTacticalIntentReceiptStatus::Rejected &&
+		LastReceipt(receipts).reason ==
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"active-route replacement receives a terminal gameplay rejection");
+
+	CHECK(host.execute(Intent(3, StopTacticalIntent{})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"stop remains available while an actor has an active route");
+	CHECK(commands.submissionCount == 2 &&
+		std::holds_alternative<StopMovementCommand>(
+			commands.submissions[1].command) &&
+		live.movePreparationCalls == 2,
+		"stop bypasses move preparation and reaches the command service");
+
+	FakeLiveState exhausted;
+	exhausted.moveFirstStepAffordable = false;
+	FakeCommandService exhaustedCommands;
+	RecordingReceiptSink exhaustedReceipts;
+	DedicatedCoopTacticalHost exhaustedHost(
+		exhausted, exhaustedCommands, exhaustedReceipts,
+		CampaignPackageId, 4);
+	CHECK(exhaustedHost.execute(Intent(1,
+		MoveTacticalIntent{1234, 17, false})) ==
+		TacticalIntentExecutionDisposition::Rejected,
+		"a move whose first step is unaffordable is rejected immediately");
+	CHECK(exhaustedCommands.submissionCount == 0 &&
+		exhausted.movePreparationCalls == 1,
+		"an unaffordable move cannot enter the asynchronous command inbox");
+	CHECK(LastReceipt(exhaustedReceipts).status ==
+		CoopTacticalIntentReceiptStatus::Rejected &&
+		LastReceipt(exhaustedReceipts).reason ==
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"an unaffordable first step cannot later be reported as applied");
 }
 
 void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
@@ -1068,6 +1151,7 @@ void TestActorCollectionIsStrictAndTransactional()
 int main()
 {
 	TestTranslatesSupportedIntentVocabulary();
+	TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart();
 	TestLiveActorAndTurnPolicyRejectsBeforeSubmission();
 	TestInterruptAuthorityAndPassTranslation();
 	TestSubmissionFailuresAndCorrelationCapacityFailClosed();

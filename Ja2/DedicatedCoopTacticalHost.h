@@ -77,6 +77,11 @@ public:
 	virtual bool captureActor(
 		TacticalEntityId actor,
 		DedicatedCoopTacticalActorState& state) const noexcept = 0;
+	virtual bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept = 0;
 	virtual bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,
@@ -113,6 +118,11 @@ public:
 	bool captureActor(
 		TacticalEntityId actor,
 		DedicatedCoopTacticalActorState& state) const noexcept override;
+	bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept override;
 	bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,

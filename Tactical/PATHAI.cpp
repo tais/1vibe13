@@ -51,6 +51,16 @@
 #include "opplist.h"
 #include "Weapons.h"
 #include <new>
+#include <thread>
+#include <vector>
+#include <Engine/Core/SimulationRandom.h>
+
+namespace
+{
+RandomSource* moveAdmissionRandom = nullptr;
+std::thread::id pathAiOwnerThread;
+}
+
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -2118,7 +2128,8 @@ INT8 RandomSkipListLevel( void )
 {
 	INT8 bLevel = 1;
 
-	while( Random( 4 ) == 0 && bLevel < iMaxSkipListLevel - 1)
+	while( (moveAdmissionRandom ? moveAdmissionRandom->next(4) : Random(4)) == 0 &&
+		bLevel < iMaxSkipListLevel - 1)
 	{
 		bLevel++;
 	}
@@ -2153,6 +2164,7 @@ void RestorePathAIToDefaults( void )
 //dnl ch50 071009
 static void FreePathAIBuffers()
 {
+	pathAiOwnerThread = {};
 	if (guiPathingData) { MemFree(guiPathingData); guiPathingData = nullptr; }
 	if (guiPlottedPath) { MemFree(guiPlottedPath); guiPlottedPath = nullptr; }
 	if (pathQ) { MemFree(pathQ); pathQ = nullptr; }
@@ -2191,6 +2203,7 @@ BOOLEAN InitPathAI(void)
 		return(FALSE);
 	}
 	RestorePathAIToDefaults();
+	pathAiOwnerThread = std::this_thread::get_id();
 	return(TRUE);
 }
 
@@ -3998,6 +4011,57 @@ ENDOFLOOP:
 	//	return (0);
 	//}
 	}
+}
+
+bool FindBestPathForMoveAdmission(TacticalActor& actor, INT32 destination,
+	INT8 level, INT16 movementMode, UINT8& firstDirection) noexcept
+{
+	if (pathAiOwnerThread != std::this_thread::get_id() || moveAdmissionRandom ||
+		!guiPathingData || !pathQ || !trailTree) return false;
+	try
+	{
+		std::vector<UINT32> scratch(MAX_PATH_DATA_LENGTH);
+		SimulationRandom probeRandom(0);
+		struct ProbeScope
+		{
+			TacticalActor& actor;
+			INT32 source, dataSize;
+			UINT32* data;
+			INT16 apBudget;
+			UINT8 distance, flags, endDirection, building;
+			BOOLEAN circular, direct, estimate, around, exitGrid, edgepoints;
+			ProbeScope(TacticalActor& value, UINT32* output, RandomSource& random)
+				: actor(value), source(value.runtime().pendingAction.pathSearchSourceGrid),
+				  dataSize(giPathDataSize), data(guiPathingData), apBudget(gubNPCAPBudget),
+				  distance(gubNPCDistLimit), flags(gubGlobalPathFlags), endDirection(gfPlotPathEndDirection),
+				  building(gubBuildingInfoToSet), circular(gfNPCCircularDistLimit), direct(gfPlotDirectPath),
+				  estimate(gfEstimatePath), around(gfPathAroundObstacles), exitGrid(gfPlotPathToExitGrid),
+				  edgepoints(gfGeneratingMapEdgepoints)
+			{
+				guiPathingData = output; giPathDataSize = 0;
+				gubNPCAPBudget = 0; gubNPCDistLimit = 0; gubGlobalPathFlags = 0;
+				gubBuildingInfoToSet = 0; gfNPCCircularDistLimit = FALSE;
+				gfPlotDirectPath = FALSE; gfEstimatePath = FALSE; gfPathAroundObstacles = TRUE;
+				gfPlotPathToExitGrid = FALSE; gfGeneratingMapEdgepoints = FALSE;
+				moveAdmissionRandom = &random;
+			}
+			~ProbeScope()
+			{
+				moveAdmissionRandom = nullptr;
+				actor.runtime().pendingAction.pathSearchSourceGrid = source;
+				guiPathingData = data; giPathDataSize = dataSize;
+				gubNPCAPBudget = apBudget; gubNPCDistLimit = distance; gubGlobalPathFlags = flags;
+				gfPlotPathEndDirection = endDirection; gubBuildingInfoToSet = building;
+				gfNPCCircularDistLimit = circular; gfPlotDirectPath = direct; gfEstimatePath = estimate;
+				gfPathAroundObstacles = around; gfPlotPathToExitGrid = exitGrid; gfGeneratingMapEdgepoints = edgepoints;
+			}
+		} scope(actor, scratch.data(), probeRandom);
+		const INT32 length = FindBestPath(&actor, destination, level, movementMode, NO_COPYROUTE, 0);
+		if (length <= 0 || scratch[0] >= NUM_WORLD_DIRECTIONS || !probeRandom.healthy()) return false;
+		firstDirection = static_cast<UINT8>(scratch[0]);
+		return true;
+	}
+	catch (...) { return false; }
 }
 
 void GlobalReachableTest( INT32 sStartGridNo )

@@ -650,6 +650,106 @@ bool TacticalActorRouteExecution::setOutOfActionPoints(
 	return true;
 }
 
+bool TacticalActorRouteExecution::canBeginMoveToGrid(
+	TacticalActor& actor, std::int32_t destinationGrid,
+	std::uint16_t movementMode, bool reverse) noexcept
+{
+	if (!hasLiveRouteContext(actor) || actor.vitals().health() < OKLIFE ||
+		actor.collapseState().tactical() || gfGetNewPathThroughPeople || TileIsOutOfBounds(destinationGrid) ||
+		destinationGrid == actor.position().gridNo() ||
+		!TacticalActorMobility::isValidMovementMode(actor, movementMode) ||
+		(gAnimControl[movementMode].uiFlags & ANIM_MOVING) == 0)
+		return false;
+
+	const std::uint16_t animationState = actor.animationPlayback().state();
+	if (animationState >= NUMANIMATIONSTATES ||
+		(gAnimControl[animationState].uiFlags &
+			(ANIM_SPECIALMOVE | ANIM_NONINTERRUPT | ANIM_FIRE | ANIM_ATTACK |
+			 ANIM_HITSTART | ANIM_HITFINISH | ANIM_HITSTOP | ANIM_HITWHENDOWN)) != 0)
+		return false;
+	const auto& intent = actor.animationIntent();
+	const auto& activity = actor.animationActivity();
+	if (intent.hasPendingAnimation() || intent.hasSecondaryPendingAnimation() ||
+		intent.hasPendingStance() || intent.hasPendingDirection() ||
+		intent.continuesAfterStance() || intent.stopPendingNextTile() ||
+		activity.turningUntilDone() || activity.turningFromProneMode() ||
+		activity.turningToShoot() || activity.turningToFall() ||
+		activity.nonInterruptible() || activity.realtimeNonInterruptible() ||
+		activity.paused() || activity.gettingHit() || activity.holdAttackerUntilDone() ||
+		activity.suppressionStanceChange() || actor.pendingAction().active() ||
+		(actor.status().flags() & (SOLDIER_LOCKPENDINGACTIONCOUNTER | SOLDIER_COWERING)) != 0 ||
+		actor.fireControl().bulletsLeft() > 0 || actor.runtime().pendingAction.delayedDamage ||
+		actor.movement().waitingForAction() || actor.movement().turnActive() ||
+		actor.pathing().desiredDirection() != actor.position().direction() ||
+		actor.movement().movementPaused() || actor.movement().continuedPathValid() ||
+		actor.schedule().assigned() || actor.schedule().doorContinuationPending())
+		return false;
+
+	const UINT16 pathSize = actor.pathing().pathSize();
+	const UINT16 pathIndex = actor.pathing().pathIndex();
+	if (pathSize > MAX_PATH_LIST_SIZE || pathIndex > MAX_PATH_LIST_SIZE ||
+		pathIndex > pathSize || pathIndex < pathSize)
+		return false;
+	// Native movement can start from steady weapon-ready poses. FIREREADY
+	// alone also marks active catch/knife work, so enumerate the idle poses.
+	const bool steadyReady = animationState == AIM_RIFLE_STAND || animationState == AIM_RIFLE_CROUCH ||
+		animationState == AIM_RIFLE_PRONE || animationState == AIM_DUAL_STAND ||
+		animationState == AIM_DUAL_CROUCH || animationState == AIM_DUAL_PRONE ||
+		animationState == AIM_ALTERNATIVE_STAND || animationState == PUNCH_BREATH ||
+		animationState == NINJA_BREATH || animationState == KNIFE_BREATH;
+	const bool idleStance = animationState == STANDING || animationState == CROUCHING ||
+		animationState == PRONE || steadyReady;
+	// Turn-based JA2 can retain locomotion presentation after reaching the
+	// final tile. Other action/transition animations are not an idle boundary.
+	const bool completedLocomotion = pathSize != 0 &&
+		actor.pathing().finalDestinationGrid() == actor.position().gridNo() &&
+		(gAnimControl[animationState].uiFlags & ANIM_MOVING) != 0;
+	if (!idleStance && !completedLocomotion) return false;
+	const auto& movement = actor.movement();
+	// A stopped, exhausted tile-wait route can retain a destination it never
+	// reached. Permit a new explicit route only from an ordinary idle stance;
+	// standing traversal preparations (notably HOPFENCE) were excluded above.
+	// Escalated through-people waits must not lend their policy to this request.
+	const bool stoppedTileWait = movement.delayed() && pathSize != 0 && idleStance &&
+		!movement.movementPaused() && !movement.outOfActionPoints() &&
+		!movement.waitingForAction() && !movement.turnActive() &&
+		!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+		(movement.delayedFlags() & DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE) == 0 &&
+		!TileIsOutOfBounds(movement.delayedCauseGrid());
+	if ((movement.delayed() ||
+		(pathSize != 0 && actor.pathing().finalDestinationGrid() != actor.position().gridNo())) &&
+		!stoppedTileWait)
+		return false;
+	// requestPath() only reports that a route/animation was accepted. The first
+	// native HandleGoto step (and its AP check) happens later, so capture the
+	// same first step here before allowing the command into the inbox.
+	UINT8 direction = 0;
+	if (!FindBestPathForMoveAdmission(actor, destinationGrid,
+		actor.position().level(), movementMode, direction)) return false;
+
+	const INT32 nextGrid = NewGridNo(
+		actor.position().gridNo(), DirectionInc(direction));
+	if (TileIsOutOfBounds(nextGrid) ||
+		nextGrid == actor.position().gridNo())
+		return false;
+
+	UINT16 effectiveMovementMode = movementMode;
+	if (effectiveMovementMode == RUNNING && reverse)
+		effectiveMovementMode = WALKING;
+	if (TacticalActorMobility::inDeepWater(actor))
+		effectiveMovementMode = DEEP_WATER_SWIM;
+	else if (TacticalActorMobility::inWater(actor))
+		effectiveMovementMode = WALKING;
+	const INT16 firstStepActionPoints = ActionPointCost(
+		&actor, nextGrid, static_cast<INT8>(direction),
+		effectiveMovementMode);
+	if (firstStepActionPoints < 0 ||
+		!EnoughPoints(&actor, firstStepActionPoints, 0, FALSE))
+		return false;
+
+	return true;
+}
+
 bool TacticalActorRouteExecution::requestPath(
 	TacticalActor& actor,
 	std::int32_t destinationGrid,
