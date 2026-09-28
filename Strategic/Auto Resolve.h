@@ -52,6 +52,7 @@ extern BOOLEAN gfTransferTacticalOppositionToAutoResolve;
 
 //Returns TRUE if autoresolve is active or a sector is loaded.
 BOOLEAN GetCurrentBattleSectorXYZ( INT16 *psSectorX, INT16 *psSectorY, INT16 *psSectorZ );
+BOOLEAN GetCurrentBattleSectorXYZAndReturnTRUEIfThereIsABattle( INT16 *psSectorX, INT16 *psSectorY, INT16 *psSectorZ );
 
 void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors();
 

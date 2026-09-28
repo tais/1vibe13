@@ -43,13 +43,15 @@
 #include "Rebel Command.h"
 #include "TacticalEntityHost.h"
 #include "SoldierRepository.h"
+#include "TacticalDeployment.h"
+#include "TacticalWorldAdapter.h"
+#include "Assignments.h"
+#include <array>
 
-typedef struct MERCPLACEMENT
+struct NativeTacticalPlacement
 {
 	UINT16			usSoldierSlot;
 	UINT32			uiSoldierIncarnation;
-	UINT32			uiVObjectID;
-	MOUSE_REGION		region;
 	UINT8			ubStrategicInsertionCode;
 	BOOLEAN			fPlaced;
 
@@ -73,7 +75,13 @@ typedef struct MERCPLACEMENT
 		return TacticalEntityId{
 			usSoldierSlot, uiSoldierIncarnation};
 	}
-}MERCPLACEMENT;
+};
+
+struct MERCPLACEMENT : NativeTacticalPlacement
+{
+	UINT32 uiVObjectID;
+	MOUSE_REGION region;
+};
 
 MERCPLACEMENT *gMercPlacement = NULL;
 
@@ -214,13 +222,14 @@ void SelectNextUnplacedUnit();
 BOOLEAN gfNorthValid, gfEastValid, gfSouthValid, gfWestValid;
 BOOLEAN gfChangedEntrySide = FALSE;
 
-static void FindValidInsertionCode( UINT8 *pubStrategicInsertionCode )
+static bool FindValidInsertionCode( UINT8 *pubStrategicInsertionCode, bool presentation )
 {
 	if( gMapInformation.sNorthGridNo == -1 &&
 			gMapInformation.sEastGridNo == -1 &&
 			gMapInformation.sSouthGridNo == -1 &&
 			gMapInformation.sWestGridNo == -1 )
 	{
+		if (!presentation) return false;
 		AssertMsg( 0, "Map has no entry points at all.	Can't generate edge points.	LC:1" );
 	}
 	if( gMapInformation.sNorthGridNo	!= -1 && !gps1stNorthEdgepointArray	||
@@ -228,6 +237,8 @@ static void FindValidInsertionCode( UINT8 *pubStrategicInsertionCode )
 			gMapInformation.sSouthGridNo	!= -1 && !gps1stSouthEdgepointArray	||
 			gMapInformation.sWestGridNo		!= -1 && !gps1stWestEdgepointArray		)
 	{
+		if (presentation)
+		{
 		InvalidateScreen();
 		DrawTextToScreen( L"Map doesn't has entrypoints without corresponding edgepoints. LC:1",
 			iOffsetHorizontal + 30, iOffsetVertical + 150, 600, FONT10ARIALBOLD, FONT_RED, FONT_MCOLOR_BLACK, TRUE, LEFT_JUSTIFIED	);
@@ -235,75 +246,83 @@ static void FindValidInsertionCode( UINT8 *pubStrategicInsertionCode )
 			iOffsetHorizontal + 30, iOffsetVertical + 160, 600, FONT10ARIALBOLD, FONT_YELLOW, FONT_MCOLOR_BLACK, TRUE, LEFT_JUSTIFIED	);
 
 		RefreshScreen( NULL );
+		}
 		GenerateMapEdgepoints(TRUE);//dnl ch43 290909
 		switch( *pubStrategicInsertionCode )
 		{
 			case INSERTION_CODE_NORTH:
+				if( !gps1stNorthEdgepointArray && !presentation ) return false;
 				if( !gps1stNorthEdgepointArray )
 					AssertMsg( 0, "Map Edgepoint generation failed.	KM : 0 -- send map" );
 				break;
 			case INSERTION_CODE_EAST:
+				if( !gps1stEastEdgepointArray && !presentation ) return false;
 				if( !gps1stEastEdgepointArray )
 					AssertMsg( 0, "Map Edgepoint generation failed.	KM : 0 -- send map" );
 				break;
 			case INSERTION_CODE_SOUTH:
+				if( !gps1stSouthEdgepointArray && !presentation ) return false;
 				if( !gps1stSouthEdgepointArray )
 					AssertMsg( 0, "Map Edgepoint generation failed.	KM : 0 -- send map" );
 				break;
 			case INSERTION_CODE_WEST:
+				if( !gps1stWestEdgepointArray && !presentation ) return false;
 				if( !gps1stWestEdgepointArray )
 					AssertMsg( 0, "Map Edgepoint generation failed.	KM : 0 -- send map" );
 				break;
 		}
-		return;
+		return true;
 	}
 	if( gMapInformation.sNorthGridNo != -1 )
 	{
 		*pubStrategicInsertionCode = INSERTION_CODE_NORTH;
-		gfChangedEntrySide = TRUE;
+		if (presentation) gfChangedEntrySide = TRUE;
 	}
 	else if( gMapInformation.sEastGridNo != -1 )
 	{
 		*pubStrategicInsertionCode = INSERTION_CODE_EAST;
-		gfChangedEntrySide = TRUE;
+		if (presentation) gfChangedEntrySide = TRUE;
 	}
 	else if( gMapInformation.sSouthGridNo != -1 )
 	{
 		*pubStrategicInsertionCode = INSERTION_CODE_SOUTH;
-		gfChangedEntrySide = TRUE;
+		if (presentation) gfChangedEntrySide = TRUE;
 	}
 	else if( gMapInformation.sWestGridNo != -1 )
 	{
 		*pubStrategicInsertionCode = INSERTION_CODE_WEST;
-		gfChangedEntrySide = TRUE;
+		if (presentation) gfChangedEntrySide = TRUE;
 	}
 	else
 	{
+		if (!presentation) return false;
 		AssertMsg( 0, "No maps edgepoints at all! KM, LC : 1" );
 	}
+	return true;
 }
 
-static void CheckForValidMapEdge( UINT8 *pubStrategicInsertionCode )
+static bool CheckForValidMapEdge( UINT8 *pubStrategicInsertionCode, bool presentation )
 {
 	switch( *pubStrategicInsertionCode )
 	{
 		case INSERTION_CODE_NORTH:
 			if( !gps1stNorthEdgepointArray )
-				FindValidInsertionCode( pubStrategicInsertionCode );
+				return FindValidInsertionCode( pubStrategicInsertionCode, presentation );
 			break;
 		case INSERTION_CODE_EAST:
 			if( !gps1stEastEdgepointArray )
-				FindValidInsertionCode( pubStrategicInsertionCode );
+				return FindValidInsertionCode( pubStrategicInsertionCode, presentation );
 			break;
 		case INSERTION_CODE_SOUTH:
 			if( !gps1stSouthEdgepointArray )
-				FindValidInsertionCode( pubStrategicInsertionCode );
+				return FindValidInsertionCode( pubStrategicInsertionCode, presentation );
 			break;
 		case INSERTION_CODE_WEST:
 			if( !gps1stWestEdgepointArray )
-				FindValidInsertionCode( pubStrategicInsertionCode );
+				return FindValidInsertionCode( pubStrategicInsertionCode, presentation );
 			break;
 	}
+	return true;
 }
 
 
@@ -622,6 +641,72 @@ static void EnableDisableTacticalPlacementScrollButtonsAndRegions( void )
 
 extern BOOLEAN		gfTacticalDoHeliRun;
 
+static bool IsNativePlacementMerc(const TacticalActor* actor)
+{
+	return actor && actor->roster().active() && actor->vitals().health() && !actor->deployment().isBetweenSectors() &&
+		CurrentBattleSectorIs(actor->deployment().sectorX(), actor->deployment().sectorY(), actor->deployment().sectorZ()) &&
+		actor->assignment().current() != ASSIGNMENT_POW && actor->assignment().current() != ASSIGNMENT_MINIEVENT &&
+		actor->assignment().current() != ASSIGNMENT_REBELCOMMAND && actor->assignment().current() != IN_TRANSIT &&
+		!(actor->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION) && !(actor->status().flags() & SOLDIER_VEHICLE);
+}
+
+static bool InitializeNativePlacement(NativeTacticalPlacement& placement, TacticalActor* pSoldier, bool presentation)
+{
+	if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
+	{
+		placement.ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+		pSoldier->deployment().strategicInsertionCode()			= INSERTION_CODE_CENTER;
+		if (presentation) gfCenter = TRUE;
+	}
+
+	// WANNE - MP: Check if the desired insertion direction is valid on the map. If not, choose another entry direction!
+	if (is_networked)
+	{
+		pSoldier->deployment().strategicInsertionCode() = GetValidInsertionDirectionForMP(pSoldier->deployment().strategicInsertionCode());
+	}
+	// ATE: If we are in a vehicle - remove ourselves from it!
+	//if ( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+	//{
+	//	RemoveSoldierFromVehicle( pSoldier, pSoldier->vehicleState().tacticalVehicleId() );
+	//}
+
+	if( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_PRIMARY_EDGEINDEX ||
+			pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SECONDARY_EDGEINDEX )
+	{
+		pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
+	}
+	if (!placement.capture(
+			GetJa2TacticalEntityId(*pSoldier)))
+		return false;
+	placement.ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
+	placement.fPlaced = FALSE;
+
+	// WANNE: We always want to have edgepoints
+	if (!CheckForValidMapEdge( &pSoldier->deployment().strategicInsertionCode(), presentation )) return false;
+	// re-sync the placement copy: CheckForValidMapEdge may substitute a valid arrival side when the
+	// original has no entry point; without this the copy keeps the stale code -> placement screen soft-locks
+	placement.ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
+
+	// Flugente: campaign stats
+	switch( pSoldier->deployment().strategicInsertionCode() )
+	{
+		case INSERTION_CODE_NORTH:
+			gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH;
+			break;
+		case INSERTION_CODE_EAST:
+			gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST;
+			break;
+		case INSERTION_CODE_SOUTH:
+			gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH;
+			break;
+		case INSERTION_CODE_WEST:
+			gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST;
+			break;
+	}
+
+	return true;
+}
+
 void InitTacticalPlacementGUI()
 {
 	ResetTacticalPlacementActorContexts();
@@ -755,14 +840,7 @@ void InitTacticalPlacementGUI()
 	{
 		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
-		if( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() &&
-			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
-				pSoldier->assignment().current() != ASSIGNMENT_POW &&
-				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
-				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
-				!( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION ) &&
-				pSoldier->assignment().current() != IN_TRANSIT &&
-				!( pSoldier->status().flags() & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
+		if (IsNativePlacementMerc(pSoldier))
 		{
 			// Flugente: if options allow it and we entered this sector - in combat - via helicopter, then allow us free selection of our entry point, and drop us from the helicopter
 			if ( pSoldier->roster().team() == gbPlayerNum && (gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3) && pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
@@ -775,57 +853,7 @@ void InitTacticalPlacementGUI()
 				gfCenter = TRUE;
 			}
 
-			if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
-			{
-				gMercPlacement[giPlacements].ubStrategicInsertionCode	= INSERTION_CODE_CENTER;
-				pSoldier->deployment().strategicInsertionCode()					= INSERTION_CODE_CENTER;
-				gfCenter = TRUE;
-			}
-
-			// WANNE - MP: Check if the desired insertion direction is valid on the map. If not, choose another entry direction!
-			if (is_networked)
-			{
-				pSoldier->deployment().strategicInsertionCode() = GetValidInsertionDirectionForMP(pSoldier->deployment().strategicInsertionCode());
-			}
-			// ATE: If we are in a vehicle - remove ourselves from it!
-			//if ( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
-			//{
-			//	RemoveSoldierFromVehicle( pSoldier, pSoldier->vehicleState().tacticalVehicleId() );
-			//}
-
-			if( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_PRIMARY_EDGEINDEX ||
-					pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SECONDARY_EDGEINDEX )
-			{
-				pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
-			}
-			if (!gMercPlacement[ giPlacements ].capture(
-					GetJa2TacticalEntityId(*pSoldier)))
-				continue;
-			gMercPlacement[ giPlacements ].ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
-			gMercPlacement[ giPlacements ].fPlaced = FALSE;
-			
-			// WANNE: We always want to have edgepoints
-			CheckForValidMapEdge( &pSoldier->deployment().strategicInsertionCode() );
-			// re-sync the placement copy: CheckForValidMapEdge may substitute a valid arrival side when the
-			// original has no entry point; without this the copy keeps the stale code -> placement screen soft-locks
-			gMercPlacement[ giPlacements ].ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
-
-			// Flugente: campaign stats
-			switch( pSoldier->deployment().strategicInsertionCode() )
-			{
-				case INSERTION_CODE_NORTH:					
-					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH;
-					break;
-				case INSERTION_CODE_EAST:
-					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST;
-					break;
-				case INSERTION_CODE_SOUTH:
-					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH;
-					break;
-				case INSERTION_CODE_WEST:
-					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST;
-					break;
-			}
+			if (!InitializeNativePlacement(gMercPlacement[giPlacements], pSoldier, true)) continue;
 
 			// WANNE - MP: Center
 			if (is_networked && pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_CENTER)
@@ -1885,40 +1913,44 @@ void KillTacticalPlacementGUI()
 	giPlacements = 0;
 }
 
-static void ChooseRandomEdgepoints()
+static void ChooseNativeRandomEdgepoint(NativeTacticalPlacement& placement, UINT8& lastValidICode)
 {
-	INT32 i;
-	UINT8	lastValidICode = INSERTION_CODE_GRIDNO;
-	for( i = 0; i < giPlacements; i++ )
+	if ( !( placement.soldier()->status().flags() & SOLDIER_VEHICLE ) )
 	{
-		if ( !( gMercPlacement[ i ].soldier()->status().flags() & SOLDIER_VEHICLE ) )
+		if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
 		{
-			if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
-			{
-				UINT8 ubDirection;
+			UINT8 ubDirection;
 
-				gMercPlacement[i].soldier()->deployment().strategicInsertionData() = FindRandomGridNoFromSweetSpotExcludingSweetSpot( gMercPlacement[i].soldier(), gMapInformation.sCenterGridNo, gGameExternalOptions.usAmbushSpreadRadiusMercs, &ubDirection );
+			placement.soldier()->deployment().strategicInsertionData() = FindRandomGridNoFromSweetSpotExcludingSweetSpot( placement.soldier(), gMapInformation.sCenterGridNo, gGameExternalOptions.usAmbushSpreadRadiusMercs, &ubDirection );
 
-				// have the merc look outward. We add + 100 because later on we use this to signify that we want really enforce this direction
-				gMercPlacement[i].soldier()->deployment().insertionDirection() = (UINT8)GetDirectionToGridNoFromGridNo( gMapInformation.sCenterGridNo, gMercPlacement[i].soldier()->deployment().strategicInsertionData() ) + 100;
-			}
-			else
-			{
-				gMercPlacement[ i ].soldier()->deployment().strategicInsertionData() = ChooseMapEdgepoint( &gMercPlacement[ i ].ubStrategicInsertionCode, lastValidICode );
-			}
-			
-			if( !TileIsOutOfBounds(gMercPlacement[ i ].soldier()->deployment().strategicInsertionData()))
-			{
-				gMercPlacement[ i ].soldier()->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-				lastValidICode = gMercPlacement[ i ].ubStrategicInsertionCode;
-			}
-			else
-			{
-				gMercPlacement[ i ].soldier()->deployment().strategicInsertionCode() = gMercPlacement[ i ].ubStrategicInsertionCode;
-			}
+			// have the merc look outward. We add + 100 because later on we use this to signify that we want really enforce this direction
+			placement.soldier()->deployment().insertionDirection() = (UINT8)GetDirectionToGridNoFromGridNo( gMapInformation.sCenterGridNo, placement.soldier()->deployment().strategicInsertionData() ) + 100;
+		}
+		else
+		{
+			placement.soldier()->deployment().strategicInsertionData() = ChooseMapEdgepoint( &placement.ubStrategicInsertionCode, lastValidICode );
 		}
 
-		PutDownMercPiece( i );
+		if( !TileIsOutOfBounds(placement.soldier()->deployment().strategicInsertionData()))
+		{
+			placement.soldier()->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			lastValidICode = placement.ubStrategicInsertionCode;
+		}
+		else
+		{
+			placement.soldier()->deployment().strategicInsertionCode() = placement.ubStrategicInsertionCode;
+		}
+	}
+
+}
+
+static void ChooseRandomEdgepoints()
+{
+	UINT8 lastValidICode = INSERTION_CODE_GRIDNO;
+	for (INT32 i = 0; i < giPlacements; ++i)
+	{
+		ChooseNativeRandomEdgepoint(gMercPlacement[i], lastValidICode);
+		PutDownMercPiece(i);
 	}
 	gfEveryonePlaced = TRUE;
 }
@@ -2250,18 +2282,33 @@ void SetCursorMerc( INT8 bPlacementID )
 }
 
 
-void PutDownMercPiece( INT32 iPlacement )
+static void PickUpNativeMercPiece(NativeTacticalPlacement& placement)
+{
+	TacticalActor *pSoldier =
+		placement.soldier();
+	if (!pSoldier)
+	{
+		placement.fPlaced = FALSE;
+		return;
+	}
+
+	(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
+	placement.fPlaced = FALSE;
+	pSoldier->roster().inSector() = FALSE;
+}
+
+static bool PutDownNativeMercPiece(NativeTacticalPlacement& placement)
 {
 	INT32 sGridNo;
 	INT16 sCellX, sCellY;
 	UINT8 ubDirection;
 
 	TacticalActor *pSoldier;
-	pSoldier = gMercPlacement[ iPlacement ].soldier();
+	pSoldier = placement.soldier();
 	if (!pSoldier)
 	{
-		gMercPlacement[ iPlacement ].fPlaced = FALSE;
-		return;
+		placement.fPlaced = FALSE;
+		return false;
 	}
 
 	switch( pSoldier->deployment().strategicInsertionCode() )
@@ -2285,12 +2332,11 @@ void PutDownMercPiece( INT32 iPlacement )
 			pSoldier->deployment().insertionGrid() = pSoldier->deployment().strategicInsertionData();
 			break;
 		default:
-			Assert( 0 );
-			break;
+			return false;
 	}
 
-	if( gMercPlacement[ iPlacement ].fPlaced )
-		PickUpMercPiece( iPlacement );
+	if( placement.fPlaced )
+		PickUpNativeMercPiece(placement);
 
 	sGridNo = FindGridNoFromSweetSpot( pSoldier, pSoldier->deployment().insertionGrid(), 4, &ubDirection );
 	
@@ -2317,11 +2363,11 @@ void PutDownMercPiece( INT32 iPlacement )
 		FLOAT scY = (FLOAT)sCellY;//hayden
 		if (is_networked)
 		{
-			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, scX, scY );
+			if (!TacticalActorWorldPlacement::setPosition(*pSoldier, scX, scY )) return false;
 		}
 		else
 		{
-			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY );
+			if (!TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY )) return false;
 		}
 
 		if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
@@ -2332,27 +2378,53 @@ void PutDownMercPiece( INT32 iPlacement )
 		ubDirection += 100;
 		pSoldier->deployment().insertionDirection() = ubDirection;
 
-		gMercPlacement[ iPlacement ].fPlaced = TRUE;
+		placement.fPlaced = TRUE;
 		pSoldier->roster().inSector() = TRUE;
 //hayden
 		if(is_client)send_gui_pos(pSoldier, scX, scY);
 		if(is_client)send_gui_dir(pSoldier, ubDirection);
+		return true;
 	}
+	return false;
 }
 
-void PickUpMercPiece( INT32 iPlacement )
-{
-	TacticalActor *pSoldier =
-		gMercPlacement[ iPlacement ].soldier();
-	if (!pSoldier)
-	{
-		gMercPlacement[ iPlacement ].fPlaced = FALSE;
-		return;
-	}
 
-	(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
-	gMercPlacement[ iPlacement ].fPlaced = FALSE;
-	pSoldier->roster().inSector() = FALSE;
+void PutDownMercPiece(INT32 iPlacement)
+{
+	(void)PutDownNativeMercPiece(gMercPlacement[iPlacement]);
+}
+
+void PickUpMercPiece(INT32 iPlacement)
+{
+	PickUpNativeMercPiece(gMercPlacement[iPlacement]);
+}
+
+bool SpreadHeadlessPreBattleMercs()
+{
+	if (!IsHeadlessPreBattleEntryInProgress() || !IsHeadlessPreBattleActive() || !IsJa2TacticalWorldLoaded() ||
+		is_networked || gfTacticalPlacementGUIActive || gfEnterTacticalPlacementGUI || gMercPlacement) return false;
+	std::array<NativeTacticalPlacement, MAX_NUM_SOLDIERS> placements{};
+	std::size_t count = 0;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(i);
+		if (!IsNativePlacementMerc(actor)) continue;
+		if (count == placements.size() || !InitializeNativePlacement(placements[count], actor, false)) return false;
+		++count;
+	}
+	if (!count || (GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE && TileIsOutOfBounds(gMapInformation.sCenterGridNo))) return false;
+	UINT8 lastValidICode = INSERTION_CODE_GRIDNO;
+	bool success = true;
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		ChooseNativeRandomEdgepoint(placements[i], lastValidICode);
+		if (!PutDownNativeMercPiece(placements[i])) { success = false; break; }
+	}
+	// The ordinary Done action removes preview pieces before UpdateMercsInSector
+	// inserts the actual soldiers. Keep that ordering, without touching GUI state.
+	for (std::size_t i = 0; i < count; ++i)
+		if (placements[i].fPlaced) PickUpNativeMercPiece(placements[i]);
+	return success;
 }
 
 void FastHelpRemovedCallback()

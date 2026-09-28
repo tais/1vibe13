@@ -148,6 +148,12 @@ public:
 	CampaignEventScheduleResult schedule(
 		const CampaignEventSnapshot& event) noexcept;
 
+	// Insert a complete batch or nothing. Existing nodes/IDs remain stable;
+	// equal timestamps follow existing events and retain input order. Allocation
+	// or capacity failure preserves both the live queue and its next identity.
+	CampaignEventQueueError scheduleBatch(
+		const CampaignEventSnapshot* events, std::size_t count) noexcept;
+
 	// Removes the node following previous, or the head when previous is null,
 	// and returns the following live node. Callers use this while traversing
 	// without retaining freed pointers.

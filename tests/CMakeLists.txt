@@ -1865,3 +1865,9 @@ if(BUILD_JA2SERVER)
       VERBATIM)
   endif()
 endif()
+
+add_executable(campaign_event_batch_tests campaign_event_batch_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Engine/Adapters/JA2/CampaignEventQueue.cpp)
+target_include_directories(campaign_event_batch_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(campaign_event_batch_tests PRIVATE cxx_std_17)
+add_test(NAME campaign_event_batch COMMAND campaign_event_batch_tests)

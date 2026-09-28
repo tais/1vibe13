@@ -5,6 +5,8 @@
 #include "CampaignEventAdapter.h"
 #include "CampaignEventScheduling.h"
 #include "Game Events.h"
+#include "PreBattlePreparation.h"
+#include <stdexcept>
 #include "SaveSerializer.h"
 #include "Game Clock.h"
 #include "DEBUG.H"
@@ -391,6 +393,9 @@ STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID
 
 	if( !scheduled )
 	{
+		// The headless battle action owns partial-failure handling. Unwind to
+		// its fail-stop boundary without entering the assertion/font renderer.
+		if (IsHeadlessPreBattleActive()) throw std::runtime_error("native headless battle event queue failure");
 		AssertMsg( FALSE, "Campaign event queue rejected a strategic event" );
 		return NULL;
 	}

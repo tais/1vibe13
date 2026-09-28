@@ -38803,3 +38803,417 @@ string(FIND "${checked_aim_arrival_ci}" "native_campaign_aim_arrival_tests" chec
 if(checked_arrival_target_position EQUAL -1 OR checked_arrival_ctest_position EQUAL -1 OR checked_arrival_asan_position EQUAL -1)
   message(FATAL_ERROR "Checked native AIM arrival must retain native CTest and ASan coverage")
 endif()
+
+# Native travel preflight is separate from observation, authority and commit.
+# It may inspect native rules/costs but must not inherit GUI intent or start a
+# movement event while validating a candidate route.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTravel.cpp" coop_travel_planner_source)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Pathing.cpp" coop_travel_pathing_source)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp" coop_travel_cost_source)
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp" coop_travel_eligibility_source)
+file(READ "${SOURCE_ROOT}/tests/native_coop_travel_tests.cpp" coop_travel_native_test_source)
+require_ordered_fragments(coop_travel_planner_source
+  "Native travel preflight lost host / bounded native graph / exact members / native route / transactional publication ordering"
+  "IsDedicatedCoopStarterMissionMapReady()" "CaptureDedicatedCoopCampaignGroups(groups)"
+  "ResolveJa2StrategicGroup(identity)" "group->ubTransportationMask != FOOT"
+  "group->fBetweenSectors || group->pWaypoints" "ResolveJa2TacticalEntity(actorId)"
+  "actor->deployment().sectorX() != group->ubSectorX" "actor->strategicPath().empty()"
+  "CanCharacterMoveInStrategicWithoutSideEffects(actor, &error)" "Code::NativeContextUnavailable"
+  "QueryStrategicPathWithoutUi(" "GetSectorMvtTimeForGroupWithoutUiCache("
+  "plan.observedWorldSeconds / 60" "x != destinationX || y != destinationY" "output = plan")
+extract_brace_bounded_slice(coop_travel_pathing_source
+  "bool QueryStrategicPathWithoutUi(GROUP& group, std::uint8_t destinationX,\n\tstd::uint8_t destinationY, StrategicPathDirections& output) noexcept"
+  coop_travel_query_slice "Cannot bound native UI-independent route query")
+require_ordered_fragments(coop_travel_query_slice
+  "Passive native route query lost on-foot bounds / explicit options / private directions / transactional output"
+  "group.ubTransportationMask != FOOT" "destinationX < 1 || destinationX > 16"
+  "StrategicPathDirections candidate" "&group, FALSE, false, false, true"
+  "candidate.directions.data(), candidate.directions.size(), candidate.count"
+  "length <= 0 || length != candidate.count" "output = candidate")
+extract_brace_bounded_slice(coop_travel_cost_source
+  "INT32 GetSectorMvtTimeForGroupWithoutUiCache( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup )"
+  coop_travel_cost_slice "Cannot bound native isolated movement costs")
+require_ordered_fragments(coop_travel_cost_slice
+  "Server movement cost query must use fresh native modifiers, not the map screen's cache"
+  "!pGroup || ubDirection >= 4" "StrategicMovementCostModifiers isolated"
+  "GetSectorMvtTimeForGroupInternal(ubSector, ubDirection, pGroup, isolated, false)")
+require_ordered_fragments(coop_travel_eligibility_source
+  "Side-effect-free native eligibility lost custom-message/fatigue suppression or the museum context guard"
+  "CanCharacterMoveInStrategicInternal(" "if (!readOnly) swprintf("
+  "readOnly && (!IsJa2TacticalWorldLoaded() || !gusWorldRoomInfo"
+  "*pbErrorNumber = STRATEGIC_MOVE_REQUIRES_TACTICAL_CONTEXT"
+  "readOnly ? PlayerSoldierTooTiredToTravelWithoutSideEffects(pSoldier)"
+  "CanCharacterMoveInStrategicWithoutSideEffects(" "CanCharacterMoveInStrategicInternal(pSoldier, pbErrorNumber, true)")
+foreach(travel_mutation IN ITEMS "AddWaypoint" "RebuildWayPoints" "GroupArrivedAtSector(" "RemovePGroupWaypoints("
+    "BuildAStrategicPath(" "AddStrategicEvent(" "DeleteAllStrategicEvents" "InitiateGroupMovement"
+    "CanCharacterMoveInStrategic(" "CanEntireMovementGroupMercIsInMove(" "CanCharacterBeAwakened("
+    "WarpGameTime(" "PauseGame(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression("
+    "GetSelectedDestChar(" "_KeyDown(" "gfPlotToAvoidPlayerInfuencedSectors" "gusMapPathingData")
+  foreach(travel_slice IN ITEMS coop_travel_planner_source coop_travel_query_slice coop_travel_cost_slice)
+    string(FIND "${${travel_slice}}" "${travel_mutation}" travel_mutation_position)
+    if(NOT travel_mutation_position EQUAL -1)
+      message(FATAL_ERROR "Native travel preflight gained '${travel_mutation}'")
+    endif()
+  endforeach()
+endforeach()
+require_ordered_fragments(coop_travel_native_test_source
+  "Travel native regression lost real GUI-isolation / failure immutability / native fatigue / trait / long-route coverage"
+  "Weight(outsider)" "gfKeyState[SHIFT] = TRUE" "plan.totalMinutes == 356"
+  "CanEntireMovementGroupMercIsInMove(&first, &nativeError)" "Same(plan, successful)"
+  "Code::NativeContextUnavailable" "std::numeric_limits<UINT32>::max() - 30"
+  "CanCharacterBeAwakened(&second, FALSE) && second.collapseState().fatigueCollapsed()"
+  "plan.totalMinutes == 264" "Same(plan, skilled)" "plan.sectorCount == 256" "plan.totalMinutes == 255 * 89")
+
+# The first native departure is deliberately single-leg and internal. Prepare
+# storage and the complete event batch before publishing native movement state;
+# leave ordinary event processing, quest effects and time advancement native.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTravelCommit.cpp" coop_travel_commit_source)
+extract_brace_bounded_slice(coop_travel_commit_source
+  "DedicatedCoopTravelStartResult StartDedicatedCoopTravel(StrategicGroupId identity,\n\tstd::uint8_t destinationX, std::uint8_t destinationY) noexcept"
+  coop_travel_commit_slice "Cannot bound native single-leg travel commit")
+require_ordered_fragments(coop_travel_commit_slice
+  "Native departure lost current preflight / bounded interaction gates / prepared resources / event-first atomic commit ordering"
+  "PlanDedicatedCoopTravel(identity, destinationX, destinationY, plan)"
+  "plan.sectorCount != 2" "gfProcessingGameEvents || gfPreBattleInterfaceActive || gfTacticalTraversal || gfRandomizingPatrolGroup"
+  "ResolveJa2StrategicGroup(identity)" "ResolveJa2TacticalEntity(plan.members[i])" "members[i]->roster().inSector()"
+  "other->usGroupTeam != OUR_TEAM" "Code::NativeInteractionRequired"
+  "queue.validate()" "Code::EventConflict" "prepared.allocate(plan)"
+  "EVENT_GROUP_ARRIVAL" "EVENT_GROUP_ABOUT_TO_ARRIVE" "queue.scheduleBatch("
+  "group->pWaypoints = prepared.waypoint" "SetGroupArrivalTime(group, arrival)"
+  "group->fBetweenSectors = TRUE" "strategicPath().adopt(prepared.paths[i])"
+  "deployment().beginStrategicTransit()" "RemoveSoldierFromTacticalSector(members[i], FALSE)"
+  "gfReEvaluateEveryonesNothingToDo = TRUE" "Code::Started")
+foreach(travel_shortcut IN ITEMS "AddWaypointToPGroup(" "RebuildWayPointsForGroupPath(" "DeleteStrategicEvent("
+    "GroupArrivedAtSector(" "ExecuteStrategicEvent(" "queue.erase(" "queue.replace(" "WarpGameTime("
+    "RestoreJa2CampaignClock(" "AdvanceClockFromFixedStep(" "Random(" "SetSelectedDestChar(" "_KeyDown(")
+  string(FIND "${coop_travel_commit_slice}" "${travel_shortcut}" travel_shortcut_position)
+  if(NOT travel_shortcut_position EQUAL -1)
+    message(FATAL_ERROR "Native departure gained unsafe shortcut '${travel_shortcut}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/CampaignEventQueue.cpp" coop_event_batch_source)
+extract_brace_bounded_slice(coop_event_batch_source
+  "CampaignEventQueueError CampaignEventQueue::scheduleBatch(\n\tconst CampaignEventSnapshot* events, std::size_t count) noexcept"
+  coop_event_batch_slice "Cannot bound transactional native event insertion")
+require_ordered_fragments(coop_event_batch_slice
+  "Event batch must preserve stable nodes/identities until all allocations succeed, then merge with existing-first FIFO"
+  "!events || !validate()" "count > maximumEvents_ - size_" "CampaignEventQueue prepared(count)"
+  "prepared.nextIdentity_ = nextIdentity_" "prepared.schedule(events[i])" "if (!result) return result.error"
+  "CampaignEventQueueNode* old = head_" "old->scheduledSeconds <= added->scheduledSeconds"
+  "head_ = merged" "nextIdentity_ = prepared.nextIdentity_" "prepared.head_ = prepared.tail_ = nullptr")
+file(READ "${SOURCE_ROOT}/tests/native_coop_travel_commit_tests.cpp" coop_travel_commit_test_source)
+require_ordered_fragments(coop_travel_commit_test_source
+  "Native travel regression lost rollback faults / live observation / real scheduled arrival / Lua hook qualification"
+  "initVirtualFileSystem(config, false)" "Code::AdjacentSectorRequired" "Code::NativeInteractionRequired"
+  "Code::EventConflict" "CampaignEventQueue tiny(1)" "failAfter = allocation"
+  "start.code == Code::Started" "CaptureDedicatedCoopCampaignGroups(observed)"
+  "StartDedicatedCoopTravel(identity, 10, 1).code == Code::PreflightRejected"
+  "TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_60MINS)" "AdvanceClockFromFixedStep(scheduler, 10000)"
+  "!group.fBetweenSectors && group.ubSectorX == 10" "LaptopSaveInfo.dMilitiaVolunteerPool == volunteers + 7")
+
+# Headless arrival capture is a pending native interaction, not a decision to
+# continue, fight, retreat or autoresolve. Keep detection before interception,
+# prohibit clock/checkpoint escape, and retain the exact native group identity.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopArrival.cpp" coop_arrival_source)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp" coop_arrival_movement_source)
+string(REPLACE "\r" "" coop_arrival_movement_source "${coop_arrival_movement_source}")
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp" coop_arrival_time_source)
+extract_brace_bounded_slice(coop_arrival_movement_source "BOOLEAN CheckConditionsForBattle( GROUP *pGroup )"
+  coop_arrival_battle "Cannot bound native arrival battle detection")
+require_ordered_fragments(coop_arrival_battle "Headless arrival must preserve native bloodcat/coordination/validation before deferring battle UI"
+  "TestForBloodcatAmbush( pGroup )" "PossibleToCoordinateSimultaneousGroupArrivals( pGroup )"
+  "ValidateGroups( pGroup )" "DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::Battle, pGroup, pPlayerDialogGroup)"
+  "gInitPrebattleGroup.capture(pGroup)" "NotifyPlayerOfBloodcatBattle(")
+extract_brace_bounded_slice(coop_arrival_movement_source "BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )"
+  coop_arrival_coordination "Cannot bound native arrival coordination")
+require_ordered_fragments(coop_arrival_coordination "Coordination must preserve native nearby-group detection before headless deferral"
+  "pGroup->uiFlags |= GROUPFLAG_SIMULTANEOUSARRIVAL_CHECKED" "if( ubNumNearbyGroups )"
+  "DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::CoordinateAttack, pFirstGroup)" "gfWaitingForInput = TRUE"
+  "gPendingSimultaneousGroup.capture(pFirstGroup)" "DoMapMessageBox(")
+extract_brace_bounded_slice(coop_arrival_movement_source "BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )\n"
+  coop_arrival_npc "Cannot bound native arrival NPC predicate")
+require_ordered_fragments(coop_arrival_npc "NPC interception must follow native exclusions and exact member resolution, before any dialog preparation"
+  "IsGroupTheHelicopterGroup( pGroup )" "bSectorZ != 0" "BLANK_SECTOR" "IsThisSectorASAMSector("
+  "WildernessSectorWithAllProfiledNPCsNotSpokenWith(" "ResolvePlayerGroupMember( pGroup->pPlayerList )"
+  "DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::WildernessNpc, pGroup)" "GetSectorIDString("
+  "gGroupPrompting.capture(pGroup)" "DoScreenIndependantMessageBox(")
+extract_brace_bounded_slice(coop_arrival_source
+  "bool DeferDedicatedCoopArrival(DedicatedCoopArrivalKind kind, const GROUP* group,\n\tconst GROUP* dialogGroup) noexcept"
+  coop_arrival_defer "Cannot bound headless native arrival capture")
+require_ordered_fragments(coop_arrival_defer "Arrival capture lost worldless/binding gate, exact identity, FIFO or failure-closed capacity"
+  "!bound || !IsDedicatedCoopStarterMissionMapReady()" "InterruptTime(); StopTimeCompression(); PauseGame()"
+  "CaptureDedicatedCoopCampaignGroups(groups)" "GetJa2StrategicGroupId(group->ubGroupID)"
+  "ResolveJa2StrategicGroup(candidate.group) != group" "GetWorldTotalSeconds()"
+  "SameContext(bound->decisions_[i], candidate)" "bound->count_ == bound->decisions_.size() || !bound->nextId_"
+  "candidate.id = bound->nextId_++" "bound->decisions_[bound->count_++] = candidate")
+extract_brace_bounded_slice(coop_arrival_source
+  "DedicatedCoopArrivalReplyResult ReplyToDedicatedCoopArrival(std::uint64_t decision,\n\tDedicatedCoopArrivalReply reply) noexcept"
+  coop_arrival_reply "Cannot bound exact NPC reply entry")
+require_ordered_fragments(coop_arrival_reply "NPC reply lost exact request/context/type checks or native stop/acknowledge-only semantics"
+  "decision != pending.id" "gfProcessingGameEvents" "!IsDedicatedCoopStarterMissionMapReady()"
+  "pending.kind != DedicatedCoopArrivalKind::WildernessNpc" "!pending.finalDestination"
+  "CaptureDedicatedCoopCampaignGroups(groups)" "ResolveJa2StrategicGroup(pending.group)"
+  "group->ubSectorX != pending.x" "GroupAtFinalDestination(group)" "ValidNpcStopPaths(*group)" "ClearMercPathsAndWaypointsForAllInGroup(group)"
+  "PlayerGroupArrivedSafelyInSector(group, FALSE)" "bound->decisions_[--bound->count_] = {}" "PauseGame()")
+extract_brace_bounded_slice(coop_arrival_source "bool ValidNpcStopPaths(const GROUP& group) noexcept"
+  coop_arrival_stop_paths "Cannot bound native NPC route cleanup preflight")
+require_ordered_fragments(coop_arrival_stop_paths "NPC stop must reject aliased/cyclic/incoherent actor paths before native destruction"
+  "members == heads.size()" "std::find(heads.begin(), heads.begin() + members, head)"
+  "++nodes > 1024 || path->pPrev != previous")
+foreach(arrival_shortcut IN ITEMS "UnPauseGame(" "UnLockPauseState(" "WarpGameTime(" "RestoreJa2CampaignClock("
+    "RebuildWayPointsForGroupPath(" "InitPreBattleInterface(" "PrepareForPreBattleInterface(" "SetCurrentWorldSector("
+    "AutoResolve(" "EnterAutoResolveMode(" "AutoResolveScreenHandle(" "ChangeSelectedMapSector(" "DoScreenIndependantMessageBox(")
+  string(FIND "${coop_arrival_source}" "${arrival_shortcut}" arrival_shortcut_at)
+  if(NOT arrival_shortcut_at EQUAL -1)
+    message(FATAL_ERROR "Pending arrival adapter gained unsafe implicit choice '${arrival_shortcut}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(coop_arrival_time_source "BOOLEAN AllowedToTimeCompress( void )"
+  coop_arrival_resume "Cannot bound native resume predicate")
+require_ordered_fragments(coop_arrival_resume "Native time resume must not skip pending co-op arrival decisions"
+  "DedicatedCoopArrivalDecisionPending()" "return FALSE")
+
+
+file(READ "${SOURCE_ROOT}/tests/native_coop_arrival_tests.cpp" coop_arrival_test_source)
+require_ordered_fragments(coop_arrival_test_source "Native arrival regression lost real scheduled arrival / paused boundary / exact reply / multiple-group safety"
+  "StartDedicatedCoopTravel(identity, 10, 1)" "AdvanceClockFromFixedStep(scheduler, 10000)"
+  "pending.group == identity" "pending.encounterCode == BLOODCAT_AMBUSH_CODE"
+  "queue.head() == sentinel.event" "!AllowedToTimeCompress()" "scheduler independently blocks pending decisions"
+  "Result::UnsupportedDecision" "ReleaseJa2StrategicGroup(group)" "group.next = &group"
+  "state.size() == 2" "DedicatedCoopArrivalState::Capacity" "Result::NativeContextUnavailable"
+  "ReplyToDedicatedCoopArrival(next, Reply::Stop) == Result::Applied")
+
+# Headless battle preparation reuses the native PBI rules, not a parallel
+# encounter classifier or calls into local screen/button callbacks.
+file(READ "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp" coop_prebattle_source)
+string(REPLACE "\r" "" coop_prebattle_source "${coop_prebattle_source}")
+extract_brace_bounded_slice(coop_prebattle_source
+  "NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,\n\tGROUP& dialogGroup, bool justRetreated, NativePreBattlePreparation& output)"
+  coop_prebattle_prepare "Cannot bound native headless pre-battle preparation")
+require_ordered_fragments(coop_prebattle_prepare "Native preparation lost side-effect-free context gates / native rule reuse / transactional output"
+  "IsJa2TacticalWorldLoaded()" "gfProcessingGameEvents"
+  "battleGroup.usGroupTeam == OUR_TEAM" "battleGroup.usGroupTeam == ENEMY_TEAM"
+  "(!playerAttack && !enemyAttack)" "dialogGroup.usGroupTeam != OUR_TEAM"
+  "playerAttack ? !battleGroup.pPlayerList : !battleGroup.pEnemyGroup"
+  "if (!size || size != battleGroup.ubGroupSize)" "if (enemyAttack && bloodcats)"
+  "if (!speakers)" "if (!group->pEnemyGroup)" "IsThereMilitiaInAdjacentSector("
+  "Result::ReinforcementDecisionRequired" "SetPreBattleGroup(&battleGroup)"
+  "gHeadlessPreBattleActive = true" "ApplyNativePreBattleMorale(dialogGroup)" "if (justRetreated)"
+  "Random(speakers)" "PrepareNativePreBattleParticipants(preparedGroup, plural, retreat)"
+  "RecordNativePreBattleEnemyKnowledge()" "PrepareNativePreBattleActions(preparedGroup, plural, retreat)"
+  "PauseGame()" "output = prepared")
+extract_brace_bounded_slice(coop_prebattle_source
+  "void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )"
+  coop_prebattle_ui "Cannot bound native PBI entry")
+require_ordered_fragments(coop_prebattle_ui "Local PBI must use the same participant/ambush/action logic and never replay an occupied headless preparation"
+  "if (IsHeadlessPreBattleActive()) return" "gAmbushRadiusModifier = 0.0f"
+  "PrepareNativePreBattleParticipants(pBattleGroup, fUsePluralVersion, fRetreatAnOption)"
+  "RecordNativePreBattleEnemyKnowledge()" "PrepareNativePreBattleActions(pBattleGroup, fUsePluralVersion, fRetreatAnOption)")
+extract_brace_bounded_slice(coop_arrival_source
+  "DedicatedCoopArrivalPrepareResult PrepareDedicatedCoopArrivalBattle(std::uint64_t decision,\n\tNativePreBattlePreparation& output) noexcept"
+  coop_prebattle_exact_once "Cannot bound exact-once native preparation adapter")
+require_ordered_fragments(coop_prebattle_exact_once "Preparation lost exact context, cached retry or failure latch"
+  "decision != pending.id" "pending.kind != DedicatedCoopArrivalKind::Battle" "GetWorldTotalSeconds() != pending.worldSeconds"
+  "CaptureDedicatedCoopCampaignGroups(groups)" "ResolveJa2StrategicGroup(pending.group)" "ResolveJa2StrategicGroup(pending.dialogGroup)"
+  "bound->battlePreparationStarted_" "SameCoopCampaignGroups(groups, bound->preparedGroups_)"
+  "output = bound->battlePreparation_" "GetEnemyEncounterCode() != pending.encounterCode"
+  "bound->battlePreparationStarted_ = true" "PrepareHeadlessPreBattle(*group, *dialog, pending.justRetreated, prepared)"
+  "bound->battlePreparation_ = prepared" "bound->battlePrepared_ = true" "output = prepared" "catch (...)" "bound->failure_ =")
+foreach(prebattle_shortcut IN ITEMS "InitPreBattleInterface(" "PrepareForPreBattleInterface(" "DoScreenIndependantMessageBox("
+    "SetCurrentWorldSector(" "ActivatePreBattle" "ButtonList[" "DisableButton(" "UnPauseGame(" "UnLockPauseState(" "WarpGameTime(")
+  foreach(prebattle_slice IN ITEMS coop_prebattle_prepare coop_prebattle_exact_once)
+    string(FIND "${${prebattle_slice}}" "${prebattle_shortcut}" prebattle_shortcut_at)
+    if(NOT prebattle_shortcut_at EQUAL -1)
+      message(FATAL_ERROR "Native preparation gained implicit choice or GUI shortcut '${prebattle_shortcut}'")
+    endif()
+  endforeach()
+endforeach()
+require_ordered_fragments(coop_arrival_test_source "Native preparation regression lost real arrival, safe rejections, militia hold, ambush rules or exact-once evidence"
+  "StartDedicatedCoopTravel(identity, 10, 1)" "AdvanceClockFromFixedStep(scheduler, 10000)"
+  "SamePreparation(report, untouched)" "Prepared::ReinforcementDecisionRequired" "pending.justRetreated == retreated"
+  "report.encounterCode == encounter" "PlayerMercInvolvedInThisCombat(&actor)"
+  "records.usAmbushesExperienced" "retry < 100" "SamePreparation(duplicate, report)"
+  "InitPreBattleInterface(&group, TRUE); HandlePreBattleInterfaceStates()" "GetGameSimulationRandomSource()->checkpoint() == preparedRng")
+
+extract_brace_bounded_slice(coop_arrival_source "void DedicatedCoopArrivalState::reset() noexcept"
+  coop_prebattle_reset "Cannot bound headless arrival owner reset")
+require_ordered_fragments(coop_prebattle_reset "An old unbound runtime cannot reset another runtime's native battle"
+  "bound == this && battlePreparationStarted_" "ResetHeadlessPreBattle()" "battlePrepared_ = false")
+file(READ "${SOURCE_ROOT}/Tactical/Morale.cpp" coop_prebattle_morale_source)
+require_ordered_fragments(coop_prebattle_morale_source "Headless morale must preserve native bookkeeping without queuing a local portrait dialogue"
+  "if (!IsHeadlessPreBattleActive())" "DelayedTacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_WHINE )"
+  "pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_MORAL)")
+require_ordered_fragments(coop_prebattle_exact_once "Partial native RNG failure cannot publish a prepared result"
+  "GetGameSimulationRandomSource()" "!random || !random->healthy()" "PrepareHeadlessPreBattle("
+  "if (!random->healthy())" "bound->failure_ =" "return Result::Failed" "bound->battlePreparation_ = prepared")
+
+# Battle entry is a distinct explicit action. It must neither manufacture a
+# preparation nor turn the time leader into the owner of shared battle choices.
+extract_brace_bounded_slice(coop_arrival_source
+  "DedicatedCoopArrivalEnterResult EnterDedicatedCoopArrivalBattle(std::uint64_t decision,\n\tNativePreBattleDeployment deployment) noexcept"
+  coop_battle_entry_adapter "Cannot bound explicit native battle entry")
+require_ordered_fragments(coop_battle_entry_adapter "Battle entry lost exact pending/prepared context, ownership validation or partial-failure latch"
+  "bound->front()->id != decision" "bound->failure_" "!bound->battlePrepared_" "bound->count_ != 1"
+  "PrepareDedicatedCoopArrivalBattle(decision, preparation)" "ValidBattleEntryPaths(bound->preparedGroups_)"
+  "GetGameSimulationRandomSource()" "!random || !random->healthy()" "EnterHeadlessPreBattle(deployment)"
+  "!random->healthy() || entered == NativePreBattleEnterResult::Failed" "bound->failure_ ="
+  "PauseGame()" "NativePreBattleEnterResult::Entered" "bound->count_ = 0" "Result::Entered" "catch (...)")
+extract_brace_bounded_slice(coop_prebattle_source
+  "NativePreBattleEnterResult EnterHeadlessPreBattle(NativePreBattleDeployment deployment)"
+  coop_battle_entry_native "Cannot bound native headless sector entry")
+require_ordered_fragments(coop_battle_entry_native "Native entry must reject unsupported contexts and implicit deployment before native route/quest/world mutation"
+  "gHeadlessPreBattleActions.enterSector" "gfTacticalPlacementGUIActive" "IsJa2TacticalWorldLoaded()"
+  "GetPendingNewScreen() == MSG_BOX_SCREEN"
+  "NativePreBattleDeployment::Spread" "Result::DeploymentRequired"
+  "actor->assignment().current() == IN_TRANSIT" "SOLDIER_AIRDROP"
+  "actor->deployment().strategicInsertionData() >= INSERTION_CODE_NORTH"
+  "GetMapFileName(" "gfUseAlternateMap = alternateMap" "MapExists(" "Result::MapUnavailable"
+  "gHeadlessPreBattleEntering = true" "PutNonSquadMercsInBattleSectorOnSquads(TRUE)"
+  "ClearMovementForAllInvolvedPlayerGroups()" "SetCurrentWorldSector(x, y, z)" "gHeadlessPreBattleDeploymentApplied"
+  "GetPendingNewScreen() == MSG_BOX_SCREEN"
+  "actor->assignment().current() == IN_TRANSIT"
+  "actor->roster().inSector()" "gfPersistantPBI = FALSE" "Result::Entered")
+file(READ "${SOURCE_ROOT}/Strategic/strategicmap.cpp" coop_battle_entry_loader_source)
+extract_brace_bounded_slice(coop_battle_entry_loader_source
+  "BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )"
+  coop_battle_entry_loader "Cannot bound native sector loader")
+require_ordered_fragments(coop_battle_entry_loader "Headless entry must preserve native quests/temp state, reject placeholder/failure and deploy before population"
+  "HandleQuestCodeOnSectorEntry(" "IsHeadlessPreBattleEntryInProgress() ? FALSE : TRUE"
+  "if (IsHeadlessPreBattleEntryInProgress()) return FALSE" "LoadWorld( bFilename )"
+  "LoadCurrentSectorsInformationFromTempItemsFile(" "if (IsHeadlessPreBattleEntryInProgress()) return FALSE"
+  "ApplyHeadlessPreBattleDeployment()" "PrepareLoadedSector()" "else if ( gfEnterTacticalPlacementGUI )"
+  "InitTacticalPlacementGUI(")
+file(READ "${SOURCE_ROOT}/TileEngine/Tactical Placement GUI.cpp" coop_battle_entry_placement_source)
+extract_brace_bounded_slice(coop_battle_entry_placement_source "bool SpreadHeadlessPreBattleMercs()"
+  coop_battle_entry_spread "Cannot bound native headless Spread action")
+require_ordered_fragments(coop_battle_entry_spread "Headless deployment must reuse native participant, insertion, RNG and placement helpers without preview widgets"
+  "IsHeadlessPreBattleEntryInProgress()" "is_networked" "NativeTacticalPlacement"
+  "IsNativePlacementMerc(actor)" "InitializeNativePlacement(placements[count], actor, false)"
+  "ChooseNativeRandomEdgepoint(placements[i], lastValidICode)" "PutDownNativeMercPiece(placements[i])"
+  "PickUpNativeMercPiece(placements[i])")
+foreach(entry_gui_shortcut IN ITEMS "GoToSectorCallback(" "InitTacticalPlacementGUI(" "KillTacticalPlacementGUI("
+    "ButtonList[" "MSYS_DefineRegion(" "WarpGameTime(" "RestoreJa2CampaignClock(")
+  foreach(entry_slice IN ITEMS coop_battle_entry_adapter coop_battle_entry_native coop_battle_entry_spread)
+    string(FIND "${${entry_slice}}" "${entry_gui_shortcut}" entry_gui_shortcut_at)
+    if(NOT entry_gui_shortcut_at EQUAL -1)
+      message(FATAL_ERROR "Explicit native entry gained GUI/clock shortcut '${entry_gui_shortcut}'")
+    endif()
+  endforeach()
+endforeach()
+
+
+require_ordered_fragments(coop_arrival_test_source "Native entry regression lost choice, missing-map, route ownership or queued-continuation safety"
+  "entry/deployment cannot run without an explicit prepared battle" "Enter::NotPrepared"
+  "Enter::DeploymentRequired" "Enter::MapUnavailable" "gfUseAlternateMap" "path->pNext = path"
+  "strategicPath().rebind(path)" "entry cannot follow a replaced actor" "Enter::OtherDecisionsPending")
+
+# Retreat is a distinct explicit native action, not a battle result or a time
+# leader privilege. Share the local gameplay path without using its widgets.
+extract_brace_bounded_slice(coop_arrival_source
+  "DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uint64_t decision) noexcept"
+  coop_battle_retreat_adapter "Cannot bound explicit native battle retreat")
+require_ordered_fragments(coop_battle_retreat_adapter "Retreat lost exact preparation/route validation or its partial-failure latch"
+  "bound->front()->id != decision" "bound->failure_" "!bound->battlePrepared_" "bound->count_ != 1"
+  "PrepareDedicatedCoopArrivalBattle(decision, preparation)" "ValidBattleEntryPaths(bound->preparedGroups_)"
+  "GetGameSimulationRandomSource()" "RetreatHeadlessPreBattle()" "NativePreBattleRetreatResult::Failed"
+  "bound->failure_ =" "PauseGame()" "NativePreBattleRetreatResult::AutoResolveRequired" "bound->count_ = 0" "Result::Retreated" "catch (...)")
+extract_brace_bounded_slice(coop_prebattle_source "NativePreBattleRetreatResult RetreatHeadlessPreBattle()"
+  coop_battle_retreat_native "Cannot bound headless native retreat")
+require_ordered_fragments(coop_battle_retreat_native "Native retreat lost preflight, shared gameplay, native event validation or paused completion"
+  "GetPendingNewScreen() == MSG_BOX_SCREEN" "!gHeadlessPreBattleActions.retreat" "Result::NotPermitted"
+  "Result::AutoResolveRequired" "actor->assignment().current() == IN_TRANSIT" "SOLDIER_AIRDROP" "GetJa2CampaignEventQueue()" "queue.validate()"
+  "group->ubPrevX" "GetSectorMvtTimeForGroupWithoutUiCache(" "EVENT_GROUP_ARRIVAL" "Result::InvalidContext"
+  "ApplyNativePreBattleRetreatGameplay()" "Result::Failed" "group->fBetweenSectors" "group->uiArrivalTime"
+  "arrivals != 1" "actor->deployment().isBetweenSectors()" "ResetHeadlessPreBattle()" "PauseGame()" "Result::Retreated")
+extract_brace_bounded_slice(coop_prebattle_source "void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )\n"
+  coop_local_retreat_callback "Cannot bound local retreat gameplay caller")
+require_ordered_fragments(coop_local_retreat_callback "Local UI retreat must retain shared native gameplay and its militia continuation"
+  "ApplyNativePreBattleRetreatGameplay()" "gfEnterAutoResolveMode = TRUE" "KillPreBattleInterface()" "StopTimeCompression()")
+extract_brace_bounded_slice(coop_prebattle_source "bool ApplyNativePreBattleRetreatGameplay()"
+  coop_battle_retreat_shared "Cannot bound shared native retreat gameplay")
+require_ordered_fragments(coop_battle_retreat_shared "Headless/local retreat must share native records, movement, loyalty and enemy response"
+  "records.usBattlesRetreated" "RetreatAllInvolvedPlayerGroups()" "HandleLoyaltyImplicationsOfMercRetreat("
+  "NumNonPlayerTeamMembersInSector(" "ResetMovementForNonPlayerGroupsInLocation(")
+
+
+foreach(retreat_gui_shortcut IN ITEMS "RetreatMercsCallback(" "ButtonList[" "DoMessageBox(" "WarpGameTime(" "RestoreJa2CampaignClock(" "SetCurrentWorldSector(" "gfEnterAutoResolveMode = TRUE")
+  foreach(retreat_slice IN ITEMS coop_battle_retreat_adapter coop_battle_retreat_native)
+    string(FIND "${${retreat_slice}}" "${retreat_gui_shortcut}" retreat_gui_shortcut_at)
+    if(NOT retreat_gui_shortcut_at EQUAL -1)
+      message(FATAL_ERROR "Native retreat gained GUI/world/clock shortcut '${retreat_gui_shortcut}'")
+    endif()
+  endforeach()
+endforeach()
+require_ordered_fragments(coop_arrival_test_source "Native retreat regression lost forbidden choices, event failure, non-replay or actual return arrival"
+  "Retreat::NotPending" "Retreat::NotPrepared" "Retreat::NotPermitted" "Retreat::StaleDecision"
+  "Retreat::AutoResolveRequired" "cyclic retreat route" "aliased retreat routes" "retreatWarningFailure ? 2 : 1"
+  "partial native retreat failure latches" "successful retreat explicitly clears" "actual return-sector Lua hook")
+
+# Campaign status is a server observation, not a second clock authority or a
+# shortcut to native time commands. Keep this path scoped independently of the
+# existing starter/strategic bootstrap's legitimate native clock mutations.
+extract_brace_bounded_slice(coop_arrival_source
+  "bool DedicatedCoopArrivalState::captureObservation(CoopSession::CoopCampaignArrival& output) const noexcept"
+  coop_arrival_observation "Cannot bound read-only native arrival observation")
+require_ordered_fragments(coop_arrival_observation "Arrival observation must copy the cached decision/preparation before transactional publication"
+  "CoopCampaignArrival captured" "front()" "decision->id" "decision->kind" "battleStage_"
+  "battlePreparation_.encounterCode" "battlePreparation_.actions" "ValidCoopCampaignArrival(captured)" "output = captured")
+foreach(arrival_observation_mutation IN ITEMS "PrepareDedicatedCoopArrivalBattle(" "PrepareHeadlessPreBattle("
+    "EnterDedicatedCoopArrivalBattle(" "RetreatFromDedicatedCoopArrivalBattle(" "RetreatHeadlessPreBattle(" "ReplyToDedicatedCoopArrival(" "Random(" "WarpGameTime("
+    "AdvanceClockFromFixedStep(" "ResolveJa2StrategicGroup(" "gpGroupList" "PauseGame(" "ResetHeadlessPreBattle(")
+  string(FIND "${coop_arrival_observation}" "${arrival_observation_mutation}" arrival_observation_mutation_at)
+  if(NOT arrival_observation_mutation_at EQUAL -1)
+    message(FATAL_ERROR "Read-only arrival observation gained '${arrival_observation_mutation}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Game Clock.cpp" campaign_time_native_source)
+extract_brace_bounded_slice(campaign_time_native_source
+  "BOOLEAN TrySetWorldlessStrategicTimeCompression( UINT32 uiCompressionRate )" campaign_time_native_apply
+  "Cannot bound headless-safe native clock entry")
+require_ordered_fragments(campaign_time_native_apply "Native time entry lost guarded existing clock semantics"
+  "GetCurrentScreen() != MAP_SCREEN" "IsJa2TacticalWorldLoaded()" "TIME_COMPRESS_60MINS"
+  "gTacticalStatus.fDidGameJustStart" "!AllowedToTimeCompress()" "PauseGame()" "UnPauseGame()"
+  "SetClockResolutionToCompressMode( giTimeCompressMode )" "HasTimeCompressOccured()" "ClearTacticalStuffDueToTimeCompression()")
+foreach(campaign_time_forbidden IN ITEMS "WarpGameTime(" "TellPlayerWhyHeCantCompressTime(" "UnLockPauseState(" "gfTimeInterrupt =")
+  string(FIND "${campaign_time_native_apply}" "${campaign_time_forbidden}" campaign_time_forbidden_at)
+  if(NOT campaign_time_forbidden_at EQUAL -1)
+    message(FATAL_ERROR "Headless strategic clock gained unsafe bypass '${campaign_time_forbidden}'")
+  endif()
+endforeach()
+
+
+file(READ "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp" checked_aim_dispatch_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopArrival.cpp" checked_aim_dispatch_owner)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopCampaignAimQuotes.cpp" checked_aim_dispatch_quotes)
+extract_bounded_slice(checked_aim_dispatch_source "case EVENT_DELAYED_HIRING_OF_MERC:" "case EVENT_HANDLE_INSURED_MERCS:"
+  checked_aim_dispatch_slice "Cannot bound native checked AIM event dispatch")
+require_ordered_fragments(checked_aim_dispatch_slice "Checked AIM dispatch lost full event/actor binding or terminal failure without fallback"
+  "UsesCheckedDedicatedCoopAimArrivals()" "request.event = pEvent->id;"
+  "pEvent->uiParam < repository.capacity()" "repository.resolve(pEvent->uiParam)"
+  "GetJa2TacticalEntityId(*actor)" "ArriveAimMercChecked(request)" "if (!arrived)"
+  "throw std::runtime_error" "else MercArrivesCallback((UINT16)pEvent->uiParam);")
+require_ordered_fragments(checked_aim_dispatch_owner "Checked AIM dispatch must follow explicit runtime lifecycle ownership"
+  "establishedAimArrivals_ = false;" "bool UsesCheckedDedicatedCoopAimArrivals() noexcept"
+  "return bound && bound->establishedAimArrivals();")
+require_ordered_fragments(checked_aim_dispatch_quotes "Paid hiring must withhold unsupported missed-flight continuation"
+  "profileId == NO_PROFILE || profileId == JOHN_MERC" "CoopCampaignAimQuoteStatus::Unsupported")
+file(READ "${SOURCE_ROOT}/tests/native_campaign_aim_arrival_tests.cpp" checked_aim_dispatch_tests)
+foreach(dispatch_regression IN ITEMS
+    "if (malformed) event->uiParam += 65536u;"
+    "SetGameSecondsPerSecond(1)"
+    "host.failed() && gfDedicatedServerProcessFailed"
+    "current->id == request.event"
+    "queue.head() == later.event"
+    "owner.enableEstablishedAimArrivals();"
+    "bound starter cohort retains legacy dispatch even after DidGameJustStart clears"
+    "later ticks cannot repeat a retired arrival or replay a terminal malformed event")
+  string(FIND "${checked_aim_dispatch_tests}" "${dispatch_regression}" dispatch_regression_at)
+  if(dispatch_regression_at EQUAL -1)
+    message(FATAL_ERROR "Native AIM dispatch regression lost '${dispatch_regression}'")
+  endif()
+endforeach()
+require_ordered_fragments(checked_aim_arrival_build "Checked native AIM dispatch must remain mandatory"
+  "add_executable(native_campaign_aim_arrival_tests"
+  "add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)"
+  "add_test(NAME native_campaign_aim_arrival_dispatch")

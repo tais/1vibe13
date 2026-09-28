@@ -1,5 +1,10 @@
 #include "CampaignAimHire.h"
 #include "CampaignAimArrival.h"
+#include "DedicatedCoopArrival.h"
+#include "DedicatedCoopRuntime.h"
+#include "DedicatedServerOptions.h"
+#include "CampaignSimulationHost.h"
+#include "gameloop.h"
 #include "Strategic Movement.h"
 #include "StrategicGroupHost.h"
 #include "StrategicSquadHost.h"
@@ -51,6 +56,8 @@
 #include <new>
 
 extern BOOLEAN gfProcessingGameEvents;
+extern BOOLEAN gfPreventDeletionOfAnyEvent;
+extern UINT8 gubEnvLightValue;
 extern UINT32 guiTimeStampOfCurrentlyExecutingEvent;
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE, gfDedicatedServer = TRUE;
@@ -144,7 +151,108 @@ void WriteFixtureImage(const std::filesystem::path& path, std::uint16_t frames)
 	CHECK(file.good(), "write native content fixture");
 }
 
-void TestNativeArrival()
+void TestNativeDispatch(const CampaignAimHireResult& hire, std::uint32_t days, bool malformed)
+{
+	[[maybe_unused]] auto screen = OverrideCurrentScreen(MAP_SCREEN);
+	auto& queue = GetJa2CampaignEventQueue();
+	auto* actor = ResolveJa2TacticalEntity(hire.actor);
+	auto* event = queue.head();
+	CHECK(actor && event && event->ubCallbackID == EVENT_DELAYED_HIRING_OF_MERC,
+		"dispatch owns the actual constructor's exact delayed-hire event and live actor");
+	if (!actor || !event) return;
+	const CampaignAimArrivalRequest request{event->id, hire.actor};
+	const auto arrivalSeconds = hire.arrivalMinute * NUM_SEC_IN_MIN;
+	const auto originalEnd = actor->employment().endTime();
+	const auto balance = LaptopSaveInfo.iCurrentBalance;
+	const auto originalEvent = event->snapshot();
+	for (unsigned context = 0; context < 2; ++context)
+	{
+		if (context == 0) gTacticalStatus.fDidGameJustStart = TRUE;
+		else NotifyJa2TacticalWorldLoaded(1);
+		CHECK(UsesCheckedDedicatedCoopAimArrivals(),
+			"promoted ownership stays checked when transient starter/world flags contradict it");
+		const auto rejected = ArriveAimMercChecked(request);
+		CHECK(!rejected && rejected.error == Error::UnsupportedCampaignState && !rejected.mutationMayHaveStarted &&
+			actor->assignment().current() == IN_TRANSIT && !actor->deployment().groupId() &&
+			event->snapshot() == originalEvent && queue.size() == 1,
+			"checked established arrival rejects unsupported starter/loaded context before effects, without selecting legacy fallback");
+		gTacticalStatus.fDidGameJustStart = FALSE;
+		NotifyJa2TacticalWorldUnloaded(); ClearJa2TacticalWorldSector();
+	}
+	const auto later = AddStrategicEventUsingSecondsChecked(EVENT_CHANGELIGHTVAL, arrivalSeconds + 1u, 9);
+	CHECK(later, "a real later native event follows the pending arrival");
+	if (!later) return;
+	const auto laterId = later.event->id;
+	const auto laterSnapshot = later.event->snapshot();
+	if (malformed) event->uiParam += 65536u;
+	const auto executing = event->snapshot();
+	InitializeJa2CampaignClock(arrivalSeconds - 1u);
+	auto& game = GetGameContext();
+	game.runtime().campaignClockScheduler().reset();
+	UnLockPauseState(); UnPauseGame(); SetGameSecondsPerSecond(1);
+	gubEnvLightValue = 2;
+	auto& host = game.campaignSimulation();
+	const auto ticks = host.diagnostics().ticks;
+	bool threw = false;
+	try { host.simulate({ticks + 1, 1000000, 1000000}); }
+	catch (...) { threw = true; }
+	CHECK(GetWorldTotalSeconds() == arrivalSeconds, "real fixed-step clock reaches the exact delayed-hire timestamp");
+	if (malformed)
+	{
+		CHECK(threw && host.failed() && gfDedicatedServerProcessFailed && !gfProgramIsRunning &&
+			queue.size() == 2 && queue.head() == event && event->next == later.event &&
+			event->id == request.event && event->snapshot() == executing &&
+			actor->assignment().current() == IN_TRANSIT && !actor->deployment().groupId() &&
+			actor->employment().endTime() == originalEnd && gMercProfiles[0].bMercStatus == MERC_HIRED_BUT_NOT_ARRIVED_YET,
+			"full-width alias cannot narrow to the real pending actor; dispatcher retains its event and terminally latches the native host");
+	}
+	else
+	{
+		unsigned retired = 0;
+		for (const auto* current = queue.head(); current; current = current->next)
+			if (current->id == request.event) ++retired;
+		const auto groupId = GetJa2StrategicGroupId(actor->deployment().groupId());
+		const auto* group = ResolveJa2StrategicGroup(groupId);
+		CHECK(!threw && !host.failed() && !retired && queue.size() == 1 && queue.head() == later.event &&
+			!gfProcessingGameEvents && !gfPreventDeletionOfAnyEvent &&
+			CaptureJa2CampaignClock().previousTotalSeconds == arrivalSeconds,
+			"native dispatcher retires the successful exact event once and commits only its actual one-second clock slice");
+		CHECK(GetJa2TacticalEntityId(*actor) == hire.actor && actor->assignment().current() < ON_DUTY &&
+			!actor->roster().inSector() && !actor->deployment().isBetweenSectors() &&
+			actor->deployment().strategicInsertionCode() == INSERTION_CODE_CENTER &&
+			group && group->usGroupTeam == OUR_TEAM && group->ubGroupSize == 1 &&
+			group->ubSectorX == 9 && group->ubSectorY == 1 && !group->fBetweenSectors &&
+			group->pPlayerList && !group->pPlayerList->next && GetPlayerGroupMemberActor(group->pPlayerList) == hire.actor &&
+			Ja2StrategicSquadSize(actor->assignment().current()) == 1 &&
+			GetJa2StrategicSquadActor(actor->assignment().current(), 0) == hire.actor &&
+			actor->employment().endTime() == originalEnd - 1440 &&
+			actor->employment().lastContractUpdateTime() == hire.arrivalMinute && gMercProfiles[0].bMercStatus == days,
+			"real dispatch completes 1/7/14-day native arrival, exact actor/squad/group binding and recalculated contract");
+	}
+	CHECK(queue.validate() && later.event->id == laterId && later.event->snapshot() == laterSnapshot &&
+		gubEnvLightValue == 2 && LaptopSaveInfo.iCurrentBalance == balance && !IsJa2TacticalWorldLoaded(),
+		"arrival dispatch preserves the later native event, funds and worldless state");
+	PauseGame();
+	const auto committedClock = CaptureJa2CampaignClock();
+	const auto committedEnd = actor->employment().endTime();
+	const auto committedGroup = actor->deployment().groupId();
+	std::vector<CampaignEventSnapshot> retained;
+	CHECK(queue.capture(retained), "capture remaining native event cohort");
+	for (unsigned repeat = 0; repeat < 32; ++repeat)
+	{
+		std::vector<CampaignEventSnapshot> current;
+		host.simulate({ticks + 2 + repeat, 1000000, 2000000 + repeat * 1000000u});
+		CHECK(queue.capture(current) && current == retained && CaptureJa2CampaignClock() == committedClock &&
+			actor->employment().endTime() == committedEnd && actor->deployment().groupId() == committedGroup &&
+			GetJa2TacticalEntityId(*actor) == hire.actor && gubEnvLightValue == 2 && LaptopSaveInfo.iCurrentBalance == balance,
+			"later ticks cannot repeat a retired arrival or replay a terminal malformed event");
+	}
+	// This is test-process teardown, never authority recovery after a failed
+	// event. The native host's failure latch remains set through destruction.
+	if (malformed) { gfProcessingGameEvents = FALSE; gfPreventDeletionOfAnyEvent = FALSE; }
+}
+
+void TestNativeArrival(bool dispatch)
 {
 	const auto root = std::filesystem::temp_directory_path() /
 		("ja2-native-aim-arrival-" + std::to_string(
@@ -177,6 +285,18 @@ void TestNativeArrival()
 	std::fill(std::begin(gMercProfiles[0].bHated), std::end(gMercProfiles[0].bHated), -1);
 	gMercProfiles[0].bLearnToLike = gMercProfiles[0].bLearnToHate = 255;
 	InitSquads();
+	DedicatedCoopArrivalState owner;
+	if (dispatch)
+	{
+		CHECK(BindDedicatedCoopArrivalState(owner) && !owner.establishedAimArrivals(), "runtime owner begins in explicit starter mode");
+		for (const auto initial : {TRUE, FALSE})
+		{
+			gTacticalStatus.fDidGameJustStart = initial;
+			CHECK(!UsesCheckedDedicatedCoopAimArrivals(), "bound starter cohort retains legacy dispatch even after DidGameJustStart clears");
+		}
+		owner.enableEstablishedAimArrivals();
+		CHECK(owner.establishedAimArrivals() && UsesCheckedDedicatedCoopAimArrivals(), "explicit established promotion enables checked dispatch");
+	}
 	const auto run = [&](std::uint32_t days, int mode) {
 		InitializeJa2CampaignClock(86400 + 8 * 3600);
 		NotifyJa2TacticalWorldUnloaded(); ClearJa2TacticalWorldSector();
@@ -191,6 +311,15 @@ void TestNativeArrival()
 		CHECK(actor && event, "native pending actor and event exist");
 		if (!actor || !event) return;
 		const CampaignAimArrivalRequest request{event->id, hire.actor};
+		if (dispatch)
+		{
+			TestNativeDispatch(hire, days, mode != 0);
+			if (actor->assignment().current() < ON_DUTY)
+				CHECK(RemoveCharacterFromSquads(actor), "remove dispatched actor from its real squad during teardown");
+			CHECK(TacticalActorLifecycle::destroy(*actor), "destroy actual dispatched native actor");
+			EmptyDialogueQueue(); GetJa2CampaignEventQueue().clear(); ClearJa2TacticalWorldSector();
+			return;
+		}
 		const auto reject = [&](CampaignAimArrivalRequest rejected, Error error) {
 			const auto clock = CaptureJa2CampaignClock();
 			const auto status = gMercProfiles[0].bMercStatus;
@@ -360,7 +489,13 @@ void TestNativeArrival()
 		ClearJa2TacticalWorldSector();
 	};
 	for (auto days : {1u, 7u, 14u}) run(days, 0);
-	for (int mode : {1, 2, 3, 4, 5, 6}) run(7, mode);
+	if (dispatch) run(7, 1); // Terminal malformed dispatch is deliberately last.
+	else for (int mode : {1, 2, 3, 4, 5, 6}) run(7, mode);
+	if (dispatch)
+	{
+		UnbindDedicatedCoopArrivalState(owner);
+		CHECK(!UsesCheckedDedicatedCoopAimArrivals(), "campaign owner teardown clears the checked dispatcher binding");
+	}
 	RemoveAllGroups(); ResetJa2StrategicSquadRosters();
 	ReleaseWorldTileMap();
 	ShutdownVideoObjectManager(); ShutdownFileManager();
@@ -369,9 +504,16 @@ void TestNativeArrival()
 }
 }
 
-int main()
+int main(int argc, char** argv)
 {
 	std::setbuf(stdout, nullptr);
+	const bool dispatch = argc == 2 && std::strcmp(argv[1], "--dispatch") == 0;
+	if (argc > 2 || (argc == 2 && !dispatch)) return 2;
+	if (dispatch)
+	{
+		DedicatedServerOptions options; options.enabled = true; options.mode = DedicatedServerMode::Coop;
+		InstallDedicatedServerOptions(options);
+	}
 	auto& game = GetGameContext();
 	if (!game.beginInitialization() || !game.advancePackagesTo(PackageBootstrapPhase::StartRuntime) || !game.markRunning()) return 1;
 	auto& repository = GetJa2SoldierRepository();
@@ -386,7 +528,7 @@ int main()
 	auto& profile = gMercProfiles[0];
 	profile.Type = PROFILETYPE_AIM; profile.bMercStatus = 0;
 	profile.ubBodyType = REGMALE; profile.bLife = profile.bLifeMax = 80;
-	TestNativeArrival();
+	TestNativeArrival(dispatch);
 	std::printf("native AIM arrival: %d failures\n", failures);
 	return failures ? 1 : 0;
 }
