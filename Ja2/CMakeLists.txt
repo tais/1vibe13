@@ -17,6 +17,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopRuntime.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopAttack.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopBattleNotice.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopMeanwhile.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopMissionBootstrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignGroups.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignEconomy.cpp"

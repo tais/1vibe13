@@ -637,6 +637,16 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
 
   # Real native event failures must stop co-op frames and preserve legacy scopes.
   # Exact native death cleanup followed by read-only cold roster inspection.
+  add_executable(native_coop_meanwhile_tests tests/native_coop_meanwhile_tests.cpp)
+  target_compile_definitions(native_coop_meanwhile_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_meanwhile_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_meanwhile COMMAND native_coop_meanwhile_tests)
+  add_test(NAME native_coop_meanwhile_stale COMMAND native_coop_meanwhile_tests --stale)
+  add_test(NAME native_coop_meanwhile_stale_after_ack COMMAND native_coop_meanwhile_tests --stale-after-ack)
+  add_test(NAME native_coop_meanwhile_failure COMMAND native_coop_meanwhile_tests --native-failure)
+  set_tests_properties(native_coop_meanwhile native_coop_meanwhile_stale native_coop_meanwhile_stale_after_ack native_coop_meanwhile_failure PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_meanwhile_tests)
+
   add_executable(native_coop_pending_hire_death_tests tests/native_coop_pending_hire_death_tests.cpp)
   target_compile_definitions(native_coop_pending_hire_death_tests PRIVATE ${debugFlags})
   target_link_libraries(native_coop_pending_hire_death_tests PRIVATE ${campaign_aim_native_libraries})

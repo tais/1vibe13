@@ -39,6 +39,7 @@
 #include "GameInitOptionsScreen.h"
 #include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
+#include "DedicatedCoopMeanwhile.h"
 
 #define MAX_MEANWHILE_PROFILES	10
 
@@ -416,6 +417,9 @@ void CheckForMeanwhileOKStart( )
 			return;
 		}
 
+		// Retain the native scene and pause lock until a shared explicit Skip.
+		if (DeferDedicatedCoopMeanwhile()) return;
+
 		//shadooow: prevent the interrogation meanwhile to start if the mercs were fired from team
 		if (gCurrentMeanwhileDef.ubMeanwhileID == INTERROGATION)
 		{
@@ -662,6 +666,13 @@ void DoneFadeInMeanwhile( )
 
 
 
+void SkipMeanwhileScene()
+{
+	ProcessImplicationsOfMeanwhile();
+	UnLockPauseState();
+	UnPauseGame();
+}
+
 void BeginMeanwhileCallBack( UINT8 bExitValue )
 {
 	if ( bExitValue == MSG_BOX_RETURN_OK || bExitValue == MSG_BOX_RETURN_YES )
@@ -674,10 +685,7 @@ void BeginMeanwhileCallBack( UINT8 bExitValue )
 	}
 	else
 	{
-		// skipped scene!
-		ProcessImplicationsOfMeanwhile();
-		UnLockPauseState();
-		UnPauseGame();
+		SkipMeanwhileScene();
 	}
 }
 
