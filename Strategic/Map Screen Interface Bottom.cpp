@@ -55,6 +55,7 @@
 #include "MapScreen Quotes.h"
 #include "SaveLoadGame.h"
 #include "GameContext.h"
+#include "DedicatedCoopArrival.h"
 
 #include "connect.h"
 
@@ -1383,6 +1384,7 @@ void EnableDisAbleMapScreenOptionsButton( BOOLEAN fEnable )
 
 BOOLEAN AllowedToTimeCompress( void )
 {
+	if (DedicatedCoopArrivalDecisionPending()) return FALSE;
 	// WANNE - MP: In multiplayer mode we do not allow compress time, for now.
 	if (is_networked)
 	{

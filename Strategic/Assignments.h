@@ -272,6 +272,9 @@ BOOLEAN CanCharacterOnDuty( TacticalActor *pCharacter );
 BOOLEAN CanCharacterSleep( TacticalActor *pCharacter, BOOLEAN fExplainWhyNot );
 
 BOOLEAN CanCharacterBeAwakened( TacticalActor *pSoldier, BOOLEAN fExplainWhyNot );
+// Eligibility queries must not mark fatigue collapse or display GUI errors.
+BOOLEAN CanCharacterBeAwakenedWithoutSideEffects( const TacticalActor *pSoldier );
+BOOLEAN PlayerSoldierTooTiredToTravelWithoutSideEffects( TacticalActor *pSoldier );
 
 // put character in vehicle?
 BOOLEAN CanCharacterVehicle( TacticalActor *pCharacter );

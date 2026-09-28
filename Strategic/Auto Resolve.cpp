@@ -5898,7 +5898,7 @@ BOOLEAN GetCurrentBattleSectorXYZ( INT16 *psSectorX, INT16 *psSectorY, INT16 *ps
 		*psSectorZ = 0;
 		return TRUE;
 	}
-	else if( gfPreBattleInterfaceActive )
+	else if( gfPreBattleInterfaceActive || IsHeadlessPreBattleActive() )
 	{
 		*psSectorX = gubPBSectorX;
 		*psSectorY = gubPBSectorY;
@@ -5936,7 +5936,7 @@ BOOLEAN GetCurrentBattleSectorXYZAndReturnTRUEIfThereIsABattle( INT16 *psSectorX
 		*psSectorZ = 0;
 		return TRUE;
 	}
-	else if( gfPreBattleInterfaceActive )
+	else if( gfPreBattleInterfaceActive || IsHeadlessPreBattleActive() )
 	{
 		*psSectorX = gubPBSectorX;
 		*psSectorY = gubPBSectorY;

@@ -4,6 +4,7 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "types.h"
+#include "PreBattlePreparation.h"
 #include "Strategic Movement.h"
 
 void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI );

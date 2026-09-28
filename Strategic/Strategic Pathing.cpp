@@ -2,6 +2,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActor.h"
 #include "TacticalActorStateFlags.h"
+#include "StrategicPathQuery.h"
 	#include "worlddef.h"
 	#include <DEBUG.H>
 	#include "strategic.h"
@@ -76,13 +77,9 @@ typedef struct trail_s trail_t;
 //#define ISVEIN(v) ((v==TRAVELCOST_VEINMID) || (v==TRAVELCOST_VEINEND))
 #define TRAILCELLTYPE UINT32
 
-static path_t pathQB[MAXpathQ];
 static UINT16 totAPCostB[MAXpathQ];
 static UINT16	gusPathShown,gusAPtsToMove;
 static UINT16	gusMapMovementCostsB[MAP_LENGTH][MAXDIR];
-static TRAILCELLTYPE trailCostB[MAP_LENGTH];
-static trail_t trailStratTreeB[MAXTRAILTREE];
-short trailStratTreedxB=0;
 
 #define QHEADNDX (0)
 #define QPOOLNDX (MAXpathQ-1)
@@ -165,7 +162,6 @@ short trailStratTreedxB=0;
 }
 
 
-INT32 queRequests;
 
 
 INT16 diStratDelta[8]=
@@ -187,39 +183,27 @@ extern UINT8 GetTraversability( INT16 sStartSector, INT16 sEndSector );
 
 // this will find if a shortest strategic path
 
-INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOOLEAN fTacticalTraversal )
+static INT32 FindStratPathInternal(INT16 sStart, INT16 sDestination, GROUP *pGroup,
+	BOOLEAN fTacticalTraversal, bool fPlotDirectPath, bool avoidPlayerInfluence,
+	bool independentCosts, UINT16* directions, std::size_t directionCapacity, UINT16& directionCount)
 {
+	const auto playable = [](INT16 sector) { return sector >= 0 && sector / MAP_WIDTH >= 1 && sector / MAP_WIDTH <= 16 &&
+		sector % MAP_WIDTH >= 1 && sector % MAP_WIDTH <= 16; };
+	if (!playable(sStart) || !playable(sDestination) || sStart == sDestination) return 0;
+	// Search scratch is invocation-local; passive queries never overwrite the
+	// map screen's plotted directions or another query's cost/queue storage.
+	path_t pathQB[MAXpathQ];
+	TRAILCELLTYPE trailCostB[MAP_LENGTH];
+	trail_t trailStratTreeB[MAXTRAILTREE];
+	short trailStratTreedxB = 0;
+	INT32 queRequests;
+	const INT16 sMvtGroupNumber = pGroup ? pGroup->ubGroupID : 0;
 	INT32 iCnt,ndx,insertNdx,qNewNdx;
 	INT32 iDestX,iDestY,locX,locY,dx,dy;
 	INT16 sSectorX, sSectorY;
 	UINT16	newLoc,curLoc;
 	TRAILCELLTYPE curCost,newTotCost,nextCost;
 	INT16 sOrigination;
-	BOOLEAN fPlotDirectPath = FALSE;
-	static BOOLEAN fPreviousPlotDirectPath = FALSE;		// don't save
-	GROUP *pGroup;
-
-	// ******** Fudge by Bret (for now), curAPcost is never initialized in this function, but should be!
-	// so this is just to keep things happy!
-
-	// for player groups only!
-	pGroup = GetGroup( ( UINT8 )sMvtGroupNumber );
-	if ( pGroup->usGroupTeam == OUR_TEAM || pGroup->usGroupTeam == MILITIA_TEAM )
-	{
-		// if player is holding down SHIFT key, find the shortest route instead of the quickest route!
-		if ( _KeyDown( SHIFT ) )
-		{
-			fPlotDirectPath = TRUE;
-		}
-
-
-		if ( fPlotDirectPath != fPreviousPlotDirectPath )
-		{
-			// must redraw map to erase the previous path...
-			fMapPanelDirty = TRUE;
-			fPreviousPlotDirectPath = fPlotDirectPath;
-		}
-	}
 
 
 	queRequests = 2;
@@ -297,7 +281,7 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 				continue;
 			}
 
-			if( gfPlotToAvoidPlayerInfuencedSectors && newLoc != sDestination )
+			if( avoidPlayerInfluence && newLoc != sDestination )
 			{
 				sSectorX = (INT16)( newLoc % MAP_WORLD_X );
 				sSectorY = (INT16)( newLoc / MAP_WORLD_X );
@@ -319,7 +303,12 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 			// are we plotting path or checking for existance of one?
 			if( sMvtGroupNumber != 0 )
 			{
-				if( iHelicopterVehicleId != -1 )
+				if (independentCosts)
+				{
+					nextCost = GetSectorMvtTimeForGroupWithoutUiCache(static_cast<UINT8>(SECTOR(curLoc % MAP_WORLD_X, curLoc / MAP_WORLD_X)),
+						static_cast<UINT8>(iCnt / 2), pGroup);
+				}
+				else if( iHelicopterVehicleId != -1 )
 				{
 					nextCost = GetSectorMvtTimeForGroup( ( UINT8 ) ( SECTOR( ( curLoc%MAP_WORLD_X ), ( curLoc / MAP_WORLD_X ) ) ), ( UINT8 )( iCnt / 2 ), pGroup );
 					if ( nextCost != 0xffffffff && sMvtGroupNumber == pVehicleList[ iHelicopterVehicleId].ubMovementGroup )
@@ -450,14 +439,16 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 
 		z=_z;
 
-			for (iCnt=0; z && (iCnt < MAX_PATH_LIST_SIZE); iCnt++)
+			for (iCnt=0; z && (static_cast<std::size_t>(iCnt) < directionCapacity); iCnt++)
 		{
-			gusMapPathingData[ iCnt ] = trailStratTreeB[z].diStratDelta;
+			directions[ iCnt ] = trailStratTreeB[z].diStratDelta;
 
 			z = trailStratTreeB[z].nextLink;
 		}
 
-		gusPathDataSize = (UINT16) iCnt;
+		// A truncated path must not look like a successful route.
+		if (z && independentCosts) return 0;
+		directionCount = (UINT16) iCnt;
 
 
 		// return path length : serves as a "successful" flag and a path length counter
@@ -467,6 +458,37 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 	return(0);
 }
 
+
+INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOOLEAN fTacticalTraversal )
+{
+	GROUP* pGroup = GetGroup(static_cast<UINT8>(sMvtGroupNumber));
+	if (sMvtGroupNumber && !pGroup) return 0;
+	BOOLEAN direct = FALSE;
+	static BOOLEAN previousDirect = FALSE;
+	if (pGroup && (pGroup->usGroupTeam == OUR_TEAM || pGroup->usGroupTeam == MILITIA_TEAM))
+	{
+		direct = _KeyDown(SHIFT);
+		if (direct != previousDirect) { fMapPanelDirty = TRUE; previousDirect = direct; }
+	}
+	return FindStratPathInternal(sStart, sDestination, pGroup, fTacticalTraversal,
+		direct, gfPlotToAvoidPlayerInfuencedSectors, false, gusMapPathingData, MAX_PATH_LIST_SIZE, gusPathDataSize);
+}
+
+bool QueryStrategicPathWithoutUi(GROUP& group, std::uint8_t destinationX,
+	std::uint8_t destinationY, StrategicPathDirections& output) noexcept
+{
+	if (!group.ubGroupID || group.usGroupTeam != OUR_TEAM || group.fVehicle || group.ubTransportationMask != FOOT ||
+		group.ubSectorZ || group.ubSectorX < 1 || group.ubSectorX > 16 || group.ubSectorY < 1 || group.ubSectorY > 16 ||
+		destinationX < 1 || destinationX > 16 || destinationY < 1 || destinationY > 16 ||
+		(group.ubSectorX == destinationX && group.ubSectorY == destinationY)) return false;
+	StrategicPathDirections candidate;
+	const auto length = FindStratPathInternal(group.ubSectorY * MAP_WORLD_X + group.ubSectorX,
+		destinationY * MAP_WORLD_X + destinationX, &group, FALSE, false, false, true,
+		candidate.directions.data(), candidate.directions.size(), candidate.count);
+	if (length <= 0 || length != candidate.count) return false;
+	output = candidate;
+	return true;
+}
 
 PathStPtr BuildAStrategicPath(PathStPtr pPath , INT16 iStartSectorNum, INT16 iEndSectorNum, INT16 sMvtGroupNumber, BOOLEAN fTacticalTraversal /*, BOOLEAN fTempPath */ )
 {

@@ -2904,11 +2904,13 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		SetSectorFlag( sSectorX, sSectorY, bSectorZ, SF_ALREADY_VISITED );
 	}
 
-	GetMapFileName( sSectorX, sSectorY, bSectorZ, bFilename, TRUE, TRUE );
+	GetMapFileName( sSectorX, sSectorY, bSectorZ, bFilename,
+		IsHeadlessPreBattleEntryInProgress() ? FALSE : TRUE, TRUE );
 
 	//Load the placeholder map if the real map doesn't exist.
 	if ( !MapExists( (UINT8 *)bFilename ) )
 	{
+		if (IsHeadlessPreBattleEntryInProgress()) return FALSE;
 		if ( !MapExists( (UINT8 *)"Placeholder1.dat" ) )
 			AssertMsg( 0, "Failed to find Placeholder1.dat (placeholder map)." );
 	}
@@ -2954,6 +2956,7 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		// Load the current sectors Information From the temporary files
 		if ( !LoadCurrentSectorsInformationFromTempItemsFile( ) )
 		{ //The integrity of the temp files have been compromised.  Boot out of the game after warning message.
+			if (IsHeadlessPreBattleEntryInProgress()) return FALSE;
 			InitExitGameDialogBecauseFileHackDetected( );
 			return TRUE;
 		}
@@ -2962,7 +2965,12 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	RemoveLoadingScreenProgressBar( );
 	//RemoveProgressBar( 0 );
 
-	if ( gfEnterTacticalPlacementGUI )
+	if (IsHeadlessPreBattleEntryInProgress())
+	{
+		if (!ApplyHeadlessPreBattleDeployment()) return FALSE;
+		PrepareLoadedSector();
+	}
+	else if ( gfEnterTacticalPlacementGUI )
 	{
 		SetPendingNewScreen( GAME_SCREEN );
 		InitTacticalPlacementGUI( );

@@ -274,7 +274,7 @@ jobs:
         run: cmake --build build --target full_engine_coop_client_presentation_map_tests full_engine_coop_client_presentation_actor_directory_tests
 
       - name: Build campaign control contracts
-        run: cmake --build build --target coop_campaign_status_tests coop_campaign_groups_tests coop_campaign_time_tests coop_campaign_action_tests coop_campaign_hire_tests coop_campaign_meanwhile_tests
+        run: cmake --build build --target campaign_event_batch_tests coop_campaign_status_tests coop_campaign_groups_tests coop_campaign_time_tests coop_campaign_action_tests coop_campaign_hire_tests coop_campaign_meanwhile_tests
 
       - name: Build selected linked-catalog export adapter test
         run: cmake --build build --target selected_catalog_export_tests
