@@ -6240,6 +6240,47 @@ foreach(dedicated_live_client_screen_forbidden IN ITEMS
   endif()
 endforeach()
 
+# Campaign controls project server observations into released-key choices.
+# They share the passive input consumer, never JA2's native campaign handlers.
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleFullEngineCoopClientInput() noexcept"
+  shared_campaign_input "Cannot bound passive campaign input")
+require_ordered_fragments(shared_campaign_input
+  "Native decisions must own input before ordinary campaign or tactical controls"
+  "runtime.presentationView(presentation)" "CaptureFullEngineCoopClientMeanwhileControls(sceneControls)"
+  "MeanwhileInput.handle(" "runtime.requestCampaignAction(*answer)"
+  "CaptureFullEngineCoopClientBattleNoticeControls(notice)" "BattleNoticeInput.handle("
+  "CaptureFullEngineCoopClientSurrenderControls(surrender)" "SurrenderInput.handle("
+  "if (!presentationReady)" "Controller.synchronize(FullEngineCoopClientControllerView{})"
+  "CampaignHireInput.handle(" "runtime.requestCampaignHire("
+  "CampaignActionInput.handle(" "runtime.requestCampaignAction(*action)"
+  "haveCampaign && localLeader" "timeInput.handle(" "runtime.requestCampaignTime(*timeAction)"
+  "timeInput.reset()" "CampaignActionInput.reset()" "CampaignHireInput.reset()"
+  "HandleInput(presentation, view, retirementEligible)")
+foreach(shared_observation IN ITEMS Groups Economy AimQuotes)
+  set(shared_type "CoopCampaign${shared_observation}")
+  extract_brace_bounded_slice(dedicated_live_client_runtime_code
+    "bool FullEngineCoopClientRuntime::campaign${shared_observation}(CoopSession::${shared_type}& output) const noexcept"
+    shared_runtime_observation "Cannot bound live campaign observation")
+  require_ordered_fragments(shared_runtime_observation
+    "Campaign controls must clear stale output and copy only ready server observations"
+    "output = {}" "!campaignReady() || failed()" "client.campaign${shared_observation}()" "return true")
+endforeach()
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "bool FullEngineCoopClientRuntime::campaignStatus(CoopSession::CoopCampaignStatus& output,\n\tbool& localTimeLeader) const noexcept"
+  shared_runtime_clock "Cannot bound live campaign clock")
+require_ordered_fragments(shared_runtime_clock
+  "The displayed clock and leadership must come from the admitted server"
+  "output = {}" "localTimeLeader = false" "!campaignReady() || failed()"
+  "client.campaignStatus()" "output = *status" "status->timeLeaderReady"
+  "status->timeLeader == impl_->composition->client.peerIdentity()")
+foreach(shared_native_mutation IN ITEMS "WarpGameTime(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression(" "HireMerc(" "HireDedicatedCoopAimMerc(" "StartDedicatedCoopTravel(" "SetCurrentWorldSector(" "ReplyToDedicatedCoopSurrender(" "SkipMeanwhileScene(")
+  string(FIND "${dedicated_live_client_screen_code}" "${shared_native_mutation}" shared_native_mutation_at)
+  if(NOT shared_native_mutation_at EQUAL -1)
+    message(FATAL_ERROR "Passive campaign controls gained native mutation '${shared_native_mutation}'")
+  endif()
+endforeach()
+
 foreach(dedicated_live_client_legacy_forbidden IN ITEMS
     "client_connect("
     "server_connect("
@@ -39216,44 +39257,3 @@ require_ordered_fragments(checked_aim_arrival_build "Checked native AIM dispatch
   "add_executable(native_campaign_aim_arrival_tests"
   "add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)"
   "add_test(NAME native_campaign_aim_arrival_dispatch")
-
-# Campaign controls project server observations into released-key choices.
-# They share the passive input consumer, never JA2's native campaign handlers.
-extract_brace_bounded_slice(dedicated_live_client_screen_code
-  "void HandleFullEngineCoopClientInput() noexcept"
-  shared_campaign_input "Cannot bound passive campaign input")
-require_ordered_fragments(shared_campaign_input
-  "Native decisions must own input before ordinary campaign or tactical controls"
-  "runtime.presentationView(presentation)" "CaptureFullEngineCoopClientMeanwhileControls(sceneControls)"
-  "MeanwhileInput.handle(" "runtime.requestCampaignAction(*answer)"
-  "CaptureFullEngineCoopClientBattleNoticeControls(notice)" "BattleNoticeInput.handle("
-  "CaptureFullEngineCoopClientSurrenderControls(surrender)" "SurrenderInput.handle("
-  "if (!presentationReady)" "Controller.synchronize(FullEngineCoopClientControllerView{})"
-  "CampaignHireInput.handle(" "runtime.requestCampaignHire("
-  "CampaignActionInput.handle(" "runtime.requestCampaignAction(*action)"
-  "haveCampaign && localLeader" "timeInput.handle(" "runtime.requestCampaignTime(*timeAction)"
-  "timeInput.reset()" "CampaignActionInput.reset()" "CampaignHireInput.reset()"
-  "HandleInput(presentation, view, retirementEligible)")
-foreach(shared_observation IN ITEMS Groups Economy AimQuotes)
-  set(shared_type "CoopCampaign${shared_observation}")
-  extract_brace_bounded_slice(dedicated_live_client_runtime_code
-    "bool FullEngineCoopClientRuntime::campaign${shared_observation}(CoopSession::${shared_type}& output) const noexcept"
-    shared_runtime_observation "Cannot bound live campaign observation")
-  require_ordered_fragments(shared_runtime_observation
-    "Campaign controls must clear stale output and copy only ready server observations"
-    "output = {}" "!campaignReady() || failed()" "client.campaign${shared_observation}()" "return true")
-endforeach()
-extract_brace_bounded_slice(dedicated_live_client_runtime_code
-  "bool FullEngineCoopClientRuntime::campaignStatus(CoopSession::CoopCampaignStatus& output,\n\tbool& localTimeLeader) const noexcept"
-  shared_runtime_clock "Cannot bound live campaign clock")
-require_ordered_fragments(shared_runtime_clock
-  "The displayed clock and leadership must come from the admitted server"
-  "output = {}" "localTimeLeader = false" "!campaignReady() || failed()"
-  "client.campaignStatus()" "output = *status" "status->timeLeaderReady"
-  "status->timeLeader == impl_->composition->client.peerIdentity()")
-foreach(shared_native_mutation IN ITEMS "WarpGameTime(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression(" "HireMerc(" "HireDedicatedCoopAimMerc(" "StartDedicatedCoopTravel(" "SetCurrentWorldSector(" "ReplyToDedicatedCoopSurrender(" "SkipMeanwhileScene(")
-  string(FIND "${dedicated_live_client_screen_code}" "${shared_native_mutation}" shared_native_mutation_at)
-  if(NOT shared_native_mutation_at EQUAL -1)
-    message(FATAL_ERROR "Passive campaign controls gained native mutation '${shared_native_mutation}'")
-  endif()
-endforeach()
