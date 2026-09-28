@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <Engine/Adapters/JA2/TacticalMoveDiagnostic.h>
 
 class TacticalActor;
 
@@ -25,7 +26,8 @@ namespace TacticalActorRouteExecution
 	// checks a fresh ordinary route without changing actor, path policy or RNG.
 	[[nodiscard]] bool canBeginMoveToGrid(
 		TacticalActor& actor, std::int32_t destinationGrid,
-		std::uint16_t movementMode, bool reverse) noexcept;
+		std::uint16_t movementMode, bool reverse,
+		TacticalMoveDiagnostic* diagnostic = nullptr) noexcept;
 	[[nodiscard]] bool requestPath(
 		TacticalActor& actor,
 		std::int32_t destinationGrid,
