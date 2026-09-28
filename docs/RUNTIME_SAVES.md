@@ -79,6 +79,7 @@ The native schedule test uses a real disk container with an opaque domain
 prefix and production schedule, event, and RNG state. It checks restoration,
 malformed payload rejection, and the legacy reconstruction negative control;
 it does not qualify a full installed `SaveGame`/`LoadSavedGame` round trip.
+
 ### Passive campaign display projection
 
 New dedicated saves contain `PCVW`, an owned passive-client projection. Version 1

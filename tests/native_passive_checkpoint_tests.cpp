@@ -110,6 +110,8 @@ int main(int argc, char** argv)
         if (!storage.writeAll(path, domain)) return false;
         auto guard = BeginRuntimeSaveExecution(context, RuntimeSavePolicy::DedicatedDeterministic);
         auto prepared = PrepareRuntimeSave(context, guard);
+        prepared.reinforcementState = TacticalReinforcementSaveState{};
+        prepared.scheduleState = TacticalScheduleSaveState{};
         if (view) prepared.passiveView = *view;
         return bool(CommitRuntimeSave(context, path, std::move(prepared), guard));
     };
@@ -165,6 +167,9 @@ int main(int argc, char** argv)
     NotifyJa2TacticalWorldUnloaded();
     RuntimeSaveContainer original;
     Check(bool(context.runtimeSaveContainers().inspect("tactical.sav", original)), "inspect real tactical projection envelope");
+    Check(original.sections.size() == 6 && original.find(TacticalScheduleSaveSection) &&
+        original.find(TacticalReinforcementSaveSection),
+        "real strict envelope composes PCVW, SCHD and RINF with all required sections");
     const auto* section = original.find(PassiveCampaignViewSection);
     Check(section && section->payload.size() == 20 + 2 * 130 &&
         section->payload[0] == 1 && section->payload[4] == 2 && section->payload[5] == 9 &&
@@ -204,6 +209,14 @@ int main(int argc, char** argv)
             PassiveCampaignPreparationResult::InvalidCheckpoint && adopted == oldView && state() == nativeBefore,
             "malformed Unicode/identity/descriptor/bounds reject before adoption and native mutation");
     }
+    auto malformedSchedule = original.sections;
+    for (auto& part : malformedSchedule) if (part.type == TacticalScheduleSaveSection) part.payload[0] = 2;
+    Check(storage.writeAll("bad-schedule.sav", domain) && context.runtimeSaveContainers().seal("bad-schedule.sav", malformedSchedule) ==
+        RuntimeSaveContainerSaveError::None, "reseal valid projection alongside malformed schedule extension");
+    const auto beforeScheduleFailure = state();
+    Check(PreparePassiveCampaignCheckpoint(context, "bad-schedule.sav", tactical.worldMinutes, adopted) ==
+        PassiveCampaignPreparationResult::InvalidCheckpoint && adopted == oldView && state() == beforeScheduleFailure,
+        "passive preparation validates the composed schedule section without native restoration");
     // Valid projection inside an incompatible runtime envelope is still rejected.
     auto incompatible = original.sections;
     for (auto& part : incompatible) if (part.type == 0x504b4843u /* CHKP */)
