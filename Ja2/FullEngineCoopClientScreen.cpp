@@ -1,6 +1,7 @@
 #include "FullEngineCoopClientScreen.h"
 
 #include "FullEngineCoopClientController.h"
+#include "FullEngineCoopClientPresentationInventory.h"
 #include "FullEngineCoopClientCampaignActionInput.h"
 #include "FullEngineCoopClientSurrenderInput.h"
 #include "FullEngineCoopClientBattleNoticeInput.h"
@@ -13,6 +14,7 @@
 #include "FullEngineCoopClientTacticalPresentation.h"
 
 #include "Font Control.h"
+#include "Interface.h"
 #include "Render Dirty.h"
 #include "english.h"
 #include "input.h"
@@ -27,6 +29,8 @@
 namespace
 {
 FullEngineCoopClientController Controller;
+FullEngineCoopClientPresentationInventory InventoryPresentation{
+	MakeFullEngineCoopClientPresentationInventoryNativeServices()};
 CoopSession::FullEngineCoopClientResult LastSendResult =
 	CoopSession::FullEngineCoopClientResult::Success;
 bool HaveSendResult = false;
@@ -323,6 +327,28 @@ bool RequestSelfRetirement() noexcept
 	return LastSendResult == CoopSession::FullEngineCoopClientResult::Success;
 }
 
+bool PrepareInventoryPresentation(
+	const FullEngineCoopClientPresentationView& presentation,
+	const FullEngineCoopClientControllerView& view,
+	FullEngineCoopClientPresentationInventoryModel& model,
+	FullEngineCoopClientPresentationInventoryLayout& layout) noexcept
+{
+	if (!Controller.inventoryOpen() || presentation.snapshot == nullptr ||
+		presentation.resynchronizing || view.snapshot != presentation.snapshot ||
+		presentation.state.worldGeneration != presentation.snapshot->epoch()) return false;
+	const auto* owner = view.inventoryFor(Controller.selectedActor());
+	const FullEngineCoopClientPresentationInventoryControls controls{
+		true,Controller.selectedActor(),presentation.state.worldGeneration,
+		Controller.inventorySourceSlot(),Controller.actionsEnabled(view),
+		Controller.inventoryInspectedSlot()};
+	if (!owner || !BuildFullEngineCoopClientPresentationInventoryModel(
+		*presentation.snapshot,*owner,controls,model)) return false;
+	if (INTERFACE_WIDTH != 640 && INTERFACE_WIDTH != 800 && INTERFACE_WIDTH != 1024) return false;
+	return BuildFullEngineCoopClientPresentationInventoryLayout(
+		SCREEN_WIDTH,SCREEN_HEIGHT,static_cast<std::uint16_t>(INTERFACE_WIDTH),
+		model.newInventory,layout);
+}
+
 void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	FullEngineCoopClientControllerView& view,
 	bool retirementEligible) noexcept
@@ -335,7 +361,7 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 		const UINT32 key = event.usParam;
 		const bool leaveKey = key == 'l' || key == 'L';
 		const bool modal = Controller.targetingAttack() ||
-			Controller.enteringDestination() || Controller.selectingDoor();
+			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen();
 		if (modal) RetirementConfirmation.cancel();
 		if (leaveKey && !modal && retirementEligible)
 		{
@@ -347,9 +373,36 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				retirementEligible = false;
 			continue;
 	}
+		if (event.usEvent == LEFT_BUTTON_UP && Controller.inventoryOpen())
+		{
+			RetirementConfirmation.cancel();
+			FullEngineCoopClientPresentationInventoryModel model;
+			FullEngineCoopClientPresentationInventoryLayout layout;
+			if (PrepareInventoryPresentation(presentation,view,model,layout))
+			{
+				const auto click = HitTestFullEngineCoopClientPresentationInventory(model,layout,
+					static_cast<std::int32_t>(_EvMouseX(&event)),static_cast<std::int32_t>(_EvMouseY(&event)));
+				if (click.consumed && click.slot != FullEngineCoopClientInventoryNoSlot)
+					(void)Submit(Controller.clickInventorySlot(view,click.slot),view);
+			}
+			// Every click is consumed while the panel is open. A missed slot
+			// cannot become movement, a local cursor drop, or an implicit retry.
+			continue;
+		}
 		if (event.usEvent != KEY_DOWN) continue;
 		if (RetirementConfirmation.pending())
 			RetirementConfirmation.cancel();
+		if (key == 'i' || key == 'I')
+		{
+			if (Controller.inventoryOpen()) Controller.closeInventory();
+			else (void)Controller.openInventory(view);
+			continue;
+		}
+		if (Controller.inventoryOpen())
+		{
+			if (key == ESC) Controller.closeInventory();
+			continue;
+		}
 		if (Controller.targetingAttack())
 		{
 			switch (key)
@@ -906,7 +959,7 @@ void RenderPresentation(
 	SetFont(FONT10ARIAL);
 	SetFontForeground(FONT_MCOLOR_DKWHITE);
 	mprintf(20, loadoutTitleY,
-		L"Selected combat equipment (first stacked object only; full inventory is not replicated)");
+		L"Selected combat equipment (first stacked object only; I opens your owned inventory)");
 	const TacticalActorSnapshot* const selectedActor =
 		snapshot.find(Controller.selectedActor());
 	if (selectedActor == nullptr)
@@ -1027,10 +1080,10 @@ void RenderPresentation(
 	else if (snapshot.turn().interruptPhase ==
 		TacticalInterruptPhase::Active)
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   R reload   Q/E face   1/2/3 stance   Space stop   T pass selected merc   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop   T pass selected merc   L leave");
 	else
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   R reload   Q/E face   1/2/3 stance   Space stop   T end   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop   T end   L leave");
 	SetFontForeground(FONT_MCOLOR_DKGRAY);
 	mprintf(20, SCREEN_HEIGHT - 40,
 		L"Worldless replica view: no local map, AI, clocks, pathing, or tactical simulation.");
@@ -1051,6 +1104,7 @@ void HandleFullEngineCoopClientScreen() noexcept
 	const bool presentationReady = runtime.presentationView(presentation);
 	if (!presentationReady)
 	{
+		InventoryPresentation.teardown();
 		RenderWaiting(runtime);
 		(void)RenderSurrender(runtime);
 	(void)RenderBattleNotice(runtime);
@@ -1062,6 +1116,21 @@ void HandleFullEngineCoopClientScreen() noexcept
 	FullEngineCoopClientControllerView view = ControllerView(presentation);
 	Controller.synchronize(view);
 	RenderPresentation(presentation, view);
+	if (Controller.inventoryOpen())
+	{
+		FullEngineCoopClientPresentationInventoryModel model;
+		FullEngineCoopClientPresentationInventoryLayout layout;
+		if (!PrepareInventoryPresentation(presentation,view,model,layout) ||
+			!InventoryPresentation.render(model,layout))
+		{
+			Controller.closeInventory();
+			InventoryPresentation.teardown();
+			ColorFillVideoSurfaceArea(FRAME_BUFFER,0,SCREEN_HEIGHT-232,SCREEN_WIDTH,SCREEN_HEIGHT,0);
+			SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
+			mprintf(20,SCREEN_HEIGHT-64,L"Inventory view unavailable. Press I to reopen.");
+		}
+	}
+	else InventoryPresentation.teardown();
 	(void)RenderSurrender(runtime);
 	(void)RenderBattleNotice(runtime);
 	(void)RenderMeanwhile(runtime);
@@ -1349,4 +1418,10 @@ bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaig
 	output.open = CampaignHireInput.open(); output.armed = CampaignHireInput.armed(); output.enabled = CampaignHireInput.enabled();
 	output.canHire = CampaignHireInput.canHire(status,economy,quotes); output.buyGear = CampaignHireInput.buyGear();
 	return true;
+}
+
+void TeardownFullEngineCoopClientInventoryPresentation() noexcept
+{
+	Controller.closeInventory();
+	InventoryPresentation.teardown();
 }

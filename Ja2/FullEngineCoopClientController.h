@@ -131,6 +131,10 @@ public:
 	FullEngineCoopClientIntentRequest inventorySwap(
 		const FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept;
 
+	// Shared physical-slot click path: inspect, select/cancel, or submit once.
+	FullEngineCoopClientIntentRequest clickInventorySlot(
+		const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept;
+
 private:
 	bool selectRelative(const FullEngineCoopClientControllerView& view,
 		bool forward) noexcept;

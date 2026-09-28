@@ -6326,6 +6326,57 @@ foreach(dedicated_live_client_screen_forbidden IN ITEMS
   endif()
 endforeach()
 
+# The carried-inventory panel is an owner-cache projection. Physical clicks
+# enter the reviewed controller and never a native item cursor or world action.
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "bool PrepareInventoryPresentation(\n\tconst FullEngineCoopClientPresentationView& presentation,\n\tconst FullEngineCoopClientControllerView& view,\n\tFullEngineCoopClientPresentationInventoryModel& model,\n\tFullEngineCoopClientPresentationInventoryLayout& layout) noexcept"
+  dedicated_inventory_panel_prepare "Cannot bound carried inventory panel preparation")
+require_ordered_fragments(dedicated_inventory_panel_prepare
+  "Inventory panel must use the current selected owner cache and native panel geometry"
+  "!Controller.inventoryOpen()" "presentation.resynchronizing"
+  "presentation.state.worldGeneration != presentation.snapshot->epoch()"
+  "view.inventoryFor(Controller.selectedActor())"
+  "Controller.inventorySourceSlot()" "Controller.actionsEnabled(view)"
+  "BuildFullEngineCoopClientPresentationInventoryModel("
+  "INTERFACE_WIDTH != 640 && INTERFACE_WIDTH != 800 && INTERFACE_WIDTH != 1024"
+  "BuildFullEngineCoopClientPresentationInventoryLayout(")
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible) noexcept"
+  dedicated_inventory_panel_input "Cannot bound carried inventory input owner")
+require_ordered_fragments(dedicated_inventory_panel_input
+  "Inventory clicks must consume input before tactical keys and use only typed controller requests"
+  "while (DequeueEvent(&event))"
+  "event.usEvent == LEFT_BUTTON_UP && Controller.inventoryOpen()"
+  "PrepareInventoryPresentation(presentation,view,model,layout)"
+  "HitTestFullEngineCoopClientPresentationInventory(model,layout,"
+  "click.consumed && click.slot != FullEngineCoopClientInventoryNoSlot"
+  "Submit(Controller.clickInventorySlot(view,click.slot),view)"
+  "continue" "if (event.usEvent != KEY_DOWN) continue"
+  "if (Controller.inventoryOpen()) Controller.closeInventory()"
+  "Controller.openInventory(view)" "if (Controller.inventoryOpen())"
+  "if (key == ESC) Controller.closeInventory()" "continue"
+  "Controller.targetingAttack()")
+require_ordered_fragments(dedicated_live_client_screen_source
+  "The physical I key must enter only the passive inventory controller"
+  "if (key == 'i' || key == 'I')"
+  "if (Controller.inventoryOpen()) Controller.closeInventory()"
+  "Controller.openInventory(view)")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientIntentRequest FullEngineCoopClientController::clickInventorySlot(\n\tconst FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept"
+  dedicated_inventory_panel_click "Cannot bound carried inventory slot click")
+require_ordered_fragments(dedicated_inventory_panel_click
+  "Inventory clicks must inspect first and require an explicit source/destination choice"
+  "inspectInventorySlot(view, slot)"
+  "inventorySourceSlot_ == 0xffff || inventorySourceSlot_ == slot"
+  "selectInventorySource(view, slot)" "return {}" "inventorySwap(view, slot)")
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "void FullEngineCoopClientRuntime::stopTransport() noexcept"
+  dedicated_inventory_panel_teardown "Cannot bound client graphics cleanup")
+require_ordered_fragments(dedicated_inventory_panel_teardown
+  "Inventory graphics must retire before transport/VFS teardown"
+  "TeardownFullEngineCoopClientInventoryPresentation()"
+  "live.transport.stop(" "impl_->composition.reset()")
+
 # Campaign controls project server observations into released-key choices.
 # They share the passive input consumer, never JA2's native campaign handlers.
 extract_brace_bounded_slice(dedicated_live_client_screen_code

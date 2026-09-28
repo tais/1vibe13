@@ -953,10 +953,47 @@ void TestInventoryOrdinaryEquipmentRemainsAuthorityValidated()
 			"native authority alone validates equipment placement, face compatibility and capacity");
 	}
 }
+void TestInventorySlotClickPath()
+{
+	InventoryFixture fixture;
+	auto view = fixture.view();
+	FullEngineCoopClientController controller;
+	const auto before = fixture.first;
+	CHECK(controller.openInventory(view) && !controller.clickInventorySlot(view,15) &&
+		controller.inventoryInspectedSlot()==15 && controller.inventorySourceSlot()==65535,
+		"complex-item slot click inspects without creating a swap source");
+	CHECK(!controller.clickInventorySlot(view,14) && controller.inventorySourceSlot()==14 &&
+		controller.inventoryInspectedSlot()==14, "first ordinary click selects only a local source");
+	CHECK(!controller.clickInventorySlot(view,15) && controller.inventorySourceSlot()==14 &&
+		controller.inventoryInspectedSlot()==15, "unsupported destination remains inspectable without losing valid source");
+	CHECK(!controller.clickInventorySlot(view,14) && controller.inventorySourceSlot()==65535,
+		"clicking the selected item cancels the local choice");
+	CHECK(!controller.clickInventorySlot(view,14), "fresh source click emits no wire request");
+	const auto swap = controller.clickInventorySlot(view,6);
+	const auto* intent = std::get_if<CoopSession::SwapInventorySlotsTacticalIntent>(&swap.payload);
+	CHECK(swap && intent && intent->sourceSlot==14 && intent->destinationSlot==6 &&
+		intent->expectedInventoryRevision==51 && fixture.first==before &&
+		controller.inventorySourceSlot()==65535, "destination click emits exactly one full-stack request without prediction");
+	view.outstandingCommandId=17;
+	CHECK(!controller.clickInventorySlot(view,14) && controller.inventoryInspectedSlot()==14 &&
+		controller.inventorySourceSlot()==65535 && !controller.clickInventorySlot(view,6),
+		"queued clicks after submission remain inspection-only while command is outstanding");
+	view.outstandingCommandId=0;
+	CHECK(!controller.clickInventorySlot(view,14) && controller.inventorySourceSlot()==14,
+		"new deliberate click can select after terminal unlock");
+	++fixture.first.inventoryRevision;
+	CHECK(!controller.clickInventorySlot(view,6) && controller.inventorySourceSlot()==65535,
+		"a stale source followed by an empty-slot release cannot confirm against a newer private revision");
+	CHECK(!controller.clickInventorySlot(view,14), "new revision accepts deliberate source click");
+	++fixture.first.baselineId;
+	CHECK(!controller.clickInventorySlot(view,6) && !controller.inventoryOpen() && fixture.first.slots==before.slots,
+		"baseline replacement consumes the stale slot click without transfer or mutation");
+}
 }
 
 int main()
 {
+	TestInventorySlotClickPath();
 	TestInventoryOrdinarySwapsArePureAndSlotBounded();
 	TestInventoryModalControlsAndBusyInspection();
 	TestInventoryInspectionNeverBecomesASwapCursor();

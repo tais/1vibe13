@@ -766,6 +766,24 @@ UINT16 GetFontHeight(INT32 FontNum)
 //	CreateEnglishTransTable()
 //
 //*****************************************************************************
+BOOLEAN TryGetIndex(CHAR16 character, INT16* output)
+{
+	if (output == NULL || !gFontManagerInitialized || pFManager == NULL ||
+		pFManager->pTranslationTable == NULL ||
+		static_cast<UINT32>(character) > 0xffffu) return FALSE;
+	const FontTranslationTable& table = *pFManager->pTranslationTable;
+	if (table.DynamicArrayOf16BitValues == NULL) return FALSE;
+	// This optional lookup has no cache or font mutation. The legacy GetIndex
+	// behavior remains unchanged, including its missing-character fallback.
+	for (UINT32 index = 0; index < table.usNumberOfSymbols && index <= 0x7fffu; ++index)
+		if (table.DynamicArrayOf16BitValues[index] == static_cast<UINT16>(character))
+		{
+			*output = static_cast<INT16>(index);
+			return TRUE;
+		}
+	return FALSE;
+}
+
 INT16 GetIndex(CHAR16 siChar)
 {
 	// Reverse map: codepoint -> glyph index. Built once from the translation

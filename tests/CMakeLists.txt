@@ -315,6 +315,19 @@ target_compile_features(full_engine_coop_client_controller_tests PRIVATE
 add_test(NAME full_engine_coop_client_controller
   COMMAND full_engine_coop_client_controller_tests)
 
+add_executable(full_engine_coop_client_presentation_inventory_tests
+  full_engine_coop_client_presentation_inventory_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInventory.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_presentation_inventory_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_client_presentation_inventory_tests PRIVATE JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_presentation_inventory_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_inventory
+  COMMAND full_engine_coop_client_presentation_inventory_tests)
+add_dependencies(full_engine_coop_client_controller_tests
+  full_engine_coop_client_presentation_inventory_tests)
+
 # The passive client projects authority-published world dimensions and actor
 # grids into a bounded, worldless tactical view without loading or simulating a
 # local JA2 sector.
