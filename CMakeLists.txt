@@ -619,6 +619,14 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     add_dependencies(ja2_headless_tests ${campaign_observation}_tests)
   endforeach()
 
+  # Compose checked actor/event creation with exact native payment and history.
+  add_executable(native_coop_aim_hire_transaction_tests tests/native_coop_aim_hire_transaction_tests.cpp)
+  target_compile_definitions(native_coop_aim_hire_transaction_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_aim_hire_transaction_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_aim_hire_transaction COMMAND native_coop_aim_hire_transaction_tests)
+  set_tests_properties(native_coop_aim_hire_transaction PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_aim_hire_transaction_tests)
+
   # Real native event failures must stop co-op frames and preserve legacy scopes.
   # Exact native death cleanup followed by read-only cold roster inspection.
   add_executable(native_coop_pending_hire_death_tests tests/native_coop_pending_hire_death_tests.cpp)
