@@ -7432,6 +7432,19 @@ static void RemoveStaticEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bM
 //Whenever returning TRUE, make sure you clear gfBlitBattleSectorLocator;
 BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 {
+    // Finishing incapacitated enemies invokes their native death callbacks,
+    // which check the battle again before this invocation has left combat.
+    // Only the outer call may apply victory/loss history, morale and control.
+    static bool resolvingBattle = false;
+    if (resolvingBattle)
+        return FALSE;
+    struct ResolutionScope
+    {
+        bool& active;
+        explicit ResolutionScope(bool& value) : active(value) { active = true; }
+        ~ResolutionScope() { active = false; }
+    } resolutionScope(resolvingBattle);
+
     TacticalActor *pTeamSoldier;
     BOOLEAN		fBattleWon = TRUE;
     BOOLEAN		fBattleLost = FALSE;

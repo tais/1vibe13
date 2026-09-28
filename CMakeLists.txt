@@ -608,6 +608,12 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   target_link_libraries(native_campaign_aim_willingness_tests PRIVATE ${campaign_aim_native_libraries})
   add_test(NAME native_campaign_aim_willingness COMMAND native_campaign_aim_willingness_tests)
   add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
+  add_executable(native_battle_resolution_tests tests/native_battle_resolution_tests.cpp)
+  target_compile_definitions(native_battle_resolution_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_battle_resolution_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_battle_resolution COMMAND native_battle_resolution_tests)
+  set_tests_properties(native_battle_resolution PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_battle_resolution_tests)
 
   # Actual playlist restoration must not consume the campaign random stream.
   add_executable(native_music_random_tests tests/native_music_random_tests.cpp)
