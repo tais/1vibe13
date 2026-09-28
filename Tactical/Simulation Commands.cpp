@@ -20,6 +20,8 @@
 #include "TacticalWorldAdapter.h"
 
 #include <array>
+#include <cmath>
+#include <cstring>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -671,6 +673,96 @@ namespace
 			fingerprint *= 1099511628211ull;
 			encoded >>= 8;
 		}
+	}
+
+	bool IsCanonicalEmptyInventoryObject(const OBJECTTYPE& object) noexcept
+	{
+		if (object.usItem != NOTHING || object.ubNumberOfObjects != 0 ||
+			object.ubMission != 0 || object.fFlags != 0 || object.objectStack.size() != 1)
+			return false;
+		const StackedObjectData& stack = object.objectStack.front();
+		const ObjectData& data = stack.data;
+		return stack.attachments.empty() && data.gun.bGunStatus == 0 &&
+			data.gun.ubGunAmmoType == 0 && data.gun.ubGunShotsLeft == 0 &&
+			data.gun.usGunAmmoItem == 0 && data.gun.bGunAmmoStatus == 0 && data.gun.ubGunState == 0 &&
+			data.bTrap == 0 && data.fUsed == 0 && data.ubImprintID == 0 &&
+			data.bTemperature == 0 && data.ubDirection == 0 && data.ubWireNetworkFlag == 0 &&
+			data.bDefuseFrequency == 0 && data.sRepairThreshold == 0 && data.sObjectFlag == 0;
+	}
+
+	bool HasOnlyEmptyAttachmentSlots(const StackedObjectData& stack) noexcept
+	{
+		if (stack.attachments.size() > MAX_ATTACHMENTS) return false;
+		for (const OBJECTTYPE& attachment : stack.attachments)
+			if (!IsCanonicalEmptyInventoryObject(attachment)) return false;
+		return true;
+	}
+
+	void MixInventoryObjectData(std::uint64_t& fingerprint, const ObjectData& data) noexcept
+	{
+		// Named union fields cover the storage native ObjectData actually copies;
+		// never compare/hash padding, save markers, or the unused bFiller member.
+		MixTraversalState(fingerprint, data.gun.bGunStatus);
+		MixTraversalState(fingerprint, data.gun.ubGunAmmoType);
+		MixTraversalState(fingerprint, data.gun.ubGunShotsLeft);
+		MixTraversalState(fingerprint, data.gun.usGunAmmoItem);
+		MixTraversalState(fingerprint, data.gun.bGunAmmoStatus);
+		MixTraversalState(fingerprint, data.gun.ubGunState);
+		MixTraversalState(fingerprint, data.bTrap);
+		MixTraversalState(fingerprint, data.fUsed);
+		MixTraversalState(fingerprint, data.ubImprintID);
+		static_assert(sizeof(data.bTemperature) == sizeof(std::uint32_t), "native temperature width");
+		std::uint32_t temperature = 0;
+		std::memcpy(&temperature, &data.bTemperature, sizeof(temperature));
+		MixTraversalState(fingerprint, temperature);
+		MixTraversalState(fingerprint, data.ubDirection);
+		MixTraversalState(fingerprint, data.ubWireNetworkFlag);
+		MixTraversalState(fingerprint, data.bDefuseFrequency);
+		MixTraversalState(fingerprint, data.sRepairThreshold);
+		MixTraversalState(fingerprint, data.sObjectFlag);
+	}
+
+	std::uint64_t CaptureOrdinaryInventoryObject(const OBJECTTYPE& object) noexcept
+	{
+		if (!object.exists())
+			return IsCanonicalEmptyInventoryObject(object) ? 1 : 0;
+		if (object.usItem >= MAXITEMS || object.usItem >= gMAXITEMS_READ ||
+			object.usItem == SWITCH || object.usItem == ACTION_ITEM || object.usItem == OWNERSHIP ||
+			object.ubNumberOfObjects == 0 || object.objectStack.size() != object.ubNumberOfObjects ||
+			(object.fFlags & (OBJECT_ARMED_BOMB | OBJECT_KNOWN_TO_BE_TRAPPED |
+				OBJECT_DISABLED_BOMB | OBJECT_ALARM_TRIGGER)) != 0)
+			return 0;
+		const UINT32 itemClass = Item[object.usItem].usItemClass;
+		switch (itemClass)
+		{
+			case IC_GUN: case IC_AMMO: case IC_BLADE: case IC_THROWING_KNIFE:
+			case IC_ARMOUR: case IC_MEDKIT: case IC_KIT: case IC_FACE: case IC_MISC: break;
+			default: return 0;
+		}
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		MixTraversalState(fingerprint, object.usItem);
+		MixTraversalState(fingerprint, object.ubNumberOfObjects);
+		MixTraversalState(fingerprint, object.ubMission);
+		MixTraversalState(fingerprint, object.fFlags);
+		for (const StackedObjectData& stack : object.objectStack)
+		{
+			const ObjectData& data = stack.data;
+			if (data.bTrap != 0 || !std::isfinite(data.bTemperature) ||
+				!HasOnlyEmptyAttachmentSlots(stack) || data.gun.ubGunAmmoType == UINT8_MAX)
+				return 0; // Keep the native active-LBE alias outside this ordinary slice.
+			if (itemClass == IC_GUN)
+			{
+				if (data.gun.bGunStatus < 0 || data.gun.bGunStatus > 100 ||
+					data.gun.usGunAmmoItem >= MAXITEMS) return 0;
+			}
+			else if (data.gun.ubGunAmmoType != 0 || data.gun.ubGunShotsLeft != 0 ||
+				data.gun.usGunAmmoItem != 0 || data.gun.bGunAmmoStatus != 0 || data.gun.ubGunState != 0 ||
+				(itemClass != IC_AMMO && (data.objectStatus < 0 || data.objectStatus > 100)))
+				return 0; // No hidden alternate-union payload in this ordinary slice.
+			MixInventoryObjectData(fingerprint, data);
+			MixTraversalState(fingerprint, static_cast<std::uint8_t>(stack.attachments.size()));
+		}
+		return fingerprint != 0 ? fingerprint : 1;
 	}
 
 	// Retained window completion and fence continuation can clear or rewrite
@@ -2435,6 +2527,13 @@ bool PrepareAimedFirearmAttackCommand(
 		return false;
 	output = prepared;
 	return true;
+}
+
+std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8_t slot) noexcept
+{
+	const TacticalActor* const live = ResolveJa2TacticalEntity(actor);
+	return live && slot < live->inventory().size()
+		? CaptureOrdinaryInventoryObject(live->inventory()[slot]) : 0;
 }
 
 bool PrepareReloadWeaponCommand(
