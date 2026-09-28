@@ -229,7 +229,7 @@ struct LoopbackServer
 	SdlNetPeer* peer = nullptr;
 	ConnectionId client;
 	std::uint16_t port = 0;
-	std::array<CaptureSlot, 10> captures{{
+	std::array<CaptureSlot, 13> captures{{
 		{CoopAdmissionRequestMessageName, {}},
 		{CoopAdmissionAckMessageName, {}},
 		{CoopAdmissionSelfRetirementRequestMessageName, {}},
@@ -239,7 +239,10 @@ struct LoopbackServer
 		{CoopTacticalIntentMessageName, {}},
 		{CoopCampaignSyncAckMessageName, {}},
 		{CoopCampaignSyncResultMessageName, {}},
-		{CoopCampaignSyncResyncMessageName, {}}
+		{CoopCampaignSyncResyncMessageName, {}},
+		{CoopCampaignTimeRequestMessageName, {}},
+		{CoopCampaignActionRequestMessageName, {}},
+		{CoopCampaignHireRequestMessageName, {}}
 	}};
 
 	std::size_t count(const char* name) const noexcept
@@ -1059,11 +1062,337 @@ void TestLocalAndRemoteDisconnectLifecycle()
 }
 }
 
+namespace
+{
+void TestCampaignActionWireDelivery(bool skipScene = false)
+{
+	LoopbackServer server;
+	CHECK(StartServer(server), "campaign action socket server starts");
+	FullEngineCoopClientTransport transport;
+	RecordingReplica replica;
+	FullEngineCoopClient client(transport, replica);
+	CHECK(ConnectClient(server, transport, client, TransportConfiguration(server.port)),
+		"campaign action client connects");
+	const auto hello = HelloBytes(ClientConfiguration(), 913);
+	const auto admission = ResponseBytes(913, Identity(10), Token(30));
+	CoopCampaignStatus status;
+	status.sessionEpoch = 913;
+	status.revision = 1;
+	status.phase = CoopCampaignPhase::Strategic;
+	status.timeLeader = Identity(20);
+	status.leadershipRevision = 1;
+	status.timeLeaderReady = true;
+	status.readyPeers = 2;
+	status.worldSeconds = 112800;
+	if (skipScene)
+	{
+		status.pauseLocked = true;
+		status.meanwhile = {7, CoopCampaignMeanwhileScene::FirstBattle};
+	}
+	CoopCampaignGroups groups;
+	groups.sessionEpoch = 913;
+	groups.revision = 1;
+	groups.available = true;
+	groups.groupCount = 1;
+	groups.memberCount = 1;
+	groups.groups[0].id = {2, 44};
+	groups.groups[0].x = 9;
+	groups.groups[0].y = 1;
+	groups.groups[0].memberCount = 1;
+	groups.members[0] = {{263, 55}, 246, 0};
+	CoopCampaignStatusBytes statusBytes{};
+	CoopCampaignGroupsBytes groupBytes{};
+	std::size_t groupSize = 0;
+	CHECK(EncodeCoopCampaignStatus(status, statusBytes) &&
+		EncodeCoopCampaignGroups(groups, groupBytes, groupSize) &&
+		Send(server, CoopServerHelloMessageName, hello.data(), hello.size()) &&
+		Send(server, CoopAdmissionResponseMessageName, admission.data(), admission.size()) &&
+		Send(server, CoopCampaignStatusMessageName, statusBytes.data(), statusBytes.size()) &&
+		Send(server, CoopCampaignGroupsMessageName, groupBytes.data(), groupSize) &&
+		PumpUntil(server, transport, [&] { return client.campaignStatus() && client.campaignGroups(); }),
+		"ordered admission, status and roster enable a campaign action without tactical baseline");
+	CoopCampaignActionRequest selection;
+	selection.action = CoopCampaignAction::Travel;
+	selection.group = groups.groups[0].id;
+	selection.destinationX = 10;
+	selection.destinationY = 1;
+	if (skipScene)
+	{
+		selection = {};
+		selection.action = CoopCampaignAction::SkipMeanwhile;
+		selection.decision = status.meanwhile.id;
+	}
+	CHECK(client.requestCampaignAction(selection) == FullEngineCoopClientResult::Success &&
+		client.campaignActionPending() &&
+		PumpUntil(server, transport, [&] { return server.count(CoopCampaignActionRequestMessageName) == 1; }),
+		"campaign action request crosses exact outbound namespace and width");
+	CoopCampaignActionRequest request;
+	const auto& captured = server.captures[11].messages;
+	CHECK(captured.size() == 1 && captured.front().size() == CoopCampaignActionRequestWireSize &&
+		DecodeCoopCampaignActionRequest(captured.front().data(), captured.front().size(), request) &&
+		request.sessionEpoch == 913 && request.controlRevision == status.timeControlRevision &&
+		request.groupsRevision == groups.revision && request.group == selection.group &&
+		request.action == selection.action && request.decision == selection.decision &&
+		request.destinationX == selection.destinationX && request.destinationY == selection.destinationY,
+		"server receives exact core-attributed campaign action with current observation revisions");
+	++status.revision;
+	++status.timeControlRevision;
+	if (skipScene)
+	{
+		status.meanwhile = {};
+		status.pauseLocked = false;
+	}
+	else
+	{
+		++groups.revision;
+		groups.groups[0].x = 10;
+	}
+	CoopCampaignActionResult result{request, status.timeControlRevision, groups.revision,
+		CoopCampaignActionOutcome::Applied, 0};
+	CoopCampaignActionResultBytes resultBytes{};
+	CHECK(EncodeCoopCampaignStatus(status, statusBytes) &&
+		EncodeCoopCampaignGroups(groups, groupBytes, groupSize) &&
+		EncodeCoopCampaignActionResult(result, resultBytes) &&
+		Send(server, CoopCampaignStatusMessageName, statusBytes.data(), statusBytes.size()) &&
+		Send(server, CoopCampaignGroupsMessageName, groupBytes.data(), groupSize) &&
+		Send(server, CoopCampaignActionResultMessageName, resultBytes.data(), resultBytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.lastCampaignActionResult() != nullptr; }),
+		"terminal action receipt follows its status and roster through the shared callback FIFO");
+	const auto* received = client.lastCampaignActionResult();
+	CHECK(received && SameCoopCampaignActionRequest(received->request, request) &&
+		received->outcome == result.outcome && received->controlRevision == result.controlRevision &&
+		received->groupsRevision == result.groupsRevision && !client.campaignActionPending() &&
+		client.campaignGroups() && client.campaignGroups()->groups[0].x == (skipScene ? 9 : 10) &&
+		client.campaignStatus() && !client.campaignStatus()->meanwhile.id &&
+		client.campaignStatus()->gamePaused && client.campaignStatus()->worldSeconds == 112800 &&
+		transport.running() && replica.baselineCalls == 0 && replica.deltaCalls == 0,
+		"receipt completes only the matching campaign action without tactical execution");
+	if (skipScene)
+	{
+		++status.revision;
+		CHECK(EncodeCoopCampaignStatus(status, statusBytes) &&
+			Send(server, CoopCampaignActionResultMessageName, resultBytes.data(), resultBytes.size()) &&
+			Send(server, CoopCampaignStatusMessageName, statusBytes.data(), statusBytes.size()) &&
+			PumpUntil(server, transport, [&] {
+				return client.campaignStatus() && client.campaignStatus()->revision == status.revision;
+			}) && transport.running() && !client.campaignActionPending() &&
+			server.count(CoopCampaignActionRequestMessageName) == 1,
+			"duplicate Skip receipt is harmless and never replays the decision");
+		CHECK(client.requestCampaignTime(CoopCampaignTimeAction::ThirtyMinutes) !=
+				FullEngineCoopClientResult::Success && !client.campaignTimePending() &&
+			server.count(CoopCampaignTimeRequestMessageName) == 0,
+			"nonleader may skip the shared scene but cannot resume campaign time");
+	}
+	CHECK(!transport.send(CoopCampaignActionResultMessageName, resultBytes.data(), resultBytes.size()),
+		"client cannot send a server-only campaign action result");
+	transport.poll();
+	CHECK(!transport.running() && transport.lastFailure() == FullEngineCoopClientTransportFailure::TransportFailure,
+		"reversed campaign action direction closes the client transport");
+	StopServer(server);
+}
+
+void TestCampaignHireWireDelivery()
+{
+	for (unsigned fault = 0; fault < 4; ++fault)
+	{
+		LoopbackServer server; CHECK(StartServer(server), "hire socket server starts");
+		FullEngineCoopClientTransport transport; RecordingReplica replica; FullEngineCoopClient client(transport,replica);
+		CHECK(ConnectClient(server,transport,client,TransportConfiguration(server.port)), "hire socket client connects");
+		const auto hello = HelloBytes(ClientConfiguration(),914); const auto admission = ResponseBytes(914,Identity(10),Token(30));
+		CoopCampaignStatus status; status.sessionEpoch = 914; status.revision = 1; status.phase = CoopCampaignPhase::Strategic;
+		status.timeLeader = Identity(20); status.leadershipRevision = 1; status.timeLeaderReady = true; status.readyPeers = 2;
+		CoopCampaignEconomy economy; economy.sessionEpoch = 914; economy.revision = 1; economy.available = true;
+		economy.balance = 10000; economy.mercenaryLimit = 32; economy.mercenaryCount = economy.rosterCount = 1;
+		economy.roster[0].actor = {0,1}; economy.roster[0].profile = 238; economy.roster[0].x = 9; economy.roster[0].y = 1;
+		CoopCampaignAimQuotes quotes; quotes.sessionEpoch = 914; quotes.revision = quotes.economyRevision = 1; quotes.available = true;
+		quotes.arrivalMinutes = 1900; quotes.landingX = 9; quotes.landingY = 1; quotes.quoteCount = 255;
+		for (std::size_t i = 0; i < quotes.quoteCount; ++i) quotes.quotes[i].profile = static_cast<std::uint16_t>(i);
+		auto& offer = quotes.quotes[0]; offer.status = CoopCampaignAimQuoteStatus::Available; offer.gearAvailable = true;
+		offer.salary = {100,600,1100}; offer.medicalDeposit = 300; offer.gearCost = 50; offer.total = {400,450,900,950,1400,1450};
+		CoopCampaignStatusBytes statusBytes; CoopCampaignEconomyBytes economyBytes; CoopCampaignAimQuotesBytes quoteBytes;
+		std::size_t economySize = 0, quoteSize = 0;
+		CHECK(EncodeCoopCampaignStatus(status,statusBytes) && EncodeCoopCampaignEconomy(economy,economyBytes,economySize) &&
+			EncodeCoopCampaignAimQuotes(quotes,quoteBytes,quoteSize) && quoteSize == MaximumCoopCampaignAimQuotesWireSize &&
+			Send(server,CoopServerHelloMessageName,hello.data(),hello.size()) && Send(server,CoopAdmissionResponseMessageName,admission.data(),admission.size()) &&
+			Send(server,CoopCampaignStatusMessageName,statusBytes.data(),statusBytes.size()) && Send(server,CoopCampaignEconomyMessageName,economyBytes.data(),economySize) &&
+			Send(server,CoopCampaignAimQuotesMessageName,quoteBytes.data(),quoteSize) && PumpUntil(server,transport,[&] { return client.campaignAimQuotes() != nullptr; }),
+			"ordered admission and maximum quote replacement cross bounded callback FIFO without tactical state");
+		CHECK(client.requestCampaignHire(0,7,true) == FullEngineCoopClientResult::Success && client.campaignHirePending() &&
+			PumpUntil(server,transport,[&] { return server.count(CoopCampaignHireRequestMessageName) == 1; }), "nonleader hire reaches server through request-only namespace");
+		CoopCampaignHireRequest request; const auto& captured = server.captures.back().messages;
+		CHECK(captured.size() == 1 && DecodeCoopCampaignHireRequest(captured.front().data(),captured.front().size(),request) &&
+			request.sessionEpoch == 914 && request.controlRevision == 1 && request.economyRevision == 1 && request.quoteRevision == 1 &&
+			request.requestId == 1 && request.profile == 0 && request.days == 7 && request.buyGear, "socket request carries exact core-selected terms and current revision stamps");
+		CoopCampaignHireResult result; result.request = request; result.controlRevision = 2; result.economyRevision = result.quoteRevision = 1;
+		result.actor = {5,7}; result.chargedTotal = 950; result.outcome = CoopCampaignHireOutcome::Applied; result.nativeAttempted = true;
+		++status.revision; ++status.timeControlRevision; ++economy.revision; economy.balance -= 950;
+		economy.rosterCount = economy.mercenaryCount = 2; economy.roster[1] = economy.roster[0]; economy.roster[1].actor = result.actor;
+		economy.roster[1].profile = 0; economy.roster[1].pendingHire = true; economy.roster[1].arrivalMinutes = 1900;
+		if (fault == 1) ++economy.roster[1].actor.incarnation;
+		++quotes.revision; quotes.economyRevision = economy.revision;
+		CoopCampaignHireResultBytes resultBytes; CHECK(EncodeCoopCampaignHireResult(result,resultBytes), "socket native hire receipt encodes");
+		if (fault == 2) resultBytes[94] = 1;
+		CHECK(EncodeCoopCampaignStatus(status,statusBytes) && EncodeCoopCampaignEconomy(economy,economyBytes,economySize) &&
+			EncodeCoopCampaignAimQuotes(quotes,quoteBytes,quoteSize), "socket post-hire observations encode");
+		if (fault != 3) CHECK(Send(server,CoopCampaignStatusMessageName,statusBytes.data(),statusBytes.size()) &&
+			Send(server,CoopCampaignEconomyMessageName,economyBytes.data(),economySize) && Send(server,CoopCampaignAimQuotesMessageName,quoteBytes.data(),quoteSize),
+			"server queues committed observations before terminal receipt");
+		CHECK(Send(server,CoopCampaignHireResultMessageName,resultBytes.data(),resultBytes.size()), "server queues exact bounded terminal hire frame");
+		if (fault)
+		{
+			CHECK(PumpUntil(server,transport,[&] { return !transport.running(); }) && !client.campaignHirePending() && !client.campaignEconomy() &&
+				transport.lastFailure() == FullEngineCoopClientTransportFailure::ClientRejected && !replica.baselineCalls && !replica.deltaCalls,
+				"wrong actor, malformed authenticated receipt or observation ordering closes without tactical execution");
+		}
+		else
+		{
+			CHECK(PumpUntil(server,transport,[&] { return client.lastCampaignHireResult() != nullptr; }) && !client.campaignHirePending() &&
+				client.lastCampaignHireResult()->actor == result.actor && client.campaignEconomy()->balance == 9050 &&
+				client.campaignEconomy()->roster[1].pendingHire && client.campaignAimQuotes()->economyRevision == 2 &&
+				!replica.baselineCalls && !replica.deltaCalls, "hire receipt releases input only after exact native pending actor is published");
+			++status.revision;
+			CHECK(EncodeCoopCampaignStatus(status,statusBytes) && Send(server,CoopCampaignHireResultMessageName,resultBytes.data(),resultBytes.size()) &&
+				Send(server,CoopCampaignStatusMessageName,statusBytes.data(),statusBytes.size()) &&
+				PumpUntil(server,transport,[&] { return client.campaignStatus() && client.campaignStatus()->revision == status.revision; }) && transport.running(),
+				"duplicate socket receipt is harmless before a later ordered observation marker");
+			CHECK(!transport.send(CoopCampaignHireResultMessageName,resultBytes.data(),resultBytes.size()), "client cannot send server-only hire result");
+			transport.poll(); CHECK(!transport.running(), "reversed hire namespace closes transport");
+		}
+		StopServer(server);
+	}
+}
+
+void TestCampaignActionWireWidthsFailClosed(bool hire = false)
+{
+	const auto requestName = hire ? CoopCampaignHireRequestMessageName : CoopCampaignActionRequestMessageName;
+	const auto resultName = hire ? CoopCampaignHireResultMessageName : CoopCampaignActionResultMessageName;
+	for (const bool inbound : {false, true})
+	{
+		const std::size_t exactSize = inbound ? (hire ? CoopCampaignHireResultWireSize : CoopCampaignActionResultWireSize) : (hire ? CoopCampaignHireRequestWireSize : CoopCampaignActionRequestWireSize);
+		for (const std::size_t size : {std::size_t{0}, exactSize - 1, exactSize + 1})
+		{
+			LoopbackServer server;
+			CHECK(StartServer(server), "action width socket server starts");
+			FullEngineCoopClientTransport transport;
+			RecordingReplica replica;
+			FullEngineCoopClient client(transport, replica);
+			CHECK(ConnectClient(server, transport, client, TransportConfiguration(server.port)),
+				"action width socket client connects");
+			std::array<std::uint8_t, CoopCampaignHireResultWireSize + 1> bytes{};
+			if (inbound)
+				CHECK(Send(server, resultName, bytes.data(), size),
+					"noncanonical result width reaches the client callback");
+			else
+				CHECK(!transport.send(requestName, bytes.data(), size),
+					"noncanonical request width is rejected before send");
+			CHECK(PumpUntil(server, transport, [&] { return !transport.running(); }) &&
+				transport.lastFailure() == (inbound ? FullEngineCoopClientTransportFailure::InboundMessageTooLarge :
+					FullEngineCoopClientTransportFailure::TransportFailure) &&
+				server.count(requestName) == 0 &&
+				!client.lastCampaignActionResult() && transport.pendingInboundCount() == 0 &&
+				replica.baselineCalls == 0 && replica.deltaCalls == 0,
+				"wrong action width fails closed with no receipt or gameplay delivery");
+			StopServer(server);
+		}
+	}
+}
+
+void TestCampaignGroupsWireDelivery()
+{
+	LoopbackServer server; CHECK(StartServer(server), "group socket server starts");
+	FullEngineCoopClientTransport transport; RecordingReplica replica; FullEngineCoopClient client(transport, replica);
+	CHECK(ConnectClient(server, transport, client, TransportConfiguration(server.port)), "group client connects");
+	const auto hello = HelloBytes(ClientConfiguration(), 911); const auto admission = ResponseBytes(911, Identity(10), Token(30));
+	CoopCampaignGroups groups; groups.sessionEpoch = 911; groups.revision = 1; groups.available = true;
+	groups.groupCount = 1; groups.memberCount = 1;
+	groups.groups[0].id = {2, 44}; groups.groups[0].x = 9; groups.groups[0].y = 1; groups.groups[0].memberCount = 1;
+	groups.members[0] = {{263, 55}, 246, 0};
+	CoopCampaignGroupsBytes bytes; std::size_t size = 0;
+	CHECK(EncodeCoopCampaignGroups(groups, bytes, size) && Send(server, CoopServerHelloMessageName, hello.data(), hello.size()) &&
+		Send(server, CoopAdmissionResponseMessageName, admission.data(), admission.size()) &&
+		Send(server, CoopCampaignGroupsMessageName, bytes.data(), size) &&
+		PumpUntil(server, transport, [&] { return client.campaignGroups() != nullptr; }) &&
+		SameCoopCampaignGroups(*client.campaignGroups(), groups) && replica.baselineCalls == 0,
+		"friendly groups cross copy-only socket FIFO after admission without local simulation");
+	groups = {}; groups.sessionEpoch = 911; groups.revision = 2;
+	CHECK(EncodeCoopCampaignGroups(groups, bytes, size) && Send(server, CoopCampaignGroupsMessageName, bytes.data(), size) &&
+		PumpUntil(server, transport, [&] { return client.campaignGroups() && client.campaignGroups()->revision == 2; }) &&
+		!client.campaignGroups()->available && !client.campaignGroups()->memberCount, "smaller unavailable replacement clears roster over actual transport");
+	CHECK(Send(server, CoopCampaignGroupsMessageName, bytes.data(), size + 1) &&
+		PumpUntil(server, transport, [&] { return !transport.running(); }) && !client.campaignGroups(), "count/width mismatch fails closed and clears groups");
+	StopServer(server);
+}
+void TestCampaignStatusWireDelivery()
+{
+	LoopbackServer server; CHECK(StartServer(server), "campaign status socket server starts");
+	FullEngineCoopClientTransport transport; RecordingReplica replica;
+	FullEngineCoopClient client(transport, replica);
+	CHECK(ConnectClient(server, transport, client, TransportConfiguration(server.port)), "status client connects");
+	const auto hello = HelloBytes(ClientConfiguration(), 911);
+	const auto admission = ResponseBytes(911, Identity(10), Token(30));
+	CoopCampaignStatus status;
+	status.sessionEpoch = 911; status.revision = 1; status.worldSeconds = 111600;
+	status.timeLeader = Identity(10); status.leadershipRevision = 1; status.timeLeaderReady = true; status.readyPeers = 1;
+	CoopCampaignStatusBytes bytes;
+	CHECK(EncodeCoopCampaignStatus(status, bytes), "socket status fixture encodes");
+	CHECK(Send(server, CoopServerHelloMessageName, hello.data(), hello.size()) &&
+		Send(server, CoopAdmissionResponseMessageName, admission.data(), admission.size()) &&
+		Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()), "hello, admission and status queued in order");
+	CHECK(PumpUntil(server, transport, [&] { return client.campaignStatus() != nullptr; }) &&
+		client.state() == FullEngineCoopClientState::AwaitingBaseline && replica.baselineCalls == 0 &&
+		SameCoopCampaignStatus(*client.campaignStatus(), status), "fixed FIFO delivers status after admission, before any tactical baseline");
+	++status.revision; ++status.worldSeconds;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) &&
+		Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.campaignStatus() && client.campaignStatus()->revision == 2; }),
+		"later server-only observation arrives through ordinary transport");
+	status.phase = CoopCampaignPhase::Strategic; ++status.revision; ++status.timeControlRevision;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.campaignStatus() && client.campaignStatus()->revision == status.revision; }), "strategic status arrives");
+	CHECK(client.requestCampaignTime(CoopCampaignTimeAction::ThirtyMinutes) == FullEngineCoopClientResult::Success &&
+		PumpUntil(server, transport, [&] { return server.count(CoopCampaignTimeRequestMessageName) == 1; }), "time request crosses ordinary bounded outbound transport");
+	CoopCampaignTimeResult result{{911, status.timeControlRevision, 1, CoopCampaignTimeAction::ThirtyMinutes},
+		status.timeControlRevision + 1, CoopCampaignTimeOutcome::Applied};
+	++status.revision; ++status.timeControlRevision;
+	CoopCampaignTimeResultBytes resultBytes;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && EncodeCoopCampaignTimeResult(result, resultBytes) &&
+		Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+		Send(server, CoopCampaignTimeResultMessageName, resultBytes.data(), resultBytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.campaignTimeResult() != nullptr; }) &&
+		!client.campaignTimePending() && replica.baselineCalls == 0, "status then terminal time result cross copy-only FIFO without tactical simulation");
+	++status.revision; ++status.timeControlRevision;
+	status.arrival.decision = 1; status.arrival.kind = CoopCampaignArrivalKind::Battle;
+	status.arrival.stage = CoopCampaignArrivalStage::ReinforcementsRequired;
+	status.arrival.x = 10; status.arrival.y = 1; status.arrival.pendingCount = 1;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.campaignStatus() && client.campaignStatus()->arrival.decision == 1; }) &&
+		SameCoopCampaignStatus(*client.campaignStatus(), status) && !replica.baselineCalls,
+		"native militia decision reaches the client through ordinary authenticated FIFO without a map");
+	CHECK(client.requestCampaignTime(CoopCampaignTimeAction::SixtyMinutes) != FullEngineCoopClientResult::Success &&
+		!client.campaignTimePending(), "pending native decision disables the client time request path");
+	status.arrival = {}; ++status.revision; ++status.timeControlRevision;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+		PumpUntil(server, transport, [&] { return client.campaignStatus() && !client.campaignStatus()->arrival.decision; }),
+		"same transport replaces the old arrival with an explicit empty notice");
+	CHECK(Send(server, CoopCampaignStatusMessageName, bytes.data(), bytes.size() - 1) &&
+		PumpUntil(server, transport, [&] { return !transport.running(); }) && !client.campaignStatus(),
+		"non-exact status width closes transport and clears previously displayed clock");
+	StopServer(server);
+}
+}
+
 int main()
 {
 	CHECK(SDL_Init(0), "SDL initializes for production loopback transport");
 	TestCallbackBatchConfigurationInvariant();
 	TestMaximumInFlightDeltaWindowSurvivesBoundedCallbackBatches();
+	TestCampaignGroupsWireDelivery();
+	TestCampaignActionWireDelivery();
+	TestCampaignActionWireDelivery(true);
+	TestCampaignHireWireDelivery();
+	TestCampaignActionWireWidthsFailClosed();
+	TestCampaignActionWireWidthsFailClosed(true);
+	TestCampaignStatusWireDelivery();
 	TestLoopbackHandshakeFifoAndExactNamespaces();
 	TestCampaignBridgeFifoAndExactNamespaces();
 	TestVoluntaryRetirementExactTransportLifecycle();
