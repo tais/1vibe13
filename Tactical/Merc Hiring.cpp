@@ -173,7 +173,9 @@ static INT8 HireMercImpl( MERC_HIRE_STRUCT *pHireMerc,
 	// Construction can consume identity and mutate profile/record storage before
 	// returning null. The checked authority must fail-stop from this point.
 	if (checkedResult) checkedResult->mutationMayHaveStarted = true;
-	if ( !TacticalCreateSoldier( &MercCreateStruct, &iNewIndex ) )
+	if (!(checkedResult && pHireMerc->fCopyProfileItemsOver
+		? TacticalCreateSoldierWithCheckedProfileItems(&MercCreateStruct, &iNewIndex)
+		: TacticalCreateSoldier( &MercCreateStruct, &iNewIndex )))
 	{
 		if (checkedResult) checkedResult->error = CampaignAimHireError::CreationFailed;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "TacticalCreateSoldier in HireMerc():	Failed to Add Merc");
@@ -500,7 +502,8 @@ CampaignAimHireError PrepareCampaignAimHire(
 		return Error::InvalidProfile;
 	if (request.contractDays != 1 && request.contractDays != 7 &&
 		request.contractDays != 14) return Error::InvalidContract;
-	if (request.copyProfileEquipment) return Error::UnsupportedEquipment;
+	if (request.copyProfileEquipment &&
+		!CanCopyProfileItemsChecked(request.profile)) return Error::UnsupportedEquipment;
 	CampaignAimHireArrival arrival;
 	const auto contextError = ReadCampaignAimHireArrival(arrival);
 	if (contextError != Error::None) return contextError;

@@ -6,6 +6,8 @@
 #include "CampaignEventScheduling.h"
 #include "Game Event Hook.h"
 #include "Items.h"
+#include "Soldier Create.h"
+#include "Weapons.h"
 #include "SoldierRepository.h"
 #include "Soldier Profile.h"
 #include "Soldier Profile Constants.h"
@@ -125,6 +127,30 @@ void TestPreflight()
 	profile.inv = {-1, 0x7fffffff}; profile.bInvStatus = {-1}; profile.bInvNumber = {0x7fffffff};
 	Reject({0, 7, true}, Error::UnsupportedEquipment);
 	profile.inv = savedItems; profile.bInvStatus = savedStatus; profile.bInvNumber = savedCount;
+	profile.inv[HANDPOS] = 1; profile.bInvStatus[HANDPOS] = 80; profile.bInvNumber[HANDPOS] = 1;
+	Item[1].usItemClass = IC_MISC; Item[1].ubPerPocket = 1;
+	CampaignAimHirePlan gearPlan;
+	CHECK(PrepareCampaignAimHire({0, 7, true}, gearPlan) == Error::None &&
+		gearPlan.request.copyProfileEquipment, "ordinary gear is eligible through checked native distribution");
+	for (auto item : {-1, int(MAXITEMS), int(gMAXITEMS_READ)})
+	{ profile.inv[HANDPOS] = item; Reject({0, 7, true}, Error::UnsupportedEquipment); }
+	profile.inv[HANDPOS] = 1;
+	for (auto count : {-1, 0, 256})
+	{ profile.bInvNumber[HANDPOS] = count; Reject({0, 7, true}, Error::UnsupportedEquipment); }
+	profile.bInvNumber[HANDPOS] = 1;
+	for (auto status : {-1, 0, 101})
+	{ profile.bInvStatus[HANDPOS] = status; Reject({0, 7, true}, Error::UnsupportedEquipment); }
+	profile.bInvStatus[HANDPOS] = 80;
+	Item[1].randomitem = 1; Reject({0, 7, true}, Error::UnsupportedEquipment); Item[1].randomitem = 0;
+	Item[1].usItemClass = IC_LBEGEAR; Reject({0, 7, true}, Error::UnsupportedEquipment);
+	Item[1].usItemClass = IC_MISC;
+	const auto nativeInventory = profile.inv, nativeStatus = profile.bInvStatus, nativeCount = profile.bInvNumber;
+	const auto identity = NextJa2TacticalEntityIncarnation();
+	CHECK(CanCopyProfileItemsChecked(0) && profile.inv == nativeInventory &&
+		profile.bInvStatus == nativeStatus && profile.bInvNumber == nativeCount &&
+		NextJa2TacticalEntityIncarnation() == identity,
+		"equipment preflight preserves live profile and consumes no actor identity");
+	profile.inv = savedItems; profile.bInvStatus = savedStatus; profile.bInvNumber = savedCount;
 	profile.Type = PROFILETYPE_MERC; Reject(request, Error::InvalidProfile);
 	profile.Type = PROFILETYPE_AIM;
 	for (auto status : {MERC_HIRED_BUT_NOT_ARRIVED_YET, MERC_IS_DEAD,
@@ -211,6 +237,43 @@ void TestPreflight()
 	is_server = TRUE; Reject(request, Error::UnsupportedCampaignState); is_server = FALSE;
 	NotifyJa2TacticalWorldLoaded(1); Reject(request, Error::UnsupportedCampaignState);
 	NotifyJa2TacticalWorldUnloaded();
+}
+
+void TestCheckedEquipmentDistribution()
+{
+	auto& profile = gMercProfiles[0];
+	const auto oldItems = profile.inv, oldStatus = profile.bInvStatus, oldCount = profile.bInvNumber;
+	const auto oldInventorySystem = gGameOptions.ubInventorySystem;
+	const auto oldMaximumSize = gGameExternalOptions.guiMaxItemSize;
+	const auto oldLegacySize = gGameExternalOptions.guiOIVSizeNumber;
+	const auto oldLbe = LoadBearingEquipment;
+	const auto oldPockets = LBEPocketType;
+	std::fill(profile.inv.begin(), profile.inv.end(), NOTHING);
+	profile.inv[HANDPOS] = 1; profile.bInvStatus[HANDPOS] = 80; profile.bInvNumber[HANDPOS] = 2;
+	Item[1].usItemClass = IC_MEDKIT; Item[1].ItemSize = 1; Item[1].ubPerPocket = 1;
+	gGameOptions.ubInventorySystem = INVENTORY_NEW;
+	gGameExternalOptions.guiMaxItemSize = 1; gGameExternalOptions.guiOIVSizeNumber = 2;
+	LoadBearingEquipment.clear(); LBEPocketType.clear();
+	CHECK(!CanCopyProfileItemsChecked(0), "new-inventory preview rejects missing native pocket metadata");
+	LoadBearingEquipment.resize(1); LoadBearingEquipment[0].lbePocketIndex.assign(12, 0);
+	LBEPocketType.resize(2);
+	for (auto& pocket : LBEPocketType) pocket.ItemCapacityPerSize.assign(2, 2);
+	const auto supplied = profile.inv, condition = profile.bInvStatus, count = profile.bInvNumber;
+	CHECK(CanCopyProfileItemsChecked(0) && profile.inv == supplied &&
+		profile.bInvStatus == condition && profile.bInvNumber == count,
+		"native pocket redistribution preserves a complete medical stack without modifying the source");
+	// Enough medical supplies to overflow native profile sorting. No amount can
+	// be quietly dropped simply to produce a syntactically valid hire plan.
+	for (std::size_t slot = 0; slot < NUM_INV_SLOTS; ++slot)
+	{ profile.inv[slot] = 1; profile.bInvStatus[slot] = 80; profile.bInvNumber[slot] = 255; }
+	const auto crowdedItems = profile.inv, crowdedCounts = profile.bInvNumber;
+	CHECK(!CanCopyProfileItemsChecked(0) && profile.inv == crowdedItems && profile.bInvNumber == crowdedCounts,
+		"native distribution that loses gear is rejected with the live profile intact");
+	LoadBearingEquipment = oldLbe; LBEPocketType = oldPockets;
+	gGameOptions.ubInventorySystem = oldInventorySystem;
+	gGameExternalOptions.guiMaxItemSize = oldMaximumSize; gGameExternalOptions.guiOIVSizeNumber = oldLegacySize;
+	profile.inv = oldItems; profile.bInvStatus = oldStatus; profile.bInvNumber = oldCount;
+	Item[1].usItemClass = IC_MISC;
 }
 
 void TestTimingAndReadOnlyCapture()
@@ -397,10 +460,30 @@ void TestNativeCreation()
 		if (actor) CHECK(TacticalActorLifecycle::destroy(*actor), "destroy real native actor fixture");
 		GetJa2CampaignEventQueue().swap(savedQueue);
 	};
-	for (std::uint32_t days : {1u, 7u, 14u}) run(days, false, 10, false, false);
+	for (std::uint32_t days : {1u, 7u, 14u})
+	{
+		run(days, false, 10, false, false);
+		run(days, true, 10, false, false);
+	}
 	run(7, false, 0, false, false);
 	run(7, false, 10, true, false);
 	run(7, false, 10, false, true);
+
+	// Use the real constructor's missing-magazine failure, with no injected copy
+	// result. A paid caller must not proceed with a successfully hired naked merc.
+	gMercProfiles[0].bMercStatus = 0;
+	Item[1].usItemClass = IC_GUN;
+	const auto failedGearIdentity = NextJa2TacticalEntityIncarnation();
+	const auto failedGearEvents = GetJa2CampaignEventQueue().size();
+	const auto failedGear = HireAimMercChecked({0, 7, true});
+	CHECK(!failedGear && failedGear.error == Error::CreationFailed &&
+		failedGear.mutationMayHaveStarted && !failedGear.actor.valid() &&
+		NextJa2TacticalEntityIncarnation() == failedGearIdentity + 1 &&
+		GetJa2CampaignEventQueue().size() == failedGearEvents &&
+		!GetJa2SoldierRepository().resolve(0)->roster().active() &&
+		gMercProfiles[0].bMercStatus == 0,
+		"native gear creation failure never publishes a naked actor or schedules arrival");
+	Item[1].usItemClass = IC_MISC;
 
 	// The actual directory can reach the invalid incarnation after exhausting
 	// its uint32 sequence. Native construction still replaces a record before
@@ -441,7 +524,9 @@ int main()
 	auto& profile = gMercProfiles[0];
 	profile.Type = PROFILETYPE_AIM; profile.bMercStatus = 0;
 	profile.ubBodyType = REGMALE; profile.bLife = profile.bLifeMax = 80;
+	gMAXITEMS_READ = 3;
 	TestPreflight();
+	TestCheckedEquipmentDistribution();
 	TestTimingAndReadOnlyCapture();
 	TestNativeCreation();
 	std::printf("native AIM hire: %d failures\n", failures);

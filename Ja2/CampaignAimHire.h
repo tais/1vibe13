@@ -74,8 +74,9 @@ CampaignAimHireError PrepareCampaignAimHire(
 
 // Campaign-thread operation; rechecks current eligibility before calling the
 // same constructor and accounting-free hire logic as the legacy UI. Optional
-// equipment is currently unsupported: copyProfileEquipment=true is rejected
-// before mutation until native item transfer has a checked completion boundary.
+// equipment uses a private native distribution plan and checked construction:
+// malformed/lossy distribution is rejected before mutation, and item
+// creation or placement failure cannot be reported as a successful hire.
 // Creates an IN_TRANSIT actor and one checked delayed arrival event, without
 // debiting money, recording hiring history or marking profile equipment paid.
 //
