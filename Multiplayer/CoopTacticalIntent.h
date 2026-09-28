@@ -12,9 +12,9 @@
 
 namespace CoopSession
 {
-inline constexpr std::uint16_t TacticalIntentWireVersion = 3;
+inline constexpr std::uint16_t TacticalIntentWireVersion = 5;
 inline constexpr std::size_t TacticalIntentHeaderWireSize = 72;
-inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 8;
+inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 12;
 inline constexpr std::size_t MaximumTacticalIntentWireSize =
 	TacticalIntentHeaderWireSize + MaximumTacticalIntentPayloadWireSize;
 
@@ -28,7 +28,8 @@ enum class TacticalIntentKind : std::uint8_t
 	AimedFirearmAttack = 6,
 	Reload = 7,
 	DoorOpenClose = 8,
-	PassInterrupt = 9
+	PassInterrupt = 9,
+	SwapInventorySlots = 11
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -58,6 +59,16 @@ struct StanceTacticalIntent
 struct StopTacticalIntent {};
 struct EndTurnTacticalIntent {};
 struct ReloadTacticalIntent {};
+
+// Whole-stack, same-actor swap. The private revision belongs to the owning
+// peer's inventory stream, not the public tactical snapshot. Native authority
+// still prepares and revalidates both actual objects, slot rules and AP cost.
+struct SwapInventorySlotsTacticalIntent
+{
+	std::uint16_t sourceSlot = 0;
+	std::uint16_t destinationSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
 
 struct PassInterruptTacticalIntent
 {
@@ -91,7 +102,8 @@ using TacticalIntentPayload = std::variant<
 	AimedFirearmAttackTacticalIntent,
 	ReloadTacticalIntent,
 	DoorOpenCloseTacticalIntent,
-	PassInterruptTacticalIntent>;
+	PassInterruptTacticalIntent,
+	SwapInventorySlotsTacticalIntent>;
 
 struct TacticalIntent
 {

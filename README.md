@@ -196,7 +196,7 @@ retry counter saturates instead of wrapping. A never-admitted credential-less
 client retains the eight-attempt startup limit, and an epoch mismatch fails
 closed.
 
-Global co-op protocol v19 requires exact canonical map asset identity in tactical
+Global co-op protocol v20 requires exact canonical map asset identity in tactical
 snapshots and sector deltas, including alternate maps at unchanged coordinates.
 It also provides explicit voluntary self-retirement.
 `L` is deliberately a two-step control: the first key-down must be followed by
@@ -354,8 +354,8 @@ same-turn-serial phase change is one exact 43-byte turn event. The
 co-op envelope uses inner tactical wire v4, caps a world at 256 actors, 1024
 doors, and 2563 delta events, and bounds the baseline payload/envelope at
 42298/43910 bytes and delta payload/envelope at 50781/50853 bytes under the
-public 64 KiB ceiling. Tactical intent wire v3 has
-an exact 72-byte header, 8-byte maximum payload, and 80-byte maximum record.
+public 64 KiB ceiling. Tactical intent wire v5 has
+an exact 72-byte header, 12-byte maximum payload, and 84-byte maximum record.
 
 The render-input contract adds a canonical 44-byte actor presentation record:
 fixed-point world position, animation surface/frame/direction, body and palette
@@ -466,7 +466,7 @@ Strategic mission/session control is limited, and there is no TLS or public-host
 authorization. The opt-in process smoke certifies lifecycle, Ready, same-epoch
 credential continuity, final checkpoint, and resume against one local installed
 data set; it is not a full playthrough, broad interoperability matrix, or soak.
-Use matching global co-op protocol-v19 builds and installed data on a trusted
+Use matching global co-op protocol-v20 builds and installed data on a trusted
 LAN/VPN only. In particular, the current mission entry accepts only an
 exact untouched initial campaign (including an empty cold resume) or an exact
 prepared-initial resume with the complete four-mercenary in-transit roster and

@@ -440,7 +440,7 @@ not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v19 execution of nine JA2 command
+  tactical observer, and global co-op protocol-v20 execution of ten JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a
@@ -457,6 +457,11 @@ incarnation. Resolving interrupts block input; active player interrupts allow
 ordinary actions only for eligible actors and release after the final eligible
 pass vote. Native interrupt lists and hidden interrupters remain private, and
 AI interrupts remain under native AI control.
+The tenth supported request swaps complete ordinary stacks between two slots on
+the same actor. It requires the current owner inventory revision to have reached
+the authenticated peer, then captures fresh native object and actor proofs.
+Changed private state is published before the terminal command receipt. Client
+inventory controls are a separate integration step.
 The six co-op translations that reuse legacy shapes (end turn, move, face,
 stance, stop, and reload) are tagged
 `TacticalCommandAuthorityPolicy::DedicatedCoop`. Only `NetworkPeer` and
@@ -475,7 +480,7 @@ result. Global `AuthoritySequenceExhausted` reason 20 instead consumes the peer
 cursor: the server stays active to flush its terminal receipt, then the client
 records the exact receipt history/cursor before failing and closing.
 
-Global co-op protocol-v19 retains voluntary self-retirement with exact 24-byte
+Global co-op protocol-v20 retains voluntary self-retirement with exact 24-byte
 request and 48-byte result shapes. The request carries version, epoch, and
 request ID only; the authenticated transport resolves its own identity, so
 there is no client-provided victim. Begin atomically reserves bounded same-epoch
@@ -621,9 +626,9 @@ Snapshot wire v9 uses an exact 314-byte header, 136-byte actor (including five
 bound is 564538 bytes. Delta wire v8 permits 10243 generic events, coalesces every changed actor into one current record before door events, and encodes a same-serial interrupt
 phase change as one exact 43-byte event. Co-op tactical wire v4 narrows this to 256 actors,
 1024 doors, 2563 events, 42298/43910-byte baseline payload/envelope, and
-50781/50853-byte delta payload/envelope beneath 64 KiB. Intent wire v3 is a
-72-byte header plus at most 8
-payload bytes (80 total), both tactical-world services are 3.0,
+50781/50853-byte delta payload/envelope beneath 64 KiB. Intent wire v5 is a
+72-byte header plus at most 12
+payload bytes (84 total), both tactical-world services are 3.0,
 `DoorCapacityReached` is 12; journal-v4 door/pass command tags are 33/34. The native
 helper preflights status/graphic, computes explicit-grid noise, swaps and verifies
 the partner, commits status plus `LEVELNODE`, recompiles movement, performs POW

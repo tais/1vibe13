@@ -92,6 +92,10 @@ public:
 	virtual bool prepareReloadWeapon(
 		TacticalEntityId actor,
 		ReloadWeaponCommand& command) const noexcept = 0;
+	virtual bool prepareSwapInventorySlots(
+		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		SwapInventorySlotsCommand& command) const noexcept = 0;
 	virtual bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,
@@ -133,6 +137,10 @@ public:
 	bool prepareReloadWeapon(
 		TacticalEntityId actor,
 		ReloadWeaponCommand& command) const noexcept override;
+	bool prepareSwapInventorySlots(
+		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		SwapInventorySlotsCommand& command) const noexcept override;
 	bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,

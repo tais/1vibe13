@@ -900,7 +900,10 @@ FullEngineCoopTacticalServer::processIntent(
 	if (!replication_.peerState(peer->identity, replicationState))
 		return FullEngineCoopTacticalServerResult::PeerReconciliationFailed;
 	const bool caughtUp = peerCaughtUp(peer->identity);
-	const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0;
+	const auto* inventorySwap = std::get_if<SwapInventorySlotsTacticalIntent>(&intent.payload);
+	const bool privateInventoryRejected = inventorySwap &&
+		!replication_.hasInventoryRevision(peer->identity, intent.actor, inventorySwap->expectedInventoryRevision);
+	const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 || privateInventoryRejected;
 	const std::uint64_t expectedAfter = intent.commandId ==
 		std::numeric_limits<std::uint64_t>::max()
 		? 0 : intent.commandId + 1;
@@ -954,7 +957,8 @@ FullEngineCoopTacticalServer::processIntent(
 			CoopTacticalIntentReceiptStatus::Rejected,
 			nextAuthoritativeSequence_ == 0
 				? CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted
-				: CoopTacticalIntentReceiptReason::NotBaselineReady,
+				: (privateInventoryRejected ? CoopTacticalIntentReceiptReason::RevisionMismatch
+					: CoopTacticalIntentReceiptReason::NotBaselineReady),
 			0, simulationTick);
 		++diagnostics.inputsRejected;
 	}

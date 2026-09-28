@@ -228,6 +228,20 @@ bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
 }
 
 
+bool DedicatedCoopTacticalJa2LiveState::prepareSwapInventorySlots(
+	TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+	std::uint64_t expectedInventoryRevision, SwapInventorySlotsCommand& command) const noexcept
+{
+	if (!onMainThread() || sourceSlot >= 256 || destinationSlot >= 256 ||
+		expectedInventoryRevision == 0) return false;
+	CoopSession::CoopOwnerInventorySnapshot current;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	return world && inventoryAuthority_.capture(actor, world.worldGeneration, current) &&
+		current.inventoryRevision == expectedInventoryRevision &&
+		PrepareSwapInventorySlotsCommand(actor, static_cast<std::uint8_t>(sourceSlot),
+			static_cast<std::uint8_t>(destinationSlot), command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::captureInventory(TacticalEntityId actor,
 	std::uint64_t worldGeneration,
 	CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept

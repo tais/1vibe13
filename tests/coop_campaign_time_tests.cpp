@@ -10,7 +10,7 @@ PeerIdentity Identity(unsigned n) { PeerIdentity p{}; p[0] = static_cast<std::ui
 void Codec()
 {
 	CoopCampaignTimeRequest r{0x0102030405060708ull, 9, 10, CoopCampaignTimeAction::ThirtyMinutes};
-	CoopCampaignTimeRequestBytes bytes{}, expected{{'J','2','T','Q',19,0,3,0,
+	CoopCampaignTimeRequestBytes bytes{}, expected{{'J','2','T','Q',20,0,3,0,
 		8,7,6,5,4,3,2,1, 9,0,0,0,0,0,0,0, 10,0,0,0,0,0,0,0}};
 	CHECK(EncodeCoopCampaignTimeRequest(r, bytes) && bytes == expected, "exact 32-byte request vector, no claimed peer identity");
 	for (unsigned action = 1; action <= 4; ++action)

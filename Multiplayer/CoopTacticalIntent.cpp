@@ -93,6 +93,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::AimedFirearmAttack: return 7;
 		case TacticalIntentKind::DoorOpenClose: return 7;
 		case TacticalIntentKind::PassInterrupt: return 8;
+		case TacticalIntentKind::SwapInventorySlots: return 12;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -114,6 +115,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Reload:
 		case TacticalIntentKind::DoorOpenClose:
 		case TacticalIntentKind::PassInterrupt:
+		case TacticalIntentKind::SwapInventorySlots:
 			return true;
 	}
 	return false;
@@ -155,6 +157,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 		if constexpr (std::is_same<Payload,
 			DoorOpenCloseTacticalIntent>::value)
 			return TacticalIntentKind::DoorOpenClose;
+		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			return TacticalIntentKind::SwapInventorySlots;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -186,6 +190,10 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload,
 			PassInterruptTacticalIntent>::value)
 			return payload.interruptSerial != 0;
+		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			return payload.sourceSlot < 256 && payload.destinationSlot < 256 &&
+				payload.sourceSlot != payload.destinationSlot &&
+				payload.expectedInventoryRevision != 0;
 		return true;
 	}, intent.payload);
 }
@@ -251,6 +259,12 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			else if constexpr (std::is_same<Payload,
 				PassInterruptTacticalIntent>::value)
 				WriteU64(encoded, payload.interruptSerial);
+			else if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU16(encoded, payload.destinationSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
 		}, intent.payload);
 
 		if (encoded.size() != TacticalIntentHeaderWireSize + payloadSize)
@@ -354,6 +368,16 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			const std::uint8_t desiredOpen = *input++;
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::SwapInventorySlots:
+		{
+			SwapInventorySlotsTacticalIntent payload;
+			if (!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU16(input, end, payload.destinationSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
+				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
 		}
