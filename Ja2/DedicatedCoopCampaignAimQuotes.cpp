@@ -82,20 +82,23 @@ const char* CaptureDedicatedCoopCampaignAimQuotes(
 		CoopCampaignAimQuote offered;
 		offered.profile = quote.profile; offered.status = CoopCampaignAimQuoteStatus::Available;
 		offered.willingnessReason = static_cast<std::uint8_t>(willingness.reason);
-		// The legacy profile-copy routine can silently omit equipment. Paid
-		// gear requires a checked native transfer result before it can become
-		// an authoritative offer; current offers contain salary and deposit.
-		offered.gearAvailable = false;
+		// Offer only the original, unpurchased kit. A previously purchased kit
+		// loses its price in native state; offering it again needs a separate
+		// authoritative kit-selection/repricing flow.
+		offered.gearAvailable = !(profile.ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS) &&
+			PrepareCampaignAimHire({profileId, 1, true}, plan) == CampaignAimHireError::None;
 		bool valid = profile.sSalary >= 0;
 		for (std::size_t length = 0; valid && length < days.size(); ++length)
 		{
+			// Equipment does not change flight or contract timing. Its private
+			// distribution was checked once above; do not rebuild it for each price.
+			if (PrepareCampaignAimHire({profileId, days[length], false}, plan) != CampaignAimHireError::None)
+			{ valid = false; break; }
+			if (plan.arrivalMinute != arrival.arrivalMinute || plan.landingX != arrival.landingX || plan.landingY != arrival.landingY)
+				return "AIM arrival context changed during quotes";
 			for (unsigned gear = 0; valid && gear < 2; ++gear)
 			{
 				if (gear && !offered.gearAvailable) continue;
-				if (PrepareCampaignAimHire({profileId, days[length], gear != 0}, plan) != CampaignAimHireError::None)
-				{ valid = false; break; }
-				if (plan.arrivalMinute != arrival.arrivalMinute || plan.landingX != arrival.landingX || plan.landingY != arrival.landingY)
-					return "AIM arrival context changed during quotes";
 				CampaignAimSitePolicy::ContractQuote price;
 				if (pricing.quoteContract(static_cast<std::uint32_t>(profile.sSalary), profile.uiWeeklySalary,
 					profile.uiBiWeeklySalary, profile.sMedicalDepositAmount, profile.usOptionalGearCost,

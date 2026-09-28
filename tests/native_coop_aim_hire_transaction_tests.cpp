@@ -24,6 +24,8 @@
 #include "Assignments.h"
 #include "LaptopSave.h"
 #include "CampaignStats.h"
+#include "Items.h"
+#include "Weapons.h"
 #include "finances.h"
 #include "history.h"
 #include "Dialogue Control.h"
@@ -244,6 +246,7 @@ struct Fixture
 		profile.sSalary = 100; profile.uiWeeklySalary = 600; profile.uiBiWeeklySalary = 1100;
 		profile.bMedicalDeposit = deposit; profile.sMedicalDepositAmount = deposit ? 300 : 321;
 		profile.usOptionalGearCost = 123; profile.ubMiscFlags &= ~PROFILE_MISC_FLAG_ALREADY_USED_ITEMS;
+		std::fill(profile.inv.begin(), profile.inv.end(), NOTHING);
 		profile.uiTotalCostToDate = 0; profile.ubDaysOfMoraleHangover = 0;
 		std::fill(std::begin(profile.bHated), std::end(profile.bHated), -1);
 		std::fill(std::begin(profile.bBuddy), std::end(profile.bBuddy), -1);
@@ -325,6 +328,65 @@ void SuccessfulHire(Fixture& fixture, bool deposit, std::uint8_t days)
 		after.roster[0].actor == result.actor && after.roster[0].pendingHire,
 		"committed economic observation includes the paid pending hire");
 }
+void SuccessfulEquipmentHire(Fixture& fixture, bool ammunition)
+{
+	fixture.reset(true);
+	auto& profile = gMercProfiles[0];
+	profile.inv[HANDPOS] = 1; profile.bInvStatus[HANDPOS] = 80; profile.bInvNumber[HANDPOS] = 3;
+	gMAXITEMS_READ = 2; Item[1].usItemClass = IC_MEDKIT; Item[1].ubPerPocket = 1;
+	if (ammunition)
+	{
+		// Native CreateItem interprets an ammo profile's status as a full
+		// magazine, not object condition; the ObjectData fields share storage.
+		profile.inv[BIGPOCK1POS] = 2; profile.bInvStatus[BIGPOCK1POS] = 100; profile.bInvNumber[BIGPOCK1POS] = 3;
+		gMAXITEMS_READ = 3; Item[2].usItemClass = IC_AMMO; Item[2].ubPerPocket = 3; Item[2].ubClassIndex = 0;
+		Magazine[0].ubMagSize = 15;
+	}
+	auto observed = Capture(7);
+	const auto& offer = observed.quotes.quotes[0];
+	CHECK(offer.gearAvailable && offer.gearCost == 123 && offer.total[3] == 1023,
+		"current native quote includes original equipment in the complete contract total");
+	observed.request.buyGear = true;
+	const auto date = GetWorldTotalMin();
+	const auto result = HireDedicatedCoopAimMerc(observed.request, observed.economy, observed.quotes);
+	auto* actor = OnlyActor();
+	CHECK(result.code == Code::Applied && result.chargedTotal == 1023 && actor && result.mutationMayHaveStarted,
+		"paid equipment hire completes through the real native constructor and ledgers");
+	unsigned objects = 0, points = 0, magazines = 0, rounds = 0;
+	if (actor)
+	{
+		for (std::size_t slot = 0; slot < actor->inventory().size(); ++slot)
+		{
+			const auto& object = actor->inventory()[slot];
+			if (!object.exists()) continue;
+			CHECK(object.usItem == 1 || (ammunition && object.usItem == 2), "native hire contains only the requested equipment");
+			for (const auto& unit : object.objectStack)
+			{
+				if (object.usItem == 1) { ++objects; points += unit.data.objectStatus; }
+				else if (object.usItem == 2)
+				{
+					++magazines; rounds += unit.data.ubShotsLeft;
+					CHECK(unit.data.ubShotsLeft == 15, "each purchased magazine retains full native ammunition");
+				}
+			}
+		}
+		Arrival(observed,*actor);
+	}
+	CHECK(objects == 3 && points == 240, "every purchased medical kit and its supply points reach the actor");
+	CHECK(magazines == (ammunition ? 3u : 0u) && rounds == (ammunition ? 45u : 0u),
+		"paid native equipment preserves all magazine stacks and rounds separately from medical supply condition");
+	auto expected = Header(8977);
+	FinanceRow(expected,HIRED_MERC,date,-723,9277); FinanceRow(expected,MEDICAL_DEPOSIT,date,-300,8977);
+	CHECK(fixture.read("finances.dat") == expected && fixture.read("History.dat") == HistoryRow(date) &&
+		LaptopSaveInfo.iCurrentBalance == 8977 && profile.uiTotalCostToDate == 723 &&
+		profile.usOptionalGearCost == 0 && (profile.ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS),
+		"equipment is charged once with salary, deposit stays separate and gear is marked purchased after success");
+	const auto before = fixture.read("finances.dat");
+	const auto duplicate = HireDedicatedCoopAimMerc(observed.request,observed.economy,observed.quotes);
+	CHECK(duplicate.code == Code::EconomyChanged && !duplicate.mutationMayHaveStarted &&
+		fixture.read("finances.dat") == before && LaptopSaveInfo.iCurrentBalance == 8977,
+		"repeating the old paid request cannot charge or construct again");
+}
 void RejectUnchanged(Fixture& fixture, const Observed& observed, Code expected)
 {
 	const auto identity = NextJa2TacticalEntityIncarnation();
@@ -352,6 +414,16 @@ void PreflightFailures(Fixture& fixture)
 	RejectUnchanged(fixture, observed, Code::InsufficientFunds);
 	fixture.reset(false); observed = Capture(7); observed.request.buyGear = true;
 	RejectUnchanged(fixture, observed, Code::QuoteUnavailable);
+	fixture.reset(true);
+	auto& profile = gMercProfiles[0];
+	profile.inv[BIGPOCK1POS] = 2; profile.bInvStatus[BIGPOCK1POS] = 100; profile.bInvNumber[BIGPOCK1POS] = 3;
+	gMAXITEMS_READ = 3; Item[2].usItemClass = IC_AMMO; Item[2].ubPerPocket = 3; Item[2].ubClassIndex = 0;
+	const auto capacity = Magazine[0].ubMagSize; Magazine[0].ubMagSize = 0;
+	observed = Capture(7);
+	CHECK(!observed.quotes.quotes[0].gearAvailable, "an undefined native magazine cannot be offered as paid equipment");
+	observed.request.buyGear = true;
+	RejectUnchanged(fixture, observed, Code::QuoteUnavailable);
+	Magazine[0].ubMagSize = capacity;
 }
 void PartialPaymentFailures(Fixture& fixture)
 {
@@ -430,7 +502,8 @@ int main()
 	{
 		Fixture fixture;
 		for (bool deposit : {false, true}) for (std::uint8_t days : {1, 7, 14}) SuccessfulHire(fixture, deposit, days);
-		PreflightFailures(fixture); PartialPaymentFailures(fixture); DuplicateReceipt(fixture);
+		SuccessfulEquipmentHire(fixture, false); SuccessfulEquipmentHire(fixture, true);
+	PreflightFailures(fixture); PartialPaymentFailures(fixture); DuplicateReceipt(fixture);
 		fixture.reset(true); const auto observed = Capture(7);
 		fixture.makeReadonly(); RejectUnchanged(fixture, observed, Code::QuotesUnavailable);
 		CHECK(!std::filesystem::exists(fixture.root / "TEMP/finances.dat") && !std::filesystem::exists(fixture.root / "TEMP/History.dat"),
