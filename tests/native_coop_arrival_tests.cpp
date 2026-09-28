@@ -60,6 +60,8 @@ extern GARRISON_GROUP* gGarrisonGroup;
 extern INT32 giGarrisonArraySize;
 extern FLOAT gAmbushRadiusModifier;
 extern void HandlePreBattleInterfaceStates();
+extern UINT8 CalcTotalImportantSectors();
+extern UINT16 TotalVisitableSurfaceSectors();
 namespace
 {
 int failures = 0;
@@ -141,6 +143,20 @@ int main(int argc, char** argv)
 	for (auto& sector : SectorInfo) for (auto& terrain : sector.ubTraversability) terrain = GROUNDBARRIER;
 	SectorInfo[SECTOR(9, 1)].ubTraversability[1] = ROAD; SectorInfo[SECTOR(10, 1)].ubTraversability[3] = ROAD;
 	SectorInfo[SECTOR(10, 1)].ubTraversability[1] = ROAD; SectorInfo[SECTOR(11, 1)].ubTraversability[3] = ROAD;
+	// Scout morale refreshes native campaign progress. Supply the difficulty and
+	// sector data normally loaded from XML: x86 traps on missing divisors while
+	// ARM can silently produce zero. Keep the real morale/progress path active.
+	gGameOptions.ubDifficultyLevel = DIF_LEVEL_EASY;
+	zDiffSetting[DIF_LEVEL_EASY].iNumKillsPerProgressPoint = 10;
+	NUMBER_OF_SAMS = 1; gpSamSectorX[0] = 2; gpSamSectorY[0] = 4;
+	SectorInfo[SECTOR(2, 4)].ubTraversability[THROUGH_STRATEGIC_MOVE] = ROAD;
+	for (INT16 x = 9; x <= 11; ++x)
+		SectorInfo[SECTOR(x, 1)].ubTraversability[THROUGH_STRATEGIC_MOVE] = ROAD;
+	CHECK(zDiffSetting[gGameOptions.ubDifficultyLevel].iNumKillsPerProgressPoint > 0,
+		"native campaign progress has a kills divisor");
+	CHECK(CalcTotalImportantSectors() > 0, "native campaign progress has an important sector");
+	CHECK(TotalVisitableSurfaceSectors() > 0, "native campaign progress has visitable surface sectors");
+	if (failures) return 1;
 	auto& npc = gMercProfiles[191]; npc.Type = PROFILETYPE_NPC; npc.bLife = 100;
 	npc.sSectorX = 10; npc.sSectorY = 1; npc.bSectorZ = 0;
 	if (battle || coordinate) SectorInfo[SECTOR(10, 1)].ubNumTroops = 1;
