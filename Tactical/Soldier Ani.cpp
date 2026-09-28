@@ -1807,6 +1807,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				break;
 
 			case 491:
+				// Reconstruct the saved animation without starting a new idle action.
+				// Loading may resume directly at this opcode with its check due;
+				// preserve the saved counter and the campaign random stream.
+				if (gTacticalStatus.uiFlags & LOADING_SAVED_GAME)
+					break;
 				// SANDRO - I've been here, messing with stuff...
 
 				// CODE: HANDLE RANDOM BREATH ANIMATION
