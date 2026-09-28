@@ -114,6 +114,10 @@ static bool  g_knownActors[4][COORDINATOR_MERC_SLOTS] = { { false } };
 static int   g_hiredActorCount[4] = { 0 };
 static LegacyExplosiveLedger g_explosiveLedger;
 static LegacySharedExplosiveClaims g_sharedExplosiveClaims;
+#ifdef JA2SERVER_LOOPBACK_TEST
+// Publish on the server thread; loopback observers never read a mutating set.
+static std::atomic<std::size_t> g_testSharedExplosiveClaimCount(0);
+#endif
 
 struct CoordinatorAttackContinuation
 {
@@ -894,6 +898,10 @@ static void sendDETONATEEXPLOSIVE(SdlNetMessage* p)
 			g_sharedExplosiveClaims.claim(
 				worldIndex, static_cast<std::size_t>(slot)) !=
 				LegacySharedExplosiveClaimDisposition::Claimed) return;
+#ifdef JA2SERVER_LOOPBACK_TEST
+		g_testSharedExplosiveClaimCount.store(
+			g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 		RelayExceptBytes("recieveDETONATEEXPLOSIVE", (const char*)p->data,
 			(int)p->size, p->sender);
 		return;
@@ -928,6 +936,10 @@ static void sendDISARMEXPLOSIVE(SdlNetMessage* p)
 			g_sharedExplosiveClaims.claim(
 				worldIndex, static_cast<std::size_t>(slot)) !=
 				LegacySharedExplosiveClaimDisposition::Claimed) return;
+#ifdef JA2SERVER_LOOPBACK_TEST
+		g_testSharedExplosiveClaimCount.store(
+			g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 		RelayExceptBytes("recieveDISARMEXPLOSIVE", (const char*)p->data,
 			(int)p->size, p->sender);
 		return;
@@ -2106,6 +2118,10 @@ static void ResetGameState()
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
 	g_explosiveLedger.clear();
 	g_sharedExplosiveClaims.clear();
+#ifdef JA2SERVER_LOOPBACK_TEST
+	g_testSharedExplosiveClaimCount.store(
+		g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 	g_attackContinuations.fill(CoordinatorAttackContinuation{});
 	g_numReady     = 0;
 	g_guiLoaded    = 0;
@@ -2397,7 +2413,7 @@ size_t ja2server_test_explosive_ledger_count()
 }
 size_t ja2server_test_shared_explosive_claim_count()
 {
-	return g_sharedExplosiveClaims.size();
+	return g_testSharedExplosiveClaimCount.load(std::memory_order_acquire);
 }
 #endif
 
