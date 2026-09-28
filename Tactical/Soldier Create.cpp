@@ -608,6 +608,10 @@ std::unique_ptr<MERCPROFILESTRUCT> PrepareCheckedProfileEquipment(UINT32 profile
 			source.bInvNumber[slot] < 1 || source.bInvNumber[slot] > UINT8_MAX ||
 			!Item[item].usItemClass || Item[item].randomitem ||
 			Item[item].ubClassIndex >= MAXITEMS) return {};
+		// CreateAmmo succeeds even for a zero-capacity catalog entry. Such an
+		// item would charge for an empty stack, so reject it before construction.
+		if (Item[item].usItemClass == IC_AMMO &&
+			!Magazine[Item[item].ubClassIndex].ubMagSize) return {};
 		if (UsingNewInventorySystem())
 		{
 			if (Item[item].ItemSize == gGameExternalOptions.guiOIVSizeNumber ||
