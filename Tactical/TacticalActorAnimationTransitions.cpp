@@ -381,7 +381,6 @@ void CheckForFreeupFromHit( TacticalActor *pSoldier, UINT32 uiOldAnimFlags, UINT
 bool TacticalActorAnimationTransitions::initializeAnimation(TacticalActor& subject, UINT16 usNewState, UINT16 usStartingAniCode, bool fForce)
 {
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "EVENT_InitNewSoldierAnim" );
-	INT32	usNewGridNo = 0;
 	INT16	sAPCost = 0;
 	INT32	sBPCost = 0;
 	UINT32	uiOldAnimFlags;
@@ -1166,9 +1165,6 @@ bool TacticalActorAnimationTransitions::initializeAnimation(TacticalActor& subje
 
 	uiOldAnimFlags = gAnimControl[subject.animationPlayback().state()].uiFlags;
 	uiNewAnimFlags = gAnimControl[usNewState].uiFlags;
-
-	usNewGridNo = NewGridNo( subject.position().gridNo(), DirectionInc( (UINT8) subject.pathing().path()[subject.pathing().pathIndex()] ) );
-
 
 	// CHECKING IF WE HAVE A HIT FINISH BUT NO DEATH IS DONE WITH A SPECIAL ANI CODE
 	// IN THE HIT FINSIH ANI SCRIPTS
