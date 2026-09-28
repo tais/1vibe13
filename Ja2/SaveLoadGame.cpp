@@ -36,6 +36,7 @@
 #include "worlddef.h"
 #include "LaptopSave.h"
 #include "Queen Command.h"
+#include "Reinforcement.h"
 #include "SaveLoadGame.h"
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedServerOptions.h"
@@ -2770,6 +2771,7 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 		gameContext, runtimeSaveExecution );
 	if (!preparedRuntimeSave)
 		goto FAILED_TO_SAVE;
+	preparedRuntimeSave.reinforcementState = CaptureTacticalReinforcementState();
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -6133,11 +6135,10 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 	if(!dedicatedCampaign && gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
 		if(!LoadInventoryPoolQ(ubSavedGameID))
 			return failRuntimeLoad();
-	//dnl ch68 100913 // basic guess when reinforcement should arrive after load game as reinforcement globals are not saved
-	if(guiReinforceTurn)
-		guiReinforceTurn = guiTurnCnt + gGameExternalOptions.sMinDelayEnemyReinforcements/2 + Random(gGameExternalOptions.sRndDelayEnemyReinforcements+1);
-	if(guiMilitiaReinforceTurn)
-		guiMilitiaReinforceTurn = guiTurnCnt + gGameExternalOptions.sMinDelayMilitiaReinforcements/2 + Random(gGameExternalOptions.sRndDelayMilitiaReinforcements+1);
+	// Restore after sector loading has reset its transient counters. Only old
+	// saves without the native extension retain the legacy randomized guesses.
+	RestoreTacticalReinforcementStateAfterLoad(preparedRuntimeLoad.reinforcementState
+		? &*preparedRuntimeLoad.reinforcementState : nullptr);
 
 	//now change the savegame format so that temp files are saved and loaded correctly
 	guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
