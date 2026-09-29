@@ -6130,6 +6130,7 @@ require_ordered_fragments(dedicated_live_client_presentation_view_slice
   "output.snapshot = &replica->snapshot()"
   "client.assignedActorCount()"
   "client.assignedActor(index)"
+  "client.ownerInventory(output.assignedActors[index])"
   "client.outstandingCommandId()"
   "client.acceptedState()"
   "client.hasLastIntentReceipt()"
@@ -6152,10 +6153,52 @@ extract_brace_bounded_slice(dedicated_live_client_controller_code
   "Cannot bound worldless co-op client request construction")
 require_ordered_fragments(dedicated_live_client_controller_request_slice
   "Worldless client controller must emit only selected assigned actor values"
-  "if (!actionsEnabled(view)) return {}"
+  "if (!actionsEnabled(view) || inventoryOpen_) return {}"
   "output.actor = selectedActor_"
   "output.payload = payload"
   "output.valid = true")
+
+# Owner inventory choices remain borrowed private presentation state. Every
+# direct confirmation revalidates the scope and spends only a local choice.
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventorySwap(\n\tconst FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept"
+  dedicated_live_client_inventory_swap_slice
+  "Cannot bound passive owner inventory swap request")
+require_ordered_fragments(dedicated_live_client_inventory_swap_slice
+  "Passive inventory swap lost current private identity or one-shot request construction"
+  "synchronize(view)"
+  "view.inventoryFor(selectedActor_)"
+  "!inventoryOpen_"
+  "inventoryActor_ != selectedActor_"
+  "inventoryWorldEpoch_"
+  "!actionsEnabled(view)"
+  "inventorySourceRevision_ != inventory->inventoryRevision"
+  "inventorySessionEpoch_ != inventory->sessionEpoch"
+  "inventoryBaselineId_ != inventory->baselineId"
+  "SupportedInventorySwapSlot(inventorySourceSlot_)"
+  "SupportedInventorySwapSlot(destinationSlot)"
+  "inventorySourceSlot_ == destinationSlot"
+  "source.support != CoopSession::CoopInventorySlotSupport::OrdinarySwappable"
+  "destination.support == CoopSession::CoopInventorySlotSupport::UnsupportedComplex"
+  "CoopSession::SwapInventorySlotsTacticalIntent"
+  "inventorySourceSlot_, destinationSlot, inventory->inventoryRevision"
+  "inventorySourceSlot_ = 0xffff"
+  "inventorySourceRevision_ = 0"
+  "return result")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "void FullEngineCoopClientController::synchronize(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_client_inventory_synchronize_slice
+  "Cannot bound passive inventory scope synchronization")
+require_ordered_fragments(dedicated_live_client_inventory_synchronize_slice
+  "Passive inventory retained choices must revoke on owner scope or readiness loss"
+  "inventoryOwner_ != inventory->owner"
+  "inventoryWorldEpoch_ != view.snapshot->epoch()"
+  "inventorySessionEpoch_ != inventory->sessionEpoch"
+  "inventoryBaselineId_ != inventory->baselineId"
+  "closeInventory()"
+  "!actionsEnabled(view) || inventorySourceRevision_ != inventory->inventoryRevision"
+  "inventorySourceSlot_ = 0xffff"
+  "inventorySourceRevision_ = 0")
 
 # The worldless client offers one allocation-free direct movement calculation.
 # Arrow keys use the isometric row/column diagonals only outside modal input;

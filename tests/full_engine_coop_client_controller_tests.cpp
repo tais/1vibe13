@@ -669,10 +669,300 @@ void TestDoorSelectionFailsClosedAcrossReplicaChanges()
 		controller.selectNext(view) && !controller.selectingDoor(),
 		"changing selected actor cancels door selection");
 }
+struct InventoryFixture
+{
+	TacticalWorldSnapshot snapshot = Snapshot(true, 0, {{1000,77,false}});
+	std::array<TacticalEntityId,3> assigned{{{1,1},{2,1},{8,1}}};
+	CoopSession::CoopOwnerInventorySnapshot first;
+	CoopSession::CoopOwnerInventorySnapshot second;
+	std::array<const CoopSession::CoopOwnerInventorySnapshot*,3> owners;
+	InventoryFixture()
+	{
+		first.sessionEpoch=31;
+		first.worldGeneration=11;
+		first.baselineId=41;
+		first.inventoryRevision=51;
+		first.owner[0]=1;
+		first.actor={1,1};
+		first.usesNewInventory=true;
+		for(std::uint16_t slot=0;slot<55;++slot)
+			first.slots.push_back({slot,0,0,0,CoopSession::CoopInventorySlotSupport::Empty});
+		first.slots[5]={5,24,1,91,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[14]={14,45,2,99,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[15]={15,66,1,88,CoopSession::CoopInventorySlotSupport::UnsupportedComplex};
+		first.slots[0]={0,77,1,100,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[7]={7,78,1,100,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		second=first;
+		second.actor={2,1};
+		owners={&first,&second,nullptr};
+	}
+	FullEngineCoopClientControllerView view(std::uint64_t outstanding=0,bool resync=false)
+	{
+		auto result=View(snapshot,assigned,outstanding,resync);
+		result.ownerInventories=owners.data();
+		return result;
+	}
+};
+
+void TestInventoryOrdinarySwapsArePureAndSlotBounded()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.inventoryOpen(),
+		"owned current-baseline inventory opens through normal controller state");
+	const auto before=fixture.first;
+	CHECK(!controller.selectInventorySource(view,6) &&
+		!controller.selectInventorySource(view,15) && !controller.selectInventorySource(view,7) &&
+		!controller.selectInventorySource(view,55) && !controller.selectInventorySource(view,65535),
+		"empty, complex, worn LBE and out-of-range slots cannot become a movable item cursor");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventorySourceSlot()==14,
+		"ordinary carried stack becomes only a local source-slot choice");
+	for(std::uint16_t destination : {7,12,13,15,55,65535})
+		CHECK(!controller.inventorySwap(view,destination) && controller.inventorySourceSlot()==14,
+			"unsupported LBE/sling/knife/complex/out-of-range destination is rejected without losing source");
+	CHECK(!controller.inventorySwap(view,14) && controller.inventorySourceSlot()==14,
+		"same-slot direct swap cannot generate a command");
+	const auto equip=controller.inventorySwap(view,6);
+	CHECK(equip && equip.actor==(TacticalEntityId{1,1}) &&
+		std::holds_alternative<CoopSession::SwapInventorySlotsTacticalIntent>(equip.payload) &&
+		controller.inventorySourceSlot()==65535,
+		"equip to empty off-hand emits one typed authority request and clears local selection");
+	const auto payload=std::get<CoopSession::SwapInventorySlotsTacticalIntent>(equip.payload);
+	CHECK(payload.sourceSlot==14 && payload.destinationSlot==6 && payload.expectedInventoryRevision==51 &&
+		fixture.first==before && fixture.snapshot.find({1,1})->actionPoints==20,
+		"request carries exact private token and both slots without moving objects or predicting AP");
+	CHECK(!controller.inventorySwap(view,6),"no selected source means no automatic second submission");
+	CHECK(controller.selectInventorySource(view,5),"held item can be selected for unequip");
+	const auto unequip=controller.inventorySwap(view,16);
+	CHECK(unequip && std::get<CoopSession::SwapInventorySlotsTacticalIntent>(unequip.payload).destinationSlot==16 &&
+		fixture.first==before,"hand-to-empty-pocket unequip is supported without local mutation");
+	CHECK(controller.selectInventorySource(view,14),"ordinary stack can be reselected");
+	const auto pocket=controller.inventorySwap(view,17);
+	CHECK(pocket && std::get<CoopSession::SwapInventorySlotsTacticalIntent>(pocket.payload).sourceSlot==14 &&
+		fixture.first.slots[14].count==2,"pocket-to-pocket operation preserves the entire stack on the client");
+	CHECK(controller.selectInventorySource(view,14) && controller.selectInventorySource(view,14) &&
+		controller.inventorySourceSlot()==65535,"clicking the selected source again cancels its local highlight");
+}
+
+void TestInventoryModalControlsAndBusyInspection()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.beginDestinationEntry(view) && controller.appendDestinationDigit(9) &&
+		controller.openInventory(view) && !controller.enteringDestination(),
+		"inventory entry cancels pending numeric movement");
+	CHECK(controller.beginAttackTargeting(view) && !controller.inventoryOpen() &&
+		controller.openInventory(view) && !controller.targetingAttack(),
+		"explicit modal changes cancel previous inventory/fire targeting rather than leak modes");
+	CHECK(controller.beginDoorSelection(view) && !controller.inventoryOpen() &&
+		controller.openInventory(view) && !controller.selectingDoor(),
+		"inventory entry cancels door targeting and preserves modal exclusivity");
+	CHECK(!controller.submitRelativeMove(view,0,1,0) &&
+		!controller.face(view,2) && !controller.stance(view,CoopSession::TacticalIntentStance::Prone) &&
+		!controller.stop(view) && !controller.endTurn(view) && !controller.reload(view),
+		"open inventory suppresses terrain/tactical intents rather than becoming a local simulation path");
+	CHECK(controller.selectInventorySource(view,14),"source selected before outstanding request appears");
+	auto pending=fixture.view(77);
+	controller.synchronize(pending);
+	CHECK(controller.inventoryOpen() && controller.inventorySourceSlot()==65535 &&
+		!controller.selectInventorySource(pending,14) && !controller.inventorySwap(pending,6),
+		"pending command retains inspectable panel but clears source and prevents another operation");
+	controller.closeInventory();
+	CHECK(controller.openInventory(pending),"inventory can be opened read-only while a receipt is outstanding");
+	fixture.snapshot=Snapshot(true,1);
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && !controller.actionsEnabled(view) &&
+		!controller.selectInventorySource(view,14),"enemy turn keeps inventory inspection, not equip authority");
+	controller.closeInventory();
+	CHECK(controller.openInventory(view),"enemy turn permits opening the owned inventory for inspection");
+	fixture.snapshot=Snapshot(true,0,{},11,true);
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && !controller.selectInventorySource(view,14),
+		"native command gate permits read-only panel but blocks item requests");
+	fixture.snapshot=Snapshot();
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && controller.selectInventorySource(view,14),
+		"new ordinary player phase recovers selection only after the real gate clears");
+	controller.closeInventory();
+	CHECK(!controller.inventoryOpen() && controller.inventorySourceSlot()==65535 && controller.submitRelativeMove(view,0,1,0),
+		"explicit close drops all inventory selection and restores ordinary typed movement");
+}
+
+void TestInventoryInspectionNeverBecomesASwapCursor()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.inventoryInspectedSlot()==65535,
+		"fresh owner inventory starts with no retained inspected item");
+	const auto before=fixture.first;
+	CHECK(controller.inspectInventorySlot(view,15) && controller.inventoryInspectedSlot()==15 &&
+		controller.inventorySourceSlot()==65535 && !controller.selectInventorySource(view,15) &&
+		!controller.inventorySwap(view,6),
+		"complex stack can be inspected without selecting or submitting a swap");
+	CHECK(controller.inspectInventorySlot(view,7) && controller.inventoryInspectedSlot()==7 &&
+		!controller.selectInventorySource(view,7) && controller.inventorySourceSlot()==65535,
+		"unsupported worn LBE slot can expose its details without equipment authority");
+	CHECK(!controller.inspectInventorySlot(view,6) && !controller.inspectInventorySlot(view,55) &&
+		!controller.inspectInventorySlot(view,65535) && controller.inventoryInspectedSlot()==7,
+		"empty and out-of-range clicks cannot invent or replace inspected item details");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventoryInspectedSlot()==14 &&
+		controller.inventorySourceSlot()==14,"ordinary source selection also inspects the same item");
+	CHECK(controller.inspectInventorySlot(view,15) && !controller.inventorySwap(view,15) &&
+		controller.inventoryInspectedSlot()==15 && controller.inventorySourceSlot()==14,
+		"clicked unsupported destination inspects its contents without silently forgetting a live source");
+	CHECK(controller.inspectInventorySlot(view,7) && !controller.inventorySwap(view,7) &&
+		controller.inventoryInspectedSlot()==7 && controller.inventorySourceSlot()==14 &&
+		fixture.first==before && fixture.snapshot.find({1,1})->actionPoints==20,
+		"inspection and invalid destination clicks never mutate private items or public action points");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventorySourceSlot()==65535 &&
+		controller.inventoryInspectedSlot()==14,
+		"canceling a swap source still permits reading that item's details");
+	auto pending=fixture.view(77);
+	CHECK(controller.inspectInventorySlot(pending,15) && !controller.selectInventorySource(pending,14),
+		"pending command permits inspection but cannot open a second operation");
+	controller.synchronize(pending);
+	CHECK(controller.inventoryInspectedSlot()==15 && controller.inventorySourceSlot()==65535,
+		"outstanding-command synchronization does not erase read-only inspection");
+	fixture.snapshot=Snapshot(true,1);
+	view=fixture.view();
+	CHECK(controller.inspectInventorySlot(view,0) && !controller.inventorySwap(view,6),
+		"enemy turn allows owned equipment inspection without command authority");
+	controller.synchronize(view);
+	CHECK(controller.inventoryInspectedSlot()==0,"enemy phase retains current inspected item details");
+	fixture.snapshot=Snapshot(true,0,{},11,true);
+	view=fixture.view();
+	CHECK(controller.inspectInventorySlot(view,14) && !controller.selectInventorySource(view,14),
+		"native busy gate also remains inspectable without permitting swaps");
+	controller.closeInventory();
+	CHECK(controller.inventoryInspectedSlot()==65535 && !controller.inspectInventorySlot(view,0),
+		"closing the panel revokes inspection as well as the selected source");
+	for(const bool remove : {false,true})
+	{
+		CHECK(controller.openInventory(view) && controller.inspectInventorySlot(view,15),
+			"inspection fixture begins with a currently occupied complex slot");
+		if(remove)fixture.first.slots.resize(15);
+		else fixture.first.slots[15]={15,0,0,0,CoopSession::CoopInventorySlotSupport::Empty};
+		controller.synchronize(view);
+		CHECK(controller.inventoryOpen() && controller.inventoryInspectedSlot()==65535,
+			"slot removal or empty replacement clears stale inspection even before a private token changes");
+		fixture.first=before;
+	}
+}
+
+void TestInventoryContextChangesRevokeRetainedChoices()
+{
+	for(unsigned change=0;change<14;++change)
+	{
+		InventoryFixture fixture;
+		auto view=fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14),"context fixture opens selected item");
+		switch(change)
+		{
+			case 0: ++fixture.first.inventoryRevision; break;
+			case 1: ++fixture.first.baselineId; break;
+			case 2: ++fixture.first.sessionEpoch; break;
+			case 3: fixture.owners[0]=nullptr; break;
+			case 4: view.resynchronizing=true; break;
+			case 5: fixture.snapshot=Snapshot(true,0,{},12); fixture.first.worldGeneration=12; break;
+			case 6: fixture.assigned[0]={9,1}; break;
+			case 7: ++fixture.first.actor.incarnation; break;
+			case 8: view.snapshot=nullptr; break;
+			case 9: fixture.first.baselineId=0; break;
+			case 10: fixture.first.slots[14].slot=15; break;
+			case 11: ++fixture.first.owner[0]; break;
+			case 12: view.assignedActorCount=CoopSession::MaximumCoopTacticalAssignedActors+1; break;
+			case 13: view.assignedActors=nullptr; break;
+		}
+		CHECK(!controller.inventorySwap(view,6) && controller.inventorySourceSlot()==65535,
+			"source operation fails immediately on private token/context change, even before synchronize");
+		if(change!=0)CHECK(!controller.inspectInventorySlot(view,15),
+			"lost session/baseline/world/assignment or resync rejects a new inspection before synchronize");
+		controller.synchronize(view);
+		CHECK(controller.inventorySourceSlot()==65535 && controller.inventoryInspectedSlot()==65535 &&
+			(change==0 ? controller.inventoryOpen() : !controller.inventoryOpen()),
+			"private revision clears source; baseline/session/actor/world/assignment/resync replacements close the panel");
+		if(change==0)
+			CHECK(controller.selectInventorySource(view,14) && controller.inventorySwap(view,6),
+				"a new explicit selection may use the refreshed private token; no prior request is replayed");
+	}
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) &&
+		controller.selectNext(view) && !controller.inventoryOpen() && controller.inventorySourceSlot()==65535 &&
+		controller.inventoryInspectedSlot()==65535,
+		"selecting another exact owned actor closes previous owner's inventory rather than carrying its source over");
+	CHECK(controller.openInventory(view) && controller.selectPrevious(view) && !controller.inventoryOpen(),
+		"relative roster selection also revokes inventory modal context");
+	fixture.owners={nullptr,nullptr,nullptr};
+	CHECK(!controller.openInventory(view),"no admitted owner state cannot open a client-local inventory fallback");
+}
+
+void TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization()
+{
+	for (unsigned change = 0; change < 5; ++change)
+	{
+		InventoryFixture fixture;
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14),
+			"direct readiness fixture selects a source");
+		if (change == 0) view.outstandingCommandId = 77;
+		else if (change == 1) fixture.snapshot = Snapshot(true,1);
+		else if (change == 2) fixture.snapshot = Snapshot(true,0,{},11,true);
+		else if (change == 3) fixture.snapshot = Snapshot(true,0,{},11,false,TacticalInterruptPhase::Resolving,9);
+		else fixture.snapshot = Snapshot(true,0,{},11,false,TacticalInterruptPhase::Active,9);
+		CHECK(!controller.inventorySwap(view,6) && controller.inventorySourceSlot()==65535 &&
+			controller.inventoryOpen() && controller.inspectInventorySlot(view,15),
+			"direct confirmation revokes blocked source while retaining read-only owned inspection");
+		fixture.snapshot = Snapshot(); view.outstandingCommandId = 0;
+		CHECK(!controller.inventorySwap(view,6) && controller.selectInventorySource(view,14) &&
+			controller.inventorySwap(view,6), "readiness recovery requires a deliberate fresh source");
+	}
+}
+
+void TestInventoryOrdinaryEquipmentRemainsAuthorityValidated()
+{
+	for (std::uint16_t equipment : {0,1,2,3,4})
+	{
+		InventoryFixture fixture;
+		fixture.first.slots[equipment] = {equipment,77,1,73,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		const auto before = fixture.first;
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,equipment),
+			"ordinary armor and face equipment may become a retained source");
+		const auto remove = controller.inventorySwap(view,16);
+		const auto* request = std::get_if<CoopSession::SwapInventorySlotsTacticalIntent>(&remove.payload);
+		CHECK(remove && request && request->sourceSlot==equipment && request->destinationSlot==16 &&
+			request->expectedInventoryRevision==51 && fixture.first==before,
+			"worn equipment emits exact slots and private revision without local unequip");
+		CHECK(controller.selectInventorySource(view,14) && controller.inventorySwap(view,equipment) && fixture.first==before,
+			"native authority alone validates equipment placement, face compatibility and capacity");
+	}
+}
 }
 
 int main()
 {
+	TestInventoryOrdinarySwapsArePureAndSlotBounded();
+	TestInventoryModalControlsAndBusyInspection();
+	TestInventoryInspectionNeverBecomesASwapCursor();
+	TestInventoryContextChangesRevokeRetainedChoices();
+	TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization();
+	TestInventoryOrdinaryEquipmentRemainsAuthorityValidated();
 	TestSelectionUsesOnlyAssignedPresentActors();
 	TestNumericMoveEntryProducesOneTypedRequest();
 	TestRelativeMoveProducesEveryAdjacentPayload();

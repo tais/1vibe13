@@ -3,6 +3,7 @@
 
 #include <Multiplayer/CoopTacticalIntent.h>
 #include <Multiplayer/CoopTacticalProtocol.h>
+#include <Multiplayer/CoopInventoryProtocol.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +18,10 @@ struct FullEngineCoopClientControllerView
 	std::size_t assignedActorCount = 0;
 	std::uint64_t outstandingCommandId = 0;
 	bool resynchronizing = false;
+	// Borrowed from the authenticated client cache, aligned with assignedActors.
+	const CoopSession::CoopOwnerInventorySnapshot* const* ownerInventories = nullptr;
+	const CoopSession::CoopOwnerInventorySnapshot* inventoryFor(
+		TacticalEntityId actor) const noexcept;
 };
 
 struct FullEngineCoopClientIntentRequest
@@ -112,6 +117,20 @@ public:
 	FullEngineCoopClientIntentRequest submitDoorOpenClose(
 		const FullEngineCoopClientControllerView& view) noexcept;
 
+	bool openInventory(const FullEngineCoopClientControllerView& view) noexcept;
+	void closeInventory() noexcept;
+	bool inventoryOpen() const noexcept { return inventoryOpen_; }
+	std::uint16_t inventorySourceSlot() const noexcept { return inventorySourceSlot_; }
+	std::uint16_t inventoryInspectedSlot() const noexcept { return inventoryInspectedSlot_; }
+	// Reading an owned item is independent of command eligibility or swap support.
+	// This retains no object and cannot create a swap source.
+	bool inspectInventorySlot(const FullEngineCoopClientControllerView& view,
+		std::uint16_t slot) noexcept;
+	bool selectInventorySource(const FullEngineCoopClientControllerView& view,
+		std::uint16_t slot) noexcept;
+	FullEngineCoopClientIntentRequest inventorySwap(
+		const FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept;
+
 private:
 	bool selectRelative(const FullEngineCoopClientControllerView& view,
 		bool forward) noexcept;
@@ -150,6 +169,16 @@ private:
 	std::uint16_t selectedDoorStructureId_ = 0;
 	bool selectedDoorOpen_ = false;
 	bool selectingDoor_ = false;
+	bool inventoryOpen_ = false;
+	TacticalEntityId inventoryActor_{};
+	CoopSession::PeerIdentity inventoryOwner_{};
+	std::uint64_t inventorySessionEpoch_ = 0;
+	std::uint64_t inventoryBaselineId_ = 0;
+	std::uint64_t inventoryWorldEpoch_ = 0;
+	std::uint64_t inventorySourceRevision_ = 0;
+	std::uint16_t inventorySourceSlot_ = 0xffff;
+	std::uint64_t inventoryInspectedRevision_ = 0;
+	std::uint16_t inventoryInspectedSlot_ = 0xffff;
 };
 
 #endif

@@ -257,7 +257,7 @@ FullEngineCoopClientControllerView ControllerView(
 {
 	return FullEngineCoopClientControllerView{
 		view.snapshot, view.assignedActors.data(), view.assignedActorCount,
-		view.outstandingCommandId, view.resynchronizing};
+		view.outstandingCommandId, view.resynchronizing, view.ownerInventories.data()};
 }
 
 std::uint16_t MovementModeFor(const TacticalActorSnapshot& actor,

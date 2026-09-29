@@ -6,6 +6,13 @@
 
 namespace
 {
+bool SupportedInventorySwapSlot(std::uint16_t slot) noexcept
+{
+	// Ordinary armor, face equipment, hands and pockets. Native placement and
+	// projected face compatibility remain authoritative; worn LBE stays opaque.
+	return slot <= 6 || (slot >= 14 && slot < 55);
+}
+
 bool ValidView(const FullEngineCoopClientControllerView& view) noexcept
 {
 	return view.snapshot != nullptr &&
@@ -14,6 +21,21 @@ bool ValidView(const FullEngineCoopClientControllerView& view) noexcept
 			CoopSession::MaximumCoopTacticalAssignedActors &&
 		(view.assignedActorCount == 0 || view.assignedActors != nullptr);
 }
+}
+
+const CoopSession::CoopOwnerInventorySnapshot*
+FullEngineCoopClientControllerView::inventoryFor(TacticalEntityId actor) const noexcept
+{
+	if (!ValidView(*this) || resynchronizing || !ownerInventories) return nullptr;
+	for (std::size_t index = 0; index < assignedActorCount; ++index)
+		if (assignedActors[index] == actor)
+		{
+			const auto* inventory = ownerInventories[index];
+			return inventory && inventory->actor == actor &&
+				inventory->worldGeneration == snapshot->epoch() &&
+				CoopSession::IsValidCoopOwnerInventorySnapshot(*inventory) ? inventory : nullptr;
+		}
+	return nullptr;
 }
 
 void FullEngineCoopClientController::synchronize(
@@ -25,7 +47,33 @@ void FullEngineCoopClientController::synchronize(
 		cancelDestinationEntry();
 		cancelAttackTargeting();
 		cancelDoorSelection();
+		closeInventory();
 		return;
+	}
+
+	if (inventoryOpen_)
+	{
+		const auto* inventory = view.inventoryFor(selectedActor_);
+		if (!inventory || inventoryActor_ != selectedActor_ ||
+			inventoryOwner_ != inventory->owner ||
+			inventoryWorldEpoch_ != view.snapshot->epoch() ||
+			inventorySessionEpoch_ != inventory->sessionEpoch ||
+			inventoryBaselineId_ != inventory->baselineId) closeInventory();
+		else
+		{
+			if (!actionsEnabled(view) || inventorySourceRevision_ != inventory->inventoryRevision)
+			{
+				inventorySourceSlot_ = 0xffff;
+				inventorySourceRevision_ = 0;
+			}
+			if (inventoryInspectedRevision_ != inventory->inventoryRevision ||
+				inventoryInspectedSlot_ >= inventory->slots.size() ||
+				inventory->slots[inventoryInspectedSlot_].item == 0)
+			{
+				inventoryInspectedSlot_ = 0xffff;
+				inventoryInspectedRevision_ = 0;
+			}
+		}
 	}
 
 	if (assignedAndPresent(view, selectedActor_))
@@ -48,6 +96,7 @@ void FullEngineCoopClientController::synchronize(
 	}
 
 	selectedActor_ = TacticalEntityId{};
+	closeInventory();
 	for (std::size_t index = 0; index < view.assignedActorCount; ++index)
 	{
 		const TacticalEntityId candidate = view.assignedActors[index];
@@ -138,6 +187,7 @@ bool FullEngineCoopClientController::selectRelative(
 		selectedActor_ = candidate;
 		if (changed)
 		{
+			closeInventory();
 			cancelDestinationEntry();
 			cancelAttackTargeting();
 			cancelDoorSelection();
@@ -151,6 +201,7 @@ bool FullEngineCoopClientController::beginDestinationEntry(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
 	if (!actionsEnabled(view)) return false;
+	closeInventory();
 	cancelAttackTargeting();
 	cancelDoorSelection();
 	destination_[0] = '\0';
@@ -196,6 +247,7 @@ bool FullEngineCoopClientController::beginAttackTargeting(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
 	if (!actionsEnabled(view)) return false;
+	closeInventory();
 	cancelDestinationEntry();
 	cancelDoorSelection();
 	targetingAttack_ = true;
@@ -240,6 +292,7 @@ bool FullEngineCoopClientController::beginDoorSelection(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
 	if (!actionsEnabled(view)) return false;
+	closeInventory();
 	cancelDestinationEntry();
 	cancelAttackTargeting();
 	cancelDoorSelection();
@@ -541,10 +594,114 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::request(
 	const FullEngineCoopClientControllerView& view,
 	const CoopSession::TacticalIntentPayload& payload) const noexcept
 {
-	if (!actionsEnabled(view)) return {};
+	if (!actionsEnabled(view) || inventoryOpen_) return {};
 	FullEngineCoopClientIntentRequest output;
 	output.actor = selectedActor_;
 	output.payload = payload;
 	output.valid = true;
 	return output;
+}
+
+bool FullEngineCoopClientController::openInventory(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	synchronize(view);
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!ready(view) || view.resynchronizing || !inventory) return false;
+	cancelDestinationEntry();
+	cancelAttackTargeting();
+	cancelDoorSelection();
+	closeInventory();
+	inventoryOpen_ = true;
+	inventoryActor_ = selectedActor_;
+	inventoryOwner_ = inventory->owner;
+	inventoryWorldEpoch_ = view.snapshot->epoch();
+	inventorySessionEpoch_ = inventory->sessionEpoch;
+	inventoryBaselineId_ = inventory->baselineId;
+	return true;
+}
+
+void FullEngineCoopClientController::closeInventory() noexcept
+{
+	inventoryOpen_ = false;
+	inventoryActor_ = {};
+	inventoryOwner_ = {};
+	inventorySessionEpoch_ = 0;
+	inventoryBaselineId_ = 0;
+	inventoryWorldEpoch_ = 0;
+	inventorySourceSlot_ = 0xffff;
+	inventorySourceRevision_ = 0;
+	inventoryInspectedSlot_ = 0xffff;
+	inventoryInspectedRevision_ = 0;
+}
+
+bool FullEngineCoopClientController::inspectInventorySlot(
+	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
+{
+	synchronize(view);
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ || !ready(view) ||
+		!inventory || inventoryWorldEpoch_ != view.snapshot->epoch() ||
+		inventorySessionEpoch_ != inventory->sessionEpoch || inventoryBaselineId_ != inventory->baselineId ||
+		slot >= 55 || slot >= inventory->slots.size() ||
+		inventory->slots[slot].item == 0 || inventory->slots[slot].count == 0) return false;
+	inventoryInspectedSlot_ = slot;
+	inventoryInspectedRevision_ = inventory->inventoryRevision;
+	return true;
+}
+
+bool FullEngineCoopClientController::selectInventorySource(
+	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
+{
+	synchronize(view);
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ ||
+		inventoryWorldEpoch_ != (view.snapshot ? view.snapshot->epoch() : 0) ||
+		!actionsEnabled(view) || !inventory ||
+		inventorySessionEpoch_ != inventory->sessionEpoch || inventoryBaselineId_ != inventory->baselineId ||
+		!SupportedInventorySwapSlot(slot) || slot >= inventory->slots.size()) return false;
+	const auto& item = inventory->slots[slot];
+	if (item.slot != slot || item.support != CoopSession::CoopInventorySlotSupport::OrdinarySwappable ||
+		item.item == 0 || item.count == 0) return false;
+	inventoryInspectedSlot_ = slot;
+	inventoryInspectedRevision_ = inventory->inventoryRevision;
+	if (inventorySourceSlot_ == slot && inventorySourceRevision_ == inventory->inventoryRevision)
+	{
+		inventorySourceSlot_ = 0xffff;
+		inventorySourceRevision_ = 0;
+	}
+	else
+	{
+		inventorySourceSlot_ = slot;
+		inventorySourceRevision_ = inventory->inventoryRevision;
+	}
+	return true;
+}
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventorySwap(
+	const FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept
+{
+	synchronize(view);
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ ||
+		inventoryWorldEpoch_ != (view.snapshot ? view.snapshot->epoch() : 0) ||
+		!actionsEnabled(view) || !inventory || inventorySourceRevision_ != inventory->inventoryRevision ||
+		inventorySessionEpoch_ != inventory->sessionEpoch || inventoryBaselineId_ != inventory->baselineId ||
+		!SupportedInventorySwapSlot(inventorySourceSlot_) || !SupportedInventorySwapSlot(destinationSlot) ||
+		inventorySourceSlot_ >= inventory->slots.size() || destinationSlot >= inventory->slots.size() ||
+		inventorySourceSlot_ == destinationSlot) return {};
+	const auto& source = inventory->slots[inventorySourceSlot_];
+	const auto& destination = inventory->slots[destinationSlot];
+	if (source.slot != inventorySourceSlot_ || destination.slot != destinationSlot ||
+		source.support != CoopSession::CoopInventorySlotSupport::OrdinarySwappable ||
+		source.item == 0 || source.count == 0 ||
+		destination.support == CoopSession::CoopInventorySlotSupport::UnsupportedComplex) return {};
+	FullEngineCoopClientIntentRequest result{selectedActor_,
+		CoopSession::SwapInventorySlotsTacticalIntent{
+			inventorySourceSlot_, destinationSlot, inventory->inventoryRevision}, true};
+	// No cursor item is removed locally. Only the server's replacement can
+	// change either slot; a lost or rejected command is never retried implicitly.
+	inventorySourceSlot_ = 0xffff;
+	inventorySourceRevision_ = 0;
+	return result;
 }

@@ -22,14 +22,17 @@ class FullEngineCoopSnapshotReplica;
 }
 
 // Borrowed, main-thread-only view of the last transactionally committed
-// replica. The snapshot pointer remains valid only until the next runtime pump.
-// All other fields are copied so presentation code never reaches into the
-// transport/core composition or any authoritative JA2 state.
+// replica and authenticated owner cache. Borrowed pointers remain valid only
+// until the next runtime pump; scalar fields and identities are copied.
+// Presentation never reaches into authoritative JA2 state.
 struct FullEngineCoopClientPresentationView
 {
 	const TacticalWorldSnapshot* snapshot = nullptr;
 	std::array<TacticalEntityId,
 		CoopSession::MaximumCoopTacticalAssignedActors> assignedActors{};
+	// Borrowed cache entries are valid only until the next client pump.
+	std::array<const CoopSession::CoopOwnerInventorySnapshot*,
+		CoopSession::MaximumCoopTacticalAssignedActors> ownerInventories{};
 	std::size_t assignedActorCount = 0;
 	std::uint64_t outstandingCommandId = 0;
 	CoopSession::CoopTacticalStateIdentity state{};
