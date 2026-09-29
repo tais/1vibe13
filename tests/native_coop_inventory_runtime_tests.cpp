@@ -20,6 +20,11 @@
 #include <thread>
 #include <memory>
 
+// Windows headers can redefine the transport method name after its declaration.
+#ifdef SendMessage
+#undef SendMessage
+#endif
+
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE;
 BOOLEAN gfDedicatedServer = FALSE;
