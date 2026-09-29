@@ -132,6 +132,16 @@ public:
 			TacticalCommandAuthorityPolicy::DedicatedCoop};
 		return true;
 	}
+	bool prepareBeginFirstAid(TacticalEntityId actor, TacticalEntityId target,
+		BeginFirstAidCommand& command) const noexcept override
+	{
+		++firstAidPreparationCalls;
+		// A rejecting provider may leave a plausible candidate behind; the host
+		// must obey its Boolean outcome before submitting any command.
+		command = BeginFirstAidCommand{actor, target, 7, 3, 1000, 1001,
+			0, 2, 1, 1, 99, 17, 10};
+		return firstAidPreparationSucceeds;
+	}
 	bool prepareSwapInventorySlots(TacticalEntityId actor, std::uint16_t source,
 		std::uint16_t destination, std::uint64_t revision,
 		SwapInventorySlotsCommand& command) const noexcept override
@@ -193,6 +203,8 @@ public:
 		++actorCount;
 	}
 
+	bool firstAidPreparationSucceeds = true;
+	mutable std::size_t firstAidPreparationCalls = 0;
 	bool inventoryPreparationSucceeds = true;
 	mutable std::size_t inventoryPreparationCalls = 0;
 	mutable std::uint64_t lastInventoryRevision = 0;
@@ -602,6 +614,36 @@ void TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation()
 		"controllability rejection is distinguished before native preflight");
 }
 
+void TestFirstAidPreparedCommandAndRetainedReceipt()
+{
+ FakeLiveState live;
+ FakeCommandService commands;
+ RecordingReceiptSink receipts;
+ DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+ CHECK(host.execute(Intent(1, BeginFirstAidTacticalIntent{ActorTwo})) ==
+  TacticalIntentExecutionDisposition::Retained && commands.submissionCount == 1 &&
+  host.correlationCount() == 1 && live.firstAidPreparationCalls == 1,
+  "first aid retains exactly one native prepared command");
+ const auto* aid = std::get_if<BeginFirstAidCommand>(&commands.submissions[0].command);
+ CHECK(aid && aid->soldier == ActorOne && aid->target == ActorTwo &&
+  aid->expectedWorldGeneration == 7 && aid->expectedTurnSerial == 3 &&
+  aid->expectedActorGrid == 1000 && aid->expectedTargetGrid == 1001 && aid->expectedLevel == 0 &&
+  aid->direction == 2 && aid->expectedAnimationState == 1 && aid->expectedTargetAnimationState == 1 &&
+  aid->expectedHandItem == 99 && aid->expectedKitStateFingerprint == 17 && aid->expectedActionPointCost == 10 &&
+  aid->source == SimulationCommandSource::NetworkPeer && aid->authority == TacticalCommandAuthorityPolicy::DedicatedCoop,
+  "aid translation forwards the entire server-prepared identity, pose, ordinary-kit fingerprint and AP proof");
+ CHECK(receipts.count == 1 && LastReceipt(receipts).status == CoopTacticalIntentReceiptStatus::Queued,
+  "native aid startup is queued, never predicted Applied");
+ host.receiveMessage(ResultMessage(CampaignPackageId, 1, TacticalCommandTerminalStatus::Applied,
+  TacticalCommandTerminalReason::None, 31, 41));
+ CHECK(receipts.count == 1 && host.correlationCount() == 1,
+  "aid native completion waits for coordinator publication before terminal receipt");
+ CHECK(host.flushPendingReceipts() == 1 && host.correlationCount() == 0 &&
+  LastReceipt(receipts).status == CoopTacticalIntentReceiptStatus::Applied &&
+  LastReceipt(receipts).authoritativeSequence == 31,
+  "aid terminal receipt follows only its exact retained native result");
+}
+
 void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 {
 	auto rejects = [](FakeLiveState& live,
@@ -704,6 +746,27 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	rejects(invalidReload, Intent(1, ReloadTacticalIntent{}),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"live selected-weapon, ammunition, and AP reload rejection is terminal");
+	FakeLiveState invalidFirstAid;
+	invalidFirstAid.firstAidPreparationSucceeds = false;
+	rejects(invalidFirstAid, Intent(1, BeginFirstAidTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"native patient, adjacency, kit, pose or AP rejection cannot enter the inbox");
+	rejects(legacyNetwork, Intent(1, BeginFirstAidTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"first aid fails closed while legacy networking is active");
+	CHECK(invalidFirstAid.firstAidPreparationCalls == 1 && legacyNetwork.firstAidPreparationCalls == 0,
+		"legacy role rejection precedes native first-aid preparation");
+	for (FakeLiveState* context : {&missing, &inactive, &away, &enemy, &uncontrollable,
+		&staleWorld, &staleTurn, &wrongTurn, &busy, &interrupt})
+	{
+		FakeCommandService commands;
+		RecordingReceiptSink receipts;
+		DedicatedCoopTacticalHost host(*context, commands, receipts, CampaignPackageId, 4);
+		CHECK(host.execute(Intent(1, BeginFirstAidTacticalIntent{ActorTwo})) ==
+			TacticalIntentExecutionDisposition::Rejected && commands.submissionCount == 0 &&
+			context->firstAidPreparationCalls == 0,
+			"first aid obeys exact actor, world, turn, team and pending-work gates before native preparation");
+	}
 	FakeLiveState invalidInventory;
 	invalidInventory.inventoryPreparationSucceeds = false;
 	rejects(invalidInventory, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
@@ -1242,6 +1305,7 @@ int main()
 	TestTranslatesSupportedIntentVocabulary();
 	TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart();
 	TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation();
+	TestFirstAidPreparedCommandAndRetainedReceipt();
 	TestLiveActorAndTurnPolicyRejectsBeforeSubmission();
 	TestInterruptAuthorityAndPassTranslation();
 	TestSubmissionFailuresAndCorrelationCapacityFailClosed();

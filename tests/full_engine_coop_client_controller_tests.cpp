@@ -108,6 +108,74 @@ FullEngineCoopClientControllerView View(
 		resynchronizing};
 }
 
+void TestAdjacentFirstAidUsesExactFriendlyPatient()
+{
+ auto medic = Actor(1, 1001);
+ auto patient = Actor(2, 1002);
+ medic.loadout.primaryHand = {17, 1, 90}; medic.handMedicalKitPoints = 90;
+ patient.loadout.primaryHand = {17, 1, 80}; patient.handMedicalKitPoints = 80;
+ medic.bleeding = 11; patient.bleeding = 25;
+ const std::array<TacticalEntityId, 1> ownerA{{medic.id}}, ownerB{{patient.id}};
+ const auto makeSnapshot = [&](TacticalActorSnapshot first, TacticalActorSnapshot second,
+  TacticalTurnSnapshot turn = Turn(0)) {
+  TacticalWorldSnapshot snapshot;
+  CHECK(TacticalWorldSnapshot::create(11, {160, 160}, {9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+   turn, {first, second}, snapshot) == TacticalSnapshotCreateError::None, "medical controller snapshot creates");
+  return snapshot;
+ };
+ auto snapshot = makeSnapshot(medic, patient);
+ FullEngineCoopClientController a, b;
+ FullEngineCoopClientControllerView av{&snapshot, ownerA.data(), 1}, bv{&snapshot, ownerB.data(), 1};
+ a.synchronize(av); b.synchronize(bv);
+ const auto aidA = a.beginFirstAid(av, patient.id);
+ const auto aidB = b.beginFirstAid(bv, medic.id);
+ CHECK(aidA && aidB && aidA.actor == medic.id && aidB.actor == patient.id &&
+  std::get<CoopSession::BeginFirstAidTacticalIntent>(aidA.payload).target == patient.id &&
+  std::get<CoopSession::BeginFirstAidTacticalIntent>(aidB.payload).target == medic.id &&
+  *snapshot.find(medic.id) == medic && *snapshot.find(patient.id) == patient,
+  "either owner may request treatment of the exact other owner's friendly patient without local mutation");
+ CHECK(!a.beginFirstAid(av, medic.id) && !a.beginFirstAid(av, {patient.id.slot, 2}) &&
+  a.selectNext(av) && a.selectedActor() == medic.id,
+  "aid cannot target self or a stale incarnation, and never borrows patient ownership");
+ for (unsigned fault = 0; fault != 17; ++fault)
+ {
+  auto changedMedic = medic, changedPatient = patient; auto turn = Turn(0);
+  if (fault == 0) changedPatient.hostileToPlayerTeam = true;
+  if (fault == 1) changedPatient.team = 1;
+  if (fault == 2) changedPatient.level = 1;
+  if (fault == 3) changedPatient.grid += 160;
+  if (fault == 4) changedPatient.grid += 1;
+  if (fault == 5) changedPatient.life = 0;
+  if (fault == 6) changedPatient.bleeding = 0;
+  if (fault == 7) changedMedic.life = 14;
+  if (fault == 8) changedMedic.handMedicalKitPoints = 0;
+  if (fault == 9) changedMedic.presentation.bodyType = 4;
+  if (fault == 10) changedMedic.medicalService = {true, {}, 0};
+  if (fault == 11) changedMedic.medicalService.receivingCount = 1;
+  if (fault == 12) changedPatient.medicalService = {true, {}, 0};
+  if (fault == 13) changedPatient.medicalService.receivingCount = 1;
+  if (fault == 14) turn.commandsBlocked = true;
+  if (fault == 15) turn.activeTeam = 1;
+  if (fault == 16) changedPatient.inSector = false;
+  auto changed = makeSnapshot(changedMedic, changedPatient, turn);
+  av.snapshot = &changed;
+  CHECK(!a.beginFirstAid(av, patient.id), "public loss of medical eligibility cannot produce a treatment request");
+ }
+ av.snapshot = &snapshot; av.outstandingCommandId = 1;
+ CHECK(!a.beginFirstAid(av, patient.id), "pending command blocks direct first aid");
+ av.outstandingCommandId = 0; av.resynchronizing = true;
+ CHECK(!a.beginFirstAid(av, patient.id), "resynchronization blocks direct first aid");
+ av.resynchronizing = false;
+ CHECK(a.beginDestinationEntry(av) && !a.beginFirstAid(av, patient.id), "destination modal consumes aid choice");
+ a.cancelDestinationEntry();
+ auto critical = patient; critical.bleeding = 0; critical.life = 14;
+ auto criticalSnapshot = makeSnapshot(medic, critical); av.snapshot = &criticalSnapshot;
+ CHECK(a.beginFirstAid(av, patient.id), "living critical patient may need treatment without bleeding");
+ auto edgeMedic = medic, edgePatient = patient; edgeMedic.grid = 159; edgePatient.grid = 160;
+ auto edgeSnapshot = makeSnapshot(edgeMedic, edgePatient); av.snapshot = &edgeSnapshot;
+ CHECK(!a.beginFirstAid(av, patient.id), "adjacent numeric grids across a row boundary cannot manufacture cardinal adjacency");
+}
+
 void TestSelectionUsesOnlyAssignedPresentActors()
 {
 	const TacticalWorldSnapshot snapshot = Snapshot();
@@ -1001,6 +1069,7 @@ int main()
 	TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization();
 	TestInventoryOrdinaryEquipmentRemainsAuthorityValidated();
 	TestSelectionUsesOnlyAssignedPresentActors();
+	TestAdjacentFirstAidUsesExactFriendlyPatient();
 	TestNumericMoveEntryProducesOneTypedRequest();
 	TestRelativeMoveProducesEveryAdjacentPayload();
 	TestRelativeMoveRejectsEdgesAndRowWrapping();

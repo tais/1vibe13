@@ -26,3 +26,9 @@ An absent patient uses the exact invalid identity sentinel. Providing may be tru
 ## Old credentials
 
 The fixed durable 224-byte records for protocols 19 and 20 are accepted only by the explicit retirement parser, alongside previously reviewed versions. Original checksum, semantic fields, campaign binding, and epoch rules remain required. Live decoders reject them, same-session mismatches cannot erase or replace them, and terminal retirement retains the original protocol/identity/token bytes. Private-copy normalization exists solely to apply strict semantic validation; it never relabels a stored or transmitted bearer.
+
+## Native command bridge
+
+Intent kind 10 appends only the exact patient slot (u16) and incarnation (u32) to the existing 72-byte intent header. Kind 11 inventory swap is unchanged; future kinds remain rejected. Malformed, truncated, and trailing input leaves the decoded output untouched. Admission authenticates and owns the medic, while the friendly patient may belong to the other peer. Public revision and turn binding remain exact.
+
+The passive controller filters current friendly cardinal adjacency, medical need, equipped kit points, and service/readiness state. The native authority independently prepares the complete command proof, including exact identities, world/turn, grids, poses, complete kit fingerprint, and AP. Legacy networking cannot use this bridge. A queued command retains its outcome until the native result arrives; only normal authoritative publication updates inventory or health.

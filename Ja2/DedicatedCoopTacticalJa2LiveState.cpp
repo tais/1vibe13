@@ -228,6 +228,13 @@ bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
 }
 
 
+bool DedicatedCoopTacticalJa2LiveState::prepareBeginFirstAid(
+	TacticalEntityId actor, TacticalEntityId target,
+	BeginFirstAidCommand& command) const noexcept
+{
+	return onMainThread() && PrepareBeginFirstAidCommand(actor, target, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareSwapInventorySlots(
 	TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
 	std::uint64_t expectedInventoryRevision, SwapInventorySlotsCommand& command) const noexcept

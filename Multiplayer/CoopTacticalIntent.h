@@ -29,6 +29,7 @@ enum class TacticalIntentKind : std::uint8_t
 	Reload = 7,
 	DoorOpenClose = 8,
 	PassInterrupt = 9,
+	BeginFirstAid = 10,
 	SwapInventorySlots = 11
 };
 
@@ -59,6 +60,13 @@ struct StanceTacticalIntent
 struct StopTacticalIntent {};
 struct EndTurnTacticalIntent {};
 struct ReloadTacticalIntent {};
+
+// Exact friendly patient; authority validates equipped ordinary kit and adjacency.
+// No path, transfer, surgery or local treatment is requested.
+struct BeginFirstAidTacticalIntent
+{
+	TacticalEntityId target;
+};
 
 // Whole-stack, same-actor swap. The private revision belongs to the owning
 // peer's inventory stream, not the public tactical snapshot. Native authority
@@ -103,6 +111,7 @@ using TacticalIntentPayload = std::variant<
 	ReloadTacticalIntent,
 	DoorOpenCloseTacticalIntent,
 	PassInterruptTacticalIntent,
+	BeginFirstAidTacticalIntent,
 	SwapInventorySlotsTacticalIntent>;
 
 struct TacticalIntent

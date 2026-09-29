@@ -185,6 +185,8 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 		std::get_if<PassInterruptTacticalIntent>(&left.payload))
 		return pass->interruptSerial ==
 			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
+	if (const auto* aid = std::get_if<BeginFirstAidTacticalIntent>(&left.payload))
+		return aid->target == std::get<BeginFirstAidTacticalIntent>(right.payload).target;
 	if (const auto* swap = std::get_if<SwapInventorySlotsTacticalIntent>(&left.payload))
 	{
 		const auto& other = std::get<SwapInventorySlotsTacticalIntent>(right.payload);
@@ -301,7 +303,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 10> payloads{{
+	const std::array<PayloadCase, 11> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -313,6 +315,7 @@ void TestIntentCodec()
 		{DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79},
 		{PassInterruptTacticalIntent{
 			UINT64_C(0x0807060504030201)}, 80},
+		{BeginFirstAidTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
 		{SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)}, 84}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
@@ -397,6 +400,46 @@ void TestIntentCodec()
 		"a zero interrupt serial is rejected");
 
 	std::vector<std::uint8_t> unchanged{0xaa, 0xbb};
+	TacticalIntent aidIntent = intent;
+	aidIntent.payload = BeginFirstAidTacticalIntent{TacticalEntityId{0x1234, 0x50607080}};
+	std::vector<std::uint8_t> aidBytes;
+	CHECK(EncodeTacticalIntent(aidIntent, aidBytes) ==
+			TacticalIntentCodecResult::Success && aidBytes.size() == 78 &&
+		aidBytes[6] == 10 && aidBytes[70] == 6 && aidBytes[71] == 0 &&
+		aidBytes[72] == 0x34 && aidBytes[73] == 0x12 &&
+		aidBytes[74] == 0x80 && aidBytes[75] == 0x70 &&
+		aidBytes[76] == 0x60 && aidBytes[77] == 0x50,
+		"first aid carries only its exact six-byte patient identity in kind 10");
+	for (std::size_t size = 0; size < aidBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(aidBytes.data(), size, output) !=
+				TacticalIntentCodecResult::Success && SameIntent(output, sentinel),
+			"every truncated first-aid intent rejects transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 8; ++mutation)
+	{
+		auto invalidAid = aidBytes;
+		if (mutation == 0)
+			std::fill(invalidAid.begin() + 74, invalidAid.end(), 0);
+		else if (mutation == 1)
+			invalidAid[70] = 5;
+		else if (mutation == 2)
+			invalidAid[70] = 7;
+		else if (mutation == 3)
+			invalidAid.push_back(0);
+		else if (mutation == 4)
+			invalidAid[71] = 1;
+		else if (mutation == 5)
+			invalidAid[72] = invalidAid[73] = 0xff;
+		else
+			invalidAid[6] = static_cast<std::uint8_t>(mutation + 6);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(invalidAid, output) ==
+				TacticalIntentCodecResult::Invalid && SameIntent(output, sentinel),
+			"first aid rejects missing target incarnation, wrong length, surplus bytes, and oversized length transactionally");
+	}
+
 	TacticalIntent swapIntent = intent;
 	swapIntent.payload = SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)};
 	std::vector<std::uint8_t> swapBytes;
@@ -487,6 +530,12 @@ void TestIntentCodec()
 	invalid.payload = PassInterruptTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid),
 		"zero interrupt-pass serial is rejected");
+	invalid.payload = BeginFirstAidTacticalIntent{};
+	std::vector<std::uint8_t> retainedAidBytes{0xaa, 0xbb};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid) &&
+		EncodeTacticalIntent(invalid, retainedAidBytes) == TacticalIntentCodecResult::Invalid &&
+		retainedAidBytes == std::vector<std::uint8_t>({0xaa, 0xbb}),
+		"unresolved first-aid patient cannot encode or replace retained bytes");
 }
 
 void TestAuthorityConfigurationAndBindings()
@@ -749,6 +798,46 @@ void TestAuthorityAuthorization()
 		"reactivated authority exposes its retained next command ID");
 }
 
+void TestFirstAidPatientDoesNotGrantCommandOwnership()
+{
+	SequentialTokenSource tokens;
+	AdmissionRegistry admission(&tokens);
+	const auto configuration = Configuration();
+	admission.beginSession(configuration);
+	const TransportPeer senderA{5101}, senderB{5102};
+	const auto peerA = AdmitAndAck(admission, senderA, FirstJoin(configuration));
+	const auto peerB = AdmitAndAck(admission, senderB, FirstJoin(configuration));
+	TacticalIntentAuthority authority(admission);
+	CHECK(peerA.admitted() && peerB.admitted() && authority.beginSession(Context()) ==
+		TacticalAuthorityConfigurationResult::Success, "medical peers admit before command authority");
+	const TacticalEntityId actorA{10, 3}, actorB{11, 7};
+	CHECK(authority.bindActor(peerA.peerIdentity, actorA) == TacticalActorBindingResult::Success &&
+		authority.bindActor(peerB.peerIdentity, actorB) == TacticalActorBindingResult::Success,
+		"medical participants retain separate owners");
+	for (unsigned index = 0; index < 2; ++index)
+	{
+		const auto& peer = index == 0 ? peerA : peerB;
+		const auto sender = index == 0 ? senderA : senderB;
+		const auto medic = index == 0 ? actorA : actorB;
+		const auto patient = index == 0 ? actorB : actorA;
+		auto intent = Intent(peer.peerIdentity, 1, medic);
+		intent.payload = BeginFirstAidTacticalIntent{patient};
+		CheckReason(authority.authorize(sender, intent), TacticalIntentAuthorizationReason::None,
+			"an owned medic may target the other owner's exact patient");
+		CheckReason(authority.authorize(sender, intent), TacticalIntentAuthorizationReason::DuplicateCommand,
+			"medical command replay cannot execute again");
+		intent.commandId = 2;
+		intent.actor = patient;
+		intent.payload = BeginFirstAidTacticalIntent{medic};
+		CheckReason(authority.authorize(sender, intent), TacticalIntentAuthorizationReason::ActorNotOwned,
+			"patient identity never grants authority to command that patient");
+		intent.commandId = 3;
+		intent.actor = TacticalEntityId{medic.slot, medic.incarnation + 1};
+		CheckReason(authority.authorize(sender, intent), TacticalIntentAuthorizationReason::ActorNotOwned,
+			"medical command requires the exact owned medic incarnation");
+	}
+}
+
 void TestAuthoritySessionResetAndPeerBound()
 {
 	SequentialTokenSource tokens;
@@ -931,6 +1020,7 @@ int main()
 	TestIntentCodec();
 	TestAuthorityConfigurationAndBindings();
 	TestAuthorityAuthorization();
+	TestFirstAidPatientDoesNotGrantCommandOwnership();
 	TestAuthoritySessionResetAndPeerBound();
 	TestRetiredPeerSequenceCompactionAndChurn();
 	TestAdmissionEpochCannotOutrunAuthority();

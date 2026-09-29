@@ -9559,7 +9559,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 10> payloads"
+    "const std::array<PayloadCase, 11> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -10185,6 +10185,37 @@ require_ordered_fragments(dedicated_live_server_process_intent_slice
   "const bool caughtUp = peerCaughtUp(peer->identity)"
   "addPending(*peer, intent.commandId"
   "ingress_.handleTacticalIntent")
+# Protocol 21 is one atomic medical capability: exact patient kind 10 must
+# reach native preparation, while inventory kind 11 keeps its existing layout.
+foreach(medical_intent_contract IN ITEMS
+    "BeginFirstAid = 10" "SwapInventorySlots = 11"
+    "struct BeginFirstAidTacticalIntent" "BeginFirstAidTacticalIntent,"
+    "TacticalIntentWireVersion = 5")
+  string(FIND "${dedicated_live_intent_header_code}" "${medical_intent_contract}" medical_intent_position)
+  if(medical_intent_position EQUAL -1)
+    message(FATAL_ERROR "Atomic medical intent lost '${medical_intent_contract}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(dedicated_live_tactical_host_code
+  "std::is_same<Payload,
+			CoopSession::BeginFirstAidTacticalIntent>::value)"
+  medical_host_bridge_slice "Cannot bound native medical host bridge")
+require_ordered_fragments(medical_host_bridge_slice
+  "Medical host bypassed legacy exclusion or native preparation"
+  "liveState_->legacyNetworkingActive()"
+  "CoopTacticalIntentReceiptReason::UnavailableContext"
+  "BeginFirstAidCommand prepared{}"
+  "liveState_->prepareBeginFirstAid(intent.actor, payload.target, prepared)"
+  "CoopTacticalIntentReceiptReason::GameplayRejected"
+  "command = prepared")
+extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
+  "bool DedicatedCoopTacticalJa2LiveState::prepareBeginFirstAid(
+	TacticalEntityId actor, TacticalEntityId target,\n\tBeginFirstAidCommand& command) const noexcept"
+  medical_native_bridge_slice "Cannot bound medical native preparation")
+require_ordered_fragments(medical_native_bridge_slice
+  "Medical preparation lost native main-thread boundary"
+  "onMainThread()" "PrepareBeginFirstAidCommand(actor, target, command)")
+
 # A private inventory command requires the exact current owner token that
 # successfully queued to the authenticated peer, then fresh native proofs.
 require_ordered_fragments(dedicated_live_server_process_intent_slice
@@ -10808,7 +10839,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 10> payloads"
+    "const std::array<PayloadCase, 11> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"

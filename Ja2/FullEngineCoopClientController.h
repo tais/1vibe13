@@ -112,6 +112,8 @@ public:
 		const FullEngineCoopClientControllerView& view) const noexcept;
 	FullEngineCoopClientIntentRequest reload(
 		const FullEngineCoopClientControllerView& view) const noexcept;
+	FullEngineCoopClientIntentRequest beginFirstAid(
+		const FullEngineCoopClientControllerView& view, TacticalEntityId target) const noexcept;
 	FullEngineCoopClientIntentRequest submitAimedFirearmAttack(
 		const FullEngineCoopClientControllerView& view) noexcept;
 	FullEngineCoopClientIntentRequest submitDoorOpenClose(

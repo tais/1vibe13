@@ -377,6 +377,24 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::BeginFirstAidTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			BeginFirstAidCommand prepared{};
+			if (!liveState_->prepareBeginFirstAid(intent.actor, payload.target, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::ReloadTacticalIntent>::value)
 		{
 			ReloadWeaponCommand prepared{};

@@ -93,6 +93,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::AimedFirearmAttack: return 7;
 		case TacticalIntentKind::DoorOpenClose: return 7;
 		case TacticalIntentKind::PassInterrupt: return 8;
+		case TacticalIntentKind::BeginFirstAid: return 6;
 		case TacticalIntentKind::SwapInventorySlots: return 12;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
@@ -115,6 +116,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Reload:
 		case TacticalIntentKind::DoorOpenClose:
 		case TacticalIntentKind::PassInterrupt:
+		case TacticalIntentKind::BeginFirstAid:
 		case TacticalIntentKind::SwapInventorySlots:
 			return true;
 	}
@@ -157,6 +159,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 		if constexpr (std::is_same<Payload,
 			DoorOpenCloseTacticalIntent>::value)
 			return TacticalIntentKind::DoorOpenClose;
+		if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			return TacticalIntentKind::BeginFirstAid;
 		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
 			return TacticalIntentKind::SwapInventorySlots;
 		return TacticalIntentKind::PassInterrupt;
@@ -190,6 +194,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload,
 			PassInterruptTacticalIntent>::value)
 			return payload.interruptSerial != 0;
+		if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			return payload.target.valid();
 		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
 			return payload.sourceSlot < 256 && payload.destinationSlot < 256 &&
 				payload.sourceSlot != payload.destinationSlot &&
@@ -259,6 +265,11 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			else if constexpr (std::is_same<Payload,
 				PassInterruptTacticalIntent>::value)
 				WriteU64(encoded, payload.interruptSerial);
+			else if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.target.slot);
+				WriteU32(encoded, payload.target.incarnation);
+			}
 			else if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
 			{
 				WriteU16(encoded, payload.sourceSlot);
@@ -356,6 +367,15 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 				input == end)
 				return TacticalIntentCodecResult::Invalid;
 			payload.aimTime = *input++;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::BeginFirstAid:
+		{
+			BeginFirstAidTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
 		}

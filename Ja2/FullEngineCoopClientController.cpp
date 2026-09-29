@@ -431,6 +431,37 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::reload(
 }
 
 FullEngineCoopClientIntentRequest
+FullEngineCoopClientController::beginFirstAid(
+	const FullEngineCoopClientControllerView& view, TacticalEntityId target) const noexcept
+{
+	if (!actionsEnabled(view) || targetingAttack_ || enteringDestination_ || selectingDoor_ || inventoryOpen_ ||
+		target == selectedActor_ || !view.snapshot->dimensions().valid()) return {};
+	const TacticalActorSnapshot* const medic = view.snapshot->find(selectedActor_);
+	const TacticalActorSnapshot* const patient = view.snapshot->find(target);
+	// The stock first-aid animation bank supports the four human merc bodies.
+	if (medic == nullptr || patient == nullptr || medic->presentation.bodyType > 3 ||
+		!medic->medicalStateValid() || !patient->medicalStateValid() ||
+		medic->medicalService.providing || medic->medicalService.receivingCount != 0 ||
+		patient->medicalService.providing || patient->medicalService.receivingCount != 0 ||
+		medic->handMedicalKitPoints == 0 ||
+		medic->life < 15 || !patient->active || !patient->inSector || patient->life <= 0 ||
+		patient->hostileToPlayerTeam || patient->team != medic->team ||
+		patient->level != medic->level || (patient->bleeding == 0 && patient->life >= 15) ||
+		!view.snapshot->dimensions().contains(medic->grid) ||
+		!view.snapshot->dimensions().contains(patient->grid)) return {};
+	const std::int32_t columns = view.snapshot->dimensions().columns;
+	const std::int32_t row = medic->grid / columns - patient->grid / columns;
+	const std::int32_t column = medic->grid % columns - patient->grid % columns;
+	// Native FindAdjacentGridEx uses cardinal action tiles for first aid.
+	if (!((row == 0 && (column == -1 || column == 1)) ||
+		(column == 0 && (row == -1 || row == 1))))
+		return {};
+	// This is only a public presentation filter. Authority repeats native
+	// adjacency/obstruction, skill, service, kit and exact-identity validation.
+	return request(view, CoopSession::BeginFirstAidTacticalIntent{target});
+}
+
+FullEngineCoopClientIntentRequest
 FullEngineCoopClientController::submitAimedFirearmAttack(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
