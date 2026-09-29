@@ -1,6 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorRouteExecution.h"
+#include "DedicatedCoopMoveDiagnostic.h"
 
 #include "Soldier Profile Constants.h"
 #include "TacticalActorMovementState.h"
@@ -594,6 +595,23 @@ void haltForSightingUnchecked(
 
 		setOutOfActionPointsUnchecked(actor, TRUE, TRUE);
 		actor.movement().stopReason() = REASON_STOPPED_SIGHT;
+		// Observe the native pause at its source; no command outcome or arrival
+		// is inferred from this opt-in, server-local diagnostic.
+		if (DedicatedCoopMoveDiagnosticEnabled())
+		{
+			(void)std::fprintf(stderr,
+				"[coop-move] stage=sighting-halt actor=%u:%u sightingEnemy=%u reason=%u noAP=%u "
+				"animation=%u ap=%d path=%u/%u grid=%d final=%d next=%d "
+				"world=%.6f,%.6f destination=%d,%d\n",
+				unsigned(actor.identity().id().i), unsigned(actor.identity().incarnation()), unsigned(sightingEnemy),
+				unsigned(actor.movement().stopReason()), unsigned(actor.movement().outOfActionPoints()),
+				unsigned(actor.animationPlayback().state()), int(actor.actionPoints().current()),
+				unsigned(actor.pathing().pathIndex()), unsigned(actor.pathing().pathSize()),
+				int(actor.position().gridNo()), int(actor.pathing().finalDestinationGrid()), int(actor.pathing().destinationGrid()),
+				double(actor.position().worldX()), double(actor.position().worldY()),
+				int(actor.pathing().destinationX()), int(actor.pathing().destinationY()));
+		}
+
 
 		if (actor.animationActivity().turningToShoot() && sightingEnemy)
 		{
