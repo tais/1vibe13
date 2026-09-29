@@ -5,6 +5,7 @@
 
 #include <array>
 #include <chrono>
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -1660,6 +1661,217 @@ void TestPrivateBudgetHoldsTransientReceiptsAndWorldEnd()
 	DestroyClient(client);
 }
 
+void TestOwnerInventoryTransportAndCommandGate()
+{
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	auto ingressOwner = std::make_unique<FullEngineCoopIngress>(tokens, execution);
+	auto& ingress = *ingressOwner;
+	const AuthorityConfiguration authority = Authority();
+	CHECK(ingress.beginAdmissionSession(authority) == FullEngineCoopStartResult::Success,
+		"private inventory admission starts");
+	auto listenerOwner = std::make_unique<FullEngineCoopAdmissionListener>(ingress);
+	auto& listener = *listenerOwner;
+	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration;
+	listenerConfiguration.campaignBootstrap = Bootstrap(authority);
+	CHECK(StartListener(listener, listenerConfiguration), "private inventory listener starts");
+	std::array<Client, 2> clients;
+	std::array<AdmissionResponse, 2> admitted;
+	for (std::size_t index = 0; index < clients.size(); ++index)
+		CHECK(StartClient(clients[index], listenerConfiguration.endpoint.port) &&
+			Admit(listener, clients[index], authority, admitted[index]),
+			"private inventory peers authenticate separately");
+	FullEngineCoopTacticalServerConfiguration configuration;
+	configuration.replication.maximumInFlightDeltasPerPeer = 1;
+	auto serverOwner = std::make_unique<FullEngineCoopTacticalServer>(ingress, listener, configuration);
+	auto& server = *serverOwner;
+	execution.server = &server;
+	execution.mode = PublishingExecutionSink::Mode::AppliedTerminal;
+	const std::array<PeerIdentity, 2> peers{admitted[0].peerIdentity, admitted[1].peerIdentity};
+	const std::array<CoopTacticalActorAssignment, 2> assignments{{
+		{ActorId, peers[0]}, {{2, 1}, peers[1]}}};
+	const TacticalWorldSnapshot snapshot = Snapshot(WorldGeneration, TurnSerial, 2);
+	CHECK(server.beginEpoch(SessionEpoch) == FullEngineCoopTacticalServerResult::Success &&
+		server.beginWorld(WorldGeneration, InitialRevision, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.setCampaignReadyPeers(peers.data(), peers.size()) == FullEngineCoopTacticalServerResult::Success &&
+		server.replaceAssignments(assignments.data(), assignments.size()) == FullEngineCoopTacticalServerResult::Success,
+		"private inventory coordinator binds disjoint actors");
+	for (std::size_t index = 0; index < clients.size(); ++index)
+	{
+		CHECK(server.stageBaseline(peers[index], snapshot) == FullEngineCoopTacticalServerResult::Success &&
+			server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
+			WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return clients[index].baseline.messages.size() == 1; }),
+			"private inventory baseline reaches each exact peer");
+		CHECK(SendBaselineAck(clients[index], DecodeLastBaseline(clients[index]), peers[index]) &&
+			QueueArrived(listener, clients[index]) && server.pumpInbound(500).acknowledgementsAccepted == 1,
+			"private inventory actor authority waits for exact baseline ACK");
+	}
+	std::vector<CoopInventorySlotSummary> slots{
+		{0, 991, 1, 93, CoopInventorySlotSupport::OrdinarySwappable},
+		{1, 0, 0, 0, CoopInventorySlotSupport::Empty}};
+	const std::size_t sourceSlot = 0;
+	const auto rejectOtherPeer = [&](std::uint64_t command, TacticalEntityId actor, PeerIdentity claimed) {
+		TacticalIntent intent;
+		intent.sessionEpoch = SessionEpoch; intent.claimedPeerIdentity = claimed;
+		intent.commandId = command; intent.worldGeneration = WorldGeneration;
+		intent.baseRevision = InitialRevision; intent.turnSerial = TurnSerial; intent.actor = actor;
+		intent.payload = SwapInventorySlotsTacticalIntent{0, 1, 1};
+		std::vector<std::uint8_t> bytes;
+		CHECK(EncodeTacticalIntent(intent, bytes) == TacticalIntentCodecResult::Success &&
+			clients[1].peer->SendMessage(CoopTacticalIntentMessageName, bytes.data(), bytes.size(), clients[1].server, false) &&
+			QueueArrived(listener, clients[1]), "untrusted swap reaches its authenticated transport mapping");
+		const auto rejected = server.pumpInbound(500);
+		CHECK(rejected.intentsConsumed == 1 && rejected.inputsRejected == 1 && execution.calls == 0 &&
+			WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return clients[1].receipt.messages.size() == command; }) &&
+			DecodeLastReceipt(clients[1]).status == CoopTacticalIntentReceiptStatus::Rejected &&
+			clients[1].inventory.messages.empty(),
+			"missing publication, foreign actor/incarnation and spoofed owner cannot authorize or reveal private state");
+	};
+	rejectOtherPeer(1, assignments[1].actor, peers[1]);
+	CHECK(server.stageInventory(peers[0], ActorId, 1, true, slots) == FullEngineCoopTacticalServerResult::Success &&
+		!server.hasInventoryRevision(peers[0], ActorId, 1) &&
+		server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return clients[0].inventory.messages.size() == 1; }),
+		"owner full-state frame uses the authenticated listener route");
+	CoopOwnerInventorySnapshot received;
+	CHECK(DecodeCoopOwnerInventorySnapshot(clients[0].inventory.messages[0].data(),
+		clients[0].inventory.messages[0].size(), received) == CoopInventoryCodecResult::Success &&
+		received.owner == peers[0] && received.actor == ActorId && received.inventoryRevision == 1 &&
+		received.slots == slots && clients[1].inventory.messages.empty() &&
+		server.hasInventoryRevision(peers[0], ActorId, 1) && !server.hasInventoryRevision(peers[1], ActorId, 1),
+		"only the exact owner receives private item IDs and obtains the sent revision token");
+	rejectOtherPeer(2, ActorId, peers[1]);
+	rejectOtherPeer(3, ActorId, peers[0]);
+	rejectOtherPeer(4, {ActorId.slot, ActorId.incarnation + 1}, peers[1]);
+	const auto sendSwap = [&](std::uint64_t command, std::uint64_t privateRevision) {
+		TacticalIntent intent;
+		intent.sessionEpoch = SessionEpoch;
+		intent.claimedPeerIdentity = peers[0];
+		intent.commandId = command;
+		intent.worldGeneration = WorldGeneration;
+		intent.baseRevision = server.replication().revision();
+		intent.turnSerial = TurnSerial;
+		intent.actor = ActorId;
+		intent.payload = SwapInventorySlotsTacticalIntent{0, 1, privateRevision};
+		std::vector<std::uint8_t> bytes;
+		return EncodeTacticalIntent(intent, bytes) == TacticalIntentCodecResult::Success &&
+			clients[0].peer->SendMessage(CoopTacticalIntentMessageName,
+				bytes.data(), bytes.size(), clients[0].server, false) && QueueArrived(listener, clients[0]);
+	};
+	// This mutation does not change the public tactical revision. Both tokens
+	// are invalid while pending. The coordinator flushes before consuming input,
+	// so test the previously displayed token across that publication boundary.
+	slots[sourceSlot].firstCondition = 92;
+	CHECK(server.stageInventory(peers[0], ActorId, 2, true, slots) == FullEngineCoopTacticalServerResult::Success &&
+		!server.hasInventoryRevision(peers[0], ActorId, 1) &&
+		!server.hasInventoryRevision(peers[0], ActorId, 2) && sendSwap(1, 1),
+		"new unsent private state invalidates old and guessed-new tokens before flushing");
+	const auto unsent = server.pumpInbound(501);
+	FullEngineCoopTacticalPeerCommandState commandState;
+	CHECK(unsent.result == FullEngineCoopTacticalServerResult::Success &&
+		unsent.intentsConsumed == 1 && unsent.inputsRejected == 1 && execution.calls == 0 &&
+		server.peerCommandState(peers[0], commandState) && commandState.nextExpectedCommandId == 2 &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return clients[0].receipt.messages.size() == 1; }),
+		"superseded private token consumes once without native gameplay execution");
+	CHECK(DecodeLastReceipt(clients[0]).reason == CoopTacticalIntentReceiptReason::RevisionMismatch &&
+		clients[0].inventory.messages.size() == 2 && clients[0].order.size() >= 2 &&
+		clients[0].order[clients[0].order.size() - 2] == "inventory" &&
+		clients[0].order.back() == "receipt" && clients[1].inventory.messages.empty(),
+		"private replacement precedes the consuming rejection and never reaches the other peer");
+	CHECK(sendSwap(2, 1), "stale displayed private revision reaches coordinator");
+	CHECK(server.pumpInbound(502).inputsRejected == 1 && execution.calls == 0 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 2; }) &&
+		DecodeLastReceipt(clients[0]).reason == CoopTacticalIntentReceiptReason::RevisionMismatch,
+		"previously sent but superseded private revision remains a side-effect-free rejection");
+	CHECK(sendSwap(2, 2), "duplicate rejected command is resent with a fresh token");
+	CHECK(server.pumpInbound(503).duplicateReceiptsReplayed == 1 && execution.calls == 0 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 3; }) &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Rejected,
+		"changing duplicate command payload cannot turn a prior rejection into execution");
+	CHECK(sendSwap(3, 2), "fresh command uses the exact sent private revision");
+	CHECK(server.pumpInbound(504).intentsConsumed == 1 && execution.calls == 1 &&
+		execution.lastIntent.commandId == 3 &&
+		std::holds_alternative<SwapInventorySlotsTacticalIntent>(execution.lastIntent.payload) &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 4; }) &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Applied,
+		"fresh sent private revision reaches the execution sink exactly once");
+	CHECK(sendSwap(3, 2) && server.pumpInbound(505).duplicateReceiptsReplayed == 1 && execution.calls == 1,
+		"duplicate applied inventory command never re-executes");
+	CHECK(WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 5; }),
+		"duplicate applied result reaches owner before dependency fixture");
+
+	// Regression: private state waits for a newer public delta, but that delta
+	// waits for a queued ACK. Logical private draining must not suppress ACK
+	// consumption at pumpInbound's preflush boundary.
+	execution.mode = PublishingExecutionSink::Mode::RetainedQueued;
+	CHECK(sendSwap(4, 2) && server.pumpInbound(506).intentsConsumed == 1 && execution.calls == 2 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 6; }) &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Queued,
+		"inventory command retains one queued native obligation for the dependency fixture");
+	CHECK(sendSwap(5, 2), "a second swap arrives while the first remains retained");
+	const auto overlapping = server.pumpInbound(506);
+	CHECK(overlapping.intentsConsumed == 0 && execution.calls == 2 &&
+		server.peerCommandState(peers[0], commandState) && commandState.nextExpectedCommandId == 5 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 7; }) &&
+		DecodeLastReceipt(clients[0]).reason == CoopTacticalIntentReceiptReason::InvalidCommandSequence,
+		"retained swap debounce rejects overlapping work without consuming the retry command ID");
+	CHECK(server.publishDelta(EmptyDelta(), InitialRevision + 1, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.flushOutbound().result == FullEngineCoopTacticalServerResult::Success &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] { return clients[0].delta.messages.size() == 1; }),
+		"first public delta occupies the single in-flight window");
+	CoopTacticalDelta firstDelta;
+	CHECK(DecodeCoopTacticalDelta(clients[0].delta.messages[0], firstDelta) == CoopTacticalCodecResult::Success,
+		"occupied-window delta decodes for its exact pending ACK");
+	slots[sourceSlot].firstCondition = 91;
+	CoopTacticalIntentReceipt terminal;
+	terminal.peerIdentity = peers[0];
+	terminal.commandId = 4;
+	terminal.simulationTick = 907;
+	terminal.status = CoopTacticalIntentReceiptStatus::Applied;
+	terminal.reason = CoopTacticalIntentReceiptReason::None;
+	CHECK(server.publishDelta(EmptyDelta(), InitialRevision + 2, TurnSerial) == FullEngineCoopTacticalServerResult::Success &&
+		server.stageInventory(peers[0], ActorId, 3, true, slots) == FullEngineCoopTacticalServerResult::Success &&
+		server.recordReceipt(terminal) == FullEngineCoopTacticalServerResult::Success,
+		"new owner state and terminal receipt both depend on an unsent second public delta");
+	const auto waitingForAck = server.flushOutbound();
+	CoopTacticalPeerReplicationState waitingPeer;
+	CHECK(waitingForAck.result == FullEngineCoopTacticalServerResult::Success &&
+		waitingForAck.inventoryPending && !waitingForAck.backpressured && waitingForAck.messagesSent == 0 &&
+		server.replication().peerState(peers[0], waitingPeer) && waitingPeer.inFlightDeltas == 1 &&
+		waitingPeer.lastSentRevision == InitialRevision + 1 && waitingPeer.pendingReceipts == 1 &&
+		!server.hasInventoryRevision(peers[0], ActorId, 3),
+		"logical private dependency holds terminal receipt without pretending the socket is blocked");
+	CHECK(SendDeltaAck(clients[0], firstDelta, peers[0]) && QueueArrived(listener, clients[0]),
+		"the ACK that can release private publication is already queued inbound");
+	const auto recovered = server.pumpInbound(507);
+	CHECK(recovered.result == FullEngineCoopTacticalServerResult::Success &&
+		recovered.acknowledgementsAccepted == 1 && !recovered.backpressured && !recovered.inventoryPending &&
+		server.hasInventoryRevision(peers[0], ActorId, 3) && execution.calls == 2 &&
+		WaitUntil(listener, {&clients[0], &clients[1]}, [&] {
+			return clients[0].delta.messages.size() == 2 && clients[0].inventory.messages.size() == 3 &&
+				clients[0].receipt.messages.size() == 8;
+		}), "queued ACK is consumed despite private preflush waiting, releasing publication without replay");
+	CHECK(clients[0].order.size() >= 3 && clients[0].order[clients[0].order.size() - 3] == "delta" &&
+		clients[0].order[clients[0].order.size() - 2] == "inventory" && clients[0].order.back() == "receipt" &&
+		DecodeLastReceipt(clients[0]).commandId == 4 &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Applied &&
+		DecodeLastReceipt(clients[0]).state.revision == InitialRevision + 2 && clients[1].inventory.messages.empty(),
+		"recovery preserves exact public delta, owner replacement, terminal outcome order and owner isolation");
+	CoopTacticalDelta finalDelta;
+	CHECK(DecodeCoopTacticalDelta(clients[0].delta.messages.back(), finalDelta) == CoopTacticalCodecResult::Success &&
+		SendDeltaAck(clients[0], finalDelta, peers[0]) && QueueArrived(listener, clients[0]) &&
+		server.pumpInbound(508).acknowledgementsAccepted == 1,
+		"retry first acknowledges the public state that preceded its replacement inventory");
+	execution.mode = PublishingExecutionSink::Mode::AppliedTerminal;
+	CHECK(sendSwap(5, 3) && server.pumpInbound(509).intentsConsumed == 1 && execution.calls == 3 &&
+		WaitUntil(listener, {&clients[0]}, [&] { return clients[0].receipt.messages.size() == 9; }) &&
+		DecodeLastReceipt(clients[0]).commandId == 5 &&
+		DecodeLastReceipt(clients[0]).status == CoopTacticalIntentReceiptStatus::Applied,
+		"same deferred command ID executes once after prior terminal and fresh owner/public state");
+	listener.stop(20);
+	for (Client& client : clients) DestroyClient(client);
+}
+
 void TestOwnerInventoryAckDependencyAndReceiptOrder()
 {
 	SequentialTokenSource tokens;
@@ -1838,6 +2050,7 @@ void TestOwnerInventoryAckDependencyAndReceiptOrder()
 
 int main()
 {
+	TestOwnerInventoryTransportAndCommandGate();
 	TestOwnerInventoryAckDependencyAndReceiptOrder();
 	TestPrivateBudgetHoldsTransientReceiptsAndWorldEnd();
 	TestRetirementBeforeCampaignReadyHasNoTacticalSlot();

@@ -4,6 +4,7 @@
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "CoopInventoryAuthority.h"
+#include "DedicatedCoopTacticalHost.h"
 #include "GameContext.h"
 #include "GameSettings.h"
 #include "Items.h"
@@ -36,6 +37,8 @@
 #include <tuple>
 #include <array>
 #include <algorithm>
+#include <memory>
+#include <thread>
 
 extern UINT16 gubAnimSurfaceIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
 extern UINT16 gubAnimSurfaceItemSubIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
@@ -221,8 +224,39 @@ int main(int argc, char** argv)
 	CHECK(inventoryAuthority.capture(id, worldIdentity.worldGeneration, inventoryView) &&
 		inventoryView.inventoryRevision == 3, "rejected native captures did not commit hidden revision changes");
 	const UINT8 destination = copyFailure ? BIGPOCK2POS : HANDPOS;
-	CHECK(PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, destination, command),
-		"preparation supports complete ordinary stacks and canonical NAS placeholders");
+	auto live = std::make_unique<DedicatedCoopTacticalJa2LiveState>(game);
+	CoopSession::CoopOwnerInventorySnapshot displayed;
+	CHECK(live->captureInventory(id, worldIdentity.worldGeneration, displayed) &&
+		live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, command),
+		"native host prepares the complete stack against its captured owner revision");
+	const auto shownSlots = displayed.slots;
+	SwapInventorySlotsCommand rejectedPreparation;
+	rejectedPreparation.expectedWorldGeneration = 999;
+	pocket[0]->data.sObjectFlag ^= 1;
+	CHECK(!live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, rejectedPreparation) &&
+		rejectedPreparation.expectedWorldGeneration == 999 && actor.actionPoints().current() == 20 &&
+		live->captureInventory(id, worldIdentity.worldGeneration, displayed) && displayed.inventoryRevision == 2 &&
+		displayed.slots == shownSlots,
+		"unpublished private metadata drift rejects preparation despite identical displayed summary and preserves output/AP");
+	pocket[0]->data.sObjectFlag ^= 1;
+	CHECK(live->captureInventory(id, worldIdentity.worldGeneration, displayed) && displayed.inventoryRevision == 3,
+		"restored native objects receive a new revision after stale host preparation observed drift");
+	CHECK(!live->prepareSwapInventorySlots(id, 256, destination, displayed.inventoryRevision, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots(id, BIGPOCK1POS, 256, displayed.inventoryRevision, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, 0, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots({id.slot, id.incarnation + 1}, BIGPOCK1POS, destination,
+			displayed.inventoryRevision, rejectedPreparation) && rejectedPreparation.expectedWorldGeneration == 999,
+		"native host rejects wide slots, absent revision and stale actor identity transactionally");
+	bool offThreadAccepted = true;
+	std::thread other([&] {
+		offThreadAccepted = live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination,
+			displayed.inventoryRevision, rejectedPreparation);
+	});
+	other.join();
+	CHECK(!offThreadAccepted && rejectedPreparation.expectedWorldGeneration == 999,
+		"native inventory preparation refuses another thread before ledger or object access");
+	CHECK(live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, command),
+		"fresh native revision prepares the exact command used by retained execution below");
 	if (!command.expectedWorldGeneration) { cleanup(); return 1; }
 	CHECK(command.expectedActionPointCost == (copyFailure ? 0 : 5), "native inventory AP cost captured");
 	if (missingAnimation)

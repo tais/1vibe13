@@ -132,6 +132,30 @@ public:
 			TacticalCommandAuthorityPolicy::DedicatedCoop};
 		return true;
 	}
+	bool prepareSwapInventorySlots(TacticalEntityId actor, std::uint16_t source,
+		std::uint16_t destination, std::uint64_t revision,
+		SwapInventorySlotsCommand& command) const noexcept override
+	{
+		++inventoryPreparationCalls;
+		lastInventoryRevision = revision;
+		if (!inventoryPreparationSucceeds) return false;
+		command.soldier = actor;
+		command.sourceSlot = static_cast<std::uint8_t>(source);
+		command.destinationSlot = static_cast<std::uint8_t>(destination);
+		command.expectedWorldGeneration = 7;
+		command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000;
+		command.expectedActorLevel = 0;
+		command.expectedAnimationState = 1;
+		command.expectedDirection = 2;
+		command.expectedActorStateFingerprint = 11;
+		command.sourceStateFingerprint = 12;
+		command.destinationStateFingerprint = 13;
+		command.handStateFingerprint = 14;
+		command.offhandStateFingerprint = 15;
+		command.expectedActionPointCost = 2;
+		return true;
+	}
 	bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,
@@ -169,6 +193,9 @@ public:
 		++actorCount;
 	}
 
+	bool inventoryPreparationSucceeds = true;
+	mutable std::size_t inventoryPreparationCalls = 0;
+	mutable std::uint64_t lastInventoryRevision = 0;
 	bool mainThread = true;
 	bool dedicatedActive = true;
 	bool packageActive = true;
@@ -377,8 +404,11 @@ void TestTranslatesSupportedIntentVocabulary()
 	CHECK(host.execute(Intent(8, DoorOpenCloseTacticalIntent{
 		1400, 91, true})) == TacticalIntentExecutionDisposition::Retained,
 		"door open/close enters the retained command inbox");
-	CHECK(commands.submissionCount == 8 && receipts.count == 8 &&
-		host.correlationCount() == 8,
+	CHECK(host.execute(Intent(9, SwapInventorySlotsTacticalIntent{14, 5, 31})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"inventory swap enters the retained command inbox");
+	CHECK(commands.submissionCount == 9 && receipts.count == 9 &&
+		host.correlationCount() == 9,
 		"each supported intent creates one queue correlation and receipt");
 
 	const MoveToGridCommand* move = std::get_if<MoveToGridCommand>(
@@ -453,6 +483,18 @@ void TestTranslatesSupportedIntentVocabulary()
 		live.lastDoorObject.structureId == 91 &&
 		live.lastDoorDesiredOpen,
 		"door intent is resolved into one exact private authoritative command");
+	const auto* swap = std::get_if<SwapInventorySlotsCommand>(&commands.submissions[8].command);
+	CHECK(swap && swap->soldier == ActorOne && swap->sourceSlot == 14 &&
+		swap->destinationSlot == 5 && swap->expectedWorldGeneration == 7 &&
+		swap->expectedTurnSerial == 3 && swap->expectedActorGrid == 1000 &&
+		swap->expectedActorLevel == 0 && swap->expectedAnimationState == 1 && swap->expectedDirection == 2 &&
+		swap->expectedActorStateFingerprint == 11 && swap->sourceStateFingerprint == 12 &&
+		swap->destinationStateFingerprint == 13 && swap->handStateFingerprint == 14 &&
+		swap->offhandStateFingerprint == 15 && swap->expectedActionPointCost == 2 &&
+		swap->source == SimulationCommandSource::NetworkPeer &&
+		swap->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.inventoryPreparationCalls == 1 && live.lastInventoryRevision == 31,
+		"swap retains server proofs and validates the private inventory revision before queueing");
 	for (std::size_t index = 0; index < commands.submissionCount; ++index)
 		CHECK(commands.submissions[index].packageId == CampaignPackageId,
 			"every command submits under the active campaign package");
@@ -662,6 +704,17 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	rejects(invalidReload, Intent(1, ReloadTacticalIntent{}),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"live selected-weapon, ammunition, and AP reload rejection is terminal");
+	FakeLiveState invalidInventory;
+	invalidInventory.inventoryPreparationSucceeds = false;
+	rejects(invalidInventory, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale inventory revision or native capacity/equipment rejection cannot enter the inbox");
+	rejects(legacyNetwork, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"inventory swap fails closed while legacy networking is active");
+	CHECK(invalidInventory.inventoryPreparationCalls == 1 &&
+		legacyNetwork.inventoryPreparationCalls == 0,
+		"legacy networking is rejected before native inventory preparation");
 	FakeLiveState invalidDoor;
 	invalidDoor.doorPreparationSucceeds = false;
 	rejects(invalidDoor, Intent(1,

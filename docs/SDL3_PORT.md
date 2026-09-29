@@ -32,7 +32,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
 | 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS, and Windows**. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
-| ∞ | Multiplayer — client/server wrapper + project-native framed SDL3_net transport | ✅ Built. The main-menu entry is enabled, tagged releases package the data-free PvP `ja2server`, and full-engine co-op now has deterministic campaign persistence/sync, configurable trusted-LAN admission, a nine-intent authoritative server including aimed fire, selected-actor reload, synchronous visible-door open/close, and exact-serial interrupt pass, and a worldless passive `JA2` client with a logical-grid plot. It is a technical slice, not terrain-rendered JA2 co-op. |
+| ∞ | Multiplayer — client/server wrapper + project-native framed SDL3_net transport | ✅ Built. The main-menu entry is enabled, tagged releases package the data-free PvP `ja2server`, and full-engine co-op now has deterministic campaign persistence/sync, configurable trusted-LAN admission, a ten-intent authoritative server including aimed fire, selected-actor reload, synchronous visible-door open/close, exact-serial interrupt pass, and same-actor whole-stack inventory swap, plus a worldless passive `JA2` client with a logical-grid plot. It is a technical slice, not terrain-rendered JA2 co-op. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
 on macOS. The resulting binary prints a "not yet implemented" notice
@@ -398,7 +398,7 @@ will revive them:
   `--dedicated-coop-port` endpoint, defaulting to `0.0.0.0:60005`. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v19 and
+  authentication. The dedicated runtime uses global co-op protocol v20 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
   fresh-baseline-gated actor assignment, including grow-only late peers, nine-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent
@@ -553,8 +553,8 @@ will revive them:
   change as one exact 43-byte event. The inner co-op tactical envelope is wire v4
   and caps 256 actors, 1024 doors, and 2563 events, with baseline payload/
   envelope 42298/43910 bytes and delta payload/envelope 50781/50853 bytes under
-  64 KiB. Intent wire v3 is bounded at
-  72+8=80 bytes; tactical-world service/observer are 3.0,
+  64 KiB. Intent wire v5 is bounded at
+  72+12=84 bytes; tactical-world service/observer are 3.0,
   `DoorCapacityReached` is 12, and journal-v4 authoritative door/pass tags are 33/34.
   Same-connection tactical resynchronization is implemented around an
   authenticated exact 88-byte self-only request. Its bounded reasons cover a

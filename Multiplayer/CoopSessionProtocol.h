@@ -8,9 +8,9 @@
 
 namespace CoopSession
 {
-// Version 19 adds an explicit shared Skip for held native Meanwhile scenes.
+// Version 20 binds same-actor inventory intents to the authoritative owner stream.
 // Reject mismatched clients before transferring campaign state.
-constexpr std::uint16_t CurrentProtocolVersion = 19;
+constexpr std::uint16_t CurrentProtocolVersion = 20;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

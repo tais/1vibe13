@@ -29,7 +29,7 @@ static_assert(noexcept(
 	std::declval<TacticalIntentAuthority&>().retirePeerSequence(
 		std::declval<const PeerIdentity&>())));
 static_assert(TacticalIntentHeaderWireSize == 72);
-static_assert(MaximumTacticalIntentWireSize == 80);
+static_assert(MaximumTacticalIntentWireSize == 84);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -185,6 +185,13 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 		std::get_if<PassInterruptTacticalIntent>(&left.payload))
 		return pass->interruptSerial ==
 			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
+	if (const auto* swap = std::get_if<SwapInventorySlotsTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<SwapInventorySlotsTacticalIntent>(right.payload);
+		return swap->sourceSlot == other.sourceSlot &&
+			swap->destinationSlot == other.destinationSlot &&
+			 swap->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
 	return true;
 }
 
@@ -218,7 +225,7 @@ void TestIntentCodec()
 	CHECK(bytes.size() == 79, "move intent has its exact wire size");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'I',
 		"intent magic is byte exact");
-	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 5 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"intent version, kind, and reserved byte are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 	{
@@ -294,7 +301,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 9> payloads{{
+	const std::array<PayloadCase, 10> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -305,7 +312,8 @@ void TestIntentCodec()
 		{ReloadTacticalIntent{}, 72},
 		{DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79},
 		{PassInterruptTacticalIntent{
-			UINT64_C(0x0807060504030201)}, 80}}};
+			UINT64_C(0x0807060504030201)}, 80},
+		{SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)}, 84}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;
@@ -389,6 +397,58 @@ void TestIntentCodec()
 		"a zero interrupt serial is rejected");
 
 	std::vector<std::uint8_t> unchanged{0xaa, 0xbb};
+	TacticalIntent swapIntent = intent;
+	swapIntent.payload = SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)};
+	std::vector<std::uint8_t> swapBytes;
+	CHECK(EncodeTacticalIntent(swapIntent, swapBytes) == TacticalIntentCodecResult::Success &&
+		swapBytes.size() == 84 && swapBytes[6] == 11 && swapBytes[70] == 12 &&
+		swapBytes[71] == 0 && swapBytes[72] == 14 && swapBytes[73] == 0 &&
+		swapBytes[74] == 5 && swapBytes[75] == 0,
+		"swap pins kind 11, two LE slots, and an independent private inventory revision");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(swapBytes[76 + index] == index + 1, "private revision is little endian");
+	for (std::size_t size = 0; size < swapBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(swapBytes.data(), size, output) !=
+			TacticalIntentCodecResult::Success && SameIntent(output, sentinel),
+			"every truncated maximum-size inventory swap rejects transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 7; ++mutation)
+	{
+		auto malformedSwap = swapBytes;
+		if (mutation == 0) std::fill(malformedSwap.begin() + 76, malformedSwap.end(), 0);
+		else if (mutation == 1) malformedSwap[73] = 1;
+		else if (mutation == 2) malformedSwap[75] = 1;
+		else if (mutation == 3) malformedSwap[74] = 14;
+		else if (mutation == 4) malformedSwap[70] = 11;
+		else if (mutation == 5) malformedSwap[70] = 13;
+		else malformedSwap.push_back(0);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(malformedSwap, output) == TacticalIntentCodecResult::Invalid &&
+			SameIntent(output, sentinel),
+			"swap rejects zero revision, out-of-bound/same slots, and wrong lengths transactionally");
+	}
+	for (std::uint8_t version : {3, 4, 6})
+	{
+		auto wrongVersion = swapBytes;
+		wrongVersion[4] = version;
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(wrongVersion, output) == TacticalIntentCodecResult::UnsupportedVersion &&
+			SameIntent(output, sentinel), "old and unknown swap intent versions reject transactionally");
+	}
+	for (SwapInventorySlotsTacticalIntent payload : {
+		SwapInventorySlotsTacticalIntent{14, 5, 0}, {14, 14, 1}, {256, 5, 1}, {14, 256, 1}})
+	{
+		TacticalIntent invalidSwap = swapIntent;
+		invalidSwap.payload = payload;
+		std::vector<std::uint8_t> unchanged{17, 23};
+		CHECK(!IsStructurallyValidTacticalIntent(invalidSwap) &&
+			EncodeTacticalIntent(invalidSwap, unchanged) == TacticalIntentCodecResult::Invalid &&
+			unchanged == std::vector<std::uint8_t>({17, 23}),
+			"invalid private revision and slot operands never partially encode");
+	}
+
 	TacticalIntent invalid = intent;
 	invalid.commandId = 0;
 	CHECK(EncodeTacticalIntent(invalid, unchanged) == TacticalIntentCodecResult::Invalid &&

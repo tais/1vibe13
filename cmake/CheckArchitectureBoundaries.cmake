@@ -5489,7 +5489,7 @@ extract_brace_bounded_slice(dedicated_live_client_scratch_code
 require_ordered_fragments(dedicated_live_credential_campaign_binding_slice
   "Persisted credential compatibility must keep the explicit version pair and exact campaign/runtime/content binding"
   "left.protocolVersion == right.protocolVersion"
-  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18) && right.protocolVersion == 19"
+  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18 || left.protocolVersion == 19) && right.protocolVersion == 20"
   "compatibleProtocol &&"
   "left.campaignSeed == right.campaignSeed"
   "left.campaignIdentitySha256 == right.campaignIdentitySha256"
@@ -5507,7 +5507,7 @@ require_ordered_fragments(dedicated_live_credential_decode_record_slice
   "std::equal(expected.begin(), expected.end()"
   "DecodeCoopCampaignBootstrap(record.data()"
   "CoopCampaignBootstrapWireSize"
-  "CurrentProtocolVersion == 19 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18)"
+  "CurrentProtocolVersion == 20 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18 || storedProtocol == 19)"
   "bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol"
   "record[CoopCampaignBootstrapWireSize + 4] != storedProtocol"
   "DecodeCoopCampaignBootstrap(canonical.data()"
@@ -5596,8 +5596,9 @@ foreach(render_protocol_credential_regression IN ITEMS
     "TestLegacyReconnectCredentialMigration(16)"
     "TestLegacyReconnectCredentialMigration(17)"
     "TestLegacyReconnectCredentialMigration(18)"
+    "TestLegacyReconnectCredentialMigration(19)"
     "TestLegacyReconnectCredentialMalformedRecords()"
-    "CurrentProtocolVersion == 19"
+    "CurrentProtocolVersion == 20"
     "persistence migration never weakens live protocol rejection or mutates decoder outputs"
     "only exact campaign binding plus a different epoch may classify legacy bytes stale"
     "legacy retirement remains terminal and preserves its exact original protocol"
@@ -7234,24 +7235,24 @@ strip_cxx_comments_and_literals(dedicated_live_handle_doors_source
 strip_cxx_comments_and_literals(dedicated_live_world_object_model_test_source
   dedicated_live_world_object_model_test_code)
 
-# Global co-op protocol v19 rejects mixed builds at admission. The fixed hello
-# keeps its wire-v1 layout; the tactical envelope is v4, intent is v3, snapshot
-# is v9, delta is v8, and the command journal is v4. The compact interrupt
-# projection therefore cannot be mistaken for any earlier peer.
+# Global co-op protocol v20 rejects mixed builds at admission. The fixed hello
+# keeps its wire-v1 layout; the tactical envelope is v4, intent is v5, snapshot
+# is v9, delta is v8, and the command journal is v4. Owner inventory operands
+# therefore cannot arrive from a peer using the earlier intent vocabulary.
 foreach(dedicated_live_global_protocol_v9_contract IN ITEMS
-    "CurrentProtocolVersion = 19"
+    "CurrentProtocolVersion = 20"
     "protocolVersion = CurrentProtocolVersion")
   string(FIND "${dedicated_live_session_protocol_header_code}"
     "${dedicated_live_global_protocol_v9_contract}"
     dedicated_live_global_protocol_v9_contract_position)
   if(dedicated_live_global_protocol_v9_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v19 contract lost '${dedicated_live_global_protocol_v9_contract}'")
+      "Global co-op protocol v20 contract lost '${dedicated_live_global_protocol_v9_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_global_protocol_v9_test_contract IN ITEMS
-    "requestBytes[4] == 19"
-    "resultBytes[4] == 19"
+    "requestBytes[4] == 20"
+    "resultBytes[4] == 20"
     "DecodeResult::UnsupportedProtocol"
     "unsupported.protocolVersion++")
   string(FIND "${dedicated_live_session_protocol_test_code}"
@@ -7259,25 +7260,25 @@ foreach(dedicated_live_global_protocol_v9_test_contract IN ITEMS
     dedicated_live_global_protocol_v9_test_contract_position)
   if(dedicated_live_global_protocol_v9_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v19 golden/rejection test lost '${dedicated_live_global_protocol_v9_test_contract}'")
+      "Global co-op protocol v20 golden/rejection test lost '${dedicated_live_global_protocol_v9_test_contract}'")
   endif()
 endforeach()
 require_ordered_fragments(dedicated_live_handshake_test_source
-  "Global protocol-v19 server-hello golden changed"
-  "0x13, 0x00, 0x00, 0x00"
+  "Global protocol-v20 server-hello golden changed"
+  "0x14, 0x00, 0x00, 0x00"
   "pinned 72-byte wire image")
 require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
-  "Global protocol-v19 campaign-bootstrap golden changed"
-  "0x13, 0x00, 0x00, 0x00"
-  "UINT32_C(0x856f35bb)"
+  "Global protocol-v20 campaign-bootstrap golden changed"
+  "0x14, 0x00, 0x00, 0x00"
+  "UINT32_C(0x6a0b65ec)"
   "descriptor checksum pins FNV-1a over bytes 0 through 111")
 require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
-  "Global protocol-v19 campaign-sync golden changed"
-  "bytes[6] == 19"
+  "Global protocol-v20 campaign-sync golden changed"
+  "bytes[6] == 20"
   "campaign sync versions and kind are exact")
 require_ordered_fragments(dedicated_live_listener_test_source
-  "Global protocol-v19 admission-listener hello golden changed"
-  "0x13, 0x00, 0x00, 0x00"
+  "Global protocol-v20 admission-listener hello golden changed"
+  "0x14, 0x00, 0x00, 0x00"
   "pinned 72-byte little-endian wire image")
 
 # The current protocol retains an exact self-only voluntary leave wire. The request must
@@ -9326,9 +9327,9 @@ endforeach()
 # Keep the intent wire, durable command, local-only executor, controller, and
 # socket E2E tied together so a UI-only or codec-only implementation cannot pass.
 foreach(dedicated_live_aimed_intent_header_contract IN ITEMS
-    "TacticalIntentWireVersion = 3"
+    "TacticalIntentWireVersion = 5"
     "TacticalIntentHeaderWireSize = 72"
-    "MaximumTacticalIntentPayloadWireSize = 8"
+    "MaximumTacticalIntentPayloadWireSize = 12"
     "MaximumTacticalIntentWireSize ="
     "AimedFirearmAttack = 6"
     "Reload = 7"
@@ -9394,7 +9395,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 9> payloads"
+    "const std::array<PayloadCase, 10> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -10020,6 +10021,28 @@ require_ordered_fragments(dedicated_live_server_process_intent_slice
   "const bool caughtUp = peerCaughtUp(peer->identity)"
   "addPending(*peer, intent.commandId"
   "ingress_.handleTacticalIntent")
+# A private inventory command requires the exact current owner token that
+# successfully queued to the authenticated peer, then fresh native proofs.
+require_ordered_fragments(dedicated_live_server_process_intent_slice
+  "Swap intent bypassed the sent owner revision before gameplay admission"
+  "std::get_if<SwapInventorySlotsTacticalIntent>(&intent.payload)"
+  "replication_.hasInventoryRevision(peer->identity, intent.actor, inventorySwap->expectedInventoryRevision)"
+  "const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 || privateInventoryRejected"
+  "addPending(*peer, intent.commandId"
+  "ingress_.handleTacticalIntent")
+extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
+  "bool DedicatedCoopTacticalJa2LiveState::prepareSwapInventorySlots(\n\tTacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,\n\tstd::uint64_t expectedInventoryRevision, SwapInventorySlotsCommand& command) const noexcept"
+  dedicated_live_inventory_swap_prepare_slice
+  "Cannot bound native inventory revision preparation")
+require_ordered_fragments(dedicated_live_inventory_swap_prepare_slice
+  "Native swap preparation lost current-world private metadata revision revalidation"
+  "if (!onMainThread() || sourceSlot >= 256 || destinationSlot >= 256"
+  "expectedInventoryRevision == 0"
+  "GetJa2TacticalWorldAdapter().liveTurnIdentity()"
+  "inventoryAuthority_.capture(actor, world.worldGeneration, current)"
+  "current.inventoryRevision == expectedInventoryRevision"
+  "PrepareSwapInventorySlotsCommand(actor")
+
 require_ordered_fragments(dedicated_live_server_process_intent_slice
   "Server authority exhaustion lost consuming cursor advance or flushable terminal receipt"
   "const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0"
@@ -10568,9 +10591,9 @@ endforeach()
 # with private optimistic fingerprints and executes one synchronous native
 # mutation before any AP/BP, noise, sight, interrupt, or AI side effect.
 foreach(dedicated_live_door_intent_header_contract IN ITEMS
-    "TacticalIntentWireVersion = 3"
+    "TacticalIntentWireVersion = 5"
     "TacticalIntentHeaderWireSize = 72"
-    "MaximumTacticalIntentPayloadWireSize = 8"
+    "MaximumTacticalIntentPayloadWireSize = 12"
     "MaximumTacticalIntentWireSize ="
     "DoorOpenClose = 8"
     "struct DoorOpenCloseTacticalIntent"
@@ -10578,7 +10601,7 @@ foreach(dedicated_live_door_intent_header_contract IN ITEMS
     "std::uint16_t structureId = 0"
     "bool desiredOpen = false"
     "DoorOpenCloseTacticalIntent,"
-    "PassInterruptTacticalIntent>")
+    "PassInterruptTacticalIntent,")
   string(FIND "${dedicated_live_intent_header_code}"
     "${dedicated_live_door_intent_header_contract}"
     dedicated_live_door_intent_header_contract_position)
@@ -10621,7 +10644,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 9> payloads"
+    "const std::array<PayloadCase, 10> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -10996,7 +11019,7 @@ foreach(dedicated_live_door_controller_test_contract IN ITEMS
 endforeach()
 foreach(dedicated_live_door_host_test_contract IN ITEMS
     "host.execute(Intent(8, DoorOpenCloseTacticalIntent"
-    "commands.submissionCount == 8"
+    "commands.submissionCount == 9"
     "AuthoritativeDoorOpenCloseCommand"
     "commands.submissions[7].command"
     "door intent is resolved into one exact private authoritative command"
@@ -12540,7 +12563,7 @@ require_ordered_fragments(dedicated_live_socket_e2e_slice
   "ingress.endSession()")
 
 # Public documentation must describe the same bounded technical slice as the
-# executable and tests: global protocol v19, authenticated self-retirement,
+# executable and tests: global protocol v20, authenticated self-retirement,
 # independently versioned snapshot/delta/intent/journal wires, bounded public
 # door projection and synchronous authority, worldless presentation, and the
 # established persistence/return/reconnect policies.
@@ -12562,7 +12585,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "installed strategic/Lua difficulty domain is 1..4"
-    "global co-op protocol-v19"
+    "global co-op protocol-v20"
     "Tactical snapshot wire v9"
     "five-slot combat-equipment projection"
     "five 12-byte combat-equipment records"
@@ -12592,7 +12615,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "doors, and 2563 delta events"
     "42298/43910"
     "50781/50853"
-    "Tactical intent wire v3"
+    "Tactical intent wire v5"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains its three legacy draws"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -12654,7 +12677,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
-    "global authoritative co-op session protocol is version 19"
+    "global authoritative co-op session protocol is version 20"
     "capture failure unwinds the active"
     "Case-only spellings across different"
     "`CVirtualLocation::getIsExclusive()`"
@@ -12685,7 +12708,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "`M`"
     "`commandsBlocked`"
     "compact interrupt phase/serial"
-    "Tactical intent is wire v3"
+    "Tactical intent is wire v5"
     "journal is wire v4"
     "snapshot layouts are rejected"
     "--dedicated-coop-bind"
@@ -12693,7 +12716,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "fixed admission-seat roster"
     "Disconnect never removes a world participant or transfers that actor"
     "exact-target aimed"
-    "nine bounded intents"
+    "ten bounded intents"
     "selected-actor reload"
     "visible adjacent-door open/close"
     "no lock, trap, key"
@@ -12711,7 +12734,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "42298/43910"
     "50781/50853"
     "72-byte header"
-    "80-byte maximum"
+    "84-byte maximum"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy draws"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -12785,7 +12808,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_engine_doc_contract IN ITEMS
-    "global co-op protocol v19"
+    "global co-op protocol v20"
     "`InitializeCoopContentManifestBoundary`"
     "before legacy cache writes"
     "case-only spellings across different read-only layers"
@@ -12817,7 +12840,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "--dedicated-coop-bind"
     "fresh assignment"
     "exact-target aimed"
-    "nine tactical intents"
+    "ten tactical intents"
     "selected-actor reload"
     "visible adjacent-door open/close"
     "`D` opens a modal"
@@ -12828,7 +12851,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "256 actors, 1024 doors, and 2563"
     "42298/43910"
     "50781/50853"
-    "Intent wire v3"
+    "Intent wire v5"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -12896,7 +12919,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
-    "global co-op protocol-v19"
+    "global co-op protocol-v20"
     "rollback-safe `co-op installed content manifest`"
     "validates and counts all"
     "smallest-layer normalized read-only overlay"
@@ -12928,7 +12951,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "--dedicated-coop-bind"
     "fresh-baseline boundary"
     "aimed single-shot firearm"
-    "nine JA2 command"
+    "ten JA2 command"
     "selected-actor reload"
     "visible-door open/close"
     "modal `D` door selection"
@@ -12941,7 +12964,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "1024 doors, 2563 events"
     "42298/43910"
     "50781/50853"
-    "Intent wire v3"
+    "Intent wire v5"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy draws"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -13009,7 +13032,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
-    "global co-op protocol v19"
+    "global co-op protocol v20"
     "rollback-safe post-package/pre-legacy"
     "validates and counts every VFS"
     "case-only"
@@ -13041,7 +13064,7 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "--dedicated-coop-bind"
     "fresh-baseline-gated actor assignment"
     "aimed single-shot firearm"
-    "nine-intent authoritative server"
+    "ten-intent authoritative server"
     "selected-actor reload"
     "synchronous visible-door open/close"
     "modal `D` visible-door selection"
@@ -13053,7 +13076,7 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "2563 events"
     "42298/43910"
     "50781/50853"
-    "Intent wire v3"
+    "Intent wire v5"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -13187,9 +13210,20 @@ foreach(dedicated_live_stale_doc_claim IN ITEMS
     "no JA2 tactical-map renderer"
     "co-op admission remains closed"
     "not wired into dedicated startup")
-  string(FIND "${dedicated_live_all_coop_docs}"
-    "${dedicated_live_stale_doc_claim}"
-    dedicated_live_stale_doc_claim_position)
+  if(dedicated_live_stale_doc_claim MATCHES
+      "^(global co-op protocol[- ]v|session protocol is version )[0-9]+$")
+    # A stale v2 claim must not match the leading digits of current v20.
+    string(REGEX MATCH "${dedicated_live_stale_doc_claim}([^0-9]|$)"
+      dedicated_live_stale_doc_version_match "${dedicated_live_all_coop_docs}")
+    set(dedicated_live_stale_doc_claim_position -1)
+    if(NOT dedicated_live_stale_doc_version_match STREQUAL "")
+      set(dedicated_live_stale_doc_claim_position 0)
+    endif()
+  else()
+    string(FIND "${dedicated_live_all_coop_docs}"
+      "${dedicated_live_stale_doc_claim}"
+      dedicated_live_stale_doc_claim_position)
+  endif()
   if(NOT dedicated_live_stale_doc_claim_position EQUAL -1)
     message(FATAL_ERROR
       "Co-op documentation regained stale claim '${dedicated_live_stale_doc_claim}'")

@@ -23,16 +23,23 @@ Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
 reinterpret or silently extend a legacy packet layout.
 
-The global authoritative co-op session protocol is version 19. The fixed server-
+The global authoritative co-op session protocol is version 20. The fixed server-
 hello container retains its independently bounded wire-v1 layout. The inner
-tactical envelope is wire v4. Tactical intent is wire v3, snapshot is wire v9, delta is wire
-v8, and the simulation-command journal is wire v4. Global v1–v18 peers fail
+tactical envelope is wire v4. Tactical intent is wire v5, snapshot is wire v9, delta is wire
+v8, and the simulation-command journal is wire v4. Global v1–v19 peers fail
 admission rather than discovering the mismatch after admission. All older
 snapshot layouts are rejected instead of inferring dimensions, hostility, door,
 loadout, interrupt state, or exact map identity. Snapshot v9 also carries one public `commandsBlocked`
 bit, compact interrupt phase/serial, per-actor interrupt-action eligibility, and five
 bounded 12-byte combat-equipment records: primary hand, secondary hand, helmet,
 vest, and legs. Native interrupt lists and hidden interrupters remain private.
+
+Protocol 20 adds same-actor inventory swaps bound to the sent owner revision.
+The native host rechecks private metadata before retaining the command; public
+state, owner inventory and terminal receipts preserve causal order. Protocol-19
+durable reconnect records retain their original version and bearer. Only an
+exact campaign binding with a different session epoch permits explicit stale
+retirement; old credentials are never admitted or relabelled as current.
 
 The shared campaign status has a canonical 128-byte layout. A held Meanwhile
 scene carries a runtime notice identity and one of 17 explicit scene tags. It
@@ -94,10 +101,10 @@ The dedicated process owns:
 - saves, loads, autosaves, and reconnect baselines.
 
 Clients own only presentation and local input. The current wire exposes exactly
-nine bounded intents: move, face, change stance, stop, end turn, an
+ten bounded intents: move, face, change stance, stop, end turn, an
 exact-target aimed single-shot firearm attack with aim time from zero through
-eight, selected-actor reload, visible adjacent-door open/close, and exact-serial
-interrupt pass. The reload
+eight, selected-actor reload, visible adjacent-door open/close, exact-serial
+interrupt pass, and same-actor whole-stack inventory swap. The reload
 payload is empty: the server
 prepares the existing `ReloadWeaponCommand`, resolves the selected weapon and
 ammunition, and revalidates native `AutoReload`, including manual chambering.
@@ -328,7 +335,7 @@ world generation, exact revision and turn serial, enforces a per-peer monotonic
 command sequence, and checks a server-owned peer-to-actor ACL. The reusable gate
 executes no game action itself; the production dedicated composition now hands
 its sanitized value to the main-thread JA2 tactical host, which rechecks live
-turn/actor policy and submits the nine supported intent kinds to the bounded
+turn/actor policy and submits the ten supported intent kinds to the bounded
 simulation command queue.
 
 `FullEngineCoopIngress` now composes those contracts behind an explicit
@@ -886,8 +893,8 @@ version 3.0, and observer `DoorCapacityReached` is the stable value 12.
 The narrower co-op envelope uses inner tactical wire v4 and caps a publication
 at 256 actors, 1024 doors, and 2563 events. Its baseline payload/envelope bounds
 are 42298/43910 bytes and its category-aware delta payload/envelope bounds are
-50781/50853 bytes, all below the public 64 KiB ceiling. Intent wire v3 retains a
-72-byte header, 8-byte maximum payload, and 80-byte maximum record. The command
+50781/50853 bytes, all below the public 64 KiB ceiling. Intent wire v5 retains a
+72-byte header, 12-byte maximum payload, and 84-byte maximum record. The command
 journal is wire v4; pointer-free authoritative door/pass commands use tags 33/34.
 
 Authority capture includes only visible ordinary base-door structures and never

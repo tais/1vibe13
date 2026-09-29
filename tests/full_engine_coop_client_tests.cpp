@@ -423,6 +423,21 @@ void TestConfigurationAndHelloValidation()
 	const FullEngineCoopClientConfiguration configuration = Configuration();
 	{
 		Harness harness;
+		CHECK(harness.client.configure(configuration) == FullEngineCoopClientResult::Success &&
+			harness.client.beginConnection() == FullEngineCoopClientResult::Success &&
+			harness.client.transportConnected() == FullEngineCoopClientResult::Success,
+			"current client reaches the versioned hello boundary");
+		auto previous = configuration;
+		previous.protocolVersion = 19;
+		const auto hello = HelloBytes(previous, 100);
+		CHECK(harness.client.receiveServerHello(hello.data(), hello.size()) ==
+			FullEngineCoopClientResult::CompatibilityMismatch &&
+			harness.client.state() == FullEngineCoopClientState::Failed &&
+			harness.wire.closeCalls == 1 && harness.wire.messages.empty(),
+			"protocol-19 server hello closes before any credential or campaign exchange");
+	}
+	{
+		Harness harness;
 		CHECK(harness.client.configure(configuration) ==
 			FullEngineCoopClientResult::Success,
 			"valid client configuration is accepted");

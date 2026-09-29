@@ -1554,11 +1554,11 @@ the engine must not contain SDL types in its public domain model.
   entry detaches the runtime-message sink before the game entry destroys
   `GameContext`; an exceptional `DispatchInProgress` result stops transport and
   intentionally leaks the still-live composition rather than freeing an active
-  callback target. The authoritative server path uses global co-op protocol v19
-  and is wired through campaign sync and nine tactical intents: move, face,
+  callback target. The authoritative server path uses global co-op protocol v20
+  and is wired through campaign sync and ten tactical intents: move, face,
   stance, stop, end turn, exact-target aimed single-shot firearm attack, and
   selected-actor reload, plus synchronous visible adjacent-door open/close and
-  exact-serial interrupt pass.
+  exact-serial interrupt pass and same-actor whole-stack inventory swap.
   Reload is a zero-payload client request; the main-thread
   bridge prepares an exact `ReloadWeaponCommand`, and the executor revalidates
   live weapon, ammunition/chamber, action points, and native `AutoReload` policy.
@@ -1753,7 +1753,7 @@ the engine must not contain SDL types in its public domain model.
   exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 2563 events,
   with baseline payload/envelope 42298/43910 and delta payload/envelope
   50781/50853 under 64 KiB.
-  Intent wire v3 is bounded at 72+8=80 bytes, inner tactical wire is v4,
+  Intent wire v5 is bounded at 72+12=84 bytes, inner tactical wire is v4,
   both tactical-world services are 3.0, observer `DoorCapacityReached` is 12,
   and pointer-free door/pass commands use journal-v4 tags 33/34.
 
