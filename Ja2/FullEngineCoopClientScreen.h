@@ -82,6 +82,9 @@ private:
 // INIT_SCREEN child, not a tactical or strategic JA2 screen.
 void HandleFullEngineCoopClientScreen() noexcept;
 
+// Release panel graphics while the native video/VFS services are alive.
+void TeardownFullEngineCoopClientInventoryPresentation() noexcept;
+
 // Shared input owner for the existing passive screen.
 void HandleFullEngineCoopClientInput() noexcept;
 

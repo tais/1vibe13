@@ -3,6 +3,8 @@
 #include "strategicmap.h"
 #include "strategic.h"
 #include "Font.h"
+#include "Font Control.h"
+#include "Ja2/FullEngineCoopClientPresentationInventory.h"
 #include "MemMan.h"
 #include "WordWrap.h"
 #include <algorithm>
@@ -117,8 +119,49 @@ void CheckLabel(INT16 x, INT16 y, INT8 z, const wchar_t* expected)
     { ++failures; std::printf("FAIL: native sector label does not respect capacity %zu\n", N); }
 }
 
+void CheckOptionalFontLookup()
+{
+    const auto check = [](bool condition, const char* message) {
+        if (!condition) { ++failures; std::printf("FAIL: %s\n", message); }
+    };
+    INT16 index = 123;
+    check(!TryGetIndex(L'A', &index) && index == 123 && !TryGetIndex(L'A', nullptr),
+        "optional glyph lookup rejects an unloaded manager without touching output");
+    auto services = MakeFullEngineCoopClientPresentationInventoryNativeServices();
+    const std::uint16_t text[] = {'A',0};
+    const auto previousFontsInit = gfFontsInit;
+    const auto previousTinyFont = TINYFONT1;
+    gfFontsInit = FALSE;
+    check(!services.text(text,{0,0,20,20},FullEngineCoopClientInventoryPaint::Text,nullptr),
+        "native inventory text refuses an uninitialized font service before framebuffer access");
+    gfFontsInit = TRUE; TINYFONT1 = 0;
+    check(!services.text(text,{0,0,20,20},FullEngineCoopClientInventoryPaint::Text,nullptr),
+        "native inventory text refuses an unloaded font object before framebuffer access");
+    gfFontsInit = previousFontsInit; TINYFONT1 = previousTinyFont;
+    auto* symbols = static_cast<UINT16*>(MemAlloc(32769 * sizeof(UINT16)));
+    if (!symbols) std::exit(1);
+    std::fill_n(symbols,32769,UINT16('A'));
+    symbols[1] = '?'; symbols[2] = 'A'; symbols[32767] = 'B'; symbols[32768] = 'C';
+    FontTranslationTable table{32769,symbols};
+    if (!InitializeFontManager(8,&table)) std::exit(1);
+    check(TryGetIndex(L'A',&index) && index == 0 && GetIndex(L'A') == 0,
+        "optional lookup preserves first-match valid mapping and legacy lookup behavior");
+    check(TryGetIndex(L'?',&index) && index == 1 && TryGetIndex(L'B',&index) && index == 32767,
+        "optional lookup accepts fallback glyph and largest representable glyph index");
+    index = 123;
+    check(!TryGetIndex(L'Z',&index) && index == 123 && !TryGetIndex(L'C',&index) && index == 123,
+        "unknown codepoint or unrepresentable glyph index preserves caller output");
+    if (sizeof(CHAR16) > 2)
+        check(!TryGetIndex(static_cast<CHAR16>(0x10000),&index) && index == 123,
+            "out-of-range native character cannot truncate into a valid BMP glyph");
+    ShutdownFontManager();
+    check(!TryGetIndex(L'B',&index) && index == 123,
+        "font shutdown revokes lookup without retaining freed translation storage");
+}
+
 int main()
 {
+    CheckOptionalFontLookup();
     // The native talking-face overlay uses this exact 50-character capacity.
     for (auto& name : gzSectorNames[SECTOR(13, 9)])
         std::wmemcpy(name, L"Alma", 5);

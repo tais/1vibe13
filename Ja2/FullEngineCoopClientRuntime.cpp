@@ -1,4 +1,5 @@
 #include "FullEngineCoopClientRuntime.h"
+#include "FullEngineCoopClientScreen.h"
 
 #include "DedicatedContentManifest.h"
 #include "FullEngineCoopClientCampaignScratch.h"
@@ -716,6 +717,7 @@ void FullEngineCoopClientRuntime::pumpAfterCommittedFrame() noexcept
 
 void FullEngineCoopClientRuntime::stopTransport() noexcept
 {
+	TeardownFullEngineCoopClientInventoryPresentation();
 	if (impl_ == nullptr || !impl_->composition)
 	{
 		if (impl_ != nullptr)

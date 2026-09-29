@@ -2368,8 +2368,8 @@ void TestInventoryControllerUsesAuthenticatedCacheAndWire()
 		"authoritative private wire frame populates authenticated owner cache");
 	refresh();
 	CHECK(!view.inventoryFor({2,1}) && controller.openInventory(view) &&
-		controller.selectInventorySource(view,14), "only the published exact owner actor can supply a source");
-	const auto request=controller.inventorySwap(view,6);
+		!controller.clickInventorySlot(view,14) && controller.inventorySourceSlot()==14, "only the published exact owner actor can supply a source");
+	const auto request=controller.clickInventorySlot(view,6);
 	CHECK(request && harness.client.sendIntent(request.actor,request.payload)==FullEngineCoopClientResult::Success,
 		"controller request enters the production client wire path");
 	TacticalIntent decoded;
