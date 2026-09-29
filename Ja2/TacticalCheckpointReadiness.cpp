@@ -120,6 +120,8 @@ std::uint32_t ActorHazards(const TacticalActor& actor) noexcept
 	// A schedule assignment alone is persistent idle data, not a continuation.
 	if (actor.schedule().doorContinuationPending() || actor.schedule().progress() != 0 ||
 		actor.aiBehavior().hasFlag(AI_CHECK_SCHEDULE)) add(Hazard::ScheduleContinuation);
+	// The door keyframe can finish before its actor action or route resumes.
+	if (actor.runtime().worldObject.active()) add(Hazard::WorldObjectContinuation);
 	if (actor.runtime().pendingAction.delayedDamage) add(Hazard::DeferredCallback);
 	if (actor.interaction().dragging() || actor.interaction().chatting()) add(Hazard::Interaction);
 	// Burst/autofire selection is a retained weapon mode, not proof of a shot.
