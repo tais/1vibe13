@@ -625,6 +625,13 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_test(NAME native_campaign_aim_arrival COMMAND native_campaign_aim_arrival_tests)
   add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)
 
+  add_executable(native_coop_inventory_runtime_tests tests/native_coop_inventory_runtime_tests.cpp)
+  target_compile_definitions(native_coop_inventory_runtime_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_inventory_runtime_tests PRIVATE ${campaign_aim_hire_native_libraries})
+  add_test(NAME native_coop_inventory_runtime COMMAND native_coop_inventory_runtime_tests)
+  set_tests_properties(native_coop_inventory_runtime PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_inventory_runtime_tests)
+
   # Exercise the shared native willingness reader against real profiles,
   # soldier repositories and campaign reputation, without installed assets.
   add_executable(native_campaign_aim_willingness_tests

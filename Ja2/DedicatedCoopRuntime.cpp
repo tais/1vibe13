@@ -19,6 +19,7 @@
 #include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
+#include "DedicatedCoopInventoryPublication.h"
 #include "CampaignPackage.h"
 #include "GameContext.h"
 #include "GameSettings.h"
@@ -1803,6 +1804,17 @@ struct DedicatedCoopRuntime::Impl
 		if (publication && tactical->server.worldActive() &&
 			!stageCurrentWorld(*publication.snapshot))
 			return false;
+		// Native work has committed and its public revision is staged. Capture
+		// carried contents even when that public revision was unchanged: private
+		// resources/metadata can change independently. pumpInbound also flushes,
+		// so this barrier must precede it as well as the explicit outbound flush.
+		if (publication && tactical->server.worldActive() &&
+			!StageDedicatedCoopOwnerInventories(tactical->live,
+				tactical->server, publication.snapshot->epoch()))
+		{
+			fail(DedicatedCoopRuntimeError::TacticalReplicationFailed);
+			return false;
+		}
 
 		const Ja2TacticalCommandHostDiagnostics diagnostics =
 			GetJa2TacticalCommandHostDiagnostics();

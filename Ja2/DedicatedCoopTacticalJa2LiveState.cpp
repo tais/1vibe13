@@ -226,3 +226,12 @@ bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
 	count = capturedCount;
 	return true;
 }
+
+
+bool DedicatedCoopTacticalJa2LiveState::captureInventory(TacticalEntityId actor,
+	std::uint64_t worldGeneration,
+	CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept
+{
+	return onMainThread() &&
+		inventoryAuthority_.capture(actor, worldGeneration, inventory);
+}
