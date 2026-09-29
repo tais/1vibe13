@@ -8,6 +8,8 @@
 #include "GameContext.h"
 #include "GameSettings.h"
 #include "Isometric Utils.h"
+#include "Items.h"
+#include "Weapons.h"
 #include "Timer Control.h"
 #include "MemMan.h"
 #include "FileMan.h"
@@ -488,6 +490,145 @@ int main()
 		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
 		actor.animationCache().reset(); actor = retained;
 	}
+
+	// Use a real rifle: the earlier ready-pose admission case has empty hands
+	// and therefore never enters WALKING_WEAPON_RDY. Pixels remain inert while
+	// native Overhead owns every coordinate, route cursor, debit and arrival.
+	gGameExternalOptions.fAllowWalkingWithWeaponRaised = TRUE;
+	gGameExternalOptions.ubEnergyCostForWeaponWeight = 0;
+	gGameExternalOptions.ubAllowAlternativeWeaponHolding = 0;
+	APBPConstants[AP_MODIFIER_READY] = 1;
+	gMAXITEMS_READ = 7;
+	Item[5].usItemClass = IC_GUN;
+	Weapon[5].ubWeaponType = GUN_RIFLE; Weapon[5].ubReadyTime = 6;
+	Weapon[5].ubWeaponClass = RIFLECLASS; Weapon[5].ubCalibre = 1; Weapon[5].ubMagSize = 30;
+	Item[6].usItemClass = IC_AMMO; Item[6].ubClassIndex = 0;
+	Magazine[0].ubCalibre = 1; Magazine[0].ubMagSize = 30; Magazine[0].ubAmmoType = 0;
+	Magazine[1].ubCalibre = NOAMMO; AmmoTypes[0].standardIssue = TRUE;
+	for (UINT16 animation : {UINT16(AIM_RIFLE_STAND), UINT16(WALKING_WEAPON_RDY)})
+	{
+		gubAnimSurfaceIndex[REGMALE][animation] = 0;
+		gubAnimSurfaceItemSubIndex[REGMALE][animation] = INVALID_ANIMATION;
+		gusAnimInst[animation][0] = 1;
+	}
+	auto raisedTick = [&] {
+		actor.animationPlayback().code() = 0;
+		actor.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 0);
+		giTimerCounters[TOVERHEAD] = 0;
+		CHECK(ExecuteOverhead(), "native raised-rifle movement tick runs");
+	};
+	auto raisedTrace = [&](const char* stage, bool alternate) {
+		std::printf("raised-walk stage=%s alternate=%u grid=%d xy=%.3f,%.3f next=%d dest=%d,%d final=%d path=%u/%u anim=%u pending=%u ap=%d noAP=%u reason=%u delay=%u paused=%u pauseAnim=%u\n",
+			stage, alternate, actor.position().gridNo(), actor.position().worldX(), actor.position().worldY(),
+			actor.pathing().destinationGrid(), actor.pathing().destinationX(), actor.pathing().destinationY(),
+			actor.pathing().finalDestinationGrid(), actor.pathing().pathIndex(), actor.pathing().pathSize(),
+			actor.animationPlayback().state(), actor.animationIntent().pendingAnimation(), actor.actionPoints().current(),
+			actor.movement().outOfActionPoints(), actor.movement().stopReason(), actor.movement().delayCounter(),
+			actor.movement().movementPaused(), !!(actor.status().flags() & SOLDIER_PAUSEANIMOVE));
+	};
+	for (bool alternate : {false, true})
+	for (unsigned scenario : {0u, 1u, 2u})
+	{
+		const bool sighting = scenario != 0, traceEnabled = scenario == 2;
+		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = alternate;
+		actor.animationCache().reset(); actor = stopped;
+		actor.movement().clearDelay();
+		actor.pathing().pathIndex() = actor.pathing().pathSize() = 0;
+		actor.position().gridNo() = actor.pathing().destinationGrid() = actor.pathing().finalDestinationGrid() = 16255;
+		INT16 startX = 0, startY = 0;
+		ConvertGridNoToCenterCellXY(actor.position().gridNo(), &startX, &startY);
+		actor.position().setWorldCoordinates(startX, startY);
+		actor.pathing().destinationX() = startX; actor.pathing().destinationY() = startY;
+		actor.renderBindings().faceIndex() = -1;
+		actor.animationPlayback().state() = AIM_RIFLE_STAND;
+		CHECK(CreateItem(5, 100, &actor.inventory()[HANDPOS]), "raised route carries a real native rifle");
+		const INT16 initialAP = actor.actionPoints().current();
+		CHECK(dispatchTo(15455, WALKING).status == SimulationCommandDispatchStatus::Applied &&
+			actor.animationPlayback().state() == WALKING_WEAPON_RDY && actor.pathing().pathSize() == 5 &&
+			actor.actionPoints().current() == initialAP - 5,
+			"actual ready-rifle route starts native weapon-raised locomotion and charges its first tile");
+		raisedTrace("start", alternate);
+		INT32 observedGrid = actor.position().gridNo();
+		for (unsigned tick = 0; tick < 512; ++tick)
+		{
+			raisedTick();
+			if (actor.position().gridNo() != observedGrid)
+			{
+				observedGrid = actor.position().gridNo(); raisedTrace("tile", alternate);
+				if (sighting && actor.pathing().pathIndex() >= 2) break;
+			}
+			if (actor.animationPlayback().state() != WALKING_WEAPON_RDY || actor.movement().outOfActionPoints()) break;
+		}
+		if (sighting)
+		{
+			INT16 sightX = 0, sightY = 0;
+			ConvertGridNoToCenterCellXY(actor.position().gridNo(), &sightX, &sightY);
+			CHECK(actor.animationPlayback().state() == WALKING_WEAPON_RDY &&
+				actor.pathing().pathIndex() < actor.pathing().pathSize() &&
+				(actor.position().worldX() != sightX || actor.position().worldY() != sightY),
+				"sighting fixture reaches a real off-center unconsumed raised route");
+			const auto beforeSighting = std::make_tuple(actor.position().gridNo(), actor.position().worldX(), actor.position().worldY(),
+				actor.pathing().pathIndex(), actor.pathing().pathSize(), actor.pathing().finalDestinationGrid(), actor.actionPoints().current());
+			const auto sightingRandom = std::make_pair(campaignRandom->checkpoint(), campaignRandom->consumptionEpoch());
+			{
+				MoveDiagnosticCapture trace(traceEnabled);
+				const bool traceValid = trace.valid();
+				const bool haltedForSighting = TacticalActorRouteExecution::haltForSighting(actor, true);
+				const auto output = trace.finish();
+				CHECK(traceValid && haltedForSighting, "actual native sighting halt accepts moving actor");
+				char expected[512]{};
+				std::snprintf(expected, sizeof(expected),
+					"[coop-move] stage=sighting-halt actor=4:5 sightingEnemy=1 reason=1 noAP=1 "
+					"animation=331 ap=67 path=2/5 grid=15775 final=15455 next=15775 "
+					"world=%.6f,%.6f destination=955,985\n",
+					double(actor.position().worldX()), double(actor.position().worldY()));
+				CHECK(traceEnabled ? output == expected : output.empty(),
+					"native sighting trace is default off and reports the exact actual halt only when enabled");
+			}
+			CHECK(sightingRandom == std::make_pair(campaignRandom->checkpoint(), campaignRandom->consumptionEpoch()),
+				"enabled and disabled native sighting observations preserve RNG state and draw epoch");
+			CHECK(beforeSighting == std::make_tuple(actor.position().gridNo(), actor.position().worldX(), actor.position().worldY(),
+				actor.pathing().pathIndex(), actor.pathing().pathSize(), actor.pathing().finalDestinationGrid(), actor.actionPoints().current()) &&
+				actor.movement().outOfActionPoints() && actor.movement().stopReason() == REASON_STOPPED_SIGHT &&
+				actor.animationPlayback().state() == WALKING_WEAPON_RDY,
+				"combat sighting deliberately pauses off-center with route and AP retained");
+			raisedTrace("sighting-halt", alternate);
+			const auto halted = state();
+			for (unsigned tick = 0; tick < 8; ++tick) raisedTick();
+			CHECK(state() == halted, "native overhead preserves the deliberate sighting halt");
+			CHECK(!live.canBeginMoveToGrid(id, 15455, WALKING, false) && state() == halted,
+				"fresh movement cannot replace an unconsumed sighting-paused route");
+			const INT16 stoppedAP = actor.actionPoints().current();
+			BeginSimulationCommandFrameBudget(++frame, 1);
+			CHECK(TryDispatchSimulationCommandNow(SimulationCommand{StopMovementCommand{
+				id, SimulationCommandSource::NetworkPeer, TacticalCommandAuthorityPolicy::DedicatedCoop}}).status == SimulationCommandDispatchStatus::Applied,
+				"ordinary dedicated Stop command applies to an off-center sighting halt");
+			CHECK(actor.position().gridNo() == observedGrid && actor.position().worldX() == sightX && actor.position().worldY() == sightY &&
+				actor.pathing().finalDestinationGrid() == observedGrid && actor.pathing().pathIndex() == 0 && actor.pathing().pathSize() == 0 &&
+				!actor.movement().delayed() && !actor.pendingAction().active() && !actor.animationIntent().hasPendingAnimation() &&
+				actor.animationPlayback().state() == AIM_RIFLE_STAND && actor.actionPoints().current() == stoppedAP,
+				"native Stop centers the current tile, cancels route and preserves rifle readiness without AP cost");
+			raisedTrace("stop", alternate);
+			CHECK(dispatchTo(15455, WALKING).status == SimulationCommandDispatchStatus::Applied &&
+				actor.animationPlayback().state() == WALKING_WEAPON_RDY && !actor.movement().outOfActionPoints(),
+				"ordinary fresh route resumes raised-rifle locomotion after explicit Stop");
+			for (unsigned tick = 0; tick < 512; ++tick)
+			{
+				raisedTick();
+				if (actor.animationPlayback().state() != WALKING_WEAPON_RDY || actor.movement().outOfActionPoints()) break;
+			}
+		}
+		INT16 finishX = 0, finishY = 0;
+		ConvertGridNoToCenterCellXY(15455, &finishX, &finishY);
+		raisedTrace("finish", alternate);
+		CHECK(actor.position().gridNo() == 15455 && actor.position().worldX() == finishX && actor.position().worldY() == finishY &&
+			actor.pathing().finalDestinationGrid() == 15455 && actor.pathing().pathIndex() == 0 && actor.pathing().pathSize() == 0 &&
+			actor.animationPlayback().state() == AIM_RIFLE_STAND && actor.actionPoints().current() == initialAP - 25,
+			"both pathfinders complete a real five-tile raised route with exact native AP debit, including Stop recovery");
+		CHECK(TacticalActorWorldPlacement::removeFromGrid(actor), "raised-rifle fixture releases native world placement");
+	}
+	gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
+
 	CHECK(RemoveJa2ActiveTacticalActor(id), "arrival actor leaves overhead roster");
 	MemFree(gubGridNoMarkers); gubGridNoMarkers = nullptr;
 	actor.animationCache().reset(); gAnimSurfaceDatabase[0] = savedSurface;
