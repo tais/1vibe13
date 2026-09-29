@@ -12,9 +12,10 @@
 class MoveDiagnosticCapture
 {
 public:
-	explicit MoveDiagnosticCapture(bool enabled)
+	explicit MoveDiagnosticCapture(bool enabled, const char* environmentName = "JA2_COOP_MOVE_DIAGNOSTIC")
+		: environmentName_(environmentName)
 	{
-		if (const char* value = std::getenv("JA2_COOP_MOVE_DIAGNOSTIC")) { hadEnvironment_ = true; environment_ = value; }
+		if (const char* value = std::getenv(environmentName_.c_str())) { hadEnvironment_ = true; environment_ = value; }
 		setEnvironment(enabled ? "1" : nullptr);
 		file_ = std::tmpfile();
 		if (!file_) return;
@@ -46,13 +47,13 @@ public:
 		return result;
 	}
 private:
-	static void setEnvironment(const char* value)
+	void setEnvironment(const char* value)
 	{
 #ifdef _WIN32
-		_putenv_s("JA2_COOP_MOVE_DIAGNOSTIC", value ? value : "");
+		_putenv_s(environmentName_.c_str(), value ? value : "");
 #else
-		if (value) setenv("JA2_COOP_MOVE_DIAGNOSTIC", value, 1);
-		else unsetenv("JA2_COOP_MOVE_DIAGNOSTIC");
+		if (value) setenv(environmentName_.c_str(), value, 1);
+		else unsetenv(environmentName_.c_str());
 #endif
 	}
 	void restore()
@@ -66,6 +67,7 @@ private:
 #endif
 		saved_ = -1;
 	}
+	std::string environmentName_;
 	std::FILE* file_ = nullptr;
 	int saved_ = -1;
 	bool hadEnvironment_ = false;

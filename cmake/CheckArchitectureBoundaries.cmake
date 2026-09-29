@@ -10036,11 +10036,18 @@ extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
   "Cannot bound native inventory revision preparation")
 require_ordered_fragments(dedicated_live_inventory_swap_prepare_slice
   "Native swap preparation lost current-world private metadata revision revalidation"
-  "if (!onMainThread() || sourceSlot >= 256 || destinationSlot >= 256"
-  "expectedInventoryRevision == 0"
+  "const auto reject ="
+  "TraceDedicatedCoopInventoryRejection(stage, diagnostic)"
+  "return false;"
+  "if (!onMainThread()) return reject("
+  "if (sourceSlot >= 256 || destinationSlot >= 256 || expectedInventoryRevision == 0)"
+  "return reject("
   "GetJa2TacticalWorldAdapter().liveTurnIdentity()"
-  "inventoryAuthority_.capture(actor, world.worldGeneration, current)"
-  "current.inventoryRevision == expectedInventoryRevision"
+  "if (!world) return reject("
+  "if (!inventoryAuthority_.capture(actor, world.worldGeneration, current))"
+  "return reject("
+  "if (current.inventoryRevision != expectedInventoryRevision)"
+  "return reject("
   "PrepareSwapInventorySlotsCommand(actor")
 
 require_ordered_fragments(dedicated_live_server_process_intent_slice
