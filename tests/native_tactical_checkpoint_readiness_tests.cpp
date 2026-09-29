@@ -62,6 +62,92 @@ void ExpectHazard(Hazard hazard, const char* message)
 	CHECK(evidence.observed && evidence.actors.complete && Has(evidence, hazard), message);
 }
 
+auto WorldObjectState(const TacticalActor& actor)
+{
+	const auto& owner = actor.runtime().worldObject;
+	return std::make_tuple(owner.active(), owner.replicateCompletion,
+		owner.actorIncarnation(), owner.objectGrid(), owner.objectStructureId(),
+		owner.owner(), owner.awaitsDoorChange());
+}
+
+void ExpectWorldObjectEvidence(const TacticalActor& actor, bool active)
+{
+	const auto ownerBefore = WorldObjectState(actor);
+	const auto actorBefore = std::make_tuple(actor.position().gridNo(),
+		actor.actionPoints().current(), actor.vitals().health(), actor.vitals().breath(),
+		actor.animationPlayback().state(), actor.animationPlayback().code(),
+		actor.pathing().pathIndex(), actor.pathing().pathSize());
+	const auto worldBefore = CaptureJa2TacticalWorld();
+	const auto eventsBefore = GetEventQueueStatistics();
+	auto* random = GetGameSimulationRandomSource();
+	const auto rngBefore = random->checkpoint();
+	const auto epochBefore = random->consumptionEpoch();
+	for (int capture = 0; capture < 2; ++capture)
+	{
+		const auto evidence = CaptureJa2TacticalCheckpointReadiness();
+		CHECK(evidence.observed && evidence.actors.complete &&
+			evidence.actors.hazards == (active
+				? static_cast<std::uint32_t>(Hazard::WorldObjectContinuation) : 0u) &&
+			evidence.actors.busyActors == (active ? 1u : 0u),
+			"retained world-object owner is independently visible in an otherwise idle actor");
+		CHECK(!active || (evidence.actors.firstBusySlot == actor.identity().id().i &&
+			evidence.actors.firstBusyIncarnation == actor.identity().incarnation()),
+			"world-object evidence identifies the exact active actor");
+	}
+	const auto& worldAfter = CaptureJa2TacticalWorld();
+	const auto eventsAfter = GetEventQueueStatistics();
+	CHECK(WorldObjectState(actor) == ownerBefore && actorBefore ==
+		std::make_tuple(actor.position().gridNo(), actor.actionPoints().current(),
+			actor.vitals().health(), actor.vitals().breath(), actor.animationPlayback().state(),
+			actor.animationPlayback().code(), actor.pathing().pathIndex(), actor.pathing().pathSize()),
+		"repeated capture retains exact door identity, completion policy, phase and actor state");
+	CHECK(worldBefore.sector == worldAfter.sector && worldBefore.loaded == worldAfter.loaded &&
+		worldBefore.worldGeneration == worldAfter.worldGeneration &&
+		worldBefore.turnSerial == worldAfter.turnSerial && worldBefore.turn == worldAfter.turn &&
+		worldBefore.interrupt == worldAfter.interrupt &&
+		eventsBefore.primary == eventsAfter.primary && eventsBefore.delayed == eventsAfter.delayed &&
+		eventsBefore.demand == eventsAfter.demand && eventsBefore.payloadBytes == eventsAfter.payloadBytes &&
+		rngBefore == random->checkpoint() && epochBefore == random->consumptionEpoch() && callbacks == 0,
+		"world-object capture preserves world/turn, events, callbacks and canonical RNG state/epoch");
+}
+
+void CheckWorldObjectLifecycle(TacticalActor& actor)
+{
+	using Owner = SoldierWorldObjectContinuationOwner;
+	auto& door = actor.runtime().worldObject;
+	const auto incarnation = actor.identity().incarnation();
+	const INT32 grid = actor.position().gridNo() + 1;
+	constexpr UINT16 structure = 37;
+	for (Owner owner : {Owner::ActorAction, Owner::PathRoute})
+	{
+		door.begin(false, incarnation, grid, structure, owner);
+		ExpectWorldObjectEvidence(actor, true);
+		CHECK(!door.completeDoorChange(incarnation, grid, structure) &&
+			door.active() && !door.awaitsDoorChange(),
+			"genuine door keyframe retains owned completion and suppressed replication");
+		ExpectWorldObjectEvidence(actor, true);
+		const BOOLEAN replicate = owner == Owner::ActorAction
+			? door.consumeActorActionCompletionReplication()
+			: door.consumePathContinuationReplication();
+		CHECK(!replicate && !door.active(), "genuine final completion consumes the retained owner policy");
+		ExpectWorldObjectEvidence(actor, false);
+	}
+	// An unowned keyframe completes in one phase; cancellation clears either phase.
+	door.begin(true, incarnation, grid, structure);
+	ExpectWorldObjectEvidence(actor, true);
+	CHECK(door.completeDoorChange(incarnation, grid, structure) && !door.active(),
+		"unowned native door keyframe consumes its continuation");
+	ExpectWorldObjectEvidence(actor, false);
+	for (bool keyframeCompleted : {false, true})
+	{
+		door.begin(false, incarnation, grid, structure, Owner::PathRoute);
+		if (keyframeCompleted) door.completeDoorChange(incarnation, grid, structure);
+		ExpectWorldObjectEvidence(actor, true);
+		door.reset();
+		ExpectWorldObjectEvidence(actor, false);
+	}
+}
+
 TacticalActor& IdleActor(std::uint16_t slot, UINT8 team, bool inSector)
 {
 	auto& actor = GetJa2SoldierRepository().record(slot);
@@ -174,6 +260,9 @@ int main()
 	ExpectHazard(Hazard::DeferredCallback, "deferred actor damage callback observed");
 	CHECK(callbacks == 0 && bool(actor.runtime().pendingAction.delayedDamage), "observation retains callback without running it");
 	actor.runtime().pendingAction.delayedDamage = nullptr;
+
+	CheckWorldObjectLifecycle(actor);
+	CheckWorldObjectLifecycle(away);
 
 	SetJa2TacticalCurrentTeam(ENEMY_TEAM);
 	CHECK(CaptureJa2TacticalCheckpointReadiness().turn.currentTeam != gbPlayerNum, "enemy turn remains distinguishable");

@@ -24,7 +24,8 @@ enum class Ja2TacticalCheckpointActorHazard : std::uint32_t
 	ScheduleContinuation = 1u << 13,
 	DeferredCallback = 1u << 14,
 	Interaction = 1u << 15,
-	FireContinuation = 1u << 16
+	FireContinuation = 1u << 16,
+	WorldObjectContinuation = 1u << 17
 };
 
 struct Ja2TacticalCheckpointActorEvidence
