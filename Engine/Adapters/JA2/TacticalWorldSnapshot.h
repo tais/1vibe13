@@ -284,6 +284,11 @@ inline constexpr std::int32_t TacticalWorldCoordinateScale = 256;
 inline constexpr std::int32_t TacticalWorldCellSize = 10;
 inline constexpr std::uint8_t TacticalActorBodyTypeCount = 29;
 inline constexpr std::uint16_t TacticalAnimationStateCount = 370;
+// Named presentation values for the bounded adjacent medical UI. These are
+// asserted against the native animation enum; they add no wire fields.
+inline constexpr std::uint16_t TacticalMedicalIdleStandingAnimation = 1;
+inline constexpr std::uint16_t TacticalMedicalIdleCrouchedAnimation = 3;
+inline constexpr std::uint16_t TacticalMedicalIdleProneAnimation = 10;
 inline constexpr std::uint16_t TacticalAnimationSurfaceCount = 496;
 inline constexpr std::uint16_t TacticalAnimationSurfaceAbsent = 32000;
 inline constexpr std::size_t TacticalActorDisplayNameCodeUnits = 10;

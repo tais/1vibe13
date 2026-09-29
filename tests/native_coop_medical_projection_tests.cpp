@@ -1,4 +1,5 @@
 // Actual native carried inventory projection; no installed assets or client simulation.
+#include "Animation Control.h"
 #include "GameContext.h"
 #include "GameSettings.h"
 #include "Items.h"
@@ -13,6 +14,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+
+static_assert(TacticalMedicalIdleStandingAnimation == STANDING);
+static_assert(TacticalMedicalIdleCrouchedAnimation == CROUCHING);
+static_assert(TacticalMedicalIdleProneAnimation == PRONE);
 
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE;

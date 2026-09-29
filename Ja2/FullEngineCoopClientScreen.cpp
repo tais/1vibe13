@@ -1,6 +1,7 @@
 #include "FullEngineCoopClientScreen.h"
 
 #include "FullEngineCoopClientController.h"
+#include "FullEngineCoopClientMedicalInput.h"
 #include "FullEngineCoopClientPresentationInventory.h"
 #include "FullEngineCoopClientCampaignActionInput.h"
 #include "FullEngineCoopClientSurrenderInput.h"
@@ -351,17 +352,25 @@ bool PrepareInventoryPresentation(
 
 void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	FullEngineCoopClientControllerView& view,
-	bool retirementEligible) noexcept
+	bool retirementEligible, bool medicalModal) noexcept
 {
 	InputAtom event;
 	// This screen is the complete passive input consumer. Drain every queued
 	// atom so an ignored mouse event can never pin keyboard commands behind it.
 	while (DequeueEvent(&event))
 	{
+		const auto medical = RouteFullEngineCoopClientMedicalInput(Controller, view, event, medicalModal);
+		medicalModal = medicalModal || Controller.selectingFirstAid();
+		if (medical.consumed)
+		{
+			RetirementConfirmation.cancel();
+			if (medical.request) (void)Submit(medical.request, view);
+			continue;
+		}
 		const UINT32 key = event.usParam;
 		const bool leaveKey = key == 'l' || key == 'L';
 		const bool modal = Controller.targetingAttack() ||
-			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen();
+			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen() || Controller.selectingFirstAid();
 		if (modal) RetirementConfirmation.cancel();
 		if (leaveKey && !modal && retirementEligible)
 		{
@@ -905,7 +914,8 @@ void RenderPresentation(
 
 	const auto& actors = snapshot.actors();
 	const TacticalEntityId focusedActor = Controller.targetingAttack()
-		? Controller.attackTarget() : Controller.selectedActor();
+		? Controller.attackTarget() : Controller.selectingFirstAid()
+		? Controller.firstAidPatient() : Controller.selectedActor();
 	std::size_t selectedIndex = 0;
 	for (std::size_t index = 0; index < actors.size(); ++index)
 		if (actors[index].id == focusedActor)
@@ -1042,9 +1052,34 @@ void RenderPresentation(
 		mprintf(20, statusY, L"No command submitted");
 	}
 
+	if (!Controller.selectingFirstAid())
+	{
+		const auto* selected = snapshot.find(Controller.selectedActor());
+		if (selected)
+		{
+			SetFontForeground(FONT_MCOLOR_DKWHITE);
+			mprintf(20, SCREEN_HEIGHT - 80, L"Bleeding %d | equipped kit %u | providing aid %ls | receiving %u",
+				selected->bleeding, unsigned(selected->handMedicalKitPoints),
+				selected->medicalService.providing ? L"yes" : L"no", unsigned(selected->medicalService.receivingCount));
+		}
+	}
+
 	SetFontForeground(Controller.actionsEnabled(controllerView)
 		? FONT_MCOLOR_WHITE : FONT_MCOLOR_DKGRAY);
-	if (Controller.targetingAttack())
+	if (Controller.selectingFirstAid())
+	{
+		const auto patientId = Controller.firstAidPatient();
+		const auto* patient = snapshot.find(patientId);
+		std::array<wchar_t, TacticalActorDisplayNameCodeUnits + 1> name{};
+		if (patient)
+			for (std::size_t index = 0; index < TacticalActorDisplayNameCodeUnits; ++index)
+				name[index] = static_cast<wchar_t>(patient->presentation.displayNameUtf16[index]);
+		mprintf(20, SCREEN_HEIGHT - 80, L"Aid %ls (%u:%u)  life %d/%d  bleeding %d",
+			name.data(), unsigned(patientId.slot), unsigned(patientId.incarnation),
+			patient ? patient->life : 0, patient ? patient->maximumLife : 0, patient ? patient->bleeding : 0);
+		mprintf(20, SCREEN_HEIGHT - 64, L"Up/Down/Tab patient   Enter begin aid   Esc/Space cancel");
+	}
+	else if (Controller.targetingAttack())
 	{
 		const TacticalEntityId target = Controller.attackTarget();
 		const TacticalActorSnapshot* const targetActor = snapshot.find(target);
@@ -1080,10 +1115,10 @@ void RenderPresentation(
 	else if (snapshot.turn().interruptPhase ==
 		TacticalInterruptPhase::Active)
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop   T pass selected merc   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   B aid   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop/aid   T pass selected merc   L leave");
 	else
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop   T end   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   B aid   D door   I inventory   R reload   Q/E face   1/2/3 stance   Space stop/aid   T end   L leave");
 	SetFontForeground(FONT_MCOLOR_DKGRAY);
 	mprintf(20, SCREEN_HEIGHT - 40,
 		L"Worldless replica view: no local map, AI, clocks, pathing, or tactical simulation.");
@@ -1139,6 +1174,7 @@ void HandleFullEngineCoopClientScreen() noexcept
 
 void HandleFullEngineCoopClientInput() noexcept
 {
+	const bool medicalAtFrameStart = Controller.selectingFirstAid();
 	static FullEngineCoopClientCampaignTimeInput timeInput;
 	FullEngineCoopClientRuntime& runtime =
 		GetFullEngineCoopClientRuntime();
@@ -1165,6 +1201,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	if (CaptureFullEngineCoopClientMeanwhileControls(sceneControls))
 	{
 		BattleNoticeInput.reset(); SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
 		while (DequeueEvent(&event))
@@ -1191,6 +1228,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	if (CaptureFullEngineCoopClientBattleNoticeControls(notice))
 	{
 		SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
 		while (DequeueEvent(&event))
@@ -1217,6 +1255,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	if (CaptureFullEngineCoopClientSurrenderControls(surrender))
 	{
 		RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
 		while (DequeueEvent(&event))
@@ -1242,6 +1281,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	SurrenderInput.reset();
 	if (!presentationReady)
 	{
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
 		while (DequeueEvent(&event))
@@ -1314,7 +1354,30 @@ void HandleFullEngineCoopClientInput() noexcept
 	CampaignHireInput.reset();
 	FullEngineCoopClientControllerView view = ControllerView(presentation);
 	Controller.synchronize(view);
-	HandleInput(presentation, view, retirementEligible);
+	HandleInput(presentation, view, retirementEligible, medicalAtFrameStart);
+}
+
+bool CaptureFullEngineCoopClientMedicalControls(FullEngineCoopClientMedicalControls& output) noexcept
+{
+	output = {};
+	FullEngineCoopClientPresentationView presentation;
+	if (!GetFullEngineCoopClientRuntime().presentationView(presentation) ||
+		!presentation.snapshot || presentation.resynchronizing) return false;
+	const auto view = ControllerView(presentation);
+	if (!Controller.ready(view)) return false;
+	const auto* owner = view.inventoryFor(Controller.selectedActor());
+	if (!owner || (Controller.selectingFirstAid() && !Controller.firstAidSelectionCurrent(view))) return false;
+	output.sessionEpoch = owner->sessionEpoch;
+	output.worldGeneration = owner->worldGeneration;
+	output.publicRevision = presentation.state.revision;
+	output.baselineId = owner->baselineId;
+	output.inventoryRevision = owner->inventoryRevision;
+	output.outstandingCommandId = view.outstandingCommandId;
+	output.medic = Controller.selectedActor();
+	output.selecting = Controller.selectingFirstAid();
+	output.patient = Controller.firstAidPatient();
+	output.actionsEnabled = Controller.actionsEnabled(view);
+	return true;
 }
 
 bool CaptureFullEngineCoopClientMeanwhileControls(FullEngineCoopClientMeanwhileControls& output) noexcept

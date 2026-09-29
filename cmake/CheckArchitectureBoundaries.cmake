@@ -6342,7 +6342,7 @@ require_ordered_fragments(dedicated_inventory_panel_prepare
   "INTERFACE_WIDTH != 640 && INTERFACE_WIDTH != 800 && INTERFACE_WIDTH != 1024"
   "BuildFullEngineCoopClientPresentationInventoryLayout(")
 extract_brace_bounded_slice(dedicated_live_client_screen_code
-  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible) noexcept"
+  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible, bool medicalModal) noexcept"
   dedicated_inventory_panel_input "Cannot bound carried inventory input owner")
 require_ordered_fragments(dedicated_inventory_panel_input
   "Inventory clicks must consume input before tactical keys and use only typed controller requests"
@@ -6394,7 +6394,7 @@ require_ordered_fragments(shared_campaign_input
   "CampaignActionInput.handle(" "runtime.requestCampaignAction(*action)"
   "haveCampaign && localLeader" "timeInput.handle(" "runtime.requestCampaignTime(*timeAction)"
   "timeInput.reset()" "CampaignActionInput.reset()" "CampaignHireInput.reset()"
-  "HandleInput(presentation, view, retirementEligible)")
+  "HandleInput(presentation, view, retirementEligible, medicalAtFrameStart)")
 foreach(shared_observation IN ITEMS Groups Economy AimQuotes)
   set(shared_type "CoopCampaign${shared_observation}")
   extract_brace_bounded_slice(dedicated_live_client_runtime_code
@@ -9774,7 +9774,7 @@ require_ordered_fragments(dedicated_live_aimed_controller_submit_slice
   "target, aimTime")
 
 extract_brace_bounded_slice(dedicated_live_client_screen_code
-  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible) noexcept"
+  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible, bool medicalModal) noexcept"
   dedicated_live_client_input_slice
   "Cannot bound passive co-op screen input")
 require_ordered_fragments(dedicated_live_client_input_slice
@@ -10185,6 +10185,82 @@ require_ordered_fragments(dedicated_live_server_process_intent_slice
   "const bool caughtUp = peerCaughtUp(peer->identity)"
   "addPending(*peer, intent.commandId"
   "ingress_.handleTacticalIntent")
+# The passive medical mode names an exact current patient, retains no native
+# objects, and routes queued input before other tactical actions.
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientMedicalInput.cpp" medical_input_router_code)
+file(READ "${SOURCE_ROOT}/tests/native_coop_medical_input_tests.cpp" medical_input_test_code)
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "bool FullEngineCoopClientController::exactFirstAidSelectionCurrent(\n\tconst FullEngineCoopClientControllerView& view) const noexcept"
+  medical_selection_scope_slice "Cannot bound exact medical selection scope")
+require_ordered_fragments(medical_selection_scope_slice
+  "Medical choice lost authenticated owner/baseline/world/private revision or exact patient checks"
+  "view.inventoryFor(selectedActor_)" "firstAidMedic_ == selectedActor_"
+  "firstAidOwner_ == inventory->owner" "firstAidSessionEpoch_ == inventory->sessionEpoch"
+  "firstAidBaselineId_ == inventory->baselineId" "firstAidWorldEpoch_ == inventory->worldGeneration"
+  "firstAidInventoryRevision_ == inventory->inventoryRevision" "firstAidCandidate(view, firstAidPatient_)")
+require_ordered_fragments(medical_input_router_code
+  "Medical router lost modal revocation consumption before ordinary key handling"
+  "modalAtFrameStart || controller.selectingFirstAid()" "controller.synchronize(view)"
+  "if (wasSelecting)" "FullEngineCoopClientMedicalInputResult result{true, {}}"
+  "controller.submitFirstAid(view)" "event.usParam == 'b'" "controller.beginFirstAidSelection(view)")
+foreach(medical_input_regression IN ITEMS
+    "FullEngineCoopSnapshotReplica replica" "QueueEvent(KEY_DOWN, ENTER, 0)"
+    "while (DequeueEvent(&event))" "RouteFullEngineCoopClientMedicalInput"
+    "unrelated public revision preserves multi-key medical selection"
+    "new exact baseline revokes prior owner and selection lineage"
+    "foreign owner or session frame fails closed and revokes cached kit"
+    "application quit remains outside the medical input modal")
+  string(FIND "${medical_input_test_code}" "${medical_input_regression}" medical_input_test_position)
+  if(medical_input_test_position EQUAL -1)
+    message(FATAL_ERROR "Queued medical input regression lost '${medical_input_regression}'")
+  endif()
+endforeach()
+
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleInput(const FullEngineCoopClientPresentationView& presentation,\n\tFullEngineCoopClientControllerView& view,\n\tbool retirementEligible, bool medicalModal) noexcept"
+  medical_screen_input_slice "Cannot bound shipping medical Screen input handoff")
+require_ordered_fragments(medical_screen_input_slice
+  "Medical modal atom can fall through to another tactical action"
+  "while (DequeueEvent(&event))" "RouteFullEngineCoopClientMedicalInput(Controller, view, event, medicalModal)"
+  "medicalModal = medicalModal || Controller.selectingFirstAid()" "if (medical.consumed)"
+  "if (medical.request) (void)Submit(medical.request, view)" "continue;" "const bool leaveKey")
+require_ordered_fragments(dedicated_live_client_screen_code
+  "Fresh-view revocation lost its same-frame input barrier"
+  "const bool medicalAtFrameStart = Controller.selectingFirstAid()" "Controller.synchronize(view)"
+  "HandleInput(presentation, view, retirementEligible, medicalAtFrameStart)")
+
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleFullEngineCoopClientInput() noexcept"
+  medical_all_input_owners_slice "Cannot bound medical input owner handoff")
+require_ordered_fragments(medical_all_input_owners_slice
+  "Medical keys can escape into another input owner after revocation"
+  "const bool medicalAtFrameStart = Controller.selectingFirstAid()"
+  "if (CaptureFullEngineCoopClientMeanwhileControls(sceneControls))"
+  "ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)"
+  "if (CaptureFullEngineCoopClientBattleNoticeControls(notice))"
+  "ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)"
+  "if (CaptureFullEngineCoopClientSurrenderControls(surrender))"
+  "ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)"
+  "if (!presentationReady)"
+  "ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)"
+  "HandleInput(presentation, view, retirementEligible, medicalAtFrameStart)")
+extract_brace_bounded_slice(medical_input_router_code
+  "bool ConsumeFullEngineCoopClientMedicalOwnerChange(\n\tFullEngineCoopClientController& controller, bool medicalAtFrameStart) noexcept"
+  medical_handoff_slice "Cannot bound medical handoff frame consumer")
+require_ordered_fragments(medical_handoff_slice
+  "Medical handoff no longer revokes and drains its queued frame"
+  "if (!medicalAtFrameStart) return false" "controller.synchronize(FullEngineCoopClientControllerView{})"
+  "while (DequeueEvent(&discarded)) {}" "return true")
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "bool CaptureFullEngineCoopClientMedicalControls(FullEngineCoopClientMedicalControls& output) noexcept"
+  medical_controls_capture_slice "Cannot bound read-only medical UI observation")
+foreach(medical_capture_forbidden IN ITEMS "synchronize(" "cancel" "sendIntent(" "QueueEvent(" "DequeueEvent(")
+  string(FIND "${medical_controls_capture_slice}" "${medical_capture_forbidden}" medical_capture_position)
+  if(NOT medical_capture_position EQUAL -1)
+    message(FATAL_ERROR "Medical observation must not own input/revocation: '${medical_capture_forbidden}'")
+  endif()
+endforeach()
+
 # Protocol 21 is one atomic medical capability: exact patient kind 10 must
 # reach native preparation, while inventory kind 11 keeps its existing layout.
 foreach(medical_intent_contract IN ITEMS
@@ -13477,6 +13553,7 @@ foreach(dedicated_live_ja2_build_contract IN ITEMS
     "DedicatedCoopTacticalHost.cpp"
     "DedicatedCoopTacticalJa2LiveState.cpp"
     "FullEngineCoopClientController.cpp"
+    "FullEngineCoopClientMedicalInput.cpp"
     "FullEngineCoopClientRuntime.cpp"
     "FullEngineCoopClientScreen.cpp"
     "FullEngineCoopClientTacticalPlotRenderer.cpp"

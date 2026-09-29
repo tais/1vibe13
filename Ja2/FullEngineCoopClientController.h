@@ -119,6 +119,17 @@ public:
 	FullEngineCoopClientIntentRequest submitDoorOpenClose(
 		const FullEngineCoopClientControllerView& view) noexcept;
 
+	bool beginFirstAidSelection(const FullEngineCoopClientControllerView& view) noexcept;
+	bool selectNextPatient(const FullEngineCoopClientControllerView& view) noexcept;
+	bool selectPreviousPatient(const FullEngineCoopClientControllerView& view) noexcept;
+	void cancelFirstAidSelection() noexcept;
+	bool selectingFirstAid() const noexcept { return selectingFirstAid_; }
+	TacticalEntityId firstAidPatient() const noexcept { return firstAidPatient_; }
+	bool firstAidSelectionCurrent(const FullEngineCoopClientControllerView& view) const noexcept
+	{ return exactFirstAidSelectionCurrent(view); }
+	FullEngineCoopClientIntentRequest submitFirstAid(
+		const FullEngineCoopClientControllerView& view) noexcept;
+
 	bool openInventory(const FullEngineCoopClientControllerView& view) noexcept;
 	void closeInventory() noexcept;
 	bool inventoryOpen() const noexcept { return inventoryOpen_; }
@@ -157,6 +168,10 @@ private:
 	bool selectDoorRelative(
 		const FullEngineCoopClientControllerView& view,
 		bool forward) noexcept;
+	bool firstAidCandidate(const FullEngineCoopClientControllerView& view,
+		TacticalEntityId patient) const noexcept;
+	bool exactFirstAidSelectionCurrent(const FullEngineCoopClientControllerView& view) const noexcept;
+	bool selectPatientRelative(const FullEngineCoopClientControllerView& view, bool forward) noexcept;
 	FullEngineCoopClientIntentRequest request(
 		const FullEngineCoopClientControllerView& view,
 		const CoopSession::TacticalIntentPayload& payload) const noexcept;
@@ -175,6 +190,14 @@ private:
 	std::uint16_t selectedDoorStructureId_ = 0;
 	bool selectedDoorOpen_ = false;
 	bool selectingDoor_ = false;
+	bool selectingFirstAid_ = false;
+	TacticalEntityId firstAidMedic_{};
+	TacticalEntityId firstAidPatient_{};
+	CoopSession::PeerIdentity firstAidOwner_{};
+	std::uint64_t firstAidSessionEpoch_ = 0;
+	std::uint64_t firstAidBaselineId_ = 0;
+	std::uint64_t firstAidWorldEpoch_ = 0;
+	std::uint64_t firstAidInventoryRevision_ = 0;
 	bool inventoryOpen_ = false;
 	TacticalEntityId inventoryActor_{};
 	CoopSession::PeerIdentity inventoryOwner_{};

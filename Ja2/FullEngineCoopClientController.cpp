@@ -13,6 +13,14 @@ bool SupportedInventorySwapSlot(std::uint16_t slot) noexcept
 	return slot <= 6 || (slot >= 14 && slot < 55);
 }
 
+bool FirstAidIdlePose(const TacticalActorSnapshot& actor) noexcept
+{
+	if ((actor.presentation.flags & TacticalActorRenderPosePresent) == 0) return false;
+	return (actor.animation == TacticalMedicalIdleStandingAnimation && actor.stance == TacticalStance::Standing) ||
+		(actor.animation == TacticalMedicalIdleCrouchedAnimation && actor.stance == TacticalStance::Crouched) ||
+		(actor.animation == TacticalMedicalIdleProneAnimation && actor.stance == TacticalStance::Prone);
+}
+
 bool ValidView(const FullEngineCoopClientControllerView& view) noexcept
 {
 	return view.snapshot != nullptr &&
@@ -47,9 +55,13 @@ void FullEngineCoopClientController::synchronize(
 		cancelDestinationEntry();
 		cancelAttackTargeting();
 		cancelDoorSelection();
+		cancelFirstAidSelection();
 		closeInventory();
 		return;
 	}
+
+	if (selectingFirstAid_ && !exactFirstAidSelectionCurrent(view))
+		cancelFirstAidSelection();
 
 	if (inventoryOpen_)
 	{
@@ -83,6 +95,7 @@ void FullEngineCoopClientController::synchronize(
 			cancelDestinationEntry();
 			cancelAttackTargeting();
 			cancelDoorSelection();
+			cancelFirstAidSelection();
 		}
 		else if (targetingAttack_ &&
 			!attackTargetCandidate(view, attackTarget_))
@@ -107,6 +120,7 @@ void FullEngineCoopClientController::synchronize(
 	cancelDestinationEntry();
 	cancelAttackTargeting();
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 }
 
 bool FullEngineCoopClientController::ready(
@@ -191,6 +205,7 @@ bool FullEngineCoopClientController::selectRelative(
 			cancelDestinationEntry();
 			cancelAttackTargeting();
 			cancelDoorSelection();
+			cancelFirstAidSelection();
 		}
 		return true;
 	}
@@ -204,6 +219,7 @@ bool FullEngineCoopClientController::beginDestinationEntry(
 	closeInventory();
 	cancelAttackTargeting();
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	destination_[0] = '\0';
 	destinationLength_ = 0;
 	enteringDestination_ = true;
@@ -250,6 +266,7 @@ bool FullEngineCoopClientController::beginAttackTargeting(
 	closeInventory();
 	cancelDestinationEntry();
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	targetingAttack_ = true;
 	attackTarget_ = TacticalEntityId{};
 	attackAimTime_ = 1;
@@ -296,11 +313,13 @@ bool FullEngineCoopClientController::beginDoorSelection(
 	cancelDestinationEntry();
 	cancelAttackTargeting();
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	selectingDoor_ = true;
 	doorActor_ = selectedActor_;
 	doorWorldEpoch_ = view.snapshot->epoch();
 	if (selectDoorRelative(view, true)) return true;
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	return false;
 }
 
@@ -485,6 +504,7 @@ FullEngineCoopClientController::submitDoorOpenClose(
 	const CoopSession::DoorOpenCloseTacticalIntent payload{
 		selectedDoorBaseGrid_, selectedDoorStructureId_, !selectedDoorOpen_};
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	return request(view, payload);
 }
 
@@ -633,6 +653,109 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::request(
 	return output;
 }
 
+bool FullEngineCoopClientController::firstAidCandidate(
+	const FullEngineCoopClientControllerView& view, TacticalEntityId patientId) const noexcept
+{
+	if (!beginFirstAid(view, patientId)) return false;
+	const auto* medic = view.snapshot->find(selectedActor_);
+	const auto* patient = view.snapshot->find(patientId);
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!medic || !patient || !FirstAidIdlePose(*medic) || !FirstAidIdlePose(*patient) ||
+		!inventory || inventory->slots.size() <= 5) return false;
+	const auto& kit = inventory->slots[5];
+	return kit.support == CoopSession::CoopInventorySlotSupport::OrdinarySwappable &&
+		kit.statusKind == CoopSession::CoopInventoryStatusKind::MedicalKitPoints &&
+		kit.item == medic->loadout.primaryHand.item && kit.count == medic->loadout.primaryHand.quantity &&
+		kit.resourceTotal == medic->handMedicalKitPoints && kit.resourceTotal != 0;
+}
+
+bool FullEngineCoopClientController::exactFirstAidSelectionCurrent(
+	const FullEngineCoopClientControllerView& view) const noexcept
+{
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	return selectingFirstAid_ && firstAidMedic_ == selectedActor_ && inventory &&
+		firstAidOwner_ == inventory->owner && firstAidSessionEpoch_ == inventory->sessionEpoch &&
+		firstAidBaselineId_ == inventory->baselineId && firstAidWorldEpoch_ == inventory->worldGeneration &&
+		firstAidInventoryRevision_ == inventory->inventoryRevision &&
+		firstAidCandidate(view, firstAidPatient_);
+}
+
+bool FullEngineCoopClientController::beginFirstAidSelection(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	synchronize(view);
+	if (!actionsEnabled(view) || targetingAttack_ || enteringDestination_ || selectingDoor_ || inventoryOpen_)
+		return false;
+	cancelFirstAidSelection();
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!inventory) return false;
+	firstAidMedic_ = selectedActor_;
+	firstAidOwner_ = inventory->owner;
+	firstAidSessionEpoch_ = inventory->sessionEpoch;
+	firstAidBaselineId_ = inventory->baselineId;
+	firstAidWorldEpoch_ = inventory->worldGeneration;
+	firstAidInventoryRevision_ = inventory->inventoryRevision;
+	selectingFirstAid_ = true;
+	if (selectPatientRelative(view, true)) return true;
+	cancelFirstAidSelection();
+	return false;
+}
+
+bool FullEngineCoopClientController::selectPatientRelative(
+	const FullEngineCoopClientControllerView& view, bool forward) noexcept
+{
+	if (!selectingFirstAid_ || !actionsEnabled(view)) return false;
+	const auto& actors = view.snapshot->actors();
+	std::size_t selectedIndex = actors.size();
+	for (std::size_t index = 0; index < actors.size(); ++index)
+		if (actors[index].id == firstAidPatient_) { selectedIndex = index; break; }
+	for (std::size_t offset = 1; offset <= actors.size(); ++offset)
+	{
+		const std::size_t index = forward
+			? (selectedIndex == actors.size() ? offset - 1 : (selectedIndex + offset) % actors.size())
+			: (selectedIndex == actors.size() ? actors.size() - offset :
+				(selectedIndex + actors.size() - offset % actors.size()) % actors.size());
+		if (!firstAidCandidate(view, actors[index].id)) continue;
+		firstAidPatient_ = actors[index].id;
+		return true;
+	}
+	return false;
+}
+
+bool FullEngineCoopClientController::selectNextPatient(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	synchronize(view);
+	return selectingFirstAid_ && selectPatientRelative(view, true);
+}
+
+bool FullEngineCoopClientController::selectPreviousPatient(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	synchronize(view);
+	return selectingFirstAid_ && selectPatientRelative(view, false);
+}
+
+void FullEngineCoopClientController::cancelFirstAidSelection() noexcept
+{
+	selectingFirstAid_ = false;
+	firstAidMedic_ = {};
+	firstAidPatient_ = {};
+	firstAidOwner_ = {};
+	firstAidSessionEpoch_ = firstAidBaselineId_ = firstAidWorldEpoch_ = firstAidInventoryRevision_ = 0;
+}
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::submitFirstAid(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	synchronize(view);
+	if (!exactFirstAidSelectionCurrent(view)) return {};
+	const auto patient = firstAidPatient_;
+	cancelFirstAidSelection();
+	// The transport stamps the current public revision when this is sent.
+	return beginFirstAid(view, patient);
+}
+
 bool FullEngineCoopClientController::openInventory(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
@@ -642,6 +765,7 @@ bool FullEngineCoopClientController::openInventory(
 	cancelDestinationEntry();
 	cancelAttackTargeting();
 	cancelDoorSelection();
+	cancelFirstAidSelection();
 	closeInventory();
 	inventoryOpen_ = true;
 	inventoryActor_ = selectedActor_;

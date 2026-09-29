@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <Engine/Adapters/JA2/StrategicGroup.h>
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 struct FullEngineCoopClientCampaignControls
 {
@@ -25,6 +26,18 @@ struct FullEngineCoopClientCampaignHireControls
 	bool open = false, armed = false, enabled = false, canHire = false;
 };
 bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaignHireControls& output) noexcept;
+
+struct FullEngineCoopClientMedicalControls
+{
+	std::uint64_t sessionEpoch = 0, worldGeneration = 0, publicRevision = 0;
+	std::uint64_t baselineId = 0, inventoryRevision = 0, outstandingCommandId = 0;
+	TacticalEntityId medic{}, patient{};
+	bool selecting = false, actionsEnabled = false;
+};
+// Copied current medical choices for observation, never input or native state.
+// This does not synchronize/reset the controller: the input owner retains the
+// responsibility for consuming a revoked medical frame before any handoff.
+bool CaptureFullEngineCoopClientMedicalControls(FullEngineCoopClientMedicalControls& output) noexcept;
 
 // Small allocation-free UI ledger for irreversible voluntary retirement.
 // A first L down cannot confirm itself: the key must be released before a
