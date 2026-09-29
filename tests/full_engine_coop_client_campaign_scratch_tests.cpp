@@ -32,9 +32,10 @@ int Failures = 0;
 std::filesystem::path ActiveProfile;
 std::vector<std::uint8_t> ExpectedCheckpoint;
 std::vector<DedicatedCampaignSlot> ValidatedSlots;
-std::vector<DedicatedCampaignSlot> LoadedSlots;
+std::vector<DedicatedCampaignSlot> PreparedSlots;
 bool ValidationSucceeds = true;
-bool LoadSucceeds = true;
+bool PreparationSucceeds = true;
+unsigned AuthorityLoadCalls = 0;
 unsigned SaveCalls = 0;
 
 class TemporaryStateRoot
@@ -211,9 +212,10 @@ void ResetBridge()
 	ActiveProfile.clear();
 	ExpectedCheckpoint.clear();
 	ValidatedSlots.clear();
-	LoadedSlots.clear();
+	PreparedSlots.clear();
 	ValidationSucceeds = true;
-	LoadSucceeds = true;
+	PreparationSucceeds = true;
+	AuthorityLoadCalls = 0;
 	SaveCalls = 0;
 }
 
@@ -1213,10 +1215,12 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.activeGeneration() == 1 &&
 		ValidatedSlots == std::vector<DedicatedCampaignSlot>{
 			DedicatedCampaignSlot::A} &&
-		LoadedSlots == ValidatedSlots && SaveCalls == 0 &&
+		PreparedSlots == ValidatedSlots && SaveCalls == 0 && AuthorityLoadCalls == 0 &&
+		scratch.activeView() && scratch.activeView()->worldMinutes == first.worldMinutes &&
+		scratch.activeView()->profiles.size() == 1 &&
 		ReadBytes(ActiveProfile /
 			DedicatedCampaignLogicalScratch(DedicatedCampaignSlot::A)) == abc,
-		"verified materialization validates and loads before publishing slot A");
+		"verified materialization publishes an owned passive view without authority loading");
 
 	const std::vector<std::uint8_t> hello{'h', 'e', 'l', 'l', 'o'};
 	const CoopCampaignSyncMetadata second =
@@ -1231,11 +1235,11 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.activeSlot() == DedicatedCampaignSlot::B &&
 		scratch.activeGeneration() == 2 &&
 		ValidatedSlots.back() == DedicatedCampaignSlot::B &&
-		LoadedSlots.back() == DedicatedCampaignSlot::B,
-		"a later generation alternates to slot B and publishes only after load");
+		PreparedSlots.back() == DedicatedCampaignSlot::B,
+		"a later generation alternates to slot B and publishes only after passive preparation");
 	CHECK(scratch.begin(first) ==
 		FullEngineCoopCampaignScratchBeginResult::StorageFailure,
-		"scratch independently refuses generation rollback after a committed load");
+		"scratch independently refuses generation rollback after a committed projection");
 
 	CoopCampaignSyncMetadata sameGeneration = second;
 	++sameGeneration.transfer.transferId;
@@ -1248,7 +1252,7 @@ void TestSequentialCommitAlternationAndAbort()
 			FullEngineCoopCampaignScratchCommitResult::Committed &&
 		scratch.activeGeneration() == 2 &&
 		scratch.activeSlot() == DedicatedCampaignSlot::A &&
-		LoadedSlots.size() == 3,
+		PreparedSlots.size() == 3,
 		"a reconnect may recommit the exact active checkpoint under a fresh transfer id");
 	CoopCampaignSyncMetadata equivocating = sameGeneration;
 	++equivocating.transfer.transferId;
@@ -1268,6 +1272,17 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.writeExact(0, abc.data(), abc.size()) ==
 			FullEngineCoopCampaignScratchWriteResult::Success,
 		"third generation reuses the now-inactive slot");
+	const auto committedView = *scratch.activeView();
+	ExpectedCheckpoint = abc;
+	PreparationSucceeds = false;
+	CHECK(scratch.commitAndLoad(third) ==
+			FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
+		!scratch.failStopped() && scratch.activeView() && *scratch.activeView() == committedView &&
+		scratch.activeSlot() == DedicatedCampaignSlot::A && scratch.activeGeneration() == 2 &&
+		ReadBytes(ActiveProfile / DedicatedCampaignLogicalScratch(DedicatedCampaignSlot::A)) == hello &&
+		AuthorityLoadCalls == 0,
+		"missing replacement projection retains the committed file, generation and owned display view");
+	PreparationSucceeds = true;
 	scratch.abort();
 	CHECK(FileSize(campaign / "checkpoint-b.sav") == 0 &&
 		scratch.activeSlot() == DedicatedCampaignSlot::A &&
@@ -1307,7 +1322,7 @@ void TestFailureClassificationAndFailStop()
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(badHash) ==
 				FullEngineCoopCampaignScratchCommitResult::HashMismatch &&
-			ValidatedSlots.empty() && LoadedSlots.empty(),
+			ValidatedSlots.empty() && PreparedSlots.empty(),
 			"full-size bytes with the wrong SHA never reach JA2 validation or load");
 		scratch.abort();
 		CoopCampaignSyncMetadata oversized = metadata;
@@ -1375,7 +1390,7 @@ void TestFailureClassificationAndFailStop()
 		{
 			CHECK(scratch.commitAndLoad(metadata) ==
 					FullEngineCoopCampaignScratchCommitResult::StorageFailure &&
-				ValidatedSlots.empty() && LoadedSlots.empty(),
+				ValidatedSlots.empty() && PreparedSlots.empty(),
 				"unsafe VFS destination makes materialization fail before JA2");
 		}
 		scratch.abort();
@@ -1397,12 +1412,12 @@ void TestFailureClassificationAndFailStop()
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(metadata) ==
 				FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
-			!scratch.failStopped() && LoadedSlots.empty() &&
+			!scratch.failStopped() && PreparedSlots.empty() &&
 			!scratch.hasActiveCheckpoint(),
 			"strict validation failure is classified without loading or publication");
 		scratch.abort();
 		ValidationSucceeds = true;
-		LoadSucceeds = false;
+		PreparationSucceeds = false;
 		CoopCampaignSyncMetadata retry = metadata;
 		retry.transfer.transferId = 102;
 		CHECK(scratch.begin(retry) ==
@@ -1410,11 +1425,10 @@ void TestFailureClassificationAndFailStop()
 			scratch.writeExact(0, abc.data(), abc.size()) ==
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(retry) ==
-				FullEngineCoopCampaignScratchCommitResult::LoadFailed &&
-			scratch.failStopped() && !scratch.hasActiveCheckpoint() &&
-			scratch.begin(retry) ==
-				FullEngineCoopCampaignScratchBeginResult::StorageFailure,
-			"load failure is fail-stop and can never report or later publish committed");
+				FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
+			!scratch.failStopped() && !scratch.hasActiveCheckpoint() && !scratch.activeView() &&
+			AuthorityLoadCalls == 0,
+			"projection preparation failure publishes nothing and never invokes native loading");
 		scratch.abort();
 	}
 }
@@ -1434,12 +1448,25 @@ bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
 			ExpectedCheckpoint;
 }
 
-bool LoadDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
+bool LoadDedicatedCampaignGame(DedicatedCampaignSlot) noexcept
 {
-	LoadedSlots.push_back(slot);
-	return LoadSucceeds && !ActiveProfile.empty() &&
-		ReadBytes(ActiveProfile / DedicatedCampaignLogicalScratch(slot)) ==
-			ExpectedCheckpoint;
+	++AuthorityLoadCalls;
+	return false;
+}
+
+PassiveCampaignPreparationResult PreparePassiveDedicatedCampaignCheckpoint(
+	DedicatedCampaignSlot slot, std::uint32_t minute, PassiveCampaignView& output) noexcept
+{
+	if (!ValidateDedicatedCampaignGame(slot)) return PassiveCampaignPreparationResult::InvalidCheckpoint;
+	PreparedSlots.push_back(slot);
+	if (!PreparationSucceeds) return PassiveCampaignPreparationResult::MissingView;
+	PassiveCampaignView view;
+	view.worldMinutes = minute;
+	PassiveCampaignProfile profile;
+	profile.id = 4; profile.nickname[0] = 'T';
+	view.profiles.push_back(profile);
+	output = std::move(view);
+	return PassiveCampaignPreparationResult::Ready;
 }
 
 int main()

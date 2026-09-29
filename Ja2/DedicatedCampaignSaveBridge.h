@@ -2,6 +2,7 @@
 #define JA2_DEDICATED_CAMPAIGN_SAVE_BRIDGE_H
 
 #include "DedicatedCampaignStore.h"
+#include "PassiveCampaignView.h"
 
 // Fixed VFS-logical scratch names keep the legacy serializer away from native
 // campaign-store paths. They contain no directory separators and map only to
@@ -15,5 +16,10 @@ bool IsDedicatedCampaignPersistenceRequested() noexcept;
 bool SaveDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept;
 bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept;
 bool LoadDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept;
+
+// Passive validation returns owned display state; never invokes authority loading.
+PassiveCampaignPreparationResult PreparePassiveDedicatedCampaignCheckpoint(
+	DedicatedCampaignSlot slot, std::uint32_t expectedWorldMinutes,
+	PassiveCampaignView& output) noexcept;
 
 #endif

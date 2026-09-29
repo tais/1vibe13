@@ -2,6 +2,7 @@
 #define JA2_FULL_ENGINE_COOP_CLIENT_CAMPAIGN_SCRATCH_H
 
 #include "DedicatedCampaignStore.h"
+#include "PassiveCampaignView.h"
 
 #include <Multiplayer/FullEngineCoopCampaignSyncClient.h>
 #include <Multiplayer/FullEngineCoopClient.h>
@@ -67,6 +68,7 @@ public:
 	bool hasActiveCheckpoint() const noexcept;
 	DedicatedCampaignSlot activeSlot() const noexcept;
 	std::uint64_t activeGeneration() const noexcept;
+	const PassiveCampaignView* activeView() const noexcept;
 
 	FullEngineCoopReconnectCredentialLoadResult loadReconnectCredential(
 		AdmissionAck& credential) noexcept;

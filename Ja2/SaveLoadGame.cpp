@@ -2775,6 +2775,12 @@ static BOOLEAN SaveGameToPathImpl(int ubSaveGameID, CHAR16* pGameDesc,
 	preparedRuntimeSave.scheduleState.emplace();
 	if (!CaptureTacticalScheduleState(*preparedRuntimeSave.scheduleState))
 		goto FAILED_TO_SAVE;
+	if (dedicatedCampaign)
+	{
+		preparedRuntimeSave.passiveView.emplace();
+		if (!CapturePassiveCampaignView(*preparedRuntimeSave.passiveView))
+			goto FAILED_TO_SAVE;
+	}
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile

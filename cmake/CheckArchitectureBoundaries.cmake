@@ -2377,6 +2377,8 @@ require_ordered_fragments(dedicated_strict_runtime_commit_slice
   "TacticalReinforcementSaveSection"
   "EncodeTacticalScheduleSaveState(*prepared.scheduleState, bytes)"
   "TacticalScheduleSaveSection"
+  "EncodePassiveCampaignView(*prepared.passiveView, bytes)"
+  "PassiveCampaignViewSection"
   "runtimeSaveContainers().seal("
   "StrictRuntimeStillMatches("
   "guard.commitUnchanged()")
@@ -2400,7 +2402,9 @@ require_ordered_fragments(dedicated_strict_runtime_prepare_load_slice
   "RuntimeSaveContainerLoadError::MalformedContainer"
   "container.find(TacticalScheduleSaveSection)"
   "DecodeTacticalScheduleSaveState(schedules->payload, state)"
-  "container.sections.size() != 3u + (reinforcement ? 1u : 0u) + (schedules ? 1u : 0u)"
+  "container.find(PassiveCampaignViewSection)"
+  "DecodePassiveCampaignView(passive->payload, view)"
+  "container.sections.size() != 3u + (reinforcement ? 1u : 0u) + (schedules ? 1u : 0u) + (passive ? 1u : 0u)"
   "RuntimeCheckpointService::CurrentVersion"
   "PackageSaveArchiveService::CurrentVersion"
   "UsesCurrentPackageRandomSchema("
@@ -4710,6 +4714,11 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "DedicatedCoopStarterCampaignState::PreparedInitial"
   "DedicatedCoopStarterCampaignState::EstablishedCold"
   "impl_->entry != DedicatedCoopCampaignEntry::Resume"
+  "if (!rosterCheckpointRequired)"
+  "PreparePassiveDedicatedCampaignCheckpoint(stored->activeSlot, GetWorldTotalMin(), view)"
+  "PassiveCampaignPreparationResult::MissingView"
+  "rosterCheckpointRequired = true"
+  "prepared != PassiveCampaignPreparationResult::Ready"
   "rosterCheckpointRequired && !impl_->checkpointNow(context, true)"
   "StarterMissionState::WaitingForEstablishedCampaignReadyPeer"
   "StarterMissionState::WaitingForCampaignReadyPeer"
@@ -5756,14 +5765,38 @@ require_ordered_fragments(dedicated_live_client_scratch_commit_slice
   "SameMetadata(metadata, impl_->stagingMetadata)"
   "HashNativeFile("
   "digest != metadata.transfer.checkpointSha256"
-  "ValidateDedicatedCampaignGame(impl_->stagingSlot)"
-  "LoadDedicatedCampaignGame(impl_->stagingSlot)"
+  "PreparePassiveDedicatedCampaignCheckpoint(impl_->stagingSlot, metadata.worldMinutes, view)"
+  "PassiveCampaignPreparationResult::Ready"
+  "impl_->activeView = std::move(view)"
   "impl_->activeSlot = impl_->stagingSlot"
   "impl_->activeGeneration = metadata.transfer.checkpointGeneration"
   "impl_->activeMetadata = metadata"
   "impl_->hasActive = true"
   "ClearTransfer(*impl_)"
   "return FullEngineCoopCampaignScratchCommitResult::Committed")
+
+# Passive preparation must not acquire authority state, even transiently.
+file(READ "${SOURCE_ROOT}/Ja2/PassiveCampaignView.cpp" passive_checkpoint_contents)
+strip_cxx_comments(passive_checkpoint_contents passive_checkpoint_code)
+extract_brace_bounded_slice(passive_checkpoint_code
+  "PassiveCampaignPreparationResult PreparePassiveCampaignCheckpoint(GameContext& context, const std::string& path,\n\tstd::uint32_t expectedWorldMinutes, PassiveCampaignView& output) noexcept"
+  passive_checkpoint_prepare_slice "Cannot bound passive checkpoint preparation")
+require_ordered_fragments(passive_checkpoint_prepare_slice
+  "Passive checkpoint validation/adoption ordering changed"
+  "IsJa2TacticalWorldLoaded()" "BeginRuntimeLoadExecution(" "PrepareRuntimeLoad("
+  "guard.rollback()" "!prepared" "!prepared.passiveView"
+  "prepared.passiveView->worldMinutes != expectedWorldMinutes"
+  "output = std::move(*prepared.passiveView)" "return Result::Ready")
+foreach(passive_checkpoint_forbidden IN ITEMS
+    "LoadDedicatedCampaignGame(" "LoadSavedGame(" "RestorePreparedRuntimeSave("
+    "TrashWorld(" "SetCurrentWorldSector(" "RestoreSimulationRandom(")
+  foreach(passive_checkpoint_slice IN ITEMS passive_checkpoint_prepare_slice dedicated_live_client_scratch_commit_slice)
+    string(FIND "${${passive_checkpoint_slice}}" "${passive_checkpoint_forbidden}" passive_checkpoint_position)
+    if(NOT passive_checkpoint_position EQUAL -1)
+      message(FATAL_ERROR "Passive preparation acquired authority state via ${passive_checkpoint_forbidden}")
+    endif()
+  endforeach()
+endforeach()
 
 set(dedicated_live_client_prepare_marker
   "bool FullEngineCoopClientRuntime::prepareEarly(\n\tCancellationRequested cancellationRequested) noexcept")

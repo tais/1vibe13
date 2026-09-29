@@ -3,6 +3,7 @@
 
 #include "TacticalReinforcementSaveState.h"
 #include "TacticalScheduleSaveState.h"
+#include "PassiveCampaignView.h"
 
 #include <cstdint>
 #include <optional>
@@ -181,6 +182,7 @@ struct PreparedRuntimeSave
 	RuntimeRandomCheckpoint randomCheckpoint;
 	std::optional<TacticalReinforcementSaveState> reinforcementState;
 	std::optional<TacticalScheduleSaveState> scheduleState;
+	std::optional<PassiveCampaignView> passiveView;
 	RuntimeSavePolicyError policyError = RuntimeSavePolicyError::None;
 	RuntimeCheckpointSaveError checkpointError =
 		RuntimeCheckpointSaveError::InvalidCheckpoint;
@@ -270,6 +272,7 @@ struct PreparedRuntimeLoad
 	std::uint64_t domainBytes = 0;
 	std::optional<TacticalReinforcementSaveState> reinforcementState;
 	std::optional<TacticalScheduleSaveState> scheduleState;
+	std::optional<PassiveCampaignView> passiveView;
 	RuntimeCheckpoint checkpoint;
 	PackageSaveArchive packages;
 	std::string packageId;
