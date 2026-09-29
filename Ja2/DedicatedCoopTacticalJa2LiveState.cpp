@@ -1,4 +1,5 @@
 #include "DedicatedCoopMoveDiagnostic.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "DedicatedCoopMissionPolicy.h"
 
@@ -232,14 +233,30 @@ bool DedicatedCoopTacticalJa2LiveState::prepareSwapInventorySlots(
 	TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
 	std::uint64_t expectedInventoryRevision, SwapInventorySlotsCommand& command) const noexcept
 {
-	if (!onMainThread() || sourceSlot >= 256 || destinationSlot >= 256 ||
-		expectedInventoryRevision == 0) return false;
+	DedicatedCoopInventoryDiagnostic diagnostic;
+	diagnostic.actorSlot = actor.slot; diagnostic.incarnation = actor.incarnation;
+	diagnostic.sourceSlot = sourceSlot; diagnostic.destinationSlot = destinationSlot;
+	diagnostic.expected = expectedInventoryRevision;
+	const auto reject = [&](const char* stage) {
+		TraceDedicatedCoopInventoryRejection(stage, diagnostic);
+		return false;
+	};
+	if (!onMainThread()) return reject("admission.thread");
+	if (sourceSlot >= 256 || destinationSlot >= 256 || expectedInventoryRevision == 0)
+		return reject("admission.input");
 	CoopSession::CoopOwnerInventorySnapshot current;
 	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
-	return world && inventoryAuthority_.capture(actor, world.worldGeneration, current) &&
-		current.inventoryRevision == expectedInventoryRevision &&
-		PrepareSwapInventorySlotsCommand(actor, static_cast<std::uint8_t>(sourceSlot),
-			static_cast<std::uint8_t>(destinationSlot), command);
+	if (!world) return reject("admission.world");
+	diagnostic.world = world.worldGeneration; diagnostic.turn = world.serial;
+	if (!inventoryAuthority_.capture(actor, world.worldGeneration, current))
+		return reject("admission.capture");
+	diagnostic.observed = current.inventoryRevision;
+	if (current.inventoryRevision != expectedInventoryRevision)
+		return reject("admission.revision");
+	if (!PrepareSwapInventorySlotsCommand(actor, static_cast<std::uint8_t>(sourceSlot),
+		static_cast<std::uint8_t>(destinationSlot), command))
+		return reject("admission.native");
+	return true;
 }
 
 bool DedicatedCoopTacticalJa2LiveState::captureInventory(TacticalEntityId actor,

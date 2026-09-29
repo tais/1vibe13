@@ -1,6 +1,10 @@
 // Real retained native inventory execution with data-free item/map/animation
 // fixtures. Fault injection is confined to this standalone test process.
 #include "Animation Cache.h"
+#include "DedicatedCoopTacticalHost.h"
+#include "move_diagnostic_capture.h"
+#include "random.h"
+#include <Engine/Core/SimulationRandom.h>
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "CoopInventoryAuthority.h"
@@ -100,6 +104,10 @@ int main(int argc, char** argv)
 	const bool copyFailure = argc == 2 && std::strcmp(argv[1], "--copy-failure") == 0;
 	const bool missingAnimation = argc == 2 && std::strcmp(argv[1], "--missing-animation") == 0;
 	const bool missingLight = argc == 2 && std::strcmp(argv[1], "--missing-light") == 0;
+	CHECK(InstallGameSimulationRandom(20260929) == GameSimulationRandomInstallError::None, "native inventory RNG installed");
+	auto* campaignRandom = GetGameSimulationRandomSource();
+	CHECK(campaignRandom != nullptr, "native inventory RNG available");
+	if (!campaignRandom) return 1;
 	GameContext& game = GetGameContext();
 	const bool running = game.beginInitialization() &&
 		game.advancePackagesTo(PackageBootstrapPhase::StartRuntime) && game.markRunning();
@@ -355,6 +363,101 @@ int main(int argc, char** argv)
 			actor.pendingAction().action(), actor.status().flags(), actor.fireControl().bulletsLeft(),
 			static_cast<bool>(actor.runtime().pendingAction.delayedDamage));
 	};
+	// The same real admission is observed both with diagnostics absent and enabled.
+	// Faults remain test-only; neither path may mutate inventory, AP, native pending
+	// work, the authority ledger, the journal, or the simulation RNG/epoch.
+	DedicatedCoopTacticalJa2LiveState liveState(game);
+	const auto diagnosticState = [&] {
+		std::array<std::uint64_t, NUM_INV_SLOTS> objects{};
+		for (std::size_t slot = 0; slot < objects.size(); ++slot)
+			objects[slot] = CaptureInventorySwapObjectState(id, static_cast<std::uint8_t>(slot));
+		CoopSession::CoopOwnerInventorySnapshot privateView;
+		const bool captured = liveState.captureInventory(id, worldIdentity.worldGeneration, privateView);
+		return std::make_tuple(objects, captured, privateView, pendingState(),
+			actor.position().gridNo(), actor.position().level(), actor.position().direction(),
+			actor.animationPlayback().surface(), actor.actionPoints().current(), actor.vitals().health(),
+			actor.vitals().breath(), actor.service().hasPartner(), actor.service().hasProviders(),
+			game.commands().size(), game.commandJournal().size(), IsJa2TacticalWorldIntegrityValid(),
+			campaignRandom->checkpoint(), campaignRandom->consumptionEpoch());
+	};
+	const auto commandState = [](const SwapInventorySlotsCommand& value) {
+		return std::make_tuple(value.soldier, value.sourceSlot, value.destinationSlot,
+			value.expectedWorldGeneration, value.expectedTurnSerial, value.expectedActorGrid,
+			value.expectedActorLevel, value.expectedAnimationState, value.expectedDirection,
+			value.expectedActorStateFingerprint, value.sourceStateFingerprint,
+			value.destinationStateFingerprint, value.handStateFingerprint,
+			value.offhandStateFingerprint, value.expectedActionPointCost, value.source, value.authority);
+	};
+	const auto checkDiagnostic = [&](auto prepare, bool expectedReady, const char* expectedStage, const char* traceDetail = nullptr) {
+		const auto before = diagnosticState();
+		SwapInventorySlotsCommand outputs[2];
+		outputs[0].expectedWorldGeneration = outputs[1].expectedWorldGeneration = 999;
+		const auto sentinel = commandState(outputs[0]);
+		for (unsigned enabled = 0; enabled != 2; ++enabled)
+		{
+			MoveDiagnosticCapture trace(enabled != 0, "JA2_COOP_INVENTORY_DIAGNOSTIC");
+			const bool traceValid = trace.valid();
+			const bool ready = prepare(outputs[enabled]);
+			const std::string output = trace.finish();
+			CHECK(traceValid && ready == expectedReady, "diagnostic does not change native admission outcome");
+			CHECK(!enabled || !expectedStage ? output.empty() :
+				output.find(std::string("[coop-inventory] stage=") + expectedStage + " actor=0:101 ") == 0,
+				"default-off trace is silent; enabled trace identifies the actual first failed preflight stage");
+			CHECK(!enabled || !traceDetail || output.find(traceDetail) != std::string::npos,
+				"multi-valued native modes occupy only their named diagnostic bit");
+			CHECK(expectedReady || commandState(outputs[enabled]) == sentinel,
+				"rejected traced and untraced preparation leave the complete output sentinel intact");
+			CHECK(diagnosticState() == before,
+				"traced and untraced preparation preserve all inventory proofs, private ledger, AP, pose, pending work, journal and RNG/epoch");
+		}
+		CHECK(commandState(outputs[0]) == commandState(outputs[1]),
+			"enabled and disabled traces produce identical complete prepared commands");
+	};
+	const auto prepareNative = [&](SwapInventorySlotsCommand& output) {
+		return PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, output);
+	};
+	checkDiagnostic(prepareNative, true, nullptr);
+	actor.pathing().desiredDirection() = EAST;
+	checkDiagnostic(prepareNative, false, "resolve.desired_direction");
+	actor.pathing().desiredDirection() = SOUTH;
+	actor.animationIntent().queueAnimation(HOPFENCE);
+	checkDiagnostic(prepareNative, false, "resolve.pose");
+	actor.animationIntent().clearPendingAnimations();
+	actor.animationActivity().turningFromProneMode() = 2;
+	checkDiagnostic(prepareNative, false, "resolve.pose", " activity=8 ");
+	actor.animationActivity().turningFromProneMode() = 0;
+	actor.fireControl().reloading() = 2;
+	checkDiagnostic(prepareNative, false, "resolve.pose", " other=64\n");
+	actor.fireControl().reloading() = FALSE;
+	gAnimSurfaceDatabase[0].hVideoObject = nullptr;
+	checkDiagnostic(prepareNative, false, "resolve.surface_unloaded");
+	gAnimSurfaceDatabase[0].hVideoObject = &video;
+	pocket.ubNumberOfObjects += 1;
+	checkDiagnostic(prepareNative, false, "prepare.source_object");
+	pocket.ubNumberOfObjects -= 1;
+	checkDiagnostic([&](SwapInventorySlotsCommand& output) {
+		return PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HELMETPOS, output);
+	}, false, "resolve.placement");
+	actor.actionPoints().current() = 0;
+	checkDiagnostic(prepareNative, false, "prepare.cost");
+	actor.actionPoints().current() = 20;
+	CoopSession::CoopOwnerInventorySnapshot diagnosticPrivate;
+	CHECK(liveState.captureInventory(id, worldIdentity.worldGeneration, diagnosticPrivate), "real adapter private revision available");
+	checkDiagnostic([&](SwapInventorySlotsCommand& output) {
+		return liveState.prepareSwapInventorySlots(id, BIGPOCK1POS, HANDPOS,
+			diagnosticPrivate.inventoryRevision + 1, output);
+	}, false, "admission.revision");
+	actor.pathing().desiredDirection() = EAST;
+	checkDiagnostic([&](SwapInventorySlotsCommand& output) {
+		return liveState.prepareSwapInventorySlots(id, BIGPOCK1POS, HANDPOS,
+			diagnosticPrivate.inventoryRevision, output);
+	}, false, "resolve.desired_direction");
+	actor.pathing().desiredDirection() = SOUTH;
+	checkDiagnostic([&](SwapInventorySlotsCommand& output) {
+		return liveState.prepareSwapInventorySlots(id, BIGPOCK1POS, HANDPOS,
+			diagnosticPrivate.inventoryRevision, output);
+	}, true, nullptr);
+
 	const auto rejectsBusyState = [&](auto makeBusy, const char* message) {
 		SwapInventorySlotsCommand retained;
 		if (!PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, retained))

@@ -10,6 +10,7 @@
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "DedicatedCoopMoveDiagnostic.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
@@ -973,36 +974,120 @@ namespace
 		return fingerprint != 0 ? fingerprint : 1;
 	}
 
+	void TraceInventorySwapFailure(const char* stage, const SwapInventorySlotsCommand& command,
+		const TacticalActor* actor = nullptr, std::uint64_t expected = 0, std::uint64_t observed = 0) noexcept
+	{
+		if (!DedicatedCoopInventoryDiagnosticEnabled()) return;
+		DedicatedCoopInventoryDiagnostic value;
+		value.actorSlot = command.soldier.slot; value.incarnation = command.soldier.incarnation;
+		value.sourceSlot = command.sourceSlot; value.destinationSlot = command.destinationSlot;
+		value.world = command.expectedWorldGeneration; value.turn = command.expectedTurnSerial;
+		value.expected = expected; value.observed = observed;
+		if (actor)
+		{
+			// Raw scalar accessors only: never resolve an actor, recapture objects,
+			// or re-run readiness, placement, cost, or native preparation for a trace.
+			value.actorObserved = true;
+			value.grid = actor->position().gridNo();
+			value.animation = actor->animationPlayback().state();
+			value.surface = actor->animationPlayback().surface();
+			value.actionPoints = actor->actionPoints().current();
+			value.direction = actor->position().direction();
+			value.desiredDirection = actor->pathing().desiredDirection();
+			value.pathIndex = actor->pathing().pathIndex(); value.pathSize = actor->pathing().pathSize();
+			const auto& intent = actor->animationIntent();
+			value.desiredHeight = intent.desiredHeight();
+			// Bits follow the listed predicates in increasing order.
+			value.intentFlags = unsigned(intent.hasPendingAnimation() != 0) |
+				(unsigned(intent.hasSecondaryPendingAnimation() != 0) << 1) |
+				(unsigned(intent.hasPendingStance() != 0) << 2) | (unsigned(intent.hasPendingDirection() != 0) << 3) |
+				(unsigned(intent.continuesAfterStance() != 0) << 4) | (unsigned(intent.stopPendingNextTile() != 0) << 5) |
+				(unsigned(intent.turningFromUi() != 0) << 6) | (unsigned(intent.hasDesiredHeight() != 0) << 7);
+			const auto& activity = actor->animationActivity();
+			value.activityFlags = unsigned(activity.nonInterruptible() != 0) |
+				(unsigned(activity.realtimeNonInterruptible() != 0) << 1) | (unsigned(activity.turningUntilDone() != 0) << 2) |
+				(unsigned(activity.turningFromProneMode() != 0) << 3) | (unsigned(activity.turningToShoot() != 0) << 4) |
+				(unsigned(activity.turningToFall() != 0) << 5) | (unsigned(activity.tryingToFall() != 0) << 6) |
+				(unsigned(activity.paused() != 0) << 7) | (unsigned(activity.gettingHit() != 0) << 8) |
+				(unsigned(activity.holdAttackerUntilDone() != 0) << 9) | (unsigned(activity.suppressionStanceChange() != 0) << 10);
+			const auto& movement = actor->movement();
+			value.movementFlags = unsigned(movement.delayed() != 0) | (unsigned(movement.movementPaused() != 0) << 1) |
+				(unsigned(movement.outOfActionPoints() != 0) << 2) | (unsigned(movement.waitingForAction() != 0) << 3) |
+				(unsigned(movement.turnActive() != 0) << 4) | (unsigned(movement.continuedPathValid() != 0) << 5) |
+				(unsigned(movement.delayedByNetwork() != 0) << 6);
+			value.otherFlags = unsigned(actor->pendingAction().active()) |
+				(unsigned(actor->runtime().worldObject.active()) << 1) |
+				(unsigned(actor->runtime().pendingAction.delayedDamage != 0) << 2) |
+				(unsigned((actor->status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) != 0) << 3) |
+				(unsigned(actor->schedule().assigned()) << 4) | (unsigned(actor->schedule().doorContinuationPending()) << 5) |
+				(unsigned(actor->fireControl().reloading() != 0) << 6) | (unsigned(actor->fireControl().bulletsLeft() != 0) << 7) |
+				(unsigned(actor->fireControl().burstCounter() != 0) << 8) | (unsigned(actor->fireControl().autofireShots() != 0) << 9) |
+				(unsigned(actor->service().hasPartner()) << 10) | (unsigned(actor->service().hasProviders()) << 11) |
+				(unsigned(actor->vitals().isUndergoingSurgery()) << 12);
+		}
+		TraceDedicatedCoopInventoryRejection(stage, value);
+	}
+
 	TacticalActor* ResolveInventorySwap(const SwapInventorySlotsCommand& command)
 	{
-		if (!IsStructurallyValidSwapInventorySlotsCommand(command) ||
-			is_networked || is_client || is_server || !IsJa2TacticalWorldIntegrityValid() ||
-			!HasNetworkPeerTacticalExecutionContext()) return nullptr;
+		const auto reject = [&](const char* stage, const TacticalActor* actor = nullptr,
+			std::uint64_t expected = 0, std::uint64_t observed = 0) -> TacticalActor* {
+			TraceInventorySwapFailure(stage, command, actor, expected, observed);
+			return nullptr;
+		};
+		if (!IsStructurallyValidSwapInventorySlotsCommand(command)) return reject("resolve.structure");
+		if (is_networked || is_client || is_server) return reject("resolve.legacy_network");
+		if (!IsJa2TacticalWorldIntegrityValid()) return reject("resolve.integrity");
+		if (!HasNetworkPeerTacticalExecutionContext()) return reject("resolve.context");
 		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
-		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
-			identity.serial != command.expectedTurnSerial) return nullptr;
+		if (!identity) return reject("resolve.world");
+		if (identity.worldGeneration != command.expectedWorldGeneration)
+			return reject("resolve.world_generation", nullptr, command.expectedWorldGeneration, identity.worldGeneration);
+		if (identity.serial != command.expectedTurnSerial)
+			return reject("resolve.turn", nullptr, command.expectedTurnSerial, identity.serial);
 		TacticalActor* const actor = ResolveCoopAuthorizedLegacyCommandActor(
 			command.soldier, command.source, command.authority);
-		if (!actor || actor->identity().bodyType() > REGFEMALE ||
-			actor->inventory().size() != NUM_INV_SLOTS || !InventorySwapPoseReady(*actor) ||
-			actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
-			!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject ||
-			(gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
-			actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
-			actor->position().level() != command.expectedActorLevel ||
-			actor->animationPlayback().state() != command.expectedAnimationState ||
-			actor->position().direction() != command.expectedDirection ||
-			actor->pathing().desiredDirection() != command.expectedDirection ||
-			CaptureInventorySwapCommandActorState(*actor, command.sourceSlot, command.destinationSlot) !=
-				command.expectedActorStateFingerprint ||
-			CaptureOrdinaryInventoryObject(actor->inventory()[command.sourceSlot]) != command.sourceStateFingerprint ||
-			CaptureOrdinaryInventoryObject(actor->inventory()[command.destinationSlot]) != command.destinationStateFingerprint ||
-			CaptureOrdinaryInventoryObject(actor->inventory()[HANDPOS]) != command.handStateFingerprint ||
-			CaptureOrdinaryInventoryObject(actor->inventory()[SECONDHANDPOS]) != command.offhandStateFingerprint ||
-			!InventorySwapPlacementReady(*actor, command.sourceSlot, command.destinationSlot)) return nullptr;
+		if (!actor) return reject("resolve.authority");
+		if (actor->identity().bodyType() > REGFEMALE || actor->inventory().size() != NUM_INV_SLOTS)
+			return reject("resolve.actor_shape", actor);
+		if (!InventorySwapPoseReady(*actor)) return reject("resolve.pose", actor);
+		if (actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES)
+			return reject("resolve.surface_index", actor);
+		if (!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject)
+			return reject("resolve.surface_unloaded", actor);
+		if ((gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0)
+			return reject("resolve.fire_ready", actor);
+		if (actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
+			actor->position().level() != command.expectedActorLevel)
+			return reject("resolve.position", actor);
+		if (actor->animationPlayback().state() != command.expectedAnimationState)
+			return reject("resolve.animation", actor, command.expectedAnimationState, actor->animationPlayback().state());
+		if (actor->position().direction() != command.expectedDirection)
+			return reject("resolve.direction", actor, command.expectedDirection, actor->position().direction());
+		if (actor->pathing().desiredDirection() != command.expectedDirection)
+			return reject("resolve.desired_direction", actor, command.expectedDirection, actor->pathing().desiredDirection());
+		const auto actorState = CaptureInventorySwapCommandActorState(*actor, command.sourceSlot, command.destinationSlot);
+		if (actorState != command.expectedActorStateFingerprint)
+			return reject("resolve.actor_fingerprint", actor, command.expectedActorStateFingerprint, actorState);
+		const auto sourceState = CaptureOrdinaryInventoryObject(actor->inventory()[command.sourceSlot]);
+		if (sourceState != command.sourceStateFingerprint)
+			return reject("resolve.source_fingerprint", actor, command.sourceStateFingerprint, sourceState);
+		const auto destinationState = CaptureOrdinaryInventoryObject(actor->inventory()[command.destinationSlot]);
+		if (destinationState != command.destinationStateFingerprint)
+			return reject("resolve.destination_fingerprint", actor, command.destinationStateFingerprint, destinationState);
+		const auto handState = CaptureOrdinaryInventoryObject(actor->inventory()[HANDPOS]);
+		if (handState != command.handStateFingerprint)
+			return reject("resolve.hand_fingerprint", actor, command.handStateFingerprint, handState);
+		const auto offhandState = CaptureOrdinaryInventoryObject(actor->inventory()[SECONDHANDPOS]);
+		if (offhandState != command.offhandStateFingerprint)
+			return reject("resolve.offhand_fingerprint", actor, command.offhandStateFingerprint, offhandState);
+		if (!InventorySwapPlacementReady(*actor, command.sourceSlot, command.destinationSlot))
+			return reject("resolve.placement", actor);
 		std::int16_t cost = 0;
-		if (!InventorySwapCost(*actor, command.sourceSlot, command.destinationSlot, cost) ||
-			cost != command.expectedActionPointCost) return nullptr;
+		if (!InventorySwapCost(*actor, command.sourceSlot, command.destinationSlot, cost))
+			return reject("resolve.cost", actor);
+		if (cost != command.expectedActionPointCost)
+			return reject("resolve.cost_changed", actor, command.expectedActionPointCost, cost);
 		return actor;
 	}
 
@@ -3085,14 +3170,19 @@ bool PrepareSwapInventorySlotsCommand(TacticalEntityId actor,
 	std::uint8_t sourceSlot, std::uint8_t destinationSlot,
 	SwapInventorySlotsCommand& output) noexcept
 {
+	SwapInventorySlotsCommand prepared;
+	prepared.soldier = actor; prepared.sourceSlot = sourceSlot; prepared.destinationSlot = destinationSlot;
 	try
 	{
 		TacticalActor* const live = ResolveLiveCommandActor(actor);
 		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
 		if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS ||
 			!IsSupportedInventorySwapSlot(sourceSlot) || !IsSupportedInventorySwapSlot(destinationSlot) ||
-			sourceSlot == destinationSlot) return false;
-		SwapInventorySlotsCommand prepared;
+			sourceSlot == destinationSlot)
+		{
+			TraceInventorySwapFailure("prepare.input", prepared, live);
+			return false;
+		}
 		prepared.soldier = actor;
 		prepared.sourceSlot = sourceSlot;
 		prepared.destinationSlot = destinationSlot;
@@ -3107,14 +3197,25 @@ bool PrepareSwapInventorySlotsCommand(TacticalEntityId actor,
 		prepared.destinationStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[destinationSlot]);
 		prepared.handStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[HANDPOS]);
 		prepared.offhandStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[SECONDHANDPOS]);
-		if (prepared.sourceStateFingerprint == 0 || prepared.destinationStateFingerprint == 0 ||
-			prepared.handStateFingerprint == 0 || prepared.offhandStateFingerprint == 0 ||
-			!InventorySwapCost(*live, sourceSlot, destinationSlot, prepared.expectedActionPointCost) ||
-			ResolveInventorySwap(prepared) != live) return false;
+		const auto reject = [&](const char* stage) {
+			TraceInventorySwapFailure(stage, prepared, live);
+			return false;
+		};
+		if (prepared.sourceStateFingerprint == 0) return reject("prepare.source_object");
+		if (prepared.destinationStateFingerprint == 0) return reject("prepare.destination_object");
+		if (prepared.handStateFingerprint == 0) return reject("prepare.hand_object");
+		if (prepared.offhandStateFingerprint == 0) return reject("prepare.offhand_object");
+		if (!InventorySwapCost(*live, sourceSlot, destinationSlot, prepared.expectedActionPointCost))
+			return reject("prepare.cost");
+		if (ResolveInventorySwap(prepared) != live) return false;
 		output = prepared;
 		return true;
 	}
-	catch (...) { return false; } // Preparation has not mutated the actor or copied objects.
+	catch (...)
+	{
+		TraceInventorySwapFailure("prepare.exception", prepared);
+		return false; // Preparation has not mutated the actor or copied objects.
+	}
 }
 
 bool PrepareReloadWeaponCommand(
