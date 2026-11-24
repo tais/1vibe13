@@ -316,7 +316,11 @@ jobs:
 
       - name: Run tests under AddressSanitizer
         run: |
-          export LD_LIBRARY_PATH="$(clang --print-runtime-dir):${LD_LIBRARY_PATH:-}"
+          # The linker can pick the shared runtime from the legacy lib/linux
+          # layout while --print-runtime-dir reports the per-target layout, so
+          # add the directory of the exact library that was linked too.
+          asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
+          export LD_LIBRARY_PATH="$(dirname "$asan_runtime"):$(clang --print-runtime-dir):${LD_LIBRARY_PATH:-}"
           ctest --test-dir build --output-on-failure
 
       - name: sccache stats

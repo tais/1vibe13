@@ -632,7 +632,7 @@ def certify_two_client_inventory(clients, server, timeout_seconds: float) -> dic
             if label.startswith("restore") and (expected != original or evidence["primary_after"] != original_primary):
                 raise InventoryFailure("restoration did not recover exact original owner summaries and primary loadout")
             print(f"installed inventory: {label}, client {sender + 1}, actor {identity}, "
-                  f"Applied with owner revision {evidence['inventory_revision_before']}→"
+                  f"Applied with owner revision {evidence['inventory_revision_before']}->"
                   f"{evidence['inventory_revision_after']} and matching public primary", flush=True)
         ui = _certify_inventory_ui(probes, guard, clients, sender, world, deadline,
                                    swap_plan=(identity, equip_source, original))

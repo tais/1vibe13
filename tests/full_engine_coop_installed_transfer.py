@@ -174,7 +174,7 @@ def certify_two_client_transfer(clients, server, timeout_seconds):
                                               left, right, states, deadline)
             evidence["action"] = label
             actions.append(evidence)
-            print(f"installed transfer: {label}, client {sender + 1}, {giver}→{receiver}, "
+            print(f"installed transfer: {label}, client {sender + 1}, {giver}->{receiver}, "
                   f"both owner revisions advanced; exact stack metrics conserved", flush=True)
         if any(_inventories(states)[sender][actor_id]["slots"] != _inventories(initial)[sender][actor_id]["slots"]
                for actor_id in (identity, target)):

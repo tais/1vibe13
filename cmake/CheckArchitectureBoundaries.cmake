@@ -1,3 +1,9 @@
+# Script mode (-P) starts with no policy settings. Pin them to the project's
+# minimum so CMP0054 (quoted if() arguments are never dereferenced) is NEW on
+# every CMake. Otherwise CMake 3.x and 4.x evaluate the STREQUAL checks below
+# differently.
+cmake_minimum_required(VERSION 3.20)
+
 if(NOT DEFINED SOURCE_ROOT)
   message(FATAL_ERROR "SOURCE_ROOT is required")
 endif()
