@@ -9,6 +9,7 @@
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "DedicatedCoopMoveDiagnostic.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
