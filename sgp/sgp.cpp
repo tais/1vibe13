@@ -44,6 +44,7 @@
 #include "DedicatedCoopRuntime.h"
 #include "DedicatedServerOptions.h"
 #include "FullEngineCoopClientOptions.h"
+#include "FullEngineCoopClientPresentationRuntime.h"
 #include "FullEngineCoopClientRuntime.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
@@ -778,7 +779,13 @@ SubsystemRuntime& GetStandardGamingPlatformRuntime()
 			[] { return true; },
 			[] {
 				if (IsFullEngineCoopClientProcess())
+				{
+					// Renderer proxies own tile/animation resources and must be
+					// detached before transport drops their source identity and
+					// before the later game boundary destroys tactical services.
+					ShutdownFullEngineCoopClientPresentation();
 					GetFullEngineCoopClientRuntime().stopTransport();
+				}
 			}, 0}});
 	return runtime;
 }
@@ -1590,10 +1597,18 @@ int main(int argc, char** argv)
 	if (IsDedicatedCoopProcess() &&
 		!GetDedicatedCoopRuntime().prepareEarly())
 	{
+		DedicatedCoopRuntime& runtime = GetDedicatedCoopRuntime();
+		const CoopRuntimeFailureDiagnostic& diagnostic =
+			runtime.failureDiagnostic();
 		std::fprintf(stderr,
-			"[dedicated] co-op campaign preparation failed: %s\n",
+			"[dedicated] co-op campaign preparation failed: %s; "
+			"stage=%s; reason=%s; detail=%s; endpoint=%s:%u\n",
 			DedicatedCoopRuntimeErrorName(
-				GetDedicatedCoopRuntime().error()));
+				GetDedicatedCoopRuntime().error()),
+			diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+			runtime.bindAddress()[0] != '\0' ? runtime.bindAddress() :
+				"<unavailable>",
+			static_cast<unsigned>(runtime.bindPort()));
 		GetDedicatedCoopRuntime().close();
 		return 2;
 	}
@@ -1607,10 +1622,19 @@ int main(int argc, char** argv)
 		!GetFullEngineCoopClientRuntime().prepareEarly(
 			ProcessTerminationRequested))
 	{
+		FullEngineCoopClientRuntime& runtime =
+			GetFullEngineCoopClientRuntime();
+		const CoopRuntimeFailureDiagnostic& diagnostic =
+			runtime.failureDiagnostic();
 		std::fprintf(stderr,
-			"[co-op client] campaign bootstrap failed: %s\n",
+			"[co-op client] campaign bootstrap failed: %s; "
+			"stage=%s; reason=%s; detail=%s; endpoint=%s:%u\n",
 			FullEngineCoopClientRuntimeErrorName(
-				GetFullEngineCoopClientRuntime().error()));
+				GetFullEngineCoopClientRuntime().error()),
+			diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+			runtime.serverHost()[0] != '\0' ? runtime.serverHost() :
+				"<unavailable>",
+			static_cast<unsigned>(runtime.serverPort()));
 		GetFullEngineCoopClientRuntime().closeAfterVfs();
 		SDL_Quit();
 		return 2;
@@ -1730,10 +1754,17 @@ int main(int argc, char** argv)
 		else if (runtime.campaignEntered() &&
 			!runtime.shutdownAtCommittedBoundary(GetGameContext()))
 		{
+			const CoopRuntimeFailureDiagnostic& diagnostic =
+				runtime.failureDiagnostic();
 			std::fprintf(stderr,
-				"[dedicated] final co-op checkpoint failed: %s\n",
+				"[dedicated] final co-op checkpoint failed: %s; "
+				"stage=%s; reason=%s; detail=%s; endpoint=%s:%u\n",
 				DedicatedCoopRuntimeErrorName(
-					GetDedicatedCoopRuntime().error()));
+					GetDedicatedCoopRuntime().error()),
+				diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+				runtime.bindAddress()[0] != '\0' ? runtime.bindAddress() :
+					"<unavailable>",
+				static_cast<unsigned>(runtime.bindPort()));
 			gfDedicatedServerProcessFailed = TRUE;
 		}
 	}

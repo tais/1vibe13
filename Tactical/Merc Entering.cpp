@@ -381,6 +381,7 @@ ANITILE		*gpHeli;
 BOOLEAN		gfFirstHeliRun;
 
 extern BOOLEAN		gfTacticalDoHeliRun;
+extern BOOLEAN		gfDedicatedServer;
 
 void HandleFirstHeliDropOfGame( );
 
@@ -556,7 +557,8 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 
 		//}
 #else
-		if ( _KeyDown( ESC ) )
+		if ( !ShouldRunInteractiveHelicopterArrival(
+				gfDedicatedServer != FALSE ) || _KeyDown( ESC ) )
 		{
 			// Loop through all mercs not yet placed
 			for ( cnt = gbCurDrop; cnt < gbNumHeliSeatsOccupied; cnt++ )

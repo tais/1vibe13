@@ -7762,7 +7762,9 @@ void MoveBullet( INT32 iBullet )
 													gpLocalStructure[ iStructureLoop ] = NULL;
 												}
 											}
-											// but the bullet keeps on going!!!
+											// WindowHit may free this structure while swapping its partner.
+											// Keep the bullet moving, without using the old pointer below.
+											continue;
 										}
 
 									}

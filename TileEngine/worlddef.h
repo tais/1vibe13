@@ -345,6 +345,15 @@ void TrashWorld(void);
 void TrashMapTile(INT32 MapTile);
 BOOLEAN NewWorld( INT32 nMapRows,  INT32 nMapCols );
 
+// Passive authoritative clients need the ordinary renderer's static world
+// storage without constructing a second tactical simulation. This lifecycle
+// owns only MAP_ELEMENT storage, room ids, render nodes, and structure
+// instances. It does not allocate movement/pathing state or publish a JA2
+// tactical-world generation.
+BOOLEAN PrepareWorldForStaticPresentation(INT32 nWorldRows, INT32 nWorldCols);
+BOOLEAN IsWorldPreparedForStaticPresentation(void);
+void TrashStaticPresentationWorld(void);
+
 BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion=MAJOR_MAP_VERSION, UINT8 ubMinorMapVersion=MINOR_MAP_VERSION);//dnl ch33 150909
 BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion=NULL, UINT8* pMinorMapVersion=NULL);//dnl ch44 290909
 
@@ -354,7 +363,19 @@ void RecompileLocalMovementCostsFromRadius( INT32 sCentreGridNo, INT8 bRadius );
 
 
 BOOLEAN LoadMapTileset( INT32 iTilesetID );
+// On an image-load failure, all tileset resources enter an explicit cold
+// state (current id -1, no surfaces/database) so this can be retried safely.
+BOOLEAN LoadMapTilesetForStaticPresentation( INT32 iTilesetID );
+// Transactionally builds and verifies all 16 one-color or 48 two-color
+// palette slots required by RenderTiles without initializing movement costs
+// or a tactical world. The caller must first own the static-presentation world
+// and select its exact tileset/light colours.
+BOOLEAN BuildTileShadeTablesForStaticPresentation(void);
 BOOLEAN SaveMapTileset( INT32 iTilesetID );
+
+// Builds only renderer-derived state for an already replayed presentation
+// world: wireframes, shadow pruning, and full redraw invalidation.
+BOOLEAN InitializeWorldForStaticPresentationRendering(void);
 
 void SetLoadOverrideParams( BOOLEAN fForceLoad, BOOLEAN fForceFile, CHAR8 *zLoadName );
 

@@ -132,6 +132,25 @@ find_package(SDL3_mixer QUIET CONFIG)
 if(NOT TARGET SDL3_mixer::SDL3_mixer)
   include(FetchContent)
   set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+  # SDL3_mixer controls decoder linkage independently from
+  # BUILD_SHARED_LIBS. Its default is to compile a static mixer that still
+  # dlopens codec libraries by name, which leaves an apparently self-contained
+  # executable with audio backends that are absent from the release archive.
+  # Force every current optional decoder onto the static link, including when
+  # reconfiguring a build tree whose cache previously selected shared codecs.
+  set(SDLMIXER_DEPS_SHARED OFF CACHE BOOL "" FORCE)
+  foreach(sdlmixer_shared_decoder_option IN ITEMS
+      SDLMIXER_FLAC_LIBFLAC_SHARED
+      SDLMIXER_GME_SHARED
+      SDLMIXER_MIDI_FLUIDSYNTH_SHARED
+      SDLMIXER_MOD_XMP_SHARED
+      SDLMIXER_MP3_MPG123_SHARED
+      SDLMIXER_OPUS_SHARED
+      SDLMIXER_VORBIS_TREMOR_SHARED
+      SDLMIXER_VORBIS_VORBISFILE_SHARED
+      SDLMIXER_WAVPACK_SHARED)
+    set(${sdlmixer_shared_decoder_option} OFF CACHE BOOL "" FORCE)
+  endforeach()
   # Drop the mpg123 MP3 backend: on arm64 its vendored build selects OPT_NEON64
   # together with REAL_IS_FIXED -- an invalid combo that hard-#errors ("Bad decoder
   # choice together with fixed point math!"), breaking the linux-arm64 build. dr_mp3
@@ -579,11 +598,287 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+
+  # Exercise the shared native willingness reader against real profiles,
+  # soldier repositories and campaign reputation, without installed assets.
+  add_executable(native_campaign_aim_willingness_tests
+    tests/native_campaign_aim_willingness_tests.cpp)
+  target_compile_definitions(native_campaign_aim_willingness_tests PRIVATE ${debugFlags})
+  get_target_property(campaign_aim_native_libraries ja2_headless_tests LINK_LIBRARIES)
+  target_link_libraries(native_campaign_aim_willingness_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_aim_willingness COMMAND native_campaign_aim_willingness_tests)
+  add_dependencies(ja2_headless_tests native_campaign_aim_willingness_tests)
+  add_executable(native_reinforcement_save_tests tests/native_reinforcement_save_tests.cpp)
+  target_compile_definitions(native_reinforcement_save_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_reinforcement_save_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_reinforcement_save COMMAND native_reinforcement_save_tests)
+  add_dependencies(ja2_headless_tests native_reinforcement_save_tests)
+  add_executable(native_schedule_save_tests tests/native_schedule_save_tests.cpp)
+  target_compile_definitions(native_schedule_save_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_schedule_save_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_schedule_save COMMAND native_schedule_save_tests)
+  set_tests_properties(native_schedule_save PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_schedule_save_tests)
+  add_executable(native_passive_checkpoint_tests tests/native_passive_checkpoint_tests.cpp)
+  target_compile_definitions(native_passive_checkpoint_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_passive_checkpoint_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_passive_checkpoint COMMAND native_passive_checkpoint_tests)
+  set_tests_properties(native_passive_checkpoint PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_passive_checkpoint_tests)
+  add_executable(native_fence_path_start_tests tests/native_fence_path_start_tests.cpp)
+  target_compile_definitions(native_fence_path_start_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_fence_path_start_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_fence_path_start COMMAND native_fence_path_start_tests)
+  set_tests_properties(native_fence_path_start PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_fence_path_start_tests)
+  add_executable(native_coop_move_preflight_tests tests/native_coop_move_preflight_tests.cpp)
+  target_compile_definitions(native_coop_move_preflight_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_move_preflight_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_move_preflight COMMAND native_coop_move_preflight_tests)
+  set_tests_properties(native_coop_move_preflight PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_move_preflight_tests)
+  add_executable(native_route_buffer_continuation_tests tests/native_route_buffer_continuation_tests.cpp)
+  target_compile_definitions(native_route_buffer_continuation_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_route_buffer_continuation_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_route_buffer_continuation COMMAND native_route_buffer_continuation_tests)
+  set_tests_properties(native_route_buffer_continuation PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_route_buffer_continuation_tests)
+  # Instrument only this native fixture's transition object: array bounds
+  # detects an exhausted cursor reading adjacent fields inside TacticalActor.
+  add_executable(native_animation_route_cursor_tests
+    tests/native_animation_route_cursor_tests.cpp Tactical/TacticalActorAnimationTransitions.cpp)
+  target_compile_definitions(native_animation_route_cursor_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_animation_route_cursor_tests PRIVATE ${campaign_aim_native_libraries})
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      set(native_animation_bounds_sanitizer array-bounds)
+    else()
+      set(native_animation_bounds_sanitizer bounds)
+    endif()
+    target_compile_options(native_animation_route_cursor_tests PRIVATE
+      -fsanitize=${native_animation_bounds_sanitizer} -fno-sanitize-recover=${native_animation_bounds_sanitizer})
+    target_link_options(native_animation_route_cursor_tests PRIVATE -fsanitize=${native_animation_bounds_sanitizer})
+  endif()
+  add_test(NAME native_animation_route_cursor COMMAND native_animation_route_cursor_tests)
+  set_tests_properties(native_animation_route_cursor PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_animation_route_cursor_tests)
+  add_executable(native_campaign_economy_tests tests/native_campaign_economy_tests.cpp)
+  target_compile_definitions(native_campaign_economy_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_campaign_economy_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_economy COMMAND native_campaign_economy_tests)
+  add_dependencies(ja2_headless_tests native_campaign_economy_tests)
+  add_executable(native_coop_meanwhile_tests tests/native_coop_meanwhile_tests.cpp)
+  target_compile_definitions(native_coop_meanwhile_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_meanwhile_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_meanwhile COMMAND native_coop_meanwhile_tests)
+  add_test(NAME native_coop_meanwhile_stale COMMAND native_coop_meanwhile_tests --stale)
+  add_test(NAME native_coop_meanwhile_stale_after_ack COMMAND native_coop_meanwhile_tests --stale-after-ack)
+  add_test(NAME native_coop_meanwhile_failure COMMAND native_coop_meanwhile_tests --native-failure)
+  set_tests_properties(native_coop_meanwhile native_coop_meanwhile_stale native_coop_meanwhile_stale_after_ack native_coop_meanwhile_failure PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_meanwhile_tests coop_campaign_meanwhile_tests)
+  add_executable(native_campaign_aim_hire_tests tests/native_campaign_aim_hire_tests.cpp)
+  target_compile_definitions(native_campaign_aim_hire_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_campaign_aim_hire_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_aim_hire COMMAND native_campaign_aim_hire_tests)
+  add_dependencies(ja2_headless_tests native_campaign_aim_hire_tests)
+  add_executable(native_campaign_aim_arrival_tests tests/native_campaign_aim_arrival_tests.cpp)
+  target_compile_definitions(native_campaign_aim_arrival_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_campaign_aim_arrival_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_aim_arrival COMMAND native_campaign_aim_arrival_tests)
+  add_test(NAME native_campaign_aim_arrival_dispatch COMMAND native_campaign_aim_arrival_tests --dispatch)
+  add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)
+  add_executable(native_campaign_simulation_failure_tests tests/native_campaign_simulation_failure_tests.cpp)
+  target_compile_definitions(native_campaign_simulation_failure_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_campaign_simulation_failure_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_campaign_simulation_failure COMMAND native_campaign_simulation_failure_tests)
+  add_test(NAME native_campaign_simulation_failure_single_player COMMAND native_campaign_simulation_failure_tests --single-player)
+  add_test(NAME native_campaign_simulation_failure_pvp COMMAND native_campaign_simulation_failure_tests --pvp)
+  add_dependencies(ja2_headless_tests native_campaign_simulation_failure_tests)
+  add_executable(native_sector_label_tests tests/native_sector_label_tests.cpp)
+  target_compile_definitions(native_sector_label_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_sector_label_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_sector_label COMMAND native_sector_label_tests)
+  add_dependencies(ja2_headless_tests native_sector_label_tests)
+
+  # A native window swap must not leave a projectile using freed structure data.
+  add_executable(native_bullet_window_tests tests/native_bullet_window_tests.cpp)
+  target_compile_definitions(native_bullet_window_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_bullet_window_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_bullet_window COMMAND native_bullet_window_tests)
+  add_dependencies(ja2_headless_tests native_bullet_window_tests)
+
+  # Exercise real turn decay at both ends of the public knowledge table.
+  add_executable(native_opplist_decay_tests tests/native_opplist_decay_tests.cpp)
+  target_compile_definitions(native_opplist_decay_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_opplist_decay_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_opplist_decay_heard COMMAND native_opplist_decay_tests)
+  add_test(NAME native_opplist_decay_seen COMMAND native_opplist_decay_tests --seen)
+  add_dependencies(ja2_headless_tests native_opplist_decay_tests)
+
+  # Dedicated Debug servers must recover without a local AI inspection UI.
+  add_executable(native_ai_deadlock_tests tests/native_ai_deadlock_tests.cpp)
+  target_compile_definitions(native_ai_deadlock_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_ai_deadlock_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_ai_deadlock_dedicated COMMAND native_ai_deadlock_tests)
+  add_test(NAME native_ai_deadlock_interactive COMMAND native_ai_deadlock_tests --interactive)
+  set_tests_properties(native_ai_deadlock_dedicated native_ai_deadlock_interactive PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_ai_deadlock_tests)
+
+  add_executable(native_coop_pending_hire_death_tests tests/native_coop_pending_hire_death_tests.cpp)
+  target_compile_definitions(native_coop_pending_hire_death_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_pending_hire_death_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_pending_hire_death COMMAND native_coop_pending_hire_death_tests)
+  add_test(NAME native_coop_pending_hire_capture COMMAND native_coop_pending_hire_death_tests --capture)
+  add_dependencies(ja2_headless_tests native_coop_pending_hire_death_tests)
+  add_executable(native_coop_surrender_tests tests/native_coop_surrender_tests.cpp)
+  target_compile_definitions(native_coop_surrender_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_surrender_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_surrender COMMAND native_coop_surrender_tests)
+  add_test(NAME native_coop_surrender_stale COMMAND native_coop_surrender_tests --stale)
+  set_tests_properties(native_coop_surrender native_coop_surrender_stale PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_surrender_tests)
+  add_executable(native_coop_battle_notice_tests tests/native_coop_battle_notice_tests.cpp)
+  target_compile_definitions(native_coop_battle_notice_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_battle_notice_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_battle_notice COMMAND native_coop_battle_notice_tests)
+  add_test(NAME native_coop_battle_notice_stale COMMAND native_coop_battle_notice_tests --stale)
+  add_test(NAME native_coop_battle_notice_stale_after_ack COMMAND native_coop_battle_notice_tests --stale-after-ack)
+  add_test(NAME native_coop_battle_notice_capture COMMAND native_coop_battle_notice_tests --capture)
+  add_test(NAME native_coop_battle_notice_creatures COMMAND native_coop_battle_notice_tests --creatures)
+  add_test(NAME native_coop_battle_notice_late_sector_loss COMMAND native_coop_battle_notice_tests --late-sector-loss)
+  set_tests_properties(native_coop_battle_notice native_coop_battle_notice_stale native_coop_battle_notice_stale_after_ack native_coop_battle_notice_capture native_coop_battle_notice_creatures native_coop_battle_notice_late_sector_loss PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_battle_notice_tests)
+  add_executable(native_coop_remote_attack_completion_tests tests/native_coop_remote_attack_completion_tests.cpp)
+  target_compile_definitions(native_coop_remote_attack_completion_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_remote_attack_completion_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_remote_attack_completion COMMAND native_coop_remote_attack_completion_tests)
+  add_test(NAME native_coop_remote_attack_completion_points COMMAND native_coop_remote_attack_completion_tests --points-only)
+  add_test(NAME native_coop_attack_lifecycle COMMAND native_coop_remote_attack_completion_tests --attack-lifecycle)
+  add_test(NAME native_coop_suppression_stance_cost COMMAND native_coop_remote_attack_completion_tests --suppression-stance)
+  add_test(NAME native_coop_stance_command COMMAND native_coop_remote_attack_completion_tests --stance-command)
+  set_tests_properties(native_coop_remote_attack_completion native_coop_remote_attack_completion_points native_coop_attack_lifecycle native_coop_suppression_stance_cost native_coop_stance_command PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_remote_attack_completion_tests)
+  add_executable(native_coop_aim_hire_transaction_tests tests/native_coop_aim_hire_transaction_tests.cpp)
+  target_compile_definitions(native_coop_aim_hire_transaction_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_aim_hire_transaction_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_aim_hire_transaction COMMAND native_coop_aim_hire_transaction_tests)
+  add_dependencies(ja2_headless_tests native_coop_aim_hire_transaction_tests)
+
+  add_executable(native_music_random_tests tests/native_music_random_tests.cpp)
+  target_compile_definitions(native_music_random_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_music_random_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_music_random COMMAND native_music_random_tests)
+  set_tests_properties(native_music_random PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_music_random_tests)
+  add_executable(native_battle_resolution_tests tests/native_battle_resolution_tests.cpp)
+  target_compile_definitions(native_battle_resolution_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_battle_resolution_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_battle_resolution COMMAND native_battle_resolution_tests)
+  set_tests_properties(native_battle_resolution PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_battle_resolution_tests)
+  add_executable(native_load_idle_animation_tests tests/native_load_idle_animation_tests.cpp)
+  target_compile_definitions(native_load_idle_animation_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_load_idle_animation_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_load_idle_animation COMMAND native_load_idle_animation_tests)
+  set_tests_properties(native_load_idle_animation PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_load_idle_animation_tests)
+  # Queued medical input uses the shipping controller, replica, private cache and input manager.
+  add_executable(native_coop_medical_input_tests tests/native_coop_medical_input_tests.cpp)
+  target_compile_definitions(native_coop_medical_input_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_coop_medical_input_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_coop_medical_input COMMAND native_coop_medical_input_tests)
+  set_tests_properties(native_coop_medical_input PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_coop_medical_input_tests)
+
+  # Isolated ROOT integration checks for the reviewed medical command graft.
+  add_executable(native_integrated_first_aid_tests tests/native_integrated_first_aid_tests.cpp)
+  target_compile_definitions(native_integrated_first_aid_tests PRIVATE ${debugFlags})
+  target_link_libraries(native_integrated_first_aid_tests PRIVATE ${campaign_aim_native_libraries})
+  add_test(NAME native_integrated_first_aid_allocation_failure COMMAND native_integrated_first_aid_tests)
+  foreach(integrated_aid_case IN ITEMS missing-animation missing-mapping missing-prone-mapping standing-missing-mapping standing-start prone-start native-success prone-recipient prone-pair)
+    string(REPLACE "-" "_" integrated_aid_name ${integrated_aid_case})
+    add_test(NAME native_integrated_first_aid_${integrated_aid_name}
+      COMMAND native_integrated_first_aid_tests --${integrated_aid_case})
+    set_tests_properties(native_integrated_first_aid_${integrated_aid_name} PROPERTIES TIMEOUT 30)
+  endforeach()
+  set_tests_properties(native_integrated_first_aid_allocation_failure PROPERTIES TIMEOUT 30)
+  add_dependencies(ja2_headless_tests native_integrated_first_aid_tests)
+
   # SimulationRandom installation is process-lifetime state. Run the strict
   # checkpoint coordinator in a fresh process before any legacy RNG accessor
   # can seal the default source.
   add_test(NAME ja2_headless_strict_runtime_execution
     COMMAND ja2_headless_tests --strict-runtime-execution)
+  # Shutdown is process-lifetime state; isolate native combat cleanup checks
+  # from the regular suite's running-game context.
+  add_test(NAME ja2_headless_combat_shutdown_lifecycle
+    COMMAND ja2_headless_tests --combat-shutdown-lifecycle)
+  add_test(NAME ja2_headless_partial_auto_reload
+    COMMAND ja2_headless_tests --partial-auto-reload)
+  add_test(NAME ja2_headless_instant_interrupt_pending
+    COMMAND ja2_headless_tests --instant-interrupt-pending)
+  add_test(NAME ja2_headless_authoritative_first_aid
+    COMMAND ja2_headless_tests --authoritative-first-aid)
+  add_test(NAME ja2_headless_authoritative_portraits
+    COMMAND ja2_headless_tests --authoritative-portraits)
+  add_test(NAME ja2_headless_dedicated_coop_resume_classifier
+    COMMAND ja2_headless_tests --dedicated-coop-resume-classifier)
+  # These native regressions need isolated process state. In particular, the
+  # first-aid fixture injects allocation failures without shipping test hooks.
+  foreach(native_dispatch_test IN ITEMS
+      native_actor_structure native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit native_coop_travel native_campaign_groups native_campaign_time_controls equipment_change_dispatch authoritative_first_aid_failure authoritative_inventory_swap
+      authoritative_inventory_transfer authoritative_ground_pickup authoritative_ground_drop)
+    add_executable(${native_dispatch_test}_tests tests/${native_dispatch_test}_tests.cpp)
+    target_compile_definitions(${native_dispatch_test}_tests PRIVATE ${debugFlags})
+    target_link_libraries(${native_dispatch_test}_tests PRIVATE SDL3::SDL3)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(${native_dispatch_test}_tests PRIVATE -Wl,--start-group)
+    endif()
+    target_link_libraries(${native_dispatch_test}_tests PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)
+    foreach(lib IN LISTS Ja2_Libs)
+      target_link_libraries(${native_dispatch_test}_tests PRIVATE JA2_${lib})
+    endforeach()
+    if(TARGET EXPAT::EXPAT)
+      target_link_libraries(${native_dispatch_test}_tests PRIVATE EXPAT::EXPAT)
+    elseif(TARGET expat)
+      target_link_libraries(${native_dispatch_test}_tests PRIVATE expat)
+    endif()
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(${native_dispatch_test}_tests PRIVATE -Wl,--end-group)
+    endif()
+    add_test(NAME ${native_dispatch_test} COMMAND ${native_dispatch_test}_tests)
+  endforeach()
+  target_compile_definitions(native_coop_travel_commit_tests PRIVATE
+    NATIVE_COOP_TRAVEL_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/coop_travel")
+  target_compile_definitions(native_coop_arrival_tests PRIVATE
+    NATIVE_COOP_TRAVEL_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/coop_travel")
+  target_compile_definitions(native_coop_defensive_arrival_tests PRIVATE
+    NATIVE_COOP_TRAVEL_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/coop_travel")
+  add_test(NAME native_coop_defensive_arrival_pending_hire
+    COMMAND native_coop_defensive_arrival_tests --pending-hire)
+  add_test(NAME native_coop_defensive_arrival_invasion
+    COMMAND native_coop_defensive_arrival_tests --invasion)
+  add_test(NAME native_coop_defensive_arrival_retreat
+    COMMAND native_coop_defensive_arrival_tests --retreat)
+  foreach(arrival_case IN ITEMS battle coordinate bloodcats nonfinal stale capacity multiple invalid ambush deployment scout retreat concealed reinforcements prepare-failure retreat-action retreat-failure retreat-warning-failure)
+    add_test(NAME native_coop_arrival_${arrival_case} COMMAND native_coop_arrival_tests --${arrival_case})
+  endforeach()
+  add_test(NAME authoritative_first_aid_missing_animation
+    COMMAND authoritative_first_aid_failure_tests --missing-animation)
+  add_test(NAME authoritative_first_aid_standing_start
+    COMMAND authoritative_first_aid_failure_tests --standing-start)
+  add_test(NAME authoritative_inventory_swap_copy_failure
+    COMMAND authoritative_inventory_swap_tests --copy-failure)
+  add_test(NAME authoritative_ground_pickup_removal_failure
+    COMMAND authoritative_ground_pickup_tests --removal-failure)
+  add_test(NAME authoritative_ground_drop_identity_exhausted
+    COMMAND authoritative_ground_drop_tests --identity-exhausted)
+  add_test(NAME authoritative_inventory_swap_missing_light
+    COMMAND authoritative_inventory_swap_tests --missing-light)
+  add_test(NAME authoritative_inventory_swap_missing_animation
+    COMMAND authoritative_inventory_swap_tests --missing-animation)
+  add_test(NAME authoritative_inventory_transfer_missing_animation
+    COMMAND authoritative_inventory_transfer_tests --missing-animation)
   # Exercise the real engine-coupled legacy server.cpp admission and relay
   # callbacks through production loopback framing without installed game data.
   add_test(NAME legacy_embedded_host_loopback
@@ -596,6 +891,55 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_dependencies(ja2_headless_tests tactical_actor_header_tests)
   add_dependencies(ja2_headless_tests tactical_actor_api_headers_tests)
   add_dependencies(ja2_headless_tests tactical_actor_service_api_headers_tests)
+  add_dependencies(ja2_headless_tests native_actor_structure_tests native_coop_arrival_tests native_coop_defensive_arrival_tests native_coop_travel_commit_tests native_coop_travel_tests native_campaign_groups_tests native_campaign_time_controls_tests equipment_change_dispatch_tests
+    authoritative_first_aid_failure_tests authoritative_inventory_swap_tests
+    authoritative_inventory_transfer_tests authoritative_ground_pickup_tests authoritative_ground_drop_tests)
+
+  # Opt-in installed-data gameplay driver. Only this entry-point object renames
+  # its GameLoop call: the test wrapper runs the unchanged game loop, then reads
+  # the committed client replica and submits ordinary controller intents. No
+  # test input hook or command-line option is compiled into the shipped apps.
+  if(UNIX)
+    add_library(ja2_coop_installed_test_entry OBJECT sgp/sgp.cpp)
+    set_target_properties(ja2_coop_installed_test_entry PROPERTIES
+      EXCLUDE_FROM_ALL TRUE)
+    target_compile_definitions(ja2_coop_installed_test_entry PRIVATE
+      ${debugFlags} GameLoop=FullEngineCoopInstalledTestGameLoop)
+    target_link_libraries(ja2_coop_installed_test_entry PRIVATE
+      SDL3::SDL3 JA2::RuntimeAdapter)
+    add_executable(full_engine_coop_installed_client EXCLUDE_FROM_ALL
+      tests/full_engine_coop_installed_client.cpp
+      $<TARGET_OBJECTS:ja2_coop_installed_test_entry>)
+    target_compile_definitions(full_engine_coop_installed_client PRIVATE
+      ${debugFlags})
+    target_link_libraries(full_engine_coop_installed_client PRIVATE SDL3::SDL3)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(full_engine_coop_installed_client PRIVATE
+        -Wl,--start-group)
+    endif()
+    target_link_libraries(full_engine_coop_installed_client PRIVATE
+      ${Ja2_Libraries} JA2_ENGLISH_i18n)
+    foreach(lib IN LISTS Ja2_Libs)
+      target_link_libraries(full_engine_coop_installed_client PRIVATE JA2_${lib})
+    endforeach()
+    if(TARGET EXPAT::EXPAT)
+      target_link_libraries(full_engine_coop_installed_client PRIVATE EXPAT::EXPAT)
+    elseif(TARGET expat)
+      target_link_libraries(full_engine_coop_installed_client PRIVATE expat)
+    endif()
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(full_engine_coop_installed_client PRIVATE
+        -Wl,--end-group)
+    endif()
+    # Separate opt-in native battle-entry fixture, also using the real boot and
+    # loader. Scenario setup is confined to this executable, never the apps.
+    add_executable(full_engine_coop_installed_entry EXCLUDE_FROM_ALL
+      tests/full_engine_coop_installed_entry.cpp
+      $<TARGET_OBJECTS:ja2_coop_installed_test_entry>)
+    target_compile_definitions(full_engine_coop_installed_entry PRIVATE ${debugFlags})
+    get_target_property(coop_installed_driver_libraries full_engine_coop_installed_client LINK_LIBRARIES)
+    target_link_libraries(full_engine_coop_installed_entry PRIVATE ${coop_installed_driver_libraries})
+  endif()
 
   # Focused platform/VFS/input/audio lifecycle coverage. It deliberately uses
   # a separate process from the broad headless suite so global compatibility
@@ -619,6 +963,14 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(platform_legacy_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME platform_legacy COMMAND platform_legacy_tests)
+  # Ledger failures must exercise the real native state and private VFS, not a
+  # mirror of the persistence algorithm. Reuse the full native link closure.
+  add_executable(campaign_ledger_tests tests/campaign_ledger_tests.cpp)
+  target_compile_definitions(campaign_ledger_tests PRIVATE ${debugFlags})
+  get_target_property(campaign_ledger_native_libraries platform_legacy_tests LINK_LIBRARIES)
+  target_link_libraries(campaign_ledger_tests PRIVATE ${campaign_ledger_native_libraries})
+  add_test(NAME campaign_ledger COMMAND campaign_ledger_tests)
+
   # Both suites exercise fixed-name legacy VFS/profile fixtures. Keep only
   # those two mutually exclusive while allowing the remaining CTests to run
   # in parallel.
@@ -626,4 +978,118 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     RESOURCE_LOCK ja2_legacy_vfs_profile)
   set_tests_properties(platform_legacy PROPERTIES ENVIRONMENT
     "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+  # Passive co-op clients reuse only renderer-facing TileEngine world state.
+  # Keep this lifecycle/failure-rollback coverage in its own process so it can
+  # deliberately manipulate the legacy singleton storage without colliding
+  # with the broad headless suite.
+  add_executable(static_presentation_world_lifecycle_tests
+    tests/static_presentation_world_lifecycle_tests.cpp)
+  target_compile_definitions(static_presentation_world_lifecycle_tests
+    PRIVATE ${debugFlags})
+  target_link_libraries(static_presentation_world_lifecycle_tests
+    PRIVATE SDL3::SDL3)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(static_presentation_world_lifecycle_tests
+      PRIVATE -Wl,--start-group)
+  endif()
+  target_link_libraries(static_presentation_world_lifecycle_tests
+    PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)
+  foreach(lib IN LISTS Ja2_Libs)
+    target_link_libraries(static_presentation_world_lifecycle_tests
+      PRIVATE JA2_${lib})
+  endforeach()
+  if(TARGET EXPAT::EXPAT)
+    target_link_libraries(static_presentation_world_lifecycle_tests
+      PRIVATE EXPAT::EXPAT)
+  elseif(TARGET expat)
+    target_link_libraries(static_presentation_world_lifecycle_tests
+      PRIVATE expat)
+  endif()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(static_presentation_world_lifecycle_tests
+      PRIVATE -Wl,--end-group)
+  endif()
+  add_test(NAME static_presentation_world_lifecycle
+    COMMAND static_presentation_world_lifecycle_tests)
+  set_tests_properties(static_presentation_world_lifecycle PROPERTIES
+    RESOURCE_LOCK ja2_legacy_vfs_profile
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+  # The passive renderer shares legacy camera bounds/correction math, but it
+  # must not drive dialog/input/UI/debug/audio state. Exercise both policies
+  # against the production TileEngine globals without installed game data.
+  add_executable(static_presentation_scrolling_tests
+    tests/static_presentation_scrolling_tests.cpp)
+  target_compile_definitions(static_presentation_scrolling_tests
+    PRIVATE ${debugFlags})
+  target_link_libraries(static_presentation_scrolling_tests PRIVATE SDL3::SDL3)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(static_presentation_scrolling_tests
+      PRIVATE -Wl,--start-group)
+  endif()
+  target_link_libraries(static_presentation_scrolling_tests
+    PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)
+  foreach(lib IN LISTS Ja2_Libs)
+    target_link_libraries(static_presentation_scrolling_tests
+      PRIVATE JA2_${lib})
+  endforeach()
+  if(TARGET EXPAT::EXPAT)
+    target_link_libraries(static_presentation_scrolling_tests
+      PRIVATE EXPAT::EXPAT)
+  elseif(TARGET expat)
+    target_link_libraries(static_presentation_scrolling_tests PRIVATE expat)
+  endif()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(static_presentation_scrolling_tests
+      PRIVATE -Wl,--end-group)
+  endif()
+  add_test(NAME static_presentation_scrolling
+    COMMAND static_presentation_scrolling_tests)
+  set_tests_properties(static_presentation_scrolling PROPERTIES
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+  # Renderer actor projection owns a fixed hidden/staged repository pair and
+  # exercises merc-only publication, rollback, and repository restoration in
+  # a dedicated process without requiring installed game data.
+  add_executable(full_engine_coop_client_presentation_actor_proxy_bank_tests
+    tests/full_engine_coop_client_presentation_actor_proxy_bank_tests.cpp)
+  target_compile_definitions(
+    full_engine_coop_client_presentation_actor_proxy_bank_tests
+    PRIVATE ${debugFlags})
+  target_link_libraries(
+    full_engine_coop_client_presentation_actor_proxy_bank_tests
+    PRIVATE SDL3::SDL3)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(
+      full_engine_coop_client_presentation_actor_proxy_bank_tests
+      PRIVATE -Wl,--start-group)
+  endif()
+  target_link_libraries(
+    full_engine_coop_client_presentation_actor_proxy_bank_tests
+    PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)
+  foreach(lib IN LISTS Ja2_Libs)
+    target_link_libraries(
+      full_engine_coop_client_presentation_actor_proxy_bank_tests
+      PRIVATE JA2_${lib})
+  endforeach()
+  if(TARGET EXPAT::EXPAT)
+    target_link_libraries(
+      full_engine_coop_client_presentation_actor_proxy_bank_tests
+      PRIVATE EXPAT::EXPAT)
+  elseif(TARGET expat)
+    target_link_libraries(
+      full_engine_coop_client_presentation_actor_proxy_bank_tests
+      PRIVATE expat)
+  endif()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(
+      full_engine_coop_client_presentation_actor_proxy_bank_tests
+      PRIVATE -Wl,--end-group)
+  endif()
+  add_test(NAME full_engine_coop_client_presentation_actor_proxy_bank
+    COMMAND full_engine_coop_client_presentation_actor_proxy_bank_tests)
+  set_tests_properties(
+    full_engine_coop_client_presentation_actor_proxy_bank PROPERTIES
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 endif()

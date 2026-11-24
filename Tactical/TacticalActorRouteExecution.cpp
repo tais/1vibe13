@@ -1,6 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorRouteExecution.h"
+#include "DedicatedCoopMoveDiagnostic.h"
 
 #include "Soldier Profile Constants.h"
 #include "TacticalActorMovementState.h"
@@ -15,6 +16,8 @@
 #include "Handle UI.h"
 #include "Interface.h"
 #include "Isometric Utils.h"
+#include "GameSettings.h"
+#include "MovementDestinationPolicy.h"
 #include "Items.h"
 #include "Overhead.h"
 #include "PATHAI.H"
@@ -592,6 +595,23 @@ void haltForSightingUnchecked(
 
 		setOutOfActionPointsUnchecked(actor, TRUE, TRUE);
 		actor.movement().stopReason() = REASON_STOPPED_SIGHT;
+		// Observe the native pause at its source; no command outcome or arrival
+		// is inferred from this opt-in, server-local diagnostic.
+		if (DedicatedCoopMoveDiagnosticEnabled())
+		{
+			(void)std::fprintf(stderr,
+				"[coop-move] stage=sighting-halt actor=%u:%u sightingEnemy=%u reason=%u noAP=%u "
+				"animation=%u ap=%d path=%u/%u grid=%d final=%d next=%d "
+				"world=%.6f,%.6f destination=%d,%d\n",
+				unsigned(actor.identity().id().i), unsigned(actor.identity().incarnation()), unsigned(sightingEnemy),
+				unsigned(actor.movement().stopReason()), unsigned(actor.movement().outOfActionPoints()),
+				unsigned(actor.animationPlayback().state()), int(actor.actionPoints().current()),
+				unsigned(actor.pathing().pathIndex()), unsigned(actor.pathing().pathSize()),
+				int(actor.position().gridNo()), int(actor.pathing().finalDestinationGrid()), int(actor.pathing().destinationGrid()),
+				double(actor.position().worldX()), double(actor.position().worldY()),
+				int(actor.pathing().destinationX()), int(actor.pathing().destinationY()));
+		}
+
 
 		if (actor.animationActivity().turningToShoot() && sightingEnemy)
 		{
@@ -650,6 +670,167 @@ bool TacticalActorRouteExecution::setOutOfActionPoints(
 	return true;
 }
 
+bool TacticalActorRouteExecution::canBeginMoveToGrid(
+	TacticalActor& actor, std::int32_t destinationGrid,
+	std::uint16_t movementMode, bool reverse, TacticalMoveDiagnostic* diagnostic) noexcept
+{
+	if (diagnostic)
+	{
+		*diagnostic = {};
+		diagnostic->actorObserved = true;
+		diagnostic->actorSlot = actor.identity().id().i;
+		diagnostic->incarnation = actor.identity().incarnation();
+		diagnostic->origin = actor.position().gridNo();
+		diagnostic->destination = destinationGrid;
+		diagnostic->movementMode = movementMode;
+		diagnostic->reverse = reverse;
+		diagnostic->animation = actor.animationPlayback().state();
+		diagnostic->pathIndex = actor.pathing().pathIndex();
+		diagnostic->pathSize = actor.pathing().pathSize();
+		diagnostic->finalDestination = actor.pathing().finalDestinationGrid();
+		diagnostic->actionPoints = actor.actionPoints().current();
+		diagnostic->breath = actor.vitals().breath();
+		diagnostic->direction = actor.position().direction();
+		diagnostic->desiredDirection = actor.pathing().desiredDirection();
+		diagnostic->delayedGrid = actor.movement().delayedCauseGrid();
+		diagnostic->delayedFlags = actor.movement().delayedFlags();
+	}
+	const auto reject = [&](TacticalMoveFailure reason) noexcept {
+		if (diagnostic) diagnostic->reason = reason;
+		return false;
+	};
+	if (!hasLiveRouteContext(actor)) return reject(TacticalMoveFailure::LiveRouteContext);
+	if (actor.vitals().health() < OKLIFE) return reject(TacticalMoveFailure::Health);
+	if (actor.collapseState().tactical()) return reject(TacticalMoveFailure::Collapsed);
+	if (gfGetNewPathThroughPeople) return reject(TacticalMoveFailure::ThroughPeoplePolicy);
+	if (TileIsOutOfBounds(destinationGrid)) return reject(TacticalMoveFailure::DestinationBounds);
+	if (destinationGrid == actor.position().gridNo()) return reject(TacticalMoveFailure::SameDestination);
+	if (!TacticalActorMobility::isValidMovementMode(actor, movementMode)) return reject(TacticalMoveFailure::MovementMode);
+	if ((gAnimControl[movementMode].uiFlags & ANIM_MOVING) == 0) return reject(TacticalMoveFailure::MovementAnimation);
+
+	const std::uint16_t animationState = actor.animationPlayback().state();
+	if (animationState >= NUMANIMATIONSTATES) return reject(TacticalMoveFailure::AnimationBounds);
+	if ((gAnimControl[animationState].uiFlags &
+			(ANIM_SPECIALMOVE | ANIM_NONINTERRUPT | ANIM_FIRE | ANIM_ATTACK |
+			 ANIM_HITSTART | ANIM_HITFINISH | ANIM_HITSTOP | ANIM_HITWHENDOWN)) != 0)
+		return reject(TacticalMoveFailure::AnimationActivity);
+	const auto& intent = actor.animationIntent();
+	const auto& activity = actor.animationActivity();
+	if (intent.hasPendingAnimation()) return reject(TacticalMoveFailure::PendingAnimation);
+	if (intent.hasSecondaryPendingAnimation()) return reject(TacticalMoveFailure::SecondaryAnimation);
+	if (intent.hasPendingStance()) return reject(TacticalMoveFailure::PendingStance);
+	if (intent.hasPendingDirection()) return reject(TacticalMoveFailure::PendingDirection);
+	if (intent.continuesAfterStance()) return reject(TacticalMoveFailure::StanceContinuation);
+	if (intent.stopPendingNextTile()) return reject(TacticalMoveFailure::StopNextTile);
+	if (activity.turningUntilDone()) return reject(TacticalMoveFailure::TurningUntilDone);
+	if (activity.turningFromProneMode()) return reject(TacticalMoveFailure::TurningFromProne);
+	if (activity.turningToShoot()) return reject(TacticalMoveFailure::TurningToShoot);
+	if (activity.turningToFall()) return reject(TacticalMoveFailure::TurningToFall);
+	if (activity.nonInterruptible()) return reject(TacticalMoveFailure::NonInterruptible);
+	if (activity.realtimeNonInterruptible()) return reject(TacticalMoveFailure::RealtimeNonInterruptible);
+	if (activity.paused()) return reject(TacticalMoveFailure::AnimationPaused);
+	if (activity.gettingHit()) return reject(TacticalMoveFailure::GettingHit);
+	if (activity.holdAttackerUntilDone()) return reject(TacticalMoveFailure::HeldAttacker);
+	if (activity.suppressionStanceChange()) return reject(TacticalMoveFailure::SuppressionStance);
+	if (actor.pendingAction().active()) return reject(TacticalMoveFailure::PendingAction);
+	if ((actor.status().flags() & (SOLDIER_LOCKPENDINGACTIONCOUNTER | SOLDIER_COWERING)) != 0) return reject(TacticalMoveFailure::ActionLockOrCowering);
+	if (actor.fireControl().bulletsLeft() > 0) return reject(TacticalMoveFailure::RemainingShots);
+	if (actor.runtime().pendingAction.delayedDamage) return reject(TacticalMoveFailure::DelayedDamage);
+	if (actor.movement().waitingForAction()) return reject(TacticalMoveFailure::WaitingAction);
+	if (actor.movement().turnActive()) return reject(TacticalMoveFailure::MovementTurn);
+	if (actor.pathing().desiredDirection() != actor.position().direction()) return reject(TacticalMoveFailure::DirectionMismatch);
+	if (actor.movement().movementPaused()) return reject(TacticalMoveFailure::MovementPaused);
+	if (actor.movement().continuedPathValid()) return reject(TacticalMoveFailure::ContinuedPath);
+	if (actor.schedule().assigned()) return reject(TacticalMoveFailure::ScheduleAssigned);
+	if (actor.schedule().doorContinuationPending()) return reject(TacticalMoveFailure::ScheduleDoor);
+
+	const UINT16 pathSize = actor.pathing().pathSize();
+	const UINT16 pathIndex = actor.pathing().pathIndex();
+	if (pathSize > MAX_PATH_LIST_SIZE) return reject(TacticalMoveFailure::PathSize);
+	if (pathIndex > MAX_PATH_LIST_SIZE) return reject(TacticalMoveFailure::PathIndex);
+	if (pathIndex > pathSize) return reject(TacticalMoveFailure::PathIndexAfterEnd);
+	if (pathIndex < pathSize) return reject(TacticalMoveFailure::PathUnconsumed);
+	// Native movement can start from steady weapon-ready poses. FIREREADY
+	// alone also marks active catch/knife work, so enumerate the idle poses.
+	const bool steadyReady = animationState == AIM_RIFLE_STAND || animationState == AIM_RIFLE_CROUCH ||
+		animationState == AIM_RIFLE_PRONE || animationState == AIM_DUAL_STAND ||
+		animationState == AIM_DUAL_CROUCH || animationState == AIM_DUAL_PRONE ||
+		animationState == AIM_ALTERNATIVE_STAND || animationState == PUNCH_BREATH ||
+		animationState == NINJA_BREATH || animationState == KNIFE_BREATH;
+	const bool idleStance = animationState == STANDING || animationState == CROUCHING ||
+		animationState == PRONE || steadyReady;
+	// Turn-based JA2 can retain locomotion presentation after reaching the
+	// final tile. Other action/transition animations are not an idle boundary.
+	const bool completedLocomotion = pathSize != 0 &&
+		actor.pathing().finalDestinationGrid() == actor.position().gridNo() &&
+		(gAnimControl[animationState].uiFlags & ANIM_MOVING) != 0;
+	const auto& movement = actor.movement();
+	// Overhead clears a completed route before retaining the movement pose.
+	// Its out-of-AP marker pauses that pose even when usable AP remain. Admit
+	// that exact policy boundary without settling the actor or charging the
+	// native run restart surcharge on the next route.
+	INT16 centerX = 0, centerY = 0;
+	ConvertGridNoToCenterCellXY(actor.position().gridNo(), &centerX, &centerY);
+	const bool retainedLocomotion = pathSize == 0 && movement.outOfActionPoints() &&
+		actor.pathing().finalDestinationGrid() == actor.position().gridNo() &&
+		actor.pathing().destinationGrid() == actor.position().gridNo() &&
+		actor.position().worldX() == centerX && actor.position().worldY() == centerY &&
+		actor.pathing().destinationX() == centerX && actor.pathing().destinationY() == centerY &&
+		!movement.delayedByNetwork() &&
+		(actor.status().flags() & SOLDIER_PAUSEANIMOVE) == 0 &&
+		(gAnimControl[animationState].uiFlags & ANIM_MOVING) != 0 &&
+		ShouldRetainMovementAnimationAtDestination(
+			IsJa2TacticalTurnBasedCombat() && (actor.status().flags() & SOLDIER_PC) &&
+			gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
+			!actor.collapseState().tactical() && !actor.collapseState().breathTriggered(),
+			animationState, gAnimControl[animationState]);
+	if (!idleStance && !completedLocomotion && !retainedLocomotion)
+		return reject(TacticalMoveFailure::NonIdlePose);
+	// A stopped, exhausted tile-wait route can retain a destination it never
+	// reached. Permit a new explicit route only from an ordinary idle stance;
+	// standing traversal preparations (notably HOPFENCE) were excluded above.
+	// Escalated through-people waits must not lend their policy to this request.
+	const bool stoppedTileWait = movement.delayed() && pathSize != 0 && idleStance &&
+		!movement.movementPaused() && !movement.outOfActionPoints() &&
+		!movement.waitingForAction() && !movement.turnActive() &&
+		!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+		(movement.delayedFlags() & DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE) == 0 &&
+		!TileIsOutOfBounds(movement.delayedCauseGrid());
+	if ((movement.delayed() ||
+		(pathSize != 0 && actor.pathing().finalDestinationGrid() != actor.position().gridNo())) &&
+		!stoppedTileWait)
+		return reject(TacticalMoveFailure::RetainedRoute);
+	// requestPath() only reports that a route/animation was accepted. The first
+	// native HandleGoto step (and its AP check) happens later, so capture the
+	// same first step here before allowing the command into the inbox.
+	UINT8 direction = 0;
+	TacticalMoveFailure probeFailure = TacticalMoveFailure::None;
+	if (!FindBestPathForMoveAdmission(actor, destinationGrid,
+		actor.position().level(), movementMode, direction, &probeFailure)) return reject(probeFailure);
+
+	const INT32 nextGrid = NewGridNo(
+		actor.position().gridNo(), DirectionInc(direction));
+	if (diagnostic) { diagnostic->firstDirection = direction; diagnostic->nextGrid = nextGrid; }
+	if (TileIsOutOfBounds(nextGrid)) return reject(TacticalMoveFailure::NextGridBounds);
+	if (nextGrid == actor.position().gridNo()) return reject(TacticalMoveFailure::NextGridUnchanged);
+
+	UINT16 effectiveMovementMode = movementMode;
+	if (effectiveMovementMode == RUNNING && reverse)
+		effectiveMovementMode = WALKING;
+	if (TacticalActorMobility::inDeepWater(actor))
+		effectiveMovementMode = DEEP_WATER_SWIM;
+	else if (TacticalActorMobility::inWater(actor))
+		effectiveMovementMode = WALKING;
+	const INT16 firstStepActionPoints = ActionPointCost(
+		&actor, nextGrid, static_cast<INT8>(direction),
+		effectiveMovementMode);
+	if (diagnostic) { diagnostic->firstStepObserved = true; diagnostic->firstStepCost = firstStepActionPoints; }
+	if (firstStepActionPoints < 0) return reject(TacticalMoveFailure::NegativeStepCost);
+	if (!EnoughPoints(&actor, firstStepActionPoints, 0, FALSE)) return reject(TacticalMoveFailure::InsufficientPoints);
+
+	return true;
+}
+
 bool TacticalActorRouteExecution::requestPath(
 	TacticalActor& actor,
 	std::int32_t destinationGrid,
@@ -658,11 +839,20 @@ bool TacticalActorRouteExecution::requestPath(
 	bool forceRestart,
 	bool replicate)
 {
+	// Overhead deliberately reaches the end sentinel of a full route before
+	// requesting its next segment. ContinueMovement copies a fresh route before
+	// indexing it; the consumed old buffer is not a step to dereference.
+	const bool exhaustedContinuation = origin == PathOrigin::ContinueMovement &&
+		!actor.collapseState().tactical() &&
+		(actor.status().flags() & SOLDIER_COWERING) == 0 &&
+		!TacticalActorConditions::isCowering(actor) &&
+		actor.pathing().pathIndex() == MAX_PATH_LIST_SIZE &&
+		actor.pathing().pathSize() == MAX_PATH_LIST_SIZE;
 	if (!hasLiveRouteContext(actor) ||
 		TileIsOutOfBounds(destinationGrid) ||
 		movementAnimation >= NUMANIMATIONSTATES ||
 		!isValidPathOrigin(origin) ||
-		actor.pathing().pathIndex() >= MAX_PATH_LIST_SIZE ||
+		(actor.pathing().pathIndex() >= MAX_PATH_LIST_SIZE && !exhaustedContinuation) ||
 		actor.pathing().pathSize() > MAX_PATH_LIST_SIZE)
 	{
 		return false;

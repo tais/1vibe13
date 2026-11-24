@@ -149,6 +149,158 @@ struct AimedFirearmAttackCommand
 	SimulationCommandSource source;
 };
 
+// Server-prepared, adjacent first aid. The patient identity and both poses
+// remain exact across queueing; no grid-only approach or surgery is implied.
+// Kit fingerprints are private authority expectations, never client input.
+struct BeginFirstAidCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int32_t expectedTargetGrid = -1;
+	std::int8_t expectedLevel = -1;
+	std::uint8_t direction = 8;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint16_t expectedTargetAnimationState = UINT16_MAX;
+	std::uint16_t expectedHandItem = 0;
+	std::uint64_t expectedKitStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<BeginFirstAidCommand>::value,
+	"first-aid commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidBeginFirstAidCommand(
+	const BeginFirstAidCommand& command) noexcept
+{
+	return command.soldier.valid() && command.target.valid() &&
+		command.soldier != command.target && command.expectedWorldGeneration != 0 &&
+		command.expectedTurnSerial != 0 && command.expectedActorGrid >= 0 &&
+		command.expectedTargetGrid >= 0 && command.expectedActorGrid != command.expectedTargetGrid &&
+		(command.expectedLevel == 0 || command.expectedLevel == 1) &&
+		command.direction < 8 && command.expectedAnimationState != UINT16_MAX &&
+		command.expectedTargetAnimationState != UINT16_MAX && command.expectedHandItem != 0 &&
+		command.expectedKitStateFingerprint != 0 && command.expectedActionPointCost >= 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
+// One retained authority command swaps complete ordinary stacks. Fingerprints
+// are server-prepared stale-state proofs, not persistent item identities.
+struct SwapInventorySlotsCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint8_t destinationSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::uint64_t destinationStateFingerprint = 0;
+	std::uint64_t handStateFingerprint = 0;
+	std::uint64_t offhandStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<SwapInventorySlotsCommand>::value,
+	"inventory swap commands must remain pointer-free values");
+
+constexpr bool IsSupportedInventorySwapSlot(std::uint8_t slot) noexcept
+{
+	return slot <= 6 || (slot >= 14 && slot < 55);
+}
+
+// Cross-actor transfers intentionally do not edit worn equipment. Extending
+// local ordinary equipment swaps must not broaden passing/drop/pickup policy.
+constexpr bool IsSupportedInventoryTransferSlot(std::uint8_t slot) noexcept
+{
+	return slot == 5 || slot == 6 || (slot >= 14 && slot < 55);
+}
+
+constexpr bool IsStructurallyValidSwapInventorySlotsCommand(
+	const SwapInventorySlotsCommand& command) noexcept
+{
+	return command.soldier.valid() && IsSupportedInventorySwapSlot(command.sourceSlot) &&
+		IsSupportedInventorySwapSlot(command.destinationSlot) &&
+		command.sourceSlot != command.destinationSlot && command.expectedWorldGeneration != 0 &&
+		command.expectedTurnSerial != 0 && command.expectedActorGrid >= 0 &&
+		(command.expectedActorLevel == 0 || command.expectedActorLevel == 1) &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.sourceStateFingerprint != 0 &&
+		command.destinationStateFingerprint != 0 && command.handStateFingerprint != 0 &&
+		command.offhandStateFingerprint != 0 && command.expectedActionPointCost >= 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
+// Whole ordinary stack between two already-authorized merc inventories. The
+// destination is empty; fingerprints are retained stale-state proofs, not IDs.
+struct TransferInventoryItemCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint8_t destinationSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int32_t expectedTargetGrid = -1;
+	std::int8_t expectedLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint16_t expectedTargetAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint8_t expectedTargetDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t expectedTargetStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::uint64_t destinationStateFingerprint = 0;
+	std::uint64_t handStateFingerprint = 0;
+	std::uint64_t offhandStateFingerprint = 0;
+	std::uint64_t targetHandStateFingerprint = 0;
+	std::uint64_t targetOffhandStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<TransferInventoryItemCommand>::value,
+	"inventory transfer commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidTransferInventoryItemCommand(
+	const TransferInventoryItemCommand& command) noexcept
+{
+	const bool pocketOnly = command.sourceSlot >= 14 && command.destinationSlot >= 14;
+	const bool handProofs = pocketOnly
+		? command.handStateFingerprint == 0 && command.offhandStateFingerprint == 0 &&
+			command.targetHandStateFingerprint == 0 && command.targetOffhandStateFingerprint == 0
+		: command.handStateFingerprint != 0 && command.offhandStateFingerprint != 0 &&
+			command.targetHandStateFingerprint != 0 && command.targetOffhandStateFingerprint != 0;
+	return command.soldier.valid() && command.target.valid() && command.soldier != command.target &&
+		IsSupportedInventoryTransferSlot(command.sourceSlot) && IsSupportedInventoryTransferSlot(command.destinationSlot) &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 && command.expectedTargetGrid >= 0 &&
+		(command.expectedLevel == 0 || command.expectedLevel == 1) &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedTargetAnimationState != UINT16_MAX &&
+		command.expectedDirection < 8 && command.expectedTargetDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.expectedTargetStateFingerprint != 0 &&
+		command.sourceStateFingerprint != 0 && command.destinationStateFingerprint == 1 &&
+		handProofs &&
+		command.expectedActionPointCost == 2 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // Preserve the legacy fFromUI modes as explicit replay/network vocabulary.
 // Values are intentionally identical to TacticalActorRouteExecution's
 // established 0/1/2/3 ingress policy.
@@ -1198,6 +1350,88 @@ inline constexpr std::uint32_t TacticalMaximumWorldItemSlot =
 	static_cast<std::uint32_t>(
 		std::numeric_limits<std::int32_t>::max());
 
+// Exact, synchronous dedicated-co-op pickup into an empty ordinary pocket.
+// These proofs are captured by the authority, never supplied by a client.
+struct AuthoritativePickupWorldItemCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldItemId item;
+	std::uint8_t destinationSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::uint64_t destinationStateFingerprint = 0;
+	std::uint64_t expectedPoolStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<AuthoritativePickupWorldItemCommand>::value,
+	"ground pickup commands must remain pointer-free values");
+
+constexpr bool IsSupportedAuthoritativePickupPocket(std::uint8_t slot) noexcept
+{
+	return slot >= 14 && slot < 55;
+}
+
+constexpr bool IsStructurallyValidAuthoritativePickupWorldItemCommand(
+	const AuthoritativePickupWorldItemCommand& command) noexcept
+{
+	return command.soldier.valid() && command.item.valid() &&
+		command.item.slot <= TacticalMaximumWorldItemSlot &&
+		IsSupportedAuthoritativePickupPocket(command.destinationSlot) &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 &&
+		(command.expectedActorLevel == 0 || command.expectedActorLevel == 1) &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.sourceStateFingerprint != 0 &&
+		command.destinationStateFingerprint != 0 && command.expectedPoolStateFingerprint != 0 &&
+		command.expectedActionPointCost > 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
+// Exact, synchronous dedicated-co-op drop. The authority pins the whole
+// source object and actor pose, then rechecks that the ground tile is empty.
+struct AuthoritativeDropInventoryItemCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<AuthoritativeDropInventoryItemCommand>::value,
+	"ground drop commands must remain pointer-free values");
+
+constexpr bool IsStructurallyValidAuthoritativeDropInventoryItemCommand(
+	const AuthoritativeDropInventoryItemCommand& command) noexcept
+{
+	return command.soldier.valid() && IsSupportedAuthoritativePickupPocket(command.sourceSlot) &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 && command.expectedActorLevel == 0 &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.sourceStateFingerprint != 0 &&
+		command.expectedActionPointCost > 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 struct PickupWorldItemCommand
 {
 	TacticalEntityId soldier;
@@ -1368,7 +1602,12 @@ using SimulationCommand = std::variant<
 	SynchronizeActorVitalsCommand,
 	AimedFirearmAttackCommand,
 	AuthoritativeDoorOpenCloseCommand,
-	PassInterruptCommand>;
+	PassInterruptCommand,
+	BeginFirstAidCommand,
+	SwapInventorySlotsCommand,
+	TransferInventoryItemCommand,
+	AuthoritativePickupWorldItemCommand,
+	AuthoritativeDropInventoryItemCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1525,6 +1764,26 @@ inline bool IsStructurallyValidSimulationCommand(
 			std::is_same<Command, PassInterruptCommand>::value)
 		{
 			return IsStructurallyValidPassInterruptCommand(value);
+		}
+		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+		{
+			return IsStructurallyValidBeginFirstAidCommand(value);
+		}
+		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+		{
+			return IsStructurallyValidSwapInventorySlotsCommand(value);
+		}
+		else if constexpr (std::is_same<Command, TransferInventoryItemCommand>::value)
+		{
+			return IsStructurallyValidTransferInventoryItemCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativePickupWorldItemCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativePickupWorldItemCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeDropInventoryItemCommand(value);
 		}
 		else
 		{

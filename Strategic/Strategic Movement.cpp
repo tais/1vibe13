@@ -8,6 +8,8 @@
 #include "SoldierRepository.h"
 #include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
+#include "DedicatedCoopArrival.h"
+#include <stdexcept>
 #include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
 	#include "Strategic Movement.h"
@@ -1256,6 +1258,23 @@ void HandleImportantPBIQuote( TacticalActor *pSoldier, GROUP *pInitiatingBattleG
 //If this is called, we are setting the game up to bring up the prebattle interface. Before doing so,
 //one of the involved mercs will pipe up. When he is finished, we automatically go into the mapscreen,
 //regardless of the mode we are in.
+void ApplyNativePreBattleMorale(const GROUP& dialogGroup)
+{
+	// Flugente: for cowards, check our teamsize and that of the enemy...
+	if ( gGameOptions.fNewTraitSystem )
+	{
+		UINT16 enemyteamsize = NumNonPlayerTeamMembersInSector( dialogGroup.ubSectorX, dialogGroup.ubSectorY, ENEMY_TEAM );
+		UINT16 militiateamsize = NumNonPlayerTeamMembersInSector( dialogGroup.ubSectorX, dialogGroup.ubSectorY, MILITIA_TEAM );
+		UINT16 mercsteamsize = PlayerMercsInSector( dialogGroup.ubSectorX, dialogGroup.ubSectorY, dialogGroup.ubSectorZ );
+
+		if ( enemyteamsize >= 2 * (militiateamsize + mercsteamsize) && mercsteamsize )
+		{
+			HandleMoraleEvent( NULL, MORALE_ENEMYGROUP_COWARD, dialogGroup.ubSectorX, dialogGroup.ubSectorY, dialogGroup.ubSectorZ );
+		}
+	}
+
+}
+
 void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiatingBattleGroup )
 {
 	// ATE; Changed alogrithm here...
@@ -1320,19 +1339,7 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 #endif
 	SetMusicMode( MUSIC_TACTICAL_ENEMYPRESENT );
 
-	// Flugente: for cowards, check our teamsize and that of the enemy...
-	if ( gGameOptions.fNewTraitSystem )
-	{
-		UINT16 enemyteamsize = NumNonPlayerTeamMembersInSector( pPlayerDialogGroup->ubSectorX, pPlayerDialogGroup->ubSectorY, ENEMY_TEAM );
-		UINT16 militiateamsize = NumNonPlayerTeamMembersInSector( pPlayerDialogGroup->ubSectorX, pPlayerDialogGroup->ubSectorY, MILITIA_TEAM );
-		UINT16 mercsteamsize = PlayerMercsInSector( pPlayerDialogGroup->ubSectorX, pPlayerDialogGroup->ubSectorY, pPlayerDialogGroup->ubSectorZ );
-
-		if ( enemyteamsize >= 2 * (militiateamsize + mercsteamsize) && mercsteamsize )
-		{
-			HandleMoraleEvent( NULL, MORALE_ENEMYGROUP_COWARD, pPlayerDialogGroup->ubSectorX, pPlayerDialogGroup->ubSectorY, pPlayerDialogGroup->ubSectorZ );
-		}
-	}
-
+	ApplyNativePreBattleMorale(*pPlayerDialogGroup);
 	if( (gfTacticalTraversal &&
 			pInitiatingBattleGroup == ResolveTacticalTraversalGroup()) ||
 		(pInitiatingBattleGroup &&
@@ -1606,6 +1613,11 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 				curr = curr->next;
 			}
 		}
+
+		// Keep native detection (including bloodcats and simultaneous arrivals)
+		// authoritative, but do not open a local dialog on a worldless co-op host.
+		if (DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::Battle, pGroup, pPlayerDialogGroup))
+			return TRUE;
 
 		(void)gInitPrebattleGroup.capture(pGroup);
 
@@ -2749,6 +2761,11 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )
 
 	if( ubNumNearbyGroups )
 	{
+		if (DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::CoordinateAttack, pFirstGroup))
+		{
+			gfWaitingForInput = TRUE;
+			return TRUE;
+		}
 		if (!gPendingSimultaneousGroup.capture(pFirstGroup))
 			return FALSE;
 
@@ -3514,12 +3531,20 @@ INT32 FindTravelTimeBetweenWaypoints( WAYPOINT * pSource, WAYPOINT * pDest,	GROU
 #define AIR_TRAVEL_TIME			10
 
 //CHANGES:	ubDirection contains the strategic move value, not the delta value.
-INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup )
+struct StrategicMovementCostModifiers
+{
+	INT32 highestEncumbrance = 0;
+	float survivalist = 0;
+	INT8 footBackground = 20, carBackground = -20, airBackground = -20;
+};
+
+static INT32 GetSectorMvtTimeForGroupInternal( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup,
+	StrategicMovementCostModifiers& modifiers, bool useUiCache )
 {
 	INT32 iTraverseTime;
 	INT32 iBestTraverseTime = 1000000;
 	INT32 iEncumbrance = 0;
-	static INT32 iHighestEncumbrance = 0;
+	INT32& iHighestEncumbrance = modifiers.highestEncumbrance;
 	TacticalActor *pSoldier;
 	PLAYERGROUP *curr;
 	BOOLEAN fFoot, fCar, fTruck, fTracked, fAir;
@@ -3527,11 +3552,11 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 	UINT8 ubTraverseMod;
 
 	// see if we have any survivalist here
-	static float fSurvivalistHere = 0;
+	float& fSurvivalistHere = modifiers.survivalist;
 	// background bonuses
-	static INT8 stravelbackground_foot = 20;
-	static INT8 stravelbackground_car = -20;
-	static INT8 stravelbackground_air = -20;
+	INT8& stravelbackground_foot = modifiers.footBackground;
+	INT8& stravelbackground_car = modifiers.carBackground;
+	INT8& stravelbackground_air = modifiers.airBackground;
 
 	// THIS FUNCTION WAS WRITTEN TO HANDLE MOVEMENT TYPES WHERE MORE THAN ONE TRANSPORTAION TYPE IS AVAILABLE.
 		
@@ -3587,7 +3612,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 
 			// Flugente: this function gets called a lot during pathing, so much that it can lead to lag. As weight remains the same while plotting a path, only do this if something has changed
 			// always perform this check if called outside of the path plot function
-			if ( GetSelectedDestChar() == -1 || gSquadEncumbranceCheckNecessary )
+			if ( !useUiCache || GetSelectedDestChar() == -1 || gSquadEncumbranceCheckNecessary )
 			{
 				// reset values
 				iHighestEncumbrance = 0;
@@ -3639,7 +3664,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 					curr = curr->next;
 				}
 
-				gSquadEncumbranceCheckNecessary = false;
+				if (useUiCache) gSquadEncumbranceCheckNecessary = false;
 			}
 
 			if( iHighestEncumbrance > 100 )
@@ -3769,6 +3794,19 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 }
 
 
+
+INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup )
+{
+	static StrategicMovementCostModifiers legacyCache;
+	return GetSectorMvtTimeForGroupInternal(ubSector, ubDirection, pGroup, legacyCache, true);
+}
+
+INT32 GetSectorMvtTimeForGroupWithoutUiCache( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup )
+{
+	if (!pGroup || ubDirection >= 4) return -1;
+	StrategicMovementCostModifiers isolated;
+	return GetSectorMvtTimeForGroupInternal(ubSector, ubDirection, pGroup, isolated, false);
+}
 
 //Counts the number of live mercs in any given sector.
 UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
@@ -4906,7 +4944,9 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 	//Calc time to get to next waypoint...
 	ubSector = (UINT8)SECTOR( pGroup->ubSectorX, pGroup->ubSectorY );
-	pGroup->uiTraverseTime = GetSectorMvtTimeForGroup( ubSector, ubDirection, pGroup );
+	// Retreat is a fresh native departure, not a continuation of whichever
+	// unrelated squad last populated the map-screen plotting cache.
+	pGroup->uiTraverseTime = GetSectorMvtTimeForGroupWithoutUiCache( ubSector, ubDirection, pGroup );
 	if( pGroup->uiTraverseTime == 0xffffffff )
 	{
 		AssertMsg( 0, String("Group %d (%s) attempting illegal move from %c%d to %c%d (%s).",
@@ -4935,7 +4975,12 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 	//Post the event!
 	if( !AddStrategicEvent( EVENT_GROUP_ARRIVAL, pGroup->uiArrivalTime, pGroup->ubGroupID ) )
+	{
+		// The headless action owner latches partial retreat failures. Never
+		// enter the legacy assertion renderer from this worldless boundary.
+		if (IsHeadlessPreBattleActive()) throw std::runtime_error("native retreat arrival event failed");
 		AssertMsg( 0, "Failed to add movement event." );
+	}
 
 	//For the case of player groups, we need to update the information of the soldiers.
 	if ( pGroup->usGroupTeam == OUR_TEAM )
@@ -5958,14 +6003,17 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	}
 
 
-	// build string for squad
-	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
-
 	TacticalActor* const firstMember = ResolvePlayerGroupMember( pGroup->pPlayerList );
 	if ( !firstMember )
 	{
 		return FALSE;
 	}
+
+	if (DeferDedicatedCoopArrival(DedicatedCoopArrivalKind::WildernessNpc, pGroup))
+		return TRUE;
+
+	// build string for squad only for the normal local dialog
+	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
 
 	if (!gGroupPrompting.capture(pGroup))
 		return FALSE;

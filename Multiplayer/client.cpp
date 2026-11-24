@@ -165,12 +165,15 @@ SdlNetPeer *client;
 SdlNetFileTransfer fltClient;	// flt2
 
 // --- MP wire-hardening helpers (PR-1) -------------------------------------
-// Every recieveX/sendX RPC handler receives a heap buffer sized to the ACTUAL
-// wire payload (payloadLen+4), then (Struct*)casts and reads sizeof(Struct).
-// A short/malformed frame is therefore a heap over-read. RPC_REQUIRE_BYTES is
-// the central length guard: bail before the cast if the payload is too small.
-// size is unsigned; cast sizeof to long so the comparison is well-defined.
-#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(p)->size) < (long)sizeof(T) ) return; }while(0)
+// Every recieveX/sendX RPC handler receives a heap buffer sized to the actual
+// wire payload, then casts it to one fixed MP v3.2 structure. Those packet
+// layouts have no extension mechanism, so reject both truncation and trailing
+// bytes before the cast. This also keeps the client boundary aligned with the
+// embedded and standalone server ingress policy.
+#define RPC_REQUIRE_BYTES(p,T) do { \
+	if (!(p) || !LegacyMessageHasExactPayload( \
+		(p)->data, (p)->size, sizeof(T))) return; \
+} while (0)
 
 // Resolve a wire soldier id without relying on SoldierID's constructors. A raw
 // RPC memcpy can leave the index anywhere in 0..65535.

@@ -1124,6 +1124,15 @@ static bool CopyRegisteredLegacyPayload(
 }
 
 static void CloseLegacyConnection(ConnectionId sender);
+static std::array<ConnectionId, LegacyArenaClientCapacity>
+	gLegacyConnectionsClosing{};
+
+static bool LegacyConnectionCloseInProgress(ConnectionId sender)
+{
+	for (ConnectionId closing : gLegacyConnectionsClosing)
+		if (closing == sender) return true;
+	return false;
+}
 
 static bool IsRegisteredMessage(const SdlNetMessage* message)
 {
@@ -1137,17 +1146,50 @@ static bool IsRegisteredExactMessage(
 		message->data, message->size, expectedBytes);
 }
 
+static bool QueueLegacyMessage(
+	const char* messageName, const void* data, std::size_t bytes,
+	ConnectionId recipient)
+{
+	if (!server || !messageName || !recipient ||
+		recipient == AnyConnection) return false;
+	std::size_t pendingBytes = 0;
+	if (!server->PendingWriteBytes(recipient, pendingBytes) ||
+		!LegacyServerOutboundFrameWithinLimit(
+			pendingBytes, std::strlen(messageName), bytes))
+		return false;
+	return server->SendMessage(
+		messageName, data, bytes, recipient, false);
+}
+
+static bool SendToLegacyClient(
+	const char* messageName, const void* data, std::size_t bytes,
+	ConnectionId recipient)
+{
+	if (QueueLegacyMessage(messageName, data, bytes, recipient))
+		return true;
+	CloseLegacyConnection(recipient);
+	return false;
+}
+
 static void SendToRegisteredClients(
 	const char* messageName, const void* data, std::size_t bytes,
 	ConnectionId excluded = NoConnection)
 {
+	std::array<ConnectionId, LegacyArenaClientCapacity> failed{};
+	std::size_t failedCount = 0;
 	for (std::size_t slot = 0; slot < LegacyArenaClientCapacity; ++slot)
 	{
 		const ConnectionId recipient =
 			gLegacyClientAdmission.connection(slot);
 		if (!recipient || recipient == excluded) continue;
-		server->SendMessage(messageName, data, bytes, recipient, false);
+		if (!QueueLegacyMessage(messageName, data, bytes, recipient))
+			failed[failedCount++] = recipient;
 	}
+	// Finish queuing this frame to every healthy recipient before mutating the
+	// roster. This preserves their reliable order and isolates a slow peer.
+	for (std::size_t index = 0; index < failedCount; ++index)
+		if (IsRegisteredClient(failed[index]))
+			CloseLegacyConnection(failed[index]);
 }
 
 static bool ReadLegacySoldierIdAt(
@@ -2732,7 +2774,7 @@ void requestSETID(ConnectionId addr)
 	const int slot = FindRegisteredClientSlot(addr);
 	if (slot < 0 || gLegacyTransferSetIdOutstanding[slot]) return;
 	gLegacyTransferSetIdOutstanding[slot] =
-		server->SendMessage("requestSETID", "", 0, addr, false);
+		SendToLegacyClient("requestSETID", "", 0, addr);
 }
 
 void receiveSETID(SdlNetMessage *rpcParameters)
@@ -2761,7 +2803,9 @@ void receiveSETID(SdlNetMessage *rpcParameters)
 	setID = parsedSetId;
 
 	// WANNE: FILE TRANSFER: Send the files to the client
-	fltServer.Send(fileList, *server, rpcParameters->sender, setID, 5000);
+	if (!fltServer.Send(
+		fileList, *server, rpcParameters->sender, setID, 5000))
+		CloseLegacyConnection(rpcParameters->sender);
 }
 
 void startCOMBAT(SdlNetMessage *rpcParameters)
@@ -3012,11 +3056,24 @@ void HandleDisconnect(ConnectionId sender)
 
 static void CloseLegacyConnection(ConnectionId sender)
 {
+	if (!server || !sender || sender == AnyConnection ||
+		LegacyConnectionCloseInProgress(sender)) return;
+	ConnectionId* closeGuard = nullptr;
+	for (ConnectionId& closing : gLegacyConnectionsClosing)
+	{
+		if (closing) continue;
+		closeGuard = &closing;
+		closing = sender;
+		break;
+	}
 	// SdlNetPeer::CloseConnection does not synthesize a local disconnect event.
 	// Retire application ownership first so a server-side rejection cannot leave
-	// a stale player/admin slot behind indefinitely.
+	// a stale player/admin slot behind indefinitely. The close guard prevents an
+	// interrupt-release broadcast to the same full socket from recursively
+	// re-entering this path before HandleDisconnect removes its roster slot.
 	HandleDisconnect(sender);
 	server->CloseConnection(sender, true);
+	if (closeGuard) *closeGuard = NoConnection;
 }
 
 // OJW - 20081218
@@ -3078,7 +3135,8 @@ void requestFILE_TRANSFER_SETTINGS(SdlNetMessage *rpcParameters)
 	fts.totalTransferBytes = fileListTotalBytes;
 
 	// OJW - 200907819 - Only send to the client that asked for it
-	server->SendMessage("recieveFILE_TRANSFER_SETTINGS", (const char*)&fts, sizeof(filetransfersettings_struct), sender, false);
+	SendToLegacyClient("recieveFILE_TRANSFER_SETTINGS", (const char*)&fts,
+		sizeof(filetransfersettings_struct), sender);
 }
 
 //************************* //AnyConnection
@@ -3103,7 +3161,9 @@ void adminCmd(SdlNetMessage *rpcParameters)
 			gAdminAddr = rpcParameters->sender;
 			gHasAdmin = true;
 			unsigned char one = 1;
-			server->SendMessage("recieveADMIN", (const char*)&one, 1, rpcParameters->sender, false);
+			if (!SendToLegacyClient("recieveADMIN", (const char*)&one, 1,
+					rpcParameters->sender))
+				return;
 			ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"A client authenticated as the server admin" );
 			printf( "[dedicated] a client authenticated as admin\n" ); fflush( stdout );
 		}
@@ -3172,7 +3232,8 @@ void requestSETTINGS(SdlNetMessage *rpcParameters )
 		sgp_swprintf(verErrMsg, 255, MPClientMessage[66], clinf->client_version,MPVERSION);
 
 		// send disconnect reason only to this client
-		server->SendMessage("recieveDISCONNECTREASON", (const char*)&verErrMsg, sizeof(CHAR16) * 255, rpcParameters->sender, false);
+		SendToLegacyClient("recieveDISCONNECTREASON", (const char*)&verErrMsg,
+			sizeof(CHAR16) * 255, rpcParameters->sender);
 
 		ScreenMsg( FONT_ORANGE, MSG_MPSYSTEM, L"CONNECTION REJECTED - CLIENT HAS WRONG VERSION");
 		CloseLegacyConnection(rpcParameters->sender);
@@ -3238,7 +3299,9 @@ void requestSETTINGS(SdlNetMessage *rpcParameters )
 				gAdminAddr = sender;
 				gHasAdmin = true;
 				unsigned char one = 1;
-				server->SendMessage("recieveADMIN", (const char*)&one, 1, sender, false);
+				if (!SendToLegacyClient(
+						"recieveADMIN", (const char*)&one, 1, sender))
+					return;
 				ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Client #%d is now the server admin", new_cl_num );
 				printf( "[dedicated] client #%d is now admin\n", new_cl_num ); fflush( stdout );
 			}

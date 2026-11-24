@@ -9912,6 +9912,13 @@ BOOLEAN IsGunBurstCapable(OBJECTTYPE* pObject, BOOLEAN fNotify, TacticalActor* p
 
 void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
 {
+	(void)TryHandleTacticalEffectsOfEquipmentChange(
+		pSoldier, uiInvPos, usOldItem, usNewItem);
+}
+
+SimulationCommandDispatchResult TryHandleTacticalEffectsOfEquipmentChange(
+	TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem)
+{
 #ifdef ADB_TODO
 	SetBurstAndAutoFireMode(pSoldier, GetWeaponMode(&pSoldier->inventory()[uiInvPos]));
 #endif
@@ -9920,7 +9927,7 @@ void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiI
 	(void)ResolveEquipmentTacticalWeaponConfiguration(
 		*pSoldier, uiInvPos, usOldItem, usNewItem,
 		configuration, completesHandItemChange);
-	(void)TryDispatchSystemApplyWeaponConfigurationCommand(
+	return TryDispatchSystemApplyWeaponConfigurationCommand(
 		GetJa2TacticalEntityId(*pSoldier), configuration,
 		TacticalWeaponConfigurationCause::EquipmentChanged,
 		TacticalWeaponConfigurationPostApplyPolicy::None,

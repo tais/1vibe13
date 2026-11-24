@@ -19,6 +19,7 @@ set(LaptopCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/BriefingRoom_Data.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/BrokenLink.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignHistoryMain.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/CampaignLedger.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CharProfile.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DropDown.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DynamicDialogueWidget.cpp"

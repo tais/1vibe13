@@ -8,7 +8,13 @@
 
 namespace CoopSession
 {
-constexpr std::uint16_t CurrentProtocolVersion = 7;
+// Version 15 adds current economy/AIM offers and serialized hiring receipts.
+// All shared actions consume one control barrier; only time requires leadership.
+// Reject older clients at admission, before any campaign transfer begins.
+// Version 16 adds an explicit shared answer to a native tactical surrender offer.
+// Version 18 adds shared native defeat/capture acknowledgement before campaign return.
+// Version 19 holds native Meanwhile scenes for an explicit shared Skip.
+constexpr std::uint16_t CurrentProtocolVersion = 19;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

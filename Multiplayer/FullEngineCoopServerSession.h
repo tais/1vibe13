@@ -2,6 +2,7 @@
 #define MULTIPLAYER_FULL_ENGINE_COOP_SERVER_SESSION_H
 
 #include "CoopAdmission.h"
+#include "CoopInventoryProtocol.h"
 #include "CoopTacticalProtocol.h"
 
 #include <array>
@@ -19,6 +20,7 @@ inline constexpr std::size_t MaximumCoopTacticalAssignments =
 inline constexpr std::size_t MaximumCoopTacticalDeltaHistory = 64;
 inline constexpr std::size_t MaximumCoopTacticalReceiptHistoryPerPeer = 64;
 inline constexpr std::size_t MaximumCoopTacticalMessagesPerFlush = 256;
+inline constexpr std::size_t MaximumCoopInventoryMessagesPerPeerPerFlush = 2;
 
 struct FullEngineCoopServerSessionConfiguration
 {
@@ -50,6 +52,15 @@ struct CoopTacticalActorAssignment
 	PeerIdentity peerIdentity{};
 };
 
+// Exact admission-epoch command cursor to embed when a committed world update
+// must replace an unencodable delta with a fresh baseline. Input to the
+// replacement operation is the complete connected-peer set in identity order.
+struct CoopTacticalPeerBaselineCursor
+{
+	PeerIdentity peerIdentity{};
+	std::uint64_t nextExpectedCommandId = 1;
+};
+
 enum class FullEngineCoopServerSessionResult
 {
 	Success,
@@ -63,6 +74,7 @@ enum class FullEngineCoopServerSessionResult
 	InvalidAssignment,
 	AssignmentCapacityReached,
 	SequenceExhausted,
+	DeltaPayloadTooLarge,
 	CodecFailure,
 	ReceiptCapacityReached,
 	ConflictingReceipt,
@@ -78,7 +90,8 @@ enum class CoopTacticalOutboundMessageKind : std::uint8_t
 {
 	IntentReceipt,
 	Baseline,
-	Delta
+	Delta,
+	OwnerInventory
 };
 
 const char* CoopTacticalOutboundMessageName(
@@ -104,6 +117,9 @@ struct FullEngineCoopServerSessionFlushResult
 	FullEngineCoopServerSessionResult result =
 		FullEngineCoopServerSessionResult::Success;
 	std::size_t messagesSent = 0;
+	// Logical dependency/fairness waiting is not socket backpressure: inbound
+	// public ACKs may be exactly what lets this owner replacement become sent.
+	bool inventoryPending = false;
 	bool backpressured = false;
 };
 
@@ -181,6 +197,18 @@ public:
 		const PeerIdentity& peer,
 		const TacticalWorldSnapshot& snapshot,
 		std::uint64_t nextExpectedCommandId) noexcept;
+	// This is a peer-private, coalesced full summary; never a public delta.
+	FullEngineCoopServerSessionResult stageInventory(
+		const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, bool usesNewInventory,
+		const std::vector<CoopInventorySlotSummary>& slots) noexcept;
+	// Transport identity fields are stamped by this session, never trusted from capture.
+	FullEngineCoopServerSessionResult stageInventory(
+		const PeerIdentity& peer, const CoopOwnerInventorySnapshot& inventory) noexcept;
+	bool hasInventoryRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision) const noexcept;
+	bool hasGroundItemRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, TacticalWorldItemId item) const noexcept;
 	FullEngineCoopServerSessionResult acknowledgeBaseline(
 		const PeerIdentity& peer,
 		const std::uint8_t* bytes,
@@ -190,6 +218,18 @@ public:
 		const TacticalWorldDelta& delta,
 		std::uint64_t resultingRevision,
 		std::uint64_t resultingTurnSerial) noexcept;
+	// A narrow recovery for a valid committed update whose canonical delta is
+	// larger than the co-op wire ceiling. The supplied snapshot must describe
+	// that same resulting revision. Every connected peer is transactionally
+	// moved behind a fresh baseline carrying its exact assignment and command
+	// cursor; retained receipts and committed ACK evidence remain intact.
+	FullEngineCoopServerSessionResult replaceOversizedDeltaWithBaselines(
+		const TacticalWorldDelta& delta,
+		const TacticalWorldSnapshot& resultingSnapshot,
+		std::uint64_t resultingRevision,
+		std::uint64_t resultingTurnSerial,
+		const CoopTacticalPeerBaselineCursor* cursors,
+		std::size_t cursorCount) noexcept;
 	FullEngineCoopServerSessionResult acknowledgeDelta(
 		const PeerIdentity& peer,
 		const std::uint8_t* bytes,
@@ -245,6 +285,7 @@ private:
 		bool connected = false;
 		std::uint64_t baselineId = 0;
 		std::uint64_t baselineRevision = 0;
+		std::size_t nextInventorySlot = 0;
 		std::uint64_t baselineTurnSerial = 0;
 		std::uint64_t baselineNextExpectedCommandId = 1;
 		std::uint64_t baselineDeltaFloor = 0;
@@ -289,6 +330,16 @@ private:
 		std::uint32_t checksum = 0;
 		std::vector<std::uint8_t> bytes;
 	};
+	struct InventoryRecord
+	{
+		CoopOwnerInventorySnapshot snapshot;
+		std::vector<std::uint8_t> bytes;
+		std::uint64_t publicRevision = 0;
+		bool pending = false;
+		bool sent = false;
+	};
+	bool ownsInventoryActor(const PeerIdentity& peer, TacticalEntityId actor) const noexcept;
+	void clearPeerInventories(const PeerIdentity& peer) noexcept;
 	bool configurationValid() const noexcept;
 	PeerRecord* findPeer(const PeerIdentity& peer) noexcept;
 	const PeerRecord* findPeer(const PeerIdentity& peer) const noexcept;
@@ -312,12 +363,19 @@ private:
 	std::uint64_t nextBaselineId(std::uint64_t value) const noexcept;
 	std::uint64_t nextDeltaId(std::uint64_t value) const noexcept;
 	void evictOldestDelta() noexcept;
+	FullEngineCoopServerSessionResult prepareDelta(
+		const TacticalWorldDelta& delta,
+		std::uint64_t resultingRevision,
+		std::uint64_t resultingTurnSerial,
+		DeltaRecord& accepted) const noexcept;
+	void commitDelta(DeltaRecord&& accepted) noexcept;
 	bool sameState(const CoopTacticalStateIdentity& left,
 		const CoopTacticalStateIdentity& right) const noexcept;
 
 	FullEngineCoopServerSessionConfiguration configuration_;
 	std::uint64_t sessionEpoch_ = 0;
 	std::uint64_t worldGeneration_ = 0;
+	TacticalWorldDimensions worldDimensions_{};
 	std::uint64_t revision_ = 0;
 	std::uint64_t turnSerial_ = 0;
 	std::uint64_t nextBaselineId_ = 1;
@@ -328,6 +386,7 @@ private:
 		MaximumCoopTacticalAssignments> assignments_{};
 	std::size_t assignmentCount_ = 0;
 	std::array<DeltaRecord, MaximumCoopTacticalDeltaHistory> deltas_{};
+	std::array<InventoryRecord, MaximumCoopTacticalAssignments> inventories_{};
 	std::size_t deltaHead_ = 0;
 	std::size_t deltaCount_ = 0;
 	bool active_ = false;

@@ -110,6 +110,11 @@ FullEngineCoopClientTransport::connectInternal(
 	try
 	{
 		registered = registerMessages();
+		if (registered)
+			// Cap the callback burst at physical storage. Keep a deliberately
+			// smaller configured queue as an independent fail-closed limit.
+			registered = transport_->SetMaximumMessageFramesPerPoll(
+				MaximumFullEngineCoopClientInboundMessages);
 		if (registered && campaignSink != nullptr)
 		{
 			ja2::mp::net::SdlNetInboundMessageBudget campaignBudget;
@@ -204,37 +209,42 @@ void FullEngineCoopClientTransport::poll() noexcept
 	++pollDepth_;
 	if (!closePending_ && transport_ != nullptr)
 	{
-		try
+		for (;;)
 		{
-			for (;;)
+			ja2::mp::net::SdlNetEvent* event = nullptr;
+			try
 			{
-				ja2::mp::net::SdlNetEvent* event = transport_->Poll();
-				if (event == nullptr) break;
-				handleEvent(*event);
-				transport_->Release(event);
+				event = transport_->Poll();
+				if (event != nullptr)
+				{
+					handleEvent(*event);
+					transport_->Release(event);
+				}
 			}
-		}
-		catch (...)
-		{
-			failTransport(
-				FullEngineCoopClientTransportFailure::TransportFailure);
-		}
-	}
+			catch (...)
+			{
+				failTransport(
+					FullEngineCoopClientTransportFailure::TransportFailure);
+			}
 
-	// The entire SDL pump is now off the stack. Only this section may mutate
-	// the core or invoke the passive replica boundary.
-	if (!closePending_ && pendingAccepted_)
-	{
-		server_ = pendingAccepted_;
-		pendingAccepted_ = ja2::mp::NoConnection;
-		connected_ = true;
-		if (client_ == nullptr ||
-			client_->transportConnected() !=
-				FullEngineCoopClientResult::Success)
-			failTransport(
-				FullEngineCoopClientTransportFailure::ClientRejected);
+			// This individual SDL pump and every synchronous message callback
+			// have unwound. Empty its bounded batch before another Poll() can
+			// dispatch a second batch while draining queued transport events.
+			if (!closePending_ && pendingAccepted_)
+			{
+				server_ = pendingAccepted_;
+				pendingAccepted_ = ja2::mp::NoConnection;
+				connected_ = true;
+				if (client_ == nullptr ||
+					client_->transportConnected() !=
+						FullEngineCoopClientResult::Success)
+					failTransport(
+						FullEngineCoopClientTransportFailure::ClientRejected);
+			}
+			if (!closePending_ && connected_) deliverInbound();
+			if (closePending_ || event == nullptr) break;
+		}
 	}
-	if (!closePending_ && connected_) deliverInbound();
 
 	--pollDepth_;
 	if (pollDepth_ == 0 && closePending_) finishClose();
@@ -266,13 +276,6 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 		return false;
 	}
 
-	std::size_t pending = 0;
-	if (!transport_->PendingWriteBytes(server_, pending))
-	{
-		failTransport(
-			FullEngineCoopClientTransportFailure::TransportFailure);
-		return false;
-	}
 	const std::size_t nameSize = std::strlen(messageName);
 	if (nameSize > maximumPendingWriteBytes_ ||
 		size > maximumPendingWriteBytes_ - nameSize ||
@@ -285,6 +288,16 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 	}
 	const std::size_t frameSize =
 		SdlMessageFrameOverhead + nameSize + size;
+	std::size_t pending = 0;
+	if (!transport_->PendingWriteBytes(server_, pending))
+	{
+		// The endpoint and outbound frame were validated above. At this point
+		// a missing socket or a failed socket query means the connection died,
+		// even if its queued disconnect event has not reached poll() yet.
+		failTransport(
+			FullEngineCoopClientTransportFailure::ConnectionLost);
+		return false;
+	}
 	if (pending > maximumPendingWriteBytes_ ||
 		frameSize > maximumPendingWriteBytes_ - pending)
 	{
@@ -292,9 +305,21 @@ bool FullEngineCoopClientTransport::send(const char* messageName,
 			FullEngineCoopClientTransportFailure::PendingWriteLimit);
 		return false;
 	}
-	if (!transport_->SendMessage(
-		messageName, bytes, size, server_, false))
+	try
 	{
+		if (!transport_->SendMessage(
+			messageName, bytes, size, server_, false))
+		{
+			failTransport(
+				FullEngineCoopClientTransportFailure::ConnectionLost);
+			return false;
+		}
+	}
+	catch (...)
+	{
+		// Allocation/implementation failures are not evidence of socket loss.
+		// Preserve fail-closed behavior instead of terminating this noexcept API
+		// or silently treating a local failure as a reconnectable connection.
 		failTransport(
 			FullEngineCoopClientTransportFailure::TransportFailure);
 		return false;
@@ -347,6 +372,54 @@ void FullEngineCoopClientTransport::HandleSelfRetirementResult(
 	ja2::mp::net::SdlNetMessage* message, void* context)
 {
 	QueueFromCallback(message, context, InboundKind::SelfRetirementResult);
+}
+
+void FullEngineCoopClientTransport::HandleOwnerInventory(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::OwnerInventory);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignGroups(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignGroups);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignStatus(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignStatus);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignTimeResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignTimeResult);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignActionResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignActionResult);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignEconomy(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignEconomy);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignAimQuotes(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignAimQuotes);
+}
+
+void FullEngineCoopClientTransport::HandleCampaignHireResult(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::CampaignHireResult);
 }
 
 void FullEngineCoopClientTransport::HandleCampaignMetadata(
@@ -549,6 +622,22 @@ FullEngineCoopClientResult FullEngineCoopClientTransport::deliver(
 		case InboundKind::TacticalReceipt:
 			return client_->receiveIntentReceipt(
 				message.bytes.data(), message.size);
+		case InboundKind::OwnerInventory:
+			return client_->receiveOwnerInventory(message.bytes.data(), message.size);
+		case InboundKind::CampaignStatus:
+			return client_->receiveCampaignStatus(message.bytes.data(), message.size);
+		case InboundKind::CampaignGroups:
+			return client_->receiveCampaignGroups(message.bytes.data(), message.size);
+		case InboundKind::CampaignTimeResult:
+			return client_->receiveCampaignTimeResult(message.bytes.data(), message.size);
+		case InboundKind::CampaignActionResult:
+			return client_->receiveCampaignActionResult(message.bytes.data(), message.size);
+		case InboundKind::CampaignEconomy:
+			return client_->receiveCampaignEconomy(message.bytes.data(), message.size);
+		case InboundKind::CampaignAimQuotes:
+			return client_->receiveCampaignAimQuotes(message.bytes.data(), message.size);
+		case InboundKind::CampaignHireResult:
+			return client_->receiveCampaignHireResult(message.bytes.data(), message.size);
 		case InboundKind::SelfRetirementResult:
 			return client_->receiveSelfRetirementResult(
 				message.bytes.data(), message.size);
@@ -614,8 +703,18 @@ void FullEngineCoopClientTransport::finishClose() noexcept
 {
 	if (!closePending_ || pollDepth_ != 0 || handlerDepth_ != 0) return;
 	FullEngineCoopClient* const client = client_;
-	const bool notifyClient = notifyClientOnClose_ &&
-		!preserveClientStateOnClose_;
+	// The passive core reports any failed bool send as WireFailure and closes
+	// its wire. When a validated socket operation detected a lost connection,
+	// that close must not suppress the deferred disconnect notification. Only
+	// normalize this exact failure after every callback/core transition unwinds;
+	// malformed messages, queue limits, storage failures and retirement remain
+	// governed by their existing fail-closed/explicit-close state transitions.
+	const bool lostDuringSend = client != nullptr &&
+		lastFailure_ == FullEngineCoopClientTransportFailure::ConnectionLost &&
+		client->state() == FullEngineCoopClientState::Failed &&
+		client->lastResult() == FullEngineCoopClientResult::WireFailure;
+	const bool notifyClient = lostDuringSend ||
+		(notifyClientOnClose_ && !preserveClientStateOnClose_);
 	const unsigned drainMilliseconds = pendingDrainMilliseconds_;
 
 	running_ = false;
@@ -660,6 +759,22 @@ bool FullEngineCoopClientTransport::registerMessages() noexcept
 				&FullEngineCoopClientTransport::HandleTacticalDelta, this) &&
 			transport_->RegisterMessage(CoopTacticalIntentReceiptMessageName,
 				&FullEngineCoopClientTransport::HandleTacticalReceipt, this) &&
+			transport_->RegisterMessage(CoopOwnerInventoryMessageName,
+				&FullEngineCoopClientTransport::HandleOwnerInventory, this) &&
+			transport_->RegisterMessage(CoopCampaignStatusMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignStatus, this) &&
+			transport_->RegisterMessage(CoopCampaignGroupsMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignGroups, this) &&
+			transport_->RegisterMessage(CoopCampaignTimeResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignTimeResult, this) &&
+			transport_->RegisterMessage(CoopCampaignActionResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignActionResult, this) &&
+			transport_->RegisterMessage(CoopCampaignEconomyMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignEconomy, this) &&
+			transport_->RegisterMessage(CoopCampaignAimQuotesMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignAimQuotes, this) &&
+			transport_->RegisterMessage(CoopCampaignHireResultMessageName,
+				&FullEngineCoopClientTransport::HandleCampaignHireResult, this) &&
 			transport_->RegisterMessage(
 				CoopAdmissionSelfRetirementResultMessageName,
 				&FullEngineCoopClientTransport::HandleSelfRetirementResult,
@@ -696,6 +811,22 @@ bool FullEngineCoopClientTransport::validInbound(
 			return size <= MaximumCoopTacticalWireSize;
 		case InboundKind::SelfRetirementResult:
 			return size == AdmissionSelfRetirementResultWireSize;
+		case InboundKind::OwnerInventory:
+			return size >= CoopOwnerInventoryHeaderWireSize && size <= MaximumCoopOwnerInventoryWireSize;
+		case InboundKind::CampaignStatus:
+			return size == CoopCampaignStatusWireSize;
+		case InboundKind::CampaignGroups:
+			return size >= CoopCampaignGroupsHeaderSize && size <= MaximumCoopCampaignGroupsWireSize;
+		case InboundKind::CampaignTimeResult:
+			return size == CoopCampaignTimeResultWireSize;
+		case InboundKind::CampaignActionResult:
+			return size == CoopCampaignActionResultWireSize;
+		case InboundKind::CampaignEconomy:
+			return size >= CoopCampaignEconomyHeaderSize && size <= MaximumCoopCampaignEconomyWireSize;
+		case InboundKind::CampaignAimQuotes:
+			return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
+		case InboundKind::CampaignHireResult:
+			return size == CoopCampaignHireResultWireSize;
 		case InboundKind::CampaignMetadata:
 			return size == CoopCampaignSyncMetadataWireSize;
 		case InboundKind::CampaignChunk:
@@ -756,6 +887,12 @@ bool FullEngineCoopClientTransport::validOutbound(
 		return size == CoopCampaignSyncResultWireSize;
 	if (SameName(messageName, CoopCampaignSyncResyncMessageName))
 		return size == CoopCampaignSyncResyncWireSize;
+	if (SameName(messageName, CoopCampaignTimeRequestMessageName))
+		return size == CoopCampaignTimeRequestWireSize;
+	if (SameName(messageName, CoopCampaignActionRequestMessageName))
+		return size == CoopCampaignActionRequestWireSize;
+	if (SameName(messageName, CoopCampaignHireRequestMessageName))
+		return size == CoopCampaignHireRequestWireSize;
 	return false;
 }
 }

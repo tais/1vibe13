@@ -1130,12 +1130,29 @@ LEVELNODE *AddStructToTail( INT32 iMapIndex, UINT16 usIndex )
 	return(AddStructToTailCommon( iMapIndex, usIndex, TRUE ));
 }
 
+static LEVELNODE *InternalAddStructToTailCommon( INT32 iMapIndex,
+	UINT16 usIndex, BOOLEAN fAddStructDBInfo, BOOLEAN fStoreInMapTempFile );
+
+LEVELNODE *AddStructToTailForStaticPresentation(
+	INT32 iMapIndex, UINT16 usIndex )
+{
+	return InternalAddStructToTailCommon(
+		iMapIndex, usIndex, TRUE, FALSE );
+}
+
 LEVELNODE *ForceStructToTail( INT32 iMapIndex, UINT16 usIndex )
 {
 	return(AddStructToTailCommon( iMapIndex, usIndex, FALSE ));
 }
 
 LEVELNODE *AddStructToTailCommon( INT32 iMapIndex, UINT16 usIndex, BOOLEAN fAddStructDBInfo )
+{
+	return InternalAddStructToTailCommon(
+		iMapIndex, usIndex, fAddStructDBInfo, TRUE );
+}
+
+static LEVELNODE *InternalAddStructToTailCommon( INT32 iMapIndex,
+	UINT16 usIndex, BOOLEAN fAddStructDBInfo, BOOLEAN fStoreInMapTempFile )
 {
 	LEVELNODE	*pStruct		= NULL;
 	LEVELNODE	*pTailStruct = NULL;
@@ -1238,8 +1255,12 @@ LEVELNODE *AddStructToTailCommon( INT32 iMapIndex, UINT16 usIndex, BOOLEAN fAddS
 		}
 	}
 
-	//Add the structure the maps temp file
-	AddStructToMapTempFile( iMapIndex, usIndex );
+	// A passive presentation owns only transient renderer nodes. Ordinary
+	// gameplay/editor insertions retain the established persistence behavior.
+	if ( fStoreInMapTempFile )
+	{
+		AddStructToMapTempFile( iMapIndex, usIndex );
+	}
 
 	//CheckForAndAddTileCacheStructInfo( pNextStruct, (INT16)iMapIndex, usIndex );
 
@@ -2591,8 +2612,13 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, TacticalActor *pSold
 	STRUCTURE_FILE_REF		*pStructureFileRef;
 	BOOLEAN								fReturn;
 
-	// Turn off multi tile flag...
-	pSoldier->status().flags() &= ( ~SOLDIER_MULTITILE );
+	// Direction values are live octants, never the deployment-only +100
+	// forced-facing marker. Reject invalid state before touching a footprint
+	// or indexing gOneCDirection (including on the failure-reporting path).
+	if ( pSoldier == NULL || static_cast<UINT8>(pSoldier->position().direction()) >= NUM_WORLD_DIRECTIONS )
+	{
+		return FALSE;
+	}
 
 	if ( pSoldier->renderBindings().levelNode() == NULL )
 	{
@@ -2604,24 +2630,27 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, TacticalActor *pSold
 		return( FALSE );
 	}
 
-	// Remove existing structs
+	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
+	UINT16 structureIndex = 0;
+	if ( pStructureFileRef != NULL )
+	{
+		structureIndex = pSoldier->identity().bodyType() == QUEENMONSTER
+			? 0 : gOneCDirection[pSoldier->position().direction()];
+		if ( pStructureFileRef->pDBStructureRef == NULL || structureIndex >= pStructureFileRef->usNumberOfStructures )
+		{
+			return FALSE;
+		}
+	}
+
+	// Remove existing structs only after validating the direction/table access.
+	pSoldier->status().flags() &= ( ~SOLDIER_MULTITILE );
 	DeleteStructureFromWorld( pSoldier->renderBindings().levelNode()->pStructureData );
 	pSoldier->renderBindings().levelNode()->pStructureData = NULL;
-
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 	// Now check if we are multi-tiled!
 	if ( pStructureFileRef != NULL )
 	{
-		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
-		{
-			// Queen uses onely one direction....
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->renderBindings().levelNode() );
-		}
-		else
-		{
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ] ), pSoldier->renderBindings().levelNode() );
-		}
+		fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &pStructureFileRef->pDBStructureRef[structureIndex], pSoldier->renderBindings().levelNode() );
 /*
 		if ( fReturn == FALSE )
 		{
@@ -2645,9 +2674,8 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, TacticalActor *pSold
 			// pDBStructure can be NULL here (and ubDirection may index a direction the
 			// structure file has no variant for) -- this failure path crashed when a
 			// remote placement collided with an occupied tile.
-			if ( pSoldier->position().direction() < NUM_WORLD_DIRECTIONS
-				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure != NULL
-				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure->ubNumberOfTiles > 1 )
+			if ( pStructureFileRef->pDBStructureRef[structureIndex].pDBStructure != NULL
+				&& pStructureFileRef->pDBStructureRef[structureIndex].pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
 				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;

@@ -2,7 +2,10 @@
 #define MULTIPLAYER_FULL_ENGINE_COOP_ADMISSION_LISTENER_H
 
 #include "CoopCampaignBootstrapProtocol.h"
+#include "CoopCampaignAction.h"
+#include "CoopCampaignHire.h"
 #include "CoopCampaignSyncProtocol.h"
+#include "CoopCampaignTime.h"
 #include "CoopHandshakeProtocol.h"
 #include "CoopTacticalIntent.h"
 #include "CoopTacticalProtocol.h"
@@ -41,6 +44,12 @@ static_assert(CoopCampaignSyncResultWireSize <=
 static_assert(CoopCampaignSyncResyncWireSize <=
 	MaximumCoopCampaignInboundWireSize,
 	"the bounded campaign inbox must hold a resync request");
+static_assert(CoopCampaignTimeRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a time request");
+static_assert(CoopCampaignActionRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a campaign action request");
+static_assert(CoopCampaignHireRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a hire request");
 
 enum class FullEngineCoopTacticalInboundKind : std::uint8_t
 {
@@ -67,7 +76,10 @@ enum class FullEngineCoopCampaignInboundKind : std::uint8_t
 {
 	Ack = 1,
 	Result = 2,
-	Resync = 3
+	Resync = 3,
+	TimeRequest = 4,
+	ActionRequest = 5,
+	HireRequest = 6
 };
 
 // Campaign-control callbacks use the same transport-authenticated identity as
@@ -110,6 +122,9 @@ struct FullEngineCoopAdmissionListenerConfiguration
 		MaximumCoopTacticalInboundMessages;
 	std::size_t maximumQueuedCampaignMessages =
 		MaximumCoopCampaignInboundMessages;
+	// Enable only when the owning coordinator handles time, action and hire
+	// requests. Synchronization-only embeddings reject those request kinds.
+	bool enableCampaignRequests = false;
 	std::size_t maximumPendingWriteBytesPerConnection =
 		DefaultCoopTransportPendingWriteBytes;
 };
@@ -146,6 +161,10 @@ public:
 	void poll() noexcept;
 	void stop(unsigned drainMilliseconds = 0) noexcept;
 	bool running() const noexcept { return running_; }
+	// Includes pending handshakes and campaign synchronization, not just peers
+	// whose admission ACK has committed. Optional checkpoints must preserve all
+	// of these live connections while a client is joining or playing.
+	bool hasConnections() const noexcept;
 
 	std::size_t authenticatedPeerCount() const noexcept;
 	std::size_t authenticatedPeers(
@@ -240,6 +259,12 @@ private:
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleCampaignResultMessage(
 		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignTimeRequestMessage(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignActionRequestMessage(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignHireRequestMessage(
+		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleCampaignResyncMessage(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	void handleAdmissionMessage(
@@ -273,6 +298,8 @@ private:
 		const PeerIdentity& peerIdentity,
 		const ja2::mp::net::SdlNetMessage& message,
 		FullEngineCoopTacticalInboundKind kind) noexcept;
+	bool makeTacticalQueueRoom(
+		const TransportPeer& incomingTransport) noexcept;
 	bool validCampaignInboundSize(
 		FullEngineCoopCampaignInboundKind kind,
 		std::size_t size) const noexcept;
@@ -281,6 +308,8 @@ private:
 		const PeerIdentity& peerIdentity,
 		const ja2::mp::net::SdlNetMessage& message,
 		FullEngineCoopCampaignInboundKind kind) noexcept;
+	bool makeCampaignQueueRoom(
+		const TransportPeer& incomingTransport) noexcept;
 	void removeQueuedMessagesForTransport(
 		const TransportPeer& transport) noexcept;
 	void clearInbound() noexcept;
@@ -318,6 +347,7 @@ private:
 	unsigned pendingStopDrainMilliseconds_ = 0;
 	bool stopPending_ = false;
 	bool running_ = false;
+	bool campaignRequestsEnabled_ = false;
 	bool selfRetirementInboundOccupied_ = false;
 	bool selfRetirementInputFrozen_ = false;
 };

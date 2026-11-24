@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 enum class DedicatedServerMode : std::uint8_t
 {
@@ -26,7 +27,9 @@ struct DedicatedServerOptions
 	std::uint64_t campaignSeed = 0;
 	std::string stateDirectory;
 	std::uint32_t checkpointSeconds = 300;
-	std::string coopBindAddress = "0.0.0.0";
+	// Keep permissionless, plaintext first-join admission private unless the
+	// operator explicitly opts into a LAN-facing interface.
+	std::string coopBindAddress = "127.0.0.1";
 	std::uint16_t coopPort = 60005;
 };
 
@@ -94,6 +97,12 @@ DedicatedServerOptionParseResult ParseDedicatedServerOptions(
 
 void InstallDedicatedServerOptions(DedicatedServerOptions options) noexcept;
 const DedicatedServerOptions& GetDedicatedServerOptions() noexcept;
+
+// Only canonical numeric loopback spellings are trusted without an exposure
+// warning. Hostnames are intentionally not assumed safe because resolution is
+// external process state and can map to a non-loopback or wildcard address.
+bool IsDedicatedCoopCanonicalLoopbackBindAddress(
+	std::string_view address) noexcept;
 
 bool IsSupportedDedicatedPvpGameType(int gameType) noexcept;
 bool IsSupportedDedicatedPvpHostSettings(

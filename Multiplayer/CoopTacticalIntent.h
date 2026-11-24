@@ -9,12 +9,13 @@
 #include <vector>
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldItem.h>
 
 namespace CoopSession
 {
-inline constexpr std::uint16_t TacticalIntentWireVersion = 3;
+inline constexpr std::uint16_t TacticalIntentWireVersion = 5;
 inline constexpr std::size_t TacticalIntentHeaderWireSize = 72;
-inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 8;
+inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 26;
 inline constexpr std::size_t MaximumTacticalIntentWireSize =
 	TacticalIntentHeaderWireSize + MaximumTacticalIntentPayloadWireSize;
 
@@ -28,7 +29,12 @@ enum class TacticalIntentKind : std::uint8_t
 	AimedFirearmAttack = 6,
 	Reload = 7,
 	DoorOpenClose = 8,
-	PassInterrupt = 9
+	PassInterrupt = 9,
+	BeginFirstAid = 10,
+	SwapInventorySlots = 11,
+	TransferInventoryItem = 12,
+	PickupWorldItem = 13,
+	DropInventoryItem = 14
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -58,6 +64,50 @@ struct StanceTacticalIntent
 struct StopTacticalIntent {};
 struct EndTurnTacticalIntent {};
 struct ReloadTacticalIntent {};
+
+// An exact friendly patient. The server validates adjacency and the equipped
+// medical kit; no path, item transfer, surgery or local treatment is requested.
+struct BeginFirstAidTacticalIntent
+{
+	TacticalEntityId target;
+};
+
+// Whole-stack, same-actor swap. The private revision belongs to the owning
+// peer's inventory stream, not the public tactical snapshot. Native authority
+// still prepares and revalidates both actual objects, slot rules and AP cost.
+struct SwapInventorySlotsTacticalIntent
+{
+	std::uint16_t sourceSlot = 0;
+	std::uint16_t destinationSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
+
+// A whole ordinary stack between two actors owned by the submitting peer.
+// Both private inventory streams must still match the displayed revisions.
+struct TransferInventoryItemTacticalIntent
+{
+	TacticalEntityId target;
+	std::uint16_t sourceSlot = 0;
+	std::uint16_t destinationSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+	std::uint64_t expectedTargetInventoryRevision = 0;
+};
+
+// One exact visible ground stack into an explicitly selected empty pocket.
+struct PickupWorldItemTacticalIntent
+{
+	TacticalWorldItemId item;
+	std::uint16_t destinationSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
+
+// Whole ordinary pocket stack onto the actor's current safe, empty tile.
+// The client names no destination, world item, or native object properties.
+struct DropInventoryItemTacticalIntent
+{
+	std::uint16_t sourceSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
 
 struct PassInterruptTacticalIntent
 {
@@ -91,7 +141,12 @@ using TacticalIntentPayload = std::variant<
 	AimedFirearmAttackTacticalIntent,
 	ReloadTacticalIntent,
 	DoorOpenCloseTacticalIntent,
-	PassInterruptTacticalIntent>;
+	PassInterruptTacticalIntent,
+	BeginFirstAidTacticalIntent,
+	SwapInventorySlotsTacticalIntent,
+	TransferInventoryItemTacticalIntent,
+	PickupWorldItemTacticalIntent,
+	DropInventoryItemTacticalIntent>;
 
 struct TacticalIntent
 {

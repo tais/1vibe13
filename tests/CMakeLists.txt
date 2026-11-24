@@ -1,3 +1,49 @@
+# Invoke the actual assertion handler before renderer/VFS initialization. Only
+# outgoing UI/save/stacktrace effects are instrumented; process options and the
+# fatal exception path are production code.
+add_executable(dedicated_coop_assertion_tests
+  dedicated_coop_assertion_tests.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/DEBUG.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/sgp_logger.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/DedicatedServerOptions.cpp)
+target_include_directories(dedicated_coop_assertion_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_definitions(dedicated_coop_assertion_tests PRIVATE
+  JA2TESTVERSION)
+target_link_libraries(dedicated_coop_assertion_tests PRIVATE
+  bfVFS SDL3::SDL3)
+target_compile_features(dedicated_coop_assertion_tests PRIVATE cxx_std_17)
+add_test(NAME dedicated_coop_assertion COMMAND dedicated_coop_assertion_tests)
+add_test(NAME assertion_disabled_coop_options
+  COMMAND dedicated_coop_assertion_tests disabled)
+add_test(NAME assertion_legacy_dedicated_pvp
+  COMMAND dedicated_coop_assertion_tests pvp)
+
+add_executable(coop_campaign_hire_tests
+  coop_campaign_hire_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_hire_tests PRIVATE
+  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_hire_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_hire COMMAND coop_campaign_hire_tests)
+
+# Native checked scheduling uses the actual bound queue and dispatcher guard.
+# Only legacy notification sinks are observed by the fixture; no callback or
+# scheduling implementation is replaced.
+add_executable(native_campaign_event_scheduling_tests
+  native_campaign_event_scheduling_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Strategic/CampaignEventScheduling.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/CampaignEventAdapter.cpp)
+target_include_directories(native_campaign_event_scheduling_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_definitions(native_campaign_event_scheduling_tests PRIVATE
+  JA2TESTVERSION FORCE_ASSERTS_ON)
+target_link_libraries(native_campaign_event_scheduling_tests PRIVATE
+  JA2::RuntimeAdapter SDL3::SDL3)
+target_compile_features(native_campaign_event_scheduling_tests PRIVATE cxx_std_17)
+add_test(NAME native_campaign_event_scheduling
+  COMMAND native_campaign_event_scheduling_tests)
+
 # Loopback and raw-wire tests link the production SDL3_net transport target.
 add_executable(mp_sdl_net_transport_tests
   mp_sdl_net_transport_tests.cpp
@@ -111,6 +157,7 @@ add_executable(full_engine_coop_socket_e2e_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
@@ -134,9 +181,12 @@ add_test(NAME full_engine_coop_socket_e2e
   COMMAND full_engine_coop_socket_e2e_tests)
 
 # Installed JA2 data cannot be distributed with the source tree or public CI.
-# Operators may explicitly supply both paths to certify two independent full
-# game processes against their local, unmodified installation. Empty defaults
-# keep this test completely absent from ordinary configure/build/test runs.
+# Operators may explicitly supply both paths to certify independently launched
+# full game processes against their local, unmodified installation. The harness
+# reaches a two-client tactical baseline, restarts one live tactical client,
+# and checks reconnection feedback after server shutdown, but submits no actions.
+# Empty defaults keep it completely absent from ordinary configure/build/test
+# runs.
 set(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE "" CACHE FILEPATH
   "Absolute full-engine JA2 executable for the opt-in co-op process smoke")
 set(JA2_COOP_INSTALLED_SMOKE_DATA_ROOT "" CACHE PATH
@@ -177,7 +227,9 @@ if(JA2_COOP_INSTALLED_SMOKE_EXECUTABLE OR
   set_tests_properties(full_engine_coop_installed_process_smoke PROPERTIES
     LABELS "installed-data;multiplayer"
     RUN_SERIAL TRUE
-    TIMEOUT 900)
+    # Four sequential bootstrap deadlines, two server stops, four client
+    # stops, and the shared tactical deadline can legitimately approach 1442s.
+    TIMEOUT 1800)
 endif()
 
 # A tactical world freezes a canonical peer roster and distributes its sorted
@@ -210,7 +262,11 @@ add_test(NAME dedicated_coop_mission_bootstrap
 # game state or depending on tactical UI globals.
 add_executable(full_engine_coop_client_controller_tests
   full_engine_coop_client_controller_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientCommandTranslator.cpp
   ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationLoot.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp)
 target_include_directories(full_engine_coop_client_controller_tests PRIVATE
@@ -235,6 +291,251 @@ target_compile_features(
   full_engine_coop_client_tactical_presentation_tests PRIVATE cxx_std_17)
 add_test(NAME full_engine_coop_client_tactical_presentation
   COMMAND full_engine_coop_client_tactical_presentation_tests)
+
+# The normal GAME_SCREEN is reusable by the passive client only through an
+# explicit phase policy: ordinary/legacy multiplayer keeps local simulation,
+# while full-engine co-op may render the tactical UI without becoming a second
+# campaign authority or executing legacy local commands.
+add_executable(full_engine_coop_client_game_screen_policy_tests
+  full_engine_coop_client_game_screen_policy_tests.cpp)
+target_include_directories(
+  full_engine_coop_client_game_screen_policy_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_game_screen_policy_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_game_screen_policy
+  COMMAND full_engine_coop_client_game_screen_policy_tests)
+
+# Normal tactical presentation focus remains restricted to exact server
+# assignments. Its pure camera policy also pins follow/detach behavior across
+# same-world revisions without granting an enemy or implicit spectator focus.
+add_executable(full_engine_coop_client_presentation_focus_policy_tests
+  full_engine_coop_client_presentation_focus_policy_tests.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_focus_policy_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_focus_policy_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_focus_policy
+  COMMAND full_engine_coop_client_presentation_focus_policy_tests)
+
+# Passive native input inverts only renderer-owned viewport/radar state into
+# the authority's logical grid. It never consults legacy mouse regions, cold
+# world dimensions, pathing, or tactical simulation state.
+add_executable(full_engine_coop_client_presentation_input_tests
+  full_engine_coop_client_presentation_input_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_input_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_input_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_input
+  COMMAND full_engine_coop_client_presentation_input_tests)
+
+# Roster, passive radar, and world geometry compose through one pure resolver;
+# exact TEAM slots win first and radar navigation cannot become a move click.
+add_executable(full_engine_coop_client_presentation_click_resolver_tests
+  full_engine_coop_client_presentation_click_resolver_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationClickResolver.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationLoot.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiRosterRaster.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_click_resolver_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/sgp)
+target_compile_features(
+  full_engine_coop_client_presentation_click_resolver_tests PRIVATE cxx_std_17)
+target_link_libraries(full_engine_coop_client_presentation_click_resolver_tests PRIVATE JA2::RuntimeAdapter)
+add_test(NAME full_engine_coop_client_presentation_click_resolver
+  COMMAND full_engine_coop_client_presentation_click_resolver_tests)
+
+# One resolved native click changes only local presentation selection or
+# returns one unsent typed intent. Modal routing, exact actor/door identity,
+# and stance-derived movement stay independently testable without renderer or
+# network globals.
+add_executable(full_engine_coop_client_presentation_interaction_tests
+  full_engine_coop_client_presentation_interaction_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationLoot.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInteraction.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_interaction_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  full_engine_coop_client_presentation_interaction_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(
+  full_engine_coop_client_presentation_interaction_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_interaction
+  COMMAND full_engine_coop_client_presentation_interaction_tests)
+
+add_executable(full_engine_coop_client_presentation_loot_tests
+  full_engine_coop_client_presentation_loot_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationLoot.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_presentation_loot_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_client_presentation_loot_tests PRIVATE JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_presentation_loot_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_loot COMMAND full_engine_coop_client_presentation_loot_tests)
+
+# Command progress in the passive native interface is derived exclusively from
+# the client's causal lock and authenticated authoritative receipt. The model
+# suppresses stale-world history and formats a bounded allocation-free line.
+add_executable(full_engine_coop_client_presentation_command_feedback_tests
+  full_engine_coop_client_presentation_command_feedback_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationCommandFeedback.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_command_feedback_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_command_feedback_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_command_feedback
+  COMMAND full_engine_coop_client_presentation_command_feedback_tests)
+
+# Active move, attack, and door modes are projected into one fixed-capacity
+# native status plan. Exact target/door values are revalidated against the
+# committed snapshot and inactive-mode fields must remain canonical.
+add_executable(full_engine_coop_client_presentation_control_feedback_tests
+  full_engine_coop_client_presentation_control_feedback_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationControlFeedback.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_control_feedback_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_control_feedback_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_control_feedback
+  COMMAND full_engine_coop_client_presentation_control_feedback_tests)
+
+add_executable(full_engine_coop_client_presentation_inventory_tests
+  full_engine_coop_client_presentation_inventory_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInventory.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_presentation_inventory_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(full_engine_coop_client_presentation_inventory_tests PRIVATE JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_presentation_inventory_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_inventory
+  COMMAND full_engine_coop_client_presentation_inventory_tests)
+
+# The authority's exact map basename is resolved and its fixed map-header
+# dimensions are checked without loading a local world or advancing simulation.
+add_executable(full_engine_coop_client_presentation_map_tests
+  full_engine_coop_client_presentation_map_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_map_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_map_tests PRIVATE cxx_std_17)
+set(JA2_PRESENTATION_MAP_TEST_ASSET "" CACHE FILEPATH
+  "Optional installed v5.25 A9.dat for exact-EOF presentation parser validation")
+if(JA2_PRESENTATION_MAP_TEST_ASSET)
+  if(NOT IS_ABSOLUTE "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
+     NOT EXISTS "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
+     IS_DIRECTORY "${JA2_PRESENTATION_MAP_TEST_ASSET}")
+    message(FATAL_ERROR
+      "JA2_PRESENTATION_MAP_TEST_ASSET must be an absolute existing map file")
+  endif()
+  add_test(NAME full_engine_coop_client_presentation_map
+    COMMAND full_engine_coop_client_presentation_map_tests
+      --installed-map "${JA2_PRESENTATION_MAP_TEST_ASSET}")
+  set_tests_properties(full_engine_coop_client_presentation_map PROPERTIES
+    LABELS "installed-data;multiplayer")
+else()
+  add_test(NAME full_engine_coop_client_presentation_map
+    COMMAND full_engine_coop_client_presentation_map_tests)
+endif()
+
+# Presentation-world publication is generation/revision-bound and strictly
+# orders static geometry, renderer proxies, and inert interface state.
+add_executable(full_engine_coop_client_presentation_world_host_tests
+  full_engine_coop_client_presentation_world_host_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationWorldHost.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_world_host_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_world_host_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_world_host
+  COMMAND full_engine_coop_client_presentation_world_host_tests)
+
+# Renderer-facing actor slots are an incarnation-aware projection of one
+# committed generation. Reconciliation is bounded and detaches every stale
+# proxy before publishing replacements into a presentation-owned repository.
+add_executable(full_engine_coop_client_presentation_actor_directory_tests
+  full_engine_coop_client_presentation_actor_directory_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationActorDirectory.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_actor_directory_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(
+  full_engine_coop_client_presentation_actor_directory_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_actor_directory
+  COMMAND full_engine_coop_client_presentation_actor_directory_tests)
+
+# The passive GAME_SCREEN chrome/radar projection owns its native resources and
+# consumes a bounded copy of one committed snapshot.  A narrow fake render seam
+# pins exact paths, rollback, clipping, colors, ordering, and stale-pin removal
+# without loading installed JA2 artwork or touching tactical globals.
+add_executable(full_engine_coop_client_presentation_passive_ui_tests
+  full_engine_coop_client_presentation_passive_ui_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationCommandFeedback.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationControlFeedback.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUi.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPortraits.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiNativeShade.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiRaster.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiRosterRaster.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/line.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_passive_ui_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/sgp)
+target_compile_definitions(
+  full_engine_coop_client_presentation_passive_ui_tests PRIVATE
+  JA2_PASSIVE_UI_DATA_FREE_TEST=1)
+target_compile_features(
+  full_engine_coop_client_presentation_passive_ui_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_passive_ui
+  COMMAND full_engine_coop_client_presentation_passive_ui_tests)
+
+add_executable(full_engine_coop_client_presentation_portraits_tests
+  full_engine_coop_client_presentation_portraits_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPortraits.cpp)
+target_include_directories(full_engine_coop_client_presentation_portraits_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(full_engine_coop_client_presentation_portraits_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_portraits
+  COMMAND full_engine_coop_client_presentation_portraits_tests)
+
+# Native roster strings are decoded, formatted, and assigned stock TEAM-panel
+# alignment/clip rectangles without loading fonts or touching render globals.
+add_executable(
+  full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests
+  full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiRosterTextPlan.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationPassiveUiRosterRaster.cpp)
+target_include_directories(
+  full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/sgp)
+target_compile_features(
+  full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests PRIVATE
+  cxx_std_17)
+add_test(NAME full_engine_coop_client_presentation_passive_ui_roster_text_plan
+  COMMAND full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests)
 
 # The INIT-screen renderer consumes only the immutable worldless projection.
 # A fake padded video surface pins its bounds and pixel behavior without
@@ -282,10 +583,66 @@ target_include_directories(coop_session_protocol_tests
 target_compile_features(coop_session_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_session_protocol COMMAND coop_session_protocol_tests)
 
+add_executable(coop_campaign_status_tests
+  coop_campaign_status_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_status_tests PRIVATE
+  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
+
+add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
+target_include_directories(coop_campaign_groups_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
+
+add_executable(coop_campaign_time_tests coop_campaign_time_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_time_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_time_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_time COMMAND coop_campaign_time_tests)
+
+add_executable(coop_campaign_action_tests coop_campaign_action_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_action_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
+
+add_executable(coop_campaign_meanwhile_tests coop_campaign_meanwhile_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_meanwhile_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_meanwhile_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_meanwhile COMMAND coop_campaign_meanwhile_tests)
+
+add_executable(full_engine_coop_client_campaign_action_input_tests full_engine_coop_client_campaign_action_input_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_campaign_action_input_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_client_campaign_action_input_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_campaign_action_input COMMAND full_engine_coop_client_campaign_action_input_tests)
+add_executable(full_engine_coop_client_campaign_hire_input_tests full_engine_coop_client_campaign_hire_input_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_campaign_hire_input_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_client_campaign_hire_input_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_campaign_hire_input COMMAND full_engine_coop_client_campaign_hire_input_tests)
+
+add_executable(campaign_event_batch_tests campaign_event_batch_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Engine/Adapters/JA2/CampaignEventQueue.cpp)
+target_include_directories(campaign_event_batch_tests PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(campaign_event_batch_tests PRIVATE cxx_std_17)
+add_test(NAME campaign_event_batch COMMAND campaign_event_batch_tests)
+
 # The first authoritative co-op command boundary is deliberately independent
 # from the game and transport implementations. It pins the exact intent bytes,
 # sender-bound admission, command order, tactical context, and actor ACL used by
 # the separately tested live JA2 execution adapter.
+add_executable(coop_tactical_presentation_change_tests
+  coop_tactical_presentation_change_tests.cpp)
+target_include_directories(coop_tactical_presentation_change_tests PRIVATE
+  ${CMAKE_SOURCE_DIR})
+target_compile_features(coop_tactical_presentation_change_tests PRIVATE cxx_std_17)
+add_test(NAME coop_tactical_presentation_change
+  COMMAND coop_tactical_presentation_change_tests)
+
 add_executable(coop_tactical_authority_tests
   coop_tactical_authority_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
@@ -315,8 +672,18 @@ target_link_libraries(coop_tactical_protocol_tests PRIVATE JA2::RuntimeAdapter)
 target_compile_features(coop_tactical_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_tactical_protocol COMMAND coop_tactical_protocol_tests)
 
+add_executable(coop_inventory_protocol_tests
+  coop_inventory_protocol_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_inventory_protocol_tests PRIVATE
+  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_inventory_protocol_tests PRIVATE cxx_std_17)
+add_test(NAME coop_inventory_protocol COMMAND coop_inventory_protocol_tests)
+
 add_executable(full_engine_coop_server_session_tests
   full_engine_coop_server_session_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
@@ -355,6 +722,7 @@ add_executable(full_engine_coop_admission_listener_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
@@ -376,6 +744,7 @@ add_test(NAME full_engine_coop_admission_listener
 # receipts, ordered deltas, bounded backpressure, reconnect, and world drain.
 add_executable(full_engine_coop_tactical_server_tests
   full_engine_coop_tactical_server_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopAdmission.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignBootstrapProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopCampaignSyncProtocol.cpp
@@ -403,6 +772,7 @@ add_test(NAME full_engine_coop_tactical_server
 add_executable(full_engine_coop_client_tests
   full_engine_coop_client_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
@@ -421,6 +791,7 @@ add_test(NAME full_engine_coop_client COMMAND full_engine_coop_client_tests)
 add_executable(full_engine_coop_client_transport_tests
   full_engine_coop_client_transport_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
@@ -435,6 +806,27 @@ target_compile_features(full_engine_coop_client_transport_tests PRIVATE
   cxx_std_17)
 add_test(NAME full_engine_coop_client_transport
   COMMAND full_engine_coop_client_transport_tests)
+
+# Deterministic ACK-write loss exercises the real adapter and passive core
+# while substituting only the opaque socket peer at link time. Do not link
+# SdlNetTransport here: no production hooks or OS disconnect timing are used.
+add_executable(full_engine_coop_client_transport_ack_failure_tests
+  full_engine_coop_client_transport_ack_failure_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp)
+target_include_directories(full_engine_coop_client_transport_ack_failure_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_link_libraries(full_engine_coop_client_transport_ack_failure_tests PRIVATE
+  JA2::RuntimeAdapter)
+target_compile_features(full_engine_coop_client_transport_ack_failure_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_transport_ack_failure
+  COMMAND full_engine_coop_client_transport_ack_failure_tests)
 
 # The one-shot outbound preflight obtains the immutable campaign seed and
 # identity after SDL initialization but before any RNG/GameContext observation.
@@ -471,7 +863,8 @@ add_test(NAME full_engine_coop_client_options
 # release, exposes a replica only after both campaign Ready and tactical Active,
 # and bounds reconnects to the retained credential and immutable epoch.
 add_executable(full_engine_coop_client_runtime_tests
-  full_engine_coop_client_runtime_tests.cpp)
+  full_engine_coop_client_runtime_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
 target_include_directories(full_engine_coop_client_runtime_tests PRIVATE
   ${CMAKE_SOURCE_DIR})
 target_compile_features(full_engine_coop_client_runtime_tests PRIVATE
@@ -1098,6 +1491,14 @@ target_include_directories(campaign_aim_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
 
+# Shared A.I.M. willingness decisions preserve relationship/refusal precedence
+# without laptop UI, and reject absent profile IDs before native reads.
+add_executable(campaign_aim_willingness_policy_tests
+  campaign_aim_willingness_policy_tests.cpp)
+target_include_directories(campaign_aim_willingness_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_aim_willingness_policy COMMAND campaign_aim_willingness_policy_tests)
+
 # Email catalogs, insurance/shipment notices, tactical death notices, and
 # M.E.R.C. level-up IDs are selected at runtime. The same data-free target pins
 # the boundary checks used by Laptop's legacy containers, dropdowns, and
@@ -1643,6 +2044,131 @@ add_test(
 # build environment has Python.
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
+  add_test(
+    NAME full_engine_coop_installed_campaign_status_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_campaign_status.py)
+  add_test(
+    NAME full_engine_coop_installed_movement_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_movement.py)
+  add_test(
+    NAME full_engine_coop_installed_fire_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_fire.py)
+  add_test(
+    NAME full_engine_coop_installed_inventory_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_inventory.py)
+  add_test(
+    NAME full_engine_coop_installed_drop_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_drop.py)
+  add_test(
+    NAME full_engine_coop_installed_drop_input_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_drop_input.py)
+  add_test(
+    NAME full_engine_coop_installed_equipment_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_equipment.py)
+  add_test(
+    NAME full_engine_coop_installed_first_aid_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_first_aid.py)
+  add_test(
+    NAME full_engine_coop_installed_loot_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_loot.py)
+  add_test(
+    NAME full_engine_coop_installed_portraits_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_portraits.py)
+  add_test(
+    NAME full_engine_coop_installed_reload_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_reload.py)
+  add_test(
+    NAME full_engine_coop_installed_smoke_options
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_smoke_options.py)
+  add_test(
+    NAME full_engine_coop_installed_turns_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_turns.py)
+  add_test(
+    NAME full_engine_coop_installed_campaign_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_campaign.py)
+  add_test(
+    NAME full_engine_coop_installed_campaign_restore_probe
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_full_engine_coop_installed_campaign_restore.py)
+  add_test(
+    NAME full_engine_coop_installed_hiring_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_hiring.py)
+  add_test(
+    NAME full_engine_coop_installed_hiring_restore_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_hiring_restore.py)
+  add_test(
+    NAME full_engine_coop_installed_cohort_restore_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_cohort_restore.py)
+  add_test(
+    NAME full_engine_coop_installed_controlled_battle_return_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_controlled_battle_return.py)
+  add_test(
+    NAME full_engine_coop_installed_pending_hire_arrival_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_pending_hire_arrival.py)
+  add_test(
+    NAME full_engine_coop_installed_defensive_entry_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_defensive_entry.py)
+  add_test(
+    NAME full_engine_coop_installed_battle_history_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_battle_history.py)
+  add_test(
+    NAME full_engine_coop_installed_defensive_battle_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_defensive_battle.py)
+  add_test(
+    NAME full_engine_coop_installed_surrender_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_surrender.py)
+  add_test(
+    NAME full_engine_coop_installed_meanwhile_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_meanwhile.py)
+  add_test(
+    NAME full_engine_coop_installed_battle_notice_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_battle_notice.py)
+  add_test(
+    NAME full_engine_coop_installed_defeat_restore_probe
+    COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+      -s "${CMAKE_CURRENT_SOURCE_DIR}"
+      -p test_full_engine_coop_installed_defeat_restore.py)
+  add_test(
+    NAME full_engine_coop_installed_victory_restore_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_victory_restore.py)
   # Build-free shape, exact conditioned-value, linked GameStrings adapter,
   # ordered output-byte snapshots, source-derived limits, and exhaustive
   # raw-range/pointer-entry gates for all compiled catalogs. These remain

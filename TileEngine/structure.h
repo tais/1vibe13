@@ -42,6 +42,10 @@ BOOLEAN OkayToAddStructureToWorld( INT32 sBaseGridNo, INT8 bLevel, DB_STRUCTURE_
 // for the PTR argument of AddStructureToWorld, pass in a LEVELNODE * please!
 BOOLEAN AddStructureToWorld( INT32 sBaseGridNo, INT8 bLevel, DB_STRUCTURE_REF * pDBStructureRef, PTR pLevelN );
 BOOLEAN DeleteStructureFromWorld( STRUCTURE * pStructure );
+// Presentation replicas own renderer-facing structure instances but no
+// movement graph.  Their teardown must unlink/free the complete multi-tile
+// structure without scheduling movement-cost recompilation.
+BOOLEAN DeleteStructureFromWorldForStaticPresentation( STRUCTURE * pStructure );
 
 //
 // functions to find a structure in a location

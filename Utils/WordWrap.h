@@ -4,6 +4,7 @@
 #include "types.h"
 #include "files.h"
 #include "email.h"
+#include <cstddef>
 
 //Flags for DrawTextToScreen()
 
@@ -65,7 +66,16 @@ FileStringPtr GetFirstStringOnThisPage( FileStringPtr RecordList, INT32 iFont, U
 void ShadowText(UINT32 uiDestVSurface, STR16 pString, INT32 iFont, UINT16 usPosX, UINT16 usPosY );
 
 
-BOOLEAN ReduceStringLength( CHAR16 *pString, UINT32 uiWidthToFitIn, INT32 iFont );
+// Array callers retain their actual character capacity. Pointer callers must
+// supply it explicitly; unterminated input is rejected without mutation.
+BOOLEAN ReduceStringLength(CHAR16* pString, std::size_t capacity,
+    UINT32 uiWidthToFitIn, INT32 iFont);
+
+template <std::size_t N>
+BOOLEAN ReduceStringLength(CHAR16 (&text)[N], UINT32 width, INT32 font)
+{
+    return ReduceStringLength(text, N, width, font);
+}
 
 
 void UseSingleCharWordsForWordWrap( BOOLEAN fUseSingleCharWords );

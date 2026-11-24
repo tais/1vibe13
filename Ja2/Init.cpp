@@ -1620,10 +1620,18 @@ UINT32 InitializeJA2(void)
 		!GetDedicatedCoopRuntime().openCampaignAfterBootstrap(gameContext))
 	{
 		extern BOOLEAN gfDedicatedServerProcessFailed;
+		DedicatedCoopRuntime& runtime = GetDedicatedCoopRuntime();
+		const CoopRuntimeFailureDiagnostic& diagnostic =
+			runtime.failureDiagnostic();
 		std::fprintf(stderr,
-			"[dedicated] co-op campaign open failed: %s\n",
+			"[dedicated] co-op campaign open failed: %s; "
+			"stage=%s; reason=%s; detail=%s; endpoint=%s:%u\n",
 			DedicatedCoopRuntimeErrorName(
-				GetDedicatedCoopRuntime().error()));
+				GetDedicatedCoopRuntime().error()),
+			diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+			runtime.bindAddress()[0] != '\0' ? runtime.bindAddress() :
+				"<unavailable>",
+			static_cast<unsigned>(runtime.bindPort()));
 		gfDedicatedServerProcessFailed = TRUE;
 		gfProgramIsRunning = FALSE;
 		return ERROR_SCREEN;
@@ -1632,10 +1640,19 @@ UINT32 InitializeJA2(void)
 		!GetFullEngineCoopClientRuntime().openAfterPackageBootstrap(
 			gameContext))
 	{
+		FullEngineCoopClientRuntime& runtime =
+			GetFullEngineCoopClientRuntime();
+		const CoopRuntimeFailureDiagnostic& diagnostic =
+			runtime.failureDiagnostic();
 		std::fprintf(stderr,
-			"[co-op client] runtime composition failed: %s\n",
+			"[co-op client] runtime composition failed: %s; "
+			"stage=%s; reason=%s; detail=%s; endpoint=%s:%u\n",
 			FullEngineCoopClientRuntimeErrorName(
-				GetFullEngineCoopClientRuntime().error()));
+				GetFullEngineCoopClientRuntime().error()),
+			diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+			runtime.serverHost()[0] != '\0' ? runtime.serverHost() :
+				"<unavailable>",
+			static_cast<unsigned>(runtime.serverPort()));
 		gfProgramIsRunning = FALSE;
 		return ERROR_SCREEN;
 	}

@@ -10,6 +10,7 @@
 #define MIN_CACHE_SIZE		4
 
 class Ja2SoldierRepository;
+class FullEngineCoopClientPresentationActorProxyBank;
 
 // Historical save-v101 layout only. Current soldiers own a fixed-capacity
 // SoldierAnimationCacheComponent and never copy these raw pointers.
@@ -54,6 +55,7 @@ public:
 
 private:
 	friend class Ja2SoldierRepository;
+	friend class FullEngineCoopClientPresentationActorProxyBank;
 
 	// Cache ownership follows the canonical repository slot because the global
 	// animation usage table is indexed by that slot. Repository replacement

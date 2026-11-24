@@ -421,7 +421,9 @@ campaign lease, precreates fixed scratch entries and installs the isolated
 writable profile before VFS discovery. SGP mounts packages, runs a separate
 rollback-safe `co-op installed content manifest` subsystem, and only then enters
 legacy content and game initialization. That boundary validates and counts all
-encountered occurrences, omits explicit exclusive VFS runtime namespaces,
+encountered occurrences, omits exclusive VFS runtime directories and the
+separately allowlisted exact root-level `Strategic Decisions.txt` and
+`DebugMessage.txt` logger outputs,
 selects the smallest-layer normalized read-only overlay (including case-only
 spellings across layers), rejects same-layer ambiguity/duplicates and remaining
 writable shadows, and caches the digest. A capture failure rolls back the
@@ -432,15 +434,19 @@ entry after identity/open and before the legacy save loader reads them. Both
 co-op modes bypass the ordinary `InitMainMenu` transition during INIT, allowing
 the dedicated stage-four campaign-entry request and passive worldless screen to
 win before a pending main-menu transition can commit. Only dedicated creation
-calls `InitGameOptions()` immediately before `InitNewGame(FALSE)`; the installed strategic/Lua difficulty domain is 1..4, whereas a skipped settings screen otherwise leaves zero. Resume keeps checkpointed options. A configurable trusted-LAN listener selected with
+calls `InitGameOptions()` immediately before `InitNewGame(FALSE)`; its canonical
+defaults provide installed difficulty 2 and a six-actor squad, whereas a skipped
+settings screen otherwise leaves both fields at invalid zero values. Resume
+keeps checkpointed options. A configurable trusted-LAN listener selected with
 `--dedicated-coop-bind` and `--dedicated-coop-port` defaults to
-`0.0.0.0:60005`. It uses OS-CSPRNG session epochs, identities, and reconnect
+private loopback `127.0.0.1:60005`; LAN hosting requires an explicit reachable
+bind. It uses OS-CSPRNG session epochs, identities, and reconnect
 bearer tokens; it admits and transport-binds permissionless first joins but does
 not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v7 execution of nine JA2 command
+  tactical observer, and global co-op protocol-v19 execution of fourteen JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a
@@ -457,6 +463,34 @@ incarnation. Resolving interrupts block input; active player interrupts allow
 ordinary actions only for eligible actors and release after the final eligible
 pass vote. Native interrupt lists and hidden interrupters remain private, and
 AI interrupts remain under native AI control.
+The tenth intent starts native first aid for a distinct adjacent wounded
+teammate using an already equipped usable medical kit. Authority revalidates
+exact patient identity, native adjacency/obstruction, skill, service, kit, and
+AP; an Applied receipt means initiation, not completed bandaging. Public medical
+state includes bleeding, usable equipped hand-kit points and native providing/
+receiving activity with an optional exact published patient identity. It does not
+transfer kits or add self-treatment, surgery, or auto-bandaging. First-aid kind 10
+carries a six-byte patient identity and appends `BeginFirstAidCommand` at journal-v4 tag 35.
+The eleventh intent equips/unequips complete ordinary stacks through a same-actor
+two-slot swap, backed by an owner-only slot summary and its server revision.
+The one retained native command revalidates actor/world/turn/pose, full ordinary
+object fingerprints, native slot access/capacity and AP; it does not dispatch
+nested equipment commands. Attachments, active LBE graphs, partial moves and
+cross-owner transfers remain unsupported. Post-mutation failure poisons the world rather
+than replaying a partial swap. `SwapInventorySlotsCommand` appends journal tag 36;
+global session v14 rejects pre-service-state clients.
+The twelfth intent transfers a whole ordinary stack to an explicitly empty
+hand/pocket on another conscious human merc owned by the same peer. Kind 12
+contains the exact recipient, both slots and both private revisions;
+`TransferInventoryItemCommand` uses journal-v4 tag 37. Native execution rechecks
+both actors, pose/object proofs, distance/LOS and capacity, with the stock panel's
+3-AP combat admission gate and 2 AP charged to each on success. `G` in the passive
+inventory panel selects the recipient flow; it never mutates client inventory.
+Both private revisions must have been sent to the owner, both replacements
+precede the terminal receipt, and assignment changes wait for pending native
+commands to terminate. Existing wire versions remain unchanged. See
+[COOP_COMPLETION.md](COOP_COMPLETION.md) for precise scope and current verification;
+the historical runs below do not certify this new transfer path.
 The six co-op translations that reuse legacy shapes (end turn, move, face,
 stance, stop, and reload) are tagged
 `TacticalCommandAuthorityPolicy::DedicatedCoop`. Only `NetworkPeer` and
@@ -474,8 +508,14 @@ replication, reservation, or gameplay and may retry after the earlier terminal
 result. Global `AuthoritySequenceExhausted` reason 20 instead consumes the peer
 cursor: the server stays active to flush its terminal receipt, then the client
 records the exact receipt history/cursor before failing and closing.
+Each accepted reservation records its main-thread pump frame. A configurable
+nonzero completion deadline defaults to 3600 frames; the expiry pump result
+identifies the exact peer/command and fail-stops the tactical session and actor
+ACL without changing the pending command, cursor, or receipt history. World drain advances
+the same watchdog, so a missing engine terminal result cannot indefinitely
+block unload or the next admission/reconnect boundary.
 
-Global co-op protocol-v7 retains voluntary self-retirement with exact 24-byte
+Global co-op protocol-v14 retains voluntary self-retirement with exact 24-byte
 request and 48-byte result shapes. The request carries version, epoch, and
 request ID only; the authenticated transport resolves its own identity, so
 there is no client-provided victim. Begin atomically reserves bounded same-epoch
@@ -586,7 +626,7 @@ selects that maximum profile; bootstrap, core-only, and legacy peers keep strict
 defaults. A static bound covers one campaign window at 144 FPS. The production
 socket E2E transfers an exact 11,796,517-byte checkpoint twice,
 193 chunks per transfer, at 7 ms pacing. Snapshot wire
-v7 carries exact authority dimensions, canonical hostility, visible public
+v10 carries exact authority dimensions, canonical hostility, visible public
 door state, the public `commandsBlocked` bool, compact interrupt phase/serial,
 per-actor interrupt-action eligibility, and five bounded 12-byte combat-
 equipment records: primary hand, secondary hand, helmet, vest, and legs. Each
@@ -611,21 +651,33 @@ assigned actor, `[` the previous, and `M` retains numeric-grid entry. The other
 controls produce facing, stance, stop, normal end-turn or active-interrupt pass,
 bounded aimed-fire, and
 selected-actor reload plus modal `D` door selection (Up/Down/Tab, Enter inverse
-state, Esc cancel). `commandsBlocked` disables every action and closes all three
+state, Esc cancel). Native terrain clicks now use one tested modal dispatcher:
+assigned actors select locally, empty grids return one unsent stance-correct
+move request, hostile clicks retarget during `F`, and exact adjacent published
+door grids retarget during `D` without movement fallthrough. The native status
+strip shows numeric move, exact target/aim, or exact door state while a mode is
+active and otherwise shows authoritative command progress or a distinctly local
+red send failure; local failures are world-generation stamped and cannot be
+mistaken for authority receipts. The target receives a presentation-only radar
+outline. All three modes are bound to their originating world generation and
+cancel across replacement. `commandsBlocked` disables every action and closes all three
 command modals until committed state clears it, without predicting AP spend,
 inventory/world mutation, or damage. Campaign-ready late peers enter the grow-only active
 participant set only at a drained fresh-baseline boundary, and their actor ACLs
 remain closed until baseline ACK; disconnect preserves ownership. The
-Snapshot wire v7 uses an exact 53-byte header, 92-byte actor (including five
-12-byte combat-equipment records), and 7-byte public door records; its generic
-bound is 384053 bytes. Delta wire v6 permits 18434 generic events, orders
-actor-loadout
-changes after vitals and before door events, and encodes a same-serial interrupt
-phase change as one exact 43-byte event. Co-op tactical wire v3 narrows this to 256 actors,
-1024 doors, 3074 events, 30773/32385-byte baseline payload/envelope, and
-62034/62106-byte delta payload/envelope beneath 64 KiB. Intent wire v3 is a
-72-byte header plus at most 8
-payload bytes (80 total), both tactical-world services are 2.0,
+Snapshot wire v12 uses an exact 314-byte header with the authority's fixed-width,
+path-safe exact `.dat` map asset basename and ambient light, a 148-byte actor
+(including five 12-byte combat-equipment records and a 44-byte render
+presentation followed by signed 16-bit bleeding and unsigned 16-bit equipped
+hand-kit points and an eight-byte service descriptor), and 7-byte public door records; its generic bound is 613690
+bytes. Delta wire v11 permits 10243 generic events, publishes ambient-light
+changes, coalesces all changes to one actor into one full actor-update event,
+and encodes a same-serial interrupt phase change as one exact 43-byte event.
+Co-op tactical wire v6 narrows this to 256 actors, 1024 doors, 2563 events,
+45370/46982-byte baseline payload/envelope, and 53853/53925-byte delta
+payload/envelope beneath 64 KiB. Intent wire v5 is a
+72-byte header plus at most 26
+payload bytes (98 total), both tactical-world services are 3.0,
 `DoorCapacityReached` is 12; journal-v4 door/pass command tags are 33/34. The native
 helper preflights status/graphic, computes explicit-grid noise, swaps and verifies
 the partner, commits status plus `LEVELNODE`, recompiles movement, performs POW
@@ -653,8 +705,9 @@ Applied receipts. It finishes by proving commit-before-result, durable marker
 publication before clean socket stop, and peer compaction before world/epoch
 teardown.
 
-This remains a narrow technical slice: there is no client JA2 terrain/static-
-world renderer. The five-slot combat-equipment projection is not the future
+This remains a narrow technical slice: the client has a passive JA2 static-map
+and actor renderer, not the complete interactive tactical interface. The
+five-slot combat-equipment projection is not the future
 authorized, chunked full 55-slot inventory domain: reserve ammunition,
 remaining equipment-stack
 objects, attachments/LBE,
@@ -665,12 +718,22 @@ plaintext and permissionless rather than TLS/public authentication. An opt-in
 installed-data independent-process smoke is registered only when both absolute
 CMake cache paths `JA2_COOP_INSTALLED_SMOKE_EXECUTABLE` and
 `JA2_COOP_INSTALLED_SMOKE_DATA_ROOT` are set; it is absent by default and is
-currently POSIX-only. With a free loopback port and private temporary roots it
+currently POSIX-only. With free loopback ports and private temporary roots it
 proves create, Ready, independent same-root client restart with a byte-identical
-224-byte credential, clean worldless final checkpoint, and server resume. It
+224-byte credential, then clean worldless final checkpoint/resume into an actual
+tactical world where two independent clients each commit a baseline with a
+non-empty actor assignment. A separate bounded tactical deadline includes both
+client cold loads and starter-actor arrival. The active-world shutdown rejects
+an unsafe cold checkpoint as designed. The harness
 fingerprints installed inputs before/after and deterministically removes child
-processes and temporary state. That lifecycle certification is not a complete
-playthrough, interoperability matrix, or soak. Removing the former
+processes and temporary state.
+Without the optional gameplay driver it submits no gameplay action. With the
+driver, explicit fire/reload/turn-cycle options add bounded native action
+certificates. The full installed lifecycle passed on 2026-09-05 with turn 4 to 7
+and one explicit interrupt pass; the [multiplayer evidence record](MULTIPLAYER_ARCHITECTURE.md#installed-turn-cycle-evidence)
+records its exact artifacts. That pre-medical-binary result does not certify
+first aid or active-battle persistence. This is not a complete playthrough,
+interoperability matrix, or soak. Removing the former
 presentation-only selector reduces the reviewed inventory by one context leaf
 and one consumer file.
 

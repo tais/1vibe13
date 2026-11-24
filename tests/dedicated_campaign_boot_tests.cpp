@@ -435,6 +435,44 @@ void TestResumeMaterializationAndNonEmptyProfile()
 		"materialization preserves the pre-scanned scratch entry");
 }
 
+// The legacy projection refresh uses this exact existing publication boundary.
+// Exercise failures after an already durable generation, not merely initial save.
+void TestFailedRefreshPreservesCommittedGeneration()
+{
+	for (unsigned fault = 0; fault < 2; ++fault)
+	{
+		TemporaryRoot root;
+		const auto identity = Identity("projection-refresh");
+		const std::vector<std::uint8_t> original{'o', 'l', 'd'};
+		PublishFixture(root, identity, {original});
+		DedicatedCampaignBoot boot;
+		ResetLegacyBridge();
+		Check(boot.prepare(Options(root, identity.campaignId, DedicatedCampaignAction::Resume)) &&
+			boot.openCampaign(identity.runtimeFingerprint, identity.contentManifestSha256),
+			"projection refresh opens the existing committed generation");
+		ActiveProfile = boot.profileDirectory();
+		LegacySaveBytes = {'n', 'e', 'w'};
+		LegacySaveResult = fault != 0;
+		LegacyValidateResult = fault != 1;
+		Check(!boot.checkpoint(101) && boot.state() == DedicatedCampaignBootState::Poisoned,
+			"failed refresh serialization or strict preflight fail-stops before publication");
+		boot.close();
+		ResetLegacyBridge();
+		DedicatedCampaignBoot resumed;
+		Check(resumed.prepare(Options(root, identity.campaignId, DedicatedCampaignAction::Resume)) &&
+			resumed.openCampaign(identity.runtimeFingerprint, identity.contentManifestSha256) &&
+			resumed.campaignState()->generation == 1 && resumed.campaignState()->worldMinutes == 100 &&
+			resumed.campaignState()->activeSlot == DedicatedCampaignSlot::A &&
+			ReadBytes(resumed.profileDirectory() / DedicatedCampaignLogicalScratch(DedicatedCampaignSlot::A)) == original,
+			"failed refresh leaves the old generation recoverable with its exact original bytes");
+		ActiveProfile = resumed.profileDirectory();
+		LegacySaveBytes = {'n', 'e', 'w'};
+		Check(resumed.checkpoint(101) && resumed.campaignState()->generation == 2 &&
+			resumed.campaignState()->activeSlot == DedicatedCampaignSlot::B,
+			"successful refresh atomically advances the previously committed generation");
+	}
+}
+
 void TestCorruptNewerFallsBackAndCorruptOnlyFails()
 {
 	{
@@ -799,6 +837,7 @@ int main()
 	TestCreateAndCheckpointLifecycle();
 	TestActiveCheckpointReaderLifecycle();
 	TestResumeMaterializationAndNonEmptyProfile();
+	TestFailedRefreshPreservesCommittedGeneration();
 	TestCorruptNewerFallsBackAndCorruptOnlyFails();
 	TestProfileAndLinkedScratchRejections();
 	TestSeedAndIdentityRechecks();

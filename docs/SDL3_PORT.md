@@ -31,8 +31,8 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
-| 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS, and Windows**. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
-| ∞ | Multiplayer — client/server wrapper + project-native framed SDL3_net transport | ✅ Built. The main-menu entry is enabled, tagged releases package the data-free PvP `ja2server`, and full-engine co-op now has deterministic campaign persistence/sync, configurable trusted-LAN admission, a nine-intent authoritative server including aimed fire, selected-actor reload, synchronous visible-door open/close, and exact-serial interrupt pass, and a worldless passive `JA2` client with a logical-grid plot. It is a technical slice, not terrain-rendered JA2 co-op. |
+| 10 | Platform packaging + CI | ✅ Done — CI compile-check and tagged zip releases cover **Linux x64, Linux ARM64, macOS x64, macOS ARM64, and Windows x64** with explicit architecture labels and enforced Linux/macOS runtime floors. Tagged releases additionally publish byte-reproducible x64/ARM64 AppImages and a native per-user Windows installer. macOS `.app` bundles are ad-hoc signed and strictly verified; native packages remain unsigned until protected release keys exist. |
+| ∞ | Multiplayer — client/server wrapper + project-native framed SDL3_net transport | ✅ Built. The main-menu entry is enabled, tagged releases package the data-free PvP `ja2server`, and full-engine co-op has deterministic campaign persistence/sync, trusted-LAN admission, and a fourteen-intent authoritative server including fire, reload, visible-door open/close, interrupt pass, equipped-kit first-aid initiation, bounded ordinary inventory swaps, same-owner whole-stack transfers, exact-tile ordinary ground pickup and confirmed whole-pocket drops onto clear dry ground. An installed controller drop/pickup round trip passed; physical drop-input qualification remains open. See [COOP_COMPLETION.md](COOP_COMPLETION.md). The passive JA2 client renders a static map, actors and bounded nearby discovered-loot hints, with a worldless logical-grid fallback. This remains a narrow technical slice, not the complete tactical interface. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
 on macOS. The resulting binary prints a "not yet implemented" notice
@@ -76,8 +76,9 @@ named phase below**; that's the work plan.
   campaign transfer, a wired authoritative tactical server, and a composed
   passive client with a worldless committed-snapshot control screen and logical
   spatial plot. The JA2 terrain/static-world renderer, complete combat/world
-  replication, general strategic mission control, and an installed-data two-
-  process smoke remain unfinished.
+  replication, general strategic mission control, and an installed-data
+  gameplay-action playthrough remain unfinished. The opt-in process smoke now
+  reaches one server-owned tactical world with two assigned-baseline clients.
 
 ## Approach
 
@@ -373,10 +374,10 @@ will revive them:
   `libexpatMT.lib`) already gated `if(WIN32)`. Pulling Lua, Expat,
   Bink (when replaced), Smacker (when replaced) from source on every
   platform is Phase 10 cleanup.
-- The completed CI matrix covers Windows, macOS, Linux x64, and Linux ARM64.
-  Tagged packaging retains the four zip artifacts, ships macOS app bundles,
-  creates reproducible AppImages, and creates a native Windows installer. The
-  implementation and signing boundary are documented in
+- The completed CI matrix covers Windows x64, macOS x64/ARM64, and Linux
+  x64/ARM64. Tagged packaging publishes five architecture-labelled zips, with
+  enforced baseline labels on Linux and macOS, ships macOS app bundles, creates reproducible AppImages, and
+  creates a native Windows installer. The implementation and signing boundary are documented in
   [packaging/README.md](../packaging/README.md).
 
 ### Multiplayer — current build and packaging state
@@ -395,20 +396,31 @@ will revive them:
   AI/campaign authority. Separately, full-engine
   `JA2 --dedicated --dedicated-mode=coop` now creates or resumes a deterministic
   strategic campaign and listens on a configurable `--dedicated-coop-bind` and
-  `--dedicated-coop-port` endpoint, defaulting to `0.0.0.0:60005`. Its
+  `--dedicated-coop-port` endpoint, defaulting to private loopback
+  `127.0.0.1:60005`; LAN hosting requires an explicit reachable bind. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v7 and
+  authentication. The dedicated runtime uses global co-op protocol v19 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
-  fresh-baseline-gated actor assignment, including grow-only late peers, nine-
+  fresh-baseline-gated actor assignment, including grow-only late peers, ten-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent
   is an exact-target aimed single-shot firearm attack with server-side live
   validation. The seventh is a zero-payload selected-actor reload prepared as a
   `ReloadWeaponCommand` and revalidated through native `AutoReload`, including
   manual chambering. The eighth requests the inverse state of an exact projected
-  visible door and is limited to one synchronous adjacent open/close action.
+  visible door and is limited to synchronous visible-door open/close: one
+  adjacent native action.
   The ninth passes one exact eligible actor's exact interrupt serial; pass votes
   never expose the native interrupt list or mutate the actor to fake an action.
+  The tenth starts native first aid for a distinct adjacent wounded teammate
+  with an already equipped usable medical kit. The authority repeats identity,
+  native adjacency/obstruction, skill, service, kit, and AP validation. Applied
+  proves initiation, not completed bandaging. Public medical state includes
+  bleeding, usable equipped hand-kit points and native service activity with
+  optional exact published patient identity. Automatic kit equipping/transfers,
+  full inventory, self-treatment, surgery, and auto-bandaging remain outside the
+  first-aid operation; explicit ordinary swaps and same-owner transfers use
+  separate inventory intents below.
   End turn, move, face, stance, stop, and reload carry
   `TacticalCommandAuthorityPolicy::DedicatedCoop`; only `NetworkPeer` or
   `Replay` may carry it, and simulation-command journal wire v4 preserves it
@@ -465,8 +477,10 @@ will revive them:
   The normal `JA2 --coop-client` path now composes pre-random/VFS bootstrap,
   private scratch, and a separate rollback-safe post-package/pre-legacy
   installed-content manifest subsystem. It validates and counts every VFS
-  occurrence before omitting explicit exclusive runtime namespaces, selects the
-  smallest-layer normalized read-only overlay while allowing case-only
+  occurrence before omitting exclusive runtime directories and the separately
+  allowlisted exact root-level `Strategic Decisions.txt` and `DebugMessage.txt`
+  logger outputs,
+  selects the smallest-layer normalized read-only overlay while allowing case-only
   spellings across layers, rejects same-layer ambiguity/duplicates and any
   remaining writable shadow, and caches the descriptor-verified digest. Late
   open reuses that cache without VFS recomputation and verifies the runtime
@@ -489,10 +503,14 @@ will revive them:
   co-op modes bypass the ordinary `InitMainMenu` transition during INIT, so the
   dedicated stage-four campaign-entry request and passive worldless screen run
   before any pending main-menu transition commits. Dedicated creation alone
-  runs `InitGameOptions()` immediately before `InitNewGame(FALSE)` because the installed strategic/Lua difficulty domain is 1..4; resume leaves checkpointed options untouched. The client also owns a private atomic 224-byte canonical
+  runs `InitGameOptions()` immediately before `InitNewGame(FALSE)` so the
+  skipped settings screen still provides installed
+  difficulty 2 and a six-actor squad instead of invalid zero values; resume leaves checkpointed
+  options untouched. The client also owns a private atomic 224-byte canonical
   bootstrap + `AdmissionAck` + SHA-256 reconnect record outside the profile, the real socket adapter, the snapshot
-  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v7 supplies
-  exact authority dimensions, canonical hostility, visible public door records,
+  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v12 supplies
+  exact authority dimensions, the path-safe exact loaded-map asset basename,
+  canonical hostility, visible public door records,
   the public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
   interrupt-action eligibility, and five bounded 12-byte combat-equipment
   records—primary hand, secondary hand, helmet, vest, and legs—to a passive
@@ -547,17 +565,37 @@ will revive them:
   defaults. Its static bound covers one campaign window at 144 FPS. The
   production socket E2E transfers one exact 11,796,517-byte checkpoint twice,
   193 chunks per transfer, at 7 ms pacing.
-  Snapshot v7's exact header/actor/door sizes are 53/92/7 bytes; the actor
-  includes five 12-byte combat-equipment records and the generic bound is
-  384053 bytes. Delta wire v6 permits 18434 generic events, orders actor-loadout
-  changes after
-  vitals and before door events, and encodes a same-serial interrupt-phase turn
-  change as one exact 43-byte event. The inner co-op tactical envelope is wire v3
-  and caps 256 actors, 1024 doors, and 3074 events, with baseline payload/
-  envelope 30773/32385 bytes and delta payload/envelope 62034/62106 bytes under
-  64 KiB. Intent wire v3 is bounded at
-  72+8=80 bytes; tactical-world service/observer are 2.0,
+  Snapshot v12's exact header/actor/door sizes are 314/148/7 bytes; its header
+  includes the authority's fixed-width, path-safe exact `.dat` map asset
+  basename, the actor includes five 12-byte combat-equipment records and a
+  44-byte render presentation followed by signed 16-bit bleeding and unsigned
+  16-bit equipped hand-kit points and an eight-byte medical-service descriptor,
+  and the generic bound is 613690 bytes. Delta
+  wire v11 permits 10243 generic events, publishes ambient-light changes,
+  coalesces all changes to an actor into one full actor-update event, and
+  encodes a same-serial interrupt-phase turn change as one exact 43-byte event.
+  The inner co-op tactical envelope is wire v6 and caps 256 actors, 1024 doors,
+  and 2563 events, with baseline payload/envelope 45370/46982 bytes and delta
+  payload/envelope 53853/53925 bytes under
+  64 KiB. Intent wire v5 is bounded at
+  72+26=98 bytes; tactical-world service/observer are 3.0,
   `DoorCapacityReached` is 12, and journal-v4 authoritative door/pass tags are 33/34.
+  First-aid kind 10 adds a six-byte exact patient identity; `BeginFirstAidCommand`
+  appends journal-v4 tag 35. Inventory swap kind 11 adds a twelve-byte slot/revision
+  payload and journal tag 36. It uses one retained native command and owner-only
+  ordinary-stack summaries. Transfer kind 12 adds a 26-byte recipient/slot/two-revision
+  payload and journal-v4 tag 37, with no wire-version changes. It accepts only a
+  complete ordinary stack into an empty supported hand/pocket on another owned,
+  conscious human merc. Native distance/LOS, capacity, both actor/object proofs
+  and the stock panel's 3-AP admission/2-AP cost per merc are revalidated.
+  The passive inventory's `G` flow selects a recipient without local mutation.
+  Both private revisions must have been sent to the same owner, both replacements
+  precede terminal receipts, and ownership changes defer during retained commands.
+  Attachments, active LBE, partial moves and cross-owner transfers remain outside
+  this slice; see [COOP_COMPLETION.md](COOP_COMPLETION.md) for scope and current
+  verification rather than treating historical runs as new transfer evidence.
+  Global session protocol v14 rejects pre-service-state clients
+  at admission; client and server builds must match.
   Same-connection tactical resynchronization is implemented around an
   authenticated exact 88-byte self-only request. Its bounded reasons cover a
   delta-sequence gap, payload-checksum mismatch, state mismatch, replica
@@ -1735,12 +1773,20 @@ _None currently open._
    CTest and registered only when both absolute cache paths
    `JA2_COOP_INSTALLED_SMOKE_EXECUTABLE` and
    `JA2_COOP_INSTALLED_SMOKE_DATA_ROOT` are configured. The POSIX-only serial
-   harness uses a free loopback port and private temporary roots to prove
+   harness uses free loopback ports and private temporary roots to prove
    create/Ready, independent same-root restart with a byte-identical 224-byte
-   credential, clean worldless final checkpoint, and resume. It fingerprints
-   installed inputs before/after and deterministically cleans process groups and
-   temporary state. Complete combat/world replication, the JA2 terrain/static-
-   world renderer, general mission/session control, a full installed-data
+   credential, then clean worldless final checkpoint/resume into a server-owned
+   tactical world where two clients each commit a non-empty assigned baseline.
+   A separate bounded tactical deadline covers both client cold loads and
+   starter-actor arrival. Without the optional gameplay driver it submits no
+   gameplay actions and explicitly observes that active-
+   world shutdown refuses an unsafe cold checkpoint. It fingerprints installed
+   inputs before/after and deterministically cleans process groups and temporary
+   state. Explicit driver options now certify native fire, reload, and a complete
+   player/AI/player turn cycle. The 2026-09-05 full lifecycle passed turn 4 to 7
+   with one explicit interrupt pass; see the [multiplayer evidence record](MULTIPLAYER_ARCHITECTURE.md#installed-turn-cycle-evidence).
+   That pre-medical-binary result does not certify first aid or live-battle persistence.
+   Complete combat/world replication and tactical interaction, general mission/session control, a full installed-data
    playthrough, and a long-running soak still remain.
 3. **Editor builds** — JA2MAPEDITOR / JA2UBMAPEDITOR targets must
    keep building. Should they share the SDL3 surface or stay legacy?

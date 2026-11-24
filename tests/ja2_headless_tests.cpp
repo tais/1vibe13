@@ -73,6 +73,8 @@
 #include "XMLWriter.h"
 #include "Utilities.h"
 #include "Button System.h"
+#include "HelpScreen.h"
+#include "merc entering.h"
 #include "Cursor Control.h"
 #include "Cursors.h"
 #include "message.h"
@@ -102,6 +104,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/TimeSource.h>
 #include <Engine/Core/RandomSource.h>
+#include <Engine/Core/SimulationRandom.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
@@ -135,6 +138,7 @@
 #include "CampaignProgressPolicy.h"
 #include "CampaignStrategicContentPolicy.h"
 #include "DedicatedServerOptions.h"
+#include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "GameContext.h"
 #include "GameVersion.h"
@@ -163,6 +167,7 @@
 #include "VehiclePassengerHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldObserverHost.h"
+#include "Tactical Save.h"
 #include "interface Dialogue.h"
 #include "Assignments.h"
 #include "Merc Contract.h"
@@ -263,6 +268,7 @@
 #include "SoldierRepository.h"
 #include "SdlNetTransport.h"
 #include "Overhead.h"
+#include "Bullets.h"
 #include "opplist.h"
 #include "soldier tile.h"
 #include "ai.h"
@@ -297,6 +303,8 @@ BOOLEAN  gfDedicatedServerProcessFailed = FALSE;
 // publishing it from Animation Control.h. The fixture saves and restores one
 // entry so the public resolver path can be exercised deterministically.
 extern UINT16 gubAnimSurfaceIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
+extern BOOLEAN gfHelpScreenEntry;
+extern BOOLEAN gfHelpScreenExit;
 BOOLEAN  gfDontUseDDBlits     = FALSE;
 bool     g_bUseXML_Structures = false;
 CHAR8    gzCommandLine[ 100 ] = { 0 };
@@ -7778,6 +7786,1231 @@ static int RunLegacyEmbeddedHostLoopbackTests()
 	return g_failures ? 1 : 0;
 }
 
+static int RunDedicatedCoopResumeClassifierTests()
+{
+	GameContext& context = GetGameContext();
+	const bool running = context.beginInitialization() &&
+		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		context.markRunning();
+	CHECK(running, "resume fixture starts the canonical campaign runtime");
+	if (!running) return 1;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	ResetJa2TacticalActorRosters();
+	gbPlayerNum = OUR_TEAM;
+	gTacticalStatus.Team[OUR_TEAM].bFirstID = SoldierID{0};
+	gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{1};
+	gTacticalStatus.fDidGameJustStart = FALSE;
+	gGameExternalOptions.iGameStartingTime = 90000;
+	InitializeJa2CampaignClock(120000);
+	NotifyJa2TacticalWorldUnloaded();
+	ClearJa2TacticalWorldSector();
+	GetJa2CampaignEventQueue().clear();
+	CHECK(SetSectorFlag(9, 1, 0, SF_ALREADY_VISITED),
+		"resume fixture records its actual previously visited sector");
+	TacticalActor& first = *soldiers.resolve(0);
+	TacticalActor& second = *soldiers.resolve(1);
+	for (TacticalActor* actor : {&first, &second})
+	{
+		const UINT16 slot = actor == &first ? 0 : 1;
+		actor->identity().id() = SoldierID{slot};
+		actor->identity().incarnation() = 100 + slot;
+		actor->identity().profile() = static_cast<UINT8>(slot);
+		actor->roster().active() = TRUE;
+		// Native TrashWorld retains this flag for player actors. Coldness is
+		// proved by the campaign world, not a historical per-actor flag.
+		actor->roster().inSector() = TRUE;
+		actor->roster().team() = OUR_TEAM;
+		actor->assignment().current() = FIRST_SQUAD;
+		actor->vitals().health() = 5;
+		actor->vitals().maximumHealth() = 90;
+		actor->deployment().sectorX() = 9;
+		actor->deployment().sectorY() = 1;
+		actor->deployment().sectorZ() = 0;
+		actor->deployment().groupId() = 7;
+		actor->deployment().betweenSectors() = FALSE;
+		CHECK(AdoptJa2TacticalEntity(*actor),
+			"resume actor adopts an exact native identity");
+	}
+	PLAYERGROUP firstMember{}, secondMember{};
+	firstMember.actor = GetJa2TacticalEntityId(first);
+	firstMember.ubProfileID = first.identity().profile();
+	firstMember.next = &secondMember;
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	secondMember.ubProfileID = second.identity().profile();
+	GROUP group{};
+	group.ubGroupID = 7;
+	group.usGroupTeam = OUR_TEAM;
+	group.ubGroupSize = 2;
+	group.ubSectorX = 9;
+	group.ubSectorY = 1;
+	group.pPlayerList = &firstMember;
+	gpGroupList = &group;
+	CHECK(AdoptJa2StrategicGroup(group),
+		"resume fixture adopts the exact native foot group");
+	using State = DedicatedCoopStarterCampaignState;
+	auto inspect = [&](State expected, const char* description) {
+		const auto clockBefore = CaptureJa2CampaignClock();
+		std::array<unsigned char, sizeof(GROUP)> groupBefore{};
+		std::memcpy(groupBefore.data(), &group, sizeof(group));
+		std::vector<CampaignEventSnapshot> eventsBefore, eventsAfter;
+		const bool capturedBefore = GetJa2CampaignEventQueue().capture(eventsBefore);
+		const auto nextEventBefore = GetJa2CampaignEventQueue().nextIdentity();
+		const auto groupIdentityBefore = GetJa2StrategicGroupId(7);
+		const auto firstIdentityBefore = GetJa2TacticalEntityId(first);
+		const auto secondIdentityBefore = GetJa2TacticalEntityId(second);
+		const auto pendingIdentityBefore = GetJa2TacticalEntityId(*soldiers.resolve(2));
+		std::array<unsigned char, sizeof(MERCPROFILESTRUCT)> pendingProfileBefore{};
+		std::memcpy(pendingProfileBefore.data(), &gMercProfiles[2], sizeof(MERCPROFILESTRUCT));
+		const auto actual = InspectDedicatedCoopStarterCampaign();
+		CHECK(actual == expected, description);
+		CHECK(capturedBefore && GetJa2CampaignEventQueue().capture(eventsAfter) &&
+			eventsBefore == eventsAfter &&
+			nextEventBefore == GetJa2CampaignEventQueue().nextIdentity() &&
+			clockBefore == CaptureJa2CampaignClock() &&
+			std::memcmp(groupBefore.data(), &group, sizeof(group)) == 0 &&
+			groupIdentityBefore == GetJa2StrategicGroupId(7) &&
+			firstIdentityBefore == GetJa2TacticalEntityId(first) &&
+			secondIdentityBefore == GetJa2TacticalEntityId(second) &&
+			pendingIdentityBefore == GetJa2TacticalEntityId(*soldiers.resolve(2)) &&
+			std::memcmp(pendingProfileBefore.data(), &gMercProfiles[2], sizeof(MERCPROFILESTRUCT)) == 0 &&
+			!IsJa2TacticalWorldLoaded() &&
+			gWorldSectorX == 0 && gWorldSectorY == 0 && gbWorldSectorZ == -1,
+			"inspection leaves native clock, events, group, identities and cold world unchanged");
+	};
+	inspect(State::EstablishedStrategicCold,
+		"living wounded squad resumes cold despite retained inSector flags");
+	gTacticalStatus.fDidGameJustStart = TRUE;
+	inspect(State::Ineligible, "wounded roster cannot reinterpret an ambiguous starter campaign");
+	gTacticalStatus.fDidGameJustStart = FALSE;
+	first.vitals().health() = second.vitals().health() = 90;
+	inspect(State::EstablishedCold, "healthy stationary squad keeps established launch eligibility");
+	second.vitals().health() = 0;
+	inspect(State::EstablishedCold, "healthy plus dead stationary roster retains historical resume eligibility");
+	second.assignment().current() = ASSIGNMENT_POW;
+	inspect(State::EstablishedCold, "healthy plus POW stationary roster retains historical resume eligibility");
+	second.assignment().current() = ON_DUTY;
+	inspect(State::EstablishedCold, "healthy plus non-squad stationary roster retains historical resume eligibility");
+	second.status().flags() |= SOLDIER_VEHICLE;
+	inspect(State::EstablishedCold, "healthy plus vehicle stationary roster retains historical resume eligibility");
+	second.status().flags() &= ~SOLDIER_VEHICLE;
+	second.assignment().current() = FIRST_SQUAD;
+	first.vitals().health() = 5;
+	inspect(State::Ineligible, "all-wounded plus dead does not acquire unsupported resume eligibility");
+	second.vitals().health() = 5;
+	group.ubGroupSize = 3;
+	inspect(State::Ineligible, "wounded resume rejects native group count mismatch");
+	group.ubGroupSize = 2;
+	secondMember.actor = firstMember.actor;
+	inspect(State::Ineligible, "wounded resume rejects duplicate native member identity");
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	++secondMember.actor.incarnation;
+	inspect(State::Ineligible, "wounded resume rejects stale native member incarnation");
+	secondMember.actor = GetJa2TacticalEntityId(second);
+	secondMember.ubProfileID = firstMember.ubProfileID;
+	inspect(State::Ineligible, "wounded resume rejects persisted profile and exact member disagreement");
+	secondMember.ubProfileID = second.identity().profile();
+	CHECK(ReleaseJa2StrategicGroup(group), "resume fixture can retire the native group identity");
+	inspect(State::Ineligible, "wounded resume rejects a group outside the exact identity directory");
+	CHECK(AdoptJa2StrategicGroup(group), "resume fixture can readopt its native group");
+	group.fBetweenSectors = TRUE;
+	group.ubNextX = 9;
+	group.ubNextY = 2;
+	group.uiTraverseTime = 90;
+	group.uiArrivalTime = 2100;
+	first.deployment().betweenSectors() = second.deployment().betweenSectors() = TRUE;
+	first.vitals().health() = second.vitals().health() = 90;
+	STRATEGICEVENT* arrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_GROUP_ARRIVAL, group.uiArrivalTime * NUM_SEC_IN_MIN, group.ubGroupID);
+	CHECK(arrival != nullptr, "resume fixture schedules one native ordinary arrival");
+	if (!arrival) return 1;
+	inspect(State::EstablishedStrategicCold, "coherent traveling squad resumes strategically without arrival execution");
+	// One separately valid launchable squad must not automatically pull a
+	// different traveling cohort into its tactical sector on resume.
+	GROUP stationaryGroup{};
+	stationaryGroup.ubGroupID = 8;
+	stationaryGroup.usGroupTeam = OUR_TEAM;
+	stationaryGroup.ubGroupSize = 1;
+	stationaryGroup.ubSectorX = 8;
+	stationaryGroup.ubSectorY = 1;
+	stationaryGroup.pPlayerList = &secondMember;
+	group.next = &stationaryGroup;
+	group.ubGroupSize = 1;
+	firstMember.next = nullptr;
+	second.deployment().groupId() = 8;
+	second.deployment().sectorX() = 8;
+	second.deployment().betweenSectors() = FALSE;
+	second.assignment().current() = FIRST_SQUAD + 1;
+	CHECK(SetSectorFlag(8, 1, 0, SF_ALREADY_VISITED) &&
+		AdoptJa2StrategicGroup(stationaryGroup),
+		"mixed resume fixture has a distinct valid stationary squad and sector");
+	inspect(State::EstablishedStrategicCold,
+		"valid healthy stationary and traveling cohorts stay cold without cross-sector launch");
+	(void)ReleaseJa2StrategicGroup(stationaryGroup);
+	group.next = nullptr;
+	group.ubGroupSize = 2;
+	firstMember.next = &secondMember;
+	second.deployment().groupId() = 7;
+	second.deployment().sectorX() = 9;
+	second.assignment().current() = FIRST_SQUAD;
+	second.deployment().betweenSectors() = FALSE;
+	inspect(State::Ineligible, "healthy stationary actor cannot hide a contradictory traveler cohort");
+	second.deployment().betweenSectors() = TRUE;
+	arrival->ubEventType = QUEUED_EVENT;
+	inspect(State::Ineligible, "travel resume rejects a queued instead of ordinary arrival");
+	arrival->ubEventType = ONETIME_EVENT;
+	arrival->ubFlags = SEF_DELETION_PENDING;
+	inspect(State::Ineligible, "travel resume rejects an arrival pending deletion");
+	arrival->ubFlags = 0;
+	arrival->uiParam += 256;
+	inspect(State::Ineligible, "travel resume rejects a narrowed group ID alias");
+	arrival->uiParam = group.ubGroupID;
+	STRATEGICEVENT* duplicate = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_GROUP_ARRIVAL, arrival->uiTimeStamp, group.ubGroupID + 256);
+	CHECK(duplicate != nullptr, "resume fixture schedules contradictory alias arrival");
+	inspect(State::Ineligible, "travel resume counts a duplicate narrowed group ID alias");
+	GetJa2CampaignEventQueue().erase(duplicate);
+	STRATEGICEVENT* delayedHire = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, arrival->uiTimeStamp, first.identity().id().i);
+	CHECK(delayedHire != nullptr, "resume fixture schedules contradictory native hire event");
+	inspect(State::Ineligible, "travel resume rejects contradictory delayed actor hiring");
+	GetJa2CampaignEventQueue().erase(delayedHire);
+	group.uiArrivalTime = GetWorldTotalSeconds() / NUM_SEC_IN_MIN;
+	arrival->uiTimeStamp = GetWorldTotalSeconds();
+	inspect(State::EstablishedStrategicCold, "exactly due ordinary arrival can remain paused on resume");
+	--group.uiArrivalTime;
+	arrival->uiTimeStamp -= NUM_SEC_IN_MIN;
+	inspect(State::Ineligible, "travel resume rejects an overdue native arrival");
+	// Established hires are a distinct cohort from the initial four-merc
+	// starter proof. Use actual repository identities and native event nodes.
+	group.uiArrivalTime = 2100;
+	arrival->uiTimeStamp = group.uiArrivalTime * NUM_SEC_IN_MIN;
+	gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{2};
+	gsMercArriveSectorX = 9;
+	gsMercArriveSectorY = 1;
+	TacticalActor& pending = *soldiers.resolve(2);
+	pending.identity().id() = SoldierID{2};
+	pending.identity().incarnation() = 102;
+	pending.identity().profile() = 2;
+	pending.identity().bodyType() = REGMALE;
+	pending.roster().active() = TRUE;
+	pending.roster().inSector() = FALSE;
+	pending.roster().team() = OUR_TEAM;
+	pending.assignment().current() = IN_TRANSIT;
+	pending.vitals().health() = pending.vitals().maximumHealth() = 80;
+	pending.deployment().sectorX() = 9;
+	pending.deployment().sectorY() = 1;
+	pending.deployment().sectorZ() = 0;
+	pending.deployment().groupId() = 0;
+	pending.deployment().betweenSectors() = FALSE;
+	pending.deployment().setUseLandingZoneForArrival(true);
+	pending.deployment().strategicInsertionCode() = INSERTION_CODE_ARRIVING_GAME;
+	pending.deployment().strategicInsertionData() = 0;
+	pending.deployment().arrivalTime() = 2610;
+	pending.employment().mercenaryType() = MERC_TYPE__AIM_MERC;
+	pending.employment().totalLength() = 7;
+	pending.employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
+	pending.employment().endTime() = 14100;
+	pending.employment().timeCanSignElsewhere() = GetWorldTotalMin();
+	pending.employment().medicalDeposit() = 321;
+	pending.employment().insuranceStartDay() = pending.employment().insuranceLengthDays() = 0;
+	gMercProfiles[2].Type = PROFILETYPE_AIM;
+	gMercProfiles[2].bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
+	gMercProfiles[2].ubBodyType = REGMALE;
+	gMercProfiles[2].sMedicalDepositAmount = 321;
+	// No starter-only already-used-equipment flag or zero gear price is needed.
+	gMercProfiles[2].ubMiscFlags &= ~PROFILE_MISC_FLAG_ALREADY_USED_ITEMS;
+	gMercProfiles[2].usOptionalGearCost = 1234;
+	CHECK(AdoptJa2TacticalEntity(pending), "pending resume actor adopts its exact persisted native identity");
+	STRATEGICEVENT* pendingArrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, pending.deployment().arrivalTime() * NUM_SEC_IN_MIN, 2);
+	CHECK(pendingArrival != nullptr, "pending resume fixture schedules a real native delayed hire");
+	if (!pendingArrival) return 1;
+	inspect(State::EstablishedStrategicCold,
+		"validated traveling squad plus pending AIM hire resumes without advancing either arrival");
+	GetJa2CampaignEventQueue().erase(arrival);
+	group.fBetweenSectors = FALSE;
+	first.deployment().betweenSectors() = second.deployment().betweenSectors() = FALSE;
+	inspect(State::EstablishedStrategicCold,
+		"validated healthy stationary squad plus pending AIM hire resumes paused without tactical launch");
+	GROUP hiddenGroup{};
+	PLAYERGROUP hiddenMember{};
+	hiddenGroup.ubGroupID = 9;
+	hiddenGroup.usGroupTeam = OUR_TEAM;
+	hiddenGroup.ubGroupSize = 1;
+	hiddenGroup.ubSectorX = 9;
+	hiddenGroup.ubSectorY = 1;
+	hiddenGroup.pPlayerList = &hiddenMember;
+	hiddenMember.actor = GetJa2TacticalEntityId(pending);
+	hiddenMember.ubProfileID = pending.identity().profile();
+	group.next = &hiddenGroup;
+	CHECK(AdoptJa2StrategicGroup(hiddenGroup), "pending fixture adopts an otherwise unreferenced player group");
+	inspect(State::Ineligible, "pending groupId zero cannot hide a real member in another native player group");
+	++hiddenMember.actor.incarnation;
+	inspect(State::Ineligible, "pending resume rejects hidden group membership with a stale incarnation for its slot");
+	hiddenMember.actor = GetJa2TacticalEntityId(first);
+	hiddenMember.next = &hiddenMember;
+	inspect(State::Ineligible, "unreferenced player member-list cycle is bounded during pending cohort validation");
+	hiddenMember.next = nullptr;
+	hiddenGroup.pPlayerList = nullptr;
+	hiddenGroup.next = &hiddenGroup;
+	inspect(State::Ineligible, "unreferenced group-list cycle is bounded during pending cohort validation");
+	hiddenGroup.next = nullptr;
+	(void)ReleaseJa2StrategicGroup(hiddenGroup);
+	group.next = nullptr;
+	CHECK(AddJa2StrategicSquadActor(39, GetJa2TacticalEntityId(pending)) == 0,
+		"pending fixture inserts actual hidden strategic squad membership");
+	inspect(State::Ineligible, "pending IN_TRANSIT marker cannot hide membership in an unrelated native squad");
+	CHECK(RemoveJa2StrategicSquadActor(39, GetJa2TacticalEntityId(pending)),
+		"pending fixture removes hidden native squad membership");
+	inspect(State::EstablishedStrategicCold, "removing hidden memberships restores the unchanged valid pending cohort");
+	second.vitals().health() = 0;
+	inspect(State::Ineligible, "a pending hire prevents healthy stationary fallthrough hiding an unsupported dead cohort member");
+	second.vitals().health() = 90;
+	second.assignment().current() = ASSIGNMENT_POW;
+	inspect(State::Ineligible, "pending resume requires the ordinary roster's full native squad proof");
+	second.assignment().current() = FIRST_SQUAD;
+	for (int change = 0; change < 15; ++change)
+	{
+		switch (change)
+		{
+		case 0: pending.roster().inSector() = TRUE; break;
+		case 1: pending.deployment().betweenSectors() = TRUE; break;
+		case 2: pending.deployment().groupId() = 7; break;
+		case 3: pending.assignment().current() = ON_DUTY; break;
+		case 4: pending.identity().profile() = NO_PROFILE; break;
+		case 5: gMercProfiles[2].bMercStatus = 7; break;
+		case 6: gMercProfiles[2].Type = PROFILETYPE_MERC; break;
+		case 7: pending.employment().endTime() = -1; break;
+		case 8: pending.employment().lastContractType() = CONTRACT_EXTEND_1_DAY; break;
+		case 9: pending.employment().medicalDeposit() = 320; break;
+		case 10: pending.deployment().strategicInsertionCode() = INSERTION_CODE_CHOPPER; break;
+		case 11: pending.deployment().strategicInsertionData() = 1; break;
+		case 12: pending.deployment().sectorX() = 8; break;
+		case 13: pending.identity().bodyType() = REGFEMALE; break;
+		case 14: pending.employment().insuranceLengthDays() = 1; break;
+		}
+		inspect(State::Ineligible,
+			"pending native actor with invalid identity, status, contract or insertion cannot hide behind a healthy squad");
+		pending.roster().inSector() = FALSE;
+		pending.deployment().betweenSectors() = FALSE;
+		pending.deployment().groupId() = 0;
+		pending.assignment().current() = IN_TRANSIT;
+		pending.identity().profile() = 2;
+		gMercProfiles[2].bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
+		gMercProfiles[2].Type = PROFILETYPE_AIM;
+		pending.employment().endTime() = 14100;
+		pending.employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
+		pending.employment().medicalDeposit() = 321;
+		pending.deployment().strategicInsertionCode() = INSERTION_CODE_ARRIVING_GAME;
+		pending.deployment().strategicInsertionData() = 0;
+		pending.deployment().sectorX() = 9;
+		pending.identity().bodyType() = REGMALE;
+		pending.employment().insuranceLengthDays() = 0;
+	}
+	CHECK(ReleaseJa2TacticalEntity(pending), "pending fixture retires its exact native identity");
+	inspect(State::Ineligible, "an unpublished pending actor cannot be resumed using only its reused slot");
+	CHECK(AdoptJa2TacticalEntity(pending), "pending fixture readopts its exact identity");
+	TacticalActor& foreign = *soldiers.resolve(10);
+	foreign.roster().active() = TRUE;
+	foreign.roster().team() = ENEMY_TEAM;
+	foreign.identity().profile() = NO_PROFILE;
+	TacticalActor& otherGeneric = *soldiers.resolve(11);
+	otherGeneric.roster().active() = TRUE;
+	otherGeneric.roster().team() = ENEMY_TEAM;
+	otherGeneric.identity().profile() = NO_PROFILE;
+	inspect(State::EstablishedStrategicCold,
+		"two generic foreign actors do not turn the native NO_PROFILE sentinel into a duplicate real profile");
+	otherGeneric.roster().active() = FALSE;
+	foreign.identity().profile() = 2;
+	inspect(State::Ineligible, "a duplicate active pending profile outside player slots is rejected");
+	foreign.identity().profile() = first.identity().profile();
+	inspect(State::Ineligible, "pending resume also rejects duplicate ordinary roster profiles outside player slots");
+	foreign.roster().active() = FALSE;
+	for (int change = 0; change < 5; ++change)
+	{
+		switch (change)
+		{
+		case 0: pendingArrival->uiParam += 65536; break;
+		case 1: pendingArrival->ubEventType = QUEUED_EVENT; break;
+		case 2: pendingArrival->ubFlags = SEF_DELETION_PENDING; break;
+		case 3: pendingArrival->uiTimeOffset = 1; break;
+		case 4: ++pendingArrival->uiTimeStamp; break;
+		}
+		inspect(State::Ineligible, "pending resume rejects delayed event alias, type, deletion, offset or time mismatch");
+		pendingArrival->uiParam = 2;
+		pendingArrival->ubEventType = ONETIME_EVENT;
+		pendingArrival->ubFlags = 0;
+		pendingArrival->uiTimeOffset = 0;
+		pendingArrival->uiTimeStamp = pending.deployment().arrivalTime() * NUM_SEC_IN_MIN;
+	}
+	for (UINT32 parameter : {2u, 65538u, 9u})
+	{
+		STRATEGICEVENT* extra = AddAdvancedStrategicEvent(ONETIME_EVENT,
+			EVENT_DELAYED_HIRING_OF_MERC, pendingArrival->uiTimeStamp, parameter);
+		CHECK(extra != nullptr, "pending fixture adds a contradictory delayed hire node");
+		inspect(State::Ineligible, "pending cohort rejects duplicate, aliased duplicate and orphan delayed events");
+		GetJa2CampaignEventQueue().erase(extra);
+	}
+	first.roster().active() = second.roster().active() = FALSE;
+	inspect(State::Ineligible, "pending-only established campaign stays outside this bounded resume extension");
+	first.roster().active() = second.roster().active() = TRUE;
+	pending.deployment().arrivalTime() = GetWorldTotalMin();
+	pending.employment().endTime() = 13500;
+	pendingArrival->uiTimeStamp = GetWorldTotalSeconds();
+	inspect(State::EstablishedStrategicCold, "exactly due pending arrival remains paused without executing native hire callback");
+	--pending.deployment().arrivalTime();
+	pendingArrival->uiTimeStamp -= NUM_SEC_IN_MIN;
+	inspect(State::Ineligible, "an overdue pending hire is rejected at the native event boundary");
+	pending.deployment().arrivalTime() = 2610;
+	pending.employment().endTime() = 14100;
+	pendingArrival->uiTimeStamp = pending.deployment().arrivalTime() * NUM_SEC_IN_MIN;
+	GetJa2CampaignEventQueue().erase(pendingArrival);
+	inspect(State::Ineligible, "a missing delayed event prevents stationary pending-actor fallthrough");
+	pending.roster().active() = FALSE;
+	pendingArrival = AddAdvancedStrategicEvent(ONETIME_EVENT,
+		EVENT_DELAYED_HIRING_OF_MERC, 2610 * NUM_SEC_IN_MIN, 2);
+	CHECK(pendingArrival != nullptr, "orphan-only fixture keeps a real delayed hire event");
+	inspect(State::Ineligible, "orphan delayed event alone prevents healthy stationary fallthrough with no active pending actor");
+	GetJa2CampaignEventQueue().clear();
+	(void)ReleaseJa2StrategicGroup(group);
+	gpGroupList = nullptr;
+	std::printf("\n%s (%d failures)\n", g_failures ?
+		"DEDICATED CO-OP RESUME CLASSIFIER TESTS FAILED" :
+		"DEDICATED CO-OP RESUME CLASSIFIER TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
+static int RunAuthoritativePortraitTests()
+{
+	// Canonical RNG source selection is process-lifetime state: this fixture
+	// executes before any legacy RNG accessor and needs no SDL/VFS or face bank.
+	CHECK(InstallGameSimulationRandom(0x706f727472616974ULL) ==
+		GameSimulationRandomInstallError::None,
+		"portrait fixture installs the authoritative RNG before any source observation");
+	SimulationRandom* const simulation = GetGameSimulationRandomSource();
+	if (!simulation) return 1;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	TacticalActor& actor = *soldiers.resolve(0);
+	actor.identity().id() = SoldierID{0};
+	actor.identity().incarnation() = 71;
+	actor.identity().bodyType() = REGMALE;
+	actor.identity().profile() = 21;
+	actor.roster().active() = TRUE;
+	actor.roster().inSector() = FALSE;
+	actor.roster().team() = OUR_TEAM;
+	actor.animationPlayback().state() = STANDING;
+	actor.vitals().health() = actor.vitals().maximumHealth() = 100;
+	actor.vitals().breath() = actor.vitals().maximumBreath() = 100;
+	actor.renderBindings().faceIndex() = -1;
+	for (const UINT8 slot : {HELMETPOS, VESTPOS, LEGPOS, HANDPOS, SECONDHANDPOS})
+		actor.inventory()[slot].initialize();
+	for (CHAR8* palette : {actor.renderState().headPalette(), actor.renderState().pantsPalette(),
+		actor.renderState().vestPalette(), actor.renderState().skinPalette()})
+		std::fill(palette, palette + sizeof(PaletteRepID), '\0');
+	guiNumReplacements = 0;
+	gGameExternalOptions.fShowCamouflageFaces = TRUE;
+	gMercProfiles[21].Type = PROFILETYPE_AIM;
+	gMercProfiles[21].ubFaceIndex = 77;
+	const auto checkpoint = simulation->checkpoint();
+	const std::uint64_t consumption = simulation->consumptionEpoch();
+	CHECK(AdoptJa2TacticalEntity(actor), "portrait fixture adopts an exact authoritative actor");
+	const TacticalEntityId identity = GetJa2TacticalEntityId(actor);
+	const auto inspect = [&](TacticalPortraitSnapshot expected, const char* message) {
+		const bool synchronized = SynchronizeJa2TacticalEntityState(actor);
+		const auto* state = GetJa2TacticalEntityDirectory().state(identity);
+		CHECK(synchronized && state && state->presentation.portrait == expected &&
+			IsCanonicalTacticalPortrait(state->presentation.portrait), message);
+	};
+	using Family = TacticalPortraitFamily;
+	using Camo = TacticalPortraitCamouflage;
+	inspect({Family::Faces, 77, Camo::None},
+		"ordinary portrait uses the authority profile's face index, not actor/profile slot");
+	gMercProfiles[21].Type = PROFILETYPE_IMP;
+	gMercProfiles[21].ubFaceIndex = 5;
+	inspect({Family::ImpFaces, 5, Camo::None}, "IMP portrait retains its distinct asset family");
+	gMercProfiles[21].ubFaceIndex = 255;
+	inspect({Family::ImpFaces, 255, Camo::None}, "the full native uint8 face-index domain is retained");
+	gMercProfiles[21].Type = PROFILETYPE_AIM;
+	gMercProfiles[21].ubFaceIndex = 154;
+	inspect({Family::Faces, 154, Camo::None}, "a face index in 151-154 is not itself a profile alias");
+	for (const UINT8 profile : {151, 152, 153, 154})
+	{
+		actor.identity().profile() = profile;
+		gMercProfiles[profile].Type = PROFILETYPE_AIM;
+		gMercProfiles[profile].ubFaceIndex = 7;
+		inspect({Family::Faces, 151, Camo::None}, "stock profile 151-154 uses the shared small face 151");
+	}
+	gMercProfiles[154].Type = PROFILETYPE_IMP;
+	inspect({Family::ImpFaces, 151, Camo::None}, "profile alias preserves the native IMP family decision");
+	actor.identity().profile() = NUM_PROFILES - 1;
+	gMercProfiles[NUM_PROFILES - 1].Type = PROFILETYPE_MERC;
+	gMercProfiles[NUM_PROFILES - 1].ubFaceIndex = 0;
+	inspect({Family::Faces, 0, Camo::None}, "last valid profile and small face zero are ordinary identities");
+	actor.identity().profile() = NO_PROFILE;
+	gMercProfiles[NO_PROFILE].Type = PROFILETYPE_IMP;
+	gMercProfiles[NO_PROFILE].ubFaceIndex = 5;
+	inspect({}, "NO_PROFILE is absent even when the same numeric profile-table entry has face data");
+	actor.identity().profile() = NUM_PROFILES;
+	inspect({}, "out-of-range profile produces canonical absence without profile-table access");
+	actor.identity().profile() = 21;
+	gMercProfiles[21].Type = PROFILETYPE_AIM;
+	gMercProfiles[21].ubFaceIndex = 77;
+	actor.camouflage().jungleWorn() = actor.camouflage().urbanWorn() =
+		actor.camouflage().desertWorn() = actor.camouflage().snowWorn() = 100;
+	// Deliberately stale legacy per-profile presentation cache: capture must
+	// neither trust nor update it, including on the headless/reconnect path.
+	gCamoFace[21] = {TRUE, TRUE, TRUE, TRUE};
+	inspect({Family::Faces, 77, Camo::None}, "worn camo and stale legacy face-cache flags do not paint faces");
+	actor.camouflage().jungleApplied() = 100;
+	actor.camouflage().urbanApplied() = 50;
+	actor.camouflage().desertApplied() = 20;
+	actor.camouflage().snowApplied() = 1;
+	inspect({Family::Faces, 77, Camo::Snow}, "last positive applied camo wins, not largest percentage");
+	actor.camouflage().snowApplied() = 0;
+	inspect({Family::Faces, 77, Camo::Desert}, "desert applied camo follows snow in stock priority");
+	actor.camouflage().desertApplied() = 0;
+	inspect({Family::Faces, 77, Camo::Urban}, "urban applied camo follows desert in stock priority");
+	actor.camouflage().urbanApplied() = 0;
+	inspect({Family::Faces, 77, Camo::Wood}, "positive jungle applied camo selects wood portrait");
+	gGameExternalOptions.fShowCamouflageFaces = FALSE;
+	inspect({Family::Faces, 77, Camo::None}, "authority option disables camouflage portrait variants");
+	gGameExternalOptions.fShowCamouflageFaces = TRUE;
+	actor.camouflage().jungleApplied() = -1;
+	inspect({Family::Faces, 77, Camo::None}, "nonpositive applied camo does not select a portrait variant");
+	actor.identity().profile() = NO_PROFILE;
+	actor.camouflage().snowApplied() = 100;
+	inspect({}, "no-profile actors stay canonically absent even with applied camouflage");
+	CHECK(simulation->checkpoint() == checkpoint && simulation->consumptionEpoch() == consumption &&
+		actor.renderBindings().faceIndex() == -1 &&
+		gCamoFace[21].gCamoface && gCamoFace[21].gUrbanCamoface &&
+		gCamoFace[21].gDesertCamoface && gCamoFace[21].gSnowCamoface,
+		"native portrait projection consumes no simulation RNG and mutates no live face/cache binding");
+	(void)ReleaseJa2TacticalEntity(actor);
+	std::printf("\n%s (%d failures)\n", g_failures ?
+		"AUTHORITATIVE PORTRAIT TESTS FAILED" : "AUTHORITATIVE PORTRAIT TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
+static int RunAuthoritativeFirstAidTests()
+{
+	GameContext& context = GetGameContext();
+	const bool running = context.beginInitialization() &&
+		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		context.markRunning();
+	CHECK(running, "first aid fixture starts the canonical command runtime");
+	if (!running) return 1;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	ResetJa2TacticalActorRosters();
+	ResetJa2TacticalInterruptForNewWorld();
+	CHECK(AllocateWorldTileMap(static_cast<std::uint32_t>(WORLD_MAX)),
+		"first aid fixture allocates native logical geometry");
+	gubWorldMovementCosts = static_cast<UINT8 (*)[MAXDIR][2]>(
+		MemAlloc(static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2));
+	if (!gubWorldMovementCosts || !GetWorldTileMapSize()) return 1;
+	std::memset(gubWorldMovementCosts, TRAVELCOST_BLOCKED,
+		static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2);
+	InitRenderParams(0);
+	NotifyJa2TacticalWorldLoaded(1);
+	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+	gbPlayerNum = OUR_TEAM;
+	is_networked = is_client = is_server = false;
+	gGameOptions.fNewTraitSystem = FALSE;
+	gTacticalStatus.fAutoBandageMode = FALSE;
+	gTacticalStatus.Team[OUR_TEAM].bFirstID = SoldierID{0};
+	gTacticalStatus.Team[OUR_TEAM].bLastID = SoldierID{1};
+	APBPConstants[AP_START_FIRST_AID] = 3;
+	APBPConstants[BP_START_FIRST_AID] = 0;
+	const INT32 medicGrid = (WORLD_ROWS / 2) * WORLD_COLS + WORLD_COLS / 2;
+	const INT32 patientGrid = medicGrid + WORLD_COLS;
+	gubWorldMovementCosts[medicGrid][NORTH][0] = 0;
+	TacticalActor& medic = *soldiers.resolve(0);
+	TacticalActor& patient = *soldiers.resolve(1);
+	for (TacticalActor* actor : {&medic, &patient})
+	{
+		const UINT16 slot = actor == &medic ? 0 : 1;
+		actor->identity().id() = SoldierID{slot};
+		actor->identity().incarnation() = 100 + slot;
+		actor->identity().bodyType() = REGMALE;
+		actor->identity().profile() = NO_PROFILE;
+		actor->roster().active() = actor->roster().inSector() = TRUE;
+		actor->roster().team() = OUR_TEAM;
+		actor->assignment().current() = FIRST_SQUAD;
+		actor->deployment().sectorX() = 9;
+		actor->deployment().sectorY() = 1;
+		actor->deployment().sectorZ() = 0;
+		actor->position().gridNo() = actor == &medic ? medicGrid : patientGrid;
+		actor->position().level() = FIRST_LEVEL;
+		actor->position().direction() = SOUTH;
+		actor->pathing().desiredDirection() = SOUTH;
+		actor->animationPlayback().state() = CROUCHING;
+		actor->animationIntent().clearPendingAnimations();
+		actor->pendingAction().clearAction();
+		actor->movement().mode() = WALKING;
+		actor->vitals().health() = actor->vitals().maximumHealth() = 100;
+		actor->vitals().breath() = actor->vitals().maximumBreath() = 100;
+		actor->actionPoints().current() = 20;
+		actor->statistics().medical() = 90;
+		actor->statistics().dexterity() = 90;
+		actor->statistics().experienceLevel() = 5;
+		CHECK(AdoptJa2TacticalEntity(*actor), "medical actor adopts an exact runtime identity");
+	}
+	patient.vitals().health() = 40;
+	patient.vitals().bleeding() = 50;
+	patient.collapseState().tactical() = TRUE;
+	gMAXITEMS_READ = FIRSTAIDKIT + 1;
+	Item[FIRSTAIDKIT].usItemClass = IC_MEDKIT;
+	CHECK(CreateItem(FIRSTAIDKIT, 100, &medic.inventory()[HANDPOS]),
+		"medical fixture carries a real native kit object");
+	STRUCTURE patientStructure{};
+	patientStructure.fFlags = STRUCTURE_PERSON;
+	patientStructure.usStructureID = patient.identity().id().i;
+	patientStructure.sGridNo = patientGrid;
+	gpWorldLevelData[patientGrid].pStructureHead = &patientStructure;
+	CHECK(WhoIsThere2(patientGrid, 0) == patient.identity().id(),
+		"native occupancy resolves the exact adjacent patient");
+	const TacticalEntityId medicId = GetJa2TacticalEntityId(medic);
+	const TacticalEntityId patientId = GetJa2TacticalEntityId(patient);
+	const auto inspectService = [&](TacticalActor& actor,
+		TacticalMedicalServiceSnapshot expected, const char* message) {
+		const TacticalEntityId id = GetJa2TacticalEntityId(actor);
+		const SoldierID partner = actor.service().partner();
+		const UINT8 providers = actor.service().providerCount();
+		const INT16 ap = actor.actionPoints().current();
+		const INT8 bleeding = actor.vitals().bleeding();
+		const bool synchronized = SynchronizeJa2TacticalEntityState(actor);
+		const auto* projected = GetJa2TacticalEntityDirectory().state(id);
+		CHECK(synchronized && projected && projected->medicalStateValid() &&
+			projected->medicalService == expected &&
+			actor.service().partner() == partner && actor.service().providerCount() == providers &&
+			actor.actionPoints().current() == ap && actor.vitals().bleeding() == bleeding,
+			message);
+	};
+	inspectService(medic, {}, "an idle actor has no projected medical service");
+	medic.service().beginProvidingTo(patient.identity().id());
+	patient.service().addProvider();
+	inspectService(medic, {true, patientId, 0},
+		"native service capture names the exact live player teammate without treatment mutation");
+	inspectService(patient, {false, {}, 1},
+		"native recipient count is captured without inventing a reverse provider identity");
+	medic.service().providerCount() = UINT8_MAX;
+	inspectService(medic, {true, patientId, UINT8_MAX},
+		"simultaneous providing and receiving preserves the complete native count domain");
+	medic.service().clearProviders();
+	medic.service().beginProvidingTo(medic.identity().id());
+	medic.service().addProvider();
+	inspectService(medic, {true, medicId, 1},
+		"native self-bandaging is representable despite distinct-actor co-op start policy");
+	medic.service().clearProviders();
+	medic.service().beginProvidingTo(patient.identity().id());
+	patient.roster().inSector() = FALSE;
+	inspectService(medic, {true, {}, 0},
+		"out-of-sector patient identity is absent while providing activity remains true");
+	patient.roster().inSector() = TRUE;
+	patient.roster().active() = FALSE;
+	inspectService(medic, {true, {}, 0}, "inactive patient cannot be named through a service slot");
+	patient.roster().active() = TRUE;
+	++patient.identity().incarnation();
+	inspectService(medic, {true, {}, 0},
+		"a repository identity mismatch cannot manufacture the directory's stale patient identity");
+	--patient.identity().incarnation();
+	++patient.deployment().sectorX();
+	inspectService(medic, {true, {}, 0}, "a different sector X suppresses the patient identity");
+	--patient.deployment().sectorX();
+	++patient.deployment().sectorY();
+	inspectService(medic, {true, {}, 0}, "a different sector Y suppresses the patient identity");
+	--patient.deployment().sectorY();
+	++patient.deployment().sectorZ();
+	inspectService(medic, {true, {}, 0}, "a different sector Z suppresses the patient identity");
+	--patient.deployment().sectorZ();
+	patient.position().level() = SECOND_LEVEL;
+	inspectService(medic, {true, {}, 0}, "a different tactical elevation suppresses the patient identity");
+	patient.position().level() = FIRST_LEVEL;
+	patient.roster().team() = ENEMY_TEAM;
+	inspectService(medic, {true, {}, 0},
+		"a non-player patient cannot leak through a player medic's service state");
+	medic.roster().team() = ENEMY_TEAM;
+	inspectService(medic, {true, {}, 0},
+		"even a same-team non-player pair exposes no patient identity before visibility filtering");
+	medic.roster().team() = patient.roster().team() = OUR_TEAM;
+	medic.roster().inSector() = FALSE;
+	inspectService(medic, {true, {}, 0}, "an out-of-sector provider retains only unlinked activity");
+	medic.roster().inSector() = TRUE;
+	medic.service().beginProvidingTo(NOBODY);
+	inspectService(medic, {}, "native NOBODY sentinel means no providing service");
+	CHECK(!GetJa2TacticalEntityId(2).valid(),
+		"unresolvable service fixture uses an unadopted non-sentinel repository slot");
+	medic.service().beginProvidingTo(SoldierID{2});
+	inspectService(medic, {true, {}, 0}, "an unresolvable native patient slot remains canonical absence");
+	medic.service().finishProviding();
+	patient.service().clearProviders();
+	inspectService(medic, {}, "ending native providing clears the prior projected patient immediately");
+	inspectService(patient, {}, "clearing native receiving clears the prior projected recipient count");
+	BeginFirstAidCommand command;
+	CHECK(PrepareBeginFirstAidCommand(medicId, patientId, command) &&
+		command.expectedActionPointCost == 3 &&
+		medic.actionPoints().current() == 20 &&
+		!medic.service().hasPartner() && !patient.service().hasProviders(),
+		"first aid preparation is read-only and captures native startup AP cost");
+	if (!command.expectedKitStateFingerprint) return 1;
+	std::uint64_t frame = 0;
+	auto execute = [&](const BeginFirstAidCommand& prepared) {
+		BeginSimulationCommandFrameBudget(++frame, 32);
+		return TryDispatchSimulationCommandNow(SimulationCommand{prepared});
+	};
+	auto untouched = [&] {
+		return medic.actionPoints().current() == 20 &&
+			medic.inventory()[HANDPOS][0]->data.objectStatus == 100 &&
+			patient.vitals().bleeding() == 50 &&
+			!medic.service().hasPartner() && !patient.service().hasProviders();
+	};
+	BeginFirstAidCommand stale = command;
+	++stale.target.incarnation;
+	CHECK(execute(stale).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"reused patient slot cannot retarget a prepared medical command");
+	stale = command;
+	++stale.soldier.incarnation;
+	CHECK(execute(stale).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"reused medic slot cannot spend AP or a kit");
+	medic.inventory()[HANDPOS][0]->data.objectStatus = 99;
+	CHECK(execute(command).status == SimulationCommandDispatchStatus::Discarded &&
+		medic.actionPoints().current() == 20 && !medic.service().hasPartner(),
+		"changed exact kit state rejects before starting native first aid");
+	medic.inventory()[HANDPOS][0]->data.objectStatus = 100;
+	medic.inventory()[HANDPOS][0]->attachments.resize(4);
+	BeginFirstAidCommand placeholderKit;
+	CHECK(PrepareBeginFirstAidCommand(medicId, patientId, placeholderKit) && untouched(),
+		"canonical-empty native NAS slots do not make an ordinary equipped medical kit unusable");
+	CHECK(execute(command).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"first aid kit fingerprint retains the exact empty attachment-slot count");
+	OBJECTTYPE& attached = medic.inventory()[HANDPOS][0]->attachments.front();
+	attached.usItem = FIRSTAIDKIT;
+	attached.ubNumberOfObjects = 1;
+	attached[0]->data.objectStatus = 80;
+	CHECK(!PrepareBeginFirstAidCommand(medicId, patientId, placeholderKit) &&
+		execute(placeholderKit).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"an actual attached item still rejects first aid without service or AP mutation");
+	attached.initialize();
+	medic.inventory()[HANDPOS][0]->attachments.clear();
+	patient.position().level() = SECOND_LEVEL;
+	CHECK(execute(command).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"changed target elevation rejects without medical side effects");
+	patient.position().level() = FIRST_LEVEL;
+	medic.actionPoints().current() = 2;
+	BeginFirstAidCommand unchanged = command;
+	CHECK(!PrepareBeginFirstAidCommand(medicId, patientId, unchanged) &&
+		execute(command).status == SimulationCommandDispatchStatus::Discarded &&
+		medic.actionPoints().current() == 2 && !medic.service().hasPartner(),
+		"insufficient startup AP rejects both preparation and queued execution without spending");
+	medic.actionPoints().current() = 20;
+	medic.animationActivity().nonInterruptible() = TRUE;
+	CHECK(!PrepareBeginFirstAidCommand(medicId, patientId, unchanged) &&
+		execute(command).status == SimulationCommandDispatchStatus::Discarded && untouched(),
+		"uninterruptible native animation rejects before associating a medical service");
+	medic.animationActivity().nonInterruptible() = FALSE;
+	medic.identity().bodyType() = COW;
+	CHECK(!PrepareBeginFirstAidCommand(medicId, patientId, unchanged) &&
+		execute(command).status == SimulationCommandDispatchStatus::Discarded && untouched() &&
+		medic.animationPlayback().state() == CROUCHING,
+		"unsupported medic body cannot enter an absent first-aid animation or mutate medical state");
+	medic.identity().bodyType() = REGMALE;
+	gGameOptions.fNewTraitSystem = TRUE;
+	gSkillTraitValues.ubDONumberTraitsNeededForSurgery = 0;
+	Item[FIRSTAIDKIT].usItemFlag2 |= ITEM_medicalkit;
+	patient.vitals().healableInjury() = 1000;
+	gTacticalStatus.ubLastRequesterSurgeryTargetID = patient.identity().id();
+	CHECK(TacticalActorMedicalSession::wouldPerformSurgery(medic, patient) &&
+		!PrepareBeginFirstAidCommand(medicId, patientId, unchanged) &&
+		execute(command).status == SimulationCommandDispatchStatus::Discarded && untouched() &&
+		!medic.vitals().isUndergoingSurgery(),
+		"native surgery policy is checked read-only and cannot be entered through first aid");
+	gGameOptions.fNewTraitSystem = FALSE;
+	Item[FIRSTAIDKIT].usItemFlag2 &= ~ITEM_medicalkit;
+	patient.vitals().healableInjury() = 0;
+	gTacticalStatus.ubLastRequesterSurgeryTargetID = NOBODY;
+
+	// Supply only in-memory animation surfaces; the real native transition,
+	// service association, treatment arithmetic and kit consumption still run.
+	ETRLEObject frames[8]{};
+	SGPVObject video{};
+	video.usNumberOfObjects = 8;
+	video.pETRLEObject = frames;
+	const AnimationSurfaceType retainedSurface = gAnimSurfaceDatabase[0];
+	gAnimSurfaceDatabase[0].hVideoObject = &video;
+	gAnimSurfaceDatabase[0].uiNumDirections = 8;
+	gAnimSurfaceDatabase[0].uiNumFramesPerDir = 1;
+	gAnimSurfaceDatabase[0].bStructDataType = NO_STRUCT;
+	gAnimSurfaceDatabase[0].bProfile = -1;
+	for (UINT16 animation : {UINT16(CROUCHING), UINT16(START_AID),
+		UINT16(GIVING_AID), UINT16(END_AID), UINT16(STANDING)})
+		gubAnimSurfaceIndex[REGMALE][animation] = 0;
+	const auto applied = execute(command);
+	CHECK(applied.status == SimulationCommandDispatchStatus::Applied &&
+		medic.animationPlayback().state() == START_AID &&
+		medic.actionPoints().current() == 17 &&
+		medic.service().partner() == patient.identity().id() &&
+		patient.service().hasProviders(),
+		"native first aid begins on the exact patient and charges startup AP once");
+	inspectService(medic, {true, patientId, 0},
+		"real authoritative first-aid startup projects the pending treatment relationship");
+	inspectService(patient, {false, {}, 1},
+		"real authoritative first-aid startup projects recipient activity");
+	// The data-free fixture has no external animation-script table. Supply its
+	// normal START_AID completion marker (Soldier Ani opcode 442), then enter
+	// the real native continuation; no treatment result is manufactured here.
+	medic.animationActivity().nonInterruptible() = FALSE;
+	CHECK(TacticalActorMedicalSession::resumeProvidingAnimation(medic) &&
+		medic.animationPlayback().state() == GIVING_AID,
+		"native first aid continues into its giving-aid animation");
+	const INT16 beforeTreatmentAP = medic.actionPoints().current();
+	HandleTeamServices(OUR_TEAM);
+	CHECK(patient.vitals().bleeding() < 50 &&
+		medic.inventory()[HANDPOS][0]->data.objectStatus < 100 &&
+		medic.actionPoints().current() < beforeTreatmentAP,
+		"native continued service reduces bleeding, consumes kit points and spends treatment AP");
+	inspectService(medic, {true, patientId, 0},
+		"continued native treatment keeps its authoritative patient identity");
+	BeginSimulationCommandFrameBudget(++frame, 32);
+	const auto stopped = TryDispatchSimulationCommandNow(SimulationCommand{
+		StopMovementCommand{medicId, SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop}});
+	CHECK(stopped.status == SimulationCommandDispatchStatus::Applied &&
+		!medic.service().hasPartner() && !patient.service().hasProviders(),
+		"existing authoritative Stop cancels the native medical association");
+	inspectService(medic, {}, "authoritative Stop clears projected providing and patient identity");
+	inspectService(patient, {}, "authoritative Stop clears the patient's projected recipient activity");
+	// Re-establish only the canonical native relationship to isolate recipient
+	// cancellation. This is not another treatment-start or completion proof.
+	medic.service().beginProvidingTo(patient.identity().id());
+	patient.service().addProvider();
+	inspectService(medic, {true, patientId, 0},
+		"recipient-stop fixture publishes the native provider's exact patient");
+	inspectService(patient, {false, {}, 1},
+		"recipient-stop fixture publishes its native recipient count");
+	const INT8 recipientHealth = patient.vitals().health();
+	patient.vitals().health() = OKLIFE - 1;
+	BeginSimulationCommandFrameBudget(++frame, 32);
+	const auto criticalRecipientStop = TryDispatchSimulationCommandNow(SimulationCommand{
+		StopMovementCommand{patientId, SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop}});
+	CHECK(criticalRecipientStop.status == SimulationCommandDispatchStatus::Discarded &&
+		medic.service().partner() == patient.identity().id() && patient.service().providerCount() == 1,
+		"critically wounded recipients cannot bypass native controllability to stop treatment");
+	patient.vitals().health() = recipientHealth;
+	BeginSimulationCommandFrameBudget(++frame, 32);
+	const auto recipientStop = TryDispatchSimulationCommandNow(SimulationCommand{
+		StopMovementCommand{patientId, SimulationCommandSource::NetworkPeer,
+			TacticalCommandAuthorityPolicy::DedicatedCoop}});
+	CHECK(recipientStop.status == SimulationCommandDispatchStatus::Applied &&
+		!medic.service().hasPartner() && !patient.service().hasProviders(),
+		"authoritative Stop on a controllable recipient cancels both native service roles");
+	inspectService(medic, {}, "recipient Stop clears the provider's projected patient and activity");
+	inspectService(patient, {}, "recipient Stop clears the selected patient's projected receiving count");
+	const INT16 retainedAP = medic.actionPoints().current();
+	const INT16 retainedKit = medic.inventory()[HANDPOS][0]->data.objectStatus;
+	const INT8 retainedBleeding = patient.vitals().bleeding();
+	CHECK(ReleaseJa2TacticalEntity(patient), "medical target identity retires before slot reuse");
+	medic.service().beginProvidingTo(patient.identity().id());
+	inspectService(medic, {true, {}, 0},
+		"a retired patient identity is omitted without erasing the native providing marker");
+	medic.service().finishProviding();
+	++patient.identity().incarnation();
+	CHECK(AdoptJa2TacticalEntity(patient) && ResolveJa2TacticalEntity(patientId) == nullptr &&
+		execute(command).status == SimulationCommandDispatchStatus::Discarded &&
+		medic.actionPoints().current() == retainedAP &&
+		medic.inventory()[HANDPOS][0]->data.objectStatus == retainedKit &&
+		patient.vitals().bleeding() == retainedBleeding &&
+		!medic.service().hasPartner() && !patient.service().hasProviders(),
+		"actual retired and re-adopted patient slot cannot receive a prior medical command");
+	medic.service().beginProvidingTo(patient.identity().id());
+	inspectService(medic, {true, GetJa2TacticalEntityId(patient), 0},
+		"a new native service resolves the current adopted incarnation without retaining the old patient ID");
+	medic.service().finishProviding();
+	inspectService(medic, {}, "ending a new native service clears its reincarnated patient identity");
+	medic.animationCache().reset();
+	patient.animationCache().reset();
+	gAnimSurfaceDatabase[0] = retainedSurface;
+	gpWorldLevelData[patientGrid].pStructureHead = nullptr;
+	MemFree(gubWorldMovementCosts);
+	gubWorldMovementCosts = nullptr;
+	ReleaseWorldTileMap();
+	std::printf("\n%s (%d failures)\n", g_failures ?
+		"AUTHORITATIVE FIRST AID TESTS FAILED" : "AUTHORITATIVE FIRST AID TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
+static int RunInstantInterruptPendingTests()
+{
+	(void)GetGameContext();
+	const TacticalWorldSession::Snapshot previousWorld =
+		CaptureJa2TacticalWorld();
+	const TacticalStatusType previousStatus = gTacticalStatus;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	ResetJa2TacticalActorRosters();
+	ResetJa2TacticalInterruptForNewWorld();
+	NotifyJa2TacticalWorldLoaded(1);
+	RestoreJa2TacticalTurnState(
+		ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+
+	// Keep the native AI scheduler empty: this exercises the real grant
+	// transition and queue mutation without loading renderer or NPC assets.
+	// Player grant eligibility and per-actor passes have separate real-engine
+	// cohort coverage in the ordinary headless suite.
+	TacticalActor* const interrupted = soldiers.resolve(0);
+	TacticalActor* const interrupter = soldiers.resolve(1);
+	CHECK(interrupted && interrupter && Ja2ActiveTacticalActorSlotCount() == 0,
+		"instant interrupt fixture has canonical actors without scheduled AI");
+	if (!interrupted || !interrupter) return 1;
+	interrupted->identity().id() = SoldierID{0};
+	interrupted->roster().team() = OUR_TEAM;
+	interrupted->roster().active() = TRUE;
+	interrupted->roster().inSector() = TRUE;
+	interrupted->vitals().health() = 100;
+	interrupter->identity().id() = SoldierID{1};
+	interrupter->roster().team() = ENEMY_TEAM;
+	interrupter->roster().active() = TRUE;
+	interrupter->roster().inSector() = TRUE;
+	interrupter->vitals().health() = 100;
+	const bool previousNetworked = is_networked;
+	const BOOLEAN previousHidden = gfHiddenInterrupt;
+	is_networked = false;
+	gfHiddenInterrupt = FALSE;
+
+	// Invalid queue boundaries must not read an invalid latest entry, activate
+	// a grant, or consume an unrelated still-pending action.
+	for (const UINT16 count : {UINT16{0}, static_cast<UINT16>(MAXMERCS)})
+	{
+		ClearIntList();
+		gubOutOfTurnPersons = count;
+		SetJa2PendingInterrupt(MOVEMENT_INTERRUPT);
+		StartInterrupt();
+		const Ja2TacticalInterruptProjection invalid =
+			CaptureJa2TacticalInterruptProjection();
+		CHECK(gubOutOfTurnPersons == 0 && invalid.serial == 0 &&
+			invalid.phase == Ja2TacticalInterruptPhase::Resolving &&
+			GetJa2PendingInterrupt() == MOVEMENT_INTERRUPT,
+			"empty or oversized interrupt start rejects before activating or consuming pending work");
+	}
+	gubOutOfTurnPersons = 1;
+	gubOutOfTurnOrder[1] = (std::numeric_limits<UINT16>::max)();
+	StartInterrupt();
+	CHECK(gubOutOfTurnPersons == 0 &&
+		CaptureJa2TacticalInterruptProjection().serial == 0 &&
+		GetJa2PendingInterrupt() == MOVEMENT_INTERRUPT,
+		"invalid latest actor retains existing queue cleanup without starting a grant");
+
+	// IIS registered movement AP; an instant sight interrupt wins before the
+	// movement resolver runs. The completed grant must consume that old marker.
+	gubOutOfTurnOrder[1] = 0;
+	gubOutOfTurnOrder[2] = 1;
+	gubOutOfTurnPersons = 2;
+	SetJa2PendingInterrupt(MOVEMENT_INTERRUPT);
+	CHECK(CaptureJa2TacticalInterruptProjection().phase ==
+		Ja2TacticalInterruptPhase::Resolving,
+		"pre-grant movement request initially projects as resolving");
+	StartInterrupt();
+	const Ja2TacticalInterruptProjection started =
+		CaptureJa2TacticalInterruptProjection();
+	CHECK(GetJa2PendingInterrupt() == DISABLED_INTERRUPT &&
+		started.phase == Ja2TacticalInterruptPhase::Active && started.serial == 1 &&
+		gubOutOfTurnPersons == 1 && gubOutOfTurnOrder[1] == 0 &&
+		!interrupter->turnState().moved(),
+		"real native interrupt grant consumes superseded movement pending before publishing Active");
+
+	SetJa2PendingInterrupt(AFTERACTION_INTERRUPT);
+	const Ja2TacticalInterruptProjection later =
+		CaptureJa2TacticalInterruptProjection();
+	CHECK(later.phase == Ja2TacticalInterruptPhase::Resolving &&
+		later.serial == started.serial && !PollJa2TacticalInterruptRelease() &&
+		GetJa2PendingInterrupt() == AFTERACTION_INTERRUPT &&
+		gubOutOfTurnPersons == 1,
+		"a genuinely later pending action still masks Active and cannot be cleared by polling");
+	SetJa2PendingInterrupt(DISABLED_INTERRUPT);
+	CHECK(CaptureJa2TacticalInterruptProjection().phase ==
+		Ja2TacticalInterruptPhase::Active &&
+		CaptureJa2TacticalInterruptProjection().serial == started.serial,
+		"normal action resolution restores the same grant without restarting it");
+
+	ClearIntList();
+	ResetJa2TacticalInterruptForNewWorld();
+	ResetJa2TacticalActorRosters();
+	soldiers.initializeSlots();
+	RestoreJa2TacticalWorldSession(previousWorld);
+	gTacticalStatus = previousStatus;
+	is_networked = previousNetworked;
+	gfHiddenInterrupt = previousHidden;
+	std::printf("\n%s  (%d failures)\n", g_failures ?
+		"INSTANT INTERRUPT PENDING TESTS FAILED" :
+		"INSTANT INTERRUPT PENDING TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
+static int RunPartialAutoReloadTests()
+{
+	// Native AutoReload has two independent hand operations. Its return value
+	// becomes the authoritative command receipt, so any successful hand must
+	// survive a later hand's legitimate inventory-placement failure.
+	(void)GetGameContext();
+	const auto previousItems = std::array{
+		Item[1], Item[2], Item[3], Item[4], Item[5], Item[6]};
+	const auto previousWeapons = std::array{Weapon[1], Weapon[2]};
+	const auto previousMagazines = std::array{
+		Magazine[1], Magazine[2], Magazine[3]};
+	const GAME_OPTIONS previousOptions = gGameOptions;
+	const auto previousReloadModifier =
+		gItemSettings.fAPtoReloadModifierGun[GUN_PISTOL];
+	const TacticalWorldSession::Snapshot previousWorld =
+		CaptureJa2TacticalWorld();
+	const TacticalStatusType previousStatus = gTacticalStatus;
+	const OBJECTTYPE previousTemporaryObject = gTempObject;
+	const auto previousInterfaceDirty = fInterfacePanelDirty;
+	const auto previousNetworked = is_networked;
+	is_networked = FALSE;
+	gGameOptions.ubInventorySystem = INVENTORY_OLD;
+	gGameOptions.ubAttachmentSystem = ATTACHMENT_OLD;
+	gGameOptions.fNewTraitSystem = FALSE;
+	gItemSettings.fAPtoReloadModifierGun[GUN_PISTOL] = 1.0f;
+	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+	for (UINT16 item = 1; item <= 6; ++item)
+	{
+		Item[item] = {};
+		Item[item].ubPerPocket = 2;
+	}
+	for (UINT16 gun = 1; gun <= 2; ++gun)
+	{
+		Item[gun].usItemClass = IC_GUN;
+		Item[gun].ubClassIndex = gun;
+		Weapon[gun] = {};
+		Weapon[gun].ubWeaponType = GUN_PISTOL;
+		Weapon[gun].ubCalibre = static_cast<UINT8>(gun);
+		Weapon[gun].ubMagSize = 10;
+		Weapon[gun].swapClips = 1;
+		Weapon[gun].APsToReload = 10;
+	}
+	for (UINT16 magazine = 1; magazine <= 3; ++magazine)
+	{
+		const UINT16 item = magazine + 2;
+		Item[item].usItemClass = IC_AMMO;
+		Item[item].ubClassIndex = magazine;
+		Magazine[magazine] = {};
+		Magazine[magazine].ubMagSize = 10;
+		Magazine[magazine].ubCalibre = magazine == 1 ? 1 : 2;
+		Magazine[magazine].ubAmmoType = magazine == 3 ? 2 : 1;
+	}
+	Item[6].usItemClass = IC_MISC;
+
+	for (const bool primaryAmmoAvailable : {true, false})
+	{
+		for (const bool secondaryStorageAvailable : {false, true})
+		{
+			TacticalActor actor;
+			actor.identity().id() = SoldierID{0};
+			actor.identity().profile() = NO_PROFILE;
+			// Non-player team and invisible presentation avoid unrelated reload
+			// messages/sounds; the same native ammo/AP and placement logic runs.
+			actor.roster().team() = ENEMY_TEAM;
+			actor.roster().active() = TRUE;
+			actor.roster().inSector() = TRUE;
+			actor.awareness().visibility() = -1;
+			actor.vitals().health() = 100;
+			actor.actionPoints().current() = 100;
+			actor.attackSelection().hand() = HANDPOS;
+			actor.attackSelection().weaponMode() = WM_NORMAL;
+			for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
+			{
+				OBJECTTYPE& object = actor.inventory()[slot];
+				object.initialize();
+				object.usItem = 6;
+				object.ubNumberOfObjects = 1;
+				object[0]->data.objectStatus = 100;
+			}
+			for (const INT8 hand : {HANDPOS, SECONDHANDPOS})
+			{
+				OBJECTTYPE& gun = actor.inventory()[hand];
+				gun.usItem = hand == HANDPOS ? 1 : 2;
+				gun[0]->data.gun.bGunStatus = 100;
+				gun[0]->data.gun.ubGunShotsLeft = 2;
+				gun[0]->data.gun.ubGunAmmoType = 1;
+				gun[0]->data.gun.usGunAmmoItem = hand == HANDPOS ? 3 : 4;
+				gun[0]->data.gun.ubGunState = GS_CARTRIDGE_IN_CHAMBER;
+			}
+			if (primaryAmmoAvailable)
+				(void)CreateAmmo(3, &actor.inventory()[BIGPOCK1POS], 10);
+			OBJECTTYPE& secondaryAmmo = actor.inventory()[BIGPOCK2POS];
+			(void)CreateAmmo(5, &secondaryAmmo, 10);
+			secondaryAmmo.objectStack.resize(2);
+			secondaryAmmo.ubNumberOfObjects = 2;
+			secondaryAmmo[1]->data.ubShotsLeft = 10;
+			if (secondaryStorageAvailable)
+				DeleteObj(&actor.inventory()[BIGPOCK3POS]);
+			CHECK(TacticalActorWeaponHandling::isValidSecondHandShotForReloading(actor) &&
+				FindAmmoToReload(&actor, SECONDHANDPOS, NO_SLOT) == BIGPOCK2POS &&
+				GetAPsToReloadGunWithAmmo(&actor,
+					&actor.inventory()[SECONDHANDPOS], &secondaryAmmo) == 10,
+				"dual reload fixture has a valid affordable second-hand attempt");
+			gTempObject.initialize();
+			const bool result = AutoReload(&actor, true) != FALSE;
+			const OBJECTTYPE& primary = actor.inventory()[HANDPOS];
+			const OBJECTTYPE& secondary = actor.inventory()[SECONDHANDPOS];
+			const bool expected = primaryAmmoAvailable || secondaryStorageAvailable;
+			CHECK(result == expected &&
+				primary[0]->data.gun.ubGunShotsLeft ==
+					(primaryAmmoAvailable ? 10 : 2) &&
+				secondary[0]->data.gun.ubGunShotsLeft ==
+					(secondaryStorageAvailable ? 10 : 2) &&
+				actor.actionPoints().current() == 100 -
+					(primaryAmmoAvailable ? 10 : 0) -
+					(secondaryStorageAvailable ? 10 : 0),
+				"dual reload reports any successful hand with exact native ammo/AP effects");
+			CHECK(primary.usItem == 1 && secondary.usItem == 2 &&
+				primary.ubNumberOfObjects == 1 && secondary.ubNumberOfObjects == 1 &&
+				secondary[0]->data.gun.usGunAmmoItem ==
+					(secondaryStorageAvailable ? 5 : 4) &&
+				secondaryAmmo.ubNumberOfObjects ==
+					(secondaryStorageAvailable ? 1 : 2) &&
+				secondaryAmmo[0]->data.ubShotsLeft == 10,
+				"dual reload keeps weapon identities and spends secondary ammunition only on success");
+			if (!secondaryStorageAvailable)
+			{
+				CHECK(gTempObject.usItem == 4 &&
+					gTempObject[0]->data.ubShotsLeft == 2,
+					"failed secondary placement was actually attempted after the primary outcome");
+			}
+		}
+	}
+	for (std::size_t index = 0; index < previousItems.size(); ++index)
+		Item[index + 1] = previousItems[index];
+	for (std::size_t index = 0; index < previousWeapons.size(); ++index)
+		Weapon[index + 1] = previousWeapons[index];
+	for (std::size_t index = 0; index < previousMagazines.size(); ++index)
+		Magazine[index + 1] = previousMagazines[index];
+	gGameOptions = previousOptions;
+	gItemSettings.fAPtoReloadModifierGun[GUN_PISTOL] = previousReloadModifier;
+	RestoreJa2TacticalWorldSession(previousWorld);
+	gTacticalStatus = previousStatus;
+	gTempObject = previousTemporaryObject;
+	fInterfacePanelDirty = previousInterfaceDirty;
+	is_networked = previousNetworked;
+	std::printf("\n%s  (%d failures)\n", g_failures ?
+		"PARTIAL AUTO RELOAD TESTS FAILED" : "PARTIAL AUTO RELOAD TESTS PASSED",
+		g_failures);
+	return g_failures ? 1 : 0;
+}
+
+static int RunCombatShutdownLifecycleTests()
+{
+	// This isolated process can exercise the application-owned lifecycle
+	// without changing the shared context used by the ordinary headless suite.
+	GameContext& context = GetGameContext();
+	const bool running = context.beginInitialization() &&
+		context.advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		context.markRunning();
+	CHECK(running && context.lifecycle() == GameLifecycle::Running,
+		"combat shutdown fixture enters the real running lifecycle without game data");
+	if (!running) return 1;
+
+	const TacticalWorldSession::Snapshot originalWorld =
+		CaptureJa2TacticalWorld();
+	const TacticalStatusType originalStatus = gTacticalStatus;
+	const SoldierID originalSelected = gusSelectedSoldier;
+	const UINT8 originalPlayerTeam = gbPlayerNum;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+	soldiers.initializeSlots();
+	TacticalActor* const actor = soldiers.resolve(0);
+	BULLET* const bullet = GetBulletPtr(0);
+	CHECK(actor != nullptr && bullet != nullptr,
+		"combat shutdown fixture resolves native actor and bullet slots");
+	if (!actor || !bullet) return 1;
+	const TacticalActor originalActor = *actor;
+	const BULLET originalBullet = *bullet;
+	const UINT32 originalBulletCount = guiNumBullets;
+	gbPlayerNum = OUR_TEAM;
+	gusSelectedSoldier = SoldierID{0};
+	actor->identity().id() = SoldierID{0};
+	actor->roster().team() = OUR_TEAM;
+	actor->roster().active() = TRUE;
+	actor->roster().inSector() = TRUE;
+	actor->vitals().health() = 75;
+	actor->attackSelection().hand() = SECONDHANDPOS;
+	actor->targeting().targetId() = NOBODY;
+	actor->animationActivity().beginHit();
+	gTacticalStatus.fEnemyInSector = TRUE;
+	gTacticalStatus.fLastBattleWon = FALSE;
+	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 2);
+	CHECK(ReduceAttackBusyCount() == nullptr &&
+		GetJa2PendingTacticalCombatActions() == 1,
+		"running combat completion still decrements pending work normally");
+	CHECK(FreeUpAttacker() == nullptr &&
+		GetJa2PendingTacticalCombatActions() == 1,
+		"running FreeUpAttacker still balances its synthetic reservation");
+
+	CHECK(context.beginShutdown() &&
+		context.lifecycle() == GameLifecycle::ShuttingDown,
+		"combat cleanup observes the existing whole-process shutdown lifecycle");
+	const auto actorCompletionUnchanged = [&]() {
+		return actor->attackSelection().hand() == SECONDHANDPOS &&
+			actor->animationActivity().hitPhase() == 1 &&
+			actor->vitals().health() == 75 &&
+			gTacticalStatus.fEnemyInSector == TRUE &&
+			gTacticalStatus.fLastBattleWon == FALSE;
+	};
+	for (const std::uint32_t pending : {0u, 1u, 2u})
+	{
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, pending);
+		const TacticalWorldSession::Snapshot before = CaptureJa2TacticalWorld();
+		CHECK(ReduceAttackBusyCount() == nullptr &&
+			CaptureJa2TacticalWorld().turn == before.turn &&
+			CaptureJa2TacticalWorld().turnSerial == before.turnSerial &&
+			CaptureJa2TacticalWorld().interrupt == before.interrupt &&
+			actorCompletionUnchanged(),
+			"shutdown release preserves zero/nonzero pending work and does not finalize an attack");
+		CHECK(FreeUpAttacker() == nullptr &&
+			CaptureJa2TacticalWorld().turn == before.turn &&
+			actorCompletionUnchanged(),
+			"shutdown FreeUpAttacker neither starts new combat work nor finalizes an attack");
+
+		// Exercise the real bullet cleanup callback, including the already-zero
+		// count produced by TrashWorld before it deletes release-attacker tiles.
+		*bullet = BULLET{};
+		bullet->fAllocated = TRUE;
+		bullet->fReal = TRUE;
+		bullet->ubFirerID = SoldierID{0};
+		guiNumBullets = 1;
+		DeleteAllBullets();
+		CHECK(!bullet->fAllocated && guiNumBullets == 0 &&
+			CaptureJa2TacticalWorld().turn == before.turn &&
+			actorCompletionUnchanged(),
+			"shutdown still deletes real bullet resources without decrementing or resolving combat");
+	}
+	// Resource teardown owns the final discard of unfinished work; the guard
+	// must not weaken the authoritative counter gateways or alter that order.
+	ResetJa2TacticalCombatActions();
+	CHECK(GetJa2PendingTacticalCombatActions() == 0,
+		"world teardown still explicitly discards the remaining combat counter");
+	CHECK(context.shutdownPackages() && context.markStopped(),
+		"combat shutdown fixture completes the real process lifecycle");
+	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 2);
+	CHECK(ReduceAttackBusyCount() == nullptr &&
+		GetJa2PendingTacticalCombatActions() == 1,
+		"completion suppression is limited to ShuttingDown, not retained afterward");
+
+	*bullet = originalBullet;
+	guiNumBullets = originalBulletCount;
+	(void)soldiers.replace(0, originalActor);
+	RestoreJa2TacticalWorldSession(originalWorld);
+	gTacticalStatus = originalStatus;
+	gusSelectedSoldier = originalSelected;
+	gbPlayerNum = originalPlayerTeam;
+	std::printf("\n%s  (%d failures)\n", g_failures ?
+		"COMBAT SHUTDOWN LIFECYCLE TESTS FAILED" :
+		"COMBAT SHUTDOWN LIFECYCLE TESTS PASSED", g_failures);
+	return g_failures ? 1 : 0;
+}
+
 int main( int argc, char** argv )
 {
 	std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -7787,7 +9020,61 @@ int main( int argc, char** argv )
 	if (argc == 2 && std::strcmp(
 		argv[1], "--legacy-host-loopback") == 0)
 		return RunLegacyEmbeddedHostLoopbackTests();
+	if (argc == 2 && std::strcmp(
+		argv[1], "--combat-shutdown-lifecycle") == 0)
+		return RunCombatShutdownLifecycleTests();
+	if (argc == 2 && std::strcmp(
+		argv[1], "--partial-auto-reload") == 0)
+		return RunPartialAutoReloadTests();
+	if (argc == 2 && std::strcmp(
+		argv[1], "--instant-interrupt-pending") == 0)
+		return RunInstantInterruptPendingTests();
+	if (argc == 2 && std::strcmp(argv[1], "--authoritative-first-aid") == 0)
+		return RunAuthoritativeFirstAidTests();
+	if (argc == 2 && std::strcmp(argv[1], "--authoritative-portraits") == 0)
+		return RunAuthoritativePortraitTests();
+	if (argc == 2 && std::strcmp(argv[1], "--dedicated-coop-resume-classifier") == 0)
+		return RunDedicatedCoopResumeClassifierTests();
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
+
+	{
+		const BOOLEAN savedDedicatedServer = gfDedicatedServer;
+		const BOOLEAN savedHelpScreenEntry = gfHelpScreenEntry;
+		const BOOLEAN savedHelpScreenExit = gfHelpScreenExit;
+		const HELP_SCREEN_STRUCT savedHelpScreen = gHelpScreen;
+		InitHelpScreenSystem();
+		gHelpScreen.usHasPlayerSeenHelpScreenInCurrentScreen =
+			static_cast<UINT16>( 1u << HELP_SCREEN_TACTICAL );
+		gfDedicatedServer = TRUE;
+		const bool automaticSuppressed =
+			ShouldTheHelpScreenComeUp( HELP_SCREEN_TACTICAL, FALSE ) == FALSE;
+		const bool forcedSuppressed =
+			ShouldTheHelpScreenComeUp( HELP_SCREEN_TACTICAL, TRUE ) == FALSE;
+		CHECK( automaticSuppressed && forcedSuppressed &&
+		       gHelpScreen.uiFlags == 0 &&
+		       gHelpScreen.bDelayEnteringHelpScreenBy1FrameCount == 0 &&
+		       gHelpScreen.fForceHelpScreenToComeUp == FALSE &&
+		       gHelpScreen.usHasPlayerSeenHelpScreenInCurrentScreen ==
+		           static_cast<UINT16>( 1u << HELP_SCREEN_TACTICAL ),
+		       "dedicated hosts suppress automatic and forced modal help without mutating save-owned help state" );
+		gfDedicatedServer = savedDedicatedServer;
+		gfHelpScreenEntry = savedHelpScreenEntry;
+		gfHelpScreenExit = savedHelpScreenExit;
+		gHelpScreen = savedHelpScreen;
+	}
+
+	CHECK( ShouldRunInteractiveHelicopterArrival( false ) &&
+	       !ShouldRunInteractiveHelicopterArrival( true ),
+	       "dedicated hosts skip the presentation-only helicopter arrival while interactive hosts retain it" );
+
+	{
+		const GAME_OPTIONS savedGameOptions = gGameOptions;
+		InitGameOptions();
+		CHECK( gGameOptions.ubDifficultyLevel == DIF_LEVEL_MEDIUM &&
+		       gGameOptions.ubSquadSize == 6,
+		       "canonical game-option initialization provides valid difficulty and squad capacity without the interactive settings screen" );
+		gGameOptions = savedGameOptions;
+	}
 
 	{
 		constexpr StrategicAILoadPlan dedicatedCurrent =
@@ -12655,6 +13942,22 @@ int main( int argc, char** argv )
 				? &journalAfterLiveAiWindowTraversal.back()
 				: nullptr;
 
+		// Native destination checks use the visible map bounds even in a
+		// logical-world fixture. Restore all render geometry after traversal.
+		const std::array<INT16*, 20> traversalGeometry = {
+			&gTopLeftWorldLimitX, &gTopLeftWorldLimitY,
+			&gTopRightWorldLimitX, &gTopRightWorldLimitY,
+			&gBottomLeftWorldLimitX, &gBottomLeftWorldLimitY,
+			&gBottomRightWorldLimitX, &gBottomRightWorldLimitY,
+			&gCenterWorldX, &gCenterWorldY,
+			&gsTLX, &gsTLY, &gsTRX, &gsTRY, &gsBLX, &gsBLY,
+			&gsBRX, &gsBRY, &gsCX, &gsCY};
+		std::array<INT16, 20> traversalGeometryBefore{};
+		for (std::size_t i = 0; i < traversalGeometry.size(); ++i)
+			traversalGeometryBefore[i] = *traversalGeometry[i];
+		const DOUBLE traversalScaleXBefore = gdScaleX;
+		const DOUBLE traversalScaleYBefore = gdScaleY;
+		InitRenderParams(0);
 		const UINT8 traversalPathDirection = EAST;
 		const INT32 traversalFenceGrid = NewGridNo(
 			commandHostActor.position().gridNo(),
@@ -12666,6 +13969,20 @@ int main( int argc, char** argv )
 			? gubWorldMovementCosts[ traversalFenceGrid ]
 				[ traversalPathDirection ][ FIRST_LEVEL ]
 			: 0;
+		// A movement cost alone is not a native jumpable fence. Retain an
+		// actual structure so success proves a HOPFENCE was scheduled.
+		STRUCTURE traversalFenceStructure{};
+		traversalFenceStructure.fFlags = STRUCTURE_BASE_TILE | STRUCTURE_FENCE;
+		traversalFenceStructure.sGridNo = traversalFenceGrid;
+		traversalFenceStructure.sBaseGridNo = traversalFenceGrid;
+		STRUCTURE* const traversalFenceHeadBefore = traversalWorldReady
+			? gpWorldLevelData[traversalFenceGrid].pStructureHead : nullptr;
+		if (traversalWorldReady)
+		{
+			traversalFenceStructure.pNext = traversalFenceHeadBefore;
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				&traversalFenceStructure;
+		}
 		SimulationCommandDispatchResult livePathTraversal;
 		const RecordedSimulationCommand* livePathTraversalRecord = nullptr;
 		std::vector<RecordedSimulationCommand>
@@ -12706,6 +14023,7 @@ int main( int argc, char** argv )
 			( commandHostActor.status().flags() &
 				SOLDIER_LOCKPENDINGACTIONCOUNTER ) != 0 &&
 			commandHostActor.animationIntent().continuationMode() == 2 &&
+			commandHostActor.animationIntent().pendingAnimation() == HOPFENCE &&
 			livePathTraversalRecord &&
 			livePathTraversalRecord->status ==
 				CommandJournalStatus::Applied &&
@@ -12719,6 +14037,10 @@ int main( int argc, char** argv )
 			std::get<TraverseObstacleCommand>(
 				livePathTraversalRecord->command ).expectedNextPathDirection ==
 					traversalPathDirection;
+		for (std::size_t i = 0; i < traversalGeometry.size(); ++i)
+			*traversalGeometry[i] = traversalGeometryBefore[i];
+		gdScaleX = traversalScaleXBefore;
+		gdScaleY = traversalScaleYBefore;
 		bool pendingReplaySuppressesAsyncPathProducer = false;
 		bool pendingReplayOwnsNoActionPointBranch = false;
 		if ( livePathTraversalRecord &&
@@ -13206,6 +14528,168 @@ int main( int argc, char** argv )
 			commandHostActor.runtime().worldObject.reset();
 		}
 
+		// Exercise the production dedicated co-op move gate against a real JA2
+		// actor and pathfinder. A completed route may retain WALKING in turn-based
+		// combat, so route ownership—not presentation animation—must decide
+		// whether the next discrete move can start.
+		const TacticalActor moveAdmissionActorBefore = commandHostActor;
+		// The preceding traversal case owns a physical fence on this case's
+		// first destination. Isolate the flat-route fixture from that structure.
+		STRUCTURE* const moveAdmissionFenceBefore = traversalWorldReady
+			? gpWorldLevelData[traversalFenceGrid].pStructureHead : nullptr;
+		if (traversalWorldReady)
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				traversalFenceHeadBefore;
+		const TacticalWorldSession::Snapshot moveAdmissionWorldBefore =
+			CaptureJa2TacticalWorld();
+		const bool moveAdmissionPathAiExisted = guiPathingData != nullptr;
+		const bool moveAdmissionPathAiReady = moveAdmissionPathAiExisted ||
+			InitPathAI() != FALSE;
+		const std::size_t moveAdmissionCostBytes =
+			static_cast<std::size_t>(WORLD_MAX) * MAXDIR * 2;
+		std::vector<UINT8> moveAdmissionCostsBefore;
+		if (traversalWorldReady)
+		{
+			moveAdmissionCostsBefore.resize(moveAdmissionCostBytes);
+			std::memcpy(moveAdmissionCostsBefore.data(),
+				gubWorldMovementCosts, moveAdmissionCostBytes);
+			std::memset(gubWorldMovementCosts, TRAVELCOST_FLAT,
+				moveAdmissionCostBytes);
+		}
+		const INT16 moveAdmissionFlatCostBefore =
+			APBPConstants[AP_MOVEMENT_FLAT];
+		const INT16 moveAdmissionWalkModifierBefore =
+			APBPConstants[AP_MODIFIER_WALK];
+		const bool moveAdmissionTraitSystemBefore =
+			gGameOptions.fNewTraitSystem;
+		const BOOLEAN moveAdmissionAltPathBefore =
+			gGameSettings.fOptions[TOPTION_ALT_PATHFINDING];
+		APBPConstants[AP_MOVEMENT_FLAT] = 4;
+		APBPConstants[AP_MODIFIER_WALK] = 0;
+		gGameOptions.fNewTraitSystem = FALSE;
+		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] = FALSE;
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
+		// This data-free fixture allocated logical tiles and movement costs but
+		// never loaded a map, so renderer-derived visible-world bounds are still
+		// empty. The production pathfinder intentionally rejects destinations
+		// outside those bounds. Initialize that one normal map invariant for the
+		// real-pathfinder assertions, then restore every geometry value changed by
+		// the fixture so later headless coverage does not inherit a fake world.
+		const std::array<INT16, 20> moveAdmissionRenderGeometryBefore = {
+			gTopLeftWorldLimitX, gTopLeftWorldLimitY,
+			gTopRightWorldLimitX, gTopRightWorldLimitY,
+			gBottomLeftWorldLimitX, gBottomLeftWorldLimitY,
+			gBottomRightWorldLimitX, gBottomRightWorldLimitY,
+			gCenterWorldX, gCenterWorldY,
+			gsTLX, gsTLY, gsTRX, gsTRY, gsBLX, gsBLY,
+			gsBRX, gsBRY, gsCX, gsCY};
+		const DOUBLE moveAdmissionScaleXBefore = gdScaleX;
+		const DOUBLE moveAdmissionScaleYBefore = gdScaleY;
+		InitRenderParams(0);
+		const INT32 moveAdmissionGrid =
+			(WORLD_ROWS / 2) * WORLD_COLS + WORLD_COLS / 2;
+		const INT32 moveAdmissionDestination = NewGridNo(
+			moveAdmissionGrid, DirectionInc(EAST));
+		commandHostActor.roster().active() = TRUE;
+		commandHostActor.roster().inSector() = TRUE;
+		commandHostActor.roster().team() = OUR_TEAM;
+		commandHostActor.position().gridNo() = moveAdmissionGrid;
+		commandHostActor.position().level() = FIRST_LEVEL;
+		commandHostActor.position().direction() = EAST;
+		commandHostActor.identity().bodyType() = REGMALE;
+		commandHostActor.status().flags() &=
+			~(SOLDIER_MULTITILE | SOLDIER_VEHICLE | SOLDIER_DRIVER |
+				SOLDIER_PASSENGER);
+		commandHostActor.vitals().health() = OKLIFE;
+		commandHostActor.vitals().breath() = 100;
+		commandHostActor.movement().mode() = WALKING;
+		commandHostActor.movement().setReverse(false);
+		commandHostActor.movement().clearDelay();
+		commandHostActor.movement().clearWaitAction();
+		commandHostActor.movement().setOutOfActionPoints(false);
+		commandHostActor.animationIntent().clearPendingAnimations();
+		// This flat-route case starts idle; the preceding traversal case retains
+		// a turn/stance continuation, which is tested separately above.
+		commandHostActor.animationIntent().clearContinuation();
+		commandHostActor.animationActivity().turningUntilDone() = FALSE;
+		commandHostActor.status().flags() &= ~SOLDIER_LOCKPENDINGACTIONCOUNTER;
+		commandHostActor.pathing().destinationGrid() = moveAdmissionGrid;
+		commandHostActor.pathing().finalDestinationGrid() = moveAdmissionGrid;
+		commandHostActor.pathing().pathIndex() = 0;
+		commandHostActor.pathing().pathSize() = 0;
+		commandHostActor.animationPlayback().state() = STANDING;
+		commandHostActor.actionPoints().current() = 100;
+		DedicatedCoopTacticalJa2LiveState moveAdmissionState(compiledContext);
+		const bool idleMoveAdmission = traversalWorldReady &&
+			moveAdmissionPathAiReady &&
+			moveAdmissionState.canBeginMoveToGrid(
+				commandHostActorId, moveAdmissionDestination, WALKING, false);
+		commandHostActor.pathing().finalDestinationGrid() =
+			moveAdmissionDestination;
+		commandHostActor.pathing().pathIndex() = 0;
+		commandHostActor.pathing().pathSize() = 1;
+		const bool activeRouteRejected =
+			!moveAdmissionState.canBeginMoveToGrid(
+				commandHostActorId, moveAdmissionDestination, WALKING, false);
+		commandHostActor.pathing().finalDestinationGrid() = moveAdmissionGrid;
+		commandHostActor.pathing().pathIndex() = 1;
+		commandHostActor.pathing().pathSize() = 1;
+		commandHostActor.animationPlayback().state() = WALKING;
+		const bool completedRetainedAnimationAccepted =
+			moveAdmissionState.canBeginMoveToGrid(
+				commandHostActorId, moveAdmissionDestination, WALKING, false);
+		commandHostActor.pathing().pathIndex() = 0;
+		commandHostActor.pathing().pathSize() = 0;
+		commandHostActor.animationPlayback().state() = STANDING;
+		commandHostActor.actionPoints().current() = 0;
+		const bool exhaustedMoveRejected =
+			!moveAdmissionState.canBeginMoveToGrid(
+				commandHostActorId, moveAdmissionDestination, WALKING, false);
+		const bool moveAdmissionActorRestored =
+			soldierRepository.replace(0, moveAdmissionActorBefore) ==
+				&commandHostActor;
+		if (traversalWorldReady)
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				moveAdmissionFenceBefore;
+		gTopLeftWorldLimitX = moveAdmissionRenderGeometryBefore[0];
+		gTopLeftWorldLimitY = moveAdmissionRenderGeometryBefore[1];
+		gTopRightWorldLimitX = moveAdmissionRenderGeometryBefore[2];
+		gTopRightWorldLimitY = moveAdmissionRenderGeometryBefore[3];
+		gBottomLeftWorldLimitX = moveAdmissionRenderGeometryBefore[4];
+		gBottomLeftWorldLimitY = moveAdmissionRenderGeometryBefore[5];
+		gBottomRightWorldLimitX = moveAdmissionRenderGeometryBefore[6];
+		gBottomRightWorldLimitY = moveAdmissionRenderGeometryBefore[7];
+		gCenterWorldX = moveAdmissionRenderGeometryBefore[8];
+		gCenterWorldY = moveAdmissionRenderGeometryBefore[9];
+		gsTLX = moveAdmissionRenderGeometryBefore[10];
+		gsTLY = moveAdmissionRenderGeometryBefore[11];
+		gsTRX = moveAdmissionRenderGeometryBefore[12];
+		gsTRY = moveAdmissionRenderGeometryBefore[13];
+		gsBLX = moveAdmissionRenderGeometryBefore[14];
+		gsBLY = moveAdmissionRenderGeometryBefore[15];
+		gsBRX = moveAdmissionRenderGeometryBefore[16];
+		gsBRY = moveAdmissionRenderGeometryBefore[17];
+		gsCX = moveAdmissionRenderGeometryBefore[18];
+		gsCY = moveAdmissionRenderGeometryBefore[19];
+		gdScaleX = moveAdmissionScaleXBefore;
+		gdScaleY = moveAdmissionScaleYBefore;
+		RestoreJa2TacticalWorldSession(moveAdmissionWorldBefore);
+		APBPConstants[AP_MOVEMENT_FLAT] = moveAdmissionFlatCostBefore;
+		APBPConstants[AP_MODIFIER_WALK] = moveAdmissionWalkModifierBefore;
+		gGameOptions.fNewTraitSystem = moveAdmissionTraitSystemBefore;
+		gGameSettings.fOptions[TOPTION_ALT_PATHFINDING] =
+			moveAdmissionAltPathBefore;
+		if (traversalWorldReady)
+			std::memcpy(gubWorldMovementCosts,
+				moveAdmissionCostsBefore.data(), moveAdmissionCostBytes);
+		if (!moveAdmissionPathAiExisted && moveAdmissionPathAiReady)
+			ShutDownPathAI();
+		CHECK(idleMoveAdmission && activeRouteRejected &&
+		       completedRetainedAnimationAccepted && exhaustedMoveRejected &&
+		       moveAdmissionActorRestored,
+		       "production co-op movement admits idle/completed routes and rejects live or unaffordable routes");
+
 		const bool liveAiTraversalContinuationOwned =
 			liveAiWindowTraversal.status ==
 				SimulationCommandDispatchStatus::Applied &&
@@ -13246,6 +14730,9 @@ int main( int argc, char** argv )
 			gubWorldMovementCosts[ traversalFenceGrid ]
 				[ traversalPathDirection ][ FIRST_LEVEL ] =
 					previousTraversalMovementCost;
+		if (traversalWorldReady)
+			gpWorldLevelData[traversalFenceGrid].pStructureHead =
+				traversalFenceHeadBefore;
 		const bool traversalActorRestored =
 			soldierRepository.replace( 0, previousTraversalActor ) ==
 				&commandHostActor;
@@ -14476,6 +15963,11 @@ int main( int argc, char** argv )
 			GetJa2TacticalEntityId( 0 );
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
+		std::array<CHAR8, sizeof(gzLastLoadedFile)> previousLoadedMapFile{};
+		std::copy(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile),
+			previousLoadedMapFile.begin());
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "A9.DAT");
 		const bool projectionWorldAllocatedHere =
 			GetWorldTileMapSize() == 0 &&
 			AllocateWorldTileMap(
@@ -14493,6 +15985,17 @@ int main( int argc, char** argv )
 			gbPublicOpplist[worldCapturePlayerTeam][0] = SEEN_CURRENTLY;
 		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		worldActor.identity().incarnation() = 701;
+		worldActor.identity().bodyType() = 0;
+		std::fill(std::begin(worldActor.identity().name()),
+			std::end(worldActor.identity().name()), L'\0');
+		std::fill(std::begin(worldActor.renderState().headPalette()),
+			std::end(worldActor.renderState().headPalette()), '\0');
+		std::fill(std::begin(worldActor.renderState().pantsPalette()),
+			std::end(worldActor.renderState().pantsPalette()), '\0');
+		std::fill(std::begin(worldActor.renderState().vestPalette()),
+			std::end(worldActor.renderState().vestPalette()), '\0');
+		std::fill(std::begin(worldActor.renderState().skinPalette()),
+			std::end(worldActor.renderState().skinPalette()), '\0');
 		worldActor.roster().active() = TRUE;
 		worldActor.roster().inSector() = TRUE;
 		worldActor.roster().team() = 1;
@@ -14501,7 +16004,12 @@ int main( int argc, char** argv )
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
+		worldActor.position().worldX() = 255.0f;
+		worldActor.position().worldY() = 25.0f;
+		worldActor.movement().animationDirection() = 3;
 		worldActor.animationPlayback().state() = STANDING;
+		worldActor.animationPlayback().surface() = 0;
+		worldActor.animationPlayback().frame() = 0;
 		worldActor.actionPoints().current() = 72;
 		worldActor.vitals().health() = 76;
 		worldActor.vitals().maximumHealth() = 80;
@@ -15488,11 +16996,20 @@ int main( int argc, char** argv )
 		CHECK( projectionWorldReady &&
 		       liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
+		       std::strcmp(liveWorld.sector().mapAssetKey.c_str(), "A9.DAT") == 0 &&
+		       liveWorld.lighting().ambientLightLevel == LightGetAmbient() &&
 		       liveWorld.turn().serial == 2 && liveWorld.turn().turnBased &&
 		       liveWorld.turn().inCombat && liveWorld.turn().activeTeam == 1 &&
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
-		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
-		       "live tactical service captures stable pointer-free legacy soldier state" );
+		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76 &&
+		       liveActor->presentation.bodyType == 0 &&
+		       ( liveActor->presentation.flags & TacticalActorRenderPosePresent ) != 0 &&
+		       liveActor->presentation.animationDirection == 3 &&
+		       liveActor->presentation.worldXQ8 == 255 * TacticalWorldCoordinateScale &&
+		       liveActor->presentation.worldYQ8 == 25 * TacticalWorldCoordinateScale &&
+		       liveActor->presentation.animationSurface == 0 &&
+		       liveActor->presentation.animationFrame == 0,
+		       "live tactical service captures stable pointer-free legacy soldier, render-pose, and ambient-light state" );
 		const std::size_t liveActorCapacity = liveWorld.actors().capacity();
 		const TacticalWorldCaptureResult repeatedLiveCapture =
 			tacticalWorld.service->capture( liveWorld );
@@ -15501,6 +17018,106 @@ int main( int argc, char** argv )
 		       liveWorld.actors().capacity() == liveActorCapacity &&
 		       liveActorCapacity >= TOTAL_SOLDIERS,
 		       "live tactical capture reuses bounded actor storage without shrinking" );
+
+		Ja2TacticalWorldAdapter captureFailureFixture( TOTAL_SOLDIERS );
+		captureFailureFixture.session().restore( CaptureJa2TacticalWorld() );
+		TacticalWorldSnapshot invalidPresentationOutput = liveWorld;
+		const FLOAT validPresentationWorldX = worldActor.position().worldX();
+		worldActor.position().worldX() = 0.0f;
+		const TacticalWorldCaptureResult invalidPresentationCapture =
+			captureFailureFixture.capture( invalidPresentationOutput );
+		const Ja2TacticalWorldCaptureFailure invalidPresentationFailure =
+			captureFailureFixture.lastCaptureFailure();
+		const TacticalActorSnapshot* const retainedPresentationActor =
+			invalidPresentationOutput.find( worldActorIdentity );
+		const bool invalidPresentationOutputRetained =
+			retainedPresentationActor &&
+			retainedPresentationActor->presentation.worldXQ8 ==
+				255 * TacticalWorldCoordinateScale;
+		worldActor.position().worldX() = validPresentationWorldX;
+		const TacticalWorldCaptureResult recoveredPresentationCapture =
+			captureFailureFixture.capture( invalidPresentationOutput );
+		const Ja2TacticalWorldCaptureFailure recoveredPresentationFailure =
+			captureFailureFixture.lastCaptureFailure();
+		worldActor.position().worldX() = 0.0f;
+		TacticalWorldSnapshot unavailableDiagnosticOutput =
+			invalidPresentationOutput;
+		const TacticalWorldCaptureResult repeatedInvalidPresentationCapture =
+			captureFailureFixture.capture( unavailableDiagnosticOutput );
+		captureFailureFixture.onWorldUnloaded();
+		const TacticalWorldCaptureResult unavailableDiagnosticCapture =
+			captureFailureFixture.capture( unavailableDiagnosticOutput );
+		const Ja2TacticalWorldCaptureFailure unavailableDiagnosticFailure =
+			captureFailureFixture.lastCaptureFailure();
+		worldActor.position().worldX() = validPresentationWorldX;
+		CHECK( invalidPresentationCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidPresentationFailure == Ja2TacticalWorldCaptureFailure::
+		           SnapshotActorPresentationInvalid &&
+		       std::strcmp( Ja2TacticalWorldCaptureFailureName(
+		           invalidPresentationFailure ),
+		           "snapshot actor presentation invalid" ) == 0 &&
+		       invalidPresentationOutputRetained &&
+		       recoveredPresentationCapture ==
+		           TacticalWorldCaptureResult::Success &&
+		       recoveredPresentationFailure ==
+		           Ja2TacticalWorldCaptureFailure::None &&
+		       repeatedInvalidPresentationCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       unavailableDiagnosticCapture ==
+		           TacticalWorldCaptureResult::Unavailable &&
+		       unavailableDiagnosticFailure ==
+		           Ja2TacticalWorldCaptureFailure::None &&
+		       std::strcmp( Ja2TacticalWorldCaptureFailureName(
+		           unavailableDiagnosticFailure ), "none" ) == 0,
+		       "live tactical capture reports presentation-specific failure without mutating output and clears stale detail after success or unavailability" );
+
+		// Native locomotion updates the logical destination tile before the
+		// actor's sub-tile render coordinates finish crossing into it. The live
+		// observer must accept that bounded transition instead of terminating the
+		// authoritative session with a source-adapter failure.
+		worldActor.position().gridNo() = 346;
+		worldActor.animationPlayback().state() = WALKING;
+		TacticalWorldSnapshot locomotionTransitionWorld;
+		const TacticalWorldCaptureResult locomotionTransitionCapture =
+			tacticalWorld.service->capture( locomotionTransitionWorld );
+		const TacticalActorSnapshot* locomotionTransitionActor =
+			locomotionTransitionWorld.find( worldActorIdentity );
+		worldActor.position().gridNo() = 345;
+		worldActor.animationPlayback().state() = STANDING;
+		TacticalWorldSnapshot locomotionRecoveredWorld;
+		const TacticalWorldCaptureResult locomotionRecoveredCapture =
+			tacticalWorld.service->capture( locomotionRecoveredWorld );
+		CHECK( locomotionTransitionCapture == TacticalWorldCaptureResult::Success &&
+		       locomotionTransitionActor && locomotionTransitionActor->grid == 346 &&
+		       locomotionTransitionActor->animation == WALKING &&
+		       locomotionTransitionActor->presentation.worldXQ8 ==
+		           255 * TacticalWorldCoordinateScale &&
+		       locomotionTransitionActor->presentation.worldYQ8 ==
+		           25 * TacticalWorldCoordinateScale &&
+		       locomotionRecoveredCapture == TacticalWorldCaptureResult::Success &&
+		       locomotionRecoveredWorld.find( worldActorIdentity ) &&
+		       locomotionRecoveredWorld.find( worldActorIdentity )->grid == 345,
+		       "live tactical capture accepts native locomotion's bounded logical-grid/render-position transition and recovers normally" );
+
+		TacticalWorldSnapshot invalidMapIdentityOutput = liveWorld;
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), 'A');
+		const TacticalWorldCaptureResult unterminatedMapIdentityCapture =
+			tacticalWorld.service->capture(invalidMapIdentityOutput);
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "../A9.DAT");
+		const TacticalWorldCaptureResult unsafeMapIdentityCapture =
+			tacticalWorld.service->capture(invalidMapIdentityOutput);
+		std::fill(std::begin(gzLastLoadedFile), std::end(gzLastLoadedFile), '\0');
+		std::strcpy(gzLastLoadedFile, "A9.DAT");
+		CHECK( unterminatedMapIdentityCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       unsafeMapIdentityCapture ==
+		           TacticalWorldCaptureResult::AdapterFailure &&
+		       invalidMapIdentityOutput.epoch() == liveWorld.epoch() &&
+		       invalidMapIdentityOutput.sector().mapAssetKey ==
+		           liveWorld.sector().mapAssetKey,
+		       "live tactical capture requires a bounded path-safe exact loaded-map identity transactionally" );
 
 		const TacticalWorldSession::Snapshot commandGateStateBefore =
 			CaptureJa2TacticalWorld();
@@ -15868,7 +17485,8 @@ int main( int argc, char** argv )
 
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration );
-		worldActor.position().gridNo() = 346;
+			worldActor.position().gridNo() = 346;
+			worldActor.position().worldX() = 265.0f;
 		worldActor.vitals().health() = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
@@ -15882,13 +17500,11 @@ int main( int argc, char** argv )
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.status == TacticalWorldPublicationStatus::Delta &&
-		       observedPublication.delta->events.size() == 3 &&
+			       observedPublication.delta->events.size() == 2 &&
 		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           observedPublication.delta->events[0] ) &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           observedPublication.delta->events[1] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
-		           observedPublication.delta->events[2] ) &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           observedPublication.delta->events[1] ) &&
 		       observedActor && observedActor->grid == 346 && observedActor->life == 75 &&
 		       committedObservedActor &&
 		       committedObservedActor->grid == observedActor->grid &&
@@ -15926,19 +17542,17 @@ int main( int argc, char** argv )
 		       liveRuntimeMessages.queued() == 0 && deliveredLiveDeltaDecoded &&
 		       deliveredLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
 		       deliveredLiveMessage->source == TacticalWorldDeltaMessageSource &&
-		       deliveredLiveDelta.events.size() == 3 &&
+			       deliveredLiveDelta.events.size() == 2 &&
 		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           deliveredLiveDelta.events[0] ) &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           deliveredLiveDelta.events[1] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
-		           deliveredLiveDelta.events[2] ) &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           deliveredLiveDelta.events[1] ) &&
 		       std::get<TacticalTurnChangedEvent>(
 		           deliveredLiveDelta.events[0] ).current.serial == 3 &&
-		       std::get<TacticalActorMovedEvent>( deliveredLiveDelta.events[1] ).currentGrid ==
-		           346 &&
-		       std::get<TacticalActorVitalsChangedEvent>(
-		           deliveredLiveDelta.events[2] ).currentLife == 75,
+			       std::get<TacticalActorUpdatedEvent>( deliveredLiveDelta.events[1] ).actor.grid ==
+			           346 &&
+			       std::get<TacticalActorUpdatedEvent>(
+			           deliveredLiveDelta.events[1] ).actor.life == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
 		worldActor.identity().incarnation() = 0;
@@ -15952,7 +17566,7 @@ int main( int argc, char** argv )
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.snapshot == deltaPublicationStorage &&
 		       observedPublication.delta == deltaStorage &&
-		       observedPublication.delta->events.size() == 3 && observedActor &&
+			       observedPublication.delta->events.size() == 2 && observedActor &&
 		       observedActor->grid == 346 && observedActor->life == 75 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
@@ -15986,7 +17600,8 @@ int main( int argc, char** argv )
 		const RuntimeMessagePublishResult saturatedFiller =
 			saturatedTacticalMessages.publish(
 				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
-		worldActor.position().gridNo() = 347;
+			worldActor.position().gridNo() = 347;
+			worldActor.position().worldX() = 275.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -16071,10 +17686,10 @@ int main( int argc, char** argv )
 		       retriedLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
 		       retriedLiveMessage->source == TacticalWorldDeltaMessageSource &&
 		       retriedLiveDelta.events.size() == 1 &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
-		           retriedLiveDelta.events[0] ) &&
-		       std::get<TacticalActorMovedEvent>(
-		           retriedLiveDelta.events[0] ).currentGrid == 347 &&
+			       std::holds_alternative<TacticalActorUpdatedEvent>(
+			           retriedLiveDelta.events[0] ) &&
+			       std::get<TacticalActorUpdatedEvent>(
+			           retriedLiveDelta.events[0] ).actor.grid == 347 &&
 		       liveTacticalDeltaSinkRemoved,
 		       "the retained tactical delta is delivered and decodes on the next frame" );
 
@@ -16098,7 +17713,8 @@ int main( int argc, char** argv )
 
 		RuntimeMessageBus saturatedChunkMessages(
 			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
-		worldActor.position().gridNo() = 348;
+			worldActor.position().gridNo() = 348;
+			worldActor.position().worldX() = 285.0f;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
@@ -16193,6 +17809,8 @@ int main( int argc, char** argv )
 		if ( previousWorldEntity.valid() && restoredWorldActor )
 			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
 		RestoreJa2TacticalWorldSession( previousWorldSession );
+		std::copy(previousLoadedMapFile.begin(), previousLoadedMapFile.end(),
+			std::begin(gzLastLoadedFile));
 		if ( projectionWorldAllocatedHere )
 			ReleaseWorldTileMap();
 
@@ -16203,8 +17821,15 @@ int main( int argc, char** argv )
 		TacticalWorldDelta headlessDelta;
 		headlessDelta.previousEpoch = 23;
 		headlessDelta.currentEpoch = 23;
-		headlessDelta.events.push_back( TacticalActorMovedEvent{
-			TacticalEntityId{ 0, 701 }, 344, 345, 0, 1, 2, 3 } );
+			TacticalActorSnapshot headlessActor;
+			headlessActor.id = TacticalEntityId{ 0, 701 };
+			headlessActor.grid = 345;
+			headlessActor.level = 1;
+			headlessActor.direction = 3;
+			headlessActor.active = true;
+			headlessActor.inSector = true;
+			headlessDelta.events.push_back(
+				TacticalActorUpdatedEvent{ headlessActor } );
 		const bool tacticalDeltaSinkAdded =
 			tacticalDeltaMessages.addSink( tacticalDeltaSink ) ==
 				RuntimeMessageSinkRegistrationError::None;
@@ -16223,7 +17848,7 @@ int main( int argc, char** argv )
 		       tacticalDeltaSink.messages[0].topic == TacticalWorldDeltaMessageTopic &&
 		       tacticalDeltaSink.messages[0].source == TacticalWorldDeltaMessageSource &&
 		       receivedHeadlessDelta.events.size() == 1 &&
-		       std::get<TacticalActorMovedEvent>( receivedHeadlessDelta.events[0] ).currentGrid == 345,
+			       std::get<TacticalActorUpdatedEvent>( receivedHeadlessDelta.events[0] ).actor.grid == 345,
 		       "headless package messaging delivers standalone encoded tactical deltas" );
 	}
 

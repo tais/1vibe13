@@ -1,4 +1,7 @@
 #include "FullEngineCoopAdmissionListener.h"
+#include "CoopInventoryProtocol.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignGroups.h"
 
 #include <SDL3/SDL.h>
 
@@ -68,6 +71,22 @@ bool ValidOutboundMessage(
 	if (std::strcmp(name, CoopTacticalDeltaMessageName) == 0)
 		return size >= CoopTacticalDeltaHeaderWireSize &&
 			size <= MaximumCoopTacticalDeltaWireSize;
+	if (std::strcmp(name, CoopOwnerInventoryMessageName) == 0)
+		return size >= CoopOwnerInventoryHeaderWireSize && size <= MaximumCoopOwnerInventoryWireSize;
+	if (std::strcmp(name, CoopCampaignStatusMessageName) == 0)
+		return size == CoopCampaignStatusWireSize;
+	if (std::strcmp(name, CoopCampaignGroupsMessageName) == 0)
+		return size >= CoopCampaignGroupsHeaderSize && size <= MaximumCoopCampaignGroupsWireSize;
+	if (std::strcmp(name, CoopCampaignTimeResultMessageName) == 0)
+		return size == CoopCampaignTimeResultWireSize;
+	if (std::strcmp(name, CoopCampaignActionResultMessageName) == 0)
+		return size == CoopCampaignActionResultWireSize;
+	if (std::strcmp(name, CoopCampaignEconomyMessageName) == 0)
+		return size >= CoopCampaignEconomyHeaderSize && size <= MaximumCoopCampaignEconomyWireSize;
+	if (std::strcmp(name, CoopCampaignAimQuotesMessageName) == 0)
+		return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
+	if (std::strcmp(name, CoopCampaignHireResultMessageName) == 0)
+		return size == CoopCampaignHireResultWireSize;
 	if (std::strcmp(name, CoopCampaignSyncMetadataMessageName) == 0)
 		return size == CoopCampaignSyncMetadataWireSize;
 	if (std::strcmp(name, CoopCampaignSyncChunkMessageName) == 0)
@@ -81,6 +100,47 @@ bool ValidOutboundMessage(
 		CoopAdmissionSelfRetirementResultMessageName) == 0)
 		return size == AdmissionSelfRetirementResultWireSize;
 	return false;
+}
+
+// When a shared callback FIFO is full, blame the connection which already
+// owns strictly more entries than the incoming sender.  Scanning the fixed
+// queue is deliberately allocation-free and bounded (64 * 64 comparisons at
+// the public ceiling).  FIFO order breaks equal producer-count ties.
+template <typename Message, std::size_t Capacity>
+TransportPeer DominantQueuedProducer(
+	const std::array<Message, Capacity>& messages,
+	std::size_t head, std::size_t count,
+	const TransportPeer& incoming) noexcept
+{
+	std::size_t incomingCount = 0;
+	for (std::size_t offset = 0; offset < count; ++offset)
+	{
+		const std::size_t index = (head + offset) % Capacity;
+		if (messages[index].transport == incoming) ++incomingCount;
+	}
+
+	TransportPeer dominant;
+	std::size_t dominantCount = incomingCount;
+	for (std::size_t offset = 0; offset < count; ++offset)
+	{
+		const std::size_t index = (head + offset) % Capacity;
+		const TransportPeer producer = messages[index].transport;
+		if (!producer || producer == incoming) continue;
+		std::size_t producerCount = 0;
+		for (std::size_t candidate = 0; candidate < count; ++candidate)
+		{
+			const std::size_t candidateIndex =
+				(head + candidate) % Capacity;
+			if (messages[candidateIndex].transport == producer)
+				++producerCount;
+		}
+		if (producerCount > dominantCount)
+		{
+			dominant = producer;
+			dominantCount = producerCount;
+		}
+	}
+	return dominant;
 }
 }
 
@@ -173,7 +233,13 @@ FullEngineCoopAdmissionListener::start(
 			this) ||
 		!transport_->RegisterMessage(CoopCampaignSyncResyncMessageName,
 			&FullEngineCoopAdmissionListener::HandleCampaignResyncMessage,
-			this))
+			this) ||
+		!transport_->RegisterMessage(CoopCampaignTimeRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignTimeRequestMessage, this) ||
+		!transport_->RegisterMessage(CoopCampaignActionRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignActionRequestMessage, this) ||
+		!transport_->RegisterMessage(CoopCampaignHireRequestMessageName,
+			&FullEngineCoopAdmissionListener::HandleCampaignHireRequestMessage, this))
 	{
 		ja2::mp::net::DestroySdlNetPeer(transport_);
 		transport_ = nullptr;
@@ -196,6 +262,7 @@ FullEngineCoopAdmissionListener::start(
 		configuration.maximumQueuedTacticalMessages;
 	maximumQueuedCampaignMessages_ =
 		configuration.maximumQueuedCampaignMessages;
+	campaignRequestsEnabled_ = configuration.enableCampaignRequests;
 	maximumPendingWriteBytesPerConnection_ =
 		configuration.maximumPendingWriteBytesPerConnection;
 	campaignBootstrap_ = configuration.campaignBootstrap;
@@ -236,6 +303,13 @@ void FullEngineCoopAdmissionListener::stop(
 		return;
 	}
 	stopNow(drainMilliseconds);
+}
+
+bool FullEngineCoopAdmissionListener::hasConnections() const noexcept
+{
+	for (const ConnectionAdmissionState& state : connections_)
+		if (state.transport) return true;
+	return false;
 }
 
 std::size_t FullEngineCoopAdmissionListener::authenticatedPeerCount()
@@ -820,6 +894,36 @@ void FullEngineCoopAdmissionListener::handleTacticalMessage(
 	}
 }
 
+void FullEngineCoopAdmissionListener::HandleCampaignTimeRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::TimeRequest);
+	listener.finishHandler();
+}
+
+void FullEngineCoopAdmissionListener::HandleCampaignActionRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::ActionRequest);
+	listener.finishHandler();
+}
+
+void FullEngineCoopAdmissionListener::HandleCampaignHireRequestMessage(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	if (!message || !context) return;
+	auto& listener = *static_cast<FullEngineCoopAdmissionListener*>(context);
+	++listener.handlerDepth_;
+	listener.handleCampaignMessage(*message, FullEngineCoopCampaignInboundKind::HireRequest);
+	listener.finishHandler();
+}
+
 void FullEngineCoopAdmissionListener::handleCampaignMessage(
 	ja2::mp::net::SdlNetMessage& message,
 	FullEngineCoopCampaignInboundKind kind) noexcept
@@ -830,6 +934,8 @@ void FullEngineCoopAdmissionListener::handleCampaignMessage(
 	PeerIdentity resolved{};
 	if (state == nullptr || !connectionAuthenticates(*state, resolved) ||
 		!validCampaignInboundSize(kind, message.size) ||
+		(!campaignRequestsEnabled_ &&
+			kind >= FullEngineCoopCampaignInboundKind::TimeRequest) ||
 		message.data == nullptr ||
 		!queueCampaignMessage(*state, resolved, message, kind))
 	{
@@ -972,8 +1078,10 @@ bool FullEngineCoopAdmissionListener::queueTacticalMessage(
 	FullEngineCoopTacticalInboundKind kind) noexcept
 {
 	if (maximumQueuedTacticalMessages_ == 0 ||
-		inboundCount_ >= maximumQueuedTacticalMessages_ ||
-		message.size > MaximumCoopTacticalInboundWireSize)
+		message.size > MaximumCoopTacticalInboundWireSize ||
+		(inboundCount_ >= maximumQueuedTacticalMessages_ &&
+		 !makeTacticalQueueRoom(state.transport)) ||
+		inboundCount_ >= MaximumCoopTacticalInboundMessages)
 		return false;
 	const std::size_t tail = (inboundHead_ + inboundCount_) %
 		MaximumCoopTacticalInboundMessages;
@@ -988,6 +1096,19 @@ bool FullEngineCoopAdmissionListener::queueTacticalMessage(
 	return true;
 }
 
+bool FullEngineCoopAdmissionListener::makeTacticalQueueRoom(
+	const TransportPeer& incomingTransport) noexcept
+{
+	if (!incomingTransport || maximumQueuedTacticalMessages_ == 0)
+		return false;
+	if (inboundCount_ < maximumQueuedTacticalMessages_) return true;
+	const TransportPeer dominant = DominantQueuedProducer(
+		inbound_, inboundHead_, inboundCount_, incomingTransport);
+	if (!dominant) return false;
+	closeConnection(dominant, true);
+	return inboundCount_ < maximumQueuedTacticalMessages_;
+}
+
 bool FullEngineCoopAdmissionListener::validCampaignInboundSize(
 	FullEngineCoopCampaignInboundKind kind,
 	std::size_t size) const noexcept
@@ -1000,6 +1121,12 @@ bool FullEngineCoopAdmissionListener::validCampaignInboundSize(
 			return size == CoopCampaignSyncResultWireSize;
 		case FullEngineCoopCampaignInboundKind::Resync:
 			return size == CoopCampaignSyncResyncWireSize;
+		case FullEngineCoopCampaignInboundKind::TimeRequest:
+			return size == CoopCampaignTimeRequestWireSize;
+		case FullEngineCoopCampaignInboundKind::ActionRequest:
+			return size == CoopCampaignActionRequestWireSize;
+		case FullEngineCoopCampaignInboundKind::HireRequest:
+			return size == CoopCampaignHireRequestWireSize;
 	}
 	return false;
 }
@@ -1011,8 +1138,10 @@ bool FullEngineCoopAdmissionListener::queueCampaignMessage(
 	FullEngineCoopCampaignInboundKind kind) noexcept
 {
 	if (maximumQueuedCampaignMessages_ == 0 ||
-		campaignInboundCount_ >= maximumQueuedCampaignMessages_ ||
-		message.size > MaximumCoopCampaignInboundWireSize)
+		message.size > MaximumCoopCampaignInboundWireSize ||
+		(campaignInboundCount_ >= maximumQueuedCampaignMessages_ &&
+		 !makeCampaignQueueRoom(state.transport)) ||
+		campaignInboundCount_ >= MaximumCoopCampaignInboundMessages)
 		return false;
 	const std::size_t tail =
 		(campaignInboundHead_ + campaignInboundCount_) %
@@ -1026,6 +1155,20 @@ bool FullEngineCoopAdmissionListener::queueCampaignMessage(
 	campaignInbound_[tail] = queued;
 	++campaignInboundCount_;
 	return true;
+}
+
+bool FullEngineCoopAdmissionListener::makeCampaignQueueRoom(
+	const TransportPeer& incomingTransport) noexcept
+{
+	if (!incomingTransport || maximumQueuedCampaignMessages_ == 0)
+		return false;
+	if (campaignInboundCount_ < maximumQueuedCampaignMessages_) return true;
+	const TransportPeer dominant = DominantQueuedProducer(
+		campaignInbound_, campaignInboundHead_, campaignInboundCount_,
+		incomingTransport);
+	if (!dominant) return false;
+	closeConnection(dominant, true);
+	return campaignInboundCount_ < maximumQueuedCampaignMessages_;
 }
 
 void FullEngineCoopAdmissionListener::removeQueuedMessagesForTransport(
@@ -1141,6 +1284,7 @@ void FullEngineCoopAdmissionListener::stopNow(
 	campaignBootstrapBytes_ = {};
 	maximumQueuedTacticalMessages_ = 0;
 	maximumQueuedCampaignMessages_ = 0;
+	campaignRequestsEnabled_ = false;
 	if (transport_ == nullptr) return;
 	ingress_.clearTransportBindings();
 	transport_->Shutdown(drainMilliseconds);

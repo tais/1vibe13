@@ -16,12 +16,20 @@ inline constexpr std::size_t MaximumCoopTacticalServerInboundPerPump =
 inline constexpr std::size_t MaximumCoopTacticalServerTransientReceipts = 64;
 inline constexpr std::size_t MaximumCoopTacticalServerPendingCommandsPerPeer =
 	MaximumCoopTacticalReceiptHistoryPerPeer;
+inline constexpr std::uint64_t DefaultMaximumCoopTacticalPendingCommandFrames =
+	3600;
 
 struct FullEngineCoopTacticalServerConfiguration
 {
 	FullEngineCoopServerSessionConfiguration replication;
 	std::size_t maximumInboundMessagesPerPump = 32;
 	std::size_t maximumTransientReceipts = 32;
+	// pumpInbound(), or its watchdog-only alternative below, is called once at
+	// the committed main-thread boundary. A
+	// command that crossed authority but never produces a terminal receipt must
+	// fail the session within a deterministic number of those boundaries.
+	std::uint64_t maximumPendingCommandFrames =
+		DefaultMaximumCoopTacticalPendingCommandFrames;
 	// A configurable ceiling keeps the terminal exhaustion path testable while
 	// production retains the complete uint64_t authoritative sequence domain.
 	std::uint64_t maximumAuthoritativeSequence =
@@ -49,6 +57,7 @@ enum class FullEngineCoopTacticalServerResult : std::uint8_t
 	ReceiptRejected,
 	SequenceDiverged,
 	ExecutionBackpressured,
+	CommandCompletionDeadlineExceeded,
 	TransportBackpressured,
 	PendingReceipts,
 	PendingInput,
@@ -76,6 +85,7 @@ struct FullEngineCoopTacticalServerPumpResult
 	std::size_t duplicateReceiptsReplayed = 0;
 	std::size_t messagesSent = 0;
 	bool backpressured = false;
+	bool inventoryPending = false;
 	bool resyncRequired = false;
 	bool transportRestartRequired = false;
 };
@@ -180,6 +190,16 @@ public:
 		const TacticalWorldSnapshot& snapshot) noexcept;
 	FullEngineCoopTacticalServerResult stageBaselines(
 		const TacticalWorldSnapshot& snapshot) noexcept;
+	FullEngineCoopTacticalServerResult stageInventory(
+		const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, bool usesNewInventory,
+		const std::vector<CoopInventorySlotSummary>& slots) noexcept;
+	FullEngineCoopTacticalServerResult stageInventory(
+		const PeerIdentity& peer, const CoopOwnerInventorySnapshot& inventory) noexcept;
+	bool hasInventoryRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision) const noexcept;
+	bool hasGroundItemRevision(const PeerIdentity& peer, TacticalEntityId actor,
+		std::uint64_t inventoryRevision, TacticalWorldItemId item) const noexcept;
 	std::size_t peersNeedingBaseline(
 		std::array<PeerIdentity,
 			MaximumCoopTacticalSessionPeers>& peers) const noexcept;
@@ -187,6 +207,17 @@ public:
 		const TacticalWorldDelta& delta,
 		std::uint64_t resultingRevision,
 		std::uint64_t resultingTurnSerial) noexcept;
+	// Normal updates publish a delta. If and only if that valid canonical delta
+	// exceeds the tactical wire ceiling, atomically replace it with a fresh
+	// baseline of the same committed snapshot for every connected peer.
+	// The trusted observer must supply the exact canonical snapshot paired with
+	// this delta. It is also retained as the next frame-equivalence predecessor.
+	FullEngineCoopTacticalServerResult publishDeltaWithBaselineFallback(
+		const TacticalWorldDelta& delta,
+		const TacticalWorldSnapshot& resultingSnapshot,
+		std::uint64_t resultingRevision,
+		std::uint64_t resultingTurnSerial,
+		bool* baselineFallbackPublished = nullptr) noexcept;
 
 	// Accepts the host-owned initial Queued/immediate-terminal receipt and later
 	// terminal outcome for a reserved command. Identity, state, cursor, and
@@ -199,6 +230,11 @@ public:
 
 	FullEngineCoopTacticalServerPumpResult pumpInbound(
 		std::uint64_t simulationTick = 0) noexcept;
+	// Alternative committed-boundary pump while an assignment update waits for
+	// native commands. Advances only their bounded completion watchdog: no peer
+	// reconciliation, input consumption, replication or receipt publication.
+	// Call instead of pumpInbound(), never additionally for the same boundary.
+	FullEngineCoopTacticalServerPumpResult pumpPendingCommandDeadlines() noexcept;
 	FullEngineCoopTacticalServerPumpResult flushOutbound() noexcept;
 	// World teardown may strand one unconsumed intent in the coordinator's
 	// deferred slot after the live execution sink becomes unavailable.  Once the
@@ -239,6 +275,7 @@ private:
 		// the possibly newer peer cursor when a late terminal result arrives.
 		std::uint64_t nextExpectedCommandId = 0;
 		std::uint64_t authoritativeSequence = 0;
+		std::uint64_t acceptedFrameSequence = 0;
 		bool executing = false;
 		bool queuedRecorded = false;
 		bool terminalRecorded = false;
@@ -295,13 +332,20 @@ private:
 	bool addPending(PeerRecord& peer,
 		std::uint64_t commandId,
 		std::uint64_t nextExpectedCommandId,
-		std::uint64_t authoritativeSequence) noexcept;
+		std::uint64_t authoritativeSequence,
+		std::uint64_t acceptedFrameSequence) noexcept;
 	void removePending(PeerRecord& peer, std::uint64_t commandId) noexcept;
 	bool canConsumeInbound(const PeerRecord& peer) const noexcept;
 	bool mappingCurrent(const FullEngineCoopTacticalInboundMessage& message,
 		PeerRecord*& peer) noexcept;
 	FullEngineCoopTacticalServerResult rebuildActorBindings() noexcept;
 	bool peerCaughtUp(const PeerIdentity& peer) const noexcept;
+	bool peerCommandReady(const PeerIdentity& peer) const noexcept;
+	void invalidateCommandWindow() noexcept;
+	void rememberCommandSnapshot(const TacticalWorldSnapshot& snapshot) noexcept;
+	bool frameOnlyPublication(const TacticalWorldDelta& delta,
+		const TacticalWorldSnapshot& snapshot, std::uint64_t revision,
+		std::uint64_t turnSerial) const noexcept;
 	FullEngineCoopTacticalServerResult restagePeerAfterCursorAdvance(
 		PeerRecord& peer) noexcept;
 	FullEngineCoopTacticalServerResult recordGeneratedReceipt(
@@ -332,6 +376,8 @@ private:
 		const FullEngineCoopTacticalInboundMessage& message,
 		FullEngineCoopTacticalServerPumpResult& result) noexcept;
 	FullEngineCoopTacticalServerPumpResult flushOutboundInternal() noexcept;
+	bool advancePendingCommandDeadlines(
+		FullEngineCoopTacticalServerPumpResult& diagnostics) noexcept;
 	bool outboundPending() const noexcept;
 	void clearState() noexcept;
 
@@ -350,7 +396,13 @@ private:
 	std::size_t transientReceiptCount_ = 0;
 	TacticalWorldSnapshot baselineSnapshot_;
 	bool baselineSnapshotAvailable_ = false;
+	// Replication remains exact. Only a proven consecutive animation-frame-only
+	// lineage may normalize an already-ACKed command to the current revision.
+	TacticalWorldSnapshot commandSnapshot_;
+	std::uint64_t commandSnapshotRevision_ = 0;
+	std::uint64_t commandRevisionFloor_ = 0;
 	std::uint64_t nextAuthoritativeSequence_ = 1;
+	std::uint64_t worldFrameSequence_ = 0;
 	FullEngineCoopTacticalInboundMessage deferredInbound_;
 	bool deferredInboundOccupied_ = false;
 	bool active_ = false;

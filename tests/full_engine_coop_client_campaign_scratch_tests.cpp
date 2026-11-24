@@ -32,9 +32,10 @@ int Failures = 0;
 std::filesystem::path ActiveProfile;
 std::vector<std::uint8_t> ExpectedCheckpoint;
 std::vector<DedicatedCampaignSlot> ValidatedSlots;
-std::vector<DedicatedCampaignSlot> LoadedSlots;
+std::vector<DedicatedCampaignSlot> PreparedSlots;
 bool ValidationSucceeds = true;
-bool LoadSucceeds = true;
+bool PreparationSucceeds = true;
+unsigned AuthorityLoadCalls = 0;
 unsigned SaveCalls = 0;
 
 class TemporaryStateRoot
@@ -211,9 +212,10 @@ void ResetBridge()
 	ActiveProfile.clear();
 	ExpectedCheckpoint.clear();
 	ValidatedSlots.clear();
-	LoadedSlots.clear();
+	PreparedSlots.clear();
 	ValidationSucceeds = true;
-	LoadSucceeds = true;
+	PreparationSucceeds = true;
+	AuthorityLoadCalls = 0;
 	SaveCalls = 0;
 }
 
@@ -651,6 +653,259 @@ void TestDurableReconnectCredentialLifecycle()
 	}
 }
 
+
+// Fixed protocol-14 record, independently produced from the documented durable
+// layout and SHA-256. These are synthetic test identities, never live bearers.
+std::vector<std::uint8_t> LegacyReconnectRecord(unsigned protocol = 14)
+{
+	const char* hex =
+		"4a324342010001000e0000008877665544332211112233445566778820212223"
+		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
+		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
+		"909192939495969798999a9b9c9d9e9ffbb42f9d000000000000000000000000"
+		"4a3243410e00030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
+		"439b7931053653d00a6e08e05f94bc29d403dd225ac2f51c6680c3954640b313";
+	if (protocol == 15) hex =
+		"4a324342010001000f0000008877665544332211112233445566778820212223"
+		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
+		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
+		"909192939495969798999a9b9c9d9e9f2ebf8570000000000000000000000000"
+		"4a3243410f00030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
+		"2e3eeee3a9503717a67e093c16abf8c4b3f5da335f3e87d2c73b2af9259e1696";
+	if (protocol == 16) hex =
+		"4a3243420100010010000000887766554433221111223344556677882021"
+		"22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+		"04030201807060504030201001f0e0d0c0b0a09080818283848586878889"
+		"8a8b8c8d8e8f909192939495969798999a9b9c9d9e9f55885ecd00000000"
+		"00000000000000004a324341100003008877665544332211212223242526"
+		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
+		"75767778797a7b7c7d7e7f804539686785659e93a8c2f14d2f99395b4618"
+		"1116639793b1f577f5095c302f2f";
+	if (protocol == 17) hex =
+		"4a324342010001001100000088776655443322111122334455667788"
+		"202122232425262728292a2b2c2d2e2f303132333435363738393a3b"
+		"3c3d3e3f04030201807060504030201001f0e0d0c0b0a09080818283"
+		"8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+		"001517a20000000000000000000000004a3243411100030088776655"
+		"443322112122232425262728292a2b2c2d2e2f306162636465666768"
+		"696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80aa25f93b"
+		"ca777db1f9ba8ea549a570b1d2a6935d662980ffc4d6ac873e1d39c7";
+	if (protocol == 18) hex =
+		"4a32434201000100120000008877665544332211112233445566778820212223"
+		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
+		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
+		"909192939495969798999a9b9c9d9e9f475435cf000000000000000000000000"
+		"4a3243411200030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
+		"1e58269cdcd58996ca327f030d6665af29a17ccdbb1470f4f496ac648d3ece8f";
+	if (protocol == 8) hex =
+		"4a32434201000100080000008877665544332211112233445566778820212223"
+		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
+		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
+		"909192939495969798999a9b9c9d9e9fcdc9c1c2000000000000000000000000"
+		"4a3243410800030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
+		"6aa4611cf279b05a77423ee6d43930033d2972f8e6b8beb774d64112c39bffb8";
+	if (protocol == 9) hex =
+		"4a32434201000100090000008877665544332211112233445566778820212223"
+		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
+		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
+		"909192939495969798999a9b9c9d9e9fd8ed6fa3000000000000000000000000"
+		"4a3243410900030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
+		"a76e9d7f02c62590911a51f4dcc8a1383fb53ef375ac0afa7a9a6b424cb756b2";
+	std::vector<std::uint8_t> result;
+	const auto nibble = [](char value) {
+		return value <= '9' ? value - '0' : value - 'a' + 10;
+	};
+	for (std::size_t index = 0; hex[index] != '\0'; index += 2)
+		result.push_back(static_cast<std::uint8_t>(
+			(nibble(hex[index]) << 4) | nibble(hex[index + 1])));
+	return result;
+}
+
+bool SameCredential(const AdmissionAck& left, const AdmissionAck& right)
+{
+	return left.protocolVersion == right.protocolVersion &&
+		left.sessionEpoch == right.sessionEpoch &&
+		left.peerIdentity == right.peerIdentity &&
+		left.reconnectToken == right.reconnectToken;
+}
+
+void TestLegacyReconnectCredentialMigration(unsigned protocol)
+{
+	static_assert(CurrentProtocolVersion == 19,
+		"review the explicit legacy credential migration policy for the next protocol");
+	const auto original = LegacyReconnectRecord(protocol);
+	CHECK(original.size() == 224, "legacy golden record has its fixed durable size");
+	CoopCampaignBootstrapDescriptor decoded = Bootstrap(0x61);
+	const auto decodedSentinel = decoded;
+	AdmissionAck ack = Credential(decoded, 0x62);
+	const auto ackSentinel = ack;
+	CHECK(DecodeCoopCampaignBootstrap(original.data(), 128, decoded) ==
+			CoopCampaignBootstrapDecodeResult::UnsupportedProtocol &&
+		SameCoopCampaignBootstrapDescriptor(decoded, decodedSentinel) &&
+		DecodeAdmissionAck(original.data() + 128, 64, ack) ==
+			DecodeResult::UnsupportedProtocol && SameCredential(ack, ackSentinel),
+		"persistence migration never weakens live protocol rejection or mutates decoder outputs");
+
+	for (unsigned binding = 0; binding < 8; ++binding)
+	{
+		TemporaryStateRoot root;
+		auto live = Bootstrap();
+		if (binding != 1) ++live.sessionEpoch;
+		if (binding == 2) ++live.campaignSeed;
+		if (binding == 3) ++live.campaignIdentitySha256[0];
+		if (binding == 4) ++live.runtimeFingerprint.schema;
+		if (binding == 5) ++live.runtimeFingerprint.high;
+		if (binding == 6) ++live.runtimeFingerprint.low;
+		if (binding == 7) ++live.contentManifestSha256[0];
+		FullEngineCoopClientCampaignScratch scratch;
+		const auto currentCredential = Credential(live, 0x71);
+		CHECK(scratch.prepare(root.path(), live) ==
+				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+			scratch.persistReconnectCredential(currentCredential),
+			"migration fixture creates a safe current campaign credential path");
+		const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+		CHECK(WriteBytes(path, original), "install immutable legacy fixture bytes");
+		AdmissionAck untouched = currentCredential;
+		const auto expected = binding == 0 ?
+			FullEngineCoopReconnectCredentialLoadResult::StaleSession :
+			FullEngineCoopReconnectCredentialLoadResult::BindingMismatch;
+		CHECK(scratch.loadReconnectCredential(untouched) == expected &&
+			SameCredential(untouched, currentCredential) && ReadBytes(path) == original &&
+			!scratch.persistReconnectCredential(currentCredential) &&
+			ReadBytes(path) == original,
+			"only exact campaign binding plus a different epoch may classify legacy bytes stale; load and rejected replacement preserve evidence and output");
+		if (binding == 0)
+		{
+			CHECK(scratch.eraseStaleReconnectCredential() &&
+				scratch.loadReconnectCredential(untouched) ==
+					FullEngineCoopReconnectCredentialLoadResult::Missing &&
+				scratch.persistReconnectCredential(currentCredential) &&
+				scratch.loadReconnectCredential(untouched) ==
+					FullEngineCoopReconnectCredentialLoadResult::Loaded &&
+				SameCredential(untouched, currentCredential) && ReadBytes(path) != original,
+				"explicit late verified stale erasure allows a fresh current bearer, never an old bearer relabelled current");
+		}
+		else CHECK(!scratch.eraseStaleReconnectCredential() && ReadBytes(path) == original,
+			"binding mismatch cannot erase the old record through stale migration");
+	}
+
+	TemporaryStateRoot root;
+	auto live = Bootstrap();
+	++live.sessionEpoch;
+	FullEngineCoopClientCampaignScratch scratch;
+	CHECK(scratch.prepare(root.path(), live) ==
+			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+		scratch.persistReconnectCredential(Credential(live, 0x73)),
+		"retired legacy fixture creates a safe record");
+	const auto campaign = CampaignDirectory(root.path());
+	const auto active = campaign / "client-reconnect-credential.bin";
+	const auto retired = campaign / "client-reconnect-credential.retired";
+	CHECK(WriteBytes(active, original), "retired fixture uses exact legacy record");
+	std::filesystem::rename(active, retired);
+	AdmissionAck retiredCredential;
+	auto expectedRetired = Credential(Bootstrap(), 0x21);
+	expectedRetired.protocolVersion = static_cast<std::uint16_t>(protocol);
+	CHECK(scratch.loadReconnectCredential(retiredCredential) ==
+			FullEngineCoopReconnectCredentialLoadResult::Retired &&
+		SameCredential(retiredCredential, expectedRetired) &&
+		!scratch.eraseStaleReconnectCredential() &&
+		!scratch.persistReconnectCredential(Credential(live, 0x74)) &&
+		!std::filesystem::exists(active) && ReadBytes(retired) == original,
+		"legacy retirement remains terminal and preserves its exact original protocol, epoch, identity and bearer bytes");
+}
+
+void TestLegacyReconnectCredentialMalformedRecords()
+{
+	struct Patch { std::size_t offset; std::size_t count; std::uint8_t value; };
+	struct Fixture
+	{
+		const char* name;
+		std::array<Patch, 2> patches;
+		std::uint32_t repairedFnv;
+		const char* sha256;
+	};
+	// Independent precomputed hashes keep each inner malformed record protected
+	// by a valid outer SHA; an outer checksum failure cannot mask parser gaps.
+	const Fixture fixtures[] = {
+		{"mismatched embedded protocol", {{{132, 1, 15}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "bfb430ba4dc11a110284ffa09adc6983611b39ae0c8d57605150dc52a0212110"},
+		{"mismatched embedded epoch", {{{136, 1, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "df42a4dae6bebc6f165fdcef914b0f9ee7061913f2ff790e63d5534eb80907b6"},
+		{"original bootstrap checksum corruption", {{{112, 1, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "ea7d1d47373abd7e08b996fb291f91b4750df0dd41d95d42b3baf13d7383559c"},
+		{"bootstrap reserved byte", {{{116, 1, 1}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "096cb6ca2f429622a4e180df5b12f3945142b235735fd29aa72c77caa55ce5fe"},
+		{"ACK reserved byte", {{{135, 1, 1}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "e2c0c13bef95a0086256c887d33f1a8ed25c7308f384fe805b4fdecd2057aacd"},
+		{"ACK wrong message kind", {{{134, 1, 2}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "cdcdfccbddaa8dc0ec86a71e9348822e3a8cf4000d2db08429cc9ea7badcc3e5"},
+		{"zero bootstrap and ACK epochs", {{{12, 8, 0}, {136, 8, 0}}},
+			UINT32_C(0x2876246b), "d6c84805af17f1d79d1dd91cd87ef9b7f98f5882b2831a6716a98bca0e851e0b"},
+		{"zero campaign identity", {{{28, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x052e23fb), "75ac428f484cccbb4c0935d59783b3e18d51fbdde39a0f39bb44447576838bf6"},
+		{"zero runtime schema", {{{60, 4, 0}, {0, 0, 0}}},
+			UINT32_C(0xb8b2ec6f), "7ed31ac83df9acea574bbef02071f47d949507e7e0abde58535c699b75ee5a4a"},
+		{"zero content identity", {{{80, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x05c7b9fb), "0ffccde4c13ce7942d7577a09e63ac3b7981d42194d1adb7f62536bc8c10b777"},
+		{"zero peer identity", {{{144, 16, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "cd8859bc4b0bfe89afd291b134d9b82d06dac9caf9e00d5ded458501a0c0670b"},
+		{"zero reconnect token", {{{160, 32, 0}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "9251cd523164eb5e7a1387f3f604f2533b651e76de7b32333c925762a3eeef6e"},
+		{"future protocol is not an implicit migration", {{{8, 1, 20}, {132, 1, 20}}},
+			UINT32_C(0xd3a706a1), "e68238843a81047823ae18224805722210bf761989aa682e5234bc6d68a6a55a"},
+		{"older unreviewed protocol remains rejected", {{{8, 1, 13}, {132, 1, 13}}},
+			UINT32_C(0xf4bd1834), "b64fb7c13fa341dc0b0ba77ccf3cf401c5bd94b286bbfd4a6a02813268e86351"},
+	};
+	for (const auto& fixture : fixtures)
+	{
+		TemporaryStateRoot root;
+		auto live = Bootstrap();
+		++live.sessionEpoch;
+		FullEngineCoopClientCampaignScratch scratch;
+		const auto sentinel = Credential(live, 0x76);
+		CHECK(scratch.prepare(root.path(), live) ==
+				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+			scratch.persistReconnectCredential(sentinel), "malformed migration fixture prepares");
+		auto bytes = LegacyReconnectRecord();
+		for (const auto& patch : fixture.patches)
+			std::fill_n(bytes.begin() + patch.offset, patch.count, patch.value);
+		if (fixture.repairedFnv != 0)
+			for (unsigned index = 0; index < 4; ++index)
+				bytes[112 + index] = static_cast<std::uint8_t>(fixture.repairedFnv >> (8 * index));
+		const auto digest = Digest(fixture.sha256);
+		std::copy(digest.begin(), digest.end(), bytes.begin() + 192);
+		const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+		CHECK(WriteBytes(path, bytes), "malformed fixture retains safe storage permissions");
+		AdmissionAck untouched = sentinel;
+		CHECK(scratch.loadReconnectCredential(untouched) ==
+				FullEngineCoopReconnectCredentialLoadResult::CorruptRecord &&
+			SameCredential(untouched, sentinel) && ReadBytes(path) == bytes &&
+			!scratch.eraseStaleReconnectCredential(), fixture.name);
+	}
+	TemporaryStateRoot root;
+	auto live = Bootstrap();
+	++live.sessionEpoch;
+	FullEngineCoopClientCampaignScratch scratch;
+	const auto sentinel = Credential(live, 0x77);
+	CHECK(scratch.prepare(root.path(), live) ==
+			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
+		scratch.persistReconnectCredential(sentinel), "legacy outer checksum fixture prepares");
+	auto bytes = LegacyReconnectRecord();
+	bytes.back() ^= 1;
+	const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
+	CHECK(WriteBytes(path, bytes), "install damaged legacy outer checksum");
+	AdmissionAck untouched = sentinel;
+	CHECK(scratch.loadReconnectCredential(untouched) ==
+			FullEngineCoopReconnectCredentialLoadResult::CorruptRecord &&
+		SameCredential(untouched, sentinel) && ReadBytes(path) == bytes,
+		"legacy parsing requires original outer SHA and never modifies output or damaged evidence");
+}
+
 void TestDurableRetirementMarkerLifecycle()
 {
 	TemporaryStateRoot root;
@@ -960,10 +1215,12 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.activeGeneration() == 1 &&
 		ValidatedSlots == std::vector<DedicatedCampaignSlot>{
 			DedicatedCampaignSlot::A} &&
-		LoadedSlots == ValidatedSlots && SaveCalls == 0 &&
+		PreparedSlots == ValidatedSlots && SaveCalls == 0 && AuthorityLoadCalls == 0 &&
+		scratch.activeView() && scratch.activeView()->worldMinutes == first.worldMinutes &&
+		scratch.activeView()->profiles.size() == 1 &&
 		ReadBytes(ActiveProfile /
 			DedicatedCampaignLogicalScratch(DedicatedCampaignSlot::A)) == abc,
-		"verified materialization validates and loads before publishing slot A");
+		"verified materialization publishes an owned passive view without authority loading");
 
 	const std::vector<std::uint8_t> hello{'h', 'e', 'l', 'l', 'o'};
 	const CoopCampaignSyncMetadata second =
@@ -978,11 +1235,11 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.activeSlot() == DedicatedCampaignSlot::B &&
 		scratch.activeGeneration() == 2 &&
 		ValidatedSlots.back() == DedicatedCampaignSlot::B &&
-		LoadedSlots.back() == DedicatedCampaignSlot::B,
-		"a later generation alternates to slot B and publishes only after load");
+		PreparedSlots.back() == DedicatedCampaignSlot::B,
+		"a later generation alternates to slot B and publishes only after passive preparation");
 	CHECK(scratch.begin(first) ==
 		FullEngineCoopCampaignScratchBeginResult::StorageFailure,
-		"scratch independently refuses generation rollback after a committed load");
+		"scratch independently refuses generation rollback after a committed projection");
 
 	CoopCampaignSyncMetadata sameGeneration = second;
 	++sameGeneration.transfer.transferId;
@@ -995,7 +1252,7 @@ void TestSequentialCommitAlternationAndAbort()
 			FullEngineCoopCampaignScratchCommitResult::Committed &&
 		scratch.activeGeneration() == 2 &&
 		scratch.activeSlot() == DedicatedCampaignSlot::A &&
-		LoadedSlots.size() == 3,
+		PreparedSlots.size() == 3,
 		"a reconnect may recommit the exact active checkpoint under a fresh transfer id");
 	CoopCampaignSyncMetadata equivocating = sameGeneration;
 	++equivocating.transfer.transferId;
@@ -1015,6 +1272,17 @@ void TestSequentialCommitAlternationAndAbort()
 		scratch.writeExact(0, abc.data(), abc.size()) ==
 			FullEngineCoopCampaignScratchWriteResult::Success,
 		"third generation reuses the now-inactive slot");
+	const auto committedView = *scratch.activeView();
+	ExpectedCheckpoint = abc;
+	PreparationSucceeds = false;
+	CHECK(scratch.commitAndLoad(third) ==
+			FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
+		!scratch.failStopped() && scratch.activeView() && *scratch.activeView() == committedView &&
+		scratch.activeSlot() == DedicatedCampaignSlot::A && scratch.activeGeneration() == 2 &&
+		ReadBytes(ActiveProfile / DedicatedCampaignLogicalScratch(DedicatedCampaignSlot::A)) == hello &&
+		AuthorityLoadCalls == 0,
+		"missing replacement projection retains the committed file, generation and owned display view");
+	PreparationSucceeds = true;
 	scratch.abort();
 	CHECK(FileSize(campaign / "checkpoint-b.sav") == 0 &&
 		scratch.activeSlot() == DedicatedCampaignSlot::A &&
@@ -1054,7 +1322,7 @@ void TestFailureClassificationAndFailStop()
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(badHash) ==
 				FullEngineCoopCampaignScratchCommitResult::HashMismatch &&
-			ValidatedSlots.empty() && LoadedSlots.empty(),
+			ValidatedSlots.empty() && PreparedSlots.empty(),
 			"full-size bytes with the wrong SHA never reach JA2 validation or load");
 		scratch.abort();
 		CoopCampaignSyncMetadata oversized = metadata;
@@ -1122,7 +1390,7 @@ void TestFailureClassificationAndFailStop()
 		{
 			CHECK(scratch.commitAndLoad(metadata) ==
 					FullEngineCoopCampaignScratchCommitResult::StorageFailure &&
-				ValidatedSlots.empty() && LoadedSlots.empty(),
+				ValidatedSlots.empty() && PreparedSlots.empty(),
 				"unsafe VFS destination makes materialization fail before JA2");
 		}
 		scratch.abort();
@@ -1144,12 +1412,12 @@ void TestFailureClassificationAndFailStop()
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(metadata) ==
 				FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
-			!scratch.failStopped() && LoadedSlots.empty() &&
+			!scratch.failStopped() && PreparedSlots.empty() &&
 			!scratch.hasActiveCheckpoint(),
 			"strict validation failure is classified without loading or publication");
 		scratch.abort();
 		ValidationSucceeds = true;
-		LoadSucceeds = false;
+		PreparationSucceeds = false;
 		CoopCampaignSyncMetadata retry = metadata;
 		retry.transfer.transferId = 102;
 		CHECK(scratch.begin(retry) ==
@@ -1157,11 +1425,10 @@ void TestFailureClassificationAndFailStop()
 			scratch.writeExact(0, abc.data(), abc.size()) ==
 				FullEngineCoopCampaignScratchWriteResult::Success &&
 			scratch.commitAndLoad(retry) ==
-				FullEngineCoopCampaignScratchCommitResult::LoadFailed &&
-			scratch.failStopped() && !scratch.hasActiveCheckpoint() &&
-			scratch.begin(retry) ==
-				FullEngineCoopCampaignScratchBeginResult::StorageFailure,
-			"load failure is fail-stop and can never report or later publish committed");
+				FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch &&
+			!scratch.failStopped() && !scratch.hasActiveCheckpoint() && !scratch.activeView() &&
+			AuthorityLoadCalls == 0,
+			"projection preparation failure publishes nothing and never invokes native loading");
 		scratch.abort();
 	}
 }
@@ -1181,12 +1448,25 @@ bool ValidateDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
 			ExpectedCheckpoint;
 }
 
-bool LoadDedicatedCampaignGame(DedicatedCampaignSlot slot) noexcept
+bool LoadDedicatedCampaignGame(DedicatedCampaignSlot) noexcept
 {
-	LoadedSlots.push_back(slot);
-	return LoadSucceeds && !ActiveProfile.empty() &&
-		ReadBytes(ActiveProfile / DedicatedCampaignLogicalScratch(slot)) ==
-			ExpectedCheckpoint;
+	++AuthorityLoadCalls;
+	return false;
+}
+
+PassiveCampaignPreparationResult PreparePassiveDedicatedCampaignCheckpoint(
+	DedicatedCampaignSlot slot, std::uint32_t minute, PassiveCampaignView& output) noexcept
+{
+	if (!ValidateDedicatedCampaignGame(slot)) return PassiveCampaignPreparationResult::InvalidCheckpoint;
+	PreparedSlots.push_back(slot);
+	if (!PreparationSucceeds) return PassiveCampaignPreparationResult::MissingView;
+	PassiveCampaignView view;
+	view.worldMinutes = minute;
+	PassiveCampaignProfile profile;
+	profile.id = 4; profile.nickname[0] = 'T';
+	view.profiles.push_back(profile);
+	output = std::move(view);
+	return PassiveCampaignPreparationResult::Ready;
 }
 
 int main()
@@ -1195,6 +1475,14 @@ int main()
 	TestRestartAllowlistRejectsWritableAliases();
 	TestRestartResetsVfsOwnedDisposableProfile();
 	TestDurableReconnectCredentialLifecycle();
+	TestLegacyReconnectCredentialMigration(8);
+	TestLegacyReconnectCredentialMigration(9);
+	TestLegacyReconnectCredentialMigration(14);
+	TestLegacyReconnectCredentialMigration(15);
+	TestLegacyReconnectCredentialMigration(16);
+	TestLegacyReconnectCredentialMigration(17);
+	TestLegacyReconnectCredentialMigration(18);
+	TestLegacyReconnectCredentialMalformedRecords();
 	TestDurableRetirementMarkerLifecycle();
 	TestReconnectCredentialAdversarialStorage();
 	TestRetiredMarkerAdversarialStorage();

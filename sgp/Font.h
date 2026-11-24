@@ -128,6 +128,9 @@ extern void			UnloadFont(UINT32 FontIndex);
 extern FontTranslationTable *CreateEnglishTransTable(	);
 
 extern INT16 GetIndex(CHAR16 siChar);
+// Quiet translation-table lookup for renderers that deliberately substitute
+// an unsupported authority-provided character instead of logging every frame.
+extern BOOLEAN TryGetIndex(CHAR16 siChar, INT16* psIndex);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);
 
 extern INT16 StringPixLengthArgFastHelp( INT32 usUseFont, INT32 usBoldFont, UINT32 uiCharCount, STR16 pFontString );

@@ -891,7 +891,11 @@ void InitGameOptions()
 	gGameOptions.fAirStrikes		= FALSE;
 	gGameOptions.ubGameStyle		= STYLE_SCIFI;
 	gGameOptions.ubDifficultyLevel	= DIF_LEVEL_MEDIUM;
-	
+	// The interactive new-game screen may replace this from ja2_sp.ini, but
+	// callers that deliberately bypass that screen still require a usable
+	// squad capacity. Six is the canonical low-resolution/default value.
+	gGameOptions.ubSquadSize		= 6;
+
 	//CHRISL: override default inventory mode when in low res
 	if(IsNIVModeValid(true) == FALSE)
 	{

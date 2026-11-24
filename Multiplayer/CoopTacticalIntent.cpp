@@ -93,6 +93,11 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::AimedFirearmAttack: return 7;
 		case TacticalIntentKind::DoorOpenClose: return 7;
 		case TacticalIntentKind::PassInterrupt: return 8;
+		case TacticalIntentKind::BeginFirstAid: return 6;
+		case TacticalIntentKind::SwapInventorySlots: return 12;
+		case TacticalIntentKind::TransferInventoryItem: return 26;
+		case TacticalIntentKind::PickupWorldItem: return 18;
+		case TacticalIntentKind::DropInventoryItem: return 10;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -114,6 +119,11 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Reload:
 		case TacticalIntentKind::DoorOpenClose:
 		case TacticalIntentKind::PassInterrupt:
+		case TacticalIntentKind::BeginFirstAid:
+		case TacticalIntentKind::SwapInventorySlots:
+		case TacticalIntentKind::TransferInventoryItem:
+		case TacticalIntentKind::PickupWorldItem:
+		case TacticalIntentKind::DropInventoryItem:
 			return true;
 	}
 	return false;
@@ -155,6 +165,16 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 		if constexpr (std::is_same<Payload,
 			DoorOpenCloseTacticalIntent>::value)
 			return TacticalIntentKind::DoorOpenClose;
+		if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			return TacticalIntentKind::BeginFirstAid;
+		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			return TacticalIntentKind::SwapInventorySlots;
+		if constexpr (std::is_same<Payload, TransferInventoryItemTacticalIntent>::value)
+			return TacticalIntentKind::TransferInventoryItem;
+		if constexpr (std::is_same<Payload, PickupWorldItemTacticalIntent>::value)
+			return TacticalIntentKind::PickupWorldItem;
+		if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
+			return TacticalIntentKind::DropInventoryItem;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -168,7 +188,7 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		!intent.actor.valid() || intent.payload.valueless_by_exception())
 		return false;
 
-	return std::visit([](const auto& payload) noexcept {
+	return std::visit([&intent](const auto& payload) noexcept {
 		using Payload = typename std::decay<decltype(payload)>::type;
 		if constexpr (std::is_same<Payload, MoveTacticalIntent>::value)
 			return payload.destinationGrid >= 0;
@@ -186,6 +206,23 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload,
 			PassInterruptTacticalIntent>::value)
 			return payload.interruptSerial != 0;
+		if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			return payload.target.valid();
+		if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			return payload.sourceSlot < 256 && payload.destinationSlot < 256 &&
+				payload.sourceSlot != payload.destinationSlot &&
+				payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, TransferInventoryItemTacticalIntent>::value)
+			return payload.target.valid() && payload.target != intent.actor &&
+				payload.sourceSlot < 256 && payload.destinationSlot < 256 &&
+				payload.expectedInventoryRevision != 0 &&
+				payload.expectedTargetInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, PickupWorldItemTacticalIntent>::value)
+			return payload.item.valid() && payload.destinationSlot < 256 &&
+				payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
+			return payload.sourceSlot >= 14 && payload.sourceSlot < 55 &&
+				payload.expectedInventoryRevision != 0;
 		return true;
 	}, intent.payload);
 }
@@ -251,6 +288,38 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			else if constexpr (std::is_same<Payload,
 				PassInterruptTacticalIntent>::value)
 				WriteU64(encoded, payload.interruptSerial);
+			else if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.target.slot);
+				WriteU32(encoded, payload.target.incarnation);
+			}
+			else if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU16(encoded, payload.destinationSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
+			else if constexpr (std::is_same<Payload, TransferInventoryItemTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.target.slot);
+				WriteU32(encoded, payload.target.incarnation);
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU16(encoded, payload.destinationSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+				WriteU64(encoded, payload.expectedTargetInventoryRevision);
+			}
+			else if constexpr (std::is_same<Payload, PickupWorldItemTacticalIntent>::value)
+			{
+				WriteU32(encoded, payload.item.slot);
+				WriteU32(encoded, payload.item.incarnation);
+				WriteU16(encoded, payload.destinationSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
+			else if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
 		}, intent.payload);
 
 		if (encoded.size() != TacticalIntentHeaderWireSize + payloadSize)
@@ -345,6 +414,15 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			decoded.payload = payload;
 			break;
 		}
+		case TacticalIntentKind::BeginFirstAid:
+		{
+			BeginFirstAidTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
 		case TacticalIntentKind::DoorOpenClose:
 		{
 			DoorOpenCloseTacticalIntent payload;
@@ -357,10 +435,53 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			decoded.payload = payload;
 			break;
 		}
+		case TacticalIntentKind::SwapInventorySlots:
+		{
+			SwapInventorySlotsTacticalIntent payload;
+			if (!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU16(input, end, payload.destinationSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
 		case TacticalIntentKind::PassInterrupt:
 		{
 			PassInterruptTacticalIntent payload;
 			if (!ReadU64(input, end, payload.interruptSerial))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::TransferInventoryItem:
+		{
+			TransferInventoryItemTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation) ||
+				!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU16(input, end, payload.destinationSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision) ||
+				!ReadU64(input, end, payload.expectedTargetInventoryRevision))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::PickupWorldItem:
+		{
+			PickupWorldItemTacticalIntent payload;
+			if (!ReadU32(input, end, payload.item.slot) ||
+				!ReadU32(input, end, payload.item.incarnation) ||
+				!ReadU16(input, end, payload.destinationSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::DropInventoryItem:
+		{
+			DropInventoryItemTacticalIntent payload;
+			if (!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
 				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;

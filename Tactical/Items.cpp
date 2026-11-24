@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "Simulation Commands.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
@@ -3265,13 +3266,24 @@ void SwapObjs( OBJECTTYPE * pObj1, OBJECTTYPE * pObj2 )
 //but never handles the effects of that swap!
 void SwapObjs(TacticalActor* pSoldier, int leftSlot, int rightSlot, BOOLEAN fPermanent)
 {
+	SimulationCommandDispatchResult outcomes[2];
+	SwapObjs(pSoldier, leftSlot, rightSlot, fPermanent, outcomes);
+}
+
+void SwapObjs(TacticalActor* pSoldier, int leftSlot, int rightSlot,
+	BOOLEAN fPermanent, SimulationCommandDispatchResult (&outcomes)[2])
+{
+	outcomes[0] = SimulationCommandDispatchResult{};
+	outcomes[1] = SimulationCommandDispatchResult{};
 	SwapObjs(&pSoldier->inventory()[ leftSlot ], &pSoldier->inventory()[ rightSlot ]);
 
 	if ( fPermanent && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )//dnl ch64 290813 for current tank don't go further as it lead to invalid animation
 	{
 		//old usItem for the left slot is now stored in the right slot, and vice versa
-		HandleTacticalEffectsOfEquipmentChange(pSoldier, leftSlot, pSoldier->inventory()[ rightSlot ].usItem, pSoldier->inventory()[ leftSlot ].usItem);
-		HandleTacticalEffectsOfEquipmentChange(pSoldier, rightSlot, pSoldier->inventory()[ leftSlot ].usItem, pSoldier->inventory()[ rightSlot ].usItem);
+		const SimulationCommandDispatchResult left = TryHandleTacticalEffectsOfEquipmentChange(pSoldier, leftSlot, pSoldier->inventory()[ rightSlot ].usItem, pSoldier->inventory()[ leftSlot ].usItem);
+		outcomes[0] = left;
+		const SimulationCommandDispatchResult right = TryHandleTacticalEffectsOfEquipmentChange(pSoldier, rightSlot, pSoldier->inventory()[ leftSlot ].usItem, pSoldier->inventory()[ rightSlot ].usItem);
+		outcomes[1] = right;
 	}
 }
 
@@ -4050,8 +4062,10 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 				bAPCost = GetAPsToReloadGunWithAmmo( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) );
 				if ( EnoughPoints( pSoldier, (INT16)bAPCost, 0, FALSE ) )
 				{
-					// reload the 2nd gun too
-					fRet = ReloadGun( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) );
+					// Always try the second gun, but a failed second reload must not
+					// erase a primary reload that already changed ammunition and AP.
+					if ( ReloadGun( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) ) )
+						fRet = TRUE;
 				}
 				else
 				{
@@ -12951,7 +12965,14 @@ INT16 GetWornSnowCamo( TacticalActor * pSoldier )
 
 void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 {
-	if ( pSoldier == NULL) return;
+	if ( pSoldier != NULL )
+		(void)ApplyEquipmentBonusesChecked(*pSoldier);
+}
+
+bool ApplyEquipmentBonusesChecked(TacticalActor& soldier)
+{
+	TacticalActor* const pSoldier = &soldier;
+	bool complete = true;
 
 	INT16 newCamo = GetWornCamo ( pSoldier );
 	INT16 oldCamo = pSoldier->camouflage().jungleWorn();
@@ -12981,13 +13002,13 @@ void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
+			complete = TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	else if ( (newCamo < oldCamo || newUrbanCamo < oldUrbanCamo || newDesertCamo < oldDesertCamo || newSnowCamo < oldSnowCamo )&& pSoldier->roster().team() == OUR_TEAM )
 	{
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
+			complete = TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	// WANNE: Madd, I commented this, because this leads to IRAs INVISIBLE BUG!
 	// We should only call the CreateSoldierPalettes if oldCamo != newCamo. See above!
@@ -13007,6 +13028,7 @@ void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 	*/
 
 	fInterfacePanelDirty = DIRTYLEVEL2;
+	return complete;
 }
 
 UINT16 GetFirstExplosiveOfType(UINT16 expType)

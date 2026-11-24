@@ -1995,6 +1995,39 @@ BOOLEAN LightSetBaseLevel(UINT8 iIntensity)
 }
 
 /****************************************************************************************
+	LightSetBaseLevelForStaticPresentation
+
+		Applies only the replicated renderer ambient to a presentation world.
+		Personal/soldier lights and map light sprites are authority-dependent
+		domains and are intentionally not inferred or rendered here.
+
+***************************************************************************************/
+BOOLEAN LightSetBaseLevelForStaticPresentation(UINT8 iIntensity)
+{
+	if ( !IsWorldPreparedForStaticPresentation() ||
+		gpWorldLevelData == NULL || iIntensity < SHADE_MAX ||
+		iIntensity > SHADE_MIN )
+	{
+		return FALSE;
+	}
+
+	ubAmbientLightLevel = iIntensity;
+	for ( INT16 iCountY = 0; iCountY < WORLD_ROWS; ++iCountY )
+	{
+		for ( INT16 iCountX = 0; iCountX < WORLD_COLS; ++iCountX )
+		{
+			if ( !LightSetNaturalTile( iCountX, iCountY, iIntensity ) )
+			{
+				return FALSE;
+			}
+		}
+	}
+
+	RenderSetShadows( iIntensity < LIGHT_DUSK_CUTOFF );
+	return TRUE;
+}
+
+/****************************************************************************************
 	LightAddBaseLevel
 
 		Adds a light value to all the tiles in the world
@@ -3164,6 +3197,70 @@ BOOLEAN LightSetColors(SGPPaletteEntry *pPal, UINT8 ubNumColors)
 	SetRenderFlags(RENDER_FLAG_FULL);
 
 	return(TRUE);
+}
+
+
+BOOLEAN LightSetColorsForStaticPresentation(
+	const SGPPaletteEntry *pPal, UINT8 ubNumColors)
+{
+	if ( !IsWorldPreparedForStaticPresentation() || pPal == NULL ||
+		ubNumColors < 1 || ubNumColors > 2 )
+	{
+		return FALSE;
+	}
+
+	const UINT8 previousColorCount = gubNumLightColors;
+	SGPPaletteEntry previousColors[3];
+	SGPPaletteEntry previousOriginals[2];
+	memcpy( previousColors, gpLightColors, sizeof(previousColors) );
+	memcpy( previousOriginals, gpOrigLights, sizeof(previousOriginals) );
+
+	const BOOLEAN colorsChanged = previousColorCount != ubNumColors ||
+		memcmp( pPal, previousOriginals,
+			sizeof(SGPPaletteEntry) * ubNumColors ) != 0;
+
+	memcpy( &gpLightColors[0], &pPal[0], sizeof(SGPPaletteEntry) );
+	memcpy( &gpOrigLights[0], &pPal[0],
+		sizeof(SGPPaletteEntry) * ubNumColors );
+	gubNumLightColors = ubNumColors;
+	if ( ubNumColors == 2 )
+	{
+		gpLightColors[1].peRed = (UINT8)__min(
+			((INT16)pPal[0].peRed * LVL1_L1_PER / 100 +
+				(INT16)pPal[1].peRed * LVL1_L2_PER / 100), 255);
+		gpLightColors[1].peGreen = (UINT8)__min(
+			((INT16)pPal[0].peGreen * LVL1_L1_PER / 100 +
+				(INT16)pPal[1].peGreen * LVL1_L2_PER / 100), 255);
+		gpLightColors[1].peBlue = (UINT8)__min(
+			((INT16)pPal[0].peBlue * LVL1_L1_PER / 100 +
+				(INT16)pPal[1].peBlue * LVL1_L2_PER / 100), 255);
+		gpLightColors[2].peRed = (UINT8)__min(
+			((INT16)pPal[0].peRed * LVL2_L1_PER / 100 +
+				(INT16)pPal[1].peRed * LVL2_L2_PER / 100), 255);
+		gpLightColors[2].peGreen = (UINT8)__min(
+			((INT16)pPal[0].peGreen * LVL2_L1_PER / 100 +
+				(INT16)pPal[1].peGreen * LVL2_L2_PER / 100), 255);
+		gpLightColors[2].peBlue = (UINT8)__min(
+			((INT16)pPal[0].peBlue * LVL2_L1_PER / 100 +
+				(INT16)pPal[1].peBlue * LVL2_L2_PER / 100), 255);
+	}
+
+	if ( !BuildTileShadeTablesForStaticPresentation() )
+	{
+		// The builder stages replacements without touching the installed
+		// tables.  Restoring this metadata therefore restores the complete
+		// prior palette state rather than merely relabeling partial tables.
+		gubNumLightColors = previousColorCount;
+		memcpy( gpLightColors, previousColors, sizeof(previousColors) );
+		memcpy( gpOrigLights, previousOriginals, sizeof(previousOriginals) );
+		return FALSE;
+	}
+	if ( colorsChanged )
+	{
+		SetAllNewTileSurfacesLoaded( TRUE );
+	}
+	SetRenderFlags( RENDER_FLAG_FULL );
+	return TRUE;
 }
 
 //---------------------------------------------------------------------------------------

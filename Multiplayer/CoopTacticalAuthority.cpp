@@ -240,6 +240,12 @@ TacticalIntentAuthorizationResult TacticalIntentAuthority::authorize(
 		result.reason = TacticalIntentAuthorizationReason::ActorNotOwned;
 		return result;
 	}
+	const auto* transfer = std::get_if<TransferInventoryItemTacticalIntent>(&intent.payload);
+	if (transfer != nullptr && !peerOwnsActor(resolvedPeer, transfer->target))
+	{
+		result.reason = TacticalIntentAuthorizationReason::ActorNotOwned;
+		return result;
+	}
 
 	result.reason = TacticalIntentAuthorizationReason::None;
 	return result;

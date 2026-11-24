@@ -21,7 +21,12 @@
 	#include "GameSettings.h"
 	#include "GameContext.h"
 	#include "DedicatedCoopRuntime.h"
+	#include "DedicatedCoopSurrender.h"
+#include "DedicatedCoopBattleNotice.h"
+#include "DedicatedCoopMeanwhile.h"
+	#include "FullEngineCoopClientPresentationRuntime.h"
 	#include "FullEngineCoopClientRuntime.h"
+	#include "FullEngineCoopClientScreen.h"
 #include "TacticalCommandHost.h"
 #include "TacticalInterruptHost.h"
 	#include "TacticalWorldObserverHost.h"
@@ -402,6 +407,12 @@ extern void RefreshBoxes( );
 
 static FramePlan PrepareGameFrame()
 {
+	// Tick sinks isolate exceptions. Abort this frame before screen, command or
+	// observer work if the authoritative native clock failed inside one.
+	GetGameContext().campaignSimulation().throwIfFailed();
+	// Native gameplay waits for the explicit shared answer. The completed-frame
+	// observer and dedicated transport pump still run, including reconnects.
+	if (DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return FramePlan{};
 	//	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop");
 
 	InputAtom	InputEvent;
@@ -691,14 +702,39 @@ static void CompleteGameFrame()
 static FramePlan PrepareFullEngineCoopClientFrame()
 {
 	// Campaign load is an identity/compatibility input for this process, not a
-	// local authority transition. Discard its restored MAP/GAME screen request
-	// without running legacy screen teardown or any generic frame hook which can
-	// mutate that cold campaign (world-item resizing is one such hook).
+	// local authority transition. Discard its restored screen request without
+	// running legacy screen teardown or any generic frame hook which can mutate
+	// that cold campaign (world-item resizing is one such hook).
 	RequestScreenTransition(NO_PENDING_SCREEN);
+	const bool presentationReady =
+		SynchronizeFullEngineCoopClientPresentation();
+
+	// A ready presentation may remain in GAME_SCREEN, but this branch invokes
+	// only MainGameScreenHandle's explicitly gated renderer subset. Input is
+	// consumed by the isolated co-op controller and sent as intents before the
+	// frame; legacy tactical UI input and simulation never run.
+	if (presentationReady && GetCurrentScreen() == GAME_SCREEN)
+	{
+		HandleFullEngineCoopClientInput();
+		RefreshFullEngineCoopClientPresentationFocus();
+		const UINT32 requested = HandleRegisteredScreen(GAME_SCREEN);
+		if (requested != GAME_SCREEN)
+		{
+			ShutdownFullEngineCoopClientPresentation();
+			(void)RecordScreenTransition(INIT_SCREEN);
+		}
+		return FramePlan{};
+	}
+
+	// Initialization and every fail-closed/resynchronizing interval retain the
+	// diagnostic INIT child. Let that state machine finish all engine startup
+	// phases before it is allowed to request the first presentation transition.
 	if (GetCurrentScreen() != INIT_SCREEN)
 		(void)RecordScreenTransition(INIT_SCREEN);
 	const UINT32 requested = HandleRegisteredScreen(INIT_SCREEN);
-	if (requested != INIT_SCREEN)
+	if (requested == GAME_SCREEN && presentationReady)
+		(void)RecordScreenTransition(GAME_SCREEN);
+	else if (requested != INIT_SCREEN)
 	{
 		RequestScreenTransition(NO_PENDING_SCREEN);
 		(void)RecordScreenTransition(INIT_SCREEN);
@@ -713,9 +749,19 @@ void GameLoop(void)
 		// The cold checkpoint is compatibility/load input only. A passive client
 		// must not run PumpJA2Clock, package messages, runtime updates, fixed
 		// simulation ticks, or any tactical command/observer host against it.
-		// Keep the worldless INIT shell responsive and present it directly, then
-		// advance only the isolated client transport at this completed UI boundary.
+		// Keep the fail-closed INIT shell or renderer-only GAME screen responsive,
+		// present it directly, then advance only the isolated client transport at
+		// this completed UI boundary.
 		const FramePlan plan = PrepareFullEngineCoopClientFrame();
+		// SDL hides the system pointer because JA2 composites its own. The
+		// passive INIT/GAME paths bypass normal tactical cursor selection, and
+		// INIT/loading can erase it, so restore the presentation-only pointer
+		// after screen rendering on every frame (including reconnect waits).
+		if (!RefreshFullEngineCoopClientCursor())
+		{
+			gfProgramIsRunning = FALSE;
+			return;
+		}
 		if (plan.present)
 			GetGameContext().services().frames.present(
 				plan.presentationMode);
@@ -726,14 +772,24 @@ void GameLoop(void)
 		runtime.pumpAfterCommittedFrame();
 		if (runtime.failed())
 		{
+			const CoopRuntimeFailureDiagnostic& diagnostic =
+				runtime.failureDiagnostic();
 			std::fprintf(stderr,
-				"[co-op client] runtime failed: %s\n",
-				FullEngineCoopClientRuntimeErrorName(runtime.error()));
+				"[co-op client] runtime failed: %s; stage=%s; reason=%s; "
+				"detail=%s; endpoint=%s:%u\n",
+				FullEngineCoopClientRuntimeErrorName(runtime.error()),
+				diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+				runtime.serverHost()[0] != '\0' ? runtime.serverHost() :
+					"<unavailable>",
+				static_cast<unsigned>(runtime.serverPort()));
 			gfProgramIsRunning = FALSE;
 		}
 		return;
 	}
 
+	// A later/manual loop attempt must not drain messages or native commands
+	// after a failed campaign tick, even if frame pacing was reset.
+	GetGameContext().campaignSimulation().throwIfFailed();
 	BeginJa2TacticalCommandFrame(GetGameContext());
 	// Co-op intents are admitted only after the previous committed frame. Drain
 	// that bounded prefix before any legacy timer, AI, or UI work can invalidate
@@ -747,7 +803,23 @@ void GameLoop(void)
 	PumpJA2Clock();
 	GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame);
 	if (IsDedicatedCoopProcess())
-		GetDedicatedCoopRuntime().pumpAfterCommittedFrame(GetGameContext());
+	{
+		DedicatedCoopRuntime& runtime = GetDedicatedCoopRuntime();
+		runtime.pumpAfterCommittedFrame(GetGameContext());
+		if (runtime.failed())
+		{
+			const CoopRuntimeFailureDiagnostic& diagnostic =
+				runtime.failureDiagnostic();
+			std::fprintf(stderr,
+				"[dedicated] co-op runtime failed: %s; stage=%s; reason=%s; "
+				"detail=%s; endpoint=%s:%u\n",
+				DedicatedCoopRuntimeErrorName(runtime.error()),
+				diagnostic.stage(), diagnostic.reason(), diagnostic.detail(),
+				runtime.bindAddress()[0] != '\0' ? runtime.bindAddress() :
+					"<unavailable>",
+				static_cast<unsigned>(runtime.bindPort()));
+		}
+	}
 }
 
 void SetCurrentScreen( UINT32 uiNewScreen )

@@ -535,10 +535,16 @@ UINT32 PlatformSoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
 	return SoundPlayInternal(pFilename, pParms, /*useEOSCallback=*/true);
 }
 
-// Cosmetic RNG for ambient jitter. Deliberately NOT the game's deterministic
-// Random() -- that feeds gameplay/saves/MP and must not be perturbed by audio.
-// SDL_rand keeps its own global state. Returns 0..n-1 (0 when n==0).
-static UINT32 SoundRandRange(UINT32 n) { return n ? (UINT32)SDL_rand((Sint32)n) : 0u; }
+// Audio scheduling and playlist selection never consume the campaign stream.
+// Rejection sampling supports the complete UINT32 bound without signed casts.
+UINT32 SoundRandomRange(UINT32 upperBound)
+{
+	if (upperBound <= 1) return 0;
+	const UINT32 threshold = (0u - upperBound) % upperBound;
+	UINT32 value;
+	do { value = SDL_rand_bits(); } while (value < threshold);
+	return value % upperBound;
+}
 
 // Register a sector ambient to be (re)played at random intervals. The sample is
 // cached + locked and flagged SAMPLE_RANDOM; SoundServiceRandom() (every frame
@@ -571,7 +577,7 @@ UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 	                 ? 1u : pParms->uiMaxInstances;
 	s.instances = 0;
 	// First play after a random delay in [timeMin, timeMax], like the original.
-	s.uiTimeNext = RealTicksMS() + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+	s.uiTimeNext = RealTicksMS() + s.uiTimeMin + SoundRandomRange(s.uiTimeMax - s.uiTimeMin);
 	return idx;
 }
 
@@ -697,8 +703,8 @@ BOOLEAN SoundServiceRandom(void)
 		if (s.instances < s.uiMaxInstances) {
 			SOUNDPARMS sp;
 			std::memset(&sp, 0xff, sizeof(sp));
-			sp.uiVolume = s.uiVolMin + SoundRandRange(s.uiVolMax - s.uiVolMin);
-			sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
+			sp.uiVolume = s.uiVolMin + SoundRandomRange(s.uiVolMax - s.uiVolMin);
+			sp.uiPan    = s.uiPanMin + SoundRandomRange(s.uiPanMax - s.uiPanMin);
 			sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
 			SoundPlay(s.name, &sp); // increments s.instances; reaped later -> decrements
 			// Advance the timer ONLY on a successful fire -- the original FMOD
@@ -710,7 +716,7 @@ BOOLEAN SoundServiceRandom(void)
 			// stretching its cadence to 2-3x and desyncing the two ambients'
 			// independent "own agenda". Keeping it inside the branch means a capped
 			// sound stays past-due and fires the instant the cap frees.
-			s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+			s.uiTimeNext = now + s.uiTimeMin + SoundRandomRange(s.uiTimeMax - s.uiTimeMin);
 		}
 	}
 	return TRUE;

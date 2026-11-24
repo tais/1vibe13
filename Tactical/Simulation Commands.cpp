@@ -1,4 +1,8 @@
+#include "DedicatedCoopMoveDiagnostic.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationState.h"
 #include "TacticalActorEvents.h"
 #include "TacticalActorPendingActionTypes.h"
 #include "TacticalActorStateFlags.h"
@@ -16,9 +20,16 @@
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorTraversal.h"
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMedicalSession.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorLighting.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -27,14 +38,19 @@
 #include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
 
 #include "Animation Control.h"
+#include "Animation Data.h"
 #include "GameContext.h"
+#include "GameSettings.h"
 #include "Grid Direction.h"
 #include "Handle UI.h"
 #include "Handle Items.h"
 #include "Handle Doors.h"
 #include "Interactive Tiles.h"
+#include "Interface Panels.h"
+#include "Interface Items.h"
 #include "Isometric Utils.h"
 #include "Items.h"
+#include "LOS.h"
 #include "Map Information.h"
 #include "Keys.h"
 #include "Overhead.h"
@@ -42,6 +58,7 @@
 #include "Points.h"
 #include "TacticalActor.h"
 #include "Soldier Functions.h"
+#include "Soldier Profile Constants.h"
 #include "Soldier macros.h"
 #include "Squads.h"
 #include "TacticalEntityHost.h"
@@ -56,6 +73,7 @@
 #include "structure.h"
 #include "worlddef.h"
 #include "worldman.h"
+#include "World Tile Map.h"
 #include "ai.h"
 
 extern BOOLEAN gfAutofireInitBulletNum;
@@ -396,6 +414,18 @@ namespace
 			ManLooksForOtherTeams(&soldier);
 	}
 
+	// Private composite-safe equipment core: the caller has already admitted
+	// its retained command. No nested System command is dispatched here.
+	void ApplyResolvedEquipmentChange(TacticalActor& soldier,
+		const TacticalWeaponConfigurationResult& result,
+		TacticalWeaponConfigurationPostApplyPolicy policy, UINT32 slot,
+		UINT16 previousItem, UINT16 changedItem, bool refreshHand)
+	{
+		ApplyWeaponConfigurationResult(soldier, result);
+		ApplyWeaponConfigurationPresentation(soldier, policy);
+		CompleteEquipmentTacticalEffects(soldier, slot, previousItem, changedItem, refreshHand);
+	}
+
 	bool IsAttachedLauncherWeaponMode(std::int8_t weaponMode) noexcept
 	{
 		return weaponMode == WM_ATTACHED_GL ||
@@ -670,6 +700,770 @@ namespace
 			fingerprint *= 1099511628211ull;
 			encoded >>= 8;
 		}
+	}
+
+	bool HasOnlyEmptyAttachmentSlots(const StackedObjectData& stack) noexcept;
+
+	bool FirstAidPoseReady(const TacticalActor& actor) noexcept
+	{
+		const UINT16 animation = actor.animationPlayback().state();
+		return animation < NUMANIMATIONSTATES &&
+			(gAnimControl[animation].uiFlags &
+				(ANIM_MOVING | ANIM_SPECIALMOVE | ANIM_FIRE)) == 0 &&
+			!actor.animationIntent().hasPendingAnimation() &&
+			!actor.animationIntent().hasSecondaryPendingAnimation() &&
+			!actor.animationActivity().nonInterruptible() &&
+			!actor.animationActivity().realtimeNonInterruptible() &&
+			!actor.animationActivity().turningUntilDone() &&
+			actor.pendingAction().action() == NO_PENDING_ACTION &&
+			!actor.runtime().worldObject.active() &&
+			!actor.fireControl().reloading() &&
+			actor.fireControl().burstCounter() == 0 &&
+			actor.fireControl().autofireShots() == 0 &&
+			!actor.service().hasPartner() && !actor.service().hasProviders() &&
+			!actor.vitals().isUndergoingSurgery();
+	}
+
+	bool IsCanonicalEmptyInventoryObject(const OBJECTTYPE& object) noexcept
+	{
+		if (object.usItem != NOTHING || object.ubNumberOfObjects != 0 ||
+			object.ubMission != 0 || object.fFlags != 0 || object.objectStack.size() != 1)
+			return false;
+		const StackedObjectData& stack = object.objectStack.front();
+		const ObjectData& data = stack.data;
+		return stack.attachments.empty() && data.gun.bGunStatus == 0 &&
+			data.gun.ubGunAmmoType == 0 && data.gun.ubGunShotsLeft == 0 &&
+			data.gun.usGunAmmoItem == 0 && data.gun.bGunAmmoStatus == 0 && data.gun.ubGunState == 0 &&
+			data.bTrap == 0 && data.fUsed == 0 && data.ubImprintID == 0 &&
+			data.bTemperature == 0 && data.ubDirection == 0 && data.ubWireNetworkFlag == 0 &&
+			data.bDefuseFrequency == 0 && data.sRepairThreshold == 0 && data.sObjectFlag == 0;
+	}
+
+	bool HasOnlyEmptyAttachmentSlots(const StackedObjectData& stack) noexcept
+	{
+		if (stack.attachments.size() > MAX_ATTACHMENTS) return false;
+		for (const OBJECTTYPE& attachment : stack.attachments)
+			if (!IsCanonicalEmptyInventoryObject(attachment)) return false;
+		return true;
+	}
+
+	void MixInventoryObjectData(std::uint64_t& fingerprint, const ObjectData& data) noexcept
+	{
+		// Named union fields cover the storage native ObjectData actually copies;
+		// never compare/hash padding, save markers, or the unused bFiller member.
+		MixTraversalState(fingerprint, data.gun.bGunStatus);
+		MixTraversalState(fingerprint, data.gun.ubGunAmmoType);
+		MixTraversalState(fingerprint, data.gun.ubGunShotsLeft);
+		MixTraversalState(fingerprint, data.gun.usGunAmmoItem);
+		MixTraversalState(fingerprint, data.gun.bGunAmmoStatus);
+		MixTraversalState(fingerprint, data.gun.ubGunState);
+		MixTraversalState(fingerprint, data.bTrap);
+		MixTraversalState(fingerprint, data.fUsed);
+		MixTraversalState(fingerprint, data.ubImprintID);
+		static_assert(sizeof(data.bTemperature) == sizeof(std::uint32_t), "native temperature width");
+		std::uint32_t temperature = 0;
+		std::memcpy(&temperature, &data.bTemperature, sizeof(temperature));
+		MixTraversalState(fingerprint, temperature);
+		MixTraversalState(fingerprint, data.ubDirection);
+		MixTraversalState(fingerprint, data.ubWireNetworkFlag);
+		MixTraversalState(fingerprint, data.bDefuseFrequency);
+		MixTraversalState(fingerprint, data.sRepairThreshold);
+		MixTraversalState(fingerprint, data.sObjectFlag);
+	}
+
+	std::uint64_t CaptureOrdinaryInventoryObject(const OBJECTTYPE& object) noexcept
+	{
+		if (!object.exists())
+			return IsCanonicalEmptyInventoryObject(object) ? 1 : 0;
+		if (object.usItem >= MAXITEMS || object.usItem >= gMAXITEMS_READ ||
+			object.usItem == SWITCH || object.usItem == ACTION_ITEM || object.usItem == OWNERSHIP ||
+			object.ubNumberOfObjects == 0 || object.objectStack.size() != object.ubNumberOfObjects ||
+			(object.fFlags & (OBJECT_ARMED_BOMB | OBJECT_KNOWN_TO_BE_TRAPPED |
+				OBJECT_DISABLED_BOMB | OBJECT_ALARM_TRIGGER)) != 0)
+			return 0;
+		const UINT32 itemClass = Item[object.usItem].usItemClass;
+		switch (itemClass)
+		{
+			case IC_GUN: case IC_AMMO: case IC_BLADE: case IC_THROWING_KNIFE:
+			case IC_ARMOUR: case IC_MEDKIT: case IC_KIT: case IC_FACE: case IC_MISC: break;
+			default: return 0;
+		}
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		MixTraversalState(fingerprint, object.usItem);
+		MixTraversalState(fingerprint, object.ubNumberOfObjects);
+		MixTraversalState(fingerprint, object.ubMission);
+		MixTraversalState(fingerprint, object.fFlags);
+		for (const StackedObjectData& stack : object.objectStack)
+		{
+			const ObjectData& data = stack.data;
+			if (data.bTrap != 0 || !std::isfinite(data.bTemperature) ||
+				!HasOnlyEmptyAttachmentSlots(stack) || data.gun.ubGunAmmoType == UINT8_MAX)
+				return 0; // Keep the native active-LBE alias outside this ordinary slice.
+			if (itemClass == IC_GUN)
+			{
+				if (data.gun.bGunStatus < 0 || data.gun.bGunStatus > 100 ||
+					data.gun.usGunAmmoItem >= MAXITEMS) return 0;
+			}
+			else if (data.gun.ubGunAmmoType != 0 || data.gun.ubGunShotsLeft != 0 ||
+				data.gun.usGunAmmoItem != 0 || data.gun.bGunAmmoStatus != 0 || data.gun.ubGunState != 0 ||
+				(itemClass != IC_AMMO && (data.objectStatus < 0 || data.objectStatus > 100)))
+				return 0; // No hidden alternate-union payload in this ordinary slice.
+			MixInventoryObjectData(fingerprint, data);
+			MixTraversalState(fingerprint, static_cast<std::uint8_t>(stack.attachments.size()));
+		}
+		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	bool InventorySwapSlotAccessible(TacticalActor& actor, std::uint8_t slot,
+		const OBJECTTYPE& incoming) noexcept
+	{
+		if (!IsSupportedInventorySwapSlot(slot) || actor.inventory().size() != NUM_INV_SLOTS)
+			return false;
+		if (!UsingNewInventorySystem()) return oldInv[slot] != 0;
+		if (slot <= SECONDHANDPOS) return true;
+		if (icLBE[slot] < 0 || icPocket[slot] < 0 || icDefault[slot] <= 0) return false;
+		if (icLBE[slot] == BPACKPOCKPOS && IsJa2TacticalCombatActive() &&
+			(!actor.inventory().zipperFlag() ||
+			 gAnimControl[actor.animationPlayback().state()].ubEndHeight == ANIM_STAND))
+			return false;
+		const OBJECTTYPE& gear = actor.inventory()[icLBE[slot]];
+		const UINT16 gearItem = gear.exists() ? gear.usItem : icDefault[slot];
+		if (gearItem >= MAXITEMS || gearItem >= gMAXITEMS_READ ||
+			Item[gearItem].usItemClass != IC_LBEGEAR ||
+			Item[gearItem].ubClassIndex >= LoadBearingEquipment.size()) return false;
+		if (gear.exists())
+		{
+			if (gear.ubNumberOfObjects != 1 || gear.objectStack.size() != 1 ||
+				gear.objectStack.front().data.lbe.bLBE != 0 ||
+				gear.objectStack.front().data.bTrap != 0 ||
+				!HasOnlyEmptyAttachmentSlots(gear.objectStack.front())) return false;
+		}
+		const LBETYPE& definition = LoadBearingEquipment[Item[gearItem].ubClassIndex];
+		if (static_cast<std::size_t>(icPocket[slot]) >= definition.lbePocketIndex.size()) return false;
+		const UINT8 pocket = definition.lbePocketIndex[icPocket[slot]];
+		// No attachment-supplied or disabled pockets. Check bounds before native
+		// placement/capacity helpers index the data-driven vectors.
+		if (pocket == 0 || pocket >= LBEPocketType.size()) return false;
+		const auto& capacities = LBEPocketType[pocket].ItemCapacityPerSize;
+		const OBJECTTYPE* objects[] = {&incoming, &actor.inventory()[slot]};
+		for (const OBJECTTYPE* object : objects)
+			if (object->exists() &&
+				static_cast<std::size_t>(std::min<UINT32>(Item[object->usItem].ItemSize,
+					gGameExternalOptions.guiMaxItemSize)) >= capacities.size()) return false;
+		return true;
+	}
+
+	bool IsInventoryFaceSlot(std::uint8_t slot) noexcept
+	{
+		return slot == HEAD1POS || slot == HEAD2POS;
+	}
+
+	bool InventorySwapFacePairReady(const TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination) noexcept
+	{
+		if (!IsInventoryFaceSlot(source) && !IsInventoryFaceSlot(destination)) return true;
+		const auto projected = [&](std::uint8_t slot) -> const OBJECTTYPE& {
+			return actor.inventory()[source == slot ? destination : destination == slot ? source : slot];
+		};
+		const OBJECTTYPE& first = projected(HEAD1POS);
+		const OBJECTTYPE& second = projected(HEAD2POS);
+		for (const OBJECTTYPE* object : {&first, &second})
+			if (CaptureOrdinaryInventoryObject(*object) == 0 ||
+				(object->exists() && (object->ubNumberOfObjects != 1 || Item[object->usItem].usItemClass != IC_FACE)))
+				return false;
+		if (!first.exists() || !second.exists()) return true;
+		// Native CompatibleFaceItem walks a sentinel-terminated global table.
+		// Prove a sentinel lies within its real allocation before calling it.
+		bool bounded = false;
+		for (std::size_t index = 1; index <= MAXITEMS; ++index)
+			if (CompatibleFaceItems[index][0] == 0) { bounded = true; break; }
+		if (!bounded) return false;
+		return ((source != HEAD1POS && destination != HEAD1POS) || CompatibleFaceItem(first.usItem, second.usItem)) &&
+			((source != HEAD2POS && destination != HEAD2POS) || CompatibleFaceItem(second.usItem, first.usItem));
+	}
+
+	bool InventorySwapPlacementReady(TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination)
+	{
+		OBJECTTYPE& left = actor.inventory()[source];
+		OBJECTTYPE& right = actor.inventory()[destination];
+		if ((!left.exists() && !right.exists()) ||
+			!InventorySwapSlotAccessible(actor, source, right) ||
+			!InventorySwapSlotAccessible(actor, destination, left) ||
+			!InventorySwapFacePairReady(actor, source, destination)) return false;
+		if ((IsInventoryFaceSlot(source) || IsInventoryFaceSlot(destination)) &&
+			!TacticalActorLighting::canRefreshEquipmentPersonalLight(actor)) return false;
+		// Preserve HandleNailsVestFetish's read-only placement rule without its
+		// dialogue/UI side effects. Merging compound/blood is not a slot swap.
+		if (actor.identity().profile() == 34 && (source == VESTPOS || destination == VESTPOS))
+		{
+			const OBJECTTYPE& replacement = source == VESTPOS ? right : left;
+			if (!replacement.exists() || !ItemIsLeatherJacket(replacement.usItem)) return false;
+		}
+		const OBJECTTYPE& finalHand = source == HANDPOS ? right :
+			(destination == HANDPOS ? left : actor.inventory()[HANDPOS]);
+		const OBJECTTYPE& finalOffhand = source == SECONDHANDPOS ? right :
+			(destination == SECONDHANDPOS ? left : actor.inventory()[SECONDHANDPOS]);
+		if (finalHand.exists() && ItemIsTwoHanded(finalHand.usItem) && finalOffhand.exists()) return false;
+		const auto fits = [&](OBJECTTYPE& object, std::uint8_t slot) {
+			if (!object.exists()) return true;
+			if ((slot == HELMETPOS || slot == VESTPOS || slot == LEGPOS) &&
+				(Item[object.usItem].usItemClass != IC_ARMOUR || Item[object.usItem].ubClassIndex >= MAXITEMS ||
+				 Armour[Item[object.usItem].ubClassIndex].uiIndex != Item[object.usItem].ubClassIndex))
+				return false; // Bound the native armour lookup before placement.
+			const UINT8 capacity = ItemSlotLimit(&object, slot, &actor, FALSE);
+			return capacity != 0 && object.ubNumberOfObjects <= capacity &&
+				CanItemFitInPosition(&actor, &object, slot, FALSE);
+		};
+		return fits(left, destination) && fits(right, source);
+	}
+
+	bool InventorySwapCost(TacticalActor& actor, std::uint8_t source,
+		std::uint8_t destination, std::int16_t& cost)
+	{
+		std::int64_t total = 0;
+		if (UsingInventoryCostsAPSystem())
+		{
+			const std::int64_t modifier = 100 + TacticalActorModifiers::backgroundValue(actor, BG_INVENTORY);
+			if (modifier < 0) return false;
+			if (actor.inventory()[source].exists())
+				total += GetInvMovementCost(&actor.inventory()[source], source, destination) * modifier / 100;
+			if (actor.inventory()[destination].exists())
+				total += GetInvMovementCost(&actor.inventory()[destination], destination, source) * modifier / 100;
+		}
+		if (total < 0 || total > INT16_MAX || actor.actionPoints().current() < total) return false;
+		cost = static_cast<std::int16_t>(total);
+		return true;
+	}
+
+	std::uint64_t CaptureInventorySwapActorState(const TacticalActor& actor) noexcept
+	{
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		MixTraversalState(fingerprint, actor.actionPoints().current());
+		MixTraversalState(fingerprint, actor.vitals().health());
+		MixTraversalState(fingerprint, actor.vitals().breath());
+		MixTraversalState(fingerprint, actor.identity().bodyType());
+		MixTraversalState(fingerprint, actor.attackSelection().weaponMode());
+		MixTraversalState(fingerprint, actor.attackSelection().scopeMode());
+		MixTraversalState(fingerprint, actor.fireControl().barrelMode());
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(actor.fireControl().delaysGrenadeLauncherExplosion()));
+		MixTraversalState(fingerprint, actor.aiPlanning().shownAimTime());
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(actor.inventory().zipperFlag()));
+		MixTraversalState(fingerprint, static_cast<std::uint8_t>(UsingNewInventorySystem()));
+		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	std::uint64_t CaptureInventorySwapCommandActorState(const TacticalActor& actor,
+		std::uint8_t source, std::uint8_t destination) noexcept
+	{
+		std::uint64_t fingerprint = CaptureInventorySwapActorState(actor);
+		if (IsInventoryFaceSlot(source) || IsInventoryFaceSlot(destination))
+		{
+			for (std::uint8_t slot : {std::uint8_t(HEAD1POS), std::uint8_t(HEAD2POS)})
+			{
+				const auto object = CaptureOrdinaryInventoryObject(actor.inventory()[slot]);
+				if (object == 0) return 0;
+				MixTraversalState(fingerprint, object);
+			}
+		}
+		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	void TraceInventorySwapFailure(const char* stage, const SwapInventorySlotsCommand& command,
+		const TacticalActor* actor = nullptr, std::uint64_t expected = 0, std::uint64_t observed = 0) noexcept
+	{
+		if (!DedicatedCoopInventoryDiagnosticEnabled()) return;
+		DedicatedCoopInventoryDiagnostic value;
+		value.actorSlot = command.soldier.slot; value.incarnation = command.soldier.incarnation;
+		value.sourceSlot = command.sourceSlot; value.destinationSlot = command.destinationSlot;
+		value.world = command.expectedWorldGeneration; value.turn = command.expectedTurnSerial;
+		value.expected = expected; value.observed = observed;
+		if (actor)
+		{
+			// Raw scalar accessors only: never resolve an actor, recapture objects,
+			// or re-run readiness, placement, cost, or native preparation for a trace.
+			value.actorObserved = true;
+			value.grid = actor->position().gridNo();
+			value.animation = actor->animationPlayback().state();
+			value.surface = actor->animationPlayback().surface();
+			value.actionPoints = actor->actionPoints().current();
+			value.direction = actor->position().direction();
+			value.desiredDirection = actor->pathing().desiredDirection();
+			value.pathIndex = actor->pathing().pathIndex(); value.pathSize = actor->pathing().pathSize();
+			const auto& intent = actor->animationIntent();
+			value.desiredHeight = intent.desiredHeight();
+			// Bits follow the listed predicates in increasing order.
+			value.intentFlags = unsigned(intent.hasPendingAnimation() != 0) |
+				(unsigned(intent.hasSecondaryPendingAnimation() != 0) << 1) |
+				(unsigned(intent.hasPendingStance() != 0) << 2) | (unsigned(intent.hasPendingDirection() != 0) << 3) |
+				(unsigned(intent.continuesAfterStance() != 0) << 4) | (unsigned(intent.stopPendingNextTile() != 0) << 5) |
+				(unsigned(intent.turningFromUi() != 0) << 6) | (unsigned(intent.hasDesiredHeight() != 0) << 7);
+			const auto& activity = actor->animationActivity();
+			value.activityFlags = unsigned(activity.nonInterruptible() != 0) |
+				(unsigned(activity.realtimeNonInterruptible() != 0) << 1) | (unsigned(activity.turningUntilDone() != 0) << 2) |
+				(unsigned(activity.turningFromProneMode() != 0) << 3) | (unsigned(activity.turningToShoot() != 0) << 4) |
+				(unsigned(activity.turningToFall() != 0) << 5) | (unsigned(activity.tryingToFall() != 0) << 6) |
+				(unsigned(activity.paused() != 0) << 7) | (unsigned(activity.gettingHit() != 0) << 8) |
+				(unsigned(activity.holdAttackerUntilDone() != 0) << 9) | (unsigned(activity.suppressionStanceChange() != 0) << 10);
+			const auto& movement = actor->movement();
+			value.movementFlags = unsigned(movement.delayed() != 0) | (unsigned(movement.movementPaused() != 0) << 1) |
+				(unsigned(movement.outOfActionPoints() != 0) << 2) | (unsigned(movement.waitingForAction() != 0) << 3) |
+				(unsigned(movement.turnActive() != 0) << 4) | (unsigned(movement.continuedPathValid() != 0) << 5) |
+				(unsigned(movement.delayedByNetwork() != 0) << 6);
+			value.otherFlags = unsigned(actor->pendingAction().active()) |
+				(unsigned(actor->runtime().worldObject.active()) << 1) |
+				(unsigned(actor->runtime().pendingAction.delayedDamage != 0) << 2) |
+				(unsigned((actor->status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) != 0) << 3) |
+				(unsigned(actor->schedule().assigned()) << 4) | (unsigned(actor->schedule().doorContinuationPending()) << 5) |
+				(unsigned(actor->fireControl().reloading() != 0) << 6) | (unsigned(actor->fireControl().bulletsLeft() != 0) << 7) |
+				(unsigned(actor->fireControl().burstCounter() != 0) << 8) | (unsigned(actor->fireControl().autofireShots() != 0) << 9) |
+				(unsigned(actor->service().hasPartner()) << 10) | (unsigned(actor->service().hasProviders()) << 11) |
+				(unsigned(actor->vitals().isUndergoingSurgery()) << 12);
+		}
+		TraceDedicatedCoopInventoryRejection(stage, value);
+	}
+
+	TacticalActor* ResolveInventorySwap(const SwapInventorySlotsCommand& command)
+	{
+		const auto reject = [&](const char* stage, const TacticalActor* actor = nullptr,
+			std::uint64_t expected = 0, std::uint64_t observed = 0) -> TacticalActor* {
+			TraceInventorySwapFailure(stage, command, actor, expected, observed);
+			return nullptr;
+		};
+		if (!IsStructurallyValidSwapInventorySlotsCommand(command)) return reject("resolve.structure");
+		if (is_networked || is_client || is_server) return reject("resolve.legacy_network");
+		if (!IsJa2TacticalWorldIntegrityValid()) return reject("resolve.integrity");
+		if (!HasNetworkPeerTacticalExecutionContext()) return reject("resolve.context");
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity) return reject("resolve.world");
+		if (identity.worldGeneration != command.expectedWorldGeneration)
+			return reject("resolve.world_generation", nullptr, command.expectedWorldGeneration, identity.worldGeneration);
+		if (identity.serial != command.expectedTurnSerial)
+			return reject("resolve.turn", nullptr, command.expectedTurnSerial, identity.serial);
+		TacticalActor* const actor = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		if (!actor) return reject("resolve.authority");
+		if (actor->identity().bodyType() > REGFEMALE || actor->inventory().size() != NUM_INV_SLOTS)
+			return reject("resolve.actor_shape", actor);
+		if (!FirstAidPoseReady(*actor)) return reject("resolve.pose", actor);
+		if (actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES)
+			return reject("resolve.surface_index", actor);
+		if (!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject)
+			return reject("resolve.surface_unloaded", actor);
+		if ((gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0)
+			return reject("resolve.fire_ready", actor);
+		if (actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
+			actor->position().level() != command.expectedActorLevel)
+			return reject("resolve.position", actor);
+		if (actor->animationPlayback().state() != command.expectedAnimationState)
+			return reject("resolve.animation", actor, command.expectedAnimationState, actor->animationPlayback().state());
+		if (actor->position().direction() != command.expectedDirection)
+			return reject("resolve.direction", actor, command.expectedDirection, actor->position().direction());
+		if (actor->pathing().desiredDirection() != command.expectedDirection)
+			return reject("resolve.desired_direction", actor, command.expectedDirection, actor->pathing().desiredDirection());
+		const auto actorState = CaptureInventorySwapCommandActorState(*actor, command.sourceSlot, command.destinationSlot);
+		if (actorState != command.expectedActorStateFingerprint)
+			return reject("resolve.actor_fingerprint", actor, command.expectedActorStateFingerprint, actorState);
+		const auto sourceState = CaptureOrdinaryInventoryObject(actor->inventory()[command.sourceSlot]);
+		if (sourceState != command.sourceStateFingerprint)
+			return reject("resolve.source_fingerprint", actor, command.sourceStateFingerprint, sourceState);
+		const auto destinationState = CaptureOrdinaryInventoryObject(actor->inventory()[command.destinationSlot]);
+		if (destinationState != command.destinationStateFingerprint)
+			return reject("resolve.destination_fingerprint", actor, command.destinationStateFingerprint, destinationState);
+		const auto handState = CaptureOrdinaryInventoryObject(actor->inventory()[HANDPOS]);
+		if (handState != command.handStateFingerprint)
+			return reject("resolve.hand_fingerprint", actor, command.handStateFingerprint, handState);
+		const auto offhandState = CaptureOrdinaryInventoryObject(actor->inventory()[SECONDHANDPOS]);
+		if (offhandState != command.offhandStateFingerprint)
+			return reject("resolve.offhand_fingerprint", actor, command.offhandStateFingerprint, offhandState);
+		if (!InventorySwapPlacementReady(*actor, command.sourceSlot, command.destinationSlot))
+			return reject("resolve.placement", actor);
+		std::int16_t cost = 0;
+		if (!InventorySwapCost(*actor, command.sourceSlot, command.destinationSlot, cost))
+			return reject("resolve.cost", actor);
+		if (cost != command.expectedActionPointCost)
+			return reject("resolve.cost_changed", actor, command.expectedActionPointCost, cost);
+		return actor;
+	}
+
+	bool InventoryTransferActorReady(TacticalActor& actor, INT32 grid, INT8 level,
+		UINT16 animation, UINT8 direction, std::uint64_t fingerprint) noexcept
+	{
+		const TacticalActor* const merc = &actor;
+		return actor.roster().team() == gbPlayerNum && actor.identity().bodyType() <= REGFEMALE &&
+			(actor.identity().profile() == NO_PROFILE || actor.identity().profile() < NUM_PROFILES) &&
+			!AM_AN_EPC(merc) && actor.vitals().health() >= CONSCIOUSNESS &&
+			actor.inventory().size() == NUM_INV_SLOTS && FirstAidPoseReady(actor) &&
+			actor.animationPlayback().surface() < NUMANIMATIONSURFACETYPES &&
+			gAnimSurfaceDatabase[actor.animationPlayback().surface()].hVideoObject &&
+			(gAnimControl[actor.animationPlayback().state()].uiFlags & ANIM_FIREREADY) == 0 &&
+			!TileIsOutOfBounds(grid) && actor.position().gridNo() == grid &&
+			actor.position().level() == level && actor.animationPlayback().state() == animation &&
+			actor.position().direction() == direction && actor.pathing().desiredDirection() == direction &&
+			CaptureInventorySwapActorState(actor) == fingerprint &&
+			// Preserve the stock inventory-panel admission gate (3), distinct
+			// from its successful-placement cost (2), and suppress local UI.
+			EnoughPoints(&actor, 3, 0, FALSE);
+	}
+
+	bool ResolveInventoryTransfer(const TransferInventoryItemCommand& command,
+		TacticalActor*& actor, TacticalActor*& target)
+	{
+		actor = target = nullptr;
+		if (!IsStructurallyValidTransferInventoryItemCommand(command) ||
+			is_networked || is_client || is_server || !IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext()) return false;
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial) return false;
+		// The dedicated pending-command assignment barrier retains the common
+		// owner checked at ingress. Both actors must still be gameplay eligible,
+		// including interrupt eligibility, because both spend AP here.
+		TacticalActor* const from = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		TacticalActor* const to = ResolveCoopAuthorizedLegacyCommandActor(
+			command.target, command.source, command.authority);
+		if (!from || !to || !InventoryTransferActorReady(*from, command.expectedActorGrid,
+				command.expectedLevel, command.expectedAnimationState, command.expectedDirection,
+				command.expectedActorStateFingerprint) ||
+			!InventoryTransferActorReady(*to, command.expectedTargetGrid, command.expectedLevel,
+				command.expectedTargetAnimationState, command.expectedTargetDirection,
+				command.expectedTargetStateFingerprint)) return false;
+		OBJECTTYPE& object = from->inventory()[command.sourceSlot];
+		OBJECTTYPE& empty = to->inventory()[command.destinationSlot];
+		const bool pocketOnly = command.sourceSlot >= 14 && command.destinationSlot >= 14;
+		if (!object.exists() || !IsCanonicalEmptyInventoryObject(empty) ||
+			CaptureOrdinaryInventoryObject(object) != command.sourceStateFingerprint ||
+			CaptureOrdinaryInventoryObject(empty) != command.destinationStateFingerprint ||
+			(!pocketOnly && (CaptureOrdinaryInventoryObject(from->inventory()[HANDPOS]) != command.handStateFingerprint ||
+			CaptureOrdinaryInventoryObject(from->inventory()[SECONDHANDPOS]) != command.offhandStateFingerprint ||
+			CaptureOrdinaryInventoryObject(to->inventory()[HANDPOS]) != command.targetHandStateFingerprint ||
+			CaptureOrdinaryInventoryObject(to->inventory()[SECONDHANDPOS]) != command.targetOffhandStateFingerprint)) ||
+			!InventorySwapSlotAccessible(*from, command.sourceSlot, empty) ||
+			!InventorySwapSlotAccessible(*to, command.destinationSlot, object)) return false;
+		if (!pocketOnly)
+		{
+			const OBJECTTYPE& finalHand = command.destinationSlot == HANDPOS ? object : to->inventory()[HANDPOS];
+			const OBJECTTYPE& finalOffhand = command.destinationSlot == SECONDHANDPOS ? object : to->inventory()[SECONDHANDPOS];
+			if (finalHand.exists() && ItemIsTwoHanded(finalHand.usItem) && finalOffhand.exists()) return false;
+		}
+		const UINT8 capacity = ItemSlotLimit(&object, command.destinationSlot, to, FALSE);
+		if (capacity == 0 || object.ubNumberOfObjects > capacity ||
+			!CanItemFitInPosition(to, &object, command.destinationSlot, FALSE) ||
+			PythSpacesAway(command.expectedActorGrid, command.expectedTargetGrid) > PASSING_ITEM_DISTANCE_OKLIFE ||
+			!SoldierTo3DLocationLineOfSightTest(from, command.expectedTargetGrid,
+				command.expectedLevel, 3, TRUE, CALC_FROM_ALL_DIRS)) return false;
+		actor = from;
+		target = to;
+		return true;
+	}
+
+	bool CoopGroundProjectionActorReady(const TacticalActor& actor) noexcept
+	{
+		return actor.roster().active() && actor.roster().inSector() && actor.roster().team() == gbPlayerNum &&
+			!TileIsOutOfBounds(actor.position().gridNo()) && gpWorldLevelData &&
+			static_cast<UINT32>(actor.position().gridNo()) < GetWorldTileMapSize() &&
+			(actor.position().level() == FIRST_LEVEL || actor.position().level() == SECOND_LEVEL);
+	}
+
+	bool CaptureOrdinaryGroundItemPool(TacticalWorldItemId itemId, WORLDITEM*& item,
+		ITEM_POOL*& itemPool, std::uint64_t& objectFingerprint, std::uint64_t& poolFingerprint) noexcept
+	{
+		item = nullptr;
+		itemPool = nullptr;
+		objectFingerprint = poolFingerprint = 0;
+		if (!itemId.valid() || itemId.slot > TacticalMaximumWorldItemSlot ||
+			!IsJa2TacticalWorldIntegrityValid() || is_networked || is_client || is_server ||
+			!gpWorldLevelData) return false;
+		WORLDITEM* const selected = ResolveJa2TacticalWorldItem(itemId);
+		if (!selected || TileIsOutOfBounds(selected->sGridNo) ||
+			static_cast<UINT32>(selected->sGridNo) >= GetWorldTileMapSize() ||
+			(selected->ubLevel != FIRST_LEVEL && selected->ubLevel != SECOND_LEVEL) ||
+			selected->bVisible != VISIBLE ||
+			selected->bRenderZHeightAboveLevel != 0 ||
+			(GetMapElement(selected->sGridNo).uiFlags & MAPELEMENT_PLAYER_MINE_PRESENT) != 0 ||
+			(selected->usFlags & (WORLD_ITEM_ARMED_BOMB | WORLD_ITEM_DONTRENDER |
+				WORLD_ITEM_GRIDNO_NOT_SET_USE_ENTRY_POINT)) != 0 || !selected->object.exists() ||
+			selected->object.usItem == SWITCH || selected->object.usItem == ACTION_ITEM ||
+			selected->object.usItem == OWNERSHIP) return false;
+		const std::uint64_t objectState = CaptureOrdinaryInventoryObject(selected->object);
+		if (objectState == 0) return false;
+		ITEM_POOL* pool = nullptr;
+		if (!GetItemPool(selected->sGridNo, &pool, selected->ubLevel)) return false;
+		const std::size_t maximum = std::min<std::size_t>(guiNumWorldItems, gWorldItems.size());
+		std::size_t count = 0;
+		ITEM_POOL* found = nullptr;
+		ITEM_POOL* previous = nullptr;
+		std::uint64_t fingerprint = 1469598103934665603ull;
+		for (; pool != nullptr; previous = pool, pool = pool->pNext)
+		{
+			if (++count > maximum || pool->pPrev != previous || pool->iItemIndex < 0 ||
+				static_cast<std::size_t>(pool->iItemIndex) >= maximum ||
+				pool->sGridNo != selected->sGridNo || pool->ubLevel != selected->ubLevel) return false;
+			const auto poolId = GetJa2TacticalWorldItemDirectory().identity(pool->iItemIndex);
+			const WORLDITEM* const member = ResolveJa2TacticalWorldItem(poolId);
+			if (!member || member->sGridNo != selected->sGridNo || member->ubLevel != selected->ubLevel ||
+				member->object.usItem == OWNERSHIP) return false;
+			// Ownership is a separate (normally hidden) pool marker. Never let
+			// this UI-free slice bypass the stock deferred theft reaction.
+			MixTraversalState(fingerprint, poolId.slot);
+			MixTraversalState(fingerprint, poolId.incarnation);
+			MixTraversalState(fingerprint, member->object.usItem);
+			MixTraversalState(fingerprint, member->sGridNo);
+			MixTraversalState(fingerprint, member->ubLevel);
+			MixTraversalState(fingerprint, member->usFlags);
+			MixTraversalState(fingerprint, member->bVisible);
+			MixTraversalState(fingerprint, member->bRenderZHeightAboveLevel);
+			MixTraversalState(fingerprint, member->soldierID.i);
+			MixTraversalState(fingerprint, pool->usFlags);
+			MixTraversalState(fingerprint, pool->bRenderZHeightAboveLevel);
+			if (poolId == itemId)
+			{
+				if (found || pool->bRenderZHeightAboveLevel != 0 || pool->pLevelNode == nullptr ||
+					(pool->pLevelNode->uiFlags & LEVELNODE_ITEM) == 0) return false;
+				found = pool;
+			}
+		}
+		if (!found) return false;
+		item = selected;
+		itemPool = found;
+		objectFingerprint = objectState;
+		poolFingerprint = fingerprint == 0 ? 1 : fingerprint;
+		return true;
+	}
+
+	bool CaptureGroundPickupPool(TacticalActor& actor, TacticalWorldItemId itemId,
+		WORLDITEM*& item, std::uint64_t& objectFingerprint, std::uint64_t& poolFingerprint) noexcept
+	{
+		item = nullptr;
+		objectFingerprint = poolFingerprint = 0;
+		if (!CoopGroundProjectionActorReady(actor)) return false;
+		const WORLDITEM* const selected = ResolveJa2TacticalWorldItem(itemId);
+		if (!selected || selected->sGridNo != actor.position().gridNo() ||
+			selected->ubLevel != actor.position().level()) return false;
+		ITEM_POOL* selectedPool = nullptr;
+		return CaptureOrdinaryGroundItemPool(itemId, item, selectedPool, objectFingerprint, poolFingerprint);
+	}
+
+	bool ResolveAuthoritativeGroundPickup(const AuthoritativePickupWorldItemCommand& command,
+		TacticalActor*& actor, WORLDITEM*& item)
+	{
+		actor = nullptr;
+		item = nullptr;
+		if (!IsStructurallyValidAuthoritativePickupWorldItemCommand(command) ||
+			!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr) return false;
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial) return false;
+		TacticalActor* const live = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		const TacticalActor* const merc = live;
+		if (!live || live->identity().bodyType() > REGFEMALE ||
+			(live->identity().profile() != NO_PROFILE && live->identity().profile() >= NUM_PROFILES) || AM_AN_EPC(merc) ||
+			live->vitals().health() < CONSCIOUSNESS || live->inventory().size() != NUM_INV_SLOTS ||
+			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
+			live->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
+			!gAnimSurfaceDatabase[live->animationPlayback().surface()].hVideoObject ||
+			(gAnimControl[live->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
+			live->position().gridNo() != command.expectedActorGrid ||
+			live->position().level() != command.expectedActorLevel ||
+			live->animationPlayback().state() != command.expectedAnimationState ||
+			live->position().direction() != command.expectedDirection ||
+			live->pathing().desiredDirection() != command.expectedDirection ||
+			CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint) return false;
+		WORLDITEM* selected = nullptr;
+		std::uint64_t objectState = 0, poolState = 0;
+		if (!CaptureGroundPickupPool(*live, command.item, selected, objectState, poolState) ||
+			objectState != command.sourceStateFingerprint || poolState != command.expectedPoolStateFingerprint) return false;
+		OBJECTTYPE& destination = live->inventory()[command.destinationSlot];
+		if (!IsCanonicalEmptyInventoryObject(destination) ||
+			CaptureOrdinaryInventoryObject(destination) != command.destinationStateFingerprint ||
+			!InventorySwapSlotAccessible(*live, command.destinationSlot, selected->object)) return false;
+		const UINT8 capacity = ItemSlotLimit(&selected->object, command.destinationSlot, live, FALSE);
+		if (capacity == 0 || selected->object.ubNumberOfObjects > capacity ||
+			!CanItemFitInPosition(live, &selected->object, command.destinationSlot, FALSE) ||
+			AdjustGridNoForItemPlacement(live, command.expectedActorGrid) != command.expectedActorGrid) return false;
+		const UINT16 cost = GetAPsToPickupItem(live, command.expectedActorGrid);
+		if (cost == 0 || cost > INT16_MAX || cost != command.expectedActionPointCost ||
+			(IsJa2TacticalTurnBasedCombat() && live->actionPoints().current() < cost) ||
+			!EnoughPoints(live, static_cast<INT16>(cost), 0, FALSE)) return false;
+		actor = live;
+		item = selected;
+		return true;
+	}
+
+	bool ResolveAuthoritativeInventoryDrop(const AuthoritativeDropInventoryItemCommand& command,
+		TacticalActor*& actor, CoopOrdinaryGroundDropPlacement& placement)
+	{
+		actor = nullptr;
+		if (!IsStructurallyValidAuthoritativeDropInventoryItemCommand(command) ||
+			!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr) return false;
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial) return false;
+		TacticalActor* const live = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		const TacticalActor* const merc = live;
+		if (!live || live->identity().bodyType() > REGFEMALE ||
+			(live->identity().profile() != NO_PROFILE && live->identity().profile() >= NUM_PROFILES) || AM_AN_EPC(merc) ||
+			live->vitals().health() < CONSCIOUSNESS || live->inventory().size() != NUM_INV_SLOTS ||
+			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
+			live->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
+			!gAnimSurfaceDatabase[live->animationPlayback().surface()].hVideoObject ||
+			(gAnimControl[live->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
+			live->position().gridNo() != command.expectedActorGrid ||
+			live->position().level() != command.expectedActorLevel ||
+			live->animationPlayback().state() != command.expectedAnimationState ||
+			live->position().direction() != command.expectedDirection ||
+			live->pathing().desiredDirection() != command.expectedDirection ||
+			CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint) return false;
+		const OBJECTTYPE& source = live->inventory()[command.sourceSlot];
+		if (!source.exists() || CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint ||
+			!InventorySwapSlotAccessible(*live, command.sourceSlot, source) ||
+			AdjustGridNoForItemPlacement(live, command.expectedActorGrid) != command.expectedActorGrid ||
+			!CaptureCoopOrdinaryGroundDropPlacement(command.soldier, command.sourceSlot, placement)) return false;
+		// The native UI charges its basic pickup cost when dropping even if the
+		// destination tile currently has no items. GetAPsToPickupItem returns zero
+		// on such a tile and therefore is not the drop cost.
+		const UINT16 cost = GetBasicAPsToPickupItem(live);
+		if (cost == 0 || cost > INT16_MAX || cost != command.expectedActionPointCost ||
+			(IsJa2TacticalTurnBasedCombat() && live->actionPoints().current() < cost) ||
+			!EnoughPoints(live, static_cast<INT16>(cost), 0, FALSE)) return false;
+		actor = live;
+		return true;
+	}
+
+	std::uint64_t CaptureFirstAidKitStateFingerprint(const TacticalActor& medic) noexcept
+	{
+		if (medic.inventory().size() <= HANDPOS) return 0;
+		const OBJECTTYPE& kit = medic.inventory()[HANDPOS];
+		const std::uint64_t fingerprint = CaptureOrdinaryInventoryObject(kit);
+		return fingerprint != 0 && kit.exists() && Item[kit.usItem].usItemClass == IC_MEDKIT &&
+			kit[0]->data.objectStatus > 0 ? fingerprint : 0;
+	}
+
+	bool FirstAidStartPoseReady(const TacticalActor& actor) noexcept
+	{
+		const UINT16 animation = actor.animationPlayback().state();
+		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
+		// Only ordinary idle poses may start or receive this medical service.
+		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+			return false;
+		const auto& intent = actor.animationIntent();
+		const auto& activity = actor.animationActivity();
+		const auto& movement = actor.movement();
+		const auto& path = actor.pathing();
+		return !intent.hasPendingAnimation() && !intent.hasSecondaryPendingAnimation() &&
+			!intent.hasPendingStance() && !intent.hasPendingDirection() &&
+			!intent.continuesAfterStance() && !intent.stopPendingNextTile() &&
+			!intent.turningFromUi() &&
+			(!intent.hasDesiredHeight() || intent.desiredHeight() == gAnimControl[animation].ubEndHeight) &&
+			!activity.nonInterruptible() && !activity.realtimeNonInterruptible() &&
+			!activity.turningUntilDone() && !activity.turningFromProneMode() &&
+			!activity.turningToShoot() && !activity.turningToFall() && !activity.tryingToFall() &&
+			!activity.paused() && !activity.gettingHit() && !activity.holdAttackerUntilDone() &&
+			!activity.suppressionStanceChange() &&
+			!actor.pendingAction().active() && !actor.runtime().worldObject.active() &&
+			!actor.runtime().pendingAction.delayedDamage &&
+			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
+			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
+			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			!movement.waitingForAction() && !movement.turnActive() &&
+			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+			path.desiredDirection() == actor.position().direction() &&
+			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
+			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
+			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
+			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			!actor.service().hasPartner() && !actor.service().hasProviders() &&
+			!actor.vitals().isUndergoingSurgery();
+	}
+
+	bool ResolveFirstAidActionTile(TacticalActor& medic, const TacticalActor& patient,
+		std::uint8_t& direction) noexcept
+	{
+		const INT32 actorGrid = medic.position().gridNo();
+		const INT32 targetGrid = patient.position().gridNo();
+		const INT8 level = medic.position().level();
+		if (!gubWorldMovementCosts || TileIsOutOfBounds(actorGrid) || TileIsOutOfBounds(targetGrid) ||
+			level < FIRST_LEVEL || level > SECOND_LEVEL || patient.position().level() != level ||
+			CardinalSpacesAway(actorGrid, targetGrid) != 1) return false;
+		// FindAdjacentGridEx returns the medic's current cardinal action tile
+		// after this same native travel-cost check. Calling its general search
+		// can PlotPath through earlier candidates, mutating path scratch/RNG.
+		// Adjacent-only aid needs neither an approach route nor those searches.
+		for (const UINT8 fromPatient : {NORTH, EAST, SOUTH, WEST})
+		{
+			if (NewGridNo(targetGrid, DirectionInc(fromPatient)) != actorGrid) continue;
+			if (DoorTravelCost(&medic, actorGrid,
+				gubWorldMovementCosts[actorGrid][fromPatient][level], FALSE, nullptr) >= TRAVELCOST_BLOCKED)
+				return false;
+			direction = GetDirectionFromGridNo(targetGrid, &medic);
+			return direction < NUM_WORLD_DIRECTIONS;
+		}
+		return false;
+	}
+
+	bool ResolveBeginFirstAid(const BeginFirstAidCommand& command,
+		TacticalActor*& medic, TacticalActor*& patient) noexcept
+	{
+		medic = nullptr;
+		patient = nullptr;
+		if (!IsStructurallyValidBeginFirstAidCommand(command) ||
+			is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext())
+			return false;
+		const Ja2TacticalTurnIdentity identity =
+			GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return false;
+		TacticalActor* const resolvedMedic = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		TacticalActor* const resolvedPatient = ResolveLiveCommandActor(command.target);
+		if (!resolvedMedic || !resolvedPatient ||
+			// Native first-aid animation surfaces exist only for merc body types.
+			// MedicalSession associates the service even when surface loading
+			// fails, so unsupported bodies must never enter that mutating path.
+			resolvedMedic->identity().bodyType() > REGFEMALE ||
+			resolvedMedic->inventory().size() <= HANDPOS ||
+			TileIsOutOfBounds(command.expectedActorGrid) ||
+			TileIsOutOfBounds(command.expectedTargetGrid) ||
+			!gubWorldMovementCosts ||
+			resolvedMedic->roster().team() != gbPlayerNum ||
+			resolvedPatient->roster().team() != gbPlayerNum ||
+			!resolvedPatient->roster().active() ||
+			resolvedPatient->vitals().health() <= 0 ||
+			(resolvedPatient->vitals().bleeding() <= 0 &&
+			 resolvedPatient->vitals().health() >= OKLIFE) ||
+			resolvedPatient->assignment().current() >= ON_DUTY ||
+			(resolvedPatient->status().flags() &
+				(SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER)) != 0 ||
+			!FirstAidStartPoseReady(*resolvedMedic) || !FirstAidStartPoseReady(*resolvedPatient) ||
+			resolvedMedic->position().gridNo() != command.expectedActorGrid ||
+			resolvedPatient->position().gridNo() != command.expectedTargetGrid ||
+			resolvedMedic->position().level() != command.expectedLevel ||
+			resolvedPatient->position().level() != command.expectedLevel ||
+			resolvedMedic->animationPlayback().state() != command.expectedAnimationState ||
+			resolvedPatient->animationPlayback().state() != command.expectedTargetAnimationState ||
+			resolvedMedic->inventory()[HANDPOS].usItem != command.expectedHandItem ||
+			CaptureFirstAidKitStateFingerprint(*resolvedMedic) != command.expectedKitStateFingerprint ||
+			TacticalActorMedicalSession::wouldPerformSurgery(*resolvedMedic, *resolvedPatient) ||
+			WhoIsThere2(command.expectedTargetGrid, command.expectedLevel) !=
+				resolvedPatient->identity().id())
+			return false;
+		UINT8 direction = 0;
+		if (!ResolveFirstAidActionTile(*resolvedMedic, *resolvedPatient, direction) ||
+			direction != command.direction)
+			return false;
+		const INT16 cost = TacticalActorMedicalSession::beginActionPointCost(*resolvedMedic);
+		if (cost != command.expectedActionPointCost ||
+			!EnoughPoints(resolvedMedic, cost, APBPConstants[BP_START_FIRST_AID], FALSE))
+			return false;
+		medic = resolvedMedic;
+		patient = resolvedPatient;
+		return true;
 	}
 
 	// Retained window completion and fence continuation can clear or rewrite
@@ -1264,36 +2058,18 @@ namespace
 			return CommandDisposition::Applied;
 		}
 
-		const std::int32_t beyondFenceGrid = NewGridNo(
-			fenceGrid,
-			DirectionInc(command.expectedNextPathDirection));
-		if (TileIsOutOfBounds(beyondFenceGrid) ||
-			beyondFenceGrid == fenceGrid)
-			return CommandDisposition::Discard;
-
-		if (!HandleNextTile(
-				&soldier,
-				static_cast<INT8>(command.expectedNextPathDirection),
-				beyondFenceGrid,
-				command.expectedFinalDestination,
-				replicateContinuation))
-			return CommandDisposition::Applied;
-
-		++soldier.pathing().pathIndex();
-		soldier.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
-		(void)TacticalActorRouteExecution::settleIntoStationaryStance(
-			soldier);
-		(void)BeginTraversal(soldier, TacticalTraversalKind::JumpFence);
-		soldier.animationIntent().continueAfterStance(2);
-		return CommandDisposition::Applied;
+		return TacticalActorTraversal::beginPathFenceJump(
+			soldier, replicateContinuation != FALSE)
+			? CommandDisposition::Applied
+			: CommandDisposition::Discard;
 	}
 
-	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
+	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command, std::uint64_t sequence)
 	{
 		if (ValidateSimulationCommandDomain(command) !=
 			SimulationCommandDomainError::None)
 			return CommandDisposition::Discard;
-		return std::visit([](const auto& value) {
+		return std::visit([sequence](const auto& value) {
 			using Command = typename std::decay<decltype(value)>::type;
 			if constexpr (std::is_same<Command, EndTurnCommand>::value)
 			{
@@ -1407,16 +2183,18 @@ namespace
 							soldier, value.targetGrid));
 				}
 
-				ApplyWeaponConfigurationResult(*soldier, value.result);
-				ApplyWeaponConfigurationPresentation(
-					*soldier, value.postApplyPolicy);
 				if (completesHandItemChange || completesEquipmentChange)
-					CompleteEquipmentTacticalEffects(
-						*soldier,
+					ApplyResolvedEquipmentChange(
+						*soldier, value.result, value.postApplyPolicy,
 						static_cast<UINT32>(value.inventoryPosition),
 						static_cast<UINT16>(value.previousItem),
 						static_cast<UINT16>(value.changedItem),
 						completesHandItemChange);
+				else
+				{
+					ApplyWeaponConfigurationResult(*soldier, value.result);
+					ApplyWeaponConfigurationPresentation(*soldier, value.postApplyPolicy);
+				}
 
 				if (retaliationTarget)
 					(void)HandleItemFromWeaponConfigurationCommand(
@@ -1433,6 +2211,22 @@ namespace
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 					{
+						if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						{
+							// Remote player input bypasses ChangeSoldierStance's UI
+							// preflight. Recheck the complete native cost here, before
+							// the first step of a possible prone-to-standing rise.
+							if (soldier->animationPlayback().state() >= NUMANIMATIONSTATES ||
+								soldier->animationActivity().nonInterruptible() ||
+								!TacticalActorMobility::isValidStance(*soldier, value.stance))
+								return CommandDisposition::Discard;
+							const INT16 cost = GetAPsToChangeStance(soldier, value.stance);
+							if (cost < 0 || !EnoughPoints(soldier, cost, 0, FALSE))
+								return CommandDisposition::Discard;
+							// An explicit player posture is not a continuation of a
+							// movement turn's already-paid prone transition.
+							soldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
+						}
 						// Some received and scripted actions deliberately bypass
 						// outbound replication while retaining the same local
 						// stance transition.
@@ -1502,6 +2296,8 @@ namespace
 				if (!ResolveAimedFirearmAttack(value, soldier, target))
 					return CommandDisposition::Discard;
 				(void)target;
+				if (!BeginDedicatedCoopAttack(sequence, *soldier))
+					return CommandDisposition::Discard;
 				const INT8 previousAimTime = soldier->aiPlanning().aimTime();
 				const INT8 previousShownAimTime =
 					soldier->aiPlanning().shownAimTime();
@@ -1517,12 +2313,247 @@ namespace
 						value.source, TacticalEventPolicy::LocalOnly);
 				if (result != ITEM_HANDLE_OK)
 				{
+					AbandonDedicatedCoopAttack(sequence);
 					soldier->aiPlanning().aimTime() = previousAimTime;
 					soldier->aiPlanning().shownAimTime() =
 						previousShownAimTime;
 					return CommandDisposition::Discard;
 				}
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+			{
+				TacticalActor* const actor = ResolveInventorySwap(value);
+				if (!actor) return CommandDisposition::Discard;
+				const UINT16 leftItem = actor->inventory()[value.sourceSlot].usItem;
+				const UINT16 rightItem = actor->inventory()[value.destinationSlot].usItem;
+				try
+				{
+					// Native OBJECTTYPE copy-swap can allocate; once entered, neither
+					// a failed copy nor an equipment continuation is transactional.
+					SwapObjs(&actor->inventory()[value.sourceSlot], &actor->inventory()[value.destinationSlot]);
+					const auto complete = [&](std::uint8_t slot, UINT16 previousItem, UINT16 changedItem) {
+						TacticalWeaponConfigurationResult result{};
+						bool refreshHand = false;
+						(void)ResolveEquipmentTacticalWeaponConfiguration(
+							*actor, slot, previousItem, changedItem, result, refreshHand);
+						if (!IsValidTacticalWeaponConfigurationResult(result))
+							throw std::runtime_error("invalid inventory equipment continuation");
+						if (IsInventoryFaceSlot(slot))
+							ApplyWeaponConfigurationResult(*actor, result);
+						else
+							ApplyResolvedEquipmentChange(*actor, result,
+								TacticalWeaponConfigurationPostApplyPolicy::None,
+								slot, previousItem, changedItem, refreshHand);
+					};
+					complete(value.sourceSlot, leftItem, rightItem);
+					complete(value.destinationSlot, rightItem, leftItem);
+					if ((IsInventoryFaceSlot(value.sourceSlot) || IsInventoryFaceSlot(value.destinationSlot)) &&
+						!TacticalActorLighting::refreshEquipmentPersonalLight(*actor))
+						throw std::runtime_error("authoritative face equipment lighting failed after mutation");
+					// Even ordinary weapons contribute worn camouflage while held.
+					// Refresh the committed equipment's native derived state once;
+					// a failed palette continuation cannot certify this parent.
+					if (!ApplyEquipmentBonusesChecked(*actor))
+						throw std::runtime_error("authoritative inventory equipment bonuses failed after mutation");
+					// Match native inventory AP accounting (not DeductPoints, which
+					// would add movement/interrupt side effects to an inventory move).
+					actor->actionPoints().current() -= value.expectedActionPointCost;
+					const UINT16 surface = actor->animationPlayback().surface();
+					if (ResolveJa2TacticalEntity(value.soldier) != actor ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.sourceSlot]) != value.destinationStateFingerprint ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.destinationSlot]) != value.sourceStateFingerprint ||
+						surface >= NUMANIMATIONSURFACETYPES || !gAnimSurfaceDatabase[surface].hVideoObject)
+						throw std::runtime_error("authoritative inventory swap failed after mutation");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
+			}
+			else if constexpr (std::is_same<Command, TransferInventoryItemCommand>::value)
+			{
+				TacticalActor* actor = nullptr;
+				TacticalActor* target = nullptr;
+				if (!ResolveInventoryTransfer(value, actor, target)) return CommandDisposition::Discard;
+				const UINT16 item = actor->inventory()[value.sourceSlot].usItem;
+				try
+				{
+					// Ordinary OBJECTTYPE moves exchange existing list nodes without
+					// allocation. No cursor object, split, autoplace or world drop.
+					static_assert(std::is_nothrow_swappable<OBJECTTYPE>::value,
+						"retained transfer must exchange native storage without allocation");
+					std::swap(actor->inventory()[value.sourceSlot], target->inventory()[value.destinationSlot]);
+					const auto complete = [](TacticalActor& merc, UINT8 slot, UINT16 before, UINT16 after) {
+						TacticalWeaponConfigurationResult result{};
+						bool refreshHand = false;
+						(void)ResolveEquipmentTacticalWeaponConfiguration(merc, slot, before, after, result, refreshHand);
+						if (!IsValidTacticalWeaponConfigurationResult(result))
+							throw std::runtime_error("invalid transfer equipment continuation");
+						ApplyResolvedEquipmentChange(merc, result,
+							TacticalWeaponConfigurationPostApplyPolicy::None, slot, before, after, refreshHand);
+						if (!ApplyEquipmentBonusesChecked(merc))
+							throw std::runtime_error("transfer equipment bonuses failed after mutation");
+					};
+					// Ordinary pockets (14..54) contribute no worn bonuses and
+					// trigger no human hand/head equipment continuation. Leaving
+					// opaque untouched hands alone is essential to normal rosters.
+					if (value.sourceSlot < 14 || value.destinationSlot < 14)
+					{
+						complete(*actor, value.sourceSlot, item, NOTHING);
+						complete(*target, value.destinationSlot, NOTHING, item);
+					}
+					const auto validSurface = [](const TacticalActor& merc) {
+						const auto surface = merc.animationPlayback().surface();
+						return surface < NUMANIMATIONSURFACETYPES && gAnimSurfaceDatabase[surface].hVideoObject;
+					};
+					if (ResolveJa2TacticalEntity(value.soldier) != actor || ResolveJa2TacticalEntity(value.target) != target ||
+						!IsCanonicalEmptyInventoryObject(actor->inventory()[value.sourceSlot]) ||
+						CaptureOrdinaryInventoryObject(target->inventory()[value.destinationSlot]) != value.sourceStateFingerprint ||
+						!validSurface(*actor) || !validSurface(*target))
+						throw std::runtime_error("authoritative inventory transfer failed after mutation");
+					// Match successful native inventory-panel placement, not the
+					// distinct 3-AP world-click pass/animation route. Silent native
+					// animation failure is detected above before charging either.
+					DeductPoints(actor, value.expectedActionPointCost, 0, UNTRIGGERED_INTERRUPT);
+					DeductPoints(target, value.expectedActionPointCost, 0, UNTRIGGERED_INTERRUPT);
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
+			}
+			else if constexpr (std::is_same<Command, AuthoritativePickupWorldItemCommand>::value)
+			{
+				TacticalActor* actor = nullptr;
+				WORLDITEM* item = nullptr;
+				if (!ResolveAuthoritativeGroundPickup(value, actor, item)) return CommandDisposition::Discard;
+				const INT16 beforeAP = actor->actionPoints().current();
+				const INT16 chargedAP = IsJa2TacticalTurnBasedCombat() ? value.expectedActionPointCost : 0;
+				try
+				{
+					// The only object mutation exchanges native list storage with an
+					// already canonical-empty ordinary pocket. No cleanup/clamping,
+					// cursor, autoplace, split, animation or equipment continuation.
+					static_assert(std::is_nothrow_swappable<OBJECTTYPE>::value,
+						"retained ground pickup must move native storage without allocation");
+					std::swap(item->object, actor->inventory()[value.destinationSlot]);
+					if (!RemoveItemFromPool(value.expectedActorGrid,
+							static_cast<INT32>(value.item.slot), value.expectedActorLevel) ||
+						ResolveJa2TacticalWorldItem(value.item) != nullptr ||
+						ItemExistsAtLocation(value.expectedActorGrid, static_cast<INT32>(value.item.slot), value.expectedActorLevel) ||
+						ResolveJa2TacticalEntity(value.soldier) != actor ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.destinationSlot]) != value.sourceStateFingerprint)
+						throw std::runtime_error("authoritative ground pickup failed after mutation");
+					// Use the stock successful world-pickup accounting, including its
+					// real-time no-AP policy and ordinary interrupt bookkeeping.
+					DeductPoints(actor, value.expectedActionPointCost, 0);
+					if (!IsJa2TacticalWorldIntegrityValid() || ResolveJa2TacticalEntity(value.soldier) != actor ||
+						actor->actionPoints().current() != beforeAP - chargedAP ||
+						CaptureOrdinaryInventoryObject(actor->inventory()[value.destinationSlot]) != value.sourceStateFingerprint)
+						throw std::runtime_error("authoritative ground pickup accounting failed after mutation");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
+			{
+				TacticalActor* actor = nullptr;
+				CoopOrdinaryGroundDropPlacement placement;
+				if (!ResolveAuthoritativeInventoryDrop(value, actor, placement)) return CommandDisposition::Discard;
+				const INT16 beforeAP = actor->actionPoints().current();
+				const INT16 chargedAP = IsJa2TacticalTurnBasedCombat() ? value.expectedActionPointCost : 0;
+				TacticalWorldItemId itemId;
+				const auto inserted = CommitCoopOrdinaryGroundDrop(value.soldier, value.sourceSlot,
+					value.sourceStateFingerprint, placement, itemId);
+				if (inserted != CoopOrdinaryGroundDropResult::Applied)
+				{
+					if (inserted == CoopOrdinaryGroundDropResult::IntegrityFailure || !IsJa2TacticalWorldIntegrityValid())
+					{
+						MarkJa2TacticalWorldIntegrityFailure();
+						throw std::runtime_error("authoritative ground drop insertion integrity failure");
+					}
+					return CommandDisposition::Discard;
+				}
+				try
+				{
+					WORLDITEM* item = nullptr;
+					std::uint64_t objectState = 0, poolState = 0;
+					if (ResolveJa2TacticalEntity(value.soldier) != actor ||
+						!IsCanonicalEmptyInventoryObject(actor->inventory()[value.sourceSlot]) ||
+						!CaptureGroundPickupPool(*actor, itemId, item, objectState, poolState) ||
+						objectState != value.sourceStateFingerprint)
+						throw std::runtime_error("authoritative ground drop failed after insertion");
+					DeductPoints(actor, value.expectedActionPointCost, 0);
+					if (!IsJa2TacticalWorldIntegrityValid() || ResolveJa2TacticalEntity(value.soldier) != actor ||
+						actor->actionPoints().current() != beforeAP - chargedAP ||
+						!IsCanonicalEmptyInventoryObject(actor->inventory()[value.sourceSlot]) ||
+						ResolveJa2TacticalWorldItem(itemId) != item ||
+						CaptureOrdinaryInventoryObject(item->object) != value.sourceStateFingerprint)
+						throw std::runtime_error("authoritative ground drop accounting failed after mutation");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
+			}
+			else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+			{
+				TacticalActor* medic = nullptr;
+				TacticalActor* patient = nullptr;
+				if (!ResolveBeginFirstAid(value, medic, patient))
+					return CommandDisposition::Discard;
+				try
+				{
+					if (!TacticalActorMedicalSession::beginFirstAid(
+							*medic, patient->position().gridNo(), value.direction))
+						return CommandDisposition::Discard;
+					if (ResolveJa2TacticalEntity(value.soldier) != medic ||
+						ResolveJa2TacticalEntity(value.target) != patient)
+						throw std::runtime_error("authoritative first aid binding changed");
+					const auto hasLoadedSurface = [](const TacticalActor& actor) noexcept {
+						const UINT16 surface = actor.animationPlayback().surface();
+						return surface < NUMANIMATIONSURFACETYPES &&
+							gAnimSurfaceDatabase[surface].hVideoObject != nullptr;
+					};
+					const UINT16 requestedAid = value.expectedAnimationState == PRONE &&
+						value.expectedTargetAnimationState == PRONE ? START_AID_PRN : START_AID;
+					const UINT16 startedAnimation = medic->animationPlayback().state();
+					const bool pendingAidStance = requestedAid == START_AID &&
+						medic->animationIntent().pendingAnimation() == requestedAid &&
+						((value.expectedAnimationState == STANDING && startedAnimation == KNEEL_DOWN) ||
+						 (value.expectedAnimationState == PRONE && startedAnimation == PRONE_UP));
+					// An invalid aid mapping can leave the old idle surface loaded
+					// while legacy startup still associates a service. Prove actual
+					// aid entry or its exact native stance continuation before Applied.
+					if (medic->service().partner() != patient->identity().id() ||
+						!patient->service().hasProviders() ||
+						medic->targeting().gridNo() != value.expectedTargetGrid ||
+						(startedAnimation != requestedAid && !pendingAidStance) ||
+						!IsAnimationValidForBodyType(medic, requestedAid) ||
+						!hasLoadedSurface(*medic) || !hasLoadedSurface(*patient))
+						throw std::runtime_error("authoritative first aid startup failed");
+					return CommandDisposition::Applied;
+				}
+				catch (...)
+				{
+					// Native startup can charge AP or associate services before
+					// allocating animation/dialogue/drug data. A throwing command
+					// is retained by the generic processor; poison this world before
+					// it can retry, publish a misleading receipt, or save partial aid.
+					MarkJa2TacticalWorldIntegrityFailure();
+					throw;
+				}
 			}
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
@@ -1545,21 +2576,70 @@ namespace
 				TacticalActor* soldier =
 					ResolveCoopAuthorizedLegacyCommandActor(
 						value.soldier, value.source, value.authority);
-				if (!soldier ||
-					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
+				TacticalMoveDiagnostic diagnostic;
+				diagnostic.actorSlot = value.soldier.slot;
+				diagnostic.incarnation = value.soldier.incarnation;
+				diagnostic.destination = value.destinationGrid;
+				diagnostic.movementMode = value.movementMode;
+				diagnostic.reverse = value.reverse;
+				if (!soldier)
+				{
+					diagnostic.reason = TacticalMoveFailure::ActorUnavailable;
+					if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						TraceDedicatedCoopMoveRejection("execution-context", diagnostic);
 					return CommandDisposition::Discard;
+				}
+				if (!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
+				{
+					diagnostic.reason = TacticalMoveFailure::MovementMode;
+					if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+						TraceDedicatedCoopMoveRejection("execution-context", diagnostic);
+					return CommandDisposition::Discard;
+				}
+
+				// Admission precedes the simulation frame. Recheck before replacing
+				// any route/pending state: a wait may have resumed or traversal/target
+				// occupancy may have changed since the intent entered the inbox.
+				if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					!TacticalActorRouteExecution::canBeginMoveToGrid(*soldier,
+						value.destinationGrid, value.movementMode, value.reverse, &diagnostic))
+				{
+					TraceDedicatedCoopMoveRejection("execution-readiness", diagnostic);
+					return CommandDisposition::Discard;
+				}
+				// Revalidation accepts zero-route locomotion only at the native
+				// retained arrival boundary. Seed the new first tile while preserving
+				// the old movement pose for native run-start AP accounting.
+				const bool restartRetainedLocomotion =
+					value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					soldier->pathing().pathSize() == 0 &&
+					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_MOVING) != 0;
+				// The legacy route entry rejects an index at its fixed capacity.
+				// Only after dedicated revalidation may a fully consumed buffer be
+				// released. Keep its delay intact for requestPath's normal cleanup.
+				if (value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+					soldier->pathing().pathIndex() == MAX_PATH_LIST_SIZE &&
+					soldier->pathing().pathSize() == MAX_PATH_LIST_SIZE)
+				{
+					soldier->pathing().pathIndex() = 0;
+					soldier->pathing().pathSize() = 0;
+				}
 
 				soldier->movement().mode() = value.movementMode;
 				soldier->movement().setReverse(value.reverse);
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
 					soldier->pendingAction().clearAction();
-				return TacticalActorRouteExecution::requestPath(*soldier,
+				const bool pathStarted = TacticalActorRouteExecution::requestPath(*soldier,
 					value.destinationGrid, value.movementMode,
 					static_cast<TacticalActorRouteExecution::PathOrigin>(
 						value.origin),
-					value.forceRestart)
-					? CommandDisposition::Applied
-					: CommandDisposition::Discard;
+					value.forceRestart || restartRetainedLocomotion);
+				if (!pathStarted && value.authority == TacticalCommandAuthorityPolicy::DedicatedCoop)
+				{
+					diagnostic.reason = TacticalMoveFailure::NativePathStart;
+					TraceDedicatedCoopMoveRejection("execution-path-start", diagnostic);
+				}
+				return pathStarted ? CommandDisposition::Applied : CommandDisposition::Discard;
 			}
 			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 			{
@@ -2222,7 +3302,8 @@ namespace
 					std::is_same<Command, StartConversationCommand>::value ||
 					std::is_same<Command, ApproachConversationCommand>::value ||
 					std::is_same<Command, StealFromActorCommand>::value ||
-					std::is_same<Command, ExchangePositionsCommand>::value)
+					std::is_same<Command, ExchangePositionsCommand>::value ||
+					std::is_same<Command, TransferInventoryItemCommand>::value)
 				{
 					if (TacticalActor* target =
 						ResolveLiveCommandActor(value.target))
@@ -2247,7 +3328,7 @@ namespace
 		CommandDisposition execute(
 			const SimulationCommand& command,
 			std::uint64_t,
-			std::uint64_t) override
+			std::uint64_t sequence) override
 		{
 			const SimulationCommandSource source = std::visit(
 				[](const auto& value) noexcept { return value.source; },
@@ -2255,7 +3336,7 @@ namespace
 			const ScopedSimulationCommandExecutionContext executionContext{
 				source};
 			const CommandDisposition disposition =
-				ExecuteSimulationCommand(command);
+				ExecuteSimulationCommand(command, sequence);
 			SynchronizeExecutedCommandActors(command, disposition);
 			return disposition;
 		}
@@ -2436,6 +3517,261 @@ bool PrepareReloadWeaponCommand(
 	return true;
 }
 
+bool PrepareBeginFirstAidCommand(TacticalEntityId actor,
+	TacticalEntityId target, BeginFirstAidCommand& output) noexcept
+{
+	if (!actor.valid() || !target.valid() || actor == target) return false;
+	TacticalActor* const medic = ResolveLiveCommandActor(actor);
+	TacticalActor* const patient = ResolveLiveCommandActor(target);
+	const Ja2TacticalTurnIdentity identity =
+		GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!medic || !patient || !identity ||
+		medic->identity().bodyType() > REGFEMALE ||
+		medic->inventory().size() <= HANDPOS || !gubWorldMovementCosts ||
+		TileIsOutOfBounds(medic->position().gridNo()) ||
+		TileIsOutOfBounds(patient->position().gridNo()) ||
+		medic->position().level() < FIRST_LEVEL ||
+		medic->position().level() > SECOND_LEVEL ||
+		patient->position().level() != medic->position().level() ||
+		!FirstAidStartPoseReady(*medic) || !FirstAidStartPoseReady(*patient)) return false;
+	BeginFirstAidCommand prepared;
+	prepared.soldier = actor;
+	prepared.target = target;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedActorGrid = medic->position().gridNo();
+	prepared.expectedTargetGrid = patient->position().gridNo();
+	prepared.expectedLevel = medic->position().level();
+	prepared.expectedAnimationState = medic->animationPlayback().state();
+	prepared.expectedTargetAnimationState = patient->animationPlayback().state();
+	prepared.expectedHandItem = medic->inventory()[HANDPOS].usItem;
+	prepared.expectedKitStateFingerprint = CaptureFirstAidKitStateFingerprint(*medic);
+	if (prepared.expectedKitStateFingerprint == 0) return false;
+	prepared.expectedActionPointCost = TacticalActorMedicalSession::beginActionPointCost(*medic);
+	if (!ResolveFirstAidActionTile(*medic, *patient, prepared.direction))
+		return false;
+	TacticalActor* checkedMedic = nullptr;
+	TacticalActor* checkedPatient = nullptr;
+	if (!ResolveBeginFirstAid(prepared, checkedMedic, checkedPatient)) return false;
+	output = prepared;
+	return true;
+}
+
+std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8_t slot) noexcept
+{
+	const TacticalActor* const live = ResolveJa2TacticalEntity(actor);
+	return live && slot < live->inventory().size()
+		? CaptureOrdinaryInventoryObject(live->inventory()[slot]) : 0;
+}
+
+bool PrepareSwapInventorySlotsCommand(TacticalEntityId actor,
+	std::uint8_t sourceSlot, std::uint8_t destinationSlot,
+	SwapInventorySlotsCommand& output) noexcept
+{
+	SwapInventorySlotsCommand prepared;
+	prepared.soldier = actor; prepared.sourceSlot = sourceSlot; prepared.destinationSlot = destinationSlot;
+	try
+	{
+		TacticalActor* const live = ResolveLiveCommandActor(actor);
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS ||
+			!IsSupportedInventorySwapSlot(sourceSlot) || !IsSupportedInventorySwapSlot(destinationSlot) ||
+			sourceSlot == destinationSlot)
+		{
+			TraceInventorySwapFailure("prepare.input", prepared, live);
+			return false;
+		}
+		prepared.soldier = actor;
+		prepared.sourceSlot = sourceSlot;
+		prepared.destinationSlot = destinationSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = live->position().gridNo();
+		prepared.expectedActorLevel = live->position().level();
+		prepared.expectedAnimationState = live->animationPlayback().state();
+		prepared.expectedDirection = live->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapCommandActorState(*live, sourceSlot, destinationSlot);
+		prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[sourceSlot]);
+		prepared.destinationStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[destinationSlot]);
+		prepared.handStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[HANDPOS]);
+		prepared.offhandStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[SECONDHANDPOS]);
+		const auto reject = [&](const char* stage) {
+			TraceInventorySwapFailure(stage, prepared, live);
+			return false;
+		};
+		if (prepared.sourceStateFingerprint == 0) return reject("prepare.source_object");
+		if (prepared.destinationStateFingerprint == 0) return reject("prepare.destination_object");
+		if (prepared.handStateFingerprint == 0) return reject("prepare.hand_object");
+		if (prepared.offhandStateFingerprint == 0) return reject("prepare.offhand_object");
+		if (!InventorySwapCost(*live, sourceSlot, destinationSlot, prepared.expectedActionPointCost))
+			return reject("prepare.cost");
+		if (ResolveInventorySwap(prepared) != live) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...)
+	{
+		TraceInventorySwapFailure("prepare.exception", prepared);
+		return false; // Preparation has not mutated the actor or copied objects.
+	}
+}
+
+bool PrepareTransferInventoryItemCommand(TacticalEntityId actor, TacticalEntityId target,
+	std::uint8_t sourceSlot, std::uint8_t destinationSlot,
+	TransferInventoryItemCommand& output) noexcept
+{
+	try
+	{
+		TacticalActor* const from = ResolveLiveCommandActor(actor);
+		TacticalActor* const to = ResolveLiveCommandActor(target);
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!from || !to || !identity || from->inventory().size() != NUM_INV_SLOTS ||
+			to->inventory().size() != NUM_INV_SLOTS || !IsSupportedInventoryTransferSlot(sourceSlot) ||
+			!IsSupportedInventoryTransferSlot(destinationSlot)) return false;
+		TransferInventoryItemCommand prepared;
+		prepared.soldier = actor;
+		prepared.target = target;
+		prepared.sourceSlot = sourceSlot;
+		prepared.destinationSlot = destinationSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = from->position().gridNo();
+		prepared.expectedTargetGrid = to->position().gridNo();
+		prepared.expectedLevel = from->position().level();
+		prepared.expectedAnimationState = from->animationPlayback().state();
+		prepared.expectedTargetAnimationState = to->animationPlayback().state();
+		prepared.expectedDirection = from->position().direction();
+		prepared.expectedTargetDirection = to->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapActorState(*from);
+		prepared.expectedTargetStateFingerprint = CaptureInventorySwapActorState(*to);
+		prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(from->inventory()[sourceSlot]);
+		prepared.destinationStateFingerprint = CaptureOrdinaryInventoryObject(to->inventory()[destinationSlot]);
+		if (sourceSlot < 14 || destinationSlot < 14)
+		{
+			prepared.handStateFingerprint = CaptureOrdinaryInventoryObject(from->inventory()[HANDPOS]);
+			prepared.offhandStateFingerprint = CaptureOrdinaryInventoryObject(from->inventory()[SECONDHANDPOS]);
+			prepared.targetHandStateFingerprint = CaptureOrdinaryInventoryObject(to->inventory()[HANDPOS]);
+			prepared.targetOffhandStateFingerprint = CaptureOrdinaryInventoryObject(to->inventory()[SECONDHANDPOS]);
+		}
+		prepared.expectedActionPointCost = 2;
+		TacticalActor* checkedActor = nullptr;
+		TacticalActor* checkedTarget = nullptr;
+		if (!ResolveInventoryTransfer(prepared, checkedActor, checkedTarget)) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...) { return false; }
+}
+
+bool CaptureCoopPickupGroundItem(TacticalEntityId actor, TacticalWorldItemId item,
+	TacticalCoopGroundItemCandidate& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	if (!live) return false;
+	WORLDITEM* selected = nullptr;
+	std::uint64_t objectState = 0, poolState = 0;
+	if (!CaptureGroundPickupPool(*live, item, selected, objectState, poolState)) return false;
+	output = TacticalCoopGroundItemCandidate{item, selected->sGridNo,
+		static_cast<std::int8_t>(selected->ubLevel), objectState};
+	return true;
+}
+
+bool CaptureCoopNearbyLootItem(TacticalEntityId actor, TacticalWorldItemId item,
+	TacticalCoopGroundItemCandidate& output) noexcept
+{
+	const TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const WORLDITEM* const selected = ResolveJa2TacticalWorldItem(item);
+	if (!live || !CoopGroundProjectionActorReady(*live) || !selected ||
+		TileIsOutOfBounds(selected->sGridNo) ||
+		static_cast<UINT32>(selected->sGridNo) >= GetWorldTileMapSize() ||
+		selected->ubLevel != live->position().level()) return false;
+	const auto actorGrid = live->position().gridNo();
+	if (std::abs(selected->sGridNo / WORLD_COLS - actorGrid / WORLD_COLS) > TacticalCoopNearbyLootRadius ||
+		std::abs(selected->sGridNo % WORLD_COLS - actorGrid % WORLD_COLS) > TacticalCoopNearbyLootRadius) return false;
+	WORLDITEM* checkedItem = nullptr;
+	ITEM_POOL* selectedPool = nullptr;
+	std::uint64_t objectState = 0, poolState = 0;
+	if (!CaptureOrdinaryGroundItemPool(item, checkedItem, selectedPool, objectState, poolState) ||
+		(selectedPool->usFlags & WORLD_ITEM_DONTRENDER) != 0) return false;
+	output = TacticalCoopGroundItemCandidate{item, checkedItem->sGridNo,
+		static_cast<std::int8_t>(checkedItem->ubLevel), objectState};
+	return true;
+}
+
+bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
+	TacticalWorldItemId item, std::uint8_t destinationSlot,
+	AuthoritativePickupWorldItemCommand& output) noexcept
+{
+	try
+	{
+		TacticalActor* const live = ResolveLiveCommandActor(actor);
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS ||
+			!IsSupportedAuthoritativePickupPocket(destinationSlot)) return false;
+		WORLDITEM* selected = nullptr;
+		std::uint64_t objectState = 0, poolState = 0;
+		if (!CaptureGroundPickupPool(*live, item, selected, objectState, poolState) ||
+			AdjustGridNoForItemPlacement(live, live->position().gridNo()) != live->position().gridNo()) return false;
+		const UINT16 cost = GetAPsToPickupItem(live, live->position().gridNo());
+		if (cost == 0 || cost > INT16_MAX) return false;
+		AuthoritativePickupWorldItemCommand prepared;
+		prepared.soldier = actor;
+		prepared.item = item;
+		prepared.destinationSlot = destinationSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = live->position().gridNo();
+		prepared.expectedActorLevel = live->position().level();
+		prepared.expectedAnimationState = live->animationPlayback().state();
+		prepared.expectedDirection = live->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapActorState(*live);
+		prepared.sourceStateFingerprint = objectState;
+		prepared.destinationStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[destinationSlot]);
+		prepared.expectedPoolStateFingerprint = poolState;
+		prepared.expectedActionPointCost = static_cast<INT16>(cost);
+		TacticalActor* checkedActor = nullptr;
+		WORLDITEM* checkedItem = nullptr;
+		if (!ResolveAuthoritativeGroundPickup(prepared, checkedActor, checkedItem)) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...) { return false; }
+}
+
+bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,
+	std::uint8_t sourceSlot, AuthoritativeDropInventoryItemCommand& output) noexcept
+{
+	try
+	{
+		TacticalActor* const live = ResolveLiveCommandActor(actor);
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!live || !identity || live->identity().bodyType() > REGFEMALE ||
+			(live->identity().profile() != NO_PROFILE && live->identity().profile() >= NUM_PROFILES) ||
+			live->inventory().size() != NUM_INV_SLOTS ||
+			!IsSupportedAuthoritativePickupPocket(sourceSlot)) return false;
+		const UINT16 cost = GetBasicAPsToPickupItem(live);
+		if (cost == 0 || cost > INT16_MAX) return false;
+		AuthoritativeDropInventoryItemCommand prepared;
+		prepared.soldier = actor;
+		prepared.sourceSlot = sourceSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = live->position().gridNo();
+		prepared.expectedActorLevel = live->position().level();
+		prepared.expectedAnimationState = live->animationPlayback().state();
+		prepared.expectedDirection = live->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapActorState(*live);
+		prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[sourceSlot]);
+		prepared.expectedActionPointCost = static_cast<INT16>(cost);
+		TacticalActor* checked = nullptr;
+		CoopOrdinaryGroundDropPlacement placement;
+		if (!ResolveAuthoritativeInventoryDrop(prepared, checked, placement)) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...) { return false; }
+}
+
 bool PrepareAuthoritativeDoorOpenCloseCommand(
 	TacticalEntityId actor,
 	TacticalWorldObjectId object,
@@ -2510,7 +3846,12 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, ReloadWeaponCommand>::value ||
 			std::is_same<Command,
 				AuthoritativeDoorOpenCloseCommand>::value ||
-			std::is_same<Command, PassInterruptCommand>::value)
+			std::is_same<Command, PassInterruptCommand>::value ||
+			std::is_same<Command, BeginFirstAidCommand>::value ||
+			std::is_same<Command, SwapInventorySlotsCommand>::value ||
+			std::is_same<Command, TransferInventoryItemCommand>::value ||
+			std::is_same<Command, AuthoritativePickupWorldItemCommand>::value ||
+			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -2646,6 +3987,57 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				return IsStructurallyValidPassInterruptCommand(value)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidInterruptPrecondition;
+			}
+			else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+			{
+				if (!IsStructurallyValidSwapInventorySlotsCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidInventorySwapPrecondition;
+				return TileIsOutOfBounds(value.expectedActorGrid)
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, TransferInventoryItemCommand>::value)
+			{
+				if (!IsStructurallyValidTransferInventoryItemCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES ||
+					value.expectedTargetAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidInventoryTransferPrecondition;
+				if (value.target.slot >= TOTAL_SOLDIERS) return SimulationCommandDomainError::InvalidTargetActor;
+				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
+				return TileIsOutOfBounds(value.expectedTargetGrid)
+					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativePickupWorldItemCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativePickupWorldItemCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidAuthoritativePickupPrecondition;
+				return TileIsOutOfBounds(value.expectedActorGrid)
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeDropInventoryItemCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidAuthoritativeDropPrecondition;
+				return TileIsOutOfBounds(value.expectedActorGrid)
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+			{
+				if (!IsStructurallyValidBeginFirstAidCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES ||
+					value.expectedTargetAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidFirstAidPrecondition;
+				if (value.target.slot >= TOTAL_SOLDIERS)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (TileIsOutOfBounds(value.expectedActorGrid))
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (TileIsOutOfBounds(value.expectedTargetGrid))
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.expectedHandItem >= MAXITEMS)
+					return SimulationCommandDomainError::InvalidAttackingWeapon;
+				return SimulationCommandDomainError::None;
 			}
 			else if constexpr (
 				std::is_same<Command,

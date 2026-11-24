@@ -19,6 +19,8 @@
 	#include "overhead map.h"
 	#include "DropDown.h"		// added by Flugente
 	#include "FeaturesScreen.h"
+	#include "DedicatedCoopRuntime.h"
+	#include <cstdio>
 
 #define		MSGBOX_DEFAULT_WIDTH							300
 
@@ -103,6 +105,13 @@ INT32 DoMessageBox( UINT8 ubStyle, const STR16 zString, UINT32 uiExitScreen, UIN
 	if( gMsgBox.BackRegion.uiFlags & MSYS_REGION_EXISTS )
 	{
 		return( 0 );
+	}
+	// A dedicated host cannot click native widgets. Keep the pending question
+	// intact, but make unexpected GUI continuations diagnosable in its log.
+	if (IsDedicatedCoopProcess())
+	{
+		std::fprintf(stderr, "[dedicated] native dialog requires handling: screen=%u; flags=%u; text=%.512ls\n",
+			static_cast<unsigned>(uiExitScreen), static_cast<unsigned>(usFlags), zString ? zString : L"<none>");
 	}
 
 	// Based on style....

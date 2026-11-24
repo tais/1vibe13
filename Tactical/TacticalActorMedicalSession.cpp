@@ -176,6 +176,13 @@ std::int16_t TacticalActorMedicalSession::beginActionPointCost(
 			std::numeric_limits<std::int16_t>::max()));
 }
 
+bool TacticalActorMedicalSession::wouldPerformSurgery(
+	TacticalActor& medic,
+	const TacticalActor& patient)
+{
+	return hasUsableHandKit(medic) && mayPerformSurgery(medic, patient);
+}
+
 bool TacticalActorMedicalSession::beginFirstAid(
 	TacticalActor& medic,
 	std::int32_t patientGrid,

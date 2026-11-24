@@ -64,10 +64,15 @@ enum class SimulationCommandDomainError
 	InvalidBulkReloadSquad,
 	InvalidBulkReloadRoster,
 	InvalidInterruptPrecondition,
+	InvalidFirstAidPrecondition,
+	InvalidInventorySwapPrecondition,
+	InvalidInventoryTransferPrecondition,
+	InvalidAuthoritativePickupPrecondition,
 	InvalidWeaponConfigurationResult,
 	InvalidWeaponConfigurationCause,
 	InvalidWeaponConfigurationPostApplyPolicy,
-	InvalidWeaponConfigurationContinuation
+	InvalidWeaponConfigurationContinuation,
+	InvalidAuthoritativeDropPrecondition
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -90,6 +95,63 @@ bool PrepareAimedFirearmAttackCommand(
 bool PrepareReloadWeaponCommand(
 	TacticalEntityId actor,
 	ReloadWeaponCommand& output) noexcept;
+
+// Adjacent teammate only: captures exact identities, poses, and equipped kit.
+// The native aid animation owns startup AP; this bridge only preflights it.
+bool PrepareBeginFirstAidCommand(
+	TacticalEntityId actor,
+	TacticalEntityId target,
+	BeginFirstAidCommand& output) noexcept;
+
+// Complete ordinary stacks only; all slot, pose, AP and object proofs are
+// prepared by the server and repeated by the one retained native command.
+bool PrepareSwapInventorySlotsCommand(
+	TacticalEntityId actor,
+	std::uint8_t sourceSlot,
+	std::uint8_t destinationSlot,
+	SwapInventorySlotsCommand& output) noexcept;
+
+bool PrepareTransferInventoryItemCommand(
+	TacticalEntityId actor, TacticalEntityId target,
+	std::uint8_t sourceSlot, std::uint8_t destinationSlot,
+	TransferInventoryItemCommand& output) noexcept;
+
+struct TacticalCoopGroundItemCandidate
+{
+	TacticalWorldItemId item;
+	std::int32_t grid = -1;
+	std::int8_t level = -1;
+	std::uint64_t objectStateFingerprint = 0;
+};
+
+// Read-only projection of one exact visible, neutral, ordinary ground item on
+// this actor's tile. Deliberately independent of AP/idle/turn admission gates.
+// Failure leaves output unchanged; no UI, item discovery, or identity repair.
+bool CaptureCoopPickupGroundItem(TacticalEntityId actor, TacticalWorldItemId item,
+	TacticalCoopGroundItemCandidate& output) noexcept;
+
+constexpr std::int32_t TacticalCoopNearbyLootRadius = 12;
+
+// Persistent, already-discovered loot within a same-floor Chebyshev radius.
+// This is presentation only: no discovery, LOS, AP/idle or pickup admission.
+// The retained pickup path still requires the actor's exact tile.
+bool CaptureCoopNearbyLootItem(TacticalEntityId actor, TacticalWorldItemId item,
+	TacticalCoopGroundItemCandidate& output) noexcept;
+
+bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
+	TacticalWorldItemId item, std::uint8_t destinationSlot,
+	AuthoritativePickupWorldItemCommand& output) noexcept;
+
+// Ordinary whole pocket stack onto this actor's exact empty, safe ground tile.
+// The retained command repeats source/pose/AP proofs and commits one native
+// item insertion; no asynchronous drop animation or client inventory mutation.
+bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,
+	std::uint8_t sourceSlot, AuthoritativeDropInventoryItemCommand& output) noexcept;
+
+// Read-only supported-object fingerprint, independent of turn/idle/AP gates.
+// Zero means unsupported; this is a stale-state proof, not an item identity.
+std::uint64_t CaptureInventorySwapObjectState(
+	TacticalEntityId actor, std::uint8_t slot) noexcept;
 
 // Main-thread server seam for an exact currently projected door. The public
 // identity is combined with private live fingerprints/costs; both preparation

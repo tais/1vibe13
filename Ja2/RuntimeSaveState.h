@@ -1,7 +1,12 @@
 #ifndef JA2_RUNTIME_SAVE_STATE_H
 #define JA2_RUNTIME_SAVE_STATE_H
 
+#include "TacticalReinforcementSaveState.h"
+#include "TacticalScheduleSaveState.h"
+#include "PassiveCampaignView.h"
+
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -175,6 +180,9 @@ struct PreparedRuntimeSave
 	RuntimeCheckpoint checkpoint;
 	PackageSaveStateSnapshot packageState;
 	RuntimeRandomCheckpoint randomCheckpoint;
+	std::optional<TacticalReinforcementSaveState> reinforcementState;
+	std::optional<TacticalScheduleSaveState> scheduleState;
+	std::optional<PassiveCampaignView> passiveView;
 	RuntimeSavePolicyError policyError = RuntimeSavePolicyError::None;
 	RuntimeCheckpointSaveError checkpointError =
 		RuntimeCheckpointSaveError::InvalidCheckpoint;
@@ -262,6 +270,9 @@ struct PreparedRuntimeLoad
 	PackageRandomTransactionError packageRandomTransactionError =
 		PackageRandomTransactionError::None;
 	std::uint64_t domainBytes = 0;
+	std::optional<TacticalReinforcementSaveState> reinforcementState;
+	std::optional<TacticalScheduleSaveState> scheduleState;
+	std::optional<PassiveCampaignView> passiveView;
 	RuntimeCheckpoint checkpoint;
 	PackageSaveArchive packages;
 	std::string packageId;

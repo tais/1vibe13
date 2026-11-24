@@ -4,6 +4,7 @@ set(StrategicSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Assignments.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Auto Resolve.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Campaign Init.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/CampaignEventScheduling.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Creature Spreading.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Facilities.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Game Clock.cpp"

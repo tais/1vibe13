@@ -55,6 +55,32 @@ inline constexpr std::size_t LegacyKickPayloadBytes = 1;
 inline constexpr std::size_t LegacyGameOverRequestPayloadBytes = 4;
 inline constexpr std::size_t LegacyChatPayloadBytes = 1026;
 
+// SDL3_net message framing is: UINT32 body length, one-byte frame type,
+// one-byte message-name length, name bytes, then payload bytes. Legacy relays
+// cannot retry a skipped frame without violating their reliable ordering, so a
+// peer which cannot accept the next complete frame is disconnected instead.
+inline constexpr std::size_t LegacySdlMessageFrameOverheadBytes = 6;
+inline constexpr std::size_t DefaultLegacyServerPendingWriteHighWaterBytes =
+	256u * 1024u;
+
+inline bool LegacyServerOutboundFrameWithinLimit(
+	std::size_t pendingBytes, std::size_t messageNameBytes,
+	std::size_t payloadBytes, std::size_t highWaterBytes =
+		DefaultLegacyServerPendingWriteHighWaterBytes) noexcept
+{
+	if (messageNameBytes == 0 || messageNameBytes > 255 ||
+		highWaterBytes == 0 || pendingBytes > highWaterBytes)
+		return false;
+	std::size_t remaining = highWaterBytes - pendingBytes;
+	if (LegacySdlMessageFrameOverheadBytes > remaining)
+		return false;
+	remaining -= LegacySdlMessageFrameOverheadBytes;
+	if (messageNameBytes > remaining)
+		return false;
+	remaining -= messageNameBytes;
+	return payloadBytes <= remaining;
+}
+
 // Actor and server-authored field offsets for packed layouts declared in
 // client.cpp. Companion offsetof assertions there prevent a same-size layout
 // change from silently invalidating server-side authority checks.

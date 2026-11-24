@@ -38,6 +38,7 @@
 #include "INIReader.h"
 #include "SoldierRepository.h"
 #include "DedicatedCoopRuntime.h"
+#include "FullEngineCoopClientPresentationRuntime.h"
 #include "FullEngineCoopClientScreen.h"
 #include "FullEngineCoopClientRuntime.h"
 #include "laptop.h"
@@ -513,6 +514,8 @@ UINT32 InitScreenHandle(void)
 	}
 	if (ubCurrentScreen == 5 && IsFullEngineCoopClientProcess())
 	{
+		if (GetFullEngineCoopClientPresentationReadiness().ready())
+			return GAME_SCREEN;
 		HandleFullEngineCoopClientScreen();
 	}
 	return( INIT_SCREEN );

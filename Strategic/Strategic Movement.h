@@ -242,6 +242,9 @@ INT32 CalculateTravelTimeOfGroup( GROUP *pGroup );
 INT32 CalculateTravelTimeOfGroupId( UINT8 ubId );
 
 INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup );
+// Same native terrain/weight/trait rules, independently of map selection and
+// its shared encumbrance cache. Caller supplies a validated live group.
+INT32 GetSectorMvtTimeForGroupWithoutUiCache( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup );
 
 UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ );
 UINT8 PlayerGroupsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ );

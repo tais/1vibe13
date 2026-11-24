@@ -52,6 +52,20 @@ void SetClippingRegionAndImageWidth(
 	int iClipStartX, int iClipStartY,
 	int iClipWidth,	int iClipHeight );
 
+// Scoped clients of the legacy line rasterizer can preserve both its byte
+// pitch and clipping rectangle instead of leaking ambient draw state into the
+// next renderer. Values are intentionally exact, including a cold zero state.
+struct SGPLineDrawState
+{
+	int imageWidth = 0;
+	int clipXMin = 0;
+	int clipXMax = 0;
+	int clipYMin = 0;
+	int clipYMax = 0;
+};
+void GetLineDrawState(SGPLineDrawState* state);
+void SetLineDrawState(const SGPLineDrawState* state);
+
 // NOTE:
 //	Don't send fClip==TRUE to LineDraw if you don't have to. So if you know
 //	that your line will be within the region you want it to be in, set

@@ -25,11 +25,20 @@ RELEASE_SAVE_CONTRACT_INVOCATIONS = tuple(
     for test_name in RELEASE_SAVE_CONTRACT_TESTS)
 RELEASE_SAVE_CONTRACT_COMMAND = " && ".join(
     RELEASE_SAVE_CONTRACT_INVOCATIONS)
+MACOS_SHARED_SDL_PATTERN = (
+    r"(^|/)(lib)?SDL3(_mixer|_net)?([.][0-9]+)*[.]dylib$|"
+    r"(^|/)SDL3(_mixer|_net)?[.]framework(/|$)")
+STATIC_SDL_QUALIFICATION_STEP = "Qualify static SDL dependency configuration"
+STATIC_SDL_QUALIFICATION_COMMAND = (
+    "python3 tools/qualify_static_release_dependencies.py "
+    "--build-dir build --platform-family '${{ matrix.platform.family }}'"
+)
 EXPECTED_RELEASE_PLATFORMS = {
-    ("ubuntu-latest", "linux", "linux"),
-    ("ubuntu-24.04-arm", "linux-arm64", "linux"),
-    ("macos-latest", "macos", "macos"),
-    ("windows-latest", "windows", "windows"),
+    ("ubuntu-22.04", "linux-x86_64-glibc2.35", "linux", "x86_64"),
+    ("ubuntu-22.04-arm", "linux-arm64-glibc2.35", "linux", "arm64"),
+    ("macos-15-intel", "macos-x86_64-macos12", "macos", "x86_64"),
+    ("macos-15", "macos-arm64-macos12", "macos", "arm64"),
+    ("windows-2022", "windows-x86_64", "windows", "x86_64"),
 }
 NSIS_DOWNLOAD_STEP = "Download checksum-pinned NSIS compiler"
 NSIS_URL = (
@@ -39,7 +48,7 @@ NSIS_SHA256 = (
     "56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f")
 NSIS_STEP_PREFIX = (
     "      - name: Download checksum-pinned NSIS compiler\n"
-    "        if: matrix.platform.name == 'windows'\n"
+    "        if: matrix.platform.family == 'windows'\n"
     "        shell: pwsh\n"
     "        run: |\n")
 NSIS_SETUP_BLOCK = (
@@ -79,6 +88,16 @@ NSIS_EXPECTED_STEP = (
     NSIS_STEP_PREFIX + NSIS_SETUP_BLOCK + NSIS_URL_LINE + NSIS_EXPECTED_LINE
     + NSIS_CURL_BLOCK + NSIS_HASH_BLOCK + NSIS_EXPAND_LINE
     + NSIS_COMPILER_BLOCK + "\n")
+RESOLVE_PACKAGE_NAME_STEP = "Resolve package name"
+RESOLVE_PACKAGE_NAME_EXPECTED_STEP = (
+    "      - name: Resolve package name\n"
+    "        shell: bash\n"
+    "        run: |\n"
+    "          set -eux\n"
+    "          echo \"PKG=ja2-sdl3-${{ matrix.platform.name }}-"
+    "${RELEASE_LABEL}\" >> \"$GITHUB_ENV\"\n"
+    "          echo \"SDK_PKG=ja2-engine-sdk-${{ matrix.platform.name }}-"
+    "${RELEASE_LABEL}\" >> \"$GITHUB_ENV\"\n\n")
 
 
 def release_steps(contents: str) -> list[tuple[str, str]]:
@@ -150,12 +169,13 @@ def validate_release_save_contract(contents: str) -> None:
         tuple(value.strip() for value in match.groups())
         for match in re.finditer(
             r"(?m)^ {10}-\s*\{\s*os:\s*([^,}]+),\s*"
-            r"name:\s*([^,}]+),\s*family:\s*([^,}]+)\s*}\s*$",
+            r"name:\s*([^,}]+),\s*family:\s*([^,}]+),\s*"
+            r"arch:\s*([^,}]+)\s*}\s*$",
             platform_blocks[0].group("rows"))
     ]
     if (len(platform_rows) != len(EXPECTED_RELEASE_PLATFORMS)
             or set(platform_rows) != EXPECTED_RELEASE_PLATFORMS):
-        fail("package job must retain exactly four active release platforms")
+        fail("package job must retain exactly five qualified release platforms")
 
     steps = release_steps(job)
     names = [name for name, _body in steps]
@@ -199,32 +219,47 @@ def validate_release_save_contract(contents: str) -> None:
 def validate_release_workflow(contents: str) -> None:
     validate_release_save_contract(contents)
 
-    stage_marker = "- name: Stage payload (macos)"
-    sign_marker = "- name: Sign and verify macOS app bundles"
-    archive_marker = "- name: Archive (unix)"
-    stage_position = contents.find(stage_marker)
-    sign_position = contents.find(sign_marker)
-    archive_position = contents.find(archive_marker)
-    if min(stage_position, sign_position, archive_position) < 0:
+    steps = release_steps(package_job(contents))
+    names = [name for name, _body in steps]
+    required_steps = (
+        "Stage payload (macos)",
+        "Sign and verify macOS app bundles",
+        "Archive (unix)",
+    )
+    if any(names.count(name) != 1 for name in required_steps):
         fail("release workflow lost macOS staging, signing, or archiving")
+    stage_position = names.index(required_steps[0])
+    sign_position = names.index(required_steps[1])
+    archive_position = names.index(required_steps[2])
     if not stage_position < sign_position < archive_position:
         fail("macOS bundles must be signed after staging and before archiving")
 
-    next_step = contents.find("\n      - name:", sign_position + len(sign_marker))
-    if next_step < 0:
-        fail("cannot determine the macOS signing step boundary")
-    signing_step = contents[sign_position:next_step]
-    required_fragments = (
-        "if: matrix.platform.name == 'macos'",
+    signing_step = steps[sign_position][1]
+    if mapping_key("continue-on-error", 8).search(signing_step):
+        fail("macOS signing failures must block packaging")
+    if re.search(r"(?m)^ {8}<<\s*:", signing_step):
+        fail("macOS signing step must not inherit hidden YAML controls")
+    conditions = re.findall(
+        r"(?m)^ {8}(?:if|'if'|\"if\")\s*:[^\n]*$", signing_step)
+    if conditions != ["        if: matrix.platform.family == 'macos'"]:
+        fail("macOS signing step must retain only its exact platform condition")
+    if not re.search(r"(?m)^ {8}shell:\s*bash\s*$", signing_step):
+        fail("macOS signing step must use the Bash runner")
+    shell_commands = tuple(
+        line.strip() for line in signing_step.splitlines()
+        if line.startswith("          ") and line.strip()
+        and not line.lstrip().startswith("#")
+    )
+    expected_commands = (
+        "set -eux",
         "for app in JA2 JA2UB JA2MAPEDITOR; do",
         'bundle="dist/${app}_ENGLISH.app"',
         'codesign --force --deep --sign - "$bundle"',
         'codesign --verify --deep --strict --verbose=2 "$bundle"',
+        "done",
     )
-    missing = [fragment for fragment in required_fragments
-               if fragment not in signing_step]
-    if missing:
-        fail("macOS signing step lost: " + ", ".join(missing))
+    if shell_commands != expected_commands:
+        fail("macOS signing step lost its exact fail-closed command sequence")
 
 
 def validate_nsis_download(workflow: str) -> None:
@@ -240,7 +275,7 @@ def validate_nsis_download(workflow: str) -> None:
         fail("NSIS download failures must block packaging")
     conditions = re.findall(
         r"(?m)^ {8}(?:if|'if'|\"if\")\s*:[^\n]*$", step)
-    if conditions != ["        if: matrix.platform.name == 'windows'"]:
+    if conditions != ["        if: matrix.platform.family == 'windows'"]:
         fail("NSIS download must retain only its Windows matrix condition")
     if re.search(r"(?m)^ {8}<<\s*:", step):
         fail("NSIS download step must not inherit hidden YAML controls")
@@ -267,21 +302,197 @@ def validate_nsis_download(workflow: str) -> None:
         fail("NSIS download step contains unapproved controls or statements")
 
 
+def validate_release_compatibility(workflow: str) -> None:
+    """Require versioned toolchains and fail-closed binary baseline checks."""
+
+    job = package_job(workflow)
+    steps = release_steps(job)
+    names = [name for name, _body in steps]
+
+    configure_steps = [body for name, body in steps if name == "Configure"]
+    if len(configure_steps) != 1:
+        fail("release workflow must contain exactly one Configure step")
+    configure = configure_steps[0]
+    configure_fragments = (
+        "platform_args=()",
+        'if [[ "${{ matrix.platform.family }}" == macos ]]; then',
+        '"-DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }}"',
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0",
+        "-DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON",
+        "-DCMAKE_DISABLE_FIND_PACKAGE_SDL3_mixer=ON",
+        "-DCMAKE_DISABLE_FIND_PACKAGE_SDL3_net=ON",
+        "-DSDLMIXER_DEPS_SHARED=OFF",
+        '${platform_args[@]+"${platform_args[@]}"}',
+    )
+    missing = [fragment for fragment in configure_fragments
+               if fragment not in configure]
+    if missing:
+        fail("release configure lost its macOS deployment contract: "
+             + ", ".join(missing))
+
+    static_steps = [
+        (index, body) for index, (name, body) in enumerate(steps)
+        if name == STATIC_SDL_QUALIFICATION_STEP
+    ]
+    if len(static_steps) != 1:
+        fail("release workflow must contain exactly one static SDL qualification step")
+    static_position, static_step = static_steps[0]
+    if mapping_key("if|continue-on-error", 8).search(static_step):
+        fail("static SDL qualification must run unconditionally and block packaging")
+    if re.search(r"(?m)^ {8}<<\s*:", static_step):
+        fail("static SDL qualification must not inherit hidden YAML controls")
+    if not re.search(r"(?m)^ {8}shell:\s*bash\s*$", static_step):
+        fail("static SDL qualification must use the Bash runner")
+    run_lines = re.findall(r"(?m)^ {8}run:\s*(\S.*)\s*$", static_step)
+    if run_lines != [STATIC_SDL_QUALIFICATION_COMMAND]:
+        fail("static SDL qualification must run exactly: "
+             + STATIC_SDL_QUALIFICATION_COMMAND)
+
+    requirements = {
+        "Qualify Linux release binaries": (
+            "expected_machine='Advanced Micro Devices X86-64'",
+            "expected_machine='AArch64'",
+            'readelf --file-header "$binary"',
+            'dynamic_table="$(readelf --dynamic "$binary")"',
+            '<<< "$dynamic_table"',
+            "libSDL3(_mixer|_net)?[.]so",
+            "unexpectedly depends on a shared SDL3 library",
+            '["readelf", "--version-info", binary]',
+            "version > (2, 35)",
+            "GLIBC newer than 2.35",
+            "build/JA2_ENGLISH",
+            "build/JA2UB_ENGLISH",
+            "build/JA2MAPEDITOR_ENGLISH",
+            "build/tests/ja2server",
+        ),
+        "Qualify macOS release binaries": (
+            'actual_arch="$(lipo -archs "$binary")"',
+            '"${{ matrix.platform.arch }}"',
+            'otool -l "$binary"',
+            'dependency_table="$(otool -L "$binary")"',
+            "awk '{print $1}'",
+            MACOS_SHARED_SDL_PATTERN,
+            "unexpectedly depends on a shared SDL3 library",
+            "grep -Ev '^(/usr/lib/|/System/Library/)'",
+            "has non-system dynamic dependencies",
+            'rpaths="$(otool -l "$binary" | awk',
+            'LC_RPATH',
+            "has runtime search paths despite static packaging",
+            'LC_BUILD_VERSION',
+            'if [[ "$minos" != 12.0 ]]',
+            "build/JA2_ENGLISH.app/Contents/MacOS/JA2_ENGLISH",
+            "build/JA2UB_ENGLISH.app/Contents/MacOS/JA2UB_ENGLISH",
+            "build/JA2MAPEDITOR_ENGLISH.app/Contents/MacOS/JA2MAPEDITOR_ENGLISH",
+            "build/tests/ja2server",
+        ),
+        "Qualify Windows release binaries": (
+            "build/JA2_ENGLISH.exe",
+            "build/JA2UB_ENGLISH.exe",
+            "build/JA2MAPEDITOR_ENGLISH.exe",
+            "build/tests/ja2server.exe",
+            'image[:2] != b"MZ"',
+            'image[pe_offset:pe_offset + 4] != b"PE\\0\\0"',
+            "machine != 0x8664",
+            'import_table="$(llvm-readobj --coff-imports "$binary")"',
+            '<<< "$import_table"',
+            "SDL3(_mixer|_net)?[.]dll",
+            "unexpectedly depends on a shared SDL3 library",
+        ),
+    }
+    expected_conditions = {
+        "Qualify Linux release binaries":
+            "        if: matrix.platform.family == 'linux'",
+        "Qualify macOS release binaries":
+            "        if: matrix.platform.family == 'macos'",
+        "Qualify Windows release binaries":
+            "        if: matrix.platform.family == 'windows'",
+    }
+    expected_active_lines = {
+        "Qualify Linux release binaries": (
+            '            dynamic_table="$(readelf --dynamic "$binary")"',
+            '                <<< "$dynamic_table" >/dev/null; then',
+        ),
+        "Qualify macOS release binaries": (
+            '            dependency_table="$(otool -L "$binary")"',
+            "                '" + MACOS_SHARED_SDL_PATTERN + "' \\",
+            '            unexpected_dependencies="$(',
+            '            rpaths="$(otool -l "$binary" | awk \'',
+        ),
+        "Qualify Windows release binaries": (
+            '            import_table="$(llvm-readobj --coff-imports "$binary")"',
+            '                <<< "$import_table" >/dev/null; then',
+        ),
+    }
+
+    qualification_positions = [static_position]
+    for step_name, fragments in requirements.items():
+        matches = [
+            (index, body) for index, (name, body) in enumerate(steps)
+            if name == step_name
+        ]
+        if len(matches) != 1:
+            fail(f"release workflow must contain exactly one {step_name} step")
+        position, body = matches[0]
+        qualification_positions.append(position)
+        if mapping_key("continue-on-error", 8).search(body):
+            fail(f"{step_name} failures must block packaging")
+        if re.search(r"(?m)^ {8}<<\s*:", body):
+            fail(f"{step_name} must not inherit hidden YAML controls")
+        conditions = re.findall(
+            r"(?m)^ {8}(?:if|'if'|\"if\")\s*:[^\n]*$", body)
+        if conditions != [expected_conditions[step_name]]:
+            fail(f"{step_name} must retain only its exact platform condition")
+        active_lines = body.splitlines()
+        missing_active = [line for line in expected_active_lines[step_name]
+                          if active_lines.count(line) != 1]
+        if missing_active:
+            fail(f"{step_name} lost its fail-closed active inspection commands")
+        if not re.search(r"(?m)^ {8}shell:\s*bash\s*$", body):
+            fail(f"{step_name} must use the Bash runner")
+        missing = [fragment for fragment in fragments if fragment not in body]
+        if missing:
+            fail(f"{step_name} lost: " + ", ".join(missing))
+
+    if names.count("Build") != 1:
+        fail("release workflow must contain exactly one Build step")
+    staging_positions = [
+        index for index, name in enumerate(names) if name.startswith("Stage ")]
+    if not staging_positions or not all(
+            names.index("Build") < position < min(staging_positions)
+            for position in qualification_positions):
+        fail("release binary qualification must run after Build and before staging")
+
+
+def validate_release_package_names(workflow: str) -> None:
+    """Require unique, architecture-bearing game and SDK archive basenames."""
+
+    matches = [body for name, body in release_steps(package_job(workflow))
+               if name == RESOLVE_PACKAGE_NAME_STEP]
+    if len(matches) != 1:
+        fail("release workflow must contain exactly one package-name step")
+    if matches[0] != RESOLVE_PACKAGE_NAME_EXPECTED_STEP:
+        fail("release package names must be assigned exactly from platform and label")
+
+
 def validate_release_packaging(
         workflow: str,
         windows_installer: str,
         appimage_prepare: str,
         appimage_build: str,
         appimage_run: str) -> None:
-    """Ratchet legacy zips, native packages, pins, and uninstall safety."""
+    """Ratchet portable zips, native packages, pins, and uninstall safety."""
 
     validate_nsis_download(workflow)
+    validate_release_compatibility(workflow)
+    validate_release_package_names(workflow)
 
-    legacy_fragments = (
-        "{ os: ubuntu-latest,    name: linux,       family: linux }",
-        "{ os: ubuntu-24.04-arm, name: linux-arm64, family: linux }",
-        "{ os: macos-latest,     name: macos,       family: macos }",
-        "{ os: windows-latest,   name: windows,     family: windows }",
+    portable_zip_fragments = (
+        "{ os: ubuntu-22.04,     name: linux-x86_64-glibc2.35, family: linux,   arch: x86_64 }",
+        "{ os: ubuntu-22.04-arm, name: linux-arm64-glibc2.35,  family: linux,   arch: arm64 }",
+        "{ os: macos-15-intel,   name: macos-x86_64-macos12,   family: macos,   arch: x86_64 }",
+        "{ os: macos-15,         name: macos-arm64-macos12,    family: macos,   arch: arm64 }",
+        "{ os: windows-2022,     name: windows-x86_64,         family: windows, arch: x86_64 }",
+        "binutils clang cmake ninja-build pkg-config",
         "- name: Archive (unix)",
         '( cd dist && zip -r "../${PKG}.zip" . )',
         "- name: Archive (windows)",
@@ -290,10 +501,10 @@ def validate_release_packaging(
         "path: ${{ env.ASSET }}",
         "files: ${{ env.ASSET }}",
     )
-    missing = [fragment for fragment in legacy_fragments
+    missing = [fragment for fragment in portable_zip_fragments
                if fragment not in workflow]
     if missing:
-        fail("release workflow changed the four-zip contract: "
+        fail("release workflow changed the five-platform portable zip contract: "
              + ", ".join(missing))
 
     appimage_fragments = (
@@ -334,6 +545,7 @@ def validate_release_packaging(
         "preserve this operator configuration",
         "preserve this pre-existing uninstaller",
         "- name: Upload Windows installer workflow artifact",
+        "name: ja2-sdl3-${{ matrix.platform.name }}-installer",
         "- name: Attach Windows installer to release",
     )
     missing = [fragment for fragment in windows_fragments

@@ -365,6 +365,13 @@ const DedicatedServerOptions& GetDedicatedServerOptions() noexcept
 	return ActiveOptions;
 }
 
+bool IsDedicatedCoopCanonicalLoopbackBindAddress(
+	std::string_view address) noexcept
+{
+	return address == "127.0.0.1" || address == "::1" ||
+		address == "0:0:0:0:0:0:0:1";
+}
+
 bool IsSupportedDedicatedPvpGameType(int gameType) noexcept
 {
 	// Legacy arena values: 0 deathmatch, 1 team deathmatch, 2 legacy co-op.

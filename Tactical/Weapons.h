@@ -7,6 +7,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 
 class TacticalActor;
+struct SimulationCommandDispatchResult;
 
 //ADB moved from Soldier Control.h
 enum WeaponMode
@@ -42,6 +43,10 @@ enum ScopeMode
 
 //ADB moved from Interface Panels.h
 void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
+// Same native equipment continuation, with its actual dispatch outcome exposed.
+// Existing UI callers intentionally retain the void compatibility wrapper.
+SimulationCommandDispatchResult TryHandleTacticalEffectsOfEquipmentChange(
+	TacticalActor* soldier, UINT32 inventoryPosition, UINT16 oldItem, UINT16 newItem);
 void CompleteEquipmentTacticalEffects(
 	TacticalActor& soldier,
 	UINT32 inventoryPosition,

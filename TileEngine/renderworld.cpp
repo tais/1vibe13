@@ -15,6 +15,7 @@
 	#include "DEBUG.H"
 	#include "WCheck.h"
 	#include "worldman.h"
+	#include "worlddef.h"
 	#include "Radar Screen.h"
 	#include "Render Dirty.h"
 	#include "ai.h"
@@ -272,6 +273,7 @@ BOOLEAN DrawBasicTacticalEffectSprite(
 	switch (effect)
 	{
 	case VOBJECT_DRAW_SOURCE_TRANSPARENCY:
+		if (source == NULL || source->pShadeCurrent == NULL) return FALSE;
 		return clipping ?
 			Blt8BPPDataTo16BPPBufferTransparentClip(
 				destination, destinationPitchBytes, source,
@@ -1774,7 +1776,13 @@ inline static PIXEL * GetShadeTable(
 			palette.setCurrentShade(pShadeTable);
 			return pShadeTable;
 		}
-		UINT8 ubShadeLevel = gpWorldLevelData[GridNo].pLandHead->ubShadeLevel;
+		// Ordinary authored maps normally provide land at every occupied grid, but
+		// a renderer-facing replica must remain fail-safe if a validated static
+		// plan and actor snapshot expose a sparse cell. Shading is presentation;
+		// use the neutral palette level instead of dereferencing a missing node.
+		LEVELNODE * const pLand = gpWorldLevelData[GridNo].pLandHead;
+		UINT8 ubShadeLevel = pLand != NULL
+			? pLand->ubShadeLevel : DEFAULT_SHADE_LEVEL;
 		// If merc is on a roof, shade according to roof brightness
 		if (pSoldier->position().level() > 0 && gpWorldLevelData[GridNo].pRoofHead != NULL)
 		{
@@ -3976,7 +3984,9 @@ void ScrollBackground(UINT32 uiDirection, INT16 sScrollXIncrement, INT16 sScroll
 // Coordinates for the window from that using the following functions
 // For coordinate transformations
 
-void RenderWorld( )
+static void RenderDynamicWorldInternal( BOOLEAN fStaticPresentation );
+
+static void RenderWorldInternal( BOOLEAN fStaticPresentation )
 {
 TILE_ELEMENT					*TileElem;
 TILE_ANIMATION_DATA		*pAnimData;
@@ -4062,13 +4072,24 @@ UINT32 cnt = 0;
 	{
 		gfRenderFullThisFrame = TRUE;
 
-		gfTopMessageDirty = TRUE;
+		if ( !fStaticPresentation )
+		{
+			gfTopMessageDirty = TRUE;
 
-		// Dirty the interface...
-		fInterfacePanelDirty = DIRTYLEVEL2;
+			// Dirty the interface...
+			fInterfacePanelDirty = DIRTYLEVEL2;
+		}
 
 		// Apply scrolling sets some world variables
-		ApplyScrolling( gsRenderCenterX, gsRenderCenterY, TRUE, FALSE );
+		if ( fStaticPresentation )
+		{
+			ApplyScrollingForStaticPresentation(
+				gsRenderCenterX, gsRenderCenterY, TRUE, FALSE );
+		}
+		else
+		{
+			ApplyScrolling( gsRenderCenterX, gsRenderCenterY, TRUE, FALSE );
+		}
 		ResetLayerOptimizing();
 
 		if ( (gRenderFlags&RENDER_FLAG_NOZ ) )
@@ -4099,7 +4120,7 @@ UINT32 cnt = 0;
 
 	if ( gfScrollInertia == FALSE || (gRenderFlags&RENDER_FLAG_NOZ ) || (gRenderFlags&RENDER_FLAG_FULL ) || (gRenderFlags&RENDER_FLAG_MARKED ) )
 	{
-		RenderDynamicWorld( );
+		RenderDynamicWorldInternal( fStaticPresentation );
 
 ///////////////////////////////////////////////////////////
 
@@ -4190,6 +4211,22 @@ UINT32 cnt = 0;
 		if (pDestBuf) UnLockVideoSurface(guiRENDERBUFFER);
 	}
 
+}
+
+void RenderWorld( )
+{
+	RenderWorldInternal( FALSE );
+}
+
+BOOLEAN RenderWorldForStaticPresentation( )
+{
+	if ( !IsWorldPreparedForStaticPresentation() ||
+		IsJa2TacticalWorldLoaded() )
+	{
+		return FALSE;
+	}
+	RenderWorldInternal( TRUE );
+	return TRUE;
 }
 
 // Start with a center X,Y,Z world coordinate and render direction
@@ -4418,7 +4455,7 @@ void RenderMarkedWorld(void)
 
 }
 
-void RenderDynamicWorld(  )
+static void RenderDynamicWorldInternal( BOOLEAN fStaticPresentation )
 {
 	UINT8		ubNumLevels;
 	UINT32	uiLevelFlags[ 10 ];
@@ -4485,11 +4522,14 @@ void RenderDynamicWorld(  )
 
 	RenderTiles(TILES_DIRTY, gsStartPointX_M, gsStartPointY_M, gsStartPointX_S, gsStartPointY_S, gsEndXS, gsEndYS, ubNumLevels, uiLevelFlags, sLevelIDs );
 
-	#ifdef JA2EDITOR
-	if( !gfEditMode && !gfAniEditMode )
-	#endif
+	if ( !fStaticPresentation )
 	{
-		RenderTacticalInterface( );
+		#ifdef JA2EDITOR
+		if( !gfEditMode && !gfAniEditMode )
+		#endif
+		{
+			RenderTacticalInterface( );
+		}
 	}
 
 	SaveBackgroundRects();
@@ -4524,13 +4564,22 @@ void RenderDynamicWorld(  )
 	uiLevelFlags[0] = TILES_DYNAMIC_TOPMOST;
 	sLevelIDs[0]    = RENDER_DYNAMIC_TOPMOST;
 
-	// ATE: check here for mouse over structs.....
-	RenderTiles( TILES_DYNAMIC_CHECKFOR_INT_TILE, gsStartPointX_M, gsStartPointY_M, gsStartPointX_S, gsStartPointY_S, gsEndXS, gsEndYS, 1, uiLevelFlags, sLevelIDs );
+	// ATE: check here for mouse over structs. Passive presentation clients have
+	// no compiled interactive-tile model and must not publish legacy UI targets.
+	if ( !fStaticPresentation )
+	{
+		RenderTiles( TILES_DYNAMIC_CHECKFOR_INT_TILE, gsStartPointX_M, gsStartPointY_M, gsStartPointX_S, gsStartPointY_S, gsEndXS, gsEndYS, 1, uiLevelFlags, sLevelIDs );
+	}
 
 	SumAddiviveLayerOptimization( );
 
 	ResetRenderParameters( );
 
+}
+
+void RenderDynamicWorld( )
+{
+	RenderDynamicWorldInternal( FALSE );
 }
 
 
@@ -5286,10 +5335,20 @@ void InitRenderParams( UINT8 ubRestrictionID )
 
 }
 
+namespace
+{
+enum class ScrollingApplicationPolicy
+{
+	LegacyInteractive,
+	StaticPresentation
+};
+
 // WANNE: Scrolling: Only scroll, if the map is larger than the radar map
 // For example: Do not allow scrolling in Rebel Basement.
 // Appy? HEahehahehahehae.....
-BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly )
+BOOLEAN ApplyScrollingWithPolicy( INT16 sTempRenderCenterX,
+	INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly,
+	ScrollingApplicationPolicy policy )
 {
 	BOOLEAN		fScrollGood = FALSE;
 	BOOLEAN		fOutLeft = FALSE;
@@ -5316,17 +5375,6 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	INT16 sDistToCenterY, sDistToCenterX;
 	INT16 sNewScreenX, sNewScreenY;
 	INT16	sMult;
-
-	INT16 sRadarTLX, sRadarTLY;
-	INT16 sRadarBRX, sRadarBRY;
-	INT16 sRadarCX, sRadarCY;
-	INT16 sHeight, sWidth, sX, sY;
-	// CHRISL:
-	INT16			gsRadarX;
-	INT16			gsRadarY;
-	BOOLEAN			fAllowScrollingHorizontal = FALSE;
-	BOOLEAN			fAllowScrollingVertical = FALSE;
-
 
 	//Makesure it's a multiple of 5
 	sMult = sTempRenderCenterX / CELL_X_SIZE;
@@ -5371,54 +5419,67 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	sBottomRightWorldY = sScreenCenterY  + sY_S;
 
 
-	// WANNE: Scrolling bugfix, if we are talking in a small tactical map (e.g: Rebel Basement) in high resolution (1024x768)[2007-05-14]
-	// Determine radar coordinates
-	sRadarCX	= (INT16)( gsCX * gdScaleX );
-	sRadarCY	= (INT16)( gsCY * gdScaleY );
-
-	if( GetCurrentScreen() == MAP_SCREEN )
+	if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
 	{
-		gsRadarX = RADAR_WINDOW_STRAT_X;
-		gsRadarY = RADAR_WINDOW_STRAT_Y;
-	}
-	else if ( gsCurInterfacePanel == SM_PANEL )
-	{
-		gsRadarX = RADAR_WINDOW_SM_X;
-		gsRadarY = RADAR_WINDOW_SM_Y;
-	}
-	else
-	{
-		gsRadarX = RADAR_WINDOW_TM_X;
-		gsRadarY = RADAR_WINDOW_TM_Y;
-	}
+		INT16 sRadarTLX, sRadarTLY;
+		INT16 sRadarBRX, sRadarBRY;
+		INT16 sRadarCX, sRadarCY;
+		INT16 sHeight, sWidth, sX, sY;
+		// CHRISL:
+		INT16 gsRadarX;
+		INT16 gsRadarY;
+		BOOLEAN fAllowScrollingHorizontal = FALSE;
+		BOOLEAN fAllowScrollingVertical = FALSE;
+
+		// WANNE: Scrolling bugfix, if we are talking in a small tactical map (e.g: Rebel Basement) in high resolution (1024x768)[2007-05-14]
+		// Determine radar coordinates
+		sRadarCX = (INT16)( gsCX * gdScaleX );
+		sRadarCY = (INT16)( gsCY * gdScaleY );
+
+		if( GetCurrentScreen() == MAP_SCREEN )
+		{
+			gsRadarX = RADAR_WINDOW_STRAT_X;
+			gsRadarY = RADAR_WINDOW_STRAT_Y;
+		}
+		else if ( gsCurInterfacePanel == SM_PANEL )
+		{
+			gsRadarX = RADAR_WINDOW_SM_X;
+			gsRadarY = RADAR_WINDOW_SM_Y;
+		}
+		else
+		{
+			gsRadarX = RADAR_WINDOW_TM_X;
+			gsRadarY = RADAR_WINDOW_TM_Y;
+		}
 
 
-	sWidth		= ( RADAR_WINDOW_WIDTH );
-	sHeight		= ( RADAR_WINDOW_HEIGHT );
-	sX				= gsRadarX;
-	sY				= gsRadarY;
+		sWidth = ( RADAR_WINDOW_WIDTH );
+		sHeight = ( RADAR_WINDOW_HEIGHT );
+		sX = gsRadarX;
+		sY = gsRadarY;
 
 
-	sRadarTLX = (INT16)( ( sTopLeftWorldX * gdScaleX ) - sRadarCX  + sX + ( sWidth /2 ) );
-	sRadarTLY = (INT16)( ( sTopLeftWorldY * gdScaleY ) - sRadarCY + gsRadarY + ( sHeight /2 ) );
-	sRadarBRX = (INT16)( ( sBottomRightWorldX * gdScaleX ) - sRadarCX + sX + ( sWidth /2 ) );
-	sRadarBRY = (INT16)( ( sBottomRightWorldY * gdScaleY ) - sRadarCY + gsRadarY + ( sHeight /2 ) );
+		sRadarTLX = (INT16)( ( sTopLeftWorldX * gdScaleX ) - sRadarCX  + sX + ( sWidth /2 ) );
+		sRadarTLY = (INT16)( ( sTopLeftWorldY * gdScaleY ) - sRadarCY + gsRadarY + ( sHeight /2 ) );
+		sRadarBRX = (INT16)( ( sBottomRightWorldX * gdScaleX ) - sRadarCX + sX + ( sWidth /2 ) );
+		sRadarBRY = (INT16)( ( sBottomRightWorldY * gdScaleY ) - sRadarCY + gsRadarY + ( sHeight /2 ) );
 
-	// WANNE: Scrolling bugfix, if we are talking in a small tactical map (e.g: Rebel Basement) in high resolution (1024x768)[2007-05-14]
-	if ((sRadarBRX - sRadarTLX) <= RADAR_WINDOW_WIDTH)
-	{
-		fAllowScrollingHorizontal = TRUE;
-	}
+		// WANNE: Scrolling bugfix, if we are talking in a small tactical map (e.g: Rebel Basement) in high resolution (1024x768)[2007-05-14]
+		if ((sRadarBRX - sRadarTLX) <= RADAR_WINDOW_WIDTH)
+		{
+			fAllowScrollingHorizontal = TRUE;
+		}
 
-	if ((sRadarBRY - sRadarTLY) <= RADAR_WINDOW_HEIGHT)
-	{
-		fAllowScrollingVertical = TRUE;
-	}
+		if ((sRadarBRY - sRadarTLY) <= RADAR_WINDOW_HEIGHT)
+		{
+			fAllowScrollingVertical = TRUE;
+		}
 
-	if ((fAllowScrollingHorizontal == FALSE || fAllowScrollingVertical == FALSE) && (gfDialogControl == TRUE))
-	{
-		gfDialogControl = FALSE;
-		return (FALSE);
+		if ((fAllowScrollingHorizontal == FALSE || fAllowScrollingVertical == FALSE) && (gfDialogControl == TRUE))
+		{
+			gfDialogControl = FALSE;
+			return (FALSE);
+		}
 	}
 
 	// WANNE: Scrolling bugfix for small maps in high resolution (eg: Rebel Basement)
@@ -5491,7 +5552,10 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 		fOutBottom = TRUE;
 	}
 
-	sprintf( gDebugStr, "Angles: %d %d %d %d", (int)at1, (int)at2, (int)at3, (int)at4 );
+	if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
+	{
+		sprintf( gDebugStr, "Angles: %d %d %d %d", (int)at1, (int)at2, (int)at3, (int)at4 );
+	}
 
 	if ( !fOutRight && !fOutLeft && !fOutTop && !fOutBottom )
 	{
@@ -5499,16 +5563,20 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	}
 
 	// If in editor, anything goes
-	if ( gfEditMode && _KeyDown( SHIFT ) )
+	if ( policy == ScrollingApplicationPolicy::LegacyInteractive &&
+		gfEditMode && _KeyDown( SHIFT ) )
 	{
 		fScrollGood = TRUE;
 	}
 
-	// Reset some UI flags
-	gfUIShowExitEast								= FALSE;
-	gfUIShowExitWest								= FALSE;
-	gfUIShowExitNorth								= FALSE;
-	gfUIShowExitSouth								= FALSE;
+	if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
+	{
+		// Reset some UI flags
+		gfUIShowExitEast = FALSE;
+		gfUIShowExitWest = FALSE;
+		gfUIShowExitNorth = FALSE;
+		gfUIShowExitSouth = FALSE;
+	}
 
 
 	if ( !fScrollGood )
@@ -5560,7 +5628,7 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 				fScrollGood = TRUE;
 			}
 		}
-		else
+		else if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
 		{
 			if ( fOutRight )
 			{
@@ -5606,7 +5674,10 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	{
 		if ( !fCheckOnly )
 		{
+			if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
+			{
 				sprintf( gDebugStr, "Center: %d %d ", (int)gsRenderCenterX, (int)gsRenderCenterY );
+			}
 
 				//Makesure it's a multiple of 5
 				sMult = sTempRenderCenterX / CELL_X_SIZE;
@@ -5632,7 +5703,10 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 				gsBottomLeftWorldY = sBottomLeftWorldY - gsTLY;
 				gsBottomRightWorldY = sBottomRightWorldY - gsTLY;
 
-        SetPositionSndsVolumeAndPanning( );
+			if ( policy == ScrollingApplicationPolicy::LegacyInteractive )
+			{
+				SetPositionSndsVolumeAndPanning( );
+			}
 		}
 
 		return( TRUE );
@@ -5642,6 +5716,23 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	//}
 
 	//return ( FALSE );
+}
+}
+
+BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY,
+	BOOLEAN fForceAdjust, BOOLEAN fCheckOnly )
+{
+	return ApplyScrollingWithPolicy( sTempRenderCenterX,
+		sTempRenderCenterY, fForceAdjust, fCheckOnly,
+		ScrollingApplicationPolicy::LegacyInteractive );
+}
+
+BOOLEAN ApplyScrollingForStaticPresentation( INT16 sTempRenderCenterX,
+	INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly )
+{
+	return ApplyScrollingWithPolicy( sTempRenderCenterX,
+		sTempRenderCenterY, fForceAdjust, fCheckOnly,
+		ScrollingApplicationPolicy::StaticPresentation );
 }
 
 

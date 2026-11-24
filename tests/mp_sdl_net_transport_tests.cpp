@@ -21,6 +21,16 @@ static int g_failures = 0;
 
 static unsigned short g_port = 0;
 
+static unsigned short ListenerTestPort(Uint64 seed, unsigned int salt,
+	unsigned int attempt)
+{
+	// Probe across the range: 128 adjacent candidates can all fall in a host's
+	// reserved port block. The coprime stride visits distinct ports while keeping
+	// the existing bounded retry count and binding the real production listener.
+	return static_cast<unsigned short>(40000 +
+		(seed % 20000 + salt + static_cast<Uint64>(attempt) * 997) % 20000);
+}
+
 static bool BytesEqual( const std::vector<unsigned char>& actual, const void* expected, size_t size )
 {
 	return actual.size() >= size && memcmp( actual.data(), expected, size ) == 0;
@@ -86,6 +96,11 @@ struct ContextCapture
 	Captured captured;
 };
 
+struct OrderedContextCapture
+{
+	std::vector<unsigned char> values;
+};
+
 static void Capture( Captured& c, SdlNetMessage* p )
 {
 	c.count++;
@@ -106,6 +121,13 @@ static void ContextHandler( SdlNetMessage* p, void* context )
 {
 	ContextCapture* capture = static_cast<ContextCapture*>( context );
 	if ( capture ) Capture( capture->captured, p );
+}
+static void OrderedContextHandler( SdlNetMessage* p, void* context )
+{
+	OrderedContextCapture* capture =
+		static_cast<OrderedContextCapture*>( context );
+	if ( capture && p && p->size == 1 )
+		capture->values.push_back( p->data[0] );
 }
 
 // ---- file transfer capture ---------------------------------------------------
@@ -338,19 +360,21 @@ int main( int, char** )
 	// ---------- 1. handshake: accept + connect events ----------
 	SdlNetPeer* srv = CreateSdlNetPeer();
 	// A fixed port makes concurrent CI jobs and an immediately repeated test run
-	// contend with one another. Pick a high per-run starting point and probe a
-	// small range. Startup() is explicitly retry-safe after a bind failure.
+	// contend with one another. Pick a high per-run starting point and probe
+	// separated ports. Startup() is explicitly retry-safe after a bind failure.
 	const Uint64 seed = (Uint64)std::chrono::steady_clock::now().time_since_epoch().count();
 	bool serverStarted = false;
 	for ( unsigned int attempt = 0; attempt < 128 && !serverStarted; ++attempt )
 	{
-		g_port = (unsigned short)( 40000 + ( seed + attempt ) % 20000 );
+		g_port = ListenerTestPort(seed, 0, attempt);
 		SdlNetEndpoint sd( g_port, "127.0.0.1" );
 		serverStarted = srv->Start( 4, sd );
 	}
 	CHECK( serverStarted, "server Startup binds listener" );
 	if ( !serverStarted )
 	{
+		printf("IPv4 listener exhausted 128 candidate ports; last port=%u: %s\n",
+		       static_cast<unsigned>(g_port), SDL_GetError());
 		DestroySdlNetPeer( srv );
 		SDL_Quit();
 		return 1;
@@ -523,6 +547,11 @@ int main( int, char** )
 
 		FtCap cap;
 		unsigned short setID = fltR.SetupReceive(&cap, serverOnA );
+		SdlNetFileList bounded;
+		const char boundedByte = 'x';
+		bounded.AddFile("Data/bounded.dat", &boundedByte, 1);
+		CHECK(!fltS.Send(bounded, *srv, aOnSrv, setID, 5000, 1),
+		       "file transfer refuses a frame beyond its pending-write high-water" );
 
 		std::vector<char> f1( 200 * 1024 );
 		for ( size_t i = 0; i < f1.size(); ++i ) f1[i] = (char)( i ^ 0x5A );
@@ -530,7 +559,8 @@ int main( int, char** )
 		SdlNetFileList fl;
 		fl.AddFile("Data/Maps/big.dat", f1.data(), (unsigned)f1.size());
 		fl.AddFile("Data/tiny.txt", f2, 9);
-		fltS.Send(fl, *srv, aOnSrv, setID, 5000);
+		CHECK(fltS.Send(fl, *srv, aOnSrv, setID, 5000),
+		       "bounded file set queues completely" );
 
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return cap.complete >= 1; }, 10000 ), "file set completed" );
 		CHECK( cap.files == 2, "both files delivered" );
@@ -541,7 +571,8 @@ int main( int, char** )
 		FtCap capEmpty;
 		unsigned short setE = fltR.SetupReceive(&capEmpty, serverOnA );
 		SdlNetFileList flEmpty;
-		fltS.Send(flEmpty, *srv, aOnSrv, setE, 5000);
+		CHECK(fltS.Send(flEmpty, *srv, aOnSrv, setE, 5000),
+		       "bounded empty set marker queues" );
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return capEmpty.complete >= 1; } ), "empty file set completes immediately" );
 		CHECK( capEmpty.files == 0, "empty set delivered zero files" );
 
@@ -551,7 +582,8 @@ int main( int, char** )
 		unsigned short setZ = fltR.SetupReceive(&capZero, serverOnA );
 		SdlNetFileList flZero;
 		flZero.AddFile("Data/empty.dat", nullptr, 0);
-		fltS.Send(flZero, *srv, aOnSrv, setZ, 5000);
+		CHECK(fltS.Send(flZero, *srv, aOnSrv, setZ, 5000),
+		       "bounded zero-length file queues" );
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return capZero.complete >= 1; } ),
 		       "zero-length file set completes" );
 		CHECK( capZero.files == 1 && capZero.progress == 1 && capZero.lastData.empty(),
@@ -1105,10 +1137,13 @@ int main( int, char** )
 		bool budgetServerStarted = false;
 		for ( unsigned int attempt = 0; attempt < 128 && !budgetServerStarted; ++attempt )
 		{
-			g_port = (unsigned short)( 40000 + ( seed + 257 + attempt ) % 20000 );
+			g_port = ListenerTestPort(seed, 257, attempt);
 			budgetServerStarted = budgetServer->Start(
 				1, SdlNetEndpoint( g_port, "127.0.0.1" ) );
 		}
+		if (!budgetServerStarted)
+			printf("RPC budget listener exhausted candidate ports; last port=%u: %s\n",
+			       static_cast<unsigned>(g_port), SDL_GetError());
 		CHECK( budgetServerStarted, "isolated reliable RPC budget server starts" );
 		budgetServer->SetTimeout( 120000 );
 		REGISTER_SDLNET_MESSAGE( budgetServer, srvPING );
@@ -1176,6 +1211,187 @@ int main( int, char** )
 	srv->Shutdown( 0 );
 	DestroySdlNetPeer( srv );
 
+	// A protocol adapter with a small callback FIFO can cap synchronous named
+	// frame dispatch without dropping reliable bytes. Excess complete frames
+	// remain in the bounded connection input and resume in exact wire order.
+	{
+		SdlNetPeer* batchServer = CreateSdlNetPeer();
+		CHECK(!batchServer->SetMaximumMessageFramesPerPoll(0),
+		       "zero per-poll message-frame cap is rejected" );
+		CHECK(batchServer->SetMaximumMessageFramesPerPoll(2),
+		       "bounded per-poll message-frame cap configures before startup" );
+		CHECK(!batchServer->Start(2, SdlNetEndpoint()),
+		       "peer-global message cap rejects multi-connection startup" );
+		bool batchStarted = false;
+		for ( unsigned int attempt = 0; attempt < 128 && !batchStarted; ++attempt )
+		{
+			g_port = (unsigned short)( 40000 + ( seed + 384 + attempt ) % 20000 );
+			batchStarted = batchServer->Start(
+				1, SdlNetEndpoint(g_port, "127.0.0.1"));
+		}
+		CHECK(batchStarted, "message-batch server binds listener" );
+		CHECK(!batchServer->SetMaximumMessageFramesPerPoll(3),
+		       "live message-frame cap reconfiguration is rejected" );
+		OrderedContextCapture batchCapture;
+		CHECK(batchServer->RegisterMessage(
+			"bounded.batch", OrderedContextHandler, &batchCapture),
+		       "bounded message-batch handler registers" );
+		PeerLog batchLog{ batchServer };
+		RawConn raw;
+		CHECK(batchStarted && ConnectRaw(batchLog, raw),
+		       "raw message-batch client connects" );
+		CHECK(!batchServer->Connect("127.0.0.1", g_port),
+		       "capped peer rejects a second concurrent connection" );
+		if ( raw.sock )
+		{
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 0; value < 5; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			const std::vector<unsigned char> bye = WireFrame(2, {});
+			stream.insert(stream.end(), bye.begin(), bye.end());
+			CHECK(SendRaw(raw, stream),
+			       "five ordered messages and BYE enter one socket write" );
+			Uint64 deadline = SDL_GetTicks() + 2000;
+			while (NET_GetStreamSocketPendingWrites(raw.sock) > 0 &&
+			       SDL_GetTicks() < deadline)
+				SDL_Delay(1);
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1 }),
+			       "first parser pump dispatches exactly its two-frame cap" );
+			event = batchServer->Poll();
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3 }),
+			       "second parser pump resumes retained frames in order" );
+			event = batchServer->Poll();
+			const bool byeDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3, 4 }),
+			       "final parser pump drains the retained tail without loss" );
+			CHECK(byeDeferred,
+			       "following BYE remains behind the delivered callback batch" );
+			event = batchServer->Poll();
+			const bool gotBye = event && event->size == 1 && event->data &&
+				event->data[0] == SDLNET_DISCONNECTION_NOTIFICATION;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotBye && batchCapture.values ==
+				std::vector<unsigned char>({ 0, 1, 2, 3, 4 }),
+			       "deferred BYE is observed only after every prior callback" );
+			NET_DestroyStreamSocket(raw.sock);
+			raw.sock = nullptr;
+		}
+
+		RawConn eofRaw;
+		CHECK(batchStarted && ConnectRaw(batchLog, eofRaw),
+		       "raw message-plus-EOF client connects" );
+		if ( eofRaw.sock )
+		{
+			batchCapture.values.clear();
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 7; value < 10; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			CHECK(SendRaw(eofRaw, stream),
+			       "ordered messages enter the socket before EOF" );
+			(void)NET_WaitUntilStreamSocketDrained(eofRaw.sock, 2000);
+			NET_DestroyStreamSocket(eofRaw.sock);
+			eofRaw.sock = nullptr;
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			const bool firstEofDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(firstEofDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8 }),
+			       "socket EOF waits behind the first capped valid batch" );
+			event = batchServer->Poll();
+			const bool finalEofDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(finalEofDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8, 9 }),
+			       "socket EOF waits behind the retained valid tail" );
+			event = batchServer->Poll();
+			const bool gotLoss = event && event->size == 1 && event->data &&
+				event->data[0] == SDLNET_CONNECTION_LOST;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotLoss && batchCapture.values ==
+				std::vector<unsigned char>({ 7, 8, 9 }),
+			       "socket loss publishes only after every prior callback" );
+		}
+
+		RawConn malformedRaw;
+		CHECK(batchStarted && ConnectRaw(batchLog, malformedRaw),
+		       "raw message-plus-malformed client connects" );
+		if ( malformedRaw.sock )
+		{
+			batchCapture.values.clear();
+			std::vector<unsigned char> stream;
+			for ( unsigned char value = 11; value < 14; ++value )
+			{
+				std::vector<unsigned char> body;
+				const std::string name = "bounded.batch";
+				body.push_back((unsigned char)name.size());
+				body.insert(body.end(), name.begin(), name.end());
+				body.push_back(value);
+				const std::vector<unsigned char> frame = WireFrame(1, body);
+				stream.insert(stream.end(), frame.begin(), frame.end());
+			}
+			const std::vector<unsigned char> malformed = WireFrame(99, {});
+			stream.insert(stream.end(), malformed.begin(), malformed.end());
+			CHECK(SendRaw(malformedRaw, stream),
+			       "ordered messages enter the socket before a malformed frame" );
+			Uint64 deadline = SDL_GetTicks() + 2000;
+			while (NET_GetStreamSocketPendingWrites(malformedRaw.sock) > 0 &&
+			       SDL_GetTicks() < deadline)
+				SDL_Delay(1);
+			SDL_Delay(20);
+
+			SdlNetEvent* event = batchServer->Poll();
+			const bool firstMalformedDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(firstMalformedDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12 }),
+			       "malformed tail waits behind the first capped valid batch" );
+			event = batchServer->Poll();
+			const bool finalMalformedDeferred = event == nullptr;
+			if ( event ) batchServer->Release(event);
+			CHECK(finalMalformedDeferred && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12, 13 }),
+			       "malformed tail waits behind the retained valid message" );
+			event = batchServer->Poll();
+			const bool gotMalformedLoss = event && event->size == 1 &&
+				event->data && event->data[0] == SDLNET_CONNECTION_LOST;
+			if ( event ) batchServer->Release(event);
+			CHECK(gotMalformedLoss && batchCapture.values ==
+				std::vector<unsigned char>({ 11, 12, 13 }),
+			       "malformed frame closes only after every prior callback" );
+			NET_DestroyStreamSocket(malformedRaw.sock);
+			malformedRaw.sock = nullptr;
+		}
+		batchServer->Shutdown(0);
+		DestroySdlNetPeer(batchServer);
+	}
+
 	// A listener may reserve its final slot for the embedded authority. With a
 	// non-loopback allowance of zero, successful acceptance proves that the
 	// production address classifier recognizes the real loopback socket.
@@ -1189,8 +1405,7 @@ int main( int, char** )
 		for (unsigned int attempt = 0;
 			attempt < 128 && !reservedStarted; ++attempt)
 		{
-			reservedPort = static_cast<unsigned short>(
-				40000 + (seed + portSalt + attempt) % 20000);
+			reservedPort = ListenerTestPort(seed, portSalt, attempt);
 			reservedStarted = reservedServer->Start(
 				1, SdlNetEndpoint(reservedPort, host));
 		}
@@ -1199,7 +1414,8 @@ int main( int, char** )
 			       "reserved IPv4 loopback listener binds" );
 		if (!reservedStarted)
 		{
-			printf("skip reserved loopback address unavailable: %s\n", host);
+			printf("reserved loopback listener unavailable: host=%s; last port=%u: %s\n",
+			       host, static_cast<unsigned>(reservedPort), SDL_GetError());
 			DestroySdlNetPeer(reservedServer);
 			return;
 		}
@@ -1260,10 +1476,13 @@ int main( int, char** )
 		bool streamStarted = false;
 		for ( unsigned int attempt = 0; attempt < 128 && !streamStarted; ++attempt )
 		{
-			g_port = (unsigned short)( 40000 + ( seed + 256 + attempt ) % 20000 );
+			g_port = ListenerTestPort(seed, 256, attempt);
 			streamStarted = streamServer->Start(
 				1, SdlNetEndpoint(g_port, "127.0.0.1"));
 		}
+		if (!streamStarted)
+			printf("campaign budget listener exhausted candidate ports; last port=%u: %s\n",
+			       static_cast<unsigned>(g_port), SDL_GetError());
 		CHECK(streamStarted, "campaign-budget server binds listener" );
 		CHECK(!streamServer->SetInboundMessageBudget(campaignBudget),
 		       "live inbound budget reconfiguration is rejected" );

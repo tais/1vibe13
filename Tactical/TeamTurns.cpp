@@ -932,17 +932,22 @@ void StartInterrupt( void )
 	INT32		cnt;
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"StartInterrupt");
+	if (gubOutOfTurnPersons == 0 || gubOutOfTurnPersons >= MAXMERCS)
+	{
+		ClearIntList();
+		return;
+	}
 	ubFirstInterrupter = LATEST_INTERRUPT_GUY;
-	AssertLE(ubFirstInterrupter, MAX_NUM_SOLDIERS);
 	pSoldier =
 		GetJa2SoldierRepository().resolve(
 			ubFirstInterrupter.i);
-	AssertNotNIL(pSoldier);
 	if (!pSoldier)
 	{
 		ClearIntList();
 		return;
 	}
+	AssertLE(ubFirstInterrupter, MAX_NUM_SOLDIERS);
+	AssertNotNIL(pSoldier);
 	bTeam = pSoldier->roster().team();
 	ubInterrupter = ubFirstInterrupter;
 
@@ -956,6 +961,12 @@ void StartInterrupt( void )
 
 	//DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: %d is now on top of the interrupt queue", ubFirstInterrupter ) );
 
+	// An instant sight interrupt can win after IIS registers an action's AP
+	// cost but before that action reaches ResolvePendingInterrupt. Starting
+	// this validated grant consumes that superseded request, just as the IIS
+	// resolver does before DoneAddingToIntList. Clear it before callbacks and
+	// the team switch; any genuinely new pending action must remain visible.
+	SetJa2PendingInterrupt(DISABLED_INTERRUPT);
 	gTacticalStatus.fInterruptOccurred = TRUE;
 	NotifyJa2TacticalInterruptStarted();
 

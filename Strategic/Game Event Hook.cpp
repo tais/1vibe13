@@ -3,6 +3,10 @@
 #include "TacticalActor.h"
 #include "Soldier Profile Constants.h"
 #include "TacticalEntityHost.h"
+#include "CampaignAimArrival.h"
+#include "DedicatedCoopArrival.h"
+#include <cstdio>
+#include <stdexcept>
 	#include "Game Events.h"
 	#include "soundman.h"
 	#include "environment.h"
@@ -219,7 +223,27 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		//If a merc gets hired and they dont show up immediately, the merc gets added to the queue and shows up
 		// uiTimeTillMercArrives	minutes later
 		case EVENT_DELAYED_HIRING_OF_MERC:
-			MercArrivesCallback(	(UINT16) pEvent->uiParam );
+			if (UsesCheckedDedicatedCoopAimArrivals())
+			{
+				CampaignAimArrivalRequest request;
+				request.event = pEvent->id;
+				// Resolve the full native parameter before obtaining an incarnation;
+				// narrowing here could bind an unrelated reusable actor slot.
+				auto& repository = GetJa2SoldierRepository();
+				if (pEvent->uiParam < repository.capacity())
+					if (const auto* actor = repository.resolve(pEvent->uiParam))
+						request.actor = GetJa2TacticalEntityId(*actor);
+				const auto arrived = ArriveAimMercChecked(request);
+				if (!arrived)
+				{
+					std::fprintf(stderr, "[dedicated] checked AIM arrival failed: code=%u; mutation=%u\n",
+						static_cast<unsigned>(arrived.error), arrived.mutationMayHaveStarted ? 1u : 0u);
+					// The clock/event dispatcher already owns mutation. Never retire
+					// this event or retry through the legacy callback after failure.
+					throw std::runtime_error("checked native AIM arrival failed");
+				}
+			}
+			else MercArrivesCallback((UINT16)pEvent->uiParam);
 			break;
 		//handles the life insurance contract for a merc from AIM.
 		case EVENT_HANDLE_INSURED_MERCS:

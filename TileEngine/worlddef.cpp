@@ -82,6 +82,13 @@
 //<SB> variable map size
 INT32 guiWorldCols = OLD_WORLD_COLS;
 INT32 guiWorldRows = OLD_WORLD_ROWS;
+
+// A passive co-op client may temporarily populate the legacy renderer's world
+// arrays without owning a JA2 tactical simulation. Keep that state distinct
+// from TacticalWorldSession so ordinary world-load notifications remain an
+// authority-only lifecycle.
+static BOOLEAN gfStaticPresentationWorldPrepared = FALSE;
+static UINT32 guiStaticPresentationWorldTileCount = 0;
                                   
 // size must be multiple of 8
 //SB: resize all service array due to tactical map size change
@@ -264,6 +271,7 @@ static void DOIT( )
 
 BOOLEAN InitializeWorld( )
 {
+	TrashStaticPresentationWorld();
 
 	gTileDatabaseSize = 0;
 	gSurfaceMemUsage = 0;
@@ -313,6 +321,7 @@ BOOLEAN InitializeWorld( )
 //dnl ch43 290909
 void DeinitializeWorld()
 {
+	TrashStaticPresentationWorld();
 	TrashWorld();
 	if(gubGridNoMarkers)
 		MemFree(gubGridNoMarkers);
@@ -2400,6 +2409,29 @@ void InitLoadedWorld( )
 	SetBlueFlagFlags();
 }
 
+
+BOOLEAN InitializeWorldForStaticPresentationRendering(void)
+{
+	if ( !gfStaticPresentationWorldPrepared ||
+		IsJa2TacticalWorldLoaded() || gpWorldLevelData == NULL ||
+		gusWorldRoomInfo == NULL )
+	{
+		return FALSE;
+	}
+
+	// These are the three renderer-only pieces of InitLoadedWorld. Interactive
+	// tiles, movement compilation, interface height, tactical flags, and map
+	// gameplay metadata deliberately remain uninitialized on passive clients.
+	// The ordinary loader refreshes these bounds through LoadMapInformation;
+	// Phase B does not load that gameplay-bearing global structure.
+	InitRenderParams( 0 );
+	CalculateWorldWireFrameTiles( TRUE );
+	OptimizeMapForShadows();
+	InvalidateWorldRedundency();
+	SetRenderFlags( RENDER_FLAG_FULL );
+	return TRUE;
+}
+
 #ifdef JA2EDITOR
 //This is a specialty function that is very similar to LoadWorld, except that it
 //doesn't actually load the world, it instead evaluates the map and generates summary
@@ -3395,6 +3427,148 @@ BOOLEAN NewWorld( INT32 nMapRows,  INT32 nMapCols )
 }
 
 
+BOOLEAN IsWorldPreparedForStaticPresentation(void)
+{
+	return gfStaticPresentationWorldPrepared;
+}
+
+
+BOOLEAN PrepareWorldForStaticPresentation(
+	INT32 nWorldRows, INT32 nWorldCols )
+{
+	// Unlike SetWorldSize, authority-provided dimensions are never clamped. A
+	// mismatch must fail closed so the renderer cannot project one map through
+	// another map's storage.
+	if ( nWorldRows < 1 || nWorldRows > WORLD_ROWS_MAX ||
+		nWorldCols < 1 || nWorldCols > WORLD_COLS_MAX ||
+		IsJa2TacticalWorldLoaded() )
+	{
+		return FALSE;
+	}
+
+	const UINT32 tileCount = static_cast<UINT32>( nWorldRows ) *
+		static_cast<UINT32>( nWorldCols );
+	if ( gfStaticPresentationWorldPrepared )
+	{
+		// Repeating the exact prepare is harmless and must not discard geometry
+		// already replayed into the retained world. A different world requires
+		// explicit teardown, keeping replacement/rollback ownership at the host.
+		return WORLD_ROWS == nWorldRows && WORLD_COLS == nWorldCols &&
+			guiStaticPresentationWorldTileCount == tileCount &&
+			GetWorldTileMapSize() == tileCount && gpWorldLevelData != NULL &&
+			gusWorldRoomInfo != NULL;
+	}
+
+	// Provision every fallible replacement before publishing dimensions. The
+	// MAP_ELEMENT owner also keeps its prior allocation on failure, so rejected
+	// or out-of-memory prepares leave the cold fallback state untouched.
+	UINT16 * const pNewRoomInfo = static_cast<UINT16 *>(
+		MemAlloc( tileCount * static_cast<UINT32>( sizeof( UINT16 ) ) ) );
+	if ( pNewRoomInfo == NULL )
+	{
+		return FALSE;
+	}
+	memset( pNewRoomInfo, 0, tileCount * sizeof( UINT16 ) );
+	if ( !AllocateWorldTileMap( tileCount ) )
+	{
+		MemFree( pNewRoomInfo );
+		return FALSE;
+	}
+
+	if ( gusWorldRoomInfo != NULL )
+	{
+		MemFree( gusWorldRoomInfo );
+	}
+	gusWorldRoomInfo = pNewRoomInfo;
+	WORLD_ROWS = nWorldRows;
+	WORLD_COLS = nWorldCols;
+
+	// These are dimension projections consumed by renderer/grid helpers. They
+	// carry no allocated route state and deliberately mirror SetWorldSize's
+	// established values without invoking its PathAI/navigation setup.
+	dirDelta[0] = -WORLD_COLS;
+	dirDelta[1] = 1 - WORLD_COLS;
+	dirDelta[3] = 1 + WORLD_COLS;
+	dirDelta[4] = WORLD_COLS;
+	dirDelta[5] = WORLD_COLS - 1;
+	dirDelta[7] = -WORLD_COLS - 1;
+	DirIncrementer[0] = -WORLD_COLS;
+	DirIncrementer[1] = 1 - WORLD_COLS;
+	DirIncrementer[3] = 1 + WORLD_COLS;
+	DirIncrementer[4] = WORLD_COLS;
+	DirIncrementer[5] = WORLD_COLS - 1;
+	DirIncrementer[6] = -1;
+	DirIncrementer[7] = -WORLD_COLS - 1;
+
+	guiStaticPresentationWorldTileCount = tileCount;
+	gfStaticPresentationWorldPrepared = TRUE;
+	return TRUE;
+}
+
+
+void TrashStaticPresentationWorld(void)
+{
+	if ( !gfStaticPresentationWorldPrepared )
+	{
+		return;
+	}
+
+	const UINT32 storageCount = GetWorldTileMapSize();
+	const UINT32 tileCount = guiStaticPresentationWorldTileCount < storageCount
+		? guiStaticPresentationWorldTileCount : storageCount;
+	if ( gpWorldLevelData != NULL )
+	{
+		for ( UINT32 tileIndex = 0; tileIndex < tileCount; ++tileIndex )
+		{
+			MAP_ELEMENT * const pMapTile = &GetMapElement( tileIndex );
+			while ( pMapTile->pStructureHead != NULL )
+			{
+				if ( !DeleteStructureFromWorldForStaticPresentation(
+						pMapTile->pStructureHead ) )
+				{
+					// Presentation replay only constructs complete structure
+					// instances. Stop on corrupt linkage rather than spinning; the
+					// storage reset below still revokes every renderer pointer.
+					break;
+				}
+			}
+
+			// pLandStart aliases a member of the land list, so it is not an
+			// independently owned list. The remaining eight heads each own a
+			// chain of renderer nodes.
+			for ( UINT32 layer = 0; layer < 9; ++layer )
+			{
+				if ( layer == 1 ) continue;
+				LEVELNODE * pNode = pMapTile->pLevelNodes[layer];
+				while ( pNode != NULL )
+				{
+					LEVELNODE * const pNext = pNode->pNext;
+					MemFree( pNode );
+					if ( guiLevelNodes > 0 ) --guiLevelNodes;
+					pNode = pNext;
+				}
+				pMapTile->pLevelNodes[layer] = NULL;
+			}
+			pMapTile->pLandStart = NULL;
+			pMapTile->pStructureHead = NULL;
+			pMapTile->pStructureTail = NULL;
+		}
+		ResetWorldTileMap();
+	}
+	if ( gusWorldRoomInfo != NULL )
+	{
+		memset( gusWorldRoomInfo, 0,
+			guiStaticPresentationWorldTileCount * sizeof( UINT16 ) );
+	}
+
+	// Retain the now-zeroed, dimension-consistent storage for the worldless
+	// INIT fallback. A later presentation prepare may replace it transactionally
+	// and ordinary SetWorldSize remains free to take ownership for gameplay.
+	guiStaticPresentationWorldTileCount = 0;
+	gfStaticPresentationWorldPrepared = FALSE;
+}
+
+
 void TrashWorld( void )
 {
 	MAP_ELEMENT		*pMapTile;
@@ -3673,14 +3847,15 @@ void TrashMapTile(INT32 MapTile)
 
 
 
-BOOLEAN LoadMapTileset( INT32 iTilesetID )
+static BOOLEAN InternalLoadMapTileset(
+	INT32 iTilesetID, BOOLEAN fLoadMovementCosts )
 {
 
 #ifdef JA2UBMAPS
 giOldTilesetUsed = giCurrentTilesetID;
 #endif
 
-	if ( iTilesetID >= gubNumSets )
+	if ( iTilesetID < 0 || iTilesetID >= gubNumSets )
 	{
 		return( FALSE );
 	}
@@ -3699,15 +3874,20 @@ giOldTilesetUsed = giCurrentTilesetID;
 	// LOAD SURFACES
 	CHECKF( LoadTileSurfaces( &(gTilesets[ iTilesetID ].TileSurfaceFilenames[0] ), (UINT8)iTilesetID ) != FALSE );
 
-	// SET TERRAIN COSTS
-	if ( gTilesets[ iTilesetID ].MovementCostFnc != NULL )
+	// A passive presentation world consumes tile imagery/database metadata but
+	// owns no terrain-cost or pathing state. Ordinary map loads retain the exact
+	// established callback/default behavior through the gameplay wrapper below.
+	if ( fLoadMovementCosts )
 	{
-		gTilesets[ iTilesetID ].MovementCostFnc( );
-	}
-	else
-	{
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Tileset %d has no callback function for movement costs. Using default.", iTilesetID) );
-		SetTilesetOneTerrainValues( );
+		if ( gTilesets[ iTilesetID ].MovementCostFnc != NULL )
+		{
+			gTilesets[ iTilesetID ].MovementCostFnc( );
+		}
+		else
+		{
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Tileset %d has no callback function for movement costs. Using default.", iTilesetID) );
+			SetTilesetOneTerrainValues( );
+		}
 	}
 
 	// RESET TILE DATABASE
@@ -3719,6 +3899,185 @@ giOldTilesetUsed = giCurrentTilesetID;
 	giCurrentTilesetID = iTilesetID;
 
 	return( TRUE );
+}
+
+
+BOOLEAN LoadMapTileset( INT32 iTilesetID )
+{
+	return InternalLoadMapTileset( iTilesetID, TRUE );
+}
+
+
+static void ResetMapTilesetToColdState(void)
+{
+	// LoadTileSurfaces replaces slots in place and destroys every surface if a
+	// later slot fails.  At that point the old tile database contains borrowed
+	// pointers into released video objects/structure files and its old tileset
+	// id must not make a retry take the same-id fast path.
+	DeallocateTileDatabase();
+	memset( gTileDatabase, 0, sizeof(gTileDatabase) );
+	memset( gTileTypeStartIndex, 0, sizeof(gTileTypeStartIndex) );
+	DestroyTileSurfaces();
+	memset( TileSurfaceFilenames, 0, sizeof(TileSurfaceFilenames) );
+	memset( gbDefaultSurfaceUsed, 0, sizeof(gbDefaultSurfaceUsed) );
+	memset( gbSameAsDefaultSurfaceUsed, 0,
+		sizeof(gbSameAsDefaultSurfaceUsed) );
+	SetAllNewTileSurfacesLoaded( FALSE );
+	giCurrentTilesetID = -1;
+#ifdef JA2UBMAPS
+	giOldTilesetUsed = -1;
+#endif
+}
+
+
+BOOLEAN LoadMapTilesetForStaticPresentation( INT32 iTilesetID )
+{
+	if ( !gfStaticPresentationWorldPrepared || IsJa2TacticalWorldLoaded() ||
+		iTilesetID < 0 || iTilesetID >= gubNumSets )
+	{
+		return FALSE;
+	}
+	if ( InternalLoadMapTileset( iTilesetID, FALSE ) )
+	{
+		return TRUE;
+	}
+
+	// Keep the already-prepared, still-empty renderer world so the caller can
+	// retry the exact load without allocating navigation state.  StaticGeometry
+	// tears that world down when it abandons the wider materialization.
+	ResetMapTilesetToColdState();
+	return FALSE;
+}
+
+
+static BOOLEAN StaticPresentationShadeStageComplete(
+	const SGPVObject *pObject, UINT32 shadeCount )
+{
+	if ( pObject == NULL ||
+		pObject->pShadeCurrent != pObject->pShades[DEFAULT_SHADE_LEVEL] ||
+		pObject->pGlow != pObject->pShades[0] )
+	{
+		return FALSE;
+	}
+	for ( UINT32 shade = 0; shade < shadeCount; ++shade )
+	{
+		if ( pObject->pShades[shade] == NULL )
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+
+static void ReleaseStaticPresentationShadeStages(
+	SGPVObject stagedObjects[NUMBEROFTILETYPES] )
+{
+	for ( INT32 type = 0; type < giNumberOfTileTypes; ++type )
+	{
+		(void)DestroyObjectPaletteTables( &stagedObjects[type] );
+	}
+}
+
+
+BOOLEAN BuildTileShadeTablesForStaticPresentation(void)
+{
+	if ( !gfStaticPresentationWorldPrepared || IsJa2TacticalWorldLoaded() )
+	{
+		return FALSE;
+	}
+	if ( giNumberOfTileTypes < 0 ||
+		giNumberOfTileTypes > NUMBEROFTILETYPES ||
+		gubNumLightColors < 1 || gubNumLightColors > 2 )
+	{
+		return FALSE;
+	}
+
+	const UINT32 shadeCount = gubNumLightColors == 2
+		? HVOBJECT_SHADE_TABLES : 16;
+	SGPVObject stagedObjects[NUMBEROFTILETYPES];
+	memset( stagedObjects, 0, sizeof(stagedObjects) );
+
+	// Validate all source objects before allocating anything.  Tile surface
+	// objects own their tables; shared-table objects belong to the overhead-map
+	// cache and must never be replaced through this lifecycle.
+	for ( INT32 type = 0; type < giNumberOfTileTypes; ++type )
+	{
+		TILE_IMAGERY* const imagery = gTileSurfaceArray[type];
+		if ( imagery == NULL )
+		{
+			continue;
+		}
+		if ( imagery->vo == NULL || imagery->vo->pPaletteEntry == NULL ||
+			(imagery->vo->fFlags & VOBJECT_FLAG_SHADETABLE_SHARED) != 0 )
+		{
+			return FALSE;
+		}
+	}
+
+	// Create complete replacement tables against minimal staging objects.  The
+	// builder consumes only the borrowed 8-bit source palette; image, ETRLE,
+	// native-pixel, z-strip, and 8-bit lookup pointers never enter the stage.
+	const BOOLEAN previousForceBuild = gfForceBuildShadeTables;
+	gfForceBuildShadeTables = TRUE;
+	BOOLEAN staged = TRUE;
+	for ( INT32 type = 0; type < giNumberOfTileTypes; ++type )
+	{
+		TILE_IMAGERY* const imagery = gTileSurfaceArray[type];
+		if ( imagery == NULL )
+		{
+			continue;
+		}
+
+		SGPVObject * const stage = &stagedObjects[type];
+		stage->pPaletteEntry = imagery->vo->pPaletteEntry;
+		stage->fFlags = 0;
+		stage->p16BPPPalette = NULL;
+		memset( stage->pShades, 0, sizeof(stage->pShades) );
+		stage->pShadeCurrent = NULL;
+		stage->pGlow = NULL;
+		// These are borrowed process-wide 8-bit lookup tables on a real object.
+		// The staging object neither needs nor transfers them.
+		stage->pShade8 = NULL;
+		stage->pGlow8 = NULL;
+		if ( !CreateTilePaletteTables( stage, type, TRUE ) ||
+			!StaticPresentationShadeStageComplete( stage, shadeCount ) )
+		{
+			staged = FALSE;
+			break;
+		}
+	}
+	gfForceBuildShadeTables = previousForceBuild;
+	if ( !staged )
+	{
+		ReleaseStaticPresentationShadeStages( stagedObjects );
+		return FALSE;
+	}
+
+	// Destruction and pointer transfer cannot fail after the complete stage has
+	// been validated, so no renderer observes a mixture of old and new colors.
+	for ( INT32 type = 0; type < giNumberOfTileTypes; ++type )
+	{
+		TILE_IMAGERY* const imagery = gTileSurfaceArray[type];
+		if ( imagery == NULL )
+		{
+			continue;
+		}
+		SGPVObject * const stage = &stagedObjects[type];
+		(void)DestroyObjectPaletteTables( imagery->vo );
+		imagery->vo->p16BPPPalette = stage->p16BPPPalette;
+		stage->p16BPPPalette = NULL;
+		memcpy( imagery->vo->pShades, stage->pShades,
+			sizeof(stage->pShades) );
+		memset( stage->pShades, 0, sizeof(stage->pShades) );
+		imagery->vo->pShadeCurrent =
+			imagery->vo->pShades[DEFAULT_SHADE_LEVEL];
+		imagery->vo->pGlow = imagery->vo->pShades[0];
+		stage->pShadeCurrent = NULL;
+		stage->pGlow = NULL;
+		gbNewTileSurfaceLoaded[type] = TRUE;
+	}
+	return TRUE;
 }
 
 
@@ -4363,6 +4722,11 @@ BOOLEAN IsRoofVisibleForWireframe( INT32 sMapPos )
 //dnl ch43 260909
 void SetWorldSize(INT32 nWorldRows, INT32 nWorldCols)
 {
+	// A gameplay/editor resize explicitly takes ownership back from a passive
+	// renderer world. This branch performs only the presentation teardown; the
+	// ordinary SetWorldSize behavior below remains unchanged.
+	TrashStaticPresentationWorld();
+
 	// Clamp file-supplied dimensions to the supported range: a corrupt map with absurd/negative
 	// rows or cols would size WORLD_MAX past MAX_ALLOWED_WORLD_MAX, MemAlloc would fail, and the
 	// memsets below would write to NULL.
@@ -4425,17 +4789,17 @@ void SetWorldSize(INT32 nWorldRows, INT32 nWorldCols)
 	dirDelta[0]= -WORLD_COLS;
 	dirDelta[1]= 1-WORLD_COLS;
 	dirDelta[3]= 1+WORLD_COLS;
-	dirDelta[4]= WORLD_ROWS;
-	dirDelta[5]= WORLD_ROWS-1;
-	dirDelta[7]= -WORLD_ROWS-1;
+	dirDelta[4]= WORLD_COLS;
+	dirDelta[5]= WORLD_COLS-1;
+	dirDelta[7]= -WORLD_COLS-1;
 
-	DirIncrementer[0] = -WORLD_ROWS;
-	DirIncrementer[1] = 1-WORLD_ROWS;
-	DirIncrementer[3] = 1+WORLD_ROWS;
-	DirIncrementer[4] = WORLD_ROWS;
-	DirIncrementer[5] = WORLD_ROWS-1;
+	DirIncrementer[0] = -WORLD_COLS;
+	DirIncrementer[1] = 1-WORLD_COLS;
+	DirIncrementer[3] = 1+WORLD_COLS;
+	DirIncrementer[4] = WORLD_COLS;
+	DirIncrementer[5] = WORLD_COLS-1;
 	DirIncrementer[6] = -1;
-	DirIncrementer[7] = -WORLD_ROWS-1;
+	DirIncrementer[7] = -WORLD_COLS-1;
 
 	gsTempActionGridNo = NOWHERE;
 	gsOverItemsGridNo = NOWHERE;

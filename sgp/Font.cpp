@@ -47,6 +47,7 @@ FontManager *pFManager;
 HVOBJECT	FontObjs[MAX_FONTS];
 INT32		FontsLoaded=0;
 static bool gFontManagerInitialized = false;
+static UINT64 gFontTranslationGeneration = 0;
 
 // Destination printing parameters
 INT32			FontDefault=(-1);
@@ -766,7 +767,7 @@ UINT16 GetFontHeight(INT32 FontNum)
 //	CreateEnglishTransTable()
 //
 //*****************************************************************************
-INT16 GetIndex(CHAR16 siChar)
+BOOLEAN TryGetIndex(CHAR16 siChar, INT16* psIndex)
 {
 	// Reverse map: codepoint -> glyph index. Built once from the translation
 	// table (rebuilt only if the table pointer/size changes), replacing the old
@@ -777,10 +778,16 @@ INT16 GetIndex(CHAR16 siChar)
 	// semantics are preserved (only the first index for a codepoint is kept).
 	static const UINT16* sCachedArray = NULL;
 	static UINT16        sCachedCount = 0;
+	static UINT64        sCachedGeneration = 0;
 	static INT16         sReverse[0x10000];
 
+	if (psIndex == NULL || pFManager == NULL ||
+		pFManager->pTranslationTable == NULL)
+		return FALSE;
 	const FontTranslationTable* tt = pFManager->pTranslationTable;
-	if (tt->DynamicArrayOf16BitValues != sCachedArray || tt->usNumberOfSymbols != sCachedCount)
+	if (gFontTranslationGeneration != sCachedGeneration ||
+		tt->DynamicArrayOf16BitValues != sCachedArray ||
+		tt->usNumberOfSymbols != sCachedCount)
 	{
 		for (INT32 i = 0; i < 0x10000; ++i) sReverse[i] = -1;
 		for (UINT16 i = 0; i < tt->usNumberOfSymbols; ++i)
@@ -790,13 +797,25 @@ INT16 GetIndex(CHAR16 siChar)
 		}
 		sCachedArray = tt->DynamicArrayOf16BitValues;
 		sCachedCount = tt->usNumberOfSymbols;
+		sCachedGeneration = gFontTranslationGeneration;
 	}
 
 	if ((UINT32)siChar < 0x10000)
 	{
 		INT16 idx = sReverse[(UINT16)siChar];
-		if (idx >= 0) return idx;
+		if (idx >= 0)
+		{
+			*psIndex = idx;
+			return TRUE;
+		}
 	}
+	return FALSE;
+}
+
+INT16 GetIndex(CHAR16 siChar)
+{
+	INT16 index = -1;
+	if (TryGetIndex(siChar, &index)) return index;
 
 	// If here, present warning and give the first index
 	DbgMessage(TOPIC_FONT_HANDLER, DBG_LEVEL_0, String("Error: Invalid character given %d", siChar));
@@ -1516,6 +1535,7 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable *
 
 	pFManager = manager;
 	gFontManagerInitialized = true;
+	++gFontTranslationGeneration;
 	RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 	return TRUE;
 }

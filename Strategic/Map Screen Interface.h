@@ -745,6 +745,11 @@ BOOLEAN CheckIfSalaryIncreasedAndSayQuote( TacticalActor *pSoldier, BOOLEAN fTri
 void EndUpdateBox( BOOLEAN fContinueTimeCompression );
 
 extern BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumber );
+// Same native rules, but no custom UI text or fatigue-collapse mutation. This
+// checks one actor, never the map-screen selection or an implicit movement set.
+// Room-dependent restrictions cannot be evaluated against an absent/other map.
+constexpr INT8 STRATEGIC_MOVE_REQUIRES_TACTICAL_CONTEXT = -100;
+BOOLEAN CanCharacterMoveInStrategicWithoutSideEffects( TacticalActor *pSoldier, INT8 *pbErrorNumber );
 extern BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot );
 
 

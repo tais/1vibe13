@@ -15,27 +15,33 @@ Build the repository normally, then install only the SDK component:
 cmake --install build --prefix /path/to/ja2-engine-sdk --component EngineSDK
 ```
 
-The SDK currently uses its own experimental `0.2.x` compatibility line while
+The SDK currently uses its own experimental `0.3.x` compatibility line while
 the engine API is being extracted. The `EngineSDK` install component contains
 both static archives, their complete public headers under `Engine/Core` and
 `Engine/Adapters/JA2`, CMake package metadata, this guide, a public package-host
-example, and the `0.2` compatibility kit. Tagged release CI publishes this
+example, and the `0.3` compatibility kit. Tagged release CI publishes this
 install tree as a separate `ja2-engine-sdk-<platform>-<tag>.zip` beside each
 game archive.
 
-The `0.2.0` line adds the full tactical-world dimensions, loadout, door, and
-interrupt contracts used by co-op and deliberately supersedes the source-
-incompatible `0.1.x` snapshot/command surface.
+The `0.3.0` line adds canonical actor renderer inputs, UTF-16 names, portrait
+descriptors, and world lighting. It replaces field-specific actor delta events
+with one complete current actor record, deliberately superseding the source-
+incompatible `0.2.x` snapshot/event surface. The native observer captures these
+fields from authoritative actors; default value objects carry absent poses.
+Reconfiguring a build with the previous default `JA2_ENGINE_SDK_VERSION=0.2.0`
+upgrades that cache entry to `0.3.0`. Explicit `0.3.x` patch overrides remain
+supported; other compatibility lines are rejected so the package metadata cannot
+misrepresent the current source API.
 
 ### Pre-1.0 compatibility policy
 
 The contract is intentionally narrower than a stable `1.0` ABI:
 
-- Patch releases in one minor line, such as `0.2.0` to `0.2.1`, retain the
+- Patch releases in one minor line, such as `0.3.0` to `0.3.1`, retain the
   documented installed public source contract. They may add APIs. A breaking
-  source change advances the minor line, such as `0.2` to `0.3`.
-- `find_package(JA2Engine 0.2 ...)` uses CMake's `SameMinorVersion` rule. A
-  future `0.3` package will not silently satisfy a consumer requesting `0.2`.
+  source change advances the minor line, such as `0.3` to `0.4`.
+- `find_package(JA2Engine 0.3 ...)` uses CMake's `SameMinorVersion` rule. A
+  future `0.4` package will not silently satisfy a consumer requesting `0.3`.
 - There is no cross-toolchain C++ ABI promise before `1.0`. Static archives and
   consumers must match platform, architecture, compiler/standard library,
   build configuration, and on Windows the exported MSVC runtime-library mode.
@@ -53,7 +59,7 @@ C++ symbol has a stable binary layout.
 ## Consume
 
 ```cmake
-find_package(JA2Engine 0.2 CONFIG REQUIRED)
+find_package(JA2Engine 0.3 CONFIG REQUIRED)
 target_link_libraries(your_host PRIVATE JA2::EngineCore)
 ```
 
@@ -61,7 +67,7 @@ Tools that need the JA2-specific value model can request that component
 explicitly. `RuntimeAdapter` requires and exposes `EngineCore` transitively:
 
 ```cmake
-find_package(JA2Engine 0.2 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
+find_package(JA2Engine 0.3 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
 target_link_libraries(your_tool PRIVATE JA2::RuntimeAdapter)
 ```
 
@@ -93,7 +99,7 @@ cmake --build example-build \
   --target run_ja2_engine_sdk_package_host_example
 ```
 
-`share/JA2Engine/compatibility` contains the installed `0.2` JSON manifest,
+`share/JA2Engine/compatibility` contains the installed `0.3` JSON manifest,
 its standalone verifier, and an executable source probe for both public
 targets. Downstream packagers can run it against an extracted SDK without a
 JA2 checkout:
@@ -101,7 +107,7 @@ JA2 checkout:
 ```sh
 cmake -S share/JA2Engine/compatibility -B compatibility-build \
   -DJA2Engine_DIR=/path/to/ja2-engine-sdk/lib/cmake/JA2Engine \
-  -DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.2
+  -DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.3
 cmake --build compatibility-build \
   --target run_ja2_engine_sdk_compatibility_probe
 ```
@@ -1408,13 +1414,16 @@ as one host-internal value. JA2's gameplay readers use a narrow application
 gateway, and add/remove or multiplayer recount operations publish the pair in
 one transition. This does not expose team rosters to packages: ID ranges,
 side, color, awareness, and human-control metadata remain in the application,
-and the package-facing tactical snapshot is unchanged. Save compatibility
+and the package-facing tactical snapshot does not expose those roster details.
+Save compatibility
 reconstructs the established 20-byte records at the persistence boundary.
 `InitOverhead` resets all 11 values at the former whole-status reset boundary;
 world commit and unload preserve them. Because `TacticalWorldSession` is an
 installed C++ source contract, consumers must rebuild for its additive state
-layout. `TacticalWorldSnapshot`, wire data, and the versioned tactical-world
-service contract remain unchanged.
+layout. Separately, snapshot wire v9 adds a fixed-width, path-safe exact `.dat`
+map asset basename; delta wire v8 carries it on sector changes, and both
+tactical-world service contracts are version 3.0. Older wire layouts fail
+closed rather than inventing a map identity.
 
 The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
 as const-reference projections for source-compatible, allocation-free hot-path

@@ -3,6 +3,16 @@
 
 extern BOOLEAN		gfIngagedInDrop;
 
+// A dedicated host owns simulation but no local presentation or input. It
+// must use the same immediate arrival path as an interactive player skipping
+// the helicopter sequence instead of making actor insertion depend on a local
+// cinematic completing.
+inline bool ShouldRunInteractiveHelicopterArrival(
+	bool dedicatedProcess) noexcept
+{
+	return !dedicatedProcess;
+}
+
 void ResetHeliSeats( );
 void AddMercToHeli( SoldierID ubID );
 

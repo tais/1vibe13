@@ -106,11 +106,20 @@ BOOLEAN		LightReset(void);
 
 // THIS MUST BE CALLED ONCE ALL SURFACE VIDEO OBJECTS HAVE BEEN LOADED!
 BOOLEAN SetDefaultWorldLightingColors(void);
+// Transactionally configures one or two tile-render palette resources for a
+// passive presentation world. Unlike LightSetColors, this never rebuilds
+// soldier/corpse palettes; failure preserves the previously installed tables.
+BOOLEAN LightSetColorsForStaticPresentation(
+	const SGPPaletteEntry *pPal, UINT8 ubNumColors);
 
 // Low-Level Template Interface
 
 // Sets the normal light level for all tiles in the world
 BOOLEAN		LightSetBaseLevel(UINT8 iIntensity);
+// Applies an authority-provided natural shade to presentation-only geometry.
+// Unlike LightSetBaseLevel, this never recreates personal lights or renders
+// local light sprites.
+BOOLEAN		LightSetBaseLevelForStaticPresentation(UINT8 iIntensity);
 // Adds a light value to all tiles
 BOOLEAN		LightAddBaseLevel(UINT32 uiLightType, UINT8 iIntensity);
 // Subtracts a light value from all tiles
@@ -200,6 +209,10 @@ extern UINT8						gubNumLightColors;
 // Lighting colors
 extern UINT8						gubNumLightColors;
 extern SGPPaletteEntry	gpLightColors[3];
+
+// Optional developer shade-table override used by both ordinary and passive
+// static map loading. It performs no world or simulation mutation.
+void LoadShadeTablesFromTextFile(void);
 
 
 // macros

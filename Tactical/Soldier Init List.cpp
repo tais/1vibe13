@@ -584,6 +584,7 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 	SOLDIERCREATE_STRUCT tempDetailedPlacement;
 	TacticalActor *pSoldier;
 	SoldierID ubID;
+	BOOLEAN forceAmbushFacing = FALSE;
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("AddPlacementToWorld"));
 	// First check if this guy has a profile and if so check his location such that it matches!
@@ -800,8 +801,12 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 				{
 					tempDetailedPlacement.sInsertionGridNo = bettergridno;
 
-					// have the soldier look inward. We add + 100 because later on we use this to signify that we want really enforce this direction
-					tempDetailedPlacement.ubDirection = (UINT8)GetDirectionToGridNoFromGridNo( tempDetailedPlacement.sInsertionGridNo, gMapInformation.sCenterGridNo ) + 100;
+					// Creation copies this into live facing, desired facing and AI
+					// direction fields. The +100 insertion marker must never enter
+					// those fields: native placement indexes direction tables before
+					// applying the final facing. Keep it in deployment state only.
+					tempDetailedPlacement.ubDirection = (UINT8)GetDirectionToGridNoFromGridNo( tempDetailedPlacement.sInsertionGridNo, gMapInformation.sCenterGridNo );
+					forceAmbushFacing = TRUE;
 				}
 			}
 		}
@@ -816,6 +821,10 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 	
 	if( pSoldier )
 	{
+		if ( forceAmbushFacing )
+		{
+			pSoldier->deployment().insertionDirection() = tempDetailedPlacement.ubDirection + 100;
+		}
 		curr->pSoldier = pSoldier;
 		curr->ubSoldierID = ubID;
 		if (pGroup)

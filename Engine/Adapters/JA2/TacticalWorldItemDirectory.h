@@ -29,6 +29,11 @@ public:
 	void mergeNextIncarnation(std::uint32_t nextIncarnation) noexcept;
 
 	bool activate(TacticalWorldItemId item) noexcept;
+	// Staging changes capacity only: no liveness, tracked slots or sequence is
+	// published until activatePrepared succeeds. Intended for native atomic
+	// insertion paths which have already allocated their other resources.
+	bool reserveSlots(std::size_t count) noexcept;
+	bool activatePrepared(TacticalWorldItemId item) noexcept;
 	bool release(TacticalWorldItemId item) noexcept;
 	bool contains(TacticalWorldItemId item) const noexcept;
 	TacticalWorldItemId identity(std::uint32_t slot) const noexcept;

@@ -120,12 +120,23 @@ void WriteSector(BinaryWriter& writer, const TacticalSectorSnapshot& sector)
 	WriteI16(writer, sector.y);
 	writer.writeI8(sector.z);
 	WriteBool(writer, sector.loaded);
+	writer.writeBytes(
+		reinterpret_cast<const std::uint8_t*>(sector.mapAssetKey.bytes.data()),
+		sector.mapAssetKey.bytes.size());
 }
 
 bool ReadSector(BinaryReader& reader, TacticalSectorSnapshot& sector)
 {
-	return ReadI16(reader, sector.x) && ReadI16(reader, sector.y) &&
-		reader.readI8(sector.z) && ReadBool(reader, sector.loaded);
+	if (!ReadI16(reader, sector.x) || !ReadI16(reader, sector.y) ||
+		!reader.readI8(sector.z) || !ReadBool(reader, sector.loaded))
+		return false;
+	for (char& byte : sector.mapAssetKey.bytes)
+	{
+		std::uint8_t encoded = 0;
+		if (!reader.readU8(encoded)) return false;
+		byte = static_cast<char>(encoded);
+	}
+	return IsValidTacticalSectorSnapshot(sector);
 }
 
 void WriteTurn(BinaryWriter& writer, const TacticalTurnSnapshot& turn)
@@ -150,6 +161,66 @@ bool ReadTurn(BinaryReader& reader, TacticalTurnSnapshot& turn)
 		!reader.readU64(turn.interruptSerial)) return false;
 	turn.interruptPhase = static_cast<TacticalInterruptPhase>(phase);
 	return ReadBool(reader, turn.commandsBlocked);
+}
+
+void WriteLighting(BinaryWriter& writer,
+	const TacticalWorldLightingSnapshot& lighting)
+{
+	writer.writeU8(lighting.ambientLightLevel);
+}
+
+bool ReadLighting(BinaryReader& reader,
+	TacticalWorldLightingSnapshot& lighting)
+{
+	return reader.readU8(lighting.ambientLightLevel) && lighting.valid();
+}
+
+void WritePresentation(BinaryWriter& writer,
+	const TacticalActorPresentationSnapshot& presentation)
+{
+	writer.writeU8(presentation.bodyType);
+	writer.writeU8(presentation.flags);
+	writer.writeI8(presentation.animationDirection);
+	writer.writeI32(presentation.worldXQ8);
+	writer.writeI32(presentation.worldYQ8);
+	WriteI16(writer, presentation.heightAdjustment);
+	writer.writeU16(presentation.animationSurface);
+	writer.writeU16(presentation.animationFrame);
+	writer.writeU8(presentation.headPaletteIndex);
+	writer.writeU8(presentation.pantsPaletteIndex);
+	writer.writeU8(presentation.vestPaletteIndex);
+	writer.writeU8(presentation.skinPaletteIndex);
+	for (const std::uint16_t codeUnit : presentation.displayNameUtf16)
+		writer.writeU16(codeUnit);
+	writer.writeU8(static_cast<std::uint8_t>(presentation.portrait.family));
+	writer.writeU8(presentation.portrait.faceIndex);
+	writer.writeU8(static_cast<std::uint8_t>(presentation.portrait.camouflage));
+}
+
+bool ReadPresentation(BinaryReader& reader,
+	TacticalActorPresentationSnapshot& presentation)
+{
+	if (!reader.readU8(presentation.bodyType) ||
+		!reader.readU8(presentation.flags) ||
+		!reader.readI8(presentation.animationDirection) ||
+		!reader.readI32(presentation.worldXQ8) ||
+		!reader.readI32(presentation.worldYQ8) ||
+		!ReadI16(reader, presentation.heightAdjustment) ||
+		!reader.readU16(presentation.animationSurface) ||
+		!reader.readU16(presentation.animationFrame) ||
+		!reader.readU8(presentation.headPaletteIndex) ||
+		!reader.readU8(presentation.pantsPaletteIndex) ||
+		!reader.readU8(presentation.vestPaletteIndex) ||
+		!reader.readU8(presentation.skinPaletteIndex))
+		return false;
+	for (std::uint16_t& codeUnit : presentation.displayNameUtf16)
+		if (!reader.readU16(codeUnit)) return false;
+	std::uint8_t family = 0, camouflage = 0;
+	if (!reader.readU8(family) || !reader.readU8(presentation.portrait.faceIndex) ||
+		!reader.readU8(camouflage)) return false;
+	presentation.portrait.family = static_cast<TacticalPortraitFamily>(family);
+	presentation.portrait.camouflage = static_cast<TacticalPortraitCamouflage>(camouflage);
+	return IsCanonicalTacticalActorPresentation(presentation);
 }
 
 void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
@@ -177,6 +248,13 @@ void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	WriteHandItem(writer, actor.loadout.legs);
 	WriteHandItem(writer, actor.loadout.primaryHand);
 	WriteHandItem(writer, actor.loadout.secondaryHand);
+	WritePresentation(writer, actor.presentation);
+	WriteI16(writer, actor.bleeding);
+	writer.writeU16(actor.handMedicalKitPoints);
+	WriteBool(writer, actor.medicalService.providing);
+	writer.writeU16(actor.medicalService.patient.slot);
+	writer.writeU32(actor.medicalService.patient.incarnation);
+	writer.writeU8(actor.medicalService.receivingCount);
 }
 
 bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
@@ -203,7 +281,14 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		ReadHandItem(reader, actor.loadout.vest) &&
 		ReadHandItem(reader, actor.loadout.legs) &&
 		ReadHandItem(reader, actor.loadout.primaryHand) &&
-		ReadHandItem(reader, actor.loadout.secondaryHand);
+		ReadHandItem(reader, actor.loadout.secondaryHand) &&
+		ReadPresentation(reader, actor.presentation) &&
+		ReadI16(reader, actor.bleeding) && reader.readU16(actor.handMedicalKitPoints) &&
+		ReadBool(reader, actor.medicalService.providing) &&
+		reader.readU16(actor.medicalService.patient.slot) &&
+		reader.readU32(actor.medicalService.patient.incarnation) &&
+		reader.readU8(actor.medicalService.receivingCount) &&
+		actor.medicalStateValid();
 }
 
 void WriteDoor(BinaryWriter& writer, const TacticalDoorSnapshot& door)
@@ -223,15 +308,20 @@ bool ReadDoor(BinaryReader& reader, TacticalDoorSnapshot& door)
 bool IsCanonical(const TacticalWorldSnapshot& snapshot)
 {
 	if (snapshot.epoch() == 0 || !snapshot.dimensions().valid() ||
-		!IsValidTacticalInterruptState(snapshot.turn())) return false;
+		!IsValidTacticalSectorSnapshot(snapshot.sector()) ||
+		!IsValidTacticalInterruptState(snapshot.turn()) ||
+		!snapshot.lighting().valid()) return false;
 	const std::vector<TacticalActorSnapshot>& actors = snapshot.actors();
 	for (std::size_t index = 0; index < actors.size(); ++index)
 	{
 		const TacticalActorSnapshot& actor = actors[index];
 		if (!actor.id.valid() || !IsValidStance(actor.stance) ||
-			!actor.loadout.valid() ||
+			!actor.loadout.valid() || !actor.medicalStateValid() ||
+			!IsValidTacticalActorPresentation(actor, snapshot.dimensions()) ||
 			!IsValidTacticalInterruptEligibility(actor, snapshot.turn())) return false;
-		if (index != 0 && !(actors[index - 1].id < actor.id)) return false;
+		if (index != 0 &&
+			(!(actors[index - 1].id < actor.id) ||
+			 actors[index - 1].id.slot == actor.id.slot)) return false;
 	}
 	const std::vector<TacticalDoorSnapshot>& doors = snapshot.doors();
 	for (std::size_t index = 0; index < doors.size(); ++index)
@@ -272,6 +362,7 @@ TacticalWorldSnapshotEncodeResult EncodeTacticalWorldSnapshot(
 		WriteDimensions(writer, snapshot.dimensions());
 		WriteSector(writer, snapshot.sector());
 		WriteTurn(writer, snapshot.turn());
+		WriteLighting(writer, snapshot.lighting());
 		writer.writeU32(
 			static_cast<std::uint32_t>(snapshot.actors().size()));
 		writer.writeU32(
@@ -317,6 +408,7 @@ TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 		TacticalWorldDimensions dimensions;
 		TacticalSectorSnapshot sector;
 		TacticalTurnSnapshot turn;
+		TacticalWorldLightingSnapshot lighting;
 		std::uint32_t actorCount = 0;
 		std::uint32_t doorCount = 0;
 		if (!reader.readU32(magic) || magic != TacticalWorldSnapshotMagic ||
@@ -327,6 +419,7 @@ TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 		if (!reader.readU64(epoch) || epoch == 0 ||
 			!ReadDimensions(reader, dimensions) ||
 			!ReadSector(reader, sector) || !ReadTurn(reader, turn) ||
+			!ReadLighting(reader, lighting) ||
 			!reader.readU32(actorCount) || !reader.readU32(doorCount))
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 		if (actorCount > maximumActors)
@@ -370,7 +463,8 @@ TacticalWorldSnapshotDecodeResult DecodeTacticalWorldSnapshot(
 		TacticalWorldSnapshot decoded;
 		if (TacticalWorldSnapshot::create(
 				epoch, dimensions, sector, turn, std::move(actors),
-				std::move(doors), decoded, maximumActors, maximumDoors) !=
+				std::move(doors), decoded, maximumActors, maximumDoors,
+				lighting) !=
 			TacticalSnapshotCreateError::None)
 			return TacticalWorldSnapshotDecodeResult::Invalid;
 		snapshot = std::move(decoded);

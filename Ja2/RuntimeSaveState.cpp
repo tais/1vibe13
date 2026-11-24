@@ -830,7 +830,8 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 		}
 
 		std::vector<RuntimeSaveSection> sections;
-		sections.reserve(strict ? 3 : 2);
+		sections.reserve((strict ? 3 : 2) + (prepared.reinforcementState ? 1 : 0) +
+			(prepared.scheduleState ? 1 : 0) + (prepared.passiveView ? 1 : 0));
 		sections.push_back(
 			RuntimeSaveSection{RuntimeCheckpointSection, std::move(checkpointBytes)});
 		sections.push_back(
@@ -838,6 +839,32 @@ RuntimeSaveCommitResult CommitRuntimeSave(GameContext& context,
 		if (strict)
 			sections.push_back(RuntimeSaveSection{
 				RuntimeRandomCheckpointSectionType, std::move(randomBytes)});
+		if (prepared.reinforcementState)
+		{
+			const auto bytes = EncodeTacticalReinforcementSaveState(*prepared.reinforcementState);
+			sections.push_back(RuntimeSaveSection{TacticalReinforcementSaveSection,
+				std::vector<std::uint8_t>(bytes.begin(), bytes.end())});
+		}
+		if (prepared.scheduleState)
+		{
+			std::vector<std::uint8_t> bytes;
+			if (!EncodeTacticalScheduleSaveState(*prepared.scheduleState, bytes))
+			{
+				result.containerError = RuntimeSaveContainerSaveError::InvalidRequest;
+				return rollbackResult();
+			}
+			sections.push_back(RuntimeSaveSection{TacticalScheduleSaveSection, std::move(bytes)});
+		}
+		if (prepared.passiveView)
+		{
+			std::vector<std::uint8_t> bytes;
+			if (!EncodePassiveCampaignView(*prepared.passiveView, bytes))
+			{
+				result.containerError = RuntimeSaveContainerSaveError::InvalidRequest;
+				return rollbackResult();
+			}
+			sections.push_back(RuntimeSaveSection{PassiveCampaignViewSection, std::move(bytes)});
+		}
 		result.containerError =
 			context.runtimeSaveContainers().seal(savePath, sections);
 		if (result.containerError != RuntimeSaveContainerSaveError::None)
@@ -915,8 +942,42 @@ PreparedRuntimeLoad PrepareRuntimeLoad(const GameContext& context,
 		prepared.containerError = loaded.error;
 		if (!loaded) return rollbackPrepared();
 		prepared.domainBytes = container.domainBytes;
+		const RuntimeSaveSection* reinforcement =
+			container.find(TacticalReinforcementSaveSection);
+		if (reinforcement)
+		{
+			TacticalReinforcementSaveState state;
+			if (!DecodeTacticalReinforcementSaveState(reinforcement->payload, state))
+			{
+				prepared.containerError = RuntimeSaveContainerLoadError::MalformedContainer;
+				return rollbackPrepared();
+			}
+			prepared.reinforcementState = state;
+		}
+		const RuntimeSaveSection* schedules = container.find(TacticalScheduleSaveSection);
+		if (schedules)
+		{
+			TacticalScheduleSaveState state;
+			if (!DecodeTacticalScheduleSaveState(schedules->payload, state))
+			{
+				prepared.containerError = RuntimeSaveContainerLoadError::MalformedContainer;
+				return rollbackPrepared();
+			}
+			prepared.scheduleState = std::move(state);
+		}
+		const RuntimeSaveSection* passive = container.find(PassiveCampaignViewSection);
+		if (passive)
+		{
+			PassiveCampaignView view;
+			if (!DecodePassiveCampaignView(passive->payload, view))
+			{
+				prepared.containerError = RuntimeSaveContainerLoadError::MalformedContainer;
+				return rollbackPrepared();
+			}
+			prepared.passiveView = std::move(view);
+		}
 		if (policy == RuntimeSavePolicy::DedicatedDeterministic &&
-			container.sections.size() != 3)
+			container.sections.size() != 3u + (reinforcement ? 1u : 0u) + (schedules ? 1u : 0u) + (passive ? 1u : 0u))
 		{
 			prepared.containerError =
 				RuntimeSaveContainerLoadError::MalformedContainer;

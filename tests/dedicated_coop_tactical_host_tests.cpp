@@ -1,3 +1,4 @@
+#include "move_diagnostic_capture.h"
 #include "Ja2/DedicatedCoopTacticalHost.h"
 
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -86,6 +87,23 @@ public:
 		output = defaultActor;
 		return true;
 	}
+	bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept override
+	{
+		++movePreparationCalls;
+		lastMoveActor = actor;
+		lastMoveDestination = destinationGrid;
+		lastMoveMode = movementMode;
+		lastMoveReverse = reverse;
+		if (moveRouteActive || moveSpecialAnimationActive ||
+			!moveFirstStepAffordable ||
+			!movePreparationSucceeds)
+			return false;
+		return true;
+	}
 	bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,
@@ -102,6 +120,22 @@ public:
 			attackHandItem, SimulationCommandSource::NetworkPeer};
 		return true;
 	}
+	DedicatedCoopAttackOutcome attackOutcome = DedicatedCoopAttackOutcome::Completed;
+	mutable std::uint64_t capturedAttackSequence = 0, capturedAttackWorld = 0;
+	mutable TacticalEntityId capturedAttackActor{};
+	unsigned attackReleases = 0;
+	DedicatedCoopAttackOutcome captureAttackOutcome(std::uint64_t sequence,
+		std::uint64_t world, TacticalEntityId actor) const noexcept override
+	{
+		capturedAttackSequence = sequence; capturedAttackWorld = world; capturedAttackActor = actor;
+		return attackOutcome;
+	}
+	void releaseAttackOutcome(std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) noexcept override
+	{
+		CHECK(sequence == capturedAttackSequence && world == capturedAttackWorld && actor == capturedAttackActor,
+			"release acknowledges only the exact captured native attack");
+		++attackReleases;
+	}
 	bool prepareReloadWeapon(
 		TacticalEntityId actor,
 		ReloadWeaponCommand& command) const noexcept override
@@ -112,6 +146,71 @@ public:
 		command = ReloadWeaponCommand{
 			actor, true, SimulationCommandSource::NetworkPeer,
 			TacticalCommandAuthorityPolicy::DedicatedCoop};
+		return true;
+	}
+	bool prepareBeginFirstAid(TacticalEntityId actor, TacticalEntityId target,
+		BeginFirstAidCommand& command) const noexcept override
+	{
+		++firstAidPreparationCalls;
+		if (!firstAidPreparationSucceeds) return false;
+		command = BeginFirstAidCommand{actor, target, 7, 3, 1000, 1001,
+			0, 2, 1, 1, 99, 17, 10};
+		return true;
+	}
+	bool prepareSwapInventorySlots(TacticalEntityId actor, std::uint16_t source,
+		std::uint16_t destination, std::uint64_t revision,
+		SwapInventorySlotsCommand& command) const noexcept override
+	{
+		++inventoryPreparationCalls;
+		lastInventoryRevision = revision;
+		if (!inventoryPreparationSucceeds) return false;
+		command.soldier = actor;
+		command.sourceSlot = static_cast<std::uint8_t>(source);
+		command.destinationSlot = static_cast<std::uint8_t>(destination);
+		command.expectedWorldGeneration = 7;
+		command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000;
+		command.expectedActorLevel = 0;
+		command.expectedAnimationState = 1;
+		command.expectedDirection = 2;
+		command.expectedActorStateFingerprint = 11;
+		command.sourceStateFingerprint = 12;
+		command.destinationStateFingerprint = 13;
+		command.handStateFingerprint = 14;
+		command.offhandStateFingerprint = 15;
+		command.expectedActionPointCost = 2;
+		return true;
+	}
+	bool prepareTransferInventoryItem(TacticalEntityId actor, TacticalEntityId target,
+		std::uint16_t source, std::uint16_t destination, std::uint64_t revision,
+		std::uint64_t targetRevision, TransferInventoryItemCommand& command) const noexcept override
+	{
+		++transferPreparationCalls;
+		lastTransferRevision = revision;
+		lastTransferTargetRevision = targetRevision;
+		if (!transferPreparationSucceeds) return false;
+		command.soldier = actor;
+		command.target = target;
+		command.sourceSlot = static_cast<std::uint8_t>(source);
+		command.destinationSlot = static_cast<std::uint8_t>(destination);
+		command.expectedWorldGeneration = 7;
+		command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000;
+		command.expectedTargetGrid = 1001;
+		command.expectedLevel = 0;
+		command.expectedAnimationState = 1;
+		command.expectedTargetAnimationState = 2;
+		command.expectedDirection = 2;
+		command.expectedTargetDirection = 3;
+		command.expectedActorStateFingerprint = 11;
+		command.expectedTargetStateFingerprint = 12;
+		command.sourceStateFingerprint = 13;
+		command.destinationStateFingerprint = 1;
+		command.handStateFingerprint = 15;
+		command.offhandStateFingerprint = 16;
+		command.targetHandStateFingerprint = 17;
+		command.targetOffhandStateFingerprint = 18;
+		command.expectedActionPointCost = 2;
 		return true;
 	}
 	bool prepareDoorOpenClose(
@@ -131,6 +230,48 @@ public:
 		command.operation = desiredOpen
 			? TacticalWorldObjectOperation::Open
 			: TacticalWorldObjectOperation::Close;
+		return true;
+	}
+	bool preparePickupWorldItem(TacticalEntityId actor, TacticalWorldItemId item,
+		std::uint16_t destination, std::uint64_t revision,
+		AuthoritativePickupWorldItemCommand& command) const noexcept override
+	{
+		++pickupPreparationCalls;
+		lastPickupRevision = revision;
+		if (!pickupPreparationSucceeds) return false;
+		command.soldier = actor;
+		command.item = item;
+		command.destinationSlot = static_cast<std::uint8_t>(destination);
+		command.expectedWorldGeneration = 7;
+		command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000;
+		command.expectedActorLevel = 0;
+		command.expectedAnimationState = 1;
+		command.expectedDirection = 2;
+		command.expectedActorStateFingerprint = 11;
+		command.sourceStateFingerprint = 12;
+		command.destinationStateFingerprint = 13;
+		command.expectedPoolStateFingerprint = 14;
+		command.expectedActionPointCost = 3;
+		return true;
+	}
+	bool prepareDropInventoryItem(TacticalEntityId actor, std::uint16_t source,
+		std::uint64_t revision, AuthoritativeDropInventoryItemCommand& command) const noexcept override
+	{
+		++dropPreparationCalls;
+		lastDropRevision = revision;
+		if (!dropPreparationSucceeds) return false;
+		command.soldier = actor;
+		command.sourceSlot = static_cast<std::uint8_t>(source);
+		command.expectedWorldGeneration = 7;
+		command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000;
+		command.expectedActorLevel = 0;
+		command.expectedAnimationState = 1;
+		command.expectedDirection = 2;
+		command.expectedActorStateFingerprint = 11;
+		command.sourceStateFingerprint = 12;
+		command.expectedActionPointCost = 3;
 		return true;
 	}
 	bool collectControllableActors(DedicatedCoopTacticalActorList& output,
@@ -158,17 +299,41 @@ public:
 	bool turnCaptureSucceeds = true;
 	bool actorCaptureSucceeds = true;
 	bool collectionSucceeds = true;
+	bool movePreparationSucceeds = true;
+	bool moveRouteActive = false;
+	bool moveSpecialAnimationActive = false;
+	bool moveFirstStepAffordable = true;
 	bool attackPreparationSucceeds = true;
 	bool reloadPreparationSucceeds = true;
 	bool doorPreparationSucceeds = true;
 	std::int32_t attackTargetGrid = 1300;
 	std::int8_t attackTargetLevel = 0;
 	std::uint32_t attackHandItem = 22;
+	mutable std::size_t movePreparationCalls = 0;
+	mutable TacticalEntityId lastMoveActor{};
+	mutable std::int32_t lastMoveDestination = -1;
+	mutable std::uint16_t lastMoveMode = 0;
+	mutable bool lastMoveReverse = false;
 	mutable std::size_t attackPreparationCalls = 0;
 	mutable TacticalEntityId lastAttackActor{};
 	mutable TacticalEntityId lastAttackTarget{};
 	mutable std::uint8_t lastAttackAimTime = 0;
 	mutable std::size_t reloadPreparationCalls = 0;
+	bool firstAidPreparationSucceeds = true;
+	bool inventoryPreparationSucceeds = true;
+	bool transferPreparationSucceeds = true;
+	bool pickupPreparationSucceeds = true;
+	bool dropPreparationSucceeds = true;
+	mutable std::size_t dropPreparationCalls = 0;
+	mutable std::uint64_t lastDropRevision = 0;
+	mutable std::size_t pickupPreparationCalls = 0;
+	mutable std::uint64_t lastPickupRevision = 0;
+	mutable std::size_t transferPreparationCalls = 0;
+	mutable std::uint64_t lastTransferRevision = 0;
+	mutable std::uint64_t lastTransferTargetRevision = 0;
+	mutable std::size_t inventoryPreparationCalls = 0;
+	mutable std::uint64_t lastInventoryRevision = 0;
+	mutable std::size_t firstAidPreparationCalls = 0;
 	mutable TacticalEntityId lastReloadActor{};
 	mutable std::size_t doorPreparationCalls = 0;
 	mutable TacticalEntityId lastDoorActor{};
@@ -350,8 +515,23 @@ void TestTranslatesSupportedIntentVocabulary()
 	CHECK(host.execute(Intent(8, DoorOpenCloseTacticalIntent{
 		1400, 91, true})) == TacticalIntentExecutionDisposition::Retained,
 		"door open/close enters the retained command inbox");
-	CHECK(commands.submissionCount == 8 && receipts.count == 8 &&
-		host.correlationCount() == 8,
+	CHECK(host.execute(Intent(9, BeginFirstAidTacticalIntent{ActorTwo})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"first aid enters the retained command inbox");
+	CHECK(host.execute(Intent(10, SwapInventorySlotsTacticalIntent{14, 5, 31})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"inventory swap enters the retained command inbox");
+	CHECK(host.execute(Intent(11, TransferInventoryItemTacticalIntent{ActorTwo, 14, 5, 31, 47})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"inventory transfer enters the retained command inbox");
+	CHECK(host.execute(Intent(12, PickupWorldItemTacticalIntent{{91, 2}, 14, 31})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"exact ground pickup enters retained command inbox");
+	CHECK(host.execute(Intent(13, DropInventoryItemTacticalIntent{54, 31})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"ordinary pocket drop enters retained command inbox");
+	CHECK(commands.submissionCount == 13 && receipts.count == 13 &&
+		host.correlationCount() == 13,
 		"each supported intent creates one queue correlation and receipt");
 
 	const MoveToGridCommand* move = std::get_if<MoveToGridCommand>(
@@ -362,7 +542,11 @@ void TestTranslatesSupportedIntentVocabulary()
 		move->source == SimulationCommandSource::NetworkPeer &&
 		move->origin == TacticalMoveOrigin::TeamAwareUi &&
 		move->pendingAction == TacticalPendingActionPolicy::Clear &&
-		move->authority == TacticalCommandAuthorityPolicy::DedicatedCoop,
+		move->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.movePreparationCalls == 1 &&
+		live.lastMoveActor == ActorOne &&
+		live.lastMoveDestination == 1234 && live.lastMoveMode == 17 &&
+		live.lastMoveReverse,
 		"move uses server actor identity and non-restarting team-aware policy");
 	const SetFacingCommand* face = std::get_if<SetFacingCommand>(
 		&commands.submissions[1].command);
@@ -426,6 +610,52 @@ void TestTranslatesSupportedIntentVocabulary()
 		live.lastDoorObject.structureId == 91 &&
 		live.lastDoorDesiredOpen,
 		"door intent is resolved into one exact private authoritative command");
+	const auto* firstAid = std::get_if<BeginFirstAidCommand>(&commands.submissions[8].command);
+	CHECK(firstAid && firstAid->soldier == ActorOne && firstAid->target == ActorTwo &&
+		firstAid->expectedWorldGeneration == 7 && firstAid->expectedTurnSerial == 3 &&
+		firstAid->expectedKitStateFingerprint == 17 &&
+		firstAid->source == SimulationCommandSource::NetworkPeer &&
+		firstAid->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.firstAidPreparationCalls == 1,
+		"first aid retains exact server-prepared patient, kit, and authority proof");
+	const auto* swap = std::get_if<SwapInventorySlotsCommand>(&commands.submissions[9].command);
+	CHECK(swap && swap->soldier == ActorOne && swap->sourceSlot == 14 &&
+		swap->destinationSlot == 5 && swap->expectedWorldGeneration == 7 &&
+		swap->expectedTurnSerial == 3 && swap->sourceStateFingerprint == 12 &&
+		swap->destinationStateFingerprint == 13 && swap->expectedActionPointCost == 2 &&
+		swap->source == SimulationCommandSource::NetworkPeer &&
+		swap->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.inventoryPreparationCalls == 1 && live.lastInventoryRevision == 31,
+		"swap retains server proofs and validates the private inventory revision before queueing");
+	const auto* transfer = std::get_if<TransferInventoryItemCommand>(&commands.submissions[10].command);
+	CHECK(transfer && IsStructurallyValidTransferInventoryItemCommand(*transfer) &&
+		transfer->soldier == ActorOne && transfer->target == ActorTwo && transfer->sourceSlot == 14 &&
+		transfer->destinationSlot == 5 && transfer->expectedWorldGeneration == 7 &&
+		transfer->expectedTurnSerial == 3 && transfer->expectedTargetStateFingerprint == 12 &&
+		transfer->targetHandStateFingerprint == 17 && transfer->targetOffhandStateFingerprint == 18 &&
+		transfer->expectedActionPointCost == 2 && live.transferPreparationCalls == 1 &&
+		live.lastTransferRevision == 31 && live.lastTransferTargetRevision == 47,
+		"transfer retains both server-prepared actors and exact independent private revision inputs");
+	const auto* pickup = std::get_if<AuthoritativePickupWorldItemCommand>(&commands.submissions[11].command);
+	CHECK(pickup && IsStructurallyValidAuthoritativePickupWorldItemCommand(*pickup) &&
+		pickup->soldier == ActorOne && pickup->item == TacticalWorldItemId({91, 2}) &&
+		pickup->destinationSlot == 14 && pickup->expectedWorldGeneration == 7 && pickup->expectedTurnSerial == 3 &&
+		pickup->sourceStateFingerprint == 12 && pickup->destinationStateFingerprint == 13 &&
+		pickup->expectedPoolStateFingerprint == 14 && pickup->expectedActionPointCost == 3 &&
+		pickup->source == SimulationCommandSource::NetworkPeer &&
+		pickup->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.pickupPreparationCalls == 1 && live.lastPickupRevision == 31,
+		"pickup retains exact server item, pool, empty-pocket and AP proofs after private revision preparation");
+	const auto* drop = std::get_if<AuthoritativeDropInventoryItemCommand>(&commands.submissions[12].command);
+	CHECK(drop && IsStructurallyValidAuthoritativeDropInventoryItemCommand(*drop) &&
+		drop->soldier == ActorOne && drop->sourceSlot == 54 && drop->expectedWorldGeneration == 7 &&
+		drop->expectedTurnSerial == 3 && drop->expectedActorGrid == 1000 && drop->expectedActorLevel == 0 &&
+		drop->expectedAnimationState == 1 && drop->expectedDirection == 2 &&
+		drop->expectedActorStateFingerprint == 11 && drop->sourceStateFingerprint == 12 &&
+		drop->expectedActionPointCost == 3 && drop->source == SimulationCommandSource::NetworkPeer &&
+		drop->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
+		live.dropPreparationCalls == 1 && live.lastDropRevision == 31,
+		"drop retains only authority-captured pose, whole source object and AP proofs");
 	for (std::size_t index = 0; index < commands.submissionCount; ++index)
 		CHECK(commands.submissions[index].packageId == CampaignPackageId,
 			"every command submits under the active campaign package");
@@ -439,6 +669,98 @@ void TestTranslatesSupportedIntentVocabulary()
 		CHECK(receipts.receipts[index].peerIdentity == Peer(0x20),
 			"receipt uses the ingress-resolved peer identity");
 	}
+}
+
+void TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart()
+{
+	FakeLiveState live;
+	FakeCommandService commands;
+	RecordingReceiptSink receipts;
+	DedicatedCoopTacticalHost host(
+		live, commands, receipts, CampaignPackageId, 8);
+
+	CHECK(host.execute(Intent(1,
+		MoveTacticalIntent{1234, 17, false})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"an idle actor's first discrete move is retained");
+	live.moveRouteActive = true;
+	CHECK(host.execute(Intent(2,
+		MoveTacticalIntent{1393, 17, false})) ==
+		TacticalIntentExecutionDisposition::Rejected,
+		"a second discrete move cannot replace a live actor route");
+	CHECK(commands.submissionCount == 1 &&
+		live.movePreparationCalls == 2 &&
+		live.lastMoveDestination == 1393,
+		"active-route rejection occurs before a second command submission");
+	CHECK(LastReceipt(receipts).status ==
+		CoopTacticalIntentReceiptStatus::Rejected &&
+		LastReceipt(receipts).reason ==
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"active-route replacement receives a terminal gameplay rejection");
+
+	CHECK(host.execute(Intent(3, StopTacticalIntent{})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"stop remains available while an actor has an active route");
+	CHECK(commands.submissionCount == 2 &&
+		std::holds_alternative<StopMovementCommand>(
+			commands.submissions[1].command) &&
+		live.movePreparationCalls == 2,
+		"stop bypasses move preparation and reaches the command service");
+
+	FakeLiveState exhausted;
+	exhausted.moveFirstStepAffordable = false;
+	FakeCommandService exhaustedCommands;
+	RecordingReceiptSink exhaustedReceipts;
+	DedicatedCoopTacticalHost exhaustedHost(
+		exhausted, exhaustedCommands, exhaustedReceipts,
+		CampaignPackageId, 4);
+	CHECK(exhaustedHost.execute(Intent(1,
+		MoveTacticalIntent{1234, 17, false})) ==
+		TacticalIntentExecutionDisposition::Rejected,
+		"a move whose first step is unaffordable is rejected immediately");
+	CHECK(exhaustedCommands.submissionCount == 0 &&
+		exhausted.movePreparationCalls == 1,
+		"an unaffordable move cannot enter the asynchronous command inbox");
+	CHECK(LastReceipt(exhaustedReceipts).status ==
+		CoopTacticalIntentReceiptStatus::Rejected &&
+		LastReceipt(exhaustedReceipts).reason ==
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"an unaffordable first step cannot later be reported as applied");
+}
+
+
+void TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation()
+{
+	for (bool enabled : {false, true})
+	{
+		FakeLiveState live;
+		live.turn.pendingCombatActions = 1;
+		FakeCommandService commands;
+		RecordingReceiptSink receipts;
+		DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+		MoveDiagnosticCapture trace(enabled);
+		CHECK(trace.valid(), "host diagnostic capture opens");
+		const auto result = host.execute(Intent(1, MoveTacticalIntent{1234, 17, false}));
+		const auto output = trace.finish();
+		CHECK(result == TacticalIntentExecutionDisposition::Rejected &&
+			LastReceipt(receipts).reason == CoopTacticalIntentReceiptReason::GameplayRejected &&
+			commands.submissionCount == 0 && live.movePreparationCalls == 0 &&
+			live.turn.pendingCombatActions == 1,
+			"context diagnostics preserve the original gate and do not prepare rejected native movement");
+		CHECK(enabled ? output.find("stage=admission-context reason=combat-action-or-interrupt-pending") != std::string::npos : output.empty(),
+			"host context trace is default off and identifies its original guard when enabled");
+	}
+	FakeLiveState live;
+	live.defaultActor.controllable = false;
+	FakeCommandService commands;
+	RecordingReceiptSink receipts;
+	DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+	MoveDiagnosticCapture trace(true);
+	const auto result = host.execute(Intent(1, MoveTacticalIntent{1234, 17, false}));
+	const auto output = trace.finish();
+	CHECK(result == TacticalIntentExecutionDisposition::Rejected && live.movePreparationCalls == 0 &&
+		output.find("reason=actor-not-controllable") != std::string::npos,
+		"controllability rejection is distinguished before native preflight");
 }
 
 void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
@@ -503,6 +825,11 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"non-player combat turn rejects actor commands");
 	FakeLiveState busy;
+	FakeLiveState sharedDecision;
+	sharedDecision.turn.sharedDecisionPending = true;
+	rejects(sharedDecision, Intent(1),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"pending shared native decision rejects tactical commands while observations remain available");
 	busy.turn.pendingCombatActions = 1;
 	rejects(busy, Intent(1),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
@@ -544,7 +871,59 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"live selected-weapon, ammunition, and AP reload rejection is terminal");
 	FakeLiveState invalidDoor;
+	FakeLiveState invalidFirstAid;
+	invalidFirstAid.firstAidPreparationSucceeds = false;
+	rejects(invalidFirstAid, Intent(1, BeginFirstAidTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"invalid patient, kit, service, adjacency, or AP cannot enter the medical inbox");
+	rejects(legacyNetwork, Intent(1, BeginFirstAidTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"first aid fails closed while a legacy network role is active");
+	CHECK(legacyNetwork.firstAidPreparationCalls == 0 &&
+		invalidFirstAid.firstAidPreparationCalls == 1,
+		"legacy role rejection precedes any native first-aid preparation");
 	invalidDoor.doorPreparationSucceeds = false;
+	FakeLiveState invalidInventory;
+	invalidInventory.inventoryPreparationSucceeds = false;
+	rejects(invalidInventory, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale inventory revision or native capacity/equipment rejection cannot enter the inbox");
+	rejects(legacyNetwork, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"inventory swap fails closed while legacy networking is active");
+	CHECK(invalidInventory.inventoryPreparationCalls == 1 &&
+		legacyNetwork.inventoryPreparationCalls == 0,
+		"legacy networking is rejected before native inventory preparation");
+	FakeLiveState invalidTransfer;
+	invalidTransfer.transferPreparationSucceeds = false;
+	rejects(invalidTransfer, Intent(1, TransferInventoryItemTacticalIntent{ActorTwo, 14, 5, 31, 47}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale source/target inventory or failed native transfer preparation never enters inbox");
+	rejects(legacyNetwork, Intent(1, TransferInventoryItemTacticalIntent{ActorTwo, 14, 5, 31, 47}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"inventory transfer fails closed while legacy networking is active");
+	CHECK(invalidTransfer.transferPreparationCalls == 1 && legacyNetwork.transferPreparationCalls == 0,
+		"legacy networking rejects before native two-actor preparation");
+	FakeLiveState invalidPickup;
+	invalidPickup.pickupPreparationSucceeds = false;
+	rejects(invalidPickup, Intent(1, PickupWorldItemTacticalIntent{{91, 2}, 14, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale or unsupported ground pickup cannot enter retained inbox");
+	rejects(legacyNetwork, Intent(1, PickupWorldItemTacticalIntent{{91, 2}, 14, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"legacy networking fails closed for ground pickup");
+	CHECK(invalidPickup.pickupPreparationCalls == 1 && legacyNetwork.pickupPreparationCalls == 0,
+		"legacy role rejection precedes native ground pickup preparation");
+	FakeLiveState invalidDrop;
+	invalidDrop.dropPreparationSucceeds = false;
+	rejects(invalidDrop, Intent(1, DropInventoryItemTacticalIntent{14, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale inventory, unsupported object or unsafe tile cannot enter retained drop inbox");
+	rejects(legacyNetwork, Intent(1, DropInventoryItemTacticalIntent{14, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"legacy networking fails closed for pocket drop");
+	CHECK(invalidDrop.dropPreparationCalls == 1 && legacyNetwork.dropPreparationCalls == 0,
+		"legacy role rejection precedes native drop preparation");
 	rejects(invalidDoor, Intent(1,
 		DoorOpenCloseTacticalIntent{1400, 91, false}),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
@@ -765,6 +1144,43 @@ void TestRuntimeResultsRequireExactTopicPackageAndRequest()
 		applied.state.worldGeneration == 7 && applied.state.revision == 21 &&
 		applied.state.turnSerial == 4,
 		"terminal receipt uses the post-observer revision and resolved peer");
+}
+
+void TestNativeAttackWaitsForCompletion()
+{
+	for (auto outcome : {DedicatedCoopAttackOutcome::Completed, DedicatedCoopAttackOutcome::Interrupted})
+	{
+		FakeLiveState live; FakeCommandService commands; RecordingReceiptSink receipts;
+		live.attackOutcome = DedicatedCoopAttackOutcome::Pending;
+		DedicatedCoopTacticalHost host(live, commands, receipts, CampaignPackageId, 4);
+		CHECK(host.execute(Intent(7, AimedFirearmAttackTacticalIntent{ActorTwo, 2})) ==
+			TacticalIntentExecutionDisposition::Retained, "remote attack is correlated before its native chain");
+		host.receiveMessage(ResultMessage(CampaignPackageId, 1, TacticalCommandTerminalStatus::Applied,
+			TacticalCommandTerminalReason::None, 0, 88));
+		CHECK(host.flushPendingReceipts() == 0 && receipts.count == 1 && live.attackReleases == 0 &&
+			host.correlationCount() == 1 && !host.ready(), "accepted dispatch cannot publish Applied while the native shot is pending");
+		CHECK(live.capturedAttackSequence == 0 && live.capturedAttackWorld == 7 && live.capturedAttackActor == ActorOne,
+			"native outcome query carries sequence zero and exact world and shooter");
+		live.attackOutcome = DedicatedCoopAttackOutcome::Invalid;
+		CHECK(host.flushPendingReceipts() == 0 && live.attackReleases == 0 && !host.endWorld(),
+			"lost native outcome cannot be invented or relabeled by world teardown");
+		live.attackOutcome = outcome; receipts.accept = false;
+		CHECK(host.flushPendingReceipts() == 0 && live.attackReleases == 0,
+			"completed native outcome survives outbound backpressure");
+		receipts.accept = true;
+		CHECK(host.flushPendingReceipts() == 1 && receipts.count == 2 && live.attackReleases == 1 && host.ready(),
+			"one terminal receipt releases one exact native outcome");
+		const auto& terminal = LastReceipt(receipts);
+		CHECK(terminal.authoritativeSequence == 0 && terminal.commandId == 7 && terminal.simulationTick == 88,
+			"native completion retains the original execution correlation");
+		CHECK(terminal.status == (outcome == DedicatedCoopAttackOutcome::Completed ?
+			CoopTacticalIntentReceiptStatus::Applied : CoopTacticalIntentReceiptStatus::Cancelled) &&
+			terminal.reason == (outcome == DedicatedCoopAttackOutcome::Completed ?
+			CoopTacticalIntentReceiptReason::None : CoopTacticalIntentReceiptReason::NativeAttackInterrupted),
+			"completed and interrupted native shots have distinct terminal receipts");
+		CHECK(host.flushPendingReceipts() == 0 && live.attackReleases == 1,
+			"repeated flush cannot replay native completion or release");
+	}
 }
 
 void TestTerminalReasonMappings()
@@ -1068,10 +1484,13 @@ void TestActorCollectionIsStrictAndTransactional()
 int main()
 {
 	TestTranslatesSupportedIntentVocabulary();
+	TestMoveLifecycleRejectsRouteReplacementAndUnaffordableStart();
+	TestMoveContextDiagnosticsAreOptInAndDoNotRepeatPreparation();
 	TestLiveActorAndTurnPolicyRejectsBeforeSubmission();
 	TestInterruptAuthorityAndPassTranslation();
 	TestSubmissionFailuresAndCorrelationCapacityFailClosed();
 	TestRuntimeResultsRequireExactTopicPackageAndRequest();
+	TestNativeAttackWaitsForCompletion();
 	TestTerminalReasonMappings();
 	TestReceiptBackpressureRetainsOrderAndWorldCancellation();
 	TestImmediateReceiptBackpressureAndThreadGate();

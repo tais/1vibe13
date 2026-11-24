@@ -1,5 +1,11 @@
+#include "DedicatedCoopMoveDiagnostic.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
+#include "DedicatedCoopAttack.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "DedicatedCoopMissionPolicy.h"
+#include "DedicatedCoopSurrender.h"
+#include "DedicatedCoopBattleNotice.h"
+#include "DedicatedCoopMeanwhile.h"
 
 #include "DedicatedServerOptions.h"
 #include "GameContext.h"
@@ -12,12 +18,17 @@
 
 #include "Animation Control.h"
 #include "Assignments.h"
+#include "PATHAI.H"
+#include "Points.h"
 #include "Overhead.h"
 #include "Soldier macros.h"
 #include "TacticalActor.h"
+#include "TacticalActorMobility.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorStateFlags.h"
 
 #include <limits>
+#include <algorithm>
 
 extern BOOLEAN gfDedicatedServer;
 extern bool is_client;
@@ -131,6 +142,7 @@ bool DedicatedCoopTacticalJa2LiveState::captureTurn(
 	captured.interruptPending =
 		captured.interruptPhase == TacticalInterruptPhase::Resolving;
 	captured.interruptSerial = interrupt.serial;
+	captured.sharedDecisionPending = DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending() || DedicatedCoopAttackPending();
 	state = captured;
 	return true;
 }
@@ -142,6 +154,34 @@ bool DedicatedCoopTacticalJa2LiveState::captureActor(
 	if (!onMainThread()) return false;
 	state = InspectJa2Actor(actor);
 	return true;
+}
+
+bool DedicatedCoopTacticalJa2LiveState::canBeginMoveToGrid(
+	TacticalEntityId actorId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse) const noexcept
+{
+	TacticalMoveDiagnostic diagnostic;
+	diagnostic.actorSlot = actorId.slot; diagnostic.incarnation = actorId.incarnation;
+	diagnostic.destination = destinationGrid; diagnostic.movementMode = movementMode; diagnostic.reverse = reverse;
+	if (!onMainThread())
+	{
+		diagnostic.reason = TacticalMoveFailure::WrongThread;
+		TraceDedicatedCoopMoveRejection("admission", diagnostic);
+		return false;
+	}
+	TacticalActor* actor = ResolveJa2TacticalEntity(actorId);
+	if (!actor)
+	{
+		diagnostic.reason = TacticalMoveFailure::ActorUnavailable;
+		TraceDedicatedCoopMoveRejection("admission", diagnostic);
+		return false;
+	}
+	const bool accepted = TacticalActorRouteExecution::canBeginMoveToGrid(
+		*actor, destinationGrid, movementMode, reverse, &diagnostic);
+	if (!accepted) TraceDedicatedCoopMoveRejection("admission", diagnostic);
+	return accepted;
 }
 
 bool DedicatedCoopTacticalJa2LiveState::prepareAimedFirearmAttack(
@@ -161,6 +201,13 @@ bool DedicatedCoopTacticalJa2LiveState::prepareReloadWeapon(
 	return onMainThread() && PrepareReloadWeaponCommand(actor, command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareBeginFirstAid(
+	TacticalEntityId actor, TacticalEntityId target,
+	BeginFirstAidCommand& command) const noexcept
+{
+	return onMainThread() && PrepareBeginFirstAidCommand(actor, target, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareDoorOpenClose(
 	TacticalEntityId actor,
 	TacticalWorldObjectId object,
@@ -169,6 +216,91 @@ bool DedicatedCoopTacticalJa2LiveState::prepareDoorOpenClose(
 {
 	return onMainThread() && PrepareAuthoritativeDoorOpenCloseCommand(
 		actor, object, desiredOpen, command);
+}
+
+bool DedicatedCoopTacticalJa2LiveState::captureInventory(TacticalEntityId actor,
+	std::uint64_t worldGeneration, CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept
+{
+	return onMainThread() && inventoryAuthority_.capture(actor, worldGeneration, inventory);
+}
+
+bool DedicatedCoopTacticalJa2LiveState::prepareSwapInventorySlots(
+	TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+	std::uint64_t expectedInventoryRevision, SwapInventorySlotsCommand& command) const noexcept
+{
+	DedicatedCoopInventoryDiagnostic diagnostic;
+	diagnostic.actorSlot = actor.slot; diagnostic.incarnation = actor.incarnation;
+	diagnostic.sourceSlot = sourceSlot; diagnostic.destinationSlot = destinationSlot;
+	diagnostic.expected = expectedInventoryRevision;
+	const auto reject = [&](const char* stage) {
+		TraceDedicatedCoopInventoryRejection(stage, diagnostic);
+		return false;
+	};
+	if (!onMainThread()) return reject("admission.thread");
+	if (sourceSlot >= 256 || destinationSlot >= 256 || expectedInventoryRevision == 0)
+		return reject("admission.input");
+	CoopSession::CoopOwnerInventorySnapshot current;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!world) return reject("admission.world");
+	diagnostic.world = world.worldGeneration; diagnostic.turn = world.serial;
+	if (!inventoryAuthority_.capture(actor, world.worldGeneration, current))
+		return reject("admission.capture");
+	diagnostic.observed = current.inventoryRevision;
+	if (current.inventoryRevision != expectedInventoryRevision)
+		return reject("admission.revision");
+	if (!PrepareSwapInventorySlotsCommand(actor, static_cast<std::uint8_t>(sourceSlot),
+		static_cast<std::uint8_t>(destinationSlot), command))
+		return reject("admission.native");
+	return true;
+}
+
+bool DedicatedCoopTacticalJa2LiveState::prepareTransferInventoryItem(
+	TacticalEntityId actor, TacticalEntityId target,
+	std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+	std::uint64_t expectedInventoryRevision,
+	std::uint64_t expectedTargetInventoryRevision,
+	TransferInventoryItemCommand& command) const noexcept
+{
+	if (!onMainThread() || actor == target || sourceSlot >= 256 || destinationSlot >= 256 ||
+		expectedInventoryRevision == 0 || expectedTargetInventoryRevision == 0) return false;
+	CoopSession::CoopOwnerInventorySnapshot sourceInventory;
+	CoopSession::CoopOwnerInventorySnapshot targetInventory;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	return world && inventoryAuthority_.capture(actor, world.worldGeneration, sourceInventory) &&
+		sourceInventory.inventoryRevision == expectedInventoryRevision &&
+		inventoryAuthority_.capture(target, world.worldGeneration, targetInventory) &&
+		targetInventory.inventoryRevision == expectedTargetInventoryRevision &&
+		PrepareTransferInventoryItemCommand(actor, target, static_cast<std::uint8_t>(sourceSlot),
+			static_cast<std::uint8_t>(destinationSlot), command);
+}
+
+bool DedicatedCoopTacticalJa2LiveState::preparePickupWorldItem(
+	TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
+	std::uint64_t expectedInventoryRevision, AuthoritativePickupWorldItemCommand& command) const noexcept
+{
+	if (!onMainThread() || !item.valid() || destinationSlot >= 256 ||
+		expectedInventoryRevision == 0) return false;
+	CoopSession::CoopOwnerInventorySnapshot current;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	return world && inventoryAuthority_.capture(actor, world.worldGeneration, current) &&
+		current.inventoryRevision == expectedInventoryRevision &&
+		std::any_of(current.groundItems.begin(), current.groundItems.end(),
+			[item](const auto& entry) { return entry.id == item; }) &&
+		PrepareAuthoritativePickupWorldItemCommand(actor, item,
+			static_cast<std::uint8_t>(destinationSlot), command);
+}
+
+bool DedicatedCoopTacticalJa2LiveState::prepareDropInventoryItem(
+	TacticalEntityId actor, std::uint16_t sourceSlot,
+	std::uint64_t expectedInventoryRevision, AuthoritativeDropInventoryItemCommand& command) const noexcept
+{
+	if (!onMainThread() || sourceSlot < 14 || sourceSlot >= 55 ||
+		expectedInventoryRevision == 0) return false;
+	CoopSession::CoopOwnerInventorySnapshot current;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	return world && inventoryAuthority_.capture(actor, world.worldGeneration, current) &&
+		current.inventoryRevision == expectedInventoryRevision &&
+		PrepareAuthoritativeDropInventoryItemCommand(actor, static_cast<std::uint8_t>(sourceSlot), command);
 }
 
 bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
@@ -196,3 +328,10 @@ bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
 	count = capturedCount;
 	return true;
 }
+
+DedicatedCoopAttackOutcome DedicatedCoopTacticalJa2LiveState::captureAttackOutcome(
+	std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) const noexcept
+{ return CaptureDedicatedCoopAttackOutcome(sequence, world, actor); }
+void DedicatedCoopTacticalJa2LiveState::releaseAttackOutcome(
+	std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) noexcept
+{ (void)ReleaseDedicatedCoopAttack(sequence, world, actor); }

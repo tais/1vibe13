@@ -47,6 +47,26 @@ void SetClippingRegionAndImageWidth(
 	giClipYMax = iClipStartY + iClipHeight-1;
 }
 
+void GetLineDrawState(SGPLineDrawState* state)
+{
+	if (state == nullptr) return;
+	state->imageWidth = giImageWidth;
+	state->clipXMin = giClipXMin;
+	state->clipXMax = giClipXMax;
+	state->clipYMin = giClipYMin;
+	state->clipYMax = giClipYMax;
+}
+
+void SetLineDrawState(const SGPLineDrawState* state)
+{
+	if (state == nullptr) return;
+	giImageWidth = state->imageWidth;
+	giClipXMin = state->clipXMin;
+	giClipXMax = state->clipXMax;
+	giClipYMin = state->clipYMin;
+	giClipYMax = state->clipYMax;
+}
+
 BOOL Clipt( FLOAT denom, FLOAT num, FLOAT *tE, FLOAT *tL )
 {
 	FLOAT	t;

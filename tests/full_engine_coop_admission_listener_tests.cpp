@@ -1,4 +1,6 @@
 #include "FullEngineCoopAdmissionListener.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignGroups.h"
 
 #include <SDL3/SDL.h>
 
@@ -250,6 +252,13 @@ struct LiveClient
 	Capture campaignChunk;
 	Capture campaignComplete;
 	Capture campaignReject;
+	Capture campaignStatus;
+	Capture campaignGroups;
+	Capture campaignTimeResult;
+	Capture campaignActionResult;
+	Capture campaignEconomy;
+	Capture campaignAimQuotes;
+	Capture campaignHireResult;
 	ClientEvents events;
 };
 
@@ -283,6 +292,14 @@ bool StartClient(LiveClient& client, std::uint16_t port)
 		!client.peer->RegisterMessage(
 			CoopCampaignSyncCompleteMessageName,
 			CaptureMessage, &client.campaignComplete) ||
+		!client.peer->RegisterMessage(
+			CoopCampaignStatusMessageName, CaptureMessage, &client.campaignStatus) ||
+		!client.peer->RegisterMessage(CoopCampaignGroupsMessageName, CaptureMessage, &client.campaignGroups) ||
+		!client.peer->RegisterMessage(CoopCampaignTimeResultMessageName, CaptureMessage, &client.campaignTimeResult) ||
+		!client.peer->RegisterMessage(CoopCampaignActionResultMessageName, CaptureMessage, &client.campaignActionResult) ||
+		!client.peer->RegisterMessage(CoopCampaignEconomyMessageName, CaptureMessage, &client.campaignEconomy) ||
+		!client.peer->RegisterMessage(CoopCampaignAimQuotesMessageName, CaptureMessage, &client.campaignAimQuotes) ||
+		!client.peer->RegisterMessage(CoopCampaignHireResultMessageName, CaptureMessage, &client.campaignHireResult) ||
 		!client.peer->RegisterMessage(
 			CoopCampaignSyncRejectMessageName,
 			CaptureMessage, &client.campaignReject))
@@ -383,7 +400,7 @@ void TestServerHelloCodec()
 		"complete server hello encodes");
 	const CoopServerHelloBytes expected{{
 		0x4a, 0x32, 0x43, 0x48, 0x01, 0x00, 0x01, 0x00,
-		0x07, 0x00, 0x00, 0x00,
+		0x13, 0x00, 0x00, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x0d, 0x0c, 0x0b, 0x0a,
 		0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
@@ -422,6 +439,7 @@ void TestAdmissionOnlyListener()
 	FullEngineCoopAdmissionListener listener(ingress);
 	const AuthorityConfiguration authority =
 		Authority(0x5566778899aabbccull);
+	CHECK(!listener.hasConnections(), "new listener has no checkpoint-blocking connections");
 	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration =
 		ListenerConfiguration(authority);
 	listenerConfiguration.endpoint = SdlNetEndpoint(1, "127.0.0.1");
@@ -484,6 +502,7 @@ void TestAdmissionOnlyListener()
 	CHECK(listener.running() && ingress.admissionActive() &&
 		!ingress.tacticalActive(),
 		"listener stays admission-only after bind");
+	CHECK(!listener.hasConnections(), "bound idle listener permits optional checkpoint consideration");
 
 	LiveClient client;
 	CHECK(StartClient(client, listenerConfiguration.endpoint.port),
@@ -499,6 +518,8 @@ void TestAdmissionOnlyListener()
 		return client.events.connected && client.hello.count == 1 &&
 			client.campaignBootstrap.count == 1;
 	}), "accepted client receives one ordered server handshake prelude");
+	CHECK(listener.hasConnections() && listener.authenticatedPeerCount() == 0,
+		"pre-admission transport blocks optional checkpoint teardown before authentication");
 	CHECK(client.hello.bytes.size() == CoopServerHelloWireSize,
 		"live listener sends the exact fixed-width hello");
 	CoopServerHello liveHello;
@@ -566,6 +587,8 @@ void TestAdmissionOnlyListener()
 	CHECK(SendAck(client, firstCredential),
 		"client explicitly ACKs its issued credential");
 	(void)PumpManyUntil(listener, {&client}, [] { return false; }, 30);
+	CHECK(listener.hasConnections() && listener.authenticatedPeerCount() == 1,
+		"ACK-confirmed client remains a checkpoint-blocking connection");
 
 	std::array<std::uint8_t, TacticalIntentHeaderWireSize> fakeTactical{};
 	for (std::size_t index = 0; index < fakeTactical.size(); ++index)
@@ -592,6 +615,7 @@ void TestAdmissionOnlyListener()
 	CHECK(!listener.running() && ingress.boundPeerCount() == 0 &&
 		ingress.admittedPeerCount() == 1,
 		"listener stop clears bindings while retaining ACKed credentials");
+	CHECK(!listener.hasConnections(), "stopped listener clears every checkpoint-blocking connection");
 	const std::vector<std::uint8_t> firstBootstrapBytes =
 		client.campaignBootstrap.bytes;
 	DestroyClient(client);
@@ -834,7 +858,9 @@ void TestUnauthenticatedTacticalTrafficFailsClosed()
 	listener.stop(0);
 }
 
-void TestUnauthenticatedCampaignTrafficFailsClosed()
+void TestUnauthenticatedCampaignTrafficFailsClosed(
+	const char* messageName = CoopCampaignSyncAckMessageName,
+	std::size_t wireSize = CoopCampaignSyncAckWireSize)
 {
 	SequentialTokenSource tokens;
 	RejectingExecutionSink sink;
@@ -846,6 +872,7 @@ void TestUnauthenticatedCampaignTrafficFailsClosed()
 		"unauthenticated campaign rejection session starts");
 	FullEngineCoopAdmissionListenerConfiguration configuration =
 		ListenerConfiguration(authority);
+	configuration.enableCampaignRequests = true;
 	CHECK(StartListenerOnLoopback(listener, configuration),
 		"unauthenticated campaign rejection listener starts");
 	LiveClient client;
@@ -858,10 +885,10 @@ void TestUnauthenticatedCampaignTrafficFailsClosed()
 
 	CoopCampaignSyncAckBytes acknowledgement{};
 	acknowledgement.fill(0xa6u);
-	CHECK(client.peer->SendMessage(CoopCampaignSyncAckMessageName,
-		acknowledgement.data(), acknowledgement.size(),
+	CHECK(client.peer->SendMessage(messageName,
+		acknowledgement.data(), wireSize,
 		client.events.server, false),
-		"pre-admission campaign ACK reaches the transport boundary");
+		"pre-admission campaign control reaches the transport boundary");
 	CHECK(PumpManyUntil(listener, {&client}, [&] {
 		return client.events.disconnected;
 	}), "pre-admission campaign control closes the unauthenticated transport");
@@ -888,6 +915,7 @@ void TestAuthenticatedCampaignQueueAndTargetedDelivery()
 	FullEngineCoopAdmissionListenerConfiguration configuration =
 		ListenerConfiguration(authority);
 	configuration.maximumQueuedCampaignMessages = 4;
+	configuration.enableCampaignRequests = true;
 	CHECK(StartListenerOnLoopback(listener, configuration),
 		"authenticated campaign queue listener starts");
 	LiveClient client;
@@ -945,8 +973,103 @@ void TestAuthenticatedCampaignQueueAndTargetedDelivery()
 		std::equal(resync.begin(), resync.end(), queued.bytes.begin()) &&
 		!listener.popCampaignInbound(queued) && sink.calls == 0,
 		"campaign resync completes FIFO delivery without gameplay execution");
+	CoopCampaignTimeRequestBytes timeRequest{}; timeRequest.fill(0xa7u);
+	CHECK(client.peer->SendMessage(CoopCampaignTimeRequestMessageName, timeRequest.data(), timeRequest.size(), client.events.server, false) &&
+		PumpManyUntil(listener, {&client}, [&] { return listener.pendingCampaignInboundCount() == 1; }) &&
+		listener.popCampaignInbound(queued) && queued.kind == FullEngineCoopCampaignInboundKind::TimeRequest &&
+		queued.peerIdentity == admitted.peerIdentity && queued.transport == authenticatedTransport && queued.size == timeRequest.size() &&
+		std::equal(timeRequest.begin(), timeRequest.end(), queued.bytes.begin()) && sink.calls == 0,
+		"time callback copies fixed bytes with transport-owned identity, no decode or native gameplay");
+	CoopCampaignActionRequestBytes actionRequest{};
+	actionRequest.fill(0xb9u);
+	CHECK(client.peer->SendMessage(CoopCampaignActionRequestMessageName,
+			actionRequest.data(), actionRequest.size(), client.events.server, false) &&
+		client.peer->SendMessage(CoopCampaignTimeRequestMessageName,
+			timeRequest.data(), timeRequest.size(), client.events.server, false) &&
+		PumpManyUntil(listener, {&client}, [&] {
+			return listener.pendingCampaignInboundCount() == 2;
+		}) && listener.popCampaignInbound(queued) &&
+		queued.kind == FullEngineCoopCampaignInboundKind::ActionRequest &&
+		queued.peerIdentity == admitted.peerIdentity &&
+		queued.transport == authenticatedTransport && queued.size == actionRequest.size() &&
+		std::equal(actionRequest.begin(), actionRequest.end(), queued.bytes.begin()) &&
+		listener.popCampaignInbound(queued) &&
+		queued.kind == FullEngineCoopCampaignInboundKind::TimeRequest &&
+		!listener.popCampaignInbound(queued) && sink.calls == 0,
+		"action requests retain opaque bytes and authenticated attribution in campaign FIFO order");
+	CoopCampaignActionResultBytes actionResult{};
+	CoopCampaignHireRequestBytes hireRequest{}; hireRequest.fill(0xbau);
+	CHECK(client.peer->SendMessage(CoopCampaignHireRequestMessageName, hireRequest.data(), hireRequest.size(), client.events.server, false) &&
+		client.peer->SendMessage(CoopCampaignTimeRequestMessageName, timeRequest.data(), timeRequest.size(), client.events.server, false) &&
+		PumpManyUntil(listener, {&client}, [&] { return listener.pendingCampaignInboundCount() == 2; }) &&
+		listener.popCampaignInbound(queued) && queued.kind == FullEngineCoopCampaignInboundKind::HireRequest &&
+		queued.peerIdentity == admitted.peerIdentity && queued.transport == authenticatedTransport && queued.size == hireRequest.size() &&
+		std::equal(hireRequest.begin(), hireRequest.end(), queued.bytes.begin()) && listener.popCampaignInbound(queued) &&
+		queued.kind == FullEngineCoopCampaignInboundKind::TimeRequest && !listener.popCampaignInbound(queued) && sink.calls == 0,
+		"hire callbacks copy opaque bounded bytes with authenticated attribution before native decoding");
+	CoopCampaignHireResultBytes hireResult{}; hireResult.fill(0xcbu);
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignHireResultMessageName, hireResult.data(), hireResult.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignHireResult.count == 1; }) &&
+		client.campaignHireResult.bytes == std::vector<std::uint8_t>(hireResult.begin(),hireResult.end()) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignHireResultMessageName, hireResult.data(), hireResult.size() - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignHireResultMessageName, hireResult.data(), hireResult.size() + 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignHireRequestMessageName, hireRequest.data(), hireRequest.size()) &&
+		!listener.sendToPeer(PeerIdentity{}, CoopCampaignHireResultMessageName, hireResult.data(), hireResult.size()),
+		"only exact hire results unicast to authenticated peers in server direction");
+	actionResult.fill(0xcau);
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignActionResultMessageName,
+			actionResult.data(), actionResult.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignActionResult.count == 1; }) &&
+		client.campaignActionResult.bytes == std::vector<std::uint8_t>(actionResult.begin(), actionResult.end()) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignActionResultMessageName,
+			actionResult.data(), actionResult.size() - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignActionResultMessageName,
+			actionResult.data(), actionResult.size() + 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignActionRequestMessageName,
+			actionRequest.data(), actionRequest.size()) &&
+		!listener.sendToPeer(PeerIdentity{}, CoopCampaignActionResultMessageName,
+			actionResult.data(), actionResult.size()),
+		"only exact action results unicast to an authenticated peer; reverse direction is rejected");
+	CoopCampaignTimeResultBytes timeResult{}; timeResult.fill(0xa8u);
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignTimeResultMessageName, timeResult.data(), timeResult.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignTimeResult.count == 1; }) &&
+		client.campaignTimeResult.bytes == std::vector<std::uint8_t>(timeResult.begin(), timeResult.end()) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignTimeResultMessageName, timeResult.data(), timeResult.size() - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignTimeRequestMessageName, timeRequest.data(), timeRequest.size()),
+		"time outcomes unicast exact bytes; wrong width and reversed request namespace rejected");
 
 	CoopCampaignSyncMetadataBytes metadata{};
+	CoopCampaignStatusBytes status{};
+	CoopCampaignGroupsBytes groups{};
+	CoopCampaignEconomyBytes economy{}; economy.fill(0xdau);
+	CoopCampaignAimQuotesBytes quotes{}; quotes.fill(0xdbu);
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignEconomyMessageName, economy.data(), economy.size()) &&
+		listener.sendToPeer(admitted.peerIdentity, CoopCampaignAimQuotesMessageName, quotes.data(), quotes.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignEconomy.count == 1 && client.campaignAimQuotes.count == 1; }) &&
+		client.campaignEconomy.bytes == std::vector<std::uint8_t>(economy.begin(),economy.end()) &&
+		client.campaignAimQuotes.bytes == std::vector<std::uint8_t>(quotes.begin(),quotes.end()),
+		"maximum full economy and quote observations unicast intact");
+	CHECK(!listener.sendToPeer(admitted.peerIdentity, CoopCampaignEconomyMessageName, economy.data(), CoopCampaignEconomyHeaderSize - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignEconomyMessageName, economy.data(), economy.size() + 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignAimQuotesMessageName, quotes.data(), CoopCampaignAimQuotesHeaderSize - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignAimQuotesMessageName, quotes.data(), quotes.size() + 1) &&
+		!listener.sendToPeer(PeerIdentity{}, CoopCampaignAimQuotesMessageName, quotes.data(), quotes.size()),
+		"economic observation bounds and authenticated recipient are enforced before send");
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignGroupsMessageName, groups.data(), groups.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignGroups.count == 1; }) &&
+		client.campaignGroups.bytes == std::vector<std::uint8_t>(groups.begin(), groups.end()), "maximum group observation unicasts intact to authenticated peer");
+	CHECK(!listener.sendToPeer(admitted.peerIdentity, CoopCampaignGroupsMessageName, groups.data(), CoopCampaignGroupsHeaderSize - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignGroupsMessageName, groups.data(), groups.size() + 1) &&
+		!listener.sendToPeer(PeerIdentity{}, CoopCampaignGroupsMessageName, groups.data(), groups.size()), "group unicast rejects unauthenticated recipient and out-of-bound widths");
+	status.fill(0x59u);
+	CHECK(listener.sendToPeer(admitted.peerIdentity, CoopCampaignStatusMessageName, status.data(), status.size()) &&
+		PumpManyUntil(listener, {&client}, [&] { return client.campaignStatus.count == 1; }) &&
+		client.campaignStatus.bytes == std::vector<std::uint8_t>(status.begin(), status.end()),
+		"campaign observation unicasts exact fixed bytes to authenticated identity");
+	CHECK(!listener.sendToPeer(admitted.peerIdentity, CoopCampaignStatusMessageName, status.data(), status.size() - 1) &&
+		!listener.sendToPeer(admitted.peerIdentity, CoopCampaignStatusMessageName, status.data(), status.size() + 1) &&
+		!listener.sendToPeer(PeerIdentity{}, CoopCampaignStatusMessageName, status.data(), status.size()),
+		"campaign status rejects wrong width and unknown recipient");
 	std::vector<std::uint8_t> chunk(MaximumCoopCampaignSyncWireSize, 0x25u);
 	CoopCampaignSyncCompleteBytes complete{};
 	CoopCampaignSyncRejectBytes reject{};
@@ -1016,6 +1139,46 @@ void TestAuthenticatedCampaignQueueAndTargetedDelivery()
 	listener.stop(0);
 }
 
+void TestCampaignRequestValidation(const char* name,
+	std::size_t wireSize, bool enabled)
+{
+	const std::vector<std::size_t> sizes = enabled
+		? std::vector<std::size_t>{0, wireSize - 1, wireSize + 1}
+		: std::vector<std::size_t>{wireSize};
+	for (const std::size_t size : sizes)
+	{
+		SequentialTokenSource tokens;
+		RejectingExecutionSink sink;
+		FullEngineCoopIngress ingress(tokens, sink);
+		FullEngineCoopAdmissionListener listener(ingress);
+		const AuthorityConfiguration authority = Authority(0x445a);
+		CHECK(ingress.beginAdmissionSession(authority) == FullEngineCoopStartResult::Success,
+			"action width session starts");
+		auto configuration = ListenerConfiguration(authority);
+		CHECK(!configuration.enableCampaignRequests,
+			"campaign mutation requests require coordinator opt-in by default");
+		configuration.enableCampaignRequests = enabled;
+		CHECK(StartListenerOnLoopback(listener, configuration), "campaign request listener starts");
+		LiveClient client;
+		CHECK(StartClient(client, configuration.endpoint.port), "action width client connects");
+		CHECK(PumpManyUntil(listener, {&client}, [&] {
+			return client.events.connected && client.hello.count == 1 && client.campaignBootstrap.count == 1;
+		}), "action width client receives handshake prelude");
+		AdmissionResponse admitted;
+		CHECK(AdmitAndAcknowledge(listener, client, authority, {&client}, admitted),
+			"action width client authenticates before malformed request");
+		std::vector<std::uint8_t> bytes(wireSize + 1);
+		CHECK(client.peer->SendMessage(name,
+			bytes.data(), size, client.events.server, false), "noncanonical action width reaches listener");
+		CHECK(PumpManyUntil(listener, {&client}, [&] { return client.events.disconnected; }) &&
+			listener.running() && ingress.admissionActive() && listener.authenticatedPeerCount() == 0 &&
+			listener.pendingCampaignInboundCount() == 0 && listener.pendingInboundCount() == 0 && sink.calls == 0,
+			"disabled or malformed campaign request closes only its transport without reaching the coordinator");
+		DestroyClient(client);
+		listener.stop(0);
+	}
+}
+
 void TestCampaignQueueSaturationFailsClosed()
 {
 	SequentialTokenSource tokens;
@@ -1067,6 +1230,191 @@ void TestCampaignQueueSaturationFailsClosed()
 		sink.calls == 0,
 		"campaign saturation retires both stale queues for only that transport");
 	DestroyClient(client);
+	listener.stop(0);
+}
+
+void TestCampaignQueueSaturationEvictsDominantProducer()
+{
+	SequentialTokenSource tokens;
+	RejectingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	FullEngineCoopAdmissionListener listener(ingress);
+	const AuthorityConfiguration authority = Authority(0x4457);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success,
+		"cross-peer campaign saturation session starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration =
+		ListenerConfiguration(authority);
+	configuration.maximumConnections = 2;
+	configuration.maximumQueuedCampaignMessages = 2;
+	CHECK(StartListenerOnLoopback(listener, configuration),
+		"cross-peer campaign saturation listener starts");
+
+	LiveClient flooder;
+	LiveClient healthy;
+	CHECK(StartClient(flooder, configuration.endpoint.port) &&
+		StartClient(healthy, configuration.endpoint.port),
+		"cross-peer campaign clients connect");
+	CHECK(PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+		return flooder.events.connected && healthy.events.connected &&
+			flooder.hello.count == 1 && healthy.hello.count == 1 &&
+			flooder.campaignBootstrap.count == 1 &&
+			healthy.campaignBootstrap.count == 1;
+	}), "cross-peer campaign clients receive server preludes");
+	AdmissionResponse flooderPeer;
+	AdmissionResponse healthyPeer;
+	CHECK(AdmitAndAcknowledge(listener, flooder, authority,
+		{&flooder, &healthy}, flooderPeer) &&
+		AdmitAndAcknowledge(listener, healthy, authority,
+			{&flooder, &healthy}, healthyPeer),
+		"cross-peer campaign clients authenticate");
+	TransportPeer healthyTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+		healthyPeer.peerIdentity, healthyTransport),
+		"healthy campaign peer has an authenticated transport");
+
+	CoopCampaignSyncAckBytes first{};
+	CoopCampaignSyncResultBytes second{};
+	CoopCampaignSyncResyncBytes healthyMessage{};
+	first.fill(0x17u);
+	second.fill(0x28u);
+	healthyMessage.fill(0x39u);
+	CHECK(flooder.peer->SendMessage(CoopCampaignSyncAckMessageName,
+			first.data(), first.size(), flooder.events.server, false) &&
+		flooder.peer->SendMessage(CoopCampaignSyncResultMessageName,
+			second.data(), second.size(), flooder.events.server, false) &&
+		PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+			return listener.pendingCampaignInboundCount() == 2;
+		}), "one campaign producer fills the shared FIFO");
+	CHECK(healthy.peer->SendMessage(CoopCampaignSyncResyncMessageName,
+		healthyMessage.data(), healthyMessage.size(),
+		healthy.events.server, false),
+		"healthy campaign peer sends at the shared ceiling");
+	CHECK(PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+		return flooder.events.disconnected &&
+			listener.pendingCampaignInboundCount() == 1;
+	}), "shared campaign pressure disconnects the dominant producer");
+	CHECK(!healthy.events.disconnected &&
+		listener.authenticatedPeerCount() == 1 &&
+		ingress.boundPeerCount() == 1 && ingress.admittedPeerCount() == 2 &&
+		listener.pendingInboundCount() == 0,
+		"healthy campaign peer retains transport and the flooder's credential remains reconnectable");
+	FullEngineCoopCampaignInboundMessage queued;
+	CHECK(listener.popCampaignInbound(queued) &&
+		queued.kind == FullEngineCoopCampaignInboundKind::Resync &&
+		queued.peerIdentity == healthyPeer.peerIdentity &&
+		queued.transport == healthyTransport &&
+		queued.size == healthyMessage.size() &&
+		std::equal(healthyMessage.begin(), healthyMessage.end(),
+			queued.bytes.begin()) &&
+		!listener.popCampaignInbound(queued),
+		"dominant eviction preserves the healthy campaign frame exactly");
+	CHECK(healthy.peer->SendMessage(CoopCampaignSyncAckMessageName,
+			first.data(), first.size(), healthy.events.server, false) &&
+		PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+			return listener.pendingCampaignInboundCount() == 1;
+		}) && !healthy.events.disconnected,
+		"healthy campaign peer continues after flooder eviction");
+
+	DestroyClient(flooder);
+	DestroyClient(healthy);
+	listener.stop(0);
+}
+
+void TestCampaignQueueSaturationDoesNotChooseAnEqualVictim()
+{
+	SequentialTokenSource tokens;
+	RejectingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	FullEngineCoopAdmissionListener listener(ingress);
+	const AuthorityConfiguration authority = Authority(0x4458);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success,
+		"equal-share campaign saturation session starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration =
+		ListenerConfiguration(authority);
+	configuration.maximumConnections = 2;
+	configuration.maximumQueuedCampaignMessages = 2;
+	CHECK(StartListenerOnLoopback(listener, configuration),
+		"equal-share campaign saturation listener starts");
+
+	LiveClient first;
+	LiveClient second;
+	CHECK(StartClient(first, configuration.endpoint.port) &&
+		StartClient(second, configuration.endpoint.port),
+		"equal-share campaign clients connect");
+	CHECK(PumpManyUntil(listener, {&first, &second}, [&] {
+		return first.events.connected && second.events.connected &&
+			first.hello.count == 1 && second.hello.count == 1 &&
+			first.campaignBootstrap.count == 1 &&
+			second.campaignBootstrap.count == 1;
+	}), "equal-share campaign clients receive server preludes");
+	AdmissionResponse firstPeer;
+	AdmissionResponse secondPeer;
+	CHECK(AdmitAndAcknowledge(listener, first, authority,
+		{&first, &second}, firstPeer) &&
+		AdmitAndAcknowledge(listener, second, authority,
+			{&first, &second}, secondPeer),
+		"equal-share campaign clients authenticate");
+	TransportPeer secondTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+		secondPeer.peerIdentity, secondTransport),
+		"second equal-share campaign peer has an authenticated transport");
+
+	std::array<std::uint8_t, CoopTacticalDeltaAckWireSize> tacticalMessage{};
+	CoopCampaignSyncAckBytes firstMessage{};
+	CoopCampaignSyncResultBytes secondMessage{};
+	CoopCampaignSyncResyncBytes overflowMessage{};
+	tacticalMessage.fill(0x63u);
+	firstMessage.fill(0x74u);
+	secondMessage.fill(0x85u);
+	overflowMessage.fill(0x96u);
+	CHECK(second.peer->SendMessage(CoopTacticalDeltaAckMessageName,
+			tacticalMessage.data(), tacticalMessage.size(),
+			second.events.server, false) &&
+		first.peer->SendMessage(CoopCampaignSyncAckMessageName,
+			firstMessage.data(), firstMessage.size(), first.events.server,
+			false) &&
+		second.peer->SendMessage(CoopCampaignSyncResultMessageName,
+			secondMessage.data(), secondMessage.size(), second.events.server,
+			false) &&
+		PumpManyUntil(listener, {&first, &second}, [&] {
+			return listener.pendingInboundCount() == 1 &&
+				listener.pendingCampaignInboundCount() == 2;
+		}), "equal campaign producers fill the shared FIFO without touching tactical work");
+	CHECK(first.peer->SendMessage(CoopCampaignSyncResyncMessageName,
+		overflowMessage.data(), overflowMessage.size(), first.events.server,
+		false), "one equal campaign producer sends at the shared ceiling");
+	CHECK(PumpManyUntil(listener, {&first, &second}, [&] {
+		return first.events.disconnected &&
+			listener.pendingCampaignInboundCount() == 1;
+	}), "equal campaign ownership fails closed against the incoming producer");
+	CHECK(!second.events.disconnected &&
+		listener.authenticatedPeerCount() == 1 &&
+		ingress.boundPeerCount() == 1 && listener.pendingInboundCount() == 1,
+		"equal campaign ownership never selects the other producer as a victim or clears tactical work");
+	FullEngineCoopCampaignInboundMessage queuedCampaign;
+	CHECK(listener.popCampaignInbound(queuedCampaign) &&
+		queuedCampaign.kind == FullEngineCoopCampaignInboundKind::Result &&
+		queuedCampaign.peerIdentity == secondPeer.peerIdentity &&
+		queuedCampaign.transport == secondTransport &&
+		queuedCampaign.size == secondMessage.size() &&
+		std::equal(secondMessage.begin(), secondMessage.end(),
+			queuedCampaign.bytes.begin()) &&
+		!listener.popCampaignInbound(queuedCampaign),
+		"equal-share failure preserves the other campaign producer's frame exactly");
+	FullEngineCoopTacticalInboundMessage queuedTactical;
+	CHECK(listener.popInbound(queuedTactical) &&
+		queuedTactical.kind == FullEngineCoopTacticalInboundKind::DeltaAck &&
+		queuedTactical.peerIdentity == secondPeer.peerIdentity &&
+		queuedTactical.transport == secondTransport &&
+		queuedTactical.size == tacticalMessage.size() &&
+		std::equal(tacticalMessage.begin(), tacticalMessage.end(),
+			queuedTactical.bytes.begin()) && !listener.popInbound(queuedTactical),
+		"equal campaign saturation preserves the independent tactical FIFO exactly");
+
+	DestroyClient(first);
+	DestroyClient(second);
 	listener.stop(0);
 }
 
@@ -1316,6 +1664,172 @@ void TestTacticalQueueSaturationFailsClosed()
 		sink.calls == 0,
 		"saturation clears that transport's stale queue while retaining only its reconnect credential");
 	DestroyClient(client);
+	listener.stop(0);
+}
+
+void TestTacticalQueueSaturationEvictsDominantProducer()
+{
+	SequentialTokenSource tokens;
+	RejectingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	FullEngineCoopAdmissionListener listener(ingress);
+	const AuthorityConfiguration authority = Authority(0x4458);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success,
+		"cross-peer tactical saturation session starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration =
+		ListenerConfiguration(authority);
+	configuration.maximumConnections = 2;
+	configuration.maximumQueuedTacticalMessages = 2;
+	CHECK(StartListenerOnLoopback(listener, configuration),
+		"cross-peer tactical saturation listener starts");
+
+	LiveClient flooder;
+	LiveClient healthy;
+	CHECK(StartClient(flooder, configuration.endpoint.port) &&
+		StartClient(healthy, configuration.endpoint.port),
+		"cross-peer tactical clients connect");
+	CHECK(PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+		return flooder.events.connected && healthy.events.connected &&
+			flooder.hello.count == 1 && healthy.hello.count == 1 &&
+			flooder.campaignBootstrap.count == 1 &&
+			healthy.campaignBootstrap.count == 1;
+	}), "cross-peer tactical clients receive server preludes");
+	AdmissionResponse flooderPeer;
+	AdmissionResponse healthyPeer;
+	CHECK(AdmitAndAcknowledge(listener, flooder, authority,
+		{&flooder, &healthy}, flooderPeer) &&
+		AdmitAndAcknowledge(listener, healthy, authority,
+			{&flooder, &healthy}, healthyPeer),
+		"cross-peer tactical clients authenticate");
+	TransportPeer healthyTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+		healthyPeer.peerIdentity, healthyTransport),
+		"healthy tactical peer has an authenticated transport");
+
+	std::array<std::uint8_t, TacticalIntentHeaderWireSize> first{};
+	std::array<std::uint8_t, CoopTacticalDeltaAckWireSize> second{};
+	std::array<std::uint8_t, CoopTacticalBaselineAckWireSize> healthyMessage{};
+	first.fill(0x41u);
+	second.fill(0x52u);
+	healthyMessage.fill(0x63u);
+	CHECK(flooder.peer->SendMessage(CoopTacticalIntentMessageName,
+			first.data(), first.size(), flooder.events.server, false) &&
+		flooder.peer->SendMessage(CoopTacticalDeltaAckMessageName,
+			second.data(), second.size(), flooder.events.server, false) &&
+		PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+			return listener.pendingInboundCount() == 2;
+		}), "one tactical producer fills the shared FIFO");
+	CHECK(healthy.peer->SendMessage(CoopTacticalBaselineAckMessageName,
+		healthyMessage.data(), healthyMessage.size(),
+		healthy.events.server, false),
+		"healthy tactical peer sends at the shared ceiling");
+	CHECK(PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+		return flooder.events.disconnected &&
+			listener.pendingInboundCount() == 1;
+	}), "shared tactical pressure disconnects the dominant producer");
+	CHECK(!healthy.events.disconnected &&
+		listener.authenticatedPeerCount() == 1 &&
+		ingress.boundPeerCount() == 1 && ingress.admittedPeerCount() == 2 &&
+		listener.pendingCampaignInboundCount() == 0 && sink.calls == 0,
+		"healthy tactical peer retains transport without executing callback work");
+	FullEngineCoopTacticalInboundMessage queued;
+	CHECK(listener.popInbound(queued) &&
+		queued.kind == FullEngineCoopTacticalInboundKind::BaselineAck &&
+		queued.peerIdentity == healthyPeer.peerIdentity &&
+		queued.transport == healthyTransport &&
+		queued.size == healthyMessage.size() &&
+		std::equal(healthyMessage.begin(), healthyMessage.end(),
+			queued.bytes.begin()) && !listener.popInbound(queued),
+		"dominant eviction preserves the healthy tactical frame exactly");
+	CHECK(healthy.peer->SendMessage(CoopTacticalDeltaAckMessageName,
+			second.data(), second.size(), healthy.events.server, false) &&
+		PumpManyUntil(listener, {&flooder, &healthy}, [&] {
+			return listener.pendingInboundCount() == 1;
+		}) && !healthy.events.disconnected,
+		"healthy tactical peer continues after flooder eviction");
+
+	DestroyClient(flooder);
+	DestroyClient(healthy);
+	listener.stop(0);
+}
+
+void TestTacticalQueueSaturationDoesNotChooseAnEqualVictim()
+{
+	SequentialTokenSource tokens;
+	RejectingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	FullEngineCoopAdmissionListener listener(ingress);
+	const AuthorityConfiguration authority = Authority(0x4459);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success,
+		"equal-share tactical saturation session starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration =
+		ListenerConfiguration(authority);
+	configuration.maximumConnections = 2;
+	configuration.maximumQueuedTacticalMessages = 2;
+	CHECK(StartListenerOnLoopback(listener, configuration),
+		"equal-share tactical saturation listener starts");
+
+	LiveClient first;
+	LiveClient second;
+	CHECK(StartClient(first, configuration.endpoint.port) &&
+		StartClient(second, configuration.endpoint.port),
+		"equal-share tactical clients connect");
+	CHECK(PumpManyUntil(listener, {&first, &second}, [&] {
+		return first.events.connected && second.events.connected &&
+			first.hello.count == 1 && second.hello.count == 1 &&
+			first.campaignBootstrap.count == 1 &&
+			second.campaignBootstrap.count == 1;
+	}), "equal-share tactical clients receive server preludes");
+	AdmissionResponse firstPeer;
+	AdmissionResponse secondPeer;
+	CHECK(AdmitAndAcknowledge(listener, first, authority,
+		{&first, &second}, firstPeer) &&
+		AdmitAndAcknowledge(listener, second, authority,
+			{&first, &second}, secondPeer),
+		"equal-share tactical clients authenticate");
+	TransportPeer secondTransport;
+	CHECK(listener.authenticatedTransportForPeer(
+		secondPeer.peerIdentity, secondTransport),
+		"second equal-share peer has an authenticated transport");
+
+	std::array<std::uint8_t, CoopTacticalDeltaAckWireSize> firstMessage{};
+	std::array<std::uint8_t, CoopTacticalBaselineAckWireSize> secondMessage{};
+	firstMessage.fill(0x74u);
+	secondMessage.fill(0x85u);
+	CHECK(first.peer->SendMessage(CoopTacticalDeltaAckMessageName,
+			firstMessage.data(), firstMessage.size(), first.events.server,
+			false) &&
+		second.peer->SendMessage(CoopTacticalBaselineAckMessageName,
+			secondMessage.data(), secondMessage.size(), second.events.server,
+			false) &&
+		PumpManyUntil(listener, {&first, &second}, [&] {
+			return listener.pendingInboundCount() == 2;
+		}), "equal tactical producers each occupy one FIFO slot");
+	CHECK(first.peer->SendMessage(CoopTacticalDeltaAckMessageName,
+		firstMessage.data(), firstMessage.size(), first.events.server, false),
+		"one equal producer sends at the shared ceiling");
+	CHECK(PumpManyUntil(listener, {&first, &second}, [&] {
+		return first.events.disconnected &&
+			listener.pendingInboundCount() == 1;
+	}), "equal ownership fails closed against the incoming producer");
+	CHECK(!second.events.disconnected &&
+		listener.authenticatedPeerCount() == 1 &&
+		ingress.boundPeerCount() == 1,
+		"equal ownership never selects the other producer as a victim");
+	FullEngineCoopTacticalInboundMessage queued;
+	CHECK(listener.popInbound(queued) &&
+		queued.kind == FullEngineCoopTacticalInboundKind::BaselineAck &&
+		queued.peerIdentity == secondPeer.peerIdentity &&
+		queued.transport == secondTransport &&
+		queued.size == secondMessage.size() &&
+		std::equal(secondMessage.begin(), secondMessage.end(),
+			queued.bytes.begin()) && !listener.popInbound(queued),
+		"equal-share failure preserves the other producer's frame exactly");
+
+	DestroyClient(first);
+	DestroyClient(second);
 	listener.stop(0);
 }
 
@@ -1730,10 +2244,26 @@ int main()
 	TestLostAckCredentialAbandonRetry();
 	TestUnauthenticatedTacticalTrafficFailsClosed();
 	TestUnauthenticatedCampaignTrafficFailsClosed();
+	TestUnauthenticatedCampaignTrafficFailsClosed(CoopCampaignTimeRequestMessageName,
+		CoopCampaignTimeRequestWireSize);
+	TestUnauthenticatedCampaignTrafficFailsClosed(CoopCampaignActionRequestMessageName,
+		CoopCampaignActionRequestWireSize);
+	TestUnauthenticatedCampaignTrafficFailsClosed(CoopCampaignHireRequestMessageName,
+		CoopCampaignHireRequestWireSize);
 	TestAuthenticatedCampaignQueueAndTargetedDelivery();
+	for (const bool enabled : {false, true})
+	{
+		TestCampaignRequestValidation(CoopCampaignActionRequestMessageName, CoopCampaignActionRequestWireSize, enabled);
+		TestCampaignRequestValidation(CoopCampaignHireRequestMessageName, CoopCampaignHireRequestWireSize, enabled);
+		TestCampaignRequestValidation(CoopCampaignTimeRequestMessageName, CoopCampaignTimeRequestWireSize, enabled);
+	}
 	TestCampaignQueueSaturationFailsClosed();
+	TestCampaignQueueSaturationEvictsDominantProducer();
+	TestCampaignQueueSaturationDoesNotChooseAnEqualVictim();
 	TestAuthenticatedTacticalQueueAndTargetedDelivery();
 	TestTacticalQueueSaturationFailsClosed();
+	TestTacticalQueueSaturationEvictsDominantProducer();
+	TestTacticalQueueSaturationDoesNotChooseAnEqualVictim();
 	TestTemporaryOutboundHighWaterRetainsConnection();
 	TestTacticalOutboundHighWaterFailsClosed();
 	TestHelloPrecedesPresendRequest();

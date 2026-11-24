@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <SDL3/SDL.h>
 
 #include "CoordinatorProtocol.h"
 #include "LegacyServerIngress.h"
@@ -27,11 +28,22 @@ const char* ja2server_test_phase();
 unsigned int ja2server_test_request_reset();
 bool ja2server_test_reset_complete(unsigned int generation);
 std::size_t ja2server_test_transport_count();
+void ja2server_test_set_admission_timeout_milliseconds(std::uint64_t milliseconds);
+void ja2server_test_request_max_players(unsigned short players);
+bool ja2server_test_max_players_applied(unsigned short players);
+void ja2server_test_set_pending_write_high_water_bytes(std::size_t bytes);
+std::size_t ja2server_test_outbound_failure_count();
 int ja2server_test_clamp_max_mercs(int value);
 std::size_t ja2server_test_explosive_ledger_count();
 std::size_t ja2server_test_shared_explosive_claim_count();
 std::uint64_t ja2server_test_interrupt_elapsed_milliseconds(
 	std::uint64_t now, std::uint64_t grantedMs);
+bool ja2server_test_address_in_use_error(const char* error);
+bool ja2server_test_start_listener(SdlNetPeer& peer, unsigned short maximumClients,
+	const char* host, unsigned short& port, unsigned int maximumAttempts,
+	unsigned int& attempts);
+unsigned short ja2server_test_listening_port();
+unsigned int ja2server_test_listener_bind_attempts();
 
 static int g_failures = 0;
 #define CHECK(c, m) do { if (!(c)) { ++g_failures; std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, m); } else std::printf("ok   %s\n", m); } while (0)
@@ -278,6 +290,14 @@ static bool StartClient(ClientLog& c, int index, unsigned short port)
 	return c.peer->Connect("127.0.0.1", port);
 }
 
+static bool StartRawClient(ClientLog& c, unsigned short port)
+{
+	c.peer = CreateSdlNetPeer();
+	SdlNetEndpoint local;
+	if (!c.peer->Start(1, local)) return false;
+	return c.peer->Connect("127.0.0.1", port);
+}
+
 static std::vector<ClientLog*> g_active;
 
 template <typename Pred>
@@ -392,6 +412,20 @@ static bool EncodeInterruptReleaseWire(
 
 int main(int argc, char** argv)
 {
+	CHECK(CoordinatorRawTransportCapacity(1) == 5 &&
+	      CoordinatorRawTransportCapacity(4) == 8,
+	      "raw transport capacity retains bounded pre-admission headroom");
+	CHECK(CoordinatorRosterHasAdmissionCapacity(2, 1) &&
+	      !CoordinatorRosterHasAdmissionCapacity(2, 2) &&
+	      !CoordinatorRosterHasAdmissionCapacity(2, 3),
+	      "roster admission counts grandfathered occupancy above a reduced cap");
+	CHECK(!CoordinatorAdmissionDeadlineExpired(999, 1000) &&
+	      !CoordinatorAdmissionDeadlineExpired(10999, 1000) &&
+	      CoordinatorAdmissionDeadlineExpired(11000, 1000),
+	      "admission deadline ignores clock rollback and expires on the exact boundary");
+	CHECK(SdlNetEndpoint{}.reuseAddress &&
+		SdlNetEndpoint(60005, "127.0.0.1").reuseAddress,
+		"default and configured shipping endpoints retain address reuse");
 	CHECK(ja2server_test_interrupt_elapsed_milliseconds(
 	          999, 1000) == 0 &&
 	      ja2server_test_interrupt_elapsed_milliseconds(
@@ -442,7 +476,7 @@ int main(int argc, char** argv)
 		      "dashboard advertises the same seven-merc wire limit as admission settings");
 	}
 	const auto seed = (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count();
-	const unsigned short port = (unsigned short)(40000 + seed % 20000);
+	unsigned short port = (unsigned short)(40000 + seed % 20000);
 	const std::string base = (std::filesystem::temp_directory_path() /
 		("ja2-mp-coordinator-" + std::to_string(seed))).string();
 	const std::string coopIni = base + "-coop.ini";
@@ -461,17 +495,68 @@ int main(int argc, char** argv)
 		return g_failures ? 1 : 0;
 	}
 
+	// Keep a real listener on the first candidate until the coordinator has
+	// published another bound endpoint. This deterministically reproduces the
+	// CI collision and leaves no reserve-close-rebind race in the actual server.
+	SDL_Init(0);
+	SdlNetPeer occupied;
+	unsigned int occupiedAttempts = 0;
+	if (!ja2server_test_start_listener(occupied, 2, "127.0.0.1", port, 128,
+		occupiedAttempts))
+	{
+		const char* error = SDL_GetError();
+		const bool denied = error && std::strstr(error, "Operation not permitted");
+		std::printf("%s occupied-port fixture could not bind: %s\n",
+			denied ? "SKIP" : "FAIL", error ? error : "unknown error");
+		std::remove(coopIni.c_str());
+		return denied ? 77 : 1;
+	}
+	const unsigned short occupiedPort = port;
+	{
+		SdlNetPeer collision;
+		unsigned short candidate = occupiedPort;
+		unsigned int attempts = 0;
+		CHECK(!ja2server_test_start_listener(collision, 2, "127.0.0.1",
+			candidate, 1, attempts) && attempts == 1 && candidate == occupiedPort &&
+			ja2server_test_address_in_use_error(SDL_GetError()),
+			"occupied listener exhausts its exact bind limit with the native address-in-use error");
+		const std::string addressInUse = SDL_GetError();
+		CHECK(!ja2server_test_address_in_use_error(nullptr) &&
+			!ja2server_test_address_in_use_error("") &&
+			!ja2server_test_address_in_use_error("Failed to bind listen socket: unrelated failure") &&
+			!ja2server_test_address_in_use_error((addressInUse + " extra").c_str()) &&
+			!ja2server_test_address_in_use_error(("unrelated: " + addressInUse).c_str()),
+			"only the exact localized SDL bind-collision message is retryable");
+		SdlNetPeer invalidCapacity;
+		CHECK(invalidCapacity.SetReservedIncomingLoopbackConnections(2),
+			"non-bind startup failure fixture reserves more clients than allowed");
+		SDL_SetError("%s", addressInUse.c_str());
+		CHECK(!ja2server_test_start_listener(invalidCapacity, 1, "127.0.0.1",
+			candidate, 128, attempts) && attempts == 1 && candidate == occupiedPort,
+			"non-bind startup failure stops immediately despite stale address-in-use text");
+		CHECK(!ja2server_test_start_listener(collision, 2, "127.0.0.1",
+			candidate, 129, attempts) && attempts == 0,
+			"fixture refuses an unbounded bind-attempt request");
+	}
+
 	{
 		std::ofstream f(dmIni);
 		f << "SERVER_NAME = Coordinator E2E\nSERVER_BIND = 127.0.0.1\nSERVER_PORT = " << port
-		  << "\nGAME_TYPE = 1\nMAX_PLAYERS = 4\nMAX_MERCS = 99\nSAME_MERC_ALLOWED = 0"
+		  << "\nGAME_TYPE = 1\nMAX_PLAYERS = 2\nMAX_MERCS = 99\nSAME_MERC_ALLOWED = 0"
 		  << "\nDASHBOARD_PORT = 0\nLOG_LEVEL = 1\n";
 	}
 	std::atomic<int> serverResult(-999);
+	// Keep the production policy at ten seconds while making the real-socket
+	// deadline assertion fast and deterministic in this dedicated test build.
+	ja2server_test_set_admission_timeout_milliseconds(1000);
 	char* dmArgs[] = { serverName, iniFlag, const_cast<char*>(dmIni.c_str()) };
 	std::thread serverThread([&] { serverResult.store(ja2server_test_main(3, dmArgs)); });
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	if (serverResult.load() != -999)
+	const auto startupDeadline = std::chrono::steady_clock::now() +
+		std::chrono::seconds(10);
+	while (!ja2server_test_listening_port() && serverResult.load() == -999 &&
+		std::chrono::steady_clock::now() < startupDeadline)
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	if (!ja2server_test_listening_port() || serverResult.load() != -999)
 	{
 		if (serverResult.load() == 77)
 		{
@@ -481,10 +566,44 @@ int main(int argc, char** argv)
 			return 77;
 		}
 		CHECK(false, "coordinator listener started");
+		if (serverResult.load() == -999) std::raise(SIGTERM);
 		serverThread.join();
 		std::remove(coopIni.c_str()); std::remove(dmIni.c_str());
 		return 1;
 	}
+	port = ja2server_test_listening_port();
+	CHECK(port != occupiedPort && ja2server_test_listener_bind_attempts() >= 2 &&
+		ja2server_test_listener_bind_attempts() <= 128,
+		"coordinator skips the held listener and publishes its actual bounded endpoint");
+	{
+		SdlNetPeer probe;
+		const bool started = probe.Start(1, SdlNetEndpoint{}) &&
+			probe.Connect("127.0.0.1", occupiedPort);
+		bool incoming = false, accepted = false;
+		const auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::seconds(5);
+		while (started && !(incoming && accepted) &&
+			std::chrono::steady_clock::now() < deadline)
+		{
+			for (SdlNetEvent* event = occupied.Poll(); event; event = occupied.Poll())
+			{
+				incoming = incoming || (event->size &&
+					event->data[0] == SDLNET_NEW_INCOMING_CONNECTION);
+				occupied.Release(event);
+			}
+			for (SdlNetEvent* event = probe.Poll(); event; event = probe.Poll())
+			{
+				accepted = accepted || (event->size &&
+					event->data[0] == SDLNET_CONNECTION_ACCEPTED);
+				probe.Release(event);
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		}
+		CHECK(started && incoming && accepted,
+			"occupied listener remains independently usable beside the coordinator");
+		probe.Shutdown(0);
+	}
+	occupied.Shutdown(0);
 
 	// Manual reset owns every accepted transport, including a connection that has
 	// not sent requestSETTINGS and therefore has no roster slot yet.
@@ -500,6 +619,238 @@ int main(int argc, char** argv)
 		      "manual reset disconnects a pre-admission transport");
 		orphan.Stop();
 		g_active.clear(); g_logs[0] = nullptr;
+	}
+
+	// Four idle first-contact sockets used to consume the entire four-player
+	// transport cap forever. The coordinator now leaves separate raw-socket
+	// headroom, admits a real fifth connection, and retires only the peers that
+	// never complete requestSETTINGS.
+	{
+		std::array<ClientLog, 4> idle;
+		ClientLog admitted;
+		g_active = { &idle[0], &idle[1], &idle[2], &idle[3] };
+		for (ClientLog& client : idle)
+			CHECK(StartRawClient(client, port), "idle pre-admission connection initiated");
+		CHECK(PumpUntil([&] {
+			for (const ClientLog& client : idle) if (!client.accepted) return false;
+			return true;
+		}), "four idle pre-admission transports connected without taking roster seats");
+
+		g_active.push_back(&admitted);
+		CHECK(StartClient(admitted, 0, port),
+		      "valid client connection initiated beyond advertised player socket count");
+		CHECK(PumpUntil([&] { return admitted.accepted; }),
+		      "valid client reaches admission while idle transports occupy headroom");
+		Join(admitted, "DeadlineSurvivor", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return !admitted.settings.empty(); }),
+		      "valid client is admitted despite four idle first-contact sockets");
+		CHECK(PumpUntil([&] {
+			for (const ClientLog& client : idle) if (!client.closed) return false;
+			return ja2server_test_transport_count() == 1;
+		}, 4000), "admission deadline closes idle sockets but preserves admitted player");
+
+		const unsigned int resetGeneration = ja2server_test_request_reset();
+		CHECK(PumpUntil([&] {
+			return ja2server_test_reset_complete(resetGeneration) && admitted.closed;
+		}), "post-deadline test reset disconnects admitted player");
+		for (ClientLog& client : idle) client.Stop();
+		admitted.Stop();
+		g_active.clear(); g_logs[0] = nullptr;
+	}
+	ja2server_test_set_admission_timeout_milliseconds(
+		COORDINATOR_ADMISSION_TIMEOUT_MS);
+
+	// MAX_PLAYERS limits admitted roster seats independently of the larger raw
+	// transport cap. A third well-formed peer can complete its TCP connection,
+	// but valid SETTINGS still cannot create a third slot on a two-player server.
+	{
+		ClientLog first, second, extra;
+		g_active = { &first, &second };
+		CHECK(StartClient(first, 0, port),
+		      "capacity client 1 connection initiated");
+		CHECK(PumpUntil([&] { return first.accepted; }),
+		      "capacity client 1 connected");
+		Join(first, "CapacityOne", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return !first.settings.empty(); }),
+		      "capacity client 1 admitted");
+		CHECK(StartClient(second, 1, port),
+		      "capacity client 2 connection initiated");
+		CHECK(PumpUntil([&] { return second.accepted; }),
+		      "capacity client 2 connected");
+		Join(second, "CapacityTwo", MPVERSION, 1);
+		CHECK(PumpUntil([&] {
+			return !second.settings.empty() && first.settings.size() >= 2;
+		}), "configured two-player roster fills both seats");
+		CHECK(first.settings.back().maxClients == 2 &&
+		      second.settings.back().maxClients == 2,
+		      "admitted peers receive the configured MAX_PLAYERS value");
+
+		g_active.push_back(&extra);
+		CHECK(StartClient(extra, 2, port),
+		      "over-cap valid peer connection initiated through raw headroom");
+		CHECK(PumpUntil([&] { return extra.accepted; }),
+		      "over-cap valid peer reaches the coordinator transport");
+		const std::size_t firstSettingsBefore = first.settings.size();
+		const std::size_t secondSettingsBefore = second.settings.size();
+		Join(extra, "CapacityExtra", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return extra.closed; }),
+		      "valid SETTINGS peer beyond MAX_PLAYERS is closed");
+		CHECK(extra.settings.empty() && extra.admin == 0 &&
+		      first.settings.size() == firstSettingsBefore &&
+		      second.settings.size() == secondSettingsBefore,
+		      "over-cap peer obtains no slot or roster broadcast");
+		CHECK(PumpUntil([&] { return ja2server_test_transport_count() == 2; }),
+		      "over-cap transport retires while both admitted seats remain live");
+
+		const unsigned int resetGeneration = ja2server_test_request_reset();
+		CHECK(PumpUntil([&] {
+			return ja2server_test_reset_complete(resetGeneration) &&
+				first.closed && second.closed;
+		}), "capacity test reset disconnects both admitted players");
+		extra.Stop();
+		second.Stop();
+		first.Stop();
+		g_active.clear();
+		g_logs[0] = nullptr; g_logs[1] = nullptr; g_logs[2] = nullptr;
+	}
+
+	// Exercise a live cap reduction with grandfathered occupants in slots above
+	// the new limit. Admission must be based on total roster occupancy, not only
+	// on whether a low-numbered slot happens to be empty.
+	ja2server_test_request_max_players(4);
+	CHECK(PumpUntil([&] { return ja2server_test_max_players_applied(4); }),
+	      "coordinator raises live capacity for cap-reduction coverage");
+	{
+		std::array<ClientLog, 4> incumbents;
+		const char* names[4] = {
+			"CapLowerOne", "CapLowerTwo", "CapLowerThree", "CapLowerFour"
+		};
+		g_active.clear();
+		for (int index = 0; index < 4; ++index)
+		{
+			g_active.push_back(&incumbents[index]);
+			CHECK(StartClient(incumbents[index], index, port),
+			      "live-cap incumbent connection initiated");
+			CHECK(PumpUntil([&] { return incumbents[index].accepted; }),
+			      "live-cap incumbent connected");
+			Join(incumbents[index], names[index], MPVERSION, index & 1);
+			CHECK(PumpUntil([&] { return !incumbents[index].settings.empty(); }),
+			      "live-cap incumbent admitted");
+		}
+
+		ja2server_test_request_max_players(2);
+		CHECK(PumpUntil([&] { return ja2server_test_max_players_applied(2); }),
+		      "coordinator lowers live capacity below current occupancy");
+		incumbents[0].peer->CloseConnection(incumbents[0].server, true);
+		CHECK(PumpUntil([&] {
+			return !incumbents[1].disconnects.empty() &&
+				incumbents[1].disconnects.back() == 1 &&
+				ja2server_test_transport_count() == 3;
+		}), "low slot disconnects while three grandfathered high slots remain");
+		incumbents[0].Stop();
+		g_active = { &incumbents[1], &incumbents[2], &incumbents[3] };
+
+		ClientLog extra;
+		const std::size_t settingsOneBefore = incumbents[1].settings.size();
+		const std::size_t settingsTwoBefore = incumbents[2].settings.size();
+		const std::size_t settingsThreeBefore = incumbents[3].settings.size();
+		g_active.push_back(&extra);
+		CHECK(StartClient(extra, 0, port),
+		      "post-reduction peer connection initiated through raw headroom");
+		CHECK(PumpUntil([&] { return extra.accepted; }),
+		      "post-reduction peer reaches coordinator transport");
+		Join(extra, "CapLowerExtra", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return extra.closed; }),
+		      "post-reduction peer is closed while occupancy exceeds live cap");
+		CHECK(extra.settings.empty() && extra.admin == 0 &&
+		      incumbents[1].settings.size() == settingsOneBefore &&
+		      incumbents[2].settings.size() == settingsTwoBefore &&
+		      incumbents[3].settings.size() == settingsThreeBefore,
+		      "empty low slot cannot admit above a reduced live cap");
+		CHECK(PumpUntil([&] { return ja2server_test_transport_count() == 3; }),
+		      "rejected post-reduction transport leaves grandfathered roster intact");
+
+		const unsigned int resetGeneration = ja2server_test_request_reset();
+		CHECK(PumpUntil([&] {
+			return ja2server_test_reset_complete(resetGeneration) &&
+				incumbents[1].closed && incumbents[2].closed && incumbents[3].closed;
+		}), "live-cap test reset disconnects grandfathered occupants");
+		extra.Stop();
+		for (ClientLog& incumbent : incumbents) incumbent.Stop();
+		g_active.clear();
+		for (ClientLog*& log : g_logs) log = nullptr;
+	}
+
+	// The rest of this broad protocol session intentionally exercises all four
+	// legacy slots. Restore that test-only live cap on the coordinator thread.
+	ja2server_test_request_max_players(4);
+	CHECK(PumpUntil([&] { return ja2server_test_max_players_applied(4); }),
+	      "coordinator restores four-player capacity for remaining coverage");
+
+	// Drive private replies into an admitted client that deliberately stops
+	// polling its receive socket. The server must bound only that peer's pending
+	// queue, publish its disconnect, and continue serving the healthy peer.
+	{
+		ClientLog healthy, slow;
+		g_active = { &healthy, &slow };
+		CHECK(StartClient(healthy, 0, port),
+		      "backpressure healthy-client connection initiated");
+		CHECK(PumpUntil([&] { return healthy.accepted; }),
+		      "backpressure healthy client connected");
+		Join(healthy, "BackpressureHealthy", MPVERSION, 0);
+		CHECK(PumpUntil([&] { return !healthy.settings.empty(); }),
+		      "backpressure healthy client admitted");
+		CHECK(StartClient(slow, 1, port),
+		      "backpressure slow-client connection initiated");
+		CHECK(PumpUntil([&] { return slow.accepted; }),
+		      "backpressure slow client connected");
+		Join(slow, "BackpressureSlow", MPVERSION, 1);
+		CHECK(PumpUntil([&] {
+			return !slow.settings.empty() && healthy.settings.size() >= 2;
+		}), "backpressure slow client admitted before it stops reading");
+
+		const std::size_t failuresBefore =
+			ja2server_test_outbound_failure_count();
+		ja2server_test_set_pending_write_high_water_bytes(4096);
+		g_active = { &healthy };
+		for (int attempt = 0; attempt < 25000 &&
+			ja2server_test_outbound_failure_count() == failuresBefore; ++attempt)
+		{
+			if (!slow.peer->SendMessage(
+					"requestFILE_TRANSFER_SETTINGS", "", 0,
+					AnyConnection, true))
+				break;
+			if ((attempt & 63) == 63) PumpFor(1);
+		}
+		CHECK(PumpUntil([&] {
+			return ja2server_test_outbound_failure_count() > failuresBefore &&
+				!healthy.disconnects.empty();
+		}, 8000),
+		      "non-reading peer crosses its outbound high-water and is disconnected");
+		CHECK(!healthy.closed && !healthy.disconnects.empty() &&
+		      healthy.disconnects.back() == 2,
+		      "backpressure retires only the slow player slot");
+
+		const int healthyChatsBefore = healthy.chats;
+		std::array<unsigned char, 1026> postPressureChat = {};
+		postPressureChat[1] = 1;
+		postPressureChat[2] = 'o';
+		postPressureChat[4] = 'k';
+		SendRaw(healthy, "sendCHATMSG", postPressureChat.data(),
+			postPressureChat.size());
+		CHECK(PumpUntil([&] {
+			return healthy.chats == healthyChatsBefore + 1;
+		}), "healthy peer retains ordered reliable relay after slow-peer eviction");
+		ja2server_test_set_pending_write_high_water_bytes(
+			DefaultLegacyServerPendingWriteHighWaterBytes);
+
+		const unsigned int resetGeneration = ja2server_test_request_reset();
+		CHECK(PumpUntil([&] {
+			return ja2server_test_reset_complete(resetGeneration) && healthy.closed;
+		}), "backpressure test cleanup resets the remaining healthy transport");
+		slow.Stop();
+		healthy.Stop();
+		g_active.clear(); g_logs[0] = nullptr; g_logs[1] = nullptr;
 	}
 
 	// Real-pump disconnect coverage for all three session barriers. A remaining
@@ -709,7 +1060,7 @@ int main(int argc, char** argv)
 		CHECK(PumpUntil([&] { return rejected.closed; }), "repeated invalid admission is closed");
 		rejected.Stop(); g_active.pop_back(); g_logs[2] = nullptr;
 	}
-	CHECK(ja2server_test_transport_count() == 2,
+	CHECK(PumpUntil([&] { return ja2server_test_transport_count() == 2; }),
 	      "server-rejected transports retire without growing the live tracker");
 
 	// A connected but unadmitted peer cannot invoke any session authority.
@@ -772,6 +1123,12 @@ int main(int argc, char** argv)
 	// Admin ownership and idempotent, sender-authored ready barrier.
 	Send(b, "adminCmd", start); PumpFor(100);
 	CHECK(ReadyStage(a, 36) == 0, "non-admin cannot unlock the lobby");
+	std::array<unsigned char, sizeof(admin_cmd_struct) + 1> trailingStart = {};
+	std::memcpy(trailingStart.data(), &start, sizeof(start));
+	SendRaw(a, "adminCmd", trailingStart.data(), trailingStart.size());
+	PumpFor(100);
+	CHECK(ReadyStage(a, 36) == 0,
+	      "trailing-byte fixed admin command cannot unlock the lobby");
 	Send(a, "adminCmd", start);
 	CHECK(PumpUntil([&] { return ReadyStage(a, 36) == 1 && ReadyStage(b, 36) == 1; }),
 	      "admin unlock reaches both admitted clients");
@@ -846,8 +1203,9 @@ int main(int argc, char** argv)
 	      "slot-4 hire reserves its canonical actor window for tactical authorization");
 	const std::array<unsigned char, 7> dSecondHire = HireWire(33);
 	SendRaw(d, "sendHIRE", dSecondHire.data(), dSecondHire.size());
-	CHECK(PumpUntil([&] { return a.hires.size() == 10; }) &&
-	      a.hires.back()[6] == 9,
+	// Drain Dave's broadcasts on both observers before sampling Bob's baseline.
+	CHECK(PumpUntil([&] { return a.hires.size() == 10 && b.hires.size() == 2; }) &&
+	      a.hires.back()[6] == 9 && b.hires.back()[6] == 9,
 	      "slot-4 reserves a second actor for exact paused-actor arbitration");
 	const std::size_t bHiresBeforeAlice = b.hires.size();
 	const std::array<unsigned char, 7> aHire = HireWire(31);
@@ -1924,7 +2282,9 @@ int main(int argc, char** argv)
 	CHECK(a.disconnects.back() == 2, "disconnect notice identifies slot 2");
 	CHECK(PumpUntil([&] { return a.gameovers == beforeGameover + 1; }),
 	      "coordinator, not a client, publishes last-standing game-over");
-	CHECK(ja2server_test_shared_explosive_claim_count() == 0,
+	// GAMEOVER is sent before the server clears the completed match. Its
+	// receipt is not an acknowledgement that ResetGameState has finished.
+	CHECK(PumpUntil([&] { return ja2server_test_shared_explosive_claim_count() == 0; }),
 	      "full game-state reset clears the shared map-bomb claim set");
 	b.Stop();
 	d.Stop(); g_logs[3] = nullptr;

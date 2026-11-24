@@ -1528,9 +1528,11 @@ the engine must not contain SDL types in its public domain model.
   and `InitializeGameBoundary` in that exact order. The manifest boundary
   captures and caches installed-content identity after package mounting and
   before legacy cache writes; a failure unwinds the active package subsystem.
-  It validates and counts every occurrence before omitting explicit exclusive
-  VFS ancestors, accepts case-only spellings across different read-only layers
-  as normalized overlays selected by the smallest layer, and rejects
+  It validates and counts every occurrence before omitting exclusive VFS
+  runtime directories and the separately allowlisted exact root-level
+  `Strategic Decisions.txt` and `DebugMessage.txt` logger outputs, accepts
+  case-only spellings across different read-only layers as normalized overlays
+  selected by the smallest layer, and rejects
   same-layer ambiguity/duplicates or any remaining writable shadow. Late open
   consumes the cached digest without VFS recomputation, binds the runtime
   fingerprint, and opens the A/B store. Resume materializes the selected
@@ -1540,10 +1542,14 @@ the engine must not contain SDL types in its public domain model.
   its stage-four campaign-entry request and the passive client reaches its
   worldless screen before a pending main-menu transition can commit. The
   dedicated new-campaign branch alone runs `InitGameOptions()` immediately
-  before `InitNewGame(FALSE)` because the installed strategic/Lua difficulty domain is 1..4 and a bypassed settings screen otherwise leaves zero; resume retains checkpointed options. The live listener
+  before `InitNewGame(FALSE)` because a bypassed settings screen otherwise
+  leaves invalid zero difficulty and squad capacity. The canonical defaults are
+  installed difficulty 2 and a six-actor squad; resume retains checkpointed
+  options. The live listener
   admits and transport-binds permissionless peers on the configurable
   `--dedicated-coop-bind`/`--dedicated-coop-port` endpoint, defaulting to
-  `0.0.0.0:60005`; OS-CSPRNG session epochs and bearer credentials do not turn
+  private loopback `127.0.0.1:60005`; LAN hosting requires an explicit reachable
+  bind. OS-CSPRNG session epochs and bearer credentials do not turn
   the plaintext transport into user authentication. Periodic and final strategic
   checkpoints stop the listener and require the command host and tactical
   server to drain before saving. The late tactical composition registers a
@@ -1554,11 +1560,31 @@ the engine must not contain SDL types in its public domain model.
   entry detaches the runtime-message sink before the game entry destroys
   `GameContext`; an exceptional `DispatchInProgress` result stops transport and
   intentionally leaks the still-live composition rather than freeing an active
-  callback target. The authoritative server path uses global co-op protocol v7
-  and is wired through campaign sync and nine tactical intents: move, face,
+  callback target. The authoritative server path uses global co-op protocol v19
+  and is wired through campaign sync and fourteen tactical intents: move, face,
   stance, stop, end turn, exact-target aimed single-shot firearm attack, and
   selected-actor reload, plus synchronous visible adjacent-door open/close and
-  exact-serial interrupt pass.
+  exact-serial interrupt pass, native adjacent teammate first-aid initiation,
+  a bounded same-actor inventory slot swap, same-owner whole-stack transfer,
+  exact-tile ordinary ground pickup into an empty pocket, and ordinary
+  whole-stack pocket drop onto clear empty ground.
+  First aid requires an already equipped usable medical kit and a distinct
+  wounded teammate; authority revalidates exact identity, native adjacency and
+  obstruction, skill, service, kit, and AP before starting treatment. Applied
+  proves initiation, not completed bandaging. Public medical state includes
+  bleeding, usable equipped hand-kit points and native providing/receiving
+  activity with an optional exact published patient identity. Owner-only inventory summaries
+  support equipping/unequipping complete ordinary carried stacks through one
+  retained native command. Same-owner giving moves a whole ordinary stack into an
+  empty supported hand/pocket on a conscious nearby human merc. Both private
+  revisions must have been sent to that owner; both pending replacements precede
+  terminal receipts. Changed assignments defer while native commands are pending.
+  Native transfer repeats both actors' pose/object/turn proofs, distance/LOS and
+  capacity, requiring 3 AP each in combat and charging 2 AP each after placement.
+  The passive inventory's `G` recipient flow retains choices only, with no local
+  inventory mutation. Attachments, active LBE graphs, partial moves, cross-owner
+  transfers, self-treatment, surgery, and auto-bandaging are not added. Precise
+  scope and current verification are tracked in [COOP_COMPLETION.md](COOP_COMPLETION.md).
   Reload is a zero-payload client request; the main-thread
   bridge prepares an exact `ReloadWeaponCommand`, and the executor revalidates
   live weapon, ammunition/chamber, action points, and native `AutoReload` policy.
@@ -1708,8 +1734,9 @@ the engine must not contain SDL types in its public domain model.
   selects that maximum profile, while bootstrap/core-only/legacy peers retain
   strict defaults. Its static bound covers one campaign window at 144 FPS, and
   the production E2E transfers an exact 11,796,517-byte checkpoint twice,
-  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v7 supplies
-  exact dimensions, canonical hostility, the visible-door projection, the
+  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v12 supplies
+  exact dimensions, the path-safe exact loaded-map asset basename, canonical
+  hostility, the visible-door projection, the
   public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
   interrupt-action eligibility, and five bounded 12-byte combat-equipment
   records: primary hand, secondary hand, helmet, vest, and legs. Each record
@@ -1717,9 +1744,9 @@ the engine must not contain SDL types in its public domain model.
   ammunition-bearing hand object it also captures loaded-ammunition item/count,
   signed ammunition condition (including a negative jam state), and chambered
   state; those fields stay canonical zero for ordinary equipment. The adapter
-  exposes no native interrupt list or hidden interrupter. Delta wire v6 carries
-  hostility, interrupt eligibility, door changes, actor-loadout changes after
-  vitals and before doors, and same-serial interrupt-phase changes, while
+  exposes no native interrupt list or hidden interrupter. Delta wire v11 carries
+  ambient-light changes, coalesced full actor updates, door changes, and
+  same-serial interrupt-phase changes, while
   older snapshot layouts are rejected rather than inferred. Its separate passive game-
   loop branch skips JA2 clocks, frame simulation, package dispatch, messages,
   commands, observer, and AI. `INIT_SCREEN` renders a worldless committed
@@ -1731,7 +1758,7 @@ the engine must not contain SDL types in its public domain model.
   exact-grid isometric moves with row/column deltas -1/-1, +1/+1, +1/-1, and
   -1/+1 respectively. Both grids are dimension-bounded and the replica is not
   predicted. Tab or `]` selects the next assigned actor, `[` selects the
-  previous, and `M` retains numeric-grid entry. The controls produce all nine
+  previous, and `M` retains numeric-grid entry. The controls produce all ten
   typed intents, including bounded opposing-actor/aim selection and selected-
   actor reload without speculative AP spend or damage; `T` ends an ordinary
   turn or passes the selected actor's active interrupt. `commandsBlocked`
@@ -1746,18 +1773,29 @@ the engine must not contain SDL types in its public domain model.
   application, and their Applied receipts. It then proves commit-before-result,
   durable bearer retirement before clean socket stop, and removal of that peer
   from tactical state before world and epoch teardown.
-  Snapshot records are exactly 53/92/7 bytes for header/actor/door, including
-  five 12-byte combat-equipment records per actor, with a 384053-byte generic
-  ceiling; delta v6 permits 18434 generic events and its same-serial interrupt-phase
+  Snapshot-v12 records are exactly 314/148/7 bytes for header/actor/door. The
+  header includes the authority's fixed-width, path-safe exact `.dat` map asset
+  basename and ambient light; actors include five 12-byte combat-equipment
+  records and a 44-byte render presentation followed by signed 16-bit bleeding
+  and unsigned 16-bit equipped hand-kit points plus an eight-byte service
+  descriptor, with a 613690-byte generic
+  ceiling. Delta v11 permits 10243 generic events and its same-serial interrupt-phase
   turn event is
-  exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 3074 events,
-  with baseline payload/envelope 30773/32385 and delta payload/envelope
-  62034/62106 under 64 KiB.
-  Intent wire v3 is bounded at 72+8=80 bytes, inner tactical wire is v3,
-  both tactical-world services are 2.0, observer `DoorCapacityReached` is 12,
-  and pointer-free door/pass commands use journal-v4 tags 33/34.
+  exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 2563 events,
+  with baseline payload/envelope 45370/46982 and delta payload/envelope
+  53853/53925 under 64 KiB.
+  Intent wire v5 is bounded at 72+26=98 bytes, inner tactical wire is v6,
+  both tactical-world services are 3.0, observer `DoorCapacityReached` is 12,
+  and pointer-free door/pass commands use journal-v4 tags 33/34. First-aid
+  intent kind 10 has a six-byte exact patient payload; `BeginFirstAidCommand`
+  appends journal-v4 tag 35. Inventory swap kind 11 carries two slots and the
+  private-view revision; its server-prepared command appends tag 36 and repeats
+  exact actor/world/turn/pose/object/AP proofs. Transfer kind 12 carries an exact
+  recipient identity, two slots and both private revisions in 26 bytes;
+  `TransferInventoryItemCommand` uses journal-v4 tag 37. The existing global v14
+  and inner wire versions remain unchanged during coordinated development.
 
-  Tactical wire v3 retains same-connection replica recovery. The client keeps the
+  Tactical wire v4 retains same-connection replica recovery. The client keeps the
   last committed view immutable and disables input while sending an
   authenticated exact 88-byte self-only request for a delta-sequence gap,
   payload-checksum mismatch, state mismatch, replica rejection, invalid
@@ -1792,8 +1830,9 @@ the engine must not contain SDL types in its public domain model.
   `OurNoise` plus sight/opponent-list/interrupt/AI update. Integrity failure
   latches the world with no points or noise and fails replication closed.
 
-  This is a functional technical slice, not a full JA2 tactical client: the JA2
-  terrain/static-world renderer remains absent. The five-slot combat-equipment
+  This is a functional technical slice, not a full JA2 tactical client: the
+  passive static-map and actor renderer does not provide the complete interactive
+  tactical interface. The five-slot combat-equipment
   projection is not the future authorized, chunked full 55-slot inventory
   domain: reserve
   ammunition, remaining equipment-stack objects, attachments/LBE, other items,
@@ -1804,10 +1843,20 @@ the engine must not contain SDL types in its public domain model.
   smoke is absent from default CTest and registers only when both absolute cache
   paths `JA2_COOP_INSTALLED_SMOKE_EXECUTABLE` and
   `JA2_COOP_INSTALLED_SMOKE_DATA_ROOT` are configured. On POSIX it uses
-  a free loopback port and private temporary roots to prove create/Ready, independent
-  same-root reconnect with a byte-identical 224-byte credential, clean worldless
-  final checkpoint, and resume. It fingerprints installed inputs and cleans
-  process groups and temporary state; a full playthrough and soak remain open.
+  free loopback ports and private temporary roots to prove create/Ready,
+  independent same-root reconnect with a byte-identical 224-byte credential,
+  then clean worldless final checkpoint/resume into one tactical world where two
+  clients each commit a non-empty assigned baseline. Its separate bounded
+  tactical deadline includes both client cold loads and starter-actor arrival.
+  Active-world shutdown rejects its unsafe cold checkpoint as designed. The
+  harness fingerprints installed inputs and cleans process groups and temporary
+  state. Without the optional gameplay driver it submits no gameplay action.
+  With that driver, explicit fire/reload/turn-cycle options add bounded native
+  action certificates. The complete installed lifecycle passed the turn-cycle
+  option on 2026-09-05: ordinary player turn 4 to 7 with one explicit interrupt
+  pass. This pre-medical-binary result does not certify first aid or active-battle
+  persistence; the [multiplayer evidence record](MULTIPLAYER_ARCHITECTURE.md#installed-turn-cycle-evidence)
+  preserves the exact artifact path. A full playthrough and soak remain open.
   This removes the presentation-only campaign selector
   formerly used to choose an intro route. The raw-selector inventory is now 103
   sites across 28 files: 98 live-context calls, four cached-campaign

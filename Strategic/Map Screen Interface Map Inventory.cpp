@@ -278,7 +278,6 @@ extern int INV_REGION_Y;
 extern BOOLEAN fShowInventoryFlag;
 extern BOOLEAN fMapScreenBottomDirty;
 
-extern BOOLEAN ReduceStringLength( STR16 pString, UINT32 uiWidthToFitIn, UINT32 uiFont );
 
 extern OBJECTTYPE gItemPointer;
 

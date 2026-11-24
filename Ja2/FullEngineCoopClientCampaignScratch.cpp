@@ -272,11 +272,16 @@ private:
 	std::size_t bufferedBytes_ = 0;
 };
 
-bool SameBootstrapExceptSessionEpoch(
+bool SameCampaignBindingAcrossSessions(
 	const CoopCampaignBootstrapDescriptor& left,
 	const CoopCampaignBootstrapDescriptor& right) noexcept
 {
-	return left.protocolVersion == right.protocolVersion &&
+	// Protocols 8, 9 and 14 through 18 use the same durable credential layout. This permits
+	// retiring an unreachable old-session bearer after full campaign binding
+	// validation; it never admits an old protocol into a live session.
+	const bool compatibleProtocol = left.protocolVersion == right.protocolVersion ||
+		((left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18) && right.protocolVersion == 19);
+	return compatibleProtocol &&
 		left.campaignSeed == right.campaignSeed &&
 		left.campaignIdentitySha256 == right.campaignIdentitySha256 &&
 		left.runtimeFingerprint == right.runtimeFingerprint &&
@@ -324,15 +329,50 @@ bool DecodeReconnectCredentialRecord(
 
 	CoopCampaignBootstrapDescriptor decodedBootstrap;
 	AdmissionAck decodedCredential;
-	if (DecodeCoopCampaignBootstrap(record.data(),
-			CoopCampaignBootstrapWireSize, decodedBootstrap) !=
-			CoopCampaignBootstrapDecodeResult::Success ||
+	auto bootstrapResult = DecodeCoopCampaignBootstrap(record.data(),
+		CoopCampaignBootstrapWireSize, decodedBootstrap);
+	ReconnectCredentialRecord canonical = record;
+	const std::uint16_t storedProtocol = static_cast<std::uint16_t>(record[8]) |
+		(static_cast<std::uint16_t>(record[9]) << 8);
+	const bool legacyProtocol = CurrentProtocolVersion == 19 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18);
+	if (legacyProtocol)
+	{
+		static_assert(CoopCampaignBootstrapWireVersion == 1 &&
+			CoopCampaignBootstrapWireSize == 128 && AdmissionAckWireSize == 64,
+			"review persisted protocol-8/9/14/15/16/17/18 credential migration after a layout change");
+		// UnsupportedProtocol is returned only after the original bootstrap's
+		// magic, schema, reserved bytes and FNV checksum have been verified. The
+		// outer SHA above protects the entire original record, including the ACK.
+		if (bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol ||
+			record[CoopCampaignBootstrapWireSize + 4] != storedProtocol ||
+			record[CoopCampaignBootstrapWireSize + 5] != 0)
+			return false;
+		// Normalize only a private copy so the strict current codecs can check
+		// every semantic field. No old bytes or bearer are written or sent.
+		canonical[8] = canonical[CoopCampaignBootstrapWireSize + 4] = 19;
+		std::uint32_t checksum = UINT32_C(2166136261);
+		for (std::size_t index = 0; index < 112; ++index)
+		{
+			checksum ^= canonical[index];
+			checksum *= UINT32_C(16777619);
+		}
+		for (unsigned index = 0; index < 4; ++index)
+			canonical[112 + index] = static_cast<std::uint8_t>(checksum >> (index * 8));
+		bootstrapResult = DecodeCoopCampaignBootstrap(canonical.data(),
+			CoopCampaignBootstrapWireSize, decodedBootstrap);
+	}
+	if (bootstrapResult != CoopCampaignBootstrapDecodeResult::Success ||
 		DecodeAdmissionAck(
-			record.data() + CoopCampaignBootstrapWireSize,
+			canonical.data() + CoopCampaignBootstrapWireSize,
 			AdmissionAckWireSize, decodedCredential) != DecodeResult::Ok ||
 		decodedCredential.protocolVersion != decodedBootstrap.protocolVersion ||
 		decodedCredential.sessionEpoch != decodedBootstrap.sessionEpoch)
 		return false;
+	if (legacyProtocol)
+	{
+		decodedBootstrap.protocolVersion = storedProtocol;
+		decodedCredential.protocolVersion = storedProtocol;
+	}
 	bootstrap = decodedBootstrap;
 	credential = decodedCredential;
 	return true;
@@ -1319,6 +1359,7 @@ struct FullEngineCoopClientCampaignScratch::Impl
 	NativeFileIdentity stagingIdentity{};
 	CoopCampaignSyncMetadata stagingMetadata{};
 	CoopCampaignSyncMetadata activeMetadata{};
+	PassiveCampaignView activeView;
 	DedicatedCampaignSlot stagingSlot = DedicatedCampaignSlot::A;
 	std::uint64_t written = 0;
 	DedicatedCampaignSlot activeSlot = DedicatedCampaignSlot::A;
@@ -1675,7 +1716,7 @@ FullEngineCoopClientCampaignScratch::loadReconnectCredential(
 		storedBootstrap, impl_->bootstrap);
 	const bool exactExceptEpoch =
 		storedBootstrap.sessionEpoch != impl_->bootstrap.sessionEpoch &&
-		SameBootstrapExceptSessionEpoch(storedBootstrap, impl_->bootstrap);
+		SameCampaignBindingAcrossSessions(storedBootstrap, impl_->bootstrap);
 	if (terminal && (exactBootstrap || exactExceptEpoch))
 	{
 		// Preserve the invalidated bytes as evidence. The caller normally does
@@ -1914,19 +1955,24 @@ FullEngineCoopClientCampaignScratch::commitAndLoad(
 			impl_->backend.checkpointPath(impl_->stagingSlot),
 			metadata.transfer.totalSize, metadata.transfer.checkpointSha256))
 		return FullEngineCoopCampaignScratchCommitResult::StorageFailure;
-	if (!ValidateDedicatedCampaignGame(impl_->stagingSlot))
+	PassiveCampaignView view;
+	if (PreparePassiveDedicatedCampaignCheckpoint(impl_->stagingSlot, metadata.worldMinutes, view) !=
+		PassiveCampaignPreparationResult::Ready)
 		return FullEngineCoopCampaignScratchCommitResult::CompatibilityMismatch;
-	if (!LoadDedicatedCampaignGame(impl_->stagingSlot))
-	{
-		impl_->failStopped = true;
-		return FullEngineCoopCampaignScratchCommitResult::LoadFailed;
-	}
+	// The owned view and file identity publish together only after side-effect-free
+	// preparation. No authority loader, native world teardown or RNG restore runs.
+	impl_->activeView = std::move(view);
 	impl_->activeSlot = impl_->stagingSlot;
 	impl_->activeGeneration = metadata.transfer.checkpointGeneration;
 	impl_->activeMetadata = metadata;
 	impl_->hasActive = true;
 	ClearTransfer(*impl_);
 	return FullEngineCoopCampaignScratchCommitResult::Committed;
+}
+
+const PassiveCampaignView* FullEngineCoopClientCampaignScratch::activeView() const noexcept
+{
+	return impl_ && impl_->hasActive ? &impl_->activeView : nullptr;
 }
 
 void FullEngineCoopClientCampaignScratch::abort() noexcept

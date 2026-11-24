@@ -6,6 +6,8 @@
 #include <Multiplayer/FullEngineCoopClientTransport.h>
 #include <Multiplayer/FullEngineCoopSnapshotReplica.h>
 #include <Multiplayer/FullEngineCoopTacticalServer.h>
+#include <Multiplayer/CoopCampaignActionAuthority.h>
+#include <Multiplayer/CoopCampaignTimeAuthority.h>
 
 #include <SDL3/SDL.h>
 
@@ -16,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -84,7 +87,7 @@ TacticalActorLoadoutSnapshot TacticalReloadedCombatLoadout()
 	return TacticalCombatLoadout(21, 15, 94, true);
 }
 
-TacticalWorldSnapshot TacticalSnapshot()
+TacticalActorSnapshot TacticalInitialActor()
 {
 	TacticalActorSnapshot actor;
 	actor.id = TacticalActorId;
@@ -102,20 +105,43 @@ TacticalWorldSnapshot TacticalSnapshot()
 	actor.active = true;
 	actor.inSector = true;
 	actor.loadout = TacticalInitialCombatLoadout();
-	std::vector<TacticalActorSnapshot> actors;
-	actors.push_back(actor);
-	TacticalActorSnapshot target = actor;
+	return actor;
+}
+
+TacticalActorSnapshot TacticalInitialTarget()
+{
+	TacticalActorSnapshot target = TacticalInitialActor();
 	target.id = TacticalTargetId;
 	target.team = 1;
 	target.profile = 20;
 	target.grid = 1102;
 	target.direction = 6;
 	target.loadout = {};
+	return target;
+}
+
+TacticalActorSnapshot TacticalPostReloadActor()
+{
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	actor.actionPoints = 10;
+	actor.loadout = TacticalReloadedCombatLoadout();
+	return actor;
+}
+
+TacticalWorldSnapshot TacticalSnapshot()
+{
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	std::vector<TacticalActorSnapshot> actors;
+	actors.push_back(actor);
+	TacticalActorSnapshot target = TacticalInitialTarget();
 	actors.push_back(target);
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true,
+			TacticalMapAssetKey{{'A', '9', '.', 'D', 'A', 'T'}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E tactical baseline fixture is canonical");
@@ -127,9 +153,10 @@ TacticalWorldDelta TacticalMoveDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorMovedEvent{
-		TacticalActorId, TacticalInitialGrid, TacticalDestinationGrid,
-		0, 0, 2, 3});
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -138,13 +165,15 @@ TacticalWorldDelta TacticalAttackDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId, 20, 14, 80, 80, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalTargetId, 20, 20, 80, 60, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalActorId, TacticalInitialCombatLoadout(),
-		TacticalFiredCombatLoadout()});
+	TacticalActorSnapshot actor = TacticalInitialActor();
+	actor.grid = TacticalDestinationGrid;
+	actor.direction = 3;
+	actor.actionPoints = 14;
+	actor.loadout = TacticalFiredCombatLoadout();
+	TacticalActorSnapshot target = TacticalInitialTarget();
+	target.life = 60;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
+	delta.events.push_back(TacticalActorUpdatedEvent{target});
 	return delta;
 }
 
@@ -153,11 +182,8 @@ TacticalWorldDelta TacticalReloadDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId, 14, 10, 80, 80, 90, 90, 75, 75, 100, 100});
-	delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalActorId, TacticalFiredCombatLoadout(),
-		TacticalReloadedCombatLoadout()});
+	delta.events.push_back(TacticalActorUpdatedEvent{
+		TacticalPostReloadActor()});
 	return delta;
 }
 
@@ -166,9 +192,10 @@ TacticalWorldDelta TacticalResyncTriggerDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalActorId, TacticalStance::Standing,
-		TacticalStance::Crouched, 0, 1});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Crouched;
+	actor.animation = 1;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -177,9 +204,10 @@ TacticalWorldDelta TacticalPendingResyncTriggerDelta()
 	TacticalWorldDelta delta;
 	delta.previousEpoch = TacticalWorldGeneration;
 	delta.currentEpoch = TacticalWorldGeneration;
-	delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalActorId, TacticalStance::Crouched,
-		TacticalStance::Prone, 1, 2});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Prone;
+	actor.animation = 2;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -210,15 +238,11 @@ TacticalWorldDelta TacticalInterruptDelta(bool active)
 		TacticalTurn(active ? TacticalInterruptPhase::Active
 			: TacticalInterruptPhase::None,
 			TacticalInterruptSerial)});
-	delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalActorId,
-		10, 10,
-		80, 80,
-		90, 90,
-		75, 75,
-		100, 100,
-		false, false,
-		!active, active});
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
+	actor.stance = TacticalStance::Prone;
+	actor.animation = 2;
+	actor.interruptActionEligible = active;
+	delta.events.push_back(TacticalActorUpdatedEvent{actor});
 	return delta;
 }
 
@@ -226,39 +250,17 @@ TacticalWorldSnapshot TacticalResyncSnapshot(
 	TacticalStance stance = TacticalStance::Crouched,
 	std::uint16_t animation = 1)
 {
-	TacticalActorSnapshot actor;
-	actor.id = TacticalActorId;
-	actor.team = 0;
-	actor.profile = 1;
-	actor.grid = TacticalDestinationGrid;
-	actor.level = 0;
-	actor.direction = 3;
+	TacticalActorSnapshot actor = TacticalPostReloadActor();
 	actor.animation = animation;
 	actor.stance = stance;
-	actor.actionPoints = 10;
-	actor.life = 80;
-	actor.maximumLife = 90;
-	actor.breath = 75;
-	actor.maximumBreath = 100;
-	actor.active = true;
-	actor.inSector = true;
-	actor.loadout = TacticalReloadedCombatLoadout();
-	TacticalActorSnapshot target = actor;
-	target.id = TacticalTargetId;
-	target.team = 1;
-	target.profile = 20;
-	target.grid = 1102;
-	target.direction = 6;
-	target.animation = 0;
-	target.stance = TacticalStance::Standing;
-	target.actionPoints = 20;
+	TacticalActorSnapshot target = TacticalInitialTarget();
 	target.life = 60;
-	target.loadout = {};
 	std::vector<TacticalActorSnapshot> actors{actor, target};
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(TacticalWorldGeneration,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true,
+			TacticalMapAssetKey{{'A', '9', '.', 'D', 'A', 'T'}}},
 		TacticalTurnSnapshot{true, true, 0, TacticalTurnSerial},
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"socket E2E resync baseline fixture is canonical");
@@ -654,13 +656,15 @@ public:
 	bool send(const char* messageName, const std::uint8_t* bytes,
 		std::size_t size) noexcept override
 	{
-		return transport_.send(messageName, bytes, size);
+		return !blocked && transport_.send(messageName, bytes, size);
 	}
 
 	void close() noexcept override
 	{
 		if (transport_.running()) transport_.close();
 	}
+
+	bool blocked = false;
 
 private:
 	FullEngineCoopClientTransport& transport_;
@@ -856,19 +860,26 @@ bool PumpBootstrap(FullEngineCoopAdmissionListener& listener,
 	}
 }
 
-FullEngineCoopCampaignSyncInboundKind CampaignInboundKind(
-	FullEngineCoopCampaignInboundKind kind) noexcept
+bool CampaignInboundKind(FullEngineCoopCampaignInboundKind kind,
+	FullEngineCoopCampaignSyncInboundKind& output) noexcept
 {
 	switch (kind)
 	{
 		case FullEngineCoopCampaignInboundKind::Ack:
-			return FullEngineCoopCampaignSyncInboundKind::Ack;
+			output = FullEngineCoopCampaignSyncInboundKind::Ack;
+			return true;
 		case FullEngineCoopCampaignInboundKind::Result:
-			return FullEngineCoopCampaignSyncInboundKind::Result;
+			output = FullEngineCoopCampaignSyncInboundKind::Result;
+			return true;
 		case FullEngineCoopCampaignInboundKind::Resync:
-			return FullEngineCoopCampaignSyncInboundKind::Resync;
+			output = FullEngineCoopCampaignSyncInboundKind::Resync;
+			return true;
+		case FullEngineCoopCampaignInboundKind::TimeRequest:
+		case FullEngineCoopCampaignInboundKind::ActionRequest:
+		case FullEngineCoopCampaignInboundKind::HireRequest:
+			return false;
 	}
-	return FullEngineCoopCampaignSyncInboundKind::Resync;
+	return false;
 }
 
 struct DriveStatistics
@@ -876,8 +887,39 @@ struct DriveStatistics
 	std::size_t iterations = 0;
 	std::size_t totalServerMessages = 0;
 	std::size_t maximumServerMessagesPerFlush = 0;
+	std::size_t malformedInboundMessages = 0;
+	FullEngineCoopCampaignSyncServerResult lastInboundResult =
+		FullEngineCoopCampaignSyncServerResult::Success;
 	bool failed = false;
 };
+
+bool DriveCampaignInbound(FullEngineCoopAdmissionListener& listener,
+	FullEngineCoopCampaignSyncServer& server,
+	DriveStatistics& statistics)
+{
+	FullEngineCoopCampaignInboundMessage message;
+	while (listener.popCampaignInbound(message))
+	{
+		FullEngineCoopCampaignSyncInboundKind kind;
+		if (!CampaignInboundKind(message.kind, kind))
+		{
+			statistics.failed = true;
+			return false;
+		}
+		statistics.lastInboundResult = server.handleInbound(
+			message.peerIdentity, message.transport,
+			kind, message.bytes.data(), message.size);
+		if (statistics.lastInboundResult ==
+			FullEngineCoopCampaignSyncServerResult::MalformedFrame)
+			++statistics.malformedInboundMessages;
+		if (IsFatalCoopCampaignSyncInboundResult(statistics.lastInboundResult))
+		{
+			statistics.failed = true;
+			return false;
+		}
+	}
+	return true;
+}
 
 bool DriveServer(FullEngineCoopAdmissionListener& listener,
 	FullEngineCoopCampaignSyncServer& server,
@@ -903,19 +945,7 @@ bool DriveServer(FullEngineCoopAdmissionListener& listener,
 		statistics.failed = true;
 		return false;
 	}
-
-	FullEngineCoopCampaignInboundMessage message;
-	while (listener.popCampaignInbound(message))
-	{
-		if (server.handleInbound(message.peerIdentity, message.transport,
-			CampaignInboundKind(message.kind), message.bytes.data(),
-			message.size) !=
-			FullEngineCoopCampaignSyncServerResult::Success)
-		{
-			statistics.failed = true;
-			return false;
-		}
-	}
+	if (!DriveCampaignInbound(listener, server, statistics)) return false;
 
 	const FullEngineCoopCampaignSyncFlushResult flushed =
 		server.flushOutbound();
@@ -1085,6 +1115,333 @@ std::size_t ReadyPeerCount(FullEngineCoopCampaignSyncServer& server,
 	return server.readyPeers(peers);
 }
 
+struct SocketCampaignClient
+{
+	SocketCampaignClient(const MemoryCheckpointSource& source,
+		const CoopCampaignBootstrapDescriptor& bootstrap)
+		: wire(transport), scratch(source.bytes), campaign(scratch, wire),
+		  admission(transport, replica, &credentials),
+		  sink(bootstrap, admission, campaign)
+	{
+		replica.client = &admission;
+		CHECK(admission.configure(ClientConfiguration(bootstrap)) ==
+			FullEngineCoopClientResult::Success,
+			"malformed-control client configures from server bootstrap");
+	}
+
+	FullEngineCoopClientTransport transport;
+	ClientCampaignWire wire;
+	MemoryCampaignScratch scratch;
+	FullEngineCoopCampaignSyncClient campaign;
+	RecordingSnapshotReplica replica;
+	ProcessCredentialStore credentials;
+	FullEngineCoopClient admission;
+	CampaignClientSink sink;
+};
+
+void TestMalformedCampaignControlsDoNotStopOtherPeers()
+{
+	MemoryCheckpointSource source;
+	source.bytes.resize(37);
+	source.value.totalSize = source.bytes.size();
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	FullEngineCoopIngress ingress(tokens, execution);
+	FullEngineCoopAdmissionListener listener(ingress);
+	auto authority = Authority(source);
+	authority.maximumPeers = 2;
+	const auto bootstrap = Bootstrap(authority, source);
+	CHECK(ingress.beginAdmissionSession(authority) ==
+		FullEngineCoopStartResult::Success, "malformed-control admission starts");
+	FullEngineCoopAdmissionListenerConfiguration configuration;
+	configuration.campaignBootstrap = bootstrap;
+	CHECK(StartListener(listener, configuration), "malformed-control listener binds");
+	if (!listener.running()) return;
+	ListenerCampaignWire serverWire(listener);
+	// The coordinator retains bounded checkpoint windows for every peer. Keep
+	// this large fixture on the heap, as in the dedicated runtime, so the socket
+	// callbacks also fit platforms with a small default thread stack.
+	auto serverStorage = std::make_unique<FullEngineCoopCampaignSyncServer>(source, serverWire);
+	auto& server = *serverStorage;
+	CHECK(server.beginSession(authority.sessionEpoch) ==
+		FullEngineCoopCampaignSyncServerResult::Success,
+		"malformed-control campaign starts");
+	FullEngineCoopClientTransportConfiguration clientConfiguration;
+	clientConfiguration.serverEndpoint = configuration.endpoint;
+	SocketCampaignClient first(source, bootstrap);
+	first.wire.blocked = true;
+	CHECK(first.transport.connect(first.admission, first.sink, clientConfiguration) ==
+		FullEngineCoopClientTransportConnectResult::Success,
+		"malformed-control client connects over production transport");
+	DriveStatistics statistics;
+	// Withhold this client's valid initial ACK while exercising the coordinator's
+	// rejection path. Admission and metadata still use the shipping handshake.
+	CHECK(PumpServerUntil(listener, server, statistics, [&] {
+		first.transport.poll();
+		return first.scratch.beginCalls == 1;
+	}), "authenticated client receives checkpoint metadata before malformed input");
+	if (first.scratch.beginCalls != 1) return;
+	const auto identity = first.admission.peerIdentity();
+	const auto transfer = first.campaign.metadata().transfer;
+	FullEngineCoopCampaignSyncPeerDiagnostics before;
+	CHECK(server.peerDiagnostics(identity, before) &&
+		before.phase == FullEngineCoopCampaignSyncPeerPhase::AwaitingInitialAck,
+		"malformed-control peer begins unready at its initial ACK boundary");
+	CoopCampaignSyncAckBytes ack;
+	CHECK(EncodeCoopCampaignSyncAck({transfer, identity, 0, 0}, ack) ==
+		CoopCampaignSyncCodecResult::Success, "canonical ACK fixture encodes");
+	CoopCampaignSyncResultBytes result;
+	CHECK(EncodeCoopCampaignSyncResult({transfer, identity,
+		CoopCampaignSyncResultStatus::Committed, CoopCampaignSyncFailureReason::None}, result) ==
+		CoopCampaignSyncCodecResult::Success, "canonical result fixture encodes");
+	CoopCampaignSyncResyncBytes resync;
+	CHECK(EncodeCoopCampaignSyncResync({transfer, identity, 0, 0,
+		CoopCampaignSyncFailureReason::SequenceMismatch}, resync) ==
+		CoopCampaignSyncCodecResult::Success, "canonical resync fixture encodes");
+
+	const auto rejectMalformed = [&](const char* name, auto bytes) {
+		bytes[9] = 1; // Reserved common-header byte: exact width, invalid contents.
+		const auto expected = statistics.malformedInboundMessages + 1;
+		CHECK(first.transport.send(name, bytes.data(), bytes.size()),
+			"authenticated client sends a correctly sized malformed campaign control");
+		const bool rejected = PumpServerUntil(listener, server, statistics, [&] {
+			first.transport.poll();
+			return statistics.malformedInboundMessages == expected;
+		});
+		CHECK(rejected && !statistics.failed && listener.running() && !server.terminal(),
+			"malformed campaign control is a peer rejection, not a session failure");
+		FullEngineCoopCampaignSyncPeerDiagnostics after;
+		CHECK(server.peerDiagnostics(identity, after) &&
+			after.transport == before.transport && after.transferId == before.transferId &&
+			after.phase == before.phase && after.acknowledgedOffset == before.acknowledgedOffset &&
+			after.highestSentOffset == before.highestSentOffset && after.nextSendOffset == before.nextSendOffset &&
+			after.inFlightChunks == before.inFlightChunks && after.pendingBytes == before.pendingBytes &&
+			!after.campaignReady && source.readCalls == 0 && execution.calls == 0,
+			"rejected bytes change neither transfer progress nor campaign/gameplay authority");
+		return rejected && !statistics.failed;
+	};
+	if (!rejectMalformed(CoopCampaignSyncAckMessageName, ack) ||
+		!rejectMalformed(CoopCampaignSyncResultMessageName, result) ||
+		!rejectMalformed(CoopCampaignSyncResyncMessageName, resync)) return;
+
+	SocketCampaignClient second(source, bootstrap);
+	CHECK(second.transport.connect(second.admission, second.sink, clientConfiguration) ==
+		FullEngineCoopClientTransportConnectResult::Success,
+		"second client can still join after malformed authenticated traffic");
+	std::array<PeerIdentity, MaximumFullEngineCoopCampaignSyncPeers> ready{};
+	CHECK(PumpLiveUntil(listener, server, second.transport, second.campaign, statistics, [&] {
+		first.transport.poll();
+		return ReadyPeerCount(server, ready) == 1 &&
+			second.campaign.state() == FullEngineCoopCampaignSyncClientState::Ready;
+	}), "unaffected peer commits its checkpoint while the malformed sender remains unready");
+	CHECK(ready[0] == second.admission.peerIdentity() && second.scratch.commitCalls == 1 &&
+		first.scratch.commitCalls == 0 && server.peerDiagnostics(identity, before) && !before.campaignReady,
+		"only the peer that completed valid synchronization receives campaign authority");
+	first.wire.blocked = false;
+	CHECK(PumpLiveUntil(listener, server, first.transport, first.campaign, statistics, [&] {
+		second.transport.poll();
+		return ReadyPeerCount(server, ready) == 2 &&
+			first.campaign.state() == FullEngineCoopCampaignSyncClientState::Ready;
+	}), "original sender can complete valid synchronization without replaying rejected controls");
+	CHECK(statistics.malformedInboundMessages == 3 && first.scratch.commitCalls == 1 &&
+		second.scratch.commitCalls == 1 && execution.calls == 0,
+		"both checkpoints commit exactly once with no gameplay triggered by rejected controls");
+
+	// Internal checkpoint loss must still stop the production inbound policy,
+	// even when the frame that happens to expose it is from an untrusted peer.
+	CHECK(first.transport.send(CoopCampaignSyncAckMessageName, ack.data(), ack.size()),
+		"fatal-source probe sends a canonical control");
+	const Uint64 probeStarted = SDL_GetTicks();
+	while (listener.pendingCampaignInboundCount() == 0 &&
+		SDL_GetTicks() - probeStarted < 10000)
+	{
+		first.transport.poll();
+		listener.poll();
+		SDL_Delay(1);
+	}
+	CHECK(listener.pendingCampaignInboundCount() == 1,
+		"fatal-source probe reaches the authenticated queue before source loss");
+	source.identityReady = false;
+	CHECK(!DriveCampaignInbound(listener, server, statistics) && statistics.failed && server.terminal() &&
+		statistics.lastInboundResult == FullEngineCoopCampaignSyncServerResult::SourceUnavailable &&
+		ReadyPeerCount(server, ready) == 0,
+		"checkpoint source failure remains fatal and revokes readiness for all peers");
+	first.transport.stop(0);
+	second.transport.stop(0);
+	listener.stop(0);
+}
+
+void TestSharedCampaignActionsOverTwoSockets()
+{
+	MemoryCheckpointSource source; source.bytes.resize(37); source.value.totalSize = source.bytes.size();
+	SequentialTokenSource tokens;
+	PublishingExecutionSink execution;
+	FullEngineCoopIngress ingress(tokens, execution);
+	FullEngineCoopAdmissionListener listener(ingress);
+	auto configuration = Authority(source); configuration.maximumPeers = 2;
+	const auto bootstrap = Bootstrap(configuration, source);
+	CHECK(ingress.beginAdmissionSession(configuration) == FullEngineCoopStartResult::Success, "shared-action admission starts");
+	FullEngineCoopAdmissionListenerConfiguration listenerConfiguration; listenerConfiguration.campaignBootstrap = bootstrap;
+	listenerConfiguration.enableCampaignRequests = true;
+	CHECK(StartListener(listener, listenerConfiguration), "shared-action listener binds");
+	if (!listener.running()) return;
+	ListenerCampaignWire serverWire(listener);
+	FullEngineCoopCampaignSyncServer server(source, serverWire);
+	CHECK(server.beginSession(configuration.sessionEpoch) == FullEngineCoopCampaignSyncServerResult::Success, "shared-action campaign starts");
+	SocketCampaignClient first(source, bootstrap), second(source, bootstrap);
+	FullEngineCoopClientTransportConfiguration clientConfiguration; clientConfiguration.serverEndpoint = listenerConfiguration.endpoint;
+	CHECK(first.transport.connect(first.admission, first.sink, clientConfiguration) == FullEngineCoopClientTransportConnectResult::Success &&
+		second.transport.connect(second.admission, second.sink, clientConfiguration) == FullEngineCoopClientTransportConnectResult::Success,
+		"two shared-action clients connect through production transports");
+	std::array<PeerIdentity, MaximumFullEngineCoopCampaignSyncPeers> ready{};
+	DriveStatistics statistics;
+	CHECK(PumpServerUntil(listener, server, statistics, [&] {
+		for (auto* client : {&first, &second})
+		{
+			client->transport.poll();
+			if (client->campaign.state() != FullEngineCoopCampaignSyncClientState::Disconnected) client->campaign.flushOutbound();
+		}
+		return ReadyPeerCount(server, ready) == 2;
+	}), "both actual clients complete campaign transfer before receiving shared controls");
+	if (ReadyPeerCount(server, ready) != 2) return;
+	CoopCampaignStatusLedger status;
+	CoopCampaignStatus clock; clock.worldSeconds = 111600; clock.phase = CoopCampaignPhase::Strategic;
+	CHECK(status.beginSession(configuration.sessionEpoch) && status.observe(clock, ready.data(), 2), "shared-action clock observes ready peers");
+	CoopCampaignGroups groups; groups.sessionEpoch = configuration.sessionEpoch; groups.revision = 1; groups.available = true;
+	groups.groupCount = groups.memberCount = 1;
+	groups.groups[0].id = {2, 12}; groups.groups[0].x = 9; groups.groups[0].y = 1; groups.groups[0].memberCount = 1;
+	groups.members[0] = {{0, 1}, 238, 0};
+	CoopCampaignActionAuthority actions;
+	CoopCampaignTimeAuthority times;
+	std::array<FullEngineCoopAuthenticatedPeer, MaximumAuthorityPeers> authenticated{};
+	CHECK(listener.authenticatedPeers(authenticated) == 2, "shared-action listener retains two current authenticated transports");
+	std::array<CoopCampaignActionAuthority::Peer, 2> actionPeers{};
+	std::array<CoopCampaignTimeAuthority::Peer, 2> timePeers{};
+	for (std::size_t i = 0; i < 2; ++i)
+	{
+		actionPeers[i] = {authenticated[i].peerIdentity, authenticated[i].transport};
+		timePeers[i] = {authenticated[i].peerIdentity, authenticated[i].transport};
+	}
+	CHECK(actions.reconcile(actionPeers.data(), 2) && times.reconcile(timePeers.data(), 2), "shared controls reconcile exact transport identities");
+	auto& leader = first.admission.peerIdentity() == status.value().timeLeader ? first : second;
+	auto& follower = &leader == &first ? second : first;
+	const auto pumpUntil = [&](auto predicate) {
+		const auto start = SDL_GetTicks();
+		do
+		{
+			listener.poll(); first.transport.poll(); second.transport.poll();
+			if (predicate()) return true;
+			if (!first.transport.running() || !second.transport.running()) return false;
+			SDL_Delay(1);
+		} while (SDL_GetTicks() - start < 10000);
+		return false;
+	};
+	const auto publish = [&] {
+		CoopCampaignStatusBytes bytes;
+		CoopCampaignGroupsBytes roster; std::size_t size = 0;
+		CHECK(EncodeCoopCampaignStatus(status.value(), bytes) && EncodeCoopCampaignGroups(groups, roster, size), "committed campaign observations encode");
+		for (const auto& peer : actionPeers)
+			CHECK(listener.sendToPeer(peer.identity, CoopCampaignStatusMessageName, bytes.data(), bytes.size()) &&
+				listener.sendToPeer(peer.identity, CoopCampaignGroupsMessageName, roster.data(), size), "both peers receive committed campaign observations");
+	};
+	const auto flushResults = [&] {
+		// Match shipping order: full committed observations precede any result.
+		publish();
+		for (std::size_t i = 0; i < 2; ++i)
+		{
+			const auto& action = actions.deliveries()[i];
+			if (action.pending)
+			{
+				CoopCampaignActionResultBytes bytes;
+				CHECK(EncodeCoopCampaignActionResult(action.result, bytes) &&
+					listener.sendToPeer(action.peer.identity, CoopCampaignActionResultMessageName, bytes.data(), bytes.size()), "exact campaign receipt unicasts");
+				actions.delivered(i);
+			}
+			const auto& time = times.deliveries()[i];
+			if (time.pending)
+			{
+				CoopCampaignTimeResultBytes bytes;
+				CHECK(EncodeCoopCampaignTimeResult(time.result, bytes) &&
+					listener.sendToPeer(time.peer.identity, CoopCampaignTimeResultMessageName, bytes.data(), bytes.size()), "exact time receipt unicasts");
+				times.delivered(i);
+			}
+		}
+	};
+	unsigned nativeActions = 0, nativeTimes = 0;
+	CoopCampaignActionRequest firstTravel;
+	const auto consume = [&] {
+		FullEngineCoopCampaignInboundMessage message;
+		while (listener.popCampaignInbound(message))
+		{
+			FullEngineCoopCampaignSyncPeerDiagnostics diagnostic;
+			const bool isReady = server.peerDiagnostics(message.peerIdentity, diagnostic) &&
+				diagnostic.campaignReady && diagnostic.transport == message.transport;
+			if (message.kind == FullEngineCoopCampaignInboundKind::ActionRequest)
+			{
+				CoopCampaignActionRequest request;
+				CHECK(DecodeCoopCampaignActionRequest(message.bytes.data(), message.size, request), "socket action request decodes outside callback");
+				CHECK(actions.submit(request, {message.peerIdentity, message.transport}, isReady, true, true, status, groups,
+					[&](const auto& applied) {
+						++nativeActions; firstTravel = applied;
+						groups.groups[0].x = applied.destinationX; ++groups.revision;
+						return CoopCampaignActionNativeResult{CoopCampaignActionOutcome::Applied, 0};
+					}), "authority accepts bounded action request or exact duplicate");
+			}
+			else if (message.kind == FullEngineCoopCampaignInboundKind::TimeRequest)
+			{
+				CoopCampaignTimeRequest request;
+				CHECK(DecodeCoopCampaignTimeRequest(message.bytes.data(), message.size, request) &&
+					times.submit(request, {message.peerIdentity, message.transport}, isReady, true, status,
+						[&](auto) { ++nativeTimes; return true; }), "time request shares campaign revision barrier");
+			}
+			else CHECK(false, "campaign sync has finished before action queue test");
+		}
+	};
+	publish();
+	CHECK(pumpUntil([&] { return leader.admission.campaignGroups() && follower.admission.campaignGroups() &&
+		leader.admission.campaignStatus() && follower.admission.campaignStatus(); }), "both clients observe initial shared campaign state");
+	CoopCampaignActionRequest selection; selection.group = groups.groups[0].id; selection.destinationX = 10; selection.destinationY = 1;
+	CHECK(follower.admission.requestCampaignAction(selection) == FullEngineCoopClientResult::Success &&
+		pumpUntil([&] { return listener.pendingCampaignInboundCount() == 1; }), "nonleader's travel reaches the server FIFO first");
+	CHECK(leader.admission.requestCampaignAction(selection) == FullEngineCoopClientResult::Success &&
+		pumpUntil([&] { return listener.pendingCampaignInboundCount() == 2; }), "leader submits a competing request from the same observed revision");
+	consume();
+	CHECK(nativeActions == 1 && !actions.failed() && status.value().timeControlRevision == 2,
+		"two actual client requests execute the callback only once");
+	flushResults();
+	CHECK(pumpUntil([&] { return !leader.admission.campaignActionPending() && !follower.admission.campaignActionPending(); }) &&
+		follower.admission.lastCampaignActionResult() && follower.admission.lastCampaignActionResult()->outcome == CoopCampaignActionOutcome::Applied &&
+		leader.admission.lastCampaignActionResult() && leader.admission.lastCampaignActionResult()->outcome == CoopCampaignActionOutcome::Stale &&
+		follower.admission.campaignGroups()->groups[0].x == 10 && leader.admission.campaignGroups()->groups[0].x == 10,
+		"nonleader sees Applied and competitor sees Stale after both copies of the committed roster");
+	CoopCampaignActionRequestBytes duplicate;
+	CHECK(EncodeCoopCampaignActionRequest(firstTravel, duplicate) &&
+		follower.transport.send(CoopCampaignActionRequestMessageName, duplicate.data(), duplicate.size()) &&
+		pumpUntil([&] { return listener.pendingCampaignInboundCount() == 1; }), "exact travel retry returns through same actual socket");
+	consume(); flushResults();
+	// A later observation on the ordered stream proves the duplicate receipt
+	// was consumed, instead of mistaking the previous cached result for delivery.
+	auto marker = status.value(); ++marker.worldSeconds;
+	CHECK(status.observe(marker, ready.data(), 2), "post-receipt observation marker advances");
+	publish();
+	CHECK(pumpUntil([&] { return follower.admission.campaignStatus() &&
+		follower.admission.campaignStatus()->revision == status.value().revision; }) &&
+		follower.admission.lastCampaignActionResult() && nativeActions == 1,
+		"duplicate request repeats its historical receipt without executing gameplay again");
+	selection.destinationX = 9;
+	CHECK(leader.admission.requestCampaignTime(CoopCampaignTimeAction::FiveMinutes) == FullEngineCoopClientResult::Success &&
+		pumpUntil([&] { return listener.pendingCampaignInboundCount() == 1; }), "leader time request reaches shared FIFO first");
+	CHECK(follower.admission.requestCampaignAction(selection) == FullEngineCoopClientResult::Success &&
+		pumpUntil([&] { return listener.pendingCampaignInboundCount() == 2; }), "follower submits travel before observing time's result");
+	consume(); flushResults();
+	CHECK(pumpUntil([&] { return !leader.admission.campaignTimePending() && !follower.admission.campaignActionPending(); }) &&
+		leader.admission.campaignTimeResult() && leader.admission.campaignTimeResult()->outcome == CoopCampaignTimeOutcome::Applied &&
+		follower.admission.lastCampaignActionResult() && follower.admission.lastCampaignActionResult()->outcome == CoopCampaignActionOutcome::Stale &&
+		nativeTimes == 1 && nativeActions == 1 && status.value().timeControlRevision == 3,
+		"time and travel serialize across different sockets against the same consumed control revision");
+	first.transport.stop(0); second.transport.stop(0); listener.stop(0);
+}
+
 void TestRealSocketCampaignSyncAndReconnect()
 {
 	MemoryCheckpointSource source;
@@ -1118,8 +1475,9 @@ void TestRealSocketCampaignSyncAndReconnect()
 	FullEngineCoopCampaignSyncServerConfiguration serverConfiguration;
 	serverConfiguration.maximumMessagesPerFlush =
 		MaximumCoopCampaignSyncChunkWindow;
-	FullEngineCoopCampaignSyncServer campaignServer(
+	auto campaignServerStorage = std::make_unique<FullEngineCoopCampaignSyncServer>(
 		source, serverWire, serverConfiguration);
+	auto& campaignServer = *campaignServerStorage;
 	CHECK(campaignServer.beginSession(authority.sessionEpoch) ==
 		FullEngineCoopCampaignSyncServerResult::Success,
 		"campaign server begins on the admission epoch");
@@ -1997,6 +2355,8 @@ void TestRealSocketCampaignSyncAndReconnect()
 int main()
 {
 	CHECK(SDL_Init(0), "SDL initializes for real SDL3_net co-op E2E");
+	TestMalformedCampaignControlsDoNotStopOtherPeers();
+	TestSharedCampaignActionsOverTwoSockets();
 	TestRealSocketCampaignSyncAndReconnect();
 	SDL_Quit();
 	if (failures != 0)

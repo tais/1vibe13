@@ -161,6 +161,10 @@ extern BOOLEAN	gfIgnoreScrollDueToCenterAdjust;
 void ScrollWorld( );
 void InitRenderParams( UINT8 ubRestrictionID );
 void RenderWorld( );
+// Draws the static presentation world and renderer-facing actor nodes without
+// entering the legacy tactical-interface path. Returns FALSE unless the
+// caller owns the explicit passive-world lifecycle.
+BOOLEAN RenderWorldForStaticPresentation( );
 
 /*	This procedure will initialize gsVIEWPORT_xxx variables
  *	they ware declared with static initializer 
@@ -196,6 +200,10 @@ BOOLEAN RevealWalls(INT16 sX, INT16 sY, INT16 sRadius);
 void ConcealAllWalls(void);
 
 BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly );
+// Applies only the shared bounds/correction math and renderer camera state.
+// Passive replicas must not drive legacy UI, input, dialog, debug, or audio state.
+BOOLEAN ApplyScrollingForStaticPresentation( INT16 sTempRenderCenterX,
+	INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly );
 
 void RenderStaticWorldRect(INT16, INT16, INT16, INT16, BOOLEAN );
 void RenderMarkedWorld(void);

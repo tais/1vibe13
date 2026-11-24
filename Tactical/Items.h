@@ -55,6 +55,11 @@ extern INT8 FindUsableObj(TacticalActor * pSoldier, UINT16 usItem);
 void DeleteObj(OBJECTTYPE * pObj );
 void SwapObjs( OBJECTTYPE * pObj1, OBJECTTYPE * pObj2 );
 void SwapObjs(TacticalActor* pSoldier, int leftSlot, int rightSlot, BOOLEAN fPermanent);
+// Neither deferred nor discarded means Applied. Skipped continuations keep the
+// default unsubmitted outcome; this overload always initializes both entries.
+// This is still the native copy-swap, not a transactional rollback facility.
+void SwapObjs(TacticalActor* pSoldier, int leftSlot, int rightSlot,
+	BOOLEAN fPermanent, SimulationCommandDispatchResult (&outcomes)[2]);
 void SwapObjs(TacticalActor* pSoldier, int slot, OBJECTTYPE* pObject, BOOLEAN fPermanent);
 void CleanUpItemStats( OBJECTTYPE * pObj );
 
@@ -488,6 +493,10 @@ INT16 GetStealthBonus( OBJECTTYPE * pObj );
 INT16 GetBasicStealthBonus( OBJECTTYPE * pObj );
 
 void ApplyEquipmentBonuses(TacticalActor * pSoldier);
+// Same native bonus rules and side effects as the legacy wrapper, but reports
+// a failed palette continuation to retained authoritative command callers.
+// Failure may follow mutation; this is not a transactional inventory helper.
+[[nodiscard]] bool ApplyEquipmentBonusesChecked(TacticalActor& soldier);
 
 INT16 GetGearAimBonus( TacticalActor * pSoldier, INT32 iRange, INT16 ubAimTime);
 INT16 GetGearToHitBonus( TacticalActor * pSoldier );

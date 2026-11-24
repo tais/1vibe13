@@ -1,3 +1,5 @@
+#include "DedicatedCoopAttack.h"
+#include "DedicatedCoopBattleNotice.h"
 #include "TacticalActorLocomotion.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorBattleSounds.h"
@@ -7430,6 +7432,19 @@ static void RemoveStaticEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bM
 //Whenever returning TRUE, make sure you clear gfBlitBattleSectorLocator;
 BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 {
+    // Finishing incapacitated enemies invokes their native death callbacks,
+    // which check the battle again before this invocation has left combat.
+    // Only the outer call may apply victory/loss history, morale and control.
+    static bool resolvingBattle = false;
+    if (resolvingBattle)
+        return FALSE;
+    struct ResolutionScope
+    {
+        bool& active;
+        explicit ResolutionScope(bool& value) : active(value) { active = true; }
+        ~ResolutionScope() { active = false; }
+    } resolutionScope(resolvingBattle);
+
     TacticalActor *pTeamSoldier;
     BOOLEAN		fBattleWon = TRUE;
     BOOLEAN		fBattleLost = FALSE;
@@ -9283,7 +9298,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 (void)TacticalActorOrientation::changeStance(*pSoldier, ubNewStance );
 
                 pSoldier->animationActivity().suppressionStanceChange() = TRUE;
-                pSoldier->animationActivity().stanceCostWaived() = TRUE;
+                // The synchronous transition already charged the stance cost
+                // removed from sPointsLost above. A waiver here would leak
+                // into the next unrelated player or AI stance change.
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier
@@ -9636,6 +9653,12 @@ BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor *
 
 static TacticalActor *InternalReduceAttackBusyCount( )
 {
+    // Whole-process teardown discards combat resources; it must not finish
+    // attacks against actors and world systems that are already dismantled.
+    // Ordinary sector unload and runtime underflow diagnostics stay unchanged.
+    if (GetGameContext().lifecycle() == GameLifecycle::ShuttingDown)
+        return nullptr;
+
     // Strange as this may seem, this function returns a pointer to
     // the *target* in case the target has changed sides as a result
     // of being attacked
@@ -9678,13 +9701,14 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     // no attackers that happened due to actions from other soldiers or turns, shots against dead bodies, etc.
 
     pSoldier = NULL;
+    const bool exactCoopOwner = ResolveDedicatedCoopAttackOwner(pSoldier);
 
-    if (GetJa2TacticalCurrentTeam() == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
+    if (!exactCoopOwner && GetJa2TacticalCurrentTeam() == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
     {
         pSoldier =
             GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
     }
-    else
+    else if (!exactCoopOwner)
     {
         for ( SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
                 id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID;
@@ -9702,7 +9726,7 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     // If we still haven't figured out who last acted, it could be that the team number changed during the attack.  Unfortunately this
     // can happen during a switch from real-time.   For now we will assume the last actor was a PC, but a real "Who started this?" pointer
     // would work quite well.   If only I could close all the holes that the UI opens so that one routine could handle everything.
-    if (!pSoldier && gusSelectedSoldier < TOTAL_SOLDIERS)
+    if (!exactCoopOwner && !pSoldier && gusSelectedSoldier < TOTAL_SOLDIERS)
     {
         if (is_networked)
         {
@@ -9723,6 +9747,7 @@ static TacticalActor *InternalReduceAttackBusyCount( )
     //if (!pSoldier)
 
     ubID = pSoldier->identity().id();
+    TacticalActor* const completedAttacker = pSoldier;
 
     DebugAttackBusy( String( "Ending action for %d\n", ubID ) );
     // Get the intended target info
@@ -10038,6 +10063,8 @@ static TacticalActor *InternalReduceAttackBusyCount( )
         }
     }
 
+    if (exactCoopOwner) CompleteDedicatedCoopAttack(*completedAttacker);
+
     CheckForEndOfBattle( FALSE );
 
     return( pTarget );
@@ -10051,6 +10078,10 @@ TacticalActor * ReduceAttackBusyCount( )
 
 TacticalActor * FreeUpAttacker( )
 {
+    // Do not synthesize combat work during resource-only process teardown.
+    if (GetGameContext().lifecycle() == GameLifecycle::ShuttingDown)
+        return nullptr;
+
     // Okay, so the objective here is not to simply decrease the ABC, but to twiddle it and see what
     // falls out.   So there's an increase followed immediately by a decrease.
     // If the ABC is 0 at this point, such as an aborted action might give, this will finalize the
@@ -10406,6 +10437,9 @@ void HandleEndDemoInCreatureLevel( )
 
 void DeathTimerCallback( )
 {
+    const bool creatures = GetTacticalTeamMenInSector(CREATURE_TEAM) > GetTacticalTeamMenInSector(ENEMY_TEAM);
+    if (DeferDedicatedCoopBattleNotice(creatures ? DedicatedCoopBattleNoticeKind::DefeatedByCreatures :
+            DedicatedCoopBattleNoticeKind::Defeated)) return;
     if (GetTacticalTeamMenInSector( CREATURE_TEAM ) > GetTacticalTeamMenInSector( ENEMY_TEAM ) )
     {
         DoMessageBox( MSG_BOX_BASIC_STYLE, LargeTacticalStr[ LARGESTR_NOONE_LEFT_CAPABLE_OF_BATTLE_AGAINST_CREATURES_STR ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, EndBattleWithUnconsciousGuysCallback, NULL );
@@ -10418,6 +10452,12 @@ void DeathTimerCallback( )
 
 void CaptureTimerCallback( )
 {
+    if (DeferDedicatedCoopBattleNotice(gfSurrendered ? DedicatedCoopBattleNoticeKind::Surrendered :
+            DedicatedCoopBattleNoticeKind::Captured))
+    {
+        gfSurrendered = FALSE;
+        return;
+    }
     if( gfSurrendered )
     {
         DoMessageBox( MSG_BOX_BASIC_STYLE, LargeTacticalStr[ 3 ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, EndBattleWithUnconsciousGuysCallback, NULL );

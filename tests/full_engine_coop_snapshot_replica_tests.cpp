@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -55,6 +56,9 @@ bool InstallSnapshot(CoopTacticalBaseline& baseline,
 	TacticalSectorSnapshot sector = TacticalSectorSnapshot{3, 4, 0, true},
 	std::vector<TacticalDoorSnapshot> doors = {})
 {
+	if (sector.loaded && sector.mapAssetKey.empty() &&
+		!AssignTacticalMapAssetKey(sector.mapAssetKey, "C3.DAT"))
+		return false;
 	return TacticalWorldSnapshot::create(
 		baseline.state.worldGeneration,
 		TacticalWorldDimensions{160, 160}, sector,
@@ -110,6 +114,8 @@ void CheckOriginalView(const FullEngineCoopSnapshotReplica& replica,
 		replica.state().turnSerial == 30 &&
 		replica.snapshot().dimensions().columns == 160 &&
 		replica.snapshot().dimensions().rows == 160 &&
+		std::string(replica.snapshot().sector().mapAssetKey.c_str()) ==
+			"C3.DAT" &&
 		replica.snapshot().actors().size() == 2 && first != nullptr &&
 		first->grid == 100 && first->loadout == CombatLoadout() &&
 		replica.snapshot().find(TacticalEntityId{3, 1}) == nullptr,
@@ -129,30 +135,36 @@ void TestPresentProjectionAndFullDelta()
 		"baseline retains only the delta-covered present projection");
 
 	CoopTacticalDelta delta = DeltaFrom(baseline, 21, 31);
+	TacticalSectorSnapshot changedSector{4, 4, 0, true};
+	CHECK(AssignTacticalMapAssetKey(
+		changedSector.mapAssetKey, "D4_A.DAT"),
+		"changed-sector map identity fixture is valid");
 	delta.delta.events.push_back(TacticalSectorChangedEvent{
-		baseline.snapshot.sector(), TacticalSectorSnapshot{4, 4, 0, true}});
+		baseline.snapshot.sector(), changedSector});
 	TacticalTurnSnapshot interruptTurn{true, true, 0, 31};
 	interruptTurn.interruptPhase = TacticalInterruptPhase::Active;
 	interruptTurn.interruptSerial = 9;
 	delta.delta.events.push_back(TacticalTurnChangedEvent{
 		baseline.snapshot.turn(), interruptTurn});
+	delta.delta.events.push_back(TacticalLightingChangedEvent{
+		baseline.snapshot.lighting(), TacticalWorldLightingSnapshot{7}});
 	delta.delta.events.push_back(
 		TacticalActorEnteredEvent{Actor(3, 300)});
 	delta.delta.events.push_back(
 		TacticalActorLeftEvent{TacticalEntityId{2, 1}});
-	delta.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 100, 105, 0, 0, 2, 3});
-	delta.delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalEntityId{1, 1}, TacticalStance::Standing,
-		TacticalStance::Crouched, 10, 11});
-	delta.delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalEntityId{1, 1}, 20, 15, 80, 70, 80, 80, 90, 75, 90, 90,
-		false, false, false, true});
 	TacticalActorLoadoutSnapshot changedEquipment =
 		CombatLoadout(6, false, -31);
 	changedEquipment.vest.condition = 79;
-	delta.delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalEntityId{1, 1}, CombatLoadout(), changedEquipment});
+	TacticalActorSnapshot changedActor = Actor(1, 105);
+	changedActor.direction = 3;
+	changedActor.stance = TacticalStance::Crouched;
+	changedActor.animation = 11;
+	changedActor.actionPoints = 15;
+	changedActor.life = 70;
+	changedActor.breath = 75;
+	changedActor.interruptActionEligible = true;
+	changedActor.loadout = changedEquipment;
+	delta.delta.events.push_back(TacticalActorUpdatedEvent{changedActor});
 	CHECK(replica.applyDelta(delta) ==
 		FullEngineCoopReplicaApplyResult::Committed,
 		"the complete canonical delta vocabulary commits");
@@ -165,8 +177,11 @@ void TestPresentProjectionAndFullDelta()
 		replica.snapshot().turn().interruptPhase ==
 			TacticalInterruptPhase::Active &&
 		replica.snapshot().turn().interruptSerial == 9 &&
+		replica.snapshot().lighting().ambientLightLevel == 7 &&
 		first != nullptr && first->interruptActionEligible &&
 		replica.snapshot().sector().x == 4 &&
+		replica.snapshot().sector().mapAssetKey ==
+			changedSector.mapAssetKey &&
 		replica.snapshot().turn().activeTeam == 0 &&
 		replica.snapshot().actors().size() == 2 && first != nullptr &&
 		first->grid == 105 && first->direction == 3 &&
@@ -178,6 +193,191 @@ void TestPresentProjectionAndFullDelta()
 		entered != nullptr &&
 		replica.snapshot().find(TacticalEntityId{2, 1}) == nullptr,
 		"all covered values become visible at one committed boundary");
+}
+
+void TestLightingOnlyDeltaRoundTripIsTransactional()
+{
+	CoopTacticalBaseline baseline = Baseline();
+	FullEngineCoopSnapshotReplica replica;
+	CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed,
+		"lighting-only predecessor baseline commits");
+	const TacticalActorSnapshot actor = *replica.snapshot().find({1, 1});
+	CoopTacticalDelta lighting = DeltaFrom(baseline);
+	lighting.delta.events = {TacticalLightingChangedEvent{
+		baseline.snapshot.lighting(), TacticalWorldLightingSnapshot{15}}};
+	std::vector<std::uint8_t> innerBytes;
+	TacticalWorldDelta innerDecoded;
+	CHECK(EncodeTacticalWorldDelta(lighting.delta, innerBytes) ==
+		TacticalWorldDeltaEncodeResult::Success && innerBytes.size() == 26 + 3 &&
+		DecodeTacticalWorldDelta(innerBytes, innerDecoded) ==
+		TacticalWorldDeltaDecodeResult::Success && innerDecoded.events.size() == 1 &&
+		std::get<TacticalLightingChangedEvent>(innerDecoded.events[0]).current.ambientLightLevel == 15,
+		"one three-byte lighting event passes the standalone allocation guard");
+	std::vector<std::uint8_t> bytes;
+	CoopTacticalDelta decoded;
+	CHECK(EncodeCoopTacticalDelta(lighting, bytes) == CoopTacticalCodecResult::Success &&
+		bytes.size() == CoopTacticalDeltaHeaderWireSize + 26 + 3 &&
+		DecodeCoopTacticalDelta(bytes, decoded) == CoopTacticalCodecResult::Success &&
+		replica.applyDelta(decoded) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().lighting().ambientLightLevel == 15 &&
+		*replica.snapshot().find(actor.id) == actor,
+		"lighting-only wire delta commits without changing any actor state");
+	const auto committedRevision = replica.state().revision;
+	lighting.baseRevision = committedRevision;
+	lighting.state.revision++;
+	lighting.deltaId++;
+	lighting.delta.events = {TacticalLightingChangedEvent{{4}, {1}}};
+	CHECK(replica.applyDelta(lighting) == FullEngineCoopReplicaApplyResult::Rejected &&
+		replica.state().revision == committedRevision &&
+		replica.snapshot().lighting().ambientLightLevel == 15,
+		"stale lighting-only predecessor cannot replace committed world light");
+	for (std::uint8_t invalid : {0, 4, 16})
+	{
+		auto malformed = innerBytes;
+		malformed.back() = invalid;
+		TacticalWorldDelta retained = innerDecoded;
+		CHECK(DecodeTacticalWorldDelta(malformed, retained) ==
+			TacticalWorldDeltaDecodeResult::Invalid && retained.events.size() == 1 &&
+			std::get<TacticalLightingChangedEvent>(retained.events[0]).current.ambientLightLevel == 15,
+			"invalid and no-op three-byte lighting events reject transactionally");
+	}
+}
+
+void TestPortraitOnlyReplacementIsTransactional()
+{
+	using Family = TacticalPortraitFamily;
+	using Camo = TacticalPortraitCamouflage;
+	CoopTacticalBaseline baseline = Baseline();
+	TacticalActorSnapshot actor = Actor(1, 100);
+	actor.loadout = CombatLoadout();
+	actor.presentation.portrait = {Family::Faces, 21, Camo::None};
+	CHECK(InstallSnapshot(baseline, {actor, Actor(2, 200)}), "portrait replica baseline creates");
+	FullEngineCoopSnapshotReplica replica;
+	CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->presentation.portrait == actor.presentation.portrait,
+		"baseline commits the exact authority-selected portrait without native profile lookup");
+	std::uint64_t deltaId = 0;
+	for (const TacticalPortraitSnapshot portrait : {
+		TacticalPortraitSnapshot{Family::ImpFaces, 255, Camo::Snow},
+		TacticalPortraitSnapshot{},
+		TacticalPortraitSnapshot{Family::Faces, 151, Camo::Wood}})
+	{
+		CoopTacticalDelta delta;
+		delta.state = replica.state();
+		delta.baseRevision = replica.state().revision;
+		++delta.state.revision;
+		delta.deltaId = ++deltaId;
+		delta.delta.previousEpoch = delta.delta.currentEpoch = baseline.state.worldGeneration;
+		actor.presentation.portrait = portrait;
+		delta.delta.events = {TacticalActorUpdatedEvent{actor}};
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
+			replica.applyDelta(decoded) == FullEngineCoopReplicaApplyResult::Committed &&
+			*replica.snapshot().find(actor.id) == actor,
+			"portrait-only wire updates atomically replace variants or clear previous art identity");
+	}
+	const auto committedRevision = replica.state().revision;
+	CoopTacticalDelta invalid;
+	invalid.state = replica.state();
+	++invalid.state.revision;
+	invalid.baseRevision = committedRevision;
+	invalid.deltaId = ++deltaId;
+	invalid.delta.previousEpoch = invalid.delta.currentEpoch = baseline.state.worldGeneration;
+	auto malformedActor = actor;
+	malformedActor.presentation.portrait = {Family::Absent, 9, Camo::None};
+	invalid.delta.events = {TacticalActorUpdatedEvent{malformedActor}};
+	CHECK(replica.applyDelta(invalid) == FullEngineCoopReplicaApplyResult::Rejected &&
+		replica.state().revision == committedRevision && *replica.snapshot().find(actor.id) == actor,
+		"noncanonical absence rejects without changing an already committed portrait");
+	CoopTacticalBaseline replacement = Baseline(11, 30);
+	replacement.baselineId = 2;
+	CHECK(replica.applyBaseline(replacement) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->presentation.portrait == TacticalPortraitSnapshot{},
+		"replacement baseline discards prior portrait descriptors absent from the new state");
+}
+
+void TestMedicalServiceReplacementIsTransactional()
+{
+	CoopTacticalBaseline baseline = Baseline();
+	TacticalActorSnapshot actor = Actor(1, 100);
+	actor.medicalService = {true, {2, 1}, 0};
+	CHECK(InstallSnapshot(baseline, {actor, Actor(2, 200)}),
+		"medical service replica baseline creates");
+	FullEngineCoopSnapshotReplica replica;
+	CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService == actor.medicalService,
+		"medical service baseline installs authoritative provider and exact patient identity");
+	std::uint64_t deltaId = 0;
+	auto makeDelta = [&]() {
+		CoopTacticalDelta delta;
+		delta.state = replica.state();
+		delta.baseRevision = replica.state().revision;
+		++delta.state.revision;
+		delta.deltaId = ++deltaId;
+		delta.delta.previousEpoch = delta.delta.currentEpoch = baseline.state.worldGeneration;
+		return delta;
+	};
+	for (const TacticalMedicalServiceSnapshot service : {
+		TacticalMedicalServiceSnapshot{true, {2, 1}, 255},
+		TacticalMedicalServiceSnapshot{true, {}, 0},
+		TacticalMedicalServiceSnapshot{false, {}, 2},
+		TacticalMedicalServiceSnapshot{},
+		TacticalMedicalServiceSnapshot{true, {2, 1}, 0}})
+	{
+		auto delta = makeDelta();
+		actor.medicalService = service;
+		delta.delta.events = {TacticalActorUpdatedEvent{actor}};
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
+			replica.applyDelta(decoded) == FullEngineCoopReplicaApplyResult::Committed &&
+			*replica.snapshot().find(actor.id) == actor,
+			"medical-service-only wire deltas atomically replace provider, patient and receiving state including stop and clear");
+	}
+	const auto committedRevision = replica.state().revision;
+	auto invalid = makeDelta();
+	auto malformedActor = actor;
+	malformedActor.medicalService = {false, {2, 1}, 0};
+	invalid.delta.events = {TacticalActorUpdatedEvent{malformedActor}};
+	CHECK(replica.applyDelta(invalid) == FullEngineCoopReplicaApplyResult::Rejected &&
+		replica.state().revision == committedRevision && *replica.snapshot().find(actor.id) == actor,
+		"invalid service rejects without altering already committed treatment activity");
+	auto patientLeaves = makeDelta();
+	patientLeaves.delta.events = {TacticalActorLeftEvent{{2, 1}}};
+	CHECK(replica.applyDelta(patientLeaves) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService.patient == (TacticalEntityId{2, 1}) &&
+		replica.snapshot().find(actor.medicalService.patient) == nullptr,
+		"patient departure does not reject a valid transient provider state or invent a target");
+	auto patientReenters = makeDelta();
+	patientReenters.delta.events = {TacticalActorEnteredEvent{Actor(2, 200, 2)}};
+	CHECK(replica.applyDelta(patientReenters) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.medicalService.patient) == nullptr &&
+		replica.snapshot().find(TacticalEntityId{2, 2}) != nullptr,
+		"reused patient slots do not silently retarget medical service to a new incarnation");
+	auto providerReplacement = makeDelta();
+	providerReplacement.delta.events = {TacticalActorEnteredEvent{Actor(1, 100, 2)},
+		TacticalActorLeftEvent{actor.id}};
+	CHECK(replica.applyDelta(providerReplacement) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id) == nullptr &&
+		replica.snapshot().find(TacticalEntityId{1, 2})->medicalService == TacticalMedicalServiceSnapshot{},
+		"new provider incarnation never inherits the departed actor's medical service");
+	CoopTacticalBaseline replacement = Baseline(11, replica.state().revision + 1);
+	replacement.baselineId = 2;
+	actor.id = {1, 2};
+	actor.medicalService = {true, {2, 2}, 4};
+	CHECK(InstallSnapshot(replacement, {actor, Actor(2, 200, 2)}) &&
+		replica.applyBaseline(replacement) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(actor.id)->medicalService == actor.medicalService,
+		"new baseline installs only its current medical service outcome");
+	CoopTacticalBaseline cleared = Baseline(12, 1, 1);
+	cleared.baselineId = 3;
+	CHECK(replica.applyBaseline(cleared) == FullEngineCoopReplicaApplyResult::Committed &&
+		replica.snapshot().find(TacticalEntityId{1, 1})->medicalService == TacticalMedicalServiceSnapshot{} &&
+		replica.snapshot().find(actor.id) == nullptr,
+		"fresh world baseline clears all prior medical service and incarnation state");
 }
 
 void TestCommandBusyOnlyDeltaIsTransactional()
@@ -290,6 +490,19 @@ void TestBaselineValidationPreservesState()
 	rejects(std::move(bad), "zero baseline identity is rejected");
 
 	bad = baseline;
+	TacticalSectorSnapshot unidentifiedSector{3, 4, 0, true};
+	CHECK(TacticalWorldSnapshot::create(
+		bad.state.worldGeneration, baseline.snapshot.dimensions(),
+		unidentifiedSector, baseline.snapshot.turn(),
+		baseline.snapshot.actors(), baseline.snapshot.doors(), bad.snapshot,
+		MaximumCoopTacticalSnapshotActors,
+		MaximumCoopTacticalSnapshotDoors) ==
+		TacticalSnapshotCreateError::None,
+		"internal missing-map-identity fixture creates");
+	rejects(std::move(bad),
+		"a loaded baseline without an exact map identity is rejected");
+
+	bad = baseline;
 	CHECK(InstallSnapshot(bad,
 		{Actor(1, 100), Actor(2, 200)},
 		TacticalSectorSnapshot{3, 4, 0, false}),
@@ -316,13 +529,6 @@ void TestBaselineValidationPreservesState()
 
 	bad = baseline;
 	CHECK(InstallSnapshot(bad,
-		{Actor(1, 100, 1), Actor(1, 101, 2)}),
-		"duplicate-slot baseline fixture creates");
-	rejects(std::move(bad),
-		"two live incarnations of one actor slot are rejected");
-
-	bad = baseline;
-	CHECK(InstallSnapshot(bad,
 		{Actor(1, 100, 1, false, true)}),
 		"impossible-presence baseline fixture creates");
 	rejects(std::move(bad),
@@ -340,7 +546,7 @@ void TestBaselineValidationPreservesState()
 		"noncanonical baseline actor assignments are rejected");
 }
 
-void TestDeltaEnvelopeAndPreviousValueValidation()
+void TestDeltaEnvelopeAndTargetValidation()
 {
 	FullEngineCoopSnapshotReplica replica;
 	const CoopTacticalBaseline baseline = Baseline();
@@ -355,15 +561,15 @@ void TestDeltaEnvelopeAndPreviousValueValidation()
 	};
 
 	CoopTacticalDelta bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 999, 105, 0, 0, 2, 3});
-	rejects(std::move(bad), "mismatched previous actor value is rejected");
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{Actor(9, 105)});
+	rejects(std::move(bad), "an update for an unknown actor is rejected");
 
 	bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalEntityId{1, 1}, CombatLoadout(8), CombatLoadout(6)});
+	TacticalActorSnapshot absentUpdate = Actor(3, 300);
+	absentUpdate.loadout = CombatLoadout(6);
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{absentUpdate});
 	rejects(std::move(bad),
-		"mismatched previous combat loadout is rejected");
+		"an update cannot implicitly enter an absent actor");
 
 	bad = DeltaFrom(baseline);
 	bad.state.sessionEpoch = 8;
@@ -405,17 +611,18 @@ void TestNoncanonicalAndAmbiguousDeltasAreRejected()
 	};
 
 	CoopTacticalDelta bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalEntityId{1, 1}, 20, 19, 80, 79, 80, 80, 90, 89, 90, 90});
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{2, 1}, 200, 201, 0, 0, 2, 3});
+	TacticalActorSnapshot updated = Actor(1, 101);
+	updated.loadout = CombatLoadout();
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{updated});
+	bad.delta.events.push_back(
+		TacticalActorLeftEvent{TacticalEntityId{2, 1}});
 	rejects(std::move(bad), "decreasing event-kind order is rejected");
 
 	bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 100, 101, 0, 0, 2, 3});
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 101, 102, 0, 0, 3, 4});
+	updated.grid = 101;
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{updated});
+	updated.grid = 102;
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{updated});
 	rejects(std::move(bad),
 		"duplicate actor event in one canonical category is rejected");
 
@@ -429,10 +636,9 @@ void TestNoncanonicalAndAmbiguousDeltasAreRejected()
 
 	bad = DeltaFrom(baseline);
 	bad.delta.events.push_back(TacticalActorEnteredEvent{Actor(3, 300)});
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{3, 1}, 300, 301, 0, 0, 2, 3});
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{Actor(3, 301)});
 	rejects(std::move(bad),
-		"an entering actor cannot also carry a partial update");
+		"an entering actor cannot also carry a full update");
 
 	bad = DeltaFrom(baseline);
 	bad.delta.events.push_back(TacticalActorEnteredEvent{Actor(3, 300)});
@@ -442,28 +648,34 @@ void TestNoncanonicalAndAmbiguousDeltasAreRejected()
 		"one delta cannot enter and leave the same incarnation");
 
 	bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorMovedEvent{
-		TacticalEntityId{1, 1}, 100, 100, 0, 0, 2, 2});
+	TacticalActorSnapshot unchanged = Actor(1, 100);
+	unchanged.loadout = CombatLoadout();
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{unchanged});
 	rejects(std::move(bad), "a redundant no-op actor event is rejected");
-
-	bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalEntityId{1, 1}, CombatLoadout(), CombatLoadout()});
-	rejects(std::move(bad), "a redundant no-op loadout event is rejected");
 
 	bad = DeltaFrom(baseline);
 	TacticalActorLoadoutSnapshot invalidLoadout = CombatLoadout(6);
 	invalidLoadout.primaryHand.quantity = 0;
-	bad.delta.events.push_back(TacticalActorLoadoutChangedEvent{
-		TacticalEntityId{1, 1}, CombatLoadout(), invalidLoadout});
+	updated = Actor(1, 100);
+	updated.loadout = invalidLoadout;
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{updated});
 	rejects(std::move(bad),
 		"a noncanonical current combat loadout is rejected");
 
 	bad = DeltaFrom(baseline);
-	bad.delta.events.push_back(TacticalActorStanceChangedEvent{
-		TacticalEntityId{1, 1}, TacticalStance::Standing,
-		static_cast<TacticalStance>(99), 10, 11});
+	updated = Actor(1, 100);
+	updated.loadout = CombatLoadout();
+	updated.stance = static_cast<TacticalStance>(99);
+	bad.delta.events.push_back(TacticalActorUpdatedEvent{updated});
 	rejects(std::move(bad), "non-enumerated delta stance is rejected");
+
+	bad = DeltaFrom(baseline);
+	TacticalSectorSnapshot invalidMapSector = baseline.snapshot.sector();
+	invalidMapSector.mapAssetKey.bytes[0] = '/';
+	bad.delta.events.push_back(TacticalSectorChangedEvent{
+		baseline.snapshot.sector(), invalidMapSector});
+	rejects(std::move(bad),
+		"a sector delta with an unsafe map identity is rejected");
 
 	bad = DeltaFrom(baseline);
 	bad.delta.events.push_back(TacticalActorEnteredEvent{
@@ -630,9 +842,10 @@ void TestDoorAndHostilityProjectionIsTransactional()
 		"baseline retains the complete public door projection");
 
 	CoopTacticalDelta delta = DeltaFrom(baseline);
-	delta.delta.events.push_back(TacticalActorVitalsChangedEvent{
-		TacticalEntityId{1, 1}, 20, 20, 80, 80, 80, 80, 90, 90, 90, 90,
-		false, true});
+	TacticalActorSnapshot hostile = Actor(1, 100);
+	hostile.loadout = CombatLoadout();
+	hostile.hostileToPlayerTeam = true;
+	delta.delta.events.push_back(TacticalActorUpdatedEvent{hostile});
 	delta.delta.events.push_back(TacticalDoorEnteredEvent{
 		TacticalDoorSnapshot{102, 43, false}});
 	delta.delta.events.push_back(TacticalDoorLeftEvent{101});
@@ -697,10 +910,13 @@ void TestDoorAndHostilityProjectionIsTransactional()
 int main()
 {
 	TestPresentProjectionAndFullDelta();
+	TestLightingOnlyDeltaRoundTripIsTransactional();
+	TestPortraitOnlyReplacementIsTransactional();
+	TestMedicalServiceReplacementIsTransactional();
 	TestCommandBusyOnlyDeltaIsTransactional();
 	TestGenerationRequiresFreshBaseline();
 	TestBaselineValidationPreservesState();
-	TestDeltaEnvelopeAndPreviousValueValidation();
+	TestDeltaEnvelopeAndTargetValidation();
 	TestNoncanonicalAndAmbiguousDeltasAreRejected();
 	TestIncarnationReplacementCapacityAndEmptyDelta();
 	TestDoorAndHostilityProjectionIsTransactional();

@@ -1274,7 +1274,8 @@ void DeleteStructureFromTile( MAP_ELEMENT * pMapElement, STRUCTURE * pStructure 
 	MemFree( pStructure );
 }
 
-BOOLEAN DeleteStructureFromWorld( STRUCTURE * pStructure )
+static BOOLEAN InternalDeleteStructureFromWorld(
+	STRUCTURE * pStructure, BOOLEAN fAllowMovementRecompile )
 {
 	// removes all of the STRUCTURE elements for a structure from the world
 	MAP_ELEMENT *					pBaseMapElement;
@@ -1297,7 +1298,9 @@ BOOLEAN DeleteStructureFromWorld( STRUCTURE * pStructure )
 
 	usStructureID = pBaseStructure->usStructureID;
 	fMultiStructure = ( ( pBaseStructure->fFlags & STRUCTURE_MULTI ) != 0 );
-	fRecompileMPs = ( ( gsRecompileAreaLeft != 0 ) && ! ( ( pBaseStructure->fFlags & STRUCTURE_MOBILE ) != 0 ) );
+	fRecompileMPs = ( fAllowMovementRecompile &&
+		( gsRecompileAreaLeft != 0 ) &&
+		! ( ( pBaseStructure->fFlags & STRUCTURE_MOBILE ) != 0 ) );
 	if (fRecompileMPs)
 	{
 		fRecompileExtraRadius = ( ( pBaseStructure->fFlags & STRUCTURE_WALLSTUFF ) != 0 );
@@ -1344,6 +1347,17 @@ BOOLEAN DeleteStructureFromWorld( STRUCTURE * pStructure )
 		}
 	}
 	return( TRUE );
+}
+
+BOOLEAN DeleteStructureFromWorld( STRUCTURE * pStructure )
+{
+	return InternalDeleteStructureFromWorld( pStructure, TRUE );
+}
+
+BOOLEAN DeleteStructureFromWorldForStaticPresentation(
+	STRUCTURE * pStructure )
+{
+	return InternalDeleteStructureFromWorld( pStructure, FALSE );
 }
 
 static STRUCTURE * InternalSwapStructureForPartner( INT32 sGridNo, STRUCTURE * pStructure, BOOLEAN fFlipSwitches, BOOLEAN fStoreInMap )

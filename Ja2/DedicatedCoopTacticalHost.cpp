@@ -1,3 +1,4 @@
+#include "DedicatedCoopMoveDiagnostic.h"
 #include "DedicatedCoopTacticalHost.h"
 
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -184,6 +185,19 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 	DedicatedCoopTacticalTurnState& turn,
 	CoopTacticalIntentReceiptReason& reason) const noexcept
 {
+	const auto rejectContext = [&](TacticalMoveFailure failure, const char* stage = "admission-context") noexcept {
+		if (const auto* move = std::get_if<CoopSession::MoveTacticalIntent>(&intent.payload))
+		{
+			TacticalMoveDiagnostic diagnostic;
+			diagnostic.reason = failure; diagnostic.actorSlot = intent.actor.slot;
+			diagnostic.incarnation = intent.actor.incarnation; diagnostic.commandId = intent.commandId;
+			diagnostic.destination = move->destinationGrid; diagnostic.movementMode = move->movementMode;
+			diagnostic.reverse = move->reverse; diagnostic.pendingCombatActions = turn.pendingCombatActions;
+			diagnostic.interruptPhase = static_cast<std::uint8_t>(turn.interruptPhase);
+			TraceDedicatedCoopMoveRejection(stage, diagnostic);
+		}
+		return false;
+	};
 	if (liveState_ == nullptr || !liveState_->captureTurn(turn) ||
 		!turn.worldLoaded || turn.worldGeneration == 0 || turn.turnSerial == 0 ||
 		turn.worldGeneration != intent.context.worldGeneration ||
@@ -194,36 +208,38 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 			 turn.currentTeam >= Ja2TacticalTeamCount)))
 	{
 		reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-		return false;
+		return rejectContext(TacticalMoveFailure::ContextUnavailable);
 	}
 
 	DedicatedCoopTacticalActorState actor;
 	if (!liveState_->captureActor(intent.actor, actor))
 	{
 		reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-		return false;
+		return rejectContext(TacticalMoveFailure::ActorCapture);
 	}
 	if (!actor.exactIdentity || !actor.active || !actor.inSector)
 	{
 		reason = CoopTacticalIntentReceiptReason::ActorUnavailable;
-		return false;
+		return rejectContext(TacticalMoveFailure::ActorIdentity);
 	}
 	if (!actor.playerTeam)
 	{
 		reason = CoopTacticalIntentReceiptReason::WrongTeam;
-		return false;
+		return rejectContext(TacticalMoveFailure::WrongTeam);
 	}
 	if (!actor.controllable)
 	{
 		reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-		return false;
+		return rejectContext(TacticalMoveFailure::NotControllable);
 	}
 
-	if (turn.pendingCombatActions != 0 || turn.interruptPending ||
+	if (turn.sharedDecisionPending || turn.pendingCombatActions != 0 || turn.interruptPending ||
 		turn.interruptPhase == TacticalInterruptPhase::Resolving)
 	{
 		reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-		return false;
+		return turn.sharedDecisionPending
+			? rejectContext(TacticalMoveFailure::ContextUnavailable, "admission-shared-decision")
+			: rejectContext(TacticalMoveFailure::CombatOrInterruptPending);
 	}
 
 	switch (turn.interruptPhase)
@@ -234,13 +250,13 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 				 turn.currentTeam != turn.playerTeam))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-				return false;
+				return rejectContext(TacticalMoveFailure::WrongTurn);
 			}
 			break;
 		case TacticalInterruptPhase::Resolving:
 			// Rejected above together with the live pending-interrupt gate.
 			reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-			return false;
+			return rejectContext(TacticalMoveFailure::InterruptResolving);
 		case TacticalInterruptPhase::Active:
 			if (!turn.turnBased || !turn.inCombat ||
 				turn.interruptSerial == 0 ||
@@ -250,12 +266,12 @@ bool DedicatedCoopTacticalHost::validateContextAndActor(
 					CoopSession::EndTurnTacticalIntent>(intent.payload))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
-				return false;
+				return rejectContext(TacticalMoveFailure::InterruptEligibility);
 			}
 			break;
 		default:
 			reason = CoopTacticalIntentReceiptReason::UnavailableContext;
-			return false;
+			return rejectContext(TacticalMoveFailure::InterruptPhase);
 	}
 	return true;
 }
@@ -284,6 +300,14 @@ bool DedicatedCoopTacticalHost::translate(
 			if (liveState_->legacyNetworkingActive())
 			{
 				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			if (!liveState_->canBeginMoveToGrid(
+					intent.actor, payload.destinationGrid, payload.movementMode,
+					payload.reverse))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
 				translated = false;
 				return;
 			}
@@ -355,10 +379,67 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::BeginFirstAidTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			BeginFirstAidCommand prepared{};
+			if (!liveState_->prepareBeginFirstAid(intent.actor, payload.target, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::ReloadTacticalIntent>::value)
 		{
 			ReloadWeaponCommand prepared{};
 			if (!liveState_->prepareReloadWeapon(intent.actor, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
+			CoopSession::SwapInventorySlotsTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			SwapInventorySlotsCommand prepared{};
+			if (!liveState_->prepareSwapInventorySlots(intent.actor, payload.sourceSlot,
+					payload.destinationSlot, payload.expectedInventoryRevision, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
+			CoopSession::TransferInventoryItemTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			TransferInventoryItemCommand prepared{};
+			if (!liveState_->prepareTransferInventoryItem(intent.actor, payload.target,
+					payload.sourceSlot, payload.destinationSlot, payload.expectedInventoryRevision,
+					payload.expectedTargetInventoryRevision, prepared))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
 				translated = false;
@@ -383,6 +464,44 @@ bool DedicatedCoopTacticalHost::translate(
 					TacticalWorldObjectId{
 						payload.baseGrid, payload.structureId},
 					payload.desiredOpen, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
+			CoopSession::PickupWorldItemTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			AuthoritativePickupWorldItemCommand prepared{};
+			if (!liveState_->preparePickupWorldItem(intent.actor, payload.item,
+					payload.destinationSlot, payload.expectedInventoryRevision, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
+			CoopSession::DropInventoryItemTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			AuthoritativeDropInventoryItemCommand prepared{};
+			if (!liveState_->prepareDropInventoryItem(intent.actor, payload.sourceSlot,
+					payload.expectedInventoryRevision, prepared))
 			{
 				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
 				translated = false;
@@ -496,6 +615,8 @@ TacticalIntentExecutionDisposition DedicatedCoopTacticalHost::execute(
 		return reject(intent,
 			CoopTacticalIntentReceiptReason::QueueUnavailable, *obligation);
 
+	obligation->actor = intent.actor;
+	obligation->nativeAttack = std::holds_alternative<CoopSession::AimedFirearmAttackTacticalIntent>(intent.payload);
 	obligation->requestId = submitted.requestId;
 	obligation->peerIdentity = intent.peerIdentity;
 	obligation->commandId = intent.commandId;
@@ -630,8 +751,26 @@ std::size_t DedicatedCoopTacticalHost::flushPendingReceiptsInternal() noexcept
 			++published;
 		}
 		if (!correlation.terminalReceiptPending) continue;
+		if (correlation.nativeAttack && !correlation.nativeAttackTerminal &&
+			correlation.terminalReceipt.status == CoopTacticalIntentReceiptStatus::Applied)
+		{
+			const auto outcome = liveState_->captureAttackOutcome(
+				correlation.terminalReceipt.authoritativeSequence,
+				correlation.state.worldGeneration, correlation.actor);
+			if (outcome != DedicatedCoopAttackOutcome::Completed &&
+				outcome != DedicatedCoopAttackOutcome::Interrupted) continue;
+			correlation.nativeAttackTerminal = true;
+			if (outcome == DedicatedCoopAttackOutcome::Interrupted)
+			{
+				correlation.terminalReceipt.status = CoopTacticalIntentReceiptStatus::Cancelled;
+				correlation.terminalReceipt.reason = CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
+			}
+		}
 		if (!tryPublish(correlation.terminalReceipt)) return published;
 		++published;
+		if (correlation.nativeAttackTerminal)
+			liveState_->releaseAttackOutcome(correlation.terminalReceipt.authoritativeSequence,
+				correlation.state.worldGeneration, correlation.actor);
 		releaseCorrelation(correlation);
 	}
 	return published;

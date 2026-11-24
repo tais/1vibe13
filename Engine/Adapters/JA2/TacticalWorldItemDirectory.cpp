@@ -71,6 +71,36 @@ bool TacticalWorldItemDirectory::activate(
 	return true;
 }
 
+bool TacticalWorldItemDirectory::reserveSlots(std::size_t count) noexcept
+{
+	if (count > maximumSlots_) return false;
+	try
+	{
+		incarnations_.reserve(count);
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+bool TacticalWorldItemDirectory::activatePrepared(TacticalWorldItemId item) noexcept
+{
+	if (!item.valid() || item.slot >= maximumSlots_ ||
+		item.slot >= incarnations_.capacity() ||
+		item.incarnation != nextIncarnation_ || identity(item.slot).valid())
+		return false;
+	// With reserved capacity and a trivial element type this cannot allocate.
+	if (item.slot >= incarnations_.size())
+		incarnations_.resize(static_cast<std::size_t>(item.slot) + 1, 0);
+	incarnations_[item.slot] = item.incarnation;
+	++activeCount_;
+	nextIncarnation_ = item.incarnation == std::numeric_limits<std::uint32_t>::max()
+		? 0 : item.incarnation + 1;
+	return true;
+}
+
 bool TacticalWorldItemDirectory::release(
 	TacticalWorldItemId item) noexcept
 {

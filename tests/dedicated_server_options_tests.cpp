@@ -33,6 +33,17 @@ DedicatedServerOptionParseResult Parse(
 
 int main()
 {
+	Check(IsDedicatedCoopCanonicalLoopbackBindAddress("127.0.0.1") &&
+		IsDedicatedCoopCanonicalLoopbackBindAddress("::1") &&
+		IsDedicatedCoopCanonicalLoopbackBindAddress("0:0:0:0:0:0:0:1"),
+		"canonical numeric IPv4 and IPv6 loopback binds are private");
+	for (const char* exposedOrUnverified : {
+			"0.0.0.0", "::", "0:0:0:0:0:0:0:0", "*", "localhost",
+			"192.168.1.10"})
+	{
+		Check(!IsDedicatedCoopCanonicalLoopbackBindAddress(exposedOrUnverified),
+			"wildcard, LAN, and externally resolved binds require an exposure warning");
+	}
 	{
 		const auto parsed = Parse({"JA2", "-VFS_CONFIG_INI", "vfs.ini"});
 		Check(parsed && !parsed.options.enabled,
@@ -70,9 +81,9 @@ int main()
 			parsed.options.campaignAction == DedicatedCampaignAction::Create &&
 			parsed.options.campaignId == "alpha-1" &&
 			parsed.options.campaignSeed == 0 &&
-			parsed.options.coopBindAddress == "0.0.0.0" &&
+			parsed.options.coopBindAddress == "127.0.0.1" &&
 			parsed.options.coopPort == 60005,
-			"new co-op campaign has an explicit seed and lowercase canonical id");
+			"new co-op campaign has an explicit seed, lowercase canonical id, and private listener");
 	}
 	{
 		const auto parsed = Parse({"JA2", "--dedicated",
@@ -225,6 +236,14 @@ int main()
 		"--dedicated-coop-bind", oversizedBindAddress.c_str()}).error ==
 		DedicatedServerOptionError::InvalidCoopBindAddress,
 		"co-op listener binding fits the transport endpoint exactly");
+	{
+		const auto parsed = Parse({"JA2", "--dedicated",
+			"--dedicated-mode=coop", "--campaign=one",
+			"--campaign-action=resume", "--dedicated-state-dir", StateRoot,
+			"--dedicated-coop-bind=0.0.0.0"});
+		Check(parsed && parsed.options.coopBindAddress == "0.0.0.0",
+			"co-op listener requires but preserves an explicit all-interface IPv4 bind");
+	}
 	{
 		const auto parsed = Parse({"JA2", "--dedicated",
 			"--dedicated-mode=coop", "--campaign=one",

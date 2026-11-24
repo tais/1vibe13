@@ -1,9 +1,11 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalWorldAdapter.h"
 
 #include <cstdint>
 #include <limits>
 #include "Grid Direction.h"
 #include "Isometric Utils.h"
+#include "lighting.h"
 #include "LOS.h"
 #include "Overhead.h"
 #include "opplist.h"
@@ -20,6 +22,11 @@
 static_assert(WORLD_COLS_MAX == TacticalWorldDimensions::MaximumColumns &&
 	WORLD_ROWS_MAX == TacticalWorldDimensions::MaximumRows,
 	"replicated tactical dimensions must match JA2's enlarged-map ceiling");
+static_assert(sizeof(gzLastLoadedFile) == TacticalMapAssetKeyStorageBytes,
+	"replicated map identity must cover JA2's exact loaded-file buffer");
+static_assert(SHADE_MAX == TacticalWorldLightingSnapshot::Brightest &&
+	SHADE_MIN == TacticalWorldLightingSnapshot::Darkest,
+	"replicated ambient-light bounds must match JA2's renderer");
 
 namespace
 {
@@ -50,6 +57,69 @@ bool ProjectInterruptPhase(
 	}
 	return false;
 }
+
+Ja2TacticalWorldCaptureFailure ClassifyInvalidSnapshotActor(
+	const std::vector<TacticalActorSnapshot>& actors,
+	const TacticalWorldDimensions& dimensions) noexcept
+{
+	// createReusableOrdered already performs the canonical validation. Only
+	// revisit the failed collection when its coarse result is InvalidEntity so
+	// successful captures retain their single validation pass.
+	for (const TacticalActorSnapshot& actor : actors)
+		if (!IsValidTacticalActorPresentation(actor, dimensions))
+			return Ja2TacticalWorldCaptureFailure::
+				SnapshotActorPresentationInvalid;
+	return Ja2TacticalWorldCaptureFailure::SnapshotActorInvalid;
+}
+}
+
+const char* Ja2TacticalWorldCaptureFailureName(
+	Ja2TacticalWorldCaptureFailure failure) noexcept
+{
+	using Failure = Ja2TacticalWorldCaptureFailure;
+	switch (failure)
+	{
+		case Failure::None: return "none";
+		case Failure::IntegrityInvalid: return "tactical world integrity invalid";
+		case Failure::InterruptProjectionInvalid:
+			return "interrupt projection invalid";
+		case Failure::DimensionsInvalid: return "world dimensions invalid";
+		case Failure::PlayerTeamInvalid: return "player team invalid";
+		case Failure::MapAssetIdentityInvalid:
+			return "map asset identity invalid";
+		case Failure::EntitySynchronizationFailed:
+			return "entity synchronization failed";
+		case Failure::EntityDirectoryInvalid:
+			return "entity directory invalid";
+		case Failure::ActorStateInvalid: return "actor state invalid";
+		case Failure::WorldLevelDataUnavailable:
+			return "world level data unavailable";
+		case Failure::DuplicateProjectedDoor:
+			return "duplicate projected door";
+		case Failure::SnapshotEpochInvalid: return "snapshot epoch invalid";
+		case Failure::SnapshotDimensionsInvalid:
+			return "snapshot dimensions invalid";
+		case Failure::SnapshotSectorInvalid: return "snapshot sector invalid";
+		case Failure::SnapshotTurnInvalid: return "snapshot turn invalid";
+		case Failure::SnapshotLightingInvalid:
+			return "snapshot lighting invalid";
+		case Failure::SnapshotActorInvalid: return "snapshot actor invalid";
+		case Failure::SnapshotActorPresentationInvalid:
+			return "snapshot actor presentation invalid";
+		case Failure::SnapshotActorDuplicate:
+			return "snapshot actor duplicate";
+		case Failure::SnapshotActorUnordered:
+			return "snapshot actor unordered";
+		case Failure::SnapshotDoorInvalid: return "snapshot door invalid";
+		case Failure::SnapshotDoorDuplicate:
+			return "snapshot door duplicate";
+		case Failure::SnapshotDoorUnordered:
+			return "snapshot door unordered";
+		case Failure::ActorCapacityReached: return "actor capacity reached";
+		case Failure::DoorCapacityReached: return "door capacity reached";
+		case Failure::AllocationFailure: return "capture allocation failure";
+	}
+	return "unknown tactical capture failure";
 }
 
 // Exact legacy coordinate names remain cheap lvalue reads, but their public
@@ -121,27 +191,41 @@ Ja2TacticalTurnIdentity Ja2TacticalWorldAdapter::liveTurnIdentity() noexcept
 TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 	TacticalWorldSnapshot& output) noexcept
 {
+	using Failure = Ja2TacticalWorldCaptureFailure;
+	lastCaptureFailure_ = Failure::None;
+	const auto fail = [this](Failure failure,
+		TacticalWorldCaptureResult result =
+			TacticalWorldCaptureResult::AdapterFailure) noexcept {
+		lastCaptureFailure_ = failure;
+		return result;
+	};
 	const TacticalWorldSession::Snapshot state = session_->snapshot();
 	if (!state.loaded || state.worldGeneration == 0)
 		return TacticalWorldCaptureResult::Unavailable;
 	if (!integrityValid_)
-		return TacticalWorldCaptureResult::AdapterFailure;
+		return fail(Failure::IntegrityInvalid);
 	const Ja2TacticalInterruptProjection nativeInterrupt =
 		CaptureJa2TacticalInterruptProjection();
 	TacticalInterruptPhase interruptPhase = TacticalInterruptPhase::None;
 	if (!ProjectInterruptPhase(nativeInterrupt.phase, interruptPhase))
-		return TacticalWorldCaptureResult::AdapterFailure;
+		return fail(Failure::InterruptProjectionInvalid);
 
 	try
 	{
 		if (guiWorldCols <= 0 || guiWorldRows <= 0 ||
 			guiWorldCols > TacticalWorldDimensions::MaximumColumns ||
 			guiWorldRows > TacticalWorldDimensions::MaximumRows)
-			return TacticalWorldCaptureResult::AdapterFailure;
+			return fail(Failure::DimensionsInvalid);
 		if (gbPlayerNum >= MAXTEAMS)
-			return TacticalWorldCaptureResult::AdapterFailure;
+			return fail(Failure::PlayerTeamInvalid);
+		TacticalSectorSnapshot projectedSector{
+			state.sector.x, state.sector.y, state.sector.z, state.loaded};
+		if (!AssignTacticalMapAssetKey(
+				projectedSector.mapAssetKey, gzLastLoadedFile,
+				sizeof(gzLastLoadedFile)))
+			return fail(Failure::MapAssetIdentityInvalid);
 		if (!SynchronizeJa2TacticalEntityStates())
-			return TacticalWorldCaptureResult::AdapterFailure;
+			return fail(Failure::EntitySynchronizationFailed);
 		const TacticalEntityDirectory& directory =
 			GetJa2TacticalEntityDirectory();
 		const std::size_t availableSlots =
@@ -159,15 +243,18 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				directory.identity(static_cast<std::uint16_t>(slot));
 			if (!entity.valid()) continue;
 			if (entity.slot != slot || entity.slot >= TOTAL_SOLDIERS)
-				return TacticalWorldCaptureResult::AdapterFailure;
+				return fail(Failure::EntityDirectoryInvalid);
 			const TacticalActorSnapshot* actor = directory.state(entity);
-			if (!actor || actor->id != entity || actor->team >= MAXTEAMS)
-				return TacticalWorldCaptureResult::AdapterFailure;
+			if (!actor || actor->id != entity)
+				return fail(Failure::EntityDirectoryInvalid);
+			if (actor->team >= MAXTEAMS)
+				return fail(Failure::ActorStateInvalid);
 			if (actor->team != gbPlayerNum &&
 				gbPublicOpplist[gbPlayerNum][entity.slot] != SEEN_CURRENTLY)
 				continue;
 			if (actorScratch_.size() >= maximumActors_)
-				return TacticalWorldCaptureResult::CapacityReached;
+				return fail(Failure::ActorCapacityReached,
+					TacticalWorldCaptureResult::CapacityReached);
 			TacticalActorSnapshot projected = *actor;
 			projected.interruptActionEligible =
 				IsJa2TacticalInterruptActorEligible(entity);
@@ -175,7 +262,7 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 		}
 
 		if (!gpWorldLevelData)
-			return TacticalWorldCaptureResult::AdapterFailure;
+			return fail(Failure::WorldLevelDataUnavailable);
 		doorScratch_.clear();
 		doorScratch_.reserve(maximumDoors_);
 		for (INT32 grid = 0; grid < WORLD_MAX; ++grid)
@@ -195,9 +282,10 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				if (!IsJa2TacticalDoorVisibleToPlayerTeam(grid)) continue;
 				if (!doorScratch_.empty() &&
 					doorScratch_.back().baseGrid == grid)
-					return TacticalWorldCaptureResult::AdapterFailure;
+					return fail(Failure::DuplicateProjectedDoor);
 				if (doorScratch_.size() >= maximumDoors_)
-					return TacticalWorldCaptureResult::CapacityReached;
+					return fail(Failure::DoorCapacityReached,
+						TacticalWorldCaptureResult::CapacityReached);
 				doorScratch_.push_back(TacticalDoorSnapshot{
 					grid, structure->usStructureID,
 					(structure->fFlags & STRUCTURE_OPEN) != 0});
@@ -209,34 +297,64 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 		projectedTurn.inCombat = state.turn.inCombat;
 		projectedTurn.activeTeam = state.turn.currentTeam;
 		projectedTurn.serial = state.turnSerial;
-		projectedTurn.commandsBlocked =
+		projectedTurn.commandsBlocked = DedicatedCoopAttackPending() ||
 			(state.turn.turnBased && state.turn.inCombat &&
 			 state.turn.pendingCombatActions != 0) ||
 			interruptPhase == TacticalInterruptPhase::Resolving;
 		projectedTurn.interruptPhase = interruptPhase;
 		projectedTurn.interruptSerial = nativeInterrupt.serial;
+		const TacticalWorldDimensions dimensions{
+			static_cast<std::uint16_t>(guiWorldCols),
+			static_cast<std::uint16_t>(guiWorldRows)};
 		const TacticalSnapshotCreateError result =
 			TacticalWorldSnapshot::createReusableOrdered(
 				state.worldGeneration,
-				TacticalWorldDimensions{
-					static_cast<std::uint16_t>(guiWorldCols),
-					static_cast<std::uint16_t>(guiWorldRows)},
-				TacticalSectorSnapshot{
-					state.sector.x, state.sector.y, state.sector.z, state.loaded},
+				dimensions,
+				projectedSector,
 				projectedTurn,
 				actorScratch_, doorScratch_, output,
-				maximumActors_, maximumDoors_);
-		if (result == TacticalSnapshotCreateError::TooManyActors)
-			return TacticalWorldCaptureResult::CapacityReached;
-		if (result == TacticalSnapshotCreateError::TooManyDoors)
-			return TacticalWorldCaptureResult::CapacityReached;
-		if (result != TacticalSnapshotCreateError::None)
-			return TacticalWorldCaptureResult::AdapterFailure;
-		return TacticalWorldCaptureResult::Success;
+				maximumActors_, maximumDoors_,
+				TacticalWorldLightingSnapshot{LightGetAmbient()});
+		switch (result)
+		{
+			case TacticalSnapshotCreateError::None:
+				return TacticalWorldCaptureResult::Success;
+			case TacticalSnapshotCreateError::TooManyActors:
+				return fail(Failure::ActorCapacityReached,
+					TacticalWorldCaptureResult::CapacityReached);
+			case TacticalSnapshotCreateError::TooManyDoors:
+				return fail(Failure::DoorCapacityReached,
+					TacticalWorldCaptureResult::CapacityReached);
+			case TacticalSnapshotCreateError::InvalidEpoch:
+				return fail(Failure::SnapshotEpochInvalid);
+			case TacticalSnapshotCreateError::InvalidDimensions:
+				return fail(Failure::SnapshotDimensionsInvalid);
+			case TacticalSnapshotCreateError::InvalidSector:
+				return fail(Failure::SnapshotSectorInvalid);
+			case TacticalSnapshotCreateError::InvalidTurn:
+				return fail(Failure::SnapshotTurnInvalid);
+			case TacticalSnapshotCreateError::InvalidLighting:
+				return fail(Failure::SnapshotLightingInvalid);
+			case TacticalSnapshotCreateError::InvalidEntity:
+				return fail(ClassifyInvalidSnapshotActor(
+					actorScratch_, dimensions));
+			case TacticalSnapshotCreateError::DuplicateEntity:
+				return fail(Failure::SnapshotActorDuplicate);
+			case TacticalSnapshotCreateError::UnorderedEntity:
+				return fail(Failure::SnapshotActorUnordered);
+			case TacticalSnapshotCreateError::InvalidDoor:
+				return fail(Failure::SnapshotDoorInvalid);
+			case TacticalSnapshotCreateError::DuplicateDoor:
+				return fail(Failure::SnapshotDoorDuplicate);
+			case TacticalSnapshotCreateError::UnorderedDoor:
+				return fail(Failure::SnapshotDoorUnordered);
+		}
+		return fail(Failure::SnapshotActorInvalid);
 	}
 	catch (...)
 	{
-		return TacticalWorldCaptureResult::AllocationFailure;
+		return fail(Failure::AllocationFailure,
+			TacticalWorldCaptureResult::AllocationFailure);
 	}
 }
 

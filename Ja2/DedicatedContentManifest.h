@@ -100,11 +100,12 @@ DedicatedContentManifestError ComputeDedicatedContentManifest(
 
 // Enumerates every bfVFS profile after package mounting. Read-only bytes form
 // the digest; writable paths are traversed only to reject content shadowing.
-// Files below a virtual location explicitly marked exclusive are omitted from
-// both sets: bfVFS stops at the private writable profile for those reserved
-// runtime/cache namespaces, so lower installed bytes are not effective content.
-// Excluded occurrences still undergo path validation and count toward resource
-// bounds. The VFS/profile graph must be quiescent for the duration.
+// The exact root-level diagnostic logs and files below a virtual directory
+// explicitly marked exclusive are omitted from both sets: bfVFS stops at the
+// private writable profile for those reserved runtime/cache namespaces, so
+// lower installed bytes are not effective content. Excluded occurrences still
+// undergo path validation and count toward resource bounds. The VFS/profile
+// graph must be quiescent for the duration.
 DedicatedContentManifestError ComputeDedicatedContentManifestFromVfs(
 	vfs::CVirtualFileSystem& fileSystem,
 	DedicatedContentManifestSha256& digest) noexcept;

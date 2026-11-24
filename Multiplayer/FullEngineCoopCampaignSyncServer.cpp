@@ -53,6 +53,27 @@ const char* FullEngineCoopCampaignSyncOutboundMessageName(
 	return "";
 }
 
+bool IsFatalCoopCampaignSyncInboundResult(
+	FullEngineCoopCampaignSyncServerResult result) noexcept
+{
+	switch (result)
+	{
+		case FullEngineCoopCampaignSyncServerResult::Success:
+		case FullEngineCoopCampaignSyncServerResult::InvalidPeer:
+		case FullEngineCoopCampaignSyncServerResult::StaleTransport:
+		case FullEngineCoopCampaignSyncServerResult::MalformedFrame:
+		case FullEngineCoopCampaignSyncServerResult::ClaimedIdentityMismatch:
+		case FullEngineCoopCampaignSyncServerResult::StaleTransfer:
+		case FullEngineCoopCampaignSyncServerResult::UnexpectedFrame:
+		case FullEngineCoopCampaignSyncServerResult::SequenceMismatch:
+		case FullEngineCoopCampaignSyncServerResult::IntegrityMismatch:
+		case FullEngineCoopCampaignSyncServerResult::ClientRejected:
+			return false;
+		default:
+			return true;
+	}
+}
+
 void FullEngineCoopCampaignSyncServer::PendingMessage::clear() noexcept
 {
 	size = 0;

@@ -29,7 +29,7 @@ static_assert(noexcept(
 	std::declval<TacticalIntentAuthority&>().retirePeerSequence(
 		std::declval<const PeerIdentity&>())));
 static_assert(TacticalIntentHeaderWireSize == 72);
-static_assert(MaximumTacticalIntentWireSize == 80);
+static_assert(MaximumTacticalIntentWireSize == 98);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
@@ -185,6 +185,35 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 		std::get_if<PassInterruptTacticalIntent>(&left.payload))
 		return pass->interruptSerial ==
 			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
+	if (const auto* aid = std::get_if<BeginFirstAidTacticalIntent>(&left.payload))
+		return aid->target == std::get<BeginFirstAidTacticalIntent>(right.payload).target;
+	if (const auto* swap = std::get_if<SwapInventorySlotsTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<SwapInventorySlotsTacticalIntent>(right.payload);
+		return swap->sourceSlot == other.sourceSlot &&
+			swap->destinationSlot == other.destinationSlot &&
+			 swap->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
+	if (const auto* transfer = std::get_if<TransferInventoryItemTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<TransferInventoryItemTacticalIntent>(right.payload);
+		return transfer->target == other.target && transfer->sourceSlot == other.sourceSlot &&
+			transfer->destinationSlot == other.destinationSlot &&
+			transfer->expectedInventoryRevision == other.expectedInventoryRevision &&
+			transfer->expectedTargetInventoryRevision == other.expectedTargetInventoryRevision;
+	}
+	if (const auto* pickup = std::get_if<PickupWorldItemTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<PickupWorldItemTacticalIntent>(right.payload);
+		return pickup->item == other.item && pickup->destinationSlot == other.destinationSlot &&
+			pickup->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
+	if (const auto* drop = std::get_if<DropInventoryItemTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<DropInventoryItemTacticalIntent>(right.payload);
+		return drop->sourceSlot == other.sourceSlot &&
+			drop->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
 	return true;
 }
 
@@ -218,7 +247,7 @@ void TestIntentCodec()
 	CHECK(bytes.size() == 79, "move intent has its exact wire size");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'I',
 		"intent magic is byte exact");
-	CHECK(bytes[4] == 3 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 5 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"intent version, kind, and reserved byte are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 	{
@@ -268,10 +297,17 @@ void TestIntentCodec()
 	CHECK(DecodeTacticalIntent(malformed, decoded) == TacticalIntentCodecResult::Invalid,
 		"wrong intent magic is rejected");
 	malformed = bytes;
-	malformed[4] = 4;
+	malformed[4] = 6;
 	CHECK(DecodeTacticalIntent(malformed, decoded) ==
 		TacticalIntentCodecResult::UnsupportedVersion,
 		"unsupported intent version is explicit");
+	malformed = bytes;
+	malformed[4] = 4;
+	decoded = sentinel;
+	CHECK(DecodeTacticalIntent(malformed, decoded) ==
+		TacticalIntentCodecResult::UnsupportedVersion &&
+		SameIntent(decoded, sentinel),
+		"pre-inventory intent version is rejected transactionally");
 	malformed = bytes;
 	malformed[6] = 0xff;
 	CHECK(DecodeTacticalIntent(malformed, decoded) == TacticalIntentCodecResult::Invalid,
@@ -294,7 +330,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 9> payloads{{
+	const std::array<PayloadCase, 14> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -305,7 +341,13 @@ void TestIntentCodec()
 		{ReloadTacticalIntent{}, 72},
 		{DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79},
 		{PassInterruptTacticalIntent{
-			UINT64_C(0x0807060504030201)}, 80}}};
+			UINT64_C(0x0807060504030201)}, 80},
+		{BeginFirstAidTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
+		{SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)}, 84},
+		{TransferInventoryItemTacticalIntent{{9, 5}, 14, 14,
+			UINT64_C(0x0807060504030201), UINT64_C(0x1817161514131211)}, 98},
+		{PickupWorldItemTacticalIntent{{0x04030201, 0x08070605}, 14, UINT64_C(0x1817161514131211)}, 90},
+		{DropInventoryItemTacticalIntent{54, UINT64_C(0x1817161514131211)}, 82}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;
@@ -368,26 +410,238 @@ void TestIntentCodec()
 		passBytes[74] == 3 && passBytes[75] == 4 &&
 		passBytes[76] == 5 && passBytes[77] == 6 &&
 		passBytes[78] == 7 && passBytes[79] == 8,
-		"interrupt pass carries its exact serial in the bounded maximum frame");
+		"interrupt pass carries its exact serial in a bounded frame");
 	for (std::size_t size = 0; size < passBytes.size(); ++size)
 	{
 		TacticalIntent output = sentinel;
 		CHECK(DecodeTacticalIntent(passBytes.data(), size, output) !=
 				TacticalIntentCodecResult::Success &&
 			output.commandId == sentinel.commandId,
-			"every truncated maximum-size interrupt pass rejects transactionally");
+			"every truncated interrupt pass rejects transactionally");
 	}
 	std::vector<std::uint8_t> oversizedPass = passBytes;
 	oversizedPass.push_back(0);
 	CHECK(DecodeTacticalIntent(oversizedPass, decoded) ==
 		TacticalIntentCodecResult::Invalid,
-		"an interrupt pass beyond the global intent bound is rejected");
+		"an interrupt pass with surplus payload bytes is rejected");
 	std::vector<std::uint8_t> zeroPass = passBytes;
 	std::fill(zeroPass.begin() + 72, zeroPass.end(), 0);
 	CHECK(DecodeTacticalIntent(zeroPass, decoded) ==
 		TacticalIntentCodecResult::Invalid,
 		"a zero interrupt serial is rejected");
+	TacticalIntent aidIntent = intent;
+	aidIntent.payload = BeginFirstAidTacticalIntent{TacticalEntityId{0x1234, 0x50607080}};
+	std::vector<std::uint8_t> aidBytes;
+	CHECK(EncodeTacticalIntent(aidIntent, aidBytes) ==
+			TacticalIntentCodecResult::Success && aidBytes.size() == 78 &&
+		aidBytes[6] == 10 && aidBytes[70] == 6 && aidBytes[71] == 0 &&
+		aidBytes[72] == 0x34 && aidBytes[73] == 0x12 &&
+		aidBytes[74] == 0x80 && aidBytes[75] == 0x70 &&
+		aidBytes[76] == 0x60 && aidBytes[77] == 0x50,
+		"first aid carries only its exact six-byte patient identity in kind 10");
+	for (std::size_t size = 0; size < aidBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(aidBytes.data(), size, output) !=
+				TacticalIntentCodecResult::Success && SameIntent(output, sentinel),
+			"every truncated first-aid intent rejects transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 5; ++mutation)
+	{
+		auto invalidAid = aidBytes;
+		if (mutation == 0)
+			std::fill(invalidAid.begin() + 74, invalidAid.end(), 0);
+		else if (mutation == 1)
+			invalidAid[70] = 5;
+		else if (mutation == 2)
+			invalidAid[70] = 7;
+		else if (mutation == 3)
+			invalidAid.push_back(0);
+		else
+			invalidAid[71] = 1;
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(invalidAid, output) ==
+				TacticalIntentCodecResult::Invalid && SameIntent(output, sentinel),
+			"first aid rejects missing target incarnation, wrong length, surplus bytes, and oversized length transactionally");
+	}
 
+	TacticalIntent swapIntent = intent;
+	swapIntent.payload = SwapInventorySlotsTacticalIntent{14, 5, UINT64_C(0x0807060504030201)};
+	std::vector<std::uint8_t> swapBytes;
+	CHECK(EncodeTacticalIntent(swapIntent, swapBytes) == TacticalIntentCodecResult::Success &&
+		swapBytes.size() == 84 && swapBytes[6] == 11 && swapBytes[70] == 12 &&
+		swapBytes[71] == 0 && swapBytes[72] == 14 && swapBytes[73] == 0 &&
+		swapBytes[74] == 5 && swapBytes[75] == 0,
+		"swap pins kind 11, two LE slots, and an independent private inventory revision");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(swapBytes[76 + index] == index + 1, "private revision is little endian");
+	for (std::size_t size = 0; size < swapBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(swapBytes.data(), size, output) !=
+			TacticalIntentCodecResult::Success && SameIntent(output, sentinel),
+			"every truncated maximum-size inventory swap rejects transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 7; ++mutation)
+	{
+		auto malformedSwap = swapBytes;
+		if (mutation == 0) std::fill(malformedSwap.begin() + 76, malformedSwap.end(), 0);
+		else if (mutation == 1) malformedSwap[73] = 1;
+		else if (mutation == 2) malformedSwap[75] = 1;
+		else if (mutation == 3) malformedSwap[74] = 14;
+		else if (mutation == 4) malformedSwap[70] = 11;
+		else if (mutation == 5) malformedSwap[70] = 13;
+		else malformedSwap.push_back(0);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(malformedSwap, output) == TacticalIntentCodecResult::Invalid &&
+			SameIntent(output, sentinel),
+			"swap rejects zero revision, out-of-bound/same slots, and wrong lengths transactionally");
+	}
+
+	TacticalIntent transferIntent = intent;
+	transferIntent.payload = TransferInventoryItemTacticalIntent{{0x1234, 0x50607080}, 14, 5,
+		UINT64_C(0x0807060504030201), UINT64_C(0x1817161514131211)};
+	std::vector<std::uint8_t> transferBytes;
+	CHECK(EncodeTacticalIntent(transferIntent, transferBytes) == TacticalIntentCodecResult::Success &&
+		transferBytes.size() == MaximumTacticalIntentWireSize && transferBytes.size() == 98 &&
+		transferBytes[6] == 12 && transferBytes[70] == 26 && transferBytes[71] == 0 &&
+		transferBytes[72] == 0x34 && transferBytes[73] == 0x12 && transferBytes[74] == 0x80 &&
+		transferBytes[75] == 0x70 && transferBytes[76] == 0x60 && transferBytes[77] == 0x50 &&
+		transferBytes[78] == 14 && transferBytes[79] == 0 &&
+		transferBytes[80] == 5 && transferBytes[81] == 0,
+		"transfer pins exact target identity, kind, two slots, and payload length");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(transferBytes[82 + index] == index + 1 && transferBytes[90 + index] == index + 17,
+			"both independent private inventory revisions are little endian");
+	for (std::size_t size = 0; size < transferBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(transferBytes.data(), size, output) !=
+			TacticalIntentCodecResult::Success && SameIntent(output, sentinel),
+			"every truncated transfer rejects without replacing output");
+	}
+	for (unsigned mutation = 0; mutation < 9; ++mutation)
+	{
+		auto malformedTransfer = transferBytes;
+		if (mutation == 0) std::fill(malformedTransfer.begin() + 82, malformedTransfer.begin() + 90, 0);
+		else if (mutation == 1) std::fill(malformedTransfer.begin() + 90, malformedTransfer.end(), 0);
+		else if (mutation == 2) std::fill(malformedTransfer.begin() + 74, malformedTransfer.begin() + 78, 0);
+		else if (mutation == 3) malformedTransfer[79] = 1;
+		else if (mutation == 4) malformedTransfer[81] = 1;
+		else if (mutation == 5) malformedTransfer[70] = 25;
+		else if (mutation == 6) malformedTransfer[70] = 27;
+		else if (mutation == 7) malformedTransfer.push_back(0);
+		else std::copy(malformedTransfer.begin() + 64, malformedTransfer.begin() + 70,
+			malformedTransfer.begin() + 72);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(malformedTransfer, output) == TacticalIntentCodecResult::Invalid &&
+			SameIntent(output, sentinel),
+			"transfer rejects zero proofs, absent/self target, out-of-range slots and wrong lengths transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 6; ++mutation)
+	{
+		auto invalidTransfer = transferIntent;
+		auto& payload = std::get<TransferInventoryItemTacticalIntent>(invalidTransfer.payload);
+		if (mutation == 0) payload.target = {};
+		else if (mutation == 1) payload.target = invalidTransfer.actor;
+		else if (mutation == 2) payload.sourceSlot = 256;
+		else if (mutation == 3) payload.destinationSlot = 256;
+		else if (mutation == 4) payload.expectedInventoryRevision = 0;
+		else payload.expectedTargetInventoryRevision = 0;
+		std::vector<std::uint8_t> output{0xaa};
+		CHECK(!IsStructurallyValidTacticalIntent(invalidTransfer) &&
+			EncodeTacticalIntent(invalidTransfer, output) == TacticalIntentCodecResult::Invalid &&
+			output == std::vector<std::uint8_t>({0xaa}),
+			"direct malformed transfer encoding preserves previous bytes");
+	}
+
+	TacticalIntent pickupIntent = intent;
+	pickupIntent.payload = PickupWorldItemTacticalIntent{{0x04030201, 0x08070605}, 14,
+		UINT64_C(0x1817161514131211)};
+	std::vector<std::uint8_t> pickupBytes;
+	CHECK(EncodeTacticalIntent(pickupIntent, pickupBytes) == TacticalIntentCodecResult::Success &&
+		pickupBytes.size() == 90 && pickupBytes[6] == 13 && pickupBytes[70] == 18 &&
+		pickupBytes[71] == 0 && pickupBytes[80] == 14 && pickupBytes[81] == 0,
+		"pickup pins exact kind, destination and 18-byte payload");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(pickupBytes[72 + index] == index + 1 && pickupBytes[82 + index] == index + 17,
+			"pickup item slot/incarnation and private revision are exact little endian");
+	for (std::size_t size = 0; size < pickupBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(pickupBytes.data(), size, output) != TacticalIntentCodecResult::Success &&
+			SameIntent(output, sentinel), "every truncated pickup preserves previous intent");
+	}
+	for (unsigned mutation = 0; mutation < 7; ++mutation)
+	{
+		auto malformedPickup = pickupBytes;
+		if (mutation == 0) std::fill(malformedPickup.begin() + 72, malformedPickup.begin() + 76, 255);
+		else if (mutation == 1) std::fill(malformedPickup.begin() + 76, malformedPickup.begin() + 80, 0);
+		else if (mutation == 2) malformedPickup[81] = 1;
+		else if (mutation == 3) std::fill(malformedPickup.begin() + 82, malformedPickup.end(), 0);
+		else if (mutation == 4) malformedPickup[70] = 17;
+		else if (mutation == 5) malformedPickup[70] = 19;
+		else malformedPickup.push_back(0);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(malformedPickup, output) == TacticalIntentCodecResult::Invalid &&
+			SameIntent(output, sentinel), "pickup invalid IDs, revision, slot and exact length reject transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 4; ++mutation)
+	{
+		auto invalidPickup = pickupIntent;
+		auto& payload = std::get<PickupWorldItemTacticalIntent>(invalidPickup.payload);
+		if (mutation == 0) payload.item = {};
+		else if (mutation == 1) payload.item.incarnation = 0;
+		else if (mutation == 2) payload.destinationSlot = 256;
+		else payload.expectedInventoryRevision = 0;
+		std::vector<std::uint8_t> output{0xaa};
+		CHECK(EncodeTacticalIntent(invalidPickup, output) == TacticalIntentCodecResult::Invalid &&
+			output == std::vector<std::uint8_t>({0xaa}), "malformed direct pickup encoding preserves bytes");
+	}
+	TacticalIntent dropIntent = intent;
+	dropIntent.payload = DropInventoryItemTacticalIntent{54, UINT64_C(0x1817161514131211)};
+	std::vector<std::uint8_t> dropBytes;
+	CHECK(EncodeTacticalIntent(dropIntent, dropBytes) == TacticalIntentCodecResult::Success &&
+		dropBytes.size() == 82 && dropBytes[6] == 14 && dropBytes[70] == 10 &&
+		dropBytes[71] == 0 && dropBytes[72] == 54 && dropBytes[73] == 0,
+		"drop pins kind14 and exact10-byte pocket/revision payload without a destination or item ID");
+	for (std::size_t index = 0; index < 8; ++index)
+		CHECK(dropBytes[74 + index] == index + 17, "drop private revision is exact little endian");
+	for (std::size_t size = 0; size < dropBytes.size(); ++size)
+	{
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(dropBytes.data(), size, output) != TacticalIntentCodecResult::Success &&
+			SameIntent(output, sentinel), "every truncated drop preserves previous intent");
+	}
+	for (unsigned mutation = 0; mutation < 8; ++mutation)
+	{
+		auto malformedDrop = dropBytes;
+		if (mutation == 0) malformedDrop[72] = 13;
+		else if (mutation == 1) malformedDrop[72] = 55;
+		else if (mutation == 2) malformedDrop[73] = 1;
+		else if (mutation == 3) std::fill(malformedDrop.begin() + 74, malformedDrop.end(), 0);
+		else if (mutation == 4) malformedDrop[70] = 9;
+		else if (mutation == 5) malformedDrop[70] = 11;
+		else if (mutation == 6) malformedDrop[7] = 1;
+		else malformedDrop.push_back(0);
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(malformedDrop, output) == TacticalIntentCodecResult::Invalid &&
+			SameIntent(output, sentinel), "drop invalid pocket/revision/length/reserved bytes reject transactionally");
+	}
+	for (unsigned slot : {0u, 5u, 6u, 13u, 14u, 54u, 55u, 255u, 256u, 65535u})
+	{
+		dropIntent.payload = DropInventoryItemTacticalIntent{static_cast<std::uint16_t>(slot), 1};
+		std::vector<std::uint8_t> output{0xaa};
+		const bool supported = slot >= 14 && slot < 55;
+		CHECK(IsStructurallyValidTacticalIntent(dropIntent) == supported &&
+			(EncodeTacticalIntent(dropIntent, output) == TacticalIntentCodecResult::Success) == supported &&
+			(supported || output == std::vector<std::uint8_t>({0xaa})),
+			"drop accepts only ordinary pockets14..54 and preserves output for every unsupported source");
+	}
+	dropIntent.payload = DropInventoryItemTacticalIntent{14, 0};
+	std::vector<std::uint8_t> dropSentinel{0xaa};
+	CHECK(EncodeTacticalIntent(dropIntent, dropSentinel) == TacticalIntentCodecResult::Invalid &&
+		dropSentinel == std::vector<std::uint8_t>({0xaa}), "drop requires a nonzero private revision");
 	std::vector<std::uint8_t> unchanged{0xaa, 0xbb};
 	TacticalIntent invalid = intent;
 	invalid.commandId = 0;
@@ -427,6 +681,11 @@ void TestIntentCodec()
 	invalid.payload = PassInterruptTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid),
 		"zero interrupt-pass serial is rejected");
+	invalid.payload = BeginFirstAidTacticalIntent{};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid) &&
+		EncodeTacticalIntent(invalid, unchanged) == TacticalIntentCodecResult::Invalid &&
+		unchanged == std::vector<std::uint8_t>({0xaa, 0xbb}),
+		"unresolved first-aid patient cannot encode or replace retained bytes");
 }
 
 void TestAuthorityConfigurationAndBindings()
@@ -689,6 +948,88 @@ void TestAuthorityAuthorization()
 		"reactivated authority exposes its retained next command ID");
 }
 
+void TestTransferRequiresBothExactOwnedActors()
+{
+	SequentialTokenSource tokens;
+	AdmissionRegistry admission(&tokens);
+	const auto configuration = Configuration();
+	admission.beginSession(configuration);
+	const TransportPeer senderA{5501};
+	const TransportPeer senderB{5502};
+	const auto peerA = AdmitAndAck(admission, senderA, FirstJoin(configuration));
+	const auto peerB = AdmitAndAck(admission, senderB, FirstJoin(configuration));
+	TacticalIntentAuthority authority(admission);
+	CHECK(authority.beginSession(Context()) == TacticalAuthorityConfigurationResult::Success,
+		"transfer authority starts");
+	const TacticalEntityId source{10, 1};
+	const TacticalEntityId target{11, 2};
+	CHECK(authority.bindActor(peerA.peerIdentity, source) == TacticalActorBindingResult::Success &&
+		authority.bindActor(peerB.peerIdentity, target) == TacticalActorBindingResult::Success,
+		"transfer source and target begin with different owners");
+	auto intent = Intent(peerA.peerIdentity, 1, source);
+	intent.payload = TransferInventoryItemTacticalIntent{target, 14, 14, 1, 2};
+	auto result = authority.authorize(senderA, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::ActorNotOwned &&
+		result.commandConsumed && result.nextExpectedCommandId == 2,
+		"owning source does not authorize changing another peer's inventory or AP");
+	CHECK(authority.unbindActor(target) &&
+		authority.bindActor(peerA.peerIdentity, target) == TacticalActorBindingResult::Success,
+		"transfer target can be rebound by the trusted coordinator");
+	result = authority.authorize(senderA, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::DuplicateCommand && !result.commandConsumed,
+		"ownership change cannot revive a previously consumed transfer rejection");
+	intent.commandId = 2;
+	std::get<TransferInventoryItemTacticalIntent>(intent.payload).target.incarnation = 1;
+	result = authority.authorize(senderA, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::ActorNotOwned && result.commandConsumed,
+		"stale target incarnation cannot borrow the replacement actor ownership");
+	intent.commandId = 3;
+	std::get<TransferInventoryItemTacticalIntent>(intent.payload).target = target;
+	result = authority.authorize(senderA, intent);
+	CHECK(result && result.commandConsumed && result.nextExpectedCommandId == 4,
+		"both exact actors owned by the peer authorize once, including equal slot numbers");
+	CHECK(authority.authorize(senderA, intent).reason == TacticalIntentAuthorizationReason::DuplicateCommand,
+		"accepted transfer cannot be authorized twice");
+}
+
+void TestDropRequiresExactOwnedActor()
+{
+	SequentialTokenSource tokens;
+	AdmissionRegistry admission(&tokens);
+	const auto configuration = Configuration();
+	admission.beginSession(configuration);
+	const TransportPeer senderA{5601};
+	const TransportPeer senderB{5602};
+	const auto peerA = AdmitAndAck(admission, senderA, FirstJoin(configuration));
+	const auto peerB = AdmitAndAck(admission, senderB, FirstJoin(configuration));
+	TacticalIntentAuthority authority(admission);
+	const TacticalEntityId actor{10, 2};
+	CHECK(authority.beginSession(Context()) == TacticalAuthorityConfigurationResult::Success &&
+		authority.bindActor(peerA.peerIdentity, actor) == TacticalActorBindingResult::Success,
+		"drop authority starts with an exact owned actor");
+	auto intent = Intent(peerB.peerIdentity, 1, actor);
+	intent.payload = DropInventoryItemTacticalIntent{14, 9};
+	auto result = authority.authorize(senderB, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::ActorNotOwned && result.commandConsumed,
+		"foreign peer cannot drop another actor's source inventory");
+	intent = Intent(peerA.peerIdentity, 1, {actor.slot, actor.incarnation - 1});
+	intent.payload = DropInventoryItemTacticalIntent{14, 9};
+	result = authority.authorize(senderA, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::ActorNotOwned && result.commandConsumed,
+		"old actor incarnation cannot authorize a replacement occupant's drop");
+	intent.commandId = 2;
+	intent.actor = actor;
+	result = authority.authorize(senderA, intent);
+	CHECK(result && result.commandConsumed && result.nextExpectedCommandId == 3 &&
+		authority.authorize(senderA, intent).reason == TacticalIntentAuthorizationReason::DuplicateCommand,
+		"exact owner authorizes once and duplicate drop cannot execute again");
+	CHECK(authority.unbindActor(actor), "trusted assignment change revokes drop actor");
+	intent.commandId = 3;
+	result = authority.authorize(senderA, intent);
+	CHECK(result.reason == TacticalIntentAuthorizationReason::ActorNotOwned && result.commandConsumed,
+		"revoked actor assignment denies subsequent drop");
+}
+
 void TestAuthoritySessionResetAndPeerBound()
 {
 	SequentialTokenSource tokens;
@@ -871,6 +1212,8 @@ int main()
 	TestIntentCodec();
 	TestAuthorityConfigurationAndBindings();
 	TestAuthorityAuthorization();
+	TestTransferRequiresBothExactOwnedActors();
+	TestDropRequiresExactOwnedActor();
 	TestAuthoritySessionResetAndPeerBound();
 	TestRetiredPeerSequenceCompactionAndChurn();
 	TestAdmissionEpochCannotOutrunAuthority();

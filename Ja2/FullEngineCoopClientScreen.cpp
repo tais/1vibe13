@@ -1,10 +1,24 @@
 #include "FullEngineCoopClientScreen.h"
 
 #include "FullEngineCoopClientController.h"
+#include "FullEngineCoopClientMedicalInput.h"
+#include "FullEngineCoopClientCampaignActionInput.h"
+#include "FullEngineCoopClientSurrenderInput.h"
+#include "FullEngineCoopClientBattleNoticeInput.h"
+#include "FullEngineCoopClientMeanwhileInput.h"
+#include "FullEngineCoopClientCampaignHireInput.h"
+#include "FullEngineCoopClientCampaignStatusText.h"
+#include "FullEngineCoopClientCampaignTimeInput.h"
+#include "FullEngineCoopClientPresentationInput.h"
+#include "FullEngineCoopClientPresentationInteraction.h"
+#include "FullEngineCoopClientPresentationInventory.h"
+#include "FullEngineCoopClientPresentationRuntime.h"
 #include "FullEngineCoopClientRuntime.h"
 #include "FullEngineCoopClientTacticalPlotRenderer.h"
 #include "FullEngineCoopClientTacticalPresentation.h"
 
+#include "Cursor Control.h"
+#include "Cursors.h"
 #include "Font Control.h"
 #include "Render Dirty.h"
 #include "english.h"
@@ -15,6 +29,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <cwchar>
 
 namespace
 {
@@ -22,9 +38,55 @@ FullEngineCoopClientController Controller;
 CoopSession::FullEngineCoopClientResult LastSendResult =
 	CoopSession::FullEngineCoopClientResult::Success;
 bool HaveSendResult = false;
+std::uint64_t LastSendWorldGeneration = 0;
 FullEngineCoopClientRetirementConfirmation RetirementConfirmation;
+FullEngineCoopClientInventoryDropKeyGate InventoryDropKeyGate;
+FullEngineCoopClientCampaignActionInput CampaignActionInput;
+FullEngineCoopClientSurrenderInput SurrenderInput;
+FullEngineCoopClientBattleNoticeInput BattleNoticeInput;
+FullEngineCoopClientMeanwhileInput MeanwhileInput;
+FullEngineCoopClientCampaignHireInput CampaignHireInput;
 std::uint64_t ScreenFrame = 0;
 bool PreviousPresentationReady = false;
+
+FullEngineCoopClientCampaignActionKey CampaignActionKey(UINT32 key) noexcept
+{
+	using Key = FullEngineCoopClientCampaignActionKey;
+	switch (key)
+	{
+		case TAB: case ']': return Key::NextGroup;
+		case '[': return Key::PreviousGroup;
+		case UPARROW: return Key::North;
+		case DNARROW: return Key::South;
+		case LEFTARROW: return Key::West;
+		case RIGHTARROW: return Key::East;
+		case ENTER: return Key::Confirm;
+		case ESC: return Key::Cancel;
+		case 'a': case 'A': return Key::Acknowledge;
+		case 's': case 'S': return Key::Stop;
+		case 'e': case 'E': return Key::EnterBattle;
+		case 'r': case 'R': return Key::Retreat;
+	}
+	return Key::None;
+}
+
+FullEngineCoopClientCampaignHireKey CampaignHireKey(UINT32 key) noexcept
+{
+	using Key = FullEngineCoopClientCampaignHireKey;
+	switch (key)
+	{
+		case 'h': case 'H': return Key::Toggle;
+		case TAB: case ']': case DNARROW: return Key::Next;
+		case '[': case UPARROW: return Key::Previous;
+		case '1': return Key::OneDay;
+		case '2': return Key::SevenDays;
+		case '3': return Key::FourteenDays;
+		case 'g': case 'G': return Key::Equipment;
+		case ENTER: return Key::Confirm;
+		case ESC: return Key::Cancel;
+	}
+	return Key::None;
+}
 
 // CoopTacticalIntent v3 deliberately carries the authority's raw JA2 movement
 // animation ID. These are the stable non-fast defaults from AnimationStates;
@@ -121,6 +183,51 @@ const wchar_t* SendResultName(
 	return L"unknown result";
 }
 
+FullEngineCoopClientPresentationLocalFailure LocalFailureFor(
+	CoopSession::FullEngineCoopClientResult result) noexcept
+{
+	using Failure = FullEngineCoopClientPresentationLocalFailure;
+	switch (result)
+	{
+		case CoopSession::FullEngineCoopClientResult::Success:
+			return Failure::None;
+		case CoopSession::FullEngineCoopClientResult::InvalidConfiguration:
+			return Failure::InvalidConfiguration;
+		case CoopSession::FullEngineCoopClientResult::InvalidState:
+			return Failure::InvalidState;
+		case CoopSession::FullEngineCoopClientResult::InvalidMessage:
+			return Failure::InvalidMessage;
+		case CoopSession::FullEngineCoopClientResult::CompatibilityMismatch:
+			return Failure::CompatibilityMismatch;
+		case CoopSession::FullEngineCoopClientResult::AdmissionRejected:
+			return Failure::AdmissionRejected;
+		case CoopSession::FullEngineCoopClientResult::WireFailure:
+			return Failure::WireFailure;
+		case CoopSession::FullEngineCoopClientResult::ResyncRequired:
+			return Failure::ResyncRequired;
+		case CoopSession::FullEngineCoopClientResult::IntentOutstanding:
+			return Failure::IntentOutstanding;
+		case CoopSession::FullEngineCoopClientResult::ActorNotAssigned:
+			return Failure::ActorNotAssigned;
+		case CoopSession::FullEngineCoopClientResult::InvalidIntent:
+			return Failure::InvalidIntent;
+		case CoopSession::FullEngineCoopClientResult::SequenceExhausted:
+			return Failure::SequenceExhausted;
+		case CoopSession::FullEngineCoopClientResult::AllocationFailure:
+			return Failure::AllocationFailure;
+		case CoopSession::FullEngineCoopClientResult::CredentialStorageFailure:
+			return Failure::CredentialStorageFailure;
+		case CoopSession::FullEngineCoopClientResult::
+			CredentialRetirementPending:
+			return Failure::CredentialRetirementPending;
+		case CoopSession::FullEngineCoopClientResult::SelfRetirementRejected:
+			return Failure::SelfRetirementRejected;
+		case CoopSession::FullEngineCoopClientResult::CredentialRetired:
+			return Failure::CredentialRetired;
+	}
+	return Failure::None;
+}
+
 const wchar_t* ReceiptStatusName(
 	CoopSession::CoopTacticalIntentReceiptStatus status) noexcept
 {
@@ -156,7 +263,7 @@ const wchar_t* ReceiptReasonName(
 		case CoopSession::CoopTacticalIntentReceiptReason::WorldMismatch:
 			return L"world mismatch";
 		case CoopSession::CoopTacticalIntentReceiptReason::RevisionMismatch:
-			return L"revision mismatch";
+			return L"state advanced; retry";
 		case CoopSession::CoopTacticalIntentReceiptReason::TurnMismatch:
 			return L"turn mismatch";
 		case CoopSession::CoopTacticalIntentReceiptReason::InvalidCommandSequence:
@@ -164,7 +271,7 @@ const wchar_t* ReceiptReasonName(
 		case CoopSession::CoopTacticalIntentReceiptReason::ActorNotOwned:
 			return L"actor not owned";
 		case CoopSession::CoopTacticalIntentReceiptReason::NotBaselineReady:
-			return L"baseline not ready";
+			return L"state catching up; retry";
 		case CoopSession::CoopTacticalIntentReceiptReason::ActorUnavailable:
 			return L"actor unavailable";
 		case CoopSession::CoopTacticalIntentReceiptReason::WrongTeam:
@@ -183,6 +290,8 @@ const wchar_t* ReceiptReasonName(
 			return L"server context unavailable";
 		case CoopSession::CoopTacticalIntentReceiptReason::AuthoritativeDiscard:
 			return L"authority discarded command";
+		case CoopSession::CoopTacticalIntentReceiptReason::NativeAttackInterrupted:
+			return L"attack interrupted before firing";
 		case CoopSession::CoopTacticalIntentReceiptReason::SessionEnded:
 			return L"session ended";
 		case CoopSession::CoopTacticalIntentReceiptReason::
@@ -204,7 +313,7 @@ FullEngineCoopClientControllerView ControllerView(
 {
 	return FullEngineCoopClientControllerView{
 		view.snapshot, view.assignedActors.data(), view.assignedActorCount,
-		view.outstandingCommandId, view.resynchronizing};
+		view.outstandingCommandId, view.resynchronizing, view.ownerInventories.data()};
 }
 
 std::uint16_t MovementModeFor(const TacticalActorSnapshot& actor,
@@ -235,8 +344,16 @@ bool Submit(FullEngineCoopClientIntentRequest request,
 		request.actor, request.payload);
 	HaveSendResult = LastSendResult !=
 		CoopSession::FullEngineCoopClientResult::Success;
+	LastSendWorldGeneration = HaveSendResult && view.snapshot != nullptr
+		? view.snapshot->epoch() : 0;
 	if (LastSendResult != CoopSession::FullEngineCoopClientResult::Success)
+	{
+		// A failed send may retire the core's borrowed private cache. Never let
+		// another queued input atom use a pointer from before that reset.
+		view.ownerInventories = nullptr;
+		Controller.closeInventory();
 		return false;
+	}
 	// The core acquires the one-command lock synchronously. Mirror it in this
 	// frame's borrowed controller view so queued key events cannot submit again.
 	FullEngineCoopClientPresentationView refreshed;
@@ -263,26 +380,45 @@ bool SubmitRelativeMove(
 
 bool RequestSelfRetirement() noexcept
 {
-	LastSendResult =
-		GetFullEngineCoopClientRuntime().requestSelfRetirement();
+	FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+	FullEngineCoopClientPresentationView presentation;
+	const std::uint64_t attemptedWorldGeneration =
+		runtime.presentationView(presentation) && presentation.snapshot != nullptr
+			? presentation.state.worldGeneration : 0;
+	LastSendResult = runtime.requestSelfRetirement();
 	HaveSendResult = LastSendResult !=
 		CoopSession::FullEngineCoopClientResult::Success;
+	LastSendWorldGeneration = HaveSendResult ? attemptedWorldGeneration : 0;
 	return LastSendResult == CoopSession::FullEngineCoopClientResult::Success;
 }
 
 void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	FullEngineCoopClientControllerView& view,
-	bool retirementEligible) noexcept
+	bool retirementEligible, bool medicalModal) noexcept
 {
 	InputAtom event;
 	// This screen is the complete passive input consumer. Drain every queued
 	// atom so an ignored mouse event can never pin keyboard commands behind it.
 	while (DequeueEvent(&event))
 	{
+		const auto medical = RouteFullEngineCoopClientMedicalInput(Controller, view, event, medicalModal);
+		medicalModal = medicalModal || Controller.selectingFirstAid();
+		if (medical.consumed)
+		{
+			RetirementConfirmation.cancel();
+			if (medical.request) (void)Submit(medical.request, view);
+			continue;
+		}
 		const UINT32 key = event.usParam;
+		if (!Controller.droppingInventory()) InventoryDropKeyGate.cancel();
+		if (event.usEvent == KEY_UP && (key == 'x' || key == 'X') && Controller.droppingInventory())
+		{
+			InventoryDropKeyGate.release();
+			continue;
+		}
 		const bool leaveKey = key == 'l' || key == 'L';
 		const bool modal = Controller.targetingAttack() ||
-			Controller.enteringDestination() || Controller.selectingDoor();
+			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen() || Controller.selectingFirstAid();
 		if (modal) RetirementConfirmation.cancel();
 		if (leaveKey && !modal && retirementEligible)
 		{
@@ -293,10 +429,97 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				RequestSelfRetirement())
 				retirementEligible = false;
 			continue;
-	}
+		}
+		if (event.usEvent == LEFT_BUTTON_UP)
+		{
+			RetirementConfirmation.cancel();
+			if (Controller.inventoryOpen())
+			{
+				FullEngineCoopClientPresentationInventoryClick inventoryClick;
+				if (ResolveFullEngineCoopClientPresentationInventoryClick(
+						static_cast<std::int32_t>(_EvMouseX(&event)),
+						static_cast<std::int32_t>(_EvMouseY(&event)), inventoryClick) &&
+					inventoryClick.consumed && inventoryClick.slot != FullEngineCoopClientInventoryNoSlot)
+				{
+					(void)Submit(Controller.clickInventorySlot(view, inventoryClick.slot), view);
+				}
+				// There is no local cursor item; dropping has a separate explicit
+				// confirmation. A missed slot must never become movement or a drop.
+				continue;
+			}
+			FullEngineCoopClientPresentationClick click;
+			if (!ResolveFullEngineCoopClientPresentationClick(
+					static_cast<std::int32_t>(_EvMouseX(&event)),
+					static_cast<std::int32_t>(_EvMouseY(&event)), click))
+				continue;
+			if (click.kind ==
+				FullEngineCoopClientPresentationClickKind::RadarGrid)
+			{
+				(void)CenterFullEngineCoopClientPresentationCameraAtGrid(
+					presentation.state.worldGeneration, click.grid);
+				continue;
+			}
+			const auto interaction =
+				DispatchFullEngineCoopClientPresentationClick(
+					Controller, view, click);
+			if (interaction.kind ==
+				FullEngineCoopClientPresentationInteractionKind::IntentReady)
+				(void)Submit(interaction.intent, view);
+			continue;
+		}
 		if (event.usEvent != KEY_DOWN) continue;
 		if (RetirementConfirmation.pending())
 			RetirementConfirmation.cancel();
+		if (key == 'i' || key == 'I')
+		{
+			if (Controller.inventoryOpen()) Controller.closeInventory();
+			else (void)Controller.openInventory(view);
+			continue;
+		}
+		if (Controller.inventoryOpen())
+		{
+			if (Controller.droppingInventory())
+			{
+				if (key == ESC)
+				{
+					Controller.cancelInventoryDrop();
+					InventoryDropKeyGate.cancel();
+				}
+				else if ((key == 'x' || key == 'X') && InventoryDropKeyGate.confirm())
+					(void)Submit(Controller.inventoryDrop(view), view);
+				continue;
+			}
+			if (Controller.pickingUpInventory())
+			{
+				if (key == ESC || key == 'p' || key == 'P') Controller.cancelInventoryPickup();
+				else if (key == TAB || key == ']') (void)Controller.selectNextInventoryGroundItem(view);
+				else if (key == '[') (void)Controller.selectNextInventoryGroundItem(view, false);
+				continue;
+			}
+			if (Controller.transferringInventory())
+			{
+				if (key == ESC || key == 'g' || key == 'G') Controller.cancelInventoryTransfer();
+				else if (key == TAB || key == ']') (void)Controller.selectNextInventoryRecipient(view);
+				else if (key == '[') (void)Controller.selectNextInventoryRecipient(view, false);
+				continue;
+			}
+			if (key == 'g' || key == 'G') (void)Controller.beginInventoryTransfer(view);
+			else if (key == 'p' || key == 'P') (void)Controller.beginInventoryPickup(view);
+			else if (key == 'x' || key == 'X')
+			{
+				if (Controller.beginInventoryDrop(view)) InventoryDropKeyGate.arm();
+			}
+			else if (key == ESC) Controller.closeInventory();
+			else if (key == TAB || key == ']') (void)Controller.selectNext(view);
+			else if (key == '[') (void)Controller.selectPrevious(view);
+			continue;
+		}
+		if (key == HOME)
+		{
+			(void)RecenterFullEngineCoopClientPresentationCameraOnSelectedActor(
+				presentation.state.worldGeneration);
+			continue;
+		}
 		if (Controller.targetingAttack())
 		{
 			switch (key)
@@ -463,8 +686,130 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	}
 }
 
+std::array<wchar_t,32> CampaignProfileLabel(const FullEngineCoopClientRuntime& runtime, std::uint16_t profile) noexcept
+{
+	std::array<wchar_t,32> label{};
+	if (!runtime.campaignProfileNickname(profile,label)) (std::swprintf)(label.data(),label.size(),L"Profile %u",unsigned(profile));
+	return label;
+}
+
+void RenderCampaignHiring(const FullEngineCoopClientRuntime& runtime, const CoopSession::CoopCampaignStatus& status,
+	const CoopSession::CoopCampaignEconomy* economy, const CoopSession::CoopCampaignAimQuotes* quotes,
+	const CoopSession::CoopCampaignHireResult* result, bool pending) noexcept
+{
+	SetFont(FONT10ARIAL); SetFontForeground(FONT_MCOLOR_LTGRAY);
+	if (!economy || !quotes || !economy->available || !quotes->available)
+	{
+		mprintf(24,190,L"AIM: waiting for current campaign balance and offers. H / Esc: close");
+		return;
+	}
+	mprintf(24,184,L"AIM | Shared funds: $%d | Mercenaries: %u / %u",int(economy->balance),unsigned(economy->mercenaryCount),unsigned(economy->mercenaryLimit));
+	mprintf(24,200,L"Up / Down: select mercenary   H: close AIM");
+	const auto* selected = CampaignHireInput.selectedQuote(*quotes);
+	const auto selectedIndex = selected ? static_cast<std::size_t>(selected - quotes->quotes.data()) : 0;
+	const auto first = (selectedIndex / 6) * 6;
+	for (std::size_t index = first; index < quotes->quoteCount && index < first + 6; ++index)
+	{
+		const auto& offer = quotes->quotes[index]; const auto label = CampaignProfileLabel(runtime,offer.profile);
+		SetFontForeground(index == selectedIndex ? FONT_MCOLOR_LTYELLOW : FONT_MCOLOR_LTGRAY);
+		mprintf(24,218 + static_cast<int>(index - first) * 16,L"%lc %ls (#%u): %ls",index == selectedIndex ? L'>' : L' ',
+			label.data(),unsigned(offer.profile),FullEngineCoopClientCampaignAimQuoteText(offer.status));
+	}
+	SetFontForeground(FONT_MCOLOR_LTGRAY);
+	if (!selected) { mprintf(24,320,L"The server has no current AIM offers."); return; }
+	const auto label = CampaignProfileLabel(runtime,selected->profile);
+	mprintf(24,320,L"%ls: %u-day contract",label.data(),unsigned(CampaignHireInput.days()));
+	mprintf(24,338,L"1: one day   2: seven days   3: fourteen days");
+	if (selected->status == CoopSession::CoopCampaignAimQuoteStatus::Available)
+	{
+		const auto choice = CoopSession::CoopCampaignHireChoiceIndex(CampaignHireInput.days(),CampaignHireInput.buyGear());
+		mprintf(24,356,L"Salary: $%d   Medical deposit: $%d   Equipment: $%d   Total: $%d",int(selected->salary[choice / 2]),int(selected->medicalDeposit),
+			CampaignHireInput.buyGear() ? int(selected->gearCost) : 0,int(selected->total[choice]));
+		mprintf(24,374,L"%ls  Arrival: day %u %02u:%02u at %lc%u",
+			selected->gearAvailable ? (CampaignHireInput.buyGear() ? L"G: remove equipment." : L"G: add starting equipment.") : L"Starting equipment unavailable.", quotes->arrivalMinutes / 1440u,
+			(quotes->arrivalMinutes / 60u) % 24u,quotes->arrivalMinutes % 60u,static_cast<wint_t>(L'A' + quotes->landingY - 1),unsigned(quotes->landingX));
+		if (CampaignHireInput.armed())
+		{
+			SetFontForeground(FONT_MCOLOR_LTYELLOW);
+			mprintf(24,396,L"Hire %ls %ls for $%d? Release Enter, then press Enter to confirm.",label.data(),
+				CampaignHireInput.buyGear() ? L"with equipment" : L"without equipment",int(selected->total[choice]));
+			mprintf(24,414,L"Esc: cancel this confirmation");
+		}
+		else if (!pending && CampaignHireInput.canHire(status,*economy,*quotes)) mprintf(24,396,L"Enter: review and confirm this hire   Esc: close AIM");
+		else if (!pending && economy->balance < selected->total[choice]) mprintf(24,396,L"The shared balance cannot cover this contract.");
+		else if (!pending) mprintf(24,396,L"Hiring is unavailable while another campaign request is pending.");
+	}
+	else mprintf(24,356,L"%ls",FullEngineCoopClientCampaignAimQuoteText(selected->status));
+	if (pending) mprintf(24,436,L"Waiting for the server's hire result...");
+	else if (result) mprintf(24,436,L"%ls",FullEngineCoopClientCampaignHireOutcomeText(result->outcome));
+}
+
+bool RenderMeanwhile(const FullEngineCoopClientRuntime& runtime) noexcept
+{
+	FullEngineCoopClientMeanwhileControls controls;
+	if (!CaptureFullEngineCoopClientMeanwhileControls(controls)) return false;
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 12, 70, std::min(620, static_cast<int>(SCREEN_WIDTH) - 12), 178, 0);
+	SetFontBackground(FONT_MCOLOR_BLACK); SetFontShadow(FONT_MCOLOR_BLACK);
+	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
+	mprintf(24, 82, L"Meanwhile: %ls", FullEngineCoopClientMeanwhileTitle(static_cast<CoopSession::CoopCampaignMeanwhileScene>(controls.scene)));
+	SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+	if (controls.pending) mprintf(24, 106, L"Waiting for the shared choice...");
+	else if (controls.armed) mprintf(24, 106, L"Skip this scene? Enter: confirm   Esc: cancel");
+	else mprintf(24, 106, L"S: skip scene");
+	mprintf(24, 130, L"Its campaign effects still apply. Time stays paused.");
+	mprintf(24, 154, L"Either player may skip; the time leader can then resume time.");
+	return true;
+}
+
+bool RenderBattleNotice(const FullEngineCoopClientRuntime& runtime) noexcept
+{
+	CoopSession::CoopCampaignStatus status; bool leader = false;
+	if (!runtime.campaignStatus(status, leader) || !status.battleNotice.id) return false;
+	FullEngineCoopClientBattleNoticeControls controls;
+	(void)CaptureFullEngineCoopClientBattleNoticeControls(controls);
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 12, 70, std::min(620, static_cast<int>(SCREEN_WIDTH) - 12), 178, 0);
+	SetFontBackground(FONT_MCOLOR_BLACK); SetFontShadow(FONT_MCOLOR_BLACK);
+	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
+	using Kind = CoopSession::CoopCampaignBattleNoticeKind;
+	const auto& notice = status.battleNotice;
+	const wchar_t* outcome = notice.kind == Kind::Defeated ? L"Your squad was defeated" :
+		notice.kind == Kind::DefeatedByCreatures ? L"Your squad was defeated by creatures" :
+		notice.kind == Kind::Captured ? L"Your unconscious mercs were captured" : L"Your squad surrendered";
+	mprintf(24, 82, L"%ls at %lc%u (level %u).", outcome, static_cast<wint_t>(L'A' + notice.y - 1), unsigned(notice.x), unsigned(notice.z));
+	SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+	if (controls.pending) mprintf(24, 106, L"Waiting for the server to return to campaign...");
+	else if (controls.armed) mprintf(24, 106, L"Return to campaign? Enter: confirm   Esc: cancel");
+	else mprintf(24, 106, L"C: continue to campaign");
+	mprintf(24, 130, L"Either player may continue. The campaign remains paused.");
+	if (notice.sectorControlLost) mprintf(24, 154, L"Enemy forces have taken control of this sector.");
+	return true;
+}
+
+bool RenderSurrender(const FullEngineCoopClientRuntime& runtime) noexcept
+{
+	CoopSession::CoopCampaignStatus status; bool leader = false;
+	if (!runtime.campaignStatus(status, leader) || !status.surrenderOffer) return false;
+	FullEngineCoopClientSurrenderControls controls;
+	(void)CaptureFullEngineCoopClientSurrenderControls(controls);
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 12, 70, std::min(620, static_cast<int>(SCREEN_WIDTH) - 12), 178, 0);
+	SetFontBackground(FONT_MCOLOR_BLACK); SetFontShadow(FONT_MCOLOR_BLACK);
+	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
+	mprintf(24, 82, L"The enemy offers to take your squad prisoner. Surrender?");
+	SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+	if (controls.pending) mprintf(24, 106, L"Waiting for the server to resolve the shared choice...");
+	else if (controls.armed == 7) mprintf(24, 106, L"Continue fighting? Enter: confirm   Esc: cancel");
+	else if (controls.armed == 8) mprintf(24, 106, L"Surrender the squad? Enter: confirm   Esc: cancel");
+	else mprintf(24, 106, L"N: continue fighting   Y: surrender");
+	mprintf(24, 130, L"Either player may answer. The battle waits for your choice.");
+	return true;
+}
+
 void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 {
+	CoopSession::CoopCampaignStatus campaign;
+	bool localLeader = false;
+	const bool haveCampaign = runtime.campaignStatus(campaign, localLeader);
+	const FullEngineCoopClientConnectionPhase phase = runtime.connectionPhase();
 	SetFont(FONT14ARIAL);
 	SetFontForeground(FONT_MCOLOR_WHITE);
 	mprintf(24, 24, L"Dedicated co-op client");
@@ -480,14 +825,139 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 	else if (runtime.selfRetirementPending())
 		mprintf(24, 58,
 			L"Leaving the server at its next committed boundary...");
-	else if (!runtime.networkOpen())
+	else if (phase == FullEngineCoopClientConnectionPhase::Reconnecting)
+	{
+		SetFontForeground(FONT_MCOLOR_LTRED);
+		mprintf(24, 58,
+			L"Connection unavailable. Reconnecting to the server automatically...");
+	}
+	else if (phase == FullEngineCoopClientConnectionPhase::Failed)
+	{
+		SetFontForeground(FONT_MCOLOR_LTRED);
+		mprintf(24, 58, L"The server session failed. See the client log for details.");
+	}
+	else if (phase == FullEngineCoopClientConnectionPhase::OpeningSession)
 		mprintf(24, 58, L"Opening the server session...");
-	else if (!runtime.campaignReady())
+	else if (phase == FullEngineCoopClientConnectionPhase::SynchronizingCampaign)
 		mprintf(24, 58, L"Synchronizing the passive campaign checkpoint...");
+	else if (haveCampaign && campaign.arrival.decision)
+		mprintf(24, 58, L"The campaign is paused for a server arrival decision.");
+	else if (haveCampaign && campaign.phase == CoopSession::CoopCampaignPhase::Strategic)
+		mprintf(24, 58, L"Strategic campaign: either player can order shared travel and arrival actions.");
 	else
 		mprintf(24, 58, L"Waiting for a committed tactical baseline...");
 	mprintf(24, 88,
 		L"The local JA2 campaign, clocks, AI, and tactical simulation are paused.");
+	// A retained command result is historical feedback. It must never replace
+	// the current connection/recovery phase while presentation is unavailable.
+	if (HaveSendResult)
+	{
+		SetFontForeground(FONT_MCOLOR_LTRED);
+		mprintf(24, 118, L"Last command: %ls", SendResultName(LastSendResult));
+	}
+	if (haveCampaign)
+	{
+		const auto text = BuildFullEngineCoopClientCampaignStatusText(&campaign, localLeader);
+		SetFont(FONT10ARIAL);
+		SetFontForeground(FONT_MCOLOR_LTGRAY);
+		mprintf(24, 150, L"%ls", text.clock.data());
+		mprintf(24, 164, L"%ls", text.leader.data());
+		CoopSession::CoopCampaignEconomy economy; CoopSession::CoopCampaignAimQuotes quotes;
+		CoopSession::CoopCampaignHireResult hireResult; CoopSession::CoopCampaignActionResult heldAction; CoopSession::CoopCampaignTimeResult heldTime;
+		bool hirePending = false, heldActionPending = false, heldTimePending = false;
+		const bool haveEconomy = runtime.campaignEconomy(economy), haveQuotes = runtime.campaignAimQuotes(quotes);
+		const bool haveHireResult = runtime.campaignHireFeedback(hireResult,hirePending);
+		(void)runtime.campaignActionFeedback(heldAction,heldActionPending); (void)runtime.campaignTimeFeedback(heldTime,heldTimePending);
+		CampaignHireInput.synchronize(&campaign,haveEconomy ? &economy : nullptr,haveQuotes ? &quotes : nullptr,
+			!runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending(),hirePending || heldActionPending || heldTimePending);
+		if (CampaignHireInput.open())
+		{
+			CampaignActionInput.cancel();
+			RenderCampaignHiring(runtime,campaign,haveEconomy ? &economy : nullptr,haveQuotes ? &quotes : nullptr,haveHireResult ? &hireResult : nullptr,hirePending);
+			return;
+		}
+		if (campaign.arrival.decision)
+			mprintf(24, 190, L"Time is held until a player resolves this arrival.");
+		if (campaign.phase == CoopSession::CoopCampaignPhase::Strategic)
+		{
+			if (!campaign.arrival.decision) mprintf(24, 190, localLeader ? L"P: pause   1: 5 min/sec   2: 30 min/sec   3: 60 min/sec"
+				: L"Strategic time is controlled by the designated leader.");
+			CoopSession::CoopCampaignTimeResult result;
+			bool pending = false;
+			const bool haveResult = runtime.campaignTimeFeedback(result, pending);
+			if (pending) mprintf(24, 210, L"Waiting for the server's time-control result...");
+			else if (haveResult) mprintf(24, 210, L"Last time request: %ls", FullEngineCoopClientCampaignTimeOutcomeText(result.outcome));
+		}
+		if (campaign.arrival.decision)
+		{
+			SetFontForeground(FONT_MCOLOR_LTYELLOW);
+			mprintf(24, 236, L"%ls", text.arrival.data());
+			mprintf(24, 252, L"%ls", text.arrivalDetail.data());
+		}
+		CoopSession::CoopCampaignGroups groups;
+		CoopSession::CoopCampaignActionResult actionResult;
+		CoopSession::CoopCampaignTimeResult currentTimeResult;
+		bool actionPending = false, timePending = false;
+		const bool haveGroups = runtime.campaignGroups(groups);
+		const bool haveActionResult = runtime.campaignActionFeedback(actionResult, actionPending);
+		(void)runtime.campaignTimeFeedback(currentTimeResult, timePending);
+		CampaignActionInput.synchronize(&campaign, haveGroups ? &groups : nullptr,
+			!runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending(), actionPending || timePending || hirePending);
+		if (campaign.phase == CoopSession::CoopCampaignPhase::Strategic)
+		{
+			SetFontForeground(FONT_MCOLOR_LTGRAY);
+			using Kind = CoopSession::CoopCampaignArrivalKind;
+			using Stage = CoopSession::CoopCampaignArrivalStage;
+			const auto& arrival = campaign.arrival;
+			if (arrival.decision)
+			{
+				if (arrival.kind == Kind::WildernessNpc && arrival.stage == Stage::Pending)
+					mprintf(24, 282, arrival.finalDestination ? L"A: acknowledge this destination notice"
+						: L"S: stop the interrupted route at this sector");
+				else if (arrival.kind == Kind::Battle && arrival.stage == Stage::Prepared && arrival.pendingCount == 1)
+				{
+					if (arrival.nativeEnterSector)
+						mprintf(24, 282, arrival.nativePlacement ? L"E: enter battle with native spread deployment"
+							: L"E: enter battle with native forced insertion");
+					if (arrival.nativeRetreat)
+						mprintf(24, 300, CampaignActionInput.retreatArmed() ? L"Retreat this encounter? Enter: confirm   Esc: cancel"
+							: L"R: choose retreat");
+				}
+				else mprintf(24, 282, L"No supported remote choice is available for this arrival.");
+			}
+			else if (const auto* group = haveGroups ? CampaignActionInput.selectedGroup(groups) : nullptr)
+			{
+				mprintf(24, 236, L"Selected group %u:%u at %lc%u (level %u) | %u mercs",
+					static_cast<unsigned>(group->id.slot), static_cast<unsigned>(group->id.incarnation),
+					static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x),
+					static_cast<unsigned>(group->z), static_cast<unsigned>(group->memberCount));
+				mprintf(24, 254, L"Tab / ]: next group   [: previous group");
+				if (group->betweenSectors)
+					mprintf(24, 282, L"Travelling to %lc%u | native arrival day %u %02u:%02u",
+						static_cast<wint_t>(L'A' + group->nextY - 1), static_cast<unsigned>(group->nextX),
+						group->arrivalMinutes / 1440u, (group->arrivalMinutes / 60u) % 24u, group->arrivalMinutes % 60u);
+				else if (group->vehicle || group->z || group->destinationX)
+					mprintf(24, 282, L"Travel controls currently require an idle, surface, on-foot group.");
+				else if (CampaignActionInput.destinationX())
+					mprintf(24, 282, L"Travel from %lc%u to %lc%u? Enter: order travel   Esc: cancel",
+						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x),
+						static_cast<wint_t>(L'A' + CampaignActionInput.destinationY() - 1),
+						static_cast<unsigned>(CampaignActionInput.destinationX()));
+				else mprintf(24, 282, L"Arrow keys: choose one adjacent sector, then Enter to order travel.");
+			}
+			else mprintf(24, 236, L"Waiting for the server's friendly group observation...");
+			if (actionPending) mprintf(24, 336, L"Waiting for the server's campaign-action result...");
+			else if (haveActionResult)
+				mprintf(24, 336, L"Last campaign action: %ls", FullEngineCoopClientCampaignActionOutcomeText(actionResult.outcome));
+			if (!campaign.arrival.decision)
+			{
+				if (haveEconomy && economy.available) mprintf(24,358,L"Shared funds: $%d | H: AIM hiring",int(economy.balance));
+				else mprintf(24,358,L"Waiting for the server's campaign balance and AIM offers...");
+				if (hirePending) mprintf(24,380,L"Waiting for the server's hire result...");
+				else if (haveHireResult) mprintf(24,380,L"Last hire: %ls",FullEngineCoopClientCampaignHireOutcomeText(hireResult.outcome));
+			}
+		}
+	}
 }
 
 void RenderPresentation(
@@ -562,7 +1032,8 @@ void RenderPresentation(
 
 	const auto& actors = snapshot.actors();
 	const TacticalEntityId focusedActor = Controller.targetingAttack()
-		? Controller.attackTarget() : Controller.selectedActor();
+		? Controller.attackTarget() : Controller.selectingFirstAid()
+		? Controller.firstAidPatient() : Controller.selectedActor();
 	std::size_t selectedIndex = 0;
 	for (std::size_t index = 0; index < actors.size(); ++index)
 		if (actors[index].id == focusedActor)
@@ -634,6 +1105,9 @@ void RenderPresentation(
 			selectedActor->loadout.primaryHand);
 		RenderEquipmentSlot(loadoutTitleY + 70, L"Secondary",
 			selectedActor->loadout.secondaryHand);
+		mprintf(20, loadoutTitleY + 84, L"Bleeding %d | Held medical kit points %u",
+			static_cast<int>(selectedActor->bleeding),
+			static_cast<unsigned>(selectedActor->handMedicalKitPoints));
 	}
 
 	const int statusY = SCREEN_HEIGHT - 92;
@@ -677,7 +1151,8 @@ void RenderPresentation(
 			? L"Interrupt active; selected merc may act. T passes selected merc."
 			: L"Interrupt active; selected merc is not eligible to act or pass.");
 	}
-	else if (HaveSendResult)
+	else if (HaveSendResult &&
+		LastSendWorldGeneration == view.state.worldGeneration)
 	{
 		SetFontForeground(FONT_MCOLOR_LTRED);
 		mprintf(20, statusY, L"Command: %ls", SendResultName(LastSendResult));
@@ -699,9 +1174,34 @@ void RenderPresentation(
 		mprintf(20, statusY, L"No command submitted");
 	}
 
+	if (!Controller.selectingFirstAid())
+	{
+		const auto* selected = snapshot.find(Controller.selectedActor());
+		if (selected)
+		{
+			SetFontForeground(FONT_MCOLOR_DKWHITE);
+			mprintf(20, SCREEN_HEIGHT - 80, L"Bleeding %d | equipped kit %u | providing aid %ls | receiving %u",
+				selected->bleeding, unsigned(selected->handMedicalKitPoints),
+				selected->medicalService.providing ? L"yes" : L"no", unsigned(selected->medicalService.receivingCount));
+		}
+	}
+
 	SetFontForeground(Controller.actionsEnabled(controllerView)
 		? FONT_MCOLOR_WHITE : FONT_MCOLOR_DKGRAY);
-	if (Controller.targetingAttack())
+	if (Controller.selectingFirstAid())
+	{
+		const auto patientId = Controller.firstAidPatient();
+		const auto* patient = snapshot.find(patientId);
+		std::array<wchar_t, TacticalActorDisplayNameCodeUnits + 1> name{};
+		if (patient)
+			for (std::size_t index = 0; index < TacticalActorDisplayNameCodeUnits; ++index)
+				name[index] = static_cast<wchar_t>(patient->presentation.displayNameUtf16[index]);
+		mprintf(20, SCREEN_HEIGHT - 80, L"Aid %ls (%u:%u)  life %d/%d  bleeding %d",
+			name.data(), unsigned(patientId.slot), unsigned(patientId.incarnation),
+			patient ? patient->life : 0, patient ? patient->maximumLife : 0, patient ? patient->bleeding : 0);
+		mprintf(20, SCREEN_HEIGHT - 64, L"Up/Down/Tab patient   Enter begin aid   Esc/Space cancel");
+	}
+	else if (Controller.targetingAttack())
 	{
 		const TacticalEntityId target = Controller.attackTarget();
 		const TacticalActorSnapshot* const targetActor = snapshot.find(target);
@@ -737,14 +1237,27 @@ void RenderPresentation(
 	else if (snapshot.turn().interruptPhase ==
 		TacticalInterruptPhase::Active)
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   R reload   Q/E face   1/2/3 stance   Space stop   T pass selected merc   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   B aid   D door   R reload   Q/E face   1/2/3 stance   Space stop/aid   T pass selected merc   Home follow   L leave");
 	else
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   D door   R reload   Q/E face   1/2/3 stance   Space stop   T end   L leave");
+			L"Arrows move   [ prev actor, Tab/] next   M grid   F fire   B aid   D door   R reload   Q/E face   1/2/3 stance   Space stop/aid   T end   Home follow   L leave");
 	SetFontForeground(FONT_MCOLOR_DKGRAY);
 	mprintf(20, SCREEN_HEIGHT - 40,
 		L"Worldless replica view: no local map, AI, clocks, pathing, or tactical simulation.");
 }
+}
+
+bool RefreshFullEngineCoopClientCursor() noexcept
+{
+	try
+	{
+		if (SetPresentationCursorFromDatabase(CURSOR_NORMAL)) return true;
+	}
+	catch (...) {}
+	std::fputs("[co-op client] game cursor could not be rendered; stopping client to prevent blind input\n",
+		stderr);
+	std::fflush(stderr);
+	return false;
 }
 
 void HandleFullEngineCoopClientScreen() noexcept
@@ -753,25 +1266,246 @@ void HandleFullEngineCoopClientScreen() noexcept
 		FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
 	SetFontBackground(FONT_MCOLOR_BLACK);
 	SetFontShadow(FONT_MCOLOR_BLACK);
+	HandleFullEngineCoopClientInput();
 
+	FullEngineCoopClientRuntime& runtime =
+		GetFullEngineCoopClientRuntime();
+	FullEngineCoopClientPresentationView presentation;
+	const bool presentationReady = runtime.presentationView(presentation);
+	if (!presentationReady)
+	{
+		RenderWaiting(runtime);
+		(void)RenderSurrender(runtime);
+	(void)RenderBattleNotice(runtime);
+	(void)RenderMeanwhile(runtime);
+		InvalidateScreen();
+		return;
+	}
+
+	FullEngineCoopClientControllerView view = ControllerView(presentation);
+	Controller.synchronize(view);
+	RenderPresentation(presentation, view);
+	(void)RenderSurrender(runtime);
+	(void)RenderBattleNotice(runtime);
+	(void)RenderMeanwhile(runtime);
+	InvalidateScreen();
+}
+
+void RenderFullEngineCoopClientCampaignStatus() noexcept
+{
+	CoopSession::CoopCampaignStatus status;
+	bool localLeader = false;
+	const bool available = GetFullEngineCoopClientRuntime().campaignStatus(status, localLeader);
+	const auto text = BuildFullEngineCoopClientCampaignStatusText(available ? &status : nullptr, localLeader);
+	// Fixed opaque backing also erases a longer prior value without running
+	// any tactical UI/clock handler or requesting a full-world redraw.
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 8, 8, std::min(518, static_cast<int>(SCREEN_WIDTH) - 8), 42, 0);
+	SetFont(FONT10ARIAL);
+	SetFontBackground(FONT_MCOLOR_BLACK);
+	SetFontShadow(FONT_MCOLOR_BLACK);
+	SetFontForeground(FONT_MCOLOR_LTGRAY);
+	mprintf(12, 12, L"%ls", text.clock.data());
+	mprintf(12, 26, L"%ls", text.leader.data());
+
+	// Clear the fixed HUD lane even when another modal suppresses its text.
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 8, 44, std::min(638, static_cast<int>(SCREEN_WIDTH) - 8), 78, 0);
+	// GAME_SCREEN uses this overlay, while RenderPresentation owns INIT fallback.
+	// Observe only: queued input retains responsibility for modal revocation.
+	FullEngineCoopClientMedicalControls medical;
+	FullEngineCoopClientMeanwhileControls medicalScene;
+	FullEngineCoopClientBattleNoticeControls medicalNotice;
+	FullEngineCoopClientSurrenderControls medicalSurrender;
+	FullEngineCoopClientPresentationView presentation;
+	if (!CaptureFullEngineCoopClientMeanwhileControls(medicalScene) &&
+		!CaptureFullEngineCoopClientBattleNoticeControls(medicalNotice) &&
+		!CaptureFullEngineCoopClientSurrenderControls(medicalSurrender) &&
+		CaptureFullEngineCoopClientMedicalControls(medical) &&
+		GetFullEngineCoopClientRuntime().presentationView(presentation) && presentation.snapshot &&
+		!Controller.inventoryOpen() && !Controller.enteringDestination() &&
+		!Controller.targetingAttack() && !Controller.selectingDoor())
+	{
+		const auto* actor = presentation.snapshot->find(medical.selecting ? medical.patient : medical.medic);
+		if (actor && medical.selecting)
+		{
+			std::array<wchar_t, TacticalActorDisplayNameCodeUnits + 1> name{};
+			for (std::size_t index = 0; index < TacticalActorDisplayNameCodeUnits; ++index)
+				name[index] = static_cast<wchar_t>(actor->presentation.displayNameUtf16[index]);
+			mprintf(12, 46, L"Aid %ls (%u:%u)  life %d/%d  bleeding %d", name.data(),
+				unsigned(medical.patient.slot), unsigned(medical.patient.incarnation), actor->life, actor->maximumLife, actor->bleeding);
+			mprintf(12, 62, L"Up/Down/Tab patient   Enter begin aid   Esc/Space cancel");
+		}
+		else if (actor)
+		{
+			mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d", unsigned(actor->handMedicalKitPoints), actor->bleeding);
+			mprintf(12, 62, L"Providing aid %ls | receiving %u | Space stop aid", actor->medicalService.providing ? L"yes" : L"no",
+				unsigned(actor->medicalService.receivingCount));
+		}
+	}
+	(void)RenderSurrender(GetFullEngineCoopClientRuntime());
+	(void)RenderBattleNotice(GetFullEngineCoopClientRuntime());
+	(void)RenderMeanwhile(GetFullEngineCoopClientRuntime());
+}
+
+void HandleFullEngineCoopClientInput() noexcept
+{
+	const bool medicalAtFrameStart = Controller.selectingFirstAid();
+	static FullEngineCoopClientCampaignTimeInput timeInput;
 	FullEngineCoopClientRuntime& runtime =
 		GetFullEngineCoopClientRuntime();
 	bool retirementEligible =
 		!runtime.selfRetirementPending() && !runtime.retired();
 	if (ScreenFrame != UINT64_MAX) ++ScreenFrame;
 	RetirementConfirmation.advance(ScreenFrame);
+
 	FullEngineCoopClientPresentationView presentation;
 	const bool presentationReady = runtime.presentationView(presentation);
+	if (presentationReady && HaveSendResult &&
+		LastSendWorldGeneration != 0 &&
+		LastSendWorldGeneration != presentation.state.worldGeneration)
+	{
+		LastSendResult = CoopSession::FullEngineCoopClientResult::Success;
+		HaveSendResult = false;
+		LastSendWorldGeneration = 0;
+	}
 	if (presentationReady != PreviousPresentationReady ||
 		runtime.selfRetirementPending() || runtime.retired())
 		RetirementConfirmation.cancel();
 	PreviousPresentationReady = presentationReady;
-	if (!presentationReady)
+	FullEngineCoopClientMeanwhileControls sceneControls;
+	if (CaptureFullEngineCoopClientMeanwhileControls(sceneControls))
 	{
+		BattleNoticeInput.reset(); SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
 		while (DequeueEvent(&event))
 		{
+			CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups; bool leader = false;
+			const bool observed = runtime.campaignStatus(status, leader) && runtime.campaignGroups(groups);
+			(void)CaptureFullEngineCoopClientMeanwhileControls(sceneControls);
+			using Key = FullEngineCoopClientMeanwhileInput::Key;
+			const Key key = event.usParam == 's' || event.usParam == 'S' ? Key::Skip :
+				event.usParam == ENTER ? Key::Confirm : event.usParam == ESC ? Key::Cancel : Key::None;
+			const auto answer = MeanwhileInput.handle(key, event.usEvent == KEY_DOWN, event.usEvent == KEY_UP,
+				observed ? &status : nullptr, observed ? &groups : nullptr, sceneControls.enabled, sceneControls.pending);
+			if (answer)
+			{
+				LastSendResult = runtime.requestCampaignAction(*answer);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+				LastSendWorldGeneration = 0;
+			}
+		}
+		return;
+	}
+	MeanwhileInput.reset();
+	FullEngineCoopClientBattleNoticeControls notice;
+	if (CaptureFullEngineCoopClientBattleNoticeControls(notice))
+	{
+		SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
+		Controller.synchronize(FullEngineCoopClientControllerView{});
+		InputAtom event;
+		while (DequeueEvent(&event))
+		{
+			CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups; bool leader = false;
+			const bool observed = runtime.campaignStatus(status, leader) && runtime.campaignGroups(groups);
+			(void)CaptureFullEngineCoopClientBattleNoticeControls(notice);
+			using Key = FullEngineCoopClientBattleNoticeInput::Key;
+			const Key key = event.usParam == 'c' || event.usParam == 'C' ? Key::Continue :
+				event.usParam == ENTER ? Key::Confirm : event.usParam == ESC ? Key::Cancel : Key::None;
+			const auto answer = BattleNoticeInput.handle(key, event.usEvent == KEY_DOWN, event.usEvent == KEY_UP,
+				observed ? &status : nullptr, observed ? &groups : nullptr, notice.enabled, notice.pending);
+			if (answer)
+			{
+				LastSendResult = runtime.requestCampaignAction(*answer);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+				LastSendWorldGeneration = 0;
+			}
+		}
+		return;
+	}
+	BattleNoticeInput.reset();
+	FullEngineCoopClientSurrenderControls surrender;
+	if (CaptureFullEngineCoopClientSurrenderControls(surrender))
+	{
+		RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
+		Controller.synchronize(FullEngineCoopClientControllerView{});
+		InputAtom event;
+		while (DequeueEvent(&event))
+		{
+			CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups; bool leader = false;
+			const bool observed = runtime.campaignStatus(status, leader) && runtime.campaignGroups(groups);
+			(void)CaptureFullEngineCoopClientSurrenderControls(surrender);
+			using Key = FullEngineCoopClientSurrenderInput::Key;
+			const Key key = event.usParam == 'n' || event.usParam == 'N' ? Key::Fight :
+				event.usParam == 'y' || event.usParam == 'Y' ? Key::Surrender :
+				event.usParam == ENTER ? Key::Confirm : event.usParam == ESC ? Key::Cancel : Key::None;
+			const auto answer = SurrenderInput.handle(key, event.usEvent == KEY_DOWN, event.usEvent == KEY_UP,
+				observed ? &status : nullptr, observed ? &groups : nullptr, surrender.enabled, surrender.pending);
+			if (answer)
+			{
+				LastSendResult = runtime.requestCampaignAction(*answer);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+				LastSendWorldGeneration = 0;
+			}
+		}
+		return;
+	}
+	SurrenderInput.reset();
+	if (!presentationReady)
+	{
+		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
+		Controller.synchronize(FullEngineCoopClientControllerView{});
+		InputAtom event;
+		while (DequeueEvent(&event))
+		{
+			CoopSession::CoopCampaignStatus campaign;
+			CoopSession::CoopCampaignGroups groups;
+			CoopSession::CoopCampaignActionResult actionResult;
+			CoopSession::CoopCampaignTimeResult timeResult;
+			CoopSession::CoopCampaignHireResult hireResult;
+			CoopSession::CoopCampaignEconomy economy;
+			CoopSession::CoopCampaignAimQuotes quotes;
+			bool localLeader = false, pending = false, actionPending = false;
+			bool hirePending = false;
+			const bool haveCampaign = runtime.campaignStatus(campaign, localLeader);
+			const bool haveGroups = runtime.campaignGroups(groups);
+			(void)runtime.campaignActionFeedback(actionResult, actionPending);
+			(void)runtime.campaignTimeFeedback(timeResult, pending);
+			(void)runtime.campaignHireFeedback(hireResult, hirePending);
+			const bool haveEconomy = runtime.campaignEconomy(economy), haveQuotes = runtime.campaignAimQuotes(quotes);
+			const bool hireWasOpen = CampaignHireInput.open();
+			const auto hire = CampaignHireInput.handle(CampaignHireKey(event.usParam),event.usEvent == KEY_DOWN,event.usEvent == KEY_UP,
+				haveCampaign ? &campaign : nullptr,haveEconomy ? &economy : nullptr,haveQuotes ? &quotes : nullptr,
+				!runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending(),pending || actionPending || hirePending);
+			const bool hireOwnsKey = hireWasOpen || CampaignHireInput.open();
+			if (hire)
+			{
+				LastSendResult = runtime.requestCampaignHire(hire->profile,hire->days,hire->buyGear);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success; LastSendWorldGeneration = 0;
+			}
+			const auto action = CampaignActionInput.handle(CampaignActionKey(event.usParam),
+				event.usEvent == KEY_DOWN, event.usEvent == KEY_UP,
+				haveCampaign ? &campaign : nullptr, haveGroups ? &groups : nullptr,
+				!runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending() && !hireOwnsKey, actionPending || pending || hirePending);
+			if (action)
+			{
+				LastSendResult = runtime.requestCampaignAction(*action);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+				LastSendWorldGeneration = 0;
+			}
+			const bool enabled = haveCampaign && localLeader && !pending && !actionPending && !hirePending && !hireOwnsKey &&
+				!runtime.selfRetirementPending() && !RetirementConfirmation.pending() &&
+				campaign.phase == CoopSession::CoopCampaignPhase::Strategic && !campaign.arrival.decision;
+			const auto timeAction = timeInput.handle(event.usParam, event.usEvent == KEY_DOWN, event.usEvent == KEY_UP, enabled);
+			if (timeAction)
+			{
+				LastSendResult = runtime.requestCampaignTime(*timeAction);
+				HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+				LastSendWorldGeneration = 0;
+			}
+			if (hireOwnsKey) { RetirementConfirmation.cancel(); continue; }
 			const bool leaveKey = event.usParam == 'l' || event.usParam == 'L';
 			if (retirementEligible && leaveKey && event.usEvent == KEY_UP)
 				RetirementConfirmation.releaseLeave(ScreenFrame);
@@ -784,14 +1518,256 @@ void HandleFullEngineCoopClientScreen() noexcept
 			else if (event.usEvent == KEY_DOWN)
 				RetirementConfirmation.cancel();
 		}
-		RenderWaiting(runtime);
-		InvalidateScreen();
 		return;
 	}
 
+	// Tactical input owns key releases while its presentation is active. Do not
+	// retain a strategic key latch across that different input owner.
+	timeInput.reset();
+	CampaignActionInput.reset();
+	CampaignHireInput.reset();
 	FullEngineCoopClientControllerView view = ControllerView(presentation);
 	Controller.synchronize(view);
-	HandleInput(presentation, view, retirementEligible);
-	RenderPresentation(presentation, view);
-	InvalidateScreen();
+	HandleInput(presentation, view, retirementEligible, medicalAtFrameStart);
+}
+
+bool CaptureFullEngineCoopClientMedicalControls(FullEngineCoopClientMedicalControls& output) noexcept
+{
+	output = {};
+	FullEngineCoopClientPresentationView presentation;
+	if (!GetFullEngineCoopClientRuntime().presentationView(presentation) ||
+		!presentation.snapshot || presentation.resynchronizing) return false;
+	const auto view = ControllerView(presentation);
+	if (!Controller.ready(view)) return false;
+	const auto* owner = view.inventoryFor(Controller.selectedActor());
+	if (!owner || (Controller.selectingFirstAid() && !Controller.firstAidSelectionCurrent(view))) return false;
+	output.sessionEpoch = owner->sessionEpoch;
+	output.worldGeneration = owner->worldGeneration;
+	output.publicRevision = presentation.state.revision;
+	output.baselineId = owner->baselineId;
+	output.inventoryRevision = owner->inventoryRevision;
+	output.outstandingCommandId = view.outstandingCommandId;
+	output.medic = Controller.selectedActor();
+	output.selecting = Controller.selectingFirstAid();
+	output.patient = Controller.firstAidPatient();
+	output.actionsEnabled = Controller.actionsEnabled(view);
+	return true;
+}
+
+TacticalEntityId GetFullEngineCoopClientSelectedActor() noexcept
+{
+	return Controller.selectedActor();
+}
+
+bool CaptureFullEngineCoopClientMeanwhileControls(FullEngineCoopClientMeanwhileControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool leader = false, actionPending = false, timePending = false, hirePending = false;
+	if (!runtime.campaignStatus(status, leader) || !runtime.campaignGroups(groups) || !status.meanwhile.id) return false;
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	output.pending = actionPending || timePending || hirePending;
+	MeanwhileInput.synchronize(&status, &groups, !runtime.selfRetirementPending() && !runtime.retired(), output.pending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.groupsRevision = groups.revision; output.notice = status.meanwhile.id;
+	output.scene = unsigned(status.meanwhile.scene);
+	output.armed = MeanwhileInput.armed(); output.enabled = MeanwhileInput.enabled();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientBattleNoticeControls(FullEngineCoopClientBattleNoticeControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool leader = false, actionPending = false, timePending = false, hirePending = false;
+	if (!runtime.campaignStatus(status, leader) || !runtime.campaignGroups(groups) || !status.battleNotice.id) return false;
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	output.pending = actionPending || timePending || hirePending;
+	BattleNoticeInput.synchronize(&status, &groups, !runtime.selfRetirementPending() && !runtime.retired(), output.pending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.groupsRevision = groups.revision; output.notice = status.battleNotice.id;
+	output.sectorControlLost = status.battleNotice.sectorControlLost;
+	output.kind = unsigned(status.battleNotice.kind); output.x = status.battleNotice.x; output.y = status.battleNotice.y; output.z = status.battleNotice.z;
+	output.armed = BattleNoticeInput.armed(); output.enabled = BattleNoticeInput.enabled();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientSurrenderControls(FullEngineCoopClientSurrenderControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool leader = false, actionPending = false, timePending = false, hirePending = false;
+	if (!runtime.campaignStatus(status, leader) || !runtime.campaignGroups(groups) || !status.surrenderOffer) return false;
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	output.pending = actionPending || timePending || hirePending;
+	SurrenderInput.synchronize(&status, &groups, !runtime.selfRetirementPending() && !runtime.retired(), output.pending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.groupsRevision = groups.revision; output.offer = status.surrenderOffer;
+	output.armed = SurrenderInput.armed(); output.enabled = SurrenderInput.enabled();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status;
+	CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult actionResult;
+	CoopSession::CoopCampaignTimeResult timeResult;
+	CoopSession::CoopCampaignHireResult hireResult;
+	bool localLeader = false, actionPending = false, timePending = false, hirePending = false;
+	if (!runtime.campaignStatus(status, localLeader) || !runtime.campaignGroups(groups) ||
+		status.phase != CoopSession::CoopCampaignPhase::Strategic || groups.sessionEpoch != status.sessionEpoch ||
+		!CoopSession::ValidCoopCampaignStatus(status) || !CoopSession::ValidCoopCampaignGroups(groups)) return false;
+	(void)runtime.campaignActionFeedback(actionResult, actionPending);
+	(void)runtime.campaignTimeFeedback(timeResult, timePending);
+	(void)runtime.campaignHireFeedback(hireResult, hirePending);
+	const bool eligible = !status.meanwhile.id && !runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending() && !CampaignHireInput.open();
+	CampaignActionInput.synchronize(&status, &groups, eligible, actionPending || timePending || hirePending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.groupsRevision = groups.revision; output.decision = status.arrival.decision;
+	output.selected = CampaignActionInput.selected();
+	output.destinationX = CampaignActionInput.destinationX(); output.destinationY = CampaignActionInput.destinationY();
+	output.retreatArmed = CampaignActionInput.retreatArmed();
+	output.enabled = eligible && !actionPending && !timePending && !hirePending;
+	return true;
+}
+
+bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaignHireControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignEconomy economy; CoopSession::CoopCampaignAimQuotes quotes;
+	CoopSession::CoopCampaignHireResult hire; CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time;
+	bool leader = false, hirePending = false, actionPending = false, timePending = false;
+	if (!runtime.campaignStatus(status,leader) || !runtime.campaignEconomy(economy) || !runtime.campaignAimQuotes(quotes) ||
+		status.phase != CoopSession::CoopCampaignPhase::Strategic || status.arrival.decision || status.meanwhile.id) return false;
+	(void)runtime.campaignHireFeedback(hire,hirePending); (void)runtime.campaignActionFeedback(action,actionPending); (void)runtime.campaignTimeFeedback(time,timePending);
+	CampaignHireInput.synchronize(&status,&economy,&quotes,!runtime.selfRetirementPending() && !runtime.retired() && !RetirementConfirmation.pending(),
+		hirePending || actionPending || timePending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.economyRevision = economy.revision; output.quoteRevision = quotes.revision; output.profile = CampaignHireInput.profile(); output.days = CampaignHireInput.days();
+	output.open = CampaignHireInput.open(); output.armed = CampaignHireInput.armed(); output.enabled = CampaignHireInput.enabled();
+	output.canHire = CampaignHireInput.canHire(status,economy,quotes); output.buyGear = CampaignHireInput.buyGear();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientPresentationInventoryControls(
+	FullEngineCoopClientPresentationInventoryControls& output) noexcept
+{
+	FullEngineCoopClientPresentationInventoryControls candidate;
+	FullEngineCoopClientPresentationView presentation;
+	if (!GetFullEngineCoopClientRuntime().presentationView(presentation)) return false;
+	const auto view = ControllerView(presentation);
+	Controller.synchronize(view);
+	if (Controller.inventoryOpen() && view.inventoryFor(Controller.selectedActor()) &&
+		Controller.activeModalWorldMatches(presentation.state.worldGeneration))
+	{
+		candidate.open = true;
+		candidate.actor = Controller.inventoryDisplayActor();
+		candidate.worldGeneration = presentation.state.worldGeneration;
+		candidate.selectedSourceSlot = Controller.inventorySourceSlot();
+		candidate.inspectedSlot = Controller.inventoryInspectedSlot();
+		candidate.actionsEnabled = Controller.actionsEnabled(view);
+		candidate.pickupOpen = Controller.pickingUpInventory();
+		candidate.dropOpen = Controller.droppingInventory();
+		if (candidate.dropOpen) candidate.inspectedSlot = FullEngineCoopClientInventoryNoSlot;
+		candidate.groundItem = Controller.inventoryGroundItem();
+		if (candidate.pickupOpen) candidate.actionsEnabled = Controller.inventoryPickupActionsEnabled(view);
+		if (Controller.transferringInventory())
+		{
+			candidate.transferSource = Controller.selectedActor();
+			const auto* inventory = view.inventoryFor(candidate.transferSource);
+			const auto& item = inventory->slots[Controller.inventorySourceSlot()];
+			candidate.transferItem = item.item;
+			candidate.transferCount = item.count;
+			candidate.selectedSourceSlot = FullEngineCoopClientInventoryNoSlot;
+			candidate.inspectedSlot = FullEngineCoopClientInventoryNoSlot;
+		}
+		const char* notice = Controller.inventoryNotice();
+		for (std::size_t i = 0; i + 1 < candidate.notice.size() && notice[i]; ++i)
+			candidate.notice[i] = static_cast<unsigned char>(notice[i]);
+	}
+	output = candidate;
+	return true;
+}
+
+bool CaptureFullEngineCoopClientPresentationControlFeedback(
+	std::uint64_t worldGeneration,
+	const TacticalEntityId* assignedActors,
+	std::size_t assignedActorCount,
+	FullEngineCoopClientPresentationControlFeedbackInput& output) noexcept
+{
+	FullEngineCoopClientPresentationControlFeedbackInput candidate;
+	if (worldGeneration == 0 ||
+		assignedActorCount > candidate.assignedActors.size() ||
+		(assignedActorCount != 0 && assignedActors == nullptr) ||
+		!Controller.activeModalWorldMatches(worldGeneration))
+		return false;
+	candidate.currentWorldGeneration = worldGeneration;
+	for (std::size_t index = 0; index < assignedActorCount; ++index)
+		candidate.assignedActors[index] = assignedActors[index];
+	candidate.assignedActorCount = assignedActorCount;
+	candidate.selectedActor = Controller.selectedActor();
+
+	const unsigned activeModes =
+		(Controller.enteringDestination() ? 1u : 0u) +
+		(Controller.targetingAttack() ? 1u : 0u) +
+		(Controller.selectingDoor() ? 1u : 0u);
+	if (activeModes > 1) return false;
+	if (Controller.enteringDestination())
+	{
+		candidate.mode =
+			FullEngineCoopClientPresentationControlMode::Destination;
+		const char* const source = Controller.destinationText();
+		std::size_t length = 0;
+		while (length < candidate.destination.size() &&
+			source[length] != '\0')
+		{
+			candidate.destination[length] = source[length];
+			++length;
+		}
+		if (length >= candidate.destination.size()) return false;
+		candidate.destinationLength = static_cast<std::uint8_t>(length);
+		candidate.reverse = Controller.reverse();
+	}
+	else if (Controller.targetingAttack())
+	{
+		candidate.mode = FullEngineCoopClientPresentationControlMode::Attack;
+		candidate.attackTarget = Controller.attackTarget();
+		candidate.attackAimTime = Controller.attackAimTime();
+	}
+	else if (Controller.selectingDoor())
+	{
+		candidate.mode = FullEngineCoopClientPresentationControlMode::Door;
+		candidate.doorBaseGrid = Controller.selectedDoorBaseGrid();
+		candidate.doorStructureId = Controller.selectedDoorStructureId();
+		candidate.doorOpen = Controller.selectedDoorOpen();
+	}
+	output = candidate;
+	return true;
+}
+
+bool CaptureFullEngineCoopClientPresentationLocalFailure(
+	std::uint64_t& worldGeneration,
+	FullEngineCoopClientPresentationLocalFailure& failure) noexcept
+{
+	if (!HaveSendResult || LastSendWorldGeneration == 0) return false;
+	const FullEngineCoopClientPresentationLocalFailure candidate =
+		LocalFailureFor(LastSendResult);
+	if (candidate == FullEngineCoopClientPresentationLocalFailure::None)
+		return false;
+	worldGeneration = LastSendWorldGeneration;
+	failure = candidate;
+	return true;
 }

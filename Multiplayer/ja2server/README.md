@@ -55,5 +55,14 @@ Flags override the matching `ja2_mp.ini` keys:
   controls are disabled. When set, open the panel as `http://host:port/?token=SECRET`.
 - Transport and dashboard authentication are intended for trusted networks;
   they do not provide encrypted Internet matchmaking or account identity.
+- A socket must complete the legacy `requestSETTINGS` admission handshake within
+  10 seconds. The listener keeps four additional, bounded first-contact sockets
+  beyond the configured player roster so idle handshakes cannot directly occupy
+  every advertised player seat; admitted players retain the normal 120-second
+  transport inactivity timeout.
+- Reliable outbound data is bounded to 256 KiB of pending SDL_net writes per
+  peer. A recipient that stops reading, exceeds that limit, or encounters a
+  send/query failure is disconnected independently; healthy peers continue in
+  their existing reliable order.
 - On Linux/macOS, `kill -HUP <pid>` resets the lobby for a rematch without a
   full restart. (Windows has no SIGHUP; restart the process instead.)

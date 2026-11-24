@@ -9,7 +9,8 @@
 
 inline constexpr const char* TacticalWorldObserverServiceId =
 	"ja2.tactical-world-observer";
-inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{2, 0};
+// Version 3 observes snapshot/delta map asset identities.
+inline constexpr EngineServiceVersion TacticalWorldObserverServiceVersion{3, 0};
 
 struct TacticalWorldObserverLimits
 {

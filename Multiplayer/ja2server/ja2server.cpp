@@ -34,6 +34,14 @@
 #include <deque>
 #ifdef JA2SERVER_LOOPBACK_TEST
 #include <atomic>
+#include <cerrno>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <windows.h>
+#endif
 #endif
 
 #include <SDL3/SDL.h>
@@ -70,8 +78,23 @@ static SdlNetPeer* g_server = NULL;
 
 struct client_slot { ConnectionId address; int cl_number; };
 static client_slot g_clients[4];            // an empty ConnectionId means no client
-static std::vector<ConnectionId> g_transportPeers; // includes pre-admission connections
+struct TransportPeer
+{
+	ConnectionId address;
+	Uint64 connectedAtMs;
+};
+static std::vector<TransportPeer> g_transportPeers; // includes pre-admission connections
 static std::vector<ConnectionId> g_closedBeforeIncoming; // RPC rejected before queued ID_NEW was consumed
+#ifdef JA2SERVER_LOOPBACK_TEST
+static std::atomic<std::uint64_t> g_testAdmissionTimeoutMs(
+	COORDINATOR_ADMISSION_TIMEOUT_MS);
+static std::atomic<std::size_t> g_testPendingWriteHighWaterBytes(
+	DefaultLegacyServerPendingWriteHighWaterBytes);
+static std::atomic<std::size_t> g_testOutboundFailureCount(0);
+static std::atomic<std::size_t> g_testTransportCount(0);
+static std::atomic<unsigned short> g_testRequestedMaxClients(0);
+static std::atomic<unsigned short> g_testAppliedMaxClients(0);
+#endif
 
 static char  g_client_names[4][30];
 // Which player NAME owns each slot. Unlike g_client_names (cleared on reset), this
@@ -106,6 +129,10 @@ static bool  g_knownActors[4][COORDINATOR_MERC_SLOTS] = { { false } };
 static int   g_hiredActorCount[4] = { 0 };
 static LegacyExplosiveLedger g_explosiveLedger;
 static LegacySharedExplosiveClaims g_sharedExplosiveClaims;
+#ifdef JA2SERVER_LOOPBACK_TEST
+// Publish on the server thread; loopback observers never read a mutating set.
+static std::atomic<std::size_t> g_testSharedExplosiveClaimCount(0);
+#endif
 
 struct CoordinatorAttackContinuation
 {
@@ -223,9 +250,23 @@ static char   g_dashboardToken[64] = "";
 // ============================================================================
 //  Roster helpers (mirror server.cpp f_rec_num)
 // ============================================================================
+static int CountConnected()
+{
+	int n = 0;
+	for (int x = 0; x < 4; x++) if (g_clients[x].address) n++;
+	return n;
+}
 static int FindEmptySlot()
 {
-	for (int x = 0; x < 4; x++)
+	// The transport has extra first-contact headroom, so admission must enforce
+	// the configured roster limit explicitly instead of inheriting it from the
+	// raw socket limit. Count all four slots: a live cap reduction may leave
+	// grandfathered occupants above g_maxClients.
+	if (!CoordinatorRosterHasAdmissionCapacity(
+			static_cast<std::uint16_t>(g_maxClients),
+			static_cast<std::uint16_t>(CountConnected())))
+		return -1;
+	for (int x = 0; x < g_maxClients; x++)
 		if (!g_clients[x].address) return x;
 	return -1;
 }
@@ -238,12 +279,6 @@ static int SlotOf(ConnectionId a)
 static UINT8 TeamOfSlot(int slot)
 {
 	return (slot >= 0 && slot < 4) ? (UINT8)(6 + slot) : 0;
-}
-static int CountConnected()
-{
-	int n = 0;
-	for (int x = 0; x < 4; x++) if (g_clients[x].address) n++;
-	return n;
 }
 static int ClampMaxMercs(int value)
 {
@@ -289,24 +324,24 @@ static bool ReleaseHiredActor(int slot, UINT16 actorId)
 	if (g_hiredActorCount[slot] > 0) --g_hiredActorCount[slot];
 	return true;
 }
-static void TrackTransport(const ConnectionId& address)
+static void TrackTransport(const ConnectionId& address, Uint64 connectedAtMs)
 {
 	for (std::vector<ConnectionId>::iterator it = g_closedBeforeIncoming.begin();
 	     it != g_closedBeforeIncoming.end(); ++it)
 	{
 		if (*it == address) { g_closedBeforeIncoming.erase(it); return; }
 	}
-	for (std::vector<ConnectionId>::const_iterator it = g_transportPeers.begin();
+	for (std::vector<TransportPeer>::const_iterator it = g_transportPeers.begin();
 	     it != g_transportPeers.end(); ++it)
-		if (*it == address) return;
-	g_transportPeers.push_back(address);
+		if (it->address == address) return;
+	g_transportPeers.push_back(TransportPeer{ address, connectedAtMs });
 }
 static bool ForgetTransport(const ConnectionId& address)
 {
-	for (std::vector<ConnectionId>::iterator it = g_transportPeers.begin();
+	for (std::vector<TransportPeer>::iterator it = g_transportPeers.begin();
 	     it != g_transportPeers.end(); ++it)
 	{
-		if (*it == address) { g_transportPeers.erase(it); return true; }
+		if (it->address == address) { g_transportPeers.erase(it); return true; }
 	}
 	return false;
 }
@@ -335,11 +370,90 @@ static void DisconnectAllTransports()
 {
 	// Snapshot first: CloseConnection may defer notifications until the next pump.
 	// Clear ownership immediately so repeated reset paths remain idempotent.
-	const std::vector<ConnectionId> peers = g_transportPeers;
+	std::vector<ConnectionId> peers;
+	peers.reserve(g_transportPeers.size());
+	for (const TransportPeer& peer : g_transportPeers)
+		peers.push_back(peer.address);
 	g_transportPeers.clear();
 	g_closedBeforeIncoming.clear();
 	for (std::vector<ConnectionId>::const_iterator it = peers.begin(); it != peers.end(); ++it)
 		g_server->CloseConnection(*it, true);
+}
+
+static Uint64 AdmissionTimeoutMilliseconds()
+{
+#ifdef JA2SERVER_LOOPBACK_TEST
+	return g_testAdmissionTimeoutMs.load(std::memory_order_acquire);
+#else
+	return COORDINATOR_ADMISSION_TIMEOUT_MS;
+#endif
+}
+
+static void ExpirePendingAdmissions(Uint64 now)
+{
+	std::vector<ConnectionId> expired;
+	for (const TransportPeer& peer : g_transportPeers)
+	{
+		if (SlotOf(peer.address) < 0 && CoordinatorAdmissionDeadlineExpired(
+				now, peer.connectedAtMs, AdmissionTimeoutMilliseconds()))
+			expired.push_back(peer.address);
+	}
+	for (const ConnectionId& address : expired)
+	{
+		VLOG("[ja2server] closing connection that missed admission deadline\n");
+		CloseTransport(address);
+	}
+}
+
+static std::size_t PendingWriteHighWaterBytes()
+{
+#ifdef JA2SERVER_LOOPBACK_TEST
+	return g_testPendingWriteHighWaterBytes.load(std::memory_order_acquire);
+#else
+	return DefaultLegacyServerPendingWriteHighWaterBytes;
+#endif
+}
+
+static bool QueueMessageToTransport(
+	const char* messageName, const void* data, std::size_t bytes,
+	ConnectionId recipient)
+{
+	if (!messageName || !recipient || recipient == AnyConnection)
+		return false;
+	std::size_t pendingBytes = 0;
+	if (!g_server->PendingWriteBytes(recipient, pendingBytes) ||
+		!LegacyServerOutboundFrameWithinLimit(
+			pendingBytes, std::strlen(messageName), bytes,
+			PendingWriteHighWaterBytes()))
+		return false;
+	return g_server->SendMessage(
+		messageName, data, bytes, recipient, false);
+}
+
+static bool IsTrackedTransport(ConnectionId address)
+{
+	for (const TransportPeer& peer : g_transportPeers)
+		if (peer.address == address) return true;
+	return false;
+}
+
+static void CloseOutboundFailures(
+	const std::vector<ConnectionId>& failedRecipients)
+{
+	for (std::size_t index = 0; index < failedRecipients.size(); ++index)
+	{
+		const ConnectionId recipient = failedRecipients[index];
+		bool duplicate = false;
+		for (std::size_t previous = 0; previous < index; ++previous)
+			if (failedRecipients[previous] == recipient) duplicate = true;
+		if (duplicate || !IsTrackedTransport(recipient)) continue;
+#ifdef JA2SERVER_LOOPBACK_TEST
+		g_testOutboundFailureCount.fetch_add(1, std::memory_order_acq_rel);
+#endif
+		printf("[ja2server] closing peer -- outbound queue limit or transport send failure\n");
+		fflush(stdout);
+		CloseTransport(recipient);
+	}
 }
 static int CountStandingSides(bool honorWipes, int* lastSide = NULL)
 {
@@ -369,12 +483,16 @@ static void ResetClientSelections()
 static inline void RelayExceptBytes(const char* recvName, const char* data, int bytes,
 	ConnectionId except)
 {
+	std::vector<ConnectionId> failedRecipients;
 	for (int slot = 0; slot < 4; ++slot)
 	{
 		const ConnectionId recipient = g_clients[slot].address;
 		if (!recipient || recipient == except) continue;
-		g_server->SendMessage(recvName, data, (std::size_t)bytes, recipient, false);
+		if (!QueueMessageToTransport(
+				recvName, data, (std::size_t)bytes, recipient))
+			failedRecipients.push_back(recipient);
 	}
+	CloseOutboundFailures(failedRecipients);
 }
 static inline void RelayExcept(const char* recvName, SdlNetMessage* p)
 {
@@ -383,17 +501,24 @@ static inline void RelayExcept(const char* recvName, SdlNetMessage* p)
 }
 static inline void BroadcastAll(const char* recvName, const char* data, int bytes)
 {
+	std::vector<ConnectionId> failedRecipients;
 	for (int slot = 0; slot < 4; ++slot)
 	{
 		const ConnectionId recipient = g_clients[slot].address;
 		if (!recipient) continue;
-		g_server->SendMessage(recvName, data, (std::size_t)bytes, recipient, false);
+		if (!QueueMessageToTransport(
+				recvName, data, (std::size_t)bytes, recipient))
+			failedRecipients.push_back(recipient);
 	}
+	CloseOutboundFailures(failedRecipients);
 }
-static inline void SendTo(const char* recvName, const char* data, int bytes, ConnectionId to)
+static inline bool SendTo(const char* recvName, const char* data, int bytes, ConnectionId to)
 {
 	// broadcast=false + addr -> only that client
-	g_server->SendMessage(recvName, data, (std::size_t)bytes, to, false);
+	if (QueueMessageToTransport(recvName, data, (std::size_t)bytes, to))
+		return true;
+	CloseOutboundFailures(std::vector<ConnectionId>{ to });
+	return false;
 }
 
 // The standalone coordinator deliberately has no tactical repository, but HIRE
@@ -613,10 +738,12 @@ static void sendguiDIR(SdlNetMessage* p)
 	RelayExceptBytes("recieveguiDIR", (const char*)p->data, (int)p->size, p->sender);
 }
 
-// PR-1 (H14): central short-frame guard. Handlers that (Struct*)cast p->data and
-// read sizeof(Struct) must first verify the wire payload is at least that large,
-// or they over-read the heap buffer (which is sized to the actual payload).
-#define NEED(p,T) do{ if ( ((long)(p)->size) < (long)sizeof(T) ) return; }while(0)
+// Fixed-layout legacy messages have no extension bytes. Guard both truncation
+// and trailing data before handlers cast p->data to their wire structure.
+#define NEED(p,T) do { \
+	if (!(p) || !LegacyMessageHasExactPayload( \
+		(p)->data, (p)->size, sizeof(T))) return; \
+} while (0)
 
 // ============================================================================
 //  Pure relay handlers (rebroadcast wire bytes). SdlNetMessage carries no name,
@@ -886,6 +1013,10 @@ static void sendDETONATEEXPLOSIVE(SdlNetMessage* p)
 			g_sharedExplosiveClaims.claim(
 				worldIndex, static_cast<std::size_t>(slot)) !=
 				LegacySharedExplosiveClaimDisposition::Claimed) return;
+#ifdef JA2SERVER_LOOPBACK_TEST
+		g_testSharedExplosiveClaimCount.store(
+			g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 		RelayExceptBytes("recieveDETONATEEXPLOSIVE", (const char*)p->data,
 			(int)p->size, p->sender);
 		return;
@@ -920,6 +1051,10 @@ static void sendDISARMEXPLOSIVE(SdlNetMessage* p)
 			g_sharedExplosiveClaims.claim(
 				worldIndex, static_cast<std::size_t>(slot)) !=
 				LegacySharedExplosiveClaimDisposition::Claimed) return;
+#ifdef JA2SERVER_LOOPBACK_TEST
+		g_testSharedExplosiveClaimCount.store(
+			g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 		RelayExceptBytes("recieveDISARMEXPLOSIVE", (const char*)p->data,
 			(int)p->size, p->sender);
 		return;
@@ -1136,6 +1271,13 @@ static void requestSETTINGS(SdlNetMessage* p)
 		CloseTransport(p->sender);
 		return;
 	}
+	if (!alreadyRegistered && !CoordinatorRosterHasAdmissionCapacity(
+			static_cast<std::uint16_t>(g_maxClients),
+			static_cast<std::uint16_t>(CountConnected())))
+	{
+		CloseTransport(p->sender);
+		return;
+	}
 
 	int slot = registeredSlot;
 	bool welcomeBack = false;
@@ -1143,7 +1285,7 @@ static void requestSETTINGS(SdlNetMessage* p)
 		// "Welcome back": re-seat a reconnecting player into the slot their NAME held
 		// last time, if it's free -- keeps their player number / team / spawn edge
 		// stable across a rematch instead of shuffling them.
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < g_maxClients; i++)
 			if (g_knownName[i][0] && strcmp(g_knownName[i], ci.client_name) == 0
 			    && !g_clients[i].address) { slot = i; welcomeBack = true; break; }
 	}
@@ -1177,7 +1319,8 @@ static void requestSETTINGS(SdlNetMessage* p)
 		g_adminAddr = p->sender;
 		g_hasAdmin = true;
 		unsigned char one = 1;
-		SendTo("recieveADMIN", (const char*)&one, 1, p->sender);
+		if (!SendTo("recieveADMIN", (const char*)&one, 1, p->sender))
+			return;
 		printf("[ja2server] client #%d is now ADMIN (press G to start)\n", cl_num); fflush(stdout);
 	}
 
@@ -1224,7 +1367,8 @@ static void requestSETTINGS(SdlNetMessage* p)
 		// A reliable transport can still deliver a delayed/retried admission request
 		// after the lobby locks. Re-send only that participant's canonical settings;
 		// never close it or consume a second slot.
-		SendTo("recieveSETTINGS", (const char*)&lan, sizeof(lan), p->sender);
+		if (!SendTo("recieveSETTINGS", (const char*)&lan, sizeof(lan), p->sender))
+			return;
 		VLOG("[ja2server] duplicate SETTINGS replayed to player #%d\n", cl_num); fflush(stdout);
 	}
 	else
@@ -1314,7 +1458,8 @@ static void adminCmd(SdlNetMessage* p)
 			g_adminAddr = p->sender;
 			g_hasAdmin = true;
 			unsigned char one = 1;
-			SendTo("recieveADMIN", (const char*)&one, 1, p->sender);
+			if (!SendTo("recieveADMIN", (const char*)&one, 1, p->sender))
+				return;
 			printf("[ja2server] client authenticated as ADMIN\n"); fflush(stdout);
 		}
 		return;
@@ -2098,6 +2243,10 @@ static void ResetGameState()
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
 	g_explosiveLedger.clear();
 	g_sharedExplosiveClaims.clear();
+#ifdef JA2SERVER_LOOPBACK_TEST
+	g_testSharedExplosiveClaimCount.store(
+		g_sharedExplosiveClaims.size(), std::memory_order_release);
+#endif
 	g_attackContinuations.fill(CoordinatorAttackContinuation{});
 	g_numReady     = 0;
 	g_guiLoaded    = 0;
@@ -2133,7 +2282,6 @@ static void HandleDisconnect(ConnectionId who)
 	bool  wasInCombat   = g_inCombat;
 	UINT8 currentTeam   = g_currentTeam;
 
-	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
 	ResetHiredActorsForSlot(slot);
 	ClearAttackContinuationsForSender(who);
 	g_clients[slot].address = NoConnection;
@@ -2149,6 +2297,10 @@ static void HandleDisconnect(ConnectionId who)
 	if (g_guiPlacedBy[slot]) { g_guiPlacedBy[slot] = false; if (g_guiPlaced > 0) g_guiPlaced--; }
 	g_connectedCount = CountConnected();
 	g_numReady = 0; for (int i = 0; i < 4; i++) g_numReady += g_client_ready[i];
+	// Remove the failed recipient before publishing its departure. Otherwise an
+	// outbound-pressure close would try to enqueue the disconnect notice to the
+	// same full socket and recursively close it again.
+	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
 	printf("[ja2server] client #%d dropped (%d connected)\n", cl_num, g_connectedCount); fflush(stdout);
 	if (g_hasAdmin && who == g_adminAddr)
 	{
@@ -2315,6 +2467,61 @@ static void OnReset(int) { g_reset = 1; }
 // and expose a generation acknowledgement for deterministic session barriers.
 static std::atomic<unsigned int> g_testResetRequested(0);
 static std::atomic<unsigned int> g_testResetCompleted(0);
+static std::atomic<unsigned short> g_testListeningPort(0);
+static std::atomic<unsigned int> g_testListenerBindAttempts(0);
+
+bool ja2server_test_address_in_use_error(const char* error)
+{
+	// Match the pinned SDL_net SetSocketError representation exactly, including
+	// the OS-localized text. Other bind, resolve, allocation and listen failures
+	// must fail the test immediately, rather than being hidden by another port.
+	const char prefix[] = "Failed to bind listen socket: ";
+	if (!error || std::strncmp(error, prefix, sizeof(prefix) - 1)) return false;
+	const char* detail = error + sizeof(prefix) - 1;
+#ifdef _WIN32
+	WCHAR message[256];
+	const DWORD length = FormatMessageW(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+		WSAEADDRINUSE, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		message, static_cast<DWORD>(sizeof(message) / sizeof(message[0])), NULL);
+	if (!length) return false;
+	char* expected = SDL_iconv_string("UTF-8", "UTF-16LE",
+		reinterpret_cast<const char*>(message), (length + 1) * sizeof(WCHAR));
+	const bool matches = expected && !std::strcmp(detail, expected);
+	SDL_free(expected);
+	return matches;
+#else
+	return !std::strcmp(detail, std::strerror(EADDRINUSE));
+#endif
+}
+
+bool ja2server_test_start_listener(SdlNetPeer& peer, unsigned short maximumClients,
+	const char* host, unsigned short& port, unsigned int maximumAttempts,
+	unsigned int& attempts)
+{
+	attempts = 0;
+	if (!port || !maximumAttempts || maximumAttempts > 128) return false;
+	for (;;)
+	{
+		++attempts;
+		SDL_ClearError(); // a failure without its own error cannot reuse stale text
+		SdlNetEndpoint endpoint(port, host);
+		endpoint.reuseAddress = false;
+		if (peer.Start(maximumClients, endpoint)) return true;
+		if (!ja2server_test_address_in_use_error(SDL_GetError()) ||
+			attempts == maximumAttempts) return false;
+		port = port == 65535 ? 1 : static_cast<unsigned short>(port + 1);
+	}
+}
+
+unsigned short ja2server_test_listening_port()
+{
+	return g_testListeningPort.load(std::memory_order_acquire);
+}
+unsigned int ja2server_test_listener_bind_attempts()
+{
+	return g_testListenerBindAttempts.load(std::memory_order_acquire);
+}
 unsigned int ja2server_test_request_reset()
 {
 	return g_testResetRequested.fetch_add(1, std::memory_order_acq_rel) + 1;
@@ -2325,7 +2532,31 @@ bool ja2server_test_reset_complete(unsigned int generation)
 }
 size_t ja2server_test_transport_count()
 {
-	return g_transportPeers.size() + g_closedBeforeIncoming.size();
+	return g_testTransportCount.load(std::memory_order_acquire);
+}
+void ja2server_test_set_pending_write_high_water_bytes(std::size_t bytes)
+{
+	g_testPendingWriteHighWaterBytes.store(bytes ? bytes : 1,
+		std::memory_order_release);
+}
+std::size_t ja2server_test_outbound_failure_count()
+{
+	return g_testOutboundFailureCount.load(std::memory_order_acquire);
+}
+void ja2server_test_set_admission_timeout_milliseconds(std::uint64_t milliseconds)
+{
+	g_testAdmissionTimeoutMs.store(milliseconds ? milliseconds : 1,
+		std::memory_order_release);
+}
+void ja2server_test_request_max_players(unsigned short players)
+{
+	if (players < 1) players = 1;
+	if (players > 4) players = 4;
+	g_testRequestedMaxClients.store(players, std::memory_order_release);
+}
+bool ja2server_test_max_players_applied(unsigned short players)
+{
+	return g_testAppliedMaxClients.load(std::memory_order_acquire) == players;
 }
 int ja2server_test_clamp_max_mercs(int value) { return ClampMaxMercs(value); }
 size_t ja2server_test_explosive_ledger_count()
@@ -2334,7 +2565,7 @@ size_t ja2server_test_explosive_ledger_count()
 }
 size_t ja2server_test_shared_explosive_claim_count()
 {
-	return g_sharedExplosiveClaims.size();
+	return g_testSharedExplosiveClaimCount.load(std::memory_order_acquire);
 }
 #endif
 
@@ -2668,7 +2899,8 @@ static std::string HttpHandle(const HttpReq& r)
 				"{\"ok\":false,\"error\":\"standalone coordinator supports game types 0 and 1 only\"}");
 		// L11: maxClients may have changed -- reflect it in the live transport cap so
 		// the change takes effect immediately, not only on the next process start.
-		g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
+		g_server->SetMaximumIncomingConnections(
+			CoordinatorRawTransportCapacity((unsigned short)g_maxClients));
 		char b[64]; snprintf(b, sizeof(b), "{\"ok\":true,\"applied\":%d}", applied);
 		return HttpResponse(200, "OK", "application/json", b);
 	}
@@ -2901,16 +3133,34 @@ int main(int argc, char** argv)
 
 	g_transportPeers.clear();
 	g_closedBeforeIncoming.clear();
+#ifdef JA2SERVER_LOOPBACK_TEST
+	g_testTransportCount.store(0, std::memory_order_release);
+	g_testRequestedMaxClients.store(0, std::memory_order_release);
+	g_testAppliedMaxClients.store(
+		static_cast<unsigned short>(g_maxClients), std::memory_order_release);
+#endif
 	for (int x = 0; x < 4; x++) { g_clients[x].address = ConnectionId(); g_clients[x].cl_number = 0; }
 	ResetClientSelections();
 
 	g_server = CreateSdlNetPeer();
 	g_server->SetTimeout(120000);
+	const unsigned short rawTransportCapacity =
+		CoordinatorRawTransportCapacity((unsigned short)g_maxClients);
 	// Bind the game listener to SERVER_BIND (default 127.0.0.1). Use "0.0.0.0" for
 	// real LAN play; loopback-by-default keeps the server off public interfaces unless
 	// the operator opts in.
 	SdlNetEndpoint sd((unsigned short)g_serverPort, g_serverBind);
-	if (!g_server->Start((unsigned short)g_maxClients, sd))
+#ifdef JA2SERVER_LOOPBACK_TEST
+	unsigned int bindAttempts = 0;
+	const bool listenerStarted = ja2server_test_start_listener(
+		*g_server, rawTransportCapacity, sd.host, sd.port,
+		128, bindAttempts);
+	g_testListenerBindAttempts.store(bindAttempts, std::memory_order_release);
+	g_serverPort = sd.port;
+	if (!listenerStarted)
+#else
+	if (!g_server->Start(rawTransportCapacity, sd))
+#endif
 	{
 		const char* bindError = SDL_GetError();
 		bool sandboxDenied = bindError && strstr(bindError, "Operation not permitted");
@@ -2928,8 +3178,13 @@ int main(int argc, char** argv)
 		return 1;
 #endif
 	}
-	g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
+	g_server->SetMaximumIncomingConnections(rawTransportCapacity);
 	RegisterHandlers();
+#ifdef JA2SERVER_LOOPBACK_TEST
+	// Publish only after the actual listener and handlers are ready. The test
+	// connects to this endpoint, never to a guessed or briefly reserved port.
+	g_testListeningPort.store(sd.port, std::memory_order_release);
+#endif
 
 	printf("========================================================\n");
 	printf(" ja2server  '%s'\n", g_serverName);
@@ -2944,13 +3199,31 @@ int main(int argc, char** argv)
 	// Pump loop. Poll() does socket I/O and dispatches named handlers in-place.
 	while (g_run)
 	{
+#ifdef JA2SERVER_LOOPBACK_TEST
+		// Apply test-only live roster-cap changes on the coordinator thread. The
+		// dashboard uses this same thread (and currently permits config only while
+		// empty), so admission and transport-cap bookkeeping remain race-free.
+		const unsigned short testRequestedMaxClients =
+			g_testRequestedMaxClients.exchange(0, std::memory_order_acq_rel);
+		if (testRequestedMaxClients)
+		{
+			g_maxClients = testRequestedMaxClients;
+			g_server->SetMaximumIncomingConnections(
+				CoordinatorRawTransportCapacity(testRequestedMaxClients));
+			g_testAppliedMaxClients.store(
+				testRequestedMaxClients, std::memory_order_release);
+		}
+#endif
+		// First-contact traffic cannot extend this deadline: only a valid
+		// requestSETTINGS turns the transport into an admitted roster member.
+		ExpirePendingAdmissions(SDL_GetTicks());
 		SdlNetEvent* p = g_server->Poll();
 		while (p)
 		{
 			switch (PacketId(p))
 			{
 				case SDLNET_NEW_INCOMING_CONNECTION:
-					TrackTransport(p->connection);
+					TrackTransport(p->connection, SDL_GetTicks());
 					if (g_allowlaptop) { // reject joins once the game is locked
 						VLOG("[ja2server] rejecting late connection (game locked)\n"); fflush(stdout);
 						CloseTransport(p->connection);
@@ -2994,6 +3267,13 @@ int main(int argc, char** argv)
 		}
 		TickInterruptWatchdog();   // force-release a wedged interrupt (stale watchdog)
 		HttpTick();   // serve at most one slice of dashboard work per tick
+#ifdef JA2SERVER_LOOPBACK_TEST
+		// Publish only from the coordinator thread; test predicates must never
+		// inspect vectors while admission expiry or socket dispatch mutates them.
+		g_testTransportCount.store(
+			g_transportPeers.size() + g_closedBeforeIncoming.size(),
+			std::memory_order_release);
+#endif
 		SDL_Delay(10);
 	}
 

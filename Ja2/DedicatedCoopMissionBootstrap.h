@@ -41,8 +41,23 @@ struct DedicatedCoopMissionPreparationResult
 // Observational classification used when opening a cold checkpoint. Prepared
 // means the complete seven-day A.I.M. roster is still in transit and every
 // actor has exactly one matching normal delayed-hiring event; established
-// means a non-initial, world-free campaign still has a live player merc. No
-// state is changed while classifying.
+// means a non-initial, world-free campaign retains its existing launchable
+// stationary merc. Mixed stationary rosters keep that historical support.
+// EstablishedStrategicCold separately permits a completely validated living
+// on-foot squad roster without automatic tactical launch while any member is
+// traveling or none is tactically eligible (for example, all are wounded below
+// OKLIFE). It also accepts that complete ordinary roster alongside established
+// pending A.I.M. hires, only with exact actor identities, canonical employment
+// and insertion state, unique active profiles and one exact delayed event per
+// pending actor. Exact completed native deaths can replace ordinary roster
+// members, including the last living squad member. Orphan events activate the
+// same strict validation. The completed first native capture may also retain
+// prisoners in the configured Alma prison with exact quest/count/position
+// evidence, no live membership and confiscated inventory. A prisoner-only
+// surviving roster can resume paused without an unrelated pending hire.
+// Pending-only, vehicle, duty, later capture and partially rescued prisoner
+// cohorts remain unsupported by this extension.
+// No state, group, event, or clock is changed while classifying.
 DedicatedCoopStarterCampaignState
 InspectDedicatedCoopStarterCampaign() noexcept;
 
@@ -70,6 +85,41 @@ LaunchDedicatedCoopStarterMission() noexcept;
 // cold; no client-selected map coordinate participates in this command.
 DedicatedCoopMissionBootstrapError
 LaunchDedicatedCoopEstablishedMission() noexcept;
+
+// Bounded, non-sensitive state captured only to explain a failed initial actor
+// arrival. It deliberately contains no peer identity, token, filesystem path,
+// or campaign identifier.
+struct DedicatedCoopActorArrivalDiagnostics
+{
+	std::size_t activePlayerActors = 0;
+	std::size_t inSectorActors = 0;
+	std::size_t inTransitActors = 0;
+	std::size_t chopperActors = 0;
+	std::size_t arrivingGameActors = 0;
+	std::size_t controllableActors = 0;
+	std::size_t strategicEvents = 0;
+	std::size_t delayedHiringEvents = 0;
+	int queuedHelicopterActors = 0;
+	int droppedHelicopterActors = 0;
+	int helicopterScript = 0;
+	unsigned helicopterState = 0;
+	unsigned screen = 0;
+	std::uint32_t clock = 0;
+	std::uint32_t worldTime = 0;
+	std::uint32_t queueHeadTimestamp = 0;
+	std::uint32_t firstDelayedHiringTimestamp = 0;
+	unsigned queueHeadCallback = 0;
+	bool queueHeadPresent = false;
+	bool timeInterrupted = false;
+	bool helicopterRequested = false;
+	bool helicopterActive = false;
+	bool helicopterDropEngaged = false;
+	bool clockPaused = false;
+	bool gamePaused = false;
+};
+
+DedicatedCoopActorArrivalDiagnostics
+CaptureDedicatedCoopActorArrivalDiagnostics() noexcept;
 
 // Counts the same live player actors used by dedicated co-op assignment.
 std::size_t CountDedicatedCoopControllableActors() noexcept;

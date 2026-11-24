@@ -69,6 +69,38 @@ typedef struct TAG_ITEM_POOL
 
 } ITEM_POOL;
 
+// Narrow synchronous insertion for an authoritative ordinary whole-stack
+// pocket drop. This is not the animated legacy drop/auto-placement pathway.
+struct CoopOrdinaryGroundDropPlacement
+{
+	std::int32_t grid = -1;
+	std::uint16_t graphic = 0;
+	std::uint64_t fingerprint = 0;
+};
+
+enum class CoopOrdinaryGroundDropResult
+{
+	Applied,
+	Rejected,
+	AllocationFailure,
+	IdentityUnavailable,
+	IntegrityFailure
+};
+
+// Read-only, no AP/idle test; output is unchanged on failure. The caller owns
+// authorization, actor readiness and AP accounting around the commit.
+bool CaptureCoopOrdinaryGroundDropPlacement(TacticalEntityId actor,
+	std::uint8_t sourceSlot, CoopOrdinaryGroundDropPlacement& output) noexcept;
+
+// All fallible allocation/preflight work precedes publication. On ordinary
+// failure the source, world items, item pools and output remain unchanged.
+// IntegrityFailure means publication began: the world is poisoned and must
+// not continue/replay. Successful insertion preserves the exact object stack.
+CoopOrdinaryGroundDropResult CommitCoopOrdinaryGroundDrop(TacticalEntityId actor,
+	std::uint8_t sourceSlot, std::uint64_t expectedSourceFingerprint,
+	const CoopOrdinaryGroundDropPlacement& expectedPlacement,
+	TacticalWorldItemId& output) noexcept;
+
 // Legacy source-compatibility layout. The production flashing-item table uses
 // a private stable-identity record and never instantiates this pointer-bearing
 // type.

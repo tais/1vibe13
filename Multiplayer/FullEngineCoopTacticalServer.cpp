@@ -1,4 +1,5 @@
 #include "FullEngineCoopTacticalServer.h"
+#include "CoopTacticalPresentationChange.h"
 
 #include <algorithm>
 #include <limits>
@@ -127,6 +128,7 @@ bool FullEngineCoopTacticalServer::configurationValid() const noexcept
 		configuration_.maximumTransientReceipts != 0 &&
 		configuration_.maximumTransientReceipts <=
 			MaximumCoopTacticalServerTransientReceipts &&
+		configuration_.maximumPendingCommandFrames != 0 &&
 		configuration_.maximumAuthoritativeSequence != 0;
 }
 
@@ -140,7 +142,11 @@ void FullEngineCoopTacticalServer::clearState() noexcept
 	transientReceiptCount_ = 0;
 	baselineSnapshot_ = TacticalWorldSnapshot{};
 	baselineSnapshotAvailable_ = false;
+	commandSnapshot_ = TacticalWorldSnapshot{};
+	commandSnapshotRevision_ = 0;
+	commandRevisionFloor_ = 0;
 	nextAuthoritativeSequence_ = 1;
+	worldFrameSequence_ = 0;
 	deferredInbound_ = FullEngineCoopTacticalInboundMessage{};
 	deferredInboundOccupied_ = false;
 	failed_ = false;
@@ -218,6 +224,8 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::beginWorld(
 	}
 	ingress_.clearActorBindings();
 	baselineSnapshotAvailable_ = false;
+	invalidateCommandWindow();
+	worldFrameSequence_ = 0;
 	return FullEngineCoopTacticalServerResult::Success;
 }
 
@@ -249,13 +257,16 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::endWorld()
 		flushOutboundInternal();
 	if (flushed.backpressured)
 		return FullEngineCoopTacticalServerResult::TransportBackpressured;
-	if (outboundPending())
+	if (flushed.inventoryPending || outboundPending())
 		return FullEngineCoopTacticalServerResult::PendingReceipts;
 	ingress_.clearActorBindings();
 	ingress_.endTacticalSession();
 	replication_.endWorld();
 	baselineSnapshot_ = TacticalWorldSnapshot{};
 	baselineSnapshotAvailable_ = false;
+	commandSnapshotRevision_ = 0;
+	commandRevisionFloor_ = 0;
+	worldFrameSequence_ = 0;
 	transientReceipts_ = {};
 	transientReceiptCount_ = 0;
 	for (std::size_t index = 0; index < peerCount_; ++index)
@@ -437,6 +448,51 @@ bool FullEngineCoopTacticalServer::peerCaughtUp(
 		state.inFlightDeltas == 0;
 }
 
+bool FullEngineCoopTacticalServer::peerCommandReady(
+	const PeerIdentity& peer) const noexcept
+{
+	if (peerCaughtUp(peer)) return true;
+	CoopTacticalPeerReplicationState state;
+	return commandRevisionFloor_ != 0 &&
+		commandRevisionFloor_ < replication_.revision() &&
+		replication_.peerState(peer, state) && state.connected &&
+		state.phase == CoopTacticalPeerPhase::Active &&
+		state.lastAcknowledgedRevision >= commandRevisionFloor_ &&
+		state.lastAcknowledgedRevision <= replication_.revision();
+}
+
+void FullEngineCoopTacticalServer::invalidateCommandWindow() noexcept
+{
+	commandRevisionFloor_ = replication_.revision();
+	commandSnapshotRevision_ = 0;
+}
+
+void FullEngineCoopTacticalServer::rememberCommandSnapshot(
+	const TacticalWorldSnapshot& snapshot) noexcept
+{
+	// This cache is an optimization, not publication state. Allocation failure
+	// disables equivalence without losing the successfully published revision.
+	if (snapshot.copyTo(commandSnapshot_))
+		commandSnapshotRevision_ = replication_.revision();
+	else
+		invalidateCommandWindow();
+}
+
+bool FullEngineCoopTacticalServer::frameOnlyPublication(
+	const TacticalWorldDelta& delta, const TacticalWorldSnapshot& snapshot,
+	std::uint64_t revision, std::uint64_t turnSerial) const noexcept
+{
+	if (commandSnapshotRevision_ == 0 ||
+		commandSnapshotRevision_ != replication_.revision() ||
+		commandSnapshotRevision_ == (std::numeric_limits<std::uint64_t>::max)() ||
+		revision != commandSnapshotRevision_ + 1 ||
+		turnSerial != replication_.turnSerial())
+		return false;
+	for (std::size_t index = 0; index < peerCount_; ++index)
+		if (peers_[index].pendingCount != 0) return false;
+	return IsFrameOnlyTacticalWorldChange(commandSnapshot_, snapshot, delta);
+}
+
 FullEngineCoopTacticalServerResult
 FullEngineCoopTacticalServer::rebuildActorBindings() noexcept
 {
@@ -447,7 +503,7 @@ FullEngineCoopTacticalServer::rebuildActorBindings() noexcept
 	{
 		const CoopTacticalActorAssignment* assignment =
 			replication_.assignment(index);
-		if (assignment == nullptr || !peerCaughtUp(assignment->peerIdentity))
+		if (assignment == nullptr || !peerCommandReady(assignment->peerIdentity))
 			continue;
 		const PeerRecord* peer = findPeer(assignment->peerIdentity);
 		if (peer == nullptr || !peer->connected ||
@@ -485,10 +541,17 @@ FullEngineCoopTacticalServer::replaceAssignments(
 		}
 		if (identical) return FullEngineCoopTacticalServerResult::Success;
 	}
+	// A queued native command has already acquired its actor ownership. Keep
+	// those bindings stable until its terminal outcome, including both actors
+	// of a transfer; native execution separately revalidates their live state.
+	for (std::size_t index = 0; index < peerCount_; ++index)
+		if (peers_[index].pendingCount != 0)
+			return FullEngineCoopTacticalServerResult::Busy;
 	const FullEngineCoopServerSessionResult replaced =
 		replication_.replaceAssignments(assignments, count);
 	if (replaced != FullEngineCoopServerSessionResult::Success)
 		return ResultForReplication(replaced);
+	invalidateCommandWindow();
 	// Any assignment publication not already behind a fresh-baseline gate
 	// invalidates the peer's prior ACK.  Callers should invoke this only when
 	// their deterministic assignment set actually changes.
@@ -535,6 +598,8 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageBaseline(
 		(std::numeric_limits<std::uint64_t>::max)());
 	baselineSnapshot_ = std::move(captured);
 	baselineSnapshotAvailable_ = true;
+	invalidateCommandWindow();
+	rememberCommandSnapshot(snapshot);
 	return rebuildActorBindings();
 }
 
@@ -571,6 +636,8 @@ FullEngineCoopTacticalServer::stageBaselines(
 	}
 	baselineSnapshot_ = std::move(captured);
 	baselineSnapshotAvailable_ = true;
+	invalidateCommandWindow();
+	rememberCommandSnapshot(snapshot);
 	return rebuildActorBindings();
 }
 
@@ -595,6 +662,38 @@ std::size_t FullEngineCoopTacticalServer::peersNeedingBaseline(
 	return published;
 }
 
+FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageInventory(
+	const PeerIdentity& peer, TacticalEntityId actor,
+	std::uint64_t inventoryRevision, bool usesNewInventory,
+	const std::vector<CoopInventorySlotSummary>& slots) noexcept
+{
+	if (pumping_ || flushing_) return FullEngineCoopTacticalServerResult::Busy;
+	if (!active_ || failed_) return FullEngineCoopTacticalServerResult::NotActive;
+	return ResultForReplication(replication_.stageInventory(peer, actor,
+		inventoryRevision, usesNewInventory, slots));
+}
+
+bool FullEngineCoopTacticalServer::hasInventoryRevision(
+	const PeerIdentity& peer, TacticalEntityId actor, std::uint64_t inventoryRevision) const noexcept
+{
+	return active_ && !failed_ && replication_.hasInventoryRevision(peer, actor, inventoryRevision);
+}
+
+FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::stageInventory(
+	const PeerIdentity& peer, const CoopOwnerInventorySnapshot& inventory) noexcept
+{
+	if (pumping_ || flushing_) return FullEngineCoopTacticalServerResult::Busy;
+	if (!active_ || failed_) return FullEngineCoopTacticalServerResult::NotActive;
+	return ResultForReplication(replication_.stageInventory(peer, inventory));
+}
+
+bool FullEngineCoopTacticalServer::hasGroundItemRevision(
+	const PeerIdentity& peer, TacticalEntityId actor, std::uint64_t inventoryRevision,
+	TacticalWorldItemId item) const noexcept
+{
+	return active_ && !failed_ && replication_.hasGroundItemRevision(peer, actor, inventoryRevision, item);
+}
+
 FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::publishDelta(
 	const TacticalWorldDelta& delta,
 	std::uint64_t resultingRevision,
@@ -615,6 +714,82 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::publishDelta(
 		return FullEngineCoopTacticalServerResult::InternalFailure;
 	}
 	baselineSnapshotAvailable_ = false;
+	invalidateCommandWindow();
+	return rebuildActorBindings();
+}
+
+FullEngineCoopTacticalServerResult
+FullEngineCoopTacticalServer::publishDeltaWithBaselineFallback(
+	const TacticalWorldDelta& delta,
+	const TacticalWorldSnapshot& resultingSnapshot,
+	std::uint64_t resultingRevision,
+	std::uint64_t resultingTurnSerial,
+	bool* baselineFallbackPublished) noexcept
+{
+	if (baselineFallbackPublished != nullptr)
+		*baselineFallbackPublished = false;
+	if (pumping_ || flushing_) return FullEngineCoopTacticalServerResult::Busy;
+	if (!active_ || failed_) return FullEngineCoopTacticalServerResult::NotActive;
+	const bool frameOnly = frameOnlyPublication(delta, resultingSnapshot,
+		resultingRevision, resultingTurnSerial);
+	const FullEngineCoopServerSessionResult published =
+		replication_.publishDelta(
+			delta, resultingRevision, resultingTurnSerial);
+	if (published == FullEngineCoopServerSessionResult::Success)
+	{
+		if (ingress_.advanceContext(resultingRevision, resultingTurnSerial) !=
+			TacticalAuthorityConfigurationResult::Success)
+		{
+			failed_ = true;
+			ingress_.clearActorBindings();
+			return FullEngineCoopTacticalServerResult::InternalFailure;
+		}
+		baselineSnapshotAvailable_ = false;
+		if (!frameOnly) invalidateCommandWindow();
+		rememberCommandSnapshot(resultingSnapshot);
+		return rebuildActorBindings();
+	}
+	if (published !=
+		FullEngineCoopServerSessionResult::DeltaPayloadTooLarge)
+		return ResultForReplication(published);
+
+	// Prepare the server's reconnect/resync cache before changing replication.
+	// This keeps allocation failure transactional across both owners.
+	TacticalWorldSnapshot captured;
+	if (!resultingSnapshot.copyTo(captured))
+		return FullEngineCoopTacticalServerResult::BaselineUnavailable;
+	std::array<CoopTacticalPeerBaselineCursor,
+		MaximumCoopTacticalSessionPeers> cursors{};
+	std::size_t cursorCount = 0;
+	for (std::size_t index = 0; index < peerCount_; ++index)
+	{
+		const PeerRecord& peer = peers_[index];
+		if (!peer.connected) continue;
+		cursors[cursorCount++] = CoopTacticalPeerBaselineCursor{
+			peer.identity, peer.nextExpectedCommandId};
+	}
+	const FullEngineCoopServerSessionResult replaced =
+		replication_.replaceOversizedDeltaWithBaselines(
+			delta, resultingSnapshot, resultingRevision, resultingTurnSerial,
+			cursorCount == 0 ? nullptr : cursors.data(), cursorCount);
+	if (replaced != FullEngineCoopServerSessionResult::Success)
+		return ResultForReplication(replaced);
+	if (ingress_.advanceContext(resultingRevision, resultingTurnSerial) !=
+		TacticalAuthorityConfigurationResult::Success)
+	{
+		failed_ = true;
+		ingress_.clearActorBindings();
+		return FullEngineCoopTacticalServerResult::InternalFailure;
+	}
+	for (std::size_t index = 0; index < cursorCount; ++index)
+		discardTransientThrough(cursors[index].peerIdentity,
+			(std::numeric_limits<std::uint64_t>::max)());
+	baselineSnapshot_ = std::move(captured);
+	baselineSnapshotAvailable_ = true;
+	invalidateCommandWindow();
+	rememberCommandSnapshot(resultingSnapshot);
+	if (baselineFallbackPublished != nullptr)
+		*baselineFallbackPublished = true;
 	return rebuildActorBindings();
 }
 
@@ -631,7 +806,8 @@ bool FullEngineCoopTacticalServer::addPending(
 	PeerRecord& peer,
 	std::uint64_t commandId,
 	std::uint64_t nextExpectedCommandId,
-	std::uint64_t authoritativeSequence) noexcept
+	std::uint64_t authoritativeSequence,
+	std::uint64_t acceptedFrameSequence) noexcept
 {
 	if (findPending(peer, commandId) != nullptr) return true;
 	if (peer.pendingCount >=
@@ -643,6 +819,7 @@ bool FullEngineCoopTacticalServer::addPending(
 		pending.commandId = commandId;
 		pending.nextExpectedCommandId = nextExpectedCommandId;
 		pending.authoritativeSequence = authoritativeSequence;
+		pending.acceptedFrameSequence = acceptedFrameSequence;
 		pending.occupied = true;
 		++peer.pendingCount;
 		return true;
@@ -867,8 +1044,40 @@ FullEngineCoopTacticalServer::processIntent(
 	CoopTacticalPeerReplicationState replicationState;
 	if (!replication_.peerState(peer->identity, replicationState))
 		return FullEngineCoopTacticalServerResult::PeerReconciliationFailed;
-	const bool caughtUp = peerCaughtUp(peer->identity);
-	const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0;
+	const bool caughtUp = peerCommandReady(peer->identity);
+	const bool unacknowledgedEquivalentRevision =
+		commandRevisionFloor_ != 0 &&
+		intent.baseRevision >= commandRevisionFloor_ &&
+		intent.baseRevision <= replication_.revision() &&
+		intent.baseRevision > replicationState.lastAcknowledgedRevision;
+	const auto* inventorySwap = std::get_if<SwapInventorySlotsTacticalIntent>(&intent.payload);
+	const auto* inventoryTransfer = std::get_if<TransferInventoryItemTacticalIntent>(&intent.payload);
+	const auto* groundPickup = std::get_if<PickupWorldItemTacticalIntent>(&intent.payload);
+	const auto* inventoryDrop = std::get_if<DropInventoryItemTacticalIntent>(&intent.payload);
+	const bool privateInventoryRejected = (inventorySwap &&
+		!replication_.hasInventoryRevision(peer->identity, intent.actor, inventorySwap->expectedInventoryRevision)) ||
+		(inventoryTransfer &&
+		 (!replication_.hasInventoryRevision(peer->identity, intent.actor, inventoryTransfer->expectedInventoryRevision) ||
+		  !replication_.hasInventoryRevision(peer->identity, inventoryTransfer->target,
+			  inventoryTransfer->expectedTargetInventoryRevision))) ||
+		(groundPickup && !replication_.hasGroundItemRevision(peer->identity, intent.actor,
+			groundPickup->expectedInventoryRevision, groundPickup->item)) ||
+		(inventoryDrop && !replication_.hasInventoryRevision(peer->identity, intent.actor,
+			inventoryDrop->expectedInventoryRevision));
+	const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 ||
+		unacknowledgedEquivalentRevision || privateInventoryRejected;
+	TacticalIntent executionIntent = intent;
+	if (!policyReject && intent.worldGeneration == replication_.worldGeneration() &&
+		intent.turnSerial == replication_.turnSerial() &&
+		commandRevisionFloor_ != 0 && intent.baseRevision >= commandRevisionFloor_ &&
+		intent.baseRevision < replication_.revision() &&
+		intent.baseRevision <= replicationState.lastAcknowledgedRevision)
+	{
+		// The original revision was ACKed and every intervening publication was
+		// frame-only. Re-run the ordinary exact authority checks at today's
+		// revision; identity, actor, command ID and requested action stay intact.
+		executionIntent.baseRevision = replication_.revision();
+	}
 	const std::uint64_t expectedAfter = intent.commandId ==
 		std::numeric_limits<std::uint64_t>::max()
 		? 0 : intent.commandId + 1;
@@ -876,7 +1085,7 @@ FullEngineCoopTacticalServer::processIntent(
 	if (!policyReject)
 	{
 		if (!addPending(*peer, intent.commandId, expectedAfter,
-			nextAuthoritativeSequence_))
+			nextAuthoritativeSequence_, worldFrameSequence_))
 			return FullEngineCoopTacticalServerResult::ReceiptCapacityReached;
 		reservation = findPending(*peer, intent.commandId);
 		if (reservation == nullptr)
@@ -886,9 +1095,17 @@ FullEngineCoopTacticalServer::processIntent(
 	const TacticalIntentIngressResult ingressResult = policyReject
 		? ingress_.rejectTacticalIntent(peer->transport,
 			message.bytes.data(), message.size)
-		: ingress_.handleTacticalIntent(peer->transport,
-			message.bytes.data(), message.size);
+		: ingress_.handleTacticalIntent(peer->transport, executionIntent);
 	if (reservation != nullptr) reservation->executing = false;
+	if (ingressResult.executionAttempted)
+	{
+		// Native execution may touch state before a receipt is available. Close
+		// the old window even on the early backpressure/error paths below, so
+		// another peer cannot normalize across this execution boundary.
+		invalidateCommandWindow();
+		const FullEngineCoopTacticalServerResult rebound = rebuildActorBindings();
+		if (rebound != FullEngineCoopTacticalServerResult::Success) return rebound;
+	}
 	diagnostics.authorizationReason = ingressResult.authorization.reason;
 	if (ingressResult.decodeResult != TacticalIntentCodecResult::Success)
 	{
@@ -922,7 +1139,8 @@ FullEngineCoopTacticalServer::processIntent(
 			CoopTacticalIntentReceiptStatus::Rejected,
 			nextAuthoritativeSequence_ == 0
 				? CoopTacticalIntentReceiptReason::AuthoritySequenceExhausted
-				: CoopTacticalIntentReceiptReason::NotBaselineReady,
+				: (privateInventoryRejected ? CoopTacticalIntentReceiptReason::RevisionMismatch
+					: CoopTacticalIntentReceiptReason::NotBaselineReady),
 			0, simulationTick);
 		++diagnostics.inputsRejected;
 	}
@@ -1173,6 +1391,7 @@ FullEngineCoopTacticalServer::flushOutboundInternal() noexcept
 		replication_.flush(wireSink_);
 	result.replicationResult = flushed.result;
 	result.messagesSent = flushed.messagesSent;
+	result.inventoryPending = flushed.inventoryPending;
 	if (flushed.backpressured)
 	{
 		result.result = FullEngineCoopTacticalServerResult::TransportBackpressured;
@@ -1190,6 +1409,10 @@ FullEngineCoopTacticalServer::flushOutboundInternal() noexcept
 		return result;
 	}
 
+	// Do not let transient receipts bypass the private-state barrier either.
+	// Return Success (not socket pressure) so pumpInbound can consume the ACK
+	// that an owner summary may be waiting for before its public delta can send.
+	if (flushed.inventoryPending) return result;
 	std::size_t index = 0;
 	while (index < transientReceiptCount_)
 	{
@@ -1347,6 +1570,35 @@ FullEngineCoopTacticalServerResult FullEngineCoopTacticalServer::retirePeer(
 }
 
 FullEngineCoopTacticalServerPumpResult
+FullEngineCoopTacticalServer::pumpPendingCommandDeadlines() noexcept
+{
+	FullEngineCoopTacticalServerPumpResult diagnostics;
+	if (!active_ || failed_)
+	{
+		diagnostics.result = FullEngineCoopTacticalServerResult::NotActive;
+		return diagnostics;
+	}
+	if (pumping_ || flushing_)
+	{
+		diagnostics.result = FullEngineCoopTacticalServerResult::Busy;
+		return diagnostics;
+	}
+	if (!replication_.worldActive())
+	{
+		diagnostics.result = FullEngineCoopTacticalServerResult::NoWorld;
+		return diagnostics;
+	}
+	if (advancePendingCommandDeadlines(diagnostics))
+	{
+		diagnostics.result = FullEngineCoopTacticalServerResult::CommandCompletionDeadlineExceeded;
+		failed_ = true;
+		ingress_.clearActorBindings();
+	}
+	diagnostics.transportRestartRequired = transportRestartRequired_;
+	return diagnostics;
+}
+
+FullEngineCoopTacticalServerPumpResult
 FullEngineCoopTacticalServer::pumpInbound(
 	std::uint64_t simulationTick) noexcept
 {
@@ -1397,11 +1649,20 @@ FullEngineCoopTacticalServer::pumpInbound(
 		diagnostics.transportRestartRequired = transportRestartRequired_;
 		return diagnostics;
 	}
+	if (advancePendingCommandDeadlines(diagnostics))
+	{
+		diagnostics.result =
+			FullEngineCoopTacticalServerResult::CommandCompletionDeadlineExceeded;
+		failed_ = true;
+		ingress_.clearActorBindings();
+		return diagnostics;
+	}
 
 	FullEngineCoopTacticalServerPumpResult before = flushOutboundInternal();
 	diagnostics.messagesSent += before.messagesSent;
 	diagnostics.replicationResult = before.replicationResult;
 	diagnostics.resyncRequired = before.resyncRequired;
+	diagnostics.inventoryPending = before.inventoryPending;
 	if (before.backpressured)
 	{
 		diagnostics.result = before.result;
@@ -1488,6 +1749,7 @@ FullEngineCoopTacticalServer::pumpInbound(
 	FullEngineCoopTacticalServerPumpResult after = flushOutboundInternal();
 	diagnostics.messagesSent += after.messagesSent;
 	diagnostics.replicationResult = after.replicationResult;
+	diagnostics.inventoryPending = after.inventoryPending;
 	diagnostics.resyncRequired =
 		diagnostics.resyncRequired || after.resyncRequired;
 	if (after.backpressured)
@@ -1503,6 +1765,36 @@ FullEngineCoopTacticalServer::pumpInbound(
 	}
 	diagnostics.transportRestartRequired = transportRestartRequired_;
 	return diagnostics;
+}
+
+bool FullEngineCoopTacticalServer::advancePendingCommandDeadlines(
+	FullEngineCoopTacticalServerPumpResult& diagnostics) noexcept
+{
+	const std::uint64_t maximum =
+		(std::numeric_limits<std::uint64_t>::max)();
+	if (worldFrameSequence_ != maximum)
+		++worldFrameSequence_;
+	for (std::size_t peerIndex = 0; peerIndex < peerCount_; ++peerIndex)
+	{
+		const PeerRecord& peer = peers_[peerIndex];
+		for (const PendingCommand& pending : peer.pending)
+		{
+			if (!pending.occupied) continue;
+			// Once the ordinal saturates no later deadline can be represented.
+			// Fail any remaining obligation closed instead of freezing it forever,
+			// including a UINT64_MAX configured duration accepted on an earlier frame.
+			const bool sequenceExhausted = worldFrameSequence_ == maximum;
+			const bool deadlineReached =
+				worldFrameSequence_ >= pending.acceptedFrameSequence &&
+				worldFrameSequence_ - pending.acceptedFrameSequence >=
+					configuration_.maximumPendingCommandFrames;
+			if (!sequenceExhausted && !deadlineReached) continue;
+			diagnostics.peerIdentity = peer.identity;
+			diagnostics.commandId = pending.commandId;
+			return true;
+		}
+	}
+	return false;
 }
 
 bool FullEngineCoopTacticalServer::peerCommandState(

@@ -2,6 +2,10 @@
 
 #include <charconv>
 #include <cmath>
+#include <iomanip>
+#include <limits>
+#include <locale>
+#include <sstream>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -42,13 +46,17 @@ public:
 	{
 		if (!std::isfinite(value)) return invalidate();
 		if (!beginValue()) return false;
-		char buffer[64];
-		const auto converted = std::to_chars(
-			buffer, buffer + sizeof(buffer), value, std::chars_format::general);
-		return converted.ec == std::errc{}
-			? append(std::string_view(buffer,
-				static_cast<std::size_t>(converted.ptr - buffer)))
-			: invalidate();
+		// libc++ exposes floating-point to_chars only from macOS 13.3, while the
+		// release contract supports macOS 12. A classic-locale stream keeps JSON's
+		// required decimal point and max_digits10 preserves a round-trip value.
+		std::ostringstream formatted;
+		formatted.imbue(std::locale::classic());
+		formatted << std::defaultfloat
+			<< std::setprecision(std::numeric_limits<double>::max_digits10)
+			<< value;
+		if (!formatted) return invalidate();
+		const std::string text = formatted.str();
+		return !text.empty() ? append(text) : invalidate();
 	}
 
 	RuntimeReportJsonError error() const { return error_; }

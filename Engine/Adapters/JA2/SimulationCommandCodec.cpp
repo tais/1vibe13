@@ -48,7 +48,12 @@ enum class CommandTag : std::uint8_t
 	SynchronizeActorVitals = 31,
 	AimedFirearmAttack = 32,
 	AuthoritativeDoorOpenClose = 33,
-	PassInterrupt = 34
+	PassInterrupt = 34,
+	BeginFirstAid = 35,
+	SwapInventorySlots = 36,
+	TransferInventoryItem = 37,
+	AuthoritativePickupWorldItem = 38,
+	AuthoritativeDropInventoryItem = 39
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -276,6 +281,119 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedInterruptSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::BeginFirstAid));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI32(value.expectedTargetGrid);
+			writer.writeI8(value.expectedLevel);
+			writer.writeU8(value.direction);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU16(value.expectedTargetAnimationState);
+			writer.writeU16(value.expectedHandItem);
+			writer.writeU64(value.expectedKitStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::SwapInventorySlots));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.sourceSlot);
+			writer.writeU8(value.destinationSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
+			writer.writeU64(value.destinationStateFingerprint);
+			writer.writeU64(value.handStateFingerprint);
+			writer.writeU64(value.offhandStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, TransferInventoryItemCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::TransferInventoryItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeU8(value.sourceSlot);
+			writer.writeU8(value.destinationSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI32(value.expectedTargetGrid);
+			writer.writeI8(value.expectedLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU16(value.expectedTargetAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU8(value.expectedTargetDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.expectedTargetStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
+			writer.writeU64(value.destinationStateFingerprint);
+			writer.writeU64(value.handStateFingerprint);
+			writer.writeU64(value.offhandStateFingerprint);
+			writer.writeU64(value.targetHandStateFingerprint);
+			writer.writeU64(value.targetOffhandStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, AuthoritativePickupWorldItemCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativePickupWorldItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU32(value.item.slot);
+			writer.writeU32(value.item.incarnation);
+			writer.writeU8(value.destinationSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
+			writer.writeU64(value.destinationStateFingerprint);
+			writer.writeU64(value.expectedPoolStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeDropInventoryItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.sourceSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
+			WriteI16(writer, value.expectedActionPointCost);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -802,6 +920,105 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!ReadAuthorityPolicy(reader, value.authority) ||
 				!IsStructurallyValidPassInterruptCommand(value))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::BeginFirstAid:
+		{
+			BeginFirstAidCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI32(value.expectedTargetGrid) ||
+				!reader.readI8(value.expectedLevel) ||
+				!reader.readU8(value.direction) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU16(value.expectedTargetAnimationState) ||
+				!reader.readU16(value.expectedHandItem) ||
+				!reader.readU64(value.expectedKitStateFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidBeginFirstAidCommand(value))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SwapInventorySlots:
+		{
+			SwapInventorySlotsCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU8(value.sourceSlot) || !reader.readU8(value.destinationSlot) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU8(value.expectedDirection) ||
+				!reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.sourceStateFingerprint) ||
+				!reader.readU64(value.destinationStateFingerprint) ||
+				!reader.readU64(value.handStateFingerprint) ||
+				!reader.readU64(value.offhandStateFingerprint) ||
+				!ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) || !ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidSwapInventorySlotsCommand(value))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::TransferInventoryItem:
+		{
+			TransferInventoryItemCommand value{};
+			if (!reader.readU16(value.soldier.slot) || !reader.readU32(value.soldier.incarnation) ||
+				!reader.readU16(value.target.slot) || !reader.readU32(value.target.incarnation) ||
+				!reader.readU8(value.sourceSlot) || !reader.readU8(value.destinationSlot) ||
+				!reader.readU64(value.expectedWorldGeneration) || !reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) || !reader.readI32(value.expectedTargetGrid) ||
+				!reader.readI8(value.expectedLevel) || !reader.readU16(value.expectedAnimationState) ||
+				!reader.readU16(value.expectedTargetAnimationState) || !reader.readU8(value.expectedDirection) ||
+				!reader.readU8(value.expectedTargetDirection) || !reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.expectedTargetStateFingerprint) || !reader.readU64(value.sourceStateFingerprint) ||
+				!reader.readU64(value.destinationStateFingerprint) || !reader.readU64(value.handStateFingerprint) ||
+				!reader.readU64(value.offhandStateFingerprint) || !reader.readU64(value.targetHandStateFingerprint) ||
+				!reader.readU64(value.targetOffhandStateFingerprint) || !ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) || !ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidTransferInventoryItemCommand(value)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativePickupWorldItem:
+		{
+			AuthoritativePickupWorldItemCommand value{};
+			if (!reader.readU16(value.soldier.slot) || !reader.readU32(value.soldier.incarnation) ||
+				!reader.readU32(value.item.slot) || !reader.readU32(value.item.incarnation) ||
+				!reader.readU8(value.destinationSlot) || !reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) || !reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) || !reader.readU16(value.expectedAnimationState) ||
+				!reader.readU8(value.expectedDirection) || !reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.sourceStateFingerprint) || !reader.readU64(value.destinationStateFingerprint) ||
+				!reader.readU64(value.expectedPoolStateFingerprint) || !ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) || !ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidAuthoritativePickupWorldItemCommand(value)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeDropInventoryItem:
+		{
+			AuthoritativeDropInventoryItemCommand value{};
+			if (!reader.readU16(value.soldier.slot) || !reader.readU32(value.soldier.incarnation) ||
+				!reader.readU8(value.sourceSlot) || !reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) || !reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) || !reader.readU16(value.expectedAnimationState) ||
+				!reader.readU8(value.expectedDirection) || !reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.sourceStateFingerprint) || !ReadI16(reader, value.expectedActionPointCost) ||
+				!ReadSource(reader, value.source) || !ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidAuthoritativeDropInventoryItemCommand(value)) return false;
 			command = value;
 			return true;
 		}

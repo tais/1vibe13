@@ -83,6 +83,43 @@ CampaignEventScheduleResult CampaignEventQueue::schedule(
 	return {node, CampaignEventQueueError::None};
 }
 
+CampaignEventQueueError CampaignEventQueue::scheduleBatch(
+	const CampaignEventSnapshot* events, std::size_t count) noexcept
+{
+	if (!count) return CampaignEventQueueError::None;
+	if (!events || !validate()) return CampaignEventQueueError::InvalidNode;
+	if (size_ > maximumEvents_ || count > maximumEvents_ - size_)
+		return CampaignEventQueueError::CapacityReached;
+	CampaignEventQueue prepared(count);
+	prepared.nextIdentity_ = nextIdentity_;
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		const auto result = prepared.schedule(events[i]);
+		if (!result) return result.error;
+	}
+	// No allocations or failing operations remain. Merge rather than replace:
+	// native dispatchers may retain pointers to existing stable event nodes.
+	CampaignEventQueueNode* old = head_;
+	CampaignEventQueueNode* added = prepared.head_;
+	CampaignEventQueueNode* merged = nullptr;
+	CampaignEventQueueNode** link = &merged;
+	while (old || added)
+	{
+		CampaignEventQueueNode*& next = !added || (old && old->scheduledSeconds <= added->scheduledSeconds) ? old : added;
+		*link = next;
+		next = next->next;
+		tail_ = *link;
+		link = &tail_->next;
+	}
+	*link = nullptr;
+	head_ = merged;
+	size_ += count;
+	nextIdentity_ = prepared.nextIdentity_;
+	prepared.head_ = prepared.tail_ = nullptr;
+	prepared.size_ = 0;
+	return CampaignEventQueueError::None;
+}
+
 CampaignEventQueueNode* CampaignEventQueue::eraseAfter(
 	CampaignEventQueueNode* previous) noexcept
 {

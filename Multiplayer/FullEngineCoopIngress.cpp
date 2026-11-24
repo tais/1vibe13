@@ -212,6 +212,17 @@ TacticalIntentIngressResult FullEngineCoopIngress::handleTacticalIntent(
 	result.decodeResult = DecodeTacticalIntent(bytes, size, intent);
 	if (result.decodeResult != TacticalIntentCodecResult::Success)
 		return result;
+	return handleTacticalIntent(sender, intent);
+}
+
+TacticalIntentIngressResult FullEngineCoopIngress::handleTacticalIntent(
+	const TransportPeer& sender,
+	const TacticalIntent& intent) noexcept
+{
+	TacticalIntentIngressResult result;
+	if (!tacticalActive_ || !IsStructurallyValidTacticalIntent(intent))
+		return result;
+	result.decodeResult = TacticalIntentCodecResult::Success;
 	if (!executionSink_.ready()) return result;
 
 	result.authorization = authority_.authorize(sender, intent);

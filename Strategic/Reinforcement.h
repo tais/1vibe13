@@ -1,6 +1,8 @@
 #ifndef __REINFORCEMENT_H__
 #define __REINFORCEMENT_H__
 
+#include "TacticalReinforcementSaveState.h"
+
 struct GROUP;
 
 //For Autoresolve (mostly)
@@ -16,9 +18,12 @@ UINT8 DoReinforcementAsPendingNonPlayer( INT16 sMapX, INT16 sMapY, UINT8 usTeam 
 void AddPossiblePendingMilitiaToBattle();
 GROUP* GetNonPlayerGroupInSectorForReinforcement( INT16 sMapX, INT16 sMapY, UINT8 usTeam );
 
-// Reinforcement delays/backlogs are tactical-session transients and are not
-// serialized. Reset them whenever a tactical world begins or ends so a cold
-// campaign resume and the uninterrupted host share the same next-battle state.
+// Reset at world boundaries; native saves preserve these through an optional
+// runtime-container extension without changing the legacy domain layout.
 void ResetTacticalReinforcementState() noexcept;
+TacticalReinforcementSaveState CaptureTacticalReinforcementState() noexcept;
+// Null retains the historical loader guesses and their exact RNG draws.
+void RestoreTacticalReinforcementStateAfterLoad(
+	const TacticalReinforcementSaveState* saved) noexcept;
 
 #endif

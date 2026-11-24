@@ -39,6 +39,10 @@
 #include "Font.h"
 #include "Cinematics Bink.h"
 #include "Cinematics.h"
+#include "Cursor Control.h"
+#include "FullEngineCoopClientScreen.h"
+#include "FullEngineCoopClientPresentationPassiveUi.h"
+#include "FullEngineCoopClientPresentationPortraits.h"
 #include "LogicalBodyTypes/AbstractXMLLoader.h"
 #include "MemMan.h"
 #include "Music Control.h"
@@ -56,6 +60,7 @@
 #include "Weapons.h"
 #include "XML.h"
 #include "aim.h"
+#include "english.h"
 #include "input.h"
 #include "render_palette_registry.h"
 #include "sdl_input.h"
@@ -88,6 +93,7 @@ extern UINT32 guiX1ButtonRepeatTimer;
 extern BACKGROUND_SAVE gBackSaves[];
 extern VIDEO_OVERLAY gVideoOverlays[];
 extern BOOLEAN RandomSector[256];
+extern MOUSEBLT_HOOK gMouseBltOverride;
 
 namespace RenderDirtyTestHooks
 {
@@ -129,6 +135,12 @@ void ShutdownWithErrorBox(const CHAR8* message)
 namespace
 {
 int failures = 0;
+unsigned presentationCursorOverlayCalls = 0;
+
+void CountPresentationCursorOverlay()
+{
+	++presentationCursorOverlayCalls;
+}
 
 void Check(bool condition, const char* message)
 {
@@ -140,6 +152,155 @@ void Check(bool condition, const char* message)
 		std::printf("FAIL  %s\n", message);
 	}
 	std::fflush(stdout);
+}
+
+void TestNativePassivePortraitBlits()
+{
+	// Use a real registered indexed video object, but no installed merc data,
+	// native face slots, profile lookup, tactical simulation, or RNG.
+	std::array<SGPPaletteEntry,256> palette{};
+	palette[1] = {231,17,45,0};
+	palette[2] = {19,205,71,0};
+	std::array<UINT8,8> compressed{{2,1,2,0,2,2,1,0}};
+	ETRLEObject frame{};
+	frame.usWidth = frame.usHeight = 2;
+	frame.uiDataLength = compressed.size();
+	frame.sOffsetX = 7;
+	frame.sOffsetY = -9;
+	image_type image{};
+	image.usWidth = image.usHeight = 2;
+	image.ubBitDepth = 8;
+	image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_ALLIMAGEDATA;
+	image.pPalette = palette.data();
+	image.pPixData8 = compressed.data();
+	image.uiSizePixData = compressed.size();
+	image.pETRLEObject = &frame;
+	image.usNumberOfObjects = 1;
+	std::strcpy(image.ImageFile,"passive-portrait-fixture");
+	VOBJECT_DESC description{};
+	description.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
+	description.hImage = &image;
+	UINT32 handle = 0;
+	HVOBJECT object = nullptr;
+	const bool created = AddStandardVideoObject(&description,&handle) &&
+		GetVideoObject(&object,handle) && object;
+	Check(created,"passive portrait fixture owns a real indexed native video object");
+	if (!created) return;
+	const auto services = MakeFullEngineCoopClientPortraitNativeServices();
+	const FullEngineCoopClientPassiveUiRect face{20,30,68,73};
+	const SGPRect previousClip = ClippingRect;
+	UINT32 pitch = 0;
+	auto* pixels = static_cast<PIXEL*>(LockFrameBuffer(&pitch));
+	const bool frameAvailable = pixels && pitch % sizeof(PIXEL) == 0 &&
+		SCREEN_WIDTH >= face.right && SCREEN_HEIGHT >= face.bottom;
+	Check(frameAvailable,"native portrait test has a complete frame surface");
+	if (!frameAvailable)
+	{
+		if (pixels) UnlockFrameBuffer();
+		DeleteVideoObjectFromIndex(handle);
+		return;
+	}
+	const std::size_t stride = pitch / sizeof(PIXEL);
+	const std::size_t pixelCount = stride * SCREEN_HEIGHT;
+	std::vector<PIXEL> savedPixels(pixels,pixels+pixelCount);
+	UnlockFrameBuffer();
+	const PIXEL background = Get16BPPColor(FROMRGB(51,63,89));
+	const auto fillBackground = [&]() {
+		UINT32 currentPitch = 0;
+		auto* framePixels = static_cast<PIXEL*>(LockFrameBuffer(&currentPitch));
+		const bool valid = framePixels && currentPitch == pitch;
+		if (valid) std::fill_n(framePixels,pixelCount,background);
+		if (framePixels) UnlockFrameBuffer();
+		return valid;
+	};
+	const auto exactFrame = [&](bool painted) {
+		UINT32 currentPitch = 0;
+		const auto* framePixels = static_cast<const PIXEL*>(LockFrameBuffer(&currentPitch));
+		bool exact = framePixels && currentPitch == pitch;
+		for (std::size_t index = 0; exact && index < pixelCount; ++index)
+		{
+			const auto x = index % stride, y = index / stride;
+			PIXEL expected = background;
+			if (painted && (x == 43 || x == 44) && (y == 50 || y == 51))
+				expected = object->pShadeCurrent[(x == 43) == (y == 50) ? 1 : 2];
+			exact = framePixels[index] == expected;
+		}
+		if (framePixels) UnlockFrameBuffer();
+		return exact;
+	};
+	const auto sameClip = [](const SGPRect& clip) {
+		return ClippingRect.iLeft == clip.iLeft && ClippingRect.iTop == clip.iTop &&
+			ClippingRect.iRight == clip.iRight && ClippingRect.iBottom == clip.iBottom;
+	};
+	bool exactClippedDraw = true;
+	for (const SGPRect inherited : {SGPRect{0,0,1,1},SGPRect{},SGPRect{10,11,2,3}})
+	{
+		ClippingRect = inherited;
+		exactClippedDraw = fillBackground() && services.blit(handle,face,services.context) &&
+			sameClip(inherited) && exactFrame(true) && exactClippedDraw;
+	}
+	Check(exactClippedDraw,
+		"native portraits cancel sprite offsets, touch only centered face pixels, and restore restrictive/empty/inverted clipping verbatim");
+	const ETRLEObject savedFrame = object->pETRLEObject[0];
+	const UINT16 savedObjectCount = object->usNumberOfObjects;
+	const UINT8 savedDepth = object->ubBitDepth;
+	auto* const savedData = static_cast<UINT8*>(object->pPixData);
+	auto* const savedPalette = object->pPaletteEntry;
+	auto* const savedNativePalette = object->p16BPPPalette;
+	auto* const savedShade = object->pShadeCurrent;
+	const SGPRect rejectedClip{14,15,3,2};
+	bool rejectedBeforeWrites = true;
+	for (unsigned invalid = 0; invalid < 14; ++invalid)
+	{
+		fillBackground();
+		ClippingRect = rejectedClip;
+		switch (invalid)
+		{
+			case 0: savedData[0] = 0x80; break;
+			case 1: savedData[0] = 3; break;
+			case 2: --object->pETRLEObject[0].uiDataLength; break;
+			case 3: object->pETRLEObject[0].uiDataOffset = object->uiSizePixData; break;
+			case 4: object->pETRLEObject[0].uiDataLength = object->uiSizePixData + 1; break;
+			case 5: object->pETRLEObject[0].usWidth = 49; break;
+			case 6: object->pETRLEObject[0].usHeight = 44; break;
+			case 7: object->usNumberOfObjects = 0; break;
+			case 8: object->pPixData = nullptr; break;
+			case 9: object->pPaletteEntry = nullptr; break;
+			case 10: object->p16BPPPalette = nullptr; break;
+			case 11: object->pShadeCurrent = nullptr; break;
+			case 12: object->ubBitDepth = 16; break;
+			case 13: object->pETRLEObject[0].usWidth = 0; break;
+		}
+		rejectedBeforeWrites = !services.blit(handle,face,services.context) &&
+			sameClip(rejectedClip) && exactFrame(false) && rejectedBeforeWrites;
+		object->pETRLEObject[0] = savedFrame;
+		object->usNumberOfObjects = savedObjectCount;
+		object->ubBitDepth = savedDepth;
+		object->pPixData = savedData;
+		savedData[0] = compressed[0];
+		object->pPaletteEntry = savedPalette;
+		object->p16BPPPalette = savedNativePalette;
+		object->pShadeCurrent = savedShade;
+	}
+	Check(rejectedBeforeWrites,
+		"native portrait preflight rejects corrupt ETRLE, missing palette/data, nonindexed and oversized/empty frames before any framebuffer write");
+	fillBackground();
+	Check(!services.blit(handle,{20,30,69,73},services.context) &&
+		!services.blit(handle,{-1,30,47,73},services.context) &&
+		!services.blit((std::numeric_limits<UINT32>::max)(),face,services.context) &&
+		exactFrame(false) && sameClip(rejectedClip),
+		"invalid native portrait target or handle leaves the complete frame and caller clip unchanged");
+	UINT32 untouched = 0xa55aa55au;
+	Check(!services.load("FACES\\missing-portrait-native.sti",untouched,services.context) &&
+		untouched == 0xa55aa55au,
+		"missing optional native portrait artwork returns failure without publishing a handle");
+	pixels = static_cast<PIXEL*>(LockFrameBuffer(&pitch));
+	if (pixels) { std::copy(savedPixels.begin(),savedPixels.end(),pixels); UnlockFrameBuffer(); }
+	ClippingRect = previousClip;
+	services.release(handle,services.context);
+	Check(image.pPixData8 == compressed.data() && image.pETRLEObject == &frame &&
+		compressed[0] == 2 && frame.sOffsetX == 7 && frame.sOffsetY == -9,
+		"native portrait testing releases its own object without mutating borrowed fixture storage");
 }
 
 bool Write(HWFILE file, const std::string& value)
@@ -2246,6 +2407,44 @@ int main()
 	ShutdownInputManager();
 	Check(InitializeInputManager(),
 		"input manager restarts after repeated shutdown");
+	SDL_Event repeatKey{};
+	repeatKey.type = SDL_EVENT_KEY_DOWN;
+	repeatKey.key.scancode = SDL_SCANCODE_UP;
+	repeatKey.key.key = SDLK_UP;
+	SgpHandleSDLEvent(&repeatKey);
+	repeatKey.key.repeat = true;
+	SgpHandleSDLEvent(&repeatKey);
+	InputAtom initialKeyAtom{};
+	InputAtom repeatKeyAtom{};
+	InputAtom noThirdKeyAtom{};
+	EngineInputEvent initialMirroredKey{};
+	EngineInputEvent repeatMirroredKey{};
+	Check(gfKeyState[UPARROW] &&
+		DequeueEvent(&initialKeyAtom) &&
+		initialKeyAtom.usEvent == KEY_DOWN &&
+		initialKeyAtom.usParam == UPARROW &&
+		DequeueEvent(&repeatKeyAtom) &&
+		repeatKeyAtom.usEvent == KEY_REPEAT &&
+		repeatKeyAtom.usParam == UPARROW &&
+		!DequeueEvent(&noThirdKeyAtom) &&
+		GetPlatformInputSource().poll(initialMirroredKey) &&
+		initialMirroredKey.type == KEY_DOWN &&
+		initialMirroredKey.primary == UPARROW &&
+		GetPlatformInputSource().poll(repeatMirroredKey) &&
+		repeatMirroredKey.type == KEY_REPEAT &&
+		repeatMirroredKey.primary == UPARROW &&
+		!GetPlatformInputSource().poll(mirrored),
+		"SDL keyboard autorepeat remains held but is classified as KEY_REPEAT in both input queues");
+	repeatKey = SDL_Event{};
+	repeatKey.type = SDL_EVENT_KEY_UP;
+	repeatKey.key.scancode = SDL_SCANCODE_UP;
+	repeatKey.key.key = SDLK_UP;
+	SgpHandleSDLEvent(&repeatKey);
+	Check(!gfKeyState[UPARROW] && DequeueEvent(&initialKeyAtom) &&
+		initialKeyAtom.usEvent == KEY_UP &&
+		GetPlatformInputSource().poll(initialMirroredKey) &&
+		initialMirroredKey.type == KEY_UP,
+		"SDL key release still clears a key after autorepeat");
 	ShutdownInputManager();
 	ShutdownClockManager();
 	ResetPlatformTimeSource();
@@ -2945,15 +3144,28 @@ int main()
 		const bool firstFontManager = firstTable &&
 			InitializeFontManager(8, firstTable);
 		if (firstFontManager) MemFree(firstTable);
+		INT16 translatedA = -1;
+		INT16 unsupported = 73;
+		const bool quietFontLookup = firstFontManager &&
+			TryGetIndex(L'A', &translatedA) && translatedA == 0 &&
+			!TryGetIndex(L'\u2603', &unsupported) && unsupported == 73 &&
+			!TryGetIndex(L'A', nullptr);
 		ShutdownFontManager();
 		ShutdownFontManager();
 		FontTranslationTable* secondTable = CreateEnglishTransTable();
+		if (secondTable && secondTable->DynamicArrayOf16BitValues)
+			secondTable->DynamicArrayOf16BitValues[0] = 0x2603;
 		const bool secondFontManager = secondTable &&
 			InitializeFontManager(8, secondTable);
 		if (secondFontManager) MemFree(secondTable);
+		INT16 translatedSnowman = -1;
+		const bool restartedQuietLookup = secondFontManager &&
+			TryGetIndex(L'\u2603', &translatedSnowman) &&
+			translatedSnowman == 0;
 		ShutdownFontManager();
-		Check(firstFontManager && secondFontManager,
-			"font manager transfers its table transactionally and restarts cleanly");
+		Check(firstFontManager && secondFontManager && quietFontLookup &&
+			restartedQuietLookup,
+			"font manager restarts cleanly and quiet glyph lookup is transactional");
 
 		image_type callerOwnedImage{};
 		callerOwnedImage.ubBitDepth = 8;
@@ -4496,7 +4708,7 @@ int main()
 			cursorPitch ==
 				MAX_CURSOR_WIDTH * sizeof(PIXEL) &&
 			managedCursorPixels[0] !=
-				static_cast<PIXEL>(0xFFFF00FFu) &&
+				Get16BPPColor(FROMRGB(255, 0, 255)) &&
 			guiMouseBufferState == BUFFER_DIRTY;
 		UnlockMouseBuffer();
 		char overlongCursorPath[512];
@@ -4520,6 +4732,172 @@ int main()
 		Check(managedCursorExact &&
 			cursorFileTransactional && cursorHidden,
 			"legacy cursor endpoints draw real sprites, retain a valid file on replacement failure, and honor visibility");
+
+		// The passive co-op frame must supply a real software pointer without
+		// invoking the tactical cursor overlay or inheriting its roof offset.
+		// Cursor zero represents CURSOR_NORMAL, using a borrowed one-pixel native
+		// image so this exercises the shipping selector and frame wrapper.
+		const bool presentationRejectsUninitialized =
+			!SetPresentationCursorFromDatabase(0);
+		CursorFileData presentationCursorFiles[2]{};
+		presentationCursorFiles[0].fLoaded = TRUE;
+		presentationCursorFiles[0].ubFlags = USE_EXTERN_VO_CURSOR;
+		presentationCursorFiles[0].hVObject = liveImage;
+		const char missingCursorAsset[] = "missing-presentation-cursor.sti";
+		std::memcpy(presentationCursorFiles[1].ubFilename,
+			missingCursorAsset, sizeof(missingCursorAsset));
+		CursorData presentationCursors[2]{};
+		presentationCursors[0].usNumComposites = 1;
+		presentationCursors[1].usNumComposites = 1;
+		presentationCursors[1].Composites[0].uiFileIndex = 1;
+		InitCursorDatabase(presentationCursorFiles, presentationCursors, 2, 2);
+		const MOUSEBLT_HOOK priorPresentationHook = gMouseBltOverride;
+		const INT16 priorPresentationOffset = gsGlobalCursorYOffset;
+		SetMouseBltHook(CountPresentationCursorOverlay);
+		presentationCursorOverlayCalls = 0;
+		gsGlobalCursorYOffset = 40;
+		SGPRect restrictiveCursorClip{8, 8, 10, 10};
+		SetClippingRect(&restrictiveCursorClip);
+		EraseMouseCursor();
+		HideMouseCursor();
+		const bool presentationCursorSelected =
+			liveImageCreated && RefreshFullEngineCoopClientCursor();
+		const PIXEL* presentationCursorPixels = static_cast<const PIXEL*>(
+			LockMouseBuffer(&cursorPitch));
+		const PIXEL presentationCursorPixel =
+			presentationCursorPixels ? presentationCursorPixels[0] : 0;
+		const bool presentationCursorOpaque = presentationCursorPixels &&
+			presentationCursorPixel != Get16BPPColor(FROMRGB(255, 0, 255)) &&
+			guiMouseBufferState == BUFFER_DIRTY;
+		UnlockMouseBuffer();
+		SGPRect restoredPresentationClip{};
+		GetClippingRect(&restoredPresentationClip);
+		const auto presentationCallerStatePreserved = [&]()
+		{
+			GetClippingRect(&restoredPresentationClip);
+			return restoredPresentationClip.iLeft == restrictiveCursorClip.iLeft &&
+				restoredPresentationClip.iTop == restrictiveCursorClip.iTop &&
+				restoredPresentationClip.iRight == restrictiveCursorClip.iRight &&
+				restoredPresentationClip.iBottom == restrictiveCursorClip.iBottom &&
+				gsGlobalCursorYOffset == 40 &&
+				gMouseBltOverride == CountPresentationCursorOverlay;
+		};
+		const bool presentationInitialStatePreserved =
+			presentationCallerStatePreserved() && presentationCursorOverlayCalls == 0;
+		bool presentationEmptyClipRecovered = true;
+		for (const SGPRect inheritedClip : {SGPRect{}, SGPRect{10, 11, 2, 3}})
+		{
+			ClippingRect = inheritedClip;
+			presentationEmptyClipRecovered = RefreshFullEngineCoopClientCursor() &&
+				ClippingRect.iLeft == inheritedClip.iLeft &&
+				ClippingRect.iTop == inheritedClip.iTop &&
+				ClippingRect.iRight == inheritedClip.iRight &&
+				ClippingRect.iBottom == inheritedClip.iBottom &&
+				presentationCursorOverlayCalls == 0 && gsGlobalCursorYOffset == 40 &&
+				presentationEmptyClipRecovered;
+		}
+		SetClippingRect(&restrictiveCursorClip);
+		EraseMouseCursor();
+		HideMouseCursor();
+		const bool presentationCursorRecovered = RefreshFullEngineCoopClientCursor();
+		presentationCursorPixels = static_cast<const PIXEL*>(LockMouseBuffer(&cursorPitch));
+		const bool presentationRecoveredExact = presentationCursorPixels &&
+			presentationCursorPixels[0] == presentationCursorPixel &&
+			guiMouseBufferState == BUFFER_DIRTY;
+		UnlockMouseBuffer();
+		const bool presentationInvalidRejected =
+			!SetPresentationCursorFromDatabase(2) &&
+			!SetPresentationCursorFromDatabase(VIDEO_NO_CURSOR) &&
+			!SetPresentationCursorFromDatabase(EXTERN_CURSOR) &&
+			!SetPresentationCursorFromDatabase(EXTERN2_CURSOR) &&
+			!SetPresentationCursorFromDatabase(1) &&
+			presentationCallerStatePreserved() && presentationCursorOverlayCalls == 0;
+
+		// A software-buffer check alone cannot catch an inherited hotspot/roof
+		// offset. Capture a real present and verify the pixel lands at the mouse,
+		// not forty pixels above it; presentation must also unstamp the frame.
+		const UINT16 previousPresentationMouseX = gusMouseXPos;
+		const UINT16 previousPresentationMouseY = gusMouseYPos;
+		gusMouseXPos = 32;
+		gusMouseYPos = 64;
+		const PIXEL presentationBackground = Get16BPPColor(FROMRGB(231, 17, 91));
+		UINT32 presentationFramePitch = 0;
+		PIXEL* presentationFrame = static_cast<PIXEL*>(LockFrameBuffer(&presentationFramePitch));
+		PIXEL previousPresentationAtMouse = 0;
+		PIXEL previousPresentationAtRoof = 0;
+		if (presentationFrame)
+		{
+			const std::size_t stride = presentationFramePitch / sizeof(PIXEL);
+			previousPresentationAtMouse = presentationFrame[64 * stride + 32];
+			previousPresentationAtRoof = presentationFrame[24 * stride + 32];
+			presentationFrame[64 * stride + 32] = presentationBackground;
+			presentationFrame[24 * stride + 32] = presentationBackground;
+		}
+		const bool presentationFrameAvailable = presentationFrame != nullptr;
+		UnlockFrameBuffer();
+		const std::filesystem::path presentationCaptureRoot = root / "presentation-cursor";
+		error.clear();
+		std::filesystem::create_directories(presentationCaptureRoot, error);
+		const bool presentationCaptureCreated = !error;
+		const auto presentationPreviousDirectory = std::filesystem::current_path(error);
+		const bool presentationDirectoryKnown = !error;
+		if (presentationCaptureCreated && presentationDirectoryKnown)
+			std::filesystem::current_path(presentationCaptureRoot, error);
+		const bool presentationCaptureSelected =
+			presentationCaptureCreated && presentationDirectoryKnown && !error;
+		if (presentationCaptureSelected) PrintScreen();
+		const bool presentationPresented = presentationCaptureSelected &&
+			PresentLegacyFrame(FramePresentMode::Immediate);
+		SDL_Surface* presentationScreenshot = presentationPresented ? SDL_LoadPNG(
+			(presentationCaptureRoot / "Screenshots" / "SCREEN00000.png").string().c_str()) : nullptr;
+		const auto screenshotPixelEquals = [&](int x, int y, PIXEL expected)
+		{
+			Uint8 red = 0, green = 0, blue = 0, alpha = 0;
+			return presentationScreenshot && SDL_ReadSurfacePixel(
+				presentationScreenshot, x, y, &red, &green, &blue, &alpha) &&
+				alpha == 255 && Get16BPPColor(FROMRGB(red, green, blue)) == expected;
+		};
+		const bool presentationPositionExact = presentationFrameAvailable &&
+			presentationCursorPixel != presentationBackground &&
+			screenshotPixelEquals(32, 64, presentationCursorPixel) &&
+			screenshotPixelEquals(32, 24, presentationBackground);
+		SDL_DestroySurface(presentationScreenshot);
+		error.clear();
+		if (presentationDirectoryKnown)
+			std::filesystem::current_path(presentationPreviousDirectory, error);
+		const bool presentationDirectoryRestored = presentationDirectoryKnown && !error;
+		presentationFrame = static_cast<PIXEL*>(LockFrameBuffer(&presentationFramePitch));
+		bool presentationFrameRestored = false;
+		if (presentationFrame)
+		{
+			const std::size_t stride = presentationFramePitch / sizeof(PIXEL);
+			presentationFrameRestored = presentationFrame[64 * stride + 32] == presentationBackground &&
+				presentationFrame[24 * stride + 32] == presentationBackground;
+			presentationFrame[64 * stride + 32] = previousPresentationAtMouse;
+			presentationFrame[24 * stride + 32] = previousPresentationAtRoof;
+		}
+		UnlockFrameBuffer();
+		gusMouseXPos = previousPresentationMouseX;
+		gusMouseYPos = previousPresentationMouseY;
+		SetClippingRect(&cursorClip);
+		const bool legacyCursorHookPreserved = SetCurrentCursorFromDatabase(0) &&
+			presentationCursorOverlayCalls == 1 && gsGlobalCursorYOffset == 40;
+		SetMouseBltHook(priorPresentationHook);
+		gsGlobalCursorYOffset = priorPresentationOffset;
+		InitCursorDatabase(nullptr, nullptr, 0, 0);
+		ClippingRect = previousCursorClip;
+		EraseMouseCursor();
+		HideMouseCursor();
+		Check(presentationRejectsUninitialized && presentationCursorSelected &&
+			presentationCursorOpaque && presentationInitialStatePreserved &&
+			presentationEmptyClipRecovered &&
+			presentationCursorRecovered && presentationRecoveredExact &&
+			presentationInvalidRejected && legacyCursorHookPreserved,
+			"passive cursor restores opaque pixels after hiding, isolates tactical overlays and clipping, and rejects missing database assets");
+		Check(presentationPositionExact && presentationFrameRestored && presentationDirectoryRestored,
+			"passive cursor is visibly presented at the mouse without inherited roof displacement or framebuffer trails");
+
+		TestNativePassivePortraitBlits();
 
 		std::vector<PIXEL> originalNativePalette(256);
 		std::vector<PIXEL> copiedNativePalette(256);
@@ -5320,6 +5698,86 @@ int main()
 			paletteStripDepthsMatch &&
 			alphaObscuredStrictEqualSkipped,
 			"multi-Z backend preserves strip transitions, wall equality, palette deltas, and alpha-obscured comparison");
+
+		// Animation frames can extend past their finite Z-change profile. Exercise
+		// both opaque and transparent tails, and clips starting beyond the table.
+		constexpr unsigned tailWidth = 65, tailHeight = 2;
+		std::vector<UINT8> tailPixels{tailWidth};
+		tailPixels.insert(tailPixels.end(), tailWidth, 1);
+		tailPixels.push_back(0);
+		tailPixels.push_back(0x80 | 45);
+		tailPixels.push_back(20);
+		tailPixels.insert(tailPixels.end(), 20, 1);
+		tailPixels.push_back(0);
+		auto tailAlpha = tailPixels;
+		std::fill(tailAlpha.begin() + 1, tailAlpha.begin() + 1 + tailWidth, 255);
+		std::fill(tailAlpha.begin() + tailWidth + 4, tailAlpha.end() - 1, 255);
+		ETRLEObject tailImage{0, static_cast<UINT32>(tailPixels.size()), 0, 0, tailHeight, tailWidth};
+		SGPVObject tailObject = stripObject;
+		tailObject.pETRLEObject = &tailImage;
+		tailObject.pPixData = tailPixels.data(); tailObject.uiSizePixData = tailPixels.size();
+		SGPVObject tailAlphaObject = tailObject; tailAlphaObject.pPixData = tailAlpha.data();
+		// An exact heap allocation makes an extra table lookup visible to ASan.
+		std::vector<INT8> oneChange(1, 1);
+		ZStripInfo tailProfile{0, 5, 1, oneChange.data()};
+		ZStripInfo* tailProfiles[]{&tailProfile}; tailObject.ppZStripInfo = tailProfiles;
+		std::vector<PIXEL> tailDestination(tailWidth * tailHeight);
+		std::vector<PIXEL> tailDepthStorage(tailWidth * tailHeight);
+		auto* tailDepth = reinterpret_cast<UINT16*>(tailDepthStorage.data());
+		const UINT32 tailPitch = tailWidth * sizeof(PIXEL);
+		for (unsigned count : {1u, 0u})
+		for (const auto left : {0, 45})
+		for (const auto top : {0, 1})
+		for (int mode = 0; mode < 7; ++mode)
+		{
+			tailProfile.ubNumberOfZChanges = count;
+			// Zero changes has no readable table. A missing nonempty table still
+			// rejects below, rather than silently inventing profile data.
+			tailProfile.pbZChange = count ? oneChange.data() : nullptr;
+			std::fill(tailDestination.begin(), tailDestination.end(), 0);
+			std::fill(tailDepthStorage.begin(), tailDepthStorage.end(), 0);
+			SGPRect tailClip{left, top, tailWidth, tailHeight};
+			bool drawn = false;
+			switch (mode)
+			{
+			case 0: case 1:
+				drawn = Blt8BPPDataTo16BPPBufferTransZIncClipProfile(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, mode == 1); break;
+			case 2:
+				drawn = Blt8BPPDataTo16BPPBufferTransZIncObscureClipProfile(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0); break;
+			case 3:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 4:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, &tailAlphaObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 5:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			case 6:
+				drawn = Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(tailDestination.data(), tailPitch,
+					tailDepth, 100, &tailObject, &tailAlphaObject, 0, 0, 0, &tailClip, 0, commandPalette, FALSE); break;
+			}
+			bool exact = drawn;
+			for (unsigned row = 0; row < tailHeight; ++row)
+			for (unsigned column = 0; column < tailWidth; ++column)
+			{
+				const bool visible = row >= static_cast<unsigned>(top) && column >= static_cast<unsigned>(left) &&
+					(row == 0 || column >= 45);
+				const UINT16 expectedDepth = !visible ? 0 : 100 + (count && column >= 5 ? (mode < 3 ? 80 : 8) : 0);
+				const PIXEL expectedPixel = visible ? (mode < 3 ? stripSourcePalette[1] : commandPalette[1]) : 0;
+				const auto depthIndex = row * tailPitch / sizeof(UINT16) + column;
+				exact = exact && tailDepth[depthIndex] == expectedDepth &&
+					tailDestination[row * tailWidth + column] == expectedPixel;
+			}
+			Check(exact, "multi-Z finite profiles retain final depth across clipped opaque, transparent and alpha animation tails");
+		}
+		tailProfile.ubNumberOfZChanges = 1;
+		tailProfile.pbZChange = nullptr;
+		SGPRect tailClip{0, 0, tailWidth, tailHeight};
+		Check(!Blt8BPPDataTo16BPPBufferTransZIncClipProfile(tailDestination.data(), tailPitch, tailDepth,
+			100, &tailObject, 0, 0, 0, &tailClip, 0, FALSE), "multi-Z nonempty profiles require readable change data");
 
 		UINT8 maskEncodedPixels[] = {
 			4, 1, 1, 1, 1, 0,

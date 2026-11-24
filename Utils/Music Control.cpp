@@ -1,7 +1,6 @@
 	#include "types.h"
 	#include "Music Control.h"
 	#include "soundman.h"
-	#include "random.h"
 	#include "jascreens.h"
 	#include "Overhead.h"
 	#include "Timer Control.h"
@@ -232,7 +231,7 @@ static STR PickRandomSongFromList(NewMusicList mode)
 	{
 		return NULL;
 	}
-	return gMusicLists[mode][Random(gMusicLists[mode].size())].c_str();
+	return gMusicLists[mode][SoundRandomRange(static_cast<UINT32>(gMusicLists[mode].size()))].c_str();
 }
 
 

@@ -1,14 +1,14 @@
 name: build
 
 # CMake/SDL3 compile-check on every platform we ship -- Linux (x64 +
-# arm64), macOS, Windows. English only for now (multi-language builds
+# arm64), macOS (x86_64 + arm64), Windows. English only for now (multi-language builds
 # come later).
 # Optimized Release builds (NDEBUG, asserts off, no debug symbols).
 #
 # The three shipped applications -- the main game (JA2_ENGLISH),
 # Unfinished Business (JA2UB_ENGLISH) and the map editor
 # (JA2MAPEDITOR_ENGLISH) -- each build in their own job, so the matrix
-# is the cross product of {application} x {platform} = 12 parallel jobs.
+# is the cross product of {application} x {platform} = 15 parallel jobs.
 # Each job re-builds the shared deps (SDL3, expat, lua, zlib, ...), but
 # running in parallel keeps wall-clock time down to a single variant
 # and isolates a failure to the exact application that broke.
@@ -17,7 +17,7 @@ name: build
 # manual-dispatch only) for the SDL3 port. Every platform drives the
 # same CMake/Ninja/clang build; on Windows we use clang's GCC-compat
 # driver through the LLVM toolchain that ships with Visual Studio 2022
-# on the windows-latest runner image.
+# on the versioned windows-2022 runner image.
 
 on:
   workflow_call:
@@ -25,7 +25,7 @@ on:
     branches:
       - '**'
     # Tagged releases are compiled and packaged by release.yml. Avoid a
-    # redundant second 12-job build matrix for the same commit.
+    # redundant second 15-job build matrix for the same commit.
   workflow_dispatch:
 
 jobs:
@@ -36,10 +36,13 @@ jobs:
       matrix:
         application: [JA2, JA2UB, JA2MAPEDITOR]
         platform:
-          - { os: ubuntu-latest,    name: linux }
-          - { os: ubuntu-24.04-arm, name: linux-arm64 }
-          - { os: macos-latest,     name: macos }
-          - { os: windows-latest,   name: windows }
+          # Match the tagged-release toolchains so ordinary CI catches
+          # portability regressions before packaging a release.
+          - { os: ubuntu-22.04,     name: linux-x86_64-glibc2.35, family: linux,   arch: x86_64 }
+          - { os: ubuntu-22.04-arm, name: linux-arm64-glibc2.35,  family: linux,   arch: arm64 }
+          - { os: macos-15-intel,   name: macos-x86_64-macos12,   family: macos,   arch: x86_64 }
+          - { os: macos-15,         name: macos-arm64-macos12,    family: macos,   arch: arm64 }
+          - { os: windows-2022,     name: windows-x86_64,         family: windows, arch: x86_64 }
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled object files (SDL3, SDL3_mixer, opus, expat,
@@ -72,12 +75,12 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Install Linux build deps
-        if: startsWith(matrix.platform.name, 'linux')
+        if: matrix.platform.family == 'linux'
         run: |
           set -eux
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config \
+            binutils clang cmake ninja-build pkg-config \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libx11-dev libxext-dev libxcursor-dev libxi-dev \
             libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
@@ -93,7 +96,7 @@ jobs:
           echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Install macOS build deps
-        if: matrix.platform.name == 'macos'
+        if: matrix.platform.family == 'macos'
         run: |
           set -eux
           brew install cmake ninja
@@ -102,11 +105,11 @@ jobs:
           # on github runners.
 
       - name: Set up MSVC environment (Windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Select clang toolchain (Windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: bash
         run: |
           # Use clang's GCC-compat driver (not clang-cl) targeting
@@ -128,6 +131,7 @@ jobs:
           # macOS Bash 3.2 treats an empty array as unset under nounset; the
           # guarded expansion below emits zero arguments when sccache is absent.
           cache_args=()
+          platform_args=()
           if command -v sccache >/dev/null 2>&1; then
             cache_args+=(
               -DCMAKE_C_COMPILER_LAUNCHER=sccache
@@ -135,10 +139,19 @@ jobs:
           else
             echo "::warning::sccache setup unavailable; building without a compiler cache"
           fi
+          if [[ "${{ matrix.platform.family }}" == macos ]]; then
+            platform_args+=(
+              "-DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }}"
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0)
+          fi
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DLanguages=ENGLISH \
             -DApplications=${{ matrix.application }} \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_mixer=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_net=ON \
+            ${platform_args[@]+"${platform_args[@]}"} \
             ${cache_args[@]+"${cache_args[@]}"}
 
       - name: Build
@@ -162,14 +175,14 @@ jobs:
           fi
 
       - name: List build artifacts (unix)
-        if: matrix.platform.name != 'windows'
+        if: matrix.platform.family != 'windows'
         run: |
           set -eux
           ls -la build/
           find build/ -maxdepth 2 -type f \( -name 'JA2*' -o -name 'ja2*' \) | head -20
 
       - name: List build artifacts (Windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           Get-ChildItem build/ | Format-Table -AutoSize
@@ -181,6 +194,7 @@ jobs:
           name: ${{ matrix.application }}-${{ matrix.platform.name }}
           path: |
             build/${{ matrix.application }}_ENGLISH
+            build/${{ matrix.application }}_ENGLISH.app
             build/${{ matrix.application }}_ENGLISH.exe
             build/*.dll
           if-no-files-found: warn
@@ -247,16 +261,43 @@ jobs:
             -DLanguages=ENGLISH \
             -DApplications=JA2 \
             -DADDRESS_SANITIZER=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_mixer=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_net=ON \
             ${cache_args[@]+"${cache_args[@]}"}
 
+      - name: Build checked native AIM arrival
+        run: cmake --build build --target native_campaign_aim_arrival_tests --parallel 2
+
       - name: Build test binaries (including the exporter-only TextPack cohort)
-        run: cmake --build build --target ja2_headless_tests platform_legacy_tests mp_sdl_net_transport_tests legacy_server_ingress_tests mp_coordinator_session_tests dedicated_server_options_tests coop_session_protocol_tests coop_tactical_authority_tests engine_core_tests save_serializer_golden_tests utils_runtime_control_model_tests portable_font_model_tests ja2_runtime_adapter_tests tactical_world_snapshot_codec_tests tactical_interrupt_session_model_tests tactical_door_ui_session_tests tactical_team_population_session_model_tests simulation_command_bulk_reload_model_tests tactical_observer_allocation_tests tile_cache_tests campaign_map_change_code_tests campaign_application_policy_tests campaign_meanwhile_policy_tests campaign_door_policy_tests campaign_tactical_scenario_policy_tests campaign_strategic_sector_script_policy_tests campaign_strategic_ai_scenario_policy_tests campaign_strategic_event_policy_tests campaign_strategic_content_policy_tests campaign_map_screen_policy_tests campaign_imp_policy_tests campaign_progress_policy_tests campaign_quest_policy_tests campaign_gun_comment_policy_tests campaign_npc_policy_tests campaign_lua_global_policy_tests campaign_lua_registration_policy_tests campaign_civilian_quote_policy_tests campaign_dealer_policy_tests campaign_mercenary_policy_tests campaign_mercenary_arrival_content_tests campaign_mercenary_arrival_mutation_tests campaign_merc_site_policy_tests campaign_aim_site_policy_tests laptop_communications_policy_tests insurance_site_model_tests laptop_campaign_content_policy_tests bobby_ray_commerce_model_tests bobby_ray_catalogue_model_tests bobby_ray_fulfilment_model_tests bobby_ray_layout_tests laptop_record_page_model_tests laptop_email_list_model_tests laptop_personnel_roster_model_tests laptop_campaign_history_model_tests laptop_ui_state_model_tests aim_member_profile_layout_tests aim_website_layout_tests merc_files_layout_tests utils_ui_state_model_tests utils_cursor_state_model_tests utils_text_state_model_tests utils_data_boundary_model_tests utils_indexed_xml_model_tests utils_media_lifecycle_model_tests tactical_event_queue_model_tests utils_image_utility_model_tests utils_legacy_utilities_model_tests i18n_language_catalog_tests i18n_text_catalog_tests i18n_conditional_text_policy_tests i18n_compiled_conditional_text_ja2_release_tests i18n_compiled_conditional_text_ja2_beta_tests i18n_compiled_conditional_text_ja2ub_release_tests i18n_compiled_conditional_text_ja2ub_beta_tests item_data_staging_model_tests laptop_encyclopedia_compile_check laptop_localization_input_model_tests laptop_imp_creation_state_model_tests
+        run: cmake --build build --target ja2_headless_tests platform_legacy_tests mp_sdl_net_transport_tests legacy_server_ingress_tests mp_coordinator_session_tests dedicated_server_options_tests coop_session_protocol_tests coop_tactical_authority_tests engine_core_tests save_serializer_golden_tests utils_runtime_control_model_tests portable_font_model_tests ja2_runtime_adapter_tests tactical_world_snapshot_codec_tests tactical_interrupt_session_model_tests tactical_door_ui_session_tests tactical_team_population_session_model_tests simulation_command_bulk_reload_model_tests tactical_observer_allocation_tests tile_cache_tests campaign_map_change_code_tests campaign_application_policy_tests campaign_meanwhile_policy_tests campaign_door_policy_tests campaign_tactical_scenario_policy_tests campaign_strategic_sector_script_policy_tests campaign_strategic_ai_scenario_policy_tests campaign_strategic_event_policy_tests campaign_strategic_content_policy_tests campaign_map_screen_policy_tests campaign_imp_policy_tests campaign_progress_policy_tests campaign_quest_policy_tests campaign_gun_comment_policy_tests campaign_npc_policy_tests campaign_lua_global_policy_tests campaign_lua_registration_policy_tests campaign_civilian_quote_policy_tests campaign_dealer_policy_tests campaign_mercenary_policy_tests campaign_mercenary_arrival_content_tests campaign_mercenary_arrival_mutation_tests campaign_merc_site_policy_tests campaign_aim_site_policy_tests campaign_aim_willingness_policy_tests laptop_communications_policy_tests insurance_site_model_tests laptop_campaign_content_policy_tests bobby_ray_commerce_model_tests bobby_ray_catalogue_model_tests bobby_ray_fulfilment_model_tests bobby_ray_layout_tests laptop_record_page_model_tests laptop_email_list_model_tests laptop_personnel_roster_model_tests laptop_campaign_history_model_tests laptop_ui_state_model_tests aim_member_profile_layout_tests aim_website_layout_tests merc_files_layout_tests utils_ui_state_model_tests utils_cursor_state_model_tests utils_text_state_model_tests utils_data_boundary_model_tests utils_indexed_xml_model_tests utils_media_lifecycle_model_tests tactical_event_queue_model_tests utils_image_utility_model_tests utils_legacy_utilities_model_tests i18n_language_catalog_tests i18n_text_catalog_tests i18n_conditional_text_policy_tests i18n_compiled_conditional_text_ja2_release_tests i18n_compiled_conditional_text_ja2_beta_tests i18n_compiled_conditional_text_ja2ub_release_tests i18n_compiled_conditional_text_ja2ub_beta_tests item_data_staging_model_tests laptop_encyclopedia_compile_check laptop_localization_input_model_tests laptop_imp_creation_state_model_tests
 
       - name: Build dedicated campaign store contract
         run: cmake --build build --target dedicated_campaign_store_tests dedicated_campaign_filesystem_tests dedicated_campaign_save_adapter_tests dedicated_campaign_boot_tests full_engine_coop_client_campaign_scratch_tests dedicated_content_manifest_tests dedicated_campaign_vfs_profile_tests simulation_random_tests game_random_installation_tests gameplay_lua_policy_tests dedicated_checkpoint_eligibility_tests runtime_boundary_state_tests package_random_root_state_tests runtime_checkpoint_v2_tests runtime_random_checkpoint_tests package_save_rng_policy_tests package_random_transaction_tests os_admission_token_source_tests
 
+      - name: Build pending-hire completed-death resume
+        run: cmake --build build --target native_coop_pending_hire_death_tests --parallel 2
+
+      - name: Build native off-turn hit-recovery regression
+        run: cmake --build build --target native_coop_remote_attack_completion_tests native_coop_surrender_tests --parallel 2
+
+      - name: Build checked native strategic event scheduling
+        run: cmake --build build --target native_campaign_event_scheduling_tests
+
+      - name: Build dedicated assertion regression
+        run: cmake --build build --target dedicated_coop_assertion_tests --parallel 2
+
+      - name: Build campaign hiring protocol and authority
+        run: cmake --build build --target coop_campaign_hire_tests full_engine_coop_client_campaign_hire_input_tests --parallel 2
+
+      - name: Build checked campaign ledger
+        run: cmake --build build --target campaign_ledger_tests
+
       - name: Build full-engine co-op ingress contract
         run: cmake --build build --target coop_handshake_protocol_tests coop_campaign_bootstrap_protocol_tests coop_campaign_sync_protocol_tests coop_actor_assignment_policy_tests dedicated_coop_mission_bootstrap_tests coop_tactical_protocol_tests full_engine_coop_server_session_tests full_engine_coop_ingress_tests full_engine_coop_admission_listener_tests full_engine_coop_tactical_server_tests full_engine_coop_campaign_sync_client_tests full_engine_coop_campaign_sync_server_tests full_engine_coop_campaign_sync_loopback_tests full_engine_coop_socket_e2e_tests full_engine_coop_snapshot_replica_tests full_engine_coop_client_tests full_engine_coop_client_transport_tests full_engine_coop_client_bootstrap_transport_tests full_engine_coop_client_options_tests full_engine_coop_client_runtime_tests full_engine_coop_client_controller_tests full_engine_coop_client_tactical_presentation_tests full_engine_coop_client_tactical_plot_renderer_tests dedicated_coop_tactical_host_tests
+
+      - name: Build campaign controls and passive client contracts
+        run: cmake --build build --target campaign_event_batch_tests coop_campaign_action_tests coop_campaign_groups_tests coop_campaign_status_tests coop_campaign_time_tests coop_inventory_protocol_tests coop_tactical_presentation_change_tests full_engine_coop_client_campaign_action_input_tests full_engine_coop_client_game_screen_policy_tests full_engine_coop_client_presentation_actor_directory_tests full_engine_coop_client_presentation_actor_proxy_bank_tests full_engine_coop_client_presentation_click_resolver_tests full_engine_coop_client_presentation_command_feedback_tests full_engine_coop_client_presentation_control_feedback_tests full_engine_coop_client_presentation_focus_policy_tests full_engine_coop_client_presentation_input_tests full_engine_coop_client_presentation_interaction_tests full_engine_coop_client_presentation_inventory_tests full_engine_coop_client_presentation_loot_tests full_engine_coop_client_presentation_map_tests full_engine_coop_client_presentation_passive_ui_roster_text_plan_tests full_engine_coop_client_presentation_passive_ui_tests full_engine_coop_client_presentation_portraits_tests full_engine_coop_client_presentation_world_host_tests full_engine_coop_client_transport_ack_failure_tests static_presentation_scrolling_tests static_presentation_world_lifecycle_tests
 
       - name: Build selected linked-catalog export adapter test
         run: cmake --build build --target selected_catalog_export_tests

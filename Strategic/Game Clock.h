@@ -70,6 +70,9 @@ BOOLEAN IsTimeCompressionOn( void );		// returns TRUE if the player currently wa
 //per frame.	These functions have their limits, so game time will also be between 
 //TIME_COMPRESS_X1 to TIME_COMPRESS_X8 based in the laptop time compression.
 void SetGameTimeCompressionLevel( UINT32 uiCompressionRate );
+// Headless-safe strategic control. Only pause/5/30/60 minutes; no GUI error
+// path, world load, event bypass, or clearing an event's pause lock.
+BOOLEAN TrySetWorldlessStrategicTimeCompression( UINT32 uiCompressionRate );
 void DecreaseGameTimeCompressionRate();
 void IncreaseGameTimeCompressionRate();
 

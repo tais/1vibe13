@@ -359,6 +359,18 @@ int main()
 	CHECK(LegacyMessageHasExactPayload(nullptr, 0, 0),
 		"zero-byte request accepts an empty payload");
 
+	CHECK(LegacyServerOutboundFrameWithinLimit(0, 1, 0, 7) &&
+		LegacyServerOutboundFrameWithinLimit(7, 1, 0, 14),
+		"outbound high-water admits a complete frame at the exact boundary");
+	CHECK(!LegacyServerOutboundFrameWithinLimit(1, 1, 0, 7) &&
+		!LegacyServerOutboundFrameWithinLimit(8, 1, 0, 7),
+		"pending bytes and the next complete frame cannot cross the high-water");
+	CHECK(!LegacyServerOutboundFrameWithinLimit(0, 0, 0, 1024) &&
+		!LegacyServerOutboundFrameWithinLimit(0, 256, 0, 1024) &&
+		!LegacyServerOutboundFrameWithinLimit(
+			0, 1, static_cast<std::size_t>(-1), 1024),
+		"invalid names and overflowing payload sizes fail outbound preflight closed");
+
 	struct ValidSetId { const char* text; std::uint16_t value; };
 	const ValidSetId valid[] = {
 		{"0", 0}, {"1", 1}, {"42", 42}, {"65534", 65534},

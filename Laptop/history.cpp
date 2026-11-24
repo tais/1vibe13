@@ -2,6 +2,8 @@
 #include "GameContext.h"
 #include "LaptopPageResourceOwner.h"
 #include "LaptopRecordFile.h"
+#include "CampaignLedger.h"
+#include "CampaignLedgerRecord.h"
 #include "LaptopRecordPageModel.h"
 
 	#include "laptop.h"
@@ -82,39 +84,24 @@ constexpr LaptopRecordPageModel::FileLayout HistoryFileLayout{
 	0, SIZE_OF_HISTORY_FILE_RECORD};
 constexpr UINT32 InvalidHistoryRecordId = UINT32_MAX;
 
-struct HistoryRecordData
-{
-	UINT8 code = 0;
-	UINT8 secondCode = 0;
-	UINT32 date = 0;
-	INT16 sectorX = 0;
-	INT16 sectorY = 0;
-	INT8 sectorZ = 0;
-	UINT8 color = 0;
-};
+using HistoryRecordData = CampaignLedgerRecord::History;
 
 bool ReadHistoryRecordExact(HWFILE file, HistoryRecordData& record)
 {
-	return ReadLaptopFileExact(file, &record.code, sizeof(record.code)) &&
-		ReadLaptopFileExact(file, &record.secondCode,
-			sizeof(record.secondCode)) &&
-		ReadLaptopFileExact(file, &record.date, sizeof(record.date)) &&
-		ReadLaptopFileExact(file, &record.sectorX, sizeof(record.sectorX)) &&
-		ReadLaptopFileExact(file, &record.sectorY, sizeof(record.sectorY)) &&
-		ReadLaptopFileExact(file, &record.sectorZ, sizeof(record.sectorZ)) &&
-		ReadLaptopFileExact(file, &record.color, sizeof(record.color));
+	return CampaignLedgerRecord::HistoryFields(record,
+		[file](void* value, std::size_t size) {
+			return ReadLaptopFileExact(file, value, static_cast<UINT32>(size));
+		});
 }
 
 bool WriteHistoryRecordExact(HWFILE file, const HistoryUnit& record)
 {
-	return WriteLaptopFileExact(file, &record.ubCode, sizeof(record.ubCode)) &&
-		WriteLaptopFileExact(file, &record.ubSecondCode,
-			sizeof(record.ubSecondCode)) &&
-		WriteLaptopFileExact(file, &record.uiDate, sizeof(record.uiDate)) &&
-		WriteLaptopFileExact(file, &record.sSectorX, sizeof(record.sSectorX)) &&
-		WriteLaptopFileExact(file, &record.sSectorY, sizeof(record.sSectorY)) &&
-		WriteLaptopFileExact(file, &record.bSectorZ, sizeof(record.bSectorZ)) &&
-		WriteLaptopFileExact(file, &record.ubColor, sizeof(record.ubColor));
+	const HistoryRecordData fields{record.ubCode, record.ubSecondCode,
+		record.uiDate, record.sSectorX, record.sSectorY, record.bSectorZ, record.ubColor};
+	return CampaignLedgerRecord::HistoryFields(fields,
+		[file](const void* value, std::size_t size) {
+			return WriteLaptopFileExact(file, value, static_cast<UINT32>(size));
+		});
 }
 
 std::size_t HistoryRecordCountOnDisk()
@@ -196,7 +183,6 @@ void SetHistoryButtonStates( void );
 BOOLEAN LoadInHistoryRecords( UINT32 uiPage );
 BOOLEAN LoadNextHistoryPage( void );
 BOOLEAN LoadPreviousHistoryPage( void );
-BOOLEAN AppendHistoryToEndOfFile(const HistoryUnit& historyRecord);
 void		GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
 void		GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
 
@@ -227,7 +213,13 @@ UINT32 AddPersistedHistoryRecord(UINT8 code, UINT8 secondCode,
 		return InvalidHistoryRecordId;
 	}
 	pHistoryListHead->uiIdNumber = static_cast<UINT32>(existingRecords);
-	if (!AppendHistoryToEndOfFile(*pHistoryListHead))
+	#ifdef JA2TESTVERSION
+	PerformCheckOnHistoryRecord(5, sectorX, sectorY, 0);
+	#endif
+	const CampaignLedgerResult written = color == 0
+		? AddHistoryToPlayersLogChecked(code, secondCode, date, sectorX, sectorY)
+		: SetHistoryFactChecked(code, secondCode, date, sectorX, sectorY);
+	if (!written.succeeded())
 	{
 		ClearHistoryList();
 		Assert(0);
@@ -1321,21 +1313,6 @@ BOOLEAN LoadPreviousHistoryPage( void )
 	return FALSE;
 }
 
-
-BOOLEAN AppendHistoryToEndOfFile(const HistoryUnit& historyRecord)
-{
-	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
-		FILE_ACCESS_WRITE | FILE_OPEN_ALWAYS, FALSE));
-	if (!file || !LaptopRecordPageModel::IsWellFormedFile(
-		FileGetSize(file.Get()), HistoryFileLayout) ||
-		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_END)) return FALSE;
-
-		#ifdef JA2TESTVERSION
-		PerformCheckOnHistoryRecord(5, historyRecord.sSectorX,
-			historyRecord.sSectorY, historyRecord.bSectorZ);
-		#endif
-	return WriteHistoryRecordExact(file.Get(), historyRecord);
-}
 
 void ResetHistoryFact( UINT8 ubCode, INT16 sSectorX, INT16 sSectorY )
 {

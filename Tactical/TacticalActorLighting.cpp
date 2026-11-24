@@ -218,6 +218,38 @@ bool TacticalActorLighting::positionPersonalLight(
 	return powered && markedFake && positioned;
 }
 
+bool TacticalActorLighting::canRefreshEquipmentPersonalLight(
+	const TacticalActor& actor) noexcept
+{
+	if (!hasLiveLightContext(actor) || actor.roster().team() != gbPlayerNum ||
+		!hasValidLightHandle(actor)) return false;
+	if (!actor.renderState().hasLightSprite()) return true;
+	const LIGHT_SPRITE& light = LightSprites[actor.renderState().lightSprite()];
+	if ((light.uiFlags & (LIGHT_SPR_ACTIVE | MERC_LIGHT)) != (LIGHT_SPR_ACTIVE | MERC_LIGHT) ||
+		light.iTemplate < 0 || light.iTemplate >= MAX_LIGHT_TEMPLATES) return false;
+	// Destroying an already-drawn light enters native LightErase, whose template
+	// lookup assumes a valid index and whose coordinates must not be negative.
+	return (light.uiFlags & LIGHT_SPR_ERASE) == 0 ||
+		(light.iX >= 0 && light.iY >= 0 && pLightList[light.iTemplate] != nullptr);
+}
+
+bool TacticalActorLighting::refreshEquipmentPersonalLight(TacticalActor& actor)
+{
+	if (!canRefreshEquipmentPersonalLight(actor)) return false;
+	if (actor.renderState().hasLightSprite())
+	{
+		const std::int32_t sprite = actor.renderState().lightSprite();
+		actor.renderState().clearLightSprite();
+		if (!LightSpriteDestroy(sprite)) return false;
+	}
+	// These are the native positionPersonalLight no-light policy gates, not
+	// allocation failures. The old gear's light has already been removed.
+	if (actor.vitals().health() < OKLIFE ||
+		ubAmbientLightLevel < MIN_AMB_LEVEL_FOR_MERC_LIGHTS ||
+		!gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT]) return true;
+	return positionPersonalLight(actor);
+}
+
 bool TacticalActorLighting::setPersonalLightLevel(
 	TacticalActor& actor) noexcept
 {

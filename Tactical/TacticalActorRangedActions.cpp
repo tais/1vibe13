@@ -1,3 +1,4 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorRangedActions.h"
@@ -375,6 +376,9 @@ bool TacticalActorRangedActions::beginFire(
 		ResolvePendingInterrupt(&actor, BEFORESHOT_INTERRUPT))
 	{
 		actor.animationIntent().clearFacingAnimation();
+		TacticalActor* pendingOwner = nullptr;
+		if (ResolveDedicatedCoopAttackOwner(pendingOwner) && pendingOwner == &actor)
+			CompleteDedicatedCoopAttack(actor);
 		if (actor.roster().team() == gbPlayerNum)
 		{
 			guiPendingOverrideEvent = LU_BEGINUILOCK;

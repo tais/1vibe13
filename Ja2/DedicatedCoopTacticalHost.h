@@ -1,6 +1,9 @@
 #ifndef JA2_DEDICATED_COOP_TACTICAL_HOST_H
 #define JA2_DEDICATED_COOP_TACTICAL_HOST_H
 
+#include "CoopInventoryAuthority.h"
+#include "DedicatedCoopAttack.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +61,7 @@ struct DedicatedCoopTacticalTurnState
 	bool interruptPending = false;
 	TacticalInterruptPhase interruptPhase = TacticalInterruptPhase::None;
 	std::uint64_t interruptSerial = 0;
+	bool sharedDecisionPending = false;
 };
 
 // Read-only seams used by the main-thread bridge. The production implementation
@@ -77,19 +81,49 @@ public:
 	virtual bool captureActor(
 		TacticalEntityId actor,
 		DedicatedCoopTacticalActorState& state) const noexcept = 0;
+	virtual bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept = 0;
 	virtual bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,
 		std::uint8_t aimTime,
 		AimedFirearmAttackCommand& command) const noexcept = 0;
+	virtual DedicatedCoopAttackOutcome captureAttackOutcome(
+		std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) const noexcept = 0;
+	virtual void releaseAttackOutcome(
+		std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) noexcept = 0;
 	virtual bool prepareReloadWeapon(
 		TacticalEntityId actor,
 		ReloadWeaponCommand& command) const noexcept = 0;
+	virtual bool prepareBeginFirstAid(
+		TacticalEntityId actor, TacticalEntityId target,
+		BeginFirstAidCommand& command) const noexcept = 0;
+	virtual bool prepareSwapInventorySlots(
+		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		SwapInventorySlotsCommand& command) const noexcept = 0;
+	virtual bool prepareTransferInventoryItem(
+		TacticalEntityId actor, TacticalEntityId target,
+		std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		std::uint64_t expectedTargetInventoryRevision,
+		TransferInventoryItemCommand& command) const noexcept = 0;
 	virtual bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,
 		bool desiredOpen,
 		AuthoritativeDoorOpenCloseCommand& command) const noexcept = 0;
+	virtual bool preparePickupWorldItem(
+		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativePickupWorldItemCommand& command) const noexcept = 0;
+	virtual bool prepareDropInventoryItem(
+		TacticalEntityId actor, std::uint16_t sourceSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativeDropInventoryItemCommand& command) const noexcept = 0;
 	virtual bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept = 0;
@@ -113,14 +147,46 @@ public:
 	bool captureActor(
 		TacticalEntityId actor,
 		DedicatedCoopTacticalActorState& state) const noexcept override;
+	bool canBeginMoveToGrid(
+		TacticalEntityId actor,
+		std::int32_t destinationGrid,
+		std::uint16_t movementMode,
+		bool reverse) const noexcept override;
 	bool prepareAimedFirearmAttack(
 		TacticalEntityId actor,
 		TacticalEntityId target,
 		std::uint8_t aimTime,
 		AimedFirearmAttackCommand& command) const noexcept override;
+	DedicatedCoopAttackOutcome captureAttackOutcome(
+		std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) const noexcept override;
+	void releaseAttackOutcome(
+		std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) noexcept override;
 	bool prepareReloadWeapon(
 		TacticalEntityId actor,
 		ReloadWeaponCommand& command) const noexcept override;
+	bool prepareBeginFirstAid(
+		TacticalEntityId actor, TacticalEntityId target,
+		BeginFirstAidCommand& command) const noexcept override;
+	bool prepareSwapInventorySlots(
+		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		SwapInventorySlotsCommand& command) const noexcept override;
+	bool prepareTransferInventoryItem(
+		TacticalEntityId actor, TacticalEntityId target,
+		std::uint16_t sourceSlot, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		std::uint64_t expectedTargetInventoryRevision,
+		TransferInventoryItemCommand& command) const noexcept override;
+	bool captureInventory(TacticalEntityId actor, std::uint64_t worldGeneration,
+		CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept;
+	bool preparePickupWorldItem(
+		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativePickupWorldItemCommand& command) const noexcept override;
+	bool prepareDropInventoryItem(
+		TacticalEntityId actor, std::uint16_t sourceSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativeDropInventoryItemCommand& command) const noexcept override;
 	bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,
@@ -133,6 +199,7 @@ public:
 private:
 	GameContext* game_ = nullptr;
 	std::thread::id mainThread_;
+	mutable Ja2CoopInventoryAuthority inventoryAuthority_;
 };
 
 // Main-thread bridge from authenticated co-op intent to the existing bounded
@@ -206,6 +273,9 @@ private:
 		bool immediateReceiptPending = false;
 		bool queuedReceiptPending = false;
 		bool terminalReceiptPending = false;
+		bool nativeAttack = false;
+		bool nativeAttackTerminal = false;
+		TacticalEntityId actor{};
 		CoopSession::CoopTacticalIntentReceipt terminalReceipt;
 	};
 

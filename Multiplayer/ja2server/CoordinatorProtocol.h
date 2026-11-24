@@ -28,6 +28,41 @@ static constexpr UINT16 COORDINATOR_INT_WIRE_HEADER_BYTES = MpInterruptWire::kHe
 static constexpr UINT16 COORDINATOR_INT_WIRE_MAX_BYTES =
 	static_cast<UINT16>(MpInterruptWire::kMaxBytes);
 
+// A transport becomes an admitted player only after a valid requestSETTINGS.
+// Keep a small, bounded amount of raw-socket headroom beyond the player roster
+// so idle first-contact sockets cannot immediately consume every advertised
+// player seat. Each such socket is also subject to the admission deadline.
+static constexpr std::uint16_t COORDINATOR_PRE_ADMISSION_HEADROOM = 4;
+static constexpr std::uint64_t COORDINATOR_ADMISSION_TIMEOUT_MS = 10000;
+
+inline std::uint16_t CoordinatorRawTransportCapacity(
+	std::uint16_t admittedPlayerCapacity) noexcept
+{
+	const std::uint32_t total = static_cast<std::uint32_t>(admittedPlayerCapacity) +
+		COORDINATOR_PRE_ADMISSION_HEADROOM;
+	return static_cast<std::uint16_t>(total > 0xffffu ? 0xffffu : total);
+}
+
+inline bool CoordinatorRosterHasAdmissionCapacity(
+	std::uint16_t admittedPlayerCapacity,
+	std::uint16_t connectedPlayers) noexcept
+{
+	// Count every occupied slot, including grandfathered slots above a live cap
+	// reduction. A newly empty low slot is not capacity while that total is at
+	// or above the configured player limit.
+	return connectedPlayers < admittedPlayerCapacity;
+}
+
+inline bool CoordinatorAdmissionDeadlineExpired(
+	std::uint64_t now, std::uint64_t connectedAt,
+	std::uint64_t timeoutMs = COORDINATOR_ADMISSION_TIMEOUT_MS) noexcept
+{
+	// SDL's clock is monotonic in production, but treating a transient rollback
+	// as zero elapsed time avoids an unsigned wrap turning it into an instant
+	// expiry on virtualized runners.
+	return now >= connectedAt && now - connectedAt >= timeoutMs;
+}
+
 struct admin_cmd_struct { UINT8 cmd; char password[64]; };
 
 struct client_info

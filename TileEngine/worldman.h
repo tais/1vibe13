@@ -95,6 +95,10 @@ BOOLEAN RemoveRoofAdjustSavefile( INT32 iMapIndex, UINT16 usIndex );
 BOOLEAN RemoveOnRoofAdjustSavefile( INT32 iMapIndex, UINT16 usIndex );
 
 LEVELNODE *AddStructToTail( INT32 iMapIndex, UINT16 usIndex );
+// Static presentation replicas need the ordinary renderer/structure linkage,
+// but must never persist their locally replayed nodes into campaign map-temp
+// files.
+LEVELNODE *AddStructToTailForStaticPresentation( INT32 iMapIndex, UINT16 usIndex );
 LEVELNODE *AddStructToTailCommon( INT32 iMapIndex, UINT16 usIndex, BOOLEAN fAddStructDBInfo );
 LEVELNODE *ForceStructToTail( INT32 iMapIndex, UINT16 usIndex );
 

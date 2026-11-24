@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "video.h"
+#include "vobject_blitters.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -451,7 +452,8 @@ void	CursorDatabaseClear(void)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-BOOLEAN SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	)
+static BOOLEAN SelectCursorFromDatabase(
+	UINT32 uiCursorIndex, bool useLegacyDecorations)
 {
 
 	BOOLEAN				ReturnValue = TRUE;
@@ -557,7 +559,7 @@ BOOLEAN SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	)
 				}
 
 				// Hook into hook function
-				if ( gMouseBltOverride != NULL )
+				if ( useLegacyDecorations && gMouseBltOverride != NULL )
 				{
 					gMouseBltOverride( );
 				}
@@ -713,7 +715,7 @@ BOOLEAN SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	)
 				}
 
 				// Hook into hook function
-				if ( gMouseBltOverride != NULL )
+				if ( useLegacyDecorations && gMouseBltOverride != NULL )
 				{
 					gMouseBltOverride( );
 				}
@@ -724,7 +726,8 @@ BOOLEAN SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	)
 
 				if (!SetMouseCursorProperties(
 						sCenterValX,
-						(INT16)(sCenterValY + gsGlobalCursorYOffset),
+						(INT16)(sCenterValY +
+							(useLegacyDecorations ? gsGlobalCursorYOffset : 0)),
 						pCurData->usHeight,
 						pCurData->usWidth))
 					return FALSE;
@@ -754,6 +757,48 @@ BOOLEAN SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	)
 
 	return ( ReturnValue );
 
+}
+
+BOOLEAN SetCurrentCursorFromDatabase(UINT32 uiCursorIndex)
+{
+	return SelectCursorFromDatabase(uiCursorIndex, true);
+}
+
+BOOLEAN SetPresentationCursorFromDatabase(UINT32 uiCursorIndex) noexcept
+{
+	if (!gfCursorDatabaseInit || !IsCursorIndex(uiCursorIndex) ||
+		uiCursorIndex == VIDEO_NO_CURSOR || uiCursorIndex == EXTERN_CURSOR ||
+		uiCursorIndex == EXTERN2_CURSOR)
+		return FALSE;
+
+	// A panel or world renderer can leave a clip rectangle which excludes the
+	// cursor buffer's origin. Restore that caller-owned state on all exits,
+	// including exceptions raised while loading a cursor asset.
+	struct CursorClipScope
+	{
+		SGPRect previous{};
+		CursorClipScope()
+		{
+			GetClippingRect(&previous);
+			SGPRect cursorClip{0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT};
+			SetClippingRect(&cursorClip);
+		}
+		~CursorClipScope() noexcept
+		{
+			// Startup can legitimately leave the inherited rectangle empty.
+			// Restore it verbatim: the public setter asserts nonempty geometry.
+			ClippingRect = previous;
+		}
+	};
+	try
+	{
+		const CursorClipScope clip;
+		return SelectCursorFromDatabase(uiCursorIndex, false);
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
 }
 
 void SetMouseBltHook( MOUSEBLT_HOOK pMouseBltOverride )

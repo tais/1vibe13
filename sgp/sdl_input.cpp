@@ -179,7 +179,13 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 			// path that pulls in the video subsystem. The queue +
 			// _KeyDown(vk) callers see the same state either way.
 			gfKeyState[vk & 0xFF] = TRUE;
-			QueueEvent(KEY_DOWN, caseAdjustedParam(vk, ev->key.mod), 0);
+			// SDL reports keyboard autorepeat as another KEY_DOWN event and
+			// distinguishes it with this flag. Preserve the legacy JA2 atom
+			// vocabulary so discrete-key consumers do not treat a held key as
+			// a stream of fresh presses, while text and scrolling consumers can
+			// still opt in to KEY_REPEAT.
+			QueueEvent(ev->key.repeat ? KEY_REPEAT : KEY_DOWN,
+				caseAdjustedParam(vk, ev->key.mod), 0);
 		}
 		break;
 	}

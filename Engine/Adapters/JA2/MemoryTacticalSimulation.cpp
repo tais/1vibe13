@@ -159,7 +159,12 @@ CommandDisposition MemoryTacticalSimulation::execute(
 				SystemWorldObjectInteractionCommand>::value ||
 			std::is_same<Command,
 				AuthoritativeDoorOpenCloseCommand>::value ||
-			std::is_same<Command, PassInterruptCommand>::value)
+			std::is_same<Command, PassInterruptCommand>::value ||
+			std::is_same<Command, BeginFirstAidCommand>::value ||
+			std::is_same<Command, SwapInventorySlotsCommand>::value ||
+			std::is_same<Command, TransferInventoryItemCommand>::value ||
+			std::is_same<Command, AuthoritativePickupWorldItemCommand>::value ||
+			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
 		{
 			// Structure identity, door locks, route continuations and native
 			// interrupt lifecycle are JA2 adapter mechanics. The portable

@@ -1,3 +1,4 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorMobility.h"
@@ -1038,7 +1039,12 @@ void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - Interrupt counter
-	if( UsingImprovedInterruptSystem() && sAPCost > 0 && ubInterruptType != DISABLED_INTERRUPT )
+	// Hit/stance recovery can spend AP outside the actor's turn. Preserve that
+	// cost, but never register an interrupt for it or overwrite the current
+	// action's pending kind. A native interrupt grant changes the current team
+	// before its granted actor begins an action.
+	if( UsingImprovedInterruptSystem() && sAPCost > 0 && ubInterruptType != DISABLED_INTERRUPT &&
+		pSoldier->roster().team() == GetJa2TacticalCurrentTeam() )
 	{
 		UINT8 ubPointsRegistered = 0;
 		UINT16 uCnt = 0;
@@ -2855,6 +2861,8 @@ void DeductAmmo( TacticalActor *pSoldier, OBJECTTYPE* pObj )
 					(*pObjUsed)[0]->data.gun.ubGunShotsLeft--;
 				}	
 			}
+
+			RecordDedicatedCoopAttackAmmunitionUse(*pSoldier, pObj->usItem);
 
 			// Flugente: campaign stats - ammo. explosive consumption is handled elsewhere
 			if ( pSoldier->roster().team() == OUR_TEAM )

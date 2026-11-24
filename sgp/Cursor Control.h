@@ -19,6 +19,10 @@ extern void	 UnloadCursorData(UINT32 uiCursorIndex);
 extern BOOLEAN	LoadCursorData(UINT32 uiCursorIndex);
 extern void	 CursorDatabaseClear(void);
 extern BOOLEAN	SetCurrentCursorFromDatabase( UINT32 uiCursorIndex	);
+// Select a database cursor for inert presentation. Unlike the legacy selector,
+// this never invokes tactical overlays, inherits a roof offset, or falls back
+// to a separately loaded legacy cursor file. The caller must handle failure.
+BOOLEAN SetPresentationCursorFromDatabase(UINT32 uiCursorIndex) noexcept;
 
 #define ANIMATED_CURSOR							0x02
 #define	USE_EXTERN_VO_CURSOR				0x04

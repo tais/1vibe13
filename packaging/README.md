@@ -1,9 +1,12 @@
 # Release packaging
 
-Tagged releases retain the four existing engine-only zip archives for Linux
-x86_64, Linux ARM64, macOS, and Windows. The same staged payloads also produce
-AppImages on both Linux architectures and a per-user NSIS installer on
-Windows. No package contains the copyrighted JA2 game data.
+Tagged releases publish five engine-only zip archives: Linux x86_64 and ARM64
+with a glibc 2.35 ceiling, macOS x86_64 and ARM64 with a macOS 12.0 deployment
+target, and Windows x86_64. Every asset name carries its architecture; Linux
+and macOS names also carry their enforced runtime floor. The same staged
+payloads also produce AppImages on both Linux
+architectures and a per-user NSIS installer on Windows. No package contains the
+copyrighted JA2 game data.
 
 ## Linux AppImage
 

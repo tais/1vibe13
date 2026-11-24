@@ -3,12 +3,13 @@ name: release
 # Tagged-release pipeline. Push a tag like `v0.1.0` (or run manually) and
 # this builds the three shipped apps -- JA2_ENGLISH, JA2UB_ENGLISH,
 # JA2MAPEDITOR_ENGLISH -- plus the standalone ja2server multiplayer
-# coordinator, on Linux, macOS and Windows, and attaches per-platform game and
+# coordinator, on Linux, macOS and Windows, and attaches per-architecture game and
 # Engine SDK archives to a GitHub Release. The game apps sit at the archive
 # root; the server (with a sample ja2_mp.ini + README) is in a ja2server/
 # subfolder. The SDK archive is the installable EngineSDK CMake component for
 # the same platform/toolchain, including examples and its compatibility kit.
-# The four game zip assets remain the compatibility contract. Linux jobs also
+# All five game zip names carry their architecture; Linux and macOS names also
+# carry the enforced runtime floor. Linux jobs additionally
 # emit byte-reproducible AppImages, and the Windows job emits a native NSIS
 # setup.
 #
@@ -17,7 +18,8 @@ name: release
 # is staging + packaging + publishing.
 #
 # SDL3, SDL3_mixer and their vendored codecs are linked statically into
-# each executable (BUILD_SHARED_LIBS=OFF / SDL_STATIC in CMakeLists), so
+# each executable (BUILD_SHARED_LIBS=OFF / SDL_STATIC=ON /
+# SDLMIXER_DEPS_SHARED=OFF in CMakeLists), so
 # the archives are just the self-contained executables -- no SDL .dll /
 # .dylib / .so to ship, and no ABI-mismatch risk from a stray system SDL.
 #
@@ -45,10 +47,14 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { os: ubuntu-latest,    name: linux,       family: linux }
-          - { os: ubuntu-24.04-arm, name: linux-arm64, family: linux }
-          - { os: macos-latest,     name: macos,       family: macos }
-          - { os: windows-latest,   name: windows,     family: windows }
+          # Release runners are deliberately versioned: moving *-latest labels
+          # previously produced Linux binaries requiring GLIBC 2.38 and an
+          # arm64-only macOS binary requiring macOS 26.
+          - { os: ubuntu-22.04,     name: linux-x86_64-glibc2.35, family: linux,   arch: x86_64 }
+          - { os: ubuntu-22.04-arm, name: linux-arm64-glibc2.35,  family: linux,   arch: arm64 }
+          - { os: macos-15-intel,   name: macos-x86_64-macos12,   family: macos,   arch: x86_64 }
+          - { os: macos-15,         name: macos-arm64-macos12,    family: macos,   arch: arm64 }
+          - { os: windows-2022,     name: windows-x86_64,         family: windows, arch: x86_64 }
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled objects (SDL3 + deps + engine) across runs, so
@@ -107,7 +113,7 @@ jobs:
           set -eux
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config \
+            binutils clang cmake ninja-build pkg-config \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libx11-dev libxext-dev libxcursor-dev libxi-dev \
             libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
@@ -119,17 +125,17 @@ jobs:
           echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Install macOS build deps
-        if: matrix.platform.name == 'macos'
+        if: matrix.platform.family == 'macos'
         run: |
           set -eux
           brew install cmake ninja
 
       - name: Set up MSVC environment (Windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
       - name: Select clang toolchain (Windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: bash
         run: |
           echo "CC=clang"                                  >> $GITHUB_ENV
@@ -145,12 +151,21 @@ jobs:
           # macOS Bash 3.2 treats an empty array as unset under nounset; the
           # guarded expansion below emits zero arguments when sccache is absent.
           cache_args=()
+          platform_args=()
           if command -v sccache >/dev/null 2>&1; then
             cache_args+=(
               -DCMAKE_C_COMPILER_LAUNCHER=sccache
               -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
           else
             echo "::warning::sccache setup unavailable; building without a compiler cache"
+          fi
+          if [[ "${{ matrix.platform.family }}" == macos ]]; then
+            # Build separate, accurately labelled thin binaries. Setting the
+            # deployment target at configure time propagates it into every
+            # fetched static dependency as well as the game executables.
+            platform_args+=(
+              "-DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }}"
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0)
           fi
           # SDL3, SDL3_mixer and their vendored codecs are linked statically
           # (BUILD_SHARED_LIBS=OFF / SDL_STATIC in CMakeLists), so the
@@ -161,11 +176,24 @@ jobs:
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
             -DBUILD_JA2SERVER=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_mixer=ON \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3_net=ON \
+            -DSDLMIXER_DEPS_SHARED=OFF \
+            ${platform_args[@]+"${platform_args[@]}"} \
             ${cache_args[@]+"${cache_args[@]}"}
 
       - name: Build
         shell: bash
         run: cmake --build build
+
+      # A static SDL3_mixer can still dlopen its codecs unless its independent
+      # decoder-linkage switches are disabled. Check both the generated cache
+      # and the final images: native dependency tables do not expose libraries
+      # that are opened later by filename.
+      - name: Qualify static SDL dependency configuration
+        shell: bash
+        run: python3 tools/qualify_static_release_dependencies.py --build-dir build --platform-family '${{ matrix.platform.family }}'
 
       # This is a data-free release contract gate, not a live-gameplay or
       # installed-Data save/load smoke test. The latter remains a separate
@@ -176,6 +204,156 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^engine_core$' && ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^save_serializer_golden$' && ctest --test-dir build --output-on-failure --no-tests=error --tests-regex '^ja2_headless$'
+
+      - name: Qualify Linux release binaries
+        if: matrix.platform.family == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          case "${{ matrix.platform.arch }}" in
+            x86_64) expected_machine='Advanced Micro Devices X86-64' ;;
+            arm64) expected_machine='AArch64' ;;
+            *) echo "unsupported Linux release architecture" >&2; exit 64 ;;
+          esac
+          for binary in \
+            build/JA2_ENGLISH \
+            build/JA2UB_ENGLISH \
+            build/JA2MAPEDITOR_ENGLISH \
+            build/tests/ja2server; do
+            actual_machine="$(readelf --file-header "$binary" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
+            if [[ "$actual_machine" != "$expected_machine" ]]; then
+              echo "$binary targets '$actual_machine', expected '$expected_machine'" >&2
+              exit 1
+            fi
+            dynamic_table="$(readelf --dynamic "$binary")"
+            if grep -Ei \
+                'Shared library: \[libSDL3(_mixer|_net)?[.]so' \
+                <<< "$dynamic_table" >/dev/null; then
+              echo "$binary unexpectedly depends on a shared SDL3 library" >&2
+              printf '%s\n' "$dynamic_table" >&2
+              exit 1
+            fi
+            python3 - "$binary" <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          binary = sys.argv[1]
+          version_info = subprocess.run(
+              ["readelf", "--version-info", binary],
+              check=True,
+              stdout=subprocess.PIPE,
+              text=True,
+          ).stdout
+          imported = {
+              tuple(int(part) for part in match.split("."))
+              for match in re.findall(r"GLIBC_([0-9]+(?:[.][0-9]+)+)", version_info)
+          }
+          unsupported = sorted(version for version in imported if version > (2, 35))
+          if unsupported:
+              rendered = ", ".join(".".join(map(str, version)) for version in unsupported)
+              raise SystemExit(
+                  f"{binary} imports GLIBC newer than 2.35: {rendered}")
+          print(f"qualified {binary}: GLIBC <= 2.35")
+          PY
+          done
+
+      - name: Qualify macOS release binaries
+        if: matrix.platform.family == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          for binary in \
+            "build/JA2_ENGLISH.app/Contents/MacOS/JA2_ENGLISH" \
+            "build/JA2UB_ENGLISH.app/Contents/MacOS/JA2UB_ENGLISH" \
+            "build/JA2MAPEDITOR_ENGLISH.app/Contents/MacOS/JA2MAPEDITOR_ENGLISH" \
+            build/tests/ja2server; do
+            actual_arch="$(lipo -archs "$binary")"
+            if [[ "$actual_arch" != "${{ matrix.platform.arch }}" ]]; then
+              echo "$binary targets '$actual_arch', expected '${{ matrix.platform.arch }}'" >&2
+              exit 1
+            fi
+            minos="$(otool -l "$binary" | awk '
+              $1 == "cmd" && $2 == "LC_BUILD_VERSION" { build_version = 1; next }
+              build_version && $1 == "minos" { print $2; exit }
+            ')"
+            if [[ "$minos" != 12.0 ]]; then
+              echo "$binary has macOS deployment target '$minos', expected '12.0'" >&2
+              exit 1
+            fi
+            dependency_table="$(otool -L "$binary")"
+            if printf '%s\n' "$dependency_table" | tail -n +2 | \
+                awk '{print $1}' | grep -Ei \
+                '(^|/)(lib)?SDL3(_mixer|_net)?([.][0-9]+)*[.]dylib$|(^|/)SDL3(_mixer|_net)?[.]framework(/|$)' \
+                >/dev/null; then
+              echo "$binary unexpectedly depends on a shared SDL3 library" >&2
+              printf '%s\n' "$dependency_table" >&2
+              exit 1
+            fi
+            unexpected_dependencies="$(
+              printf '%s\n' "$dependency_table" | tail -n +2 | \
+                awk '{print $1}' | grep -Ev '^(/usr/lib/|/System/Library/)' || true
+            )"
+            if [[ -n "$unexpected_dependencies" ]]; then
+              echo "$binary has non-system dynamic dependencies:" >&2
+              printf '%s\n' "$unexpected_dependencies" >&2
+              exit 1
+            fi
+            rpaths="$(otool -l "$binary" | awk '
+              $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+              in_rpath && $1 == "path" { print $2; in_rpath = 0 }
+            ')"
+            if [[ -n "$rpaths" ]]; then
+              echo "$binary has runtime search paths despite static packaging:" >&2
+              printf '%s\n' "$rpaths" >&2
+              exit 1
+            fi
+            echo "qualified $binary: $actual_arch, macOS $minos+"
+          done
+
+      - name: Qualify Windows release binaries
+        if: matrix.platform.family == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - \
+            build/JA2_ENGLISH.exe \
+            build/JA2UB_ENGLISH.exe \
+            build/JA2MAPEDITOR_ENGLISH.exe \
+            build/tests/ja2server.exe <<'PY'
+          from pathlib import Path
+          import struct
+          import sys
+
+          for name in sys.argv[1:]:
+              image = Path(name).read_bytes()
+              if image[:2] != b"MZ" or len(image) < 0x40:
+                  raise SystemExit(f"{name} is not a PE executable")
+              pe_offset = struct.unpack_from("<I", image, 0x3C)[0]
+              if image[pe_offset:pe_offset + 4] != b"PE\0\0":
+                  raise SystemExit(f"{name} has no PE signature")
+              machine = struct.unpack_from("<H", image, pe_offset + 4)[0]
+              if machine != 0x8664:
+                  raise SystemExit(
+                      f"{name} targets PE machine 0x{machine:04x}, expected x86_64")
+              print(f"qualified {name}: Windows x86_64")
+          PY
+          for binary in \
+            build/JA2_ENGLISH.exe \
+            build/JA2UB_ENGLISH.exe \
+            build/JA2MAPEDITOR_ENGLISH.exe \
+            build/tests/ja2server.exe; do
+            import_table="$(llvm-readobj --coff-imports "$binary")"
+            if grep -Ei \
+                'Name: SDL3(_mixer|_net)?[.]dll' \
+                <<< "$import_table" >/dev/null; then
+              echo "$binary unexpectedly depends on a shared SDL3 library" >&2
+              printf '%s\n' "$import_table" >&2
+              exit 1
+            fi
+          done
 
       - name: sccache stats
         if: always()
@@ -205,7 +383,7 @@ jobs:
           cp Multiplayer/ja2server/README.md           dist/ja2server/README.md
 
       - name: Stage payload (macos)
-        if: matrix.platform.name == 'macos'
+        if: matrix.platform.family == 'macos'
         shell: bash
         run: |
           set -eux
@@ -223,7 +401,7 @@ jobs:
           cp Multiplayer/ja2server/README.md           dist/ja2server/README.md
 
       - name: Sign and verify macOS app bundles
-        if: matrix.platform.name == 'macos'
+        if: matrix.platform.family == 'macos'
         shell: bash
         run: |
           set -eux
@@ -237,7 +415,7 @@ jobs:
           done
 
       - name: Stage payload (windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
@@ -271,7 +449,7 @@ jobs:
           echo "SDK_PKG=ja2-engine-sdk-${{ matrix.platform.name }}-${RELEASE_LABEL}" >> "$GITHUB_ENV"
 
       - name: Archive (unix)
-        if: matrix.platform.name != 'windows'
+        if: matrix.platform.family != 'windows'
         shell: bash
         run: |
           set -eux
@@ -281,7 +459,7 @@ jobs:
           echo "SDK_ASSET=${SDK_PKG}.zip" >> "$GITHUB_ENV"
 
       - name: Archive (windows)
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           Compress-Archive -Path dist/* -DestinationPath "$env:PKG.zip"
@@ -298,13 +476,13 @@ jobs:
         run: |
           set -eux
           mkdir -p .release-tools
-          case "${{ matrix.platform.name }}" in
-            linux)
+          case "${{ matrix.platform.arch }}" in
+            x86_64)
               arch=x86_64
               tool_sha=a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0
               runtime_sha=1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf
               ;;
-            linux-arm64)
+            arm64)
               arch=aarch64
               tool_sha=1b00524ba8c6b678dc15ef88a5c25ec24def36cdfc7e3abb32ddcd068e8007fe
               runtime_sha=7d5d772b7c32f0c84caf0a452a3072a5709027d7eac5856feb89a7a7a8881372
@@ -354,7 +532,7 @@ jobs:
           echo "APPIMAGE_ASSET=${PKG}.AppImage" >> "$GITHUB_ENV"
 
       - name: Download checksum-pinned NSIS compiler
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -382,7 +560,7 @@ jobs:
           "NSIS_MAKENSIS=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Build native Windows installer
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -408,7 +586,7 @@ jobs:
             Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Smoke-test Windows installer ownership
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -494,10 +672,10 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Windows installer workflow artifact
-        if: matrix.platform.name == 'windows'
+        if: matrix.platform.family == 'windows'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ja2-sdl3-windows-installer
+          name: ja2-sdl3-${{ matrix.platform.name }}-installer
           path: ${{ env.WINDOWS_INSTALLER_ASSET }}
           if-no-files-found: error
 
@@ -524,7 +702,7 @@ jobs:
           fail_on_unmatched_files: true
 
       - name: Attach Windows installer to release
-        if: matrix.platform.name == 'windows' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform.family == 'windows' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: ${{ env.WINDOWS_INSTALLER_ASSET }}

@@ -1,4 +1,5 @@
 #include <Ja2/FullEngineCoopClientController.h>
+#include <Ja2/FullEngineCoopClientCommandTranslator.h>
 
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
@@ -84,13 +85,17 @@ TacticalWorldSnapshot Snapshot(bool loaded = true,
 
 TacticalWorldSnapshot RelativeMoveSnapshot(TacticalActorSnapshot actor,
 	TacticalWorldDimensions dimensions = TacticalWorldDimensions{5, 5},
-	std::uint8_t activeTeam = 0, bool loaded = true)
+	std::uint8_t activeTeam = 0, bool loaded = true,
+	bool turnBased = true, bool inCombat = true)
 {
 	std::vector<TacticalActorSnapshot> actors{actor};
+	TacticalTurnSnapshot turn = Turn(activeTeam);
+	turn.turnBased = turnBased;
+	turn.inCombat = inCombat;
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(11, dimensions,
 		TacticalSectorSnapshot{9, 2, 0, loaded},
-		Turn(activeTeam),
+		turn,
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"relative-move fixture snapshot is valid");
 	return snapshot;
@@ -129,6 +134,68 @@ void TestSelectionUsesOnlyAssignedPresentActors()
 		"previous selection wraps over absent assignments");
 }
 
+void TestExactActorSelectionValidatesIdentityAndModalState()
+{
+	const TacticalWorldSnapshot snapshot = Snapshot(true, 0,
+		{TacticalDoorSnapshot{1000, 41, false}});
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+
+	CHECK(controller.beginDestinationEntry(view) &&
+		controller.appendDestinationDigit(4),
+		"exact-selection fixture enters destination mode");
+	controller.toggleReverse();
+	CHECK(controller.selectActor(view, TacticalEntityId{1, 1}) &&
+		controller.enteringDestination() && controller.reverse() &&
+		std::string(controller.destinationText()) == "4",
+		"reselecting the exact actor retains its local modal state");
+	CHECK(controller.selectActor(view, TacticalEntityId{2, 1}) &&
+		controller.selectedActor() == (TacticalEntityId{2, 1}) &&
+		!controller.enteringDestination(),
+		"changing to an exact assigned actor cancels destination state");
+
+	CHECK(controller.beginDestinationEntry(view) &&
+		controller.appendDestinationDigit(7),
+		"invalid exact-selection fixture re-enters destination mode");
+	CHECK(!controller.selectActor(view, TacticalEntityId{4, 1}) &&
+		!controller.selectActor(view, TacticalEntityId{1, 2}) &&
+		!controller.selectActor(view, TacticalEntityId{}) &&
+		controller.selectedActor() == (TacticalEntityId{2, 1}) &&
+		controller.enteringDestination() &&
+		std::string(controller.destinationText()) == "7",
+		"unassigned, stale, and invalid identities fail without changing selection or modal state");
+	controller.cancelDestinationEntry();
+
+	CHECK(controller.selectActor(view, TacticalEntityId{1, 1}) &&
+		controller.beginAttackTargeting(view) &&
+		controller.selectActor(view, TacticalEntityId{1, 1}) &&
+		controller.targetingAttack(),
+		"reselecting an actor retains attack targeting");
+	CHECK(controller.selectActor(view, TacticalEntityId{2, 1}) &&
+		!controller.targetingAttack(),
+		"changing actor cancels attack targeting");
+
+	CHECK(controller.selectActor(view, TacticalEntityId{1, 1}) &&
+		controller.beginDoorSelection(view) &&
+		controller.selectActor(view, TacticalEntityId{1, 1}) &&
+		controller.selectingDoor(),
+		"reselecting an actor retains exact door selection");
+	CHECK(controller.selectActor(view, TacticalEntityId{2, 1}) &&
+		!controller.selectingDoor(),
+		"changing actor cancels exact door selection");
+
+	const FullEngineCoopClientControllerView locked =
+		View(snapshot, assigned, 44, true);
+	CHECK(controller.selectActor(locked, TacticalEntityId{1, 1}) &&
+		controller.selectedActor() == (TacticalEntityId{1, 1}) &&
+		!controller.actionsEnabled(locked),
+		"presentation selection remains available while authoritative actions are locked");
+}
+
 void TestNumericMoveEntryProducesOneTypedRequest()
 {
 	const TacticalWorldSnapshot snapshot = Snapshot();
@@ -158,6 +225,89 @@ void TestNumericMoveEntryProducesOneTypedRequest()
 		"successful submission closes destination entry");
 	CHECK(snapshot.find(TacticalEntityId{1, 1})->grid == 1001,
 		"intent construction never speculates into the replica");
+}
+
+void TestDirectGridMoveIsBoundedPureAndAuthorityGated()
+{
+	const TacticalWorldSnapshot snapshot = Snapshot();
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	const FullEngineCoopClientController& readOnlyController = controller;
+
+	const FullEngineCoopClientIntentRequest forward =
+		readOnlyController.moveToGrid(view, 0, 65535);
+	const auto* const forwardMove =
+		std::get_if<CoopSession::MoveTacticalIntent>(&forward.payload);
+	CHECK(forward && forward.actor == (TacticalEntityId{1, 1}) &&
+		forwardMove != nullptr && forwardMove->destinationGrid == 0 &&
+		forwardMove->movementMode == 65535 && !forwardMove->reverse,
+		"direct movement accepts the first authority grid and preserves the full movement mode");
+	const FullEngineCoopClientIntentRequest reverse =
+		readOnlyController.moveToGrid(view, 25599, 5, true);
+	const auto* const reverseMove =
+		std::get_if<CoopSession::MoveTacticalIntent>(&reverse.payload);
+	CHECK(reverse && reverse.actor == (TacticalEntityId{1, 1}) &&
+		reverseMove != nullptr && reverseMove->destinationGrid == 25599 &&
+		reverseMove->movementMode == 5 && reverseMove->reverse,
+		"direct movement accepts the inclusive last grid and explicit reverse flag");
+	CHECK(!readOnlyController.moveToGrid(view, -1, 0) &&
+		!readOnlyController.moveToGrid(view, 25600, 0),
+		"direct movement rejects both sides of the authority dimension bounds");
+	CHECK(snapshot.find(TacticalEntityId{1, 1})->grid == 1001 &&
+		snapshot.find(TacticalEntityId{1, 1})->actionPoints == 20,
+		"direct movement does not mutate the controller's committed replica");
+
+	const FullEngineCoopClientControllerView outstanding =
+		View(snapshot, assigned, 44);
+	const FullEngineCoopClientControllerView resynchronizing =
+		View(snapshot, assigned, 0, true);
+	const TacticalWorldSnapshot enemyTurn = Snapshot(true, 1);
+	const FullEngineCoopClientControllerView observing =
+		View(enemyTurn, assigned);
+	const TacticalWorldSnapshot commandsBlocked =
+		Snapshot(true, 0, {}, 11, true);
+	const FullEngineCoopClientControllerView blocked =
+		View(commandsBlocked, assigned);
+	CHECK(!readOnlyController.moveToGrid(outstanding, 1002, 0) &&
+		!readOnlyController.moveToGrid(resynchronizing, 1002, 0) &&
+		!readOnlyController.moveToGrid(observing, 1002, 0) &&
+		!readOnlyController.moveToGrid(blocked, 1002, 0),
+		"direct movement obeys outstanding, resync, turn, and replicated command gates");
+
+	TacticalActorSnapshot actor = Actor(1, 12);
+	actor.actionPoints = 0;
+	const TacticalWorldSnapshot noActionPoints =
+		RelativeMoveSnapshot(actor);
+	const std::array<TacticalEntityId, 3> oneAssigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{8, 1},
+		TacticalEntityId{9, 1}};
+	const FullEngineCoopClientControllerView noActionPointView =
+		View(noActionPoints, oneAssigned);
+	FullEngineCoopClientController noActionPointController;
+	noActionPointController.synchronize(noActionPointView);
+	CHECK(!noActionPointController.moveToGrid(
+		noActionPointView, 13, 0),
+		"turn-based direct movement requires positive replicated action points");
+	const TacticalWorldSnapshot realTime = RelativeMoveSnapshot(
+		actor, TacticalWorldDimensions{5, 5}, 0, true, false, false);
+	const FullEngineCoopClientControllerView realTimeView =
+		View(realTime, oneAssigned);
+	noActionPointController.synchronize(realTimeView);
+	CHECK(noActionPointController.moveToGrid(realTimeView, 13, 0),
+		"real-time direct movement does not add a turn-based action-point gate");
+
+	CHECK(controller.beginDestinationEntry(view) &&
+		controller.appendDestinationDigit(3) &&
+		controller.appendDestinationDigit(0) &&
+		controller.appendDestinationDigit(0) &&
+		controller.appendDestinationDigit(0) &&
+		controller.appendDestinationDigit(0) &&
+		!controller.submitMove(view, 0) && controller.enteringDestination(),
+		"numeric submission reuses direct dimension validation and retains invalid input for correction");
 }
 
 void TestRelativeMoveProducesEveryAdjacentPayload()
@@ -200,6 +350,53 @@ void TestRelativeMoveProducesEveryAdjacentPayload()
 	}
 	CHECK(snapshot.find(TacticalEntityId{1, 1})->grid == 12,
 		"relative move requests never predict movement into the replica");
+}
+
+void TestRelativeMoveUsesRectangularColumnStride()
+{
+	const TacticalWorldSnapshot snapshot = RelativeMoveSnapshot(
+		Actor(1, 10), TacticalWorldDimensions{7, 3});
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{8, 1},
+		TacticalEntityId{9, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+
+	struct DirectionCase
+	{
+		int deltaRow;
+		int deltaColumn;
+		std::int32_t destination;
+	};
+	const std::array<DirectionCase, 8> cases{{
+		{-1, -1, 2}, {-1, 0, 3}, {-1, 1, 4}, {0, 1, 11},
+		{1, 1, 18}, {1, 0, 17}, {1, -1, 16}, {0, -1, 9}}};
+	for (const DirectionCase& direction : cases)
+	{
+		const FullEngineCoopClientIntentRequest request =
+			controller.submitRelativeMove(view, direction.deltaRow,
+				direction.deltaColumn, 0);
+		const auto* const move =
+			std::get_if<CoopSession::MoveTacticalIntent>(&request.payload);
+		CHECK(request && move != nullptr &&
+			move->destinationGrid == direction.destination,
+			"rectangular relative movement uses columns as its row-major stride");
+	}
+
+	const TacticalWorldSnapshot topEdge = RelativeMoveSnapshot(
+		Actor(1, 3), TacticalWorldDimensions{7, 3});
+	const FullEngineCoopClientControllerView topView = View(topEdge, assigned);
+	controller.synchronize(topView);
+	CHECK(!controller.submitRelativeMove(topView, -1, 0, 0),
+		"rectangular relative movement validates the destination edge");
+	const TacticalWorldSnapshot invalidSource = RelativeMoveSnapshot(
+		Actor(1, 21), TacticalWorldDimensions{7, 3});
+	const FullEngineCoopClientControllerView invalidView =
+		View(invalidSource, assigned);
+	controller.synchronize(invalidView);
+	CHECK(!controller.submitRelativeMove(invalidView, 0, -1, 0),
+		"rectangular relative movement validates the source grid");
 }
 
 void TestRelativeMoveRejectsEdgesAndRowWrapping()
@@ -309,6 +506,44 @@ void TestRelativeMoveFailsClosedForInvalidState()
 	}
 }
 
+void TestTurnBasedMovementRequiresPositiveActionPoints()
+{
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{8, 1},
+		TacticalEntityId{9, 1}};
+	TacticalActorSnapshot actor = Actor(1, 12);
+	actor.actionPoints = 0;
+	const TacticalWorldSnapshot noActionPoints =
+		RelativeMoveSnapshot(actor);
+	const FullEngineCoopClientControllerView turnBased =
+		View(noActionPoints, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(turnBased);
+
+	CHECK(controller.actionsEnabled(turnBased) &&
+		controller.stop(turnBased) && controller.face(turnBased, 3) &&
+		controller.stance(turnBased,
+			CoopSession::TacticalIntentStance::Crouched) &&
+		controller.reload(turnBased) && controller.endTurn(turnBased),
+		"zero AP leaves non-movement turn controls available");
+	CHECK(!controller.submitRelativeMove(turnBased, -1, -1, 0),
+		"zero AP rejects an arrow movement intent in turn-based combat");
+	CHECK(controller.beginDestinationEntry(turnBased) &&
+		controller.appendDestinationDigit(1) &&
+		controller.appendDestinationDigit(3) &&
+		!controller.submitMove(turnBased, 0),
+		"zero AP rejects an explicit-grid movement intent in turn-based combat");
+	controller.cancelDestinationEntry();
+
+	const TacticalWorldSnapshot realTime = RelativeMoveSnapshot(
+		actor, TacticalWorldDimensions{5, 5}, 0, true, false, false);
+	const FullEngineCoopClientControllerView realTimeView =
+		View(realTime, assigned);
+	controller.synchronize(realTimeView);
+	CHECK(controller.submitRelativeMove(realTimeView, -1, -1, 0),
+		"real-time movement does not inherit the turn-based AP guard");
+}
+
 void TestInvalidAndOutstandingInputsFailClosed()
 {
 	const TacticalWorldSnapshot snapshot = Snapshot();
@@ -379,6 +614,127 @@ void TestResynchronizationRetainsSelectionAndFreezesActions()
 	controller.synchronize(ready);
 	CHECK(controller.actionsEnabled(ready),
 		"a replacement committed baseline restores tactical controls");
+}
+
+void TestDestinationAndAttackModesAreWorldEpochBound()
+{
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const TacticalWorldSnapshot firstWorld = Snapshot(true, 0, {}, 11);
+	const TacticalWorldSnapshot nextWorld = Snapshot(true, 0, {}, 12);
+	const FullEngineCoopClientControllerView first = View(firstWorld, assigned);
+	const FullEngineCoopClientControllerView next = View(nextWorld, assigned);
+	FullEngineCoopClientController epochQuery;
+	epochQuery.synchronize(first);
+	CHECK(!epochQuery.activeModalWorldMatches(0) &&
+		epochQuery.activeModalWorldMatches(11) &&
+		epochQuery.activeModalWorldMatches(12),
+		"the modal epoch query rejects zero and accepts any nonzero world while idle");
+	CHECK(epochQuery.beginDestinationEntry(first) &&
+		epochQuery.activeModalWorldMatches(11) &&
+		!epochQuery.activeModalWorldMatches(12),
+		"the modal epoch query exposes destination ownership without mutation");
+	epochQuery.cancelDestinationEntry();
+	CHECK(epochQuery.beginAttackTargeting(first) &&
+		epochQuery.activeModalWorldMatches(11) &&
+		!epochQuery.activeModalWorldMatches(12),
+		"the modal epoch query exposes attack ownership without mutation");
+	epochQuery.cancelAttackTargeting();
+	const TacticalWorldSnapshot doorWorld = Snapshot(true, 0,
+		{TacticalDoorSnapshot{1000, 41, false}}, 11);
+	const FullEngineCoopClientControllerView doorView =
+		View(doorWorld, assigned);
+	epochQuery.synchronize(doorView);
+	CHECK(epochQuery.beginDoorSelection(doorView) &&
+		epochQuery.activeModalWorldMatches(11) &&
+		!epochQuery.activeModalWorldMatches(12),
+		"the modal epoch query covers the existing door modal as well");
+
+	FullEngineCoopClientController synchronizedDestination;
+	synchronizedDestination.synchronize(first);
+	CHECK(synchronizedDestination.beginDestinationEntry(first) &&
+		synchronizedDestination.appendDestinationDigit(4),
+		"destination epoch fixture enters numeric mode in the first world");
+	synchronizedDestination.synchronize(next);
+	CHECK(!synchronizedDestination.enteringDestination(),
+		"a synchronized world-generation change cancels destination mode");
+
+	FullEngineCoopClientController directDestination;
+	directDestination.synchronize(first);
+	CHECK(directDestination.beginDestinationEntry(first) &&
+		directDestination.appendDestinationDigit(4) &&
+		!directDestination.submitMove(next, 0) &&
+		directDestination.enteringDestination(),
+		"direct destination submission against another world fails transactionally");
+
+	FullEngineCoopClientController synchronizedAttack;
+	synchronizedAttack.synchronize(first);
+	CHECK(synchronizedAttack.beginAttackTargeting(first),
+		"attack epoch fixture enters targeting in the first world");
+	synchronizedAttack.synchronize(next);
+	CHECK(!synchronizedAttack.targetingAttack(),
+		"a synchronized world-generation change cancels attack targeting");
+
+	FullEngineCoopClientController directAttack;
+	directAttack.synchronize(first);
+	CHECK(directAttack.beginAttackTargeting(first) &&
+		directAttack.adjustAttackAim(2),
+		"direct stale-world attack fixture retains meaningful target state");
+	const TacticalEntityId retainedTarget = directAttack.attackTarget();
+	CHECK(!directAttack.selectNextTarget(next) &&
+		directAttack.attackTarget() == retainedTarget &&
+		!directAttack.selectAttackTarget(next, TacticalEntityId{4, 1}) &&
+		directAttack.attackTarget() == retainedTarget &&
+		directAttack.attackAimTime() == 3 &&
+		!directAttack.submitAimedFirearmAttack(next) &&
+		directAttack.targetingAttack(),
+		"direct target selection and submission against another world fail transactionally");
+
+	FullEngineCoopClientController exactSelection;
+	exactSelection.synchronize(first);
+	CHECK(exactSelection.beginDestinationEntry(first) &&
+		exactSelection.appendDestinationDigit(7) &&
+		exactSelection.selectActor(next, TacticalEntityId{1, 1}) &&
+		!exactSelection.enteringDestination() &&
+		exactSelection.activeModalWorldMatches(12),
+		"same-actor exact selection in a new world cancels stale destination state");
+	CHECK(exactSelection.beginAttackTargeting(next),
+		"same-actor attack fixture enters the current world");
+	CHECK(exactSelection.selectActor(first, TacticalEntityId{1, 1}) &&
+		!exactSelection.targetingAttack() &&
+		exactSelection.activeModalWorldMatches(11),
+		"same-actor exact selection in another world cancels stale attack state");
+
+	FullEngineCoopClientController rejectedCycle;
+	rejectedCycle.synchronize(first);
+	const FullEngineCoopClientControllerView emptyNext{
+		&nextWorld, nullptr, 0, 0, false};
+	CHECK(rejectedCycle.beginDestinationEntry(first) &&
+		rejectedCycle.appendDestinationDigit(8) &&
+		!rejectedCycle.selectNext(emptyNext) &&
+		rejectedCycle.enteringDestination() &&
+		std::string(rejectedCycle.destinationText()) == "8",
+		"a failed empty-roster cycle preserves retained modal state transactionally");
+
+	const std::array<TacticalEntityId, 1> oneAssigned{
+		TacticalEntityId{1, 1}};
+	const FullEngineCoopClientControllerView oneFirst{
+		&firstWorld, oneAssigned.data(), oneAssigned.size(), 0, false};
+	const FullEngineCoopClientControllerView oneNext{
+		&nextWorld, oneAssigned.data(), oneAssigned.size(), 0, false};
+	FullEngineCoopClientController oneActorCycle;
+	oneActorCycle.synchronize(oneFirst);
+	CHECK(oneActorCycle.beginDestinationEntry(oneFirst) &&
+		oneActorCycle.selectNext(oneNext) &&
+		oneActorCycle.selectedActor() == (TacticalEntityId{1, 1}) &&
+		!oneActorCycle.enteringDestination(),
+		"one-actor forward cycling cannot carry destination mode across worlds");
+	CHECK(oneActorCycle.beginAttackTargeting(oneNext) &&
+		oneActorCycle.selectPrevious(oneFirst) &&
+		oneActorCycle.selectedActor() == (TacticalEntityId{1, 1}) &&
+		!oneActorCycle.targetingAttack(),
+		"one-actor reverse cycling cannot carry attack mode across worlds");
 }
 
 void TestReplicatedCommandGateLocksAndRecovers()
@@ -559,6 +915,41 @@ void TestRemainingTypedActions()
 		"targeting never speculates damage into the passive replica");
 }
 
+void TestExactAttackTargetSelectionFailsClosed()
+{
+	const TacticalWorldSnapshot snapshot = Snapshot();
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+
+	CHECK(!controller.selectAttackTarget(view, TacticalEntityId{4, 1}) &&
+		!controller.targetingAttack() && !controller.attackTarget().valid(),
+		"an exact attack target cannot be selected outside attack mode");
+	CHECK(controller.beginAttackTargeting(view) &&
+		controller.attackTarget() == (TacticalEntityId{3, 1}) &&
+		controller.adjustAttackAim(2),
+		"exact-target fixture begins with a valid hostile and adjusted aim");
+	CHECK(controller.selectAttackTarget(view, TacticalEntityId{4, 1}) &&
+		controller.attackTarget() == (TacticalEntityId{4, 1}) &&
+		controller.attackAimTime() == 3 &&
+		controller.selectAttackTarget(view, TacticalEntityId{4, 1}),
+		"exact target selection accepts and reselects a live authority identity without resetting aim");
+	CHECK(!controller.selectAttackTarget(view, TacticalEntityId{2, 1}) &&
+		!controller.selectAttackTarget(view, TacticalEntityId{1, 1}) &&
+		!controller.selectAttackTarget(view, TacticalEntityId{4, 2}) &&
+		!controller.selectAttackTarget(view, TacticalEntityId{}) &&
+		controller.targetingAttack() &&
+		controller.attackTarget() == (TacticalEntityId{4, 1}) &&
+		controller.attackAimTime() == 3,
+		"friendly, self, stale, and invalid targets fail without changing exact target or aim");
+	controller.cancelAttackTargeting();
+	CHECK(!controller.selectAttackTarget(view, TacticalEntityId{3, 1}),
+		"cancelled attack mode rejects an otherwise valid exact hostile");
+}
+
 void TestAttackTargetingUsesCanonicalHostility()
 {
 	std::vector<TacticalActorSnapshot> actors{
@@ -623,6 +1014,58 @@ void TestDoorSelectionProducesExactInverseIntent()
 		"door selection never speculates into the passive replica");
 }
 
+void TestExactDoorSelectionIsTransactionalAndEpochBound()
+{
+	const std::vector<TacticalDoorSnapshot> doors{
+		TacticalDoorSnapshot{1000, 41, false},
+		TacticalDoorSnapshot{1001, 42, true},
+		TacticalDoorSnapshot{1162, 43, false}};
+	const TacticalWorldSnapshot snapshot = Snapshot(true, 0, doors);
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+
+	CHECK(!controller.selectDoor(view, 1001),
+		"an exact door grid cannot be selected outside door mode");
+	CHECK(controller.beginDoorSelection(view) &&
+		controller.selectedDoorBaseGrid() == 1000,
+		"exact door selection fixture begins on the canonical candidate");
+	CHECK(controller.selectDoor(view, 1001) &&
+		controller.selectedDoorBaseGrid() == 1001 &&
+		controller.selectedDoorStructureId() == 42 &&
+		controller.selectedDoorOpen(),
+		"a clicked published grid selects its exact structure identity and state");
+
+	CHECK(!controller.selectDoor(view, 1002) &&
+		!controller.selectDoor(view, 1162) &&
+		controller.selectedDoorBaseGrid() == 1001 &&
+		controller.selectedDoorStructureId() == 42 &&
+		controller.selectedDoorOpen(),
+		"missing and nonadjacent grids preserve the prior exact door selection");
+
+	const TacticalWorldSnapshot nextWorld = Snapshot(true, 0, doors, 12);
+	const FullEngineCoopClientControllerView nextWorldView =
+		View(nextWorld, assigned);
+	CHECK(!controller.selectDoor(nextWorldView, 1000) &&
+		controller.selectedDoorBaseGrid() == 1001 &&
+		controller.selectedDoorStructureId() == 42 &&
+		controller.selectedDoorOpen(),
+		"a click from another world epoch cannot replace retained door identity");
+
+	const FullEngineCoopClientIntentRequest request =
+		controller.submitDoorOpenClose(view);
+	const auto* const door =
+		std::get_if<CoopSession::DoorOpenCloseTacticalIntent>(&request.payload);
+	CHECK(request && request.actor == (TacticalEntityId{1, 1}) &&
+		door != nullptr && door->baseGrid == 1001 &&
+		door->structureId == 42 && !door->desiredOpen &&
+		!controller.selectingDoor(),
+		"submission preserves the clicked identity and requests its inverse state");
+}
+
 void TestDoorSelectionFailsClosedAcrossReplicaChanges()
 {
 	const std::array<TacticalEntityId, 3> assigned{
@@ -667,23 +1110,871 @@ void TestDoorSelectionFailsClosedAcrossReplicaChanges()
 		controller.selectNext(view) && !controller.selectingDoor(),
 		"changing selected actor cancels door selection");
 }
+
+void TestNormalTacticalUiCommandsTranslateWithoutLocalExecution()
+{
+	using Translation = FullEngineCoopClientCommandTranslationResult;
+	const TacticalWorldSnapshot snapshot = Snapshot();
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	const TacticalEntityId selected{1, 1};
+	FullEngineCoopClientIntentRequest output;
+
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{MoveToGridCommand{
+			selected, 1005, 5, true, false,
+			SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success,
+		"normal tactical move command translates to authoritative intent");
+	const auto* move =
+		std::get_if<CoopSession::MoveTacticalIntent>(&output.payload);
+	CHECK(output && output.actor == selected && move != nullptr &&
+		move->destinationGrid == 1005 && move->movementMode == 5 &&
+		move->reverse,
+		"translated move retains only server-validated intent fields");
+
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{SetFacingCommand{
+			selected, 7, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success &&
+		std::get<CoopSession::FaceTacticalIntent>(output.payload).direction == 7,
+		"normal tactical facing command translates to authoritative intent");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{ChangeStanceCommand{
+			selected, 1, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success &&
+		std::get<CoopSession::StanceTacticalIntent>(output.payload).stance ==
+			CoopSession::TacticalIntentStance::Prone,
+		"normal tactical stance vocabulary translates to the closed wire enum");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{StopMovementCommand{
+			selected, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success &&
+		std::holds_alternative<CoopSession::StopTacticalIntent>(output.payload),
+		"normal tactical stop command translates to authoritative intent");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{ReloadWeaponCommand{
+			selected, true, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success &&
+		std::holds_alternative<CoopSession::ReloadTacticalIntent>(output.payload),
+		"normal tactical reload command leaves weapon and ammunition selection to authority");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{EndTurnCommand{
+			1, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Success &&
+		output.actor == selected &&
+		std::holds_alternative<CoopSession::EndTurnTacticalIntent>(output.payload),
+		"normal tactical end-turn command uses the exact selected authority actor");
+
+	const TacticalWorldSnapshot interruptSnapshot = Snapshot(
+		true, 0, {}, 11, false, TacticalInterruptPhase::Active, 44,
+		false, true);
+	const FullEngineCoopClientControllerView interruptView =
+		View(interruptSnapshot, assigned);
+	const TacticalEntityId interruptActor{2, 1};
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{EndTurnCommand{
+			1, SimulationCommandSource::LocalPlayer}},
+		interruptView, interruptActor, output) == Translation::Success,
+		"normal end-turn input becomes an interrupt pass during the exact active grant");
+	const auto* pass =
+		std::get_if<CoopSession::PassInterruptTacticalIntent>(&output.payload);
+	CHECK(output.actor == interruptActor && pass != nullptr &&
+		pass->interruptSerial == 44,
+		"translated interrupt pass binds exact actor and serial");
+	CHECK(snapshot.find(selected)->grid == 1001 &&
+		snapshot.find(selected)->actionPoints == 20,
+		"translation never predicts into the committed replica");
+}
+
+void TestNormalTacticalUiTranslationFailsClosed()
+{
+	using Translation = FullEngineCoopClientCommandTranslationResult;
+	const TacticalWorldSnapshot snapshot = Snapshot();
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1},
+		TacticalEntityId{3, 1}};
+	const TacticalEntityId selected{1, 1};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientIntentRequest output;
+	output.actor = TacticalEntityId{9, 9};
+	output.payload = CoopSession::StopTacticalIntent{};
+	output.valid = true;
+	const auto outputUnchanged = [&]() {
+		return output.valid && output.actor == (TacticalEntityId{9, 9}) &&
+			std::holds_alternative<CoopSession::StopTacticalIntent>(
+				output.payload);
+	};
+
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{SetFacingCommand{
+			selected, 3, SimulationCommandSource::NetworkPeer,
+			TacticalEventPolicy::LocalOnly}},
+		view, selected, output) == Translation::WrongSource &&
+		outputUnchanged(),
+		"network/system/replay commands cannot masquerade as local UI intents");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{MoveToGridCommand{
+			TacticalEntityId{2, 1}, 1005, 0, false, false,
+			SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::ActorNotSelected &&
+		outputUnchanged(),
+		"a UI command cannot act through a different assigned actor");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{MoveToGridCommand{
+			selected, 30000, 0, false, false,
+			SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::InvalidCommand &&
+		outputUnchanged(),
+		"a destination outside authority dimensions is rejected locally");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{BeginFireWeaponCommand{
+			selected, 1200, 0, 0,
+			SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::Unsupported &&
+		outputUnchanged(),
+		"grid-only legacy fire is not guessed into an exact-target co-op attack");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{EndTurnCommand{
+			9, SimulationCommandSource::LocalPlayer}},
+		view, selected, output) == Translation::InvalidCommand &&
+		outputUnchanged(),
+		"a legacy next-team value inconsistent with the selected actor is rejected");
+	const FullEngineCoopClientControllerView outstanding =
+		View(snapshot, assigned, 77);
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{StopMovementCommand{
+			selected, SimulationCommandSource::LocalPlayer}},
+		outstanding, selected, output) == Translation::ActionsDisabled &&
+		outputUnchanged(),
+		"the authoritative one-command lock applies before UI translation");
+	CHECK(TranslateFullEngineCoopClientUiCommand(
+		SimulationCommand{StopMovementCommand{
+			selected, SimulationCommandSource::LocalPlayer}},
+		view, TacticalEntityId{8, 1}, output) == Translation::InvalidView &&
+		outputUnchanged(),
+		"an unassigned presentation selection fails closed");
+}
+
+struct InventoryFixture
+{
+	TacticalWorldSnapshot snapshot = Snapshot(true, 0, {{1000,77,false}});
+	std::array<TacticalEntityId,3> assigned{{{1,1},{2,1},{8,1}}};
+	CoopSession::CoopOwnerInventorySnapshot first;
+	CoopSession::CoopOwnerInventorySnapshot second;
+	std::array<const CoopSession::CoopOwnerInventorySnapshot*,3> owners;
+	InventoryFixture()
+	{
+		first.sessionEpoch=31;
+		first.worldGeneration=11;
+		first.baselineId=41;
+		first.inventoryRevision=51;
+		first.owner[0]=1;
+		first.actor={1,1};
+		first.usesNewInventory=true;
+		for(std::uint16_t slot=0;slot<55;++slot)
+			first.slots.push_back({slot,0,0,0,CoopSession::CoopInventorySlotSupport::Empty});
+		first.slots[5]={5,24,1,91,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[14]={14,45,2,99,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[15]={15,66,1,88,CoopSession::CoopInventorySlotSupport::UnsupportedComplex};
+		first.slots[0]={0,77,1,100,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		first.slots[7]={7,78,1,100,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		second=first;
+		second.actor={2,1};
+		owners={&first,&second,nullptr};
+	}
+	FullEngineCoopClientControllerView view(std::uint64_t outstanding=0,bool resync=false)
+	{
+		auto result=View(snapshot,assigned,outstanding,resync);
+		result.ownerInventories=owners.data();
+		return result;
+	}
+};
+
+struct DropFixture : InventoryFixture
+{
+	DropFixture()
+	{
+		auto actors = snapshot.actors();
+		for (auto& actor : actors)
+		{
+			actor.presentation.flags = TacticalActorRenderPosePresent;
+			actor.presentation.animationDirection = actor.direction;
+			actor.presentation.animationSurface = 1;
+			actor.presentation.worldXQ8 = (actor.grid % 160 * TacticalWorldCellSize + 5) * TacticalWorldCoordinateScale;
+			actor.presentation.worldYQ8 = (actor.grid / 160 * TacticalWorldCellSize + 5) * TacticalWorldCoordinateScale;
+		}
+		CHECK(TacticalWorldSnapshot::create(11,{160,160},{9,2,0,true},Turn(0),std::move(actors),snapshot) ==
+			TacticalSnapshotCreateError::None,"drop fixture has a valid pinned render pose");
+	}
+};
+
+void TestInventoryDropRequiresExplicitWholePocketConfirmation()
+{
+	DropFixture fixture; auto view = fixture.view();
+	FullEngineCoopClientController controller; controller.synchronize(view);
+	const auto before = fixture.first; const auto actorBefore = *fixture.snapshot.find({1,1});
+	CHECK(!controller.inventoryDrop(view) && controller.openInventory(view) && !controller.beginInventoryDrop(view),
+		"drop cannot occur without inventory source and explicit confirmation");
+	CHECK(controller.selectInventorySource(view,5) && !controller.beginInventoryDrop(view) && !controller.inventoryDrop(view),
+		"hand source may swap but is not part of the first drop slice");
+	CHECK(controller.selectInventorySource(view,0) && !controller.beginInventoryDrop(view) &&
+		!controller.selectInventorySource(view,15) && !controller.selectInventorySource(view,16),
+		"equipment may swap but equipment, complex and empty sources cannot arm drop");
+	CHECK(controller.selectInventorySource(view,14) && !controller.inventoryDrop(view) && controller.beginInventoryDrop(view) &&
+		controller.droppingInventory() && !controller.beginInventoryDrop(view),
+		"first explicit X arms exactly the chosen ordinary whole pocket stack and is not itself confirmation");
+	CHECK(!controller.clickInventorySlot(view,16) && !controller.inventorySwap(view,16) &&
+		!controller.selectInventorySource(view,5) && !controller.inspectInventorySlot(view,5) &&
+		!controller.beginInventoryTransfer(view) && !controller.beginInventoryPickup(view) &&
+		!controller.moveToGrid(view,1010,0) && controller.droppingInventory() && controller.inventorySourceSlot() == 14,
+		"drop confirmation consumes inventory/other mode actions without swapping, moving, giving or rebinding source");
+	const auto result = controller.inventoryDrop(view);
+	const auto* drop = std::get_if<CoopSession::DropInventoryItemTacticalIntent>(&result.payload);
+	CHECK(result && result.actor == (TacticalEntityId{1,1}) && drop && drop->sourceSlot == 14 &&
+		drop->expectedInventoryRevision == before.inventoryRevision && fixture.first == before &&
+		*fixture.snapshot.find({1,1}) == actorBefore && controller.inventoryOpen() && !controller.droppingInventory() &&
+		controller.inventorySourceSlot() == 65535 && controller.inventoryInspectedSlot() == 65535,
+		"confirmation emits exactly source slot/private token without destination, local item/AP mutation or inventory close");
+	CHECK(!controller.inventoryDrop(view) && !controller.beginInventoryDrop(view),
+		"submitted choice is spent; receipt loss cannot autonomously replay the drop");
+	CHECK(controller.selectInventorySource(view,14) && controller.beginInventoryDrop(view),"new deliberate source can arm a new confirmation");
+	controller.cancelInventoryDrop();
+	CHECK(!controller.droppingInventory() && controller.inventoryOpen() && controller.inventorySourceSlot() == 65535 &&
+		!controller.inventoryDrop(view) && fixture.first == before && controller.selectInventorySource(view,14) &&
+		controller.inventorySwap(view,16),"Esc cancellation leaves all authority state unchanged and existing swaps usable");
+	CHECK(controller.selectInventorySource(view,14) && controller.beginInventoryDrop(view),"drop can be explicitly armed before closing");
+	controller.closeInventory();
+	CHECK(!controller.droppingInventory() && !controller.inventoryDrop(view),"I close revokes the drop confirmation");
+
+	FullEngineCoopClientInventoryDropKeyGate key;
+	key.release(); CHECK(!key.confirm(),"release before arming cannot pre-confirm a later drop");
+	key.arm();
+	CHECK(!key.confirm() && !key.confirm(),"held key or repeated key-down cannot confirm the first X");
+	key.release(); CHECK(key.confirm() && !key.confirm(),"physical release enables exactly one explicit second-X confirmation");
+	key.arm(); key.release(); key.cancel(); CHECK(!key.confirm(),"modal cancellation also revokes the physical confirmation gate");
+}
+
+void TestInventoryDropCancelsStaleContextAndPose()
+{
+	for (unsigned change = 0; change < 23; ++change)
+	{
+		DropFixture fixture; auto view = fixture.view();
+		FullEngineCoopClientController controller; controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) && controller.beginInventoryDrop(view),
+			"stale drop fixture is explicitly armed");
+		switch (change)
+		{
+			case 0: ++fixture.first.inventoryRevision; break;
+			case 1: ++fixture.first.baselineId; break;
+			case 2: ++fixture.first.sessionEpoch; break;
+			case 3: ++fixture.first.owner[0]; break;
+			case 4: fixture.assigned[2] = {9,1}; break;
+			case 5: view.outstandingCommandId = 1; break;
+			case 6: view.resynchronizing = true; break;
+			case 7: fixture.snapshot = Snapshot(true,0,{},12); break;
+			case 8: fixture.owners[0] = nullptr; break;
+			case 9: view.snapshot = nullptr; break;
+			case 10: fixture.first.slots[14] = {14,0,0,0,CoopSession::CoopInventorySlotSupport::Empty}; break;
+			default:
+			{
+				auto actors = fixture.snapshot.actors(); auto& actor = actors[0]; auto turn = Turn(0);
+				switch (change)
+				{
+					case 11: ++actor.grid; actor.presentation.worldXQ8 += TacticalWorldCellSize*TacticalWorldCoordinateScale; break;
+					case 12: actor.level = 1; break;
+					case 13: ++actor.direction; actor.presentation.animationDirection = actor.direction; break;
+					case 14: actor.stance = TacticalStance::Crouched; break;
+					case 15: ++actor.animation; break;
+					case 16: ++actor.presentation.worldXQ8; break;
+					case 17: ++actor.presentation.worldYQ8; break;
+					case 18: ++actor.presentation.bodyType; break;
+					case 19: actor.life = 14; break;
+					case 20: actor.actionPoints = 0; break;
+					case 21: turn.activeTeam = 1; break;
+					case 22: ++actor.presentation.heightAdjustment; break;
+				}
+				CHECK(TacticalWorldSnapshot::create(11,{160,160},{9,2,0,true},turn,std::move(actors),fixture.snapshot) ==
+					TacticalSnapshotCreateError::None,"changed drop pose/readiness remains canonical public state");
+			}
+		}
+		CHECK(!controller.inventoryDrop(view) && !controller.droppingInventory() &&
+			controller.inventorySourceSlot() == 65535 && controller.inventoryInspectedSlot() == 65535,
+			"direct confirmation rejects and cancels stale owner/token/context/pose before synchronization");
+		controller.synchronize(view);
+		CHECK(!controller.droppingInventory() && !controller.inventoryDrop(view),"later synchronization never re-arms or replays a cancelled drop");
+	}
+	DropFixture fixture; auto view = fixture.view();
+	FullEngineCoopClientController controller; controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) && controller.beginInventoryDrop(view),
+		"passive cancellation fixture armed");
+	++fixture.first.inventoryRevision;
+	controller.synchronize(view);
+	CHECK(!controller.droppingInventory() && controller.inventorySourceSlot() == 65535 &&
+		controller.inventoryNotice()[0] != 0,"private updates cancel even without a confirmation attempt");
+}
+
+void TestInventoryOrdinarySwapsArePureAndSlotBounded()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.inventoryOpen(),
+		"owned current-baseline inventory opens through normal controller state");
+	const auto before=fixture.first;
+	CHECK(!controller.selectInventorySource(view,6) &&
+		!controller.selectInventorySource(view,15) && !controller.selectInventorySource(view,7) &&
+		!controller.selectInventorySource(view,55) && !controller.selectInventorySource(view,65535),
+		"empty, complex, worn LBE and out-of-range slots cannot become a movable item cursor");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventorySourceSlot()==14,
+		"ordinary carried stack becomes only a local source-slot choice");
+	for(std::uint16_t destination : {7,12,13,15,55,65535})
+		CHECK(!controller.inventorySwap(view,destination) && controller.inventorySourceSlot()==14,
+			"unsupported LBE/sling/knife/complex/out-of-range destination is rejected without losing source");
+	CHECK(!controller.inventorySwap(view,14) && controller.inventorySourceSlot()==14,
+		"same-slot direct swap cannot generate a command");
+	const auto equip=controller.inventorySwap(view,6);
+	CHECK(equip && equip.actor==(TacticalEntityId{1,1}) &&
+		std::holds_alternative<CoopSession::SwapInventorySlotsTacticalIntent>(equip.payload) &&
+		controller.inventorySourceSlot()==65535,
+		"equip to empty off-hand emits one typed authority request and clears local selection");
+	const auto payload=std::get<CoopSession::SwapInventorySlotsTacticalIntent>(equip.payload);
+	CHECK(payload.sourceSlot==14 && payload.destinationSlot==6 && payload.expectedInventoryRevision==51 &&
+		fixture.first==before && fixture.snapshot.find({1,1})->actionPoints==20,
+		"request carries exact private token and both slots without moving objects or predicting AP");
+	CHECK(!controller.inventorySwap(view,6),"no selected source means no automatic second submission");
+	CHECK(controller.selectInventorySource(view,5),"held item can be selected for unequip");
+	const auto unequip=controller.inventorySwap(view,16);
+	CHECK(unequip && std::get<CoopSession::SwapInventorySlotsTacticalIntent>(unequip.payload).destinationSlot==16 &&
+		fixture.first==before,"hand-to-empty-pocket unequip is supported without local mutation");
+	CHECK(controller.selectInventorySource(view,14),"ordinary stack can be reselected");
+	const auto pocket=controller.inventorySwap(view,17);
+	CHECK(pocket && std::get<CoopSession::SwapInventorySlotsTacticalIntent>(pocket.payload).sourceSlot==14 &&
+		fixture.first.slots[14].count==2,"pocket-to-pocket operation preserves the entire stack on the client");
+	CHECK(controller.selectInventorySource(view,14) && controller.selectInventorySource(view,14) &&
+		controller.inventorySourceSlot()==65535,"clicking the selected source again cancels its local highlight");
+}
+
+void TestOrdinaryArmorAndFaceSwapsKeepTransferAndDropBounded()
+{
+	for (const std::uint16_t equipment : {0,1,2,3,4})
+	{
+		InventoryFixture fixture;
+		fixture.first.slots[equipment] = {equipment,77,1,73,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		const auto before = fixture.first;
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,equipment),
+			"ordinary helmet, vest, legs and face equipment can be selected without local unequip");
+		CHECK(!controller.beginInventoryTransfer(view) && !controller.selectInventoryRecipient(view,{2,1}) &&
+			!controller.beginInventoryDrop(view) && controller.inventorySourceSlot()==equipment && fixture.first==before,
+			"widening swaps does not implicitly give or drop worn equipment");
+		const auto remove = controller.inventorySwap(view,16);
+		const auto* request = std::get_if<CoopSession::SwapInventorySlotsTacticalIntent>(&remove.payload);
+		CHECK(remove && request && request->sourceSlot==equipment && request->destinationSlot==16 &&
+			request->expectedInventoryRevision==51 && fixture.first==before,
+			"ordinary worn equipment removal emits one exact-revision native swap request");
+		CHECK(controller.selectInventorySource(view,14),"ordinary carried source can request native equipment placement");
+		const auto equip = controller.inventorySwap(view,equipment);
+		CHECK(equip && std::get<CoopSession::SwapInventorySlotsTacticalIntent>(equip.payload).destinationSlot==equipment &&
+			fixture.first==before,"server alone validates armor class, face compatibility and whole-stack capacity");
+		fixture.first.slots[equipment].support = CoopSession::CoopInventorySlotSupport::UnsupportedComplex;
+		CHECK(!controller.selectInventorySource(view,equipment) && controller.selectInventorySource(view,14) &&
+			!controller.inventorySwap(view,equipment),"complex worn objects still cannot be moved or overwritten");
+		controller.closeInventory();
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) && controller.beginInventoryTransfer(view) &&
+			!controller.inventoryTransfer(view,controller.inventoryRecipient(),equipment),
+			"giving into armor or face equipment stays outside the hand/pocket transfer scope");
+	}
+}
+
+void TestInventoryModalControlsAndBusyInspection()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.beginDestinationEntry(view) && controller.appendDestinationDigit(9) &&
+		controller.openInventory(view) && !controller.enteringDestination(),
+		"inventory entry cancels pending numeric movement");
+	CHECK(controller.beginAttackTargeting(view) && !controller.inventoryOpen() &&
+		controller.openInventory(view) && !controller.targetingAttack(),
+		"explicit modal changes cancel previous inventory/fire targeting rather than leak modes");
+	CHECK(controller.beginDoorSelection(view) && !controller.inventoryOpen() &&
+		controller.openInventory(view) && !controller.selectingDoor(),
+		"inventory entry cancels door targeting and preserves modal exclusivity");
+	CHECK(!controller.moveToGrid(view,1010,0) && !controller.submitRelativeMove(view,0,1,0) &&
+		!controller.face(view,2) && !controller.stance(view,CoopSession::TacticalIntentStance::Prone) &&
+		!controller.stop(view) && !controller.endTurn(view) && !controller.reload(view) &&
+		!controller.beginFirstAid(view,{2,1}),
+		"open inventory suppresses terrain/tactical intents rather than becoming a local simulation path");
+	CHECK(controller.selectInventorySource(view,14),"source selected before outstanding request appears");
+	auto pending=fixture.view(77);
+	controller.synchronize(pending);
+	CHECK(controller.inventoryOpen() && controller.inventorySourceSlot()==65535 &&
+		!controller.selectInventorySource(pending,14) && !controller.inventorySwap(pending,6),
+		"pending command retains inspectable panel but clears source and prevents another operation");
+	controller.closeInventory();
+	CHECK(controller.openInventory(pending),"inventory can be opened read-only while a receipt is outstanding");
+	fixture.snapshot=Snapshot(true,1);
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && !controller.actionsEnabled(view) &&
+		!controller.selectInventorySource(view,14),"enemy turn keeps inventory inspection, not equip authority");
+	controller.closeInventory();
+	CHECK(controller.openInventory(view),"enemy turn permits opening the owned inventory for inspection");
+	fixture.snapshot=Snapshot(true,0,{},11,true);
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && !controller.selectInventorySource(view,14),
+		"native command gate permits read-only panel but blocks item requests");
+	fixture.snapshot=Snapshot();
+	view=fixture.view();
+	controller.synchronize(view);
+	CHECK(controller.inventoryOpen() && controller.selectInventorySource(view,14),
+		"new ordinary player phase recovers selection only after the real gate clears");
+	controller.closeInventory();
+	CHECK(!controller.inventoryOpen() && controller.inventorySourceSlot()==65535 && controller.moveToGrid(view,1010,0),
+		"explicit close drops all inventory selection and restores ordinary typed movement");
+}
+
+void TestInventoryInspectionNeverBecomesASwapCursor()
+{
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.inventoryInspectedSlot()==65535,
+		"fresh owner inventory starts with no retained inspected item");
+	const auto before=fixture.first;
+	CHECK(controller.inspectInventorySlot(view,15) && controller.inventoryInspectedSlot()==15 &&
+		controller.inventorySourceSlot()==65535 && !controller.selectInventorySource(view,15) &&
+		!controller.inventorySwap(view,6),
+		"complex stack can be inspected without selecting or submitting a swap");
+	CHECK(controller.inspectInventorySlot(view,7) && controller.inventoryInspectedSlot()==7 &&
+		!controller.selectInventorySource(view,7) && controller.inventorySourceSlot()==65535,
+		"unsupported worn LBE slot can expose its details without equipment authority");
+	CHECK(!controller.inspectInventorySlot(view,6) && !controller.inspectInventorySlot(view,55) &&
+		!controller.inspectInventorySlot(view,65535) && controller.inventoryInspectedSlot()==7,
+		"empty and out-of-range clicks cannot invent or replace inspected item details");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventoryInspectedSlot()==14 &&
+		controller.inventorySourceSlot()==14,"ordinary source selection also inspects the same item");
+	CHECK(controller.inspectInventorySlot(view,15) && !controller.inventorySwap(view,15) &&
+		controller.inventoryInspectedSlot()==15 && controller.inventorySourceSlot()==14,
+		"clicked unsupported destination inspects its contents without silently forgetting a live source");
+	CHECK(controller.inspectInventorySlot(view,7) && !controller.inventorySwap(view,7) &&
+		controller.inventoryInspectedSlot()==7 && controller.inventorySourceSlot()==14 &&
+		fixture.first==before && fixture.snapshot.find({1,1})->actionPoints==20,
+		"inspection and invalid destination clicks never mutate private items or public action points");
+	CHECK(controller.selectInventorySource(view,14) && controller.inventorySourceSlot()==65535 &&
+		controller.inventoryInspectedSlot()==14,
+		"canceling a swap source still permits reading that item's details");
+	auto pending=fixture.view(77);
+	CHECK(controller.inspectInventorySlot(pending,15) && !controller.selectInventorySource(pending,14),
+		"pending command permits inspection but cannot open a second operation");
+	controller.synchronize(pending);
+	CHECK(controller.inventoryInspectedSlot()==15 && controller.inventorySourceSlot()==65535,
+		"outstanding-command synchronization does not erase read-only inspection");
+	fixture.snapshot=Snapshot(true,1);
+	view=fixture.view();
+	CHECK(controller.inspectInventorySlot(view,0) && !controller.inventorySwap(view,6),
+		"enemy turn allows owned equipment inspection without command authority");
+	controller.synchronize(view);
+	CHECK(controller.inventoryInspectedSlot()==0,"enemy phase retains current inspected item details");
+	fixture.snapshot=Snapshot(true,0,{},11,true);
+	view=fixture.view();
+	CHECK(controller.inspectInventorySlot(view,14) && !controller.selectInventorySource(view,14),
+		"native busy gate also remains inspectable without permitting swaps");
+	controller.closeInventory();
+	CHECK(controller.inventoryInspectedSlot()==65535 && !controller.inspectInventorySlot(view,0),
+		"closing the panel revokes inspection as well as the selected source");
+	for(const bool remove : {false,true})
+	{
+		CHECK(controller.openInventory(view) && controller.inspectInventorySlot(view,15),
+			"inspection fixture begins with a currently occupied complex slot");
+		if(remove)fixture.first.slots.resize(15);
+		else fixture.first.slots[15]={15,0,0,0,CoopSession::CoopInventorySlotSupport::Empty};
+		controller.synchronize(view);
+		CHECK(controller.inventoryOpen() && controller.inventoryInspectedSlot()==65535,
+			"slot removal or empty replacement clears stale inspection even before a private token changes");
+		fixture.first=before;
+	}
+}
+
+void TestInventoryContextChangesRevokeRetainedChoices()
+{
+	for(unsigned change=0;change<11;++change)
+	{
+		InventoryFixture fixture;
+		auto view=fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14),"context fixture opens selected item");
+		switch(change)
+		{
+			case 0: ++fixture.first.inventoryRevision; break;
+			case 1: ++fixture.first.baselineId; break;
+			case 2: ++fixture.first.sessionEpoch; break;
+			case 3: fixture.owners[0]=nullptr; break;
+			case 4: view.resynchronizing=true; break;
+			case 5: fixture.snapshot=Snapshot(true,0,{},12); fixture.first.worldGeneration=12; break;
+			case 6: fixture.assigned[0]={9,1}; break;
+			case 7: ++fixture.first.actor.incarnation; break;
+			case 8: view.snapshot=nullptr; break;
+			case 9: fixture.first.baselineId=0; break;
+			case 10: fixture.first.slots[14].slot=15; break;
+		}
+		CHECK(!controller.inventorySwap(view,6),
+			"source operation fails immediately on private token/context change, even before synchronize");
+		if(change!=0)CHECK(!controller.inspectInventorySlot(view,15),
+			"lost session/baseline/world/assignment or resync rejects a new inspection before synchronize");
+		controller.synchronize(view);
+		CHECK(controller.inventorySourceSlot()==65535 && controller.inventoryInspectedSlot()==65535 &&
+			(change==0 ? controller.inventoryOpen() : !controller.inventoryOpen()),
+			"private revision clears source; baseline/session/actor/world/assignment/resync replacements close the panel");
+		if(change==0)
+			CHECK(controller.selectInventorySource(view,14) && controller.inventorySwap(view,6),
+				"a new explicit selection may use the refreshed private token; no prior request is replayed");
+	}
+	InventoryFixture fixture;
+	auto view=fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) &&
+		controller.selectActor(view,{2,1}) && !controller.inventoryOpen() && controller.inventorySourceSlot()==65535 &&
+		controller.inventoryInspectedSlot()==65535,
+		"selecting another exact owned actor closes previous owner's inventory rather than carrying its source over");
+	CHECK(controller.openInventory(view) && controller.selectPrevious(view) && !controller.inventoryOpen(),
+		"relative roster selection also revokes inventory modal context");
+	fixture.owners={nullptr,nullptr,nullptr};
+	CHECK(!controller.openInventory(view),"no admitted owner state cannot open a client-local inventory fallback");
+}
+
+void TestInventoryTransferUsesBothPrivateRevisionsWithoutMutation()
+{
+	InventoryFixture fixture;
+	fixture.second.inventoryRevision = 63;
+	auto view = fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && !controller.beginInventoryTransfer(view) &&
+		controller.inventoryNotice()[0], "give without a selected item provides a visible explanation");
+	CHECK(controller.selectInventorySource(view,14) && controller.beginInventoryTransfer(view) &&
+		controller.inventoryRecipient() == (TacticalEntityId{2,1}) &&
+		controller.inventoryDisplayActor() == (TacticalEntityId{2,1}) &&
+		controller.selectedActor() == (TacticalEntityId{1,1}),
+		"give opens the owned recipient inventory while the source merc remains selected");
+	const auto first = fixture.first;
+	const auto second = fixture.second;
+	CHECK(!controller.selectInventorySource(view,5) && !controller.inspectInventorySlot(view,5) &&
+		!controller.inventorySwap(view,6), "recipient view cannot select or swap a source merc's slots");
+	for (std::uint16_t slot : {0,5,7,14,15,55,65535})
+		CHECK(!controller.clickInventorySlot(view,slot) && controller.transferringInventory() &&
+			controller.inventorySourceSlot() == 14,
+			"occupied, complex and unsupported destinations leave the same whole-stack transfer selected");
+	CHECK(controller.selectNextInventoryRecipient(view) && controller.selectNextInventoryRecipient(view,false) &&
+		controller.inventoryRecipient() == (TacticalEntityId{2,1}), "recipient cycling skips source and unavailable actors");
+	const auto result = controller.clickInventorySlot(view,6);
+	CHECK(result && result.actor == (TacticalEntityId{1,1}) &&
+		std::holds_alternative<CoopSession::TransferInventoryItemTacticalIntent>(result.payload),
+		"empty recipient off-hand click emits one exact typed give intent");
+	if (result)
+	{
+		const auto& intent = std::get<CoopSession::TransferInventoryItemTacticalIntent>(result.payload);
+		CHECK(intent.target == (TacticalEntityId{2,1}) && intent.sourceSlot == 14 && intent.destinationSlot == 6 &&
+			intent.expectedInventoryRevision == 51 && intent.expectedTargetInventoryRevision == 63,
+			"give binds both actor inventories independently, not just public world revision");
+	}
+	CHECK(fixture.first == first && fixture.second == second && fixture.snapshot.find({1,1})->actionPoints == 20 &&
+		fixture.snapshot.find({2,1})->actionPoints == 20 && !controller.transferringInventory() &&
+		controller.inventorySourceSlot() == 65535 && !controller.inventoryTransfer(view,{2,1},6),
+		"submission clears presentation choices without changing either inventory/AP or automatically resubmitting");
+	CHECK(controller.selectInventorySource(view,14) && controller.selectInventoryRecipient(view,{2,1}),
+		"explicit recipient entry supports test-driver and mouse-independent input");
+	controller.cancelInventoryTransfer();
+	CHECK(controller.inventoryOpen() && !controller.transferringInventory() && controller.inventorySourceSlot() == 65535 &&
+		fixture.first == first && fixture.second == second && !controller.moveToGrid(view,1010,0),
+		"Esc/G cancellation returns to source inventory with no drop, transfer or movement");
+}
+
+void TestInventoryTransferInvalidatesBothContexts()
+{
+	for (unsigned change = 0; change < 15; ++change)
+	{
+		InventoryFixture fixture;
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) &&
+			controller.beginInventoryTransfer(view), "transfer context fixture starts with source and exact recipient");
+		switch (change)
+		{
+			case 0: ++fixture.first.inventoryRevision; break;
+			case 1: ++fixture.second.inventoryRevision; break;
+			case 2: ++fixture.second.baselineId; break;
+			case 3: ++fixture.second.sessionEpoch; break;
+			case 4: fixture.second.owner[0] = 2; break;
+			case 5: fixture.owners[1] = nullptr; break;
+			case 6: fixture.assigned[1] = {2,2}; break;
+			case 7: fixture.assigned[2] = {9,1}; break;
+			case 8: view.outstandingCommandId = 7; break;
+			case 9: view.resynchronizing = true; break;
+			case 10: fixture.snapshot = Snapshot(true,0,{},12); break;
+			case 11: ++fixture.first.baselineId; break;
+			case 12: ++fixture.first.sessionEpoch; break;
+			case 13: fixture.first.owner[0] = fixture.second.owner[0] = 2; break;
+			case 14: fixture.snapshot = Snapshot(true,1); break;
+		}
+		CHECK(!controller.inventoryTransfer(view,{2,1},6) && !controller.selectNextInventoryRecipient(view),
+			"stale source, target, session, world, assignment and busy states fail before synchronization");
+		controller.synchronize(view);
+		CHECK(!controller.transferringInventory() && controller.inventorySourceSlot() == 65535 &&
+			controller.inventoryInspectedSlot() == 65535,
+			"synchronization invalidates both retained choices without replaying the transfer");
+	}
+}
+
+void TestInventoryTransferRecipientsAreOwnedReadyHumans()
+{
+	for (unsigned change = 0; change < 10; ++change)
+	{
+		InventoryFixture fixture;
+		auto actors = fixture.snapshot.actors();
+		switch (change)
+		{
+			case 0: actors[1].life = 14; break;
+			case 1: actors[1].presentation.bodyType = 4; break;
+			case 2: actors[1].grid += 5; break;
+			case 3: actors[1].level = 1; break;
+			case 4: actors[1].actionPoints = 2; break;
+			case 5: actors[0].actionPoints = 2; break;
+			case 6: actors[1].medicalService.receivingCount = 1; break;
+			case 7: actors[0].medicalService.providing = true; break;
+			case 8: fixture.owners[1] = nullptr; break;
+			case 9: fixture.second.owner[0] = 2; break;
+		}
+		CHECK(TacticalWorldSnapshot::create(11,{160,160},{9,2,0,true},Turn(0),
+			std::move(actors),fixture.snapshot) == TacticalSnapshotCreateError::None,
+			"recipient rejection fixture is a valid public snapshot");
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) &&
+			!controller.selectInventoryRecipient(view,{1,1}) && !controller.selectInventoryRecipient(view,{3,1}) &&
+			!controller.selectInventoryRecipient(view,{2,2}) && !controller.beginInventoryTransfer(view) &&
+			!controller.transferringInventory() && controller.inventorySourceSlot() == 14 && controller.inventoryNotice()[0],
+			"give rejects self, hostile/unassigned/reincarnated, unready, remote, nonhuman or differently owned recipients");
+	}
+}
+
+struct PickupFixture : InventoryFixture
+{
+	PickupFixture()
+	{
+		first.groundGrid = 1001;
+		first.groundLevel = 0;
+		first.groundItems = {
+			{{30,7},{0,45,2,99,CoopSession::CoopInventorySlotSupport::OrdinarySwappable,
+				CoopSession::CoopInventoryStatusKind::MedicalKitPoints,180}},
+			{{31,8},{1,77,2,6,CoopSession::CoopInventorySlotSupport::OrdinarySwappable,
+				CoopSession::CoopInventoryStatusKind::AmmoRounds,12}}};
+	}
+};
+
+void TestGroundPickupSelectsExactAuthorityIdAndEmptyPocket()
+{
+	PickupFixture fixture;
+	auto view = fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	const auto original = fixture.first;
+	CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14) &&
+		controller.beginInventoryPickup(view) && controller.pickingUpInventory() &&
+		controller.inventorySourceSlot() == 65535 && controller.inventoryInspectedSlot() == 65535 &&
+		controller.inventoryGroundItem() == (TacticalWorldItemId{30,7}),
+		"P opens an exact-tile authority ground list and clears the former inventory swap source");
+	CHECK(!controller.selectInventorySource(view,5) && !controller.inspectInventorySlot(view,14) &&
+		!controller.inventorySwap(view,16) && !controller.beginInventoryTransfer(view) &&
+		!controller.selectInventoryRecipient(view,{2,1}),
+		"ground selection cannot become a held inventory source, swap or give action");
+	CHECK(!controller.selectInventoryGroundItem(view,{30,8}) && !controller.selectInventoryGroundItem(view,{}) &&
+		controller.inventoryGroundItem() == (TacticalWorldItemId{30,7}),
+		"unknown/reused world-item incarnations cannot replace the selected server identity");
+	CHECK(controller.selectNextInventoryGroundItem(view) && controller.inventoryGroundItem() == (TacticalWorldItemId{31,8}) &&
+		controller.selectNextInventoryGroundItem(view) && controller.inventoryGroundItem() == (TacticalWorldItemId{30,7}) &&
+		controller.selectNextInventoryGroundItem(view,false) && controller.inventoryGroundItem() == (TacticalWorldItemId{31,8}),
+		"Tab/brackets cycle the bounded sorted authority list in both directions without changing actors");
+	for (std::uint16_t slot : {0,5,6,7,13,14,15,55,65535})
+		CHECK(!controller.clickInventorySlot(view,slot) && controller.pickingUpInventory() &&
+			controller.inventoryGroundItem() == (TacticalWorldItemId{31,8}),
+			"only exact empty pockets accept pickup; hands, occupied slots, equipment and invalid indices retain selection");
+	CHECK(controller.inventoryPickupActionsEnabled(view),"pickup readiness is independent of inventory swap source");
+	const auto request = controller.clickInventorySlot(view,16);
+	CHECK(request && request.actor == (TacticalEntityId{1,1}) &&
+		std::holds_alternative<CoopSession::PickupWorldItemTacticalIntent>(request.payload),
+		"an empty pocket click emits one typed pickup intent");
+	if (request)
+	{
+		const auto& item = std::get<CoopSession::PickupWorldItemTacticalIntent>(request.payload);
+		CHECK(item.item == (TacticalWorldItemId{31,8}) && item.destinationSlot == 16 && item.expectedInventoryRevision == 51,
+			"pickup command binds the stable world item, exact destination and private inventory revision");
+	}
+	CHECK(fixture.first == original && fixture.snapshot.find({1,1})->actionPoints == 20 &&
+		controller.inventoryOpen() && !controller.pickingUpInventory() && !controller.inventoryGroundItem().valid() &&
+		!controller.inventoryPickup(view,16),
+		"submission clears only local mode; no pool item, pocket, AP or command replay is created locally");
+	CHECK(controller.selectInventoryGroundItem(view,{30,7}) && controller.pickingUpInventory(),
+		"explicit item selection can enter pickup mode for the installed controller driver");
+	controller.cancelInventoryPickup();
+	CHECK(controller.inventoryOpen() && !controller.pickingUpInventory() && fixture.first == original &&
+		!controller.moveToGrid(view,1010,0) && controller.selectInventorySource(view,14) && controller.inventorySwap(view,16),
+		"Esc/P cancels without dropping or moving, then ordinary inventory swaps still work");
+	CHECK(controller.selectInventorySource(view,14) && controller.beginInventoryTransfer(view) &&
+		!controller.beginInventoryPickup(view) && controller.transferringInventory(),
+		"pickup cannot silently replace a live give recipient");
+}
+
+void TestGroundPickupContextChangesInvalidateBeforeSubmit()
+{
+	for (unsigned change = 0; change < 15; ++change)
+	{
+		PickupFixture fixture;
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.beginInventoryPickup(view),"pickup context fixture starts selected");
+		switch (change)
+		{
+			case 0: ++fixture.first.inventoryRevision; break;
+			case 1: ++fixture.first.baselineId; break;
+			case 2: ++fixture.first.sessionEpoch; break;
+			case 3: fixture.first.owner[0] = 2; break;
+			case 4: ++fixture.first.groundItems[0].id.incarnation; break;
+			case 5: fixture.first.groundItems.clear(); break;
+			case 6: ++fixture.first.groundGrid; break;
+			case 7: fixture.first.groundLevel = 1; break;
+			case 8: fixture.assigned[2] = {9,1}; break;
+			case 9: view.resynchronizing = true; break;
+			case 10: fixture.snapshot = Snapshot(true,0,{},12); break;
+			case 11: fixture.owners[0] = nullptr; break;
+			case 12: view.snapshot = nullptr; break;
+			case 13: case 14:
+			{
+				auto actors = fixture.snapshot.actors();
+				if (change == 13) ++actors[0].grid;
+				else actors[0].level = 1;
+				CHECK(TacticalWorldSnapshot::create(11,{160,160},{9,2,0,true},Turn(0),
+					std::move(actors),fixture.snapshot) == TacticalSnapshotCreateError::None,
+					"changed actor tile/floor remains valid public state");
+				break;
+			}
+		}
+		CHECK(!controller.inventoryPickup(view,16) && !controller.inventoryPickupActionsEnabled(view) &&
+			!controller.selectNextInventoryGroundItem(view) && !controller.selectInventoryGroundItem(view,{31,8}),
+			"stale list, tile/floor, ownership, assignment, session, world or private revision cannot submit or silently rebind");
+		controller.synchronize(view);
+		CHECK(!controller.pickingUpInventory() && !controller.inventoryGroundItem().valid() &&
+			controller.inventorySourceSlot() == 65535 && controller.inventoryInspectedSlot() == 65535,
+			"synchronization revokes the pending ground item without carrying a new object into its selection");
+	}
+}
+
+void TestGroundPickupBusyInspectionAndEmptyScope()
+{
+	for (unsigned busy = 0; busy < 6; ++busy)
+	{
+		PickupFixture fixture;
+		auto actors = fixture.snapshot.actors();
+		if (busy == 3) actors[0].actionPoints = 0;
+		if (busy == 4) actors[0].life = 14;
+		if (busy == 5) actors[0].medicalService.providing = true;
+		CHECK(TacticalWorldSnapshot::create(11,{160,160},{9,2,0,true},Turn(busy == 2 ? 1 : 0,busy == 1),
+			std::move(actors),fixture.snapshot) == TacticalSnapshotCreateError::None,"busy pickup inspection fixture");
+		auto view = fixture.view(busy == 0 ? 77 : 0);
+		FullEngineCoopClientController controller;
+		controller.synchronize(view);
+		CHECK(controller.openInventory(view) && controller.beginInventoryPickup(view) &&
+			controller.selectNextInventoryGroundItem(view) && !controller.inventoryPickupActionsEnabled(view) &&
+			!controller.inventoryPickup(view,16) && controller.inventoryNotice()[0],
+			"outstanding, blocked, enemy phase, no AP, unconscious or servicing actors can inspect ground without pickup authority");
+		controller.synchronize(view);
+		CHECK(controller.pickingUpInventory() && controller.inventoryGroundItem() == (TacticalWorldItemId{31,8}),
+			"busy-state synchronization keeps current read-only ground details, not a false empty list");
+	}
+	PickupFixture fixture;
+	fixture.first.groundItems.clear();
+	auto view = fixture.view();
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.openInventory(view) && controller.beginInventoryPickup(view) && controller.pickingUpInventory() &&
+		!controller.inventoryGroundItem().valid() && !controller.selectNextInventoryGroundItem(view) &&
+		!controller.inventoryPickup(view,16),"an authoritative empty exact-tile list is inspectable without inventing a target");
+	controller.cancelInventoryPickup();
+	fixture.first.groundGrid = -1;
+	fixture.first.groundLevel = -1;
+	CHECK(!controller.beginInventoryPickup(view) && !controller.pickingUpInventory() && controller.inventoryNotice()[0],
+		"unavailable ground projection is explicitly different from no supported items on a known tile");
+	fixture.first.groundGrid = 1001;
+	fixture.first.groundLevel = 0;
+	for (std::uint16_t index = 0; index < 64; ++index)
+		fixture.first.groundItems.push_back({{static_cast<std::uint32_t>(70000 + index),9},
+			{index,45,1,100,CoopSession::CoopInventorySlotSupport::OrdinarySwappable,
+				CoopSession::CoopInventoryStatusKind::Condition,0}});
+	fixture.first.groundItemsTruncated = true;
+	CHECK(controller.beginInventoryPickup(view),"bounded capped ground list can be browsed without guessing omitted items");
+	for (unsigned index = 0; index < 64; ++index)
+	{
+		CHECK(controller.inventoryGroundItem() == (TacticalWorldItemId{70000 + index,9}),
+			"every capped-list entry retains its exact world-item identity");
+		CHECK(controller.selectNextInventoryGroundItem(view),"all64 listed entries can be reached through normal item cycling");
+	}
+	CHECK(controller.inventoryGroundItem() == (TacticalWorldItemId{70000,9}) &&
+		!controller.selectInventoryGroundItem(view,{70064,9}),
+		"capped list wraps after the64th entry and cannot select an item the server did not publish");
+}
 }
 
 int main()
 {
 	TestSelectionUsesOnlyAssignedPresentActors();
+	TestExactActorSelectionValidatesIdentityAndModalState();
 	TestNumericMoveEntryProducesOneTypedRequest();
+	TestDirectGridMoveIsBoundedPureAndAuthorityGated();
 	TestRelativeMoveProducesEveryAdjacentPayload();
+	TestRelativeMoveUsesRectangularColumnStride();
 	TestRelativeMoveRejectsEdgesAndRowWrapping();
 	TestRelativeMoveFailsClosedForInvalidState();
+	TestTurnBasedMovementRequiresPositiveActionPoints();
 	TestInvalidAndOutstandingInputsFailClosed();
 	TestResynchronizationRetainsSelectionAndFreezesActions();
+	TestDestinationAndAttackModesAreWorldEpochBound();
 	TestReplicatedCommandGateLocksAndRecovers();
 	TestAuthoritativeInterruptGatesActionsAndPassesSelectedMerc();
 	TestRemainingTypedActions();
+	TestExactAttackTargetSelectionFailsClosed();
 	TestAttackTargetingUsesCanonicalHostility();
 	TestDoorSelectionProducesExactInverseIntent();
+	TestExactDoorSelectionIsTransactionalAndEpochBound();
 	TestDoorSelectionFailsClosedAcrossReplicaChanges();
+	TestNormalTacticalUiCommandsTranslateWithoutLocalExecution();
+	TestNormalTacticalUiTranslationFailsClosed();
+	TestInventoryOrdinarySwapsArePureAndSlotBounded();
+	TestOrdinaryArmorAndFaceSwapsKeepTransferAndDropBounded();
+	TestInventoryDropRequiresExplicitWholePocketConfirmation();
+	TestInventoryDropCancelsStaleContextAndPose();
+	TestInventoryModalControlsAndBusyInspection();
+	TestInventoryInspectionNeverBecomesASwapCursor();
+	TestInventoryContextChangesRevokeRetainedChoices();
+	TestInventoryTransferUsesBothPrivateRevisionsWithoutMutation();
+	TestInventoryTransferInvalidatesBothContexts();
+	TestInventoryTransferRecipientsAreOwnedReadyHumans();
+	TestGroundPickupSelectsExactAuthorityIdAndEmptyPocket();
+	TestGroundPickupContextChangesInvalidateBeforeSubmit();
+	TestGroundPickupBusyInspectionAndEmptyScope();
 	if (Failures == 0)
 		std::printf("full-engine co-op client controller tests passed\n");
 	return Failures == 0 ? 0 : 1;

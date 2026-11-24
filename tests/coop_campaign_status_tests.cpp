@@ -1,0 +1,352 @@
+#include "CoopCampaignStatus.h"
+#include <Ja2/FullEngineCoopClientCampaignStatusText.h>
+#include <cstdio>
+#include <cwchar>
+
+using namespace CoopSession;
+namespace
+{
+int failures = 0;
+#define CHECK(c, m) do { if (!(c)) { ++failures; std::printf("FAIL %d: %s\n", __LINE__, m); } } while (0)
+PeerIdentity Peer(unsigned n) { PeerIdentity p{}; p[0] = static_cast<std::uint8_t>(n); return p; }
+CoopCampaignStatus Sample()
+{
+	CoopCampaignStatus s;
+	s.sessionEpoch = 0x0102030405060708ull; s.revision = 9; s.worldSeconds = 111661;
+	s.phase = CoopCampaignPhase::Tactical; s.timeLeader = Peer(3);
+	s.leadershipRevision = 1; s.timeLeaderReady = true; s.readyPeers = 2;
+	return s;
+}
+void TestCodec()
+{
+	auto s = Sample();
+	CoopCampaignStatusBytes bytes{};
+	CHECK(EncodeCoopCampaignStatus(s, bytes), "valid status encodes");
+	CoopCampaignStatusBytes expected{{
+		'J','2','C','T',19,0,1,0, 8,7,6,5,4,3,2,1,
+		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
+		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};
+	CHECK(bytes == expected, "exact 128-byte little endian wire layout, canonical empty arrival tail");
+	CoopCampaignStatus out;
+	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out),
+		"status roundtrips exactly");
+	for (unsigned phase = 1; phase <= 4; ++phase)
+		for (int mode = -1; mode <= 5; ++mode)
+			for (unsigned flags = 0; flags != 16; ++flags)
+			{
+				auto candidate = s; candidate.phase = static_cast<CoopCampaignPhase>(phase);
+				candidate.compressionMode = static_cast<std::int8_t>(mode);
+				candidate.gamePaused = flags & 1; candidate.pauseLocked = flags & 2;
+				candidate.compressionActive = flags & 4; candidate.timeInterrupted = flags & 8;
+				const bool valid = !candidate.compressionActive || (!candidate.gamePaused && mode != 0);
+				auto encoded = expected;
+				CHECK(EncodeCoopCampaignStatus(candidate, encoded) == valid, "native flags validated");
+				if (valid) CHECK(DecodeCoopCampaignStatus(encoded.data(), encoded.size(), out) &&
+					SameCoopCampaignStatus(candidate, out), "all valid modes and flags roundtrip");
+				else CHECK(encoded == expected, "invalid encoder leaves output untouched");
+			}
+	for (std::size_t size = 0; size <= bytes.size() + 1; ++size)
+	{
+		if (size == bytes.size()) continue;
+		out = s;
+		CHECK(!DecodeCoopCampaignStatus(bytes.data(), size, out) && SameCoopCampaignStatus(s, out),
+			"every non-exact width rejected transactionally without reading beyond buffer");
+	}
+	CHECK(!DecodeCoopCampaignStatus(nullptr, bytes.size(), out), "null buffer rejected");
+	for (unsigned at : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u})
+	{
+		auto bad = bytes; bad[at] ^= 0xff; out = s;
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), out) && SameCoopCampaignStatus(s, out),
+			"wrong magic/version/kind/reserved rejected transactionally");
+	}
+	for (unsigned kind = 0; kind != 11; ++kind)
+	{
+		auto bad = bytes; out = s;
+		switch (kind)
+		{
+			case 0: std::fill(bad.begin() + 8, bad.begin() + 16, 0); break;
+			case 1: std::fill(bad.begin() + 16, bad.begin() + 24, 0); break;
+			case 2: bad[28] = 0; break;
+			case 3: bad[28] = 5; break;
+			case 4: bad[29] = 7; break;
+			case 5: bad[30] |= 32; break;
+			case 6: bad[31] = 5; break;
+			case 7: bad[31] = 0; break;
+			case 8: bad[32] = 0; break;
+			case 9: bad[48] = 0; break;
+			case 10: bad[56] = 0; break;
+		}
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), out) && SameCoopCampaignStatus(s, out),
+			"semantic corruption rejected without replacing committed observation");
+	}
+}
+void TestLedger()
+{
+	CoopCampaignStatusLedger ledger;
+	auto clock = Sample(); const PeerIdentity first[] = {Peer(3), Peer(8)};
+	CHECK(!ledger.observe(clock, first, 2) && !ledger.beginSession(0), "epoch required");
+	CHECK(ledger.beginSession(30) && !ledger.beginSession(31), "session cannot silently change");
+	CHECK(ledger.observe(clock, nullptr, 0) && ledger.value().revision == 1 &&
+		IsZero(ledger.value().timeLeader), "no leader before any campaign-ready peer");
+	CHECK(ledger.observe(clock, first, 2) && ledger.value().timeLeader == Peer(3) &&
+		ledger.value().leadershipRevision == 1 && ledger.value().revision == 2,
+		"first ready cohort selects deterministic lowest identity, not caller-supplied leadership");
+	const auto established = ledger.value();
+	CHECK(ledger.observe(clock, first, 2) && SameCoopCampaignStatus(established, ledger.value()),
+		"unchanged state coalesces without revision churn");
+	const PeerIdentity later[] = {Peer(1), Peer(8)};
+	CHECK(ledger.observe(clock, later, 2) && ledger.value().timeLeader == Peer(3) &&
+		!ledger.value().timeLeaderReady && ledger.value().leadershipRevision == 1,
+		"later lower identity cannot steal an offline or retired leader's role");
+	CHECK(ledger.observe(clock, nullptr, 0) && !ledger.value().timeLeaderReady &&
+		ledger.value().timeLeader == Peer(3), "complete transport/world drain retains session leader");
+	clock.phase = CoopCampaignPhase::Strategic; clock.worldSeconds += 60;
+	CHECK(ledger.observe(clock, first, 2) && ledger.value().timeLeaderReady &&
+		ledger.value().timeLeader == Peer(3) && ledger.value().leadershipRevision == 1,
+		"same identity regains readiness after reconnect and tactical-to-strategic transition");
+	const auto before = ledger.value();
+	const PeerIdentity reversed[] = {Peer(8), Peer(3)}, duplicate[] = {Peer(3), Peer(3)}, zero[] = {{}};
+	CHECK(!ledger.observe(clock, reversed, 2) && !ledger.observe(clock, duplicate, 2) &&
+		!ledger.observe(clock, zero, 1) && !ledger.observe(clock, nullptr, 1) &&
+		!ledger.observe(clock, first, 5), "bounded sorted nonzero ready identities required");
+	--clock.worldSeconds;
+	CHECK(!ledger.observe(clock, first, 2) && SameCoopCampaignStatus(before, ledger.value()),
+		"clock rollback and rejected observations leave ledger unchanged");
+	ledger.clear();
+	CHECK(ledger.beginSession(31) && ledger.observe(clock, later, 2) && ledger.value().timeLeader == Peer(1) &&
+		ledger.value().revision == 1, "new server session starts new leadership and clock lineage");
+}
+void TestText()
+{
+	auto s = Sample();
+	auto text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcscmp(text.clock.data(), L"Server day 1 07:01:01 | tactical | pause on") == 0 &&
+		std::wcsstr(text.leader.data(), L"Time leader: you | 2 ready | tactical clock read-only"), "native day convention and local leader");
+	s.gamePaused = false;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, false);
+	CHECK(std::wcsstr(text.clock.data(), L"pause off") && !std::wcsstr(text.clock.data(), L"running") &&
+		std::wcsstr(text.leader.data(), L"another player"), "unpaused does not falsely promise advancing time");
+	s.timeLeaderReady = false;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcsstr(text.leader.data(), L"offline"), "offline overrides stale local-leader flag");
+	s.timeLeader = {}; s.leadershipRevision = 0; s.worldSeconds = UINT32_MAX;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, false);
+	CHECK(std::wcsstr(text.clock.data(), L"49710 06:28:15") && std::wcsstr(text.leader.data(), L"unassigned"),
+		"full clock range and absent designation format within fixed bounds");
+	s.sessionEpoch = 0;
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(text.leader[0] == 0 && std::wcsstr(text.clock.data(), L"Waiting"), "malformed values cannot render old leader");
+	text = BuildFullEngineCoopClientCampaignStatusText(nullptr, false);
+	CHECK(text.leader[0] == 0 && std::wcsstr(text.clock.data(), L"Waiting"), "disconnect removes previous status text");
+}
+
+CoopCampaignArrival Battle()
+{
+	CoopCampaignArrival a;
+	a.decision = 0x0102030405060708ull; a.kind = CoopCampaignArrivalKind::Battle;
+	a.stage = CoopCampaignArrivalStage::Prepared; a.x = 10; a.y = 1; a.pendingCount = 2;
+	a.involvedMercs = 4; a.uninvolvedMercs = 6; a.encounterCode = 2;
+	a.nativeEnterSector = a.nativeRetreat = a.nativePlacement = true;
+	return a;
+}
+void TestArrivalCodecAndText()
+{
+	using Kind = CoopCampaignArrivalKind; using Stage = CoopCampaignArrivalStage;
+	auto s = Sample(); s.phase = CoopCampaignPhase::Strategic; s.arrival = Battle();
+	CoopCampaignStatusBytes bytes;
+	CHECK(EncodeCoopCampaignStatus(s, bytes), "prepared native encounter encodes");
+	const std::array<std::uint8_t, 32> expected{{8,7,6,5,4,3,2,1, 3,2,28,10,1,0,2,0, 2,0,4,0,6,0}};
+	CHECK(std::equal(expected.begin(), expected.end(), bytes.begin() + 64), "exact arrival tail excludes native pointers, opponents and command authority");
+	CoopCampaignStatus out;
+	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out), "arrival metadata roundtrips with the coherent clock");
+	for (unsigned at : {74u,79u,86u,87u,88u,89u,90u,91u,92u,93u,94u,95u})
+	{
+		auto bad = bytes; bad[at] |= 32; out = s;
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), out) && SameCoopCampaignStatus(s, out), "reserved arrival bits/bytes rejected transactionally");
+	}
+	for (unsigned fault = 0; fault < 18; ++fault)
+	{
+		auto bad = s;
+		switch (fault)
+		{
+			case 0: bad.arrival.decision = 0; break;
+			case 1: bad.arrival.kind = Kind::None; break;
+			case 2: bad.arrival.kind = static_cast<Kind>(4); break;
+			case 3: bad.arrival.stage = Stage::None; break;
+			case 4: bad.arrival.stage = static_cast<Stage>(6); break;
+			case 5: bad.arrival.x = 0; break;
+			case 6: bad.arrival.y = 17; break;
+			case 7: bad.arrival.z = 4; break;
+			case 8: bad.arrival.pendingCount = 0; break;
+			case 9: bad.arrival.pendingCount = 257; break;
+			case 10: bad.arrival.involvedMercs = 0; break;
+			case 11: bad.arrival.uninvolvedMercs = 256; break;
+			case 12: bad.arrival.nativeEnterSector = false; break;
+			case 13: bad.arrival.finalDestination = true; break;
+			case 14: bad.arrival.stage = Stage::Pending; break;
+			case 15: bad.phase = CoopCampaignPhase::Tactical; break;
+			case 16: bad.phase = CoopCampaignPhase::Transition; break;
+			case 17: bad.gamePaused = false; break;
+		}
+		auto encoded = bytes;
+		CHECK(!EncodeCoopCampaignStatus(bad, encoded) && encoded == bytes, "invalid native decision/clock combination cannot replace the observation");
+	}
+	auto text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(std::wcsstr(text.arrival.data(), L"Battle at A10") && std::wcsstr(text.arrival.data(), L"2 pending") &&
+		std::wcsstr(text.arrivalDetail.data(), L"4 involved, 6 uninvolved") && std::wcsstr(text.arrivalDetail.data(), L"deployment choice required"),
+		"prepared battle text uses committed sector/counts and explicitly requires deployment");
+	for (unsigned kind = 1; kind <= 3; ++kind)
+		for (unsigned stage = 1; stage <= 5; ++stage)
+		{
+			auto candidate = s; auto& a = candidate.arrival;
+			a = {}; a.decision = UINT64_MAX; a.kind = static_cast<Kind>(kind); a.stage = static_cast<Stage>(stage);
+			a.x = a.y = 16; a.z = 3; a.pendingCount = 256;
+			if (stage == 2) { a.involvedMercs = 256; a.nativeEnterSector = true; }
+			const bool valid = kind == 3 || (stage != 2 && stage != 3);
+			CHECK(EncodeCoopCampaignStatus(candidate, bytes) == valid, "only battles can be prepared or need militia reinforcement decisions");
+			if (!valid) continue;
+			CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(candidate, out), "all supported decision kinds/stages roundtrip");
+			text = BuildFullEngineCoopClientCampaignStatusText(&candidate, false);
+			CHECK(std::wcsstr(text.arrival.data(), L"P16 (level 3)") && std::wcsstr(text.arrival.data(), L"18446744073709551615") &&
+				text.arrivalDetail[0] && !text.arrival.back() && !text.arrivalDetail.back(), "maximum IDs/counts and native stages render within bounded text");
+			if (stage == 3) CHECK(std::wcsstr(text.arrivalDetail.data(), L"militia reinforcement"), "reinforcement choice is distinguished from a pending world load");
+		}
+	s.arrival = {};
+	text = BuildFullEngineCoopClientCampaignStatusText(&s, true);
+	CHECK(!text.arrival[0] && !text.arrivalDetail[0], "resolved arrival erases old decision text");
+	text = BuildFullEngineCoopClientCampaignStatusText(nullptr, false);
+	CHECK(!text.arrival[0] && !text.arrivalDetail[0], "disconnect cannot retain a live-looking arrival");
+}
+void TestArrivalLedger()
+{
+	CoopCampaignStatusLedger ledger; const PeerIdentity ready[]{Peer(3)};
+	auto clock = Sample(); clock.phase = CoopCampaignPhase::Strategic;
+	CHECK(ledger.beginSession(1) && ledger.observe(clock, ready, 1), "arrival ledger begins with a paused campaign");
+	const auto idle = ledger.value(); clock.arrival = Battle();
+	CHECK(ledger.observe(clock, ready, 1) && ledger.value().revision > idle.revision &&
+		ledger.value().timeControlRevision > idle.timeControlRevision, "arrival invalidates a delayed resume even when the clock was already paused");
+	const auto prepared = ledger.value();
+	CHECK(ledger.observe(clock, ready, 1) && SameCoopCampaignStatus(prepared, ledger.value()), "read-only repeated arrival coalesces");
+	++clock.arrival.pendingCount;
+	CHECK(ledger.observe(clock, ready, 1) && ledger.value().revision > prepared.revision, "additional queued decisions publish without pretending to be the front choice");
+	clock.arrival.x = 11; const auto before = ledger.value();
+	CHECK(!ledger.observe(clock, ready, 1) && SameCoopCampaignStatus(before, ledger.value()), "same decision cannot silently change sector");
+	clock.arrival = {};
+	CHECK(ledger.observe(clock, ready, 1) && ledger.value().timeControlRevision > before.timeControlRevision && !ledger.value().arrival.decision,
+		"resolution clears the notice and invalidates all requests made during that decision");
+	clock.arrival = Battle();
+	CHECK(!ledger.observe(clock, ready, 1), "resolved decision cannot resurrect under a later status revision");
+	++clock.arrival.decision;
+	CHECK(ledger.observe(clock, ready, 1), "next native queue identity can be published");
+	ledger.clear();
+	CHECK(ledger.beginSession(2) && ledger.observe(clock, ready, 1), "new server session owns a new decision lineage");
+}
+void TestBattleNoticeObservation()
+{
+	auto status = Sample();
+	status.battleNotice = {0x0807060504030201ull, CoopCampaignBattleNoticeKind::Defeated, 9, 1, 0};
+	CoopCampaignStatusBytes bytes;
+	CoopCampaignStatus decoded;
+	for (unsigned kind = 1; kind <= 4; ++kind)
+	{
+		status.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(kind);
+		CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[96] == 1 && bytes[103] == 8 && bytes[104] == kind &&
+			bytes[105] == 9 && bytes[106] == 1 && !bytes[107] &&
+			DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"each native battle outcome roundtrips its exact opaque ID and public sector");
+	}
+	for (const unsigned at : {94u, 95u, 109u, 110u, 111u})
+	{
+		auto bad = bytes; bad[at] = 1; decoded = status;
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"all reserved notice bytes reject corruption without replacing the committed observation");
+	}
+	status.battleNotice.sectorControlLost = true;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[108] == 1 &&
+		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+		"native contested town loss is visible alongside the exact battle outcome");
+	for (unsigned badFlag = 2; badFlag <= 255; ++badFlag)
+	{
+		auto bad = bytes; bad[108] = static_cast<std::uint8_t>(badFlag);
+		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+			"undefined sector loss flags cannot overwrite the committed public outcome");
+	}
+	{ auto bad = status; bad.battleNotice.z = 1;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes), "surface control notice cannot claim an underground sector"); }
+	{ auto empty = status; empty.battleNotice = {}; empty.battleNotice.sectorControlLost = true;
+		CHECK(!EncodeCoopCampaignStatus(empty, bytes), "empty notice cannot retain an unacknowledged sector loss"); }
+	for (unsigned fault = 0; fault != 13; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.battleNotice.id = 0;
+		if (fault == 1) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::None;
+		if (fault == 2) bad.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(5);
+		if (fault == 3) bad.battleNotice.x = 0;
+		if (fault == 4) bad.battleNotice.x = 17;
+		if (fault == 5) bad.battleNotice.y = 0;
+		if (fault == 6) bad.battleNotice.y = 17;
+		if (fault == 7) bad.battleNotice.z = 4;
+		if (fault == 8) bad.phase = CoopCampaignPhase::Transition;
+		if (fault == 9) bad.gamePaused = false;
+		if (fault == 10) { bad.compressionActive = true; bad.compressionMode = 1; }
+		if (fault == 11) bad.arrival = Battle();
+		if (fault == 12) bad.surrenderOffer = 1;
+		const auto saved = bytes;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes) && bytes == saved, "battle notice exclusively owns a valid paused tactical hold");
+	}
+	CoopCampaignStatusLedger ledger; const PeerIdentity peers[] = {Peer(3), Peer(8)};
+	CHECK(ledger.beginSession(11) && ledger.observe(status, peers, 2), "native battle notice published to ready players");
+	const auto saved = ledger.value();
+	CHECK(ledger.observe(status, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "repeated notice does not churn revisions");
+	for (unsigned fault = 0; fault != 5; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated;
+		if (fault == 1) ++bad.battleNotice.x;
+		if (fault == 2) ++bad.battleNotice.y;
+		if (fault == 3) ++bad.battleNotice.z;
+		if (fault == 4) bad.battleNotice.sectorControlLost = false;
+		CHECK(!ledger.observe(bad, peers, 2) && SameCoopCampaignStatus(saved, ledger.value()), "same notice cannot change outcome or sector");
+	}
+	const auto notice = status.battleNotice; status.battleNotice = {}; status.phase = CoopCampaignPhase::Transition;
+	CHECK(ledger.observe(status, peers, 2) && ledger.value().timeControlRevision > saved.timeControlRevision,
+		"acknowledgement clears the public notice and invalidates requests while transition remains paused");
+	status.phase = CoopCampaignPhase::Tactical; status.battleNotice = notice;
+	CHECK(!ledger.observe(status, peers, 2), "retired notice cannot resurrect under newer revisions");
+	++status.battleNotice.id;
+	CHECK(ledger.observe(status, peers, 2), "later native notice has a fresh identity");
+	ledger.clear(); CHECK(ledger.beginSession(12) && ledger.observe(status, peers, 2), "explicit new session resets notice lineage");
+}
+
+void TestSurrenderObservation()
+{
+	auto status = Sample(); status.surrenderOffer = 0x0807060504030201ull;
+	CoopCampaignStatusBytes bytes;
+	CoopCampaignStatus decoded;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[86] == 1 && bytes[93] == 8 && !bytes[94] && !bytes[95] &&
+		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
+		"exact native offer ID roundtrips at protocol 16 with no private speaker pointer");
+	for (unsigned fault = 0; fault != 4; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.phase = CoopCampaignPhase::Strategic;
+		if (fault == 1) bad.gamePaused = false;
+		if (fault == 2) { bad.compressionMode = 1; bad.compressionActive = true; }
+		if (fault == 3) bad.arrival = Battle();
+		auto unchanged = bytes;
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes) && bytes == unchanged, "surrender must own a paused tactical hold exclusively");
+	}
+	CoopCampaignStatusLedger ledger; const PeerIdentity ready[] = {Peer(3)};
+	CHECK(ledger.beginSession(11) && ledger.observe(status, ready, 1), "offer observed in current server session");
+	const auto control = ledger.value().timeControlRevision;
+	status.surrenderOffer = 0;
+	CHECK(ledger.observe(status, ready, 1) && ledger.value().timeControlRevision > control, "answer advances shared control lineage");
+	status.surrenderOffer = 0x0807060504030201ull;
+	CHECK(!ledger.observe(status, ready, 1), "completed native offer cannot resurrect");
+	++status.surrenderOffer;
+	CHECK(ledger.observe(status, ready, 1), "next native offer has a new identity");
+}
+
+}
+int main() { TestBattleNoticeObservation();  TestCodec(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }

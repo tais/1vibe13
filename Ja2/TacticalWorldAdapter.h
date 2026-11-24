@@ -19,6 +19,43 @@ struct Ja2TacticalTurnIdentity
 	}
 };
 
+// Application-local detail for the production adapter's most recent failed
+// capture. This does not extend the package-facing TacticalWorldCaptureResult
+// contract or cross a persistence/network boundary; it only gives the
+// dedicated host a bounded, non-sensitive reason string for fatal diagnostics.
+enum class Ja2TacticalWorldCaptureFailure : std::uint8_t
+{
+	None,
+	IntegrityInvalid,
+	InterruptProjectionInvalid,
+	DimensionsInvalid,
+	PlayerTeamInvalid,
+	MapAssetIdentityInvalid,
+	EntitySynchronizationFailed,
+	EntityDirectoryInvalid,
+	ActorStateInvalid,
+	WorldLevelDataUnavailable,
+	DuplicateProjectedDoor,
+	SnapshotEpochInvalid,
+	SnapshotDimensionsInvalid,
+	SnapshotSectorInvalid,
+	SnapshotTurnInvalid,
+	SnapshotLightingInvalid,
+	SnapshotActorInvalid,
+	SnapshotActorPresentationInvalid,
+	SnapshotActorDuplicate,
+	SnapshotActorUnordered,
+	SnapshotDoorInvalid,
+	SnapshotDoorDuplicate,
+	SnapshotDoorUnordered,
+	ActorCapacityReached,
+	DoorCapacityReached,
+	AllocationFailure
+};
+
+const char* Ja2TacticalWorldCaptureFailureName(
+	Ja2TacticalWorldCaptureFailure failure) noexcept;
+
 // Read-only production projection of the engine-owned tactical session and
 // actor directory. Capture asks TacticalEntityHost to reconcile remaining
 // compatibility-pool mutations at the main-thread package/frame boundary, then
@@ -54,6 +91,10 @@ public:
 	Ja2TacticalTurnIdentity liveTurnIdentity() noexcept;
 	void markIntegrityFailure() noexcept { integrityValid_ = false; }
 	bool integrityValid() const noexcept { return integrityValid_; }
+	Ja2TacticalWorldCaptureFailure lastCaptureFailure() const noexcept
+	{
+		return lastCaptureFailure_;
+	}
 
 private:
 	TacticalWorldSession ownedSession_;
@@ -63,6 +104,8 @@ private:
 	std::vector<TacticalActorSnapshot> actorScratch_;
 	std::vector<TacticalDoorSnapshot> doorScratch_;
 	bool integrityValid_ = true;
+	Ja2TacticalWorldCaptureFailure lastCaptureFailure_ =
+		Ja2TacticalWorldCaptureFailure::None;
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();

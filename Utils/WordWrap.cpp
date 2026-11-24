@@ -2006,72 +2006,44 @@ FileStringPtr GetFirstStringOnThisPage( FileStringPtr RecordList, INT32 iFont, U
 	return ( CurrentRecord );
 }
 
-BOOLEAN ReduceStringLength( CHAR16 *pString, UINT32 uiWidthToFitIn, INT32 iFont )
+BOOLEAN ReduceStringLength(CHAR16* pString, std::size_t capacity,
+    UINT32 uiWidthToFitIn, INT32 iFont)
 {
-	CHAR16			OneChar[2];
-	CHAR16			zTemp[ 1024 ];
-	CHAR16			zStrDots[16];
-	UINT32			uiDotWidth;
-	UINT32			uiTempStringPixWidth=0;
-	UINT32			uiStringPixWidth;
-	BOOLEAN			fDone = FALSE;
-	UINT32			uiSrcStringCntr = 0;
-	UINT32			uiOneCharWidth = 0;
+    if (!pString || capacity == 0) return FALSE;
+    const auto* end = std::wmemchr(pString, L'\0', capacity);
+    if (!end) return FALSE;
+    const auto length = static_cast<std::size_t>(end - pString);
 
-	uiStringPixWidth = WFStringPixLength( pString, iFont );
+    const INT16 stringWidth = WFStringPixLength(pString, iFont);
+    if (stringWidth >= 0 && static_cast<UINT32>(stringWidth) <= uiWidthToFitIn)
+        return TRUE;
 
-	OneChar[1] = L'\0';
-	zTemp[0] = L'\0';
+    // Both the suffix and its terminator must fit the caller's actual array.
+    // A very narrow label may only have room for part of the ellipsis.
+    CHAR16 dots[4] = L"...";
+    std::size_t dotCount = capacity - 1 < 3 ? capacity - 1 : 3;
+    dots[dotCount] = L'\0';
+    UINT32 usedWidth = static_cast<UINT32>(StringPixLength(dots, iFont));
+    while (dotCount != 0 && usedWidth > uiWidthToFitIn)
+    {
+        dots[--dotCount] = L'\0';
+        usedWidth = static_cast<UINT32>(StringPixLength(dots, iFont));
+    }
 
-	//if the string is wider then the loaction
-	if( uiStringPixWidth <= uiWidthToFitIn )
-	{
-		//leave
-		return( TRUE );
-	}
+    std::size_t prefixLength = 0;
+    const auto prefixCapacity = capacity - 1 - dotCount;
+    while (prefixLength < length && prefixLength < prefixCapacity)
+    {
+        CHAR16 oneChar[2] = {pString[prefixLength], L'\0'};
+        const INT16 charWidth = StringPixLength(oneChar, iFont);
+        if (charWidth < 0 || static_cast<UINT32>(charWidth) > uiWidthToFitIn - usedWidth)
+            break;
+        usedWidth += static_cast<UINT32>(charWidth);
+        ++prefixLength;
+    }
 
-	//addd the '...' to the string
-	wcscpy( zStrDots, L"..." );
-
-	//get the width of the '...'
-	uiDotWidth = StringPixLength( zStrDots, iFont );
-
-	//since the temp strig will contain the '...' add the '...' width to the temp string now
-	uiTempStringPixWidth = uiDotWidth;
-
-	//loop through and add each character, 1 at a time
-	while( !fDone )
-	{
-		//get the next char
-		OneChar[0] = pString[ uiSrcStringCntr ];
-
-		//get the width of the character
-		uiOneCharWidth = StringPixLength( OneChar, iFont );
-
-		//will the new char + the old string be too wide for the width
-		if( ( uiTempStringPixWidth + uiOneCharWidth ) <= uiWidthToFitIn )
-		{
-			//add the new char to the string
-			wcscat( zTemp, OneChar );
-
-			//add the new char width to the string width
-			uiTempStringPixWidth += uiOneCharWidth;
-
-			//increment to the next string
-			uiSrcStringCntr++;
-		}
-
-		//yes the string would be too long if we add the new char, stop adding characters
-		else
-		{
-			//we are done
-			fDone = TRUE;
-		}
-	}
-
-
-	//combine the temp string and the '...' to form the finished string
-	sgp_swprintf( pString, 1024, L"%s%s", zTemp, zStrDots );
-
-	return( TRUE );
+    // The prefix already occupies its final position. Copy only the suffix,
+    // including its terminator, without an intermediate fixed-size buffer.
+    std::wmemcpy(pString + prefixLength, dots, dotCount + 1);
+    return TRUE;
 }

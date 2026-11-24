@@ -111,6 +111,15 @@
 #include "CampaignGunCommentPolicy.h"
 #include "GameContext.h"
 #include "Ja25_Tactical.h"
+#include "World Tile Map.h"
+#include "lighting.h"
+#include "MemMan.h"
+
+#include <algorithm>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <utility>
 
 #define					NUM_ITEMS_LISTED			8
 #define					NUM_ITEM_FLASH_SLOTS	50
@@ -3399,6 +3408,271 @@ void HandleSoldierPickupItem( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 
 }
 
+
+namespace
+{
+void MixCoopDropPlacement(std::uint64_t& fingerprint, std::uint64_t value) noexcept
+{
+	for (unsigned byte = 0; byte != 8; ++byte)
+	{
+		fingerprint ^= static_cast<std::uint8_t>(value);
+		fingerprint *= 1099511628211ull;
+		value >>= 8;
+	}
+}
+
+struct CoopDropAllocationDeleter
+{
+	template<class T> void operator()(T* pointer) const noexcept
+	{
+		if (pointer) MemFree(pointer);
+	}
+};
+
+void SwapCoopExactObjectStorage(OBJECTTYPE& left, OBJECTTYPE& right) noexcept
+{
+	static_assert(noexcept(left.objectStack.swap(right.objectStack)),
+		"authoritative insertion requires allocation-free native list swaps");
+	// OBJECTTYPE's move assignment also normalizes action-item bomb payloads.
+	// Unrelated live world objects must not be interpreted while growing their
+	// container, so swap the scalar prefix and list storage directly instead.
+	std::swap(left.usItem, right.usItem);
+	std::swap(left.ubNumberOfObjects, right.ubNumberOfObjects);
+	std::swap(left.ubMission, right.ubMission);
+	std::swap(left.fFlags, right.fFlags);
+	left.objectStack.swap(right.objectStack);
+}
+
+// Copy only the serialized scalar fields and runtime identity mirror. The
+// object's exact list storage moves without allocation, even for unrelated
+// complex live items. Do not use WORLDITEM's allocating copy assignment here.
+void MoveCoopWorldItemStorage(WORLDITEM& from, WORLDITEM& to) noexcept
+{
+	to.fExists = from.fExists;
+	to.sGridNo = from.sGridNo;
+	to.ubLevel = from.ubLevel;
+	to.usFlags = from.usFlags;
+	to.bRenderZHeightAboveLevel = from.bRenderZHeightAboveLevel;
+	to.bVisible = from.bVisible;
+	to.ubNonExistChance = from.ubNonExistChance;
+	to.soldierID = from.soldierID;
+	to.uiUniqueWorldItemIdValue = from.uiUniqueWorldItemIdValue;
+	SwapCoopExactObjectStorage(from.object, to.object);
+}
+}
+
+bool CaptureCoopOrdinaryGroundDropPlacement(TacticalEntityId actorId,
+	std::uint8_t sourceSlot, CoopOrdinaryGroundDropPlacement& output) noexcept
+{
+	TacticalActor* const actor = ResolveJa2TacticalEntity(actorId);
+	if (!IsJa2TacticalWorldIntegrityValid() || is_networked || is_client || is_server ||
+		!actor || !actor->roster().active() || !actor->roster().inSector() ||
+		actor->roster().team() != gbPlayerNum || actor->position().level() != FIRST_LEVEL ||
+		!IsSupportedAuthoritativePickupPocket(sourceSlot) ||
+		sourceSlot >= actor->inventory().size() || !gpWorldLevelData ||
+		TileIsOutOfBounds(actor->position().gridNo()) ||
+		static_cast<UINT32>(actor->position().gridNo()) >= GetWorldTileMapSize())
+		return false;
+	OBJECTTYPE& source = actor->inventory()[sourceSlot];
+	if (!source.exists() || CaptureInventorySwapObjectState(actorId, sourceSlot) == 0 ||
+		source.usItem == SWITCH || source.usItem == ACTION_ITEM || source.usItem == OWNERSHIP ||
+		HasItemFlag(source.usItem, CORPSE)) return false;
+	if (UsingNewInventorySystem())
+	{
+		const std::size_t itemSize = std::min<std::size_t>(
+			gGameExternalOptions.guiMaxItemSize, Item[source.usItem].ItemSize);
+		if (VEHICLE_POCKET_TYPE >= LBEPocketType.size() ||
+			itemSize >= LBEPocketType[VEHICLE_POCKET_TYPE].ItemCapacityPerSize.size())
+			return false;
+	}
+	// The STACK_SIZE_LIMIT branch only reads the item definition/pocket table;
+	// the legacy signature is mutable even though this path does not mutate.
+	const UINT8 limit = ItemSlotLimit(&source, STACK_SIZE_LIMIT);
+	if (limit == 0 || source.ubNumberOfObjects > limit) return false;
+	for (const StackedObjectData& stack : source.objectStack)
+	{
+		if ((stack.data.sObjectFlag &
+			(TAKEN_BY_MILITIA_TABOO_GREEN | TAKEN_BY_MILITIA_TABOO_BLUE)) != 0)
+			return false; // These need the legacy object-to-world flag conversion.
+	}
+	const INT32 grid = actor->position().gridNo();
+	const MAP_ELEMENT& tile = GetMapElement(grid);
+	if (tile.pStructHead || tile.pRoofHead || tile.pOnRoofHead ||
+		(tile.uiFlags & (MAPELEMENT_ITEMPOOL_PRESENT | MAPELEMENT_PLAYER_MINE_PRESENT |
+			MAPELEMENT_ENEMY_MINE_PRESENT)) != 0 || TERRAIN_IS_WATER(tile.ubTerrainID))
+		return false;
+	// An unlinked world item must not make a supposedly empty tile eligible.
+	if (guiNumWorldItems != gWorldItems.size()) return false;
+	for (const WORLDITEM& item : gWorldItems)
+		if (item.fExists && item.sGridNo == grid) return false;
+
+	const INVTYPE& definition = Item[source.usItem];
+	const UINT32 graphicType = definition.ubGraphicType == 0 ? GUNS :
+		definition.ubGraphicType == 1 ? P1ITEMS : definition.ubGraphicType == 2 ? P2ITEMS :
+		definition.ubGraphicType == 3 ? P3ITEMS : P4ITEMS + definition.ubGraphicType - 4;
+	const UINT32 subIndex = static_cast<UINT32>(definition.ubGraphicNum) + 1;
+	if (graphicType >= NUMBEROFTILETYPES || graphicType >= static_cast<UINT32>(giNumberOfTileTypes) ||
+		subIndex > gNumTilesPerType[graphicType]) return false;
+	const UINT32 graphicIndex = gTileTypeStartIndex[graphicType] + subIndex - 1;
+	if (graphicIndex >= NUMBEROFTILES || graphicIndex >= static_cast<UINT32>(giNumberOfTiles))
+		return false;
+	const TILE_ELEMENT& graphic = gTileDatabase[graphicIndex];
+	if (graphic.fType != graphicType || graphic.pDBStructureRef || graphic.pAnimData ||
+		(graphic.uiFlags & (HAS_SHADOW_BUDDY | ANIMATED_TILE)) != 0)
+		return false;
+
+	std::uint64_t fingerprint = 1469598103934665603ull;
+	MixCoopDropPlacement(fingerprint, static_cast<UINT32>(grid));
+	MixCoopDropPlacement(fingerprint, tile.uiFlags);
+	MixCoopDropPlacement(fingerprint, tile.ubTerrainID);
+	MixCoopDropPlacement(fingerprint, tile.sHeight);
+	MixCoopDropPlacement(fingerprint, reinterpret_cast<std::uintptr_t>(gpWorldLevelData));
+	MixCoopDropPlacement(fingerprint, graphicIndex);
+	MixCoopDropPlacement(fingerprint, graphic.uiFlags);
+	MixCoopDropPlacement(fingerprint, graphic.usRegionIndex);
+	MixCoopDropPlacement(fingerprint, reinterpret_cast<std::uintptr_t>(graphic.hTileSurface));
+	std::size_t structures = 0;
+	const STRUCTURE* previous = nullptr;
+	for (const STRUCTURE* structure = tile.pStructureHead; structure;
+		previous = structure, structure = structure->pNext)
+	{
+		// The actor's own collision structure is expected. Other structure
+		// families require native relocation/container/surface handling.
+		if (++structures > 1024 || structure->pPrev != previous ||
+			(structure->fFlags & STRUCTURE_PERSON) == 0 || structure->sGridNo != grid)
+			return false;
+		MixCoopDropPlacement(fingerprint, reinterpret_cast<std::uintptr_t>(structure));
+		MixCoopDropPlacement(fingerprint, structure->fFlags);
+		MixCoopDropPlacement(fingerprint, structure->usStructureID);
+		MixCoopDropPlacement(fingerprint, static_cast<UINT16>(structure->sCubeOffset));
+	}
+	if (previous != tile.pStructureTail) return false;
+	output = CoopOrdinaryGroundDropPlacement{grid, static_cast<UINT16>(graphicIndex),
+		fingerprint != 0 ? fingerprint : 1};
+	return true;
+}
+
+CoopOrdinaryGroundDropResult CommitCoopOrdinaryGroundDrop(TacticalEntityId actorId,
+	std::uint8_t sourceSlot, std::uint64_t expectedSourceFingerprint,
+	const CoopOrdinaryGroundDropPlacement& expectedPlacement,
+	TacticalWorldItemId& output) noexcept
+{
+	bool published = false;
+	try
+	{
+		CoopOrdinaryGroundDropPlacement placement;
+		if (expectedSourceFingerprint == 0 ||
+			CaptureInventorySwapObjectState(actorId, sourceSlot) != expectedSourceFingerprint ||
+			!CaptureCoopOrdinaryGroundDropPlacement(actorId, sourceSlot, placement) ||
+			placement.grid != expectedPlacement.grid || placement.graphic != expectedPlacement.graphic ||
+			placement.fingerprint != expectedPlacement.fingerprint)
+			return CoopOrdinaryGroundDropResult::Rejected;
+		TacticalActor* const actor = ResolveJa2TacticalEntity(actorId);
+		TacticalWorldItemDirectory& directory = GetJa2TacticalWorldItemDirectory();
+		const std::size_t oldSize = gWorldItems.size();
+		const WORLDITEM* const oldData = gWorldItems.data();
+		std::size_t slot = 0;
+		while (slot < oldSize && gWorldItems[slot].fExists) ++slot;
+		if (slot >= directory.maximumSlots() || slot > static_cast<std::size_t>(INT32_MAX) ||
+			directory.nextIncarnation() == 0 || directory.identity(static_cast<UINT32>(slot)).valid() ||
+			(slot < oldSize && gWorldItems[slot].uiUniqueWorldItemIdValue != 0))
+			return CoopOrdinaryGroundDropResult::IdentityUnavailable;
+		const TacticalWorldItemId identity{static_cast<UINT32>(slot), directory.nextIncarnation()};
+
+		// Default-construct detached storage first. Growing the live vector via
+		// WORLDITEM's copying constructor could allocate after partial mutation.
+		std::vector<WORLDITEM> grown;
+		if (slot == oldSize)
+		{
+			const std::size_t growth = std::min<std::size_t>(100, directory.maximumSlots() - oldSize);
+			grown.resize(oldSize + growth);
+		}
+		OBJECTTYPE retiredObject;
+		std::unique_ptr<LEVELNODE, CoopDropAllocationDeleter> node(
+			static_cast<LEVELNODE*>(MemAlloc(sizeof(LEVELNODE))));
+		std::unique_ptr<ITEM_POOL, CoopDropAllocationDeleter> pool(
+			static_cast<ITEM_POOL*>(MemAlloc(sizeof(ITEM_POOL))));
+		if (!node || !pool || !directory.reserveSlots(slot + 1))
+			return CoopOrdinaryGroundDropResult::AllocationFailure;
+		std::memset(node.get(), 0, sizeof(LEVELNODE));
+		std::memset(pool.get(), 0, sizeof(ITEM_POOL));
+		node->usIndex = placement.graphic;
+		node->ubShadeLevel = node->ubNaturalShadeLevel = LightGetAmbient();
+		node->uiFlags = LEVELNODE_ITEM | LEVELNODE_SHOW_THROUGH;
+		if (gGameSettings.fOptions[TOPTION_GLOW_ITEMS]) node->uiFlags |= LEVELNODE_DYNAMIC;
+		node->pItemPool = pool.get();
+		pool->iItemIndex = static_cast<INT32>(slot);
+		pool->bVisible = VISIBLE;
+		pool->sGridNo = placement.grid;
+		pool->ubLevel = FIRST_LEVEL;
+		pool->pLevelNode = node.get();
+
+		CoopOrdinaryGroundDropPlacement checked;
+		if (ResolveJa2TacticalEntity(actorId) != actor ||
+			CaptureInventorySwapObjectState(actorId, sourceSlot) != expectedSourceFingerprint ||
+			!CaptureCoopOrdinaryGroundDropPlacement(actorId, sourceSlot, checked) ||
+			checked.grid != placement.grid || checked.graphic != placement.graphic ||
+			checked.fingerprint != placement.fingerprint || gWorldItems.data() != oldData ||
+			gWorldItems.size() != oldSize || &GetJa2TacticalWorldItemDirectory() != &directory ||
+			directory.nextIncarnation() != identity.incarnation || directory.identity(identity.slot).valid() ||
+			(slot < oldSize && (gWorldItems[slot].fExists || gWorldItems[slot].uiUniqueWorldItemIdValue != 0)) ||
+			guiLevelNodes == std::numeric_limits<UINT32>::max())
+			return CoopOrdinaryGroundDropResult::Rejected;
+
+		// No allocation/callback/native simulation from this boundary onward.
+		// Directory publication is checked first and cannot change on failure.
+		if (!directory.activatePrepared(identity))
+			return CoopOrdinaryGroundDropResult::IdentityUnavailable;
+		published = true;
+		if (!grown.empty())
+		{
+			for (std::size_t index = 0; index < oldSize; ++index)
+				MoveCoopWorldItemStorage(gWorldItems[index], grown[index]);
+			gWorldItems.swap(grown);
+			guiNumWorldItems = static_cast<UINT32>(gWorldItems.size());
+		}
+		WORLDITEM& item = gWorldItems[slot];
+		// Retired slots can still contain old native object data. Never swap it
+		// into the now-empty pocket; retain it only for detached destruction.
+		SwapCoopExactObjectStorage(item.object, retiredObject);
+		SwapCoopExactObjectStorage(item.object, actor->inventory()[sourceSlot]);
+		item.sGridNo = placement.grid;
+		item.ubLevel = FIRST_LEVEL;
+		item.usFlags = 0;
+		item.bRenderZHeightAboveLevel = 0;
+		item.bVisible = VISIBLE;
+		item.ubNonExistChance = 0;
+		item.soldierID = actor->identity().id();
+		item.uiUniqueWorldItemIdValue = identity.incarnation;
+		item.fExists = TRUE;
+		MAP_ELEMENT& tile = GetMapElement(placement.grid);
+		tile.pStructHead = node.release();
+		pool.release();
+		++guiLevelNodes;
+		tile.uiFlags |= MAPELEMENT_ITEMPOOL_PRESENT | MAPELEMENT_REDRAW;
+		fInterfacePanelDirty = DIRTYLEVEL2;
+		ResetSpecificLayerOptimizing(TILES_DYNAMIC_STRUCTURES);
+		SetRenderFlags(RENDER_FLAG_MARKED);
+		if (ResolveJa2TacticalWorldItem(identity) != &item ||
+			tile.pStructHead->pItemPool->iItemIndex != static_cast<INT32>(slot) ||
+			CaptureInventorySwapObjectState(actorId, sourceSlot) != 1)
+		{
+			MarkJa2TacticalWorldIntegrityFailure();
+			return CoopOrdinaryGroundDropResult::IntegrityFailure;
+		}
+		output = identity;
+		return CoopOrdinaryGroundDropResult::Applied;
+	}
+	catch (...)
+	{
+		if (published)
+		{
+			MarkJa2TacticalWorldIntegrityFailure();
+			return CoopOrdinaryGroundDropResult::IntegrityFailure;
+		}
+		return CoopOrdinaryGroundDropResult::AllocationFailure;
+	}
+}
 
 LEVELNODE *AddItemGraphicToWorld( INVTYPE *pItem, INT32 sGridNo, UINT8 ubLevel )
 {

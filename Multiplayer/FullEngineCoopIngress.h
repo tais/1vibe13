@@ -163,6 +163,12 @@ public:
 		const TransportPeer& sender,
 		const std::uint8_t* bytes,
 		std::size_t size) noexcept;
+	// Trusted in-process callers may submit an already-decoded intent after
+	// applying server-proven normalization. Structural validation and the exact
+	// tactical authority, ordering, ownership and execution gates still apply.
+	TacticalIntentIngressResult handleTacticalIntent(
+		const TransportPeer& sender,
+		const TacticalIntent& intent) noexcept;
 	// Decodes and applies the same admission/at-most-once authority decision but
 	// never calls the execution sink and intentionally bypasses sink readiness.
 	// The caller must retain a terminal receipt for every consumed command.

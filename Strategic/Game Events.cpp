@@ -3,7 +3,10 @@
 #include "types.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
+#include "CampaignEventScheduling.h"
 #include "Game Events.h"
+#include "PreBattlePreparation.h"
+#include <stdexcept>
 #include "SaveSerializer.h"
 #include "Game Clock.h"
 #include "DEBUG.H"
@@ -170,8 +173,8 @@ extern BOOLEAN gfTimeInterruptPause;
 BOOLEAN gfPreventDeletionOfAnyEvent = FALSE;
 BOOLEAN gfEventDeletionPending = FALSE;
 
-BOOLEAN gfProcessingGameEvents = FALSE;
-UINT32	guiTimeStampOfCurrentlyExecutingEvent = 0;
+extern BOOLEAN gfProcessingGameEvents;
+extern UINT32 guiTimeStampOfCurrentlyExecutingEvent;
 
 //Determines if there are any events that will be processed between the current global time,
 //and the beginning of the next global time.
@@ -369,7 +372,10 @@ BOOLEAN AddFutureDayStrategicEventUsingSeconds( UINT8 ubCallbackID, UINT32 uiSec
 
 STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID, UINT32 uiTimeStamp, UINT32 uiParam )
 {
-	if( gfProcessingGameEvents && uiTimeStamp <= guiTimeStampOfCurrentlyExecutingEvent )
+	const StrategicEventScheduleResult scheduled =
+		AddAdvancedStrategicEventChecked(
+			ubEventType, ubCallbackID, uiTimeStamp, uiParam );
+	if( scheduled.error == StrategicEventScheduleError::ProcessingTimeRejected )
 	{ //Prevents infinite loops of posting events that are the same time or earlier than the event
 		//currently being processed.
 		#ifdef JA2TESTVERSION
@@ -385,11 +391,11 @@ STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID
 		return NULL;
 	}
 
-	const CampaignEventScheduleResult scheduled =
-		StrategicEventQueue().schedule(CampaignEventSnapshot{
-			uiTimeStamp, uiParam, 0, ubEventType, ubCallbackID, 0});
 	if( !scheduled )
 	{
+		// The headless battle action owns partial-failure handling. Unwind to
+		// its fail-stop boundary without entering the assertion/font renderer.
+		if (IsHeadlessPreBattleActive()) throw std::runtime_error("native headless battle event queue failure");
 		AssertMsg( FALSE, "Campaign event queue rejected a strategic event" );
 		return NULL;
 	}

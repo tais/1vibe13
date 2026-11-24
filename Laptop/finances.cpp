@@ -2,6 +2,8 @@
 	#include "finances.h"
 	#include "LaptopPageResourceOwner.h"
 	#include "LaptopRecordFile.h"
+	#include "CampaignLedgerInternal.h"
+	#include "CampaignLedgerRecord.h"
 	#include "LaptopRecordPageModel.h"
 	#include "Game Clock.h"
 	#include "Utilities.h"
@@ -109,24 +111,14 @@ constexpr LaptopRecordPageModel::FileLayout FinanceFileLayout{
 	sizeof(INT32), RECORD_SIZE};
 constexpr UINT32 InvalidFinanceRecordId = UINT32_MAX;
 
-struct FinanceRecordData
-{
-	UINT8 code = 0;
-	UINT8 secondCode = 0;
-	UINT32 date = 0;
-	INT32 amount = 0;
-	INT32 balanceToDate = 0;
-};
+using FinanceRecordData = CampaignLedgerRecord::Finance;
 
 bool ReadFinanceRecordExact(HWFILE file, FinanceRecordData& record)
 {
-	return ReadLaptopFileExact(file, &record.code, sizeof(record.code)) &&
-		ReadLaptopFileExact(file, &record.secondCode,
-			sizeof(record.secondCode)) &&
-		ReadLaptopFileExact(file, &record.date, sizeof(record.date)) &&
-		ReadLaptopFileExact(file, &record.amount, sizeof(record.amount)) &&
-		ReadLaptopFileExact(file, &record.balanceToDate,
-			sizeof(record.balanceToDate));
+	return CampaignLedgerRecord::FinanceFields(record,
+		[file](void* value, std::size_t size) {
+			return ReadLaptopFileExact(file, value, static_cast<UINT32>(size));
+		});
 }
 
 bool LoadFinanceLedger(std::vector<FinanceRecordData>& records)
@@ -235,8 +227,6 @@ BOOLEAN CreateFinanceButtons(LaptopPageResourceOwner& owner);
 void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance);
 void DisplayFinancePageNumberAndDateRange( void );
 BOOLEAN GetBalanceFromDisk( void );
-BOOLEAN PersistFinanceTransaction(
-	const FinanceUnit& financeRecord, INT32 balance);
 void SetLastPageInRecords( void );
 BOOLEAN LoadInRecords( UINT32 uiPage );
 BOOLEAN LoadPreviousPage( void );
@@ -255,7 +245,7 @@ INT32 GetYesterdaysDebits( void );
 
 UINT32 AddTransactionToPlayersBook (UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, INT32 iAmount)
 {
-	// adds transaction to player's book(Financial List), returns unique id number of it
+	// adds a transaction and returns its historical local-list ID (normally zero)
 	// outside of the financial system(the code in this .c file), this is the only function you'll ever need
 
 	if (!GetBalanceFromDisk() ||
@@ -271,30 +261,20 @@ UINT32 AddTransactionToPlayersBook (UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiD
 	ClearFinanceList();
 	const UINT32 uiId = ProcessAndEnterAFinacialRecord(
 		ubCode, uiDate, iAmount, ubSecondCode, newBalance);
-	if (uiId == InvalidFinanceRecordId || !pFinanceListHead ||
-		!PersistFinanceTransaction(*pFinanceListHead, newBalance))
+	if (uiId == InvalidFinanceRecordId || !pFinanceListHead)
 	{
 		ClearFinanceList();
 		Assert(0);
 		return InvalidFinanceRecordId;
 	}
 
-	// Publish campaign state only after the complete ledger record is durable.
-	LaptopSaveInfo.iCurrentBalance = newBalance;
-	if (gGameExternalOptions.fDynamicOpinions)
-		HandleDynamicOpinionOnContractExtension(ubCode, ubSecondCode);
-	if (iAmount < 0 && ubSecondCode < NUM_PROFILES &&
-		(ubCode == HIRED_MERC || ubCode == IMP_PROFILE ||
-		ubCode == PAYMENT_TO_NPC ||
-		ubCode == EXTENDED_CONTRACT_BY_1_DAY ||
-		ubCode == EXTENDED_CONTRACT_BY_1_WEEK ||
-		ubCode == EXTENDED_CONTRACT_BY_2_WEEKS))
+	const CampaignLedgerResult written = CampaignLedgerDetail::AddFinanceTransactionForLaptop(
+		ubCode, ubSecondCode, uiDate, iAmount);
+	if (!written.succeeded())
 	{
-		const UINT64 updatedCost =
-			static_cast<UINT64>(gMercProfiles[ubSecondCode].uiTotalCostToDate) +
-			static_cast<UINT64>(-static_cast<INT64>(iAmount));
-		gMercProfiles[ubSecondCode].uiTotalCostToDate = static_cast<UINT32>(
-			updatedCost > UINT32_MAX ? UINT32_MAX : updatedCost);
+		ClearFinanceList();
+		Assert(0);
+		return InvalidFinanceRecordId;
 	}
 
 	// set number of pages
@@ -322,19 +302,9 @@ UINT32 AddTransactionToPlayersBook (UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiD
 		fPausedReDrawScreenFlag = TRUE;
 	}
 
-	// Flugente: campaign stats
-	if ( ubCode == ANONYMOUS_DEPOSIT )
-		gCampaignStats.AddMoneyEarned(CAMPAIGN_MONEY_START, iAmount );
-	else if ( ubCode == DEPOSIT_FROM_GOLD_MINE || ubCode == DEPOSIT_FROM_SILVER_MINE )
-		gCampaignStats.AddMoneyEarned(CAMPAIGN_MONEY_MINES, iAmount );
-	else if ( ubCode == SOLD_ITEMS )
-		gCampaignStats.AddMoneyEarned(CAMPAIGN_MONEY_TRADE, iAmount );
-	else
-		gCampaignStats.AddMoneyEarned(CAMPAIGN_MONEY_ETC, iAmount );
-
 	fMapScreenBottomDirty = TRUE;
 
-	// return unique id of this transaction
+	// Retain the legacy local-list ID; it is not a transaction identity.
 	return uiId;
 }
 
@@ -1552,28 +1522,6 @@ BOOLEAN GetBalanceFromDisk( void )
 		sizeof(loadedBalance))) return FALSE;
 	LaptopSaveInfo.iCurrentBalance = loadedBalance;
 	return TRUE;
-}
-
-BOOLEAN PersistFinanceTransaction(
-	const FinanceUnit& financeRecord, INT32 balance)
-{
-	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
-		FILE_ACCESS_WRITE | FILE_OPEN_ALWAYS, FALSE));
-	if (!file || !LaptopRecordPageModel::IsAppendableFile(
-			FileGetSize(file.Get()), FinanceFileLayout) ||
-		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_START) ||
-		!WriteLaptopFileExact(file.Get(), &balance, sizeof(balance)) ||
-		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_END)) return FALSE;
-	return WriteLaptopFileExact(file.Get(), &financeRecord.ubCode,
-			sizeof(financeRecord.ubCode)) &&
-		WriteLaptopFileExact(file.Get(), &financeRecord.ubSecondCode,
-			sizeof(financeRecord.ubSecondCode)) &&
-		WriteLaptopFileExact(file.Get(), &financeRecord.uiDate,
-			sizeof(financeRecord.uiDate)) &&
-		WriteLaptopFileExact(file.Get(), &financeRecord.iAmount,
-			sizeof(financeRecord.iAmount)) &&
-		WriteLaptopFileExact(file.Get(), &financeRecord.iBalanceToDate,
-			sizeof(financeRecord.iBalanceToDate));
 }
 
 void SetLastPageInRecords( void )

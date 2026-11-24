@@ -32,6 +32,7 @@
 #include <exception>
 #include <functional>
 #include <limits>
+#include <locale>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -1631,19 +1632,73 @@ int main()
 	RuntimeReport serializableReport = runtimeReport;
 	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
 		"diagnostics.label", std::string("Quoted \"line\"\nR\xc3\xa9" "ady")});
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.ratio", 1234.5});
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.precision", 1.0000000000000002});
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.denormal", std::numeric_limits<double>::denorm_min()});
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.maximum", std::numeric_limits<double>::max()});
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.negative-zero", -0.0});
+	class CommaDecimalPoint final : public std::numpunct<char>
+	{
+	protected:
+		char do_decimal_point() const override { return ','; }
+	};
+	const std::locale previousGlobalLocale = std::locale();
+	std::locale::global(std::locale(
+		previousGlobalLocale, new CommaDecimalPoint));
 	const RuntimeReportJsonResult reportJson =
 		SerializeRuntimeReportJson(serializableReport);
 	const RuntimeReportJsonResult repeatedReportJson =
 		SerializeRuntimeReportJson(serializableReport);
 	const RuntimeReportJsonResult boundedReportJson =
 		SerializeRuntimeReportJson(serializableReport, 32);
+	std::locale::global(previousGlobalLocale);
 	check(reportJson && reportJson.json == repeatedReportJson.json &&
 		reportJson.json.find("\"schema\":1") != std::string::npos &&
 		reportJson.json.find("Quoted \\\"line\\\"\\nR\xc3\xa9" "ady") != std::string::npos &&
+		reportJson.json.find(
+			"\"key\":\"diagnostics.ratio\",\"value\":1234.5") !=
+			std::string::npos &&
+		reportJson.json.find(
+			"\"key\":\"diagnostics.precision\",\"value\":1.0000000000000002") !=
+			std::string::npos &&
+		reportJson.json.find(
+			"\"key\":\"diagnostics.denormal\",\"value\":4.9406564584124654e-324") !=
+			std::string::npos &&
+		reportJson.json.find(
+			"\"key\":\"diagnostics.maximum\",\"value\":1.7976931348623157e+308") !=
+			std::string::npos &&
+		reportJson.json.find(
+			"\"key\":\"diagnostics.negative-zero\",\"value\":-0") !=
+			std::string::npos &&
 		reportJson.json.find("\"packages\":[]") != std::string::npos &&
 		boundedReportJson.error == RuntimeReportJsonError::TooLarge &&
 		boundedReportJson.json.empty(),
-		"runtime report JSON is deterministic, escaped, UTF-8, and bounded transactionally");
+		"runtime report JSON is deterministic, locale-independent, escaped, UTF-8, and bounded transactionally");
+	auto serializeInvalidReal = [&](double value)
+	{
+		RuntimeReport invalidReport = runtimeReport;
+		invalidReport.configuration.push_back(RuntimeConfigurationEntry{
+			"diagnostics.invalid", value});
+		return SerializeRuntimeReportJson(invalidReport);
+	};
+	const RuntimeReportJsonResult nanReportJson =
+		serializeInvalidReal(std::numeric_limits<double>::quiet_NaN());
+	const RuntimeReportJsonResult positiveInfinityReportJson =
+		serializeInvalidReal(std::numeric_limits<double>::infinity());
+	const RuntimeReportJsonResult negativeInfinityReportJson =
+		serializeInvalidReal(-std::numeric_limits<double>::infinity());
+	check(nanReportJson.error == RuntimeReportJsonError::InvalidValue &&
+		nanReportJson.json.empty() &&
+		positiveInfinityReportJson.error == RuntimeReportJsonError::InvalidValue &&
+		positiveInfinityReportJson.json.empty() &&
+		negativeInfinityReportJson.error == RuntimeReportJsonError::InvalidValue &&
+		negativeInfinityReportJson.json.empty(),
+		"runtime report JSON rejects every non-finite real transactionally");
 	MemoryByteStorage reportStorage;
 	EngineServices reportServices{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), reportStorage};

@@ -40,6 +40,9 @@
 #include "Game Init.h"
 #include "GameContext.h"
 #include "CampaignApplicationPolicy.h"
+#include "FullEngineCoopClientGameScreenPolicy.h"
+#include "FullEngineCoopClientOptions.h"
+#include "FullEngineCoopClientPresentationRuntime.h"
 #include "SoldierRepository.h"
 
 //DEF: Test Code
@@ -425,11 +428,78 @@ extern INT32 iInterfaceDialogueBox;
 	extern BOOLEAN gfDoDialogOnceGameScreenFadesIn;
 #endif
 
+namespace
+{
+UINT32 HandleFullEngineCoopClientGameScreenPresentationFrame(
+	const FullEngineCoopClientGameScreenFramePolicy& policy)
+{
+	// Fail closed until an authority-published exact map identity, a side-effect-
+	// free geometry loader, committed-replica materializer, and inert tactical
+	// interface initializer have each attested readiness. In particular, never
+	// fall through MainGameScreenHandle's legacy pre-render path merely because
+	// somebody requested GAME_SCREEN. IsJa2TacticalWorldLoaded() deliberately
+	// does not participate here: a passive presentation world must never publish
+	// itself as a locally authoritative tactical world.
+	if (!policy.runs(FullEngineCoopClientGameScreenPhase::
+			NormalTacticalPresentation))
+		return GAME_SCREEN;
+
+	// This normal view is the ordinary map/actor renderer plus adapter-owned
+	// camera, TEAM chrome, and read-only radar state. It does not run legacy
+	// TEAM/SM panels, RenderRadarScreen, HandleTacticalUI, SetUpInterface,
+	// cursor animation, clocks, AI, physics, bullets, events, dialogue, fades,
+	// sector transitions, or any other local gameplay/UI producer.
+	StartFrameBufferRender();
+	// The legacy ScrollWorld path consumes the same arrow-key state as co-op
+	// movement and invokes tactical-interface clear/restore hooks. Authority
+	// selection changes instead drive the presentation-owned camera directly.
+	PrepareFullEngineCoopClientPassiveWorldFrame();
+	if (!RenderWorldForStaticPresentation())
+	{
+		// Readiness and renderer ownership are required to agree. Returning to
+		// INIT makes the client loop revoke this presentation transaction before
+		// any ordinary tactical code can observe the inconsistent world.
+		EndFrameBufferRender();
+		std::fprintf(stderr,
+			"[co-op client] passive tactical renderer lost presentation ownership\n");
+		return INIT_SCREEN;
+	}
+	// No legacy tactical panel may inspect the cold campaign yet. Clear its
+	// reserved strip so pixels from the diagnostic INIT fallback cannot survive
+	// underneath the real tactical viewport during the migration milestone.
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, gsVIEWPORT_WINDOW_END_Y,
+		SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+	if (!RenderFullEngineCoopClientPassiveInterface())
+	{
+		EndFrameBufferRender();
+		std::fprintf(stderr,
+			"[co-op client] passive native tactical interface failed: %s\n",
+			GetFullEngineCoopClientPresentationFailureDetail());
+		return INIT_SCREEN;
+	}
+	DisplayFrameRate();
+	ExecuteBaseDirtyRectQueue();
+	EndFrameBufferRender();
+	return GAME_SCREEN;
+}
+}
+
 UINT32	MainGameScreenHandle(void)
 {
 	UINT32		uiNewScreen = GAME_SCREEN;
 	const CampaignApplicationPolicy campaignPolicy(
 		GetGameContext().capabilities());
+	FullEngineCoopClientGameScreenPresentationReadiness presentationReadiness;
+	if (IsFullEngineCoopClientProcess())
+		presentationReadiness =
+			GetFullEngineCoopClientPresentationReadiness();
+	// All four gates are attested by one transactional presentation host. Any
+	// resync, world replacement, stale revision, or partial adapter failure
+	// revokes them before this screen can observe renderer-owned state.
+	const FullEngineCoopClientGameScreenFramePolicy framePolicy(
+		IsFullEngineCoopClientProcess(), presentationReadiness);
+	if (framePolicy.presentationOnly())
+		return HandleFullEngineCoopClientGameScreenPresentationFrame(framePolicy);
 	//DO NOT MOVE THIS FUNCTION CALL!!!
 	//This determines if the help screen should be active
 //	if( ( !gfTacticalDoHeliRun && !gfFirstHeliRun ) && ShouldTheHelpScreenComeUp( HELP_SCREEN_TACTICAL, FALSE ) )

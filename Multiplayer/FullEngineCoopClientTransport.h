@@ -2,6 +2,7 @@
 #define MULTIPLAYER_FULL_ENGINE_COOP_CLIENT_TRANSPORT_H
 
 #include "CoopCampaignSyncProtocol.h"
+#include "CoopCampaignAction.h"
 #include "FullEngineCoopClient.h"
 #include "SdlNetTransport.h"
 
@@ -24,6 +25,22 @@ static_assert(MaximumCoopTacticalWireSize <=
 static_assert(MaximumCoopCampaignSyncWireSize <=
 	MaximumFullEngineCoopClientInboundWireSize,
 	"the client callback FIFO must retain every campaign-sync frame");
+static_assert(MaximumCoopOwnerInventoryWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain every private inventory summary");
+static_assert(CoopCampaignStatusWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the live campaign status");
+static_assert(MaximumCoopCampaignGroupsWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the complete friendly group replacement");
+static_assert(CoopCampaignTimeResultWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the terminal time-control result");
+static_assert(CoopCampaignActionResultWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the terminal campaign action result");
+static_assert(MaximumCoopCampaignEconomyWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the full campaign economy replacement");
+static_assert(MaximumCoopCampaignAimQuotesWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain all current AIM quotes");
+static_assert(CoopCampaignHireResultWireSize <= MaximumFullEngineCoopClientInboundWireSize,
+	"the client callback FIFO must retain the terminal hire result");
 static_assert(MaximumFullEngineCoopClientInboundWireSize < 64u * 1024u,
 	"the client callback slot must remain below the public payload ceiling");
 inline constexpr std::size_t MaximumFullEngineCoopClientPendingWriteBytes =
@@ -48,6 +65,9 @@ struct FullEngineCoopClientTransportConfiguration
 	// listener, so it cannot accept a self-connection or legacy arena traffic.
 	ja2::mp::net::SdlNetEndpoint serverEndpoint;
 	unsigned timeoutMilliseconds = 120000;
+	// May narrow the physical callback FIFO for constrained embeddings. The
+	// immutable SDL parser batch remains the hard 16-slot capacity, so a smaller
+	// configured queue retains explicit fail-closed overload semantics.
 	std::size_t maximumQueuedInboundMessages =
 		MaximumFullEngineCoopClientInboundMessages;
 	std::size_t maximumPendingWriteBytes =
@@ -143,6 +163,14 @@ private:
 		TacticalBaseline,
 		TacticalDelta,
 		TacticalReceipt,
+		OwnerInventory,
+		CampaignStatus,
+		CampaignGroups,
+		CampaignTimeResult,
+		CampaignActionResult,
+		CampaignEconomy,
+		CampaignAimQuotes,
+		CampaignHireResult,
 		SelfRetirementResult,
 		CampaignMetadata,
 		CampaignChunk,
@@ -168,6 +196,22 @@ private:
 	static void HandleTacticalDelta(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleTacticalReceipt(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleOwnerInventory(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignStatus(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignGroups(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignTimeResult(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignActionResult(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignEconomy(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignAimQuotes(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleCampaignHireResult(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleSelfRetirementResult(
 		ja2::mp::net::SdlNetMessage* message, void* context);

@@ -24,6 +24,8 @@ inline constexpr std::size_t MaximumSdlNetInboundMessageRateBytesPerSecond =
 	32u * 1024u * 1024u;
 inline constexpr std::size_t MaximumSdlNetInboundMessageBurstBytes =
 	4u * 1024u * 1024u;
+inline constexpr std::size_t DefaultSdlNetFileTransferPendingWriteHighWaterBytes =
+	32u * 1024u * 1024u;
 
 struct SdlNetInboundMessageBudget
 {
@@ -50,6 +52,9 @@ struct SdlNetEndpoint
 	SdlNetEndpoint(std::uint16_t endpointPort, const char* bindHost) noexcept;
 
 	std::uint16_t port = 0;
+	// SDL_net defaults to address reuse. Tests can disable it so Windows also
+	// rejects another listener on an occupied endpoint instead of sharing it.
+	bool reuseAddress = true;
 	char host[256]{};
 };
 
@@ -136,9 +141,14 @@ public:
 
 	std::uint16_t SetupReceive(SdlNetFileReceiver* receiver,
 		ConnectionId allowedSender);
-	void Send(SdlNetFileList& files, SdlNetPeer& peer,
+	// Queues a complete set while bounding the transport's pending writes before
+	// every frame. False means no further frames were queued; callers that cannot
+	// retry from a transfer cursor must close the recipient to preserve ordering.
+	bool Send(SdlNetFileList& files, SdlNetPeer& peer,
 		ConnectionId recipient, std::uint16_t setId,
-		unsigned chunkSize = 262144);
+		unsigned chunkSize = 262144,
+		std::size_t pendingWriteHighWaterBytes =
+			DefaultSdlNetFileTransferPendingWriteHighWaterBytes);
 	void SetCallback(SdlNetFileProgress* callback);
 
 private:
@@ -182,6 +192,13 @@ public:
 	// is rejected so every connection begins with one immutable budget.
 	bool SetInboundMessageBudget(
 		const SdlNetInboundMessageBudget& budget) noexcept;
+	// Bounds synchronous named-message dispatch in one Poll() socket pump.
+	// Complete excess frames remain in the connection's bounded input buffer for
+	// a later Poll. This opt-in is intentionally single-connection-only so a
+	// peer-global batch cannot starve a later connection; zero is rejected and
+	// the default remains unlimited.
+	bool SetMaximumMessageFramesPerPoll(
+		std::size_t maximumFrames) noexcept;
 	// A public listener can keep capacity for an in-process loopback authority.
 	// Remote sockets cannot consume this portion of the total connection cap.
 	bool SetReservedIncomingLoopbackConnections(

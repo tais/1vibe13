@@ -1,7 +1,9 @@
 #include <Engine/Adapters/JA2/TacticalWorldSnapshotCodec.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -27,7 +29,7 @@ TacticalActorSnapshot FirstActor()
 	actor.grid = -2;
 	actor.level = -1;
 	actor.direction = 7;
-	actor.animation = 0x4142u;
+	actor.animation = 0x0142u;
 	actor.stance = TacticalStance::Crouched;
 	actor.actionPoints = -3;
 	actor.life = 4;
@@ -38,6 +40,7 @@ TacticalActorSnapshot FirstActor()
 	actor.inSector = true;
 	actor.hostileToPlayerTeam = true;
 	actor.interruptActionEligible = true;
+	actor.bleeding = 123;
 	actor.loadout.helmet = TacticalHandItemSnapshot{
 		0x8182u, 1, 88, 0, 0, 0, false, false};
 	actor.loadout.vest = TacticalHandItemSnapshot{
@@ -60,7 +63,7 @@ TacticalActorSnapshot SecondActor()
 	actor.grid = 0x01020304;
 	actor.level = 1;
 	actor.direction = 2;
-	actor.animation = 0x7172u;
+	actor.animation = 0x0171u;
 	actor.stance = TacticalStance::Prone;
 	actor.actionPoints = 8;
 	actor.life = 9;
@@ -74,6 +77,52 @@ TacticalActorSnapshot SecondActor()
 	return actor;
 }
 
+TacticalActorSnapshot PosedActor()
+{
+	TacticalActorSnapshot actor;
+	actor.id = TacticalEntityId{4, 0x71727374u};
+	actor.team = 0;
+	actor.profile = 21;
+	actor.grid = 322;
+	actor.level = 0;
+	actor.direction = 4;
+	actor.animation = TacticalAnimationStateCount - 1;
+	actor.stance = TacticalStance::Standing;
+	actor.actionPoints = 87;
+	actor.life = actor.maximumLife = 90;
+	actor.breath = actor.maximumBreath = 100;
+	actor.active = true;
+	actor.inSector = true;
+	actor.bleeding = 127;
+	actor.loadout.primaryHand = TacticalHandItemSnapshot{17, 1, 90};
+	actor.handMedicalKitPoints = 0x1234;
+	actor.presentation.bodyType = TacticalActorBodyTypeCount - 1;
+	actor.presentation.flags = TacticalActorRenderPosePresent |
+		TacticalActorPositiveAnimationHeight |
+		TacticalActorHeadPalettePresent |
+		TacticalActorPantsPalettePresent |
+		TacticalActorVestPalettePresent |
+		TacticalActorSkinPalettePresent |
+		TacticalActorMultiTileNonZ | TacticalActorMultiTileZ;
+	actor.presentation.animationDirection = 6;
+	actor.presentation.worldXQ8 =
+		2 * TacticalWorldCellSize * TacticalWorldCoordinateScale + 128;
+	actor.presentation.worldYQ8 =
+		TacticalWorldCellSize * TacticalWorldCoordinateScale + 64;
+	actor.presentation.heightAdjustment = -17;
+	actor.presentation.animationSurface = TacticalAnimationSurfaceCount - 1;
+	actor.presentation.animationFrame = 7;
+	actor.presentation.headPaletteIndex = 3;
+	actor.presentation.pantsPaletteIndex = 4;
+	actor.presentation.vestPaletteIndex = 5;
+	actor.presentation.skinPaletteIndex = 255;
+	actor.presentation.displayNameUtf16 = {
+		'A', 0xd83d, 0xde80, 0, 0, 0, 0, 0, 0, 0};
+	actor.presentation.portrait = {TacticalPortraitFamily::ImpFaces, 255,
+		TacticalPortraitCamouflage::Snow};
+	return actor;
+}
+
 TacticalWorldSnapshot MakeSnapshot(std::uint64_t epoch)
 {
 	TacticalSectorSnapshot sector;
@@ -81,6 +130,8 @@ TacticalWorldSnapshot MakeSnapshot(std::uint64_t epoch)
 	sector.y = -2;
 	sector.z = -1;
 	sector.loaded = true;
+	Check(AssignTacticalMapAssetKey(sector.mapAssetKey, "A9_B1_A.DAT"),
+		"snapshot fixture map identity is valid");
 	TacticalTurnSnapshot turn;
 	turn.turnBased = true;
 	turn.inCombat = true;
@@ -97,7 +148,10 @@ TacticalWorldSnapshot MakeSnapshot(std::uint64_t epoch)
 	TacticalWorldSnapshot snapshot;
 	Check(TacticalWorldSnapshot::create(
 			epoch, TacticalWorldDimensions{320, 240}, sector, turn,
-			std::move(actors), std::move(doors), snapshot) ==
+			std::move(actors), std::move(doors), snapshot,
+			TacticalWorldSnapshot::DefaultMaximumActors,
+			TacticalWorldSnapshot::DefaultMaximumDoors,
+			TacticalWorldLightingSnapshot{12}) ==
 			TacticalSnapshotCreateError::None,
 		"snapshot fixture is valid");
 	return snapshot;
@@ -118,7 +172,11 @@ bool SameActor(
 		left.active == right.active && left.inSector == right.inSector &&
 		left.hostileToPlayerTeam == right.hostileToPlayerTeam &&
 		left.interruptActionEligible == right.interruptActionEligible &&
-		left.loadout == right.loadout;
+		left.bleeding == right.bleeding &&
+		left.handMedicalKitPoints == right.handMedicalKitPoints &&
+		left.medicalService == right.medicalService &&
+		left.loadout == right.loadout &&
+		left.presentation == right.presentation;
 }
 
 bool SameSnapshot(
@@ -132,6 +190,7 @@ bool SameSnapshot(
 		left.sector().y != right.sector().y ||
 		left.sector().z != right.sector().z ||
 		left.sector().loaded != right.sector().loaded ||
+		left.sector().mapAssetKey != right.sector().mapAssetKey ||
 		left.turn().turnBased != right.turn().turnBased ||
 		left.turn().inCombat != right.turn().inCombat ||
 		left.turn().activeTeam != right.turn().activeTeam ||
@@ -139,6 +198,7 @@ bool SameSnapshot(
 		left.turn().interruptPhase != right.turn().interruptPhase ||
 		left.turn().interruptSerial != right.turn().interruptSerial ||
 		left.turn().commandsBlocked != right.turn().commandsBlocked ||
+		left.lighting() != right.lighting() ||
 		left.actors().size() != right.actors().size() ||
 		left.doors().size() != right.doors().size())
 		return false;
@@ -153,10 +213,261 @@ bool SameSnapshot(
 			return false;
 	return true;
 }
+
+void TestWalkingPoseWireRoundTrips()
+{
+	const TacticalWorldDimensions dimensions{7, 5};
+	const std::int32_t cellSize =
+		TacticalWorldCellSize * TacticalWorldCoordinateScale;
+	TacticalActorSnapshot renderActor = PosedActor();
+	renderActor.grid = 2 * dimensions.columns + 3;
+	renderActor.presentation.worldXQ8 = 3 * cellSize + 128;
+	renderActor.presentation.worldYQ8 = 2 * cellSize + 64;
+	const TacticalWorldSnapshot retained = MakeSnapshot(99);
+	auto RejectsPose = [&](const TacticalActorSnapshot& actor,
+		const char* message) {
+		TacticalWorldSnapshot output = retained;
+		Check(TacticalWorldSnapshot::create(31, dimensions, {}, {},
+			{actor}, {}, output) == TacticalSnapshotCreateError::InvalidEntity,
+			message);
+		Check(SameSnapshot(output, retained),
+			"invalid walking pose preserves the complete previous snapshot");
+	};
+
+	// Cover every cardinal/diagonal sign combination. Facing is deliberately
+	// independent of displacement, as it is during reverse movement.
+	for (std::int32_t rowStep = -1; rowStep <= 1; ++rowStep)
+	{
+		for (std::int32_t columnStep = -1; columnStep <= 1; ++columnStep)
+		{
+			if (rowStep == 0 && columnStep == 0) continue;
+			TacticalActorSnapshot walkingActor = renderActor;
+			const std::int32_t gridStep =
+				rowStep * dimensions.columns + columnStep;
+			walkingActor.grid += gridStep;
+			TacticalWorldSnapshot snapshot;
+			const bool created = TacticalWorldSnapshot::create(30, dimensions,
+				{}, {}, {walkingActor}, {}, snapshot) ==
+				TacticalSnapshotCreateError::None;
+			Check(created,
+				"all eight adjacent logical/render offsets are valid walking poses");
+			std::vector<std::uint8_t> bytes;
+			TacticalWorldSnapshot decoded;
+			Check(created &&
+				EncodeTacticalWorldSnapshot(snapshot, bytes) ==
+					TacticalWorldSnapshotEncodeResult::Success &&
+				DecodeTacticalWorldSnapshot(bytes, decoded) ==
+					TacticalWorldSnapshotDecodeResult::Success &&
+				decoded.actors().size() == 1 &&
+				SameActor(decoded.actors()[0], walkingActor) &&
+				SameSnapshot(snapshot, decoded),
+				"walking baseline wire round trip preserves distinct logical grid and fractional render coordinates in every direction");
+
+			walkingActor.grid += gridStep;
+			RejectsPose(walkingActor,
+				"two-tile render divergence is rejected in every cardinal and diagonal direction");
+		}
+	}
+
+	// Consecutive linear grid numbers across a row edge are not adjacent tiles.
+	// Both coordinates remain inside the world, so only the spatial bound can
+	// reject these cases (and the opposite top/bottom edges).
+	const std::int32_t edgeCases[][4] = {
+		{0, 1, 6, 0}, {6, 0, 0, 1},
+		{3, 0, 3, 4}, {3, 4, 3, 0}};
+	for (const auto& edge : edgeCases)
+	{
+		TacticalActorSnapshot actor = renderActor;
+		actor.grid = edge[1] * dimensions.columns + edge[0];
+		actor.presentation.worldXQ8 = edge[2] * cellSize + 128;
+		actor.presentation.worldYQ8 = edge[3] * cellSize + 64;
+		RejectsPose(actor,
+			"logical/render adjacency cannot wrap across opposite world edges");
+	}
+
+	for (const std::int32_t invalidX : {-1, dimensions.columns * cellSize})
+	{
+		TacticalActorSnapshot actor = renderActor;
+		actor.grid = invalidX < 0 ? 2 * dimensions.columns
+			: 3 * dimensions.columns - 1;
+		actor.presentation.worldXQ8 = invalidX;
+		RejectsPose(actor,
+			"adjacent walking coordinates cannot cross either horizontal world bound");
+	}
+	for (const std::int32_t invalidY : {-1, dimensions.rows * cellSize})
+	{
+		TacticalActorSnapshot actor = renderActor;
+		actor.grid = invalidY < 0 ? 3
+			: (dimensions.rows - 1) * dimensions.columns + 3;
+		actor.presentation.worldYQ8 = invalidY;
+		RejectsPose(actor,
+			"adjacent walking coordinates cannot cross either vertical world bound");
+	}
+}
+
+void TestMedicalServiceSnapshots()
+{
+	const TacticalActorSnapshot initial = PosedActor();
+	constexpr std::size_t serviceOffset = EncodedTacticalWorldSnapshotHeaderBytes + 140;
+	for (const TacticalMedicalServiceSnapshot service : {
+		TacticalMedicalServiceSnapshot{},
+		TacticalMedicalServiceSnapshot{false, {}, 255},
+		TacticalMedicalServiceSnapshot{true, {}, 0},
+		TacticalMedicalServiceSnapshot{true, initial.id, 1},
+		TacticalMedicalServiceSnapshot{true, {0xfffe, 0xffffffff}, 255}})
+	{
+		auto actor = initial;
+		actor.medicalService = service;
+		TacticalWorldSnapshot snapshot;
+		Check(service.valid() && actor.medicalStateValid() &&
+			TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {actor}, snapshot) ==
+				TacticalSnapshotCreateError::None,
+			"medical service accepts absent, withheld, receiving, self and missing-target full-range identities");
+		std::vector<std::uint8_t> bytes;
+		TacticalWorldSnapshot decoded;
+		Check(EncodeTacticalWorldSnapshot(snapshot, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			DecodeTacticalWorldSnapshot(bytes, decoded) == TacticalWorldSnapshotDecodeResult::Success &&
+			SameSnapshot(snapshot, decoded) && bytes.size() == serviceOffset + 8 &&
+			bytes[serviceOffset] == (service.providing ? 1 : 0) &&
+			bytes[serviceOffset + 1] == (service.patient.slot & 0xff) &&
+			bytes[serviceOffset + 2] == (service.patient.slot >> 8) &&
+			bytes[serviceOffset + 3] == (service.patient.incarnation & 0xff) &&
+			bytes[serviceOffset + 4] == ((service.patient.incarnation >> 8) & 0xff) &&
+			bytes[serviceOffset + 5] == ((service.patient.incarnation >> 16) & 0xff) &&
+			bytes[serviceOffset + 6] == (service.patient.incarnation >> 24) &&
+			bytes[serviceOffset + 7] == service.receivingCount,
+			"medical-service eight-byte suffix roundtrips exactly without requiring its patient in the snapshot");
+	}
+	auto actor = initial;
+	actor.medicalService = {true, {0x1234, 0x12345678}, 3};
+	TacticalWorldSnapshot original;
+	Check(TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {actor}, original) ==
+		TacticalSnapshotCreateError::None, "medical service mutation fixture creates");
+	std::vector<std::uint8_t> bytes;
+	Check(EncodeTacticalWorldSnapshot(original, bytes) == TacticalWorldSnapshotEncodeResult::Success,
+		"medical service mutation fixture encodes");
+	for (const TacticalMedicalServiceSnapshot invalid : {
+		TacticalMedicalServiceSnapshot{false, {1, 1}, 0},
+		TacticalMedicalServiceSnapshot{false, {0, 0}, 0},
+		TacticalMedicalServiceSnapshot{true, {1, 0}, 0},
+		TacticalMedicalServiceSnapshot{true, {0xffff, 1}, 255}})
+	{
+		auto invalidActor = actor;
+		invalidActor.medicalService = invalid;
+		auto retained = original;
+		Check(!invalid.valid() && !invalidActor.medicalStateValid() &&
+			TacticalWorldSnapshot::create(72, {320, 240}, {}, {}, {invalidActor}, retained) ==
+				TacticalSnapshotCreateError::InvalidEntity && SameSnapshot(retained, original),
+			"noncanonical patient absence or patient without provider rejects snapshot creation transactionally");
+		auto malformed = bytes;
+		malformed[serviceOffset] = invalid.providing ? 1 : 0;
+		malformed[serviceOffset + 1] = invalid.patient.slot & 0xff;
+		malformed[serviceOffset + 2] = invalid.patient.slot >> 8;
+		for (unsigned byte = 0; byte < 4; ++byte)
+			malformed[serviceOffset + 3 + byte] = (invalid.patient.incarnation >> (byte * 8)) & 0xff;
+		malformed[serviceOffset + 7] = invalid.receivingCount;
+		Check(DecodeTacticalWorldSnapshot(malformed, retained) == TacticalWorldSnapshotDecodeResult::Invalid &&
+			SameSnapshot(retained, original), "malformed medical service cannot partially replace a baseline");
+	}
+	auto malformed = bytes;
+	malformed[serviceOffset] = 2;
+	auto retained = original;
+	Check(DecodeTacticalWorldSnapshot(malformed, retained) == TacticalWorldSnapshotDecodeResult::Invalid &&
+		SameSnapshot(retained, original), "medical providing flag rejects noncanonical boolean bytes transactionally");
+	for (unsigned mutation = 0; mutation < 4; ++mutation)
+	{
+		auto changed = actor;
+		if (mutation == 0) changed.medicalService = {false, {}, 3};
+		else if (mutation == 1) ++changed.medicalService.patient.slot;
+		else if (mutation == 2) ++changed.medicalService.patient.incarnation;
+		else ++changed.medicalService.receivingCount;
+		Check(changed != actor && changed.medicalService != actor.medicalService,
+			"every medical service component participates in actor equality");
+	}
+}
+
+void TestPortraitSnapshots()
+{
+	using Family = TacticalPortraitFamily;
+	using Camo = TacticalPortraitCamouflage;
+	Check(IsCanonicalTacticalPortrait({}), "default portrait is canonical absence");
+	const auto roundTrip = [&](TacticalPortraitSnapshot portrait) {
+		TacticalActorSnapshot actor = PosedActor();
+		actor.presentation.portrait = portrait;
+		TacticalWorldSnapshot snapshot;
+		Check(IsCanonicalTacticalPortrait(portrait) &&
+			TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {actor}, snapshot) ==
+				TacticalSnapshotCreateError::None, "every declared portrait variant is a canonical snapshot value");
+		std::vector<std::uint8_t> bytes;
+		TacticalWorldSnapshot decoded;
+		Check(EncodeTacticalWorldSnapshot(snapshot, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			DecodeTacticalWorldSnapshot(bytes, decoded) == TacticalWorldSnapshotDecodeResult::Success &&
+			SameSnapshot(snapshot, decoded) && decoded.actors()[0].presentation.portrait == portrait,
+			"portrait family, full-range face index and camouflage roundtrip exactly");
+	};
+	roundTrip({});
+	for (const Family family : {Family::Faces, Family::ImpFaces})
+		for (const std::uint8_t face : {0, 151, 154, 255})
+			for (const Camo camo : {Camo::None, Camo::Wood, Camo::Urban, Camo::Desert, Camo::Snow})
+				roundTrip({family, face, camo});
+
+	const TacticalActorSnapshot actor = PosedActor();
+	TacticalWorldSnapshot original;
+	Check(TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {actor}, original) ==
+		TacticalSnapshotCreateError::None, "portrait mutation fixture creates");
+	std::vector<std::uint8_t> bytes;
+	Check(EncodeTacticalWorldSnapshot(original, bytes) == TacticalWorldSnapshotEncodeResult::Success,
+		"portrait mutation fixture encodes");
+	constexpr std::size_t portraitOffset = EncodedTacticalWorldSnapshotHeaderBytes + 133;
+	for (const TacticalPortraitSnapshot invalid : {
+		TacticalPortraitSnapshot{static_cast<Family>(3), 0, Camo::None},
+		TacticalPortraitSnapshot{Family::Faces, 0, static_cast<Camo>(5)},
+		TacticalPortraitSnapshot{Family::Absent, 1, Camo::None},
+		TacticalPortraitSnapshot{Family::Absent, 0, Camo::Wood}})
+	{
+		auto invalidActor = actor;
+		invalidActor.presentation.portrait = invalid;
+		auto retained = original;
+		Check(!IsCanonicalTacticalPortrait(invalid) &&
+			!IsCanonicalTacticalActorPresentation(invalidActor.presentation) &&
+			TacticalWorldSnapshot::create(72, {320, 240}, {}, {}, {invalidActor}, retained) !=
+				TacticalSnapshotCreateError::None && SameSnapshot(retained, original),
+			"invalid portrait enums and decorated absence reject snapshot creation transactionally");
+		auto malformed = bytes;
+		malformed[portraitOffset] = static_cast<std::uint8_t>(invalid.family);
+		malformed[portraitOffset + 1] = invalid.faceIndex;
+		malformed[portraitOffset + 2] = static_cast<std::uint8_t>(invalid.camouflage);
+		Check(DecodeTacticalWorldSnapshot(malformed, retained) == TacticalWorldSnapshotDecodeResult::Invalid &&
+			SameSnapshot(retained, original), "invalid portrait bytes cannot replace an existing actor appearance");
+	}
+	for (unsigned mutation = 0; mutation < 3; ++mutation)
+	{
+		auto changed = actor;
+		if (mutation == 0) changed.presentation.portrait.family = Family::Faces;
+		else if (mutation == 1) --changed.presentation.portrait.faceIndex;
+		else changed.presentation.portrait.camouflage = Camo::Wood;
+		Check(changed != actor && changed.presentation != actor.presentation &&
+			changed.presentation.portrait != actor.presentation.portrait,
+			"each portrait descriptor component participates in actor and presentation equality");
+	}
+	auto absentActor = actor;
+	absentActor.presentation.portrait = {};
+	TacticalWorldSnapshot absent;
+	Check(TacticalWorldSnapshot::create(72, {320, 240}, {}, {}, {absentActor}, absent) ==
+		TacticalSnapshotCreateError::None &&
+		EncodeTacticalWorldSnapshot(absent, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
+		DecodeTacticalWorldSnapshot(bytes, original) == TacticalWorldSnapshotDecodeResult::Success &&
+		original.actors()[0].presentation.portrait == TacticalPortraitSnapshot{},
+		"replacement baseline explicitly clears a previous portrait rather than retaining stale art identity");
+}
 }
 
 int main()
 {
+	TestWalkingPoseWireRoundTrips();
+	TestMedicalServiceSnapshots();
+	TestPortraitSnapshots();
+
 	const TacticalHandItemSnapshot emptyHand;
 	const TacticalHandItemSnapshot weaponHand{
 		1, 2, -3, 4, 0, -5, true, true};
@@ -173,16 +484,35 @@ int main()
 			emptyHand, emptyHand, emptyHand, weaponHand, emptyHand}.valid(),
 		"hand-item and actor-loadout values enforce their canonical form");
 
-	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 53,
+	static_assert(EncodedTacticalMapAssetKeyBytes == 260,
+		"map asset key size is a wire contract");
+	static_assert(EncodedTacticalSectorSnapshotBytes == 266,
+		"sector size is a wire contract");
+	static_assert(EncodedTacticalWorldSnapshotHeaderBytes == 314,
 		"snapshot header size is a wire contract");
 	static_assert(EncodedTacticalHandItemSnapshotBytes == 12,
 		"hand-item size is a wire contract");
-	static_assert(EncodedTacticalActorSnapshotBytes == 92,
+	static_assert(EncodedTacticalActorPresentationSnapshotBytes == 44,
+		"actor presentation size is a wire contract");
+	static_assert(TacticalWorldSnapshotWireVersion == 12,
+		"medical-service baseline version is an explicit wire contract");
+	static_assert(EncodedTacticalMedicalServiceSnapshotBytes == 8,
+		"medical-service size is a wire contract");
+	static_assert(EncodedTacticalActorSnapshotBytes == 148,
 		"actor size is a wire contract");
 	static_assert(EncodedTacticalDoorSnapshotBytes == 7,
 		"door size is a wire contract");
-	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 384053,
+	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 613690,
 		"maximum encoded baseline size is bounded");
+
+	TacticalMapAssetKey retainedMapKey;
+	Check(AssignTacticalMapAssetKey(retainedMapKey, "A9_B1_A.DAT") &&
+		!AssignTacticalMapAssetKey(retainedMapKey, "../A9.DAT") &&
+		!AssignTacticalMapAssetKey(retainedMapKey, "MAPS/A9.DAT") &&
+		!AssignTacticalMapAssetKey(retainedMapKey, "A9?.DAT") &&
+		!AssignTacticalMapAssetKey(retainedMapKey, "A9.SAV") &&
+		std::string(retainedMapKey.c_str()) == "A9_B1_A.DAT",
+		"map identity accepts an exact map basename and rejects unsafe or non-map paths transactionally");
 
 	const TacticalWorldSnapshot original =
 		MakeSnapshot(0x1112131415161718ull);
@@ -190,8 +520,8 @@ int main()
 	Check(EncodeTacticalWorldSnapshot(original, encoded) ==
 		TacticalWorldSnapshotEncodeResult::Success,
 		"valid baseline encodes");
-	const std::vector<std::uint8_t> golden{
-		0x54, 0x57, 0x53, 0x31, 0x07, 0x00,
+	std::vector<std::uint8_t> golden{
+		0x54, 0x57, 0x53, 0x31, 0x08, 0x00,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x40, 0x01, 0xf0, 0x00,
 		0x09, 0x00, 0xfe, 0xff, 0xff, 0x01,
@@ -202,7 +532,7 @@ int main()
 		0x02, 0x00, 0x00, 0x00,
 		0x02, 0x00, 0x00, 0x00,
 		0x03, 0x00, 0x24, 0x23, 0x22, 0x21, 0x06, 0x32, 0x31,
-		0xfe, 0xff, 0xff, 0xff, 0xff, 0x07, 0x42, 0x41, 0x02,
+		0xfe, 0xff, 0xff, 0xff, 0xff, 0x07, 0x42, 0x01, 0x02,
 		0xfd, 0xff, 0x04, 0x00, 0x05, 0x00, 0xfa, 0xff, 0x07, 0x00,
 		0x01, 0x01, 0x01, 0x01,
 		0x82, 0x81, 0x01, 0x58, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -211,7 +541,7 @@ int main()
 		0x92, 0x91, 0x03, 0xec, 0xff, 0xa2, 0xa1, 0x04, 0x03, 0xe2, 0xff, 0x03,
 		0xb2, 0xb1, 0x02, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x09, 0x00, 0x54, 0x53, 0x52, 0x51, 0x07, 0x62, 0x61,
-		0x04, 0x03, 0x02, 0x01, 0x01, 0x02, 0x72, 0x71, 0x03,
+		0x04, 0x03, 0x02, 0x01, 0x01, 0x02, 0x71, 0x01, 0x03,
 		0x08, 0x00, 0x09, 0x00, 0x0a, 0x00, 0x0b, 0x00, 0x0c, 0x00,
 		0x00, 0x01, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -221,7 +551,36 @@ int main()
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x2c, 0x01, 0x00, 0x00, 0x74, 0x73, 0x00,
 		0x90, 0x01, 0x00, 0x00, 0x82, 0x81, 0x01};
-	Check(encoded == golden, "version 7 baseline bytes match the golden fixture");
+	golden.insert(golden.begin() + 24,
+		EncodedTacticalMapAssetKeyBytes, 0);
+	std::copy(original.sector().mapAssetKey.bytes.begin(),
+		original.sector().mapAssetKey.bytes.end(), golden.begin() + 24);
+	// Version 9 adds ambient lighting to the header and one canonical 41-byte
+	// presentation record to every actor. Transforming the pinned version-8
+	// prefix keeps all pre-existing field bytes independently visible here.
+	golden[4] = 9;
+	golden.insert(golden.begin() + 305, 12);
+	std::vector<std::uint8_t> absentPresentation(41, 0);
+	absentPresentation[14] = 0x7d;
+	golden.insert(golden.begin() + 314 + 92,
+		absentPresentation.begin(), absentPresentation.end());
+	golden.insert(golden.begin() + 314 + 133 + 92,
+		absentPresentation.begin(), absentPresentation.end());
+	// Version 10 appends signed bleeding and unsigned equipped-kit points
+	// after the complete version-9 presentation record of each actor.
+	golden[4] = 10;
+	golden.insert(golden.begin() + 314 + 133, {123, 0, 0, 0});
+	golden.insert(golden.begin() + 314 + 137 + 133, {0, 0, 0, 0});
+	// Version 11 appends the three canonical absent-portrait bytes immediately
+	// after each display name, before the existing medical fields.
+	golden[4] = 11;
+	golden.insert(golden.begin() + 314 + 133, {0, 0, 0});
+	golden.insert(golden.begin() + 314 + 140 + 133, {0, 0, 0});
+	// Version 12 appends service state with an exact absent patient sentinel.
+	golden[4] = 12;
+	golden.insert(golden.begin() + 314 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
+	golden.insert(golden.begin() + 314 + 148 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
+	Check(encoded == golden, "version 12 baseline bytes match the golden fixture");
 	Check(encoded.size() == EncodedTacticalWorldSnapshotHeaderBytes +
 		2 * EncodedTacticalActorSnapshotBytes +
 		2 * EncodedTacticalDoorSnapshotBytes,
@@ -232,6 +591,88 @@ int main()
 		TacticalWorldSnapshotDecodeResult::Success,
 		"golden baseline decodes");
 	Check(SameSnapshot(original, decoded), "baseline round trip is exact");
+
+	TacticalWorldSnapshot posedSnapshot;
+	Check(TacticalWorldSnapshot::create(17,
+		TacticalWorldDimensions{320, 240}, {}, {}, {PosedActor()}, {},
+		posedSnapshot, TacticalWorldSnapshot::DefaultMaximumActors,
+		TacticalWorldSnapshot::DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot{13}) ==
+		TacticalSnapshotCreateError::None,
+		"a fully populated renderer presentation is valid");
+	std::vector<std::uint8_t> posedBytes;
+	TacticalWorldSnapshot posedDecoded;
+	Check(EncodeTacticalWorldSnapshot(posedSnapshot, posedBytes) ==
+		TacticalWorldSnapshotEncodeResult::Success &&
+		DecodeTacticalWorldSnapshot(posedBytes, posedDecoded) ==
+			TacticalWorldSnapshotDecodeResult::Success &&
+		SameSnapshot(posedSnapshot, posedDecoded) &&
+		posedDecoded.actors()[0].presentation.animationDirection == 6,
+		"renderer pose, appearance, UTF-16 name, and ambient light round trip exactly");
+	Check(posedDecoded.actors()[0].bleeding == 127 &&
+		posedDecoded.actors()[0].handMedicalKitPoints == 0x1234 &&
+		posedBytes[314 + 133] == 2 && posedBytes[314 + 134] == 255 &&
+		posedBytes[314 + 135] == 4 &&
+		posedBytes[314 + 136] == 127 && posedBytes[314 + 137] == 0 &&
+		posedBytes[314 + 138] == 0x34 && posedBytes[314 + 139] == 0x12,
+		"medical fields follow presentation with exact signed/unsigned little-endian bytes");
+	TacticalActorSnapshot medicalActor = PosedActor();
+	medicalActor.handMedicalKitPoints = 0xffff;
+	Check(medicalActor.medicalStateValid(), "equipped-kit points retain their full unsigned range");
+	for (unsigned mutation = 0; mutation < 4; ++mutation)
+	{
+		TacticalActorSnapshot invalidMedical = medicalActor;
+		if (mutation == 0) invalidMedical.bleeding = -1;
+		else if (mutation == 1) invalidMedical.bleeding = 128;
+		else if (mutation == 2) invalidMedical.loadout.primaryHand = {};
+		else invalidMedical.loadout.primaryHand = FirstActor().loadout.primaryHand;
+		TacticalWorldSnapshot retainedMedical = original;
+		Check(!invalidMedical.medicalStateValid() &&
+			TacticalWorldSnapshot::create(19, TacticalWorldDimensions{320, 240},
+				{}, {}, {invalidMedical}, {}, retainedMedical) ==
+				TacticalSnapshotCreateError::InvalidEntity &&
+			SameSnapshot(retainedMedical, original),
+			"out-of-domain bleeding and kit points on empty/ammunition hands reject transactionally");
+	}
+
+	// Native JA2 locomotion advances the actor's logical grid to the next path
+	// tile before its sub-tile render position finishes crossing the boundary.
+	// That short-lived disagreement is a valid walking pose, not a malformed
+	// authoritative snapshot.
+	TacticalActorSnapshot walkingActor = PosedActor();
+	walkingActor.grid += 1;
+	TacticalWorldSnapshot walkingSnapshot;
+	Check(TacticalWorldSnapshot::create(18,
+		TacticalWorldDimensions{320, 240}, {}, {}, {walkingActor}, {},
+		walkingSnapshot, TacticalWorldSnapshot::DefaultMaximumActors,
+		TacticalWorldSnapshot::DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot{13}) ==
+		TacticalSnapshotCreateError::None &&
+		walkingSnapshot.actors()[0].grid == walkingActor.grid &&
+		walkingSnapshot.actors()[0].presentation.worldXQ8 ==
+			walkingActor.presentation.worldXQ8,
+		"a walking actor may advance its logical grid before its bounded render position crosses the tile boundary");
+	TacticalActorSnapshot divergentActor = walkingActor;
+	divergentActor.grid += 1;
+	Check(TacticalWorldSnapshot::create(19,
+		TacticalWorldDimensions{320, 240}, {}, {}, {divergentActor}, {},
+		walkingSnapshot, TacticalWorldSnapshot::DefaultMaximumActors,
+		TacticalWorldSnapshot::DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot{13}) ==
+		TacticalSnapshotCreateError::InvalidEntity &&
+		walkingSnapshot.epoch() == 18,
+		"a render position more than one logical tile away remains invalid and transactional");
+	TacticalActorSnapshot outsideWorldActor = walkingActor;
+	outsideWorldActor.presentation.worldXQ8 =
+		320 * TacticalWorldCellSize * TacticalWorldCoordinateScale;
+	Check(TacticalWorldSnapshot::create(20,
+		TacticalWorldDimensions{320, 240}, {}, {}, {outsideWorldActor}, {},
+		walkingSnapshot, TacticalWorldSnapshot::DefaultMaximumActors,
+		TacticalWorldSnapshot::DefaultMaximumDoors,
+		TacticalWorldLightingSnapshot{13}) ==
+		TacticalSnapshotCreateError::InvalidEntity &&
+		walkingSnapshot.epoch() == 18,
+		"a render position at or beyond the world boundary remains invalid and transactional");
 
 	std::vector<std::uint8_t> retained{0xaa, 0xbb};
 	const TacticalWorldSnapshot invalid;
@@ -288,71 +729,126 @@ int main()
 	changed[23] = 2;
 	RejectsInvalid(changed, "noncanonical sector boolean is rejected");
 	changed = encoded;
-	changed[24] = 2;
+	changed[24 + original.sector().mapAssetKey.bytes.size() - 1] = 1;
+	RejectsInvalid(changed, "nonzero map identity padding is rejected");
+	changed = encoded;
+	changed[23] = 0;
+	std::fill(changed.begin() + 24,
+		changed.begin() + 24 + EncodedTacticalMapAssetKeyBytes, 0);
+	changed[24 + EncodedTacticalMapAssetKeyBytes - 1] = 1;
+	RejectsInvalid(changed,
+		"unloaded sectors require an all-zero map identity");
+	changed = encoded;
+	changed[24 + 8] = '/';
+	RejectsInvalid(changed, "unsafe map identity bytes are rejected");
+	changed = encoded;
+	changed[284] = 2;
 	RejectsInvalid(changed, "noncanonical turn boolean is rejected");
 	changed = encoded;
-	changed[35] = 3;
+	changed[295] = 3;
 	RejectsInvalid(changed, "unknown interrupt phase is rejected");
 	changed = encoded;
-	for (std::size_t index = 36; index < 44; ++index) changed[index] = 0;
+	for (std::size_t index = 296; index < 304; ++index) changed[index] = 0;
 	RejectsInvalid(changed, "active interrupt requires a nonzero serial");
 	changed = encoded;
-	changed[35] = 0;
+	changed[295] = 0;
 	RejectsInvalid(changed,
 		"actor interrupt eligibility requires an active interrupt phase");
 	changed = encoded;
-	changed[44] = 2;
+	changed[304] = 2;
 	RejectsInvalid(changed,
 		"noncanonical commands-blocked boolean is rejected");
 	changed = encoded;
-	changed[55] = changed[56] = changed[57] = changed[58] = 0;
+	changed[305] = 0;
+	RejectsInvalid(changed, "out-of-domain ambient light is rejected");
+	changed = encoded;
+	changed[316] = changed[317] = changed[318] = changed[319] = 0;
 	RejectsInvalid(changed, "invalid actor incarnation is rejected");
 	changed = encoded;
-	changed[70] = 4;
+	changed[331] = 4;
 	RejectsInvalid(changed, "unknown stance is rejected");
 	changed = encoded;
-	changed[145] = changed[53];
-	changed[146] = changed[54];
-	changed[147] = changed[55];
-	changed[148] = changed[56];
-	changed[149] = changed[57];
-	changed[150] = changed[58];
-	RejectsInvalid(changed, "duplicate actor identity is rejected");
+	changed[462] = changed[314];
+	changed[463] = changed[315];
+	RejectsInvalid(changed,
+		"two incarnations with one numeric actor slot are rejected");
 	changed = encoded;
-	changed[83] = 2;
+	changed[344] = 2;
 	RejectsInvalid(changed, "noncanonical hostility bit is rejected");
 	changed = encoded;
-	changed[95] = 0x04;
+	changed[357] = 0x04;
 	RejectsInvalid(changed, "unknown equipment flags are rejected");
 	changed = encoded;
-	changed[132] = 0;
+	changed[393] = 0;
 	RejectsInvalid(changed,
 		"ammunition fields require canonical ammunition state");
 	changed = encoded;
-	changed[123] = 0;
+	changed[384] = 0;
 	RejectsInvalid(changed, "occupied hand items require a quantity");
 	changed = encoded;
-	changed[227] = 1;
+	changed[544] = 1;
 	RejectsInvalid(changed, "empty hand items require all-zero state");
 	changed = encoded;
-	changed[241] = changed[242] = 0;
+	changed[406] = TacticalActorBodyTypeCount;
+	RejectsInvalid(changed, "out-of-domain actor body type is rejected");
+	changed = encoded;
+	changed[408] = 8;
+	RejectsInvalid(changed,
+		"an absent render pose requires a canonical animation direction");
+	changed = encoded;
+	changed[409] = 1;
+	RejectsInvalid(changed,
+		"an absent render pose requires canonical zero coordinates");
+	changed = encoded;
+	changed[423] = 1;
+	RejectsInvalid(changed,
+		"an absent palette requires its canonical zero index");
+	changed = encoded;
+	changed[427] = 0x00;
+	changed[428] = 0xd8;
+	RejectsInvalid(changed,
+		"an unpaired UTF-16 display-name surrogate is rejected");
+	changed = encoded;
+	changed[614] = changed[615] = 0;
 	RejectsInvalid(changed, "zero door structure identity is rejected");
 	changed = encoded;
-	changed[244] = changed[237];
-	changed[245] = changed[238];
-	changed[246] = changed[239];
-	changed[247] = changed[240];
+	changed[617] = changed[610];
+	changed[618] = changed[611];
+	changed[619] = changed[612];
+	changed[620] = changed[613];
 	RejectsInvalid(changed, "duplicate door base grid is rejected");
 	changed = encoded;
-	changed[243] = 2;
+	changed[616] = 2;
 	RejectsInvalid(changed, "noncanonical door open bit is rejected");
+	changed = encoded;
+	changed[450] = changed[451] = 0xff;
+	RejectsInvalid(changed, "negative signed bleeding is rejected");
+	changed = encoded;
+	changed[450] = 128;
+	changed[451] = 0;
+	RejectsInvalid(changed, "bleeding above native signed-byte range is rejected");
+	changed = encoded;
+	changed[452] = 1;
+	RejectsInvalid(changed, "medical-kit points cannot decorate an ammunition-bearing hand");
+	changed = posedBytes;
+	std::fill(changed.begin() + 314 + 68, changed.begin() + 314 + 80, 0);
+	RejectsInvalid(changed, "medical-kit points cannot survive an empty equipped hand");
 	changed = encoded;
 	changed.push_back(0);
 	RejectsInvalid(changed, "trailing bytes are rejected");
 
 	changed = encoded;
-	changed[4] = 1;
+	changed[4] = 7;
 	TacticalWorldSnapshot output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+		"pre-map-identity version 7 is rejected instead of guessed");
+	Check(SameSnapshot(output, retainedSnapshot),
+		"version-7 rejection preserves previous snapshot");
+
+	changed = encoded;
+	changed[4] = 1;
+	output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(changed, output) ==
 		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
 		"dimensionless version 1 is rejected instead of guessed");
@@ -385,13 +881,48 @@ int main()
 		"version-5 rejection preserves previous snapshot");
 
 	changed = encoded;
-	changed[4] = 8;
+	changed[4] = 13;
 	output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(changed, output) ==
 		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
 		"unknown baseline version has a distinct result");
 	Check(SameSnapshot(output, retainedSnapshot),
 		"version rejection preserves previous snapshot");
+	changed = encoded;
+	changed[4] = 9;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
+		SameSnapshot(output, retainedSnapshot),
+		"pre-medical version 9 is rejected without inventing bleeding or equipped-kit state");
+	changed = encoded;
+	changed[4] = 10;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
+		SameSnapshot(output, retainedSnapshot),
+		"pre-portrait version 10 is rejected without inferring a face from profile identity");
+	changed = encoded;
+	changed[4] = 11;
+	output = retainedSnapshot;
+	Check(DecodeTacticalWorldSnapshot(changed, output) ==
+		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
+		SameSnapshot(output, retainedSnapshot),
+		"pre-service version 11 is rejected without inventing treatment activity");
+
+	TacticalActorSnapshot replacementIncarnation = FirstActor();
+	replacementIncarnation.id.incarnation++;
+	replacementIncarnation.interruptActionEligible = false;
+	TacticalActorSnapshot originalIncarnation = FirstActor();
+	originalIncarnation.interruptActionEligible = false;
+	TacticalWorldSnapshot duplicateSlotOutput = retainedSnapshot;
+	Check(TacticalWorldSnapshot::create(1,
+		TacticalWorldDimensions{160, 160}, {}, {},
+		{originalIncarnation, replacementIncarnation}, duplicateSlotOutput) ==
+			TacticalSnapshotCreateError::DuplicateEntity,
+		"snapshot creation rejects two incarnations of one numeric slot");
+	Check(SameSnapshot(duplicateSlotOutput, retainedSnapshot),
+		"duplicate-slot creation is transactional");
 
 	output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(encoded, output, 1) ==
@@ -417,6 +948,8 @@ int main()
 		actor.interruptActionEligible = false;
 		actor.id = TacticalEntityId{
 			static_cast<std::uint16_t>(index), 1};
+		actor.presentation.portrait = {TacticalPortraitFamily::ImpFaces, 255,
+			TacticalPortraitCamouflage::Snow};
 		maximumActors.push_back(actor);
 	}
 	std::vector<TacticalDoorSnapshot> maximumDoors;
@@ -447,7 +980,8 @@ int main()
 	Check(maximumDecoded.actors().size() ==
 		TacticalWorldSnapshot::DefaultMaximumActors &&
 		maximumDecoded.doors().size() ==
-			TacticalWorldSnapshot::DefaultMaximumDoors,
+			TacticalWorldSnapshot::DefaultMaximumDoors &&
+		SameSnapshot(maximumSnapshot, maximumDecoded),
 		"maximum-size decode retains every actor");
 
 	std::vector<TacticalActorSnapshot> excessiveActors;

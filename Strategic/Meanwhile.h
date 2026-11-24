@@ -44,6 +44,8 @@ BOOLEAN BeginMeanwhile( UINT8 ubMeanwhileID );
 
 void CheckForMeanwhileOKStart( );
 void EndMeanwhile( );
+// Ordinary native Skip consequences; does not start the cinematic.
+void SkipMeanwhileScene();
 
 
 

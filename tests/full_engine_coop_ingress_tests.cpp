@@ -440,6 +440,70 @@ void TestNoExecutionAuthorityPath()
 		"no-execution replay cannot consume or execute twice");
 }
 
+void TestTypedIntentPreservesIngressGates()
+{
+	SequentialTokenSource tokens;
+	RecordingExecutionSink sink;
+	FullEngineCoopIngress ingress(tokens, sink);
+	const FullEngineCoopSessionConfiguration configuration = Session(0x501);
+	CHECK(ingress.beginSession(configuration) ==
+		FullEngineCoopStartResult::Success,
+		"typed-intent ingress fixture starts");
+	const TransportPeer sender{6171};
+	const AdmissionRequestBytes request =
+		RequestBytes(FirstJoin(configuration.admission));
+	const AdmissionResponse peer = DecodeResponse(ingress.handleAdmission(
+		sender, request.data(), request.size()));
+	Acknowledge(ingress, sender, peer);
+	const TacticalEntityId actor{8, 3};
+	CHECK(ingress.bindActorForTransport(sender, actor) ==
+		TacticalActorBindingResult::Success,
+		"typed-intent peer receives its actor ACL");
+
+	TacticalIntent invalid = Intent(peer, 1, actor);
+	invalid.payload = MoveTacticalIntent{-1, 0, false};
+	const TacticalIntentIngressResult structurallyRejected =
+		ingress.handleTacticalIntent(sender, invalid);
+	CHECK(structurallyRejected.decodeResult ==
+		TacticalIntentCodecResult::Invalid &&
+		!structurallyRejected.authorization.commandConsumed &&
+		!structurallyRejected.executionAttempted && sink.count == 0,
+		"typed intent is structurally validated before authority or execution");
+
+	TacticalIntent command = Intent(peer, 1, actor);
+	sink.readyForExecution = false;
+	const TacticalIntentIngressResult backpressured =
+		ingress.handleTacticalIntent(sender, command);
+	CHECK(backpressured.decodeResult == TacticalIntentCodecResult::Success &&
+		!backpressured.authorization.commandConsumed &&
+		!backpressured.executionAttempted && sink.count == 0,
+		"typed intent preserves pre-authority execution backpressure");
+
+	sink.readyForExecution = true;
+	command.baseRevision = configuration.tactical.revision - 1;
+	const TacticalIntentIngressResult stale =
+		ingress.handleTacticalIntent(sender, command);
+	CHECK(stale.decodeResult == TacticalIntentCodecResult::Success &&
+		stale.authorization.reason ==
+			TacticalIntentAuthorizationReason::StaleRevision &&
+		stale.authorization.commandConsumed &&
+		stale.authorization.nextExpectedCommandId == 2 &&
+		!stale.executionAttempted && sink.count == 0,
+		"typed intent cannot bypass the exact tactical revision authority");
+
+	command.commandId = 2;
+	command.baseRevision = configuration.tactical.revision;
+	const TacticalIntentIngressResult applied =
+		ingress.handleTacticalIntent(sender, command);
+	CHECK(applied.decodeResult == TacticalIntentCodecResult::Success &&
+		applied.authorization.reason == TacticalIntentAuthorizationReason::None &&
+		applied.executionAttempted &&
+		applied.execution == TacticalIntentExecutionDisposition::Applied &&
+		sink.count == 1 && sink.received[0].commandId == 2 &&
+		sink.received[0].context.revision == configuration.tactical.revision,
+		"typed current intent passes unchanged authority and execution handoff");
+}
+
 void TestIntentRoutingAndLifecycle()
 {
 	SequentialTokenSource tokens;
@@ -483,6 +547,18 @@ void TestIntentRoutingAndLifecycle()
 	CHECK(truncated.decodeResult == TacticalIntentCodecResult::Invalid &&
 		!truncated.executionAttempted && sink.count == 0,
 		"truncated tactical bytes never reach authority or execution");
+	std::vector<std::uint8_t> unsupportedBytes = commandA1Bytes;
+	unsupportedBytes[4] = static_cast<std::uint8_t>(
+		TacticalIntentWireVersion + 1);
+	unsupportedBytes[5] = 0;
+	const TacticalIntentIngressResult unsupported =
+		ingress.handleTacticalIntent(senderA,
+			unsupportedBytes.data(), unsupportedBytes.size());
+	CHECK(unsupported.decodeResult ==
+		TacticalIntentCodecResult::UnsupportedVersion &&
+		!unsupported.authorization.commandConsumed &&
+		!unsupported.executionAttempted && sink.count == 0,
+		"wire ingress preserves unsupported-version codec reporting");
 	sink.readyForExecution = false;
 	const TacticalIntentIngressResult backpressured =
 		ingress.handleTacticalIntent(
@@ -629,6 +705,7 @@ int main()
 	TestAuthenticatedPeerResolution();
 	TestAdmissionDecodeAndExactResponses();
 	TestNoExecutionAuthorityPath();
+	TestTypedIntentPreservesIngressGates();
 	TestIntentRoutingAndLifecycle();
 	if (failures != 0)
 	{

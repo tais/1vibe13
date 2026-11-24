@@ -483,5 +483,369 @@ int main()
 			CommandDisposition::Discard && reference.snapshot() == referenceState,
 		"the portable reference also declines authoritative native door policy");
 
+	BeginFirstAidCommand firstAid;
+	firstAid.soldier = {2, 0x11223344};
+	firstAid.target = {3, 0x55667788};
+	firstAid.expectedWorldGeneration = 9;
+	firstAid.expectedTurnSerial = 11;
+	firstAid.expectedActorGrid = 120;
+	firstAid.expectedTargetGrid = 121;
+	firstAid.expectedLevel = 0;
+	firstAid.direction = 2;
+	firstAid.expectedAnimationState = 6;
+	firstAid.expectedTargetAnimationState = 7;
+	firstAid.expectedHandItem = 201;
+	firstAid.expectedKitStateFingerprint = 0x0102030405060708ull;
+	firstAid.expectedActionPointCost = 5;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{firstAid}),
+		"first aid requires explicit native authority and exact prepared preconditions");
+	const std::vector<RecordedSimulationCommand> firstAidRecords{
+		{13, 17, CommandJournalStatus::Applied, SimulationCommand{firstAid}}};
+	std::vector<std::uint8_t> firstAidWire;
+	Require(EncodeSimulationCommandJournal(firstAidRecords, 0, firstAidWire),
+		"prepared first aid journal encodes");
+	std::vector<RecordedSimulationCommand> decodedFirstAid;
+	std::uint64_t firstAidDropped = 0;
+	Require(DecodeSimulationCommandJournal(firstAidWire, decodedFirstAid,
+		firstAidDropped) == SimulationCommandJournalDecodeResult::Success &&
+		decodedFirstAid.size() == 1 &&
+		std::holds_alternative<BeginFirstAidCommand>(decodedFirstAid[0].command),
+		"prepared first aid journal decodes its append-only tag");
+	std::vector<std::uint8_t> firstAidReencoded;
+	Require(EncodeSimulationCommandJournal(decodedFirstAid, firstAidDropped,
+		firstAidReencoded) && firstAidReencoded == firstAidWire,
+		"prepared first aid round trip retains every identity, kit, pose and budget field");
+	std::array<BeginFirstAidCommand, 10> invalidFirstAid;
+	invalidFirstAid.fill(firstAid);
+	invalidFirstAid[0].target = firstAid.soldier;
+	invalidFirstAid[1].expectedWorldGeneration = 0;
+	invalidFirstAid[2].expectedTurnSerial = 0;
+	invalidFirstAid[3].expectedActorGrid = firstAid.expectedTargetGrid;
+	invalidFirstAid[4].expectedLevel = 2;
+	invalidFirstAid[5].direction = 8;
+	invalidFirstAid[6].expectedKitStateFingerprint = 0;
+	invalidFirstAid[7].expectedActionPointCost = -1;
+	invalidFirstAid[8].source = SimulationCommandSource::LocalPlayer;
+	invalidFirstAid[9].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidFirstAid)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"malformed or unprepared medical authority is rejected");
+	for (std::size_t length = 0; length < firstAidWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(firstAidWire.begin(),
+			firstAidWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedFirstAid,
+			firstAidDropped) != SimulationCommandJournalDecodeResult::Success &&
+			decodedFirstAid.size() == 1 && firstAidDropped == 0,
+			"truncated medical journal rejects transactionally");
+	}
+	Require(reference.execute(SimulationCommand{firstAid}, 3, 3) ==
+		CommandDisposition::Discard && reference.snapshot() == referenceState,
+		"portable simulation does not invent native first-aid effects");
+
+	SwapInventorySlotsCommand swap;
+	swap.soldier = {2, 0x11223344};
+	swap.sourceSlot = 14;
+	swap.destinationSlot = 5;
+	swap.expectedWorldGeneration = 0x0102030405060708ull;
+	swap.expectedTurnSerial = 0x1112131415161718ull;
+	swap.expectedActorGrid = 120;
+	swap.expectedActorLevel = 0;
+	swap.expectedAnimationState = 6;
+	swap.expectedDirection = 2;
+	swap.expectedActorStateFingerprint = 0x2122232425262728ull;
+	swap.sourceStateFingerprint = 0x3132333435363738ull;
+	swap.destinationStateFingerprint = 0x4142434445464748ull;
+	swap.handStateFingerprint = 0x5152535455565758ull;
+	swap.offhandStateFingerprint = 0x6162636465666768ull;
+	swap.expectedActionPointCost = 5;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{swap}),
+		"retained inventory swap requires every server-prepared proof");
+	std::vector<std::uint8_t> swapWire;
+	Require(EncodeSimulationCommandJournal({{13, 17, CommandJournalStatus::Applied,
+		SimulationCommand{swap}}}, 5, swapWire), "retained inventory swap encodes");
+	const std::vector<std::uint8_t> expectedSwapWire{
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00,
+		0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x24, 0x02, 0x00, 0x44, 0x33, 0x22, 0x11, 0x0e, 0x05,
+		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x78, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02,
+		0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21,
+		0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31,
+		0x48, 0x47, 0x46, 0x45, 0x44, 0x43, 0x42, 0x41,
+		0x58, 0x57, 0x56, 0x55, 0x54, 0x53, 0x52, 0x51,
+		0x68, 0x67, 0x66, 0x65, 0x64, 0x63, 0x62, 0x61,
+		0x05, 0x00, 0x01, 0x01};
+	Require(swapWire == expectedSwapWire && swapWire.size() == 112 && swapWire[35] == 36,
+		"append-only tag 36 has a literal 77-byte pointer-free little-endian layout in journal v4");
+	std::vector<RecordedSimulationCommand> decodedSwap;
+	std::uint64_t swapDropped = 0;
+	Require(DecodeSimulationCommandJournal(swapWire, decodedSwap, swapDropped) ==
+		SimulationCommandJournalDecodeResult::Success && decodedSwap.size() == 1 && swapDropped == 5,
+		"inventory swap journal decodes its new tag");
+	const auto& restoredSwap = std::get<SwapInventorySlotsCommand>(decodedSwap[0].command);
+	Require(restoredSwap.soldier == swap.soldier && restoredSwap.sourceSlot == swap.sourceSlot &&
+		restoredSwap.destinationSlot == swap.destinationSlot &&
+		restoredSwap.expectedWorldGeneration == swap.expectedWorldGeneration &&
+		restoredSwap.expectedTurnSerial == swap.expectedTurnSerial &&
+		restoredSwap.expectedActorGrid == swap.expectedActorGrid && restoredSwap.expectedActorLevel == swap.expectedActorLevel &&
+		restoredSwap.expectedAnimationState == swap.expectedAnimationState && restoredSwap.expectedDirection == swap.expectedDirection &&
+		restoredSwap.expectedActorStateFingerprint == swap.expectedActorStateFingerprint &&
+		restoredSwap.sourceStateFingerprint == swap.sourceStateFingerprint &&
+		restoredSwap.destinationStateFingerprint == swap.destinationStateFingerprint &&
+		restoredSwap.handStateFingerprint == swap.handStateFingerprint &&
+		restoredSwap.offhandStateFingerprint == swap.offhandStateFingerprint &&
+		restoredSwap.expectedActionPointCost == swap.expectedActionPointCost &&
+		restoredSwap.source == swap.source && restoredSwap.authority == swap.authority,
+		"tag 36 restores every exact actor, turn, pose, object and AP proof");
+	std::array<SwapInventorySlotsCommand, 18> invalidSwaps;
+	invalidSwaps.fill(swap);
+	invalidSwaps[0].soldier = {};
+	invalidSwaps[1].sourceSlot = 7;
+	invalidSwaps[2].destinationSlot = 55;
+	invalidSwaps[3].destinationSlot = swap.sourceSlot;
+	invalidSwaps[4].expectedWorldGeneration = 0;
+	invalidSwaps[5].expectedTurnSerial = 0;
+	invalidSwaps[6].expectedActorGrid = -1;
+	invalidSwaps[7].expectedActorLevel = 2;
+	invalidSwaps[8].expectedAnimationState = UINT16_MAX;
+	invalidSwaps[9].expectedDirection = 8;
+	invalidSwaps[10].expectedActorStateFingerprint = 0;
+	invalidSwaps[11].sourceStateFingerprint = 0;
+	invalidSwaps[12].destinationStateFingerprint = 0;
+	invalidSwaps[13].handStateFingerprint = 0;
+	invalidSwaps[14].offhandStateFingerprint = 0;
+	invalidSwaps[15].expectedActionPointCost = -1;
+	invalidSwaps[16].source = SimulationCommandSource::System;
+	invalidSwaps[17].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidSwaps)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"missing inventory authority or unsupported slot/proof rejects structurally");
+	for (std::size_t length = 0; length < swapWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(swapWire.begin(), swapWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedSwap, swapDropped) !=
+			SimulationCommandJournalDecodeResult::Success && decodedSwap.size() == 1 && swapDropped == 5,
+			"truncated tag 36 preserves the caller's previous decoded journal");
+	}
+	for (std::size_t offset : {std::size_t(42), std::size_t(64), std::size_t(67), std::size_t(110), std::size_t(111)})
+	{
+		auto malformed = swapWire;
+		malformed[offset] = 255;
+		Require(DecodeSimulationCommandJournal(malformed, decodedSwap, swapDropped) ==
+			SimulationCommandJournalDecodeResult::Invalid && decodedSwap.size() == 1 && swapDropped == 5,
+			"malformed native inventory policy bytes reject transactionally");
+	}
+	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy> swapPlayback;
+	Require(swapPlayback.stageRecordedPlaybackBatch({{13, 17, SimulationCommand{swap}}}),
+		"retained inventory command is journal-playback compatible");
+	const auto replayedSwap = swapPlayback.queue().drainThrough(13);
+	Require(replayedSwap.size() == 1 && std::get<SwapInventorySlotsCommand>(replayedSwap[0].command).source ==
+		SimulationCommandSource::Replay && IsStructurallyValidSimulationCommand(replayedSwap[0].command) &&
+		std::get<SwapInventorySlotsCommand>(swapPlayback.journal().snapshot()[0].command).source ==
+		SimulationCommandSource::NetworkPeer, "inventory playback changes execution provenance, not captured journal authority");
+	Require(reference.execute(SimulationCommand{swap}, 4, 4) == CommandDisposition::Discard &&
+		reference.snapshot() == referenceState, "portable simulation declines native inventory/equipment policy");
+
+	TransferInventoryItemCommand transfer;
+	transfer.soldier = {2, 0x11223344};
+	transfer.target = {3, 0x22334455};
+	transfer.sourceSlot = 14;
+	transfer.destinationSlot = 15;
+	transfer.expectedWorldGeneration = 1;
+	transfer.expectedTurnSerial = 2;
+	transfer.expectedActorGrid = 120;
+	transfer.expectedTargetGrid = 121;
+	transfer.expectedLevel = 0;
+	transfer.expectedAnimationState = transfer.expectedTargetAnimationState = 6;
+	transfer.expectedDirection = 2;
+	transfer.expectedTargetDirection = 6;
+	transfer.expectedActorStateFingerprint = 5;
+	transfer.expectedTargetStateFingerprint = 6;
+	transfer.sourceStateFingerprint = 7;
+	transfer.destinationStateFingerprint = 1;
+	transfer.expectedActionPointCost = 2;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{transfer}),
+		"retained pocket transfer carries both actors and canonical empty-destination proof");
+	std::vector<std::uint8_t> transferWire;
+	Require(EncodeSimulationCommandJournal({{13, 17, CommandJournalStatus::Applied,
+		SimulationCommand{transfer}}}, 5, transferWire), "retained transfer encodes");
+	const std::vector<std::uint8_t> expectedTransferWire{
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x25,
+		0x02, 0x00, 0x44, 0x33, 0x22, 0x11, 0x03, 0x00, 0x55, 0x44, 0x33, 0x22,
+		0x0e, 0x0f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78, 0x00, 0x00, 0x00, 0x79, 0x00,
+		0x00, 0x00, 0x00, 0x06, 0x00, 0x06, 0x00, 0x02, 0x06, 0x05, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x02, 0x00, 0x01, 0x01};
+	Require(transferWire == expectedTransferWire && transferWire.size() == 149 && transferWire[35] == 37,
+		"tag37 has literal 114-byte retained transfer layout without changing journal version");
+	std::vector<RecordedSimulationCommand> decodedTransfer;
+	std::uint64_t transferDropped = 0;
+	Require(DecodeSimulationCommandJournal(transferWire, decodedTransfer, transferDropped) ==
+		SimulationCommandJournalDecodeResult::Success && decodedTransfer.size() == 1 && transferDropped == 5,
+		"retained transfer decodes");
+	std::vector<std::uint8_t> encodedTransferAgain;
+	Require(EncodeSimulationCommandJournal(decodedTransfer, transferDropped, encodedTransferAgain) &&
+		encodedTransferAgain == expectedTransferWire, "all actor/slot/state proofs roundtrip exactly");
+	for (std::size_t length = 0; length < transferWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(transferWire.begin(), transferWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedTransfer, transferDropped) !=
+			SimulationCommandJournalDecodeResult::Success && decodedTransfer.size() == 1 && transferDropped == 5,
+			"every truncated transfer journal rejects transactionally");
+	}
+	std::array<TransferInventoryItemCommand, 17> invalidTransfers;
+	invalidTransfers.fill(transfer);
+	invalidTransfers[0].target = {};
+	invalidTransfers[1].target = transfer.soldier;
+	invalidTransfers[2].sourceSlot = 7;
+	invalidTransfers[3].destinationSlot = 55;
+	invalidTransfers[4].expectedWorldGeneration = 0;
+	invalidTransfers[5].expectedTurnSerial = 0;
+	invalidTransfers[6].expectedTargetGrid = -1;
+	invalidTransfers[7].expectedLevel = 2;
+	invalidTransfers[8].expectedTargetAnimationState = UINT16_MAX;
+	invalidTransfers[9].expectedTargetDirection = 8;
+	invalidTransfers[10].expectedTargetStateFingerprint = 0;
+	invalidTransfers[11].sourceStateFingerprint = 0;
+	invalidTransfers[12].destinationStateFingerprint = 2;
+	invalidTransfers[13].handStateFingerprint = 1;
+	invalidTransfers[14].expectedActionPointCost = 3;
+	invalidTransfers[15].source = SimulationCommandSource::System;
+	invalidTransfers[16].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidTransfers)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"missing transfer authority/proofs or noncanonical pocket hand proofs reject");
+	TransferInventoryItemCommand handTransfer = transfer;
+	handTransfer.destinationSlot = 5;
+	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{handTransfer}),
+		"hand-involved transfer cannot use pocket-only zero hand proofs");
+	handTransfer.handStateFingerprint = handTransfer.offhandStateFingerprint =
+		handTransfer.targetHandStateFingerprint = handTransfer.targetOffhandStateFingerprint = 1;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{handTransfer}),
+		"hand-involved transfer requires all four ordinary hand proofs");
+	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy> transferPlayback;
+	Require(transferPlayback.stageRecordedPlaybackBatch({{13, 17, SimulationCommand{transfer}}}),
+		"retained transfer stages journal playback");
+	const auto replayedTransfer = transferPlayback.queue().drainThrough(13);
+	Require(replayedTransfer.size() == 1 &&
+		std::get<TransferInventoryItemCommand>(replayedTransfer[0].command).source == SimulationCommandSource::Replay &&
+		IsStructurallyValidSimulationCommand(replayedTransfer[0].command),
+		"transfer replay retains proofs and substitutes execution provenance");
+	Require(reference.execute(SimulationCommand{transfer}, 5, 5) == CommandDisposition::Discard &&
+		reference.snapshot() == referenceState, "portable reference does not invent a second inventory transfer model");
+
+	AuthoritativeDropInventoryItemCommand drop;
+	drop.soldier = {2, 0x11223344};
+	drop.sourceSlot = 14;
+	drop.expectedWorldGeneration = 1;
+	drop.expectedTurnSerial = 2;
+	drop.expectedActorGrid = 120;
+	drop.expectedActorLevel = 0;
+	drop.expectedAnimationState = 6;
+	drop.expectedDirection = 2;
+	drop.expectedActorStateFingerprint = 5;
+	drop.sourceStateFingerprint = 7;
+	drop.expectedActionPointCost = 3;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{drop}),
+		"retained pocket drop carries exact actor pose, source object and native AP proofs");
+	std::vector<std::uint8_t> dropWire;
+	Require(EncodeSimulationCommandJournal({{13, 17, CommandJournalStatus::Applied,
+		SimulationCommand{drop}}}, 5, dropWire), "retained drop encodes");
+	const std::vector<std::uint8_t> expectedDropWire{
+		0x53, 0x4d, 0x43, 0x31, 0x04, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x27,
+		0x02, 0x00, 0x44, 0x33, 0x22, 0x11, 0x0e,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x78, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02,
+		0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x01, 0x01};
+	Require(dropWire == expectedDropWire && dropWire.size() == 87 && dropWire[35] == 39,
+		"tag39 has exact52-byte drop layout without changing the journal version");
+	std::vector<RecordedSimulationCommand> decodedDrop;
+	std::uint64_t dropDropped = 0;
+	Require(DecodeSimulationCommandJournal(dropWire, decodedDrop, dropDropped) ==
+		SimulationCommandJournalDecodeResult::Success && decodedDrop.size() == 1 && dropDropped == 5,
+		"retained drop journal decodes");
+	std::vector<std::uint8_t> encodedDropAgain;
+	Require(EncodeSimulationCommandJournal(decodedDrop, dropDropped, encodedDropAgain) &&
+		encodedDropAgain == expectedDropWire, "drop source/pose/object/AP proofs roundtrip exactly");
+	for (std::size_t length = 0; length < dropWire.size(); ++length)
+	{
+		const std::vector<std::uint8_t> truncated(dropWire.begin(), dropWire.begin() + length);
+		Require(DecodeSimulationCommandJournal(truncated, decodedDrop, dropDropped) !=
+			SimulationCommandJournalDecodeResult::Success && decodedDrop.size() == 1 && dropDropped == 5,
+			"every truncated drop journal rejects transactionally");
+	}
+	std::array<AuthoritativeDropInventoryItemCommand, 17> invalidDrops;
+	invalidDrops.fill(drop);
+	invalidDrops[0].soldier = {};
+	invalidDrops[1].sourceSlot = 13;
+	invalidDrops[2].sourceSlot = 55;
+	invalidDrops[3].expectedWorldGeneration = 0;
+	invalidDrops[4].expectedTurnSerial = 0;
+	invalidDrops[5].expectedActorGrid = -1;
+	invalidDrops[6].expectedActorLevel = -1;
+	invalidDrops[7].expectedActorLevel = 1;
+	invalidDrops[8].expectedAnimationState = UINT16_MAX;
+	invalidDrops[9].expectedDirection = 8;
+	invalidDrops[10].expectedActorStateFingerprint = 0;
+	invalidDrops[11].sourceStateFingerprint = 0;
+	invalidDrops[12].expectedActionPointCost = -1;
+	invalidDrops[13].expectedActionPointCost = 0;
+	invalidDrops[14].source = SimulationCommandSource::LocalPlayer;
+	invalidDrops[15].source = SimulationCommandSource::System;
+	invalidDrops[16].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidDrops)
+	{
+		std::vector<std::uint8_t> output{0xaa};
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}) &&
+			!EncodeSimulationCommandJournal({{13, 17, CommandJournalStatus::Applied,
+				SimulationCommand{invalid}}}, 5, output) && output == std::vector<std::uint8_t>({0xaa}),
+			"invalid drop source/ground-only pose/authority/proofs reject encoding transactionally");
+	}
+	for (unsigned mutation = 0; mutation < 10; ++mutation)
+	{
+		auto malformed = dropWire;
+		if (mutation == 0) malformed[42] = 13;
+		else if (mutation == 1) malformed[42] = 55;
+		else if (mutation == 2) malformed[43] = 0;
+		else if (mutation == 3) malformed[51] = 0;
+		else if (mutation == 4) malformed[63] = 1;
+		else if (mutation == 5) malformed[66] = 8;
+		else if (mutation == 6) malformed[67] = 0;
+		else if (mutation == 7) malformed[75] = 0;
+		else if (mutation == 8) malformed[83] = 0;
+		else malformed[86] = 0;
+		Require(DecodeSimulationCommandJournal(malformed, decodedDrop, dropDropped) ==
+			SimulationCommandJournalDecodeResult::Invalid && decodedDrop.size() == 1 && dropDropped == 5,
+			"malformed drop journal proofs reject without altering prior output");
+	}
+	CommandStream<SimulationCommand, SimulationCommandPlaybackPolicy> dropPlayback;
+	Require(dropPlayback.stageRecordedPlaybackBatch({{13, 17, SimulationCommand{drop}}}),
+		"retained drop stages journal playback");
+	const auto replayedDrop = dropPlayback.queue().drainThrough(13);
+	Require(replayedDrop.size() == 1 &&
+		std::get<AuthoritativeDropInventoryItemCommand>(replayedDrop[0].command).source ==
+			SimulationCommandSource::Replay && IsStructurallyValidSimulationCommand(replayedDrop[0].command) &&
+		std::get<AuthoritativeDropInventoryItemCommand>(dropPlayback.journal().snapshot()[0].command).source ==
+			SimulationCommandSource::NetworkPeer,
+		"drop replay retains authority proofs and changes execution provenance only");
+	Require(reference.execute(SimulationCommand{drop}, 6, 6) == CommandDisposition::Discard &&
+		reference.snapshot() == referenceState, "portable simulation fails closed for native ground drop");
 	return 0;
 }

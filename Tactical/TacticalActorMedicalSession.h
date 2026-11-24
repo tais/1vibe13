@@ -6,6 +6,12 @@ class TacticalActor;
 
 namespace TacticalActorMedicalSession
 {
+	// Read-only policy shared with server-prepared first-aid commands. Ordinary
+	// local beginFirstAid retains its existing surgery behavior.
+	[[nodiscard]] bool wouldPerformSurgery(
+		TacticalActor& medic,
+		const TacticalActor& patient);
+
 	[[nodiscard]] std::int16_t beginActionPointCost(
 		TacticalActor& medic);
 

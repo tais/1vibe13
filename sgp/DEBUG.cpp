@@ -40,6 +40,7 @@
 		#include "FileMan.h"
 	#endif
 #include "GameSettings.h"
+#include "DedicatedServerOptions.h"
 #include "SaveLoadGame.h"
 #include "Font.h"
 #include "GameVersion.h"
@@ -425,6 +426,25 @@ void _ExpectFailed(const char* cond, unsigned lineNum, const char* sourceFileNam
 
 void _FailMessage(const char* message, unsigned lineNum, const char * functionName, const char* sourceFileName)
 {
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	if (options.enabled && options.mode == DedicatedServerMode::Coop)
+	{
+		// A failed authoritative operation may have partially changed campaign
+		// state. Do not render, schedule an error screen, or autosave it. This
+		// must precede the legacy recursion guard: every assertion must unwind,
+		// including assertions after a previous failure was caught by its owner.
+		// stderr is available before renderer, logger and VFS initialization.
+		char diagnostic[600];
+		std::snprintf(diagnostic, sizeof(diagnostic),
+			"Dedicated co-op assertion: %.240s [%.160s:%u; %.96s]",
+			message ? message : "(no message)",
+			sourceFileName ? sourceFileName : "(unknown file)", lineNum,
+			functionName ? functionName : "(unknown function)");
+		std::fprintf(stderr, "%s\n", diagnostic);
+		std::fflush(stderr);
+		throw std::runtime_error(diagnostic);
+	}
+
 	// This function shouldn't recurse
 	static bool alreadyInThisFunction = false;
 	if (alreadyInThisFunction)

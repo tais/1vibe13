@@ -28,7 +28,9 @@ inline constexpr char CoopTacticalDeltaAckMessageName[] =
 inline constexpr char CoopTacticalResyncRequestMessageName[] =
 	"coop.tactical.resync";
 
-inline constexpr std::uint16_t CoopTacticalWireVersion = 3;
+// Version 6 retains its envelope; global v13 requires snapshot v12/delta v11
+// with bounded authoritative medical-service state in addition to portraits.
+inline constexpr std::uint16_t CoopTacticalWireVersion = 6;
 inline constexpr std::size_t CoopTacticalCommonHeaderWireSize = 48;
 inline constexpr std::size_t CoopTacticalIntentReceiptWireSize = 96;
 inline constexpr std::size_t CoopTacticalBaselineHeaderWireSize = 76;
@@ -44,14 +46,16 @@ inline constexpr std::size_t MaximumCoopTacticalSnapshotActors = 256;
 inline constexpr std::size_t MaximumCoopTacticalSnapshotDoors = 1024;
 inline constexpr std::size_t MaximumCoopTacticalAssignedActors = 256;
 inline constexpr std::size_t MaximumCoopTacticalDeltaEvents =
-	MaximumCoopTacticalSnapshotActors * 4 +
-	MaximumCoopTacticalSnapshotDoors * 2 + 2;
+	MaximumCoopTacticalSnapshotActors * 2 +
+	MaximumCoopTacticalSnapshotDoors * 2 + 3;
 inline constexpr std::size_t MaximumCoopTacticalPayloadWireSize = 64u * 1024u;
 inline constexpr std::size_t MaximumCoopTacticalBaselinePayloadWireSize =
 	EncodedTacticalWorldSnapshotHeaderBytes +
 	MaximumCoopTacticalSnapshotActors * EncodedTacticalActorSnapshotBytes +
 	MaximumCoopTacticalSnapshotDoors * EncodedTacticalDoorSnapshotBytes;
-inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 62034;
+// Exact worst-case canonical diff: changed sector, turn, and lighting plus
+// disjoint maximum actor and door sets (all enters and all leaves).
+inline constexpr std::size_t MaximumCoopTacticalDeltaPayloadWireSize = 53853;
 inline constexpr std::size_t MaximumCoopTacticalBaselineWireSize =
 	CoopTacticalBaselineHeaderWireSize +
 	MaximumCoopTacticalAssignedActors * 6 +
@@ -139,7 +143,10 @@ enum class CoopTacticalIntentReceiptReason : std::uint8_t
 	// The server or retained command service consumed this intent but could
 	// not allocate another global authoritative command sequence. This is
 	// distinct from the peer-inbox exhausted sentinel, which is non-consuming.
-	AuthoritySequenceExhausted = 20
+	AuthoritySequenceExhausted = 20,
+	// The native attack chain finished without expending a round. It may have
+	// charged stance/turn AP; this is not a pre-execution rejection or a hit.
+	NativeAttackInterrupted = 21
 };
 
 struct CoopTacticalIntentReceipt
