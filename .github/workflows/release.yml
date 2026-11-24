@@ -467,9 +467,9 @@ jobs:
           "ASSET=$env:PKG.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SDK_ASSET=$env:SDK_PKG.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      # AppImage's current official tools are published from moving
-      # `continuous` releases. Checksums make that input immutable: a replaced
-      # upstream asset fails closed until this workflow is deliberately updated.
+      # Pin AppImage's tools to fixed, versioned upstream releases. The moving
+      # `continuous` builds are replaced regularly, which broke the checksum
+      # pins. A replaced asset still fails closed on the checksums below.
       - name: Download checksum-pinned AppImage tools
         if: matrix.platform.family == 'linux'
         shell: bash
@@ -479,13 +479,13 @@ jobs:
           case "${{ matrix.platform.arch }}" in
             x86_64)
               arch=x86_64
-              tool_sha=a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0
-              runtime_sha=1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf
+              tool_sha=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+              runtime_sha=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
               ;;
             arm64)
               arch=aarch64
-              tool_sha=1b00524ba8c6b678dc15ef88a5c25ec24def36cdfc7e3abb32ddcd068e8007fe
-              runtime_sha=7d5d772b7c32f0c84caf0a452a3072a5709027d7eac5856feb89a7a7a8881372
+              tool_sha=f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
+              runtime_sha=00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444
               ;;
             *)
               echo "unsupported AppImage matrix entry" >&2
@@ -497,11 +497,11 @@ jobs:
           curl --proto '=https' --tlsv1.2 --fail --location \
             --retry 5 --retry-all-errors \
             --output "$tool" \
-            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${arch}.AppImage"
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-${arch}.AppImage"
           curl --proto '=https' --tlsv1.2 --fail --location \
             --retry 5 --retry-all-errors \
             --output "$runtime" \
-            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${arch}"
+            "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-${arch}"
           printf '%s  %s\n' "$tool_sha" "$tool" | sha256sum --check --strict
           printf '%s  %s\n' "$runtime_sha" "$runtime" | sha256sum --check --strict
           chmod 0755 "$tool"
