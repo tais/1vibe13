@@ -23,15 +23,14 @@ Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
 reinterpret or silently extend a legacy packet layout.
 
-The global authoritative co-op session protocol is version 20. The fixed server-
-hello container retains its independently bounded wire-v1 layout. The inner
-tactical envelope is wire v6. Tactical intent is wire v5, snapshot is wire v12, delta is wire
-v11, and the simulation-command journal is wire v4. Global v1–v18 peers fail
-admission rather than discovering the mismatch after admission. All older
-clients must upgrade with the server: bleeding/equipped-kit state and the
-first-aid, private inventory, shared campaign actions, hiring and explicit Meanwhile Skip vocabulary require
-matching builds. Older snapshot layouts are rejected instead of inferring dimensions, hostility, door,
-loadout, interrupt state, presentation, ambient light, medical state, portrait identity, or map identity. Snapshot v12 carries the authority's
+Co-op is pre-release, so its wire formats are not versioned per change. The
+global session protocol, server hello, tactical envelope, tactical intent,
+snapshot, delta, owner inventory and simulation-command journal are all
+version 1. Host and clients must run the identical build; a peer with any other
+protocol version fails admission rather than discovering the mismatch after
+admission, and reconnect credentials from other builds are not migrated. Other
+snapshot layouts are rejected instead of inferring dimensions, hostility, door,
+loadout, interrupt state, presentation, ambient light, medical state, portrait identity, or map identity. The snapshot carries the authority's
 fixed-width, path-safe exact `.dat` map basename, one public `commandsBlocked`
 bit, compact interrupt phase/serial, per-actor interrupt-action eligibility,
 ambient light, a bounded actor-render presentation, and five
@@ -156,7 +155,7 @@ End turn, move, face, stance, stop, and reload reuse established command
 shapes, so the dedicated translator marks each one with
 `TacticalCommandAuthorityPolicy::DedicatedCoop`. Structural validation permits
 that policy only for `NetworkPeer` and `Replay`, and simulation-command journal
-wire v4 retains the authority-policy serialization introduced in v3, so replay source substitution cannot erase co-op
+retains the authority-policy serialization, so replay source substitution cannot erase co-op
 authority. At execution, the common resolver repeats live-world and
 controllable on-foot actor checks and, in combat, the player-turn,
 no-pending-action checks. A resolving interrupt blocks ordinary input; during
@@ -1534,7 +1533,7 @@ world-drain loop advances
 the same watchdog while normal inbound pumping is suspended, bounding both
 teardown and subsequent admission/reconnect recovery without wall-clock policy.
 
-The embedded tactical snapshot wire is version 12. Its 314-byte header, 148-byte
+The embedded tactical snapshot wire is version 1. Its 314-byte header, 148-byte
 actor record, and 7-byte door record carry exact dimensions, ambient light, and the authority's
 exact loaded map asset key, canonical actor
 `hostileToPlayerTeam`, interrupt-action eligibility, a bounded 44-byte render
@@ -1551,19 +1550,19 @@ condition (including a negative jam state), and chambered state; those fields
 stay canonical zero for ordinary equipment. Decode and replica application are
 transactional; older layouts are rejected rather than having missing state
 inferred. The header carries canonical `commandsBlocked`, interrupt phase, and
-interrupt serial. Snapshot v12's generic ceiling is 613690 bytes. Delta wire v11
+interrupt serial. Snapshot v1's generic ceiling is 613690 bytes. Delta wire v1
 publishes ambient-light changes, coalesces all changes to one actor into one
 full actor-update event, and carries a same-serial phase transition as one exact
 43-byte turn event. It has a generic 10243-event ceiling. `TacticalWorldService` and
 `TacticalWorldObserverService` are both
 version 3.0, and observer `DoorCapacityReached` is the stable value 12.
 
-The narrower co-op envelope uses inner tactical wire v6 and caps a publication
+The narrower co-op envelope uses inner tactical wire v1 and caps a publication
 at 256 actors, 1024 doors, and 2563 events. Its baseline payload/envelope bounds
 are 45370/46982 bytes and its category-aware delta payload/envelope bounds are
-53853/53925 bytes, all below the public 64 KiB ceiling. Intent wire v5 retains a
+53853/53925 bytes, all below the public 64 KiB ceiling. Intent wire v1 retains a
 72-byte header, 26-byte maximum payload, and 98-byte maximum record. The command
-journal is wire v4; pointer-free authoritative door/pass commands use tags 33/34,
+journal is wire v1; pointer-free authoritative door/pass commands use tags 33/34,
 `BeginFirstAidCommand` uses tag 35, inventory swap tag 36, and same-owner transfer
 tag 37. Medical changes remain gameplay significant for revision admission,
 including changes with a sprite-frame update.
@@ -1642,10 +1641,10 @@ cached private state. Shared campaign checkpoint transfer still exposes complete
 checkpoint-era native data to admitted clients: this live owner filter is not
 full confidentiality or adversarial PvP support.
 
-Intent wire v5 kind 11 contains two `u16` slots and one `u64` expected private
+Intent wire v1 kind 11 contains two `u16` slots and one `u64` expected private
 revision (12-byte payload, 84-byte swap record). The server requires the latest
 staged **and sent** private revision, re-captures native inventory, then retains
-one `SwapInventorySlotsCommand` (journal-v4 tag 36). Execution revalidates exact
+one `SwapInventorySlotsCommand` (journal tag 36). Execution revalidates exact
 actor/world/turn/pose, AP, source/destination and both hand fingerprints, slot
 capacity, two-handed restrictions and backpack access. Ordinary whole stacks in
 helmet/vest/leggings/face slots 0..4, hands 5..6 and pockets 14..54 are supported.
@@ -1680,7 +1679,7 @@ Same-owner transfer kind 12 carries an exact six-byte recipient identity, two
 bytes and a 98-byte intent. The existing wire versions stay unchanged during
 coordinated development. Both actors must belong to the submitting peer, and
 both current private revisions must have been sent to that same peer. One retained
-`TransferInventoryItemCommand` (journal-v4 tag 37) rechecks both exact actors,
+`TransferInventoryItemCommand` (journal tag 37) rechecks both exact actors,
 world/turn, pose, ordinary objects, native distance/LOS and capacity. This follows
 the stock inventory-panel rule: conscious human mercs within three tiles, at
 least 3 AP each in combat, then 2 AP charged to each after successful placement.

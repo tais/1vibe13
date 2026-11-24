@@ -1560,7 +1560,7 @@ the engine must not contain SDL types in its public domain model.
   entry detaches the runtime-message sink before the game entry destroys
   `GameContext`; an exceptional `DispatchInProgress` result stops transport and
   intentionally leaks the still-live composition rather than freeing an active
-  callback target. The authoritative server path uses global co-op protocol v20
+  callback target. The authoritative server path uses global co-op protocol v1
   and is wired through campaign sync and fourteen tactical intents: move, face,
   stance, stop, end turn, exact-target aimed single-shot firearm attack, and
   selected-actor reload, plus synchronous visible adjacent-door open/close and
@@ -1593,7 +1593,7 @@ the engine must not contain SDL types in its public domain model.
   local-only fire event. The six reused legacy shapes—end turn, move, face,
   stance, stop, and reload—carry
   `TacticalCommandAuthorityPolicy::DedicatedCoop`; only `NetworkPeer` or
-  `Replay` may carry it. Simulation-command journal wire v4 preserves the
+  `Replay` may carry it. Simulation-command journal wire v1 preserves the
   policy when playback substitutes Replay provenance. Their execution repeats
   live-world and controllable on-foot actor validation plus, in combat, the
   player-turn/no-pending-action gate. Resolving interrupts block input; active
@@ -1734,7 +1734,7 @@ the engine must not contain SDL types in its public domain model.
   selects that maximum profile, while bootstrap/core-only/legacy peers retain
   strict defaults. Its static bound covers one campaign window at 144 FPS, and
   the production E2E transfers an exact 11,796,517-byte checkpoint twice,
-  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v12 supplies
+  193 chunks per transfer, at 7 ms pacing. Tactical snapshot wire v1 supplies
   exact dimensions, the path-safe exact loaded-map asset basename, canonical
   hostility, the visible-door projection, the
   public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
@@ -1744,7 +1744,7 @@ the engine must not contain SDL types in its public domain model.
   ammunition-bearing hand object it also captures loaded-ammunition item/count,
   signed ammunition condition (including a negative jam state), and chambered
   state; those fields stay canonical zero for ordinary equipment. The adapter
-  exposes no native interrupt list or hidden interrupter. Delta wire v11 carries
+  exposes no native interrupt list or hidden interrupter. Delta wire v1 carries
   ambient-light changes, coalesced full actor updates, door changes, and
   same-serial interrupt-phase changes, while
   older snapshot layouts are rejected rather than inferred. Its separate passive game-
@@ -1773,29 +1773,29 @@ the engine must not contain SDL types in its public domain model.
   application, and their Applied receipts. It then proves commit-before-result,
   durable bearer retirement before clean socket stop, and removal of that peer
   from tactical state before world and epoch teardown.
-  Snapshot-v12 records are exactly 314/148/7 bytes for header/actor/door. The
+  Snapshot-v1 records are exactly 314/148/7 bytes for header/actor/door. The
   header includes the authority's fixed-width, path-safe exact `.dat` map asset
   basename and ambient light; actors include five 12-byte combat-equipment
   records and a 44-byte render presentation followed by signed 16-bit bleeding
   and unsigned 16-bit equipped hand-kit points plus an eight-byte service
   descriptor, with a 613690-byte generic
-  ceiling. Delta v11 permits 10243 generic events and its same-serial interrupt-phase
+  ceiling. Delta v1 permits 10243 generic events and its same-serial interrupt-phase
   turn event is
   exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 2563 events,
   with baseline payload/envelope 45370/46982 and delta payload/envelope
   53853/53925 under 64 KiB.
-  Intent wire v5 is bounded at 72+26=98 bytes, inner tactical wire is v6,
+  Intent wire v1 is bounded at 72+26=98 bytes, inner tactical wire is v1,
   both tactical-world services are 3.0, observer `DoorCapacityReached` is 12,
-  and pointer-free door/pass commands use journal-v4 tags 33/34. First-aid
+  and pointer-free door/pass commands use journal tags 33/34. First-aid
   intent kind 10 has a six-byte exact patient payload; `BeginFirstAidCommand`
-  appends journal-v4 tag 35. Inventory swap kind 11 carries two slots and the
+  appends journal tag 35. Inventory swap kind 11 carries two slots and the
   private-view revision; its server-prepared command appends tag 36 and repeats
   exact actor/world/turn/pose/object/AP proofs. Transfer kind 12 carries an exact
   recipient identity, two slots and both private revisions in 26 bytes;
-  `TransferInventoryItemCommand` uses journal-v4 tag 37. The existing global v14
-  and inner wire versions remain unchanged during coordinated development.
+  `TransferInventoryItemCommand` uses journal tag 37. Pre-release, every co-op wire format is version 1;
+  host and clients must run the identical build.
 
-  Tactical wire v4 retains same-connection replica recovery. The client keeps the
+  The tactical wire retains same-connection replica recovery. The client keeps the
   last committed view immutable and disables input while sending an
   authenticated exact 88-byte self-only request for a delta-sequence gap,
   payload-checksum mismatch, state mismatch, replica rejection, invalid

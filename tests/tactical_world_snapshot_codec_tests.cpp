@@ -494,8 +494,8 @@ int main()
 		"hand-item size is a wire contract");
 	static_assert(EncodedTacticalActorPresentationSnapshotBytes == 44,
 		"actor presentation size is a wire contract");
-	static_assert(TacticalWorldSnapshotWireVersion == 12,
-		"medical-service baseline version is an explicit wire contract");
+	static_assert(TacticalWorldSnapshotWireVersion == 1,
+		"baseline version is an explicit wire contract");
 	static_assert(EncodedTacticalMedicalServiceSnapshotBytes == 8,
 		"medical-service size is a wire contract");
 	static_assert(EncodedTacticalActorSnapshotBytes == 148,
@@ -521,7 +521,7 @@ int main()
 		TacticalWorldSnapshotEncodeResult::Success,
 		"valid baseline encodes");
 	std::vector<std::uint8_t> golden{
-		0x54, 0x57, 0x53, 0x31, 0x08, 0x00,
+		0x54, 0x57, 0x53, 0x31, 0x01, 0x00,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x40, 0x01, 0xf0, 0x00,
 		0x09, 0x00, 0xfe, 0xff, 0xff, 0x01,
@@ -555,10 +555,9 @@ int main()
 		EncodedTacticalMapAssetKeyBytes, 0);
 	std::copy(original.sector().mapAssetKey.bytes.begin(),
 		original.sector().mapAssetKey.bytes.end(), golden.begin() + 24);
-	// Version 9 adds ambient lighting to the header and one canonical 41-byte
-	// presentation record to every actor. Transforming the pinned version-8
-	// prefix keeps all pre-existing field bytes independently visible here.
-	golden[4] = 9;
+	// Ambient lighting in the header and one canonical 41-byte presentation
+	// record per actor. Building the image in layers keeps every field's bytes
+	// independently visible here.
 	golden.insert(golden.begin() + 305, 12);
 	std::vector<std::uint8_t> absentPresentation(41, 0);
 	absentPresentation[14] = 0x7d;
@@ -566,21 +565,18 @@ int main()
 		absentPresentation.begin(), absentPresentation.end());
 	golden.insert(golden.begin() + 314 + 133 + 92,
 		absentPresentation.begin(), absentPresentation.end());
-	// Version 10 appends signed bleeding and unsigned equipped-kit points
-	// after the complete version-9 presentation record of each actor.
-	golden[4] = 10;
+	// Signed bleeding and unsigned equipped-kit points follow each actor's
+	// presentation record.
 	golden.insert(golden.begin() + 314 + 133, {123, 0, 0, 0});
 	golden.insert(golden.begin() + 314 + 137 + 133, {0, 0, 0, 0});
-	// Version 11 appends the three canonical absent-portrait bytes immediately
-	// after each display name, before the existing medical fields.
-	golden[4] = 11;
+	// The three canonical absent-portrait bytes follow each display name,
+	// before the medical fields.
 	golden.insert(golden.begin() + 314 + 133, {0, 0, 0});
 	golden.insert(golden.begin() + 314 + 140 + 133, {0, 0, 0});
-	// Version 12 appends service state with an exact absent patient sentinel.
-	golden[4] = 12;
+	// Service state with an exact absent patient sentinel.
 	golden.insert(golden.begin() + 314 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
 	golden.insert(golden.begin() + 314 + 148 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
-	Check(encoded == golden, "version 12 baseline bytes match the golden fixture");
+	Check(encoded == golden, "version 1 baseline bytes match the golden fixture");
 	Check(encoded.size() == EncodedTacticalWorldSnapshotHeaderBytes +
 		2 * EncodedTacticalActorSnapshotBytes +
 		2 * EncodedTacticalDoorSnapshotBytes,
@@ -837,78 +833,17 @@ int main()
 	changed.push_back(0);
 	RejectsInvalid(changed, "trailing bytes are rejected");
 
-	changed = encoded;
-	changed[4] = 7;
-	TacticalWorldSnapshot output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"pre-map-identity version 7 is rejected instead of guessed");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version-7 rejection preserves previous snapshot");
-
-	changed = encoded;
-	changed[4] = 1;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"dimensionless version 1 is rejected instead of guessed");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version-1 rejection preserves previous snapshot");
-
-	changed = encoded;
-	changed[4] = 3;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"pre-command-gate version 3 is rejected instead of inferred");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version-3 rejection preserves previous snapshot");
-	changed = encoded;
-	changed[4] = 4;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"pre-loadout version 4 is rejected instead of inventing equipment");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version-4 rejection preserves previous snapshot");
-	changed = encoded;
-	changed[4] = 5;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"two-hand baseline version 5 is rejected instead of inventing armour");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version-5 rejection preserves previous snapshot");
-
-	changed = encoded;
-	changed[4] = 13;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
-		"unknown baseline version has a distinct result");
-	Check(SameSnapshot(output, retainedSnapshot),
-		"version rejection preserves previous snapshot");
-	changed = encoded;
-	changed[4] = 9;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
-		SameSnapshot(output, retainedSnapshot),
-		"pre-medical version 9 is rejected without inventing bleeding or equipped-kit state");
-	changed = encoded;
-	changed[4] = 10;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
-		SameSnapshot(output, retainedSnapshot),
-		"pre-portrait version 10 is rejected without inferring a face from profile identity");
-	changed = encoded;
-	changed[4] = 11;
-	output = retainedSnapshot;
-	Check(DecodeTacticalWorldSnapshot(changed, output) ==
-		TacticalWorldSnapshotDecodeResult::UnsupportedVersion &&
-		SameSnapshot(output, retainedSnapshot),
-		"pre-service version 11 is rejected without inventing treatment activity");
+	for (const std::uint8_t version : {std::uint8_t{0}, std::uint8_t{2}, std::uint8_t{0xff}})
+	{
+		changed = encoded;
+		changed[4] = version;
+		TacticalWorldSnapshot output = retainedSnapshot;
+		Check(DecodeTacticalWorldSnapshot(changed, output) ==
+			TacticalWorldSnapshotDecodeResult::UnsupportedVersion,
+			"unknown baseline version has a distinct result");
+		Check(SameSnapshot(output, retainedSnapshot),
+			"version rejection preserves previous snapshot");
+	}
 
 	TacticalActorSnapshot replacementIncarnation = FirstActor();
 	replacementIncarnation.id.incarnation++;
@@ -924,7 +859,7 @@ int main()
 	Check(SameSnapshot(duplicateSlotOutput, retainedSnapshot),
 		"duplicate-slot creation is transactional");
 
-	output = retainedSnapshot;
+	TacticalWorldSnapshot output = retainedSnapshot;
 	Check(DecodeTacticalWorldSnapshot(encoded, output, 1) ==
 		TacticalWorldSnapshotDecodeResult::TooManyActors,
 		"caller actor ceiling is enforced on decode");

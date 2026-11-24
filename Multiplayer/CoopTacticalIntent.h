@@ -13,7 +13,7 @@
 
 namespace CoopSession
 {
-inline constexpr std::uint16_t TacticalIntentWireVersion = 5;
+inline constexpr std::uint16_t TacticalIntentWireVersion = 1;
 inline constexpr std::size_t TacticalIntentHeaderWireSize = 72;
 inline constexpr std::size_t MaximumTacticalIntentPayloadWireSize = 26;
 inline constexpr std::size_t MaximumTacticalIntentWireSize =

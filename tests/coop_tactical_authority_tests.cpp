@@ -247,7 +247,7 @@ void TestIntentCodec()
 	CHECK(bytes.size() == 79, "move intent has its exact wire size");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' && bytes[3] == 'I',
 		"intent magic is byte exact");
-	CHECK(bytes[4] == 5 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
+	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 1 && bytes[7] == 0,
 		"intent version, kind, and reserved byte are exact");
 	for (std::size_t index = 0; index < 8; ++index)
 	{
@@ -297,17 +297,17 @@ void TestIntentCodec()
 	CHECK(DecodeTacticalIntent(malformed, decoded) == TacticalIntentCodecResult::Invalid,
 		"wrong intent magic is rejected");
 	malformed = bytes;
-	malformed[4] = 6;
+	malformed[4] = 2;
 	CHECK(DecodeTacticalIntent(malformed, decoded) ==
 		TacticalIntentCodecResult::UnsupportedVersion,
 		"unsupported intent version is explicit");
 	malformed = bytes;
-	malformed[4] = 4;
+	malformed[4] = 0;
 	decoded = sentinel;
 	CHECK(DecodeTacticalIntent(malformed, decoded) ==
 		TacticalIntentCodecResult::UnsupportedVersion &&
 		SameIntent(decoded, sentinel),
-		"pre-inventory intent version is rejected transactionally");
+		"intent version 0 is rejected transactionally");
 	malformed = bytes;
 	malformed[6] = 0xff;
 	CHECK(DecodeTacticalIntent(malformed, decoded) == TacticalIntentCodecResult::Invalid,

@@ -28,9 +28,9 @@ inline constexpr char CoopTacticalDeltaAckMessageName[] =
 inline constexpr char CoopTacticalResyncRequestMessageName[] =
 	"coop.tactical.resync";
 
-// Version 6 retains its envelope; global v13 requires snapshot v12/delta v11
-// with bounded authoritative medical-service state in addition to portraits.
-inline constexpr std::uint16_t CoopTacticalWireVersion = 6;
+// Pre-release: the envelope and its nested snapshot/delta formats are all
+// version 1. Host and clients must run the identical build.
+inline constexpr std::uint16_t CoopTacticalWireVersion = 1;
 inline constexpr std::size_t CoopTacticalCommonHeaderWireSize = 48;
 inline constexpr std::size_t CoopTacticalIntentReceiptWireSize = 96;
 inline constexpr std::size_t CoopTacticalBaselineHeaderWireSize = 76;

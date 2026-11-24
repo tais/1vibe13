@@ -400,7 +400,7 @@ will revive them:
   `127.0.0.1:60005`; LAN hosting requires an explicit reachable bind. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v20 and
+  authentication. The dedicated runtime uses global co-op protocol v1 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
   fresh-baseline-gated actor assignment, including grow-only late peers, ten-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent
@@ -423,7 +423,7 @@ will revive them:
   separate inventory intents below.
   End turn, move, face, stance, stop, and reload carry
   `TacticalCommandAuthorityPolicy::DedicatedCoop`; only `NetworkPeer` or
-  `Replay` may carry it, and simulation-command journal wire v4 preserves it
+  `Replay` may carry it, and simulation-command journal wire v1 preserves it
   through replay source substitution. Execution repeats live-world and
   controllable on-foot actor validation and, in combat, the player-turn/no-
   pending-action gate. Resolving interrupts block input; active player
@@ -508,7 +508,7 @@ will revive them:
   difficulty 2 and a six-actor squad instead of invalid zero values; resume leaves checkpointed
   options untouched. The client also owns a private atomic 224-byte canonical
   bootstrap + `AdmissionAck` + SHA-256 reconnect record outside the profile, the real socket adapter, the snapshot
-  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v12 supplies
+  replica, and a worldless `INIT_SCREEN` view. Tactical snapshot wire v1 supplies
   exact authority dimensions, the path-safe exact loaded-map asset basename,
   canonical hostility, visible public door records,
   the public `commandsBlocked` bool, compact interrupt phase/serial, per-actor
@@ -565,26 +565,26 @@ will revive them:
   defaults. Its static bound covers one campaign window at 144 FPS. The
   production socket E2E transfers one exact 11,796,517-byte checkpoint twice,
   193 chunks per transfer, at 7 ms pacing.
-  Snapshot v12's exact header/actor/door sizes are 314/148/7 bytes; its header
+  Snapshot v1's exact header/actor/door sizes are 314/148/7 bytes; its header
   includes the authority's fixed-width, path-safe exact `.dat` map asset
   basename, the actor includes five 12-byte combat-equipment records and a
   44-byte render presentation followed by signed 16-bit bleeding and unsigned
   16-bit equipped hand-kit points and an eight-byte medical-service descriptor,
   and the generic bound is 613690 bytes. Delta
-  wire v11 permits 10243 generic events, publishes ambient-light changes,
+  wire v1 permits 10243 generic events, publishes ambient-light changes,
   coalesces all changes to an actor into one full actor-update event, and
   encodes a same-serial interrupt-phase turn change as one exact 43-byte event.
-  The inner co-op tactical envelope is wire v6 and caps 256 actors, 1024 doors,
+  The inner co-op tactical envelope is wire v1 and caps 256 actors, 1024 doors,
   and 2563 events, with baseline payload/envelope 45370/46982 bytes and delta
   payload/envelope 53853/53925 bytes under
-  64 KiB. Intent wire v5 is bounded at
+  64 KiB. Intent wire v1 is bounded at
   72+26=98 bytes; tactical-world service/observer are 3.0,
-  `DoorCapacityReached` is 12, and journal-v4 authoritative door/pass tags are 33/34.
+  `DoorCapacityReached` is 12, and journal authoritative door/pass tags are 33/34.
   First-aid kind 10 adds a six-byte exact patient identity; `BeginFirstAidCommand`
-  appends journal-v4 tag 35. Inventory swap kind 11 adds a twelve-byte slot/revision
+  appends journal tag 35. Inventory swap kind 11 adds a twelve-byte slot/revision
   payload and journal tag 36. It uses one retained native command and owner-only
   ordinary-stack summaries. Transfer kind 12 adds a 26-byte recipient/slot/two-revision
-  payload and journal-v4 tag 37, with no wire-version changes. It accepts only a
+  payload and journal tag 37, with no wire-version changes. It accepts only a
   complete ordinary stack into an empty supported hand/pocket on another owned,
   conscious human merc. Native distance/LOS, capacity, both actor/object proofs
   and the stock panel's 3-AP admission/2-AP cost per merc are revalidated.

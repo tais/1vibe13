@@ -159,7 +159,7 @@ std::vector<std::uint8_t> EncodeSingleCodecEvent(TacticalWorldEvent event)
 
 void TestMedicalDeltaRecords()
 {
-	static_assert(TacticalWorldDeltaWireVersion == 11);
+	static_assert(TacticalWorldDeltaWireVersion == 1);
 	static_assert(EncodedTacticalActorFullEventBytes == 149);
 	TacticalActorSnapshot actor;
 	actor.id = {7, 1};
@@ -2594,7 +2594,7 @@ int main()
 		resetDelta.previousEpoch, resetDelta.currentEpoch});
 	std::vector<std::uint8_t> resetBytes;
 	const std::vector<std::uint8_t> expectedResetBytes{
-		0x54, 0x57, 0x44, 0x31, 0x0b, 0x00,
+		0x54, 0x57, 0x44, 0x31, 0x01, 0x00,
 		0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 		0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
 		0x01, 0x00, 0x00, 0x00, 0x01,
@@ -2603,7 +2603,7 @@ int main()
 	check(EncodeTacticalWorldDelta(resetDelta, resetBytes) ==
 			TacticalWorldDeltaEncodeResult::Success &&
 		resetBytes == expectedResetBytes,
-		"tactical delta version 11 has a fixed little-endian golden representation");
+		"tactical delta version 1 has a fixed little-endian golden representation");
 
 	bool rejectedEveryTruncation = true;
 	for (std::size_t length = 0; length < encodedDelta.size(); ++length)
@@ -2635,49 +2635,15 @@ int main()
 			TacticalEntityId{5, 6},
 		"trailing tactical delta bytes are rejected without replacing prior state");
 
-	malformed = encodedDelta;
-	malformed[4] = 7;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
-		"pre-renderer-state tactical delta version 7 is rejected");
-	malformed = encodedDelta;
-	malformed[4] = 2;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
-		"pre-command-gate tactical delta version 2 is rejected");
-	malformed = encodedDelta;
-	malformed[4] = 3;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
-		"pre-loadout tactical delta version 3 is rejected");
-	malformed = encodedDelta;
-	malformed[4] = 4;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
-		"two-hand tactical delta version 4 is rejected");
-	malformed = encodedDelta;
-	malformed[4] = 12;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-			TacticalWorldDeltaDecodeResult::UnsupportedVersion,
-		"tactical delta codec distinguishes unsupported format versions");
-	malformed = encodedDelta;
-	malformed[4] = 8;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
-		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
-		"pre-medical delta version 8 is rejected without inventing actor medical state");
-	malformed = encodedDelta;
-	malformed[4] = 9;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
-		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
-		"pre-portrait delta version 9 is rejected without inferring a face from profile identity");
-	malformed = encodedDelta;
-	malformed[4] = 10;
-	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
-		TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
-		unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
-		"pre-service delta version 10 is rejected without inventing treatment activity");
+	for (const std::uint8_t version : {std::uint8_t{0}, std::uint8_t{2}, std::uint8_t{0xff}})
+	{
+		malformed = encodedDelta;
+		malformed[4] = version;
+		check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
+				TacticalWorldDeltaDecodeResult::UnsupportedVersion &&
+			unchangedDelta.previousEpoch == 777 && unchangedDelta.currentEpoch == 888,
+			"tactical delta codec rejects unknown format versions without replacing prior state");
+	}
 	malformed = encodedDelta;
 	malformed[0] ^= 0xffu;
 	check(DecodeTacticalWorldDelta(malformed, unchangedDelta) ==
@@ -4067,11 +4033,11 @@ int main()
 		"JA2 command codec rejects trailing data without publishing partial output");
 
 	std::vector<std::uint8_t> unsupportedVersion = encoded;
-	unsupportedVersion[4] = 1;
+	unsupportedVersion[4] = 2;
 	check(RejectsJournalWithoutPublishing(
 		unsupportedVersion,
 		SimulationCommandJournalDecodeResult::UnsupportedVersion),
-		"the unpublished v3 authority layout rejects ambiguous v1 journals");
+		"the command journal rejects unknown format versions");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
 	std::vector<std::uint8_t> malformedStance;

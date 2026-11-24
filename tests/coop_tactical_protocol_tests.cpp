@@ -24,9 +24,9 @@ static_assert(CoopTacticalBaselineAckWireSize == 88);
 static_assert(CoopTacticalDeltaHeaderWireSize == 72);
 static_assert(CoopTacticalDeltaAckWireSize == 80);
 static_assert(CoopTacticalResyncRequestWireSize == 88);
-static_assert(CoopTacticalWireVersion == 6);
-static_assert(TacticalWorldSnapshotWireVersion == 12);
-static_assert(TacticalWorldDeltaWireVersion == 11);
+static_assert(CoopTacticalWireVersion == 1);
+static_assert(TacticalWorldSnapshotWireVersion == 1);
+static_assert(TacticalWorldDeltaWireVersion == 1);
 static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 45370);
 static_assert(MaximumCoopTacticalBaselineWireSize == 46982);
 static_assert(MaximumCoopTacticalDeltaEvents == 2563);
@@ -178,7 +178,7 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::Success, "receipt encodes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'R', "receipt magic is exact");
-	CHECK(bytes[4] == 6 && bytes[5] == 0 && bytes[6] == 20 &&
+	CHECK(bytes[4] == 1 && bytes[5] == 0 && bytes[6] == 1 &&
 		bytes[7] == 0 && bytes[8] == 3 && bytes[9] == 0,
 		"receipt wire/protocol versions and terminal fields are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -239,17 +239,11 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::UnsupportedVersion,
 		"unsupported receipt version is explicit");
 	malformed = bytes;
-	malformed[4] = 4;
-	CHECK(DecodeCoopTacticalIntentReceipt(
-		malformed.data(), malformed.size(), decoded) ==
-		CoopTacticalCodecResult::UnsupportedVersion,
-		"pre-renderer-state tactical envelope version is rejected");
-	malformed = bytes;
-	malformed[4] = 5;
+	malformed[4] = 0;
 	decoded = sentinel;
 	CHECK(DecodeCoopTacticalIntentReceipt(malformed.data(), malformed.size(), decoded) ==
 		CoopTacticalCodecResult::UnsupportedVersion && decoded.commandId == sentinel.commandId,
-		"pre-medical tactical envelope version is rejected transactionally");
+		"tactical envelope version 0 is rejected transactionally");
 	malformed = bytes;
 	malformed[8] = 0xff;
 	CHECK(DecodeCoopTacticalIntentReceipt(
@@ -461,8 +455,8 @@ void TestBaselineCodec()
 	malformed = bytes;
 	const std::size_t nestedSnapshot =
 		CoopTacticalBaselineHeaderWireSize + baseline.assignedActors.size() * 6;
-	CHECK(bytes[nestedSnapshot + 4] == 12 && bytes[nestedSnapshot + 5] == 0,
-		"co-op baseline embeds exactly snapshot version 12");
+	CHECK(bytes[nestedSnapshot + 4] == 1 && bytes[nestedSnapshot + 5] == 0,
+		"co-op baseline embeds exactly snapshot version 1");
 	malformed[nestedSnapshot + 4] = 11;
 	malformed[nestedSnapshot + 5] = 0;
 	WriteU32(malformed, 64, CoopTacticalPayloadChecksum(
@@ -576,9 +570,9 @@ void TestDeltaCodec()
 		CoopTacticalCodecResult::Success, "delta encodes");
 	CHECK(bytes[8] == 4 && bytes[9] == 0,
 		"delta kind and reserve are exact");
-	CHECK(bytes[CoopTacticalDeltaHeaderWireSize + 4] == 11 &&
+	CHECK(bytes[CoopTacticalDeltaHeaderWireSize + 4] == 1 &&
 		bytes[CoopTacticalDeltaHeaderWireSize + 5] == 0,
-		"co-op delta embeds exactly standalone delta version 11");
+		"co-op delta embeds exactly standalone delta version 1");
 	for (std::size_t index = 0; index < 8; ++index)
 		CHECK(bytes[48 + index] == index + 0x41,
 			"delta ID is little endian");
@@ -876,7 +870,7 @@ void TestResyncRequestCodec()
 		CoopTacticalCodecResult::Success,
 		"canonical tactical resync request encodes");
 	const CoopTacticalResyncRequestBytes golden{{
-		0x4a, 0x32, 0x43, 0x54, 0x06, 0x00, 0x14, 0x00,
+		0x4a, 0x32, 0x43, 0x54, 0x01, 0x00, 0x01, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
@@ -947,10 +941,10 @@ void TestResyncRequestCodec()
 		retained) == CoopTacticalCodecResult::WrongMessageKind,
 		"another tactical message kind cannot decode as resync");
 	malformed = bytes;
-	malformed[4] = 1;
+	malformed[4] = 2;
 	CHECK(DecodeCoopTacticalResyncRequest(malformed.data(), malformed.size(),
 		retained) == CoopTacticalCodecResult::UnsupportedVersion,
-		"old tactical wire versions cannot decode the resync contract");
+		"unknown tactical wire versions cannot decode the resync contract");
 	CHECK(DecodeCoopTacticalResyncRequest(nullptr, bytes.size(), retained) ==
 		CoopTacticalCodecResult::Invalid,
 		"null resync bytes are rejected");

@@ -7,8 +7,8 @@
 
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
-// Version 12 appends bounded authority medical-service outcomes after kit points.
-inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 12;
+// Bounded authority medical-service outcomes follow each actor's kit points.
+inline constexpr std::uint16_t TacticalWorldSnapshotWireVersion = 1;
 inline constexpr std::size_t EncodedTacticalMapAssetKeyBytes =
 	TacticalMapAssetKeyStorageBytes;
 inline constexpr std::size_t EncodedTacticalSectorSnapshotBytes =

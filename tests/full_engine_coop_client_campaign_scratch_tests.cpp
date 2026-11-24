@@ -654,77 +654,18 @@ void TestDurableReconnectCredentialLifecycle()
 }
 
 
-// Fixed protocol-14 record, independently produced from the documented durable
-// layout and SHA-256. These are synthetic test identities, never live bearers.
-std::vector<std::uint8_t> LegacyReconnectRecord(unsigned protocol = 14)
+// Fixed protocol-1 record, independently produced from the documented durable
+// layout, FNV-1a and SHA-256. These are synthetic test identities, never live bearers.
+std::vector<std::uint8_t> GoldenReconnectRecord()
 {
 	const char* hex =
-		"4a324342010001000e0000008877665544332211112233445566778820212223"
+		"4a32434201000100010000008877665544332211112233445566778820212223"
 		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
 		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
-		"909192939495969798999a9b9c9d9e9ffbb42f9d000000000000000000000000"
-		"4a3243410e00030088776655443322112122232425262728292a2b2c2d2e2f30"
+		"909192939495969798999a9b9c9d9e9f10c4c964000000000000000000000000"
+		"4a3243410100030088776655443322112122232425262728292a2b2c2d2e2f30"
 		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
-		"439b7931053653d00a6e08e05f94bc29d403dd225ac2f51c6680c3954640b313";
-	if (protocol == 15) hex =
-		"4a324342010001000f0000008877665544332211112233445566778820212223"
-		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
-		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
-		"909192939495969798999a9b9c9d9e9f2ebf8570000000000000000000000000"
-		"4a3243410f00030088776655443322112122232425262728292a2b2c2d2e2f30"
-		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
-		"2e3eeee3a9503717a67e093c16abf8c4b3f5da335f3e87d2c73b2af9259e1696";
-	if (protocol == 16) hex =
-		"4a3243420100010010000000887766554433221111223344556677882021"
-		"22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
-		"04030201807060504030201001f0e0d0c0b0a09080818283848586878889"
-		"8a8b8c8d8e8f909192939495969798999a9b9c9d9e9f55885ecd00000000"
-		"00000000000000004a324341100003008877665544332211212223242526"
-		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
-		"75767778797a7b7c7d7e7f804539686785659e93a8c2f14d2f99395b4618"
-		"1116639793b1f577f5095c302f2f";
-	if (protocol == 17) hex =
-		"4a324342010001001100000088776655443322111122334455667788"
-		"202122232425262728292a2b2c2d2e2f303132333435363738393a3b"
-		"3c3d3e3f04030201807060504030201001f0e0d0c0b0a09080818283"
-		"8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
-		"001517a20000000000000000000000004a3243411100030088776655"
-		"443322112122232425262728292a2b2c2d2e2f306162636465666768"
-		"696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80aa25f93b"
-		"ca777db1f9ba8ea549a570b1d2a6935d662980ffc4d6ac873e1d39c7";
-	if (protocol == 18) hex =
-		"4a32434201000100120000008877665544332211112233445566778820212223"
-		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
-		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
-		"909192939495969798999a9b9c9d9e9f475435cf000000000000000000000000"
-		"4a3243411200030088776655443322112122232425262728292a2b2c2d2e2f30"
-		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
-		"1e58269cdcd58996ca327f030d6665af29a17ccdbb1470f4f496ac648d3ece8f";
-	if (protocol == 19) hex =
-		"4a3243420100010013000000887766554433221111223344556677882021"
-		"22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
-		"04030201807060504030201001f0e0d0c0b0a09080818283848586878889"
-		"8a8b8c8d8e8f909192939495969798999a9b9c9d9e9fda9053d000000000"
-		"00000000000000004a324341130003008877665544332211212223242526"
-		"2728292a2b2c2d2e2f306162636465666768696a6b6c6d6e6f7071727374"
-		"75767778797a7b7c7d7e7f803dc1c9a140fba9bd0b7661458f53668eb891"
-		"ef35c43684ad3e13d19842456b0f";
-	if (protocol == 8) hex =
-		"4a32434201000100080000008877665544332211112233445566778820212223"
-		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
-		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
-		"909192939495969798999a9b9c9d9e9fcdc9c1c2000000000000000000000000"
-		"4a3243410800030088776655443322112122232425262728292a2b2c2d2e2f30"
-		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
-		"6aa4611cf279b05a77423ee6d43930033d2972f8e6b8beb774d64112c39bffb8";
-	if (protocol == 9) hex =
-		"4a32434201000100090000008877665544332211112233445566778820212223"
-		"2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f04030201"
-		"807060504030201001f0e0d0c0b0a090808182838485868788898a8b8c8d8e8f"
-		"909192939495969798999a9b9c9d9e9fd8ed6fa3000000000000000000000000"
-		"4a3243410900030088776655443322112122232425262728292a2b2c2d2e2f30"
-		"6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80"
-		"a76e9d7f02c62590911a51f4dcc8a1383fb53ef375ac0afa7a9a6b424cb756b2";
+		"caab65b78cb95ece636a56251c89dde35015548365d345905e5034e7dc626dbb";
 	std::vector<std::uint8_t> result;
 	const auto nibble = [](char value) {
 		return value <= '9' ? value - '0' : value - 'a' + 10;
@@ -743,92 +684,7 @@ bool SameCredential(const AdmissionAck& left, const AdmissionAck& right)
 		left.reconnectToken == right.reconnectToken;
 }
 
-void TestLegacyReconnectCredentialMigration(unsigned protocol)
-{
-	static_assert(CurrentProtocolVersion == 20,
-		"review the explicit legacy credential migration policy for the next protocol");
-	const auto original = LegacyReconnectRecord(protocol);
-	CHECK(original.size() == 224, "legacy golden record has its fixed durable size");
-	CoopCampaignBootstrapDescriptor decoded = Bootstrap(0x61);
-	const auto decodedSentinel = decoded;
-	AdmissionAck ack = Credential(decoded, 0x62);
-	const auto ackSentinel = ack;
-	CHECK(DecodeCoopCampaignBootstrap(original.data(), 128, decoded) ==
-			CoopCampaignBootstrapDecodeResult::UnsupportedProtocol &&
-		SameCoopCampaignBootstrapDescriptor(decoded, decodedSentinel) &&
-		DecodeAdmissionAck(original.data() + 128, 64, ack) ==
-			DecodeResult::UnsupportedProtocol && SameCredential(ack, ackSentinel),
-		"persistence migration never weakens live protocol rejection or mutates decoder outputs");
-
-	for (unsigned binding = 0; binding < 8; ++binding)
-	{
-		TemporaryStateRoot root;
-		auto live = Bootstrap();
-		if (binding != 1) ++live.sessionEpoch;
-		if (binding == 2) ++live.campaignSeed;
-		if (binding == 3) ++live.campaignIdentitySha256[0];
-		if (binding == 4) ++live.runtimeFingerprint.schema;
-		if (binding == 5) ++live.runtimeFingerprint.high;
-		if (binding == 6) ++live.runtimeFingerprint.low;
-		if (binding == 7) ++live.contentManifestSha256[0];
-		FullEngineCoopClientCampaignScratch scratch;
-		const auto currentCredential = Credential(live, 0x71);
-		CHECK(scratch.prepare(root.path(), live) ==
-				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
-			scratch.persistReconnectCredential(currentCredential),
-			"migration fixture creates a safe current campaign credential path");
-		const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
-		CHECK(WriteBytes(path, original), "install immutable legacy fixture bytes");
-		AdmissionAck untouched = currentCredential;
-		const auto expected = binding == 0 ?
-			FullEngineCoopReconnectCredentialLoadResult::StaleSession :
-			FullEngineCoopReconnectCredentialLoadResult::BindingMismatch;
-		CHECK(scratch.loadReconnectCredential(untouched) == expected &&
-			SameCredential(untouched, currentCredential) && ReadBytes(path) == original &&
-			!scratch.persistReconnectCredential(currentCredential) &&
-			ReadBytes(path) == original,
-			"only exact campaign binding plus a different epoch may classify legacy bytes stale; load and rejected replacement preserve evidence and output");
-		if (binding == 0)
-		{
-			CHECK(scratch.eraseStaleReconnectCredential() &&
-				scratch.loadReconnectCredential(untouched) ==
-					FullEngineCoopReconnectCredentialLoadResult::Missing &&
-				scratch.persistReconnectCredential(currentCredential) &&
-				scratch.loadReconnectCredential(untouched) ==
-					FullEngineCoopReconnectCredentialLoadResult::Loaded &&
-				SameCredential(untouched, currentCredential) && ReadBytes(path) != original,
-				"explicit late verified stale erasure allows a fresh current bearer, never an old bearer relabelled current");
-		}
-		else CHECK(!scratch.eraseStaleReconnectCredential() && ReadBytes(path) == original,
-			"binding mismatch cannot erase the old record through stale migration");
-	}
-
-	TemporaryStateRoot root;
-	auto live = Bootstrap();
-	++live.sessionEpoch;
-	FullEngineCoopClientCampaignScratch scratch;
-	CHECK(scratch.prepare(root.path(), live) ==
-			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
-		scratch.persistReconnectCredential(Credential(live, 0x73)),
-		"retired legacy fixture creates a safe record");
-	const auto campaign = CampaignDirectory(root.path());
-	const auto active = campaign / "client-reconnect-credential.bin";
-	const auto retired = campaign / "client-reconnect-credential.retired";
-	CHECK(WriteBytes(active, original), "retired fixture uses exact legacy record");
-	std::filesystem::rename(active, retired);
-	AdmissionAck retiredCredential;
-	auto expectedRetired = Credential(Bootstrap(), 0x21);
-	expectedRetired.protocolVersion = static_cast<std::uint16_t>(protocol);
-	CHECK(scratch.loadReconnectCredential(retiredCredential) ==
-			FullEngineCoopReconnectCredentialLoadResult::Retired &&
-		SameCredential(retiredCredential, expectedRetired) &&
-		!scratch.eraseStaleReconnectCredential() &&
-		!scratch.persistReconnectCredential(Credential(live, 0x74)) &&
-		!std::filesystem::exists(active) && ReadBytes(retired) == original,
-		"legacy retirement remains terminal and preserves its exact original protocol, epoch, identity and bearer bytes");
-}
-
-void TestLegacyReconnectCredentialMalformedRecords()
+void TestReconnectCredentialMalformedRecords()
 {
 	struct Patch { std::size_t offset; std::size_t count; std::uint8_t value; };
 	struct Fixture
@@ -841,34 +697,32 @@ void TestLegacyReconnectCredentialMalformedRecords()
 	// Independent precomputed hashes keep each inner malformed record protected
 	// by a valid outer SHA; an outer checksum failure cannot mask parser gaps.
 	const Fixture fixtures[] = {
-		{"mismatched embedded protocol", {{{132, 1, 15}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "bfb430ba4dc11a110284ffa09adc6983611b39ae0c8d57605150dc52a0212110"},
+		{"mismatched embedded protocol", {{{132, 1, 2}, {0, 0, 0}}},
+			UINT32_C(0x00000000), "71384556993fb3df7329c07dbb77a44768e38cb99583d54ef3e475be4d7a6576"},
 		{"mismatched embedded epoch", {{{136, 1, 0}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "df42a4dae6bebc6f165fdcef914b0f9ee7061913f2ff790e63d5534eb80907b6"},
+			UINT32_C(0x00000000), "42d44c9b4216fc15c84f9758ac438153bb13082065e61de065b6d77ba3fe37b1"},
 		{"original bootstrap checksum corruption", {{{112, 1, 0}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "ea7d1d47373abd7e08b996fb291f91b4750df0dd41d95d42b3baf13d7383559c"},
+			UINT32_C(0x00000000), "64922c976a99eb4db2bcac40c77be7d2aac35d6f5212a17d0466a666c0a11555"},
 		{"bootstrap reserved byte", {{{116, 1, 1}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "096cb6ca2f429622a4e180df5b12f3945142b235735fd29aa72c77caa55ce5fe"},
+			UINT32_C(0x00000000), "f24760bd1accba73c5180fc4647ef0a56b4b51906ea5f02a97f6e67af3e19400"},
 		{"ACK reserved byte", {{{135, 1, 1}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "e2c0c13bef95a0086256c887d33f1a8ed25c7308f384fe805b4fdecd2057aacd"},
+			UINT32_C(0x00000000), "b4636a869be842c12d3a61aceac4de3eb63bb2143d1bb512b4d5be096808c185"},
 		{"ACK wrong message kind", {{{134, 1, 2}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "cdcdfccbddaa8dc0ec86a71e9348822e3a8cf4000d2db08429cc9ea7badcc3e5"},
+			UINT32_C(0x00000000), "c977560d05951936096f1fad01ebf5f1d6c50edcb28146e85bc6974df020654d"},
 		{"zero bootstrap and ACK epochs", {{{12, 8, 0}, {136, 8, 0}}},
-			UINT32_C(0x2876246b), "d6c84805af17f1d79d1dd91cd87ef9b7f98f5882b2831a6716a98bca0e851e0b"},
+			UINT32_C(0x554f3dc0), "3dd10a7cca893919896c6bf11f9d541e8dabf6a82a49ab897e91f2379c0933ed"},
 		{"zero campaign identity", {{{28, 32, 0}, {0, 0, 0}}},
-			UINT32_C(0x052e23fb), "75ac428f484cccbb4c0935d59783b3e18d51fbdde39a0f39bb44447576838bf6"},
+			UINT32_C(0xc8e3f270), "cf2bc0ff068dcb1258f362365b093092b0cc2e762f3559aec7cf09ff285063ee"},
 		{"zero runtime schema", {{{60, 4, 0}, {0, 0, 0}}},
-			UINT32_C(0xb8b2ec6f), "7ed31ac83df9acea574bbef02071f47d949507e7e0abde58535c699b75ee5a4a"},
+			UINT32_C(0x43d85a08), "cb3cbd1fcd130781733456ef1a1c9039709af7ae2318cae051173c1d18669b3f"},
 		{"zero content identity", {{{80, 32, 0}, {0, 0, 0}}},
-			UINT32_C(0x05c7b9fb), "0ffccde4c13ce7942d7577a09e63ac3b7981d42194d1adb7f62536bc8c10b777"},
+			UINT32_C(0xf984db10), "b7c7e799cbd6c6bcba9885d5e305bc1b0b262d9629a6bcd77deb0ee32ad54b0e"},
 		{"zero peer identity", {{{144, 16, 0}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "cd8859bc4b0bfe89afd291b134d9b82d06dac9caf9e00d5ded458501a0c0670b"},
+			UINT32_C(0x00000000), "bc3a3a6cf4c3e24ae11725b21702265068556d9a8e03557c8b78885a539ad095"},
 		{"zero reconnect token", {{{160, 32, 0}, {0, 0, 0}}},
-			UINT32_C(0x00000000), "9251cd523164eb5e7a1387f3f604f2533b651e76de7b32333c925762a3eeef6e"},
-		{"future protocol is not an implicit migration", {{{8, 1, 21}, {132, 1, 21}}},
-			UINT32_C(0x3af3643c), "041e5e5ea64b14a260d1a0243eef1c27c71cc2083bb21c0673114c7075375b98"},
-		{"older unreviewed protocol remains rejected", {{{8, 1, 13}, {132, 1, 13}}},
-			UINT32_C(0xf4bd1834), "b64fb7c13fa341dc0b0ba77ccf3cf401c5bd94b286bbfd4a6a02813268e86351"},
+			UINT32_C(0x00000000), "6491a03f672d396d5ac4e8aaa35529f160d1ef01cd9c7bbf18e66f7ffad9039c"},
+		{"unknown protocol version is rejected", {{{8, 1, 2}, {132, 1, 2}}},
+			UINT32_C(0x3c5293d7), "d47a4beb8536f81412ca8816f0309115171922ce9764bfccf8ef7c2814835af1"},
 	};
 	for (const auto& fixture : fixtures)
 	{
@@ -879,8 +733,8 @@ void TestLegacyReconnectCredentialMalformedRecords()
 		const auto sentinel = Credential(live, 0x76);
 		CHECK(scratch.prepare(root.path(), live) ==
 				FullEngineCoopClientCampaignScratchPrepareResult::Success &&
-			scratch.persistReconnectCredential(sentinel), "malformed migration fixture prepares");
-		auto bytes = LegacyReconnectRecord();
+			scratch.persistReconnectCredential(sentinel), "malformed fixture prepares");
+		auto bytes = GoldenReconnectRecord();
 		for (const auto& patch : fixture.patches)
 			std::fill_n(bytes.begin() + patch.offset, patch.count, patch.value);
 		if (fixture.repairedFnv != 0)
@@ -903,16 +757,16 @@ void TestLegacyReconnectCredentialMalformedRecords()
 	const auto sentinel = Credential(live, 0x77);
 	CHECK(scratch.prepare(root.path(), live) ==
 			FullEngineCoopClientCampaignScratchPrepareResult::Success &&
-		scratch.persistReconnectCredential(sentinel), "legacy outer checksum fixture prepares");
-	auto bytes = LegacyReconnectRecord();
+		scratch.persistReconnectCredential(sentinel), "outer checksum fixture prepares");
+	auto bytes = GoldenReconnectRecord();
 	bytes.back() ^= 1;
 	const auto path = CampaignDirectory(root.path()) / "client-reconnect-credential.bin";
-	CHECK(WriteBytes(path, bytes), "install damaged legacy outer checksum");
+	CHECK(WriteBytes(path, bytes), "install damaged outer checksum");
 	AdmissionAck untouched = sentinel;
 	CHECK(scratch.loadReconnectCredential(untouched) ==
 			FullEngineCoopReconnectCredentialLoadResult::CorruptRecord &&
 		SameCredential(untouched, sentinel) && ReadBytes(path) == bytes,
-		"legacy parsing requires original outer SHA and never modifies output or damaged evidence");
+		"parsing requires the outer SHA and never modifies output or damaged evidence");
 }
 
 void TestDurableRetirementMarkerLifecycle()
@@ -1484,15 +1338,7 @@ int main()
 	TestRestartAllowlistRejectsWritableAliases();
 	TestRestartResetsVfsOwnedDisposableProfile();
 	TestDurableReconnectCredentialLifecycle();
-	TestLegacyReconnectCredentialMigration(8);
-	TestLegacyReconnectCredentialMigration(9);
-	TestLegacyReconnectCredentialMigration(14);
-	TestLegacyReconnectCredentialMigration(15);
-	TestLegacyReconnectCredentialMigration(16);
-	TestLegacyReconnectCredentialMigration(17);
-	TestLegacyReconnectCredentialMigration(18);
-	TestLegacyReconnectCredentialMigration(19);
-	TestLegacyReconnectCredentialMalformedRecords();
+	TestReconnectCredentialMalformedRecords();
 	TestDurableRetirementMarkerLifecycle();
 	TestReconnectCredentialAdversarialStorage();
 	TestRetiredMarkerAdversarialStorage();

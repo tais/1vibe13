@@ -23,7 +23,7 @@ void TestCodec()
 	CoopCampaignStatusBytes bytes{};
 	CHECK(EncodeCoopCampaignStatus(s, bytes), "valid status encodes");
 	CoopCampaignStatusBytes expected{{
-		'J','2','C','T',20,0,1,0, 8,7,6,5,4,3,2,1,
+		'J','2','C','T',1,0,1,0, 8,7,6,5,4,3,2,1,
 		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
 		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
 		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};
@@ -326,7 +326,7 @@ void TestSurrenderObservation()
 	CoopCampaignStatus decoded;
 	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[86] == 1 && bytes[93] == 8 && !bytes[94] && !bytes[95] &&
 		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
-		"exact native offer ID roundtrips at protocol 16 with no private speaker pointer");
+		"exact native offer ID roundtrips with no private speaker pointer");
 	for (unsigned fault = 0; fault != 4; ++fault)
 	{
 		auto bad = status;

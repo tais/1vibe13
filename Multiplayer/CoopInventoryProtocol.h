@@ -13,7 +13,7 @@
 namespace CoopSession
 {
 inline constexpr char CoopOwnerInventoryMessageName[] = "coop.inventory.owner";
-inline constexpr std::uint16_t CoopInventoryWireVersion = 2;
+inline constexpr std::uint16_t CoopInventoryWireVersion = 1;
 inline constexpr std::size_t MaximumCoopInventorySlots = 256;
 inline constexpr std::size_t CoopOwnerInventoryHeaderWireSize = 80;
 inline constexpr std::size_t CoopInventorySlotWireSize = 16;

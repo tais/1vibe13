@@ -5863,10 +5863,8 @@ extract_brace_bounded_slice(dedicated_live_client_scratch_code
   dedicated_live_credential_campaign_binding_slice
   "Cannot bound reconnect credential campaign binding")
 require_ordered_fragments(dedicated_live_credential_campaign_binding_slice
-  "Persisted credential compatibility must keep the explicit version pair and exact campaign/runtime/content binding"
-  "left.protocolVersion == right.protocolVersion"
-  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18 || left.protocolVersion == 19) && right.protocolVersion == 20"
-  "compatibleProtocol &&"
+  "Persisted credential compatibility must keep the exact protocol and campaign/runtime/content binding"
+  "left.protocolVersion == right.protocolVersion &&"
   "left.campaignSeed == right.campaignSeed"
   "left.campaignIdentitySha256 == right.campaignIdentitySha256"
   "left.runtimeFingerprint == right.runtimeFingerprint"
@@ -5883,16 +5881,12 @@ require_ordered_fragments(dedicated_live_credential_decode_record_slice
   "std::equal(expected.begin(), expected.end()"
   "DecodeCoopCampaignBootstrap(record.data()"
   "CoopCampaignBootstrapWireSize"
-  "CurrentProtocolVersion == 20 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18 || storedProtocol == 19)"
-  "bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol"
-  "record[CoopCampaignBootstrapWireSize + 4] != storedProtocol"
-  "DecodeCoopCampaignBootstrap(canonical.data()"
+  "bootstrapResult != CoopCampaignBootstrapDecodeResult::Success"
   "DecodeAdmissionAck("
+  "record.data() + CoopCampaignBootstrapWireSize"
   "AdmissionAckWireSize"
   "decodedCredential.protocolVersion != decodedBootstrap.protocolVersion"
   "decodedCredential.sessionEpoch != decodedBootstrap.sessionEpoch"
-  "decodedBootstrap.protocolVersion = storedProtocol"
-  "decodedCredential.protocolVersion = storedProtocol"
   "bootstrap = decodedBootstrap"
   "credential = decodedCredential"
   "return true")
@@ -5965,26 +5959,14 @@ require_ordered_fragments(dedicated_live_credential_persist_slice
   "return true")
 
 foreach(render_protocol_credential_regression IN ITEMS
-    "TestLegacyReconnectCredentialMigration(8)"
-    "TestLegacyReconnectCredentialMigration(9)"
-    "TestLegacyReconnectCredentialMigration(14)"
-    "TestLegacyReconnectCredentialMigration(15)"
-    "TestLegacyReconnectCredentialMigration(16)"
-    "TestLegacyReconnectCredentialMigration(17)"
-    "TestLegacyReconnectCredentialMigration(18)"
-    "TestLegacyReconnectCredentialMigration(19)"
-    "TestLegacyReconnectCredentialMalformedRecords()"
-    "CurrentProtocolVersion == 20"
-    "persistence migration never weakens live protocol rejection or mutates decoder outputs"
-    "only exact campaign binding plus a different epoch may classify legacy bytes stale"
-    "legacy retirement remains terminal and preserves its exact original protocol"
-    "future protocol is not an implicit migration"
-    "older unreviewed protocol remains rejected"
-    "legacy parsing requires original outer SHA")
+    "TestReconnectCredentialMalformedRecords()"
+    "GoldenReconnectRecord()"
+    "unknown protocol version is rejected"
+    "parsing requires the outer SHA")
   string(FIND "${dedicated_live_client_scratch_test_source}"
     "${render_protocol_credential_regression}" render_protocol_credential_position)
   if(render_protocol_credential_position EQUAL -1)
-    message(FATAL_ERROR "Explicit legacy-to19 private credential migration lost '${render_protocol_credential_regression}'")
+    message(FATAL_ERROR "Private reconnect credential validation lost '${render_protocol_credential_regression}'")
   endif()
 endforeach()
 
@@ -9784,50 +9766,49 @@ strip_cxx_comments_and_literals(dedicated_live_handle_doors_source
 strip_cxx_comments_and_literals(dedicated_live_world_object_model_test_source
   dedicated_live_world_object_model_test_code)
 
-# Global co-op protocol v19 rejects mixed builds at admission. The fixed hello
-# keeps its wire-v1 layout; the tactical envelope is v6, intent is v5, snapshot
-# is v12, delta is v11, and the command journal is v4. Medical-service outcomes,
-# portraits, exact-patient first aid and typed inventory reject earlier peers.
-foreach(dedicated_live_global_protocol_v7_contract IN ITEMS
-    "CurrentProtocolVersion = 19"
+# Co-op is pre-release: every co-op wire format is version 1 and mixed builds
+# are rejected at admission. The fixed hello, tactical envelope, intent,
+# snapshot, delta, owner inventory and command journal carry no migration paths.
+foreach(dedicated_live_global_protocol_contract IN ITEMS
+    "CurrentProtocolVersion = 1;"
     "protocolVersion = CurrentProtocolVersion")
   string(FIND "${dedicated_live_session_protocol_header_code}"
-    "${dedicated_live_global_protocol_v9_contract}"
-    dedicated_live_global_protocol_v9_contract_position)
-  if(dedicated_live_global_protocol_v9_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_contract}"
+    dedicated_live_global_protocol_contract_position)
+  if(dedicated_live_global_protocol_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v19 contract lost '${dedicated_live_global_protocol_v7_contract}'")
+      "Global co-op protocol contract lost '${dedicated_live_global_protocol_contract}'")
   endif()
 endforeach()
-foreach(dedicated_live_global_protocol_v7_test_contract IN ITEMS
-    "requestBytes[4] == 19"
-    "resultBytes[4] == 19"
+foreach(dedicated_live_global_protocol_test_contract IN ITEMS
+    "requestBytes[4] == 1"
+    "resultBytes[4] == 1"
     "DecodeResult::UnsupportedProtocol"
     "unsupported.protocolVersion++")
   string(FIND "${dedicated_live_session_protocol_test_code}"
-    "${dedicated_live_global_protocol_v9_test_contract}"
-    dedicated_live_global_protocol_v9_test_contract_position)
-  if(dedicated_live_global_protocol_v9_test_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_test_contract}"
+    dedicated_live_global_protocol_test_contract_position)
+  if(dedicated_live_global_protocol_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Global co-op protocol v19 golden/rejection test lost '${dedicated_live_global_protocol_v7_test_contract}'")
+      "Global co-op protocol golden/rejection test lost '${dedicated_live_global_protocol_test_contract}'")
   endif()
 endforeach()
 require_ordered_fragments(dedicated_live_handshake_test_source
-  "Global protocol-v20 server-hello golden changed"
-  "0x14, 0x00, 0x00, 0x00"
+  "Global protocol server-hello golden changed"
+  "0x4a, 0x32, 0x43, 0x48, 0x01, 0x00, 0x01, 0x00,\n\t\t0x01, 0x00, 0x00, 0x00"
   "pinned 72-byte wire image")
 require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
-  "Global protocol-v20 campaign-bootstrap golden changed"
-  "0x14, 0x00, 0x00, 0x00"
-  "UINT32_C(0x6a0b65ec)"
+  "Global protocol campaign-bootstrap golden changed"
+  "0x4a, 0x32, 0x43, 0x42, 0x01, 0x00, 0x01, 0x00,\n\t\t0x01, 0x00, 0x00, 0x00"
+  "UINT32_C(0xca756939)"
   "descriptor checksum pins FNV-1a over bytes 0 through 111")
 require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
-  "Global protocol-v20 campaign-sync golden changed"
-  "bytes[6] == 20"
+  "Global protocol campaign-sync golden changed"
+  "bytes[6] == 1"
   "campaign sync versions and kind are exact")
 require_ordered_fragments(dedicated_live_listener_test_source
-  "Global protocol-v20 admission-listener hello golden changed"
-  "0x14, 0x00, 0x00, 0x00"
+  "Global protocol admission-listener hello golden changed"
+  "0x4a, 0x32, 0x43, 0x48, 0x01, 0x00, 0x01, 0x00,\n\t\t0x01, 0x00, 0x00, 0x00"
   "pinned 72-byte little-endian wire image")
 
 # The current protocol retains an exact self-only voluntary leave wire. The request must
@@ -10946,7 +10927,7 @@ foreach(dedicated_live_snapshot_map_identity_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_snapshot_v7_contract IN ITEMS
-    "TacticalWorldSnapshotWireVersion = 12"
+    "TacticalWorldSnapshotWireVersion = 1;"
     "EncodedTacticalMapAssetKeyBytes ="
     "EncodedTacticalSectorSnapshotBytes ="
     "EncodedTacticalWorldSnapshotHeaderBytes = 314"
@@ -10962,7 +10943,7 @@ foreach(dedicated_live_snapshot_v7_contract IN ITEMS
     dedicated_live_snapshot_v9_contract_position)
   if(dedicated_live_snapshot_v9_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical snapshot wire-v12 contract lost '${dedicated_live_snapshot_v7_contract}'")
+      "Tactical snapshot wire contract lost '${dedicated_live_snapshot_v7_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_snapshot_map_codec_contract IN ITEMS
@@ -11565,7 +11546,7 @@ foreach(dedicated_live_medical_service_snapshot_test IN ITEMS
     "medical-service eight-byte suffix roundtrips exactly without requiring its patient in the snapshot"
     "malformed medical service cannot partially replace a baseline"
     "medical providing flag rejects noncanonical boolean bytes transactionally"
-    "pre-service version 11 is rejected without inventing treatment activity")
+    "unknown baseline version has a distinct result")
   string(FIND "${dedicated_live_snapshot_codec_test_source}"
     "${dedicated_live_medical_service_snapshot_test}" dedicated_live_medical_service_position)
   if(dedicated_live_medical_service_position EQUAL -1)
@@ -11576,7 +11557,7 @@ foreach(dedicated_live_medical_service_delta_test IN ITEMS
     "TestMedicalServiceDeltaRecords()"
     "noncanonical medical service rejects entered and updated deltas transactionally"
     "medical service start, patient, incarnation, count, stop and clear each emit a full-current actor update"
-    "pre-service delta version 10 is rejected without inventing treatment activity")
+    "tactical delta codec rejects unknown format versions without replacing prior state")
   string(FIND "${dedicated_live_runtime_adapter_test_source}"
     "${dedicated_live_medical_service_delta_test}" dedicated_live_medical_service_position)
   if(dedicated_live_medical_service_position EQUAL -1)
@@ -12005,7 +11986,7 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     "EncodedTacticalDoorSnapshotBytes == 7"
     "MaximumEncodedTacticalWorldSnapshotBytes == 613690"
     "MakeSnapshot(0x1112131415161718ull)"
-    "version 12 baseline bytes match the golden fixture"
+    "version 1 baseline bytes match the golden fixture"
     "left.sector().mapAssetKey != right.sector().mapAssetKey"
     "baseline round trip is exact"
     "nonzero map identity padding is rejected"
@@ -12024,12 +12005,8 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     "zero door structure identity is rejected"
     "duplicate door base grid is rejected"
     "noncanonical door open bit is rejected"
-    "changed[4] = 1"
-    "changed[4] = 3"
-    "pre-command-gate version 3 is rejected instead of inferred"
-    "changed[4] = 4"
-    "pre-loadout version 4 is rejected instead of inventing equipment"
-    "pre-map-identity version 7 is rejected instead of guessed"
+    "changed[4] = version"
+    "unknown baseline version has a distinct result"
     "TacticalWorldSnapshotDecodeResult::UnsupportedVersion"
     "SameSnapshot(output, retainedSnapshot)"
     "TestWalkingPoseWireRoundTrips()"
@@ -12044,7 +12021,7 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     dedicated_live_snapshot_v9_test_contract_position)
   if(dedicated_live_snapshot_v9_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical snapshot v12 golden/transaction test lost '${dedicated_live_snapshot_v7_test_contract}'")
+      "Tactical snapshot golden/transaction test lost '${dedicated_live_snapshot_v7_test_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_snapshot_runtime_test_contract IN ITEMS
@@ -12066,7 +12043,7 @@ endforeach()
 # and bounded. The reusable SDK limits remain wider than the public co-op
 # envelope.
 foreach(dedicated_live_delta_v5_contract IN ITEMS
-    "TacticalWorldDeltaWireVersion = 11"
+    "TacticalWorldDeltaWireVersion = 1;"
     "TacticalWorldSnapshot::DefaultMaximumActors * 2"
     "TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 3")
   string(FIND "${dedicated_live_delta_codec_header_code}"
@@ -12074,7 +12051,7 @@ foreach(dedicated_live_delta_v5_contract IN ITEMS
     dedicated_live_delta_v8_contract_position)
   if(dedicated_live_delta_v8_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Tactical delta wire-v11 contract lost '${dedicated_live_delta_v5_contract}'")
+      "Tactical delta wire contract lost '${dedicated_live_delta_v5_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_delta_map_identity_codec_contract IN ITEMS
@@ -12213,7 +12190,7 @@ require_ordered_fragments(dedicated_live_tactical_world_observer_host_code
   "Ja2TacticalMaximumDoors * 2 + 3")
 
 foreach(dedicated_live_coop_door_bound_contract IN ITEMS
-    "CoopTacticalWireVersion = 6"
+    "CoopTacticalWireVersion = 1;"
     "MaximumCoopTacticalSnapshotActors = 256"
     "MaximumCoopTacticalSnapshotDoors = 1024"
     "MaximumCoopTacticalAssignedActors = 256"
@@ -12264,14 +12241,12 @@ foreach(dedicated_live_delta_v6_test_contract IN ITEMS
     "rejectsInvalidEnteredLoadout"
     "rejectsInvalidUpdatedLoadout"
     "busy-only change emits and round-trips one exact 43-byte turn event without advancing serial"
-    "tactical delta version 11 has a fixed little-endian golden representation"
+    "tactical delta version 1 has a fixed little-endian golden representation"
     "exact map identity changes emit a sector-change event even when coordinates are unchanged"
-    "pre-renderer-state tactical delta version 7 is rejected"
+    "tactical delta codec rejects unknown format versions without replacing prior state"
     "rejectsUnsafeMapIdentity"
     "rejectsNoOpMapIdentity"
     "rejectsInvalidMapIdentity"
-    "pre-loadout tactical delta version 3 is rejected"
-    "two-hand tactical delta version 4 is rejected"
     "tactical delta codec rejects every truncated prefix"
     "trailing tactical delta bytes are rejected without replacing prior state")
   string(FIND "${dedicated_live_runtime_adapter_test_source}"
@@ -12557,7 +12532,7 @@ endforeach()
 # Keep the intent wire, durable command, local-only executor, controller, and
 # socket E2E tied together so a UI-only or codec-only implementation cannot pass.
 foreach(dedicated_live_aimed_intent_header_contract IN ITEMS
-    "TacticalIntentWireVersion = 5"
+    "TacticalIntentWireVersion = 1;"
     "TacticalIntentHeaderWireSize = 72"
     "MaximumTacticalIntentPayloadWireSize = 26"
     "MaximumTacticalIntentWireSize ="
@@ -12644,7 +12619,7 @@ endforeach()
 # Medical intent 10 starts native treatment for one exact patient; the wire
 # carries no private kit/inventory choice or local treatment result.
 foreach(dedicated_live_medical_intent_contract IN ITEMS
-    "TacticalIntentWireVersion = 5"
+    "TacticalIntentWireVersion = 1;"
     "BeginFirstAid = 10"
     "struct BeginFirstAidTacticalIntent"
     "TacticalEntityId target"
@@ -12684,7 +12659,7 @@ foreach(dedicated_live_medical_intent_test_contract IN ITEMS
     "aidBytes[6] == 10"
     "aidBytes[70] == 6"
     "every truncated first-aid intent rejects transactionally"
-    "pre-inventory intent version is rejected transactionally"
+    "intent version 0 is rejected transactionally"
     "unresolved first-aid patient cannot encode or replace retained bytes")
   string(FIND "${dedicated_live_intent_test_source}"
     "${dedicated_live_medical_intent_test_contract}"
@@ -13026,7 +13001,7 @@ require_ordered_fragments(dedicated_live_authority_structural_validation_slice
   "IsValidTacticalCommandAuthorityPolicyForSource(")
 
 string(FIND "${dedicated_live_simulation_command_codec_header_code}"
-  "SimulationCommandJournalWireVersion = 4"
+  "SimulationCommandJournalWireVersion = 1;"
   dedicated_live_authority_journal_version_position)
 if(dedicated_live_authority_journal_version_position EQUAL -1)
   message(FATAL_ERROR
@@ -14217,7 +14192,7 @@ endforeach()
 # with private optimistic fingerprints and executes one synchronous native
 # mutation before any AP/BP, noise, sight, interrupt, or AI side effect.
 foreach(dedicated_live_door_intent_header_contract IN ITEMS
-    "TacticalIntentWireVersion = 5"
+    "TacticalIntentWireVersion = 1;"
     "TacticalIntentHeaderWireSize = 72"
     "MaximumTacticalIntentPayloadWireSize = 26"
     "MaximumTacticalIntentWireSize ="
@@ -14338,7 +14313,7 @@ require_ordered_fragments(dedicated_live_door_command_validation_slice
   "command.expectedBreathPointCost !=")
 
 foreach(dedicated_live_door_command_codec_contract IN ITEMS
-    "SimulationCommandJournalWireVersion = 4"
+    "SimulationCommandJournalWireVersion = 1;"
     "AuthoritativeDoorOpenClose = 33"
     "PassInterrupt = 34"
     "BeginFirstAid = 35"
@@ -14364,14 +14339,14 @@ foreach(dedicated_live_door_command_codec_contract IN ITEMS
     dedicated_live_door_command_codec_contract_position)
   if(dedicated_live_door_command_codec_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Journal-v4 door command codec lost '${dedicated_live_door_command_codec_contract}'")
+      "Journal door command codec lost '${dedicated_live_door_command_codec_contract}'")
   endif()
 endforeach()
 foreach(dedicated_live_door_journal_test_contract IN ITEMS
     "expectedAuthoritativeDoorWire"
     "authoritativeDoorWire.size() == 95"
     "authoritativeDoorWire[35] == 33"
-    "tag 33 keeps its literal 60-byte pointer-free layout in journal v4"
+    "tag 33 keeps its literal 60-byte pointer-free layout in the command journal"
     "tag 33 round-trips every optimistic precondition exactly"
     "malformed tag-33 policy bytes fail transactionally"
     "failed tag-33 decoding preserves caller output")
@@ -14380,7 +14355,7 @@ foreach(dedicated_live_door_journal_test_contract IN ITEMS
     dedicated_live_door_journal_test_contract_position)
   if(dedicated_live_door_journal_test_contract_position EQUAL -1)
     message(FATAL_ERROR
-      "Journal-v4 authoritative-door regression lost '${dedicated_live_door_journal_test_contract}'")
+      "Journal authoritative-door regression lost '${dedicated_live_door_journal_test_contract}'")
   endif()
 endforeach()
 
@@ -14767,7 +14742,7 @@ foreach(dedicated_live_tactical_message_name IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_tactical_resync_wire_contract IN ITEMS
-    "CoopTacticalWireVersion = 6"
+    "CoopTacticalWireVersion = 1;"
     "CoopTacticalResyncRequestWireSize = 88"
     "ResyncRequest = 6"
     "using CoopTacticalResyncRequestBytes =")
@@ -16959,7 +16934,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "7 ms"
     "difficulty 2 and a six-actor squad"
     "client and server executables are rebuilt together during development"
-    "Tactical snapshot wire v12"
+    "Tactical snapshot wire v1"
     "five-slot public combat-equipment projection"
     "five 12-byte combat-equipment records"
     "allocation-free one-tile isometric"
@@ -16989,7 +16964,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "doors, and 2563 delta events"
     "45370/46982"
     "53853/53925"
-    "Tactical intent wire v5"
+    "Tactical intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains its three legacy draws"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -17011,7 +16986,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "or soak"
     "`AutoReload`"
     "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
-    "simulation-command journal wire v4"
+    "simulation-command journal wire v1"
     "Default `Legacy` commands retain"
     "synchronization-source resolver"
     "one pending command per peer"
@@ -17053,7 +17028,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
-    "global authoritative co-op session protocol is version 20"
+    "Co-op is pre-release, so its wire formats are not versioned per change"
     "capture failure unwinds the active"
     "Case-only spellings across different"
     "`CVirtualLocation::getIsExclusive()`"
@@ -17073,9 +17048,9 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "difficulty 2 and a six-actor squad"
-    "snapshot is wire v12"
-    "delta is wire"
-    "v11, and the simulation-command journal is wire v4"
+    "snapshot, delta, owner inventory and simulation-command journal are all"
+    "version 1. Host and clients must run the identical build"
+    "reconnect credentials from other builds are not migrated"
     "bounded five-slot combat-equipment"
     "five bounded 12-byte"
     "allocation-free exact-grid calculation"
@@ -17085,8 +17060,8 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "`M`"
     "`commandsBlocked`"
     "compact interrupt phase/serial"
-    "Tactical intent is wire v5"
-    "journal is wire v4"
+    "Intent wire v1"
+    "journal is wire v1"
     "snapshot layouts are rejected"
     "--dedicated-coop-bind"
     "fresh-baseline boundary"
@@ -17190,7 +17165,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_engine_doc_contract IN ITEMS
-    "global co-op protocol v20"
+    "global co-op protocol v1"
     "`InitializeCoopContentManifestBoundary`"
     "before legacy cache writes"
     "case-only spellings across different read-only layers"
@@ -17208,8 +17183,8 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "difficulty 2 and a six-actor squad"
-    "Tactical snapshot wire v12"
-    "Delta wire v11"
+    "Tactical snapshot wire v1"
+    "Delta wire v1"
     "five 12-byte combat-equipment"
     "allocation-free"
     "row/column deltas -1/-1, +1/+1, +1/-1, and"
@@ -17233,7 +17208,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "256 actors, 1024 doors, and 2563"
     "45370/46982"
     "53853/53925"
-    "Intent wire v5"
+    "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -17250,13 +17225,13 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "fingerprints installed inputs"
     "full playthrough and soak remain open"
     "`DoorCapacityReached` is 12"
-    "journal-v4 tags 33/34"
+    "journal tags 33/34"
     "exactly one"
     "`OurNoise`"
     "Integrity failure"
     "`AutoReload`"
     "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
-    "Simulation-command journal wire v4"
+    "Simulation-command journal wire v1"
     "Default `Legacy` commands retain"
     "strict synchronization-source"
     "one pending command per peer"
@@ -17301,7 +17276,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
-    "global co-op protocol-v20"
+    "global co-op protocol v1"
     "rollback-safe `co-op installed content manifest`"
     "validates and counts all"
     "smallest-layer normalized read-only overlay"
@@ -17318,8 +17293,8 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "difficulty 2 and a six-actor squad"
-    "Snapshot wire v12"
-    "Delta wire v11"
+    "Snapshot wire v1"
+    "Delta wire v1"
     "five bounded 12-byte"
     "allocation-free exact-grid request"
     "Up is row -1/column -1"
@@ -17346,7 +17321,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "1024 doors, 2563 events"
     "45370/46982"
     "53853/53925"
-    "Intent wire v5"
+    "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy draws"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -17364,12 +17339,12 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "not a complete"
     "or soak"
     "`DoorCapacityReached` is 12"
-    "journal-v4 door/pass command tags are 33/34"
+    "journal door/pass command tags are 33/34"
     "exactly one `OurNoise`"
     "Integrity failure"
     "`AutoReload`"
     "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
-    "simulation-command journal wire v4"
+    "simulation-command journal wire v1"
     "Default `Legacy` commands"
     "synchronization-source resolver"
     "one pending command per peer"
@@ -17414,7 +17389,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
-    "global co-op protocol v20"
+    "global co-op protocol v1"
     "rollback-safe post-package/pre-legacy"
     "validates and counts every VFS"
     "case-only"
@@ -17431,8 +17406,8 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "193 chunks per transfer"
     "7 ms"
     "difficulty 2 and a six-actor squad"
-    "Tactical snapshot wire v12"
-    "wire v11 permits 10243 generic events"
+    "Tactical snapshot wire v1"
+    "wire v1 permits 10243 generic events"
     "five 12-byte combat-equipment records"
     "allocation-free direct arrows"
     "Up -1/-1, Down +1/+1, Left +1/-1, and Right -1/+1"
@@ -17458,7 +17433,7 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "2563 events"
     "45370/46982"
     "53853/53925"
-    "Intent wire v5"
+    "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
     "`StrategicAILoadPolicy::DedicatedExactRestore`"
@@ -17482,7 +17457,7 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "Integrity failure"
     "`AutoReload`"
     "`TacticalCommandAuthorityPolicy::DedicatedCoop`"
-    "simulation-command journal wire v4"
+    "simulation-command journal wire v1"
     "Default `Legacy`"
     "strict synchronization-source resolver"
     "one pending command per peer"
@@ -44420,7 +44395,7 @@ foreach(inventory_face_forbidden IN ITEMS "TryDispatch" "AutoPlaceObject" "Place
   endif()
 endforeach()
 foreach(inventory_wire_contract IN ITEMS
-    "TacticalIntentWireVersion = 5" "MaximumTacticalIntentPayloadWireSize = 26"
+    "TacticalIntentWireVersion = 1;" "MaximumTacticalIntentPayloadWireSize = 26"
     "SwapInventorySlots = 11" "SwapInventorySlotsTacticalIntent,"
     "TransferInventoryItem = 12" "TransferInventoryItemTacticalIntent,"
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"

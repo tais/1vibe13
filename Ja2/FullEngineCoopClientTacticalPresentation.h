@@ -37,7 +37,7 @@ struct FullEngineCoopClientTacticalPlotMarker
 // Allocation-free render model for a passive, worldless co-op client. The
 // diamond is an exact projection of authority-published logical grid positions;
 // it intentionally claims no terrain, visibility, pathing, or line-of-sight.
-// Markers are restricted to the assigned actors' team because tactical v3 does
+// Markers are restricted to the assigned actors' team because the tactical wire does
 // not yet carry a peer-specific visibility projection for hostile actors. This
 // is a presentation posture, not wire confidentiality: the replica still holds
 // the authority's complete current baseline.

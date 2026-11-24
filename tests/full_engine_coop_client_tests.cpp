@@ -433,13 +433,13 @@ void TestConfigurationAndHelloValidation()
 			harness.client.transportConnected() == FullEngineCoopClientResult::Success,
 			"current client reaches the versioned hello boundary");
 		auto previous = configuration;
-		previous.protocolVersion = 19;
+		previous.protocolVersion = CurrentProtocolVersion + 1;
 		const auto hello = HelloBytes(previous, 100);
 		CHECK(harness.client.receiveServerHello(hello.data(), hello.size()) ==
 			FullEngineCoopClientResult::CompatibilityMismatch &&
 			harness.client.state() == FullEngineCoopClientState::Failed &&
 			harness.wire.closeCalls == 1 && harness.wire.messages.empty(),
-			"protocol-19 server hello closes before any credential or campaign exchange");
+			"mismatched-protocol server hello closes before any credential or campaign exchange");
 	}
 	{
 		Harness harness;
@@ -2515,7 +2515,7 @@ void TestInventoryControllerUsesAuthenticatedCacheAndWire()
 	TacticalIntent decoded;
 	CHECK(harness.wire.messages.back().name==CoopTacticalIntentMessageName &&
 		DecodeTacticalIntent(harness.wire.messages.back().bytes,decoded)==TacticalIntentCodecResult::Success &&
-		decoded.protocolVersion==5 && decoded.commandId==1 && decoded.claimedPeerIdentity==peer &&
+		decoded.protocolVersion==1 && decoded.commandId==1 && decoded.claimedPeerIdentity==peer &&
 		decoded.sessionEpoch==901 && decoded.worldGeneration==11 && decoded.baseRevision==2 &&
 		decoded.turnSerial==3 && decoded.actor==inventory.actor &&
 		KindOf(decoded.payload)==TacticalIntentKind::SwapInventorySlots,

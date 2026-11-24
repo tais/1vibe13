@@ -8,14 +8,9 @@
 
 namespace CoopSession
 {
-// Version 15 adds current economy/AIM offers and serialized hiring receipts.
-// All shared actions consume one control barrier; only time requires leadership.
-// Reject older clients at admission, before any campaign transfer begins.
-// Version 16 adds an explicit shared answer to a native tactical surrender offer.
-// Version 18 adds shared native defeat/capture acknowledgement before campaign return.
-// Version 19 holds native Meanwhile scenes for an explicit shared Skip.
-// Version 20 binds same-actor inventory intents to the authoritative owner stream.
-constexpr std::uint16_t CurrentProtocolVersion = 20;
+// Co-op is pre-release: the protocol is not versioned per change. Host and
+// clients must run the same build; any other version is rejected at admission.
+constexpr std::uint16_t CurrentProtocolVersion = 1;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

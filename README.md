@@ -350,7 +350,7 @@ saved faces use profile-derived presentation timing without consuming the
 canonical RNG, while ordinary face creation retains its three legacy draws.
 Strategic AI uses `StrategicAILoadPolicy::DedicatedExactRestore`;
 current SAI save v29 restores without compatibility or repair gameplay, and
-a stale SAI version is rejected. Tactical snapshot wire v12 carries the
+a stale SAI version is rejected. Tactical snapshot wire v1 carries the
 authority's exact
 dimensions, the path-safe exact `.dat` map asset basename captured from the
 successful world load, canonical actor hostility, a bounded visible-door projection, the
@@ -473,18 +473,18 @@ status, graphic, and movement-cost mutation succeeds. A post-swap integrity
 failure latches the tactical world and stops replication without charging
 points or publishing noise.
 
-The nested wire bounds are explicit: snapshot v12 uses a 314-byte header,
+The nested wire bounds are explicit: snapshot v1 uses a 314-byte header,
 148-byte actor (including five 12-byte combat-equipment records and 44 bytes of
 render presentation, plus signed 16-bit bleeding and unsigned 16-bit equipped
 hand-kit points and an eight-byte medical-service descriptor), and 7-byte door
 record for a 613690-byte generic maximum.
-Delta wire v11 permits 10243 generic events, publishes ambient-light changes, and
+Delta wire v1 permits 10243 generic events, publishes ambient-light changes, and
 coalesces all changes to one actor into a single full actor-update event. A
 same-turn-serial phase change is one exact 43-byte turn event. The
-co-op envelope uses inner tactical wire v6, caps a world at 256 actors, 1024
+co-op envelope uses inner tactical wire v1, caps a world at 256 actors, 1024
 doors, and 2563 delta events, and bounds the baseline payload/envelope at
 45370/46982 bytes and delta payload/envelope at 53853/53925 bytes under the
-public 64 KiB ceiling. Tactical intent wire v5 has
+public 64 KiB ceiling. Tactical intent wire v1 has
 an exact 72-byte header, 26-byte maximum payload, and 98-byte maximum record.
 First-aid kind 10 carries only a six-byte exact patient identity; command
 journal v4 appends `BeginFirstAidCommand` as tag 35 and `SwapInventorySlotsCommand`
@@ -534,7 +534,7 @@ integration, and real-socket tests cover the implemented recovery path.
 The six co-op translations that reuse legacy command shapes (end turn, move,
 face, stance, stop, and reload) carry
 `TacticalCommandAuthorityPolicy::DedicatedCoop`. Only `NetworkPeer` or `Replay`
-may carry that policy, and simulation-command journal wire v4 preserves it when
+may carry that policy, and simulation-command journal wire v1 preserves it when
 playback substitutes replay provenance. Execution repeats the live world and
 controllable on-foot actor checks and, during combat, the player-turn,
 no-pending-action, and no-interrupt checks; end turn also rechecks its exact

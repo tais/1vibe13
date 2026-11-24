@@ -24,7 +24,7 @@ void Observation()
 	auto s = Status(); CoopCampaignStatusBytes bytes; CoopCampaignStatus decoded;
 	CHECK(EncodeCoopCampaignStatus(s, bytes) && bytes.size() == 128 && bytes[112] == 1 && bytes[119] == 8 && bytes[120] == 1 &&
 		DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(s, decoded),
-		"scene and exact runtime identity roundtrip in protocol 19's 128-byte observation");
+		"scene and exact runtime identity roundtrip in the 128-byte observation");
 	for (unsigned scene = 1; scene <= 17; ++scene)
 	{
 		s.meanwhile.scene = static_cast<CoopCampaignMeanwhileScene>(scene);

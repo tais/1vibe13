@@ -446,7 +446,7 @@ not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v20 execution of fourteen JA2 command
+  tactical observer, and global co-op protocol v1 execution of fourteen JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a
@@ -470,7 +470,7 @@ AP; an Applied receipt means initiation, not completed bandaging. Public medical
 state includes bleeding, usable equipped hand-kit points and native providing/
 receiving activity with an optional exact published patient identity. It does not
 transfer kits or add self-treatment, surgery, or auto-bandaging. First-aid kind 10
-carries a six-byte patient identity and appends `BeginFirstAidCommand` at journal-v4 tag 35.
+carries a six-byte patient identity and appends `BeginFirstAidCommand` at journal tag 35.
 The eleventh intent equips/unequips complete ordinary stacks through a same-actor
 two-slot swap, backed by an owner-only slot summary and its server revision.
 The one retained native command revalidates actor/world/turn/pose, full ordinary
@@ -482,7 +482,7 @@ global session v14 rejects pre-service-state clients.
 The twelfth intent transfers a whole ordinary stack to an explicitly empty
 hand/pocket on another conscious human merc owned by the same peer. Kind 12
 contains the exact recipient, both slots and both private revisions;
-`TransferInventoryItemCommand` uses journal-v4 tag 37. Native execution rechecks
+`TransferInventoryItemCommand` uses journal tag 37. Native execution rechecks
 both actors, pose/object proofs, distance/LOS and capacity, with the stock panel's
 3-AP combat admission gate and 2 AP charged to each on success. `G` in the passive
 inventory panel selects the recipient flow; it never mutates client inventory.
@@ -494,7 +494,7 @@ the historical runs below do not certify this new transfer path.
 The six co-op translations that reuse legacy shapes (end turn, move, face,
 stance, stop, and reload) are tagged
 `TacticalCommandAuthorityPolicy::DedicatedCoop`. Only `NetworkPeer` and
-`Replay` may carry that policy, and simulation-command journal wire v4 retains
+`Replay` may carry that policy, and simulation-command journal wire v1 retains
 it through replay source substitution. The executor repeats live-world and
 controllable on-foot actor checks and, in combat, player-turn/no-pending-action
 checks. Ordinary end turn is rejected during an active interrupt and otherwise
@@ -665,20 +665,20 @@ command modals until committed state clears it, without predicting AP spend,
 inventory/world mutation, or damage. Campaign-ready late peers enter the grow-only active
 participant set only at a drained fresh-baseline boundary, and their actor ACLs
 remain closed until baseline ACK; disconnect preserves ownership. The
-Snapshot wire v12 uses an exact 314-byte header with the authority's fixed-width,
+Snapshot wire v1 uses an exact 314-byte header with the authority's fixed-width,
 path-safe exact `.dat` map asset basename and ambient light, a 148-byte actor
 (including five 12-byte combat-equipment records and a 44-byte render
 presentation followed by signed 16-bit bleeding and unsigned 16-bit equipped
 hand-kit points and an eight-byte service descriptor), and 7-byte public door records; its generic bound is 613690
-bytes. Delta wire v11 permits 10243 generic events, publishes ambient-light
+bytes. Delta wire v1 permits 10243 generic events, publishes ambient-light
 changes, coalesces all changes to one actor into one full actor-update event,
 and encodes a same-serial interrupt phase change as one exact 43-byte event.
-Co-op tactical wire v6 narrows this to 256 actors, 1024 doors, 2563 events,
+Co-op tactical wire v1 narrows this to 256 actors, 1024 doors, 2563 events,
 45370/46982-byte baseline payload/envelope, and 53853/53925-byte delta
-payload/envelope beneath 64 KiB. Intent wire v5 is a
+payload/envelope beneath 64 KiB. Intent wire v1 is a
 72-byte header plus at most 26
 payload bytes (98 total), both tactical-world services are 3.0,
-`DoorCapacityReached` is 12; journal-v4 door/pass command tags are 33/34. The native
+`DoorCapacityReached` is 12; journal door/pass command tags are 33/34. The native
 helper preflights status/graphic, computes explicit-grid noise, swaps and verifies
 the partner, commits status plus `LEVELNODE`, recompiles movement, performs POW
 and flashlight maintenance, then returns; only success deducts AP/BP, emits

@@ -88,7 +88,7 @@ FullEngineCoopClientCampaignHireKey CampaignHireKey(UINT32 key) noexcept
 	return Key::None;
 }
 
-// CoopTacticalIntent v3 deliberately carries the authority's raw JA2 movement
+// CoopTacticalIntent deliberately carries the authority's raw JA2 movement
 // animation ID. These are the stable non-fast defaults from AnimationStates;
 // the server still validates them against the live assigned actor.
 constexpr std::uint16_t Ja2WalkingMovementMode = 0;
