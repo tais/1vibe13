@@ -13370,7 +13370,8 @@ require_ordered_fragments(dedicated_live_server_process_intent_slice
   "Swap intent bypassed the sent owner revision before gameplay admission"
   "std::get_if<SwapInventorySlotsTacticalIntent>(&intent.payload)"
   "replication_.hasInventoryRevision(peer->identity, intent.actor, inventorySwap->expectedInventoryRevision)"
-  "const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 || privateInventoryRejected"
+  "const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 ||"
+  "privateInventoryRejected;"
   "addPending(*peer, intent.commandId"
   "ingress_.handleTacticalIntent")
 extract_brace_bounded_slice(dedicated_live_tactical_ja2_state_code
