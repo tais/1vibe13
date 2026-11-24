@@ -177,8 +177,6 @@ public:
 		std::uint64_t expectedInventoryRevision,
 		std::uint64_t expectedTargetInventoryRevision,
 		TransferInventoryItemCommand& command) const noexcept override;
-	bool captureInventory(TacticalEntityId actor, std::uint64_t worldGeneration,
-		CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept;
 	bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -196,10 +194,14 @@ public:
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;
 
+	// Read native carried contents only on the committed-frame coordinator thread.
+	bool captureInventory(TacticalEntityId actor, std::uint64_t worldGeneration,
+		CoopSession::CoopOwnerInventorySnapshot& inventory) const noexcept;
+
 private:
+	mutable Ja2CoopInventoryAuthority inventoryAuthority_;
 	GameContext* game_ = nullptr;
 	std::thread::id mainThread_;
-	mutable Ja2CoopInventoryAuthority inventoryAuthority_;
 };
 
 // Main-thread bridge from authenticated co-op intent to the existing bounded

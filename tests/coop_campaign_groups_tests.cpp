@@ -21,7 +21,7 @@ void Protocol()
 {
 	auto original = Fixture(); CoopCampaignGroupsBytes bytes; std::size_t size = 0;
 	CHECK(EncodeCoopCampaignGroups(original, bytes, size) && size == 144, "bounded group fixture encodes");
-	CHECK(bytes[0] == 'J' && bytes[3] == 'G' && bytes[4] == CurrentProtocolVersion && bytes[5] == 0 &&
+	CHECK(bytes[0] == 'J' && bytes[3] == 'G' && bytes[4] == static_cast<std::uint8_t>(CurrentProtocolVersion) && bytes[5] == static_cast<std::uint8_t>(CurrentProtocolVersion >> 8) &&
 		bytes[8] == 8 && bytes[15] == 1 && bytes[32] == 2 && bytes[36] == 0x44 && bytes[39] == 0x11 &&
 		bytes[104] == 0 && bytes[120] == 255 && bytes[136] == 128, "explicit little-endian vector and signed assignment endpoints");
 	CoopCampaignGroups decoded;

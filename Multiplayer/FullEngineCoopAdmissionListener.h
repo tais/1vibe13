@@ -51,6 +51,13 @@ static_assert(CoopCampaignActionRequestWireSize <= MaximumCoopCampaignInboundWir
 static_assert(CoopCampaignHireRequestWireSize <= MaximumCoopCampaignInboundWireSize,
 	"the bounded campaign inbox must hold a hire request");
 
+static_assert(CoopCampaignTimeRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a time request");
+static_assert(CoopCampaignActionRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a campaign action request");
+static_assert(CoopCampaignHireRequestWireSize <= MaximumCoopCampaignInboundWireSize,
+	"the bounded campaign inbox must hold a hire request");
+
 enum class FullEngineCoopTacticalInboundKind : std::uint8_t
 {
 	Intent = 1,
@@ -145,6 +152,23 @@ enum class FullEngineCoopAdmissionListenerStartResult
 // handshake recovery gate; tactical and campaign callbacks only authenticate
 // and copy into disjoint bounded queues and never decode gameplay, mutate JA2,
 // or import legacy arena state.
+// Stored listener state only. In particular, this never queries socket output:
+// PendingWriteBytes can change transport state and is not a const observation.
+struct FullEngineCoopAdmissionListenerObservation
+{
+	std::size_t connections = 0;
+	std::size_t authenticatedPeers = 0;
+	std::size_t tacticalInbound = 0;
+	std::size_t campaignInbound = 0;
+	unsigned pollDepth = 0;
+	unsigned handlerDepth = 0;
+	bool running = false;
+	bool stopPending = false;
+	bool campaignRequestsEnabled = false;
+	bool selfRetirementPending = false;
+	bool selfRetirementInputFrozen = false;
+};
+
 class FullEngineCoopAdmissionListener
 {
 public:
@@ -165,6 +189,7 @@ public:
 	// whose admission ACK has committed. Optional checkpoints must preserve all
 	// of these live connections while a client is joining or playing.
 	bool hasConnections() const noexcept;
+	FullEngineCoopAdmissionListenerObservation observation() const noexcept;
 
 	std::size_t authenticatedPeerCount() const noexcept;
 	std::size_t authenticatedPeers(

@@ -14,7 +14,8 @@ namespace CoopSession
 // Version 16 adds an explicit shared answer to a native tactical surrender offer.
 // Version 18 adds shared native defeat/capture acknowledgement before campaign return.
 // Version 19 holds native Meanwhile scenes for an explicit shared Skip.
-constexpr std::uint16_t CurrentProtocolVersion = 19;
+// Version 20 binds same-actor inventory intents to the authoritative owner stream.
+constexpr std::uint16_t CurrentProtocolVersion = 20;
 constexpr std::size_t AdmissionRequestWireSize = 116;
 constexpr std::size_t AdmissionResponseWireSize = 68;
 constexpr std::size_t AdmissionAckWireSize = 64;

@@ -323,6 +323,16 @@ CoopTacticalPeerPhase FullEngineCoopServerSession::peerPhase(
 	return peer ? peer->phase : CoopTacticalPeerPhase::Vacant;
 }
 
+CoopTacticalSessionPendingObservation
+FullEngineCoopServerSession::pendingObservation() const noexcept
+{
+	CoopTacticalSessionPendingObservation result;
+	result.flushInProgress = flushing_;
+	for (const InventoryRecord& inventory : inventories_)
+		if (inventory.pending) ++result.pendingOwnerInventories;
+	return result;
+}
+
 bool FullEngineCoopServerSession::peerState(
 	const PeerIdentity& identity,
 	CoopTacticalPeerReplicationState& output) const noexcept

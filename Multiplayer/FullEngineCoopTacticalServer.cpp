@@ -1814,6 +1814,12 @@ bool FullEngineCoopTacticalServer::peerCommandState(
 	return true;
 }
 
+FullEngineCoopTacticalServerObservation
+FullEngineCoopTacticalServer::observation() const noexcept
+{
+	return {drainState(), replication_.pendingObservation(), pumping_, flushing_};
+}
+
 FullEngineCoopTacticalServerDrainState
 FullEngineCoopTacticalServer::drainState() const noexcept
 {

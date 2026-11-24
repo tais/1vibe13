@@ -272,18 +272,6 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			WriteI16(writer, value.expectedActionPointCost);
 			WriteI16(writer, value.expectedBreathPointCost);
 		}
-		else if constexpr (
-			std::is_same<Command, PassInterruptCommand>::value)
-		{
-			writer.writeU8(
-				static_cast<std::uint8_t>(CommandTag::PassInterrupt));
-			writer.writeU16(value.soldier.slot);
-			writer.writeU32(value.soldier.incarnation);
-			writer.writeU64(value.expectedWorldGeneration);
-			writer.writeU64(value.expectedInterruptSerial);
-			writer.writeU8(static_cast<std::uint8_t>(value.source));
-			writer.writeU8(static_cast<std::uint8_t>(value.authority));
-		}
 		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
 		{
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::BeginFirstAid));
@@ -302,6 +290,18 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedKitStateFingerprint);
 			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, PassInterruptCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::PassInterrupt));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedInterruptSerial);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}

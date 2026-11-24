@@ -99,6 +99,51 @@ target_compile_features(coop_campaign_bootstrap_protocol_tests PRIVATE cxx_std_1
 add_test(NAME coop_campaign_bootstrap_protocol
   COMMAND coop_campaign_bootstrap_protocol_tests)
 
+# Campaign observations and serialized command authorities are standalone
+# contracts. Native gameplay callbacks and client input stay outside these tests.
+add_executable(coop_campaign_meanwhile_tests
+  coop_campaign_meanwhile_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_meanwhile_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer ${CMAKE_SOURCE_DIR})
+target_compile_features(coop_campaign_meanwhile_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_meanwhile COMMAND coop_campaign_meanwhile_tests)
+
+add_executable(coop_campaign_status_tests
+  coop_campaign_status_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_status_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
+
+add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
+target_include_directories(coop_campaign_groups_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
+
+add_executable(coop_campaign_time_tests
+  coop_campaign_time_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_time_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_time_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_time COMMAND coop_campaign_time_tests)
+
+add_executable(coop_campaign_action_tests
+  coop_campaign_action_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_campaign_action_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
+add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
+
+
 # The passive client publishes a checkpoint only after exact ordered staging,
 # full-hash verification, atomic scratch publication, and successful cold load.
 add_executable(full_engine_coop_campaign_sync_client_tests
@@ -162,6 +207,7 @@ add_executable(full_engine_coop_socket_e2e_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncClient.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopCampaignSyncServer.cpp
@@ -434,13 +480,15 @@ add_test(NAME full_engine_coop_client_presentation_inventory
 add_executable(full_engine_coop_client_presentation_map_tests
   full_engine_coop_client_presentation_map_tests.cpp
   ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+# Parse an already-read authority-selected asset into immutable section spans.
+# This target links no native world loader, VFS, renderer, or SDL dependency.
 target_include_directories(
   full_engine_coop_client_presentation_map_tests PRIVATE
   ${CMAKE_SOURCE_DIR})
 target_compile_features(
   full_engine_coop_client_presentation_map_tests PRIVATE cxx_std_17)
 set(JA2_PRESENTATION_MAP_TEST_ASSET "" CACHE FILEPATH
-  "Optional installed v5.25 A9.dat for exact-EOF presentation parser validation")
+  "Optional installed legacy map for complete-body presentation parser validation")
 if(JA2_PRESENTATION_MAP_TEST_ASSET)
   if(NOT IS_ABSOLUTE "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
      NOT EXISTS "${JA2_PRESENTATION_MAP_TEST_ASSET}" OR
@@ -583,36 +631,11 @@ target_include_directories(coop_session_protocol_tests
 target_compile_features(coop_session_protocol_tests PRIVATE cxx_std_17)
 add_test(NAME coop_session_protocol COMMAND coop_session_protocol_tests)
 
-add_executable(coop_campaign_status_tests
-  coop_campaign_status_tests.cpp
-  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
-target_include_directories(coop_campaign_status_tests PRIVATE
-  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
-target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
-add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
 
-add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
-target_include_directories(coop_campaign_groups_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
-target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
-add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
 
-add_executable(coop_campaign_time_tests coop_campaign_time_tests.cpp
-  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
-target_include_directories(coop_campaign_time_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
-target_compile_features(coop_campaign_time_tests PRIVATE cxx_std_17)
-add_test(NAME coop_campaign_time COMMAND coop_campaign_time_tests)
 
-add_executable(coop_campaign_action_tests coop_campaign_action_tests.cpp
-  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
-target_include_directories(coop_campaign_action_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
-target_compile_features(coop_campaign_action_tests PRIVATE cxx_std_17)
-add_test(NAME coop_campaign_action COMMAND coop_campaign_action_tests)
 
-add_executable(coop_campaign_meanwhile_tests coop_campaign_meanwhile_tests.cpp
-  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
 target_include_directories(coop_campaign_meanwhile_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
-target_compile_features(coop_campaign_meanwhile_tests PRIVATE cxx_std_17)
-add_test(NAME coop_campaign_meanwhile COMMAND coop_campaign_meanwhile_tests)
 
 add_executable(full_engine_coop_client_campaign_action_input_tests full_engine_coop_client_campaign_action_input_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
@@ -686,6 +709,7 @@ add_executable(full_engine_coop_server_session_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
 )
 target_include_directories(full_engine_coop_server_session_tests PRIVATE
@@ -753,6 +777,7 @@ add_executable(full_engine_coop_tactical_server_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalAuthority.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopAdmissionListener.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopIngress.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopServerSession.cpp
@@ -771,11 +796,14 @@ add_test(NAME full_engine_coop_tactical_server
 # the legacy multiplayer client or a local authoritative simulation.
 add_executable(full_engine_coop_client_tests
   full_engine_coop_client_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientController.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopHandshakeProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationInput.cpp
+  ${CMAKE_SOURCE_DIR}/Ja2/FullEngineCoopClientPresentationLoot.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp)
 target_include_directories(full_engine_coop_client_tests PRIVATE
   ${CMAKE_SOURCE_DIR}
@@ -795,6 +823,7 @@ add_executable(full_engine_coop_client_transport_tests
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalIntent.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopTacticalProtocol.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopInventoryProtocol.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClient.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/FullEngineCoopClientTransport.cpp)
 target_include_directories(full_engine_coop_client_transport_tests PRIVATE
@@ -827,6 +856,10 @@ target_link_libraries(full_engine_coop_client_transport_ack_failure_tests PRIVAT
 target_compile_features(full_engine_coop_client_transport_ack_failure_tests PRIVATE cxx_std_17)
 add_test(NAME full_engine_coop_client_transport_ack_failure
   COMMAND full_engine_coop_client_transport_ack_failure_tests)
+# Existing explicit CI builds of the real transport suite also exercise
+# deterministic ACK-write failures without a second workflow target list.
+add_dependencies(full_engine_coop_client_transport_tests
+  full_engine_coop_client_transport_ack_failure_tests)
 
 # The one-shot outbound preflight obtains the immutable campaign seed and
 # identity after SDL initialization but before any RNG/GameContext observation.
@@ -2250,3 +2283,5 @@ if(BUILD_JA2SERVER)
       VERBATIM)
   endif()
 endif()
+
+

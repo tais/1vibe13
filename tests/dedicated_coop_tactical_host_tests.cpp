@@ -292,6 +292,9 @@ public:
 		++actorCount;
 	}
 
+	bool inventoryPreparationSucceeds = true;
+	mutable std::size_t inventoryPreparationCalls = 0;
+	mutable std::uint64_t lastInventoryRevision = 0;
 	bool mainThread = true;
 	bool dedicatedActive = true;
 	bool packageActive = true;
@@ -320,7 +323,6 @@ public:
 	mutable std::uint8_t lastAttackAimTime = 0;
 	mutable std::size_t reloadPreparationCalls = 0;
 	bool firstAidPreparationSucceeds = true;
-	bool inventoryPreparationSucceeds = true;
 	bool transferPreparationSucceeds = true;
 	bool pickupPreparationSucceeds = true;
 	bool dropPreparationSucceeds = true;
@@ -331,8 +333,6 @@ public:
 	mutable std::size_t transferPreparationCalls = 0;
 	mutable std::uint64_t lastTransferRevision = 0;
 	mutable std::uint64_t lastTransferTargetRevision = 0;
-	mutable std::size_t inventoryPreparationCalls = 0;
-	mutable std::uint64_t lastInventoryRevision = 0;
 	mutable std::size_t firstAidPreparationCalls = 0;
 	mutable TacticalEntityId lastReloadActor{};
 	mutable std::size_t doorPreparationCalls = 0;
@@ -870,6 +870,17 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	rejects(invalidReload, Intent(1, ReloadTacticalIntent{}),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"live selected-weapon, ammunition, and AP reload rejection is terminal");
+	FakeLiveState invalidInventory;
+	invalidInventory.inventoryPreparationSucceeds = false;
+	rejects(invalidInventory, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"stale inventory revision or native capacity/equipment rejection cannot enter the inbox");
+	rejects(legacyNetwork, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"inventory swap fails closed while legacy networking is active");
+	CHECK(invalidInventory.inventoryPreparationCalls == 1 &&
+		legacyNetwork.inventoryPreparationCalls == 0,
+		"legacy networking is rejected before native inventory preparation");
 	FakeLiveState invalidDoor;
 	FakeLiveState invalidFirstAid;
 	invalidFirstAid.firstAidPreparationSucceeds = false;
@@ -883,17 +894,6 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		invalidFirstAid.firstAidPreparationCalls == 1,
 		"legacy role rejection precedes any native first-aid preparation");
 	invalidDoor.doorPreparationSucceeds = false;
-	FakeLiveState invalidInventory;
-	invalidInventory.inventoryPreparationSucceeds = false;
-	rejects(invalidInventory, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
-		CoopTacticalIntentReceiptReason::GameplayRejected,
-		"stale inventory revision or native capacity/equipment rejection cannot enter the inbox");
-	rejects(legacyNetwork, Intent(1, SwapInventorySlotsTacticalIntent{14, 5, 31}),
-		CoopTacticalIntentReceiptReason::UnavailableContext,
-		"inventory swap fails closed while legacy networking is active");
-	CHECK(invalidInventory.inventoryPreparationCalls == 1 &&
-		legacyNetwork.inventoryPreparationCalls == 0,
-		"legacy networking is rejected before native inventory preparation");
 	FakeLiveState invalidTransfer;
 	invalidTransfer.transferPreparationSucceeds = false;
 	rejects(invalidTransfer, Intent(1, TransferInventoryItemTacticalIntent{ActorTwo, 14, 5, 31, 47}),

@@ -100,6 +100,7 @@ void FullEngineCoopClientController::synchronize(
 		}
 		const auto* inventory = view.inventoryFor(selectedActor_);
 		if (!inventory || inventoryActor_ != selectedActor_ ||
+			inventoryOwner_ != inventory->owner ||
 			inventoryWorldEpoch_ != view.snapshot->epoch() ||
 			inventorySessionEpoch_ != inventory->sessionEpoch ||
 			inventoryBaselineId_ != inventory->baselineId) closeInventory();
@@ -912,6 +913,7 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::submitFirstAid
 bool FullEngineCoopClientController::openInventory(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
+	synchronize(view);
 	const auto* inventory = view.inventoryFor(selectedActor_);
 	if (!ready(view) || view.resynchronizing || !inventory) return false;
 	cancelDestinationEntry();
@@ -921,6 +923,7 @@ bool FullEngineCoopClientController::openInventory(
 	closeInventory();
 	inventoryOpen_ = true;
 	inventoryActor_ = selectedActor_;
+	inventoryOwner_ = inventory->owner;
 	inventoryWorldEpoch_ = view.snapshot->epoch();
 	inventorySessionEpoch_ = inventory->sessionEpoch;
 	inventoryBaselineId_ = inventory->baselineId;
@@ -935,6 +938,7 @@ void FullEngineCoopClientController::closeInventory() noexcept
 	inventoryNotice_ = "";
 	inventoryOpen_ = false;
 	inventoryActor_ = {};
+	inventoryOwner_ = {};
 	inventorySessionEpoch_ = 0;
 	inventoryBaselineId_ = 0;
 	inventoryWorldEpoch_ = 0;
@@ -947,6 +951,7 @@ void FullEngineCoopClientController::closeInventory() noexcept
 bool FullEngineCoopClientController::inspectInventorySlot(
 	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
 {
+	synchronize(view);
 	if (transferringInventory() || pickingUpInventory() || droppingInventory()) return false;
 	const auto* inventory = view.inventoryFor(selectedActor_);
 	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ || !ready(view) ||
@@ -962,6 +967,7 @@ bool FullEngineCoopClientController::inspectInventorySlot(
 bool FullEngineCoopClientController::selectInventorySource(
 	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
 {
+	synchronize(view);
 	if (transferringInventory() || pickingUpInventory() || droppingInventory()) return false;
 	const auto* inventory = view.inventoryFor(selectedActor_);
 	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ ||
@@ -991,6 +997,7 @@ bool FullEngineCoopClientController::selectInventorySource(
 FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventorySwap(
 	const FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept
 {
+	synchronize(view);
 	if (transferringInventory() || pickingUpInventory() || droppingInventory()) return {};
 	const auto* inventory = view.inventoryFor(selectedActor_);
 	if (!inventoryOpen_ || inventoryActor_ != selectedActor_ ||

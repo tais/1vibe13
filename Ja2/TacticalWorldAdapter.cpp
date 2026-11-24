@@ -28,6 +28,10 @@ static_assert(SHADE_MAX == TacticalWorldLightingSnapshot::Brightest &&
 	SHADE_MIN == TacticalWorldLightingSnapshot::Darkest,
 	"replicated ambient-light bounds must match JA2's renderer");
 
+static_assert(SHADE_MAX == TacticalWorldLightingSnapshot::Brightest &&
+	SHADE_MIN == TacticalWorldLightingSnapshot::Darkest,
+	"replicated ambient-light bounds must match JA2's renderer");
+
 namespace
 {
 struct TacticalWorldCompatibilityProjection

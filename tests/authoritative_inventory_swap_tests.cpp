@@ -4,6 +4,7 @@
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "CoopInventoryAuthority.h"
+#include "DedicatedCoopTacticalHost.h"
 #include "GameContext.h"
 #include "GameSettings.h"
 #include "Items.h"
@@ -17,6 +18,7 @@
 #include "SoldierRepository.h"
 #include "Squads.h"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorPendingActionTypes.h"
 #include "TacticalEntityHost.h"
@@ -32,6 +34,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <new>
+#include <tuple>
+#include <array>
+#include <algorithm>
+#include <memory>
+#include <thread>
 
 extern UINT16 gubAnimSurfaceIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
 extern UINT16 gubAnimSurfaceItemSubIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
@@ -217,8 +224,39 @@ int main(int argc, char** argv)
 	CHECK(inventoryAuthority.capture(id, worldIdentity.worldGeneration, inventoryView) &&
 		inventoryView.inventoryRevision == 3, "rejected native captures did not commit hidden revision changes");
 	const UINT8 destination = copyFailure ? BIGPOCK2POS : HANDPOS;
-	CHECK(PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, destination, command),
-		"preparation supports complete ordinary stacks and canonical NAS placeholders");
+	auto live = std::make_unique<DedicatedCoopTacticalJa2LiveState>(game);
+	CoopSession::CoopOwnerInventorySnapshot displayed;
+	CHECK(live->captureInventory(id, worldIdentity.worldGeneration, displayed) &&
+		live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, command),
+		"native host prepares the complete stack against its captured owner revision");
+	const auto shownSlots = displayed.slots;
+	SwapInventorySlotsCommand rejectedPreparation;
+	rejectedPreparation.expectedWorldGeneration = 999;
+	pocket[0]->data.sObjectFlag ^= 1;
+	CHECK(!live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, rejectedPreparation) &&
+		rejectedPreparation.expectedWorldGeneration == 999 && actor.actionPoints().current() == 20 &&
+		live->captureInventory(id, worldIdentity.worldGeneration, displayed) && displayed.inventoryRevision == 2 &&
+		displayed.slots == shownSlots,
+		"unpublished private metadata drift rejects preparation despite identical displayed summary and preserves output/AP");
+	pocket[0]->data.sObjectFlag ^= 1;
+	CHECK(live->captureInventory(id, worldIdentity.worldGeneration, displayed) && displayed.inventoryRevision == 3,
+		"restored native objects receive a new revision after stale host preparation observed drift");
+	CHECK(!live->prepareSwapInventorySlots(id, 256, destination, displayed.inventoryRevision, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots(id, BIGPOCK1POS, 256, displayed.inventoryRevision, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, 0, rejectedPreparation) &&
+		!live->prepareSwapInventorySlots({id.slot, id.incarnation + 1}, BIGPOCK1POS, destination,
+			displayed.inventoryRevision, rejectedPreparation) && rejectedPreparation.expectedWorldGeneration == 999,
+		"native host rejects wide slots, absent revision and stale actor identity transactionally");
+	bool offThreadAccepted = true;
+	std::thread other([&] {
+		offThreadAccepted = live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination,
+			displayed.inventoryRevision, rejectedPreparation);
+	});
+	other.join();
+	CHECK(!offThreadAccepted && rejectedPreparation.expectedWorldGeneration == 999,
+		"native inventory preparation refuses another thread before ledger or object access");
+	CHECK(live->prepareSwapInventorySlots(id, BIGPOCK1POS, destination, displayed.inventoryRevision, command),
+		"fresh native revision prepares the exact command used by retained execution below");
 	if (!command.expectedWorldGeneration) { cleanup(); return 1; }
 	CHECK(command.expectedActionPointCost == (copyFailure ? 0 : 5), "native inventory AP cost captured");
 	if (missingAnimation)
@@ -289,6 +327,92 @@ int main(int argc, char** argv)
 				CHECK(record.status == CommandJournalStatus::Discarded, "failed lighting parent has no Applied journal record");
 		for (auto& light : LightSprites) light.uiFlags = 0;
 		cleanup(); return failures ? 1 : 0;
+	}
+
+	// Equipment effects must never replace an active traversal or queued native
+	// continuation, including work that appears after a command was prepared.
+	const auto idleIntent = actor.animationIntent();
+	const auto idleActivity = actor.animationActivity();
+	const auto idleMovement = actor.movement();
+	const auto idlePath = actor.pathing();
+	const auto idleSchedule = actor.schedule();
+	const auto idlePending = actor.pendingAction();
+	const auto idleFire = actor.fireControl();
+	const auto idleFlags = actor.status().flags();
+	const auto idleDelayedDamage = actor.runtime().pendingAction.delayedDamage;
+	const auto pendingState = [&] {
+		std::array<UINT16, MAX_PATH_LIST_SIZE> path{};
+		std::copy_n(actor.pathing().path(), path.size(), path.begin());
+		return std::make_tuple(actor.animationPlayback().state(), actor.animationIntent().pendingAnimation(),
+			actor.animationIntent().secondaryPendingAnimation(), actor.animationIntent().pendingStance(),
+			actor.animationIntent().pendingDirection(), actor.pathing().desiredDirection(), actor.animationIntent().continuationMode(),
+			actor.animationIntent().stopPendingNextTile(), actor.animationActivity().turningToShoot(),
+			actor.animationActivity().turningUntilDone(), actor.animationActivity().turningFromProneMode(),
+			actor.animationActivity().hitPhase(), actor.animationActivity().paused(),
+			actor.schedule().id(), actor.schedule().doorOpenPhase(), actor.schedule().doorGrid(),
+			actor.movement().delayCounter(), actor.movement().continuedPathValid(), actor.movement().paused(),
+			actor.pathing().pathIndex(), actor.pathing().pathSize(), actor.pathing().finalDestinationGrid(), path,
+			actor.pendingAction().action(), actor.status().flags(), actor.fireControl().bulletsLeft(),
+			static_cast<bool>(actor.runtime().pendingAction.delayedDamage));
+	};
+	const auto rejectsBusyState = [&](auto makeBusy, const char* message) {
+		SwapInventorySlotsCommand retained;
+		if (!PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, retained))
+		{
+			CHECK(false, "ordinary idle state prepares before pending-work regression");
+			return false;
+		}
+		makeBusy();
+		const auto pending = pendingState();
+		const auto sourceObject = CaptureInventorySwapObjectState(id, BIGPOCK1POS);
+		const auto destinationObject = CaptureInventorySwapObjectState(id, HANDPOS);
+		const INT16 beforeAP = actor.actionPoints().current();
+		SwapInventorySlotsCommand unchanged; unchanged.expectedWorldGeneration = 999;
+		const bool rejected = !PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, unchanged);
+		const auto executed = dispatch(retained);
+		const bool intact = rejected && unchanged.expectedWorldGeneration == 999 &&
+			executed.status == SimulationCommandDispatchStatus::Discarded && game.commands().empty() &&
+			pendingState() == pending && actor.actionPoints().current() == beforeAP &&
+			CaptureInventorySwapObjectState(id, BIGPOCK1POS) == sourceObject &&
+			CaptureInventorySwapObjectState(id, HANDPOS) == destinationObject && IsJa2TacticalWorldIntegrityValid();
+		CHECK(intact, message);
+		actor.animationPlayback().state() = CROUCHING;
+		actor.animationIntent() = idleIntent; actor.animationActivity() = idleActivity;
+		actor.movement() = idleMovement; actor.pathing() = idlePath; actor.schedule() = idleSchedule;
+		actor.pendingAction() = idlePending; actor.fireControl() = idleFire;
+		actor.status().flags() = idleFlags; actor.runtime().pendingAction.delayedDamage = idleDelayedDamage;
+		return intact;
+	};
+	CHECK((gAnimControl[HOPFENCE].uiFlags & ANIM_STATIONARY) != 0,
+		"actual native HOPFENCE is stationary and requires an explicit idle-pose whitelist");
+	if (!rejectsBusyState([&] { actor.animationPlayback().state() = HOPFENCE; },
+			"active native HOPFENCE rejects preparation and retained execution without changing objects/AP") ||
+		!rejectsBusyState([&] { actor.animationIntent().queueAnimation(HOPFENCE); }, "pending HOPFENCE is preserved") ||
+		!rejectsBusyState([&] { actor.animationIntent().queueSecondaryAnimation(HOPFENCE); }, "secondary traversal is preserved") ||
+		!rejectsBusyState([&] { actor.animationIntent().queueStance(ANIM_PRONE); }, "pending stance is preserved") ||
+		!rejectsBusyState([&] { actor.animationIntent().queueDirection(EAST); }, "pending direction is preserved") ||
+		!rejectsBusyState([&] { actor.pathing().desiredDirection() = EAST; }, "native desired facing is preserved without queued direction") ||
+		!rejectsBusyState([&] { actor.animationIntent().continueAfterStance(); }, "stance continuation is preserved") ||
+		!rejectsBusyState([&] { actor.animationIntent().requestStopAtNextTile(); }, "pending tile stop is preserved") ||
+		!rejectsBusyState([&] { actor.animationActivity().turningToShoot() = TRUE; }, "pending shooting turn is preserved") ||
+		!rejectsBusyState([&] { actor.animationActivity().turningUntilDone() = TRUE; }, "native turn is preserved") ||
+		!rejectsBusyState([&] { actor.animationActivity().turningFromProneMode() = 1; }, "prone turn is preserved") ||
+		!rejectsBusyState([&] { actor.animationActivity().hitPhase() = 1; }, "hit recovery is preserved") ||
+		!rejectsBusyState([&] { actor.animationActivity().paused() = TRUE; }, "paused native animation is preserved") ||
+		!rejectsBusyState([&] { actor.schedule().id() = 1; }, "assigned native schedule is preserved") ||
+		!rejectsBusyState([&] { actor.schedule().beginDoorContinuation(actor.position().gridNo()+1); }, "scheduled door continuation is preserved") ||
+		!rejectsBusyState([&] { actor.pathing().pathSize() = 1; actor.pathing().pathIndex() = 0; }, "unconsumed native route is preserved") ||
+		!rejectsBusyState([&] { actor.pathing().pathSize() = actor.pathing().pathIndex() = 1;
+			actor.pathing().finalDestinationGrid() = actor.position().gridNo()+1; }, "incomplete stopped route is preserved") ||
+		!rejectsBusyState([&] { actor.movement().waitForGrid(actor.position().gridNo()+1, 1); }, "delayed tile wait is preserved") ||
+		!rejectsBusyState([&] { actor.movement().setContinuedPath(actor.position().gridNo()+1); }, "continued route is preserved") ||
+		!rejectsBusyState([&] { actor.movement().paused() = TRUE; }, "paused movement is preserved") ||
+		!rejectsBusyState([&] { actor.pendingAction().begin(1); }, "pending native action is preserved") ||
+		!rejectsBusyState([&] { actor.status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER; }, "pending-action lock is preserved") ||
+		!rejectsBusyState([&] { actor.fireControl().bulletsLeft() = 1; }, "pending bullets are preserved") ||
+		!rejectsBusyState([&] { actor.runtime().pendingAction.delayedDamage = [] {}; }, "delayed native damage is preserved"))
+	{
+		cleanup(); return 1;
 	}
 
 	const auto original = CaptureInventorySwapObjectState(id, BIGPOCK1POS);

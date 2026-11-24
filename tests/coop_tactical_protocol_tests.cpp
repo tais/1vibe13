@@ -161,33 +161,6 @@ void TestChecksum()
 		"nonempty null checksum input is rejected");
 }
 
-void TestNativeAttackInterruptionReceipt()
-{
-	CoopTacticalIntentReceipt value; value.state = State(); value.peerIdentity = Identity(1);
-	value.commandId = 1; value.nextExpectedCommandId = 2; value.authoritativeSequence = 9;
-	value.status = CoopTacticalIntentReceiptStatus::Cancelled;
-	value.reason = CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
-	CoopTacticalIntentReceiptBytes bytes{};
-	CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) == CoopTacticalCodecResult::Success,
-		"native attack interruption is a valid terminal cancellation");
-	CoopTacticalIntentReceipt decoded;
-	CHECK(DecodeCoopTacticalIntentReceipt(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
-		decoded.status == CoopTacticalIntentReceiptStatus::Cancelled &&
-		decoded.reason == CoopTacticalIntentReceiptReason::NativeAttackInterrupted && decoded.authoritativeSequence == 9,
-		"native attack interruption retains its exact execution sequence on the wire");
-	value.status = CoopTacticalIntentReceiptStatus::Applied;
-	CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) != CoopTacticalCodecResult::Success,
-		"a cancelled shot cannot encode an Applied receipt");
-	value.status = CoopTacticalIntentReceiptStatus::Rejected;
-	value.authoritativeSequence = 0;
-	CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) != CoopTacticalCodecResult::Success,
-		"native cancellation after AP spending is never a pre-execution rejection");
-	value.status = CoopTacticalIntentReceiptStatus::Cancelled;
-	value.reason = static_cast<CoopTacticalIntentReceiptReason>(22);
-	CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) != CoopTacticalCodecResult::Success,
-		"next unknown native reason remains rejected");
-}
-
 void TestReceiptCodec()
 {
 	CoopTacticalIntentReceipt receipt;
@@ -205,7 +178,7 @@ void TestReceiptCodec()
 		CoopTacticalCodecResult::Success, "receipt encodes");
 	CHECK(bytes[0] == 'J' && bytes[1] == '2' && bytes[2] == 'C' &&
 		bytes[3] == 'R', "receipt magic is exact");
-	CHECK(bytes[4] == 6 && bytes[5] == 0 && bytes[6] == 19 &&
+	CHECK(bytes[4] == 6 && bytes[5] == 0 && bytes[6] == 20 &&
 		bytes[7] == 0 && bytes[8] == 3 && bytes[9] == 0,
 		"receipt wire/protocol versions and terminal fields are exact");
 	for (std::size_t index = 0; index < 8; ++index)
@@ -341,6 +314,58 @@ void TestReceiptCodec()
 	CHECK(EncodeCoopTacticalIntentReceipt(invalid, bytes) ==
 		CoopTacticalCodecResult::Success,
 		"a consumed maximum command may pair authority exhaustion with zero");
+}
+
+void TestNativeAttackInterruptionReceipt()
+{
+	CoopTacticalIntentReceipt value;
+	value.state = State(); value.peerIdentity = Identity(1);
+	value.commandId = 1; value.nextExpectedCommandId = 2;
+	value.status = CoopTacticalIntentReceiptStatus::Cancelled;
+	value.reason = CoopTacticalIntentReceiptReason::NativeAttackInterrupted;
+	CoopTacticalIntentReceiptBytes bytes{};
+	CoopTacticalIntentReceipt decoded;
+	for (std::uint64_t sequence : {0ull, 9ull})
+	{
+		value.authoritativeSequence = sequence;
+		CHECK(EncodeCoopTacticalIntentReceipt(value, bytes) == CoopTacticalCodecResult::Success &&
+			bytes[8] == 5 && bytes[9] == 21,
+			"native interruption encodes only as terminal cancellation with exact reason bytes");
+		CHECK(DecodeCoopTacticalIntentReceipt(bytes.data(), bytes.size(), decoded) == CoopTacticalCodecResult::Success &&
+			decoded.status == value.status && decoded.reason == value.reason &&
+			decoded.authoritativeSequence == sequence && decoded.commandId == 1 && decoded.nextExpectedCommandId == 2,
+			"interrupted attack preserves its consumed cursor and native sequence, including sequence zero");
+	}
+	const auto canonical = bytes;
+	auto sentinel = value; sentinel.commandId = 97; sentinel.nextExpectedCommandId = 98;
+	CoopTacticalIntentReceiptBytes sentinelBytes{};
+	CHECK(EncodeCoopTacticalIntentReceipt(sentinel, sentinelBytes) == CoopTacticalCodecResult::Success,
+		"transactional receipt sentinel is valid");
+	const auto rejectsUnchanged = [&](const CoopTacticalIntentReceiptBytes& malformed) {
+		decoded = sentinel;
+		CHECK(DecodeCoopTacticalIntentReceipt(malformed.data(), malformed.size(), decoded) == CoopTacticalCodecResult::Invalid,
+			"illegal interruption status/reason is rejected on decode");
+		CoopTacticalIntentReceiptBytes retained{};
+		CHECK(EncodeCoopTacticalIntentReceipt(decoded, retained) == CoopTacticalCodecResult::Success && retained == sentinelBytes,
+			"failed interruption decode leaves the complete prior receipt unchanged");
+	};
+	for (unsigned status = 1; status != 5; ++status)
+	{
+		auto invalid = value; invalid.status = static_cast<CoopTacticalIntentReceiptStatus>(status);
+		// A zero execution sequence isolates Rejected's semantic constraint from
+		// its independent rule against claiming an executed nonzero sequence.
+		invalid.authoritativeSequence = 0;
+		CHECK(EncodeCoopTacticalIntentReceipt(invalid, bytes) == CoopTacticalCodecResult::Invalid && bytes == canonical,
+			"an interrupted native attack cannot encode as queued, applied, rejected or discarded");
+		auto malformed = canonical; malformed[8] = static_cast<std::uint8_t>(status);
+		std::fill(malformed.begin() + 80, malformed.begin() + 88, 0);
+		rejectsUnchanged(malformed);
+	}
+	auto invalid = value; invalid.reason = static_cast<CoopTacticalIntentReceiptReason>(22);
+	CHECK(EncodeCoopTacticalIntentReceipt(invalid, bytes) == CoopTacticalCodecResult::Invalid && bytes == canonical,
+		"next unknown receipt reason remains invalid without replacing encoded bytes");
+	auto malformed = canonical; malformed[9] = 22;
+	rejectsUnchanged(malformed);
 }
 
 void TestBaselineCodec()
@@ -851,7 +876,7 @@ void TestResyncRequestCodec()
 		CoopTacticalCodecResult::Success,
 		"canonical tactical resync request encodes");
 	const CoopTacticalResyncRequestBytes golden{{
-		0x4a, 0x32, 0x43, 0x54, 0x06, 0x00, 0x13, 0x00,
+		0x4a, 0x32, 0x43, 0x54, 0x06, 0x00, 0x14, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,

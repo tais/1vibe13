@@ -258,7 +258,8 @@ public:
 	}
 	bool isActorAssigned(TacticalEntityId actor) const noexcept;
 	// Borrowed until the next received frame/reset. No inventory is exposed
-	// outside an active, exact-owner baseline. This is slot-summary data only.
+	// outside an active, exact-owner baseline. Contains bounded inventory and
+	// nearby ground-item summaries only; it never drives local simulation.
 	const CoopOwnerInventorySnapshot* ownerInventory(TacticalEntityId actor) const noexcept;
 	bool hasLastIntentReceipt() const noexcept
 	{

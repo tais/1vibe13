@@ -144,10 +144,10 @@ private:
 };
 
 // Borrowed, main-thread-only view of the last transactionally committed
-// replica. The snapshot and mapPlan pointers remain valid only until the next
-// runtime pump or runtime reset. All other fields are copied so presentation
-// code never reaches into the transport/core composition or authoritative JA2
-// state.
+// replica and authenticated owner cache. The snapshot, mapPlan and owner
+// inventory pointers remain valid only until the next runtime pump or runtime
+// reset. All other fields are copied so presentation code never reaches into
+// the transport/core composition or authoritative JA2 state.
 struct FullEngineCoopClientPresentationView
 {
 	const TacticalWorldSnapshot* snapshot = nullptr;

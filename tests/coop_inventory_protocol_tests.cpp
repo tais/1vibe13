@@ -327,7 +327,7 @@ int main()
 		bytes.size() == CoopOwnerInventoryHeaderWireSize + 3 * CoopInventorySlotWireSize,
 		"bounded private summary encodes exact size");
 	const std::array<std::uint8_t, 128> golden{{
-		0x4a, 0x32, 0x4f, 0x49, 2, 0, 19, 0,
+		0x4a, 0x32, 0x4f, 0x49, 2, 0, 20, 0,
 		11, 0, 0, 0, 0, 0, 0, 0,
 		12, 0, 0, 0, 0, 0, 0, 0,
 		13, 0, 0, 0, 0, 0, 0, 0,

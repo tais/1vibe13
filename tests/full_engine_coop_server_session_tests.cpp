@@ -722,10 +722,12 @@ public:
 		CoopTacticalOutboundMessageKind,
 		const char*, const std::uint8_t*, std::size_t) noexcept override
 	{
+		flushObserved = session_.pendingObservation().flushInProgress;
 		reentrantResult = session_.disconnectPeer(peer_);
 		return true;
 	}
 
+	bool flushObserved = false;
 	FullEngineCoopServerSessionResult reentrantResult =
 		FullEngineCoopServerSessionResult::Success;
 
@@ -752,7 +754,8 @@ void TestFlushReentrancyGuardAndSequenceExhaustion()
 		"reentrancy fixture stages its only baseline ID");
 	ReentrantSink sink(session, peer);
 	CHECK(session.flush(sink).messagesSent == 1 &&
-		sink.reentrantResult == FullEngineCoopServerSessionResult::Busy &&
+		sink.reentrantResult == FullEngineCoopServerSessionResult::Busy && sink.flushObserved &&
+		!session.pendingObservation().flushInProgress &&
 		session.peerPhase(peer) == CoopTacticalPeerPhase::AwaitingBaselineAck,
 		"wire callback cannot re-enter session mutation");
 	CHECK(session.stageBaseline(peer, Snapshot(31, 1), 0) ==
@@ -1369,6 +1372,51 @@ void TestOwnerInventoryIsolationAndReplacement()
 }
 }
 
+void TestOwnerInventoryResyncRevokesPendingAndSentState()
+{
+	FullEngineCoopServerSession session;
+	RecordingSink sink;
+	const auto peer = Identity(1);
+	const CoopTacticalActorAssignment assignment{{1, 1}, peer};
+	CHECK(session.beginSession(71) == FullEngineCoopServerSessionResult::Success &&
+		session.beginWorld(9, 10, 1) == FullEngineCoopServerSessionResult::Success &&
+		session.connectPeer(peer) == FullEngineCoopServerSessionResult::Success &&
+		session.replaceAssignments(&assignment, 1) == FullEngineCoopServerSessionResult::Success,
+		"private resync fixture begins exact owner scope");
+	const auto snapshot = Snapshot(9, 1);
+	const auto baseline = MakePeerLive(session, sink, peer, snapshot);
+	const std::vector<CoopInventorySlotSummary> slots{
+		{0, 991, 1, 70, CoopInventorySlotSupport::OrdinarySwappable}};
+	CHECK(session.stageInventory(peer, assignment.actor, 1, true, slots) == FullEngineCoopServerSessionResult::Success &&
+		session.flush(sink).messagesSent == 1 && session.hasInventoryRevision(peer, assignment.actor, 1),
+		"private resync fixture has one successfully sent inventory token");
+	CHECK(session.stageInventory(peer, assignment.actor, 2, true, slots) == FullEngineCoopServerSessionResult::Success,
+		"private resync fixture also has an unsent replacement");
+	const auto request = ResyncBytes(baseline.state, 1, baseline.baselineId, 0, baseline.payloadChecksum,
+		CoopTacticalResyncReason::ReplicaRejected);
+	CHECK(session.requestResync(peer, request.data(), request.size()) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(peer, assignment.actor, 1) && !session.hasInventoryRevision(peer, assignment.actor, 2),
+		"authenticated public resync revokes both sent and pending private tokens");
+	sink.messages.clear();
+	const auto cleared = session.flush(sink);
+	CHECK(cleared.messagesSent == 0 && !cleared.inventoryPending && !cleared.backpressured,
+		"resync discards private bytes from the old baseline instead of blocking its replacement");
+	const auto replacement = MakePeerLive(session, sink, peer, snapshot);
+	CHECK(replacement.baselineId != baseline.baselineId &&
+		session.stageInventory(peer, assignment.actor, 2, true, slots) == FullEngineCoopServerSessionResult::Success &&
+		!session.hasInventoryRevision(peer, assignment.actor, 2) && session.flush(sink).messagesSent == 1 &&
+		session.hasInventoryRevision(peer, assignment.actor, 2),
+		"unchanged native revision must publish again under the newly acknowledged baseline");
+	CoopOwnerInventorySnapshot received;
+	CHECK(!sink.messages.empty() && DecodeCoopOwnerInventorySnapshot(sink.messages.back().bytes.data(),
+		sink.messages.back().bytes.size(), received) == CoopInventoryCodecResult::Success &&
+		received.baselineId == replacement.baselineId && received.inventoryRevision == 2,
+		"recovery wire frame is bound to the replacement baseline rather than the retained old bytes");
+	session.endSession();
+	CHECK(!session.hasInventoryRevision(peer, assignment.actor, 2) && !session.flush(sink).inventoryPending,
+		"session retirement clears every private token and pending publication barrier");
+}
+
 int main()
 {
 	TestInventoryPendingSurvivesSharedMessageBudget();
@@ -1384,6 +1432,7 @@ int main()
 	TestDeltaTurnIdentity();
 	TestAuthenticatedResyncPreservesAuthorityState();
 	TestEqualRevisionLateBaselineAckCannotRegressLineage();
+	TestOwnerInventoryResyncRevokesPendingAndSentState();
 	TestOversizedDeltaFallsBackToCommittedBaseline();
 	if (failures == 0)
 		std::printf("all full-engine coop server session tests passed\n");

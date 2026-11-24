@@ -43,7 +43,7 @@ TacticalWorldSnapshot Snapshot(TacticalWorldDimensions dimensions,
 	turn.interruptSerial = interruptSerial;
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(7, dimensions,
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		turn,
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"presentation fixture snapshot creates");

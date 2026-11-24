@@ -70,6 +70,15 @@ struct RuntimeMessageDispatchResult
 	bool operationInProgress = false;
 };
 
+// Stored queue state at one instant. A zero queue can coexist with a callback
+// executing after its message was popped. This does not observe retained work
+// owned by packages, and it does not pause producers.
+struct RuntimeMessageBusObservation
+{
+	std::size_t queuedMessages = 0;
+	bool dispatchInProgress = false;
+};
+
 // Deterministic, bounded, non-owning message fan-out for communication between
 // packages and hosts without campaign headers. Dispatch snapshots the ready
 // queue: messages published by a callback are deferred until the next frame,
@@ -171,6 +180,11 @@ public:
 		}
 		result.queuedForNextDispatch = queue_.size();
 		return result;
+	}
+
+	RuntimeMessageBusObservation observation() const noexcept
+	{
+		return {queue_.size(), dispatching_};
 	}
 
 	std::size_t queued() const { return queue_.size(); }

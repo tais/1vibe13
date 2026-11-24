@@ -53,7 +53,8 @@ int main(int argc, char** argv)
 	gbPlayerNum = OUR_TEAM; is_networked = is_client = is_server = false;
 	auto& speaker = *repository.resolve(263);
 	speaker.identity().id() = SoldierID{263}; speaker.identity().incarnation() = 72;
-	speaker.identity().profile() = NO_PROFILE;
+	speaker.identity().profile() = NO_PROFILE; speaker.identity().bodyType() = REGMALE;
+	speaker.dialogue().clearCivilianQuote();
 	speaker.roster().active() = speaker.roster().inSector() = TRUE; speaker.roster().team() = ENEMY_TEAM;
 	speaker.vitals().health() = speaker.vitals().maximumHealth() = 100;
 	speaker.position().gridNo() = 120; speaker.position().direction() = SOUTH;
@@ -75,14 +76,22 @@ int main(int argc, char** argv)
 	is_networked = true;
 	CHECK(!DeferDedicatedCoopSurrender(speaker) && !state.pending(), "legacy networking cannot enter the continuation");
 	is_networked = false;
+	SimulationRandom expectedQuoteRandom(20260926);
+	CHECK(expectedQuoteRandom.restoreCheckpoint(GetGameSimulationRandomSource()->checkpoint()) == SimulationRandomCheckpointError::None,
+		"native quote starts from the observed campaign RNG checkpoint");
+	(void)expectedQuoteRandom.next(3);
 	StartCivQuote(&speaker);
+	CHECK(GetGameSimulationRandomSource()->checkpoint() == expectedQuoteRandom.checkpoint(),
+		"deferring presentation preserves the real native surrender quote RNG draw");
 	CHECK(state.pending() && !state.failure() && DedicatedCoopSurrenderPending() && GamePaused(),
 		"native offer reaches an explicit held decision without a quote renderer or local message box");
 	if (!state.pending()) return 1;
 	const auto offer = *state.pending();
 	CHECK(offer.worldGeneration == 41 && offer.speaker == (TacticalEntityId{263, 72}) && offer.turnSerial,
 		"offer retains its exact world, turn and native actor incarnation");
+	const auto heldRandom = GetGameSimulationRandomSource()->checkpoint();
 	StartCivQuote(&speaker);
+	CHECK(GetGameSimulationRandomSource()->checkpoint() == heldRandom, "duplicate offer cannot reroll a quote");
 	CHECK(state.pending()->id == offer.id && speaker.aiPlanning().action() == AI_ACTION_OFFER_SURRENDER &&
 		!(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER), "duplicate native presentation neither answers nor allocates a new offer");
 	CHECK(ReplyToDedicatedCoopSurrender(offer.id + 1, Reply::ContinueFighting) == Result::StaleOffer && state.pending(),

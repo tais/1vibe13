@@ -75,7 +75,8 @@ TacticalWorldSnapshot Snapshot(bool loaded = true,
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(epoch,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, loaded},
+		TacticalSectorSnapshot{9, 2, 0, loaded,
+			loaded ? TacticalMapAssetKey{{"A9.dat"}} : TacticalMapAssetKey{}},
 		Turn(activeTeam, commandsBlocked, interruptPhase, interruptSerial),
 		std::move(actors), std::move(doors), snapshot) ==
 			TacticalSnapshotCreateError::None,
@@ -960,7 +961,7 @@ void TestAttackTargetingUsesCanonicalHostility()
 	TacticalWorldSnapshot snapshot;
 	CHECK(TacticalWorldSnapshot::create(11,
 		TacticalWorldDimensions{160, 160},
-		TacticalSectorSnapshot{9, 2, 0, true},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
 		Turn(0),
 		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
 		"hostility targeting fixture is valid");
@@ -1938,8 +1939,58 @@ void TestGroundPickupBusyInspectionAndEmptyScope()
 }
 }
 
+void TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization()
+{
+	for (unsigned change = 0; change < 5; ++change)
+	{
+		InventoryFixture fixture;
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,14),
+			"direct readiness fixture selects a source");
+		if (change == 0) view.outstandingCommandId = 77;
+		else if (change == 1) fixture.snapshot = Snapshot(true,1);
+		else if (change == 2) fixture.snapshot = Snapshot(true,0,{},11,true);
+		else if (change == 3) fixture.snapshot = Snapshot(true,0,{},11,false,TacticalInterruptPhase::Resolving,9);
+		else fixture.snapshot = Snapshot(true,0,{},11,false,TacticalInterruptPhase::Active,9);
+		CHECK(!controller.inventorySwap(view,6) && controller.inventorySourceSlot()==65535 &&
+			controller.inventoryOpen() && controller.inspectInventorySlot(view,15),
+			"direct confirmation revokes blocked source while retaining read-only owned inspection");
+		fixture.snapshot = Snapshot(); view.outstandingCommandId = 0;
+		CHECK(!controller.inventorySwap(view,6) && controller.selectInventorySource(view,14) &&
+			controller.inventorySwap(view,6), "readiness recovery requires a deliberate fresh source");
+	}
+}
+
+void TestInventoryOrdinaryEquipmentRemainsAuthorityValidated()
+{
+	for (std::uint16_t equipment : {0,1,2,3,4})
+	{
+		InventoryFixture fixture;
+		fixture.first.slots[equipment] = {equipment,77,1,73,CoopSession::CoopInventorySlotSupport::OrdinarySwappable};
+		auto view = fixture.view();
+		FullEngineCoopClientController controller;
+		const auto before = fixture.first;
+		CHECK(controller.openInventory(view) && controller.selectInventorySource(view,equipment),
+			"ordinary armor and face equipment may become a retained source");
+		const auto remove = controller.inventorySwap(view,16);
+		const auto* request = std::get_if<CoopSession::SwapInventorySlotsTacticalIntent>(&remove.payload);
+		CHECK(remove && request && request->sourceSlot==equipment && request->destinationSlot==16 &&
+			request->expectedInventoryRevision==51 && fixture.first==before,
+			"worn equipment emits exact slots and private revision without local unequip");
+		CHECK(controller.selectInventorySource(view,14) && controller.inventorySwap(view,equipment) && fixture.first==before,
+			"native authority alone validates equipment placement, face compatibility and capacity");
+	}
+}
+
 int main()
 {
+	TestInventoryOrdinarySwapsArePureAndSlotBounded();
+	TestInventoryModalControlsAndBusyInspection();
+	TestInventoryInspectionNeverBecomesASwapCursor();
+	TestInventoryContextChangesRevokeRetainedChoices();
+	TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization();
+	TestInventoryOrdinaryEquipmentRemainsAuthorityValidated();
 	TestSelectionUsesOnlyAssignedPresentActors();
 	TestExactActorSelectionValidatesIdentityAndModalState();
 	TestNumericMoveEntryProducesOneTypedRequest();
@@ -1974,6 +2025,8 @@ int main()
 	TestInventoryTransferRecipientsAreOwnedReadyHumans();
 	TestGroundPickupSelectsExactAuthorityIdAndEmptyPocket();
 	TestGroundPickupContextChangesInvalidateBeforeSubmit();
+	TestInventoryReadinessLossRevokesSourceWithoutExternalSynchronization();
+	TestInventoryOrdinaryEquipmentRemainsAuthorityValidated();
 	TestGroundPickupBusyInspectionAndEmptyScope();
 	if (Failures == 0)
 		std::printf("full-engine co-op client controller tests passed\n");

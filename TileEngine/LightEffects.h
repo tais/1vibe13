@@ -52,6 +52,9 @@ BOOLEAN SaveLightEffectsToMapTempFile( INT16 sMapX, INT16 sMapY, INT8 bMapZ );
 BOOLEAN LoadLightEffectsFromMapTempFile( INT16 sMapX, INT16 sMapY, INT8 bMapZ );
 void ResetLightEffects();
 
+// Read-only live allocation count; the retained high-water mark is not activity.
+UINT32 GetAllocatedLightEffectCount() noexcept;
+
 BOOLEAN IsLightEffectAtTile( INT32 sGridNo );
 
 // Flugente: create and destroy light sources tied to a person

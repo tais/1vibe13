@@ -446,7 +446,7 @@ not authenticate human users. Periodic and final strategic checkpoints stop the
 listener and require the tactical command host and server obligations to drain
 before saving. The
   production co-op server now composes baseline-gated actor assignment, the
-  tactical observer, and global co-op protocol-v19 execution of fourteen JA2 command
+  tactical observer, and global co-op protocol-v20 execution of fourteen JA2 command
 intents without entering legacy `GAME_TYPE=2`. The sixth is an exact-target
 aimed single-shot firearm request; authority revalidates the live target,
 visibility, weapon/ammunition, aim, action points, and turn state before a

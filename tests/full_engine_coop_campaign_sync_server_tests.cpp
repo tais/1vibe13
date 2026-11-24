@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -534,6 +535,46 @@ void TestExactBackpressureRetention()
 	configuration.maximumMessagesPerFlush = 1;
 	Fixture fixture(CoopCampaignSyncCanonicalChunkBytes + 3, configuration);
 	const auto authenticated = Authenticated(0x10, 201);
+	const auto checkReadOnlyCapture = [&](std::size_t pending, std::size_t inFlight,
+		FullEngineCoopCampaignSyncPendingKind pendingKind) {
+		const auto before = fixture.server.diagnostics();
+		FullEngineCoopCampaignSyncPeerDiagnostics peerBefore;
+		CHECK(fixture.server.peerDiagnostics(authenticated.peerIdentity, peerBefore),
+			"backpressured peer remains observable");
+		CHECK(before.active && !before.terminal && before.connectedPeers == 1 &&
+			before.readyPeers == 0 && before.pendingMessages == pending &&
+			before.inFlightChunks == inFlight && peerBefore.pendingKind == pendingKind &&
+			peerBefore.inFlightChunks == inFlight && !peerBefore.campaignReady,
+			"observations retain actual pending and in-flight transfer obligations");
+		const auto attempts = fixture.sink.attempts.size();
+		const auto reads = fixture.source.readCallCount;
+		const auto metadataReads = fixture.source.metadataCalls;
+		const auto sourceBytes = fixture.source.bytes;
+		for (unsigned capture = 0; capture < 3; ++capture)
+		{
+			const auto after = fixture.server.diagnostics();
+			FullEngineCoopCampaignSyncPeerDiagnostics peerAfter;
+			CHECK(fixture.server.peerDiagnostics(authenticated.peerIdentity, peerAfter) &&
+				std::tie(before.active, before.terminal, before.sessionEpoch, before.checkpointGeneration,
+					before.checkpointSize, before.nextTransferId, before.connectedPeers, before.readyPeers,
+					before.pendingMessages, before.inFlightChunks, before.terminalCause) ==
+				std::tie(after.active, after.terminal, after.sessionEpoch, after.checkpointGeneration,
+					after.checkpointSize, after.nextTransferId, after.connectedPeers, after.readyPeers,
+					after.pendingMessages, after.inFlightChunks, after.terminalCause) &&
+				std::tie(peerBefore.peerIdentity, peerBefore.transport, peerBefore.phase, peerBefore.transferId,
+					peerBefore.acknowledgedOffset, peerBefore.highestSentOffset, peerBefore.nextSendOffset,
+					peerBefore.precedingAcknowledgedChecksum, peerBefore.inFlightChunks, peerBefore.pendingKind,
+					peerBefore.pendingBytes, peerBefore.rejectionReason, peerBefore.campaignReady) ==
+				std::tie(peerAfter.peerIdentity, peerAfter.transport, peerAfter.phase, peerAfter.transferId,
+					peerAfter.acknowledgedOffset, peerAfter.highestSentOffset, peerAfter.nextSendOffset,
+					peerAfter.precedingAcknowledgedChecksum, peerAfter.inFlightChunks, peerAfter.pendingKind,
+					peerAfter.pendingBytes, peerAfter.rejectionReason, peerAfter.campaignReady),
+				"repeated transfer captures do not advance cursors, readiness, tokens or retained bytes");
+			CHECK(fixture.sink.attempts.size() == attempts && fixture.source.readCallCount == reads &&
+				fixture.source.metadataCalls == metadataReads && fixture.source.bytes == sourceBytes,
+				"capturing transfer diagnostics performs no source read, metadata callback or wire retry");
+		}
+	};
 	CHECK(fixture.server.beginSession(19) ==
 		FullEngineCoopCampaignSyncServerResult::Success,
 		"backpressure session begins");
@@ -555,6 +596,7 @@ void TestExactBackpressureRetention()
 		diagnostics.pendingKind ==
 			FullEngineCoopCampaignSyncPendingKind::Metadata,
 		"metadata state does not advance on backpressure");
+	checkReadOnlyCapture(1, 0, FullEngineCoopCampaignSyncPendingKind::Metadata);
 	flushed = fixture.server.flushOutbound();
 	CHECK(flushed.result == FullEngineCoopCampaignSyncServerResult::Success &&
 		flushed.messagesSent == 1 &&
@@ -580,12 +622,19 @@ void TestExactBackpressureRetention()
 		diagnostics.pendingKind ==
 			FullEngineCoopCampaignSyncPendingKind::Chunk,
 		"refused chunk remains pending and unsent");
+	checkReadOnlyCapture(1, 0, FullEngineCoopCampaignSyncPendingKind::Chunk);
 	flushed = fixture.server.flushOutbound();
 	CHECK(flushed.messagesSent == 1 && flushed.chunksSent == 1 &&
 		fixture.source.readCallCount == 1 &&
 		fixture.sink.attempts[attemptsBefore].bytes ==
 			fixture.sink.attempts[attemptsBefore + 1].bytes,
 		"chunk retry neither rereads nor re-encodes pending bytes");
+	checkReadOnlyCapture(0, 1, FullEngineCoopCampaignSyncPendingKind::None);
+	flushed = fixture.server.flushOutbound();
+	CHECK(flushed.messagesSent == 1 && flushed.chunksSent == 1 &&
+		fixture.source.readCallCount == 2,
+		"only an explicit flush advances the observed transfer to its remaining chunk");
+	checkReadOnlyCapture(0, 2, FullEngineCoopCampaignSyncPendingKind::None);
 }
 
 void TestResyncRetransmission()

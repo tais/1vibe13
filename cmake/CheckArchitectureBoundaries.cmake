@@ -5865,7 +5865,7 @@ extract_brace_bounded_slice(dedicated_live_client_scratch_code
 require_ordered_fragments(dedicated_live_credential_campaign_binding_slice
   "Persisted credential compatibility must keep the explicit version pair and exact campaign/runtime/content binding"
   "left.protocolVersion == right.protocolVersion"
-  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18) && right.protocolVersion == 19"
+  "(left.protocolVersion == 8 || left.protocolVersion == 9 || left.protocolVersion == 14 || left.protocolVersion == 15 || left.protocolVersion == 16 || left.protocolVersion == 17 || left.protocolVersion == 18 || left.protocolVersion == 19) && right.protocolVersion == 20"
   "compatibleProtocol &&"
   "left.campaignSeed == right.campaignSeed"
   "left.campaignIdentitySha256 == right.campaignIdentitySha256"
@@ -5883,7 +5883,7 @@ require_ordered_fragments(dedicated_live_credential_decode_record_slice
   "std::equal(expected.begin(), expected.end()"
   "DecodeCoopCampaignBootstrap(record.data()"
   "CoopCampaignBootstrapWireSize"
-  "CurrentProtocolVersion == 19 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18)"
+  "CurrentProtocolVersion == 20 && (storedProtocol == 8 || storedProtocol == 9 || storedProtocol == 14 || storedProtocol == 15 || storedProtocol == 16 || storedProtocol == 17 || storedProtocol == 18 || storedProtocol == 19)"
   "bootstrapResult != CoopCampaignBootstrapDecodeResult::UnsupportedProtocol"
   "record[CoopCampaignBootstrapWireSize + 4] != storedProtocol"
   "DecodeCoopCampaignBootstrap(canonical.data()"
@@ -5963,6 +5963,30 @@ require_ordered_fragments(dedicated_live_credential_persist_slice
   "impl_->failStopped = true"
   "return false"
   "return true")
+
+foreach(render_protocol_credential_regression IN ITEMS
+    "TestLegacyReconnectCredentialMigration(8)"
+    "TestLegacyReconnectCredentialMigration(9)"
+    "TestLegacyReconnectCredentialMigration(14)"
+    "TestLegacyReconnectCredentialMigration(15)"
+    "TestLegacyReconnectCredentialMigration(16)"
+    "TestLegacyReconnectCredentialMigration(17)"
+    "TestLegacyReconnectCredentialMigration(18)"
+    "TestLegacyReconnectCredentialMigration(19)"
+    "TestLegacyReconnectCredentialMalformedRecords()"
+    "CurrentProtocolVersion == 20"
+    "persistence migration never weakens live protocol rejection or mutates decoder outputs"
+    "only exact campaign binding plus a different epoch may classify legacy bytes stale"
+    "legacy retirement remains terminal and preserves its exact original protocol"
+    "future protocol is not an implicit migration"
+    "older unreviewed protocol remains rejected"
+    "legacy parsing requires original outer SHA")
+  string(FIND "${dedicated_live_client_scratch_test_source}"
+    "${render_protocol_credential_regression}" render_protocol_credential_position)
+  if(render_protocol_credential_position EQUAL -1)
+    message(FATAL_ERROR "Explicit legacy-to19 private credential migration lost '${render_protocol_credential_regression}'")
+  endif()
+endforeach()
 
 extract_brace_bounded_slice(dedicated_live_client_scratch_code
   "bool FullEngineCoopClientCampaignScratch::retireReconnectCredential(\n\tconst AdmissionAck& credential) noexcept"
@@ -6482,6 +6506,7 @@ require_ordered_fragments(dedicated_live_client_presentation_view_slice
   "output.snapshot = &replica->snapshot()"
   "client.assignedActorCount()"
   "client.assignedActor(index)"
+  "client.ownerInventory(output.assignedActors[index])"
   "client.outstandingCommandId()"
   "client.acceptedState()"
   "client.hasLastIntentReceipt()"
@@ -6508,6 +6533,48 @@ require_ordered_fragments(dedicated_live_client_controller_request_slice
   "output.actor = selectedActor_"
   "output.payload = payload"
   "output.valid = true")
+
+# Owner inventory choices remain borrowed private presentation state. Every
+# direct confirmation revalidates the scope and spends only a local choice.
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventorySwap(\n\tconst FullEngineCoopClientControllerView& view, std::uint16_t destinationSlot) noexcept"
+  dedicated_live_client_inventory_swap_slice
+  "Cannot bound passive owner inventory swap request")
+require_ordered_fragments(dedicated_live_client_inventory_swap_slice
+  "Passive inventory swap lost current private identity or one-shot request construction"
+  "synchronize(view)"
+  "view.inventoryFor(selectedActor_)"
+  "!inventoryOpen_"
+  "inventoryActor_ != selectedActor_"
+  "inventoryWorldEpoch_"
+  "!actionsEnabled(view)"
+  "inventorySourceRevision_ != inventory->inventoryRevision"
+  "inventorySessionEpoch_ != inventory->sessionEpoch"
+  "inventoryBaselineId_ != inventory->baselineId"
+  "SupportedInventorySwapSlot(inventorySourceSlot_)"
+  "SupportedInventorySwapSlot(destinationSlot)"
+  "inventorySourceSlot_ == destinationSlot"
+  "source.support != CoopSession::CoopInventorySlotSupport::OrdinarySwappable"
+  "destination.support == CoopSession::CoopInventorySlotSupport::UnsupportedComplex"
+  "CoopSession::SwapInventorySlotsTacticalIntent"
+  "inventorySourceSlot_, destinationSlot, inventory->inventoryRevision"
+  "inventorySourceSlot_ = 0xffff"
+  "inventorySourceRevision_ = 0"
+  "return result")
+extract_brace_bounded_slice(dedicated_live_client_controller_code
+  "void FullEngineCoopClientController::synchronize(\n\tconst FullEngineCoopClientControllerView& view) noexcept"
+  dedicated_live_client_inventory_synchronize_slice
+  "Cannot bound passive inventory scope synchronization")
+require_ordered_fragments(dedicated_live_client_inventory_synchronize_slice
+  "Passive inventory retained choices must revoke on owner scope or readiness loss"
+  "inventoryOwner_ != inventory->owner"
+  "inventoryWorldEpoch_ != view.snapshot->epoch()"
+  "inventorySessionEpoch_ != inventory->sessionEpoch"
+  "inventoryBaselineId_ != inventory->baselineId"
+  "closeInventory()"
+  "!actionsEnabled(view) || inventorySourceRevision_ != inventory->inventoryRevision"
+  "inventorySourceSlot_ = 0xffff"
+  "inventorySourceRevision_ = 0")
 
 # The worldless client offers one allocation-free direct movement calculation.
 # Arrow keys use the isometric row/column diagonals only outside modal input;
@@ -6771,6 +6838,47 @@ foreach(dedicated_live_client_screen_forbidden IN ITEMS
   if(NOT dedicated_live_client_screen_forbidden_position EQUAL -1)
     message(FATAL_ERROR
       "Worldless co-op client screen regained authoritative dependency '${dedicated_live_client_screen_forbidden}'")
+  endif()
+endforeach()
+
+# Campaign controls project server observations into released-key choices.
+# They share the passive input consumer, never JA2's native campaign handlers.
+extract_brace_bounded_slice(dedicated_live_client_screen_code
+  "void HandleFullEngineCoopClientInput() noexcept"
+  shared_campaign_input "Cannot bound passive campaign input")
+require_ordered_fragments(shared_campaign_input
+  "Native decisions must own input before ordinary campaign or tactical controls"
+  "runtime.presentationView(presentation)" "CaptureFullEngineCoopClientMeanwhileControls(sceneControls)"
+  "MeanwhileInput.handle(" "runtime.requestCampaignAction(*answer)"
+  "CaptureFullEngineCoopClientBattleNoticeControls(notice)" "BattleNoticeInput.handle("
+  "CaptureFullEngineCoopClientSurrenderControls(surrender)" "SurrenderInput.handle("
+  "if (!presentationReady)" "Controller.synchronize(FullEngineCoopClientControllerView{})"
+  "CampaignHireInput.handle(" "runtime.requestCampaignHire("
+  "CampaignActionInput.handle(" "runtime.requestCampaignAction(*action)"
+  "haveCampaign && localLeader" "timeInput.handle(" "runtime.requestCampaignTime(*timeAction)"
+  "timeInput.reset()" "CampaignActionInput.reset()" "CampaignHireInput.reset()"
+  "HandleInput(presentation, view, retirementEligible")
+foreach(shared_observation IN ITEMS Groups Economy AimQuotes)
+  set(shared_type "CoopCampaign${shared_observation}")
+  extract_brace_bounded_slice(dedicated_live_client_runtime_code
+    "bool FullEngineCoopClientRuntime::campaign${shared_observation}(CoopSession::${shared_type}& output) const noexcept"
+    shared_runtime_observation "Cannot bound live campaign observation")
+  require_ordered_fragments(shared_runtime_observation
+    "Campaign controls must clear stale output and copy only ready server observations"
+    "output = {}" "!campaignReady() || failed()" "client.campaign${shared_observation}()" "return true")
+endforeach()
+extract_brace_bounded_slice(dedicated_live_client_runtime_code
+  "bool FullEngineCoopClientRuntime::campaignStatus(CoopSession::CoopCampaignStatus& output,\n\tbool& localTimeLeader) const noexcept"
+  shared_runtime_clock "Cannot bound live campaign clock")
+require_ordered_fragments(shared_runtime_clock
+  "The displayed clock and leadership must come from the admitted server"
+  "output = {}" "localTimeLeader = false" "!campaignReady() || failed()"
+  "client.campaignStatus()" "output = *status" "status->timeLeaderReady"
+  "status->timeLeader == impl_->composition->client.peerIdentity()")
+foreach(shared_native_mutation IN ITEMS "WarpGameTime(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression(" "HireMerc(" "HireDedicatedCoopAimMerc(" "StartDedicatedCoopTravel(" "SetCurrentWorldSector(" "ReplyToDedicatedCoopSurrender(" "SkipMeanwhileScene(")
+  string(FIND "${dedicated_live_client_screen_code}" "${shared_native_mutation}" shared_native_mutation_at)
+  if(NOT shared_native_mutation_at EQUAL -1)
+    message(FATAL_ERROR "Passive campaign controls gained native mutation '${shared_native_mutation}'")
   endif()
 endforeach()
 
@@ -9684,9 +9792,9 @@ foreach(dedicated_live_global_protocol_v7_contract IN ITEMS
     "CurrentProtocolVersion = 19"
     "protocolVersion = CurrentProtocolVersion")
   string(FIND "${dedicated_live_session_protocol_header_code}"
-    "${dedicated_live_global_protocol_v7_contract}"
-    dedicated_live_global_protocol_v7_contract_position)
-  if(dedicated_live_global_protocol_v7_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_v9_contract}"
+    dedicated_live_global_protocol_v9_contract_position)
+  if(dedicated_live_global_protocol_v9_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Global co-op protocol v19 contract lost '${dedicated_live_global_protocol_v7_contract}'")
   endif()
@@ -9697,29 +9805,29 @@ foreach(dedicated_live_global_protocol_v7_test_contract IN ITEMS
     "DecodeResult::UnsupportedProtocol"
     "unsupported.protocolVersion++")
   string(FIND "${dedicated_live_session_protocol_test_code}"
-    "${dedicated_live_global_protocol_v7_test_contract}"
-    dedicated_live_global_protocol_v7_test_contract_position)
-  if(dedicated_live_global_protocol_v7_test_contract_position EQUAL -1)
+    "${dedicated_live_global_protocol_v9_test_contract}"
+    dedicated_live_global_protocol_v9_test_contract_position)
+  if(dedicated_live_global_protocol_v9_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Global co-op protocol v19 golden/rejection test lost '${dedicated_live_global_protocol_v7_test_contract}'")
   endif()
 endforeach()
 require_ordered_fragments(dedicated_live_handshake_test_source
-  "Global protocol-v19 server-hello golden changed"
-  "0x13, 0x00, 0x00, 0x00"
+  "Global protocol-v20 server-hello golden changed"
+  "0x14, 0x00, 0x00, 0x00"
   "pinned 72-byte wire image")
 require_ordered_fragments(dedicated_live_campaign_bootstrap_protocol_test_source
-  "Global protocol-v19 campaign-bootstrap golden changed"
-  "0x13, 0x00, 0x00, 0x00"
-  "UINT32_C(0x856f35bb)"
+  "Global protocol-v20 campaign-bootstrap golden changed"
+  "0x14, 0x00, 0x00, 0x00"
+  "UINT32_C(0x6a0b65ec)"
   "descriptor checksum pins FNV-1a over bytes 0 through 111")
 require_ordered_fragments(dedicated_live_campaign_sync_protocol_test_source
-  "Global protocol-v19 campaign-sync golden changed"
-  "bytes[6] == 19"
+  "Global protocol-v20 campaign-sync golden changed"
+  "bytes[6] == 20"
   "campaign sync versions and kind are exact")
 require_ordered_fragments(dedicated_live_listener_test_source
-  "Global protocol-v19 admission-listener hello golden changed"
-  "0x13, 0x00, 0x00, 0x00"
+  "Global protocol-v20 admission-listener hello golden changed"
+  "0x14, 0x00, 0x00, 0x00"
   "pinned 72-byte little-endian wire image")
 
 # The current protocol retains an exact self-only voluntary leave wire. The request must
@@ -10073,6 +10181,9 @@ require_ordered_fragments(dedicated_live_listener_start_slice
   "RegisterMessage(CoopCampaignSyncAckMessageName"
   "RegisterMessage(CoopCampaignSyncResultMessageName"
   "RegisterMessage(CoopCampaignSyncResyncMessageName"
+  "RegisterMessage(CoopCampaignTimeRequestMessageName"
+  "RegisterMessage(CoopCampaignActionRequestMessageName"
+  "RegisterMessage(CoopCampaignHireRequestMessageName"
   "transport_->Start("
   "transport_->SetTimeout(configuration.timeoutMilliseconds)"
   "handshakeTimeoutMilliseconds_ = configuration.handshakeTimeoutMilliseconds"
@@ -10469,6 +10580,23 @@ require_ordered_fragments(dedicated_live_listener_outbound_validation_slice
   "CoopTacticalDeltaMessageName"
   "CoopTacticalDeltaHeaderWireSize"
   "MaximumCoopTacticalDeltaWireSize"
+  "CoopCampaignStatusMessageName"
+  "CoopCampaignStatusWireSize"
+  "CoopCampaignGroupsMessageName"
+  "CoopCampaignGroupsHeaderSize"
+  "MaximumCoopCampaignGroupsWireSize"
+  "CoopCampaignTimeResultMessageName"
+  "CoopCampaignTimeResultWireSize"
+  "CoopCampaignActionResultMessageName"
+  "CoopCampaignActionResultWireSize"
+  "CoopCampaignEconomyMessageName"
+  "CoopCampaignEconomyHeaderSize"
+  "MaximumCoopCampaignEconomyWireSize"
+  "CoopCampaignAimQuotesMessageName"
+  "CoopCampaignAimQuotesHeaderSize"
+  "MaximumCoopCampaignAimQuotesWireSize"
+  "CoopCampaignHireResultMessageName"
+  "CoopCampaignHireResultWireSize"
   "CoopCampaignSyncMetadataMessageName"
   "CoopCampaignSyncMetadataWireSize"
   "CoopCampaignSyncChunkMessageName"
@@ -10492,7 +10620,10 @@ foreach(dedicated_live_listener_outbound_forbidden IN ITEMS
     "CoopTacticalDeltaAckMessageName"
     "CoopCampaignSyncAckMessageName"
     "CoopCampaignSyncResultMessageName"
-    "CoopCampaignSyncResyncMessageName")
+    "CoopCampaignSyncResyncMessageName"
+    "CoopCampaignTimeRequestMessageName"
+    "CoopCampaignActionRequestMessageName"
+    "CoopCampaignHireRequestMessageName")
   string(FIND "${dedicated_live_listener_outbound_validation_slice}"
     "${dedicated_live_listener_outbound_forbidden}"
     dedicated_live_listener_outbound_forbidden_position)
@@ -10827,9 +10958,9 @@ foreach(dedicated_live_snapshot_v7_contract IN ITEMS
     "EncodedTacticalDoorSnapshotBytes = 7"
     "MaximumEncodedTacticalWorldSnapshotBytes =")
   string(FIND "${dedicated_live_snapshot_codec_header_code}"
-    "${dedicated_live_snapshot_v7_contract}"
-    dedicated_live_snapshot_v7_contract_position)
-  if(dedicated_live_snapshot_v7_contract_position EQUAL -1)
+    "${dedicated_live_snapshot_v9_contract}"
+    dedicated_live_snapshot_v9_contract_position)
+  if(dedicated_live_snapshot_v9_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical snapshot wire-v12 contract lost '${dedicated_live_snapshot_v7_contract}'")
   endif()
@@ -11909,9 +12040,9 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     "a render position at or beyond the world boundary remains invalid and transactional"
     "a maximum-size baseline reaches the exact byte ceiling")
   string(FIND "${dedicated_live_snapshot_codec_test_source}"
-    "${dedicated_live_snapshot_v7_test_contract}"
-    dedicated_live_snapshot_v7_test_contract_position)
-  if(dedicated_live_snapshot_v7_test_contract_position EQUAL -1)
+    "${dedicated_live_snapshot_v9_test_contract}"
+    dedicated_live_snapshot_v9_test_contract_position)
+  if(dedicated_live_snapshot_v9_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical snapshot v12 golden/transaction test lost '${dedicated_live_snapshot_v7_test_contract}'")
   endif()
@@ -11939,9 +12070,9 @@ foreach(dedicated_live_delta_v5_contract IN ITEMS
     "TacticalWorldSnapshot::DefaultMaximumActors * 2"
     "TacticalWorldSnapshot::DefaultMaximumDoors * 2 + 3")
   string(FIND "${dedicated_live_delta_codec_header_code}"
-    "${dedicated_live_delta_v5_contract}"
-    dedicated_live_delta_v5_contract_position)
-  if(dedicated_live_delta_v5_contract_position EQUAL -1)
+    "${dedicated_live_delta_v8_contract}"
+    dedicated_live_delta_v8_contract_position)
+  if(dedicated_live_delta_v8_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical delta wire-v11 contract lost '${dedicated_live_delta_v5_contract}'")
   endif()
@@ -11963,6 +12094,8 @@ foreach(dedicated_live_delta_map_identity_codec_contract IN ITEMS
 endforeach()
 foreach(dedicated_live_delta_loadout_door_contract IN ITEMS
     "struct TacticalLightingChangedEvent"
+    "TacticalWorldLightingSnapshot previous"
+    "TacticalWorldLightingSnapshot current"
     "struct TacticalActorUpdatedEvent"
     "TacticalActorSnapshot actor"
     "struct TacticalDoorEnteredEvent"
@@ -11987,9 +12120,12 @@ foreach(dedicated_live_delta_codec_loadout_door_contract IN ITEMS
     "DoorEntered = 10"
     "DoorLeft = 11"
     "DoorChanged = 12"
+    "LightingChanged = 13"
     "WriteBool(writer, actor.hostileToPlayerTeam)"
     "ReadBool(reader, actor.hostileToPlayerTeam)"
     "TacticalWorldEventTag::ActorUpdated"
+    "WriteLoadout(writer, actor.loadout)"
+    "ReadLoadout(reader, actor.loadout)"
     "WriteActor(writer, value.actor)"
     "ReadActor(reader, value.actor)"
     "TacticalWorldEventTag::DoorEntered"
@@ -12004,6 +12140,7 @@ foreach(dedicated_live_delta_codec_loadout_door_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_delta_loadout_diff_contract IN ITEMS
+    "!Present(*oldActor) || !Present(*newActor)"
     "*oldActor == *newActor"
     "TacticalActorUpdatedEvent{*newActor}")
   string(FIND "${dedicated_live_snapshot_delta_code}"
@@ -12030,9 +12167,9 @@ foreach(dedicated_live_world_service_v2_contract IN ITEMS
     "DoorCapacityReached = 12")
   string(FIND
     "${dedicated_live_world_service_header_code}${dedicated_live_world_observer_header_code}"
-    "${dedicated_live_world_service_v2_contract}"
-    dedicated_live_world_service_v2_contract_position)
-  if(dedicated_live_world_service_v2_contract_position EQUAL -1)
+    "${dedicated_live_world_service_v3_contract}"
+    dedicated_live_world_service_v3_contract_position)
+  if(dedicated_live_world_service_v3_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical-world service/observer v3 contract lost '${dedicated_live_world_service_v2_contract}'")
   endif()
@@ -12138,9 +12275,9 @@ foreach(dedicated_live_delta_v6_test_contract IN ITEMS
     "tactical delta codec rejects every truncated prefix"
     "trailing tactical delta bytes are rejected without replacing prior state")
   string(FIND "${dedicated_live_runtime_adapter_test_source}"
-    "${dedicated_live_delta_v6_test_contract}"
-    dedicated_live_delta_v6_test_contract_position)
-  if(dedicated_live_delta_v6_test_contract_position EQUAL -1)
+    "${dedicated_live_delta_v8_test_contract}"
+    dedicated_live_delta_v8_test_contract_position)
+  if(dedicated_live_delta_v8_test_contract_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical delta-v7 map/interrupt/loadout/door regression lost '${dedicated_live_delta_v6_test_contract}'")
   endif()
@@ -12277,6 +12414,37 @@ require_ordered_fragments(dedicated_live_client_screen_source
   "TacticalInterruptPhase::Active"
   "Interrupt active; selected merc may act. T passes selected merc."
   "Controller.actionsEnabled(controllerView)")
+
+# Passive map parsing admits bytes into immutable spans without importing the
+# native loader or renderer. Keep its dependency set independently buildable.
+foreach(passive_map_parser_file IN ITEMS
+    Ja2/FullEngineCoopClientPresentationMap.h
+    Ja2/FullEngineCoopClientPresentationMapPlan.h
+    Ja2/FullEngineCoopClientPresentationMapPlan.cpp)
+  file(READ "${SOURCE_ROOT}/${passive_map_parser_file}" passive_map_parser_source)
+  strip_cxx_comments(passive_map_parser_source passive_map_parser_without_comments)
+  string(REGEX MATCHALL [=[#[ 	]*include[ 	]*[<"][^>"]+[>"]]=]
+    passive_map_parser_includes "${passive_map_parser_without_comments}")
+  foreach(passive_map_parser_include IN LISTS passive_map_parser_includes)
+    string(REGEX REPLACE [=[^#[ 	]*include[ 	]*[<"]([^>"]+)[>"]$]=] [=[\1]=]
+      passive_map_parser_dependency "${passive_map_parser_include}")
+    if(NOT passive_map_parser_dependency MATCHES
+        [=[^(FullEngineCoopClientPresentationMap(Plan)?\.h|Engine/Adapters/JA2/TacticalWorldSnapshot\.h|algorithm|array|cmath|cstddef|cstdint|cstring|limits|type_traits|vector)$]=])
+      message(FATAL_ERROR
+        "Pure passive map parser gained dependency '${passive_map_parser_dependency}'")
+    endif()
+  endforeach()
+  strip_cxx_comments_and_literals(passive_map_parser_source passive_map_parser_code)
+  foreach(passive_map_parser_forbidden IN ITEMS
+      LoadWorld TrashWorld FileOpen FileRead gpWorldLevelData
+      gTacticalStatus AllocateWorldTileMap Random PreRandom)
+    if(passive_map_parser_code MATCHES
+        "(^|[^A-Za-z0-9_])${passive_map_parser_forbidden}([^A-Za-z0-9_]|$)")
+      message(FATAL_ERROR
+        "Pure passive map parser gained native state access '${passive_map_parser_forbidden}'")
+    endif()
+  endforeach()
+endforeach()
 
 # The passive plot is a worldless projection of committed replica values. It
 # may draw the authority-sized diamond and friendly-team markers, but it may not
@@ -15458,6 +15626,14 @@ foreach(dedicated_live_client_inbound_name IN ITEMS
     "CoopCampaignAimQuotesMessageName"
     "CoopCampaignHireResultMessageName"
     "CoopTacticalIntentReceiptMessageName"
+    "CoopOwnerInventoryMessageName"
+    "CoopCampaignStatusMessageName"
+    "CoopCampaignGroupsMessageName"
+    "CoopCampaignTimeResultMessageName"
+    "CoopCampaignActionResultMessageName"
+    "CoopCampaignEconomyMessageName"
+    "CoopCampaignAimQuotesMessageName"
+    "CoopCampaignHireResultMessageName"
     "CoopAdmissionSelfRetirementResultMessageName"
     "CoopCampaignSyncMetadataMessageName"
     "CoopCampaignSyncChunkMessageName"
@@ -16199,6 +16375,9 @@ require_ordered_fragments(dedicated_live_client_transport_inbound_validation_sli
   "InboundKind::ServerHello"
   "InboundKind::TacticalReceipt"
   "MaximumCoopTacticalWireSize"
+  "InboundKind::OwnerInventory"
+  "CoopOwnerInventoryHeaderWireSize"
+  "MaximumCoopOwnerInventoryWireSize"
   "InboundKind::CampaignStatus"
   "CoopCampaignStatusWireSize"
   "InboundKind::CampaignGroups"
@@ -16208,6 +16387,14 @@ require_ordered_fragments(dedicated_live_client_transport_inbound_validation_sli
   "CoopCampaignTimeResultWireSize"
   "InboundKind::CampaignActionResult"
   "CoopCampaignActionResultWireSize"
+  "InboundKind::CampaignEconomy"
+  "CoopCampaignEconomyHeaderSize"
+  "MaximumCoopCampaignEconomyWireSize"
+  "InboundKind::CampaignAimQuotes"
+  "CoopCampaignAimQuotesHeaderSize"
+  "MaximumCoopCampaignAimQuotesWireSize"
+  "InboundKind::CampaignHireResult"
+  "CoopCampaignHireResultWireSize"
   "InboundKind::CampaignMetadata"
   "CoopCampaignSyncMetadataWireSize"
   "InboundKind::CampaignChunk"
@@ -16284,15 +16471,23 @@ extract_brace_bounded_slice(dedicated_live_client_transport_code
   dedicated_live_client_transport_send_slice
   "Cannot bound co-op client outbound backpressure")
 require_ordered_fragments(dedicated_live_client_transport_send_slice
-  "Co-op client pending-write limit no longer fails before send"
+  "Co-op client frame/queue bounds or socket-loss failure classification changed"
   "validOutbound(messageName, size)"
+  "nameSize > maximumPendingWriteBytes_"
+  "size > maximumPendingWriteBytes_ - nameSize"
+  "maximumPendingWriteBytes_ - nameSize - size"
+  "FullEngineCoopClientTransportFailure::PendingWriteLimit"
   "SdlMessageFrameOverhead + nameSize + size"
   "transport_->PendingWriteBytes(server_, pending)"
+  "FullEngineCoopClientTransportFailure::ConnectionLost"
   "pending > maximumPendingWriteBytes_"
   "frameSize > maximumPendingWriteBytes_ - pending"
   "FullEngineCoopClientTransportFailure::PendingWriteLimit"
   "transport_->SendMessage("
-  "messageName, bytes, size, server_, false)")
+  "messageName, bytes, size, server_, false)"
+  "FullEngineCoopClientTransportFailure::ConnectionLost"
+  "catch (...)"
+  "FullEngineCoopClientTransportFailure::TransportFailure")
 
 extract_brace_bounded_slice(dedicated_live_client_transport_code
   "void FullEngineCoopClientTransport::finishClose() noexcept"
@@ -16741,7 +16936,7 @@ require_ordered_fragments(dedicated_live_socket_e2e_slice
   "ingress.endSession()")
 
 # Public documentation must describe the same bounded technical slice as the
-# executable and tests: global protocol v19, authenticated self-retirement,
+# executable and tests: global protocol v20, authenticated self-retirement,
 # independently versioned snapshot/delta/intent/journal wires, bounded public
 # door projection and synchronous authority, worldless presentation, and the
 # established persistence/return/reconnect policies.
@@ -16858,7 +17053,7 @@ foreach(dedicated_live_readme_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
-    "global authoritative co-op session protocol is version 19"
+    "global authoritative co-op session protocol is version 20"
     "capture failure unwinds the active"
     "Case-only spellings across different"
     "`CVirtualLocation::getIsExclusive()`"
@@ -16995,7 +17190,7 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_engine_doc_contract IN ITEMS
-    "global co-op protocol v19"
+    "global co-op protocol v20"
     "`InitializeCoopContentManifestBoundary`"
     "before legacy cache writes"
     "case-only spellings across different read-only layers"
@@ -17106,7 +17301,7 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
-    "global co-op protocol-v19"
+    "global co-op protocol-v20"
     "rollback-safe `co-op installed content manifest`"
     "validates and counts all"
     "smallest-layer normalized read-only overlay"
@@ -17219,7 +17414,7 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
-    "global co-op protocol v19"
+    "global co-op protocol v20"
     "rollback-safe post-package/pre-legacy"
     "validates and counts every VFS"
     "case-only"
@@ -17413,9 +17608,20 @@ foreach(dedicated_live_stale_doc_claim IN ITEMS
     "no JA2 tactical-map renderer"
     "co-op admission remains closed"
     "not wired into dedicated startup")
-  string(FIND "${dedicated_live_all_coop_docs}"
-    "${dedicated_live_stale_doc_claim}"
-    dedicated_live_stale_doc_claim_position)
+  if(dedicated_live_stale_doc_claim MATCHES
+      "^(global co-op protocol[- ]v|session protocol is version )[0-9]+$")
+    # A stale v2 claim must not match the leading digits of current v20.
+    string(REGEX MATCH "${dedicated_live_stale_doc_claim}([^0-9]|$)"
+      dedicated_live_stale_doc_version_match "${dedicated_live_all_coop_docs}")
+    set(dedicated_live_stale_doc_claim_position -1)
+    if(NOT dedicated_live_stale_doc_version_match STREQUAL "")
+      set(dedicated_live_stale_doc_claim_position 0)
+    endif()
+  else()
+    string(FIND "${dedicated_live_all_coop_docs}"
+      "${dedicated_live_stale_doc_claim}"
+      dedicated_live_stale_doc_claim_position)
+  endif()
   if(NOT dedicated_live_stale_doc_claim_position EQUAL -1)
     message(FATAL_ERROR
       "Co-op documentation regained stale claim '${dedicated_live_stale_doc_claim}'")
@@ -41951,6 +42157,99 @@ foreach(required_actor_projection_fragment IN ITEMS
   endif()
 endforeach()
 
+# Native renderer inputs are a read-only projection through the existing actor
+# directory. They must not create faces, consume RNG, or load render resources.
+extract_brace_bounded_slice(tactical_entity_host_contents
+  "bool LegacyPresentationState(const TacticalActor& soldier,\n\tTacticalActorPresentationSnapshot& presentation) noexcept"
+  native_render_capture_slice "Cannot bound native actor render capture")
+require_ordered_fragments(native_render_capture_slice
+  "Native render capture lost checked transactional projection"
+  "soldier.identity().bodyType() >= TOTALBODYTYPES"
+  "soldier.animationPlayback().state() >= NUMANIMATIONSTATES"
+  "!ValidPaletteReplacementTable()"
+  "TacticalActorPresentationSnapshot candidate"
+  "LegacyPortraitState(soldier)"
+  "EncodeDisplayName(soldier.identity().name(), candidate.displayNameUtf16)"
+  "EncodePaletteIndex(soldier.renderState().headPalette()"
+  "EncodePaletteIndex(soldier.renderState().pantsPalette()"
+  "EncodePaletteIndex(soldier.renderState().vestPalette()"
+  "EncodePaletteIndex(soldier.renderState().skinPalette()"
+  "soldier.roster().active() && soldier.roster().inSector()"
+  "soldier.position().gridNo() >= 0"
+  "!std::isfinite(soldier.position().animationHeightAdjustment())"
+  "candidate.flags |= TacticalActorRenderPosePresent"
+  "presentation = candidate")
+extract_brace_bounded_slice(tactical_entity_host_contents
+  "TacticalPortraitSnapshot LegacyPortraitState(const TacticalActor& soldier) noexcept"
+  native_portrait_capture_slice "Cannot bound native portrait projection")
+require_ordered_fragments(native_portrait_capture_slice
+  "Native portrait projection lost sentinel, profile alias or applied-camo semantics"
+  "profileId == NO_PROFILE || profileId >= NUM_PROFILES"
+  "gMercProfiles[profileId]"
+  "profile.Type == PROFILETYPE_IMP"
+  "profileId >= 151 && profileId <= 154"
+  "gGameExternalOptions.fShowCamouflageFaces"
+  "camo.snowApplied() > 0"
+  "camo.desertApplied() > 0"
+  "camo.urbanApplied() > 0"
+  "camo.jungleApplied() > 0")
+foreach(native_render_mutation IN ITEMS
+    "InitFace(" "SetCamoFace(" "Random(" "PreRandom("
+    "rebuildPalettes(" "LoadAnimationSurface(" "Create16BPPPalette(")
+  string(FIND "${native_render_capture_slice}${native_portrait_capture_slice}"
+    "${native_render_mutation}" native_render_mutation_position)
+  if(NOT native_render_mutation_position EQUAL -1)
+    message(FATAL_ERROR "Native render observation performs '${native_render_mutation}'")
+  endif()
+endforeach()
+foreach(native_render_contract IN ITEMS
+    "TOTALBODYTYPES == TacticalActorBodyTypeCount"
+    "NUMANIMATIONSTATES == TacticalAnimationStateCount"
+    "NUMANIMATIONSURFACETYPES == TacticalAnimationSurfaceCount"
+    "INVALID_ANIMATION_SURFACE == TacticalAnimationSurfaceAbsent"
+    "guiNumReplacements > 256u"
+    "guiNumReplacements != 0 && gpPalRep == nullptr"
+    "index < sizeof(PaletteRepID)"
+    "if (!PaletteIdTerminated(id)) return false"
+    "GetPaletteRepIndexFromID(id, &resolved)"
+    "input < SOLDIER_NAME_LENGTH && output + 1 < destination.size()"
+    "if (output + 2 >= destination.size()) break"
+    "if (!std::isfinite(coordinate) || coordinate < 0.0f) return false"
+    "std::numeric_limits<std::int32_t>::max()"
+    "if (!LegacyPresentationState(soldier, state.presentation))")
+  string(FIND "${tactical_entity_host_contents}" "${native_render_contract}"
+    native_render_contract_position)
+  if(native_render_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost '${native_render_contract}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp" native_render_world_contents)
+foreach(native_light_contract IN ITEMS
+    "SHADE_MAX == TacticalWorldLightingSnapshot::Brightest"
+    "SHADE_MIN == TacticalWorldLightingSnapshot::Darkest"
+    "TacticalWorldLightingSnapshot{LightGetAmbient()}")
+  string(FIND "${native_render_world_contents}" "${native_light_contract}"
+    native_light_contract_position)
+  if(native_light_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost '${native_light_contract}'")
+  endif()
+endforeach()
+foreach(native_render_test_contract IN ITEMS
+    "--authoritative-render-capture"
+    "unterminated actor palette IDs reject before native string lookup"
+    "display-name truncation does not split a supplementary pair"
+    "NO_PROFILE remains absent despite profile-table contents at its sentinel index"
+    "native dead roster actors removed from their grid retain canonical absent poses"
+    "hidden opponents do not leak names, portraits or pose through native capture"
+    "a native ambient-light change alone publishes exactly one lighting delta"
+    "native render capture consumes no simulation RNG and changes no live face/cache binding")
+  string(FIND "${headless_test_contents}" "${native_render_test_contract}"
+    native_render_test_contract_position)
+  if(native_render_test_contract_position EQUAL -1)
+    message(FATAL_ERROR "Native render capture lost regression '${native_render_test_contract}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
   ja2_application_build_contents)
 string(FIND "${ja2_application_build_contents}"
@@ -43986,7 +44285,7 @@ require_ordered_fragments(inventory_native_resolve
   "ResolveCoopAuthorizedLegacyCommandActor(\n\t\t\tcommand.soldier, command.source, command.authority)"
   "if (!actor) return reject("
   "actor->identity().bodyType() > REGFEMALE || actor->inventory().size() != NUM_INV_SLOTS"
-  "if (!FirstAidPoseReady(*actor)) return reject("
+  "if (!InventorySwapPoseReady(*actor)) return reject("
   "actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES"
   "!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject"
   "(gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0"
@@ -44764,6 +45063,77 @@ foreach(nearby_loot_forbidden IN ITEMS
   endif()
 endforeach()
 
+# Native campaign callbacks may mutate before throwing. Generic package tick
+# isolation cannot authorize retrying them or publishing the unfinished frame.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignSimulationHost.cpp" native_campaign_failure_source)
+file(READ "${SOURCE_ROOT}/Ja2/gameloop.cpp" native_campaign_failure_frame_source)
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp" native_campaign_failure_runtime_source)
+file(READ "${SOURCE_ROOT}/tests/native_campaign_simulation_failure_tests.cpp" native_campaign_failure_tests)
+foreach(native_failure_contents IN ITEMS native_campaign_failure_source
+    native_campaign_failure_frame_source native_campaign_failure_runtime_source)
+  strip_cxx_comments(${native_failure_contents} ${native_failure_contents})
+endforeach()
+# The process flag has C linkage in sgp.h. An ad-hoc C++ declaration links on
+# macOS but fails in every Windows native fixture that pulls in this host.
+string(FIND "${native_campaign_failure_source}" "#include \"sgp.h\""
+  native_campaign_failure_process_header_at)
+if(native_campaign_failure_process_header_at EQUAL -1 OR
+    native_campaign_failure_source MATCHES "extern[ \t\r\n]+BOOLEAN[ \t\r\n]+gfProgramIsRunning")
+  message(FATAL_ERROR
+    "Native campaign failure must use sgp.h's canonical C-linkage process flag")
+endif()
+extract_brace_bounded_slice(native_campaign_failure_source
+  "void CampaignSimulationHost::simulate(const SimulationTickContext& tick)"
+  native_campaign_failure_tick "Cannot bound native campaign tick containment")
+require_ordered_fragments(native_campaign_failure_tick "Native campaign failure lost its irreversible process-scoped tick barrier"
+  "if (failed_) return;" "AdvanceClockFromFixedStep(" "catch (const std::exception&"
+  "IsDedicatedCoopProcess()" "fail(tick," "throw;" "catch (...)" "IsDedicatedCoopProcess()" "fail(tick," "throw;")
+extract_brace_bounded_slice(native_campaign_failure_source
+  "void CampaignSimulationHost::fail(const SimulationTickContext& tick, const char* reason) noexcept"
+  native_campaign_failure_latch "Cannot bound native campaign failure latch")
+require_ordered_fragments(native_campaign_failure_latch "Native campaign failure must latch before legacy pause cleanup"
+  "if (failed_) return;" "failed_ = true;" "gfDedicatedServerProcessFailed = TRUE;"
+  "gfProgramIsRunning = FALSE;" "InterruptTime();" "StopTimeCompression();" "PauseGame();")
+extract_brace_bounded_slice(native_campaign_failure_frame_source "static FramePlan PrepareGameFrame()"
+  native_campaign_failure_prepare "Cannot bound failed native frame preparation")
+require_ordered_fragments(native_campaign_failure_prepare "Native frame must reject failed campaign simulation before legacy screen work"
+  "GetGameContext().campaignSimulation().throwIfFailed();" "GetCurrentScreen()")
+extract_brace_bounded_slice(native_campaign_failure_frame_source "void GameLoop(void)"
+  native_campaign_failure_loop "Cannot bound failed native frame entry")
+require_ordered_fragments(native_campaign_failure_loop "Later native frames must reject failure before command or message dispatch"
+  "GetGameContext().campaignSimulation().throwIfFailed();" "BeginJa2TacticalCommandFrame(" "frameDriver().runFrame(")
+foreach(native_failure_boundary IN ITEMS
+    "bool startAdmission() noexcept"
+    "bool checkpointNow(GameContext& context, bool required) noexcept"
+    "void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept"
+    "bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(\n\tGameContext& context) noexcept")
+  extract_brace_bounded_slice(native_campaign_failure_runtime_source "${native_failure_boundary}"
+    native_failure_boundary_slice "Cannot bound campaign failure runtime barrier")
+  require_ordered_fragments(native_failure_boundary_slice "Native campaign failure lost admission/publication/checkpoint refusal"
+    "campaignSimulation().failed()" "DedicatedCoopRuntimeError::InvalidState" "return")
+endforeach()
+require_ordered_fragments(native_campaign_failure_tests "Native failure test must exercise real ordered events and irreversible frame/checkpoint refusal"
+  "scripts/Overhead.lua" "EVENT_CHANGELIGHTVAL" "EVENT_INTEL_PHOTOFACT_VERIFY" "EVENT_CHANGELIGHTVAL"
+  "native.throwIfFailed();" "frame.runFrame(" "native.throwIfFailed();"
+  "native.failureTickSequence() == 1" "broken.event->snapshot() == brokenSnapshot"
+  "frame.completedFrames() == 1" "ticks.reset(); frame.resetFrameSequence();"
+  "attempt < 32" "failedPump.pumpAfterCommittedFrame(game)" "failedCheckpoint.shutdownAtCommittedBoundary(game)")
+
+file(READ "${SOURCE_ROOT}/CMakeLists.txt" native_campaign_failure_build)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml" native_campaign_failure_ci)
+require_ordered_fragments(native_campaign_failure_build "Native campaign failure scopes must remain mandatory"
+  "add_executable(native_campaign_simulation_failure_tests"
+  "target_link_libraries(native_campaign_simulation_failure_tests PRIVATE \${campaign_aim_native_libraries})"
+  "add_test(NAME native_campaign_simulation_failure "
+  "add_test(NAME native_campaign_simulation_failure_single_player "
+  "add_test(NAME native_campaign_simulation_failure_pvp "
+  "add_dependencies(ja2_headless_tests native_campaign_simulation_failure_tests)")
+string(FIND "${native_campaign_failure_ci}"
+  "--target native_campaign_simulation_failure_tests" native_campaign_failure_ci_at)
+if(native_campaign_failure_ci_at EQUAL -1)
+  message(FATAL_ERROR "Native campaign failure fixture must retain ASan build coverage")
+endif()
+
 # Authoritative accounting has a local checked VFS boundary. Legacy laptop
 # wrappers retain notifications/assertion policy; callers must not regain them
 # by reaching the old noexcept FileMan helpers from checked entry points.
@@ -45000,3 +45370,204 @@ require_ordered_fragments(dedicated_live_runtime_code "Battle notice completion 
   "impl_->campaignActionAuthority.deliveries()" "if (delivery.pending) return;"
   "impl_->freshAssignmentBaselineBoundary()" "impl_->stopAdmissionForPostCombatReturn()"
   "CompleteDedicatedCoopBattleNotice(notice->id)" "impl_->beginWorldDrain()" "impl_->tryFinishWorldDrain(context)")
+require_ordered_fragments(checked_aim_arrival_build "Checked native AIM dispatch must remain mandatory"
+  "add_executable(native_campaign_aim_arrival_tests"
+  "add_dependencies(ja2_headless_tests native_campaign_aim_arrival_tests)"
+  "add_test(NAME native_campaign_aim_arrival_dispatch")
+
+
+# Campaign execution belongs to the committed native runtime, after transport
+# callbacks unwind and before terminal results expose its updated observations.
+require_ordered_fragments(dedicated_live_runtime_code "Runtime must prevent checkpoints from losing unserialized arrival decisions"
+  "snapshot.dialogueQueue =" "!DedicatedCoopArrivalDecisionPending()")
+require_ordered_fragments(dedicated_live_runtime_code "Pending arrival must keep peers serviced without falling through to automatic mission entry"
+  "impl_->arrivalDecisions.front()" "if (!impl_->pumpTactical(context, *this)) return;"
+  "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;" "const Clock::time_point now = Clock::now();"
+  "LaunchDedicatedCoopEstablishedMission()")
+require_ordered_fragments(dedicated_live_runtime_code "Runtime must prepare pending battles without silently selecting a result"
+  "PrepareDedicatedCoopArrivalBattle(decision->id, preparation)" "DedicatedCoopArrivalPrepareResult::Failed"
+  "impl_->fail(DedicatedCoopRuntimeError::InvalidState" "DedicatedCoopArrivalPrepareResult::Prepared"
+  "if (!impl_->pumpTactical(context, *this)) return;" "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopArrivalEnterResult DedicatedCoopRuntime::enterArrivalBattle(std::uint64_t decision,\n\tNativePreBattleDeployment deployment) noexcept"
+  coop_battle_entry_runtime "Cannot bound committed runtime battle entry")
+require_ordered_fragments(coop_battle_entry_runtime "Battle entry must gate prior world drain and rejoin ordinary fresh-baseline/victory handling"
+  "StarterMissionState::StrategicIdle" "impl_->worldDraining" "server.worldActive()"
+  "EnterDedicatedCoopArrivalBattle(decision, deployment)" "impl_->fail(DedicatedCoopRuntimeError::MissionLaunchFailed" "result != Result::Entered"
+  "StarterMissionState::WaitingForControllableActor" "impl_->minimumControllableActors = 1"
+  "impl_->postCombatReturnArmed = true")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopArrivalRetreatResult DedicatedCoopRuntime::retreatArrivalBattle(std::uint64_t decision) noexcept"
+  coop_battle_retreat_runtime "Cannot bound committed runtime retreat")
+require_ordered_fragments(coop_battle_retreat_runtime "Runtime retreat must stay in the established strategic phase and latch native failure"
+  "StarterMissionState::StrategicIdle" "impl_->worldDraining" "server.worldActive()"
+  "RetreatFromDedicatedCoopArrivalBattle(decision)" "Result::Failed" "impl_->fail(" "return result")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool publishCampaignStatus() noexcept" dedicated_live_campaign_status_publish
+  "Cannot bound committed server campaign observation")
+require_ordered_fragments(dedicated_live_campaign_status_publish
+  "Campaign status lost native read / ledger / authenticated delivery ordering"
+  "campaignReadyPeers(ready)" "GetWorldTotalSeconds()" "GamePaused()"
+  "PauseStateLocked()" "IsTimeBeingCompressed()" "gfTimeInterrupt"
+  "arrivalDecisions.captureObservation(captured.arrival)" "campaignStatusLedger.observe(" "EncodeCoopCampaignStatus("
+  "authenticatedTransportForPeer(" "listener.sendToPeer("
+  "*found = {ready[index], transport, campaignStatusLedger.value().revision}")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool worldlessStrategicTimeControl() const noexcept" campaign_time_phase_guard
+  "Cannot bound native strategic clock phase guard")
+require_ordered_fragments(campaign_time_phase_guard "Campaign time must exclude bootstrap and tactical worlds"
+  "StarterMissionState::StrategicIdle" "!worldDraining" "!tactical->server.worldActive()" "IsDedicatedCoopStarterMissionMapReady()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool campaignTimePeerReady(const CoopSession::PeerIdentity& peer) const noexcept" campaign_time_ready_guard
+  "Cannot bound campaign time readiness guard")
+require_ordered_fragments(campaign_time_ready_guard "Time input must respect pre-poll and current readiness"
+  "tactical->server.campaignReadyPeers(gated)" "tactical->campaignSync->readyPeers(current)"
+  "std::find(gated.begin()" "&&" "std::find(current.begin()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "void handleCampaignTimeRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept" campaign_time_apply
+  "Cannot bound campaign time request execution")
+require_ordered_fragments(campaign_time_apply "Time execution must bind current transport, readiness and native guard"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignTimeRequest("
+  "campaignTimeAuthority.submit(" "campaignTimePeerReady(" "worldlessStrategicTimeControl()" "TrySetWorldlessStrategicTimeCompression(mode)")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "void pauseStrategicTimeWithoutLeader() noexcept" campaign_time_offline_pause
+  "Cannot bound offline leader strategic safety pause")
+require_ordered_fragments(campaign_time_offline_pause "Leader loss must pause strategic time without resuming on reconnect"
+  "!worldlessStrategicTimeControl()" "campaignStatusLedger.value().timeLeader" "!campaignTimePeerReady(leader)"
+  "TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0)")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool handleCampaignActionRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message,\n\t\tDedicatedCoopRuntime& runtime) noexcept"
+  campaign_action_runtime_request "Cannot bound committed campaign action execution")
+require_ordered_fragments(campaign_action_runtime_request "Action execution lost fresh transport/readiness, shared authority or immediate recapture"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignActionRequest("
+  "campaignActionAuthority.submit(" "campaignTimePeerReady(message.peerIdentity), true, worldlessStrategicTimeControl()"
+  "campaignStatusLedger, campaignGroupsLedger.value()" "applyCampaignAction(accepted, runtime)"
+  "campaignActionAuthority.failed()" "publishCampaignStatus() && publishCampaignGroups()")
+extract_brace_bounded_slice(dedicated_live_runtime_code "CoopSession::CoopCampaignActionNativeResult applyCampaignAction(\n\t\tconst CoopSession::CoopCampaignActionRequest& request, DedicatedCoopRuntime& runtime) noexcept"
+  campaign_action_native_boundary "Cannot bound shared action native adapter")
+require_ordered_fragments(campaign_action_native_boundary "Campaign action execution bypassed established native gameplay adapters"
+  "!worldlessStrategicTimeControl() || selfRetirementActive"
+  "StartDedicatedCoopTravel(request.group, request.destinationX, request.destinationY)"
+  "ReplyToDedicatedCoopArrival(request.decision" "runtime.enterArrivalBattle(request.decision"
+  "NativePreBattleDeployment::Forced : NativePreBattleDeployment::Spread" "runtime.retreatArrivalBattle(request.decision)")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaignActionResults() noexcept"
+  campaign_action_runtime_results "Cannot bound action result publication")
+require_ordered_fragments(campaign_action_runtime_results "Action receipts must follow both exact current observations on the authenticated ready transport"
+  "authenticatedTransportForPeer(" "current != delivery.peer.transport" "campaignTimePeerReady(delivery.peer.identity)"
+  "sent(campaignStatusDeliveries, campaignStatusLedger.value().revision)"
+  "sent(campaignGroupsDeliveries, campaignGroupsLedger.value().revision)"
+  "EncodeCoopCampaignActionResult(" "listener.sendToPeer(" "campaignActionAuthority.delivered(i)")
+
+
+require_ordered_fragments(dedicated_live_runtime_tactical_pump_slice
+  "Campaign execution must consume one authenticated FIFO with fresh observations and pause again after a readiness change"
+  "tactical->listener.poll()" "reconcileCampaignPeersAndGateTactical()"
+  "pauseStrategicTimeWithoutLeader()" "publishCampaignStatus()" "publishCampaignGroups()"
+  "publishCampaignEconomyAndQuotes()" "reconcileCampaignTimePeers()"
+  "reconcileCampaignActionPeers()" "reconcileCampaignHirePeers()"
+  "pumpCampaignInboundAndOutbound(runtime)" "pauseStrategicTimeWithoutLeader()"
+  "publishCampaignStatus()" "publishCampaignGroups()" "publishCampaignEconomyAndQuotes()"
+  "flushCampaignTimeResults()" "flushCampaignActionResults()" "flushCampaignHireResults()"
+  "tactical->server.reconcilePeers()")
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "bool pumpCampaignInboundAndOutbound(DedicatedCoopRuntime& runtime) noexcept"
+  campaign_runtime_fifo "Cannot bound the native campaign FIFO")
+require_ordered_fragments(campaign_runtime_fifo
+  "Campaign mutations must be dispatched explicitly and never become sync requests"
+  "popCampaignInbound(message)" "FullEngineCoopCampaignInboundKind::HireRequest"
+  "handleCampaignHireRequest(message)" "FullEngineCoopCampaignInboundKind::ActionRequest"
+  "handleCampaignActionRequest(message, runtime)" "FullEngineCoopCampaignInboundKind::TimeRequest"
+  "handleCampaignTimeRequest(message)" "publishCampaignStatus()" "publishCampaignGroups()"
+  "publishCampaignEconomyAndQuotes()" "switch (message.kind)"
+  "FullEngineCoopCampaignInboundKind::Ack" "FullEngineCoopCampaignInboundKind::Result"
+  "FullEngineCoopCampaignInboundKind::Resync" "default:"
+  "fail(DedicatedCoopRuntimeError::CampaignSyncFailed" "return false"
+  "tactical->campaignSync->handleInbound(" "IsFatalCoopCampaignSyncInboundResult(handled)")
+require_ordered_fragments(dedicated_live_runtime_code
+  "Native coordinator must opt into campaign requests only with its complete handlers and fresh per-epoch ledgers"
+  "campaignStatusLedger.clear()" "campaignTimeAuthority.clear()"
+  "campaignActionAuthority.clear()" "campaignHireAuthority.clear()"
+  "campaignStatusLedger.beginSession(epoch)" "campaignGroupsLedger.beginSession(epoch)"
+  "campaignEconomyLedger.beginSession(epoch)" "campaignQuotesLedger.beginSession(epoch)"
+  "configuration.enableCampaignRequests = true")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool handleCampaignHireRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message) noexcept"
+  campaign_runtime_hire "Cannot bound native shared hiring")
+require_ordered_fragments(campaign_runtime_hire
+  "Paid hiring must bind the current transport and readiness, serialize against current offers, then recapture all changed state"
+  "authenticatedTransportForPeer(" "current != message.transport" "DecodeCoopCampaignHireRequest("
+  "campaignHireAuthority.submit(" "campaignTimePeerReady(message.peerIdentity)"
+  "worldlessStrategicTimeControl() && !selfRetirementActive" "campaignStatusLedger"
+  "campaignEconomyLedger.value()" "campaignQuotesLedger.value()" "HireDedicatedCoopAimMerc("
+  "hired.mutationMayHaveStarted" "campaignHireAuthority.failed()" "fail(DedicatedCoopRuntimeError::InvalidState"
+  "publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes()")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool publishCampaignEconomyAndQuotes() noexcept"
+  campaign_runtime_economy "Cannot bound native campaign economic observation")
+require_ordered_fragments(campaign_runtime_economy
+  "Offers must derive from and follow the exact economy replacement"
+  "CaptureDedicatedCoopCampaignEconomy(economy)" "campaignEconomyLedger.observe(economy)"
+  "CaptureDedicatedCoopCampaignAimQuotes(campaignEconomyLedger.value(), quotes)"
+  "quotes.economyRevision = campaignEconomyLedger.value().revision" "campaignQuotesLedger.observe(quotes)"
+  "queueCampaignEconomicObservation(CoopSession::CoopCampaignEconomyMessageName"
+  "queueCampaignEconomicObservation(CoopSession::CoopCampaignAimQuotesMessageName"
+  "&campaignEconomyDeliveries, campaignEconomyLedger.value().revision")
+extract_brace_bounded_slice(dedicated_live_runtime_code "bool queueCampaignEconomicObservation(const char* message, const std::uint8_t* bytes,\n\t\tstd::size_t size, std::uint64_t revision, DeliveryList& deliveries,\n\t\tconst DeliveryList* prerequisite = nullptr, std::uint64_t prerequisiteRevision = 0) noexcept"
+  campaign_runtime_economic_delivery "Cannot bound ordered campaign economic delivery")
+require_ordered_fragments(campaign_runtime_economic_delivery
+  "Backpressured offers cannot overtake their economy, and only queued sends advance a transport's cursor"
+  "authenticatedTransportForPeer(" "if (prerequisite && !std::any_of("
+  "sent.peer == ready[i] && sent.transport == transport && sent.revision == prerequisiteRevision"
+  "listener.sendToPeer(ready[i], message, bytes, size)" "*found = {ready[i], transport, revision}")
+foreach(campaign_receipt_domain IN ITEMS Time Action Hire)
+  extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaign${campaign_receipt_domain}Results() noexcept"
+    campaign_runtime_receipt "Cannot bound a campaign receipt publication path")
+  require_ordered_fragments(campaign_runtime_receipt
+    "A terminal campaign receipt must follow its current economic observations on the same authenticated transport"
+    "authenticatedTransportForPeer(" "current != delivery.peer.transport"
+    "campaignEconomicObservationsDelivered(delivery.peer.identity, current)"
+    "EncodeCoopCampaign${campaign_receipt_domain}Result(" "listener.sendToPeer("
+    "campaign${campaign_receipt_domain}Authority.delivered(i)")
+endforeach()
+foreach(campaign_read_only IN ITEMS dedicated_live_campaign_status_publish campaign_runtime_economy)
+  foreach(campaign_mutation IN ITEMS "WarpGameTime(" "PauseGame(" "UnPauseGame(" "TrySetWorldlessStrategicTimeCompression(" "HireDedicatedCoopAimMerc(" "StartDedicatedCoopTravel(")
+    string(FIND "${${campaign_read_only}}" "${campaign_mutation}" campaign_mutation_at)
+    if(NOT campaign_mutation_at EQUAL -1)
+      message(FATAL_ERROR "Read-only campaign observation gained '${campaign_mutation}'")
+    endif()
+  endforeach()
+endforeach()
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Acknowledged scenes must wait for receipts and a committed native boundary before consequences run"
+  "if (!impl_->pumpTactical(context, *this)) return;" "impl_->meanwhile.acknowledged()"
+  "impl_->campaignActionAuthority.deliveries()" "if (delivery.pending) return;"
+  "impl_->freshAssignmentBaselineBoundary()" "CompleteDedicatedCoopMeanwhile(notice->id)")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Battle outcome completion must not unload a world inside the shared FIFO handler"
+  "impl_->battleNotice.acknowledged()" "impl_->campaignActionAuthority.deliveries()"
+  "if (delivery.pending) return;" "impl_->freshAssignmentBaselineBoundary()"
+  "impl_->stopAdmissionForPostCombatReturn()" "CompleteDedicatedCoopBattleNotice(notice->id)"
+  "impl_->beginWorldDrain()" "impl_->tryFinishWorldDrain(context)")
+foreach(campaign_unload IN ITEMS "CompleteDedicatedCoopMeanwhile(" "CompleteDedicatedCoopBattleNotice(")
+  string(FIND "${campaign_action_native_boundary}" "${campaign_unload}" campaign_inline_unload)
+  if(NOT campaign_inline_unload EQUAL -1)
+    message(FATAL_ERROR "Shared FIFO action gained native completion '${campaign_unload}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Ja2/gameloop.cpp" campaign_runtime_frame_source)
+extract_brace_bounded_slice(campaign_runtime_frame_source "static FramePlan PrepareGameFrame()"
+  campaign_runtime_frame "Cannot bound native decision frame hold")
+require_ordered_fragments(campaign_runtime_frame
+  "Shared decisions must hold native frame work while completed-frame networking remains available"
+  "campaignSimulation().throwIfFailed()" "DedicatedCoopSurrenderPending()"
+  "DedicatedCoopBattleNoticePending()" "DedicatedCoopMeanwhilePending()" "return FramePlan{};" "GetCurrentScreen()")
+
+# A headless campaign has no player to dismiss first-visit help. Keep this
+# before all modal/help-preference handling without changing save-owned bits.
+file(READ "${SOURCE_ROOT}/Ja2/HelpScreen.cpp" campaign_runtime_help_code)
+extract_brace_bounded_slice(campaign_runtime_help_code
+  "BOOLEAN ShouldTheHelpScreenComeUp( UINT8 ubScreenID, BOOLEAN fForceHelpScreenToComeUp )"
+  campaign_runtime_help "Cannot bound dedicated help-screen admission")
+require_ordered_fragments(campaign_runtime_help
+  "Dedicated hosts must reject local help before forced or saved first-visit help"
+  "if( gfDedicatedServer )" "return( FALSE );" "if( fForceHelpScreenToComeUp )")

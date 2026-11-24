@@ -400,7 +400,7 @@ will revive them:
   `127.0.0.1:60005`; LAN hosting requires an explicit reachable bind. Its
   permissionless first joins, OS-CSPRNG bearer credentials, and plaintext
   transport provide transport-bound trusted-LAN admission, not user
-  authentication. The dedicated runtime uses global co-op protocol v19 and
+  authentication. The dedicated runtime uses global co-op protocol v20 and
   composes `CoopTacticalProtocol`/`FullEngineCoopServerSession` with
   fresh-baseline-gated actor assignment, including grow-only late peers, ten-
   intent JA2 command execution, observer deltas, and receipts. The sixth intent

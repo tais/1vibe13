@@ -8,6 +8,7 @@
 #include "TacticalActorStateFlags.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
+#include "DedicatedCoopMoveDiagnostic.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
@@ -814,6 +815,42 @@ namespace
 		return fingerprint != 0 ? fingerprint : 1;
 	}
 
+	bool InventorySwapPoseReady(const TacticalActor& actor) noexcept
+	{
+		const UINT16 animation = actor.animationPlayback().state();
+		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
+		// Only ordinary idle poses may enter an equipment continuation.
+		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+			return false;
+		const auto& intent = actor.animationIntent();
+		const auto& activity = actor.animationActivity();
+		const auto& movement = actor.movement();
+		const auto& path = actor.pathing();
+		return !intent.hasPendingAnimation() && !intent.hasSecondaryPendingAnimation() &&
+			!intent.hasPendingStance() && !intent.hasPendingDirection() &&
+			!intent.continuesAfterStance() && !intent.stopPendingNextTile() &&
+			!intent.turningFromUi() &&
+			(!intent.hasDesiredHeight() || intent.desiredHeight() == gAnimControl[animation].ubEndHeight) &&
+			!activity.nonInterruptible() && !activity.realtimeNonInterruptible() &&
+			!activity.turningUntilDone() && !activity.turningFromProneMode() &&
+			!activity.turningToShoot() && !activity.turningToFall() && !activity.tryingToFall() &&
+			!activity.paused() && !activity.gettingHit() && !activity.holdAttackerUntilDone() &&
+			!activity.suppressionStanceChange() &&
+			!actor.pendingAction().active() && !actor.runtime().worldObject.active() &&
+			!actor.runtime().pendingAction.delayedDamage &&
+			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
+			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
+			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			!movement.waitingForAction() && !movement.turnActive() &&
+			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
+			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
+			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
+			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
+			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			!actor.service().hasPartner() && !actor.service().hasProviders() &&
+			!actor.vitals().isUndergoingSurgery();
+	}
+
 	bool InventorySwapSlotAccessible(TacticalActor& actor, std::uint8_t slot,
 		const OBJECTTYPE& incoming) noexcept
 	{
@@ -1045,7 +1082,9 @@ namespace
 		if (!actor) return reject("resolve.authority");
 		if (actor->identity().bodyType() > REGFEMALE || actor->inventory().size() != NUM_INV_SLOTS)
 			return reject("resolve.actor_shape", actor);
-		if (!FirstAidPoseReady(*actor)) return reject("resolve.pose", actor);
+		// Equipment continuations need an ordinary idle pose. ANIM_STATIONARY
+		// traversals such as HOPFENCE pass the generic first-aid pose gate.
+		if (!InventorySwapPoseReady(*actor)) return reject("resolve.pose", actor);
 		if (actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES)
 			return reject("resolve.surface_index", actor);
 		if (!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject)
@@ -3501,6 +3540,13 @@ bool PrepareAimedFirearmAttackCommand(
 	return true;
 }
 
+std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8_t slot) noexcept
+{
+	const TacticalActor* const live = ResolveJa2TacticalEntity(actor);
+	return live && slot < live->inventory().size()
+		? CaptureOrdinaryInventoryObject(live->inventory()[slot]) : 0;
+}
+
 bool PrepareReloadWeaponCommand(
 	TacticalEntityId actor,
 	ReloadWeaponCommand& output) noexcept
@@ -3555,13 +3601,6 @@ bool PrepareBeginFirstAidCommand(TacticalEntityId actor,
 	if (!ResolveBeginFirstAid(prepared, checkedMedic, checkedPatient)) return false;
 	output = prepared;
 	return true;
-}
-
-std::uint64_t CaptureInventorySwapObjectState(TacticalEntityId actor, std::uint8_t slot) noexcept
-{
-	const TacticalActor* const live = ResolveJa2TacticalEntity(actor);
-	return live && slot < live->inventory().size()
-		? CaptureOrdinaryInventoryObject(live->inventory()[slot]) : 0;
 }
 
 bool PrepareSwapInventorySlotsCommand(TacticalEntityId actor,

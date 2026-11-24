@@ -23,7 +23,7 @@ void TestCodec()
 	CoopCampaignStatusBytes bytes{};
 	CHECK(EncodeCoopCampaignStatus(s, bytes), "valid status encodes");
 	CoopCampaignStatusBytes expected{{
-		'J','2','C','T',19,0,1,0, 8,7,6,5,4,3,2,1,
+		'J','2','C','T',20,0,1,0, 8,7,6,5,4,3,2,1,
 		9,0,0,0,0,0,0,0, 0x2d,0xb4,1,0, 3,1,17,2,
 		3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
 		1,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0}};

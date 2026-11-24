@@ -5,12 +5,22 @@
 #include "DedicatedCoopAimHire.h"
 #include "DedicatedCoopCampaignEconomy.h"
 #include "DedicatedCoopCampaignAimQuotes.h"
+#include "DedicatedCoopCampaignGroups.h"
+#include "CoopCampaignStatus.h"
+#include "CoopCampaignTimeAuthority.h"
+#include "CoopCampaignActionAuthority.h"
+#include "CoopCampaignHireAuthority.h"
+#include "DedicatedCoopSurrender.h"
+#include "DedicatedCoopBattleNotice.h"
+#include "DedicatedCoopMeanwhile.h"
+#include "DedicatedCheckpointRuntimeEvidence.h"
 
 #include "DedicatedContentManifest.h"
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
+#include "DedicatedCoopInventoryPublication.h"
 #include "CampaignPackage.h"
 #include "GameContext.h"
 #include "GameSettings.h"
@@ -2177,34 +2187,31 @@ struct DedicatedCoopRuntime::Impl
 
 	bool stageOwnerInventories(const TacticalWorldSnapshot& snapshot) noexcept
 	{
-		const auto& replication = tactical->server.replication();
-		for (std::size_t index = 0; index < replication.assignmentCount(); ++index)
+		// One staging implementation (unit-tested in isolation); this wrapper
+		// only translates its failure step into the runtime's diagnostics.
+		DedicatedCoopOwnerInventoryStageFailure failure =
+			DedicatedCoopOwnerInventoryStageFailure::None;
+		CoopSession::FullEngineCoopTacticalServerResult stageResult =
+			CoopSession::FullEngineCoopTacticalServerResult::Success;
+		if (StageDedicatedCoopOwnerInventories(tactical->live, tactical->server,
+			snapshot.epoch(), &failure, &stageResult))
+			return true;
+		const char* detail = "owner inventory staging failed";
+		switch (failure)
 		{
-			const auto* assignment = replication.assignment(index);
-			if (!assignment) return false;
-			CoopSession::CoopTacticalPeerReplicationState peer;
-			if (!replication.peerState(assignment->peerIdentity, peer) || !peer.connected ||
-				peer.baselineId == 0 ||
-				(peer.phase != CoopSession::CoopTacticalPeerPhase::Active &&
-				 peer.phase != CoopSession::CoopTacticalPeerPhase::AwaitingBaselineAck))
-				continue;
-			CoopSession::CoopOwnerInventorySnapshot inventory;
-			if (!tactical->live.captureInventory(assignment->actor, snapshot.epoch(), inventory))
-			{
-				fail(DedicatedCoopRuntimeError::TacticalReplicationFailed,
-					"tactical.owner-inventory", "native inventory capture failed");
-				return false;
-			}
-			const auto result = tactical->server.stageInventory(assignment->peerIdentity,
-				inventory);
-			if (result != CoopSession::FullEngineCoopTacticalServerResult::Success)
-			{
-				fail(DedicatedCoopRuntimeError::TacticalReplicationFailed,
-					"tactical.owner-inventory", TacticalServerResultName(result));
-				return false;
-			}
+			case DedicatedCoopOwnerInventoryStageFailure::Context:
+				detail = "owner inventory context unavailable"; break;
+			case DedicatedCoopOwnerInventoryStageFailure::Assignment:
+				detail = "owner inventory assignment missing"; break;
+			case DedicatedCoopOwnerInventoryStageFailure::Capture:
+				detail = "native inventory capture failed"; break;
+			case DedicatedCoopOwnerInventoryStageFailure::Stage:
+				detail = TacticalServerResultName(stageResult); break;
+			case DedicatedCoopOwnerInventoryStageFailure::None: break;
 		}
-		return true;
+		fail(DedicatedCoopRuntimeError::TacticalReplicationFailed,
+			"tactical.owner-inventory", detail);
+		return false;
 	}
 
 	bool pumpTactical(GameContext& context, DedicatedCoopRuntime& runtime) noexcept
@@ -2307,6 +2314,10 @@ struct DedicatedCoopRuntime::Impl
 		// Inventory can change without a public actor delta (reserve slots).
 		// Stage its own revision every committed boundary, before inbound stale
 		// checks and before any resulting terminal receipt can cross the wire.
+		// Native work has committed and its public revision is staged. Capture
+		// carried contents even when that public revision was unchanged: private
+		// resources/metadata can change independently. pumpInbound also flushes,
+		// so this barrier must precede it as well as the explicit outbound flush.
 		if (publication && tactical->server.worldActive() &&
 			!stageOwnerInventories(*publication.snapshot))
 			return false;
@@ -2425,12 +2436,8 @@ struct DedicatedCoopRuntime::Impl
 	DedicatedCoopMeanwhileState meanwhile;
 	DedicatedCoopAttackState nativeAttack;
 	std::uint64_t lastArrivalDecisionLogged = 0;
-	struct CampaignStatusDelivery
-	{
-		CoopSession::PeerIdentity peer{};
-		CoopSession::TransportPeer transport;
-		std::uint64_t revision = 0;
-	};
+	// Same value type the checkpoint-evidence capture consumes.
+	using CampaignStatusDelivery = DedicatedCampaignObservationDelivery;
 	CoopSession::CoopCampaignStatusLedger campaignStatusLedger;
 	CoopSession::CoopCampaignGroupsLedger campaignGroupsLedger;
 	const char* lastCampaignGroupsDiagnostic = nullptr;
@@ -2494,6 +2501,57 @@ struct DedicatedCoopRuntime::Impl
 	bool fatal = false;
 	StarterMissionState starterMission = StarterMissionState::Unprepared;
 };
+
+DedicatedCheckpointRuntimeEvidence
+DedicatedCoopRuntime::captureCheckpointRuntimeEvidence(
+	const GameContext& context) const noexcept
+{
+	DedicatedCheckpointRuntimeEvidence result;
+	result.frame.observed = true;
+	result.frame.frame = context.frameDriver().captureBoundaryState();
+	result.frame.tick = context.runtime().simulationTicks().captureBoundaryState();
+	result.frame.campaignSimulationFailed = context.campaignSimulation().failed();
+	result.packages.observed = true;
+	result.packages.messages = context.runtimeMessages().observation();
+	const TacticalCommandInboxSummary inbox = GetJa2TacticalCommandService().summary();
+	const Ja2TacticalCommandHostDiagnostics commands = GetJa2TacticalCommandHostDiagnostics();
+	result.localCommands.nativeObserved = true;
+	result.localCommands.commandInbox = inbox.pending;
+	result.localCommands.pendingHostReceipts = commands.pendingReceipts;
+	result.localCommands.pendingDeferredCancellations = commands.pendingDeferredCancellations;
+	result.localCommands.trackedCommands = commands.trackedCommands;
+	if (impl_ == nullptr) return result;
+	result.campaign.runtimeObserved = true;
+	result.campaign.selfRetirementActive = impl_->selfRetirementActive;
+	result.campaign.worldDraining = impl_->worldDraining;
+	result.campaign.postCombatReturnArmed = impl_->postCombatReturnArmed;
+	result.campaign.holdAdmissionAfterWorldDrain = impl_->holdAdmissionAfterWorldDrain;
+	result.campaign.runtimeFailed = impl_->fatal;
+	CaptureDedicatedCampaignResultEvidence(impl_->campaignTimeAuthority,
+		impl_->campaignActionAuthority, impl_->campaignHireAuthority, result.campaign);
+	if (impl_->tactical == nullptr) return result;
+	const TacticalComposition& tactical = *impl_->tactical;
+	result.localCommands.hostObserved = true;
+	result.localCommands.hostCorrelations = tactical.host.correlationCount();
+	result.localCommands.pendingImmediateReceipts = tactical.host.pendingImmediateReceiptCount();
+	result.tactical.observed = true;
+	result.tactical.contextMatchesComposition = impl_->tacticalContext == &context;
+	result.tactical.state = tactical.server.observation();
+	result.transport.observed = true;
+	result.transport.listener = tactical.listener.observation();
+	if (tactical.campaignSync != nullptr)
+	{
+		result.campaign.syncObserved = true;
+		result.campaign.sync = tactical.campaignSync->diagnostics();
+	}
+	CaptureDedicatedCampaignObservationEvidence(tactical.server, tactical.listener,
+		impl_->campaignStatusDeliveries, impl_->campaignStatusLedger.value().revision,
+		impl_->campaignGroupsDeliveries, impl_->campaignGroupsLedger.value().revision,
+		impl_->campaignEconomyDeliveries, impl_->campaignEconomyLedger.value().revision,
+		impl_->campaignQuotesDeliveries, impl_->campaignQuotesLedger.value().revision,
+		result.campaign);
+	return result;
+}
 
 DedicatedCoopRuntime::DedicatedCoopRuntime() noexcept
 	: impl_(new (std::nothrow) Impl())
@@ -3289,6 +3347,15 @@ void DedicatedCoopRuntime::stopAdmissionTransport() noexcept
 void DedicatedCoopRuntime::close() noexcept
 {
 	if (!impl_) return;
+	UnbindDedicatedCoopArrivalState(impl_->arrivalDecisions);
+	UnbindDedicatedCoopSurrenderState(impl_->surrenderDecision);
+	UnbindDedicatedCoopBattleNoticeState(impl_->battleNotice);
+	UnbindDedicatedCoopMeanwhileState(impl_->meanwhile);
+	impl_->arrivalDecisions.reset();
+	impl_->surrenderDecision.reset();
+	impl_->battleNotice.reset();
+	impl_->meanwhile.reset();
+	impl_->lastArrivalDecisionLogged = 0;
 	(void)impl_->detachTacticalComposition();
 	impl_->arrivalDecisions.reset();
 	UnbindDedicatedCoopAttackState(impl_->nativeAttack);

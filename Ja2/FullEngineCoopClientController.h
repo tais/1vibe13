@@ -277,6 +277,8 @@ private:
 	std::uint64_t firstAidInventoryRevision_ = 0;
 	bool inventoryOpen_ = false;
 	TacticalEntityId inventoryActor_;
+	// Owner stream that opened the modal; a different owner closes it.
+	CoopSession::PeerIdentity inventoryOwner_{};
 	std::uint64_t inventorySessionEpoch_ = 0;
 	std::uint64_t inventoryBaselineId_ = 0;
 	std::uint64_t inventoryWorldEpoch_ = 0;

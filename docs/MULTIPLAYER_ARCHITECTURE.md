@@ -23,7 +23,7 @@ Existing `MP v3.2` arena traffic remains a legacy compatibility protocol. New
 authoritative co-op traffic uses a separately versioned protocol and must not
 reinterpret or silently extend a legacy packet layout.
 
-The global authoritative co-op session protocol is version 19. The fixed server-
+The global authoritative co-op session protocol is version 20. The fixed server-
 hello container retains its independently bounded wire-v1 layout. The inner
 tactical envelope is wire v6. Tactical intent is wire v5, snapshot is wire v12, delta is wire
 v11, and the simulation-command journal is wire v4. Global v1–v18 peers fail

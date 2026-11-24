@@ -907,6 +907,68 @@ void TestDoorAndHostilityProjectionIsTransactional()
 }
 }
 
+void TestRenderInputsSurviveDiffCodecAndReplica()
+{
+	TacticalActorSnapshot initial = Actor(1, 100);
+	initial.presentation.flags = TacticalActorRenderPosePresent |
+		TacticalActorHeadPalettePresent | TacticalActorPantsPalettePresent |
+		TacticalActorVestPalettePresent | TacticalActorSkinPalettePresent;
+	initial.presentation.worldXQ8 = 1005 * TacticalWorldCoordinateScale;
+	initial.presentation.worldYQ8 = 5 * TacticalWorldCoordinateScale;
+	initial.presentation.animationSurface = 1;
+	initial.presentation.portrait = {TacticalPortraitFamily::Faces, 1,
+		TacticalPortraitCamouflage::None};
+	for (unsigned field = 0; field < 19; ++field)
+	{
+		CoopTacticalBaseline baseline = Baseline();
+		CHECK(InstallSnapshot(baseline, {initial}), "render-input baseline creates");
+		FullEngineCoopSnapshotReplica replica;
+		CHECK(replica.applyBaseline(baseline) == FullEngineCoopReplicaApplyResult::Committed,
+			"render-input baseline commits");
+		auto changed = initial;
+		auto& pose = changed.presentation;
+		switch (field)
+		{
+			case 0: ++pose.bodyType; break;
+			case 1: ++pose.animationDirection; break;
+			case 2: ++pose.worldXQ8; break;
+			case 3: ++pose.worldYQ8; break;
+			case 4: --pose.heightAdjustment; break;
+			case 5: ++pose.animationSurface; break;
+			case 6: ++pose.animationFrame; break;
+			case 7: ++pose.headPaletteIndex; break;
+			case 8: ++pose.pantsPaletteIndex; break;
+			case 9: ++pose.vestPaletteIndex; break;
+			case 10: pose.skinPaletteIndex = 255; break;
+			case 11: pose.displayNameUtf16 = {'A', 0xd83d, 0xde80}; break;
+			case 12: pose.portrait.family = TacticalPortraitFamily::ImpFaces; break;
+			case 13: pose.portrait.faceIndex = 255; break;
+			case 14: pose.portrait.camouflage = TacticalPortraitCamouflage::Snow; break;
+			case 15: pose.flags |= TacticalActorPositiveAnimationHeight; break;
+			case 16: pose.flags |= TacticalActorMultiTileNonZ; break;
+			case 17: pose.flags |= TacticalActorMultiTileZ; break;
+			case 18: pose.flags &= ~TacticalActorHeadPalettePresent; break;
+		}
+		TacticalWorldSnapshot current;
+		CHECK(TacticalWorldSnapshot::create(baseline.snapshot.epoch(),
+			baseline.snapshot.dimensions(), baseline.snapshot.sector(),
+			baseline.snapshot.turn(), {changed}, current) == TacticalSnapshotCreateError::None,
+			"single-field render successor creates");
+		CoopTacticalDelta delta = DeltaFrom(baseline);
+		CHECK(DiffTacticalWorldSnapshots(baseline.snapshot, current, 1, delta.delta) ==
+			TacticalWorldDiffResult::Success && delta.delta.events.size() == 1 &&
+			std::holds_alternative<TacticalActorUpdatedEvent>(delta.delta.events[0]),
+			"each renderer input alone emits one complete current actor record");
+		std::vector<std::uint8_t> bytes;
+		CoopTacticalDelta decoded;
+		CHECK(EncodeCoopTacticalDelta(delta, bytes) == CoopTacticalCodecResult::Success &&
+			DecodeCoopTacticalDelta(bytes, decoded) == CoopTacticalCodecResult::Success &&
+			replica.applyDelta(decoded) == FullEngineCoopReplicaApplyResult::Committed &&
+			*replica.snapshot().find(initial.id) == changed,
+			"every renderer field survives diff, checksummed transport, and replica publication");
+	}
+}
+
 int main()
 {
 	TestPresentProjectionAndFullDelta();
@@ -919,6 +981,7 @@ int main()
 	TestDeltaEnvelopeAndTargetValidation();
 	TestNoncanonicalAndAmbiguousDeltasAreRejected();
 	TestIncarnationReplacementCapacityAndEmptyDelta();
+	TestRenderInputsSurviveDiffCodecAndReplica();
 	TestDoorAndHostilityProjectionIsTransactional();
 	if (failures != 0)
 	{

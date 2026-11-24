@@ -2,6 +2,7 @@
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Core/CommandStream.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <iostream>

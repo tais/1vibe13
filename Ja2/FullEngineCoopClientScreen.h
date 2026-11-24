@@ -9,8 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
-
-struct FullEngineCoopClientPresentationInventoryControls;
+#include <Engine/Adapters/JA2/StrategicGroup.h>
 
 struct FullEngineCoopClientCampaignControls
 {
@@ -33,6 +32,8 @@ struct FullEngineCoopClientCampaignHireControls
 	bool open = false, armed = false, enabled = false, canHire = false;
 };
 bool CaptureFullEngineCoopClientCampaignHireControls(FullEngineCoopClientCampaignHireControls& output) noexcept;
+
+struct FullEngineCoopClientPresentationInventoryControls;
 
 struct FullEngineCoopClientMedicalControls
 {

@@ -1760,14 +1760,14 @@ inline bool IsStructurallyValidSimulationCommand(
 		{
 			return IsStructurallyValidAuthoritativeDoorOpenCloseCommand(value);
 		}
+		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
+		{
+			return IsStructurallyValidBeginFirstAidCommand(value);
+		}
 		else if constexpr (
 			std::is_same<Command, PassInterruptCommand>::value)
 		{
 			return IsStructurallyValidPassInterruptCommand(value);
-		}
-		else if constexpr (std::is_same<Command, BeginFirstAidCommand>::value)
-		{
-			return IsStructurallyValidBeginFirstAidCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

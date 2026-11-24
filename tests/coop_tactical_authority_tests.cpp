@@ -643,6 +643,26 @@ void TestIntentCodec()
 	CHECK(EncodeTacticalIntent(dropIntent, dropSentinel) == TacticalIntentCodecResult::Invalid &&
 		dropSentinel == std::vector<std::uint8_t>({0xaa}), "drop requires a nonzero private revision");
 	std::vector<std::uint8_t> unchanged{0xaa, 0xbb};
+	for (std::uint8_t version : {3, 4, 6})
+	{
+		auto wrongVersion = swapBytes;
+		wrongVersion[4] = version;
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(wrongVersion, output) == TacticalIntentCodecResult::UnsupportedVersion &&
+			SameIntent(output, sentinel), "old and unknown swap intent versions reject transactionally");
+	}
+	for (SwapInventorySlotsTacticalIntent payload : {
+		SwapInventorySlotsTacticalIntent{14, 5, 0}, {14, 14, 1}, {256, 5, 1}, {14, 256, 1}})
+	{
+		TacticalIntent invalidSwap = swapIntent;
+		invalidSwap.payload = payload;
+		std::vector<std::uint8_t> unchanged{17, 23};
+		CHECK(!IsStructurallyValidTacticalIntent(invalidSwap) &&
+			EncodeTacticalIntent(invalidSwap, unchanged) == TacticalIntentCodecResult::Invalid &&
+			unchanged == std::vector<std::uint8_t>({17, 23}),
+			"invalid private revision and slot operands never partially encode");
+	}
+
 	TacticalIntent invalid = intent;
 	invalid.commandId = 0;
 	CHECK(EncodeTacticalIntent(invalid, unchanged) == TacticalIntentCodecResult::Invalid &&
