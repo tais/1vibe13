@@ -3426,6 +3426,23 @@ file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp"
   dedicated_live_client_screen_source)
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.h"
   dedicated_live_client_screen_header_source)
+# Inventory transfer and drop follow the authority's interrupt rule: never
+# while resolving, and during an active interrupt only for eligible actors.
+extract_brace_bounded_slice(dedicated_live_client_controller_source
+  "bool FullEngineCoopClientController::inventoryRecipientCandidate(\n\tconst FullEngineCoopClientControllerView& view, TacticalEntityId target) const noexcept"
+  client_inventory_transfer_candidate_slice "Cannot bound client inventory transfer candidate")
+require_ordered_fragments(client_inventory_transfer_candidate_slice
+  "Client transfer must require both actors to be interrupt-eligible during an active interrupt"
+  "turn.interruptPhase == TacticalInterruptPhase::Resolving) return false;"
+  "turn.interruptPhase == TacticalInterruptPhase::Active &&"
+  "(!source->interruptActionEligible || !recipient->interruptActionEligible)) return false;")
+extract_brace_bounded_slice(dedicated_live_client_controller_source
+  "bool FullEngineCoopClientController::inventoryDropCandidate(\n\tconst FullEngineCoopClientControllerView& view) const noexcept"
+  client_inventory_drop_candidate_slice "Cannot bound client inventory drop candidate")
+require_ordered_fragments(client_inventory_drop_candidate_slice
+  "Client drop must follow the selected actor's interrupt eligibility"
+  "turn.interruptPhase != TacticalInterruptPhase::Resolving &&"
+  "(turn.interruptPhase != TacticalInterruptPhase::Active || actor->interruptActionEligible) &&")
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientGameScreenPolicy.h"
   dedicated_live_client_game_screen_policy_source)
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientPresentationWorldHost.cpp"

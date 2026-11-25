@@ -1702,6 +1702,49 @@ void TestInventoryTransferUsesBothPrivateRevisionsWithoutMutation()
 		"Esc/G cancellation returns to source inventory with no drop, transfer or movement");
 }
 
+void TestInventoryTransferAndDropFollowInterruptEligibility()
+{
+	// During an active interrupt the authority admits an inventory action only
+	// when every AP-spending actor is interrupt-eligible; Resolving admits none.
+	struct Case { TacticalInterruptPhase phase; bool sourceEligible, recipientEligible, transfer, drop; };
+	const Case cases[] = {
+		{TacticalInterruptPhase::Active, true, true, true, true},
+		{TacticalInterruptPhase::Active, true, false, false, true},
+		{TacticalInterruptPhase::Active, false, true, false, false},
+		// Eligibility is only representable during an active interrupt.
+		{TacticalInterruptPhase::Resolving, false, false, false, false},
+	};
+	for (const auto& test : cases)
+	{
+		DropFixture fixture;
+		auto actors = fixture.snapshot.actors();
+		for (auto& actor : actors)
+			actor.interruptActionEligible = actor.id == TacticalEntityId{1,1} ? test.sourceEligible :
+				actor.id == TacticalEntityId{2,1} ? test.recipientEligible : false;
+		CHECK(TacticalWorldSnapshot::create(11, {160,160}, {9,2,0,true},
+			Turn(0, false, test.phase, 5), std::move(actors), fixture.snapshot) == TacticalSnapshotCreateError::None,
+			"interrupt inventory fixture snapshot is valid");
+		auto view = fixture.view();
+		FullEngineCoopClientController controller; controller.synchronize(view);
+		const bool opened = controller.openInventory(view) && controller.selectInventorySource(view,14);
+		const bool transfer = opened && controller.beginInventoryTransfer(view) &&
+			controller.inventoryRecipient() == (TacticalEntityId{2,1});
+		CHECK(transfer == test.transfer,
+			"transfer during an interrupt requires both actors to be interrupt-eligible and never runs while resolving");
+		if (transfer)
+		{
+			const auto result = controller.clickInventorySlot(view,6);
+			CHECK(result && std::holds_alternative<CoopSession::TransferInventoryItemTacticalIntent>(result.payload),
+				"eligible interrupt transfer emits one exact typed give intent");
+		}
+		controller.cancelInventoryTransfer();
+		const bool drop = (controller.inventoryOpen() || controller.openInventory(view)) &&
+			controller.selectInventorySource(view,14) && controller.beginInventoryDrop(view);
+		CHECK(drop == test.drop,
+			"drop during an interrupt requires the selected actor to be interrupt-eligible and never runs while resolving");
+	}
+}
+
 void TestInventoryTransferInvalidatesBothContexts()
 {
 	for (unsigned change = 0; change < 15; ++change)
@@ -2021,6 +2064,7 @@ int main()
 	TestInventoryInspectionNeverBecomesASwapCursor();
 	TestInventoryContextChangesRevokeRetainedChoices();
 	TestInventoryTransferUsesBothPrivateRevisionsWithoutMutation();
+	TestInventoryTransferAndDropFollowInterruptEligibility();
 	TestInventoryTransferInvalidatesBothContexts();
 	TestInventoryTransferRecipientsAreOwnedReadyHumans();
 	TestGroundPickupSelectsExactAuthorityIdAndEmptyPocket();

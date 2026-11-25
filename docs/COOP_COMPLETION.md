@@ -2899,7 +2899,10 @@ item, press `G`, cycle nearby owned recipients with `Tab`/`[`/`]`, and click an
 empty supported destination. The heading shows giver, recipient and stack.
 `Esc`/`G` cancels; neither client's inventory is modified speculatively. Changes
 to either private revision, ownership, baseline, world or eligibility cancel the
-selection. The client currently offers this only outside interrupts.
+selection. During an active interrupt the client offers it only when both mercs
+are interrupt-eligible (each spends AP), matching the authority; never while an
+interrupt is resolving. Ordinary pocket drop follows the same rule for the
+selected merc.
 
 The retained `TransferInventoryItemCommand` follows stock inventory-panel rules:
 two conscious human mercs, native distance/LOS and pocket capacity checks, a

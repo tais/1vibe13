@@ -1072,7 +1072,11 @@ bool FullEngineCoopClientController::inventoryRecipientCandidate(
 		!view.snapshot->dimensions().contains(source->grid) ||
 		!view.snapshot->dimensions().contains(recipient->grid)) return false;
 	const auto& turn = view.snapshot->turn();
-	if (turn.interruptPhase != TacticalInterruptPhase::None) return false;
+	if (turn.interruptPhase == TacticalInterruptPhase::Resolving) return false;
+	// During an active interrupt both actors spend AP, so the authority requires
+	// each to be interrupt-eligible, exactly as for any other interrupt action.
+	if (turn.interruptPhase == TacticalInterruptPhase::Active &&
+		(!source->interruptActionEligible || !recipient->interruptActionEligible)) return false;
 	// This is only a public-state preflight. The authority checks native LOS,
 	// exact AP costs, animation readiness, pocket capacity and equipment rules.
 	if (turn.turnBased && turn.inCombat && (source->actionPoints < 3 || recipient->actionPoints < 3)) return false;
@@ -1187,7 +1191,8 @@ bool FullEngineCoopClientController::inventoryDropCandidate(
 	return actor && actor->life >= 15 && actor->level == 0 && actor->presentation.bodyType <= 3 &&
 		actor->stance != TacticalStance::Unknown && view.snapshot->dimensions().contains(actor->grid) &&
 		!actor->medicalService.providing && !actor->medicalService.receivingCount &&
-		turn.interruptPhase == TacticalInterruptPhase::None &&
+		turn.interruptPhase != TacticalInterruptPhase::Resolving &&
+		(turn.interruptPhase != TacticalInterruptPhase::Active || actor->interruptActionEligible) &&
 		(!turn.turnBased || !turn.inCombat || actor->actionPoints > 0);
 }
 
