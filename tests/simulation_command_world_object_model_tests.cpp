@@ -520,6 +520,7 @@ int main()
 	answer.soldier = {2, 0x11223344};
 	answer.expectedWorldGeneration = 9;
 	answer.npcProfile = 101;
+	answer.sourceProfile = 239;
 	answer.approach = 4;
 	Require(IsStructurallyValidSimulationCommand(SimulationCommand{answer}),
 		"a conversation answer requires dedicated authority, a world and an NPC");
@@ -536,8 +537,10 @@ int main()
 		EncodeSimulationCommandJournal(decodedAnswer, answerDropped, answerReencoded) &&
 		answerReencoded == answerWire,
 		"a conversation answer journal round trips under its append-only tag");
-	std::array<AuthoritativeConverseCommand, 5> invalidAnswers;
+	std::array<AuthoritativeConverseCommand, 7> invalidAnswers;
 	invalidAnswers.fill(answer);
+	invalidAnswers[5].sourceProfile = 0;
+	invalidAnswers[6].sourceProfile = answer.npcProfile;
 	invalidAnswers[0].expectedWorldGeneration = 0;
 	invalidAnswers[1].npcProfile = 0;
 	invalidAnswers[2].approach = 6;

@@ -173,7 +173,7 @@ public:
 		if (!conversePreparationSucceeds || conversation != 1) return false;
 		command = AuthoritativeConverseCommand{};
 		command.soldier = actor; command.expectedWorldGeneration = generation;
-		command.npcProfile = 101; command.approach = approach;
+		command.npcProfile = 101; command.sourceProfile = 239; command.approach = approach;
 		return true;
 	}
 	bool prepareSwapInventorySlots(TacticalEntityId actor, std::uint16_t source,

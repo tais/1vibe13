@@ -213,8 +213,17 @@ bool DedicatedCoopTacticalJa2LiveState::prepareTalk(const CoopSession::PeerIdent
 	TacticalEntityId actor, TacticalEntityId target,
 	StartConversationCommand& command) noexcept
 {
-	if (!onMainThread() || PrepareDedicatedCoopTalk(actor, target, command) != DedicatedCoopTalkCode::Prepared)
+	if (!onMainThread()) return false;
+	const DedicatedCoopTalkCode code = PrepareDedicatedCoopTalk(actor, target, command);
+	if (code != DedicatedCoopTalkCode::Prepared)
+	{
+		// Opt-in (JA2_COOP_INVENTORY_DIAGNOSTIC=1): which talk rule refused.
+		if (DedicatedCoopInventoryDiagnosticEnabled())
+			(void)std::fprintf(stderr, "[coop-inventory] stage=talk-%u actor=%u:%u target=%u:%u\n",
+				unsigned(code), unsigned(actor.slot), unsigned(actor.incarnation),
+				unsigned(target.slot), unsigned(target.incarnation));
 		return false;
+	}
 	NoteDedicatedCoopConversationRequest(peer, actor, target);
 	return true;
 }
@@ -226,15 +235,19 @@ bool DedicatedCoopTacticalJa2LiveState::prepareConverse(const CoopSession::PeerI
 	// Only the exact published conversation's merc answers, and only for its
 	// initiator (any owner of that merc for a natively opened panel; ownership
 	// of the actor was already checked by the intent authority).
+	// A scripted NPC-to-NPC scene may be closed (only) by any player, with one
+	// of their own mercs as the commanding actor.
 	const auto current = CurrentDedicatedCoopConversation();
-	if (!onMainThread() || !current.conversation || conversation != current.conversation ||
-		actor != current.merc || worldGeneration == 0 ||
-		(!CoopSession::IsZero(current.initiator) && current.initiator != peer))
+	if (!onMainThread() || !current.conversation || conversation != current.conversation || worldGeneration == 0)
+		return false;
+	if (current.npcSource ? approach != 0 :
+		(actor != current.merc || (!CoopSession::IsZero(current.initiator) && current.initiator != peer)))
 		return false;
 	command = AuthoritativeConverseCommand{};
 	command.soldier = actor;
 	command.expectedWorldGeneration = worldGeneration;
 	command.npcProfile = current.npcProfile;
+	command.sourceProfile = current.mercProfile;
 	command.approach = approach;
 	return IsStructurallyValidAuthoritativeConverseCommand(command);
 }

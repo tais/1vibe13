@@ -31,12 +31,16 @@ bool CaptureDedicatedCoopConversation(std::uint32_t conversation,
 {
 	if (!gfInTalkPanel || !conversation) return false;
 	TacticalActor* const npc = FindSoldierByProfileID(gTalkPanel.ubCharNum, FALSE);
-	TacticalActor* const merc = gubSrcSoldierProfile != NO_PROFILE ? FindSoldierByProfileID(gubSrcSoldierProfile, TRUE) : nullptr;
+	// The other party is normally a player merc; scripted scenes pair two NPCs.
+	TacticalActor* merc = gubSrcSoldierProfile != NO_PROFILE ? FindSoldierByProfileID(gubSrcSoldierProfile, TRUE) : nullptr;
+	const bool npcSource = !merc && gubSrcSoldierProfile != NO_PROFILE;
+	if (npcSource) merc = FindSoldierByProfileID(gubSrcSoldierProfile, FALSE);
 	if (!npc || !merc || npc == merc) return false;
 	CoopSession::CoopConversation value;
 	value.conversation = conversation;
 	value.npcProfile = gTalkPanel.ubCharNum;
 	value.mercProfile = gubSrcSoldierProfile;
+	value.npcSource = npcSource;
 	value.npc = GetJa2TacticalEntityId(*npc);
 	value.merc = GetJa2TacticalEntityId(*merc);
 	value.initiator = initiator;

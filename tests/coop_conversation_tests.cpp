@@ -31,10 +31,10 @@ void Codec()
 		decoded.revision == 3 && decoded.sessionEpoch == 7, "conversation roundtrips exactly");
 	for (std::size_t size : {std::size_t(0), CoopConversationWireSize - 1, CoopConversationWireSize + 1})
 		CHECK(!DecodeCoopConversation(bytes.data(), size, decoded), "only the exact width decodes");
-	for (std::size_t at : {std::size_t(3), std::size_t(6), std::size_t(60), std::size_t(64 + 2 * 17)})
+	for (std::size_t at : {std::size_t(3), std::size_t(6), std::size_t(60), std::size_t(61), std::size_t(64 + 2 * 17)})
 	{
 		auto bad = bytes; bad[at] ^= 0x5a;
-		CHECK(!DecodeCoopConversation(bad.data(), bad.size(), decoded), "magic, kind, reserved and quote tail are checked");
+		CHECK(!DecodeCoopConversation(bad.data(), bad.size(), decoded), "magic, kind, scene flag, reserved and quote tail are checked");
 	}
 	CoopConversation none; none.sessionEpoch = 7; none.revision = 1;
 	CHECK(EncodeCoopConversation(none, bytes) && DecodeCoopConversation(bytes.data(), bytes.size(), decoded) &&
@@ -43,6 +43,13 @@ void Codec()
 	CHECK(!EncodeCoopConversation(stray, bytes), "an empty record cannot carry participants");
 	auto self = open; self.merc = self.npc;
 	CHECK(!EncodeCoopConversation(self, bytes), "an NPC cannot talk to itself");
+	auto scene = open; scene.npcSource = true;
+	CHECK(EncodeCoopConversation(scene, bytes) && bytes[60] == 1 && DecodeCoopConversation(bytes.data(), bytes.size(), decoded) &&
+		decoded.npcSource && !SameCoopConversationContent(decoded, open), "an NPC-to-NPC scene carries its flag at byte 60");
+	bytes[60] = 2;
+	CHECK(!DecodeCoopConversation(bytes.data(), bytes.size(), decoded), "the scene flag is a strict boolean");
+	auto strayScene = none; strayScene.npcSource = true;
+	CHECK(!EncodeCoopConversation(strayScene, bytes), "an empty record cannot be a scene");
 	auto hole = open; hole.quote[3] = 0;
 	CHECK(!EncodeCoopConversation(hole, bytes), "no embedded terminator inside the quote length");
 }

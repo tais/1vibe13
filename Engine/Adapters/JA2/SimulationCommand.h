@@ -1267,6 +1267,9 @@ struct AuthoritativeConverseCommand
 	TacticalEntityId soldier;
 	std::uint64_t expectedWorldGeneration = 0;
 	std::uint8_t npcProfile = 0;
+	// The panel's other party: the soldier's own profile, or an NPC's for a
+	// scripted NPC-to-NPC scene, which a player may only leave.
+	std::uint8_t sourceProfile = 0;
 	std::uint8_t approach = 0;
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority =
@@ -1323,7 +1326,8 @@ constexpr bool IsStructurallyValidAuthoritativeConverseCommand(
 	const AuthoritativeConverseCommand& command) noexcept
 {
 	return command.soldier.valid() && command.expectedWorldGeneration != 0 &&
-		command.npcProfile != 0 && command.approach <= 5 &&
+		command.npcProfile != 0 && command.sourceProfile != 0 && command.sourceProfile != command.npcProfile &&
+		command.approach <= 5 &&
 		(command.source == SimulationCommandSource::NetworkPeer ||
 		 command.source == SimulationCommandSource::Replay) &&
 		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;

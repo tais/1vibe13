@@ -3650,3 +3650,25 @@ Installed evidence: the dialogue probe now ends when the test host reports
 fact 23 set, after "I do not... Let me see this letter." and Fatima's "Here...".
 The whole Omerta opening, from the first word to Fatima to Miguel reading the
 letter, now runs through co-op Screen input on the dedicated server.
+
+### Scripted NPC-to-NPC scenes
+
+After Fatima's "Here..." the chain goes on (Ira, then Miguel), but the talk
+panel's other party is now Fatima, not a player merc. Capture used to skip such
+panels, so the replicas showed nothing while the server kept the last panel
+open, waiting for the stock "Done", and every later talk was refused as busy:
+a dead end. Now:
+
+- The conversation record carries an NPC-source flag (byte 60; a strict
+  boolean, reserved bytes 61-63 stay zero), and capture accepts any profiled
+  in-sector soldier as the other party when it is not a player merc.
+- Any player may close such a scene, and only close it: the client sends the
+  leave with one of its own mercs as the actor; the server accepts only
+  approach 0 for an NPC-source panel; `AuthoritativeConverseCommand` now names
+  the panel's source profile, and the executor refuses anything but a leave
+  when that source is not the commanding merc and not a player merc.
+
+Installed evidence: after the letter the probe closes every idle panel; the
+last one (Miguel to Fatima: "Find him and tell him no more than you need
+to...") is flagged as a scene and is closed by the other client, after which
+the basement is quiet.

@@ -326,6 +326,7 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU8(value.npcProfile);
+			writer.writeU8(value.sourceProfile);
 			writer.writeU8(value.approach);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
@@ -977,6 +978,7 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!reader.readU32(value.soldier.incarnation) ||
 				!reader.readU64(value.expectedWorldGeneration) ||
 				!reader.readU8(value.npcProfile) ||
+				!reader.readU8(value.sourceProfile) ||
 				!reader.readU8(value.approach) ||
 				!ReadSource(reader, value.source) ||
 				!ReadAuthorityPolicy(reader, value.authority) ||

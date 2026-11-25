@@ -489,6 +489,95 @@ def miguel_reads_letter(probes, guard, server, timeout, evidence):
     return evidence
 
 
+def settle_basement(probes, guard, timeout, evidence, quiet=6.0):
+    """Close every idle panel left open (a scripted NPC-to-NPC scene may be
+    closed by any player) until no conversation has been open for `quiet`."""
+    evidence["closed_panels"] = []
+    deadline = time.monotonic() + 2 * timeout
+    since = time.monotonic()
+    idle_key, idle_since = None, None
+    while time.monotonic() - since < quiet:
+        if time.monotonic() > deadline:
+            raise SmokeFailure("the basement conversations never settled")
+        records = conversations(probes, guard, time.monotonic() + timeout)
+        if not all(record["ready"] for record in records):
+            time.sleep(0.3)
+            continue
+        if not records[0]["conversation"]:
+            idle_key = None
+            time.sleep(0.3)
+            continue
+        since = time.monotonic()
+        key = (records[0]["revision"], records[0]["speaking"])
+        if key != idle_key:
+            idle_key, idle_since = key, time.monotonic()
+        answering = [index for index, record in enumerate(records) if record["answerable"]]
+        if not records[0]["speaking"] and answering and time.monotonic() - idle_since > 2:
+            closer = answering[-1]
+            evidence["closed_panels"].append([records[0]["npc_profile"], records[0]["merc_profile"],
+                                              records[0].get("npc_source"), closer, quote_text(records[0])])
+            converse(probes[closer], guard, records[0]["conversation"], 0, timeout)
+            idle_key = None
+        time.sleep(0.3)
+    return evidence
+
+
+IRA = 59
+
+
+def recruit_npc(probes, guard, server, npc_profile, timeout, evidence):
+    """Walk to the NPC, open its panel with K and answer 4 (recruit): the stock
+    recruitment must put it on the player team, owned by exactly one player."""
+    states = _states(probes, time.monotonic() + timeout, guard)
+    selected = tuple(conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"])
+    merc = find_actor(states[0], lambda a: (a["slot"], a["inc"]) == selected)
+    npc = find_actor(states[0], lambda a: a["profile"] == npc_profile and a["life"] > 0)
+    where = npc or fixture_npc_position(server, npc_profile)
+    if not merc or not where:
+        raise SmokeFailure(f"profile {npc_profile} or the recruiter is not in the sector")
+    evidence["recruit_walk"] = walk_into_talk_range(probes, guard, 0, merc, where, timeout)
+    evidence["recruit_target"] = [npc["slot"], npc["inc"]] if npc else None
+    evidence["recruit_talk_target"] = conversations(probes[:1], guard, time.monotonic() + timeout)[0]["talk_target"]
+    for attempt in range(MAXIMUM_STALE_RETRIES):
+        record = conversations(probes[:1], guard, time.monotonic() + timeout)[0]
+        previous = last_command(record)
+        converse(probes[0], guard, 0, 0, timeout)
+        if command_outcome(probes[0], guard, previous, lambda r: r["conversation"] != 0, timeout) == "done":
+            break
+        time.sleep(0.5)
+    else:
+        raise SmokeFailure("talking to the recruit stayed stale")
+    opened = wait_conversations(probes, guard, lambda r: r[0]["conversation"] != 0 and not r[0]["speaking"] and
+                                r[0]["npc_profile"] == npc_profile, timeout, "the recruit's panel")
+    evidence["recruit_greeting"] = quote_text(opened[0])
+    converse(probes[0], guard, opened[0]["conversation"], 4, timeout)
+    deadline = time.monotonic() + 2 * timeout
+    while time.monotonic() < deadline:
+        records = conversations(probes, guard, time.monotonic() + timeout)
+        if all(record["ready"] for record in records) and records[0]["conversation"]:
+            line = quote_text(records[0])
+            if line and evidence.setdefault("recruit_lines", [])[-1:] != [line]:
+                evidence["recruit_lines"].append(line)
+            answering = [index for index, record in enumerate(records) if record["answerable"]]
+            if not records[0]["speaking"] and answering and line != evidence["recruit_greeting"]:
+                time.sleep(2)
+                again = conversations(probes, guard, time.monotonic() + timeout)
+                if again[0]["conversation"] == records[0]["conversation"] and not again[0]["speaking"] and \
+                        again[0]["revision"] == records[0]["revision"]:
+                    converse(probes[answering[-1]], guard, records[0]["conversation"], 0, timeout)
+        states = _states(probes, time.monotonic() + timeout, guard)
+        joined = [find_actor(state, lambda a: a["profile"] == npc_profile and a["team"] == 0) for state in states]
+        if all(joined):
+            identity = [joined[0]["slot"], joined[0]["inc"]]
+            owners = [index for index, state in enumerate(states) if identity in state["assigned"]]
+            if len(owners) == 1:
+                evidence["recruited"] = {"actor": identity, "owner": owners[0]}
+                return evidence
+        time.sleep(0.4)
+    raise SmokeFailure(f"profile {npc_profile} never joined the player team with one owner; "
+                       f"lines={evidence.get('recruit_lines')}")
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
@@ -540,6 +629,8 @@ def main(argv=None):
         probes, guard = follow_into_a10(probes, guard, server, ordered, run / "server", timeout, evidence)
         probes, guard = follow_to_hideout(probes, guard, server, ordered, timeout, evidence)
         miguel_reads_letter(probes, guard, server, timeout, evidence)
+        settle_basement(probes, guard, timeout, evidence)
+        # recruit_npc(...) is pending a client fix for mid-world ownership changes.
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True

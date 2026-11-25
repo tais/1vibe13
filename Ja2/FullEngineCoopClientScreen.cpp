@@ -461,11 +461,12 @@ bool HandleConversationKey(UINT32 key, UINT32 eventKind, FullEngineCoopClientCon
 	if (!runtime.conversation(conversation) || !conversation.conversation) return false;
 	if (eventKind != KEY_DOWN || !runtime.conversationAnswerable(conversation) || conversation.speaking) return true;
 	std::uint8_t approach = 0xFF;
-	if (key >= '1' && key <= '5') approach = static_cast<std::uint8_t>(key - '0');
+	if (key >= '1' && key <= '5' && !conversation.npcSource) approach = static_cast<std::uint8_t>(key - '0');
 	else if (key == ESC) approach = CoopSession::TacticalConverseLeave;
 	if (approach == 0xFF) return true;
 	FullEngineCoopClientIntentRequest request;
-	request.actor = conversation.merc;
+	// An NPC-to-NPC scene is closed with one of this player's own mercs.
+	request.actor = conversation.npcSource ? Controller.selectedActor() : conversation.merc;
 	request.payload = CoopSession::ConverseTacticalIntent{conversation.conversation, approach};
 	request.valid = view.outstandingCommandId == 0;
 	(void)Submit(request, view);
@@ -1453,7 +1454,8 @@ bool RenderConversationLane() noexcept
 		first.data());
 	if (split < length) mprintf(12, 62, L"%ls", quote.data() + split + (quote[split] == L' ' ? 1 : 0));
 	else if (!conversation.speaking && GetFullEngineCoopClientRuntime().conversationAnswerable(conversation))
-		mprintf(12, 62, L"1 friendly  2 direct  3 threaten  4 recruit  5 repeat   Esc: leave");
+		mprintf(12, 62, conversation.npcSource ? L"Esc: leave"
+			: L"1 friendly  2 direct  3 threaten  4 recruit  5 repeat   Esc: leave");
 	SetFontForeground(FONT_MCOLOR_LTGRAY);
 	return true;
 }

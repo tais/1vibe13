@@ -1101,11 +1101,16 @@ namespace
 	// stock talk-panel button paths (TalkPanelClickCallback / Done button),
 	// refused while the open line is still being spoken.
 	bool ApplyDedicatedCoopConversationChoice(const TacticalActor& merc,
-		std::uint8_t npcProfile, std::uint8_t approach)
+		std::uint8_t npcProfile, std::uint8_t sourceProfile, std::uint8_t approach)
 	{
 		if (!gfInTalkPanel || gTalkPanel.ubCharNum != npcProfile ||
-			merc.identity().profile() != gubSrcSoldierProfile ||
+			gubSrcSoldierProfile != sourceProfile ||
 			DialogueActive() || !DialogueQueueIsEmpty())
+			return false;
+		// A scripted NPC-to-NPC scene has no player party: a player may only
+		// close it (the stock Done button), never speak for the NPC.
+		if (merc.identity().profile() != sourceProfile &&
+			(approach != 0 || FindSoldierByProfileID(sourceProfile, TRUE)))
 			return false;
 		if (approach == 0)
 		{
@@ -2302,7 +2307,7 @@ namespace
 					value.soldier, value.source, value.authority);
 				if (is_networked || is_client || is_server || !identity ||
 					identity.worldGeneration != value.expectedWorldGeneration || !merc ||
-					!ApplyDedicatedCoopConversationChoice(*merc, value.npcProfile, value.approach))
+					!ApplyDedicatedCoopConversationChoice(*merc, value.npcProfile, value.sourceProfile, value.approach))
 					return CommandDisposition::Discard;
 				return CommandDisposition::Applied;
 			}

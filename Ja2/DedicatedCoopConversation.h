@@ -40,6 +40,8 @@ struct DedicatedCoopConversationState
 	CoopSession::PeerIdentity initiator{};
 	TacticalEntityId merc{};
 	std::uint8_t npcProfile = 0;
+	std::uint8_t mercProfile = 0;
+	bool npcSource = false;
 };
 void SetDedicatedCoopConversationState(const DedicatedCoopConversationState& state) noexcept;
 DedicatedCoopConversationState CurrentDedicatedCoopConversation() noexcept;

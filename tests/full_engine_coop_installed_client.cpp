@@ -670,8 +670,9 @@ void ReplyConversation(std::uint64_t request) noexcept
 		std::fputs("]", stdout);
 		const TacticalEntityId selected = GetFullEngineCoopClientSelectedActor();
 		const TacticalEntityId target = GetFullEngineCoopClientTalkTarget();
-		std::printf(",\"answerable\":%s,\"selected\":[%u,%u],\"talk_target\":[%u,%u]",
+		std::printf(",\"answerable\":%s,\"npc_source\":%s,\"selected\":[%u,%u],\"talk_target\":[%u,%u]",
 			GetFullEngineCoopClientRuntime().conversationAnswerable(c) ? "true" : "false",
+			c.npcSource ? "true" : "false",
 			unsigned(selected.slot), unsigned(selected.incarnation), unsigned(target.slot), unsigned(target.incarnation));
 		FullEngineCoopClientPresentationView view;
 		if (GetFullEngineCoopClientRuntime().presentationView(view))
@@ -697,6 +698,7 @@ void ReplyConversationInput(std::uint64_t request, std::uint64_t conversation, s
 	const bool talk = conversation == 0;
 	if (count >= MaximumCampaignUiInputs || GetCurrentScreen() != GAME_SCREEN || GetInputQueueStatistics().queued ||
 		(talk ? open : (!open || c.conversation != conversation || c.speaking || approach > 5 ||
+			(c.npcSource && approach != 0) ||
 			!GetFullEngineCoopClientRuntime().conversationAnswerable(c))))
 	{ ReplyError(request, "conversation input requires the exact visible conversation state and an idle input queue"); return; }
 	const UINT32 key = talk ? UINT32('k') : approach == 0 ? UINT32(ESC) : UINT32('0' + approach);

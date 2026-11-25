@@ -30,6 +30,9 @@ struct CoopConversation
 	PeerIdentity initiator{};
 	// The NPC (or merc) is still speaking or more lines are queued.
 	bool speaking = false;
+	// The panel's other party is itself an NPC (a scripted NPC-to-NPC scene,
+	// e.g. Fatima handing Miguel the letter): any player may only close it.
+	bool npcSource = false;
 	std::uint16_t quoteLength = 0;
 	std::array<std::uint16_t, CoopConversationQuoteUnits> quote{};
 };
@@ -42,7 +45,8 @@ inline bool ValidCoopConversation(const CoopConversation& value) noexcept
 	for (std::size_t i = 0; i < value.quoteLength; ++i) if (!value.quote[i]) return false;
 	if (!value.conversation)
 		return !value.npcProfile && !value.mercProfile && value.npc == TacticalEntityId{} &&
-			value.merc == TacticalEntityId{} && IsZero(value.initiator) && !value.speaking && !value.quoteLength;
+			value.merc == TacticalEntityId{} && IsZero(value.initiator) && !value.speaking && !value.npcSource &&
+			!value.quoteLength;
 	return value.npcProfile && value.npc.valid() && value.merc.valid() && value.npc != value.merc;
 }
 
@@ -50,6 +54,7 @@ inline bool SameCoopConversationContent(const CoopConversation& a, const CoopCon
 {
 	return a.conversation == b.conversation && a.npcProfile == b.npcProfile && a.mercProfile == b.mercProfile &&
 		a.npc == b.npc && a.merc == b.merc && a.initiator == b.initiator && a.speaking == b.speaking &&
+		a.npcSource == b.npcSource &&
 		a.quoteLength == b.quoteLength && a.quote == b.quote;
 }
 
@@ -68,6 +73,7 @@ inline bool EncodeCoopConversation(const CoopConversation& value, CoopConversati
 	put(32, value.npc.slot, 2); put(34, value.merc.slot, 2);
 	put(36, value.npc.incarnation, 4); put(40, value.merc.incarnation, 4);
 	for (std::size_t i = 0; i < value.initiator.size(); ++i) bytes[44 + i] = value.initiator[i];
+	bytes[60] = value.npcSource ? 1 : 0;
 	for (std::size_t i = 0; i < value.quoteLength; ++i) put(64 + 2 * i, value.quote[i], 2);
 	output = bytes;
 	return true;
@@ -77,7 +83,8 @@ inline bool DecodeCoopConversation(const std::uint8_t* bytes, std::size_t size, 
 {
 	if (!bytes || size != CoopConversationWireSize || bytes[0] != 'J' || bytes[1] != '2' || bytes[2] != 'C' ||
 		bytes[3] != 'V' || bytes[6] != 1 || bytes[7] > 1) return false;
-	for (std::size_t i = 60; i < 64; ++i) if (bytes[i]) return false;
+	if (bytes[60] > 1) return false;
+	for (std::size_t i = 61; i < 64; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -86,6 +93,7 @@ inline bool DecodeCoopConversation(const std::uint8_t* bytes, std::size_t size, 
 	if (get(4, 2) != CurrentProtocolVersion) return false;
 	CoopConversation value;
 	value.speaking = bytes[7] != 0;
+	value.npcSource = bytes[60] != 0;
 	value.sessionEpoch = get(8, 8); value.revision = get(16, 8);
 	value.conversation = static_cast<std::uint32_t>(get(24, 4));
 	value.npcProfile = bytes[28]; value.mercProfile = bytes[29];

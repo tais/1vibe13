@@ -1083,7 +1083,8 @@ struct DedicatedCoopRuntime::Impl
 			captured.initiator = conversationInitiator =
 				TakeDedicatedCoopConversationRequest(captured.merc, captured.npc);
 		SetDedicatedCoopConversationState(captured.conversation
-			? DedicatedCoopConversationState{captured.conversation, captured.initiator, captured.merc, captured.npcProfile}
+			? DedicatedCoopConversationState{captured.conversation, captured.initiator, captured.merc, captured.npcProfile,
+				captured.mercProfile, captured.npcSource}
 			: DedicatedCoopConversationState{});
 		if (!conversationLedger.observe(captured))
 		{

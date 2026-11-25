@@ -4740,9 +4740,11 @@ require_ordered_fragments(coop_conversation_answer_slice
   "Conversation answers must bind to the exact published conversation, merc and initiator"
   "CurrentDedicatedCoopConversation()"
   "conversation != current.conversation"
+  "current.npcSource ? approach != 0 :"
   "actor != current.merc"
   "current.initiator != peer"
   "command.npcProfile = current.npcProfile"
+  "command.sourceProfile = current.mercProfile"
   "IsStructurallyValidAuthoritativeConverseCommand(command)")
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp" coop_conversation_runtime_source)
 require_ordered_fragments(coop_conversation_runtime_source
@@ -4754,14 +4756,16 @@ require_ordered_fragments(coop_conversation_runtime_source
   "SetDedicatedCoopConversationState(captured.conversation")
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_conversation_command_source)
 extract_brace_bounded_slice(coop_conversation_command_source
-  "bool ApplyDedicatedCoopConversationChoice(const TacticalActor& merc,\n\t\tstd::uint8_t npcProfile, std::uint8_t approach)"
+  "bool ApplyDedicatedCoopConversationChoice(const TacticalActor& merc,\n\t\tstd::uint8_t npcProfile, std::uint8_t sourceProfile, std::uint8_t approach)"
   coop_conversation_choice_slice "Cannot bound conversation choice executor")
 require_ordered_fragments(coop_conversation_choice_slice
   "Conversation answers must run only the stock talk-panel paths on the exact idle panel"
   "!gfInTalkPanel || gTalkPanel.ubCharNum != npcProfile"
-  "merc.identity().profile() != gubSrcSoldierProfile"
+  "gubSrcSoldierProfile != sourceProfile"
   "DialogueActive() || !DialogueQueueIsEmpty()"
   "return false;"
+  "merc.identity().profile() != sourceProfile"
+  "approach != 0 || FindSoldierByProfileID(sourceProfile, TRUE)"
   "(void)HandleTalkingMenuEscape(TRUE, FALSE);"
   "Converse(gTalkPanel.ubCharNum, gubSrcSoldierProfile, static_cast<INT8>(approach), 0);")
 

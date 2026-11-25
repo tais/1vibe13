@@ -1240,6 +1240,8 @@ bool FullEngineCoopClientRuntime::conversationAnswerable(const CoopSession::Coop
 {
 	if (!conversation.conversation || !campaignReady() || failed()) return false;
 	const auto& client = impl_->composition->client;
+	// A scripted NPC-to-NPC scene has no player party: any player may close it.
+	if (conversation.npcSource) return client.assignedActorCount() != 0;
 	if (!CoopSession::IsZero(conversation.initiator)) return conversation.initiator == client.peerIdentity();
 	for (std::size_t i = 0; i < client.assignedActorCount(); ++i)
 		if (client.assignedActor(i) == conversation.merc) return true;
