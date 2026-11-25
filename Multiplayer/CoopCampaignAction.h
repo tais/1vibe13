@@ -15,7 +15,7 @@ enum class CoopCampaignAction : std::uint8_t
 	Travel = 1, AcknowledgeArrival = 2, StopArrival = 3,
 	EnterArrivalForced = 4, EnterArrivalSpread = 5, RetreatArrival = 6,
 	DeclineSurrender = 7, AcceptSurrender = 8, AcknowledgeBattleNotice = 9, SkipMeanwhile = 10,
-	ReturnToMap = 11
+	ReturnToMap = 11, EnterSector = 12, TakeExitGrid = 13
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -48,14 +48,19 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::ReturnToMap;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::TakeExitGrid;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
 	if (!request.sessionEpoch || !request.controlRevision || !request.groupsRevision || !request.requestId ||
 		!ValidCoopCampaignAction(request.action)) return false;
-	if (request.action == CoopCampaignAction::Travel)
+	// Travel names a destination; EnterSector names the group's own sector as an
+	// explicit confirmation of what the client displayed.
+	if (request.action == CoopCampaignAction::Travel || request.action == CoopCampaignAction::EnterSector)
 		return !request.decision && request.group.valid() && ValidCoopCampaignSector(request.destinationX, request.destinationY);
+	// An exit grid moves one exact group out of the exact secured sector.
+	if (request.action == CoopCampaignAction::TakeExitGrid)
+		return request.decision && request.group.valid() && !request.destinationX && !request.destinationY;
 	return request.decision && !request.group.slot && !request.group.incarnation && !request.destinationX && !request.destinationY;
 }
 inline bool SameCoopCampaignActionRequest(const CoopCampaignActionRequest& a, const CoopCampaignActionRequest& b) noexcept
@@ -172,6 +177,21 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 			status.surrenderOffer || status.battleNotice.id) return Outcome::Unavailable;
 		return request.decision == status.securedSector ? Outcome::Applied : Outcome::Stale;
 	}
+	if (request.action == CoopCampaignAction::TakeExitGrid)
+	{
+		if (status.phase != CoopCampaignPhase::Tactical || !status.securedSector ||
+			status.surrenderOffer || status.battleNotice.id || !groups.available) return Outcome::Unavailable;
+		if (request.decision != status.securedSector) return Outcome::Stale;
+		for (std::size_t i = 0; i < groups.groupCount; ++i)
+		{
+			const auto& group = groups.groups[i];
+			if (group.id != request.group) continue;
+			if (group.betweenSectors || group.destinationX) return Outcome::Unavailable;
+			// Native rules decide whether a member stands on an exit grid.
+			return group.vehicle ? Outcome::Unsupported : Outcome::Applied;
+		}
+		return Outcome::Stale;
+	}
 	if (request.action == CoopCampaignAction::AcknowledgeBattleNotice)
 	{
 		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
@@ -183,6 +203,21 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 		return request.decision == status.surrenderOffer ? Outcome::Applied : Outcome::Stale;
 	}
 	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;
+	if (request.action == CoopCampaignAction::EnterSector)
+	{
+		// Load the group's own player-held sector for peaceful play, including an
+		// underground level. Native rules decide whether it is free of hostiles.
+		if (!groups.available || status.arrival.decision) return Outcome::Unavailable;
+		for (std::size_t i = 0; i < groups.groupCount; ++i)
+		{
+			const auto& group = groups.groups[i];
+			if (group.id != request.group) continue;
+			if (group.betweenSectors || group.destinationX) return Outcome::Unavailable;
+			if (group.vehicle) return Outcome::Unsupported;
+			return group.x == request.destinationX && group.y == request.destinationY ? Outcome::Applied : Outcome::Stale;
+		}
+		return Outcome::Stale;
+	}
 	if (request.action == CoopCampaignAction::Travel)
 	{
 		if (!groups.available || status.arrival.decision) return Outcome::Unavailable;

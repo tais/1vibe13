@@ -12,16 +12,17 @@ from full_engine_coop_installed_process_smoke import SmokeFailure, log_text
 SECURED_MARKER = "[dedicated] co-op sector secured; peaceful tactical play ("
 RETURNING_MARKER = "[dedicated] secured sector returning to the strategic map"
 UI_KEYS = {"request", "kind", "ready", "session", "control_revision", "groups_revision",
-           "sector", "armed", "enabled", "pending"}
+           "sector", "armed", "exit_armed", "exit_group", "enabled", "pending"}
 
 
-def _secured_marker_sector(server):
+def _secured_marker_sectors(server):
+    sectors = []
     for line in log_text(server).splitlines():
         if line.startswith(SECURED_MARKER) and line.endswith(")"):
             value = line[len(SECURED_MARKER):-1]
             if value.isdigit() and int(value) > 0:
-                return int(value)
-    return None
+                sectors.append(int(value))
+    return sectors
 
 
 def _ui(probe, deadline, guard):
@@ -35,8 +36,9 @@ def _ui(probe, deadline, guard):
 
 
 def _input(probe, ui, key, deadline, guard):
+    mask = int(ui["armed"]) | (2 if ui["exit_armed"] else 0)
     request = probe.send("RETURN_MAP_INPUT", ui["session"], ui["control_revision"], ui["groups_revision"],
-                         ui["sector"], int(ui["armed"]), key)
+                         ui["sector"], mask, key)
     answer = probe.receive(request, "return_map_input", deadline, guard)
     if (answer.get("queued") is not True or answer.get("key") != key or
             answer.get("queued_events") != 2):
@@ -44,17 +46,22 @@ def _input(probe, ui, key, deadline, guard):
     return answer
 
 
-def return_from_secured_sector(probes, guard, server, timeout_seconds, hold_seconds=3.0, actor_index=1):
-    """Observe the held secured sector on both clients, then return through one of them."""
+def return_from_secured_sector(probes, guard, server, timeout_seconds, hold_seconds=3.0, actor_index=1, previous=0):
+    """Observe the held secured sector on both clients, then return through one of them.
+
+    `previous` is the last secured-sector token already handled in this server log."""
     deadline = time.monotonic() + timeout_seconds
+    returns_before = log_text(server).count(RETURNING_MARKER)
     sector = None
     while time.monotonic() < deadline and sector is None:
         guard()
-        sector = _secured_marker_sector(server)
-        if sector is None:
+        fresh = [value for value in _secured_marker_sectors(server) if value > previous]
+        if fresh:
+            sector = fresh[-1]
+        else:
             time.sleep(0.05)
     if sector is None:
-        raise SmokeFailure("native victory did not secure the sector for peaceful play")
+        raise SmokeFailure("the sector was not secured for peaceful play")
     views = None
     while time.monotonic() < deadline:
         views = [_ui(probe, deadline, guard) for probe in probes]
@@ -74,7 +81,7 @@ def return_from_secured_sector(probes, guard, server, timeout_seconds, hold_seco
         current = [_ui(probe, deadline, guard) for probe in probes]
         if any(not view["ready"] or view["sector"] != sector for view in current):
             raise SmokeFailure("secured sector did not stay loaded for peaceful play")
-        if RETURNING_MARKER in log_text(server):
+        if log_text(server).count(RETURNING_MARKER) != returns_before:
             raise SmokeFailure("server returned to the map without an explicit shared request")
         samples += 1
         time.sleep(0.2)
@@ -88,16 +95,24 @@ def return_from_secured_sector(probes, guard, server, timeout_seconds, hold_seco
         time.sleep(0.05)
     else:
         raise SmokeFailure("W did not arm the return-to-map confirmation")
-    if RETURNING_MARKER in log_text(server):
+    if log_text(server).count(RETURNING_MARKER) != returns_before:
         raise SmokeFailure("arming alone must not return to the map")
     _input(actor, armed, 2, deadline, guard)
     while time.monotonic() < deadline:
         guard()
-        if RETURNING_MARKER in log_text(server):
+        if log_text(server).count(RETURNING_MARKER) > returns_before:
             break
         time.sleep(0.05)
     else:
-        raise SmokeFailure("confirmed return-to-map did not reach the server")
+        # Name the client's own receipt so a refusal is diagnosable.
+        detail = ""
+        try:
+            request = actor.send("CAMPAIGN_UI")
+            answer = actor.receive(request, "campaign_ui", time.monotonic() + 10, guard)
+            detail = f": client action_pending={answer.get('action_pending')} result={answer.get('action_result')}"
+        except Exception as error:  # diagnostic only
+            detail = f": no client receipt ({error})"
+        raise SmokeFailure("confirmed return-to-map did not reach the server" + detail)
     return {"secured_sector": sector, "views": views, "hold_samples": samples,
             "hold_seconds": hold_seconds, "returning_client_index": actor_index,
             "armed_view": armed, "physical_input_verified": False, "paint_verified": False}
@@ -127,7 +142,7 @@ def main(argv=None):
     import json
     import tempfile
     from pathlib import Path
-    from full_engine_coop_installed_campaign import paired_query, qualification_guard
+    from full_engine_coop_installed_campaign import paired_query, qualification_guard, scoped_input, wait_ui
     from full_engine_coop_installed_controlled_battle_return import write_trigger
     from full_engine_coop_installed_movement import _Probe, _states, certify_two_client_movement
     from full_engine_coop_installed_process_smoke import (
@@ -153,7 +168,7 @@ def main(argv=None):
     evidence = {"qualification_scope": "seeded_native_starter_victory_secured_sector", "seeded_native_fixture": True,
                 "physical_input_verified": False, "paint_verified": False, "unseeded_combat_verified": False,
                 "secured_sector_hold_verified": False, "peaceful_movement_verified": False,
-                "shared_return_verified": False, "strategic_checkpoint_verified": False,
+                "shared_return_verified": False, "strategic_checkpoint_verified": False, "peaceful_entry_verified": False,
                 "shipping_cold_resume_verified": False, "passed": False}
     supervisor = ProcessSupervisor()
     environment = process_environment()
@@ -187,6 +202,8 @@ def main(argv=None):
         evidence["secured_sector_hold_verified"] = evidence["shared_return_verified"] = True
         wait_for_marker(server, "[dedicated] post-combat strategic checkpoint committed; admission reopened", args.timeout_seconds)
         evidence["strategic_checkpoint_verified"] = True
+        # The shared return disconnected both clients on purpose.
+        guard = qualification_guard(server, clients, planned_reconnects=1)
         deadline = time.monotonic() + args.timeout_seconds
         while time.monotonic() < deadline and any(
                 log_text(client).count(READY_MARKER) <= count for client, count in zip(clients, ready_before)):
@@ -196,6 +213,35 @@ def main(argv=None):
         if any(campaign.get("phase") != 2 for campaign in campaigns):
             raise SmokeFailure("clients did not return to shared strategic play after the secured sector")
         evidence["returned_campaigns"] = campaigns
+        # Re-enter the same now player-held sector peacefully from the map.
+        enter_ui = wait_ui(probes[0], time.monotonic() + args.timeout_seconds, guard,
+                           lambda value: value["ready"] and value["enabled"] and value["decision"] == 0 and
+                           value["selected"] != [0, 0] and not value["action_pending"])
+        scoped_input(probes[0], enter_ui, 11, time.monotonic() + args.timeout_seconds, guard)
+        armed_ui = wait_ui(probes[0], time.monotonic() + args.timeout_seconds, guard,
+                           lambda value: value["ready"] and value["enter_armed"])
+        checkpoints_before = log_text(server).count("[dedicated] post-combat strategic checkpoint committed")
+        ready_before = [log_text(client).count(READY_MARKER) for client in clients]
+        scoped_input(probes[0], armed_ui, 7, time.monotonic() + args.timeout_seconds, guard)
+        wait_for_marker(server, "[dedicated] peaceful sector entered (9,1,0)", args.timeout_seconds)
+        wait_for_markers([(server, TACTICAL_SERVER_MARKER), (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
+                          (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], args.timeout_seconds)
+        probes = [_Probe(client) for client in clients]
+        guard = qualification_guard(server, clients, planned_reconnects=2)
+        evidence["reentered_return"] = return_from_secured_sector(
+            probes, guard, server, args.timeout_seconds, actor_index=0,
+            previous=evidence["peaceful_return"]["secured_sector"])
+        deadline = time.monotonic() + args.timeout_seconds
+        while (time.monotonic() < deadline and
+               log_text(server).count("[dedicated] post-combat strategic checkpoint committed") <= checkpoints_before):
+            time.sleep(0.1)
+        if log_text(server).count("[dedicated] post-combat strategic checkpoint committed") <= checkpoints_before:
+            raise SmokeFailure("peacefully entered sector did not return to a strategic checkpoint")
+        evidence["peaceful_entry_verified"] = True
+        print("Peaceful re-entry from the map secured A9 again and returned through client A.", flush=True)
+        while time.monotonic() < deadline and any(
+                log_text(client).count(READY_MARKER) <= count for client, count in zip(clients, ready_before)):
+            time.sleep(0.1)
         supervisor.stop(server, expected_exit=0, timeout_seconds=120)
         resume_port = free_loopback_port()
         resumed = supervisor.start("server-resume", server_command(shipping, run / "server-state", resume_port, "resume"),

@@ -9,7 +9,7 @@ import tempfile
 import time
 
 from full_engine_coop_installed_campaign import (
-    apply_time, checkpoint_record, integer, paired_query, qualification_guard, query,
+    apply_time, armed_mask, checkpoint_record, integer, paired_query, qualification_guard, query,
     validate_ui as validate_campaign_ui, wait_ui,
 )
 from full_engine_coop_installed_campaign_restore import private_state_digest, require_checkpoint_match, require_restored
@@ -452,7 +452,7 @@ def main():
         follower_ui = wait_ui(probes[follower], time.monotonic() + args.timeout_seconds, guard, lambda v: v["ready"] and v["enabled"])
         validate_campaign_ui(follower_ui)
         request = probes[follower].send("CAMPAIGN_INPUT", follower_ui["session"], follower_ui["control_revision"], follower_ui["groups_revision"], follower_ui["decision"],
-                                         *follower_ui["selected"], *follower_ui["destination"], int(follower_ui["retreat_armed"]), 16)
+                                         *follower_ui["selected"], *follower_ui["destination"], armed_mask(follower_ui), 16)
         rejected = probes[follower].receive(request, "error", time.monotonic() + args.timeout_seconds, guard)
         if rejected != {"request": request, "kind": "error", "error": "campaign time input requires the current time leader without an arrival hold"}:
             raise SmokeFailure("nonleader time UI was not refused at its exact leadership boundary")

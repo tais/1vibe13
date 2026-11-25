@@ -205,6 +205,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld();
 // occupancy refusal and otherwise uses the exact native cold-unload path.
 BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn();
 
+BOOLEAN UnloadCurrentWorldForDedicatedCoopPeacefulReturn();
 // number of SAM sites under player control
 INT32 GetNumberOfSAMSitesUnderPlayerControl( void );
 

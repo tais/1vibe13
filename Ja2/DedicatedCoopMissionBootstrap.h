@@ -2,6 +2,7 @@
 #define JA2_DEDICATED_COOP_MISSION_BOOTSTRAP_H
 
 #include "DedicatedCoopMissionPolicy.h"
+#include "StrategicGroupHost.h"
 
 #include <array>
 #include <cstddef>
@@ -85,6 +86,25 @@ LaunchDedicatedCoopStarterMission() noexcept;
 // cold; no client-selected map coordinate participates in this command.
 DedicatedCoopMissionBootstrapError
 LaunchDedicatedCoopEstablishedMission() noexcept;
+
+enum class DedicatedCoopPeacefulEntryCode : std::uint8_t
+{
+	Entered = 1,
+	HostUnavailable,
+	GroupUnavailable,
+	UnsupportedGroup,
+	Busy,
+	HostilesPresent,
+	NativeRejected,
+	EntryFailed
+};
+
+// Loads one player group's own sector (surface or underground) for peaceful
+// play through the ordinary strategic gate and native world loader. A sector
+// with hostiles is refused: hostile sectors are entered through native arrival
+// and battle decisions, never through this peaceful path.
+DedicatedCoopPeacefulEntryCode
+EnterDedicatedCoopPeacefulSector(StrategicGroupId group) noexcept;
 
 // Bounded, non-sensitive state captured only to explain a failed initial actor
 // arrival. It deliberately contains no peer identity, token, filesystem path,

@@ -3428,17 +3428,27 @@ file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.h"
   dedicated_live_client_screen_header_source)
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientReturnToMapInput.h"
   client_return_to_map_input_source)
+require_ordered_fragments(dedicated_live_client_screen_source
+  "Secured-sector Enter/Esc releases must always reach the return input so a later confirmation is not a held repeat"
+  "event.usEvent == KEY_UP && (key == ENTER || key == ESC)"
+  "HandleReturnToMapKey(key, event.usEvent);"
+  "if (!modal && (event.usEvent == KEY_DOWN || event.usEvent == KEY_UP)")
 require_ordered_fragments(client_return_to_map_input_source
-  "Return-to-map must stay a held-key-safe W arm plus separate Enter confirmation for the exact secured sector"
+  "Secured-sector exits must stay held-key-safe W/U arms plus a separate Enter for the exact sector and group"
   "status->phase == CoopSession::CoopCampaignPhase::Tactical && status->securedSector"
   "!status->surrenderOffer && !status->battleNotice.id && !status->meanwhile.id"
   "sector != sector_)"
   "armed_ = false;"
+  "exitGroup_ = {};"
   "if (wasHeld || !enabled_) return {};"
-  "if (key == Key::Arm) { armed_ = true; return {}; }"
-  "if (key != Key::Confirm || !armed_) return {};"
+  "if (key == Key::Arm) { armed_ = true; exitGroup_ = {}; return {}; }"
+  "exitGroup_ = observedGroup(*groups, selectedGroup) ? selectedGroup : StrategicGroupId{};"
+  "if (key != Key::Confirm) return {};"
+  "request.decision = sector_;"
   "request.action = CoopSession::CoopCampaignAction::ReturnToMap;"
-  "request.decision = sector_; armed_ = false;")
+  "exitGroup_.valid() && observedGroup(*groups, exitGroup_)"
+  "request.action = CoopSession::CoopCampaignAction::TakeExitGrid;"
+  "armed_ = false; exitGroup_ = {};")
 # Inventory transfer and drop follow the authority's interrupt rule: never
 # while resolving, and during an active interrupt only for eligible actors.
 extract_brace_bounded_slice(dedicated_live_client_controller_source
@@ -4579,7 +4589,8 @@ require_ordered_fragments(dedicated_live_post_combat_evidence_slice
 # shared with ordinary strategic transitions.
 foreach(dedicated_live_strategic_return_header_contract IN ITEMS
     "BOOLEAN CheckAndHandleUnloadingOfCurrentWorld()"
-    "BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()")
+    "BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()"
+    "BOOLEAN UnloadCurrentWorldForDedicatedCoopPeacefulReturn()")
   string(FIND "${dedicated_live_strategic_map_header_code}"
     "${dedicated_live_strategic_return_header_contract}"
     dedicated_live_strategic_return_header_contract_position)
@@ -4632,7 +4643,68 @@ require_ordered_fragments(dedicated_live_strategic_return_wrapper_slice
   "NumEnemyInSector() != 0"
   "gfTacticalTraversal"
   "return FALSE"
-  "CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE)")
+  "UnloadCurrentWorldForDedicatedCoopAndReleaseMercs()")
+
+# Both co-op unloads leave player mercs as a cold strategic load would, so a
+# following in-process travel order can depart.
+extract_brace_bounded_slice(dedicated_live_strategic_map_code
+  "static BOOLEAN UnloadCurrentWorldForDedicatedCoopAndReleaseMercs()"
+  dedicated_live_strategic_release_slice "Cannot bound co-op unload merc release")
+require_ordered_fragments(dedicated_live_strategic_release_slice
+  "Co-op unload must release the unloaded sector's player mercs through the native removal"
+  "const INT16 sectorX = gWorldSectorX, sectorY = gWorldSectorY;"
+  "if (!CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE)) return FALSE;"
+  "pSoldier->roster().inSector()"
+  "pSoldier->deployment().sectorZ() == sectorZ"
+  "RemoveSoldierFromTacticalSector(pSoldier, FALSE)"
+  "return TRUE;")
+
+extract_brace_bounded_slice(dedicated_live_runtime_code
+  "DedicatedCoopPeacefulEntryCode DedicatedCoopRuntime::enterPeacefulSector(StrategicGroupId group) noexcept"
+  dedicated_live_peaceful_entry_slice "Cannot bound dedicated peaceful sector entry")
+require_ordered_fragments(dedicated_live_peaceful_entry_slice
+  "Peaceful sector entry must start only from worldless strategic play and mark the sector secured by entry"
+  "impl_->starterMission != StarterMissionState::StrategicIdle || impl_->worldDraining"
+  "impl_->tactical->server.worldActive()"
+  "impl_->arrivalDecisions.front()"
+  "EnterDedicatedCoopPeacefulSector(group)"
+  "impl_->starterMission = StarterMissionState::WaitingForControllableActor"
+  "impl_->postCombatReturnArmed = true"
+  "impl_->sectorSecuredByEntry = true")
+# Exit grids: the request only plans and records; the plan is rechecked before
+# leaving; relocation runs worldless (SetGroupSectorValue's native unload check
+# can never tear down a live co-op world) and only after the cold checkpoint.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopExitGrid.cpp" coop_exit_grid_source)
+extract_brace_bounded_slice(coop_exit_grid_source
+  "DedicatedCoopExitGridCode ApplyDedicatedCoopExitGridRelocation(const DedicatedCoopExitGridPlan& plan,\n\tStrategicGroupId& resultGroup) noexcept"
+  coop_exit_grid_apply_slice "Cannot bound exit-grid relocation")
+require_ordered_fragments(coop_exit_grid_apply_slice
+  "Exit-grid relocation must run worldless on the exact planned group before relocating it"
+  "if (IsJa2TacticalWorldLoaded() || gfTacticalTraversal) return Code::WorldUnavailable;"
+  "group->ubSectorX != plan.originX"
+  "if (members != plan.memberCount) return Code::Changed;"
+  "NumHostilesInSector(plan.x, plan.y, plan.z) != 0"
+  "strategicInsertionCode() = INSERTION_CODE_GRIDNO"
+  "strategicInsertionData() = plan.destinationGrid"
+  "useExitGridForReentryDirection() = TRUE"
+  "SetGroupSectorValue(plan.x, plan.y, plan.z, group->ubGroupID)")
+# A peacefully entered sector uses the same narrow bypass. It has no won battle,
+# so it must instead prove there are no hostiles, no combat and no traversal.
+extract_brace_bounded_slice(dedicated_live_strategic_map_code
+  "BOOLEAN UnloadCurrentWorldForDedicatedCoopPeacefulReturn()"
+  dedicated_live_strategic_peaceful_return_slice
+  "Cannot bound dedicated peaceful strategic unload wrapper")
+require_ordered_fragments(dedicated_live_strategic_peaceful_return_slice
+  "Dedicated peaceful return wrapper lost its exact hostile-free preconditions"
+  "GetDedicatedServerOptions()"
+  "!dedicated.enabled || dedicated.mode != DedicatedServerMode::Coop"
+  "GetCurrentScreen() != GAME_SCREEN"
+  "!IsJa2TacticalWorldLoaded()"
+  "gbWorldSectorZ < 0"
+  "gTacticalStatus.fEnemyInSector || IsJa2TacticalCombatActive()"
+  "NumEnemyInSector() != 0 || gfTacticalTraversal"
+  "return FALSE"
+  "UnloadCurrentWorldForDedicatedCoopAndReleaseMercs()")
 
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
@@ -5139,8 +5211,7 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
 require_ordered_fragments(dedicated_live_runtime_pump_slice
   "Dedicated hostile victory must secure the sector, hold it paused for peaceful play, and unload only after an explicit delivered return"
   "impl_->starterMission == StarterMissionState::Playable"
-  "CapturePostCombatReturnEvidence(true"
-  "impl_->postCombatReturnArmed"
+  "impl_->captureSecuredSectorEvidence()"
   "DedicatedCoopPostCombatReturnReady(evidence)"
   "impl_->securedSector = ++impl_->lastSecuredSector"
   "impl_->starterMission = StarterMissionState::PeacefulTactical"
@@ -5158,7 +5229,7 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "impl_->starterMission = StarterMissionState::ReturningToStrategic"
   "impl_->stopAdmissionForPostCombatReturn()"
   "impl_->starterMission == StarterMissionState::ReturningToStrategic"
-  "CapturePostCombatReturnEvidence(true"
+  "impl_->captureSecuredSectorEvidence()"
   "const DedicatedCoopPostCombatReturnStep next"
   "EvaluateDedicatedCoopPostCombatReturnStep("
   "DedicatedCoopPostCombatReturnReady(rechecked)"
@@ -5167,6 +5238,7 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "impl_->starterMission = StarterMissionState::Playable"
   "impl_->startAdmission()"
   "DedicatedCoopPostCombatReturnStep::WaitForFreshBoundary"
+  "impl_->sectorSecuredByEntry ? UnloadCurrentWorldForDedicatedCoopPeacefulReturn()"
   "UnloadCurrentWorldForDedicatedCoopPostCombatReturn()"
   "DedicatedCoopRuntimeError::MissionReturnFailed"
   "impl_->holdAdmissionAfterWorldDrain = true"
@@ -14178,7 +14250,7 @@ require_ordered_fragments(dedicated_live_first_aid_standing_start_test_slice
 require_ordered_fragments(dedicated_runtime_root_build
   "Native first-aid failure regressions lost isolated mandatory CTest registration or headless CI build closure"
   [=[foreach(native_dispatch_test IN ITEMS
-      native_actor_structure native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit native_coop_travel native_campaign_groups native_campaign_time_controls equipment_change_dispatch authoritative_first_aid_failure authoritative_inventory_swap
+      native_actor_structure native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit native_coop_exit_grid native_coop_travel native_campaign_groups native_campaign_time_controls equipment_change_dispatch authoritative_first_aid_failure authoritative_inventory_swap
       authoritative_inventory_transfer authoritative_ground_pickup authoritative_ground_drop)]=]
   [=[add_executable(${native_dispatch_test}_tests tests/${native_dispatch_test}_tests.cpp)]=]
   [=[target_link_libraries(${native_dispatch_test}_tests PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)]=]
@@ -14187,7 +14259,7 @@ require_ordered_fragments(dedicated_runtime_root_build
   "COMMAND authoritative_first_aid_failure_tests --missing-animation"
   "add_test(NAME authoritative_first_aid_standing_start"
   "COMMAND authoritative_first_aid_failure_tests --standing-start"
-  "add_dependencies(ja2_headless_tests native_actor_structure_tests native_coop_arrival_tests native_coop_defensive_arrival_tests native_coop_travel_commit_tests native_coop_travel_tests native_campaign_groups_tests native_campaign_time_controls_tests equipment_change_dispatch_tests"
+  "add_dependencies(ja2_headless_tests native_actor_structure_tests native_coop_arrival_tests native_coop_defensive_arrival_tests native_coop_travel_commit_tests native_coop_exit_grid_tests native_coop_travel_tests native_campaign_groups_tests native_campaign_time_controls_tests equipment_change_dispatch_tests"
   "authoritative_first_aid_failure_tests authoritative_inventory_swap_tests"
   "authoritative_inventory_transfer_tests authoritative_ground_pickup_tests authoritative_ground_drop_tests)")
 
@@ -16308,11 +16380,29 @@ require_ordered_fragments(campaign_action_native_boundary "Campaign action execu
   "ReplyToDedicatedCoopArrival(request.decision" "runtime.enterArrivalBattle(request.decision"
   "NativePreBattleDeployment::Forced : NativePreBattleDeployment::Spread" "runtime.retreatArrivalBattle(request.decision)")
 require_ordered_fragments(campaign_action_native_boundary
+  "Exit-grid requests must only plan against the exact secured sector and record the traversal"
+  "request.action == Action::TakeExitGrid"
+  "starterMission != StarterMissionState::PeacefulTactical"
+  "request.decision != securedSector || returnToMapRequested"
+  "PlanDedicatedCoopExitGridTraversal(request.group, plan)"
+  "exitGrid = plan; exitGridPending = true; returnToMapRequested = true; returnWaitLogged = false;"
+  "!worldlessStrategicTimeControl() || selfRetirementActive")
+require_ordered_fragments(dedicated_live_runtime_pump_slice
+  "Exit-grid traversal must recheck its plan before leaving and relocate only after the strategic checkpoint"
+  "DedicatedCoopPeacefulTacticalStep::ReturnToMap"
+  "impl_->freshAssignmentBaselineBoundary()"
+  "SameDedicatedCoopExitGridPlan(fresh, impl_->exitGrid)"
+  "impl_->stopAdmissionForPostCombatReturn()"
+  "impl_->checkpointNow(context, true)"
+  "impl_->starterMission = StarterMissionState::StrategicIdle"
+  "ApplyDedicatedCoopExitGridRelocation(impl_->exitGrid, moved)"
+  "enterPeacefulSector(moved)")
+require_ordered_fragments(campaign_action_native_boundary
   "Return-to-map must only record an exact secured-sector request; the frame loop unloads after delivery"
   "request.action == Action::ReturnToMap"
   "starterMission != StarterMissionState::PeacefulTactical"
   "request.decision != securedSector || returnToMapRequested"
-  "returnToMapRequested = true;"
+  "returnToMapRequested = true; returnWaitLogged = false;"
   "return {Outcome::Applied, 0};"
   "!worldlessStrategicTimeControl() || selfRetirementActive")
 extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaignActionResults() noexcept"

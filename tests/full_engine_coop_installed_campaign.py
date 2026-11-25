@@ -33,7 +33,8 @@ ACTION_FIELDS = {"request_id", "action", "session", "control_revision", "groups_
                  "group", "destination", "outcome", "native_detail", "result_control_revision", "result_groups_revision"}
 TIME_FIELDS = {"request_id", "action", "session", "control_revision", "result_control_revision", "outcome"}
 UI_BASE_FIELDS = {"request", "kind", "ready", "action_pending", "time_pending", "action_result", "time_result"}
-UI_READY_FIELDS = {"session", "control_revision", "groups_revision", "decision", "selected", "destination", "retreat_armed", "enabled"}
+UI_READY_FIELDS = {"session", "control_revision", "groups_revision", "decision", "selected", "destination", "retreat_armed",
+                   "enter_armed", "enabled"}
 
 
 def integer(value, low=0, high=U64):
@@ -79,6 +80,11 @@ def validate_time_result(result):
     return True
 
 
+def armed_mask(ui):
+    """The exact displayed confirmation: bit 0 retreat, bit 1 peaceful sector entry."""
+    return int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0)
+
+
 def validate_ui(value):
     if (not isinstance(value, dict) or value.get("kind") != "campaign_ui" or not integer(value.get("request"), 1) or
             any(type(value.get(key)) is not bool for key in ("ready", "action_pending", "time_pending")) or
@@ -94,7 +100,7 @@ def validate_ui(value):
             any(not integer(value[key], 1) for key in ("session", "control_revision", "groups_revision")) or
             not integer(value["decision"]) or not pair(value["selected"], 255, 2**32 - 1) or
             not pair(value["destination"], 16, 16) or
-            any(type(value[key]) is not bool for key in ("retreat_armed", "enabled"))):
+            any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled"))):
         raise SmokeFailure("invalid campaign Screen-input selection or lineage")
     return value["ready"]
 
@@ -124,7 +130,8 @@ def paired_query(probes, verb, kind, deadline, guard):
     return [probe.receive(request, kind, deadline, guard) for probe, request in zip(probes, requests)]
 
 
-def qualification_guard(server, clients):
+def qualification_guard(server, clients, planned_reconnects=0):
+    """`planned_reconnects` counts transitions that disconnect clients on purpose."""
     alive = _guard([server, *clients])
 
     def check():
@@ -139,7 +146,8 @@ def qualification_guard(server, clients):
         # A single reconnect may recover. Repeated immediate Ready/loss cycles
         # in both clients cannot qualify a stable shared campaign; keep the
         # ordinary checkpoint interval and preserve the failure for diagnosis.
-        if all(log_text(client).count("[co-op client] reconnecting to server;") >= 2 for client in clients):
+        if all(log_text(client).count("[co-op client] reconnecting to server;") >= 2 + planned_reconnects
+               for client in clients):
             raise SmokeFailure("both clients repeatedly lost their campaign connection after becoming Ready")
 
     return check
@@ -180,7 +188,7 @@ def scoped_input(probe, ui, key, deadline, guard):
     if not validate_ui(ui) or not ui["enabled"] or ui["action_pending"] or ui["time_pending"]:
         raise SmokeFailure("shipping Screen input is unavailable or already awaiting a receipt")
     request = probe.send("CAMPAIGN_INPUT", ui["session"], ui["control_revision"], ui["groups_revision"], ui["decision"],
-                         *ui["selected"], *ui["destination"], int(ui["retreat_armed"]), key)
+                         *ui["selected"], *ui["destination"], armed_mask(ui), key)
     answer = probe.receive(request, "campaign_input", deadline, guard)
     if (set(answer) != {"request", "kind", "queued", "key", "queued_events", "input_count"} or
             not integer(answer["request"], 1) or answer["request"] != request or answer["kind"] != "campaign_input" or

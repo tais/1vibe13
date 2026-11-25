@@ -14,7 +14,8 @@ def ui(sector=3, armed=False, enabled=True, pending=False, ready=True):
     if not ready:
         return {"kind": "return_map_ui", "ready": False}
     return {"kind": "return_map_ui", "ready": True, "session": 7, "control_revision": 9,
-            "groups_revision": 4, "sector": sector, "armed": armed, "enabled": enabled, "pending": pending}
+            "groups_revision": 4, "sector": sector, "armed": armed, "exit_armed": False, "exit_group": [0, 0],
+            "enabled": enabled, "pending": pending}
 
 
 class FakeProbe:
@@ -63,9 +64,36 @@ class PeacefulSectorTests(unittest.TestCase):
 
     def test_unprompted_return_fails_the_hold(self):
         server = FakeServer()
-        server.lines.append(peaceful.RETURNING_MARKER)
+        probes = [FakeProbe(server), FakeProbe(server)]
+        original = probes[0].receive
+
+        def unprompted(request, kind, deadline, guard):
+            # The server leaves the sector while the clients are only observing.
+            if peaceful.RETURNING_MARKER not in server.lines:
+                server.lines.append(peaceful.RETURNING_MARKER)
+            return original(request, kind, deadline, guard)
+        probes[0].receive = unprompted
         with self.assertRaises(peaceful.SmokeFailure):
-            self.run_return([FakeProbe(server), FakeProbe(server)], server)
+            self.run_return(probes, server)
+
+    def test_earlier_returns_and_sectors_are_a_baseline(self):
+        server = FakeServer()
+        server.lines.append(peaceful.RETURNING_MARKER)
+        server.lines.append("[dedicated] co-op sector secured; peaceful tactical play (4)")
+        probes = [FakeProbe(server), FakeProbe(server)]
+        for probe in probes:
+            probe.view = ui(sector=4)
+        original = probes[1].send
+
+        def send(verb, *args):
+            request = original(verb, *args)
+            if verb == "RETURN_MAP_INPUT" and args[-1] == 1:
+                probes[1].view = ui(sector=4, armed=True)
+            return request
+        probes[1].send = send
+        evidence = self.run_return(probes, server, previous=3)
+        self.assertEqual(evidence["secured_sector"], 4)
+        self.assertEqual(server.lines.count(peaceful.RETURNING_MARKER), 2)
 
     def test_missing_secured_marker_fails(self):
         server = FakeServer()

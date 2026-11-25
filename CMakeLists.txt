@@ -883,7 +883,7 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   # These native regressions need isolated process state. In particular, the
   # first-aid fixture injects allocation failures without shipping test hooks.
   foreach(native_dispatch_test IN ITEMS
-      native_actor_structure native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit native_coop_travel native_campaign_groups native_campaign_time_controls equipment_change_dispatch authoritative_first_aid_failure authoritative_inventory_swap
+      native_actor_structure native_coop_arrival native_coop_defensive_arrival native_coop_travel_commit native_coop_exit_grid native_coop_travel native_campaign_groups native_campaign_time_controls equipment_change_dispatch authoritative_first_aid_failure authoritative_inventory_swap
       authoritative_inventory_transfer authoritative_ground_pickup authoritative_ground_drop)
     add_executable(${native_dispatch_test}_tests tests/${native_dispatch_test}_tests.cpp)
     target_compile_definitions(${native_dispatch_test}_tests PRIVATE ${debugFlags})
@@ -948,7 +948,7 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_dependencies(ja2_headless_tests tactical_actor_header_tests)
   add_dependencies(ja2_headless_tests tactical_actor_api_headers_tests)
   add_dependencies(ja2_headless_tests tactical_actor_service_api_headers_tests)
-  add_dependencies(ja2_headless_tests native_actor_structure_tests native_coop_arrival_tests native_coop_defensive_arrival_tests native_coop_travel_commit_tests native_coop_travel_tests native_campaign_groups_tests native_campaign_time_controls_tests equipment_change_dispatch_tests
+  add_dependencies(ja2_headless_tests native_actor_structure_tests native_coop_arrival_tests native_coop_defensive_arrival_tests native_coop_travel_commit_tests native_coop_exit_grid_tests native_coop_travel_tests native_campaign_groups_tests native_campaign_time_controls_tests equipment_change_dispatch_tests
     authoritative_first_aid_failure_tests authoritative_inventory_swap_tests
     authoritative_inventory_transfer_tests authoritative_ground_pickup_tests authoritative_ground_drop_tests)
 

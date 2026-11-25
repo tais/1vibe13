@@ -7,6 +7,8 @@
 #include "DedicatedCoopArrival.h"
 #include "DedicatedCoopRuntime.h"
 #include "DedicatedCoopMissionBootstrap.h"
+#include "Exit Grids.h"
+#include "Isometric Utils.h"
 #include "DedicatedServerOptions.h"
 #include "DedicatedCoopCampaignGroups.h"
 #include "DedicatedCoopCampaignEconomy.h"
@@ -168,6 +170,32 @@ void SeedColdCohort(bool capture)
 	cohortSeedTime = std::chrono::steady_clock::now();
 }
 
+// Read-only map facts for exit-grid probes: once per newly loaded world, the
+// first exit-grid tile per destination in that sector.
+void ReportLoadedWorldExitGrids()
+{
+	if (controlledBattle != ControlledBattle::StarterVictory || !gfProgramIsRunning) return;
+	static std::uint64_t reportedWorld = 0;
+	const auto world = CaptureJa2TacticalWorld();
+	if (!world.loaded || world.worldGeneration == reportedWorld) return;
+	reportedWorld = world.worldGeneration;
+	std::vector<std::array<int, 5>> exits;
+	for (INT32 grid = 0; grid < MAX_MAP_POS && exits.size() < 8; ++grid)
+	{
+		EXITGRID exit;
+		if (!GetExitGrid(static_cast<UINT32>(grid), &exit)) continue;
+		const bool known = std::any_of(exits.begin(), exits.end(), [&](const std::array<int, 5>& value) {
+			return value[1] == exit.ubGotoSectorX && value[2] == exit.ubGotoSectorY && value[3] == exit.ubGotoSectorZ; });
+		if (!known) exits.push_back({grid, exit.ubGotoSectorX, exit.ubGotoSectorY, exit.ubGotoSectorZ, exit.usGridNo});
+	}
+	std::printf("[co-op entry test] world=%llu sector=%d,%d,%d exits=%zu\n", static_cast<unsigned long long>(world.worldGeneration),
+		world.sector.x, world.sector.y, world.sector.z, exits.size());
+	for (const auto& exit : exits)
+		std::printf("[co-op entry test] exit-grid source=%d destination=%d,%d,%d grid=%d\n",
+			exit[0], exit[1], exit[2], exit[3], exit[4]);
+	std::fflush(stdout);
+}
+
 void PollControlledBattleTrigger()
 {
 	if (controlledBattle == ControlledBattle::None || controlledBattleSeeded || !gfProgramIsRunning) return;
@@ -188,11 +216,16 @@ void PollControlledBattleTrigger()
 		if (std::filesystem::is_symlink(trigger) || !std::filesystem::is_regular_file(trigger) ||
 			!(input >> magic >> requestedOutcome >> requestedWorld >> requestedTurn) || (input >> extra) ||
 			magic != "JA2_COOP_CONTROLLED_BATTLE_V1" || requestedOutcome != "starter-victory" ||
-			!requestedWorld || !requestedTurn || std::filesystem::exists("controlled-battle-trigger.consumed"))
-		{ Finish(false, "invalid or repeated starter victory trigger"); return; }
+			!requestedWorld || !requestedTurn)
+		{ Finish(false, "invalid starter victory trigger"); return; }
 		input.close();
-		std::filesystem::rename(trigger, "controlled-battle-trigger.consumed");
-		controlledBattleSeeded = true;
+		// One seeded victory per loaded battle world; each trigger is consumed
+		// under its own name and can never be replayed for the same world.
+		static std::uint64_t lastSeededWorld = 0;
+		static unsigned consumed = 0;
+		std::filesystem::rename(trigger, "controlled-battle-trigger.consumed." + std::to_string(++consumed));
+		if (requestedWorld <= lastSeededWorld) { Finish(false, "repeated starter victory trigger for one world"); return; }
+		lastSeededWorld = requestedWorld;
 		const auto world = CaptureJa2TacticalWorld();
 		if (!world.loaded || world.worldGeneration != requestedWorld || world.turnSerial != requestedTurn ||
 			world.turn.pendingCombatActions || (world.turn.inCombat && world.turn.currentTeam != OUR_TEAM) ||
@@ -574,6 +607,7 @@ void RunEntryFixture()
 void FullEngineCoopInstalledTestGameLoop()
 {
 	GameLoop();
+	ReportLoadedWorldExitGrids();
 	PollControlledBattleTrigger();
 	if (cohortSeeded && gfProgramIsRunning)
 	{

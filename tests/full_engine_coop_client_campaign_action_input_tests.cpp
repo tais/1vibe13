@@ -79,6 +79,32 @@ void Travel()
 	}
 }
 
+void EnterSectorConfirmation()
+{
+	Fixture f;
+	CHECK(!f.press(Key::Confirm), "Enter alone cannot load a sector");
+	CHECK(!f.press(Key::EnterBattle) && f.input.enterArmed() && !f.input.destinationX(),
+		"E arms entry into the selected group's own sector without choosing travel");
+	const auto request = f.press(Key::Confirm);
+	CHECK(request && request->action == CoopCampaignAction::EnterSector && request->group == (StrategicGroupId{1, 10}) &&
+		request->destinationX == 9 && request->destinationY == 1 && !request->decision && !f.input.enterArmed(),
+		"Enter submits the exact selected group and its displayed sector");
+	(void)f.press(Key::EnterBattle); (void)f.press(Key::Cancel);
+	CHECK(!f.press(Key::Confirm), "Esc cancels the armed entry");
+	(void)f.press(Key::EnterBattle); (void)f.press(Key::East);
+	CHECK(!f.input.enterArmed() && f.input.destinationX() == 10, "choosing travel replaces an armed entry");
+	f.input.reset(); f.groups.groups[0].z = 1;
+	(void)f.press(Key::EnterBattle);
+	const auto underground = f.press(Key::Confirm);
+	CHECK(underground && underground->action == CoopCampaignAction::EnterSector,
+		"an underground group may request peaceful entry of its level");
+	f.input.reset(); f.groups.groups[0].z = 0; f.groups.groups[0].vehicle = true;
+	CHECK(!f.press(Key::EnterBattle) && !f.input.enterArmed(), "vehicle groups cannot arm peaceful entry");
+	f.input.reset(); f.groups.groups[0].vehicle = false; f.battle();
+	(void)f.press(Key::EnterBattle);
+	CHECK(!f.input.enterArmed(), "with a pending battle, E answers the arrival decision instead");
+}
+
 void StaleAndPending()
 {
 	for (unsigned change = 0; change < 8; ++change)
@@ -239,6 +265,34 @@ void ReturnToMapConfirmation()
 	CHECK(!key(K::Arm) && !input.armed() && !input.enabled(), "an unsecured encounter offers no return");
 }
 
+void ExitGridConfirmation()
+{
+	using K = FullEngineCoopClientReturnToMapInput::Key;
+	Fixture f; FullEngineCoopClientReturnToMapInput input;
+	f.status.phase = CoopCampaignPhase::Tactical; f.status.securedSector = 4;
+	const StrategicGroupId squad{1, 10};
+	auto key = [&](K k, StrategicGroupId group = {}, bool down = true, bool up = false) {
+		return input.handle(k, down, up, &f.status, &f.groups, f.enabled, f.pending, group); };
+	CHECK(!key(K::ArmExit, StrategicGroupId{7, 7}) && !input.exitArmed(), "an unknown group cannot arm the exit");
+	(void)key(K::ArmExit, {}, false, true);
+	CHECK(!key(K::ArmExit, squad) && input.exitArmed() && !input.armed() && input.exitGroup() == squad,
+		"U arms the exit for the selected merc's group without returning to the map");
+	const auto answer = key(K::Confirm);
+	CHECK(answer && answer->action == CoopCampaignAction::TakeExitGrid && answer->decision == 4 &&
+		answer->group == squad && !input.exitArmed(), "Enter takes the exit for exactly that group and sector");
+	(void)key(K::Confirm, {}, false, true);
+	(void)key(K::ArmExit, {}, false, true); (void)key(K::ArmExit, squad); (void)key(K::Arm);
+	CHECK(input.armed() && !input.exitArmed(), "W replaces an armed exit with the map return");
+	const auto returned = key(K::Confirm);
+	CHECK(returned && returned->action == CoopCampaignAction::ReturnToMap, "the later choice is the one confirmed");
+	(void)key(K::Confirm, {}, false, true); (void)key(K::ArmExit, {}, false, true);
+	(void)key(K::ArmExit, squad); f.groups.groups[0].betweenSectors = true;
+	CHECK(!key(K::Confirm) && !input.exitArmed(), "a group that starts travelling cannot take the retained exit");
+	f.groups.groups[0].betweenSectors = false; ++f.groups.revision;
+	(void)key(K::Confirm, {}, false, true);
+	CHECK(!key(K::Confirm) && !input.exitArmed(), "a new group observation disarms the exit");
+}
+
 void SurrenderConfirmation()
 {
 	using K = FullEngineCoopClientSurrenderInput::Key;
@@ -277,4 +331,4 @@ void SurrenderConfirmation()
 
 }
 
-int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); SurrenderConfirmation(); Travel(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
+int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }

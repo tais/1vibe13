@@ -534,12 +534,12 @@ void ReplyCampaignUi(std::uint64_t request) noexcept
 	else std::fputs("null", stdout);
 	if (ready)
 		std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"decision\":%llu,"
-			"\"selected\":[%u,%u],\"destination\":[%u,%u],\"retreat_armed\":%s,\"enabled\":%s",
+			"\"selected\":[%u,%u],\"destination\":[%u,%u],\"retreat_armed\":%s,\"enter_armed\":%s,\"enabled\":%s",
 			static_cast<unsigned long long>(controls.sessionEpoch), static_cast<unsigned long long>(controls.controlRevision),
 			static_cast<unsigned long long>(controls.groupsRevision), static_cast<unsigned long long>(controls.decision),
 			unsigned(controls.selected.slot), unsigned(controls.selected.incarnation),
 			unsigned(controls.destinationX), unsigned(controls.destinationY), controls.retreatArmed ? "true" : "false",
-			controls.enabled ? "true" : "false");
+			controls.enterArmed ? "true" : "false", controls.enabled ? "true" : "false");
 	std::fputs("}", stdout); FlushReply();
 }
 
@@ -621,23 +621,27 @@ void ReplyReturnMapUi(std::uint64_t request) noexcept
 	const bool ready = CaptureFullEngineCoopClientReturnToMapControls(c);
 	std::printf("%s{\"request\":%llu,\"kind\":\"return_map_ui\",\"ready\":%s", ReplyPrefix,
 		static_cast<unsigned long long>(request), ready ? "true" : "false");
-	if (ready) std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"sector\":%u,\"armed\":%s,\"enabled\":%s,\"pending\":%s",
+	if (ready) std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"sector\":%u,\"armed\":%s,\"exit_armed\":%s,\"exit_group\":[%u,%u],\"enabled\":%s,\"pending\":%s",
 		static_cast<unsigned long long>(c.sessionEpoch), static_cast<unsigned long long>(c.controlRevision),
 		static_cast<unsigned long long>(c.groupsRevision), static_cast<unsigned>(c.securedSector),
-		c.armed ? "true" : "false", c.enabled ? "true" : "false", c.pending ? "true" : "false");
+		c.armed ? "true" : "false", c.exitArmed ? "true" : "false", unsigned(c.exitGroup.slot), unsigned(c.exitGroup.incarnation),
+		c.enabled ? "true" : "false", c.pending ? "true" : "false");
 	std::fputs("}", stdout); FlushReply();
 }
 
-// Queues one shipping Screen key pair: 1 = W (arm), 2 = Enter (confirm), 3 = Esc.
+// Queues one shipping Screen key pair: 1 = W (arm return), 2 = Enter (confirm),
+// 3 = Esc, 4 = U (arm the selected merc's exit grid). `armed` is the displayed
+// confirmation mask: 1 return, 2 exit grid.
 void ReplyReturnMapInput(std::uint64_t request, const std::array<std::uint64_t, 6>& values, unsigned& count) noexcept
 {
 	FullEngineCoopClientReturnToMapControls c;
 	if (count >= MaximumCampaignUiInputs || (GetCurrentScreen() != INIT_SCREEN && GetCurrentScreen() != GAME_SCREEN) ||
 		!CaptureFullEngineCoopClientReturnToMapControls(c) || !c.enabled || c.pending || GetInputQueueStatistics().queued ||
 		c.sessionEpoch != values[0] || c.controlRevision != values[1] || c.groupsRevision != values[2] ||
-		c.securedSector != values[3] || (c.armed ? 1u : 0u) != values[4] || !values[5] || values[5] > 3)
+		c.securedSector != values[3] || ((c.armed ? 1u : 0u) | (c.exitArmed ? 2u : 0u)) != values[4] ||
+		!values[5] || values[5] > 4)
 	{ ReplyError(request, "return-to-map input requires the exact visible secured sector/confirmation and an idle input queue"); return; }
-	constexpr std::array<UINT32, 3> keys{{'w', ENTER, ESC}};
+	constexpr std::array<UINT32, 4> keys{{'w', ENTER, ESC, 'u'}};
 	++count;
 	const auto before = GetInputQueueStatistics();
 	QueueEvent(KEY_DOWN, keys[values[5] - 1], 0); QueueEvent(KEY_UP, keys[values[5] - 1], 0);
@@ -689,7 +693,8 @@ void ReplyCampaignInput(std::uint64_t request, const CampaignInputArguments& val
 		!CaptureFullEngineCoopClientCampaignControls(controls) || !controls.enabled || GetInputQueueStatistics().queued ||
 		controls.sessionEpoch != values[0] || controls.controlRevision != values[1] || controls.groupsRevision != values[2] ||
 		controls.decision != values[3] || controls.selected.slot != values[4] || controls.selected.incarnation != values[5] ||
-		controls.destinationX != values[6] || controls.destinationY != values[7] || controls.retreatArmed != (values[8] != 0))
+		controls.destinationX != values[6] || controls.destinationY != values[7] ||
+		((controls.retreatArmed ? 1u : 0u) | (controls.enterArmed ? 2u : 0u)) != values[8])
 	{ ReplyError(request, "campaign input requires exact current strategic screen choices and an idle input queue"); return; }
 	constexpr std::array<UINT32, 16> keys{{TAB, '[', UPARROW, DNARROW, LEFTARROW, RIGHTARROW,
 		ENTER, ESC, 'a', 's', 'e', 'r', 'p', '1', '2', '3'}};
@@ -2356,7 +2361,7 @@ private:
 				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
 			}
 			if (!parsed || !cursor.exhausted() || !values[0] || !values[1] || !values[2] ||
-				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 1 ||
+				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 3 ||
 				!values[9] || values[9] > 16)
 				ReplyError(request, "CAMPAIGN_INPUT requires exact session/control/groups/decision/group/destination/retreat state and key 1..16");
 			else ReplyCampaignInput(request, values, campaignUiInputs_);

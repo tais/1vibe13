@@ -1,4 +1,5 @@
 #include "DedicatedCoopMissionBootstrap.h"
+#include "DedicatedCoopCampaignGroups.h"
 #include "Soldier Profile Constants.h"
 
 #include "CampaignApplicationPolicy.h"
@@ -1055,4 +1056,41 @@ const char* DedicatedCoopMissionBootstrapErrorName(
 			return "tactical sector entry postcondition failed";
 	}
 	return "unknown dedicated co-op mission bootstrap error";
+}
+
+DedicatedCoopPeacefulEntryCode
+EnterDedicatedCoopPeacefulSector(StrategicGroupId identity) noexcept
+{
+	using Code = DedicatedCoopPeacefulEntryCode;
+	try
+	{
+		if (!IsDedicatedCoopStarterMissionMapReady() || gTacticalStatus.fDidGameJustStart)
+			return Code::HostUnavailable;
+		CoopSession::CoopCampaignGroups groups;
+		if (!identity.valid() || CaptureDedicatedCoopCampaignGroups(groups)) return Code::GroupUnavailable;
+		const auto found = std::find_if(groups.groups.begin(), groups.groups.begin() + groups.groupCount,
+			[&](const CoopSession::CoopCampaignGroup& group) { return group.id == identity; });
+		if (found == groups.groups.begin() + groups.groupCount) return Code::GroupUnavailable;
+		GROUP* const group = ResolveJa2StrategicGroup(identity);
+		if (!group || group->usGroupTeam != OUR_TEAM) return Code::GroupUnavailable;
+		if (group->fVehicle || group->ubTransportationMask != FOOT) return Code::UnsupportedGroup;
+		if (group->fBetweenSectors || group->pWaypoints) return Code::Busy;
+		const INT16 x = group->ubSectorX, y = group->ubSectorY;
+		const INT8 z = static_cast<INT8>(group->ubSectorZ);
+		if (x < 1 || x > 16 || y < 1 || y > 16 || z < 0 || z > 3) return Code::GroupUnavailable;
+		if (NumHostilesInSector(x, y, z) != 0) return Code::HostilesPresent;
+		// CanGoToTacticalInSector consults the canonical map selection as well as
+		// the requested coordinates; publish the group's own sector first.
+		ChangeSelectedMapSector(x, y, z);
+		if (!CanGoToTacticalInSector(x, y, static_cast<std::uint8_t>(z))) return Code::NativeRejected;
+		if (!SetCurrentWorldSector(x, y, z)) return Code::EntryFailed;
+		if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != x || gWorldSectorY != y || gbWorldSectorZ != z ||
+			CountDedicatedCoopControllableActors() == 0 || NumEnemyInSector() != 0)
+			return Code::EntryFailed;
+		return Code::Entered;
+	}
+	catch (...)
+	{
+		return Code::EntryFailed;
+	}
 }

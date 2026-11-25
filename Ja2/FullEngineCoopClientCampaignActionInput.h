@@ -96,6 +96,20 @@ public:
 				: (current + groups->groupCount - 1) % groups->groupCount;
 			selected_ = groups->groups[next].id; cancel(); return {};
 		}
+		// Without an arrival decision, E arms loading the selected group's own
+		// sector (underground included) for peaceful play; Enter confirms.
+		if (key == Key::EnterBattle)
+		{
+			cancel();
+			if (!group->betweenSectors && !group->vehicle && !group->destinationX) enterArmed_ = true;
+			return {};
+		}
+		if (key == Key::Confirm && enterArmed_)
+		{
+			request.action = Action::EnterSector; request.group = selected_;
+			request.destinationX = group->x; request.destinationY = group->y;
+			cancel(); return request;
+		}
 		if (group->betweenSectors || group->vehicle || group->z || group->destinationX) return {};
 		if (key == Key::Confirm && destinationX_)
 		{
@@ -126,14 +140,15 @@ public:
 	std::uint8_t destinationX() const noexcept { return destinationX_; }
 	std::uint8_t destinationY() const noexcept { return destinationY_; }
 	bool retreatArmed() const noexcept { return retreatArmed_; }
-	void cancel() noexcept { destinationX_ = destinationY_ = 0; retreatArmed_ = false; }
+	bool enterArmed() const noexcept { return enterArmed_; }
+	void cancel() noexcept { destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false; }
 
 private:
 	std::array<bool, static_cast<unsigned>(Key::Count)> held_{};
 	StrategicGroupId selected_{};
 	std::uint64_t session_ = 0, control_ = 0, groupsRevision_ = 0, decision_ = 0;
 	std::uint8_t destinationX_ = 0, destinationY_ = 0;
-	bool retreatArmed_ = false, enabled_ = false;
+	bool retreatArmed_ = false, enterArmed_ = false, enabled_ = false;
 };
 
 inline const wchar_t* FullEngineCoopClientCampaignActionOutcomeText(CoopSession::CoopCampaignActionOutcome outcome) noexcept

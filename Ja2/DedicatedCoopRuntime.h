@@ -13,6 +13,8 @@ struct DedicatedCheckpointRuntimeEvidence;
 enum class NativePreBattleDeployment : std::uint8_t;
 enum class DedicatedCoopArrivalEnterResult : std::uint8_t;
 enum class DedicatedCoopArrivalRetreatResult : std::uint8_t;
+enum class DedicatedCoopPeacefulEntryCode : std::uint8_t;
+struct StrategicGroupId;
 
 enum class DedicatedCoopRuntimeError : std::uint8_t
 {
@@ -94,6 +96,8 @@ public:
 	DedicatedCoopArrivalEnterResult enterArrivalBattle(std::uint64_t decision,
 		NativePreBattleDeployment deployment) noexcept;
 	DedicatedCoopArrivalRetreatResult retreatArrivalBattle(std::uint64_t decision) noexcept;
+	// Loads a group's own hostile-free sector for peaceful play (secured on entry).
+	DedicatedCoopPeacefulEntryCode enterPeacefulSector(StrategicGroupId group) noexcept;
 	bool shutdownAtCommittedBoundary(GameContext& context) noexcept;
 	bool detachTacticalComposition() noexcept;
 	void stopAdmissionTransport() noexcept;

@@ -405,10 +405,22 @@ void HandleReturnToMapKey(UINT32 key, UINT32 eventKind) noexcept
 	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
 	(void)runtime.campaignHireFeedback(hire, hirePending);
 	using Key = FullEngineCoopClientReturnToMapInput::Key;
-	const Key mapped = key == 'w' || key == 'W' ? Key::Arm : key == ENTER ? Key::Confirm : key == ESC ? Key::Cancel : Key::None;
+	const Key mapped = key == 'w' || key == 'W' ? Key::Arm : key == 'u' || key == 'U' ? Key::ArmExit :
+		key == ENTER ? Key::Confirm : key == ESC ? Key::Cancel : Key::None;
+	// U names the replicated strategic group of the currently selected merc.
+	StrategicGroupId selectedGroup{};
+	const TacticalEntityId selected = Controller.selectedActor();
+	if (observed && groups.groupCount <= groups.groups.size())
+		for (std::size_t g = 0; g < groups.groupCount && !selectedGroup.valid(); ++g)
+			for (std::size_t m = 0; m < groups.groups[g].memberCount; ++m)
+			{
+				const std::size_t index = groups.groups[g].firstMember + m;
+				if (index < groups.memberCount && groups.members[index].actor == selected)
+				{ selectedGroup = groups.groups[g].id; break; }
+			}
 	const auto request = ReturnToMapInput.handle(mapped, eventKind == KEY_DOWN, eventKind == KEY_UP,
 		observed ? &status : nullptr, observed ? &groups : nullptr,
-		!runtime.selfRetirementPending() && !runtime.retired(), actionPending || timePending || hirePending);
+		!runtime.selfRetirementPending() && !runtime.retired(), actionPending || timePending || hirePending, selectedGroup);
 	if (!request) return;
 	LastSendResult = runtime.requestCampaignAction(*request);
 	HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
@@ -444,9 +456,15 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen() || Controller.selectingFirstAid();
 		if (modal) RetirementConfirmation.cancel();
 		if (modal) ReturnToMapInput.reset();
-		const bool returnKey = key == 'w' || key == 'W';
+		const bool returnKey = key == 'w' || key == 'W' || key == 'u' || key == 'U';
+		// Releases always reach the input, even after a confirmation disarmed
+		// it; otherwise a later Enter would look like a held-key repeat. A
+		// release never submits, so it is not consumed here.
+		if (event.usEvent == KEY_UP && (key == ENTER || key == ESC) &&
+			!ReturnToMapInput.armed() && !ReturnToMapInput.exitArmed())
+			HandleReturnToMapKey(key, event.usEvent);
 		if (!modal && (event.usEvent == KEY_DOWN || event.usEvent == KEY_UP) &&
-			(returnKey || (ReturnToMapInput.armed() && (key == ENTER || key == ESC))))
+			(returnKey || ((ReturnToMapInput.armed() || ReturnToMapInput.exitArmed()) && (key == ENTER || key == ESC))))
 		{
 			RetirementConfirmation.cancel();
 			HandleReturnToMapKey(key, event.usEvent);
@@ -968,14 +986,18 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 					mprintf(24, 282, L"Travelling to %lc%u | native arrival day %u %02u:%02u",
 						static_cast<wint_t>(L'A' + group->nextY - 1), static_cast<unsigned>(group->nextX),
 						group->arrivalMinutes / 1440u, (group->arrivalMinutes / 60u) % 24u, group->arrivalMinutes % 60u);
+				else if (CampaignActionInput.enterArmed())
+					mprintf(24, 282, L"Enter %lc%u (level %u) for peaceful play? Enter: confirm   Esc: cancel",
+						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x), static_cast<unsigned>(group->z));
 				else if (group->vehicle || group->z || group->destinationX)
-					mprintf(24, 282, L"Travel controls currently require an idle, surface, on-foot group.");
+					mprintf(24, 282, group->vehicle || group->destinationX ? L"Travel controls currently require an idle, surface, on-foot group."
+						: L"E: enter this sector");
 				else if (CampaignActionInput.destinationX())
 					mprintf(24, 282, L"Travel from %lc%u to %lc%u? Enter: order travel   Esc: cancel",
 						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x),
 						static_cast<wint_t>(L'A' + CampaignActionInput.destinationY() - 1),
 						static_cast<unsigned>(CampaignActionInput.destinationX()));
-				else mprintf(24, 282, L"Arrow keys: choose one adjacent sector, then Enter to order travel.");
+				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector");
 			}
 			else mprintf(24, 236, L"Waiting for the server's friendly group observation...");
 			if (actionPending) mprintf(24, 336, L"Waiting for the server's campaign-action result...");
@@ -1344,7 +1366,8 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 	{
 		SetFontForeground(FONT_MCOLOR_LTYELLOW);
 		mprintf(300, 26, ReturnToMapInput.armed() ? L"Return to map? Enter: confirm  Esc: cancel" :
-			L"Sector secured. W: return to map");
+			ReturnToMapInput.exitArmed() ? L"Take the exit with this squad? Enter: confirm  Esc: cancel" :
+			L"Sector secured. W: map  U: take exit (stand on it)");
 		SetFontForeground(FONT_MCOLOR_LTGRAY);
 	}
 
@@ -1655,6 +1678,7 @@ bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnTo
 	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
 	output.groupsRevision = groups.revision; output.securedSector = status.securedSector;
 	output.armed = ReturnToMapInput.armed(); output.enabled = ReturnToMapInput.enabled();
+	output.exitArmed = ReturnToMapInput.exitArmed(); output.exitGroup = ReturnToMapInput.exitGroup();
 	return true;
 }
 
@@ -1699,6 +1723,7 @@ bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignCon
 	output.selected = CampaignActionInput.selected();
 	output.destinationX = CampaignActionInput.destinationX(); output.destinationY = CampaignActionInput.destinationY();
 	output.retreatArmed = CampaignActionInput.retreatArmed();
+	output.enterArmed = CampaignActionInput.enterArmed();
 	output.enabled = eligible && !actionPending && !timePending && !hirePending;
 	return true;
 }

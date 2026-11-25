@@ -18,7 +18,8 @@ class InstalledCampaignTests(unittest.TestCase):
     def ui(self):
         return {"request": 1, "kind": "campaign_ui", "ready": True, "action_pending": False, "time_pending": False,
                 "action_result": None, "time_result": None, "session": 2, "control_revision": 3, "groups_revision": 4,
-                "decision": 0, "selected": [7, 8], "destination": [10, 1], "retreat_armed": False, "enabled": True}
+                "decision": 0, "selected": [7, 8], "destination": [10, 1], "retreat_armed": False,
+                "enter_armed": False, "enabled": True}
 
     def receipt(self):
         return {"request_id": 1, "action": 1, "session": 2, "control_revision": 3, "groups_revision": 4,
@@ -81,7 +82,7 @@ class InstalledCampaignTests(unittest.TestCase):
                              ("destination", [17, 1]), ("destination", [10, 0])):
             with self.subTest(field=field, value=value), self.assertRaises(campaign.SmokeFailure):
                 campaign.validate_action_result(dict(self.receipt(), **{field: value}))
-        for field, value in (("ready", 1), ("request", True), ("action_pending", 0), ("retreat_armed", 0),
+        for field, value in (("ready", 1), ("request", True), ("action_pending", 0), ("retreat_armed", 0), ("enter_armed", 0),
                              ("selected", [7, 0]), ("destination", [10, True]), ("decision", -1)):
             with self.subTest(field=field, value=value), self.assertRaises(campaign.SmokeFailure):
                 campaign.validate_ui(dict(self.ui(), **{field: value}))

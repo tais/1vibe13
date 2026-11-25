@@ -231,6 +231,73 @@ void ReturnToMapFromSecuredSector()
 		ValidateCoopCampaignActionRequest(returnRequest(5), f.status.value(), f.groups, f.identities[1], true, false, false) ==
 			CoopCampaignActionOutcome::Unauthorized, "readiness and explicit policy still gate the return");
 }
+void EnterSectorForPeacefulPlay()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, true);
+	};
+	auto enter = f.request(); enter.action = CoopCampaignAction::EnterSector;
+	enter.destinationX = f.groups.groups[0].x; enter.destinationY = f.groups.groups[0].y;
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(enter, bytes) && bytes[6] == 12 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, enter),
+		"enter-sector is kind 12 and roundtrips with its exact group and displayed sector");
+	auto withDecision = enter; withDecision.decision = 1;
+	auto withoutGroup = enter; withoutGroup.group = {};
+	CHECK(!ValidCoopCampaignActionRequest(withDecision) && !ValidCoopCampaignActionRequest(withoutGroup),
+		"enter-sector names a group and its sector, never a decision token");
+	CHECK(allowed(enter) == CoopCampaignActionOutcome::Applied, "any ready player may enter a group's own sector");
+	auto elsewhere = enter; elsewhere.destinationX = 10;
+	CHECK(allowed(elsewhere) == CoopCampaignActionOutcome::Stale, "the displayed sector must be the group's current sector");
+	CHECK(ValidateCoopCampaignActionRequest(enter, f.status.value(), f.groups, f.identities[1], true, true, false) ==
+		CoopCampaignActionOutcome::Unavailable, "a loaded tactical world blocks peaceful entry");
+	f.groups.groups[0].z = 1;
+	CHECK(allowed(enter) == CoopCampaignActionOutcome::Applied, "an underground level may be entered peacefully");
+	f.groups.groups[0].z = 0; f.groups.groups[0].vehicle = true;
+	CHECK(allowed(enter) == CoopCampaignActionOutcome::Unsupported, "vehicle groups await native vehicle support");
+	f.groups.groups[0].vehicle = false; f.groups.groups[0].betweenSectors = true;
+	f.groups.groups[0].nextX = 10; f.groups.groups[0].nextY = 1;
+	CHECK(allowed(enter) == CoopCampaignActionOutcome::Unavailable, "a travelling group cannot enter a sector");
+	f.groups.groups[0].betweenSectors = false; f.groups.groups[0].nextX = f.groups.groups[0].nextY = 0;
+	CoopCampaignArrival npc; npc.decision = 1; npc.kind = CoopCampaignArrivalKind::WildernessNpc;
+	npc.stage = CoopCampaignArrivalStage::Pending; npc.x = 10; npc.y = 1; npc.pendingCount = 1;
+	f.observeArrival(npc);
+	enter.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(enter) == CoopCampaignActionOutcome::Unavailable, "a pending arrival decision comes first");
+}
+
+void TakeExitGridFromSecuredSector()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, false);
+	};
+	const auto exitRequest = [&](std::uint64_t decision) {
+		auto r = f.arrival(CoopCampaignAction::TakeExitGrid); r.decision = decision; r.group = f.groups.groups[0].id;
+		return r;
+	};
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(exitRequest(5), bytes) && bytes[6] == 13 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, exitRequest(5)),
+		"take-exit-grid is kind 13 and roundtrips the secured sector and exact group");
+	auto noGroup = exitRequest(5); noGroup.group = {};
+	auto withDestination = exitRequest(5); withDestination.destinationX = 9;
+	CHECK(!ValidCoopCampaignActionRequest(noGroup) && !ValidCoopCampaignActionRequest(exitRequest(0)) &&
+		!ValidCoopCampaignActionRequest(withDestination), "exit-grid requests carry only a sector token and a group");
+	CHECK(allowed(exitRequest(5)) == CoopCampaignActionOutcome::Unavailable, "strategic play has no exit grid to take");
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical; clock.securedSector = 5;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe secured sector");
+	CHECK(allowed(exitRequest(5)) == CoopCampaignActionOutcome::Applied, "any ready player may take a secured exit grid");
+	CHECK(allowed(exitRequest(4)) == CoopCampaignActionOutcome::Stale, "older secured sector is stale");
+	auto otherGroup = exitRequest(5); otherGroup.group = {9, 9};
+	CHECK(allowed(otherGroup) == CoopCampaignActionOutcome::Stale, "unknown group is stale");
+	f.groups.groups[0].vehicle = true;
+	CHECK(allowed(exitRequest(5)) == CoopCampaignActionOutcome::Unsupported, "vehicle groups cannot take exit grids");
+	f.groups.groups[0].vehicle = false; f.groups.available = false; f.groups.groupCount = f.groups.memberCount = 0;
+	CHECK(allowed(exitRequest(5)) == CoopCampaignActionOutcome::Unavailable, "exit grids need a group observation");
+}
+
 void ReceiptsAndSerialization()
 {
 	Fixture f; unsigned executions = 0;
@@ -389,4 +456,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

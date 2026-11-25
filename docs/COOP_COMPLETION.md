@@ -3394,3 +3394,69 @@ physical OS input or painted pixels; seeded victory, not unseeded combat.
 return before expecting the checkpoint. Its other chain probes pin one
 historical cohort (profiles, balance) and need the campaign driver before they
 can be replayed on a fresh campaign.
+
+### Peaceful sector entry from the map
+
+From worldless strategic play any ready player may load a group's own
+player-held sector, surface or underground, with the campaign action
+`EnterSector` (kind 12: the exact group plus its displayed sector). On the map,
+`E` arms it for the selected group and a separate `Enter` confirms; with a
+pending arrival decision `E` keeps answering that decision instead.
+
+`EnterDedicatedCoopPeacefulSector` refuses vehicles, travelling or routed
+groups and any sector with hostiles (those go through native arrival and battle
+decisions), publishes the map selection, passes `CanGoToTacticalInSector`, and
+loads the world with `SetCurrentWorldSector`. The sector is secured on entry:
+the same `PeacefulTactical` state and `ReturnToMap` apply, with the won-battle
+requirement replaced by the hostile-free proof, and a separate narrow unload
+wrapper (`UnloadCurrentWorldForDedicatedCoopPeacefulReturn`) that requires no
+hostiles, no combat and no traversal.
+
+Installed evidence: the peaceful-sector probe now also re-enters A9 from the map
+after the first return (client A, queued `E` + `Enter`), observes the second
+secured sector on both clients, returns through client A, commits the strategic
+checkpoint and resumes cold on the shipping host.
+
+### Exit grids (stairs, trapdoors, tunnels)
+
+In a secured sector any ready player may move a whole on-foot group through a
+native exit grid with the campaign action `TakeExitGrid` (kind 13: the secured
+sector token plus the group). In the client, `U` arms it for the selected
+merc's group and a separate `Enter` confirms; at least one member must stand on
+the exit grid.
+
+- `PlanDedicatedCoopExitGridTraversal` is read-only: the group must be in the
+  loaded sector, every member conscious and controllable, all occupied exit
+  grids must lead to one destination, and the destination must be hostile-free
+  (hostile levels still need native battle entry).
+- The accepted plan is rechecked immediately before leaving; any change
+  abandons the traversal and the players stay in the secured sector.
+- The squad leaves through the ordinary shared return. Only after the cold
+  strategic checkpoint does `ApplyDedicatedCoopExitGridRelocation` apply the
+  stock exit-grid insertion (`INSERTION_CODE_GRIDNO` at the destination grid,
+  exit-grid re-entry direction) and `SetGroupSectorValue`, worldless: the
+  native unload check inside `SetGroupSectorValue` would otherwise tear down a
+  live co-op world outside the drain path (a native fixture crashes without
+  this guard). The server then enters the destination peacefully.
+
+Miguel's basement is not an exit grid in stock: Fatima's NPC action moves the
+squad there with a fade. That belongs to the NPC dialogue work. A10 has no
+surface exit grid, so the installed exit-grid step is not exercised yet;
+`native_coop_exit_grid_tests` covers planning against a real native exit-grid
+table and the worldless relocation.
+
+### Two fixes found by the installed probes
+
+- After an in-process return to the map, player mercs kept a stale in-sector
+  flag, so the travel commit refused the next order. Every earlier travel probe
+  had cold-restarted first. Both co-op unload wrappers now release the unloaded
+  sector's mercs through the native `RemoveSoldierFromTacticalSector`, matching
+  a cold load.
+- After a confirmed return the client stopped routing the `Enter` key-up to the
+  secured-sector input, so a later `Enter` looked like a held repeat. Releases
+  now always reach it.
+
+Installed evidence (`full_engine_coop_installed_exit_grid.py`): seeded A9
+victory, shared return, in-process travel A9→A10 by the non-leader, leader time
+control, peaceful A10 arrival, `E`+`Enter` entry of A10, secured A10, shared
+return, checkpoint and shipping cold resume.

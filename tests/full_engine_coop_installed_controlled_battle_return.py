@@ -82,7 +82,7 @@ class BoundaryProbe:
         campaign_input = verb == "CAMPAIGN_INPUT" and len(args) == 10 and args[-1] in (11, 16)
         notice_input = verb == "BATTLE_NOTICE_INPUT" and len(args) == 6 and args[-1] in (1, 2)
         # A won sector stays loaded; only W (arm) and Enter (confirm) may leave it.
-        return_input = verb == "RETURN_MAP_INPUT" and len(args) == 6 and args[-1] in (1, 2)
+        return_input = verb == "RETURN_MAP_INPUT" and len(args) == 6 and args[-1] in (1, 2) and args[-2] in (0, 1)
         if not (observation or campaign_input or notice_input or return_input):
             raise SmokeFailure("controlled boundary runner forbids unrelated gameplay and unscoped input")
         self.sent.append({"verb": verb, "arguments": list(args)})

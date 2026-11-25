@@ -18,6 +18,7 @@
 #include "DedicatedContentManifest.h"
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedCoopMissionBootstrap.h"
+#include "DedicatedCoopExitGrid.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "DedicatedCoopInventoryPublication.h"
@@ -1178,8 +1179,25 @@ struct DedicatedCoopRuntime::Impl
 			if (selfRetirementActive || starterMission != StarterMissionState::PeacefulTactical ||
 				!securedSector || request.decision != securedSector || returnToMapRequested)
 				return {Outcome::NativeRejected, 0};
-			returnToMapRequested = true;
+			returnToMapRequested = true; returnWaitLogged = false;
 			return {Outcome::Applied, 0};
+		}
+		if (request.action == Action::TakeExitGrid)
+		{
+			if (selfRetirementActive || starterMission != StarterMissionState::PeacefulTactical ||
+				!securedSector || request.decision != securedSector || returnToMapRequested)
+				return {Outcome::NativeRejected, 0};
+			DedicatedCoopExitGridPlan plan;
+			const auto code = PlanDedicatedCoopExitGridTraversal(request.group, plan);
+			using Code = DedicatedCoopExitGridCode;
+			if (code != Code::Planned)
+				return {code == Code::UnsupportedGroup || code == Code::HostileDestination ? Outcome::Unsupported :
+					Outcome::NativeRejected, static_cast<std::uint16_t>(code)};
+			exitGrid = plan; exitGridPending = true; returnToMapRequested = true; returnWaitLogged = false;
+			std::printf("[dedicated] exit-grid traversal accepted to (%u,%u,%u) grid %d with %zu mercs\n",
+				unsigned(plan.x), unsigned(plan.y), unsigned(plan.z), plan.destinationGrid, plan.memberCount);
+			std::fflush(stdout);
+			return {Outcome::Applied, static_cast<std::uint16_t>(code)};
 		}
 		if (request.action == Action::AcknowledgeBattleNotice)
 		{
@@ -1227,6 +1245,14 @@ struct DedicatedCoopRuntime::Impl
 				using Code = DedicatedCoopArrivalEnterResult;
 				return {result == Code::Entered ? Outcome::Applied : result == Code::Failed ? Outcome::Failed :
 					result == Code::UnsupportedDecision ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
+			case Action::EnterSector:
+			{
+				const auto result = runtime.enterPeacefulSector(request.group);
+				using Code = DedicatedCoopPeacefulEntryCode;
+				return {result == Code::Entered ? Outcome::Applied : result == Code::EntryFailed ? Outcome::Failed :
+					result == Code::UnsupportedGroup ? Outcome::Unsupported : Outcome::NativeRejected,
 					static_cast<std::uint16_t>(result)};
 			}
 			case Action::RetreatArrival:
@@ -2523,6 +2549,23 @@ struct DedicatedCoopRuntime::Impl
 	std::uint32_t securedSector = 0;
 	std::uint32_t lastSecuredSector = 0;
 	bool returnToMapRequested = false;
+	bool returnWaitLogged = false;
+	// The loaded sector was entered peacefully (no battle was won in it).
+	bool sectorSecuredByEntry = false;
+	// An accepted exit-grid traversal: leave through the ordinary return, then
+	// relocate the group worldless and enter its destination peacefully.
+	bool exitGridPending = false;
+	DedicatedCoopExitGridPlan exitGrid{};
+
+	DedicatedCoopPostCombatReturnEvidence captureSecuredSectorEvidence() const noexcept
+	{
+		DedicatedCoopPostCombatReturnEvidence evidence =
+			CapturePostCombatReturnEvidence(true, postCombatReturnArmed);
+		// A peacefully entered sector has no won battle: its hostile-free state,
+		// checked by the same evidence, is the proof instead.
+		if (sectorSecuredByEntry) evidence.lastBattleWon = true;
+		return evidence;
+	}
 };
 
 DedicatedCheckpointRuntimeEvidence
@@ -3174,8 +3217,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	if (impl_->starterMission == StarterMissionState::Playable)
 	{
 		const DedicatedCoopPostCombatReturnEvidence evidence =
-			CapturePostCombatReturnEvidence(true,
-				impl_->postCombatReturnArmed);
+			impl_->captureSecuredSectorEvidence();
 		if (DedicatedCoopPostCombatReturnReady(evidence))
 		{
 			// Victory secures the sector. Keep it loaded for peaceful play, as the
@@ -3204,8 +3246,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		StopTimeCompression();
 		PauseGame();
 		const DedicatedCoopPostCombatReturnEvidence evidence =
-			CapturePostCombatReturnEvidence(true,
-				impl_->postCombatReturnArmed);
+			impl_->captureSecuredSectorEvidence();
 		const DedicatedCoopPeacefulTacticalStep step =
 			EvaluateDedicatedCoopPeacefulTacticalStep(evidence,
 				impl_->returnToMapRequested);
@@ -3215,17 +3256,53 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			// no longer secured and the ordinary encounter rules apply again.
 			impl_->securedSector = 0;
 			impl_->returnToMapRequested = false;
+			impl_->sectorSecuredByEntry = false;
+			impl_->exitGridPending = false;
 			impl_->starterMission = StarterMissionState::Playable;
 			std::printf("[dedicated] secured sector contested; encounter resumed\n");
 			std::fflush(stdout);
 			return;
 		}
-		if (step != DedicatedCoopPeacefulTacticalStep::ReturnToMap) return;
+		if (step != DedicatedCoopPeacefulTacticalStep::ReturnToMap)
+		{
+			// Explain, once per request, what keeps an accepted return waiting.
+			if (impl_->returnToMapRequested && !impl_->returnWaitLogged)
+			{
+				impl_->returnWaitLogged = true;
+				const auto& e = evidence;
+				std::printf("[dedicated] secured-sector return waiting: playable=%u armed=%u world=%u game-screen=%u "
+					"sector=%u won=%u actions=%u interrupt=%u bullets=%u explosions=%u dialogue=%u/%u trigger=%u "
+					"autoresolve=%u/%u meanwhile=%u/%u traversal=%u bandage=%u boxing=%u save=%u ui=%u timer=%u\n",
+					e.missionPlayable, e.hostileWorldArmed, e.worldLoaded, e.gameScreen, e.validWorldSector, e.lastBattleWon,
+					e.tacticalActionsPending, e.interruptPending, e.bulletsPending, e.explosionsPending, e.dialogueActive,
+					e.dialogueQueued, e.triggerTimerPending, e.autoResolveActive, e.autoResolvePending, e.meanwhileActive,
+					e.meanwhilePending, e.tacticalTraversal, e.autoBandageActive, e.boxingActive, e.saveLoadActive,
+					e.uiTransitionPending, e.customTimerPending);
+				std::fflush(stdout);
+			}
+			return;
+		}
+		impl_->returnWaitLogged = false;
 		// Queue every retained campaign receipt before closing transport, then
 		// freeze ingress at a fresh-baseline boundary like a battle notice.
 		for (const auto& delivery : impl_->campaignActionAuthority.deliveries())
 			if (delivery.pending) return;
 		if (!impl_->freshAssignmentBaselineBoundary()) return;
+		if (impl_->exitGridPending)
+		{
+			// The accepted plan must still describe this exact world: otherwise
+			// abandon the traversal and keep playing in the secured sector.
+			DedicatedCoopExitGridPlan fresh;
+			if (PlanDedicatedCoopExitGridTraversal(impl_->exitGrid.group, fresh) != DedicatedCoopExitGridCode::Planned ||
+				!SameDedicatedCoopExitGridPlan(fresh, impl_->exitGrid))
+			{
+				impl_->exitGridPending = false;
+				impl_->returnToMapRequested = false;
+				std::printf("[dedicated] exit-grid traversal abandoned; the group moved before leaving\n");
+				std::fflush(stdout);
+				return;
+			}
+		}
 		impl_->securedSector = 0;
 		impl_->returnToMapRequested = false;
 		impl_->starterMission = StarterMissionState::ReturningToStrategic;
@@ -3237,8 +3314,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	if (impl_->starterMission == StarterMissionState::ReturningToStrategic)
 	{
 		const DedicatedCoopPostCombatReturnEvidence rechecked =
-			CapturePostCombatReturnEvidence(true,
-				impl_->postCombatReturnArmed);
+			impl_->captureSecuredSectorEvidence();
 		const DedicatedCoopPostCombatReturnStep next =
 			EvaluateDedicatedCoopPostCombatReturnStep(
 				DedicatedCoopPostCombatReturnReady(rechecked),
@@ -3257,7 +3333,8 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		{
 			return;
 		}
-		if (!UnloadCurrentWorldForDedicatedCoopPostCombatReturn())
+		if (!(impl_->sectorSecuredByEntry ? UnloadCurrentWorldForDedicatedCoopPeacefulReturn()
+				: UnloadCurrentWorldForDedicatedCoopPostCombatReturn()))
 		{
 			impl_->fail(DedicatedCoopRuntimeError::MissionReturnFailed,
 				"mission.return-unload", "tactical world unload failed");
@@ -3304,10 +3381,34 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (!impl_->checkpointNow(context, true)) return;
 		if (!impl_->startAdmission()) return;
 		impl_->postCombatCheckpointDeadline = {};
+		impl_->sectorSecuredByEntry = false;
 		impl_->starterMission = StarterMissionState::StrategicIdle;
 		std::printf(
 			"[dedicated] post-combat strategic checkpoint committed; admission reopened\n");
 		std::fflush(stdout);
+		if (impl_->exitGridPending)
+		{
+			impl_->exitGridPending = false;
+			StrategicGroupId moved{};
+			const auto relocated = ApplyDedicatedCoopExitGridRelocation(impl_->exitGrid, moved);
+			if (relocated != DedicatedCoopExitGridCode::Planned)
+			{
+				std::printf("[dedicated] exit-grid relocation refused (%u); the group stays on the map\n",
+					static_cast<unsigned>(relocated));
+				std::fflush(stdout);
+				return;
+			}
+			std::printf("[dedicated] exit-grid group relocated to (%u,%u,%u)\n", unsigned(impl_->exitGrid.x),
+				unsigned(impl_->exitGrid.y), unsigned(impl_->exitGrid.z));
+			std::fflush(stdout);
+			const auto entered = enterPeacefulSector(moved);
+			if (entered != DedicatedCoopPeacefulEntryCode::Entered && !impl_->fatal)
+			{
+				std::printf("[dedicated] exit-grid destination entry refused (%u); the group waits on the map\n",
+					static_cast<unsigned>(entered));
+				std::fflush(stdout);
+			}
+		}
 		return;
 	}
 	if (now < impl_->nextCheckpointAttempt) return;
@@ -3330,6 +3431,7 @@ DedicatedCoopArrivalEnterResult DedicatedCoopRuntime::enterArrivalBattle(std::ui
 	// Reuse fresh world observation, assignment/baseline admission and native
 	// victory/drain handling. Do not leave a loaded encounter marked strategic.
 	impl_->starterMission = StarterMissionState::WaitingForControllableActor;
+	impl_->sectorSecuredByEntry = false;
 	// Wounded/unconscious native participants remain present but need not all
 	// become controllable before their healthy squadmates can play.
 	impl_->minimumControllableActors = 1;
@@ -3350,6 +3452,34 @@ DedicatedCoopArrivalRetreatResult DedicatedCoopRuntime::retreatArrivalBattle(std
 		impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.arrival.retreat", impl_->arrivalDecisions.failure());
 	// Remain strategic and paused. Native movement events own the return trip;
 	// only a later explicit time request may advance it.
+	return result;
+}
+
+DedicatedCoopPeacefulEntryCode DedicatedCoopRuntime::enterPeacefulSector(StrategicGroupId group) noexcept
+{
+	using Code = DedicatedCoopPeacefulEntryCode;
+	if (!impl_ || impl_->error != DedicatedCoopRuntimeError::None || !impl_->campaignEntered ||
+		impl_->starterMission != StarterMissionState::StrategicIdle || impl_->worldDraining ||
+		!impl_->tactical || impl_->tactical->server.worldActive() || impl_->selfRetirementActive ||
+		impl_->arrivalDecisions.front())
+		return Code::HostUnavailable;
+	const Code result = EnterDedicatedCoopPeacefulSector(group);
+	if (result == Code::EntryFailed)
+	{
+		impl_->fail(DedicatedCoopRuntimeError::MissionLaunchFailed, "campaign.enter-sector",
+			"peaceful sector entry failed after native validation");
+		return result;
+	}
+	if (result != Code::Entered) return result;
+	// Reuse fresh world observation and assignment/baseline admission. The
+	// sector is secured on entry; the ordinary victory/return path applies.
+	impl_->starterMission = StarterMissionState::WaitingForControllableActor;
+	impl_->minimumControllableActors = 1;
+	impl_->postCombatReturnArmed = true;
+	impl_->sectorSecuredByEntry = true;
+	impl_->starterActorArrivalDeadline = Clock::now() + StarterActorArrivalTimeout;
+	std::printf("[dedicated] peaceful sector entered (%d,%d,%d)\n", gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+	std::fflush(stdout);
 	return result;
 }
 

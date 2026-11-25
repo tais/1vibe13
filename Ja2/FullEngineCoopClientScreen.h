@@ -16,7 +16,7 @@ struct FullEngineCoopClientCampaignControls
 	std::uint64_t sessionEpoch = 0, controlRevision = 0, groupsRevision = 0, decision = 0;
 	StrategicGroupId selected{};
 	std::uint8_t destinationX = 0, destinationY = 0;
-	bool retreatArmed = false, enabled = false;
+	bool retreatArmed = false, enterArmed = false, enabled = false;
 };
 
 // Copied local choices bound to the current authoritative strategic state.
@@ -165,6 +165,8 @@ struct FullEngineCoopClientReturnToMapControls
 	std::uint64_t sessionEpoch = 0, controlRevision = 0, groupsRevision = 0;
 	std::uint32_t securedSector = 0;
 	bool armed = false, enabled = false, pending = false;
+	bool exitArmed = false;
+	StrategicGroupId exitGroup{};
 };
 bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnToMapControls& output) noexcept;
 

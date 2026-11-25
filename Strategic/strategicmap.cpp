@@ -6585,6 +6585,25 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld()
 	return CheckAndHandleUnloadingOfCurrentWorldInternal(FALSE);
 }
 
+// The co-op unload leaves player mercs exactly as a cold strategic load would:
+// the soldiers of the unloaded sector are no longer tactically present, so
+// strategic travel can depart without a stale in-sector flag.
+static BOOLEAN UnloadCurrentWorldForDedicatedCoopAndReleaseMercs()
+{
+	const INT16 sectorX = gWorldSectorX, sectorY = gWorldSectorY;
+	const INT8 sectorZ = gbWorldSectorZ;
+	if (!CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE)) return FALSE;
+	for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
+	{
+		TacticalActor* const pSoldier = GetJa2SoldierRepository().resolve(i);
+		if (pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() &&
+			pSoldier->deployment().sectorX() == sectorX && pSoldier->deployment().sectorY() == sectorY &&
+			pSoldier->deployment().sectorZ() == sectorZ)
+			RemoveSoldierFromTacticalSector(pSoldier, FALSE);
+	}
+	return TRUE;
+}
+
 BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()
 {
 	// This entry point is deliberately narrower than the ordinary strategic
@@ -6603,7 +6622,24 @@ BOOLEAN UnloadCurrentWorldForDedicatedCoopPostCombatReturn()
 	{
 		return FALSE;
 	}
-	return CheckAndHandleUnloadingOfCurrentWorldInternal(TRUE);
+	return UnloadCurrentWorldForDedicatedCoopAndReleaseMercs();
+}
+
+BOOLEAN UnloadCurrentWorldForDedicatedCoopPeacefulReturn()
+{
+	// The same narrow bypass for a sector entered peacefully by the players: no
+	// battle was won, so require the absence of hostiles and combat instead.
+	const DedicatedServerOptions& dedicated = GetDedicatedServerOptions();
+	if (!dedicated.enabled || dedicated.mode != DedicatedServerMode::Coop ||
+		GetCurrentScreen() != GAME_SCREEN ||
+		!IsJa2TacticalWorldLoaded() || gWorldSectorX < 1 || gWorldSectorX > 16 ||
+		gWorldSectorY < 1 || gWorldSectorY > 16 || gbWorldSectorZ < 0 ||
+		gbWorldSectorZ > 3 || gTacticalStatus.fEnemyInSector || IsJa2TacticalCombatActive() ||
+		NumEnemyInSector() != 0 || gfTacticalTraversal)
+	{
+		return FALSE;
+	}
+	return UnloadCurrentWorldForDedicatedCoopAndReleaseMercs();
 }
 
 
