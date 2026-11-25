@@ -563,6 +563,32 @@ int main(int argc, char** argv)
 	CHECK(CaptureCoopPickupGroundItem(actorId, itemId, candidate), "display remains available while actor is busy");
 	rejected("busy actor rejects retained execution");
 	actor.animationActivity().nonInterruptible() = FALSE;
+	// Armed mercs settle into stationary aim poses after combat movement; the
+	// animation-free pickup accepts them at the same-height idle cost.
+	{
+		const struct { UINT16 aim; UINT16 idle; } aimPoses[] = {
+			{AIM_RIFLE_STAND, STANDING}, {AIM_RIFLE_CROUCH, CROUCHING}, {AIM_RIFLE_PRONE, PRONE},
+			{AIM_DUAL_STAND, STANDING}, {AIM_DUAL_CROUCH, CROUCHING}, {AIM_DUAL_PRONE, PRONE}};
+		for (const auto& pose : aimPoses)
+		{
+			AuthoritativePickupWorldItemCommand idleCommand, aimCommand;
+			actor.animationPlayback().state() = pose.idle;
+			const bool idleReady = PrepareAuthoritativePickupWorldItemCommand(actorId, itemId, BIGPOCK2POS, idleCommand);
+			actor.animationPlayback().state() = pose.aim;
+			const bool aimReady = PrepareAuthoritativePickupWorldItemCommand(actorId, itemId, BIGPOCK2POS, aimCommand);
+			CHECK(idleReady && aimReady && aimCommand.expectedAnimationState == pose.aim &&
+				aimCommand.expectedActionPointCost == idleCommand.expectedActionPointCost &&
+				!destination.exists() && ResolveJa2TacticalWorldItem(itemId) != nullptr &&
+				actor.actionPoints().current() == 20 && gpItemPointer == nullptr,
+				"settled aim pose prepares a ground pickup at the same-height idle cost without effects");
+		}
+		for (const UINT16 busy : {UINT16(PUNCH_BREATH), UINT16(KNIFE_BREATH), UINT16(SHOOT_RIFLE_STAND)})
+		{
+			actor.animationPlayback().state() = busy;
+			rejected("unsettled fire-ready and firing poses cannot pick up");
+		}
+		actor.animationPlayback().state() = CROUCHING;
+	}
 	actor.position().gridNo() = origin + 1;
 	rejected("adjacent tile is outside same-tile pickup scope");
 	actor.position().gridNo() = origin;

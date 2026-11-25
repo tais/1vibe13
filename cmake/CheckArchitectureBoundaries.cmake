@@ -14026,6 +14026,18 @@ if(NOT native_stationary_aim_pose_compact STREQUAL
     "Only the six settled AIM_* poses may join the idle poses for native inventory and medical admission")
 endif()
 extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool IsUnsettledFireReadyPose(UINT16 animation) noexcept"
+  native_unsettled_fire_ready_slice "Cannot bound native unsettled fire-ready pose gate")
+string(REGEX REPLACE "//[^\n]*" "" native_unsettled_fire_ready_compact_source
+  "${native_unsettled_fire_ready_slice}")
+string(REGEX REPLACE "[ \t\r\n]" "" native_unsettled_fire_ready_compact
+  "${native_unsettled_fire_ready_compact_source}")
+if(NOT native_unsettled_fire_ready_compact STREQUAL
+    "boolIsUnsettledFireReadyPose(UINT16animation)noexcept{returnanimation>=NUMANIMATIONSTATES||((gAnimControl[animation].uiFlags&ANIM_FIREREADY)!=0&&!IsStationaryAimPose(animation));}")
+  message(FATAL_ERROR
+    "Fire-ready gates may exempt only the settled aim poses and must fail closed for out-of-range states")
+endif()
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
   "bool IsSettledIdleOrAimPose(UINT16 animation) noexcept"
   native_settled_pose_slice "Cannot bound native settled idle-or-aim pose set")
 string(REGEX REPLACE "[ \t\r\n]" "" native_settled_pose_compact "${native_settled_pose_slice}")
@@ -44319,7 +44331,7 @@ require_ordered_fragments(inventory_native_resolve
   "if (!InventorySwapPoseReady(*actor)) return reject("
   "actor->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES"
   "!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject"
-  "(gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0"
+  "if (IsUnsettledFireReadyPose(actor->animationPlayback().state()))"
   "actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid)"
   "actor->position().level() != command.expectedActorLevel"
   "if (actor->animationPlayback().state() != command.expectedAnimationState)\n\t\t\treturn reject("
@@ -44860,7 +44872,7 @@ require_ordered_fragments(ground_drop_resolve
   "!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr"
   "identity.worldGeneration != command.expectedWorldGeneration" "identity.serial != command.expectedTurnSerial"
   "ResolveCoopAuthorizedLegacyCommandActor" "live->vitals().health() < CONSCIOUSNESS"
-  "!FirstAidPoseReady(*live)" "live->movement().waitAction()" "ANIM_FIREREADY"
+  "!FirstAidPoseReady(*live)" "live->movement().waitAction()" "IsUnsettledFireReadyPose(live->animationPlayback().state())"
   "live->position().gridNo() != command.expectedActorGrid"
   "live->position().level() != command.expectedActorLevel"
   "live->animationPlayback().state() != command.expectedAnimationState"

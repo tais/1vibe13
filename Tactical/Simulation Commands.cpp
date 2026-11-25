@@ -727,6 +727,16 @@ namespace
 			IsStationaryAimPose(animation);
 	}
 
+	// A fire-ready state that is not one of the settled aim poses: raising,
+	// shooting or another transition still owns the actor's animation.
+	bool IsUnsettledFireReadyPose(UINT16 animation) noexcept
+	{
+		// Out-of-range states fail closed before indexing the native table.
+		return animation >= NUMANIMATIONSTATES ||
+			((gAnimControl[animation].uiFlags & ANIM_FIREREADY) != 0 &&
+			 !IsStationaryAimPose(animation));
+	}
+
 	bool FirstAidPoseReady(const TacticalActor& actor) noexcept
 	{
 		const UINT16 animation = actor.animationPlayback().state();
@@ -1112,8 +1122,7 @@ namespace
 			return reject("resolve.surface_index", actor);
 		if (!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject)
 			return reject("resolve.surface_unloaded", actor);
-		if ((gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 &&
-			!IsStationaryAimPose(actor->animationPlayback().state()))
+		if (IsUnsettledFireReadyPose(actor->animationPlayback().state()))
 			return reject("resolve.fire_ready", actor);
 		if (actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
 			actor->position().level() != command.expectedActorLevel)
@@ -1159,7 +1168,7 @@ namespace
 			actor.inventory().size() == NUM_INV_SLOTS && FirstAidPoseReady(actor) &&
 			actor.animationPlayback().surface() < NUMANIMATIONSURFACETYPES &&
 			gAnimSurfaceDatabase[actor.animationPlayback().surface()].hVideoObject &&
-			(gAnimControl[actor.animationPlayback().state()].uiFlags & ANIM_FIREREADY) == 0 &&
+			!IsUnsettledFireReadyPose(actor.animationPlayback().state()) &&
 			!TileIsOutOfBounds(grid) && actor.position().gridNo() == grid &&
 			actor.position().level() == level && actor.animationPlayback().state() == animation &&
 			actor.position().direction() == direction && actor.pathing().desiredDirection() == direction &&
@@ -1327,7 +1336,7 @@ namespace
 			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
 			live->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
 			!gAnimSurfaceDatabase[live->animationPlayback().surface()].hVideoObject ||
-			(gAnimControl[live->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
+			IsUnsettledFireReadyPose(live->animationPlayback().state()) ||
 			live->position().gridNo() != command.expectedActorGrid ||
 			live->position().level() != command.expectedActorLevel ||
 			live->animationPlayback().state() != command.expectedAnimationState ||
@@ -1373,7 +1382,7 @@ namespace
 			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
 			live->animationPlayback().surface() >= NUMANIMATIONSURFACETYPES ||
 			!gAnimSurfaceDatabase[live->animationPlayback().surface()].hVideoObject ||
-			(gAnimControl[live->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 ||
+			IsUnsettledFireReadyPose(live->animationPlayback().state()) ||
 			live->position().gridNo() != command.expectedActorGrid ||
 			live->position().level() != command.expectedActorLevel ||
 			live->animationPlayback().state() != command.expectedAnimationState ||

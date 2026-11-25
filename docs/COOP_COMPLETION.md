@@ -3349,5 +3349,12 @@ at the same-height idle cost.
 This removes the most likely cause of the B13 `GameplayRejected` kit swap above
 (first input after hostile entry; the same swap succeeded before combat). That
 run's logs no longer exist, so the cause is not confirmed; rerun the installed
-medical flow with `JA2_COOP_INVENTORY_DIAGNOSTIC=1` to qualify it. Transfer,
-ground pickup and drop still reject fire-ready poses and need the same review.
+medical flow with `JA2_COOP_INVENTORY_DIAGNOSTIC=1` to qualify it.
+
+Transfer, ground pickup and drop now share the same rule through
+`IsUnsettledFireReadyPose`: a fire-ready state is rejected unless it is one of
+the six settled aim poses, and out-of-range states fail closed. Pickup and drop
+have no animation; a transfer that touches a hand reuses the stock hand
+refresh. Fixtures cover every aim pose for both transfer roles, pickup at the
+same-height idle cost, drop at the stock cost, and rejection of unsettled
+fire-ready (`PUNCH_BREATH`, `KNIFE_BREATH`) and firing states.

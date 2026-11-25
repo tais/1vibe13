@@ -207,6 +207,28 @@ int main(int argc, char** argv)
 	receiver.animationActivity().nonInterruptible() = TRUE;
 	rejects("busy recipient cannot be interrupted by transfer");
 	receiver.animationActivity().nonInterruptible() = FALSE;
+	// Armed mercs settle into stationary aim poses after combat movement. Either
+	// role may be aiming; unsettled fire-ready and firing states still own the actor.
+	for (TacticalActor* aiming : {&sender, &receiver})
+	{
+		for (const UINT16 aim : {UINT16(AIM_RIFLE_STAND), UINT16(AIM_RIFLE_CROUCH), UINT16(AIM_RIFLE_PRONE),
+				UINT16(AIM_DUAL_STAND), UINT16(AIM_DUAL_CROUCH), UINT16(AIM_DUAL_PRONE)})
+		{
+			aiming->animationPlayback().state() = aim;
+			TransferInventoryItemCommand aimed;
+			CHECK(PrepareTransferInventoryItemCommand(from, to, BIGPOCK1POS, BIGPOCK2POS, aimed) &&
+				(aiming == &sender ? aimed.expectedAnimationState : aimed.expectedTargetAnimationState) == aim &&
+				aimed.expectedActionPointCost == command.expectedActionPointCost && unchanged() &&
+				sender.actionPoints().current() == 20 && receiver.actionPoints().current() == 20,
+				"settled aim pose prepares a pocket transfer for either role at the stock cost without effects");
+		}
+		for (const UINT16 busy : {UINT16(PUNCH_BREATH), UINT16(KNIFE_BREATH), UINT16(SHOOT_RIFLE_STAND)})
+		{
+			aiming->animationPlayback().state() = busy;
+			rejects("unsettled fire-ready and firing poses cannot transfer");
+		}
+		aiming->animationPlayback().state() = CROUCHING;
+	}
 	receiver.roster().team() = ENEMY_TEAM;
 	rejects("non-player recipient rejects");
 	receiver.roster().team() = OUR_TEAM;

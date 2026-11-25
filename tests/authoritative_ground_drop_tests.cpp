@@ -204,6 +204,28 @@ int main(int argc, char** argv)
 	source[0]->attachments.front().initialize();
 	actor.actionPoints().current() = 3; reject("insufficient combat AP never moves the stack"); actor.actionPoints().current() = 20;
 	actor.animationPlayback().state() = WALKING; reject("moving merc cannot drop a retained stack");
+	// Armed mercs settle into stationary aim poses after combat movement; the
+	// animation-free drop accepts them. Unsettled fire-ready and firing states do not.
+	{
+		const auto settled = CaptureInventorySwapObjectState(actorId, BIGPOCK2POS);
+		for (const UINT16 aim : {UINT16(AIM_RIFLE_STAND), UINT16(AIM_RIFLE_CROUCH), UINT16(AIM_RIFLE_PRONE),
+				UINT16(AIM_DUAL_STAND), UINT16(AIM_DUAL_CROUCH), UINT16(AIM_DUAL_PRONE)})
+		{
+			actor.animationPlayback().state() = aim;
+			AuthoritativeDropInventoryItemCommand aimed;
+			CHECK(PrepareAuthoritativeDropInventoryItemCommand(actorId, BIGPOCK2POS, aimed) &&
+				aimed.expectedAnimationState == aim &&
+				aimed.expectedActionPointCost == command.expectedActionPointCost &&
+				CaptureInventorySwapObjectState(actorId, BIGPOCK2POS) == settled &&
+				actor.actionPoints().current() == 20 && GetJa2TacticalWorldItemDirectory().activeCount() == 0,
+				"settled aim pose prepares a pocket drop at the stock cost without effects");
+		}
+		for (const UINT16 busy : {UINT16(PUNCH_BREATH), UINT16(KNIFE_BREATH), UINT16(SHOOT_RIFLE_STAND)})
+		{
+			actor.animationPlayback().state() = busy;
+			reject("unsettled fire-ready and firing poses cannot drop");
+		}
+	}
 	actor.animationPlayback().state() = CROUCHING;
 	auto stale = command; ++stale.sourceStateFingerprint;
 	CHECK(dispatch(stale).status == SimulationCommandDispatchStatus::Discarded, "stale source proof rejects");
