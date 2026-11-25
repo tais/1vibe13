@@ -4798,7 +4798,12 @@ require_ordered_fragments(coop_give_handle_items_source
   "DedicatedCoopGiveReturnsToGiver() && pendingObject && pendingObject->exists()"
   "AutoPlaceObject(pSoldier, pendingObject, FALSE)"
   "AddItemToPool(pSoldier->position().gridNo(), pendingObject"
-  "pSoldier->pendingItem().clearObject();")
+  "pSoldier->pendingItem().clearObject();"
+  "pSoldier->pendingAction().action() == MERC_GIVEITEM"
+  "pSoldier->pendingAction().clearAction();"
+  "InitiateConversation( pTSoldier, pSoldier, APPROACH_GIVINGITEM"
+  "DedicatedCoopGiveReturnsToGiver() && pSoldier->pendingAction().action() == MERC_GIVEITEM"
+  "pSoldier->pendingAction().clearAction();")
 file(READ "${SOURCE_ROOT}/TacticalAI/NPC.cpp" coop_give_npc_source)
 require_ordered_fragments(coop_give_npc_source
   "A refused item must never reach a server-side item cursor in dedicated co-op"

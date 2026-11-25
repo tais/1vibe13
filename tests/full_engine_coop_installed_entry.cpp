@@ -66,6 +66,10 @@
 
 extern BOOLEAN gfProgramIsRunning, gfDedicatedServerProcessFailed;
 extern BOOLEAN fInMapMode, gfProcessingGameEvents;
+// NPC.cpp's quote table and loader (not exported by NPC.h); fixture-only reads.
+extern NPCQuoteInfo* gpNPCQuoteInfoArray[NUM_PROFILES];
+BOOLEAN EnsureQuoteFileLoaded(UINT8 ubNPC);
+
 namespace
 {
 CoopSession::CoopCampaignGroups preparedObservation;
@@ -228,6 +232,24 @@ void PollConversationExperiment()
 				int(npc->position().gridNo()), int(npc->position().level()));
 			std::fflush(stdout);
 		}
+	}
+	// One-shot dump of Fatima's quote records (waypoints, required grids, facts,
+	// actions) so probes can follow her scripted lead. Fixture-only.
+	static bool dumped = false;
+	if (!dumped && CaptureJa2TacticalWorld().loaded && EnsureQuoteFileLoaded(101) && gpNPCQuoteInfoArray[101])
+	{
+		dumped = true;
+		for (unsigned r = 0; r < NUM_NPC_QUOTE_RECORDS; ++r)
+		{
+			const NPCQuoteInfo& q = gpNPCQuoteInfoArray[101][r];
+			if (!q.ubQuoteNum && !q.ubNumQuotes && !q.sActionData && !q.usGoToGridNo) continue;
+			std::printf("[co-op entry test] npc-record 101#%u flags=%u reqItem=%d reqGrid=%d factTrue=%u factFalse=%u approach=%u "
+				"quote=%u+%u trigger=%u#%u setFact=%u gift=%u goto=%d action=%d\n", r, unsigned(q.fFlags), int(q.sRequiredItem),
+				int(q.sRequiredGridNo), unsigned(q.usFactMustBeTrue), unsigned(q.usFactMustBeFalse), unsigned(q.ubApproachRequired),
+				unsigned(q.ubQuoteNum), unsigned(q.ubNumQuotes), unsigned(q.ubTriggerNPC), unsigned(q.ubTriggerNPCRec),
+				unsigned(q.usSetFactTrue), unsigned(q.usGiftItem), int(q.usGoToGridNo), int(q.sActionData));
+		}
+		std::fflush(stdout);
 	}
 	static std::string last;
 	char line[700];

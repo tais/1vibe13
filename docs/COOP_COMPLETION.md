@@ -3562,9 +3562,24 @@ Two observations from repeated runs:
   paused in a secured sector. Talk and give first also required that no line
   be playing; single player refuses only while a talk panel is open (the stock
   conversation start queues behind chatter), so co-op now does the same.
+- After a completed give the spent `MERC_GIVEITEM` stayed pending (stock
+  clears it with the next UI command), and the co-op move gate refuses any
+  merc with a pending action, so the giver could never move again. In
+  dedicated co-op the give now clears its own spent action. The probe follows
+  Fatima after "Follow me" to prove it: the giver walks up to her and the stock
+  PC-near trigger leads her on (negative control: without the clear the walk is
+  refused and the probe fails there).
 - Two early anomalies (a give that never got a receipt, then five gives
   discarded exactly as under the negative control) were stale test hosts: the
   default `ninja` target does not relink `full_engine_coop_installed_entry`,
   so those runs used a server built before the give existed, then the control
   build. Probe binaries must be built by name. The give resolver also names
   each refusal stage under `JA2_COOP_INVENTORY_DIAGNOSTIC=1`.
+
+What comes next in Omerta, from Fatima's quote records (the test host prints
+them): she leads the squad across A9 (waiting at each waypoint for a merc to
+come near), walks off the east edge into A10 (`NPC_ACTION_TRAVERSE_MAP_EAST`),
+leads again through A10 where Dimitri and Carlos speak, and only then fires
+`NPC_ACTION_GOTO_HIDEOUT` at grid 8373. In one scratch run she stopped at her
+second A9 waypoint although a merc stood next to her; that is not understood
+yet.

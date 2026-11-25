@@ -302,6 +302,42 @@ def give_letter(probes, guard, timeout, evidence):
     return evidence
 
 
+def wait_npc_settled(server, npc_profile, timeout, quiet=4.0):
+    """Fixture position of the NPC once it has not changed for `quiet` seconds."""
+    deadline = time.monotonic() + timeout
+    last, since = fixture_npc_position(server, npc_profile), time.monotonic()
+    while time.monotonic() < deadline:
+        now = fixture_npc_position(server, npc_profile)
+        if now != last:
+            last, since = now, time.monotonic()
+        elif time.monotonic() - since >= quiet:
+            return last
+        time.sleep(0.2)
+    raise SmokeFailure(f"profile {npc_profile} never stood still")
+
+
+def follow_npc_once(probes, guard, server, npc_profile, timeout, evidence):
+    """After "Follow me": the giver (no longer locked by its spent give) walks
+    up to the NPC, and the stock PC-near trigger moves the NPC on."""
+    wait_conversations(probes, guard, lambda r: r[0]["conversation"] == 0, timeout, "the letter conversation ending")
+    waiting = wait_npc_settled(server, npc_profile, timeout)
+    evidence["lead_waypoint"] = waiting["grid"]
+    state = _states(probes, time.monotonic() + timeout, guard)[0]
+    selected = tuple(conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"])
+    merc = find_actor(state, lambda a: (a["slot"], a["inc"]) == selected)
+    if not merc:
+        raise SmokeFailure("the giver is not in the replicated sector")
+    evidence["followed_to"] = walk_into_talk_range(probes, guard, 0, merc, waiting, timeout)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        now = fixture_npc_position(server, npc_profile)
+        if now and now["grid"] != waiting["grid"]:
+            evidence["led_on"] = True
+            return evidence
+        time.sleep(0.2)
+    raise SmokeFailure(f"profile {npc_profile} did not move on when the giver came near")
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
@@ -348,11 +384,13 @@ def main(argv=None):
             evidence["acting_client"] = "client-a"
         talk_to_npc(probes, guard, server, FATIMA, timeout, evidence)
         give_letter(probes, guard, timeout, evidence)
+        follow_npc_once(probes, guard, server, FATIMA, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
-        print("PASS: Screen K opened Fatima's native conversation for client A, both replicas agreed on every line, "
-              "only A could answer, 1 advanced her line and Esc closed the panel on both.", flush=True)
+        print("PASS: K opened Fatima's conversation on both replicas (only the initiator answers), 1 advanced and "
+              "Esc closed it; the letter holder gave her Enrico's letter, she read it and led on when followed.",
+              flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)

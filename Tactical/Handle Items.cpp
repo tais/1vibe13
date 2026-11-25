@@ -5739,6 +5739,8 @@ void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 			!AutoPlaceObject(pSoldier, pendingObject, FALSE))
 			AddItemToPool(pSoldier->position().gridNo(), pendingObject, 1, pSoldier->position().level(), 0, -1);
 		pSoldier->pendingItem().clearObject();
+		if (DedicatedCoopGiveReturnsToGiver() && pSoldier->pendingAction().action() == MERC_GIVEITEM)
+			pSoldier->pendingAction().clearAction();
 		pSoldier->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
 		if (pTSoldier)
 			pTSoldier->status().flags() &=
@@ -5920,6 +5922,9 @@ void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 	pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 	if (pTSoldier)
 		pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+	// The spent give would otherwise stay pending and refuse co-op commands.
+	if (DedicatedCoopGiveReturnsToGiver() && pSoldier->pendingAction().action() == MERC_GIVEITEM)
+		pSoldier->pendingAction().clearAction();
 
 }
 
