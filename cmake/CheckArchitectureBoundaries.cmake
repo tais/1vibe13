@@ -4727,7 +4727,7 @@ extract_brace_bounded_slice(coop_conversation_source
 require_ordered_fragments(coop_conversation_talk_slice
   "Talk preflight lost its peaceful, idle-panel, exact-pair or stock-radius checks"
   "if (IsJa2TacticalCombatActive()) return Code::CombatActive;"
-  "if (gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty()) return Code::PanelBusy;"
+  "if (gfInTalkPanel) return Code::PanelBusy;"
   "merc->roster().team() != OUR_TEAM"
   "npc->roster().team() == OUR_TEAM || npc->identity().profile() == NO_PROFILE"
   "PythSpacesAway(merc->position().gridNo(), npc->position().gridNo()) > NPC_TALK_RADIUS"
@@ -4775,9 +4775,9 @@ extract_brace_bounded_slice(coop_conversation_command_source
   coop_give_resolve_slice "Cannot bound give-to-NPC resolver")
 require_ordered_fragments(coop_give_resolve_slice
   "Give-to-NPC lost its peaceful idle-panel, exact proof, NPC or adjacency checks"
-  "IsJa2TacticalCombatActive() || gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty()"
-  "CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint"
-  "CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint"
+  "if (IsJa2TacticalCombatActive() || gfInTalkPanel) return fail(\"give-combat-or-panel\");"
+  "if (actorState != command.expectedActorStateFingerprint)"
+  "objectState != command.sourceStateFingerprint"
   "target->roster().team() == OUR_TEAM"
   "IsMercADealer(target->identity().profile()) || RPC_RECRUITED(target)"
   "target->position().gridNo() != command.expectedTargetGrid"

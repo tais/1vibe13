@@ -15,8 +15,9 @@ bool DedicatedCoopTalkPanelOpen() noexcept;
 
 struct StartConversationCommand;
 
-// Preflight for a co-op Talk intent: peaceful realtime (no combat), no talk
-// panel or dialogue in progress, an exact controllable merc and an exact
+// Preflight for a co-op Talk intent: peaceful realtime (no combat), no open
+// talk panel (merc chatter may play; the stock start queues behind it), an
+// exact controllable merc and an exact
 // non-player NPC on the same level within the stock talk radius. Fills the
 // native StartConversationCommand on success.
 enum class DedicatedCoopTalkCode : std::uint8_t

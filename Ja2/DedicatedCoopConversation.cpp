@@ -62,7 +62,7 @@ DedicatedCoopTalkCode PrepareDedicatedCoopTalk(TacticalEntityId actor, TacticalE
 	using Code = DedicatedCoopTalkCode;
 	if (!IsJa2TacticalWorldLoaded()) return Code::WorldUnavailable;
 	if (IsJa2TacticalCombatActive()) return Code::CombatActive;
-	if (gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty()) return Code::PanelBusy;
+	if (gfInTalkPanel) return Code::PanelBusy;
 	TacticalActor* const merc = ResolveJa2TacticalEntity(actor);
 	if (!merc || !merc->roster().active() || !merc->roster().inSector() || merc->roster().team() != OUR_TEAM ||
 		merc->vitals().health() < OKLIFE || merc->identity().profile() == NO_PROFILE) return Code::ActorUnavailable;

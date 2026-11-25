@@ -3485,7 +3485,8 @@ Two tactical intents drive it:
 - `Talk` (kind 15, a 6-byte target identity). In the client, `K` addresses the
   nearest visible non-hostile NPC within the stock talk radius of the selected
   merc. The server preflights it with `PrepareDedicatedCoopTalk`: peaceful real
-  time (no combat), no panel or dialogue in progress, an exact controllable
+  time (no combat), no open talk panel (a merc's idle chatter does not block:
+  the stock start queues behind it), an exact controllable
   merc and an exact profiled NPC on the same level within `NPC_TALK_RADIUS`.
   It then retains the native `StartConversationCommand`. The requesting peer is
   remembered for exactly that merc/NPC pair and becomes the initiator when the
@@ -3529,7 +3530,7 @@ inventory, click the item, press `K`; the nearest visible NPC is the recipient.
 The server prepares `AuthoritativeGiveItemCommand` (journal tag 41) against
 the client's exact inventory revision, the merc's pose and fingerprints, the
 source object's fingerprint and the NPC's grid. At execution it re-checks all of
-it plus peaceful real time, an idle talk panel and adjacency, and refuses
+it plus peaceful real time, no open talk panel and adjacency, and refuses
 shopkeepers (their give opens the shop GUI, which co-op does not support yet)
 and recruited RPCs. Then it runs the stock path:
 
@@ -3561,3 +3562,13 @@ Two observations from repeated runs:
   all and the command stayed outstanding. It did not recur in twelve later give
   runs, traced at the host readiness gate (and, in the last four, the inbound
   backpressure gate), neither of which ever fired; the cause is unknown.
+- Merc chatter (a line playing with no talk panel open) is frequent while
+  paused in a secured sector. Talk and give first required total dialogue
+  silence and were then discarded at random; they now block only on an open
+  talk panel, as single player does.
+- Right after the give negative control, five consecutive runs (one alone,
+  four in parallel) got the same terminal Discarded receipt for the give that
+  the control produces. Fifteen runs since, from clean rebuilds, all passed;
+  a stale control build is the likely explanation but is not proven. The give
+  resolver now names each refusal stage under `JA2_COOP_INVENTORY_DIAGNOSTIC=1`
+  so a recurrence says why.

@@ -1428,49 +1428,80 @@ namespace
 		return true;
 	}
 
-	// Peaceful stock give-to-NPC: every proof of the prepared command, an idle
-	// talk panel, and an exact adjacent profiled non-player NPC who is neither a
+	// Peaceful stock give-to-NPC: every proof of the prepared command, no open
+	// talk panel (merc chatter may be playing; stock gives start or queue their
+	// conversation behind it), and an exact adjacent profiled non-player NPC who is neither a
 	// shopkeeper (their give opens the shop GUI) nor a recruited RPC.
 	bool ResolveAuthoritativeGiveItem(const AuthoritativeGiveItemCommand& command,
 		TacticalActor*& actor, TacticalActor*& npc)
 	{
 		actor = npc = nullptr;
-		if (!IsStructurallyValidAuthoritativeGiveItemCommand(command) ||
-			!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr ||
-			IsJa2TacticalCombatActive() || gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty())
+		const TacticalActor* observed = nullptr;
+		// Opt-in (JA2_COOP_INVENTORY_DIAGNOSTIC=1) scalar trace of the first
+		// refused stage; never changes the outcome.
+		const auto fail = [&](const char* stage, std::uint64_t expected = 0, std::uint64_t seen = 0) noexcept {
+			if (!DedicatedCoopInventoryDiagnosticEnabled()) return false;
+			DedicatedCoopInventoryDiagnostic value;
+			value.actorSlot = command.soldier.slot; value.incarnation = command.soldier.incarnation;
+			value.sourceSlot = command.sourceSlot; value.destinationSlot = command.target.slot;
+			value.world = command.expectedWorldGeneration; value.turn = command.expectedTurnSerial;
+			value.expected = expected; value.observed = seen;
+			if (observed)
+			{
+				value.actorObserved = true;
+				value.grid = observed->position().gridNo();
+				value.animation = observed->animationPlayback().state();
+				value.direction = observed->position().direction();
+				value.desiredDirection = observed->pathing().desiredDirection();
+				value.otherFlags = static_cast<std::uint32_t>(observed->status().flags() & 0xFFFFFFFFu);
+			}
+			TraceDedicatedCoopInventoryRejection(stage, value);
 			return false;
+		};
+		if (!IsStructurallyValidAuthoritativeGiveItemCommand(command)) return fail("give-structure");
+		if (!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr) return fail("give-context");
+		if (IsJa2TacticalCombatActive() || gfInTalkPanel) return fail("give-combat-or-panel");
 		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
 		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
-			identity.serial != command.expectedTurnSerial) return false;
+			identity.serial != command.expectedTurnSerial)
+			return fail("give-world", command.expectedTurnSerial, identity ? identity.serial : 0);
 		TacticalActor* const live = ResolveCoopAuthorizedLegacyCommandActor(
 			command.soldier, command.source, command.authority);
+		observed = live;
 		const TacticalActor* const merc = live;
 		if (!live || live->identity().bodyType() > REGFEMALE || live->identity().profile() == NO_PROFILE ||
 			live->identity().profile() >= NUM_PROFILES || AM_AN_EPC(merc) ||
-			live->vitals().health() < OKLIFE || live->inventory().size() != NUM_INV_SLOTS ||
-			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
+			live->vitals().health() < OKLIFE || live->inventory().size() != NUM_INV_SLOTS) return fail("give-merc");
+		if (!FirstAidPoseReady(*live) || live->movement().waitAction() ||
 			(live->status().flags() & SOLDIER_ENGAGEDINACTION) != 0 ||
-			IsUnsettledFireReadyPose(live->animationPlayback().state()) ||
-			live->position().gridNo() != command.expectedActorGrid ||
+			IsUnsettledFireReadyPose(live->animationPlayback().state())) return fail("give-merc-busy");
+		if (live->position().gridNo() != command.expectedActorGrid ||
 			live->position().level() != command.expectedActorLevel ||
 			live->animationPlayback().state() != command.expectedAnimationState ||
-			live->position().direction() != command.expectedDirection ||
-			CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint) return false;
+			live->position().direction() != command.expectedDirection)
+			return fail("give-merc-pose", command.expectedAnimationState, live->animationPlayback().state());
+		const std::uint64_t actorState = CaptureInventorySwapActorState(*live);
+		if (actorState != command.expectedActorStateFingerprint)
+			return fail("give-merc-state", command.expectedActorStateFingerprint, actorState);
 		const OBJECTTYPE& source = live->inventory()[command.sourceSlot];
-		if (!source.exists() || CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint ||
-			!InventorySwapSlotAccessible(*live, command.sourceSlot, source)) return false;
+		const std::uint64_t objectState = source.exists() ? CaptureOrdinaryInventoryObject(source) : 0;
+		if (!source.exists() || objectState != command.sourceStateFingerprint ||
+			!InventorySwapSlotAccessible(*live, command.sourceSlot, source))
+			return fail("give-source", command.sourceStateFingerprint, objectState);
 		TacticalActor* const target = ResolveLiveCommandActor(command.target);
 		if (!target || target == live || !target->roster().active() || !target->roster().inSector() ||
 			target->roster().team() == OUR_TEAM || target->identity().profile() == NO_PROFILE ||
 			target->identity().profile() >= NUM_PROFILES || target->vitals().health() < OKLIFE ||
-			IsMercADealer(target->identity().profile()) || RPC_RECRUITED(target) ||
-			(target->status().flags() & SOLDIER_ENGAGEDINACTION) != 0 ||
+			IsMercADealer(target->identity().profile()) || RPC_RECRUITED(target)) return fail("give-npc");
+		observed = target;
+		if ((target->status().flags() & SOLDIER_ENGAGEDINACTION) != 0 ||
 			target->position().level() != live->position().level() ||
-			target->position().gridNo() != command.expectedTargetGrid) return false;
+			target->position().gridNo() != command.expectedTargetGrid)
+			return fail("give-npc-busy", command.expectedTargetGrid, target->position().gridNo());
 		UINT8 direction = 0;
 		INT32 adjusted = 0;
 		if (FindAdjacentGridEx(live, target->position().gridNo(), &direction, &adjusted, TRUE, FALSE) !=
-			live->position().gridNo()) return false;
+			live->position().gridNo()) return fail("give-not-adjacent");
 		actor = live;
 		npc = target;
 		return true;
@@ -2241,6 +2272,14 @@ namespace
 				if (merc->pendingAction().action() != MERC_GIVEITEM || !merc->pendingItem().object() ||
 					!merc->pendingItem().object()->exists())
 				{
+					if (DedicatedCoopInventoryDiagnosticEnabled())
+					{
+						DedicatedCoopInventoryDiagnostic trace;
+						trace.actorSlot = value.soldier.slot; trace.incarnation = value.soldier.incarnation;
+						trace.sourceSlot = value.sourceSlot; trace.destinationSlot = value.target.slot;
+						trace.observed = merc->pendingAction().action();
+						TraceDedicatedCoopInventoryRejection("give-no-pending-give", trace);
+					}
 					merc->pendingAction().clearAction();
 					merc->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
 					npc->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
