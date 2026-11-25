@@ -102,6 +102,76 @@ def actor_of(state, identity):
     return matches[0] if len(matches) == 1 else None
 
 
+def travel_and_enter_a10(probes, guard, server, clients, run, timeout, evidence):
+    """After a shared return from A9: travel the squad to A10 through Screen
+    input (non-leader orders, leader runs time) and enter it, peacefully or by
+    winning its native battle (seeded). Returns fresh probes once A10 is
+    secured for peaceful play."""
+    # 2. Travel A9 -> A10 (any player), the time leader advances time.
+    initial = wait_shared(probes, guard, timeout, lambda snapshot: snapshot["campaign"][0]["phase"] == 2)
+    leader = next(index for index, value in enumerate(initial["campaign"]) if value["local_leader"])
+    follower = 1 - leader
+    deadline = time.monotonic() + timeout
+    selected = wait_ui(probes[follower], deadline, guard,
+                       lambda value: value["ready"] and value["enabled"] and value["selected"] != [0, 0])
+    identity = selected["selected"]
+    scoped_input(probes[follower], selected, 6, deadline, guard)
+    destination = wait_ui(probes[follower], deadline, guard, lambda value: value["ready"] and value["destination"] == [10, 1])
+    earlier = (destination["action_result"] or {}).get("request_id", 0)
+    scoped_input(probes[follower], destination, 7, deadline, guard)
+    # The client keeps its last receipt (the earlier return) across re-admission.
+    travelled = wait_ui(probes[follower], deadline, guard,
+                        lambda value: not value["action_pending"] and value["action_result"] is not None and
+                        value["action_result"]["request_id"] > earlier)
+    require_applied(travelled["action_result"], destination, 1, identity, [10, 1])
+    _, running = apply_time(probes[leader], 16, 4, time.monotonic() + timeout, guard)
+
+    def at_a10(snapshot):
+        group = group_with_id(snapshot, identity)
+        return group["x"] == 10 and group["y"] == 1 and not group["between"]
+    reached = wait_shared(probes, guard, timeout,
+                          lambda snapshot: snapshot["campaign"][0]["arrival"]["stage"] == 2 or
+                          (at_a10(snapshot) and not snapshot["campaign"][0]["arrival"]["decision"]))
+    arrival = reached["campaign"][0]["arrival"]
+    previous = max(_secured_marker_sectors(server))
+    counts = tactical_counts(server, clients)
+    if arrival["decision"]:
+        # 3a. A hostile A10: enter its native battle and win it (seeded).
+        if (arrival["x"], arrival["y"], arrival["z"]) != (10, 1, 0) or arrival["kind"] != 3:
+            raise SmokeFailure("travel reached an unexpected native arrival decision")
+        print("Squad travelled A9 -> A10; the native battle decision is prepared on both clients.", flush=True)
+        deadline = time.monotonic() + timeout
+        entry = wait_ui(probes[follower], deadline, guard,
+                        lambda value: value["ready"] and value["enabled"] and value["decision"] == arrival["decision"])
+        scoped_input(probes[follower], entry, 11, deadline, guard)
+        wait_tactical(server, clients, counts, timeout)
+        evidence["a10_battle_entered"] = True
+        probes = [_Probe(client) for client in clients]
+        evidence["a10_trigger"] = seed_victory(run / "server", _states(probes, time.monotonic() + timeout, guard), 2)
+    else:
+        # 3b. A peaceful A10: the leader pauses, then any player enters it (E + Enter).
+        print("Squad travelled A9 -> A10 and arrived peacefully; entering the sector from the map.", flush=True)
+        apply_time(probes[leader], 13, 1, time.monotonic() + timeout, guard, running["time_result"]["request_id"])
+        deadline = time.monotonic() + timeout
+        enter_ui = wait_ui(probes[follower], deadline, guard,
+                           lambda value: value["ready"] and value["enabled"] and value["decision"] == 0 and
+                           value["selected"] == identity and not value["action_pending"])
+        scoped_input(probes[follower], enter_ui, 11, deadline, guard)
+        armed_ui = wait_ui(probes[follower], deadline, guard, lambda value: value["ready"] and value["enter_armed"])
+        scoped_input(probes[follower], armed_ui, 7, deadline, guard)
+        wait_for_marker(server, "[dedicated] peaceful sector entered (10,1,0)", timeout)
+        wait_tactical(server, clients, counts, timeout)
+        evidence["a10_entered_peacefully"] = True
+        probes = [_Probe(client) for client in clients]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and not [v for v in _secured_marker_sectors(server) if v > previous]:
+        guard()
+        time.sleep(0.1)
+    if not [v for v in _secured_marker_sectors(server) if v > previous]:
+        raise SmokeFailure("A10 was not secured for peaceful play")
+    return probes
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, shipping, client_exe = (path.resolve(strict=True) for path in
@@ -146,68 +216,7 @@ def main(argv=None):
         guard = qualification_guard(server, clients, planned_reconnects=1)
         probes = [_Probe(client) for client in clients]
 
-        # 2. Travel A9 -> A10 (any player), the time leader advances time.
-        initial = wait_shared(probes, guard, timeout, lambda snapshot: snapshot["campaign"][0]["phase"] == 2)
-        leader = next(index for index, value in enumerate(initial["campaign"]) if value["local_leader"])
-        follower = 1 - leader
-        deadline = time.monotonic() + timeout
-        selected = wait_ui(probes[follower], deadline, guard,
-                           lambda value: value["ready"] and value["enabled"] and value["selected"] != [0, 0])
-        identity = selected["selected"]
-        scoped_input(probes[follower], selected, 6, deadline, guard)
-        destination = wait_ui(probes[follower], deadline, guard, lambda value: value["ready"] and value["destination"] == [10, 1])
-        earlier = (destination["action_result"] or {}).get("request_id", 0)
-        scoped_input(probes[follower], destination, 7, deadline, guard)
-        # The client keeps its last receipt (the earlier return) across re-admission.
-        travelled = wait_ui(probes[follower], deadline, guard,
-                            lambda value: not value["action_pending"] and value["action_result"] is not None and
-                            value["action_result"]["request_id"] > earlier)
-        require_applied(travelled["action_result"], destination, 1, identity, [10, 1])
-        _, running = apply_time(probes[leader], 16, 4, time.monotonic() + timeout, guard)
-
-        def at_a10(snapshot):
-            group = group_with_id(snapshot, identity)
-            return group["x"] == 10 and group["y"] == 1 and not group["between"]
-        reached = wait_shared(probes, guard, timeout,
-                              lambda snapshot: snapshot["campaign"][0]["arrival"]["stage"] == 2 or
-                              (at_a10(snapshot) and not snapshot["campaign"][0]["arrival"]["decision"]))
-        arrival = reached["campaign"][0]["arrival"]
-        previous = max(_secured_marker_sectors(server))
-        counts = tactical_counts(server, clients)
-        if arrival["decision"]:
-            # 3a. A hostile A10: enter its native battle and win it (seeded).
-            if (arrival["x"], arrival["y"], arrival["z"]) != (10, 1, 0) or arrival["kind"] != 3:
-                raise SmokeFailure("travel reached an unexpected native arrival decision")
-            print("Squad travelled A9 -> A10; the native battle decision is prepared on both clients.", flush=True)
-            deadline = time.monotonic() + timeout
-            entry = wait_ui(probes[follower], deadline, guard,
-                            lambda value: value["ready"] and value["enabled"] and value["decision"] == arrival["decision"])
-            scoped_input(probes[follower], entry, 11, deadline, guard)
-            wait_tactical(server, clients, counts, timeout)
-            evidence["a10_battle_entered"] = True
-            probes = [_Probe(client) for client in clients]
-            evidence["a10_trigger"] = seed_victory(run / "server", _states(probes, time.monotonic() + timeout, guard), 2)
-        else:
-            # 3b. A peaceful A10: the leader pauses, then any player enters it (E + Enter).
-            print("Squad travelled A9 -> A10 and arrived peacefully; entering the sector from the map.", flush=True)
-            apply_time(probes[leader], 13, 1, time.monotonic() + timeout, guard, running["time_result"]["request_id"])
-            deadline = time.monotonic() + timeout
-            enter_ui = wait_ui(probes[follower], deadline, guard,
-                               lambda value: value["ready"] and value["enabled"] and value["decision"] == 0 and
-                               value["selected"] == identity and not value["action_pending"])
-            scoped_input(probes[follower], enter_ui, 11, deadline, guard)
-            armed_ui = wait_ui(probes[follower], deadline, guard, lambda value: value["ready"] and value["enter_armed"])
-            scoped_input(probes[follower], armed_ui, 7, deadline, guard)
-            wait_for_marker(server, "[dedicated] peaceful sector entered (10,1,0)", timeout)
-            wait_tactical(server, clients, counts, timeout)
-            evidence["a10_entered_peacefully"] = True
-            probes = [_Probe(client) for client in clients]
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline and not [v for v in _secured_marker_sectors(server) if v > previous]:
-            guard()
-            time.sleep(0.1)
-        if not [v for v in _secured_marker_sectors(server) if v > previous]:
-            raise SmokeFailure("A10 was not secured for peaceful play")
+        probes = travel_and_enter_a10(probes, guard, server, clients, run, timeout, evidence)
         exits = exit_grids(server, (10, 1, 1))
         evidence["exit_grid_available"] = bool(exits)
         if not exits:

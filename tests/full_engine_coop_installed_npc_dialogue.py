@@ -16,9 +16,9 @@ import tempfile
 import time
 
 from full_engine_coop_installed_campaign import qualification_guard
-from full_engine_coop_installed_exit_grid import seed_victory
+from full_engine_coop_installed_exit_grid import seed_victory, travel_and_enter_a10, wait_count
 from full_engine_coop_installed_movement import _Probe, _states
-from full_engine_coop_installed_peaceful_sector import _secured_marker_sectors
+from full_engine_coop_installed_peaceful_sector import _secured_marker_sectors, return_from_secured_sector
 from full_engine_coop_installed_process_smoke import (
     READY_MARKER, TACTICAL_PRESENTATION_READY_MARKER, TACTICAL_SERVER_MARKER, ProcessSupervisor, SmokeFailure,
     client_command, free_loopback_port, installed_content_roots, log_text, make_private_directory, make_run_root,
@@ -338,6 +338,60 @@ def follow_npc_once(probes, guard, server, npc_profile, timeout, evidence):
     raise SmokeFailure(f"profile {npc_profile} did not move on when the giver came near")
 
 
+TRAVERSE_EAST = 5  # QUOTE_ACTION_ID_TRAVERSE_EAST
+CHECKPOINT_MARKER = "[dedicated] post-combat strategic checkpoint committed"
+
+
+def npc_lead(server, npc_profile):
+    """The test host's latest scripted-lead line for the NPC, as a dict."""
+    prefix = f"[co-op entry test] npc-lead {npc_profile} "
+    lines = [line for line in log_text(server).splitlines() if line.startswith(prefix)]
+    if not lines:
+        return None
+    return {key: int(value) for key, value in (part.split("=", 1) for part in lines[-1][len(prefix):].split())}
+
+
+def follow_into_a10(probes, guard, server, clients, run, timeout, evidence):
+    """Fatima's lead ends at A9's east side tagged to traverse east: the squad
+    returns to the map, travels to A10 and enters it, and she must be there."""
+    evidence["waypoints"] = []
+    for _ in range(6):
+        waiting = wait_npc_settled(server, FATIMA, timeout)
+        lead = npc_lead(server, FATIMA)
+        if lead and lead["action"] == TRAVERSE_EAST:
+            break
+        # Each waypoint waits for a merc within twice the talk radius.
+        state = _states(probes, time.monotonic() + timeout, guard)[0]
+        selected = tuple(conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"])
+        merc = find_actor(state, lambda a: (a["slot"], a["inc"]) == selected)
+        evidence["waypoints"].append([waiting["grid"], walk_into_talk_range(probes, guard, 0, merc, waiting, timeout)])
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            lead = npc_lead(server, FATIMA)
+            if lead and (lead["action"] == TRAVERSE_EAST or lead["grid"] != waiting["grid"]):
+                break
+            time.sleep(0.2)
+    else:
+        raise SmokeFailure("Fatima was never tagged to traverse east")
+    evidence["traverse_east_at"] = lead["grid"]
+    checkpoints = log_text(server).count(CHECKPOINT_MARKER)
+    evidence["a9_return"] = return_from_secured_sector(probes, guard, server, timeout)
+    wait_count(server, CHECKPOINT_MARKER, checkpoints + 1, timeout)
+    guard = qualification_guard(server, clients, planned_reconnects=1)
+    probes = [_Probe(client) for client in clients]
+    probes = travel_and_enter_a10(probes, guard, server, clients, run, timeout, evidence)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        lead = npc_lead(server, FATIMA)
+        if lead and lead["grid"] != evidence["traverse_east_at"]:
+            break
+        time.sleep(0.3)
+    else:
+        raise SmokeFailure("Fatima did not arrive in A10 with the squad")
+    evidence["a10_fatima"] = lead
+    return probes, guard
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
@@ -385,12 +439,14 @@ def main(argv=None):
         talk_to_npc(probes, guard, server, FATIMA, timeout, evidence)
         give_letter(probes, guard, timeout, evidence)
         follow_npc_once(probes, guard, server, FATIMA, timeout, evidence)
+        ordered = [probe.managed for probe in probes]
+        probes, guard = follow_into_a10(probes, guard, server, ordered, run / "server", timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
         print("PASS: K opened Fatima's conversation on both replicas (only the initiator answers), 1 advanced and "
-              "Esc closed it; the letter holder gave her Enrico's letter, she read it and led on when followed.",
-              flush=True)
+              "Esc closed it; the letter holder gave her Enrico's letter, she led the squad across A9, and after a "
+              "shared return, travel and peaceful entry she was waiting in A10.", flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)

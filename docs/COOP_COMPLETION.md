@@ -3576,10 +3576,33 @@ Two observations from repeated runs:
   build. Probe binaries must be built by name. The give resolver also names
   each refusal stage under `JA2_COOP_INVENTORY_DIAGNOSTIC=1`.
 
-What comes next in Omerta, from Fatima's quote records (the test host prints
-them): she leads the squad across A9 (waiting at each waypoint for a merc to
-come near), walks off the east edge into A10 (`NPC_ACTION_TRAVERSE_MAP_EAST`),
-leads again through A10 where Dimitri and Carlos speak, and only then fires
-`NPC_ACTION_GOTO_HIDEOUT` at grid 8373. In one scratch run she stopped at her
-second A9 waypoint although a merc stood next to her; that is not understood
-yet.
+## Phase 2.4a: following Fatima into A10
+
+Fatima's quote records (the test host prints them) script the rest of the
+Omerta opening. After "Follow me" she walks a chain of waypoints in A9; at each
+she waits until a merc is within twice the talk radius (`PCsNearNPC`, the
+stock named-NPC AI). Her last A9 record tags her `QUOTE_ACTION_ID_TRAVERSE_EAST`:
+she does not walk off the map herself; when the squad leaves the sector, the
+stock unload (`HandleDefiniteUnloadingOfWorld` -> `HandleNPCChangesForTacticalTraversal`)
+moves her profile one sector east. The co-op unload wrappers run that same
+native unload, so co-op needs nothing new for the crossing: the players return
+to the map, travel to A10 and enter it peacefully, and she is there, back on
+her script (her done-traversal record waits for a merc again).
+
+An earlier note called her stop at the second A9 waypoint "not understood":
+that is this design, not a stall.
+
+Installed evidence (`full_engine_coop_installed_npc_dialogue.py`, extended):
+after the letter the giver follows Fatima across her A9 waypoints until she is
+tagged to traverse east; the squad returns through `W` + `Enter`, the
+non-leader orders A9 -> A10, the leader runs time, `E` + `Enter` enters A10,
+and Fatima is standing at her A10 entry grid (17806). The A9 -> A10 travel and
+entry steps are now a shared helper (`travel_and_enter_a10`), also used by the
+exit-grid probe, which still passes.
+
+What remains in the opening: she leads on through A10 (17188, 11911, 9177),
+Dimitri and Carlos speak (conversations opened by NPCs, which any owner of the
+addressed merc may answer), and at grid 8373 she fires `NPC_ACTION_GOTO_HIDEOUT`.
+Natively that action moves the current squad with `SetGroupSectorValue` and
+fades into the basement, outside co-op control; it must become a co-op
+traversal before the probe goes further.

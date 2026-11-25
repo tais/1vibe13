@@ -10,6 +10,7 @@
 #include "Exit Grids.h"
 #include "TacticalActorInteractions.h"
 #include "NPC.h"
+#include "ai.h"
 #include "interface Dialogue.h"
 #include "Isometric Utils.h"
 #include "DedicatedServerOptions.h"
@@ -226,6 +227,20 @@ void PollConversationExperiment()
 			const unsigned profile = npc->identity().profile();
 			if (profile == NO_PROFILE || profile >= reported.size()) continue;
 			const std::int32_t where = npc->position().gridNo() * 2 + (npc->position().level() ? 1 : 0);
+			if (profile == 101)
+			{
+				// Fatima's scripted lead: pending record, its action and the
+				// nearest merc, on change (fixture-only diagnostics).
+				static std::string lastLead;
+				INT32 distance = -1;
+				TacticalActor* const mutableNpc = GetJa2SoldierRepository().resolve(id);
+				const INT32 closest = mutableNpc ? ClosestPC(mutableNpc, &distance) : -1;
+				char lead[200];
+				std::snprintf(lead, sizeof(lead), "grid=%d record=%d action=%d every-frame=%d closest=%d distance=%d",
+					int(npc->position().gridNo()), int(npc->dialogue().quoteRecord()), int(npc->dialogue().quoteActionId()),
+					int((npc->aiBehavior().flags() & AI_HANDLE_EVERY_FRAME) != 0), int(closest), int(distance));
+				if (lastLead != lead) { lastLead = lead; std::printf("[co-op entry test] npc-lead 101 %s\n", lead); std::fflush(stdout); }
+			}
 			if (reported[profile] == where) continue;
 			reported[profile] = where;
 			std::printf("[co-op entry test] npc profile=%u grid=%d level=%d\n", unsigned(profile),
