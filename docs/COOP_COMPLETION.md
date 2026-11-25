@@ -3636,6 +3636,17 @@ starts the welcome, and both clients show Carlos's conversation ("Do not move
 and no one will die."). Negative control: with the deferral disabled the native
 cutscene runs, the clients lose their world and the probe fails.
 
-Next in the opening: Miguel reads the letter (Fatima's `NPC_ACTION_FATIMA_GIVE_LETTER`
-hands it to him NPC to NPC) and the basement conversations follow, which sets
-`FACT_MIGUEL_READ_LETTER` and unlocks Omerta loyalty and militia training.
+## Phase 2.4c: Miguel reads the letter
+
+No new authority code: after Carlos's welcome the stock basement chain plays
+by itself. Carlos, Dimitri, Fatima, Carlos and Miguel each open a conversation
+(NPC-opened panels, answerable only by the owner of the addressed merc), every
+line is spoken on both replicas and each panel closes on its own; Fatima's
+`NPC_ACTION_FATIMA_GIVE_LETTER` hands the letter to Miguel NPC to NPC through
+the stock give, and he reads it, setting `FACT_MIGUEL_READ_LETTER`. That fact
+is what lets Omerta's loyalty rise and militia training start (Phase 3).
+
+Installed evidence: the dialogue probe now ends when the test host reports
+fact 23 set, after "I do not... Let me see this letter." and Fatima's "Here...".
+The whole Omerta opening, from the first word to Fatima to Miguel reading the
+letter, now runs through co-op Screen input on the dedicated server.

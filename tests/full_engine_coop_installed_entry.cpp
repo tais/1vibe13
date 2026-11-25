@@ -266,6 +266,14 @@ void PollConversationExperiment()
 		}
 		std::fflush(stdout);
 	}
+	// Omerta opening facts on change (letter, lead, basement, Miguel), fixture-only.
+	{
+		static std::string lastFacts;
+		std::string facts;
+		for (const unsigned fact : {13u, 14u, 15u, 16u, 19u, 20u, 22u, 23u, 25u})
+			facts += " " + std::to_string(fact) + "=" + std::to_string(gubFact[fact] ? 1 : 0);
+		if (facts != lastFacts) { lastFacts = facts; std::printf("[co-op entry test] facts%s\n", facts.c_str()); std::fflush(stdout); }
+	}
 	static std::string last;
 	char line[700];
 	char quote[200] = {};

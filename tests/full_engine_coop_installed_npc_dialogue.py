@@ -458,6 +458,37 @@ def follow_to_hideout(probes, guard, server, clients, timeout, evidence):
     return probes, guard
 
 
+FACT_MIGUEL_READ_LETTER = 23
+
+
+def fixture_fact(server, fact):
+    """The test host's latest value for one logged Omerta fact, or None."""
+    lines = [line for line in log_text(server).splitlines() if line.startswith("[co-op entry test] facts ")]
+    if not lines:
+        return None
+    values = dict(part.split("=", 1) for part in lines[-1][len("[co-op entry test] facts "):].split())
+    return values.get(str(fact)) == "1"
+
+
+def miguel_reads_letter(probes, guard, server, timeout, evidence):
+    """The basement conversations play through on their own (each NPC line
+    opens, is spoken on both replicas and closes); Fatima hands Miguel the
+    letter NPC to NPC and he reads it, setting FACT_MIGUEL_READ_LETTER."""
+    evidence["basement_lines"] = []
+    deadline = time.monotonic() + 2 * timeout
+    while not fixture_fact(server, FACT_MIGUEL_READ_LETTER):
+        if time.monotonic() > deadline:
+            raise SmokeFailure(f"Miguel never read the letter; lines={evidence['basement_lines']}")
+        records = conversations(probes, guard, time.monotonic() + timeout)
+        if all(record["ready"] for record in records) and records[0]["conversation"]:
+            line = [records[0]["npc_profile"], quote_text(records[0])]
+            if line[1] and (not evidence["basement_lines"] or evidence["basement_lines"][-1] != line):
+                evidence["basement_lines"].append(line)
+        time.sleep(0.3)
+    evidence["miguel_read_letter"] = True
+    return evidence
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
@@ -508,13 +539,15 @@ def main(argv=None):
         ordered = [probe.managed for probe in probes]
         probes, guard = follow_into_a10(probes, guard, server, ordered, run / "server", timeout, evidence)
         probes, guard = follow_to_hideout(probes, guard, server, ordered, timeout, evidence)
+        miguel_reads_letter(probes, guard, server, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
         print("PASS: K opened Fatima's conversation on both replicas (only the initiator answers), 1 advanced and "
               "Esc closed it; the letter holder gave her Enrico's letter, she led the squad across A9, and after a "
               "shared return, travel and peaceful entry she led it through A10 until her hideout action took the squad down "
-              "into Miguel's basement through the checkpointed co-op traversal, where Carlos welcomed it.", flush=True)
+              "into Miguel's basement through the checkpointed co-op traversal, where the basement conversations played "
+              "through and Miguel read Enrico's letter.", flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)
