@@ -615,6 +615,40 @@ void ReplyBattleNoticeInput(std::uint64_t request, const std::array<std::uint64_
 	FlushReply();
 }
 
+void ReplyReturnMapUi(std::uint64_t request) noexcept
+{
+	FullEngineCoopClientReturnToMapControls c;
+	const bool ready = CaptureFullEngineCoopClientReturnToMapControls(c);
+	std::printf("%s{\"request\":%llu,\"kind\":\"return_map_ui\",\"ready\":%s", ReplyPrefix,
+		static_cast<unsigned long long>(request), ready ? "true" : "false");
+	if (ready) std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"sector\":%u,\"armed\":%s,\"enabled\":%s,\"pending\":%s",
+		static_cast<unsigned long long>(c.sessionEpoch), static_cast<unsigned long long>(c.controlRevision),
+		static_cast<unsigned long long>(c.groupsRevision), static_cast<unsigned>(c.securedSector),
+		c.armed ? "true" : "false", c.enabled ? "true" : "false", c.pending ? "true" : "false");
+	std::fputs("}", stdout); FlushReply();
+}
+
+// Queues one shipping Screen key pair: 1 = W (arm), 2 = Enter (confirm), 3 = Esc.
+void ReplyReturnMapInput(std::uint64_t request, const std::array<std::uint64_t, 6>& values, unsigned& count) noexcept
+{
+	FullEngineCoopClientReturnToMapControls c;
+	if (count >= MaximumCampaignUiInputs || (GetCurrentScreen() != INIT_SCREEN && GetCurrentScreen() != GAME_SCREEN) ||
+		!CaptureFullEngineCoopClientReturnToMapControls(c) || !c.enabled || c.pending || GetInputQueueStatistics().queued ||
+		c.sessionEpoch != values[0] || c.controlRevision != values[1] || c.groupsRevision != values[2] ||
+		c.securedSector != values[3] || (c.armed ? 1u : 0u) != values[4] || !values[5] || values[5] > 3)
+	{ ReplyError(request, "return-to-map input requires the exact visible secured sector/confirmation and an idle input queue"); return; }
+	constexpr std::array<UINT32, 3> keys{{'w', ENTER, ESC}};
+	++count;
+	const auto before = GetInputQueueStatistics();
+	QueueEvent(KEY_DOWN, keys[values[5] - 1], 0); QueueEvent(KEY_UP, keys[values[5] - 1], 0);
+	const auto after = GetInputQueueStatistics();
+	if (after.accepted - before.accepted != 2 || after.queued != 2 || after.dropped != before.dropped || after.evictedForRelease != before.evictedForRelease)
+	{ ReplyError(request, "return-to-map key pair was not queued completely; input budget consumed"); return; }
+	std::printf("%s{\"request\":%llu,\"kind\":\"return_map_input\",\"queued\":true,\"key\":%u,\"queued_events\":2,\"input_count\":%u}",
+		ReplyPrefix, static_cast<unsigned long long>(request), static_cast<unsigned>(values[5]), count);
+	FlushReply();
+}
+
 void ReplySurrenderUi(std::uint64_t request) noexcept
 {
 	FullEngineCoopClientSurrenderControls c;
@@ -2243,6 +2277,24 @@ private:
 			}
 			if (!parsed || !cursor.exhausted()) ReplyError(request, "BATTLE_NOTICE_INPUT needs session/control/groups/notice/armed/key");
 			else ReplyBattleNoticeInput(request, values, campaignUiInputs_);
+			return;
+		}
+		if (operation == "RETURN_MAP_UI")
+		{
+			if (!cursor.exhausted()) ReplyError(request, "RETURN_MAP_UI takes only a request id");
+			else ReplyReturnMapUi(request);
+			return;
+		}
+		if (operation == "RETURN_MAP_INPUT")
+		{
+			std::array<std::uint64_t, 6> values{}; bool parsed = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
+			}
+			if (!parsed || !cursor.exhausted()) ReplyError(request, "RETURN_MAP_INPUT needs session/control/groups/sector/armed/key");
+			else ReplyReturnMapInput(request, values, campaignUiInputs_);
 			return;
 		}
 		if (operation == "SURRENDER_UI")

@@ -33,14 +33,16 @@ class ControlledBattleReturnTests(unittest.TestCase):
             with self.subTest(verb=verb), self.assertRaises(controlled.SmokeFailure):
                 probe.send(verb, 1)
         for verb, args in (("STATE", (1,)), ("CAMPAIGN_INPUT", (1,) * 9), ("CAMPAIGN_INPUT", (1,) * 10),
-                           ("BATTLE_NOTICE_INPUT", (1,) * 5), ("BATTLE_NOTICE_INPUT", (1,) * 5 + (3,))):
+                           ("BATTLE_NOTICE_INPUT", (1,) * 5), ("BATTLE_NOTICE_INPUT", (1,) * 5 + (3,)),
+                           ("RETURN_MAP_UI", (1,)), ("RETURN_MAP_INPUT", (1,) * 5 + (3,)), ("RETURN_MAP_INPUT", (1,) * 5)):
             with self.subTest(verb=verb, args=args), self.assertRaises(controlled.SmokeFailure):
                 probe.send(verb, *args)
         underlying.send.assert_not_called()
         for verb, args in (("STATE", ()), ("CAMPAIGN_INPUT", (1,) * 9 + (16,)),
-                           ("CAMPAIGN_INPUT", (1,) * 9 + (11,)), ("BATTLE_NOTICE_INPUT", (1,) * 5 + (2,))):
+                           ("CAMPAIGN_INPUT", (1,) * 9 + (11,)), ("BATTLE_NOTICE_INPUT", (1,) * 5 + (2,)),
+                           ("RETURN_MAP_UI", ()), ("RETURN_MAP_INPUT", (1,) * 5 + (1,)), ("RETURN_MAP_INPUT", (1,) * 5 + (2,))):
             probe.send(verb, *args)
-        self.assertEqual(underlying.send.call_count, 4)
+        self.assertEqual(underlying.send.call_count, 7)
 
     def test_trigger_published_atomically_and_never_replayed(self):
         with tempfile.TemporaryDirectory() as directory:

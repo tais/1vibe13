@@ -950,6 +950,39 @@ void TestPostCombatReturnRequiresEveryQuiescenceFact()
 		"unarmed or non-mission world drains must retain the generic restart path");
 }
 
+void TestSecuredSectorStaysLoadedUntilExplicitReturn()
+{
+	using Step = DedicatedCoopPeacefulTacticalStep;
+	const DedicatedCoopPostCombatReturnEvidence ready = ReadyPostCombatEvidence();
+	Check(EvaluateDedicatedCoopPeacefulTacticalStep(ready, false) == Step::Stay,
+		"a secured sector stays loaded for peaceful play without an explicit return");
+	Check(EvaluateDedicatedCoopPeacefulTacticalStep(ready, true) == Step::ReturnToMap,
+		"an accepted return unloads only with the full post-combat quiescence proof");
+	for (bool DedicatedCoopPostCombatReturnEvidence::* hostile :
+		{&DedicatedCoopPostCombatReturnEvidence::enemyInSector,
+		 &DedicatedCoopPostCombatReturnEvidence::enemiesRemaining,
+		 &DedicatedCoopPostCombatReturnEvidence::combatActive})
+		for (bool requested : {false, true})
+		{
+			DedicatedCoopPostCombatReturnEvidence contested = ready;
+			contested.*hostile = true;
+			Check(EvaluateDedicatedCoopPeacefulTacticalStep(contested, requested) == Step::ResumeEncounter,
+				"hostiles in a secured sector reopen the encounter, even after a return request");
+		}
+	for (bool DedicatedCoopPostCombatReturnEvidence::* busy :
+		{&DedicatedCoopPostCombatReturnEvidence::dialogueActive,
+		 &DedicatedCoopPostCombatReturnEvidence::dialogueQueued,
+		 &DedicatedCoopPostCombatReturnEvidence::tacticalActionsPending,
+		 &DedicatedCoopPostCombatReturnEvidence::bulletsPending,
+		 &DedicatedCoopPostCombatReturnEvidence::autoBandageActive})
+	{
+		DedicatedCoopPostCombatReturnEvidence pending = ready;
+		pending.*busy = true;
+		Check(EvaluateDedicatedCoopPeacefulTacticalStep(pending, true) == Step::Stay,
+			"a requested return waits for dialogue, actions, effects and auto-bandage to finish");
+	}
+}
+
 void TestPostCombatCheckpointWaitsForNativeDialogue()
 {
 	using Reason = DedicatedCheckpointEligibilityReason;
@@ -1018,6 +1051,7 @@ int main()
 	TestEstablishedSectorSelectionFailsClosed();
 	TestEstablishedActorRolePolicy();
 	TestPostCombatReturnRequiresEveryQuiescenceFact();
+	TestSecuredSectorStaysLoadedUntilExplicitReturn();
 	TestPostCombatCheckpointWaitsForNativeDialogue();
 	TestCanonicalArrivalMinute();
 	if (failures != 0)

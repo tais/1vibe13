@@ -473,6 +473,27 @@ inline constexpr bool DedicatedCoopPostCombatReturnReady(
 		!evidence.uiTransitionPending && !evidence.customTimerPending;
 }
 
+// A secured sector stays loaded for peaceful play. Hostiles reappearing reopen
+// the encounter; otherwise an accepted shared return waits for the same full
+// quiescence proof as the original post-combat return (no pending dialogue,
+// effects, actions, timers or schedules beyond the native-owned exception).
+enum class DedicatedCoopPeacefulTacticalStep : std::uint8_t
+{
+	Stay,
+	ResumeEncounter,
+	ReturnToMap
+};
+
+inline constexpr DedicatedCoopPeacefulTacticalStep EvaluateDedicatedCoopPeacefulTacticalStep(
+	const DedicatedCoopPostCombatReturnEvidence& evidence, bool returnRequested) noexcept
+{
+	if (evidence.combatActive || evidence.enemyInSector || evidence.enemiesRemaining)
+		return DedicatedCoopPeacefulTacticalStep::ResumeEncounter;
+	return returnRequested && DedicatedCoopPostCombatReturnReady(evidence)
+		? DedicatedCoopPeacefulTacticalStep::ReturnToMap
+		: DedicatedCoopPeacefulTacticalStep::Stay;
+}
+
 enum class DedicatedCoopPostCombatReturnStep : std::uint8_t
 {
 	ResumePlayable,

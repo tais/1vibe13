@@ -159,6 +159,15 @@ struct FullEngineCoopClientBattleNoticeControls
 };
 bool CaptureFullEngineCoopClientBattleNoticeControls(FullEngineCoopClientBattleNoticeControls& output) noexcept;
 
+// Observation of the shared return from a secured, still-loaded sector.
+struct FullEngineCoopClientReturnToMapControls
+{
+	std::uint64_t sessionEpoch = 0, controlRevision = 0, groupsRevision = 0;
+	std::uint32_t securedSector = 0;
+	bool armed = false, enabled = false, pending = false;
+};
+bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnToMapControls& output) noexcept;
+
 struct FullEngineCoopClientMeanwhileControls
 {
 	std::uint64_t sessionEpoch = 0, controlRevision = 0, groupsRevision = 0, notice = 0;

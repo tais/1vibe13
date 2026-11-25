@@ -192,6 +192,45 @@ void PolicyAndState()
 	f.groups.available = false; f.groups.groupCount = f.groups.memberCount = 0;
 	CHECK(allowed(f.arrival(CoopCampaignAction::EnterArrivalSpread)) == CoopCampaignActionOutcome::Applied, "exact arrival can resolve while group observation is explicitly unavailable");
 }
+void ReturnToMapFromSecuredSector()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, false);
+	};
+	const auto returnRequest = [&](std::uint64_t decision) {
+		auto r = f.arrival(CoopCampaignAction::ReturnToMap); r.decision = decision;
+		return r;
+	};
+	CoopCampaignActionRequestBytes bytes{};
+	CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(returnRequest(7), bytes) && bytes[6] == 11 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) &&
+		SameCoopCampaignActionRequest(decoded, returnRequest(7)), "return-to-map is kind 11 and roundtrips");
+	auto travelShaped = returnRequest(7); travelShaped.group = f.groups.groups[0].id;
+	CHECK(!ValidCoopCampaignActionRequest(returnRequest(0)) && !ValidCoopCampaignActionRequest(travelShaped),
+		"return-to-map carries only an exact secured-sector token");
+	CHECK(allowed(returnRequest(1)) == CoopCampaignActionOutcome::Unavailable,
+		"strategic play has no secured sector to leave");
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe ordinary tactical encounter");
+	CHECK(allowed(returnRequest(1)) == CoopCampaignActionOutcome::Unavailable,
+		"an unsecured encounter cannot be abandoned through return-to-map");
+	clock = f.status.value(); clock.securedSector = 5;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe secured sector");
+	CHECK(allowed(returnRequest(5)) == CoopCampaignActionOutcome::Applied,
+		"any ready player may return from a secured sector, independent of time leadership");
+	CHECK(allowed(returnRequest(4)) == CoopCampaignActionOutcome::Stale, "an older secured-sector token is stale");
+	auto old = returnRequest(5); --old.controlRevision;
+	CHECK(allowed(old) == CoopCampaignActionOutcome::Stale, "return binds the current control revision");
+	clock = f.status.value(); clock.surrenderOffer = 3;
+	CHECK(f.status.observe(clock, f.identities, 2) && allowed(returnRequest(5)) == CoopCampaignActionOutcome::Unavailable,
+		"a pending surrender offer keeps the sector open");
+	CHECK(ValidateCoopCampaignActionRequest(returnRequest(5), f.status.value(), f.groups, f.identities[1], false, true, false) ==
+			CoopCampaignActionOutcome::NotReady &&
+		ValidateCoopCampaignActionRequest(returnRequest(5), f.status.value(), f.groups, f.identities[1], true, false, false) ==
+			CoopCampaignActionOutcome::Unauthorized, "readiness and explicit policy still gate the return");
+}
 void ReceiptsAndSerialization()
 {
 	Fixture f; unsigned executions = 0;
@@ -350,4 +389,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

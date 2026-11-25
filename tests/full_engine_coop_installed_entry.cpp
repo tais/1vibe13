@@ -65,7 +65,7 @@ namespace
 CoopSession::CoopCampaignGroups preparedObservation;
 bool observing = false;
 bool cohortSeeded = false;
-enum class ControlledBattle { None, Defeat, Capture, Victory };
+enum class ControlledBattle { None, Defeat, Capture, Victory, StarterVictory };
 ControlledBattle controlledBattle = ControlledBattle::None;
 bool controlledBattleSeeded = false;
 std::chrono::steady_clock::time_point cohortSeedTime;
@@ -177,6 +177,49 @@ void PollControlledBattleTrigger()
 	nextPoll = now + std::chrono::milliseconds(25);
 	const std::filesystem::path trigger("controlled-battle-trigger.txt");
 	if (!std::filesystem::exists(trigger)) return;
+	if (controlledBattle == ControlledBattle::StarterVictory)
+	{
+		// A newly created campaign's starter battle, with no pinned cohort. Seed
+		// only enemy incapacitation; native end-of-battle processing decides the
+		// victory, history and sector control, and the runtime owns the rest.
+		std::string magic, requestedOutcome, extra;
+		std::uint64_t requestedWorld = 0, requestedTurn = 0;
+		std::ifstream input(trigger);
+		if (std::filesystem::is_symlink(trigger) || !std::filesystem::is_regular_file(trigger) ||
+			!(input >> magic >> requestedOutcome >> requestedWorld >> requestedTurn) || (input >> extra) ||
+			magic != "JA2_COOP_CONTROLLED_BATTLE_V1" || requestedOutcome != "starter-victory" ||
+			!requestedWorld || !requestedTurn || std::filesystem::exists("controlled-battle-trigger.consumed"))
+		{ Finish(false, "invalid or repeated starter victory trigger"); return; }
+		input.close();
+		std::filesystem::rename(trigger, "controlled-battle-trigger.consumed");
+		controlledBattleSeeded = true;
+		const auto world = CaptureJa2TacticalWorld();
+		if (!world.loaded || world.worldGeneration != requestedWorld || world.turnSerial != requestedTurn ||
+			world.turn.pendingCombatActions || (world.turn.inCombat && world.turn.currentTeam != OUR_TEAM) ||
+			DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||
+			GetTacticalTeamMenInSector(ENEMY_TEAM) <= 0)
+		{ Finish(false, "starter victory lacks an idle native starter battle with enemies"); return; }
+		std::vector<TacticalActor*> enemies;
+		auto& repository = GetJa2SoldierRepository();
+		for (std::size_t slot = 0; slot < repository.capacity(); ++slot)
+		{
+			auto* enemy = repository.resolve(slot);
+			if (!enemy || !enemy->roster().active() || !enemy->roster().inSector() ||
+				enemy->roster().team() != ENEMY_TEAM || (enemy->status().flags() & SOLDIER_DEAD)) continue;
+			if (enemy->vitals().health() <= 0 || enemy->aiBehavior().neutral() || enemy->roster().side() == OUR_TEAM)
+			{ Finish(false, "starter victory contains an unsupported enemy death or allegiance"); return; }
+			enemies.push_back(enemy);
+		}
+		if (enemies.empty()) { Finish(false, "starter victory has no native enemies"); return; }
+		for (auto* enemy : enemies) { enemy->vitals().health() = 1; enemy->vitals().bleeding() = 0; }
+		if (!CheckForEndOfBattle(FALSE) || IsJa2TacticalCombatActive() || !gTacticalStatus.fLastBattleWon ||
+			DedicatedCoopBattleNoticePending())
+		{ Finish(false, "native starter victory failed to resolve"); return; }
+		std::printf("[co-op controlled battle] seeded outcome=starter-victory world=%llu turn=%llu enemies=%zu; awaiting native return\n",
+			static_cast<unsigned long long>(world.worldGeneration), static_cast<unsigned long long>(world.turnSerial), enemies.size());
+		std::fflush(stdout);
+		return;
+	}
 	const bool capture = controlledBattle == ControlledBattle::Capture;
 	const bool victory = controlledBattle == ControlledBattle::Victory;
 	const char* outcome = victory ? "victory" : capture ? "capture" : "defeat";
@@ -569,6 +612,15 @@ void FullEngineCoopInstalledTestGameLoop()
 		controlledBattle = std::strcmp(mode, "battle-return-victory") == 0 ? ControlledBattle::Victory :
 			std::strcmp(mode, "battle-return-capture") == 0 ? ControlledBattle::Capture : ControlledBattle::Defeat;
 		std::printf("[co-op controlled battle] armed; ordinary Resume, time control and battle entry required\n");
+		std::fflush(stdout);
+		return;
+	}
+	if (mode && std::strcmp(mode, "starter-victory") == 0 &&
+		GetDedicatedServerOptions().campaignAction == DedicatedCampaignAction::Create)
+	{
+		// Leave the shipping starter mission untouched until the trigger arrives.
+		controlledBattle = ControlledBattle::StarterVictory;
+		std::printf("[co-op controlled battle] armed; starter battle victory trigger required\n");
 		std::fflush(stdout);
 		return;
 	}

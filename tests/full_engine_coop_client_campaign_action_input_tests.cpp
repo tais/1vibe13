@@ -1,6 +1,7 @@
 #include <Ja2/FullEngineCoopClientCampaignActionInput.h>
 #include <Ja2/FullEngineCoopClientSurrenderInput.h>
 #include <Ja2/FullEngineCoopClientBattleNoticeInput.h>
+#include <Ja2/FullEngineCoopClientReturnToMapInput.h>
 #include <cstdio>
 
 using namespace CoopSession;
@@ -197,6 +198,47 @@ void BattleNoticeConfirmation()
 	CHECK(!key(K::Confirm), "cancel removes the acknowledgement choice");
 }
 
+void ReturnToMapConfirmation()
+{
+	using K = FullEngineCoopClientReturnToMapInput::Key;
+	Fixture f; FullEngineCoopClientReturnToMapInput input;
+	f.status.phase = CoopCampaignPhase::Tactical;
+	f.status.securedSector = 4;
+	auto key = [&](K k, bool down = true, bool up = false) { return input.handle(k, down, up, &f.status, &f.groups, f.enabled, f.pending); };
+	CHECK(!key(K::Confirm), "Enter alone cannot leave a secured sector");
+	CHECK(!key(K::Arm) && input.armed(), "W arms the return but does not submit it");
+	CHECK(!key(K::Arm) && input.armed(), "held W cannot submit or toggle the choice");
+	(void)key(K::Confirm, false, true);
+	const auto answer = key(K::Confirm);
+	CHECK(answer && answer->action == CoopCampaignAction::ReturnToMap && answer->decision == 4 &&
+		!answer->requestId && !answer->sessionEpoch && !answer->controlRevision && !input.armed(),
+		"separate Enter submits only the displayed secured sector; core supplies request lineage");
+	CHECK(!key(K::Confirm), "held Enter cannot replay the return");
+	for (unsigned change = 0; change != 11; ++change)
+	{
+		Fixture changed; FullEngineCoopClientReturnToMapInput confirm;
+		changed.status.phase = CoopCampaignPhase::Tactical; changed.status.securedSector = 4;
+		(void)confirm.handle(K::Arm, true, false, &changed.status, &changed.groups, true, false);
+		if (change == 0) ++changed.status.timeControlRevision;
+		if (change == 1) ++changed.groups.revision;
+		if (change == 2) ++changed.status.securedSector;
+		if (change == 3) ++changed.status.sessionEpoch;
+		if (change == 4) changed.status.securedSector = 0;
+		if (change == 5) changed.enabled = false;
+		if (change == 6) changed.pending = true;
+		if (change == 7) confirm.reset();
+		if (change == 8) changed.status.surrenderOffer = 9;
+		if (change == 9) changed.status.battleNotice = {11, CoopCampaignBattleNoticeKind::Defeated, 9, 1, 0};
+		if (change == 10) { changed.status.phase = CoopCampaignPhase::Strategic; changed.status.securedSector = 0; }
+		CHECK(!confirm.handle(K::Confirm, true, false, &changed.status, &changed.groups, changed.enabled, changed.pending) && !confirm.armed(),
+			"stale sector, reconnect, pending request or another decision cannot confirm the retained return");
+	}
+	input.reset(); (void)key(K::Arm); (void)key(K::Cancel);
+	CHECK(!key(K::Confirm), "Esc removes the return choice");
+	f.status.securedSector = 0; input.reset();
+	CHECK(!key(K::Arm) && !input.armed() && !input.enabled(), "an unsecured encounter offers no return");
+}
+
 void SurrenderConfirmation()
 {
 	using K = FullEngineCoopClientSurrenderInput::Key;
@@ -235,4 +277,4 @@ void SurrenderConfirmation()
 
 }
 
-int main() { BattleNoticeConfirmation(); SurrenderConfirmation(); Travel(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
+int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); SurrenderConfirmation(); Travel(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }

@@ -381,6 +381,9 @@ enum class StarterMissionState : std::uint8_t
 	WaitingForEstablishedCampaignReadyPeer,
 	WaitingForControllableActor,
 	Playable,
+	// The encounter is won and the sector stays loaded for peaceful play
+	// (movement, loot, first aid) until a player explicitly returns to the map.
+	PeacefulTactical,
 	ReturningToStrategic,
 	WaitingForStrategicCheckpoint,
 	StrategicIdle
@@ -848,11 +851,13 @@ struct DedicatedCoopRuntime::Impl
 		captured.timeInterrupted = gfTimeInterrupt != FALSE;
 		captured.phase = starterMission == StarterMissionState::StrategicIdle
 			? CoopSession::CoopCampaignPhase::Strategic
-			: starterMission == StarterMissionState::Playable
+			: (starterMission == StarterMissionState::Playable ||
+			   starterMission == StarterMissionState::PeacefulTactical)
 				? CoopSession::CoopCampaignPhase::Tactical
 				: (worldDraining || starterMission == StarterMissionState::ReturningToStrategic ||
 				   starterMission == StarterMissionState::WaitingForStrategicCheckpoint)
 					? CoopSession::CoopCampaignPhase::Transition : CoopSession::CoopCampaignPhase::Starting;
+		if (starterMission == StarterMissionState::PeacefulTactical) captured.securedSector = securedSector;
 		if (const auto* offer = surrenderDecision.pending()) captured.surrenderOffer = offer->id;
 		if (const auto* notice = battleNotice.pending())
 		{
@@ -913,7 +918,8 @@ struct DedicatedCoopRuntime::Impl
 	{
 		CoopSession::CoopCampaignGroups captured;
 		const char* diagnostic = nullptr;
-		if (!worldDraining && (starterMission == StarterMissionState::Playable || starterMission == StarterMissionState::StrategicIdle))
+		if (!worldDraining && (starterMission == StarterMissionState::Playable ||
+			starterMission == StarterMissionState::PeacefulTactical || starterMission == StarterMissionState::StrategicIdle))
 			diagnostic = CaptureDedicatedCoopCampaignGroups(captured);
 		if (diagnostic)
 		{
@@ -997,7 +1003,8 @@ struct DedicatedCoopRuntime::Impl
 	{
 		CoopSession::CoopCampaignEconomy economy;
 		const char* diagnostic = nullptr;
-		if (!worldDraining && (starterMission == StarterMissionState::Playable || starterMission == StarterMissionState::StrategicIdle))
+		if (!worldDraining && (starterMission == StarterMissionState::Playable ||
+			starterMission == StarterMissionState::PeacefulTactical || starterMission == StarterMissionState::StrategicIdle))
 			diagnostic = CaptureDedicatedCoopCampaignEconomy(economy);
 		if (diagnostic)
 		{
@@ -1163,6 +1170,16 @@ struct DedicatedCoopRuntime::Impl
 			using Code = DedicatedCoopMeanwhileResult;
 			return {result == Code::Applied ? Outcome::Applied : result == Code::Failed ? Outcome::Failed : Outcome::NativeRejected,
 				static_cast<std::uint16_t>(result)};
+		}
+		if (request.action == Action::ReturnToMap)
+		{
+			// Accept now; the frame loop unloads only after this result and every
+			// other campaign receipt has been delivered to its peer.
+			if (selfRetirementActive || starterMission != StarterMissionState::PeacefulTactical ||
+				!securedSector || request.decision != securedSector || returnToMapRequested)
+				return {Outcome::NativeRejected, 0};
+			returnToMapRequested = true;
+			return {Outcome::Applied, 0};
 		}
 		if (request.action == Action::AcknowledgeBattleNotice)
 		{
@@ -1984,6 +2001,7 @@ struct DedicatedCoopRuntime::Impl
 		const bool tacticalMissionActive =
 			starterMission == StarterMissionState::WaitingForControllableActor ||
 			starterMission == StarterMissionState::Playable ||
+			starterMission == StarterMissionState::PeacefulTactical ||
 			starterMission == StarterMissionState::ReturningToStrategic;
 		if (DedicatedCoopWorldDrainRequiresStrategicCheckpoint(
 				postCombatReturnArmed, tacticalMissionActive))
@@ -2500,6 +2518,11 @@ struct DedicatedCoopRuntime::Impl
 	bool selfRetirementActive = false;
 	bool fatal = false;
 	StarterMissionState starterMission = StarterMissionState::Unprepared;
+	// Runtime-scoped identity of the secured sector in PeacefulTactical, and
+	// an accepted shared request to return to the strategic map.
+	std::uint32_t securedSector = 0;
+	std::uint32_t lastSecuredSector = 0;
+	bool returnToMapRequested = false;
 };
 
 DedicatedCheckpointRuntimeEvidence
@@ -3155,14 +3178,60 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 				impl_->postCombatReturnArmed);
 		if (DedicatedCoopPostCombatReturnReady(evidence))
 		{
-			// Freeze ingress immediately at the first committed victory observation.
-			// A peer can therefore hold neither the campaign hostage with an ACK nor
-			// the local drain busy with a continuous stream of otherwise valid
-			// commands. Already-submitted work is finite, executes under the normal
-			// authority path, and is covered by the next-frame evidence recheck.
-			impl_->starterMission = StarterMissionState::ReturningToStrategic;
-			if (!impl_->stopAdmissionForPostCombatReturn()) return;
+			// Victory secures the sector. Keep it loaded for peaceful play, as the
+			// stock game does; the campaign clock stays paused, so no strategic
+			// event can fire while the world is loaded. Returning to the map is an
+			// explicit shared action that reuses the post-combat unload below.
+			if (impl_->lastSecuredSector == UINT32_MAX)
+			{
+				impl_->fail(DedicatedCoopRuntimeError::InvalidState,
+					"mission.secured-sector", "secured-sector identities exhausted");
+				return;
+			}
+			impl_->securedSector = ++impl_->lastSecuredSector;
+			impl_->returnToMapRequested = false;
+			impl_->starterMission = StarterMissionState::PeacefulTactical;
+			StopTimeCompression();
+			PauseGame();
+			std::printf("[dedicated] co-op sector secured; peaceful tactical play (%u)\n",
+				impl_->securedSector);
+			std::fflush(stdout);
 		}
+		return;
+	}
+	if (impl_->starterMission == StarterMissionState::PeacefulTactical)
+	{
+		StopTimeCompression();
+		PauseGame();
+		const DedicatedCoopPostCombatReturnEvidence evidence =
+			CapturePostCombatReturnEvidence(true,
+				impl_->postCombatReturnArmed);
+		const DedicatedCoopPeacefulTacticalStep step =
+			EvaluateDedicatedCoopPeacefulTacticalStep(evidence,
+				impl_->returnToMapRequested);
+		if (step == DedicatedCoopPeacefulTacticalStep::ResumeEncounter)
+		{
+			// Hostiles are back (reinforcements or a revealed enemy): the sector is
+			// no longer secured and the ordinary encounter rules apply again.
+			impl_->securedSector = 0;
+			impl_->returnToMapRequested = false;
+			impl_->starterMission = StarterMissionState::Playable;
+			std::printf("[dedicated] secured sector contested; encounter resumed\n");
+			std::fflush(stdout);
+			return;
+		}
+		if (step != DedicatedCoopPeacefulTacticalStep::ReturnToMap) return;
+		// Queue every retained campaign receipt before closing transport, then
+		// freeze ingress at a fresh-baseline boundary like a battle notice.
+		for (const auto& delivery : impl_->campaignActionAuthority.deliveries())
+			if (delivery.pending) return;
+		if (!impl_->freshAssignmentBaselineBoundary()) return;
+		impl_->securedSector = 0;
+		impl_->returnToMapRequested = false;
+		impl_->starterMission = StarterMissionState::ReturningToStrategic;
+		std::printf("[dedicated] secured sector returning to the strategic map\n");
+		std::fflush(stdout);
+		if (!impl_->stopAdmissionForPostCombatReturn()) return;
 		return;
 	}
 	if (impl_->starterMission == StarterMissionState::ReturningToStrategic)

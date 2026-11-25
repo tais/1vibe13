@@ -5,6 +5,7 @@
 #include "FullEngineCoopClientCampaignActionInput.h"
 #include "FullEngineCoopClientSurrenderInput.h"
 #include "FullEngineCoopClientBattleNoticeInput.h"
+#include "FullEngineCoopClientReturnToMapInput.h"
 #include "FullEngineCoopClientMeanwhileInput.h"
 #include "FullEngineCoopClientCampaignHireInput.h"
 #include "FullEngineCoopClientCampaignStatusText.h"
@@ -44,6 +45,7 @@ FullEngineCoopClientInventoryDropKeyGate InventoryDropKeyGate;
 FullEngineCoopClientCampaignActionInput CampaignActionInput;
 FullEngineCoopClientSurrenderInput SurrenderInput;
 FullEngineCoopClientBattleNoticeInput BattleNoticeInput;
+FullEngineCoopClientReturnToMapInput ReturnToMapInput;
 FullEngineCoopClientMeanwhileInput MeanwhileInput;
 FullEngineCoopClientCampaignHireInput CampaignHireInput;
 std::uint64_t ScreenFrame = 0;
@@ -392,6 +394,27 @@ bool RequestSelfRetirement() noexcept
 	return LastSendResult == CoopSession::FullEngineCoopClientResult::Success;
 }
 
+// W arms and a separate Enter confirms the shared return from a secured sector.
+void HandleReturnToMapKey(UINT32 key, UINT32 eventKind) noexcept
+{
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool leader = false, actionPending = false, timePending = false, hirePending = false;
+	const bool observed = runtime.campaignStatus(status, leader) && runtime.campaignGroups(groups);
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	using Key = FullEngineCoopClientReturnToMapInput::Key;
+	const Key mapped = key == 'w' || key == 'W' ? Key::Arm : key == ENTER ? Key::Confirm : key == ESC ? Key::Cancel : Key::None;
+	const auto request = ReturnToMapInput.handle(mapped, eventKind == KEY_DOWN, eventKind == KEY_UP,
+		observed ? &status : nullptr, observed ? &groups : nullptr,
+		!runtime.selfRetirementPending() && !runtime.retired(), actionPending || timePending || hirePending);
+	if (!request) return;
+	LastSendResult = runtime.requestCampaignAction(*request);
+	HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+	LastSendWorldGeneration = 0;
+}
+
 void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	FullEngineCoopClientControllerView& view,
 	bool retirementEligible, bool medicalModal) noexcept
@@ -420,6 +443,15 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 		const bool modal = Controller.targetingAttack() ||
 			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen() || Controller.selectingFirstAid();
 		if (modal) RetirementConfirmation.cancel();
+		if (modal) ReturnToMapInput.reset();
+		const bool returnKey = key == 'w' || key == 'W';
+		if (!modal && (event.usEvent == KEY_DOWN || event.usEvent == KEY_UP) &&
+			(returnKey || (ReturnToMapInput.armed() && (key == ENTER || key == ESC))))
+		{
+			RetirementConfirmation.cancel();
+			HandleReturnToMapKey(key, event.usEvent);
+			continue;
+		}
 		if (leaveKey && !modal && retirementEligible)
 		{
 			if (event.usEvent == KEY_UP)
@@ -1306,6 +1338,15 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 	SetFontForeground(FONT_MCOLOR_LTGRAY);
 	mprintf(12, 12, L"%ls", text.clock.data());
 	mprintf(12, 26, L"%ls", text.leader.data());
+	// The hint only describes the replicated state; input revalidates it.
+	if (available && status.phase == CoopSession::CoopCampaignPhase::Tactical && status.securedSector &&
+		!status.surrenderOffer && !status.battleNotice.id && !status.meanwhile.id)
+	{
+		SetFontForeground(FONT_MCOLOR_LTYELLOW);
+		mprintf(300, 26, ReturnToMapInput.armed() ? L"Return to map? Enter: confirm  Esc: cancel" :
+			L"Sector secured. W: return to map");
+		SetFontForeground(FONT_MCOLOR_LTGRAY);
+	}
 
 	// Clear the fixed HUD lane even when another modal suppresses its text.
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, 8, 44, std::min(638, static_cast<int>(SCREEN_WIDTH) - 8), 78, 0);
@@ -1374,7 +1415,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	FullEngineCoopClientMeanwhileControls sceneControls;
 	if (CaptureFullEngineCoopClientMeanwhileControls(sceneControls))
 	{
-		BattleNoticeInput.reset(); SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		BattleNoticeInput.reset(); SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); ReturnToMapInput.reset(); timeInput.reset();
 		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
@@ -1401,7 +1442,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	FullEngineCoopClientBattleNoticeControls notice;
 	if (CaptureFullEngineCoopClientBattleNoticeControls(notice))
 	{
-		SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		SurrenderInput.reset(); RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); ReturnToMapInput.reset(); timeInput.reset();
 		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
@@ -1428,7 +1469,7 @@ void HandleFullEngineCoopClientInput() noexcept
 	FullEngineCoopClientSurrenderControls surrender;
 	if (CaptureFullEngineCoopClientSurrenderControls(surrender))
 	{
-		RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); timeInput.reset();
+		RetirementConfirmation.cancel(); CampaignHireInput.reset(); CampaignActionInput.reset(); ReturnToMapInput.reset(); timeInput.reset();
 		if (ConsumeFullEngineCoopClientMedicalOwnerChange(Controller, medicalAtFrameStart)) return;
 		Controller.synchronize(FullEngineCoopClientControllerView{});
 		InputAtom event;
@@ -1595,6 +1636,25 @@ bool CaptureFullEngineCoopClientBattleNoticeControls(FullEngineCoopClientBattleN
 	output.sectorControlLost = status.battleNotice.sectorControlLost;
 	output.kind = unsigned(status.battleNotice.kind); output.x = status.battleNotice.x; output.y = status.battleNotice.y; output.z = status.battleNotice.z;
 	output.armed = BattleNoticeInput.armed(); output.enabled = BattleNoticeInput.enabled();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnToMapControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; CoopSession::CoopCampaignGroups groups;
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool leader = false, actionPending = false, timePending = false, hirePending = false;
+	if (!runtime.campaignStatus(status, leader) || !runtime.campaignGroups(groups) ||
+		!FullEngineCoopClientReturnToMapInput::available(&status, &groups)) return false;
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	output.pending = actionPending || timePending || hirePending;
+	ReturnToMapInput.synchronize(&status, &groups, !runtime.selfRetirementPending() && !runtime.retired(), output.pending);
+	output.sessionEpoch = status.sessionEpoch; output.controlRevision = status.timeControlRevision;
+	output.groupsRevision = groups.revision; output.securedSector = status.securedSector;
+	output.armed = ReturnToMapInput.armed(); output.enabled = ReturnToMapInput.enabled();
 	return true;
 }
 

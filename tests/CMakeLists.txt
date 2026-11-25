@@ -2158,6 +2158,11 @@ if(Python3_Interpreter_FOUND)
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_controlled_battle_return.py)
   add_test(
+    NAME full_engine_coop_installed_peaceful_sector_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_peaceful_sector.py)
+  add_test(
     NAME full_engine_coop_installed_pending_hire_arrival_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}

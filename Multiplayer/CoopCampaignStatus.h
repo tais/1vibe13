@@ -72,6 +72,10 @@ struct CoopCampaignStatus
 	std::uint64_t surrenderOffer = 0;
 	CoopCampaignBattleNotice battleNotice{};
 	CoopCampaignMeanwhileNotice meanwhile{};
+	// Runtime-scoped identity of a secured (cleared) tactical sector that is
+	// still loaded for peaceful play. Zero means none. It is the decision token
+	// for an explicit shared return to the strategic map.
+	std::uint32_t securedSector = 0;
 };
 using CoopCampaignStatusBytes = std::array<std::uint8_t, CoopCampaignStatusWireSize>;
 
@@ -94,7 +98,8 @@ inline bool ValidCoopCampaignStatus(const CoopCampaignStatus& value) noexcept
 			 !value.arrival.decision && !value.surrenderOffer)) &&
 		ValidCoopCampaignMeanwhileNotice(value.meanwhile) && (!value.meanwhile.id ||
 			(value.phase != CoopCampaignPhase::Transition && value.gamePaused && value.pauseLocked && !value.compressionActive &&
-			 !value.arrival.decision && !value.surrenderOffer && !value.battleNotice.id));
+			 !value.arrival.decision && !value.surrenderOffer && !value.battleNotice.id)) &&
+		(!value.securedSector || value.phase == CoopCampaignPhase::Tactical);
 }
 
 inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -105,7 +110,7 @@ inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCam
 		a.timeLeader == b.timeLeader && a.leadershipRevision == b.leadershipRevision &&
 		a.timeLeaderReady == b.timeLeaderReady && SameCoopCampaignArrival(a.arrival, b.arrival) &&
 		a.surrenderOffer == b.surrenderOffer && SameCoopCampaignBattleNotice(a.battleNotice, b.battleNotice) &&
-		SameCoopCampaignMeanwhileNotice(a.meanwhile, b.meanwhile);
+		SameCoopCampaignMeanwhileNotice(a.meanwhile, b.meanwhile) && a.securedSector == b.securedSector;
 }
 
 inline bool SameCoopCampaignStatus(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -151,6 +156,7 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 	bytes[108] = value.battleNotice.sectorControlLost ? 1 : 0;
 	put(112, value.meanwhile.id, 8);
 	bytes[120] = static_cast<std::uint8_t>(value.meanwhile.scene);
+	put(121, value.securedSector, 4);
 	output = bytes;
 	return true;
 }
@@ -163,7 +169,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	if (bytes[94] || bytes[95]) return false;
 	if (bytes[108] > 1) return false;
 	for (std::size_t i = 109; i < 112; ++i) if (bytes[i]) return false;
-	for (std::size_t i = 121; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
+	for (std::size_t i = 125; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -193,6 +199,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	value.surrenderOffer = get(86, 8);
 	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107], bytes[108] != 0};
 	value.meanwhile = {get(112, 8), static_cast<CoopCampaignMeanwhileScene>(bytes[120])};
+	value.securedSector = static_cast<std::uint32_t>(get(121, 4));
 	if (!ValidCoopCampaignStatus(value)) return false;
 	output = value;
 	return true;

@@ -14,7 +14,8 @@ enum class CoopCampaignAction : std::uint8_t
 {
 	Travel = 1, AcknowledgeArrival = 2, StopArrival = 3,
 	EnterArrivalForced = 4, EnterArrivalSpread = 5, RetreatArrival = 6,
-	DeclineSurrender = 7, AcceptSurrender = 8, AcknowledgeBattleNotice = 9, SkipMeanwhile = 10
+	DeclineSurrender = 7, AcceptSurrender = 8, AcknowledgeBattleNotice = 9, SkipMeanwhile = 10,
+	ReturnToMap = 11
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -47,7 +48,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::SkipMeanwhile;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::ReturnToMap;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -163,6 +164,14 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	if (request.action == CoopCampaignAction::SkipMeanwhile)
 		return status.meanwhile.id && request.decision == status.meanwhile.id ? Outcome::Applied : Outcome::Stale;
 	if (status.meanwhile.id) return Outcome::Unavailable;
+	// Any ready player may end peaceful play in a secured sector, exactly like
+	// ordering shared travel. Pending battle decisions keep the sector open.
+	if (request.action == CoopCampaignAction::ReturnToMap)
+	{
+		if (status.phase != CoopCampaignPhase::Tactical || !status.securedSector ||
+			status.surrenderOffer || status.battleNotice.id) return Outcome::Unavailable;
+		return request.decision == status.securedSector ? Outcome::Applied : Outcome::Stale;
+	}
 	if (request.action == CoopCampaignAction::AcknowledgeBattleNotice)
 	{
 		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;

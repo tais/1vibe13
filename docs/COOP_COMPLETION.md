@@ -3361,3 +3361,36 @@ have no animation; a transfer that touches a hand reuses the stock hand
 refresh. Fixtures cover every aim pose for both transfer roles, pickup at the
 same-height idle cost, drop at the stock cost, and rejection of unsettled
 fire-ready (`PUNCH_BREATH`, `KNIFE_BREATH`) and firing states.
+
+## Secured sectors stay loaded after victory (2026-11-25)
+
+Previously the dedicated server froze admission and unloaded the world on the
+first committed victory, so players could never loot, treat, talk or move in a
+won sector. A victory now *secures* the sector instead:
+
+- `StarterMissionState::PeacefulTactical` keeps the world loaded with the
+  campaign clock paused (no strategic event can fire while it is loaded;
+  tactical movement does not depend on the game clock).
+- The campaign status carries a runtime-scoped `securedSector` token (wire
+  bytes 121–124, zero otherwise, valid only in the tactical phase).
+- Any ready player may end peaceful play with the new campaign action
+  `ReturnToMap` (kind 11) bound to that token. In the client, `W` arms it and a
+  separate `Enter` confirms (`Esc` cancels); held keys, a stale token, another
+  pending request or any modal decision disarms it.
+- The runtime only records the accepted request. The frame loop waits until
+  every campaign receipt has been delivered and a fresh-baseline boundary is
+  reached, then reuses the existing post-combat unload, drain and cold
+  checkpoint path. Hostiles reappearing reopen the encounter.
+
+Installed evidence (`tests/full_engine_coop_installed_peaceful_sector.py`, test
+host `starter-victory` seeds only enemy incapacitation in a newly created
+campaign's starter battle): both clients saw the same secured sector for 12
+held samples, moved authoritatively there, client B armed and confirmed the
+return through queued Screen input, the server committed the strategic
+checkpoint, and the shipping host resumed it cold. Queued Screen input, not
+physical OS input or painted pixels; seeded victory, not unseeded combat.
+
+`controlled_battle_return.py --outcome victory` now performs the same explicit
+return before expecting the checkpoint. Its other chain probes pin one
+historical cohort (profiles, balance) and need the campaign driver before they
+can be replayed on a fresh campaign.

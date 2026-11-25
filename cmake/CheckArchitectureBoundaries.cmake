@@ -3426,6 +3426,19 @@ file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp"
   dedicated_live_client_screen_source)
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.h"
   dedicated_live_client_screen_header_source)
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientReturnToMapInput.h"
+  client_return_to_map_input_source)
+require_ordered_fragments(client_return_to_map_input_source
+  "Return-to-map must stay a held-key-safe W arm plus separate Enter confirmation for the exact secured sector"
+  "status->phase == CoopSession::CoopCampaignPhase::Tactical && status->securedSector"
+  "!status->surrenderOffer && !status->battleNotice.id && !status->meanwhile.id"
+  "sector != sector_)"
+  "armed_ = false;"
+  "if (wasHeld || !enabled_) return {};"
+  "if (key == Key::Arm) { armed_ = true; return {}; }"
+  "if (key != Key::Confirm || !armed_) return {};"
+  "request.action = CoopSession::CoopCampaignAction::ReturnToMap;"
+  "request.decision = sector_; armed_ = false;")
 # Inventory transfer and drop follow the authority's interrupt rule: never
 # while resolving, and during an active interrupt only for eligible actors.
 extract_brace_bounded_slice(dedicated_live_client_controller_source
@@ -5124,11 +5137,24 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "impl_->minimumControllableActors = 1"
   "impl_->postCombatReturnArmed = true")
 require_ordered_fragments(dedicated_live_runtime_pump_slice
-  "Dedicated hostile-victory return lost immediate freeze/recheck/resume-or-unload ordering"
+  "Dedicated hostile victory must secure the sector, hold it paused for peaceful play, and unload only after an explicit delivered return"
   "impl_->starterMission == StarterMissionState::Playable"
   "CapturePostCombatReturnEvidence(true"
   "impl_->postCombatReturnArmed"
   "DedicatedCoopPostCombatReturnReady(evidence)"
+  "impl_->securedSector = ++impl_->lastSecuredSector"
+  "impl_->starterMission = StarterMissionState::PeacefulTactical"
+  "PauseGame()"
+  "impl_->starterMission == StarterMissionState::PeacefulTactical"
+  "PauseGame()"
+  "EvaluateDedicatedCoopPeacefulTacticalStep(evidence,"
+  "impl_->returnToMapRequested"
+  "DedicatedCoopPeacefulTacticalStep::ResumeEncounter"
+  "impl_->starterMission = StarterMissionState::Playable"
+  "DedicatedCoopPeacefulTacticalStep::ReturnToMap"
+  "impl_->campaignActionAuthority.deliveries()"
+  "if (delivery.pending) return;"
+  "impl_->freshAssignmentBaselineBoundary()"
   "impl_->starterMission = StarterMissionState::ReturningToStrategic"
   "impl_->stopAdmissionForPostCombatReturn()"
   "impl_->starterMission == StarterMissionState::ReturningToStrategic"
@@ -16281,6 +16307,14 @@ require_ordered_fragments(campaign_action_native_boundary "Campaign action execu
   "StartDedicatedCoopTravel(request.group, request.destinationX, request.destinationY)"
   "ReplyToDedicatedCoopArrival(request.decision" "runtime.enterArrivalBattle(request.decision"
   "NativePreBattleDeployment::Forced : NativePreBattleDeployment::Spread" "runtime.retreatArrivalBattle(request.decision)")
+require_ordered_fragments(campaign_action_native_boundary
+  "Return-to-map must only record an exact secured-sector request; the frame loop unloads after delivery"
+  "request.action == Action::ReturnToMap"
+  "starterMission != StarterMissionState::PeacefulTactical"
+  "request.decision != securedSector || returnToMapRequested"
+  "returnToMapRequested = true;"
+  "return {Outcome::Applied, 0};"
+  "!worldlessStrategicTimeControl() || selfRetirementActive")
 extract_brace_bounded_slice(dedicated_live_runtime_code "bool flushCampaignActionResults() noexcept"
   campaign_action_runtime_results "Cannot bound action result publication")
 require_ordered_fragments(campaign_action_runtime_results "Action receipts must follow both exact current observations on the authenticated ready transport"

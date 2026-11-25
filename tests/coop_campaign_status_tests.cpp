@@ -1,5 +1,6 @@
 #include "CoopCampaignStatus.h"
 #include <Ja2/FullEngineCoopClientCampaignStatusText.h>
+#include <algorithm>
 #include <cstdio>
 #include <cwchar>
 
@@ -80,6 +81,32 @@ void TestCodec()
 		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), out) && SameCoopCampaignStatus(s, out),
 			"semantic corruption rejected without replacing committed observation");
 	}
+}
+void TestSecuredSector()
+{
+	auto s = Sample();
+	s.phase = CoopCampaignPhase::Tactical;
+	s.securedSector = 0x01020304u;
+	CoopCampaignStatusBytes bytes{};
+	CHECK(EncodeCoopCampaignStatus(s, bytes) && bytes[121] == 4 && bytes[122] == 3 && bytes[123] == 2 &&
+		bytes[124] == 1 && std::all_of(bytes.begin() + 125, bytes.end(), [](std::uint8_t b) { return b == 0; }),
+		"secured sector occupies little-endian bytes 121-124 and leaves the tail canonical");
+	CoopCampaignStatus out;
+	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out) &&
+		out.securedSector == 0x01020304u, "secured sector roundtrips exactly");
+	auto padded = bytes; padded[125] = 1; out = s;
+	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "reserved tail after the secured sector stays zero");
+	for (auto phase : {CoopCampaignPhase::Starting, CoopCampaignPhase::Strategic, CoopCampaignPhase::Transition})
+	{
+		auto outside = s; outside.phase = phase;
+		auto untouched = bytes;
+		CHECK(!EncodeCoopCampaignStatus(outside, untouched) && untouched == bytes,
+			"a secured sector exists only while the tactical world is loaded");
+		auto forged = bytes; forged[28] = static_cast<std::uint8_t>(phase); out = s;
+		CHECK(!DecodeCoopCampaignStatus(forged.data(), forged.size(), out), "decoder rejects a secured sector outside tactical play");
+	}
+	auto cleared = s; cleared.securedSector = 0;
+	CHECK(!SameCoopCampaignTimeState(s, cleared), "securing or leaving a sector is a control-state change");
 }
 void TestLedger()
 {
@@ -349,4 +376,4 @@ void TestSurrenderObservation()
 }
 
 }
-int main() { TestBattleNoticeObservation();  TestCodec(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }
+int main() { TestBattleNoticeObservation();  TestCodec(); TestSecuredSector(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }

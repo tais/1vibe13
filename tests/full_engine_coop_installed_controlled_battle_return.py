@@ -34,6 +34,7 @@ from full_engine_coop_installed_hiring_restore import (
     sha256_file, validate_shared, validate_source, verify_source_fingerprints,
 )
 from full_engine_coop_installed_movement import MovementFailure, _Probe, _states
+from full_engine_coop_installed_peaceful_sector import return_from_secured_sector
 from full_engine_coop_installed_process_smoke import (
     ProcessSupervisor, SmokeFailure, client_command, fingerprint_installed_inputs, free_loopback_port,
     installed_content_roots, log_text, make_run_root, process_environment, selected_configuration,
@@ -66,7 +67,8 @@ def evidence_scope(outcome):
                              "native_hire_arrival_verified", "physical_input_verified", "paint_verified",
                              "confiscated_gear_restored", "native_loss_history_verified", "native_victory_history_verified", "held_notice_verified",
                              "nonleader_acknowledgement_verified", "native_unload_checkpoint_verified",
-                             "shipping_cold_resume_verified", "reconnect_verified", "passed"), False)}
+                             "shipping_cold_resume_verified", "reconnect_verified", "secured_sector_hold_verified",
+                             "passed"), False)}
 
 
 class BoundaryProbe:
@@ -75,10 +77,13 @@ class BoundaryProbe:
         self.probe, self.sent = probe, []
 
     def send(self, verb, *args):
-        observation = verb in {"CAMPAIGN", "GROUPS", "ECONOMY", "AIM_QUOTES", "AIM_UI", "CAMPAIGN_UI", "STATE", "BATTLE_NOTICE_UI"} and not args
+        observation = verb in {"CAMPAIGN", "GROUPS", "ECONOMY", "AIM_QUOTES", "AIM_UI", "CAMPAIGN_UI", "STATE",
+                               "BATTLE_NOTICE_UI", "RETURN_MAP_UI"} and not args
         campaign_input = verb == "CAMPAIGN_INPUT" and len(args) == 10 and args[-1] in (11, 16)
         notice_input = verb == "BATTLE_NOTICE_INPUT" and len(args) == 6 and args[-1] in (1, 2)
-        if not (observation or campaign_input or notice_input):
+        # A won sector stays loaded; only W (arm) and Enter (confirm) may leave it.
+        return_input = verb == "RETURN_MAP_INPUT" and len(args) == 6 and args[-1] in (1, 2)
+        if not (observation or campaign_input or notice_input or return_input):
             raise SmokeFailure("controlled boundary runner forbids unrelated gameplay and unscoped input")
         self.sent.append({"verb": verb, "arguments": list(args)})
         return self.probe.send(verb, *args)
@@ -88,7 +93,8 @@ class BoundaryProbe:
 
 
 def write_trigger(directory, outcome, states):
-    if outcome not in ("defeat", "capture", "victory") or not all(validate_tactical_state(value) for value in states) or len(states) != 2:
+    if (outcome not in ("defeat", "capture", "victory", "starter-victory") or
+            not all(validate_tactical_state(value) for value in states) or len(states) != 2):
         raise SmokeFailure("controlled battle requires two ready native tactical views")
     if (not _coherent(states) or not _unlocked(states) or any(value["resynchronizing"] or value["interrupt_phase"] != 0 or
             value["in_combat"] and value["team"] != 0 for value in states)):
@@ -279,6 +285,10 @@ def main():
             acknowledge = acknowledge_capture if args.outcome == "capture" else acknowledge_defeat
             acknowledge(probes, guard, time.monotonic() + args.timeout_seconds, evidence)
             evidence["nonleader_acknowledgement_verified"] = True
+        if args.outcome == "victory":
+            print("Controlled native victory secured A9; holding it loaded, then returning through Screen input.", flush=True)
+            evidence["peaceful_return"] = return_from_secured_sector(probes, guard, server, args.timeout_seconds)
+            evidence["secured_sector_hold_verified"] = True
         wait_for_marker(server, "[dedicated] post-combat strategic checkpoint committed; admission reopened", args.timeout_seconds)
         # Fresh probe streams start after the same clients finish automatic re-admission.
         probes = [BoundaryProbe(_Probe(client)) for client in clients]
