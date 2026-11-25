@@ -4818,7 +4818,7 @@ require_ordered_fragments(coop_give_npc_source
 # native SetGroupSectorValue would tear down the live world); the runtime plans
 # a scripted traversal with the stock basement grids, re-plans it before
 # leaving, and applies the stock surface edits only after the relocation.
-file(READ "${SOURCE_ROOT}/Tactical/interface Dialogue.cpp" coop_hideout_dialogue_source)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp" coop_hideout_dialogue_source)
 require_ordered_fragments(coop_hideout_dialogue_source
   "Dedicated co-op hideout action must defer the squad move and fade"
   "case NPC_ACTION_GOTO_HIDEOUT:"
