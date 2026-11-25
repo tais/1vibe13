@@ -547,6 +547,25 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::GiveItemTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			AuthoritativeGiveItemCommand prepared{};
+			if (!liveState_->prepareGiveItem(intent.actor, payload.target, payload.sourceSlot,
+					payload.expectedInventoryRevision, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::EndTurnTacticalIntent>::value)
 		{
 			if (!turn.turnBased || !turn.inCombat ||

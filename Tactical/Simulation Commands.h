@@ -73,7 +73,8 @@ enum class SimulationCommandDomainError
 	InvalidWeaponConfigurationPostApplyPolicy,
 	InvalidWeaponConfigurationContinuation,
 	InvalidAuthoritativeDropPrecondition,
-	InvalidConversationPrecondition
+	InvalidConversationPrecondition,
+	InvalidGivePrecondition
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -146,6 +147,8 @@ bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
 // Ordinary whole pocket stack onto this actor's exact empty, safe ground tile.
 // The retained command repeats source/pose/AP proofs and commits one native
 // item insertion; no asynchronous drop animation or client inventory mutation.
+bool PrepareAuthoritativeGiveItemCommand(TacticalEntityId actor, TacticalEntityId target,
+	std::uint8_t sourceSlot, AuthoritativeGiveItemCommand& output) noexcept;
 bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,
 	std::uint8_t sourceSlot, AuthoritativeDropInventoryItemCommand& output) noexcept;
 

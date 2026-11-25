@@ -3514,8 +3514,50 @@ sent by Enrico? ...") on both replicas, then `Esc` closes the panel on both.
 Negative control: with the answer executor disabled the panel opens but the
 line never advances and the probe fails at that step.
 
-Not yet: giving items to NPCs (Fatima's letter), NPC actions such as the
-basement fade and recruiting, and a choice among several NPCs in range (`K`
-always takes the nearest). The server plays no speech audio; the speaking flag is
+Not yet: NPC actions such as the basement fade and recruiting, and a choice
+among several NPCs in range (`K` always takes the nearest). The server plays no speech audio; the speaking flag is
 the native dialogue state (a line active or queued), which the stock
 subtitle-only timing ends.
+
+## Phase 2.3: giving items to NPCs
+
+`GiveItem` (intent kind 17: NPC identity, source slot, inventory revision)
+hands the whole object in one hand or pocket slot to an adjacent NPC, the way
+dropping the cursor item on them does in single player. In the client: open the
+inventory, click the item, press `K`; the nearest visible NPC is the recipient.
+
+The server prepares `AuthoritativeGiveItemCommand` (journal tag 41) against
+the client's exact inventory revision, the merc's pose and fingerprints, the
+source object's fingerprint and the NPC's grid. At execution it re-checks all of
+it plus peaceful real time, an idle talk panel and adjacency, and refuses
+shopkeepers (their give opens the shop GUI, which co-op does not support yet)
+and recruited RPCs. Then it runs the stock path:
+
+- The authority has no item cursor, so the source slot is emptied first and the
+  object travels only in the native pending give (`SoldierGiveItem`). If no give
+  pends, the object goes straight back into its slot; a mismatch marks the
+  world invalid.
+- The NPC keeps or returns the item in its native conversation
+  (`APPROACH_GIVINGITEM`). Two native fallbacks would put a returned item on
+  the item cursor; in dedicated co-op it goes to the giver, or their tile when
+  their inventory is full. A give that fails during its animation does the same.
+
+Installed evidence (`full_engine_coop_installed_npc_dialogue.py`, extended):
+after the Fatima conversation, the client owning Enrico's letter opens its
+inventory, clicks the letter, presses `K`; the letter leaves the merc's
+inventory and Fatima's panel opens on both replicas with "Hmmm... A letter from
+Enrico Chivaldori. He has not forgotten us...". Negative control: with the give
+executor discarding, the client gets a terminal Discarded receipt, keeps the
+letter and the probe fails at that step.
+
+Two observations from repeated runs:
+
+- A `K` pressed right after a walk is sometimes refused as `NotBaselineReady`
+  (the client has not yet acknowledged the latest world revision). Nothing
+  executes; pressing again works. The probe retries such refusals, as the
+  movement probe already does. A client that held the key until caught up
+  would be friendlier.
+- Once, in the first run of the give step, the give intent got no receipt at
+  all and the command stayed outstanding. It did not recur in twelve later give
+  runs, traced at the host readiness gate (and, in the last four, the inbound
+  backpressure gate), neither of which ever fired; the cause is unknown.

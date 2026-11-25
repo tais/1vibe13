@@ -1273,6 +1273,49 @@ struct AuthoritativeConverseCommand
 		TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
 
+// Stock give-to-NPC on the co-op authority: the whole object in one hand or
+// pocket slot goes to an exact adjacent NPC through SoldierGiveItem. Peaceful
+// realtime only, with every pose, slot and NPC proof re-checked at execution.
+struct AuthoritativeGiveItemCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int32_t expectedTargetGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = UINT16_MAX;
+	std::uint8_t expectedDirection = 8;
+	std::uint64_t expectedActorStateFingerprint = 0;
+	std::uint64_t sourceStateFingerprint = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<AuthoritativeGiveItemCommand>::value,
+	"give-to-NPC commands must remain pointer-free values");
+
+constexpr bool IsSupportedAuthoritativeGiveSlot(std::uint8_t slot) noexcept
+{
+	return slot == 5 || slot == 6 || (slot >= 14 && slot < 55);
+}
+
+constexpr bool IsStructurallyValidAuthoritativeGiveItemCommand(
+	const AuthoritativeGiveItemCommand& command) noexcept
+{
+	return command.soldier.valid() && command.target.valid() && command.target != command.soldier &&
+		IsSupportedAuthoritativeGiveSlot(command.sourceSlot) &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 && command.expectedTargetGrid >= 0 &&
+		command.expectedActorGrid != command.expectedTargetGrid && command.expectedActorLevel == 0 &&
+		command.expectedAnimationState != UINT16_MAX && command.expectedDirection < 8 &&
+		command.expectedActorStateFingerprint != 0 && command.sourceStateFingerprint != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeConverseCommand>::value,
 	"conversation answers must remain pointer-free values");
 
@@ -1635,7 +1678,8 @@ using SimulationCommand = std::variant<
 	TransferInventoryItemCommand,
 	AuthoritativePickupWorldItemCommand,
 	AuthoritativeDropInventoryItemCommand,
-	AuthoritativeConverseCommand>;
+	AuthoritativeConverseCommand,
+	AuthoritativeGiveItemCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1800,6 +1844,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeConverseCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeConverseCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeGiveItemCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeGiveItemCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

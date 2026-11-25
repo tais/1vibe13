@@ -10,7 +10,7 @@
 #include "Exit Grids.h"
 #include "TacticalActorInteractions.h"
 #include "NPC.h"
-#include "Interface Dialogue.h"
+#include "interface Dialogue.h"
 #include "Isometric Utils.h"
 #include "DedicatedServerOptions.h"
 #include "DedicatedCoopCampaignGroups.h"

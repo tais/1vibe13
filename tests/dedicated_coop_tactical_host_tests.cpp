@@ -274,6 +274,22 @@ public:
 		command.expectedActionPointCost = 3;
 		return true;
 	}
+	bool prepareGiveItem(TacticalEntityId actor, TacticalEntityId target, std::uint16_t source,
+		std::uint64_t revision, AuthoritativeGiveItemCommand& command) const noexcept override
+	{
+		++givePreparationCalls;
+		lastGiveRevision = revision;
+		if (!givePreparationSucceeds) return false;
+		command = AuthoritativeGiveItemCommand{};
+		command.soldier = actor; command.target = target;
+		command.sourceSlot = static_cast<std::uint8_t>(source);
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000; command.expectedTargetGrid = 1001;
+		command.expectedActorLevel = 0; command.expectedAnimationState = 1;
+		command.expectedDirection = 2; command.expectedActorStateFingerprint = 11;
+		command.sourceStateFingerprint = 12;
+		return true;
+	}
 	bool prepareDropInventoryItem(TacticalEntityId actor, std::uint16_t source,
 		std::uint64_t revision, AuthoritativeDropInventoryItemCommand& command) const noexcept override
 	{
@@ -343,6 +359,9 @@ public:
 	mutable std::size_t reloadPreparationCalls = 0;
 	bool firstAidPreparationSucceeds = true;
 	bool talkPreparationSucceeds = true;
+	bool givePreparationSucceeds = true;
+	mutable std::size_t givePreparationCalls = 0;
+	mutable std::uint64_t lastGiveRevision = 0;
 	bool conversePreparationSucceeds = true;
 	mutable std::size_t talkPreparationCalls = 0;
 	mutable std::size_t conversePreparationCalls = 0;
@@ -560,8 +579,11 @@ void TestTranslatesSupportedIntentVocabulary()
 	CHECK(host.execute(Intent(15, ConverseTacticalIntent{1, 4})) ==
 		TacticalIntentExecutionDisposition::Retained,
 		"a conversation answer enters the retained command inbox");
-	CHECK(commands.submissionCount == 15 && receipts.count == 15 &&
-		host.correlationCount() == 15,
+	CHECK(host.execute(Intent(16, GiveItemTacticalIntent{ActorTwo, 6, 31})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"giving an item to an NPC enters the retained command inbox");
+	CHECK(commands.submissionCount == 16 && receipts.count == 16 &&
+		host.correlationCount() == 16,
 		"each supported intent creates one queue correlation and receipt");
 
 	const MoveToGridCommand* move = std::get_if<MoveToGridCommand>(
@@ -696,6 +718,11 @@ void TestTranslatesSupportedIntentVocabulary()
 		converse->expectedWorldGeneration == 7 && live.conversePreparationCalls == 1 &&
 		live.lastTalkPeer == Peer(0x20),
 		"an answer is bound to the authority's conversation, world and requesting peer");
+	const auto* give = std::get_if<AuthoritativeGiveItemCommand>(&commands.submissions[15].command);
+	CHECK(give && IsStructurallyValidAuthoritativeGiveItemCommand(*give) && give->soldier == ActorOne &&
+		give->target == ActorTwo && give->sourceSlot == 6 && live.givePreparationCalls == 1 &&
+		live.lastGiveRevision == 31,
+		"a give retains the authority-captured slot, pose and NPC proofs at the client's inventory revision");
 	for (std::size_t index = 0; index < commands.submissionCount; ++index)
 		CHECK(commands.submissions[index].packageId == CampaignPackageId,
 			"every command submits under the active campaign package");
@@ -933,6 +960,16 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	CHECK(legacyNetwork.firstAidPreparationCalls == 0 &&
 		invalidFirstAid.firstAidPreparationCalls == 1,
 		"legacy role rejection precedes any native first-aid preparation");
+	FakeLiveState invalidGive;
+	invalidGive.givePreparationSucceeds = false;
+	rejects(invalidGive, Intent(1, GiveItemTacticalIntent{ActorTwo, 6, 31}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"a stale slot, far, shopkeeper or busy NPC never enters the inbox");
+	rejects(legacyNetwork, Intent(1, GiveItemTacticalIntent{ActorTwo, 6, 31}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"giving fails closed while a legacy network role is active");
+	CHECK(invalidGive.givePreparationCalls == 1 && legacyNetwork.givePreparationCalls == 0,
+		"legacy role rejection precedes native give preparation");
 	FakeLiveState invalidTalk;
 	invalidTalk.talkPreparationSucceeds = false;
 	rejects(invalidTalk, Intent(1, TalkTacticalIntent{ActorTwo}),

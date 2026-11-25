@@ -617,6 +617,23 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				else if (key == '[') (void)Controller.selectNextInventoryRecipient(view, false);
 				continue;
 			}
+			if ((key == 'k' || key == 'K') && Controller.actionsEnabled(view))
+			{
+				// Give the selected hand or pocket item to the nearest NPC (stock:
+				// drop the cursor item on them). The authority checks adjacency.
+				const std::uint16_t source = Controller.inventorySourceSlot();
+				const auto* owner = view.inventoryFor(Controller.selectedActor());
+				const TacticalEntityId target = NearestTalkTarget(view);
+				if (owner && target.valid() && (source == 5 || source == 6 || (source >= 14 && source < 55)))
+				{
+					FullEngineCoopClientIntentRequest request;
+					request.actor = Controller.selectedActor();
+					request.payload = CoopSession::GiveItemTacticalIntent{target, source, owner->inventoryRevision};
+					request.valid = true;
+					if (Submit(request, view)) Controller.closeInventory();
+				}
+				continue;
+			}
 			if (key == 'g' || key == 'G') (void)Controller.beginInventoryTransfer(view);
 			else if (key == 'p' || key == 'P') (void)Controller.beginInventoryPickup(view);
 			else if (key == 'x' || key == 'X')

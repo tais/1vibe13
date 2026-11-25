@@ -484,6 +484,38 @@ int main()
 			CommandDisposition::Discard && reference.snapshot() == referenceState,
 		"the portable reference also declines authoritative native door policy");
 
+	AuthoritativeGiveItemCommand give;
+	give.soldier = {2, 0x11223344}; give.target = {3, 0x55667788}; give.sourceSlot = 6;
+	give.expectedWorldGeneration = 9; give.expectedTurnSerial = 11;
+	give.expectedActorGrid = 120; give.expectedTargetGrid = 121; give.expectedActorLevel = 0;
+	give.expectedAnimationState = 6; give.expectedDirection = 2;
+	give.expectedActorStateFingerprint = 0x0102030405060708ull; give.sourceStateFingerprint = 0x1112131415161718ull;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{give}),
+		"a prepared give carries its exact merc, NPC, slot and pose proofs");
+	const std::vector<RecordedSimulationCommand> giveRecords{
+		{15, 19, CommandJournalStatus::Applied, SimulationCommand{give}}};
+	std::vector<std::uint8_t> giveWire, giveReencoded;
+	std::vector<RecordedSimulationCommand> decodedGive;
+	std::uint64_t giveDropped = 0;
+	Require(EncodeSimulationCommandJournal(giveRecords, 0, giveWire) &&
+		DecodeSimulationCommandJournal(giveWire, decodedGive, giveDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedGive.size() == 1 &&
+		std::holds_alternative<AuthoritativeGiveItemCommand>(decodedGive[0].command) &&
+		EncodeSimulationCommandJournal(decodedGive, giveDropped, giveReencoded) && giveReencoded == giveWire,
+		"a give journal round trips every field under its append-only tag");
+	std::array<AuthoritativeGiveItemCommand, 7> invalidGives;
+	invalidGives.fill(give);
+	invalidGives[0].target = give.soldier;
+	invalidGives[1].sourceSlot = 7;
+	invalidGives[2].expectedTargetGrid = give.expectedActorGrid;
+	invalidGives[3].expectedActorLevel = 1;
+	invalidGives[4].sourceStateFingerprint = 0;
+	invalidGives[5].source = SimulationCommandSource::LocalPlayer;
+	invalidGives[6].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidGives)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"malformed or locally sourced gives are rejected");
+
 	AuthoritativeConverseCommand answer;
 	answer.soldier = {2, 0x11223344};
 	answer.expectedWorldGeneration = 9;

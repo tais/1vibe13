@@ -62,6 +62,7 @@
 	#include "GameContext.h"
 
 #include "Ja25_Tactical.h"
+#include "Handle Items.h"
 
 
 //forward declarations of common classes to eliminate includes
@@ -1932,7 +1933,10 @@ void ReturnItemToPlayerIfNecessary( UINT8 ubMerc, INT8 bApproach, uintptr_t uiAp
 		// Try to auto place object and then if it fails, put into cursor
 		if ( !AutoPlaceObject( pSoldier, pObj, FALSE ) )
 		{
-			InternalBeginItemPointer( pSoldier, pObj, NO_SLOT );
+			if ( DedicatedCoopGiveReturnsToGiver() )
+				AddItemToPool( pSoldier->position().gridNo(), pObj, 1, pSoldier->position().level(), 0, -1 );
+			else
+				InternalBeginItemPointer( pSoldier, pObj, NO_SLOT );
 		}
 		DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 	}

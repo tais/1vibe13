@@ -27,6 +27,7 @@ from full_engine_coop_installed_process_smoke import (
 
 ROOT = Path(__file__).resolve().parents[1]
 FATIMA = 101
+LETTER = 227
 TALK_RADIUS = 4
 
 
@@ -121,6 +122,34 @@ def walk_into_talk_range(probes, guard, sender, merc, npc, timeout):
     raise SmokeFailure("no talk-range tile next to the NPC accepted the merc")
 
 
+# RevisionMismatch / NotBaselineReady: explicit refusals before execution
+# (the view moved on under the key). A player simply presses again.
+STALE_REASONS = (5, 9)
+MAXIMUM_STALE_RETRIES = 6
+
+
+def last_command(record):
+    return (record.get("receipt") or {}).get("command", 0)
+
+
+def command_outcome(probe, guard, previous, done, timeout):
+    """After one submitting key: 'done' once done() holds, 'stale' when the
+    authority refused the newer command before executing it; raise otherwise."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        record = conversations([probe], guard, deadline)[0]
+        if done(record):
+            return "done"
+        receipt = record.get("receipt") or {}
+        # Status 2 is a refusal before execution, 4 a native discard, 5 a cancel.
+        if receipt.get("command", 0) > previous and receipt.get("status") in (2, 4, 5) and record.get("outstanding") == 0:
+            if receipt.get("status") == 2 and receipt.get("reason") in STALE_REASONS:
+                return "stale"
+            raise SmokeFailure(f"the authority rejected the command: {receipt}")
+        time.sleep(0.1)
+    raise SmokeFailure(f"{probe.managed.name}: the command neither completed nor was refused")
+
+
 def converse(probe, guard, conversation, approach, timeout):
     request = probe.send("CONVERSATION_INPUT", conversation, approach)
     reply = probe.receive(request, "conversation_input", time.monotonic() + timeout, guard)
@@ -177,7 +206,15 @@ def talk_to_npc(probes, guard, server, npc_profile, timeout, evidence=None):
                                timeout, "the NPC as client A's talk target")
     # Client B cannot answer a conversation that does not exist; nor press K
     # on A's behalf: K only ever addresses B's own selected merc.
-    converse(probes[0], guard, 0, 0, timeout)
+    for attempt in range(MAXIMUM_STALE_RETRIES):
+        previous = last_command(conversations([probes[0]], guard, time.monotonic() + timeout)[0])
+        converse(probes[0], guard, 0, 0, timeout)
+        if command_outcome(probes[0], guard, previous, lambda r: r["conversation"] != 0, timeout) == "done":
+            break
+        evidence["stale_talk_retries"] = attempt + 1
+        time.sleep(0.3)
+    else:
+        raise SmokeFailure("talk stayed stale through every retry")
     opened = wait_conversations(
         probes, guard, lambda r: r[0]["conversation"] != 0 and not r[0]["speaking"], timeout, "the opened panel")
     evidence["greeting"] = quote_text(opened[0])
@@ -199,6 +236,69 @@ def talk_to_npc(probes, guard, server, npc_profile, timeout, evidence=None):
     wait_conversations(probes, guard, lambda r: r[0]["conversation"] == 0 and r[0]["revision"] > answered[0]["revision"],
                        timeout, "the closed panel")
     evidence["closed"] = True
+    return evidence
+
+
+def letter_holder(state):
+    """(actor identity, slot) of the one owned object of `item`, or None."""
+    found = [(tuple(inventory["actor"]), slot["slot"]) for inventory in state.get("inventories", [])
+             for slot in inventory["slots"] if slot.get("item") == LETTER]
+    return found[0] if len(found) == 1 else None
+
+
+def inventory_ui(probe, guard, timeout):
+    request = probe.send("INVENTORY_UI")
+    return probe.receive(request, "inventory_ui", time.monotonic() + timeout, guard)
+
+
+def wait_inventory_ui(probe, guard, predicate, timeout, what):
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        last = inventory_ui(probe, guard, timeout)
+        if last["ready"] and predicate(last):
+            return last
+        time.sleep(0.1)
+    raise SmokeFailure(f"inventory never showed {what}; last={last}")
+
+
+def give_letter(probes, guard, timeout, evidence):
+    """Client A opens its inventory, selects the letter and presses K at Fatima."""
+    holder = letter_holder(_states(probes, time.monotonic() + timeout, guard)[0])
+    if not holder:
+        raise SmokeFailure("client A does not hold exactly one letter")
+    (slot_id, incarnation), source = holder
+    evidence["letter_slot"] = source
+    def letter_gone(_record):
+        return letter_holder(_states(probes[:1], time.monotonic() + timeout, guard)[0]) is None
+    for attempt in range(MAXIMUM_STALE_RETRIES):
+        closed = wait_inventory_ui(probes[0], guard, lambda ui: not ui["open"] and ui["outstanding"] == 0 and
+                                   tuple(ui["actor"]) == (slot_id, incarnation), timeout,
+                                   "the closed inventory of the holder")
+        for action, slot, predicate, what in (
+                (1, 0xFFFF, lambda ui: ui["open"], "the open inventory"),
+                (2, source, lambda ui: ui["open"] and ui["source"] == source, "the letter as the selected source")):
+            request = probes[0].send("INVENTORY_INPUT", action, slot_id, incarnation, slot, closed["inventory_revision"])
+            reply = probes[0].receive(request, "inventory_input", time.monotonic() + timeout, guard)
+            if not reply.get("queued"):
+                raise SmokeFailure(f"inventory input {action} was not queued: {reply}")
+            wait_inventory_ui(probes[0], guard, predicate, timeout, what)
+        previous = last_command(conversations([probes[0]], guard, time.monotonic() + timeout)[0])
+        request = probes[0].send("GIVE_INPUT", slot_id, incarnation, source, closed["inventory_revision"])
+        reply = probes[0].receive(request, "give_input", time.monotonic() + timeout, guard)
+        if not reply.get("queued"):
+            raise SmokeFailure(f"the give key was not queued: {reply}")
+        evidence["give_target"] = reply["target"]
+        if command_outcome(probes[0], guard, previous, letter_gone, timeout) == "done":
+            break
+        evidence["stale_give_retries"] = attempt + 1
+        time.sleep(0.3)
+    else:
+        raise SmokeFailure("the give stayed stale through every retry")
+    evidence["letter_given"] = True
+    reaction = wait_conversations(probes, guard, lambda r: r[0]["conversation"] != 0 and r[0]["npc_profile"] == FATIMA,
+                                  timeout, "Fatima's reaction to the letter")
+    evidence["letter_reaction"] = quote_text(reaction[0])
     return evidence
 
 
@@ -239,7 +339,15 @@ def main(argv=None):
             if time.monotonic() > deadline:
                 raise SmokeFailure("the seeded A9 victory never secured the sector")
             time.sleep(0.2)
+        # The client owning Enrico's letter acts; the other only observes.
+        states = _states(probes, time.monotonic() + timeout, guard)
+        if letter_holder(states[1]) and not letter_holder(states[0]):
+            probes.reverse()
+            evidence["acting_client"] = "client-b"
+        else:
+            evidence["acting_client"] = "client-a"
         talk_to_npc(probes, guard, server, FATIMA, timeout, evidence)
+        give_letter(probes, guard, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True

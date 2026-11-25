@@ -36,7 +36,8 @@ enum class TacticalIntentKind : std::uint8_t
 	PickupWorldItem = 13,
 	DropInventoryItem = 14,
 	Talk = 15,
-	Converse = 16
+	Converse = 16,
+	GiveItem = 17
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -129,6 +130,15 @@ struct ConverseTacticalIntent
 	std::uint8_t approach = 0;
 };
 
+// Hand the whole object in one owned hand or pocket slot to an exact adjacent
+// replicated NPC (the stock give: the NPC keeps or returns it in conversation).
+struct GiveItemTacticalIntent
+{
+	TacticalEntityId target;
+	std::uint16_t sourceSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
+
 struct PassInterruptTacticalIntent
 {
 	std::uint64_t interruptSerial = 0;
@@ -168,7 +178,8 @@ using TacticalIntentPayload = std::variant<
 	PickupWorldItemTacticalIntent,
 	DropInventoryItemTacticalIntent,
 	TalkTacticalIntent,
-	ConverseTacticalIntent>;
+	ConverseTacticalIntent,
+	GiveItemTacticalIntent>;
 
 struct TacticalIntent
 {

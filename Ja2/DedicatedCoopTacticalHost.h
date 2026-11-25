@@ -133,6 +133,10 @@ public:
 		TacticalEntityId actor, std::uint16_t sourceSlot,
 		std::uint64_t expectedInventoryRevision,
 		AuthoritativeDropInventoryItemCommand& command) const noexcept = 0;
+	virtual bool prepareGiveItem(
+		TacticalEntityId actor, TacticalEntityId target, std::uint16_t sourceSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativeGiveItemCommand& command) const noexcept = 0;
 	virtual bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept = 0;
@@ -200,6 +204,10 @@ public:
 		TacticalEntityId actor, std::uint16_t sourceSlot,
 		std::uint64_t expectedInventoryRevision,
 		AuthoritativeDropInventoryItemCommand& command) const noexcept override;
+	bool prepareGiveItem(
+		TacticalEntityId actor, TacticalEntityId target, std::uint16_t sourceSlot,
+		std::uint64_t expectedInventoryRevision,
+		AuthoritativeGiveItemCommand& command) const noexcept override;
 	bool prepareDoorOpenClose(
 		TacticalEntityId actor,
 		TacticalWorldObjectId object,

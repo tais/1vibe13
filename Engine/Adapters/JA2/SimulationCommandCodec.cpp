@@ -54,7 +54,8 @@ enum class CommandTag : std::uint8_t
 	TransferInventoryItem = 37,
 	AuthoritativePickupWorldItem = 38,
 	AuthoritativeDropInventoryItem = 39,
-	AuthoritativeConverse = 40
+	AuthoritativeConverse = 40,
+	AuthoritativeGiveItem = 41
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -291,6 +292,28 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedKitStateFingerprint);
 			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeGiveItemCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::AuthoritativeGiveItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeU8(value.sourceSlot);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI32(value.expectedTargetGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU8(value.expectedDirection);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.sourceStateFingerprint);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -919,6 +942,30 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				static_cast<TacticalWorldObjectOperation>(operation);
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeGiveItem:
+		{
+			AuthoritativeGiveItemCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!reader.readU8(value.sourceSlot) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI32(value.expectedTargetGrid) ||
+				!reader.readI8(value.expectedActorLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU8(value.expectedDirection) ||
+				!reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.sourceStateFingerprint) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidAuthoritativeGiveItemCommand(value))
 				return false;
 			command = value;
 			return true;

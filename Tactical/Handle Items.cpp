@@ -114,6 +114,7 @@
 #include "World Tile Map.h"
 #include "lighting.h"
 #include "MemMan.h"
+#include "DedicatedServerOptions.h"
 
 #include <algorithm>
 #include <cstring>
@@ -5699,6 +5700,12 @@ BOOLEAN VerifyGiveItem( TacticalActor *pSoldier, TacticalActor **ppTargetSoldier
 }
 
 
+bool DedicatedCoopGiveReturnsToGiver() noexcept
+{
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop;
+}
+
 void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 {
 	if (!pSoldier)
@@ -5726,6 +5733,11 @@ void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 		!VerifyGiveItem(pSoldier, &pTSoldier) ||
 		!pTSoldier)
 	{
+		// Dedicated co-op has no item cursor to fall back on: a failed give
+		// returns the whole pending object to the giver, else to their tile.
+		if (DedicatedCoopGiveReturnsToGiver() && pendingObject && pendingObject->exists() &&
+			!AutoPlaceObject(pSoldier, pendingObject, FALSE))
+			AddItemToPool(pSoldier->position().gridNo(), pendingObject, 1, pSoldier->position().level(), 0, -1);
 		pSoldier->pendingItem().clearObject();
 		pSoldier->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
 		if (pTSoldier)

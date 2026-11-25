@@ -11,9 +11,10 @@
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
+#include "Arms Dealer Init.h"
 #include "NPC.h"
 #include "Dialogue Control.h"
-#include "Interface Dialogue.h"
+#include "interface Dialogue.h"
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
@@ -1427,6 +1428,54 @@ namespace
 		return true;
 	}
 
+	// Peaceful stock give-to-NPC: every proof of the prepared command, an idle
+	// talk panel, and an exact adjacent profiled non-player NPC who is neither a
+	// shopkeeper (their give opens the shop GUI) nor a recruited RPC.
+	bool ResolveAuthoritativeGiveItem(const AuthoritativeGiveItemCommand& command,
+		TacticalActor*& actor, TacticalActor*& npc)
+	{
+		actor = npc = nullptr;
+		if (!IsStructurallyValidAuthoritativeGiveItemCommand(command) ||
+			!HasNetworkPeerTacticalExecutionContext() || gpItemPointer != nullptr ||
+			IsJa2TacticalCombatActive() || gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty())
+			return false;
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial) return false;
+		TacticalActor* const live = ResolveCoopAuthorizedLegacyCommandActor(
+			command.soldier, command.source, command.authority);
+		const TacticalActor* const merc = live;
+		if (!live || live->identity().bodyType() > REGFEMALE || live->identity().profile() == NO_PROFILE ||
+			live->identity().profile() >= NUM_PROFILES || AM_AN_EPC(merc) ||
+			live->vitals().health() < OKLIFE || live->inventory().size() != NUM_INV_SLOTS ||
+			!FirstAidPoseReady(*live) || live->movement().waitAction() ||
+			(live->status().flags() & SOLDIER_ENGAGEDINACTION) != 0 ||
+			IsUnsettledFireReadyPose(live->animationPlayback().state()) ||
+			live->position().gridNo() != command.expectedActorGrid ||
+			live->position().level() != command.expectedActorLevel ||
+			live->animationPlayback().state() != command.expectedAnimationState ||
+			live->position().direction() != command.expectedDirection ||
+			CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint) return false;
+		const OBJECTTYPE& source = live->inventory()[command.sourceSlot];
+		if (!source.exists() || CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint ||
+			!InventorySwapSlotAccessible(*live, command.sourceSlot, source)) return false;
+		TacticalActor* const target = ResolveLiveCommandActor(command.target);
+		if (!target || target == live || !target->roster().active() || !target->roster().inSector() ||
+			target->roster().team() == OUR_TEAM || target->identity().profile() == NO_PROFILE ||
+			target->identity().profile() >= NUM_PROFILES || target->vitals().health() < OKLIFE ||
+			IsMercADealer(target->identity().profile()) || RPC_RECRUITED(target) ||
+			(target->status().flags() & SOLDIER_ENGAGEDINACTION) != 0 ||
+			target->position().level() != live->position().level() ||
+			target->position().gridNo() != command.expectedTargetGrid) return false;
+		UINT8 direction = 0;
+		INT32 adjusted = 0;
+		if (FindAdjacentGridEx(live, target->position().gridNo(), &direction, &adjusted, TRUE, FALSE) !=
+			live->position().gridNo()) return false;
+		actor = live;
+		npc = target;
+		return true;
+	}
+
 	std::uint64_t CaptureFirstAidKitStateFingerprint(const TacticalActor& medic) noexcept
 	{
 		if (medic.inventory().size() <= HANDPOS) return 0;
@@ -2172,6 +2221,37 @@ namespace
 					!HasEndTurnExecutionContext(value))
 					return CommandDisposition::Discard;
 				EndTurn(value.nextTeam);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, AuthoritativeGiveItemCommand>::value)
+			{
+				TacticalActor* merc = nullptr;
+				TacticalActor* npc = nullptr;
+				if (is_networked || is_client || is_server ||
+					!ResolveAuthoritativeGiveItem(value, merc, npc)) return CommandDisposition::Discard;
+				// The stock UI first lifts the object into its item cursor; the
+				// authority has none, so the slot is emptied here and the whole
+				// object travels only in the native pending give. Native refusal
+				// and failure paths return it to the giver (or the ground) in
+				// dedicated co-op instead of to a cursor.
+				OBJECTTYPE given(merc->inventory()[value.sourceSlot]);
+				DeleteObj(&merc->inventory()[value.sourceSlot]);
+				SoldierGiveItem(merc, npc, &given, NO_SLOT);
+				if (merc->pendingAction().action() != MERC_GIVEITEM || !merc->pendingItem().object() ||
+					!merc->pendingItem().object()->exists())
+				{
+					merc->pendingAction().clearAction();
+					merc->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
+					npc->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
+					merc->inventory()[value.sourceSlot] = given;
+					if (CaptureOrdinaryInventoryObject(merc->inventory()[value.sourceSlot]) != value.sourceStateFingerprint)
+					{
+						MarkJa2TacticalWorldIntegrityFailure();
+						throw std::runtime_error("authoritative give could not restore its source object");
+					}
+					return CommandDisposition::Discard;
+				}
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
@@ -3880,6 +3960,39 @@ bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,
 	catch (...) { return false; }
 }
 
+bool PrepareAuthoritativeGiveItemCommand(TacticalEntityId actor, TacticalEntityId target,
+	std::uint8_t sourceSlot, AuthoritativeGiveItemCommand& output) noexcept
+{
+	try
+	{
+		TacticalActor* const live = ResolveLiveCommandActor(actor);
+		TacticalActor* const npc = ResolveLiveCommandActor(target);
+		const auto identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!live || !npc || !identity || live->inventory().size() != NUM_INV_SLOTS ||
+			!IsSupportedAuthoritativeGiveSlot(sourceSlot)) return false;
+		AuthoritativeGiveItemCommand prepared;
+		prepared.soldier = actor;
+		prepared.target = target;
+		prepared.sourceSlot = sourceSlot;
+		prepared.expectedWorldGeneration = identity.worldGeneration;
+		prepared.expectedTurnSerial = identity.serial;
+		prepared.expectedActorGrid = live->position().gridNo();
+		prepared.expectedTargetGrid = npc->position().gridNo();
+		prepared.expectedActorLevel = live->position().level();
+		prepared.expectedAnimationState = live->animationPlayback().state();
+		prepared.expectedDirection = live->position().direction();
+		prepared.expectedActorStateFingerprint = CaptureInventorySwapActorState(*live);
+		prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[sourceSlot]);
+		TacticalActor* checkedActor = nullptr;
+		TacticalActor* checkedNpc = nullptr;
+		if (!ResolveAuthoritativeGiveItem(prepared, checkedActor, checkedNpc) ||
+			checkedActor != live || checkedNpc != npc) return false;
+		output = prepared;
+		return true;
+	}
+	catch (...) { return false; }
+}
+
 bool PrepareAuthoritativeDoorOpenCloseCommand(
 	TacticalEntityId actor,
 	TacticalWorldObjectId object,
@@ -3960,7 +4073,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, TransferInventoryItemCommand>::value ||
 			std::is_same<Command, AuthoritativePickupWorldItemCommand>::value ||
 			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value ||
-			std::is_same<Command, AuthoritativeConverseCommand>::value)
+			std::is_same<Command, AuthoritativeConverseCommand>::value ||
+			std::is_same<Command, AuthoritativeGiveItemCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4123,6 +4237,16 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					return SimulationCommandDomainError::InvalidAuthoritativePickupPrecondition;
 				return TileIsOutOfBounds(value.expectedActorGrid)
 					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeGiveItemCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeGiveItemCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidGivePrecondition;
+				if (value.target.slot >= TOTAL_SOLDIERS) return SimulationCommandDomainError::InvalidTargetActor;
+				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
+				return TileIsOutOfBounds(value.expectedTargetGrid)
+					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeConverseCommand>::value)
 			{

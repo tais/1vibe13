@@ -673,6 +673,16 @@ void ReplyConversation(std::uint64_t request) noexcept
 		std::printf(",\"answerable\":%s,\"selected\":[%u,%u],\"talk_target\":[%u,%u]",
 			GetFullEngineCoopClientRuntime().conversationAnswerable(c) ? "true" : "false",
 			unsigned(selected.slot), unsigned(selected.incarnation), unsigned(target.slot), unsigned(target.incarnation));
+		FullEngineCoopClientPresentationView view;
+		if (GetFullEngineCoopClientRuntime().presentationView(view))
+		{
+			std::printf(",\"outstanding\":%llu,\"receipt\":", static_cast<unsigned long long>(view.outstandingCommandId));
+			if (view.hasLastReceipt)
+				std::printf("{\"command\":%llu,\"status\":%u,\"reason\":%u}",
+					static_cast<unsigned long long>(view.lastReceipt.commandId),
+					unsigned(view.lastReceipt.status), unsigned(view.lastReceipt.reason));
+			else std::fputs("null", stdout);
+		}
 	}
 	std::fputs("}", stdout); FlushReply();
 }
@@ -2086,6 +2096,30 @@ void ReplyInventoryInput(std::uint64_t request, unsigned action, TacticalEntityI
 	FlushReply();
 }
 
+// Queues the shipping inventory's K (give the selected item to the nearest
+// NPC) only while the exact actor, source slot and inventory revision show.
+void ReplyGiveInput(std::uint64_t request, const std::array<std::uint64_t, 4>& values, unsigned& inputs) noexcept
+{
+	InventoryUiObservation observation;
+	const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+	if (inputs >= MaximumInventoryUiInputs || GetCurrentScreen() != GAME_SCREEN || !ObserveInventoryUi(observation) ||
+		observation.actor != actor || !observation.controls.open || !observation.controls.actionsEnabled ||
+		observation.controls.selectedSourceSlot != values[2] || observation.owner->inventoryRevision != values[3] ||
+		observation.presentation.outstandingCommandId != 0 || GetInputQueueStatistics().queued != 0 ||
+		!GetFullEngineCoopClientTalkTarget().valid())
+	{
+		ReplyError(request, "give input requires the open inventory, exact source and an NPC in reach; no retry");
+		return;
+	}
+	++inputs;
+	std::uint64_t accepted = 0;
+	const bool queued = QueueInventoryUiPair(false, 'k', accepted);
+	std::printf("%s{\"request\":%llu,\"kind\":\"give_input\",\"queued\":%s,\"target\":[%u,%u]}", ReplyPrefix,
+		static_cast<unsigned long long>(request), queued ? "true" : "false",
+		unsigned(GetFullEngineCoopClientTalkTarget().slot), unsigned(GetFullEngineCoopClientTalkTarget().incarnation));
+	FlushReply();
+}
+
 void ReplyRosterCapture(std::uint64_t request, const std::array<std::uint64_t, 6>& values,
 	bool priorCapture, bool& captured) noexcept
 {
@@ -2348,6 +2382,20 @@ private:
 			}
 			if (!parsed || !cursor.exhausted()) ReplyError(request, "RETURN_MAP_INPUT needs session/control/groups/sector/armed/key");
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
+			return;
+		}
+		if (operation == "GIVE_INPUT")
+		{
+			std::array<std::uint64_t, 4> values{}; bool parsed = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
+			}
+			if (!parsed || !cursor.exhausted() || values[0] > UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] > UINT16_MAX || values[3] == 0)
+				ReplyError(request, "GIVE_INPUT needs actor slot, incarnation, source slot and inventory revision");
+			else ReplyGiveInput(request, values, inventoryUiInputs_);
 			return;
 		}
 		if (operation == "CONVERSATION_INPUT")

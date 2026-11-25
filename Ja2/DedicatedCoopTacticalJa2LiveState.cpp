@@ -334,6 +334,20 @@ bool DedicatedCoopTacticalJa2LiveState::prepareDropInventoryItem(
 		PrepareAuthoritativeDropInventoryItemCommand(actor, static_cast<std::uint8_t>(sourceSlot), command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareGiveItem(
+	TacticalEntityId actor, TacticalEntityId target, std::uint16_t sourceSlot,
+	std::uint64_t expectedInventoryRevision, AuthoritativeGiveItemCommand& command) const noexcept
+{
+	if (!onMainThread() || sourceSlot >= 256 ||
+		!IsSupportedAuthoritativeGiveSlot(static_cast<std::uint8_t>(sourceSlot)) ||
+		expectedInventoryRevision == 0) return false;
+	CoopSession::CoopOwnerInventorySnapshot current;
+	const auto world = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	return world && inventoryAuthority_.capture(actor, world.worldGeneration, current) &&
+		current.inventoryRevision == expectedInventoryRevision &&
+		PrepareAuthoritativeGiveItemCommand(actor, target, static_cast<std::uint8_t>(sourceSlot), command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::collectControllableActors(
 	DedicatedCoopTacticalActorList& actors,
 	std::size_t& count) const noexcept

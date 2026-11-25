@@ -1,7 +1,7 @@
 #include "DedicatedCoopConversation.h"
 #include "TacticalEntityHost.h"
 #include "TacticalActor.h"
-#include "Interface Dialogue.h"
+#include "interface Dialogue.h"
 #include "Dialogue Control.h"
 #include "Soldier Profile.h"
 #include "Soldier Profile Constants.h"

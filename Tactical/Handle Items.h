@@ -235,6 +235,9 @@ BOOLEAN SoldierDropItem( TacticalActor * pSoldier, OBJECTTYPE * pObj );
 
 void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo );
 BOOLEAN VerifyGiveItem( TacticalActor *pSoldier, TacticalActor **ppTargetSoldier );
+// True on the dedicated co-op authority, which has no item cursor: given
+// items that come back are placed on the giver or their tile instead.
+bool DedicatedCoopGiveReturnsToGiver() noexcept;
 void SoldierGiveItemFromAnimation( TacticalActor *pSoldier );
 void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OBJECTTYPE *pObject, INT8 bInvPos );
 

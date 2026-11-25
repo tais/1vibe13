@@ -187,6 +187,12 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
 	if (const auto* aid = std::get_if<BeginFirstAidTacticalIntent>(&left.payload))
 		return aid->target == std::get<BeginFirstAidTacticalIntent>(right.payload).target;
+	if (const auto* give = std::get_if<GiveItemTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<GiveItemTacticalIntent>(right.payload);
+		return give->target == other.target && give->sourceSlot == other.sourceSlot &&
+			give->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
 	if (const auto* talk = std::get_if<TalkTacticalIntent>(&left.payload))
 		return talk->target == std::get<TalkTacticalIntent>(right.payload).target;
 	if (const auto* answer = std::get_if<ConverseTacticalIntent>(&left.payload))
@@ -337,7 +343,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 16> payloads{{
+	const std::array<PayloadCase, 17> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -356,7 +362,8 @@ void TestIntentCodec()
 		{PickupWorldItemTacticalIntent{{0x04030201, 0x08070605}, 14, UINT64_C(0x1817161514131211)}, 90},
 		{DropInventoryItemTacticalIntent{54, UINT64_C(0x1817161514131211)}, 82},
 		{TalkTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
-		{ConverseTacticalIntent{0x04030201, 5}, 77}}};
+		{ConverseTacticalIntent{0x04030201, 5}, 77},
+		{GiveItemTacticalIntent{TacticalEntityId{0x1234, 0x50607080}, 6, UINT64_C(0x1817161514131211)}, 88}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;
@@ -710,6 +717,10 @@ void TestIntentCodec()
 	invalid.payload = PassInterruptTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid),
 		"zero interrupt-pass serial is rejected");
+	invalid.payload = GiveItemTacticalIntent{TacticalEntityId{0x1234, 0x50607080}, 7, 1};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "only the two hands and the pockets can be given from");
+	invalid.payload = GiveItemTacticalIntent{TacticalEntityId{0x1234, 0x50607080}, 14, 0};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "a give is bound to a nonzero inventory revision");
 	invalid.payload = TalkTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid), "unresolved talk target is rejected");
 	invalid.payload = TalkTacticalIntent{invalid.actor};

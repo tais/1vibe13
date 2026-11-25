@@ -4765,6 +4765,49 @@ require_ordered_fragments(coop_conversation_choice_slice
   "(void)HandleTalkingMenuEscape(TRUE, FALSE);"
   "Converse(gTalkPanel.ubCharNum, gubSrcSoldierProfile, static_cast<INT8>(approach), 0);")
 
+# Giving an item to an NPC: the authority has no item cursor, so the source slot
+# is emptied before the stock SoldierGiveItem and restored if no give pends;
+# shopkeepers (their give opens the shop GUI) and recruited RPCs are refused;
+# and the two native fallbacks that would hand an item back to a cursor place
+# it on the giver or their tile instead in dedicated co-op.
+extract_brace_bounded_slice(coop_conversation_command_source
+  "bool ResolveAuthoritativeGiveItem(const AuthoritativeGiveItemCommand& command,\n\t\tTacticalActor*& actor, TacticalActor*& npc)"
+  coop_give_resolve_slice "Cannot bound give-to-NPC resolver")
+require_ordered_fragments(coop_give_resolve_slice
+  "Give-to-NPC lost its peaceful idle-panel, exact proof, NPC or adjacency checks"
+  "IsJa2TacticalCombatActive() || gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty()"
+  "CaptureInventorySwapActorState(*live) != command.expectedActorStateFingerprint"
+  "CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint"
+  "target->roster().team() == OUR_TEAM"
+  "IsMercADealer(target->identity().profile()) || RPC_RECRUITED(target)"
+  "target->position().gridNo() != command.expectedTargetGrid"
+  "FindAdjacentGridEx(live, target->position().gridNo(), &direction, &adjusted, TRUE, FALSE) !=\n\t\t\tlive->position().gridNo()")
+require_ordered_fragments(coop_conversation_command_source
+  "Give-to-NPC must move the whole object out of its slot and restore it when no give pends"
+  "!ResolveAuthoritativeGiveItem(value, merc, npc)) return CommandDisposition::Discard;"
+  "OBJECTTYPE given(merc->inventory()[value.sourceSlot]);"
+  "DeleteObj(&merc->inventory()[value.sourceSlot]);"
+  "SoldierGiveItem(merc, npc, &given, NO_SLOT);"
+  "merc->pendingAction().action() != MERC_GIVEITEM"
+  "merc->inventory()[value.sourceSlot] = given;"
+  "MarkJa2TacticalWorldIntegrityFailure();")
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp" coop_give_handle_items_source)
+require_ordered_fragments(coop_give_handle_items_source
+  "A failed give must return its pending object to the giver in dedicated co-op"
+  "void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )"
+  "DedicatedCoopGiveReturnsToGiver() && pendingObject && pendingObject->exists()"
+  "AutoPlaceObject(pSoldier, pendingObject, FALSE)"
+  "AddItemToPool(pSoldier->position().gridNo(), pendingObject"
+  "pSoldier->pendingItem().clearObject();")
+file(READ "${SOURCE_ROOT}/TacticalAI/NPC.cpp" coop_give_npc_source)
+require_ordered_fragments(coop_give_npc_source
+  "A refused item must never reach a server-side item cursor in dedicated co-op"
+  "void ReturnItemToPlayerIfNecessary("
+  "AutoPlaceObject( pSoldier, pObj, FALSE )"
+  "DedicatedCoopGiveReturnsToGiver()"
+  "AddItemToPool( pSoldier->position().gridNo(), pObj"
+  "InternalBeginItemPointer( pSoldier, pObj, NO_SLOT );")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -12780,7 +12823,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 16> payloads"
+    "const std::array<PayloadCase, 17> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13198,7 +13241,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 14)
+if(NOT dedicated_live_authority_write_call_count EQUAL 15)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13212,7 +13255,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 14)
+if(NOT dedicated_live_authority_read_call_count EQUAL 15)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -14488,7 +14531,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 16> payloads"
+    "const std::array<PayloadCase, 17> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -14867,7 +14910,7 @@ foreach(dedicated_live_door_controller_test_contract IN ITEMS
 endforeach()
 foreach(dedicated_live_door_host_test_contract IN ITEMS
     "host.execute(Intent(8, DoorOpenCloseTacticalIntent"
-    "commands.submissionCount == 15"
+    "commands.submissionCount == 16"
     "AuthoritativeDoorOpenCloseCommand"
     "commands.submissions[7].command"
     "door intent is resolved into one exact private authoritative command"
@@ -44669,7 +44712,8 @@ foreach(inventory_wire_contract IN ITEMS
     "TransferInventoryItem = 12" "TransferInventoryItemTacticalIntent,"
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
-    "Talk = 15," "TalkTacticalIntent," "Converse = 16" "ConverseTacticalIntent>")
+    "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
+    "GiveItem = 17" "GiveItemTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

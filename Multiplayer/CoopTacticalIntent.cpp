@@ -100,6 +100,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::DropInventoryItem: return 10;
 		case TacticalIntentKind::Talk: return 6;
 		case TacticalIntentKind::Converse: return 5;
+		case TacticalIntentKind::GiveItem: return 16;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -128,6 +129,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::DropInventoryItem:
 		case TacticalIntentKind::Talk:
 		case TacticalIntentKind::Converse:
+		case TacticalIntentKind::GiveItem:
 			return true;
 	}
 	return false;
@@ -183,6 +185,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::Talk;
 		if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
 			return TacticalIntentKind::Converse;
+		if constexpr (std::is_same<Payload, GiveItemTacticalIntent>::value)
+			return TacticalIntentKind::GiveItem;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -235,6 +239,11 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 			return payload.target.valid() && payload.target != intent.actor;
 		if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
 			return payload.conversation != 0 && payload.approach <= MaximumTacticalConverseApproach;
+		if constexpr (std::is_same<Payload, GiveItemTacticalIntent>::value)
+			return payload.target.valid() && payload.target != intent.actor &&
+				(payload.sourceSlot == 5 || payload.sourceSlot == 6 ||
+				 (payload.sourceSlot >= 14 && payload.sourceSlot < 55)) &&
+				payload.expectedInventoryRevision != 0;
 		return true;
 	}, intent.payload);
 }
@@ -310,6 +319,13 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			{
 				WriteU32(encoded, payload.conversation);
 				encoded.push_back(payload.approach);
+			}
+			else if constexpr (std::is_same<Payload, GiveItemTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.target.slot);
+				WriteU32(encoded, payload.target.incarnation);
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
 			}
 			else if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
 			{
@@ -446,6 +462,17 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			TalkTacticalIntent payload;
 			if (!ReadU16(input, end, payload.target.slot) ||
 				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::GiveItem:
+		{
+			GiveItemTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation) ||
+				!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
 				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
