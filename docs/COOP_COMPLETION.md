@@ -3558,17 +3558,13 @@ Two observations from repeated runs:
   executes; pressing again works. The probe retries such refusals, as the
   movement probe already does. A client that held the key until caught up
   would be friendlier.
-- Once, in the first run of the give step, the give intent got no receipt at
-  all and the command stayed outstanding. It did not recur in twelve later give
-  runs, traced at the host readiness gate (and, in the last four, the inbound
-  backpressure gate), neither of which ever fired; the cause is unknown.
 - Merc chatter (a line playing with no talk panel open) is frequent while
-  paused in a secured sector. Talk and give first required total dialogue
-  silence and were then discarded at random; they now block only on an open
-  talk panel, as single player does.
-- Right after the give negative control, five consecutive runs (one alone,
-  four in parallel) got the same terminal Discarded receipt for the give that
-  the control produces. Fifteen runs since, from clean rebuilds, all passed;
-  a stale control build is the likely explanation but is not proven. The give
-  resolver now names each refusal stage under `JA2_COOP_INVENTORY_DIAGNOSTIC=1`
-  so a recurrence says why.
+  paused in a secured sector. Talk and give first also required that no line
+  be playing; single player refuses only while a talk panel is open (the stock
+  conversation start queues behind chatter), so co-op now does the same.
+- Two early anomalies (a give that never got a receipt, then five gives
+  discarded exactly as under the negative control) were stale test hosts: the
+  default `ninja` target does not relink `full_engine_coop_installed_entry`,
+  so those runs used a server built before the give existed, then the control
+  build. Probe binaries must be built by name. The give resolver also names
+  each refusal stage under `JA2_COOP_INVENTORY_DIAGNOSTIC=1`.
