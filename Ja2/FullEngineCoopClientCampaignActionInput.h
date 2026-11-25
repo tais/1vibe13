@@ -10,7 +10,7 @@
 enum class FullEngineCoopClientCampaignActionKey : unsigned
 {
 	None, NextGroup, PreviousGroup, North, South, West, East, Confirm, Cancel,
-	Acknowledge, Stop, EnterBattle, Retreat, Assign, Count
+	Acknowledge, Stop, EnterBattle, Retreat, Assign, Contract, Count
 };
 
 // This is selection/confirmation state only. It never advances a clock, plans
@@ -99,6 +99,40 @@ public:
 			if (!wasAssigning && !group->betweenSectors && group->memberCount) assigning_ = true;
 			return {};
 		}
+		// C toggles contract mode for one merc of the selected group: the group
+		// keys pick the merc, North/South choose extend 1 day / 1 week / 2 weeks
+		// or dismiss; Enter extends, and a dismissal needs a second Enter.
+		if (key == Key::Contract)
+		{
+			const bool wasContracting = contracting_;
+			cancel();
+			if (!wasContracting && !group->betweenSectors && group->memberCount) contracting_ = true;
+			return {};
+		}
+		if (contracting_)
+		{
+			if (!group->memberCount || group->betweenSectors) { cancel(); return {}; }
+			if (key == Key::NextGroup || key == Key::PreviousGroup)
+			{
+				assignMember_ = static_cast<std::uint16_t>(key == Key::NextGroup ? (assignMember_ + 1) % group->memberCount
+					: (assignMember_ + group->memberCount - 1) % group->memberCount);
+				dismissArmed_ = false;
+			}
+			else if (key == Key::South) { contractChoice_ = static_cast<std::uint8_t>((contractChoice_ + 1) % 4); dismissArmed_ = false; }
+			else if (key == Key::North) { contractChoice_ = static_cast<std::uint8_t>((contractChoice_ + 3) % 4); dismissArmed_ = false; }
+			else if (key == Key::Confirm)
+			{
+				const auto* member = assignedMember(*groups);
+				if (!member) { cancel(); return {}; }
+				if (contractChoice_ == 3 && !dismissArmed_) { dismissArmed_ = true; return {}; }
+				request.action = contractChoice_ == 3 ? Action::DismissMerc : Action::ExtendContract;
+				request.decision = static_cast<std::uint64_t>(member->actor.slot) |
+					(static_cast<std::uint64_t>(member->actor.incarnation) << 16);
+				request.destinationX = contractChoice_ == 3 ? 0 : static_cast<std::uint8_t>(contractChoice_ + 1);
+				cancel(); return request;
+			}
+			return {};
+		}
 		if (assigning_)
 		{
 			if (!group->memberCount || group->betweenSectors) { cancel(); return {}; }
@@ -177,6 +211,10 @@ public:
 	bool retreatArmed() const noexcept { return retreatArmed_; }
 	bool enterArmed() const noexcept { return enterArmed_; }
 	bool assigning() const noexcept { return assigning_; }
+	bool contracting() const noexcept { return contracting_; }
+	// 0 = extend one day, 1 = one week, 2 = two weeks, 3 = dismiss.
+	std::uint8_t contractChoice() const noexcept { return contractChoice_; }
+	bool dismissArmed() const noexcept { return dismissArmed_; }
 	std::uint8_t assignmentCode() const noexcept { return AssignmentChoiceCodes[assignKind_]; }
 	std::uint8_t assignmentStat() const noexcept { return assignStat_; }
 	// The merc assignment mode addresses, within the selected group.
@@ -192,6 +230,7 @@ public:
 	{
 		destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false;
 		assigning_ = false; assignMember_ = 0; assignKind_ = 0; assignStat_ = 1;
+		contracting_ = dismissArmed_ = false; contractChoice_ = 0;
 	}
 
 	// The co-op assignment codes offered, in menu order: squad (any), doctor,
@@ -208,7 +247,8 @@ private:
 	std::uint64_t session_ = 0, control_ = 0, groupsRevision_ = 0, decision_ = 0;
 	std::uint8_t destinationX_ = 0, destinationY_ = 0;
 	bool retreatArmed_ = false, enterArmed_ = false, enabled_ = false;
-	bool assigning_ = false;
+	bool assigning_ = false, contracting_ = false, dismissArmed_ = false;
+	std::uint8_t contractChoice_ = 0;
 	std::uint16_t assignMember_ = 0;
 	std::uint8_t assignKind_ = 0, assignStat_ = 1;
 };

@@ -32,7 +32,7 @@ void Observation()
 			SameCoopCampaignStatus(s, decoded) && std::wcscmp(FullEngineCoopClientMeanwhileTitle(s.meanwhile.scene), L"Campaign scene"),
 			"every native scene has a bounded explicit wire tag and player-facing title");
 	}
-	for (unsigned at : {109u,110u,111u,121u,122u,123u,124u,125u,126u,127u})
+	for (unsigned at : {109u,110u,111u,121u,122u,123u,124u,126u,127u})
 	{
 		auto bad = bytes; bad[at] = 1; decoded = s;
 		CHECK(!DecodeCoopCampaignStatus(bad.data(),bad.size(),decoded) && SameCoopCampaignStatus(s,decoded),

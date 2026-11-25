@@ -94,8 +94,14 @@ void TestSecuredSector()
 	CoopCampaignStatus out;
 	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out) &&
 		out.securedSector == 0x01020304u, "secured sector roundtrips exactly");
-	auto padded = bytes; padded[125] = 1; out = s;
-	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "reserved tail after the secured sector stays zero");
+	auto padded = bytes; padded[126] = 1; out = s;
+	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "reserved tail after the contract count stays zero");
+	auto due = Sample(); due.contractsDue = 3;
+	CoopCampaignStatusBytes dueBytes{};
+	CHECK(EncodeCoopCampaignStatus(due, dueBytes) && dueBytes[125] == 3 && DecodeCoopCampaignStatus(dueBytes.data(), dueBytes.size(), out) &&
+		SameCoopCampaignStatus(due, out) && out.contractsDue == 3, "ended contracts awaiting a decision travel in byte 125");
+	auto timeDue = due; timeDue.contractsDue = 0;
+	CHECK(!SameCoopCampaignTimeState(due, timeDue), "a contract decision is part of the time-control state");
 	for (auto phase : {CoopCampaignPhase::Starting, CoopCampaignPhase::Strategic, CoopCampaignPhase::Transition})
 	{
 		auto outside = s; outside.phase = phase;

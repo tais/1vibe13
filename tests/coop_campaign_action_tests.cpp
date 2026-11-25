@@ -1,4 +1,5 @@
 #include "CoopCampaignActionAuthority.h"
+#include "CoopCampaignTime.h"
 #include <cstdio>
 #include <stdexcept>
 
@@ -330,6 +331,43 @@ void SetAssignmentOnTheMap()
 	CHECK(allowed(assign) == CoopCampaignActionOutcome::Unavailable, "a pending arrival decision comes first");
 }
 
+void ContractDecisions()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r, bool strategic = true) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, strategic);
+	};
+	const std::uint64_t merc = 0x0002u | (std::uint64_t(9) << 16);
+	auto extend = f.request(); extend.action = CoopCampaignAction::ExtendContract; extend.group = {};
+	extend.decision = merc; extend.destinationX = 2; extend.destinationY = 0;
+	auto dismiss = extend; dismiss.action = CoopCampaignAction::DismissMerc; dismiss.destinationX = 0;
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(extend, bytes) && bytes[6] == 15 && bytes[49] == 2 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, extend),
+		"extend-contract is kind 15 with the packed merc and a length code");
+	CHECK(EncodeCoopCampaignActionRequest(dismiss, bytes) && bytes[6] == 16 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, dismiss),
+		"dismiss is kind 16 with only the packed merc");
+	auto tooLong = extend; tooLong.destinationX = 4;
+	auto noLength = extend; noLength.destinationX = 0;
+	auto dismissWithLength = dismiss; dismissWithLength.destinationX = 1;
+	auto noMerc = dismiss; noMerc.decision = 0;
+	CHECK(!ValidCoopCampaignActionRequest(tooLong) && !ValidCoopCampaignActionRequest(noLength) &&
+		!ValidCoopCampaignActionRequest(dismissWithLength) && !ValidCoopCampaignActionRequest(noMerc),
+		"contract lengths are 1-3 and a dismissal names only the merc");
+	CHECK(allowed(extend) == CoopCampaignActionOutcome::Applied && allowed(dismiss) == CoopCampaignActionOutcome::Applied,
+		"any ready player may extend or dismiss on the map");
+	CHECK(allowed(extend, false) == CoopCampaignActionOutcome::Unavailable, "a loaded tactical world blocks contract decisions");
+	auto clock = f.status.value(); clock.contractsDue = 1;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe an ended contract");
+	extend.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(extend) == CoopCampaignActionOutcome::Applied, "ended contracts are decided while the clock is held");
+	CoopCampaignTimeRequest time{1, f.status.value().timeControlRevision, 1, CoopCampaignTimeAction::SixtyMinutes};
+	CHECK(ValidateCoopCampaignTimeRequest(time, f.status.value(), f.status.value().timeLeader, true, true) ==
+		CoopCampaignTimeOutcome::NativeBlocked && !IsZero(f.status.value().timeLeader),
+		"time cannot run while a contract awaits its decision");
+}
+
 void ReceiptsAndSerialization()
 {
 	Fixture f; unsigned executions = 0;
@@ -488,4 +526,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

@@ -20,6 +20,7 @@
 #include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopExitGrid.h"
 #include "DedicatedCoopAssignment.h"
+#include "DedicatedCoopContract.h"
 #include "DedicatedCoopConversation.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
@@ -864,6 +865,8 @@ struct DedicatedCoopRuntime::Impl
 				   starterMission == StarterMissionState::WaitingForStrategicCheckpoint)
 					? CoopSession::CoopCampaignPhase::Transition : CoopSession::CoopCampaignPhase::Starting;
 		if (starterMission == StarterMissionState::PeacefulTactical) captured.securedSector = securedSector;
+		if (captured.phase == CoopSession::CoopCampaignPhase::Strategic)
+			captured.contractsDue = CountDedicatedCoopExpiredContracts();
 		if (const auto* offer = surrenderDecision.pending()) captured.surrenderOffer = offer->id;
 		if (const auto* notice = battleNotice.pending())
 		{
@@ -1132,6 +1135,12 @@ struct DedicatedCoopRuntime::Impl
 	void pauseStrategicTimeWithoutLeader() noexcept
 	{
 		if (!worldlessStrategicTimeControl()) return;
+		// An ended contract waits for the players: stop the clock at the end.
+		if (CountDedicatedCoopExpiredContracts() != 0)
+		{
+			(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);
+			return;
+		}
 		const auto& leader = campaignStatusLedger.value().timeLeader;
 		if (CoopSession::IsZero(leader) || !campaignTimePeerReady(leader))
 			(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);
@@ -1267,6 +1276,18 @@ struct DedicatedCoopRuntime::Impl
 		if (!worldlessStrategicTimeControl() || selfRetirementActive) return {Outcome::NativeRejected, 0};
 		switch (request.action)
 		{
+			case Action::ExtendContract:
+			case Action::DismissMerc:
+			{
+				const TacticalEntityId merc{static_cast<std::uint16_t>(request.decision & 0xFFFFu),
+					static_cast<std::uint32_t>(request.decision >> 16)};
+				const auto result = request.action == Action::ExtendContract
+					? ExtendDedicatedCoopContract(merc, request.destinationX) : DismissDedicatedCoopMerc(merc);
+				using Code = DedicatedCoopContractCode;
+				return {result == Code::Applied ? Outcome::Applied : result == Code::Failed ? Outcome::Failed :
+					result == Code::NotAimMerc ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
 			case Action::SetAssignment:
 			{
 				const TacticalEntityId merc{static_cast<std::uint16_t>(request.decision & 0xFFFFu),

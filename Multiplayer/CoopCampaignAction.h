@@ -19,7 +19,10 @@ enum class CoopCampaignAction : std::uint8_t
 	// One merc's assignment on the strategic map: decision packs the merc
 	// (slot | incarnation << 16), destinationX the co-op assignment code (1-8),
 	// destinationY its parameter.
-	SetAssignment = 14
+	SetAssignment = 14,
+	// Contracts: decision packs the merc as for SetAssignment. ExtendContract's
+	// destinationX is the length (1 = one day, 2 = one week, 3 = two weeks).
+	ExtendContract = 15, DismissMerc = 16
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -52,7 +55,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::SetAssignment;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::DismissMerc;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -65,10 +68,14 @@ inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& requ
 	// An exit grid moves one exact group out of the exact secured sector.
 	if (request.action == CoopCampaignAction::TakeExitGrid)
 		return request.decision && request.group.valid() && !request.destinationX && !request.destinationY;
+	const bool packedMerc = (request.decision & 0xFFFFu) != 0xFFFFu && (request.decision >> 16) != 0 &&
+		(request.decision >> 48) == 0 && !request.group.slot && !request.group.incarnation;
 	if (request.action == CoopCampaignAction::SetAssignment)
-		return (request.decision & 0xFFFFu) != 0xFFFFu && (request.decision >> 16) != 0 &&
-			(request.decision >> 48) == 0 && !request.group.slot && !request.group.incarnation &&
-			request.destinationX >= 1 && request.destinationX <= 8;
+		return packedMerc && request.destinationX >= 1 && request.destinationX <= 8;
+	if (request.action == CoopCampaignAction::ExtendContract)
+		return packedMerc && request.destinationX >= 1 && request.destinationX <= 3 && !request.destinationY;
+	if (request.action == CoopCampaignAction::DismissMerc)
+		return packedMerc && !request.destinationX && !request.destinationY;
 	return request.decision && !request.group.slot && !request.group.incarnation && !request.destinationX && !request.destinationY;
 }
 inline bool SameCoopCampaignActionRequest(const CoopCampaignActionRequest& a, const CoopCampaignActionRequest& b) noexcept
@@ -228,7 +235,8 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	}
 	// Any ready player may reassign any merc on the strategic map, as with
 	// shared travel; the native gates decide whether that merc can take it.
-	if (request.action == CoopCampaignAction::SetAssignment)
+	if (request.action == CoopCampaignAction::SetAssignment || request.action == CoopCampaignAction::ExtendContract ||
+		request.action == CoopCampaignAction::DismissMerc)
 		return status.arrival.decision ? Outcome::Unavailable : Outcome::Applied;
 	if (request.action == CoopCampaignAction::Travel)
 	{

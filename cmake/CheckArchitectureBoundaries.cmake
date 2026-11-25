@@ -4907,8 +4907,51 @@ file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_assignment_poli
 require_ordered_fragments(coop_assignment_policy_source
   "Assignment requests must be admitted only in the worldless strategic phase"
   "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;"
-  "if (request.action == CoopCampaignAction::SetAssignment)"
+  "if (request.action == CoopCampaignAction::SetAssignment || request.action == CoopCampaignAction::ExtendContract ||"
+  "request.action == CoopCampaignAction::DismissMerc)"
   "return status.arrival.decision ? Outcome::Unavailable : Outcome::Applied;")
+
+# Contracts in dedicated co-op: the stock renewal dialogue and update box (both
+# lock the pause state on a map screen the server never runs) are gated; an
+# ended contract instead holds the clock (status, time policy and the server's
+# own pause) until the players extend or dismiss through stock-backed calls.
+file(READ "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp" coop_contract_event_source)
+require_ordered_fragments(coop_contract_event_source
+  "Dedicated co-op must gate the stock contract renewal dialogue"
+  "bool DedicatedCoopDecidesContracts() noexcept"
+  "case EVENT_MERC_ABOUT_TO_LEAVE:"
+  "if ( !DedicatedCoopDecidesContracts() )"
+  "FindOutIfAnyMercAboutToLeaveIsGonnaRenew( );"
+  "case EVENT_BEGIN_CONTRACT_RENEWAL_SEQUENCE:"
+  "if ( !DedicatedCoopDecidesContracts() )"
+  "BeginContractRenewalSequence( );")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignTime.h" coop_contract_time_source)
+require_ordered_fragments(coop_contract_time_source
+  "Ended contracts must hold the campaign clock"
+  "if (status.arrival.decision || status.meanwhile.id || status.contractsDue) return CoopCampaignTimeOutcome::NativeBlocked;")
+require_ordered_fragments(coop_conversation_runtime_source
+  "The server must stop the clock at an ended contract and publish the count"
+  "captured.contractsDue = CountDedicatedCoopExpiredContracts();"
+  "void pauseStrategicTimeWithoutLeader() noexcept"
+  "if (CountDedicatedCoopExpiredContracts() != 0)"
+  "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);")
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopContract.cpp" coop_contract_source)
+require_ordered_fragments(coop_contract_source
+  "Contract decisions must run worldless through the stock renewal and removal"
+  "DedicatedCoopContractCode ExtendDedicatedCoopContract("
+  "if (IsJa2TacticalWorldLoaded()) return Code::WorldLoaded;"
+  "LaptopSaveInfo.iCurrentBalance < price"
+  "if (!WillMercRenew(merc, FALSE)) return Code::MercRefuses;"
+  "merc->employment().lifeInsurance() = 0;"
+  "const BOOLEAN handled = MercContractHandling(merc, action);"
+  "merc->employment().lifeInsurance() = insurance;"
+  "EmptyDialogueQueue();"
+  "DedicatedCoopContractCode DismissDedicatedCoopMerc("
+  "if (IsJa2TacticalWorldLoaded()) return Code::WorldLoaded;"
+  "merc->deployment().leaveHistoryCode() = HISTORY_MERC_FIRED;"
+  "merc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;"
+  "HandleLeavingOfEquipmentInCurrentSector(merc->identity().id());"
+  "if (!StrategicRemoveMerc(merc)) return Code::Failed;")
 
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so

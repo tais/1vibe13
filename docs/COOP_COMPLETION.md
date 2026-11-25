@@ -3786,3 +3786,47 @@ driver refuses them because the previous pair is still queued (only against a
 view in which the key means the same); conversation answers are retried after a
 stale (`NotBaselineReady`) refusal; the driver's per-process input budgets were
 raised (campaign 128, inventory 32) and an exhausted budget now says so.
+
+## Phase 3.3/3.4: the day-7 contracts
+
+The starter AIM contracts end about a week in. Stock then runs a map-screen
+renewal dialogue (`EVENT_MERC_ABOUT_TO_LEAVE`'s update box and
+`EVENT_BEGIN_CONTRACT_RENEWAL_SEQUENCE`) that pause-locks the game until a
+player answers in the contract menu. The dedicated server never runs that
+screen, so the first expiry would have frozen the campaign clock for good.
+Nothing in stock removes an AIM merc whose contract simply lapses.
+
+In dedicated co-op:
+
+- Both stock events are gated: no renewal quotes, no update box, no pause lock.
+- An ended contract holds the clock instead. The campaign status carries
+  `contractsDue` (byte 125: AIM mercs whose contract end lies at or before
+  now), the time policy refuses time requests while it is nonzero, and the
+  server stops compression the moment a contract ends. Clients show a banner.
+- Two campaign actions decide them, for any ready player, on the map only:
+  `ExtendContract` (kind 15; 1 day / 1 week / 2 weeks) runs the stock
+  `MercContractHandling` after the stock `WillMercRenew` check and the shared
+  balance; `DismissMerc` (kind 16) leaves the merc's whole inventory in its
+  current sector (`HandleLeavingOfEquipmentInCurrentSector`, with an exact
+  grid so the unloaded-sector drop never picks a random tile from render bounds
+  that only a loaded world sets) and then removes it with `StrategicRemoveMerc`.
+  A merc who will not renew (stock morale, hated or dismissed teammates, another
+  contract) is a native rejection; the players then dismiss it.
+- Client: on the strategic map `C` opens contract mode for the selected group;
+  Tab picks the merc, Up/Down chooses extend 1 day / 1 week / 2 weeks /
+  dismiss, Enter extends; a dismissal needs a second Enter.
+
+Simplifications against stock, documented rather than hidden: life insurance is
+not extended on renewal (the stock prompt is a modal box), the stock
+reputation penalty for firing a merc within hours of a renewal is not applied,
+and the contract menu does not yet tell the players in advance that a merc
+will refuse; they learn it from the rejection.
+
+Installed evidence (`full_engine_coop_installed_contracts.py`): after the
+seeded A9 victory and the shared return, the time leader runs the clock (60
+min/sec) until the server reports four ended contracts; the clock is then held
+(world time unchanged on both replicas, run requests refused). Through Screen
+`C` one merc is extended by a week (its contract end moves by seven days), one
+is dismissed (it leaves both rosters), the other two are extended by a day,
+$2,810 leaves the shared balance and the clock runs again. Negative control:
+with no ended contract reported, the clock never holds and the probe fails.

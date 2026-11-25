@@ -116,7 +116,9 @@ inline CoopCampaignTimeOutcome ValidateCoopCampaignTimeRequest(const CoopCampaig
 		request.controlRevision != status.timeControlRevision) return CoopCampaignTimeOutcome::Stale;
 	if (peer != status.timeLeader || !status.timeLeaderReady) return CoopCampaignTimeOutcome::NotLeader;
 	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic) return CoopCampaignTimeOutcome::Unavailable;
-	if (status.arrival.decision || status.meanwhile.id) return CoopCampaignTimeOutcome::NativeBlocked;
+	// Pending native decisions hold the clock: an arrival, a Meanwhile scene, or
+	// ended contracts the players have not yet extended or dismissed.
+	if (status.arrival.decision || status.meanwhile.id || status.contractsDue) return CoopCampaignTimeOutcome::NativeBlocked;
 	return CoopCampaignTimeOutcome::Applied;
 }
 }

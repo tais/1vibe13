@@ -54,6 +54,7 @@
 	#include "Rebel Command.h"
 	#include "interface Dialogue.h"
 	#include "CampaignStrategicEventPolicy.h"
+	#include "DedicatedServerOptions.h"
 	#include "GameContext.h"
 	#include "Explosion Control.h"
 	#include "Ja25_Tactical.h"
@@ -94,6 +95,15 @@ static BOOLEAN DelayEventIfBattleInProgress( STRATEGICEVENT *pEvent )
 		return TRUE;
 	}
 	return FALSE;
+}
+
+namespace
+{
+bool DedicatedCoopDecidesContracts() noexcept
+{
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop;
+}
 }
 
 BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
@@ -265,7 +275,10 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			AddDisplayBoxToWaitingQueue( );
 			break;
 		case EVENT_MERC_ABOUT_TO_LEAVE:
-			FindOutIfAnyMercAboutToLeaveIsGonnaRenew( );
+			// Dedicated co-op: the players decide contracts; no map-screen
+			// renewal dialogue or update box (they lock the pause state).
+			if ( !DedicatedCoopDecidesContracts() )
+				FindOutIfAnyMercAboutToLeaveIsGonnaRenew( );
 			break;
 		//When a merc is supposed to leave
 		case EVENT_MERC_CONTRACT_OVER:
@@ -448,7 +461,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			RemoveAssassin( (UINT8) pEvent->uiParam );
 			break;
 		case EVENT_BEGIN_CONTRACT_RENEWAL_SEQUENCE:
-			BeginContractRenewalSequence( );
+			if ( !DedicatedCoopDecidesContracts() )
+				BeginContractRenewalSequence( );
 			break;
 		case EVENT_RPC_WHINE_ABOUT_PAY:
 			RPCWhineAboutNoPay( pEvent->uiParam );

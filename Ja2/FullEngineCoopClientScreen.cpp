@@ -69,6 +69,7 @@ FullEngineCoopClientCampaignActionKey CampaignActionKey(UINT32 key) noexcept
 		case 'e': case 'E': return Key::EnterBattle;
 		case 'r': case 'R': return Key::Retreat;
 		case 'o': case 'O': return Key::Assign;
+		case 'c': case 'C': return Key::Contract;
 	}
 	return Key::None;
 }
@@ -1069,6 +1070,18 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 					mprintf(24, 282, L"Travelling to %lc%u | native arrival day %u %02u:%02u",
 						static_cast<wint_t>(L'A' + group->nextY - 1), static_cast<unsigned>(group->nextX),
 						group->arrivalMinutes / 1440u, (group->arrivalMinutes / 60u) % 24u, group->arrivalMinutes % 60u);
+				else if (CampaignActionInput.contracting())
+				{
+					static const wchar_t* const Choices[] = {L"extend 1 day", L"extend 1 week", L"extend 2 weeks", L"dismiss"};
+					const auto* member = CampaignActionInput.assignedMember(groups);
+					if (member)
+						mprintf(24, 282, CampaignActionInput.dismissArmed()
+							? L"Dismiss merc %u (profile %u)? Its gear stays in this sector. Enter: confirm   Esc: cancel"
+							: L"Contract of merc %u (profile %u): %ls? Enter: confirm   Esc: cancel",
+							static_cast<unsigned>(member->actor.slot), static_cast<unsigned>(member->profile),
+							Choices[CampaignActionInput.contractChoice() % 4]);
+					mprintf(24, 300, L"Tab/[ ]: merc   Up/Down: extend 1 day / 1 week / 2 weeks / dismiss");
+				}
 				else if (CampaignActionInput.assigning())
 				{
 					static const wchar_t* const Assignments[] = {L"", L"Squad", L"Doctor", L"Patient", L"Repair",
@@ -1095,7 +1108,14 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x),
 						static_cast<wint_t>(L'A' + CampaignActionInput.destinationY() - 1),
 						static_cast<unsigned>(CampaignActionInput.destinationX()));
-				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector   O: assign a merc");
+				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector   O: assign   C: contracts");
+				if (campaign.contractsDue)
+				{
+					SetFontForeground(FONT_MCOLOR_LTYELLOW);
+					mprintf(24, 318, L"%u contract(s) have ended: time is held until each merc is extended or dismissed (C).",
+						static_cast<unsigned>(campaign.contractsDue));
+					SetFontForeground(FONT_MCOLOR_LTGRAY);
+				}
 			}
 			else mprintf(24, 236, L"Waiting for the server's friendly group observation...");
 			if (actionPending) mprintf(24, 336, L"Waiting for the server's campaign-action result...");
@@ -1867,9 +1887,13 @@ bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignCon
 	output.retreatArmed = CampaignActionInput.retreatArmed();
 	output.enterArmed = CampaignActionInput.enterArmed();
 	output.assigning = CampaignActionInput.assigning();
+	output.contracting = CampaignActionInput.contracting();
+	output.contractChoice = CampaignActionInput.contractChoice();
+	output.dismissArmed = CampaignActionInput.dismissArmed();
 	output.assignmentCode = CampaignActionInput.assignmentCode();
 	output.assignmentStat = CampaignActionInput.assignmentStat();
-	if (const auto* member = CampaignActionInput.assigning() ? CampaignActionInput.assignedMember(groups) : nullptr)
+	if (const auto* member = CampaignActionInput.assigning() || CampaignActionInput.contracting()
+			? CampaignActionInput.assignedMember(groups) : nullptr)
 		output.assignee = member->actor;
 	output.enabled = eligible && !actionPending && !timePending && !hirePending;
 	return true;

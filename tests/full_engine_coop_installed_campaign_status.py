@@ -8,6 +8,9 @@ from full_engine_coop_installed_movement import MovementFailure, _Probe, _guard
 FIELDS = ("session", "revision", "world_seconds", "phase", "compression_mode", "paused",
           "pause_locked", "compression_active", "time_interrupted", "leader_revision",
           "leader_ready", "ready_peers", "leader", "time_control_revision", "arrival")
+# Ended contracts awaiting a decision; always sent by the driver, optional in
+# recorded fixtures that predate it.
+OPTIONAL_FIELDS = ("contracts_due",)
 BOOLEANS = ("paused", "pause_locked", "compression_active", "time_interrupted", "leader_ready", "local_leader")
 ARRIVAL_FLAGS = ("final_destination", "native_auto", "native_enter", "native_retreat", "native_placement")
 EMPTY_ARRIVAL = {**dict.fromkeys(("decision", "kind", "stage", "x", "y", "z", "encounter", "pending", "involved", "uninvolved"), 0),
@@ -48,11 +51,13 @@ def validate(status):
         if set(status) != {"request", "kind", "ready"}:
             raise MovementFailure("unavailable campaign response leaked stale status")
         return False
-    if set(status) != {*FIELDS, "request", "kind", "ready", "local_leader"}:
+    if set(status) - set(OPTIONAL_FIELDS) != {*FIELDS, "request", "kind", "ready", "local_leader"}:
         raise MovementFailure("campaign status fields are incomplete or unexpected")
     bounds = {"session": (1, 2**64 - 1), "revision": (1, 2**64 - 1), "world_seconds": (0, 2**32 - 1),
               "phase": (1, 4), "compression_mode": (-1, 5), "leader_revision": (1, 2**64 - 1),
               "ready_peers": (1, 4), "time_control_revision": (1, 2**64 - 1)}
+    if "contracts_due" in status and (type(status["contracts_due"]) is not int or not 0 <= status["contracts_due"] <= 255):
+        raise MovementFailure("campaign status contract count is invalid")
     if any(type(status[key]) is not int or not low <= status[key] <= high for key, (low, high) in bounds.items()):
         raise MovementFailure("campaign status integer is invalid")
     if any(type(status[key]) is not bool for key in BOOLEANS):

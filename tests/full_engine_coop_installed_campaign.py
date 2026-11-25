@@ -34,7 +34,8 @@ ACTION_FIELDS = {"request_id", "action", "session", "control_revision", "groups_
 TIME_FIELDS = {"request_id", "action", "session", "control_revision", "result_control_revision", "outcome"}
 UI_BASE_FIELDS = {"request", "kind", "ready", "action_pending", "time_pending", "action_result", "time_result"}
 UI_READY_FIELDS = {"session", "control_revision", "groups_revision", "decision", "selected", "destination", "retreat_armed",
-                   "enter_armed", "enabled", "assigning", "assignee", "assignment_code", "assignment_stat"}
+                   "enter_armed", "enabled", "assigning", "assignee", "assignment_code", "assignment_stat",
+                   "contracting", "contract_choice", "dismiss_armed"}
 
 
 def integer(value, low=0, high=U64):
@@ -53,10 +54,10 @@ def validate_action_result(result):
     if (not isinstance(result, dict) or set(result) != ACTION_FIELDS or
             any(not integer(result[key], 1) for key in ("request_id", "session", "control_revision", "groups_revision",
                                                         "result_control_revision", "result_groups_revision")) or
-            not integer(result["action"], 1, 14) or not integer(result["outcome"], 1, 8) or
+            not integer(result["action"], 1, 16) or not integer(result["outcome"], 1, 8) or
             not integer(result["decision"]) or not integer(result["native_detail"], 0, 65535) or
             not pair(result["group"], 255, 2**32 - 1) or
-            (result["action"] != 14 and not pair(result["destination"], 16, 16))):
+            (result["action"] not in (14, 15, 16) and not pair(result["destination"], 16, 16))):
         raise SmokeFailure("malformed authoritative campaign-action receipt")
     if result["action"] in (1, 12):
         # Travel and peaceful entry: a group and a sector, never a decision.
@@ -65,6 +66,12 @@ def validate_action_result(result):
     elif result["action"] == 13:
         if not result["decision"] or result["group"] == [0, 0] or result["destination"] != [0, 0]:
             raise SmokeFailure("exit-grid receipt has noncanonical group/decision/destination")
+    elif result["action"] in (15, 16):
+        destination = result["destination"]
+        if (not result["decision"] >> 16 or result["group"] != [0, 0] or destination[1] != 0 or
+                destination[0] != (0 if result["action"] == 16 else destination[0]) or
+                (result["action"] == 15 and not 1 <= destination[0] <= 3)):
+            raise SmokeFailure("contract receipt has noncanonical merc/group/length")
     elif result["action"] == 14:
         # One packed merc (slot | incarnation << 16), no group, code 1-8 and a parameter.
         destination = result["destination"]
@@ -93,8 +100,9 @@ def validate_time_result(result):
 
 def armed_mask(ui):
     """The exact displayed confirmation: bit 0 retreat, bit 1 peaceful sector
-    entry, bit 2 merc assignment mode."""
-    return int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0) | (4 if ui.get("assigning") else 0)
+    entry, bit 2 merc assignment mode, bit 3 contract mode, bit 4 an armed dismissal."""
+    return (int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0) | (4 if ui.get("assigning") else 0) |
+            (8 if ui.get("contracting") else 0) | (16 if ui.get("dismiss_armed") else 0))
 
 
 def validate_ui(value):
@@ -112,7 +120,9 @@ def validate_ui(value):
             any(not integer(value[key], 1) for key in ("session", "control_revision", "groups_revision")) or
             not integer(value["decision"]) or not pair(value["selected"], 255, 2**32 - 1) or
             not pair(value["destination"], 16, 16) or
-            any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled", "assigning")) or
+            any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled", "assigning",
+                                                         "contracting", "dismiss_armed")) or
+            not integer(value["contract_choice"], 0, 3) or
             not (isinstance(value["assignee"], list) and len(value["assignee"]) == 2 and
                  integer(value["assignee"][0], 0, 2**16 - 1) and integer(value["assignee"][1], 0, 2**32 - 1)) or
             not integer(value["assignment_code"], 0, 8) or

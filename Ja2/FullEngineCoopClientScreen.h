@@ -18,7 +18,8 @@ struct FullEngineCoopClientCampaignControls
 	std::uint8_t destinationX = 0, destinationY = 0;
 	bool retreatArmed = false, enterArmed = false, enabled = false;
 	// Assignment mode: the addressed merc, co-op assignment code and stat.
-	bool assigning = false;
+	bool assigning = false, contracting = false, dismissArmed = false;
+	std::uint8_t contractChoice = 0;
 	TacticalEntityId assignee{};
 	std::uint8_t assignmentCode = 0, assignmentStat = 0;
 };

@@ -118,6 +118,28 @@ void AssignmentMode()
 	CHECK(!f.input.assigning(), "a travelling group cannot be reassigned");
 }
 
+void ContractMode()
+{
+	Fixture f;
+	CHECK(!f.press(Key::Contract) && f.input.contracting() && f.input.contractChoice() == 0,
+		"C opens contract mode with a one-day extension offered first");
+	(void)f.press(Key::South);
+	auto week = f.press(Key::Confirm);
+	CHECK(week && week->action == CoopCampaignAction::ExtendContract && week->destinationX == 2 && !week->destinationY &&
+		week->decision == (1u | (std::uint64_t(1) << 16)) && !f.input.contracting(),
+		"Down then Enter extends the addressed merc by one week");
+	(void)f.press(Key::Contract); (void)f.press(Key::North);
+	CHECK(f.input.contractChoice() == 3 && !f.press(Key::Confirm) && f.input.dismissArmed() && f.input.contracting(),
+		"Up wraps to dismiss, and the first Enter only arms it");
+	auto fire = f.press(Key::Confirm);
+	CHECK(fire && fire->action == CoopCampaignAction::DismissMerc && !fire->destinationX && !f.input.contracting(),
+		"the second Enter dismisses exactly the addressed merc");
+	(void)f.press(Key::Contract); (void)f.press(Key::North); (void)f.press(Key::Confirm); (void)f.press(Key::South);
+	CHECK(!f.input.dismissArmed() && f.input.contractChoice() == 0, "changing the choice disarms a dismissal");
+	(void)f.press(Key::Cancel);
+	CHECK(!f.input.contracting() && !f.press(Key::Confirm), "Esc leaves contract mode without a request");
+}
+
 void EnterSectorConfirmation()
 {
 	Fixture f;
@@ -370,4 +392,4 @@ void SurrenderConfirmation()
 
 }
 
-int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); AssignmentMode(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
+int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); AssignmentMode(); ContractMode(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
