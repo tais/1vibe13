@@ -170,6 +170,7 @@ private:
 		CampaignActionResult,
 		CampaignEconomy,
 		CampaignAimQuotes,
+		Conversation,
 		CampaignHireResult,
 		SelfRetirementResult,
 		CampaignMetadata,
@@ -208,6 +209,8 @@ private:
 	static void HandleCampaignActionResult(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleCampaignEconomy(
+		ja2::mp::net::SdlNetMessage* message, void* context);
+	static void HandleConversation(
 		ja2::mp::net::SdlNetMessage* message, void* context);
 	static void HandleCampaignAimQuotes(
 		ja2::mp::net::SdlNetMessage* message, void* context);

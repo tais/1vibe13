@@ -653,6 +653,54 @@ void ReplyReturnMapInput(std::uint64_t request, const std::array<std::uint64_t, 
 	FlushReply();
 }
 
+void ReplyConversation(std::uint64_t request) noexcept
+{
+	CoopSession::CoopConversation c;
+	const bool ready = GetFullEngineCoopClientRuntime().conversation(c);
+	std::printf("%s{\"request\":%llu,\"kind\":\"conversation\",\"ready\":%s", ReplyPrefix,
+		static_cast<unsigned long long>(request), ready ? "true" : "false");
+	if (ready)
+	{
+		std::printf(",\"revision\":%llu,\"conversation\":%u,\"npc_profile\":%u,\"merc_profile\":%u,"
+			"\"npc\":[%u,%u],\"merc\":[%u,%u],\"speaking\":%s,\"quote\":[",
+			static_cast<unsigned long long>(c.revision), static_cast<unsigned>(c.conversation), unsigned(c.npcProfile),
+			unsigned(c.mercProfile), unsigned(c.npc.slot), unsigned(c.npc.incarnation), unsigned(c.merc.slot),
+			unsigned(c.merc.incarnation), c.speaking ? "true" : "false");
+		for (std::size_t i = 0; i < c.quoteLength; ++i) std::printf("%s%u", i ? "," : "", unsigned(c.quote[i]));
+		std::fputs("]", stdout);
+		const TacticalEntityId selected = GetFullEngineCoopClientSelectedActor();
+		const TacticalEntityId target = GetFullEngineCoopClientTalkTarget();
+		std::printf(",\"answerable\":%s,\"selected\":[%u,%u],\"talk_target\":[%u,%u]",
+			GetFullEngineCoopClientRuntime().conversationAnswerable(c) ? "true" : "false",
+			unsigned(selected.slot), unsigned(selected.incarnation), unsigned(target.slot), unsigned(target.incarnation));
+	}
+	std::fputs("}", stdout); FlushReply();
+}
+
+// Queues one shipping Screen key pair: K (talk to the nearest NPC) when no
+// conversation is open, or an answer (1..5, 0 = Esc leave) to the exact open one.
+void ReplyConversationInput(std::uint64_t request, std::uint64_t conversation, std::uint64_t approach,
+	unsigned& count) noexcept
+{
+	CoopSession::CoopConversation c;
+	const bool open = GetFullEngineCoopClientRuntime().conversation(c) && c.conversation;
+	const bool talk = conversation == 0;
+	if (count >= MaximumCampaignUiInputs || GetCurrentScreen() != GAME_SCREEN || GetInputQueueStatistics().queued ||
+		(talk ? open : (!open || c.conversation != conversation || c.speaking || approach > 5 ||
+			!GetFullEngineCoopClientRuntime().conversationAnswerable(c))))
+	{ ReplyError(request, "conversation input requires the exact visible conversation state and an idle input queue"); return; }
+	const UINT32 key = talk ? UINT32('k') : approach == 0 ? UINT32(ESC) : UINT32('0' + approach);
+	++count;
+	const auto before = GetInputQueueStatistics();
+	QueueEvent(KEY_DOWN, key, 0); QueueEvent(KEY_UP, key, 0);
+	const auto after = GetInputQueueStatistics();
+	if (after.accepted - before.accepted != 2 || after.queued != 2 || after.dropped != before.dropped)
+	{ ReplyError(request, "conversation key pair was not queued completely; input budget consumed"); return; }
+	std::printf("%s{\"request\":%llu,\"kind\":\"conversation_input\",\"queued\":true,\"key\":%u,\"queued_events\":2,\"input_count\":%u}",
+		ReplyPrefix, static_cast<unsigned long long>(request), static_cast<unsigned>(key), count);
+	FlushReply();
+}
+
 void ReplySurrenderUi(std::uint64_t request) noexcept
 {
 	FullEngineCoopClientSurrenderControls c;
@@ -2300,6 +2348,24 @@ private:
 			}
 			if (!parsed || !cursor.exhausted()) ReplyError(request, "RETURN_MAP_INPUT needs session/control/groups/sector/armed/key");
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
+			return;
+		}
+		if (operation == "CONVERSATION_INPUT")
+		{
+			std::array<std::uint64_t, 2> values{}; bool parsed = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
+			}
+			if (!parsed || !cursor.exhausted()) ReplyError(request, "CONVERSATION_INPUT needs conversation (0 = talk) and approach");
+			else ReplyConversationInput(request, values[0], values[1], campaignUiInputs_);
+			return;
+		}
+		if (operation == "CONVERSATION")
+		{
+			if (!cursor.exhausted()) ReplyError(request, "CONVERSATION takes only a request id");
+			else ReplyConversation(request);
 			return;
 		}
 		if (operation == "SURRENDER_UI")

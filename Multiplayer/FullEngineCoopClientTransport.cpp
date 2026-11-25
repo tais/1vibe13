@@ -416,6 +416,12 @@ void FullEngineCoopClientTransport::HandleCampaignAimQuotes(
 	QueueFromCallback(message, context, InboundKind::CampaignAimQuotes);
 }
 
+void FullEngineCoopClientTransport::HandleConversation(
+	ja2::mp::net::SdlNetMessage* message, void* context)
+{
+	QueueFromCallback(message, context, InboundKind::Conversation);
+}
+
 void FullEngineCoopClientTransport::HandleCampaignHireResult(
 	ja2::mp::net::SdlNetMessage* message, void* context)
 {
@@ -636,6 +642,8 @@ FullEngineCoopClientResult FullEngineCoopClientTransport::deliver(
 			return client_->receiveCampaignEconomy(message.bytes.data(), message.size);
 		case InboundKind::CampaignAimQuotes:
 			return client_->receiveCampaignAimQuotes(message.bytes.data(), message.size);
+		case InboundKind::Conversation:
+			return client_->receiveConversation(message.bytes.data(), message.size);
 		case InboundKind::CampaignHireResult:
 			return client_->receiveCampaignHireResult(message.bytes.data(), message.size);
 		case InboundKind::SelfRetirementResult:
@@ -773,6 +781,8 @@ bool FullEngineCoopClientTransport::registerMessages() noexcept
 				&FullEngineCoopClientTransport::HandleCampaignEconomy, this) &&
 			transport_->RegisterMessage(CoopCampaignAimQuotesMessageName,
 				&FullEngineCoopClientTransport::HandleCampaignAimQuotes, this) &&
+			transport_->RegisterMessage(CoopConversationMessageName,
+				&FullEngineCoopClientTransport::HandleConversation, this) &&
 			transport_->RegisterMessage(CoopCampaignHireResultMessageName,
 				&FullEngineCoopClientTransport::HandleCampaignHireResult, this) &&
 			transport_->RegisterMessage(
@@ -825,6 +835,8 @@ bool FullEngineCoopClientTransport::validInbound(
 			return size >= CoopCampaignEconomyHeaderSize && size <= MaximumCoopCampaignEconomyWireSize;
 		case InboundKind::CampaignAimQuotes:
 			return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
+		case InboundKind::Conversation:
+			return size == CoopConversationWireSize;
 		case InboundKind::CampaignHireResult:
 			return size == CoopCampaignHireResultWireSize;
 		case InboundKind::CampaignMetadata:

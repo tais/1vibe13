@@ -427,6 +427,51 @@ void HandleReturnToMapKey(UINT32 key, UINT32 eventKind) noexcept
 	LastSendWorldGeneration = 0;
 }
 
+// The nearest replicated non-hostile NPC within the stock talk radius of the
+// selected merc. A public preflight only; the authority rechecks everything.
+TacticalEntityId NearestTalkTarget(const FullEngineCoopClientControllerView& view) noexcept
+{
+	if (!view.snapshot) return {};
+	const auto* merc = view.snapshot->find(Controller.selectedActor());
+	if (!merc) return {};
+	const std::int64_t columns = view.snapshot->dimensions().columns;
+	if (columns <= 0) return {};
+	TacticalEntityId best{};
+	std::int64_t bestDistance = 0;
+	for (const auto& actor : view.snapshot->actors())
+	{
+		if (actor.id == merc->id || actor.team == merc->team || !actor.profile || actor.hostileToPlayerTeam ||
+			!actor.active || !actor.inSector || actor.life < 15 || actor.level != merc->level) continue;
+		const std::int64_t dx = actor.grid % columns - merc->grid % columns;
+		const std::int64_t dy = actor.grid / columns - merc->grid / columns;
+		const std::int64_t distance = dx * dx + dy * dy;
+		if (distance > 16 || (best.valid() && distance >= bestDistance)) continue;
+		best = actor.id; bestDistance = distance;
+	}
+	return best;
+}
+
+// While a conversation is open it is modal, as the stock talk panel is: its
+// answering player chooses 1-5 (friendly, direct, threaten, recruit, repeat)
+// or Esc to leave; nothing else reaches tactical commands for either player.
+bool HandleConversationKey(UINT32 key, UINT32 eventKind, FullEngineCoopClientControllerView& view) noexcept
+{
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopConversation conversation;
+	if (!runtime.conversation(conversation) || !conversation.conversation) return false;
+	if (eventKind != KEY_DOWN || !runtime.conversationAnswerable(conversation) || conversation.speaking) return true;
+	std::uint8_t approach = 0xFF;
+	if (key >= '1' && key <= '5') approach = static_cast<std::uint8_t>(key - '0');
+	else if (key == ESC) approach = CoopSession::TacticalConverseLeave;
+	if (approach == 0xFF) return true;
+	FullEngineCoopClientIntentRequest request;
+	request.actor = conversation.merc;
+	request.payload = CoopSession::ConverseTacticalIntent{conversation.conversation, approach};
+	request.valid = view.outstandingCommandId == 0;
+	(void)Submit(request, view);
+	return true;
+}
+
 void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 	FullEngineCoopClientControllerView& view,
 	bool retirementEligible, bool medicalModal) noexcept
@@ -445,6 +490,11 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			continue;
 		}
 		const UINT32 key = event.usParam;
+		if ((event.usEvent == KEY_DOWN || event.usEvent == KEY_UP) && HandleConversationKey(key, event.usEvent, view))
+		{
+			RetirementConfirmation.cancel();
+			continue;
+		}
 		if (!Controller.droppingInventory()) InventoryDropKeyGate.cancel();
 		if (event.usEvent == KEY_UP && (key == 'x' || key == 'X') && Controller.droppingInventory())
 		{
@@ -520,6 +570,20 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 		if (event.usEvent != KEY_DOWN) continue;
 		if (RetirementConfirmation.pending())
 			RetirementConfirmation.cancel();
+		if ((key == 'k' || key == 'K') && !Controller.inventoryOpen() && !Controller.enteringDestination() &&
+			!Controller.targetingAttack() && !Controller.selectingDoor() && Controller.actionsEnabled(view))
+		{
+			const TacticalEntityId target = NearestTalkTarget(view);
+			if (target.valid())
+			{
+				FullEngineCoopClientIntentRequest request;
+				request.actor = Controller.selectedActor();
+				request.payload = CoopSession::TalkTacticalIntent{target};
+				request.valid = true;
+				(void)Submit(request, view);
+			}
+			continue;
+		}
 		if (key == 'i' || key == 'I')
 		{
 			if (Controller.inventoryOpen()) Controller.closeInventory();
@@ -1345,6 +1409,38 @@ void HandleFullEngineCoopClientScreen() noexcept
 	InvalidateScreen();
 }
 
+// An open native conversation on the authority owns the HUD lane: the speaker
+// and the current subtitle, wrapped over two lines.
+bool RenderConversationLane() noexcept
+{
+	CoopSession::CoopConversation conversation;
+	if (!GetFullEngineCoopClientRuntime().conversation(conversation) || !conversation.conversation) return false;
+	std::array<wchar_t, CoopSession::CoopConversationQuoteUnits + 1> quote{};
+	for (std::size_t i = 0; i < conversation.quoteLength; ++i) quote[i] = static_cast<wchar_t>(conversation.quote[i]);
+	std::array<wchar_t, TacticalActorDisplayNameCodeUnits + 1> name{};
+	FullEngineCoopClientPresentationView view;
+	if (GetFullEngineCoopClientRuntime().presentationView(view) && view.snapshot)
+		if (const auto* npc = view.snapshot->find(conversation.npc))
+			for (std::size_t i = 0; i < TacticalActorDisplayNameCodeUnits; ++i)
+				name[i] = static_cast<wchar_t>(npc->presentation.displayNameUtf16[i]);
+	SetFontForeground(FONT_MCOLOR_LTYELLOW);
+	constexpr std::size_t lineUnits = 96;
+	std::array<wchar_t, lineUnits + 1> first{};
+	const std::size_t length = std::wcslen(quote.data());
+	std::size_t split = length <= lineUnits ? length : lineUnits;
+	if (length > lineUnits)
+		for (std::size_t i = lineUnits; i > lineUnits / 2; --i)
+			if (quote[i] == L' ') { split = i; break; }
+	std::wmemcpy(first.data(), quote.data(), split);
+	mprintf(12, 46, L"%ls%ls %ls", name[0] ? name.data() : L"NPC", conversation.speaking ? L" (speaking)" : L":",
+		first.data());
+	if (split < length) mprintf(12, 62, L"%ls", quote.data() + split + (quote[split] == L' ' ? 1 : 0));
+	else if (!conversation.speaking && GetFullEngineCoopClientRuntime().conversationAnswerable(conversation))
+		mprintf(12, 62, L"1 friendly  2 direct  3 threaten  4 recruit  5 repeat   Esc: leave");
+	SetFontForeground(FONT_MCOLOR_LTGRAY);
+	return true;
+}
+
 void RenderFullEngineCoopClientCampaignStatus() noexcept
 {
 	CoopSession::CoopCampaignStatus status;
@@ -1373,6 +1469,8 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 
 	// Clear the fixed HUD lane even when another modal suppresses its text.
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, 8, 44, std::min(638, static_cast<int>(SCREEN_WIDTH) - 8), 78, 0);
+	const bool conversationShown = RenderConversationLane();
+
 	// GAME_SCREEN uses this overlay, while RenderPresentation owns INIT fallback.
 	// Observe only: queued input retains responsibility for modal revocation.
 	FullEngineCoopClientMedicalControls medical;
@@ -1380,7 +1478,7 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 	FullEngineCoopClientBattleNoticeControls medicalNotice;
 	FullEngineCoopClientSurrenderControls medicalSurrender;
 	FullEngineCoopClientPresentationView presentation;
-	if (!CaptureFullEngineCoopClientMeanwhileControls(medicalScene) &&
+	if (!conversationShown && !CaptureFullEngineCoopClientMeanwhileControls(medicalScene) &&
 		!CaptureFullEngineCoopClientBattleNoticeControls(medicalNotice) &&
 		!CaptureFullEngineCoopClientSurrenderControls(medicalSurrender) &&
 		CaptureFullEngineCoopClientMedicalControls(medical) &&
@@ -1621,6 +1719,15 @@ bool CaptureFullEngineCoopClientMedicalControls(FullEngineCoopClientMedicalContr
 TacticalEntityId GetFullEngineCoopClientSelectedActor() noexcept
 {
 	return Controller.selectedActor();
+}
+
+TacticalEntityId GetFullEngineCoopClientTalkTarget() noexcept
+{
+	FullEngineCoopClientPresentationView presentation;
+	if (!GetFullEngineCoopClientRuntime().presentationView(presentation) ||
+		!presentation.snapshot || presentation.resynchronizing) return {};
+	const auto view = ControllerView(presentation);
+	return Controller.ready(view) ? NearestTalkTarget(view) : TacticalEntityId{};
 }
 
 bool CaptureFullEngineCoopClientMeanwhileControls(FullEngineCoopClientMeanwhileControls& output) noexcept

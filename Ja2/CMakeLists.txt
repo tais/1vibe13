@@ -23,6 +23,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopMissionBootstrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopCampaignGroups.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopArrival.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopConversation.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopExitGrid.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTravel.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/DedicatedCoopTravelCommit.cpp"

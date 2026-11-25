@@ -53,7 +53,8 @@ enum class CommandTag : std::uint8_t
 	SwapInventorySlots = 36,
 	TransferInventoryItem = 37,
 	AuthoritativePickupWorldItem = 38,
-	AuthoritativeDropInventoryItem = 39
+	AuthoritativeDropInventoryItem = 39,
+	AuthoritativeConverse = 40
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -290,6 +291,19 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedKitStateFingerprint);
 			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeConverseCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::AuthoritativeConverse));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU8(value.npcProfile);
+			writer.writeU8(value.approach);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -905,6 +919,21 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				static_cast<TacticalWorldObjectOperation>(operation);
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeConverse:
+		{
+			AuthoritativeConverseCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU8(value.npcProfile) ||
+				!reader.readU8(value.approach) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidAuthoritativeConverseCommand(value))
 				return false;
 			command = value;
 			return true;

@@ -8,6 +8,9 @@
 #include "DedicatedCoopRuntime.h"
 #include "DedicatedCoopMissionBootstrap.h"
 #include "Exit Grids.h"
+#include "TacticalActorInteractions.h"
+#include "NPC.h"
+#include "Interface Dialogue.h"
 #include "Isometric Utils.h"
 #include "DedicatedServerOptions.h"
 #include "DedicatedCoopCampaignGroups.h"
@@ -43,6 +46,7 @@
 #include "Queen Command.h"
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
+#include "Soldier Profile Constants.h"
 #include "Isometric Utils.h"
 #include "Map Information.h"
 #include "Grid Direction.h"
@@ -194,6 +198,45 @@ void ReportLoadedWorldExitGrids()
 		std::printf("[co-op entry test] exit-grid source=%d destination=%d,%d,%d grid=%d\n",
 			exit[0], exit[1], exit[2], exit[3], exit[4]);
 	std::fflush(stdout);
+}
+
+// Fixture-only observation (starter-victory mode): log where every profiled
+// non-player NPC stands whenever that changes, so a probe can walk toward one
+// the player team has not seen yet, and log the native talk-panel state on
+// each change. Never opens, advances or closes a conversation.
+void PollConversationExperiment()
+{
+	if (controlledBattle != ControlledBattle::StarterVictory || !gfProgramIsRunning) return;
+	static auto nextPoll = std::chrono::steady_clock::now();
+	const auto now = std::chrono::steady_clock::now();
+	if (now >= nextPoll && CaptureJa2TacticalWorld().loaded)
+	{
+		nextPoll = now + std::chrono::milliseconds(200);
+		static std::array<std::int32_t, 256> reported{};
+		static bool initialized = false;
+		if (!initialized) { reported.fill(-1); initialized = true; }
+		for (SoldierID id = 0; id < TOTAL_SOLDIERS; ++id)
+		{
+			const auto* npc = GetJa2SoldierRepository().resolve(id);
+			if (!npc || !npc->roster().active() || !npc->roster().inSector() || npc->roster().team() == OUR_TEAM) continue;
+			const unsigned profile = npc->identity().profile();
+			if (profile == NO_PROFILE || profile >= reported.size()) continue;
+			const std::int32_t where = npc->position().gridNo() * 2 + (npc->position().level() ? 1 : 0);
+			if (reported[profile] == where) continue;
+			reported[profile] = where;
+			std::printf("[co-op entry test] npc profile=%u grid=%d level=%d\n", unsigned(profile),
+				int(npc->position().gridNo()), int(npc->position().level()));
+			std::fflush(stdout);
+		}
+	}
+	static std::string last;
+	char line[700];
+	char quote[200] = {};
+	std::snprintf(quote, sizeof(quote), "%ls", gTalkPanel.zQuoteStr);
+	std::snprintf(line, sizeof(line), "panel=%u dialogue=%u queue-empty=%u engaged=%u paused=%u char=%u quote=%.120s",
+		gfInTalkPanel, DialogueActive(), DialogueQueueIsEmpty(), (gTacticalStatus.uiFlags & ENGAGED_IN_CONV) != 0,
+		GamePaused(), gTalkPanel.ubCharNum, quote);
+	if (last != line) { last = line; std::printf("[co-op talk test] %s\n", line); std::fflush(stdout); }
 }
 
 void PollControlledBattleTrigger()
@@ -608,6 +651,7 @@ void FullEngineCoopInstalledTestGameLoop()
 {
 	GameLoop();
 	ReportLoadedWorldExitGrids();
+	PollConversationExperiment();
 	PollControlledBattleTrigger();
 	if (cohortSeeded && gfProgramIsRunning)
 	{

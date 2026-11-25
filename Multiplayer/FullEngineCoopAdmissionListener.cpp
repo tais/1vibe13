@@ -2,6 +2,7 @@
 #include "CoopInventoryProtocol.h"
 #include "CoopCampaignStatus.h"
 #include "CoopCampaignGroups.h"
+#include "CoopConversation.h"
 
 #include <SDL3/SDL.h>
 
@@ -87,6 +88,8 @@ bool ValidOutboundMessage(
 		return size >= CoopCampaignAimQuotesHeaderSize && size <= MaximumCoopCampaignAimQuotesWireSize;
 	if (std::strcmp(name, CoopCampaignHireResultMessageName) == 0)
 		return size == CoopCampaignHireResultWireSize;
+	if (std::strcmp(name, CoopConversationMessageName) == 0)
+		return size == CoopConversationWireSize;
 	if (std::strcmp(name, CoopCampaignSyncMetadataMessageName) == 0)
 		return size == CoopCampaignSyncMetadataWireSize;
 	if (std::strcmp(name, CoopCampaignSyncChunkMessageName) == 0)

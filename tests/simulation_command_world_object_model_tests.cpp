@@ -484,6 +484,37 @@ int main()
 			CommandDisposition::Discard && reference.snapshot() == referenceState,
 		"the portable reference also declines authoritative native door policy");
 
+	AuthoritativeConverseCommand answer;
+	answer.soldier = {2, 0x11223344};
+	answer.expectedWorldGeneration = 9;
+	answer.npcProfile = 101;
+	answer.approach = 4;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{answer}),
+		"a conversation answer requires dedicated authority, a world and an NPC");
+	const std::vector<RecordedSimulationCommand> answerRecords{
+		{14, 18, CommandJournalStatus::Applied, SimulationCommand{answer}}};
+	std::vector<std::uint8_t> answerWire;
+	std::vector<RecordedSimulationCommand> decodedAnswer;
+	std::uint64_t answerDropped = 0;
+	std::vector<std::uint8_t> answerReencoded;
+	Require(EncodeSimulationCommandJournal(answerRecords, 0, answerWire) &&
+		DecodeSimulationCommandJournal(answerWire, decodedAnswer, answerDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedAnswer.size() == 1 &&
+		std::holds_alternative<AuthoritativeConverseCommand>(decodedAnswer[0].command) &&
+		EncodeSimulationCommandJournal(decodedAnswer, answerDropped, answerReencoded) &&
+		answerReencoded == answerWire,
+		"a conversation answer journal round trips under its append-only tag");
+	std::array<AuthoritativeConverseCommand, 5> invalidAnswers;
+	invalidAnswers.fill(answer);
+	invalidAnswers[0].expectedWorldGeneration = 0;
+	invalidAnswers[1].npcProfile = 0;
+	invalidAnswers[2].approach = 6;
+	invalidAnswers[3].source = SimulationCommandSource::LocalPlayer;
+	invalidAnswers[4].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidAnswers)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"malformed or locally sourced conversation answers are rejected");
+
 	BeginFirstAidCommand firstAid;
 	firstAid.soldier = {2, 0x11223344};
 	firstAid.target = {3, 0x55667788};

@@ -72,7 +72,8 @@ enum class SimulationCommandDomainError
 	InvalidWeaponConfigurationCause,
 	InvalidWeaponConfigurationPostApplyPolicy,
 	InvalidWeaponConfigurationContinuation,
-	InvalidAuthoritativeDropPrecondition
+	InvalidAuthoritativeDropPrecondition,
+	InvalidConversationPrecondition
 };
 
 // Complete value-domain validation shared by package admission and every

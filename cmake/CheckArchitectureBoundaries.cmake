@@ -4706,6 +4706,65 @@ require_ordered_fragments(dedicated_live_strategic_peaceful_return_slice
   "return FALSE"
   "UnloadCurrentWorldForDedicatedCoopAndReleaseMercs()")
 
+# Conversations: capture only observes the single native talk panel; a Talk
+# intent is preflighted to peaceful realtime within the stock radius; the
+# panel's initiator is only the peer whose accepted Talk asked for exactly that
+# pair; answers bind to the published conversation, its merc and initiator,
+# and execute only the stock talk-panel paths while no line is being spoken.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopConversation.cpp" coop_conversation_source)
+extract_brace_bounded_slice(coop_conversation_source
+  "bool CaptureDedicatedCoopConversation(std::uint32_t conversation,\n\tconst CoopSession::PeerIdentity& initiator, CoopSession::CoopConversation& output) noexcept"
+  coop_conversation_capture_slice "Cannot bound conversation capture")
+foreach(coop_conversation_mutation IN ITEMS "Converse(" "HandleTalkingMenuEscape" "InitiateConversation" "startConversation" "DeleteTalkingMenu")
+  string(FIND "${coop_conversation_capture_slice}" "${coop_conversation_mutation}" coop_conversation_mutation_at)
+  if(NOT coop_conversation_mutation_at EQUAL -1)
+    message(FATAL_ERROR "Conversation capture must stay read-only; found '${coop_conversation_mutation}'")
+  endif()
+endforeach()
+extract_brace_bounded_slice(coop_conversation_source
+  "DedicatedCoopTalkCode PrepareDedicatedCoopTalk(TacticalEntityId actor, TacticalEntityId target,\n\tStartConversationCommand& output) noexcept"
+  coop_conversation_talk_slice "Cannot bound talk preflight")
+require_ordered_fragments(coop_conversation_talk_slice
+  "Talk preflight lost its peaceful, idle-panel, exact-pair or stock-radius checks"
+  "if (IsJa2TacticalCombatActive()) return Code::CombatActive;"
+  "if (gfInTalkPanel || DialogueActive() || !DialogueQueueIsEmpty()) return Code::PanelBusy;"
+  "merc->roster().team() != OUR_TEAM"
+  "npc->roster().team() == OUR_TEAM || npc->identity().profile() == NO_PROFILE"
+  "PythSpacesAway(merc->position().gridNo(), npc->position().gridNo()) > NPC_TALK_RADIUS"
+  "SimulationCommandSource::NetworkPeer")
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTacticalJa2LiveState.cpp" coop_conversation_live_source)
+extract_brace_bounded_slice(coop_conversation_live_source
+  "bool DedicatedCoopTacticalJa2LiveState::prepareConverse(const CoopSession::PeerIdentity& peer,\n\tTacticalEntityId actor, std::uint32_t conversation, std::uint8_t approach,\n\tstd::uint64_t worldGeneration, AuthoritativeConverseCommand& command) const noexcept"
+  coop_conversation_answer_slice "Cannot bound conversation answer preflight")
+require_ordered_fragments(coop_conversation_answer_slice
+  "Conversation answers must bind to the exact published conversation, merc and initiator"
+  "CurrentDedicatedCoopConversation()"
+  "conversation != current.conversation"
+  "actor != current.merc"
+  "current.initiator != peer"
+  "command.npcProfile = current.npcProfile"
+  "IsStructurallyValidAuthoritativeConverseCommand(command)")
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp" coop_conversation_runtime_source)
+require_ordered_fragments(coop_conversation_runtime_source
+  "A conversation's initiator may only come from an accepted Talk for exactly the opened pair"
+  "const bool opened = open && !talkPanelWasOpen;"
+  "CaptureDedicatedCoopConversation(conversation, conversationInitiator, captured)"
+  "if (opened && captured.conversation)"
+  "TakeDedicatedCoopConversationRequest(captured.merc, captured.npc)"
+  "SetDedicatedCoopConversationState(captured.conversation")
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_conversation_command_source)
+extract_brace_bounded_slice(coop_conversation_command_source
+  "bool ApplyDedicatedCoopConversationChoice(const TacticalActor& merc,\n\t\tstd::uint8_t npcProfile, std::uint8_t approach)"
+  coop_conversation_choice_slice "Cannot bound conversation choice executor")
+require_ordered_fragments(coop_conversation_choice_slice
+  "Conversation answers must run only the stock talk-panel paths on the exact idle panel"
+  "!gfInTalkPanel || gTalkPanel.ubCharNum != npcProfile"
+  "merc.identity().profile() != gubSrcSoldierProfile"
+  "DialogueActive() || !DialogueQueueIsEmpty()"
+  "return false;"
+  "(void)HandleTalkingMenuEscape(TRUE, FALSE);"
+  "Converse(gTalkPanel.ubCharNum, gubSrcSoldierProfile, static_cast<INT8>(approach), 0);")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -12721,7 +12780,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 14> payloads"
+    "const std::array<PayloadCase, 16> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13139,7 +13198,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 13)
+if(NOT dedicated_live_authority_write_call_count EQUAL 14)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13153,7 +13212,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 13)
+if(NOT dedicated_live_authority_read_call_count EQUAL 14)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -14429,7 +14488,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 14> payloads"
+    "const std::array<PayloadCase, 16> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -14808,7 +14867,7 @@ foreach(dedicated_live_door_controller_test_contract IN ITEMS
 endforeach()
 foreach(dedicated_live_door_host_test_contract IN ITEMS
     "host.execute(Intent(8, DoorOpenCloseTacticalIntent"
-    "commands.submissionCount == 13"
+    "commands.submissionCount == 15"
     "AuthoritativeDoorOpenCloseCommand"
     "commands.submissions[7].command"
     "door intent is resolved into one exact private authoritative command"
@@ -15791,6 +15850,7 @@ foreach(dedicated_live_client_inbound_name IN ITEMS
     "CoopCampaignActionResultMessageName"
     "CoopCampaignEconomyMessageName"
     "CoopCampaignAimQuotesMessageName"
+    "CoopConversationMessageName"
     "CoopCampaignHireResultMessageName"
     "CoopAdmissionSelfRetirementResultMessageName"
     "CoopCampaignSyncMetadataMessageName"
@@ -15813,9 +15873,9 @@ string(REGEX MATCHALL "RegisterMessage\\("
   "${dedicated_live_client_transport_register_slice}")
 list(LENGTH dedicated_live_client_inbound_handlers
   dedicated_live_client_inbound_handler_count)
-if(NOT dedicated_live_client_inbound_handler_count EQUAL 18)
+if(NOT dedicated_live_client_inbound_handler_count EQUAL 19)
   message(FATAL_ERROR
-    "Co-op client transport must register exactly eighteen inbound handlers")
+    "Co-op client transport must register exactly nineteen inbound handlers")
 endif()
 
 # Friendly strategic groups are an independent read-only observation. Neither
@@ -44608,7 +44668,8 @@ foreach(inventory_wire_contract IN ITEMS
     "SwapInventorySlots = 11" "SwapInventorySlotsTacticalIntent,"
     "TransferInventoryItem = 12" "TransferInventoryItemTacticalIntent,"
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
-    "DropInventoryItem = 14" "DropInventoryItemTacticalIntent>")
+    "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
+    "Talk = 15," "TalkTacticalIntent," "Converse = 16" "ConverseTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

@@ -34,7 +34,9 @@ enum class TacticalIntentKind : std::uint8_t
 	SwapInventorySlots = 11,
 	TransferInventoryItem = 12,
 	PickupWorldItem = 13,
-	DropInventoryItem = 14
+	DropInventoryItem = 14,
+	Talk = 15,
+	Converse = 16
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -109,6 +111,24 @@ struct DropInventoryItemTacticalIntent
 	std::uint64_t expectedInventoryRevision = 0;
 };
 
+// Start (walking if needed) a native conversation between the actor and an
+// exact replicated NPC. The authority opens the single native talk panel.
+struct TalkTacticalIntent
+{
+	TacticalEntityId target;
+};
+
+// Answer the open conversation: a stock approach (1 friendly, 2 direct,
+// 3 threaten, 4 recruit, 5 repeat) or 0 to leave it. Bound to the exact
+// replicated conversation identity; only its initiator may answer.
+inline constexpr std::uint8_t TacticalConverseLeave = 0;
+inline constexpr std::uint8_t MaximumTacticalConverseApproach = 5;
+struct ConverseTacticalIntent
+{
+	std::uint32_t conversation = 0;
+	std::uint8_t approach = 0;
+};
+
 struct PassInterruptTacticalIntent
 {
 	std::uint64_t interruptSerial = 0;
@@ -146,7 +166,9 @@ using TacticalIntentPayload = std::variant<
 	SwapInventorySlotsTacticalIntent,
 	TransferInventoryItemTacticalIntent,
 	PickupWorldItemTacticalIntent,
-	DropInventoryItemTacticalIntent>;
+	DropInventoryItemTacticalIntent,
+	TalkTacticalIntent,
+	ConverseTacticalIntent>;
 
 struct TacticalIntent
 {

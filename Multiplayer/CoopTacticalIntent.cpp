@@ -98,6 +98,8 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::TransferInventoryItem: return 26;
 		case TacticalIntentKind::PickupWorldItem: return 18;
 		case TacticalIntentKind::DropInventoryItem: return 10;
+		case TacticalIntentKind::Talk: return 6;
+		case TacticalIntentKind::Converse: return 5;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -124,6 +126,8 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::TransferInventoryItem:
 		case TacticalIntentKind::PickupWorldItem:
 		case TacticalIntentKind::DropInventoryItem:
+		case TacticalIntentKind::Talk:
+		case TacticalIntentKind::Converse:
 			return true;
 	}
 	return false;
@@ -175,6 +179,10 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::PickupWorldItem;
 		if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
 			return TacticalIntentKind::DropInventoryItem;
+		if constexpr (std::is_same<Payload, TalkTacticalIntent>::value)
+			return TacticalIntentKind::Talk;
+		if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
+			return TacticalIntentKind::Converse;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -223,6 +231,10 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
 			return payload.sourceSlot >= 14 && payload.sourceSlot < 55 &&
 				payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, TalkTacticalIntent>::value)
+			return payload.target.valid() && payload.target != intent.actor;
+		if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
+			return payload.conversation != 0 && payload.approach <= MaximumTacticalConverseApproach;
 		return true;
 	}, intent.payload);
 }
@@ -288,10 +300,16 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			else if constexpr (std::is_same<Payload,
 				PassInterruptTacticalIntent>::value)
 				WriteU64(encoded, payload.interruptSerial);
-			else if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value)
+			else if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value ||
+				std::is_same<Payload, TalkTacticalIntent>::value)
 			{
 				WriteU16(encoded, payload.target.slot);
 				WriteU32(encoded, payload.target.incarnation);
+			}
+			else if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
+			{
+				WriteU32(encoded, payload.conversation);
+				encoded.push_back(payload.approach);
 			}
 			else if constexpr (std::is_same<Payload, SwapInventorySlotsTacticalIntent>::value)
 			{
@@ -420,6 +438,24 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			if (!ReadU16(input, end, payload.target.slot) ||
 				!ReadU32(input, end, payload.target.incarnation))
 				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::Talk:
+		{
+			TalkTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::Converse:
+		{
+			ConverseTacticalIntent payload;
+			if (!ReadU32(input, end, payload.conversation) || input == end)
+				return TacticalIntentCodecResult::Invalid;
+			payload.approach = *input++;
 			decoded.payload = payload;
 			break;
 		}

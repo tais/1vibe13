@@ -19,6 +19,7 @@
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopExitGrid.h"
+#include "DedicatedCoopConversation.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
 #include "DedicatedCoopInventoryPublication.h"
@@ -1054,6 +1055,48 @@ struct DedicatedCoopRuntime::Impl
 				&campaignEconomyDeliveries, campaignEconomyLedger.value().revision);
 	}
 
+	// The native talk panel, replicated read-only to every campaign-ready peer.
+	// A runtime-scoped id is assigned each time the panel opens.
+	bool publishConversation() noexcept
+	{
+		const bool open = DedicatedCoopTalkPanelOpen();
+		const bool opened = open && !talkPanelWasOpen;
+		if (opened)
+		{
+			if (lastConversation == UINT32_MAX)
+			{
+				fail(DedicatedCoopRuntimeError::CampaignSyncFailed, "conversation", "conversation identities exhausted");
+				return false;
+			}
+			conversation = ++lastConversation;
+		}
+		if (!open) { conversation = 0; conversationInitiator = {}; }
+		talkPanelWasOpen = open;
+		CoopSession::CoopConversation captured;
+		if (!open || !CaptureDedicatedCoopConversation(conversation, conversationInitiator, captured)) captured = {};
+		// A panel opened by an accepted Talk intent for exactly this pair belongs
+		// to that player; one opened by native gameplay has no initiator.
+		if (opened && captured.conversation)
+			captured.initiator = conversationInitiator =
+				TakeDedicatedCoopConversationRequest(captured.merc, captured.npc);
+		SetDedicatedCoopConversationState(captured.conversation
+			? DedicatedCoopConversationState{captured.conversation, captured.initiator, captured.merc, captured.npcProfile}
+			: DedicatedCoopConversationState{});
+		if (!conversationLedger.observe(captured))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed, "conversation", "invalid native conversation observation");
+			return false;
+		}
+		CoopSession::CoopConversationBytes bytes;
+		if (!CoopSession::EncodeCoopConversation(conversationLedger.value(), bytes))
+		{
+			fail(DedicatedCoopRuntimeError::CampaignSyncFailed, "conversation", "conversation encoding failed");
+			return false;
+		}
+		return queueCampaignEconomicObservation(CoopSession::CoopConversationMessageName, bytes.data(), bytes.size(),
+			conversationLedger.value().revision, conversationDeliveries);
+	}
+
 	bool campaignEconomicObservationsDelivered(const CoopSession::PeerIdentity& peer,
 		CoopSession::TransportPeer transport) const noexcept
 	{
@@ -1288,7 +1331,7 @@ struct DedicatedCoopRuntime::Impl
 		}
 		// Recapture before another peer's queued request can validate against the
 		// old group/arrival state, and before the receipt can release client input.
-		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes();
+		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes() && publishConversation();
 	}
 
 	bool flushCampaignActionResults() noexcept
@@ -1365,7 +1408,7 @@ struct DedicatedCoopRuntime::Impl
 		}
 		// A second queued player request sees the new roster, balance, offers and
 		// shared control barrier. Every receipt waits for those observations.
-		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes();
+		return publishCampaignStatus() && publishCampaignGroups() && publishCampaignEconomyAndQuotes() && publishConversation();
 	}
 
 	bool flushCampaignHireResults() noexcept
@@ -1421,7 +1464,7 @@ struct DedicatedCoopRuntime::Impl
 			if (message.kind == CoopSession::FullEngineCoopCampaignInboundKind::TimeRequest)
 			{
 				handleCampaignTimeRequest(message);
-				if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes()) return false;
+				if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() || !publishConversation()) return false;
 				continue;
 			}
 			CoopSession::FullEngineCoopCampaignSyncInboundKind kind;
@@ -1731,12 +1774,13 @@ struct DedicatedCoopRuntime::Impl
 			campaignTimeAuthority.clear();
 			campaignActionAuthority.clear();
 			campaignHireAuthority.clear();
-			campaignEconomyLedger.clear(); campaignQuotesLedger.clear();
-			campaignEconomyDeliveries = {}; campaignQuotesDeliveries = {};
+			campaignEconomyLedger.clear(); campaignQuotesLedger.clear(); conversationLedger.clear();
+			campaignEconomyDeliveries = {}; campaignQuotesDeliveries = {}; conversationDeliveries = {};
 			lastCampaignEconomyDiagnostic = lastCampaignQuotesDiagnostic = nullptr;
 			if (!campaignStatusLedger.beginSession(epoch)) return false;
 			if (!campaignGroupsLedger.beginSession(epoch)) return false;
-			if (!campaignEconomyLedger.beginSession(epoch) || !campaignQuotesLedger.beginSession(epoch)) return false;
+			if (!campaignEconomyLedger.beginSession(epoch) || !campaignQuotesLedger.beginSession(epoch) ||
+				!conversationLedger.beginSession(epoch)) return false;
 			admissionConfigured = true;
 		}
 
@@ -2316,13 +2360,13 @@ struct DedicatedCoopRuntime::Impl
 			return finishSelfRetirementAtBoundary();
 		if (!reconcileCampaignPeersAndGateTactical()) return false;
 		pauseStrategicTimeWithoutLeader();
-		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() || !reconcileCampaignTimePeers() ||
+		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() || !publishConversation() || !reconcileCampaignTimePeers() ||
 			!reconcileCampaignActionPeers() || !reconcileCampaignHirePeers() || !pumpCampaignInboundAndOutbound(runtime))
 			return false;
 		// A resync in this FIFO can remove readiness too. Never auto-resume on
 		// reconnect or overwrite a native event pause on a later frame.
 		pauseStrategicTimeWithoutLeader();
-		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() ||
+		if (!publishCampaignStatus() || !publishCampaignGroups() || !publishCampaignEconomyAndQuotes() || !publishConversation() ||
 			!flushCampaignTimeResults() || !flushCampaignActionResults() || !flushCampaignHireResults())
 			return false;
 		const CoopSession::FullEngineCoopTacticalServerResult reconciled =
@@ -2491,6 +2535,11 @@ struct DedicatedCoopRuntime::Impl
 	CoopSession::CoopCampaignHireAuthority campaignHireAuthority;
 	CoopSession::CoopCampaignEconomyLedger campaignEconomyLedger;
 	CoopSession::CoopCampaignAimQuotesLedger campaignQuotesLedger;
+	CoopSession::CoopConversationLedger conversationLedger;
+	std::array<CampaignStatusDelivery, CoopSession::MaximumAuthorityPeers> conversationDeliveries{};
+	std::uint32_t conversation = 0, lastConversation = 0;
+	CoopSession::PeerIdentity conversationInitiator{};
+	bool talkPanelWasOpen = false;
 	const char* lastCampaignEconomyDiagnostic = nullptr;
 	const char* lastCampaignQuotesDiagnostic = nullptr;
 	std::array<CampaignStatusDelivery, CoopSession::MaximumAuthorityPeers> campaignEconomyDeliveries{}, campaignQuotesDeliveries{};

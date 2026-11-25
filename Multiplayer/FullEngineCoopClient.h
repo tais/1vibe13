@@ -7,6 +7,7 @@
 #include "CoopCampaignTime.h"
 #include "CoopCampaignAction.h"
 #include "CoopCampaignHire.h"
+#include "CoopConversation.h"
 #include "CoopInventoryProtocol.h"
 #include "CoopTacticalIntent.h"
 #include "CoopTacticalProtocol.h"
@@ -160,10 +161,13 @@ public:
 	const CoopCampaignGroups* campaignGroups() const noexcept;
 	FullEngineCoopClientResult receiveCampaignEconomy(const std::uint8_t* bytes, std::size_t size) noexcept;
 	FullEngineCoopClientResult receiveCampaignAimQuotes(const std::uint8_t* bytes, std::size_t size) noexcept;
+	FullEngineCoopClientResult receiveConversation(const std::uint8_t* bytes, std::size_t size) noexcept;
 	const CoopCampaignEconomy* campaignEconomy() const noexcept;
 	// Old offers are hidden while the newer economy replacement is waiting for
 	// its matching quotes in the ordered inbound stream.
 	const CoopCampaignAimQuotes* campaignAimQuotes() const noexcept;
+	// The authority's open talk panel, or nullptr before the first observation.
+	const CoopConversation* conversation() const noexcept;
 	FullEngineCoopClientResult requestCampaignHire(std::uint16_t profile, std::uint8_t days, bool buyGear) noexcept;
 	FullEngineCoopClientResult receiveCampaignHireResult(const std::uint8_t* bytes, std::size_t size) noexcept;
 	bool campaignHirePending() const noexcept { return pendingCampaignHire_.requestId != 0; }
@@ -309,6 +313,7 @@ private:
 	CoopCampaignGroups campaignGroups_;
 	CoopCampaignEconomy campaignEconomy_;
 	CoopCampaignAimQuotes campaignAimQuotes_;
+	CoopConversation conversation_;
 	CoopCampaignHireRequest pendingCampaignHire_;
 	CoopCampaignHireResult lastCampaignHireResult_;
 	std::int32_t pendingCampaignHireQuotedTotal_ = 0;

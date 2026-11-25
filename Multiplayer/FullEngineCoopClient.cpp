@@ -889,7 +889,7 @@ FullEngineCoopClientResult FullEngineCoopClient::fail(
 {
 	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
 	campaignGroups_ = {};
-	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {}; conversation_ = {};
 	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
 	pendingCampaignAction_ = {}; lastCampaignActionResult_ = {}; nextCampaignActionRequestId_ = 1;
 	pendingCampaignTime_ = {}; lastCampaignTimeResult_ = {};
@@ -1007,7 +1007,7 @@ void FullEngineCoopClient::clearCredentials() noexcept
 {
 	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
 	campaignGroups_ = {};
-	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {}; conversation_ = {};
 	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
 	pendingCampaignAction_ = {}; lastCampaignActionResult_ = {}; nextCampaignActionRequestId_ = 1;
 	pendingCampaignTime_ = {}; lastCampaignTimeResult_ = {}; nextCampaignTimeRequestId_ = 1;
@@ -1081,7 +1081,7 @@ void FullEngineCoopClient::clearConnectionState() noexcept
 {
 	campaignStatus_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0;
 	campaignGroups_ = {};
-	campaignEconomy_ = {}; campaignAimQuotes_ = {};
+	campaignEconomy_ = {}; campaignAimQuotes_ = {}; conversation_ = {};
 	pendingCampaignHire_ = {}; lastCampaignHireResult_ = {}; pendingCampaignHireQuotedTotal_ = 0; nextCampaignHireRequestId_ = 1;
 	// A lost campaign, hire or time request has an unknown outcome. Observe fresh server state on
 	// reconnect; never replay a resume (unlike deliberate permanent retirement).
@@ -1198,6 +1198,27 @@ FullEngineCoopClientResult FullEngineCoopClient::receiveCampaignAimQuotes(const 
 		(candidate.revision == campaignAimQuotes_.revision && !SameCoopCampaignAimQuotes(candidate, campaignAimQuotes_)))
 		return fail(FullEngineCoopClientResult::InvalidMessage);
 	campaignAimQuotes_ = candidate;
+	return FullEngineCoopClientResult::Success;
+}
+
+const CoopConversation* FullEngineCoopClient::conversation() const noexcept
+{
+	return conversation_.sessionEpoch == sessionEpoch_ && conversation_.revision ? &conversation_ : nullptr;
+}
+
+FullEngineCoopClientResult FullEngineCoopClient::receiveConversation(const std::uint8_t* bytes, std::size_t size) noexcept
+{
+	if (replicaApplying_ || wireCalling_ || credentialStoreCalling_ ||
+		(state_ != FullEngineCoopClientState::AwaitingBaseline && state_ != FullEngineCoopClientState::Active &&
+		 state_ != FullEngineCoopClientState::ResyncRequired && state_ != FullEngineCoopClientState::Retiring))
+		return FullEngineCoopClientResult::InvalidState;
+	CoopConversation candidate;
+	// Revisions only move forward; an equal revision must carry equal content.
+	if (!DecodeCoopConversation(bytes, size, candidate) || candidate.sessionEpoch != sessionEpoch_ ||
+		(conversation_.sessionEpoch == sessionEpoch_ && (candidate.revision < conversation_.revision ||
+		 (candidate.revision == conversation_.revision && !SameCoopConversationContent(candidate, conversation_)))))
+		return fail(FullEngineCoopClientResult::InvalidMessage);
+	conversation_ = candidate;
 	return FullEngineCoopClientResult::Success;
 }
 

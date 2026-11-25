@@ -187,6 +187,13 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 			std::get<PassInterruptTacticalIntent>(right.payload).interruptSerial;
 	if (const auto* aid = std::get_if<BeginFirstAidTacticalIntent>(&left.payload))
 		return aid->target == std::get<BeginFirstAidTacticalIntent>(right.payload).target;
+	if (const auto* talk = std::get_if<TalkTacticalIntent>(&left.payload))
+		return talk->target == std::get<TalkTacticalIntent>(right.payload).target;
+	if (const auto* answer = std::get_if<ConverseTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<ConverseTacticalIntent>(right.payload);
+		return answer->conversation == other.conversation && answer->approach == other.approach;
+	}
 	if (const auto* swap = std::get_if<SwapInventorySlotsTacticalIntent>(&left.payload))
 	{
 		const auto& other = std::get<SwapInventorySlotsTacticalIntent>(right.payload);
@@ -330,7 +337,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 14> payloads{{
+	const std::array<PayloadCase, 16> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -347,7 +354,9 @@ void TestIntentCodec()
 		{TransferInventoryItemTacticalIntent{{9, 5}, 14, 14,
 			UINT64_C(0x0807060504030201), UINT64_C(0x1817161514131211)}, 98},
 		{PickupWorldItemTacticalIntent{{0x04030201, 0x08070605}, 14, UINT64_C(0x1817161514131211)}, 90},
-		{DropInventoryItemTacticalIntent{54, UINT64_C(0x1817161514131211)}, 82}}};
+		{DropInventoryItemTacticalIntent{54, UINT64_C(0x1817161514131211)}, 82},
+		{TalkTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
+		{ConverseTacticalIntent{0x04030201, 5}, 77}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;
@@ -701,6 +710,26 @@ void TestIntentCodec()
 	invalid.payload = PassInterruptTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid),
 		"zero interrupt-pass serial is rejected");
+	invalid.payload = TalkTacticalIntent{};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "unresolved talk target is rejected");
+	invalid.payload = TalkTacticalIntent{invalid.actor};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "a merc cannot talk to itself");
+	invalid.payload = ConverseTacticalIntent{0, 1};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "an answer needs a conversation identity");
+	invalid.payload = ConverseTacticalIntent{1, 6};
+	CHECK(!IsStructurallyValidTacticalIntent(invalid), "only the five stock approaches and leave exist");
+	{
+		TacticalIntent answer = intent;
+		answer.payload = ConverseTacticalIntent{0x04030201, 0};
+		std::vector<std::uint8_t> bytes;
+		CHECK(EncodeTacticalIntent(answer, bytes) == TacticalIntentCodecResult::Success && bytes.size() == 77 &&
+			bytes[6] == 16 && bytes[70] == 5 && bytes[71] == 0 && bytes[72] == 1 && bytes[75] == 4 &&
+			bytes[76] == 0, "leave is kind 16 with a five-byte conversation-plus-approach payload");
+		bytes[76] = 6;
+		TacticalIntent output = sentinel;
+		CHECK(DecodeTacticalIntent(bytes, output) == TacticalIntentCodecResult::Invalid && SameIntent(output, sentinel),
+			"an unknown approach byte rejects transactionally");
+	}
 	invalid.payload = BeginFirstAidTacticalIntent{};
 	CHECK(!IsStructurallyValidTacticalIntent(invalid) &&
 		EncodeTacticalIntent(invalid, unchanged) == TacticalIntentCodecResult::Invalid &&

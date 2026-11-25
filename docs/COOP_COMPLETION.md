@@ -3460,3 +3460,62 @@ Installed evidence (`full_engine_coop_installed_exit_grid.py`): seeded A9
 victory, shared return, in-process travel A9→A10 by the non-leader, leader time
 control, peaceful A10 arrival, `E`+`Enter` entry of A10, secured A10, shared
 return, checkpoint and shipping cold resume.
+
+## Phase 2.1: talking to NPCs
+
+The server runs the stock talk panel headless (`gTalkPanel`, `Converse`, the
+dialogue queue; the game stays paused while a conversation is open, as it does
+in single player). Players only ever see a replicated copy of it.
+
+### Conversation channel (read-only)
+
+`coop.conversation` (544 bytes, `Multiplayer/CoopConversation.h`) carries the
+one open conversation, or an empty record: its identity, the NPC and merc
+(profiles and exact actor identities), the initiating player, whether a line is
+still being spoken, and the current subtitle (up to 240 UTF-16 units). The
+server observes the panel with `CaptureDedicatedCoopConversation`, which never
+opens, advances or closes it, and publishes a new revision to every ready peer
+whenever the content changes. Clients draw the NPC's name and the wrapped
+subtitle at the top of the tactical view, in place of the medical lane.
+
+### Starting and answering
+
+Two tactical intents drive it:
+
+- `Talk` (kind 15, a 6-byte target identity). In the client, `K` addresses the
+  nearest visible non-hostile NPC within the stock talk radius of the selected
+  merc. The server preflights it with `PrepareDedicatedCoopTalk`: peaceful real
+  time (no combat), no panel or dialogue in progress, an exact controllable
+  merc and an exact profiled NPC on the same level within `NPC_TALK_RADIUS`.
+  It then retains the native `StartConversationCommand`. The requesting peer is
+  remembered for exactly that merc/NPC pair and becomes the initiator when the
+  panel opens. A panel opened by native gameplay (an NPC walking up) has no
+  initiator; then any owner of the merc may answer.
+- `Converse` (kind 16: conversation identity plus approach; 1 friendly,
+  2 direct, 3 threaten, 4 recruit, 5 repeat, 0 leave). While a conversation is
+  open the client is modal, as the stock panel is: only the answering player's
+  `1`-`5` and `Esc` do anything, shown as a hint once the line has been spoken.
+  The server binds the answer to the published conversation, its merc and its
+  initiator, and retains `AuthoritativeConverseCommand` (journal tag 40). At
+  execution it re-checks that exact panel is open and idle, then runs only the
+  stock button paths: `Converse(...)` or `HandleTalkingMenuEscape(TRUE, FALSE)`.
+
+Unit coverage: wire layouts and validation in `coop_conversation_tests` and
+`coop_tactical_authority_tests`, the journal round trip in
+`simulation_command_world_object_model_tests`, host translation and
+legacy-first rejection in `dedicated_coop_tactical_host_tests`.
+
+Installed evidence (`full_engine_coop_installed_npc_dialogue.py`): after a
+seeded A9 victory, client A walks its selected merc to Fatima (the team must
+see her first; the test host logs NPC positions so the probe knows where to
+walk) and presses `K`. Both replicas show "Why are you here?". Only A may
+answer, and A's `1` brings her friendly reply ("How could it be that you were
+sent by Enrico? ...") on both replicas, then `Esc` closes the panel on both.
+Negative control: with the answer executor disabled the panel opens but the
+line never advances and the probe fails at that step.
+
+Not yet: giving items to NPCs (Fatima's letter), NPC actions such as the
+basement fade and recruiting, and a choice among several NPCs in range (`K`
+always takes the nearest). The server plays no speech audio; the speaking flag is
+the native dialogue state (a line active or queued), which the stock
+subtitle-only timing ends.

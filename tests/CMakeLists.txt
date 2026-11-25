@@ -118,6 +118,15 @@ target_include_directories(coop_campaign_status_tests PRIVATE
 target_compile_features(coop_campaign_status_tests PRIVATE cxx_std_17)
 add_test(NAME coop_campaign_status COMMAND coop_campaign_status_tests)
 
+add_executable(coop_conversation_tests
+  coop_conversation_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(coop_conversation_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_conversation_tests PRIVATE cxx_std_17)
+add_test(NAME coop_conversation COMMAND coop_conversation_tests)
+
 add_executable(coop_campaign_groups_tests coop_campaign_groups_tests.cpp)
 target_include_directories(coop_campaign_groups_tests PRIVATE
   ${CMAKE_SOURCE_DIR}
@@ -2162,6 +2171,11 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_exit_grid.py)
+  add_test(
+    NAME full_engine_coop_installed_npc_dialogue_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_npc_dialogue.py)
   add_test(
     NAME full_engine_coop_installed_peaceful_sector_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover

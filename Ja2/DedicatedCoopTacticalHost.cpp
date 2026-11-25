@@ -397,6 +397,43 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::TalkTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			StartConversationCommand prepared{};
+			if (!liveState_->prepareTalk(intent.peerIdentity, intent.actor, payload.target, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
+			CoopSession::ConverseTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			AuthoritativeConverseCommand prepared{};
+			if (!liveState_->prepareConverse(intent.peerIdentity, intent.actor, payload.conversation,
+					payload.approach, turn.worldGeneration, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::ReloadTacticalIntent>::value)
 		{
 			ReloadWeaponCommand prepared{};

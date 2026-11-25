@@ -116,6 +116,8 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept;
 // Authority identity currently selected by the isolated co-op controller.
 // Presentation adapters may use it for camera/panel focus only.
 TacticalEntityId GetFullEngineCoopClientSelectedActor() noexcept;
+// The NPC the talk key (K) would address right now for the selected merc.
+TacticalEntityId GetFullEngineCoopClientTalkTarget() noexcept;
 
 bool CaptureFullEngineCoopClientPresentationInventoryControls(
 	FullEngineCoopClientPresentationInventoryControls& output) noexcept;

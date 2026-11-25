@@ -11,6 +11,9 @@
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
+#include "NPC.h"
+#include "Dialogue Control.h"
+#include "Interface Dialogue.h"
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
@@ -1093,6 +1096,25 @@ namespace
 		TraceDedicatedCoopInventoryRejection(stage, value);
 	}
 
+	// The co-op authority's answer to its single native talk panel: exactly the
+	// stock talk-panel button paths (TalkPanelClickCallback / Done button),
+	// refused while the open line is still being spoken.
+	bool ApplyDedicatedCoopConversationChoice(const TacticalActor& merc,
+		std::uint8_t npcProfile, std::uint8_t approach)
+	{
+		if (!gfInTalkPanel || gTalkPanel.ubCharNum != npcProfile ||
+			merc.identity().profile() != gubSrcSoldierProfile ||
+			DialogueActive() || !DialogueQueueIsEmpty())
+			return false;
+		if (approach == 0)
+		{
+			(void)HandleTalkingMenuEscape(TRUE, FALSE);
+			return true;
+		}
+		Converse(gTalkPanel.ubCharNum, gubSrcSoldierProfile, static_cast<INT8>(approach), 0);
+		return true;
+	}
+
 	TacticalActor* ResolveInventorySwap(const SwapInventorySlotsCommand& command)
 	{
 		const auto reject = [&](const char* stage, const TacticalActor* actor = nullptr,
@@ -2150,6 +2172,19 @@ namespace
 					!HasEndTurnExecutionContext(value))
 					return CommandDisposition::Discard;
 				EndTurn(value.nextTeam);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, AuthoritativeConverseCommand>::value)
+			{
+				const Ja2TacticalTurnIdentity identity =
+					GetJa2TacticalWorldAdapter().liveTurnIdentity();
+				TacticalActor* const merc = ResolveCoopAuthorizedLegacyCommandActor(
+					value.soldier, value.source, value.authority);
+				if (is_networked || is_client || is_server || !identity ||
+					identity.worldGeneration != value.expectedWorldGeneration || !merc ||
+					!ApplyDedicatedCoopConversationChoice(*merc, value.npcProfile, value.approach))
+					return CommandDisposition::Discard;
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
@@ -3924,7 +3959,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, SwapInventorySlotsCommand>::value ||
 			std::is_same<Command, TransferInventoryItemCommand>::value ||
 			std::is_same<Command, AuthoritativePickupWorldItemCommand>::value ||
-			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
+			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value ||
+			std::is_same<Command, AuthoritativeConverseCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4087,6 +4123,12 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					return SimulationCommandDomainError::InvalidAuthoritativePickupPrecondition;
 				return TileIsOutOfBounds(value.expectedActorGrid)
 					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeConverseCommand>::value)
+			{
+				return IsStructurallyValidAuthoritativeConverseCommand(value)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidConversationPrecondition;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value)
 			{

@@ -1259,6 +1259,33 @@ struct PassInterruptCommand
 		TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
 
+// One answer to the open native talk panel on the co-op authority: a stock
+// approach (1 friendly .. 5 repeat) or 0 to leave. Bound to the conversation's
+// exact merc, NPC profile and world; refused while a line is still spoken.
+struct AuthoritativeConverseCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint8_t npcProfile = 0;
+	std::uint8_t approach = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority =
+		TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+
+static_assert(std::is_trivially_copyable<AuthoritativeConverseCommand>::value,
+	"conversation answers must remain pointer-free values");
+
+constexpr bool IsStructurallyValidAuthoritativeConverseCommand(
+	const AuthoritativeConverseCommand& command) noexcept
+{
+	return command.soldier.valid() && command.expectedWorldGeneration != 0 &&
+		command.npcProfile != 0 && command.approach <= 5 &&
+		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<PassInterruptCommand>::value,
 	"interrupt pass commands must remain pointer-free values");
 
@@ -1607,7 +1634,8 @@ using SimulationCommand = std::variant<
 	SwapInventorySlotsCommand,
 	TransferInventoryItemCommand,
 	AuthoritativePickupWorldItemCommand,
-	AuthoritativeDropInventoryItemCommand>;
+	AuthoritativeDropInventoryItemCommand,
+	AuthoritativeConverseCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1768,6 +1796,10 @@ inline bool IsStructurallyValidSimulationCommand(
 			std::is_same<Command, PassInterruptCommand>::value)
 		{
 			return IsStructurallyValidPassInterruptCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeConverseCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeConverseCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

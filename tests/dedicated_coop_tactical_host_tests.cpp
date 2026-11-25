@@ -157,6 +157,25 @@ public:
 			0, 2, 1, 1, 99, 17, 10};
 		return true;
 	}
+	bool prepareTalk(const CoopSession::PeerIdentity& peer, TacticalEntityId actor,
+		TacticalEntityId target, StartConversationCommand& command) noexcept override
+	{
+		++talkPreparationCalls; lastTalkPeer = peer;
+		if (!talkPreparationSucceeds) return false;
+		command = StartConversationCommand{actor, target, SimulationCommandSource::NetworkPeer};
+		return true;
+	}
+	bool prepareConverse(const CoopSession::PeerIdentity& peer, TacticalEntityId actor,
+		std::uint32_t conversation, std::uint8_t approach, std::uint64_t generation,
+		AuthoritativeConverseCommand& command) const noexcept override
+	{
+		++conversePreparationCalls; lastTalkPeer = peer;
+		if (!conversePreparationSucceeds || conversation != 1) return false;
+		command = AuthoritativeConverseCommand{};
+		command.soldier = actor; command.expectedWorldGeneration = generation;
+		command.npcProfile = 101; command.approach = approach;
+		return true;
+	}
 	bool prepareSwapInventorySlots(TacticalEntityId actor, std::uint16_t source,
 		std::uint16_t destination, std::uint64_t revision,
 		SwapInventorySlotsCommand& command) const noexcept override
@@ -323,6 +342,11 @@ public:
 	mutable std::uint8_t lastAttackAimTime = 0;
 	mutable std::size_t reloadPreparationCalls = 0;
 	bool firstAidPreparationSucceeds = true;
+	bool talkPreparationSucceeds = true;
+	bool conversePreparationSucceeds = true;
+	mutable std::size_t talkPreparationCalls = 0;
+	mutable std::size_t conversePreparationCalls = 0;
+	mutable CoopSession::PeerIdentity lastTalkPeer{};
 	bool transferPreparationSucceeds = true;
 	bool pickupPreparationSucceeds = true;
 	bool dropPreparationSucceeds = true;
@@ -530,8 +554,14 @@ void TestTranslatesSupportedIntentVocabulary()
 	CHECK(host.execute(Intent(13, DropInventoryItemTacticalIntent{54, 31})) ==
 		TacticalIntentExecutionDisposition::Retained,
 		"ordinary pocket drop enters retained command inbox");
-	CHECK(commands.submissionCount == 13 && receipts.count == 13 &&
-		host.correlationCount() == 13,
+	CHECK(host.execute(Intent(14, TalkTacticalIntent{ActorTwo})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"talk enters the retained command inbox");
+	CHECK(host.execute(Intent(15, ConverseTacticalIntent{1, 4})) ==
+		TacticalIntentExecutionDisposition::Retained,
+		"a conversation answer enters the retained command inbox");
+	CHECK(commands.submissionCount == 15 && receipts.count == 15 &&
+		host.correlationCount() == 15,
 		"each supported intent creates one queue correlation and receipt");
 
 	const MoveToGridCommand* move = std::get_if<MoveToGridCommand>(
@@ -656,6 +686,16 @@ void TestTranslatesSupportedIntentVocabulary()
 		drop->authority == TacticalCommandAuthorityPolicy::DedicatedCoop &&
 		live.dropPreparationCalls == 1 && live.lastDropRevision == 31,
 		"drop retains only authority-captured pose, whole source object and AP proofs");
+	const auto* talk = std::get_if<StartConversationCommand>(&commands.submissions[13].command);
+	CHECK(talk && talk->soldier == ActorOne && talk->target == ActorTwo &&
+		talk->source == SimulationCommandSource::NetworkPeer && live.talkPreparationCalls == 1,
+		"talk retains the native start-conversation command for the exact pair");
+	const auto* converse = std::get_if<AuthoritativeConverseCommand>(&commands.submissions[14].command);
+	CHECK(converse && IsStructurallyValidAuthoritativeConverseCommand(*converse) &&
+		converse->soldier == ActorOne && converse->approach == 4 && converse->npcProfile == 101 &&
+		converse->expectedWorldGeneration == 7 && live.conversePreparationCalls == 1 &&
+		live.lastTalkPeer == Peer(0x20),
+		"an answer is bound to the authority's conversation, world and requesting peer");
 	for (std::size_t index = 0; index < commands.submissionCount; ++index)
 		CHECK(commands.submissions[index].packageId == CampaignPackageId,
 			"every command submits under the active campaign package");
@@ -893,6 +933,24 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	CHECK(legacyNetwork.firstAidPreparationCalls == 0 &&
 		invalidFirstAid.firstAidPreparationCalls == 1,
 		"legacy role rejection precedes any native first-aid preparation");
+	FakeLiveState invalidTalk;
+	invalidTalk.talkPreparationSucceeds = false;
+	rejects(invalidTalk, Intent(1, TalkTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"combat, a busy panel, a far or non-NPC target cannot open a conversation");
+	FakeLiveState staleAnswer;
+	rejects(staleAnswer, Intent(1, ConverseTacticalIntent{2, 1}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"an answer to any conversation but the published one is terminal");
+	rejects(legacyNetwork, Intent(1, TalkTacticalIntent{ActorTwo}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"talk fails closed while a legacy network role is active");
+	rejects(legacyNetwork, Intent(1, ConverseTacticalIntent{1, 1}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"answers fail closed while a legacy network role is active");
+	CHECK(invalidTalk.talkPreparationCalls == 1 && staleAnswer.conversePreparationCalls == 1 &&
+		legacyNetwork.talkPreparationCalls == 0 && legacyNetwork.conversePreparationCalls == 0,
+		"legacy role rejection precedes native conversation preparation");
 	invalidDoor.doorPreparationSucceeds = false;
 	FakeLiveState invalidTransfer;
 	invalidTransfer.transferPreparationSucceeds = false;

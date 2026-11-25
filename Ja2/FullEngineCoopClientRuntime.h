@@ -450,6 +450,10 @@ public:
 	bool campaignGroups(CoopSession::CoopCampaignGroups& output) const noexcept;
 	bool campaignEconomy(CoopSession::CoopCampaignEconomy& output) const noexcept;
 	bool campaignAimQuotes(CoopSession::CoopCampaignAimQuotes& output) const noexcept;
+	bool conversation(CoopSession::CoopConversation& output) const noexcept;
+	// True when the open conversation may be answered by this player: its
+	// initiator, or the owner of its merc when native gameplay opened it.
+	bool conversationAnswerable(const CoopSession::CoopConversation& conversation) const noexcept;
 	// Display label from the synchronized passive checkpoint; never offer,
 	// price or hiring authority. Empty/invalid labels use a caller fallback.
 	bool campaignProfileNickname(std::uint16_t profile, std::array<wchar_t,32>& output) const noexcept;

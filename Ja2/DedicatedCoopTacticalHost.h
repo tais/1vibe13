@@ -101,6 +101,15 @@ public:
 	virtual bool prepareBeginFirstAid(
 		TacticalEntityId actor, TacticalEntityId target,
 		BeginFirstAidCommand& command) const noexcept = 0;
+	// Talk preflight; on success remembers `peer` as the requester of exactly
+	// this merc/NPC pair so the panel that opens takes it as initiator.
+	virtual bool prepareTalk(const CoopSession::PeerIdentity& peer,
+		TacticalEntityId actor, TacticalEntityId target,
+		StartConversationCommand& command) noexcept = 0;
+	// Answer preflight against the exact published conversation.
+	virtual bool prepareConverse(const CoopSession::PeerIdentity& peer,
+		TacticalEntityId actor, std::uint32_t conversation, std::uint8_t approach,
+		std::uint64_t worldGeneration, AuthoritativeConverseCommand& command) const noexcept = 0;
 	virtual bool prepareSwapInventorySlots(
 		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -167,6 +176,12 @@ public:
 	bool prepareBeginFirstAid(
 		TacticalEntityId actor, TacticalEntityId target,
 		BeginFirstAidCommand& command) const noexcept override;
+	bool prepareTalk(const CoopSession::PeerIdentity& peer,
+		TacticalEntityId actor, TacticalEntityId target,
+		StartConversationCommand& command) noexcept override;
+	bool prepareConverse(const CoopSession::PeerIdentity& peer,
+		TacticalEntityId actor, std::uint32_t conversation, std::uint8_t approach,
+		std::uint64_t worldGeneration, AuthoritativeConverseCommand& command) const noexcept override;
 	bool prepareSwapInventorySlots(
 		TacticalEntityId actor, std::uint16_t sourceSlot, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,

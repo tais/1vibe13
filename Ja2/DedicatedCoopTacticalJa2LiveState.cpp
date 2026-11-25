@@ -1,3 +1,4 @@
+#include "DedicatedCoopConversation.h"
 #include "DedicatedCoopMoveDiagnostic.h"
 #include "DedicatedCoopInventoryDiagnostic.h"
 #include "DedicatedCoopAttack.h"
@@ -206,6 +207,36 @@ bool DedicatedCoopTacticalJa2LiveState::prepareBeginFirstAid(
 	BeginFirstAidCommand& command) const noexcept
 {
 	return onMainThread() && PrepareBeginFirstAidCommand(actor, target, command);
+}
+
+bool DedicatedCoopTacticalJa2LiveState::prepareTalk(const CoopSession::PeerIdentity& peer,
+	TacticalEntityId actor, TacticalEntityId target,
+	StartConversationCommand& command) noexcept
+{
+	if (!onMainThread() || PrepareDedicatedCoopTalk(actor, target, command) != DedicatedCoopTalkCode::Prepared)
+		return false;
+	NoteDedicatedCoopConversationRequest(peer, actor, target);
+	return true;
+}
+
+bool DedicatedCoopTacticalJa2LiveState::prepareConverse(const CoopSession::PeerIdentity& peer,
+	TacticalEntityId actor, std::uint32_t conversation, std::uint8_t approach,
+	std::uint64_t worldGeneration, AuthoritativeConverseCommand& command) const noexcept
+{
+	// Only the exact published conversation's merc answers, and only for its
+	// initiator (any owner of that merc for a natively opened panel; ownership
+	// of the actor was already checked by the intent authority).
+	const auto current = CurrentDedicatedCoopConversation();
+	if (!onMainThread() || !current.conversation || conversation != current.conversation ||
+		actor != current.merc || worldGeneration == 0 ||
+		(!CoopSession::IsZero(current.initiator) && current.initiator != peer))
+		return false;
+	command = AuthoritativeConverseCommand{};
+	command.soldier = actor;
+	command.expectedWorldGeneration = worldGeneration;
+	command.npcProfile = current.npcProfile;
+	command.approach = approach;
+	return IsStructurallyValidAuthoritativeConverseCommand(command);
 }
 
 bool DedicatedCoopTacticalJa2LiveState::prepareDoorOpenClose(

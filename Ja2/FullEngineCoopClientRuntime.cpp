@@ -1227,6 +1227,25 @@ bool FullEngineCoopClientRuntime::campaignAimQuotes(CoopSession::CoopCampaignAim
 	output = *value; return true;
 }
 
+bool FullEngineCoopClientRuntime::conversation(CoopSession::CoopConversation& output) const noexcept
+{
+	output = {};
+	if (!campaignReady() || failed()) return false;
+	const auto* value = impl_->composition->client.conversation();
+	if (!value) return false;
+	output = *value; return true;
+}
+
+bool FullEngineCoopClientRuntime::conversationAnswerable(const CoopSession::CoopConversation& conversation) const noexcept
+{
+	if (!conversation.conversation || !campaignReady() || failed()) return false;
+	const auto& client = impl_->composition->client;
+	if (!CoopSession::IsZero(conversation.initiator)) return conversation.initiator == client.peerIdentity();
+	for (std::size_t i = 0; i < client.assignedActorCount(); ++i)
+		if (client.assignedActor(i) == conversation.merc) return true;
+	return false;
+}
+
 bool FullEngineCoopClientRuntime::campaignProfileNickname(std::uint16_t profile, std::array<wchar_t,32>& output) const noexcept
 {
 	output = {};
