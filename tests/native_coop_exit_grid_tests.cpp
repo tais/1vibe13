@@ -107,6 +107,37 @@ int main()
 	CHECK(PlanDedicatedCoopExitGridTraversal(identity, ambiguous) == Code::UnsupportedGroup, "vehicle groups are refused");
 	group.fVehicle = FALSE;
 
+	// A scripted traversal (the Omerta hideout cutscene) needs no exit-grid
+	// tile: the same whole-group readiness, an explicit destination and the
+	// stock per-member insertion grids.
+	const std::int32_t entries[] = {13362, 13363};
+	DedicatedCoopExitGridPlan scripted, scriptedUntouched;
+	second.position().gridNo() = otherGrid;
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 0, entries, 2, scripted) == Code::InvalidDestination &&
+		SameDedicatedCoopExitGridPlan(scripted, scriptedUntouched), "a scripted traversal to this sector is refused without output");
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 1, nullptr, 0, scripted) == Code::InvalidDestination,
+		"a scripted traversal needs insertion grids");
+	const std::int32_t outside[] = {-5};
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 1, outside, 1, scripted) == Code::InvalidDestination,
+		"out-of-map insertion grids are refused");
+	second.vitals().health() = 1;
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 1, entries, 2, scripted) == Code::MemberNotReady,
+		"the scripted traversal keeps the whole-group readiness rule");
+	second.vitals().health() = 100;
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 1, entries, 2, scripted) == Code::Planned &&
+		scripted.scripted && scripted.x == 10 && scripted.y == 1 && scripted.z == 1 && scripted.memberCount == 2 &&
+		scripted.insertionGrids[0] == 13362 && scripted.insertionGrids[1] == 13363 && scripted.sourceGrid == -1,
+		"a group plans down with one stock insertion grid per member and no exit-grid tile");
+	DedicatedCoopExitGridPlan single;
+	CHECK(PlanDedicatedCoopScriptedTraversal(identity, 10, 1, 1, entries, 1, single) == Code::Planned &&
+		single.insertionGrids[1] == 13362, "members past the grid list reuse its last grid");
+	DedicatedCoopExitGridPlan replanned;
+	CHECK(ReplanDedicatedCoopTraversal(scripted, replanned) == Code::Planned && SameDedicatedCoopExitGridPlan(replanned, scripted),
+		"a scripted plan re-plans to the same scripted plan");
+	CHECK(ReplanDedicatedCoopTraversal(plan, replanned) == Code::Planned && !replanned.scripted &&
+		SameDedicatedCoopExitGridPlan(replanned, plan), "an exit-grid plan re-plans through the exit-grid rules");
+	CHECK(!SameDedicatedCoopExitGridPlan(scripted, plan), "scripted and exit-grid plans never compare equal");
+
 	// Relocation is worldless only: a live world would be torn down by the
 	// native SetGroupSectorValue unload check outside the co-op drain path.
 	StrategicGroupId moved{};
@@ -130,6 +161,14 @@ int main()
 			"every member gets the stock exit-grid insertion at the destination grid");
 	CHECK(ApplyDedicatedCoopExitGridRelocation(plan, moved) == Code::Changed && group.ubSectorZ == 1,
 		"the same plan cannot be applied twice");
+	// The scripted relocation, from where the group now is, one level down.
+	auto deeper = scripted; deeper.originZ = 1; deeper.z = 2;
+	CHECK(ApplyDedicatedCoopExitGridRelocation(deeper, moved) == Code::Planned && group.ubSectorZ == 2,
+		"a scripted plan relocates the whole group");
+	CHECK(first.deployment().strategicInsertionData() == 13362 && second.deployment().strategicInsertionData() == 13363 &&
+		first.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
+		!first.deployment().useExitGridForReentryDirection() && !second.deployment().useExitGridForReentryDirection(),
+		"each member gets its own stock insertion grid and no exit-grid facing");
 
 	TrashExitGridTable();
 	gpGroupList = nullptr; ResetJa2StrategicGroupDirectory();

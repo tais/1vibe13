@@ -35,6 +35,10 @@ struct DedicatedCoopExitGridPlan
 	std::uint8_t originX = 0, originY = 0, originZ = 0; // the loaded sector it leaves
 	std::array<TacticalEntityId, MaximumDedicatedCoopExitGridMembers> members{};
 	std::size_t memberCount = 0;
+	// A scripted traversal (an NPC cutscene such as the Omerta hideout) has no
+	// exit-grid tile: each member gets its own native insertion grid instead.
+	bool scripted = false;
+	std::array<std::int32_t, MaximumDedicatedCoopExitGridMembers> insertionGrids{};
 };
 
 bool SameDedicatedCoopExitGridPlan(const DedicatedCoopExitGridPlan& a, const DedicatedCoopExitGridPlan& b) noexcept;
@@ -44,6 +48,21 @@ bool SameDedicatedCoopExitGridPlan(const DedicatedCoopExitGridPlan& a, const Ded
 // occupied exit grid must lead to the same hostile-free destination.
 DedicatedCoopExitGridCode PlanDedicatedCoopExitGridTraversal(StrategicGroupId group,
 	DedicatedCoopExitGridPlan& output) noexcept;
+
+// Read-only, for a scripted traversal: the same whole-group readiness as an
+// exit grid, to an explicit hostile-free destination with stock per-member
+// insertion grids (members past `gridCount` reuse the last grid).
+DedicatedCoopExitGridCode PlanDedicatedCoopScriptedTraversal(StrategicGroupId group,
+	std::uint8_t x, std::uint8_t y, std::uint8_t z, const std::int32_t* grids, std::size_t gridCount,
+	DedicatedCoopExitGridPlan& output) noexcept;
+
+// Re-plans an accepted traversal of either kind against the current world.
+DedicatedCoopExitGridCode ReplanDedicatedCoopTraversal(const DedicatedCoopExitGridPlan& accepted,
+	DedicatedCoopExitGridPlan& fresh) noexcept;
+
+// The player group of the conscious merc nearest the in-sector NPC `profile`
+// (the squad that followed a scripted NPC), or an invalid id.
+StrategicGroupId DedicatedCoopGroupNearestToProfile(std::uint8_t profile) noexcept;
 
 // Applies the stock exit-grid insertion values (INSERTION_CODE_GRIDNO at the
 // destination grid, exit-grid re-entry direction) and relocates the group. Runs

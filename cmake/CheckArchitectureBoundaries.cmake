@@ -4685,8 +4685,8 @@ require_ordered_fragments(coop_exit_grid_apply_slice
   "if (members != plan.memberCount) return Code::Changed;"
   "NumHostilesInSector(plan.x, plan.y, plan.z) != 0"
   "strategicInsertionCode() = INSERTION_CODE_GRIDNO"
-  "strategicInsertionData() = plan.destinationGrid"
-  "useExitGridForReentryDirection() = TRUE"
+  "strategicInsertionData() = plan.scripted ? plan.insertionGrids[i] : plan.destinationGrid"
+  "useExitGridForReentryDirection() = plan.scripted ? FALSE : TRUE"
   "SetGroupSectorValue(plan.x, plan.y, plan.z, group->ubGroupID)")
 # A peacefully entered sector uses the same narrow bypass. It has no won battle,
 # so it must instead prove there are no hostiles, no combat and no traversal.
@@ -4812,6 +4812,32 @@ require_ordered_fragments(coop_give_npc_source
   "DedicatedCoopGiveReturnsToGiver()"
   "AddItemToPool( pSoldier->position().gridNo(), pObj"
   "InternalBeginItemPointer( pSoldier, pObj, NO_SLOT );")
+
+# The Omerta hideout cutscene in dedicated co-op: NPC_ACTION_GOTO_HIDEOUT keeps
+# its exit-grid and NPC bookkeeping but never moves the squad or fades (that
+# native SetGroupSectorValue would tear down the live world); the runtime plans
+# a scripted traversal with the stock basement grids, re-plans it before
+# leaving, and applies the stock surface edits only after the relocation.
+file(READ "${SOURCE_ROOT}/Tactical/interface Dialogue.cpp" coop_hideout_dialogue_source)
+require_ordered_fragments(coop_hideout_dialogue_source
+  "Dedicated co-op hideout action must defer the squad move and fade"
+  "case NPC_ACTION_GOTO_HIDEOUT:"
+  "AddExitGridToWorld( gModSettings.iHideoutEntryGrid, &ExitGrid );"
+  "if ( DedicatedCoopDefersHideoutTraversal() )"
+  "gfDedicatedCoopHideoutRequested = TRUE;"
+  "break;"
+  "gfTacticalTraversal = TRUE;"
+  "FadeOutGameScreen( );")
+require_ordered_fragments(coop_conversation_runtime_source
+  "Hideout traversal must plan with stock grids, re-plan before leaving and edit the surface after relocation"
+  "TakeDedicatedCoopHideoutRequest()"
+  "PlanDedicatedCoopScriptedTraversal(DedicatedCoopGroupNearestToProfile(FATIMA),"
+  "gModSettings.iBasementEntry"
+  "impl_->hideoutTraversal = true;"
+  "ReplanDedicatedCoopTraversal(impl_->exitGrid, fresh)"
+  "ApplyDedicatedCoopExitGridRelocation(impl_->exitGrid, moved)"
+  "if (relocated == DedicatedCoopExitGridCode::Planned && hideout)"
+  "ApplyDedicatedCoopHideoutSurfaceChanges();")
 
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so

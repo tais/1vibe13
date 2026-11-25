@@ -16,7 +16,9 @@ import tempfile
 import time
 
 from full_engine_coop_installed_campaign import qualification_guard
-from full_engine_coop_installed_exit_grid import seed_victory, travel_and_enter_a10, wait_count
+from full_engine_coop_installed_exit_grid import (
+    seed_victory, tactical_counts, travel_and_enter_a10, wait_count, wait_tactical,
+)
 from full_engine_coop_installed_movement import _Probe, _states
 from full_engine_coop_installed_peaceful_sector import _secured_marker_sectors, return_from_secured_sector
 from full_engine_coop_installed_process_smoke import (
@@ -392,6 +394,70 @@ def follow_into_a10(probes, guard, server, clients, run, timeout, evidence):
     return probes, guard
 
 
+CARLOS = 58
+HIDEOUT_ACCEPTED = "[dedicated] hideout traversal accepted to (10,1,1)"
+
+
+def follow_to_hideout(probes, guard, server, clients, timeout, evidence):
+    """In A10: keep up with Fatima's waypoints and close every conversation an
+    NPC opens (only its merc's owner may answer) until her hideout action asks
+    the runtime to take the squad down; then require the checkpointed
+    traversal, the peaceful basement entry and Carlos's welcome on both."""
+    evidence["a10_lines"] = []
+    deadline = time.monotonic() + 3 * timeout
+    last_lead, since = None, time.monotonic()
+    while HIDEOUT_ACCEPTED not in log_text(server):
+        if time.monotonic() > deadline:
+            raise SmokeFailure(f"the hideout traversal never started; Fatima={npc_lead(server, FATIMA)}")
+        records = conversations(probes, guard, time.monotonic() + timeout)
+        if not all(record["ready"] for record in records):
+            # A replica without a ready world (e.g. a native world change that
+            # bypassed co-op) cannot follow; the deadline reports it.
+            time.sleep(0.3)
+            continue
+        if records[0]["conversation"]:
+            if not records[0]["speaking"]:
+                text = quote_text(records[0])
+                if not evidence["a10_lines"] or evidence["a10_lines"][-1] != [records[0]["npc_profile"], text]:
+                    evidence["a10_lines"].append([records[0]["npc_profile"], text])
+                answering = [index for index, record in enumerate(records) if record["answerable"]]
+                if answering:
+                    time.sleep(1.0)
+                    again = conversations(probes, guard, time.monotonic() + timeout)
+                    if again[0]["conversation"] == records[0]["conversation"] and not again[0]["speaking"] and \
+                            quote_text(again[0]) == text:
+                        converse(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
+            time.sleep(0.3)
+            continue
+        lead = npc_lead(server, FATIMA)
+        if lead != last_lead:
+            last_lead, since = lead, time.monotonic()
+        if lead and time.monotonic() - since > 4 and lead["distance"] > 4:
+            state = _states(probes, time.monotonic() + timeout, guard)[0]
+            selected = tuple(conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"])
+            merc = find_actor(state, lambda a: (a["slot"], a["inc"]) == selected)
+            where = find_actor(state, lambda a: a["profile"] == FATIMA) or {"grid": lead["grid"], "level": 0}
+            try:
+                evidence.setdefault("a10_walks", []).append(walk_into_talk_range(probes, guard, 0, merc, where, timeout))
+            except SmokeFailure as error:
+                evidence.setdefault("a10_walk_failures", []).append(str(error))
+            since = time.monotonic()
+        time.sleep(0.3)
+    evidence["hideout_accepted"] = True
+    counts = tactical_counts(server, clients)
+    guard = qualification_guard(server, clients, planned_reconnects=2)
+    wait_for_marker(server, "[dedicated] exit-grid group relocated to (10,1,1)", timeout)
+    wait_for_marker(server, "[dedicated] peaceful sector entered (10,1,1)", timeout)
+    wait_tactical(server, clients, counts, timeout)
+    wait_for_marker(server, "[dedicated] hideout welcome started", timeout)
+    probes = [_Probe(client) for client in clients]
+    evidence["basement_entered"] = True
+    welcome = wait_conversations(probes, guard, lambda r: r[0]["conversation"] != 0 and r[0]["npc_profile"] == CARLOS,
+                                 timeout, "Carlos's welcome in the basement")
+    evidence["carlos_welcome"] = quote_text(welcome[0])
+    return probes, guard
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
@@ -441,12 +507,14 @@ def main(argv=None):
         follow_npc_once(probes, guard, server, FATIMA, timeout, evidence)
         ordered = [probe.managed for probe in probes]
         probes, guard = follow_into_a10(probes, guard, server, ordered, run / "server", timeout, evidence)
+        probes, guard = follow_to_hideout(probes, guard, server, ordered, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
         print("PASS: K opened Fatima's conversation on both replicas (only the initiator answers), 1 advanced and "
               "Esc closed it; the letter holder gave her Enrico's letter, she led the squad across A9, and after a "
-              "shared return, travel and peaceful entry she was waiting in A10.", flush=True)
+              "shared return, travel and peaceful entry she led it through A10 until her hideout action took the squad down "
+              "into Miguel's basement through the checkpointed co-op traversal, where Carlos welcomed it.", flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)

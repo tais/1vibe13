@@ -99,6 +99,13 @@
 
 #ifndef _DEBUG
 #include "Cheats.h"
+#include "DedicatedServerOptions.h"
+
+namespace
+{
+// Set by the deferred co-op NPC_ACTION_GOTO_HIDEOUT; taken by the runtime.
+BOOLEAN gfDedicatedCoopHideoutRequested = FALSE;
+}
 #endif
 
 //forward declarations of common classes to eliminate includes
@@ -2106,6 +2113,20 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				ApplyMapChangesToMapTempFile( TRUE );
 				AddExitGridToWorld( gModSettings.iHideoutEntryGrid, &ExitGrid );
 				ApplyMapChangesToMapTempFile( FALSE );
+
+				if ( DedicatedCoopDefersHideoutTraversal() )
+				{
+					// Co-op: no squad move or fade here; the runtime takes the
+					// nearest group down through its checkpointed traversal.
+					ChangeNpcToDifferentSector( FATIMA, gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ);
+					ChangeNpcToDifferentSector(
+						mercenaryPolicy.profile(CampaignProfileCode::Role::Dimitri),
+						gModSettings.ubHideoutSectorX,
+						gModSettings.ubHideoutSectorY,
+						gModSettings.ubHideoutSectorZ);
+					gfDedicatedCoopHideoutRequested = TRUE;
+					break;
+				}
 
 				// For one, loop through our current squad and move them over
 				cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
@@ -5269,6 +5290,33 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 	}
 }
 
+
+bool DedicatedCoopDefersHideoutTraversal() noexcept
+{
+	const DedicatedServerOptions& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop;
+}
+
+bool TakeDedicatedCoopHideoutRequest() noexcept
+{
+	const bool requested = gfDedicatedCoopHideoutRequested != FALSE;
+	gfDedicatedCoopHideoutRequested = FALSE;
+	return requested;
+}
+
+void ApplyDedicatedCoopHideoutSurfaceChanges() noexcept
+{
+	RemoveStructFromUnLoadedMapTempFile( gModSettings.iHideoutEntryGrid, gModSettings.usCrateTileDef, gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ );
+	AddStructToUnLoadedMapTempFile( gModSettings.iFinalCrateGrid, gModSettings.usCrateTileDef, gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ );
+	AddStructToUnLoadedMapTempFile( gModSettings.iHideoutEntryGrid, gModSettings.usTrapdoorTileDef, gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ );
+}
+
+bool StartDedicatedCoopHideoutWelcome() noexcept
+{
+	if ( !FindSoldierByProfileID( 58, FALSE ) ) return false;
+	TriggerNPCRecordImmediately( 58, 1 );
+	return true;
+}
 
 void	DoneFadeOutActionBasement( )
 {

@@ -25,7 +25,6 @@
 #include "DedicatedCoopInventoryPublication.h"
 #include "CampaignPackage.h"
 #include "GameContext.h"
-#include "GameSettings.h"
 #include "SaveLoadGame.h"
 #include "TacticalCommandHost.h"
 #include "TacticalWorldAdapter.h"
@@ -81,6 +80,10 @@
 #include <utility>
 
 #include "gameplay_lua_policy.h"
+#include "GameSettings.h"
+#include "Soldier Profile Constants.h"
+#include "Soldier Profile.h"
+#include "interface Dialogue.h"
 
 extern BOOLEAN gfDedicatedServerProcessFailed;
 extern BOOLEAN gfProgramIsRunning;
@@ -2604,6 +2607,10 @@ struct DedicatedCoopRuntime::Impl
 	// An accepted exit-grid traversal: leave through the ordinary return, then
 	// relocate the group worldless and enter its destination peacefully.
 	bool exitGridPending = false;
+	// The pending traversal is the deferred Omerta hideout cutscene; once
+	// relocated it owes the stock surface edits and Carlos's welcome.
+	bool hideoutTraversal = false;
+	bool hideoutWelcomePending = false;
 	DedicatedCoopExitGridPlan exitGrid{};
 
 	DedicatedCoopPostCombatReturnEvidence captureSecuredSectorEvidence() const noexcept
@@ -3287,6 +3294,13 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			std::printf("[dedicated] co-op sector secured; peaceful tactical play (%u)\n",
 				impl_->securedSector);
 			std::fflush(stdout);
+			if (impl_->hideoutWelcomePending)
+			{
+				impl_->hideoutWelcomePending = false;
+				std::printf("[dedicated] hideout welcome %s\n",
+					StartDedicatedCoopHideoutWelcome() ? "started" : "skipped (Carlos absent)");
+				std::fflush(stdout);
+			}
 		}
 		return;
 	}
@@ -3294,6 +3308,29 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	{
 		StopTimeCompression();
 		PauseGame();
+		// The stock hideout cutscene fired: take the squad that followed Fatima
+		// down through the checkpointed traversal instead of the native fade.
+		if (!impl_->returnToMapRequested && TakeDedicatedCoopHideoutRequest())
+		{
+			DedicatedCoopExitGridPlan plan;
+			const auto code = PlanDedicatedCoopScriptedTraversal(DedicatedCoopGroupNearestToProfile(FATIMA),
+				gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ,
+				gModSettings.iBasementEntry, std::size(gModSettings.iBasementEntry), plan);
+			if (code == DedicatedCoopExitGridCode::Planned)
+			{
+				impl_->exitGrid = plan;
+				impl_->exitGridPending = true;
+				impl_->hideoutTraversal = true;
+				impl_->returnToMapRequested = true;
+				impl_->returnWaitLogged = false;
+				std::printf("[dedicated] hideout traversal accepted to (%u,%u,%u) with %zu mercs\n",
+					unsigned(plan.x), unsigned(plan.y), unsigned(plan.z), plan.memberCount);
+			}
+			else
+				std::printf("[dedicated] hideout traversal refused (%u); the exit grid stays for the players\n",
+					static_cast<unsigned>(code));
+			std::fflush(stdout);
+		}
 		const DedicatedCoopPostCombatReturnEvidence evidence =
 			impl_->captureSecuredSectorEvidence();
 		const DedicatedCoopPeacefulTacticalStep step =
@@ -3307,6 +3344,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			impl_->returnToMapRequested = false;
 			impl_->sectorSecuredByEntry = false;
 			impl_->exitGridPending = false;
+			impl_->hideoutTraversal = false;
 			impl_->starterMission = StarterMissionState::Playable;
 			std::printf("[dedicated] secured sector contested; encounter resumed\n");
 			std::fflush(stdout);
@@ -3342,10 +3380,11 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			// The accepted plan must still describe this exact world: otherwise
 			// abandon the traversal and keep playing in the secured sector.
 			DedicatedCoopExitGridPlan fresh;
-			if (PlanDedicatedCoopExitGridTraversal(impl_->exitGrid.group, fresh) != DedicatedCoopExitGridCode::Planned ||
+			if (ReplanDedicatedCoopTraversal(impl_->exitGrid, fresh) != DedicatedCoopExitGridCode::Planned ||
 				!SameDedicatedCoopExitGridPlan(fresh, impl_->exitGrid))
 			{
 				impl_->exitGridPending = false;
+				impl_->hideoutTraversal = false;
 				impl_->returnToMapRequested = false;
 				std::printf("[dedicated] exit-grid traversal abandoned; the group moved before leaving\n");
 				std::fflush(stdout);
@@ -3438,8 +3477,16 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (impl_->exitGridPending)
 		{
 			impl_->exitGridPending = false;
+			const bool hideout = impl_->hideoutTraversal;
+			impl_->hideoutTraversal = false;
 			StrategicGroupId moved{};
 			const auto relocated = ApplyDedicatedCoopExitGridRelocation(impl_->exitGrid, moved);
+			if (relocated == DedicatedCoopExitGridCode::Planned && hideout)
+			{
+				// The stock fade-out's surface edits, now that the surface is unloaded.
+				ApplyDedicatedCoopHideoutSurfaceChanges();
+				impl_->hideoutWelcomePending = true;
+			}
 			if (relocated != DedicatedCoopExitGridCode::Planned)
 			{
 				std::printf("[dedicated] exit-grid relocation refused (%u); the group stays on the map\n",

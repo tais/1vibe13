@@ -3600,9 +3600,42 @@ and Fatima is standing at her A10 entry grid (17806). The A9 -> A10 travel and
 entry steps are now a shared helper (`travel_and_enter_a10`), also used by the
 exit-grid probe, which still passes.
 
-What remains in the opening: she leads on through A10 (17188, 11911, 9177),
-Dimitri and Carlos speak (conversations opened by NPCs, which any owner of the
-addressed merc may answer), and at grid 8373 she fires `NPC_ACTION_GOTO_HIDEOUT`.
-Natively that action moves the current squad with `SetGroupSectorValue` and
-fades into the basement, outside co-op control; it must become a co-op
-traversal before the probe goes further.
+## Phase 2.4b: the hideout cutscene as a co-op traversal
+
+In A10 Fatima leads on through her waypoints (17806, 17188, 11911, 9177, 8373)
+the same way, and at 8373 fires `NPC_ACTION_GOTO_HIDEOUT`. Natively that action
+moves the current squad with `SetGroupSectorValue` (whose unload check tears
+down a live world outside the co-op drain path), fades out, loads the basement
+directly, edits the surface map (crate moved, trapdoor added) and starts
+Carlos's conversation on the fade-in. On the dedicated co-op server:
+
+- The action keeps its stock bookkeeping: the exit grid it adds at the hideout
+  entry (recorded in the map temp file, so players can always take it later
+  with `U` + `Enter`), and Fatima and Dimitri moved to the basement. Instead of
+  the squad move and fade it only flags a request.
+- The runtime takes the request during peaceful play and plans a scripted
+  traversal (`PlanDedicatedCoopScriptedTraversal`): the group of the conscious
+  merc nearest Fatima (the squad that followed her; stock's "current squad"
+  means nothing on the server), the same whole-group readiness as an exit grid,
+  the stock destination and the stock `BASEMENT_ENTRY_n` grid for each member.
+- It leaves through the shared return like an exit grid: re-planned
+  (`ReplanDedicatedCoopTraversal`) just before leaving, cold checkpoint, then the
+  worldless relocation with per-member grids and no exit-grid facing. Only then
+  does it apply the stock surface edits to the unloaded A10 map, and once the
+  basement is secured it starts Carlos's record 1, the stock fade-in welcome.
+
+Native coverage (`native_coop_exit_grid_tests`): scripted planning without an
+exit-grid tile, per-member grids (the last reused), refused destinations and
+grids, readiness, replanning of both plan kinds, and a scripted relocation.
+
+Installed evidence (`full_engine_coop_installed_npc_dialogue.py`, extended):
+from the A10 entry the probe keeps a merc near Fatima at each waypoint; at 8373
+the server logs "hideout traversal accepted to (10,1,1) with 4 mercs", returns
+through the checkpoint, relocates the group, enters the basement peacefully and
+starts the welcome, and both clients show Carlos's conversation ("Do not move
+and no one will die."). Negative control: with the deferral disabled the native
+cutscene runs, the clients lose their world and the probe fails.
+
+Next in the opening: Miguel reads the letter (Fatima's `NPC_ACTION_FATIMA_GIVE_LETTER`
+hands it to him NPC to NPC) and the basement conversations follow, which sets
+`FACT_MIGUEL_READ_LETTER` and unlocks Omerta loyalty and militia training.

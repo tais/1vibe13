@@ -443,4 +443,15 @@ void HaveBiggensDetonatingExplosivesByTheMine();
 BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo );
 
 void ReplaceMineEntranceGraphicWithCollapsedEntrance();
+
+// Dedicated co-op runs the Omerta hideout cutscene (NPC_ACTION_GOTO_HIDEOUT)
+// as a co-op traversal: the action keeps its exit-grid and NPC bookkeeping but
+// leaves the squad move, fade and basement load to the runtime.
+bool DedicatedCoopDefersHideoutTraversal() noexcept;
+bool TakeDedicatedCoopHideoutRequest() noexcept;
+// The stock fade-out's surface edits (crate moved, trapdoor added) on the
+// unloaded surface map; worldless, after the squad left it.
+void ApplyDedicatedCoopHideoutSurfaceChanges() noexcept;
+// The stock fade-in's welcome: Carlos starts his record 1 in the basement.
+bool StartDedicatedCoopHideoutWelcome() noexcept;
 #endif
