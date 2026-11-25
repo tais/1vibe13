@@ -3672,3 +3672,26 @@ Installed evidence: after the letter the probe closes every idle panel; the
 last one (Miguel to Fatima: "Find him and tell him no more than you need
 to...") is flagged as a scene and is closed by the other client, after which
 the basement is quiet.
+
+## Phase 2.4d: recruiting Ira
+
+With the basement quiet, a player walks up to Ira, presses `K` and answers `4`
+(recruit). The stock records accept ("All right. I could be of help...") and
+`RecruitRPC` moves her onto the player team. Stock does that by creating a new
+player-team soldier (a new actor identity) and removing the civilian one. The
+server already handled this correctly: the new controllable actor changes the
+assignment set, every peer gets a fresh baseline carrying the new assignments
+together with the snapshot that first shows her, and the round-robin policy
+gives her to one player.
+
+The client did not. Its presentation checked the new assignment list against
+the passive UI model of the previous revision, before synchronizing the new
+snapshot, found no such actor and rejected the presentation ("renderer proxy
+world does not match snapshot"). It now stores the assignments and leaves their
+validation to the interface synchronization of the revision that introduces
+them; the incremental check remains for assignment changes within an already
+synchronized revision.
+
+Installed evidence: the dialogue probe ends with Ira on the player team on both
+replicas and in exactly one player's assignments. The run before this fix, with
+the same probe, failed at exactly that step with the presentation rejection.

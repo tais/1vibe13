@@ -630,7 +630,7 @@ def main(argv=None):
         probes, guard = follow_to_hideout(probes, guard, server, ordered, timeout, evidence)
         miguel_reads_letter(probes, guard, server, timeout, evidence)
         settle_basement(probes, guard, timeout, evidence)
-        # recruit_npc(...) is pending a client fix for mid-world ownership changes.
+        recruit_npc(probes, guard, server, IRA, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
@@ -638,7 +638,7 @@ def main(argv=None):
               "Esc closed it; the letter holder gave her Enrico's letter, she led the squad across A9, and after a "
               "shared return, travel and peaceful entry she led it through A10 until her hideout action took the squad down "
               "into Miguel's basement through the checkpointed co-op traversal, where the basement conversations played "
-              "through and Miguel read Enrico's letter.", flush=True)
+              "through, Miguel read Enrico's letter and Ira joined the squad, owned by one player.", flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)

@@ -125,10 +125,16 @@ class Ja2PresentationWorldAdapter final :
 	public FullEngineCoopClientPresentationWorldAdapter
 {
 public:
+	// `interfaceFollows`: a new revision is about to be materialized and its
+	// interface synchronized, which validates these assignments against that
+	// revision's snapshot. Checking them against the previous revision's model
+	// here would reject an actor that only exists from the new one on (an NPC
+	// recruited mid-world becomes a new player-team actor in the same baseline
+	// that assigns it).
 	void configureFocus(
 		const std::array<TacticalEntityId,
 			CoopSession::MaximumCoopTacticalAssignedActors>& assignedActors,
-		std::size_t assignedActorCount) noexcept
+		std::size_t assignedActorCount, bool interfaceFollows) noexcept
 	{
 		assignmentConfigurationValid_ = false;
 		assignedActors_.fill({});
@@ -149,7 +155,7 @@ public:
 				focusedActor_ = {};
 				gusSelectedSoldier = NOBODY;
 			}
-			if (!passiveUi_.updateAssignments(assignedActors_.data(),
+			if (!interfaceFollows && !passiveUi_.updateAssignments(assignedActors_.data(),
 					assignedActorCount_, focusedActor_))
 			{
 				assignmentConfigurationValid_ = false;
@@ -728,7 +734,8 @@ bool SynchronizeFullEngineCoopClientPresentation() noexcept
 	composition.failedStateLatched = false;
 	composition.failureReported = false;
 	composition.adapter.configureFocus(
-		view.assignedActors, view.assignedActorCount);
+		view.assignedActors, view.assignedActorCount,
+		view.state.revision != composition.host.materializedRevision());
 	composition.result = composition.host.synchronize(
 		FullEngineCoopClientPresentationWorldCommit{
 			view.snapshot,

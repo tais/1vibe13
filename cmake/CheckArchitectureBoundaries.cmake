@@ -4843,6 +4843,19 @@ require_ordered_fragments(coop_conversation_runtime_source
   "if (relocated == DedicatedCoopExitGridCode::Planned && hideout)"
   "ApplyDedicatedCoopHideoutSurfaceChanges();")
 
+# A mid-world ownership change (a recruited NPC becomes a new player-team actor
+# in the same baseline that assigns it) is validated against the new revision's
+# snapshot by the interface synchronization, never against the previous
+# revision's passive model.
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientPresentationRuntime.cpp" coop_presentation_runtime_source)
+require_ordered_fragments(coop_presentation_runtime_source
+  "Presentation must validate new assignments against the revision that introduces them"
+  "std::size_t assignedActorCount, bool interfaceFollows) noexcept"
+  "if (!interfaceFollows && !passiveUi_.updateAssignments(assignedActors_.data(),"
+  "composition.adapter.configureFocus("
+  "view.state.revision != composition.host.materializedRevision());"
+  "composition.result = composition.host.synchronize(")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
