@@ -19,6 +19,12 @@
 static_assert(TacticalMedicalIdleStandingAnimation == STANDING);
 static_assert(TacticalMedicalIdleCrouchedAnimation == CROUCHING);
 static_assert(TacticalMedicalIdleProneAnimation == PRONE);
+static_assert(TacticalMedicalAimRifleStandingAnimation == AIM_RIFLE_STAND);
+static_assert(TacticalMedicalAimRifleCrouchedAnimation == AIM_RIFLE_CROUCH);
+static_assert(TacticalMedicalAimRifleProneAnimation == AIM_RIFLE_PRONE);
+static_assert(TacticalMedicalAimDualStandingAnimation == AIM_DUAL_STAND);
+static_assert(TacticalMedicalAimDualCrouchedAnimation == AIM_DUAL_CROUCH);
+static_assert(TacticalMedicalAimDualProneAnimation == AIM_DUAL_PRONE);
 
 int iWindowedMode = 1;
 BOOLEAN gfProgramIsRunning = TRUE;
@@ -318,12 +324,44 @@ void TestMedicalRevocationAndModalCancellation()
  QueueEvent(KEY_DOWN, 'b', 0); CHECK(Drain(*h) == 1 && !h->controller.selectingFirstAid(), "medical toggle does not steal inventory modal input");
 }
 }
+void TestStationaryAimPosesSelectMedicalService()
+{
+ // Armed mercs settle into stationary aim poses after combat movement. The
+ // native gate accepts these for both medic and patient; transitions and
+ // stance/animation mismatches remain ineligible.
+ struct Pose { std::uint16_t animation; TacticalStance stance; bool eligible; };
+ const Pose poses[] = {
+  {TacticalMedicalAimRifleStandingAnimation, TacticalStance::Standing, true},
+  {TacticalMedicalAimRifleCrouchedAnimation, TacticalStance::Crouched, true},
+  {TacticalMedicalAimRifleProneAnimation, TacticalStance::Prone, true},
+  {TacticalMedicalAimDualStandingAnimation, TacticalStance::Standing, true},
+  {TacticalMedicalAimDualCrouchedAnimation, TacticalStance::Crouched, true},
+  {TacticalMedicalAimDualProneAnimation, TacticalStance::Prone, true},
+  {TacticalMedicalAimRifleCrouchedAnimation, TacticalStance::Standing, false},
+  {READY_RIFLE_STAND, TacticalStance::Standing, false},
+  {SHOOT_RIFLE_STAND, TacticalStance::Standing, false},
+ };
+ for (const auto& pose : poses)
+  for (const bool medicPose : {true, false})
+  {
+   auto actors = Actors();
+   auto& changed = actors[medicPose ? 0 : 1];
+   changed.animation = pose.animation; changed.stance = pose.stance;
+   auto h = std::make_unique<Client>(); Activate(*h, MedicA, actors);
+   Key(*h, 'B');
+   const bool selected = h->controller.selectingFirstAid() && h->controller.firstAidPatient() == MedicB;
+   CHECK(selected == pose.eligible,
+    "stationary aim poses select medical service for medic and patient; transitions and mismatched stances do not");
+   if (h->controller.selectingFirstAid()) Key(*h, ESC);
+   CHECK(IntentCount(*h) == 0, "pose eligibility check sends no intent");
+  }
+}
 int main()
 {
  std::setvbuf(stdout, nullptr, _IONBF, 0);
  CHECK(InitializeInputManager(), "native input queue initializes");
  TestTwoOwnersQueuedMedicalWireAndCache(); TestMedicalRevocationAndModalCancellation();
- TestMedicalOwnerHandoffConsumesQueuedFrame();
+ TestMedicalOwnerHandoffConsumesQueuedFrame(); TestStationaryAimPosesSelectMedicalService();
  ShutdownInputManager();
  if (failures) return 1;
  std::puts("queued medical input and two-owner wire/cache tests passed"); return 0;

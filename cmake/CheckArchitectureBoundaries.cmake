@@ -14007,12 +14007,33 @@ extract_brace_bounded_slice(dedicated_live_simulation_command_code
   native_first_aid_pose_slice "Cannot bound native medical pose preflight")
 require_ordered_fragments(native_first_aid_pose_slice
   "Native medical startup must exclude active traversal and pending native work"
-  "animation != STANDING && animation != CROUCHING && animation != PRONE"
+  "if (!IsSettledIdleOrAimPose(animation))"
   "return false" "!intent.hasPendingAnimation()" "!intent.hasPendingStance()"
   "!activity.turningToShoot()" "!actor.pendingAction().active()"
   "!actor.schedule().assigned()" "!movement.continuedPathValid()"
   "path.desiredDirection() == actor.position().direction()"
   "path.pathIndex() == path.pathSize()" "!actor.service().hasPartner()")
+# Settled poses: plain idle or the six stationary AIM_* poses armed mercs keep
+# after combat movement. Raise/fire/end transitions and ALTERNATIVE AIM stay out.
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool IsStationaryAimPose(UINT16 animation) noexcept"
+  native_stationary_aim_pose_slice "Cannot bound native stationary aim pose set")
+string(REGEX REPLACE "[ \t\r\n]" "" native_stationary_aim_pose_compact
+  "${native_stationary_aim_pose_slice}")
+if(NOT native_stationary_aim_pose_compact STREQUAL
+    "boolIsStationaryAimPose(UINT16animation)noexcept{switch(animation){caseAIM_RIFLE_STAND:caseAIM_RIFLE_CROUCH:caseAIM_RIFLE_PRONE:caseAIM_DUAL_STAND:caseAIM_DUAL_CROUCH:caseAIM_DUAL_PRONE:returntrue;default:returnfalse;}}")
+  message(FATAL_ERROR
+    "Only the six settled AIM_* poses may join the idle poses for native inventory and medical admission")
+endif()
+extract_brace_bounded_slice(dedicated_live_simulation_command_code
+  "bool IsSettledIdleOrAimPose(UINT16 animation) noexcept"
+  native_settled_pose_slice "Cannot bound native settled idle-or-aim pose set")
+string(REGEX REPLACE "[ \t\r\n]" "" native_settled_pose_compact "${native_settled_pose_slice}")
+if(NOT native_settled_pose_compact STREQUAL
+    "boolIsSettledIdleOrAimPose(UINT16animation)noexcept{returnanimation==STANDING||animation==CROUCHING||animation==PRONE||IsStationaryAimPose(animation);}")
+  message(FATAL_ERROR
+    "Native settled poses must be exactly the idle poses plus the stationary aim set")
+endif()
 extract_brace_bounded_slice(dedicated_live_simulation_command_code
   "bool ResolveFirstAidActionTile(TacticalActor& medic, const TacticalActor& patient,\n\t\tstd::uint8_t& direction) noexcept"
   native_first_aid_tile_slice "Cannot bound adjacent-only native medical action tile")

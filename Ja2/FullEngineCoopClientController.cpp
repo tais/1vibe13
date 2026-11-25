@@ -23,9 +23,24 @@ bool SupportedInventoryTransferSlot(std::uint16_t slot) noexcept
 bool FirstAidIdlePose(const TacticalActorSnapshot& actor) noexcept
 {
 	if ((actor.presentation.flags & TacticalActorRenderPosePresent) == 0) return false;
-	return (actor.animation == TacticalMedicalIdleStandingAnimation && actor.stance == TacticalStance::Standing) ||
-		(actor.animation == TacticalMedicalIdleCrouchedAnimation && actor.stance == TacticalStance::Crouched) ||
-		(actor.animation == TacticalMedicalIdleProneAnimation && actor.stance == TacticalStance::Prone);
+	// Settled idle or stationary aim pose, matching the native first-aid gate.
+	switch (actor.stance)
+	{
+		case TacticalStance::Standing:
+			return actor.animation == TacticalMedicalIdleStandingAnimation ||
+				actor.animation == TacticalMedicalAimRifleStandingAnimation ||
+				actor.animation == TacticalMedicalAimDualStandingAnimation;
+		case TacticalStance::Crouched:
+			return actor.animation == TacticalMedicalIdleCrouchedAnimation ||
+				actor.animation == TacticalMedicalAimRifleCrouchedAnimation ||
+				actor.animation == TacticalMedicalAimDualCrouchedAnimation;
+		case TacticalStance::Prone:
+			return actor.animation == TacticalMedicalIdleProneAnimation ||
+				actor.animation == TacticalMedicalAimRifleProneAnimation ||
+				actor.animation == TacticalMedicalAimDualProneAnimation;
+		default:
+			return false;
+	}
 }
 
 bool ValidView(const FullEngineCoopClientControllerView& view) noexcept

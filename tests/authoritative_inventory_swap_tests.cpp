@@ -582,6 +582,80 @@ int main(int argc, char** argv)
 		"object capture remains readable during enemy turn but authority swap is gated");
 	RestoreJa2TacticalTurnState(ACTIVE | TURNBASED | INCOMBAT, OUR_TEAM, 0);
 
+	// Armed mercs settle into stationary aim poses after combat movement and
+	// Stop. Stock inventory accepts them and its hand refresh handles the
+	// raised weapon; raise, fire and lower transitions stay rejected.
+	{
+		for (UINT16 aim : {UINT16(AIM_RIFLE_STAND), UINT16(AIM_RIFLE_CROUCH), UINT16(LOWER_RIFLE)})
+		{
+			gubAnimSurfaceIndex[REGMALE][aim] = 0;
+			gubAnimSurfaceItemSubIndex[REGMALE][aim] = INVALID_ANIMATION;
+		}
+		CHECK((gAnimControl[AIM_RIFLE_CROUCH].uiFlags & (ANIM_FIREREADY | ANIM_STATIONARY)) ==
+				(ANIM_FIREREADY | ANIM_STATIONARY) &&
+			(gAnimControl[AIM_RIFLE_STAND].uiFlags & (ANIM_FIREREADY | ANIM_STATIONARY)) ==
+				(ANIM_FIREREADY | ANIM_STATIONARY),
+			"native aim poses are stationary and fire-ready");
+		actor.animationPlayback().state() = AIM_RIFLE_CROUCH;
+		SwapInventorySlotsCommand aimed;
+		const bool crouchedReady = PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, aimed);
+		CHECK(crouchedReady && aimed.expectedAnimationState == AIM_RIFLE_CROUCH && aimed.expectedActionPointCost == 5,
+			"crouched aim pose prepares the kit equip with the stock inventory cost");
+		CHECK(crouchedReady && dispatch(aimed).status == SimulationCommandDispatchStatus::Applied &&
+			CaptureInventorySwapObjectState(id, HANDPOS) == original && !pocket.exists() &&
+			actor.actionPoints().current() == 15 &&
+			gAnimControl[actor.animationPlayback().state()].ubEndHeight == ANIM_CROUCH &&
+			IsJa2TacticalWorldIntegrityValid(),
+			"kit equips from crouched aim, keeps the crouch height and charges AP once");
+		actor.animationPlayback().state() = AIM_RIFLE_CROUCH;
+		actor.animationIntent() = idleIntent; actor.animationActivity() = idleActivity;
+		CHECK(PrepareSwapInventorySlotsCommand(id, HANDPOS, BIGPOCK1POS, aimed) &&
+			dispatch(aimed).status == SimulationCommandDispatchStatus::Applied &&
+			CaptureInventorySwapObjectState(id, BIGPOCK1POS) == original && !hand.exists() &&
+			actor.actionPoints().current() == 10,
+			"kit unequips from crouched aim back to the original pocket");
+
+		// Spider's case: a raised rifle is replaced by the kit while standing.
+		// The stock hand refresh lowers the rifle natively.
+		Item[AK74].usItemClass = IC_GUN;
+		Item[AK74].ubPerPocket = 1;
+		Item[AK74].usItemFlag |= ITEM_twohanded;
+		MakeObject(hand, AK74, 1, 90);
+		const auto rifle = CaptureInventorySwapObjectState(id, HANDPOS);
+		actor.animationPlayback().state() = AIM_RIFLE_STAND;
+		actor.animationIntent() = idleIntent; actor.animationActivity() = idleActivity;
+		actor.actionPoints().current() = 20;
+		const bool standingReady = rifle != 0 && PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, aimed);
+		CHECK(standingReady && aimed.expectedAnimationState == AIM_RIFLE_STAND,
+			"standing rifle aim prepares a rifle-for-kit swap");
+		CHECK(standingReady && dispatch(aimed).status == SimulationCommandDispatchStatus::Applied &&
+			CaptureInventorySwapObjectState(id, HANDPOS) == original &&
+			CaptureInventorySwapObjectState(id, BIGPOCK1POS) == rifle &&
+			actor.animationPlayback().state() == LOWER_RIFLE && IsJa2TacticalWorldIntegrityValid(),
+			"rifle-for-kit swap from standing aim lowers the rifle through the native hand refresh");
+
+		// Unsettled fire-ready and weapon transitions are still not idle.
+		SwapInventorySlotsCommand transitional; transitional.expectedWorldGeneration = 999;
+		for (UINT16 busy : {UINT16(READY_RIFLE_STAND), UINT16(SHOOT_RIFLE_STAND), UINT16(END_RIFLE_STAND),
+				UINT16(LOWER_RIFLE), UINT16(RAISE_RIFLE)})
+		{
+			actor.animationPlayback().state() = busy;
+			actor.animationIntent() = idleIntent; actor.animationActivity() = idleActivity;
+			CHECK(!PrepareSwapInventorySlotsCommand(id, HANDPOS, BIGPOCK1POS, transitional) &&
+				transitional.expectedWorldGeneration == 999 &&
+				CaptureInventorySwapObjectState(id, HANDPOS) == original,
+				"weapon raise, fire, end and lower transitions reject without effects");
+		}
+		std::swap(hand, pocket);
+		hand.initialize();
+		actor.animationPlayback().state() = CROUCHING;
+		actor.animationIntent() = idleIntent; actor.animationActivity() = idleActivity;
+		actor.movement() = idleMovement; actor.pathing() = idlePath;
+		actor.actionPoints().current() = 20;
+		CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) == original && !hand.exists(),
+			"aim-pose regression restores the original kit pocket and empty hand");
+	}
+
 	// Spider's purchased kit arrives beside an ordinary offhand canteen. The
 	// unchanged canteen must have an exact native proof without inventing water
 	// points or treating its first-status union as equipment condition.

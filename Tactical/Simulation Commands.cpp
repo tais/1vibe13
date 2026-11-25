@@ -8,8 +8,6 @@
 #include "TacticalActorStateFlags.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
-#include "DedicatedCoopMoveDiagnostic.h"
-#include "DedicatedCoopInventoryDiagnostic.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
@@ -706,6 +704,29 @@ namespace
 
 	bool HasOnlyEmptyAttachmentSlots(const StackedObjectData& stack) noexcept;
 
+	// Armed mercs end combat movement and Stop in these stationary aim poses
+	// (settleIntoStationaryStance keeps a raised weapon raised). The stock
+	// inventory panel and first aid accept them: the native hand-item refresh
+	// settles or lowers the weapon. READY/SHOOT/END transitions and
+	// ALTERNATIVE AIM are not settled poses and stay excluded.
+	bool IsStationaryAimPose(UINT16 animation) noexcept
+	{
+		switch (animation)
+		{
+			case AIM_RIFLE_STAND: case AIM_RIFLE_CROUCH: case AIM_RIFLE_PRONE:
+			case AIM_DUAL_STAND: case AIM_DUAL_CROUCH: case AIM_DUAL_PRONE:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	bool IsSettledIdleOrAimPose(UINT16 animation) noexcept
+	{
+		return animation == STANDING || animation == CROUCHING || animation == PRONE ||
+			IsStationaryAimPose(animation);
+	}
+
 	bool FirstAidPoseReady(const TacticalActor& actor) noexcept
 	{
 		const UINT16 animation = actor.animationPlayback().state();
@@ -820,8 +841,9 @@ namespace
 	{
 		const UINT16 animation = actor.animationPlayback().state();
 		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
-		// Only ordinary idle poses may enter an equipment continuation.
-		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+		// Only settled idle or stationary aim poses may enter an equipment
+		// continuation; the native hand refresh handles a raised weapon.
+		if (!IsSettledIdleOrAimPose(animation))
 			return false;
 		const auto& intent = actor.animationIntent();
 		const auto& activity = actor.animationActivity();
@@ -1090,7 +1112,8 @@ namespace
 			return reject("resolve.surface_index", actor);
 		if (!gAnimSurfaceDatabase[actor->animationPlayback().surface()].hVideoObject)
 			return reject("resolve.surface_unloaded", actor);
-		if ((gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0)
+		if ((gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_FIREREADY) != 0 &&
+			!IsStationaryAimPose(actor->animationPlayback().state()))
 			return reject("resolve.fire_ready", actor);
 		if (actor->position().gridNo() != command.expectedActorGrid || TileIsOutOfBounds(command.expectedActorGrid) ||
 			actor->position().level() != command.expectedActorLevel)
@@ -1386,8 +1409,9 @@ namespace
 	{
 		const UINT16 animation = actor.animationPlayback().state();
 		// Some active traversals (including HOPFENCE) are ANIM_STATIONARY.
-		// Only ordinary idle poses may start or receive this medical service.
-		if (animation != STANDING && animation != CROUCHING && animation != PRONE)
+		// Only settled idle or stationary aim poses may start or receive this
+		// medical service; native START_AID replaces the medic's pose.
+		if (!IsSettledIdleOrAimPose(animation))
 			return false;
 		const auto& intent = actor.animationIntent();
 		const auto& activity = actor.animationActivity();

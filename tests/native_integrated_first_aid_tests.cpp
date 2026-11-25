@@ -314,9 +314,50 @@ int main(int argc, char** argv)
 				medic = idleMedic; patient = idlePatient;
 			}
 	}
+	{
+		// Armed mercs settle into stationary aim poses after combat movement.
+		// Native START_AID replaces the medic's pose and the patient is settled
+		// in place, so both roles accept them at the same-height stock cost.
+		const UINT16 retainedMedicPose = medic.animationPlayback().state();
+		const UINT16 retainedPatientPose = patient.animationPlayback().state();
+		const struct { UINT16 aim; UINT16 idle; } aimPoses[] = {
+			{AIM_RIFLE_STAND, STANDING}, {AIM_RIFLE_CROUCH, CROUCHING}, {AIM_RIFLE_PRONE, PRONE},
+			{AIM_DUAL_STAND, STANDING}, {AIM_DUAL_CROUCH, CROUCHING}, {AIM_DUAL_PRONE, PRONE}};
+		for (const auto& pose : aimPoses)
+		{
+			gubAnimSurfaceIndex[REGMALE][pose.aim] = 0;
+			gubAnimSurfaceItemSubIndex[REGMALE][pose.aim] = INVALID_ANIMATION;
+		}
+		for (const auto& pose : aimPoses)
+			for (TacticalActor* aimed : {&medic, &patient})
+			{
+				aimed->animationPlayback().state() = pose.idle;
+				BeginFirstAidCommand idleCommand, aimCommand;
+				const bool idleReady = PrepareBeginFirstAidCommand(medicId, patientId, idleCommand);
+				aimed->animationPlayback().state() = pose.aim;
+				const bool aimReady = PrepareBeginFirstAidCommand(medicId, patientId, aimCommand);
+				CHECK(idleReady && aimReady &&
+					(aimed == &medic ? aimCommand.expectedAnimationState : aimCommand.expectedTargetAnimationState) == pose.aim &&
+					aimCommand.expectedActionPointCost == idleCommand.expectedActionPointCost &&
+					!medic.service().hasPartner() && !patient.service().hasProviders() &&
+					patient.vitals().bleeding() == 50 && medic.inventory()[HANDPOS][0]->data.objectStatus == 100,
+					"stationary aim pose prepares first aid for either role at the same-height idle cost without effects");
+				medic.animationPlayback().state() = retainedMedicPose;
+				patient.animationPlayback().state() = retainedPatientPose;
+			}
+		for (const UINT16 busy : {UINT16(READY_RIFLE_STAND), UINT16(SHOOT_RIFLE_STAND), UINT16(END_RIFLE_STAND)})
+		{
+			BeginFirstAidCommand rejected;
+			medic.animationPlayback().state() = busy;
+			CHECK(!PrepareBeginFirstAidCommand(medicId, patientId, rejected) && !medic.service().hasPartner(),
+				"weapon raise, fire and end transitions still cannot start first aid");
+		}
+		medic.animationPlayback().state() = retainedMedicPose;
+		patient.animationPlayback().state() = retainedPatientPose;
+	}
 	BeginFirstAidCommand command;
 	CHECK(PrepareBeginFirstAidCommand(medicId, patientId, command) &&
-		command.expectedActionPointCost == ((standingStart || standingMissingMapping || proneStart || pronePair || missingProneMapping) ? 5 : 3) && IsJa2TacticalWorldIntegrityValid(),
+		command.expectedActionPointCost ==((standingStart || standingMissingMapping || proneStart || pronePair || missingProneMapping) ? 5 : 3) && IsJa2TacticalWorldIntegrityValid(),
 		"native aid preflight captures the current pose's startup cost before execution");
 	if (!command.expectedKitStateFingerprint) { cleanup(); return 1; }
 	if (normalAid)

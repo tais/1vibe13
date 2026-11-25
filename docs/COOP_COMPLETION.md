@@ -3324,3 +3324,30 @@ conservation and scope. A read-only debugger attach was denied by the OS and did
 not access or mutate the process. The next diagnostic must identify the existing
 native inventory predicate without weakening acceptance. No physical-input,
 paint, first-aid or complete-campaign qualification is claimed.
+
+## Stationary aim poses for inventory and first aid (2026-11-25)
+
+Armed mercs that move in combat walk weapon-ready, and native
+`settleIntoStationaryStance` keeps the weapon raised when they stop: they end in
+`AIM_RIFLE_STAND` (12) or the crouched/prone/dual-wield equivalent. The swap and
+first-aid gates accepted only `STANDING`, `CROUCHING` and `PRONE`, and the swap
+also rejected every `ANIM_FIREREADY` state. A rifle-armed merc in combat could
+therefore not equip a kit or start first aid until a different-height stance
+change, unlike the stock inventory panel and first aid.
+
+The native gates now also accept the six settled aim poses `AIM_RIFLE_STAND`,
+`AIM_RIFLE_CROUCH`, `AIM_RIFLE_PRONE`, `AIM_DUAL_STAND`, `AIM_DUAL_CROUCH` and
+`AIM_DUAL_PRONE` (`IsStationaryAimPose` in `Tactical/Simulation Commands.cpp`).
+The stock hand refresh then settles the pose; replacing a raised rifle while
+standing plays `LOWER_RIFLE`. READY/SHOOT/END/RAISE/LOWER transitions and
+`ALTERNATIVE AIM` remain rejected, as do all pending-work checks. The client's
+medical selection accepts the same poses with a matching stance. Native fixtures
+cover crouched-aim kit equip/unequip, the standing rifle-for-kit swap, rejected
+transitions, and first-aid preflight from every aim pose for medic and patient
+at the same-height idle cost.
+
+This removes the most likely cause of the B13 `GameplayRejected` kit swap above
+(first input after hostile entry; the same swap succeeded before combat). That
+run's logs no longer exist, so the cause is not confirmed; rerun the installed
+medical flow with `JA2_COOP_INVENTORY_DIAGNOSTIC=1` to qualify it. Transfer,
+ground pickup and drop still reject fire-ready poses and need the same review.

@@ -289,6 +289,14 @@ inline constexpr std::uint16_t TacticalAnimationStateCount = 370;
 inline constexpr std::uint16_t TacticalMedicalIdleStandingAnimation = 1;
 inline constexpr std::uint16_t TacticalMedicalIdleCrouchedAnimation = 3;
 inline constexpr std::uint16_t TacticalMedicalIdleProneAnimation = 10;
+// Stationary aim poses (native AIM_RIFLE_* / AIM_DUAL_*) in which armed mercs
+// settle after combat movement. Native first aid and inventory accept them.
+inline constexpr std::uint16_t TacticalMedicalAimRifleStandingAnimation = 12;
+inline constexpr std::uint16_t TacticalMedicalAimRifleProneAnimation = 19;
+inline constexpr std::uint16_t TacticalMedicalAimRifleCrouchedAnimation = 27;
+inline constexpr std::uint16_t TacticalMedicalAimDualStandingAnimation = 99;
+inline constexpr std::uint16_t TacticalMedicalAimDualCrouchedAnimation = 196;
+inline constexpr std::uint16_t TacticalMedicalAimDualProneAnimation = 281;
 inline constexpr std::uint16_t TacticalAnimationSurfaceCount = 496;
 inline constexpr std::uint16_t TacticalAnimationSurfaceAbsent = 32000;
 inline constexpr std::size_t TacticalActorDisplayNameCodeUnits = 10;
