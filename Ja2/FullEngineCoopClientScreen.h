@@ -17,6 +17,10 @@ struct FullEngineCoopClientCampaignControls
 	StrategicGroupId selected{};
 	std::uint8_t destinationX = 0, destinationY = 0;
 	bool retreatArmed = false, enterArmed = false, enabled = false;
+	// Assignment mode: the addressed merc, co-op assignment code and stat.
+	bool assigning = false;
+	TacticalEntityId assignee{};
+	std::uint8_t assignmentCode = 0, assignmentStat = 0;
 };
 
 // Copied local choices bound to the current authoritative strategic state.

@@ -68,6 +68,7 @@ FullEngineCoopClientCampaignActionKey CampaignActionKey(UINT32 key) noexcept
 		case 's': case 'S': return Key::Stop;
 		case 'e': case 'E': return Key::EnterBattle;
 		case 'r': case 'R': return Key::Retreat;
+		case 'o': case 'O': return Key::Assign;
 	}
 	return Key::None;
 }
@@ -1068,6 +1069,21 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 					mprintf(24, 282, L"Travelling to %lc%u | native arrival day %u %02u:%02u",
 						static_cast<wint_t>(L'A' + group->nextY - 1), static_cast<unsigned>(group->nextX),
 						group->arrivalMinutes / 1440u, (group->arrivalMinutes / 60u) % 24u, group->arrivalMinutes % 60u);
+				else if (CampaignActionInput.assigning())
+				{
+					static const wchar_t* const Assignments[] = {L"", L"Squad", L"Doctor", L"Patient", L"Repair",
+						L"Train self", L"Train militia", L"Rest", L"Wake up"};
+					static const wchar_t* const Stats[] = {L"", L"health", L"agility", L"dexterity", L"strength",
+						L"leadership", L"marksmanship", L"mechanical", L"explosives", L"medical"};
+					const auto* member = CampaignActionInput.assignedMember(groups);
+					const auto code = CampaignActionInput.assignmentCode();
+					if (member)
+						mprintf(24, 282, L"Assign merc %u (profile %u) to %ls%ls%ls? Enter: confirm   Esc: cancel",
+							static_cast<unsigned>(member->actor.slot), static_cast<unsigned>(member->profile),
+							code < 9 ? Assignments[code] : L"?", code == 5 ? L": " : L"",
+							code == 5 ? Stats[CampaignActionInput.assignmentStat() % 10] : L"");
+					mprintf(24, 300, L"Tab/[ ]: merc   Up/Down: assignment   Left/Right: stat to train");
+				}
 				else if (CampaignActionInput.enterArmed())
 					mprintf(24, 282, L"Enter %lc%u (level %u) for peaceful play? Enter: confirm   Esc: cancel",
 						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x), static_cast<unsigned>(group->z));
@@ -1079,7 +1095,7 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 						static_cast<wint_t>(L'A' + group->y - 1), static_cast<unsigned>(group->x),
 						static_cast<wint_t>(L'A' + CampaignActionInput.destinationY() - 1),
 						static_cast<unsigned>(CampaignActionInput.destinationX()));
-				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector");
+				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector   O: assign a merc");
 			}
 			else mprintf(24, 236, L"Waiting for the server's friendly group observation...");
 			if (actionPending) mprintf(24, 336, L"Waiting for the server's campaign-action result...");
@@ -1850,6 +1866,11 @@ bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignCon
 	output.destinationX = CampaignActionInput.destinationX(); output.destinationY = CampaignActionInput.destinationY();
 	output.retreatArmed = CampaignActionInput.retreatArmed();
 	output.enterArmed = CampaignActionInput.enterArmed();
+	output.assigning = CampaignActionInput.assigning();
+	output.assignmentCode = CampaignActionInput.assignmentCode();
+	output.assignmentStat = CampaignActionInput.assignmentStat();
+	if (const auto* member = CampaignActionInput.assigning() ? CampaignActionInput.assignedMember(groups) : nullptr)
+		output.assignee = member->actor;
 	output.enabled = eligible && !actionPending && !timePending && !hirePending;
 	return true;
 }

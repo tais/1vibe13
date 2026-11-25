@@ -3705,3 +3705,36 @@ until Ira is the talk target.
 Installed evidence: the dialogue probe ends with Ira on the player team on both
 replicas and in exactly one player's assignments. The run before this fix, with
 the same probe, failed at exactly that step with the presentation rejection.
+
+## Phase 3.1a: merc assignments on the strategic map
+
+The campaign action `SetAssignment` (kind 14) assigns one merc: the request's
+decision packs the merc's identity (slot | incarnation << 16), `destinationX`
+holds a co-op assignment code and `destinationY` its parameter, so the 56-byte
+request layout is unchanged. Codes: 1 squad (parameter: squad number, 0 = any),
+2 doctor, 3 patient, 4 repair (items), 5 train self (parameter: stat, 1-based
+health .. medical), 7 rest, 8 wake up. Code 6, militia training, is reserved:
+the stock flow asks the player to pay in a pop-up, which needs its own co-op
+decision (Phase 3.1b) and is refused as unsupported for now.
+
+- Any ready player may assign any merc, as with shared travel, but only in the
+  worldless strategic phase: the stock setters remove mercs from squads and
+  rebuild movement groups, which must never happen under a live co-op world.
+- `ApplyDedicatedCoopAssignment` runs only the stock gates (`CanCharacterSquad`,
+  `CanCharacterDoctor`, `CanCharacterPatient`, `CanCharacterRepair`,
+  `CanCharacterTrainStat`, `SetMercAsleep`'s own `CanCharacterSleep` check) and
+  setters (`AddCharacterToSquad` / `AddCharacterToAnySquad`, `SetSoldierAssignment`,
+  `SetMercAsleep` / `SetMercAwake` without warnings), then re-evaluates idle mercs
+  as the map screen loop would. A gate's refusal is a native rejection with a
+  reason code, never a failure.
+- Client: on the strategic map `O` opens assignment mode for the selected
+  group; Tab / `[` `]` pick the merc, Up/Down the assignment, Left/Right the stat
+  to train, Enter submits, Esc leaves. The HUD shows the pending choice.
+
+Installed evidence (`full_engine_coop_installed_assignments.py`): after the
+seeded A9 victory and the shared return, client A presses `O`, Down x4,
+Right x3, Enter: the merc trains strength (native assignment 47, its own
+group) on both replicas; `O` + Enter puts it back on a squad; a doctor order for
+a merc without a medical kit comes back as a stock refusal. Negative control:
+with the native self-training call removed, the receipt is a rejection and the
+probe fails at that step.

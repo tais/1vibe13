@@ -19,6 +19,7 @@
 #include "DedicatedCampaignSaveBridge.h"
 #include "DedicatedCoopMissionBootstrap.h"
 #include "DedicatedCoopExitGrid.h"
+#include "DedicatedCoopAssignment.h"
 #include "DedicatedCoopConversation.h"
 #include "DedicatedCoopPostCombatCheckpointPolicy.h"
 #include "DedicatedCoopTacticalHost.h"
@@ -1266,6 +1267,16 @@ struct DedicatedCoopRuntime::Impl
 		if (!worldlessStrategicTimeControl() || selfRetirementActive) return {Outcome::NativeRejected, 0};
 		switch (request.action)
 		{
+			case Action::SetAssignment:
+			{
+				const TacticalEntityId merc{static_cast<std::uint16_t>(request.decision & 0xFFFFu),
+					static_cast<std::uint32_t>(request.decision >> 16)};
+				const auto result = ApplyDedicatedCoopAssignment(merc, request.destinationX, request.destinationY);
+				using Code = DedicatedCoopAssignmentCode;
+				return {result == Code::Applied ? Outcome::Applied :
+					result == Code::UnsupportedKind ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
 			case Action::Travel:
 			{
 				const auto result = StartDedicatedCoopTravel(request.group, request.destinationX, request.destinationY);

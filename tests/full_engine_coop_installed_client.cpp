@@ -534,12 +534,15 @@ void ReplyCampaignUi(std::uint64_t request) noexcept
 	else std::fputs("null", stdout);
 	if (ready)
 		std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"decision\":%llu,"
-			"\"selected\":[%u,%u],\"destination\":[%u,%u],\"retreat_armed\":%s,\"enter_armed\":%s,\"enabled\":%s",
+			"\"selected\":[%u,%u],\"destination\":[%u,%u],\"retreat_armed\":%s,\"enter_armed\":%s,\"enabled\":%s,"
+			"\"assigning\":%s,\"assignee\":[%u,%u],\"assignment_code\":%u,\"assignment_stat\":%u",
 			static_cast<unsigned long long>(controls.sessionEpoch), static_cast<unsigned long long>(controls.controlRevision),
 			static_cast<unsigned long long>(controls.groupsRevision), static_cast<unsigned long long>(controls.decision),
 			unsigned(controls.selected.slot), unsigned(controls.selected.incarnation),
 			unsigned(controls.destinationX), unsigned(controls.destinationY), controls.retreatArmed ? "true" : "false",
-			controls.enterArmed ? "true" : "false", controls.enabled ? "true" : "false");
+			controls.enterArmed ? "true" : "false", controls.enabled ? "true" : "false",
+			controls.assigning ? "true" : "false", unsigned(controls.assignee.slot), unsigned(controls.assignee.incarnation),
+			unsigned(controls.assignmentCode), unsigned(controls.assignmentStat));
 	std::fputs("}", stdout); FlushReply();
 }
 
@@ -754,13 +757,13 @@ void ReplyCampaignInput(std::uint64_t request, const CampaignInputArguments& val
 		controls.sessionEpoch != values[0] || controls.controlRevision != values[1] || controls.groupsRevision != values[2] ||
 		controls.decision != values[3] || controls.selected.slot != values[4] || controls.selected.incarnation != values[5] ||
 		controls.destinationX != values[6] || controls.destinationY != values[7] ||
-		((controls.retreatArmed ? 1u : 0u) | (controls.enterArmed ? 2u : 0u)) != values[8])
+		((controls.retreatArmed ? 1u : 0u) | (controls.enterArmed ? 2u : 0u) | (controls.assigning ? 4u : 0u)) != values[8])
 	{ ReplyError(request, "campaign input requires exact current strategic screen choices and an idle input queue"); return; }
-	constexpr std::array<UINT32, 16> keys{{TAB, '[', UPARROW, DNARROW, LEFTARROW, RIGHTARROW,
-		ENTER, ESC, 'a', 's', 'e', 'r', 'p', '1', '2', '3'}};
+	constexpr std::array<UINT32, 17> keys{{TAB, '[', UPARROW, DNARROW, LEFTARROW, RIGHTARROW,
+		ENTER, ESC, 'a', 's', 'e', 'r', 'p', '1', '2', '3', 'o'}};
 	const auto key = static_cast<unsigned>(values[9]);
 	if (!key || key > keys.size()) { ReplyError(request, "unknown campaign screen key"); return; }
-	if (key >= 13)
+	if (key >= 13 && key <= 16)
 	{
 		CoopSession::CoopCampaignStatus status; bool leader = false;
 		if (!GetFullEngineCoopClientRuntime().campaignStatus(status, leader) || !leader || status.arrival.decision)
@@ -2504,8 +2507,8 @@ private:
 				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
 			}
 			if (!parsed || !cursor.exhausted() || !values[0] || !values[1] || !values[2] ||
-				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 3 ||
-				!values[9] || values[9] > 16)
+				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 7 ||
+				!values[9] || values[9] > 17)
 				ReplyError(request, "CAMPAIGN_INPUT requires exact session/control/groups/decision/group/destination/retreat state and key 1..16");
 			else ReplyCampaignInput(request, values, campaignUiInputs_);
 			return;

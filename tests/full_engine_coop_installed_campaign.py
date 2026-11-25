@@ -34,7 +34,7 @@ ACTION_FIELDS = {"request_id", "action", "session", "control_revision", "groups_
 TIME_FIELDS = {"request_id", "action", "session", "control_revision", "result_control_revision", "outcome"}
 UI_BASE_FIELDS = {"request", "kind", "ready", "action_pending", "time_pending", "action_result", "time_result"}
 UI_READY_FIELDS = {"session", "control_revision", "groups_revision", "decision", "selected", "destination", "retreat_armed",
-                   "enter_armed", "enabled"}
+                   "enter_armed", "enabled", "assigning", "assignee", "assignment_code", "assignment_stat"}
 
 
 def integer(value, low=0, high=U64):
@@ -53,13 +53,24 @@ def validate_action_result(result):
     if (not isinstance(result, dict) or set(result) != ACTION_FIELDS or
             any(not integer(result[key], 1) for key in ("request_id", "session", "control_revision", "groups_revision",
                                                         "result_control_revision", "result_groups_revision")) or
-            not integer(result["action"], 1, 10) or not integer(result["outcome"], 1, 8) or
+            not integer(result["action"], 1, 14) or not integer(result["outcome"], 1, 8) or
             not integer(result["decision"]) or not integer(result["native_detail"], 0, 65535) or
-            not pair(result["group"], 255, 2**32 - 1) or not pair(result["destination"], 16, 16)):
+            not pair(result["group"], 255, 2**32 - 1) or
+            (result["action"] != 14 and not pair(result["destination"], 16, 16))):
         raise SmokeFailure("malformed authoritative campaign-action receipt")
-    if result["action"] == 1:
+    if result["action"] in (1, 12):
+        # Travel and peaceful entry: a group and a sector, never a decision.
         if result["decision"] or result["group"] == [0, 0] or result["destination"] == [0, 0]:
             raise SmokeFailure("travel receipt has noncanonical group/decision/destination")
+    elif result["action"] == 13:
+        if not result["decision"] or result["group"] == [0, 0] or result["destination"] != [0, 0]:
+            raise SmokeFailure("exit-grid receipt has noncanonical group/decision/destination")
+    elif result["action"] == 14:
+        # One packed merc (slot | incarnation << 16), no group, code 1-8 and a parameter.
+        destination = result["destination"]
+        if (not result["decision"] >> 16 or result["group"] != [0, 0] or not isinstance(destination, list) or
+                len(destination) != 2 or not integer(destination[0], 1, 8) or not integer(destination[1], 0, 40)):
+            raise SmokeFailure("assignment receipt has noncanonical merc/group/choice")
     elif not result["decision"] or result["group"] != [0, 0] or result["destination"] != [0, 0]:
         raise SmokeFailure("arrival receipt has noncanonical group/decision/destination")
     if result["outcome"] in (1, 6) and result["result_control_revision"] <= result["control_revision"]:
@@ -81,8 +92,9 @@ def validate_time_result(result):
 
 
 def armed_mask(ui):
-    """The exact displayed confirmation: bit 0 retreat, bit 1 peaceful sector entry."""
-    return int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0)
+    """The exact displayed confirmation: bit 0 retreat, bit 1 peaceful sector
+    entry, bit 2 merc assignment mode."""
+    return int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0) | (4 if ui.get("assigning") else 0)
 
 
 def validate_ui(value):
@@ -100,7 +112,11 @@ def validate_ui(value):
             any(not integer(value[key], 1) for key in ("session", "control_revision", "groups_revision")) or
             not integer(value["decision"]) or not pair(value["selected"], 255, 2**32 - 1) or
             not pair(value["destination"], 16, 16) or
-            any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled"))):
+            any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled", "assigning")) or
+            not (isinstance(value["assignee"], list) and len(value["assignee"]) == 2 and
+                 integer(value["assignee"][0], 0, 2**16 - 1) and integer(value["assignee"][1], 0, 2**32 - 1)) or
+            not integer(value["assignment_code"], 0, 8) or
+            not integer(value["assignment_stat"], 0, 9)):
         raise SmokeFailure("invalid campaign Screen-input selection or lineage")
     return value["ready"]
 

@@ -79,6 +79,43 @@ void Travel()
 	}
 }
 
+void AssignmentMode()
+{
+	Fixture f;
+	f.groups.groups[0].memberCount = 2; f.groups.groups[1].firstMember = 2;
+	f.groups.memberCount = 3; f.groups.members[1].actor = {3, 7}; f.groups.members[2].actor = {2, 1};
+	CHECK(!f.press(Key::Assign) && f.input.assigning() && f.input.assignmentCode() == 1,
+		"O opens assignment mode on the selected group's first merc with Squad offered first");
+	const auto* member = f.input.assignedMember(f.groups);
+	CHECK(member && member->actor == (TacticalEntityId{1, 1}), "the first member of the selected group is addressed");
+	(void)f.press(Key::NextGroup);
+	member = f.input.assignedMember(f.groups);
+	CHECK(f.input.assigning() && member && member->actor == (TacticalEntityId{3, 7}) &&
+		f.input.selected() == (StrategicGroupId{1, 10}), "in assignment mode the group keys pick the merc, not the group");
+	(void)f.press(Key::South);
+	auto doctor = f.press(Key::Confirm);
+	CHECK(doctor && doctor->action == CoopCampaignAction::SetAssignment && doctor->destinationX == 2 && !doctor->destinationY &&
+		doctor->decision == (3u | (std::uint64_t(7) << 16)) && !doctor->group.valid() && !f.input.assigning(),
+		"Down then Enter submits Doctor for exactly the addressed merc and leaves the mode");
+	(void)f.press(Key::Assign);
+	for (int i = 0; i < 4; ++i) (void)f.press(Key::South);
+	CHECK(f.input.assignmentCode() == 5, "the fifth choice is self-training");
+	(void)f.press(Key::East); (void)f.press(Key::East);
+	auto train = f.press(Key::Confirm);
+	CHECK(train && train->destinationX == 5 && train->destinationY == 3, "Right picks the stat to train (1-based)");
+	(void)f.press(Key::Assign); (void)f.press(Key::North);
+	CHECK(f.input.assignmentCode() == 8, "Up wraps to the last choice (wake up); militia (6) is not offered");
+	(void)f.press(Key::West);
+	CHECK(f.input.assignmentStat() == 9, "Left wraps the stat to the last trainable one");
+	(void)f.press(Key::Cancel);
+	CHECK(!f.input.assigning() && !f.press(Key::Confirm), "Esc leaves the mode without a request");
+	(void)f.press(Key::Assign); f.groups.revision = 2;
+	CHECK(!f.press(Key::Confirm) && !f.input.assigning(), "a new group observation cancels a pending assignment");
+	f.groups.groups[0].betweenSectors = true; f.groups.groups[0].nextX = 10; f.groups.groups[0].nextY = 1;
+	(void)f.press(Key::Assign);
+	CHECK(!f.input.assigning(), "a travelling group cannot be reassigned");
+}
+
 void EnterSectorConfirmation()
 {
 	Fixture f;
@@ -331,4 +368,4 @@ void SurrenderConfirmation()
 
 }
 
-int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
+int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); AssignmentMode(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }

@@ -10,7 +10,7 @@
 enum class FullEngineCoopClientCampaignActionKey : unsigned
 {
 	None, NextGroup, PreviousGroup, North, South, West, East, Confirm, Cancel,
-	Acknowledge, Stop, EnterBattle, Retreat, Count
+	Acknowledge, Stop, EnterBattle, Retreat, Assign, Count
 };
 
 // This is selection/confirmation state only. It never advances a clock, plans
@@ -89,6 +89,41 @@ public:
 		}
 		const auto* group = groups && groupsRevision_ ? selectedGroup(*groups) : nullptr;
 		if (!group) return {};
+		// A toggles assignment mode for one merc of the selected group: the group
+		// keys pick the merc, North/South the assignment, West/East the stat for
+		// self-training; Enter submits, Esc leaves.
+		if (key == Key::Assign)
+		{
+			const bool wasAssigning = assigning_;
+			cancel();
+			if (!wasAssigning && !group->betweenSectors && group->memberCount) assigning_ = true;
+			return {};
+		}
+		if (assigning_)
+		{
+			if (!group->memberCount || group->betweenSectors) { cancel(); return {}; }
+			if (key == Key::NextGroup) assignMember_ = static_cast<std::uint16_t>((assignMember_ + 1) % group->memberCount);
+			else if (key == Key::PreviousGroup)
+				assignMember_ = static_cast<std::uint16_t>((assignMember_ + group->memberCount - 1) % group->memberCount);
+			else if (key == Key::South) assignKind_ = static_cast<std::uint8_t>((assignKind_ + 1) % AssignmentChoiceCount);
+			else if (key == Key::North)
+				assignKind_ = static_cast<std::uint8_t>((assignKind_ + AssignmentChoiceCount - 1) % AssignmentChoiceCount);
+			else if (key == Key::East) assignStat_ = static_cast<std::uint8_t>(assignStat_ % AssignmentStatCount + 1);
+			else if (key == Key::West)
+				assignStat_ = static_cast<std::uint8_t>((assignStat_ + AssignmentStatCount - 2) % AssignmentStatCount + 1);
+			else if (key == Key::Confirm)
+			{
+				const auto* member = assignedMember(*groups);
+				if (!member) { cancel(); return {}; }
+				request.action = Action::SetAssignment;
+				request.decision = static_cast<std::uint64_t>(member->actor.slot) |
+					(static_cast<std::uint64_t>(member->actor.incarnation) << 16);
+				request.destinationX = AssignmentChoiceCodes[assignKind_];
+				request.destinationY = request.destinationX == AssignmentTrainSelfCode ? assignStat_ : 0;
+				cancel(); return request;
+			}
+			return {};
+		}
 		if (key == Key::NextGroup || key == Key::PreviousGroup)
 		{
 			const auto current = static_cast<std::size_t>(group - groups->groups.data());
@@ -141,7 +176,31 @@ public:
 	std::uint8_t destinationY() const noexcept { return destinationY_; }
 	bool retreatArmed() const noexcept { return retreatArmed_; }
 	bool enterArmed() const noexcept { return enterArmed_; }
-	void cancel() noexcept { destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false; }
+	bool assigning() const noexcept { return assigning_; }
+	std::uint8_t assignmentCode() const noexcept { return AssignmentChoiceCodes[assignKind_]; }
+	std::uint8_t assignmentStat() const noexcept { return assignStat_; }
+	// The merc assignment mode addresses, within the selected group.
+	const CoopSession::CoopCampaignGroupMember* assignedMember(const CoopSession::CoopCampaignGroups& groups) const noexcept
+	{
+		const auto* group = selectedGroup(groups);
+		if (!group || !group->memberCount || assignMember_ >= group->memberCount ||
+			std::size_t(group->firstMember) + assignMember_ >= groups.memberCount ||
+			std::size_t(group->firstMember) + assignMember_ >= groups.members.size()) return nullptr;
+		return &groups.members[group->firstMember + assignMember_];
+	}
+	void cancel() noexcept
+	{
+		destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false;
+		assigning_ = false; assignMember_ = 0; assignKind_ = 0; assignStat_ = 1;
+	}
+
+	// The co-op assignment codes offered, in menu order: squad (any), doctor,
+	// patient, repair, train self, rest, wake. Militia training needs payment
+	// support and is not offered yet.
+	static constexpr std::uint8_t AssignmentChoiceCount = 7;
+	static constexpr std::uint8_t AssignmentTrainSelfCode = 5;
+	static constexpr std::uint8_t AssignmentStatCount = 9;
+	static constexpr std::uint8_t AssignmentChoiceCodes[AssignmentChoiceCount] = {1, 2, 3, 4, 5, 7, 8};
 
 private:
 	std::array<bool, static_cast<unsigned>(Key::Count)> held_{};
@@ -149,6 +208,9 @@ private:
 	std::uint64_t session_ = 0, control_ = 0, groupsRevision_ = 0, decision_ = 0;
 	std::uint8_t destinationX_ = 0, destinationY_ = 0;
 	bool retreatArmed_ = false, enterArmed_ = false, enabled_ = false;
+	bool assigning_ = false;
+	std::uint16_t assignMember_ = 0;
+	std::uint8_t assignKind_ = 0, assignStat_ = 1;
 };
 
 inline const wchar_t* FullEngineCoopClientCampaignActionOutcomeText(CoopSession::CoopCampaignActionOutcome outcome) noexcept

@@ -15,7 +15,11 @@ enum class CoopCampaignAction : std::uint8_t
 	Travel = 1, AcknowledgeArrival = 2, StopArrival = 3,
 	EnterArrivalForced = 4, EnterArrivalSpread = 5, RetreatArrival = 6,
 	DeclineSurrender = 7, AcceptSurrender = 8, AcknowledgeBattleNotice = 9, SkipMeanwhile = 10,
-	ReturnToMap = 11, EnterSector = 12, TakeExitGrid = 13
+	ReturnToMap = 11, EnterSector = 12, TakeExitGrid = 13,
+	// One merc's assignment on the strategic map: decision packs the merc
+	// (slot | incarnation << 16), destinationX the co-op assignment code (1-8),
+	// destinationY its parameter.
+	SetAssignment = 14
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -48,7 +52,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::TakeExitGrid;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::SetAssignment;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -61,6 +65,10 @@ inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& requ
 	// An exit grid moves one exact group out of the exact secured sector.
 	if (request.action == CoopCampaignAction::TakeExitGrid)
 		return request.decision && request.group.valid() && !request.destinationX && !request.destinationY;
+	if (request.action == CoopCampaignAction::SetAssignment)
+		return (request.decision & 0xFFFFu) != 0xFFFFu && (request.decision >> 16) != 0 &&
+			(request.decision >> 48) == 0 && !request.group.slot && !request.group.incarnation &&
+			request.destinationX >= 1 && request.destinationX <= 8;
 	return request.decision && !request.group.slot && !request.group.incarnation && !request.destinationX && !request.destinationY;
 }
 inline bool SameCoopCampaignActionRequest(const CoopCampaignActionRequest& a, const CoopCampaignActionRequest& b) noexcept
@@ -218,6 +226,10 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 		}
 		return Outcome::Stale;
 	}
+	// Any ready player may reassign any merc on the strategic map, as with
+	// shared travel; the native gates decide whether that merc can take it.
+	if (request.action == CoopCampaignAction::SetAssignment)
+		return status.arrival.decision ? Outcome::Unavailable : Outcome::Applied;
 	if (request.action == CoopCampaignAction::Travel)
 	{
 		if (!groups.available || status.arrival.decision) return Outcome::Unavailable;

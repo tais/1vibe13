@@ -298,6 +298,38 @@ void TakeExitGridFromSecuredSector()
 	CHECK(allowed(exitRequest(5)) == CoopCampaignActionOutcome::Unavailable, "exit grids need a group observation");
 }
 
+void SetAssignmentOnTheMap()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r, bool strategic = true) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, strategic);
+	};
+	auto assign = f.request(); assign.action = CoopCampaignAction::SetAssignment; assign.group = {};
+	assign.decision = 0x0003u | (std::uint64_t(0x01020304u) << 16); assign.destinationX = 5; assign.destinationY = 4;
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(assign, bytes) && bytes[6] == 14 && bytes[40] == 3 && bytes[42] == 4 &&
+		bytes[45] == 1 && bytes[49] == 5 && bytes[50] == 4 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, assign),
+		"set-assignment is kind 14 and packs the merc (slot, incarnation), code and parameter");
+	auto noMerc = assign; noMerc.decision = 0x0003u;
+	auto noSlot = assign; noSlot.decision = 0xFFFFu | (std::uint64_t(7) << 16);
+	auto wide = assign; wide.decision |= std::uint64_t(1) << 48;
+	auto unknown = assign; unknown.destinationX = 9;
+	auto none = assign; none.destinationX = 0;
+	auto grouped = assign; grouped.group = f.groups.groups[0].id;
+	CHECK(!ValidCoopCampaignActionRequest(noMerc) && !ValidCoopCampaignActionRequest(noSlot) &&
+		!ValidCoopCampaignActionRequest(wide) && !ValidCoopCampaignActionRequest(unknown) &&
+		!ValidCoopCampaignActionRequest(none) && !ValidCoopCampaignActionRequest(grouped),
+		"an assignment names exactly one merc identity and a known co-op assignment code");
+	CHECK(allowed(assign) == CoopCampaignActionOutcome::Applied, "any ready player may assign a merc on the map");
+	CHECK(allowed(assign, false) == CoopCampaignActionOutcome::Unavailable, "a loaded tactical world blocks assignments");
+	CoopCampaignArrival npc; npc.decision = 1; npc.kind = CoopCampaignArrivalKind::WildernessNpc;
+	npc.stage = CoopCampaignArrivalStage::Pending; npc.x = 10; npc.y = 1; npc.pendingCount = 1;
+	f.observeArrival(npc);
+	assign.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(assign) == CoopCampaignActionOutcome::Unavailable, "a pending arrival decision comes first");
+}
+
 void ReceiptsAndSerialization()
 {
 	Fixture f; unsigned executions = 0;
@@ -456,4 +488,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

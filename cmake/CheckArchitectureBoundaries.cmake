@@ -4856,6 +4856,35 @@ require_ordered_fragments(coop_presentation_runtime_source
   "view.state.revision != composition.host.materializedRevision());"
   "composition.result = composition.host.synchronize(")
 
+# Merc assignments: only on the strategic map (stock setters rebuild squads and
+# movement groups), only through the stock gates and setters, and the server
+# re-evaluates idle mercs as the map screen would. The shared policy admits the
+# action only in the worldless strategic phase.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopAssignment.cpp" coop_assignment_source)
+require_ordered_fragments(coop_assignment_source
+  "Assignments must run worldless through the stock gates and setters"
+  "if (IsJa2TacticalWorldLoaded()) return Code::WorldLoaded;"
+  "if (merc->deployment().isBetweenSectors()) return Code::BetweenSectors;"
+  "ReEvaluateEveryonesNothingToDo();"
+  "CanCharacterSquad(merc, squad) != CHARACTER_CAN_JOIN_SQUAD"
+  "AddCharacterToSquad(merc, squad)"
+  "if (!CanCharacterDoctor(merc)) return Code::Refused;"
+  "SetSoldierAssignment(merc, DOCTOR, 0, 0, 0);"
+  "if (!CanCharacterPatient(merc)) return Code::Refused;"
+  "if (!CanCharacterRepair(merc)) return Code::Refused;"
+  "if (!CanCharacterTrainStat(merc, stat, TRUE, FALSE)) return Code::Refused;"
+  "SetSoldierAssignment(merc, TRAIN_SELF, stat, 0, 0);"
+  "SetMercAsleep(merc, FALSE)"
+  "SetMercAwake(merc, FALSE, FALSE)"
+  "case Kind::TrainMilitia:"
+  "return Code::UnsupportedKind;")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_assignment_policy_source)
+require_ordered_fragments(coop_assignment_policy_source
+  "Assignment requests must be admitted only in the worldless strategic phase"
+  "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;"
+  "if (request.action == CoopCampaignAction::SetAssignment)"
+  "return status.arrival.decision ? Outcome::Unavailable : Outcome::Applied;")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
