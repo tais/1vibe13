@@ -64,6 +64,10 @@ DedicatedCoopExitGridCode ReplanDedicatedCoopTraversal(const DedicatedCoopExitGr
 // (the squad that followed a scripted NPC), or an invalid id.
 StrategicGroupId DedicatedCoopGroupNearestToProfile(std::uint8_t profile) noexcept;
 
+// The in-sector player group with the most conscious controllable members (ties:
+// the lowest group id), or an invalid id.
+StrategicGroupId DedicatedCoopLargestInSectorGroup() noexcept;
+
 // Applies the stock exit-grid insertion values (INSERTION_CODE_GRIDNO at the
 // destination grid, exit-grid re-entry direction) and relocates the group. Runs
 // only after the origin world was unloaded through the co-op return path, so

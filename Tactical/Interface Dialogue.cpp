@@ -105,6 +105,7 @@ namespace
 {
 // Set by the deferred co-op NPC_ACTION_GOTO_HIDEOUT; taken by the runtime.
 BOOLEAN gfDedicatedCoopHideoutRequested = FALSE;
+BOOLEAN gfDedicatedCoopLeaveHideoutRequested = FALSE;
 }
 #endif
 
@@ -2444,6 +2445,16 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				//if we are already leaving the sector, dont leave the sector again
 				if( gubWaitingForAllMercsToExitCode != 0 )
 					return;
+
+				if ( DedicatedCoopDefersHideoutTraversal() )
+				{
+					// Co-op: no squad move or fade; the runtime takes the squad up
+					// through its checkpointed traversal.
+					gfDedicatedCoopLeaveHideoutRequested = TRUE;
+					gTacticalStatus.uiFlags &= ~ENGAGED_IN_CONV;
+					giNPCReferenceCount = 0;
+					break;
+				}
 
 				// OK, we want to goto the basement level!
 				// For one, loop through our current squad and move them over
@@ -5301,6 +5312,13 @@ bool TakeDedicatedCoopHideoutRequest() noexcept
 {
 	const bool requested = gfDedicatedCoopHideoutRequested != FALSE;
 	gfDedicatedCoopHideoutRequested = FALSE;
+	return requested;
+}
+
+bool TakeDedicatedCoopLeaveHideoutRequest() noexcept
+{
+	const bool requested = gfDedicatedCoopLeaveHideoutRequested != FALSE;
+	gfDedicatedCoopLeaveHideoutRequested = FALSE;
 	return requested;
 }
 

@@ -14,7 +14,7 @@ enum class DedicatedCoopAssignmentKind : std::uint8_t
 	Patient = 3,
 	Repair = 4,       // the merc's own and squad mates' items
 	TrainSelf = 5,    // parameter: stat (1-based, stock HEALTH .. MEDICAL)
-	TrainMilitia = 6, // militia training with payment; not yet supported
+	TrainMilitia = 6, // pays the stock per-session fee of the merc's sector if unpaid
 	Rest = 7,
 	Wake = 8
 };
@@ -29,7 +29,8 @@ enum class DedicatedCoopAssignmentCode : std::uint8_t
 	InvalidParameter,
 	Refused,          // a stock gate refused (unfit, no kit, nothing to repair, not tired...)
 	Unchanged,        // already on that assignment / in that state
-	UnsupportedKind
+	UnsupportedKind,
+	InsufficientFunds // the stock militia training fee exceeds the balance
 };
 
 DedicatedCoopAssignmentCode ApplyDedicatedCoopAssignment(TacticalEntityId merc, std::uint8_t kind,

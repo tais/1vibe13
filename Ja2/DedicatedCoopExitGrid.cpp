@@ -104,6 +104,39 @@ DedicatedCoopExitGridCode ReplanDedicatedCoopTraversal(const DedicatedCoopExitGr
 		accepted.insertionGrids.data(), accepted.memberCount, fresh);
 }
 
+StrategicGroupId DedicatedCoopLargestInSectorGroup() noexcept
+{
+	try
+	{
+		std::array<std::pair<UINT8, unsigned>, 32> counts{};
+		std::size_t used = 0;
+		for (SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
+		{
+			const TacticalActor* const merc = GetJa2SoldierRepository().resolve(id);
+			if (!merc || !OK_CONTROLLABLE_MERC(merc) || !merc->roster().inSector() ||
+				merc->vitals().health() < OKLIFE || !merc->deployment().groupId()) continue;
+			const UINT8 group = merc->deployment().groupId();
+			std::size_t at = 0;
+			while (at < used && counts[at].first != group) ++at;
+			if (at == used)
+			{
+				if (used == counts.size()) continue;
+				counts[used++] = {group, 0};
+			}
+			++counts[at].second;
+		}
+		const std::pair<UINT8, unsigned>* best = nullptr;
+		for (std::size_t i = 0; i < used; ++i)
+			if (!best || counts[i].second > best->second ||
+				(counts[i].second == best->second && counts[i].first < best->first)) best = &counts[i];
+		return best ? GetJa2StrategicGroupId(best->first) : StrategicGroupId{};
+	}
+	catch (...)
+	{
+		return {};
+	}
+}
+
 StrategicGroupId DedicatedCoopGroupNearestToProfile(std::uint8_t profile) noexcept
 {
 	try

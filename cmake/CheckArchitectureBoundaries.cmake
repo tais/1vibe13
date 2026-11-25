@@ -4831,7 +4831,13 @@ require_ordered_fragments(coop_hideout_dialogue_source
   "gfDedicatedCoopHideoutRequested = TRUE;"
   "break;"
   "gfTacticalTraversal = TRUE;"
-  "FadeOutGameScreen( );")
+  "FadeOutGameScreen( );"
+  "case NPC_ACTION_LEAVE_HIDEOUT:"
+  "if ( DedicatedCoopDefersHideoutTraversal() )"
+  "gfDedicatedCoopLeaveHideoutRequested = TRUE;"
+  "break;"
+  "gfTacticalTraversal = TRUE;"
+  "gFadeOutDoneCallback = DoneFadeOutActionLeaveBasement;")
 require_ordered_fragments(coop_conversation_runtime_source
   "Hideout traversal must plan with stock grids, re-plan before leaving and edit the surface after relocation"
   "TakeDedicatedCoopHideoutRequest()"
@@ -4842,6 +4848,12 @@ require_ordered_fragments(coop_conversation_runtime_source
   "ApplyDedicatedCoopExitGridRelocation(impl_->exitGrid, moved)"
   "if (relocated == DedicatedCoopExitGridCode::Planned && hideout)"
   "ApplyDedicatedCoopHideoutSurfaceChanges();")
+require_ordered_fragments(coop_conversation_runtime_source
+  "Leave-hideout traversal must plan with the stock basement exit grids"
+  "TakeDedicatedCoopLeaveHideoutRequest()"
+  "PlanDedicatedCoopScriptedTraversal(DedicatedCoopLargestInSectorGroup(),"
+  "gModSettings.iBasementExit"
+  "impl_->hideoutTraversal = false;")
 
 # A mid-world ownership change (a recruited NPC becomes a new player-team actor
 # in the same baseline that assigns it) is validated against the new revision's
@@ -4877,7 +4889,20 @@ require_ordered_fragments(coop_assignment_source
   "SetMercAsleep(merc, FALSE)"
   "SetMercAwake(merc, FALSE, FALSE)"
   "case Kind::TrainMilitia:"
-  "return Code::UnsupportedKind;")
+  "if (!CanCharacterTrainMilitia(merc))"
+  "return Code::Refused;"
+  "if (!PayForDedicatedCoopMilitiaTraining(merc, &paid)) return Code::InsufficientFunds;"
+  "SetSoldierAssignment(merc, TRAIN_TOWN, 0, 0, 0);"
+  "RefundDedicatedCoopMilitiaTraining(merc, paid);")
+# Militia payment is the stock price and payment, never below the balance.
+file(READ "${SOURCE_ROOT}/Strategic/Town Militia.cpp" coop_militia_source)
+require_ordered_fragments(coop_militia_source
+  "Co-op militia payment must use the stock price and payment and respect the balance"
+  "INT32 DedicatedCoopMilitiaTrainingCost( TacticalActor *pSoldier )"
+  "gGameExternalOptions.iMilitiaTrainingCost * RebelCommand::GetMilitiaTrainingCostModifier()"
+  "BOOLEAN PayForDedicatedCoopMilitiaTraining( TacticalActor *pSoldier, INT32 *piPaid )"
+  "if (iCost <= 0 || LaptopSaveInfo.iCurrentBalance < iCost) return FALSE;"
+  "PayForTrainingInSector( ubSector, TOWN_MILITIA, DedicatedCoopMilitiaCostMultiplier( pSoldier ) );")
 file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_assignment_policy_source)
 require_ordered_fragments(coop_assignment_policy_source
   "Assignment requests must be admitted only in the worldless strategic phase"

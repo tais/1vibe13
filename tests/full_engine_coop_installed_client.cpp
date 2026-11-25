@@ -40,10 +40,10 @@ constexpr const char* ReplyPrefix = "[co-op test] ";
 static_assert(STANDING == 1, "installed stance completion must follow the native standing animation");
 constexpr const char* InventoryScreenshot = "Screenshots/SCREEN00000.png";
 constexpr const char* RosterAfterInventoryScreenshot = "Screenshots/SCREEN00001.png";
-constexpr unsigned MaximumInventoryUiInputs = 8;
+constexpr unsigned MaximumInventoryUiInputs = 32;
 constexpr unsigned MaximumInventoryUiActorKeys = 4;
 constexpr unsigned MaximumInventoryUiSwapClicks = 2;
-constexpr unsigned MaximumCampaignUiInputs = 32;
+constexpr unsigned MaximumCampaignUiInputs = 128;
 constexpr unsigned MaximumAimUiInputs = 512;
 using InventoryUiArguments = std::array<std::uint64_t, 8>;
 using DropInputArguments = std::array<std::uint64_t, 10>;
@@ -752,7 +752,9 @@ void ReplySurrenderInput(std::uint64_t request, const std::array<std::uint64_t, 
 void ReplyCampaignInput(std::uint64_t request, const CampaignInputArguments& values, unsigned& count) noexcept
 {
 	FullEngineCoopClientCampaignControls controls;
-	if (count >= MaximumCampaignUiInputs || GetCurrentScreen() != INIT_SCREEN ||
+	if (count >= MaximumCampaignUiInputs)
+	{ ReplyError(request, "campaign input budget exhausted for this client process"); return; }
+	if (GetCurrentScreen() != INIT_SCREEN ||
 		!CaptureFullEngineCoopClientCampaignControls(controls) || !controls.enabled || GetInputQueueStatistics().queued ||
 		controls.sessionEpoch != values[0] || controls.controlRevision != values[1] || controls.groupsRevision != values[2] ||
 		controls.decision != values[3] || controls.selected.slot != values[4] || controls.selected.incarnation != values[5] ||

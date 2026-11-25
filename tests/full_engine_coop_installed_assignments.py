@@ -31,10 +31,12 @@ CHECKPOINT_MARKER = "[dedicated] post-combat strategic checkpoint committed"
 SET_ASSIGNMENT = 14
 # CAMPAIGN_INPUT keys (the shipping strategic Screen's keyboard table).
 KEY_TAB, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_ESC, KEY_ASSIGN = 1, 4, 6, 7, 8, 17
-TRAIN_SELF, DOCTOR, SQUAD = 5, 2, 1
+TRAIN_SELF, DOCTOR, SQUAD, TRAIN_MILITIA = 5, 2, 1, 6
 STRENGTH = 4  # 1-based: health, agility, dexterity, strength
 # Native assignment values (Strategic/Assignments.h): squads are below ON_DUTY.
 NATIVE_ON_DUTY = 40
+# DedicatedCoopAssignmentCode::Refused (a stock gate said no).
+ASSIGNMENT_REFUSED = 6
 
 
 def parse_arguments(argv=None):
@@ -61,7 +63,7 @@ def member_assignment(groups_reply, actor):
 def keys_for(code, stat):
     """The Screen keys after O that select co-op assignment `code` (menu
     order 1, 2, 3, 4, 5, 7, 8) and, for self-training, the 1-based `stat`."""
-    order = [1, 2, 3, 4, 5, 7, 8]
+    order = [1, 2, 3, 4, 5, 6, 7, 8]
     keys = [KEY_DOWN] * order.index(code)
     if code == TRAIN_SELF:
         keys += [KEY_RIGHT] * (stat - 1)
@@ -90,6 +92,19 @@ def press(probe, guard, deadline, predicate, key):
 
 
 def assign(probe, guard, timeout, code, stat=0, member_steps=0):
+    """Drive O, the merc and assignment keys, then Enter; returns the action
+    receipt. A new control or group observation closes the client's assignment
+    mode on purpose; then the whole key sequence starts again."""
+    for attempt in range(3):
+        try:
+            return assign_once(probe, guard, timeout, code, stat, member_steps)
+        except SmokeFailure as error:
+            if "changed before key" not in str(error) or attempt == 2:
+                raise
+            time.sleep(0.5)
+
+
+def assign_once(probe, guard, timeout, code, stat=0, member_steps=0):
     """Drive O, the merc and assignment keys, then Enter; returns the action receipt."""
     deadline = time.monotonic() + timeout
     ui = press(probe, guard, deadline, lambda v: v["ready"] and v["enabled"] and not v["assigning"] and
@@ -117,6 +132,20 @@ def assign(probe, guard, timeout, code, stat=0, member_steps=0):
     if receipt["action"] != SET_ASSIGNMENT or receipt["destination"] != [code, stat if code == TRAIN_SELF else 0]:
         raise SmokeFailure(f"the assignment receipt does not match the submitted choice: {receipt}")
     return assignee, receipt
+
+
+def shared_balance(probes, guard, timeout, predicate=lambda balance: True):
+    """The shared balance once both replicas report the same ready economy."""
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        replies = paired_query(probes, "ECONOMY", "economy", deadline, guard)
+        last = [reply.get("balance") for reply in replies]
+        if all(reply.get("ready") and reply.get("available", True) for reply in replies) and \
+                last[0] is not None and last[0] == last[1] and predicate(last[0]):
+            return last[0]
+        time.sleep(0.2)
+    raise SmokeFailure(f"the replicas never agreed on the expected balance; last={last}")
 
 
 def wait_assignment(probes, guard, actor, predicate, timeout, what):
@@ -205,6 +234,17 @@ def main(argv=None):
         evidence["doctor_receipt"] = receipt
         if receipt["outcome"] not in (1, 6):
             raise SmokeFailure(f"a doctor order must be applied or natively rejected: {receipt}")
+        # 4. Before Miguel reads Enrico's letter Omerta's loyalty is zero, so the
+        # stock gate refuses militia training: a rejection, nothing paid.
+        balance_before = shared_balance(probes, guard, timeout)
+        militia_actor, militia = assign(probes[0], guard, timeout, TRAIN_MILITIA)
+        evidence["militia_receipt"] = militia
+        if militia["outcome"] != 6 or militia["native_detail"] != ASSIGNMENT_REFUSED:
+            raise SmokeFailure(f"militia training before the letter must be a stock refusal: {militia}")
+        time.sleep(1.0)
+        balance_after = shared_balance(probes, guard, timeout)
+        if balance_after != balance_before:
+            raise SmokeFailure(f"a refused militia order changed the balance {balance_before} -> {balance_after}")
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True

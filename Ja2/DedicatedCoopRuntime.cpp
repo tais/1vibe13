@@ -3343,6 +3343,29 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 					static_cast<unsigned>(code));
 			std::fflush(stdout);
 		}
+		// Miguel's "leave the hideout" action: the squad goes back up to A10 the
+		// same way, with the stock basement-exit insertion grids.
+		if (!impl_->returnToMapRequested && TakeDedicatedCoopLeaveHideoutRequest())
+		{
+			DedicatedCoopExitGridPlan plan;
+			const auto code = PlanDedicatedCoopScriptedTraversal(DedicatedCoopLargestInSectorGroup(),
+				gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ,
+				gModSettings.iBasementExit, std::size(gModSettings.iBasementExit), plan);
+			if (code == DedicatedCoopExitGridCode::Planned)
+			{
+				impl_->exitGrid = plan;
+				impl_->exitGridPending = true;
+				impl_->hideoutTraversal = false;
+				impl_->returnToMapRequested = true;
+				impl_->returnWaitLogged = false;
+				std::printf("[dedicated] leave-hideout traversal accepted to (%u,%u,%u) with %zu mercs\n",
+					unsigned(plan.x), unsigned(plan.y), unsigned(plan.z), plan.memberCount);
+			}
+			else
+				std::printf("[dedicated] leave-hideout traversal refused (%u); the exit grid stays for the players\n",
+					static_cast<unsigned>(code));
+			std::fflush(stdout);
+		}
 		const DedicatedCoopPostCombatReturnEvidence evidence =
 			impl_->captureSecuredSectorEvidence();
 		const DedicatedCoopPeacefulTacticalStep step =

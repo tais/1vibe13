@@ -69,7 +69,8 @@ class _Probe:
                     raise MovementFailure(
                         f"{self.managed.name} emitted malformed probe JSON") from error
                 if response.get("request") == request:
-                    if response.get("kind") != kind or answer is not None:
+                    kinds = kind if isinstance(kind, tuple) else (kind,)
+                    if response.get("kind") not in kinds or answer is not None:
                         raise MovementFailure("unexpected or repeated movement probe response")
                     answer = response
             if answer is not None:

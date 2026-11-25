@@ -40,7 +40,7 @@ def send_key(probe, value, key, deadline, guard, record):
     if (not isinstance(reply, dict) or set(reply) != {"request", "kind", "queued", "key", "queued_events", "input_count"} or
             reply["request"] != request or reply["kind"] != "battle_notice_input" or reply["queued"] is not True or
             not integer(reply["key"], key, key) or not integer(reply["queued_events"], 2, 2) or
-            not integer(reply["input_count"], 1, 32)):
+            not integer(reply["input_count"], 1, 128)):
         raise MovementFailure("battle notice input acknowledgement is ambiguous; no replay")
 
 

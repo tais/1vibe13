@@ -449,6 +449,8 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance();
 // leaves the squad move, fade and basement load to the runtime.
 bool DedicatedCoopDefersHideoutTraversal() noexcept;
 bool TakeDedicatedCoopHideoutRequest() noexcept;
+// Likewise NPC_ACTION_LEAVE_HIDEOUT (Miguel sends the squad back up to A10).
+bool TakeDedicatedCoopLeaveHideoutRequest() noexcept;
 // The stock fade-out's surface edits (crate moved, trapdoor added) on the
 // unloaded surface map; worldless, after the squad left it.
 void ApplyDedicatedCoopHideoutSurfaceChanges() noexcept;

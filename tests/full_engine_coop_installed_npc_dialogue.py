@@ -15,12 +15,17 @@ from pathlib import Path
 import tempfile
 import time
 
-from full_engine_coop_installed_campaign import qualification_guard
+from full_engine_coop_installed_campaign import (
+    apply_time, group_with_id, paired_query, qualification_guard, require_applied, scoped_input, wait_shared, wait_ui,
+)
+from full_engine_coop_installed_assignments import ASSIGNMENT_REFUSED, TRAIN_MILITIA, assign, press, shared_balance
 from full_engine_coop_installed_exit_grid import (
-    seed_victory, tactical_counts, travel_and_enter_a10, wait_count, wait_tactical,
+    exit_grids, seed_victory, tactical_counts, travel_and_enter_a10, wait_count, wait_tactical,
 )
 from full_engine_coop_installed_movement import _Probe, _states
-from full_engine_coop_installed_peaceful_sector import _secured_marker_sectors, return_from_secured_sector
+from full_engine_coop_installed_peaceful_sector import (
+    _input, _secured_marker_sectors, _ui, return_from_secured_sector,
+)
 from full_engine_coop_installed_process_smoke import (
     READY_MARKER, TACTICAL_PRESENTATION_READY_MARKER, TACTICAL_SERVER_MARKER, ProcessSupervisor, SmokeFailure,
     client_command, free_loopback_port, installed_content_roots, log_text, make_private_directory, make_run_root,
@@ -160,6 +165,23 @@ def converse(probe, guard, conversation, approach, timeout):
     return reply
 
 
+def answer(probe, guard, conversation, approach, timeout):
+    """Answer (or leave) the open conversation and wait until the authority has
+    applied that command; a stale refusal (the view moved on) is pressed again."""
+    for _ in range(MAXIMUM_STALE_RETRIES):
+        record = conversations([probe], guard, time.monotonic() + timeout)[0]
+        if record.get("conversation") != conversation:
+            return  # it closed or moved on by itself; nothing left to answer
+        previous = last_command(record)
+        converse(probe, guard, conversation, approach, timeout)
+        applied = lambda r: (r.get("receipt") or {}).get("command", 0) > previous and \
+            (r.get("receipt") or {}).get("status") == 3
+        if command_outcome(probe, guard, previous, applied, timeout) == "done":
+            return
+        time.sleep(0.5)
+    raise SmokeFailure("a conversation answer stayed stale through every retry")
+
+
 def fixture_npc_position(server, npc_profile):
     """The test host's latest authority-side position for an unseen NPC."""
     prefix = f"[co-op entry test] npc profile={npc_profile} "
@@ -228,13 +250,13 @@ def talk_to_npc(probes, guard, server, npc_profile, timeout, evidence=None):
     request = probes[1].send("CONVERSATION_INPUT", opened[1]["conversation"], 1)
     refused = probes[1].receive(request, "error", time.monotonic() + timeout, guard)
     evidence["observer_answer_refused"] = refused.get("error", "")
-    converse(probes[0], guard, opened[0]["conversation"], 1, timeout)
+    answer(probes[0], guard, opened[0]["conversation"], 1, timeout)
     answered = wait_conversations(
         probes, guard, lambda r: r[0]["revision"] > opened[0]["revision"] and r[0]["conversation"] ==
         opened[0]["conversation"] and not r[0]["speaking"] and quote_text(r[0]) != evidence["greeting"],
         timeout, "Fatima's friendly answer")
     evidence["friendly_answer"] = quote_text(answered[0])
-    converse(probes[0], guard, answered[0]["conversation"], 0, timeout)
+    answer(probes[0], guard, answered[0]["conversation"], 0, timeout)
     wait_conversations(probes, guard, lambda r: r[0]["conversation"] == 0 and r[0]["revision"] > answered[0]["revision"],
                        timeout, "the closed panel")
     evidence["closed"] = True
@@ -426,7 +448,7 @@ def follow_to_hideout(probes, guard, server, clients, timeout, evidence):
                     again = conversations(probes, guard, time.monotonic() + timeout)
                     if again[0]["conversation"] == records[0]["conversation"] and not again[0]["speaking"] and \
                             quote_text(again[0]) == text:
-                        converse(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
+                        answer(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
             time.sleep(0.3)
             continue
         lead = npc_lead(server, FATIMA)
@@ -516,7 +538,7 @@ def settle_basement(probes, guard, timeout, evidence, quiet=6.0):
             closer = answering[-1]
             evidence["closed_panels"].append([records[0]["npc_profile"], records[0]["merc_profile"],
                                               records[0].get("npc_source"), closer, quote_text(records[0])])
-            converse(probes[closer], guard, records[0]["conversation"], 0, timeout)
+            answer(probes[closer], guard, records[0]["conversation"], 0, timeout)
             idle_key = None
         time.sleep(0.3)
     return evidence
@@ -539,9 +561,25 @@ def attempt_recruit(probes, guard, server, recruiter, npc_profile, timeout, evid
         raise SmokeFailure(f"profile {npc_profile} or the recruiter is not in the sector")
     attempt = {"client": recruiter, "merc": list(selected), "walks": []}
     evidence.setdefault("recruit_attempts", []).append(attempt)
-    # K addresses the nearest NPC: stand where the recruit is that one.
+    # K addresses the nearest NPC: stand only where the recruit is strictly the
+    # nearest visible NPC (Miguel and others stand close to Ira).
     for _ in range(6):
-        attempt["walks"].append(walk_into_talk_range(probes, guard, recruiter, merc, where, timeout, attempt["walks"]))
+        state = _states(probes, time.monotonic() + timeout, guard)[recruiter]
+        columns = state["columns"]
+        others = [a["grid"] for a in state["actors"] if a["team"] != 0 and a["profile"] and a["profile"] != npc_profile
+                  and a["life"] > 0 and a["level"] == where["level"]]
+        def squared(a, b):
+            return (a // columns - b // columns) ** 2 + (a % columns - b % columns) ** 2
+        ambiguous = [tile for tile in talk_tiles(state, merc, where)
+                     if any(squared(tile, other) <= squared(tile, where["grid"]) for other in others)]
+        try:
+            attempt["walks"].append(walk_into_talk_range(probes, guard, recruiter, merc, where, timeout,
+                                                         list(attempt["walks"]) + ambiguous))
+        except SmokeFailure:
+            # No unambiguous tile was reachable: try the rest, checking the
+            # talk target after each walk as before.
+            attempt["walks"].append(walk_into_talk_range(probes, guard, recruiter, merc, where, timeout,
+                                                         list(attempt["walks"])))
         time.sleep(1.0)
         target = conversations([probe], guard, time.monotonic() + timeout)[0]["talk_target"]
         if npc and tuple(target) == (npc["slot"], npc["inc"]):
@@ -562,7 +600,7 @@ def attempt_recruit(probes, guard, server, recruiter, npc_profile, timeout, evid
     opened = wait_conversations(probes, guard, lambda r: r[0]["conversation"] != 0 and not r[0]["speaking"] and
                                 r[0]["npc_profile"] == npc_profile, timeout, "the recruit's panel")
     attempt["greeting"] = quote_text(opened[0])
-    converse(probe, guard, opened[0]["conversation"], 4, timeout)
+    answer(probe, guard, opened[0]["conversation"], 4, timeout)
     deadline = time.monotonic() + timeout
     attempt["lines"] = []
     while time.monotonic() < deadline:
@@ -589,7 +627,7 @@ def attempt_recruit(probes, guard, server, recruiter, npc_profile, timeout, evid
                         not again[0]["speaking"] and again[0]["revision"] == records[0]["revision"]:
                     # A stock refusal ("I'm not sure of you"): close and let
                     # another merc try, as a player would.
-                    converse(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
+                    answer(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
                     wait_conversations(probes, guard, lambda r: r[0]["conversation"] == 0, timeout, "the closed refusal")
                     return False
         time.sleep(0.4)
@@ -614,6 +652,121 @@ def recruit_npc(probes, guard, server, npc_profile, timeout, evidence):
                     raise SmokeFailure("Tab did not select another merc")
                 time.sleep(0.2)
     raise SmokeFailure(f"profile {npc_profile} refused every merc; attempts={evidence.get('recruit_attempts')}")
+
+
+NATIVE_TRAIN_TOWN = 48  # Strategic/Assignments.h: ON_DUTY is 40, TRAIN_TOWN 48
+LEAVE_ACCEPTED = "[dedicated] leave-hideout traversal accepted to (10,1,0)"
+
+
+def leave_basement(probes, guard, server, clients, timeout, evidence):
+    """Walk the acting merc onto the basement's exit grid up to A10 and take it
+    with U + Enter: the checkpointed exit-grid traversal back to the surface."""
+    exits = exit_grids(server, (10, 1, 0))
+    if not exits:
+        raise SmokeFailure("the basement lists no exit grid up to A10")
+    source, landing = exits[-1]
+    evidence["basement_exit"] = {"source": source, "landing": landing}
+    selected = conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"]
+    counts = tactical_counts(server, clients)
+    checkpoints = log_text(server).count(CHECKPOINT_MARKER)
+    request = probes[0].send("MOVE", selected[0], selected[1], source)
+    reply = probes[0].receive(request, "move", time.monotonic() + timeout, guard)
+    if not reply.get("submitted"):
+        raise SmokeFailure(f"the move onto the basement exit grid was not submitted: {reply}")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if LEAVE_ACCEPTED in log_text(server):
+            break  # Miguel sent the squad up while it walked to the exit.
+        states = _states(probes, deadline, guard)
+        actors = [find_actor(state, lambda a: [a["slot"], a["inc"]] == list(selected)) for state in states]
+        if all(actor and actor["grid"] == source for actor in actors) and not states[0]["outstanding"]:
+            break
+        time.sleep(0.2)
+    else:
+        raise SmokeFailure("the merc did not settle on the basement exit grid")
+    # Coming near the exit can make Miguel send the squad up himself (stock
+    # NPC_ACTION_LEAVE_HIDEOUT, deferred to the co-op traversal); otherwise
+    # the players take the exit grid with U + Enter.
+    settle = time.monotonic() + 5
+    while time.monotonic() < settle and LEAVE_ACCEPTED not in log_text(server):
+        time.sleep(0.2)
+    if LEAVE_ACCEPTED in log_text(server):
+        evidence["basement_left_by"] = "leave-hideout"
+        guard = qualification_guard(server, clients, planned_reconnects=3)
+    else:
+        evidence["basement_left_by"] = "exit-grid"
+        deadline = time.monotonic() + timeout
+        ready = _ui(probes[0], deadline, guard)
+        _input(probes[0], ready, 4, deadline, guard)
+        while time.monotonic() < deadline:
+            armed = _ui(probes[0], deadline, guard)
+            if armed["ready"] and armed["exit_armed"]:
+                break
+            time.sleep(0.05)
+        else:
+            raise SmokeFailure("U did not arm the basement exit grid")
+        _input(probes[0], armed, 2, deadline, guard)
+        guard = qualification_guard(server, clients, planned_reconnects=3)
+        wait_for_marker(server, "[dedicated] exit-grid traversal accepted to (10,1,0)", timeout)
+    wait_count(server, CHECKPOINT_MARKER, checkpoints + 1, timeout)
+    wait_for_marker(server, "[dedicated] exit-grid group relocated to (10,1,0)", timeout)
+    wait_tactical(server, clients, counts, timeout)
+    evidence["left_basement"] = True
+    return [_Probe(client) for client in clients], guard
+
+
+def travel_to_a9(probes, guard, timeout, evidence):
+    """On the map, the non-leader orders the selected group A10 -> A9 (West +
+    Enter); the leader runs time until it arrives, then pauses."""
+    initial = wait_shared(probes, guard, timeout, lambda snapshot: snapshot["campaign"][0]["phase"] == 2)
+    leader = next(index for index, value in enumerate(initial["campaign"]) if value["local_leader"])
+    follower = 1 - leader
+    deadline = time.monotonic() + timeout
+    selected = press(probes[follower], guard, deadline,
+                     lambda value: value["ready"] and value["enabled"] and value["selected"] != [0, 0] and
+                     value["destination"] == [0, 0], 5)
+    identity = selected["selected"]
+    destination = press(probes[follower], guard, deadline, lambda value: value["ready"] and value["enabled"] and
+                        value["destination"] == [9, 1] and value["selected"] == identity, 7)
+    earlier = (destination["action_result"] or {}).get("request_id", 0)
+    travelled = wait_ui(probes[follower], deadline, guard,
+                        lambda value: not value["action_pending"] and value["action_result"] is not None and
+                        value["action_result"]["request_id"] > earlier)
+    require_applied(travelled["action_result"], destination, 1, identity, [9, 1])
+    _, running = apply_time(probes[leader], 16, 4, time.monotonic() + timeout, guard)
+    arrived = wait_shared(probes, guard, timeout, lambda snapshot: (lambda group: group["x"] == 9 and not group["between"])(
+        group_with_id(snapshot, identity)) and not snapshot["campaign"][0]["arrival"]["decision"])
+    apply_time(probes[leader], 13, 1, time.monotonic() + timeout, guard, running["time_result"]["request_id"])
+    evidence["a9_group"] = identity
+    return arrived
+
+
+def militia_in_omerta(probes, guard, server, clients, timeout, evidence):
+    """Back on the map the squad walks to A9. The installed 1.13 data places no
+    militia-training facility in Omerta (A9/A10; the first is Drassen), so every
+    merc's militia order must be a stock refusal that charges nothing. The paid
+    path needs a militia town and is left to the campaign's Drassen leg."""
+    latest = max(_secured_marker_sectors(server))
+    checkpoints = log_text(server).count(CHECKPOINT_MARKER)
+    evidence["surface_return"] = return_from_secured_sector(probes, guard, server, timeout, previous=latest - 1)
+    wait_count(server, CHECKPOINT_MARKER, checkpoints + 1, timeout)
+    guard = qualification_guard(server, clients, planned_reconnects=4)
+    probes = [_Probe(client) for client in clients]
+    travel_to_a9(probes, guard, timeout, evidence)
+    before = shared_balance(probes, guard, timeout)
+    evidence["militia_attempts"] = []
+    members = next(group for group in paired_query(probes, "GROUPS", "groups", time.monotonic() + timeout, guard)[0]["groups"]
+                   if [group["slot"], group["inc"]] == evidence["a9_group"])["members"]
+    for step in range(len(members)):
+        actor, receipt = assign(probes[0], guard, timeout, TRAIN_MILITIA, member_steps=step)
+        evidence["militia_attempts"].append([actor, receipt["outcome"], receipt["native_detail"]])
+        if receipt["outcome"] != 6 or receipt["native_detail"] != ASSIGNMENT_REFUSED:
+            raise SmokeFailure(f"Omerta has no militia facility; the order must be a stock refusal: {receipt}")
+    after = shared_balance(probes, guard, timeout)
+    if after != before:
+        raise SmokeFailure(f"refused militia orders changed the balance {before} -> {after}")
+    evidence["omerta_militia_refused_without_charge"] = True
+    return probes, guard
 
 
 def main(argv=None):
@@ -669,6 +822,8 @@ def main(argv=None):
         miguel_reads_letter(probes, guard, server, timeout, evidence)
         settle_basement(probes, guard, timeout, evidence)
         recruit_npc(probes, guard, server, IRA, timeout, evidence)
+        probes, guard = leave_basement(probes, guard, server, ordered, timeout, evidence)
+        probes, guard = militia_in_omerta(probes, guard, server, ordered, timeout, evidence)
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
@@ -676,7 +831,9 @@ def main(argv=None):
               "Esc closed it; the letter holder gave her Enrico's letter, she led the squad across A9, and after a "
               "shared return, travel and peaceful entry she led it through A10 until her hideout action took the squad down "
               "into Miguel's basement through the checkpointed co-op traversal, where the basement conversations played "
-              "through, Miguel read Enrico's letter and Ira joined the squad, owned by one player.", flush=True)
+              "through, Miguel read Enrico's letter, Ira joined the squad, Miguel sent the squad back up to A10, it walked "
+              "to A9 on the map, and every merc's militia order was a stock refusal there (no facility in Omerta).",
+              flush=True)
         return 0
     except Exception as error:
         evidence["failure"] = str(error)

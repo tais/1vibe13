@@ -7,6 +7,14 @@
 #include "Vehicles.h"
 #include "Overhead.h"
 #include "Soldier Profile Constants.h"
+#include "Town Militia.h"
+#include "Facilities.h"
+#include "GameSettings.h"
+#include "DedicatedCoopInventoryDiagnostic.h"
+#include "strategicmap.h"
+
+// Assignments.cpp's basic militia check (not exported by its header); diagnostics only.
+BOOLEAN BasicCanCharacterTrainMilitia( TacticalActor *pCharacter );
 
 DedicatedCoopAssignmentCode ApplyDedicatedCoopAssignment(TacticalEntityId identity, std::uint8_t kind,
 	std::uint8_t parameter) noexcept
@@ -80,7 +88,40 @@ DedicatedCoopAssignmentCode ApplyDedicatedCoopAssignment(TacticalEntityId identi
 				if (!merc->assignment().isAsleep()) return Code::Unchanged;
 				return settle(SetMercAwake(merc, FALSE, FALSE) != FALSE && !merc->assignment().isAsleep());
 			case Kind::TrainMilitia:
-				return Code::UnsupportedKind;
+			{
+				// The co-op request is the confirmation the stock prompt asks for:
+				// gate first, then pay the stock fee (if this session is unpaid),
+				// then assign; the paid sector keeps the stock prompt from opening.
+				if (before == TRAIN_TOWN) return Code::Unchanged;
+				if (!CanCharacterTrainMilitia(merc))
+				{
+					// Opt-in (JA2_COOP_INVENTORY_DIAGNOSTIC=1): which stock rule said no.
+					if (DedicatedCoopInventoryDiagnosticEnabled())
+					{
+						unsigned facilities = 0;
+						const UINT8 sector = SECTOR(merc->deployment().sectorX(), merc->deployment().sectorY());
+						for (UINT16 i = 0; i < NUM_FACILITY_TYPES; ++i)
+							if (gFacilityLocations[sector][i].fFacilityHere) facilities += gFacilityTypes[i].ubMilitiaTrainersAllowed;
+						(void)std::fprintf(stderr, "[coop-inventory] stage=militia-refused sector=%d,%d,%d volunteers=%d basic=%d "
+							"loyalty=%d leadership=%d minimum=%d trainer-slots=%u elites-full=%d\n",
+							int(merc->deployment().sectorX()), int(merc->deployment().sectorY()), int(merc->deployment().sectorZ()),
+							int(GetVolunteerPool()), int(BasicCanCharacterTrainMilitia(merc)),
+							int(DoesSectorMercIsInHaveSufficientLoyaltyToTrainMilitia(merc)), int(merc->statistics().leadership()),
+							int(gGameExternalOptions.ubMinimumLeadershipToTrainMilitia), facilities,
+							int(IsMilitiaTrainableFromSoldiersSectorMaxed(merc, ELITE_MILITIA)));
+					}
+					return Code::Refused;
+				}
+				INT32 paid = 0;
+				if (!PayForDedicatedCoopMilitiaTraining(merc, &paid)) return Code::InsufficientFunds;
+				SetSoldierAssignment(merc, TRAIN_TOWN, 0, 0, 0);
+				if (merc->assignment().current() != TRAIN_TOWN)
+				{
+					RefundDedicatedCoopMilitiaTraining(merc, paid);
+					return Code::Refused;
+				}
+				return settle(true);
+			}
 		}
 		return Code::InvalidParameter;
 	}

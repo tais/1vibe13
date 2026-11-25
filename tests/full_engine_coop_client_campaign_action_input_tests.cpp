@@ -104,7 +104,9 @@ void AssignmentMode()
 	auto train = f.press(Key::Confirm);
 	CHECK(train && train->destinationX == 5 && train->destinationY == 3, "Right picks the stat to train (1-based)");
 	(void)f.press(Key::Assign); (void)f.press(Key::North);
-	CHECK(f.input.assignmentCode() == 8, "Up wraps to the last choice (wake up); militia (6) is not offered");
+	CHECK(f.input.assignmentCode() == 8, "Up wraps to the last choice (wake up)");
+	(void)f.press(Key::North); (void)f.press(Key::North);
+	CHECK(f.input.assignmentCode() == 6, "militia training sits between self-training and rest");
 	(void)f.press(Key::West);
 	CHECK(f.input.assignmentStat() == 9, "Left wraps the stat to the last trainable one");
 	(void)f.press(Key::Cancel);

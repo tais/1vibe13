@@ -3713,9 +3713,8 @@ decision packs the merc's identity (slot | incarnation << 16), `destinationX`
 holds a co-op assignment code and `destinationY` its parameter, so the 56-byte
 request layout is unchanged. Codes: 1 squad (parameter: squad number, 0 = any),
 2 doctor, 3 patient, 4 repair (items), 5 train self (parameter: stat, 1-based
-health .. medical), 7 rest, 8 wake up. Code 6, militia training, is reserved:
-the stock flow asks the player to pay in a pop-up, which needs its own co-op
-decision (Phase 3.1b) and is refused as unsupported for now.
+health .. medical), 7 rest, 8 wake up. Code 6 is militia training (Phase 3.1b,
+below).
 
 - Any ready player may assign any merc, as with shared travel, but only in the
   worldless strategic phase: the stock setters remove mercs from squads and
@@ -3738,3 +3737,52 @@ group) on both replicas; `O` + Enter puts it back on a squad; a doctor order for
 a merc without a medical kit comes back as a stock refusal. Negative control:
 with the native self-training call removed, the receipt is a rejection and the
 probe fails at that step.
+
+## Phase 3.1b: militia training and leaving the hideout
+
+Stock asks the player to confirm and pay a per-session fee in a pop-up when a
+merc starts training militia in an unpaid sector. In co-op the order itself is
+the confirmation: `TrainMilitia` (code 6) checks `CanCharacterTrainMilitia`
+first, then `PayForDedicatedCoopMilitiaTraining` charges exactly the stock price
+for the merc's own surface sector (`iMilitiaTrainingCost` x the rebel-command
+modifier x the stock green/regular/veteran multiplier) through the stock
+`PayForTrainingInSector`, and only then sets `TRAIN_TOWN`; the paid sector
+keeps the stock prompt from opening. A balance below the fee is a native
+rejection (`InsufficientFunds`); if the assignment does not take, the fee is
+refunded. Before Miguel reads the letter Omerta's loyalty is zero and the stock
+gate refuses the order (the assignment probe checks the balance is unchanged).
+
+Leaving Miguel's basement hit the same hazard as entering it: walking toward
+the exit makes Miguel fire `NPC_ACTION_LEAVE_HIDEOUT`, which natively moves
+every in-sector merc with `SetGroupSectorValue` and loads A10 directly, outside
+the co-op return (the server's return checkpoint timed out). In dedicated co-op
+the action now only flags a request; the runtime plans a scripted traversal to
+the surface with the stock `BASEMENT_EXIT_n` grids for the largest in-sector
+group (stock moves everyone; anyone in another group can still take the exit
+grid) and leaves through the checkpointed return.
+
+Where militia can train: the installed 1.13 data places the militia-training
+facility ("Legacy Militia Training Facility", type 18) only in other towns; the
+nearest is Drassen (B13-D13). Omerta (A9/A10) has none, so stock refuses
+militia training there whatever its loyalty. The plan's assumption that Miguel's
+letter unlocks militia training in Omerta is wrong for this data: the letter
+unlocks Omerta's loyalty (the refusal reports loyalty satisfied), but the paid
+path can first be exercised in Drassen. `JA2_COOP_INVENTORY_DIAGNOSTIC=1` makes
+a refused militia order print each stock condition (volunteers, basic sector
+check, loyalty, leadership against the minimum, trainer slots, elite cap).
+
+Installed evidence (`full_engine_coop_installed_npc_dialogue.py`, extended):
+after recruiting Ira the merc walks toward the basement exit, Miguel's leave
+becomes "leave-hideout traversal accepted to (10,1,0) with 5 mercs", the squad
+enters A10 peacefully, the players return to the map, the non-leader orders
+A10 -> A9 and the leader runs time; in A9 every merc's `O` militia order is a
+stock refusal (no facility; two also lack leadership) and the shared balance is
+unchanged. The assignment probe shows the same refusal before the letter
+(loyalty zero). Not yet proven: the paid path (fee charged, `TRAIN_TOWN` set),
+which needs a militia town and is left to the campaign's Drassen leg.
+
+Driver hardening found along the way (test-only): keys are retried when the
+driver refuses them because the previous pair is still queued (only against a
+view in which the key means the same); conversation answers are retried after a
+stale (`NotBaselineReady`) refusal; the driver's per-process input budgets were
+raised (campaign 128, inventory 32) and an exhausted budget now says so.

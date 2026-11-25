@@ -10,9 +10,10 @@ class AssignmentProbeTests(unittest.TestCase):
         self.assertEqual(a.keys_for(a.SQUAD, 0), [])
         self.assertEqual(a.keys_for(a.DOCTOR, 0), [a.KEY_DOWN])
         self.assertEqual(a.keys_for(a.TRAIN_SELF, a.STRENGTH), [a.KEY_DOWN] * 4 + [a.KEY_RIGHT] * 3)
-        self.assertEqual(a.keys_for(8, 0), [a.KEY_DOWN] * 6)
+        self.assertEqual(a.keys_for(a.TRAIN_MILITIA, 0), [a.KEY_DOWN] * 5)
+        self.assertEqual(a.keys_for(8, 0), [a.KEY_DOWN] * 7)
         with self.assertRaises(ValueError):
-            a.keys_for(6, 0)  # militia training is not offered yet
+            a.keys_for(9, 0)
 
     def test_member_assignment_finds_the_exact_actor(self):
         reply = {"groups": [{"slot": 3, "inc": 4, "members": [{"slot": 0, "inc": 1, "profile": 239, "assignment": 0}]},

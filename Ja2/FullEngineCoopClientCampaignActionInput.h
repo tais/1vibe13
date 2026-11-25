@@ -195,12 +195,12 @@ public:
 	}
 
 	// The co-op assignment codes offered, in menu order: squad (any), doctor,
-	// patient, repair, train self, rest, wake. Militia training needs payment
-	// support and is not offered yet.
-	static constexpr std::uint8_t AssignmentChoiceCount = 7;
+	// patient, repair, train self, train militia (pays the stock session fee),
+	// rest, wake.
+	static constexpr std::uint8_t AssignmentChoiceCount = 8;
 	static constexpr std::uint8_t AssignmentTrainSelfCode = 5;
 	static constexpr std::uint8_t AssignmentStatCount = 9;
-	static constexpr std::uint8_t AssignmentChoiceCodes[AssignmentChoiceCount] = {1, 2, 3, 4, 5, 7, 8};
+	static constexpr std::uint8_t AssignmentChoiceCodes[AssignmentChoiceCount] = {1, 2, 3, 4, 5, 6, 7, 8};
 
 private:
 	std::array<bool, static_cast<unsigned>(Key::Count)> held_{};

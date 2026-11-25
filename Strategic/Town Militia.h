@@ -138,4 +138,14 @@ FLOAT GetIntel();
 void AddRaidPersonnel( INT32 aBloodcats, INT32 aZombie, INT32 aBandits );
 void GetRaidPersonnel( INT32& arBloodcats, INT32& arZombie, INT32& arBandits );
 
+// Dedicated co-op: the stock per-session price for training militia in the
+// merc's own surface sector (0 when that session is already paid), and the
+// stock payment without its confirmation prompt (the co-op request is the
+// confirmation). Payment refuses when the balance cannot cover the price.
+INT32 DedicatedCoopMilitiaTrainingCost( TacticalActor *pSoldier );
+BOOLEAN PayForDedicatedCoopMilitiaTraining( TacticalActor *pSoldier, INT32 *piPaid );
+// Undoes a payment made by PayForDedicatedCoopMilitiaTraining when the
+// assignment that it paid for could not be applied.
+void RefundDedicatedCoopMilitiaTraining( TacticalActor *pSoldier, INT32 iPaid );
+
 #endif

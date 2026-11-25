@@ -1796,6 +1796,59 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia6");
 	ResetDoneFlagForAllMilitiaTrainersInSector( ubSector, ubMilitiaType );
 }
 
+namespace
+{
+// The prompt's multiplier for one trainer's sector (stock
+// HandleInterfaceMessageForCostOfTrainingMilitia, garrison case).
+INT32 DedicatedCoopMilitiaCostMultiplier( TacticalActor *pSoldier )
+{
+	if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, REGULAR_MILITIA ) &&
+		gGameExternalOptions.gfTrainVeteranMilitia &&
+		GetWorldDay( ) >= gGameExternalOptions.guiTrainVeteranMilitiaDelay)
+		return gGameExternalOptions.iVeteranCostModifier;
+	if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, GREEN_MILITIA ))
+		return gGameExternalOptions.iRegularCostModifier;
+	return 1;
+}
+
+bool DedicatedCoopTrainerSector( TacticalActor *pSoldier, UINT8 &ubSector )
+{
+	if (!pSoldier || pSoldier->deployment().sectorZ() != 0) return false;
+	ubSector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
+	return true;
+}
+}
+
+INT32 DedicatedCoopMilitiaTrainingCost( TacticalActor *pSoldier )
+{
+	UINT8 ubSector = 0;
+	if (!DedicatedCoopTrainerSector( pSoldier, ubSector ) || SectorInfo[ ubSector ].fMilitiaTrainingPaid) return 0;
+	const INT32 iMilitiaTrainingCost = gGameExternalOptions.iMilitiaTrainingCost * RebelCommand::GetMilitiaTrainingCostModifier();
+	return iMilitiaTrainingCost * DedicatedCoopMilitiaCostMultiplier( pSoldier );
+}
+
+BOOLEAN PayForDedicatedCoopMilitiaTraining( TacticalActor *pSoldier, INT32 *piPaid )
+{
+	UINT8 ubSector = 0;
+	if (piPaid) *piPaid = 0;
+	if (!DedicatedCoopTrainerSector( pSoldier, ubSector )) return FALSE;
+	if (SectorInfo[ ubSector ].fMilitiaTrainingPaid) return TRUE;
+	const INT32 iCost = DedicatedCoopMilitiaTrainingCost( pSoldier );
+	if (iCost <= 0 || LaptopSaveInfo.iCurrentBalance < iCost) return FALSE;
+	PayForTrainingInSector( ubSector, TOWN_MILITIA, DedicatedCoopMilitiaCostMultiplier( pSoldier ) );
+	if (!SectorInfo[ ubSector ].fMilitiaTrainingPaid) return FALSE;
+	if (piPaid) *piPaid = iCost;
+	return TRUE;
+}
+
+void RefundDedicatedCoopMilitiaTraining( TacticalActor *pSoldier, INT32 iPaid )
+{
+	UINT8 ubSector = 0;
+	if (iPaid <= 0 || !DedicatedCoopTrainerSector( pSoldier, ubSector )) return;
+	SectorInfo[ ubSector ].fMilitiaTrainingPaid = FALSE;
+	AddTransactionToPlayersBook( TRAIN_TOWN_MILITIA, ubSector, GetWorldTotalMin(), iPaid );
+}
+
 void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitiaType )
 {
 	TacticalActor *pSoldier = NULL;

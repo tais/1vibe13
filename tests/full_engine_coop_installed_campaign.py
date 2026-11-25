@@ -200,17 +200,39 @@ def wait_shared(probes, guard, timeout, predicate, previous=None):
     raise SmokeFailure("clients did not converge on the required native campaign state")
 
 
+MAXIMUM_QUEUE_RETRIES = 6
+
+
 def scoped_input(probe, ui, key, deadline, guard):
     if not validate_ui(ui) or not ui["enabled"] or ui["action_pending"] or ui["time_pending"]:
         raise SmokeFailure("shipping Screen input is unavailable or already awaiting a receipt")
-    request = probe.send("CAMPAIGN_INPUT", ui["session"], ui["control_revision"], ui["groups_revision"], ui["decision"],
-                         *ui["selected"], *ui["destination"], armed_mask(ui), key)
-    answer = probe.receive(request, "campaign_input", deadline, guard)
+    for _ in range(MAXIMUM_QUEUE_RETRIES):
+        request = probe.send("CAMPAIGN_INPUT", ui["session"], ui["control_revision"], ui["groups_revision"],
+                             ui["decision"], *ui["selected"], *ui["destination"], armed_mask(ui), key)
+        answer = probe.receive(request, ("campaign_input", "error"), deadline, guard)
+        if answer["kind"] == "campaign_input":
+            break
+        # The driver refuses when the previous key pair is still queued or the
+        # view moved on. Press again only against the very same view.
+        time.sleep(0.2)
+        fresh = query(probe, "CAMPAIGN_UI", "campaign_ui", deadline, guard)
+        # Revisions may move on (another receipt landed); what the key means
+        # must not: the session always, and for map keys the selection,
+        # destination, decision and armed state. Time keys (13-16) mean the
+        # same against any view of the session.
+        meaning = ("session",) if 13 <= key <= 16 else ("session", "decision", "selected", "destination")
+        if (not validate_ui(fresh) or not fresh["enabled"] or fresh["action_pending"] or fresh["time_pending"] or
+                any(fresh[field] != ui[field] for field in meaning) or
+                (not 13 <= key <= 16 and armed_mask(fresh) != armed_mask(ui))):
+            raise SmokeFailure(f"the strategic Screen changed before key {key} was accepted: {answer.get('error')}")
+        ui = fresh
+    else:
+        raise SmokeFailure(f"the Screen driver kept refusing key {key}")
     if (set(answer) != {"request", "kind", "queued", "key", "queued_events", "input_count"} or
             not integer(answer["request"], 1) or answer["request"] != request or answer["kind"] != "campaign_input" or
             answer["queued"] is not True or answer["key"] != key or type(answer["key"]) is not int or
             type(answer["queued_events"]) is not int or answer["queued_events"] != 2 or
-            not integer(answer["input_count"], 1, 32)):
+            not integer(answer["input_count"], 1, 128)):
         raise SmokeFailure("Screen driver did not queue one exact key-down/key-up pair")
     return answer
 
