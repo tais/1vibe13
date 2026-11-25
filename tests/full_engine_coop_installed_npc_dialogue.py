@@ -101,12 +101,12 @@ def wait_conversations(probes, guard, predicate, timeout, what):
     raise SmokeFailure(f"replicas never agreed on {what}; last={json.dumps(last)[:600]}")
 
 
-def walk_into_talk_range(probes, guard, sender, merc, npc, timeout):
+def walk_into_talk_range(probes, guard, sender, merc, npc, timeout, skip=()):
     """MOVE the merc onto a free tile within the talk radius; returns the tile."""
     deadline = time.monotonic() + timeout
     identity = (merc["slot"], merc["inc"])
     state = _states(probes, deadline, guard)[sender]
-    for target in talk_tiles(state, merc, npc)[:8]:
+    for target in [tile for tile in talk_tiles(state, merc, npc) if tile not in skip][:8]:
         request = probes[sender].send("MOVE", *identity, target)
         reply = probes[sender].receive(request, "move", deadline, guard)
         if not reply.get("submitted") or not reply.get("command"):
@@ -525,57 +525,95 @@ def settle_basement(probes, guard, timeout, evidence, quiet=6.0):
 IRA = 59
 
 
-def recruit_npc(probes, guard, server, npc_profile, timeout, evidence):
-    """Walk to the NPC, open its panel with K and answer 4 (recruit): the stock
-    recruitment must put it on the player team, owned by exactly one player."""
+def attempt_recruit(probes, guard, server, recruiter, npc_profile, timeout, evidence):
+    """One stock recruitment attempt by `recruiter`'s selected merc: walk up,
+    K, answer 4. True once the NPC is on the player team with one owner;
+    False after a stock refusal (the panel is then closed)."""
+    probe = probes[recruiter]
     states = _states(probes, time.monotonic() + timeout, guard)
-    selected = tuple(conversations(probes[:1], guard, time.monotonic() + timeout)[0]["selected"])
-    merc = find_actor(states[0], lambda a: (a["slot"], a["inc"]) == selected)
-    npc = find_actor(states[0], lambda a: a["profile"] == npc_profile and a["life"] > 0)
+    selected = tuple(conversations([probe], guard, time.monotonic() + timeout)[0]["selected"])
+    merc = find_actor(states[recruiter], lambda a: (a["slot"], a["inc"]) == selected)
+    npc = find_actor(states[recruiter], lambda a: a["profile"] == npc_profile and a["life"] > 0)
     where = npc or fixture_npc_position(server, npc_profile)
     if not merc or not where:
         raise SmokeFailure(f"profile {npc_profile} or the recruiter is not in the sector")
-    evidence["recruit_walk"] = walk_into_talk_range(probes, guard, 0, merc, where, timeout)
-    evidence["recruit_target"] = [npc["slot"], npc["inc"]] if npc else None
-    evidence["recruit_talk_target"] = conversations(probes[:1], guard, time.monotonic() + timeout)[0]["talk_target"]
-    for attempt in range(MAXIMUM_STALE_RETRIES):
-        record = conversations(probes[:1], guard, time.monotonic() + timeout)[0]
-        previous = last_command(record)
-        converse(probes[0], guard, 0, 0, timeout)
-        if command_outcome(probes[0], guard, previous, lambda r: r["conversation"] != 0, timeout) == "done":
+    attempt = {"client": recruiter, "merc": list(selected), "walks": []}
+    evidence.setdefault("recruit_attempts", []).append(attempt)
+    # K addresses the nearest NPC: stand where the recruit is that one.
+    for _ in range(6):
+        attempt["walks"].append(walk_into_talk_range(probes, guard, recruiter, merc, where, timeout, attempt["walks"]))
+        time.sleep(1.0)
+        target = conversations([probe], guard, time.monotonic() + timeout)[0]["talk_target"]
+        if npc and tuple(target) == (npc["slot"], npc["inc"]):
+            break
+        states = _states(probes, time.monotonic() + timeout, guard)
+        merc = find_actor(states[recruiter], lambda a: (a["slot"], a["inc"]) == selected)
+        npc = find_actor(states[recruiter], lambda a: a["profile"] == npc_profile and a["life"] > 0) or npc
+    else:
+        raise SmokeFailure(f"profile {npc_profile} never became the nearest talk target")
+    for _ in range(MAXIMUM_STALE_RETRIES):
+        previous = last_command(conversations([probe], guard, time.monotonic() + timeout)[0])
+        converse(probe, guard, 0, 0, timeout)
+        if command_outcome(probe, guard, previous, lambda r: r["conversation"] != 0, timeout) == "done":
             break
         time.sleep(0.5)
     else:
         raise SmokeFailure("talking to the recruit stayed stale")
     opened = wait_conversations(probes, guard, lambda r: r[0]["conversation"] != 0 and not r[0]["speaking"] and
                                 r[0]["npc_profile"] == npc_profile, timeout, "the recruit's panel")
-    evidence["recruit_greeting"] = quote_text(opened[0])
-    converse(probes[0], guard, opened[0]["conversation"], 4, timeout)
-    deadline = time.monotonic() + 2 * timeout
+    attempt["greeting"] = quote_text(opened[0])
+    converse(probe, guard, opened[0]["conversation"], 4, timeout)
+    deadline = time.monotonic() + timeout
+    attempt["lines"] = []
     while time.monotonic() < deadline:
         records = conversations(probes, guard, time.monotonic() + timeout)
-        if all(record["ready"] for record in records) and records[0]["conversation"]:
-            line = quote_text(records[0])
-            if line and evidence.setdefault("recruit_lines", [])[-1:] != [line]:
-                evidence["recruit_lines"].append(line)
-            answering = [index for index, record in enumerate(records) if record["answerable"]]
-            if not records[0]["speaking"] and answering and line != evidence["recruit_greeting"]:
-                time.sleep(2)
-                again = conversations(probes, guard, time.monotonic() + timeout)
-                if again[0]["conversation"] == records[0]["conversation"] and not again[0]["speaking"] and \
-                        again[0]["revision"] == records[0]["revision"]:
-                    converse(probes[answering[-1]], guard, records[0]["conversation"], 0, timeout)
         states = _states(probes, time.monotonic() + timeout, guard)
         joined = [find_actor(state, lambda a: a["profile"] == npc_profile and a["team"] == 0) for state in states]
         if all(joined):
             identity = [joined[0]["slot"], joined[0]["inc"]]
             owners = [index for index, state in enumerate(states) if identity in state["assigned"]]
             if len(owners) == 1:
-                evidence["recruited"] = {"actor": identity, "owner": owners[0]}
-                return evidence
+                evidence["recruited"] = {"actor": identity, "owner": owners[0], "recruiter": attempt["merc"]}
+                return True
+        if all(record["ready"] for record in records) and records[0]["conversation"]:
+            line = quote_text(records[0])
+            if line and attempt["lines"][-1:] != [line]:
+                attempt["lines"].append(line)
+            answering = [index for index, record in enumerate(records) if record["answerable"]]
+            if not records[0]["speaking"] and answering and records[0]["revision"] > opened[0]["revision"]:
+                time.sleep(3)
+                again = conversations(probes, guard, time.monotonic() + timeout)
+                still = [find_actor(state, lambda a: a["profile"] == npc_profile and a["team"] == 0)
+                         for state in _states(probes, time.monotonic() + timeout, guard)]
+                if not all(still) and again[0]["conversation"] == records[0]["conversation"] and \
+                        not again[0]["speaking"] and again[0]["revision"] == records[0]["revision"]:
+                    # A stock refusal ("I'm not sure of you"): close and let
+                    # another merc try, as a player would.
+                    converse(probes[answering[0]], guard, records[0]["conversation"], 0, timeout)
+                    wait_conversations(probes, guard, lambda r: r[0]["conversation"] == 0, timeout, "the closed refusal")
+                    return False
         time.sleep(0.4)
-    raise SmokeFailure(f"profile {npc_profile} never joined the player team with one owner; "
-                       f"lines={evidence.get('recruit_lines')}")
+    raise SmokeFailure(f"the recruit attempt neither succeeded nor ended; lines={attempt['lines']}")
+
+
+def recruit_npc(probes, guard, server, npc_profile, timeout, evidence):
+    """Recruit the NPC with the first merc the stock rules accept: each of the
+    acting player's mercs in turn (Tab), then the other player's."""
+    for recruiter in (0, 1):
+        assigned = _states(probes, time.monotonic() + timeout, guard)[recruiter]["assigned"]
+        for _ in range(len(assigned)):
+            if attempt_recruit(probes, guard, server, recruiter, npc_profile, timeout, evidence):
+                return evidence
+            before = tuple(conversations([probes[recruiter]], guard, time.monotonic() + timeout)[0]["selected"])
+            request = probes[recruiter].send("SELECT_NEXT_INPUT")
+            if not probes[recruiter].receive(request, "select_next_input", time.monotonic() + timeout, guard).get("queued"):
+                raise SmokeFailure("Tab was not queued")
+            deadline = time.monotonic() + timeout
+            while tuple(conversations([probes[recruiter]], guard, deadline)[0]["selected"]) == before:
+                if time.monotonic() > deadline:
+                    raise SmokeFailure("Tab did not select another merc")
+                time.sleep(0.2)
+    raise SmokeFailure(f"profile {npc_profile} refused every merc; attempts={evidence.get('recruit_attempts')}")
 
 
 def main(argv=None):

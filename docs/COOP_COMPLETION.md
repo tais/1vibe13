@@ -3692,6 +3692,16 @@ validation to the interface synchronization of the revision that introduces
 them; the incremental check remains for assignment changes within an already
 synchronized revision.
 
+Whether Ira accepts is stock logic: it depends on the recruiting merc
+(leadership, personality, her opinion) and town loyalty, so a refusal ("Sounds
+interesting, but I'm not sure of you.") is a legitimate outcome. The probe
+recruits like a player would: if she refuses, it closes her panel, selects the
+next merc with `Tab` and tries again, first the acting player's mercs, then the
+other player's. In the passing runs so far the first merc was accepted, so that
+retry path is not yet exercised. `K` addresses the nearest visible NPC, and a
+bystander (profile 114) sometimes stands nearer than Ira; the probe first moves
+until Ira is the talk target.
+
 Installed evidence: the dialogue probe ends with Ira on the player team on both
 replicas and in exactly one player's assignments. The run before this fix, with
 the same probe, failed at exactly that step with the presentation rejection.

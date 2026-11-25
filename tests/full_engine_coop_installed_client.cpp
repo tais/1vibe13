@@ -2098,6 +2098,27 @@ void ReplyInventoryInput(std::uint64_t request, unsigned action, TacticalEntityI
 	FlushReply();
 }
 
+// Queues the shipping Screen's Tab (select the next owned merc) while no
+// conversation, inventory or other modal input is open.
+void ReplySelectNextInput(std::uint64_t request, unsigned& inputs) noexcept
+{
+	InventoryUiObservation observation;
+	CoopSession::CoopConversation c;
+	const bool talking = GetFullEngineCoopClientRuntime().conversation(c) && c.conversation;
+	if (inputs >= MaximumInventoryUiInputs || GetCurrentScreen() != GAME_SCREEN || !ObserveInventoryUi(observation) ||
+		observation.controls.open || talking || GetInputQueueStatistics().queued != 0)
+	{
+		ReplyError(request, "select-next input requires an idle tactical screen; no retry");
+		return;
+	}
+	++inputs;
+	std::uint64_t accepted = 0;
+	const bool queued = QueueInventoryUiPair(false, TAB, accepted);
+	std::printf("%s{\"request\":%llu,\"kind\":\"select_next_input\",\"queued\":%s}", ReplyPrefix,
+		static_cast<unsigned long long>(request), queued ? "true" : "false");
+	FlushReply();
+}
+
 // Queues the shipping inventory's K (give the selected item to the nearest
 // NPC) only while the exact actor, source slot and inventory revision show.
 void ReplyGiveInput(std::uint64_t request, const std::array<std::uint64_t, 4>& values, unsigned& inputs) noexcept
@@ -2384,6 +2405,12 @@ private:
 			}
 			if (!parsed || !cursor.exhausted()) ReplyError(request, "RETURN_MAP_INPUT needs session/control/groups/sector/armed/key");
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
+			return;
+		}
+		if (operation == "SELECT_NEXT_INPUT")
+		{
+			if (!cursor.exhausted()) ReplyError(request, "SELECT_NEXT_INPUT takes only a request id");
+			else ReplySelectNextInput(request, inventoryUiInputs_);
 			return;
 		}
 		if (operation == "GIVE_INPUT")
