@@ -4221,3 +4221,25 @@ Screen; both clients then show it under the teammate's control and the other
 three where they were. Negative control: with the ledger change skipped the
 merc never moves and the probe fails. Not yet: a claim by the receiving side,
 and ownership across a resume (7.3).
+
+Ownership across a resume (7.3) is deferred: player identities are issued
+afresh in every admission session (`CoopAdmission`), and a client rejoining a
+new session gives up its old credential, so there is no stable player to
+record yet. It needs a player key that outlives a server session (an admission
+protocol change); the merc side would be keyed by profile, since entity
+incarnations change when a save is restored. Until then, players rebalance
+after a restart with J.
+
+## Phase 4.1 evidence: a burst at a real enemy
+
+Fire modes (4.1) were proven by cycling them, not by firing. Now: in the
+untouched starter battle the test host gives every player merc a loaded
+burst-capable gun from the game data and switches it to burst through the
+stock `ChangeWeaponMode` (which also arms the burst counter; setting the mode
+field alone fires a single shot). A merc's owner fires at a native enemy
+through the shipping controller, with the same certification as the
+single-shot probe. A burst spends a fixed number of rounds whether it hits or
+not, so `full_engine_coop_installed_burst_fire.py` requires exactly the gun's
+burst size spent on both clients (3 for the first burst-capable gun in the
+installed data). Negative control: with the pre-4.1 idle check (any armed
+burst counter counts as busy) the burst is refused and the probe fails.

@@ -531,6 +531,53 @@ void PollBurstWeaponSeed()
 	std::fflush(stdout);
 }
 
+// Fixture-only (JA2_COOP_ENTRY_COMBAT_BURST=1, starter-victory mode): in the
+// untouched starter battle, once the four player mercs are in A9 with enemies
+// present, put a loaded burst-capable gun from the game data in every player
+// merc's hand, set to burst. A burst spends a fixed number of rounds whether it
+// hits or not, so the probe can require exactly that many on both clients.
+void PollCombatBurstSeed()
+{
+	static bool seeded = false;
+	static std::chrono::steady_clock::time_point since{};
+	if (seeded || !std::getenv("JA2_COOP_ENTRY_COMBAT_BURST") || !gfProgramIsRunning) return;
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		!NumEnemiesInAnySector(9, 1, 0))
+	{ since = {}; return; }
+	std::vector<TacticalActor*> mercs;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+			mercs.push_back(actor);
+	}
+	if (mercs.size() < 4) { since = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (since == std::chrono::steady_clock::time_point{}) { since = now; return; }
+	if (now - since < std::chrono::seconds(2)) return;
+	seeded = true;
+	UINT16 gun = 0;
+	for (UINT16 item = 1; item < MAXITEMS && !gun; ++item)
+		if (Item[item].usItemClass == IC_GUN && Weapon[Item[item].ubClassIndex].ubShotsPerBurst > 1 &&
+			!Weapon[Item[item].ubClassIndex].NoSemiAuto && !EXPLOSIVE_GUN(item) && DefaultMagazine(item)) gun = item;
+	if (!gun) { Finish(false, "combat burst fixture found no burst-capable gun"); return; }
+	for (auto* merc : mercs)
+	{
+		OBJECTTYPE object;
+		if (!CreateItem(gun, 100, &object)) { Finish(false, "combat burst fixture could not create the gun"); return; }
+		merc->inventory()[HANDPOS] = object;
+		// Through the stock mode change, which also arms the burst counter.
+		merc->attackSelection().weaponMode() = WM_NORMAL;
+		for (int step = 0; step < 6 && merc->attackSelection().weaponMode() != WM_BURST; ++step) ChangeWeaponMode(merc);
+		if (merc->attackSelection().weaponMode() != WM_BURST)
+		{ Finish(false, "combat burst fixture: the stock mode change never reached burst"); return; }
+	}
+	std::printf("[co-op entry test] combat burst seeded: mercs=%zu; item=%u; burst=%u; magazine=%u\n", mercs.size(),
+		unsigned(gun), unsigned(GetShotsPerBurst(&mercs[0]->inventory()[HANDPOS])),
+		unsigned(mercs[0]->inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_LOCKED_DOOR=1, starter-victory mode): once A9
 // is secured for peaceful play, lock the closed door nearest a player merc and
 // give that merc a locksmith kit; log the door and the tile to stand on. The
@@ -1130,6 +1177,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollQueenDeathSeed();
 	PollSectorMarker();
 	PollKnockOutTrigger();
+	PollCombatBurstSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())
