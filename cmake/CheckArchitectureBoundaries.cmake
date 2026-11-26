@@ -4957,6 +4957,30 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 8.3: a battle checkpoint only at a quiet player turn of turn-based combat;
+# only AI planning the save carries exactly (on an actor that is not
+# executing) is evidence rather than work, and evidence-only bits never count.
+file(READ "${SOURCE_ROOT}/Ja2/TacticalBattleCheckpointPolicy.h" coop_battle_policy_source)
+require_ordered_fragments(coop_battle_policy_source
+  "The battle checkpoint policy must require a quiet player turn of turn-based combat"
+  "if (!readiness.observed) return Reason::NotObserved;"
+  "if (!turn.turnBased || !turn.inCombat) return Reason::NotTurnBasedCombat;"
+  "if (turn.playerTeam == UINT8_MAX || turn.currentTeam != turn.playerTeam) return Reason::NotPlayerTurn;"
+  "if (turn.pendingCombatActions != 0) return Reason::CombatActionsPending;"
+  "return Reason::InterruptPending;"
+  "if (!actors.complete) return Reason::ActorScanIncomplete;"
+  "(actors.hazards & Ja2TacticalCheckpointBlockingActorHazards) != 0"
+  "if (!effects.complete) return Reason::EffectScanIncomplete;"
+  "return Reason::None;")
+file(READ "${SOURCE_ROOT}/Ja2/TacticalCheckpointReadiness.cpp" coop_battle_readiness_source)
+require_ordered_fragments(coop_battle_readiness_source
+  "Only AI planning on an actor that is not executing may be dormant evidence"
+  "if (planning.hasActionInProgress() &&"
+  "(actor.roster().team() == actingTeam || actor.roster().team() == gbPlayerNum))"
+  "add(Hazard::AiContinuation);"
+  "add(Hazard::DormantAiState);"
+  "if ((hazards & Ja2TacticalCheckpointBlockingActorHazards) != 0)")
+
 # 8.2: a save of a loaded battle must not advance the campaign stream (the
 # reachability marking inside it draws from a private stream), and a dedicated
 # campaign load rebuilds its world on a private fixed stream between the

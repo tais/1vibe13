@@ -25,8 +25,15 @@ enum class Ja2TacticalCheckpointActorHazard : std::uint32_t
 	DeferredCallback = 1u << 14,
 	Interaction = 1u << 15,
 	FireContinuation = 1u << 16,
-	WorldObjectContinuation = 1u << 17
+	WorldObjectContinuation = 1u << 17,
+	// Evidence only, never busy: AI planning the save carries exactly on an
+	// actor that is not executing (a team that is not acting, or a player
+	// merc's leftover planning without an action in progress).
+	DormantAiState = 1u << 18
 };
+// The hazards that make an actor busy (everything but evidence-only bits).
+constexpr std::uint32_t Ja2TacticalCheckpointBlockingActorHazards =
+	~static_cast<std::uint32_t>(Ja2TacticalCheckpointActorHazard::DormantAiState);
 
 struct Ja2TacticalCheckpointActorEvidence
 {

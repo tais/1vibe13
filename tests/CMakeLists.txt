@@ -148,6 +148,13 @@ target_include_directories(coop_secured_sector_stop_tests PRIVATE
 target_compile_features(coop_secured_sector_stop_tests PRIVATE cxx_std_17)
 add_test(NAME coop_secured_sector_stop COMMAND coop_secured_sector_stop_tests)
 
+add_executable(tactical_battle_checkpoint_policy_tests
+  tactical_battle_checkpoint_policy_tests.cpp)
+target_include_directories(tactical_battle_checkpoint_policy_tests PRIVATE
+  ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Ja2)
+target_compile_features(tactical_battle_checkpoint_policy_tests PRIVATE cxx_std_17)
+add_test(NAME tactical_battle_checkpoint_policy COMMAND tactical_battle_checkpoint_policy_tests)
+
 add_executable(coop_campaign_time_tests
   coop_campaign_time_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)

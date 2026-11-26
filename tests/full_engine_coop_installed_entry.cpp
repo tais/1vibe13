@@ -35,6 +35,7 @@
 #include "TacticalActor.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalBattleCheckpointPolicy.h"
 #include "TacticalInterruptHost.h"
 #include "DedicatedCampaignSaveBridge.h"
 #include "SoldierRepository.h"
@@ -810,6 +811,11 @@ std::vector<std::string> NativeBattleDigest()
 			int(actor->vitals().breath()), int(actor->actionPoints().current()), unsigned(actor->animationPlayback().state()),
 			unsigned(actor->position().direction()));
 		lines.emplace_back(line);
+		// The AI plan object is a stateless wrapper rebuilt on demand, not state.
+		std::snprintf(line, sizeof line, "  actor %u ai inProgress=%d action=%d next=%d",
+			unsigned(slot), int(actor->aiPlanning().hasActionInProgress()), int(actor->aiPlanning().action()),
+			int(actor->aiPlanning().nextAction()));
+		lines.emplace_back(line);
 		for (std::size_t index = 0; index < actor->inventory().size(); ++index)
 		{
 			const OBJECTTYPE& object = actor->inventory()[index];
@@ -839,11 +845,30 @@ void PollBattleSaveDiagnostic()
 	static bool done = false;
 	static std::chrono::steady_clock::time_point since{};
 	if (done || !std::getenv("JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC") || !gfProgramIsRunning) return;
-	const bool ordinaryPlayerTurn = IsJa2TacticalWorldLoaded() && IsJa2TacticalCombatActive() &&
-		IsJa2TacticalTurnBasedCombat() && GetJa2TacticalCurrentTeam() == gbPlayerNum &&
-		GetJa2PendingTacticalCombatActions() == 0 &&
-		CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::None;
-	if (!ordinaryPlayerTurn) { since = {}; return; }
+	// The Phase 8.3 policy over the native readiness evidence decides when.
+	static Ja2TacticalBattleCheckpointReason lastReason = Ja2TacticalBattleCheckpointReason::NotObserved;
+	const auto readiness = CaptureJa2TacticalCheckpointReadiness();
+	const auto reason = EvaluateJa2TacticalBattleCheckpoint(readiness);
+	static std::uint32_t lastHazards = 0;
+	static std::uint16_t lastBusy = UINT16_MAX;
+	if ((reason != lastReason || readiness.actors.hazards != lastHazards || readiness.actors.firstBusySlot != lastBusy) &&
+		IsJa2TacticalWorldLoaded())
+	{
+		lastReason = reason; lastHazards = readiness.actors.hazards; lastBusy = readiness.actors.firstBusySlot;
+		const TacticalActor* busy = readiness.actors.firstBusySlot != UINT16_MAX
+			? GetJa2SoldierRepository().resolve(readiness.actors.firstBusySlot) : nullptr;
+		if (busy)
+			std::printf("[co-op entry test] battle save diagnostic: ai of %u: inProgress=%d action=%d next=%d plan=%d\n",
+				unsigned(readiness.actors.firstBusySlot), int(busy->aiPlanning().hasActionInProgress()),
+				int(busy->aiPlanning().action()), int(busy->aiPlanning().nextAction()), int(busy->aiPlan().hasPlan()));
+		std::printf("[co-op entry test] battle save diagnostic: readiness %s; team=%d; busy=%u (of %u) first=%u team=%d anim=%u; hazards=0x%x\n",
+			Ja2TacticalBattleCheckpointReasonName(reason), int(readiness.turn.currentTeam), unsigned(readiness.actors.busyActors),
+			unsigned(readiness.actors.inSectorActors), unsigned(readiness.actors.firstBusySlot),
+			busy ? int(busy->roster().team()) : -1, busy ? unsigned(busy->animationPlayback().state()) : 0u,
+			unsigned(readiness.actors.hazards));
+		std::fflush(stdout);
+	}
+	if (reason != Ja2TacticalBattleCheckpointReason::None) { since = {}; return; }
 	const auto now = std::chrono::steady_clock::now();
 	if (since == std::chrono::steady_clock::time_point{}) { since = now; return; }
 	if (now - since < std::chrono::seconds(3)) return;

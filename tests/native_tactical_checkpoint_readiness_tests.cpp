@@ -255,6 +255,15 @@ int main()
 	civilian.schedule().beginDoorContinuation(12040); ExpectHazard(Hazard::ScheduleContinuation, "schedule door continuation observed"); civilian.schedule().cancelDoorContinuation();
 	civilian.aiBehavior().setFlag(AI_CHECK_SCHEDULE); ExpectHazard(Hazard::ScheduleContinuation, "active schedule work observed"); civilian.aiBehavior().clearFlag(AI_CHECK_SCHEDULE);
 	actor.aiPlanning().actionInProgress() = TRUE; ExpectHazard(Hazard::AiContinuation, "in-progress AI action observed"); actor.aiPlanning().actionInProgress() = FALSE;
+	{
+		// A player merc's leftover planning without an action in progress is
+		// restored exactly by the save: evidence, not work.
+		actor.aiPlanning().nextAction() = AI_ACTION_CHANGE_STANCE;
+		const auto dormant = CaptureJa2TacticalCheckpointReadiness();
+		CHECK(Has(dormant, Hazard::DormantAiState) && !Has(dormant, Hazard::AiContinuation) &&
+			dormant.actors.busyActors == 0, "leftover AI planning is dormant evidence and not busy");
+		actor.aiPlanning().nextAction() = AI_ACTION_NONE;
+	}
 	actor.fireControl().bulletsLeft() = 1; ExpectHazard(Hazard::FireContinuation, "remaining shot continuation observed"); actor.fireControl().bulletsLeft() = 0;
 	actor.runtime().pendingAction.delayedDamage = [] { ++callbacks; };
 	ExpectHazard(Hazard::DeferredCallback, "deferred actor damage callback observed");

@@ -4402,3 +4402,33 @@ Not covered by the digest: doors, NPC schedules, interrupt records,
 reinforcement state and AI state. Battle saves remain refused in production;
 the eligibility class, the controlled tactical stop and the restored-battle
 runtime phase (8.3-8.6) come next.
+
+## Phase 8.3: when a battle may be checkpointed
+
+- `EvaluateJa2TacticalBattleCheckpoint` (`Ja2/TacticalBattleCheckpointPolicy.h`)
+  is the first decision over the existing native readiness evidence
+  (`CaptureJa2TacticalCheckpointReadiness`). A battle checkpoint is supported
+  only at an ordinary player turn of turn-based combat with nothing in
+  flight: no pending combat action, tactical event or interrupt; every actor
+  settled; no bullet, physics object, explosion, timed bomb, smoke or light
+  effect or transient tile; no dialogue, timer, decision, traversal or other
+  interface transition; no pending sight work. Each failure names one reason.
+  Restrictions are observed, never produced by cancelling gameplay. The
+  runtime's own drains (frame, commands, receipts, packages, transport) stay
+  the stop path's job (8.5).
+- The actor classifier's AI rule was too broad: on every real player turn
+  every actor carried AI planning, so no moment ever qualified. Measured with
+  the 8.2 digest, AI planning (action, next action, action in progress)
+  survives the native save and load exactly, and the AI plan object is a
+  stateless wrapper (`LegacyAIPlan`) the AI rebuilds on demand. Now an AI
+  action in progress on the acting team, or on a player merc, is still work
+  (`AiContinuation`); planning on an actor that is not executing is
+  evidence-only (`DormantAiState`, not busy); the plan object is not state.
+- The 8.2 diagnostic now waits for this policy. In the qualifying run it was
+  met within the first player turns (an enemy briefly in a non-steady
+  animation blocked a few frames), and the battle saved and loaded at that
+  moment with no differing digest line (the digest now also covers each
+  actor's AI planning).
+
+Still refused in production: nothing calls the policy outside the diagnostic
+until the controlled tactical stop (8.5).

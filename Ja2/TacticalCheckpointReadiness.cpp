@@ -64,7 +64,7 @@ bool SteadyAnimation(UINT16 state) noexcept
 	}
 }
 
-std::uint32_t ActorHazards(const TacticalActor& actor) noexcept
+std::uint32_t ActorHazards(const TacticalActor& actor, std::uint8_t actingTeam) noexcept
 {
 	std::uint32_t hazards = 0;
 	const auto add = [&](Hazard value) { hazards |= static_cast<std::uint32_t>(value); };
@@ -113,10 +113,17 @@ std::uint32_t ActorHazards(const TacticalActor& actor) noexcept
 		activity.suppressionStanceChange() || activity.reactingFromShot() ||
 		activity.externalDeath() || (actor.status().flags() & SOLDIER_TURNINGFROMHIT) != 0)
 		add(Hazard::DamageRecovery);
-	if (actor.aiPlanning().hasActionInProgress() ||
-		actor.aiPlanning().action() != AI_ACTION_NONE ||
-		actor.aiPlanning().nextAction() != AI_ACTION_NONE || actor.aiPlan().hasPlan())
+	// An AI action in progress on the acting team (or on a player merc) is
+	// work. AI planning on an actor that is not executing is restored exactly
+	// by the save, so it is evidence only; the plan object is a stateless
+	// wrapper (LegacyAIPlan) the AI rebuilds on demand, not state at all.
+	const auto& planning = actor.aiPlanning();
+	if (planning.hasActionInProgress() &&
+		(actor.roster().team() == actingTeam || actor.roster().team() == gbPlayerNum))
 		add(Hazard::AiContinuation);
+	else if (planning.hasActionInProgress() || planning.action() != AI_ACTION_NONE ||
+		planning.nextAction() != AI_ACTION_NONE)
+		add(Hazard::DormantAiState);
 	// A schedule assignment alone is persistent idle data, not a continuation.
 	if (actor.schedule().doorContinuationPending() || actor.schedule().progress() != 0 ||
 		actor.aiBehavior().hasFlag(AI_CHECK_SCHEDULE)) add(Hazard::ScheduleContinuation);
@@ -130,7 +137,7 @@ std::uint32_t ActorHazards(const TacticalActor& actor) noexcept
 	return hazards;
 }
 
-Ja2TacticalCheckpointActorEvidence CaptureActors() noexcept
+Ja2TacticalCheckpointActorEvidence CaptureActors(std::uint8_t actingTeam) noexcept
 {
 	Ja2TacticalCheckpointActorEvidence result;
 	const auto& repository = GetJa2SoldierRepository();
@@ -144,13 +151,13 @@ Ja2TacticalCheckpointActorEvidence CaptureActors() noexcept
 		++result.activeActors;
 		if (actor.roster().inSector()) ++result.inSectorActors;
 		else ++result.awayActors;
-		auto hazards = ActorHazards(actor);
+		auto hazards = ActorHazards(actor, actingTeam);
 		if (!repository.contains(slot, actor) ||
 			static_cast<std::uint16_t>(actor.identity().id()) != slot ||
 			!GetJa2TacticalEntityId(actor).valid())
 			hazards |= static_cast<std::uint32_t>(Hazard::InvalidBinding);
 		result.hazards |= hazards;
-		if (hazards != 0)
+		if ((hazards & Ja2TacticalCheckpointBlockingActorHazards) != 0)
 		{
 			if (result.busyActors++ == 0)
 			{
@@ -231,7 +238,7 @@ Ja2TacticalCheckpointReadiness CaptureJa2TacticalCheckpointReadiness() noexcept
 	result.turn.interruptActive = interrupt.phase == Ja2TacticalInterruptPhase::Active;
 	result.turn.hiddenInterrupt = gfHiddenInterrupt != FALSE;
 	result.turn.playerInterruptsDisabled = world.interrupt.playerInterruptsDisabled;
-	result.actors = CaptureActors();
+	result.actors = CaptureActors(turn.currentTeam);
 	const auto events = GetEventQueueStatistics();
 	result.events = {events.primary, events.delayed, events.demand, events.payloadBytes};
 	result.effects = CaptureEffects();
