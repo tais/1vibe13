@@ -140,6 +140,20 @@ void ContractMode()
 	CHECK(!f.input.contracting() && !f.press(Key::Confirm), "Esc leaves contract mode without a request");
 }
 
+void TimeLeadConfirmation()
+{
+	Fixture f;
+	CHECK(!f.press(Key::Confirm), "Enter alone moves no time controls");
+	CHECK(!f.press(Key::TimeLead) && f.input.timeLeadArmed(), "T arms a time-lead transfer");
+	auto request = f.press(Key::Confirm);
+	CHECK(request && request->action == CoopCampaignAction::TransferTimeLead && !request->decision &&
+		!request->group.valid() && !f.input.timeLeadArmed(), "Enter confirms the armed transfer with no fields");
+	(void)f.press(Key::TimeLead); (void)f.press(Key::TimeLead);
+	CHECK(!f.input.timeLeadArmed() && !f.press(Key::Confirm), "a second T disarms it");
+	(void)f.press(Key::TimeLead); (void)f.press(Key::Cancel);
+	CHECK(!f.input.timeLeadArmed(), "Esc disarms it");
+}
+
 void EnterSectorConfirmation()
 {
 	Fixture f;
@@ -392,4 +406,4 @@ void SurrenderConfirmation()
 
 }
 
-int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); AssignmentMode(); ContractMode(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }
+int main() { BattleNoticeConfirmation(); ReturnToMapConfirmation(); ExitGridConfirmation(); SurrenderConfirmation(); Travel(); AssignmentMode(); ContractMode(); TimeLeadConfirmation(); EnterSectorConfirmation(); StaleAndPending(); Arrival(); return failures ? 1 : 0; }

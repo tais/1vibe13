@@ -10,7 +10,7 @@
 enum class FullEngineCoopClientCampaignActionKey : unsigned
 {
 	None, NextGroup, PreviousGroup, North, South, West, East, Confirm, Cancel,
-	Acknowledge, Stop, EnterBattle, Retreat, Assign, Contract, Count
+	Acknowledge, Stop, EnterBattle, Retreat, Assign, Contract, TimeLead, Count
 };
 
 // This is selection/confirmation state only. It never advances a clock, plans
@@ -86,6 +86,20 @@ public:
 			else return {};
 			cancel();
 			return request;
+		}
+		// T arms handing over (or, while the leader is offline, taking) the time
+		// controls; Enter confirms. The server decides who may.
+		if (key == Key::TimeLead)
+		{
+			const bool wasArmed = timeLeadArmed_;
+			cancel();
+			timeLeadArmed_ = !wasArmed;
+			return {};
+		}
+		if (key == Key::Confirm && timeLeadArmed_)
+		{
+			request.action = Action::TransferTimeLead;
+			cancel(); return request;
 		}
 		const auto* group = groups && groupsRevision_ ? selectedGroup(*groups) : nullptr;
 		if (!group) return {};
@@ -212,6 +226,7 @@ public:
 	bool enterArmed() const noexcept { return enterArmed_; }
 	bool assigning() const noexcept { return assigning_; }
 	bool contracting() const noexcept { return contracting_; }
+	bool timeLeadArmed() const noexcept { return timeLeadArmed_; }
 	// 0 = extend one day, 1 = one week, 2 = two weeks, 3 = dismiss.
 	std::uint8_t contractChoice() const noexcept { return contractChoice_; }
 	bool dismissArmed() const noexcept { return dismissArmed_; }
@@ -230,7 +245,7 @@ public:
 	{
 		destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false;
 		assigning_ = false; assignMember_ = 0; assignKind_ = 0; assignStat_ = 1;
-		contracting_ = dismissArmed_ = false; contractChoice_ = 0;
+		contracting_ = dismissArmed_ = false; contractChoice_ = 0; timeLeadArmed_ = false;
 	}
 
 	// The co-op assignment codes offered, in menu order: squad (any), doctor,
@@ -247,7 +262,7 @@ private:
 	std::uint64_t session_ = 0, control_ = 0, groupsRevision_ = 0, decision_ = 0;
 	std::uint8_t destinationX_ = 0, destinationY_ = 0;
 	bool retreatArmed_ = false, enterArmed_ = false, enabled_ = false;
-	bool assigning_ = false, contracting_ = false, dismissArmed_ = false;
+	bool assigning_ = false, contracting_ = false, dismissArmed_ = false, timeLeadArmed_ = false;
 	std::uint8_t contractChoice_ = 0;
 	std::uint16_t assignMember_ = 0;
 	std::uint8_t assignKind_ = 0, assignStat_ = 1;

@@ -226,6 +226,19 @@ public:
 	}
 	void clear() noexcept { value_ = {}; lastArrivalDecision_ = lastSurrenderOffer_ = lastBattleNotice_ = lastMeanwhile_ = 0; }
 	const CoopCampaignStatus& value() const noexcept { return value_; }
+	// Moves the time controls to `to` (a ready peer chosen by the authority);
+	// a new leadership and control revision.
+	bool transferTimeLeadership(const PeerIdentity& to) noexcept
+	{
+		if (!value_.revision || IsZero(to) || to == value_.timeLeader || value_.leadershipRevision == UINT64_MAX ||
+			value_.revision == UINT64_MAX || value_.timeControlRevision == UINT64_MAX) return false;
+		auto next = value_;
+		next.timeLeader = to; next.timeLeaderReady = true;
+		++next.leadershipRevision; ++next.timeControlRevision; ++next.revision;
+		if (!ValidCoopCampaignStatus(next)) return false;
+		value_ = next;
+		return true;
+	}
 	bool consumeTimeControlRevision(std::uint64_t expected) noexcept
 	{
 		if (!value_.revision || expected != value_.timeControlRevision ||

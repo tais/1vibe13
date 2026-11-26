@@ -1346,6 +1346,30 @@ struct DedicatedCoopRuntime::Impl
 		return {Outcome::Failed, 0};
 	}
 
+	// The leader hands the time controls to the other ready player; a claimer
+	// takes them while the leader is offline (the policy already decided which).
+	CoopSession::CoopCampaignActionNativeResult transferTimeLead(const CoopSession::PeerIdentity& requester) noexcept
+	{
+		using Outcome = CoopSession::CoopCampaignActionOutcome;
+		std::array<CoopSession::PeerIdentity, CoopSession::MaximumAuthorityPeers> ready{};
+		const std::size_t count = tactical->server.campaignReadyPeers(ready);
+		CoopSession::PeerIdentity target = requester;
+		if (requester == campaignStatusLedger.value().timeLeader)
+		{
+			target = {};
+			for (std::size_t i = 0; i < count; ++i)
+				if (ready[i] != requester) { target = ready[i]; break; }
+		}
+		if (CoopSession::IsZero(target) || !campaignStatusLedger.transferTimeLeadership(target))
+			return {Outcome::NativeRejected, 0};
+		// The new leader starts from a paused clock, as after any leadership change.
+		(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);
+		std::printf("[dedicated] time controls passed to a new leader (revision %llu)\n",
+			static_cast<unsigned long long>(campaignStatusLedger.value().leadershipRevision));
+		std::fflush(stdout);
+		return {Outcome::Applied, 0};
+	}
+
 	bool handleCampaignActionRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message,
 		DedicatedCoopRuntime& runtime) noexcept
 	{
@@ -1358,7 +1382,11 @@ struct DedicatedCoopRuntime::Impl
 		(void)campaignActionAuthority.submit(request, {message.peerIdentity, current},
 			campaignTimePeerReady(message.peerIdentity), true, worldlessStrategicTimeControl(),
 			campaignStatusLedger, campaignGroupsLedger.value(),
-			[&](const CoopSession::CoopCampaignActionRequest& accepted) { return applyCampaignAction(accepted, runtime); });
+			[&](const CoopSession::CoopCampaignActionRequest& accepted) {
+				if (accepted.action == CoopSession::CoopCampaignAction::TransferTimeLead)
+					return transferTimeLead(message.peerIdentity);
+				return applyCampaignAction(accepted, runtime);
+			});
 		if (fatal) return false;
 		if (campaignActionAuthority.failed())
 		{

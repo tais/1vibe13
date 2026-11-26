@@ -4953,6 +4953,35 @@ require_ordered_fragments(coop_contract_source
   "HandleLeavingOfEquipmentInCurrentSector(merc->identity().id());"
   "if (!StrategicRemoveMerc(merc)) return Code::Failed;")
 
+# Time leadership moves only by an explicit request: the leader hands the
+# controls to another ready player, anyone else takes them only while the
+# leader is not ready, and every move is a new leadership and control revision
+# that leaves the clock paused for the new leader.
+require_ordered_fragments(coop_assignment_policy_source
+  "Time-lead transfers must name nothing and be decided per requesting peer"
+  "if (request.action == CoopCampaignAction::TransferTimeLead)"
+  "return !request.decision && !request.group.slot && !request.group.incarnation &&"
+  "if (request.action == CoopCampaignAction::TransferTimeLead) return Outcome::Applied;"
+  "if (outcome != CoopCampaignActionOutcome::Applied || request.action != CoopCampaignAction::TransferTimeLead) return outcome;"
+  "if (peer == status.timeLeader) return status.readyPeers >= 2 ? outcome : CoopCampaignActionOutcome::Unavailable;"
+  "return status.timeLeaderReady ? CoopCampaignActionOutcome::Unauthorized : outcome;")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignStatus.h" coop_time_lead_status_source)
+require_ordered_fragments(coop_time_lead_status_source
+  "A time-lead transfer must be a new leadership and control revision"
+  "bool transferTimeLeadership(const PeerIdentity& to) noexcept"
+  "if (!value_.revision || IsZero(to) || to == value_.timeLeader"
+  "++next.leadershipRevision; ++next.timeControlRevision; ++next.revision;"
+  "if (!ValidCoopCampaignStatus(next)) return false;")
+require_ordered_fragments(coop_conversation_runtime_source
+  "The server must route time-lead requests to the ledger and pause for the new leader"
+  "CoopSession::CoopCampaignActionNativeResult transferTimeLead(const CoopSession::PeerIdentity& requester) noexcept"
+  "if (requester == campaignStatusLedger.value().timeLeader)"
+  "if (ready[i] != requester) { target = ready[i]; break; }"
+  "!campaignStatusLedger.transferTimeLeadership(target)"
+  "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);"
+  "if (accepted.action == CoopSession::CoopCampaignAction::TransferTimeLead)"
+  "return transferTimeLead(message.peerIdentity);")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.

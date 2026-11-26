@@ -368,6 +368,45 @@ void ContractDecisions()
 		"time cannot run while a contract awaits its decision");
 }
 
+void TimeLeadTransfer()
+{
+	Fixture f;
+	auto lead = f.request(); lead.action = CoopCampaignAction::TransferTimeLead; lead.group = {};
+	lead.destinationX = lead.destinationY = 0;
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(lead, bytes) && bytes[6] == 17 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, lead),
+		"transfer-time-lead is kind 17 and carries no fields");
+	auto noisy = lead; noisy.decision = 1;
+	CHECK(!ValidCoopCampaignActionRequest(noisy), "a time-lead transfer names nothing");
+	const auto& status = f.status.value();
+	const auto leader = status.timeLeader;
+	const auto other = leader == f.identities[0] ? f.identities[1] : f.identities[0];
+	CHECK(ValidateCoopCampaignActionRequest(lead, status, f.groups, leader, true, true, true) == CoopCampaignActionOutcome::Applied,
+		"the leader may hand the time controls to the other ready player");
+	CHECK(ValidateCoopCampaignActionRequest(lead, status, f.groups, other, true, true, true) == CoopCampaignActionOutcome::Unauthorized,
+		"nobody may take the controls from a ready leader");
+	auto clock = status; clock.readyPeers = 1;
+	CoopCampaignStatusLedger offline; CHECK(offline.beginSession(1), "third ledger");
+	const PeerIdentity both[] = {f.identities[0], f.identities[1]};
+	CHECK(offline.observe(clock, both, 2), "both ready first");
+	const auto elected = offline.value().timeLeader;
+	const auto claimer = elected == f.identities[0] ? f.identities[1] : f.identities[0];
+	const PeerIdentity rest[] = {claimer};
+	CHECK(offline.observe(clock, rest, 1) && !offline.value().timeLeaderReady, "the elected leader went offline");
+	auto claim = lead; claim.controlRevision = offline.value().timeControlRevision;
+	CHECK(ValidateCoopCampaignActionRequest(claim, offline.value(), f.groups, claimer, true, true, true) ==
+		CoopCampaignActionOutcome::Applied, "a ready player may take the controls from an offline leader");
+	CHECK(ValidateCoopCampaignActionRequest(claim, offline.value(), f.groups, elected, true, true, true) ==
+		CoopCampaignActionOutcome::Unavailable, "a lone leader has nobody to hand the controls to");
+	const auto revision = offline.value().leadershipRevision, control = offline.value().timeControlRevision;
+	CHECK(offline.transferTimeLeadership(claimer) && offline.value().timeLeader == claimer && offline.value().timeLeaderReady &&
+		offline.value().leadershipRevision == revision + 1 && offline.value().timeControlRevision == control + 1,
+		"the transfer is a new leadership and control revision");
+	CHECK(!offline.transferTimeLeadership(claimer) && !offline.transferTimeLeadership({}),
+		"no transfer to the current leader or to nobody");
+}
+
 void ReceiptsAndSerialization()
 {
 	Fixture f; unsigned executions = 0;
@@ -526,4 +565,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); TimeLeadTransfer(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

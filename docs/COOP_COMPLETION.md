@@ -3830,3 +3830,32 @@ min/sec) until the server reports four ended contracts; the clock is then held
 is dismissed (it leaves both rosters), the other two are extended by a day,
 $2,810 leaves the shared balance and the clock runs again. Negative control:
 with no ended contract reported, the clock never holds and the probe fails.
+
+## Phase 3.7: handing over the time controls
+
+One player holds the campaign time controls (pause and the compression
+rates). The first ready player is elected and an offline leader is kept, never
+silently replaced, so until now a leader who stepped away left the other player
+unable to run the clock.
+
+`TransferTimeLead` (campaign action 17, no fields) moves the controls:
+
+- The leader may hand them to the other ready player; with nobody else ready
+  it is unavailable.
+- Anyone else may take them only while the leader is not ready (offline or
+  retired); a ready leader cannot be overruled (unauthorized).
+- Every move is a new leadership and control revision, so a time request
+  queued against the old leader goes stale, and the clock is paused for the
+  new leader.
+- It is allowed wherever time is (map or a loaded sector). It assigns no
+  hiring, spending or tactical-command authority.
+- Client: `T` on the strategic map arms the hand-over (or the take-over while
+  the leader is offline) and Enter confirms; a second `T` or Esc disarms it.
+
+Installed evidence (`full_engine_coop_installed_time_lead.py`): after the
+seeded A9 victory and the shared return, the leader presses `T` then Enter;
+both clients agree on the other player as leader (leadership revision 1 → 2)
+and the new leader runs the clock (60 min/sec, applied). The take-over while
+the leader is offline is covered by the policy unit tests only. Negative
+control: with the ledger refusing the transfer, the hand-over is rejected and
+the probe fails.

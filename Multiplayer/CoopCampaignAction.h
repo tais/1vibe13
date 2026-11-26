@@ -22,7 +22,10 @@ enum class CoopCampaignAction : std::uint8_t
 	SetAssignment = 14,
 	// Contracts: decision packs the merc as for SetAssignment. ExtendContract's
 	// destinationX is the length (1 = one day, 2 = one week, 3 = two weeks).
-	ExtendContract = 15, DismissMerc = 16
+	ExtendContract = 15, DismissMerc = 16,
+	// The time controls: the leader hands them to another ready player, or a
+	// ready player takes them while the leader is offline. Carries no fields.
+	TransferTimeLead = 17
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -55,7 +58,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::DismissMerc;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::TransferTimeLead;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -76,6 +79,9 @@ inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& requ
 		return packedMerc && request.destinationX >= 1 && request.destinationX <= 3 && !request.destinationY;
 	if (request.action == CoopCampaignAction::DismissMerc)
 		return packedMerc && !request.destinationX && !request.destinationY;
+	if (request.action == CoopCampaignAction::TransferTimeLead)
+		return !request.decision && !request.group.slot && !request.group.incarnation &&
+			!request.destinationX && !request.destinationY;
 	return request.decision && !request.group.slot && !request.group.incarnation && !request.destinationX && !request.destinationY;
 }
 inline bool SameCoopCampaignActionRequest(const CoopCampaignActionRequest& a, const CoopCampaignActionRequest& b) noexcept
@@ -181,6 +187,9 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	if (!ValidCoopCampaignActionRequest(request) || !ValidCoopCampaignStatus(status) || !ValidCoopCampaignGroups(groups) ||
 		request.sessionEpoch != status.sessionEpoch || request.sessionEpoch != groups.sessionEpoch ||
 		request.controlRevision != status.timeControlRevision || request.groupsRevision != groups.revision) return Outcome::Stale;
+	// Who may move the time controls depends on the requesting peer; the
+	// peer-aware overload below decides that.
+	if (request.action == CoopCampaignAction::TransferTimeLead) return Outcome::Applied;
 	if (request.action == CoopCampaignAction::SkipMeanwhile)
 		return status.meanwhile.id && request.decision == status.meanwhile.id ? Outcome::Applied : Outcome::Stale;
 	if (status.meanwhile.id) return Outcome::Unavailable;
@@ -274,7 +283,13 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	const CoopCampaignStatus& status, const CoopCampaignGroups& groups, const PeerIdentity& peer,
 	bool ready, bool authorized, bool worldlessStrategic) noexcept
 {
-	return ValidateCoopCampaignActionRequest(request, status, groups, ready && !IsZero(peer), authorized, worldlessStrategic);
+	const auto outcome = ValidateCoopCampaignActionRequest(request, status, groups, ready && !IsZero(peer), authorized,
+		worldlessStrategic);
+	if (outcome != CoopCampaignActionOutcome::Applied || request.action != CoopCampaignAction::TransferTimeLead) return outcome;
+	// The leader may hand the controls to another ready player; anyone else may
+	// take them only while the leader is not ready (offline or retired).
+	if (peer == status.timeLeader) return status.readyPeers >= 2 ? outcome : CoopCampaignActionOutcome::Unavailable;
+	return status.timeLeaderReady ? CoopCampaignActionOutcome::Unauthorized : outcome;
 }
 }
 #endif

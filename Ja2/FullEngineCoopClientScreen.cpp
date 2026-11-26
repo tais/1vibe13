@@ -70,6 +70,7 @@ FullEngineCoopClientCampaignActionKey CampaignActionKey(UINT32 key) noexcept
 		case 'r': case 'R': return Key::Retreat;
 		case 'o': case 'O': return Key::Assign;
 		case 'c': case 'C': return Key::Contract;
+		case 't': case 'T': return Key::TimeLead;
 	}
 	return Key::None;
 }
@@ -1109,6 +1110,9 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 						static_cast<wint_t>(L'A' + CampaignActionInput.destinationY() - 1),
 						static_cast<unsigned>(CampaignActionInput.destinationX()));
 				else mprintf(24, 282, L"Arrow keys + Enter: order travel   E: enter this sector   O: assign   C: contracts");
+				if (CampaignActionInput.timeLeadArmed())
+					mprintf(24, 336, localLeader ? L"Hand the time controls to the other player? Enter: confirm   Esc: cancel"
+						: L"Take the time controls (the leader is offline)? Enter: confirm   Esc: cancel");
 				if (campaign.contractsDue)
 				{
 					SetFontForeground(FONT_MCOLOR_LTYELLOW);
@@ -1888,6 +1892,7 @@ bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignCon
 	output.enterArmed = CampaignActionInput.enterArmed();
 	output.assigning = CampaignActionInput.assigning();
 	output.contracting = CampaignActionInput.contracting();
+	output.timeLeadArmed = CampaignActionInput.timeLeadArmed();
 	output.contractChoice = CampaignActionInput.contractChoice();
 	output.dismissArmed = CampaignActionInput.dismissArmed();
 	output.assignmentCode = CampaignActionInput.assignmentCode();
