@@ -4957,6 +4957,44 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 8.5/8.6: a stop in a battle waits for the checkpoint's whole preflight at a
+# quiet player turn, ends replication (never the native battle) and saves the
+# battle; a resume adopts a loaded battle as is, validated by the same policy,
+# with no sector entry, arrival or turn start.
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopRuntime.cpp" coop_battle_runtime_source)
+require_ordered_fragments(coop_battle_runtime_source
+  "A battle checkpoint must pass the native policy and keep every other strategic hazard strict"
+  "static DedicatedCheckpointEligibilityReason BattleCheckpointEligibility("
+  "if (EvaluateJa2TacticalBattleCheckpoint(CaptureJa2TacticalCheckpointReadiness()) !="
+  "snapshot.tacticalWorldLoaded = false;" "snapshot.worldItemsLoaded = false;" "snapshot.combatActive = false;"
+  "snapshot.temporarySchedulesPresent = false;"
+  "return EvaluateDedicatedCheckpointEligibility(snapshot);"
+  "bool checkpointNow(GameContext& context, bool required, bool battle = false) noexcept"
+  "return battle ? BattleCheckpointEligibility(snapshot) : EvaluateDedicatedCheckpointEligibility(snapshot);")
+require_ordered_fragments(coop_battle_runtime_source
+  "A battle stop must wait for the whole preflight at a quiet player turn"
+  "IsJa2TacticalWorldLoaded() && IsJa2TacticalCombatActive())"
+  "impl_->battleStopDeadline = now + BattleStopTimeout;"
+  "if (impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,"
+  "impl_->battleStopReady = true;")
+require_ordered_fragments(coop_battle_runtime_source
+  "A battle shutdown must end replication only and then save the still loaded battle"
+  "const bool battle = impl_->battleStopReady && IsJa2TacticalWorldLoaded();"
+  "const CoopSession::FullEngineCoopTacticalServerResult ended = impl_->tactical->server.endWorld();"
+  "(void)impl_->tactical->server.takeTransportRestartRequired();"
+  "if (!impl_->checkpointNow(context, true, battle)) return false;")
+require_ordered_fragments(coop_battle_runtime_source
+  "A resumed battle must be validated by the native policy and adopted without sector entry"
+  "if (IsJa2TacticalWorldLoaded())"
+  "if (guiPendingOverrideEvent == I_CHANGE_TO_IDLE && gfEnteringMapScreen == FALSE)"
+  "loadedReadiness.continuations.uiTransition = false;"
+  "const auto battle = EvaluateJa2TacticalBattleCheckpoint(loadedReadiness);"
+  "restoredBattle = true;" "SetPendingNewScreen(GAME_SCREEN);"
+  "if (!rosterCheckpointRequired && !restoredBattle)"
+  "impl_->starterMission = restoredBattle ? StarterMissionState::WaitingForRestoredBattlePeer"
+  "if (impl_->starterMission == StarterMissionState::WaitingForRestoredBattlePeer)"
+  "impl_->starterMission = StarterMissionState::WaitingForControllableActor;")
+
 # 8.3: a battle checkpoint only at a quiet player turn of turn-based combat;
 # only AI planning the save carries exactly (on an actor that is not
 # executing) is evidence rather than work, and evidence-only bits never count.
@@ -5633,7 +5671,7 @@ foreach(dedicated_live_runtime_endpoint_contract IN ITEMS
 endforeach()
 
 set(dedicated_live_runtime_checkpoint_marker
-  "bool checkpointNow(GameContext& context, bool required) noexcept")
+  "bool checkpointNow(GameContext& context, bool required, bool battle = false) noexcept")
 extract_brace_bounded_slice(dedicated_live_runtime_code
   "${dedicated_live_runtime_checkpoint_marker}"
   dedicated_live_runtime_checkpoint_slice
@@ -5888,7 +5926,7 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "DedicatedCoopStarterCampaignState::PreparedInitial"
   "DedicatedCoopStarterCampaignState::EstablishedCold"
   "impl_->entry != DedicatedCoopCampaignEntry::Resume"
-  "if (!rosterCheckpointRequired)"
+  "if (!rosterCheckpointRequired && !restoredBattle)"
   "PreparePassiveDedicatedCampaignCheckpoint(stored->activeSlot, GetWorldTotalMin(), view)"
   "PassiveCampaignPreparationResult::MissingView"
   "rosterCheckpointRequired = true"
@@ -6226,7 +6264,7 @@ require_ordered_fragments(dedicated_live_runtime_shutdown_slice
   "impl_->tactical->server.active()"
   "impl_->tactical->server.worldActive()"
   "DedicatedCoopRuntimeError::CheckpointNotEligible"
-  "impl_->checkpointNow(context, true)"
+  "impl_->checkpointNow(context, true, battle)"
   "impl_->endCampaignSync()"
   "DedicatedCoopRuntimeError::CampaignSyncFailed"
   "impl_->tactical->server.endEpoch()"
@@ -46058,7 +46096,7 @@ require_ordered_fragments(native_campaign_failure_loop "Later native frames must
   "GetGameContext().campaignSimulation().throwIfFailed();" "BeginJa2TacticalCommandFrame(" "frameDriver().runFrame(")
 foreach(native_failure_boundary IN ITEMS
     "bool startAdmission() noexcept"
-    "bool checkpointNow(GameContext& context, bool required) noexcept"
+    "bool checkpointNow(GameContext& context, bool required, bool battle = false) noexcept"
     "void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept"
     "bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(\n\tGameContext& context) noexcept")
   extract_brace_bounded_slice(native_campaign_failure_runtime_source "${native_failure_boundary}"
@@ -46257,7 +46295,7 @@ require_ordered_fragments(native_campaign_failure_loop "Later native frames must
   "GetGameContext().campaignSimulation().throwIfFailed();" "BeginJa2TacticalCommandFrame(" "frameDriver().runFrame(")
 foreach(native_failure_boundary IN ITEMS
     "bool startAdmission() noexcept"
-    "bool checkpointNow(GameContext& context, bool required) noexcept"
+    "bool checkpointNow(GameContext& context, bool required, bool battle = false) noexcept"
     "void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcept"
     "bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(\n\tGameContext& context) noexcept")
   extract_brace_bounded_slice(native_campaign_failure_runtime_source "${native_failure_boundary}"

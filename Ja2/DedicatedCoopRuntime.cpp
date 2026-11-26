@@ -16,6 +16,7 @@
 #include "Quests.h"
 #include "CoopOfflineInterruptGuard.h"
 #include "CoopSecuredSectorStop.h"
+#include "TacticalBattleCheckpointPolicy.h"
 #include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCheckpointRuntimeEvidence.h"
 
@@ -109,6 +110,7 @@ constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
 constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
 constexpr auto SecuredSectorStopReturnTimeout = std::chrono::seconds(90);
+constexpr auto BattleStopTimeout = std::chrono::seconds(120);
 
 static_assert(CoopSession::MaximumAuthorityPeers ==
 	DedicatedCoopStarterRosterSize,
@@ -394,6 +396,9 @@ enum class StarterMissionState : std::uint8_t
 	Unprepared,
 	WaitingForCampaignReadyPeer,
 	WaitingForEstablishedCampaignReadyPeer,
+	// A resumed checkpoint holds a battle: the loaded world is adopted as is
+	// once a peer is campaign-ready (no sector entry, arrival or turn start).
+	WaitingForRestoredBattlePeer,
 	WaitingForControllableActor,
 	Playable,
 	// The encounter is won and the sector stays loaded for peaceful play
@@ -1983,7 +1988,29 @@ struct DedicatedCoopRuntime::Impl
 		return true;
 	}
 
-	bool checkpointNow(GameContext& context, bool required) noexcept
+	// The battle class (Phase 8.5): the loaded world, its items and turn-based
+	// combat are the state being saved, at a quiet player turn by the native
+	// policy; every other hazard stays exactly as strict as for the map.
+	static DedicatedCheckpointEligibilityReason BattleCheckpointEligibility(
+		DedicatedCheckpointEligibilitySnapshot snapshot) noexcept
+	{
+		if (EvaluateJa2TacticalBattleCheckpoint(CaptureJa2TacticalCheckpointReadiness()) !=
+			Ja2TacticalBattleCheckpointReason::None)
+			return DedicatedCheckpointEligibilityReason::CombatActive;
+		snapshot.tacticalWorldLoaded = false;
+		snapshot.worldItemsLoaded = false;
+		snapshot.combatActive = false;
+		// A battle's reinforcement counters and temporary schedules are saved
+		// exactly by the RINF and SCHD runtime sections (a failed capture fails
+		// the save), so within this class they are state, not a hazard.
+		snapshot.reinforcementTurnCounter = snapshot.enemyReinforcementTurn = 0;
+		snapshot.enemyReinforcementsArrived = 0;
+		snapshot.militiaReinforcementTurn = snapshot.militiaReinforcementsArrived = 0;
+		snapshot.temporarySchedulesPresent = false;
+		return EvaluateDedicatedCheckpointEligibility(snapshot);
+	}
+
+	bool checkpointNow(GameContext& context, bool required, bool battle = false) noexcept
 	{
 		if (context.campaignSimulation().failed())
 		{
@@ -2008,10 +2035,12 @@ struct DedicatedCoopRuntime::Impl
 		// campaign that is otherwise checkpointable pays the disconnect/drain
 		// cost.  In particular, a tactical battle no longer disconnects every
 		// client on each periodic retry.
+		const auto evaluate = [&](const DedicatedCheckpointEligibilitySnapshot& snapshot) noexcept {
+			return battle ? BattleCheckpointEligibility(snapshot) : EvaluateDedicatedCheckpointEligibility(snapshot);
+		};
 		const DedicatedCheckpointEligibilityReason preflight =
-			EvaluateDedicatedCheckpointEligibility(
-				CollectCheckpointEligibility(context, true,
-					tacticalCommandsDrained(), true));
+			evaluate(CollectCheckpointEligibility(context, true,
+				tacticalCommandsDrained(), true));
 		if (preflight != DedicatedCheckpointEligibilityReason::None)
 		{
 			lastEligibility = preflight;
@@ -2024,9 +2053,8 @@ struct DedicatedCoopRuntime::Impl
 
 		if (restartListener && !stopAdmissionAndReconcile(100)) return false;
 		const DedicatedCheckpointEligibilityReason eligibility =
-			EvaluateDedicatedCheckpointEligibility(
-				CollectCheckpointEligibility(context, true,
-					tacticalCommandsDrained(), tacticalNetworkDrained()));
+			evaluate(CollectCheckpointEligibility(context, true,
+				tacticalCommandsDrained(), tacticalNetworkDrained()));
 		if (eligibility != DedicatedCheckpointEligibilityReason::None)
 		{
 			lastEligibility = eligibility;
@@ -2738,6 +2766,10 @@ struct DedicatedCoopRuntime::Impl
 	// A stop signal in a secured sector: the server returns to the map first.
 	Clock::time_point stopReturnDeadline{};
 	bool stopReturnActive = false;
+	// A stop signal in a battle: wait for a quiet player turn, then save it.
+	Clock::time_point battleStopDeadline{};
+	bool battleStopActive = false;
+	bool battleStopReady = false;
 	std::uint64_t sessionEpoch = 0;
 	std::uint64_t observedWorldGeneration = 0;
 	std::uint64_t observedRevision = 0;
@@ -3032,6 +3064,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	if (!impl_ || impl_->fatal || !impl_->campaignOpen) return;
 	if (impl_->entryRequested && !impl_->campaignEntered)
 	{
+		bool restoredBattle = false;
 		if (impl_->entry == DedicatedCoopCampaignEntry::Resume)
 		{
 			const DedicatedCampaignStoreState* const state =
@@ -3046,17 +3079,53 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 							"checkpoint validation or load failed");
 				return;
 			}
-			if (guiScreenToGotoAfterLoadingSavedGame != MAP_SCREEN)
+			if (IsJa2TacticalWorldLoaded())
 			{
-				impl_->fail(DedicatedCoopRuntimeError::CampaignEntryFailed,
-					"campaign.resume-route",
-					"loaded checkpoint did not route to strategic map");
-				return;
+				// A battle checkpoint (Phase 8.6): the loaded world is the battle,
+				// saved at a quiet player turn. It must still be one by the same
+				// native policy, and it is adopted as is: no sector entry, arrival
+				// or turn start runs.
+				auto loadedReadiness = CaptureJa2TacticalCheckpointReadiness();
+				// The load itself queues the stock reset of the tactical interface
+				// to idle (consumed by the next tactical frame); it is not work.
+				if (guiPendingOverrideEvent == I_CHANGE_TO_IDLE && gfEnteringMapScreen == FALSE)
+					loadedReadiness.continuations.uiTransition = false;
+				const auto battle = EvaluateJa2TacticalBattleCheckpoint(loadedReadiness);
+				if (battle != Ja2TacticalBattleCheckpointReason::None)
+				{
+					const auto& c = loadedReadiness.continuations;
+					std::printf("[dedicated] restored battle refused: traversal=%d bandage=%d boxing=%d loading=%d ui=%d (override=%u map=%d)\n",
+						int(c.traversal), int(c.autoBandage), int(c.boxing), int(c.loading), int(c.uiTransition),
+						unsigned(guiPendingOverrideEvent), int(gfEnteringMapScreen));
+					std::fflush(stdout);
+					impl_->fail(DedicatedCoopRuntimeError::CampaignEntryFailed,
+						"campaign.resume-battle", Ja2TacticalBattleCheckpointReasonName(battle));
+					return;
+				}
+				restoredBattle = true;
+				SetPendingNewScreen(GAME_SCREEN);
+				std::printf("[dedicated] resumed a saved battle in sector (%d,%d,%d)\n", int(gWorldSectorX),
+					int(gWorldSectorY), int(gbWorldSectorZ));
+				std::fflush(stdout);
 			}
-			SetPendingNewScreen(MAP_SCREEN);
+			else
+			{
+				if (guiScreenToGotoAfterLoadingSavedGame != MAP_SCREEN)
+				{
+					impl_->fail(DedicatedCoopRuntimeError::CampaignEntryFailed,
+						"campaign.resume-route",
+						"loaded checkpoint did not route to strategic map");
+					return;
+				}
+				SetPendingNewScreen(MAP_SCREEN);
+			}
 		}
-		const DedicatedCoopStarterCampaignState starterState =
-			InspectDedicatedCoopStarterCampaign();
+		// A battle checkpoint is an established campaign by construction (it was
+		// saved from a running co-op battle); the classifier's worldless rule is
+		// the strategic resume's.
+		const DedicatedCoopStarterCampaignState starterState = restoredBattle
+			? DedicatedCoopStarterCampaignState::EstablishedCold
+			: InspectDedicatedCoopStarterCampaign();
 		bool rosterCheckpointRequired = false;
 		if (starterState ==
 			DedicatedCoopStarterCampaignState::UntouchedInitial)
@@ -3096,7 +3165,10 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (starterState == DedicatedCoopStarterCampaignState::EstablishedCold ||
 			starterState == DedicatedCoopStarterCampaignState::EstablishedStrategicCold)
 			impl_->arrivalDecisions.enableEstablishedAimArrivals();
-		if (!rosterCheckpointRequired)
+		// A restored battle keeps its world loaded, which passive preparation
+		// rightly refuses on the host; its view (world kind Tactical) was
+		// captured by the same saver, and every client validates it itself.
+		if (!rosterCheckpointRequired && !restoredBattle)
 		{
 			const auto* stored = impl_->boot.campaignState();
 			PassiveCampaignView view;
@@ -3129,7 +3201,7 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			StopTimeCompression();
 			PauseGame();
 		}
-		impl_->starterMission = starterState ==
+		impl_->starterMission = restoredBattle ? StarterMissionState::WaitingForRestoredBattlePeer : starterState ==
 			DedicatedCoopStarterCampaignState::EstablishedStrategicCold
 			? StarterMissionState::StrategicIdle
 			: (starterState == DedicatedCoopStarterCampaignState::EstablishedCold
@@ -3371,6 +3443,17 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			impl_->starterActorArrivalDeadline =
 				now + StarterActorArrivalTimeout;
 		}
+		return;
+	}
+	if (impl_->starterMission == StarterMissionState::WaitingForRestoredBattlePeer)
+	{
+		if (impl_->campaignReadyPeerCount() == 0) return;
+		impl_->starterMission = StarterMissionState::WaitingForControllableActor;
+		impl_->minimumControllableActors = 1;
+		impl_->postCombatReturnArmed = true;
+		impl_->starterActorArrivalDeadline = now + StarterActorArrivalTimeout;
+		std::printf("[dedicated] restored battle adopted; waiting for its controllable actors\n");
+		std::fflush(stdout);
 		return;
 	}
 	if (impl_->starterMission ==
@@ -3817,16 +3900,36 @@ bool DedicatedCoopRuntime::shutdownAtCommittedBoundary(
 	}
 	if (!impl_ || !impl_->campaignEntered || impl_->fatal) return !failed();
 	if (!impl_->stopAdmissionAndReconcile(100)) return false;
+	const bool battle = impl_->battleStopReady && IsJa2TacticalWorldLoaded();
 	if (impl_->tactical != nullptr && impl_->tactical->server.active())
 	{
 		if (impl_->tactical->server.worldActive())
 		{
-			impl_->fail(DedicatedCoopRuntimeError::CheckpointNotEligible,
-				"shutdown.checkpoint", "tactical world is still active");
-			return false;
+			if (!battle)
+			{
+				impl_->fail(DedicatedCoopRuntimeError::CheckpointNotEligible,
+					"shutdown.checkpoint", "tactical world is still active");
+				return false;
+			}
+			// The battle stays loaded natively; only its replication to the
+			// already disconnected peers ends, so the drain can complete.
+			const CoopSession::FullEngineCoopTacticalServerResult ended = impl_->tactical->server.endWorld();
+			if (ended != CoopSession::FullEngineCoopTacticalServerResult::Success)
+			{
+				impl_->fail(DedicatedCoopRuntimeError::TacticalSessionFailed,
+					"shutdown.battle-world-end", TacticalServerResultName(ended));
+				return false;
+			}
+			(void)impl_->tactical->server.takeTransportRestartRequired();
 		}
 	}
-	if (!impl_->checkpointNow(context, true)) return false;
+	if (!impl_->checkpointNow(context, true, battle)) return false;
+	if (battle)
+	{
+		std::printf("[dedicated] battle checkpoint committed in sector (%d,%d,%d)\n", int(gWorldSectorX),
+			int(gWorldSectorY), int(gbWorldSectorZ));
+		std::fflush(stdout);
+	}
 	// Campaign replication owns the admission epoch too, so end it before the
 	// tactical coordinator tears down ingress/admission state.
 	if (!impl_->endCampaignSync())
@@ -3930,6 +4033,38 @@ bool DedicatedCoopRuntime::campaignEntered() const noexcept
 bool DedicatedCoopRuntime::deferStopForSecuredSectorReturn(bool forced) noexcept
 {
 	if (!impl_) return false;
+	// A battle (Phase 8.5): keep playing until the native policy reports a quiet
+	// player turn and every retained command has its receipt, then stop; the
+	// shutdown saves the loaded battle. A second signal, a failure or the
+	// deadline stops at once with the last checkpoint, as before.
+	if (!forced && impl_->campaignEntered && !impl_->fatal && impl_->starterMission == StarterMissionState::Playable &&
+		IsJa2TacticalWorldLoaded() && IsJa2TacticalCombatActive())
+	{
+		const auto now = Clock::now();
+		if (!impl_->battleStopActive)
+		{
+			impl_->battleStopActive = true;
+			impl_->battleStopDeadline = now + BattleStopTimeout;
+			std::printf("[dedicated] stop requested in a battle; waiting for a quiet player turn to save it\n");
+			std::fflush(stdout);
+			return true;
+		}
+		// The checkpoint's whole preflight (native policy, commands, packages,
+		// dialogue, frame boundary...), with the network projected as drained:
+		// the checkpoint itself stops admission and drains it.
+		if (impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,
+				impl_->tacticalCommandsDrained(), true)) == DedicatedCheckpointEligibilityReason::None)
+		{
+			impl_->battleStopReady = true;
+			std::printf("[dedicated] battle stop: quiet player turn reached; saving the battle\n");
+			std::fflush(stdout);
+			return false;
+		}
+		if (now < impl_->battleStopDeadline) return true;
+		std::printf("[dedicated] battle stop: no quiet player turn in time; stopping with the last checkpoint\n");
+		std::fflush(stdout);
+		return false;
+	}
 	const auto mission = impl_->starterMission;
 	CoopSession::CoopSecuredSectorStopInput input;
 	input.forced = forced;

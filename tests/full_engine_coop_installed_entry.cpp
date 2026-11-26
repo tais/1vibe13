@@ -35,6 +35,8 @@
 #include "TacticalActor.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
+#include "Scheduling.h"
+#include "Reinforcement.h"
 #include "TacticalBattleCheckpointPolicy.h"
 #include "TacticalInterruptHost.h"
 #include "DedicatedCampaignSaveBridge.h"
@@ -76,6 +78,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+extern UINT32 guiArrived;
+extern UINT32 guiMilitiaArrived;
 
 extern BOOLEAN gfProgramIsRunning, gfDedicatedServerProcessFailed;
 extern BOOLEAN fInMapMode, gfProcessingGameEvents;
@@ -800,6 +804,17 @@ std::vector<std::string> NativeBattleDigest()
 		static_cast<unsigned long long>(rng.rawValuesGenerated));
 	lines.emplace_back(line);
 	std::snprintf(line, sizeof line, "clock seconds=%u", unsigned(GetWorldTotalSeconds()));
+	lines.emplace_back(line);
+	std::snprintf(line, sizeof line, "reinforcements turn=%u enemy=%u/%u militia=%u/%u", unsigned(guiTurnCnt),
+		unsigned(guiReinforceTurn), unsigned(guiArrived), unsigned(guiMilitiaReinforceTurn), unsigned(guiMilitiaArrived));
+	lines.emplace_back(line);
+	unsigned schedules = 0, temporary = 0;
+	for (const SCHEDULENODE* schedule = gpScheduleList; schedule; schedule = schedule->next)
+	{
+		++schedules;
+		if (schedule->usFlags & SCHEDULE_FLAGS_TEMPORARY) ++temporary;
+	}
+	std::snprintf(line, sizeof line, "schedules total=%u temporary=%u", schedules, temporary);
 	lines.emplace_back(line);
 	for (UINT32 slot = 0; slot < GetJa2SoldierRepository().capacity(); ++slot)
 	{

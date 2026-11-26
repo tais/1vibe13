@@ -4432,3 +4432,42 @@ runtime phase (8.3-8.6) come next.
 
 Still refused in production: nothing calls the policy outside the diagnostic
 until the controlled tactical stop (8.5).
+
+## Phase 8.5/8.6: stopping and resuming a battle
+
+- Stop (8.5): a stop signal during a turn-based battle no longer refuses the
+  final checkpoint. The server keeps the battle running until the checkpoint's
+  whole preflight passes at a quiet player turn (the 8.3 native policy plus
+  the strategic hazards that still apply: commands, packages, dialogue, frame
+  boundary, Lua randomness...), then ends the battle's replication to the
+  already disconnected peers (never the native battle), and saves the loaded
+  battle as the campaign checkpoint. Within the battle class the world, its
+  items and combat are the state being saved, and the reinforcement counters
+  and temporary schedules are saved exactly by the RINF and SCHD sections. A
+  second signal, a failure or 120 seconds without a quiet player turn stops
+  with the last checkpoint, as before.
+- Resume (8.6): a loaded checkpoint holding a world is a battle. It must pass
+  the same native policy right after the load (the load's own stock reset of
+  the interface to idle, `I_CHANGE_TO_IDLE`, is not work), and is adopted as
+  is: `GAME_SCREEN`, no sector entry, arrival or turn start, no strategic
+  roster checkpoint; the host skips its own passive preflight (which rightly
+  refuses a host with a world loaded) because the view, marked as a battle
+  (world kind Tactical), is validated by every client. Once a peer is
+  campaign-ready, the restored battle waits for its controllable actors and is
+  playable.
+- The save keeps recording the strategic resume screen: whether the world is
+  restored depends on the save's world flag, and the stock `GAME_SCREEN` load
+  path only initializes the interface panel and the selected merc.
+
+Installed evidence (`full_engine_coop_installed_battle_resume.py`): two clients
+join the untouched starter battle; once both show the player's turn of
+turn-based combat, the server is stopped; it reaches a quiet player turn,
+saves the battle (a newer checkpoint with the world loaded) and exits 0. A
+resumed server and both clients (same identities) come back in the battle;
+every actor is where it was, with the same life, on both clients, and a
+player's move is applied. Negative controls: without the battle deferral the
+stop refuses the checkpoint and exits 2; without the adoption the resumed
+server never adopts the battle. Not yet qualified: battles saved after a
+different number of turns, damage, ammunition use and doors (the 8.2 digest
+covers the state classes), killed processes and interrupted publication
+(8.7), and a real two-player GUI run.
