@@ -16,6 +16,11 @@ class BattleResumeProbeTests(unittest.TestCase):
         self.assertTrue(resume.ordered(text, resume.STOP_MARKERS))
         self.assertFalse(resume.ordered("\n".join(reversed(resume.STOP_MARKERS)), resume.STOP_MARKERS))
 
+    def test_kill_probe_builds_on_the_shared_steps(self):
+        import full_engine_coop_installed_battle_kill as kill
+        for step in ("start_new_battle", "stop_and_save_battle", "resume_battle", "apply_one_move"):
+            self.assertIs(getattr(kill, step), getattr(resume, step))
+
 
 if __name__ == "__main__":
     unittest.main()

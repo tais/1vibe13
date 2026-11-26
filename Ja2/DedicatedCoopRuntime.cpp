@@ -2770,6 +2770,8 @@ struct DedicatedCoopRuntime::Impl
 	Clock::time_point battleStopDeadline{};
 	bool battleStopActive = false;
 	bool battleStopReady = false;
+	Ja2TacticalBattleCheckpointReason battleStopPolicy = Ja2TacticalBattleCheckpointReason::None;
+	DedicatedCheckpointEligibilityReason battleStopEligibility = DedicatedCheckpointEligibilityReason::None;
 	std::uint64_t sessionEpoch = 0;
 	std::uint64_t observedWorldGeneration = 0;
 	std::uint64_t observedRevision = 0;
@@ -4052,8 +4054,27 @@ bool DedicatedCoopRuntime::deferStopForSecuredSectorReturn(bool forced) noexcept
 		// The checkpoint's whole preflight (native policy, commands, packages,
 		// dialogue, frame boundary...), with the network projected as drained:
 		// the checkpoint itself stops admission and drains it.
-		if (impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,
-				impl_->tacticalCommandsDrained(), true)) == DedicatedCheckpointEligibilityReason::None)
+		const auto readiness = CaptureJa2TacticalCheckpointReadiness();
+		const auto policy = EvaluateJa2TacticalBattleCheckpoint(readiness);
+		const auto eligibility = impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,
+			impl_->tacticalCommandsDrained(), true));
+		// Name what the save waits for, once per change, so a stop that never
+		// reaches a quiet turn says why.
+		if (policy != impl_->battleStopPolicy || eligibility != impl_->battleStopEligibility)
+		{
+			impl_->battleStopPolicy = policy;
+			impl_->battleStopEligibility = eligibility;
+			if (eligibility != DedicatedCheckpointEligibilityReason::None)
+			{
+				std::printf("[dedicated] battle stop waiting: battle=%s; checkpoint=%s; busy actors=%u (first slot %u, hazards 0x%x)\n",
+					Ja2TacticalBattleCheckpointReasonName(policy), DedicatedCheckpointEligibilityReasonName(eligibility),
+					unsigned(readiness.actors.busyActors), unsigned(readiness.actors.firstBusySlot),
+					unsigned(readiness.actors.hazards));
+
+				std::fflush(stdout);
+			}
+		}
+		if (eligibility == DedicatedCheckpointEligibilityReason::None)
 		{
 			impl_->battleStopReady = true;
 			std::printf("[dedicated] battle stop: quiet player turn reached; saving the battle\n");

@@ -245,7 +245,8 @@ bool TacticalActorLifecycle::create(TacticalActor& subject, UINT8 ubBodyType, So
 			// bad anims are: HOPFENCE,
 			// CLIMBDOWNROOF, FALLFORWARD_ROOF,FALLOFF, CLIMBUPROOF
 			if (preserveSavedIdle &&
-				(usState == STANDING || usState == CROUCHING || usState == PRONE))
+				(usState == STANDING || usState == CROUCHING || usState == PRONE ||
+				 TacticalActorRouteExecution::haltedMidStride(subject)))
 			{
 				if (!TacticalActorAnimationTransitions::restoreSavedIdlePresentation(subject))
 					break;

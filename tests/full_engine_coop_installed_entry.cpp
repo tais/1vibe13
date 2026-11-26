@@ -36,6 +36,7 @@
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Scheduling.h"
+#include "Animation Control.h"
 #include "Reinforcement.h"
 #include "TacticalBattleCheckpointPolicy.h"
 #include "TacticalInterruptHost.h"
@@ -826,6 +827,14 @@ std::vector<std::string> NativeBattleDigest()
 			int(actor->vitals().breath()), int(actor->actionPoints().current()), unsigned(actor->animationPlayback().state()),
 			unsigned(actor->position().direction()));
 		lines.emplace_back(line);
+		// Exact motion: a merc halted mid-stride (stock fNoAPToFinishMove after a
+		// sighting or interrupt) must come back on the same frame and spot.
+		std::snprintf(line, sizeof line, "  actor %u motion frame=%u code=%u x=%.4f y=%.4f halted=%d path=%u/%u final=%d",
+			unsigned(slot), unsigned(actor->animationPlayback().frame()), unsigned(actor->animationPlayback().code()),
+			double(actor->position().worldX()), double(actor->position().worldY()), int(actor->movement().outOfActionPoints()),
+			unsigned(actor->pathing().pathIndex()), unsigned(actor->pathing().pathSize()),
+			int(actor->pathing().finalDestinationGrid()));
+		lines.emplace_back(line);
 		// The AI plan object is a stateless wrapper rebuilt on demand, not state.
 		std::snprintf(line, sizeof line, "  actor %u ai inProgress=%d action=%d next=%d",
 			unsigned(slot), int(actor->aiPlanning().hasActionInProgress()), int(actor->aiPlanning().action()),
@@ -859,7 +868,23 @@ void PollBattleSaveDiagnostic()
 {
 	static bool done = false;
 	static std::chrono::steady_clock::time_point since{};
-	if (done || !std::getenv("JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC") || !gfProgramIsRunning) return;
+	const char* const mode = std::getenv("JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC");
+	if (done || !mode || !gfProgramIsRunning) return;
+	// "after-halt": wait for a player merc halted mid-stride (moving animation,
+	// stock no-AP-to-finish flag, no route left) before the policy decides.
+	if (std::strcmp(mode, "after-halt") == 0)
+	{
+		bool halted = false;
+		for (UINT32 slot = 0; slot < GetJa2SoldierRepository().capacity() && !halted; ++slot)
+		{
+			const TacticalActor* actor = GetJa2SoldierRepository().resolve(slot);
+			halted = actor && actor->roster().active() && actor->roster().inSector() &&
+				actor->roster().team() == gbPlayerNum && actor->movement().outOfActionPoints() &&
+				(gAnimControl[actor->animationPlayback().state()].uiFlags & ANIM_MOVING) != 0 &&
+				actor->pathing().pathIndex() >= actor->pathing().pathSize();
+		}
+		if (!halted) { since = {}; return; }
+	}
 	// The Phase 8.3 policy over the native readiness evidence decides when.
 	static Ja2TacticalBattleCheckpointReason lastReason = Ja2TacticalBattleCheckpointReason::NotObserved;
 	const auto readiness = CaptureJa2TacticalCheckpointReadiness();

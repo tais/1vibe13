@@ -67,20 +67,126 @@ def start_clients(supervisor, client_exe, run, port, environment):
                              environment, driven=True) for name in ("client-a", "client-b")]
 
 
+def halt_clients(clients):
+    for client in clients:
+        halt(client)
+
+
+def wait_for_player_turn(clients, server, timeout, planned_reconnects=0):
+    """Both clients' states once each shows the player's turn of turn-based combat."""
+    guard = qualification_guard(server, clients, planned_reconnects=planned_reconnects)
+    probes = [_Probe(client) for client in clients]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        states = _states(probes, deadline, guard)
+        if all(state["in_combat"] and state["team"] == 0 for state in states):
+            return probes, guard, states
+        time.sleep(0.5)
+    raise SmokeFailure("the battle never reached a player turn of turn-based combat")
+
+
+def start_new_battle(supervisor, fixture, client_exe, run, environment, timeout):
+    """A new campaign and both clients in the untouched starter battle, at a player turn."""
+    port = free_loopback_port()
+    server = supervisor.start("server", server_command(fixture, run / "server-state", port, "new"), run / "server",
+                              dict(environment, JA2_COOP_ENTRY_TEST_MODE="starter-victory"))
+    wait_for_marker(server, f"[dedicated] co-op campaign created; admission listening on 127.0.0.1:{port}", timeout)
+    clients = start_clients(supervisor, client_exe, run, port, environment)
+    wait_for_markers([(clients[0], READY_MARKER), (clients[1], READY_MARKER), (server, TACTICAL_SERVER_MARKER),
+                      (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
+                      (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], timeout)
+    probes, guard, states = wait_for_player_turn(clients, server, timeout)
+    return server, clients, states
+
+
+def stop_and_save_battle(supervisor, server, clients, run):
+    """SIGTERM in the battle: a quiet player turn, a newer checkpoint with the world loaded, exit 0."""
+    before = checkpoint_record(run / "server-state")
+    supervisor.stop(server, expected_exit=0, timeout_seconds=240)
+    text = log_text(server)
+    if not ordered(text, STOP_MARKERS) or any(marker in text for marker in FAILED):
+        raise SmokeFailure("the battle stop did not save the battle cleanly")
+    halt_clients(clients)
+    final = checkpoint_record(run / "server-state")
+    checkpoint = {"before": before["generation"], "after": final["generation"],
+                  "world_loaded": final["save_header"]["world_loaded"]}
+    if final["generation"] <= before["generation"] or not final["save_header"]["world_loaded"]:
+        raise SmokeFailure(f"no newer battle checkpoint: {checkpoint}")
+    print(f"Battle saved: checkpoint {final['generation']} with the world loaded.", flush=True)
+    return checkpoint
+
+
+def resume_battle(supervisor, fixture, client_exe, run, environment, timeout, name, saved):
+    """A resumed server adopts the saved battle; both clients see every actor where it was."""
+    port = free_loopback_port()
+    if not (run / name).exists():
+        make_run_root(run / name, *RUN_ROOT_SOURCES[str(run)])
+    server = supervisor.start(name, server_command(fixture, run / "server-state", port, "resume"), run / name,
+                              dict(environment, JA2_COOP_ENTRY_TEST_MODE="plain-resume"))
+    wait_for_marker(server, f"[dedicated] co-op campaign resumed; admission listening on 127.0.0.1:{port}", timeout)
+    clients = start_clients(supervisor, client_exe, run, port, environment)
+    wait_for_markers([(clients[0], READY_MARKER), (clients[1], READY_MARKER),
+                      (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
+                      (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], timeout)
+    for marker in RESUME_MARKERS:
+        wait_for_marker(server, marker, timeout)
+    guard = qualification_guard(server, clients, planned_reconnects=1)
+    probes = [_Probe(client) for client in clients]
+    deadline = time.monotonic() + timeout
+    views = None
+    while time.monotonic() < deadline:
+        states = _states(probes, deadline, guard)
+        views = [battle_view(state) for state in states]
+        if views[0] == views[1] and all(views[0].get(slot) == value for slot, value in saved.items() if value[1] > 0):
+            return server, clients, probes, guard, states, views[0]
+        time.sleep(0.5)
+    raise SmokeFailure(f"the restored battle does not match the saved one: {saved} vs {views}")
+
+
+def apply_one_move(probes, guard, states, timeout):
+    """The first candidate move any owner can make that the server applies."""
+    deadline = time.monotonic() + timeout
+    for owner, state in enumerate(states):
+        for identity, target in _candidate_moves(state):
+            reply = probes[owner].receive(probes[owner].send("MOVE", *identity, target), ("move", "error"),
+                                          deadline, guard)
+            if reply.get("kind") != "move" or not reply.get("submitted"):
+                continue
+            receipt = {}
+            while time.monotonic() < deadline:
+                receipt = _states(probes, deadline, guard)[owner].get("receipt") or {}
+                if receipt.get("command") == reply["command"] and receipt.get("status") in (2, 3, 4, 5):
+                    break
+                time.sleep(0.1)
+            if receipt.get("status") == 3:
+                return {"owner": owner, "merc": list(identity), "target": target}
+    return None
+
+
+# Per-run sources for extra run roots (a resumed server needs its own launch root).
+RUN_ROOT_SOURCES = {}
+
+
+def prepare_run(installed, prefix, names):
+    ja2_ini, configuration = selected_configuration(installed)
+    roots = installed_content_roots(installed)
+    run = Path(tempfile.mkdtemp(prefix=prefix))
+    RUN_ROOT_SOURCES[str(run)] = (ja2_ini, configuration, roots)
+    for name in names:
+        make_run_root(run / name, ja2_ini, configuration, roots)
+    for name in ("server", "client-a", "client-b"):
+        make_private_directory(run / f"{name}-state")
+    return run
+
+
 def main(argv=None):
     args = parse_arguments(argv)
     fixture, client_exe = (path.resolve(strict=True) for path in (args.fixture_executable, args.client_executable))
     if fixture.name != "full_engine_coop_installed_entry":
         raise SmokeFailure("battle resume probe requires the test-only host")
-    installed = args.installed_data_root.resolve(strict=True)
-    ja2_ini, configuration = selected_configuration(installed)
-    roots = installed_content_roots(installed)
-    run = Path(tempfile.mkdtemp(prefix="ja2-coop-battle-resume-"))
+    run = prepare_run(args.installed_data_root.resolve(strict=True), "ja2-coop-battle-resume-",
+                      ("server", "server-resumed", "client-a", "client-b"))
     print(f"Installed battle resume logs: {run}", flush=True)
-    for name in ("server", "server-resumed", "client-a", "client-b"):
-        make_run_root(run / name, ja2_ini, configuration, roots)
-    for name in ("server", "client-a", "client-b"):
-        make_private_directory(run / f"{name}-state")
     evidence = {"qualification_scope": "starter_battle_stop_and_resume", "seeded_native_fixture": False,
                 "physical_input_verified": False, "paint_verified": False, "passed": False}
     supervisor = ProcessSupervisor()
@@ -88,81 +194,14 @@ def main(argv=None):
     environment.pop("JA2_COOP_ENTRY_TEST_MODE", None)
     timeout = args.timeout_seconds
     try:
-        port = free_loopback_port()
-        server = supervisor.start("server", server_command(fixture, run / "server-state", port, "new"), run / "server",
-                                  dict(environment, JA2_COOP_ENTRY_TEST_MODE="starter-victory"))
-        wait_for_marker(server, f"[dedicated] co-op campaign created; admission listening on 127.0.0.1:{port}", timeout)
-        clients = start_clients(supervisor, client_exe, run, port, environment)
-        wait_for_markers([(clients[0], READY_MARKER), (clients[1], READY_MARKER), (server, TACTICAL_SERVER_MARKER),
-                          (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
-                          (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], timeout)
-        guard = qualification_guard(server, clients)
-        probes = [_Probe(client) for client in clients]
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            states = _states(probes, deadline, guard)
-            if all(state["in_combat"] and state["team"] == 0 for state in states):
-                break
-            time.sleep(0.5)
-        else:
-            raise SmokeFailure("the starter battle never reached a player turn of turn-based combat")
-        before = checkpoint_record(run / "server-state")
-        supervisor.stop(server, expected_exit=0, timeout_seconds=240)
-        text = log_text(server)
-        if not ordered(text, STOP_MARKERS) or any(marker in text for marker in FAILED):
-            raise SmokeFailure("the battle stop did not save the battle cleanly")
-        for client in clients:
-            halt(client)
+        server, clients, states = start_new_battle(supervisor, fixture, client_exe, run, environment, timeout)
         saved = battle_view(states[0])
-        final = checkpoint_record(run / "server-state")
-        evidence["checkpoint"] = {"before": before["generation"], "after": final["generation"],
-                                  "world_loaded": final["save_header"]["world_loaded"]}
-        if final["generation"] <= before["generation"] or not final["save_header"]["world_loaded"]:
-            raise SmokeFailure(f"no newer battle checkpoint: {evidence['checkpoint']}")
-        print(f"Battle saved: checkpoint {final['generation']} with the world loaded.", flush=True)
-
-        port = free_loopback_port()
-        server = supervisor.start("server-resumed", server_command(fixture, run / "server-state", port, "resume"),
-                                  run / "server-resumed", dict(environment, JA2_COOP_ENTRY_TEST_MODE="plain-resume"))
-        wait_for_marker(server, f"[dedicated] co-op campaign resumed; admission listening on 127.0.0.1:{port}", timeout)
-        clients = start_clients(supervisor, client_exe, run, port, environment)
-        wait_for_markers([(clients[0], READY_MARKER), (clients[1], READY_MARKER),
-                          (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
-                          (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], timeout)
-        for marker in RESUME_MARKERS:
-            wait_for_marker(server, marker, timeout)
-        guard = qualification_guard(server, clients, planned_reconnects=1)
-        probes = [_Probe(client) for client in clients]
-        deadline = time.monotonic() + timeout
-        restored = None
-        while time.monotonic() < deadline:
-            states = _states(probes, deadline, guard)
-            views = [battle_view(state) for state in states]
-            if views[0] == views[1] and all(views[0].get(slot) == value for slot, value in saved.items() if value[1] > 0):
-                restored = views[0]
-                break
-            time.sleep(0.5)
+        evidence["checkpoint"] = stop_and_save_battle(supervisor, server, clients, run)
+        server, clients, probes, guard, states, restored = resume_battle(
+            supervisor, fixture, client_exe, run, environment, timeout, "server-resumed", saved)
         evidence["saved_view"] = saved
         evidence["restored_view"] = restored
-        if restored is None:
-            raise SmokeFailure(f"the restored battle does not match the saved one: {saved} vs {views}")
-        moved = None
-        for owner, state in enumerate(states):
-            for identity, target in _candidate_moves(state):
-                reply = probes[owner].receive(probes[owner].send("MOVE", *identity, target), ("move", "error"),
-                                              deadline, guard)
-                if reply.get("kind") != "move" or not reply.get("submitted"):
-                    continue
-                while time.monotonic() < deadline:
-                    receipt = _states(probes, deadline, guard)[owner].get("receipt") or {}
-                    if receipt.get("command") == reply["command"] and receipt.get("status") in (2, 3, 4, 5):
-                        break
-                    time.sleep(0.1)
-                if receipt.get("status") == 3:
-                    moved = {"owner": owner, "merc": list(identity), "target": target}
-                    break
-            if moved:
-                break
+        moved = apply_one_move(probes, guard, states, timeout)
         evidence["moved"] = moved
         if not moved:
             raise SmokeFailure("no move was applied in the restored battle")

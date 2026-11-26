@@ -4471,3 +4471,42 @@ server never adopts the battle. Not yet qualified: battles saved after a
 different number of turns, damage, ammunition use and doors (the 8.2 digest
 covers the state classes), killed processes and interrupted publication
 (8.7), and a real two-player GUI run.
+
+## Phase 8.7: recovery from a killed server in a battle
+
+A battle checkpoint is the durable fallback for a server that dies without a
+clean stop. Nothing persists between checkpoints: the periodic checkpoint is
+skipped while peers are connected and never runs with a world loaded, so a
+killed session loses exactly what happened after the last save, and nothing
+from it can leak into the store.
+
+Installed evidence (`full_engine_coop_installed_battle_kill.py`): a battle is
+saved by a clean stop and resumed, a player's move is applied, and both clients
+show that merc off its saved tile. The server is then killed (SIGKILL). The
+checkpoint generation is unchanged by the kill, and a second resumed server
+brings back the saved battle exactly on both clients (the killed session's
+move is gone); play continues and a move is applied again. Negative control:
+with a clean stop in place of the kill, the stop saves the moved battle and
+the probe fails.
+
+A merc halted mid-stride is a quiet state. Stock halts a moving merc when it
+sights an enemy or is interrupted (the no-AP-to-finish flag): it stays frozen on
+one walking frame, often already at the centre of its destination, until its
+next order clears the flag. The 8.3 policy counted that walking frame as an
+animation in progress, so after any such halt a battle stop never reached a
+quiet turn (found by this probe's negative control: a clean stop after a move
+fell back to the old checkpoint). One shared predicate,
+`TacticalActorRouteExecution::haltedMidStride` (moving animation, halt flag, no
+route left), now makes it idle for the policy, and the load restores it exactly
+through the saved-presentation path idle poses already use: rebuilding it as an
+animation transition executed its next instruction and moved it one frame on
+(the 8.2 digest, extended with each actor's frame, script cursor, world
+position, halt flag and route, showed it). The diagnostic's `--after-halt` mode
+saves and loads only once a player merc is halted: 0 differences.
+
+Not covered by an installed run: a kill in the middle of writing a checkpoint.
+That case rests on the campaign store's own tests: a checkpoint is written
+only to the inactive slot, synced and probed before the manifest is published
+last, and a failure at any of those stages leaves the active checkpoint
+unchanged; the store lock is released by the operating system when a writer
+crashes.

@@ -654,6 +654,13 @@ void haltForSightingUnchecked(
 }
 }
 
+bool TacticalActorRouteExecution::haltedMidStride(const TacticalActor& actor) noexcept
+{
+	const UINT16 state = actor.animationPlayback().state();
+	return state < NUMANIMATIONSTATES && (gAnimControl[state].uiFlags & ANIM_MOVING) != 0 &&
+		actor.movement().outOfActionPoints() && actor.pathing().pathIndex() >= actor.pathing().pathSize();
+}
+
 bool TacticalActorRouteExecution::setOutOfActionPoints(
 	TacticalActor& actor,
 	bool stopped,

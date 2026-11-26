@@ -7,6 +7,7 @@
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInterruptHost.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalWorldAdapter.h"
 
 #include "Animation Control.h"
@@ -73,7 +74,8 @@ std::uint32_t ActorHazards(const TacticalActor& actor, std::uint8_t actingTeam) 
 	else if (state == COWERING || state == COWERING_PRONE ||
 		(actor.status().flags() & SOLDIER_COWERING) != 0)
 		add(Hazard::CoweringOrCollapsed);
-	else if (!SteadyAnimation(state)) add(Hazard::NonIdleAnimation);
+	else if (!SteadyAnimation(state) && !TacticalActorRouteExecution::haltedMidStride(actor))
+		add(Hazard::NonIdleAnimation); // a merc halted mid-stride waits for orders
 	if (actor.collapseState().collapsed() || actor.collapseState().breathCollapsed())
 		add(Hazard::CoweringOrCollapsed);
 

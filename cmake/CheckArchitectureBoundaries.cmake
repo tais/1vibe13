@@ -4957,6 +4957,35 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 8.7: a merc halted mid-stride (stock no-AP-to-finish flag after a sighting or
+# an interrupt, no route left) waits for orders: one shared predicate makes it
+# idle for the battle policy and restores it exactly on load (its next
+# animation instruction must not run), the way saved idle poses are.
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.cpp" coop_halted_route_source)
+require_ordered_fragments(coop_halted_route_source
+  "A halted merc must be a moving frame with the stock halt flag and no route left"
+  "bool TacticalActorRouteExecution::haltedMidStride(const TacticalActor& actor) noexcept"
+  "(gAnimControl[state].uiFlags & ANIM_MOVING) != 0"
+  "actor.movement().outOfActionPoints()"
+  "actor.pathing().pathIndex() >= actor.pathing().pathSize()")
+file(READ "${SOURCE_ROOT}/Ja2/TacticalCheckpointReadiness.cpp" coop_halted_readiness_source)
+require_ordered_fragments(coop_halted_readiness_source
+  "Only a halted merc may leave a moving animation idle for the battle policy"
+  "else if (!SteadyAnimation(state) && !TacticalActorRouteExecution::haltedMidStride(actor))"
+  "add(Hazard::NonIdleAnimation);")
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLifecycle.cpp" coop_halted_lifecycle_source)
+require_ordered_fragments(coop_halted_lifecycle_source
+  "A loaded halted merc must take the exact saved-presentation restore"
+  "(usState == STANDING || usState == CROUCHING || usState == PRONE ||"
+  "TacticalActorRouteExecution::haltedMidStride(subject)))"
+  "TacticalActorAnimationTransitions::restoreSavedIdlePresentation(subject)")
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTransitions.cpp" coop_halted_transition_source)
+require_ordered_fragments(coop_halted_transition_source
+  "The exact saved-presentation restore must accept only idle poses and halted mercs"
+  "bool TacticalActorAnimationTransitions::restoreSavedIdlePresentation(TacticalActor& subject)"
+  "(state != STANDING && state != CROUCHING && state != PRONE &&"
+  "!TacticalActorRouteExecution::haltedMidStride(subject)) ||")
+
 # 8.5/8.6: a stop in a battle waits for the checkpoint's whole preflight at a
 # quiet player turn, ends replication (never the native battle) and saves the
 # battle; a resume adopts a loaded battle as is, validated by the same policy,
@@ -4975,7 +5004,9 @@ require_ordered_fragments(coop_battle_runtime_source
   "A battle stop must wait for the whole preflight at a quiet player turn"
   "IsJa2TacticalWorldLoaded() && IsJa2TacticalCombatActive())"
   "impl_->battleStopDeadline = now + BattleStopTimeout;"
-  "if (impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,"
+  "const auto eligibility = impl_->BattleCheckpointEligibility(CollectCheckpointEligibility(GetGameContext(), true,"
+  "[dedicated] battle stop waiting: battle=%s; checkpoint=%s"
+  "if (eligibility == DedicatedCheckpointEligibilityReason::None)"
   "impl_->battleStopReady = true;")
 require_ordered_fragments(coop_battle_runtime_source
   "A battle shutdown must end replication only and then save the still loaded battle"

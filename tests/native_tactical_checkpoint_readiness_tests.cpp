@@ -237,6 +237,25 @@ int main()
 	actor.pathing().pathIndex() = MAX_PATH_LIST_SIZE - 1; ExpectHazard(Hazard::RouteContinuation, "unconsumed route observed");
 	actor.pathing().pathIndex() = MAX_PATH_LIST_SIZE + 1; ExpectHazard(Hazard::InvalidRoute, "invalid cursor observed without route read");
 	actor.pathing().pathIndex() = MAX_PATH_LIST_SIZE;
+	{
+		// Stock halts a moving merc mid-stride after a sighting or an interrupt;
+		// with no route left it waits for its next order, which the save carries.
+		actor.animationPlayback().state() = WALKING;
+		actor.movement().setOutOfActionPoints(true);
+		const auto halted = CaptureJa2TacticalCheckpointReadiness();
+		CHECK(halted.actors.hazards == 0 && halted.actors.busyActors == 0,
+			"a merc halted mid-stride with no route left is idle");
+		actor.pathing().pathIndex() = MAX_PATH_LIST_SIZE - 1;
+		ExpectHazard(Hazard::RouteContinuation, "a halted merc with route left is still moving");
+		actor.pathing().pathIndex() = MAX_PATH_LIST_SIZE;
+		actor.movement().setOutOfActionPoints(false);
+		ExpectHazard(Hazard::NonIdleAnimation, "walking without the halt flag is moving");
+		actor.animationPlayback().state() = START_AID;
+		actor.movement().setOutOfActionPoints(true);
+		ExpectHazard(Hazard::NonIdleAnimation, "the halt flag never makes a non-moving animation idle");
+		actor.movement().setOutOfActionPoints(false);
+		actor.animationPlayback().state() = AIM_RIFLE_STAND;
+	}
 	actor.movement().waitForGrid(12345, 1); ExpectHazard(Hazard::RouteContinuation, "movement contention observed"); actor.movement().clearDelay();
 	actor.movement().setContinuedPath(12345); ExpectHazard(Hazard::RouteContinuation, "continued route observed"); actor.movement().clearContinuedPath();
 	actor.pathing().desiredDirection() = NORTH; ExpectHazard(Hazard::Turning, "turning direction observed"); actor.pathing().desiredDirection() = EAST;

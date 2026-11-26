@@ -22,6 +22,11 @@ namespace TacticalActorRouteExecution
 		TacticalActor& actor,
 		bool stopped,
 		bool replicate = true);
+	// Stock halts a moving merc mid-stride after a sighting or an interrupt
+	// (the no-AP-to-finish flag): frozen on one moving frame with no route
+	// left, it waits for its next order. A stable state: the save carries it
+	// exactly, and a load must not execute its next animation instruction.
+	[[nodiscard]] bool haltedMidStride(const TacticalActor& actor) noexcept;
 	// Dedicated co-op admission and immediate execution revalidation. This
 	// checks a fresh ordinary route without changing actor, path policy or RNG.
 	[[nodiscard]] bool canBeginMoveToGrid(

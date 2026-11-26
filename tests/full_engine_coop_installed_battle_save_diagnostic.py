@@ -16,6 +16,7 @@ import tempfile
 import time
 
 from full_engine_coop_installed_process_smoke import (
+    TACTICAL_PRESENTATION_READY_MARKER,
     READY_MARKER, TACTICAL_SERVER_MARKER, ProcessSupervisor, SmokeFailure, client_command, free_loopback_port,
     installed_content_roots, log_text, make_private_directory, make_run_root, process_environment,
     selected_configuration, server_command, wait_for_marker, wait_for_markers,
@@ -33,6 +34,8 @@ def parse_arguments(argv=None):
     parser.add_argument("--client-executable", type=Path, default=ROOT / "build/full_engine_coop_installed_client")
     parser.add_argument("--installed-data-root", type=Path, default=ROOT.parent / "JA2")
     parser.add_argument("--timeout-seconds", type=float, default=600)
+    parser.add_argument("--after-halt", action="store_true",
+                        help="save and load only once a player merc is halted mid-stride by a move")
     args = parser.parse_args(argv)
     if not 1 <= args.timeout_seconds <= 1800:
         parser.error("timeout must be 1..1800 seconds")
@@ -65,17 +68,34 @@ def main(argv=None):
         port = free_loopback_port()
         server = supervisor.start("server", server_command(fixture, run / "server-state", port, "new"), run / "server",
                                   dict(environment, JA2_COOP_ENTRY_TEST_MODE="starter-victory",
-                                       JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC="1"))
+                                       JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC="after-halt" if args.after_halt
+                                       else "1"))
         wait_for_marker(server, f"[dedicated] co-op campaign created; admission listening on 127.0.0.1:{port}",
                         args.timeout_seconds)
         clients = [supervisor.start(name, client_command(client_exe, run / f"{name}-state", port), run / name,
                                     environment, driven=True) for name in ("client-a", "client-b")]
         wait_for_markers([(clients[0], READY_MARKER), (clients[1], READY_MARKER), (server, TACTICAL_SERVER_MARKER)],
                          args.timeout_seconds)
+        if args.after_halt:
+            # Moves toward the enemy until one is halted mid-stride (a sighting or
+            # an interrupt); the host then saves and loads and exits.
+            from full_engine_coop_installed_movement import _states
+            from full_engine_coop_installed_battle_resume import apply_one_move, wait_for_player_turn
+            wait_for_markers([(clients[0], TACTICAL_PRESENTATION_READY_MARKER),
+                              (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], args.timeout_seconds)
+            probes, guard, states = wait_for_player_turn(clients, server, args.timeout_seconds)
+            for _ in range(6):
+                if server.process.poll() is not None:
+                    break
+                try:
+                    report["moved"] = apply_one_move(probes, guard, _states(probes, time.monotonic() + 60, guard), 60)
+                except Exception:
+                    break  # the host finished and closed the session
+                time.sleep(5)
         deadline = time.monotonic() + args.timeout_seconds
         while time.monotonic() < deadline and server.process.poll() is None:
             time.sleep(1)
-        report = parse_report(log_text(server))
+        report = dict(report, **parse_report(log_text(server)))
         print(json.dumps(report, indent=1)[:4000], flush=True)
         return 0 if report.get("saved") and report.get("loaded") and not any(report["counts"].values()) else 1
     finally:

@@ -2,6 +2,7 @@
 // action. Exercise the real interpreter, including a live-play positive control.
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorLifecycle.h"
+#include "TacticalActorRouteExecution.h"
 #include "Soldier Create.h"
 #include "TacticalEntityHost.h"
 #include "SaveLoadGame.h"
@@ -278,6 +279,32 @@ int main()
 			"failed saved-idle reconstruction never executes an animation instruction or draws RNG");
 		gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
 		gubAnimSurfaceIndex[REGMALE][STANDING] = RGMNOTHING_STD;
+	}
+	// A merc halted mid-stride (stock no-AP-to-finish flag, no route left) is
+	// frozen on one moving frame like an idle pose: a load must not execute its
+	// next instruction either. The same walk without the flag keeps the
+	// ordinary transition path.
+	for (const bool halted : {true, false})
+	{
+		std::printf("walking record, halted=%d\n", int(halted));
+		seedPose(WALKING);
+		actor.movement().setOutOfActionPoints(halted);
+		const auto frame = actor.animationPlayback().frame();
+		CHECK(diskRoundtrip() && actor.movement().outOfActionPoints() == halted,
+			"a walking record and its halt flag round-trip through the native disk format");
+		CHECK(TacticalActorRouteExecution::haltedMidStride(actor) == halted, "the shared predicate reads the record");
+		auto guard = BeginRuntimeLoadExecution(game, RuntimeSavePolicy::DedicatedDeterministic);
+		gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
+		CHECK(TacticalActorLifecycle::create(actor, REGMALE, SoldierID{0}, WALKING, true),
+			"actual saved actor lifecycle binds a walking record");
+		if (halted)
+			CHECK(actor.animationPlayback().code() == 1 && actor.animationPlayback().frame() == frame &&
+				actor.timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) == 7,
+				"a merc halted mid-stride keeps its saved cursor, frame and clock");
+		else
+			CHECK(actor.animationPlayback().code() == 2, "an unhalted walk keeps the transition path");
+		CHECK(static_cast<bool>(guard.rollback()), "walking reconstruction guard cleans up");
+		gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
 	}
 	// Opt-in applies only to actual saved idle records. Fresh creation during
 	// native loading and other poses keep the established transition path.

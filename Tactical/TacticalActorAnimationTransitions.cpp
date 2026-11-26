@@ -378,14 +378,16 @@ void CheckForFreeupFromHit( TacticalActor *pSoldier, UINT32 uiOldAnimFlags, UINT
 
 
 // THIS IS CALLED FROM AN EVENT ( S_CHANGESTATE )!
-// Rebinding an ordinary saved idle pose is presentation reconstruction, not
+// Rebinding an ordinary saved idle pose, or a merc halted mid-stride (frozen
+// on one moving frame, waiting for orders), is presentation reconstruction, not
 // an animation transition. The saved code points to the next instruction and
 // its countdown must survive until the first live frame after loading.
 bool TacticalActorAnimationTransitions::restoreSavedIdlePresentation(TacticalActor& subject)
 {
 	const UINT16 state = subject.animationPlayback().state();
 	if (!(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) ||
-		(state != STANDING && state != CROUCHING && state != PRONE) ||
+		(state != STANDING && state != CROUCHING && state != PRONE &&
+		 !TacticalActorRouteExecution::haltedMidStride(subject)) ||
 		subject.animationPlayback().code() >= MAX_FRAMES_PER_ANIM ||
 		subject.identity().bodyType() >= TOTALBODYTYPES ||
 		subject.identity().id().i >= MAX_NUM_SOLDIERS ||
