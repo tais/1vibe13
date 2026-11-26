@@ -5109,6 +5109,36 @@ require_ordered_fragments(coop_conversation_runtime_source
   "const auto result = AnswerDedicatedCoopArrivalReinforcements(request.decision,"
   "request.action == Action::AcceptReinforcements, preparation);")
 
+# An interrupt waits for every eligible player merc. Only a merc whose owner is
+# offline, and only after the guard's grace on the same grant, may be passed by
+# the server (source System); everything else still needs its owner's vote.
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopOfflineInterruptGuard.h" coop_offline_interrupt_source)
+require_ordered_fragments(coop_offline_interrupt_source
+  "The offline interrupt guard must wait a full grace per grant before passing"
+  "if (!activeSerial || !stalled) { serial_ = 0; return Step::Idle; }"
+  "if (serial_ != activeSerial) { serial_ = activeSerial; since_ = now; return Step::StartedWaiting; }"
+  "if (now - since_ < grace_) return Step::Waiting;"
+  "return Step::PassNow;")
+require_ordered_fragments(coop_conversation_runtime_source
+  "The server may pass only offline owners' eligible mercs, through the guard"
+  "constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);"
+  "void passInterruptsForOfflineOwners() noexcept"
+  "const bool online = tactical->server.peerCommandState(assignment.peerIdentity, state) && state.connected;"
+  "if (!online && IsJa2TacticalInterruptActorEligible(assignment.actor)) stalled[count++] = assignment.actor;"
+  "const Step step = offlineInterrupt.observe(active, count, Clock::now());"
+  "if (step != Step::PassNow) return;"
+  "tactical->host.passInterruptForOfflineOwner(stalled[i]);")
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopTacticalHost.cpp" coop_offline_interrupt_host_source)
+extract_brace_bounded_slice(coop_offline_interrupt_host_source
+  "bool DedicatedCoopTacticalHost::passInterruptForOfflineOwner(TacticalEntityId actor) noexcept"
+  coop_offline_interrupt_host "Cannot bound the server-originated interrupt pass")
+require_ordered_fragments(coop_offline_interrupt_host
+  "The server-originated pass must target the live grant and be a System command"
+  "turn.interruptPhase != TacticalInterruptPhase::Active || turn.interruptSerial == 0"
+  "actor, turn.worldGeneration, turn.interruptSerial,"
+  "SimulationCommandSource::System, TacticalCommandAuthorityPolicy::DedicatedCoop};"
+  "commands_->submit(campaignPackageId_, command)")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.

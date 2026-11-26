@@ -1339,10 +1339,13 @@ static_assert(std::is_trivially_copyable<PassInterruptCommand>::value,
 constexpr bool IsStructurallyValidPassInterruptCommand(
 	const PassInterruptCommand& command) noexcept
 {
+	// System: the server passes for a merc whose owner is offline (the
+	// interrupt otherwise waits for a vote nobody can send).
 	return command.soldier.valid() &&
 		command.expectedWorldGeneration != 0 &&
 		command.expectedInterruptSerial != 0 &&
 		(command.source == SimulationCommandSource::NetworkPeer ||
+		 command.source == SimulationCommandSource::System ||
 		 command.source == SimulationCommandSource::Replay) &&
 		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
 }

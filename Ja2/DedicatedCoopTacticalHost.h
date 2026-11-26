@@ -267,6 +267,11 @@ public:
 	// flush/endWorld retry.
 	bool endWorld() noexcept;
 
+	// Server-originated (System) interrupt pass for one eligible merc whose
+	// owner is offline, against the live interrupt grant. No peer receipt: the
+	// result is uncorrelated. False when no live grant/context allows it.
+	bool passInterruptForOfflineOwner(TacticalEntityId actor) noexcept;
+
 	// Deterministic assignment input for the server coordinator. Failure leaves
 	// both caller outputs unchanged.
 	bool collectControllableActors(

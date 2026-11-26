@@ -12,6 +12,8 @@
 #include "CoopCampaignHireAuthority.h"
 #include "DedicatedCoopSurrender.h"
 #include "DedicatedCoopBattleNotice.h"
+#include "TacticalInterruptHost.h"
+#include "CoopOfflineInterruptGuard.h"
 #include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCheckpointRuntimeEvidence.h"
 
@@ -99,6 +101,9 @@ using Clock = std::chrono::steady_clock;
 
 constexpr auto IneligibleRetryDelay = std::chrono::seconds(5);
 constexpr auto StarterPeerGatherGrace = std::chrono::seconds(10);
+// How long an interrupt waits for a disconnected owner's eligible mercs before
+// the server passes for them (they cannot be commanded by anyone else).
+constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
 constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
 
@@ -1365,6 +1370,43 @@ struct DedicatedCoopRuntime::Impl
 		return {Outcome::Failed, 0};
 	}
 
+	// An interrupt ends only when every eligible player merc has passed. A
+	// disconnected owner's mercs cannot be commanded by anyone, so after a grace
+	// the server passes for them (source System, journaled like any command);
+	// the owner keeps the mercs and commands them again on reconnect.
+	void passInterruptsForOfflineOwners() noexcept
+	{
+		const auto interrupt = CaptureJa2TacticalInterruptProjection();
+		const std::uint64_t active = interrupt.phase == Ja2TacticalInterruptPhase::Active ? interrupt.serial : 0;
+		std::array<TacticalEntityId, CoopSession::MaximumCoopTacticalAssignments> stalled{};
+		std::size_t count = 0;
+		for (std::size_t i = 0; active && i < publishedAssignmentCount && count < stalled.size(); ++i)
+		{
+			const auto& assignment = publishedAssignments[i];
+			CoopSession::FullEngineCoopTacticalPeerCommandState state;
+			const bool online = tactical->server.peerCommandState(assignment.peerIdentity, state) && state.connected;
+			if (!online && IsJa2TacticalInterruptActorEligible(assignment.actor)) stalled[count++] = assignment.actor;
+		}
+		using Step = CoopSession::CoopOfflineInterruptGuard::Step;
+		const Step step = offlineInterrupt.observe(active, count, Clock::now());
+		if (step == Step::StartedWaiting)
+		{
+			std::printf("[dedicated] interrupt waits for an offline player: serial=%llu; mercs=%zu; grace=%llds\n",
+				static_cast<unsigned long long>(active), count,
+				static_cast<long long>(std::chrono::duration_cast<std::chrono::seconds>(OfflineInterruptGrace).count()));
+			std::fflush(stdout);
+		}
+		if (step != Step::PassNow) return;
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			const bool submitted = tactical->host.passInterruptForOfflineOwner(stalled[i]);
+			std::printf("[dedicated] interrupt passed for an offline player: serial=%llu; actor=%u:%u; submitted=%u\n",
+				static_cast<unsigned long long>(interrupt.serial), unsigned(stalled[i].slot), unsigned(stalled[i].incarnation),
+				unsigned(submitted));
+		}
+		std::fflush(stdout);
+	}
+
 	// The leader hands the time controls to the other ready player; a claimer
 	// takes them while the leader is offline (the policy already decided which).
 	CoopSession::CoopCampaignActionNativeResult transferTimeLead(const CoopSession::PeerIdentity& requester) noexcept
@@ -2465,6 +2507,7 @@ struct DedicatedCoopRuntime::Impl
 		if (publication && tactical->server.worldActive() &&
 			!stageCurrentWorld(*publication.snapshot, assignmentsDeferred))
 			return false;
+		if (tactical->server.worldActive() && !assignmentsDeferred) passInterruptsForOfflineOwners();
 		if (assignmentsDeferred)
 		{
 			// An old assignment may name an actor that has just left the world.
@@ -2647,6 +2690,7 @@ struct DedicatedCoopRuntime::Impl
 		CoopSession::MaximumCoopTacticalSessionPeers> worldParticipants{};
 	std::array<CoopSession::CoopTacticalActorAssignment,
 		CoopSession::MaximumCoopTacticalAssignments> publishedAssignments{};
+	CoopSession::CoopOfflineInterruptGuard offlineInterrupt{OfflineInterruptGrace};
 	std::chrono::seconds checkpointInterval{300};
 	Clock::time_point lastCheckpoint{};
 	Clock::time_point nextCheckpointAttempt{};

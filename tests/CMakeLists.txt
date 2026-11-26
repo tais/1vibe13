@@ -134,6 +134,13 @@ target_include_directories(coop_campaign_groups_tests PRIVATE
 target_compile_features(coop_campaign_groups_tests PRIVATE cxx_std_17)
 add_test(NAME coop_campaign_groups COMMAND coop_campaign_groups_tests)
 
+add_executable(coop_offline_interrupt_guard_tests
+  coop_offline_interrupt_guard_tests.cpp)
+target_include_directories(coop_offline_interrupt_guard_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_offline_interrupt_guard_tests PRIVATE cxx_std_17)
+add_test(NAME coop_offline_interrupt_guard COMMAND coop_offline_interrupt_guard_tests)
+
 add_executable(coop_campaign_time_tests
   coop_campaign_time_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)

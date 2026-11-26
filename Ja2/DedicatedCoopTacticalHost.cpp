@@ -628,6 +628,24 @@ bool DedicatedCoopTacticalHost::ready() const noexcept
 		turn.worldGeneration != 0 && turn.turnSerial != 0;
 }
 
+bool DedicatedCoopTacticalHost::passInterruptForOfflineOwner(TacticalEntityId actor) noexcept
+{
+	if (liveState_ == nullptr || commands_ == nullptr || !liveState_->onMainThread() || operationActive_ ||
+		campaignPackageId_.empty() || !liveState_->dedicatedCoopActive() ||
+		!liveState_->campaignPackageActive(campaignPackageId_) || !actor.valid())
+		return false;
+	DedicatedCoopTacticalTurnState turn;
+	if (!liveState_->captureTurn(turn) || !turn.worldLoaded || turn.worldGeneration == 0 ||
+		turn.interruptPhase != TacticalInterruptPhase::Active || turn.interruptSerial == 0)
+		return false;
+	const SimulationCommand command = PassInterruptCommand{
+		actor, turn.worldGeneration, turn.interruptSerial,
+		SimulationCommandSource::System, TacticalCommandAuthorityPolicy::DedicatedCoop};
+	if (!IsStructurallyValidSimulationCommand(command)) return false;
+	OperationGuard operation(operationActive_);
+	return static_cast<bool>(commands_->submit(campaignPackageId_, command));
+}
+
 TacticalIntentExecutionDisposition DedicatedCoopTacticalHost::execute(
 	const AuthorizedTacticalIntent& intent) noexcept
 {

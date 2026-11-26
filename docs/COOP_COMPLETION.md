@@ -3976,3 +3976,25 @@ stock `SetThisSectorAsEnemyControlled` the strategic AI uses: a `SectorLost`
 notice). No case opens a native box on the server. Negative control: with the
 hook disabled, `town-taken` fails on the server's "Enemy forces have just taken
 over A10: Omerta." box.
+
+## Phase 0.4: an offline player cannot stall an interrupt
+
+In turn-based combat one player can end the players' turn alone, but an
+interrupt ends only when every eligible player merc has passed, and a merc
+whose owner has disconnected cannot be commanded by anyone (its owner keeps
+it: a transient disconnect never transfers mercs). One dropped connection at
+the moment of an interrupt therefore froze the battle for good.
+
+Now the server watches each live interrupt grant. When eligible, un-passed
+mercs belong to offline owners, it waits 30 seconds on that grant
+(`CoopOfflineInterruptGuard`; a new grant or the owner's return restarts the
+wait), then passes for those mercs itself: the ordinary `PassInterruptCommand`
+with source `System`, through the same command queue and journal as a
+player's pass. The owner keeps the mercs and commands them again after
+reconnecting. Everything else still needs the owner's own vote.
+
+Evidence: unit tests for the guard's timing (grace, no early pass, retry after
+a refused pass, restart on a new grant or reconnect), ratchet rules on the
+guard, the server step and the System pass. Not yet qualified by an installed
+probe: no fixture can force an interrupt on demand yet; the next combat-breadth
+slices add one.
