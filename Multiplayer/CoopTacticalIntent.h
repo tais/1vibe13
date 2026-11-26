@@ -37,7 +37,8 @@ enum class TacticalIntentKind : std::uint8_t
 	DropInventoryItem = 14,
 	Talk = 15,
 	Converse = 16,
-	GiveItem = 17
+	GiveItem = 17,
+	DoorAction = 18
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -151,6 +152,20 @@ struct DoorOpenCloseTacticalIntent
 	bool desiredOpen = false;
 };
 
+// A stock door-menu choice on an adjacent locked closed door. The action is
+// the stock HANDLE_DOOR_* code: 2 examine, 3 lockpick, 4 force, 6 unlock with a
+// key, 7 explode, 8 untrap, 9 crowbar.
+struct DoorActionTacticalIntent
+{
+	std::int32_t baseGrid = -1;
+	std::uint16_t structureId = 0;
+	std::uint8_t action = 0;
+};
+constexpr bool IsSupportedTacticalDoorAction(std::uint8_t action) noexcept
+{
+	return action == 2 || action == 3 || action == 4 || action == 6 || action == 7 || action == 8 || action == 9;
+}
+
 inline constexpr std::uint8_t MaximumTacticalFirearmAimTime = 8;
 
 // The client names an exact replicated target, never a locally interpreted
@@ -179,7 +194,8 @@ using TacticalIntentPayload = std::variant<
 	DropInventoryItemTacticalIntent,
 	TalkTacticalIntent,
 	ConverseTacticalIntent,
-	GiveItemTacticalIntent>;
+	GiveItemTacticalIntent,
+	DoorActionTacticalIntent>;
 
 struct TacticalIntent
 {

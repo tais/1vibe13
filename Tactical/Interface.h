@@ -453,6 +453,8 @@ void CancelMovementMenu( );
 void PopDownOpenDoorMenu( );
 void RenderOpenDoorMenu( );
 BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor );
+// The stock door menu's per-button availability (also used by dedicated co-op).
+BOOLEAN DoorMenuActionAvailable( TacticalActor *pSoldier, UINT8 ubHandleCode, BOOLEAN fClosingDoor );
 BOOLEAN HandleOpenDoorMenu( );
 void CancelOpenDoorMenu( );
 #ifdef JA2TESTVERSION

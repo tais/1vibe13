@@ -5139,6 +5139,34 @@ require_ordered_fragments(coop_offline_interrupt_host
   "SimulationCommandSource::System, TacticalCommandAuthorityPolicy::DedicatedCoop};"
   "commands_->submit(campaignPackageId_, command)")
 
+# Locked-door actions: the stock door menu's own button rules decide what a
+# merc may do (one shared function for the menu and co-op), and co-op starts
+# exactly the stock animated interaction for that button; the action's rolls,
+# costs and traps then run in the stock HandleOpenableStruct.
+file(READ "${SOURCE_ROOT}/Tactical/Interface.cpp" coop_door_menu_source)
+string(REGEX MATCHALL "if \\( !DoorMenuActionAvailable\\( pSoldier, HANDLE_DOOR_[A-Z]+, fClosingDoor \\) \\)" coop_door_menu_uses "${coop_door_menu_source}")
+list(LENGTH coop_door_menu_uses coop_door_menu_use_count)
+if(NOT coop_door_menu_use_count EQUAL 7)
+  message(FATAL_ERROR "The stock door menu must take every button's availability from DoorMenuActionAvailable")
+endif()
+file(READ "${SOURCE_ROOT}/Tactical/Handle Doors.cpp" coop_door_action_native_source)
+require_ordered_fragments(coop_door_action_native_source
+  "Co-op door actions must follow the stock locked-door menu steps"
+  "DedicatedCoopDoorActionStart BeginDedicatedCoopDoorAction( TacticalActor& soldier, STRUCTURE& structure,"
+  "door == NULL || !door->fLocked ||"
+  "!DoorMenuActionAvailable( &soldier, ubHandleCode, FALSE ) )"
+  "if ( DoTrapCheckOnStartingMenu( &soldier, door ) )"
+  "InteractWithClosedDoor( &soldier, ubHandleCode );")
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_door_action_command_source)
+require_ordered_fragments(coop_door_action_command_source
+  "The door-action command must prove a locked door and the stock button before starting it"
+  "bool ResolveAuthoritativeDoorAction("
+  "if (!door || !door->fLocked || !IsJa2TacticalDoorVisibleToPlayerTeam(command.object.grid) ||"
+  "!DoorMenuActionAvailable(resolvedSoldier, command.handleCode, FALSE))"
+  "std::is_same<Command, AuthoritativeDoorActionCommand>::value)"
+  "!StartInteractiveObject(value.object.grid, value.object.structureId, soldier, value.direction))"
+  "switch (BeginDedicatedCoopDoorAction(*soldier, *structure, value.direction, value.handleCode))")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -13154,7 +13182,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 17> payloads"
+    "const std::array<PayloadCase, 18> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13572,7 +13600,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 15)
+if(NOT dedicated_live_authority_write_call_count EQUAL 16)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13586,7 +13614,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 15)
+if(NOT dedicated_live_authority_read_call_count EQUAL 16)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -14862,7 +14890,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 17> payloads"
+    "const std::array<PayloadCase, 18> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -45076,7 +45104,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17" "GiveItemTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18" "DoorActionTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

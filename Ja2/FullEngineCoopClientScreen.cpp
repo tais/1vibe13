@@ -742,6 +742,16 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 					(void)Submit(
 						Controller.submitDoorOpenClose(view), view);
 					break;
+				default:
+				{
+					// The stock locked-door menu, by key: kick, lockpick, key,
+					// crowbar, explosive, untrap, examine.
+					const std::uint8_t action = key == 'k' || key == 'K' ? 4 : key == 'l' || key == 'L' ? 3 :
+						key == 'u' || key == 'U' ? 6 : key == 'c' || key == 'C' ? 9 : key == 'x' || key == 'X' ? 7 :
+						key == 't' || key == 'T' ? 8 : key == 'e' || key == 'E' ? 2 : 0;
+					if (action) (void)Submit(Controller.submitDoorAction(view, action), view);
+					break;
+				}
 			}
 			continue;
 		}
@@ -1424,7 +1434,8 @@ void RenderPresentation(
 	else if (Controller.selectingDoor())
 	{
 		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Door grid %d  structure %u  %ls  [Up/Down/Tab door, Enter %ls, Esc]",
+			Controller.selectedDoorOpen() ? L"Door grid %d  structure %u  %ls  [Up/Down/Tab door, Enter %ls, Esc]"
+				: L"Door grid %d  structure %u  %ls  [Tab door, Enter %ls | locked: K kick L pick U key C crowbar X bomb T untrap E examine]",
 			Controller.selectedDoorBaseGrid(),
 			static_cast<unsigned>(Controller.selectedDoorStructureId()),
 			Controller.selectedDoorOpen() ? L"open" : L"closed",

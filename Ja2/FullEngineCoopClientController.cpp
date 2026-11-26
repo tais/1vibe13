@@ -676,6 +676,20 @@ FullEngineCoopClientController::submitDoorOpenClose(
 	return request(view, payload);
 }
 
+FullEngineCoopClientIntentRequest
+FullEngineCoopClientController::submitDoorAction(
+	const FullEngineCoopClientControllerView& view, std::uint8_t action) noexcept
+{
+	if (!selectingDoor_ || !actionsEnabled(view) || selectedDoorOpen_ ||
+		!CoopSession::IsSupportedTacticalDoorAction(action) || !exactDoorSelectionCurrent(view))
+		return {};
+	const CoopSession::DoorActionTacticalIntent payload{
+		selectedDoorBaseGrid_, selectedDoorStructureId_, action};
+	cancelDoorSelection();
+	cancelFirstAidSelection();
+	return request(view, payload);
+}
+
 bool FullEngineCoopClientController::assignedAndPresent(
 	const FullEngineCoopClientControllerView& view,
 	TacticalEntityId actor) const noexcept

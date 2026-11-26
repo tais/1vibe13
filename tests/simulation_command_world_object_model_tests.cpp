@@ -516,6 +516,36 @@ int main()
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"malformed or locally sourced gives are rejected");
 
+	AuthoritativeDoorActionCommand pick;
+	pick.soldier = {2, 0x11223344}; pick.object = {2000, 7}; pick.handleCode = 3; pick.direction = 2;
+	pick.expectedWorldGeneration = 9; pick.expectedTurnSerial = 11;
+	pick.expectedActorGrid = 2001; pick.expectedActorLevel = 0; pick.expectedAnimationState = 6;
+	pick.expectedActorStateFingerprint = 0x0102030405060708ull; pick.expectedObjectFingerprint = 0x1112131415161718ull;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{pick}),
+		"a prepared door-menu choice carries its exact merc, door, code and pose proofs");
+	const std::vector<RecordedSimulationCommand> pickRecords{
+		{16, 20, CommandJournalStatus::Applied, SimulationCommand{pick}}};
+	std::vector<std::uint8_t> pickWire, pickReencoded;
+	std::vector<RecordedSimulationCommand> decodedPick;
+	std::uint64_t pickDropped = 0;
+	Require(EncodeSimulationCommandJournal(pickRecords, 0, pickWire) &&
+		DecodeSimulationCommandJournal(pickWire, decodedPick, pickDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedPick.size() == 1 &&
+		std::holds_alternative<AuthoritativeDoorActionCommand>(decodedPick[0].command) &&
+		EncodeSimulationCommandJournal(decodedPick, pickDropped, pickReencoded) && pickReencoded == pickWire,
+		"a door-menu journal round trips every field under its append-only tag");
+	std::array<AuthoritativeDoorActionCommand, 6> invalidPicks;
+	invalidPicks.fill(pick);
+	invalidPicks[0].handleCode = 1;  // open is the open/close command
+	invalidPicks[1].handleCode = 5;  // locking is not a menu choice
+	invalidPicks[2].expectedActorLevel = 1;
+	invalidPicks[3].expectedObjectFingerprint = TacticalWorldObjectNoExpectedFingerprint;
+	invalidPicks[4].source = SimulationCommandSource::LocalPlayer;
+	invalidPicks[5].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidPicks)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"only exact stock menu choices from a co-op peer are door actions");
+
 	AuthoritativeConverseCommand answer;
 	answer.soldier = {2, 0x11223344};
 	answer.expectedWorldGeneration = 9;

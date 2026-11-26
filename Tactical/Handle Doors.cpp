@@ -599,6 +599,34 @@ void ProcessImplicationsOfPCMessingWithDoor( TacticalActor * pSoldier )
 
 
 
+// Dedicated co-op: a door menu choice without the menu. The stock steps of
+// InteractWithOpenableStruct for a locked closed door (busy check, facing,
+// stance, the trap notice that pre-empts the menu), the button's availability
+// and its InteractWithClosedDoor; the action itself then runs at the animation
+// keyframe in HandleOpenableStruct, exactly as for a local player.
+DedicatedCoopDoorActionStart BeginDedicatedCoopDoorAction( TacticalActor& soldier, STRUCTURE& structure,
+	UINT8 ubDirection, UINT8 ubHandleCode )
+{
+	STRUCTURE* const base = FindBaseStructure( &structure );
+	if ( base == NULL || ( base->fFlags & STRUCTURE_OPEN ) )
+		return DedicatedCoopDoorActionStart::Refused;
+	const DOOR_STATUS* const status = GetDoorStatus( base->sGridNo );
+	DOOR* const door = FindDoorInfoAtGridNo( base->sGridNo );
+	// Stock offers the menu only for a locked door.
+	if ( ( status && ( status->ubFlags & DOOR_BUSY ) ) || door == NULL || !door->fLocked ||
+		!DoorMenuActionAvailable( &soldier, ubHandleCode, FALSE ) )
+		return DedicatedCoopDoorActionStart::Refused;
+	(void)TacticalActorOrientation::setDesiredDirection( soldier, ubDirection );
+	(void)TacticalActorRouteExecution::settleIntoStationaryStance( soldier );
+	if ( DoTrapCheckOnStartingMenu( &soldier, door ) )
+	{
+		soldier.runtime().worldObject.reset();
+		return DedicatedCoopDoorActionStart::TrapNoticed;
+	}
+	InteractWithClosedDoor( &soldier, ubHandleCode );
+	return DedicatedCoopDoorActionStart::Started;
+}
+
 BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE *pStructure )
 {
 	BOOLEAN fHandleDoor = FALSE;

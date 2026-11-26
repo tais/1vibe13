@@ -252,6 +252,15 @@ bool DedicatedCoopTacticalJa2LiveState::prepareConverse(const CoopSession::PeerI
 	return IsStructurallyValidAuthoritativeConverseCommand(command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareDoorAction(
+	TacticalEntityId actor,
+	TacticalWorldObjectId object,
+	std::uint8_t action,
+	AuthoritativeDoorActionCommand& command) const noexcept
+{
+	return onMainThread() && PrepareAuthoritativeDoorActionCommand(actor, object, action, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareDoorOpenClose(
 	TacticalEntityId actor,
 	TacticalWorldObjectId object,

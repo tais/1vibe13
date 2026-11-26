@@ -101,6 +101,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Talk: return 6;
 		case TacticalIntentKind::Converse: return 5;
 		case TacticalIntentKind::GiveItem: return 16;
+		case TacticalIntentKind::DoorAction: return 7;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -130,6 +131,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Talk:
 		case TacticalIntentKind::Converse:
 		case TacticalIntentKind::GiveItem:
+		case TacticalIntentKind::DoorAction:
 			return true;
 	}
 	return false;
@@ -187,6 +189,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::Converse;
 		if constexpr (std::is_same<Payload, GiveItemTacticalIntent>::value)
 			return TacticalIntentKind::GiveItem;
+		if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
+			return TacticalIntentKind::DoorAction;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -244,6 +248,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 				(payload.sourceSlot == 5 || payload.sourceSlot == 6 ||
 				 (payload.sourceSlot >= 14 && payload.sourceSlot < 55)) &&
 				payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
+			return payload.baseGrid >= 0 && payload.structureId != 0 && IsSupportedTacticalDoorAction(payload.action);
 		return true;
 	}, intent.payload);
 }
@@ -305,6 +311,12 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 				WriteI32(encoded, payload.baseGrid);
 				WriteU16(encoded, payload.structureId);
 				encoded.push_back(payload.desiredOpen ? 1u : 0u);
+			}
+			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
+			{
+				WriteI32(encoded, payload.baseGrid);
+				WriteU16(encoded, payload.structureId);
+				encoded.push_back(payload.action);
 			}
 			else if constexpr (std::is_same<Payload,
 				PassInterruptTacticalIntent>::value)
@@ -495,6 +507,17 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			const std::uint8_t desiredOpen = *input++;
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::DoorAction:
+		{
+			DoorActionTacticalIntent payload;
+			if (!ReadI32(input, end, payload.baseGrid) ||
+				!ReadU16(input, end, payload.structureId) || input == end)
+				return TacticalIntentCodecResult::Invalid;
+			payload.action = *input++;
+			if (!IsSupportedTacticalDoorAction(payload.action)) return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
 		}

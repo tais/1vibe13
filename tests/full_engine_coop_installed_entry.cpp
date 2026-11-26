@@ -47,6 +47,9 @@
 #include "Queen Command.h"
 #include "Town Militia.h"
 #include "Player Command.h"
+#include "Keys.h"
+#include "Items.h"
+#include "Structure.h"
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "Soldier Profile Constants.h"
@@ -290,6 +293,85 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_LOCKED_DOOR=1, starter-victory mode): once A9
+// is secured for peaceful play, lock the closed door nearest a player merc and
+// give that merc a locksmith kit; log the door and the tile to stand on. The
+// probe walks there and picks the lock through the shipping controller. Then
+// report every change of that door's lock.
+void PollLockedDoorSeed()
+{
+	static bool seeded = false;
+	static std::int32_t doorGrid = -1;
+	static int lastLocked = -1;
+	static std::chrono::steady_clock::time_point calmSince{};
+	if (!std::getenv("JA2_COOP_ENTRY_LOCKED_DOOR") || !gfProgramIsRunning) return;
+	if (seeded)
+	{
+		const DOOR* door = doorGrid >= 0 ? FindDoorInfoAtGridNo(doorGrid) : nullptr;
+		const int locked = door ? (door->fLocked ? 1 : 0) : -1;
+		if (locked != lastLocked)
+		{
+			std::printf("[co-op entry test] seeded door locked=%d\n", locked);
+			std::fflush(stdout);
+			lastLocked = locked;
+		}
+		return;
+	}
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+	if (now - calmSince < std::chrono::seconds(3)) return;
+	TacticalActor* merc = nullptr;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE &&
+			!actor->position().level()) { merc = actor; break; }
+	}
+	if (!merc) return;
+	seeded = true;
+	DOOR* best = nullptr; INT32 bestStand = -1; INT16 bestDistance = 32767;
+	for (UINT8 i = 0; i < gubNumDoors; ++i)
+	{
+		DOOR* door = &DoorTable[i];
+		STRUCTURE* structure = FindStructure(door->sGridNo, STRUCTURE_ANYDOOR);
+		STRUCTURE* base = structure ? FindBaseStructure(structure) : nullptr;
+		if (!base || base->sGridNo != door->sGridNo || (base->fFlags & STRUCTURE_OPEN)) continue;
+		UINT8 direction = 0;
+		const INT32 stand = FindAdjacentGridEx(merc, door->sGridNo, &direction, nullptr, FALSE, TRUE);
+		if (stand < 0 || stand >= WORLD_MAX) continue;
+		const INT16 distance = PythSpacesAway(merc->position().gridNo(), stand);
+		if (distance < bestDistance) { best = door; bestStand = stand; bestDistance = distance; }
+	}
+	UINT16 kit = 0;
+	for (UINT16 item = 1; item < MAXITEMS && !kit; ++item)
+		if (ItemIsLocksmithKit(item)) kit = item;
+	OBJECTTYPE object;
+	if (!best || !kit || !CreateItem(kit, 100, &object) || !AutoPlaceObject(merc, &object, TRUE))
+	{ Finish(false, "locked door fixture found no door, kit or inventory room"); return; }
+	// The easiest ordinary lock in the game data and a skilled merc: the stock
+	// lockpick roll still decides, but the probe need not retry for long.
+	UINT8 lock = 0; UINT8 difficulty = 255;
+	for (UINT16 id = 0; id < NUM_LOCKS; ++id)
+		if (id != LOCK_UNOPENABLE && (LockTable[id].ubLockType == LOCK_REGULAR || LockTable[id].ubLockType == LOCK_PADLOCK) &&
+			LockTable[id].ubPickDifficulty < difficulty) { lock = static_cast<UINT8>(id); difficulty = LockTable[id].ubPickDifficulty; }
+	merc->statistics().mechanical() = 100;
+	best->fLocked = TRUE;
+	best->ubLockID = lock;
+	best->ubTrapID = NO_TRAP;
+	best->ubTrapLevel = 0;
+	std::printf("[co-op entry test] seeded lock id=%u; pick difficulty=%u\n", unsigned(lock), unsigned(difficulty));
+	doorGrid = best->sGridNo;
+	STRUCTURE* structure = FindBaseStructure(FindStructure(best->sGridNo, STRUCTURE_ANYDOOR));
+	const auto id = GetJa2TacticalEntityId(*merc);
+	std::printf("[co-op entry test] locked door seeded: actor=%u:%u; door=%d; structure=%u; stand=%d; distance=%d; kit=%u\n",
+		unsigned(id.slot), unsigned(id.incarnation), int(best->sGridNo), structure ? unsigned(structure->usStructureID) : 0u,
+		int(bestStand), int(bestDistance), unsigned(kit));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_REINFORCEMENT_BATTLE=1, starter-victory mode):
 // once the players are back on the worldless map, militia hold A9 and an army
 // garrison holds B9, so the squad's arrival in B9 asks the stock militia
@@ -803,6 +885,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollControlledBattleTrigger();
 	PollMilitiaAttackSeed();
 	PollReinforcementBattleSeed();
+	PollLockedDoorSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

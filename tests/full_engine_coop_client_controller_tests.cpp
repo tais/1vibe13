@@ -1013,6 +1013,17 @@ void TestDoorSelectionProducesExactInverseIntent()
 		"door submit carries exact public identity and requests inverse state");
 	CHECK(!snapshot.findDoor(1000)->open,
 		"door selection never speculates into the passive replica");
+	CHECK(controller.beginDoorSelection(view) && controller.selectedDoorBaseGrid() == 1000 &&
+		!controller.submitDoorAction(view, 1) && controller.selectingDoor(),
+		"open is not a locked-door menu choice");
+	const FullEngineCoopClientIntentRequest pick = controller.submitDoorAction(view, 3);
+	const auto* action = std::get_if<CoopSession::DoorActionTacticalIntent>(&pick.payload);
+	CHECK(pick && pick.actor == (TacticalEntityId{1, 1}) && action && action->baseGrid == 1000 &&
+		action->structureId == 41 && action->action == 3 && !controller.selectingDoor(),
+		"a closed door's lockpick choice names the exact door and stock code");
+	CHECK(controller.beginDoorSelection(view) && controller.selectNextDoor(view) && controller.selectedDoorOpen() &&
+		!controller.submitDoorAction(view, 4),
+		"an open door offers no locked-door menu");
 }
 
 void TestExactDoorSelectionIsTransactionalAndEpochBound()

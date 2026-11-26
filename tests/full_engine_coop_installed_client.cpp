@@ -1364,6 +1364,39 @@ void ReplyPickup(std::uint64_t request, TacticalEntityId actor, TacticalWorldIte
 	FlushReply();
 }
 
+// One stock door-menu action through the shipping controller: select the
+// actor, enter door selection, select the exact door, press the action.
+void ReplyDoorAction(std::uint64_t request, TacticalEntityId actor, std::int32_t grid, std::uint8_t action,
+	FullEngineCoopClientController& controller) noexcept
+{
+	controller.closeInventory();
+	controller.cancelAttackTargeting();
+	controller.cancelDestinationEntry();
+	controller.cancelDoorSelection();
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	FullEngineCoopClientPresentationView presentation;
+	if (!runtime.presentationView(presentation) || !presentation.snapshot)
+	{ ReplyControllerRejected(request, "door_action"); return; }
+	const auto view = ControllerView(presentation);
+	controller.synchronize(view);
+	if (!controller.selectActor(view, actor) || !controller.beginDoorSelection(view) || !controller.selectDoor(view, grid))
+	{ controller.cancelDoorSelection(); ReplyControllerRejected(request, "door_action"); return; }
+	const auto intent = controller.submitDoorAction(view, action);
+	const auto* payload = std::get_if<CoopSession::DoorActionTacticalIntent>(&intent.payload);
+	if (!intent || intent.actor != actor || !payload || payload->baseGrid != grid || payload->action != action)
+	{ ReplyControllerRejected(request, "door_action"); return; }
+	const auto result = runtime.sendIntent(intent.actor, intent.payload);
+	std::uint64_t command = 0;
+	FullEngineCoopClientPresentationView refreshed;
+	if (result == CoopSession::FullEngineCoopClientResult::Success && runtime.presentationView(refreshed))
+		command = refreshed.outstandingCommandId;
+	std::printf("%s{\"request\":%llu,\"kind\":\"door_action\",\"submitted\":%s,\"result\":%u,\"command\":%llu,\"structure\":%u}",
+		ReplyPrefix, static_cast<unsigned long long>(request),
+		result == CoopSession::FullEngineCoopClientResult::Success ? "true" : "false", static_cast<unsigned>(result),
+		static_cast<unsigned long long>(command), unsigned(payload->structureId));
+	FlushReply();
+}
+
 void ReplyTurn(std::uint64_t request, TacticalEntityId actor,
 	std::uint64_t interruptSerial,
 	FullEngineCoopClientController& controller) noexcept
@@ -2711,6 +2744,26 @@ private:
 			ReplyDrop(request,
 				TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
 				static_cast<std::uint16_t>(values[2]), values[3], controller_);
+			return;
+		}
+		if (operation == "DOOR_ACTION")
+		{
+			std::uint64_t values[4]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] > static_cast<std::uint64_t>(INT32_MAX) || values[3] > 255 ||
+				!CoopSession::IsSupportedTacticalDoorAction(static_cast<std::uint8_t>(values[3])))
+			{
+				ReplyError(request, "malformed DOOR_ACTION arguments");
+				return;
+			}
+			ReplyDoorAction(request, TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
+				static_cast<std::int32_t>(values[2]), static_cast<std::uint8_t>(values[3]), controller_);
 			return;
 		}
 		if (operation == "PICKUP")

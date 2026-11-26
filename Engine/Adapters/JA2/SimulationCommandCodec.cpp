@@ -55,7 +55,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativePickupWorldItem = 38,
 	AuthoritativeDropInventoryItem = 39,
 	AuthoritativeConverse = 40,
-	AuthoritativeGiveItem = 41
+	AuthoritativeGiveItem = 41,
+	AuthoritativeDoorAction = 42
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -294,6 +295,26 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			WriteI16(writer, value.expectedActionPointCost);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeDoorActionCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeDoorAction));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.object.grid);
+			writer.writeU16(value.object.structureId);
+			writer.writeU8(value.handleCode);
+			writer.writeU8(value.direction);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI8(value.expectedActorLevel);
+			writer.writeU16(value.expectedAnimationState);
+			writer.writeU64(value.expectedActorStateFingerprint);
+			writer.writeU64(value.expectedObjectFingerprint);
 		}
 		else if constexpr (
 			std::is_same<Command, AuthoritativeGiveItemCommand>::value)
@@ -943,6 +964,29 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				static_cast<TacticalWorldObjectOperation>(operation);
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeDoorAction:
+		{
+			AuthoritativeDoorActionCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readI32(value.object.grid) ||
+				!reader.readU16(value.object.structureId) ||
+				!reader.readU8(value.handleCode) ||
+				!reader.readU8(value.direction) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI8(value.expectedActorLevel) ||
+				!reader.readU16(value.expectedAnimationState) ||
+				!reader.readU64(value.expectedActorStateFingerprint) ||
+				!reader.readU64(value.expectedObjectFingerprint) ||
+				!IsStructurallyValidAuthoritativeDoorActionCommand(value))
 				return false;
 			command = value;
 			return true;

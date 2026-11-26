@@ -202,6 +202,9 @@ public:
 		const FullEngineCoopClientControllerView& view) noexcept;
 	FullEngineCoopClientIntentRequest submitDoorOpenClose(
 		const FullEngineCoopClientControllerView& view) noexcept;
+	// A stock door-menu action (HANDLE_DOOR_* code) on the selected closed door.
+	FullEngineCoopClientIntentRequest submitDoorAction(
+		const FullEngineCoopClientControllerView& view, std::uint8_t action) noexcept;
 
 	bool beginFirstAidSelection(const FullEngineCoopClientControllerView& view) noexcept;
 	bool selectNextPatient(const FullEngineCoopClientControllerView& view) noexcept;

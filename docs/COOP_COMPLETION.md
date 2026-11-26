@@ -3998,3 +3998,37 @@ a refused pass, restart on a new grant or reconnect), ratchet rules on the
 guard, the server step and the System pass. Not yet qualified by an installed
 probe: no fixture can force an interrupt on demand yet; the next combat-breadth
 slices add one.
+
+## Phase 4.7: locked doors (the stock door menu)
+
+Co-op could only open and close unlocked doors; a locked door blocked the way
+for good. Stock offers a menu on a locked door: kick, lockpick, key, crowbar,
+explosive, untrap, examine, each enabled by its own rule (a locksmith kit, a
+key, a crowbar, a lock bomb, enough points, not an escort).
+
+- One shared function, `DoorMenuActionAvailable` (`Tactical/Interface.cpp`),
+  now holds those button rules; the stock menu greys its buttons from it and
+  co-op checks the same rules.
+- `DoorAction` (tactical intent 18; door grid, structure and the stock
+  `HANDLE_DOOR_*` code) becomes `AuthoritativeDoorActionCommand` (journal tag
+  42) after the same exact actor, door and adjacency proofs as open/close, on a
+  locked closed door with the button available.
+- The server starts exactly the stock animated interaction for that button
+  (`StartInteractiveObject`, then `BeginDedicatedCoopDoorAction`: the stock
+  steps of `InteractWithOpenableStruct` for a locked door, including the trap
+  notice that pre-empts the menu, then the button's `InteractWithClosedDoor`).
+  The lockpick roll, points, traps, experience and sounds then run at the
+  animation keyframe in the stock `HandleOpenableStruct`.
+- Client: D enters door selection; on a closed door K kicks, L picks, U uses a
+  key, C crowbars, X places a lock bomb, T untraps, E examines.
+
+Installed evidence (`full_engine_coop_installed_door_actions.py`): after the
+seeded A9 victory, with A9 loaded for peaceful play, the test host locks the
+closed door nearest a player merc (the easiest ordinary lock in the data,
+difficulty 30) and gives that merc a locksmith kit and mechanical 100. The owner
+walks the merc to the door with an ordinary move and picks the lock through the
+controller; the stock roll failed once and opened the lock on the second try.
+Negative control: with locked doors refused as for open/close, the lock never
+opens and the probe fails. Not yet qualified by a probe: kick, key, crowbar,
+explosive, untrap and examine (same command and stock dispatch, different
+button).

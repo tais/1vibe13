@@ -49,6 +49,7 @@
 #include "Handle UI.h"
 #include "Handle Items.h"
 #include "Handle Doors.h"
+#include "Interface.h"
 #include "Interactive Tiles.h"
 #include "Interface Panels.h"
 #include "Interface Items.h"
@@ -1975,6 +1976,63 @@ namespace
 		return true;
 	}
 
+	// A stock door-menu choice: the same exact actor/door/adjacency proofs as an
+	// open/close, on a locked closed door, with the stock menu button available.
+	bool ResolveAuthoritativeDoorAction(
+		const AuthoritativeDoorActionCommand& command,
+		TacticalActor*& soldier,
+		STRUCTURE*& structure) noexcept
+	{
+		soldier = nullptr;
+		structure = nullptr;
+		if (!IsStructurallyValidAuthoritativeDoorActionCommand(command) ||
+			is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldIntegrityValid() ||
+			!HasNetworkPeerTacticalExecutionContext())
+			return false;
+		const Ja2TacticalTurnIdentity identity =
+			GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return false;
+		TacticalActor* const resolvedSoldier = ResolveLiveCommandActor(command.soldier);
+		if (!resolvedSoldier ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			!IsAuthoritativeDoorActorEligible(*resolvedSoldier) ||
+			resolvedSoldier->position().gridNo() != command.expectedActorGrid ||
+			resolvedSoldier->position().level() != command.expectedActorLevel ||
+			resolvedSoldier->animationPlayback().state() != command.expectedAnimationState ||
+			CaptureWorldObjectActorStateFingerprint(*resolvedSoldier) != command.expectedActorStateFingerprint)
+			return false;
+		STRUCTURE* const resolvedStructure = ResolveLiveWorldObject(command.object);
+		if (!resolvedStructure ||
+			FindBaseStructure(resolvedStructure) != resolvedStructure ||
+			resolvedStructure->sGridNo != command.object.grid ||
+			(resolvedStructure->fFlags & STRUCTURE_BASE_TILE) == 0 ||
+			(resolvedStructure->fFlags & STRUCTURE_ANYDOOR) == 0 ||
+			(resolvedStructure->fFlags & STRUCTURE_SWITCH) != 0 ||
+			(resolvedStructure->fFlags & STRUCTURE_OPEN) != 0 ||
+			resolvedStructure->sCubeOffset != STRUCTURE_ON_GROUND ||
+			!FindLevelNodeBasedOnStructure(command.object.grid, resolvedStructure) ||
+			(FindLevelNodeBasedOnStructure(command.object.grid, resolvedStructure)->uiFlags & LEVELNODE_ANIMATION) != 0 ||
+			CaptureWorldObjectFingerprint(*resolvedStructure) != command.expectedObjectFingerprint)
+			return false;
+		if (const DOOR_STATUS* status = GetDoorStatus(command.object.grid))
+			if ((status->ubFlags & (DOOR_BUSY | DOOR_OPEN)) != 0) return false;
+		const DOOR* const door = FindDoorInfoAtGridNo(command.object.grid);
+		if (!door || !door->fLocked || !IsJa2TacticalDoorVisibleToPlayerTeam(command.object.grid) ||
+			!DoorMenuActionAvailable(resolvedSoldier, command.handleCode, FALSE))
+			return false;
+		UINT8 direction = 0;
+		if (FindAdjacentGridEx(resolvedSoldier, command.object.grid, &direction, nullptr, FALSE, TRUE) !=
+				resolvedSoldier->position().gridNo() || direction != command.direction)
+			return false;
+		soldier = resolvedSoldier;
+		structure = resolvedStructure;
+		return true;
+	}
+
 	bool IsWorldObjectOperationCurrent(
 		const STRUCTURE& structure,
 		TacticalWorldObjectOperation operation) noexcept
@@ -3083,6 +3141,29 @@ namespace
 					: CommandDisposition::Discard;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeDoorActionCommand>::value)
+			{
+				TacticalActor* soldier = nullptr;
+				STRUCTURE* structure = nullptr;
+				if (!ResolveAuthoritativeDoorAction(value, soldier, structure) ||
+					!StartInteractiveObject(value.object.grid, value.object.structureId, soldier, value.direction))
+					return CommandDisposition::Discard;
+				// Peer work is not reflected again (the co-op world snapshot carries it).
+				soldier->runtime().worldObject.begin(false, soldier->identity().incarnation(),
+					value.object.grid, value.object.structureId);
+				switch (BeginDedicatedCoopDoorAction(*soldier, *structure, value.direction, value.handleCode))
+				{
+					case DedicatedCoopDoorActionStart::Started:
+					case DedicatedCoopDoorActionStart::TrapNoticed:
+						return CommandDisposition::Applied;
+					case DedicatedCoopDoorActionStart::Refused:
+						break;
+				}
+				soldier->runtime().worldObject.reset();
+				soldier->pendingAction().reset();
+				return CommandDisposition::Discard;
+			}
+			else if constexpr (
 				std::is_same<Command,
 					AuthoritativeDoorOpenCloseCommand>::value)
 			{
@@ -4004,6 +4085,43 @@ bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,
 	catch (...) { return false; }
 }
 
+static_assert(HANDLE_DOOR_EXAMINE == 2 && HANDLE_DOOR_LOCKPICK == 3 && HANDLE_DOOR_FORCE == 4 &&
+	HANDLE_DOOR_UNLOCK == 6 && HANDLE_DOOR_EXPLODE == 7 && HANDLE_DOOR_UNTRAP == 8 && HANDLE_DOOR_CROWBAR == 9,
+	"the co-op door-action codes are the stock HANDLE_DOOR_* menu codes");
+
+bool PrepareAuthoritativeDoorActionCommand(TacticalEntityId actor, TacticalWorldObjectId object,
+	std::uint8_t handleCode, AuthoritativeDoorActionCommand& output) noexcept
+{
+	if (!actor.valid() || object.grid < 0 || object.structureId == 0 || !IsSupportedAuthoritativeDoorAction(handleCode))
+		return false;
+	TacticalActor* const liveActor = ResolveLiveCommandActor(actor);
+	STRUCTURE* const liveStructure = ResolveLiveWorldObject(object);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!liveActor || !liveStructure || !identity) return false;
+	UINT8 direction = 0;
+	if (FindAdjacentGridEx(liveActor, object.grid, &direction, nullptr, FALSE, TRUE) != liveActor->position().gridNo())
+		return false;
+	AuthoritativeDoorActionCommand prepared;
+	prepared.soldier = actor;
+	prepared.object = object;
+	prepared.handleCode = handleCode;
+	prepared.direction = direction;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedActorGrid = liveActor->position().gridNo();
+	prepared.expectedActorLevel = liveActor->position().level();
+	prepared.expectedAnimationState = liveActor->animationPlayback().state();
+	prepared.expectedActorStateFingerprint = CaptureWorldObjectActorStateFingerprint(*liveActor);
+	prepared.expectedObjectFingerprint = CaptureWorldObjectFingerprint(*liveStructure);
+	TacticalActor* checkedActor = nullptr;
+	STRUCTURE* checkedStructure = nullptr;
+	if (!ResolveAuthoritativeDoorAction(prepared, checkedActor, checkedStructure) ||
+		checkedActor != liveActor || checkedStructure != liveStructure)
+		return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeGiveItemCommand(TacticalEntityId actor, TacticalEntityId target,
 	std::uint8_t sourceSlot, AuthoritativeGiveItemCommand& output) noexcept
 {
@@ -4118,7 +4236,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativePickupWorldItemCommand>::value ||
 			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value ||
 			std::is_same<Command, AuthoritativeConverseCommand>::value ||
-			std::is_same<Command, AuthoritativeGiveItemCommand>::value)
+			std::is_same<Command, AuthoritativeGiveItemCommand>::value ||
+			std::is_same<Command, AuthoritativeDoorActionCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4291,6 +4410,15 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
 				return TileIsOutOfBounds(value.expectedTargetGrid)
 					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeDoorActionCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeDoorActionCommand(value) ||
+					value.expectedAnimationState >= NUMANIMATIONSTATES)
+					return SimulationCommandDomainError::InvalidWorldObjectPrecondition;
+				if (value.object.grid >= WORLD_MAX) return SimulationCommandDomainError::InvalidObjectGrid;
+				return value.expectedActorGrid >= WORLD_MAX
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeConverseCommand>::value)
 			{

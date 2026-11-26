@@ -147,6 +147,10 @@ bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
 // Ordinary whole pocket stack onto this actor's exact empty, safe ground tile.
 // The retained command repeats source/pose/AP proofs and commits one native
 // item insertion; no asynchronous drop animation or client inventory mutation.
+// A stock door-menu choice (HANDLE_DOOR_* code) on an exact adjacent locked
+// closed door, with the stock button's availability proven against live state.
+bool PrepareAuthoritativeDoorActionCommand(TacticalEntityId actor, TacticalWorldObjectId object,
+	std::uint8_t handleCode, AuthoritativeDoorActionCommand& output) noexcept;
 bool PrepareAuthoritativeGiveItemCommand(TacticalEntityId actor, TacticalEntityId target,
 	std::uint8_t sourceSlot, AuthoritativeGiveItemCommand& output) noexcept;
 bool PrepareAuthoritativeDropInventoryItemCommand(TacticalEntityId actor,

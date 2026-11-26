@@ -3844,6 +3844,39 @@ bool ResolveOpenDoorMenu(TacticalActor*& soldier) noexcept
 }
 }
 
+// The stock door menu's per-button availability, shared by the menu and the
+// dedicated co-op door actions (which have no menu).
+BOOLEAN DoorMenuActionAvailable( TacticalActor *pSoldier, UINT8 ubHandleCode, BOOLEAN fClosingDoor )
+{
+	if ( pSoldier == NULL || fClosingDoor )
+		return FALSE;
+	switch( ubHandleCode )
+	{
+		case HANDLE_DOOR_UNLOCK:
+			return EnoughPoints( pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) &&
+				!AM_AN_EPC( pSoldier ) && SoldierHasKey( pSoldier, ANYKEY );
+		case HANDLE_DOOR_CROWBAR:
+			return FindUsableCrowbar( pSoldier ) != NO_SLOT &&
+				EnoughPoints( pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE );
+		case HANDLE_DOOR_LOCKPICK:
+			return EnoughPoints( pSoldier, GetAPsToPicklock( pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) &&
+				!AM_AN_EPC( pSoldier ) && FindLocksmithKit( pSoldier ) != NO_SLOT;
+		case HANDLE_DOOR_EXPLODE:
+			return EnoughPoints( pSoldier, GetAPsToBombDoor( pSoldier ), APBPConstants[BP_EXPLODE_DOOR], FALSE ) &&
+				!AM_AN_EPC( pSoldier ) && FindLockBomb( pSoldier ) != NO_SLOT;
+		case HANDLE_DOOR_EXAMINE:
+			return EnoughPoints( pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) &&
+				!AM_AN_EPC( pSoldier );
+		case HANDLE_DOOR_FORCE:
+			return EnoughPoints( pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) &&
+				!AM_AN_EPC( pSoldier );
+		case HANDLE_DOOR_UNTRAP:
+			return EnoughPoints( pSoldier, GetAPsToUntrapDoor( pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) &&
+				!AM_AN_EPC( pSoldier );
+	}
+	return FALSE;
+}
+
 BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor )
 {
 	INT16 sHeight, sWidth;
@@ -3961,13 +3994,8 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ USE_KEYRING_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
-	{
-		DisableButton( iActionIcons[ USE_KEYRING_ICON ] );
-	}
-
-	// Greyout if no keys found...
-	if ( !SoldierHasKey( pSoldier, ANYKEY ) )
+	// Greyout if no keys found, too few points, closing or an EPC...
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_UNLOCK, fClosingDoor ) )
 	{
 		DisableButton( iActionIcons[ USE_KEYRING_ICON ] );
 	}
@@ -3993,15 +4021,11 @@ BOOLEAN PopupDoorOpenMenu( )
 	SetButtonFastHelpText( iActionIcons[ USE_CROWBAR_ICON ], zDisp );
 
 	// Greyout if no crowbar found...
-	if ( FindUsableCrowbar ( pSoldier ) == NO_SLOT	|| fClosingDoor )
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_CROWBAR, fClosingDoor ) )
 	{
 		DisableButton( iActionIcons[ USE_CROWBAR_ICON ] );
 	}
 
-	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
-	{
-		DisableButton( iActionIcons[ USE_CROWBAR_ICON ] );
-	}
 
 	iActionIcons[ LOCKPICK_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ LOCKPICK_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 20 ),
 										BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
@@ -4022,17 +4046,13 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ LOCKPICK_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, GetAPsToPicklock( pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_LOCKPICK, fClosingDoor ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ LOCKPICK_DOOR_ICON ] );
 	}
 
 
 	// Grayout if no lockpick found....
-	if ( FindLocksmithKit( pSoldier ) == NO_SLOT )
-	{
-		DisableButton( iActionIcons[ LOCKPICK_DOOR_ICON ] );
-	}
 
 
 	iActionIcons[ EXPLOSIVE_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ EXPLOSIVE_DOOR_IMAGES ], (INT16)(iMenuAnchorX + 40 ), (INT16)(iMenuAnchorY + 40 ),
@@ -4054,17 +4074,13 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ EXPLOSIVE_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, GetAPsToBombDoor( pSoldier ), APBPConstants[BP_EXPLODE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_EXPLODE, fClosingDoor ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ EXPLOSIVE_DOOR_ICON ] );
 	}
 
 	// Grayout if no lock explosive found....
 	// For no use bomb1 until we get a special item for this
-	if ( FindLockBomb ( pSoldier ) == NO_SLOT )
-	{
-		DisableButton( iActionIcons[ EXPLOSIVE_DOOR_ICON ] );
-	}
 
 
 	iActionIcons[ OPEN_DOOR_ICON ] = CreateDoorMenuButton( iIconImages[ OPEN_DOOR_IMAGES ], (INT16)(iMenuAnchorX ), (INT16)(iMenuAnchorY ),
@@ -4126,7 +4142,7 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ EXAMINE_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_EXAMINE, fClosingDoor ) )
 	{
 		DisableButton( iActionIcons[ EXAMINE_DOOR_ICON ] );
 	}
@@ -4150,7 +4166,7 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ BOOT_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) )
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_FORCE, fClosingDoor ) )
 	{
 		DisableButton( iActionIcons[ BOOT_DOOR_ICON ] );
 	}
@@ -4175,7 +4191,7 @@ BOOLEAN PopupDoorOpenMenu( )
 	}
 	SetButtonFastHelpText( iActionIcons[ UNTRAP_DOOR_ICON ], zDisp );
 
-	if ( !EnoughPoints(	pSoldier, GetAPsToUntrapDoor( pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) || fClosingDoor || AM_AN_EPC( pSoldier ) ) // SANDRO
+	if ( !DoorMenuActionAvailable( pSoldier, HANDLE_DOOR_UNTRAP, fClosingDoor ) ) // SANDRO
 	{
 		DisableButton( iActionIcons[ UNTRAP_DOOR_ICON ] );
 	}

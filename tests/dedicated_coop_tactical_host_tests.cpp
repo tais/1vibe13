@@ -274,6 +274,19 @@ public:
 		command.expectedActionPointCost = 3;
 		return true;
 	}
+	bool prepareDoorAction(TacticalEntityId actor, TacticalWorldObjectId object, std::uint8_t action,
+		AuthoritativeDoorActionCommand& command) const noexcept override
+	{
+		++doorActionPreparationCalls;
+		lastDoorAction = action;
+		if (!doorActionPreparationSucceeds) return false;
+		command = AuthoritativeDoorActionCommand{};
+		command.soldier = actor; command.object = object; command.handleCode = action; command.direction = 2;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		command.expectedActorGrid = 1000; command.expectedActorLevel = 0; command.expectedAnimationState = 1;
+		command.expectedActorStateFingerprint = 11; command.expectedObjectFingerprint = 12;
+		return true;
+	}
 	bool prepareGiveItem(TacticalEntityId actor, TacticalEntityId target, std::uint16_t source,
 		std::uint64_t revision, AuthoritativeGiveItemCommand& command) const noexcept override
 	{
@@ -361,6 +374,9 @@ public:
 	bool talkPreparationSucceeds = true;
 	bool givePreparationSucceeds = true;
 	mutable std::size_t givePreparationCalls = 0;
+	bool doorActionPreparationSucceeds = true;
+	mutable std::size_t doorActionPreparationCalls = 0;
+	mutable std::uint8_t lastDoorAction = 0;
 	mutable std::uint64_t lastGiveRevision = 0;
 	bool conversePreparationSucceeds = true;
 	mutable std::size_t talkPreparationCalls = 0;
@@ -970,6 +986,27 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		"giving fails closed while a legacy network role is active");
 	CHECK(invalidGive.givePreparationCalls == 1 && legacyNetwork.givePreparationCalls == 0,
 		"legacy role rejection precedes native give preparation");
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost doorHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(doorHost.execute(Intent(1, DoorActionTacticalIntent{2000, 7, 3})) == TacticalIntentExecutionDisposition::Retained &&
+			queue.submissionCount == 1 && live.lastDoorAction == 3,
+			"a lockpick door choice enters the retained command inbox");
+		const auto* action = std::get_if<AuthoritativeDoorActionCommand>(&queue.submissions[0].command);
+		CHECK(action && action->handleCode == 3 && action->object.grid == 2000 && action->object.structureId == 7 &&
+			action->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stock door-menu command reaches the command service unchanged");
+	}
+	FakeLiveState invalidDoorAction;
+	invalidDoorAction.doorActionPreparationSucceeds = false;
+	rejects(invalidDoorAction, Intent(1, DoorActionTacticalIntent{2000, 7, 9}),
+		CoopTacticalIntentReceiptReason::GameplayRejected,
+		"an unlocked, far, busy door or an unavailable menu button never enters the inbox");
+	rejects(legacyNetwork, Intent(1, DoorActionTacticalIntent{2000, 7, 9}),
+		CoopTacticalIntentReceiptReason::UnavailableContext,
+		"door actions fail closed while a legacy network role is active");
+	CHECK(invalidDoorAction.doorActionPreparationCalls == 1 && legacyNetwork.doorActionPreparationCalls == 0,
+		"legacy role rejection precedes native door-action preparation");
 	FakeLiveState invalidTalk;
 	invalidTalk.talkPreparationSucceeds = false;
 	rejects(invalidTalk, Intent(1, TalkTacticalIntent{ActorTwo}),
@@ -988,7 +1025,7 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 	CHECK(invalidTalk.talkPreparationCalls == 1 && staleAnswer.conversePreparationCalls == 1 &&
 		legacyNetwork.talkPreparationCalls == 0 && legacyNetwork.conversePreparationCalls == 0,
 		"legacy role rejection precedes native conversation preparation");
-	invalidDoor.doorPreparationSucceeds = false;
+	invalidDoorAction.doorPreparationSucceeds = false;
 	FakeLiveState invalidTransfer;
 	invalidTransfer.transferPreparationSucceeds = false;
 	rejects(invalidTransfer, Intent(1, TransferInventoryItemTacticalIntent{ActorTwo, 14, 5, 31, 47}),
@@ -1019,7 +1056,7 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		"legacy networking fails closed for pocket drop");
 	CHECK(invalidDrop.dropPreparationCalls == 1 && legacyNetwork.dropPreparationCalls == 0,
 		"legacy role rejection precedes native drop preparation");
-	rejects(invalidDoor, Intent(1,
+	rejects(invalidDoorAction, Intent(1,
 		DoorOpenCloseTacticalIntent{1400, 91, false}),
 		CoopTacticalIntentReceiptReason::GameplayRejected,
 		"stale, locked, trapped, non-adjacent, or unaffordable door is terminal");

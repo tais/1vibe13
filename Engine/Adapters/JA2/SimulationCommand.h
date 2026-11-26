@@ -1319,6 +1319,49 @@ constexpr bool IsStructurallyValidAuthoritativeGiveItemCommand(
 		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
 }
 
+// A stock door-menu choice on a locked closed door (dedicated co-op only). The
+// handle code is a stock HANDLE_DOOR_* menu action: 2 examine, 3 lockpick,
+// 4 force (kick), 6 unlock with a key, 7 explode, 8 untrap, 9 crowbar. It
+// starts the stock animated door interaction; the stock chance rolls, point
+// costs, traps and experience apply at the animation keyframe.
+struct AuthoritativeDoorActionCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldObjectId object;
+	std::uint8_t handleCode = 0;
+	std::uint8_t direction = TacticalDirectionCount;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = -1;
+	std::int8_t expectedActorLevel = -1;
+	std::uint16_t expectedAnimationState = TacticalWorldObjectNoExpectedAnimation;
+	std::uint64_t expectedActorStateFingerprint = TacticalWorldObjectNoExpectedFingerprint;
+	std::uint64_t expectedObjectFingerprint = TacticalWorldObjectNoExpectedFingerprint;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeDoorActionCommand>::value,
+	"door-menu commands must remain pointer-free values");
+
+constexpr bool IsSupportedAuthoritativeDoorAction(std::uint8_t code) noexcept
+{
+	return code == 2 || code == 3 || code == 4 || code == 6 || code == 7 || code == 8 || code == 9;
+}
+
+constexpr bool IsStructurallyValidAuthoritativeDoorActionCommand(
+	const AuthoritativeDoorActionCommand& command) noexcept
+{
+	return command.soldier.valid() && command.object.grid >= 0 && command.object.structureId != 0 &&
+		IsSupportedAuthoritativeDoorAction(command.handleCode) && command.direction < TacticalDirectionCount &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 && command.expectedActorLevel == 0 &&
+		command.expectedAnimationState != TacticalWorldObjectNoExpectedAnimation &&
+		command.expectedActorStateFingerprint != TacticalWorldObjectNoExpectedFingerprint &&
+		command.expectedObjectFingerprint != TacticalWorldObjectNoExpectedFingerprint &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeConverseCommand>::value,
 	"conversation answers must remain pointer-free values");
 
@@ -1686,7 +1729,8 @@ using SimulationCommand = std::variant<
 	AuthoritativePickupWorldItemCommand,
 	AuthoritativeDropInventoryItemCommand,
 	AuthoritativeConverseCommand,
-	AuthoritativeGiveItemCommand>;
+	AuthoritativeGiveItemCommand,
+	AuthoritativeDoorActionCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1855,6 +1899,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeGiveItemCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeGiveItemCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeDoorActionCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeDoorActionCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

@@ -485,6 +485,25 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::DoorActionTacticalIntent>::value)
+		{
+			if (liveState_->legacyNetworkingActive())
+			{
+				reason = CoopTacticalIntentReceiptReason::UnavailableContext;
+				translated = false;
+				return;
+			}
+			AuthoritativeDoorActionCommand prepared{};
+			if (!liveState_->prepareDoorAction(intent.actor,
+					TacticalWorldObjectId{payload.baseGrid, payload.structureId}, payload.action, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::DoorOpenCloseTacticalIntent>::value)
 		{
 			// The native synchronous door seam assumes there is no legacy event

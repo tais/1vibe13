@@ -21,6 +21,12 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fDoor );
 
 void InteractWithClosedDoor( TacticalActor *pSoldier, UINT8 ubHandleCode );
+// Dedicated co-op door menu choice (no menu): Started plays the stock action,
+// TrapNoticed is the stock trap notice that pre-empts the menu, Refused leaves
+// everything untouched (unlocked/open/busy door, or the button unavailable).
+enum class DedicatedCoopDoorActionStart : unsigned char { Started, TrapNoticed, Refused };
+DedicatedCoopDoorActionStart BeginDedicatedCoopDoorAction( TacticalActor& soldier, STRUCTURE& structure,
+	UINT8 ubDirection, UINT8 ubHandleCode );
 
 void SetDoorString( INT32 sGridNo );
 
