@@ -1447,7 +1447,8 @@ struct DedicatedCoopRuntime::Impl
 			static_cast<std::uint32_t>(decision >> 16)};
 		if (selfRetirementActive || tactical == nullptr || !tactical->server.worldActive() || !assignmentsPublished)
 			return {Outcome::NativeRejected, 1};
-		const auto* controlled = std::find_if(publishedAssignments.begin(), publishedAssignments.begin() + publishedAssignmentCount,
+		// An iterator, not a pointer: std::array iterators are class types on MSVC.
+		const auto controlled = std::find_if(publishedAssignments.begin(), publishedAssignments.begin() + publishedAssignmentCount,
 			[&](const CoopSession::CoopTacticalActorAssignment& row) { return row.actor == actor; });
 		if (controlled == publishedAssignments.begin() + publishedAssignmentCount) return {Outcome::NativeRejected, 1};
 		if (controlled->peerIdentity != requester) return {Outcome::NativeRejected, 2};
