@@ -266,9 +266,8 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 			if (group.id != request.group) continue;
 			if (group.betweenSectors) return Outcome::Unavailable;
 			if (group.z || group.vehicle) return Outcome::Unsupported;
-			const int dx = static_cast<int>(request.destinationX) - group.x;
-			const int dy = static_cast<int>(request.destinationY) - group.y;
-			return ((dx == 0 && (dy == 1 || dy == -1)) || (dy == 0 && (dx == 1 || dx == -1))) ? Outcome::Applied : Outcome::Unsupported;
+			// Any other surface sector: the server plans the native route.
+			return request.destinationX != group.x || request.destinationY != group.y ? Outcome::Applied : Outcome::Unsupported;
 		}
 		return Outcome::Stale;
 	}

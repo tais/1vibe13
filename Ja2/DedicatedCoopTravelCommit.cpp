@@ -25,29 +25,39 @@ namespace
 // Storage stays private until every allocation and event insertion succeeds.
 struct PreparedDeparture
 {
+	// One waypoint per sector after the origin: native movement walks toward the
+	// next waypoint one adjacent sector at a time and advances at each.
 	WAYPOINT* waypoint = nullptr;
 	std::array<PathSt*, 256> paths{};
 	~PreparedDeparture()
 	{
-		if (waypoint) MemFree(waypoint);
+		while (waypoint) { auto* next = waypoint->next; MemFree(waypoint); waypoint = next; }
 		for (auto* path : paths)
 			while (path) { auto* next = path->pNext; MemFree(path); path = next; }
 	}
 	bool allocate(const DedicatedCoopTravelPlan& plan) noexcept
 	{
-		waypoint = static_cast<WAYPOINT*>(MemAlloc(sizeof(WAYPOINT)));
-		if (!waypoint) return false;
-		*waypoint = {plan.sectors[1].x, plan.sectors[1].y, nullptr};
+		WAYPOINT* last = nullptr;
+		for (std::size_t j = 1; j < plan.sectorCount; ++j)
+		{
+			auto* node = static_cast<WAYPOINT*>(MemAlloc(sizeof(WAYPOINT)));
+			if (!node) return false;
+			*node = {plan.sectors[j].x, plan.sectors[j].y, nullptr};
+			if (last) last->next = node; else waypoint = node;
+			last = node;
+		}
 		for (std::size_t i = 0; i < plan.memberCount; ++i)
 		{
 			PathSt* previous = nullptr;
-			for (std::size_t j = 0; j < 2; ++j)
+			std::uint32_t eta = plan.observedWorldSeconds / 60;
+			for (std::size_t j = 0; j < plan.sectorCount; ++j)
 			{
 				auto* node = static_cast<PathSt*>(MemAlloc(sizeof(PathSt)));
 				if (!node) return false;
 				*node = {};
+				eta += plan.sectors[j].minutesFromPrevious;
 				node->uiSectorId = plan.sectors[j].y * MAP_WORLD_X + plan.sectors[j].x;
-				node->uiEta = plan.observedWorldSeconds / 60 + plan.sectors[j].minutesFromPrevious;
+				node->uiEta = eta;
 				node->fSpeed = NORMAL_MVT; node->pPrev = previous;
 				if (previous) previous->pNext = node; else paths[i] = node;
 				previous = node;
@@ -65,7 +75,10 @@ DedicatedCoopTravelStartResult StartDedicatedCoopTravel(StrategicGroupId identit
 	DedicatedCoopTravelPlan plan;
 	const auto preflight = PlanDedicatedCoopTravel(identity, destinationX, destinationY, plan);
 	if (preflight.code != DedicatedCoopTravelPlanCode::Planned) return {Code::PreflightRejected, preflight};
-	if (plan.sectorCount != 2) return {Code::AdjacentSectorRequired, preflight};
+	// The first leg is committed here; native arrival processing continues each
+	// later leg toward the next waypoint, with its usual encounter checks.
+	if (plan.sectorCount < 2 || plan.sectorCount > MaximumDedicatedCoopTravelSectors)
+		return {Code::AdjacentSectorRequired, preflight};
 	if (gfProcessingGameEvents || gfPreBattleInterfaceActive || gfTacticalTraversal || gfRandomizingPatrolGroup)
 		return {Code::NativeInteractionRequired, preflight};
 	if (DedicatedCoopArrivalDecisionPending()) return {Code::NativeInteractionRequired, preflight};
@@ -84,7 +97,7 @@ DedicatedCoopTravelStartResult StartDedicatedCoopTravel(StrategicGroupId identit
 	for (const GROUP* other = gpGroupList; other; other = other->next)
 		if (other->usGroupTeam != OUR_TEAM && other->uiArrivalTime < arrival &&
 			other->ubNextX == group->ubSectorX && other->ubNextY == group->ubSectorY &&
-			other->ubSectorX == destinationX && other->ubSectorY == destinationY)
+			other->ubSectorX == plan.sectors[1].x && other->ubSectorY == plan.sectors[1].y)
 			return {Code::NativeInteractionRequired, preflight};
 	auto& queue = GetJa2CampaignEventQueue();
 	if (!queue.validate()) return {Code::EventQueueFailure, preflight};
@@ -105,7 +118,7 @@ DedicatedCoopTravelStartResult StartDedicatedCoopTravel(StrategicGroupId identit
 	// on-foot subset of native departure; normal arrival processing owns the rest.
 	group->pWaypoints = prepared.waypoint; prepared.waypoint = nullptr;
 	group->ubNextWaypointID = 0;
-	group->ubNextX = destinationX; group->ubNextY = destinationY;
+	group->ubNextX = plan.sectors[1].x; group->ubNextY = plan.sectors[1].y;
 	group->uiTraverseTime = minutes;
 	SetGroupArrivalTime(group, arrival);
 	group->fBetweenSectors = TRUE;

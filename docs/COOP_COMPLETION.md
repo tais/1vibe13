@@ -4091,3 +4091,27 @@ two tiles from the target (stock scatter). Negative control: with thrown items
 refused, the throw is rejected and the probe fails. Not yet qualified by a
 probe: grenade explosions, throwing knives and launchers (knives go through the
 stock gun path and are not admitted by this command yet).
+
+## Phase 6.1: multi-leg travel (taken ahead of the rest of Phase 4)
+
+The remaining Phase 4 items (melee, movement modes, climbing) are combat
+conveniences; walking the map one sector per order was a far bigger obstacle to
+a whole campaign, so this slice came first.
+
+- A travel order may now name any other surface sector. The server already
+  planned the native route (`QueryStrategicPathWithoutUi`, per-leg native
+  travel times); the commit now lays out one waypoint per sector after the
+  origin and each member's full strategic path, commits the first leg and its
+  arrival event, and leaves every later leg to the native arrival processing,
+  which walks the group toward its next waypoint with the usual encounter,
+  battle and NPC checks at each sector. Routes are capped at 64 sectors.
+- Client: on the map the arrow keys move the destination cursor from the last
+  one (it never lands on the group's own sector); Enter orders the route.
+
+Installed evidence (`full_engine_coop_installed_multi_leg_travel.py`): after
+the seeded A9 victory the test host clears B9 and C9 of enemies; the non-leader
+presses South twice and Enter; the leader runs the clock and the squad goes
+A9 -> B9 -> C9 on its own. Negative control: with the commit limited to one
+adjacent leg again, the order is rejected and the probe fails. Not yet
+qualified by a probe: a route interrupted mid-way by a battle or an NPC (the
+existing arrival decisions apply), and a route preview on the client.

@@ -210,15 +210,17 @@ public:
 			request.destinationX = destinationX_; request.destinationY = destinationY_;
 			cancel(); return request;
 		}
-		int x = group->x, y = group->y;
+		// Arrows move the destination cursor from the last one (multi-leg routes).
+		int x = destinationX_ ? destinationX_ : group->x, y = destinationX_ ? destinationY_ : group->y;
 		if (key == Key::North) --y;
 		else if (key == Key::South) ++y;
 		else if (key == Key::West) --x;
 		else if (key == Key::East) ++x;
 		else return {};
+		// Off the map or back onto the group's own sector: keep the cursor.
+		if (x < 1 || x > 16 || y < 1 || y > 16 || (x == group->x && y == group->y)) return {};
 		cancel();
-		if (x >= 1 && x <= 16 && y >= 1 && y <= 16)
-		{ destinationX_ = static_cast<std::uint8_t>(x); destinationY_ = static_cast<std::uint8_t>(y); }
+		destinationX_ = static_cast<std::uint8_t>(x); destinationY_ = static_cast<std::uint8_t>(y);
 		return {};
 	}
 

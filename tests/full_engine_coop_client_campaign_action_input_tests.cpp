@@ -57,6 +57,13 @@ void Travel()
 	CHECK(!f.input.destinationX(), "north map boundary cannot wrap to another sector");
 	(void)f.press(Key::South); (void)f.press(Key::Cancel);
 	CHECK(!f.press(Key::Confirm), "cancelled destination cannot be submitted");
+	(void)f.press(Key::South); (void)f.press(Key::South); (void)f.press(Key::East);
+	CHECK(f.input.destinationX() == 10 && f.input.destinationY() == 3,
+		"arrows walk the destination cursor for a multi-leg route");
+	(void)f.press(Key::West); (void)f.press(Key::North); (void)f.press(Key::North);
+	CHECK(f.input.destinationX() == 9 && f.input.destinationY() == 2,
+		"the cursor never lands on the group's own sector");
+	(void)f.press(Key::Cancel);
 	(void)f.press(Key::East); (void)f.press(Key::NextGroup);
 	CHECK(f.input.selected() == (StrategicGroupId{2, 20}) && !f.input.destinationX(), "cycling exact groups clears destination");
 	(void)f.press(Key::West); request = f.press(Key::Confirm);

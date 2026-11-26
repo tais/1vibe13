@@ -40,6 +40,8 @@ struct DedicatedCoopTravelPlan
 DedicatedCoopTravelPlanningResult PlanDedicatedCoopTravel(StrategicGroupId group,
 	std::uint8_t destinationX, std::uint8_t destinationY, DedicatedCoopTravelPlan& output) noexcept;
 
+// Longest route a single travel order may name (origin included).
+inline constexpr std::uint16_t MaximumDedicatedCoopTravelSectors = 64;
 enum class DedicatedCoopTravelStartCode : std::uint8_t
 {
 	Started, PreflightRejected, AdjacentSectorRequired, NativeInteractionRequired,
@@ -52,7 +54,8 @@ struct DedicatedCoopTravelStartResult
 	std::uint32_t arrivalMinutes = 0;
 };
 // Native main-thread commit, not a peer authority grant. Replans from current
-// state; accepts only a single adjacent leg for now. Crossing-group delays and
+// state; commits the first leg of the native route and its waypoints (the
+// native arrival processing continues each later leg). Crossing-group delays and
 // tactical/pre-battle contexts require a separate native interaction boundary.
 // All resources/events are prepared before mutation. A rejection starts no
 // movement and preserves existing events/identities, actor paths and clocks.

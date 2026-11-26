@@ -294,6 +294,34 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_CLEAR_ROUTE=1, starter-victory mode): once the
+// players are back on the worldless map, B9 and C9 hold no enemies, so a
+// two-leg route A9 -> B9 -> C9 meets no battle.
+void PollClearRouteSeed()
+{
+	static bool seeded = false;
+	if (seeded || !std::getenv("JA2_COOP_ENTRY_CLEAR_ROUTE") || !gfProgramIsRunning ||
+		!GetDedicatedCoopRuntime().campaignEntered() || !IsDedicatedCoopStarterMissionMapReady() || IsJa2TacticalWorldLoaded() ||
+		DedicatedCoopArrivalDecisionPending() || StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 1)].fEnemyControlled ||
+		NumEnemiesInAnySector(9, 1, 0)) return;
+	seeded = true;
+	for (const UINT8 y : {UINT8(2), UINT8(3)})
+	{
+		auto& info = SectorInfo[SECTOR(9, y)];
+		info.ubGarrisonID = NO_GARRISON;
+		info.ubNumAdmins = info.ubNumTroops = info.ubNumElites = info.ubNumTanks = info.ubNumJeeps = info.ubNumRobots = 0;
+		for (GROUP* group = gpGroupList; group;)
+		{
+			GROUP* next = group->next;
+			if (group->usGroupTeam == ENEMY_TEAM && group->ubSectorX == 9 && group->ubSectorY == y) RemoveGroup(group->ubGroupID);
+			group = next;
+		}
+	}
+	std::printf("[co-op entry test] route seeded: B9 enemies=%u; C9 enemies=%u\n", unsigned(NumEnemiesInAnySector(9, 2, 0)),
+		unsigned(NumEnemiesInAnySector(9, 3, 0)));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_THROW_ITEM=1, starter-victory mode): once A9 is
 // secured for peaceful play, put a stack of three harmless thrown items from
 // the game data in the first player merc's hand and pick a walkable target four
@@ -988,6 +1016,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollLockedDoorSeed();
 	PollBurstWeaponSeed();
 	PollThrowItemSeed();
+	PollClearRouteSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

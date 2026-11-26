@@ -158,9 +158,11 @@ void PolicyAndState()
 		CHECK(allowed(r) == CoopCampaignActionOutcome::Stale, "epoch/control/groups/exact group identity must match server observation");
 	}
 	auto r = f.request(); r.destinationX = 11;
-	CHECK(allowed(r) == CoopCampaignActionOutcome::Unsupported, "multi-leg travel excluded");
+	CHECK(allowed(r) == CoopCampaignActionOutcome::Applied, "a multi-leg destination is planned by the server");
 	r.destinationX = 10; r.destinationY = 2;
-	CHECK(allowed(r) == CoopCampaignActionOutcome::Unsupported, "diagonal travel excluded");
+	CHECK(allowed(r) == CoopCampaignActionOutcome::Applied, "a diagonal destination is reached by a native orthogonal route");
+	r.destinationX = f.groups.groups[0].x; r.destinationY = f.groups.groups[0].y;
+	CHECK(allowed(r) == CoopCampaignActionOutcome::Unsupported, "the group's own sector is no destination");
 	f.groups.groups[0].vehicle = true;
 	CHECK(allowed(f.request()) == CoopCampaignActionOutcome::Unsupported, "vehicles await native travel implementation");
 	f.groups.groups[0].vehicle = false; f.groups.groups[0].betweenSectors = true; f.groups.groups[0].nextX = 10; f.groups.groups[0].nextY = 1;

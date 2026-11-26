@@ -16431,12 +16431,14 @@ extract_brace_bounded_slice(coop_travel_commit_source
 require_ordered_fragments(coop_travel_commit_slice
   "Native departure lost current preflight / bounded interaction gates / prepared resources / event-first atomic commit ordering"
   "PlanDedicatedCoopTravel(identity, destinationX, destinationY, plan)"
-  "plan.sectorCount != 2" "gfProcessingGameEvents || gfPreBattleInterfaceActive || gfTacticalTraversal || gfRandomizingPatrolGroup"
+  "plan.sectorCount < 2 || plan.sectorCount > MaximumDedicatedCoopTravelSectors"
+  "gfProcessingGameEvents || gfPreBattleInterfaceActive || gfTacticalTraversal || gfRandomizingPatrolGroup"
   "ResolveJa2StrategicGroup(identity)" "ResolveJa2TacticalEntity(plan.members[i])" "members[i]->roster().inSector()"
   "other->usGroupTeam != OUR_TEAM" "Code::NativeInteractionRequired"
   "queue.validate()" "Code::EventConflict" "prepared.allocate(plan)"
   "EVENT_GROUP_ARRIVAL" "EVENT_GROUP_ABOUT_TO_ARRIVE" "queue.scheduleBatch("
-  "group->pWaypoints = prepared.waypoint" "SetGroupArrivalTime(group, arrival)"
+  "group->pWaypoints = prepared.waypoint" "group->ubNextX = plan.sectors[1].x; group->ubNextY = plan.sectors[1].y;"
+  "SetGroupArrivalTime(group, arrival)"
   "group->fBetweenSectors = TRUE" "strategicPath().adopt(prepared.paths[i])"
   "deployment().beginStrategicTransit()" "RemoveSoldierFromTacticalSector(members[i], FALSE)"
   "gfReEvaluateEveryonesNothingToDo = TRUE" "Code::Started")
@@ -16461,7 +16463,7 @@ require_ordered_fragments(coop_event_batch_slice
 file(READ "${SOURCE_ROOT}/tests/native_coop_travel_commit_tests.cpp" coop_travel_commit_test_source)
 require_ordered_fragments(coop_travel_commit_test_source
   "Native travel regression lost rollback faults / live observation / real scheduled arrival / Lua hook qualification"
-  "initVirtualFileSystem(config, false)" "Code::AdjacentSectorRequired" "Code::NativeInteractionRequired"
+  "initVirtualFileSystem(config, false)" "route.sectorCount == 3" "Code::NativeInteractionRequired"
   "Code::EventConflict" "CampaignEventQueue tiny(1)" "failAfter = allocation"
   "start.code == Code::Started" "CaptureDedicatedCoopCampaignGroups(observed)"
   "StartDedicatedCoopTravel(identity, 10, 1).code == Code::PreflightRejected"

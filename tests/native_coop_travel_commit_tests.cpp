@@ -139,7 +139,14 @@ int main()
 		second.roster().inSector() = FALSE; second.vitals().health() = 100; members[1].actor = GetJa2TacticalEntityId(second);
 		NotifyJa2TacticalWorldUnloaded(); group.next = nullptr;
 	}
-	CHECK(StartDedicatedCoopTravel(identity, 11, 1).code == Code::AdjacentSectorRequired && unchanged(), "multi-leg route is not silently truncated");
+	{
+		// A two-leg route plans every native leg; the commit (exercised by the
+		// installed multi-leg probe) then departs on the first one.
+		DedicatedCoopTravelPlan route;
+		CHECK(PlanDedicatedCoopTravel(identity, 11, 1, route).code == DedicatedCoopTravelPlanCode::Planned &&
+			route.sectorCount == 3 && route.sectors[1].x == 10 && route.sectors[2].x == 11 && unchanged(),
+			"a multi-leg route is planned in full without touching the group");
+	}
 	GROUP crossing{}; crossing.ubGroupID = 21; crossing.usGroupTeam = ENEMY_TEAM; crossing.ubSectorX = 10; crossing.ubSectorY = 1;
 	crossing.ubNextX = 9; crossing.ubNextY = 1; crossing.uiArrivalTime = GetWorldTotalMin() + 5;
 	group.next = &crossing;
