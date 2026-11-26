@@ -4313,3 +4313,28 @@ the old rule the three show as complex and the probe fails. Native fixtures:
 the inventory capture, swap, transfer, pickup and drop tests now use an
 attachment that is not ordinary itself (load-bearing gear) as their opaque
 object, and cover keys, grenades, a launcher with its grenade and appliables.
+
+## Phase 5.2 (first slice): fitting attachments
+
+- Tactical intent `AttachItem` (kind 21, 12-byte payload: source slot, target
+  slot, the owner's displayed inventory revision) fits the ordinary object in
+  one slot onto the ordinary object in another, as the stock item
+  description box does: stock `ValidAttachment`, `AttachmentAPCost` and
+  `EnoughPoints`, then `OBJECTTYPE::AttachObject` (no sound on the server) and
+  `DeductPoints` for the AP the item box would charge. The stock skill check
+  may fail and damage both objects; that is still the action (Applied). A
+  refusal that changed nothing is discarded. Journal tag 45
+  (`AuthoritativeAttachItem`) records both slots, both object fingerprints and
+  the AP. Merges (stock `EvaluateValidMerge`) are not admitted yet.
+- Client: in the open inventory, select an item and press A to fit it onto the
+  item in hand (native `HANDPOS`, slot 5; slot 0 is the helmet).
+- Not yet: detaching, merging, splitting, unloading, and a view of what is
+  attached.
+
+Installed evidence (`full_engine_coop_installed_attach.py`): after the seeded
+A9 victory the test host puts a gun from the game data in a merc's hand and an
+attachment it accepts in a pocket; the owner fits it through the shipping
+controller; the receipt is Applied, the server's gun carries the attachment,
+and the owner's private view shows the pocket empty. Negative control: with
+the executor never calling the stock attach, the command is discarded and the
+probe fails.

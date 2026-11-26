@@ -588,6 +588,33 @@ int main()
 		std::holds_alternative<AuthoritativeThrowCommand>(decodedToss[0].command) &&
 		EncodeSimulationCommandJournal(decodedToss, tossDropped, tossReencoded) && tossReencoded == tossWire,
 		"a throw journal round trips every field under its append-only tag");
+	AuthoritativeAttachItemCommand fit;
+	fit.soldier = {3, 0x55667788}; fit.sourceSlot = 25; fit.targetSlot = 5;
+	fit.sourceStateFingerprint = 0x1111; fit.targetStateFingerprint = 0x2222; fit.expectedActionPointCost = 6;
+	fit.expectedWorldGeneration = 9; fit.expectedTurnSerial = 11;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{fit}),
+		"an attach names its merc, both slots, both object states and the AP");
+	const std::vector<RecordedSimulationCommand> fitRecords{
+		{19, 23, CommandJournalStatus::Applied, SimulationCommand{fit}}};
+	std::vector<std::uint8_t> fitWire, fitReencoded;
+	std::vector<RecordedSimulationCommand> decodedFit;
+	std::uint64_t fitDropped = 0;
+	Require(EncodeSimulationCommandJournal(fitRecords, 0, fitWire) &&
+		DecodeSimulationCommandJournal(fitWire, decodedFit, fitDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedFit.size() == 1 &&
+		std::holds_alternative<AuthoritativeAttachItemCommand>(decodedFit[0].command) &&
+		EncodeSimulationCommandJournal(decodedFit, fitDropped, fitReencoded) && fitReencoded == fitWire,
+		"an attach journal round trips every field under its append-only tag");
+	std::array<AuthoritativeAttachItemCommand, 5> invalidFits;
+	invalidFits.fill(fit);
+	invalidFits[0].targetSlot = invalidFits[0].sourceSlot;
+	invalidFits[1].sourceStateFingerprint = 1;
+	invalidFits[2].expectedActionPointCost = -1;
+	invalidFits[3].targetSlot = UINT8_MAX;
+	invalidFits[4].source = SimulationCommandSource::LocalPlayer;
+	for (const auto& invalid : invalidFits)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"an attach needs two different native slots, two real object states, an AP cost and a co-op peer");
 	std::array<AuthoritativeThrowCommand, 4> invalidTosses;
 	invalidTosses.fill(toss);
 	invalidTosses[0].targetGrid = -1;

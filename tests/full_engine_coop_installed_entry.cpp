@@ -714,6 +714,69 @@ void PollComplexItemsSeed()
 	std::fflush(stdout);
 }
 
+// Fixture-only (JA2_COOP_ENTRY_ATTACH=1, starter-victory mode): once A9 is
+// secured for peaceful play, put a gun from the game data in the first player
+// merc's hand and an attachment it accepts (stock ValidAttachment) in a pocket
+// the stock fit rule allows; then report when the gun really carries it.
+void PollAttachSeed()
+{
+	static bool seeded = false, fitted = false;
+	static TacticalEntityId mercId{};
+	static UINT16 gunItem = 0, attachmentItem = 0;
+	static std::chrono::steady_clock::time_point calmSince{};
+	if (!std::getenv("JA2_COOP_ENTRY_ATTACH") || !gfProgramIsRunning) return;
+	if (seeded)
+	{
+		TacticalActor* merc = fitted || !IsJa2TacticalWorldLoaded() ? nullptr : ResolveJa2TacticalEntity(mercId);
+		if (!merc || merc->inventory()[HANDPOS].usItem != gunItem) return;
+		for (const auto& attached : merc->inventory()[HANDPOS][0]->attachments)
+			if (attached.exists() && attached.usItem == attachmentItem)
+			{
+				fitted = true;
+				std::printf("[co-op entry test] attachment fitted: gun=%u; attachment=%u; ap=%d\n", unsigned(gunItem),
+					unsigned(attachmentItem), int(merc->actionPoints().current()));
+				std::fflush(stdout);
+				return;
+			}
+		return;
+	}
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+	if (now - calmSince < std::chrono::seconds(3)) return;
+	TacticalActor* merc = nullptr;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+		{ merc = actor; break; }
+	}
+	if (!merc) return;
+	seeded = true;
+	for (UINT16 gun = 1; gun < MAXITEMS && !attachmentItem; ++gun)
+	{
+		if (Item[gun].usItemClass != IC_GUN || EXPLOSIVE_GUN(gun) || !DefaultMagazine(gun)) continue;
+		for (UINT16 attachment = 1; attachment < MAXITEMS && !attachmentItem; ++attachment)
+			if (Item[attachment].usItemClass == IC_MISC && ValidAttachment(attachment, gun))
+			{ gunItem = gun; attachmentItem = attachment; }
+	}
+	OBJECTTYPE gun, attachment;
+	if (!attachmentItem || !CreateItem(gunItem, 100, &gun) || !CreateItem(attachmentItem, 100, &attachment))
+	{ Finish(false, "attach fixture found no gun and attachment"); return; }
+	merc->inventory()[HANDPOS] = gun;
+	int pocket = -1;
+	for (INT8 slot = BIGPOCK1POS; slot < static_cast<INT8>(merc->inventory().size()) && pocket < 0; ++slot)
+		if (!merc->inventory()[slot].exists() && CanItemFitInPosition(merc, &attachment, slot, FALSE) &&
+			PlaceObject(merc, slot, &attachment)) pocket = slot;
+	if (pocket < 0) { Finish(false, "attach fixture could not pocket the attachment"); return; }
+	mercId = GetJa2TacticalEntityId(*merc);
+	std::printf("[co-op entry test] attach seeded: actor=%u:%u; gun=%u; attachment=%u; pocket=%d; hand=%u\n", unsigned(mercId.slot),
+		unsigned(mercId.incarnation), unsigned(gunItem), unsigned(attachmentItem), pocket, unsigned(merc->inventory()[HANDPOS].usItem));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_LOCKED_DOOR=1, starter-victory mode): once A9
 // is secured for peaceful play, lock the closed door nearest a player merc and
 // give that merc a locksmith kit; log the door and the tile to stand on. The
@@ -1316,6 +1379,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();
+	PollAttachSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

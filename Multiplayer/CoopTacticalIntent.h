@@ -40,7 +40,8 @@ enum class TacticalIntentKind : std::uint8_t
 	GiveItem = 17,
 	DoorAction = 18,
 	CycleWeaponMode = 19,
-	ThrowItem = 20
+	ThrowItem = 20,
+	AttachItem = 21
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -169,6 +170,16 @@ struct ThrowItemTacticalIntent
 	std::int32_t targetGrid = -1;
 	std::int8_t targetLevel = 0;
 };
+// Fit the ordinary object in one slot onto the object in another (a scope or
+// a silencer onto the gun in hand, a grenade into a launcher), as the stock
+// item description box does. The private inventory must still match the
+// displayed revision.
+struct AttachItemTacticalIntent
+{
+	std::uint16_t sourceSlot = 0;
+	std::uint16_t targetSlot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
 // The stock weapon-mode cycle; the mode the owner saw (stale otherwise).
 struct CycleWeaponModeTacticalIntent
 {
@@ -210,7 +221,8 @@ using TacticalIntentPayload = std::variant<
 	GiveItemTacticalIntent,
 	DoorActionTacticalIntent,
 	CycleWeaponModeTacticalIntent,
-	ThrowItemTacticalIntent>;
+	ThrowItemTacticalIntent,
+	AttachItemTacticalIntent>;
 
 struct TacticalIntent
 {

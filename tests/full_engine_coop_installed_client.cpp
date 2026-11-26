@@ -2540,6 +2540,36 @@ private:
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
 			return;
 		}
+		if (operation == "ATTACH")
+		{
+			std::uint64_t values[4]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+			FullEngineCoopClientPresentationView presentation;
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] >= 256 || values[3] >= 256 || !runtime.presentationView(presentation))
+			{ ReplyError(request, "ATTACH needs slot/incarnation/source/target of a visible owned merc"); return; }
+			FullEngineCoopClientControllerView view = ControllerView(presentation);
+			controller_.synchronize(view);
+			const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+			const auto intent = controller_.selectActor(view, actor)
+				? controller_.attachInventoryItem(view, static_cast<std::uint16_t>(values[2]), static_cast<std::uint16_t>(values[3]))
+				: FullEngineCoopClientIntentRequest{};
+			std::uint64_t command = 0;
+			const bool submitted = intent && runtime.sendIntent(intent.actor, intent.payload) ==
+				CoopSession::FullEngineCoopClientResult::Success;
+			FullEngineCoopClientPresentationView refreshed;
+			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
+			std::printf("%s{\"request\":%llu,\"kind\":\"attach\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
+				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
+			FlushReply();
+			return;
+		}
 		if (operation == "RUN_TOGGLE")
 		{
 			if (!cursor.exhausted()) { ReplyError(request, "RUN_TOGGLE takes only a request id"); return; }

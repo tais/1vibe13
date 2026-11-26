@@ -104,6 +104,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::DoorAction: return 7;
 		case TacticalIntentKind::CycleWeaponMode: return 1;
 		case TacticalIntentKind::ThrowItem: return 5;
+		case TacticalIntentKind::AttachItem: return 12;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -136,6 +137,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::DoorAction:
 		case TacticalIntentKind::CycleWeaponMode:
 		case TacticalIntentKind::ThrowItem:
+		case TacticalIntentKind::AttachItem:
 			return true;
 	}
 	return false;
@@ -199,6 +201,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::CycleWeaponMode;
 		if constexpr (std::is_same<Payload, ThrowItemTacticalIntent>::value)
 			return TacticalIntentKind::ThrowItem;
+		if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
+			return TacticalIntentKind::AttachItem;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -262,6 +266,9 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 			return payload.expectedWeaponMode < 10;
 		if constexpr (std::is_same<Payload, ThrowItemTacticalIntent>::value)
 			return payload.targetGrid >= 0 && (payload.targetLevel == 0 || payload.targetLevel == 1);
+		if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
+			return payload.sourceSlot < 256 && payload.targetSlot < 256 && payload.sourceSlot != payload.targetSlot &&
+				payload.expectedInventoryRevision != 0;
 		return true;
 	}, intent.payload);
 }
@@ -330,6 +337,12 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			{
 				WriteI32(encoded, payload.targetGrid);
 				encoded.push_back(static_cast<std::uint8_t>(payload.targetLevel));
+			}
+			else if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.sourceSlot);
+				WriteU16(encoded, payload.targetSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
 			}
 			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			{
@@ -526,6 +539,16 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			const std::uint8_t desiredOpen = *input++;
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::AttachItem:
+		{
+			AttachItemTacticalIntent payload;
+			if (!ReadU16(input, end, payload.sourceSlot) ||
+				!ReadU16(input, end, payload.targetSlot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
+				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
 		}

@@ -682,6 +682,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				continue;
 			}
 			if (key == 'g' || key == 'G') (void)Controller.beginInventoryTransfer(view);
+			else if (key == 'a' || key == 'A')
+				// Fit the selected item onto the hand item (a scope or a silencer onto
+				// the gun, a grenade into a launcher), as the stock item box does.
+				(void)Submit(Controller.attachInventoryItem(view, Controller.inventorySourceSlot(), 5 /* native HANDPOS */), view);
 			else if (key == 'p' || key == 'P') (void)Controller.beginInventoryPickup(view);
 			else if (key == 'x' || key == 'X')
 			{

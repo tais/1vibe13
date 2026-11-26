@@ -195,6 +195,12 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 	}
 	if (const auto* talk = std::get_if<TalkTacticalIntent>(&left.payload))
 		return talk->target == std::get<TalkTacticalIntent>(right.payload).target;
+	if (const auto* attach = std::get_if<AttachItemTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<AttachItemTacticalIntent>(right.payload);
+		return attach->sourceSlot == other.sourceSlot && attach->targetSlot == other.targetSlot &&
+			attach->expectedInventoryRevision == other.expectedInventoryRevision;
+	}
 	if (const auto* thrown = std::get_if<ThrowItemTacticalIntent>(&left.payload))
 	{
 		const auto& other = std::get<ThrowItemTacticalIntent>(right.payload);
@@ -355,7 +361,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 20> payloads{{
+	const std::array<PayloadCase, 21> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -378,7 +384,8 @@ void TestIntentCodec()
 		{GiveItemTacticalIntent{TacticalEntityId{0x1234, 0x50607080}, 6, UINT64_C(0x1817161514131211)}, 88},
 		{DoorActionTacticalIntent{0x04030201, 0x0605, 3}, 79},
 		{CycleWeaponModeTacticalIntent{1}, 73},
-		{ThrowItemTacticalIntent{0x04030201, 1}, 77}}};
+		{ThrowItemTacticalIntent{0x04030201, 1}, 77},
+		{AttachItemTacticalIntent{20, 0, 0x0807060504030201ull}, 84}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;

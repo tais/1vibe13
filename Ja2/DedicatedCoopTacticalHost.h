@@ -139,6 +139,11 @@ public:
 		std::int32_t targetGrid,
 		std::int8_t targetLevel,
 		AuthoritativeThrowCommand& command) const noexcept = 0;
+	virtual bool prepareAttachItem(
+		TacticalEntityId actor,
+		std::uint8_t sourceSlot,
+		std::uint8_t targetSlot,
+		AuthoritativeAttachItemCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -241,6 +246,11 @@ public:
 		std::int32_t targetGrid,
 		std::int8_t targetLevel,
 		AuthoritativeThrowCommand& command) const noexcept override;
+	bool prepareAttachItem(
+		TacticalEntityId actor,
+		std::uint8_t sourceSlot,
+		std::uint8_t targetSlot,
+		AuthoritativeAttachItemCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

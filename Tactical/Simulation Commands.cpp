@@ -2046,6 +2046,40 @@ namespace
 		return soldier;
 	}
 
+	// The stock attach of one ordinary inventory object onto another, for an
+	// exact idle co-op merc, as the item description box does it.
+	TacticalActor* ResolveAuthoritativeAttachItem(const AuthoritativeAttachItemCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeAttachItemCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || !IsJa2TacticalWorldIntegrityValid())
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || OK_CONTROLLABLE_MERC(soldier) == FALSE || soldier->roster().team() != gbPlayerNum ||
+			soldier->inventory().size() != NUM_INV_SLOTS ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			!InventorySwapPoseReady(*soldier))
+			return nullptr;
+		OBJECTTYPE& source = soldier->inventory()[command.sourceSlot];
+		OBJECTTYPE& target = soldier->inventory()[command.targetSlot];
+		if (!source.exists() || !target.exists() ||
+			CaptureOrdinaryInventoryObject(source) != command.sourceStateFingerprint ||
+			CaptureOrdinaryInventoryObject(target) != command.targetStateFingerprint ||
+			ValidAttachment(source.usItem, &target) == FALSE)
+			return nullptr;
+		const INT16 cost = AttachmentAPCost(source.usItem, &target, soldier);
+		if (cost != command.expectedActionPointCost || EnoughPoints(soldier, cost, 0, FALSE) == FALSE) return nullptr;
+		return soldier;
+	}
+
 	// The stock weapon-mode cycle for an exact idle co-op merc and hand weapon.
 	TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept
 	{
@@ -3252,6 +3286,26 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeAttachItemCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeAttachItem(value);
+				if (!soldier) return CommandDisposition::Discard;
+				OBJECTTYPE& source = soldier->inventory()[value.sourceSlot];
+				OBJECTTYPE& target = soldier->inventory()[value.targetSlot];
+				// The stock attach either fits the object (the item box then charges
+				// its AP) or fails its skill check and damages both: both are the
+				// action. A refusal that changed nothing is a discard. No sound on a
+				// dedicated server.
+				if (target.AttachObject(soldier, &source, FALSE, 0, -1))
+				{
+					DeductPoints(soldier, value.expectedActionPointCost, 0);
+					return CommandDisposition::Applied;
+				}
+				return CaptureOrdinaryInventoryObject(source) == value.sourceStateFingerprint &&
+					CaptureOrdinaryInventoryObject(target) == value.targetStateFingerprint
+					? CommandDisposition::Discard : CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
 			{
 				TacticalActor* const soldier = ResolveAuthoritativeWeaponMode(value);
@@ -4226,6 +4280,29 @@ bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targe
 	return true;
 }
 
+bool PrepareAuthoritativeAttachItemCommand(TacticalEntityId actor, std::uint8_t sourceSlot, std::uint8_t targetSlot,
+	AuthoritativeAttachItemCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS || !IsSupportedInventorySwapSlot(sourceSlot) ||
+		!IsSupportedInventorySwapSlot(targetSlot) || sourceSlot == targetSlot ||
+		!live->inventory()[sourceSlot].exists() || !live->inventory()[targetSlot].exists())
+		return false;
+	AuthoritativeAttachItemCommand prepared;
+	prepared.soldier = actor;
+	prepared.sourceSlot = sourceSlot;
+	prepared.targetSlot = targetSlot;
+	prepared.sourceStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[sourceSlot]);
+	prepared.targetStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[targetSlot]);
+	prepared.expectedActionPointCost = AttachmentAPCost(live->inventory()[sourceSlot].usItem, &live->inventory()[targetSlot], live);
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	if (ResolveAuthoritativeAttachItem(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeWeaponModeCommand(TacticalEntityId actor, std::uint8_t expectedWeaponMode,
 	AuthoritativeWeaponModeCommand& output) noexcept
 {
@@ -4393,7 +4470,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeGiveItemCommand>::value ||
 			std::is_same<Command, AuthoritativeDoorActionCommand>::value ||
 			std::is_same<Command, AuthoritativeWeaponModeCommand>::value ||
-			std::is_same<Command, AuthoritativeThrowCommand>::value)
+			std::is_same<Command, AuthoritativeThrowCommand>::value ||
+			std::is_same<Command, AuthoritativeAttachItemCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4566,6 +4644,11 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
 				return TileIsOutOfBounds(value.expectedTargetGrid)
 					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeAttachItemCommand>::value)
+			{
+				return IsStructurallyValidAuthoritativeAttachItemCommand(value)
+					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidInventorySwapPrecondition;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeThrowCommand>::value)
 			{

@@ -261,6 +261,15 @@ bool DedicatedCoopTacticalJa2LiveState::prepareThrow(
 	return onMainThread() && PrepareAuthoritativeThrowCommand(actor, targetGrid, targetLevel, command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareAttachItem(
+	TacticalEntityId actor,
+	std::uint8_t sourceSlot,
+	std::uint8_t targetSlot,
+	AuthoritativeAttachItemCommand& command) const noexcept
+{
+	return onMainThread() && PrepareAuthoritativeAttachItemCommand(actor, sourceSlot, targetSlot, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareWeaponMode(
 	TacticalEntityId actor,
 	std::uint8_t expectedWeaponMode,

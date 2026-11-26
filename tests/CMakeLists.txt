@@ -2205,6 +2205,11 @@ if(Python3_Interpreter_FOUND)
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_contracts.py)
   add_test(
+    NAME full_engine_coop_installed_attach_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_attach.py)
+  add_test(
     NAME full_engine_coop_installed_complex_items_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}

@@ -1376,6 +1376,36 @@ struct AuthoritativeThrowCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// The stock attach of one ordinary inventory object onto another (scope or
+// silencer onto a gun, grenade into a launcher), as the item description box
+// does: ValidAttachment, AttachmentAPCost, AttachObject, then the AP. The
+// stock skill check may fail and damage both, which is still the action.
+struct AuthoritativeAttachItemCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t sourceSlot = UINT8_MAX;
+	std::uint8_t targetSlot = UINT8_MAX;
+	std::uint64_t sourceStateFingerprint = 0;
+	std::uint64_t targetStateFingerprint = 0;
+	std::int16_t expectedActionPointCost = -1;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeAttachItemCommand>::value,
+	"attach commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeAttachItemCommand(const AuthoritativeAttachItemCommand& command) noexcept
+{
+	return command.soldier.valid() && IsSupportedInventorySwapSlot(command.sourceSlot) &&
+		IsSupportedInventorySwapSlot(command.targetSlot) &&
+		command.sourceSlot != command.targetSlot && command.sourceStateFingerprint > 1 &&
+		command.targetStateFingerprint > 1 && command.expectedActionPointCost >= 0 &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeThrowCommand>::value,
 	"throw commands must remain pointer-free values");
 constexpr bool IsStructurallyValidAuthoritativeThrowCommand(const AuthoritativeThrowCommand& command) noexcept
@@ -1780,7 +1810,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeGiveItemCommand,
 	AuthoritativeDoorActionCommand,
 	AuthoritativeWeaponModeCommand,
-	AuthoritativeThrowCommand>;
+	AuthoritativeThrowCommand,
+	AuthoritativeAttachItemCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1961,6 +1992,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeThrowCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeThrowCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeAttachItemCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeAttachItemCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

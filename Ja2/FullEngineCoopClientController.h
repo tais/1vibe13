@@ -176,6 +176,11 @@ public:
 	void cancelInventoryDrop() noexcept;
 	bool droppingInventory() const noexcept { return inventoryDropOpen_; }
 	FullEngineCoopClientIntentRequest inventoryDrop(const FullEngineCoopClientControllerView& view) noexcept;
+	// Fit the object in `sourceSlot` onto the one in `targetSlot` (the Screen
+	// uses the selected inventory item and the hand). A public preflight only:
+	// both slots must hold an ordinary object of the selected owned merc.
+	FullEngineCoopClientIntentRequest attachInventoryItem(const FullEngineCoopClientControllerView& view,
+		std::uint16_t sourceSlot, std::uint16_t targetSlot) noexcept;
 	// One modal slot click: inspect/select, swap, or exact recipient placement.
 	// A failed placement never becomes movement or changes an authority object.
 	FullEngineCoopClientIntentRequest clickInventorySlot(

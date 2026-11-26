@@ -284,6 +284,19 @@ public:
 		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
 		return true;
 	}
+	bool prepareAttachItem(TacticalEntityId actor, std::uint8_t source, std::uint8_t target,
+		AuthoritativeAttachItemCommand& command) const noexcept override
+	{
+		++attachPreparationCalls;
+		if (!attachPreparationSucceeds) return false;
+		command = AuthoritativeAttachItemCommand{};
+		command.soldier = actor; command.sourceSlot = source; command.targetSlot = target;
+		command.sourceStateFingerprint = 11; command.targetStateFingerprint = 13; command.expectedActionPointCost = 4;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool attachPreparationSucceeds = true;
+	mutable std::size_t attachPreparationCalls = 0;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1044,6 +1057,21 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		FakeLiveState refused; refused.throwPreparationSucceeds = false;
 		rejects(refused, Intent(1, ThrowItemTacticalIntent{2400, 0}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"no throwable in hand, too few points or a busy merc never enters the inbox");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost attachHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(attachHost.execute(Intent(1, AttachItemTacticalIntent{20, 0, 5})) == TacticalIntentExecutionDisposition::Retained,
+			"an attach enters the retained command inbox");
+		const auto* attach = std::get_if<AuthoritativeAttachItemCommand>(&queue.submissions[0].command);
+		CHECK(attach && attach->sourceSlot == 20 && attach->targetSlot == 0 && attach->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stock attach reaches the command service");
+		FakeLiveState refused; refused.attachPreparationSucceeds = false;
+		rejects(refused, Intent(1, AttachItemTacticalIntent{20, 0, 5}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"an invalid attachment, too few points or a busy merc never enters the inbox");
+		FakeLiveState wide;
+		rejects(wide, Intent(1, AttachItemTacticalIntent{300, 0, 5}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a slot beyond the native inventory never reaches native preparation");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

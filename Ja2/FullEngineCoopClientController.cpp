@@ -1348,6 +1348,21 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::inventoryDrop(
 	return result;
 }
 
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::attachInventoryItem(
+	const FullEngineCoopClientControllerView& view, std::uint16_t sourceSlot, std::uint16_t targetSlot) noexcept
+{
+	const auto* inventory = view.inventoryFor(selectedActor_);
+	if (!inventory || sourceSlot == targetSlot || !actionsEnabled(view)) return {};
+	const auto ordinary = [&](std::uint16_t slot) {
+		for (const auto& summary : inventory->slots)
+			if (summary.slot == slot)
+				return summary.item != 0 && summary.support == CoopSession::CoopInventorySlotSupport::OrdinarySwappable;
+		return false;
+	};
+	if (!ordinary(sourceSlot) || !ordinary(targetSlot)) return {};
+	return {selectedActor_, CoopSession::AttachItemTacticalIntent{sourceSlot, targetSlot, inventory->inventoryRevision}, true};
+}
+
 FullEngineCoopClientIntentRequest FullEngineCoopClientController::clickInventorySlot(
 	const FullEngineCoopClientControllerView& view, std::uint16_t slot) noexcept
 {
