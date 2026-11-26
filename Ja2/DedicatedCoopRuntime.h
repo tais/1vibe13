@@ -111,6 +111,10 @@ public:
 	bool prepared() const noexcept;
 	bool campaignOpen() const noexcept;
 	bool campaignEntered() const noexcept;
+	// Main thread, once per frame after a stop signal: true while the server
+	// first takes a secured sector's shared return to the map (see
+	// CoopSecuredSectorStop.h); false when the frame loop should end now.
+	bool deferStopForSecuredSectorReturn(bool forced) noexcept;
 	bool admissionRunning() const noexcept;
 	bool failed() const noexcept;
 	DedicatedCoopRuntimeError error() const noexcept;

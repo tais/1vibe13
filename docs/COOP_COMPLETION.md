@@ -4140,3 +4140,32 @@ control: without the clock hold, the leader's run moves the clock and the probe
 fails. The finale itself (reaching and killing Deidranna in Meduna) is the
 Phase 9.2 playthrough's job; the stock end cinematic and credits are not
 played to clients.
+
+## Phase 1.5: stopping the server in a secured sector
+
+Before this slice a stop signal while the players stood in a secured sector
+refused the final checkpoint ("tactical world is still active"): the process
+exited as failed and everything since the last map checkpoint was lost.
+
+- Now the first SIGTERM/SIGINT in a secured sector makes the server take the
+  ordinary shared return to the map itself (as if a player had pressed
+  W + Enter), commit the map checkpoint, and only then end the frame loop; the
+  final checkpoint follows on the worldless map. The stock sector files keep
+  the sector's own changes (items on the ground, opened doors, corpses).
+- The same applies when a players' return is already under way. A second
+  signal, hostiles coming back (the sector is no longer secured), a runtime
+  failure, or 90 seconds without reaching the map stop at once with the last
+  checkpoint, as before. The decision is `CoopSecuredSectorStop.h`
+  (unit-tested in `coop_secured_sector_stop_tests`).
+- After a resume the players are on the map; any player enters the sector
+  again from there (E + Enter).
+
+Installed evidence (`full_engine_coop_installed_secured_stop.py`): after the
+seeded A9 victory the test host drops a first-aid kit at a merc's feet; the
+server is stopped with both players connected, returns to the map, commits a
+newer worldless checkpoint and exits 0. A resumed server (test host in
+`plain-resume` mode: no seed changes) and both clients come back on the map; a
+player enters A9 and the kit is still at its grid. Negative control: without
+the deferral the stop refuses the final checkpoint and the probe fails.
+Periodic checkpoints while players stay in a secured sector are still skipped
+(only the stop and the players' own return save it).

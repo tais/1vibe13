@@ -295,6 +295,52 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_SECTOR_MARKER): "place" drops a marker item at a
+// merc's feet once A9 is secured; "find:<grid>:<item>" reports, once A9 is
+// loaded again (after a stop, a resume and a re-entry), whether it is still
+// there. Proves the sector's own changes survive a stop in a secured sector.
+void PollSectorMarker()
+{
+	static bool done = false;
+	static std::chrono::steady_clock::time_point calmSince{};
+	const char* mode = std::getenv("JA2_COOP_ENTRY_SECTOR_MARKER");
+	if (done || !mode || !gfProgramIsRunning) return;
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	if (std::strcmp(mode, "place") == 0)
+	{
+		// Only once the won sector has settled into peaceful play.
+		const auto now = std::chrono::steady_clock::now();
+		if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+		if (now - calmSince < std::chrono::seconds(3)) return;
+		TacticalActor* merc = nullptr;
+		for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+		{
+			auto* actor = GetJa2SoldierRepository().resolve(slot);
+			if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+			{ merc = actor; break; }
+		}
+		const UINT16 marker = FIRSTAIDKIT;
+		OBJECTTYPE object;
+		if (!merc || !marker || !CreateItem(marker, 100, &object)) return;
+		done = true;
+		const INT32 grid = merc->position().gridNo();
+		AddItemToPool(grid, &object, VISIBLE, merc->position().level(), 0, -1);
+		std::printf("[co-op entry test] sector marker placed: grid=%d; item=%u\n", int(grid), unsigned(marker));
+		std::fflush(stdout);
+		return;
+	}
+	unsigned grid = 0, marker = 0;
+	done = true;
+	if (std::sscanf(mode, "find:%u:%u", &grid, &marker) != 2) return;
+	bool found = false;
+	for (UINT32 i = 0; i < guiNumWorldItems && !found; ++i)
+		found = gWorldItems[i].fExists && gWorldItems[i].sGridNo == INT32(grid) && gWorldItems[i].object.usItem == marker;
+	std::printf("[co-op entry test] sector marker %s: grid=%u; item=%u\n", found ? "found" : "missing", grid, marker);
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_QUEEN_DEATH=1, starter-victory mode): once A9 is
 // secured for peaceful play, run the stock death handling of Deidranna as if a
 // player merc had just killed her there (the finale itself is not seeded).
@@ -1049,6 +1095,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollThrowItemSeed();
 	PollClearRouteSeed();
 	PollQueenDeathSeed();
+	PollSectorMarker();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())
@@ -1114,6 +1161,13 @@ void FullEngineCoopInstalledTestGameLoop()
 		// No seed mutation on resume: the usual readiness/established-sector logic
 		// must expose the peaceful cold campaign before any remote travel request.
 		std::printf("[co-op entry test] travel fixture ready A9 -> A10\n"); std::fflush(stdout);
+		return;
+	}
+	if (mode && std::strcmp(mode, "plain-resume") == 0 && GetDedicatedServerOptions().campaignAction == DedicatedCampaignAction::Resume)
+	{
+		// No seed mutation: the resumed campaign plays as shipped; only the
+		// read-only observers (e.g. JA2_COOP_ENTRY_SECTOR_MARKER=find) run.
+		std::printf("[co-op entry test] plain resume; no seed\n"); std::fflush(stdout);
 		return;
 	}
 	if (GetDedicatedServerOptions().campaignAction != DedicatedCampaignAction::Create)

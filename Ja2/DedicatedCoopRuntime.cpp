@@ -15,6 +15,7 @@
 #include "TacticalInterruptHost.h"
 #include "Quests.h"
 #include "CoopOfflineInterruptGuard.h"
+#include "CoopSecuredSectorStop.h"
 #include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCheckpointRuntimeEvidence.h"
 
@@ -107,6 +108,7 @@ constexpr auto StarterPeerGatherGrace = std::chrono::seconds(10);
 constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
 constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
+constexpr auto SecuredSectorStopReturnTimeout = std::chrono::seconds(90);
 
 static_assert(CoopSession::MaximumAuthorityPeers ==
 	DedicatedCoopStarterRosterSize,
@@ -2700,6 +2702,9 @@ struct DedicatedCoopRuntime::Impl
 	Clock::time_point starterPeerGatherDeadline{};
 	Clock::time_point starterActorArrivalDeadline{};
 	Clock::time_point postCombatCheckpointDeadline{};
+	// A stop signal in a secured sector: the server returns to the map first.
+	Clock::time_point stopReturnDeadline{};
+	bool stopReturnActive = false;
 	std::uint64_t sessionEpoch = 0;
 	std::uint64_t observedWorldGeneration = 0;
 	std::uint64_t observedRevision = 0;
@@ -3885,6 +3890,49 @@ bool DedicatedCoopRuntime::campaignOpen() const noexcept
 bool DedicatedCoopRuntime::campaignEntered() const noexcept
 {
 	return impl_ && impl_->campaignEntered;
+}
+
+bool DedicatedCoopRuntime::deferStopForSecuredSectorReturn(bool forced) noexcept
+{
+	if (!impl_) return false;
+	const auto mission = impl_->starterMission;
+	CoopSession::CoopSecuredSectorStopInput input;
+	input.forced = forced;
+	input.campaignEntered = impl_->campaignEntered;
+	input.failed = impl_->fatal;
+	input.returnActive = impl_->stopReturnActive;
+	input.securedSector = mission == StarterMissionState::PeacefulTactical && impl_->securedSector != 0;
+	input.returning = impl_->worldDraining || mission == StarterMissionState::ReturningToStrategic ||
+		mission == StarterMissionState::WaitingForStrategicCheckpoint;
+	input.strategicIdle = mission == StarterMissionState::StrategicIdle && !impl_->worldDraining;
+	input.deadlinePassed = impl_->stopReturnActive && Clock::now() >= impl_->stopReturnDeadline;
+	switch (CoopSession::EvaluateCoopSecuredSectorStop(input))
+	{
+	case CoopSession::CoopSecuredSectorStopStep::BeginReturn:
+		impl_->stopReturnActive = true;
+		impl_->stopReturnDeadline = Clock::now() + SecuredSectorStopReturnTimeout;
+		if (input.securedSector && !impl_->returnToMapRequested)
+		{
+			impl_->returnToMapRequested = true;
+			impl_->returnWaitLogged = false;
+		}
+		std::printf("[dedicated] stop requested in a secured sector; returning to the strategic map first\n");
+		std::fflush(stdout);
+		return true;
+	case CoopSession::CoopSecuredSectorStopStep::KeepReturning:
+		return true;
+	case CoopSession::CoopSecuredSectorStopStep::StopNow:
+		break;
+	}
+	if (impl_->stopReturnActive)
+	{
+		std::printf(input.strategicIdle
+			? "[dedicated] secured-sector stop: back on the strategic map; stopping\n"
+			: "[dedicated] secured-sector stop: the return did not complete; stopping with the last checkpoint\n");
+		std::fflush(stdout);
+		impl_->stopReturnActive = false;
+	}
+	return false;
 }
 
 bool DedicatedCoopRuntime::admissionRunning() const noexcept

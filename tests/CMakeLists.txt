@@ -141,6 +141,13 @@ target_include_directories(coop_offline_interrupt_guard_tests PRIVATE
 target_compile_features(coop_offline_interrupt_guard_tests PRIVATE cxx_std_17)
 add_test(NAME coop_offline_interrupt_guard COMMAND coop_offline_interrupt_guard_tests)
 
+add_executable(coop_secured_sector_stop_tests
+  coop_secured_sector_stop_tests.cpp)
+target_include_directories(coop_secured_sector_stop_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(coop_secured_sector_stop_tests PRIVATE cxx_std_17)
+add_test(NAME coop_secured_sector_stop COMMAND coop_secured_sector_stop_tests)
+
 add_executable(coop_campaign_time_tests
   coop_campaign_time_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
@@ -2188,6 +2195,11 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_contracts.py)
+  add_test(
+    NAME full_engine_coop_installed_secured_stop_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_secured_stop.py)
   add_test(
     NAME full_engine_coop_installed_campaign_complete_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover

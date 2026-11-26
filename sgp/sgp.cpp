@@ -87,12 +87,23 @@ extern BOOLEAN gfDedicatedServerProcessFailed;
 
 static void RequestProcessTermination(int) noexcept
 {
-	s_TerminationRequested = 1;
+	// Counted: a second signal forces the stop (see TerminationEndsFrameLoop).
+	s_TerminationRequested = s_TerminationRequested < 2 ? s_TerminationRequested + 1 : 2;
 }
 
 static bool ProcessTerminationRequested() noexcept
 {
 	return s_TerminationRequested != 0;
+}
+
+// A dedicated co-op server standing in a secured sector first takes the shared
+// return to the strategic map, so its final checkpoint keeps the sector's
+// progress; a second signal stops at once.
+static bool TerminationEndsFrameLoop() noexcept
+{
+	if (!ProcessTerminationRequested()) return false;
+	return !IsDedicatedCoopProcess() ||
+		!GetDedicatedCoopRuntime().deferStopForSecuredSectorReturn(s_TerminationRequested > 1);
 }
 
 static int ProcessFailureExitStatus() noexcept
@@ -1680,7 +1691,7 @@ int main(int argc, char** argv)
 	// message pump used to: events feed input.cpp's queue (via
 	// SgpHandleSDLEvent), CallGameLoop runs one tick of game logic
 	// each iteration. The video manager's RefreshScreen presents.
-	while (gfProgramIsRunning && !s_TerminationRequested) {
+	while (gfProgramIsRunning && !TerminationEndsFrameLoop()) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			// Opt-in mouse-coordinate diagnostics (set JA2_MOUSE_DEBUG): dump

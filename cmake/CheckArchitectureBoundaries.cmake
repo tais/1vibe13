@@ -428,7 +428,7 @@ require_ordered_fragments(dedicated_main_slice
   "GetFullEngineCoopClientRuntime().prepareEarly("
   "InitializeRandom();"
   "InitializeStandardGamingPlatform()"
-  "while (gfProgramIsRunning && !s_TerminationRequested)"
+  "while (gfProgramIsRunning && !TerminationEndsFrameLoop())"
   "gfProgramIsRunning = FALSE;"
   "if (gfDedicatedServerProcessFailed)"
   "runtime.stopAdmissionTransport();"
@@ -449,8 +449,10 @@ extract_brace_bounded_slice(dedicated_main_code "${dedicated_signal_marker}"
   dedicated_signal_slice "Cannot bound the dedicated signal handler")
 string(REGEX REPLACE "[ \t\r\n]+" "" dedicated_signal_compact
   "${dedicated_signal_slice}")
+# A saturating count of a volatile sig_atomic_t (a second signal forces a stop
+# that a secured sector deferred) is still signal-safe: no call, no allocation.
 if(NOT dedicated_signal_compact STREQUAL
-    "staticvoidRequestProcessTermination(int)noexcept{s_TerminationRequested=1;}")
+    "staticvoidRequestProcessTermination(int)noexcept{s_TerminationRequested=s_TerminationRequested<2?s_TerminationRequested+1:2;}")
   message(FATAL_ERROR
     "Dedicated signal handler must remain a signal-safe flag assignment")
 endif()
@@ -4937,6 +4939,36 @@ require_ordered_fragments(coop_conversation_runtime_source
   "void pauseStrategicTimeWithoutLeader() noexcept"
   "if (CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0))"
   "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);")
+# 1.5: a stop signal in a secured sector first takes the ordinary shared
+# return to the map, so the final checkpoint never meets a loaded world and the
+# sector's progress is kept; signals stay signal-safe flags read on the main thread.
+file(READ "${SOURCE_ROOT}/sgp/sgp.cpp" coop_stop_sgp_source)
+require_ordered_fragments(coop_stop_sgp_source
+  "A stop signal must stay a counted signal-safe flag that a secured sector may defer once"
+  "s_TerminationRequested = s_TerminationRequested < 2 ? s_TerminationRequested + 1 : 2;"
+  "static bool TerminationEndsFrameLoop() noexcept"
+  "GetDedicatedCoopRuntime().deferStopForSecuredSectorReturn(s_TerminationRequested > 1)"
+  "while (gfProgramIsRunning && !TerminationEndsFrameLoop())"
+  "runtime.shutdownAtCommittedBoundary(GetGameContext())")
+require_ordered_fragments(coop_conversation_runtime_source
+  "A secured-sector stop must reuse the shared return and stop once back on the map"
+  "bool DedicatedCoopRuntime::deferStopForSecuredSectorReturn(bool forced) noexcept"
+  "input.securedSector = mission == StarterMissionState::PeacefulTactical && impl_->securedSector != 0;"
+  "input.strategicIdle = mission == StarterMissionState::StrategicIdle && !impl_->worldDraining;"
+  "CoopSession::EvaluateCoopSecuredSectorStop(input)"
+  "impl_->stopReturnDeadline = Clock::now() + SecuredSectorStopReturnTimeout;"
+  "impl_->returnToMapRequested = true;")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopSecuredSectorStop.h" coop_stop_policy_source)
+require_ordered_fragments(coop_stop_policy_source
+  "The secured-sector stop must never defer a forced, failed or pre-campaign stop, and must end at the map"
+  "if (in.forced || !in.campaignEntered || in.failed) return Step::StopNow;"
+  "if (in.deadlinePassed || in.strategicIdle) return Step::StopNow;")
+foreach(stop_shortcut IN ITEMS "checkpointNow(" "UnloadCurrentWorld" "SaveGame(" "gfProgramIsRunning")
+  string(FIND "${coop_stop_policy_source}" "${stop_shortcut}" stop_shortcut_at)
+  if(NOT stop_shortcut_at EQUAL -1)
+    message(FATAL_ERROR "The secured-sector stop policy must stay a pure decision; found '${stop_shortcut}'")
+  endif()
+endforeach()
 # 9.3: Deidranna's death is the end of the stock campaign. On a dedicated co-op
 # server the stock hook reports it through the shared status (from the stock
 # fact, so it survives saves) instead of the end cinematic, and the clock and
