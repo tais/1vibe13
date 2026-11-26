@@ -4957,6 +4957,35 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 8.2: a save of a loaded battle must not advance the campaign stream (the
+# reachability marking inside it draws from a private stream), and a dedicated
+# campaign load rebuilds its world on a private fixed stream between the
+# runtime preflight and the runtime restore, which restores the campaign stream.
+file(READ "${SOURCE_ROOT}/Tactical/PATHAI.cpp" coop_battle_save_pathai_source)
+require_ordered_fragments(coop_battle_save_pathai_source
+  "Reachability marking must never consume the campaign stream"
+  "struct PrivatePathSearchRandomScope"
+  "const bool installed = moveAdmissionRandom == nullptr;"
+  "void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )"
+  "const PrivatePathSearchRandomScope privateRandom;")
+file(READ "${SOURCE_ROOT}/sgp/Random.cpp" coop_battle_save_random_source)
+require_ordered_fragments(coop_battle_save_random_source
+  "Only Random() may be redirected during a reconstruction; the campaign source stays canonical"
+  "ScopedReconstructionRandom::ScopedReconstructionRandom() noexcept"
+  "stream.emplace(0);"
+  "RandomSource& GetGameRandomSource()"
+  "if (gReconstructionRandom != nullptr) return *gReconstructionRandom;"
+  "SimulationRandom* GetGameSimulationRandomSource() noexcept"
+  "return dynamic_cast<SimulationRandom*>(&GameRandomSources().observe());")
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp" coop_battle_save_loader_source)
+require_ordered_fragments(coop_battle_save_loader_source
+  "A dedicated load must rebuild on a private stream only between the runtime preflight and restore"
+  "std::optional<ScopedReconstructionRandom> reconstructionRandom;"
+  "preparedRuntimeLoad = PrepareRuntimeLoad("
+  "if (dedicatedCampaign) reconstructionRandom.emplace();"
+  "reconstructionRandom.reset();"
+  "if ( preparedRuntimeLoad.restorePending() )")
+
 # 4.5 stealth: the stock movement flag, toggled only from the state the owner
 # saw; it rides in the mode byte's top bit, so the actor wire size is unchanged.
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_stealth_command_source)

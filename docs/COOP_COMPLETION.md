@@ -4361,3 +4361,44 @@ their mercs through the shipping controller; both clients show each state.
 Negative control: with the executor writing back the flag the owner saw, the
 clients never show stealth and the probe fails. The codec carries the bit
 (snapshot and delta), with round-trip and rejection tests.
+
+## Phase 8.2: a live battle survives a native save and load (diagnostic)
+
+Phase 8.1 (the client never loading a native world from a checkpoint) was
+already in place: `FullEngineCoopClientCampaignScratch` prepares checkpoints
+through `PreparePassiveDedicatedCampaignCheckpoint`. This slice is the
+diagnostic the design asks for before any support claim: does the native saver
+and loader keep a live battle intact?
+
+`full_engine_coop_installed_battle_save_diagnostic.py` (test host,
+`JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC=1`): at the first ordinary player turn
+of the untouched starter battle (turn-based combat, no pending combat action,
+no interrupt), the test host digests the native battle, saves it through
+`SaveDedicatedCampaignGame`, loads it back through `LoadDedicatedCampaignGame`
+and compares. The digest covers every in-sector actor (slot, profile, team,
+grid, level, life, breath, AP, animation, direction), every carried object
+(item, count, status, rounds), every ground item, the turn and combat state,
+the campaign clock, and the campaign RNG state and draw count.
+
+What it found, and fixed:
+
+- A save of a loaded sector was refused (`SimulationRandomChanged`): the
+  reachability marking it runs (`GlobalItemsReachableTest`, through
+  `SaveCurrentSectorsInformationToTempItemFile`) drew 14279 values from the
+  campaign stream, all for the pathfinder's skip-list levels. Those levels
+  shape the open list, never which tiles are reached, so the marking now draws
+  from a private stream, as the move-admission probe already did.
+- The load was then refused (`RandomConsumed`): rebuilding the world (merc
+  placement and roof reachability pathfinding, building generation, palettes,
+  the load-screen hint) drew about 3700 campaign values before the restore.
+  A dedicated campaign load now rebuilds on a private fixed stream
+  (`ScopedReconstructionRandom`: only `Random()` is redirected, the canonical
+  campaign source is untouched) between the runtime preflight and the runtime
+  restore, which then restores the campaign stream from the save. Ordinary
+  single-player loads are unchanged.
+
+With both, the battle saves and loads with no differing digest line.
+Not covered by the digest: doors, NPC schedules, interrupt records,
+reinforcement state and AI state. Battle saves remain refused in production;
+the eligibility class, the controlled tactical stop and the restored-battle
+runtime phase (8.3-8.6) come next.

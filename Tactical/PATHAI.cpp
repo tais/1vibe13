@@ -4140,8 +4140,24 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 	gubNPCDistLimit = 0;
 }
 
+// Reachability marking must not consume the simulation RNG: the skip-list
+// levels its searches draw only shape the open list, never which tiles are
+// reached. It runs inside every save of a loaded sector, where an advancing
+// campaign stream refuses the save; like the move-admission probe it draws
+// from a private stream instead.
+struct PrivatePathSearchRandomScope
+{
+	SimulationRandom random{0};
+	const bool installed = moveAdmissionRandom == nullptr;
+	PrivatePathSearchRandomScope() noexcept { if (installed) moveAdmissionRandom = &random; }
+	~PrivatePathSearchRandomScope() { if (installed) moveAdmissionRandom = nullptr; }
+	PrivatePathSearchRandomScope(const PrivatePathSearchRandomScope&) = delete;
+	PrivatePathSearchRandomScope& operator=(const PrivatePathSearchRandomScope&) = delete;
+};
+
 void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 {
+	const PrivatePathSearchRandomScope privateRandom;
 	TacticalActor s;
 	INT32 iCurrentGridNo =0;
 

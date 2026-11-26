@@ -152,8 +152,28 @@ GameRandomSourceHolder& GameRandomSources() noexcept
 }
 }
 
+namespace
+{
+SimulationRandom* gReconstructionRandom = nullptr;
+}
+
+ScopedReconstructionRandom::ScopedReconstructionRandom() noexcept
+{
+	if (gReconstructionRandom != nullptr) return;
+	static std::optional<SimulationRandom> stream;
+	stream.emplace(0);
+	gReconstructionRandom = &*stream;
+	active_ = true;
+}
+
+ScopedReconstructionRandom::~ScopedReconstructionRandom()
+{
+	if (active_) gReconstructionRandom = nullptr;
+}
+
 RandomSource& GetGameRandomSource()
 {
+	if (gReconstructionRandom != nullptr) return *gReconstructionRandom;
 	return GameRandomSources().observe();
 }
 

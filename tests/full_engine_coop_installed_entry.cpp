@@ -35,6 +35,8 @@
 #include "TacticalActor.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalInterruptHost.h"
+#include "DedicatedCampaignSaveBridge.h"
 #include "SoldierRepository.h"
 #include "TacticalActorStateFlags.h"
 #include "Interface Panels.h"
@@ -777,6 +779,102 @@ void PollAttachSeed()
 	std::fflush(stdout);
 }
 
+// Diagnostic-only (JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC=1, starter-victory
+// mode): Phase 8.2. At an ordinary player turn of the untouched starter battle
+// (turn-based combat, no pending combat action, no interrupt), digest the
+// native battle, save it through the native dedicated saver (slot B scratch),
+// load it back through the native loader, digest again and report every line
+// that differs. Changes no production policy; ends the test host afterwards.
+std::vector<std::string> NativeBattleDigest()
+{
+	std::vector<std::string> lines;
+	char line[512];
+	std::snprintf(line, sizeof line, "turn team=%d combat=%d turn-based=%d pending=%u world=%u sector=%d,%d,%d",
+		int(GetJa2TacticalCurrentTeam()), int(IsJa2TacticalCombatActive()), int(IsJa2TacticalTurnBasedCombat()),
+		unsigned(GetJa2PendingTacticalCombatActions()), unsigned(IsJa2TacticalWorldLoaded()), int(gWorldSectorX),
+		int(gWorldSectorY), int(gbWorldSectorZ));
+	lines.emplace_back(line);
+	const auto rng = GetGameSimulationRandomSource()->checkpoint();
+	std::snprintf(line, sizeof line, "rng state=%llu raw=%llu", static_cast<unsigned long long>(rng.state),
+		static_cast<unsigned long long>(rng.rawValuesGenerated));
+	lines.emplace_back(line);
+	std::snprintf(line, sizeof line, "clock seconds=%u", unsigned(GetWorldTotalSeconds()));
+	lines.emplace_back(line);
+	for (UINT32 slot = 0; slot < GetJa2SoldierRepository().capacity(); ++slot)
+	{
+		const TacticalActor* actor = GetJa2SoldierRepository().resolve(slot);
+		if (!actor || !actor->roster().active() || !actor->roster().inSector()) continue;
+		std::snprintf(line, sizeof line, "actor %u profile=%u team=%u grid=%d level=%d life=%d breath=%d ap=%d anim=%u dir=%u",
+			unsigned(slot), unsigned(actor->identity().profile()), unsigned(actor->roster().team()),
+			int(actor->position().gridNo()), int(actor->position().level()), int(actor->vitals().health()),
+			int(actor->vitals().breath()), int(actor->actionPoints().current()), unsigned(actor->animationPlayback().state()),
+			unsigned(actor->position().direction()));
+		lines.emplace_back(line);
+		for (std::size_t index = 0; index < actor->inventory().size(); ++index)
+		{
+			const OBJECTTYPE& object = actor->inventory()[index];
+			if (!object.exists()) continue;
+			std::snprintf(line, sizeof line, "  actor %u slot %u item=%u count=%u status=%d shots=%u",
+				unsigned(slot), unsigned(index), unsigned(object.usItem), unsigned(object.ubNumberOfObjects),
+				int(object[0]->data.objectStatus), unsigned(Item[object.usItem].usItemClass == IC_GUN ? object[0]->data.gun.ubGunShotsLeft : 0));
+			lines.emplace_back(line);
+		}
+	}
+	unsigned items = 0;
+	for (UINT32 i = 0; i < guiNumWorldItems; ++i)
+		if (gWorldItems[i].fExists)
+		{
+			++items;
+			std::snprintf(line, sizeof line, "ground grid=%d item=%u count=%u", int(gWorldItems[i].sGridNo),
+				unsigned(gWorldItems[i].object.usItem), unsigned(gWorldItems[i].object.ubNumberOfObjects));
+			lines.emplace_back(line);
+		}
+	std::snprintf(line, sizeof line, "ground items=%u", items);
+	lines.emplace_back(line);
+	return lines;
+}
+
+void PollBattleSaveDiagnostic()
+{
+	static bool done = false;
+	static std::chrono::steady_clock::time_point since{};
+	if (done || !std::getenv("JA2_COOP_ENTRY_BATTLE_SAVE_DIAGNOSTIC") || !gfProgramIsRunning) return;
+	const bool ordinaryPlayerTurn = IsJa2TacticalWorldLoaded() && IsJa2TacticalCombatActive() &&
+		IsJa2TacticalTurnBasedCombat() && GetJa2TacticalCurrentTeam() == gbPlayerNum &&
+		GetJa2PendingTacticalCombatActions() == 0 &&
+		CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::None;
+	if (!ordinaryPlayerTurn) { since = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (since == std::chrono::steady_clock::time_point{}) { since = now; return; }
+	if (now - since < std::chrono::seconds(3)) return;
+	done = true;
+	const auto before = NativeBattleDigest();
+	std::printf("[co-op entry test] battle save diagnostic: digest before has %zu lines\n", before.size());
+	const bool saved = SaveDedicatedCampaignGame(DedicatedCampaignSlot::B);
+	const auto afterSave = NativeBattleDigest();
+	const bool loaded = saved && LoadDedicatedCampaignGame(DedicatedCampaignSlot::B);
+	const auto after = loaded ? NativeBattleDigest() : std::vector<std::string>{};
+	std::printf("[co-op entry test] battle save diagnostic: saved=%d loaded=%d\n", int(saved), int(loaded));
+	const auto report = [](const char* label, const std::vector<std::string>& left, const std::vector<std::string>& right) {
+		unsigned differences = 0;
+		for (std::size_t i = 0; i < std::max(left.size(), right.size()); ++i)
+		{
+			const std::string a = i < left.size() ? left[i] : "<none>";
+			const std::string b = i < right.size() ? right[i] : "<none>";
+			if (a == b) continue;
+			if (differences++ < 40)
+				std::printf("[co-op entry test] battle save diagnostic %s: - %s | + %s\n", label, a.c_str(), b.c_str());
+		}
+		std::printf("[co-op entry test] battle save diagnostic %s: %u differing lines\n", label, differences);
+		return differences;
+	};
+	const unsigned saveChanges = report("save", before, afterSave);
+	const unsigned loadChanges = loaded ? report("load", before, after) : 1;
+	std::fflush(stdout);
+	Finish(saved && loaded && saveChanges == 0 && loadChanges == 0,
+		saved && loaded ? "battle save diagnostic compared the digests" : "battle save diagnostic could not save or load");
+}
+
 // Fixture-only (JA2_COOP_ENTRY_LOCKED_DOOR=1, starter-victory mode): once A9
 // is secured for peaceful play, lock the closed door nearest a player merc and
 // give that merc a locksmith kit; log the door and the tile to stand on. The
@@ -1380,6 +1478,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();
 	PollAttachSeed();
+	PollBattleSaveDiagnostic();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

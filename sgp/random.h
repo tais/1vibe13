@@ -26,6 +26,23 @@ extern bool gfMPDebugOutputRandoms;
 
 UINT32 NewRandom(UINT32 max);
 RandomSource& GetGameRandomSource();
+// Main thread only. While alive, Random() (GetGameRandomSource) draws from a
+// private stream with a fixed seed instead of the campaign stream; the
+// campaign source and GetGameSimulationRandomSource() are untouched. For the
+// world reconstruction inside a dedicated campaign load, whose campaign stream
+// is restored from the save afterwards, so reconstruction stays deterministic
+// and never advances the campaign stream. Not reentrant.
+class ScopedReconstructionRandom
+{
+public:
+	ScopedReconstructionRandom() noexcept;
+	~ScopedReconstructionRandom();
+	ScopedReconstructionRandom(const ScopedReconstructionRandom&) = delete;
+	ScopedReconstructionRandom& operator=(const ScopedReconstructionRandom&) = delete;
+	bool active() const noexcept { return active_; }
+private:
+	bool active_ = false;
+};
 
 enum class GameSimulationRandomInstallError : std::uint8_t
 {

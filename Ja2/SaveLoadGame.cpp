@@ -1,3 +1,4 @@
+#include <optional>
 #include "types.h"
 #include "TacticalActorAiBehavior.h"
 #include "faces.h"
@@ -4015,6 +4016,9 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 	UINT32 uiRelStartPerc;
 	UINT32 uiRelEndPerc;
 	PreparedRuntimeLoad preparedRuntimeLoad;
+	// Dedicated campaign loads rebuild the world from the save, then restore the
+	// campaign stream from it; the rebuild draws from a private fixed stream.
+	std::optional<ScopedReconstructionRandom> reconstructionRandom;
 
 #ifdef JA2BETAVERSION
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
@@ -4112,6 +4116,8 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 				L"This save is not a valid save for the active engine and package stack; see the log." );
 		return failRuntimeLoad();
 	}
+	// After the preflight: it resolves the canonical campaign stream itself.
+	if (dedicatedCampaign) reconstructionRandom.emplace();
 
 #ifdef LOADSAVEGAME_LOGTIME
 	TimingLogInitialize("TimeLog_LoadSavedGame.txt");
@@ -6183,6 +6189,7 @@ static BOOLEAN LoadSavedGameFromPathImpl(int ubSavedGameID,
 	// Package bytes came from the already-validated in-file runtime container
 	// and are consumed at most once.
 	{
+		reconstructionRandom.reset();
 		if ( preparedRuntimeLoad.restorePending() )
 		{
 			const PackageSaveStateLoadResult restored = RestorePreparedRuntimeSave(
