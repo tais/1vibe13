@@ -665,6 +665,11 @@ add_executable(full_engine_coop_client_campaign_action_input_tests full_engine_c
 target_include_directories(full_engine_coop_client_campaign_action_input_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
 target_compile_features(full_engine_coop_client_campaign_action_input_tests PRIVATE cxx_std_17)
 add_test(NAME full_engine_coop_client_campaign_action_input COMMAND full_engine_coop_client_campaign_action_input_tests)
+add_executable(full_engine_coop_client_hand_over_input_tests full_engine_coop_client_hand_over_input_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
+target_include_directories(full_engine_coop_client_hand_over_input_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
+target_compile_features(full_engine_coop_client_hand_over_input_tests PRIVATE cxx_std_17)
+add_test(NAME full_engine_coop_client_hand_over_input COMMAND full_engine_coop_client_hand_over_input_tests)
 add_executable(full_engine_coop_client_campaign_hire_input_tests full_engine_coop_client_campaign_hire_input_tests.cpp
   ${CMAKE_SOURCE_DIR}/Multiplayer/CoopSessionProtocol.cpp)
 target_include_directories(full_engine_coop_client_campaign_hire_input_tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/Multiplayer)
@@ -2195,6 +2200,11 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_contracts.py)
+  add_test(
+    NAME full_engine_coop_installed_hand_over_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_hand_over.py)
   add_test(
     NAME full_engine_coop_installed_stable_ownership_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover

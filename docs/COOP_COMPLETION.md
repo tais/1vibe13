@@ -4198,3 +4198,26 @@ owner's control and the other three keep their owners on both clients.
 Negative control: with the plain round-robin the two mercs after it change
 hands and the probe fails. Unit tests cover a merc getting up again, a new
 merc, an absent owner's lend, and transactional failure.
+
+## Phase 7.1: handing a merc to a teammate
+
+- Campaign action `HandOverMerc` (kind 20; `decision` packs the merc as for
+  assignments) is valid in a loaded sector, in battle or at peace, while no
+  surrender or end-of-battle decision is pending.
+- The server checks that the requester controls that merc in the current
+  world and gives it to the next participant (identity order, wrapping: the
+  teammate with two players). An owned merc changes owner for good; a lent
+  merc (its owner is away) moves its lend and keeps its owner. The change is
+  dealt at the next assignment publish, behind the existing retained-command
+  gate. Refusals are `NativeRejected` with detail 1 (no such merc in this
+  world), 2 (not controlled by the requester) or 3 (nobody to give it to).
+- Client: select one of your mercs, press J, then Enter (Esc cancels). B was
+  taken by first aid; J and Z were the only free letters, so the later
+  traversal and movement-mode slices need other keys than stock's J and Z.
+
+Installed evidence (`full_engine_coop_installed_hand_over.py`): in the starter
+battle a player selects a merc of theirs, presses J and Enter through the
+Screen; both clients then show it under the teammate's control and the other
+three where they were. Negative control: with the ledger change skipped the
+merc never moves and the probe fails. Not yet: a claim by the receiving side,
+and ownership across a resume (7.3).

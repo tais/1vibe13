@@ -28,7 +28,11 @@ enum class CoopCampaignAction : std::uint8_t
 	TransferTimeLead = 17,
 	// The stock "militia in neighbouring sectors can help" question of a
 	// pending battle: call them in, or fight without them. Decision = arrival.
-	AcceptReinforcements = 18, DeclineReinforcements = 19
+	AcceptReinforcements = 18, DeclineReinforcements = 19,
+	// In a loaded sector the player controlling a merc gives it to the next
+	// player there (the teammate, with two players). Decision packs the merc as
+	// for SetAssignment; only the server knows who controls it.
+	HandOverMerc = 20
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -61,7 +65,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::DeclineReinforcements;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::HandOverMerc;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -80,7 +84,7 @@ inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& requ
 		return packedMerc && request.destinationX >= 1 && request.destinationX <= 8;
 	if (request.action == CoopCampaignAction::ExtendContract)
 		return packedMerc && request.destinationX >= 1 && request.destinationX <= 3 && !request.destinationY;
-	if (request.action == CoopCampaignAction::DismissMerc)
+	if (request.action == CoopCampaignAction::DismissMerc || request.action == CoopCampaignAction::HandOverMerc)
 		return packedMerc && !request.destinationX && !request.destinationY;
 	if (request.action == CoopCampaignAction::TransferTimeLead)
 		return !request.decision && !request.group.slot && !request.group.incarnation &&
@@ -235,6 +239,10 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
 		return request.decision == status.surrenderOffer ? Outcome::Applied : Outcome::Stale;
 	}
+	// Peaceful or in battle; the server checks the requester controls the merc.
+	if (request.action == CoopCampaignAction::HandOverMerc)
+		return status.phase == CoopCampaignPhase::Tactical && !status.surrenderOffer && !status.battleNotice.id
+			? Outcome::Applied : Outcome::Unavailable;
 	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id ||
 		status.campaignComplete)
 		return Outcome::Unavailable;

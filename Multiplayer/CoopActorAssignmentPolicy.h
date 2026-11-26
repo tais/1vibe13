@@ -82,6 +82,11 @@ public:
 		std::array<CoopTacticalActorAssignment,
 			MaximumCoopTacticalAssignments>& output,
 		std::size_t& outputCount) noexcept;
+	// The player now controlling `actor` (its owner, or the holder of this
+	// world's lend) gives it to `to`: an owner's merc changes owner for good, a
+	// lent merc moves its lend. False (nothing changed) when `from` does not
+	// control it this way or `to` is `from`.
+	bool handOver(const TacticalEntityId& actor, const PeerIdentity& from, const PeerIdentity& to) noexcept;
 	// The recorded owner (not a per-world lend), or nullptr.
 	const PeerIdentity* ownerOf(const TacticalEntityId& actor) const noexcept;
 	std::size_t ownerCount() const noexcept { return ownerCount_; }

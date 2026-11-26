@@ -662,6 +662,42 @@ void ReplyReturnMapInput(std::uint64_t request, const std::array<std::uint64_t, 
 	FlushReply();
 }
 
+void ReplyHandOverUi(std::uint64_t request) noexcept
+{
+	FullEngineCoopClientHandOverControls c;
+	const bool ready = CaptureFullEngineCoopClientHandOverControls(c);
+	std::printf("%s{\"request\":%llu,\"kind\":\"hand_over_ui\",\"ready\":%s", ReplyPrefix,
+		static_cast<unsigned long long>(request), ready ? "true" : "false");
+	if (ready) std::printf(",\"session\":%llu,\"selected\":[%u,%u],\"armed\":[%u,%u],\"enabled\":%s,\"pending\":%s",
+		static_cast<unsigned long long>(c.sessionEpoch), unsigned(c.selected.slot), unsigned(c.selected.incarnation),
+		unsigned(c.armed.slot), unsigned(c.armed.incarnation), c.enabled ? "true" : "false", c.pending ? "true" : "false");
+	std::fputs("}", stdout); FlushReply();
+}
+
+// Queues one shipping Screen key pair: 1 = J (arm the hand-over of the selected
+// merc), 2 = Enter (confirm), 3 = Esc. `selected` and `armed` must match what the
+// Screen shows, so a key never applies to another merc.
+void ReplyHandOverInput(std::uint64_t request, const std::array<std::uint64_t, 6>& values, unsigned& count) noexcept
+{
+	FullEngineCoopClientHandOverControls c;
+	if (count >= MaximumCampaignUiInputs || (GetCurrentScreen() != INIT_SCREEN && GetCurrentScreen() != GAME_SCREEN) ||
+		!CaptureFullEngineCoopClientHandOverControls(c) || !c.enabled || c.pending || GetInputQueueStatistics().queued ||
+		c.sessionEpoch != values[0] || c.selected.slot != values[1] || c.selected.incarnation != values[2] ||
+		c.armed.slot != (values[3] & 0xFFFFu) || c.armed.incarnation != (values[3] >> 16) || !values[5] || values[5] > 3 ||
+		values[4])
+	{ ReplyError(request, "hand-over input requires the exact visible selection/confirmation and an idle input queue"); return; }
+	constexpr std::array<UINT32, 3> keys{{'j', ENTER, ESC}};
+	++count;
+	const auto before = GetInputQueueStatistics();
+	QueueEvent(KEY_DOWN, keys[values[5] - 1], 0); QueueEvent(KEY_UP, keys[values[5] - 1], 0);
+	const auto after = GetInputQueueStatistics();
+	if (after.accepted - before.accepted != 2 || after.queued != 2 || after.dropped != before.dropped || after.evictedForRelease != before.evictedForRelease)
+	{ ReplyError(request, "hand-over key pair was not queued completely; input budget consumed"); return; }
+	std::printf("%s{\"request\":%llu,\"kind\":\"hand_over_input\",\"queued\":true,\"key\":%u,\"queued_events\":2,\"input_count\":%u}",
+		ReplyPrefix, static_cast<unsigned long long>(request), static_cast<unsigned>(values[5]), count);
+	FlushReply();
+}
+
 void ReplyConversation(std::uint64_t request) noexcept
 {
 	CoopSession::CoopConversation c;
@@ -2502,6 +2538,24 @@ private:
 			}
 			if (!parsed || !cursor.exhausted()) ReplyError(request, "RETURN_MAP_INPUT needs session/control/groups/sector/armed/key");
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
+			return;
+		}
+		if (operation == "HAND_OVER_UI")
+		{
+			if (!cursor.exhausted()) ReplyError(request, "HAND_OVER_UI takes only a request id");
+			else ReplyHandOverUi(request);
+			return;
+		}
+		if (operation == "HAND_OVER_INPUT")
+		{
+			std::array<std::uint64_t, 6> values{}; bool parsed = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
+			}
+			if (!parsed || !cursor.exhausted()) ReplyError(request, "HAND_OVER_INPUT needs session/selected slot/inc/armed/0/key");
+			else ReplyHandOverInput(request, values, campaignUiInputs_);
 			return;
 		}
 		if (operation == "SELECT_NEXT_INPUT")

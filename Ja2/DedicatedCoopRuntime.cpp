@@ -1436,6 +1436,32 @@ struct DedicatedCoopRuntime::Impl
 		return {Outcome::Applied, 0};
 	}
 
+	// The player controlling a merc in this world gives it to the next world
+	// participant (identity order, wrapping). The ledger change is dealt at the
+	// next assignment publish, behind the same retained-command gate.
+	CoopSession::CoopCampaignActionNativeResult handOverMerc(const CoopSession::PeerIdentity& requester,
+		std::uint64_t decision) noexcept
+	{
+		using Outcome = CoopSession::CoopCampaignActionOutcome;
+		const TacticalEntityId actor{static_cast<std::uint16_t>(decision & 0xFFFFu),
+			static_cast<std::uint32_t>(decision >> 16)};
+		if (selfRetirementActive || tactical == nullptr || !tactical->server.worldActive() || !assignmentsPublished)
+			return {Outcome::NativeRejected, 1};
+		const auto* controlled = std::find_if(publishedAssignments.begin(), publishedAssignments.begin() + publishedAssignmentCount,
+			[&](const CoopSession::CoopTacticalActorAssignment& row) { return row.actor == actor; });
+		if (controlled == publishedAssignments.begin() + publishedAssignmentCount) return {Outcome::NativeRejected, 1};
+		if (controlled->peerIdentity != requester) return {Outcome::NativeRejected, 2};
+		std::size_t self = worldParticipantCount;
+		for (std::size_t i = 0; i < worldParticipantCount; ++i)
+			if (worldParticipants[i] == requester) self = i;
+		if (self == worldParticipantCount || worldParticipantCount < 2) return {Outcome::NativeRejected, 3};
+		const auto& recipient = worldParticipants[(self + 1) % worldParticipantCount];
+		if (!actorOwnership.handOver(actor, requester, recipient)) return {Outcome::NativeRejected, 2};
+		std::printf("[dedicated] merc %u:%u handed to another player\n", unsigned(actor.slot), unsigned(actor.incarnation));
+		std::fflush(stdout);
+		return {Outcome::Applied, 0};
+	}
+
 	bool handleCampaignActionRequest(const CoopSession::FullEngineCoopCampaignInboundMessage& message,
 		DedicatedCoopRuntime& runtime) noexcept
 	{
@@ -1451,6 +1477,8 @@ struct DedicatedCoopRuntime::Impl
 			[&](const CoopSession::CoopCampaignActionRequest& accepted) {
 				if (accepted.action == CoopSession::CoopCampaignAction::TransferTimeLead)
 					return transferTimeLead(message.peerIdentity);
+				if (accepted.action == CoopSession::CoopCampaignAction::HandOverMerc)
+					return handOverMerc(message.peerIdentity, accepted.decision);
 				return applyCampaignAction(accepted, runtime);
 			});
 		if (fatal) return false;

@@ -121,6 +121,27 @@ CoopActorAssignmentPolicyResult BuildCoopActorAssignments(
 	return CoopActorAssignmentPolicyResult::Success;
 }
 
+bool CoopActorOwnershipLedger::handOver(const TacticalEntityId& actor, const PeerIdentity& from,
+	const PeerIdentity& to) noexcept
+{
+	if (from == PeerIdentity{} || to == PeerIdentity{} || from == to) return false;
+	for (std::size_t i = 0; i < lendCount_; ++i)
+		if (lends_[i].actor == actor)
+		{
+			if (lends_[i].peerIdentity != from) return false;
+			lends_[i].peerIdentity = to;
+			return true;
+		}
+	for (std::size_t i = 0; i < ownerCount_; ++i)
+		if (owners_[i].actor == actor)
+		{
+			if (owners_[i].peerIdentity != from) return false;
+			owners_[i].peerIdentity = to;
+			return true;
+		}
+	return false;
+}
+
 const PeerIdentity* CoopActorOwnershipLedger::ownerOf(const TacticalEntityId& actor) const noexcept
 {
 	for (std::size_t i = 0; i < ownerCount_; ++i)

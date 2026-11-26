@@ -177,6 +177,14 @@ struct FullEngineCoopClientReturnToMapControls
 	StrategicGroupId exitGroup{};
 };
 bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnToMapControls& output) noexcept;
+struct FullEngineCoopClientHandOverControls
+{
+	std::uint64_t sessionEpoch = 0;
+	TacticalEntityId selected{}, armed{};
+	bool enabled = false, pending = false;
+};
+// Driver evidence: the selected merc this player controls and the armed hand-over.
+bool CaptureFullEngineCoopClientHandOverControls(FullEngineCoopClientHandOverControls& output) noexcept;
 
 struct FullEngineCoopClientMeanwhileControls
 {

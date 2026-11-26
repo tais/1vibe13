@@ -216,6 +216,34 @@ void PolicyAndState()
 	CHECK(allowed(stale) == CoopCampaignActionOutcome::Stale && !ValidCoopCampaignActionRequest(grouped) &&
 		!ValidCoopCampaignActionRequest(noDecision), "an answer names exactly the asking battle and nothing else");
 }
+void HandOverInALoadedSector()
+{
+	Fixture f;
+	const auto allowed = [&](const CoopCampaignActionRequest& r) {
+		return ValidateCoopCampaignActionRequest(r, f.status.value(), f.groups, f.identities[1], true, true, false);
+	};
+	auto give = f.arrival(CoopCampaignAction::HandOverMerc); give.decision = 3u | (std::uint64_t(4) << 16);
+	CoopCampaignActionRequestBytes bytes{};
+	CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(give, bytes) && bytes[6] == 20 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, give),
+		"a hand-over is kind 20 and roundtrips");
+	auto grouped = give; grouped.group = f.groups.groups[0].id;
+	auto noMerc = give; noMerc.decision = 0;
+	auto extra = give; extra.destinationX = 1;
+	CHECK(!ValidCoopCampaignActionRequest(grouped) && !ValidCoopCampaignActionRequest(noMerc) &&
+		!ValidCoopCampaignActionRequest(extra), "a hand-over names exactly one merc");
+	CHECK(allowed(give) == CoopCampaignActionOutcome::Unavailable, "there is nobody to hand over on the map");
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe a loaded battle");
+	give.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(give) == CoopCampaignActionOutcome::Applied, "in battle or at peace, the server then checks control");
+	clock = f.status.value(); clock.surrenderOffer = 4;
+	CHECK(f.status.observe(clock, f.identities, 2), "observe a surrender offer");
+	give.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(give) == CoopCampaignActionOutcome::Unavailable, "a pending surrender decision blocks it");
+}
+
 void ReturnToMapFromSecuredSector()
 {
 	Fixture f;
@@ -625,4 +653,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization(); MilitiaBattleNoticeOnTheMap();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); TimeLeadTransfer(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization(); MilitiaBattleNoticeOnTheMap();  Codec(); SurrenderSerialization(); PolicyAndState(); HandOverInALoadedSector(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); TimeLeadTransfer(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

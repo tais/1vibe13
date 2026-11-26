@@ -6,6 +6,7 @@
 #include "FullEngineCoopClientSurrenderInput.h"
 #include "FullEngineCoopClientBattleNoticeInput.h"
 #include "FullEngineCoopClientReturnToMapInput.h"
+#include "FullEngineCoopClientHandOverInput.h"
 #include "FullEngineCoopClientMeanwhileInput.h"
 #include "FullEngineCoopClientCampaignHireInput.h"
 #include "FullEngineCoopClientCampaignStatusText.h"
@@ -46,6 +47,7 @@ FullEngineCoopClientCampaignActionInput CampaignActionInput;
 FullEngineCoopClientSurrenderInput SurrenderInput;
 FullEngineCoopClientBattleNoticeInput BattleNoticeInput;
 FullEngineCoopClientReturnToMapInput ReturnToMapInput;
+FullEngineCoopClientHandOverInput HandOverInput;
 FullEngineCoopClientMeanwhileInput MeanwhileInput;
 FullEngineCoopClientCampaignHireInput CampaignHireInput;
 std::uint64_t ScreenFrame = 0;
@@ -432,6 +434,46 @@ void HandleReturnToMapKey(UINT32 key, UINT32 eventKind) noexcept
 	LastSendWorldGeneration = 0;
 }
 
+// Whether this player controls the selected merc in the current world.
+bool SelectedActorControlled(TacticalEntityId& selected) noexcept
+{
+	selected = Controller.selectedActor();
+	FullEngineCoopClientPresentationView view;
+	if (!selected.valid() || !GetFullEngineCoopClientRuntime().presentationView(view)) return false;
+	for (std::size_t i = 0; i < view.assignedActorCount && i < view.assignedActors.size(); ++i)
+		if (view.assignedActors[i] == selected) return true;
+	return false;
+}
+
+bool CampaignRequestPending(FullEngineCoopClientRuntime& runtime) noexcept
+{
+	CoopSession::CoopCampaignActionResult action; CoopSession::CoopCampaignTimeResult time; CoopSession::CoopCampaignHireResult hire;
+	bool actionPending = false, timePending = false, hirePending = false;
+	(void)runtime.campaignActionFeedback(action, actionPending); (void)runtime.campaignTimeFeedback(time, timePending);
+	(void)runtime.campaignHireFeedback(hire, hirePending);
+	return actionPending || timePending || hirePending;
+}
+
+// J arms and a separate Enter confirms giving the selected merc to a teammate
+// (B is first aid; J and Z were the only free letters).
+void HandleHandOverKey(UINT32 key, UINT32 eventKind) noexcept
+{
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; bool leader = false;
+	const bool observed = runtime.campaignStatus(status, leader);
+	TacticalEntityId selected{};
+	const bool controlled = SelectedActorControlled(selected);
+	using Key = FullEngineCoopClientHandOverInput::Key;
+	const Key mapped = key == 'j' || key == 'J' ? Key::Arm : key == ENTER ? Key::Confirm : key == ESC ? Key::Cancel : Key::None;
+	const auto request = HandOverInput.handle(mapped, eventKind == KEY_DOWN, eventKind == KEY_UP,
+		observed ? &status : nullptr, selected, controlled,
+		!runtime.selfRetirementPending() && !runtime.retired(), CampaignRequestPending(runtime));
+	if (!request) return;
+	LastSendResult = runtime.requestCampaignAction(*request);
+	HaveSendResult = LastSendResult != CoopSession::FullEngineCoopClientResult::Success;
+	LastSendWorldGeneration = 0;
+}
+
 // The nearest replicated non-hostile NPC within the stock talk radius of the
 // selected merc. A public preflight only; the authority rechecks everything.
 TacticalEntityId NearestTalkTarget(const FullEngineCoopClientControllerView& view) noexcept
@@ -512,7 +554,20 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			Controller.enteringDestination() || Controller.selectingDoor() || Controller.inventoryOpen() || Controller.selectingFirstAid();
 		if (modal) RetirementConfirmation.cancel();
 		if (modal) ReturnToMapInput.reset();
+		if (modal) HandOverInput.reset();
+		const bool handOverKey = key == 'j' || key == 'J';
+		if (event.usEvent == KEY_UP && (key == ENTER || key == ESC) && !HandOverInput.armed())
+			HandleHandOverKey(key, event.usEvent);
+		if (!modal && (event.usEvent == KEY_DOWN || event.usEvent == KEY_UP) &&
+			(handOverKey || (HandOverInput.armed() && (key == ENTER || key == ESC))))
+		{
+			RetirementConfirmation.cancel();
+			ReturnToMapInput.reset();
+			HandleHandOverKey(key, event.usEvent);
+			continue;
+		}
 		const bool returnKey = key == 'w' || key == 'W' || key == 'u' || key == 'U';
+		if (returnKey) HandOverInput.reset();
 		// Releases always reach the input, even after a confirmation disarmed
 		// it; otherwise a later Enter would look like a held-key repeat. A
 		// release never submits, so it is not consumed here.
@@ -1600,6 +1655,12 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 			L"Sector secured. W: map  U: take exit (stand on it)");
 		SetFontForeground(FONT_MCOLOR_LTGRAY);
 	}
+	if (HandOverInput.armed())
+	{
+		SetFontForeground(FONT_MCOLOR_LTYELLOW);
+		mprintf(300, 38, L"Give this merc to your teammate? Enter: confirm  Esc: cancel");
+		SetFontForeground(FONT_MCOLOR_LTGRAY);
+	}
 
 	// Clear the fixed HUD lane even when another modal suppresses its text.
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, 8, 44, std::min(638, static_cast<int>(SCREEN_WIDTH) - 8), 78, 0);
@@ -1927,6 +1988,23 @@ bool CaptureFullEngineCoopClientReturnToMapControls(FullEngineCoopClientReturnTo
 	output.groupsRevision = groups.revision; output.securedSector = status.securedSector;
 	output.armed = ReturnToMapInput.armed(); output.enabled = ReturnToMapInput.enabled();
 	output.exitArmed = ReturnToMapInput.exitArmed(); output.exitGroup = ReturnToMapInput.exitGroup();
+	return true;
+}
+
+bool CaptureFullEngineCoopClientHandOverControls(FullEngineCoopClientHandOverControls& output) noexcept
+{
+	output = {};
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	CoopSession::CoopCampaignStatus status; bool leader = false;
+	if (!runtime.campaignStatus(status, leader) || !FullEngineCoopClientHandOverInput::available(&status)) return false;
+	TacticalEntityId selected{};
+	const bool controlled = SelectedActorControlled(selected);
+	output.pending = CampaignRequestPending(runtime);
+	HandOverInput.synchronize(&status, selected, controlled, !runtime.selfRetirementPending() && !runtime.retired(), output.pending);
+	output.sessionEpoch = status.sessionEpoch;
+	output.selected = HandOverInput.selected();
+	output.armed = HandOverInput.armedActor();
+	output.enabled = HandOverInput.enabled();
 	return true;
 }
 

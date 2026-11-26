@@ -4957,6 +4957,31 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 7.1: only the player controlling a merc in this world may give it away, and
+# only to another participant; the ledger changes only at its own hand-over.
+require_ordered_fragments(dedicated_live_runtime_code
+  "A hand-over must check the requester controls the merc and go to another participant"
+  "if (accepted.action == CoopSession::CoopCampaignAction::HandOverMerc)"
+  "return handOverMerc(message.peerIdentity, accepted.decision);")
+require_ordered_fragments(dedicated_live_runtime_code
+  "A hand-over must check current control before changing the ledger"
+  "CoopSession::CoopCampaignActionNativeResult handOverMerc(const CoopSession::PeerIdentity& requester,"
+  "if (controlled->peerIdentity != requester) return {Outcome::NativeRejected, 2};"
+  "worldParticipantCount < 2) return {Outcome::NativeRejected, 3};"
+  "const auto& recipient = worldParticipants[(self + 1) % worldParticipantCount];"
+  "if (!actorOwnership.handOver(actor, requester, recipient)) return {Outcome::NativeRejected, 2};")
+require_ordered_fragments(coop_ownership_source
+  "A ledger hand-over must come from the merc's current controller"
+  "bool CoopActorOwnershipLedger::handOver(const TacticalEntityId& actor, const PeerIdentity& from,"
+  "if (from == PeerIdentity{} || to == PeerIdentity{} || from == to) return false;"
+  "if (lends_[i].peerIdentity != from) return false;"
+  "if (owners_[i].peerIdentity != from) return false;")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_hand_over_action_source)
+require_ordered_fragments(coop_hand_over_action_source
+  "A hand-over must be admitted only in a loaded sector without a pending battle decision"
+  "if (request.action == CoopCampaignAction::HandOverMerc)"
+  "return status.phase == CoopCampaignPhase::Tactical && !status.surrenderOffer && !status.battleNotice.id")
+
 # 1.5: a stop signal in a secured sector first takes the ordinary shared
 # return to the map, so the final checkpoint never meets a loaded world and the
 # sector's progress is kept; signals stay signal-safe flags read on the main thread.

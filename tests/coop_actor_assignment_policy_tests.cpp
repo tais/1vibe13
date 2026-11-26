@@ -222,6 +222,20 @@ void TestStableOwnershipLedger()
 	CHECK(ledger.assign(peers.data(), peers.size(), four.data(), four.size(), deal, count) ==
 		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(2) &&
 		OwnerIn(deal, count, m4) == Peer(2), "the owner back in a later world gets them back");
+	// Hand-over: an owner's merc changes owner for good; a lend moves.
+	CHECK(!ledger.handOver(m1, Peer(2), Peer(1)), "only the controlling player can give a merc away");
+	CHECK(!ledger.handOver(m1, Peer(1), Peer(1)), "giving a merc to oneself changes nothing");
+	CHECK(ledger.handOver(m1, Peer(1), Peer(2)) && *ledger.ownerOf(m1) == Peer(2), "the owner gives it away");
+	CHECK(ledger.assign(peers.data(), peers.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m1) == Peer(2) &&
+		OwnerIn(deal, count, m3) == Peer(1), "the next deal follows the hand-over and nothing else");
+	ledger.beginWorld();
+	CHECK(ledger.assign(alone.data(), alone.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(1), "lent while player 2 is away");
+	CHECK(ledger.handOver(m2, Peer(1), Peer(3)) && *ledger.ownerOf(m2) == Peer(2),
+		"a lent merc's lend moves; its owner stays");
+	ledger.beginWorld();
+	(void)ledger.handOver(m1, Peer(2), Peer(1));
 	// Transactional failure.
 	const std::array<TacticalEntityId, 2> unsorted{m3, m1};
 	const auto before = deal; const auto beforeCount = count; const auto owners = ledger.ownerCount();
