@@ -1362,6 +1362,30 @@ constexpr bool IsStructurallyValidAuthoritativeDoorActionCommand(
 		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
 }
 
+// A stock throw of the hand item (a grenade or a thrown item) at a tile, as the
+// toss cursor does: HandleItem, UseThrown, the throw animation and the physics
+// object; the stock AP, scatter and landing apply.
+struct AuthoritativeThrowCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t targetGrid = -1;
+	std::int8_t targetLevel = 0;
+	std::uint16_t expectedHandItem = 0;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeThrowCommand>::value,
+	"throw commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeThrowCommand(const AuthoritativeThrowCommand& command) noexcept
+{
+	return command.soldier.valid() && command.targetGrid >= 0 && (command.targetLevel == 0 || command.targetLevel == 1) &&
+		command.expectedHandItem != 0 && command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // The stock weapon-mode cycle (ChangeWeaponMode: single, burst, auto and the
 // attached launcher's modes, as the weapon allows) for a co-op merc, against
 // the exact hand item and mode its owner saw.
@@ -1755,7 +1779,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeConverseCommand,
 	AuthoritativeGiveItemCommand,
 	AuthoritativeDoorActionCommand,
-	AuthoritativeWeaponModeCommand>;
+	AuthoritativeWeaponModeCommand,
+	AuthoritativeThrowCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1932,6 +1957,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeWeaponModeCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeThrowCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeThrowCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

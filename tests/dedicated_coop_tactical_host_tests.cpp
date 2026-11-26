@@ -274,6 +274,16 @@ public:
 		command.expectedActionPointCost = 3;
 		return true;
 	}
+	bool prepareThrow(TacticalEntityId actor, std::int32_t grid, std::int8_t level,
+		AuthoritativeThrowCommand& command) const noexcept override
+	{
+		++throwPreparationCalls;
+		if (!throwPreparationSucceeds) return false;
+		command = AuthoritativeThrowCommand{};
+		command.soldier = actor; command.targetGrid = grid; command.targetLevel = level; command.expectedHandItem = 236;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -386,6 +396,8 @@ public:
 	mutable std::size_t givePreparationCalls = 0;
 	bool doorActionPreparationSucceeds = true;
 	bool weaponModePreparationSucceeds = true;
+	bool throwPreparationSucceeds = true;
+	mutable std::size_t throwPreparationCalls = 0;
 	mutable std::size_t weaponModePreparationCalls = 0;
 	mutable std::size_t doorActionPreparationCalls = 0;
 	mutable std::uint8_t lastDoorAction = 0;
@@ -1020,6 +1032,18 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		FakeLiveState stale; stale.weaponModePreparationSucceeds = false;
 		rejects(stale, Intent(1, CycleWeaponModeTacticalIntent{1}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a changed mode, hand item or busy merc never enters the inbox");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost throwHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(throwHost.execute(Intent(1, ThrowItemTacticalIntent{2400, 0})) == TacticalIntentExecutionDisposition::Retained,
+			"a throw at a tile enters the retained command inbox");
+		const auto* thrown = std::get_if<AuthoritativeThrowCommand>(&queue.submissions[0].command);
+		CHECK(thrown && thrown->targetGrid == 2400 && thrown->targetLevel == 0 && thrown->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stock throw reaches the command service");
+		FakeLiveState refused; refused.throwPreparationSucceeds = false;
+		rejects(refused, Intent(1, ThrowItemTacticalIntent{2400, 0}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"no throwable in hand, too few points or a busy merc never enters the inbox");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

@@ -85,6 +85,13 @@ public:
 	void cancelDestinationEntry() noexcept;
 	void toggleReverse() noexcept;
 	bool enteringDestination() const noexcept { return enteringDestination_; }
+	// H: the grid entry names a throw target instead of a move destination.
+	bool beginThrowEntry(const FullEngineCoopClientControllerView& view) noexcept;
+	bool throwEntry() const noexcept { return enteringDestination_ && throwEntry_; }
+	FullEngineCoopClientIntentRequest submitThrow(const FullEngineCoopClientControllerView& view) noexcept;
+	// A stock throw of the selected merc's hand grenade or thrown item at a grid.
+	FullEngineCoopClientIntentRequest throwAt(const FullEngineCoopClientControllerView& view,
+		std::int32_t grid) const noexcept;
 	const char* destinationText() const noexcept { return destination_; }
 	bool reverse() const noexcept { return reverse_; }
 
@@ -263,6 +270,7 @@ private:
 	std::uint64_t destinationWorldEpoch_ = 0;
 	std::uint8_t destinationLength_ = 0;
 	bool enteringDestination_ = false;
+	bool throwEntry_ = false;
 	bool reverse_ = false;
 	TacticalEntityId attackTarget_{};
 	std::uint64_t attackWorldEpoch_ = 0;

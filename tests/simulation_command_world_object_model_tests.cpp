@@ -572,6 +572,32 @@ int main()
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"a weapon-mode cycle needs a hand item, a stock mode and a co-op peer");
 
+	AuthoritativeThrowCommand toss;
+	toss.soldier = {2, 0x11223344}; toss.targetGrid = 5510; toss.targetLevel = 0; toss.expectedHandItem = 39;
+	toss.expectedWorldGeneration = 9; toss.expectedTurnSerial = 11;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{toss}),
+		"a throw names its merc, hand item and target tile");
+	const std::vector<RecordedSimulationCommand> tossRecords{
+		{18, 22, CommandJournalStatus::Applied, SimulationCommand{toss}}};
+	std::vector<std::uint8_t> tossWire, tossReencoded;
+	std::vector<RecordedSimulationCommand> decodedToss;
+	std::uint64_t tossDropped = 0;
+	Require(EncodeSimulationCommandJournal(tossRecords, 0, tossWire) &&
+		DecodeSimulationCommandJournal(tossWire, decodedToss, tossDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedToss.size() == 1 &&
+		std::holds_alternative<AuthoritativeThrowCommand>(decodedToss[0].command) &&
+		EncodeSimulationCommandJournal(decodedToss, tossDropped, tossReencoded) && tossReencoded == tossWire,
+		"a throw journal round trips every field under its append-only tag");
+	std::array<AuthoritativeThrowCommand, 4> invalidTosses;
+	invalidTosses.fill(toss);
+	invalidTosses[0].targetGrid = -1;
+	invalidTosses[1].targetLevel = 2;
+	invalidTosses[2].expectedHandItem = 0;
+	invalidTosses[3].source = SimulationCommandSource::LocalPlayer;
+	for (const auto& invalid : invalidTosses)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"a throw needs a real tile, a ground or roof level, a hand item and a co-op peer");
+
 	AuthoritativeConverseCommand answer;
 	answer.soldier = {2, 0x11223344};
 	answer.expectedWorldGeneration = 9;

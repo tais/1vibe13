@@ -1398,6 +1398,32 @@ void ReplyDoorAction(std::uint64_t request, TacticalEntityId actor, std::int32_t
 	FlushReply();
 }
 
+// One stock throw at a grid through the shipping controller.
+void ReplyThrow(std::uint64_t request, TacticalEntityId actor, std::int32_t grid, FullEngineCoopClientController& controller) noexcept
+{
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	FullEngineCoopClientPresentationView presentation;
+	if (!runtime.presentationView(presentation) || !presentation.snapshot)
+	{ ReplyControllerRejected(request, "throw"); return; }
+	const auto view = ControllerView(presentation);
+	controller.synchronize(view);
+	if (!controller.selectActor(view, actor)) { ReplyControllerRejected(request, "throw"); return; }
+	const auto intent = controller.throwAt(view, grid);
+	const auto* payload = std::get_if<CoopSession::ThrowItemTacticalIntent>(&intent.payload);
+	if (!intent || intent.actor != actor || !payload || payload->targetGrid != grid)
+	{ ReplyControllerRejected(request, "throw"); return; }
+	const auto result = runtime.sendIntent(intent.actor, intent.payload);
+	std::uint64_t command = 0;
+	FullEngineCoopClientPresentationView refreshed;
+	if (result == CoopSession::FullEngineCoopClientResult::Success && runtime.presentationView(refreshed))
+		command = refreshed.outstandingCommandId;
+	std::printf("%s{\"request\":%llu,\"kind\":\"throw\",\"submitted\":%s,\"result\":%u,\"command\":%llu}",
+		ReplyPrefix, static_cast<unsigned long long>(request),
+		result == CoopSession::FullEngineCoopClientResult::Success ? "true" : "false", static_cast<unsigned>(result),
+		static_cast<unsigned long long>(command));
+	FlushReply();
+}
+
 // The stock weapon-mode cycle through the shipping controller.
 void ReplyWeaponMode(std::uint64_t request, TacticalEntityId actor, FullEngineCoopClientController& controller) noexcept
 {
@@ -2770,6 +2796,25 @@ private:
 			ReplyDrop(request,
 				TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
 				static_cast<std::uint16_t>(values[2]), values[3], controller_);
+			return;
+		}
+		if (operation == "THROW")
+		{
+			std::uint64_t values[3]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] > static_cast<std::uint64_t>(INT32_MAX))
+			{
+				ReplyError(request, "malformed THROW arguments");
+				return;
+			}
+			ReplyThrow(request, TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
+				static_cast<std::int32_t>(values[2]), controller_);
 			return;
 		}
 		if (operation == "WEAPON_MODE")

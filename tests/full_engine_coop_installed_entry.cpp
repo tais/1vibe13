@@ -48,6 +48,7 @@
 #include "Town Militia.h"
 #include "Player Command.h"
 #include "Keys.h"
+#include "World Items.h"
 #include "Items.h"
 #include "Structure.h"
 #include "Tactical Placement GUI.h"
@@ -293,6 +294,67 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_THROW_ITEM=1, starter-victory mode): once A9 is
+// secured for peaceful play, put a stack of three harmless thrown items from
+// the game data in the first player merc's hand and pick a walkable target four
+// rows away; then report when such an item lies near the target.
+void PollThrowItemSeed()
+{
+	static bool seeded = false, landed = false;
+	static UINT16 thrownItem = 0;
+	static INT32 target = -1;
+	static std::chrono::steady_clock::time_point calmSince{};
+	if (!std::getenv("JA2_COOP_ENTRY_THROW_ITEM") || !gfProgramIsRunning) return;
+	if (seeded)
+	{
+		if (landed || !IsJa2TacticalWorldLoaded()) return;
+		for (UINT32 i = 0; i < guiNumWorldItems; ++i)
+		{
+			const auto& item = gWorldItems[i];
+			if (item.fExists && item.object.usItem == thrownItem && PythSpacesAway(item.sGridNo, target) <= 4)
+			{
+				landed = true;
+				std::printf("[co-op entry test] thrown item landed: grid=%d; distance=%d\n", int(item.sGridNo),
+					int(PythSpacesAway(item.sGridNo, target)));
+				std::fflush(stdout);
+				return;
+			}
+		}
+		return;
+	}
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+	if (now - calmSince < std::chrono::seconds(3)) return;
+	TacticalActor* merc = nullptr;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE &&
+			!actor->position().level()) { merc = actor; break; }
+	}
+	if (!merc) return;
+	seeded = true;
+	for (UINT16 item = 1; item < MAXITEMS && !thrownItem; ++item)
+		if (Item[item].usItemClass == IC_THROWN && Item[item].ubCursor == TOSSCURS) thrownItem = item;
+	for (const int rows : {4, -4})
+		for (const int columns : {0, 4, -4})
+		{
+			const INT32 candidate = merc->position().gridNo() + rows * WORLD_COLS + columns;
+			if (target < 0 && candidate >= 0 && candidate < WORLD_MAX && GridNoOnVisibleWorldTile(candidate)) target = candidate;
+		}
+	OBJECTTYPE object;
+	if (!thrownItem || target < 0 || !CreateItems(thrownItem, 100, 3, &object))
+	{ Finish(false, "throw fixture found no thrown item or target"); return; }
+	merc->inventory()[HANDPOS] = object;
+	const auto id = GetJa2TacticalEntityId(*merc);
+	std::printf("[co-op entry test] throw seeded: actor=%u:%u; item=%u; count=%u; target=%d\n", unsigned(id.slot),
+		unsigned(id.incarnation), unsigned(thrownItem), unsigned(merc->inventory()[HANDPOS].ubNumberOfObjects), int(target));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_BURST_WEAPON=1, starter-victory mode): once A9
 // is secured for peaceful play, put a burst-capable gun from the game data in
 // the first player merc's hand, so the stock weapon-mode cycle has modes to
@@ -925,6 +987,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollReinforcementBattleSeed();
 	PollLockedDoorSeed();
 	PollBurstWeaponSeed();
+	PollThrowItemSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

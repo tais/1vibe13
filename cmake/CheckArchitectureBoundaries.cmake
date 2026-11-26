@@ -5193,6 +5193,27 @@ require_ordered_fragments(coop_weapon_mode_capture_source
   "const auto mode = soldier.attackSelection().weaponMode();"
   "state.weaponMode = mode >= 0 && mode < 10 ? static_cast<std::uint8_t>(mode) : 0;")
 
+# Throws: co-op runs the stock toss (HandleItem, UseThrown, the throw animation
+# and the physics object) only for an idle merc's hand grenade or thrown item;
+# a pending throw keeps the merc busy until launch, and the pending copy holds
+# exactly the thrown item (a throw halted before launch returned the whole
+# hand stack to the inventory, which had already lost the thrown item).
+require_ordered_fragments(coop_weapon_mode_source
+  "Co-op throws must go through the stock toss for grenades and thrown items only"
+  "if (actor.pendingItem().hasObject()) return false;"
+  "TacticalActor* ResolveAuthoritativeThrow(const AuthoritativeThrowCommand& command) noexcept"
+  "(Item[command.expectedHandItem].usItemClass != IC_GRENADE && Item[command.expectedHandItem].usItemClass != IC_THROWN) ||"
+  "Item[command.expectedHandItem].ubCursor != TOSSCURS"
+  "MinAPsToAttack(soldier, command.targetGrid, TRUE, 0, 0)"
+  "std::is_same<Command, AuthoritativeThrowCommand>::value)"
+  "HandleItemFromWeaponConfigurationCommand(")
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp" coop_throw_stack_source)
+require_ordered_fragments(coop_throw_stack_source
+  "A pending throw must hold exactly the thrown item"
+  "pSoldier->inventory()[HANDPOS].RemoveObjectsFromStack(1);"
+  "if (OBJECTTYPE* thrown = pSoldier->pendingItem().object())"
+  "thrown->RemoveObjectsFromStack(thrown->ubNumberOfObjects - 1);")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -13208,7 +13229,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 19> payloads"
+    "const std::array<PayloadCase, 20> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13625,7 +13646,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 17)
+if(NOT dedicated_live_authority_write_call_count EQUAL 18)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13639,7 +13660,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 17)
+if(NOT dedicated_live_authority_read_call_count EQUAL 18)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -14914,7 +14935,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 19> payloads"
+    "const std::array<PayloadCase, 20> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -45128,7 +45149,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19" "CycleWeaponModeTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20" "ThrowItemTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

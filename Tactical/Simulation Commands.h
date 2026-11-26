@@ -147,6 +147,9 @@ bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
 // Ordinary whole pocket stack onto this actor's exact empty, safe ground tile.
 // The retained command repeats source/pose/AP proofs and commits one native
 // item insertion; no asynchronous drop animation or client inventory mutation.
+// A stock throw of an idle co-op merc's hand grenade or thrown item at a tile.
+bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targetGrid, std::int8_t targetLevel,
+	AuthoritativeThrowCommand& output) noexcept;
 // The stock weapon-mode cycle for an idle co-op merc whose mode is still the
 // one its owner saw.
 bool PrepareAuthoritativeWeaponModeCommand(TacticalEntityId actor, std::uint8_t expectedWeaponMode,

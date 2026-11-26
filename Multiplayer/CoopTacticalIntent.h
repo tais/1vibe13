@@ -39,7 +39,8 @@ enum class TacticalIntentKind : std::uint8_t
 	Converse = 16,
 	GiveItem = 17,
 	DoorAction = 18,
-	CycleWeaponMode = 19
+	CycleWeaponMode = 19,
+	ThrowItem = 20
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -162,6 +163,12 @@ struct DoorActionTacticalIntent
 	std::uint16_t structureId = 0;
 	std::uint8_t action = 0;
 };
+// A stock throw of the hand grenade or thrown item at a tile and level.
+struct ThrowItemTacticalIntent
+{
+	std::int32_t targetGrid = -1;
+	std::int8_t targetLevel = 0;
+};
 // The stock weapon-mode cycle; the mode the owner saw (stale otherwise).
 struct CycleWeaponModeTacticalIntent
 {
@@ -202,7 +209,8 @@ using TacticalIntentPayload = std::variant<
 	ConverseTacticalIntent,
 	GiveItemTacticalIntent,
 	DoorActionTacticalIntent,
-	CycleWeaponModeTacticalIntent>;
+	CycleWeaponModeTacticalIntent,
+	ThrowItemTacticalIntent>;
 
 struct TacticalIntent
 {

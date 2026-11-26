@@ -4064,3 +4064,30 @@ single, the starter guns (no burst) stay single. Negative control: with the old
 single-shot idle rule the merc is stuck in burst and the probe fails. Not yet
 qualified by a probe: firing a burst or autofire at an enemy (needs a
 deterministic combat fixture).
+
+## Phase 4.3: throwing (grenades and thrown items)
+
+- `ThrowItem` (tactical intent 20: target grid and level) becomes
+  `AuthoritativeThrowCommand` (journal tag 44) for an idle merc whose hand
+  holds a grenade or thrown item with the toss cursor, the target is not its
+  own tile, and the stock `MinAPsToAttack` is affordable. The server then runs
+  the stock toss exactly as the toss cursor does: `HandleItem`, `UseThrown`,
+  the throw animation and the physics object; the stock scatter, AP (at the
+  launch keyframe), landing and explosions apply.
+- A merc with a pending throw counts as busy until launch (the stock combat
+  action count only covers the object once it flies).
+- Stock bug fixed on the way: the pending throw copied the whole hand stack,
+  and a throw halted before launch (a merc who spots an enemy while winding
+  up) put that whole copy back into an inventory that had already lost the
+  thrown item, so a stack of three grenades came back as five. The pending copy
+  now holds exactly the thrown item.
+- Client: H, then the target grid digits, then Enter.
+
+Installed evidence (`full_engine_coop_installed_throw.py`): after the seeded A9
+victory the test host puts a stack of three harmless thrown items from the
+game data in a merc's hand and names a target four tiles away; the owner throws
+one through the controller; both clients show two left and the item landed
+two tiles from the target (stock scatter). Negative control: with thrown items
+refused, the throw is rejected and the probe fails. Not yet qualified by a
+probe: grenade explosions, throwing knives and launchers (knives go through the
+stock gun path and are not admitted by this command yet).

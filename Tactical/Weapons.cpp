@@ -4942,6 +4942,12 @@ BOOLEAN UseThrown( TacticalActor *pSoldier, INT32 sTargetGridNo )
 
 	HandleSoldierThrowItem(pSoldier, pSoldier->targeting().gridNo());
 	pSoldier->inventory()[HANDPOS].RemoveObjectsFromStack(1);
+	// The pending throw is one item: the copy taken for the ballistics holds the
+	// whole hand stack, and a throw halted before launch returns that copy to the
+	// inventory, which already lost the thrown item above.
+	if (OBJECTTYPE* thrown = pSoldier->pendingItem().object())
+		if (thrown->ubNumberOfObjects > 1)
+			thrown->RemoveObjectsFromStack(thrown->ubNumberOfObjects - 1);
 
 	return( TRUE );
 }

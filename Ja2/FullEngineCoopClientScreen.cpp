@@ -709,6 +709,11 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 					break;
 				case ENTER:
 				{
+					if (Controller.throwEntry())
+					{
+						(void)Submit(Controller.submitThrow(view), view);
+						break;
+					}
 					const TacticalActorSnapshot* const actor =
 						presentation.snapshot != nullptr
 						? presentation.snapshot->find(
@@ -780,6 +785,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			case 'm':
 			case 'M':
 				(void)Controller.beginDestinationEntry(view);
+				break;
+			case 'h':
+			case 'H':
+				(void)Controller.beginThrowEntry(view);
 				break;
 			case 'f':
 			case 'F':
@@ -1454,9 +1463,12 @@ void RenderPresentation(
 			(sizeof(destination) / sizeof(destination[0])); ++index)
 			destination[index] = static_cast<wchar_t>(source[index]);
 		destination[index] = L'\0';
-		mprintf(20, SCREEN_HEIGHT - 64,
-			L"Move destination grid: %ls%ls  [digits, Backspace, R reverse, Enter, Esc]",
-			destination, Controller.reverse() ? L" reverse" : L"");
+		if (Controller.throwEntry())
+			mprintf(20, SCREEN_HEIGHT - 64, L"Throw the hand item at grid: %ls  [digits, Backspace, Enter, Esc]", destination);
+		else
+			mprintf(20, SCREEN_HEIGHT - 64,
+				L"Move destination grid: %ls%ls  [digits, Backspace, R reverse, Enter, Esc]",
+				destination, Controller.reverse() ? L" reverse" : L"");
 	}
 	else if (snapshot.turn().interruptPhase ==
 		TacticalInterruptPhase::Active)

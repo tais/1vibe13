@@ -369,7 +369,46 @@ void FullEngineCoopClientController::cancelDestinationEntry() noexcept
 	destinationWorldEpoch_ = 0;
 	destinationLength_ = 0;
 	enteringDestination_ = false;
+	throwEntry_ = false;
 	reverse_ = false;
+}
+
+bool FullEngineCoopClientController::beginThrowEntry(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	if (!beginDestinationEntry(view)) return false;
+	throwEntry_ = true;
+	return true;
+}
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::throwAt(
+	const FullEngineCoopClientControllerView& view, std::int32_t grid) const noexcept
+{
+	if (!actionsEnabled(view) || view.snapshot == nullptr || !view.snapshot->dimensions().contains(grid))
+		return {};
+	const TacticalActorSnapshot* const actor = view.snapshot->find(selectedActor_);
+	if (actor == nullptr || !actor->active || !actor->inSector || actor->life <= 0 ||
+		actor->loadout.primaryHand.item == 0 || actor->grid == grid)
+		return {};
+	return request(view, CoopSession::ThrowItemTacticalIntent{grid, 0});
+}
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::submitThrow(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	if (!throwEntry() || destinationLength_ == 0 || !ValidView(view) ||
+		view.snapshot->epoch() != destinationWorldEpoch_)
+		return {};
+	std::uint64_t grid = 0;
+	for (std::uint8_t index = 0; index < destinationLength_; ++index)
+	{
+		grid = grid * 10u + static_cast<unsigned>(destination_[index] - '0');
+		if (grid > static_cast<std::uint64_t>((std::numeric_limits<std::int32_t>::max)())) return {};
+	}
+	const FullEngineCoopClientIntentRequest thrown = throwAt(view, static_cast<std::int32_t>(grid));
+	if (!thrown) return {};
+	cancelDestinationEntry();
+	return thrown;
 }
 
 void FullEngineCoopClientController::toggleReverse() noexcept

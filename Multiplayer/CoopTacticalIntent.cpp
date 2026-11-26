@@ -103,6 +103,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::GiveItem: return 16;
 		case TacticalIntentKind::DoorAction: return 7;
 		case TacticalIntentKind::CycleWeaponMode: return 1;
+		case TacticalIntentKind::ThrowItem: return 5;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -134,6 +135,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::GiveItem:
 		case TacticalIntentKind::DoorAction:
 		case TacticalIntentKind::CycleWeaponMode:
+		case TacticalIntentKind::ThrowItem:
 			return true;
 	}
 	return false;
@@ -195,6 +197,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::DoorAction;
 		if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
 			return TacticalIntentKind::CycleWeaponMode;
+		if constexpr (std::is_same<Payload, ThrowItemTacticalIntent>::value)
+			return TacticalIntentKind::ThrowItem;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -256,6 +260,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 			return payload.baseGrid >= 0 && payload.structureId != 0 && IsSupportedTacticalDoorAction(payload.action);
 		if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
 			return payload.expectedWeaponMode < 10;
+		if constexpr (std::is_same<Payload, ThrowItemTacticalIntent>::value)
+			return payload.targetGrid >= 0 && (payload.targetLevel == 0 || payload.targetLevel == 1);
 		return true;
 	}, intent.payload);
 }
@@ -320,6 +326,11 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			}
 			else if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
 				encoded.push_back(payload.expectedWeaponMode);
+			else if constexpr (std::is_same<Payload, ThrowItemTacticalIntent>::value)
+			{
+				WriteI32(encoded, payload.targetGrid);
+				encoded.push_back(static_cast<std::uint8_t>(payload.targetLevel));
+			}
 			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			{
 				WriteI32(encoded, payload.baseGrid);
@@ -515,6 +526,16 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			const std::uint8_t desiredOpen = *input++;
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::ThrowItem:
+		{
+			ThrowItemTacticalIntent payload;
+			if (!ReadI32(input, end, payload.targetGrid) || input == end) return TacticalIntentCodecResult::Invalid;
+			const std::uint8_t level = *input++;
+			if (payload.targetGrid < 0 || level > 1) return TacticalIntentCodecResult::Invalid;
+			payload.targetLevel = static_cast<std::int8_t>(level);
 			decoded.payload = payload;
 			break;
 		}

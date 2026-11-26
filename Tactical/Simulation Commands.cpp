@@ -233,6 +233,9 @@ namespace
 		const INT8 mode = actor.attackSelection().weaponMode();
 		const bool repeating = mode == WM_BURST || mode == WM_AUTOFIRE || mode == WM_ATTACHED_GL_BURST ||
 			mode == WM_ATTACHED_GL_AUTO || mode == WM_ATTACHED_UB_BURST || mode == WM_ATTACHED_UB_AUTO;
+		// A throw is under way from the stock toss until its launch keyframe (the
+		// combat-action count only covers the object once it flies).
+		if (actor.pendingItem().hasObject()) return false;
 		return repeating ? actor.fireControl().burstCounter() <= 1
 			: actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0;
 	}
@@ -1985,6 +1988,39 @@ namespace
 		return true;
 	}
 
+	// A stock throw of an exact idle co-op merc's hand grenade or thrown item.
+	TacticalActor* ResolveAuthoritativeThrow(const AuthoritativeThrowCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeThrowCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || TileIsOutOfBounds(command.targetGrid))
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || OK_CONTROLLABLE_MERC(soldier) == FALSE || soldier->roster().team() != gbPlayerNum ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			!FireSequenceIdle(*soldier) || soldier->fireControl().reloading() ||
+			soldier->position().gridNo() == command.targetGrid)
+			return nullptr;
+		const OBJECTTYPE& hand = soldier->inventory()[HANDPOS];
+		const UINT16 animation = soldier->animationPlayback().state();
+		if (!hand.exists() || hand.usItem != command.expectedHandItem || command.expectedHandItem >= MAXITEMS ||
+			(Item[command.expectedHandItem].usItemClass != IC_GRENADE && Item[command.expectedHandItem].usItemClass != IC_THROWN) ||
+			Item[command.expectedHandItem].ubCursor != TOSSCURS || HandItemWorks(soldier, HANDPOS) == FALSE ||
+			animation >= NUMANIMATIONSTATES || (gAnimControl[animation].uiFlags & ANIM_FIRE) != 0)
+			return nullptr;
+		const INT16 actionPointCost = MinAPsToAttack(soldier, command.targetGrid, TRUE, 0, 0);
+		if (actionPointCost < 0 || EnoughPoints(soldier, actionPointCost, 0, FALSE) == FALSE) return nullptr;
+		return soldier;
+	}
+
 	// The stock weapon-mode cycle for an exact idle co-op merc and hand weapon.
 	TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept
 	{
@@ -3174,6 +3210,23 @@ namespace
 					: CommandDisposition::Discard;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeThrowCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeThrow(value);
+				if (!soldier) return CommandDisposition::Discard;
+				const INT8 previousAimTime = soldier->aiPlanning().aimTime();
+				soldier->aiPlanning().aimTime() = 0;
+				const INT32 result = HandleItemFromWeaponConfigurationCommand(
+					soldier, value.targetGrid, value.targetLevel, value.expectedHandItem,
+					value.source, TacticalEventPolicy::LocalOnly);
+				if (result != ITEM_HANDLE_OK)
+				{
+					soldier->aiPlanning().aimTime() = previousAimTime;
+					return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
 			{
 				TacticalActor* const soldier = ResolveAuthoritativeWeaponMode(value);
@@ -4130,6 +4183,24 @@ static_assert(HANDLE_DOOR_EXAMINE == 2 && HANDLE_DOOR_LOCKPICK == 3 && HANDLE_DO
 	HANDLE_DOOR_UNLOCK == 6 && HANDLE_DOOR_EXPLODE == 7 && HANDLE_DOOR_UNTRAP == 8 && HANDLE_DOOR_CROWBAR == 9,
 	"the co-op door-action codes are the stock HANDLE_DOOR_* menu codes");
 
+bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targetGrid, std::int8_t targetLevel,
+	AuthoritativeThrowCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity || !live->inventory()[HANDPOS].exists()) return false;
+	AuthoritativeThrowCommand prepared;
+	prepared.soldier = actor;
+	prepared.targetGrid = targetGrid;
+	prepared.targetLevel = targetLevel;
+	prepared.expectedHandItem = live->inventory()[HANDPOS].usItem;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	if (ResolveAuthoritativeThrow(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeWeaponModeCommand(TacticalEntityId actor, std::uint8_t expectedWeaponMode,
 	AuthoritativeWeaponModeCommand& output) noexcept
 {
@@ -4296,7 +4367,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeConverseCommand>::value ||
 			std::is_same<Command, AuthoritativeGiveItemCommand>::value ||
 			std::is_same<Command, AuthoritativeDoorActionCommand>::value ||
-			std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
+			std::is_same<Command, AuthoritativeWeaponModeCommand>::value ||
+			std::is_same<Command, AuthoritativeThrowCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4469,6 +4541,13 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
 				return TileIsOutOfBounds(value.expectedTargetGrid)
 					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeThrowCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeThrowCommand(value) || value.expectedHandItem >= MAXITEMS)
+					return SimulationCommandDomainError::InvalidAttackingWeapon;
+				return value.targetGrid >= WORLD_MAX ? SimulationCommandDomainError::InvalidTargetGrid
+					: SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
 			{
