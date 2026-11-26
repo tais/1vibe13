@@ -166,8 +166,76 @@ void TestInitialParticipantsAndMalformedGrowth()
 }
 }
 
+using Deal = std::array<CoopTacticalActorAssignment, MaximumCoopTacticalAssignments>;
+
+bool SameDeal(const Deal& a, const Deal& b)
+{
+	for (std::size_t i = 0; i < a.size(); ++i)
+		if (a[i].actor != b[i].actor || a[i].peerIdentity != b[i].peerIdentity) return false;
+	return true;
+}
+
+PeerIdentity OwnerIn(const Deal& deal, std::size_t count, TacticalEntityId actor)
+{
+	for (std::size_t i = 0; i < count; ++i)
+		if (deal[i].actor == actor) return deal[i].peerIdentity;
+	return Peer(0);
+}
+
+void TestStableOwnershipLedger()
+{
+	const std::array<PeerIdentity, 2> peers{Peer(1), Peer(2)};
+	const TacticalEntityId m1{1, 1}, m2{2, 1}, m3{3, 1}, m4{4, 1}, m5{5, 1};
+	CoopActorOwnershipLedger ledger;
+	Deal deal{}; std::size_t count = 0;
+	const std::array<TacticalEntityId, 4> four{m1, m2, m3, m4};
+	CHECK(ledger.assign(peers.data(), peers.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && count == 4, "first deal succeeds");
+	CHECK(OwnerIn(deal, count, m1) == Peer(1) && OwnerIn(deal, count, m2) == Peer(2) &&
+		OwnerIn(deal, count, m3) == Peer(1) && OwnerIn(deal, count, m4) == Peer(2),
+		"a first deal is the round-robin");
+	// The old round-robin over {m1, m3, m4} would flip m3 and m4.
+	const std::array<TacticalEntityId, 3> downed{m1, m3, m4};
+	Deal plain{}; std::size_t plainCount = 0;
+	(void)BuildCoopActorAssignments(peers.data(), peers.size(), downed.data(), downed.size(), plain, plainCount);
+	CHECK(OwnerIn(plain, plainCount, m3) == Peer(2) && OwnerIn(plain, plainCount, m4) == Peer(1),
+		"control: the plain round-robin re-deals when a merc drops out");
+	CHECK(ledger.assign(peers.data(), peers.size(), downed.data(), downed.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m3) == Peer(1) &&
+		OwnerIn(deal, count, m4) == Peer(2), "a merc going down changes nobody else's owner");
+	CHECK(ledger.assign(peers.data(), peers.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(2),
+		"a merc getting up returns to its owner");
+	// A newly hired merc goes to the player with fewer present mercs.
+	const std::array<TacticalEntityId, 4> withNew{m1, m3, m4, m5};
+	CHECK(ledger.assign(peers.data(), peers.size(), withNew.data(), withNew.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m5) == Peer(2),
+		"a new merc goes to the player with the fewest present");
+	CHECK(ledger.ownerOf(m5) && *ledger.ownerOf(m5) == Peer(2), "and is recorded for good");
+	// A world without player 2: their mercs are lent to player 1, not given.
+	ledger.beginWorld();
+	const std::array<PeerIdentity, 1> alone{Peer(1)};
+	CHECK(ledger.assign(alone.data(), alone.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(1) &&
+		*ledger.ownerOf(m2) == Peer(2), "an absent owner's mercs are lent for the world, ownership kept");
+	ledger.beginWorld();
+	CHECK(ledger.assign(peers.data(), peers.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(2) &&
+		OwnerIn(deal, count, m4) == Peer(2), "the owner back in a later world gets them back");
+	// Transactional failure.
+	const std::array<TacticalEntityId, 2> unsorted{m3, m1};
+	const auto before = deal; const auto beforeCount = count; const auto owners = ledger.ownerCount();
+	CHECK(ledger.assign(peers.data(), peers.size(), unsorted.data(), unsorted.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::InvalidActorSet && SameDeal(deal, before) && count == beforeCount &&
+		ledger.ownerCount() == owners, "a malformed deal changes nothing");
+	CHECK(ledger.assign(nullptr, 0, four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && count == 0 && ledger.ownerCount() == owners,
+		"no participants deal nothing and record nothing");
+}
+
 int main()
 {
+	TestStableOwnershipLedger();
 	TestBalancedCanonicalAssignment();
 	TestNoPeerProducesNoAcl();
 	TestInvalidInputsPreserveOutputs();

@@ -2127,8 +2127,10 @@ struct DedicatedCoopRuntime::Impl
 						: "controllable actor capture failed");
 				return false;
 			}
+			// Stable owners: a merc going down, getting up, arriving or leaving
+			// never re-deals anyone else's mercs.
 			const CoopSession::CoopActorAssignmentPolicyResult built =
-				CoopSession::BuildCoopActorAssignments(
+				actorOwnership.assign(
 				worldParticipants.data(), worldParticipantCount,
 				actors.data(), actorCount, assignments, assignmentCount);
 			if (built != CoopSession::CoopActorAssignmentPolicyResult::Success)
@@ -2322,6 +2324,7 @@ struct DedicatedCoopRuntime::Impl
 		worldParticipants = {};
 		worldParticipantCount = 0;
 		worldParticipantsSelected = false;
+		actorOwnership.beginWorld();
 		worldDraining = false;
 		postCombatReturnArmed = false;
 		if (holdAdmissionAfterWorldDrain)
@@ -2361,6 +2364,7 @@ struct DedicatedCoopRuntime::Impl
 			worldParticipants = {};
 			worldParticipantCount = 0;
 			worldParticipantsSelected = false;
+			actorOwnership.beginWorld();
 			return true;
 		}
 		if (generation != observedWorldGeneration)
@@ -2710,6 +2714,8 @@ struct DedicatedCoopRuntime::Impl
 	std::uint64_t observedRevision = 0;
 	std::size_t publishedAssignmentCount = 0;
 	std::size_t worldParticipantCount = 0;
+	// Each merc's owner for this server run (see CoopActorOwnershipLedger).
+	CoopSession::CoopActorOwnershipLedger actorOwnership;
 	std::size_t minimumControllableActors = 0;
 	bool prepared = false;
 	bool campaignOpen = false;

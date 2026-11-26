@@ -49,6 +49,7 @@
 #include "Player Command.h"
 #include "Keys.h"
 #include "End Game.h"
+#include "TacticalActorDamageResolution.h"
 #include "World Items.h"
 #include "Items.h"
 #include "Structure.h"
@@ -295,6 +296,38 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only: "knockout-trigger.txt" (written by the probe, "<slot>
+// <incarnation>") knocks that merc unconscious through the stock damage path,
+// as blood loss would, and logs its health. One trigger per run.
+void PollKnockOutTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("knockout-trigger.txt");
+	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	if (FILE* file = std::fopen("knockout-trigger.txt", "r"))
+	{
+		if (std::fscanf(file, "%u %u", &slot, &incarnation) != 2) slot = 0;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "knockout-trigger.consumed", ignored);
+	TacticalActor* merc = slot ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	if (!merc || merc->vitals().health() < OKLIFE)
+	{
+		std::printf("[co-op entry test] knock-out refused: actor=%u:%u\n", slot, incarnation);
+		std::fflush(stdout);
+		return;
+	}
+	const INT16 loss = INT16(merc->vitals().health() - (OKLIFE - 1));
+	(void)TacticalActorDamageResolution::takeDamage(*merc, 0, loss, 0, TAKE_DAMAGE_BLOODLOSS, NOBODY,
+		merc->position().gridNo(), 0, false);
+	std::printf("[co-op entry test] knocked out: actor=%u:%u; health=%d\n", slot, incarnation,
+		int(merc->vitals().health()));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_SECTOR_MARKER): "place" drops a marker item at a
 // merc's feet once A9 is secured; "find:<grid>:<item>" reports, once A9 is
 // loaded again (after a stop, a resume and a re-entry), whether it is still
@@ -1096,6 +1129,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollClearRouteSeed();
 	PollQueenDeathSeed();
 	PollSectorMarker();
+	PollKnockOutTrigger();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

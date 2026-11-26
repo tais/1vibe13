@@ -4169,3 +4169,32 @@ player enters A9 and the kit is still at its grid. Negative control: without
 the deferral the stop refuses the final checkpoint and the probe fails.
 Periodic checkpoints while players stay in a secured sector are still skipped
 (only the stop and the players' own return save it).
+
+## Phase 7 (first slice): mercs keep their owner
+
+Before this slice the server dealt the mercs of each tactical world
+round-robin over whoever was present, and dealt again whenever that set
+changed. A merc counts only while it is conscious, in the sector and under
+player control (`OK_CONTROLLABLE_MERC`), so one merc going down, getting up,
+arriving or leaving re-dealt everyone after it: with A holding mercs 1 and 3
+and B holding 2 and 4, merc 2 falling unconscious gave A 1 and 4 and B 3,
+mid-battle.
+
+- `CoopActorOwnershipLedger` (in `CoopActorAssignmentPolicy`) records each
+  merc's owner the first time it is dealt and keeps it for the server run,
+  whether or not the merc is present or its owner connected.
+- A merc with no owner yet (a first deal, a newly hired merc) goes to the
+  participant with the fewest present mercs (ties: identity order); a first
+  deal is therefore exactly the old round-robin.
+- A merc whose owner is not part of the current world is lent to one who is,
+  for that world only; the owner gets it back in a later world.
+- Not yet: ownership is kept for one server run only (a resume deals
+  afresh), and there is no hand-over or claim (7.1); both are next.
+
+Installed evidence (`full_engine_coop_installed_stable_ownership.py`): in the
+starter battle the four mercs are dealt two each; the test host knocks one
+unconscious through the stock damage path (blood loss); that merc leaves its
+owner's control and the other three keep their owners on both clients.
+Negative control: with the plain round-robin the two mercs after it change
+hands and the probe fails. Unit tests cover a merc getting up again, a new
+merc, an absent owner's lend, and transactional failure.

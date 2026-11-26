@@ -4939,6 +4939,24 @@ require_ordered_fragments(coop_conversation_runtime_source
   "void pauseStrategicTimeWithoutLeader() noexcept"
   "if (CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0))"
   "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);")
+# Phase 7: mercs keep their owner for the server run; only an unowned merc is
+# dealt (to the participant with the fewest present), and an absent owner's
+# mercs are lent per world, never re-owned.
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopActorAssignmentPolicy.cpp" coop_ownership_source)
+require_ordered_fragments(coop_ownership_source
+  "The ownership ledger must keep recorded owners and deal only unowned mercs, transactionally"
+  "CoopActorAssignmentPolicyResult CoopActorOwnershipLedger::assign("
+  "auto owners = owners_;"
+  "if (owned != ownerCount) dealt[a] = participant(owners[owned].peerIdentity);"
+  "if (present[p] < present[fewest]) fewest = p;"
+  "// Owned by someone absent from this world: lend it for the world."
+  "owners[ownerCount++] = {actors[a], peers[fewest]};"
+  "owners_ = owners;")
+require_ordered_fragments(dedicated_live_runtime_code
+  "Every world boundary must end the per-world lends of the ownership ledger"
+  "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
+  "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
+
 # 1.5: a stop signal in a secured sector first takes the ordinary shared
 # return to the map, so the final checkpoint never meets a loaded world and the
 # sector's progress is kept; signals stay signal-safe flags read on the main thread.
@@ -5588,7 +5606,7 @@ require_ordered_fragments(dedicated_live_runtime_stage_world_slice
   "Dedicated tactical assignment cache or baseline staging changed"
   "reconcileWorldParticipants()"
   "collectControllableActors(actors, actorCount)"
-  "BuildCoopActorAssignments("
+  "actorOwnership.assign("
   "worldParticipants.data(), worldParticipantCount"
   "assignmentsChanged = !assignmentsPublished"
   "assignmentCount != publishedAssignmentCount"

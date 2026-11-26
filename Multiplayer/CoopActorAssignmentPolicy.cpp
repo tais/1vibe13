@@ -120,4 +120,111 @@ CoopActorAssignmentPolicyResult BuildCoopActorAssignments(
 	outputCount = assignedCount;
 	return CoopActorAssignmentPolicyResult::Success;
 }
+
+const PeerIdentity* CoopActorOwnershipLedger::ownerOf(const TacticalEntityId& actor) const noexcept
+{
+	for (std::size_t i = 0; i < ownerCount_; ++i)
+		if (owners_[i].actor == actor) return &owners_[i].peerIdentity;
+	return nullptr;
+}
+
+CoopActorAssignmentPolicyResult CoopActorOwnershipLedger::assign(
+	const PeerIdentity* peers,
+	std::size_t peerCount,
+	const TacticalEntityId* actors,
+	std::size_t actorCount,
+	std::array<CoopTacticalActorAssignment,
+		MaximumCoopTacticalAssignments>& output,
+	std::size_t& outputCount) noexcept
+{
+	if (!ValidPeers(peers, peerCount))
+		return CoopActorAssignmentPolicyResult::InvalidPeerSet;
+	if (actorCount > MaximumCoopTacticalAssignments)
+		return CoopActorAssignmentPolicyResult::CapacityReached;
+	if (!ValidActors(actors, actorCount))
+		return CoopActorAssignmentPolicyResult::InvalidActorSet;
+	std::array<CoopTacticalActorAssignment, MaximumCoopTacticalAssignments> staged{};
+	if (peerCount == 0)
+	{
+		output = staged;
+		outputCount = 0;
+		return CoopActorAssignmentPolicyResult::Success;
+	}
+	auto owners = owners_;
+	std::size_t ownerCount = ownerCount_;
+	auto lends = lends_;
+	std::size_t lendCount = lendCount_;
+	const auto participant = [&](const PeerIdentity& peer) noexcept
+	{
+		for (std::size_t p = 0; p < peerCount; ++p)
+			if (peers[p] == peer) return p;
+		return peerCount;
+	};
+	const auto find = [](const auto& table, std::size_t count, const TacticalEntityId& actor) noexcept
+	{
+		for (std::size_t i = 0; i < count; ++i)
+			if (table[i].actor == actor) return i;
+		return count;
+	};
+	std::array<std::size_t, MaximumCoopTacticalSessionPeers> present{};
+	std::array<std::size_t, MaximumCoopTacticalAssignments> dealt{};
+	// 1. Recorded owners who take part in this world, then this world's lends.
+	for (std::size_t a = 0; a < actorCount; ++a)
+	{
+		dealt[a] = peerCount;
+		const std::size_t owned = find(owners, ownerCount, actors[a]);
+		if (owned != ownerCount) dealt[a] = participant(owners[owned].peerIdentity);
+		if (dealt[a] == peerCount)
+		{
+			const std::size_t lent = find(lends, lendCount, actors[a]);
+			if (lent != lendCount) dealt[a] = participant(lends[lent].peerIdentity);
+		}
+		if (dealt[a] != peerCount) ++present[dealt[a]];
+	}
+	// 2. Everyone else, in actor order, to the participant with the fewest.
+	for (std::size_t a = 0; a < actorCount; ++a)
+	{
+		if (dealt[a] != peerCount) continue;
+		std::size_t fewest = 0;
+		for (std::size_t p = 1; p < peerCount; ++p)
+			if (present[p] < present[fewest]) fewest = p;
+		dealt[a] = fewest;
+		++present[fewest];
+		const std::size_t owned = find(owners, ownerCount, actors[a]);
+		if (owned != ownerCount)
+		{
+			// Owned by someone absent from this world: lend it for the world.
+			const std::size_t lent = find(lends, lendCount, actors[a]);
+			if (lent == lendCount)
+			{
+				if (lendCount == lends.size()) return CoopActorAssignmentPolicyResult::CapacityReached;
+				lends[lendCount++] = {actors[a], peers[fewest]};
+			}
+			else lends[lent].peerIdentity = peers[fewest];
+			continue;
+		}
+		if (ownerCount == owners.size())
+		{
+			// Full: forget the owner of a merc that is not in this world.
+			std::size_t evict = ownerCount;
+			for (std::size_t i = 0; i < ownerCount && evict == ownerCount; ++i)
+				if (!std::any_of(actors, actors + actorCount,
+					[&](const TacticalEntityId& actor) { return actor == owners[i].actor; }))
+					evict = i;
+			if (evict == ownerCount) return CoopActorAssignmentPolicyResult::CapacityReached;
+			std::move(owners.begin() + evict + 1, owners.begin() + ownerCount, owners.begin() + evict);
+			--ownerCount;
+		}
+		owners[ownerCount++] = {actors[a], peers[fewest]};
+	}
+	for (std::size_t a = 0; a < actorCount; ++a)
+		staged[a] = {actors[a], peers[dealt[a]]};
+	owners_ = owners;
+	ownerCount_ = ownerCount;
+	lends_ = lends;
+	lendCount_ = lendCount;
+	output = staged;
+	outputCount = actorCount;
+	return CoopActorAssignmentPolicyResult::Success;
+}
 }
