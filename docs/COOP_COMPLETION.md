@@ -3908,3 +3908,35 @@ killed (3 attackers plus 7 from a neighbouring garrison). `--outcome defeated`
 (one green militia against 8 elites): 1 of 1 lost, 0 of 15 killed. Negative
 control: with the attack classified as an ordinary battle decision again, the
 decision stays pending forever and the probe fails.
+
+## Phase 3.6: the militia reinforcement question
+
+With reinforcements on (every real difficulty), a battle next to a sector
+holding militia makes stock ask "militia in neighbouring sectors can help:
+call them?" before the pre-battle screen; Yes moves them into the battle
+sector. The headless preparation refused that context
+(`ReinforcementsRequired`), so such a battle could never be prepared and the
+campaign stopped there.
+
+In dedicated co-op:
+
+- The arrival shows stage `ReinforcementsRequired` to both clients. Either
+  ready player answers: `AcceptReinforcements` (campaign action 18) or
+  `DeclineReinforcements` (19), naming only the battle decision.
+- The server records the answer on the decision and runs the exact-once native
+  preparation with it. Accepting is the stock Yes path
+  (`WANT_MILITIA_REINFORCEMENTS` and `DoMilitiaHelpFromAdjacentSectors`, at
+  the point where the stock box is answered before the pre-battle screen);
+  declining leaves the flag cleared. The battle is then prepared as usual
+  (enter, retreat, deployment).
+- Client: on the map, Y arms calling the militia in, N arms fighting without
+  them, Enter confirms, Esc disarms.
+
+Installed evidence (`full_engine_coop_installed_reinforcements.py`): after the
+seeded A9 victory the test host puts six militia in A9 and an army garrison in
+B9; the non-leader orders the squad from A9 into B9 and the leader runs the
+clock. Both clients show the question; the non-leader answers through Screen
+input; the battle is prepared and the squad enters it. `--answer call`: B9
+militia 0 -> 6. `--answer decline`: 0 -> 0. Negative control: with the answer
+not passed to the native preparation, the question is asked again and the
+answer is never applied, so the probe fails.

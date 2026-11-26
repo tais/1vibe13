@@ -35,7 +35,7 @@ TIME_FIELDS = {"request_id", "action", "session", "control_revision", "result_co
 UI_BASE_FIELDS = {"request", "kind", "ready", "action_pending", "time_pending", "action_result", "time_result"}
 UI_READY_FIELDS = {"session", "control_revision", "groups_revision", "decision", "selected", "destination", "retreat_armed",
                    "enter_armed", "enabled", "assigning", "assignee", "assignment_code", "assignment_stat",
-                   "contracting", "contract_choice", "dismiss_armed", "time_lead_armed"}
+                   "contracting", "contract_choice", "dismiss_armed", "time_lead_armed", "reinforcement_armed"}
 
 
 def integer(value, low=0, high=U64):
@@ -54,7 +54,7 @@ def validate_action_result(result):
     if (not isinstance(result, dict) or set(result) != ACTION_FIELDS or
             any(not integer(result[key], 1) for key in ("request_id", "session", "control_revision", "groups_revision",
                                                         "result_control_revision", "result_groups_revision")) or
-            not integer(result["action"], 1, 17) or not integer(result["outcome"], 1, 8) or
+            not integer(result["action"], 1, 19) or not integer(result["outcome"], 1, 8) or
             not integer(result["decision"]) or not integer(result["native_detail"], 0, 65535) or
             not pair(result["group"], 255, 2**32 - 1) or
             (result["action"] not in (14, 15, 16) and not pair(result["destination"], 16, 16))):
@@ -66,6 +66,9 @@ def validate_action_result(result):
     elif result["action"] == 13:
         if not result["decision"] or result["group"] == [0, 0] or result["destination"] != [0, 0]:
             raise SmokeFailure("exit-grid receipt has noncanonical group/decision/destination")
+    elif result["action"] in (18, 19):
+        if not result["decision"] or result["group"] != [0, 0] or result["destination"] != [0, 0]:
+            raise SmokeFailure("reinforcement receipt must name only its battle decision")
     elif result["action"] == 17:
         if result["decision"] or result["group"] != [0, 0] or result["destination"] != [0, 0]:
             raise SmokeFailure("time-lead receipt carries fields")
@@ -106,7 +109,8 @@ def armed_mask(ui):
     entry, bit 2 merc assignment mode, bit 3 contract mode, bit 4 an armed dismissal."""
     return (int(ui["retreat_armed"]) | (2 if ui["enter_armed"] else 0) | (4 if ui.get("assigning") else 0) |
             (8 if ui.get("contracting") else 0) | (16 if ui.get("dismiss_armed") else 0) |
-            (32 if ui.get("time_lead_armed") else 0))
+            (32 if ui.get("time_lead_armed") else 0) |
+            {1: 64, 2: 128}.get(ui.get("reinforcement_armed"), 0))
 
 
 def validate_ui(value):
@@ -126,7 +130,7 @@ def validate_ui(value):
             not pair(value["destination"], 16, 16) or
             any(type(value[key]) is not bool for key in ("retreat_armed", "enter_armed", "enabled", "assigning",
                                                          "contracting", "dismiss_armed", "time_lead_armed")) or
-            not integer(value["contract_choice"], 0, 3) or
+            not integer(value["contract_choice"], 0, 3) or not integer(value["reinforcement_armed"], 0, 2) or
             not (isinstance(value["assignee"], list) and len(value["assignee"]) == 2 and
                  integer(value["assignee"][0], 0, 2**16 - 1) and integer(value["assignee"][1], 0, 2**32 - 1)) or
             not integer(value["assignment_code"], 0, 8) or

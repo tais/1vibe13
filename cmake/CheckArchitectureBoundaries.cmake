@@ -5045,6 +5045,33 @@ require_ordered_fragments(coop_militia_notice_source
   "if (IsJa2TacticalWorldLoaded()) return Result::NativeContextChanged;"
   "bound->notice_ = {};")
 
+# The stock militia reinforcement question of a pending battle is the players'
+# to answer: only while the battle asks it, once, through the exact-once native
+# preparation (accepting is the stock Yes path that moves the militia in).
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopArrival.cpp" coop_reinforcement_arrival_source)
+extract_brace_bounded_slice(coop_reinforcement_arrival_source
+  "DedicatedCoopArrivalPrepareResult AnswerDedicatedCoopArrivalReinforcements(std::uint64_t decision, bool accept,\n\tNativePreBattlePreparation& output) noexcept"
+  coop_arrival_reinforcement_answer "Cannot bound the reinforcement answer")
+require_ordered_fragments(coop_arrival_reinforcement_answer
+  "A reinforcement answer must name the asking battle and prepare it exactly once"
+  "if (!decision || decision != pending.id) return Result::StaleDecision;"
+  "bound->battleStage_ != CoopSession::CoopCampaignArrivalStage::ReinforcementsRequired"
+  "pending.reinforcement != NativePreBattleReinforcement::Unasked) return Result::UnsupportedDecision;"
+  "pending.reinforcement = accept ? NativePreBattleReinforcement::Accepted : NativePreBattleReinforcement::Declined;"
+  "const auto result = PrepareDedicatedCoopArrivalBattle(decision, output);")
+require_ordered_fragments(coop_assignment_policy_source
+  "Reinforcement answers must be open only while a battle asks for militia"
+  "if (request.action == CoopCampaignAction::AcceptReinforcements || request.action == CoopCampaignAction::DeclineReinforcements)"
+  "return request.decision && !request.group.slot && !request.group.incarnation &&"
+  "if (request.action == CoopCampaignAction::AcceptReinforcements || request.action == CoopCampaignAction::DeclineReinforcements)"
+  "return arrival.kind == CoopCampaignArrivalKind::Battle && arrival.stage == CoopCampaignArrivalStage::ReinforcementsRequired"
+  "if (arrival.kind != CoopCampaignArrivalKind::Battle || arrival.stage != CoopCampaignArrivalStage::Prepared) return Outcome::Unsupported;")
+require_ordered_fragments(coop_conversation_runtime_source
+  "The server must route reinforcement answers to the exact-once preparation"
+  "case Action::AcceptReinforcements:"
+  "const auto result = AnswerDedicatedCoopArrivalReinforcements(request.decision,"
+  "request.action == Action::AcceptReinforcements, preparation);")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -16410,7 +16437,7 @@ require_ordered_fragments(coop_arrival_test_source "Native arrival regression lo
 file(READ "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp" coop_prebattle_source)
 string(REPLACE "\r" "" coop_prebattle_source "${coop_prebattle_source}")
 extract_brace_bounded_slice(coop_prebattle_source
-  "NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,\n\tGROUP& dialogGroup, bool justRetreated, NativePreBattlePreparation& output)"
+  "NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,\n\tGROUP& dialogGroup, bool justRetreated, NativePreBattleReinforcement reinforcement,\n\tNativePreBattlePreparation& output)"
   coop_prebattle_prepare "Cannot bound native headless pre-battle preparation")
 require_ordered_fragments(coop_prebattle_prepare "Native preparation lost side-effect-free context gates / native rule reuse / transactional output"
   "IsJa2TacticalWorldLoaded()" "gfProcessingGameEvents"
@@ -16419,9 +16446,13 @@ require_ordered_fragments(coop_prebattle_prepare "Native preparation lost side-e
   "playerAttack ? !battleGroup.pPlayerList : !battleGroup.pEnemyGroup"
   "if (!size || size != battleGroup.ubGroupSize)" "if (enemyAttack && bloodcats)"
   "if (!speakers)" "if (!group->pEnemyGroup)" "IsThereMilitiaInAdjacentSector("
-  "Result::ReinforcementDecisionRequired" "SetPreBattleGroup(&battleGroup)"
-  "gHeadlessPreBattleActive = true" "ApplyNativePreBattleMorale(dialogGroup)" "if (justRetreated)"
-  "Random(speakers)" "PrepareNativePreBattleParticipants(preparedGroup, plural, retreat)"
+  "reinforcement == NativePreBattleReinforcement::Unasked" "Result::ReinforcementDecisionRequired" "SetPreBattleGroup(&battleGroup)"
+  "gHeadlessPreBattleActive = true" "gTacticalStatus.uiFlags &= ~WANT_MILITIA_REINFORCEMENTS"
+  "ApplyNativePreBattleMorale(dialogGroup)" "if (justRetreated)"
+  "Random(speakers)" "reinforcementsOffered && reinforcement == NativePreBattleReinforcement::Accepted"
+  "gTacticalStatus.uiFlags |= WANT_MILITIA_REINFORCEMENTS;"
+  "DoMilitiaHelpFromAdjacentSectors(battleGroup.ubSectorX, battleGroup.ubSectorY);"
+  "PrepareNativePreBattleParticipants(preparedGroup, plural, retreat)"
   "RecordNativePreBattleEnemyKnowledge()" "PrepareNativePreBattleActions(preparedGroup, plural, retreat)"
   "PauseGame()" "output = prepared")
 extract_brace_bounded_slice(coop_prebattle_source
@@ -16439,7 +16470,7 @@ require_ordered_fragments(coop_prebattle_exact_once "Preparation lost exact cont
   "CaptureDedicatedCoopCampaignGroups(groups)" "ResolveJa2StrategicGroup(pending.group)" "ResolveJa2StrategicGroup(pending.dialogGroup)"
   "bound->battlePreparationStarted_" "SameCoopCampaignGroups(groups, bound->preparedGroups_)"
   "output = bound->battlePreparation_" "GetEnemyEncounterCode() != pending.encounterCode"
-  "bound->battlePreparationStarted_ = true" "PrepareHeadlessPreBattle(*group, *dialog, pending.justRetreated, prepared)"
+  "bound->battlePreparationStarted_ = true" "PrepareHeadlessPreBattle(*group, *dialog, pending.justRetreated, pending.reinforcement, prepared)"
   "bound->battlePreparation_ = prepared" "bound->battlePrepared_ = true" "output = prepared" "catch (...)" "bound->failure_ =")
 foreach(prebattle_shortcut IN ITEMS "InitPreBattleInterface(" "PrepareForPreBattleInterface(" "DoScreenIndependantMessageBox("
     "SetCurrentWorldSector(" "ActivatePreBattle" "ButtonList[" "DisableButton(" "UnPauseGame(" "UnLockPauseState(" "WarpGameTime(")

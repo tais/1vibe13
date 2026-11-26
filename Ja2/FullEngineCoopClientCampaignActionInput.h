@@ -10,7 +10,7 @@
 enum class FullEngineCoopClientCampaignActionKey : unsigned
 {
 	None, NextGroup, PreviousGroup, North, South, West, East, Confirm, Cancel,
-	Acknowledge, Stop, EnterBattle, Retreat, Assign, Contract, TimeLead, Count
+	Acknowledge, Stop, EnterBattle, Retreat, Assign, Contract, TimeLead, Yes, No, Count
 };
 
 // This is selection/confirmation state only. It never advances a clock, plans
@@ -81,6 +81,16 @@ public:
 				{ retreatArmed_ = true; return {}; }
 				else if (key == Key::Confirm && retreatArmed_ && arrival.nativeRetreat)
 					request.action = Action::RetreatArrival;
+				else return {};
+			}
+			else if (arrival.kind == Kind::Battle && arrival.stage == Stage::ReinforcementsRequired)
+			{
+				// Y calls the neighbouring militia in, N fights without them;
+				// Enter confirms the armed answer.
+				if (key == Key::Yes || key == Key::No)
+				{ reinforcementArmed_ = key == Key::Yes ? 1 : 2; return {}; }
+				if (key == Key::Confirm && reinforcementArmed_)
+					request.action = reinforcementArmed_ == 1 ? Action::AcceptReinforcements : Action::DeclineReinforcements;
 				else return {};
 			}
 			else return {};
@@ -223,6 +233,8 @@ public:
 	std::uint8_t destinationX() const noexcept { return destinationX_; }
 	std::uint8_t destinationY() const noexcept { return destinationY_; }
 	bool retreatArmed() const noexcept { return retreatArmed_; }
+	// 0 none, 1 call the militia in, 2 fight without them.
+	unsigned reinforcementArmed() const noexcept { return reinforcementArmed_; }
 	bool enterArmed() const noexcept { return enterArmed_; }
 	bool assigning() const noexcept { return assigning_; }
 	bool contracting() const noexcept { return contracting_; }
@@ -243,7 +255,7 @@ public:
 	}
 	void cancel() noexcept
 	{
-		destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false;
+		destinationX_ = destinationY_ = 0; retreatArmed_ = enterArmed_ = false; reinforcementArmed_ = 0;
 		assigning_ = false; assignMember_ = 0; assignKind_ = 0; assignStat_ = 1;
 		contracting_ = dismissArmed_ = false; contractChoice_ = 0; timeLeadArmed_ = false;
 	}
@@ -262,6 +274,7 @@ private:
 	std::uint64_t session_ = 0, control_ = 0, groupsRevision_ = 0, decision_ = 0;
 	std::uint8_t destinationX_ = 0, destinationY_ = 0;
 	bool retreatArmed_ = false, enterArmed_ = false, enabled_ = false;
+	unsigned reinforcementArmed_ = 0;
 	bool assigning_ = false, contracting_ = false, dismissArmed_ = false, timeLeadArmed_ = false;
 	std::uint8_t contractChoice_ = 0;
 	std::uint16_t assignMember_ = 0;

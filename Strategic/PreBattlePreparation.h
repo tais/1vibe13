@@ -17,6 +17,9 @@ struct NativePreBattlePreparation
 	float ambushRadiusModifier = 0;
 	NativePreBattleActions actions{};
 };
+// The stock "militia in neighbouring sectors can help" question, answered by
+// the players before preparation: Accepted moves them in (stock MSCallBack).
+enum class NativePreBattleReinforcement : std::uint8_t { Unasked, Declined, Accepted };
 enum class NativePreBattlePrepareResult : std::uint8_t
 {
 	Prepared, InvalidContext, UnsupportedContext, ReinforcementDecisionRequired
@@ -41,8 +44,11 @@ bool IsHeadlessPreBattleActive() noexcept;
 // the native group/member graph. Rejections have no gameplay side effects.
 // The caller owns exact-once execution and must latch any thrown failure:
 // preparation consumes native RNG, wakes mercs and applies native records.
+// An unanswered reinforcement question (militia adjacent, reinforcements on)
+// returns ReinforcementDecisionRequired with no side effects.
 NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,
-	GROUP& dialogGroup, bool justRetreated, NativePreBattlePreparation& output);
+	GROUP& dialogGroup, bool justRetreated, NativePreBattleReinforcement reinforcement,
+	NativePreBattlePreparation& output);
 // Separate committed-frame action after exact preparation/context validation.
 // Uses the normal sector loader, insertion, quests and AI initialization. The
 // caller must latch Failed/exception: world entry cannot be rolled back/retried.

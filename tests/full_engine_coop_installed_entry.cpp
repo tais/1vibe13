@@ -289,6 +289,30 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_REINFORCEMENT_BATTLE=1, starter-victory mode):
+// once the players are back on the worldless map, militia hold A9 and an army
+// garrison holds B9, so the squad's arrival in B9 asks the stock militia
+// reinforcement question. Reinforcements are a difficulty setting; force it on.
+void PollReinforcementBattleSeed()
+{
+	static bool seeded = false;
+	if (seeded || !std::getenv("JA2_COOP_ENTRY_REINFORCEMENT_BATTLE") || !gfProgramIsRunning ||
+		!GetDedicatedCoopRuntime().campaignEntered() || !IsDedicatedCoopStarterMissionMapReady() || IsJa2TacticalWorldLoaded() ||
+		DedicatedCoopArrivalDecisionPending() || StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 1)].fEnemyControlled ||
+		NumEnemiesInAnySector(9, 1, 0)) return;
+	seeded = true;
+	gGameExternalOptions.gfAllowReinforcements = TRUE;
+	StrategicAddMilitiaToSector(9, 1, REGULAR_MILITIA, 6);
+	auto& battle = SectorInfo[SECTOR(9, 2)];
+	battle.ubGarrisonID = NO_GARRISON;
+	battle.ubNumAdmins = battle.ubNumElites = battle.ubNumTanks = battle.ubNumJeeps = battle.ubNumRobots = 0;
+	battle.ubNumTroops = 3;
+	StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 2)].fEnemyControlled = TRUE;
+	std::printf("[co-op entry test] reinforcement battle seeded: militia_a9=%u; enemies_b9=%u; clock=%u\n",
+		unsigned(NumNonPlayerTeamMembersInSector(9, 1, MILITIA_TEAM)), unsigned(NumEnemiesInAnySector(9, 2, 0)), GetWorldTotalSeconds());
+	std::fflush(stdout);
+}
+
 void PollMilitiaAttackSeed()
 {
 	static bool seeded = false;
@@ -733,6 +757,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollConversationExperiment();
 	PollControlledBattleTrigger();
 	PollMilitiaAttackSeed();
+	PollReinforcementBattleSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

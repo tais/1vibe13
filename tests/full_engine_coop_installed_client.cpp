@@ -537,7 +537,7 @@ void ReplyCampaignUi(std::uint64_t request) noexcept
 		std::printf(",\"session\":%llu,\"control_revision\":%llu,\"groups_revision\":%llu,\"decision\":%llu,"
 			"\"selected\":[%u,%u],\"destination\":[%u,%u],\"retreat_armed\":%s,\"enter_armed\":%s,\"enabled\":%s,"
 			"\"assigning\":%s,\"assignee\":[%u,%u],\"assignment_code\":%u,\"assignment_stat\":%u,"
-			"\"contracting\":%s,\"contract_choice\":%u,\"dismiss_armed\":%s,\"time_lead_armed\":%s",
+			"\"contracting\":%s,\"contract_choice\":%u,\"dismiss_armed\":%s,\"time_lead_armed\":%s,\"reinforcement_armed\":%u",
 			static_cast<unsigned long long>(controls.sessionEpoch), static_cast<unsigned long long>(controls.controlRevision),
 			static_cast<unsigned long long>(controls.groupsRevision), static_cast<unsigned long long>(controls.decision),
 			unsigned(controls.selected.slot), unsigned(controls.selected.incarnation),
@@ -546,7 +546,7 @@ void ReplyCampaignUi(std::uint64_t request) noexcept
 			controls.assigning ? "true" : "false", unsigned(controls.assignee.slot), unsigned(controls.assignee.incarnation),
 			unsigned(controls.assignmentCode), unsigned(controls.assignmentStat),
 			controls.contracting ? "true" : "false", unsigned(controls.contractChoice), controls.dismissArmed ? "true" : "false",
-			controls.timeLeadArmed ? "true" : "false");
+			controls.timeLeadArmed ? "true" : "false", controls.reinforcementArmed);
 	std::fputs("}", stdout); FlushReply();
 }
 
@@ -764,10 +764,11 @@ void ReplyCampaignInput(std::uint64_t request, const CampaignInputArguments& val
 		controls.decision != values[3] || controls.selected.slot != values[4] || controls.selected.incarnation != values[5] ||
 		controls.destinationX != values[6] || controls.destinationY != values[7] ||
 		((controls.retreatArmed ? 1u : 0u) | (controls.enterArmed ? 2u : 0u) | (controls.assigning ? 4u : 0u) |
-		 (controls.contracting ? 8u : 0u) | (controls.dismissArmed ? 16u : 0u) | (controls.timeLeadArmed ? 32u : 0u)) != values[8])
+		 (controls.contracting ? 8u : 0u) | (controls.dismissArmed ? 16u : 0u) | (controls.timeLeadArmed ? 32u : 0u) |
+		 (controls.reinforcementArmed == 1 ? 64u : controls.reinforcementArmed == 2 ? 128u : 0u)) != values[8])
 	{ ReplyError(request, "campaign input requires exact current strategic screen choices and an idle input queue"); return; }
-	constexpr std::array<UINT32, 19> keys{{TAB, '[', UPARROW, DNARROW, LEFTARROW, RIGHTARROW,
-		ENTER, ESC, 'a', 's', 'e', 'r', 'p', '1', '2', '3', 'o', 'c', 't'}};
+	constexpr std::array<UINT32, 21> keys{{TAB, '[', UPARROW, DNARROW, LEFTARROW, RIGHTARROW,
+		ENTER, ESC, 'a', 's', 'e', 'r', 'p', '1', '2', '3', 'o', 'c', 't', 'y', 'n'}};
 	const auto key = static_cast<unsigned>(values[9]);
 	if (!key || key > keys.size()) { ReplyError(request, "unknown campaign screen key"); return; }
 	if (key >= 13 && key <= 16)
@@ -2514,8 +2515,8 @@ private:
 				if (!cursor.next(token) || !ParseInteger(token, value)) { parsed = false; break; }
 			}
 			if (!parsed || !cursor.exhausted() || !values[0] || !values[1] || !values[2] ||
-				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 63 ||
-				!values[9] || values[9] > 19)
+				values[4] > 255 || values[5] > UINT32_MAX || values[6] > 16 || values[7] > 16 || values[8] > 255 ||
+				!values[9] || values[9] > 21)
 				ReplyError(request, "CAMPAIGN_INPUT requires exact session/control/groups/decision/group/destination/retreat state and key 1..16");
 			else ReplyCampaignInput(request, values, campaignUiInputs_);
 			return;

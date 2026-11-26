@@ -18,6 +18,7 @@
 #include "random.h"
 #include <Engine/Core/SimulationRandom.h>
 #include <algorithm>
+#include <cstdio>
 
 extern BOOLEAN gfProcessingGameEvents;
 namespace
@@ -306,7 +307,7 @@ DedicatedCoopArrivalPrepareResult PrepareDedicatedCoopArrivalBattle(std::uint64_
 	try
 	{
 		NativePreBattlePreparation prepared;
-		const auto result = PrepareHeadlessPreBattle(*group, *dialog, pending.justRetreated, prepared);
+		const auto result = PrepareHeadlessPreBattle(*group, *dialog, pending.justRetreated, pending.reinforcement, prepared);
 		if (!random->healthy())
 		{
 			bound->failure_ = "native pre-battle simulation RNG failed";
@@ -483,4 +484,27 @@ DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t
 	bound->decisions_[--bound->count_] = {};
 	InterruptTime(); StopTimeCompression(); PauseGame();
 	return Result::Resolved;
+}
+
+DedicatedCoopArrivalPrepareResult AnswerDedicatedCoopArrivalReinforcements(std::uint64_t decision, bool accept,
+	NativePreBattlePreparation& output) noexcept
+{
+	using Result = DedicatedCoopArrivalPrepareResult;
+	if (!bound || !bound->front()) return Result::NotPending;
+	auto& pending = bound->decisions_[0];
+	if (!decision || decision != pending.id) return Result::StaleDecision;
+	if (bound->failure_) return Result::Failed;
+	if (pending.kind != DedicatedCoopArrivalKind::Battle || bound->battlePreparationStarted_ ||
+		bound->battleStage_ != CoopSession::CoopCampaignArrivalStage::ReinforcementsRequired ||
+		pending.reinforcement != NativePreBattleReinforcement::Unasked) return Result::UnsupportedDecision;
+	const unsigned before = NumNonPlayerTeamMembersInSector(pending.x, pending.y, MILITIA_TEAM);
+	pending.reinforcement = accept ? NativePreBattleReinforcement::Accepted : NativePreBattleReinforcement::Declined;
+	const auto result = PrepareDedicatedCoopArrivalBattle(decision, output);
+	if (result != Result::Prepared && !bound->battlePreparationStarted_)
+		pending.reinforcement = NativePreBattleReinforcement::Unasked; // refused before any native effect
+	std::printf("[dedicated] militia reinforcements %s: id=%llu; sector=%u,%u; militia_before=%u; militia_after=%u; prepared=%u\n",
+		accept ? "called" : "declined", static_cast<unsigned long long>(decision), unsigned(pending.x), unsigned(pending.y),
+		before, unsigned(NumNonPlayerTeamMembersInSector(pending.x, pending.y, MILITIA_TEAM)), unsigned(result == Result::Prepared));
+	std::fflush(stdout);
+	return result;
 }

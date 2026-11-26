@@ -27,6 +27,8 @@ struct DedicatedCoopArrivalDecision
 	bool finalDestination = false;
 	// Arrival cleanup clears group flags before the later headless preparation.
 	bool justRetreated = false, highPotentialForAmbush = false, autoAmbush = false, cantRetreat = false;
+	// The players' answer to the stock militia reinforcement question.
+	NativePreBattleReinforcement reinforcement = NativePreBattleReinforcement::Unasked;
 };
 enum class DedicatedCoopArrivalReply : std::uint8_t { Acknowledge, Stop };
 enum class DedicatedCoopMilitiaBattleResult : std::uint8_t
@@ -99,6 +101,7 @@ private:
 	friend DedicatedCoopArrivalEnterResult EnterDedicatedCoopArrivalBattle(std::uint64_t, NativePreBattleDeployment) noexcept;
 	friend DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uint64_t) noexcept;
 	friend DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t, DedicatedCoopMilitiaBattleOutcome&) noexcept;
+	friend DedicatedCoopArrivalPrepareResult AnswerDedicatedCoopArrivalReinforcements(std::uint64_t, bool, NativePreBattlePreparation&) noexcept;
 	std::array<DedicatedCoopArrivalDecision, Capacity> decisions_{};
 	std::size_t count_ = 0;
 	std::uint64_t nextId_ = 1;
@@ -139,6 +142,11 @@ DedicatedCoopArrivalEnterResult EnterDedicatedCoopArrivalBattle(std::uint64_t de
 // ownership requirements as entry. Success consumes only the sole battle and
 // leaves time paused; partial native failure is latched, never replayed.
 DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uint64_t decision) noexcept;
+// The players' answer to the stock militia reinforcement question of the front
+// battle (only while its preparation asks for it), then the exact preparation:
+// accepting moves the neighbouring militia in as the stock Yes button does.
+DedicatedCoopArrivalPrepareResult AnswerDedicatedCoopArrivalReinforcements(std::uint64_t decision, bool accept,
+	NativePreBattlePreparation& output) noexcept;
 // Runs the stock autoresolve of the front militia battle headless and applies
 // it (casualties, promotions, loyalty, enemy losses, battle time), consuming
 // the decision. Context refusals have no side effects; anything else that does

@@ -25,7 +25,10 @@ enum class CoopCampaignAction : std::uint8_t
 	ExtendContract = 15, DismissMerc = 16,
 	// The time controls: the leader hands them to another ready player, or a
 	// ready player takes them while the leader is offline. Carries no fields.
-	TransferTimeLead = 17
+	TransferTimeLead = 17,
+	// The stock "militia in neighbouring sectors can help" question of a
+	// pending battle: call them in, or fight without them. Decision = arrival.
+	AcceptReinforcements = 18, DeclineReinforcements = 19
 };
 enum class CoopCampaignActionOutcome : std::uint8_t
 {
@@ -58,7 +61,7 @@ using CoopCampaignActionResultBytes = std::array<std::uint8_t, CoopCampaignActio
 
 inline bool ValidCoopCampaignAction(CoopCampaignAction action) noexcept
 {
-	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::TransferTimeLead;
+	return action >= CoopCampaignAction::Travel && action <= CoopCampaignAction::DeclineReinforcements;
 }
 inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& request) noexcept
 {
@@ -81,6 +84,9 @@ inline bool ValidCoopCampaignActionRequest(const CoopCampaignActionRequest& requ
 		return packedMerc && !request.destinationX && !request.destinationY;
 	if (request.action == CoopCampaignAction::TransferTimeLead)
 		return !request.decision && !request.group.slot && !request.group.incarnation &&
+			!request.destinationX && !request.destinationY;
+	if (request.action == CoopCampaignAction::AcceptReinforcements || request.action == CoopCampaignAction::DeclineReinforcements)
+		return request.decision && !request.group.slot && !request.group.incarnation &&
 			!request.destinationX && !request.destinationY;
 	return request.decision && !request.group.slot && !request.group.incarnation && !request.destinationX && !request.destinationY;
 }
@@ -272,6 +278,9 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	if (request.action == CoopCampaignAction::AcknowledgeArrival || request.action == CoopCampaignAction::StopArrival)
 		return arrival.kind == CoopCampaignArrivalKind::WildernessNpc && arrival.stage == CoopCampaignArrivalStage::Pending &&
 			(request.action == CoopCampaignAction::StopArrival || arrival.finalDestination) ? Outcome::Applied : Outcome::Unsupported;
+	if (request.action == CoopCampaignAction::AcceptReinforcements || request.action == CoopCampaignAction::DeclineReinforcements)
+		return arrival.kind == CoopCampaignArrivalKind::Battle && arrival.stage == CoopCampaignArrivalStage::ReinforcementsRequired
+			? Outcome::Applied : Outcome::Unsupported;
 	if (arrival.kind != CoopCampaignArrivalKind::Battle || arrival.stage != CoopCampaignArrivalStage::Prepared) return Outcome::Unsupported;
 	if (arrival.pendingCount != 1) return Outcome::Unavailable;
 	if (request.action == CoopCampaignAction::RetreatArrival)

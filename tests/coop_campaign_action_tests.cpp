@@ -192,6 +192,27 @@ void PolicyAndState()
 	battle.pendingCount = 1; f.observeArrival(battle);
 	f.groups.available = false; f.groups.groupCount = f.groups.memberCount = 0;
 	CHECK(allowed(f.arrival(CoopCampaignAction::EnterArrivalSpread)) == CoopCampaignActionOutcome::Applied, "exact arrival can resolve while group observation is explicitly unavailable");
+	CHECK(allowed(f.arrival(CoopCampaignAction::AcceptReinforcements)) == CoopCampaignActionOutcome::Unsupported &&
+		allowed(f.arrival(CoopCampaignAction::DeclineReinforcements)) == CoopCampaignActionOutcome::Unsupported,
+		"a prepared battle asks no reinforcement question");
+	CoopCampaignArrival asking; asking.decision = 4; asking.kind = CoopCampaignArrivalKind::Battle;
+	asking.stage = CoopCampaignArrivalStage::ReinforcementsRequired; asking.x = 10; asking.y = 1; asking.pendingCount = 1;
+	f.observeArrival(asking);
+	auto accept = f.arrival(CoopCampaignAction::AcceptReinforcements);
+	auto decline = f.arrival(CoopCampaignAction::DeclineReinforcements);
+	CoopCampaignActionRequestBytes bytes{}; CoopCampaignActionRequest decoded;
+	CHECK(EncodeCoopCampaignActionRequest(accept, bytes) && bytes[6] == 18 &&
+		DecodeCoopCampaignActionRequest(bytes.data(), bytes.size(), decoded) && SameCoopCampaignActionRequest(decoded, accept) &&
+		EncodeCoopCampaignActionRequest(decline, bytes) && bytes[6] == 19, "reinforcement answers are kinds 18 and 19");
+	CHECK(allowed(accept) == CoopCampaignActionOutcome::Applied && allowed(decline) == CoopCampaignActionOutcome::Applied,
+		"either answer is open while the battle asks for militia");
+	CHECK(allowed(f.arrival(CoopCampaignAction::EnterArrivalForced)) == CoopCampaignActionOutcome::Unsupported,
+		"no battle entry before the reinforcement question is answered");
+	auto stale = accept; --stale.decision;
+	auto grouped = accept; grouped.group = f.groups.groups[0].id;
+	auto noDecision = accept; noDecision.decision = 0;
+	CHECK(allowed(stale) == CoopCampaignActionOutcome::Stale && !ValidCoopCampaignActionRequest(grouped) &&
+		!ValidCoopCampaignActionRequest(noDecision), "an answer names exactly the asking battle and nothing else");
 }
 void ReturnToMapFromSecuredSector()
 {

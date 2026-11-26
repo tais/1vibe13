@@ -940,11 +940,13 @@ void ResetHeadlessPreBattle() noexcept
 
 extern BOOLEAN gfProcessingGameEvents;
 extern BOOLEAN IsThereMilitiaInAdjacentSector(INT16, INT16);
+extern void DoMilitiaHelpFromAdjacentSectors(INT16, INT16);
 extern GARRISON_GROUP* gGarrisonGroup;
 extern INT32 giGarrisonArraySize;
 
 NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,
-	GROUP& dialogGroup, bool justRetreated, NativePreBattlePreparation& output)
+	GROUP& dialogGroup, bool justRetreated, NativePreBattleReinforcement reinforcement,
+	NativePreBattlePreparation& output)
 {
 	using Result = NativePreBattlePrepareResult;
 	if (gHeadlessPreBattleActive || gfPreBattleInterfaceActive || IsAutoResolveActive() ||
@@ -1016,8 +1018,9 @@ NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,
 			!actor->deployment().sectorZ() && actor->deployment().previousSectorId() == 255)
 			return Result::UnsupportedContext;
 	}
-	if (!bloodcats && gGameExternalOptions.gfAllowReinforcements &&
-		IsThereMilitiaInAdjacentSector(battleGroup.ubSectorX, battleGroup.ubSectorY))
+	const bool reinforcementsOffered = !bloodcats && gGameExternalOptions.gfAllowReinforcements &&
+		IsThereMilitiaInAdjacentSector(battleGroup.ubSectorX, battleGroup.ubSectorY);
+	if (reinforcementsOffered && reinforcement == NativePreBattleReinforcement::Unasked)
 		return Result::ReinforcementDecisionRequired;
 	if (!SetPreBattleGroup(&battleGroup)) return Result::InvalidContext;
 
@@ -1037,6 +1040,13 @@ NativePreBattlePrepareResult PrepareHeadlessPreBattle(GROUP& battleGroup,
 		// taking its global pause lock. Bloodcat notification never takes this path.
 		(void)Random(speakers);
 		if (!CheckFact(FACT_FIRST_BATTLE_FOUGHT, 0)) SetFactTrue(FACT_FIRST_BATTLE_BEING_FOUGHT);
+		// The stock Yes answer to the reinforcement box (MSCallBack): militia
+		// from the neighbouring sectors move into the battle sector.
+		if (reinforcementsOffered && reinforcement == NativePreBattleReinforcement::Accepted)
+		{
+			gTacticalStatus.uiFlags |= WANT_MILITIA_REINFORCEMENTS;
+			DoMilitiaHelpFromAdjacentSectors(battleGroup.ubSectorX, battleGroup.ubSectorY);
+		}
 	}
 	GROUP* preparedGroup = &battleGroup;
 	BOOLEAN plural = FALSE, retreat = TRUE;

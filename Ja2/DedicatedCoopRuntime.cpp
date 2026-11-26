@@ -1335,6 +1335,24 @@ struct DedicatedCoopRuntime::Impl
 					result == Code::UnsupportedGroup ? Outcome::Unsupported : Outcome::NativeRejected,
 					static_cast<std::uint16_t>(result)};
 			}
+			case Action::AcceptReinforcements:
+			case Action::DeclineReinforcements:
+			{
+				NativePreBattlePreparation preparation;
+				const auto result = AnswerDedicatedCoopArrivalReinforcements(request.decision,
+					request.action == Action::AcceptReinforcements, preparation);
+				using Code = DedicatedCoopArrivalPrepareResult;
+				if (result == Code::Prepared)
+				{
+					std::printf("[dedicated] native pre-battle prepared: id=%llu; encounter=%u; involved=%u; auto=%u; enter=%u; retreat=%u; placement=%u; awaiting decision\n",
+						static_cast<unsigned long long>(request.decision), preparation.encounterCode, preparation.involvedMercs,
+						preparation.actions.autoResolve, preparation.actions.enterSector, preparation.actions.retreat, preparation.actions.tacticalPlacement);
+					std::fflush(stdout);
+				}
+				return {result == Code::Prepared ? Outcome::Applied : result == Code::Failed ? Outcome::Failed :
+					result == Code::UnsupportedDecision ? Outcome::Unsupported : Outcome::NativeRejected,
+					static_cast<std::uint16_t>(result)};
+			}
 			case Action::RetreatArrival:
 			{
 				const auto result = runtime.retreatArrivalBattle(request.decision);

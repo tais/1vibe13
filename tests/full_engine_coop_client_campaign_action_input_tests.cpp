@@ -262,6 +262,21 @@ void Arrival()
 	CHECK(noGroups.press(Key::EnterBattle).has_value(), "arrival needs a groups revision but does not require an available roster");
 	Fixture multiple; multiple.battle(); multiple.status.arrival.pendingCount = 2;
 	CHECK(!multiple.press(Key::EnterBattle), "native battle actions cannot bypass multiple pending encounters");
+	Fixture asking; asking.battle();
+	asking.status.arrival.stage = CoopCampaignArrivalStage::ReinforcementsRequired;
+	asking.status.arrival.involvedMercs = 0; asking.status.arrival.nativeEnterSector = asking.status.arrival.nativeRetreat = false;
+	CHECK(!asking.press(Key::Confirm) && !asking.press(Key::EnterBattle), "nothing is answered without Y or N");
+	CHECK(!asking.press(Key::Yes) && asking.input.reinforcementArmed() == 1, "Y arms calling the militia in");
+	request = asking.press(Key::Confirm);
+	CHECK(request && request->action == CoopCampaignAction::AcceptReinforcements && request->decision == 3 &&
+		!asking.input.reinforcementArmed(), "Enter confirms the call");
+	(void)asking.press(Key::No);
+	CHECK(asking.input.reinforcementArmed() == 2, "N arms fighting without them");
+	(void)asking.press(Key::Cancel);
+	CHECK(!asking.input.reinforcementArmed() && !asking.press(Key::Confirm), "Esc disarms the answer");
+	(void)asking.press(Key::No);
+	request = asking.press(Key::Confirm);
+	CHECK(request && request->action == CoopCampaignAction::DeclineReinforcements, "Enter confirms the refusal");
 }
 void BattleNoticeConfirmation()
 {

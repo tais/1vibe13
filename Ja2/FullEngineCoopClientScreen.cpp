@@ -71,6 +71,8 @@ FullEngineCoopClientCampaignActionKey CampaignActionKey(UINT32 key) noexcept
 		case 'o': case 'O': return Key::Assign;
 		case 'c': case 'C': return Key::Contract;
 		case 't': case 'T': return Key::TimeLead;
+		case 'y': case 'Y': return Key::Yes;
+		case 'n': case 'N': return Key::No;
 	}
 	return Key::None;
 }
@@ -1070,6 +1072,14 @@ void RenderWaiting(const FullEngineCoopClientRuntime& runtime) noexcept
 						mprintf(24, 300, CampaignActionInput.retreatArmed() ? L"Retreat this encounter? Enter: confirm   Esc: cancel"
 							: L"R: choose retreat");
 				}
+				else if (arrival.kind == Kind::Battle && arrival.stage == Stage::ReinforcementsRequired)
+				{
+					mprintf(24, 282, L"Militia in neighbouring sectors can join this battle.");
+					const unsigned armed = CampaignActionInput.reinforcementArmed();
+					mprintf(24, 300, armed == 1 ? L"Call the militia in? Enter: confirm   Esc: cancel"
+						: armed == 2 ? L"Fight without the militia? Enter: confirm   Esc: cancel"
+						: L"Y: call them in   N: fight without them");
+				}
 				else mprintf(24, 282, L"No supported remote choice is available for this arrival.");
 			}
 			else if (const auto* group = haveGroups ? CampaignActionInput.selectedGroup(groups) : nullptr)
@@ -1906,6 +1916,7 @@ bool CaptureFullEngineCoopClientCampaignControls(FullEngineCoopClientCampaignCon
 	output.assigning = CampaignActionInput.assigning();
 	output.contracting = CampaignActionInput.contracting();
 	output.timeLeadArmed = CampaignActionInput.timeLeadArmed();
+	output.reinforcementArmed = CampaignActionInput.reinforcementArmed();
 	output.contractChoice = CampaignActionInput.contractChoice();
 	output.dismissArmed = CampaignActionInput.dismissArmed();
 	output.assignmentCode = CampaignActionInput.assignmentCode();
