@@ -99,6 +99,9 @@ struct CoopCampaignStatus
 	// AIM mercs whose contract has ended and awaits the players' decision
 	// (extend or dismiss). While nonzero the campaign clock is held.
 	std::uint8_t contractsDue = 0;
+	// Deidranna is dead: the stock campaign is won. The clock and map actions
+	// stop; the stock end cinematic does not run on a dedicated server.
+	bool campaignComplete = false;
 };
 using CoopCampaignStatusBytes = std::array<std::uint8_t, CoopCampaignStatusWireSize>;
 
@@ -136,7 +139,7 @@ inline bool SameCoopCampaignTimeState(const CoopCampaignStatus& a, const CoopCam
 		a.timeLeaderReady == b.timeLeaderReady && SameCoopCampaignArrival(a.arrival, b.arrival) &&
 		a.surrenderOffer == b.surrenderOffer && SameCoopCampaignBattleNotice(a.battleNotice, b.battleNotice) &&
 		SameCoopCampaignMeanwhileNotice(a.meanwhile, b.meanwhile) && a.securedSector == b.securedSector &&
-		a.contractsDue == b.contractsDue;
+		a.contractsDue == b.contractsDue && a.campaignComplete == b.campaignComplete;
 }
 
 inline bool SameCoopCampaignStatus(const CoopCampaignStatus& a, const CoopCampaignStatus& b) noexcept
@@ -185,6 +188,7 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 	bytes[120] = static_cast<std::uint8_t>(value.meanwhile.scene);
 	put(121, value.securedSector, 4);
 	bytes[125] = value.contractsDue;
+	bytes[126] = value.campaignComplete ? 1 : 0;
 	output = bytes;
 	return true;
 }
@@ -197,7 +201,8 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	if (bytes[94] || bytes[95]) return false;
 	if (bytes[108] > 1) return false;
 	if (bytes[111]) return false;
-	for (std::size_t i = 126; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
+	if (bytes[126] > 1) return false;
+	for (std::size_t i = 127; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
 		for (unsigned i = 0; i < count; ++i) number |= static_cast<std::uint64_t>(bytes[at + i]) << (8 * i);
@@ -230,6 +235,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	value.meanwhile = {get(112, 8), static_cast<CoopCampaignMeanwhileScene>(bytes[120])};
 	value.securedSector = static_cast<std::uint32_t>(get(121, 4));
 	value.contractsDue = bytes[125];
+	value.campaignComplete = bytes[126] != 0;
 	if (!ValidCoopCampaignStatus(value)) return false;
 	output = value;
 	return true;

@@ -382,7 +382,8 @@ void ReplyCampaign(std::uint64_t request) noexcept
 			static_cast<unsigned>(a.pendingCount), static_cast<unsigned>(a.involvedMercs), static_cast<unsigned>(a.uninvolvedMercs),
 			a.finalDestination ? "true" : "false", a.nativeAutoResolve ? "true" : "false", a.nativeEnterSector ? "true" : "false",
 			a.nativeRetreat ? "true" : "false", a.nativePlacement ? "true" : "false");
-		std::printf(",\"contracts_due\":%u", static_cast<unsigned>(status.contractsDue));
+		std::printf(",\"contracts_due\":%u,\"campaign_complete\":%s", static_cast<unsigned>(status.contractsDue),
+			status.campaignComplete ? "true" : "false");
 	}
 	std::fputs("}", stdout);
 	FlushReply();

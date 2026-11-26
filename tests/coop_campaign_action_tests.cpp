@@ -389,6 +389,13 @@ void ContractDecisions()
 	CHECK(ValidateCoopCampaignTimeRequest(time, f.status.value(), f.status.value().timeLeader, true, true) ==
 		CoopCampaignTimeOutcome::NativeBlocked && !IsZero(f.status.value().timeLeader),
 		"time cannot run while a contract awaits its decision");
+	auto won = f.status.value(); won.contractsDue = 0; won.campaignComplete = true;
+	CHECK(f.status.observe(won, f.identities, 2), "observe the campaign won");
+	extend.controlRevision = f.status.value().timeControlRevision;
+	CHECK(allowed(extend) == CoopCampaignActionOutcome::Unavailable, "a won campaign takes no further map actions");
+	CoopCampaignTimeRequest after{1, f.status.value().timeControlRevision, 2, CoopCampaignTimeAction::SixtyMinutes};
+	CHECK(ValidateCoopCampaignTimeRequest(after, f.status.value(), f.status.value().timeLeader, true, true) ==
+		CoopCampaignTimeOutcome::NativeBlocked, "time cannot run once the campaign is won");
 }
 
 void TimeLeadTransfer()

@@ -235,7 +235,8 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
 		return request.decision == status.surrenderOffer ? Outcome::Applied : Outcome::Stale;
 	}
-	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id)
+	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id ||
+		status.campaignComplete)
 		return Outcome::Unavailable;
 	if (request.action == CoopCampaignAction::EnterSector)
 	{

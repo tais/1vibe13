@@ -921,6 +921,19 @@ bool RenderMeanwhile(const FullEngineCoopClientRuntime& runtime) noexcept
 	return true;
 }
 
+bool RenderCampaignComplete(const FullEngineCoopClientRuntime& runtime) noexcept
+{
+	CoopSession::CoopCampaignStatus status; bool leader = false;
+	if (!runtime.campaignStatus(status, leader) || !status.campaignComplete) return false;
+	ColorFillVideoSurfaceArea(FRAME_BUFFER, 12, 190, std::min(620, static_cast<int>(SCREEN_WIDTH) - 12), 240, 0);
+	SetFontBackground(FONT_MCOLOR_BLACK); SetFontShadow(FONT_MCOLOR_BLACK);
+	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
+	mprintf(24, 200, L"Deidranna is dead. The campaign is won!");
+	SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+	mprintf(24, 222, L"The campaign clock has stopped. Thank you for playing.");
+	return true;
+}
+
 bool RenderBattleNotice(const FullEngineCoopClientRuntime& runtime) noexcept
 {
 	CoopSession::CoopCampaignStatus status; bool leader = false;
@@ -1513,6 +1526,7 @@ void HandleFullEngineCoopClientScreen() noexcept
 		RenderWaiting(runtime);
 		(void)RenderSurrender(runtime);
 	(void)RenderBattleNotice(runtime);
+	(void)RenderCampaignComplete(runtime);
 	(void)RenderMeanwhile(runtime);
 		InvalidateScreen();
 		return;
@@ -1523,6 +1537,7 @@ void HandleFullEngineCoopClientScreen() noexcept
 	RenderPresentation(presentation, view);
 	(void)RenderSurrender(runtime);
 	(void)RenderBattleNotice(runtime);
+	(void)RenderCampaignComplete(runtime);
 	(void)RenderMeanwhile(runtime);
 	InvalidateScreen();
 }
@@ -1629,6 +1644,7 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 	}
 	(void)RenderSurrender(GetFullEngineCoopClientRuntime());
 	(void)RenderBattleNotice(GetFullEngineCoopClientRuntime());
+	(void)RenderCampaignComplete(GetFullEngineCoopClientRuntime());
 	(void)RenderMeanwhile(GetFullEngineCoopClientRuntime());
 }
 

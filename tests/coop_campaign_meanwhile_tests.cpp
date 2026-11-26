@@ -34,7 +34,8 @@ void Observation()
 	}
 	for (unsigned at : {109u,110u,111u,121u,122u,123u,124u,126u,127u})
 	{
-		auto bad = bytes; bad[at] = 1; decoded = s;
+		// Byte 126 is the strict completion boolean: 2 is invalid; 127 is reserved.
+		auto bad = bytes; bad[at] = at == 126u ? 2 : 1; decoded = s;
 		CHECK(!DecodeCoopCampaignStatus(bad.data(),bad.size(),decoded) && SameCoopCampaignStatus(s,decoded),
 			"reserved bytes reject transactionally");
 	}

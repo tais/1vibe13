@@ -4115,3 +4115,28 @@ A9 -> B9 -> C9 on its own. Negative control: with the commit limited to one
 adjacent leg again, the order is rejected and the probe fails. Not yet
 qualified by a probe: a route interrupted mid-way by a battle or an NPC (the
 existing arrival decisions apply), and a route preview on the client.
+
+## Phase 9.3: the campaign can be won
+
+- Deidranna's death runs the stock death handling on the server: the kill
+  quotes, `FACT_QUEEN_DEAD`, the strategic AI's queen-dead action. Where stock
+  then starts the end cinematic (fades, the move to the victory sector, the
+  credits), a dedicated co-op server stops instead and logs the end; the
+  cinematic has no screen there.
+- Status byte 126 (`campaignComplete`, a strict boolean) reports the stock fact,
+  so it survives saves and restarts. Once it is set the campaign clock is held
+  (time requests are refused as `NativeBlocked`, and the server keeps the clock
+  stopped on the map) and map actions are `Unavailable`. Byte 127 stays
+  reserved.
+- Both clients show "Deidranna is dead. The campaign is won!" over the map and
+  the tactical screen.
+
+Installed evidence (`full_engine_coop_installed_campaign_complete.py`): after
+the seeded A9 victory the test host marks Deidranna's profile dead and calls
+the stock `BeginHandleDeidrannaDeath` for a merc in A9, exactly as the stock
+NPC death handling does. Both clients report the campaign won; after the shared
+return to the map the leader's run requests leave the clock stopped. Negative
+control: without the clock hold, the leader's run moves the clock and the probe
+fails. The finale itself (reaching and killing Deidranna in Meduna) is the
+Phase 9.2 playthrough's job; the stock end cinematic and credits are not
+played to clients.

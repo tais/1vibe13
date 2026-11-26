@@ -94,8 +94,16 @@ void TestSecuredSector()
 	CoopCampaignStatus out;
 	CHECK(DecodeCoopCampaignStatus(bytes.data(), bytes.size(), out) && SameCoopCampaignStatus(s, out) &&
 		out.securedSector == 0x01020304u, "secured sector roundtrips exactly");
-	auto padded = bytes; padded[126] = 1; out = s;
-	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "reserved tail after the contract count stays zero");
+	auto padded = bytes; padded[127] = 1; out = s;
+	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "reserved tail after the completion flag stays zero");
+	padded = bytes; padded[126] = 2;
+	CHECK(!DecodeCoopCampaignStatus(padded.data(), padded.size(), out), "the completion flag is a strict boolean");
+	auto won = Sample(); won.campaignComplete = true;
+	CoopCampaignStatusBytes wonBytes{};
+	CHECK(EncodeCoopCampaignStatus(won, wonBytes) && wonBytes[126] == 1 && DecodeCoopCampaignStatus(wonBytes.data(), wonBytes.size(), out) &&
+		SameCoopCampaignStatus(won, out) && out.campaignComplete, "a won campaign travels in byte 126");
+	auto notWon = won; notWon.campaignComplete = false;
+	CHECK(!SameCoopCampaignTimeState(won, notWon), "campaign completion is part of the time-control state");
 	auto due = Sample(); due.contractsDue = 3;
 	CoopCampaignStatusBytes dueBytes{};
 	CHECK(EncodeCoopCampaignStatus(due, dueBytes) && dueBytes[125] == 3 && DecodeCoopCampaignStatus(dueBytes.data(), dueBytes.size(), out) &&

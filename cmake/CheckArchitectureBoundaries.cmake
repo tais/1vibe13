@@ -4906,7 +4906,7 @@ require_ordered_fragments(coop_militia_source
 file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_assignment_policy_source)
 require_ordered_fragments(coop_assignment_policy_source
   "Assignment requests must be admitted only in the worldless strategic phase"
-  "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id)"
+  "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id ||"
   "return Outcome::Unavailable;"
   "if (request.action == CoopCampaignAction::SetAssignment || request.action == CoopCampaignAction::ExtendContract ||"
   "request.action == CoopCampaignAction::DismissMerc)"
@@ -4929,14 +4929,35 @@ require_ordered_fragments(coop_contract_event_source
 file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignTime.h" coop_contract_time_source)
 require_ordered_fragments(coop_contract_time_source
   "Ended contracts must hold the campaign clock"
-  "if (status.arrival.decision || status.meanwhile.id || status.contractsDue || status.battleNotice.id)"
-  "return CoopCampaignTimeOutcome::NativeBlocked;")
+  "if (status.arrival.decision || status.meanwhile.id || status.contractsDue || status.battleNotice.id ||"
+  "status.campaignComplete)" "return CoopCampaignTimeOutcome::NativeBlocked;")
 require_ordered_fragments(coop_conversation_runtime_source
   "The server must stop the clock at an ended contract and publish the count"
   "captured.contractsDue = CountDedicatedCoopExpiredContracts();"
   "void pauseStrategicTimeWithoutLeader() noexcept"
-  "if (CountDedicatedCoopExpiredContracts() != 0)"
+  "if (CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0))"
   "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);")
+# 9.3: Deidranna's death is the end of the stock campaign. On a dedicated co-op
+# server the stock hook reports it through the shared status (from the stock
+# fact, so it survives saves) instead of the end cinematic, and the clock and
+# map actions stop.
+file(READ "${SOURCE_ROOT}/Tactical/End Game.cpp" coop_end_game_source)
+require_ordered_fragments(coop_end_game_source
+  "Deidranna's death must set the stock facts before co-op ends the campaign instead of the cinematic"
+  "static bool DedicatedCoopEndsCampaignAtQueenDeath()"
+  "return options.enabled && options.mode == DedicatedServerMode::Coop;"
+  "void HandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )"
+  "SetFactTrue( FACT_QUEEN_DEAD );" "ExecuteStrategicAIAction( STRATEGIC_AI_ACTION_QUEEN_DEAD, 0, 0 );"
+  "if ( DedicatedCoopEndsCampaignAtQueenDeath() )" "gTacticalStatus.uiFlags &= ~ENGAGED_IN_CONV;"
+  "[dedicated] campaign complete: Deidranna is dead" "return;"
+  "SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA")
+require_ordered_fragments(coop_conversation_runtime_source
+  "The shared status must report the won campaign from the stock fact"
+  "captured.campaignComplete = CheckFact(FACT_QUEEN_DEAD, 0) != FALSE;")
+file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_complete_action_source)
+require_ordered_fragments(coop_complete_action_source
+  "A won campaign must refuse further map actions"
+  "status.surrenderOffer || status.battleNotice.id ||" "status.campaignComplete)" "return Outcome::Unavailable;")
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopContract.cpp" coop_contract_source)
 require_ordered_fragments(coop_contract_source
   "Contract decisions must run worldless through the stock renewal and removal"

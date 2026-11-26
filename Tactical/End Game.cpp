@@ -1,3 +1,5 @@
+#include "DedicatedServerOptions.h"
+#include <cstdio>
 #include "TacticalActorDamageResolution.h"
 
 	#include "Overhead.h"
@@ -207,6 +209,12 @@ void BeginHandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, IN
 
 }
 
+static bool DedicatedCoopEndsCampaignAtQueenDeath()
+{
+	const auto& options = GetDedicatedServerOptions();
+	return options.enabled && options.mode == DedicatedServerMode::Coop;
+}
+
 void HandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	TacticalActor *pTeamSoldier;
@@ -250,6 +258,17 @@ void HandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bL
 
 	ExecuteStrategicAIAction( STRATEGIC_AI_ACTION_QUEEN_DEAD, 0, 0 );
 
+	// Dedicated co-op: the campaign is won here. The end cinematic (fades, the
+	// victory sector, credits) has no screen on the server; the shared status
+	// reports the stock fact instead.
+	if ( DedicatedCoopEndsCampaignAtQueenDeath() )
+	{
+		gTacticalStatus.uiFlags &= ~ENGAGED_IN_CONV;
+		giNPCReferenceCount = 0;
+		std::printf( "[dedicated] campaign complete: Deidranna is dead\n" );
+		std::fflush( stdout );
+		return;
+	}
 	// AFTER LAST ONE IS DONE - PUT SPECIAL EVENT ON QUEUE TO BEGIN FADE< ETC
 	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA, 0,0,0,0 );
 }

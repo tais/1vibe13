@@ -13,6 +13,7 @@
 #include "DedicatedCoopSurrender.h"
 #include "DedicatedCoopBattleNotice.h"
 #include "TacticalInterruptHost.h"
+#include "Quests.h"
 #include "CoopOfflineInterruptGuard.h"
 #include "DedicatedCoopMeanwhile.h"
 #include "DedicatedCheckpointRuntimeEvidence.h"
@@ -872,6 +873,8 @@ struct DedicatedCoopRuntime::Impl
 		if (starterMission == StarterMissionState::PeacefulTactical) captured.securedSector = securedSector;
 		if (captured.phase == CoopSession::CoopCampaignPhase::Strategic)
 			captured.contractsDue = CountDedicatedCoopExpiredContracts();
+		// The stock fact survives saves and restarts.
+		captured.campaignComplete = CheckFact(FACT_QUEEN_DEAD, 0) != FALSE;
 		if (const auto* offer = surrenderDecision.pending()) captured.surrenderOffer = offer->id;
 		if (const auto* notice = battleNotice.pending())
 		{
@@ -1142,7 +1145,7 @@ struct DedicatedCoopRuntime::Impl
 	{
 		if (!worldlessStrategicTimeControl()) return;
 		// An ended contract waits for the players: stop the clock at the end.
-		if (CountDedicatedCoopExpiredContracts() != 0)
+		if (CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0))
 		{
 			(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);
 			return;

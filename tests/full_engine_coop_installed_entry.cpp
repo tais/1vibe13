@@ -48,6 +48,7 @@
 #include "Town Militia.h"
 #include "Player Command.h"
 #include "Keys.h"
+#include "End Game.h"
 #include "World Items.h"
 #include "Items.h"
 #include "Structure.h"
@@ -294,6 +295,36 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_QUEEN_DEATH=1, starter-victory mode): once A9 is
+// secured for peaceful play, run the stock death handling of Deidranna as if a
+// player merc had just killed her there (the finale itself is not seeded).
+void PollQueenDeathSeed()
+{
+	static bool seeded = false;
+	static std::chrono::steady_clock::time_point calmSince{};
+	if (seeded || !std::getenv("JA2_COOP_ENTRY_QUEEN_DEATH") || !gfProgramIsRunning) return;
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+	if (now - calmSince < std::chrono::seconds(3)) return;
+	TacticalActor* merc = nullptr;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+		{ merc = actor; break; }
+	}
+	if (!merc) return;
+	seeded = true;
+	// As the stock NPC death handling does before it calls the end-game hook.
+	gMercProfiles[QUEEN].bMercStatus = MERC_IS_DEAD;
+	BeginHandleDeidrannaDeath(merc, merc->position().gridNo(), merc->position().level());
+	std::printf("[co-op entry test] queen death seeded\n");
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_CLEAR_ROUTE=1, starter-victory mode): once the
 // players are back on the worldless map, B9 and C9 hold no enemies, so a
 // two-leg route A9 -> B9 -> C9 meets no battle.
@@ -1017,6 +1048,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollBurstWeaponSeed();
 	PollThrowItemSeed();
 	PollClearRouteSeed();
+	PollQueenDeathSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())
