@@ -4906,7 +4906,8 @@ require_ordered_fragments(coop_militia_source
 file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignAction.h" coop_assignment_policy_source)
 require_ordered_fragments(coop_assignment_policy_source
   "Assignment requests must be admitted only in the worldless strategic phase"
-  "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;"
+  "if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id)"
+  "return Outcome::Unavailable;"
   "if (request.action == CoopCampaignAction::SetAssignment || request.action == CoopCampaignAction::ExtendContract ||"
   "request.action == CoopCampaignAction::DismissMerc)"
   "return status.arrival.decision ? Outcome::Unavailable : Outcome::Applied;")
@@ -4928,7 +4929,8 @@ require_ordered_fragments(coop_contract_event_source
 file(READ "${SOURCE_ROOT}/Multiplayer/CoopCampaignTime.h" coop_contract_time_source)
 require_ordered_fragments(coop_contract_time_source
   "Ended contracts must hold the campaign clock"
-  "if (status.arrival.decision || status.meanwhile.id || status.contractsDue) return CoopCampaignTimeOutcome::NativeBlocked;")
+  "if (status.arrival.decision || status.meanwhile.id || status.contractsDue || status.battleNotice.id)"
+  "return CoopCampaignTimeOutcome::NativeBlocked;")
 require_ordered_fragments(coop_conversation_runtime_source
   "The server must stop the clock at an ended contract and publish the count"
   "captured.contractsDue = CountDedicatedCoopExpiredContracts();"
@@ -4981,6 +4983,67 @@ require_ordered_fragments(coop_conversation_runtime_source
   "(void)TrySetWorldlessStrategicTimeCompression(TIME_COMPRESS_X0);"
   "if (accepted.action == CoopSession::CoopCampaignAction::TransferTimeLead)"
   "return transferTimeLead(message.peerIdentity);")
+
+# Headless militia autoresolve: the stock battle, run to completion by the stock
+# Finish settings and applied by the stock Done path, with only the screen,
+# sounds and buttons skipped; corpses in an unloaded sector never sample the
+# render bounds a worldless server lacks; a battle nobody can win is a named
+# failure, not a hang. The server publishes the result as a map notice that
+# holds the clock until a player acknowledges it.
+file(READ "${SOURCE_ROOT}/Strategic/Auto Resolve.cpp" coop_headless_autoresolve_source)
+extract_brace_bounded_slice(coop_headless_autoresolve_source
+  "NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,\n\tNativeHeadlessAutoResolveSummary& summary )"
+  coop_headless_autoresolve_driver "Cannot bound the headless militia autoresolve")
+require_ordered_fragments(coop_headless_autoresolve_driver
+  "Headless militia autoresolve must run the stock battle steps in stock order"
+  "if( attacker.usGroupTeam != ENEMY_TEAM || !attacker.pEnemyGroup"
+  "return Result::UnsupportedContext; // mercs fight their own battles"
+  "SetEnemyEncounterCode( attacker.pEnemyGroup->ubIntention == TRANSPORT ? TRANSPORT_INTERCEPT_CODE : ENEMY_ENCOUNTER_CODE );"
+  "gfHeadlessAutoResolve = true;"
+  "AllocateAutoResolveState( x, y );"
+  "CalculateAutoResolveInfo();"
+  "CalculateSoldierCells( FALSE );"
+  "CreateAutoResolveParticipants();"
+  "DetermineTeamLeader( TRUE );"
+  "DetermineTeamLeader( FALSE );"
+  "CalculateAttackValues();"
+  "gpAR->fInstantFinish = TRUE;"
+  "gpAR->uiTimeSlice = 0xffffffff;"
+  "ProcessBattleFrame();"
+  "RemoveAutoResolveInterface( TRUE );"
+  "gfHeadlessAutoResolve = false;")
+require_ordered_fragments(coop_headless_autoresolve_source
+  "Headless autoresolve must skip only presentation and stay bounded"
+  "static void AllocateAutoResolveState( UINT8 ubSectorX, UINT8 ubSectorY )"
+  "CreateAutoResolveParticipants();"
+  "CreateAutoResolveButtons();"
+  "if( !gfHeadlessAutoResolve )\n\t{\n\t\tMSYS_RemoveRegion( &gpAR->AutoResolveRegion );"
+  "AutoResolveCorpseGridNo()"
+  "for( i = 0; i < NUM_AR_BUTTONS && !gfHeadlessAutoResolve; ++i )"
+  "if( gfHeadlessAutoResolve )\n\t\treturn;"
+  "if( gfHeadlessAutoResolve && gpAR->uiTotalElapsedBattleTimeInMilliseconds >= HEADLESS_AUTORESOLVE_MAX_MS )"
+  "static INT32 AutoResolveCorpseGridNo()"
+  "return ( WORLD_ROWS / 2 ) * WORLD_COLS + WORLD_COLS / 2;"
+  "return RandomGridNo();")
+string(FIND "${coop_headless_autoresolve_source}" "pSoldier, RandomGridNo()" coop_autoresolve_random_corpse_at)
+if(NOT coop_autoresolve_random_corpse_at EQUAL -1)
+  message(FATAL_ERROR "Autoresolve corpses must go through AutoResolveCorpseGridNo (no render-bounds sampling headless)")
+endif()
+require_ordered_fragments(coop_conversation_runtime_source
+  "The server must run a front militia battle itself and hold the map on its notice"
+  "decision && decision->kind == DedicatedCoopArrivalKind::MilitiaBattle && !DedicatedCoopBattleNoticePending())"
+  "const auto result = ResolveDedicatedCoopMilitiaBattle(decision->id, outcome);"
+  "if (!PublishDedicatedCoopMilitiaBattleNotice(outcome.x, outcome.y, outcome.held, outcome.militiaLost, outcome.enemiesKilled))")
+file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopBattleNotice.cpp" coop_militia_notice_source)
+require_ordered_fragments(coop_militia_notice_source
+  "A militia notice must hold the campaign and clear only on an exact acknowledgement"
+  "bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, bool held,"
+  "InterruptTime(); StopTimeCompression(); PauseGame();"
+  "bound->failure_ = bound->notice_.id ? \"overlapping native battle notices\" : \"invalid militia battle notice\";"
+  "if (!id || id != bound->notice_.id) return Result::StaleNotice;"
+  "if (IsDedicatedCoopMilitiaBattleNotice(bound->notice_.kind))"
+  "if (IsJa2TacticalWorldLoaded()) return Result::NativeContextChanged;"
+  "bound->notice_ = {};")
 
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
@@ -16287,10 +16350,38 @@ extract_brace_bounded_slice(coop_arrival_source "bool ValidNpcStopPaths(const GR
 require_ordered_fragments(coop_arrival_stop_paths "NPC stop must reject aliased/cyclic/incoherent actor paths before native destruction"
   "members == heads.size()" "std::find(heads.begin(), heads.begin() + members, head)"
   "++nodes > 1024 || path->pPrev != previous")
+# The militia battle is the one stock autoresolve-only arrival (no player choice
+# in stock either). Its single headless call is pinned inside the resolver; blank
+# exactly that call before scanning for implicit choices.
+string(REGEX MATCHALL "RunHeadlessMilitiaAutoResolve\\(" coop_arrival_militia_calls "${coop_arrival_source}")
+list(LENGTH coop_arrival_militia_calls coop_arrival_militia_call_count)
+if(NOT coop_arrival_militia_call_count EQUAL 1)
+  message(FATAL_ERROR "The arrival adapter must call the headless militia autoresolve exactly once (resolver only)")
+endif()
+extract_brace_bounded_slice(coop_arrival_source
+  "DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t decision,\n\tDedicatedCoopMilitiaBattleOutcome& outcome) noexcept"
+  coop_arrival_militia_resolver "Cannot bound the militia battle resolver")
+require_ordered_fragments(coop_arrival_militia_resolver
+  "The militia resolver must run only its own exact pending battle and fail closed"
+  "pending.kind != DedicatedCoopArrivalKind::MilitiaBattle"
+  "gfProcessingGameEvents || GetWorldTotalSeconds() != pending.worldSeconds"
+  "ResolveJa2StrategicGroup(pending.group)"
+  "bound->failure_ = \"militia battle attacker changed before autoresolve\";"
+  "result = RunHeadlessMilitiaAutoResolve(*group, summary);"
+  "bound->failure_ = \"militia battle context not supported by headless autoresolve\";"
+  "bound->failure_ = \"headless militia autoresolve did not finish\";"
+  "bound->decisions_[--bound->count_] = {};")
+require_ordered_fragments(coop_arrival_source
+  "Only an army attack on a militia-held sector with no player group may skip the player decision"
+  "if (kind == DedicatedCoopArrivalKind::Battle && !dialogGroup && group->usGroupTeam == ENEMY_TEAM && !group->ubSectorZ &&"
+  "NumNonPlayerTeamMembersInSector(group->ubSectorX, group->ubSectorY, MILITIA_TEAM) &&"
+  "NoPlayerGroupInSector(group->ubSectorX, group->ubSectorY))"
+  "candidate.kind = DedicatedCoopArrivalKind::MilitiaBattle;")
+string(REPLACE "RunHeadlessMilitiaAutoResolve(" "" coop_arrival_choice_scan "${coop_arrival_source}")
 foreach(arrival_shortcut IN ITEMS "UnPauseGame(" "UnLockPauseState(" "WarpGameTime(" "RestoreJa2CampaignClock("
     "RebuildWayPointsForGroupPath(" "InitPreBattleInterface(" "PrepareForPreBattleInterface(" "SetCurrentWorldSector("
     "AutoResolve(" "EnterAutoResolveMode(" "AutoResolveScreenHandle(" "ChangeSelectedMapSector(" "DoScreenIndependantMessageBox(")
-  string(FIND "${coop_arrival_source}" "${arrival_shortcut}" arrival_shortcut_at)
+  string(FIND "${coop_arrival_choice_scan}" "${arrival_shortcut}" arrival_shortcut_at)
   if(NOT arrival_shortcut_at EQUAL -1)
     message(FATAL_ERROR "Pending arrival adapter gained unsafe implicit choice '${arrival_shortcut}'")
   endif()

@@ -6,14 +6,19 @@
 
 enum class DedicatedCoopBattleNoticeKind : std::uint8_t
 {
-	Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4
+	Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4,
+	// Worldless: an autoresolved army attack on a militia-only sector.
+	MilitiaHeld = 5, MilitiaDefeated = 6
 };
+inline bool IsDedicatedCoopMilitiaBattleNotice(DedicatedCoopBattleNoticeKind kind) noexcept
+{ return kind == DedicatedCoopBattleNoticeKind::MilitiaHeld || kind == DedicatedCoopBattleNoticeKind::MilitiaDefeated; }
 struct DedicatedCoopBattleNotice
 {
 	std::uint64_t id = 0, worldGeneration = 0, turnSerial = 0;
 	TacticalWorldSession::Sector sector{};
 	DedicatedCoopBattleNoticeKind kind = DedicatedCoopBattleNoticeKind::Defeated;
 	bool sectorControlLost = false;
+	std::uint8_t militiaLost = 0, enemiesKilled = 0;
 };
 enum class DedicatedCoopBattleNoticeResult : std::uint8_t
 {
@@ -39,6 +44,7 @@ public:
 private:
 	friend bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind) noexcept;
 	friend bool DeferDedicatedCoopBattleSectorLoss(std::int16_t, std::int16_t, std::int8_t) noexcept;
+	friend bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t, std::uint8_t, bool, std::uint16_t, std::uint16_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult CompleteDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	DedicatedCoopBattleNotice notice_{};
@@ -57,6 +63,11 @@ bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind) noexcept;
 // A new identity invalidates any acknowledgement prepared before this addition.
 // Unrelated sector notifications retain their ordinary presentation path.
 bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept;
+// The outcome of a militia battle the server autoresolved with no world loaded.
+// It holds the campaign (paused, no checkpoint) until a player acknowledges it;
+// the acknowledgement just clears it. False latches a failure (overlap, IDs).
+bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, bool held,
+	std::uint16_t militiaLost, std::uint16_t enemiesKilled) noexcept;
 // Caller has authenticated and serialized an explicit shared acknowledgement.
 // Applied records that acknowledgement; it does not unload the world.
 DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;

@@ -45,6 +45,7 @@
 #include "Soldier Profile.h"
 #include "Soldier Ani.h"
 #include "Queen Command.h"
+#include "Town Militia.h"
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "Soldier Profile Constants.h"
@@ -282,6 +283,39 @@ void PollConversationExperiment()
 		gfInTalkPanel, DialogueActive(), DialogueQueueIsEmpty(), (gTacticalStatus.uiFlags & ENGAGED_IN_CONV) != 0,
 		GamePaused(), gTalkPanel.ubCharNum, quote);
 	if (last != line) { last = line; std::printf("[co-op talk test] %s\n", line); std::fflush(stdout); }
+}
+
+// Fixture-only (JA2_COOP_ENTRY_MILITIA_ATTACK=held|defeated, starter-victory
+// mode): once the players are back on the worldless map, B9 becomes a player-
+// held wilderness sector that only militia defend and an army group sets out
+// from C9 to attack it. The ordinary clock and arrival rules do the rest.
+void PollMilitiaAttackSeed()
+{
+	static bool seeded = false;
+	const char* mode = std::getenv("JA2_COOP_ENTRY_MILITIA_ATTACK");
+	if (seeded || !mode || !gfProgramIsRunning || !GetDedicatedCoopRuntime().campaignEntered() ||
+		!IsDedicatedCoopStarterMissionMapReady() || IsJa2TacticalWorldLoaded() || DedicatedCoopArrivalDecisionPending() ||
+		StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 1)].fEnemyControlled || NumEnemiesInAnySector(9, 1, 0)) return;
+	seeded = true;
+	const bool held = std::strcmp(mode, "held") == 0;
+	if (!held && std::strcmp(mode, "defeated") != 0) { Finish(false, "unknown militia attack mode"); return; }
+	for (const auto sector : {SECTOR(9, 2), SECTOR(9, 3)})
+	{
+		auto& info = SectorInfo[sector];
+		info.ubGarrisonID = NO_GARRISON;
+		info.ubNumAdmins = info.ubNumTroops = info.ubNumElites = info.ubNumTanks = info.ubNumJeeps = info.ubNumRobots = 0;
+	}
+	StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 2)].fEnemyControlled = FALSE;
+	StrategicAddMilitiaToSector(9, 2, held ? ELITE_MILITIA : GREEN_MILITIA, held ? 12 : 1);
+	GROUP* attacker = CreateNewEnemyGroupDepartingFromSector(SECTOR(9, 3), 0, held ? 3 : 0, held ? 0 : 8, 0, 0, 0);
+	if (!attacker) { Finish(false, "fixture militia attacker creation failed"); return; }
+	MoveSAIGroupToSector(&attacker, SECTOR(9, 2), DIRECT, ASSAULT);
+	if (!attacker || attacker->ubNextX != 9 || attacker->ubNextY != 2)
+	{ Finish(false, "fixture militia attacker did not set out for B9"); return; }
+	std::printf("[co-op entry test] militia attack seeded: mode=%s; militia=%u; attackers=%u; group=%u; clock=%u\n", mode,
+		unsigned(NumNonPlayerTeamMembersInSector(9, 2, MILITIA_TEAM)), unsigned(attacker->ubGroupSize), unsigned(attacker->ubGroupID),
+		GetWorldTotalSeconds());
+	std::fflush(stdout);
 }
 
 void PollControlledBattleTrigger()
@@ -698,6 +732,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	ReportLoadedWorldExitGrids();
 	PollConversationExperiment();
 	PollControlledBattleTrigger();
+	PollMilitiaAttackSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

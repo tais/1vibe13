@@ -872,7 +872,8 @@ struct DedicatedCoopRuntime::Impl
 		{
 			if (battleNotice.acknowledged()) captured.phase = CoopSession::CoopCampaignPhase::Transition;
 			else captured.battleNotice = {notice->id, static_cast<CoopSession::CoopCampaignBattleNoticeKind>(notice->kind),
-				static_cast<std::uint8_t>(notice->sector.x), static_cast<std::uint8_t>(notice->sector.y), static_cast<std::uint8_t>(notice->sector.z), notice->sectorControlLost};
+				static_cast<std::uint8_t>(notice->sector.x), static_cast<std::uint8_t>(notice->sector.y), static_cast<std::uint8_t>(notice->sector.z), notice->sectorControlLost,
+				notice->militiaLost, notice->enemiesKilled};
 		}
 		if (const auto* notice = meanwhile.pending())
 		{
@@ -3085,7 +3086,34 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.arrival.capture", failure);
 		return;
 	}
-	if (const auto* decision = impl_->arrivalDecisions.front())
+	if (const auto* decision = impl_->arrivalDecisions.front();
+		decision && decision->kind == DedicatedCoopArrivalKind::MilitiaBattle && !DedicatedCoopBattleNoticePending())
+	{
+		// The stock autoresolve-only battle: run it here, then hold the
+		// campaign on its shared notice until a player acknowledges it.
+		StopTimeCompression(); PauseGame();
+		DedicatedCoopMilitiaBattleOutcome outcome;
+		const auto result = ResolveDedicatedCoopMilitiaBattle(decision->id, outcome);
+		if (result == DedicatedCoopMilitiaBattleResult::Failed)
+		{
+			impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.arrival.militia", impl_->arrivalDecisions.failure());
+			return;
+		}
+		if (result == DedicatedCoopMilitiaBattleResult::Resolved)
+		{
+			std::printf("[dedicated] militia battle autoresolved: sector=%u,%u; outcome=%s; militia=%u; militia_lost=%u; enemies=%u; enemies_killed=%u; battle_seconds=%u\n",
+				unsigned(outcome.x), unsigned(outcome.y), outcome.held ? "held" : "defeated", unsigned(outcome.militia),
+				unsigned(outcome.militiaLost), unsigned(outcome.enemies), unsigned(outcome.enemiesKilled), outcome.battleSeconds);
+			std::fflush(stdout);
+			if (!PublishDedicatedCoopMilitiaBattleNotice(outcome.x, outcome.y, outcome.held, outcome.militiaLost, outcome.enemiesKilled))
+			{
+				impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.battle-notice", impl_->battleNotice.failure());
+				return;
+			}
+		}
+	}
+	else if (const auto* decision = impl_->arrivalDecisions.front();
+		decision && decision->kind != DedicatedCoopArrivalKind::MilitiaBattle)
 	{
 		StopTimeCompression(); PauseGame();
 		if (decision->id != impl_->lastArrivalDecisionLogged)

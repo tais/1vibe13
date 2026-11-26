@@ -175,6 +175,14 @@ void ArrivalHold()
 	authority.delivered(0);
 	const CoopCampaignTimeRequest fresh{3, ledger.value().timeControlRevision, 10, CoopCampaignTimeAction::FiveMinutes};
 	CHECK(authority.submit(fresh, peers[0], true, true, ledger, apply) && executions == 1, "only a fresh authorized time request can resume after resolution");
+	authority.delivered(0);
+	clock.gamePaused = true;
+	clock.battleNotice = {7, CoopCampaignBattleNoticeKind::MilitiaHeld, 9, 2, 0, false, 0, 3};
+	CHECK(ledger.observe(clock, identities, 2), "a militia autoresolve notice on the map");
+	const CoopCampaignTimeRequest past{3, ledger.value().timeControlRevision, 11, CoopCampaignTimeAction::FiveMinutes};
+	CHECK(authority.submit(past, peers[0], true, true, ledger, apply) && executions == 1 &&
+		authority.deliveries()[0].result.outcome == CoopCampaignTimeOutcome::NativeBlocked,
+		"an unacknowledged militia notice holds the clock");
 }
 }
 int main() { Codec(); Authority(); Input(); ArrivalHold(); return failures ? 1 : 0; }

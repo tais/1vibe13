@@ -5,6 +5,8 @@
 #include "Strategic Movement.h"
 #include "Strategic Pathing.h"
 #include "PreBattle Interface.h"
+#include "Auto Resolve.h"
+#include "Queen Command.h"
 #include "Game Clock.h"
 #include "gameloop.h"
 #include "screenids.h"
@@ -49,6 +51,15 @@ bool ValidNpcStopPaths(const GROUP& group) noexcept
 			previous = path;
 		}
 	}
+	return true;
+}
+
+// No player group (alive, unconscious or empty vehicle) stands in the sector.
+bool NoPlayerGroupInSector(std::uint8_t x, std::uint8_t y) noexcept
+{
+	for (const GROUP* group = gpGroupList; group; group = group->next)
+		if (group->usGroupTeam == OUR_TEAM && group->ubGroupSize && !group->fBetweenSectors &&
+			group->ubSectorX == x && group->ubSectorY == y && !group->ubSectorZ) return false;
 	return true;
 }
 
@@ -108,8 +119,10 @@ bool DedicatedCoopArrivalState::captureObservation(CoopSession::CoopCampaignArri
 	using namespace CoopSession;
 	CoopCampaignArrival captured;
 	if (failure_ && !count_) return false;
-	if (const auto* decision = front())
+	if (const auto* decision = front(); decision && decision->kind != DedicatedCoopArrivalKind::MilitiaBattle)
 	{
+		// A militia battle is resolved by the server on its next frame; it has
+		// no player choice to show.
 		captured.decision = decision->id;
 		switch (decision->kind)
 		{
@@ -190,6 +203,12 @@ bool DeferDedicatedCoopArrival(DedicatedCoopArrivalKind kind, const GROUP* group
 		(kind == DedicatedCoopArrivalKind::WildernessNpc && (group->usGroupTeam != OUR_TEAM || !group->pPlayerList)) ||
 		static_cast<unsigned>(kind) > static_cast<unsigned>(DedicatedCoopArrivalKind::Battle))
 	{ bound->failure_ = "invalid native arrival context"; return true; }
+	// The stock autoresolve-only battle: an army group reaches a surface sector
+	// that militia hold and no player group stands in.
+	if (kind == DedicatedCoopArrivalKind::Battle && !dialogGroup && group->usGroupTeam == ENEMY_TEAM && !group->ubSectorZ &&
+		NumNonPlayerTeamMembersInSector(group->ubSectorX, group->ubSectorY, MILITIA_TEAM) &&
+		NoPlayerGroupInSector(group->ubSectorX, group->ubSectorY))
+		candidate.kind = DedicatedCoopArrivalKind::MilitiaBattle;
 	candidate.worldSeconds = GetWorldTotalSeconds();
 	candidate.x = group->ubSectorX; candidate.y = group->ubSectorY; candidate.z = group->ubSectorZ;
 	candidate.encounterCode = GetEnemyEncounterCode();
@@ -419,4 +438,49 @@ DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uin
 		InterruptTime(); StopTimeCompression(); PauseGame();
 		return Result::Failed;
 	}
+}
+
+DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t decision,
+	DedicatedCoopMilitiaBattleOutcome& outcome) noexcept
+{
+	using Result = DedicatedCoopMilitiaBattleResult;
+	if (!bound || !bound->front()) return Result::NotPending;
+	const auto pending = *bound->front();
+	if (!decision || decision != pending.id || pending.kind != DedicatedCoopArrivalKind::MilitiaBattle) return Result::StaleDecision;
+	if (bound->failure_) return Result::Failed;
+	if (gfProcessingGameEvents || GetWorldTotalSeconds() != pending.worldSeconds || !IsDedicatedCoopStarterMissionMapReady() ||
+		GetPendingNewScreen() == MSG_BOX_SCREEN || gfPreBattleInterfaceActive || gfTacticalTraversal || IsAutoResolveActive())
+		return Result::NativeContextUnavailable;
+	CoopSession::CoopCampaignGroups groups;
+	GROUP* group = CaptureDedicatedCoopCampaignGroups(groups) ? nullptr : ResolveJa2StrategicGroup(pending.group);
+	if (!group || group->usGroupTeam != ENEMY_TEAM || group->fBetweenSectors ||
+		group->ubSectorX != pending.x || group->ubSectorY != pending.y || group->ubSectorZ != pending.z)
+	{ bound->failure_ = "militia battle attacker changed before autoresolve"; return Result::Failed; }
+	auto* random = GetGameSimulationRandomSource();
+	if (!random || !random->healthy())
+	{ bound->failure_ = "headless autoresolve simulation RNG unavailable"; return Result::Failed; }
+	NativeHeadlessAutoResolveSummary summary;
+	NativeHeadlessAutoResolveResult result;
+	try { result = RunHeadlessMilitiaAutoResolve(*group, summary); }
+	catch (...) { bound->failure_ = "headless militia autoresolve threw"; return Result::Failed; }
+	if (!random->healthy()) { bound->failure_ = "headless autoresolve simulation RNG failed"; return Result::Failed; }
+	switch (result)
+	{
+		case NativeHeadlessAutoResolveResult::InvalidContext: return Result::NativeContextUnavailable;
+		case NativeHeadlessAutoResolveResult::UnsupportedContext:
+			bound->failure_ = "militia battle context not supported by headless autoresolve"; return Result::Failed;
+		case NativeHeadlessAutoResolveResult::Stalled:
+			bound->failure_ = "headless militia autoresolve did not finish"; return Result::Failed;
+		default: break;
+	}
+	outcome = {};
+	outcome.x = pending.x; outcome.y = pending.y;
+	outcome.held = result == NativeHeadlessAutoResolveResult::Victory;
+	outcome.militia = summary.militia; outcome.militiaLost = summary.militiaLost;
+	outcome.enemies = summary.enemies; outcome.enemiesKilled = summary.enemiesKilled;
+	outcome.battleSeconds = summary.battleSeconds;
+	std::move(bound->decisions_.begin() + 1, bound->decisions_.begin() + bound->count_, bound->decisions_.begin());
+	bound->decisions_[--bound->count_] = {};
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	return Result::Resolved;
 }

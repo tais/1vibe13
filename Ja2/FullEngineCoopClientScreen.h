@@ -161,7 +161,7 @@ bool CaptureFullEngineCoopClientSurrenderControls(FullEngineCoopClientSurrenderC
 struct FullEngineCoopClientBattleNoticeControls
 {
 	std::uint64_t sessionEpoch = 0, controlRevision = 0, groupsRevision = 0, notice = 0;
-	unsigned armed = 0, kind = 0, x = 0, y = 0, z = 0;
+	unsigned armed = 0, kind = 0, x = 0, y = 0, z = 0, militiaLost = 0, enemiesKilled = 0;
 	bool enabled = false, pending = false, sectorControlLost = false;
 };
 bool CaptureFullEngineCoopClientBattleNoticeControls(FullEngineCoopClientBattleNoticeControls& output) noexcept;

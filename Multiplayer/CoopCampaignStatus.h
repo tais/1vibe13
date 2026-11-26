@@ -20,24 +20,35 @@ enum class CoopCampaignPhase : std::uint8_t
 
 enum class CoopCampaignBattleNoticeKind : std::uint8_t
 {
-	None = 0, Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4
+	None = 0, Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4,
+	// An army attack on a sector only militia defended, autoresolved by the
+	// server while no world was loaded. Strategic-phase notices.
+	MilitiaHeld = 5, MilitiaDefeated = 6
 };
+inline bool IsCoopCampaignMilitiaBattleNotice(CoopCampaignBattleNoticeKind kind) noexcept
+{ return kind == CoopCampaignBattleNoticeKind::MilitiaHeld || kind == CoopCampaignBattleNoticeKind::MilitiaDefeated; }
 struct CoopCampaignBattleNotice
 {
 	std::uint64_t id = 0;
 	CoopCampaignBattleNoticeKind kind = CoopCampaignBattleNoticeKind::None;
 	std::uint8_t x = 0, y = 0, z = 0;
 	bool sectorControlLost = false;
+	// Militia notices only: the autoresolve's militia casualties and enemy dead.
+	std::uint8_t militiaLost = 0, enemiesKilled = 0;
 };
 inline bool ValidCoopCampaignBattleNotice(const CoopCampaignBattleNotice& value) noexcept
 {
-	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z && !value.sectorControlLost;
-	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::Surrendered &&
-		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3 && (!value.sectorControlLost || value.z == 0);
+	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z && !value.sectorControlLost &&
+		!value.militiaLost && !value.enemiesKilled;
+	const bool militia = IsCoopCampaignMilitiaBattleNotice(value.kind);
+	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::MilitiaDefeated &&
+		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3 && (!value.sectorControlLost || value.z == 0) &&
+		(militia ? value.z == 0 && !value.sectorControlLost : !value.militiaLost && !value.enemiesKilled);
 }
 inline bool SameCoopCampaignBattleNotice(const CoopCampaignBattleNotice& a, const CoopCampaignBattleNotice& b) noexcept
 {
-	return a.id == b.id && a.kind == b.kind && a.x == b.x && a.y == b.y && a.z == b.z && a.sectorControlLost == b.sectorControlLost;
+	return a.id == b.id && a.kind == b.kind && a.x == b.x && a.y == b.y && a.z == b.z && a.sectorControlLost == b.sectorControlLost &&
+		a.militiaLost == b.militiaLost && a.enemiesKilled == b.enemiesKilled;
 }
 inline bool ValidCoopCampaignBattleNoticeReplacement(const CoopCampaignBattleNotice& previous,
 	const CoopCampaignBattleNotice& next, std::uint64_t lastId) noexcept
@@ -97,8 +108,10 @@ inline bool ValidCoopCampaignStatus(const CoopCampaignStatus& value) noexcept
 		(!value.surrenderOffer || (value.phase == CoopCampaignPhase::Tactical &&
 			value.gamePaused && !value.compressionActive && !value.arrival.decision)) &&
 		ValidCoopCampaignBattleNotice(value.battleNotice) && (!value.battleNotice.id ||
-			(value.phase == CoopCampaignPhase::Tactical && value.gamePaused && !value.compressionActive &&
-			 !value.arrival.decision && !value.surrenderOffer)) &&
+			(IsCoopCampaignMilitiaBattleNotice(value.battleNotice.kind)
+				? value.phase == CoopCampaignPhase::Strategic && value.gamePaused && !value.compressionActive && !value.surrenderOffer
+				: value.phase == CoopCampaignPhase::Tactical && value.gamePaused && !value.compressionActive &&
+				  !value.arrival.decision && !value.surrenderOffer)) &&
 		ValidCoopCampaignMeanwhileNotice(value.meanwhile) && (!value.meanwhile.id ||
 			(value.phase != CoopCampaignPhase::Transition && value.gamePaused && value.pauseLocked && !value.compressionActive &&
 			 !value.arrival.decision && !value.surrenderOffer && !value.battleNotice.id)) &&
@@ -158,6 +171,7 @@ inline bool EncodeCoopCampaignStatus(const CoopCampaignStatus& value, CoopCampai
 	bytes[104] = static_cast<std::uint8_t>(value.battleNotice.kind);
 	bytes[105] = value.battleNotice.x; bytes[106] = value.battleNotice.y; bytes[107] = value.battleNotice.z;
 	bytes[108] = value.battleNotice.sectorControlLost ? 1 : 0;
+	bytes[109] = value.battleNotice.militiaLost; bytes[110] = value.battleNotice.enemiesKilled;
 	put(112, value.meanwhile.id, 8);
 	bytes[120] = static_cast<std::uint8_t>(value.meanwhile.scene);
 	put(121, value.securedSector, 4);
@@ -173,7 +187,7 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 		(bytes[74] & ~31u) || bytes[79]) return false;
 	if (bytes[94] || bytes[95]) return false;
 	if (bytes[108] > 1) return false;
-	for (std::size_t i = 109; i < 112; ++i) if (bytes[i]) return false;
+	if (bytes[111]) return false;
 	for (std::size_t i = 126; i < CoopCampaignStatusWireSize; ++i) if (bytes[i]) return false;
 	const auto get = [&](std::size_t at, unsigned count) {
 		std::uint64_t number = 0;
@@ -202,7 +216,8 @@ inline bool DecodeCoopCampaignStatus(const std::uint8_t* bytes, std::size_t size
 	arrival.pendingCount = static_cast<std::uint16_t>(get(80, 2));
 	arrival.involvedMercs = static_cast<std::uint16_t>(get(82, 2)); arrival.uninvolvedMercs = static_cast<std::uint16_t>(get(84, 2));
 	value.surrenderOffer = get(86, 8);
-	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107], bytes[108] != 0};
+	value.battleNotice = {get(96, 8), static_cast<CoopCampaignBattleNoticeKind>(bytes[104]), bytes[105], bytes[106], bytes[107], bytes[108] != 0,
+		bytes[109], bytes[110]};
 	value.meanwhile = {get(112, 8), static_cast<CoopCampaignMeanwhileScene>(bytes[120])};
 	value.securedSector = static_cast<std::uint32_t>(get(121, 4));
 	value.contractsDue = bytes[125];

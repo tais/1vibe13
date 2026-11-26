@@ -39,6 +39,23 @@ enum
 
 void EnterAutoResolveMode( UINT8 ubSectorX, UINT8 ubSectorY );
 
+struct GROUP;
+enum class NativeHeadlessAutoResolveResult : unsigned char
+{
+	Victory, Defeat, Retreat, InvalidContext, UnsupportedContext, Stalled
+};
+struct NativeHeadlessAutoResolveSummary
+{
+	unsigned short militia = 0, militiaLost = 0, enemies = 0, enemiesKilled = 0;
+	unsigned int battleSeconds = 0;
+};
+// Dedicated co-op: the stock autoresolve of an army attack on a sector that
+// only militia defend, run to completion without the screen (as the stock
+// Finish and Done buttons would) and applied. Refuses (no side effects) a
+// sector with player groups, a loaded sector, or a non-army attacker.
+NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,
+	NativeHeadlessAutoResolveSummary& summary );
+
 // is the autoresolve active?
 BOOLEAN IsAutoResolveActive( void );
 

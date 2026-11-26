@@ -8,7 +8,8 @@ from test_full_engine_coop_installed_hiring_restore import snapshot
 
 def view():
     return dict(request=1, kind="battle_notice_ui", ready=True, session=2, control_revision=4,
-                groups_revision=3, notice=8, outcome=1, x=9, y=1, z=0, sector_control_lost=False, armed=0, enabled=True, pending=False)
+                groups_revision=3, notice=8, outcome=1, x=9, y=1, z=0, sector_control_lost=False, militia_lost=0, enemies_killed=0, armed=0,
+                enabled=True, pending=False)
 
 
 def feedback(result=None):

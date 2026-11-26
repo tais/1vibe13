@@ -3859,3 +3859,52 @@ and the new leader runs the clock (60 min/sec, applied). The take-over while
 the leader is offline is covered by the policy unit tests only. Negative
 control: with the ledger refusing the transfer, the hand-over is rejected and
 the probe fails.
+
+## Phase 3.5a: militia battles autoresolved by the server
+
+When an army group reaches a sector that only militia defend, stock has no
+player choice: it goes straight to the autoresolve screen and the player
+watches and presses Done. The dedicated server has no such screen. Before this
+slice the attack was queued as an ordinary battle decision that could never be
+prepared (there is no merc to speak or fight), so the campaign clock stopped
+for good the first time the queen attacked a militia-held sector.
+
+In dedicated co-op:
+
+- The arrival hook recognises the autoresolve-only case (an army group, a
+  surface sector holding militia, no player group there) as a server-only
+  militia battle; it shows no player decision.
+- The server resolves it on its next frame with `RunHeadlessMilitiaAutoResolve`
+  (`Strategic/Auto Resolve.cpp`): the stock battle code with the stock Finish
+  settings (the whole battle in one call, one simulated second per pass,
+  independent of real time) and the stock Done path for the results
+  (casualties, militia promotions, loyalty, the enemy's strategic losses, the
+  battle's game time). Only the window, faces, buttons, regions and sounds are
+  skipped. As in stock, enemies in the surrounding sectors join the battle.
+- Two headless-only guards: corpses dropped into the unloaded sector start
+  their later sweet-spot search from the map centre (stock samples the render
+  bounds of a loaded world, which the worldless server does not have, and
+  would never return); a battle still running after six simulated hours is a
+  named failure instead of the stock infinite loop.
+- The result becomes a shared battle notice on the map (kinds 5 MilitiaHeld /
+  6 MilitiaDefeated, with militia lost and enemies killed in status bytes 109
+  and 110). It holds the clock (time requests refused, map actions wait) until
+  either player acknowledges it with C then Enter, as in stock where the game
+  waits for Done.
+
+Not covered yet, each an explicit failure rather than a silent skip: creature,
+bloodcat, zombie and bandit attacks on towns; an attack on a sector whose only
+mercs are unconscious; mobile militia groups attacking enemies; and the stock
+message box when the enemy then takes a *town* (a wilderness sector raises
+none).
+
+Installed evidence (`full_engine_coop_installed_militia_battle.py`): after the
+seeded A9 victory and the shared return, the test host makes B9 a player-held
+wilderness sector defended only by militia and sends an army group from C9.
+The time leader runs the clock; both clients then show the same notice and the
+clock is held until the non-leader acknowledges it, after which it runs again.
+`--outcome held` (12 elite militia): 0 of 12 militia lost, 10 of 10 enemies
+killed (3 attackers plus 7 from a neighbouring garrison). `--outcome defeated`
+(one green militia against 8 elites): 1 of 1 lost, 0 of 15 killed. Negative
+control: with the attack classified as an ordinary battle decision again, the
+decision stays pending forever and the probe fails.

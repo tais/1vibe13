@@ -343,6 +343,14 @@ SOLDIERCELL *gpMercs = NULL;
 SOLDIERCELL *gpCivs = NULL;
 SOLDIERCELL *gpEnemies = NULL;
 
+// Dedicated co-op runs stock autoresolve to completion on the server, without
+// the screen: no window, faces, buttons, regions or sounds, only the battle.
+static bool gfHeadlessAutoResolve = false;
+static bool gfHeadlessAutoResolveStalled = false;
+// Hours of battle time after which a headless battle is declared stalled (the
+// stock Finish button would spin forever on a battle nobody can win).
+static const UINT32 HEADLESS_AUTORESOLVE_MAX_MS = 6u * 60u * 60u * 1000u;
+
 //Simple wrappers for autoresolve sounds that are played.
 static void PlayAutoResolveSample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan )
 {
@@ -511,6 +519,11 @@ void EliminateAllEnemies( UINT8 ubSectorX, UINT8 ubSectorY )
 #define ORIG_RIGHT		92
 #define ORIG_BOTTOM		84
 
+static void AllocateAutoResolveState( UINT8 ubSectorX, UINT8 ubSectorY );
+static void CreateAutoResolveParticipants();
+static void CreateAutoResolveButtons();
+static INT32 AutoResolveCorpseGridNo();
+
 static void DoTransitionFromPreBattleInterfaceToAutoResolve()
 {
 	SGPRect SrcRect, DstRect;
@@ -607,6 +620,11 @@ void EnterAutoResolveMode( UINT8 ubSectorX, UINT8 ubSectorY )
 	RenderButtons();
 
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve1");
+	AllocateAutoResolveState( ubSectorX, ubSectorY );
+}
+
+static void AllocateAutoResolveState( UINT8 ubSectorX, UINT8 ubSectorY )
+{
     // WDS - make number of mercenaries, etc. be configurable
 	//Allocate memory for all the globals while we are in this mode.
 	gpAR = (AUTORESOLVE_STRUCT*)MemAlloc( sizeof( AUTORESOLVE_STRUCT ) );
@@ -2102,12 +2120,8 @@ static void ARCreateMilitiaSquad( UINT16 *cnt, UINT16 ubEliteMilitia, UINT16 ubR
 void CreateAutoResolveInterface()
 {
 	VOBJECT_DESC	VObjectDesc;
-	INT32 i, index;
+	INT32 i;
 	HVOBJECT hVObject;
-	UINT16 ubGreenMilitia, ubRegMilitia, ubEliteMilitia;
-	UINT16 pMoveDir[4][3];
-	UINT8 uiDirNumber = 0;
-	UINT16 cnt;
 
 	//Setup new autoresolve blanket interface.
 	MSYS_DefineRegion( &gpAR->AutoResolveRegion, 0 + xResOffset, 0, SCREEN_WIDTH, SCREEN_HEIGHT, MSYS_PRIORITY_HIGH-1, 0,
@@ -2215,6 +2229,26 @@ void CreateAutoResolveInterface()
 			hVObject->pShades[ 1 ] = Create16BPPPaletteShaded( hVObject->pPaletteEntry, 250, 25, 25, TRUE );
 		}
 	}
+
+	CreateAutoResolveParticipants();
+
+	//Build the interface buffer, and blit the "shaded" background.	This info won't
+	//change from now on, but will be used to restore text.
+	BuildInterfaceBuffer();
+	BlitBufferToBuffer( guiSAVEBUFFER, FRAME_BUFFER, 0 + xResOffset, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
+
+	CreateAutoResolveButtons();
+}
+
+// The battle's soldiers: militia from this and the surrounding sectors, and the
+// enemy force, associated with its strategic groups. No interface.
+static void CreateAutoResolveParticipants()
+{
+	INT32 i, index;
+	UINT16 ubGreenMilitia, ubRegMilitia, ubEliteMilitia;
+	UINT16 pMoveDir[4][3];
+	UINT8 uiDirNumber = 0;
+	UINT16 cnt;
 
 	// 0verhaul:	The following code was modified so that militia bookkeeping could be handled.
 	// In the previous auto-resolve method, promotions were often lost because the sector did not
@@ -2346,13 +2380,16 @@ void CreateAutoResolveInterface()
 			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_ROBOT_NAME] );
 
 			// reuse madlab's robot's face
-			VOBJECT_DESC VObjectDesc;
-			VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-			const UINT8 robot = CampaignMercenaryPolicy(
-				GetGameContext().capabilities())
-				.profile(CampaignProfileCode::Role::Robot);
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ robot ].ubFaceIndex );
-			AddVideoObject(&VObjectDesc, &gpEnemies[index].uiVObjectID);
+			if( !gfHeadlessAutoResolve )
+			{
+				VOBJECT_DESC VObjectDesc;
+				VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+				const UINT8 robot = CampaignMercenaryPolicy(
+					GetGameContext().capabilities())
+					.profile(CampaignProfileCode::Role::Robot);
+				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ robot ].ubFaceIndex );
+				AddVideoObject(&VObjectDesc, &gpEnemies[index].uiVObjectID);
+			}
 		}
 		for ( i = 0; i < gpAR->ubElites; ++i, ++index )
 		{
@@ -2434,12 +2471,10 @@ void CreateAutoResolveInterface()
 	{
 		gfBlitBattleSectorLocator = FALSE;
 	}
+}
 
-	//Build the interface buffer, and blit the "shaded" background.	This info won't
-	//change from now on, but will be used to restore text.
-	BuildInterfaceBuffer();
-	BlitBufferToBuffer( guiSAVEBUFFER, FRAME_BUFFER, 0 + xResOffset, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
-
+static void CreateAutoResolveButtons()
+{
 	//If we are bumping up the interface, then also use that piece of info to
 	//move the buttons up by the same amount.
 
@@ -2508,11 +2543,14 @@ void RemoveAutoResolveInterface( BOOLEAN fDeleteForGood )
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 	//VtResumeSampling();
 
-	MSYS_RemoveRegion( &gpAR->AutoResolveRegion );
-	DeleteVideoObjectFromIndex( gpAR->iPanelImages );
-	DeleteVideoObjectFromIndex( gpAR->iFaces );
-	DeleteVideoObjectFromIndex( gpAR->iIndent );
-	DeleteVideoSurfaceFromIndex( gpAR->iInterfaceBuffer );
+	if( !gfHeadlessAutoResolve )
+	{
+		MSYS_RemoveRegion( &gpAR->AutoResolveRegion );
+		DeleteVideoObjectFromIndex( gpAR->iPanelImages );
+		DeleteVideoObjectFromIndex( gpAR->iFaces );
+		DeleteVideoObjectFromIndex( gpAR->iIndent );
+		DeleteVideoSurfaceFromIndex( gpAR->iInterfaceBuffer );
+	}
 
 	if( fDeleteForGood )
 	{ //Delete the soldier instances -- done when we are completely finished.
@@ -2552,7 +2590,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 					RemoveCharacterFromSquads( gpMercs[ i ].pSoldier );
 					ChangeSoldiersAssignment( gpMercs[ i ].pSoldier, ASSIGNMENT_DEAD );
 
-					AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpMercs[ i ].pSoldier, RandomGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
+					AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpMercs[ i ].pSoldier, AutoResolveCorpseGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
 				}
 				else if( gpAR->ubBattleStatus == BATTLE_SURRENDERED || gpAR->ubBattleStatus == BATTLE_CAPTURED )
 				{
@@ -2622,7 +2660,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 
 	}
 	//Delete all of the faces.
-	for( i = 0; i < gpAR->iNumMercFaces; i++ )
+	for( i = 0; i < gpAR->iNumMercFaces && !gfHeadlessAutoResolve; i++ )
 	{
 		if( gpMercs[ i ].uiVObjectID != -1 )
 			DeleteVideoObjectFromIndex( gpMercs[ i ].uiVObjectID );
@@ -2683,7 +2721,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 					UpdateMilitia( militia );
 				}
 
-				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpCivs[ i ].pSoldier, RandomGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
+				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpCivs[ i ].pSoldier, AutoResolveCorpseGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
 				StrategicRemoveMilitiaFromSector( gpCivs[ i ].pSoldier->deployment().sectorX(), gpCivs[ i ].pSoldier->deployment().sectorY(), ubCurrentRank, 1 );
 
 				if( ProcessLoyalty() )
@@ -2715,7 +2753,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				TrackEnemiesKilled( ENEMY_KILLED_IN_AUTO_RESOLVE, gpEnemies[ i ].pSoldier->roster().soldierClass() );	//add casualty to some statistic
 				if( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ENEMY_KILLED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
 				ProcessQueenCmdImplicationsOfDeath( gpEnemies[ i ].pSoldier );
-				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpEnemies[ i ].pSoldier, RandomGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
+				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpEnemies[ i ].pSoldier, AutoResolveCorpseGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
 			}
 		}
 	}
@@ -2741,7 +2779,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		}
 	}
 
-	for( i = 0; i < NUM_AR_BUTTONS; ++i )
+	for( i = 0; i < NUM_AR_BUTTONS && !gfHeadlessAutoResolve; ++i )
 	{
 		UnloadButtonImage( gpAR->iButtonImage[ i ] );
 		RemoveButton( gpAR->iButton[ i ] );
@@ -5438,7 +5476,8 @@ BOOLEAN IsBattleOver()
 			{
 				if( gpMercs[ i ].uiFlags & CELL_EPC )
 				{
-					TacticalActorBattleSounds::play(*gpMercs[i].pSoldier, BATTLE_SOUND_DIE1);
+					if( !gfHeadlessAutoResolve )
+						TacticalActorBattleSounds::play(*gpMercs[i].pSoldier, BATTLE_SOUND_DIE1);
 					gpMercs[ i ].pSoldier->vitals().health() = 0;
 					gpMercs[ i ].pSoldier->vitals().healableInjury() = 0; // added by SANDRO
 					--gpAR->ubAliveMercs;
@@ -5446,7 +5485,7 @@ BOOLEAN IsBattleOver()
 			}
 		}
 
-		for( i = 0; i < gpAR->ubEnemies; ++i )
+		for( i = 0; i < gpAR->ubEnemies && !gfHeadlessAutoResolve; ++i )
 		{
 			if( gpEnemies[ i ].pSoldier->vitals().health() )
 			{
@@ -5578,6 +5617,8 @@ void SetupDoneInterface()
 {
 	INT32 i;
 	gpAR->fRenderAutoResolve = TRUE;
+	if( gfHeadlessAutoResolve )
+		return;
 
 	HideButton( gpAR->iButton[ PAUSE_BUTTON ] );
 	HideButton( gpAR->iButton[ PLAY_BUTTON ] );
@@ -5710,6 +5751,11 @@ void ProcessBattleFrame()
 
 	while( iTimeSlice > 0 )
 	{
+		if( gfHeadlessAutoResolve && gpAR->uiTotalElapsedBattleTimeInMilliseconds >= HEADLESS_AUTORESOLVE_MAX_MS )
+		{
+			gfHeadlessAutoResolveStalled = true;
+			return;
+		}
 		uiSlice = min( iTimeSlice, 1000 );
 		if( gpAR->ubBattleStatus == BATTLE_IN_PROGRESS )
 			gpAR->uiTotalElapsedBattleTimeInMilliseconds += uiSlice;
@@ -5868,6 +5914,83 @@ void ProcessBattleFrame()
 	}
 }
 
+
+static INT32 AutoResolveCorpseGridNo()
+{
+	// An unloaded sector's corpse/item drop only needs a start for its later
+	// sweet-spot search. The headless server has no loaded world whose render
+	// bounds RandomGridNo() could sample (it would never return).
+	if( gfHeadlessAutoResolve )
+		return ( WORLD_ROWS / 2 ) * WORLD_COLS + WORLD_COLS / 2;
+	return RandomGridNo();
+}
+
+NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,
+	NativeHeadlessAutoResolveSummary& summary )
+{
+	using Result = NativeHeadlessAutoResolveResult;
+	const UINT8 x = attacker.ubSectorX, y = attacker.ubSectorY;
+	if( gpAR || gfHeadlessAutoResolve || gfPreBattleInterfaceActive || IsHeadlessPreBattleActive() || ResolvePreBattleGroup() ||
+		x < 1 || x > 16 || y < 1 || y > 16 )
+		return Result::InvalidContext;
+	// Army attacks on militia-only sectors: creatures, bloodcats, zombies and
+	// bandits keep their own town-attack bookkeeping and are not covered here.
+	if( attacker.usGroupTeam != ENEMY_TEAM || !attacker.pEnemyGroup || attacker.fBetweenSectors || attacker.ubSectorZ ||
+		( IsJa2TacticalWorldLoaded() && gWorldSectorX == x && gWorldSectorY == y && !gbWorldSectorZ ) ||
+		!NumNonPlayerTeamMembersInSector( x, y, MILITIA_TEAM ) || !NumNonPlayerTeamMembersInSector( x, y, ENEMY_TEAM ) )
+		return Result::UnsupportedContext;
+	for( const GROUP* group = gpGroupList; group; group = group->next )
+		if( group->usGroupTeam == OUR_TEAM && group->ubGroupSize && !group->fBetweenSectors &&
+			group->ubSectorX == x && group->ubSectorY == y && !group->ubSectorZ )
+			return Result::UnsupportedContext; // mercs fight their own battles
+
+	// As the stock pre-battle interface does for an attack on militia.
+	SetEnemyEncounterCode( attacker.pEnemyGroup->ubIntention == TRANSPORT ? TRANSPORT_INTERCEPT_CODE : ENEMY_ENCOUNTER_CODE );
+	if( !SetPreBattleGroup( &attacker ) )
+		return Result::InvalidContext;
+	gfHeadlessAutoResolve = true;
+	gfHeadlessAutoResolveStalled = false;
+	AllocateAutoResolveState( x, y );
+	CalculateAutoResolveInfo();
+	CalculateSoldierCells( FALSE );
+	CreateAutoResolveParticipants();
+	DetermineTeamLeader( TRUE );
+	DetermineTeamLeader( FALSE );
+	CalculateAttackValues();
+	gpAR->fEnteringAutoResolve = FALSE;
+	gpAR->fExpanding = FALSE;
+	gpAR->fSound = FALSE;
+	// The stock Finish button: the whole battle in one call, one simulated
+	// second per pass, independent of real time.
+	gpAR->fInstantFinish = TRUE;
+	gpAR->uiTimeSlice = 0xffffffff;
+	gpAR->uiCurrTime = GetJA2Clock() | 1;
+	summary = {};
+	summary.militia = gpAR->ubCivs;
+	summary.enemies = gpAR->ubEnemies;
+	for( int pass = 0; pass < 4 && gpAR->ubBattleStatus == BATTLE_IN_PROGRESS && !gfHeadlessAutoResolveStalled; ++pass )
+		ProcessBattleFrame();
+	for( INT32 i = 0; i < gpAR->ubCivs; ++i )
+		if( gpCivs[ i ].pSoldier && gpCivs[ i ].pSoldier->vitals().health() < OKLIFE / 2 ) ++summary.militiaLost;
+	for( INT32 i = 0; i < gpAR->ubEnemies; ++i )
+		if( gpEnemies[ i ].pSoldier && gpEnemies[ i ].pSoldier->vitals().health() < OKLIFE ) ++summary.enemiesKilled;
+	summary.battleSeconds = gpAR->uiTotalElapsedBattleTimeInMilliseconds / 1000;
+	const UINT8 status = gpAR->ubBattleStatus;
+	const bool stalled = gfHeadlessAutoResolveStalled;
+	// The stock Done button: casualties, promotions, loyalty, the enemy's
+	// strategic losses, the battle's game time.
+	RemoveAutoResolveInterface( TRUE );
+	gfHeadlessAutoResolve = false;
+	gfHeadlessAutoResolveStalled = false;
+	if( stalled ) return Result::Stalled;
+	switch( status )
+	{
+		case BATTLE_VICTORY: return Result::Victory;
+		case BATTLE_DEFEAT: return Result::Defeat;
+		case BATTLE_RETREAT: return Result::Retreat;
+		default: return Result::Stalled;
+	}
+}
 
 BOOLEAN IsAutoResolveActive()
 {

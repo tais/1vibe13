@@ -597,8 +597,8 @@ void ReplyBattleNoticeUi(std::uint64_t request) noexcept
 		static_cast<unsigned long long>(c.sessionEpoch), static_cast<unsigned long long>(c.controlRevision),
 		static_cast<unsigned long long>(c.groupsRevision), static_cast<unsigned long long>(c.notice), c.armed,
 		c.enabled ? "true" : "false", c.pending ? "true" : "false");
-	if (ready) std::printf(",\"outcome\":%u,\"x\":%u,\"y\":%u,\"z\":%u,\"sector_control_lost\":%s",
-		c.kind, c.x, c.y, c.z, c.sectorControlLost ? "true" : "false");
+	if (ready) std::printf(",\"outcome\":%u,\"x\":%u,\"y\":%u,\"z\":%u,\"sector_control_lost\":%s,\"militia_lost\":%u,\"enemies_killed\":%u",
+		c.kind, c.x, c.y, c.z, c.sectorControlLost ? "true" : "false", c.militiaLost, c.enemiesKilled);
 	std::fputs("}", stdout); FlushReply();
 }
 

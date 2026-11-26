@@ -218,7 +218,10 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	}
 	if (request.action == CoopCampaignAction::AcknowledgeBattleNotice)
 	{
-		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
+		// A militia autoresolve notice is acknowledged on the map; the others
+		// end a loaded battle.
+		if (status.phase != (IsCoopCampaignMilitiaBattleNotice(status.battleNotice.kind)
+			? CoopCampaignPhase::Strategic : CoopCampaignPhase::Tactical)) return Outcome::Unavailable;
 		return request.decision == status.battleNotice.id ? Outcome::Applied : Outcome::Stale;
 	}
 	if (request.action == CoopCampaignAction::DeclineSurrender || request.action == CoopCampaignAction::AcceptSurrender)
@@ -226,7 +229,8 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 		if (status.phase != CoopCampaignPhase::Tactical) return Outcome::Unavailable;
 		return request.decision == status.surrenderOffer ? Outcome::Applied : Outcome::Stale;
 	}
-	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer) return Outcome::Unavailable;
+	if (status.phase != CoopCampaignPhase::Strategic || !worldlessStrategic || status.surrenderOffer || status.battleNotice.id)
+		return Outcome::Unavailable;
 	if (request.action == CoopCampaignAction::EnterSector)
 	{
 		// Load the group's own player-held sector for peaceful play, including an

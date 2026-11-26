@@ -12,7 +12,10 @@
 struct GROUP;
 enum class DedicatedCoopArrivalKind : std::uint8_t
 {
-	WildernessNpc, CoordinateAttack, Battle
+	WildernessNpc, CoordinateAttack, Battle,
+	// Server-only: an army attack on a sector only militia defend. There is no
+	// player choice in stock either; the server autoresolves it.
+	MilitiaBattle
 };
 struct DedicatedCoopArrivalDecision
 {
@@ -26,6 +29,17 @@ struct DedicatedCoopArrivalDecision
 	bool justRetreated = false, highPotentialForAmbush = false, autoAmbush = false, cantRetreat = false;
 };
 enum class DedicatedCoopArrivalReply : std::uint8_t { Acknowledge, Stop };
+enum class DedicatedCoopMilitiaBattleResult : std::uint8_t
+{
+	Resolved, NotPending, StaleDecision, NativeContextUnavailable, Failed
+};
+struct DedicatedCoopMilitiaBattleOutcome
+{
+	std::uint8_t x = 0, y = 0;
+	bool held = false;
+	std::uint16_t militia = 0, militiaLost = 0, enemies = 0, enemiesKilled = 0;
+	std::uint32_t battleSeconds = 0;
+};
 enum class DedicatedCoopArrivalReplyResult : std::uint8_t
 {
 	Applied, NotPending, StaleDecision, NativeContextUnavailable,
@@ -84,6 +98,7 @@ private:
 	friend DedicatedCoopArrivalPrepareResult PrepareDedicatedCoopArrivalBattle(std::uint64_t, NativePreBattlePreparation&) noexcept;
 	friend DedicatedCoopArrivalEnterResult EnterDedicatedCoopArrivalBattle(std::uint64_t, NativePreBattleDeployment) noexcept;
 	friend DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uint64_t) noexcept;
+	friend DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t, DedicatedCoopMilitiaBattleOutcome&) noexcept;
 	std::array<DedicatedCoopArrivalDecision, Capacity> decisions_{};
 	std::size_t count_ = 0;
 	std::uint64_t nextId_ = 1;
@@ -124,5 +139,11 @@ DedicatedCoopArrivalEnterResult EnterDedicatedCoopArrivalBattle(std::uint64_t de
 // ownership requirements as entry. Success consumes only the sole battle and
 // leaves time paused; partial native failure is latched, never replayed.
 DedicatedCoopArrivalRetreatResult RetreatFromDedicatedCoopArrivalBattle(std::uint64_t decision) noexcept;
+// Runs the stock autoresolve of the front militia battle headless and applies
+// it (casualties, promotions, loyalty, enemy losses, battle time), consuming
+// the decision. Context refusals have no side effects; anything else that does
+// not resolve latches a failure, never a silent skip.
+DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t decision,
+	DedicatedCoopMilitiaBattleOutcome& outcome) noexcept;
 
 #endif

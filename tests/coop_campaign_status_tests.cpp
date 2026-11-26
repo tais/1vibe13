@@ -289,7 +289,7 @@ void TestBattleNoticeObservation()
 			DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) && SameCoopCampaignStatus(status, decoded),
 			"each native battle outcome roundtrips its exact opaque ID and public sector");
 	}
-	for (const unsigned at : {94u, 95u, 109u, 110u, 111u})
+	for (const unsigned at : {94u, 95u, 111u})
 	{
 		auto bad = bytes; bad[at] = 1; decoded = status;
 		CHECK(!DecodeCoopCampaignStatus(bad.data(), bad.size(), decoded) && SameCoopCampaignStatus(status, decoded),
@@ -314,7 +314,7 @@ void TestBattleNoticeObservation()
 		auto bad = status;
 		if (fault == 0) bad.battleNotice.id = 0;
 		if (fault == 1) bad.battleNotice.kind = CoopCampaignBattleNoticeKind::None;
-		if (fault == 2) bad.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(5);
+		if (fault == 2) bad.battleNotice.kind = static_cast<CoopCampaignBattleNoticeKind>(7);
 		if (fault == 3) bad.battleNotice.x = 0;
 		if (fault == 4) bad.battleNotice.x = 17;
 		if (fault == 5) bad.battleNotice.y = 0;
@@ -352,6 +352,38 @@ void TestBattleNoticeObservation()
 	ledger.clear(); CHECK(ledger.beginSession(12) && ledger.observe(status, peers, 2), "explicit new session resets notice lineage");
 }
 
+void TestMilitiaBattleNotice()
+{
+	auto status = Sample();
+	status.phase = CoopCampaignPhase::Strategic; status.gamePaused = true;
+	status.battleNotice = {0x21ull, CoopCampaignBattleNoticeKind::MilitiaHeld, 9, 2, 0, false, 3, 7};
+	CoopCampaignStatusBytes bytes; CoopCampaignStatus decoded;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[104] == 5 && bytes[105] == 9 && bytes[106] == 2 &&
+		bytes[109] == 3 && bytes[110] == 7 && DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) &&
+		SameCoopCampaignStatus(status, decoded), "a militia notice carries its sector and casualty counts on the map");
+	status.battleNotice.kind = CoopCampaignBattleNoticeKind::MilitiaDefeated;
+	CHECK(EncodeCoopCampaignStatus(status, bytes) && bytes[104] == 6, "a militia defeat roundtrips");
+	{ auto withArrival = status; withArrival.arrival = {}; withArrival.arrival.decision = 4;
+		withArrival.arrival.kind = CoopCampaignArrivalKind::WildernessNpc; withArrival.arrival.stage = CoopCampaignArrivalStage::Pending;
+		withArrival.arrival.x = 10; withArrival.arrival.y = 1; withArrival.arrival.pendingCount = 1;
+		CHECK(EncodeCoopCampaignStatus(withArrival, bytes), "a militia notice may precede further queued arrivals"); }
+	for (unsigned fault = 0; fault != 7; ++fault)
+	{
+		auto bad = status;
+		if (fault == 0) bad.phase = CoopCampaignPhase::Tactical;
+		if (fault == 1) bad.battleNotice.z = 1;
+		if (fault == 2) bad.battleNotice.sectorControlLost = true;
+		if (fault == 3) bad.gamePaused = false;
+		if (fault == 4) { bad.compressionActive = true; bad.compressionMode = 1; }
+		if (fault == 5) { bad.phase = CoopCampaignPhase::Tactical; bad.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated; }
+		if (fault == 6) { bad.battleNotice.kind = CoopCampaignBattleNoticeKind::None; bad.battleNotice.id = 0; bad.battleNotice.x = bad.battleNotice.y = 0; }
+		CHECK(!EncodeCoopCampaignStatus(bad, bytes), "a militia notice is a paused map hold; counts belong to militia notices only");
+	}
+	(void)EncodeCoopCampaignStatus(status, bytes);
+	auto corrupt = bytes; corrupt[111] = 1;
+	CHECK(!DecodeCoopCampaignStatus(corrupt.data(), corrupt.size(), decoded), "the last notice byte stays reserved");
+}
+
 void TestSurrenderObservation()
 {
 	auto status = Sample(); status.surrenderOffer = 0x0807060504030201ull;
@@ -382,4 +414,4 @@ void TestSurrenderObservation()
 }
 
 }
-int main() { TestBattleNoticeObservation();  TestCodec(); TestSecuredSector(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }
+int main() { TestBattleNoticeObservation(); TestMilitiaBattleNotice();  TestCodec(); TestSecuredSector(); TestSurrenderObservation(); TestLedger(); TestText(); TestArrivalCodecAndText(); TestArrivalLedger(); return failures ? 1 : 0; }

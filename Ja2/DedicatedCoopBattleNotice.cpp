@@ -7,6 +7,7 @@
 #include "strategicmap.h"
 #include "strategic.h"
 #include "connect.h"
+#include <algorithm>
 #include <cstdio>
 #include <limits>
 
@@ -86,6 +87,31 @@ bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int
 	return true;
 }
 
+bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, bool held,
+	std::uint16_t militiaLost, std::uint16_t enemiesKilled) noexcept
+{
+	if (!bound || !IsDedicatedCoopProcess() || is_networked || is_client || is_server) return false;
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	if (bound->failure_) return false;
+	if (bound->notice_.id || x < 1 || x > 16 || y < 1 || y > 16)
+	{ bound->failure_ = bound->notice_.id ? "overlapping native battle notices" : "invalid militia battle notice"; return false; }
+	if (bound->nextId_ == std::numeric_limits<std::uint64_t>::max())
+	{ bound->failure_ = "native battle notice IDs exhausted"; return false; }
+	DedicatedCoopBattleNotice notice;
+	notice.id = bound->nextId_++;
+	notice.sector = {x, y, 0};
+	notice.kind = held ? DedicatedCoopBattleNoticeKind::MilitiaHeld : DedicatedCoopBattleNoticeKind::MilitiaDefeated;
+	notice.militiaLost = static_cast<std::uint8_t>(std::min<std::uint16_t>(militiaLost, 255));
+	notice.enemiesKilled = static_cast<std::uint8_t>(std::min<std::uint16_t>(enemiesKilled, 255));
+	bound->notice_ = notice;
+	bound->acknowledged_ = false;
+	std::printf("[dedicated] militia battle notice pending: id=%llu; sector=%u,%u; outcome=%s; militia_lost=%u; enemies_killed=%u; awaiting a player acknowledgement\n",
+		static_cast<unsigned long long>(notice.id), unsigned(x), unsigned(y), held ? "held" : "defeated",
+		unsigned(notice.militiaLost), unsigned(notice.enemiesKilled));
+	std::fflush(stdout);
+	return true;
+}
+
 DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t id) noexcept
 {
 	using Result = DedicatedCoopBattleNoticeResult;
@@ -94,6 +120,15 @@ DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64
 	if (!bound->notice_.id) return Result::NotPending;
 	if (!id || id != bound->notice_.id) return Result::StaleNotice;
 	if (bound->acknowledged_) return Result::NotPending;
+	if (IsDedicatedCoopMilitiaBattleNotice(bound->notice_.kind))
+	{
+		// Nothing to unload: the battle was resolved and applied already.
+		if (IsJa2TacticalWorldLoaded()) return Result::NativeContextChanged;
+		std::printf("[dedicated] militia battle notice acknowledged: id=%llu\n", static_cast<unsigned long long>(id));
+		std::fflush(stdout);
+		bound->notice_ = {};
+		return Result::Applied;
+	}
 	if (!SameContext(bound->notice_)) return Result::NativeContextChanged;
 	bound->acknowledged_ = true;
 	return Result::Applied;

@@ -532,6 +532,31 @@ void BattleNoticeSerialization()
 		f.authority.deliveries()[0].result.outcome == CoopCampaignActionOutcome::Stale, "old notice cannot target a later battle");
 }
 
+void MilitiaBattleNoticeOnTheMap()
+{
+	Fixture f;
+	auto clock = f.status.value(); clock.phase = CoopCampaignPhase::Strategic; clock.gamePaused = true;
+	clock.battleNotice = {12, CoopCampaignBattleNoticeKind::MilitiaDefeated, 9, 2, 0, false, 1, 0};
+	CHECK(f.status.observe(clock, f.identities, 2), "an autoresolved militia battle holds the map");
+	auto ack = f.arrival(CoopCampaignAction::AcknowledgeBattleNotice); ack.decision = 12;
+	for (unsigned peer = 0; peer != 2; ++peer)
+		CHECK(ValidateCoopCampaignActionRequest(ack, f.status.value(), f.groups, f.identities[peer], true, true, true) ==
+			CoopCampaignActionOutcome::Applied, "either ready player acknowledges a militia notice on the map");
+	auto stale = ack; stale.decision = 11;
+	CHECK(ValidateCoopCampaignActionRequest(stale, f.status.value(), f.groups, f.identities[0], true, true, true) ==
+		CoopCampaignActionOutcome::Stale, "only the shown notice can be acknowledged");
+	auto assign = f.request(); assign.action = CoopCampaignAction::SetAssignment; assign.group = {};
+	assign.decision = 0x0003u | (std::uint64_t(0x01020304u) << 16); assign.destinationX = 5; assign.destinationY = 4;
+	assign.controlRevision = f.status.value().timeControlRevision;
+	CHECK(ValidateCoopCampaignActionRequest(assign, f.status.value(), f.groups, f.identities[1], true, true, true) ==
+		CoopCampaignActionOutcome::Unavailable, "map actions wait for the militia notice");
+	clock = f.status.value(); clock.phase = CoopCampaignPhase::Tactical;
+	clock.battleNotice = {13, CoopCampaignBattleNoticeKind::Defeated, 9, 1, 0};
+	CHECK(f.status.observe(clock, f.identities, 2), "a tactical defeat notice");
+	clock = f.status.value(); clock.phase = CoopCampaignPhase::Strategic;
+	CHECK(!f.status.observe(clock, f.identities, 2), "a tactical defeat notice cannot appear on the map");
+}
+
 void SurrenderSerialization()
 {
 	Fixture f;
@@ -565,4 +590,4 @@ void SurrenderSerialization()
 }
 
 }
-int main() { BattleNoticeSerialization();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); TimeLeadTransfer(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }
+int main() { BattleNoticeSerialization(); MilitiaBattleNoticeOnTheMap();  Codec(); SurrenderSerialization(); PolicyAndState(); ReturnToMapFromSecuredSector(); EnterSectorForPeacefulPlay(); TakeExitGridFromSecuredSector(); SetAssignmentOnTheMap(); ContractDecisions(); TimeLeadTransfer(); ReceiptsAndSerialization(); TransportAndFailure(); return failures ? 1 : 0; }

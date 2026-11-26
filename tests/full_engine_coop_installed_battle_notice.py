@@ -9,7 +9,8 @@ from full_engine_coop_installed_movement import MovementFailure
 
 def validate(value):
     base = {"request", "kind", "ready"}
-    fields = {"session", "control_revision", "groups_revision", "notice", "armed", "enabled", "pending", "outcome", "x", "y", "z", "sector_control_lost"}
+    fields = {"session", "control_revision", "groups_revision", "notice", "armed", "enabled", "pending", "outcome", "x", "y", "z",
+              "sector_control_lost", "militia_lost", "enemies_killed"}
     if (not isinstance(value, dict) or value.get("kind") != "battle_notice_ui" or
             not integer(value.get("request"), 1) or type(value.get("ready")) is not bool or
             set(value) != base | (fields if value["ready"] else set())):
@@ -17,7 +18,9 @@ def validate(value):
     if not value["ready"]:
         return False
     if (any(not integer(value[key], 1) for key in ("session", "control_revision", "groups_revision", "notice")) or
-            not integer(value["outcome"], 1, 4) or not integer(value["x"], 1, 16) or
+            not integer(value["outcome"], 1, 6) or not integer(value["x"], 1, 16) or
+            not integer(value["militia_lost"], 0, 255) or not integer(value["enemies_killed"], 0, 255) or
+            (value["outcome"] <= 4 and (value["militia_lost"] or value["enemies_killed"])) or
             not integer(value["y"], 1, 16) or not integer(value["z"], 0, 3) or not integer(value["armed"]) or value["armed"] not in (0, 9) or
             any(type(value[key]) is not bool for key in ("enabled", "pending", "sector_control_lost")) or
             (value["pending"] and (value["enabled"] or value["armed"])) or

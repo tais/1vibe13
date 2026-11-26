@@ -907,6 +907,18 @@ bool RenderBattleNotice(const FullEngineCoopClientRuntime& runtime) noexcept
 	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
 	using Kind = CoopSession::CoopCampaignBattleNoticeKind;
 	const auto& notice = status.battleNotice;
+	if (CoopSession::IsCoopCampaignMilitiaBattleNotice(notice.kind))
+	{
+		mprintf(24, 82, L"Enemy forces attacked the militia at %lc%u.", static_cast<wint_t>(L'A' + notice.y - 1), unsigned(notice.x));
+		SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+		mprintf(24, 106, notice.kind == Kind::MilitiaHeld ? L"The militia held: %u militia lost, %u enemies killed."
+			: L"The militia were defeated: %u militia lost, %u enemies killed.", unsigned(notice.militiaLost), unsigned(notice.enemiesKilled));
+		if (controls.pending) mprintf(24, 130, L"Waiting for the server...");
+		else if (controls.armed) mprintf(24, 130, L"Continue? Enter: confirm   Esc: cancel");
+		else mprintf(24, 130, L"C: continue");
+		mprintf(24, 154, L"Either player may continue. The campaign remains paused.");
+		return true;
+	}
 	const wchar_t* outcome = notice.kind == Kind::Defeated ? L"Your squad was defeated" :
 		notice.kind == Kind::DefeatedByCreatures ? L"Your squad was defeated by creatures" :
 		notice.kind == Kind::Captured ? L"Your unconscious mercs were captured" : L"Your squad surrendered";
@@ -1824,6 +1836,7 @@ bool CaptureFullEngineCoopClientBattleNoticeControls(FullEngineCoopClientBattleN
 	output.groupsRevision = groups.revision; output.notice = status.battleNotice.id;
 	output.sectorControlLost = status.battleNotice.sectorControlLost;
 	output.kind = unsigned(status.battleNotice.kind); output.x = status.battleNotice.x; output.y = status.battleNotice.y; output.z = status.battleNotice.z;
+	output.militiaLost = status.battleNotice.militiaLost; output.enemiesKilled = status.battleNotice.enemiesKilled;
 	output.armed = BattleNoticeInput.armed(); output.enabled = BattleNoticeInput.enabled();
 	return true;
 }
