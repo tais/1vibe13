@@ -2540,6 +2540,15 @@ private:
 			else ReplyReturnMapInput(request, values, campaignUiInputs_);
 			return;
 		}
+		if (operation == "RUN_TOGGLE")
+		{
+			if (!cursor.exhausted()) { ReplyError(request, "RUN_TOGGLE takes only a request id"); return; }
+			controller_.toggleRunning();
+			std::printf("%s{\"request\":%llu,\"kind\":\"run_toggle\",\"running\":%s}", ReplyPrefix,
+				static_cast<unsigned long long>(request), controller_.running() ? "true" : "false");
+			FlushReply();
+			return;
+		}
 		if (operation == "HAND_OVER_UI")
 		{
 			if (!cursor.exhausted()) ReplyError(request, "HAND_OVER_UI takes only a request id");

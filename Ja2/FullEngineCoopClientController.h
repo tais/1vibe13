@@ -84,6 +84,9 @@ public:
 	bool eraseDestinationDigit() noexcept;
 	void cancelDestinationEntry() noexcept;
 	void toggleReverse() noexcept;
+	// The player's run toggle: later moves of a standing merc run.
+	void toggleRunning() noexcept { running_ = !running_; }
+	bool running() const noexcept { return running_; }
 	bool enteringDestination() const noexcept { return enteringDestination_; }
 	// H: the grid entry names a throw target instead of a move destination.
 	bool beginThrowEntry(const FullEngineCoopClientControllerView& view) noexcept;
@@ -272,6 +275,7 @@ private:
 	bool enteringDestination_ = false;
 	bool throwEntry_ = false;
 	bool reverse_ = false;
+	bool running_ = false;
 	TacticalEntityId attackTarget_{};
 	std::uint64_t attackWorldEpoch_ = 0;
 	std::uint8_t attackAimTime_ = 1;

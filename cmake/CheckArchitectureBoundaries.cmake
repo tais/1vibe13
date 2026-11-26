@@ -4957,6 +4957,20 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 4.5: both client move paths take the movement mode from the one shared
+# stance rule, with the player's run toggle; the server keeps validating it.
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp" coop_run_screen_source)
+require_ordered_fragments(coop_run_screen_source
+  "The keyboard move path must use the shared movement-mode rule with the run toggle"
+  "valid = FullEngineCoopClientMovementModeFor(actor, Controller.running(), mode);"
+  "Controller.toggleRunning();")
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientMovementMode.h" coop_run_mode_source)
+require_ordered_fragments(coop_run_mode_source
+  "Only a standing merc may run; other stances keep their stock mode"
+  "inline constexpr std::uint16_t Ja2RunningMovementMode = 6;"
+  "output = running ? Ja2RunningMovementMode : Ja2WalkingMovementMode;"
+  "output = Ja2CrouchedMovementMode;" "output = Ja2ProneMovementMode;")
+
 # 7.1: only the player controlling a merc in this world may give it away, and
 # only to another participant; the ledger changes only at its own hand-over.
 require_ordered_fragments(dedicated_live_runtime_code
@@ -8744,7 +8758,7 @@ require_ordered_fragments(dedicated_live_client_presentation_interaction_dispatc
   "ResultKind::InventoryOpened"
   "ResolveFullEngineCoopClientAssignedActorAtGrid("
   "controller.selectActor(view, actor)"
-  "MovementModeFor(*selected, movementMode)"
+  "FullEngineCoopClientMovementModeFor(*selected, controller.running(), movementMode)"
   "controller.moveToGrid(view, grid, movementMode)"
   "ResultKind::IntentReady"
   "result.intent = intent")

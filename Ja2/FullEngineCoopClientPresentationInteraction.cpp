@@ -1,32 +1,11 @@
 #include "FullEngineCoopClientPresentationInteraction.h"
 
+#include "FullEngineCoopClientMovementMode.h"
+
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
 namespace
 {
-constexpr std::uint16_t Ja2WalkingMovementMode = 0;
-constexpr std::uint16_t Ja2CrouchedMovementMode = 5;
-constexpr std::uint16_t Ja2ProneMovementMode = 8;
-
-bool MovementModeFor(const TacticalActorSnapshot& actor,
-	std::uint16_t& output) noexcept
-{
-	switch (actor.stance)
-	{
-		case TacticalStance::Standing:
-			output = Ja2WalkingMovementMode;
-			return true;
-		case TacticalStance::Crouched:
-			output = Ja2CrouchedMovementMode;
-			return true;
-		case TacticalStance::Prone:
-			output = Ja2ProneMovementMode;
-			return true;
-		case TacticalStance::Unknown:
-			return false;
-	}
-	return false;
-}
 
 FullEngineCoopClientPresentationInteractionResult Result(
 	FullEngineCoopClientPresentationInteractionKind kind) noexcept
@@ -124,7 +103,8 @@ DispatchFullEngineCoopClientPresentationClick(
 	const TacticalActorSnapshot* const selected =
 		view.snapshot->find(controller.selectedActor());
 	std::uint16_t movementMode = 0;
-	if (selected == nullptr || !MovementModeFor(*selected, movementMode))
+	if (selected == nullptr ||
+		!FullEngineCoopClientMovementModeFor(*selected, controller.running(), movementMode))
 		return {};
 	FullEngineCoopClientIntentRequest intent =
 		controller.moveToGrid(view, grid, movementMode);

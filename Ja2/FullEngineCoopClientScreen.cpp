@@ -7,6 +7,7 @@
 #include "FullEngineCoopClientBattleNoticeInput.h"
 #include "FullEngineCoopClientReturnToMapInput.h"
 #include "FullEngineCoopClientHandOverInput.h"
+#include "FullEngineCoopClientMovementMode.h"
 #include "FullEngineCoopClientMeanwhileInput.h"
 #include "FullEngineCoopClientCampaignHireInput.h"
 #include "FullEngineCoopClientCampaignStatusText.h"
@@ -100,9 +101,6 @@ FullEngineCoopClientCampaignHireKey CampaignHireKey(UINT32 key) noexcept
 // CoopTacticalIntent deliberately carries the authority's raw JA2 movement
 // animation ID. These are the stable non-fast defaults from AnimationStates;
 // the server still validates them against the live assigned actor.
-constexpr std::uint16_t Ja2WalkingMovementMode = 0;
-constexpr std::uint16_t Ja2CrouchedMovementMode = 5;
-constexpr std::uint16_t Ja2ProneMovementMode = 8;
 
 const wchar_t* StanceName(TacticalStance stance) noexcept
 {
@@ -328,21 +326,9 @@ FullEngineCoopClientControllerView ControllerView(
 std::uint16_t MovementModeFor(const TacticalActorSnapshot& actor,
 	bool& valid) noexcept
 {
-	valid = true;
-	switch (actor.stance)
-	{
-		case TacticalStance::Standing:
-			return Ja2WalkingMovementMode;
-		case TacticalStance::Crouched:
-			return Ja2CrouchedMovementMode;
-		case TacticalStance::Prone:
-			return Ja2ProneMovementMode;
-		case TacticalStance::Unknown:
-			valid = false;
-			return Ja2WalkingMovementMode;
-	}
-	valid = false;
-	return Ja2WalkingMovementMode;
+	std::uint16_t mode = Ja2WalkingMovementMode;
+	valid = FullEngineCoopClientMovementModeFor(actor, Controller.running(), mode);
+	return mode;
 }
 
 bool Submit(FullEngineCoopClientIntentRequest request,
@@ -892,6 +878,11 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			case 'v':
 			case 'V':
 				(void)Submit(Controller.cycleWeaponMode(view), view);
+				break;
+			case 'z':
+			case 'Z':
+				// Later moves of a standing merc run (stock R; R is reload here).
+				Controller.toggleRunning();
 				break;
 			case 't':
 			case 'T':
@@ -1696,8 +1687,8 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 			{
 				static const wchar_t* const Modes[] = {L"single", L"burst", L"auto", L"launcher", L"launcher burst",
 					L"launcher auto", L"underbarrel", L"underbarrel burst", L"underbarrel auto", L"mode 9"};
-				mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d | V fire mode: %ls", unsigned(actor->handMedicalKitPoints),
-					actor->bleeding, Modes[actor->weaponMode < 10 ? actor->weaponMode : 9]);
+				mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d | V fire mode: %ls | Z %ls", unsigned(actor->handMedicalKitPoints),
+					actor->bleeding, Modes[actor->weaponMode < 10 ? actor->weaponMode : 9], Controller.running() ? L"running" : L"walking");
 			}
 			mprintf(12, 62, L"Providing aid %ls | receiving %u | Space stop aid", actor->medicalService.providing ? L"yes" : L"no",
 				unsigned(actor->medicalService.receivingCount));

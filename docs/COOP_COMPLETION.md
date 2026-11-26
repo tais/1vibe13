@@ -4258,3 +4258,22 @@ the grenade scattered about three tiles short (aimed 6611, exploded 6132) and
 did not hurt the enemy, which is stock throwing, not a co-op fault. Negative
 control: with the throw resolver accepting only non-explosive thrown items the
 throw is refused and the probe fails.
+
+## Phase 4.5 (first slice): running
+
+- The move intent already carried the raw JA2 movement mode, and the server
+  already checked it against the live merc (stock `isValidMovementMode`), but
+  the client only ever sent walk, swat or crawl from the stance. Now the
+  player's run toggle (Z on the Screen; stock uses R, which is reload here)
+  makes every later move of a standing merc a `RUNNING` move, through the
+  world click and the keyboard destination alike. Crouched and prone moves
+  keep their stance's mode. The two client copies of the stance-to-mode rule
+  are now one helper (`FullEngineCoopClientMovementMode.h`, unit-tested).
+- Not yet: sneaking/stealth (stock Z; needs another key here) and the
+  stealth flag itself (`SetStealthModeCommand`).
+
+Installed evidence (`full_engine_coop_installed_running.py`): in the secured
+A9 after the seeded victory, a player turns the toggle on and sends a standing
+merc about six tiles through the world-click path; both clients show the merc
+in the stock `RUNNING` animation (6) and it arrives. Negative control: with the
+click path ignoring the toggle the merc walks and the probe fails.
