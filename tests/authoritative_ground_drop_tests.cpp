@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 	GetMapElement(origin).pRoofHead = &obstacle; reject("roof-covered tile is outside the empty clear-ground slice");
 	GetMapElement(origin).pRoofHead = nullptr;
 	source[0]->data.bTrap = 1; reject("trapped source rejects"); source[0]->data.bTrap = 0;
-	MakeObject(source[0]->attachments.front(), FIRSTAIDKIT, 1, 50); reject("complex attached source rejects");
+	MakeObject(source[0]->attachments.front(), DEFAULT_VEST, 1, 50); reject("an unsupported attached graph rejects");
 	source[0]->attachments.front().initialize();
 	actor.actionPoints().current() = 3; reject("insufficient combat AP never moves the stack"); actor.actionPoints().current() = 20;
 	actor.animationPlayback().state() = WALKING; reject("moving merc cannot drop a retained stack");
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 	CHECK(dispatch(stale).status == SimulationCommandDispatchStatus::Discarded, "stale turn rejects");
 	for (const auto slot : {HANDPOS, SECONDHANDPOS, HELMETPOS})
 		CHECK(!PrepareAuthoritativeDropInventoryItemCommand(actorId, slot, stale), "hands and equipment never enter pocket drop");
-	MakeObject(actor.inventory()[SECONDHANDPOS], KEY_1, 1, 97);
+	MakeObject(actor.inventory()[SECONDHANDPOS], DEFAULT_VEST, 1, 97); // keys are ordinary now; gear stays opaque
 	const auto* opaque = &actor.inventory()[SECONDHANDPOS].objectStack.front();
 	CHECK(PrepareAuthoritativeDropInventoryItemCommand(actorId, BIGPOCK2POS, command), "unrelated opaque hands do not block drop");
 	MakeObject(competitor.inventory()[BIGPOCK2POS], FIRSTAIDKIT, 1, 50);

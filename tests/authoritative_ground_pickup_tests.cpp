@@ -628,7 +628,7 @@ int main(int argc, char** argv)
 	inspectNearby(actorId, itemId, false, "armed object payload is not exposed as nearby loot");
 	rejected("object armed-bomb flag rejects");
 	worldObject().fFlags &= ~OBJECT_ARMED_BOMB;
-	MakeObject(worldObject()[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
+	MakeObject(worldObject()[0]->attachments.front(), DEFAULT_VEST, 1, 80);
 	inspectNearby(actorId, itemId, false, "unsupported attachment graph is not exposed as nearby loot");
 	rejected("attachment-bearing graph is not an ordinary world pickup");
 	CHECK(authority.capture(actorId, command.expectedWorldGeneration, next) && next.groundItems.empty(),
@@ -698,7 +698,8 @@ int main(int argc, char** argv)
 		dispatch(command).status == SimulationCommandDispatchStatus::Discarded, "standing blocks combat backpack pickup");
 	actor.animationPlayback().state() = CROUCHING;
 	gGameOptions.ubInventorySystem = INVENTORY_OLD;
-	MakeObject(actor.inventory()[SECONDHANDPOS], KEY_1, 1, 97);
+	// Keys are ordinary now; an unclassified gear item stays opaque.
+	MakeObject(actor.inventory()[SECONDHANDPOS], DEFAULT_VEST, 1, 97);
 	const auto* opaqueNode = &actor.inventory()[SECONDHANDPOS].objectStack.front();
 	CHECK(CaptureInventorySwapObjectState(actorId, SECONDHANDPOS) == 0 &&
 		PrepareAuthoritativePickupWorldItemCommand(actorId, itemId, BIGPOCK2POS, command),

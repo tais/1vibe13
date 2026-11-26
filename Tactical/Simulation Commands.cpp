@@ -822,7 +822,12 @@ namespace
 		MixTraversalState(fingerprint, data.sObjectFlag);
 	}
 
-	std::uint64_t CaptureOrdinaryInventoryObject(const OBJECTTYPE& object) noexcept
+	// Attachments are ordinary objects themselves (a scope, a loaded launcher
+	// grenade, an under-barrel launcher with its own grenade); two levels bound
+	// the recursion, deeper graphs stay outside this slice.
+	constexpr unsigned MaximumOrdinaryAttachmentDepth = 2;
+
+	std::uint64_t CaptureOrdinaryInventoryObjectAtDepth(const OBJECTTYPE& object, unsigned depth) noexcept
 	{
 		if (!object.exists())
 			return IsCanonicalEmptyInventoryObject(object) ? 1 : 0;
@@ -836,9 +841,14 @@ namespace
 		switch (itemClass)
 		{
 			case IC_GUN: case IC_AMMO: case IC_BLADE: case IC_THROWING_KNIFE:
-			case IC_ARMOUR: case IC_MEDKIT: case IC_KIT: case IC_FACE: case IC_MISC: break;
+			case IC_ARMOUR: case IC_MEDKIT: case IC_KIT: case IC_FACE: case IC_MISC:
+			// Loot a campaign needs: launchers, thrown items and grenades,
+			// unarmed explosives, appliables and keys. Load-bearing gear (its
+			// contents live in a separate native node table) and money stay out.
+			case IC_LAUNCHER: case IC_THROWN: case IC_GRENADE: case IC_BOMB: case IC_APPLIABLE: case IC_KEY: break;
 			default: return 0;
 		}
+		const bool gunLike = itemClass == IC_GUN || itemClass == IC_LAUNCHER;
 		std::uint64_t fingerprint = 1469598103934665603ull;
 		MixTraversalState(fingerprint, object.usItem);
 		MixTraversalState(fingerprint, object.ubNumberOfObjects);
@@ -848,21 +858,35 @@ namespace
 		{
 			const ObjectData& data = stack.data;
 			if (data.bTrap != 0 || !std::isfinite(data.bTemperature) ||
-				!HasOnlyEmptyAttachmentSlots(stack) || data.gun.ubGunAmmoType == UINT8_MAX)
+				stack.attachments.size() > MAX_ATTACHMENTS || data.gun.ubGunAmmoType == UINT8_MAX)
 				return 0; // Keep the native active-LBE alias outside this ordinary slice.
-			if (itemClass == IC_GUN)
+			if (gunLike)
 			{
 				if (data.gun.bGunStatus < 0 || data.gun.bGunStatus > 100 ||
 					data.gun.usGunAmmoItem >= MAXITEMS) return 0;
 			}
-			else if (data.gun.ubGunAmmoType != 0 || data.gun.ubGunShotsLeft != 0 ||
+			// A key's ID shares the union byte of a gun's ammo type (mixed below).
+			else if ((itemClass != IC_KEY && data.gun.ubGunAmmoType != 0) || data.gun.ubGunShotsLeft != 0 ||
 				data.gun.usGunAmmoItem != 0 || data.gun.bGunAmmoStatus != 0 || data.gun.ubGunState != 0 ||
 				(itemClass != IC_AMMO && (data.objectStatus < 0 || data.objectStatus > 100)))
 				return 0; // No hidden alternate-union payload in this ordinary slice.
 			MixInventoryObjectData(fingerprint, data);
 			MixTraversalState(fingerprint, static_cast<std::uint8_t>(stack.attachments.size()));
+			for (const OBJECTTYPE& attachment : stack.attachments)
+			{
+				if (IsCanonicalEmptyInventoryObject(attachment)) { MixTraversalState(fingerprint, std::uint8_t{1}); continue; }
+				if (depth >= MaximumOrdinaryAttachmentDepth) return 0;
+				const std::uint64_t attached = CaptureOrdinaryInventoryObjectAtDepth(attachment, depth + 1);
+				if (attached == 0) return 0;
+				MixTraversalState(fingerprint, attached);
+			}
 		}
 		return fingerprint != 0 ? fingerprint : 1;
+	}
+
+	std::uint64_t CaptureOrdinaryInventoryObject(const OBJECTTYPE& object) noexcept
+	{
+		return CaptureOrdinaryInventoryObjectAtDepth(object, 0);
 	}
 
 	bool InventorySwapPoseReady(const TacticalActor& actor) noexcept
@@ -1531,8 +1555,9 @@ namespace
 		if (medic.inventory().size() <= HANDPOS) return 0;
 		const OBJECTTYPE& kit = medic.inventory()[HANDPOS];
 		const std::uint64_t fingerprint = CaptureOrdinaryInventoryObject(kit);
+		// Stock kits carry no attachments; an attached object stays outside first aid.
 		return fingerprint != 0 && kit.exists() && Item[kit.usItem].usItemClass == IC_MEDKIT &&
-			kit[0]->data.objectStatus > 0 ? fingerprint : 0;
+			HasOnlyEmptyAttachmentSlots(*kit[0]) && kit[0]->data.objectStatus > 0 ? fingerprint : 0;
 	}
 
 	bool FirstAidStartPoseReady(const TacticalActor& actor) noexcept

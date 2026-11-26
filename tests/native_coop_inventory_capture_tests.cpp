@@ -176,8 +176,41 @@ int main()
 	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) == 0, "nonfinite object state is unsupported");
 	pocket[0]->data.bTemperature = 12.5f;
 	MakeObject(pocket[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
-	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) == 0, "actual attachment graphs are unsupported");
+	const auto attachedState = CaptureInventorySwapObjectState(id, BIGPOCK1POS);
+	CHECK(attachedState != 0 && attachedState != ordinary, "an ordinary attachment is part of an ordinary graph's state");
+	pocket[0]->attachments.front()[0]->data.objectStatus = 70;
+	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) != attachedState, "the attachment's own state is fingerprinted");
+	MakeObject(pocket[0]->attachments.front(), DEFAULT_VEST, 1, 80);
+	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) == 0,
+		"an attachment that is not ordinary itself (load-bearing gear) keeps the graph unsupported");
 	pocket[0]->attachments.front().initialize();
+	{
+		// Campaign loot classes: keys (their ID is state), grenades, a launcher
+		// with its grenade attached, appliables; load-bearing gear stays out.
+		Item[KEY_1].usItemClass = IC_KEY;
+		Item[GL_HE_GRENADE].usItemClass = IC_GRENADE;
+		Item[GLAUNCHER].usItemClass = IC_LAUNCHER;
+		Item[ADRENALINE_BOOSTER].usItemClass = IC_APPLIABLE;
+		OBJECTTYPE& loot = actor.inventory()[BIGPOCK3POS];
+		const OBJECTTYPE saved = loot;
+		MakeObject(loot, KEY_1, 1, 100);
+		loot[0]->data.key.ubKeyID = 7;
+		const auto key7 = CaptureInventorySwapObjectState(id, BIGPOCK3POS);
+		loot[0]->data.key.ubKeyID = 8;
+		CHECK(key7 != 0 && CaptureInventorySwapObjectState(id, BIGPOCK3POS) != key7,
+			"a key is ordinary and its ID is part of its state");
+		MakeObject(loot, GL_HE_GRENADE, 2, 90);
+		CHECK(CaptureInventorySwapObjectState(id, BIGPOCK3POS) != 0, "a grenade stack is ordinary");
+		MakeObject(loot, GLAUNCHER, 1, 95);
+		loot[0]->attachments.resize(1);
+		MakeObject(loot[0]->attachments.front(), GL_HE_GRENADE, 1, 100);
+		CHECK(CaptureInventorySwapObjectState(id, BIGPOCK3POS) != 0, "a launcher with its grenade attached is ordinary");
+		MakeObject(loot, ADRENALINE_BOOSTER, 1, 100);
+		CHECK(CaptureInventorySwapObjectState(id, BIGPOCK3POS) != 0, "an appliable is ordinary");
+		MakeObject(loot, DEFAULT_VEST, 1, 100);
+		CHECK(CaptureInventorySwapObjectState(id, BIGPOCK3POS) == 0, "load-bearing gear stays outside the ordinary slice");
+		loot = saved;
+	}
 	pocket[0]->data.gun.ubGunAmmoType = UINT8_MAX;
 	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) == 0, "active LBE union alias is unsupported");
 	pocket[0]->data.gun.ubGunAmmoType = 0;
@@ -245,7 +278,7 @@ int main()
 		static_cast<UINT16>(metrics.slots[SMALLPOCK1POS].firstCondition) == 40000 &&
 		metrics.slots[SMALLPOCK1POS].resourceTotal == 105535,
 		"unsigned native ammunition quantities do not turn into negative totals");
-	MakeObject(ammunition[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
+	MakeObject(ammunition[0]->attachments.front(), DEFAULT_VEST, 1, 80);
 	CHECK(metricsAuthority.capture(id, world.worldGeneration, metrics) &&
 		metrics.slots[SMALLPOCK1POS].support == Support::UnsupportedComplex &&
 		metrics.slots[SMALLPOCK1POS].statusKind == Status::Unknown && metrics.slots[SMALLPOCK1POS].resourceTotal == 0,

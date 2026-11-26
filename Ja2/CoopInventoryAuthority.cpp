@@ -33,14 +33,17 @@ bool CaptureOrdinarySlotMetrics(const OBJECTTYPE& object,
 	CoopSession::CoopInventorySlotSummary& slot) noexcept
 {
 	using Kind = CoopSession::CoopInventoryStatusKind;
-	// The ordinary-object proof has already rejected attachments, traps and
-	// alternate union payloads. Never invent semantic details for opaque graphs.
+	// The ordinary-object proof has already rejected traps, alternate union
+	// payloads and attachment graphs that are not ordinary themselves. Never
+	// invent semantic details for opaque graphs; attachments are not summarized.
+	// Every class the proof admits must be handled here: a false return fails
+	// the whole inventory capture.
 	switch (Item[object.usItem].usItemClass)
 	{
 		case IC_AMMO: slot.statusKind = Kind::AmmoRounds; break;
 		case IC_MEDKIT: slot.statusKind = Kind::MedicalKitPoints; break;
 		case IC_KIT: slot.statusKind = Kind::ToolKitPoints; break;
-		case IC_MISC:
+		case IC_MISC: case IC_APPLIABLE:
 			// Plain misc objects can move without using them. Their first-status
 			// union may mean remaining drink, food or something else; keep the
 			// existing raw value without inventing condition or resource points.
@@ -48,6 +51,7 @@ bool CaptureOrdinarySlotMetrics(const OBJECTTYPE& object,
 			return true;
 		case IC_GUN: case IC_BLADE: case IC_THROWING_KNIFE:
 		case IC_ARMOUR: case IC_FACE:
+		case IC_LAUNCHER: case IC_THROWN: case IC_GRENADE: case IC_BOMB: case IC_KEY:
 			slot.statusKind = Kind::Condition;
 			return slot.firstCondition >= 0 && slot.firstCondition <= 100;
 		default: return false;

@@ -4957,6 +4957,31 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 5.1: the whole-object fingerprint every inventory action checks admits
+# ordinary attachment graphs and the campaign loot classes; the owner summary
+# must accept exactly the same classes, and first aid stays strict.
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_loot_rule_source)
+require_ordered_fragments(coop_loot_rule_source
+  "The ordinary-object fingerprint must cover attachment graphs recursively and the loot classes explicitly"
+  "constexpr unsigned MaximumOrdinaryAttachmentDepth = 2;"
+  "(object.fFlags & (OBJECT_ARMED_BOMB | OBJECT_KNOWN_TO_BE_TRAPPED |"
+  "case IC_LAUNCHER: case IC_THROWN: case IC_GRENADE: case IC_BOMB: case IC_APPLIABLE: case IC_KEY: break;"
+  "if (depth >= MaximumOrdinaryAttachmentDepth) return 0;"
+  "const std::uint64_t attached = CaptureOrdinaryInventoryObjectAtDepth(attachment, depth + 1);"
+  "if (attached == 0) return 0;"
+  "HasOnlyEmptyAttachmentSlots(*kit[0]) && kit[0]->data.objectStatus > 0 ? fingerprint : 0;")
+file(READ "${SOURCE_ROOT}/Ja2/CoopInventoryAuthority.cpp" coop_loot_summary_source)
+require_ordered_fragments(coop_loot_summary_source
+  "The owner summary must accept every class the ordinary fingerprint admits"
+  "case IC_MISC: case IC_APPLIABLE:"
+  "case IC_LAUNCHER: case IC_THROWN: case IC_GRENADE: case IC_BOMB: case IC_KEY:")
+foreach(loot_excluded IN ITEMS "case IC_LBEGEAR:" "case IC_MONEY:")
+  string(FIND "${coop_loot_rule_source}" "${loot_excluded} break;" loot_excluded_at)
+  if(NOT loot_excluded_at EQUAL -1)
+    message(FATAL_ERROR "Load-bearing gear and money must stay outside the ordinary inventory slice (${loot_excluded})")
+  endif()
+endforeach()
+
 # 4.5: both client move paths take the movement mode from the one shared
 # stance rule, with the player's run toggle; the server keeps validating it.
 file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp" coop_run_screen_source)

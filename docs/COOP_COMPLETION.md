@@ -4277,3 +4277,39 @@ A9 after the seeded victory, a player turns the toggle on and sends a standing
 merc about six tiles through the world-click path; both clients show the merc
 in the stock `RUNNING` animation (6) and it arrives. Negative control: with the
 click path ignoring the toggle the merc walks and the probe fails.
+
+## Phase 5.1 (first slice): campaign loot is ordinary inventory
+
+Every co-op inventory action (swap, transfer, pickup, drop, and their
+receipts) checks one whole-object fingerprint, `CaptureOrdinaryInventoryObject`,
+and anything it refused was "complex": shown, but not movable. It refused any
+object with something attached and every class but guns, ammo, blades,
+throwing knives, armour, medical and tool kits, face items and misc. So a gun
+with a scope, a dropped grenade, a key or a launcher could not be picked up,
+dropped, swapped or passed on.
+
+- Now attachments are fingerprinted recursively (two levels: a launcher with
+  its grenade, an under-barrel launcher with its own grenade); each attachment
+  must be ordinary itself, so the whole graph is the token.
+- Launchers (checked like guns), thrown items, grenades, unarmed explosives,
+  appliables and keys are ordinary; a key's ID (the union byte a gun uses for
+  its ammo type) is part of its state. Armed bombs and traps stay refused, as
+  do load-bearing gear (its contents live in a separate native table) and
+  money.
+- The owner's slot summary accepts exactly the same classes (a class the
+  fingerprint admits but the summary did not would fail the capture), and
+  attachments are not summarized. First aid stays strict: a kit with anything
+  attached is still refused.
+- Not yet: attaching, detaching, merging, splitting and unloading (5.2), and a
+  view of what is attached (5.1, the rest).
+
+Installed evidence (`full_engine_coop_installed_complex_items.py`): after the
+seeded A9 victory the test host gives a merc a gun from the game data with an
+attachment fitted through the stock `AttachObject`, a key and a grenade, and
+drops a second grenade at its feet; the owner's private view lists all three
+as ordinary, and the owner picks the grenade up through the shipping
+controller into the pocket the stock fit rule accepts. Negative control: with
+the old rule the three show as complex and the probe fails. Native fixtures:
+the inventory capture, swap, transfer, pickup and drop tests now use an
+attachment that is not ordinary itself (load-bearing gear) as their opaque
+object, and cover keys, grenades, a launcher with its grenade and appliables.

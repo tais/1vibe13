@@ -257,10 +257,10 @@ int main(int argc, char** argv)
 	CHECK(!PrepareTransferInventoryItemCommand(from, from, BIGPOCK1POS, BIGPOCK2POS, sentinel) &&
 		!PrepareTransferInventoryItemCommand(from, to, BIGPOCK1POS, VESTPOCKPOS, sentinel),
 		"same actor and worn LBE destinations are unsupported");
-	MakeObject(source[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
+	MakeObject(source[0]->attachments.front(), DEFAULT_VEST, 1, 80);
 	CHECK(!PrepareTransferInventoryItemCommand(from, to, BIGPOCK1POS, BIGPOCK2POS, sentinel) &&
 		dispatch(command).status == SimulationCommandDispatchStatus::Discarded,
-		"attached source graph is not an ordinary transferable stack");
+		"a source graph with an unsupported attachment is not an ordinary transferable stack");
 	source[0]->attachments.front().initialize();
 	gGameOptions.ubInventorySystem = INVENTORY_NEW;
 	gGameExternalOptions.guiMaxItemSize = 1;
@@ -300,8 +300,9 @@ int main(int argc, char** argv)
 	gGameOptions.ubInventorySystem = INVENTORY_OLD;
 	// These exact native objects remain opaque, untouched and unreplicated as
 	// transferable payloads. A pocket transfer never depends on their graph.
-	MakeObject(sender.inventory()[SECONDHANDPOS], KEY_1, 1, 97);
-	MakeObject(receiver.inventory()[SECONDHANDPOS], KEY_1, 1, 81);
+	// Keys are ordinary now; unclassified gear stays opaque.
+	MakeObject(sender.inventory()[SECONDHANDPOS], DEFAULT_VEST, 1, 97);
+	MakeObject(receiver.inventory()[SECONDHANDPOS], DEFAULT_VEST, 1, 81);
 	const auto* senderOpaqueNode = &sender.inventory()[SECONDHANDPOS].objectStack.front();
 	const auto* receiverOpaqueNode = &receiver.inventory()[SECONDHANDPOS].objectStack.front();
 	CHECK(CaptureInventorySwapObjectState(from, SECONDHANDPOS) == 0 &&

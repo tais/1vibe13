@@ -551,7 +551,10 @@ int main(int argc, char** argv)
 		"trapped state is unsupported and rejection leaves output untouched");
 	pocket[0]->data.bTrap = 0;
 	MakeObject(pocket[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
-	CHECK(!PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, sentinel), "actual attachments reject without implicit graph operations");
+	CHECK(CaptureInventorySwapObjectState(id, BIGPOCK1POS) != 0, "an ordinary attachment travels with an ordinary stack");
+	MakeObject(pocket[0]->attachments.front(), DEFAULT_VEST, 1, 80);
+	CHECK(!PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, sentinel),
+		"an attachment that is not ordinary itself rejects without implicit graph operations");
 	pocket[0]->attachments.front().initialize();
 	pocket.ubNumberOfObjects = 2; pocket.objectStack.resize(2);
 	CHECK(!PrepareSwapInventorySlotsCommand(id, BIGPOCK1POS, HANDPOS, sentinel), "hand capacity rejects partial-stack movement");
@@ -713,7 +716,9 @@ int main(int argc, char** argv)
 		CHECK(CaptureInventorySwapObjectState(id, SECONDHANDPOS) == 0, "armed misc remains unsupported");
 		offhand.fFlags &= ~OBJECT_ARMED_BOMB;
 		MakeObject(offhand[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
-		CHECK(CaptureInventorySwapObjectState(id, SECONDHANDPOS) == 0, "attached misc remains unsupported");
+		CHECK(CaptureInventorySwapObjectState(id, SECONDHANDPOS) != 0, "misc with an ordinary attachment is ordinary");
+		MakeObject(offhand[0]->attachments.front(), DEFAULT_VEST, 1, 80);
+		CHECK(CaptureInventorySwapObjectState(id, SECONDHANDPOS) == 0, "misc with an unsupported attachment remains unsupported");
 		offhand[0]->attachments.front().initialize();
 		offhand[0]->data.gun.ubGunAmmoType = UINT8_MAX;
 		CHECK(CaptureInventorySwapObjectState(id, SECONDHANDPOS) == 0, "active-LBE alias cannot masquerade as misc");
@@ -1082,7 +1087,7 @@ int main(int argc, char** argv)
 		static_cast<UINT16>(metrics.slots[SMALLPOCK1POS].firstCondition) == 40000 &&
 		metrics.slots[SMALLPOCK1POS].resourceTotal == 105535,
 		"unsigned native ammunition quantities do not turn into negative resource totals");
-	MakeObject(ammunition[0]->attachments.front(), COMBAT_KNIFE, 1, 80);
+	MakeObject(ammunition[0]->attachments.front(), DEFAULT_VEST, 1, 80);
 	CHECK(metricsAuthority.capture(id, worldIdentity.worldGeneration, metrics) &&
 		metrics.slots[SMALLPOCK1POS].support == Support::UnsupportedComplex &&
 		metrics.slots[SMALLPOCK1POS].statusKind == Status::Unknown &&
