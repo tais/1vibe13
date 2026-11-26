@@ -1778,12 +1778,12 @@ the engine must not contain SDL types in its public domain model.
   basename and ambient light; actors include five 12-byte combat-equipment
   records and a 44-byte render presentation followed by signed 16-bit bleeding
   and unsigned 16-bit equipped hand-kit points plus an eight-byte service
-  descriptor, with a 613690-byte generic
+  descriptor, with a 617786-byte generic
   ceiling. Delta v1 permits 10243 generic events and its same-serial interrupt-phase
   turn event is
   exactly 43 bytes. Co-op limits are 256 actors, 1024 doors, and 2563 events,
-  with baseline payload/envelope 45370/46982 and delta payload/envelope
-  53853/53925 under 64 KiB.
+  with baseline payload/envelope 45626/47238 and delta payload/envelope
+  54109/54181 under 64 KiB.
   Intent wire v1 is bounded at 72+26=98 bytes, inner tactical wire is v1,
   both tactical-world services are 3.0, observer `DoorCapacityReached` is 12,
   and pointer-free door/pass commands use journal tags 33/34. First-aid

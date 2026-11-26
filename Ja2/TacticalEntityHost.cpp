@@ -372,6 +372,10 @@ std::optional<TacticalActorSnapshot> LegacyState(
 	state.loadout = TacticalActorLoadoutSnapshot{
 		*helmet, *vest, *legs, *primaryHand, *secondaryHand};
 	state.bleeding = soldier.vitals().bleeding() > 0 ? soldier.vitals().bleeding() : 0;
+	{
+		const auto mode = soldier.attackSelection().weaponMode();
+		state.weaponMode = mode >= 0 && mode < 10 ? static_cast<std::uint8_t>(mode) : 0;
+	}
 	state.medicalService = LegacyMedicalServiceState(soldier);
 	const OBJECTTYPE& hand = soldier.inventory()[HANDPOS];
 	if (hand.exists() && hand.usItem < MAXITEMS &&

@@ -485,6 +485,18 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::CycleWeaponModeTacticalIntent>::value)
+		{
+			AuthoritativeWeaponModeCommand prepared{};
+			if (!liveState_->prepareWeaponMode(intent.actor, payload.expectedWeaponMode, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::DoorActionTacticalIntent>::value)
 		{
 			if (liveState_->legacyNetworkingActive())

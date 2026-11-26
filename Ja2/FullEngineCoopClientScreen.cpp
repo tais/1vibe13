@@ -825,6 +825,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			case 'R':
 				(void)Submit(Controller.reload(view), view);
 				break;
+			case 'v':
+			case 'V':
+				(void)Submit(Controller.cycleWeaponMode(view), view);
+				break;
 			case 't':
 			case 'T':
 				(void)Submit(Controller.endTurn(view), view);
@@ -1601,7 +1605,12 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 		}
 		else if (actor)
 		{
-			mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d", unsigned(actor->handMedicalKitPoints), actor->bleeding);
+			{
+				static const wchar_t* const Modes[] = {L"single", L"burst", L"auto", L"launcher", L"launcher burst",
+					L"launcher auto", L"underbarrel", L"underbarrel burst", L"underbarrel auto", L"mode 9"};
+				mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d | V fire mode: %ls", unsigned(actor->handMedicalKitPoints),
+					actor->bleeding, Modes[actor->weaponMode < 10 ? actor->weaponMode : 9]);
+			}
 			mprintf(12, 62, L"Providing aid %ls | receiving %u | Space stop aid", actor->medicalService.providing ? L"yes" : L"no",
 				unsigned(actor->medicalService.receivingCount));
 		}

@@ -255,6 +255,7 @@ void WriteActor(BinaryWriter& writer, const TacticalActorSnapshot& actor)
 	writer.writeU16(actor.medicalService.patient.slot);
 	writer.writeU32(actor.medicalService.patient.incarnation);
 	writer.writeU8(actor.medicalService.receivingCount);
+	writer.writeU8(actor.weaponMode);
 }
 
 bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
@@ -288,6 +289,7 @@ bool ReadActor(BinaryReader& reader, TacticalActorSnapshot& actor)
 		reader.readU16(actor.medicalService.patient.slot) &&
 		reader.readU32(actor.medicalService.patient.incarnation) &&
 		reader.readU8(actor.medicalService.receivingCount) &&
+		reader.readU8(actor.weaponMode) && actor.weaponMode < 10 &&
 		actor.medicalStateValid();
 }
 

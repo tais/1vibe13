@@ -102,6 +102,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Converse: return 5;
 		case TacticalIntentKind::GiveItem: return 16;
 		case TacticalIntentKind::DoorAction: return 7;
+		case TacticalIntentKind::CycleWeaponMode: return 1;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -132,6 +133,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Converse:
 		case TacticalIntentKind::GiveItem:
 		case TacticalIntentKind::DoorAction:
+		case TacticalIntentKind::CycleWeaponMode:
 			return true;
 	}
 	return false;
@@ -191,6 +193,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::GiveItem;
 		if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			return TacticalIntentKind::DoorAction;
+		if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
+			return TacticalIntentKind::CycleWeaponMode;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -250,6 +254,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 				payload.expectedInventoryRevision != 0;
 		if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			return payload.baseGrid >= 0 && payload.structureId != 0 && IsSupportedTacticalDoorAction(payload.action);
+		if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
+			return payload.expectedWeaponMode < 10;
 		return true;
 	}, intent.payload);
 }
@@ -312,6 +318,8 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 				WriteU16(encoded, payload.structureId);
 				encoded.push_back(payload.desiredOpen ? 1u : 0u);
 			}
+			else if constexpr (std::is_same<Payload, CycleWeaponModeTacticalIntent>::value)
+				encoded.push_back(payload.expectedWeaponMode);
 			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			{
 				WriteI32(encoded, payload.baseGrid);
@@ -507,6 +515,15 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			const std::uint8_t desiredOpen = *input++;
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::CycleWeaponMode:
+		{
+			CycleWeaponModeTacticalIntent payload;
+			if (input == end) return TacticalIntentCodecResult::Invalid;
+			payload.expectedWeaponMode = *input++;
+			if (payload.expectedWeaponMode >= 10) return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;
 		}

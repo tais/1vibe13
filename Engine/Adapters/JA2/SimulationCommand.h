@@ -1362,6 +1362,30 @@ constexpr bool IsStructurallyValidAuthoritativeDoorActionCommand(
 		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
 }
 
+// The stock weapon-mode cycle (ChangeWeaponMode: single, burst, auto and the
+// attached launcher's modes, as the weapon allows) for a co-op merc, against
+// the exact hand item and mode its owner saw.
+struct AuthoritativeWeaponModeCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::uint16_t expectedHandItem = 0;
+	std::uint8_t expectedWeaponMode = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeWeaponModeCommand>::value,
+	"weapon-mode commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeWeaponModeCommand(
+	const AuthoritativeWeaponModeCommand& command) noexcept
+{
+	return command.soldier.valid() && command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedHandItem != 0 && command.expectedWeaponMode < TacticalWeaponModeCount &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeConverseCommand>::value,
 	"conversation answers must remain pointer-free values");
 
@@ -1730,7 +1754,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeDropInventoryItemCommand,
 	AuthoritativeConverseCommand,
 	AuthoritativeGiveItemCommand,
-	AuthoritativeDoorActionCommand>;
+	AuthoritativeDoorActionCommand,
+	AuthoritativeWeaponModeCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1903,6 +1928,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeDoorActionCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeDoorActionCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeWeaponModeCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

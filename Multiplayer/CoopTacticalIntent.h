@@ -38,7 +38,8 @@ enum class TacticalIntentKind : std::uint8_t
 	Talk = 15,
 	Converse = 16,
 	GiveItem = 17,
-	DoorAction = 18
+	DoorAction = 18,
+	CycleWeaponMode = 19
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -161,6 +162,11 @@ struct DoorActionTacticalIntent
 	std::uint16_t structureId = 0;
 	std::uint8_t action = 0;
 };
+// The stock weapon-mode cycle; the mode the owner saw (stale otherwise).
+struct CycleWeaponModeTacticalIntent
+{
+	std::uint8_t expectedWeaponMode = 0;
+};
 constexpr bool IsSupportedTacticalDoorAction(std::uint8_t action) noexcept
 {
 	return action == 2 || action == 3 || action == 4 || action == 6 || action == 7 || action == 8 || action == 9;
@@ -195,7 +201,8 @@ using TacticalIntentPayload = std::variant<
 	TalkTacticalIntent,
 	ConverseTacticalIntent,
 	GiveItemTacticalIntent,
-	DoorActionTacticalIntent>;
+	DoorActionTacticalIntent,
+	CycleWeaponModeTacticalIntent>;
 
 struct TacticalIntent
 {

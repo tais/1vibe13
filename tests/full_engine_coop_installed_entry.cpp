@@ -293,6 +293,44 @@ void PollConversationExperiment()
 // mode): once the players are back on the worldless map, B9 becomes a player-
 // held wilderness sector that only militia defend and an army group sets out
 // from C9 to attack it. The ordinary clock and arrival rules do the rest.
+// Fixture-only (JA2_COOP_ENTRY_BURST_WEAPON=1, starter-victory mode): once A9
+// is secured for peaceful play, put a burst-capable gun from the game data in
+// the first player merc's hand, so the stock weapon-mode cycle has modes to
+// cycle through.
+void PollBurstWeaponSeed()
+{
+	static bool seeded = false;
+	static std::chrono::steady_clock::time_point calmSince{};
+	if (seeded || !std::getenv("JA2_COOP_ENTRY_BURST_WEAPON") || !gfProgramIsRunning) return;
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		NumEnemiesInAnySector(9, 1, 0) || IsJa2TacticalCombatActive())
+	{ calmSince = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (calmSince == std::chrono::steady_clock::time_point{}) { calmSince = now; return; }
+	if (now - calmSince < std::chrono::seconds(3)) return;
+	TacticalActor* merc = nullptr;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+		{ merc = actor; break; }
+	}
+	if (!merc) return;
+	seeded = true;
+	UINT16 gun = 0;
+	for (UINT16 item = 1; item < MAXITEMS && !gun; ++item)
+		if (Item[item].usItemClass == IC_GUN && Weapon[Item[item].ubClassIndex].ubShotsPerBurst > 0 &&
+			!Weapon[Item[item].ubClassIndex].NoSemiAuto) gun = item;
+	OBJECTTYPE object;
+	if (!gun || !CreateItem(gun, 100, &object)) { Finish(false, "burst weapon fixture found no burst-capable gun"); return; }
+	merc->inventory()[HANDPOS] = object;
+	merc->attackSelection().weaponMode() = WM_NORMAL;
+	const auto id = GetJa2TacticalEntityId(*merc);
+	std::printf("[co-op entry test] burst weapon seeded: actor=%u:%u; item=%u\n", unsigned(id.slot), unsigned(id.incarnation),
+		unsigned(gun));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_LOCKED_DOOR=1, starter-victory mode): once A9
 // is secured for peaceful play, lock the closed door nearest a player merc and
 // give that merc a locksmith kit; log the door and the tile to stand on. The
@@ -886,6 +924,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollMilitiaAttackSeed();
 	PollReinforcementBattleSeed();
 	PollLockedDoorSeed();
+	PollBurstWeaponSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())

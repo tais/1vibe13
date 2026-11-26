@@ -1550,7 +1550,7 @@ condition (including a negative jam state), and chambered state; those fields
 stay canonical zero for ordinary equipment. Decode and replica application are
 transactional; older layouts are rejected rather than having missing state
 inferred. The header carries canonical `commandsBlocked`, interrupt phase, and
-interrupt serial. Snapshot v1's generic ceiling is 613690 bytes. Delta wire v1
+interrupt serial. Snapshot v1's generic ceiling is 617786 bytes. Delta wire v1
 publishes ambient-light changes, coalesces all changes to one actor into one
 full actor-update event, and carries a same-serial phase transition as one exact
 43-byte turn event. It has a generic 10243-event ceiling. `TacticalWorldService` and
@@ -1559,8 +1559,8 @@ version 3.0, and observer `DoorCapacityReached` is the stable value 12.
 
 The narrower co-op envelope uses inner tactical wire v1 and caps a publication
 at 256 actors, 1024 doors, and 2563 events. Its baseline payload/envelope bounds
-are 45370/46982 bytes and its category-aware delta payload/envelope bounds are
-53853/53925 bytes, all below the public 64 KiB ceiling. Intent wire v1 retains a
+are 45626/47238 bytes and its category-aware delta payload/envelope bounds are
+54109/54181 bytes, all below the public 64 KiB ceiling. Intent wire v1 retains a
 72-byte header, 26-byte maximum payload, and 98-byte maximum record. The command
 journal is wire v1; pointer-free authoritative door/pass commands use tags 33/34,
 `BeginFirstAidCommand` uses tag 35, inventory swap tag 36, and same-owner transfer

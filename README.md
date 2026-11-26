@@ -477,13 +477,13 @@ The nested wire bounds are explicit: snapshot v1 uses a 314-byte header,
 148-byte actor (including five 12-byte combat-equipment records and 44 bytes of
 render presentation, plus signed 16-bit bleeding and unsigned 16-bit equipped
 hand-kit points and an eight-byte medical-service descriptor), and 7-byte door
-record for a 613690-byte generic maximum.
+record for a 617786-byte generic maximum.
 Delta wire v1 permits 10243 generic events, publishes ambient-light changes, and
 coalesces all changes to one actor into a single full actor-update event. A
 same-turn-serial phase change is one exact 43-byte turn event. The
 co-op envelope uses inner tactical wire v1, caps a world at 256 actors, 1024
 doors, and 2563 delta events, and bounds the baseline payload/envelope at
-45370/46982 bytes and delta payload/envelope at 53853/53925 bytes under the
+45626/47238 bytes and delta payload/envelope at 54109/54181 bytes under the
 public 64 KiB ceiling. Tactical intent wire v1 has
 an exact 72-byte header, 26-byte maximum payload, and 98-byte maximum record.
 First-aid kind 10 carries only a six-byte exact patient identity; command

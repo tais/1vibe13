@@ -195,6 +195,10 @@ public:
 		const FullEngineCoopClientControllerView& view) const noexcept;
 	FullEngineCoopClientIntentRequest reload(
 		const FullEngineCoopClientControllerView& view) const noexcept;
+	// The stock weapon-mode cycle for the selected merc's hand weapon, against
+	// the mode it currently shows.
+	FullEngineCoopClientIntentRequest cycleWeaponMode(
+		const FullEngineCoopClientControllerView& view) const noexcept;
 	FullEngineCoopClientIntentRequest beginFirstAid(
 		const FullEngineCoopClientControllerView& view,
 		TacticalEntityId target) const noexcept;

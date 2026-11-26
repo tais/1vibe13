@@ -570,13 +570,13 @@ will revive them:
   basename, the actor includes five 12-byte combat-equipment records and a
   44-byte render presentation followed by signed 16-bit bleeding and unsigned
   16-bit equipped hand-kit points and an eight-byte medical-service descriptor,
-  and the generic bound is 613690 bytes. Delta
+  and the generic bound is 617786 bytes. Delta
   wire v1 permits 10243 generic events, publishes ambient-light changes,
   coalesces all changes to an actor into one full actor-update event, and
   encodes a same-serial interrupt-phase turn change as one exact 43-byte event.
   The inner co-op tactical envelope is wire v1 and caps 256 actors, 1024 doors,
-  and 2563 events, with baseline payload/envelope 45370/46982 bytes and delta
-  payload/envelope 53853/53925 bytes under
+  and 2563 events, with baseline payload/envelope 45626/47238 bytes and delta
+  payload/envelope 54109/54181 bytes under
   64 KiB. Intent wire v1 is bounded at
   72+26=98 bytes; tactical-world service/observer are 3.0,
   `DoorCapacityReached` is 12, and journal authoritative door/pass tags are 33/34.

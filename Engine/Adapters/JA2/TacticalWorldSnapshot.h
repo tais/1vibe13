@@ -528,6 +528,9 @@ struct TacticalActorSnapshot
 	std::int16_t bleeding = 0;
 	std::uint16_t handMedicalKitPoints = 0;
 	TacticalMedicalServiceSnapshot medicalService;
+	// The stock fire mode of the hand weapon (WM_*: single, burst, auto, the
+	// attached launcher's modes). Public: co-op shares one team view.
+	std::uint8_t weaponMode = 0;
 
 	bool medicalStateValid() const noexcept
 	{
@@ -550,7 +553,7 @@ struct TacticalActorSnapshot
 			interruptActionEligible == other.interruptActionEligible &&
 			loadout == other.loadout && presentation == other.presentation &&
 			bleeding == other.bleeding && handMedicalKitPoints == other.handMedicalKitPoints &&
-			medicalService == other.medicalService;
+			medicalService == other.medicalService && weaponMode == other.weaponMode;
 	}
 
 	bool operator!=(const TacticalActorSnapshot& other) const noexcept

@@ -56,7 +56,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeDropInventoryItem = 39,
 	AuthoritativeConverse = 40,
 	AuthoritativeGiveItem = 41,
-	AuthoritativeDoorAction = 42
+	AuthoritativeDoorAction = 42,
+	AuthoritativeWeaponMode = 43
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -293,6 +294,19 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedKitStateFingerprint);
 			WriteI16(writer, value.expectedActionPointCost);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeWeaponMode));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU16(value.expectedHandItem);
+			writer.writeU8(value.expectedWeaponMode);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -964,6 +978,22 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				static_cast<TacticalWorldObjectOperation>(operation);
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeWeaponMode:
+		{
+			AuthoritativeWeaponModeCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readU16(value.expectedHandItem) ||
+				!reader.readU8(value.expectedWeaponMode) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority) ||
+				!IsStructurallyValidAuthoritativeWeaponModeCommand(value))
 				return false;
 			command = value;
 			return true;

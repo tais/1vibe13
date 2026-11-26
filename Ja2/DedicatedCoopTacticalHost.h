@@ -130,6 +130,10 @@ public:
 		TacticalWorldObjectId object,
 		std::uint8_t action,
 		AuthoritativeDoorActionCommand& command) const noexcept = 0;
+	virtual bool prepareWeaponMode(
+		TacticalEntityId actor,
+		std::uint8_t expectedWeaponMode,
+		AuthoritativeWeaponModeCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -223,6 +227,10 @@ public:
 		TacticalWorldObjectId object,
 		std::uint8_t action,
 		AuthoritativeDoorActionCommand& command) const noexcept override;
+	bool prepareWeaponMode(
+		TacticalEntityId actor,
+		std::uint8_t expectedWeaponMode,
+		AuthoritativeWeaponModeCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

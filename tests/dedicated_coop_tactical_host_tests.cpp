@@ -274,6 +274,16 @@ public:
 		command.expectedActionPointCost = 3;
 		return true;
 	}
+	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
+		AuthoritativeWeaponModeCommand& command) const noexcept override
+	{
+		++weaponModePreparationCalls;
+		if (!weaponModePreparationSucceeds) return false;
+		command = AuthoritativeWeaponModeCommand{};
+		command.soldier = actor; command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		command.expectedHandItem = 9; command.expectedWeaponMode = mode;
+		return true;
+	}
 	bool prepareDoorAction(TacticalEntityId actor, TacticalWorldObjectId object, std::uint8_t action,
 		AuthoritativeDoorActionCommand& command) const noexcept override
 	{
@@ -375,6 +385,8 @@ public:
 	bool givePreparationSucceeds = true;
 	mutable std::size_t givePreparationCalls = 0;
 	bool doorActionPreparationSucceeds = true;
+	bool weaponModePreparationSucceeds = true;
+	mutable std::size_t weaponModePreparationCalls = 0;
 	mutable std::size_t doorActionPreparationCalls = 0;
 	mutable std::uint8_t lastDoorAction = 0;
 	mutable std::uint64_t lastGiveRevision = 0;
@@ -996,6 +1008,18 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		CHECK(action && action->handleCode == 3 && action->object.grid == 2000 && action->object.structureId == 7 &&
 			action->source == SimulationCommandSource::NetworkPeer,
 			"the prepared stock door-menu command reaches the command service unchanged");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost modeHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(modeHost.execute(Intent(1, CycleWeaponModeTacticalIntent{0})) == TacticalIntentExecutionDisposition::Retained,
+			"a weapon-mode cycle enters the retained command inbox");
+		const auto* mode = std::get_if<AuthoritativeWeaponModeCommand>(&queue.submissions[0].command);
+		CHECK(mode && mode->expectedWeaponMode == 0 && mode->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stock weapon-mode cycle reaches the command service");
+		FakeLiveState stale; stale.weaponModePreparationSucceeds = false;
+		rejects(stale, Intent(1, CycleWeaponModeTacticalIntent{1}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a changed mode, hand item or busy merc never enters the inbox");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

@@ -669,12 +669,12 @@ Snapshot wire v1 uses an exact 314-byte header with the authority's fixed-width,
 path-safe exact `.dat` map asset basename and ambient light, a 148-byte actor
 (including five 12-byte combat-equipment records and a 44-byte render
 presentation followed by signed 16-bit bleeding and unsigned 16-bit equipped
-hand-kit points and an eight-byte service descriptor), and 7-byte public door records; its generic bound is 613690
+hand-kit points and an eight-byte service descriptor), and 7-byte public door records; its generic bound is 617786
 bytes. Delta wire v1 permits 10243 generic events, publishes ambient-light
 changes, coalesces all changes to one actor into one full actor-update event,
 and encodes a same-serial interrupt phase change as one exact 43-byte event.
 Co-op tactical wire v1 narrows this to 256 actors, 1024 doors, 2563 events,
-45370/46982-byte baseline payload/envelope, and 53853/53925-byte delta
+45626/47238-byte baseline payload/envelope, and 54109/54181-byte delta
 payload/envelope beneath 64 KiB. Intent wire v1 is a
 72-byte header plus at most 26
 payload bytes (98 total), both tactical-world services are 3.0,

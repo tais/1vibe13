@@ -225,6 +225,18 @@ namespace
 		return soldier;
 	}
 
+	// No burst or autofire is under way. Stock keeps the burst counter at 1 (and
+	// the autofire count at the chosen number of rounds) while burst or auto is
+	// merely selected; it only climbs while the rounds are being fired.
+	bool FireSequenceIdle(const TacticalActor& actor) noexcept
+	{
+		const INT8 mode = actor.attackSelection().weaponMode();
+		const bool repeating = mode == WM_BURST || mode == WM_AUTOFIRE || mode == WM_ATTACHED_GL_BURST ||
+			mode == WM_ATTACHED_GL_AUTO || mode == WM_ATTACHED_UB_BURST || mode == WM_ATTACHED_UB_AUTO;
+		return repeating ? actor.fireControl().burstCounter() <= 1
+			: actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0;
+	}
+
 	bool ResolveAimedFirearmAttack(
 		const AimedFirearmAttackCommand& command,
 		TacticalActor*& soldier,
@@ -268,15 +280,15 @@ namespace
 			return false;
 
 		if (resolvedSoldier->attackSelection().hand() != HANDPOS ||
-			resolvedSoldier->fireControl().burstCounter() != 0 ||
-			resolvedSoldier->fireControl().autofireShots() != 0 ||
+			!FireSequenceIdle(*resolvedSoldier) ||
 			resolvedSoldier->fireControl().reloading())
 			return false;
 		const OBJECTTYPE& hand = resolvedSoldier->inventory()[HANDPOS];
 		if (!hand.exists() || hand.usItem != command.expectedHandItem ||
 			command.expectedHandItem >= MAXITEMS ||
 			Item[command.expectedHandItem].usItemClass != IC_GUN ||
-			Weapon[Item[command.expectedHandItem].ubClassIndex].NoSemiAuto ||
+			(resolvedSoldier->attackSelection().weaponMode() == WM_NORMAL &&
+			 Weapon[Item[command.expectedHandItem].ubClassIndex].NoSemiAuto) ||
 			HandItemWorks(resolvedSoldier, HANDPOS) == FALSE ||
 			EnoughAmmo(resolvedSoldier, FALSE, HANDPOS) == FALSE ||
 			command.aimTime > AllowedAimingLevels(
@@ -310,8 +322,7 @@ namespace
 		if (!resolved ||
 			resolved->roster().team() != gbPlayerNum ||
 			resolved->attackSelection().hand() != HANDPOS ||
-			resolved->fireControl().burstCounter() != 0 ||
-			resolved->fireControl().autofireShots() != 0 ||
+			!FireSequenceIdle(*resolved) ||
 			resolved->fireControl().reloading())
 			return false;
 
@@ -756,8 +767,7 @@ namespace
 			actor.pendingAction().action() == NO_PENDING_ACTION &&
 			!actor.runtime().worldObject.active() &&
 			!actor.fireControl().reloading() &&
-			actor.fireControl().burstCounter() == 0 &&
-			actor.fireControl().autofireShots() == 0 &&
+			FireSequenceIdle(actor) &&
 			!actor.service().hasPartner() && !actor.service().hasProviders() &&
 			!actor.vitals().isUndergoingSurgery();
 	}
@@ -884,7 +894,7 @@ namespace
 			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
 			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
 			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
-			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			FireSequenceIdle(actor) &&
 			!actor.service().hasPartner() && !actor.service().hasProviders() &&
 			!actor.vitals().isUndergoingSurgery();
 	}
@@ -1555,7 +1565,7 @@ namespace
 			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
 			(path.pathSize() == 0 || path.finalDestinationGrid() == actor.position().gridNo()) &&
 			!actor.fireControl().reloading() && actor.fireControl().bulletsLeft() == 0 &&
-			actor.fireControl().burstCounter() == 0 && actor.fireControl().autofireShots() == 0 &&
+			FireSequenceIdle(actor) &&
 			!actor.service().hasPartner() && !actor.service().hasProviders() &&
 			!actor.vitals().isUndergoingSurgery();
 	}
@@ -1858,8 +1868,7 @@ namespace
 			soldier.movement().stealthMode() ||
 			soldier.movement().waitingForAction() ||
 			soldier.fireControl().reloading() ||
-			soldier.fireControl().burstCounter() != 0 ||
-			soldier.fireControl().autofireShots() != 0 ||
+			!FireSequenceIdle(soldier) ||
 			soldier.pendingAction().action() != NO_PENDING_ACTION ||
 			soldier.runtime().worldObject.active() ||
 			soldier.animationIntent().hasPendingAnimation() ||
@@ -1974,6 +1983,30 @@ namespace
 		actionPointCost = currentActionPointCost;
 		breathPointCost = currentBreathPointCost;
 		return true;
+	}
+
+	// The stock weapon-mode cycle for an exact idle co-op merc and hand weapon.
+	TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeWeaponModeCommand(command) || is_networked || is_client || is_server)
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || soldier->roster().team() != gbPlayerNum ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			soldier->attackSelection().weaponMode() != static_cast<INT8>(command.expectedWeaponMode) ||
+			!FireSequenceIdle(*soldier) || soldier->fireControl().reloading())
+			return nullptr;
+		const OBJECTTYPE& hand = soldier->inventory()[HANDPOS];
+		const UINT16 animation = soldier->animationPlayback().state();
+		if (!hand.exists() || hand.usItem != command.expectedHandItem || animation >= NUMANIMATIONSTATES ||
+			(gAnimControl[animation].uiFlags & ANIM_FIRE) != 0)
+			return nullptr;
+		return soldier;
 	}
 
 	// A stock door-menu choice: the same exact actor/door/adjacency proofs as an
@@ -3141,6 +3174,14 @@ namespace
 					: CommandDisposition::Discard;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeWeaponMode(value);
+				if (!soldier) return CommandDisposition::Discard;
+				ChangeWeaponMode(soldier);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeDoorActionCommand>::value)
 			{
 				TacticalActor* soldier = nullptr;
@@ -4089,6 +4130,23 @@ static_assert(HANDLE_DOOR_EXAMINE == 2 && HANDLE_DOOR_LOCKPICK == 3 && HANDLE_DO
 	HANDLE_DOOR_UNLOCK == 6 && HANDLE_DOOR_EXPLODE == 7 && HANDLE_DOOR_UNTRAP == 8 && HANDLE_DOOR_CROWBAR == 9,
 	"the co-op door-action codes are the stock HANDLE_DOOR_* menu codes");
 
+bool PrepareAuthoritativeWeaponModeCommand(TacticalEntityId actor, std::uint8_t expectedWeaponMode,
+	AuthoritativeWeaponModeCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity || !live->inventory()[HANDPOS].exists()) return false;
+	AuthoritativeWeaponModeCommand prepared;
+	prepared.soldier = actor;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedHandItem = live->inventory()[HANDPOS].usItem;
+	prepared.expectedWeaponMode = expectedWeaponMode;
+	if (ResolveAuthoritativeWeaponMode(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeDoorActionCommand(TacticalEntityId actor, TacticalWorldObjectId object,
 	std::uint8_t handleCode, AuthoritativeDoorActionCommand& output) noexcept
 {
@@ -4237,7 +4295,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeDropInventoryItemCommand>::value ||
 			std::is_same<Command, AuthoritativeConverseCommand>::value ||
 			std::is_same<Command, AuthoritativeGiveItemCommand>::value ||
-			std::is_same<Command, AuthoritativeDoorActionCommand>::value)
+			std::is_same<Command, AuthoritativeDoorActionCommand>::value ||
+			std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4410,6 +4469,11 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
 				return TileIsOutOfBounds(value.expectedTargetGrid)
 					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeWeaponModeCommand>::value)
+			{
+				return IsStructurallyValidAuthoritativeWeaponModeCommand(value) && value.expectedHandItem < MAXITEMS
+					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidAttackingWeapon;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeDoorActionCommand>::value)
 			{

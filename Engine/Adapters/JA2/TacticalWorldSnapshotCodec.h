@@ -18,7 +18,7 @@ inline constexpr std::size_t EncodedTacticalHandItemSnapshotBytes = 12;
 inline constexpr std::size_t EncodedTacticalActorPresentationSnapshotBytes = 44;
 inline constexpr std::size_t EncodedTacticalMedicalServiceSnapshotBytes = 8;
 inline constexpr std::size_t EncodedTacticalActorSnapshotBytes =
-	96 + EncodedTacticalActorPresentationSnapshotBytes +
+	97 + EncodedTacticalActorPresentationSnapshotBytes +
 	EncodedTacticalMedicalServiceSnapshotBytes;
 inline constexpr std::size_t EncodedTacticalDoorSnapshotBytes = 7;
 inline constexpr std::size_t MaximumEncodedTacticalWorldSnapshotBytes =

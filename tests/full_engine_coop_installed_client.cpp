@@ -275,7 +275,7 @@ void ReplyState(std::uint64_t request) noexcept
 			"\"direction\":%u,\"stance\":%u,\"ap\":%d,\"life\":%d,"
 			"\"breath\":%d,\"animation\":%u,\"pose\":%s,"
 			"\"world_x\":%d,\"world_y\":%d,"
-			"\"bleeding\":%d,\"hand_medical_kit_points\":%u,"
+			"\"bleeding\":%d,\"hand_medical_kit_points\":%u,\"weapon_mode\":%u,"
 			"\"medical_service\":{\"providing\":%s,\"patient_slot\":%u,\"patient_inc\":%u,\"receiving_count\":%u},"
 			"\"profile\":%u,\"portrait\":{\"family\":%u,\"index\":%u,\"camouflage\":%u},"
 			"\"helmet\":{\"item\":%u,\"quantity\":%u,\"condition\":%d},"
@@ -306,6 +306,7 @@ void ReplyState(std::uint64_t request) noexcept
 			actor.presentation.worldYQ8,
 			static_cast<int>(actor.bleeding),
 			static_cast<unsigned>(actor.handMedicalKitPoints),
+			static_cast<unsigned>(actor.weaponMode),
 			actor.medicalService.providing ? "true" : "false",
 			static_cast<unsigned>(actor.medicalService.patient.slot),
 			static_cast<unsigned>(actor.medicalService.patient.incarnation),
@@ -1394,6 +1395,31 @@ void ReplyDoorAction(std::uint64_t request, TacticalEntityId actor, std::int32_t
 		ReplyPrefix, static_cast<unsigned long long>(request),
 		result == CoopSession::FullEngineCoopClientResult::Success ? "true" : "false", static_cast<unsigned>(result),
 		static_cast<unsigned long long>(command), unsigned(payload->structureId));
+	FlushReply();
+}
+
+// The stock weapon-mode cycle through the shipping controller.
+void ReplyWeaponMode(std::uint64_t request, TacticalEntityId actor, FullEngineCoopClientController& controller) noexcept
+{
+	auto& runtime = GetFullEngineCoopClientRuntime();
+	FullEngineCoopClientPresentationView presentation;
+	if (!runtime.presentationView(presentation) || !presentation.snapshot)
+	{ ReplyControllerRejected(request, "weapon_mode"); return; }
+	const auto view = ControllerView(presentation);
+	controller.synchronize(view);
+	if (!controller.selectActor(view, actor)) { ReplyControllerRejected(request, "weapon_mode"); return; }
+	const auto intent = controller.cycleWeaponMode(view);
+	const auto* payload = std::get_if<CoopSession::CycleWeaponModeTacticalIntent>(&intent.payload);
+	if (!intent || intent.actor != actor || !payload) { ReplyControllerRejected(request, "weapon_mode"); return; }
+	const auto result = runtime.sendIntent(intent.actor, intent.payload);
+	std::uint64_t command = 0;
+	FullEngineCoopClientPresentationView refreshed;
+	if (result == CoopSession::FullEngineCoopClientResult::Success && runtime.presentationView(refreshed))
+		command = refreshed.outstandingCommandId;
+	std::printf("%s{\"request\":%llu,\"kind\":\"weapon_mode\",\"submitted\":%s,\"result\":%u,\"command\":%llu,\"expected_mode\":%u}",
+		ReplyPrefix, static_cast<unsigned long long>(request),
+		result == CoopSession::FullEngineCoopClientResult::Success ? "true" : "false", static_cast<unsigned>(result),
+		static_cast<unsigned long long>(command), unsigned(payload->expectedWeaponMode));
 	FlushReply();
 }
 
@@ -2744,6 +2770,24 @@ private:
 			ReplyDrop(request,
 				TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
 				static_cast<std::uint16_t>(values[2]), values[3], controller_);
+			return;
+		}
+		if (operation == "WEAPON_MODE")
+		{
+			std::uint64_t values[2]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX)
+			{
+				ReplyError(request, "malformed WEAPON_MODE arguments");
+				return;
+			}
+			ReplyWeaponMode(request, TacticalEntityId{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])},
+				controller_);
 			return;
 		}
 		if (operation == "DOOR_ACTION")

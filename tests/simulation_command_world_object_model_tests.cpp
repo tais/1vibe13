@@ -546,6 +546,32 @@ int main()
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"only exact stock menu choices from a co-op peer are door actions");
 
+	AuthoritativeWeaponModeCommand mode;
+	mode.soldier = {2, 0x11223344}; mode.expectedWorldGeneration = 9; mode.expectedTurnSerial = 11;
+	mode.expectedHandItem = 4; mode.expectedWeaponMode = 1;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{mode}),
+		"a weapon-mode cycle names its merc, hand item and the mode its owner saw");
+	const std::vector<RecordedSimulationCommand> modeRecords{
+		{17, 21, CommandJournalStatus::Applied, SimulationCommand{mode}}};
+	std::vector<std::uint8_t> modeWire, modeReencoded;
+	std::vector<RecordedSimulationCommand> decodedMode;
+	std::uint64_t modeDropped = 0;
+	Require(EncodeSimulationCommandJournal(modeRecords, 0, modeWire) &&
+		DecodeSimulationCommandJournal(modeWire, decodedMode, modeDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedMode.size() == 1 &&
+		std::holds_alternative<AuthoritativeWeaponModeCommand>(decodedMode[0].command) &&
+		EncodeSimulationCommandJournal(decodedMode, modeDropped, modeReencoded) && modeReencoded == modeWire,
+		"a weapon-mode journal round trips every field under its append-only tag");
+	std::array<AuthoritativeWeaponModeCommand, 4> invalidModes;
+	invalidModes.fill(mode);
+	invalidModes[0].expectedHandItem = 0;
+	invalidModes[1].expectedWeaponMode = 10;
+	invalidModes[2].source = SimulationCommandSource::LocalPlayer;
+	invalidModes[3].authority = TacticalCommandAuthorityPolicy::Legacy;
+	for (const auto& invalid : invalidModes)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"a weapon-mode cycle needs a hand item, a stock mode and a co-op peer");
+
 	AuthoritativeConverseCommand answer;
 	answer.soldier = {2, 0x11223344};
 	answer.expectedWorldGeneration = 9;

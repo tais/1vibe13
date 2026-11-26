@@ -5167,6 +5167,32 @@ require_ordered_fragments(coop_door_action_command_source
   "!StartInteractiveObject(value.object.grid, value.object.structureId, soldier, value.direction))"
   "switch (BeginDedicatedCoopDoorAction(*soldier, *structure, value.direction, value.handleCode))")
 
+# Fire modes: co-op runs the stock ChangeWeaponMode for a merc whose mode is
+# still the one its owner saw, the fire mode is replicated, and every co-op
+# "is the merc idle" check follows stock's meaning of the burst counter (1 while
+# burst or auto is merely selected) through one helper.
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_weapon_mode_source)
+require_ordered_fragments(coop_weapon_mode_source
+  "Co-op idleness must follow stock's burst counter and drive the stock mode cycle"
+  "bool FireSequenceIdle(const TacticalActor& actor) noexcept"
+  "return repeating ? actor.fireControl().burstCounter() <= 1"
+  "TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept"
+  "soldier->attackSelection().weaponMode() != static_cast<INT8>(command.expectedWeaponMode) ||"
+  "std::is_same<Command, AuthoritativeWeaponModeCommand>::value)"
+  "ChangeWeaponMode(soldier);")
+string(REGEX MATCHALL "fireControl\\(\\)\\.autofireShots\\(\\) [!=]= 0" coop_single_shot_idle "${coop_weapon_mode_source}")
+list(LENGTH coop_single_shot_idle coop_single_shot_idle_count)
+# Two legitimate mentions remain: the helper's own single-mode branch and a
+# state fingerprint bit. Any other is a single-shot idle check.
+if(NOT coop_single_shot_idle_count EQUAL 2)
+  message(FATAL_ERROR "Co-op idle checks must use FireSequenceIdle, not a single-shot burst counter test")
+endif()
+file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp" coop_weapon_mode_capture_source)
+require_ordered_fragments(coop_weapon_mode_capture_source
+  "The public actor snapshot must carry the stock fire mode"
+  "const auto mode = soldier.attackSelection().weaponMode();"
+  "state.weaponMode = mode >= 0 && mode < 10 ? static_cast<std::uint8_t>(mode) : 0;")
+
 # Every tactical-victory auto-bandage launch remains interactive-only. The
 # local helper derives dedicated co-op from the installed process options so
 # this legacy source does not depend on the runtime singleton.
@@ -12564,9 +12590,9 @@ foreach(dedicated_live_snapshot_v7_test_contract IN ITEMS
     "EncodedTacticalWorldSnapshotHeaderBytes == 314"
     "EncodedTacticalHandItemSnapshotBytes == 12"
     "EncodedTacticalActorPresentationSnapshotBytes == 44"
-    "EncodedTacticalActorSnapshotBytes == 148"
+    "EncodedTacticalActorSnapshotBytes == 149"
     "EncodedTacticalDoorSnapshotBytes == 7"
-    "MaximumEncodedTacticalWorldSnapshotBytes == 613690"
+    "MaximumEncodedTacticalWorldSnapshotBytes == 617786"
     "MakeSnapshot(0x1112131415161718ull)"
     "version 1 baseline bytes match the golden fixture"
     "left.sector().mapAssetKey != right.sector().mapAssetKey"
@@ -12780,7 +12806,7 @@ foreach(dedicated_live_coop_door_bound_contract IN ITEMS
     "MaximumCoopTacticalSnapshotDoors * 2 + 3"
     "MaximumCoopTacticalPayloadWireSize = 64u * 1024u"
     "MaximumCoopTacticalBaselinePayloadWireSize ="
-    "MaximumCoopTacticalDeltaPayloadWireSize = 53853")
+    "MaximumCoopTacticalDeltaPayloadWireSize = 54109")
   string(FIND "${dedicated_live_tactical_protocol_header_code}"
     "${dedicated_live_coop_door_bound_contract}"
     dedicated_live_coop_door_bound_contract_position)
@@ -12790,11 +12816,11 @@ foreach(dedicated_live_coop_door_bound_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_coop_door_bound_test_contract IN ITEMS
-    "MaximumCoopTacticalBaselinePayloadWireSize == 45370"
-    "MaximumCoopTacticalBaselineWireSize == 46982"
+    "MaximumCoopTacticalBaselinePayloadWireSize == 45626"
+    "MaximumCoopTacticalBaselineWireSize == 47238"
     "MaximumCoopTacticalDeltaEvents == 2563"
-    "MaximumCoopTacticalDeltaPayloadWireSize == 53853"
-    "MaximumCoopTacticalDeltaWireSize == 53925"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 54109"
+    "MaximumCoopTacticalDeltaWireSize == 54181"
     "exact 256-actor/1024-door baseline reaches the payload ceiling"
     "TestDisjointActorAndDoorSetsReachTheExactCategoryAwareDeltaBound()"
     "category-aware maximum delta reaches exactly 53,853 bytes"
@@ -12854,10 +12880,10 @@ foreach(dedicated_live_busy_delta_test_contract IN ITEMS
   endif()
 endforeach()
 foreach(dedicated_live_busy_envelope_test_contract IN ITEMS
-    "MaximumCoopTacticalBaselinePayloadWireSize == 45370"
-    "MaximumCoopTacticalBaselineWireSize == 46982"
-    "MaximumCoopTacticalDeltaPayloadWireSize == 53853"
-    "MaximumCoopTacticalDeltaWireSize == 53925"
+    "MaximumCoopTacticalBaselinePayloadWireSize == 45626"
+    "MaximumCoopTacticalBaselineWireSize == 47238"
+    "MaximumCoopTacticalDeltaPayloadWireSize == 54109"
+    "MaximumCoopTacticalDeltaWireSize == 54181"
     "decoded.snapshot.turn().commandsBlocked"
     "co-op envelope round-trips busy and interrupt turn metadata")
   string(FIND "${dedicated_live_tactical_protocol_test_source}"
@@ -13182,7 +13208,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 18> payloads"
+    "const std::array<PayloadCase, 19> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13325,8 +13351,7 @@ require_ordered_fragments(dedicated_live_aimed_resolve_slice
   "command.expectedTargetLevel"
   "SEEN_CURRENTLY"
   "resolvedSoldier->attackSelection().hand() != HANDPOS"
-  "resolvedSoldier->fireControl().burstCounter() != 0"
-  "resolvedSoldier->fireControl().autofireShots() != 0"
+  "!FireSequenceIdle(*resolvedSoldier)"
   "resolvedSoldier->fireControl().reloading()"
   "const OBJECTTYPE& hand = resolvedSoldier->inventory()[HANDPOS]"
   "hand.usItem != command.expectedHandItem"
@@ -13600,7 +13625,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 16)
+if(NOT dedicated_live_authority_write_call_count EQUAL 17)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13614,7 +13639,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 16)
+if(NOT dedicated_live_authority_read_call_count EQUAL 17)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -14452,8 +14477,7 @@ require_ordered_fragments(dedicated_live_reload_resolve_slice
   "!resolved"
   "resolved->roster().team() != gbPlayerNum"
   "resolved->attackSelection().hand() != HANDPOS"
-  "resolved->fireControl().burstCounter() != 0"
-  "resolved->fireControl().autofireShots() != 0"
+  "!FireSequenceIdle(*resolved)"
   "resolved->fireControl().reloading()"
   "animation >= NUMANIMATIONSTATES"
   "ANIM_FIRE"
@@ -14890,7 +14914,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 18> payloads"
+    "const std::array<PayloadCase, 19> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -17661,12 +17685,12 @@ foreach(dedicated_live_readme_contract IN ITEMS
     "148-byte actor"
     "44-byte actor-render"
     "7-byte door"
-    "613690-byte generic maximum"
+    "617786-byte generic maximum"
     "10243 generic"
     "exact 43-byte turn event"
     "doors, and 2563 delta events"
-    "45370/46982"
-    "53853/53925"
+    "45626/47238"
+    "54109/54181"
     "Tactical intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains its three legacy draws"
@@ -17782,15 +17806,15 @@ foreach(dedicated_live_multiplayer_doc_contract IN ITEMS
     "presentation, five bounded 12-byte combat-equipment records"
     "7-byte door"
     "`hostileToPlayerTeam`"
-    "613690 bytes"
+    "617786 bytes"
     "10243-event ceiling"
     "43-byte turn event"
     "version 3.0"
     "`DoorCapacityReached`"
     "256 actors, 1024 doors"
     "2563 events"
-    "45370/46982"
-    "53853/53925"
+    "45626/47238"
+    "54109/54181"
     "72-byte header"
     "98-byte maximum"
     "`ScopedSavedGameFaceReconstruction`"
@@ -17905,12 +17929,12 @@ foreach(dedicated_live_engine_doc_contract IN ITEMS
     "visible adjacent-door open/close"
     "`D` opens a modal"
     "314/148/7 bytes"
-    "613690-byte"
+    "617786-byte"
     "10243 generic events"
     "same-serial interrupt-phase"
     "256 actors, 1024 doors, and 2563"
-    "45370/46982"
-    "53853/53925"
+    "45626/47238"
+    "54109/54181"
     "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
@@ -18018,12 +18042,12 @@ foreach(dedicated_live_campaign_runtime_doc_contract IN ITEMS
     "314-byte header"
     "148-byte actor"
     "7-byte public door"
-    "613690"
+    "617786"
     "10243 generic events"
     "exact 43-byte event"
     "1024 doors, 2563 events"
-    "45370/46982"
-    "53853/53925"
+    "45626/47238"
+    "54109/54181"
     "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy draws"
@@ -18129,13 +18153,13 @@ foreach(dedicated_live_sdl_port_doc_contract IN ITEMS
     "synchronous visible-door open/close"
     "modal `D` visible-door selection"
     "314/148/7 bytes"
-    "613690 bytes"
+    "617786 bytes"
     "10243 generic events"
     "exact 43-byte event"
     "256 actors, 1024 doors"
     "2563 events"
-    "45370/46982"
-    "53853/53925"
+    "45626/47238"
+    "54109/54181"
     "Intent wire v1"
     "`ScopedSavedGameFaceReconstruction`"
     "ordinary face creation retains all three legacy"
@@ -45104,7 +45128,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18" "DoorActionTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19" "CycleWeaponModeTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

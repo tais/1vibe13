@@ -160,7 +160,7 @@ std::vector<std::uint8_t> EncodeSingleCodecEvent(TacticalWorldEvent event)
 void TestMedicalDeltaRecords()
 {
 	static_assert(TacticalWorldDeltaWireVersion == 1);
-	static_assert(EncodedTacticalActorFullEventBytes == 149);
+	static_assert(EncodedTacticalActorFullEventBytes == 150);
 	TacticalActorSnapshot actor;
 	actor.id = {7, 1};
 	actor.grid = 0;
@@ -181,7 +181,7 @@ void TestMedicalDeltaRecords()
 		check(decodedOkay && (entered
 			? std::get<TacticalActorEnteredEvent>(decoded.events[0]).actor == actor
 			: std::get<TacticalActorUpdatedEvent>(decoded.events[0]).actor == actor) &&
-			bytes.size() == 175 && bytes[163] == 127 && bytes[164] == 0 &&
+			bytes.size() == 176 && bytes[163] == 127 && bytes[164] == 0 &&
 			bytes[165] == 0xff && bytes[166] == 0xff,
 			"entered and updated actors preserve bounded bleeding and full-range unsigned kit points in exact appended bytes");
 		for (unsigned mutation = 0; mutation < 4; ++mutation)
@@ -248,14 +248,14 @@ void TestMedicalServiceDeltaRecords()
 				: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
 			const auto bytes = EncodeSingleCodecEvent(event);
 			TacticalWorldDelta decoded;
-			check(bytes.size() == 175 && bytes[serviceOffset] == (service.providing ? 1 : 0) &&
+			check(bytes.size() == 176 && bytes[serviceOffset] == (service.providing ? 1 : 0) &&
 				bytes[serviceOffset + 1] == (service.patient.slot & 0xff) &&
 				bytes[serviceOffset + 2] == (service.patient.slot >> 8) &&
 				bytes[serviceOffset + 3] == (service.patient.incarnation & 0xff) &&
 				bytes[serviceOffset + 4] == ((service.patient.incarnation >> 8) & 0xff) &&
 				bytes[serviceOffset + 5] == ((service.patient.incarnation >> 16) & 0xff) &&
 				bytes[serviceOffset + 6] == (service.patient.incarnation >> 24) &&
-				bytes[serviceOffset + 7] == service.receivingCount &&
+				bytes[serviceOffset + 7] == service.receivingCount && bytes[serviceOffset + 8] == actor.weaponMode &&
 				DecodeTacticalWorldDelta(bytes, decoded) == TacticalWorldDeltaDecodeResult::Success &&
 				decoded.events.size() == 1 && (entered
 					? std::get<TacticalActorEnteredEvent>(decoded.events[0]).actor == actor
@@ -349,7 +349,7 @@ void TestPortraitDeltaRecords()
 				: TacticalWorldEvent{TacticalActorUpdatedEvent{actor}};
 			const auto bytes = EncodeSingleCodecEvent(event);
 			TacticalWorldDelta decoded;
-			check(bytes.size() == 175 &&
+			check(bytes.size() == 176 &&
 				bytes[160] == static_cast<std::uint8_t>(portrait.family) &&
 				bytes[161] == portrait.faceIndex && bytes[162] == static_cast<std::uint8_t>(portrait.camouflage) &&
 				DecodeTacticalWorldDelta(bytes, decoded) == TacticalWorldDeltaDecodeResult::Success &&

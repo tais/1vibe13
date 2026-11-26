@@ -327,7 +327,8 @@ void TestMedicalServiceSnapshots()
 		TacticalWorldSnapshot decoded;
 		Check(EncodeTacticalWorldSnapshot(snapshot, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
 			DecodeTacticalWorldSnapshot(bytes, decoded) == TacticalWorldSnapshotDecodeResult::Success &&
-			SameSnapshot(snapshot, decoded) && bytes.size() == serviceOffset + 8 &&
+			SameSnapshot(snapshot, decoded) && bytes.size() == serviceOffset + 9 &&
+			bytes[serviceOffset + 8] == actor.weaponMode &&
 			bytes[serviceOffset] == (service.providing ? 1 : 0) &&
 			bytes[serviceOffset + 1] == (service.patient.slot & 0xff) &&
 			bytes[serviceOffset + 2] == (service.patient.slot >> 8) &&
@@ -337,6 +338,22 @@ void TestMedicalServiceSnapshots()
 			bytes[serviceOffset + 6] == (service.patient.incarnation >> 24) &&
 			bytes[serviceOffset + 7] == service.receivingCount,
 			"medical-service eight-byte suffix roundtrips exactly without requiring its patient in the snapshot");
+	}
+	for (const std::uint8_t mode : {std::uint8_t(0), std::uint8_t(1), std::uint8_t(2), std::uint8_t(9)})
+	{
+		auto armed = initial;
+		armed.weaponMode = mode;
+		TacticalWorldSnapshot snapshot;
+		std::vector<std::uint8_t> bytes;
+		TacticalWorldSnapshot decoded;
+		Check(TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {armed}, snapshot) == TacticalSnapshotCreateError::None &&
+			EncodeTacticalWorldSnapshot(snapshot, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			bytes.back() == mode && DecodeTacticalWorldSnapshot(bytes, decoded) == TacticalWorldSnapshotDecodeResult::Success &&
+			SameSnapshot(snapshot, decoded),
+			"the stock fire mode is the actor's last byte and roundtrips");
+		bytes.back() = 10;
+		Check(DecodeTacticalWorldSnapshot(bytes, decoded) != TacticalWorldSnapshotDecodeResult::Success,
+			"a fire mode outside the stock modes is rejected");
 	}
 	auto actor = initial;
 	actor.medicalService = {true, {0x1234, 0x12345678}, 3};
@@ -498,11 +515,11 @@ int main()
 		"baseline version is an explicit wire contract");
 	static_assert(EncodedTacticalMedicalServiceSnapshotBytes == 8,
 		"medical-service size is a wire contract");
-	static_assert(EncodedTacticalActorSnapshotBytes == 148,
+	static_assert(EncodedTacticalActorSnapshotBytes == 149,
 		"actor size is a wire contract");
 	static_assert(EncodedTacticalDoorSnapshotBytes == 7,
 		"door size is a wire contract");
-	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 613690,
+	static_assert(MaximumEncodedTacticalWorldSnapshotBytes == 617786,
 		"maximum encoded baseline size is bounded");
 
 	TacticalMapAssetKey retainedMapKey;
@@ -576,6 +593,9 @@ int main()
 	// Service state with an exact absent patient sentinel.
 	golden.insert(golden.begin() + 314 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
 	golden.insert(golden.begin() + 314 + 148 + 140, {0, 0xff, 0xff, 0, 0, 0, 0, 0});
+	// The stock fire mode (single) closes each actor record.
+	golden.insert(golden.begin() + 314 + 148, 0);
+	golden.insert(golden.begin() + 314 + 149 + 148, 0);
 	Check(encoded == golden, "version 1 baseline bytes match the golden fixture");
 	Check(encoded.size() == EncodedTacticalWorldSnapshotHeaderBytes +
 		2 * EncodedTacticalActorSnapshotBytes +
@@ -764,8 +784,8 @@ int main()
 	changed[331] = 4;
 	RejectsInvalid(changed, "unknown stance is rejected");
 	changed = encoded;
-	changed[462] = changed[314];
-	changed[463] = changed[315];
+	changed[463] = changed[314];
+	changed[464] = changed[315];
 	RejectsInvalid(changed,
 		"two incarnations with one numeric actor slot are rejected");
 	changed = encoded;
@@ -782,7 +802,7 @@ int main()
 	changed[384] = 0;
 	RejectsInvalid(changed, "occupied hand items require a quantity");
 	changed = encoded;
-	changed[544] = 1;
+	changed[545] = 1;
 	RejectsInvalid(changed, "empty hand items require all-zero state");
 	changed = encoded;
 	changed[406] = TacticalActorBodyTypeCount;
@@ -805,16 +825,16 @@ int main()
 	RejectsInvalid(changed,
 		"an unpaired UTF-16 display-name surrogate is rejected");
 	changed = encoded;
-	changed[614] = changed[615] = 0;
+	changed[616] = changed[617] = 0;
 	RejectsInvalid(changed, "zero door structure identity is rejected");
 	changed = encoded;
-	changed[617] = changed[610];
-	changed[618] = changed[611];
 	changed[619] = changed[612];
 	changed[620] = changed[613];
+	changed[621] = changed[614];
+	changed[622] = changed[615];
 	RejectsInvalid(changed, "duplicate door base grid is rejected");
 	changed = encoded;
-	changed[616] = 2;
+	changed[618] = 2;
 	RejectsInvalid(changed, "noncanonical door open bit is rejected");
 	changed = encoded;
 	changed[450] = changed[451] = 0xff;

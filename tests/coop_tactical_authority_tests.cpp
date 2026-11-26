@@ -195,6 +195,8 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 	}
 	if (const auto* talk = std::get_if<TalkTacticalIntent>(&left.payload))
 		return talk->target == std::get<TalkTacticalIntent>(right.payload).target;
+	if (const auto* mode = std::get_if<CycleWeaponModeTacticalIntent>(&left.payload))
+		return mode->expectedWeaponMode == std::get<CycleWeaponModeTacticalIntent>(right.payload).expectedWeaponMode;
 	if (const auto* action = std::get_if<DoorActionTacticalIntent>(&left.payload))
 	{
 		const auto& other = std::get<DoorActionTacticalIntent>(right.payload);
@@ -348,7 +350,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 18> payloads{{
+	const std::array<PayloadCase, 19> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -369,7 +371,8 @@ void TestIntentCodec()
 		{TalkTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
 		{ConverseTacticalIntent{0x04030201, 5}, 77},
 		{GiveItemTacticalIntent{TacticalEntityId{0x1234, 0x50607080}, 6, UINT64_C(0x1817161514131211)}, 88},
-		{DoorActionTacticalIntent{0x04030201, 0x0605, 3}, 79}}};
+		{DoorActionTacticalIntent{0x04030201, 0x0605, 3}, 79},
+		{CycleWeaponModeTacticalIntent{1}, 73}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;

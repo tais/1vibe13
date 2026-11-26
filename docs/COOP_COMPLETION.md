@@ -4032,3 +4032,35 @@ Negative control: with locked doors refused as for open/close, the lock never
 opens and the probe fails. Not yet qualified by a probe: kick, key, crowbar,
 explosive, untrap and examine (same command and stock dispatch, different
 button).
+
+## Phase 4.1: fire modes (single, burst, auto)
+
+Co-op fired single aimed shots only: there was no way to change a weapon's
+fire mode, and every co-op "is this merc idle" check treated a non-zero burst
+counter as a burst in progress. In stock the counter is 1 while burst or auto is
+merely selected (it only climbs while rounds are fired, and is reset to 1
+afterwards), so a merc switched to burst would have been locked out of firing,
+reloading, doors and inventory.
+
+- One helper, `FireSequenceIdle`, now decides idleness for every co-op check
+  with stock's meaning of the counter.
+- `CycleWeaponMode` (tactical intent 19, the mode its owner saw) becomes
+  `AuthoritativeWeaponModeCommand` (journal tag 43) and runs the stock
+  `ChangeWeaponMode` (single, burst, auto, barrel and attached-launcher modes,
+  as the weapon allows) for an idle merc whose hand item and mode are still the
+  ones its owner saw.
+- The stock fire mode is part of the public actor snapshot (one byte; the
+  actor record is now 149 bytes, and the derived wire maxima moved with it).
+- The aimed attack goes through the stock fire path in whatever mode is set, so
+  a burst or autofire uses the stock rounds, AP and recoil; an auto-only weapon
+  may now fire outside single mode.
+- Client: V cycles the selected merc's fire mode; the HUD shows it.
+
+Installed evidence (`full_engine_coop_installed_weapon_mode.py`): after the
+seeded A9 victory the test host puts a burst-capable gun from the game data in
+one merc's hand; each owner cycles its mercs through the controller and both
+clients agree on every stock mode: the seeded gun goes single -> burst ->
+single, the starter guns (no burst) stay single. Negative control: with the old
+single-shot idle rule the merc is stuck in burst and the probe fails. Not yet
+qualified by a probe: firing a burst or autofire at an enemy (needs a
+deterministic combat fixture).

@@ -27,11 +27,11 @@ static_assert(CoopTacticalResyncRequestWireSize == 88);
 static_assert(CoopTacticalWireVersion == 1);
 static_assert(TacticalWorldSnapshotWireVersion == 1);
 static_assert(TacticalWorldDeltaWireVersion == 1);
-static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 45370);
-static_assert(MaximumCoopTacticalBaselineWireSize == 46982);
+static_assert(MaximumCoopTacticalBaselinePayloadWireSize == 45626);
+static_assert(MaximumCoopTacticalBaselineWireSize == 47238);
 static_assert(MaximumCoopTacticalDeltaEvents == 2563);
-static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 53853);
-static_assert(MaximumCoopTacticalDeltaWireSize == 53925);
+static_assert(MaximumCoopTacticalDeltaPayloadWireSize == 54109);
+static_assert(MaximumCoopTacticalDeltaWireSize == 54181);
 
 PeerIdentity Identity(std::uint8_t seed)
 {
