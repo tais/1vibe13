@@ -59,7 +59,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeDoorAction = 42,
 	AuthoritativeWeaponMode = 43,
 	AuthoritativeThrow = 44,
-	AuthoritativeAttachItem = 45
+	AuthoritativeAttachItem = 45,
+	AuthoritativeStealth = 46
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -310,6 +311,18 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeStealthCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeStealth));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(value.expectedStealth ? 1 : 0);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -1011,6 +1024,23 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeStealth:
+		{
+			AuthoritativeStealthCommand value{};
+			std::uint8_t stealth = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readU8(stealth) || stealth > 1 ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
+				return false;
+			value.expectedStealth = stealth != 0;
+			if (!IsStructurallyValidAuthoritativeStealthCommand(value)) return false;
 			command = value;
 			return true;
 		}

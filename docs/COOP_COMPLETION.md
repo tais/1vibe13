@@ -4338,3 +4338,26 @@ controller; the receipt is Applied, the server's gun carries the attachment,
 and the owner's private view shows the pocket empty. Negative control: with
 the executor never calling the stock attach, the command is discarded and the
 probe fails.
+
+## Phase 4.5 (second slice): stealth
+
+- The stock stealth (sneaking) flag is public actor state now. It rides in the
+  top bit of the actor's existing fire-mode byte (`UnpackTacticalActorModeByte`:
+  fire mode 0-9 in the low bits), so no wire size changed; an unknown fire
+  mode is still rejected with or without the bit.
+- Tactical intent `ToggleStealth` (kind 22, one byte: the flag the owner saw)
+  and journal tag 46 (`AuthoritativeStealth`). The server checks the merc is
+  the requester's, controllable and not a vehicle, and that its flag is still
+  the one the owner saw, then sets what the stock `ToggleStealthMode` sets in
+  the game (`movement().setStealth`); the stock function itself reads
+  interface-panel state the server does not have, and its panel redraw and
+  screen message are interface work.
+- Client: Alt+Z toggles the selected merc's stealth (stock Z; plain Z is the
+  run toggle here, stock R being reload). The HUD shows "sneaking".
+
+Installed evidence (`full_engine_coop_installed_stealth.py`): in the secured
+A9 after the seeded victory a player turns stealth on and then off for one of
+their mercs through the shipping controller; both clients show each state.
+Negative control: with the executor writing back the flag the owner saw, the
+clients never show stealth and the probe fails. The codec carries the bit
+(snapshot and delta), with round-trip and rejection tests.

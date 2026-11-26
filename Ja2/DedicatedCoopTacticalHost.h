@@ -144,6 +144,10 @@ public:
 		std::uint8_t sourceSlot,
 		std::uint8_t targetSlot,
 		AuthoritativeAttachItemCommand& command) const noexcept = 0;
+	virtual bool prepareStealth(
+		TacticalEntityId actor,
+		bool expectedStealth,
+		AuthoritativeStealthCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -251,6 +255,10 @@ public:
 		std::uint8_t sourceSlot,
 		std::uint8_t targetSlot,
 		AuthoritativeAttachItemCommand& command) const noexcept override;
+	bool prepareStealth(
+		TacticalEntityId actor,
+		bool expectedStealth,
+		AuthoritativeStealthCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

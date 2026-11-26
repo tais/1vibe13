@@ -2081,6 +2081,23 @@ namespace
 	}
 
 	// The stock weapon-mode cycle for an exact idle co-op merc and hand weapon.
+	// The stock stealth toggle for an exact co-op merc whose flag the owner saw.
+	TacticalActor* ResolveAuthoritativeStealth(const AuthoritativeStealthCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeStealthCommand(command) || is_networked || is_client || is_server)
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || soldier->roster().team() != gbPlayerNum || OK_CONTROLLABLE_MERC(soldier) == FALSE ||
+			(soldier->status().flags() & SOLDIER_VEHICLE) != 0 ||
+			(soldier->movement().stealthMode() != FALSE) != command.expectedStealth)
+			return nullptr;
+		return soldier;
+	}
+
 	TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept
 	{
 		if (!IsStructurallyValidAuthoritativeWeaponModeCommand(command) || is_networked || is_client || is_server)
@@ -3286,6 +3303,16 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeStealthCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeStealth(value);
+				if (!soldier) return CommandDisposition::Discard;
+				// What the stock ToggleStealthMode changes in the game; its panel
+				// redraw and screen message are interface work.
+				soldier->movement().setStealth(!value.expectedStealth);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeAttachItemCommand>::value)
 			{
 				TacticalActor* const soldier = ResolveAuthoritativeAttachItem(value);
@@ -4280,6 +4307,22 @@ bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targe
 	return true;
 }
 
+bool PrepareAuthoritativeStealthCommand(TacticalEntityId actor, bool expectedStealth,
+	AuthoritativeStealthCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity) return false;
+	AuthoritativeStealthCommand prepared;
+	prepared.soldier = actor;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedStealth = expectedStealth;
+	if (ResolveAuthoritativeStealth(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeAttachItemCommand(TacticalEntityId actor, std::uint8_t sourceSlot, std::uint8_t targetSlot,
 	AuthoritativeAttachItemCommand& output) noexcept
 {
@@ -4471,7 +4514,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeDoorActionCommand>::value ||
 			std::is_same<Command, AuthoritativeWeaponModeCommand>::value ||
 			std::is_same<Command, AuthoritativeThrowCommand>::value ||
-			std::is_same<Command, AuthoritativeAttachItemCommand>::value)
+			std::is_same<Command, AuthoritativeAttachItemCommand>::value ||
+			std::is_same<Command, AuthoritativeStealthCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4644,6 +4688,11 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
 				return TileIsOutOfBounds(value.expectedTargetGrid)
 					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeStealthCommand>::value)
+			{
+				return IsStructurallyValidAuthoritativeStealthCommand(value)
+					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeAttachItemCommand>::value)
 			{

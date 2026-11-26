@@ -4957,6 +4957,23 @@ require_ordered_fragments(dedicated_live_runtime_code
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();")
 
+# 4.5 stealth: the stock movement flag, toggled only from the state the owner
+# saw; it rides in the mode byte's top bit, so the actor wire size is unchanged.
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_stealth_command_source)
+require_ordered_fragments(coop_stealth_command_source
+  "The co-op stealth toggle must check the flag the owner saw and set the stock movement flag"
+  "TacticalActor* ResolveAuthoritativeStealth(const AuthoritativeStealthCommand& command) noexcept"
+  "(soldier->movement().stealthMode() != FALSE) != command.expectedStealth)"
+  "TacticalActor* const soldier = ResolveAuthoritativeStealth(value);"
+  "soldier->movement().setStealth(!value.expectedStealth);")
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalWorldSnapshot.h" coop_stealth_snapshot_source)
+require_ordered_fragments(coop_stealth_snapshot_source
+  "Stealth must ride in the mode byte without hiding an unknown fire mode"
+  "inline bool UnpackTacticalActorModeByte(TacticalActorSnapshot& actor) noexcept"
+  "actor.stealth = (packed & 0x80u) != 0;"
+  "actor.weaponMode = static_cast<std::uint8_t>(packed & 0x7fu);"
+  "return actor.weaponMode < 10;")
+
 # 5.2: an attach is the stock item-box attach of two ordinary objects of an
 # idle co-op merc, with its stock AP; a refusal that changed nothing discards.
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_attach_command_source)
@@ -13386,7 +13403,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 21> payloads"
+    "const std::array<PayloadCase, 22> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13803,7 +13820,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 19)
+if(NOT dedicated_live_authority_write_call_count EQUAL 20)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13817,7 +13834,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 19)
+if(NOT dedicated_live_authority_read_call_count EQUAL 20)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -15092,7 +15109,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 21> payloads"
+    "const std::array<PayloadCase, 22> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -45308,7 +45325,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21" "AttachItemTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21," "AttachItemTacticalIntent," "ToggleStealth = 22" "ToggleStealthTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

@@ -615,6 +615,25 @@ int main()
 	for (const auto& invalid : invalidFits)
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"an attach needs two different native slots, two real object states, an AP cost and a co-op peer");
+	AuthoritativeStealthCommand sneak;
+	sneak.soldier = {4, 0x01020304}; sneak.expectedStealth = true;
+	sneak.expectedWorldGeneration = 9; sneak.expectedTurnSerial = 11;
+	const std::vector<RecordedSimulationCommand> sneakRecords{
+		{20, 24, CommandJournalStatus::Applied, SimulationCommand{sneak}}};
+	std::vector<std::uint8_t> sneakWire, sneakReencoded;
+	std::vector<RecordedSimulationCommand> decodedSneak;
+	std::uint64_t sneakDropped = 0;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{sneak}) &&
+		EncodeSimulationCommandJournal(sneakRecords, 0, sneakWire) &&
+		DecodeSimulationCommandJournal(sneakWire, decodedSneak, sneakDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedSneak.size() == 1 &&
+		std::holds_alternative<AuthoritativeStealthCommand>(decodedSneak[0].command) &&
+		std::get<AuthoritativeStealthCommand>(decodedSneak[0].command).expectedStealth &&
+		EncodeSimulationCommandJournal(decodedSneak, sneakDropped, sneakReencoded) && sneakReencoded == sneakWire,
+		"a stealth toggle journal round trips the flag the owner saw under its append-only tag");
+	auto localSneak = sneak; localSneak.source = SimulationCommandSource::LocalPlayer;
+	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{localSneak}),
+		"a co-op stealth toggle comes from a co-op peer");
 	std::array<AuthoritativeThrowCommand, 4> invalidTosses;
 	invalidTosses.fill(toss);
 	invalidTosses[0].targetGrid = -1;

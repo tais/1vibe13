@@ -1429,6 +1429,26 @@ struct AuthoritativeWeaponModeCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// The stock stealth (sneaking) toggle of an exact co-op merc: the movement
+// flag the stock ToggleStealthMode sets, without its interface-panel state.
+struct AuthoritativeStealthCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	bool expectedStealth = false;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeStealthCommand>::value,
+	"stealth commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeStealthCommand(const AuthoritativeStealthCommand& command) noexcept
+{
+	return command.soldier.valid() && command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeWeaponModeCommand>::value,
 	"weapon-mode commands must remain pointer-free values");
 constexpr bool IsStructurallyValidAuthoritativeWeaponModeCommand(
@@ -1811,7 +1831,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeDoorActionCommand,
 	AuthoritativeWeaponModeCommand,
 	AuthoritativeThrowCommand,
-	AuthoritativeAttachItemCommand>;
+	AuthoritativeAttachItemCommand,
+	AuthoritativeStealthCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -1996,6 +2017,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeAttachItemCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeAttachItemCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeStealthCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeStealthCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

@@ -503,6 +503,19 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::ToggleStealthTacticalIntent>::value)
+		{
+			AuthoritativeStealthCommand prepared{};
+			if (liveState_->legacyNetworkingActive() ||
+				!liveState_->prepareStealth(intent.actor, payload.expectedStealth, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::AttachItemTacticalIntent>::value)
 		{
 			AuthoritativeAttachItemCommand prepared{};

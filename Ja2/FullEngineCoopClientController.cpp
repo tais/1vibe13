@@ -667,6 +667,15 @@ FullEngineCoopClientIntentRequest FullEngineCoopClientController::cycleWeaponMod
 	return request(view, CoopSession::CycleWeaponModeTacticalIntent{actor->weaponMode});
 }
 
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::toggleStealth(
+	const FullEngineCoopClientControllerView& view) const noexcept
+{
+	if (!actionsEnabled(view)) return {};
+	const TacticalActorSnapshot* const actor = view.snapshot->find(selectedActor_);
+	if (actor == nullptr || !actor->active || !actor->inSector || actor->life <= 0) return {};
+	return request(view, CoopSession::ToggleStealthTacticalIntent{actor->stealth});
+}
+
 FullEngineCoopClientIntentRequest
 FullEngineCoopClientController::beginFirstAid(
 	const FullEngineCoopClientControllerView& view, TacticalEntityId target) const noexcept

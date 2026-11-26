@@ -297,6 +297,15 @@ public:
 	}
 	bool attachPreparationSucceeds = true;
 	mutable std::size_t attachPreparationCalls = 0;
+	bool prepareStealth(TacticalEntityId actor, bool expected, AuthoritativeStealthCommand& command) const noexcept override
+	{
+		if (!stealthPreparationSucceeds) return false;
+		command = AuthoritativeStealthCommand{};
+		command.soldier = actor; command.expectedStealth = expected;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool stealthPreparationSucceeds = true;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1072,6 +1081,18 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		FakeLiveState wide;
 		rejects(wide, Intent(1, AttachItemTacticalIntent{300, 0, 5}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a slot beyond the native inventory never reaches native preparation");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost stealthHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(stealthHost.execute(Intent(1, ToggleStealthTacticalIntent{false})) == TacticalIntentExecutionDisposition::Retained,
+			"a stealth toggle enters the retained command inbox");
+		const auto* stealth = std::get_if<AuthoritativeStealthCommand>(&queue.submissions[0].command);
+		CHECK(stealth && !stealth->expectedStealth && stealth->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stealth toggle carries the state the owner saw");
+		FakeLiveState refused; refused.stealthPreparationSucceeds = false;
+		rejects(refused, Intent(1, ToggleStealthTacticalIntent{true}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a stale flag, a vehicle or another player's merc never enters the inbox");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

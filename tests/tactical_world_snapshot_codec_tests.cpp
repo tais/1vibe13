@@ -354,6 +354,15 @@ void TestMedicalServiceSnapshots()
 		bytes.back() = 10;
 		Check(DecodeTacticalWorldSnapshot(bytes, decoded) != TacticalWorldSnapshotDecodeResult::Success,
 			"a fire mode outside the stock modes is rejected");
+		armed.stealth = true;
+		Check(TacticalWorldSnapshot::create(71, {320, 240}, {}, {}, {armed}, snapshot) == TacticalSnapshotCreateError::None &&
+			EncodeTacticalWorldSnapshot(snapshot, bytes) == TacticalWorldSnapshotEncodeResult::Success &&
+			bytes.back() == (mode | 0x80) && DecodeTacticalWorldSnapshot(bytes, decoded) == TacticalWorldSnapshotDecodeResult::Success &&
+			SameSnapshot(snapshot, decoded) && decoded.actors()[0].stealth && decoded.actors()[0].weaponMode == mode,
+			"stealth rides in the top bit of the mode byte and roundtrips with the fire mode");
+		bytes.back() = static_cast<std::uint8_t>(0x80 | 10);
+		Check(DecodeTacticalWorldSnapshot(bytes, decoded) != TacticalWorldSnapshotDecodeResult::Success,
+			"stealth does not hide an unknown fire mode");
 	}
 	auto actor = initial;
 	actor.medicalService = {true, {0x1234, 0x12345678}, 3};

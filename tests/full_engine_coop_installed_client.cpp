@@ -275,7 +275,7 @@ void ReplyState(std::uint64_t request) noexcept
 			"\"direction\":%u,\"stance\":%u,\"ap\":%d,\"life\":%d,"
 			"\"breath\":%d,\"animation\":%u,\"pose\":%s,"
 			"\"world_x\":%d,\"world_y\":%d,"
-			"\"bleeding\":%d,\"hand_medical_kit_points\":%u,\"weapon_mode\":%u,"
+			"\"bleeding\":%d,\"hand_medical_kit_points\":%u,\"weapon_mode\":%u,\"stealth\":%s,"
 			"\"medical_service\":{\"providing\":%s,\"patient_slot\":%u,\"patient_inc\":%u,\"receiving_count\":%u},"
 			"\"profile\":%u,\"portrait\":{\"family\":%u,\"index\":%u,\"camouflage\":%u},"
 			"\"helmet\":{\"item\":%u,\"quantity\":%u,\"condition\":%d},"
@@ -306,7 +306,7 @@ void ReplyState(std::uint64_t request) noexcept
 			actor.presentation.worldYQ8,
 			static_cast<int>(actor.bleeding),
 			static_cast<unsigned>(actor.handMedicalKitPoints),
-			static_cast<unsigned>(actor.weaponMode),
+			static_cast<unsigned>(actor.weaponMode), actor.stealth ? "true" : "false",
 			actor.medicalService.providing ? "true" : "false",
 			static_cast<unsigned>(actor.medicalService.patient.slot),
 			static_cast<unsigned>(actor.medicalService.patient.incarnation),
@@ -2566,6 +2566,34 @@ private:
 			FullEngineCoopClientPresentationView refreshed;
 			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
 			std::printf("%s{\"request\":%llu,\"kind\":\"attach\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
+				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
+			FlushReply();
+			return;
+		}
+		if (operation == "STEALTH")
+		{
+			std::uint64_t values[2]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+			FullEngineCoopClientPresentationView presentation;
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				!runtime.presentationView(presentation))
+			{ ReplyError(request, "STEALTH needs the slot/incarnation of a visible owned merc"); return; }
+			FullEngineCoopClientControllerView view = ControllerView(presentation);
+			controller_.synchronize(view);
+			const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+			const auto intent = controller_.selectActor(view, actor) ? controller_.toggleStealth(view) : FullEngineCoopClientIntentRequest{};
+			std::uint64_t command = 0;
+			const bool submitted = intent && runtime.sendIntent(intent.actor, intent.payload) ==
+				CoopSession::FullEngineCoopClientResult::Success;
+			FullEngineCoopClientPresentationView refreshed;
+			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
+			std::printf("%s{\"request\":%llu,\"kind\":\"stealth\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
 				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
 			FlushReply();
 			return;

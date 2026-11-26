@@ -885,8 +885,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				break;
 			case 'z':
 			case 'Z':
-				// Later moves of a standing merc run (stock R; R is reload here).
-				Controller.toggleRunning();
+				// Alt+Z: the selected merc's stealth (stock Z; Z is the run toggle
+				// here). Z: later moves of a standing merc run (stock R; R is reload).
+				if ((event.usKeyState & ALT_DOWN) != 0) (void)Submit(Controller.toggleStealth(view), view);
+				else Controller.toggleRunning();
 				break;
 			case 't':
 			case 'T':
@@ -1691,8 +1693,9 @@ void RenderFullEngineCoopClientCampaignStatus() noexcept
 			{
 				static const wchar_t* const Modes[] = {L"single", L"burst", L"auto", L"launcher", L"launcher burst",
 					L"launcher auto", L"underbarrel", L"underbarrel burst", L"underbarrel auto", L"mode 9"};
-				mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d | V fire mode: %ls | Z %ls", unsigned(actor->handMedicalKitPoints),
-					actor->bleeding, Modes[actor->weaponMode < 10 ? actor->weaponMode : 9], Controller.running() ? L"running" : L"walking");
+				mprintf(12, 46, L"B first aid | equipped kit %u | bleeding %d | V fire mode: %ls | Z %ls | Alt+Z %ls", unsigned(actor->handMedicalKitPoints),
+					actor->bleeding, Modes[actor->weaponMode < 10 ? actor->weaponMode : 9], Controller.running() ? L"running" : L"walking",
+					actor->stealth ? L"sneaking" : L"no stealth");
 			}
 			mprintf(12, 62, L"Providing aid %ls | receiving %u | Space stop aid", actor->medicalService.providing ? L"yes" : L"no",
 				unsigned(actor->medicalService.receivingCount));

@@ -105,6 +105,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::CycleWeaponMode: return 1;
 		case TacticalIntentKind::ThrowItem: return 5;
 		case TacticalIntentKind::AttachItem: return 12;
+		case TacticalIntentKind::ToggleStealth: return 1;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -138,6 +139,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::CycleWeaponMode:
 		case TacticalIntentKind::ThrowItem:
 		case TacticalIntentKind::AttachItem:
+		case TacticalIntentKind::ToggleStealth:
 			return true;
 	}
 	return false;
@@ -203,6 +205,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::ThrowItem;
 		if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
 			return TacticalIntentKind::AttachItem;
+		if constexpr (std::is_same<Payload, ToggleStealthTacticalIntent>::value)
+			return TacticalIntentKind::ToggleStealth;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -338,6 +342,8 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 				WriteI32(encoded, payload.targetGrid);
 				encoded.push_back(static_cast<std::uint8_t>(payload.targetLevel));
 			}
+			else if constexpr (std::is_same<Payload, ToggleStealthTacticalIntent>::value)
+				encoded.push_back(payload.expectedStealth ? 1 : 0);
 			else if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
 			{
 				WriteU16(encoded, payload.sourceSlot);
@@ -540,6 +546,12 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			if (desiredOpen > 1) return TacticalIntentCodecResult::Invalid;
 			payload.desiredOpen = desiredOpen != 0;
 			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::ToggleStealth:
+		{
+			if (input == end || *input > 1) return TacticalIntentCodecResult::Invalid;
+			decoded.payload = ToggleStealthTacticalIntent{*input++ != 0};
 			break;
 		}
 		case TacticalIntentKind::AttachItem:

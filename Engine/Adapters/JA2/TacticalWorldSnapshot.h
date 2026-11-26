@@ -531,6 +531,8 @@ struct TacticalActorSnapshot
 	// The stock fire mode of the hand weapon (WM_*: single, burst, auto, the
 	// attached launcher's modes). Public: co-op shares one team view.
 	std::uint8_t weaponMode = 0;
+	// The stock stealth (sneaking) flag. Public: co-op shares one team view.
+	bool stealth = false;
 
 	bool medicalStateValid() const noexcept
 	{
@@ -553,7 +555,8 @@ struct TacticalActorSnapshot
 			interruptActionEligible == other.interruptActionEligible &&
 			loadout == other.loadout && presentation == other.presentation &&
 			bleeding == other.bleeding && handMedicalKitPoints == other.handMedicalKitPoints &&
-			medicalService == other.medicalService && weaponMode == other.weaponMode;
+			medicalService == other.medicalService && weaponMode == other.weaponMode &&
+			stealth == other.stealth;
 	}
 
 	bool operator!=(const TacticalActorSnapshot& other) const noexcept
@@ -561,6 +564,17 @@ struct TacticalActorSnapshot
 		return !(*this == other);
 	}
 };
+
+// The wire's mode byte carries the fire mode (0-9) and the stealth flag in its
+// top bit. Unpacks a decoded byte in place; false for an unknown fire mode or
+// any other set bit.
+inline bool UnpackTacticalActorModeByte(TacticalActorSnapshot& actor) noexcept
+{
+	const std::uint8_t packed = actor.weaponMode;
+	actor.stealth = (packed & 0x80u) != 0;
+	actor.weaponMode = static_cast<std::uint8_t>(packed & 0x7fu);
+	return actor.weaponMode < 10;
+}
 
 inline bool IsValidTacticalActorPresentation(
 	const TacticalActorSnapshot& actor,

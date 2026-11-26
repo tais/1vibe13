@@ -41,7 +41,8 @@ enum class TacticalIntentKind : std::uint8_t
 	DoorAction = 18,
 	CycleWeaponMode = 19,
 	ThrowItem = 20,
-	AttachItem = 21
+	AttachItem = 21,
+	ToggleStealth = 22
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -180,6 +181,11 @@ struct AttachItemTacticalIntent
 	std::uint16_t targetSlot = 0;
 	std::uint64_t expectedInventoryRevision = 0;
 };
+// The stock stealth (sneaking) toggle; the state the owner saw (stale otherwise).
+struct ToggleStealthTacticalIntent
+{
+	bool expectedStealth = false;
+};
 // The stock weapon-mode cycle; the mode the owner saw (stale otherwise).
 struct CycleWeaponModeTacticalIntent
 {
@@ -222,7 +228,8 @@ using TacticalIntentPayload = std::variant<
 	DoorActionTacticalIntent,
 	CycleWeaponModeTacticalIntent,
 	ThrowItemTacticalIntent,
-	AttachItemTacticalIntent>;
+	AttachItemTacticalIntent,
+	ToggleStealthTacticalIntent>;
 
 struct TacticalIntent
 {
