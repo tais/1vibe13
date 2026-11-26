@@ -4243,3 +4243,18 @@ not, so `full_engine_coop_installed_burst_fire.py` requires exactly the gun's
 burst size spent on both clients (3 for the first burst-capable gun in the
 installed data). Negative control: with the pre-4.1 idle check (any armed
 burst counter counts as busy) the burst is refused and the probe fails.
+
+## Phase 4.3 evidence: a grenade at a real enemy
+
+The throw slice (4.3) was proven with a harmless thrown item. Now: in the
+untouched starter battle the test host gives every player merc two
+fragmentation grenades from the game data; a merc's owner throws one at a
+native enemy's tile through the shipping controller (the stock toss), and the
+server runs the stock flight and explosion. `full_engine_coop_installed_grenade.py`
+requires the Applied receipt, the explosion of that grenade in the world (the
+test host watches the stock explosion slots) and one grenade gone from the hand
+on both clients. The enemy's health is recorded only: in the qualifying run
+the grenade scattered about three tiles short (aimed 6611, exploded 6132) and
+did not hurt the enemy, which is stock throwing, not a co-op fault. Negative
+control: with the throw resolver accepting only non-explosive thrown items the
+throw is refused and the probe fails.

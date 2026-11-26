@@ -49,6 +49,7 @@
 #include "Player Command.h"
 #include "Keys.h"
 #include "End Game.h"
+#include "Explosion Control.h"
 #include "TacticalActorDamageResolution.h"
 #include "World Items.h"
 #include "Items.h"
@@ -575,6 +576,61 @@ void PollCombatBurstSeed()
 	std::printf("[co-op entry test] combat burst seeded: mercs=%zu; item=%u; burst=%u; magazine=%u\n", mercs.size(),
 		unsigned(gun), unsigned(GetShotsPerBurst(&mercs[0]->inventory()[HANDPOS])),
 		unsigned(mercs[0]->inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft));
+	std::fflush(stdout);
+}
+
+// Fixture-only (JA2_COOP_ENTRY_COMBAT_GRENADE=1, starter-victory mode): in the
+// untouched starter battle, once the four player mercs are in A9 with enemies
+// present, put two fragmentation grenades from the game data in every player
+// merc's hand. Then report the first explosion of that grenade in the world.
+void PollCombatGrenadeSeed()
+{
+	static bool seeded = false, exploded = false;
+	static UINT16 grenade = 0;
+	static std::chrono::steady_clock::time_point since{};
+	if (!std::getenv("JA2_COOP_ENTRY_COMBAT_GRENADE") || !gfProgramIsRunning) return;
+	if (seeded)
+	{
+		if (exploded || !IsJa2TacticalWorldLoaded()) return;
+		for (const auto& explosion : gExplosionData)
+			if (explosion.fAllocated && explosion.Params.usItem == grenade)
+			{
+				exploded = true;
+				std::printf("[co-op entry test] grenade exploded: item=%u; grid=%d\n", unsigned(grenade),
+					int(explosion.Params.sGridNo));
+				std::fflush(stdout);
+				return;
+			}
+		return;
+	}
+	if (!IsJa2TacticalWorldLoaded() || gWorldSectorX != 9 || gWorldSectorY != 1 || gbWorldSectorZ ||
+		!NumEnemiesInAnySector(9, 1, 0))
+	{ since = {}; return; }
+	std::vector<TacticalActor*> mercs;
+	for (SoldierID slot = gTacticalStatus.Team[OUR_TEAM].bFirstID; slot <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++slot)
+	{
+		auto* actor = GetJa2SoldierRepository().resolve(slot);
+		if (actor && actor->roster().active() && actor->roster().inSector() && actor->vitals().health() >= OKLIFE)
+			mercs.push_back(actor);
+	}
+	if (mercs.size() < 4) { since = {}; return; }
+	const auto now = std::chrono::steady_clock::now();
+	if (since == std::chrono::steady_clock::time_point{}) { since = now; return; }
+	if (now - since < std::chrono::seconds(2)) return;
+	seeded = true;
+	for (UINT16 item = 1; item < MAXITEMS && !grenade; ++item)
+		if (Item[item].usItemClass == IC_GRENADE && Item[item].ubCursor == TOSSCURS &&
+			Explosive[Item[item].ubClassIndex].ubType == EXPLOSV_NORMAL && Explosive[Item[item].ubClassIndex].ubDamage > 0)
+			grenade = item;
+	if (!grenade) { Finish(false, "combat grenade fixture found no fragmentation grenade"); return; }
+	for (auto* merc : mercs)
+	{
+		OBJECTTYPE object;
+		if (!CreateItems(grenade, 100, 2, &object)) { Finish(false, "combat grenade fixture could not create grenades"); return; }
+		merc->inventory()[HANDPOS] = object;
+	}
+	std::printf("[co-op entry test] combat grenade seeded: mercs=%zu; item=%u; count=%u\n", mercs.size(),
+		unsigned(grenade), unsigned(mercs[0]->inventory()[HANDPOS].ubNumberOfObjects));
 	std::fflush(stdout);
 }
 
@@ -1178,6 +1234,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollSectorMarker();
 	PollKnockOutTrigger();
 	PollCombatBurstSeed();
+	PollCombatGrenadeSeed();
 	if (cohortSeeded && gfProgramIsRunning)
 	{
 		if (!DialogueActive() && DialogueQueueIsEmpty())
