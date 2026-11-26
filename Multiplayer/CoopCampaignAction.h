@@ -226,7 +226,7 @@ inline CoopCampaignActionOutcome ValidateCoopCampaignActionRequest(const CoopCam
 	{
 		// A militia autoresolve notice is acknowledged on the map; the others
 		// end a loaded battle.
-		if (status.phase != (IsCoopCampaignMilitiaBattleNotice(status.battleNotice.kind)
+		if (status.phase != (IsCoopCampaignMapNotice(status.battleNotice.kind)
 			? CoopCampaignPhase::Strategic : CoopCampaignPhase::Tactical)) return Outcome::Unavailable;
 		return request.decision == status.battleNotice.id ? Outcome::Applied : Outcome::Stale;
 	}

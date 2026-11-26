@@ -8,10 +8,14 @@ enum class DedicatedCoopBattleNoticeKind : std::uint8_t
 {
 	Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4,
 	// Worldless: an autoresolved army attack on a militia-only sector.
-	MilitiaHeld = 5, MilitiaDefeated = 6
+	MilitiaHeld = 5, MilitiaDefeated = 6,
+	// Worldless: the enemy took a town, mine or SAM site (the stock map box).
+	SectorLost = 7
 };
 inline bool IsDedicatedCoopMilitiaBattleNotice(DedicatedCoopBattleNoticeKind kind) noexcept
 { return kind == DedicatedCoopBattleNoticeKind::MilitiaHeld || kind == DedicatedCoopBattleNoticeKind::MilitiaDefeated; }
+inline bool IsDedicatedCoopMapNotice(DedicatedCoopBattleNoticeKind kind) noexcept
+{ return IsDedicatedCoopMilitiaBattleNotice(kind) || kind == DedicatedCoopBattleNoticeKind::SectorLost; }
 struct DedicatedCoopBattleNotice
 {
 	std::uint64_t id = 0, worldGeneration = 0, turnSerial = 0;
@@ -45,6 +49,7 @@ private:
 	friend bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind) noexcept;
 	friend bool DeferDedicatedCoopBattleSectorLoss(std::int16_t, std::int16_t, std::int8_t) noexcept;
 	friend bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t, std::uint8_t, bool, std::uint16_t, std::uint16_t) noexcept;
+	friend bool DeferDedicatedCoopWorldlessSectorLoss(std::int16_t, std::int16_t, std::int8_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	friend DedicatedCoopBattleNoticeResult CompleteDedicatedCoopBattleNotice(std::uint64_t) noexcept;
 	DedicatedCoopBattleNotice notice_{};
@@ -68,6 +73,12 @@ bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int
 // the acknowledgement just clears it. False latches a failure (overlap, IDs).
 bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, bool held,
 	std::uint16_t militiaLost, std::uint16_t enemiesKilled) noexcept;
+// The stock "enemy has taken <sector>" map box while no world is loaded:
+// attaches the loss to a pending militia defeat at that sector, or becomes a
+// SectorLost notice that holds the campaign until acknowledged. True consumes
+// the box (including a latched failure); false (a world is loaded, or not a
+// dedicated co-op host) keeps the ordinary presentation.
+bool DeferDedicatedCoopWorldlessSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept;
 // Caller has authenticated and serialized an explicit shared acknowledgement.
 // Applied records that acknowledgement; it does not unload the world.
 DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t) noexcept;

@@ -48,6 +48,7 @@ struct NativeHeadlessAutoResolveSummary
 {
 	unsigned short militia = 0, militiaLost = 0, enemies = 0, enemiesKilled = 0;
 	unsigned int battleSeconds = 0;
+	bool sectorLost = false; // the enemy gains the sector (applied separately)
 };
 // Dedicated co-op: the stock autoresolve of an army attack on a sector that
 // only militia defend, run to completion without the screen (as the stock
@@ -55,6 +56,9 @@ struct NativeHeadlessAutoResolveSummary
 // sector with player groups, a loaded sector, or a non-army attacker.
 NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,
 	NativeHeadlessAutoResolveSummary& summary );
+// After the caller has published its outcome notice: the change of control a
+// lost autoresolve leaves pending (stock applies it on the map screen).
+void ApplyHeadlessAutoResolveSectorLoss();
 
 // is the autoresolve active?
 BOOLEAN IsAutoResolveActive( void );

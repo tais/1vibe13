@@ -38,7 +38,7 @@ enum class DedicatedCoopMilitiaBattleResult : std::uint8_t
 struct DedicatedCoopMilitiaBattleOutcome
 {
 	std::uint8_t x = 0, y = 0;
-	bool held = false;
+	bool held = false, sectorLost = false;
 	std::uint16_t militia = 0, militiaLost = 0, enemies = 0, enemiesKilled = 0;
 	std::uint32_t battleSeconds = 0;
 };

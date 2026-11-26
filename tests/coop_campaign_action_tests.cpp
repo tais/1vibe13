@@ -576,6 +576,11 @@ void MilitiaBattleNoticeOnTheMap()
 	CHECK(f.status.observe(clock, f.identities, 2), "a tactical defeat notice");
 	clock = f.status.value(); clock.phase = CoopCampaignPhase::Strategic;
 	CHECK(!f.status.observe(clock, f.identities, 2), "a tactical defeat notice cannot appear on the map");
+	clock.battleNotice = {14, CoopCampaignBattleNoticeKind::SectorLost, 10, 1, 0, true};
+	CHECK(f.status.observe(clock, f.identities, 2), "a lost town on the map");
+	auto lost = f.arrival(CoopCampaignAction::AcknowledgeBattleNotice); lost.decision = 14;
+	CHECK(ValidateCoopCampaignActionRequest(lost, f.status.value(), f.groups, f.identities[0], true, true, true) ==
+		CoopCampaignActionOutcome::Applied, "a sector-lost notice is acknowledged on the map");
 }
 
 void SurrenderSerialization()

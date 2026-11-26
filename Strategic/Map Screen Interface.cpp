@@ -6512,7 +6512,7 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 		swprintf( sStringB, pMapErrorString[ 15 ], sString );
 
 		// put up the message informing the player of the event
-		DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
+		if (!DeferDedicatedCoopWorldlessSectorLoss(sSectorX, sSectorY, bSectorZ)) DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 		return( TRUE );
 	}
 
@@ -6534,7 +6534,7 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 			swprintf( sStringB, pMapErrorString[ 16 ], sString, sStringC );
 
 			// put up the message informing the player of the event
-			DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
+			if (!DeferDedicatedCoopWorldlessSectorLoss(sSectorX, sSectorY, bSectorZ)) DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 			return( TRUE );
 		}
 	}
@@ -6555,7 +6555,7 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 		}
 		if (DeferDedicatedCoopBattleSectorLoss(sSectorX, sSectorY, bSectorZ)) return TRUE;
 		// put up the message informing the player of the event
-		DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
+		if (!DeferDedicatedCoopWorldlessSectorLoss(sSectorX, sSectorY, bSectorZ)) DoScreenIndependantMessageBox( sStringB, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 		return( TRUE );
 	}
 
@@ -6574,7 +6574,7 @@ BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT1
 	swprintf( sString, pMapErrorString[ 17 ], sStringA );
 
 	// put up the message box
-	DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
+	if (!DeferDedicatedCoopWorldlessSectorLoss(sSectorX, sSectorY, bSectorZ)) DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 
 	return( TRUE );
 }

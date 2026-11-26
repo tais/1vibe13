@@ -5010,8 +5010,38 @@ require_ordered_fragments(coop_headless_autoresolve_driver
   "gpAR->fInstantFinish = TRUE;"
   "gpAR->uiTimeSlice = 0xffffffff;"
   "ProcessBattleFrame();"
+  "HandleAutoResolveBattleEnd();"
+  "summary.sectorLost = gsEnemyGainedControlOfSectorID >= 0;"
   "RemoveAutoResolveInterface( TRUE );"
   "gfHeadlessAutoResolve = false;")
+# The stock end-of-battle results (morale, loyalty, first-battle facts, the
+# battle log, the pending change of control) run once, from one function, for
+# the screen and the headless server alike.
+require_ordered_fragments(coop_headless_autoresolve_source
+  "Autoresolve battle-end results must live in one function shared by screen and server"
+  "static void HandleAutoResolveBattleEnd()"
+  "gpAR->uiTotalElapsedBattleTimeInMilliseconds *= 3;"
+  "SetFactTrue( FACT_FIRST_BATTLE_FOUGHT );"
+  "SetThisSectorAsPlayerControlled( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );"
+  "gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );"
+  "void RenderAutoResolve()"
+  "HandleAutoResolveBattleEnd();"
+  "void ApplyHeadlessAutoResolveSectorLoss()"
+  "SetThisSectorAsEnemyControlled( (UINT8)SECTORX( gsEnemyGainedControlOfSectorID ), (UINT8)SECTORY( gsEnemyGainedControlOfSectorID ), 0, TRUE );"
+  "gsEnemyGainedControlOfSectorID = -1;")
+# Every stock "enemy has taken" box goes through the worldless co-op notice.
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp" coop_sector_loss_source)
+extract_brace_bounded_slice(coop_sector_loss_source
+  "BOOLEAN NotifyPlayerWhenEnemyTakesControlOfImportantSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, BOOLEAN fContested )"
+  coop_sector_loss_notify "Cannot bound the native sector-loss notification")
+string(REGEX MATCHALL "DoScreenIndependantMessageBox\\(" coop_sector_loss_boxes "${coop_sector_loss_notify}")
+string(REGEX MATCHALL "if \\(!DeferDedicatedCoopWorldlessSectorLoss\\(sSectorX, sSectorY, bSectorZ\\)\\) DoScreenIndependantMessageBox\\("
+  coop_sector_loss_deferred "${coop_sector_loss_notify}")
+list(LENGTH coop_sector_loss_boxes coop_sector_loss_box_count)
+list(LENGTH coop_sector_loss_deferred coop_sector_loss_deferred_count)
+if(NOT coop_sector_loss_box_count EQUAL 4 OR NOT coop_sector_loss_deferred_count EQUAL 4)
+  message(FATAL_ERROR "Every native sector-loss box must defer to the worldless co-op notice")
+endif()
 require_ordered_fragments(coop_headless_autoresolve_source
   "Headless autoresolve must skip only presentation and stay bounded"
   "static void AllocateAutoResolveState( UINT8 ubSectorX, UINT8 ubSectorY )"
@@ -5033,15 +5063,22 @@ require_ordered_fragments(coop_conversation_runtime_source
   "The server must run a front militia battle itself and hold the map on its notice"
   "decision && decision->kind == DedicatedCoopArrivalKind::MilitiaBattle && !DedicatedCoopBattleNoticePending())"
   "const auto result = ResolveDedicatedCoopMilitiaBattle(decision->id, outcome);"
-  "if (!PublishDedicatedCoopMilitiaBattleNotice(outcome.x, outcome.y, outcome.held, outcome.militiaLost, outcome.enemiesKilled))")
+  "if (!PublishDedicatedCoopMilitiaBattleNotice(outcome.x, outcome.y, outcome.held, outcome.militiaLost, outcome.enemiesKilled))"
+  "if (outcome.sectorLost)"
+  "try { ApplyHeadlessAutoResolveSectorLoss(); }")
 file(READ "${SOURCE_ROOT}/Ja2/DedicatedCoopBattleNotice.cpp" coop_militia_notice_source)
 require_ordered_fragments(coop_militia_notice_source
   "A militia notice must hold the campaign and clear only on an exact acknowledgement"
   "bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, bool held,"
   "InterruptTime(); StopTimeCompression(); PauseGame();"
   "bound->failure_ = bound->notice_.id ? \"overlapping native battle notices\" : \"invalid militia battle notice\";"
+  "bool DeferDedicatedCoopWorldlessSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept"
+  "IsJa2TacticalWorldLoaded()) return false;"
+  "if (bound->notice_.kind != DedicatedCoopBattleNoticeKind::MilitiaDefeated || !(bound->notice_.sector == sector) ||"
+  "bound->notice_.id = bound->nextId_++;"
+  "notice.kind = DedicatedCoopBattleNoticeKind::SectorLost;"
   "if (!id || id != bound->notice_.id) return Result::StaleNotice;"
-  "if (IsDedicatedCoopMilitiaBattleNotice(bound->notice_.kind))"
+  "if (IsDedicatedCoopMapNotice(bound->notice_.kind))"
   "if (IsJa2TacticalWorldLoaded()) return Result::NativeContextChanged;"
   "bound->notice_ = {};")
 

@@ -1696,6 +1696,136 @@ static UINT32 AutoBandageMercs()
 	return 1;
 }
 
+// Handle merc morale, global loyalty, first-battle facts, the battle log and
+// the change of sector control, once, when a battle has ended. Stock ran this
+// from the end-of-battle render; the headless server calls it directly.
+static void HandleAutoResolveBattleEnd()
+{
+	if( !gpAR->fMoraleEventsHandled )
+	{
+		gpAR->uiTotalElapsedBattleTimeInMilliseconds *= 3;
+		gpAR->fMoraleEventsHandled = TRUE;
+		if ( CheckFact( FACT_FIRST_BATTLE_FOUGHT, 0 ) == FALSE )
+		{
+			// this was the first battle against the army
+			SetFactTrue( FACT_FIRST_BATTLE_FOUGHT );
+			if ( gpAR->ubBattleStatus == BATTLE_VICTORY)
+			{
+				SetFactTrue( FACT_FIRST_BATTLE_WON );
+			}
+			SetTheFirstBattleSector( ( INT16 ) (gpAR->ubSectorX + gpAR->ubSectorY * MAP_WORLD_X ) );
+			if ( CampaignStrategicContentPolicy(
+				GetGameContext().capabilities())
+				.handlesFirstBattleTownLoyalty() )
+			{
+				HandleFirstBattleEndingWhileInTown( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
+			}
+		}
+
+		switch( gpAR->ubBattleStatus )
+		{
+			case BATTLE_VICTORY:
+				HandleMoraleEvent( NULL, MORALE_BATTLE_WON, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+				if( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_WON, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+
+				SetThisSectorAsPlayerControlled( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
+				#ifdef NEWMUSIC
+				GlobalSoundID  = MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0];
+				if ( MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0] != -1 )
+					SetMusicModeID( MUSIC_TACTICAL_VICTORY, MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0] );
+				else
+				#endif
+				SetMusicMode( MUSIC_TACTICAL_VICTORY );
+				
+				LogBattleResults( LOG_VICTORY );
+				break;
+
+			case BATTLE_SURRENDERED:
+			case BATTLE_CAPTURED:
+			{
+				SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID;
+				const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
+				for ( ; id <= lastid; ++id )
+				{
+					TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
+
+					if ( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+					{ //Merc is active and alive, and not a vehicle or robot
+						if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
+						{
+							// This morale event is PER INDIVIDUAL SOLDIER
+							HandleMoraleEvent( pSoldier, MORALE_MERC_CAPTURED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+						}
+					}
+				}
+				HandleMoraleEvent( NULL, MORALE_HEARD_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+				if ( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+#ifdef NEWMUSIC
+				GlobalSoundID = MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0];
+				if ( MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0] != -1 )
+					SetMusicModeID( MUSIC_TACTICAL_DEATH, MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0] );
+				else
+#endif
+					SetMusicMode( MUSIC_TACTICAL_DEATH );
+
+				gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
+				break;
+			}
+			case BATTLE_DEFEAT:
+				HandleMoraleEvent( NULL, MORALE_HEARD_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+
+				if( ProcessLoyalty() )
+					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+
+				if ( GetEnemyEncounterCode() != CREATURE_ATTACK_CODE &&
+					GetEnemyEncounterCode () != BLOODCAT_ATTACK_CODE &&
+					GetEnemyEncounterCode () != ZOMBIE_ATTACK_CODE &&
+					GetEnemyEncounterCode () != BANDIT_ATTACK_CODE )
+				{
+					gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
+				}
+				else
+				{
+					gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
+					gsCiviliansEatenByMonsters = gpAR->ubAliveEnemies;
+				}
+				#ifdef NEWMUSIC
+				GlobalSoundID  = MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0];
+				if ( MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0] != -1 )
+					SetMusicModeID( MUSIC_TACTICAL_DEATH, MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0] );
+				else
+				#endif
+				SetMusicMode( MUSIC_TACTICAL_DEATH );
+					
+				LogBattleResults( LOG_DEFEAT );
+				break;
+
+			case BATTLE_RETREAT:
+
+				//Tack on 5 minutes for retreat.
+				gpAR->uiTotalElapsedBattleTimeInMilliseconds += 300000;
+
+				if( ProcessLoyalty() )
+					HandleLoyaltyImplicationsOfMercRetreat( RETREAT_AUTORESOLVE, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
+
+				if ( GetEnemyEncounterCode() != CREATURE_ATTACK_CODE && 
+					GetEnemyEncounterCode () != BLOODCAT_ATTACK_CODE &&
+					GetEnemyEncounterCode () != ZOMBIE_ATTACK_CODE &&
+					GetEnemyEncounterCode () != BANDIT_ATTACK_CODE )
+				{
+					gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
+				}
+				else if( gpAR->ubAliveEnemies )
+				{
+					gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
+					gsCiviliansEatenByMonsters = gpAR->ubAliveEnemies;
+				}
+				LogBattleResults( LOG_DEFEAT );
+				break;
+		}
+	}
+}
+
 void RenderAutoResolve()
 {
 	INT32 i;
@@ -1852,129 +1982,7 @@ void RenderAutoResolve()
 	if( gpAR->ubBattleStatus != BATTLE_IN_PROGRESS )
 	{
 		// Handle merc morale, Global loyalty, and change of sector control
-		if( !gpAR->fMoraleEventsHandled )
-		{
-			gpAR->uiTotalElapsedBattleTimeInMilliseconds *= 3;
-			gpAR->fMoraleEventsHandled = TRUE;
-			if ( CheckFact( FACT_FIRST_BATTLE_FOUGHT, 0 ) == FALSE )
-			{
-				// this was the first battle against the army
-				SetFactTrue( FACT_FIRST_BATTLE_FOUGHT );
-				if ( gpAR->ubBattleStatus == BATTLE_VICTORY)
-				{
-					SetFactTrue( FACT_FIRST_BATTLE_WON );
-				}
-				SetTheFirstBattleSector( ( INT16 ) (gpAR->ubSectorX + gpAR->ubSectorY * MAP_WORLD_X ) );
-				if ( CampaignStrategicContentPolicy(
-					GetGameContext().capabilities())
-					.handlesFirstBattleTownLoyalty() )
-				{
-					HandleFirstBattleEndingWhileInTown( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
-				}
-			}
-
-			switch( gpAR->ubBattleStatus )
-			{
-				case BATTLE_VICTORY:
-					HandleMoraleEvent( NULL, MORALE_BATTLE_WON, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-					if( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_WON, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-
-					SetThisSectorAsPlayerControlled( gpAR->ubSectorX, gpAR->ubSectorY, 0, TRUE );
-					#ifdef NEWMUSIC
-					GlobalSoundID  = MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0];
-					if ( MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0] != -1 )
-						SetMusicModeID( MUSIC_TACTICAL_VICTORY, MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalVictory[0] );
-					else
-					#endif
-					SetMusicMode( MUSIC_TACTICAL_VICTORY );
-					
-					LogBattleResults( LOG_VICTORY );
-					break;
-
-				case BATTLE_SURRENDERED:
-				case BATTLE_CAPTURED:
-				{
-					SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID;
-					const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
-					for ( ; id <= lastid; ++id )
-					{
-						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
-
-						if ( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
-						{ //Merc is active and alive, and not a vehicle or robot
-							if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
-							{
-								// This morale event is PER INDIVIDUAL SOLDIER
-								HandleMoraleEvent( pSoldier, MORALE_MERC_CAPTURED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-							}
-						}
-					}
-					HandleMoraleEvent( NULL, MORALE_HEARD_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-					if ( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-#ifdef NEWMUSIC
-					GlobalSoundID = MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0];
-					if ( MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0] != -1 )
-						SetMusicModeID( MUSIC_TACTICAL_DEATH, MusicSoundValues[SECTOR( gpAR->ubSectorX, gpAR->ubSectorY )].SoundTacticalDeath[0] );
-					else
-#endif
-						SetMusicMode( MUSIC_TACTICAL_DEATH );
-
-					gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
-					break;
-				}
-				case BATTLE_DEFEAT:
-					HandleMoraleEvent( NULL, MORALE_HEARD_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-
-					if( ProcessLoyalty() )
-						HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_LOST, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-
-					if ( GetEnemyEncounterCode() != CREATURE_ATTACK_CODE &&
-						GetEnemyEncounterCode () != BLOODCAT_ATTACK_CODE &&
-						GetEnemyEncounterCode () != ZOMBIE_ATTACK_CODE &&
-						GetEnemyEncounterCode () != BANDIT_ATTACK_CODE )
-					{
-						gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
-					}
-					else
-					{
-						gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
-						gsCiviliansEatenByMonsters = gpAR->ubAliveEnemies;
-					}
-					#ifdef NEWMUSIC
-					GlobalSoundID  = MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0];
-					if ( MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0] != -1 )
-						SetMusicModeID( MUSIC_TACTICAL_DEATH, MusicSoundValues[ SECTOR( gpAR->ubSectorX, gpAR->ubSectorY ) ].SoundTacticalDeath[0] );
-					else
-					#endif
-					SetMusicMode( MUSIC_TACTICAL_DEATH );
-						
-					LogBattleResults( LOG_DEFEAT );
-					break;
-
-				case BATTLE_RETREAT:
-
-					//Tack on 5 minutes for retreat.
-					gpAR->uiTotalElapsedBattleTimeInMilliseconds += 300000;
-
-					if( ProcessLoyalty() )
-						HandleLoyaltyImplicationsOfMercRetreat( RETREAT_AUTORESOLVE, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
-
-					if ( GetEnemyEncounterCode() != CREATURE_ATTACK_CODE && 
-						GetEnemyEncounterCode () != BLOODCAT_ATTACK_CODE &&
-						GetEnemyEncounterCode () != ZOMBIE_ATTACK_CODE &&
-						GetEnemyEncounterCode () != BANDIT_ATTACK_CODE )
-					{
-						gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
-					}
-					else if( gpAR->ubAliveEnemies )
-					{
-						gsEnemyGainedControlOfSectorID = (INT16)SECTOR( gpAR->ubSectorX, gpAR->ubSectorY );
-						gsCiviliansEatenByMonsters = gpAR->ubAliveEnemies;
-					}
-					LogBattleResults( LOG_DEFEAT );
-					break;
-			}
-		}
+		HandleAutoResolveBattleEnd();
 		//Render the end battle condition.
 			switch( gpAR->ubBattleStatus )
 			{
@@ -5970,6 +5978,11 @@ NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,
 	summary.enemies = gpAR->ubEnemies;
 	for( int pass = 0; pass < 4 && gpAR->ubBattleStatus == BATTLE_IN_PROGRESS && !gfHeadlessAutoResolveStalled; ++pass )
 		ProcessBattleFrame();
+	// What the stock end-of-battle screen applies before Done: morale, loyalty,
+	// first-battle facts, the battle log and the pending change of control.
+	if( gpAR->ubBattleStatus != BATTLE_IN_PROGRESS )
+		HandleAutoResolveBattleEnd();
+	summary.sectorLost = gsEnemyGainedControlOfSectorID >= 0;
 	for( INT32 i = 0; i < gpAR->ubCivs; ++i )
 		if( gpCivs[ i ].pSoldier && gpCivs[ i ].pSoldier->vitals().health() < OKLIFE / 2 ) ++summary.militiaLost;
 	for( INT32 i = 0; i < gpAR->ubEnemies; ++i )
@@ -5990,6 +6003,16 @@ NativeHeadlessAutoResolveResult RunHeadlessMilitiaAutoResolve( GROUP& attacker,
 		case BATTLE_RETREAT: return Result::Retreat;
 		default: return Result::Stalled;
 	}
+}
+
+void ApplyHeadlessAutoResolveSectorLoss()
+{
+	// The stock map screen's follow-up to a lost autoresolve (its dialog box
+	// becomes the caller's notice).
+	if( gsEnemyGainedControlOfSectorID >= 0 )
+		SetThisSectorAsEnemyControlled( (UINT8)SECTORX( gsEnemyGainedControlOfSectorID ), (UINT8)SECTORY( gsEnemyGainedControlOfSectorID ), 0, TRUE );
+	gsEnemyGainedControlOfSectorID = -1;
+	gsCiviliansEatenByMonsters = -1;
 }
 
 BOOLEAN IsAutoResolveActive()

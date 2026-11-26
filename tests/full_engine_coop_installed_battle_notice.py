@@ -18,9 +18,10 @@ def validate(value):
     if not value["ready"]:
         return False
     if (any(not integer(value[key], 1) for key in ("session", "control_revision", "groups_revision", "notice")) or
-            not integer(value["outcome"], 1, 6) or not integer(value["x"], 1, 16) or
+            not integer(value["outcome"], 1, 7) or not integer(value["x"], 1, 16) or
             not integer(value["militia_lost"], 0, 255) or not integer(value["enemies_killed"], 0, 255) or
-            (value["outcome"] <= 4 and (value["militia_lost"] or value["enemies_killed"])) or
+            (value["outcome"] not in (5, 6) and (value["militia_lost"] or value["enemies_killed"])) or
+            (value["outcome"] == 7 and not value["sector_control_lost"]) or
             not integer(value["y"], 1, 16) or not integer(value["z"], 0, 3) or not integer(value["armed"]) or value["armed"] not in (0, 9) or
             any(type(value[key]) is not bool for key in ("enabled", "pending", "sector_control_lost")) or
             (value["pending"] and (value["enabled"] or value["armed"])) or

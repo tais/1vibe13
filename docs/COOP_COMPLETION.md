@@ -3894,9 +3894,7 @@ In dedicated co-op:
 
 Not covered yet, each an explicit failure rather than a silent skip: creature,
 bloodcat, zombie and bandit attacks on towns; an attack on a sector whose only
-mercs are unconscious; mobile militia groups attacking enemies; and the stock
-message box when the enemy then takes a *town* (a wilderness sector raises
-none).
+mercs are unconscious; and mobile militia groups attacking enemies.
 
 Installed evidence (`full_engine_coop_installed_militia_battle.py`): after the
 seeded A9 victory and the shared return, the test host makes B9 a player-held
@@ -3940,3 +3938,41 @@ input; the battle is prepared and the squad enters it. `--answer call`: B9
 militia 0 -> 6. `--answer decline`: 0 -> 0. Negative control: with the answer
 not passed to the native preparation, the question is asked again and the
 answer is never applied, so the probe fails.
+
+## Phase 3.5b: battle results and lost sectors on the map
+
+Stock autoresolve applies part of a battle's results while it *draws* the
+finished battle, not when Done is pressed: merc morale, global loyalty, the
+first-battle facts (which start the queen's first-battle Meanwhile scene), the
+battle log, a tripled battle duration, and marking a lost sector for the
+enemy, which the map screen then hands over. The first headless version
+skipped the drawing and with it these results. They now live in one stock
+function, `HandleAutoResolveBattleEnd`, called by the screen and the server
+alike; the server then applies the pending change of control itself
+(`ApplyHeadlessAutoResolveSectorLoss`, the map screen's follow-up), after
+publishing the battle notice.
+
+When the enemy takes a town, mine or SAM site, stock shows a map-screen box
+("Enemy forces have just taken over A10: Omerta.") that nobody on a dedicated
+server can answer. With no world loaded, every such box in
+`NotifyPlayerWhenEnemyTakesControlOfImportantSector` now goes to
+`DeferDedicatedCoopWorldlessSectorLoss`:
+
+- a pending militia defeat at that sector absorbs it (`sectorControlLost`,
+  under a new notice identity);
+- otherwise it becomes a `SectorLost` notice (kind 7), which holds the clock
+  until either player acknowledges it, like the stock box.
+
+A wilderness sector raises no box, so its notice shows the defeat only. With a
+loaded world the ordinary tactical paths stay in charge (a town lost elsewhere
+while players fight is not covered yet).
+
+Installed evidence (`full_engine_coop_installed_militia_battle.py`, four
+cases, each run to a skipped first-battle scene and 20 s of further campaign
+time): `held` (B9 stays player-held), `defeated` (B9 becomes enemy-held),
+`town-defeated` (Omerta: one notice reports the defeat and the lost town,
+Omerta becomes enemy-held), `town-taken` (undefended Omerta retaken through the
+stock `SetThisSectorAsEnemyControlled` the strategic AI uses: a `SectorLost`
+notice). No case opens a native box on the server. Negative control: with the
+hook disabled, `town-taken` fails on the server's "Enemy forces have just taken
+over A10: Omerta." box.

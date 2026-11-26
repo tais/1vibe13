@@ -46,6 +46,7 @@
 #include "Soldier Ani.h"
 #include "Queen Command.h"
 #include "Town Militia.h"
+#include "Player Command.h"
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "Soldier Profile Constants.h"
@@ -313,31 +314,75 @@ void PollReinforcementBattleSeed()
 	std::fflush(stdout);
 }
 
+std::chrono::steady_clock::time_point takenAt{};
+bool takenApplied = false;
+
 void PollMilitiaAttackSeed()
 {
 	static bool seeded = false;
+	if (seeded && takenAt != std::chrono::steady_clock::time_point{} && !takenApplied &&
+		std::chrono::steady_clock::now() - takenAt > std::chrono::seconds(3) && !IsJa2TacticalWorldLoaded())
+	{
+		takenApplied = true;
+		const BOOLEAN lost = SetThisSectorAsEnemyControlled(10, 1, 0, TRUE);
+		std::printf("[co-op entry test] town taken by the stock strategic call: result=%u\n", unsigned(lost));
+		std::fflush(stdout);
+	}
+	static int lastControl = -1, lastPending = -1;
 	const char* mode = std::getenv("JA2_COOP_ENTRY_MILITIA_ATTACK");
+	if (seeded && mode)
+	{
+		// Observation only: who holds the attacked sector, and whether a native
+		// message box is waiting on the server.
+		const bool town = std::strncmp(mode, "town-", 5) == 0;
+		const INT16 x = town ? 10 : 9, y = town ? 1 : 2;
+		const int control = StrategicMap[CALCULATE_STRATEGIC_INDEX(x, y)].fEnemyControlled ? 1 : 0;
+		const int pending = GetPendingNewScreen() == MSG_BOX_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN ? 1 : 0;
+		if (control != lastControl || pending != lastPending)
+		{
+			std::printf("[co-op entry test] militia target enemy-controlled=%d; message-box=%d; clock=%u\n",
+				control, pending, GetWorldTotalSeconds());
+			std::fflush(stdout);
+			lastControl = control; lastPending = pending;
+		}
+	}
 	if (seeded || !mode || !gfProgramIsRunning || !GetDedicatedCoopRuntime().campaignEntered() ||
 		!IsDedicatedCoopStarterMissionMapReady() || IsJa2TacticalWorldLoaded() || DedicatedCoopArrivalDecisionPending() ||
 		StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 1)].fEnemyControlled || NumEnemiesInAnySector(9, 1, 0)) return;
 	seeded = true;
 	const bool held = std::strcmp(mode, "held") == 0;
-	if (!held && std::strcmp(mode, "defeated") != 0) { Finish(false, "unknown militia attack mode"); return; }
-	for (const auto sector : {SECTOR(9, 2), SECTOR(9, 3)})
+	// town-defeated: Omerta (A10, a town) instead of wilderness B9, attacked from A11.
+	// town-taken: undefended Omerta retaken without a battle, through the stock
+	// call the strategic AI uses (no militia, no attacker).
+	const bool taken = std::strcmp(mode, "town-taken") == 0;
+	const bool town = taken || std::strcmp(mode, "town-defeated") == 0;
+	if (!held && !town && std::strcmp(mode, "defeated") != 0) { Finish(false, "unknown militia attack mode"); return; }
+	const UINT8 targetX = town ? 10 : 9, targetY = town ? 1 : 2, fromX = town ? 11 : 9, fromY = town ? 1 : 3;
+	for (const auto sector : {SECTOR(targetX, targetY), SECTOR(fromX, fromY)})
 	{
 		auto& info = SectorInfo[sector];
 		info.ubGarrisonID = NO_GARRISON;
 		info.ubNumAdmins = info.ubNumTroops = info.ubNumElites = info.ubNumTanks = info.ubNumJeeps = info.ubNumRobots = 0;
 	}
-	StrategicMap[CALCULATE_STRATEGIC_INDEX(9, 2)].fEnemyControlled = FALSE;
-	StrategicAddMilitiaToSector(9, 2, held ? ELITE_MILITIA : GREEN_MILITIA, held ? 12 : 1);
-	GROUP* attacker = CreateNewEnemyGroupDepartingFromSector(SECTOR(9, 3), 0, held ? 3 : 0, held ? 0 : 8, 0, 0, 0);
+	StrategicMap[CALCULATE_STRATEGIC_INDEX(targetX, targetY)].fEnemyControlled = FALSE;
+	// A town only counts as held through the stock liberation path.
+	if (town) SetThisSectorAsPlayerControlled(targetX, targetY, 0, TRUE);
+	if (taken)
+	{
+		std::printf("[co-op entry test] militia attack seeded: mode=%s; militia=0; attackers=0; group=0; clock=%u\n", mode,
+			GetWorldTotalSeconds());
+		std::fflush(stdout);
+		takenAt = std::chrono::steady_clock::now();
+		return;
+	}
+	StrategicAddMilitiaToSector(targetX, targetY, held ? ELITE_MILITIA : GREEN_MILITIA, held ? 12 : 1);
+	GROUP* attacker = CreateNewEnemyGroupDepartingFromSector(SECTOR(fromX, fromY), 0, held ? 3 : 0, held ? 0 : 8, 0, 0, 0);
 	if (!attacker) { Finish(false, "fixture militia attacker creation failed"); return; }
-	MoveSAIGroupToSector(&attacker, SECTOR(9, 2), DIRECT, ASSAULT);
-	if (!attacker || attacker->ubNextX != 9 || attacker->ubNextY != 2)
-	{ Finish(false, "fixture militia attacker did not set out for B9"); return; }
+	MoveSAIGroupToSector(&attacker, SECTOR(targetX, targetY), DIRECT, ASSAULT);
+	if (!attacker || attacker->ubNextX != targetX || attacker->ubNextY != targetY)
+	{ Finish(false, "fixture militia attacker did not set out for its target"); return; }
 	std::printf("[co-op entry test] militia attack seeded: mode=%s; militia=%u; attackers=%u; group=%u; clock=%u\n", mode,
-		unsigned(NumNonPlayerTeamMembersInSector(9, 2, MILITIA_TEAM)), unsigned(attacker->ubGroupSize), unsigned(attacker->ubGroupID),
+		unsigned(NumNonPlayerTeamMembersInSector(targetX, targetY, MILITIA_TEAM)), unsigned(attacker->ubGroupSize), unsigned(attacker->ubGroupID),
 		GetWorldTotalSeconds());
 	std::fflush(stdout);
 }

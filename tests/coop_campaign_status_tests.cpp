@@ -372,13 +372,25 @@ void TestMilitiaBattleNotice()
 		auto bad = status;
 		if (fault == 0) bad.phase = CoopCampaignPhase::Tactical;
 		if (fault == 1) bad.battleNotice.z = 1;
-		if (fault == 2) bad.battleNotice.sectorControlLost = true;
+		if (fault == 2) { bad.battleNotice.kind = CoopCampaignBattleNoticeKind::MilitiaHeld; bad.battleNotice.sectorControlLost = true; }
 		if (fault == 3) bad.gamePaused = false;
 		if (fault == 4) { bad.compressionActive = true; bad.compressionMode = 1; }
 		if (fault == 5) { bad.phase = CoopCampaignPhase::Tactical; bad.battleNotice.kind = CoopCampaignBattleNoticeKind::Defeated; }
 		if (fault == 6) { bad.battleNotice.kind = CoopCampaignBattleNoticeKind::None; bad.battleNotice.id = 0; bad.battleNotice.x = bad.battleNotice.y = 0; }
 		CHECK(!EncodeCoopCampaignStatus(bad, bytes), "a militia notice is a paused map hold; counts belong to militia notices only");
 	}
+	{ auto lost = status; lost.battleNotice.sectorControlLost = true;
+		CHECK(EncodeCoopCampaignStatus(lost, bytes) && bytes[108] == 1, "a militia defeat can include the lost town"); }
+	{ auto held = status; held.battleNotice.kind = CoopCampaignBattleNoticeKind::MilitiaHeld; held.battleNotice.sectorControlLost = true;
+		CHECK(!EncodeCoopCampaignStatus(held, bytes), "militia that held cannot have lost the sector"); }
+	{ auto taken = status; taken.battleNotice = {0x31ull, CoopCampaignBattleNoticeKind::SectorLost, 10, 1, 0, true, 0, 0};
+		CHECK(EncodeCoopCampaignStatus(taken, bytes) && bytes[104] == 7 && DecodeCoopCampaignStatus(bytes.data(), bytes.size(), decoded) &&
+			SameCoopCampaignStatus(taken, decoded), "a lost town without a battle is a map notice");
+		auto noLoss = taken; noLoss.battleNotice.sectorControlLost = false;
+		auto counted = taken; counted.battleNotice.militiaLost = 1;
+		auto tactical = taken; tactical.phase = CoopCampaignPhase::Tactical;
+		CHECK(!EncodeCoopCampaignStatus(noLoss, bytes) && !EncodeCoopCampaignStatus(counted, bytes) && !EncodeCoopCampaignStatus(tactical, bytes),
+			"a sector-lost notice always reports the loss, carries no counts and lives on the map"); }
 	(void)EncodeCoopCampaignStatus(status, bytes);
 	auto corrupt = bytes; corrupt[111] = 1;
 	CHECK(!DecodeCoopCampaignStatus(corrupt.data(), corrupt.size(), decoded), "the last notice byte stays reserved");

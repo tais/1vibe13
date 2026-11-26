@@ -480,6 +480,7 @@ DedicatedCoopMilitiaBattleResult ResolveDedicatedCoopMilitiaBattle(std::uint64_t
 	outcome.militia = summary.militia; outcome.militiaLost = summary.militiaLost;
 	outcome.enemies = summary.enemies; outcome.enemiesKilled = summary.enemiesKilled;
 	outcome.battleSeconds = summary.battleSeconds;
+	outcome.sectorLost = summary.sectorLost;
 	std::move(bound->decisions_.begin() + 1, bound->decisions_.begin() + bound->count_, bound->decisions_.begin());
 	bound->decisions_[--bound->count_] = {};
 	InterruptTime(); StopTimeCompression(); PauseGame();

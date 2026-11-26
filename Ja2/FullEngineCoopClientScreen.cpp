@@ -909,6 +909,16 @@ bool RenderBattleNotice(const FullEngineCoopClientRuntime& runtime) noexcept
 	SetFont(FONT14ARIAL); SetFontForeground(FONT_MCOLOR_LTYELLOW);
 	using Kind = CoopSession::CoopCampaignBattleNoticeKind;
 	const auto& notice = status.battleNotice;
+	if (notice.kind == Kind::SectorLost)
+	{
+		mprintf(24, 82, L"Enemy forces have taken %lc%u.", static_cast<wint_t>(L'A' + notice.y - 1), unsigned(notice.x));
+		SetFont(FONT12ARIAL); SetFontForeground(FONT_MCOLOR_WHITE);
+		if (controls.pending) mprintf(24, 106, L"Waiting for the server...");
+		else if (controls.armed) mprintf(24, 106, L"Continue? Enter: confirm   Esc: cancel");
+		else mprintf(24, 106, L"C: continue");
+		mprintf(24, 130, L"Either player may continue. The campaign remains paused.");
+		return true;
+	}
 	if (CoopSession::IsCoopCampaignMilitiaBattleNotice(notice.kind))
 	{
 		mprintf(24, 82, L"Enemy forces attacked the militia at %lc%u.", static_cast<wint_t>(L'A' + notice.y - 1), unsigned(notice.x));
@@ -919,6 +929,7 @@ bool RenderBattleNotice(const FullEngineCoopClientRuntime& runtime) noexcept
 		else if (controls.armed) mprintf(24, 130, L"Continue? Enter: confirm   Esc: cancel");
 		else mprintf(24, 130, L"C: continue");
 		mprintf(24, 154, L"Either player may continue. The campaign remains paused.");
+		if (notice.sectorControlLost) mprintf(24, 178, L"Enemy forces have taken control of this sector.");
 		return true;
 	}
 	const wchar_t* outcome = notice.kind == Kind::Defeated ? L"Your squad was defeated" :

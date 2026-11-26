@@ -71,7 +71,8 @@ bool DeferDedicatedCoopBattleNotice(DedicatedCoopBattleNoticeKind kind) noexcept
 bool DeferDedicatedCoopBattleSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept
 {
 	if (!bound || !IsDedicatedCoopProcess() || is_networked || is_client || is_server ||
-		!bound->notice_.id || z != 0 || !(bound->notice_.sector == (TacticalWorldSession::Sector{x, y, z}))) return false;
+		!bound->notice_.id || z != 0 || !(bound->notice_.sector == (TacticalWorldSession::Sector{x, y, z})) ||
+		IsDedicatedCoopMapNotice(bound->notice_.kind)) return false; // map notices: DeferDedicatedCoopWorldlessSectorLoss
 	if (bound->failure_) return true;
 	if (bound->acknowledged_ || !SameContext(bound->notice_) ||
 		!StrategicMap[CALCULATE_STRATEGIC_INDEX(x, y)].fEnemyControlled)
@@ -112,6 +113,42 @@ bool PublishDedicatedCoopMilitiaBattleNotice(std::uint8_t x, std::uint8_t y, boo
 	return true;
 }
 
+bool DeferDedicatedCoopWorldlessSectorLoss(std::int16_t x, std::int16_t y, std::int8_t z) noexcept
+{
+	if (!bound || !IsDedicatedCoopProcess() || is_networked || is_client || is_server || IsJa2TacticalWorldLoaded()) return false;
+	InterruptTime(); StopTimeCompression(); PauseGame();
+	if (bound->failure_) return true;
+	if (z != 0 || x < 1 || x > 16 || y < 1 || y > 16)
+	{ bound->failure_ = "invalid worldless sector loss"; return true; }
+	if (bound->nextId_ == std::numeric_limits<std::uint64_t>::max())
+	{ bound->failure_ = "native battle notice IDs exhausted"; return true; }
+	const TacticalWorldSession::Sector sector{x, y, 0};
+	if (bound->notice_.id)
+	{
+		// The militia lost this very sector: one notice says both. A new
+		// identity invalidates an acknowledgement prepared for the old text.
+		if (bound->notice_.kind != DedicatedCoopBattleNoticeKind::MilitiaDefeated || !(bound->notice_.sector == sector) ||
+			bound->acknowledged_)
+		{ bound->failure_ = "worldless sector loss overlaps another battle notice"; return true; }
+		bound->notice_.id = bound->nextId_++;
+		bound->notice_.sectorControlLost = true;
+	}
+	else
+	{
+		DedicatedCoopBattleNotice notice;
+		notice.id = bound->nextId_++;
+		notice.sector = sector;
+		notice.kind = DedicatedCoopBattleNoticeKind::SectorLost;
+		notice.sectorControlLost = true;
+		bound->notice_ = notice;
+		bound->acknowledged_ = false;
+	}
+	std::printf("[dedicated] sector loss notice pending: id=%llu; sector=%d,%d; kind=%u; awaiting a player acknowledgement\n",
+		static_cast<unsigned long long>(bound->notice_.id), int(x), int(y), unsigned(bound->notice_.kind));
+	std::fflush(stdout);
+	return true;
+}
+
 DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64_t id) noexcept
 {
 	using Result = DedicatedCoopBattleNoticeResult;
@@ -120,9 +157,9 @@ DedicatedCoopBattleNoticeResult AcknowledgeDedicatedCoopBattleNotice(std::uint64
 	if (!bound->notice_.id) return Result::NotPending;
 	if (!id || id != bound->notice_.id) return Result::StaleNotice;
 	if (bound->acknowledged_) return Result::NotPending;
-	if (IsDedicatedCoopMilitiaBattleNotice(bound->notice_.kind))
+	if (IsDedicatedCoopMapNotice(bound->notice_.kind))
 	{
-		// Nothing to unload: the battle was resolved and applied already.
+		// Nothing to unload: the battle or loss was resolved and applied already.
 		if (IsJa2TacticalWorldLoaded()) return Result::NativeContextChanged;
 		std::printf("[dedicated] militia battle notice acknowledged: id=%llu\n", static_cast<unsigned long long>(id));
 		std::fflush(stdout);

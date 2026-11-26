@@ -23,10 +23,16 @@ enum class CoopCampaignBattleNoticeKind : std::uint8_t
 	None = 0, Defeated = 1, DefeatedByCreatures = 2, Captured = 3, Surrendered = 4,
 	// An army attack on a sector only militia defended, autoresolved by the
 	// server while no world was loaded. Strategic-phase notices.
-	MilitiaHeld = 5, MilitiaDefeated = 6
+	MilitiaHeld = 5, MilitiaDefeated = 6,
+	// The enemy took a town, mine or SAM site while no world was loaded (the
+	// stock map-screen box). Strategic-phase notice; sectorControlLost is set.
+	SectorLost = 7
 };
 inline bool IsCoopCampaignMilitiaBattleNotice(CoopCampaignBattleNoticeKind kind) noexcept
 { return kind == CoopCampaignBattleNoticeKind::MilitiaHeld || kind == CoopCampaignBattleNoticeKind::MilitiaDefeated; }
+// Notices acknowledged on the map (no loaded battle to end).
+inline bool IsCoopCampaignMapNotice(CoopCampaignBattleNoticeKind kind) noexcept
+{ return IsCoopCampaignMilitiaBattleNotice(kind) || kind == CoopCampaignBattleNoticeKind::SectorLost; }
 struct CoopCampaignBattleNotice
 {
 	std::uint64_t id = 0;
@@ -41,9 +47,12 @@ inline bool ValidCoopCampaignBattleNotice(const CoopCampaignBattleNotice& value)
 	if (!value.id) return value.kind == CoopCampaignBattleNoticeKind::None && !value.x && !value.y && !value.z && !value.sectorControlLost &&
 		!value.militiaLost && !value.enemiesKilled;
 	const bool militia = IsCoopCampaignMilitiaBattleNotice(value.kind);
-	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::MilitiaDefeated &&
+	return value.kind >= CoopCampaignBattleNoticeKind::Defeated && value.kind <= CoopCampaignBattleNoticeKind::SectorLost &&
 		value.x >= 1 && value.x <= 16 && value.y >= 1 && value.y <= 16 && value.z <= 3 && (!value.sectorControlLost || value.z == 0) &&
-		(militia ? value.z == 0 && !value.sectorControlLost : !value.militiaLost && !value.enemiesKilled);
+		(IsCoopCampaignMapNotice(value.kind) ? value.z == 0 : true) &&
+		(value.kind != CoopCampaignBattleNoticeKind::MilitiaHeld || !value.sectorControlLost) &&
+		(value.kind != CoopCampaignBattleNoticeKind::SectorLost || value.sectorControlLost) &&
+		(militia || (!value.militiaLost && !value.enemiesKilled));
 }
 inline bool SameCoopCampaignBattleNotice(const CoopCampaignBattleNotice& a, const CoopCampaignBattleNotice& b) noexcept
 {
@@ -108,7 +117,7 @@ inline bool ValidCoopCampaignStatus(const CoopCampaignStatus& value) noexcept
 		(!value.surrenderOffer || (value.phase == CoopCampaignPhase::Tactical &&
 			value.gamePaused && !value.compressionActive && !value.arrival.decision)) &&
 		ValidCoopCampaignBattleNotice(value.battleNotice) && (!value.battleNotice.id ||
-			(IsCoopCampaignMilitiaBattleNotice(value.battleNotice.kind)
+			(IsCoopCampaignMapNotice(value.battleNotice.kind)
 				? value.phase == CoopCampaignPhase::Strategic && value.gamePaused && !value.compressionActive && !value.surrenderOffer
 				: value.phase == CoopCampaignPhase::Tactical && value.gamePaused && !value.compressionActive &&
 				  !value.arrival.decision && !value.surrenderOffer)) &&

@@ -3119,14 +3119,24 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		}
 		if (result == DedicatedCoopMilitiaBattleResult::Resolved)
 		{
-			std::printf("[dedicated] militia battle autoresolved: sector=%u,%u; outcome=%s; militia=%u; militia_lost=%u; enemies=%u; enemies_killed=%u; battle_seconds=%u\n",
+			std::printf("[dedicated] militia battle autoresolved: sector=%u,%u; outcome=%s; militia=%u; militia_lost=%u; enemies=%u; enemies_killed=%u; battle_seconds=%u; sector_lost=%u\n",
 				unsigned(outcome.x), unsigned(outcome.y), outcome.held ? "held" : "defeated", unsigned(outcome.militia),
-				unsigned(outcome.militiaLost), unsigned(outcome.enemies), unsigned(outcome.enemiesKilled), outcome.battleSeconds);
+				unsigned(outcome.militiaLost), unsigned(outcome.enemies), unsigned(outcome.enemiesKilled), outcome.battleSeconds,
+				unsigned(outcome.sectorLost));
 			std::fflush(stdout);
 			if (!PublishDedicatedCoopMilitiaBattleNotice(outcome.x, outcome.y, outcome.held, outcome.militiaLost, outcome.enemiesKilled))
 			{
 				impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.battle-notice", impl_->battleNotice.failure());
 				return;
+			}
+			// The stock map screen's follow-up: the enemy takes the sector; its
+			// "enemy has taken" box joins the notice just published.
+			if (outcome.sectorLost)
+			{
+				try { ApplyHeadlessAutoResolveSectorLoss(); }
+				catch (...) { impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.arrival.militia", "headless sector loss threw"); return; }
+				if (const char* failure = impl_->battleNotice.failure())
+				{ impl_->fail(DedicatedCoopRuntimeError::InvalidState, "campaign.battle-notice", failure); return; }
 			}
 		}
 	}

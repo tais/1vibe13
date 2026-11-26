@@ -23,6 +23,7 @@ from full_engine_coop_installed_battle_notice import scope, send_key, validate a
 from full_engine_coop_installed_campaign import paired_query, qualification_guard, query, validate_action_result, validate_ui
 from full_engine_coop_installed_contracts import press_run, ready_campaigns
 from full_engine_coop_installed_exit_grid import seed_victory, wait_count
+from full_engine_coop_installed_meanwhile import skip_first_battle, validate as validate_scene
 from full_engine_coop_installed_movement import _Probe, _states
 from full_engine_coop_installed_peaceful_sector import _secured_marker_sectors, return_from_secured_sector
 from full_engine_coop_installed_process_smoke import (
@@ -35,9 +36,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT_MARKER = "[dedicated] post-combat strategic checkpoint committed"
 SEEDED_MARKER = "[co-op entry test] militia attack seeded"
 RESOLVED = re.compile(r"\[dedicated\] militia battle autoresolved: sector=(\d+),(\d+); outcome=(held|defeated); militia=(\d+); "
-                      r"militia_lost=(\d+); enemies=(\d+); enemies_killed=(\d+); battle_seconds=(\d+)")
+                      r"militia_lost=(\d+); enemies=(\d+); enemies_killed=(\d+); battle_seconds=(\d+); sector_lost=(\d)")
+CONTROL = re.compile(r"\[co-op entry test\] militia target enemy-controlled=(\d); message-box=(\d)")
 ACKNOWLEDGED_MARKER = "[dedicated] militia battle notice acknowledged"
-MILITIA_HELD, MILITIA_DEFEATED = 5, 6
+MILITIA_HELD, MILITIA_DEFEATED, SECTOR_LOST = 5, 6, 7
 ACKNOWLEDGE_BATTLE_NOTICE = 9
 KEY_CONTINUE, KEY_CONFIRM = 1, 2
 TIME_APPLIED, TIME_NATIVE_BLOCKED = 1, 5
@@ -48,7 +50,7 @@ def parse_arguments(argv=None):
     parser.add_argument("--fixture-executable", type=Path, default=ROOT / "build/full_engine_coop_installed_entry")
     parser.add_argument("--client-executable", type=Path, default=ROOT / "build/full_engine_coop_installed_client")
     parser.add_argument("--installed-data-root", type=Path, default=ROOT.parent / "JA2")
-    parser.add_argument("--outcome", choices=("held", "defeated"), default="held")
+    parser.add_argument("--outcome", choices=("held", "defeated", "town-defeated", "town-taken"), default="held")
     parser.add_argument("--timeout-seconds", type=float, default=300)
     args = parser.parse_args(argv)
     if not 1 <= args.timeout_seconds <= 900:
@@ -61,16 +63,54 @@ def parse_resolution(text):
     match = RESOLVED.search(text)
     if not match:
         return None
-    x, y, outcome, militia, lost, enemies, killed, seconds = match.groups()
+    x, y, outcome, militia, lost, enemies, killed, seconds, sector_lost = match.groups()
     return {"x": int(x), "y": int(y), "held": outcome == "held", "militia": int(militia), "militia_lost": int(lost),
-            "enemies": int(enemies), "enemies_killed": int(killed), "battle_seconds": int(seconds)}
+            "enemies": int(enemies), "enemies_killed": int(killed), "battle_seconds": int(seconds),
+            "sector_lost": sector_lost == "1"}
 
 
-def expected_notice(resolution):
-    """The battle notice both clients must show for this resolution."""
+def control_changes(text):
+    """The test host's observations of the attacked sector: (enemy-held, box)."""
+    return [(match.group(1) == "1", match.group(2) == "1") for match in CONTROL.finditer(text)]
+
+
+def expected_notice(resolution, important=False):
+    """The battle notice both clients must show for this resolution. Only a
+    lost town, mine or SAM site raises the stock "enemy has taken" box that
+    the notice absorbs."""
     return {"outcome": MILITIA_HELD if resolution["held"] else MILITIA_DEFEATED, "x": resolution["x"], "y": resolution["y"],
-            "z": 0, "sector_control_lost": False, "militia_lost": min(resolution["militia_lost"], 255),
+            "z": 0, "sector_control_lost": important and resolution["sector_lost"],
+            "militia_lost": min(resolution["militia_lost"], 255),
             "enemies_killed": min(resolution["enemies_killed"], 255)}
+
+
+def skip_scene_if_shown(probes, guard, timeout, evidence):
+    """The militia battle can be the campaign's first battle against the army
+    (the seeded starter victory sets no facts): stock then starts the queen's
+    first-battle Meanwhile scene, which holds the clock. Skip it as a player
+    would. Returns True when a scene was skipped."""
+    deadline = time.monotonic() + timeout
+    views = paired_query(probes, "MEANWHILE_UI", "meanwhile_ui", deadline, guard)
+    if not any(validate_scene(view) for view in views):
+        return False
+    skip_first_battle(probes, guard, deadline, evidence)
+    return True
+
+
+def check_resolution(resolution, outcome):
+    """The server's autoresolve summary must match the seeded battle; returns
+    the notice both clients must then show."""
+    target = (10, 1) if outcome == "town-defeated" else (9, 2)
+    if (resolution["x"], resolution["y"]) != target or resolution["held"] != (outcome == "held"):
+        raise SmokeFailure(f"unexpected autoresolve result: {resolution}")
+    if outcome == "held" and resolution["enemies_killed"] != resolution["enemies"]:
+        raise SmokeFailure(f"the militia held without killing every attacker: {resolution}")
+    if outcome != "held" and resolution["militia_lost"] != resolution["militia"]:
+        raise SmokeFailure(f"the militia lost without losing every defender: {resolution}")
+    if resolution["sector_lost"] == resolution["held"]:
+        raise SmokeFailure(f"the militia must keep a sector they held and lose one they did not: {resolution}")
+    wanted = expected_notice(resolution, important=outcome == "town-defeated")
+    return wanted
 
 
 def leader_index(campaigns):
@@ -181,17 +221,18 @@ def main(argv=None):
         probes = [_Probe(client) for client in clients]
 
         leader, views = run_until_notice(probes, guard, server, timeout, evidence)
-        resolution = parse_resolution(log_text(server))
+        if args.outcome == "town-taken":
+            # No battle: the stock sector-lost box became a SectorLost notice.
+            wanted = {"outcome": SECTOR_LOST, "x": 10, "y": 1, "z": 0, "sector_control_lost": True,
+                      "militia_lost": 0, "enemies_killed": 0}
+            resolution = {"held": False, "militia": 0, "militia_lost": 0, "enemies": 0, "enemies_killed": 0, "sector_lost": True}
+        else:
+            resolution = parse_resolution(log_text(server))
         if not resolution:
             raise SmokeFailure("the server published a notice without an autoresolve summary")
         evidence["resolution"] = resolution
-        if (resolution["x"], resolution["y"]) != (9, 2) or resolution["held"] != (args.outcome == "held"):
-            raise SmokeFailure(f"unexpected autoresolve result: {resolution}")
-        if args.outcome == "held" and resolution["enemies_killed"] != resolution["enemies"]:
-            raise SmokeFailure(f"the militia held without killing every attacker: {resolution}")
-        if args.outcome == "defeated" and resolution["militia_lost"] != resolution["militia"]:
-            raise SmokeFailure(f"the militia lost without losing every defender: {resolution}")
-        wanted = expected_notice(resolution)
+        if args.outcome != "town-taken":
+            wanted = check_resolution(resolution, args.outcome)
         for view in views:
             if any(view[key] != value for key, value in wanted.items()) or not view["enabled"] or view["pending"]:
                 raise SmokeFailure(f"a client shows a different militia notice: {view} != {wanted}")
@@ -216,6 +257,7 @@ def main(argv=None):
         deadline = time.monotonic() + timeout
         last_time = 0
         while time.monotonic() < deadline:
+            skip_scene_if_shown(probes, guard, timeout, evidence)
             last_time = press_run(probes[leader], guard, last_time, evidence)
             moving = ready_campaigns(probes, guard, deadline)
             if moving[0]["world_seconds"] > start:
@@ -223,10 +265,30 @@ def main(argv=None):
             time.sleep(1.0)
         else:
             raise SmokeFailure("the clock did not run again after the acknowledgement")
+        # Keep the campaign running for a while: the attackers now take the
+        # sector, and the clock must keep moving through that native change.
+        settle = time.monotonic() + 20
+        while time.monotonic() < settle:
+            skip_scene_if_shown(probes, guard, timeout, evidence)
+            last_time = press_run(probes[leader], guard, last_time, evidence)
+            time.sleep(2.0)
+        skip_scene_if_shown(probes, guard, timeout, evidence)
+        last_time = press_run(probes[leader], guard, last_time, evidence)
+        later = ready_campaigns(probes, guard, time.monotonic() + timeout)
+        evidence["after_settle"] = later[0]
+        if later[0]["world_seconds"] <= moving[0]["world_seconds"]:
+            raise SmokeFailure(f"the clock stopped after the militia battle: {later[0]}")
+        changes = control_changes(log_text(server))
+        evidence["control_changes"] = changes
+        if any(box for _, box in changes):
+            raise SmokeFailure("a native message box opened on the server")
+        if not changes or changes[-1][0] != (not resolution["held"]):
+            raise SmokeFailure(f"the attacked sector did not end with the right owner: {changes}")
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
-        print(f"PASS: an army attack on militia-held B9 was autoresolved by the server ({args.outcome}: "
+        where = "A10 (Omerta)" if args.outcome.startswith("town") else "B9"
+        print(f"PASS: militia-held {where}, {args.outcome}: the server resolved it ("
               f"{resolution['militia_lost']}/{resolution['militia']} militia lost, "
               f"{resolution['enemies_killed']}/{resolution['enemies']} attackers killed); both clients showed the notice, "
               f"the clock was held until the non-leader acknowledged it and then ran again.", flush=True)
