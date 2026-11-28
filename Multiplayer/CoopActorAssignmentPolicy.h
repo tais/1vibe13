@@ -67,13 +67,18 @@ inline constexpr std::size_t MaximumCoopActorOwnershipEntries = 256;
 // Per world: a merc whose owner is not a participant of this world is lent
 // to one who is, and that lend holds until beginWorld(); a merc with no owner
 // yet goes to the participant with the fewest present mercs (ties: identity
-// order), which on a first deal is exactly the round-robin. assign() is
+// order), which on a first deal is exactly the round-robin. A player's first
+// deal with mercs present seats them: a player who joined after the others
+// were dealt (the battle starts when the first player is ready) takes a fair
+// share then, the last mercs in actor order of whoever holds the most, until
+// no one holds more than one merc above them. A seated player is never
+// re-dealt, so giving every merc away by hand-over sticks. assign() is
 // transactional: failure leaves the ledger and both outputs untouched.
 class CoopActorOwnershipLedger
 {
 public:
 	void beginWorld() noexcept { lendCount_ = 0; }
-	void clear() noexcept { ownerCount_ = 0; lendCount_ = 0; }
+	void clear() noexcept { ownerCount_ = 0; lendCount_ = 0; seatedCount_ = 0; joinShares_ = 0; }
 	CoopActorAssignmentPolicyResult assign(
 		const PeerIdentity* peers,
 		std::size_t peerCount,
@@ -90,11 +95,17 @@ public:
 	// The recorded owner (not a per-world lend), or nullptr.
 	const PeerIdentity* ownerOf(const TacticalEntityId& actor) const noexcept;
 	std::size_t ownerCount() const noexcept { return ownerCount_; }
+	// Mercs moved to joining players so far this run (a log counter).
+	std::size_t joinShares() const noexcept { return joinShares_; }
+	static constexpr std::size_t MaximumSeatedPlayers = 32;
 private:
 	std::array<CoopTacticalActorAssignment, MaximumCoopActorOwnershipEntries> owners_{};
 	std::size_t ownerCount_ = 0;
 	std::array<CoopTacticalActorAssignment, MaximumCoopTacticalAssignments> lends_{};
 	std::size_t lendCount_ = 0;
+	std::array<PeerIdentity, MaximumSeatedPlayers> seated_{};
+	std::size_t seatedCount_ = 0;
+	std::size_t joinShares_ = 0;
 };
 }
 

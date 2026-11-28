@@ -187,6 +187,26 @@ CoopActorAssignmentPolicyResult CoopActorOwnershipLedger::assign(
 			if (table[i].actor == actor) return i;
 		return count;
 	};
+	// 0. Seat players dealt for the first time with mercs present.
+	auto seated = seated_;
+	std::size_t seatedCount = seatedCount_;
+	std::array<bool, MaximumCoopTacticalSessionPeers> joining{};
+	for (std::size_t p = 0; actorCount != 0 && p < peerCount; ++p)
+	{
+		if (std::find(seated.begin(), seated.begin() + seatedCount, peers[p]) != seated.begin() + seatedCount)
+			continue;
+		joining[p] = true;
+		if (seatedCount == seated.size())
+		{
+			// Full: forget the seat of a player who is not in this world.
+			const auto stale = std::find_if(seated.begin(), seated.begin() + seatedCount,
+				[&](const PeerIdentity& peer) { return participant(peer) == peerCount; });
+			if (stale == seated.begin() + seatedCount) return CoopActorAssignmentPolicyResult::CapacityReached;
+			std::move(stale + 1, seated.begin() + seatedCount, stale);
+			--seatedCount;
+		}
+		seated[seatedCount++] = peers[p];
+	}
 	std::array<std::size_t, MaximumCoopTacticalSessionPeers> present{};
 	std::array<std::size_t, MaximumCoopTacticalAssignments> dealt{};
 	// 1. Recorded owners who take part in this world, then this world's lends.
@@ -238,12 +258,45 @@ CoopActorAssignmentPolicyResult CoopActorOwnershipLedger::assign(
 		}
 		owners[ownerCount++] = {actors[a], peers[fewest]};
 	}
+	// 3. A joining player's fair share: the last mercs of whoever holds the
+	// most move to them (an owned merc changes owner, a lent one its lend)
+	// until no one holds more than one above them. On a first deal step 2 is
+	// already that balanced, so nothing moves.
+	std::size_t shared = 0;
+	for (std::size_t p = 0; p < peerCount; ++p)
+	{
+		if (!joining[p]) continue;
+		for (;;)
+		{
+			std::size_t most = 0;
+			for (std::size_t q = 1; q < peerCount; ++q)
+				if (present[q] > present[most]) most = q;
+			if (present[most] <= present[p] + 1) break;
+			std::size_t a = actorCount;
+			while (dealt[--a] != most) {}
+			dealt[a] = p;
+			--present[most];
+			++present[p];
+			++shared;
+			const std::size_t owned = find(owners, ownerCount, actors[a]);
+			if (owned != ownerCount && owners[owned].peerIdentity == peers[most])
+				owners[owned].peerIdentity = peers[p];
+			else
+			{
+				const std::size_t lent = find(lends, lendCount, actors[a]);
+				if (lent != lendCount) lends[lent].peerIdentity = peers[p];
+			}
+		}
+	}
 	for (std::size_t a = 0; a < actorCount; ++a)
 		staged[a] = {actors[a], peers[dealt[a]]};
 	owners_ = owners;
 	ownerCount_ = ownerCount;
 	lends_ = lends;
 	lendCount_ = lendCount;
+	seated_ = seated;
+	seatedCount_ = seatedCount;
+	joinShares_ += shared;
 	output = staged;
 	outputCount = actorCount;
 	return CoopActorAssignmentPolicyResult::Success;

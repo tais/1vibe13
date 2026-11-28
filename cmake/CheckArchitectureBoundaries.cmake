@@ -4952,6 +4952,26 @@ require_ordered_fragments(coop_ownership_source
   "// Owned by someone absent from this world: lend it for the world."
   "owners[ownerCount++] = {actors[a], peers[fewest]};"
   "owners_ = owners;")
+# Playtest finding: the starter battle begins once the first player is ready,
+# so a second player arriving later owned nothing. A player's first deal with
+# mercs present seats them and gives them a fair share from whoever holds the
+# most; a seated player is never re-dealt (a full hand-over sticks).
+require_ordered_fragments(coop_ownership_source
+  "A player joining after the deal must take a fair share once, from whoever holds the most"
+  "// 0. Seat players dealt for the first time with mercs present."
+  "for (std::size_t p = 0; actorCount != 0 && p < peerCount; ++p)"
+  "joining[p] = true;"
+  "// 3. A joining player's fair share:"
+  "if (!joining[p]) continue;"
+  "if (present[most] <= present[p] + 1) break;"
+  "if (owned != ownerCount && owners[owned].peerIdentity == peers[most])"
+  "owners_ = owners;"
+  "seated_ = seated;")
+require_ordered_fragments(dedicated_live_runtime_source
+  "The server must report a joining player's share"
+  "actorOwnership.assign("
+  "if (actorOwnership.joinShares() != reportedJoinShares)"
+  "[dedicated] a joining player took over %zu merc(s)")
 require_ordered_fragments(dedicated_live_runtime_code
   "Every world boundary must end the per-world lends of the ownership ledger"
   "worldParticipantsSelected = false;" "actorOwnership.beginWorld();"

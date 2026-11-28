@@ -247,9 +247,71 @@ void TestStableOwnershipLedger()
 		"no participants deal nothing and record nothing");
 }
 
+// The playtest: the battle starts once the first player is ready, so the
+// second arrives after all four mercs were dealt to the first.
+void TestJoiningPlayerTakesAShare()
+{
+	const TacticalEntityId m1{1, 1}, m2{2, 1}, m3{3, 1}, m4{4, 1}, m5{5, 1};
+	const std::array<TacticalEntityId, 4> four{m1, m2, m3, m4};
+	const std::array<PeerIdentity, 1> first{Peer(1)};
+	const std::array<PeerIdentity, 2> both{Peer(1), Peer(2)};
+	Deal deal{}; std::size_t count = 0;
+	CoopActorOwnershipLedger ledger;
+	CHECK(ledger.assign(first.data(), first.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m4) == Peer(1), "the first player is dealt all four");
+	CHECK(ledger.assign(both.data(), both.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m1) == Peer(1) &&
+		OwnerIn(deal, count, m2) == Peer(1) && OwnerIn(deal, count, m3) == Peer(2) &&
+		OwnerIn(deal, count, m4) == Peer(2), "a joining player takes the last two");
+	CHECK(ledger.joinShares() == 2 && *ledger.ownerOf(m3) == Peer(2), "and owns them for good");
+	CHECK(ledger.assign(both.data(), both.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(1) &&
+		OwnerIn(deal, count, m3) == Peer(2) && ledger.joinShares() == 2, "a seated player takes nothing more");
+	// Giving everything away sticks: the giver is seated, not joining.
+	CHECK(ledger.handOver(m3, Peer(2), Peer(1)) && ledger.handOver(m4, Peer(2), Peer(1)), "player 2 gives both away");
+	CHECK(ledger.assign(both.data(), both.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m3) == Peer(1) &&
+		OwnerIn(deal, count, m4) == Peer(1) && ledger.joinShares() == 2, "a hand-over of every merc is not undone");
+	CoopActorOwnershipLedger late;
+	(void)late.assign(first.data(), first.size(), four.data(), four.size(), deal, count);
+	const std::array<TacticalEntityId, 1> one{m1};
+	CoopActorOwnershipLedger single;
+	(void)single.assign(first.data(), first.size(), one.data(), one.size(), deal, count);
+	CHECK(single.assign(both.data(), both.size(), one.data(), one.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m1) == Peer(1) && single.joinShares() == 0,
+		"one merc is not split: the joiner is seated with none");
+	const std::array<TacticalEntityId, 2> hired{m1, m5};
+	CHECK(single.assign(both.data(), both.size(), hired.data(), hired.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m5) == Peer(2), "the next hire goes to them");
+	// A world with no mercs present seats nobody.
+	CHECK(late.assign(both.data(), both.size(), nullptr, 0, deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && late.joinShares() == 0, "an empty world seats nobody");
+	CHECK(late.assign(both.data(), both.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m4) == Peer(2) && late.joinShares() == 2,
+		"so the joiner still takes a share in the next");
+	// A lent merc moves its lend; its absent owner keeps it.
+	CoopActorOwnershipLedger lent;
+	const std::array<PeerIdentity, 2> owners{Peer(1), Peer(3)};
+	(void)lent.assign(owners.data(), owners.size(), four.data(), four.size(), deal, count);
+	lent.beginWorld();
+	(void)lent.assign(first.data(), first.size(), four.data(), four.size(), deal, count);
+	CHECK(lent.assign(both.data(), both.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m4) == Peer(2) &&
+		*lent.ownerOf(m4) == Peer(3), "a joiner takes a lend, not the absent owner's merc");
+	// Two joiners at once share with the first player.
+	CoopActorOwnershipLedger three;
+	const std::array<PeerIdentity, 3> all{Peer(1), Peer(2), Peer(3)};
+	(void)three.assign(first.data(), first.size(), four.data(), four.size(), deal, count);
+	CHECK(three.assign(all.data(), all.size(), four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m1) == Peer(1) &&
+		OwnerIn(deal, count, m2) == Peer(3) && OwnerIn(deal, count, m3) == Peer(2) &&
+		OwnerIn(deal, count, m4) == Peer(2), "two joiners: nobody holds two more than anyone");
+}
+
 int main()
 {
 	TestStableOwnershipLedger();
+	TestJoiningPlayerTakesAShare();
 	TestBalancedCanonicalAssignment();
 	TestNoPeerProducesNoAcl();
 	TestInvalidInputsPreserveOutputs();

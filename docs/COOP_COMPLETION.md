@@ -4510,3 +4510,34 @@ only to the inactive slot, synced and probed before the manifest is published
 last, and a failure at any of those stages leaves the active checkpoint
 unchanged; the store lock is released by the operating system when a writer
 crashes.
+
+## Playtest fix: a player who joins a running battle gets mercs
+
+The first two-player playtest (2026-11-28) found that the second player had
+no mercs. The starter battle begins once the first player is ready (after a
+10-second gather grace), so a second player who starts a minute later joined
+a world whose four mercs were all dealt to the first; stable ownership never
+re-deals, so the second player could only watch until the first handed mercs
+over with J. A resumed battle has the same shape: it is adopted as soon as
+one player is back.
+
+- The ownership ledger now seats a player at their first deal with mercs
+  present. A player seated in that deal who holds the fewest takes a fair
+  share: the last mercs, in actor order, of whoever holds the most, until no
+  one holds more than one merc above them. With four mercs the newcomer takes
+  two; with one merc nothing moves (the next hire goes to them). An owned merc
+  changes owner for good; a lent one (its owner away) moves its lend.
+- A seated player is never re-dealt: a player who hands every merc away keeps
+  none. A first deal is unchanged (it is already that balanced).
+- New participants still enter only at a drained fresh-baseline boundary and
+  the assignment publish still waits behind retained commands, so the share
+  never lands under a command in flight. The server prints
+  `[dedicated] a joining player took over N merc(s)`.
+
+Installed evidence (`full_engine_coop_installed_late_join.py`): client A joins
+alone and is dealt all four; client B then joins the running battle and both
+clients show B with the last two mercs and A with the first two. Negative
+control: with the share step skipped B owns nothing, the server never reports
+a share and the probe fails; the unit tests (newcomer share, no re-deal after a
+full hand-over, a lone merc, an empty world, a lend, two joiners at once) fail
+the same way.

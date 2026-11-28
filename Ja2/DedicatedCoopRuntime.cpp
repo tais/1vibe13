@@ -2197,6 +2197,13 @@ struct DedicatedCoopRuntime::Impl
 					ActorAssignmentResultName(built));
 				return false;
 			}
+			if (actorOwnership.joinShares() != reportedJoinShares)
+			{
+				std::printf("[dedicated] a joining player took over %zu merc(s)\n",
+					actorOwnership.joinShares() - reportedJoinShares);
+				std::fflush(stdout);
+				reportedJoinShares = actorOwnership.joinShares();
+			}
 		}
 
 		bool assignmentsChanged = !assignmentsPublished ||
@@ -2779,6 +2786,7 @@ struct DedicatedCoopRuntime::Impl
 	std::size_t worldParticipantCount = 0;
 	// Each merc's owner for this server run (see CoopActorOwnershipLedger).
 	CoopSession::CoopActorOwnershipLedger actorOwnership;
+	std::size_t reportedJoinShares = 0;
 	std::size_t minimumControllableActors = 0;
 	bool prepared = false;
 	bool campaignOpen = false;
