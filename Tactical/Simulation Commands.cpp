@@ -2050,9 +2050,17 @@ namespace
 		const OBJECTTYPE& hand = soldier->inventory()[HANDPOS];
 		const UINT16 animation = soldier->animationPlayback().state();
 		if (!hand.exists() || hand.usItem != command.expectedHandItem || command.expectedHandItem >= MAXITEMS ||
-			(Item[command.expectedHandItem].usItemClass != IC_GRENADE && Item[command.expectedHandItem].usItemClass != IC_THROWN) ||
-			Item[command.expectedHandItem].ubCursor != TOSSCURS || HandItemWorks(soldier, HANDPOS) == FALSE ||
+			HandItemWorks(soldier, HANDPOS) == FALSE ||
 			animation >= NUMANIMATIONSTATES || (gAnimControl[animation].uiFlags & ANIM_FIRE) != 0)
+			return nullptr;
+		// A tossed grenade or thrown item, or a trajectory launcher (grenade
+		// launcher, mortar) with a launchable loaded: the stock HandleItem
+		// branch for all three, at a tile.
+		const INVTYPE& item = Item[command.expectedHandItem];
+		const bool tossed = (item.usItemClass == IC_GRENADE || item.usItemClass == IC_THROWN) && item.ubCursor == TOSSCURS;
+		const bool launched = item.usItemClass == IC_LAUNCHER && item.ubCursor == TRAJECTORYCURS &&
+			EnoughAmmo(soldier, FALSE, HANDPOS) != FALSE;
+		if (!tossed && !launched)
 			return nullptr;
 		const INT16 actionPointCost = MinAPsToAttack(soldier, command.targetGrid, TRUE, 0, 0);
 		if (actionPointCost < 0 || EnoughPoints(soldier, actionPointCost, 0, FALSE) == FALSE) return nullptr;

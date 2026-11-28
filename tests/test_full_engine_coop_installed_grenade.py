@@ -12,7 +12,11 @@ def _actor(slot, inc, x, hostile=False, life=50, item=0, quantity=0, grid=0):
 class GrenadeProbeTests(unittest.TestCase):
     def test_seed_and_explosion_lines(self):
         self.assertEqual(grenade.parse_seed("[co-op entry test] combat grenade seeded: mercs=4; item=134; count=2"),
-                         {"mercs": 4, "item": 134, "count": 2})
+                         {"mercs": 4, "hand": 134, "item": 134, "count": 2})
+        self.assertEqual(grenade.parse_seed("[co-op entry test] combat launcher seeded: mercs=4; launcher=351; item=134",
+                                            launcher=True), {"mercs": 4, "hand": 351, "item": 134, "count": 1})
+        self.assertIsNone(grenade.parse_seed("[co-op entry test] combat grenade seeded: mercs=4; item=134; count=2",
+                                             launcher=True))
         self.assertEqual(grenade.parse_explosion("[co-op entry test] grenade exploded: item=134; grid=6132"),
                          {"item": 134, "grid": 6132})
 

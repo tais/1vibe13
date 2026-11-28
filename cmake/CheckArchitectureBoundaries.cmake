@@ -5618,12 +5618,17 @@ require_ordered_fragments(coop_weapon_mode_capture_source
 # a pending throw keeps the merc busy until launch, and the pending copy holds
 # exactly the thrown item (a throw halted before launch returned the whole
 # hand stack to the inventory, which had already lost the thrown item).
+# 4.2 (first slice): the same command fires a trajectory launcher (grenade
+# launcher, mortar) at a tile when it holds a launchable (stock EnoughAmmo);
+# HandleItem's shared grenade/launcher/thrown branch does the rest.
 require_ordered_fragments(coop_weapon_mode_source
-  "Co-op throws must go through the stock toss for grenades and thrown items only"
+  "Co-op throws must go through the stock toss for grenades and thrown items, or a loaded trajectory launcher"
   "if (actor.pendingItem().hasObject()) return false;"
   "TacticalActor* ResolveAuthoritativeThrow(const AuthoritativeThrowCommand& command) noexcept"
-  "(Item[command.expectedHandItem].usItemClass != IC_GRENADE && Item[command.expectedHandItem].usItemClass != IC_THROWN) ||"
-  "Item[command.expectedHandItem].ubCursor != TOSSCURS"
+  "const bool tossed = (item.usItemClass == IC_GRENADE || item.usItemClass == IC_THROWN) && item.ubCursor == TOSSCURS;"
+  "const bool launched = item.usItemClass == IC_LAUNCHER && item.ubCursor == TRAJECTORYCURS &&"
+  "EnoughAmmo(soldier, FALSE, HANDPOS) != FALSE;"
+  "if (!tossed && !launched)"
   "MinAPsToAttack(soldier, command.targetGrid, TRUE, 0, 0)"
   "std::is_same<Command, AuthoritativeThrowCommand>::value)"
   "HandleItemFromWeaponConfigurationCommand(")

@@ -4652,3 +4652,26 @@ both clients show the bleeding reduced: 15 -> 0 (kit 100 -> 85) and 15 -> 4
 old gate refused. Negative control: with the old "medic is not the patient"
 refusal the self-aid is refused and the probe fails. Climb and attach probes
 still pass with the relaxed gate.
+
+## Phase 4.2 (first slice): grenade launchers and mortars at a tile
+
+- The throw command (intent `ThrowItem`, kind 20; journal tag 44) now also
+  fires a trajectory launcher (stock `TRAJECTORYCURS`: grenade launcher,
+  mortar) held with a launchable loaded (stock `EnoughAmmo`). Stock
+  `HandleItem` has one branch for grenades, launchers and thrown items at a
+  tile: the launcher goes through the stock raise-and-fire sequence (with its
+  stock turning and raise costs) and `FireWeapon` launches the grenade; a
+  mortar keeps its stock room check (`ITEM_HANDLE_NOROOM` discards). No wire
+  change: the client's H already submits the hand item at a tile.
+- Not yet: rocket launchers (aimed at a target, not a tile), and plain guns
+  fired at a tile (suppression).
+
+Installed evidence (`full_engine_coop_installed_grenade.py --launcher`): in the
+untouched starter battle the test host loads a game-data grenade launcher with
+a launchable fragmentation grenade (stock `AttachObject`) in each player
+merc's hand. The owner fires at the nearest enemy's tile through the shipping
+controller: Applied, and that grenade exploded at 7087 and 6292 (aimed 6611;
+launched grenades scatter), the launcher still in hand on both clients; enemy
+life 50 -> 44 in one run. Negative control: with the resolver refusing
+launchers no shot is applied in 24 attempts. The plain grenade probe still
+passes.

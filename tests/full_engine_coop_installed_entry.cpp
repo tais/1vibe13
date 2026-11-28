@@ -63,6 +63,7 @@
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "soldier tile.h"
+#include "Points.h"
 #include "Soldier macros.h"
 #include "opplist.h"
 #include "TacticalActorOrientation.h"
@@ -814,16 +815,48 @@ void PollCombatGrenadeSeed()
 	if (since == std::chrono::steady_clock::time_point{}) { since = now; return; }
 	if (now - since < std::chrono::seconds(2)) return;
 	seeded = true;
+	// "launcher": a grenade launcher from the game data loaded (stock
+	// AttachObject) with a launchable fragmentation grenade instead.
+	const bool launcher = std::strcmp(std::getenv("JA2_COOP_ENTRY_COMBAT_GRENADE"), "launcher") == 0;
+	UINT16 gun = 0;
 	for (UINT16 item = 1; item < MAXITEMS && !grenade; ++item)
-		if (Item[item].usItemClass == IC_GRENADE && Item[item].ubCursor == TOSSCURS &&
-			Explosive[Item[item].ubClassIndex].ubType == EXPLOSV_NORMAL && Explosive[Item[item].ubClassIndex].ubDamage > 0)
-			grenade = item;
-	if (!grenade) { Finish(false, "combat grenade fixture found no fragmentation grenade"); return; }
+	{
+		if (Item[item].usItemClass != IC_GRENADE || Explosive[Item[item].ubClassIndex].ubType != EXPLOSV_NORMAL ||
+			Explosive[Item[item].ubClassIndex].ubDamage == 0)
+			continue;
+		if (!launcher)
+		{
+			if (Item[item].ubCursor == TOSSCURS) grenade = item;
+			continue;
+		}
+		for (UINT16 candidate = 1; candidate < MAXITEMS && !gun; ++candidate)
+			if (Item[candidate].usItemClass == IC_LAUNCHER && Item[candidate].ubCursor == TRAJECTORYCURS &&
+				ItemIsGrenadeLauncher(candidate) && ValidLaunchable(item, candidate))
+				gun = candidate;
+		if (gun) grenade = item;
+	}
+	if (!grenade) { Finish(false, "combat grenade fixture found no fragmentation grenade (or launcher)"); return; }
 	for (auto* merc : mercs)
 	{
 		OBJECTTYPE object;
-		if (!CreateItems(grenade, 100, 2, &object)) { Finish(false, "combat grenade fixture could not create grenades"); return; }
+		if (launcher)
+		{
+			OBJECTTYPE round;
+			if (!CreateItem(gun, 100, &object) || !CreateItem(grenade, 100, &round) ||
+				!object.AttachObject(merc, &round, FALSE))
+			{ Finish(false, "combat grenade fixture could not load the launcher"); return; }
+		}
+		else if (!CreateItems(grenade, 100, 2, &object)) { Finish(false, "combat grenade fixture could not create grenades"); return; }
 		merc->inventory()[HANDPOS] = object;
+		if (launcher && EnoughAmmo(merc, FALSE, HANDPOS) == FALSE)
+		{ Finish(false, "combat grenade fixture: the loaded launcher has no stock ammunition"); return; }
+	}
+	if (launcher)
+	{
+		std::printf("[co-op entry test] combat launcher seeded: mercs=%zu; launcher=%u; item=%u\n", mercs.size(),
+			unsigned(gun), unsigned(grenade));
+		std::fflush(stdout);
+		return;
 	}
 	std::printf("[co-op entry test] combat grenade seeded: mercs=%zu; item=%u; count=%u\n", mercs.size(),
 		unsigned(grenade), unsigned(mercs[0]->inventory()[HANDPOS].ubNumberOfObjects));

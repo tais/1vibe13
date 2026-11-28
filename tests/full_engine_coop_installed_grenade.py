@@ -9,6 +9,12 @@ Required: one grenade gone from that hand on both clients and the explosion of
 that grenade in the world. The enemy's health is recorded, not required: it
 may have moved, and a throw may scatter. Seeded weapons; controller input,
 not physical OS input or painted pixels.
+
+With --launcher the test host instead loads a grenade launcher from the game
+data with a launchable fragmentation grenade (stock AttachObject), and the
+owner fires it at the enemy's tile the same way (H: the stock trajectory
+launch at a tile). Required: the Applied receipt and the explosion of that
+grenade; the launcher stays in the hand on both clients.
 """
 import argparse
 import json
@@ -27,6 +33,7 @@ from full_engine_coop_installed_process_smoke import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SEEDED = re.compile(r"\[co-op entry test\] combat grenade seeded: mercs=(\d+); item=(\d+); count=(\d+)")
+LAUNCHER_SEEDED = re.compile(r"\[co-op entry test\] combat launcher seeded: mercs=(\d+); launcher=(\d+); item=(\d+)")
 EXPLODED = re.compile(r"\[co-op entry test\] grenade exploded: item=(\d+); grid=(\d+)")
 MAXIMUM_ATTEMPTS = 24
 
@@ -37,18 +44,27 @@ def parse_arguments(argv=None):
     parser.add_argument("--client-executable", type=Path, default=ROOT / "build/full_engine_coop_installed_client")
     parser.add_argument("--installed-data-root", type=Path, default=ROOT.parent / "JA2")
     parser.add_argument("--timeout-seconds", type=float, default=300)
+    parser.add_argument("--launcher", action="store_true", help="fire a loaded grenade launcher instead")
     args = parser.parse_args(argv)
     if not 1 <= args.timeout_seconds <= 900:
         parser.error("timeout must be 1..900 seconds")
     return args
 
 
-def parse_seed(text):
+def parse_seed(text, launcher=False):
+    """The seeded hand: the grenade stack, or (launcher) the loaded launcher
+    as the hand item with count 1 and the launched grenade as the item."""
+    if launcher:
+        match = LAUNCHER_SEEDED.search(text)
+        if not match:
+            return None
+        mercs, gun, item = (int(value) for value in match.groups())
+        return {"mercs": mercs, "hand": gun, "item": item, "count": 1}
     match = SEEDED.search(text)
     if not match:
         return None
     mercs, item, count = (int(value) for value in match.groups())
-    return {"mercs": mercs, "item": item, "count": count}
+    return {"mercs": mercs, "hand": item, "item": item, "count": count}
 
 
 def parse_explosion(text):
@@ -98,12 +114,13 @@ def main(argv=None):
     installed = args.installed_data_root.resolve(strict=True)
     ja2_ini, configuration = selected_configuration(installed)
     roots = installed_content_roots(installed)
-    run = Path(tempfile.mkdtemp(prefix="ja2-coop-grenade-"))
+    run = Path(tempfile.mkdtemp(prefix="ja2-coop-launcher-" if args.launcher else "ja2-coop-grenade-"))
     print(f"Installed grenade logs: {run}", flush=True)
     for name in ("server", "client-a", "client-b"):
         make_run_root(run / name, ja2_ini, configuration, roots)
         make_private_directory(run / f"{name}-state")
-    evidence = {"qualification_scope": "seeded_grenade_at_native_enemy", "seeded_native_fixture": True,
+    evidence = {"qualification_scope": "seeded_launcher_at_native_enemy" if args.launcher
+                else "seeded_grenade_at_native_enemy", "seeded_native_fixture": True,
                 "physical_input_verified": False, "paint_verified": False, "passed": False, "attempts": []}
     supervisor = ProcessSupervisor()
     environment = process_environment()
@@ -113,7 +130,7 @@ def main(argv=None):
         port = free_loopback_port()
         server = supervisor.start("server", server_command(fixture, run / "server-state", port, "new"), run / "server",
                                   dict(environment, JA2_COOP_ENTRY_TEST_MODE="starter-victory",
-                                       JA2_COOP_ENTRY_COMBAT_GRENADE="1"))
+                                       JA2_COOP_ENTRY_COMBAT_GRENADE="launcher" if args.launcher else "1"))
         wait_for_marker(server, f"[dedicated] co-op campaign created; admission listening on 127.0.0.1:{port}", timeout)
         clients = [supervisor.start(name, client_command(client_exe, run / f"{name}-state", port), run / name,
                                     environment, driven=True) for name in ("client-a", "client-b")]
@@ -121,9 +138,10 @@ def main(argv=None):
                           (clients[0], TACTICAL_PRESENTATION_READY_MARKER),
                           (clients[1], TACTICAL_PRESENTATION_READY_MARKER)], timeout)
         guard = qualification_guard(server, clients)
-        wait_for_marker(server, "[co-op entry test] combat grenade seeded", timeout)
-        seed = parse_seed(log_text(server))
-        if not seed or seed["count"] < 2:
+        wait_for_marker(server, "[co-op entry test] combat launcher seeded" if args.launcher
+                        else "[co-op entry test] combat grenade seeded", timeout)
+        seed = parse_seed(log_text(server), args.launcher)
+        if not seed or seed["count"] < (1 if args.launcher else 2):
             raise SmokeFailure(f"the grenade seed is unusable: {seed}")
         evidence["seed"] = seed
         probes = [_Probe(client) for client in clients]
@@ -134,7 +152,7 @@ def main(argv=None):
             if any(state["outstanding"] for state in states):
                 time.sleep(0.2)
                 continue
-            options = candidates(states, seed["item"], seed["count"])
+            options = candidates(states, seed["hand"], seed["count"])
             if not options:
                 time.sleep(0.5)
                 continue
@@ -160,7 +178,8 @@ def main(argv=None):
         while time.monotonic() < deadline:
             states = _states(probes, deadline, guard)
             hands = [hand(state, thrown["thrower"]) for state in states]
-            if hands == [(seed["item"], seed["count"] - 1)] * 2:
+            # A launcher stays in the hand; a thrown grenade leaves the stack.
+            if hands == [(seed["hand"], 1 if args.launcher else seed["count"] - 1)] * 2:
                 break
             time.sleep(0.2)
         else:
@@ -175,8 +194,9 @@ def main(argv=None):
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
-        print(f"PASS: a grenade thrown at enemy {thrown['target'][0]}:{thrown['target'][1]} exploded at grid "
-              f"{evidence['explosion']['grid']} (aimed {thrown['grid']}); both clients show one gone; enemy life "
+        print(f"PASS: a grenade {'launched' if args.launcher else 'thrown'} at enemy {thrown['target'][0]}:{thrown['target'][1]} exploded at grid "
+              f"{evidence['explosion']['grid']} (aimed {thrown['grid']}); both clients show "
+              f"{'the launcher still in hand' if args.launcher else 'one gone'}; enemy life "
               f"{thrown['life_before']} -> {thrown['life_after']}.", flush=True)
         return 0
     except Exception as error:
