@@ -315,6 +315,16 @@ public:
 		return true;
 	}
 	bool traversePreparationSucceeds = true;
+	bool prepareMeleeAttack(TacticalEntityId actor, TacticalEntityId target,
+		AuthoritativeMeleeAttackCommand& command) const noexcept override
+	{
+		if (!meleePreparationSucceeds) return false;
+		command = AuthoritativeMeleeAttackCommand{};
+		command.soldier = actor; command.target = target; command.expectedActorGrid = 1234;
+		command.expectedTargetGrid = 1235; command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool meleePreparationSucceeds = true;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1111,9 +1121,22 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		const auto* climb = std::get_if<AuthoritativeTraverseCommand>(&queue.submissions[0].command);
 		CHECK(climb && climb->window && climb->source == SimulationCommandSource::NetworkPeer,
 			"the prepared climb or jump keeps the key the owner pressed");
-		FakeLiveState refused; refused.traversePreparationSucceeds = false;
-		rejects(refused, Intent(1, TraverseTacticalIntent{false}), CoopTacticalIntentReceiptReason::GameplayRejected,
+		FakeLiveState refusedClimb; refusedClimb.traversePreparationSucceeds = false;
+		rejects(refusedClimb, Intent(1, TraverseTacticalIntent{false}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"nothing to climb, too few points, a backpack or a busy merc never enters the inbox");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost meleeHost(live, queue, sink, CampaignPackageId, 4);
+		const TacticalEntityId enemy{7, 9};
+		CHECK(meleeHost.execute(Intent(1, MeleeAttackTacticalIntent{enemy})) == TacticalIntentExecutionDisposition::Retained,
+			"a stab or punch enters the retained command inbox");
+		const auto* melee = std::get_if<AuthoritativeMeleeAttackCommand>(&queue.submissions[0].command);
+		CHECK(melee && melee->target == enemy && melee->source == SimulationCommandSource::NetworkPeer,
+			"the prepared stab or punch keeps the target the owner chose");
+		FakeLiveState refusedMelee; refusedMelee.meleePreparationSucceeds = false;
+		rejects(refusedMelee, Intent(1, MeleeAttackTacticalIntent{enemy}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a distant, unseen or friendly target, a gun in hand or too few points never enters the inbox");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

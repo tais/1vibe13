@@ -1,3 +1,4 @@
+#include "DedicatedCoopAttack.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 	#include "CampaignApplicationPolicy.h"
@@ -1475,9 +1476,11 @@ BOOLEAN FireWeapon( TacticalActor *pSoldier , INT32 sTargetGridNo )
 			break;
 		case IC_BLADE:
 
+			RecordDedicatedCoopAttackStrike( *pSoldier, pSoldier->attackSelection().weapon() );
 			UseBlade( pSoldier, sTargetGridNo );
 			break;
 		case IC_PUNCH:
+			RecordDedicatedCoopAttackStrike( *pSoldier, pSoldier->attackSelection().weapon() );
 			UseHandToHand( pSoldier, sTargetGridNo, FALSE );
 			break;
 

@@ -152,6 +152,10 @@ public:
 		TacticalEntityId actor,
 		bool window,
 		AuthoritativeTraverseCommand& command) const noexcept = 0;
+	virtual bool prepareMeleeAttack(
+		TacticalEntityId actor,
+		TacticalEntityId target,
+		AuthoritativeMeleeAttackCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -267,6 +271,10 @@ public:
 		TacticalEntityId actor,
 		bool window,
 		AuthoritativeTraverseCommand& command) const noexcept override;
+	bool prepareMeleeAttack(
+		TacticalEntityId actor,
+		TacticalEntityId target,
+		AuthoritativeMeleeAttackCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

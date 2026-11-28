@@ -63,6 +63,9 @@
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "soldier tile.h"
+#include "Soldier macros.h"
+#include "opplist.h"
+#include "TacticalActorOrientation.h"
 #include "Soldier Profile Constants.h"
 #include "Isometric Utils.h"
 #include "Map Information.h"
@@ -387,6 +390,94 @@ void PollClimbTrigger()
 		return;
 	}
 	std::printf("[co-op entry test] climb site: actor=%u:%u; grid=%d\n", slot, incarnation, int(site));
+	std::fflush(stdout);
+}
+
+// Fixture-only: "melee-trigger.txt" ("<slot> <incarnation> fist|knife"), in
+// the player's turn of a battle: that merc's hand is emptied (fist) or given a
+// knife from the game data (its old hand item is set aside), the merc is put
+// on a free tile next to the nearest enemy, facing it, and looks. The stab or
+// punch is the player's F + Enter through the shipping controller.
+void PollMeleeTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("melee-trigger.txt");
+	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	char mode[16] = {};
+	bool parsed = false; // slot 0 is a real merc slot
+	if (FILE* file = std::fopen("melee-trigger.txt", "r"))
+	{
+		parsed = std::fscanf(file, "%u %u %15s", &slot, &incarnation, mode) == 3;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "melee-trigger.consumed", ignored);
+	const bool knife = std::strcmp(mode, "knife") == 0;
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	const auto refuse = [&](const char* why) {
+		std::printf("[co-op entry test] melee placement refused: actor=%u:%u; %s\n", slot, incarnation, why);
+		std::fflush(stdout);
+	};
+	if (!merc || (!knife && std::strcmp(mode, "fist") != 0)) { refuse("bad trigger"); return; }
+	if (!IsJa2TacticalCombatActive() || GetJa2TacticalCurrentTeam() != OUR_TEAM) { refuse("not the player's turn"); return; }
+	UINT16 blade = NOTHING;
+	if (knife)
+		for (UINT16 item = 1; item < MAXITEMS && blade == NOTHING; ++item)
+			if (Item[item].usItemClass == IC_BLADE) blade = item; // throwing knives are their own class
+	if (knife && blade == NOTHING) { refuse("no knife in the game data"); return; }
+	// The nearest enemy with a free neighbouring tile the stock action-grid
+	// search accepts as the attacker's own.
+	INT32 site = NOWHERE;
+	TacticalActor* enemy = nullptr;
+	INT32 nearest = INT32_MAX;
+	const INT32 origin = merc->position().gridNo();
+	for (SoldierID id = gTacticalStatus.Team[ENEMY_TEAM].bFirstID; id <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; ++id)
+	{
+		auto* candidate = GetJa2SoldierRepository().resolve(id);
+		if (!candidate || OK_ENEMY_MERC(candidate) == FALSE || candidate->position().level() != 0) continue;
+		const INT32 distance = PythSpacesAway(origin, candidate->position().gridNo());
+		if (distance >= nearest) continue;
+		for (UINT8 direction = 0; direction < NUM_WORLD_DIRECTIONS; ++direction)
+		{
+			const INT32 grid = NewGridNo(candidate->position().gridNo(), DirectionInc(direction));
+			if (grid == candidate->position().gridNo() || TileIsOutOfBounds(grid) ||
+				(grid != origin && !NewOKDestination(merc, grid, TRUE, 0)))
+				continue;
+			nearest = distance;
+			enemy = candidate;
+			site = grid;
+			break;
+		}
+	}
+	if (!enemy || (site != origin && !TeleportSoldier(merc, site, TRUE))) { refuse("no free tile next to an enemy"); return; }
+	OBJECTTYPE& hand = merc->inventory()[HANDPOS];
+	if (hand.exists())
+	{
+		// Set the old hand item aside on the floor so the hand is free.
+		AddItemToPool(merc->position().gridNo(), &hand, VISIBLE, merc->position().level(), 0, -1);
+		DeleteObj(&hand);
+	}
+	if (knife)
+	{
+		OBJECTTYPE object;
+		if (!CreateItem(blade, 100, &object)) { refuse("could not create the knife"); return; }
+		hand = object;
+	}
+	const UINT8 facing = static_cast<UINT8>(GetDirectionToGridNoFromGridNo(enemy->position().gridNo(), merc->position().gridNo()));
+	(void)TacticalActorOrientation::setDirection(*merc, facing);
+	HandleSight(merc, SIGHT_LOOK);
+	const UINT8 direction = 0;
+	INT32 adjusted = NOWHERE;
+	UINT8 found = direction;
+	const INT32 action = FindAdjacentGridEx(merc, enemy->position().gridNo(), &found, &adjusted, TRUE, FALSE);
+	const TacticalEntityId target = GetJa2TacticalEntityId(*enemy);
+	std::printf("[co-op entry test] melee placed: actor=%u:%u; target=%u:%u; grid=%d; target-grid=%d; hand=%u; "
+		"action-grid=%d; sees=%d\n", slot, incarnation, unsigned(target.slot), unsigned(target.incarnation),
+		int(merc->position().gridNo()), int(enemy->position().gridNo()),
+		unsigned(merc->inventory()[HANDPOS].exists() ? merc->inventory()[HANDPOS].usItem : NOTHING), int(action),
+		merc->awareness().opponentKnowledge()[enemy->identity().id()] == SEEN_CURRENTLY ? 1 : 0);
 	std::fflush(stdout);
 }
 
@@ -1593,6 +1684,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollSectorMarker();
 	PollKnockOutTrigger();
 	PollClimbTrigger();
+	PollMeleeTrigger();
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();

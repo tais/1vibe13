@@ -202,6 +202,9 @@ private:
 // Supplied by the native renderer translation unit, never by data-free tests.
 FullEngineCoopClientPresentationInventoryServices
 MakeFullEngineCoopClientPresentationInventoryNativeServices() noexcept;
+// From the static item table: the item stabs or punches (an empty hand, item
+// 0, punches), so F targets an adjacent hostile instead of firing.
+bool FullEngineCoopClientHandItemIsMelee(std::uint16_t item) noexcept;
 
 // Implemented by the passive screen, which owns/synchronizes the controller.
 bool CaptureFullEngineCoopClientPresentationInventoryControls(

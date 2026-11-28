@@ -2098,6 +2098,62 @@ namespace
 		return soldier;
 	}
 
+	// A stock knife stab or punch (the hand item's class; an empty hand punches)
+	// of an exact settled co-op merc at an exact adjacent hostile it sees, with
+	// the stock AP, from the tile the stock action-grid search would walk it to.
+	bool ResolveAuthoritativeMeleeAttack(const AuthoritativeMeleeAttackCommand& command,
+		TacticalActor*& soldier, TacticalActor*& target) noexcept
+	{
+		soldier = nullptr;
+		target = nullptr;
+		if (!IsStructurallyValidAuthoritativeMeleeAttackCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || !IsJa2TacticalWorldIntegrityValid())
+			return false;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return false;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return false;
+		TacticalActor* const attacker = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		TacticalActor* const victim = ResolveLiveCommandActor(command.target);
+		if (!attacker || !victim || OK_CONTROLLABLE_MERC(attacker) == FALSE ||
+			attacker->roster().team() != gbPlayerNum || OK_ENEMY_MERC(victim) == FALSE ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			attacker->position().gridNo() != command.expectedActorGrid ||
+			victim->position().gridNo() != command.expectedTargetGrid ||
+			victim->position().level() != command.expectedTargetLevel ||
+			attacker->position().level() != victim->position().level())
+			return false;
+		const SoldierID targetId = victim->identity().id();
+		if (attacker->awareness().opponentKnowledge()[targetId] != SEEN_CURRENTLY &&
+			gbPublicOpplist[attacker->roster().team()][targetId] != SEEN_CURRENTLY)
+			return false;
+		if (attacker->attackSelection().hand() != HANDPOS || !FireSequenceIdle(*attacker) ||
+			attacker->fireControl().reloading())
+			return false;
+		const OBJECTTYPE& hand = attacker->inventory()[HANDPOS];
+		const UINT16 item = hand.exists() ? hand.usItem : NOTHING;
+		if (item != command.expectedHandItem || item >= MAXITEMS ||
+			(Item[item].usItemClass != IC_BLADE && Item[item].usItemClass != IC_PUNCH))
+			return false;
+		// No walk-up: the merc already stands where the stock search puts it.
+		UINT8 direction = 0;
+		INT32 adjustedGrid = NOWHERE;
+		if (FindAdjacentGridEx(attacker, command.expectedTargetGrid, &direction, &adjustedGrid, TRUE, FALSE) !=
+			attacker->position().gridNo())
+			return false;
+		const INT16 actionPointCost = CalcTotalAPsToAttack(attacker, command.expectedTargetGrid, TRUE, 0);
+		if (actionPointCost < 0 || EnoughPoints(attacker, actionPointCost, 0, FALSE) == FALSE)
+			return false;
+		soldier = attacker;
+		target = victim;
+		return true;
+	}
+
 	// The stock J / Shift+J of an exact settled co-op merc that has not moved
 	// or turned since its owner pressed it: the stock key's options, now.
 	TacticalActor* ResolveAuthoritativeTraverse(const AuthoritativeTraverseCommand& command,
@@ -3333,6 +3389,32 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
+			{
+				TacticalActor* soldier = nullptr;
+				TacticalActor* target = nullptr;
+				if (!ResolveAuthoritativeMeleeAttack(value, soldier, target))
+					return CommandDisposition::Discard;
+				(void)target;
+				if (!BeginDedicatedCoopAttack(sequence, *soldier))
+					return CommandDisposition::Discard;
+				const INT8 previousAimTime = soldier->aiPlanning().aimTime();
+				const INT8 previousShownAimTime = soldier->aiPlanning().shownAimTime();
+				soldier->aiPlanning().aimTime() = 0;
+				soldier->aiPlanning().shownAimTime() = 0;
+				const INT32 result = HandleItemFromWeaponConfigurationCommand(
+					soldier, value.expectedTargetGrid, value.expectedTargetLevel,
+					static_cast<UINT16>(value.expectedHandItem), value.source, TacticalEventPolicy::LocalOnly);
+				if (result != ITEM_HANDLE_OK)
+				{
+					AbandonDedicatedCoopAttack(sequence);
+					soldier->aiPlanning().aimTime() = previousAimTime;
+					soldier->aiPlanning().shownAimTime() = previousShownAimTime;
+					return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeTraverseCommand>::value)
 			{
 				TacticalActorTraversal::PlayerTraversalChoice choice;
@@ -4364,6 +4446,32 @@ bool PrepareAuthoritativeStealthCommand(TacticalEntityId actor, bool expectedSte
 	return true;
 }
 
+bool PrepareAuthoritativeMeleeAttackCommand(TacticalEntityId actor, TacticalEntityId target,
+	AuthoritativeMeleeAttackCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	TacticalActor* const liveTarget = ResolveLiveCommandActor(target);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !liveTarget || !identity) return false;
+	AuthoritativeMeleeAttackCommand prepared;
+	prepared.soldier = actor;
+	prepared.target = target;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedActorGrid = live->position().gridNo();
+	prepared.expectedTargetGrid = liveTarget->position().gridNo();
+	prepared.expectedTargetLevel = static_cast<std::int8_t>(liveTarget->position().level());
+	const OBJECTTYPE& hand = live->inventory()[HANDPOS];
+	prepared.expectedHandItem = hand.exists() ? hand.usItem : NOTHING;
+	TacticalActor* checked = nullptr;
+	TacticalActor* checkedTarget = nullptr;
+	if (!ResolveAuthoritativeMeleeAttack(prepared, checked, checkedTarget) || checked != live ||
+		checkedTarget != liveTarget)
+		return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeTraverseCommand(TacticalEntityId actor, bool window,
 	AuthoritativeTraverseCommand& output) noexcept
 {
@@ -4577,7 +4685,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeThrowCommand>::value ||
 			std::is_same<Command, AuthoritativeAttachItemCommand>::value ||
 			std::is_same<Command, AuthoritativeStealthCommand>::value ||
-			std::is_same<Command, AuthoritativeTraverseCommand>::value)
+			std::is_same<Command, AuthoritativeTraverseCommand>::value ||
+			std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4755,6 +4864,15 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			{
 				return IsStructurallyValidAuthoritativeStealthCommand(value)
 					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeMeleeAttackCommand(value) || value.soldier.slot >= TOTAL_SOLDIERS)
+					return SimulationCommandDomainError::InvalidActor;
+				if (value.target.slot >= TOTAL_SOLDIERS) return SimulationCommandDomainError::InvalidTargetActor;
+				if (TileIsOutOfBounds(value.expectedActorGrid)) return SimulationCommandDomainError::InvalidActorGrid;
+				return TileIsOutOfBounds(value.expectedTargetGrid)
+					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeTraverseCommand>::value)
 			{

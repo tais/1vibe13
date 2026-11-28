@@ -61,7 +61,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeThrow = 44,
 	AuthoritativeAttachItem = 45,
 	AuthoritativeStealth = 46,
-	AuthoritativeTraverse = 47
+	AuthoritativeTraverse = 47,
+	AuthoritativeMeleeAttack = 48
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -312,6 +313,23 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeMeleeAttack));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedActorGrid);
+			writer.writeI32(value.expectedTargetGrid);
+			writer.writeU8(static_cast<std::uint8_t>(value.expectedTargetLevel));
+			writer.writeU16(value.expectedHandItem);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -1040,6 +1058,28 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeMeleeAttack:
+		{
+			AuthoritativeMeleeAttackCommand value{};
+			std::uint8_t level = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedActorGrid) ||
+				!reader.readI32(value.expectedTargetGrid) ||
+				!reader.readU8(level) || level > 1 ||
+				!reader.readU16(value.expectedHandItem) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
+				return false;
+			value.expectedTargetLevel = static_cast<std::int8_t>(level);
+			if (!IsStructurallyValidAuthoritativeMeleeAttackCommand(value)) return false;
 			command = value;
 			return true;
 		}

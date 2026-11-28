@@ -417,7 +417,7 @@ void FullEngineCoopClientController::toggleReverse() noexcept
 }
 
 bool FullEngineCoopClientController::beginAttackTargeting(
-	const FullEngineCoopClientControllerView& view) noexcept
+	const FullEngineCoopClientControllerView& view, bool melee) noexcept
 {
 	if (!actionsEnabled(view)) return false;
 	closeInventory();
@@ -425,9 +425,10 @@ bool FullEngineCoopClientController::beginAttackTargeting(
 	cancelDoorSelection();
 	cancelFirstAidSelection();
 	targetingAttack_ = true;
+	meleeTargeting_ = melee;
 	attackTarget_ = TacticalEntityId{};
 	attackWorldEpoch_ = view.snapshot->epoch();
-	attackAimTime_ = 1;
+	attackAimTime_ = melee ? 0 : 1;
 	if (selectTargetRelative(view, true)) return true;
 	cancelAttackTargeting();
 	return false;
@@ -457,7 +458,7 @@ bool FullEngineCoopClientController::selectAttackTarget(
 
 bool FullEngineCoopClientController::adjustAttackAim(int delta) noexcept
 {
-	if (!targetingAttack_ || delta == 0) return false;
+	if (!targetingAttack_ || meleeTargeting_ || delta == 0) return false;
 	const int adjusted = static_cast<int>(attackAimTime_) + delta;
 	if (adjusted < 0 || adjusted >
 		static_cast<int>(CoopSession::MaximumTacticalFirearmAimTime))
@@ -472,6 +473,7 @@ void FullEngineCoopClientController::cancelAttackTargeting() noexcept
 	attackWorldEpoch_ = 0;
 	attackAimTime_ = 1;
 	targetingAttack_ = false;
+	meleeTargeting_ = false;
 }
 
 bool FullEngineCoopClientController::beginDoorSelection(
@@ -720,7 +722,7 @@ FullEngineCoopClientIntentRequest
 FullEngineCoopClientController::submitAimedFirearmAttack(
 	const FullEngineCoopClientControllerView& view) noexcept
 {
-	if (!targetingAttack_ || !actionsEnabled(view) ||
+	if (!targetingAttack_ || meleeTargeting_ || !actionsEnabled(view) ||
 		!attackTargetCandidate(view, attackTarget_))
 		return {};
 	const TacticalEntityId target = attackTarget_;
@@ -728,6 +730,18 @@ FullEngineCoopClientController::submitAimedFirearmAttack(
 	cancelAttackTargeting();
 	return request(view, CoopSession::AimedFirearmAttackTacticalIntent{
 		target, aimTime});
+}
+
+FullEngineCoopClientIntentRequest
+FullEngineCoopClientController::submitMeleeAttack(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	if (!targetingAttack_ || !meleeTargeting_ || !actionsEnabled(view) ||
+		!attackTargetCandidate(view, attackTarget_))
+		return {};
+	const TacticalEntityId target = attackTarget_;
+	cancelAttackTargeting();
+	return request(view, CoopSession::MeleeAttackTacticalIntent{target});
 }
 
 FullEngineCoopClientIntentRequest
@@ -780,9 +794,16 @@ bool FullEngineCoopClientController::attackTargetCandidate(
 	const TacticalActorSnapshot* const actor =
 		view.snapshot->find(selectedActor_);
 	const TacticalActorSnapshot* const candidate = view.snapshot->find(target);
-	return actor != nullptr && candidate != nullptr && candidate->active &&
-		candidate->inSector && candidate->life > 0 &&
-		candidate->hostileToPlayerTeam;
+	if (actor == nullptr || candidate == nullptr || !candidate->active ||
+		!candidate->inSector || candidate->life <= 0 || !candidate->hostileToPlayerTeam)
+		return false;
+	if (!meleeTargeting_) return true;
+	// A stab or punch reaches the eight tiles around the merc on its level.
+	const std::int32_t columns = view.snapshot->dimensions().columns;
+	if (columns <= 0 || candidate->level != actor->level || actor->grid < 0 || candidate->grid < 0) return false;
+	const std::int32_t rows = actor->grid / columns - candidate->grid / columns;
+	const std::int32_t cols = actor->grid % columns - candidate->grid % columns;
+	return rows >= -1 && rows <= 1 && cols >= -1 && cols <= 1 && (rows != 0 || cols != 0);
 }
 
 bool FullEngineCoopClientController::selectTargetRelative(

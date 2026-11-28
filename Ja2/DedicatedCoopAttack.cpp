@@ -9,13 +9,25 @@
 namespace
 {
 DedicatedCoopAttackState* bound = nullptr;
+// A gun (with its rounds) or a melee weapon: a blade, a punching item or an
+// empty hand, which punches (item NOTHING is of the punch class).
 bool NativeWeapon(const TacticalActor& actor, std::uint16_t& item,
-	std::uint16_t& ammunition) noexcept
+	std::uint16_t& ammunition, bool& melee) noexcept
 {
 	const auto& hand = actor.inventory()[HANDPOS];
-	if (!hand.exists() || hand.ubNumberOfObjects != 1 || hand.usItem >= MAXITEMS ||
-		Item[hand.usItem].usItemClass != IC_GUN) return false;
+	melee = false;
+	ammunition = 0;
+	if (!hand.exists())
+	{
+		item = NOTHING;
+		melee = Item[NOTHING].usItemClass == IC_PUNCH;
+		return melee;
+	}
+	if (hand.ubNumberOfObjects != 1 || hand.usItem >= MAXITEMS) return false;
 	item = hand.usItem;
+	if (Item[item].usItemClass == IC_BLADE || Item[item].usItemClass == IC_PUNCH)
+		return melee = true;
+	if (Item[item].usItemClass != IC_GUN) return false;
 	ammunition = hand[0]->data.gun.ubGunShotsLeft;
 	return true;
 }
@@ -26,7 +38,7 @@ DedicatedCoopAttackState::~DedicatedCoopAttackState()
 void DedicatedCoopAttackState::reset() noexcept
 {
 	occupied_ = false; sequence_ = world_ = 0; actor_ = {};
-	handItem_ = ammunition_ = 0; roundCommitted_ = false;
+	handItem_ = ammunition_ = 0; roundCommitted_ = false; melee_ = false;
 	outcome_ = DedicatedCoopAttackOutcome::Untracked; failure_ = nullptr;
 }
 bool BindDedicatedCoopAttackState(DedicatedCoopAttackState& state) noexcept
@@ -52,13 +64,14 @@ bool BeginDedicatedCoopAttack(std::uint64_t sequence, TacticalActor& actor) noex
 	const auto& world = CaptureJa2TacticalWorld();
 	const auto id = GetJa2TacticalEntityId(actor);
 	std::uint16_t item = 0, ammunition = 0;
+	bool melee = false;
 	if (!world.loaded || !world.worldGeneration || world.turn.pendingCombatActions != 0 || !id.valid() ||
 		ResolveJa2TacticalEntity(id) != &actor || !actor.roster().active() ||
-		!actor.roster().inSector() || !NativeWeapon(actor, item, ammunition) ||
-		!ammunition) return false;
+		!actor.roster().inSector() || !NativeWeapon(actor, item, ammunition, melee) ||
+		(!melee && !ammunition)) return false;
 	bound->occupied_ = true; bound->sequence_ = sequence;
 	bound->world_ = world.worldGeneration; bound->actor_ = id;
-	bound->handItem_ = item; bound->ammunition_ = ammunition;
+	bound->handItem_ = item; bound->ammunition_ = ammunition; bound->melee_ = melee;
 	bound->outcome_ = DedicatedCoopAttackOutcome::Pending;
 	return true;
 }
@@ -73,7 +86,8 @@ void AbandonDedicatedCoopAttack(std::uint64_t sequence) noexcept
 	TacticalActor* actor = nullptr;
 	if (!ResolveDedicatedCoopAttackOwner(actor) || !actor) return;
 	std::uint16_t item = 0, ammunition = 0;
-	if (!NativeWeapon(*actor, item, ammunition) || item != bound->handItem_ ||
+	bool melee = false;
+	if (!NativeWeapon(*actor, item, ammunition, melee) || melee != bound->melee_ || item != bound->handItem_ ||
 		ammunition != bound->ammunition_ || bound->roundCommitted_ || GetJa2PendingTacticalCombatActions() != 0 ||
 		actor->animationActivity().turningToShoot())
 	{ bound->failure_ = "refused native attack retained effects"; return; }
@@ -105,7 +119,8 @@ void CompleteDedicatedCoopAttack(TacticalActor& actor) noexcept
 	{ bound->failure_ = "native attack completed for a different actor"; return; }
 	if (GetJa2PendingTacticalCombatActions() != 0) return;
 	std::uint16_t item = 0, ammunition = 0;
-	if (!NativeWeapon(actor, item, ammunition) || item != bound->handItem_ ||
+	bool melee = false;
+	if (!NativeWeapon(actor, item, ammunition, melee) || melee != bound->melee_ || item != bound->handItem_ ||
 		ammunition > bound->ammunition_ ||
 		(ammunition < bound->ammunition_ && !bound->roundCommitted_))
 	{ bound->failure_ = "native attack weapon changed before completion"; return; }
@@ -120,6 +135,16 @@ void RecordDedicatedCoopAttackAmmunitionUse(TacticalActor& actor, std::uint16_t 
 	TacticalActor* exact = nullptr;
 	if (!ResolveDedicatedCoopAttackOwner(exact) || exact != &actor || item >= MAXITEMS || Item[item].usItemClass != IC_GUN)
 	{ bound->failure_ = "native attack discharged a different weapon or actor"; return; }
+	bound->roundCommitted_ = true;
+}
+
+void RecordDedicatedCoopAttackStrike(TacticalActor& actor, std::uint16_t item) noexcept
+{
+	if (!bound || !bound->occupied_ || bound->outcome_ != DedicatedCoopAttackOutcome::Pending ||
+		GetJa2TacticalEntityId(actor) != bound->actor_) return;
+	TacticalActor* exact = nullptr;
+	if (!ResolveDedicatedCoopAttackOwner(exact) || exact != &actor || !bound->melee_ || item != bound->handItem_)
+	{ bound->failure_ = "native attack struck with a different weapon or actor"; return; }
 	bound->roundCommitted_ = true;
 }
 

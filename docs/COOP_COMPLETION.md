@@ -4579,3 +4579,41 @@ first run also found that the test host's trigger fixtures treated merc slot 0
 as "no merc" (knock-out and climb); fixed. Codec, journal, host and intent
 goldens cover the new command and intent. Not yet: fences, walls and windows
 are reached by the same command but have no installed run of their own.
+
+## Phase 4.4 (first slice): knife and punch at an adjacent enemy
+
+- Tactical intent `MeleeAttack` (kind 24, six bytes: the target) and journal
+  tag 48 (`AuthoritativeMeleeAttack`). The hand item decides the attack as in
+  stock: a blade stabs, a punching item or an empty hand punches (item 0,
+  "nothing", is of the punch class).
+- The server checks, when preparing and again at execution: the merc is the
+  requester's, controllable, in the player turn and interrupt-eligible, fire
+  sequence idle, holding that same hand item; the target is a hostile on the
+  same level, on the tile the owner saw, and seen; the stock action-grid
+  search (`FindAdjacentGridEx`) puts the attacker exactly where it already
+  stands (no walk-up yet); the stock attack AP (`CalcTotalAPsToAttack`) is
+  affordable. It then runs the stock `HandleItem`, which starts the stock
+  stab or punch.
+- The attack tracker (which holds the command's receipt until the native
+  attack finishes) now accepts melee hands. A gun's attack counts as committed
+  when a round is fired; a melee attack when the native dispatch resolves the
+  strike (`FireWeapon` reports it before `UseBlade` / `UseHandToHand`). A hit
+  stays a stock dice roll.
+- Client: F with a knife, punching item or empty hand starts melee targeting:
+  only hostiles on the eight neighbouring tiles of the merc's level are
+  offered, there is no aim, and Enter strikes ("Melee target ..." on the HUD).
+  The Screen decides melee from the static item table; the controller stays
+  data-free. Driver verb `MELEE slot inc target-slot target-inc`.
+
+Installed evidence (`full_engine_coop_installed_melee.py --mode fist|knife`):
+in the untouched starter battle at the player's turn the test host empties a
+merc's hand (or gives it a knife from the game data), puts it on a free tile
+next to the nearest enemy, facing it, and lets it look (a seeded placement).
+F + Enter through the shipping controller: the receipt is Applied and both
+clients show the stock attack AP spent (punch 100 -> 83; knife 96 -> 72 or
+100 -> 73). Outcomes seen: enemy life 50 -> 44 (punch), 50 -> 29/21/19 and a
+miss 50 -> 50 (knife). Negative control: with the executor discarding, every
+strike is refused and the probe fails. Codec, journal, host, intent and
+controller tests cover the new command, intent and targeting. Not yet: walking
+up to a distant target before striking (stock does it with a pending action),
+stealing, and throwing knives (the throw slice covers thrown items generally).

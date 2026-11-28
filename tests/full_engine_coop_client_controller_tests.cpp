@@ -979,6 +979,46 @@ void TestAttackTargetingUsesCanonicalHostility()
 		"targeting skips neutral militia and trusts hostility over team number");
 }
 
+// Melee targeting (F with a knife, punching item or empty hand): only hostiles
+// on the eight neighbouring tiles of the merc's level, no aim, a melee intent.
+void TestMeleeTargetingOffersOnlyAdjacentHostiles()
+{
+	// Grid 1001 on a 160-column map: 1162 is diagonal, 1002 beside, 1003 two away.
+	std::vector<TacticalActorSnapshot> actors{
+		Actor(1, 1001), Actor(3, 1003), Actor(4, 1162), Actor(5, 1002)};
+	actors[3].level = 1; // beside, but on the roof
+	TacticalWorldSnapshot snapshot;
+	CHECK(TacticalWorldSnapshot::create(11,
+		TacticalWorldDimensions{160, 160},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		Turn(0),
+		std::move(actors), snapshot) == TacticalSnapshotCreateError::None,
+		"melee targeting fixture is valid");
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{8, 1}, TacticalEntityId{9, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	CHECK(controller.beginAttackTargeting(view, true) && controller.meleeTargeting() &&
+		controller.attackTarget() == (TacticalEntityId{4, 1}) && controller.attackAimTime() == 0,
+		"melee targeting starts on the adjacent hostile, without aim");
+	CHECK(!controller.selectNextTarget(view) || controller.attackTarget() == (TacticalEntityId{4, 1}),
+		"the hostile two tiles away and the one on the roof are never offered");
+	CHECK(!controller.selectAttackTarget(view, TacticalEntityId{3, 1}) &&
+		!controller.selectAttackTarget(view, TacticalEntityId{5, 1}) && !controller.adjustAttackAim(1),
+		"a distant or other-level hostile cannot be chosen and a stab has no aim");
+	CHECK(!controller.submitAimedFirearmAttack(view) && controller.targetingAttack(),
+		"melee targeting never submits an aimed shot");
+	const FullEngineCoopClientIntentRequest strike = controller.submitMeleeAttack(view);
+	const auto* melee = std::get_if<CoopSession::MeleeAttackTacticalIntent>(&strike.payload);
+	CHECK(strike && melee != nullptr && melee->target == (TacticalEntityId{4, 1}) &&
+		!controller.targetingAttack() && !controller.meleeTargeting(),
+		"Enter sends the stab or punch at the exact adjacent hostile and ends targeting");
+	CHECK(controller.beginAttackTargeting(view) && !controller.meleeTargeting() &&
+		controller.attackTarget() == (TacticalEntityId{3, 1}) && !controller.submitMeleeAttack(view),
+		"fire targeting still offers every hostile and never submits a melee intent");
+}
+
 void TestDoorSelectionProducesExactInverseIntent()
 {
 	const TacticalWorldSnapshot snapshot = Snapshot(true, 0, {
@@ -2062,6 +2102,7 @@ int main()
 	TestRemainingTypedActions();
 	TestExactAttackTargetSelectionFailsClosed();
 	TestAttackTargetingUsesCanonicalHostility();
+	TestMeleeTargetingOffersOnlyAdjacentHostiles();
 	TestDoorSelectionProducesExactInverseIntent();
 	TestExactDoorSelectionIsTransactionalAndEpochBound();
 	TestDoorSelectionFailsClosedAcrossReplicaChanges();

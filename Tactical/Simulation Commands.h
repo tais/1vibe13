@@ -150,6 +150,9 @@ bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
 // A stock throw of an idle co-op merc's hand grenade or thrown item at a tile.
 bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targetGrid, std::int8_t targetLevel,
 	AuthoritativeThrowCommand& output) noexcept;
+// A stock knife stab or punch of a settled co-op merc at an adjacent hostile.
+bool PrepareAuthoritativeMeleeAttackCommand(TacticalEntityId actor, TacticalEntityId target,
+	AuthoritativeMeleeAttackCommand& output) noexcept;
 // The stock J / Shift+J (climb or jump; `window` for a window) of a settled
 // co-op merc from where it stands now.
 bool PrepareAuthoritativeTraverseCommand(TacticalEntityId actor, bool window,

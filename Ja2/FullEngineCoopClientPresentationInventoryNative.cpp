@@ -192,3 +192,8 @@ MakeFullEngineCoopClientPresentationInventoryNativeServices() noexcept
 	return {LoadPanel, ReleasePanel, BlitPanel, Fill, Border, Text,
 		ItemGraphic, ItemName, nullptr};
 }
+
+bool FullEngineCoopClientHandItemIsMelee(std::uint16_t item) noexcept
+{
+	return item < MAXITEMS && (Item[item].usItemClass == IC_BLADE || Item[item].usItemClass == IC_PUNCH);
+}

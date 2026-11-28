@@ -729,8 +729,9 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 					Controller.cancelAttackTargeting();
 					break;
 				case ENTER:
-					(void)Submit(
-						Controller.submitAimedFirearmAttack(view), view);
+					(void)Submit(Controller.meleeTargeting()
+						? Controller.submitMeleeAttack(view)
+						: Controller.submitAimedFirearmAttack(view), view);
 					break;
 			}
 			continue;
@@ -840,8 +841,14 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				break;
 			case 'f':
 			case 'F':
-				(void)Controller.beginAttackTargeting(view);
+			{
+				// A knife, a punching item or an empty hand: an adjacent stab or punch.
+				const TacticalActorSnapshot* const attacker = presentation.snapshot != nullptr
+					? presentation.snapshot->find(Controller.selectedActor()) : nullptr;
+				(void)Controller.beginAttackTargeting(view, attacker != nullptr &&
+					FullEngineCoopClientHandItemIsMelee(attacker->loadout.primaryHand.item));
 				break;
+			}
 			case 'd':
 			case 'D':
 				(void)Controller.beginDoorSelection(view);
@@ -1512,6 +1519,12 @@ void RenderPresentation(
 	{
 		const TacticalEntityId target = Controller.attackTarget();
 		const TacticalActorSnapshot* const targetActor = snapshot.find(target);
+		if (Controller.meleeTargeting())
+			mprintf(20, SCREEN_HEIGHT - 64,
+				L"Melee target %u:%u grid %d  [Up/Down/Tab adjacent target, Enter strike, Esc]",
+				static_cast<unsigned>(target.slot), static_cast<unsigned>(target.incarnation),
+				targetActor != nullptr ? targetActor->grid : -1);
+		else
 		mprintf(20, SCREEN_HEIGHT - 64,
 			L"Fire target %u:%u grid %d  aim %u  [Up/Down/Tab target, +/- aim, Enter, Esc]",
 			static_cast<unsigned>(target.slot),

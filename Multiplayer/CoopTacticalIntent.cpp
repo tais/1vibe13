@@ -107,6 +107,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::AttachItem: return 12;
 		case TacticalIntentKind::ToggleStealth: return 1;
 		case TacticalIntentKind::Traverse: return 1;
+		case TacticalIntentKind::MeleeAttack: return 6;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -142,6 +143,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::AttachItem:
 		case TacticalIntentKind::ToggleStealth:
 		case TacticalIntentKind::Traverse:
+		case TacticalIntentKind::MeleeAttack:
 			return true;
 	}
 	return false;
@@ -211,6 +213,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::ToggleStealth;
 		if constexpr (std::is_same<Payload, TraverseTacticalIntent>::value)
 			return TacticalIntentKind::Traverse;
+		if constexpr (std::is_same<Payload, MeleeAttackTacticalIntent>::value)
+			return TacticalIntentKind::MeleeAttack;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -259,7 +263,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload, DropInventoryItemTacticalIntent>::value)
 			return payload.sourceSlot >= 14 && payload.sourceSlot < 55 &&
 				payload.expectedInventoryRevision != 0;
-		if constexpr (std::is_same<Payload, TalkTacticalIntent>::value)
+		if constexpr (std::is_same<Payload, TalkTacticalIntent>::value ||
+			std::is_same<Payload, MeleeAttackTacticalIntent>::value)
 			return payload.target.valid() && payload.target != intent.actor;
 		if constexpr (std::is_same<Payload, ConverseTacticalIntent>::value)
 			return payload.conversation != 0 && payload.approach <= MaximumTacticalConverseApproach;
@@ -366,7 +371,8 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 				PassInterruptTacticalIntent>::value)
 				WriteU64(encoded, payload.interruptSerial);
 			else if constexpr (std::is_same<Payload, BeginFirstAidTacticalIntent>::value ||
-				std::is_same<Payload, TalkTacticalIntent>::value)
+				std::is_same<Payload, TalkTacticalIntent>::value ||
+				std::is_same<Payload, MeleeAttackTacticalIntent>::value)
 			{
 				WriteU16(encoded, payload.target.slot);
 				WriteU32(encoded, payload.target.incarnation);
@@ -564,6 +570,15 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 		{
 			if (input == end || *input > 1) return TacticalIntentCodecResult::Invalid;
 			decoded.payload = TraverseTacticalIntent{*input++ != 0};
+			break;
+		}
+		case TacticalIntentKind::MeleeAttack:
+		{
+			MeleeAttackTacticalIntent payload;
+			if (!ReadU16(input, end, payload.target.slot) ||
+				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
 			break;
 		}
 		case TacticalIntentKind::AttachItem:

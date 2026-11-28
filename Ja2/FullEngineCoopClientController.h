@@ -98,8 +98,11 @@ public:
 	const char* destinationText() const noexcept { return destination_; }
 	bool reverse() const noexcept { return reverse_; }
 
+	// `melee`: the hand item stabs or punches (the Screen knows item classes);
+	// only adjacent hostiles on the merc's level are targets, with no aim.
 	bool beginAttackTargeting(
-		const FullEngineCoopClientControllerView& view) noexcept;
+		const FullEngineCoopClientControllerView& view, bool melee = false) noexcept;
+	bool meleeTargeting() const noexcept { return targetingAttack_ && meleeTargeting_; }
 	bool selectNextTarget(
 		const FullEngineCoopClientControllerView& view) noexcept;
 	bool selectPreviousTarget(
@@ -224,6 +227,8 @@ public:
 		TacticalEntityId target) const noexcept;
 	FullEngineCoopClientIntentRequest submitAimedFirearmAttack(
 		const FullEngineCoopClientControllerView& view) noexcept;
+	FullEngineCoopClientIntentRequest submitMeleeAttack(
+		const FullEngineCoopClientControllerView& view) noexcept;
 	FullEngineCoopClientIntentRequest submitDoorOpenClose(
 		const FullEngineCoopClientControllerView& view) noexcept;
 	// A stock door-menu action (HANDLE_DOOR_* code) on the selected closed door.
@@ -290,6 +295,7 @@ private:
 	std::uint64_t attackWorldEpoch_ = 0;
 	std::uint8_t attackAimTime_ = 1;
 	bool targetingAttack_ = false;
+	bool meleeTargeting_ = false;
 	TacticalEntityId doorActor_{};
 	std::uint64_t doorWorldEpoch_ = 0;
 	std::int32_t selectedDoorBaseGrid_ = -1;

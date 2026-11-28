@@ -661,6 +661,35 @@ int main()
 	for (const auto& invalid : invalidClimbs)
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"a climb or jump needs a tile, a level, a facing, a turn and a co-op peer");
+	AuthoritativeMeleeAttackCommand stab;
+	stab.soldier = {4, 0x01020304}; stab.target = {9, 0x0a0b0c0d};
+	stab.expectedActorGrid = 12345; stab.expectedTargetGrid = 12346; stab.expectedTargetLevel = 1;
+	stab.expectedHandItem = 0; stab.expectedWorldGeneration = 9; stab.expectedTurnSerial = 11;
+	const std::vector<RecordedSimulationCommand> stabRecords{
+		{22, 26, CommandJournalStatus::Applied, SimulationCommand{stab}}};
+	std::vector<std::uint8_t> stabWire, stabReencoded;
+	std::vector<RecordedSimulationCommand> decodedStab;
+	std::uint64_t stabDropped = 0;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{stab}) &&
+		EncodeSimulationCommandJournal(stabRecords, 0, stabWire) &&
+		DecodeSimulationCommandJournal(stabWire, decodedStab, stabDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedStab.size() == 1 &&
+		std::holds_alternative<AuthoritativeMeleeAttackCommand>(decodedStab[0].command) &&
+		std::get<AuthoritativeMeleeAttackCommand>(decodedStab[0].command).target == stab.target &&
+		std::get<AuthoritativeMeleeAttackCommand>(decodedStab[0].command).expectedTargetGrid == 12346 &&
+		std::get<AuthoritativeMeleeAttackCommand>(decodedStab[0].command).expectedTargetLevel == 1 &&
+		EncodeSimulationCommandJournal(decodedStab, stabDropped, stabReencoded) && stabReencoded == stabWire,
+		"a co-op stab or punch (an empty hand: item 0) journal round trips its proofs under its append-only tag");
+	std::array<AuthoritativeMeleeAttackCommand, 5> invalidStabs;
+	invalidStabs.fill(stab);
+	invalidStabs[0].target = stab.soldier;
+	invalidStabs[1].expectedTargetGrid = stab.expectedActorGrid;
+	invalidStabs[2].expectedTargetLevel = 2;
+	invalidStabs[3].source = SimulationCommandSource::LocalPlayer;
+	invalidStabs[4].expectedWorldGeneration = 0;
+	for (const auto& invalid : invalidStabs)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"a stab or punch needs another actor on another tile, a level, a world and a co-op peer");
 	auto localSneak = sneak; localSneak.source = SimulationCommandSource::LocalPlayer;
 	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{localSneak}),
 		"a co-op stealth toggle comes from a co-op peer");

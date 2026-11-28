@@ -2605,6 +2605,43 @@ private:
 			FlushReply();
 			return;
 		}
+		if (operation == "MELEE")
+		{
+			std::uint64_t values[4]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+			FullEngineCoopClientPresentationView presentation;
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] >= UINT16_MAX || values[3] == 0 || values[3] > UINT32_MAX || !runtime.presentationView(presentation))
+			{ ReplyError(request, "MELEE needs the slot/incarnation of an owned merc and of an adjacent hostile"); return; }
+			FullEngineCoopClientControllerView view = ControllerView(presentation);
+			controller_.synchronize(view);
+			controller_.cancelAttackTargeting();
+			const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+			const TacticalEntityId target{static_cast<std::uint16_t>(values[2]), static_cast<std::uint32_t>(values[3])};
+			// The shipping F path: the Screen's item-class check picks melee targeting.
+			const TacticalActorSnapshot* const attacker = view.snapshot ? view.snapshot->find(actor) : nullptr;
+			const bool melee = attacker && FullEngineCoopClientHandItemIsMelee(attacker->loadout.primaryHand.item);
+			const auto intent = melee && controller_.selectActor(view, actor) &&
+				controller_.beginAttackTargeting(view, true) && controller_.selectAttackTarget(view, target)
+				? controller_.submitMeleeAttack(view) : FullEngineCoopClientIntentRequest{};
+			controller_.cancelAttackTargeting();
+			std::uint64_t command = 0;
+			const bool submitted = intent && runtime.sendIntent(intent.actor, intent.payload) ==
+				CoopSession::FullEngineCoopClientResult::Success;
+			FullEngineCoopClientPresentationView refreshed;
+			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
+			std::printf("%s{\"request\":%llu,\"kind\":\"melee\",\"melee_hand\":%s,\"submitted\":%s,\"command\":%llu}",
+				ReplyPrefix, static_cast<unsigned long long>(request), melee ? "true" : "false",
+				submitted ? "true" : "false", static_cast<unsigned long long>(command));
+			FlushReply();
+			return;
+		}
 		if (operation == "TRAVERSE")
 		{
 			std::uint64_t values[3]{};

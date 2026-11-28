@@ -1440,6 +1440,36 @@ struct AuthoritativeStealthCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// A stock knife stab or punch (by the hand item's class; an empty hand
+// punches) of an exact settled co-op merc at an exact adjacent hostile it can
+// see, with the stock AP: the stock HandleItem path for a merc already on the
+// tile the stock action-grid search would walk it to (no walk-up).
+struct AuthoritativeMeleeAttackCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedActorGrid = TacticalNoTargetGrid;
+	std::int32_t expectedTargetGrid = TacticalNoTargetGrid;
+	std::int8_t expectedTargetLevel = 0;
+	std::uint16_t expectedHandItem = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeMeleeAttackCommand>::value,
+	"melee commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeMeleeAttackCommand(const AuthoritativeMeleeAttackCommand& command) noexcept
+{
+	return command.soldier.valid() && command.target.valid() && command.soldier != command.target &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedActorGrid >= 0 && command.expectedTargetGrid >= 0 &&
+		command.expectedActorGrid != command.expectedTargetGrid &&
+		(command.expectedTargetLevel == 0 || command.expectedTargetLevel == 1) &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // The stock J key (climb a roof, jump a fence, climb a wall) or, with
 // `window`, Shift+J (jump through a window) of an exact settled co-op merc
 // that has not moved or turned since its owner pressed it. The options and
@@ -1861,7 +1891,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeThrowCommand,
 	AuthoritativeAttachItemCommand,
 	AuthoritativeStealthCommand,
-	AuthoritativeTraverseCommand>;
+	AuthoritativeTraverseCommand,
+	AuthoritativeMeleeAttackCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -2054,6 +2085,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeTraverseCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeTraverseCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeMeleeAttackCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

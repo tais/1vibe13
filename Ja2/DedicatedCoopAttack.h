@@ -34,6 +34,7 @@ private:
 	friend bool ResolveDedicatedCoopAttackOwner(TacticalActor*&) noexcept;
 	friend void CompleteDedicatedCoopAttack(TacticalActor&) noexcept;
 	friend void RecordDedicatedCoopAttackAmmunitionUse(TacticalActor&, std::uint16_t) noexcept;
+	friend void RecordDedicatedCoopAttackStrike(TacticalActor&, std::uint16_t) noexcept;
 	friend bool DedicatedCoopAttackPending() noexcept;
 	friend DedicatedCoopAttackOutcome CaptureDedicatedCoopAttackOutcome(
 		std::uint64_t, std::uint64_t, TacticalEntityId) noexcept;
@@ -44,7 +45,8 @@ private:
 	TacticalEntityId actor_{};
 	std::uint16_t handItem_ = 0;
 	std::uint16_t ammunition_ = 0;
-	bool roundCommitted_ = false;
+	bool roundCommitted_ = false; // a round fired or, in melee, the strike resolved
+	bool melee_ = false;
 	DedicatedCoopAttackOutcome outcome_ = DedicatedCoopAttackOutcome::Untracked;
 	const char* failure_ = nullptr;
 };
@@ -61,6 +63,9 @@ void CompleteDedicatedCoopAttack(TacticalActor& actor) noexcept;
 // Called by native gun ammunition accounting, including external feeding.
 // This observes a native discharge; it does not claim a hit or kill.
 void RecordDedicatedCoopAttackAmmunitionUse(TacticalActor& actor, std::uint16_t item) noexcept;
+// Called by the native melee dispatch (FireWeapon) as a stab or punch resolves.
+// This observes the strike; it does not claim a hit.
+void RecordDedicatedCoopAttackStrike(TacticalActor& actor, std::uint16_t item) noexcept;
 DedicatedCoopAttackOutcome CaptureDedicatedCoopAttackOutcome(
 	std::uint64_t sequence, std::uint64_t world, TacticalEntityId actor) noexcept;
 bool ReleaseDedicatedCoopAttack(

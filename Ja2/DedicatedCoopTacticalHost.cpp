@@ -503,6 +503,19 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::MeleeAttackTacticalIntent>::value)
+		{
+			AuthoritativeMeleeAttackCommand prepared{};
+			if (liveState_->legacyNetworkingActive() ||
+				!liveState_->prepareMeleeAttack(intent.actor, payload.target, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::TraverseTacticalIntent>::value)
 		{
 			AuthoritativeTraverseCommand prepared{};
@@ -779,7 +792,8 @@ TacticalIntentExecutionDisposition DedicatedCoopTacticalHost::execute(
 			CoopTacticalIntentReceiptReason::QueueUnavailable, *obligation);
 
 	obligation->actor = intent.actor;
-	obligation->nativeAttack = std::holds_alternative<CoopSession::AimedFirearmAttackTacticalIntent>(intent.payload);
+	obligation->nativeAttack = std::holds_alternative<CoopSession::AimedFirearmAttackTacticalIntent>(intent.payload) ||
+		std::holds_alternative<CoopSession::MeleeAttackTacticalIntent>(intent.payload);
 	obligation->requestId = submitted.requestId;
 	obligation->peerIdentity = intent.peerIdentity;
 	obligation->commandId = intent.commandId;

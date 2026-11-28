@@ -43,7 +43,8 @@ enum class TacticalIntentKind : std::uint8_t
 	ThrowItem = 20,
 	AttachItem = 21,
 	ToggleStealth = 22,
-	Traverse = 23
+	Traverse = 23,
+	MeleeAttack = 24
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -182,6 +183,12 @@ struct AttachItemTacticalIntent
 	std::uint16_t targetSlot = 0;
 	std::uint64_t expectedInventoryRevision = 0;
 };
+// A stock knife stab or punch (the hand item decides; an empty hand punches)
+// at an adjacent hostile.
+struct MeleeAttackTacticalIntent
+{
+	TacticalEntityId target;
+};
 // The stock J key (climb a roof, jump a fence, climb a wall) or, with
 // `window`, Shift+J (jump through a window), from where the merc stands.
 struct TraverseTacticalIntent
@@ -237,7 +244,8 @@ using TacticalIntentPayload = std::variant<
 	ThrowItemTacticalIntent,
 	AttachItemTacticalIntent,
 	ToggleStealthTacticalIntent,
-	TraverseTacticalIntent>;
+	TraverseTacticalIntent,
+	MeleeAttackTacticalIntent>;
 
 struct TacticalIntent
 {
