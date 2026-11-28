@@ -109,6 +109,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Traverse: return 1;
 		case TacticalIntentKind::MeleeAttack: return 6;
 		case TacticalIntentKind::UseItem: return 10;
+		case TacticalIntentKind::FireAtTile: return 6;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -146,6 +147,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::Traverse:
 		case TacticalIntentKind::MeleeAttack:
 		case TacticalIntentKind::UseItem:
+		case TacticalIntentKind::FireAtTile:
 			return true;
 	}
 	return false;
@@ -219,6 +221,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::MeleeAttack;
 		if constexpr (std::is_same<Payload, UseItemTacticalIntent>::value)
 			return TacticalIntentKind::UseItem;
+		if constexpr (std::is_same<Payload, FireAtTileTacticalIntent>::value)
+			return TacticalIntentKind::FireAtTile;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -288,6 +292,9 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 				payload.expectedInventoryRevision != 0;
 		if constexpr (std::is_same<Payload, UseItemTacticalIntent>::value)
 			return payload.slot < 256 && payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, FireAtTileTacticalIntent>::value)
+			return payload.grid >= 0 && (payload.level == 0 || payload.level == 1) &&
+				payload.aimTime <= MaximumTacticalFirearmAimTime;
 		return true;
 	}, intent.payload);
 }
@@ -371,6 +378,12 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			{
 				WriteU16(encoded, payload.slot);
 				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
+			else if constexpr (std::is_same<Payload, FireAtTileTacticalIntent>::value)
+			{
+				WriteI32(encoded, payload.grid);
+				encoded.push_back(static_cast<std::uint8_t>(payload.level));
+				encoded.push_back(payload.aimTime);
 			}
 			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
 			{
@@ -589,6 +602,16 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			if (!ReadU16(input, end, payload.target.slot) ||
 				!ReadU32(input, end, payload.target.incarnation))
 				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::FireAtTile:
+		{
+			FireAtTileTacticalIntent payload;
+			if (!ReadI32(input, end, payload.grid) || end - input < 2)
+				return TacticalIntentCodecResult::Invalid;
+			payload.level = static_cast<std::int8_t>(*input++);
+			payload.aimTime = *input++;
 			decoded.payload = payload;
 			break;
 		}

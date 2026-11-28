@@ -344,9 +344,14 @@ void TestTargetModeSelectsOnlyHostilesAndNeverFallsThrough()
 		"a friendly actor click in target mode cannot select or move by fallthrough");
 	result = DispatchFullEngineCoopClientPresentationClick(
 		controller, view, GridClick(42));
-	CHECK(result.kind == InteractionKind::Ignored && !result.intent &&
-		controller.attackTarget() == clickedHostile,
-		"an empty target-mode grid cannot become a move intent");
+	CHECK(result.kind == InteractionKind::TargetSelected && !result.intent &&
+		controller.attackTileSelected() && controller.attackTileGrid() == 42 &&
+		!controller.attackTarget().valid() && controller.attackAimTime() == 3,
+		"an empty target-mode grid becomes a tile target, never a move intent or a shot");
+	result = DispatchFullEngineCoopClientPresentationClick(
+		controller, view, GridClick(31));
+	CHECK(result.kind == InteractionKind::TargetSelected && controller.attackTarget() == clickedHostile &&
+		!controller.attackTileSelected(), "a hostile click afterwards targets the actor again, not the tile");
 }
 
 void TestDestinationAndDoorModesConsumeWorldClicks()

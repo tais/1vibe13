@@ -195,6 +195,11 @@ bool SameIntent(const TacticalIntent& left, const TacticalIntent& right)
 	}
 	if (const auto* talk = std::get_if<TalkTacticalIntent>(&left.payload))
 		return talk->target == std::get<TalkTacticalIntent>(right.payload).target;
+	if (const auto* tile = std::get_if<FireAtTileTacticalIntent>(&left.payload))
+	{
+		const auto& other = std::get<FireAtTileTacticalIntent>(right.payload);
+		return tile->grid == other.grid && tile->level == other.level && tile->aimTime == other.aimTime;
+	}
 	if (const auto* use = std::get_if<UseItemTacticalIntent>(&left.payload))
 	{
 		const auto& other = std::get<UseItemTacticalIntent>(right.payload);
@@ -372,7 +377,7 @@ void TestIntentCodec()
 		TacticalIntentPayload payload;
 		std::size_t wireSize;
 	};
-	const std::array<PayloadCase, 25> payloads{{
+	const std::array<PayloadCase, 26> payloads{{
 		{MoveTacticalIntent{12, 3, false}, 79},
 		{FaceTacticalIntent{7}, 73},
 		{StanceTacticalIntent{TacticalIntentStance::Prone}, 73},
@@ -400,7 +405,8 @@ void TestIntentCodec()
 		{ToggleStealthTacticalIntent{true}, 73},
 		{TraverseTacticalIntent{true}, 73},
 		{MeleeAttackTacticalIntent{TacticalEntityId{0x1234, 0x50607080}}, 78},
-		{UseItemTacticalIntent{5, 0x0807060504030201ull}, 82}}};
+		{UseItemTacticalIntent{5, 0x0807060504030201ull}, 82},
+		{FireAtTileTacticalIntent{0x04030201, 1, 3}, 78}}};
 	for (const PayloadCase& payloadCase : payloads)
 	{
 		TacticalIntent candidate = intent;

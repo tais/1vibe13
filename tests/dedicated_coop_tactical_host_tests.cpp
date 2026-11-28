@@ -334,6 +334,16 @@ public:
 		return true;
 	}
 	bool useItemPreparationSucceeds = true;
+	bool prepareFireAtTile(TacticalEntityId actor, std::int32_t grid, std::int8_t level, std::uint8_t aim,
+		AuthoritativeFireAtTileCommand& command) const noexcept override
+	{
+		if (!fireAtTilePreparationSucceeds) return false;
+		command = AuthoritativeFireAtTileCommand{};
+		command.soldier = actor; command.targetGrid = grid; command.targetLevel = level; command.aimTime = aim;
+		command.expectedHandItem = 4; command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool fireAtTilePreparationSucceeds = true;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1154,6 +1164,16 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		FakeLiveState refusedUse; refusedUse.useItemPreparationSucceeds = false;
 		rejects(refusedUse, Intent(1, UseItemTacticalIntent{5, 9}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a non-consumable, a changed object or a busy merc never enters the inbox");
+		FakeLiveState tileLive; FakeCommandService tileQueue; RecordingReceiptSink tileSink;
+		DedicatedCoopTacticalHost tileHost(tileLive, tileQueue, tileSink, CampaignPackageId, 4);
+		CHECK(tileHost.execute(Intent(1, FireAtTileTacticalIntent{6611, 0, 2})) == TacticalIntentExecutionDisposition::Retained,
+			"a shot at a tile enters the retained command inbox");
+		const auto* tile = std::get_if<AuthoritativeFireAtTileCommand>(&tileQueue.submissions[0].command);
+		CHECK(tile && tile->targetGrid == 6611 && tile->aimTime == 2 && tile->source == SimulationCommandSource::NetworkPeer,
+			"the prepared shot keeps the tile and aim the owner chose");
+		FakeLiveState refusedTile; refusedTile.fireAtTilePreparationSucceeds = false;
+		rejects(refusedTile, Intent(1, FireAtTileTacticalIntent{6611, 0, 0}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"no gun, no ammunition, too much aim or too few points never enters the inbox");
 		FakeLiveState wideUse;
 		rejects(wideUse, Intent(1, UseItemTacticalIntent{300, 9}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a slot beyond the native inventory never reaches native preparation");

@@ -150,6 +150,9 @@ bool PrepareAuthoritativePickupWorldItemCommand(TacticalEntityId actor,
 // A stock throw of an idle co-op merc's hand grenade or thrown item at a tile.
 bool PrepareAuthoritativeThrowCommand(TacticalEntityId actor, std::int32_t targetGrid, std::int8_t targetLevel,
 	AuthoritativeThrowCommand& output) noexcept;
+// The stock shot of an idle co-op merc's hand gun at a tile, with an aim level.
+bool PrepareAuthoritativeFireAtTileCommand(TacticalEntityId actor, std::int32_t grid, std::int8_t level,
+	std::uint8_t aimTime, AuthoritativeFireAtTileCommand& output) noexcept;
 // The stock use of a consumable on a settled co-op merc itself, from a slot.
 bool PrepareAuthoritativeUseItemCommand(TacticalEntityId actor, std::uint8_t slot,
 	AuthoritativeUseItemCommand& output) noexcept;

@@ -5208,6 +5208,26 @@ require_ordered_fragments(coop_traverse_screen_source
   "? Controller.submitMeleeAttack(view)"
   "FullEngineCoopClientHandItemIsMelee(attacker->loadout.primaryHand.item));")
 
+# 4.2 (second slice): the hand gun fired at a tile through the stock fire
+# sequence, with the aimed shot's weapon/ammunition/aim/AP gates and the attack
+# tracker; on the client a tile is chosen only where nobody stands.
+require_ordered_fragments(coop_traverse_command_source
+  "A co-op shot at a tile must keep the aimed shot's gates and the attack tracker"
+  "TacticalActor* ResolveAuthoritativeFireAtTile(const AuthoritativeFireAtTileCommand& command) noexcept"
+  "Item[command.expectedHandItem].usItemClass != IC_GUN ||"
+  "HandItemWorks(soldier, HANDPOS) == FALSE || EnoughAmmo(soldier, FALSE, HANDPOS) == FALSE ||"
+  "command.aimTime > AllowedAimingLevels(soldier, command.targetGrid))"
+  "const INT16 actionPointCost = CalcTotalAPsToAttack(soldier, command.targetGrid, TRUE,"
+  "TacticalActor* const soldier = ResolveAuthoritativeFireAtTile(value);"
+  "if (!soldier || !BeginDedicatedCoopAttack(sequence, *soldier))"
+  "AbandonDedicatedCoopAttack(sequence);")
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientPresentationInteraction.cpp" coop_fire_tile_click_source)
+require_ordered_fragments(coop_fire_tile_click_source
+  "A tile target must never be a tile someone stands on"
+  "if (controller.targetingAttack())"
+  "if (actor.active && actor.inSector && actor.grid == click.grid) return Result(ResultKind::Ignored);"
+  "return Result(controller.selectAttackTile(view, click.grid)")
+
 # 5.5 use: the stock portrait drop (ApplyConsumable) of an exact consumable
 # object in a slot of a settled co-op merc, at the owner's inventory revision;
 # "not enough points" (2) changed nothing and discards.
@@ -13685,7 +13705,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 25> payloads"
+    "const std::array<PayloadCase, 26> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -14102,7 +14122,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 23)
+if(NOT dedicated_live_authority_write_call_count EQUAL 24)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -14116,7 +14136,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 23)
+if(NOT dedicated_live_authority_read_call_count EQUAL 24)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -15391,7 +15411,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 25> payloads"
+    "const std::array<PayloadCase, 26> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -45607,7 +45627,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21," "AttachItemTacticalIntent," "ToggleStealth = 22," "ToggleStealthTacticalIntent," "Traverse = 23," "TraverseTacticalIntent," "MeleeAttack = 24," "MeleeAttackTacticalIntent," "UseItem = 25" "UseItemTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21," "AttachItemTacticalIntent," "ToggleStealth = 22," "ToggleStealthTacticalIntent," "Traverse = 23," "TraverseTacticalIntent," "MeleeAttack = 24," "MeleeAttackTacticalIntent," "UseItem = 25," "UseItemTacticalIntent," "FireAtTile = 26" "FireAtTileTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

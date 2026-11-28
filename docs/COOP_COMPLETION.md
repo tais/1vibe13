@@ -4729,3 +4729,24 @@ again. Negative control: with the deal ignoring the filter, A never gets B's
 mercs and the probe fails. Unit tests cover the grace, a return, a new drop,
 nobody online, and the lend and return through the ledger. The late-join,
 hand-over and stable-ownership probes still pass.
+
+## Phase 4.2 (second slice): firing a gun at a tile
+
+- Tactical intent `FireAtTile` (kind 26, six bytes: tile, level, aim) and
+  journal tag 50 (`AuthoritativeFireAtTile`). The server checks what it checks
+  for an aimed shot, without a target actor: the merc's own gun in hand, fire
+  sequence idle, the stock semi-auto, working-weapon and ammunition gates, the
+  aim within the stock allowed levels for that tile, and the stock attack AP.
+  Stock `HandleItem` then fires at the location (the shot hits whatever it
+  meets); the attack tracker holds the receipt until the round is fired.
+- Client: F starts fire targeting even when no enemy is in sight; clicking an
+  empty tile aims at it ("Fire at tile ..." on the HUD), +/- sets the aim and
+  Enter fires. A tile someone stands on is never a tile target, and clicking
+  an enemy targets it again. Driver verb `FIRE_TILE slot inc tile aim`.
+
+Installed evidence (`full_engine_coop_installed_fire_tile.py`): in the starter
+battle at the player's turn a merc's owner fires the merc's own gun at an
+empty tile beside the nearest enemy through the shipping controller: Applied,
+and both clients show the round spent (6 -> 5). Negative control: with the
+executor discarding the shot is refused and the probe fails. Codec, journal,
+host, intent and click-dispatch tests.

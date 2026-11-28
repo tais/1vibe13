@@ -278,6 +278,16 @@ bool DedicatedCoopTacticalJa2LiveState::prepareStealth(
 	return onMainThread() && PrepareAuthoritativeStealthCommand(actor, expectedStealth, command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareFireAtTile(
+	TacticalEntityId actor,
+	std::int32_t grid,
+	std::int8_t level,
+	std::uint8_t aimTime,
+	AuthoritativeFireAtTileCommand& command) const noexcept
+{
+	return onMainThread() && PrepareAuthoritativeFireAtTileCommand(actor, grid, level, aimTime, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareUseItem(
 	TacticalEntityId actor,
 	std::uint8_t slot,

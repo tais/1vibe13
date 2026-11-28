@@ -1443,6 +1443,32 @@ struct AuthoritativeStealthCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// The stock shot of an exact idle co-op merc's hand gun at a tile, with an aim
+// level, through the stock HandleItem fire sequence (no actor target proof:
+// stock fires at the location, hitting whoever the shot meets).
+struct AuthoritativeFireAtTileCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t targetGrid = TacticalNoTargetGrid;
+	std::int8_t targetLevel = 0;
+	std::uint8_t aimTime = 0;
+	std::uint16_t expectedHandItem = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeFireAtTileCommand>::value,
+	"fire-at-tile commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeFireAtTileCommand(const AuthoritativeFireAtTileCommand& command) noexcept
+{
+	return command.soldier.valid() && command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.targetGrid >= 0 && (command.targetLevel == 0 || command.targetLevel == 1) &&
+		command.aimTime <= TacticalMaximumAimedFirearmAimTime && command.expectedHandItem != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // The stock use of a consumable on the merc itself (ApplyConsumable, as an
 // object dropped on its own portrait) by an exact settled co-op merc, from an
 // exact object in one of its inventory slots.
@@ -1919,7 +1945,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeStealthCommand,
 	AuthoritativeTraverseCommand,
 	AuthoritativeMeleeAttackCommand,
-	AuthoritativeUseItemCommand>;
+	AuthoritativeUseItemCommand,
+	AuthoritativeFireAtTileCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -2120,6 +2147,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeUseItemCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeUseItemCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeFireAtTileCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeFireAtTileCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

@@ -2577,6 +2577,42 @@ private:
 			FlushReply();
 			return;
 		}
+		if (operation == "FIRE_TILE")
+		{
+			std::uint64_t values[4]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+			FullEngineCoopClientPresentationView presentation;
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] > INT32_MAX || values[3] > CoopSession::MaximumTacticalFirearmAimTime ||
+				!runtime.presentationView(presentation))
+			{ ReplyError(request, "FIRE_TILE needs the slot/incarnation of an owned merc, a tile and an aim level"); return; }
+			FullEngineCoopClientControllerView view = ControllerView(presentation);
+			controller_.synchronize(view);
+			controller_.cancelAttackTargeting();
+			const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+			// The shipping path: F (fire targeting), a click on the tile, +/- aim, Enter.
+			bool ready = controller_.selectActor(view, actor) && controller_.beginAttackTargeting(view) &&
+				controller_.selectAttackTile(view, static_cast<std::int32_t>(values[2]));
+			const int delta = static_cast<int>(values[3]) - static_cast<int>(controller_.attackAimTime());
+			if (ready && delta != 0) ready = controller_.adjustAttackAim(delta);
+			const auto intent = ready ? controller_.submitFireAtTile(view) : FullEngineCoopClientIntentRequest{};
+			controller_.cancelAttackTargeting();
+			std::uint64_t command = 0;
+			const bool submitted = intent && runtime.sendIntent(intent.actor, intent.payload) ==
+				CoopSession::FullEngineCoopClientResult::Success;
+			FullEngineCoopClientPresentationView refreshed;
+			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
+			std::printf("%s{\"request\":%llu,\"kind\":\"fire_tile\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
+				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
+			FlushReply();
+			return;
+		}
 		if (operation == "USE")
 		{
 			std::uint64_t values[3]{};

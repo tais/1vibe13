@@ -63,7 +63,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeStealth = 46,
 	AuthoritativeTraverse = 47,
 	AuthoritativeMeleeAttack = 48,
-	AuthoritativeUseItem = 49
+	AuthoritativeUseItem = 49,
+	AuthoritativeFireAtTile = 50
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -314,6 +315,21 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeFireAtTileCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeFireAtTile));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.targetGrid);
+			writer.writeU8(static_cast<std::uint8_t>(value.targetLevel));
+			writer.writeU8(value.aimTime);
+			writer.writeU16(value.expectedHandItem);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -1072,6 +1088,26 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeFireAtTile:
+		{
+			AuthoritativeFireAtTileCommand value{};
+			std::uint8_t level = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.targetGrid) ||
+				!reader.readU8(level) || level > 1 ||
+				!reader.readU8(value.aimTime) ||
+				!reader.readU16(value.expectedHandItem) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
+				return false;
+			value.targetLevel = static_cast<std::int8_t>(level);
+			if (!IsStructurallyValidAuthoritativeFireAtTileCommand(value)) return false;
 			command = value;
 			return true;
 		}

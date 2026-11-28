@@ -712,6 +712,32 @@ int main()
 	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{unprovenDrink}) &&
 		!IsStructurallyValidSimulationCommand(SimulationCommand{localDrink}),
 		"a use needs an exact object state and a co-op peer");
+	AuthoritativeFireAtTileCommand volley;
+	volley.soldier = {4, 0x01020304}; volley.targetGrid = 6611; volley.targetLevel = 1; volley.aimTime = 3;
+	volley.expectedHandItem = 4; volley.expectedWorldGeneration = 9; volley.expectedTurnSerial = 11;
+	const std::vector<RecordedSimulationCommand> volleyRecords{
+		{24, 28, CommandJournalStatus::Applied, SimulationCommand{volley}}};
+	std::vector<std::uint8_t> volleyWire, volleyReencoded;
+	std::vector<RecordedSimulationCommand> decodedVolley;
+	std::uint64_t volleyDropped = 0;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{volley}) &&
+		EncodeSimulationCommandJournal(volleyRecords, 0, volleyWire) &&
+		DecodeSimulationCommandJournal(volleyWire, decodedVolley, volleyDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedVolley.size() == 1 &&
+		std::holds_alternative<AuthoritativeFireAtTileCommand>(decodedVolley[0].command) &&
+		std::get<AuthoritativeFireAtTileCommand>(decodedVolley[0].command).targetGrid == 6611 &&
+		std::get<AuthoritativeFireAtTileCommand>(decodedVolley[0].command).aimTime == 3 &&
+		EncodeSimulationCommandJournal(decodedVolley, volleyDropped, volleyReencoded) && volleyReencoded == volleyWire,
+		"a co-op shot at a tile journal round trips its tile, aim and weapon under its append-only tag");
+	std::array<AuthoritativeFireAtTileCommand, 4> invalidVolleys;
+	invalidVolleys.fill(volley);
+	invalidVolleys[0].targetGrid = -1;
+	invalidVolleys[1].aimTime = 9;
+	invalidVolleys[2].expectedHandItem = 0;
+	invalidVolleys[3].source = SimulationCommandSource::LocalPlayer;
+	for (const auto& invalid : invalidVolleys)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"a shot at a tile needs a tile, a bounded aim, a hand weapon and a co-op peer");
 	auto localSneak = sneak; localSneak.source = SimulationCommandSource::LocalPlayer;
 	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{localSneak}),
 		"a co-op stealth toggle comes from a co-op peer");

@@ -114,6 +114,12 @@ public:
 	void cancelAttackTargeting() noexcept;
 	bool targetingAttack() const noexcept { return targetingAttack_; }
 	TacticalEntityId attackTarget() const noexcept { return attackTarget_; }
+	// Fire targeting at a tile instead of an actor (suppression, an enemy heard
+	// but not seen): a world tile with no hostile chosen in F targeting.
+	bool selectAttackTile(const FullEngineCoopClientControllerView& view, std::int32_t grid) noexcept;
+	bool attackTileSelected() const noexcept { return targetingAttack_ && attackTileGrid_ >= 0; }
+	std::int32_t attackTileGrid() const noexcept { return attackTileGrid_; }
+	FullEngineCoopClientIntentRequest submitFireAtTile(const FullEngineCoopClientControllerView& view) noexcept;
 	std::uint8_t attackAimTime() const noexcept { return attackAimTime_; }
 
 	bool beginDoorSelection(
@@ -301,6 +307,7 @@ private:
 	std::uint8_t attackAimTime_ = 1;
 	bool targetingAttack_ = false;
 	bool meleeTargeting_ = false;
+	std::int32_t attackTileGrid_ = -1;
 	TacticalEntityId doorActor_{};
 	std::uint64_t doorWorldEpoch_ = 0;
 	std::int32_t selectedDoorBaseGrid_ = -1;

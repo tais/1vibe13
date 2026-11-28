@@ -36,12 +36,17 @@ DispatchFullEngineCoopClientPresentationClick(
 	if (controller.targetingAttack())
 	{
 		TacticalEntityId target;
-		if (!ResolveFullEngineCoopClientHostileActorAtGrid(
+		if (ResolveFullEngineCoopClientHostileActorAtGrid(
 				*view.snapshot, controller.selectedActor(),
-				controller.attackTarget(), click.grid, target) ||
-			!controller.selectAttackTarget(view, target))
-			return {};
-		return Result(ResultKind::TargetSelected);
+				controller.attackTarget(), click.grid, target))
+			return Result(controller.selectAttackTarget(view, target)
+				? ResultKind::TargetSelected : ResultKind::Ignored);
+		// A tile someone else stands on is never a tile target (no aiming at a
+		// teammate or a civilian); an empty tile is (fire targeting only).
+		for (const TacticalActorSnapshot& actor : view.snapshot->actors())
+			if (actor.active && actor.inSector && actor.grid == click.grid) return Result(ResultKind::Ignored);
+		return Result(controller.selectAttackTile(view, click.grid)
+			? ResultKind::TargetSelected : ResultKind::Ignored);
 	}
 	if (controller.enteringDestination()) return {};
 	if (controller.selectingDoor())

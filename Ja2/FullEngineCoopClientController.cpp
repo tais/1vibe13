@@ -153,11 +153,13 @@ void FullEngineCoopClientController::synchronize(
 			if (targetingAttack_ &&
 				view.snapshot->epoch() != attackWorldEpoch_)
 				cancelAttackTargeting();
-			else if (targetingAttack_ &&
+			else if (targetingAttack_ && attackTileGrid_ < 0 &&
 				!attackTargetCandidate(view, attackTarget_))
 			{
+				// A lost target moves to the next one; fire targeting may stay
+				// without one (a tile can still be chosen), melee may not.
 				attackTarget_ = TacticalEntityId{};
-				if (!selectTargetRelative(view, true)) cancelAttackTargeting();
+				if (!selectTargetRelative(view, true) && meleeTargeting_) cancelAttackTargeting();
 			}
 			if (selectingDoor_ && !exactDoorSelectionCurrent(view))
 				cancelDoorSelection();
@@ -429,7 +431,8 @@ bool FullEngineCoopClientController::beginAttackTargeting(
 	attackTarget_ = TacticalEntityId{};
 	attackWorldEpoch_ = view.snapshot->epoch();
 	attackAimTime_ = melee ? 0 : 1;
-	if (selectTargetRelative(view, true)) return true;
+	// Fire targeting starts even with no visible hostile: a tile can be chosen.
+	if (selectTargetRelative(view, true) || !melee) return true;
 	cancelAttackTargeting();
 	return false;
 }
@@ -453,7 +456,34 @@ bool FullEngineCoopClientController::selectAttackTarget(
 	if (!targetingAttack_ || !attackTargetCandidate(view, target))
 		return false;
 	attackTarget_ = target;
+	attackTileGrid_ = -1;
 	return true;
+}
+
+bool FullEngineCoopClientController::selectAttackTile(
+	const FullEngineCoopClientControllerView& view, std::int32_t grid) noexcept
+{
+	if (!targetingAttack_ || meleeTargeting_ || !ValidView(view) || view.snapshot->epoch() != attackWorldEpoch_ ||
+		!view.snapshot->dimensions().contains(grid))
+		return false;
+	const TacticalActorSnapshot* const actor = view.snapshot->find(selectedActor_);
+	if (actor == nullptr || actor->grid == grid) return false;
+	attackTileGrid_ = grid;
+	attackTarget_ = TacticalEntityId{};
+	return true;
+}
+
+FullEngineCoopClientIntentRequest FullEngineCoopClientController::submitFireAtTile(
+	const FullEngineCoopClientControllerView& view) noexcept
+{
+	if (!attackTileSelected() || meleeTargeting_ || !actionsEnabled(view) ||
+		view.snapshot->epoch() != attackWorldEpoch_)
+		return {};
+	const TacticalActorSnapshot* const actor = view.snapshot->find(selectedActor_);
+	if (actor == nullptr || !view.snapshot->dimensions().contains(attackTileGrid_)) return {};
+	const CoopSession::FireAtTileTacticalIntent payload{attackTileGrid_, actor->level, attackAimTime_};
+	cancelAttackTargeting();
+	return request(view, payload);
 }
 
 bool FullEngineCoopClientController::adjustAttackAim(int delta) noexcept
@@ -474,6 +504,7 @@ void FullEngineCoopClientController::cancelAttackTargeting() noexcept
 	attackAimTime_ = 1;
 	targetingAttack_ = false;
 	meleeTargeting_ = false;
+	attackTileGrid_ = -1;
 }
 
 bool FullEngineCoopClientController::beginDoorSelection(

@@ -735,6 +735,8 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				case ENTER:
 					(void)Submit(Controller.meleeTargeting()
 						? Controller.submitMeleeAttack(view)
+						: Controller.attackTileSelected()
+						? Controller.submitFireAtTile(view)
 						: Controller.submitAimedFirearmAttack(view), view);
 					break;
 			}
@@ -1528,6 +1530,12 @@ void RenderPresentation(
 				L"Melee target %u:%u grid %d  [Up/Down/Tab adjacent target, Enter strike, Esc]",
 				static_cast<unsigned>(target.slot), static_cast<unsigned>(target.incarnation),
 				targetActor != nullptr ? targetActor->grid : -1);
+		else if (Controller.attackTileSelected())
+			mprintf(20, SCREEN_HEIGHT - 64,
+				L"Fire at tile %d  aim %u  [click a target or a tile, +/- aim, Enter, Esc]",
+				Controller.attackTileGrid(), static_cast<unsigned>(Controller.attackAimTime()));
+		else if (!target.valid())
+			mprintf(20, SCREEN_HEIGHT - 64, L"Fire: no target seen  [click a tile to fire at it, Esc]");
 		else
 		mprintf(20, SCREEN_HEIGHT - 64,
 			L"Fire target %u:%u grid %d  aim %u  [Up/Down/Tab target, +/- aim, Enter, Esc]",

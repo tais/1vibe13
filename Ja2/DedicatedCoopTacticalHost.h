@@ -160,6 +160,12 @@ public:
 		TacticalEntityId actor,
 		std::uint8_t slot,
 		AuthoritativeUseItemCommand& command) const noexcept = 0;
+	virtual bool prepareFireAtTile(
+		TacticalEntityId actor,
+		std::int32_t grid,
+		std::int8_t level,
+		std::uint8_t aimTime,
+		AuthoritativeFireAtTileCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -283,6 +289,12 @@ public:
 		TacticalEntityId actor,
 		std::uint8_t slot,
 		AuthoritativeUseItemCommand& command) const noexcept override;
+	bool prepareFireAtTile(
+		TacticalEntityId actor,
+		std::int32_t grid,
+		std::int8_t level,
+		std::uint8_t aimTime,
+		AuthoritativeFireAtTileCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

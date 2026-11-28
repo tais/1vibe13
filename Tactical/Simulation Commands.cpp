@@ -2120,6 +2120,44 @@ namespace
 		return soldier;
 	}
 
+	// The stock shot of an exact idle co-op merc's hand gun at a tile: the aimed
+	// shot's weapon, ammunition, aim and AP gates without a target actor.
+	TacticalActor* ResolveAuthoritativeFireAtTile(const AuthoritativeFireAtTileCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeFireAtTileCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || !IsJa2TacticalWorldIntegrityValid() || TileIsOutOfBounds(command.targetGrid))
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || OK_CONTROLLABLE_MERC(soldier) == FALSE || soldier->roster().team() != gbPlayerNum ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			soldier->position().gridNo() == command.targetGrid ||
+			soldier->attackSelection().hand() != HANDPOS || !FireSequenceIdle(*soldier) ||
+			soldier->fireControl().reloading())
+			return nullptr;
+		const OBJECTTYPE& hand = soldier->inventory()[HANDPOS];
+		if (!hand.exists() || hand.usItem != command.expectedHandItem || command.expectedHandItem >= MAXITEMS ||
+			Item[command.expectedHandItem].usItemClass != IC_GUN ||
+			(soldier->attackSelection().weaponMode() == WM_NORMAL &&
+			 Weapon[Item[command.expectedHandItem].ubClassIndex].NoSemiAuto) ||
+			HandItemWorks(soldier, HANDPOS) == FALSE || EnoughAmmo(soldier, FALSE, HANDPOS) == FALSE ||
+			command.aimTime > AllowedAimingLevels(soldier, command.targetGrid))
+			return nullptr;
+		const INT16 actionPointCost = CalcTotalAPsToAttack(soldier, command.targetGrid, TRUE,
+			static_cast<INT16>(command.aimTime));
+		if (actionPointCost < 0 || EnoughPoints(soldier, actionPointCost, 0, FALSE) == FALSE)
+			return nullptr;
+		return soldier;
+	}
+
 	// The stock use of a consumable on an exact settled co-op merc itself (as an
 	// object dropped on its own portrait) from an exact object in one of its
 	// slots: something ApplyConsumable can apply (camouflage, canteen, elixir,
@@ -3447,6 +3485,28 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeFireAtTileCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeFireAtTile(value);
+				if (!soldier || !BeginDedicatedCoopAttack(sequence, *soldier))
+					return CommandDisposition::Discard;
+				const INT8 previousAimTime = soldier->aiPlanning().aimTime();
+				const INT8 previousShownAimTime = soldier->aiPlanning().shownAimTime();
+				soldier->aiPlanning().aimTime() = static_cast<INT8>(value.aimTime);
+				soldier->aiPlanning().shownAimTime() = static_cast<INT8>(value.aimTime);
+				const INT32 result = HandleItemFromWeaponConfigurationCommand(
+					soldier, value.targetGrid, value.targetLevel,
+					static_cast<UINT16>(value.expectedHandItem), value.source, TacticalEventPolicy::LocalOnly);
+				if (result != ITEM_HANDLE_OK)
+				{
+					AbandonDedicatedCoopAttack(sequence);
+					soldier->aiPlanning().aimTime() = previousAimTime;
+					soldier->aiPlanning().shownAimTime() = previousShownAimTime;
+					return CommandDisposition::Discard;
+				}
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeUseItemCommand>::value)
 			{
 				TacticalActor* const soldier = ResolveAuthoritativeUseItem(value);
@@ -4515,6 +4575,26 @@ bool PrepareAuthoritativeStealthCommand(TacticalEntityId actor, bool expectedSte
 	return true;
 }
 
+bool PrepareAuthoritativeFireAtTileCommand(TacticalEntityId actor, std::int32_t grid, std::int8_t level,
+	std::uint8_t aimTime, AuthoritativeFireAtTileCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity || live->inventory().size() <= HANDPOS || !live->inventory()[HANDPOS].exists())
+		return false;
+	AuthoritativeFireAtTileCommand prepared;
+	prepared.soldier = actor;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.targetGrid = grid;
+	prepared.targetLevel = level;
+	prepared.aimTime = aimTime;
+	prepared.expectedHandItem = live->inventory()[HANDPOS].usItem;
+	if (ResolveAuthoritativeFireAtTile(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeUseItemCommand(TacticalEntityId actor, std::uint8_t slot,
 	AuthoritativeUseItemCommand& output) noexcept
 {
@@ -4775,7 +4855,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeStealthCommand>::value ||
 			std::is_same<Command, AuthoritativeTraverseCommand>::value ||
 			std::is_same<Command, AuthoritativeMeleeAttackCommand>::value ||
-			std::is_same<Command, AuthoritativeUseItemCommand>::value)
+			std::is_same<Command, AuthoritativeUseItemCommand>::value ||
+			std::is_same<Command, AuthoritativeFireAtTileCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4953,6 +5034,13 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			{
 				return IsStructurallyValidAuthoritativeStealthCommand(value)
 					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeFireAtTileCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeFireAtTileCommand(value) || value.soldier.slot >= TOTAL_SOLDIERS)
+					return SimulationCommandDomainError::InvalidActor;
+				return TileIsOutOfBounds(value.targetGrid)
+					? SimulationCommandDomainError::InvalidTargetGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeUseItemCommand>::value)
 			{
