@@ -23,6 +23,7 @@
 #include "TacticalActorLongActions.h"
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorTraversal.h"
+#include "TacticalActorConsumables.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorModifiers.h"
@@ -2119,6 +2120,42 @@ namespace
 		return soldier;
 	}
 
+	// The stock use of a consumable on an exact settled co-op merc itself (as an
+	// object dropped on its own portrait) from an exact object in one of its
+	// slots: something ApplyConsumable can apply (camouflage, canteen, elixir,
+	// clothes, food or a drug).
+	TacticalActor* ResolveAuthoritativeUseItem(const AuthoritativeUseItemCommand& command) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeUseItemCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || !IsJa2TacticalWorldIntegrityValid())
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || OK_CONTROLLABLE_MERC(soldier) == FALSE || soldier->roster().team() != gbPlayerNum ||
+			soldier->inventory().size() != NUM_INV_SLOTS || !IsSupportedInventorySwapSlot(command.slot) ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			soldier->vitals().health() < CONSCIOUSNESS || !InventorySwapPoseReady(*soldier))
+			return nullptr;
+		OBJECTTYPE& object = soldier->inventory()[command.slot];
+		if (!object.exists() || object.usItem >= MAXITEMS ||
+			CaptureOrdinaryInventoryObject(object) != command.objectStateFingerprint ||
+			!(Item[object.usItem].usItemClass & (IC_KIT | IC_MISC)))
+			return nullptr;
+		const INVTYPE& item = Item[object.usItem];
+		const bool consumable = ItemIsCamoKit(object.usItem) || HasItemFlag(object.usItem, CAMO_REMOVAL) ||
+			ItemIsCanteen(object.usItem) || object.usItem == JAR_ELIXIR || item.clothestype || item.foodtype ||
+			item.drugtype;
+		return consumable ? soldier : nullptr;
+	}
+
 	// A stock knife stab or punch (the hand item's class; an empty hand punches)
 	// of an exact settled co-op merc at an exact adjacent hostile it sees, with
 	// the stock AP, from the tile the stock action-grid search would walk it to.
@@ -3410,6 +3447,17 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeUseItemCommand>::value)
+			{
+				TacticalActor* const soldier = ResolveAuthoritativeUseItem(value);
+				if (!soldier) return CommandDisposition::Discard;
+				// The stock portrait drop. 2 is "not enough points" before any
+				// change; a refusal (a merc who will not eat, a non-smoker) is the
+				// stock outcome of the action and may have spoken a line.
+				const BOOLEAN used = ApplyConsumable(soldier, &soldier->inventory()[value.slot], FALSE, TRUE);
+				return used == 2 ? CommandDisposition::Discard : CommandDisposition::Applied;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
 			{
 				TacticalActor* soldier = nullptr;
@@ -4467,6 +4515,25 @@ bool PrepareAuthoritativeStealthCommand(TacticalEntityId actor, bool expectedSte
 	return true;
 }
 
+bool PrepareAuthoritativeUseItemCommand(TacticalEntityId actor, std::uint8_t slot,
+	AuthoritativeUseItemCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity || live->inventory().size() != NUM_INV_SLOTS || !IsSupportedInventorySwapSlot(slot) ||
+		!live->inventory()[slot].exists())
+		return false;
+	AuthoritativeUseItemCommand prepared;
+	prepared.soldier = actor;
+	prepared.slot = slot;
+	prepared.objectStateFingerprint = CaptureOrdinaryInventoryObject(live->inventory()[slot]);
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	if (ResolveAuthoritativeUseItem(prepared) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeMeleeAttackCommand(TacticalEntityId actor, TacticalEntityId target,
 	AuthoritativeMeleeAttackCommand& output) noexcept
 {
@@ -4707,7 +4774,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeAttachItemCommand>::value ||
 			std::is_same<Command, AuthoritativeStealthCommand>::value ||
 			std::is_same<Command, AuthoritativeTraverseCommand>::value ||
-			std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
+			std::is_same<Command, AuthoritativeMeleeAttackCommand>::value ||
+			std::is_same<Command, AuthoritativeUseItemCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4884,6 +4952,11 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			else if constexpr (std::is_same<Command, AuthoritativeStealthCommand>::value)
 			{
 				return IsStructurallyValidAuthoritativeStealthCommand(value)
+					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeUseItemCommand>::value)
+			{
+				return IsStructurallyValidAuthoritativeUseItemCommand(value) && value.soldier.slot < TOTAL_SOLDIERS
 					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)

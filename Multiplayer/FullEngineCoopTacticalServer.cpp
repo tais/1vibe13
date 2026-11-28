@@ -1056,6 +1056,7 @@ FullEngineCoopTacticalServer::processIntent(
 	const auto* inventoryDrop = std::get_if<DropInventoryItemTacticalIntent>(&intent.payload);
 	const auto* inventoryGive = std::get_if<GiveItemTacticalIntent>(&intent.payload);
 	const auto* inventoryAttach = std::get_if<AttachItemTacticalIntent>(&intent.payload);
+	const auto* inventoryUse = std::get_if<UseItemTacticalIntent>(&intent.payload);
 	const bool privateInventoryRejected = (inventorySwap &&
 		!replication_.hasInventoryRevision(peer->identity, intent.actor, inventorySwap->expectedInventoryRevision)) ||
 		(inventoryTransfer &&
@@ -1069,7 +1070,9 @@ FullEngineCoopTacticalServer::processIntent(
 		(inventoryGive && !replication_.hasInventoryRevision(peer->identity, intent.actor,
 			inventoryGive->expectedInventoryRevision)) ||
 		(inventoryAttach && !replication_.hasInventoryRevision(peer->identity, intent.actor,
-			inventoryAttach->expectedInventoryRevision));
+			inventoryAttach->expectedInventoryRevision)) ||
+		(inventoryUse && !replication_.hasInventoryRevision(peer->identity, intent.actor,
+			inventoryUse->expectedInventoryRevision));
 	const bool policyReject = !caughtUp || nextAuthoritativeSequence_ == 0 ||
 		unacknowledgedEquivalentRevision || privateInventoryRejected;
 	TacticalIntent executionIntent = intent;

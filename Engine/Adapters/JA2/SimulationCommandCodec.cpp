@@ -62,7 +62,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeAttachItem = 45,
 	AuthoritativeStealth = 46,
 	AuthoritativeTraverse = 47,
-	AuthoritativeMeleeAttack = 48
+	AuthoritativeMeleeAttack = 48,
+	AuthoritativeUseItem = 49
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -311,6 +312,19 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeI32(value.targetGrid);
 			writer.writeI8(value.targetLevel);
 			writer.writeU16(value.expectedHandItem);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeUseItemCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeUseItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.slot);
+			writer.writeU64(value.objectStateFingerprint);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedTurnSerial);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
@@ -1058,6 +1072,22 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeUseItem:
+		{
+			AuthoritativeUseItemCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU8(value.slot) ||
+				!reader.readU64(value.objectStateFingerprint) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
+				return false;
+			if (!IsStructurallyValidAuthoritativeUseItemCommand(value)) return false;
 			command = value;
 			return true;
 		}

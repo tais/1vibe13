@@ -690,6 +690,28 @@ int main()
 	for (const auto& invalid : invalidStabs)
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"a stab or punch needs another actor on another tile, a level, a world and a co-op peer");
+	AuthoritativeUseItemCommand drink;
+	drink.soldier = {4, 0x01020304}; drink.slot = 5; drink.objectStateFingerprint = 0x1122334455667788ull;
+	drink.expectedWorldGeneration = 9; drink.expectedTurnSerial = 11;
+	const std::vector<RecordedSimulationCommand> drinkRecords{
+		{23, 27, CommandJournalStatus::Applied, SimulationCommand{drink}}};
+	std::vector<std::uint8_t> drinkWire, drinkReencoded;
+	std::vector<RecordedSimulationCommand> decodedDrink;
+	std::uint64_t drinkDropped = 0;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{drink}) &&
+		EncodeSimulationCommandJournal(drinkRecords, 0, drinkWire) &&
+		DecodeSimulationCommandJournal(drinkWire, decodedDrink, drinkDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedDrink.size() == 1 &&
+		std::holds_alternative<AuthoritativeUseItemCommand>(decodedDrink[0].command) &&
+		std::get<AuthoritativeUseItemCommand>(decodedDrink[0].command).slot == 5 &&
+		std::get<AuthoritativeUseItemCommand>(decodedDrink[0].command).objectStateFingerprint == drink.objectStateFingerprint &&
+		EncodeSimulationCommandJournal(decodedDrink, drinkDropped, drinkReencoded) && drinkReencoded == drinkWire,
+		"a co-op use of an item on the merc itself journal round trips its object proof under its append-only tag");
+	auto unprovenDrink = drink; unprovenDrink.objectStateFingerprint = 0;
+	auto localDrink = drink; localDrink.source = SimulationCommandSource::LocalPlayer;
+	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{unprovenDrink}) &&
+		!IsStructurallyValidSimulationCommand(SimulationCommand{localDrink}),
+		"a use needs an exact object state and a co-op peer");
 	auto localSneak = sneak; localSneak.source = SimulationCommandSource::LocalPlayer;
 	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{localSneak}),
 		"a co-op stealth toggle comes from a co-op peer");

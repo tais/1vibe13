@@ -503,6 +503,19 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::UseItemTacticalIntent>::value)
+		{
+			AuthoritativeUseItemCommand prepared{};
+			if (liveState_->legacyNetworkingActive() || payload.slot > UINT8_MAX ||
+				!liveState_->prepareUseItem(intent.actor, static_cast<std::uint8_t>(payload.slot), prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::MeleeAttackTacticalIntent>::value)
 		{
 			AuthoritativeMeleeAttackCommand prepared{};

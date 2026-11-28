@@ -44,7 +44,8 @@ enum class TacticalIntentKind : std::uint8_t
 	AttachItem = 21,
 	ToggleStealth = 22,
 	Traverse = 23,
-	MeleeAttack = 24
+	MeleeAttack = 24,
+	UseItem = 25
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -183,6 +184,14 @@ struct AttachItemTacticalIntent
 	std::uint16_t targetSlot = 0;
 	std::uint64_t expectedInventoryRevision = 0;
 };
+// The stock use of a consumable on the merc itself (an object dropped on its
+// own portrait): drink a canteen, apply camouflage, take a drug, eat. The
+// object in `slot` at the owner's displayed inventory revision.
+struct UseItemTacticalIntent
+{
+	std::uint16_t slot = 0;
+	std::uint64_t expectedInventoryRevision = 0;
+};
 // A stock knife stab or punch (the hand item decides; an empty hand punches)
 // at an adjacent hostile.
 struct MeleeAttackTacticalIntent
@@ -245,7 +254,8 @@ using TacticalIntentPayload = std::variant<
 	AttachItemTacticalIntent,
 	ToggleStealthTacticalIntent,
 	TraverseTacticalIntent,
-	MeleeAttackTacticalIntent>;
+	MeleeAttackTacticalIntent,
+	UseItemTacticalIntent>;
 
 struct TacticalIntent
 {

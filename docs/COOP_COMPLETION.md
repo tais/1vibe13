@@ -4675,3 +4675,29 @@ launched grenades scatter), the launcher still in hand on both clients; enemy
 life 50 -> 44 in one run. Negative control: with the resolver refusing
 launchers no shot is applied in 24 attempts. The plain grenade probe still
 passes.
+
+## Phase 5.5 (second slice): using an item on yourself (U)
+
+- Tactical intent `UseItem` (kind 25, ten bytes: the inventory slot and the
+  owner's displayed private inventory revision) and journal tag 49
+  (`AuthoritativeUseItem`, with the object's state fingerprint). It is the
+  stock use of a consumable on the merc itself, what dropping the object on
+  the merc's own portrait does: `ApplyConsumable(merc, object, FALSE, TRUE)`
+  drinks a canteen, applies camouflage, takes a drug or eats, with its stock
+  AP cost and stock refusals (a merc who will not eat it, a non-smoker).
+- The server admits it only at the owner's current private inventory
+  revision, and checks the merc is the requester's, conscious, settled, in the
+  player turn, and that the slot holds that exact object of a consumable kind.
+  "Not enough points" changes nothing and discards; a stock refusal is the
+  action's stock outcome.
+- Client: open the inventory, select the item, press U. Driver verb
+  `USE slot inc inventory-slot`.
+
+Installed evidence (`full_engine_coop_installed_use_item.py`): after the
+seeded A9 victory the test host tires a merc through the stock breath cost and
+gives it a full game-data canteen (seeded). The owner uses it through the
+shipping controller: Applied, and both clients show the breath restored (60
+-> 80, 67 -> 87; four runs, both mercs). A merc still settling can be refused
+before anything changes; the probe presses U again then, as a player would.
+Negative control: with the executor never applying the item the use is
+discarded and the probe fails.

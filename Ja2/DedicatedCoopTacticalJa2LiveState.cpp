@@ -278,6 +278,14 @@ bool DedicatedCoopTacticalJa2LiveState::prepareStealth(
 	return onMainThread() && PrepareAuthoritativeStealthCommand(actor, expectedStealth, command);
 }
 
+bool DedicatedCoopTacticalJa2LiveState::prepareUseItem(
+	TacticalEntityId actor,
+	std::uint8_t slot,
+	AuthoritativeUseItemCommand& command) const noexcept
+{
+	return onMainThread() && PrepareAuthoritativeUseItemCommand(actor, slot, command);
+}
+
 bool DedicatedCoopTacticalJa2LiveState::prepareMeleeAttack(
 	TacticalEntityId actor,
 	TacticalEntityId target,

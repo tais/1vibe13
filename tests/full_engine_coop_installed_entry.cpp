@@ -526,6 +526,49 @@ void PollWoundTrigger()
 	std::fflush(stdout);
 }
 
+// Fixture-only: "drink-trigger.txt" ("<slot> <incarnation>") tires that merc
+// through the stock breath cost (DeductPoints), sets its hand item aside and
+// gives it a full canteen from the game data. Drinking is the player's (U in
+// the inventory). One trigger per run.
+void PollDrinkTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("drink-trigger.txt");
+	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	bool parsed = false; // slot 0 is a real merc slot
+	if (FILE* file = std::fopen("drink-trigger.txt", "r"))
+	{
+		parsed = std::fscanf(file, "%u %u", &slot, &incarnation) == 2;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "drink-trigger.consumed", ignored);
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	UINT16 canteen = NOTHING;
+	for (UINT16 item = 1; item < MAXITEMS && canteen == NOTHING; ++item)
+		if (ItemIsCanteen(item) && (Item[item].usItemClass & (IC_KIT | IC_MISC))) canteen = item;
+	OBJECTTYPE object;
+	if (!merc || canteen == NOTHING || !CreateItem(canteen, 100, &object))
+	{
+		std::printf("[co-op entry test] drink refused: actor=%u:%u\n", slot, incarnation);
+		std::fflush(stdout);
+		return;
+	}
+	DeductPoints(merc, 0, 4000);
+	OBJECTTYPE& hand = merc->inventory()[HANDPOS];
+	if (hand.exists())
+	{
+		AddItemToPool(merc->position().gridNo(), &hand, VISIBLE, merc->position().level(), 0, -1);
+		DeleteObj(&hand);
+	}
+	hand = object;
+	std::printf("[co-op entry test] thirsty: actor=%u:%u; breath=%d; canteen=%u\n", slot, incarnation,
+		int(merc->vitals().breath()), unsigned(canteen));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_SECTOR_MARKER): "place" drops a marker item at a
 // merc's feet once A9 is secured; "find:<grid>:<item>" reports, once A9 is
 // loaded again (after a stop, a resume and a re-entry), whether it is still
@@ -1763,6 +1806,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollClimbTrigger();
 	PollMeleeTrigger();
 	PollWoundTrigger();
+	PollDrinkTrigger();
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();

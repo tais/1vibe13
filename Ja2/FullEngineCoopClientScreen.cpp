@@ -689,6 +689,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 				// Fit the selected item onto the hand item (a scope or a silencer onto
 				// the gun, a grenade into a launcher), as the stock item box does.
 				(void)Submit(Controller.attachInventoryItem(view, Controller.inventorySourceSlot(), 5 /* native HANDPOS */), view);
+			else if (key == 'u' || key == 'U')
+				// Use the selected item on the merc itself, as dropping it on the
+				// merc's own portrait does in stock: drink, camouflage, a drug, food.
+				(void)Submit(Controller.useInventoryItem(view, Controller.inventorySourceSlot()), view);
 			else if (key == 'p' || key == 'P') (void)Controller.beginInventoryPickup(view);
 			else if (key == 'x' || key == 'X')
 			{

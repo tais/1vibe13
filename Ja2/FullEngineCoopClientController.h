@@ -184,6 +184,11 @@ public:
 	// both slots must hold an ordinary object of the selected owned merc.
 	FullEngineCoopClientIntentRequest attachInventoryItem(const FullEngineCoopClientControllerView& view,
 		std::uint16_t sourceSlot, std::uint16_t targetSlot) noexcept;
+	// Use the object in `slot` on the selected merc itself (the stock portrait
+	// drop: canteen, camouflage, drug, food). A public preflight only: the slot
+	// must hold an ordinary object of the selected owned merc.
+	FullEngineCoopClientIntentRequest useInventoryItem(const FullEngineCoopClientControllerView& view,
+		std::uint16_t slot) noexcept;
 	// One modal slot click: inspect/select, swap, or exact recipient placement.
 	// A failed placement never becomes movement or changes an authority object.
 	FullEngineCoopClientIntentRequest clickInventorySlot(

@@ -325,6 +325,15 @@ public:
 		return true;
 	}
 	bool meleePreparationSucceeds = true;
+	bool prepareUseItem(TacticalEntityId actor, std::uint8_t slot, AuthoritativeUseItemCommand& command) const noexcept override
+	{
+		if (!useItemPreparationSucceeds) return false;
+		command = AuthoritativeUseItemCommand{};
+		command.soldier = actor; command.slot = slot; command.objectStateFingerprint = 17;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool useItemPreparationSucceeds = true;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1135,6 +1144,19 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		CHECK(melee && melee->target == enemy && melee->source == SimulationCommandSource::NetworkPeer,
 			"the prepared stab or punch keeps the target the owner chose");
 		FakeLiveState refusedMelee; refusedMelee.meleePreparationSucceeds = false;
+		FakeLiveState useLive; FakeCommandService useQueue; RecordingReceiptSink useSink;
+		DedicatedCoopTacticalHost useHost(useLive, useQueue, useSink, CampaignPackageId, 4);
+		CHECK(useHost.execute(Intent(1, UseItemTacticalIntent{5, 9})) == TacticalIntentExecutionDisposition::Retained,
+			"using an item on the merc itself enters the retained command inbox");
+		const auto* use = std::get_if<AuthoritativeUseItemCommand>(&useQueue.submissions[0].command);
+		CHECK(use && use->slot == 5 && use->source == SimulationCommandSource::NetworkPeer,
+			"the prepared use keeps the slot the owner chose");
+		FakeLiveState refusedUse; refusedUse.useItemPreparationSucceeds = false;
+		rejects(refusedUse, Intent(1, UseItemTacticalIntent{5, 9}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a non-consumable, a changed object or a busy merc never enters the inbox");
+		FakeLiveState wideUse;
+		rejects(wideUse, Intent(1, UseItemTacticalIntent{300, 9}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"a slot beyond the native inventory never reaches native preparation");
 		rejects(refusedMelee, Intent(1, MeleeAttackTacticalIntent{enemy}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a distant, unseen or friendly target, a gun in hand or too few points never enters the inbox");
 	}

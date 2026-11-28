@@ -108,6 +108,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::ToggleStealth: return 1;
 		case TacticalIntentKind::Traverse: return 1;
 		case TacticalIntentKind::MeleeAttack: return 6;
+		case TacticalIntentKind::UseItem: return 10;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -144,6 +145,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::ToggleStealth:
 		case TacticalIntentKind::Traverse:
 		case TacticalIntentKind::MeleeAttack:
+		case TacticalIntentKind::UseItem:
 			return true;
 	}
 	return false;
@@ -215,6 +217,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::Traverse;
 		if constexpr (std::is_same<Payload, MeleeAttackTacticalIntent>::value)
 			return TacticalIntentKind::MeleeAttack;
+		if constexpr (std::is_same<Payload, UseItemTacticalIntent>::value)
+			return TacticalIntentKind::UseItem;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -282,6 +286,8 @@ bool IsStructurallyValidTacticalIntent(const TacticalIntent& intent) noexcept
 		if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
 			return payload.sourceSlot < 256 && payload.targetSlot < 256 && payload.sourceSlot != payload.targetSlot &&
 				payload.expectedInventoryRevision != 0;
+		if constexpr (std::is_same<Payload, UseItemTacticalIntent>::value)
+			return payload.slot < 256 && payload.expectedInventoryRevision != 0;
 		return true;
 	}, intent.payload);
 }
@@ -359,6 +365,11 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			{
 				WriteU16(encoded, payload.sourceSlot);
 				WriteU16(encoded, payload.targetSlot);
+				WriteU64(encoded, payload.expectedInventoryRevision);
+			}
+			else if constexpr (std::is_same<Payload, UseItemTacticalIntent>::value)
+			{
+				WriteU16(encoded, payload.slot);
 				WriteU64(encoded, payload.expectedInventoryRevision);
 			}
 			else if constexpr (std::is_same<Payload, DoorActionTacticalIntent>::value)
@@ -577,6 +588,15 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 			MeleeAttackTacticalIntent payload;
 			if (!ReadU16(input, end, payload.target.slot) ||
 				!ReadU32(input, end, payload.target.incarnation))
+				return TacticalIntentCodecResult::Invalid;
+			decoded.payload = payload;
+			break;
+		}
+		case TacticalIntentKind::UseItem:
+		{
+			UseItemTacticalIntent payload;
+			if (!ReadU16(input, end, payload.slot) ||
+				!ReadU64(input, end, payload.expectedInventoryRevision))
 				return TacticalIntentCodecResult::Invalid;
 			decoded.payload = payload;
 			break;

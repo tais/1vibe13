@@ -1443,6 +1443,29 @@ struct AuthoritativeStealthCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// The stock use of a consumable on the merc itself (ApplyConsumable, as an
+// object dropped on its own portrait) by an exact settled co-op merc, from an
+// exact object in one of its inventory slots.
+struct AuthoritativeUseItemCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t slot = 0;
+	std::uint64_t objectStateFingerprint = 0;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeUseItemCommand>::value,
+	"use-item commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeUseItemCommand(const AuthoritativeUseItemCommand& command) noexcept
+{
+	return command.soldier.valid() && command.objectStateFingerprint != 0 &&
+		command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 // A stock knife stab or punch (by the hand item's class; an empty hand
 // punches) of an exact settled co-op merc at an exact adjacent hostile it can
 // see, with the stock AP: the stock HandleItem path for a merc already on the
@@ -1895,7 +1918,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeAttachItemCommand,
 	AuthoritativeStealthCommand,
 	AuthoritativeTraverseCommand,
-	AuthoritativeMeleeAttackCommand>;
+	AuthoritativeMeleeAttackCommand,
+	AuthoritativeUseItemCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -2092,6 +2116,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeMeleeAttackCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeMeleeAttackCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeUseItemCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeUseItemCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{
