@@ -975,10 +975,12 @@ def run_smoke(arguments: argparse.Namespace, temporary_root: Path,
     # and keep retrying instead of claiming a campaign transfer is in progress.
     # SIGTERM is asynchronous, so record offsets before requesting it below.
     before_stop = {client: log_text(client) for client in tactical_clients}
-    supervisor.stop(tactical_server, expected_exit=2, timeout_seconds=120)
-    if TACTICAL_SHUTDOWN_MARKER not in log_text(tactical_server):
-        raise SmokeFailure(
-            "active tactical server did not report checkpoint ineligibility")
+    # Since 8.5 a stop in a turn-based battle first waits (up to 120 s) for a
+    # quiet player turn and then saves the battle (exit 0). Without one in
+    # time (here an interrupt waits for players who do nothing) it fails
+    # closed as before: exit 2 with the ineligibility marker.
+    tactical_stop = stop_tactical_server(supervisor, tactical_server, timeout_seconds=180)
+    print(f"installed gameplay: tactical server stop outcome: {tactical_stop}", flush=True)
     if arguments.verify_fire and "Attack busy problem" in log_text(tactical_server):
         raise SmokeFailure("native firing or server cleanup reported an attack-busy underflow")
     require_reconnecting(tactical_clients, before_stop,
@@ -994,6 +996,31 @@ def run_smoke(arguments: argparse.Namespace, temporary_root: Path,
         record_bounded_probe_evidence(temporary_root, "campaign-groups", groups_evidence)
     for tactical_client in tactical_clients:
         supervisor.stop(tactical_client, expected_exit=0, timeout_seconds=30)
+
+
+BATTLE_CHECKPOINT_MARKER = "[dedicated] battle checkpoint committed in sector"
+
+
+def stop_tactical_server(supervisor, server, timeout_seconds):
+    """Stop an active tactical server; "battle saved" (exit 0, battle
+    checkpoint) or "fail closed" (exit 2, ineligibility marker)."""
+    if server.process.poll() is None:
+        ProcessSupervisor._request_stop(server, False)
+    try:
+        exit_code = server.process.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        ProcessSupervisor._request_stop(server, True)
+        server.process.wait(timeout=10)
+        server.close_log()
+        raise SmokeFailure(f"{server.name} did not stop within {timeout_seconds:.0f}s")
+    server.close_log()
+    text = log_text(server)
+    if exit_code == 0 and BATTLE_CHECKPOINT_MARKER in text:
+        return "battle saved"
+    if exit_code == 2 and TACTICAL_SHUTDOWN_MARKER in text:
+        return "fail closed"
+    raise SmokeFailure(f"active tactical server stopped with {exit_code} without a battle checkpoint "
+                       "or the ineligibility marker")
 
 
 def main() -> int:

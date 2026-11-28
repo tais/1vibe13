@@ -3883,6 +3883,15 @@ require_ordered_fragments(dedicated_live_installed_turn_driver_slice
   "std::get_if<CoopSession::PassInterruptTacticalIntent>"
   "std::holds_alternative<CoopSession::EndTurnTacticalIntent>"
   "runtime.sendIntent(action.actor, action.payload)")
+# Since 8.5 an active battle's stop saves the battle at a quiet player turn
+# (exit 0) or, without one in time, fails closed (exit 2 + ineligibility).
+file(READ "${SOURCE_ROOT}/tests/full_engine_coop_installed_process_smoke.py" coop_smoke_stop_source)
+require_ordered_fragments(coop_smoke_stop_source
+  "The smoke probe must accept only a saved battle or a fail-closed stop"
+  "def stop_tactical_server(supervisor, server, timeout_seconds):"
+  "if exit_code == 0 and BATTLE_CHECKPOINT_MARKER in text:"
+  "if exit_code == 2 and TACTICAL_SHUTDOWN_MARKER in text:"
+  "raise SmokeFailure(f\"active tactical server stopped with {exit_code} without a battle checkpoint \"")
 require_ordered_fragments(dedicated_live_installed_smoke_lifecycle_slice
   "Installed firing verification must be opt-in and follow movement reconnect checks"
   "verify_reconnected_movement("
@@ -3893,7 +3902,7 @@ require_ordered_fragments(dedicated_live_installed_smoke_lifecycle_slice
   "certify_two_client_reload("
   "if arguments.verify_turn_cycle:"
   "certify_two_client_turn_cycle("
-  "supervisor.stop(tactical_server, expected_exit=2")
+  "tactical_stop = stop_tactical_server(supervisor, tactical_server, timeout_seconds=180)")
 require_ordered_fragments(dedicated_live_installed_smoke_lifecycle_slice
   "Installed-data process smoke lost create/reconnect/checkpoint/resume/two-client tactical order"
   "server_command(executable, server_state, first_port, \"new\")"
@@ -3937,8 +3946,7 @@ require_ordered_fragments(dedicated_live_installed_smoke_lifecycle_slice
   "if movement_evidence is not None:"
   "verify_reconnected_movement("
   "before_stop = {client: log_text(client) for client in tactical_clients}"
-  "supervisor.stop(tactical_server, expected_exit=2"
-  "TACTICAL_SHUTDOWN_MARKER not in log_text(tactical_server)"
+  "tactical_stop = stop_tactical_server(supervisor, tactical_server, timeout_seconds=180)"
   "require_reconnecting(tactical_clients, before_stop,"
   "supervisor.stop(tactical_client, expected_exit=0")
 
