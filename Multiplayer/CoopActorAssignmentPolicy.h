@@ -4,6 +4,7 @@
 #include "FullEngineCoopServerSession.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 
@@ -57,6 +58,27 @@ CoopActorAssignmentPolicyResult BuildCoopActorAssignments(
 	std::array<CoopTacticalActorAssignment,
 		MaximumCoopTacticalAssignments>& output,
 	std::size_t& outputCount) noexcept;
+
+// Which world participants are dealt mercs now. A participant offline for at
+// least `grace` is left out, so the ownership ledger lends its mercs to the
+// players who are here for the world; once it is online again it is dealt
+// again and gets its own mercs back (owners come before lends). A short drop
+// or a client relaunch within the grace moves nothing. With nobody online,
+// everybody stays dealt (nothing moves while there is no one to give to).
+class CoopOfflineParticipantFilter
+{
+public:
+	using Clock = std::chrono::steady_clock;
+	// `online[i]` is participant i's connection now; output in input order.
+	std::size_t select(const PeerIdentity* participants, std::size_t count, const bool* online,
+		Clock::time_point now, Clock::duration grace,
+		std::array<PeerIdentity, MaximumCoopTacticalSessionPeers>& output) noexcept;
+	void clear() noexcept { offlineCount_ = 0; }
+private:
+	std::array<PeerIdentity, MaximumCoopTacticalSessionPeers> offline_{};
+	std::array<Clock::time_point, MaximumCoopTacticalSessionPeers> since_{};
+	std::size_t offlineCount_ = 0;
+};
 
 inline constexpr std::size_t MaximumCoopActorOwnershipEntries = 256;
 // Stable merc ownership for one server run. Dealing round-robin over whoever

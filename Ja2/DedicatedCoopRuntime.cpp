@@ -107,6 +107,9 @@ constexpr auto StarterPeerGatherGrace = std::chrono::seconds(10);
 // How long an interrupt waits for a disconnected owner's eligible mercs before
 // the server passes for them (they cannot be commanded by anyone else).
 constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);
+// After this long offline, a player's mercs are lent to the players who are
+// here (a client relaunch or a short drop stays within it).
+constexpr auto OfflineLendGrace = std::chrono::seconds(45);
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
 constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
 constexpr auto SecuredSectorStopReturnTimeout = std::chrono::seconds(90);
@@ -2184,11 +2187,32 @@ struct DedicatedCoopRuntime::Impl
 						: "controllable actor capture failed");
 				return false;
 			}
+			// A player offline past the grace is left out of the deal, so the
+			// ledger lends their mercs to the players who are here; they get them
+			// back when they return.
+			std::array<bool, CoopSession::MaximumCoopTacticalSessionPeers> online{};
+			for (std::size_t index = 0; index < worldParticipantCount; ++index)
+			{
+				CoopSession::FullEngineCoopTacticalPeerCommandState state;
+				online[index] = tactical->server.peerCommandState(worldParticipants[index], state) && state.connected;
+			}
+			std::array<CoopSession::PeerIdentity, CoopSession::MaximumCoopTacticalSessionPeers> dealtPeers{};
+			const std::size_t dealtCount = offlineParticipants.select(worldParticipants.data(),
+				worldParticipantCount, online.data(), Clock::now(), OfflineLendGrace, dealtPeers);
+			if (worldParticipantCount - dealtCount != reportedLeftOut)
+			{
+				std::printf(worldParticipantCount - dealtCount > reportedLeftOut
+					? "[dedicated] an offline player's mercs are lent to the players here (%zu left out)\n"
+					: "[dedicated] a returning player takes back their mercs (%zu left out)\n",
+					worldParticipantCount - dealtCount);
+				std::fflush(stdout);
+				reportedLeftOut = worldParticipantCount - dealtCount;
+			}
 			// Stable owners: a merc going down, getting up, arriving or leaving
 			// never re-deals anyone else's mercs.
 			const CoopSession::CoopActorAssignmentPolicyResult built =
 				actorOwnership.assign(
-				worldParticipants.data(), worldParticipantCount,
+				dealtPeers.data(), dealtCount,
 				actors.data(), actorCount, assignments, assignmentCount);
 			if (built != CoopSession::CoopActorAssignmentPolicyResult::Success)
 			{
@@ -2787,6 +2811,8 @@ struct DedicatedCoopRuntime::Impl
 	// Each merc's owner for this server run (see CoopActorOwnershipLedger).
 	CoopSession::CoopActorOwnershipLedger actorOwnership;
 	std::size_t reportedJoinShares = 0;
+	CoopSession::CoopOfflineParticipantFilter offlineParticipants;
+	std::size_t reportedLeftOut = 0;
 	std::size_t minimumControllableActors = 0;
 	bool prepared = false;
 	bool campaignOpen = false;

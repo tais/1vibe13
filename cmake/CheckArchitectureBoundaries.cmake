@@ -4952,6 +4952,17 @@ require_ordered_fragments(coop_ownership_source
   "// Owned by someone absent from this world: lend it for the world."
   "owners[ownerCount++] = {actors[a], peers[fewest]};"
   "owners_ = owners;")
+# 7.2: a player offline past the grace is left out of the deal (the ledger
+# lends their mercs to the players here) and dealt again on return; with
+# nobody online everybody stays dealt.
+require_ordered_fragments(coop_ownership_source
+  "An offline player must be left out of the deal only past the grace and only while someone is online"
+  "std::size_t CoopOfflineParticipantFilter::select("
+  "if (online[i]) { anyoneOnline = true; continue; }"
+  "if (offline_[j] == participants[i]) start = since_[j];"
+  "for (std::size_t j = 0; anyoneOnline && j < offlineCount; ++j)"
+  "if (offline[j] == participants[i] && now - since[j] >= grace) leftOut = true;")
+
 # Playtest finding: the starter battle begins once the first player is ready,
 # so a second player arriving later owned nothing. A player's first deal with
 # mercs present seats them and gives them a fair share from whoever holds the
@@ -5977,8 +5988,11 @@ require_ordered_fragments(dedicated_live_runtime_stage_world_slice
   "Dedicated tactical assignment cache or baseline staging changed"
   "reconcileWorldParticipants()"
   "collectControllableActors(actors, actorCount)"
+  "online[index] = tactical->server.peerCommandState(worldParticipants[index], state) && state.connected;"
+  "offlineParticipants.select(worldParticipants.data(),"
+  "worldParticipantCount, online.data(), Clock::now(), OfflineLendGrace, dealtPeers);"
   "actorOwnership.assign("
-  "worldParticipants.data(), worldParticipantCount"
+  "dealtPeers.data(), dealtCount,"
   "assignmentsChanged = !assignmentsPublished"
   "assignmentCount != publishedAssignmentCount"
   "publishedAssignments[index].actor != assignments[index].actor"

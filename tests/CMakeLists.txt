@@ -2282,6 +2282,11 @@ if(Python3_Interpreter_FOUND)
       -s ${CMAKE_CURRENT_SOURCE_DIR}
       -p test_full_engine_coop_installed_climb.py)
   add_test(
+    NAME full_engine_coop_installed_offline_lend_probe
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}
+      -p test_full_engine_coop_installed_offline_lend.py)
+  add_test(
     NAME full_engine_coop_installed_late_join_probe
     COMMAND ${Python3_EXECUTABLE} -m unittest discover
       -s ${CMAKE_CURRENT_SOURCE_DIR}

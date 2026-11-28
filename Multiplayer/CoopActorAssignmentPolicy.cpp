@@ -121,6 +121,40 @@ CoopActorAssignmentPolicyResult BuildCoopActorAssignments(
 	return CoopActorAssignmentPolicyResult::Success;
 }
 
+std::size_t CoopOfflineParticipantFilter::select(const PeerIdentity* participants, std::size_t count,
+	const bool* online, Clock::time_point now, Clock::duration grace,
+	std::array<PeerIdentity, MaximumCoopTacticalSessionPeers>& output) noexcept
+{
+	output = {};
+	if (participants == nullptr || online == nullptr || count > output.size()) return 0;
+	// Keep the offline-since time of every participant still offline.
+	std::array<PeerIdentity, MaximumCoopTacticalSessionPeers> offline{};
+	std::array<Clock::time_point, MaximumCoopTacticalSessionPeers> since{};
+	std::size_t offlineCount = 0;
+	bool anyoneOnline = false;
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		if (online[i]) { anyoneOnline = true; continue; }
+		Clock::time_point start = now;
+		for (std::size_t j = 0; j < offlineCount_; ++j)
+			if (offline_[j] == participants[i]) start = since_[j];
+		offline[offlineCount] = participants[i];
+		since[offlineCount++] = start;
+	}
+	offline_ = offline;
+	since_ = since;
+	offlineCount_ = offlineCount;
+	std::size_t dealt = 0;
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		bool leftOut = false;
+		for (std::size_t j = 0; anyoneOnline && j < offlineCount; ++j)
+			if (offline[j] == participants[i] && now - since[j] >= grace) leftOut = true;
+		if (!leftOut) output[dealt++] = participants[i];
+	}
+	return dealt;
+}
+
 bool CoopActorOwnershipLedger::handOver(const TacticalEntityId& actor, const PeerIdentity& from,
 	const PeerIdentity& to) noexcept
 {

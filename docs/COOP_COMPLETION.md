@@ -4701,3 +4701,31 @@ shipping controller: Applied, and both clients show the breath restored (60
 before anything changes; the probe presses U again then, as a player would.
 Negative control: with the executor never applying the item the use is
 discarded and the probe fails.
+
+## Phase 7.2: a dropped player's mercs are lent to the one who is here
+
+Before this slice a player whose client crashed or lost the connection kept
+their mercs for the whole world: nobody could move them mid-battle (0.4 only
+passes their interrupts). Now:
+
+- `CoopOfflineParticipantFilter` (in `CoopActorAssignmentPolicy`) leaves a
+  world participant out of the deal once it has been offline for 45 seconds
+  (`OfflineLendGrace`; a client relaunch or a short drop stays within it).
+  The ownership ledger then lends that player's mercs to the players who are
+  here, for the world; ownership is unchanged. When the player is online again
+  it is dealt again, and owners come before lends, so exactly their own mercs
+  return. With nobody online everybody stays dealt (nothing moves).
+- The server prints `an offline player's mercs are lent to the players here`
+  and `a returning player takes back their mercs`. The assignment publish
+  still waits behind retained commands, so a lend never lands under a command
+  in flight.
+
+Installed evidence (`full_engine_coop_installed_offline_lend.py`): in the
+starter battle the four mercs are dealt two each; client B's process is
+killed; 45.1 s later the server lends B's two mercs and client A controls all
+four. Client B is relaunched with its own state folder (its reconnect
+credential: the same player) and both clients show exactly the original split
+again. Negative control: with the deal ignoring the filter, A never gets B's
+mercs and the probe fails. Unit tests cover the grace, a return, a new drop,
+nobody online, and the lend and return through the ledger. The late-join,
+hand-over and stable-ownership probes still pass.

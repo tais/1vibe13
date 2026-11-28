@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <chrono>
 #include <cstdio>
 
 using namespace CoopSession;
@@ -308,9 +309,52 @@ void TestJoiningPlayerTakesAShare()
 		OwnerIn(deal, count, m4) == Peer(2), "two joiners: nobody holds two more than anyone");
 }
 
+// A player who stays offline past the grace is left out of the deal, so the
+// ledger lends their mercs to whoever is here; they get them back on return.
+void TestOfflinePlayerIsLeftOutAfterGrace()
+{
+	using Clock = CoopOfflineParticipantFilter::Clock;
+	const auto t0 = Clock::time_point{} + std::chrono::hours(1);
+	const auto grace = std::chrono::seconds(45);
+	const std::array<PeerIdentity, 2> both{Peer(1), Peer(2)};
+	std::array<PeerIdentity, MaximumCoopTacticalSessionPeers> dealt{};
+	CoopOfflineParticipantFilter filter;
+	const bool bothOnline[2] = {true, true};
+	const bool secondOffline[2] = {true, false};
+	const bool nobody[2] = {false, false};
+	CHECK(filter.select(both.data(), 2, bothOnline, t0, grace, dealt) == 2, "everybody online is dealt");
+	CHECK(filter.select(both.data(), 2, secondOffline, t0, grace, dealt) == 2 &&
+		filter.select(both.data(), 2, secondOffline, t0 + std::chrono::seconds(44), grace, dealt) == 2,
+		"a drop shorter than the grace moves nothing");
+	CHECK(filter.select(both.data(), 2, secondOffline, t0 + grace, grace, dealt) == 1 && dealt[0] == Peer(1),
+		"past the grace only the player who is here is dealt");
+	CHECK(filter.select(both.data(), 2, bothOnline, t0 + std::chrono::seconds(50), grace, dealt) == 2,
+		"back online, the player is dealt again");
+	CHECK(filter.select(both.data(), 2, secondOffline, t0 + std::chrono::seconds(51), grace, dealt) == 2,
+		"a new drop starts a new grace");
+	CHECK(filter.select(both.data(), 2, nobody, t0 + std::chrono::minutes(10), grace, dealt) == 2,
+		"with nobody online everybody stays dealt");
+	// Through the ledger: the absent owner's mercs are lent, then returned.
+	const TacticalEntityId m1{1, 1}, m2{2, 1}, m3{3, 1}, m4{4, 1};
+	const std::array<TacticalEntityId, 4> four{m1, m2, m3, m4};
+	CoopActorOwnershipLedger ledger;
+	Deal deal{}; std::size_t count = 0;
+	(void)ledger.assign(both.data(), 2, four.data(), four.size(), deal, count);
+	const std::array<PeerIdentity, 1> alone{Peer(1)};
+	CHECK(ledger.assign(alone.data(), 1, four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(1) &&
+		OwnerIn(deal, count, m4) == Peer(1) && *ledger.ownerOf(m2) == Peer(2),
+		"the offline player's mercs are lent to the one who is here, ownership kept");
+	CHECK(ledger.assign(both.data(), 2, four.data(), four.size(), deal, count) ==
+		CoopActorAssignmentPolicyResult::Success && OwnerIn(deal, count, m2) == Peer(2) &&
+		OwnerIn(deal, count, m4) == Peer(2) && OwnerIn(deal, count, m1) == Peer(1),
+		"the returning player gets exactly their own mercs back");
+}
+
 int main()
 {
 	TestStableOwnershipLedger();
+	TestOfflinePlayerIsLeftOutAfterGrace();
 	TestJoiningPlayerTakesAShare();
 	TestBalancedCanonicalAssignment();
 	TestNoPeerProducesNoAcl();
