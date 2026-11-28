@@ -4960,6 +4960,21 @@ require_ordered_fragments(coop_ownership_source
   "// Owned by someone absent from this world: lend it for the world."
   "owners[ownerCount++] = {actors[a], peers[fewest]};"
   "owners_ = owners;")
+# A won sector runs the campaign clock as in stock (the user's choice); a
+# decision only the map can make (an arrival or attack elsewhere, an ended
+# contract) holds it and starts the shared return, which proceeds past the
+# pending-decision hold.
+require_ordered_fragments(dedicated_live_runtime_source
+  "A won sector's map-only decision must hold the clock and take everyone back to the map"
+  "void RunDedicatedCoopTacticalClock() noexcept"
+  "if (PauseStateLocked()) return;"
+  "if (giTimeCompressMode != TIME_COMPRESS_X1) SetGameTimeCompressionLevel(TIME_COMPRESS_X1);"
+  "if (GamePaused()) UnPauseGame();"
+  "(DedicatedCoopArrivalDecisionPending() || CountDedicatedCoopExpiredContracts() != 0))"
+  "impl_->returnToMapRequested = true;"
+  "[dedicated] a campaign decision needs the map; returning to the strategic map"
+  "!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))")
+
 # 7.2: a player offline past the grace is left out of the deal (the ledger
 # lends their mercs to the players here) and dealt again on return; with
 # nobody online everybody stays dealt.
@@ -6201,15 +6216,17 @@ require_ordered_fragments(dedicated_live_runtime_pump_slice
   "impl_->minimumControllableActors = 1"
   "impl_->postCombatReturnArmed = true")
 require_ordered_fragments(dedicated_live_runtime_pump_slice
-  "Dedicated hostile victory must secure the sector, hold it paused for peaceful play, and unload only after an explicit delivered return"
+  "Dedicated hostile victory must secure the sector, run its clock unless a decision or a return holds it, and unload only after an explicit delivered return"
   "impl_->starterMission == StarterMissionState::Playable"
   "impl_->captureSecuredSectorEvidence()"
   "DedicatedCoopPostCombatReturnReady(evidence)"
   "impl_->securedSector = ++impl_->lastSecuredSector"
   "impl_->starterMission = StarterMissionState::PeacefulTactical"
-  "PauseGame()"
   "impl_->starterMission == StarterMissionState::PeacefulTactical"
+  "const bool holdClock = impl_->returnToMapRequested || DedicatedCoopArrivalDecisionPending() ||"
+  "CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0);"
   "PauseGame()"
+  "RunDedicatedCoopTacticalClock()"
   "EvaluateDedicatedCoopPeacefulTacticalStep(evidence,"
   "impl_->returnToMapRequested"
   "DedicatedCoopPeacefulTacticalStep::ResumeEncounter"
@@ -17047,7 +17064,7 @@ require_ordered_fragments(dedicated_live_runtime_code "Runtime must prevent chec
   "snapshot.dialogueQueue =" "!DedicatedCoopArrivalDecisionPending()")
 require_ordered_fragments(dedicated_live_runtime_code "Pending arrival must keep peers serviced without falling through to automatic mission entry"
   "impl_->arrivalDecisions.front()" "if (!impl_->pumpTactical(context, *this)) return;"
-  "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;" "const Clock::time_point now = Clock::now();"
+  "if ((DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||" "!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))" "const Clock::time_point now = Clock::now();"
   "LaunchDedicatedCoopEstablishedMission()")
 file(READ "${SOURCE_ROOT}/tests/native_coop_arrival_tests.cpp" coop_arrival_test_source)
 require_ordered_fragments(coop_arrival_test_source "Native arrival regression lost real scheduled arrival / paused boundary / exact reply / multiple-group safety"
@@ -17116,7 +17133,7 @@ require_ordered_fragments(coop_arrival_test_source "Native preparation regressio
 require_ordered_fragments(dedicated_live_runtime_code "Runtime must prepare pending battles without silently selecting a result"
   "PrepareDedicatedCoopArrivalBattle(decision->id, preparation)" "DedicatedCoopArrivalPrepareResult::Failed"
   "impl_->arrivalDecisions.failure()" "DedicatedCoopArrivalPrepareResult::Prepared"
-  "if (!impl_->pumpTactical(context, *this)) return;" "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;")
+  "if (!impl_->pumpTactical(context, *this)) return;" "if ((DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||" "!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))")
 extract_brace_bounded_slice(coop_arrival_source "void DedicatedCoopArrivalState::reset() noexcept"
   coop_prebattle_reset "Cannot bound headless arrival owner reset")
 require_ordered_fragments(coop_prebattle_reset "An old unbound runtime cannot reset another runtime's native battle"
@@ -46593,12 +46610,12 @@ require_ordered_fragments(dedicated_live_runtime_code "Runtime must prevent chec
   "snapshot.dialogueQueue =" "!DedicatedCoopArrivalDecisionPending()")
 require_ordered_fragments(dedicated_live_runtime_code "Pending arrival must keep peers serviced without falling through to automatic mission entry"
   "impl_->arrivalDecisions.front()" "if (!impl_->pumpTactical(context, *this)) return;"
-  "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;" "const Clock::time_point now = Clock::now();"
+  "if ((DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||" "!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))" "const Clock::time_point now = Clock::now();"
   "LaunchDedicatedCoopEstablishedMission()")
 require_ordered_fragments(dedicated_live_runtime_code "Runtime must prepare pending battles without silently selecting a result"
   "PrepareDedicatedCoopArrivalBattle(decision->id, preparation)" "DedicatedCoopArrivalPrepareResult::Failed"
   "impl_->fail(DedicatedCoopRuntimeError::InvalidState" "DedicatedCoopArrivalPrepareResult::Prepared"
-  "if (!impl_->pumpTactical(context, *this)) return;" "if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;")
+  "if (!impl_->pumpTactical(context, *this)) return;" "if ((DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||" "!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))")
 extract_brace_bounded_slice(dedicated_live_runtime_code
   "DedicatedCoopArrivalEnterResult DedicatedCoopRuntime::enterArrivalBattle(std::uint64_t decision,\n\tNativePreBattleDeployment deployment) noexcept"
   coop_battle_entry_runtime "Cannot bound committed runtime battle entry")

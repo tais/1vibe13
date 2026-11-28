@@ -3368,9 +3368,9 @@ Previously the dedicated server froze admission and unloaded the world on the
 first committed victory, so players could never loot, treat, talk or move in a
 won sector. A victory now *secures* the sector instead:
 
-- `StarterMissionState::PeacefulTactical` keeps the world loaded with the
-  campaign clock paused (no strategic event can fire while it is loaded;
-  tactical movement does not depend on the game clock).
+- `StarterMissionState::PeacefulTactical` keeps the world loaded. (First
+  shipped with the campaign clock paused; since 2026-11-28 the clock runs
+  there as in single player, see "The clock runs in a won sector" below.)
 - The campaign status carries a runtime-scoped `securedSector` token (wire
   bytes 121–124, zero otherwise, valid only in the tactical phase).
 - Any ready player may end peaceful play with the new campaign action
@@ -4638,8 +4638,8 @@ stealing, and throwing knives (the throw slice covers thrown items generally).
   halted mid-stride (8.7).
 - Treatment progress follows stock: in turn-based combat first aid applies its
   points at the end of the round (EndTurnEvents -> HandleTeamServices); in
-  real time on the game clock. In a secured sector the campaign clock is
-  paused (1.1), so real-time treatment there does not progress yet.
+  real time on the game clock, which since 2026-11-28 also runs in a won
+  sector.
 
 Installed evidence (`full_engine_coop_installed_self_aid.py`): in the starter
 battle at the player's turn the test host wounds a merc through the stock
@@ -4750,3 +4750,35 @@ empty tile beside the nearest enemy through the shipping controller: Applied,
 and both clients show the round spent (6 -> 5). Negative control: with the
 executor discarding the shot is refused and the probe fails. Codec, journal,
 host, intent and click-dispatch tests.
+
+## The clock runs in a won sector, as in single player (2026-11-28)
+
+The first playtest asked for it: in a won sector the server used to pause the
+campaign clock every frame (1.1), so wounds never bled, bandages never took,
+breath never returned and NPC schedules never moved there. Now:
+
+- In `PeacefulTactical` the clock runs at the stock tactical rate (on the game
+  screen stock forces compression to 1x; `RunDedicatedCoopTacticalClock`
+  unpauses it and never overrides a native pause lock).
+- It holds for any pending campaign decision or notice (arrival, surrender,
+  battle notice, Meanwhile), an ended contract, the end of the campaign, and
+  while an accepted return to the map waits for quiet.
+- A decision only the map can make (an arrival or an attack elsewhere, an
+  ended contract: contract, assignment and autoresolve actions require a
+  worldless map) can now come due while a sector is loaded. It holds the clock
+  and starts the shared return to the map by itself ("a campaign decision needs
+  the map; returning to the strategic map"); the frame loop lets that return
+  proceed past the pending-decision hold, and the existing map flow decides.
+  A Meanwhile is skipped in place (its notice records the loaded world).
+
+Installed evidence (`full_engine_coop_installed_peaceful_clock.py`): after the
+seeded A9 victory both clients' clocks advance 111610 -> 111620 in ten real
+seconds; a merc wounded through the stock damage path treats itself and its
+bleeding falls 15 -> 9 with no turn; a second AIM merc's contract end is moved
+one game minute ahead (seeded) and, when it ends, the server takes both
+clients back to the map, commits the strategic checkpoint and holds the clock
+with the ended contract reported. Negative controls: with the old pause the
+clock never moves; without the automatic return the players stay in the sector
+with the decision unreachable. The peaceful-sector, exit-grid, NPC dialogue
+(the whole Omerta chain), contracts, secured-stop, assignments, climbing and
+item-use probes all pass with the clock running.

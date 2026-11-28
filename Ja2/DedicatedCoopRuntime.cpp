@@ -110,6 +110,15 @@ constexpr auto OfflineInterruptGrace = std::chrono::seconds(30);
 // After this long offline, a player's mercs are lent to the players who are
 // here (a client relaunch or a short drop stays within it).
 constexpr auto OfflineLendGrace = std::chrono::seconds(45);
+
+// The stock tactical clock: compression is forced to 1x on the game screen; a
+// pause lock (a native modal sequence) is never overridden.
+void RunDedicatedCoopTacticalClock() noexcept
+{
+	if (PauseStateLocked()) return;
+	if (giTimeCompressMode != TIME_COMPRESS_X1) SetGameTimeCompressionLevel(TIME_COMPRESS_X1);
+	if (GamePaused()) UnPauseGame();
+}
 constexpr auto StarterActorArrivalTimeout = std::chrono::minutes(2);
 constexpr auto PostCombatCheckpointTimeout = std::chrono::minutes(2);
 constexpr auto SecuredSectorStopReturnTimeout = std::chrono::seconds(90);
@@ -3398,7 +3407,29 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		(void)impl_->tryFinishWorldDrain(context);
 		return;
 	}
-	if (DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending()) return;
+	// A won sector runs the campaign clock, so a campaign decision that only the
+	// map can make (an arrival or an attack elsewhere, an ended contract) can
+	// come due while it is loaded. It holds the clock and takes everyone back to
+	// the map through the shared return, where the existing decision flow runs.
+	if (impl_->starterMission == StarterMissionState::PeacefulTactical &&
+		(DedicatedCoopArrivalDecisionPending() || CountDedicatedCoopExpiredContracts() != 0))
+	{
+		StopTimeCompression();
+		PauseGame();
+		if (!impl_->returnToMapRequested)
+		{
+			impl_->returnToMapRequested = true;
+			impl_->returnWaitLogged = false;
+			std::printf("[dedicated] a campaign decision needs the map; returning to the strategic map\n");
+			std::fflush(stdout);
+		}
+	}
+	// Other pending decisions hold here; a won sector's accepted return still
+	// proceeds (it is how a map-only decision is reached).
+	if ((DedicatedCoopArrivalDecisionPending() || DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() ||
+			DedicatedCoopMeanwhilePending()) &&
+		!(impl_->starterMission == StarterMissionState::PeacefulTactical && impl_->returnToMapRequested))
+		return;
 	const Clock::time_point now = Clock::now();
 	if (impl_->starterMission ==
 		StarterMissionState::WaitingForCampaignReadyPeer)
@@ -3600,9 +3631,9 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 		if (DedicatedCoopPostCombatReturnReady(evidence))
 		{
 			// Victory secures the sector. Keep it loaded for peaceful play, as the
-			// stock game does; the campaign clock stays paused, so no strategic
-			// event can fire while the world is loaded. Returning to the map is an
-			// explicit shared action that reuses the post-combat unload below.
+			// stock game does, with the campaign clock running at the tactical rate
+			// (see PeacefulTactical below). Returning to the map is an explicit
+			// shared action that reuses the post-combat unload below.
 			if (impl_->lastSecuredSector == UINT32_MAX)
 			{
 				impl_->fail(DedicatedCoopRuntimeError::InvalidState,
@@ -3612,8 +3643,6 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 			impl_->securedSector = ++impl_->lastSecuredSector;
 			impl_->returnToMapRequested = false;
 			impl_->starterMission = StarterMissionState::PeacefulTactical;
-			StopTimeCompression();
-			PauseGame();
 			std::printf("[dedicated] co-op sector secured; peaceful tactical play (%u)\n",
 				impl_->securedSector);
 			std::fflush(stdout);
@@ -3629,8 +3658,20 @@ void DedicatedCoopRuntime::pumpAfterCommittedFrame(GameContext& context) noexcep
 	}
 	if (impl_->starterMission == StarterMissionState::PeacefulTactical)
 	{
-		StopTimeCompression();
-		PauseGame();
+		// The campaign clock runs at the tactical rate, as in stock, so wounds
+		// bleed, bandages take, breath returns and schedules move. It holds for
+		// any pending campaign decision or notice, an ended contract, the end of
+		// the campaign, and while an accepted return to the map waits for quiet.
+		const bool holdClock = impl_->returnToMapRequested || DedicatedCoopArrivalDecisionPending() ||
+			DedicatedCoopSurrenderPending() || DedicatedCoopBattleNoticePending() || DedicatedCoopMeanwhilePending() ||
+			CountDedicatedCoopExpiredContracts() != 0 || CheckFact(FACT_QUEEN_DEAD, 0);
+		if (holdClock)
+		{
+			StopTimeCompression();
+			PauseGame();
+		}
+		else
+			RunDedicatedCoopTacticalClock();
 		// The stock hideout cutscene fired: take the squad that followed Fatima
 		// down through the checkpointed traversal instead of the native fade.
 		if (!impl_->returnToMapRequested && TakeDedicatedCoopHideoutRequest())

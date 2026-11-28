@@ -63,6 +63,7 @@
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
 #include "soldier tile.h"
+#include "TacticalActorEmploymentTypes.h"
 #include "Points.h"
 #include "Soldier macros.h"
 #include "opplist.h"
@@ -566,6 +567,37 @@ void PollDrinkTrigger()
 	hand = object;
 	std::printf("[co-op entry test] thirsty: actor=%u:%u; breath=%d; canteen=%u\n", slot, incarnation,
 		int(merc->vitals().breath()), unsigned(canteen));
+	std::fflush(stdout);
+}
+
+// Fixture-only: "contract-trigger.txt" ("<slot> <incarnation>") moves that AIM
+// merc's contract end to one game minute from now, so it ends while the
+// players are in the sector (a week of play compressed into a minute).
+void PollContractTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("contract-trigger.txt");
+	if (done || !gfProgramIsRunning || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	bool parsed = false; // slot 0 is a real merc slot
+	if (FILE* file = std::fopen("contract-trigger.txt", "r"))
+	{
+		parsed = std::fscanf(file, "%u %u", &slot, &incarnation) == 2;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "contract-trigger.consumed", ignored);
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	if (!merc || merc->employment().mercenaryType() != MERC_TYPE__AIM_MERC)
+	{
+		std::printf("[co-op entry test] contract refused: actor=%u:%u\n", slot, incarnation);
+		std::fflush(stdout);
+		return;
+	}
+	merc->employment().endTime() = static_cast<INT32>(GetWorldTotalMin()) + 1;
+	std::printf("[co-op entry test] contract ends soon: actor=%u:%u; end=%d; now=%u\n", slot, incarnation,
+		int(merc->employment().endTime()), unsigned(GetWorldTotalMin()));
 	std::fflush(stdout);
 }
 
@@ -1807,6 +1839,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollMeleeTrigger();
 	PollWoundTrigger();
 	PollDrinkTrigger();
+	PollContractTrigger();
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();
