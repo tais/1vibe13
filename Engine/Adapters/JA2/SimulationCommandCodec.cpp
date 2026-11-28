@@ -60,7 +60,8 @@ enum class CommandTag : std::uint8_t
 	AuthoritativeWeaponMode = 43,
 	AuthoritativeThrow = 44,
 	AuthoritativeAttachItem = 45,
-	AuthoritativeStealth = 46
+	AuthoritativeStealth = 46,
+	AuthoritativeTraverse = 47
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -311,6 +312,21 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.expectedHandItem);
 			writer.writeU64(value.expectedWorldGeneration);
 			writer.writeU64(value.expectedTurnSerial);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.authority));
+		}
+		else if constexpr (
+			std::is_same<Command, AuthoritativeTraverseCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::AuthoritativeTraverse));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU64(value.expectedWorldGeneration);
+			writer.writeU64(value.expectedTurnSerial);
+			writer.writeI32(value.expectedGrid);
+			writer.writeU8(static_cast<std::uint8_t>(value.expectedLevel));
+			writer.writeU8(value.expectedDirection);
+			writer.writeU8(value.window ? 1 : 0);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.authority));
 		}
@@ -1024,6 +1040,28 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!IsStructurallyValidSimulationCommand(
 					SimulationCommand{value}))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::AuthoritativeTraverse:
+		{
+			AuthoritativeTraverseCommand value{};
+			std::uint8_t level = 0;
+			std::uint8_t window = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!reader.readU64(value.expectedWorldGeneration) ||
+				!reader.readU64(value.expectedTurnSerial) ||
+				!reader.readI32(value.expectedGrid) ||
+				!reader.readU8(level) || level > 1 ||
+				!reader.readU8(value.expectedDirection) ||
+				!reader.readU8(window) || window > 1 ||
+				!ReadSource(reader, value.source) ||
+				!ReadAuthorityPolicy(reader, value.authority))
+				return false;
+			value.expectedLevel = static_cast<std::int8_t>(level);
+			value.window = window != 0;
+			if (!IsStructurallyValidAuthoritativeTraverseCommand(value)) return false;
 			command = value;
 			return true;
 		}

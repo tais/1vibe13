@@ -631,6 +631,36 @@ int main()
 		std::get<AuthoritativeStealthCommand>(decodedSneak[0].command).expectedStealth &&
 		EncodeSimulationCommandJournal(decodedSneak, sneakDropped, sneakReencoded) && sneakReencoded == sneakWire,
 		"a stealth toggle journal round trips the flag the owner saw under its append-only tag");
+	AuthoritativeTraverseCommand climb;
+	climb.soldier = {4, 0x01020304}; climb.expectedGrid = 12345; climb.expectedLevel = 1;
+	climb.expectedDirection = 6; climb.window = true;
+	climb.expectedWorldGeneration = 9; climb.expectedTurnSerial = 11;
+	const std::vector<RecordedSimulationCommand> climbRecords{
+		{21, 25, CommandJournalStatus::Applied, SimulationCommand{climb}}};
+	std::vector<std::uint8_t> climbWire, climbReencoded;
+	std::vector<RecordedSimulationCommand> decodedClimb;
+	std::uint64_t climbDropped = 0;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{climb}) &&
+		EncodeSimulationCommandJournal(climbRecords, 0, climbWire) &&
+		DecodeSimulationCommandJournal(climbWire, decodedClimb, climbDropped) ==
+			SimulationCommandJournalDecodeResult::Success && decodedClimb.size() == 1 &&
+		std::holds_alternative<AuthoritativeTraverseCommand>(decodedClimb[0].command) &&
+		std::get<AuthoritativeTraverseCommand>(decodedClimb[0].command).window &&
+		std::get<AuthoritativeTraverseCommand>(decodedClimb[0].command).expectedGrid == 12345 &&
+		std::get<AuthoritativeTraverseCommand>(decodedClimb[0].command).expectedLevel == 1 &&
+		std::get<AuthoritativeTraverseCommand>(decodedClimb[0].command).expectedDirection == 6 &&
+		EncodeSimulationCommandJournal(decodedClimb, climbDropped, climbReencoded) && climbReencoded == climbWire,
+		"a co-op climb or jump journal round trips its position proofs under its append-only tag");
+	std::array<AuthoritativeTraverseCommand, 5> invalidClimbs;
+	invalidClimbs.fill(climb);
+	invalidClimbs[0].expectedGrid = -1;
+	invalidClimbs[1].expectedLevel = 2;
+	invalidClimbs[2].expectedDirection = 8;
+	invalidClimbs[3].source = SimulationCommandSource::LocalPlayer;
+	invalidClimbs[4].expectedTurnSerial = 0;
+	for (const auto& invalid : invalidClimbs)
+		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
+			"a climb or jump needs a tile, a level, a facing, a turn and a co-op peer");
 	auto localSneak = sneak; localSneak.source = SimulationCommandSource::LocalPlayer;
 	Require(!IsStructurallyValidSimulationCommand(SimulationCommand{localSneak}),
 		"a co-op stealth toggle comes from a co-op peer");

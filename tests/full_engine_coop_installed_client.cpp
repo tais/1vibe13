@@ -32,6 +32,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+extern UINT16 gfAltState; // sgp/input.cpp: the modifier state queued events are stamped with
+
 namespace
 {
 constexpr std::size_t MaximumInputBytes = 1024;
@@ -674,8 +676,8 @@ void ReplyHandOverUi(std::uint64_t request) noexcept
 	std::fputs("}", stdout); FlushReply();
 }
 
-// Queues one shipping Screen key pair: 1 = J (arm the hand-over of the selected
-// merc), 2 = Enter (confirm), 3 = Esc. `selected` and `armed` must match what the
+// Queues one shipping Screen key pair: 1 = Alt+J (arm the hand-over of the
+// selected merc; plain J climbs), 2 = Enter (confirm), 3 = Esc. `selected` and `armed` must match what the
 // Screen shows, so a key never applies to another merc.
 void ReplyHandOverInput(std::uint64_t request, const std::array<std::uint64_t, 6>& values, unsigned& count) noexcept
 {
@@ -689,7 +691,12 @@ void ReplyHandOverInput(std::uint64_t request, const std::array<std::uint64_t, 6
 	constexpr std::array<UINT32, 3> keys{{'j', ENTER, ESC}};
 	++count;
 	const auto before = GetInputQueueStatistics();
-	QueueEvent(KEY_DOWN, keys[values[5] - 1], 0); QueueEvent(KEY_UP, keys[values[5] - 1], 0);
+	// The queue stamps each event with the current modifier state.
+	const UINT16 alt = gfAltState;
+	if (values[5] == 1) gfAltState = ALT_DOWN;
+	QueueEvent(KEY_DOWN, keys[values[5] - 1], 0);
+	gfAltState = alt;
+	QueueEvent(KEY_UP, keys[values[5] - 1], 0);
 	const auto after = GetInputQueueStatistics();
 	if (after.accepted - before.accepted != 2 || after.queued != 2 || after.dropped != before.dropped || after.evictedForRelease != before.evictedForRelease)
 	{ ReplyError(request, "hand-over key pair was not queued completely; input budget consumed"); return; }
@@ -2594,6 +2601,35 @@ private:
 			FullEngineCoopClientPresentationView refreshed;
 			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
 			std::printf("%s{\"request\":%llu,\"kind\":\"stealth\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
+				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
+			FlushReply();
+			return;
+		}
+		if (operation == "TRAVERSE")
+		{
+			std::uint64_t values[3]{};
+			bool valid = true;
+			for (auto& value : values)
+			{
+				std::string_view token;
+				valid = valid && cursor.next(token) && ParseInteger(token, value);
+			}
+			FullEngineCoopClientRuntime& runtime = GetFullEngineCoopClientRuntime();
+			FullEngineCoopClientPresentationView presentation;
+			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[1] == 0 || values[1] > UINT32_MAX ||
+				values[2] > 1 || !runtime.presentationView(presentation))
+			{ ReplyError(request, "TRAVERSE needs the slot/incarnation of a visible owned merc and 0 (J) or 1 (Shift+J)"); return; }
+			FullEngineCoopClientControllerView view = ControllerView(presentation);
+			controller_.synchronize(view);
+			const TacticalEntityId actor{static_cast<std::uint16_t>(values[0]), static_cast<std::uint32_t>(values[1])};
+			const auto intent = controller_.selectActor(view, actor) ? controller_.traverse(view, values[2] != 0)
+				: FullEngineCoopClientIntentRequest{};
+			std::uint64_t command = 0;
+			const bool submitted = intent && runtime.sendIntent(intent.actor, intent.payload) ==
+				CoopSession::FullEngineCoopClientResult::Success;
+			FullEngineCoopClientPresentationView refreshed;
+			if (submitted && runtime.presentationView(refreshed)) command = refreshed.outstandingCommandId;
+			std::printf("%s{\"request\":%llu,\"kind\":\"traverse\",\"submitted\":%s,\"command\":%llu}", ReplyPrefix,
 				static_cast<unsigned long long>(request), submitted ? "true" : "false", static_cast<unsigned long long>(command));
 			FlushReply();
 			return;

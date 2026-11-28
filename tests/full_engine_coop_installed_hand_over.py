@@ -2,7 +2,7 @@
 """Installed merc hand-over through Screen input.
 
 Two clients join the starter battle; the server deals the four mercs two
-each. One player selects a merc of theirs, presses J and then Enter; the
+each. One player selects a merc of theirs, presses Alt+J and then Enter; the
 server gives that merc to the teammate. Both clients then show it under the
 teammate's control and every other merc where it was. Queued Screen input
 and replicated state, not physical OS input or painted pixels.
@@ -119,7 +119,7 @@ def main(argv=None):
         for client in clients:
             supervisor.stop(client, expected_exit=0, timeout_seconds=30)
         evidence["passed"] = True
-        print(f"PASS: J + Enter gave merc {merc[0]}:{merc[1]} to the teammate on both clients; "
+        print(f"PASS: Alt+J + Enter gave merc {merc[0]}:{merc[1]} to the teammate on both clients; "
               "the other mercs kept their owners.", flush=True)
         return 0
     except Exception as error:

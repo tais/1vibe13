@@ -1440,6 +1440,34 @@ struct AuthoritativeStealthCommand
 	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
 	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
 };
+// The stock J key (climb a roof, jump a fence, climb a wall) or, with
+// `window`, Shift+J (jump through a window) of an exact settled co-op merc
+// that has not moved or turned since its owner pressed it. The options and
+// their checks are the stock key's (TacticalActorTraversal::
+// choosePlayerTraversal); the first that starts is taken.
+struct AuthoritativeTraverseCommand
+{
+	TacticalEntityId soldier;
+	std::uint64_t expectedWorldGeneration = 0;
+	std::uint64_t expectedTurnSerial = 0;
+	std::int32_t expectedGrid = TacticalNoTargetGrid;
+	std::int8_t expectedLevel = 0;
+	std::uint8_t expectedDirection = 0;
+	bool window = false;
+	SimulationCommandSource source = SimulationCommandSource::NetworkPeer;
+	TacticalCommandAuthorityPolicy authority = TacticalCommandAuthorityPolicy::DedicatedCoop;
+};
+static_assert(std::is_trivially_copyable<AuthoritativeTraverseCommand>::value,
+	"traverse commands must remain pointer-free values");
+constexpr bool IsStructurallyValidAuthoritativeTraverseCommand(const AuthoritativeTraverseCommand& command) noexcept
+{
+	return command.soldier.valid() && command.expectedWorldGeneration != 0 && command.expectedTurnSerial != 0 &&
+		command.expectedGrid >= 0 && (command.expectedLevel == 0 || command.expectedLevel == 1) &&
+		command.expectedDirection < TacticalDirectionCount &&
+		(command.source == SimulationCommandSource::NetworkPeer || command.source == SimulationCommandSource::Replay) &&
+		command.authority == TacticalCommandAuthorityPolicy::DedicatedCoop;
+}
+
 static_assert(std::is_trivially_copyable<AuthoritativeStealthCommand>::value,
 	"stealth commands must remain pointer-free values");
 constexpr bool IsStructurallyValidAuthoritativeStealthCommand(const AuthoritativeStealthCommand& command) noexcept
@@ -1832,7 +1860,8 @@ using SimulationCommand = std::variant<
 	AuthoritativeWeaponModeCommand,
 	AuthoritativeThrowCommand,
 	AuthoritativeAttachItemCommand,
-	AuthoritativeStealthCommand>;
+	AuthoritativeStealthCommand,
+	AuthoritativeTraverseCommand>;
 
 // EngineRuntime fixes this policy into its CommandStream type. Playback gets a
 // distinct execution origin for every variant while the stream journals the
@@ -2021,6 +2050,10 @@ inline bool IsStructurallyValidSimulationCommand(
 		else if constexpr (std::is_same<Command, AuthoritativeStealthCommand>::value)
 		{
 			return IsStructurallyValidAuthoritativeStealthCommand(value);
+		}
+		else if constexpr (std::is_same<Command, AuthoritativeTraverseCommand>::value)
+		{
+			return IsStructurallyValidAuthoritativeTraverseCommand(value);
 		}
 		else if constexpr (std::is_same<Command, SwapInventorySlotsCommand>::value)
 		{

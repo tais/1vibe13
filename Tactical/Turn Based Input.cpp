@@ -14,6 +14,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorPendingActionTypes.h"
 #include "TacticalActorStateFlags.h"
+#include "TacticalActorTraversal.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDragging.h"
@@ -3874,155 +3875,49 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					TacticalActor *pjSoldier;
 					if ( GetSoldier( &pjSoldier, gusSelectedSoldier ) )
 					{
-						// Flugente: robots do not climb
-						if ( AM_A_ROBOT( pjSoldier ) )
-							break;
-
-						INT16							sAPCost;
-						INT16							sBPCost;
-						BOOLEAN	fNearHeigherLevel;
-						BOOLEAN	fNearLowerLevel;
-						INT8	bDirection;
-
-						// Make sure the merc is not collapsed!
-						if (!TacticalActorMobility::isValidStance(*pjSoldier, ANIM_CROUCH) )
+						// Climb a roof up or down, jump a fence, climb a wall: the options and
+						// their checks are shared with co-op (TacticalActorTraversal).
+						const TacticalActorTraversal::PlayerTraversalChoice choice =
+							TacticalActorTraversal::choosePlayerTraversal( *pjSoldier, false );
+						if ( choice.refusal == TacticalActorTraversal::PlayerTraversalRefusal::Collapsed &&
+							pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
 						{
-							if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
-							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
-							}
-
-							break;
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
 						}
-
-						// Climb on roof
-						GetMercClimbDirection( pjSoldier->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
-
-						if ( fNearLowerLevel )
+						else if ( choice.refusal == TacticalActorTraversal::PlayerTraversalRefusal::Backpack )
 						{
-							// No climbing when wearing a backpack!
-							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
-							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
+							// No climbing or jumping when wearing a backpack!
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
+						}
+						for ( std::uint8_t option = 0; option < choice.count; ++option )
+						{
+							if ( TryDispatchTraverseObstacleCommandNow(
+								GetJa2TacticalEntityId(*pjSoldier), choice.kinds[ option ] ) )
 								return;
-							}
-
-							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
-							{
-								if ( TryDispatchTraverseObstacleCommandNow(
-									GetJa2TacticalEntityId(*pjSoldier),
-									TacticalTraversalKind::ClimbDownRoof ) )
-									return;
-							}
-						}
-
-						if ( fNearHeigherLevel )
-						{
-							// No climbing when wearing a backpack!
-							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
-							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
-								return;
-							}
-
-							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
-							{
-								if ( TryDispatchTraverseObstacleCommandNow(
-									GetJa2TacticalEntityId(*pjSoldier),
-									TacticalTraversalKind::ClimbUpRoof ) )
-									return;
-							}
-						}
-
-						// Jump over fence
-						if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
-						{
-							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
-							{
-								//Moa: no jumping whith backpack
-								//sAPCost = GetAPsToJumpFence( pjSoldier, TRUE );
-								//sBPCost = GetBPsToJumpFence( pjSoldier, TRUE );
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
-								break;
-							}
-							else
-							{
-								sAPCost = GetAPsToJumpFence( pjSoldier, FALSE );
-								sBPCost = GetBPsToJumpFence( pjSoldier, FALSE );
-							}
-
-							if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
-							{
-								if ( TryDispatchTraverseObstacleCommandNow(
-									GetJa2TacticalEntityId(*pjSoldier),
-									TacticalTraversalKind::JumpFence ) )
-									return;
-							}
-						}
-						
-						// Climb on walls
-						if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
-						{ 
-							// No climbing when wearing a backpack!
-							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
-							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
-								return;
-							}
-
-							if ( FindWallJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
-							{
-								if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
-								{
-									if ( TryDispatchTraverseObstacleCommandNow(
-										GetJa2TacticalEntityId(*pjSoldier),
-										TacticalTraversalKind::ClimbWall ) )
-										return;
-								}
-							}
 						}
 					}
 				}
 				break;
 
 			case 'J':
-				// WANNE: Jump through window?
-				if (gGameExternalOptions.fCanJumpThroughWindows == TRUE )
+				// WANNE: Jump through window? (the check is shared with co-op)
 				{
-					INT16		sAPCost;
-					INT16		sBPCost;
-					INT8	bDirection;
 					TacticalActor *lSoldier;
-
-                    if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
+					if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 					{
-						// Flugente: robots do not climb
-						if ( AM_A_ROBOT( lSoldier ) )
-							break;
-
-						if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
+						const TacticalActorTraversal::PlayerTraversalChoice choice =
+							TacticalActorTraversal::choosePlayerTraversal( *lSoldier, true );
+						if ( choice.refusal == TacticalActorTraversal::PlayerTraversalRefusal::Backpack )
 						{
-							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*lSoldier))
-							{
-								//Moa: no jumping with backpack
-								//sAPCost = GetAPsToJumpThroughWindows( lSoldier, TRUE );
-								//sBPCost = GetBPsToJumpThroughWindows( lSoldier, TRUE );
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
+							// No jumping with a backpack!
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
+						}
+						for ( std::uint8_t option = 0; option < choice.count; ++option )
+						{
+							if ( TryDispatchTraverseObstacleCommandNow(
+								GetJa2TacticalEntityId(*lSoldier), choice.kinds[ option ] ) )
 								break;
-							}
-							else
-							{
-								sAPCost = GetAPsToJumpFence( lSoldier, FALSE );
-								sBPCost = GetBPsToJumpFence( lSoldier, FALSE );
-							}
-							
-							if (EnoughPoints(lSoldier, sAPCost, sBPCost, FALSE))
-							{
-								TryDispatchTraverseObstacleCommandNow(
-									GetJa2TacticalEntityId(*lSoldier),
-									TacticalTraversalKind::JumpWindow );
-							}
-   	                    }
+						}
 					}
 				}
 				break;

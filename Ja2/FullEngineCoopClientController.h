@@ -212,6 +212,9 @@ public:
 		const FullEngineCoopClientControllerView& view) const noexcept;
 	// The stock weapon-mode cycle for the selected merc's hand weapon, against
 	// the mode it currently shows.
+	// The stock J (climb a roof, jump a fence, climb a wall) or, with
+	// `window`, Shift+J for the selected merc; the server finds the obstacle.
+	FullEngineCoopClientIntentRequest traverse(const FullEngineCoopClientControllerView& view, bool window) const noexcept;
 	// The stock stealth toggle for the selected merc, from the flag both see.
 	FullEngineCoopClientIntentRequest toggleStealth(const FullEngineCoopClientControllerView& view) const noexcept;
 	FullEngineCoopClientIntentRequest cycleWeaponMode(

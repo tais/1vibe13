@@ -306,6 +306,15 @@ public:
 		return true;
 	}
 	bool stealthPreparationSucceeds = true;
+	bool prepareTraverse(TacticalEntityId actor, bool window, AuthoritativeTraverseCommand& command) const noexcept override
+	{
+		if (!traversePreparationSucceeds) return false;
+		command = AuthoritativeTraverseCommand{};
+		command.soldier = actor; command.window = window; command.expectedGrid = 1234;
+		command.expectedWorldGeneration = 7; command.expectedTurnSerial = 3;
+		return true;
+	}
+	bool traversePreparationSucceeds = true;
 	bool prepareWeaponMode(TacticalEntityId actor, std::uint8_t mode,
 		AuthoritativeWeaponModeCommand& command) const noexcept override
 	{
@@ -1093,6 +1102,18 @@ void TestLiveActorAndTurnPolicyRejectsBeforeSubmission()
 		FakeLiveState refused; refused.stealthPreparationSucceeds = false;
 		rejects(refused, Intent(1, ToggleStealthTacticalIntent{true}), CoopTacticalIntentReceiptReason::GameplayRejected,
 			"a stale flag, a vehicle or another player's merc never enters the inbox");
+	}
+	{
+		FakeLiveState live; FakeCommandService queue; RecordingReceiptSink sink;
+		DedicatedCoopTacticalHost climbHost(live, queue, sink, CampaignPackageId, 4);
+		CHECK(climbHost.execute(Intent(1, TraverseTacticalIntent{true})) == TacticalIntentExecutionDisposition::Retained,
+			"a climb or jump enters the retained command inbox");
+		const auto* climb = std::get_if<AuthoritativeTraverseCommand>(&queue.submissions[0].command);
+		CHECK(climb && climb->window && climb->source == SimulationCommandSource::NetworkPeer,
+			"the prepared climb or jump keeps the key the owner pressed");
+		FakeLiveState refused; refused.traversePreparationSucceeds = false;
+		rejects(refused, Intent(1, TraverseTacticalIntent{false}), CoopTacticalIntentReceiptReason::GameplayRejected,
+			"nothing to climb, too few points, a backpack or a busy merc never enters the inbox");
 	}
 	FakeLiveState invalidDoorAction;
 	invalidDoorAction.doorActionPreparationSucceeds = false;

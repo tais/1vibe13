@@ -5116,6 +5116,48 @@ require_ordered_fragments(coop_stealth_snapshot_source
   "actor.weaponMode = static_cast<std::uint8_t>(packed & 0x7fu);"
   "return actor.weaponMode < 10;")
 
+# 4.6 traversal: one stock J / Shift+J choice (roof down, roof up, fence, wall;
+# window) with the key's own gates, used by the stock key and by the co-op
+# command; the co-op merc must be settled where its owner saw it, and the
+# options start in the key's order.
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp" coop_traversal_choice_source)
+require_ordered_fragments(coop_traversal_choice_source
+  "The J choice must keep the stock key's gates and order"
+  "TacticalActorTraversal::PlayerTraversalChoice TacticalActorTraversal::choosePlayerTraversal("
+  "if (EnoughPoints(&actor, actionPoints, breathPoints, FALSE))"
+  "if (gGameExternalOptions.fCanJumpThroughWindows != TRUE)"
+  "offer(TacticalTraversalKind::JumpWindow, GetAPsToJumpFence(&actor, FALSE), GetBPsToJumpFence(&actor, FALSE));"
+  "if (!TacticalActorMobility::isValidStance(actor, ANIM_CROUCH))"
+  "GetMercClimbDirection(actor.identity().id(), &lower, &higher);"
+  "offer(TacticalTraversalKind::ClimbDownRoof, GetAPsToClimbRoof(&actor, TRUE), GetBPsToClimbRoof(&actor, TRUE));"
+  "offer(TacticalTraversalKind::ClimbUpRoof, GetAPsToClimbRoof(&actor, FALSE), GetBPsToClimbRoof(&actor, FALSE));"
+  "offer(TacticalTraversalKind::JumpFence, GetAPsToJumpFence(&actor, FALSE), GetBPsToJumpFence(&actor, FALSE));"
+  "if (gGameExternalOptions.fCanClimbOnWalls == TRUE)"
+  "offer(TacticalTraversalKind::ClimbWall, GetAPsToJumpWall(&actor, FALSE), GetBPsToJumpWall(&actor, FALSE));")
+file(READ "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp" coop_traversal_stock_key_source)
+require_ordered_fragments(coop_traversal_stock_key_source
+  "The stock J and Shift+J keys must use the shared choice"
+  "TacticalActorTraversal::choosePlayerTraversal( *pjSoldier, false );"
+  "TryDispatchTraverseObstacleCommandNow("
+  "case 'J':"
+  "TacticalActorTraversal::choosePlayerTraversal( *lSoldier, true );")
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_traverse_command_source)
+require_ordered_fragments(coop_traverse_command_source
+  "A co-op climb or jump must run the stock choice for a settled merc where its owner saw it"
+  "TacticalActor* ResolveAuthoritativeTraverse(const AuthoritativeTraverseCommand& command,"
+  "soldier->position().gridNo() != command.expectedGrid ||"
+  "soldier->position().direction() != command.expectedDirection ||"
+  "!InventorySwapPoseReady(*soldier))"
+  "choice = TacticalActorTraversal::choosePlayerTraversal(*soldier, command.window);"
+  "TacticalActor* const soldier = ResolveAuthoritativeTraverse(value, choice);"
+  "if (BeginTraversal(*soldier, choice.kinds[option])) return CommandDisposition::Applied;")
+file(READ "${SOURCE_ROOT}/Ja2/FullEngineCoopClientScreen.cpp" coop_traverse_screen_source)
+require_ordered_fragments(coop_traverse_screen_source
+  "J must climb or jump and Alt+J arm a hand-over"
+  "(event.usEvent == KEY_UP || (event.usKeyState & ALT_DOWN) != 0);"
+  "case 'j':"
+  "(void)Submit(Controller.traverse(view,")
+
 # 5.2: an attach is the stock item-box attach of two ordinary objects of an
 # idle co-op merc, with its stock AP; a refusal that changed nothing discards.
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_attach_command_source)
@@ -13545,7 +13587,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "intent = std::move(decoded)")
 
 foreach(dedicated_live_aimed_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 22> payloads"
+    "const std::array<PayloadCase, 23> payloads"
     "AimedFirearmAttackTacticalIntent{"
     "attackBytes[6] == 6"
     "attackBytes[70] == 7"
@@ -13962,7 +14004,7 @@ string(REGEX MATCHALL
   "${dedicated_live_authority_command_write_slice}")
 list(LENGTH dedicated_live_authority_write_calls
   dedicated_live_authority_write_call_count)
-if(NOT dedicated_live_authority_write_call_count EQUAL 20)
+if(NOT dedicated_live_authority_write_call_count EQUAL 21)
   message(FATAL_ERROR
     "Simulation-command journal must encode every reused-command authority field")
 endif()
@@ -13976,7 +14018,7 @@ string(REGEX MATCHALL "ReadAuthorityPolicy[ \t\r\n]*\\("
   "${dedicated_live_authority_command_read_slice}")
 list(LENGTH dedicated_live_authority_read_calls
   dedicated_live_authority_read_call_count)
-if(NOT dedicated_live_authority_read_call_count EQUAL 20)
+if(NOT dedicated_live_authority_read_call_count EQUAL 21)
   message(FATAL_ERROR
     "Simulation-command journal must decode every reused-command authority field")
 endif()
@@ -15251,7 +15293,7 @@ require_ordered_fragments(dedicated_live_aimed_intent_decode_slice
   "!IsStructurallyValidTacticalIntent(decoded)"
   "intent = std::move(decoded)")
 foreach(dedicated_live_door_intent_test_contract IN ITEMS
-    "const std::array<PayloadCase, 22> payloads"
+    "const std::array<PayloadCase, 23> payloads"
     "DoorOpenCloseTacticalIntent{0x04030201, 0x0605, true}, 79"
     "doorBytes.size() == 79"
     "doorBytes[6] == 8"
@@ -45467,7 +45509,7 @@ foreach(inventory_wire_contract IN ITEMS
     "PickupWorldItem = 13" "PickupWorldItemTacticalIntent,"
     "DropInventoryItem = 14," "DropInventoryItemTacticalIntent,"
     "Talk = 15," "TalkTacticalIntent," "Converse = 16," "ConverseTacticalIntent,"
-    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21," "AttachItemTacticalIntent," "ToggleStealth = 22" "ToggleStealthTacticalIntent>")
+    "GiveItem = 17," "GiveItemTacticalIntent," "DoorAction = 18," "DoorActionTacticalIntent," "CycleWeaponMode = 19," "CycleWeaponModeTacticalIntent," "ThrowItem = 20," "ThrowItemTacticalIntent," "AttachItem = 21," "AttachItemTacticalIntent," "ToggleStealth = 22," "ToggleStealthTacticalIntent," "Traverse = 23" "TraverseTacticalIntent>")
   string(FIND "${dedicated_live_intent_header_code}" "${inventory_wire_contract}" inventory_wire_position)
   if(inventory_wire_position EQUAL -1)
     message(FATAL_ERROR "Inventory intent closed vocabulary lost ${inventory_wire_contract}")

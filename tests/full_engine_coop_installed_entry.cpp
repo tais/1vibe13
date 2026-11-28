@@ -62,6 +62,7 @@
 #include "Structure.h"
 #include "Tactical Placement GUI.h"
 #include "Overhead.h"
+#include "soldier tile.h"
 #include "Soldier Profile Constants.h"
 #include "Isometric Utils.h"
 #include "Map Information.h"
@@ -315,14 +316,15 @@ void PollKnockOutTrigger()
 	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
 	done = true;
 	unsigned slot = 0, incarnation = 0;
+	bool parsed = false; // slot 0 is a real merc slot
 	if (FILE* file = std::fopen("knockout-trigger.txt", "r"))
 	{
-		if (std::fscanf(file, "%u %u", &slot, &incarnation) != 2) slot = 0;
+		parsed = std::fscanf(file, "%u %u", &slot, &incarnation) == 2;
 		std::fclose(file);
 	}
 	std::error_code ignored;
 	std::filesystem::rename(trigger, "knockout-trigger.consumed", ignored);
-	TacticalActor* merc = slot ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
 	if (!merc || merc->vitals().health() < OKLIFE)
 	{
 		std::printf("[co-op entry test] knock-out refused: actor=%u:%u\n", slot, incarnation);
@@ -334,6 +336,57 @@ void PollKnockOutTrigger()
 		merc->position().gridNo(), 0, false);
 	std::printf("[co-op entry test] knocked out: actor=%u:%u; health=%d\n", slot, incarnation,
 		int(merc->vitals().health()));
+	std::fflush(stdout);
+}
+
+// Fixture-only: "climb-trigger.txt" ("<slot> <incarnation>") moves that merc
+// (on the ground, in a calm sector) to the nearest free tile where the stock
+// roof search finds a roof to climb, and logs it. The climb itself is the
+// player's J through the shipping controller. One trigger per run.
+void PollClimbTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("climb-trigger.txt");
+	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	bool parsed = false; // slot 0 is a real merc slot
+	if (FILE* file = std::fopen("climb-trigger.txt", "r"))
+	{
+		parsed = std::fscanf(file, "%u %u", &slot, &incarnation) == 2;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "climb-trigger.consumed", ignored);
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	INT32 site = NOWHERE;
+	if (merc && merc->position().level() == 0 && !IsJa2TacticalCombatActive())
+	{
+		const INT32 origin = merc->position().gridNo();
+		const INT32 columns = WORLD_COLS;
+		for (INT32 radius = 1; radius <= 40 && site == NOWHERE; ++radius)
+			for (INT32 dy = -radius; dy <= radius && site == NOWHERE; ++dy)
+				for (INT32 dx = -radius; dx <= radius && site == NOWHERE; ++dx)
+				{
+					if (std::abs(dx) != radius && std::abs(dy) != radius) continue;
+					const INT32 row = origin / columns + dy, column = origin % columns + dx;
+					if (row < 0 || column < 0 || row >= WORLD_ROWS || column >= columns) continue;
+					const INT32 grid = row * columns + column;
+					INT8 direction = 0;
+					if (!TileIsOutOfBounds(grid) && NewOKDestination(merc, grid, TRUE, 0) &&
+						FindHeigherLevel(merc, grid, merc->position().direction(), &direction))
+						site = grid;
+				}
+	}
+	if (site == NOWHERE || !TeleportSoldier(merc, site, TRUE))
+	{
+		std::printf("[co-op entry test] climb site refused: actor=%u:%u; found=%d; grid=%d; level=%d; combat=%d\n",
+			slot, incarnation, int(site), merc ? int(merc->position().gridNo()) : -1,
+			merc ? int(merc->position().level()) : -1, IsJa2TacticalCombatActive() ? 1 : 0);
+		std::fflush(stdout);
+		return;
+	}
+	std::printf("[co-op entry test] climb site: actor=%u:%u; grid=%d\n", slot, incarnation, int(site));
 	std::fflush(stdout);
 }
 
@@ -1539,6 +1592,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollQueenDeathSeed();
 	PollSectorMarker();
 	PollKnockOutTrigger();
+	PollClimbTrigger();
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();

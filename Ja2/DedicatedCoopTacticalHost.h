@@ -148,6 +148,10 @@ public:
 		TacticalEntityId actor,
 		bool expectedStealth,
 		AuthoritativeStealthCommand& command) const noexcept = 0;
+	virtual bool prepareTraverse(
+		TacticalEntityId actor,
+		bool window,
+		AuthoritativeTraverseCommand& command) const noexcept = 0;
 	virtual bool preparePickupWorldItem(
 		TacticalEntityId actor, TacticalWorldItemId item, std::uint16_t destinationSlot,
 		std::uint64_t expectedInventoryRevision,
@@ -259,6 +263,10 @@ public:
 		TacticalEntityId actor,
 		bool expectedStealth,
 		AuthoritativeStealthCommand& command) const noexcept override;
+	bool prepareTraverse(
+		TacticalEntityId actor,
+		bool window,
+		AuthoritativeTraverseCommand& command) const noexcept override;
 	bool collectControllableActors(
 		DedicatedCoopTacticalActorList& actors,
 		std::size_t& count) const noexcept override;

@@ -2098,6 +2098,36 @@ namespace
 		return soldier;
 	}
 
+	// The stock J / Shift+J of an exact settled co-op merc that has not moved
+	// or turned since its owner pressed it: the stock key's options, now.
+	TacticalActor* ResolveAuthoritativeTraverse(const AuthoritativeTraverseCommand& command,
+		TacticalActorTraversal::PlayerTraversalChoice& choice) noexcept
+	{
+		if (!IsStructurallyValidAuthoritativeTraverseCommand(command) || is_networked || is_client || is_server ||
+			!IsJa2TacticalWorldLoaded() || !IsJa2TacticalWorldIntegrityValid())
+			return nullptr;
+		const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		if (!identity || identity.worldGeneration != command.expectedWorldGeneration ||
+			identity.serial != command.expectedTurnSerial)
+			return nullptr;
+		if (IsJa2TacticalTurnBasedCombat() &&
+			(GetJa2TacticalCurrentTeam() != gbPlayerNum || GetJa2PendingTacticalCombatActions() != 0 ||
+			 CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Resolving))
+			return nullptr;
+		TacticalActor* const soldier = ResolveCoopAuthorizedLegacyCommandActor(command.soldier, command.source, command.authority);
+		if (!soldier || OK_CONTROLLABLE_MERC(soldier) == FALSE || soldier->roster().team() != gbPlayerNum ||
+			(soldier->status().flags() & SOLDIER_VEHICLE) != 0 ||
+			(CaptureJa2TacticalInterruptProjection().phase == Ja2TacticalInterruptPhase::Active &&
+			 !IsJa2TacticalInterruptActorEligible(command.soldier)) ||
+			soldier->position().gridNo() != command.expectedGrid ||
+			soldier->position().level() != command.expectedLevel ||
+			soldier->position().direction() != command.expectedDirection ||
+			!InventorySwapPoseReady(*soldier))
+			return nullptr;
+		choice = TacticalActorTraversal::choosePlayerTraversal(*soldier, command.window);
+		return choice.count != 0 ? soldier : nullptr;
+	}
+
 	TacticalActor* ResolveAuthoritativeWeaponMode(const AuthoritativeWeaponModeCommand& command) noexcept
 	{
 		if (!IsStructurallyValidAuthoritativeWeaponModeCommand(command) || is_networked || is_client || is_server)
@@ -3303,6 +3333,17 @@ namespace
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
+				std::is_same<Command, AuthoritativeTraverseCommand>::value)
+			{
+				TacticalActorTraversal::PlayerTraversalChoice choice;
+				TacticalActor* const soldier = ResolveAuthoritativeTraverse(value, choice);
+				if (!soldier) return CommandDisposition::Discard;
+				// The stock key dispatches its options in order until one starts.
+				for (std::uint8_t option = 0; option < choice.count; ++option)
+					if (BeginTraversal(*soldier, choice.kinds[option])) return CommandDisposition::Applied;
+				return CommandDisposition::Discard;
+			}
+			else if constexpr (
 				std::is_same<Command, AuthoritativeStealthCommand>::value)
 			{
 				TacticalActor* const soldier = ResolveAuthoritativeStealth(value);
@@ -4323,6 +4364,26 @@ bool PrepareAuthoritativeStealthCommand(TacticalEntityId actor, bool expectedSte
 	return true;
 }
 
+bool PrepareAuthoritativeTraverseCommand(TacticalEntityId actor, bool window,
+	AuthoritativeTraverseCommand& output) noexcept
+{
+	TacticalActor* const live = ResolveLiveCommandActor(actor);
+	const Ja2TacticalTurnIdentity identity = GetJa2TacticalWorldAdapter().liveTurnIdentity();
+	if (!live || !identity) return false;
+	AuthoritativeTraverseCommand prepared;
+	prepared.soldier = actor;
+	prepared.expectedWorldGeneration = identity.worldGeneration;
+	prepared.expectedTurnSerial = identity.serial;
+	prepared.expectedGrid = live->position().gridNo();
+	prepared.expectedLevel = static_cast<std::int8_t>(live->position().level());
+	prepared.expectedDirection = static_cast<std::uint8_t>(live->position().direction());
+	prepared.window = window;
+	TacticalActorTraversal::PlayerTraversalChoice choice;
+	if (ResolveAuthoritativeTraverse(prepared, choice) != live) return false;
+	output = prepared;
+	return true;
+}
+
 bool PrepareAuthoritativeAttachItemCommand(TacticalEntityId actor, std::uint8_t sourceSlot, std::uint8_t targetSlot,
 	AuthoritativeAttachItemCommand& output) noexcept
 {
@@ -4515,7 +4576,8 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			std::is_same<Command, AuthoritativeWeaponModeCommand>::value ||
 			std::is_same<Command, AuthoritativeThrowCommand>::value ||
 			std::is_same<Command, AuthoritativeAttachItemCommand>::value ||
-			std::is_same<Command, AuthoritativeStealthCommand>::value)
+			std::is_same<Command, AuthoritativeStealthCommand>::value ||
+			std::is_same<Command, AuthoritativeTraverseCommand>::value)
 		{
 			if (!IsValidTacticalCommandAuthorityPolicyForSource(
 					value.authority, value.source))
@@ -4693,6 +4755,12 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			{
 				return IsStructurallyValidAuthoritativeStealthCommand(value)
 					? SimulationCommandDomainError::None : SimulationCommandDomainError::InvalidActor;
+			}
+			else if constexpr (std::is_same<Command, AuthoritativeTraverseCommand>::value)
+			{
+				if (!IsStructurallyValidAuthoritativeTraverseCommand(value)) return SimulationCommandDomainError::InvalidActor;
+				return TileIsOutOfBounds(value.expectedGrid)
+					? SimulationCommandDomainError::InvalidActorGrid : SimulationCommandDomainError::None;
 			}
 			else if constexpr (std::is_same<Command, AuthoritativeAttachItemCommand>::value)
 			{

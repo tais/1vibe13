@@ -42,7 +42,8 @@ enum class TacticalIntentKind : std::uint8_t
 	CycleWeaponMode = 19,
 	ThrowItem = 20,
 	AttachItem = 21,
-	ToggleStealth = 22
+	ToggleStealth = 22,
+	Traverse = 23
 };
 
 enum class TacticalIntentStance : std::uint8_t
@@ -181,6 +182,12 @@ struct AttachItemTacticalIntent
 	std::uint16_t targetSlot = 0;
 	std::uint64_t expectedInventoryRevision = 0;
 };
+// The stock J key (climb a roof, jump a fence, climb a wall) or, with
+// `window`, Shift+J (jump through a window), from where the merc stands.
+struct TraverseTacticalIntent
+{
+	bool window = false;
+};
 // The stock stealth (sneaking) toggle; the state the owner saw (stale otherwise).
 struct ToggleStealthTacticalIntent
 {
@@ -229,7 +236,8 @@ using TacticalIntentPayload = std::variant<
 	CycleWeaponModeTacticalIntent,
 	ThrowItemTacticalIntent,
 	AttachItemTacticalIntent,
-	ToggleStealthTacticalIntent>;
+	ToggleStealthTacticalIntent,
+	TraverseTacticalIntent>;
 
 struct TacticalIntent
 {

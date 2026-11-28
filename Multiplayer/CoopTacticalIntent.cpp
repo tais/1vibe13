@@ -106,6 +106,7 @@ std::size_t PayloadSize(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::ThrowItem: return 5;
 		case TacticalIntentKind::AttachItem: return 12;
 		case TacticalIntentKind::ToggleStealth: return 1;
+		case TacticalIntentKind::Traverse: return 1;
 		case TacticalIntentKind::Stop:
 		case TacticalIntentKind::EndTurn:
 		case TacticalIntentKind::Reload: return 0;
@@ -140,6 +141,7 @@ bool IsKnownTacticalIntentKind(TacticalIntentKind kind) noexcept
 		case TacticalIntentKind::ThrowItem:
 		case TacticalIntentKind::AttachItem:
 		case TacticalIntentKind::ToggleStealth:
+		case TacticalIntentKind::Traverse:
 			return true;
 	}
 	return false;
@@ -207,6 +209,8 @@ TacticalIntentKind KindOf(const TacticalIntentPayload& payload) noexcept
 			return TacticalIntentKind::AttachItem;
 		if constexpr (std::is_same<Payload, ToggleStealthTacticalIntent>::value)
 			return TacticalIntentKind::ToggleStealth;
+		if constexpr (std::is_same<Payload, TraverseTacticalIntent>::value)
+			return TacticalIntentKind::Traverse;
 		return TacticalIntentKind::PassInterrupt;
 	}, payload);
 }
@@ -344,6 +348,8 @@ TacticalIntentCodecResult EncodeTacticalIntent(
 			}
 			else if constexpr (std::is_same<Payload, ToggleStealthTacticalIntent>::value)
 				encoded.push_back(payload.expectedStealth ? 1 : 0);
+			else if constexpr (std::is_same<Payload, TraverseTacticalIntent>::value)
+				encoded.push_back(payload.window ? 1 : 0);
 			else if constexpr (std::is_same<Payload, AttachItemTacticalIntent>::value)
 			{
 				WriteU16(encoded, payload.sourceSlot);
@@ -552,6 +558,12 @@ TacticalIntentCodecResult DecodeTacticalIntent(
 		{
 			if (input == end || *input > 1) return TacticalIntentCodecResult::Invalid;
 			decoded.payload = ToggleStealthTacticalIntent{*input++ != 0};
+			break;
+		}
+		case TacticalIntentKind::Traverse:
+		{
+			if (input == end || *input > 1) return TacticalIntentCodecResult::Invalid;
+			decoded.payload = TraverseTacticalIntent{*input++ != 0};
 			break;
 		}
 		case TacticalIntentKind::AttachItem:

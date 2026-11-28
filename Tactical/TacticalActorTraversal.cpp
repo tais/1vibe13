@@ -34,6 +34,8 @@
 #include "structure.h"
 #include "worlddef.h"
 #include "worldman.h"
+#include "Soldier macros.h"
+#include <Engine/Adapters/JA2/SimulationCommand.h>
 
 #include <cstdint>
 
@@ -611,4 +613,79 @@ bool TacticalActorTraversal::beginWindowJump(
 		0,
 		TRUE);
 	return true;
+}
+
+TacticalActorTraversal::PlayerTraversalChoice TacticalActorTraversal::choosePlayerTraversal(
+	TacticalActor& actor,
+	bool window)
+{
+	PlayerTraversalChoice choice;
+	bool lackedPoints = false;
+	const auto offer = [&](TacticalTraversalKind kind, INT16 actionPoints, INT16 breathPoints) {
+		if (EnoughPoints(&actor, actionPoints, breathPoints, FALSE))
+			choice.kinds[choice.count++] = kind;
+		else
+			lackedPoints = true;
+	};
+	// The backpack rule is checked before every offer, so a refusal never
+	// follows an offer.
+	const auto refuse = [&](PlayerTraversalRefusal why) {
+		choice.count = 0;
+		choice.refusal = why;
+		return choice;
+	};
+	const INT32 grid = actor.position().gridNo();
+	const INT8 facing = static_cast<INT8>(actor.position().direction());
+	INT8 direction = 0;
+	if (window)
+	{
+		if (gGameExternalOptions.fCanJumpThroughWindows != TRUE)
+			return refuse(PlayerTraversalRefusal::WindowsDisabled);
+		if (AM_A_ROBOT((&actor)))
+			return refuse(PlayerTraversalRefusal::Robot);
+		if (FindWindowJumpDirection(&actor, grid, facing, &direction))
+		{
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(actor))
+				return refuse(PlayerTraversalRefusal::Backpack);
+			offer(TacticalTraversalKind::JumpWindow, GetAPsToJumpFence(&actor, FALSE), GetBPsToJumpFence(&actor, FALSE));
+		}
+	}
+	else
+	{
+		if (AM_A_ROBOT((&actor)))
+			return refuse(PlayerTraversalRefusal::Robot);
+		if (!TacticalActorMobility::isValidStance(actor, ANIM_CROUCH))
+			return refuse(PlayerTraversalRefusal::Collapsed);
+		BOOLEAN lower = FALSE;
+		BOOLEAN higher = FALSE;
+		GetMercClimbDirection(actor.identity().id(), &lower, &higher);
+		if (lower)
+		{
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(actor))
+				return refuse(PlayerTraversalRefusal::Backpack);
+			offer(TacticalTraversalKind::ClimbDownRoof, GetAPsToClimbRoof(&actor, TRUE), GetBPsToClimbRoof(&actor, TRUE));
+		}
+		if (higher)
+		{
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(actor))
+				return refuse(PlayerTraversalRefusal::Backpack);
+			offer(TacticalTraversalKind::ClimbUpRoof, GetAPsToClimbRoof(&actor, FALSE), GetBPsToClimbRoof(&actor, FALSE));
+		}
+		if (FindFenceJumpDirection(&actor, grid, facing, &direction))
+		{
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(actor))
+				return refuse(PlayerTraversalRefusal::Backpack);
+			offer(TacticalTraversalKind::JumpFence, GetAPsToJumpFence(&actor, FALSE), GetBPsToJumpFence(&actor, FALSE));
+		}
+		if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
+		{
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(actor))
+				return refuse(PlayerTraversalRefusal::Backpack);
+			if (FindWallJumpDirection(&actor, grid, facing, &direction))
+				offer(TacticalTraversalKind::ClimbWall, GetAPsToJumpWall(&actor, FALSE), GetBPsToJumpWall(&actor, FALSE));
+		}
+	}
+	choice.refusal = choice.count != 0 ? PlayerTraversalRefusal::None
+		: lackedPoints ? PlayerTraversalRefusal::NotEnoughPoints : PlayerTraversalRefusal::Nothing;
+	return choice;
 }

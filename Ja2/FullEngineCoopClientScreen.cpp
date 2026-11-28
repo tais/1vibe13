@@ -440,8 +440,8 @@ bool CampaignRequestPending(FullEngineCoopClientRuntime& runtime) noexcept
 	return actionPending || timePending || hirePending;
 }
 
-// J arms and a separate Enter confirms giving the selected merc to a teammate
-// (B is first aid; J and Z were the only free letters).
+// Alt+J arms and a separate Enter confirms giving the selected merc to a
+// teammate (plain J climbs or jumps, as in stock).
 void HandleHandOverKey(UINT32 key, UINT32 eventKind) noexcept
 {
 	auto& runtime = GetFullEngineCoopClientRuntime();
@@ -541,7 +541,10 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 		if (modal) RetirementConfirmation.cancel();
 		if (modal) ReturnToMapInput.reset();
 		if (modal) HandOverInput.reset();
-		const bool handOverKey = key == 'j' || key == 'J';
+		// Alt+J arms a hand-over; plain J and Shift+J climb or jump (stock keys).
+		// A J release always reaches the hand-over input (a release never submits).
+		const bool handOverKey = (key == 'j' || key == 'J') &&
+			(event.usEvent == KEY_UP || (event.usKeyState & ALT_DOWN) != 0);
 		if (event.usEvent == KEY_UP && (key == ENTER || key == ESC) && !HandOverInput.armed())
 			HandleHandOverKey(key, event.usEvent);
 		if (!modal && (event.usEvent == KEY_DOWN || event.usEvent == KEY_UP) &&
@@ -893,6 +896,13 @@ void HandleInput(const FullEngineCoopClientPresentationView& presentation,
 			case 't':
 			case 'T':
 				(void)Submit(Controller.endTurn(view), view);
+				break;
+			case 'j':
+			case 'J':
+				// Stock J climbs a roof, jumps a fence or climbs a wall; Shift+J
+				// jumps through a window. Face the obstacle first (Q / E).
+				(void)Submit(Controller.traverse(view,
+					key == 'J' || (event.usKeyState & SHIFT_DOWN) != 0), view);
 				break;
 		}
 	}

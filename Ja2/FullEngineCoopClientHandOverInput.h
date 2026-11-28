@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <optional>
 
-// Giving a merc to a teammate: J arms it for the selected merc this player
+// Giving a merc to a teammate: Alt+J arms it for the selected merc this player
 // controls, and a separately pressed Enter confirms. The server gives it to the
 // next player in the sector (the teammate, with two players) and checks again
 // that this player controls it. Esc, key repeat, another selection, a pending

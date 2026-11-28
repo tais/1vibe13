@@ -503,6 +503,19 @@ bool DedicatedCoopTacticalHost::translate(
 			command = prepared;
 		}
 		else if constexpr (std::is_same<Payload,
+			CoopSession::TraverseTacticalIntent>::value)
+		{
+			AuthoritativeTraverseCommand prepared{};
+			if (liveState_->legacyNetworkingActive() ||
+				!liveState_->prepareTraverse(intent.actor, payload.window, prepared))
+			{
+				reason = CoopTacticalIntentReceiptReason::GameplayRejected;
+				translated = false;
+				return;
+			}
+			command = prepared;
+		}
+		else if constexpr (std::is_same<Payload,
 			CoopSession::ToggleStealthTacticalIntent>::value)
 		{
 			AuthoritativeStealthCommand prepared{};

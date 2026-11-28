@@ -4211,12 +4211,12 @@ merc, an absent owner's lend, and transactional failure.
   dealt at the next assignment publish, behind the existing retained-command
   gate. Refusals are `NativeRejected` with detail 1 (no such merc in this
   world), 2 (not controlled by the requester) or 3 (nobody to give it to).
-- Client: select one of your mercs, press J, then Enter (Esc cancels). B was
-  taken by first aid; J and Z were the only free letters, so the later
-  traversal and movement-mode slices need other keys than stock's J and Z.
+- Client: select one of your mercs, press Alt+J, then Enter (Esc cancels).
+  (First shipped as plain J; J went back to its stock meaning, climbing, in
+  4.6.)
 
 Installed evidence (`full_engine_coop_installed_hand_over.py`): in the starter
-battle a player selects a merc of theirs, presses J and Enter through the
+battle a player selects a merc of theirs, presses Alt+J and Enter through the
 Screen; both clients then show it under the teammate's control and the other
 three where they were. Negative control: with the ledger change skipped the
 merc never moves and the probe fails. Not yet: a claim by the receiving side,
@@ -4541,3 +4541,41 @@ control: with the share step skipped B owns nothing, the server never reports
 a share and the probe fails; the unit tests (newcomer share, no re-deal after a
 full hand-over, a lone merc, an empty world, a lend, two joiners at once) fail
 the same way.
+
+## Phase 4.6 (first slice): climbing and jumping (J, Shift+J)
+
+- One stock choice, `TacticalActorTraversal::choosePlayerTraversal`, now
+  serves the stock J / Shift+J keys and co-op. It lists what the merc can do
+  where it stands, in the key's order (climb down, climb up, jump a fence,
+  climb a wall; Shift+J: jump through a window), each behind the key's own
+  checks (not a robot, able to crouch, no backpack, enough points). The stock
+  key dispatches the options in order until one starts, as before; its
+  messages (collapsed, backpack) are unchanged. The only difference: after a
+  backpack refusal the key handler now finishes the frame's input instead of
+  returning early.
+- Tactical intent `Traverse` (kind 23, one byte: 0 = J, 1 = Shift+J) and
+  journal tag 47 (`AuthoritativeTraverse`). The server prepares the command
+  from the merc's tile, level and facing now; at execution the merc must be
+  the requester's, controllable, not a vehicle, still on that tile, level and
+  facing, settled (the inventory-swap pose gate) and, in turn-based combat,
+  in the player team's turn with no combat action pending. It then runs the
+  stock choice again and starts the first option that begins, through the
+  same native begin functions the stock key reaches. Nothing to climb, too
+  few points, a backpack or a busy merc is refused before the command enters
+  the inbox.
+- Client: J climbs a roof up or down, jumps a fence or climbs a wall (the
+  server finds the obstacle; face it first with Q / E for fences, walls and
+  windows); Shift+J jumps through a window. The hand-over (7.1) moves to
+  Alt+J. Driver verb `TRAVERSE slot inc 0|1`.
+
+Installed evidence (`full_engine_coop_installed_climb.py`): after the seeded
+A9 victory the test host moves one of a player's mercs to the nearest tile
+below a climbable roof (a seeded placement; the climb is the player's). J
+through the shipping controller: both clients show the merc on the roof (one
+tile over, level 1); J again: both show it back on the ground. Seven runs
+passed, for both merc 0:1 and 1:2. Negative control: with the executor never
+starting a traversal the server discards every J and the probe fails. The
+first run also found that the test host's trigger fixtures treated merc slot 0
+as "no merc" (knock-out and climb); fixed. Codec, journal, host and intent
+goldens cover the new command and intent. Not yet: fences, walls and windows
+are reached by the same command but have no installed run of their own.
