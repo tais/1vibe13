@@ -979,6 +979,43 @@ void TestAttackTargetingUsesCanonicalHostility()
 		"targeting skips neutral militia and trusts hostility over team number");
 }
 
+// Self-aid: the stock kit used on the merc's own tile.
+void TestFirstAidOffersSelfAid()
+{
+	std::vector<TacticalActorSnapshot> actors{Actor(1, 1001), Actor(2, 1003)};
+	actors[0].bleeding = 6;
+	actors[0].handMedicalKitPoints = 40;
+	actors[0].loadout.primaryHand.item = 201;
+	actors[0].loadout.primaryHand.quantity = 1;
+	TacticalWorldSnapshot snapshot;
+	CHECK(TacticalWorldSnapshot::create(11,
+		TacticalWorldDimensions{160, 160},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}},
+		Turn(0),
+		std::vector<TacticalActorSnapshot>(actors), snapshot) == TacticalSnapshotCreateError::None,
+		"self-aid fixture is valid");
+	const std::array<TacticalEntityId, 3> assigned{
+		TacticalEntityId{1, 1}, TacticalEntityId{2, 1}, TacticalEntityId{9, 1}};
+	const FullEngineCoopClientControllerView view = View(snapshot, assigned);
+	FullEngineCoopClientController controller;
+	controller.synchronize(view);
+	const FullEngineCoopClientIntentRequest self = controller.beginFirstAid(view, TacticalEntityId{1, 1});
+	const auto* aid = std::get_if<CoopSession::BeginFirstAidTacticalIntent>(&self.payload);
+	CHECK(self && self.actor == (TacticalEntityId{1, 1}) && aid && aid->target == (TacticalEntityId{1, 1}),
+		"a bleeding medic holding a kit may treat itself");
+	CHECK(!controller.beginFirstAid(view, TacticalEntityId{2, 1}),
+		"a teammate two tiles away is still not a patient");
+	actors[0].bleeding = 0;
+	TacticalWorldSnapshot healthy;
+	CHECK(TacticalWorldSnapshot::create(11, TacticalWorldDimensions{160, 160},
+		TacticalSectorSnapshot{9, 2, 0, true, TacticalMapAssetKey{{"A9.dat"}}}, Turn(0),
+		std::move(actors), healthy) == TacticalSnapshotCreateError::None, "healthy fixture is valid");
+	const FullEngineCoopClientControllerView healthyView = View(healthy, assigned);
+	controller.synchronize(healthyView);
+	CHECK(!controller.beginFirstAid(healthyView, TacticalEntityId{1, 1}),
+		"a medic with nothing to treat does not treat itself");
+}
+
 // Melee targeting (F with a knife, punching item or empty hand): only hostiles
 // on the eight neighbouring tiles of the merc's level, no aim, a melee intent.
 void TestMeleeTargetingOffersOnlyAdjacentHostiles()
@@ -2103,6 +2140,7 @@ int main()
 	TestExactAttackTargetSelectionFailsClosed();
 	TestAttackTargetingUsesCanonicalHostility();
 	TestMeleeTargetingOffersOnlyAdjacentHostiles();
+	TestFirstAidOffersSelfAid();
 	TestDoorSelectionProducesExactInverseIntent();
 	TestExactDoorSelectionIsTransactionalAndEpochBound();
 	TestDoorSelectionFailsClosedAcrossReplicaChanges();

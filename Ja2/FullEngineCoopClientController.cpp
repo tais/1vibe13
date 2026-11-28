@@ -692,7 +692,7 @@ FullEngineCoopClientController::beginFirstAid(
 	const FullEngineCoopClientControllerView& view, TacticalEntityId target) const noexcept
 {
 	if (!actionsEnabled(view) || targetingAttack_ || enteringDestination_ || selectingDoor_ ||
-		target == selectedActor_ || !view.snapshot->dimensions().valid()) return {};
+		!view.snapshot->dimensions().valid()) return {};
 	const TacticalActorSnapshot* const medic = view.snapshot->find(selectedActor_);
 	const TacticalActorSnapshot* const patient = view.snapshot->find(target);
 	// The stock first-aid animation bank supports the four human merc bodies.
@@ -709,9 +709,10 @@ FullEngineCoopClientController::beginFirstAid(
 	const std::int32_t columns = view.snapshot->dimensions().columns;
 	const std::int32_t row = medic->grid / columns - patient->grid / columns;
 	const std::int32_t column = medic->grid % columns - patient->grid % columns;
-	// Native FindAdjacentGridEx uses cardinal action tiles for first aid.
-	if (!((row == 0 && (column == -1 || column == 1)) ||
-		(column == 0 && (row == -1 || row == 1))))
+	// Native FindAdjacentGridEx uses cardinal action tiles for first aid, or
+	// the medic's own tile when it treats itself.
+	if (!(target == selectedActor_ ? row == 0 && column == 0 :
+		(row == 0 && (column == -1 || column == 1)) || (column == 0 && (row == -1 || row == 1))))
 		return {};
 	// This is only a public presentation filter. Authority repeats native
 	// adjacency/obstruction, skill, service, kit and exact-identity validation.
@@ -978,15 +979,26 @@ bool FullEngineCoopClientController::selectPatientRelative(
 {
 	if (!selectingFirstAid_ || !actionsEnabled(view)) return false;
 	const auto& actors = view.snapshot->actors();
-	std::size_t selectedIndex = actors.size();
-	for (std::size_t index = 0; index < actors.size(); ++index)
-		if (actors[index].id == firstAidPatient_) { selectedIndex = index; break; }
-	for (std::size_t offset = 1; offset <= actors.size(); ++offset)
+	const std::size_t count = actors.size();
+	if (count == 0) return false;
+	// Patients in actor order with the medic itself last: B starts on a
+	// teammate, and self-aid (the stock kit on the merc's own tile) is a cycle away.
+	std::size_t self = count;
+	for (std::size_t index = 0; index < count; ++index)
+		if (actors[index].id == selectedActor_) { self = index; break; }
+	const auto at = [&](std::size_t position) noexcept {
+		if (self == count) return position;
+		return position == count - 1 ? self : position < self ? position : position + 1;
+	};
+	std::size_t current = count;
+	for (std::size_t position = 0; position < count; ++position)
+		if (actors[at(position)].id == firstAidPatient_) { current = position; break; }
+	for (std::size_t offset = 1; offset <= count; ++offset)
 	{
-		const std::size_t index = forward
-			? (selectedIndex == actors.size() ? offset - 1 : (selectedIndex + offset) % actors.size())
-			: (selectedIndex == actors.size() ? actors.size() - offset :
-				(selectedIndex + actors.size() - offset % actors.size()) % actors.size());
+		const std::size_t position = forward
+			? (current == count ? offset - 1 : (current + offset) % count)
+			: (current == count ? count - offset : (current + count - offset % count) % count);
+		const std::size_t index = at(position);
 		if (!firstAidCandidate(view, actors[index].id)) continue;
 		firstAidPatient_ = actors[index].id;
 		return true;

@@ -5197,6 +5197,29 @@ require_ordered_fragments(coop_traverse_screen_source
   "? Controller.submitMeleeAttack(view)"
   "FullEngineCoopClientHandItemIsMelee(attacker->loadout.primaryHand.item));")
 
+# 5.5 self-aid: the medic may be its own patient on its own tile (the stock
+# action-grid search returns that tile and the current facing). Both settled-
+# pose gates accept the stock halted flag on a settled merc (stock clears it
+# when the next animation starts); the pose and empty-route checks still
+# refuse a merc halted mid-stride.
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h" coop_self_aid_command_header)
+require_ordered_fragments(coop_self_aid_command_header
+  "A first aid must be self-aid on the medic's own tile or aid on another tile"
+  "constexpr bool IsStructurallyValidBeginFirstAidCommand("
+  "(command.soldier == command.target) == (command.expectedActorGrid == command.expectedTargetGrid) &&")
+require_ordered_fragments(coop_traverse_command_source
+  "Settled-pose gates must accept the stock halted flag and self-aid must keep the medic's facing"
+  "bool InventorySwapPoseReady(const TacticalActor& actor) noexcept"
+  "// as idle and clears the flag when the next animation starts."
+  "!movement.delayed() && !movement.movementPaused() &&"
+  "bool FirstAidStartPoseReady(const TacticalActor& actor) noexcept"
+  "// as idle and clears the flag when the next animation starts."
+  "!movement.delayed() && !movement.movementPaused() &&"
+  "bool ResolveFirstAidActionTile(TacticalActor& medic, const TacticalActor& patient,"
+  "if (&medic == &patient)"
+  "direction = medic.position().direction();"
+  "if (CardinalSpacesAway(actorGrid, targetGrid) != 1) return false;")
+
 # 5.2: an attach is the stock item-box attach of two ordinary objects of an
 # idle co-op merc, with its stock AP; a refusal that changed nothing discards.
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp" coop_attach_command_source)

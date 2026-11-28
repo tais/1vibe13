@@ -915,7 +915,10 @@ namespace
 			!actor.runtime().pendingAction.delayedDamage &&
 			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
 			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
-			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			// A settled merc may still carry the stock halted flag (out of AP
+			// to finish a move after a sighting or interrupt); stock treats it
+			// as idle and clears the flag when the next animation starts.
+			!movement.delayed() && !movement.movementPaused() &&
 			!movement.waitingForAction() && !movement.turnActive() &&
 			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
 			path.pathSize() <= MAX_PATH_LIST_SIZE && path.pathIndex() == path.pathSize() &&
@@ -1586,7 +1589,10 @@ namespace
 			!actor.runtime().pendingAction.delayedDamage &&
 			(actor.status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) == 0 &&
 			!actor.schedule().assigned() && !actor.schedule().doorContinuationPending() &&
-			!movement.delayed() && !movement.movementPaused() && !movement.outOfActionPoints() &&
+			// A settled merc may still carry the stock halted flag (out of AP
+			// to finish a move after a sighting or interrupt); stock treats it
+			// as idle and clears the flag when the next animation starts.
+			!movement.delayed() && !movement.movementPaused() &&
 			!movement.waitingForAction() && !movement.turnActive() &&
 			!movement.continuedPathValid() && !movement.delayedByNetwork() &&
 			path.desiredDirection() == actor.position().direction() &&
@@ -1605,8 +1611,15 @@ namespace
 		const INT32 targetGrid = patient.position().gridNo();
 		const INT8 level = medic.position().level();
 		if (!gubWorldMovementCosts || TileIsOutOfBounds(actorGrid) || TileIsOutOfBounds(targetGrid) ||
-			level < FIRST_LEVEL || level > SECOND_LEVEL || patient.position().level() != level ||
-			CardinalSpacesAway(actorGrid, targetGrid) != 1) return false;
+			level < FIRST_LEVEL || level > SECOND_LEVEL || patient.position().level() != level) return false;
+		// Self-aid: the stock action-grid search returns the medic's own tile
+		// and its current facing.
+		if (&medic == &patient)
+		{
+			direction = medic.position().direction();
+			return direction < NUM_WORLD_DIRECTIONS;
+		}
+		if (CardinalSpacesAway(actorGrid, targetGrid) != 1) return false;
 		// FindAdjacentGridEx returns the medic's current cardinal action tile
 		// after this same native travel-cost check. Calling its general search
 		// can PlotPath through earlier candidates, mutating path scratch/RNG.
@@ -4163,7 +4176,7 @@ bool PrepareReloadWeaponCommand(
 bool PrepareBeginFirstAidCommand(TacticalEntityId actor,
 	TacticalEntityId target, BeginFirstAidCommand& output) noexcept
 {
-	if (!actor.valid() || !target.valid() || actor == target) return false;
+	if (!actor.valid() || !target.valid()) return false;
 	TacticalActor* const medic = ResolveLiveCommandActor(actor);
 	TacticalActor* const patient = ResolveLiveCommandActor(target);
 	const Ja2TacticalTurnIdentity identity =

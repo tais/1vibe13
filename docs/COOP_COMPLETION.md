@@ -4617,3 +4617,38 @@ strike is refused and the probe fails. Codec, journal, host, intent and
 controller tests cover the new command, intent and targeting. Not yet: walking
 up to a distant target before striking (stock does it with a pending action),
 stealing, and throwing knives (the throw slice covers thrown items generally).
+
+## Phase 5.5 (first slice): a merc bandages itself; halted mercs can act
+
+- Self-aid: first aid's medic may be its own patient, as in stock (the kit
+  used on the merc's own tile; the stock action-grid search returns that tile
+  and the current facing, and the native `beginFirstAid` already handles a
+  self patient). The command shape now allows medic == patient exactly when
+  the two tiles are the same; prepare and execution accept it; the client
+  offers the merc itself as a patient (on B, after every adjacent teammate, so
+  B still starts on a teammate; a click on the merc's own tile with a kit
+  treats it). Driver verb `AID slot inc slot inc` may name the same merc.
+- Halted mercs: stock halts a merc with "no AP to finish the move" after a
+  sighting or an interrupt and keeps that flag on it while it stands, clearing
+  it when the next animation starts. The co-op settled-pose gates (first aid,
+  and the inventory-swap gate that attach and climbing reuse) refused any merc
+  with the flag, so a merc stopped by an interrupt could not bandage, swap,
+  attach or climb until it moved again. Both gates now accept the flag on a
+  settled merc; the settled-pose and empty-route checks still refuse a merc
+  halted mid-stride (8.7).
+- Treatment progress follows stock: in turn-based combat first aid applies its
+  points at the end of the round (EndTurnEvents -> HandleTeamServices); in
+  real time on the game clock. In a secured sector the campaign clock is
+  paused (1.1), so real-time treatment there does not progress yet.
+
+Installed evidence (`full_engine_coop_installed_self_aid.py`): in the starter
+battle at the player's turn the test host wounds a merc through the stock
+damage path (gunfire, bleeding 15) and hands it a game-data first-aid kit
+(seeded). The owner uses the kit on the merc itself through the shipping
+controller; both clients show it treating itself. The owner ends the turn
+(the probe passes any player interrupt in the enemy turn); at the next round
+both clients show the bleeding reduced: 15 -> 0 (kit 100 -> 85) and 15 -> 4
+(kit 100 -> 89). The merc carried the stock halted flag in one run, which the
+old gate refused. Negative control: with the old "medic is not the patient"
+refusal the self-aid is refused and the probe fails. Climb and attach probes
+still pass with the relaxed gate.

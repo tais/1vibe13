@@ -784,6 +784,11 @@ int main()
 	for (const auto& invalid : invalidFirstAid)
 		Require(!IsStructurallyValidSimulationCommand(SimulationCommand{invalid}),
 			"malformed or unprepared medical authority is rejected");
+	auto selfAid = firstAid;
+	selfAid.target = firstAid.soldier;
+	selfAid.expectedTargetGrid = firstAid.expectedActorGrid;
+	Require(IsStructurallyValidSimulationCommand(SimulationCommand{selfAid}),
+		"a medic treating itself on its own tile is a valid first aid");
 	for (std::size_t length = 0; length < firstAidWire.size(); ++length)
 	{
 		const std::vector<std::uint8_t> truncated(firstAidWire.begin(),

@@ -177,10 +177,13 @@ static_assert(std::is_trivially_copyable<BeginFirstAidCommand>::value,
 constexpr bool IsStructurallyValidBeginFirstAidCommand(
 	const BeginFirstAidCommand& command) noexcept
 {
+	// A medic treats itself (stock: the kit used on its own tile) or a patient
+	// on another tile.
 	return command.soldier.valid() && command.target.valid() &&
-		command.soldier != command.target && command.expectedWorldGeneration != 0 &&
+		command.expectedWorldGeneration != 0 &&
 		command.expectedTurnSerial != 0 && command.expectedActorGrid >= 0 &&
-		command.expectedTargetGrid >= 0 && command.expectedActorGrid != command.expectedTargetGrid &&
+		command.expectedTargetGrid >= 0 &&
+		(command.soldier == command.target) == (command.expectedActorGrid == command.expectedTargetGrid) &&
 		(command.expectedLevel == 0 || command.expectedLevel == 1) &&
 		command.direction < 8 && command.expectedAnimationState != UINT16_MAX &&
 		command.expectedTargetAnimationState != UINT16_MAX && command.expectedHandItem != 0 &&

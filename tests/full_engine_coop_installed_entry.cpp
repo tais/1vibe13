@@ -481,6 +481,50 @@ void PollMeleeTrigger()
 	std::fflush(stdout);
 }
 
+// Fixture-only: "wound-trigger.txt" ("<slot> <incarnation>") wounds that merc
+// through the stock damage path (gunfire, so it bleeds), sets its hand item
+// aside and gives it a first-aid kit from the game data. Treating the wound is
+// the player's. One trigger per run.
+void PollWoundTrigger()
+{
+	static bool done = false;
+	const std::filesystem::path trigger("wound-trigger.txt");
+	if (done || !gfProgramIsRunning || !IsJa2TacticalWorldLoaded() || !std::filesystem::exists(trigger)) return;
+	done = true;
+	unsigned slot = 0, incarnation = 0;
+	bool parsed = false; // slot 0 is a real merc slot
+	if (FILE* file = std::fopen("wound-trigger.txt", "r"))
+	{
+		parsed = std::fscanf(file, "%u %u", &slot, &incarnation) == 2;
+		std::fclose(file);
+	}
+	std::error_code ignored;
+	std::filesystem::rename(trigger, "wound-trigger.consumed", ignored);
+	TacticalActor* merc = parsed ? ResolveJa2TacticalEntity(TacticalEntityId{static_cast<std::uint16_t>(slot), static_cast<std::uint32_t>(incarnation)}) : nullptr;
+	UINT16 kit = NOTHING;
+	for (UINT16 item = 1; item < MAXITEMS && kit == NOTHING; ++item)
+		if (Item[item].usItemClass == IC_MEDKIT && ItemIsFirstAidKit(item)) kit = item;
+	OBJECTTYPE object;
+	if (!merc || merc->vitals().health() < 40 || kit == NOTHING || !CreateItem(kit, 100, &object))
+	{
+		std::printf("[co-op entry test] wound refused: actor=%u:%u\n", slot, incarnation);
+		std::fflush(stdout);
+		return;
+	}
+	(void)TacticalActorDamageResolution::takeDamage(*merc, 0, 15, 0, TAKE_DAMAGE_GUNFIRE, NOBODY,
+		merc->position().gridNo(), 0, false);
+	OBJECTTYPE& hand = merc->inventory()[HANDPOS];
+	if (hand.exists())
+	{
+		AddItemToPool(merc->position().gridNo(), &hand, VISIBLE, merc->position().level(), 0, -1);
+		DeleteObj(&hand);
+	}
+	hand = object;
+	std::printf("[co-op entry test] wounded: actor=%u:%u; health=%d; bleeding=%d; kit=%u\n", slot, incarnation,
+		int(merc->vitals().health()), int(merc->vitals().bleeding()), unsigned(kit));
+	std::fflush(stdout);
+}
+
 // Fixture-only (JA2_COOP_ENTRY_SECTOR_MARKER): "place" drops a marker item at a
 // merc's feet once A9 is secured; "find:<grid>:<item>" reports, once A9 is
 // loaded again (after a stop, a resume and a re-entry), whether it is still
@@ -1685,6 +1729,7 @@ void FullEngineCoopInstalledTestGameLoop()
 	PollKnockOutTrigger();
 	PollClimbTrigger();
 	PollMeleeTrigger();
+	PollWoundTrigger();
 	PollCombatBurstSeed();
 	PollCombatGrenadeSeed();
 	PollComplexItemsSeed();

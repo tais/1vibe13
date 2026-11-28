@@ -3103,7 +3103,7 @@ private:
 			}
 			if (!valid || !cursor.exhausted() || values[0] >= UINT16_MAX || values[2] >= UINT16_MAX ||
 				values[1] == 0 || values[1] > UINT32_MAX || values[3] == 0 || values[3] > UINT32_MAX ||
-				(values[0] == values[2] && values[1] == values[3]) || aidAttempted_)
+				aidAttempted_) // the medic may be its own patient (self-aid)
 			{
 				ReplyError(request, "malformed or repeated AID request; no replay");
 				return;
